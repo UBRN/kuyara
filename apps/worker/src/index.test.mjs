@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 
+import { generateEs256Key } from './__tests__/es256-test-key.mjs';
 import { DailyCounter } from './daily-counter.ts';
+import { createEs256Signer, base64UrlEncode } from './es256-jwt.ts';
 import worker, { buildRouter } from './index.ts';
 
 // The composition logs missing bindings and the chain logs failed attempts; keep that out
@@ -72,6 +74,14 @@ const boundEnv = {
   AI_RECOMMEND_RATE_LIMIT: openLimiter,
   WEATHER_RATE_LIMIT: openLimiter,
   PLACE_SEARCH_RATE_LIMIT: openLimiter,
+  // Account deletion is composed from configuration alone; the key is never imported unless
+  // an account request reaches Apple, so a placeholder body is enough here.
+  ACCOUNT_DELETE_RATE_LIMIT: openLimiter,
+  SUPABASE_URL: 'https://project.supabase.co',
+  APPLE_TEAM_ID: 'TEAM123456',
+  SUPABASE_SECRET_KEY: 'sb_secret_placeholder',
+  APPLE_SIGN_IN_PRIVATE_KEY: 'placeholder',
+  APPLE_SIGN_IN_KEY_ID: 'KEY1234567',
 };
 
 const env = {
@@ -424,4 +434,118 @@ test('the composed recommend route stops calling Workers AI once ai:workers-ai r
   const overLimit = await route(validRecommendRequest(), fakeContext());
   await assertOffline(overLimit, 'ai_unavailable');
   assert.equal(runs, 1, 'past the daily limit Workers AI must not be called again');
+});
+
+// Account deletion is composed from six settings. Missing any one takes only its route
+// offline with the route's own code, and the log line names the missing piece.
+test('a missing account setting takes only the account route offline', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => { calls += 1; throw new Error('network disabled in tests'); });
+  for (const name of [
+    'ACCOUNT_DELETE_RATE_LIMIT', 'SUPABASE_URL', 'APPLE_TEAM_ID',
+    'SUPABASE_SECRET_KEY', 'APPLE_SIGN_IN_PRIVATE_KEY', 'APPLE_SIGN_IN_KEY_ID',
+  ]) {
+    const route = buildRouter({ ...boundEnv, [name]: undefined });
+    await assertOffline(await route(accountDeleteRequest(), fakeContext()), 'unavailable');
+    assert.equal((await route(new Request('https://worker.test/v1/health'), fakeContext())).status, 200);
+  }
+  await assertOffline(
+    await buildRouter({ ...boundEnv, SUPABASE_URL: 'http://project.supabase.co' })(accountDeleteRequest(), fakeContext()),
+    'unavailable',
+  );
+  await assertOffline(
+    await buildRouter({ ...boundEnv, SUPABASE_URL: 'not a url' })(accountDeleteRequest(), fakeContext()),
+    'unavailable',
+  );
+  assert.equal(calls, 0);
+  assert.deepEqual(warnings.map(({ binding }) => binding), [
+    'ACCOUNT_DELETE_RATE_LIMIT', 'SUPABASE_URL', 'APPLE_TEAM_ID',
+    'SUPABASE_SECRET_KEY', 'APPLE_SIGN_IN_PRIVATE_KEY', 'APPLE_SIGN_IN_KEY_ID', 'SUPABASE_URL', 'SUPABASE_URL',
+  ]);
+  for (const warning of warnings) {
+    assert.deepEqual(Object.keys(warning).sort(), ['binding', 'event', 'route']);
+    assert.equal(warning.route, '/v1/account/delete');
+  }
+});
+
+function accountDeleteRequest(token = 'placeholder.token.value', body = {}) {
+  return new Request('https://worker.test/v1/account/delete', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'cf-connecting-ip': '203.0.113.20',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+// The whole route over a fake network: a Supabase token, the JWKS, the admin API and Apple.
+// It proves the composition wires the modules in the safe order and that no secret leaves.
+test('the composed account route revokes with Apple before it deletes, over a fake network', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const userId = '3f2b8c1e-5d4a-4c1b-9a7e-0d6f1b2c3d4e';
+  const appleKey = await generateEs256Key();
+  const supabaseKey = await generateEs256Key();
+  const sign = createEs256Signer(supabaseKey.bare);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', sub: userId, exp: nowSeconds + 600 };
+  const token = await sign({ alg: 'ES256', kid: 'k1' }, claims);
+  const idToken = `x.${base64UrlEncode(new TextEncoder().encode(JSON.stringify({
+    iss: 'https://appleid.apple.com', aud: 'com.ubrn.kuyara', sub: 'apple-subject',
+  })))}.y`;
+  const seen = [];
+  t.mock.method(globalThis, 'fetch', async (input, init) => {
+    const url = String(input);
+    seen.push([init?.method ?? 'GET', url]);
+    if (url.endsWith('/.well-known/jwks.json')) return Response.json({ keys: [{ ...supabaseKey.publicJwk, kid: 'k1' }] });
+    if (url.endsWith(`/admin/users/${userId}`) && init.method === 'GET') {
+      assert.equal(init.headers.apikey, 'sb_secret_placeholder');
+      return Response.json({ id: userId, identities: [{ provider: 'apple', provider_id: 'apple-subject' }] });
+    }
+    if (url.endsWith('/admin/users/' + userId)) return new Response('{}', { status: 200 });
+    if (url.endsWith('/auth/token')) return Response.json({ refresh_token: 'refresh-sentinel', id_token: idToken });
+    if (url.endsWith('/auth/revoke')) return new Response('', { status: 200 });
+    throw new Error('unexpected upstream call');
+  });
+  const route = buildRouter({
+    ...boundEnv,
+    APPLE_SIGN_IN_PRIVATE_KEY: appleKey.pem,
+  });
+
+  const response = await route(accountDeleteRequest(token, { appleAuthorizationCode: 'code-sentinel' }), fakeContext());
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { data: { status: 'deleted' } });
+  assert.deepEqual(seen, [
+    ['GET', 'https://project.supabase.co/auth/v1/.well-known/jwks.json'],
+    ['GET', `https://project.supabase.co/auth/v1/admin/users/${userId}`],
+    ['POST', 'https://appleid.apple.com/auth/token'],
+    ['POST', 'https://appleid.apple.com/auth/revoke'],
+    ['DELETE', `https://project.supabase.co/auth/v1/admin/users/${userId}`],
+  ]);
+  assert.deepEqual(warnings, []);
+
+  // A token that is not valid reaches neither the admin API nor Apple.
+  seen.length = 0;
+  const expired = await sign({ alg: 'ES256', kid: 'k1' }, { ...claims, exp: nowSeconds - 5 });
+  const denied = await route(accountDeleteRequest(expired, {}), fakeContext());
+  assert.equal(denied.status, 401);
+  assert.deepEqual(await denied.json(), { error: { code: 'unauthorized' } });
+  assert.deepEqual(seen, []);
+});
+
+test('adding a missing account secret recomposes the memoised worker', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const noAuthorization = () => new Request('https://worker.test/v1/account/delete', {
+    method: 'POST',
+    headers: { 'cf-connecting-ip': '203.0.113.21', 'content-type': 'application/json' },
+    body: '{}',
+  });
+  const { SUPABASE_SECRET_KEY: _omitted, ...without } = boundEnv;
+  assert.equal((await worker.fetch(noAuthorization(), without, fakeContext())).status, 503);
+  // The same isolate serves the route once the secret exists, without waiting to recycle.
+  assert.equal((await worker.fetch(noAuthorization(), boundEnv, fakeContext())).status, 401);
 });

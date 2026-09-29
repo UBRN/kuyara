@@ -1,4 +1,6 @@
 import {
+  accountDeleteV1ErrorSchema,
+  accountDeleteV1Path,
   aiProbeV1Path,
   aiRecommendV1Path,
   aiV1ErrorSchema,
@@ -8,6 +10,10 @@ import {
   weatherV1Path,
 } from '@kuyara/contracts';
 
+import { createAccountDeleteHandler } from './account/account-delete-handler.ts';
+import { createAppleTokenRevoker } from './account/apple-token-revoker.ts';
+import { createSupabaseAdmin } from './account/supabase-admin.ts';
+import { createSupabaseTokenVerifier } from './account/supabase-token-verifier.ts';
 import { OpenMeteoPlaceProvider } from './places/open-meteo-place-provider.ts';
 import { createPlaceSearchHandler } from './places/place-search-handler.ts';
 import { WORKERS_AI_DAILY_ATTEMPT_LIMIT, createAiHandler } from './ai/ai-handler.ts';
@@ -60,6 +66,14 @@ export type Env = Readonly<{
   WEATHERKIT_PRIVATE_KEY?: string;
   WEATHER_RATE_LIMIT?: RateLimitBinding;
   PLACE_SEARCH_RATE_LIMIT?: RateLimitBinding;
+  // Account deletion: two plain variables, three secrets and one limiter. Missing any one
+  // takes the route offline (see `buildAccountDeleteHandler`).
+  SUPABASE_URL?: string;
+  APPLE_TEAM_ID?: string;
+  SUPABASE_SECRET_KEY?: string;
+  APPLE_SIGN_IN_PRIVATE_KEY?: string;
+  APPLE_SIGN_IN_KEY_ID?: string;
+  ACCOUNT_DELETE_RATE_LIMIT?: RateLimitBinding;
 }>;
 
 const jsonHeaders = {
@@ -80,6 +94,7 @@ function offlineRoute(route: string, binding: string, body: unknown): Handler {
 const weatherUnavailable = weatherV1ErrorSchema.parse({ error: { code: 'weather_unavailable' } });
 const placesUnavailable = placeSearchV1ErrorSchema.parse({ error: { code: 'places_unavailable' } });
 const aiUnavailable = aiV1ErrorSchema.parse({ error: { code: 'ai_unavailable' } });
+const accountUnavailable = accountDeleteV1ErrorSchema.parse({ error: { code: 'unavailable' } });
 
 export function createAiProviders(env: Env): AiProvider[] {
   const providers: AiProvider[] = [];
@@ -158,6 +173,45 @@ export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
   return providers;
 }
 
+function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    // Not a URL at all: the same answer as a missing setting.
+    return false;
+  }
+}
+
+/**
+ * Account deletion needs its limiter and five settings. It never runs half-configured: the
+ * first missing one, named in the log line, takes only this route offline with 503
+ * `unavailable`, and nothing is called upstream. The project address must be https because
+ * the token issuer and every admin call are built from it.
+ */
+function buildAccountDeleteHandler(env: Env): Handler {
+  const {
+    ACCOUNT_DELETE_RATE_LIMIT: rateLimiter,
+    SUPABASE_URL: supabaseUrl,
+    APPLE_TEAM_ID: teamId,
+    SUPABASE_SECRET_KEY: secretKey,
+    APPLE_SIGN_IN_PRIVATE_KEY: privateKeyPem,
+    APPLE_SIGN_IN_KEY_ID: keyId,
+  } = env;
+  const offline = (binding: string) => offlineRoute(accountDeleteV1Path, binding, accountUnavailable);
+  if (!rateLimiter) return offline('ACCOUNT_DELETE_RATE_LIMIT');
+  if (!supabaseUrl || !isHttpsUrl(supabaseUrl)) return offline('SUPABASE_URL');
+  if (!teamId) return offline('APPLE_TEAM_ID');
+  if (!secretKey) return offline('SUPABASE_SECRET_KEY');
+  if (!privateKeyPem) return offline('APPLE_SIGN_IN_PRIVATE_KEY');
+  if (!keyId) return offline('APPLE_SIGN_IN_KEY_ID');
+  return createAccountDeleteHandler({
+    verifier: createSupabaseTokenVerifier({ supabaseUrl, now: () => new Date() }),
+    admin: createSupabaseAdmin({ supabaseUrl, secretKey }),
+    revoker: createAppleTokenRevoker({ teamId, keyId, privateKeyPem, now: () => new Date() }),
+    rateLimiter,
+  });
+}
+
 export function buildRouter(env: Env): Handler {
   const providers = createAiProviders(env);
   const weatherHandler = env.WEATHER_RATE_LIMIT
@@ -196,6 +250,7 @@ export function buildRouter(env: Env): Handler {
   return createRouter({
     weatherHandler,
     placeSearchHandler,
+    accountDeleteHandler: buildAccountDeleteHandler(env),
     aiHandler,
     probeHandler,
     aiReady: providers.length > 0,
@@ -229,6 +284,11 @@ function compositionKey(env: Env): string {
     env.WEATHERKIT_SERVICE_ID,
     env.WEATHERKIT_KEY_ID,
     env.WEATHERKIT_PRIVATE_KEY,
+    env.SUPABASE_URL,
+    env.APPLE_TEAM_ID,
+    env.SUPABASE_SECRET_KEY,
+    env.APPLE_SIGN_IN_PRIVATE_KEY,
+    env.APPLE_SIGN_IN_KEY_ID,
     // Binding presence decides which routes go offline and which providers are composed.
     Boolean(env.AI),
     Boolean(env.DAILY_COUNTERS),
@@ -236,6 +296,7 @@ function compositionKey(env: Env): string {
     Boolean(env.AI_RECOMMEND_RATE_LIMIT),
     Boolean(env.WEATHER_RATE_LIMIT),
     Boolean(env.PLACE_SEARCH_RATE_LIMIT),
+    Boolean(env.ACCOUNT_DELETE_RATE_LIMIT),
   ]);
 }
 
