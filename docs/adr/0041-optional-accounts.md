@@ -27,20 +27,21 @@ Apple requires that deleting an account created with Sign in with Apple revokes 
 
 ### 2. The server step: Apple revocation and account deletion
 
-Account deletion runs as a new versioned Worker route (the path is chosen at implementation, for example `POST /v3/account/delete`). The Worker is kuyara's only server and the owner of its secrets; no second server runtime is added. The route's request schema is strict and its response and error schemas are tolerant, both in `packages/contracts`. The Worker is deployed before the binary that calls it.
+Account deletion runs as a new versioned Worker route, `POST /v1/account/delete`; like `/v1/places/search`, each route carries its own version. The Worker is kuyara's only server and the owner of its secrets; no second server runtime is added. The route's request schema is strict (an optional `appleAuthorizationCode`; the Supabase access token travels only in the `Authorization: Bearer` header, never in the body) and its response and error schemas are tolerant, both in `packages/contracts`. The success body is `{ data: { status: 'deleted' } }`; the error codes are `invalid_request`, `not_found`, `method_not_allowed`, `unauthorized`, `apple_code_invalid`, `rate_limited`, `unavailable` and `internal_error`, read through the named unknown branch. The Worker is deployed before the binary that calls it.
 
 The flow, in order:
 
 1. After the system confirmation, the app asks Apple to re-authorize (Face ID) and receives a fresh `authorizationCode`. A Google account re-authenticates with Google instead.
 2. The app sends the Supabase access token and, for Apple, the authorization code to the Worker.
-3. The Worker verifies the token statelessly against the Supabase JWKS: signature, `exp`, `iss` (`https://<project>.supabase.co/auth/v1`, not the bare project address) and `aud = authenticated`. The user ID comes from `sub`, never from the request body. The JWKS is cached, and an unknown key ID triggers one refetch.
-4. The Worker builds the Apple client secret on every request (ES256; header `kid` is the Key ID; body `iss` is the Team ID, `aud` is `https://appleid.apple.com`, `sub` is `com.ubrn.kuyara`, short `exp`), exchanges the code at `https://appleid.apple.com/auth/token` with `grant_type=authorization_code`, and immediately revokes the refresh token at `https://appleid.apple.com/auth/revoke` with `token_type_hint=refresh_token`. The `client_id` is the bundle identifier.
-5. Only after revocation succeeds does the Worker delete the user's Storage objects through the Storage API (none exist while photo backup is absent), then call `auth.admin.deleteUser`. Account tables reference `auth.users` with `on delete cascade`, so the rows go with the user.
-6. The Worker returns only a closed result: `deleted`, or a closed error code such as `apple_code_invalid`, `unauthorized` or `unavailable`. Apple and Supabase responses, tokens and internal errors never leave the Worker and are never logged.
+3. The Worker verifies the token statelessly against the Supabase JWKS: signature, `exp`, `iss` (`https://<project>.supabase.co/auth/v1`, not the bare project address) and `aud = authenticated`. The only accepted algorithm is ES256. The user ID comes from `sub`, never from the request body. The JWKS is cached, and an unknown key ID triggers a refetch at most once per cooldown period, so a stream of forged key IDs cannot turn the route into a fetch amplifier; the route's per-IP rate limiter bounds the rest.
+4. The Worker reads the account's identities through the Supabase admin API. When an Apple identity exists, an authorization code is required, also for a Google account with Apple linked; without one the answer is `apple_code_invalid` and nothing is deleted. When no Apple identity exists, step 5 is skipped.
+5. The Worker builds the Apple client secret on every request (ES256; header `kid` is the Key ID; body `iss` is the Team ID, `aud` is `https://appleid.apple.com`, `sub` is `com.ubrn.kuyara`, short `exp`), exchanges the code at `https://appleid.apple.com/auth/token` with `grant_type=authorization_code`, and immediately revokes the refresh token at `https://appleid.apple.com/auth/revoke` with `token_type_hint=refresh_token`. The `client_id` is the bundle identifier. The `sub` of the exchange's `id_token` must equal the subject of the account's Apple identity; a mismatch answers `apple_code_invalid` and nothing is deleted, so a code from another Apple account can neither revoke that account's token nor authorize this deletion.
+6. Only after revocation succeeds does the Worker call `auth.admin.deleteUser`. Account tables reference `auth.users` with `on delete cascade`, so the rows go with the user. A user the admin API no longer finds counts as already deleted. Storage deletion joins the later photo-backup decision; no bucket exists while photo backup is absent.
+7. The Worker returns only a closed result: `deleted`, or a closed error code such as `apple_code_invalid`, `unauthorized` or `unavailable`. Apple and Supabase responses, tokens and internal errors never leave the Worker and are never logged.
 
 Revocation comes first because a deletion that succeeds while revocation fails leaves Apple's requirement unmet with no way to obtain the token again. If revocation succeeds and deletion fails, the account and its data stay intact and the person retries with a fresh code, so the failure line's statement that nothing was deleted is true.
 
-The Worker gains three secrets: the Supabase secret key, the Sign in with Apple private key and its Key ID. The WeatherKit key is not reused; Sign in with Apple has its own key so that each can be revoked alone.
+The Worker gains three secrets: `SUPABASE_SECRET_KEY`, `APPLE_SIGN_IN_PRIVATE_KEY` and `APPLE_SIGN_IN_KEY_ID`, and two non-secret variables, `SUPABASE_URL` and `APPLE_TEAM_ID`, plus the rate-limit binding `ACCOUNT_DELETE_RATE_LIMIT`. When any of them is missing, the route answers 503 `unavailable` and calls nothing. The WeatherKit key is not reused; Sign in with Apple has its own key so that each can be revoked alone. Every call to Supabase and Apple goes through an injected `fetch` with its own timeout, and the ES256 signing that WeatherKit's token also needs is one shared module.
 
 An access token already issued to a deleted user stays valid until it expires (one hour by default). Its rows are gone, so it reads nothing, and the app deletes its local session after deletion.
 
@@ -48,7 +49,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 ### 3. Moving device data into the account
 
-- On first sign-in, this phone's Closet and History are added to the account automatically, once the sync consent in section 10 is given. The welcome sheet states how many pieces and how many days were added.
+- On first sign-in, this phone's Closet and History are added to the account automatically, once the sync consent in section 10 is given. The welcome sheet states how many pieces and how many days were added; a day is a History day.
 - What goes to the account:
 
 | Device table | Goes to the account | Stays on the device |
@@ -61,20 +62,22 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 - Photos do not go to the account in the first account release. Photo backup comes later, after real photo sizes are measured, with its own decision.
 - Remote schema: each synced table has a counterpart in the `public` schema. Its primary key is the client UUID, which never changes, so a retried upload rewrites the same row instead of adding a second one. Each row has `user_id uuid not null references auth.users on delete cascade`, the client's `created_at` and `updated_at`, `deleted_at`, and a server-written `server_updated_at` set to `now()` by a trigger that the client cannot write. Day-keyed tables are unique on `(user_id, day_key)`. The profile table holds one row per user. Remote records, SQLite records and domain models stay separate, joined by tested mappers.
-- `local_profile_id` stays a device link and is never used for ownership checks, because the client can write any value into it.
+- `local_profile_id` stays a device link, is never uploaded, and is never used for ownership checks, because the client can write any value into it. A pulled row takes this phone's profile id. The remote profile row is keyed by `user_id`.
+- A pulled row that this app version's schema or catalog cannot parse (written by a newer version) is refused at the remote boundary, never overwrites a local row, and the cursor still advances. Remote enum values are as frozen as the v1 contracts.
 - The first upload sends live rows and soft-deletion markers from the last 30 days.
 - The one-profile-per-device rule (`singleton_key = 1`) stays. The account link lives in a new device table holding the linked user ID, the last linked user ID (kept after sign-out) and the last pull cursor.
-- Pending changes: each of the five tables gains a `pending_sync` flag. Every local write sets it; a successful upload clears it when the row returns with the same `updated_at`. This is not an outbox or an operation log: the row's latest state is sent. The "N waiting" counts on the Account screen come from these flags.
-- One new SQLite migration adds the flags and the link table, ordered after version 22 and tested with an upgrade from the last released schema and a realistic device-database replay. Existing rows start with the flag unset. Released migrations never change.
+- Pending changes: each of the five tables gains a `pending_sync` flag. Every local write sets it, except that on the profile only a write to one of the four synced fields does; a successful upload clears it when the row returns with the same `updated_at` (day-keyed tables match on `(day_key, updated_at)`). This is not an outbox or an operation log: the row's latest state is sent. The "N waiting" counts on the Account screen come from these flags.
+- One new SQLite migration adds the flags and the link table, ordered after version 22 and tested with an upgrade from the last released schema and a realistic device-database replay. Existing rows start with the flag unset. Released migrations never change. The migration ships in the same binary as the account work, never on its own.
 
 ### 4. Merging and the conflict rule
 
-- On a second phone where both the account and the phone hold data, the two merge. The Closet merges by ID; the same piece added separately on two phones can remain as two rows. For day-keyed tables, when both hold a record for the same day, the account's record stays. Display name, gender, dress style and style aesthetics come from the account. A result sheet states the counts.
+- On a second phone where both the account and the phone hold data, the two merge. The Closet merges by ID, and when the same ID exists on both sides the account's copy wins; the same piece added separately on two phones can remain as two rows. For day-keyed tables, when both hold a record for the same day, the account's record stays. Display name, gender, dress style and style aesthetics come from the account. A result sheet states the counts.
 - Duplicate pieces are never removed automatically. The merge result sheet offers "Open Closet" so the person can delete one.
 - When the account's day-keyed record wins, this phone's mirror photo moves to the winning row and is not deleted ([ADR 0038](0038-outfit-history.md): replacing a day keeps its photo). Photos are not synced, so the winning row has no photo on other phones.
 - The local profile stays authoritative for product logic: it reads profile fields only from the local profile, and the person edits them only there. The account's copy is their durable record; a merge writes it to the phone once, and afterwards every edit goes to the account. Birth date never goes to the account.
 - Ongoing sync resolves conflicts per row by last writer wins, ordered by **arrival at the server** (`server_updated_at`), never by device clock. A soft-deletion marker is a write like any other. In day-keyed tables the identity is `(user_id, day_key)`: a same-day write arriving with a different UUID overwrites the existing row, and the phone adopts that row's ID on its next pull.
 - Pulls use the `server_updated_at` cursor, so clock skew cannot reorder them.
+- Ongoing sync uploads before it pulls and skips the pull when the upload fails; a pull never overwrites a row that is pending. The first link is the exception: it pulls and merges before it uploads.
 - Sync runs on sign-in, when the app comes to the foreground, on "Sync now", and shortly after a local write. The background task (weather alerts) never touches Supabase.
 
 ### 5. Sign-in surfaces
@@ -96,7 +99,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 ### 7. Account deletion
 
-- Deletion removes everything in the account (section 2); what the phone shows stays, and kuyara continues without an account. The device's account link and session are cleared and the pending flags reset.
+- Deletion removes everything in the account (section 2); what the phone shows stays, and kuyara continues without an account. The device's account link, the last linked user ID, the pull cursor and the session are cleared and the pending flags reset.
 - Deletion lives in the app, under Settings > Account, two taps away. Its confirmation is the deletion page, the system's "Delete your account?" alert, then a fresh Apple (Face ID) or Google authorization. The page states how long deletion takes and that the person is told when it finishes.
 - Deletion cannot start offline; the button is disabled with a warning line.
 - While deletion runs the person may go anywhere in the app. The work continues, and when it finishes the result sheet appears wherever they are. A failure re-enables the button with an error line stating that nothing was deleted.
