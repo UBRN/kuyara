@@ -55,6 +55,7 @@ import {
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { dressingDayDateKey, isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
@@ -73,15 +74,6 @@ function approvedSignals(input: RecommendationApplicationInput): RecommendationS
     catalogVersion: garmentCatalogVersion,
     localDayKey: input.localDayKey,
   };
-}
-
-/**
- * The allowance is five regenerations per day, and the dressing day is what a day means
- * here: the evening and the hours after midnight that belong to it keep counting against
- * the date the evening began on, so an 18:00 boundary does not hand out a second five.
- */
-function budgetDayKey(dressingDayKey: string): string {
-  return dressingDayKey.replace(':evening', '');
 }
 
 function deviceLocalDay() {
@@ -222,10 +214,10 @@ export function RecommendationApplicationProvider({
   const resolvedStyles = resolvedStyleAesthetics(dayChoice,
     profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
   const morningChoicePending = Boolean(currentDayChoice?.status === 'none' &&
-    !localDay.key.endsWith(':evening') && profileState.status === 'ready' &&
+    !isEveningDressingDayKey(localDay.key) && profileState.status === 'ready' &&
     profileState.profile.morningSheetEnabled);
   const eveningChoicePending = Boolean(currentDayChoice?.status === 'none' &&
-    localDay.key.endsWith(':evening') && profileState.status === 'ready');
+    isEveningDressingDayKey(localDay.key) && profileState.status === 'ready');
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const reevaluateLocalDay = useCallback(() => {
     const next = deviceLocalDay();
@@ -254,7 +246,9 @@ export function RecommendationApplicationProvider({
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
       telemetry,
       getOnDeviceAvailability: () => latestOnDeviceAvailability.value,
-      reserveAiReask: (dayKey) => budget.reserve(budgetDayKey(dayKey)),
+      // Five regenerations per dressing day: the evening and its small hours count against the
+      // date the evening began on, so 18:00 does not hand out a second five.
+      reserveAiReask: (dayKey) => budget.reserve(dressingDayDateKey(dayKey)),
     }),
     [analytics, budget, client, latestOnDeviceAvailability, localProfileId, telemetry],
   );

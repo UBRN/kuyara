@@ -243,6 +243,10 @@ export default function OutfitDetailRoute() {
     profile: profileState,
     dressingDayChoiceFailed,
     surface: 'detail',
+    // This route is skipped by React Compiler, so the clock is read on every render; if the
+    // try/catch bail-out is fixed, take the instant from an explicit source such as
+    // `useForegroundClock`, or freshness freezes at the first render.
+    now: new Date().toISOString(),
   });
 
   useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);

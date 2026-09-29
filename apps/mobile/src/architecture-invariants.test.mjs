@@ -652,10 +652,16 @@ test('the device-local dressing day key is derived only in recommendation/domain
 });
 
 // A swallowed error is justified in one line: an empty `catch` block says nothing about why
-// losing the error is safe. The promise form `.catch(() => {})` is not covered yet:
-// it has sites today.
-test('mobile production code has no empty catch block', () => {
-  const empty = /catch(?:\s*\([^)]*\))?\s*\{\s*\}/g;
+// losing the error is safe. The promise form `.catch(() => {})` is the same swallow
+// and is held to the same measure, whatever the parameter spelling: `()`, `(error)`,
+// `(_error: unknown)` or `error`.
+const swallowParameter = String.raw`(?:\(\s*\w*\s*(?::[^)]*)?\)|\w+)`;
+
+test('mobile production code has no empty catch block or empty promise catch handler', () => {
+  const empty = new RegExp(
+    String.raw`catch(?:\s*\([^)]*\))?\s*\{\s*\}|\.catch\(\s*${swallowParameter}\s*=>\s*\{\s*\}\s*\)`,
+    'g',
+  );
   const hits = [];
   for (const relativePath of sourceFiles()) {
     const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
@@ -665,6 +671,52 @@ test('mobile production code has no empty catch block', () => {
   }
 
   assert.deepEqual(hits, [], 'say in one comment line why swallowing the error is safe');
+});
+
+// The same swallow written `.catch(() => undefined)` (or as the second argument of a `.then`
+// whose first returns `undefined`) predates the lock. Each pre-existing site is listed by file
+// with its count: the list only shrinks, a stale entry fails, and a new site needs a one-line
+// reason or a named helper instead of a new entry. Test files are not read, so this
+// file does not count its own patterns.
+const undefinedSwallowAllowlist = new Map([
+  ['app/_layout.tsx', 1],
+  ['components/ui/haptics.ts', 1],
+  ['features/analytics/data/create-product-analytics.ts', 1],
+  ['features/analytics/data/posthog-product-analytics.ts', 2],
+  ['features/notifications/application/weather-alert-observer.tsx', 1],
+  ['features/recommendation/application/reask-for-dressing-day.ts', 1],
+  ['features/recommendation/data/expo-file-ai-regeneration-budget.ts', 1],
+  ['features/recommendation/data/sqlite-outfit-history-repository.ts', 1],
+  ['features/walkthrough/application/walkthrough-controller.ts', 1],
+  ['features/wardrobe/presentation/piece-edit-sheet.tsx', 2],
+  ['features/wardrobe/presentation/wardrobe-item-form-screen.tsx', 6],
+]);
+
+test('an error swallowed as `undefined` appears only where the allowlist names it', () => {
+  const swallow = new RegExp(
+    String.raw`\.catch\(\s*${swallowParameter}\s*=>\s*undefined\s*\)`
+      + String.raw`|\.then\(\s*\(\s*\)\s*=>\s*undefined\s*,\s*${swallowParameter}\s*=>\s*undefined\s*\)`,
+    'g',
+  );
+  const counts = new Map();
+  for (const relativePath of sourceFiles()) {
+    const found = [...readFileSync(path.join(sourceRoot, relativePath), 'utf8').matchAll(swallow)].length;
+    if (found > 0) counts.set(relativePath, found);
+  }
+
+  const mismatched = [...new Set([...counts.keys(), ...undefinedSwallowAllowlist.keys()])]
+    .filter((file) => (counts.get(file) ?? 0) !== (undefinedSwallowAllowlist.get(file) ?? 0))
+    .map((file) => `${file}: found ${counts.get(file) ?? 0}, allowed ${undefinedSwallowAllowlist.get(file) ?? 0}`);
+  assert.deepEqual(
+    mismatched,
+    [],
+    'justify a new swallow in one line or route it through a named helper; lower the count when a site goes',
+  );
+  assert.equal(
+    [...undefinedSwallowAllowlist.values()].reduce((sum, count) => sum + count, 0),
+    18,
+    'the `undefined` swallow allowlist only shrinks: lower this total when an entry goes',
+  );
 });
 
 // Untrusted values are parsed before they are typed: the Closet category reaches the domain
@@ -679,4 +731,47 @@ test('the wardrobe category is narrowed by its guard, never cast', () => {
   }
 
   assert.deepEqual(casts, [], 'narrow with isWardrobeItemCategory instead of casting');
+});
+
+// Presentation and routes render a failure; they never sort it. The caught error reaches a
+// `classify…` function in the domain or application layer and the screen reads the answer
+test('presentation and route code never sorts an error by its class', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (!/^(?:features\/[^/]+\/presentation\/|app\/)/.test(relativePath)) continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/instanceof \w+Error/.test(line)) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'move the error-to-problem mapping into a classify function below the screen');
+});
+
+// A pure state or policy module under application/ takes the instant as a parameter, so a
+// test pins it without a fake timer and a route reads the clock once at the edge.
+test('application state and policy modules do not read the ambient clock', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (!/^features\/[^/]+\/application\/[^/]*-(?:state|policy)\.ts$/.test(relativePath)) continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/Date\.now\(\)|new Date\(\)/.test(line)) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'take `now` as a parameter and pass it from the route');
+});
+
+// The dressing-day key has one format owner: `weather/domain/wardrobe-day.ts` builds it,
+// answers whether it is an evening (`isEveningDressingDayKey`) and strips it to its date
+// (`dressingDayDateKey`). Nobody else spells the suffix as a literal or a regex tail.
+test('the dressing-day key suffix is spelled only in weather/domain/wardrobe-day.ts', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/weather/domain/wardrobe-day.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/(['"]):evening\1|\}:evening|:evening\$\//.test(line)) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'call isEveningDressingDayKey or dressingDayDateKey from wardrobe-day.ts');
 });

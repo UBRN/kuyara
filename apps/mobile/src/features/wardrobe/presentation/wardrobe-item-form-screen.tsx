@@ -42,7 +42,8 @@ import type {
   WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
 import {
-  WardrobeCameraAccessError,
+  classifyWardrobePhotoProblem,
+  type WardrobePhotoProblem,
   type WardrobePhotoSource,
 } from '@/features/wardrobe/domain/wardrobe-photo';
 import {
@@ -202,9 +203,7 @@ export function WardrobeItemFormScreen({
   const [isDeleting, setIsDeleting] = useState(false);
   const [processingSource, setProcessingSource] = useState<WardrobePhotoSource | null>(null);
   // `failed` is the photo pipeline's error; `denied` and `unavailable` are the camera's.
-  const [photoProblem, setPhotoProblem] = useState<
-    'failed' | WardrobeCameraAccessError['reason'] | null
-  >(null);
+  const [photoProblem, setPhotoProblem] = useState<WardrobePhotoProblem | null>(null);
   // Where the staged photo came from, so a camera photo is replaced by the camera again.
   const [photoSource, setPhotoSource] = useState<WardrobePhotoSource>('library');
   const [photoChange, setPhotoChange] = useState<WardrobePhotoChange>(
@@ -327,7 +326,7 @@ export function WardrobeItemFormScreen({
       })
       .catch((error: unknown) => {
         if (mountedRef.current) {
-          setPhotoProblem(error instanceof WardrobeCameraAccessError ? error.reason : 'failed');
+          setPhotoProblem(classifyWardrobePhotoProblem(error));
         }
       })
       .finally(() => {

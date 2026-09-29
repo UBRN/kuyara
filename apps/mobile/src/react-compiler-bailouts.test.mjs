@@ -18,7 +18,8 @@ const sourceRoot = import.meta.dirname;
 // that no longer matches fails in both directions, so a fix must delete its entry and a new
 // bail-out cannot hide behind an old one.
 const knownBailouts = new Map([
-  // A value block inside try/catch.
+  // A value block inside try/catch. While skipped, the route reads the clock on every render;
+  // once it compiles, its `now` needs an explicit source such as `useForegroundClock`.
   ['app/(tabs)/(today)/[id].tsx', 1],
   // A `finally` clause on the consent surfaces.
   ['features/analytics/presentation/analytics-consent-screen.tsx', 1],

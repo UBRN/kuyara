@@ -64,9 +64,9 @@ test('a Worker function does not default a time parameter to the ambient clock',
 });
 
 // A swallowed error is justified in one line: an empty `catch` block says nothing. The
-// promise form `.catch(() => {})` is not covered yet.
-test('Worker production code has no empty catch block', () => {
-  const empty = /catch(?:\s*\([^)]*\))?\s*\{\s*\}/g;
+// promise form `.catch(() => {})` is the same swallow and is held to the same measure.
+test('Worker production code has no empty catch block or empty promise catch handler', () => {
+  const empty = /catch(?:\s*\([^)]*\))?\s*\{\s*\}|\.catch\(\s*(?:\(\s*\w*\s*(?::[^)]*)?\)|\w+)\s*=>\s*\{\s*\}\s*\)/g;
   const hits = [];
   for (const relativePath of sourceFiles()) {
     const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');

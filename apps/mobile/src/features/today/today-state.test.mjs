@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { todayActiveLocation } from './__tests__/fixtures.ts';
+import { todayActiveLocation, todayScreenState, todayWeatherSnapshot } from './__tests__/fixtures.ts';
 import { classifyTodayState } from './application/today-state.ts';
 
 function weather(overrides = {}) {
@@ -28,6 +28,7 @@ function classify(weatherState, surface = 'today') {
     },
     profile: { status: 'loading' },
     surface,
+    ...(surface === 'detail' ? { now: '2026-08-13T06:10:00.000Z' } : {}),
   });
 }
 
@@ -48,4 +49,32 @@ test('no snapshot with a settled failure or no fetch in flight stays unavailable
   const failedWhileRetrying = classify(weather({ refreshFailure: 'offline', isRefreshing: true }));
   assert.equal(failedWhileRetrying.state.kind, 'unavailable');
   assert.equal(classify(weather()).state.kind, 'unavailable');
+});
+
+// The detail surface measures freshness against the instant its route hands in:
+// five minutes after the fetch reads fresh, thirty-one minutes after reads stale.
+test('the detail surface reads freshness against the given now, not the ambient clock', () => {
+  const loaded = (now) => classifyTodayState({
+    weather: weather({
+      snapshot: todayWeatherSnapshot,
+      activeLocation: { ...todayActiveLocation, locationKey: todayWeatherSnapshot.locationKey },
+      freshness: 'stale',
+    }),
+    recommendation: {
+      status: 'ready',
+      snapshot: {
+        locationKey: todayWeatherSnapshot.locationKey,
+        recommendation: todayScreenState.snapshot.recommendation,
+      },
+      isRefreshing: false, lastFailure: null, phase: null, exhausted: false,
+      showFirstGenerationOverlay: false,
+    },
+    profile: { status: 'loading' },
+    surface: 'detail',
+    now,
+  });
+  const fresh = loaded('2026-08-13T06:10:00.000Z');
+  assert.equal(fresh.state.kind, 'loaded');
+  assert.equal(fresh.state.snapshot.freshness, 'fresh');
+  assert.equal(loaded('2026-08-13T06:36:00.000Z').state.snapshot.freshness, 'stale');
 });

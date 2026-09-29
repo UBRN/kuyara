@@ -29,6 +29,19 @@ export type WardrobeDayWindow = Readonly<{
   key: string;
 }>;
 
+/** What follows the date in the key of an evening dressing day. */
+const eveningKeySuffix = ':evening';
+
+/** Whether a dressing-day key names an evening (including the small hours that belong to it). */
+export function isEveningDressingDayKey(key: string): boolean {
+  return key.endsWith(eveningKeySuffix);
+}
+
+/** The bare local date a dressing-day key is built on: the evening shares its date's row. */
+export function dressingDayDateKey(key: string): string {
+  return isEveningDressingDayKey(key) ? key.slice(0, -eveningKeySuffix.length) : key;
+}
+
 /** The local hour from which the dressing day runs into the night. */
 const eveningStartHour = 18;
 /** The local hour the overnight stretch ends at, and the day period begins. */
@@ -106,8 +119,8 @@ function localDateKey({ year, month, day }: LocalDate): string {
  * signals are keyed to the day the person is living on their own phone.
  */
 export function wardrobeDayKey(local: LocalTime): string {
-  if (local.hour >= eveningStartHour) return `${localDateKey(local)}:evening`;
-  if (local.hour < dayStartHour) return `${localDateKey(shiftLocalDate(local, -1))}:evening`;
+  if (local.hour >= eveningStartHour) return `${localDateKey(local)}${eveningKeySuffix}`;
+  if (local.hour < dayStartHour) return `${localDateKey(shiftLocalDate(local, -1))}${eveningKeySuffix}`;
   return localDateKey(local);
 }
 

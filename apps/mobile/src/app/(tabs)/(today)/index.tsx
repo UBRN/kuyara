@@ -32,6 +32,7 @@ import { AskAgainSheet, type AskAgainChoice } from '@/features/today/presentatio
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { activeLocationSnapshot } from '@/features/weather/domain/weather';
+import { isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { getMessages } from '@/localization/messages';
@@ -442,7 +443,7 @@ export default function TodayRoute() {
         busy={askBusy}
         departure={activeDeparture?.departureAt ?? null}
         error={askError}
-        evening={currentDressingDayKey?.endsWith(':evening') ?? false}
+        evening={currentDressingDayKey ? isEveningDressingDayKey(currentDressingDayKey) : false}
         hour12={hour12}
         language={language}
         now={askOpenedAt ?? clock}
