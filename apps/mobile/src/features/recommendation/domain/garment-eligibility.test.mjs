@@ -7,7 +7,6 @@ import {
   evaluateGarmentEligibility,
   garmentEligibilityReasonCodes,
   projectCatalogEffectiveGarment,
-  projectWardrobeEffectiveGarment,
 } from './garment-eligibility.ts';
 
 function clothingRequirements(...requirements) {
@@ -29,27 +28,30 @@ function requirement(kind, minimum, overrides = {}) {
   });
 }
 
-function wardrobeItem(overrides = {}) {
+// A ready projection of one catalog type with chosen actual-item properties, for
+// evaluation cases the catalog defaults alone do not reach.
+function projectionWith(typeId, overrides = {}, lookup = getGarmentType) {
+  const type = lookup(typeId);
   return Object.freeze({
-    id: 'wardrobe-one',
-    localProfileId: 'profile-one',
-    name: null,
-    category: 'top',
-    garmentTypeId: 't_shirt',
-    color: null,
-    colorFamily: null,
-    thermalLevelOverride: null,
-    waterProtectionOverride: null,
-    windProtectionOverride: null,
-    breathabilityOverride: null,
-    armCoverageOverride: null,
-    legCoverageOverride: null,
-    tractionSuitabilityOverride: null,
-    photoRelativePath: null,
-    createdAt: '2026-08-01T10:00:00.000Z',
-    updatedAt: '2026-08-01T10:00:00.000Z',
-    deletedAt: null,
-    ...overrides,
+    status: 'ready',
+    garment: Object.freeze({
+      candidateKey: `test:${typeId}`,
+      source: 'catalog',
+      garmentTypeId: type.typeId,
+      properties: Object.freeze({
+        category: type.structuralCategory,
+        bodyRegion: type.bodyRegion,
+        supportedLayerRoles: Object.freeze([...type.supportedLayerRoles]),
+        thermalLevel: type.defaultThermalLevel,
+        waterProtection: type.defaultWaterProtection,
+        windProtection: type.defaultWindProtection,
+        breathability: type.defaultBreathability,
+        armCoverage: type.defaultArmCoverage,
+        legCoverage: type.defaultLegCoverage,
+        tractionSuitability: type.defaultTractionSuitability,
+        ...overrides,
+      }),
+    }),
   });
 }
 
@@ -67,19 +69,12 @@ function candidateKey(projection) {
     : projection.candidateKey;
 }
 
-test('catalog defaults and Wardrobe overrides converge on effective properties', () => {
+test('catalog defaults project to effective properties', () => {
   const catalog = projectCatalogEffectiveGarment('t_shirt', 'womens');
-  const owned = projectWardrobeEffectiveGarment(wardrobeItem({
-    thermalLevelOverride: 'moderate',
-    breathabilityOverride: 'low',
-  }));
 
   assert.equal(catalog.status, 'ready');
   assert.equal(catalog.garment.properties.thermalLevel, 'none');
   assert.equal(catalog.garment.properties.breathability, 'high');
-  assert.equal(owned.status, 'ready');
-  assert.equal(owned.garment.properties.thermalLevel, 'moderate');
-  assert.equal(owned.garment.properties.breathability, 'low');
 });
 
 test('mandatory thermal and coverage shortfalls remain composition-aware', () => {
@@ -97,12 +92,7 @@ test('mandatory thermal and coverage shortfalls remain composition-aware', () =>
 
   const vestResult = evaluateGarmentEligibility(
     clothingRequirements(requirement('arm_coverage', 'full')),
-    projectWardrobeEffectiveGarment(wardrobeItem({
-      category: 'outerwear',
-      garmentTypeId: 'insulated_jacket',
-      thermalLevelOverride: 'high',
-      armCoverageOverride: 'none',
-    })),
+    projectionWith('insulated_jacket', { thermalLevel: 'high', armCoverage: 'none' }),
   );
   assert.equal(vestResult.status, 'eligible');
   assert.equal(evaluation(vestResult, 'arm_coverage').status, 'shortfall');
@@ -177,11 +167,7 @@ test('directly targeted mandatory water, wind, and traction failures reject', ()
       'mandatory_body_water_shortfall',
     ],
     [
-      projectWardrobeEffectiveGarment(wardrobeItem({
-        category: 'outerwear',
-        garmentTypeId: 'coat',
-        windProtectionOverride: 'none',
-      })),
+      projectionWith('coat', { windProtection: 'none' }),
       requirement('wind_protection', 'wind_resistant', {
         reasonCodes: Object.freeze(['wind_strong']),
       }),
@@ -296,56 +282,24 @@ test('optional failures never reject and incompatible targets are not applicable
   assert.equal(top.score, 50);
 });
 
-test('catalog preference applies only to bundled candidates', () => {
+test('catalog preference rejects a type made for another preference', () => {
   const catalog = evaluateGarmentEligibility(
     clothingRequirements(),
     projectCatalogEffectiveGarment('blouse', 'mens'),
   );
   assert.equal(catalog.status, 'ineligible');
   assert.deepEqual(catalog.reasonCodes, ['catalog_preference_mismatch']);
-
-  const owned = evaluateGarmentEligibility(
-    clothingRequirements(),
-    projectWardrobeEffectiveGarment(wardrobeItem({
-      garmentTypeId: 'blouse',
-    })),
-  );
-  assert.equal(owned.status, 'eligible');
 });
 
-test('lifecycle, invalid data, unavailable catalog, and accessories fail explicitly', () => {
-  const deleted = projectWardrobeEffectiveGarment(wardrobeItem({
-    deletedAt: '2026-08-01T12:00:00.000Z',
-  }));
-  const legacy = projectWardrobeEffectiveGarment(wardrobeItem({
-    garmentTypeId: null,
-  }));
-  const invalid = projectWardrobeEffectiveGarment(wardrobeItem({
-    category: 'bottom',
-  }));
+test('unavailable catalog types and accessories fail explicitly', () => {
   const unavailable = projectCatalogEffectiveGarment(
     'future_unknown_type',
     'womens',
   );
+  const rejected = evaluateGarmentEligibility(clothingRequirements(), unavailable);
 
-  assert.deepEqual(
-    [deleted, legacy, invalid, unavailable].map((projection) =>
-      evaluateGarmentEligibility(clothingRequirements(), projection).reasonCodes[0]
-    ),
-    [
-      'wardrobe_garment_deleted',
-      'wardrobe_garment_legacy',
-      'wardrobe_garment_invalid',
-      'catalog_type_unavailable',
-    ],
-  );
-
-  assert.deepEqual(
-    [deleted, legacy, invalid, unavailable].map((projection) =>
-      evaluateGarmentEligibility(clothingRequirements(), projection).garment
-    ),
-    [null, null, null, null],
-  );
+  assert.deepEqual(rejected.reasonCodes, ['catalog_type_unavailable']);
+  assert.equal(rejected.garment, null);
 
   const umbrella = evaluateGarmentEligibility(
     clothingRequirements(
@@ -370,7 +324,7 @@ test('lifecycle, invalid data, unavailable catalog, and accessories fail explici
   assert.deepEqual(dryUmbrella.reasonCodes, ['no_applicable_requirements']);
 });
 
-test('deprecated catalog candidates are unavailable while deprecated owned garments resolve', () => {
+test('deprecated catalog candidates are unavailable', () => {
   const sweater = getGarmentType('sweater');
   const deprecatedSweater = {
     ...sweater,
@@ -383,16 +337,9 @@ test('deprecated catalog candidates are unavailable while deprecated owned garme
     clothingRequirements(),
     projectCatalogEffectiveGarment('sweater', 'womens', lookup),
   );
-  const owned = evaluateGarmentEligibility(
-    clothingRequirements(),
-    projectWardrobeEffectiveGarment(wardrobeItem({
-      garmentTypeId: 'sweater',
-    }), lookup),
-  );
 
   assert.equal(catalog.status, 'ineligible');
   assert.deepEqual(catalog.reasonCodes, ['catalog_type_unavailable']);
-  assert.equal(owned.status, 'eligible');
 });
 
 test('stronger values are capped and over-protection penalties are exact and bounded', () => {

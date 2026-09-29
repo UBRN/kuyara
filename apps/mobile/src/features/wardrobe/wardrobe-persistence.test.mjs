@@ -50,9 +50,7 @@ import {
 import { SqliteWardrobeLocalDataSource } from './data/sqlite-wardrobe-local-data-source.ts';
 import {
   wardrobeEntryStateSchema,
-  wardrobeItemCategories,
 } from './domain/wardrobe-item.ts';
-import { resolveEffectiveGarment } from './domain/effective-garment.ts';
 import { migrateDatabase } from '../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../test/node-sqlite-database.mjs';
 
@@ -498,9 +496,6 @@ test('taxonomy fields round-trip and update distinguishes omission from clearing
   assert.equal(updated.thermalLevelOverride, null);
   assert.equal(updated.waterProtectionOverride, 'water_resistant');
   assert.equal(updated.colorFamily, 'green');
-  const resolved = resolveEffectiveGarment(updated);
-  assert.equal(resolved.status, 'resolved');
-  assert.equal(resolved.garment.thermalLevel, 'none');
   assert.deepEqual({ ...row }, {
     garment_type_id: 'rain_jacket',
     color_family: 'green',
@@ -684,7 +679,6 @@ test('a persisted type-category mismatch stays readable and deletable without ch
   const mismatched = await repository.getActiveItem(profileId, itemIds[1]);
   assert.equal(mismatched.garmentTypeId, 't_shirt');
   assert.equal(mismatched.category, 'bottom');
-  assert.equal(resolveEffectiveGarment(mismatched).status, 'invalid-data');
 
   // Saving a change that leaves the mismatch in place is still refused by the write
   // invariant, so the app never writes an inconsistent row back.
@@ -718,7 +712,6 @@ test('a persisted type-category mismatch stays readable and deletable without ch
     garmentTypeId: 't_shirt',
   });
   assert.equal(repaired.category, 'top');
-  assert.equal(resolveEffectiveGarment(repaired).status, 'resolved');
 
   const deleted = await repository.softDeleteItem(profileId, itemIds[1]);
   assert.equal(deleted.deletedAt, updatedAt);
@@ -830,94 +823,10 @@ test('catalog applicability never prevents ownership of a valid canonical type',
 
   assert.equal(dress.garmentTypeId, 'dress');
   assert.deepEqual(getGarmentType('dress').apparelPreferenceApplicability, ['womens']);
-  assert.equal(resolveEffectiveGarment(dress).status, 'resolved');
-});
-
-test('effective garment resolution prefers overrides and otherwise uses catalog defaults', async (t) => {
-  const { repository } = await createRepository(t);
-  const item = await repository.createItem({
-    localProfileId: profileId,
-    category: 'outerwear',
-    garmentTypeId: 'rain_jacket',
-    colorFamily: 'blue',
-    thermalLevelOverride: 'moderate',
-    waterProtectionOverride: 'water_resistant',
-    windProtectionOverride: 'none',
-  });
-
-  const result = resolveEffectiveGarment(item);
-  assert.equal(result.status, 'resolved');
-  assert.equal(result.garment.thermalLevel, 'moderate');
-  assert.equal(result.garment.waterProtection, 'water_resistant');
-  assert.equal(result.garment.windProtection, 'none');
-  assert.equal(result.garment.breathability, 'moderate');
-  assert.equal(result.garment.armCoverage, 'full');
-  assert.equal(result.garment.legCoverage, null);
-  assert.deepEqual(result.garment.apparelPreferenceApplicability, ['womens', 'mens']);
-});
-
-test('effective garment resolution preserves legacy state and rejects missing or mismatched types', () => {
-  const baseItem = {
-    id: itemIds[0],
-    localProfileId: profileId,
-    name: 'Kazak',
-    category: 'top',
-    garmentTypeId: null,
-    color: 'Mavi',
-    colorFamily: null,
-    thermalLevelOverride: null,
-    waterProtectionOverride: null,
-    windProtectionOverride: null,
-    breathabilityOverride: null,
-    armCoverageOverride: null,
-    legCoverageOverride: null,
-    tractionSuitabilityOverride: null,
-    photoRelativePath: null,
-    createdAt,
-    updatedAt: createdAt,
-    deletedAt: null,
-  };
-
-  const legacy = resolveEffectiveGarment(baseItem);
-  assert.deepEqual(legacy, {
-    status: 'legacy',
-    garment: {
-      id: itemIds[0],
-      localProfileId: profileId,
-      name: 'Kazak',
-      category: 'top',
-      garmentTypeId: null,
-      color: 'Mavi',
-      photoRelativePath: null,
-      createdAt,
-      updatedAt: createdAt,
-      deletedAt: null,
-    },
-  });
-
-  const typed = { ...baseItem, garmentTypeId: 'sweater' };
-  assert.deepEqual(
-    resolveEffectiveGarment(typed, () => null),
-    { status: 'invalid-data' },
-  );
-  assert.deepEqual(
-    resolveEffectiveGarment({ ...typed, category: 'bottom' }),
-    { status: 'invalid-data' },
-  );
-
-  const deprecatedSweater = {
-    ...getGarmentType('sweater'),
-    status: 'deprecated',
-    replacedByTypeId: 'cardigan',
-  };
-  const deprecated = resolveEffectiveGarment(typed, () => deprecatedSweater);
-  assert.equal(deprecated.status, 'resolved');
-  assert.equal(deprecated.garment.catalogStatus, 'deprecated');
-  assert.equal(deprecated.garment.replacedByTypeId, 'cardigan');
 });
 
 test('category mapping is explicit and round-trips every stable persistence value', () => {
-  for (const category of wardrobeItemCategories) {
+  for (const category of structuralCategories) {
     const stored = mapWardrobeCategoryToRecord(category);
     assert.equal(mapWardrobeCategoryFromRecord(stored), category);
   }

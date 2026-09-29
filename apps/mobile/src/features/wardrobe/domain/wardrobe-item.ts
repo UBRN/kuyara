@@ -2,7 +2,6 @@ import { z } from 'zod';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 
 import {
-  structuralCategories,
   structuralCategorySchema,
   type Breathability,
   type ColorFamily,
@@ -15,7 +14,6 @@ import {
   type WindProtection,
 } from '@/features/catalog/domain/garment-taxonomy';
 
-export const wardrobeItemCategories = structuralCategories;
 export type WardrobeItemCategory = StructuralCategory;
 
 export const wardrobeEntryStateSchema = z.enum(['owned', 'wanted']);

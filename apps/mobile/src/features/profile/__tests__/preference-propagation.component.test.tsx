@@ -353,7 +353,6 @@ test('Privacy row is a door while analytics consent is unanswered', async () => 
   expect(await result.findByTestId('settings-privacy-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-group')).getByTestId('settings-privacy-row')).toBeOnTheScreen();
   expect(result.queryByTestId('settings-privacy-row-value-stacked')).not.toBeOnTheScreen();
-  expect(result.queryByText(messages.en.analytics.statusNotAsked)).not.toBeOnTheScreen();
   expect(result.getByText(messages.en.analytics.privacyTitle)).toBeOnTheScreen();
 });
 

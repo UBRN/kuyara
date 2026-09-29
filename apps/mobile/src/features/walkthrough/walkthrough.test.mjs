@@ -11,7 +11,7 @@ import {
   sheetOutcome,
   walkthroughOpening,
 } from './domain/walkthrough-rules.ts';
-import { fullTourPlan, planTour, tourStepCount, tourSteps } from './domain/walkthrough-steps.ts';
+import { fullTourPlan, planTour, tourSteps } from './domain/walkthrough-steps.ts';
 import {
   backButtonRect,
   bubbleBounds,
@@ -29,7 +29,7 @@ import { messages } from '../../localization/messages.ts';
 // --- The steps (README "The steps") ---------------------------------------------------
 
 test('the tour has the nine approved steps in order, with their kinds and live controls', () => {
-  assert.equal(tourStepCount, 9);
+  assert.equal(tourSteps.length, 9);
   assert.deepEqual(tourSteps.map(({ key, screen, kind, live, advanceOn }) =>
     [key, screen, kind, live ?? null, advanceOn ?? null]), [
     ['outfit', 'today', 'tap', 'outfit', 'push'],

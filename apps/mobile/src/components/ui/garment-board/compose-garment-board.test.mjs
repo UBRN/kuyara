@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  audit,
   composeGarmentBoard,
   contactShadeOf,
   contactShadeRule,
@@ -15,6 +14,45 @@ import {
   todayPreset,
 } from './compose-garment-board.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
+
+// Geometric audit; ink parity needs raster coverage, which vector assets do not carry.
+function audit(result) {
+  const boxes = [...result.boxes.values()];
+  const height = result.stageHeight;
+  let overlap = 0;
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i];
+      const b = boxes[j];
+      const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+      const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+      if (ox > 0 && oy > 0) overlap = Math.max(overlap, Math.min(ox, oy));
+    }
+  }
+  const clip = Math.max(0,
+    -Math.min(...boxes.map((box) => box.x)),
+    Math.max(...boxes.map((box) => box.x + box.w)) - 1,
+    -Math.min(...boxes.map((box) => box.y)),
+    Math.max(...boxes.map((box) => box.y + box.h)) - height);
+  const quadrants = [0, 0, 0, 0];
+  for (const box of boxes) {
+    for (let k = 0; k < 4; k++) {
+      const qx = k % 2 ? [0.5, 1] : [0, 0.5];
+      const qy = k > 1 ? [height / 2, height] : [0, height / 2];
+      const ox = Math.max(0, Math.min(box.x + box.w, qx[1]) - Math.max(box.x, qx[0]));
+      const oy = Math.max(0, Math.min(box.y + box.h, qy[1]) - Math.max(box.y, qy[0]));
+      quadrants[k] += ox * oy / (0.5 * height / 2);
+    }
+  }
+  const halves = [quadrants[0] + quadrants[2], quadrants[1] + quadrants[3],
+    quadrants[0] + quadrants[1], quadrants[2] + quadrants[3]];
+  const areas = result.core.map((piece) => {
+    const box = result.boxes.get(piece);
+    return box.w * box.h;
+  });
+  const parity = Math.max(...areas) / Math.min(...areas);
+  return { overlap, clip, parity, quadrants, halves, minHalf: Math.min(...halves) };
+}
 
 const categories = {
   primary_top: 'top', bottom: 'bottom', one_piece: 'one_piece',

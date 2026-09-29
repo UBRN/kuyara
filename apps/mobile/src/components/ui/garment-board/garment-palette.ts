@@ -48,9 +48,6 @@ export const garmentSwatches = {
   cobalt: S('#2F5BA6', 'blue', 'accent', 'cool', 'Cobalt', 'Kobalt'),
 };
 export type GarmentSwatchId = keyof typeof garmentSwatches;
-export const garmentSwatchColorFamilies = Object.fromEntries(
-  Object.entries(garmentSwatches).map(([id, swatch]) => [id, swatch.fam]),
-) as Readonly<Record<GarmentSwatchId, ColorFamily>>;
 
 // Materials: soles, handles, bands, hardware. Fixed per drawing, never a palette choice.
 const MATERIAL = {

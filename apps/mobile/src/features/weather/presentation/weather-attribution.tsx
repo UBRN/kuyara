@@ -38,10 +38,9 @@ const LOGO_WIDTH = Math.round((LOGO_HEIGHT * 600) / 340);
 
 type WeatherAttributionProps = Readonly<{
   sourceId: string;
-  testID?: string;
 }>;
 
-export function WeatherAttribution({ sourceId, testID }: WeatherAttributionProps) {
+export function WeatherAttribution({ sourceId }: WeatherAttributionProps) {
   const { language, messages } = useLocalization();
   const theme = useKuyaraTheme();
   const markKey = `${language}:${theme.isDark}`;
@@ -76,8 +75,7 @@ export function WeatherAttribution({ sourceId, testID }: WeatherAttributionProps
       onPress={() => {
         void Linking.openURL(url);
       }}
-      style={styles.row}
-      testID={testID}>
+      style={styles.row}>
       {sourceId !== 'weatherkit' || !appleMark?.loaded ? (
         <AppText colorRole="textSecondary" variant="caption">{label}</AppText>
       ) : null}

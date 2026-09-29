@@ -1,13 +1,9 @@
 import { StyleSheet, View, type ViewProps } from 'react-native';
 
-import { borderWidths, spacing } from '@/theme/theme';
+import { borderWidths } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-export type DividerProps = ViewProps & {
-  variant?: 'full' | 'inset';
-};
-
-export function Divider({ style, variant = 'full', ...rest }: DividerProps) {
+export function Divider({ style, ...rest }: ViewProps) {
   const theme = useKuyaraTheme();
 
   return (
@@ -19,7 +15,6 @@ export function Divider({ style, variant = 'full', ...rest }: DividerProps) {
       style={[
         styles.divider,
         { borderTopColor: theme.colors.borderSubtle },
-        variant === 'inset' && styles.inset,
         style,
       ]}
     />
@@ -29,8 +24,5 @@ export function Divider({ style, variant = 'full', ...rest }: DividerProps) {
 const styles = StyleSheet.create({
   divider: {
     borderTopWidth: borderWidths.subtle,
-  },
-  inset: {
-    marginStart: spacing.lg,
   },
 });

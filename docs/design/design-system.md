@@ -218,7 +218,7 @@ The generation-mode indicator reuses the existing `Pill` with a text label and e
 Implemented and in use:
 
 - Elevation, as exactly two levels and no more: `elevation.raised` for content cards and `elevation.chrome` for navigation chrome. Each is a single cross-platform style object carrying the iOS shadow properties and the Android `elevation` value together; the dark appearance uses markedly lower opacity because the dark surface step already carries the separation. See Elevation ladder above.
-- `Divider` (`apps/mobile/src/components/ui/divider.tsx`), with a full and an inset variant, hidden from the accessibility tree.
+- `Divider` (`apps/mobile/src/components/ui/divider.tsx`), hidden from the accessibility tree; a caller insets it with `style`.
 - The status colour roles, the `borderDefined` neutral and the destructive button variant approved by [ADR 0010](../adr/0010-status-colours-destructive-variant-and-defined-borders.md) (see Approved new colour roles above); every status site renders ink, glyph and text together.
 - The icon system approved by [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md): the `Icon` primitive wraps `expo-symbols` `SymbolView` behind one frozen map from semantic key to platform symbol names, decorative by default and named only when given an `accessibilityLabel`. Garment slot rows use the separate `GarmentSlotGlyph`/`GarmentSlotTile` primitives, drawn as bundled monochrome template artwork rendered through `Image` and `tintColor` and keyed by the structural categories, with a large raster class above 32 points. See ADR 0008 and the Adaptive UI primitives section above for why a symbol font remains unusable for these slots.
 

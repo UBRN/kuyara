@@ -20,8 +20,8 @@ reason to duplicate `Row`, `ListSection`, `Field`, `Segmented`, or `Sheet`. The 
 cost of hand-built feature controls was:
 
 - `wardrobe-item-form-screen.tsx` is 824 lines; `weather-screen.tsx` is 637.
-- The owned/wanted control exists three times, as `PreferenceOption`, as
-  `WardrobeOption`, and as an ad hoc pair of `Button`s on outfit detail.
+- The owned/wanted control exists twice, as `WardrobeOption` and as an ad hoc pair of
+  `Button`s on outfit detail.
 - A segmented control exists twice, with no shared component.
 - A disclosure exists twice, independently implemented.
 - The `fontScale > 1.5` stacking branch is re-implemented in six files.
