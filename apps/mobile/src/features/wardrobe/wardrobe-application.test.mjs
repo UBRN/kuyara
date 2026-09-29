@@ -16,7 +16,7 @@ import {
   wardrobeFormValuesEqual,
 } from './application/wardrobe-form.ts';
 import { WardrobeApplicationController } from './application/wardrobe-application-controller.ts';
-import { WardrobeRepositoryError } from './data/wardrobe-repository.ts';
+import { WardrobeRepositoryError } from './domain/wardrobe-repository-error.ts';
 import { messages } from '../../localization/messages.ts';
 
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';

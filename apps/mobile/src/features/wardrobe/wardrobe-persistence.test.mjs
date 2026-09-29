@@ -43,10 +43,8 @@ import {
   mapWardrobeItemRecord,
   WardrobeItemMappingError,
 } from './data/wardrobe-item-mapper.ts';
-import {
-  LocalWardrobeRepository,
-  WardrobeRepositoryError,
-} from './data/wardrobe-repository.ts';
+import { LocalWardrobeRepository } from './data/wardrobe-repository.ts';
+import { WardrobeRepositoryError } from './domain/wardrobe-repository-error.ts';
 import { SqliteWardrobeLocalDataSource } from './data/sqlite-wardrobe-local-data-source.ts';
 import {
   wardrobeEntryStateSchema,

@@ -43,6 +43,7 @@ import {
   type WardrobeItemCategory,
   type WardrobeEntryState,
 } from '@/features/wardrobe/domain/wardrobe-item';
+import { WardrobeRepositoryError } from '@/features/wardrobe/domain/wardrobe-repository-error';
 import { isUtcIsoTimestamp, isUuidV4 } from '@/domain/record-identity';
 
 type WardrobeRepositoryDependencies = Readonly<{
@@ -98,16 +99,6 @@ export interface WardrobeRepository {
   ): Promise<boolean>;
   updateItem(input: UpdateWardrobeItemInput): Promise<WardrobeItem>;
   softDeleteItem(localProfileId: string, id: string): Promise<WardrobeItem>;
-}
-
-export class WardrobeRepositoryError extends Error {
-  readonly code: 'invalid-input' | 'invalid-data' | 'not-found' | 'unavailable';
-
-  constructor(code: 'invalid-input' | 'invalid-data' | 'not-found' | 'unavailable') {
-    super('The local wardrobe operation could not be completed.');
-    this.name = 'WardrobeRepositoryError';
-    this.code = code;
-  }
 }
 
 function requireIdentifier(value: string): string {

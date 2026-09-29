@@ -18,7 +18,7 @@ import {
   isManagedWardrobePhotoRelativePath,
   managedWardrobePhotoDirectorySegments,
   requireWardrobePhotoUuidV4,
-} from '@/features/wardrobe/data/wardrobe-photo-path';
+} from '@/features/wardrobe/domain/wardrobe-photo-path';
 import {
   normalizeWardrobePhotoRelativePath,
 } from '@/features/wardrobe/domain/wardrobe-item';
