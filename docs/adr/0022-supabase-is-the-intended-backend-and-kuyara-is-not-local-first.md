@@ -2,9 +2,11 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: not started, and deliberately so. This ADR changes how the product
-describes itself and what the current schemas must preserve. It authorizes no Supabase
-dependency, table, client, adapter, or sync code. See [Out of scope](#out-of-scope).
+Implementation: not started. This ADR changes how the product describes itself and what
+the current schemas must preserve. It authorizes no Supabase dependency, table, client,
+adapter, or sync code by itself; [ADR 0041](0041-optional-accounts.md) specifies the
+optional accounts, sync and account deletion that build on it. See
+[Out of scope](#out-of-scope).
 
 ## Context
 
@@ -86,16 +88,13 @@ the current schema and boundaries, and must be preserved:
 
 ### 5. Accounts must earn themselves
 
-Recorded as product direction, not as behavior to build now:
+- Basic weather and general outfit recommendations stay usable for a signed-out user.
+- An account is optional and gates no existing feature. What it earns its place with is
+  continuity: the Closet and History are the things a user actually loses today when they
+  change phones, so the account carries them across devices.
 
-- Basic weather and general outfit recommendations should stay usable for a signed-out
-  user unless a later product decision changes that.
-- Richer personalization is the natural account-backed tier.
-- The Closet is the strongest candidate for an account-required feature, because backup,
-  cross-device persistence, and synchronized photos are the things a user actually loses
-  today when they change phones.
-
-Account gating is not implemented, designed, or scheduled by this ADR.
+[ADR 0041](0041-optional-accounts.md) defines what the account carries, how device rows
+move into it, and how sign-out and deletion behave.
 
 ## Consequences
 
@@ -104,12 +103,14 @@ Account gating is not implemented, designed, or scheduled by this ADR.
 - A future contributor now has an answer to "what happens after accounts" and therefore has no
   reason to invent one.
 - The migration is still real work: promoting existing device rows into an authenticated
-  remote profile needs its own ADR when it is scheduled.
+  remote profile is specified by [ADR 0041](0041-optional-accounts.md).
 
 ## Out of scope
 
-This ADR authorizes none of the following, and adding any of them without a further
-approved decision is a violation of it:
+This ADR authorizes none of the following. [ADR 0041](0041-optional-accounts.md)
+specifies the accounts, per-row sync, conflict rule, remote tables and account UI of
+phase 9; adding any of them beyond what ADR 0041 specifies, without a further approved
+decision, is a violation of both:
 
 - A sync engine, outbox, conflict-resolution protocol, or server revision system.
 - Supabase tables, Auth, Storage buckets, client SDK, or remote repository
