@@ -50,7 +50,7 @@ import {
   type LoadedTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
-import { TitleWeatherSymbol } from '@/features/today/presentation/weather-glyph';
+import { TitleWeatherSymbol } from '@/features/today/presentation/title-weather-symbol';
 import { formatWallClockTime } from '@/presentation/format-clock-time';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
