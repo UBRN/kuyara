@@ -12,7 +12,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | 4. Daily style and loading | Aesthetics, morning and evening sheets, first-generation runway and Today pill removal | Shipped in build 15 |
 | 5. Colour and history | Outfit history and garment edit sheet shipped in build 15; wider Closet palette, patterns, migration 20 and camera capture implemented for build 16 | Implemented for build 16 |
 | 6. Silhouettes and suggested colour | Ink-edge silhouettes, eight new drawings and 31-colour catalog colorways | Shipped in build 15 |
-| 7. Manual mix-and-match | Catalog-piece swaps on outfit detail: row Change and picker, tap and swipe on the board; 7b: the tapped piece grows in place and changes by swipe or the candidate strip under the board | Implemented for build 16; gesture evidence is Simulator-only. 7b implemented on main for build 17; Simulator pass pending |
+| 7. Manual mix-and-match | Catalog-piece swaps on outfit detail: row Change and picker, tap and swipe on the board; 7b: the tapped piece grows in place and changes by swipe or the candidate strip under the board | Implemented for build 16; gesture evidence is Simulator-only. 7b implemented on main for build 17; its Simulator walkthrough passed after the reopened-board and drag-start fixes |
 | 8. Onboarding walkthrough | Nine-step coach-mark tour over the real screens for new and existing users, its one-time gate (migration 22) and the Settings, Help row | Implemented for build 16; migration replay and Simulator walkthrough passed |
 | 9. Optional accounts | Apple and Google sign-in through Supabase Auth, Closet and History sync with the server-arrival conflict rule, and account deletion with Apple token revocation ([ADR 0041](adr/0041-optional-accounts.md)) | Accepted; not implemented. Public accounts wait for the KVKK transfer contract and the Supabase Pro plan |
 
@@ -83,7 +83,7 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | H1 | New and existing users get a one-time walkthrough; AR5 gives it a separate version column | [ADR 0036](adr/0036-display-name-and-one-time-prompt-gate.md) |
 | I1 | Optional native-token accounts preserve local profile authority | [ADR 0041](adr/0041-optional-accounts.md), [product](product-decisions.md), [architecture](architecture.md) |
 | I2 | Profile completion is dismissible and members gain sync benefits | [ADR 0041](adr/0041-optional-accounts.md), [product](product-decisions.md) |
-| I3 | New records stay sync-ready without building a sync engine; AR13 specifies the fields | [ADR 0041](adr/0041-optional-accounts.md), [architecture](architecture.md), [ADR 0038](adr/0038-outfit-history.md) |
+| I3 | New records carry the sync-ready fields that AR13 specifies, and ADR 0041 defines the sync that uses them | [ADR 0041](adr/0041-optional-accounts.md), [architecture](architecture.md), [ADR 0038](adr/0038-outfit-history.md) |
 | I4 | Sending coarse profile metadata to Worker AI remains deferred | [roadmap](roadmap.md), [ADR 0041](adr/0041-optional-accounts.md), Turkish vault note |
 | J1 | This roadmap and its Turkish vault twin carry the plan | [status](current-status.md) |
 | J2 | New localized copy uses whole sentences | [product](product-decisions.md) |
