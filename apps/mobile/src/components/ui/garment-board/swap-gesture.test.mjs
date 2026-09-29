@@ -20,6 +20,7 @@ import {
   swapScaledBox,
   swapStride,
   swapRevealScroll,
+  swapStageFit,
   swapStripLayout,
   swapWindow,
 } from './swap-gesture.ts';
@@ -77,8 +78,8 @@ test('the reveal scrolls the least that shows the strip, and never the enlarged 
   const visible = { top: 20 + 44, bottom: 667 - 49 };
   assert.equal(swapRevealScroll({ pieceTop: 10, panelBottom: 300 }, 100, visible), 0);
   assert.equal(swapRevealScroll({ pieceTop: 10, panelBottom: 500 }, 200, visible), 200 + 500 + 12 - 618);
-  // No room for both: the piece's top stops at the visible top.
-  assert.equal(swapRevealScroll({ pieceTop: 0, panelBottom: 598 }, 150, visible), 150 - 64);
+  // No room for both: the piece's top stops `spacing.md` under the visible top.
+  assert.equal(swapRevealScroll({ pieceTop: 0, panelBottom: 598 }, 150, visible), 150 - 12 - 64);
   assert.equal(swapRevealScroll({ pieceTop: 0, panelBottom: 598 }, 40, visible), 0);
 });
 
@@ -101,8 +102,8 @@ function day(temperatureCelsius, condition, precipitationProbability) {
   };
 }
 
-/** The tallest reveal a three-row strip needs: from the enlarged piece's top to spacing.md under the grid. */
-function tallestThreeRowReveal(column, large) {
+/** Every three-row enlargement: its held stage and its strip's height (header, gap and grid). */
+function threeRowEnlargements(column, large) {
   const rule = large ? easierToSeeRule(detailPreset, 1.3, 0.05) : detailPreset;
   const compose = (pieces) => {
     const result = composeGarmentBoard(pieces.map((piece) => ({
@@ -115,7 +116,7 @@ function tallestThreeRowReveal(column, large) {
     return { boxes, order: result.order.map(({ slot }) => slot), height: result.stageHeight * column };
   };
   const header = large ? 56 : 44;
-  let tallest = 0;
+  const found = [];
   for (const temperature of [-15, -8, 4, 12]) {
     for (const [condition, rain] of [['clear', 0], ['snow', 0.6]]) {
       const snapshot = day(temperature, condition, rain);
@@ -139,26 +140,31 @@ function tallestThreeRowReveal(column, large) {
               stageWidth: column,
               stageHeight: composed.height,
             }));
-          const held = swapHeldStage(layouts.map(({ stageHeight }) => stageHeight));
-          const pieceTop = swapGrownBox(current.boxes.get(slot), swapGrowScale(layouts), column, held).y;
-          const panelBottom = held + 12 + header + 8 + strip.height;
-          tallest = Math.max(tallest, panelBottom + 12 - pieceTop);
+          found.push({
+            held: Math.max(swapHeldStage(layouts.map(({ stageHeight }) => stageHeight)), current.height),
+            panel: header + 8 + strip.height,
+          });
         }
       }
     }
   }
-  return tallest;
+  return found;
 }
 
-test('on a 375-point phone three rows show above the tab bar on a tall screen; on a 667-point one the last row waits', () => {
-  const tallest = tallestThreeRowReveal(343, false);
-  assert.ok(tallest > 0, 'a cold women\'s day offers the 13-candidate top');
-  // 375 x 812 (iPhone 13 mini): 812 - 50 - 44 - 34 - 49 = 635 points show.
-  assert.ok(tallest <= 635, `three rows need ${tallest.toFixed(1)} points`);
-  // 375 x 667 (iPhone SE): 667 - 20 - 44 - 49 = 554 points show. The reveal keeps the enlarged
-  // piece's top, so the header and the first two rows show and the third waits for a scroll.
-  assert.ok(tallest > 554);
-  assert.ok(tallest - (44 + 8) <= 554, `two rows need ${(tallest - 52).toFixed(1)} points`);
+test('on a 375-point phone the enlarged board fits three rows above the tab bar, Easier to see included', () => {
+  // 375 x 667 (iPhone SE): 667 - 20 - 44 - 49 = 554 points show; 375 x 812 (iPhone 13 mini):
+  // 812 - 50 - 44 - 34 - 49 = 635.
+  for (const [large, visible] of [[false, 554], [false, 635], [true, 554], [true, 635]]) {
+    const found = threeRowEnlargements(343, large);
+    assert.ok(found.length > 0, 'a cold women\'s day offers the 13-candidate top');
+    // Full width, the tallest does not fit the SE: the board has to compose narrower.
+    if (visible === 554) assert.ok(found.some(({ held, panel }) => 12 + held + 12 + panel + 12 > visible));
+    for (const { held, panel } of found) {
+      const fit = swapStageFit(held, panel, visible);
+      assert.ok(fit > 1 / SWAP_GROW_MIN, `the floor binds: ${held.toFixed(1)} + ${panel}`);
+      assert.ok(12 + held * fit + 12 + panel + 12 <= visible + 1e-9);
+    }
+  }
 });
 
 test('the hairline stands before the first unsuitable tile, after the row above at a row start, and not at all at an end', () => {
@@ -290,4 +296,21 @@ test('the marker follows the finger within a row and waits on its tile across a 
   assert.deepEqual(swapMarkerPosition({ x: 52, y: 0 }, { x: 104, y: 0 }, 0.5), { x: 78, y: 0 });
   assert.deepEqual(swapMarkerPosition({ x: 312, y: 0 }, { x: 0, y: 52 }, 0.8), { x: 312, y: 0 });
   assert.deepEqual(swapMarkerPosition({ x: 52, y: 0 }, null, 0.8), { x: 52, y: 0 });
+});
+
+test('an enlarged board composes just narrow enough for the stage and the strip to fit the visible height', () => {
+  // A 375 x 667 phone shows 554 points between its bars. Its tallest stage, 1.45 column widths
+  // (497 points), with a three-row strip (44 + 8 + 148) and `spacing.md` above, between and
+  // under them does not fit at full width.
+  const panel = 44 + 8 + 3 * 44 + 2 * 8;
+  const fit = swapStageFit(497, panel, 554);
+  assert.ok(fit < 1);
+  assert.ok(Math.abs(12 + 497 * fit + 12 + panel + 12 - 554) < 1e-9);
+  // A stage that already fits keeps its width.
+  assert.equal(swapStageFit(300, panel, 554), 1);
+  // Never so narrow that the enlarged piece draws under its resting size: past that, the page scrolls.
+  assert.equal(swapStageFit(900, panel, 554), 1 / SWAP_GROW_MIN);
+  // Nothing measured yet: the board keeps its width.
+  assert.equal(swapStageFit(0, panel, 554), 1);
+  assert.equal(swapStageFit(497, panel, 0), 1);
 });

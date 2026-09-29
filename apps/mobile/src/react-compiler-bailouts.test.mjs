@@ -52,7 +52,7 @@ const knownPruned = new Map([
   // The recommendation and the open outfit, read from provider state whose identity holds.
   ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 8 }],
   ['features/today/presentation/outfit-detail-screen.tsx', {}],
-  ['components/ui/garment-board/garment-swap-board.tsx', { GarmentSwapBoard: 32 }],
+  ['components/ui/garment-board/garment-swap-board.tsx', { GarmentSwapBoard: 28 }],
   ['components/ui/garment-board/garment-painting.tsx', {}],
 ]);
 

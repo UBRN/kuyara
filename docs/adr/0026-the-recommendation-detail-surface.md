@@ -103,7 +103,13 @@ The enlarged piece is drawn once more at its grow size and handed over to its re
 drawing on `motion.fast`, fading in from the tap and back once a quarter of the settle is
 travelled, so its outline is 1.9 points (2.8 with Easier to see) at both ends and never an
 upscaled raster. The stage keeps the height of the slot's tallest candidate for the whole
-enlargement, so a change never moves a tile under a finger. Each neighbour waits wholly
+enlargement, so a change never moves a tile under a finger. The held stage and the strip fit between the
+navigation bar and the tab bar with `spacing.md` above, between and under them: where they
+would not, the whole board composes narrower for the enlargement, centred, just enough to fit,
+and the piece grows in that board; it never narrows so far that the enlarged piece draws under
+its resting size, and past that the page scrolls. An enlargement scrolls the page by the least
+that shows the strip, never so far that the enlarged piece comes within `spacing.md` of the
+navigation bar. Each neighbour waits wholly
 behind its side of the window, a step being its own grown width from there, so a wider
 neighbour never shows when a drag begins; a paged piece still sliding when the enlargement
 settles finishes its slide in the window it had. One height carries the stage

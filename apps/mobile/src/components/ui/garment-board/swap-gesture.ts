@@ -253,9 +253,23 @@ export function swapMarkerPosition(
 }
 
 /**
+ * How narrow the board composes while a piece is enlarged, as a share of its width: just
+ * enough for `spacing.md` above the held stage, the stage, `spacing.md`, the strip and
+ * `spacing.md` under it to fit the page's visible height, so every tile shows with the
+ * whole enlarged piece clear of the navigation bar above it. Never under
+ * 1 / `SWAP_GROW_MIN`, where the enlarged piece is still drawn at least at its resting size;
+ * past that the page scrolls as before.
+ */
+export function swapStageFit(held: number, panelHeight: number, visibleHeight: number): number {
+  if (!(held > 0) || !(visibleHeight > 0)) return 1;
+  return clamp((visibleHeight - 3 * spacing.md - panelHeight) / held, 1 / SWAP_GROW_MIN, 1);
+}
+
+/**
  * How far the page scrolls when a piece is enlarged (final-spec section 3): the least that
  * shows the strip's bottom `spacing.md` above the visible bottom, never so far that the
- * enlarged piece's top leaves the visible top, and nothing when the strip already shows.
+ * enlarged piece's top comes within `spacing.md` of the visible top, and nothing when the
+ * strip already shows.
  * `pieceTop` and `panelBottom` are in board points, `boardTop` and `visible` in window points.
  */
 export function swapRevealScroll(
@@ -264,5 +278,5 @@ export function swapRevealScroll(
   visible: Readonly<{ top: number; bottom: number }>,
 ): number {
   const needed = boardTop + area.panelBottom + spacing.md - visible.bottom;
-  return Math.max(0, Math.min(needed, boardTop + area.pieceTop - visible.top));
+  return Math.max(0, Math.min(needed, boardTop + area.pieceTop - spacing.md - visible.top));
 }

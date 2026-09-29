@@ -101,6 +101,9 @@ function detailTree(
   easierToSee = false,
   system: SystemVisibility = { boldText: false, increaseContrast: false },
   opening = 0,
+  metrics: Readonly<{ width: number; height: number; top: number; bottom: number }> = {
+    width: 390, height: 844, top: 59, bottom: 34,
+  },
 ) {
   return (
     <LocalizationContext value={{ language, messages: messages[language], hour12: false, temperatureUnit: 'celsius' }}>
@@ -108,8 +111,8 @@ function detailTree(
         <SystemVisibilityContext value={system}>
         <EasierToSeeContext value={easierToSee}>
         <SafeAreaProvider initialMetrics={{
-          frame: { x: 0, y: 0, width: 390, height: 844 },
-          insets: { top: 59, right: 0, bottom: 34, left: 0 },
+          frame: { x: 0, y: 0, width: metrics.width, height: metrics.height },
+          insets: { top: metrics.top, right: 0, bottom: metrics.bottom, left: 0 },
         }}>
           <TourTargetsContext value={tourTargets}>
             {/* A new key is a new route: detail left and opened again. */}
@@ -896,4 +899,37 @@ test('every drawing wrapper on the board, with the strip open or closed, has a r
   await activate(result, 'footwear');
   expect(wrappers().some((outer) => StyleSheet.flatten(outer.props.style).overflow === 'hidden')).toBe(true);
   check();
+});
+
+// ADR 0026 section 6: while a piece is enlarged, the held stage and the strip fit between the
+// navigation bar (44 points) and the tab bar (49 points), so every tile can be pressed without
+// the enlarged piece leaving the top. The 375-point phones are the tightest: 667 points tall,
+// and 812 points tall with Easier to see.
+describe.each([
+  { name: '375 x 667', metrics: { width: 375, height: 667, top: 20, bottom: 0 }, large: false },
+  { name: '375 x 667 with Easier to see', metrics: { width: 375, height: 667, top: 20, bottom: 0 }, large: true },
+  { name: '375 x 812 with Easier to see', metrics: { width: 375, height: 812, top: 50, bottom: 34 }, large: true },
+  { name: '402 x 874', metrics: { width: 402, height: 874, top: 62, bottom: 34 }, large: false },
+  { name: '402 x 874 with Easier to see', metrics: { width: 402, height: 874, top: 62, bottom: 34 }, large: true },
+])('$name', ({ metrics, large }) => {
+  test('the enlarged board and its whole strip fit above the tab bar', async () => {
+    Dimensions.set({ window: { ...originalDimensions, width: metrics.width, height: metrics.height, fontScale: 1 } });
+    const column = metrics.width - 32;
+    const visible = metrics.height - metrics.top - 44 - metrics.bottom - 49;
+    const result = await render(detailTree('en', {}, null, large, undefined, 0, metrics));
+    await fireEvent(result.getByTestId('outfit-detail-content'),
+      'layout', { nativeEvent: { layout: { width: column, height: 1000, x: 0, y: 0 } } });
+    for (const { slot } of archetype('en').boardPieces) {
+      await activate(result, slot);
+      const strip = result.getByTestId('outfit-detail-board-strip');
+      const panel = StyleSheet.flatten(strip.parent!.props.style);
+      const header = StyleSheet.flatten(result.getByTestId('outfit-detail-board-strip-header').props.style);
+      const grid = StyleSheet.flatten(result.getByTestId('outfit-detail-board-strip-grid').props.style);
+      expect(grid.width).toBeLessThanOrEqual(column);
+      // `spacing.md` above the stage, the stage, the strip to its last row, and `spacing.md` under it.
+      const bottom = 12 + panel.top + header.minHeight + grid.marginTop + grid.height + 12;
+      expect(bottom).toBeLessThanOrEqual(visible);
+      await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    }
+  });
 });
