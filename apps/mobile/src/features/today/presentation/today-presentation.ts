@@ -8,6 +8,7 @@ import {
   localDayKind,
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
+import { dateTimeFormat, numberFormat } from '@/domain/intl-format';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import {
@@ -238,7 +239,7 @@ export type TodayPresentation =
     }>;
 
 function formatPercent(ratio: number, language: SupportedLanguage): string {
-  return new Intl.NumberFormat(localeTag(language), {
+  return numberFormat(localeTag(language), {
     style: 'percent',
     maximumFractionDigits: 0,
   }).format(ratio);
@@ -255,7 +256,7 @@ function formatTime(
   // belongs to the forecast passes the place's zone, so the sentence and the rail agree.
   timeZone?: string,
 ): string {
-  return new Intl.DateTimeFormat(localeTag(language), {
+  return dateTimeFormat(localeTag(language), {
     hour: hour12 ? 'numeric' : '2-digit',
     minute: '2-digit',
     hour12,
@@ -287,13 +288,13 @@ function formatFreshnessTime(
 const quarterHourMs = 15 * 60 * 1000;
 
 function localDate(instant: number, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+  return dateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
     .format(new Date(instant));
 }
 
 /** The long day name a window sentence uses when it starts on another calendar date. */
 function formatWindowDay(instant: number, language: SupportedLanguage, timeZone: string): string {
-  return new Intl.DateTimeFormat(localeTag(language), {
+  return dateTimeFormat(localeTag(language), {
     weekday: 'long', day: 'numeric', month: 'long', timeZone,
   }).format(new Date(instant));
 }

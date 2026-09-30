@@ -39,6 +39,7 @@ import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
 import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
+import { dateTimeFormat, numberFormat } from '@/domain/intl-format';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { formatTemperature, formatTemperatureDifference, formatTemperatureValue, localeTag } from '@/presentation/format-temperature';
@@ -47,7 +48,7 @@ import { radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 function decimal(value: number, language: 'en' | 'tr'): string {
-  return new Intl.NumberFormat(localeTag(language), {
+  return numberFormat(localeTag(language), {
     maximumFractionDigits: 1,
     // A wind that rounds away to nothing must not read as blowing backwards.
   }).format(Math.round(Math.abs(value) * 10) === 0 ? 0 : value);
@@ -59,7 +60,7 @@ function time(
   language: 'en' | 'tr',
   hour12: boolean,
 ): string {
-  return new Intl.DateTimeFormat(localeTag(language), {
+  return dateTimeFormat(localeTag(language), {
     // A padded hour reads as a stopwatch in the 12-hour convention ("02:00 PM"), so the
     // 12-hour label drops the padding the 24-hour one keeps.
     hour: hour12 ? 'numeric' : '2-digit', minute: '2-digit', hour12, timeZone,
@@ -91,14 +92,14 @@ function weekday(
   language: 'en' | 'tr',
   length: 'short' | 'long',
 ): string {
-  return new Intl.DateTimeFormat(localeTag(language), {
+  return dateTimeFormat(localeTag(language), {
     timeZone,
     weekday: length,
   }).format(new Date(value));
 }
 
 function percentage(value: number, language: 'en' | 'tr'): string {
-  return new Intl.NumberFormat(localeTag(language), {
+  return numberFormat(localeTag(language), {
     maximumFractionDigits: 0,
     style: 'percent',
   }).format(value);

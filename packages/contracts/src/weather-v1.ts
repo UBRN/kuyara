@@ -90,16 +90,29 @@ export function isValidWeatherHourlyForecastWindow(
   ));
 }
 
-export function weatherLocalDateKey(timestamp: string, timeZone: string): string | null {
-  try {
-    const date = new Date(timestamp);
-    if (!Number.isFinite(date.getTime())) return null;
-    const parts = new Intl.DateTimeFormat('en', {
+// Building a formatter costs about a hundred times formatting with one, and a forecast asks
+// this for every hour, so one is kept per zone. An invalid zone throws and is never kept.
+const localDateFormats = new Map<string, Intl.DateTimeFormat>();
+
+function localDateFormat(timeZone: string): Intl.DateTimeFormat {
+  let format = localDateFormats.get(timeZone);
+  if (!format) {
+    format = new Intl.DateTimeFormat('en', {
       timeZone,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-    }).formatToParts(date);
+    });
+    localDateFormats.set(timeZone, format);
+  }
+  return format;
+}
+
+export function weatherLocalDateKey(timestamp: string, timeZone: string): string | null {
+  try {
+    const date = new Date(timestamp);
+    if (!Number.isFinite(date.getTime())) return null;
+    const parts = localDateFormat(timeZone).formatToParts(date);
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
     return `${values.year}-${values.month}-${values.day}`;
   } catch {

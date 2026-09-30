@@ -1,3 +1,4 @@
+import { dateTimeFormat } from '@/domain/intl-format';
 import {
   isWeatherConditionCode,
   type NormalizedCoordinates,
@@ -52,7 +53,7 @@ export function localHourOf(fetchedAt: string, timeZone: string): number | null 
   if (!Number.isFinite(timestamp)) return null;
 
   try {
-    const parts = new Intl.DateTimeFormat('en', {
+    const parts = dateTimeFormat('en', {
       hour: '2-digit',
       hourCycle: 'h23',
       timeZone,

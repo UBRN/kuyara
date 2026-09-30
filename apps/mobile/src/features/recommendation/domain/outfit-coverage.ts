@@ -1,3 +1,4 @@
+import { dateTimeFormat } from '@/domain/intl-format';
 import type { WeatherMeasurements } from '@/features/weather/domain/weather';
 import { chillyCelsius, isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
@@ -6,7 +7,7 @@ import type { ClothingRequirements } from '@/features/recommendation/domain/weat
 export type OutfitCoverage = Readonly<{ start: string; end: string }>;
 
 function localParts(instant: number, timeZone: string) {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dateTimeFormat('en-US', {
     timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit',
   }).formatToParts(new Date(instant));
