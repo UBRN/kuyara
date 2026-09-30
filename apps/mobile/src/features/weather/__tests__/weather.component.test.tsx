@@ -257,6 +257,8 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(result.getByText(copy.sampleDisclosure)).toBeOnTheScreen();
     expect(result.getAllByText(copy.conditions.rain).length).toBeGreaterThan(0);
     expect(result.getByLabelText(copy[noticeKey]).props.accessibilityLiveRegion).toBe('polite');
+    // Law 7: the notice opens and closes in place rather than snapping.
+    expect(within(result.getByTestId('weather-stale-notice')).getByLabelText(copy[noticeKey])).toBeOnTheScreen();
   });
 
   test('groups localized current metrics and hides the decorative glyph', async () => {
