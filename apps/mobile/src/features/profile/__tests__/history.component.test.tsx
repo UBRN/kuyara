@@ -1,5 +1,6 @@
 import { act, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -35,6 +36,8 @@ jest.mock('expo-router', () => {
 
 // eslint-disable-next-line import/first
 import HistoryRoute from '@/app/(tabs)/(profile)/history';
+// eslint-disable-next-line import/first
+import { HistoryScreen } from '@/features/profile/presentation/history-screen';
 
 function record(dayKey: string, archetypeId: OutfitHistoryRecord['outfit']['archetypeId'],
   formality: OutfitHistoryRecord['outfit']['formality']): OutfitHistoryRecord {
@@ -162,4 +165,26 @@ test('a transient read failure on refocus keeps the list already loaded', async 
   await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
   expect(result.getByTestId('history-entry-2026-09-23')).toBeOnTheScreen();
   expect(result.queryByTestId('history-error')).toBeNull();
+});
+
+// Law 7: the intro and the entries arrive in reading order, one stagger step apart; a
+// refocus that finds a new day brings in that entry alone.
+test('History arrives in reading order and a new day arrives alone', async () => {
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  const entry = (dayKey: string) => ({ dayKey, outfit: record(dayKey, 'layered_warmth', 'casual').outfit });
+  const screen = (entries: ReturnType<typeof entry>[]) => (
+    <Providers language="en" list={async () => []}>
+      <HistoryScreen entries={entries} loadFailed={false} />
+    </Providers>
+  );
+  const { stagger } = lightTheme.motion;
+  const result = await render(screen([entry('2026-09-23'), entry('2026-09-21')]));
+  const delays = () => withDelay.mock.calls.map(([delay]) => delay);
+  // Two calls per arrival (the fade and the travel): intro, then each entry.
+  expect(delays()).toEqual([0, 0, stagger, stagger, 2 * stagger, 2 * stagger]);
+
+  withDelay.mockClear();
+  await result.rerender(screen([entry('2026-09-24'), entry('2026-09-23'), entry('2026-09-21')]));
+  expect(delays()).toEqual([stagger, stagger]);
+  withDelay.mockRestore();
 });

@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, GarmentTileArtwork, Screen } from '@/components/ui';
+import { AppText, Entrance, GarmentTileArtwork, Screen } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { archetypeLabel } from '@/features/recommendation/application/recommendation-application-controller';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
@@ -21,7 +21,8 @@ type HistoryScreenProps = Readonly<{
 
 /**
  * ADR 0038: the looks the reader chose to wear, one per dressing day, newest first. Each
- * entry's title is its date. No streak, count or penalty.
+ * entry's title is its date. No streak, count or penalty. Law 7: the content arrives in
+ * reading order, and a refocus re-read brings in only an entry that is new.
  */
 export function HistoryScreen({ entries, loadFailed }: HistoryScreenProps) {
   const { language, messages } = useLocalization();
@@ -46,19 +47,23 @@ export function HistoryScreen({ entries, loadFailed }: HistoryScreenProps) {
   if (entries.length === 0) {
     return (
       <Screen testID="history-screen">
-        <View style={styles.empty} testID="history-empty">
-          <AppText accessibilityRole="header" style={styles.centered} variant="title">
-            {copy.historyEmptyTitle}
-          </AppText>
-          <AppText colorRole="textSecondary" style={styles.centered}>{copy.historyEmptyBody}</AppText>
-        </View>
+        <Entrance>
+          <View style={styles.empty} testID="history-empty">
+            <AppText accessibilityRole="header" style={styles.centered} variant="title">
+              {copy.historyEmptyTitle}
+            </AppText>
+            <AppText colorRole="textSecondary" style={styles.centered}>{copy.historyEmptyBody}</AppText>
+          </View>
+        </Entrance>
       </Screen>
     );
   }
 
   return (
     <Screen testID="history-screen">
-      <AppText colorRole="textSecondary" variant="caption">{copy.historyIntro}</AppText>
+      <Entrance>
+        <AppText colorRole="textSecondary" variant="caption">{copy.historyIntro}</AppText>
+      </Entrance>
       <View testID="history-list">
         {entries.map(({ dayKey, outfit }, index) => {
           // A bare date is a calendar day, not an instant: read it at noon UTC and format it
@@ -69,38 +74,39 @@ export function HistoryScreen({ entries, loadFailed }: HistoryScreenProps) {
           const core = outfit.garments.one_piece ?? outfit.garments.primary_top;
           const coreType = core ? getGarmentType(core) : undefined;
           return (
-            <View
-              accessible
-              key={dayKey}
-              style={[styles.row, index > 0 && {
-                borderTopColor: theme.colors.borderSubtle,
-                borderTopWidth: StyleSheet.hairlineWidth,
-              }]}
-              testID={`history-entry-${dayKey}`}>
-              <View style={[styles.tile, { backgroundColor: theme.colors.surfaceMuted }]}>
-                {coreType ? (
-                  <GarmentTileArtwork
-                    category={coreType.structuralCategory}
-                    colorFamily={null}
-                    garmentTypeId={coreType.typeId}
-                    glyphSize={TILE_SIZE * 0.6}
-                    height={TILE_SIZE}
-                    photoTestID={`history-entry-photo-${dayKey}`}
-                    photoUri={null}
-                    placeholderTestID={`history-entry-glyph-${dayKey}`}
-                    silhouetteTestID={`history-entry-silhouette-${dayKey}`}
-                    width={TILE_SIZE}
-                  />
-                ) : null}
+            <Entrance index={index + 1} key={dayKey}>
+              <View
+                accessible
+                style={[styles.row, index > 0 && {
+                  borderTopColor: theme.colors.borderSubtle,
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                }]}
+                testID={`history-entry-${dayKey}`}>
+                <View style={[styles.tile, { backgroundColor: theme.colors.surfaceMuted }]}>
+                  {coreType ? (
+                    <GarmentTileArtwork
+                      category={coreType.structuralCategory}
+                      colorFamily={null}
+                      garmentTypeId={coreType.typeId}
+                      glyphSize={TILE_SIZE * 0.6}
+                      height={TILE_SIZE}
+                      photoTestID={`history-entry-photo-${dayKey}`}
+                      photoUri={null}
+                      placeholderTestID={`history-entry-glyph-${dayKey}`}
+                      silhouetteTestID={`history-entry-silhouette-${dayKey}`}
+                      width={TILE_SIZE}
+                    />
+                  ) : null}
+                </View>
+                <View style={styles.text}>
+                  <AppText variant="bodyStrong">{dateFormat.format(date)}</AppText>
+                  <AppText colorRole="textSecondary">{title}</AppText>
+                  <AppText colorRole="textSecondary" variant="caption">
+                    {messages.today.dailyStyle[outfit.formality]}
+                  </AppText>
+                </View>
               </View>
-              <View style={styles.text}>
-                <AppText variant="bodyStrong">{dateFormat.format(date)}</AppText>
-                <AppText colorRole="textSecondary">{title}</AppText>
-                <AppText colorRole="textSecondary" variant="caption">
-                  {messages.today.dailyStyle[outfit.formality]}
-                </AppText>
-              </View>
-            </View>
+            </Entrance>
           );
         })}
       </View>

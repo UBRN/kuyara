@@ -6,6 +6,7 @@ import {
   AppText,
   Button,
   ClosetRack,
+  Entrance,
   GarmentDrawing,
   GarmentSlotGlyph,
   Icon,
@@ -273,6 +274,9 @@ export function ProfileScreen({
 
   return (
     <Screen contentContainerStyle={styles.content} ref={scrollRef} scrollToOverflowEnabled testID="profile-screen">
+      {/* Law 7: the content arrives once, in reading order; a state change inside a block
+          never replays it. */}
+      <Entrance index={0}>
       <TourTarget id="closet-head">
       <Pressable
         accessibilityHint={copy.closetHeadingHint}
@@ -328,19 +332,23 @@ export function ProfileScreen({
         )}
       </Pressable>
       </TourTarget>
+      </Entrance>
 
       {/* The rack stays in the same place in every state: bare while loading or after an
           error, with empty hangers waiting when the Closet is empty (O9). */}
-      <TourTarget id="rack">
-        <ClosetRack
-          accessibilityHint={copy.closetHeadingHint}
-          accessibilityLabel={rackLabel}
-          onPress={isReady ? () => onOpenWardrobe() : undefined}
-          pieces={rackPieces}
-          testID="profile-rack"
-        />
-      </TourTarget>
+      <Entrance index={1}>
+        <TourTarget id="rack">
+          <ClosetRack
+            accessibilityHint={copy.closetHeadingHint}
+            accessibilityLabel={rackLabel}
+            onPress={isReady ? () => onOpenWardrobe() : undefined}
+            pieces={rackPieces}
+            testID="profile-rack"
+          />
+        </TourTarget>
+      </Entrance>
 
+      <Entrance index={2}>
       {state.status === 'loading' ? (
         <CategoryCells onOpenCategory={onOpenCategory} summaries={null} />
       ) : state.status === 'error' ? (
@@ -375,7 +383,9 @@ export function ProfileScreen({
       ) : (
         <CategoryCells onOpenCategory={onOpenCategory} summaries={summaries} />
       )}
+      </Entrance>
 
+      <Entrance index={3}>
       <View style={styles.group}>
         <ListRowGroup testID="profile-group">
           {(hasOwned || hasWanted) && (
@@ -405,6 +415,7 @@ export function ProfileScreen({
           </TourTarget>
         </ListRowGroup>
       </View>
+      </Entrance>
     </Screen>
   );
 }
