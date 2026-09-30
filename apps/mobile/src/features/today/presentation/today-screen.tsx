@@ -668,9 +668,7 @@ function TodayScreenContent({
                       <AppText numberOfLines={2} style={styles.outfitName} variant="label">
                         {suggestion.title}
                       </AppText>
-                      <View style={styles.disclosure}>
-                        <Icon color={theme.colors.textPrimary} name="chevronRight" size={12} />
-                      </View>
+                      <Icon color={theme.colors.iconSecondary} name="chevronRight" size={16} />
                     </View>
                   </PressScale>
                 </Entrance>
@@ -970,7 +968,6 @@ const styles = StyleSheet.create({
   updatingRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   updatingText: { flexShrink: 1 },
   outfitName: { flex: 1, flexShrink: 1 },
-  disclosure: { opacity: 0.55 },
   insight: { marginTop: spacing.xl },
   finishingTouches: { gap: spacing.sm, marginTop: spacing.md },
   accessoryCaption: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexWrap: 'wrap',
