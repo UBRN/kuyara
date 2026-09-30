@@ -142,6 +142,20 @@ test('the History row opens History', async () => {
   expect(mockPush).toHaveBeenCalledWith('/history');
 });
 
+test('a quick double tap on the History row opens History once', async () => {
+  mockPush.mockClear();
+  const result = await render(
+    <Providers displayName={null}>
+      <ProfileRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId('profile-history-row'));
+  await fireEvent.press(result.getByTestId('profile-history-row'));
+  expect(mockPush).toHaveBeenCalledTimes(1);
+  expect(mockPush).toHaveBeenCalledWith('/history');
+});
+
 // O9: a category cell opens the Closet on that category.
 test('a category cell opens the Closet on its category', async () => {
   const withShoes = {

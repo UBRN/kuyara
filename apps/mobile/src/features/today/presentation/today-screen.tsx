@@ -7,7 +7,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
 import type { DressStyle } from '@kuyara/contracts';
 
 import {
@@ -31,6 +30,7 @@ import {
 import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
+import { useSinglePush } from '@/components/ui/use-single-push';
 import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
@@ -174,7 +174,7 @@ function TodayScreenContent({
   firstDressingDay = false,
   awaitingDayQuestion = false,
 }: TodayScreenProps & Readonly<{ now: number }>) {
-  const router = useRouter();
+  const push = useSinglePush();
   // The Phase 8 tour asks Today to bring its outfit or its last action into view, and to
   // scroll further when the scroll view's end leaves that action under the tab bar.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -361,7 +361,7 @@ function TodayScreenContent({
               label={presentation.actionLabel}
               onPress={
                 presentation.reason === 'no-active-location'
-                  ? () => router.push('/weather/location')
+                  ? () => push('/weather/location')
                   : onRefresh
               }
             />

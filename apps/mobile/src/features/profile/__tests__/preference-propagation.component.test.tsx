@@ -40,11 +40,15 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { version: '1.0.0' }, platform: { ios: { buildNumber: '5' } } },
 }));
 
-jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), push: jest.fn() },
-  Stack: { Screen: () => null },
-  useFocusEffect: () => undefined,
-}));
+jest.mock('expo-router', () => {
+  const router = { back: jest.fn(), push: jest.fn() };
+  return {
+    router,
+    Stack: { Screen: () => null },
+    useFocusEffect: () => undefined,
+    useRouter: () => router,
+  };
+});
 
 const mockRouter = jest.requireMock('expo-router').router as {
   back: jest.Mock;
@@ -334,6 +338,27 @@ test('live preferences and support propagate localized behavior without remounti
     { schema_version: 3, feature_name: 'appearance_override' },
   ]);
   openURL.mockRestore();
+});
+
+test('a quick double tap on a Settings row opens its screen once', async () => {
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider
+          analytics={new RecordingProductAnalytics('undecided')}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+  mockRouter.push.mockClear();
+
+  const row = await result.findByTestId('settings-service-providers-row');
+  await fireEvent.press(row);
+  await fireEvent.press(row);
+  expect(mockRouter.push).toHaveBeenCalledTimes(1);
+  expect(mockRouter.push).toHaveBeenCalledWith('/settings/service-providers');
 });
 
 test('Privacy row is a door while analytics consent is unanswered', async () => {

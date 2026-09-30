@@ -487,6 +487,29 @@ test('mobile production code has no bare global fetch call', () => {
   assert.deepEqual(found, [], 'take `fetch` as a parameter and call that');
 });
 
+// A stack push always appends, so a raw `router.push` behind a tap opens the same screen twice
+// on a quick double tap. Tap handlers push through `useSinglePush` (components/ui); the only
+// raw push left opens the consent sheet from a hook, never from a tap. The list only shrinks.
+const rawRouterPushAllowlist = {
+  'app/_layout.tsx': 1,
+};
+
+test('a tap in a route or feature screen pushes through useSinglePush, not a raw router.push', () => {
+  const counts = {};
+  for (const relativePath of sourceFiles()) {
+    if (!/^(?:app\/|features\/[^/]+\/presentation\/)/.test(relativePath)) continue;
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    const found = text.match(/\brouter\.push\(/g)?.length ?? 0;
+    if (found > 0) counts[relativePath] = found;
+  }
+
+  assert.deepEqual(
+    counts,
+    rawRouterPushAllowlist,
+    'push from a tap with useSinglePush; drop an allowlist entry once its raw push is gone',
+  );
+});
+
 // A test double never sits beside production code: the mobile sample provider lives under a
 // `__tests__` folder, where no composition root can import it by accident. The Worker half
 // is in `apps/worker/src/architecture-invariants.test.mjs`.

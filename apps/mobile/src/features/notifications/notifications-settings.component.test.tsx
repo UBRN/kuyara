@@ -23,11 +23,15 @@ jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-u
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 
-jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), navigate: jest.fn(), push: jest.fn() },
-  Stack: { Screen: () => null },
-  useFocusEffect: () => undefined,
-}));
+jest.mock('expo-router', () => {
+  const router = { back: jest.fn(), navigate: jest.fn(), push: jest.fn() };
+  return {
+    router,
+    Stack: { Screen: () => null },
+    useFocusEffect: () => undefined,
+    useRouter: () => router,
+  };
+});
 
 const mockRouter = jest.requireMock('expo-router').router as {
   back: jest.Mock;

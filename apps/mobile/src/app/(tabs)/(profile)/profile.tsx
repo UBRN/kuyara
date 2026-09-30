@@ -1,6 +1,7 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 
 import { GlassButton } from '@/components/ui';
+import { useSinglePush } from '@/components/ui/use-single-push';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
@@ -9,7 +10,7 @@ import { useMessages } from '@/localization/use-messages';
 
 export default function ProfileRoute() {
   const messages = useMessages();
-  const router = useRouter();
+  const push = useSinglePush();
   useScreenViewed('profile');
   // Profile renders its rows from the already-ready profile, so its content is present on
   // the first render.
@@ -30,7 +31,7 @@ export default function ProfileRoute() {
               icon="settings"
               kind="bar"
               label={messages.profile.settingsAction}
-              onPress={() => router.push('/settings')}
+              onPress={() => push('/settings')}
               testID="profile-settings-button"
             />
           ),
@@ -40,13 +41,13 @@ export default function ProfileRoute() {
       />
       <ProfileScreen
         displayName={state.status === 'ready' ? state.profile.displayName : null}
-        onAddPiece={() => router.push('/wardrobe/new')}
+        onAddPiece={() => push('/wardrobe/new')}
         onOpenCategory={(category) =>
-          router.push({ params: { category }, pathname: '/wardrobe' })
+          push({ params: { category }, pathname: '/wardrobe' })
         }
-        onOpenHistory={() => router.push('/history')}
+        onOpenHistory={() => push('/history')}
         onOpenWardrobe={(filter) =>
-          router.push(filter ? { params: { filter }, pathname: '/wardrobe' } : '/wardrobe')
+          push(filter ? { params: { filter }, pathname: '/wardrobe' } : '/wardrobe')
         }
       />
     </>
