@@ -36,6 +36,13 @@ jest.mock('expo-router', () => {
   };
 });
 
+const mockSymbolView = jest.fn(
+  (_props: { name: string | { ios?: string }; size?: number }) => null,
+);
+jest.mock('expo-symbols', () => ({
+  SymbolView: (props: { name: string | { ios?: string }; size?: number }) => mockSymbolView(props),
+}));
+
 // eslint-disable-next-line import/first
 import WeatherRoute from '@/app/(tabs)/weather';
 
@@ -1449,4 +1456,26 @@ test('a snapshot that carries no outlook renders no daily section at all', async
   expect(result.queryByTestId('weather-daily-card', { includeHiddenElements: true })).toBeNull();
   expect(result.queryByText(messages.en.weather.dailyHeading)).toBeNull();
   expect(result.getByTestId('weather-hourly-card')).toBeOnTheScreen();
+});
+
+// Law 6: an icon's size tracks the text beside it. The stat and stale-notice icons sit
+// beside an eyebrow and a caption, so they take the caption step, 16, scaled with the text
+// the way the rail and the daily rows scale theirs.
+test('the stat and stale-notice icons take the caption step and scale with the text', async () => {
+  mockFontScale(1.353);
+  mockSymbolView.mockClear();
+  await render(
+    <Providers language="en" value={createValue({
+      ...baseState,
+      activeLocation: getManualLocation('sample.istanbul')!,
+      snapshot: sampleSnapshot(),
+      freshness: 'stale',
+      refreshFailure: 'offline',
+    })}><WeatherScreen /></Providers>,
+  );
+  const sizeOf = (ios: string) => mockSymbolView.mock.calls.find(([props]) =>
+    typeof props.name === 'object' && props.name.ios === ios)?.[0].size;
+  for (const ios of ['wind', 'humidity.fill', 'sun.max.fill', 'exclamationmark.triangle.fill']) {
+    expect(sizeOf(ios)).toBeCloseTo(16 * 1.353);
+  }
 });

@@ -164,7 +164,7 @@ function locationName(
 export function WeatherScreen() {
   const { hour12, language, messages, temperatureUnit } = useLocalization();
   const theme = useKuyaraTheme();
-  const { usesStackedLayout } = useTextScaling();
+  const { controlScale, usesStackedLayout } = useTextScaling();
   const copy = messages.weather;
   const application = useWeatherApplication();
   const { revalidateFreshness, state } = application;
@@ -518,7 +518,7 @@ export function WeatherScreen() {
                       styles.stat,
                       usesStackedLayout && styles.stackedStat,
                     ]}>
-                    <Icon color={theme.colors.iconSecondary} name={stat.icon} size={18} />
+                    <Icon color={theme.colors.iconSecondary} name={stat.icon} size={16 * controlScale} />
                     <AppText colorRole="textSecondary" variant="eyebrow">
                       {stat.label}
                     </AppText>
@@ -635,7 +635,7 @@ export function WeatherScreen() {
           accessibilityLiveRegion="polite"
           style={styles.staleNotice}
           variant="muted">
-          <Icon color={theme.colors.warningInk} name="warning" size={17} />
+          <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} />
           <AppText colorRole="warningInk" variant="caption">
             {failureCopy.notice}
           </AppText>
