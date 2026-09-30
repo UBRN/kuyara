@@ -9,8 +9,8 @@ primary-action clause and the ownership site in Law 8.
 
 A blanket prohibition on repetition conflicts with two accepted components:
 
-- `features/weather/presentation/weather-glyph.tsx` loops a cloud bob and a rain drop
-  fall with `withRepeat`. It renders on Weather.
+- The condition symbol on Today and Weather loops its turn, drift or fall with `withRepeat`
+  in one shared hook, `components/ui/use-condition-symbol-motion.ts`.
 - `features/profile/presentation/probe-loading-overlay.tsx` pulses its dots on the shared
   ambient hook, `components/ui/use-ambient-pulse.ts`, which owns the `withRepeat` loop.
 
@@ -144,7 +144,7 @@ enters the runway.
 
 ## Consequences
 
-- `weather-glyph.tsx` and `probe-loading-overlay.tsx` are permitted when they satisfy the
+- The condition symbol and `probe-loading-overlay.tsx` are permitted when they satisfy the
   conditional rule, and their durations belong on the ambient role.
 - `design-language.md`'s Law 7 and its "How to check a screen" list require reviewers to
   confirm that any repeating animation
