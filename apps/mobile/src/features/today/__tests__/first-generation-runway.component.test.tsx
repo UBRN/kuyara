@@ -198,9 +198,12 @@ test('rotates the insight, the phase and the one tip every two seconds', async (
   const insight = 'Rain keeps on until 14:00.';
   const result = await render(runway({ weather: { ...props.weather, insight } }));
   expect(result.getByTestId('first-generation-line')).toHaveTextContent(insight);
+  // The leaving line is dropped from the JS thread once its fade lands, a queued call here.
   await act(() => jest.advanceTimersByTime(2_000));
+  await act(() => jest.runAllTicks());
   expect(result.getByTestId('first-generation-line')).toHaveTextContent(messages.en.today.phase['asking-stylist']);
   await act(() => jest.advanceTimersByTime(2_000));
+  await act(() => jest.runAllTicks());
   expect(result.getByTestId('first-generation-line')).toHaveTextContent(copy.tip);
   expect(result.getByTestId('first-generation-line').props.accessibilityLiveRegion).toBe('polite');
 });
