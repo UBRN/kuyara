@@ -1,6 +1,7 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { useState, type PropsWithChildren } from 'react';
 import { AccessibilityInfo, Dimensions, FlatList, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
@@ -546,20 +547,46 @@ test('the grid draws coloured silhouettes for typed garments and accessories, an
   expect(result.queryByTestId(`wardrobe-silhouette-${legacyItem.id}`, hidden)).toBeNull();
 });
 
-// Law 7: opening the Closet is an arrival, so the whole grid enters in reading order;
-// returning from a save is not, so only the item that was just saved does. The tile's own
-// presence in the list is the indication either way, never the motion alone.
-test('every tile arrives on a plain open, and only the saved one after an add', () => {
-  expect(tileEntranceIndex('a', 0, null)).toBe(0);
-  expect(tileEntranceIndex('b', 3, undefined)).toBe(3);
+// Law 7: opening the Closet is an arrival, so the grid of its first render enters in
+// reading order; a tile mounting later and a return from a save are not, so only the item
+// that was just saved does. The tile's own presence in the list is the indication either
+// way, never the motion alone.
+test('the first render arrives, a later mount rests, and only the saved tile arrives after an add', () => {
+  expect(tileEntranceIndex('a', 0, null, true)).toBe(0);
+  expect(tileEntranceIndex('b', 3, undefined, true)).toBe(3);
+  // Scrolled into view or refilled after a delete: drawn at rest.
+  expect(tileEntranceIndex('b', 3, null, false)).toBeNull();
 
   // The list orders newest first, so the saved item is the first tile; it still arrives
-  // at the head of the stagger rather than inheriting its neighbours' delay.
-  expect(tileEntranceIndex('b', 0, 'b')).toBe(0);
-  expect(tileEntranceIndex('a', 1, 'b')).toBeNull();
+  // at the head of the stagger rather than inheriting its neighbours' delay, whenever it mounts.
+  expect(tileEntranceIndex('b', 0, 'b', true)).toBe(0);
+  expect(tileEntranceIndex('b', 9, 'b', false)).toBe(0);
+  expect(tileEntranceIndex('a', 1, 'b', true)).toBeNull();
   // A saved id the list no longer holds leaves every tile at rest rather than replaying
   // the whole grid.
-  expect(tileEntranceIndex('a', 0, 'gone')).toBeNull();
+  expect(tileEntranceIndex('a', 0, 'gone', true)).toBeNull();
+});
+
+test('deleting a piece refills the grid at rest instead of replaying its arrival', async () => {
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  const at = (id: string, day: number) => ({ ...legacyItem, id, createdAt: `2026-07-1${day}T10:00:00.000Z` });
+  const pieces = [at('a', 1), at('b', 2), at('c', 3), at('d', 4), at('e', 5)];
+  const screen = (items: readonly WardrobeItem[]) => (
+    <TestProviders>
+      <WardrobeListScreen initialCategory="top" onAdd={() => undefined} onEdit={() => undefined}
+        onRetry={() => undefined} state={readyState(items)} />
+    </TestProviders>
+  );
+  const result = await render(screen(pieces));
+  // The first render arrives: every tile starts its entrance.
+  expect(withDelay).toHaveBeenCalled();
+
+  withDelay.mockClear();
+  // Deleting the newest piece moves every later tile up a place, across a row boundary.
+  await result.rerender(screen(pieces.filter((item) => item.id !== 'e')));
+  expect(result.getByTestId('wardrobe-item-d')).toBeOnTheScreen();
+  expect(withDelay).not.toHaveBeenCalled();
+  withDelay.mockRestore();
 });
 
 test('the category follows the route, so a return from the add flow reselects it', async () => {
