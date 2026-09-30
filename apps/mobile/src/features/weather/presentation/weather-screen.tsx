@@ -1,5 +1,5 @@
 import { weatherLocalDateKey } from '@kuyara/contracts';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   RefreshControl,
@@ -21,6 +21,7 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
+import { useSinglePush } from '@/components/ui/use-single-push';
 import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import { useWeatherInteractionEvents } from '@/features/analytics/application/use-interaction-events';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
@@ -168,6 +169,7 @@ export function WeatherScreen() {
   const application = useWeatherApplication();
   const { revalidateFreshness, state } = application;
   const weatherEvents = useWeatherInteractionEvents();
+  const push = useSinglePush();
   // The control shows only a refresh the user pulled for. Binding it to the application's
   // `isRefreshing` also turned it on programmatically, and on iOS a RefreshControl that
   // starts while the screen is behind the location picker or freshly mounted keeps its
@@ -346,7 +348,7 @@ export function WeatherScreen() {
           glyph={({ color, size }) => <Icon color={color} name="location" size={size} />}
           label={activeName}
           labelWeight="bodyStrong"
-          onPress={() => router.push('/weather/location')}
+          onPress={() => push('/weather/location')}
           supportingText={locationCaption ?? undefined}
           testID="weather-change-location-button"
         />
