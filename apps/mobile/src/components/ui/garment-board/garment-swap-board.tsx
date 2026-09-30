@@ -474,6 +474,10 @@ export function GarmentSwapBoard({
   const dragBase = useSharedValue(0);
   const dragPast = useSharedValue(false);
   const dragShown = useSharedValue(0);
+  // The piece a swipe has just stepped away from. Until the owner's new pieces render, the
+  // gesture's handlers still name it, so a touch then must neither drag it nor step again.
+  // Made once and held like each piece's values, so no render replaces it mid-step.
+  const [steppedFrom] = useState(() => makeMutable<string | null>(null));
   const markerX = useSharedValue(0);
   const markerY = useSharedValue(0);
   const block = useSharedValue(0);
@@ -890,6 +894,11 @@ export function GarmentSwapBoard({
     if (!focusedSlot || model.garments[focusedSlot] === garmentTypeId) return;
     onStep(focusedSlot, garmentTypeId, true);
   };
+  // An owner that has not applied a swiped step by the time the enlargement ends or moves
+  // leaves nothing pending.
+  useEffect(() => {
+    steppedFrom.set(null);
+  }, [focusedSlot, steppedFrom]);
   const commitFromGesture = (slot: OutfitSlot, garmentTypeId: GarmentTypeId) => {
     setModel((current) => ({ ...current, gestureCommit: { slot, garmentTypeId } }));
     setPreviewId(null);
@@ -958,6 +967,16 @@ export function GarmentSwapBoard({
   const prevId = previousInstance?.garmentTypeId ?? null;
   const nextTile = tileOf(nextId ?? undefined);
   const prevTile = tileOf(prevId ?? undefined);
+  // Whether these handlers still name the piece a swipe stepped away from; handlers built
+  // after the step clear the mark.
+  const stepPending = () => {
+    'worklet';
+    const from = steppedFrom.get();
+    if (from === null) return false;
+    if (from === curKey) return true;
+    steppedFrom.set(null);
+    return false;
+  };
   const pan = Gesture.Pan()
     .withTestId(`${boardTestID}-pan`)
     .enabled(Boolean(curDx && focusedSlot && pager))
@@ -969,12 +988,12 @@ export function GarmentSwapBoard({
       const touch = event.allTouches[0];
       // The drag starts only on the enlarged piece's zone, and never at the screen's left
       // edge, where the system back swipe lives.
-      if (!touch || !pager || touch.absoluteX < SWAP_EDGE_GUARD || touch.x < pager.zone.x
+      if (stepPending() || !touch || !pager || touch.absoluteX < SWAP_EDGE_GUARD || touch.x < pager.zone.x
         || touch.x > pager.zone.x + pager.zone.w || touch.y < pager.zone.y
         || touch.y > pager.zone.y + pager.zone.h) manager.fail();
     })
     .onStart(() => {
-      if (!curDx) return;
+      if (!curDx || stepPending()) return;
       // A grab mid-settle continues from where the eye last saw the piece.
       dragBase.set(curDx.get());
       curDx.set(curDx.get());
@@ -984,7 +1003,7 @@ export function GarmentSwapBoard({
       prevOp?.set(1);
     })
     .onUpdate((event) => {
-      if (!curDx || !pager || !currentTile) return;
+      if (!curDx || !pager || !currentTile || stepPending()) return;
       // The handler counts the translation from where the drag activated, already past the
       // slop, so the piece follows the finger from that point on.
       const raw = dragBase.get() + event.translationX;
@@ -1007,7 +1026,7 @@ export function GarmentSwapBoard({
       }
     })
     .onEnd((event, success) => {
-      if (!curDx || !focusedSlot || !pager || !currentTile) return;
+      if (!curDx || !focusedSlot || !pager || !currentTile || stepPending()) return;
       const shown = dragShown.get();
       const velocity = success ? event.velocityX : 0;
       const stride = shown > 0 ? pager.stridePrevious : pager.strideNext;
@@ -1026,6 +1045,7 @@ export function GarmentSwapBoard({
           markerX.set(withSpring(incomingTile.x, spatial));
           markerY.set(withSpring(incomingTile.y, spatial));
         }
+        steppedFrom.set(key);
         runOnJS(commitFromGesture)(focusedSlot, incomingId);
       } else {
         curDx.set(withSpring(0, { ...spatial, velocity }));
