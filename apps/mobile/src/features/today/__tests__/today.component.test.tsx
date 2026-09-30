@@ -2284,6 +2284,26 @@ describe('the contextual weather-alert offer', () => {
     expect(result.queryByTestId('today-alert-offer')).toBeNull();
   });
 
+  // Law 7: the answered row fades and closes in place rather than cutting out, so the
+  // button under it glides up. While it leaves it is out of the reading order and inert.
+  test('an answered offer closes in place, drawing its last words while it leaves', async () => {
+    const offer = offerProps();
+    const result = await render(providers(
+      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={todayScreenState} />,
+    ));
+    const message = result.getByTestId('today-alert-offer-message').props.children;
+
+    await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
+    const hidden = { includeHiddenElements: true };
+    const row = result.getByTestId('today-alert-offer', hidden);
+    expect(isHiddenFromAccessibility(row)).toBe(true);
+    expect(result.getByTestId('today-alert-offer-message', hidden).props.children).toBe(message);
+    let wrapper = row.parent;
+    while (wrapper && wrapper.props.pointerEvents === undefined) wrapper = wrapper.parent;
+    expect(wrapper?.props.pointerEvents).toBe('none');
+  });
+
   test('a failed durable write leaves the offer visible and answerable', async () => {
     const offer = offerProps({
       onDismiss: jest.fn(async () => {

@@ -22,6 +22,7 @@ import {
   PressScale,
   measureGarmentBoardHeight,
   Pill,
+  Presence,
   useGarmentRoles,
   Screen,
   Surface,
@@ -221,6 +222,11 @@ function TodayScreenContent({
   const [offerAnswered, setOfferAnswered] = useState(false);
   const [blockedOffer, setBlockedOffer] = useState<TodayAlertOffer | null>(null);
   const offerToRender = blockedOffer ?? (offerAnswered ? null : alertOffer);
+  // The row leaves in place, so while it closes it keeps drawing the offer it last showed.
+  const [shownOffer, setShownOffer] = useState<Readonly<{ offer: TodayAlertOffer; blocked: boolean }> | null>(null);
+  if (offerToRender && (shownOffer?.offer !== offerToRender || shownOffer.blocked !== (blockedOffer !== null))) {
+    setShownOffer({ offer: offerToRender, blocked: blockedOffer !== null });
+  }
   const answerOffer = async () => {
     if (blockedOffer) {
       blockedOffer.onOpenSystemSettings();
@@ -703,17 +709,20 @@ function TodayScreenContent({
           </View>
         ) : null}
 
-        {/* ADR 0004's offer comes last, after the alternatives (f12). */}
-        {offerToRender ? (
-          <Entrance index={alternates.length + 1}>
-            <WeatherAlertOfferRow
-              blocked={blockedOffer !== null}
-              language={language}
-              onAccept={answerOffer}
-              onDismiss={dismissOffer}
-              ruleId={offerToRender.ruleId}
-            />
-          </Entrance>
+        {/* ADR 0004's offer comes last, after the alternatives (f12). Either answer closes
+            the row in place, so the button under it glides up instead of jumping. */}
+        {shownOffer ? (
+          <Presence visible={offerToRender !== null}>
+            <Entrance index={alternates.length + 1}>
+              <WeatherAlertOfferRow
+                blocked={shownOffer.blocked}
+                language={language}
+                onAccept={answerOffer}
+                onDismiss={dismissOffer}
+                ruleId={shownOffer.offer.ruleId}
+              />
+            </Entrance>
+          </Presence>
         ) : null}
 
         {/* O4: the last element of the content, one tonal Large capsule. A7 hides it and puts
@@ -745,7 +754,7 @@ function TodayScreenContent({
  * card (Law 3). It carries no accent fill (Law 1): the primary action is accent ink and the
  * secondary is the secondary ink, both at the same size, the way the consent sheet's pair is.
  * Law 7's "content arrives": the row fades and travels one rhythm unit into place on the
- * screen it appears on, and either action ends it. It carries no exit motion.
+ * screen it appears on, and either action ends it: it fades and closes in place.
  */
 function WeatherAlertOfferRow({
   blocked,
