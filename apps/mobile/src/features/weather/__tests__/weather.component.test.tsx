@@ -1503,20 +1503,32 @@ test.each(['en', 'tr'] as const)('%s spoken forecast labels state a chance and c
 });
 
 // At the largest standard text size a wet day's "12 mm · 80%" is wider than the day
-// column, so the caption wraps beside its icon instead of running into the low temperature.
-// No-break spaces hold the amount, unit and dot together, so a wrapped line never begins
-// with the dot; the exact-text match keeps the default normalizer from hiding them.
+// column. iOS then breaks it before the dot even through no-break spaces (measured on the
+// Simulator), so a caption that lays out on more than one line is shown stacked instead,
+// one value per line, and no line begins with the separator. The exact-text match keeps the
+// default normalizer from hiding the no-break spaces and the line break.
 test.each([
-  ['en', '12\u00a0mm\u00a0· 80%'],
-  ['tr', '12\u00a0mm\u00a0· %80'],
-] as const)('%s daily precipitation caption wraps after its separator, inside the day column', async (language, text) => {
+  ['en', '12\u00a0mm\u00a0· 80%', '12\u00a0mm\n80%'],
+  ['tr', '12\u00a0mm\u00a0· %80', '12\u00a0mm\n%80'],
+] as const)('%s daily precipitation caption stacks its values when one line does not fit', async (language, line, lines) => {
   mockFontScale(1.353);
   const result = await render(
     <Providers language={language} value={dailyValue()}><WeatherScreen /></Providers>,
   );
-  const caption = result.getByText(text, { normalizer: (value) => value });
+  const exact = { normalizer: (value: string) => value };
+  const caption = result.getByText(line, exact);
   expect(StyleSheet.flatten(caption.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
   expect(StyleSheet.flatten(caption.parent!.props.style)).toMatchObject({ minWidth: 0 });
+
+  // One line: it stays as it is.
+  await fireEvent(caption, 'textLayout', { nativeEvent: { lines: [{ text: line }] } });
+  expect(result.getByText(line, exact)).toBeOnTheScreen();
+
+  // Two lines: the stacked form replaces it and keeps its place in the day column.
+  await fireEvent(caption, 'textLayout', { nativeEvent: { lines: [{ text: '12 mm' }, { text: '· 80%' }] } });
+  expect(result.queryByText(line, exact)).toBeNull();
+  const stacked = result.getByText(lines, exact);
+  expect(StyleSheet.flatten(stacked.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
 });
 
 // Law 7, content arrives in reading order: the coming hours and the coming days enter one

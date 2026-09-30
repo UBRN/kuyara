@@ -390,8 +390,8 @@ export function WeatherScreen() {
         minimum: formatTemperature(day.minimumTemperatureCelsius, language, temperatureUnit),
         minimumCelsius: day.minimumTemperatureCelsius,
         precipitation: amount !== null
-          ? copy.dailyPrecipitationValue(amount, chance)
-          : day.precipitationProbability > 0 ? chance : null,
+          ? { line: copy.dailyPrecipitationValue(amount, chance), lines: copy.dailyPrecipitationStacked(amount, chance) }
+          : day.precipitationProbability > 0 ? { line: chance, lines: chance } : null,
         weekday: weekday(date, 'UTC', language, 'short'),
       };
     });
