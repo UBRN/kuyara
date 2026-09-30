@@ -470,10 +470,16 @@ function TodayScreenContent({
             </View>
           </View>
         </View>
-        {/* The badge waits for the new outfit's own source while a day-type change runs. */}
-        {presentation.generationMode && !updating ? (
+        {/* The badge waits for the new outfit's own source while a day-type change or a
+            re-ask runs: it fades out and keeps its place, so the outfit under it never moves,
+            and the new source fades in. */}
+        {presentation.generationMode ? (
           <TourTarget id="badge" style={styles.provenanceBadge}>
-            <ProvenanceBadge generationMode={presentation.generationMode} />
+            <ProvenanceBadge
+              generationMode={presentation.generationMode}
+              hidden={updating}
+              key={presentation.generationMode.mode}
+            />
           </TourTarget>
         ) : null}
 
@@ -821,26 +827,30 @@ function WeatherAlertOfferRow({
  * The provenance badge under the title (ADR 0034 section 4, M1). Apple Intelligence: the
  * multicolor `apple.intelligence` symbol and the words on the muted neutral, never purple.
  * The Worker's AI: the multicolour animated `sparkles` (O11) on the provenance container. The
- * badge speaks one sentence; its visible words are grouped under it. Law 7: it arrives as a
- * state change, so it fades on the `normal` duration and moves nothing.
+ * badge speaks one sentence; its visible words are grouped under it. Law 7: it arrives and
+ * leaves as a state change, so it fades on the `normal` duration and moves nothing. A hidden
+ * badge keeps its space and is out of the reading order.
  */
 function ProvenanceBadge({
   generationMode,
-}: Readonly<{ generationMode: NonNullable<LoadedTodayPresentation['generationMode']> }>) {
+  hidden,
+}: Readonly<{ generationMode: NonNullable<LoadedTodayPresentation['generationMode']>; hidden: boolean }>) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue<number>(0);
   const onDevice = generationMode.mode === 'on-device-ai';
 
   useEffect(() => {
-    opacity.set(withTiming(1, { duration: theme.motion.normal }));
-  }, [opacity, theme.motion.normal]);
+    opacity.set(withTiming(hidden ? 0 : 1, { duration: theme.motion.normal }));
+  }, [hidden, opacity, theme.motion.normal]);
 
   const arrivalStyle = useAnimatedStyle(() => ({ opacity: opacity.get() }));
 
   return (
     <View
-      accessible
+      accessibilityElementsHidden={hidden}
       accessibilityLabel={generationMode.accessibilityLabel}
+      accessible={!hidden}
+      importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
       testID="today-provenance-badge">
       <Animated.View style={arrivalStyle}>
         <Pill

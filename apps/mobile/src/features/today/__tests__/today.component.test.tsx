@@ -546,6 +546,33 @@ const insideClip = (node: { type: unknown; parent: unknown }): boolean => {
   return false;
 };
 
+// A day-type change or a re-ask hides the source until the new outfit brings its own. The
+// badge keeps its place, so the outfit under it does not jump up and back down.
+test('the badge keeps its space while a new outfit is chosen, hidden from the screen reader', async () => {
+  const screen = (updatingDayType: 'formal' | null) => providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} onAskAgain={jest.fn()}
+      state={aiAssistedTodayScreenState} updatingDayType={updatingDayType} />,
+  );
+  const hidden = { includeHiddenElements: true };
+  const withTiming = jest.spyOn(Reanimated, 'withTiming');
+  const result = await render(screen(null));
+  expect(result.getByTestId('today-provenance-badge')).toBeOnTheScreen();
+
+  withTiming.mockClear();
+  await result.rerender(screen('formal'));
+  const badge = result.getByTestId('today-provenance-badge', hidden);
+  expect(isHiddenFromAccessibility(badge)).toBe(true);
+  expect(badge.props.accessible).toBe(false);
+  expect(result.queryByTestId('today-provenance-badge')).toBeNull();
+  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.normal });
+
+  withTiming.mockClear();
+  await result.rerender(screen(null));
+  expect(result.getByTestId('today-provenance-badge')).toBeOnTheScreen();
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  withTiming.mockRestore();
+});
+
 test('every board draws its own outfit palette: the primary on its stage, each alternate on the ground (O15)', async () => {
   const result = await render(providers(
     <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
