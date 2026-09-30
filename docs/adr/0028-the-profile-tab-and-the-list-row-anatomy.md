@@ -69,8 +69,8 @@ Top to bottom, the populated screen is:
 
 The rack keeps its place in every state. The empty Closet shows the heading, the rack with
 bare hangers waiting on both rails, one sentence at `body` in `textPrimary`, and an "Add a
-piece" / "Parça ekle" button (the screen's only accent fill, present only in this state),
-with no category cells. Loading draws the bare rack, hooks and rails without hangers,
+piece" / "Parça ekle" button (the screen's only accent fill, present only in this state)
+that opens the add form directly, with no category cells. Loading draws the bare rack, hooks and rails without hangers,
 then the six cell tiles without drawings or counts, spoken as loading. An error draws the
 bare rack, then a `dangerInk` glyph at 20, a `bodyStrong` title, a `body` line and a
 tonal "Try again" button. The Wanted row is hidden while nothing exists in either state.

@@ -124,7 +124,7 @@ test('the Closet heading counts both entry states and opens the closet with no f
         itemWithId('218f0f4d-1d45-4ae7-a8f1-796e8297d3b4'),
         itemWithId('318f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { entryState: 'wanted' }),
       ]}>
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -147,7 +147,7 @@ test.each([
     mockFontScale(fontScale);
     const result = await render(
       <TestProviders items={[baseItem]}>
-        <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
+        <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined}
 
           onOpenWardrobe={() => undefined}
 
@@ -176,7 +176,7 @@ test('the rack is one button whose label names the Closet and its pieces by cate
         itemWithId('218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { category: 'top', garmentTypeId: 't_shirt' }),
         itemWithId('318f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { category: 'top', garmentTypeId: 'shirt', entryState: 'wanted' }),
       ]}>
-      <ProfileScreen
+      <ProfileScreen onAddPiece={() => undefined}
         displayName="Deniz"
         onOpenCategory={() => undefined}
         onOpenHistory={() => undefined}
@@ -204,7 +204,7 @@ test('six category cells always show, counting owned plus wanted, and a cell ope
         itemWithId('218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { category: 'top', garmentTypeId: 't_shirt' }),
         itemWithId('318f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { category: 'top', garmentTypeId: 'shirt', entryState: 'wanted' }),
       ]}>
-      <ProfileScreen onOpenCategory={onOpenCategory} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={onOpenCategory} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
 
@@ -228,7 +228,7 @@ test.each([
   mockFontScale(fontScale);
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
 
@@ -242,10 +242,11 @@ test.each([
 test('the empty Closet shows the empty rack, the sentence and the Add a piece action, and hides the Wanted row', async () => {
   mockFontScale(1);
   const onOpenWardrobe = jest.fn();
+  const onAddPiece = jest.fn();
   const result = await render(
     <TestProviders items={[]}>
       <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
-
+        onAddPiece={onAddPiece}
         onOpenWardrobe={onOpenWardrobe}
 
       />
@@ -257,15 +258,17 @@ test('the empty Closet shows the empty rack, the sentence and the Add a piece ac
   expect(result.getByTestId('profile-rack').props.accessibilityLabel).toBe('Closet, 0 pieces.');
   expect(result.queryByTestId('profile-category-cells')).toBeNull();
   expect(result.queryByTestId('profile-wanted-row')).toBeNull();
+  // The empty state's Add a piece opens the add form, not the Closet list.
   await fireEvent.press(result.getByTestId('profile-add-piece-button'));
-  expect(onOpenWardrobe).toHaveBeenCalledWith();
+  expect(onAddPiece).toHaveBeenCalledTimes(1);
+  expect(onOpenWardrobe).not.toHaveBeenCalled();
 });
 
 test('the Turkish empty Closet wraps its text within the window at fontScale 3.1', async () => {
   mockFontScale(3.1);
   const result = await render(
     <TestProviders items={[]} language="tr">
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
 
@@ -306,7 +309,7 @@ test('a wanted-only closet counts its pieces and keeps the rack and the cells', 
   const onOpenWardrobe = jest.fn();
   const result = await render(
     <TestProviders items={[itemWithId(baseItem.id, { entryState: 'wanted' })]}>
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -333,7 +336,7 @@ test('an owned-only closet keeps the Wanted row at zero', async () => {
   const onOpenWardrobe = jest.fn();
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -351,7 +354,7 @@ test('Profile removes the location row and its History row opens History', async
   const onOpenHistory = jest.fn();
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={onOpenHistory} onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={onOpenHistory} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(result.queryByTestId('profile-location-row')).toBeNull();
@@ -365,7 +368,7 @@ test('Profile removes the location row and its History row opens History', async
 test('the Closet heading uses the name while the rest of Profile stays the same', async () => {
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(result.getByText("Utku's Closet")).toBeOnTheScreen();
@@ -377,7 +380,7 @@ test('Turkish keeps the name unchanged in the Closet heading at large text size'
   mockFontScale(3.12);
   const result = await render(
     <TestProviders items={[baseItem]} language="tr">
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(result.getByText('Gardırop · Utku')).toBeOnTheScreen();
@@ -389,7 +392,7 @@ test('a loading Closet shows the bare rack and the six cells without counts, spo
   mockFontScale(1);
   const result = await render(
     <TestProviders items={[]} status="loading">
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
 
@@ -408,7 +411,7 @@ test('the Closet heading speaks no count while the Closet is loading or failed t
   mockFontScale(1);
   const loading = await render(
     <TestProviders items={[]} status="loading">
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(loading.getByTestId('profile-closet-heading').props.accessibilityLabel)
@@ -416,7 +419,7 @@ test('the Closet heading speaks no count while the Closet is loading or failed t
 
   const failed = await render(
     <TestProviders items={[]} status="error">
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(failed.getByTestId('profile-closet-heading').props.accessibilityLabel)
@@ -431,7 +434,7 @@ test('a Closet that cannot load shows the bare rack and a retry that refreshes i
       <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
-            <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+            <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
           </SafeAreaProvider>
         </KuyaraThemeContext.Provider>
       </LocalizationContext.Provider>
@@ -452,7 +455,7 @@ test('a cell draws its newest owned piece, and a legacy or empty category its gl
   const legacy = itemWithId('legacy', { garmentTypeId: null, category: 'top' });
   const result = await render(
     <TestProviders items={[baseItem, accessory, legacy]}>
-      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   const hidden = { includeHiddenElements: true };
@@ -469,7 +472,7 @@ test('Profile registers the Closet heading, the rack and the History row for the
   const result = await render(
     <TestProviders items={[baseItem]}>
       <TourTargetsContext value={registry}>
-        <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={onOpenHistory} onOpenWardrobe={() => undefined} />
+        <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={onOpenHistory} onOpenWardrobe={() => undefined} />
       </TourTargetsContext>
     </TestProviders>,
   );

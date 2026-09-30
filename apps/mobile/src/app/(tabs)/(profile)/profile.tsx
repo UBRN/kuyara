@@ -40,6 +40,7 @@ export default function ProfileRoute() {
       />
       <ProfileScreen
         displayName={state.status === 'ready' ? state.profile.displayName : null}
+        onAddPiece={() => router.push('/wardrobe/new')}
         onOpenCategory={(category) =>
           router.push({ params: { category }, pathname: '/wardrobe' })
         }

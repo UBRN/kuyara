@@ -44,6 +44,8 @@ const CELL_SCALE_MAXIMUM = 1.2;
 
 type ProfileScreenProps = Readonly<{
   displayName?: string | null;
+  /** The empty Closet's Add a piece opens the add form directly. */
+  onAddPiece: () => void;
   onOpenWardrobe: (filter?: 'wanted') => void;
   /** A category cell opens the Closet on that category (O9). */
   onOpenCategory: (category: StructuralCategory) => void;
@@ -219,6 +221,7 @@ function CategoryCells({
 
 export function ProfileScreen({
   displayName = null,
+  onAddPiece,
   onOpenCategory,
   onOpenHistory,
   onOpenWardrobe,
@@ -365,7 +368,7 @@ export function ProfileScreen({
           <Button
             icon="plus"
             label={copy.addPieceAction}
-            onPress={() => onOpenWardrobe()}
+            onPress={onAddPiece}
             testID="profile-add-piece-button"
           />
         </View>
