@@ -50,6 +50,7 @@ import { TourTargetsContext } from '@/features/walkthrough/application/walkthrou
 import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
+import { RING_OUTSET } from '@/components/ui/coach-mark-layer';
 
 // GlassButton draws the sheet close and the detail back as SwiftUI glass buttons.
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
@@ -2745,6 +2746,32 @@ test('Today registers the badge, the outfit and Ask the stylist again for the to
   registry.get('outfit')?.activate?.();
   expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(onOpenOutfitDetail.mock.calls[0][0]);
   expect(onOpenOutfitDetail).toHaveBeenCalledTimes(2);
+});
+
+// Tour step 1 lights the badge and rings the outfit. The ring stands RING_OUTSET outside the
+// outfit's target, so the gap between the two targets must be at least that, or the ring is
+// drawn through the badge. The gap sits outside the outfit's target, never inside it.
+test('the outfit target keeps the ring clear of the badge above it', async () => {
+  const registry = new TourTargetRegistry();
+  const result = await render(providers(
+    <TourTargetsContext value={registry}>
+      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={aiAssistedTodayScreenState} />
+    </TourTargetsContext>,
+  ));
+  await fireEvent(result.getByTestId('today-content'), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+  });
+  expect(registry.has('badge')).toBe(true);
+  const archetype = result.getByTestId('today-archetype', { includeHiddenElements: true });
+  let target = archetype.parent;
+  // The tour target is the plain view that reports its layout to the registry.
+  const isTourTarget = (node: typeof target) =>
+    node?.type === 'View' && node.props.collapsable === false && typeof node.props.onLayout === 'function';
+  while (target && !isTourTarget(target)) target = target.parent;
+  const targetStyle = StyleSheet.flatten(target?.props.style) ?? {};
+  expect(targetStyle.marginTop).toBeGreaterThanOrEqual(RING_OUTSET);
+  expect(StyleSheet.flatten(archetype.props.style).marginTop ?? 0).toBe(0);
 });
 
 test('outfit detail registers its first piece row by name and Wore this today for the tour', async () => {
