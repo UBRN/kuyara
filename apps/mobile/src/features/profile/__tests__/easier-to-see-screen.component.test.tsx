@@ -1,5 +1,5 @@
-import { render, within } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
+import { AccessibilityInfo, Dimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { EasierToSeeScreen } from '@/features/profile/presentation/easier-to-see-screen';
@@ -28,6 +28,7 @@ async function renderScreen(
   language: SupportedLanguage,
   system: SystemVisibility,
   enabled = false,
+  onChange: (value: boolean) => Promise<void> = async () => undefined,
 ) {
   return render(
     <LocalizationContext value={{ language, messages: messages[language], hour12: false }}>
@@ -35,7 +36,7 @@ async function renderScreen(
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <EasierToSeeContext value={enabled}>
             <SystemVisibilityContext value={system}>
-              <EasierToSeeScreen enabled={enabled} isSaving={false} onChange={async () => undefined} />
+              <EasierToSeeScreen enabled={enabled} isSaving={false} onChange={onChange} />
             </SystemVisibilityContext>
           </EasierToSeeContext>
         </SafeAreaProvider>
@@ -107,4 +108,34 @@ test('the preview card draws the board beside an outfit name and an insight line
   expect(on.getByTestId('settings-easier-to-see-preview')).toHaveProp('accessibilityLabel', copy.previewLabelOn);
   expect(on.getByTestId('settings-easier-to-see-preview-name', { includeHiddenElements: true }))
     .toHaveStyle({ fontWeight: '700' });
+});
+
+// VoiceOver reads no footer change, so a failed save is spoken as well as shown.
+test('a rejected save shows the save error in the footer and speaks it once', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const failing = jest.fn(async () => {
+    throw new Error('disk full');
+  });
+  const result = await renderScreen(
+    'en',
+    { boldText: false, increaseContrast: false },
+    false,
+    failing,
+  );
+
+  await act(async () => {
+    fireEvent(result.getByTestId('settings-easier-to-see-toggle-row-toggle'), 'valueChange', true);
+  });
+  await act(async () => {
+    await new Promise<void>((resolve) => setImmediate(() => resolve()));
+  });
+
+  expect(failing).toHaveBeenCalledWith(true);
+  expect(
+    within(result.getByTestId('settings-easier-to-see-group')).getByText(messages.en.settings.saveError),
+  ).toBeOnTheScreen();
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(messages.en.settings.saveError);
+  announce.mockRestore();
 });

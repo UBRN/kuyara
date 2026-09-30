@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { NativeList, NativeListSection, NativeListRow } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
 import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
 import { defaultQuietHours } from '@/features/notifications/domain/weather-alerts';
@@ -41,6 +42,8 @@ export function NotificationsSettingsScreen({
   const [failedToggle, setFailedToggle] = useState<'notifications' | 'morningBriefing' | null>(
     null,
   );
+  // VoiceOver reads no footer change, so a failed save is spoken as well as shown.
+  useErrorAnnouncement(failedToggle ? messages.settings.saveError : null);
   const save = async (
     which: 'notifications' | 'morningBriefing',
     write: () => Promise<void>,

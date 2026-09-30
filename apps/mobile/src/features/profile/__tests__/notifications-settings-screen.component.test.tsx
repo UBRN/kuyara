@@ -1,4 +1,5 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { NotificationsSettingsScreen } from '@/features/profile/presentation/notifications-settings-screen';
@@ -53,6 +54,8 @@ test.each([
 ] as const)('a rejected %s write shows the save error in its own group', async (toggleId, groupId) => {
   const unhandled = jest.fn();
   process.on('unhandledRejection', unhandled);
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
   try {
     const failing = jest.fn(async () => {
       throw new Error('disk full');
@@ -71,8 +74,12 @@ test.each([
     expect(
       within(result.getByTestId(groupId)).getByText(messages.en.settings.saveError),
     ).toBeOnTheScreen();
+    // VoiceOver reads no footer change, so the failure is also spoken, once.
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(announce).toHaveBeenLastCalledWith(messages.en.settings.saveError);
   } finally {
     process.off('unhandledRejection', unhandled);
+    announce.mockRestore();
   }
 });
 
