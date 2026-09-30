@@ -47,3 +47,19 @@ test('aborts the attribution request after five seconds', async () => {
     mock.timers.reset();
   }
 });
+
+test('a failed attribution fetch is not cached: the next read fetches again', async () => {
+  let calls = 0;
+  const fetchAttribution = async () => {
+    calls += 1;
+    if (calls === 1) throw new Error('offline');
+    return { ok: true, json: async () => logos };
+  };
+
+  await assert.rejects(appleWeatherMarkUrl('tr', false, 1, fetchAttribution), /offline/);
+  assert.equal(
+    await appleWeatherMarkUrl('tr', false, 1, fetchAttribution),
+    'https://weatherkit.apple.com/light-1.png',
+  );
+  assert.equal(calls, 2);
+});
