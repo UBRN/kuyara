@@ -1502,12 +1502,17 @@ test.each(['en', 'tr'] as const)('%s spoken forecast labels state a chance and c
 
 // At the largest standard text size a wet day's "12 mm · 80%" is wider than the day
 // column, so the caption wraps beside its icon instead of running into the low temperature.
-test('a daily precipitation caption wraps inside the day column', async () => {
+// No-break spaces hold the amount, unit and dot together, so a wrapped line never begins
+// with the dot; the exact-text match keeps the default normalizer from hiding them.
+test.each([
+  ['en', '12\u00a0mm\u00a0· 80%'],
+  ['tr', '12\u00a0mm\u00a0· %80'],
+] as const)('%s daily precipitation caption wraps after its separator, inside the day column', async (language, text) => {
   mockFontScale(1.353);
   const result = await render(
-    <Providers language="en" value={dailyValue()}><WeatherScreen /></Providers>,
+    <Providers language={language} value={dailyValue()}><WeatherScreen /></Providers>,
   );
-  const caption = result.getByText('12 mm · 80%');
+  const caption = result.getByText(text, { normalizer: (value) => value });
   expect(StyleSheet.flatten(caption.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
   expect(StyleSheet.flatten(caption.parent!.props.style)).toMatchObject({ minWidth: 0 });
 });

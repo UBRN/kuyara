@@ -1106,7 +1106,9 @@ const en = {
       `${day ? `${day}, ` : ''}${time}. ${temperature} ${unitName}. ${condition}. ` +
       `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
     dailyHeading: 'Coming days',
-    dailyPrecipitationValue: (millimetres, probability) => `${millimetres} mm · ${probability}`,
+    // No-break spaces keep the amount, its unit and the separator on one line; only the
+    // probability may wrap, so a line never begins with the dot.
+    dailyPrecipitationValue: (millimetres, probability) => `${millimetres}\u00a0mm\u00a0· ${probability}`,
     dailyForecastAccessibilityLabel: ({
       day,
       condition,
@@ -1959,7 +1961,9 @@ const tr = {
       `${day ? `${day}, saat` : 'Saat'} ${time}. Sıcaklık ${temperature} ${unitName}. ${condition}. ` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     dailyHeading: 'Önümüzdeki günler',
-    dailyPrecipitationValue: (millimetres, probability) => `${millimetres} mm · ${probability}`,
+    // No-break spaces keep the amount, its unit and the separator on one line; only the
+    // probability may wrap, so a line never begins with the dot.
+    dailyPrecipitationValue: (millimetres, probability) => `${millimetres}\u00a0mm\u00a0· ${probability}`,
     dailyForecastAccessibilityLabel: ({
       day,
       condition,
