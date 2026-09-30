@@ -15,6 +15,7 @@ import {
   Icon,
   ListRow,
   ListRowGroup,
+  Presence,
   Screen,
   SectionHeader,
   Surface,
@@ -201,6 +202,30 @@ export function WeatherScreen() {
   // The freshness line's live region covers Android; VoiceOver hears each change once.
   useStatusAnnouncement(freshnessStatus);
 
+  const refreshFailure = state.status === 'ready' ? state.refreshFailure : null;
+  const failureCopy = refreshFailure === 'offline'
+    ? {
+        title: copy.offlineTitle,
+        body: copy.offlineBody,
+        notice: copy.offlineNotice,
+      }
+    : refreshFailure === 'unavailable' || refreshFailure === 'unknown'
+      ? {
+          title: copy.unavailableTitle,
+          body: copy.unavailableBody,
+          notice: copy.unavailableNotice,
+        }
+      : refreshFailure === 'rate-limited'
+        ? {
+            title: copy.rateLimitedTitle,
+            body: copy.rateLimitedBody,
+            notice: copy.rateLimitedNotice,
+          }
+        : null;
+  // The stale notice keeps its words while it closes after a refresh succeeds.
+  const [shownNotice, setShownNotice] = useState(failureCopy?.notice ?? null);
+  if (failureCopy && failureCopy.notice !== shownNotice) setShownNotice(failureCopy.notice);
+
   if (state.status === 'loading') {
     return (
       <Screen contentContainerStyle={styles.center} fill testID="weather-screen">
@@ -315,25 +340,6 @@ export function WeatherScreen() {
         weekday: weekday(date, 'UTC', language, 'short'),
       };
     });
-  const failureCopy = state.refreshFailure === 'offline'
-    ? {
-        title: copy.offlineTitle,
-        body: copy.offlineBody,
-        notice: copy.offlineNotice,
-      }
-    : state.refreshFailure === 'unavailable' || state.refreshFailure === 'unknown'
-      ? {
-          title: copy.unavailableTitle,
-          body: copy.unavailableBody,
-          notice: copy.unavailableNotice,
-        }
-      : state.refreshFailure === 'rate-limited'
-        ? {
-            title: copy.rateLimitedTitle,
-            body: copy.rateLimitedBody,
-            notice: copy.rateLimitedNotice,
-          }
-        : null;
   const locationAccessibilityLabel = accessibilitySentence(
     activeName,
     locationCaption,
@@ -637,19 +643,25 @@ export function WeatherScreen() {
         </Surface>
       )}
 
-      {snapshot && failureCopy && (
-        <Surface
-          accessible
-          accessibilityLabel={failureCopy.notice}
-          accessibilityLiveRegion="polite"
-          style={styles.staleNotice}
-          variant="muted">
-          <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} />
-          <AppText colorRole="warningInk" variant="caption">
-            {failureCopy.notice}
-          </AppText>
-        </Surface>
-      )}
+      {/* The notice opens and closes in place (Law 7). Its slot takes back the screen's gap
+          and the notice carries it inside, so a closed notice leaves no space behind. */}
+      <View style={styles.presenceSlot}>
+        <Presence testID="weather-stale-notice" visible={Boolean(snapshot && failureCopy)}>
+          <View style={styles.presenceContent}>
+            <Surface
+              accessible
+              accessibilityLabel={failureCopy?.notice ?? shownNotice ?? undefined}
+              accessibilityLiveRegion="polite"
+              style={styles.staleNotice}
+              variant="muted">
+              <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} />
+              <AppText colorRole="warningInk" variant="caption">
+                {failureCopy?.notice ?? shownNotice}
+              </AppText>
+            </Surface>
+          </View>
+        </Presence>
+      </View>
     </Screen>
   );
 }
@@ -694,6 +706,8 @@ const styles = StyleSheet.create({
   },
   stackedStat: { flex: 0, width: '100%' },
   headingRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: spacing.md },
+  presenceSlot: { marginTop: -spacing.md },
+  presenceContent: { paddingTop: spacing.md },
   staleNotice: {
     alignItems: 'center',
     borderRadius: radii.control,
