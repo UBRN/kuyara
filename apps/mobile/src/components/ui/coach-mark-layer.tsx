@@ -235,8 +235,9 @@ export function CoachMarkRing({ rect }: Readonly<{ rect: CoachMarkRect }>) {
 
 /**
  * Content that arrives beside a lit area (the coach-mark bubble): it fades in on `fast` and
- * travels its last 12 points on the `arrival` spring, rising from below or dropping from
- * above. It arrives once per mount.
+ * travels its last 12 points on the `spatial` spring, rising from below or dropping from
+ * above. It arrives once per mount. The `arrival` spring's overshoot stays with garment
+ * pieces landing on a board (ADR 0020).
  */
 export function CoachMarkArrival({
   children,
@@ -248,8 +249,8 @@ export function CoachMarkArrival({
 
   useEffect(() => {
     opacity.set(withTiming(1, { duration: theme.motion.fast, easing: Easing.out(Easing.quad) }));
-    offset.set(withSpring(0, theme.springs.arrival));
-  }, [offset, opacity, theme.motion.fast, theme.springs.arrival]);
+    offset.set(withSpring(0, theme.springs.spatial));
+  }, [offset, opacity, theme.motion.fast, theme.springs.spatial]);
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.get(),
