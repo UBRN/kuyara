@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useIsFocused } from 'expo-router';
 
 import { GlassButton } from '@/components/ui';
 import { useSinglePush } from '@/components/ui/use-single-push';
@@ -16,6 +16,8 @@ export default function ProfileRoute() {
   // the first render.
   useScreenInteractive({ state: 'ready' });
   const { state } = useProfileApplication();
+  // The tab mounts at launch, before it is shown; its content arrives on the first showing.
+  const shown = useIsFocused();
 
   return (
     <>
@@ -49,6 +51,7 @@ export default function ProfileRoute() {
         onOpenWardrobe={(filter) =>
           push(filter ? { params: { filter }, pathname: '/wardrobe' } : '/wardrobe')
         }
+        shown={shown}
       />
     </>
   );
