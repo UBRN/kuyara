@@ -18,6 +18,7 @@ import {
   ChoiceTile,
   type ChoiceTileDrawing,
   ChoiceTileGrid,
+  Entrance,
   GarmentBoard,
   type GarmentOutfitPalette,
   Icon,
@@ -240,6 +241,9 @@ export function OnboardingScreen({
           />
         ))}
       </View>
+      {/* The title and progress stay still while each step's own content arrives
+          (Law 7): keyed on the step, the body and then the panel enter in reading order. */}
+      <Entrance index={0} key={`body-${draft.step}`}>
       <AppText colorRole="textSecondary">
         {draft.step === 0
           ? copy.welcomeBody
@@ -253,6 +257,7 @@ export function OnboardingScreen({
                   ? copy.stylePreferencesBody
                   : draft.step === 5 ? copy.birthDateBody : copy.locationBody}
       </AppText>
+      </Entrance>
     </View>
   );
 
@@ -274,6 +279,7 @@ export function OnboardingScreen({
           testID={`onboarding-step-${draft.step + 1}`}>
           {heading}
 
+      <Entrance index={1} key={`panel-${draft.step}`}>
       {draft.step === 0 ? (
         <View style={styles.panel}>
           <View
@@ -438,6 +444,7 @@ export function OnboardingScreen({
           ) : null}
         </View>
       ) : null}
+      </Entrance>
 
       {saveError ? (
         <AppText
