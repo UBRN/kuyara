@@ -140,7 +140,11 @@ export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow
                         name="precipitationChance"
                         size={16 * controlScale}
                       />
-                      <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+                      <AppText
+                        colorRole="textSecondary"
+                        style={styles.precipitationText}
+                        tabularNumbers
+                        variant="caption">
                         {row.precipitation}
                       </AppText>
                     </View>
@@ -190,7 +194,10 @@ const styles = StyleSheet.create({
   stackedRail: { alignSelf: 'stretch', flexGrow: 0 },
   dayGroup: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: spacing.md, minWidth: 0 },
   labelColumn: { flex: 1, gap: spacing.xs, minWidth: 0 },
-  precipitation: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  precipitation: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, minWidth: 0 },
+  // Shrinkable so a wet day's caption wraps beside its icon at the largest standard text
+  // size instead of measuring one line wide and running into the low temperature.
+  precipitationText: { flexShrink: 1, minWidth: 0 },
   rangeGroup: {
     alignItems: 'center',
     flexDirection: 'row',
