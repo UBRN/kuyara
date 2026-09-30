@@ -14,6 +14,7 @@ import {
   type GarmentOutfitPalette,
   type IconName,
 } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useMessages } from '@/localization/use-messages';
 import { useSystemVisibility } from '@/theme/easier-to-see';
 import { radii, spacing } from '@/theme/theme';
@@ -56,6 +57,8 @@ export function EasierToSeeScreen({ enabled, isSaving, onChange }: EasierToSeeSc
   const { fontScale, usesStackedLayout } = useTextScaling();
   const system = useSystemVisibility();
   const [hasSaveError, setHasSaveError] = useState(false);
+  // VoiceOver reads no footer change, so a failed save is spoken as well as shown.
+  useErrorAnnouncement(hasSaveError ? messages.settings.saveError : null);
   const cardWidth = Math.max(0, width - spacing.lg * 4);
   const stageWidth = usesStackedLayout ? cardWidth : Math.round(cardWidth * PREVIEW_STAGE_SHARE);
   const onOff = (value: boolean) => (value ? copy.on : copy.off);
