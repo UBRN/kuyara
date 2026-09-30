@@ -144,3 +144,30 @@ test('rows that share a name, province and country carry the district, and no ot
     'Mersin, Türkiye',
   ]);
 });
+
+test('a malformed district never hides the place', async () => {
+  for (const admin2 of ['', '   ', 'x'.repeat(300)]) {
+    const { places } = await provider({ results: [{ ...place(1, 'Aydın', 37.84), admin2 }] }).search(query);
+    assert.deepEqual(places.map((entry) => [entry.id, entry.region]), [['place.1', 'Aydın, Türkiye']]);
+  }
+});
+
+test('a district that would push the region past the contract limit is left out instead of failing the answer', async () => {
+  // Twin rows make the district part of the label; admin1 plus country leave 399 - 3 characters of room.
+  const long = (id, admin2) => ({
+    id, name: 'Merkez', admin1: 'a'.repeat(200), admin2, country: 'c'.repeat(190), latitude: 37, longitude: 27,
+  });
+  const body = { results: [long(1, 'd'.repeat(200)), long(2, 'e'.repeat(200))] };
+  const { places } = await provider(body).search({ query: 'Merkez', limit: 5, language: 'tr' });
+  assert.equal(places.length, 2);
+  for (const entry of places) assert.equal(entry.region, `${'a'.repeat(200)}, ${'c'.repeat(190)}`);
+  // Province and country alone can exceed the limit: the country is left out as well.
+  const huge = await provider({ results: [{ ...long(1, 'd'), country: 'c'.repeat(200) }] })
+    .search({ query: 'Merkez', limit: 5, language: 'tr' });
+  assert.deepEqual(huge.places.map((entry) => entry.region), ['a'.repeat(200)]);
+  // One that still fits keeps the district.
+  const fits = (id, admin2) => ({ ...long(id, admin2), admin1: 'Mersin', country: 'Türkiye' });
+  const kept = await provider({ results: [fits(1, 'Erdemli'), fits(2, 'Aydıncık')] })
+    .search({ query: 'Merkez', limit: 5, language: 'tr' });
+  assert.deepEqual(kept.places.map((entry) => entry.region), ['Erdemli, Mersin, Türkiye', 'Aydıncık, Mersin, Türkiye']);
+});

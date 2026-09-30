@@ -8,11 +8,13 @@ import {
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
+const maxRegionLength = 400; // placeSearchResultSchema's region bound
 const rawPlaceSchema = z.object({
   id: z.number().int().positive().safe(),
   name: z.string().trim().min(1).max(200),
   admin1: z.string().trim().min(1).max(200).optional(),
-  admin2: z.string().trim().min(1).max(200).optional(),
+  // Decoration only: a blank or over-long district means "no district", never a lost place.
+  admin2: z.string().trim().min(1).max(200).optional().catch(undefined),
   country: z.string().trim().min(1).max(200).optional(),
   country_code: z.string().regex(/^[A-Z]{2}$/).optional(),
   latitude: z.number().min(-90).max(90),
@@ -91,11 +93,21 @@ export class OpenMeteoPlaceProvider {
       }
       // Rows the user could not tell apart (same name, same province and country) carry the
       // district too; every other row keeps the short region it always had.
-      const regionOf = (place: RawPlace, withDistrict: boolean) => [...new Set([
-        withDistrict && place.admin2 !== place.name ? place.admin2 : undefined,
-        place.admin1,
-        place.country ?? place.country_code,
-      ].filter(Boolean))].join(', ');
+      // The contract bounds `region`; when the full label would exceed it, the district and then
+      // the province are left out in turn (each part is at most 200 characters, so the last
+      // candidate always fits).
+      const regionOf = (place: RawPlace, withDistrict: boolean) => {
+        const parts = (...candidates: (string | undefined)[]) =>
+          [...new Set(candidates.filter(Boolean))].join(', ');
+        const country = place.country ?? place.country_code;
+        const district = withDistrict && place.admin2 !== place.name ? place.admin2 : undefined;
+        return [
+          parts(district, place.admin1, country),
+          parts(place.admin1, country),
+          parts(place.admin1),
+          parts(country),
+        ].find((region) => region.length > 0 && region.length <= maxRegionLength) ?? '';
+      };
       const labelCounts = new Map<string, number>();
       for (const place of valid) {
         const label = `${place.name}\u0000${regionOf(place, false)}`;
