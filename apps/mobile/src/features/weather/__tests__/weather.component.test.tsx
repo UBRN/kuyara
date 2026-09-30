@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { act, fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { AccessibilityInfo, AppState, Dimensions, Platform, processColor, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -1509,4 +1510,44 @@ test('a daily precipitation caption wraps inside the day column', async () => {
   const caption = result.getByText('12 mm · 80%');
   expect(StyleSheet.flatten(caption.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
   expect(StyleSheet.flatten(caption.parent!.props.style)).toMatchObject({ minWidth: 0 });
+});
+
+// Law 7, content arrives in reading order: the current card, the coming hours and the
+// coming days enter one `motion.stagger` apart, and a new place brings them in again rather
+// than snapping them back after the loading card.
+test('the forecast cards arrive in reading order and again for a new place', async () => {
+  // The test mock lands every spring at once; hold the landing to read the first frame.
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
+  const istanbul = getManualLocation('sample.istanbul')!;
+  const screen = (location = istanbul, isRefreshing = false) => (
+    <Providers language="en" value={createValue({
+      ...baseState,
+      activeLocation: location,
+      snapshot: { ...sampleSnapshot(), locationKey: location.locationKey, daily: sampleDaily },
+      freshness: 'fresh',
+      isRefreshing,
+    })}><WeatherScreen /></Providers>
+  );
+  const result = await render(screen());
+  const cards = ['weather-current-card', 'weather-hourly-card', 'weather-daily-card'];
+  // Each card's entrance wrapper is the nearest ancestor carrying the entrance's start.
+  const entranceOf = (testID: string) => {
+    let node = result.getByTestId(testID).parent;
+    while (node && StyleSheet.flatten(node.props.style)?.opacity !== 0) node = node.parent;
+    return node;
+  };
+  for (const card of cards) {
+    expect(StyleSheet.flatten(entranceOf(card)!.props.style))
+      .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.md }] });
+  }
+  const first = cards.map((card) => result.getByTestId(card));
+
+  // A refresh of the same place keeps the cards mounted: the entrance does not replay.
+  await result.rerender(screen(istanbul, true));
+  cards.forEach((card, index) => expect(result.getByTestId(card)).toBe(first[index]));
+
+  // A new place mounts them afresh, so the entrance plays once more.
+  await result.rerender(screen(getManualLocation('sample.ankara')!));
+  cards.forEach((card, index) => expect(result.getByTestId(card)).not.toBe(first[index]));
+  withSpring.mockRestore();
 });
