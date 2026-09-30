@@ -361,11 +361,13 @@ export function WalkthroughOverlay({
       {content && frame ? (
         <>
           {(['normal', 'tight'] as const).map((variant) => (
-            // Both bubble sizes are laid out unseen first, so the placement can choose.
+            // Both bubble sizes are laid out unseen first, so the placement can choose. Keyed
+            // by step: a native view reports its layout only on mount or on a size change, so
+            // a measurer kept from the last step stays silent when its height comes out equal.
             <View
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
-              key={variant}
+              key={`${heightsKey}:${variant}`}
               onLayout={recordHeight(variant)}
               pointerEvents="none"
               style={[styles.measurer, { width: bubbleWidth }]}
