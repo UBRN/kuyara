@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { useState, type PropsWithChildren } from 'react';
-import { Dimensions, FlatList, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Dimensions, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
@@ -479,6 +479,9 @@ test('without a requested category the Closet opens where its pieces are, or whe
 
 test('a background refresh failure shows a retryable banner without discarding the grid', async () => {
   const onRetry = jest.fn();
+  // VoiceOver ignores the alert role, so the line is also spoken.
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
   const result = await render(
     <TestProviders>
       <WardrobeListScreen
@@ -491,6 +494,9 @@ test('a background refresh failure shows a retryable banner without discarding t
   );
 
   expect(result.getByTestId('wardrobe-refresh-error')).toBeOnTheScreen();
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.loadErrorBody);
+  announce.mockRestore();
   expect(result.getByTestId(`wardrobe-item-${ownedItem.id}`)).toBeOnTheScreen();
   await fireEvent.press(
     result.getByRole('button', { name: messages.en.wardrobe.retryAction }),
@@ -614,6 +620,8 @@ test('the saved piece is named with Undo and ringed, and Undo removes it or repo
       />
     </TestProviders>
   );
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
   const result = await render(render_([plainPiece]));
 
   expect(result.getByTestId('wardrobe-saved-confirmation')).toHaveTextContent(
@@ -627,6 +635,10 @@ test('the saved piece is named with Undo and ringed, and Undo removes it or repo
   expect(onUndoSaved).toHaveBeenCalledWith(plainPiece.id);
   await act(async () => rejectUndo?.(new Error('write failed')));
   await waitFor(() => expect(result.getByTestId('wardrobe-undo-error')).toBeOnTheScreen());
+  // VoiceOver ignores the alert role, so the failed Undo is also spoken, once.
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.deleteError);
+  announce.mockRestore();
   expect(result.getByTestId('wardrobe-saved-confirmation')).toBeOnTheScreen();
 
   // The piece is gone once the removal lands, and the confirmation goes with it.

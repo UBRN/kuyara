@@ -17,6 +17,7 @@ import {
   Surface,
   useTextScaling,
 } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import {
   structuralCategories,
@@ -284,6 +285,17 @@ export function WardrobeListScreen({
   // manual top inset of its own.
   const staticTopInset = { paddingTop: insets.top + spacing.lg };
 
+  // O10: the piece the add flow saved is named above the grid, with Undo, while it is on
+  // this page. Undo removes it like Delete does; the row leaves with the piece.
+  const savedItem = arrivingItemId
+    ? items.find((item) => item.id === arrivingItemId && item.category === category) ?? null
+    : null;
+  // VoiceOver ignores the alert role on these lines, so iOS also speaks them.
+  useErrorAnnouncement(savedItem && undoStatus === 'failed' ? copy.deleteError : null);
+  useErrorAnnouncement(
+    state.status === 'ready' && state.refreshFailure !== null ? copy.loadErrorBody : null,
+  );
+
   if (state.status === 'loading') {
     return (
       <View
@@ -341,11 +353,6 @@ export function WardrobeListScreen({
     );
   }
 
-  // O10: the piece the add flow saved is named above the grid, with Undo, while it is on
-  // this page. Undo removes it like Delete does; the row leaves with the piece.
-  const savedItem = arrivingItemId
-    ? items.find((item) => item.id === arrivingItemId && item.category === category) ?? null
-    : null;
   const savedItemType = savedItem?.garmentTypeId ? getGarmentType(savedItem.garmentTypeId) : null;
   const savedPieceName = savedItem
     ? savedItem.name
