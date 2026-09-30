@@ -333,6 +333,24 @@ test('feature source keeps typography on theme roles instead of literal fontSize
   }
 });
 
+test('feature source keeps opacity on theme interaction roles instead of literal fractions', async () => {
+  const sourceRoot = new URL('../features/', import.meta.url);
+  const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
+  const sourceFiles = entries.filter(
+    (entry) => entry.isFile() && /\.(ts|tsx)$/.test(entry.name) && !/\.test\./.test(entry.name),
+  );
+
+  for (const entry of sourceFiles) {
+    const source = await readFile(`${entry.parentPath}/${entry.name}`, 'utf8');
+
+    assert.equal(
+      /\bopacity\s*:\s*0?\.\d/.test(source),
+      false,
+      `${entry.parentPath}/${entry.name} declares a literal opacity fraction; use a theme colour or interaction role instead`,
+    );
+  }
+});
+
 test('feature source keeps spatial motion on theme roles instead of spring parameters', async () => {
   const sourceRoot = new URL('../features/', import.meta.url);
   const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
