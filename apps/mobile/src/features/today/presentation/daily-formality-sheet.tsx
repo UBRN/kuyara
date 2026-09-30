@@ -78,6 +78,13 @@ export function DailyFormalitySheet({
   const copy = getMessages(language).today.dailyStyle;
   const stylesStep = step === 'styles';
   useErrorAnnouncement(visible && error ? copy.saveError : null);
+  // Drawn as the re-ask sheet draws it: above the confirmation, so on the long styles step a
+  // failed save is not left below the fold under Done.
+  const errorLine = error ? (
+    <AppText accessibilityRole="alert" colorRole="warningInk" testID="daily-formality-error">
+      {copy.saveError}
+    </AppText>
+  ) : null;
   return (
     <NativeSheet onDismiss={onDismiss} size={stylesStep ? 'large' : 'default'}
       testID="daily-formality-sheet" visible={visible}>
@@ -99,6 +106,7 @@ export function DailyFormalitySheet({
               {copy.stylesNote}
             </AppText>
             {styleOptions}
+            {errorLine}
             {onConfirmStyles && confirmLabel ? (
               <Button label={confirmLabel} onPress={onConfirmStyles} size="large"
                 testID="daily-formality-styles-done" />
@@ -112,9 +120,9 @@ export function DailyFormalitySheet({
               </AppText>
             ) : null}
             <DayTypeTiles language={language} onSelect={onChoose} selected={selected} testID="daily-formality" />
+            {errorLine}
           </>
         )}
-        {error ? <AppText accessibilityRole="alert">{copy.saveError}</AppText> : null}
       </ScrollView>
     </NativeSheet>
   );
