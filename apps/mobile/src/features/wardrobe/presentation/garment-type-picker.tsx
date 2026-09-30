@@ -28,6 +28,7 @@ import {
 } from '@/features/catalog/domain/garment-taxonomy';
 import { GarmentTypeTile } from '@/features/wardrobe/presentation/garment-type-tile';
 import { WardrobeCategoryChip } from '@/features/wardrobe/presentation/wardrobe-category-chip';
+import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import { useMessages } from '@/localization/use-messages';
 import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -39,15 +40,15 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // type collapses the picker to one row with "Change". The catalogue type stays required
 // and no free-form type exists (docs/product-decisions.md, Closet).
 
-// Each category tile shows one recognisable piece in one colour. Illustration only: the
+// Each category tile shows its representative piece in one colour. Illustration only: the
 // record never takes this colour.
-const CATEGORY_ARTWORK: Readonly<Record<StructuralCategory, readonly [GarmentTypeId, ColorFamily]>> = {
-  top: ['shirt', 'blue'],
-  bottom: ['jeans', 'blue'],
-  one_piece: ['dress', 'orange'],
-  outerwear: ['coat', 'brown'],
-  footwear: ['sneakers', 'white'],
-  accessory: ['beanie', 'yellow'],
+const CATEGORY_ARTWORK_COLOR: Readonly<Record<StructuralCategory, ColorFamily>> = {
+  top: 'blue',
+  bottom: 'blue',
+  one_piece: 'orange',
+  outerwear: 'brown',
+  footwear: 'white',
+  accessory: 'yellow',
 };
 // ADR 0029 section 2 fixes an image tile's radius at 14.
 const TILE_RADIUS = 14;
@@ -174,7 +175,8 @@ export function GarmentTypePicker({
     return (
       <View style={styles.grid} testID="wardrobe-type-categories">
         {categories.map((structuralCategory) => {
-          const [artworkTypeId, artworkColor] = CATEGORY_ARTWORK[structuralCategory];
+          const artworkTypeId = CATEGORY_REPRESENTATIVE_TYPE[structuralCategory];
+          const artworkColor = CATEGORY_ARTWORK_COLOR[structuralCategory];
           const label = copy.categoryFilterLabels[structuralCategory];
           return (
             <PressScale

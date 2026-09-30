@@ -14,6 +14,7 @@ import type {
   StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
 import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
+import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import { useMessages } from '@/localization/use-messages';
 import { borderWidths, interaction, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -33,7 +34,6 @@ const TAG_WIDTH = 22;
 const TAG_HEIGHT = 30;
 // Law 6: 20 beside the `bodyStrong` label.
 const LABEL_GLYPH_SIZE = 20;
-const PLACEHOLDER_TYPE: GarmentTypeId = 't_shirt';
 
 type Piece = Readonly<{
   garmentTypeId: GarmentTypeId | null;
@@ -52,9 +52,9 @@ function PieceDrawing({ category, colorFamily, garmentTypeId }: Piece) {
     />
   ) : (
     <GarmentTileArtwork
-      category="top"
+      category={category}
       colorFamily={null}
-      garmentTypeId={PLACEHOLDER_TYPE}
+      garmentTypeId={CATEGORY_REPRESENTATIVE_TYPE[category]}
       glyphSize={PIECE_SIZE}
       height={PIECE_SIZE}
       photoTestID="wardrobe-ownership-placeholder-photo"

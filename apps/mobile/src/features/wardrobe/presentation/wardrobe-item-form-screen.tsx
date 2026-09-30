@@ -456,7 +456,7 @@ export function WardrobeItemFormScreen({
   };
 
   const piece = {
-    category: selectedType?.structuralCategory ?? item?.category ?? 'top',
+    category: selectedType?.structuralCategory ?? item?.category ?? defaultCategory ?? 'top',
     colorFamily: values.colorFamily,
     garmentTypeId: selectedType?.typeId ?? null,
   } as const;
