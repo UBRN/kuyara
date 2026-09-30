@@ -235,9 +235,10 @@ export function reconcile(model: Model, inputs: ReconcileInputs, tools: Reconcil
     } else {
       moved = true;
       // Paged, the piece slides in opaque and already large from behind the window's edge;
-      // otherwise it crossfades in beside the piece it replaces (Phase 7).
+      // otherwise it crossfades in beside the piece it replaces (Phase 7). Either way it starts
+      // unseen: its first frame would draw it where the piece it replaces still stands.
       const values = tools.values({
-        from: box, box, p: previous ? 0 : 1, dx: 0, op: paged || !previous ? 1 : 0, sc: scale, hand: paged ? 1 : 0,
+        from: box, box, p: previous ? 0 : 1, dx: 0, op: previous ? 0 : 1, sc: scale, hand: paged ? 1 : 0,
       });
       byKey.set(key, {
         key, slot, garmentTypeId, role: 'current', piece, base: box, roles: pieceRoles, drainRoles: null, values,

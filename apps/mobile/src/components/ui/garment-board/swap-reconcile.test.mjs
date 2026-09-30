@@ -123,6 +123,8 @@ test('a tile tap enters from the side of the strip it lies on', () => {
   assert.equal(forward.direction, 1);
   assert.equal(forward.paged, true);
   assert.equal(forward.stride, pager.strideNext);
+  // Unseen until its offset behind the window's edge is set with it.
+  assert.equal(forward.values.op.get(), 0);
   const earlier = next(enlarged('closed_shoes'), 'sneakers', 'footwear');
   const back = earlier.intents.find((intent) => intent.kind === 'enter');
   assert.equal(back.direction, -1);
