@@ -27,6 +27,9 @@ export type CoachMarkRect = Readonly<{
 const OPENING_INFLATE = 28;
 // The ring: a 2-point accent outline 4 points outside the live control.
 const RING_OFFSET = 4;
+// How far the ring's outer edge stands outside the live control. A lit neighbour closer than
+// this would be drawn through, so screens keep at least this gap around a ringed control.
+export const RING_OUTSET = RING_OFFSET + borderWidths.strong;
 // The ring breathes down to 30 % of the accent (approved with the Phase 8 prototype).
 const RING_FLOOR = 0.3;
 // The dim is five opaque views drawn as one group at the scrim's alpha, so where they overlap
@@ -212,7 +215,7 @@ export function CoachMarkRing({ rect }: Readonly<{ rect: CoachMarkRect }>) {
     const breath = (pulse.get() - AMBIENT_PULSE_FLOOR) / (1 - AMBIENT_PULSE_FLOOR);
     return { opacity: opacity.get() * (RING_FLOOR + (1 - RING_FLOOR) * breath) };
   });
-  const inset = RING_OFFSET + borderWidths.strong;
+  const inset = RING_OUTSET;
 
   return (
     <Animated.View

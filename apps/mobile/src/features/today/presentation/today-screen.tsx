@@ -475,7 +475,8 @@ function TodayScreenContent({
                 activate={() => onOpenOutfitDetail(primary.id)}
                 id="outfit"
                 label={presentation.stageAccessibilityLabel}
-                scrollBy={scrollBy}>
+                scrollBy={scrollBy}
+                style={styles.outfitTarget}>
                 <PressScale
                   accessible
                   accessibilityLabel={presentation.stageAccessibilityLabel}
@@ -961,7 +962,9 @@ const styles = StyleSheet.create({
   titleValues: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   titleText: { fontWeight: '700' },
   provenanceBadge: { marginTop: spacing.sm },
-  archetypeName: { marginBottom: spacing.sm, marginTop: spacing.md },
+  // The gap above the outfit sits outside its tour target, so the tour's ring clears the badge.
+  outfitTarget: { marginTop: spacing.md },
+  archetypeName: { marginBottom: spacing.sm },
   stage: { borderRadius: 26, overflow: 'hidden' },
   captionRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   captionText: { flexShrink: 1 },
