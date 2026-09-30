@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { AccessibilityInfo, Keyboard, Text } from 'react-native';
 import type { PlaceSearchV1Data } from '@kuyara/contracts';
@@ -250,6 +250,16 @@ test.each([
   await render(<Providers><WeatherLocationScreen /></Providers>);
   expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
   expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(expected(messages.en.weather));
+});
+
+// Law 7: the rationale opens and closes in place under its button rather than snapping.
+test('the location rationale opens in place under its button', async () => {
+  const { weather, Providers } = harness();
+  const copy = messages.en.weather;
+  weather.state = { ...weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>, locationFlow: 'rationale' };
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  expect(within(result.getByTestId('weather-location-rationale'))
+    .getByRole('header', { name: copy.locationRationaleTitle })).toBeOnTheScreen();
 });
 
 test('an idle location flow announces nothing', async () => {

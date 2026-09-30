@@ -9,6 +9,7 @@ import {
   NativeListRow,
   NativeListSection,
   NativeTextField,
+  Presence,
   Surface,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
@@ -152,28 +153,34 @@ export function LocationSelectionControls({
           testID={`${testIDPrefix}-location-device`}
           variant={state.locationFlow === 'rationale' ? 'tonal' : 'prominent'}
         />
-        {state.locationFlow === 'rationale' ? (
-          <Surface accessibilityLiveRegion="polite" style={styles.card} variant="interactive">
-            <AppText accessibilityRole="header" variant="title">
-              {copy.locationRationaleTitle}
-            </AppText>
-            <AppText>{copy.locationRationaleBody}</AppText>
-            <View style={styles.actions}>
-              <Button
-                label={copy.continuePermission}
-                onPress={() => {
-                  const before = application.state;
-                  void application.confirmDeviceLocationRequest().then(() => finishSelection(before, isDevice));
-                }}
-              />
-              <Button
-                label={copy.cancel}
-                onPress={application.dismissLocationFlow}
-                variant="plain"
-              />
+        {/* The rationale opens and closes in place under its button (Law 7). Its slot takes
+            back the column's gap and the card carries it inside, so no space stays behind. */}
+        <View style={styles.presenceSlot}>
+          <Presence testID={`${testIDPrefix}-location-rationale`} visible={state.locationFlow === 'rationale'}>
+            <View style={styles.presenceContent}>
+              <Surface accessibilityLiveRegion="polite" style={styles.card} variant="interactive">
+                <AppText accessibilityRole="header" variant="title">
+                  {copy.locationRationaleTitle}
+                </AppText>
+                <AppText>{copy.locationRationaleBody}</AppText>
+                <View style={styles.actions}>
+                  <Button
+                    label={copy.continuePermission}
+                    onPress={() => {
+                      const before = application.state;
+                      void application.confirmDeviceLocationRequest().then(() => finishSelection(before, isDevice));
+                    }}
+                  />
+                  <Button
+                    label={copy.cancel}
+                    onPress={application.dismissLocationFlow}
+                    variant="plain"
+                  />
+                </View>
+              </Surface>
             </View>
-          </Surface>
-        ) : null}
+          </Presence>
+        </View>
         {flowMessage ? (
           <Surface accessibilityLiveRegion="polite" style={styles.card} variant="muted">
             <AppText>{flowMessage}</AppText>
@@ -257,6 +264,8 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   controls: { padding: spacing.lg, gap: spacing.md },
   card: { gap: spacing.md, padding: spacing.lg },
+  presenceSlot: { marginTop: -spacing.md },
+  presenceContent: { paddingTop: spacing.md },
   actions: { gap: spacing.sm },
   status: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   statusText: { flex: 1 },
