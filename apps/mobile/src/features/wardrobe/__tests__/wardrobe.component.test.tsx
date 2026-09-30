@@ -1,6 +1,7 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { AccessibilityInfo, Dimensions, Linking, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WardrobeRoute from '@/app/(tabs)/(profile)/wardrobe/index';
@@ -433,6 +434,39 @@ test('a new piece opens on the preview, the two ownership cards and six category
   expect(result.getByTestId('wardrobe-type-jeans').props.accessibilityState).toEqual(
     expect.objectContaining({ selected: true }),
   );
+});
+
+// Law 7: picking a type is news, so the chosen-type row and then the colour section arrive;
+// a piece opened for editing already has both, drawn at rest.
+test('picking a type brings the chosen row and the colour section in; an edit opens at rest', async () => {
+  // The test mock lands every spring at once; hold the landing to read the first frame.
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
+  const delays = jest.spyOn(Reanimated, 'withDelay');
+  const arriving = { opacity: 0, transform: [{ translateY: spacing.md }] };
+  const wrapperStyle = (result: Awaited<ReturnType<typeof render>>, testID: string) =>
+    StyleSheet.flatten(result.getByTestId(testID).parent!.props.style) ?? {};
+
+  const created = await render(<CreateForm clothingPreference="womens" />);
+  await fireEvent.press(created.getByTestId('wardrobe-type-category-tile-bottom'));
+  delays.mockClear();
+  await fireEvent.press(created.getByTestId('wardrobe-type-jeans'));
+  expect(wrapperStyle(created, 'wardrobe-type-row')).toMatchObject(arriving);
+  expect(wrapperStyle(created, 'wardrobe-color-section')).toMatchObject(arriving);
+  // The colour section follows the row one stagger step later, in reading order.
+  expect(delays).toHaveBeenCalledWith(0, expect.anything());
+  expect(delays).toHaveBeenCalledWith(lightTheme.motion.stagger, expect.anything());
+  await created.unmount();
+
+  const edited = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen isBusy={false} item={item} mode="edit" onCreate={async () => undefined}
+        onDirtyChange={() => undefined} onUpdate={async () => undefined} />
+    </TestProviders>,
+  );
+  expect(wrapperStyle(edited, 'wardrobe-type-row').opacity).toBeUndefined();
+  expect(wrapperStyle(edited, 'wardrobe-color-section').opacity).toBeUndefined();
+  delays.mockRestore();
+  withSpring.mockRestore();
 });
 
 test('the toolbar pair names where the piece goes and Cancel leaves through the guard', async () => {
