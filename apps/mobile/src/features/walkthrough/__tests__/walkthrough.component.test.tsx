@@ -290,6 +290,36 @@ test('the tour advances on the live control\'s navigation and on Continue, and D
   expect(result.queryByTestId('walkthrough-skip')).toBeNull();
 });
 
+// A native view reports its layout when it mounts and when its size changes, never for new
+// content of the same size. At the largest standard text size step 9's tight bubble came out
+// exactly as tall as step 8's, so a measurer kept across steps never reported again and the
+// card never arrived. Each step lays its bubble out in freshly mounted measurers.
+test('a step whose bubble lays out at the last step\'s height still arrives', async () => {
+  const context = await renderTour();
+  const { controller, result } = context;
+  await act(async () => { controller.start('auto'); });
+  await settle(result);
+  await walkTo(context, 7);
+  expect(bubble(result).counter).toBe('Step 8 of 9');
+  const measurers = () => (['normal', 'tight'] as const).map((variant) => (
+    result.getByTestId(`walkthrough-bubble-measure-${variant}`, { includeHiddenElements: true })
+  ));
+  const laidOut = measurers();
+
+  await act(async () => { fireEvent.press(result.getByTestId('walkthrough-continue')); });
+  await act(async () => { await jest.advanceTimersByTimeAsync(1_200); });
+  for (const measurer of measurers()) {
+    if (laidOut.includes(measurer)) continue;
+    const variant = measurer.props.testID.endsWith('tight') ? 'tight' : 'normal';
+    await act(async () => {
+      fireEvent(measurer, 'layout', { nativeEvent: { layout: { height: variant === 'normal' ? 170 : 158 } } });
+    });
+  }
+  await act(async () => { await jest.advanceTimersByTimeAsync(300); });
+
+  expect(bubble(result)).toMatchObject({ counter: 'Step 9 of 9', title: 'History' });
+});
+
 test('a look step blocks every touch, shows no ring and is announced', async () => {
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
   const context = await renderTour();
