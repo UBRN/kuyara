@@ -825,6 +825,39 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
     .toMatchObject({ backgroundColor: lightTheme.atmosphere[loadedPresentation().atmosphere] });
 });
 
+// Law 7: a badge that lands after the screen opened fades in on `fast`; a badge there on
+// opening is drawn at rest.
+describe('ownership badges', () => {
+  const hidden = { includeHiddenElements: true };
+  const detail = (wardrobeItems: readonly WardrobeItem[]) => providers(
+    <OutfitDetailScreen language="en" onEditPiece={jest.fn()} state={todayScreenState}
+      suggestionId={todayOutfitId(1)} wardrobeItems={wardrobeItems} />,
+  );
+  const layOut = async (result: Awaited<ReturnType<typeof render>>) => {
+    await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+  };
+
+  test('a badge there on opening stands still', async () => {
+    const { exactPiece, items } = closetFor();
+    const result = await render(detail(items));
+    await layOut(result);
+    const style = StyleSheet.flatten(result.getByTestId(`outfit-detail-badge-${exactPiece.garmentTypeId}`, hidden).props.style);
+    expect(style.opacity).toBe(1);
+  });
+
+  test('a badge added after opening arrives', async () => {
+    const { exactPiece, items } = closetFor();
+    const result = await render(detail([]));
+    await layOut(result);
+    expect(result.queryByTestId(`outfit-detail-badge-${exactPiece.garmentTypeId}`, hidden)).toBeNull();
+    await result.rerender(detail(items));
+    expect(StyleSheet.flatten(result.getByTestId(`outfit-detail-badge-${exactPiece.garmentTypeId}`, hidden).props.style))
+      .toMatchObject({ opacity: 0 });
+  });
+});
+
 // O8: the similar row's "Yours" draws the user's own piece in its saved pattern and names it
 // by its palette option, in words and in the row's spoken label; a family-only record keeps
 // its family dot and name (the test above).
@@ -886,6 +919,25 @@ describe.each(['en', 'tr'] as const)('%s wore this today', (language) => {
     await result.rerender(detail({ onWoreThis, worn: 'other', wornError: copy.wornSaveError }));
     expect(result.getByTestId('outfit-detail-wore-this')).toBeOnTheScreen();
     expect(result.getByRole('alert')).toHaveTextContent(copy.wornSaveError);
+    // The failed-save line opens and closes in place rather than snapping.
+    expect(within(result.getByTestId('outfit-detail-worn-error')).getByRole('alert')).toBeOnTheScreen();
+  });
+
+  // Law 7: the button and the worn state replace each other in place. The arriving one
+  // starts transparent; the leaving one is out of the reading order at once.
+  test('the worn state fades in over the leaving button', async () => {
+    const copy = messages[language].today;
+    const hidden = { includeHiddenElements: true };
+    // The test mock finishes every fade at once; hold it to read the swap's first frame.
+    const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation((toValue) => toValue);
+    const result = await render(detail({ onWoreThis: jest.fn(), worn: 'none' }));
+    expect(StyleSheet.flatten(result.getByTestId('outfit-detail-wore-this').parent!.props.style).opacity).toBe(1);
+
+    await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'this' }));
+    expect(StyleSheet.flatten(result.getByTestId('outfit-detail-worn').parent!.props.style).opacity).toBe(0);
+    expect(result.queryByRole('button', { name: copy.wornAction })).toBeNull();
+    expect(result.getAllByText(copy.wornAction, hidden).length).toBeGreaterThan(0);
+    withTiming.mockRestore();
   });
 
   // The `alert` role is silent on iOS, so a failed save is spoken once, as the other error
