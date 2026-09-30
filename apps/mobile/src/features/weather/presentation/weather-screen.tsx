@@ -29,13 +29,13 @@ import { useWeatherInteractionEvents } from '@/features/analytics/application/us
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { locationCaptionKey } from '@/features/weather/domain/location-caption';
-import type { ActiveLocation } from '@/features/weather/domain/weather';
+import type { ActiveLocation, NormalizedCoordinates, WeatherSnapshot } from '@/features/weather/domain/weather';
 import { findWeatherOutlook, type WeatherOutlook } from '@/features/weather/domain/weather-outlook';
 import {
   DailyOutlook,
   type DailyOutlookRow,
 } from '@/features/weather/presentation/daily-outlook';
-import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
+import { HourlyRail, type HourlyRailColumn } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
 import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
@@ -44,6 +44,7 @@ import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { formatTemperature, formatTemperatureDifference, formatTemperatureValue, localeTag } from '@/presentation/format-temperature';
 import type { TemperatureUnit } from '@/localization/device-locale';
+import type { AppMessages } from '@/localization/messages';
 import { radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -103,6 +104,60 @@ function percentage(value: number, language: 'en' | 'tr'): string {
     maximumFractionDigits: 0,
     style: 'percent',
   }).format(value);
+}
+
+// The rail's columns, from frozen inputs only: built inline, the compiler kept them in the
+// screen's widest memo scope, so every refresh flag change redrew all of the rail's hours.
+function hourlyRailColumns(
+  snapshot: WeatherSnapshot,
+  now: number,
+  coordinates: NormalizedCoordinates | undefined,
+  language: 'en' | 'tr',
+  hour12: boolean,
+  temperatureUnit: TemperatureUnit,
+  copy: AppMessages['weather'],
+  unitName: string,
+): readonly HourlyRailColumn[] {
+  const remainingHourly = remainingHourlyForecast(snapshot.hourly, now);
+  return remainingHourly.map((hour, index): HourlyRailColumn => {
+    const localDate = weatherLocalDateKey(hour.forecastAt, snapshot.timeZone);
+    const previousLocalDate = index === 0
+      ? localDate
+      : weatherLocalDateKey(remainingHourly[index - 1].forecastAt, snapshot.timeZone);
+    const startsNewLocalDay = localDate !== previousLocalDate;
+    const hourLabel = time(hour.forecastAt, snapshot.timeZone, language, hour12);
+    return {
+      key: hour.forecastAt,
+      accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
+        day: startsNewLocalDay
+          ? weekday(hour.forecastAt, snapshot.timeZone, language, 'long')
+          : undefined,
+        time: hourLabel,
+        unitName,
+        temperature: formatTemperatureValue(hour.temperatureCelsius, language, temperatureUnit),
+        condition: copy.conditions[hour.condition],
+        precipitationProbability: hour.precipitationProbability,
+      }),
+      condition: hour.condition,
+      daypart: resolveDaypart(
+        hour.forecastAt,
+        snapshot.timeZone,
+        coordinates,
+      ),
+      precipitationProbability: hour.precipitationProbability,
+      precipitation: percentage(hour.precipitationProbability, language),
+      temperature: formatTemperature(hour.temperatureCelsius, language, temperatureUnit),
+      temperatureCelsius: hour.temperatureCelsius,
+      // O14 rail A: the first column is the current hour, so it says "Now";
+      // its spoken label keeps the clock time.
+      time: index === 0
+        ? copy.hourlyNow
+        : startsNewLocalDay
+          ? weekday(hour.forecastAt, snapshot.timeZone, language, 'short')
+          : hourLabel,
+      timeEmphasis: index === 0 ? 'now' : startsNewLocalDay ? 'newDay' : undefined,
+    };
+  });
 }
 
 function accessibilitySentence(...parts: readonly (string | null)[]): string {
@@ -277,7 +332,6 @@ export function WeatherScreen() {
     && state.snapshot.locationKey === state.activeLocation?.locationKey
     ? state.snapshot
     : null;
-  const remainingHourly = snapshot ? remainingHourlyForecast(snapshot.hourly, now) : [];
   const outlook = snapshot
     ? findWeatherOutlook({ snapshot, now: new Date(now).toISOString() })
     : null;
@@ -341,6 +395,16 @@ export function WeatherScreen() {
         weekday: weekday(date, 'UTC', language, 'short'),
       };
     });
+  const hourlyColumns = snapshot === null ? [] : hourlyRailColumns(
+    snapshot,
+    now,
+    state.activeLocation?.coordinates,
+    language,
+    hour12,
+    temperatureUnit,
+    copy,
+    messages.temperatureUnitNames[temperatureUnit],
+  );
   const locationAccessibilityLabel = accessibilitySentence(
     activeName,
     locationCaption,
@@ -559,7 +623,7 @@ export function WeatherScreen() {
 
           {locationSection}
 
-          {remainingHourly.length > 0 && (
+          {hourlyColumns.length > 0 && (
             <Entrance index={0}>
               <Surface
                 style={[styles.card, theme.elevation.raised]}
@@ -571,47 +635,7 @@ export function WeatherScreen() {
                   variant="bodyStrong">
                   {copy.hourlyHeading}
                 </AppText>
-                <HourlyRail
-                  columns={remainingHourly.map((hour, index) => {
-                    const localDate = weatherLocalDateKey(hour.forecastAt, snapshot.timeZone);
-                    const previousLocalDate = index === 0
-                      ? localDate
-                      : weatherLocalDateKey(remainingHourly[index - 1].forecastAt, snapshot.timeZone);
-                    const startsNewLocalDay = localDate !== previousLocalDate;
-                    const hourLabel = time(hour.forecastAt, snapshot.timeZone, language, hour12);
-                    return {
-                      key: hour.forecastAt,
-                      accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
-                        day: startsNewLocalDay
-                          ? weekday(hour.forecastAt, snapshot.timeZone, language, 'long')
-                          : undefined,
-                        time: hourLabel,
-                        unitName: messages.temperatureUnitNames[temperatureUnit],
-                        temperature: formatTemperatureValue(hour.temperatureCelsius, language, temperatureUnit),
-                        condition: copy.conditions[hour.condition],
-                        precipitationProbability: hour.precipitationProbability,
-                      }),
-                      condition: hour.condition,
-                      daypart: resolveDaypart(
-                        hour.forecastAt,
-                        snapshot.timeZone,
-                        state.activeLocation?.coordinates,
-                      ),
-                      precipitationProbability: hour.precipitationProbability,
-                      precipitation: percentage(hour.precipitationProbability, language),
-                      temperature: formatTemperature(hour.temperatureCelsius, language, temperatureUnit),
-                      temperatureCelsius: hour.temperatureCelsius,
-                      // O14 rail A: the first column is the current hour, so it says "Now";
-                      // its spoken label keeps the clock time.
-                      time: index === 0
-                        ? copy.hourlyNow
-                        : startsNewLocalDay
-                          ? weekday(hour.forecastAt, snapshot.timeZone, language, 'short')
-                          : hourLabel,
-                      timeEmphasis: index === 0 ? 'now' : startsNewLocalDay ? 'newDay' : undefined,
-                    };
-                  })}
-                />
+                <HourlyRail columns={hourlyColumns} />
               </Surface>
             </Entrance>
           )}
