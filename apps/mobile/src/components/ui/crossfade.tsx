@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -29,7 +30,7 @@ function FadeOut({ onDone, children }: Readonly<{ onDone: () => void; children: 
   const opacity = useSharedValue(1);
   useEffect(() => {
     opacity.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
-      if (finished) runOnJS(onDone)();
+      if (finished) scheduleOnRN(onDone);
     }));
   }, [onDone, opacity, theme.motion.fast]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));

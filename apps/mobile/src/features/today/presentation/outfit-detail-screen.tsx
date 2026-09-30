@@ -9,13 +9,13 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Animated, {
-  runOnJS,
   useAnimatedRef,
   useAnimatedStyle,
   useScrollOffset,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 
@@ -23,6 +23,7 @@ import {
   AppText,
   Button,
   ClosetColorDisc,
+  Crossfade,
   colorFamilyFills,
   garmentColorFamiliesBySlot,
   Entrance,
@@ -179,13 +180,13 @@ function FadeOnChange({ animate, children }: Readonly<{ animate: boolean; childr
   return <Animated.View pointerEvents="box-none" style={style}>{children}</Animated.View>;
 }
 
-/** A leaving title: whole in its first frame, gone on `fast`, then out of the tree. */
+/** A leaving worn control: whole in its first frame, gone on `fast`, then out of the tree. */
 function FadeOut({ onDone, children }: Readonly<{ onDone: () => void; children: ReactNode }>) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue(1);
   useEffect(() => {
     opacity.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
-      if (finished) runOnJS(onDone)();
+      if (finished) scheduleOnRN(onDone);
     }));
   }, [onDone, opacity, theme.motion.fast]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
@@ -197,31 +198,6 @@ function FadeOut({ onDone, children }: Readonly<{ onDone: () => void; children: 
       style={[StyleSheet.absoluteFill, style]}>
       {children}
     </Animated.View>
-  );
-}
-
-/**
- * The title after a change: the old one leaves on `fast`, the new one arrives on `normal`.
- * Each change mounts both layers afresh, so the new title's first frame is transparent and
- * the old one's is whole: neither shows in the wrong state before its fade starts.
- */
-function CrossfadeTitle({ title }: Readonly<{ title: string }>) {
-  const [titles, setTitles] = useState<Readonly<{ current: string; previous: string | null; changes: number }>>({
-    current: title, previous: null, changes: 0,
-  });
-  if (titles.current !== title) setTitles({ current: title, previous: titles.current, changes: titles.changes + 1 });
-  const clearPrevious = useCallback(() => setTitles((value) => ({ ...value, previous: null })), []);
-  return (
-    <View>
-      <FadeOnChange animate={titles.changes > 0} key={`in-${titles.changes}`}>
-        <AppText accessibilityRole="header" variant="title">{titles.current}</AppText>
-      </FadeOnChange>
-      {titles.previous !== null ? (
-        <FadeOut key={`out-${titles.changes}`} onDone={clearPrevious}>
-          <AppText variant="title">{titles.previous}</AppText>
-        </FadeOut>
-      ) : null}
-    </View>
   );
 }
 
@@ -605,7 +581,9 @@ export function OutfitDetailScreen({
             owner answer 5: after a change the title is the reader's and says where it came from.
             The title changes in place at once; "Changed from" waits for a still board. */}
         <View style={styles.headingGroup} testID="outfit-detail-heading-group">
-          <CrossfadeTitle title={suggestion.title} />
+          <Crossfade contentKey={suggestion.title}>
+            <AppText accessibilityRole="header" variant="title">{suggestion.title}</AppText>
+          </Crossfade>
           <Presence testID="outfit-detail-changed-from" visible={changedFromShown}>
             <AppText colorRole="textSecondary" style={styles.changedFrom} variant="body">
               {suggestion.changedFrom ?? shownChangedFrom}
