@@ -2065,6 +2065,23 @@ describe('the contextual weather-alert offer', () => {
     expect(bell?.[0].size).toBe(30);
   });
 
+  // ADR 0020: content arrives in reading order. The offer is the last block, so it waits one
+  // stagger step longer than the last alternate above it.
+  test('the offer arrives after the alternatives in reading order', async () => {
+    const withDelay = jest.spyOn(jest.requireMock('react-native-reanimated'), 'withDelay');
+    const result = await render(providers(
+      <TodayScreen alertOffer={offerProps()} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={todayScreenState} />,
+    ));
+
+    const delays = withDelay.mock.calls.map(([delay]) => delay as number);
+    const alternates = result.getByTestId('today-outfit-list').children.length;
+    expect(alternates).toBe(2);
+    expect(delays).toContain(alternates * lightTheme.motion.stagger);
+    expect(delays).toContain((alternates + 1) * lightTheme.motion.stagger);
+    withDelay.mockRestore();
+  });
+
   test('the offer arrives rather than appearing mid-screen', async () => {
     // The test mock lands every spring at once; hold the landing to read the first frame.
     const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
