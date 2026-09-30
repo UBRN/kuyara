@@ -16,6 +16,7 @@ import { useKeyboardVisible } from '@/components/ui/use-keyboard-visible';
 import { useWeatherInteractionEvents } from '@/features/analytics/application/use-interaction-events';
 import { PlaceSearchController } from '@/features/weather/application/place-search-controller';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
+import type { ActiveLocation } from '@/features/weather/domain/weather';
 import {
   usePlaceSearchApplication,
   useWeatherApplication,
@@ -28,12 +29,15 @@ type LocationFlow = Extract<WeatherApplicationState, { status: 'ready' }>['locat
 
 type LocationSelectionControlsProps = Readonly<{
   header?: ReactNode;
+  /** Called once a pick has become the active location, so a picker screen can close. */
+  onLocationSelected?: () => void;
   testID: string;
   testIDPrefix: 'onboarding' | 'weather';
 }>;
 
 export function LocationSelectionControls({
   header,
+  onLocationSelected,
   testID,
   testIDPrefix,
 }: LocationSelectionControlsProps) {
@@ -52,6 +56,20 @@ export function LocationSelectionControls({
       changeContext,
     );
   };
+  // A pick is done only when it is the active location and nothing is left to answer: a
+  // permission rationale, a denial or a failed lookup keeps the picker open with its card.
+  const finishSelection = (
+    before: typeof application.state,
+    isChosen: (location: ActiveLocation) => boolean,
+  ) => {
+    reportLocationSelection(before);
+    const after = application.getSnapshot?.() ?? application.state;
+    if (after.status === 'ready' && after.locationFlow === 'idle' && !after.isSelectingLocation
+      && after.activeLocation && isChosen(after.activeLocation)) {
+      onLocationSelected?.();
+    }
+  };
+  const isDevice = (location: ActiveLocation) => location.source === 'device';
   const { language, messages } = useLocalization();
   const copy = messages.weather;
   const theme = useKuyaraTheme();
@@ -129,7 +147,7 @@ export function LocationSelectionControls({
           loading={state.isSelectingLocation}
           onPress={() => {
             const before = application.state;
-            void application.beginDeviceLocationSelection().then(() => reportLocationSelection(before));
+            void application.beginDeviceLocationSelection().then(() => finishSelection(before, isDevice));
           }}
           testID={`${testIDPrefix}-location-device`}
           variant={state.locationFlow === 'rationale' ? 'tonal' : 'prominent'}
@@ -145,7 +163,7 @@ export function LocationSelectionControls({
                 label={copy.continuePermission}
                 onPress={() => {
                   const before = application.state;
-                  void application.confirmDeviceLocationRequest().then(() => reportLocationSelection(before));
+                  void application.confirmDeviceLocationRequest().then(() => finishSelection(before, isDevice));
                 }}
               />
               <Button
@@ -211,7 +229,10 @@ export function LocationSelectionControls({
                     ? undefined
                     : () => {
                         const before = application.state;
-                        void selectPlaceSearchResult(place).then(() => reportLocationSelection(before));
+                        void selectPlaceSearchResult(place).then(() => finishSelection(
+                          before,
+                          (location) => location.source === 'manual' && location.catalogId === place.id,
+                        ));
                         // A manual pick overrides the device location regardless of
                         // whether it ends up the same place, so first use gates on the
                         // action, not on `location_changed` firing.

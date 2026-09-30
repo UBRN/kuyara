@@ -20,6 +20,8 @@ import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-router/react-navigation', () => ({ useHeaderHeight: () => 100 }));
+const mockRouter = { back: jest.fn(), canGoBack: jest.fn(() => true), replace: jest.fn() };
+jest.mock('expo-router', () => ({ useRouter: () => mockRouter }));
 // Test the feature's native-wrapper contracts; native layout and spoken grouping need the Simulator.
 jest.mock('@/components/ui/native-list', () => {
   const { View, Text, Pressable } = jest.requireActual('react-native');
@@ -76,6 +78,7 @@ function harness(language: SupportedLanguage = 'en') {
 }
 
 beforeEach(() => {
+  mockRouter.back.mockClear(); mockRouter.replace.mockClear(); mockRouter.canGoBack.mockReturnValue(true);
   jest.useFakeTimers();
   jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
 });
@@ -277,4 +280,96 @@ test('the header steps aside while the keyboard is up and returns when it goes',
   expect(result.getByTestId('onboarding-place-search')).toBeOnTheScreen();
   await act(async () => { handlers.get('keyboardWillHide')?.(); });
   expect(result.getByTestId('test-header')).toBeOnTheScreen();
+});
+
+const readyState = (state: WeatherApplicationValue['state']) =>
+  state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>;
+const istanbul = {
+  source: 'manual' as const, catalogId: place.id as ManualLocationId, displayName: place.displayName,
+  locationKey: 'manual:place.745044', coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul',
+};
+const deviceLocation = {
+  source: 'device' as const, accuracy: 'approximate' as const, locationKey: 'device:4101:2898',
+  coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul',
+};
+
+test('a chosen place closes the picker once, even after a quick double tap', async () => {
+  const { weather, search, Providers } = harness();
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), activeLocation: istanbul };
+  });
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Ista'); await debounce();
+  const row = result.getByTestId('weather-place-place.745044');
+  await act(async () => { fireEvent.press(row); fireEvent.press(row); });
+  expect(search.selectPlaceSearchResult).toHaveBeenCalledTimes(2);
+  expect(mockRouter.back).toHaveBeenCalledTimes(1);
+});
+
+test('a picker opened without history returns to Weather instead of popping', async () => {
+  const { weather, search, Providers } = harness();
+  mockRouter.canGoBack.mockReturnValue(false);
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), activeLocation: istanbul };
+  });
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Ista'); await debounce();
+  await fireEvent.press(result.getByTestId('weather-place-place.745044'));
+  expect(mockRouter.back).not.toHaveBeenCalled();
+  expect(mockRouter.replace).toHaveBeenCalledWith('/weather');
+});
+
+test('a failed place save keeps the picker open with its message', async () => {
+  const { weather, search, Providers } = harness();
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), locationFlow: 'selection-failed' };
+  });
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Ista'); await debounce();
+  await fireEvent.press(result.getByTestId('weather-place-place.745044'));
+  expect(mockRouter.back).not.toHaveBeenCalled();
+});
+
+test('the device location closes the picker once found, and stays for a rationale or a failed lookup', async () => {
+  const { weather, Providers } = harness();
+  weather.beginDeviceLocationSelection.mockImplementationOnce(async () => {
+    weather.state = { ...readyState(weather.state), locationFlow: 'rationale' };
+  });
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.useCurrentLocation }));
+  expect(mockRouter.back).not.toHaveBeenCalled();
+  await result.unmount();
+
+  weather.state = { ...readyState(weather.state), locationFlow: 'idle' };
+  weather.beginDeviceLocationSelection.mockImplementationOnce(async () => {
+    weather.state = { ...readyState(weather.state), locationFlow: 'lookup-failed' };
+  });
+  const failed = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.press(failed.getByRole('button', { name: messages.en.weather.useCurrentLocation }));
+  expect(mockRouter.back).not.toHaveBeenCalled();
+  await failed.unmount();
+
+  weather.state = { ...readyState(weather.state), locationFlow: 'rationale' };
+  weather.confirmDeviceLocationRequest.mockImplementationOnce(async () => {
+    weather.state = { ...readyState(weather.state), locationFlow: 'idle', activeLocation: deviceLocation };
+  });
+  const granted = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.press(granted.getByRole('button', { name: messages.en.weather.continuePermission }));
+  expect(mockRouter.back).toHaveBeenCalledTimes(1);
+});
+
+// Onboarding hosts the same controls in its own flow, which moves on by its own buttons.
+test('the onboarding place step never navigates when a place is chosen', async () => {
+  const { weather, search, Providers } = harness();
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), activeLocation: istanbul };
+  });
+  const result = await render(
+    <Providers><LocationSelectionControls testID="controls" testIDPrefix="onboarding" /></Providers>,
+  );
+  await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista'); await debounce();
+  await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
+  expect(search.selectPlaceSearchResult).toHaveBeenCalledTimes(1);
+  expect(mockRouter.back).not.toHaveBeenCalled();
+  expect(mockRouter.replace).not.toHaveBeenCalled();
 });
