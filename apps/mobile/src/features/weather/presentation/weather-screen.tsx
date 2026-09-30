@@ -395,7 +395,8 @@ export function WeatherScreen() {
 
       {snapshot ? null : locationSection}
 
-      {/* Law 7: the cards arrive in reading order, one `motion.stagger` apart. Keyed on the
+      {/* Law 7: the forecast cards arrive in reading order, one `motion.stagger` apart, while
+          the current section holds the hero value and stays still (ADR 0020). Keyed on the
           place, so a new place brings them in again instead of snapping them back after the
           loading card; a refresh of the same place keeps them mounted and still. */}
       {snapshot ? (
@@ -406,155 +407,153 @@ export function WeatherScreen() {
             </Surface>
           ) : null}
 
-          <Entrance index={0}>
-            <View style={styles.currentSection}>
-              <Surface
-                style={[styles.card, theme.elevation.raised]}
-                testID="weather-current-card">
-                <View
-                  accessible
-                  accessibilityLabel={copy.currentConditionsAccessibilityLabel({
-                    condition: copy.conditions[snapshot.current.condition],
-                    unitName: messages.temperatureUnitNames[temperatureUnit],
-                    temperature: formatTemperatureValue(snapshot.current.temperatureCelsius, language, temperatureUnit),
-                    apparentTemperature: formatTemperatureValue(
-                      snapshot.current.apparentTemperatureCelsius,
-                      language, temperatureUnit
-                    ),
-                    minimumTemperature: formatTemperatureValue(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
-                    maximumTemperature: formatTemperatureValue(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
-                    precipitationProbability: snapshot.current.precipitationProbability,
-                  })}
-                  style={[
-                    styles.currentHero,
-                    usesStackedLayout && styles.stackedCurrentHero,
-                  ]}>
-                  <View style={styles.currentConditionGroup}>
-                    <View style={styles.currentConditionRow}>
-                      <AppText
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.6}
-                        numberOfLines={1}
-                        tabularNumbers
-                        variant="display">
-                        {formatTemperature(snapshot.current.temperatureCelsius, language, temperatureUnit)}
-                      </AppText>
-                      <AppText variant="bodyStrong">
-                        {copy.conditions[snapshot.current.condition]}
-                      </AppText>
-                    </View>
-                    <AppText colorRole="textSecondary" variant="caption">
-                      {`${copy.feelsLike(
-                        formatTemperature(snapshot.current.apparentTemperatureCelsius, language, temperatureUnit),
-                      )} · ${copy.range(
-                        formatTemperature(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
-                        formatTemperature(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
-                      )}`}
+          <View style={styles.currentSection}>
+            <Surface
+              style={[styles.card, theme.elevation.raised]}
+              testID="weather-current-card">
+              <View
+                accessible
+                accessibilityLabel={copy.currentConditionsAccessibilityLabel({
+                  condition: copy.conditions[snapshot.current.condition],
+                  unitName: messages.temperatureUnitNames[temperatureUnit],
+                  temperature: formatTemperatureValue(snapshot.current.temperatureCelsius, language, temperatureUnit),
+                  apparentTemperature: formatTemperatureValue(
+                    snapshot.current.apparentTemperatureCelsius,
+                    language, temperatureUnit
+                  ),
+                  minimumTemperature: formatTemperatureValue(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
+                  maximumTemperature: formatTemperatureValue(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
+                  precipitationProbability: snapshot.current.precipitationProbability,
+                })}
+                style={[
+                  styles.currentHero,
+                  usesStackedLayout && styles.stackedCurrentHero,
+                ]}>
+                <View style={styles.currentConditionGroup}>
+                  <View style={styles.currentConditionRow}>
+                    <AppText
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.6}
+                      numberOfLines={1}
+                      tabularNumbers
+                      variant="display">
+                      {formatTemperature(snapshot.current.temperatureCelsius, language, temperatureUnit)}
+                    </AppText>
+                    <AppText variant="bodyStrong">
+                      {copy.conditions[snapshot.current.condition]}
                     </AppText>
                   </View>
-                  <View
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants">
-                    <WeatherGlyph
-                      condition={snapshot.current.condition}
-                      intensity={ambientIntensityOf(snapshot.current.condition)}
-                      daypart={resolveDaypart(
-                        new Date(now).toISOString(),
-                        snapshot.timeZone,
-                        state.activeLocation?.coordinates,
-                      )}
-                    />
-                  </View>
-                </View>
-
-                {outlook ? (
-                  <AppText
-                    colorRole="textPrimary"
-                    tabularNumbers
-                    testID="weather-outlook"
-                    variant="body">
-                    {outlookSentence(outlook, copy, snapshot.timeZone, language, hour12, temperatureUnit)}
+                  <AppText colorRole="textSecondary" variant="caption">
+                    {`${copy.feelsLike(
+                      formatTemperature(snapshot.current.apparentTemperatureCelsius, language, temperatureUnit),
+                    )} · ${copy.range(
+                      formatTemperature(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
+                      formatTemperature(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
+                    )}`}
                   </AppText>
-                ) : null}
-
-                <Divider testID="weather-current-divider" />
-
-                <View
-                  style={[
-                    styles.statsGrid,
-                    usesStackedLayout && styles.stackedStatsGrid,
-                  ]}>
-                  {([
-                    {
-                      accessibilityLabel: copy.wind(
-                        decimal(snapshot.current.windSpeedMetersPerSecond, language),
-                      ),
-                      icon: 'wind',
-                      label: copy.windLabel,
-                      value: copy.windValue(
-                        decimal(snapshot.current.windSpeedMetersPerSecond, language),
-                      ),
-                    },
-                    {
-                      accessibilityLabel: copy.humidity(snapshot.current.humidity),
-                      icon: 'humidity',
-                      label: copy.humidityLabel,
-                      value: copy.humidityValue(snapshot.current.humidity),
-                    },
-                    {
-                      accessibilityLabel: copy.uvIndex(
-                        decimal(snapshot.current.uvIndex, language),
-                      ),
-                      icon: 'uv',
-                      label: copy.uvIndexLabel,
-                      value: decimal(snapshot.current.uvIndex, language),
-                    },
-                  ] as const)
-                    // A UV index of 0 is every night and every overcast winter day: the row
-                    // would read as a measurement when it is the absence of one. Wind and
-                    // humidity keep their places.
-                    .filter(({ icon }) => icon !== 'uv' || snapshot.current.uvIndex > 0)
-                    .map((stat) => (
-                    <View
-                      accessible
-                      accessibilityLabel={stat.accessibilityLabel}
-                      key={stat.label}
-                      style={[
-                        styles.stat,
-                        usesStackedLayout && styles.stackedStat,
-                      ]}>
-                      <Icon color={theme.colors.iconSecondary} name={stat.icon} size={16 * controlScale} />
-                      <AppText colorRole="textSecondary" variant="eyebrow">
-                        {stat.label}
-                      </AppText>
-                      <AppText tabularNumbers variant="bodyStrong">{stat.value}</AppText>
-                    </View>
-                  ))}
                 </View>
-
-              </Surface>
-              <View style={styles.headingRow}>
-                <AppText
-                  accessibilityLiveRegion={
-                    state.isRefreshing || state.refreshFailure !== null || state.freshness !== 'fresh'
-                      ? 'polite'
-                      : 'none'
-                  }
-                  testID="weather-freshness"
-                  variant="label">
-                  {freshnessStatus}
-                </AppText>
-                <AppText colorRole="textSecondary" tabularNumbers variant="caption">
-                  {copy.updatedAt(lastUpdated(snapshot.fetchedAt, language, hour12, now))}
-                </AppText>
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants">
+                  <WeatherGlyph
+                    condition={snapshot.current.condition}
+                    intensity={ambientIntensityOf(snapshot.current.condition)}
+                    daypart={resolveDaypart(
+                      new Date(now).toISOString(),
+                      snapshot.timeZone,
+                      state.activeLocation?.coordinates,
+                    )}
+                  />
+                </View>
               </View>
+
+              {outlook ? (
+                <AppText
+                  colorRole="textPrimary"
+                  tabularNumbers
+                  testID="weather-outlook"
+                  variant="body">
+                  {outlookSentence(outlook, copy, snapshot.timeZone, language, hour12, temperatureUnit)}
+                </AppText>
+              ) : null}
+
+              <Divider testID="weather-current-divider" />
+
+              <View
+                style={[
+                  styles.statsGrid,
+                  usesStackedLayout && styles.stackedStatsGrid,
+                ]}>
+                {([
+                  {
+                    accessibilityLabel: copy.wind(
+                      decimal(snapshot.current.windSpeedMetersPerSecond, language),
+                    ),
+                    icon: 'wind',
+                    label: copy.windLabel,
+                    value: copy.windValue(
+                      decimal(snapshot.current.windSpeedMetersPerSecond, language),
+                    ),
+                  },
+                  {
+                    accessibilityLabel: copy.humidity(snapshot.current.humidity),
+                    icon: 'humidity',
+                    label: copy.humidityLabel,
+                    value: copy.humidityValue(snapshot.current.humidity),
+                  },
+                  {
+                    accessibilityLabel: copy.uvIndex(
+                      decimal(snapshot.current.uvIndex, language),
+                    ),
+                    icon: 'uv',
+                    label: copy.uvIndexLabel,
+                    value: decimal(snapshot.current.uvIndex, language),
+                  },
+                ] as const)
+                  // A UV index of 0 is every night and every overcast winter day: the row
+                  // would read as a measurement when it is the absence of one. Wind and
+                  // humidity keep their places.
+                  .filter(({ icon }) => icon !== 'uv' || snapshot.current.uvIndex > 0)
+                  .map((stat) => (
+                  <View
+                    accessible
+                    accessibilityLabel={stat.accessibilityLabel}
+                    key={stat.label}
+                    style={[
+                      styles.stat,
+                      usesStackedLayout && styles.stackedStat,
+                    ]}>
+                    <Icon color={theme.colors.iconSecondary} name={stat.icon} size={16 * controlScale} />
+                    <AppText colorRole="textSecondary" variant="eyebrow">
+                      {stat.label}
+                    </AppText>
+                    <AppText tabularNumbers variant="bodyStrong">{stat.value}</AppText>
+                  </View>
+                ))}
+              </View>
+
+            </Surface>
+            <View style={styles.headingRow}>
+              <AppText
+                accessibilityLiveRegion={
+                  state.isRefreshing || state.refreshFailure !== null || state.freshness !== 'fresh'
+                    ? 'polite'
+                    : 'none'
+                }
+                testID="weather-freshness"
+                variant="label">
+                {freshnessStatus}
+              </AppText>
+              <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+                {copy.updatedAt(lastUpdated(snapshot.fetchedAt, language, hour12, now))}
+              </AppText>
             </View>
-          </Entrance>
+          </View>
 
           {locationSection}
 
           {remainingHourly.length > 0 && (
-            <Entrance index={1}>
+            <Entrance index={0}>
               <Surface
                 style={[styles.card, theme.elevation.raised]}
                 testID="weather-hourly-card">
@@ -611,7 +610,7 @@ export function WeatherScreen() {
           )}
 
           {dailyRows.length > 0 && (
-            <Entrance index={2}>
+            <Entrance index={1}>
               <Surface
                 style={[styles.card, theme.elevation.raised]}
                 testID="weather-daily-card">

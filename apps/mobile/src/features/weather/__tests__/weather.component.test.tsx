@@ -1512,9 +1512,10 @@ test('a daily precipitation caption wraps inside the day column', async () => {
   expect(StyleSheet.flatten(caption.parent!.props.style)).toMatchObject({ minWidth: 0 });
 });
 
-// Law 7, content arrives in reading order: the current card, the coming hours and the
-// coming days enter one `motion.stagger` apart, and a new place brings them in again rather
-// than snapping them back after the loading card.
+// Law 7, content arrives in reading order: the coming hours and the coming days enter one
+// `motion.stagger` apart, and a new place brings them in again rather than snapping them
+// back after the loading card. The current section holds the hero value and stays still
+// (ADR 0020).
 test('the forecast cards arrive in reading order and again for a new place', async () => {
   // The test mock lands every spring at once; hold the landing to read the first frame.
   const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
@@ -1530,16 +1531,18 @@ test('the forecast cards arrive in reading order and again for a new place', asy
   );
   const result = await render(screen());
   const cards = ['weather-current-card', 'weather-hourly-card', 'weather-daily-card'];
+  const arriving = ['weather-hourly-card', 'weather-daily-card'];
   // Each card's entrance wrapper is the nearest ancestor carrying the entrance's start.
   const entranceOf = (testID: string) => {
     let node = result.getByTestId(testID).parent;
     while (node && StyleSheet.flatten(node.props.style)?.opacity !== 0) node = node.parent;
     return node;
   };
-  for (const card of cards) {
+  for (const card of arriving) {
     expect(StyleSheet.flatten(entranceOf(card)!.props.style))
       .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.md }] });
   }
+  expect(entranceOf('weather-current-card')).toBeNull();
   const first = cards.map((card) => result.getByTestId(card));
 
   // A refresh of the same place keeps the cards mounted: the entrance does not replay.
