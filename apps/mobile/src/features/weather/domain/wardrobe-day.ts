@@ -1,4 +1,5 @@
 import { formatCalendarDateParts } from '@/domain/calendar-date';
+import { dateTimeFormat } from '@/domain/intl-format';
 
 /**
  * The dressing day: the key for daily preferences and weather alerts.
@@ -54,7 +55,7 @@ type LocalTime = LocalDate & Readonly<{ hour: number }>;
 type LocalWallClock = LocalTime & Readonly<{ minute: number; second: number }>;
 
 function localTimeAt(instant: number, timeZone: string): LocalWallClock {
-  const parts = new Intl.DateTimeFormat('en', {
+  const parts = dateTimeFormat('en', {
     timeZone,
     hourCycle: 'h23',
     year: 'numeric',

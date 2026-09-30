@@ -1,4 +1,5 @@
 import type { SupportedLanguage } from '@/localization/messages';
+import { numberFormat } from '@/domain/intl-format';
 import type { TemperatureUnit } from '@/localization/device-locale';
 
 // One English tag for every value the app formats. A date must not change convention
@@ -18,7 +19,7 @@ function oneDecimal(value: number, language: SupportedLanguage): string {
   // reads as a temperature under freezing when it is not one. Only that case is
   // flattened; -0,4 keeps its sign because -0,4 is genuinely below zero.
   const guarded = Math.round(Math.abs(value) * 10) === 0 ? 0 : value;
-  return new Intl.NumberFormat(localeTag(language), {
+  return numberFormat(localeTag(language), {
     maximumFractionDigits: 1,
     minimumFractionDigits: 1,
   }).format(guarded);
@@ -64,7 +65,7 @@ export function formatWholeTemperatureValue(
   const converted = unit === 'fahrenheit' ? valueCelsius * 9 / 5 + 32 : valueCelsius;
   const rounded = Math.round(converted);
   const guarded = rounded === 0 ? 0 : rounded;
-  return new Intl.NumberFormat(localeTag(language), {
+  return numberFormat(localeTag(language), {
     maximumFractionDigits: 0,
   }).format(guarded);
 }
