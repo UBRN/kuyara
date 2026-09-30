@@ -196,13 +196,23 @@ test('English and Turkish locale resolution preserve the supported product langu
   assert.equal(getMessages('tr-TR'), messages.tr);
   assert.equal(messages.en.today.slots.outer_layer, 'Outer layer');
   assert.equal(messages.tr.today.slots.outer_layer, 'Dış katman');
+  // The Closet heading names what its count counts, in the rack's own words.
   assert.equal(
     messages.en.profile.closetHeadingAccessibilityLabel({ count: 3 }),
-    'Closet, 3.',
+    'Closet, 3 pieces.',
+  );
+  assert.equal(messages.en.profile.closetHeadingAccessibilityLabel({ count: 1 }), 'Closet, 1 piece.');
+  assert.equal(
+    messages.en.profile.closetHeadingNamedAccessibilityLabel({ name: 'Ada', count: 3 }),
+    "Ada's Closet, 3 pieces.",
   );
   assert.equal(
     messages.tr.profile.closetHeadingAccessibilityLabel({ count: 3 }),
-    'Gardırop, 3.',
+    'Gardırop, 3 parça.',
+  );
+  assert.equal(
+    messages.tr.profile.closetHeadingNamedAccessibilityLabel({ name: 'Ada', count: 3 }),
+    'Gardırop · Ada, 3 parça.',
   );
   // O9: the rack and the category cells speak their counts in each language's own form.
   const rackCategories = [{ label: 'Tops', count: 7 }, { label: 'Shoes', count: 1 }];
