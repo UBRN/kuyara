@@ -596,6 +596,8 @@ export function GarmentSwapBoard({
             values.to.set(intent.box);
             values.dx.set(intent.previous.dx.get() + intent.direction * intent.stride);
             values.p.set(0);
+            // Shown with its offset in one batch, so it never draws at the window's centre.
+            if (intent.paged) values.op.set(1);
           }
           spring(values.p, 1);
           spring(values.dx, 0);
