@@ -34,8 +34,8 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 1. **Appearance:** Language and theme, each a value row opening the native picker.
 2. **Accessibility:** one "Easier to see" / "Görme kolaylığı" value row (On or Off) opening its pushed surface (section 5).
 3. **Notifications:** the notification preference and its pushed surface.
-4. **Profile:** display name, gender, dress style, style aesthetics and birth date. The `aboutYouFooter` helper text under birth date is removed. This foundation permits an Account group above Profile when optional accounts arrive.
-5. **Help:** Support, Share kuyara and Rate kuyara.
+4. **Profile:** display name, gender, dress style, style aesthetics, the Morning question switch and birth date. The `aboutYouFooter` helper text under birth date is removed. This foundation permits an Account group above Profile when optional accounts arrive.
+5. **Help:** Support, Share kuyara, Rate kuyara and, when the tour is available, "Get to know kuyara step by step" / "kuyara’yı adım adım tanı".
 6. **About:** Service providers, Privacy and Licence.
 7. The centred version and build footer.
 
