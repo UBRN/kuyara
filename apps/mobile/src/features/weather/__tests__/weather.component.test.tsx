@@ -1498,3 +1498,15 @@ test.each(['en', 'tr'] as const)('%s spoken forecast labels state a chance and c
     expect(label).toMatch(language === 'en' ? /50% chance of precipitation\.$/ : /Yağış olasılığı yüzde 50\.$/);
   }
 });
+
+// At the largest standard text size a wet day's "12 mm · 80%" is wider than the day
+// column, so the caption wraps beside its icon instead of running into the low temperature.
+test('a daily precipitation caption wraps inside the day column', async () => {
+  mockFontScale(1.353);
+  const result = await render(
+    <Providers language="en" value={dailyValue()}><WeatherScreen /></Providers>,
+  );
+  const caption = result.getByText('12 mm · 80%');
+  expect(StyleSheet.flatten(caption.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
+  expect(StyleSheet.flatten(caption.parent!.props.style)).toMatchObject({ minWidth: 0 });
+});
