@@ -605,6 +605,8 @@ export type AppMessages = Readonly<{
     dailyHeading: string;
     /** A measured amount beside its chance, both already formatted for the locale. */
     dailyPrecipitationValue: (millimetres: string, probability: string) => string;
+    /** The same amount and chance on two lines, for a day column too narrow for one. */
+    dailyPrecipitationStacked: (millimetres: string, probability: string) => string;
     dailyForecastAccessibilityLabel: (values: {
       day: string;
       condition: string;
@@ -1106,9 +1108,11 @@ const en = {
       `${day ? `${day}, ` : ''}${time}. ${temperature} ${unitName}. ${condition}. ` +
       `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
     dailyHeading: 'Coming days',
-    // No-break spaces keep the amount, its unit and the separator on one line; only the
-    // probability may wrap, so a line never begins with the dot.
+    // One line when it fits. When it does not, the row shows the stacked form instead, so a
+    // line never begins with the dot: iOS still breaks a no-break run that is wider than the
+    // day column, which is exactly what the dot's no-break space made at the largest text size.
     dailyPrecipitationValue: (millimetres, probability) => `${millimetres}\u00a0mm\u00a0· ${probability}`,
+    dailyPrecipitationStacked: (millimetres, probability) => `${millimetres}\u00a0mm\n${probability}`,
     dailyForecastAccessibilityLabel: ({
       day,
       condition,
@@ -1961,9 +1965,11 @@ const tr = {
       `${day ? `${day}, saat` : 'Saat'} ${time}. Sıcaklık ${temperature} ${unitName}. ${condition}. ` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     dailyHeading: 'Önümüzdeki günler',
-    // No-break spaces keep the amount, its unit and the separator on one line; only the
-    // probability may wrap, so a line never begins with the dot.
+    // One line when it fits. When it does not, the row shows the stacked form instead, so a
+    // line never begins with the dot: iOS still breaks a no-break run that is wider than the
+    // day column, which is exactly what the dot's no-break space made at the largest text size.
     dailyPrecipitationValue: (millimetres, probability) => `${millimetres}\u00a0mm\u00a0· ${probability}`,
+    dailyPrecipitationStacked: (millimetres, probability) => `${millimetres}\u00a0mm\n${probability}`,
     dailyForecastAccessibilityLabel: ({
       day,
       condition,

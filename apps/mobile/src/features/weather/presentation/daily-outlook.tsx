@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
@@ -36,9 +36,10 @@ export type DailyOutlookRow = Readonly<{
   accessibilityLabel: string;
   weekday: string;
   condition: WeatherConditionCode;
-  /** The already-formatted chance, with its amount when the provider measured one, or null
-   *  when the day carries neither: the cell is then empty and the row loses a line. */
-  precipitation: string | null;
+  /** The already-formatted chance, with its amount when the provider measured one, on one
+   *  line and stacked on two; null when the day carries neither: the cell is then empty and
+   *  the row loses a line. */
+  precipitation: Readonly<{ line: string; lines: string }> | null;
   minimum: string;
   maximum: string;
   minimumCelsius: number;
@@ -49,7 +50,7 @@ export type DailyOutlookRow = Readonly<{
 
 export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow[] }>) {
   const theme = useKuyaraTheme();
-  const { controlScale, usesStackedLayout } = useTextScaling();
+  const { controlScale, fontScale, usesStackedLayout } = useTextScaling();
 
   // Every rail is positioned against the same range, which is what makes a warm Sunday sit
   // visibly to the right of a cold Friday instead of each row filling its own bar.
@@ -140,13 +141,11 @@ export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow
                         name="precipitationChance"
                         size={16 * controlScale}
                       />
-                      <AppText
-                        colorRole="textSecondary"
-                        style={styles.precipitationText}
-                        tabularNumbers
-                        variant="caption">
-                        {row.precipitation}
-                      </AppText>
+                      <PrecipitationCaption
+                        // A new value or text size starts again from the one-line form.
+                        key={`${row.precipitation.line}@${fontScale}`}
+                        {...row.precipitation}
+                      />
                     </View>
                   )}
                 </View>
@@ -175,6 +174,29 @@ export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow
         );
       })}
     </View>
+  );
+}
+
+/**
+ * The day's amount and chance on one line when it fits the day column. When it wraps, it is
+ * shown stacked instead, one value per line, so a line never begins with the separator:
+ * measured on the Simulator, iOS breaks even a run held by no-break spaces once that run is
+ * wider than the column.
+ */
+function PrecipitationCaption({ line, lines }: Readonly<{ line: string; lines: string }>) {
+  const [stacked, setStacked] = useState(false);
+  return (
+    <AppText
+      colorRole="textSecondary"
+      onTextLayout={stacked ? undefined : ({ nativeEvent }) => {
+        if (nativeEvent.lines.length > 1) setStacked(true);
+      }}
+      style={styles.precipitationText}
+      tabularNumbers
+      testID="weather-daily-precipitation"
+      variant="caption">
+      {stacked ? lines : line}
+    </AppText>
   );
 }
 
