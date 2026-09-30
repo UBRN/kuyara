@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   FlatList,
   ScrollView,
@@ -101,7 +101,7 @@ export function resolveGridGeometry(
 
 export type ClosetRow =
   | Readonly<{ kind: 'section'; entryState: WardrobeEntryState; count: number; afterOwned: boolean }>
-  | Readonly<{ kind: 'tiles'; items: readonly WardrobeItem[]; firstIndex: number }>;
+  | Readonly<{ kind: 'tiles'; key: string; items: readonly WardrobeItem[]; firstIndex: number }>;
 
 const newestFirst = (items: readonly WardrobeItem[]) =>
   [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -133,7 +133,14 @@ export function buildCategoryRows(
       afterOwned: section.entryState === 'wanted' && rows.length > 0,
     });
     for (let start = 0; start < section.items.length; start += numColumns) {
-      rows.push({ kind: 'tiles', items: section.items.slice(start, start + numColumns), firstIndex: index + start });
+      // Keyed by place, not by the pieces it holds, so a delete or a category switch
+      // refills the rows already on screen instead of mounting new ones.
+      rows.push({
+        kind: 'tiles',
+        key: `${section.entryState}-${start}`,
+        items: section.items.slice(start, start + numColumns),
+        firstIndex: index + start,
+      });
     }
     index += section.items.length;
   }
@@ -161,10 +168,11 @@ export function resolveDefaultCategory(
 }
 
 /**
- * Law 7, "content arrives": opening the Closet is an arrival, so every tile enters in
- * reading order. Returning from a save is not; the grid is already known and only the
- * saved item is news, so it alone enters and the rest are drawn at rest. Motion is not
- * the only indication either way, since the item's own presence in the list is.
+ * Law 7, "content arrives": opening the Closet is an arrival, so the tiles of its first
+ * render enter in reading order. A tile mounting later (scrolled into view, or refilled
+ * after a delete) is not news and is drawn at rest. Returning from a save is not an
+ * arrival either; only the saved item is news, so it alone enters. Motion is not the only
+ * indication either way, since the item's own presence in the list is.
  *
  * Returns the tile's place in the stagger, or `null` when it must be drawn at rest.
  */
@@ -172,11 +180,18 @@ export function tileEntranceIndex(
   itemId: string,
   index: number,
   savedItemId: string | null | undefined,
+  firstRender: boolean,
 ): number | null {
-  if (!savedItemId) {
-    return index;
+  if (savedItemId) {
+    return itemId === savedItemId ? 0 : null;
   }
-  return itemId === savedItemId ? 0 : null;
+  return firstRender ? index : null;
+}
+
+/** A grid place whose arrival is settled when it mounts, so its wrapper never swaps. */
+function TileSlot({ children, entranceIndex }: Readonly<{ children: ReactNode; entranceIndex: number | null }>) {
+  const [mountedIndex] = useState(entranceIndex);
+  return mountedIndex === null ? <View>{children}</View> : <Entrance index={mountedIndex}>{children}</Entrance>;
 }
 
 export function WardrobeListScreen({
@@ -210,6 +225,8 @@ export function WardrobeListScreen({
   // was never torn down needs no help anyway, since the saved item is the only tile
   // mounting and the ones around it have long since entered.
   const [arrivingItemId] = useState<string | null>(savedItemId);
+  // True only for the list's first ready render, whose tiles make the Closet's arrival.
+  const [firstRender, setFirstRender] = useState(true);
   const [undoStatus, setUndoStatus] = useState<'idle' | 'pending' | 'failed'>('idle');
   const [selectedCategory, setSelectedCategory] = useState<StructuralCategory | null>(
     initialCategory ?? null,
@@ -241,6 +258,13 @@ export function WardrobeListScreen({
   );
 
   const listReady = state.status === 'ready';
+  // The window closes a frame after the first ready commit, before the list renders the
+  // rows it adds on scroll.
+  useEffect(() => {
+    if (!listReady) return;
+    const frame = requestAnimationFrame(() => setFirstRender(false));
+    return () => cancelAnimationFrame(frame);
+  }, [listReady]);
   useEffect(() => {
     if (listReady) onCategoryInView?.(category);
   }, [category, listReady, onCategoryInView]);
@@ -373,25 +397,20 @@ export function WardrobeListScreen({
     onCategoryChange(next);
   };
 
-  const renderTile = (item: WardrobeItem, index: number) => {
-    const entranceIndex = tileEntranceIndex(item.id, index, arrivingItemId);
-    const tile = (
+  const renderTile = (item: WardrobeItem, index: number, column: number) => (
+    <TileSlot entranceIndex={tileEntranceIndex(item.id, index, arrivingItemId, firstRender)} key={column}>
       <WardrobeGridTile
         geometry={geometry}
         item={item}
+        key={item.id}
         messages={messages}
         highlighted={item.id === savedItem?.id}
         onPress={() => onEdit(item.id)}
         resolvePhotoUri={resolvePhotoUri}
         testID={`wardrobe-item-${item.id}`}
       />
-    );
-    return entranceIndex === null ? (
-      <View key={item.id}>{tile}</View>
-    ) : (
-      <Entrance index={entranceIndex} key={item.id}>{tile}</Entrance>
-    );
-  };
+    </TileSlot>
+  );
 
   return (
     <FlatList<ClosetRow>
@@ -401,7 +420,7 @@ export function WardrobeListScreen({
       data={rows}
       key={numColumns}
       keyExtractor={(row) =>
-        row.kind === 'section' ? `section-${row.entryState}` : row.items.map((item) => item.id).join(':')
+        row.kind === 'section' ? `section-${row.entryState}` : row.key
       }
       ListEmptyComponent={
         <View style={styles.empty} testID="wardrobe-empty">
@@ -557,7 +576,7 @@ export function WardrobeListScreen({
         }
         return (
           <View style={styles.tileRow}>
-            {row.items.map((item, offset) => renderTile(item, row.firstIndex + offset))}
+            {row.items.map((item, offset) => renderTile(item, row.firstIndex + offset, offset))}
           </View>
         );
       }}
