@@ -371,8 +371,6 @@ const rawPressableAllowlist = Object.freeze({
   'features/wardrobe/presentation/wardrobe-grid-tile.tsx': 1,
   'features/wardrobe/presentation/wardrobe-option.tsx': 1,
   'features/wardrobe/presentation/garment-type-tile.tsx': 1,
-  // The provider attribution link.
-  'features/weather/presentation/weather-attribution.tsx': 1,
   // The hero board and the alternate tiles.
   'features/today/presentation/today-screen.tsx': 2,
   // O6: the piece row opens the piece's sheet (the board changes pieces since Phase 7).

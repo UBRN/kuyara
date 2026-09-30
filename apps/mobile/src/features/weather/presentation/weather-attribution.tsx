@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Image, Linking, PixelRatio, Pressable, StyleSheet } from 'react-native';
+import { Image, Linking, PixelRatio, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
 import { appleWeatherMarkUrl } from '@/features/weather/data/apple-weather-mark';
+import type { AppMessages } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -36,10 +37,37 @@ const openWeatherLogos = {
 const LOGO_HEIGHT = 30;
 const LOGO_WIDTH = Math.round((LOGO_HEIGHT * 600) / 340);
 
+type WeatherAttributionLink = Readonly<{ label: string; hint: string; open: () => void }>;
+
+/**
+ * The link the row that carries the attribution opens, with what it speaks. `sample` and any
+ * legacy or unrecognized identifier have none, rather than inventing a provider (ADR 0002
+ * section 8).
+ */
+export function weatherAttributionLink(
+  sourceId: string,
+  copy: AppMessages['weather'],
+): WeatherAttributionLink | null {
+  const labels: Readonly<Record<string, string>> = {
+    'open-meteo': copy.attributionOpenMeteo,
+    openweather: copy.attributionOpenWeather,
+    weatherkit: copy.attributionAppleWeather,
+  };
+  const label = labels[sourceId];
+  const url = attributionUrls[sourceId];
+  const host = attributionHosts[sourceId];
+  if (!label || !url || !host) return null;
+  return { label, hint: copy.attributionHint(host), open: () => { void Linking.openURL(url); } };
+}
+
 type WeatherAttributionProps = Readonly<{
   sourceId: string;
 }>;
 
+/**
+ * The provider's sentence and mark. It is not itself pressable: the row that hosts it owns
+ * the press, so the whole row opens the link and draws the system's press feedback.
+ */
 export function WeatherAttribution({ sourceId }: WeatherAttributionProps) {
   const { language, messages } = useLocalization();
   const theme = useKuyaraTheme();
@@ -54,30 +82,13 @@ export function WeatherAttribution({ sourceId }: WeatherAttributionProps) {
       .catch(() => { if (active) setMarkState(null); });
     return () => { active = false; };
   }, [language, sourceId, theme.isDark, markKey]);
-  const copy = messages.weather;
-  const labels: Readonly<Record<string, string>> = {
-    'open-meteo': copy.attributionOpenMeteo,
-    openweather: copy.attributionOpenWeather,
-    weatherkit: copy.attributionAppleWeather,
-  };
-  const label = labels[sourceId] ?? null;
-  const url = attributionUrls[sourceId];
-  // `sample` and any legacy or unrecognized identifier render nothing rather than
-  // inventing a provider (ADR 0002 section 8).
-  if (!label || !url) return null;
+  const link = weatherAttributionLink(sourceId, messages.weather);
+  if (!link) return null;
 
   return (
-    <Pressable
-      accessibilityHint={copy.attributionHint(attributionHosts[sourceId])}
-      accessibilityLabel={label}
-      accessibilityRole="link"
-      hitSlop={14}
-      onPress={() => {
-        void Linking.openURL(url);
-      }}
-      style={styles.row}>
+    <View style={styles.row}>
       {sourceId !== 'weatherkit' || !appleMark?.loaded ? (
-        <AppText colorRole="textSecondary" variant="caption">{label}</AppText>
+        <AppText colorRole="textSecondary" variant="caption">{link.label}</AppText>
       ) : null}
       {sourceId === 'weatherkit' && appleMark ? (
         <Image
@@ -104,7 +115,7 @@ export function WeatherAttribution({ sourceId }: WeatherAttributionProps) {
           testID="weather-attribution-logo"
         />
       ) : null}
-    </Pressable>
+    </View>
   );
 }
 

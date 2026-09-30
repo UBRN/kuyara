@@ -2,7 +2,7 @@ import { fireEvent, isHiddenFromAccessibility, render, waitFor } from '@testing-
 import type { PropsWithChildren } from 'react';
 import { Linking } from 'react-native';
 
-import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
+import { WeatherAttribution, weatherAttributionLink } from '@/features/weather/presentation/weather-attribution';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { darkTheme, lightTheme, type KuyaraTheme } from '@/theme/theme';
@@ -38,24 +38,26 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
       'https://weatherkit.apple.com/legal-attribution.html',
       'weatherkit.apple.com',
     ],
-  ])('names %s in one caption link that opens its attribution page', async (
+  ])('names %s and gives its row the attribution page to open', async (
     sourceId,
     label,
     url,
     host,
   ) => {
     const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const link = weatherAttributionLink(sourceId, copy);
+    expect(link).toEqual({ hint: copy.attributionHint(host), label, open: expect.any(Function) });
+    link?.open();
+    expect(openUrl).toHaveBeenCalledWith(url);
+    openUrl.mockRestore();
+
+    // The hosting row owns the press, so the attribution itself is not a second target.
     const result = await render(
       <Providers language={language}><WeatherAttribution sourceId={sourceId} /></Providers>,
     );
-
-    const link = result.getByRole('link', { name: label });
-    expect(link).toBeOnTheScreen();
-    expect(link.props.accessibilityHint).toBe(copy.attributionHint(host));
-    if (sourceId !== 'weatherkit') expect(result.getByText(label)).toBeOnTheScreen();
-    await fireEvent.press(link);
-    expect(openUrl).toHaveBeenCalledWith(url);
-    openUrl.mockRestore();
+    expect(result.getByText(label)).toBeOnTheScreen();
+    expect(result.queryByRole('link')).toBeNull();
+    expect(result.queryByRole('button')).toBeNull();
   });
 
   // OpenWeather's attribution FAQ asks for the sentence, the link and the logo together.
@@ -106,6 +108,7 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
       );
 
       expect(result.toJSON()).toBeNull();
+      expect(weatherAttributionLink(sourceId, copy)).toBeNull();
     },
   );
 });

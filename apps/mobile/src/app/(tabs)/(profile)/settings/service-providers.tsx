@@ -10,7 +10,7 @@ import { RecommendationApplicationContext } from '@/features/recommendation/appl
 import { useAiProbe } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import { WeatherApplicationContext } from '@/features/weather/application/weather-application-context';
-import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
+import { WeatherAttribution, weatherAttributionLink } from '@/features/weather/presentation/weather-attribution';
 import { useMessages } from '@/localization/use-messages';
 
 export default function ServiceProvidersRoute() {
@@ -31,9 +31,8 @@ export default function ServiceProvidersRoute() {
   const sourceId = weather?.state.status === 'ready'
     ? weather.state.snapshot?.origin.sourceId
     : null;
-  const weatherAttribution = sourceId === 'weatherkit' || sourceId === 'open-meteo' || sourceId === 'openweather'
-    ? <WeatherAttribution sourceId={sourceId} />
-    : null;
+  const weatherSourceLink = sourceId ? weatherAttributionLink(sourceId, messages.weather) : null;
+  const weatherAttribution = sourceId && weatherSourceLink ? <WeatherAttribution sourceId={sourceId} /> : null;
 
   const checkAiStatus = async () => {
     const result = await check();
@@ -67,6 +66,7 @@ export default function ServiceProvidersRoute() {
         onDeviceAvailability={onDeviceAvailability}
         onCheckAiStatus={() => void checkAiStatus()}
         weatherAttribution={weatherAttribution}
+        weatherSourceLink={weatherSourceLink}
       />
     </>
   );

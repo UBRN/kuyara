@@ -1,4 +1,4 @@
-import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
+import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AccessibilityInfo, Dimensions, View } from 'react-native';
 
@@ -70,6 +70,7 @@ function screen(
     onDeviceAvailability: null,
     onCheckAiStatus: jest.fn(),
     weatherAttribution: null,
+    weatherSourceLink: null,
     ...overrides,
   };
 
@@ -244,6 +245,31 @@ test('shows the weather attribution or the no-snapshot sentence', async () => {
   expect(withAttribution.queryByText(messages.en.settings.weatherNoSnapshot)).toBeNull();
 });
 
+// The whole weather source row opens the provider's page: the system draws the press
+// highlight and the chevron, and the row speaks as one link.
+test('the whole weather source row is one link with the system chevron', async () => {
+  const open = jest.fn();
+  const result = await screen('en', {
+    weatherAttribution: <View testID="provider-attribution" />,
+    weatherSourceLink: { hint: 'Opens weatherkit.apple.com', label: 'Weather data by Apple Weather', open },
+  }).rendered;
+
+  const row = result.getByRole('link', { name: 'Weather data by Apple Weather' });
+  expect(row).toHaveProp('testID', 'settings-service-providers-weather-source');
+  expect(row).toHaveProp('accessibilityHint', 'Opens weatherkit.apple.com');
+  expect(within(row).getByLabelText('chevron.right')).toBeOnTheScreen();
+  await fireEvent.press(row);
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(result.getByText(messages.en.settings.weatherFooter)).toBeOnTheScreen();
+});
+
+test('the no-snapshot sentence is a plain row that opens nothing', async () => {
+  const result = await screen('en').rendered;
+  const row = result.getByTestId('settings-service-providers-weather-source');
+  expect(row.props.accessibilityRole).toBeUndefined();
+  expect(within(row).queryByLabelText('chevron.right')).toBeNull();
+});
+
 // ADR 0034 section 5: the Apple Intelligence situation in plain words, read with no call
 // and no quota. Every reason other than the switch being off or the model still downloading
 // reads as a device that is not compatible.
@@ -346,7 +372,7 @@ describe('VoiceOver announcements of the AI status check', () => {
   const rerenderWith = (result: Awaited<ReturnType<typeof render>>, aiStatus: React.ComponentProps<typeof ServiceProvidersScreen>['aiStatus']) =>
     result.rerender(providers(
       <ServiceProvidersScreen aiStatus={aiStatus} isProbeSupported lastGenerationMode={null}
-        onCheckAiStatus={jest.fn()} onDeviceAvailability={null} weatherAttribution={null} />,
+        onCheckAiStatus={jest.fn()} onDeviceAvailability={null} weatherAttribution={null} weatherSourceLink={null} />,
       'en',
     ));
 

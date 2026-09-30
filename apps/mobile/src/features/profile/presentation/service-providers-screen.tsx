@@ -19,6 +19,8 @@ export type ServiceProvidersScreenProps = Readonly<{
   onDeviceAvailability: OnDeviceAiAvailability | null;
   onCheckAiStatus: () => void;
   weatherAttribution: ReactNode;
+  /** The attribution page the whole weather source row opens, when a provider is named. */
+  weatherSourceLink: Readonly<{ label: string; hint: string; open: () => void }> | null;
 }>;
 
 export function ServiceProvidersScreen({
@@ -28,6 +30,7 @@ export function ServiceProvidersScreen({
   onDeviceAvailability,
   onCheckAiStatus,
   weatherAttribution,
+  weatherSourceLink,
 }: ServiceProvidersScreenProps) {
   const { hour12, language, messages } = useLocalization();
   const theme = useKuyaraTheme();
@@ -158,7 +161,13 @@ export function ServiceProvidersScreen({
           footer={copy.weatherFooter}
           heading={copy.weatherDataHeading}
           testID="settings-service-providers-weather-group">
-          <NativeListContentRow testID="settings-service-providers-weather-source">
+          <NativeListContentRow
+            link={weatherSourceLink ? {
+              hint: weatherSourceLink.hint,
+              label: weatherSourceLink.label,
+              onPress: weatherSourceLink.open,
+            } : undefined}
+            testID="settings-service-providers-weather-source">
             {weatherAttribution ?? <AppText variant="body">{copy.weatherNoSnapshot}</AppText>}
           </NativeListContentRow>
         </NativeListSection>
