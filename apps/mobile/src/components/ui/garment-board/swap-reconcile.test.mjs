@@ -138,3 +138,26 @@ test('a step at rest crossfades in beside the piece it replaces', () => {
   assert.equal(enter.values.op.get(), 0);
   assert.equal(stepped.intents.find((intent) => intent.kind === 'leave').paged, false);
 });
+
+// A drag the focus change cancelled leaves the piece off-centre; its slot's piece comes home.
+test('focus leaving a slot springs that slot\'s piece home', () => {
+  const model = enlarged();
+  const settled = next(model, 'sandals', null);
+  const home = settled.intents.filter((intent) => intent.kind === 'home');
+  assert.equal(home.length, 1);
+  assert.equal(home[0].values, instance(model, 'sandals').values);
+
+  const moved = next(model, 'sandals', 'one_piece');
+  assert.deepEqual(moved.intents.filter((intent) => intent.kind === 'home').map(({ values: v }) => v),
+    [instance(model, 'sandals').values]);
+});
+
+test('a piece already entering or staying enlarged is not sent home', () => {
+  assert.equal(enlarged().intents.some((intent) => intent.kind === 'home'), false);
+  const model = enlarged();
+  const stepped = next(model, 'closed_shoes', 'footwear');
+  assert.equal(stepped.intents.some((intent) => intent.kind === 'home'), false);
+  // A tile tap and Done in one change: the entering piece's own spring already takes it home.
+  const tappedAndDone = next(model, 'closed_shoes', null);
+  assert.equal(tappedAndDone.intents.some((intent) => intent.kind === 'home'), false);
+});
