@@ -6,6 +6,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import {
   AppText,
   Button,
+  Crossfade,
   GarmentRunwayBoard,
   Icon,
   ProgressFill,
@@ -110,6 +111,17 @@ function RunwayFrame({
       </View>
     </Screen>
   );
+}
+
+/** Skip arrives as content entering (Law 7): it fades in on `fast`. */
+function FadeInFast({ children }: Readonly<{ children: ReactNode }>) {
+  const theme = useKuyaraTheme();
+  const opacity = useSharedValue(0);
+  useEffect(() => {
+    opacity.set(withTiming(1, { duration: theme.motion.fast }));
+  }, [opacity, theme.motion.fast]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  return <Animated.View style={style}>{children}</Animated.View>;
 }
 
 /**
@@ -295,41 +307,51 @@ export function FirstGenerationRunway({
                   trackColor={trackColor}
                 />
               </View>
-              {success ? (
-                <View
-                  accessible
-                  accessibilityLabel={copy.loading.allSet}
-                  accessibilityLiveRegion="polite"
-                  style={[styles.success, { backgroundColor: theme.colors.successContainer }]}
-                  testID="first-generation-success">
-                  <Icon color={theme.colors.successInk} name="statusRunning" size={20} />
-                  <AppText colorRole="successInk" variant="bodyStrong">{copy.loading.allSet}</AppText>
-                </View>
-              ) : (
-                <AppText
-                  accessibilityLabel={answered ? copy.loading.chosen : phaseSentence}
-                  accessibilityLiveRegion="polite"
-                  style={styles.line}
-                  testID="first-generation-line">
-                  {line}
-                </AppText>
-              )}
+              {/* Each new line and "All set" crossfade in. The spoken line is one node that
+                  stays while its visible words rotate, so what it announces is unchanged. */}
+              <Crossfade contentKey={success ? 'success' : 'line'}>
+                {success ? (
+                  <View
+                    accessible
+                    accessibilityLabel={copy.loading.allSet}
+                    accessibilityLiveRegion="polite"
+                    style={[styles.success, { backgroundColor: theme.colors.successContainer }]}
+                    testID="first-generation-success">
+                    <Icon color={theme.colors.successInk} name="statusRunning" size={20} />
+                    <AppText colorRole="successInk" variant="bodyStrong">{copy.loading.allSet}</AppText>
+                  </View>
+                ) : (
+                  <View
+                    accessible
+                    accessibilityLabel={answered ? copy.loading.chosen : phaseSentence}
+                    accessibilityLiveRegion="polite"
+                    accessibilityRole="text"
+                    style={styles.line}
+                    testID="first-generation-line">
+                    <Crossfade contentKey={line}>
+                      <AppText>{line}</AppText>
+                    </Crossfade>
+                  </View>
+                )}
+              </Crossfade>
               {/* The slot keeps its height when Skip is hidden, so the board never resizes. */}
               <View style={styles.skipSlot}>
                 {showSkip ? (
-                  <KuyaraThemeContext value={onField(theme)}>
-                    <Button
-                      icon="skipForward"
-                      label={copy.loading.skipWait}
-                      onPress={() => Alert.alert(copy.loading.heading, undefined, [
-                        { text: copy.loading.keepWaiting, isPreferred: true, style: 'cancel' },
-                        { text: copy.loading.skipWait, style: 'destructive', onPress: onSkip },
-                      ])}
-                      style={styles.skip}
-                      testID="first-generation-skip"
-                      variant="plain"
-                    />
-                  </KuyaraThemeContext>
+                  <FadeInFast>
+                    <KuyaraThemeContext value={onField(theme)}>
+                      <Button
+                        icon="skipForward"
+                        label={copy.loading.skipWait}
+                        onPress={() => Alert.alert(copy.loading.heading, undefined, [
+                          { text: copy.loading.keepWaiting, isPreferred: true, style: 'cancel' },
+                          { text: copy.loading.skipWait, style: 'destructive', onPress: onSkip },
+                        ])}
+                        style={styles.skip}
+                        testID="first-generation-skip"
+                        variant="plain"
+                      />
+                    </KuyaraThemeContext>
+                  </FadeInFast>
                 ) : null}
               </View>
             </>

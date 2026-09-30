@@ -205,6 +205,27 @@ test('rotates the insight, the phase and the one tip every two seconds', async (
   expect(result.getByTestId('first-generation-line').props.accessibilityLiveRegion).toBe('polite');
 });
 
+// Law 7: the rotating line and "All set" crossfade instead of snapping; the spoken line is
+// one node that stays, so its announcements do not change with the visible words.
+test('each new line crossfades in on the one spoken node, and All set crossfades in after', async () => {
+  const withTiming = jest.spyOn(Reanimated, 'withTiming');
+  const result = await render(runway());
+  const spoken = result.getByTestId('first-generation-line');
+  withTiming.mockClear();
+  await act(() => jest.advanceTimersByTime(2_000));
+  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast }, expect.any(Function));
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(result.getByTestId('first-generation-line')).toBe(spoken);
+  expect(spoken.props.accessibilityLabel).toBe(messages.en.today.phase['asking-stylist']);
+
+  await result.rerender(runway({ active: false, completed: true, phase: null, outfit: chosen }));
+  withTiming.mockClear();
+  await act(() => jest.advanceTimersByTime(dressing));
+  expect(result.getByTestId('first-generation-success')).toBeOnTheScreen();
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  withTiming.mockRestore();
+});
+
 test('particles stay inside the board band', async () => {
   const result = await render(runway());
   await laidOut(result);
@@ -218,7 +239,11 @@ test('skip appears at ten seconds, uses the native alert roles and leaves with t
   await laidOut(result);
   await act(() => jest.advanceTimersByTime(9_999));
   expect(result.queryByTestId('first-generation-skip')).toBeNull();
+  const withTiming = jest.spyOn(Reanimated, 'withTiming');
   await act(() => jest.advanceTimersByTime(1));
+  // Skip arrives as content entering, on the fast role.
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+  withTiming.mockRestore();
   await fireEvent.press(result.getByTestId('first-generation-skip'));
   expect(alert).toHaveBeenCalledTimes(1);
   const buttons = alert.mock.calls[0][2]!;
