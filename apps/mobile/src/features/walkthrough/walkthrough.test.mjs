@@ -317,9 +317,10 @@ test('the bubble sits below the lit area when it fits, else above, else tightens
   const fitsTight = { x: 0, y: 300, width: 300, height: 324 };
   assert.deepEqual(placeBubble(fitsTight, { normal: 190, tight: 180 }, bounds),
     { top: 632, side: 'below', tight: true });
-  // Room on neither side: the tightened bubble takes the larger side.
+  // Room on neither side (the largest standard text size): the tightened bubble takes the
+  // larger side and slides up over the lit area until its last line clears the bottom bound.
   assert.deepEqual(placeBubble({ x: 0, y: 200, width: 300, height: 480 }, heights, bounds),
-    { top: 688, side: 'below', tight: true });
+    { top: 814 - 168, side: 'below', tight: true });
   assert.deepEqual(placeBubble({ x: 0, y: 250, width: 300, height: 480 }, heights, bounds),
     { top: 111, side: 'above', tight: true });
   // No lit area: centred.

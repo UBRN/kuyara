@@ -62,7 +62,8 @@ export type BubblePlacement = Readonly<{ top: number; side: 'below' | 'above'; t
  * Below the lit area when it fits, else above. When it fits on neither side (the largest
  * standard text size), it tightens once (12 points of padding instead of 16, 8 before the
  * counter instead of 12, 8 from the spotlight instead of 12) and tries again; failing that it
- * takes the larger side. Without a lit area it centres.
+ * takes the larger side and slides into the bounds over the lit area, so no line of it is cut
+ * off by the window's edge. Without a lit area it centres.
  */
 export function placeBubble(
   hole: TourRect | null,
@@ -90,7 +91,7 @@ export function placeBubble(
   const roomBelow = bounds.bottom - below;
   const roomAbove = hole.y - TIGHT_BUBBLE_GAP - bounds.top;
   return roomBelow >= roomAbove
-    ? { top: below, side: 'below', tight: true }
+    ? { top: Math.max(bounds.top, Math.min(below, bounds.bottom - heights.tight)), side: 'below', tight: true }
     : { top: Math.max(bounds.top, hole.y - TIGHT_BUBBLE_GAP - heights.tight), side: 'above', tight: true };
 }
 
