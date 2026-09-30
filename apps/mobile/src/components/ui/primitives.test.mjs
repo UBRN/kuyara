@@ -321,3 +321,16 @@ test('Pill keeps its label on the caption role instead of a compact literal scal
   );
   assert.ok(typography.caption.fontSize >= 13);
 });
+
+test('The condition symbol motion vocabulary has one owner that Today and Weather both use', async () => {
+  const hook = await source('./use-condition-symbol-motion.ts');
+  assert.match(hook, /const TURN_DEGREES = 45;/);
+  for (const glyph of [
+    '../../features/weather/presentation/weather-glyph.tsx',
+    '../../features/today/presentation/title-weather-symbol.tsx',
+  ]) {
+    const text = await source(glyph);
+    assert.match(text, /useConditionSymbolMotion\(/, glyph);
+    assert.doesNotMatch(text, /withRepeat|translateY|rotate/, glyph);
+  }
+});
