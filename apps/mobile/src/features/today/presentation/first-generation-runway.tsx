@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -129,12 +130,18 @@ export function FirstGenerationRunway({
   /** The chosen outfit, set only once the answer is in; never a provisional preview. */
   outfit: RunwayOutfit | null;
   onSkip: () => void;
-  /** Reports each show and hide, so nothing opens over the runway (Phase 8). */
+  /**
+   * Reports each show and hide, so nothing opens over the runway (Phase 8): shown as it
+   * starts to fade in, hidden once its fade-out has finished and it has left the screen.
+   */
   onVisibleChange?: (visible: boolean) => void;
 }>) {
   const theme = useKuyaraTheme();
   const copy = getMessages(language).today;
   const [visible, setVisible] = useState(active);
+  // The layer stays mounted while it fades out, and leaves the tree once the fade has ended.
+  const [mounted, setMounted] = useState(visible);
+  if (visible && !mounted) setMounted(true);
   const [success, setSuccess] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [placed, setPlaced] = useState(0);
@@ -151,8 +158,21 @@ export function FirstGenerationRunway({
   }, [dressing]);
 
   useEffect(() => {
-    onVisibleChange?.(visible);
-  }, [onVisibleChange, visible]);
+    onVisibleChange?.(mounted);
+  }, [mounted, onVisibleChange]);
+
+  // A full-screen transition (Law 7): the whole layer fades on `deliberate`. A runway there
+  // on mount arrives with the screen and is drawn at rest.
+  const layerOpacity = useSharedValue(visible ? 1 : 0);
+  const faded = useRef(visible);
+  useEffect(() => {
+    if (faded.current === visible) return;
+    faded.current = visible;
+    layerOpacity.set(withTiming(visible ? 1 : 0, { duration: theme.motion.deliberate }, (finished) => {
+      if (finished && !visible) runOnJS(setMounted)(false);
+    }));
+  }, [layerOpacity, theme.motion.deliberate, visible]);
+  const layerStyle = useAnimatedStyle(() => ({ opacity: layerOpacity.get() }));
 
   useEffect(() => {
     if (active) {
@@ -202,7 +222,7 @@ export function FirstGenerationRunway({
     : success ? copy.loading.allSet
       : active && !answered ? (phase ? copy.phase[phase] : copy.loading.phase) : null);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   const field = theme.runway[runwayField(weather?.condition ?? null)];
   const particleKind = weather ? runwayParticleKind(weather.condition) : null;
@@ -219,11 +239,15 @@ export function FirstGenerationRunway({
 
   return (
     // An in-screen layer, not a modal: it covers Today's own content and nothing else, so
-    // the native tab bar above it keeps working.
-    <View
-      accessibilityViewIsModal
+    // the native tab bar above it keeps working. A leaving layer is out of the reading order
+    // and takes no touch, so Today answers while the field fades.
+    <Animated.View
+      accessibilityElementsHidden={!visible}
+      accessibilityViewIsModal={visible}
+      importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
       onLayout={(event) => setViewportHeight(sizeOf(event).height)}
-      style={[StyleSheet.absoluteFill, { backgroundColor: field }]}
+      pointerEvents={visible ? 'auto' : 'none'}
+      style={[StyleSheet.absoluteFill, { backgroundColor: field }, layerStyle]}
       testID="first-generation-runway">
       <SafeAreaProvider style={styles.fill}>
         <RunwayFrame
@@ -313,7 +337,7 @@ export function FirstGenerationRunway({
           viewportHeight={viewportHeight}
         />
       </SafeAreaProvider>
-    </View>
+    </Animated.View>
   );
 }
 

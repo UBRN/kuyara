@@ -1,5 +1,6 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { AccessibilityInfo, Alert, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { runwayDressingDuration } from '@/components/ui';
@@ -37,6 +38,7 @@ const props = {
   weather: { condition: 'rain', daypart: 'day' as const, insight: null as string | null },
   outfit: null as RunwayOutfit | null,
   onSkip,
+  onVisibleChange: undefined as ((visible: boolean) => void) | undefined,
 };
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -133,6 +135,50 @@ test('the answer dresses the chosen pieces, the extra drafts leave, then All set
   expect(result.getByTestId('first-generation-runway')).toBeOnTheScreen();
   await act(() => jest.advanceTimersByTime(1));
   expect(result.queryByTestId('first-generation-runway')).toBeNull();
+});
+
+// Law 7's full-screen transition: the layer fades on `deliberate` rather than cutting to
+// Today, stays in the tree while it fades, and reports hidden only once it has gone.
+test('the runway fades out on the deliberate role, then leaves and reports hidden', async () => {
+  const onVisibleChange = jest.fn();
+  const result = await render(runway({ onVisibleChange }));
+  await laidOut(result);
+  expect(onVisibleChange).toHaveBeenLastCalledWith(true);
+
+  // The test mock lands every fade at once; hold the landing to read the fade itself.
+  let land: ((finished: boolean) => void) | undefined;
+  const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(((
+    toValue: number, config: { duration?: number }, callback?: (finished: boolean) => void,
+  ) => {
+    if (toValue === 0 && config?.duration === lightTheme.motion.deliberate) land = callback;
+    return toValue;
+  }) as typeof Reanimated.withTiming);
+  await result.rerender(runway({ active: false, completed: true, phase: null, outfit: chosen, onVisibleChange }));
+  await act(() => jest.advanceTimersByTime(dressing + 800));
+
+  const layer = result.getByTestId('first-generation-runway', hidden);
+  expect(land).toBeDefined();
+  expect(layer.props.pointerEvents).toBe('none');
+  expect(layer.props.accessibilityViewIsModal).toBe(false);
+  expect(layer.props.accessibilityElementsHidden).toBe(true);
+  expect(result.queryByTestId('first-generation-runway')).toBeNull();
+  expect(onVisibleChange).not.toHaveBeenCalledWith(false);
+
+  await act(() => land?.(true));
+  expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull();
+  expect(onVisibleChange).toHaveBeenLastCalledWith(false);
+  withTiming.mockRestore();
+});
+
+test('a runway that starts after mount fades in rather than appearing in one frame', async () => {
+  const withTiming = jest.spyOn(Reanimated, 'withTiming');
+  const result = await render(runway({ active: false }));
+  withTiming.mockClear();
+  await result.rerender(runway());
+  await act(() => jest.advanceTimersByTime(0));
+  expect(result.getByTestId('first-generation-runway')).toBeOnTheScreen();
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.deliberate }, expect.any(Function));
+  withTiming.mockRestore();
 });
 
 test('an early answer stops the drafts; the slots that never came on enter dressed', async () => {
