@@ -1,4 +1,5 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
 import ReactNative, { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
@@ -101,7 +102,7 @@ function detailTree(
   easierToSee = false,
   system: SystemVisibility = { boldText: false, increaseContrast: false },
   opening = 0,
-  metrics: Readonly<{ width: number; height: number; top: number; bottom: number }> = {
+  metrics: Readonly<{ width: number; height: number; top: number; bottom: number; header?: number }> = {
     width: 390, height: 844, top: 59, bottom: 34,
   },
 ) {
@@ -115,8 +116,11 @@ function detailTree(
           insets: { top: metrics.top, right: 0, bottom: metrics.bottom, left: 0 },
         }}>
           <TourTargetsContext value={tourTargets}>
-            {/* A new key is a new route: detail left and opened again. */}
-            <Detail key={opening} language={language} {...props} />
+            {/* A new key is a new route: detail left and opened again. The stack hands the
+                screen its measured header height. */}
+            <HeaderHeightContext value={metrics.header}>
+              <Detail key={opening} language={language} {...props} />
+            </HeaderHeightContext>
           </TourTargetsContext>
         </SafeAreaProvider>
         </EasierToSeeContext>
@@ -901,21 +905,46 @@ test('every drawing wrapper on the board, with the strip open or closed, has a r
   check();
 });
 
+// ADR 0026 section 6: the board narrows just enough for the held stage and the strip to fit
+// between the bars, and the band it fits is the one the system draws: from the stack's measured
+// header height (the 54-point iOS 26 bar under the status bar) down to the tab's bottom inset,
+// which already holds the tab bar. Where the fit binds, the strip ends exactly `spacing.md`
+// above the tab bar, so a fixed bar height guessed on either side shows as a gap or an overlap.
+test('a binding fit fills the measured band between the bars exactly', async () => {
+  const metrics = { width: 375, height: 812, top: 50, bottom: 83, header: 104 };
+  Dimensions.set({ window: { ...originalDimensions, width: metrics.width, height: metrics.height, fontScale: 1 } });
+  const result = await render(detailTree('en', {}, null, true, undefined, 0, metrics));
+  await fireEvent(result.getByTestId('outfit-detail-content'),
+    'layout', { nativeEvent: { layout: { width: metrics.width - 32, height: 1000, x: 0, y: 0 } } });
+  await activate(result, 'primary_top');
+
+  const panel = StyleSheet.flatten(result.getByTestId('outfit-detail-board-strip').parent!.props.style);
+  const header = StyleSheet.flatten(result.getByTestId('outfit-detail-board-strip-header').props.style);
+  const grid = StyleSheet.flatten(result.getByTestId('outfit-detail-board-strip-grid').props.style);
+  const bottom = 12 + panel.top + header.minHeight + grid.marginTop + grid.height + 12;
+  expect(bottom).toBeCloseTo(metrics.height - metrics.header - metrics.bottom);
+});
+
 // ADR 0026 section 6: while a piece is enlarged, the held stage and the strip fit between the
-// navigation bar (44 points) and the tab bar (49 points), so every tile can be pressed without
-// the enlarged piece leaving the top. The 375-point phones are the tightest: 667 points tall,
-// and 812 points tall with Easier to see.
+// navigation bar and the tab bar, so every tile can be pressed without the enlarged piece
+// leaving the top. The bars are the system's: the header height is the stack's measured one
+// (the iOS 26 bar is 54 points under the status bar, measured on the Simulator), and a tab's
+// bottom inset holds the 49-point tab bar above the home indicator. The 375-point phones are
+// the tightest: 667 points tall, and 812 points tall with Easier to see.
 describe.each([
-  { name: '375 x 667', metrics: { width: 375, height: 667, top: 20, bottom: 0 }, large: false },
-  { name: '375 x 667 with Easier to see', metrics: { width: 375, height: 667, top: 20, bottom: 0 }, large: true },
-  { name: '375 x 812 with Easier to see', metrics: { width: 375, height: 812, top: 50, bottom: 34 }, large: true },
-  { name: '402 x 874', metrics: { width: 402, height: 874, top: 62, bottom: 34 }, large: false },
-  { name: '402 x 874 with Easier to see', metrics: { width: 402, height: 874, top: 62, bottom: 34 }, large: true },
+  { name: '375 x 667', metrics: { width: 375, height: 667, top: 20, bottom: 49, header: 74 }, large: false },
+  { name: '375 x 667 with Easier to see', metrics: { width: 375, height: 667, top: 20, bottom: 49, header: 74 },
+    large: true },
+  { name: '375 x 812 with Easier to see', metrics: { width: 375, height: 812, top: 50, bottom: 83, header: 104 },
+    large: true },
+  { name: '402 x 874', metrics: { width: 402, height: 874, top: 62, bottom: 83, header: 116 }, large: false },
+  { name: '402 x 874 with Easier to see', metrics: { width: 402, height: 874, top: 62, bottom: 83, header: 116 },
+    large: true },
 ])('$name', ({ metrics, large }) => {
   test('the enlarged board and its whole strip fit above the tab bar', async () => {
     Dimensions.set({ window: { ...originalDimensions, width: metrics.width, height: metrics.height, fontScale: 1 } });
     const column = metrics.width - 32;
-    const visible = metrics.height - metrics.top - 44 - metrics.bottom - 49;
+    const visible = metrics.height - metrics.header - metrics.bottom;
     const result = await render(detailTree('en', {}, null, large, undefined, 0, metrics));
     await fireEvent(result.getByTestId('outfit-detail-content'),
       'layout', { nativeEvent: { layout: { width: column, height: 1000, x: 0, y: 0 } } });
