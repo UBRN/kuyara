@@ -477,7 +477,8 @@ export function GarmentSwapBoard({
   const dragShown = useSharedValue(0);
   // The piece a swipe has just stepped away from. Until the owner's new pieces render, the
   // gesture's handlers still name it, so a touch then must neither drag it nor step again.
-  // Made once and held like each piece's values, so no render replaces it mid-step.
+  // Made once and held in state like each piece's values, so every render and both sets of
+  // handlers read the same value.
   const [steppedFrom] = useState(() => makeMutable<string | null>(null));
   const markerX = useSharedValue(0);
   const markerY = useSharedValue(0);
