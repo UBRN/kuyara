@@ -1,6 +1,7 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ProfileScreen } from '@/features/profile/presentation/profile-screen';
@@ -480,4 +481,28 @@ test('Profile registers the Closet heading, the rack and the History row for the
   expect(registry.get('history')?.reveal).toEqual(expect.any(Function));
   await fireEvent.press(result.getByTestId('profile-history-row'));
   expect(onOpenHistory).toHaveBeenCalledTimes(1);
+});
+
+// Law 7: Profile's heading, rack, cells and rows arrive once, in reading order; the Closet
+// finishing its load swaps the cells inside their block without replaying the arrival.
+test('Profile content arrives in reading order and a load does not replay it', async () => {
+  mockFontScale(1);
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  const screen = (status: 'ready' | 'loading') => (
+    <TestProviders items={[baseItem]} status={status}>
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined}
+        onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+    </TestProviders>
+  );
+  const { stagger } = lightTheme.motion;
+  const result = await render(screen('loading'));
+  const delays = () => withDelay.mock.calls.map(([delay]) => delay);
+  // Two calls per block (the fade and the travel), one stagger step apart.
+  expect(delays()).toEqual([0, 0, stagger, stagger, 2 * stagger, 2 * stagger, 3 * stagger, 3 * stagger]);
+
+  withDelay.mockClear();
+  await result.rerender(screen('ready'));
+  expect(result.getByTestId('profile-category-cells')).toBeOnTheScreen();
+  expect(withDelay).not.toHaveBeenCalled();
+  withDelay.mockRestore();
 });
