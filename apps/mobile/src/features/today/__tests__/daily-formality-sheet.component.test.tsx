@@ -41,3 +41,21 @@ test('a failed day-type save is spoken to VoiceOver once, and nothing is spoken 
   expect(announce).toHaveBeenCalledWith(messages.en.today.dailyStyle.saveError);
   announce.mockRestore();
 });
+
+test('a failed styles save shows its warning above Done, where the long step does not hide it', async () => {
+  const view = await render(
+    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 },
+      insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
+      <KuyaraThemeContext.Provider value={lightTheme}>
+        <DailyFormalitySheet confirmLabel="Done" error language="en" onChoose={jest.fn()}
+          onConfirmStyles={jest.fn()} onDismiss={jest.fn()} question="What are you dressing for?"
+          selected="smart" step="styles" visible />
+      </KuyaraThemeContext.Provider>
+    </SafeAreaProvider>,
+  );
+  const ordered = view.getAllByTestId(/^daily-formality-(error|styles-done)$/).map((node) => node.props.testID);
+  expect(ordered).toEqual(['daily-formality-error', 'daily-formality-styles-done']);
+  const warning = view.getByTestId('daily-formality-error');
+  expect(warning).toHaveTextContent(messages.en.today.dailyStyle.saveError);
+  expect(warning.props.accessibilityRole).toBe('alert');
+});
