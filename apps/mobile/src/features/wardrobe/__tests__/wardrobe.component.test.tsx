@@ -4,6 +4,8 @@ import { AccessibilityInfo, Dimensions, Linking, StyleSheet } from 'react-native
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WardrobeRoute from '@/app/(tabs)/(profile)/wardrobe/index';
+import { garmentSilhouetteIds } from '@/components/ui/garment-board/garment-silhouette-map';
+import { silhouettes } from '@/components/ui/garment-board/silhouettes';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
@@ -593,6 +595,32 @@ test('the Closet category a piece is added from opens the type grid on it (O9)',
     expect.objectContaining({ selected: true }),
   );
   expect(result.getByTestId('wardrobe-type-sneakers')).toBeOnTheScreen();
+});
+
+// Before a type is chosen, the dashed placeholder draws the category the piece is added
+// from, so the stage and the cards agree with the picker below them.
+test('a piece added from Bottoms draws dashed jeans before a type is chosen', async () => {
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        defaultCategory="bottom"
+        isBusy={false}
+        mode="create"
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+      />
+    </TestProviders>,
+  );
+  const outlineOf = (typeId: 'jeans' | 't_shirt') =>
+    silhouettes[garmentSilhouetteIds[typeId]!].groups[0].outline;
+  const drawsOutline = (testID: string, outline: string) =>
+    result.getAllByTestId(testID, { includeHiddenElements: true }).some((element) =>
+      element.queryAll((node) => node.props.d === outline).length > 0);
+
+  for (const testID of ['wardrobe-preview-placeholder', 'wardrobe-ownership-placeholder']) {
+    expect(drawsOutline(testID, outlineOf('jeans'))).toBe(true);
+    expect(drawsOutline(testID, outlineOf('t_shirt'))).toBe(false);
+  }
 });
 
 test('the type picker is localized from catalog and wardrobe keys', async () => {

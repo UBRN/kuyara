@@ -14,6 +14,7 @@ import type {
 } from '@/features/catalog/domain/garment-taxonomy';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
+import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import { useMessages } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -29,7 +30,6 @@ const STAGE_HEIGHT = 232;
 const ARTWORK_HEIGHT = 156;
 const CORNER_SIZE = 24;
 const BADGE_DRAWING_SIZE = 24;
-const PLACEHOLDER_TYPE: GarmentTypeId = 't_shirt';
 
 export type PiecePreviewStageProps = Readonly<{
   /** The readable photo to show, or `null` to draw the piece. */
@@ -170,10 +170,10 @@ export function PiecePreviewStage({
             importantForAccessibility="no-hide-descendants"
             style={[styles.artwork, stacksButtonPair && styles.artworkAlone]}>
             <GarmentTileArtwork
-              category={garmentTypeId ? category : 'top'}
+              category={category}
               colorChoice={garmentTypeId ? colorChoice : null}
               colorFamily={garmentTypeId ? colorFamily : null}
-              garmentTypeId={garmentTypeId ?? PLACEHOLDER_TYPE}
+              garmentTypeId={garmentTypeId ?? CATEGORY_REPRESENTATIVE_TYPE[category]}
               glyphSize={ARTWORK_HEIGHT / 2}
               height={stacksButtonPair ? STAGE_HEIGHT : ARTWORK_HEIGHT}
               photoTestID="wardrobe-preview-photo"
