@@ -1212,6 +1212,23 @@ describe.each(['en', 'tr'] as const)('%s first generation', (language: Supported
   });
 });
 
+// Law 7's press feedback reaches the hero board as it reaches the alternates below it: a
+// held board scales on the fast role, and the pressed dim stays the non-motion signal.
+test('the hero board answers a press with the press scale on the fast role', async () => {
+  const hidden = { includeHiddenElements: true };
+  const withTiming = jest.spyOn(jest.requireMock('react-native-reanimated'), 'withTiming');
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()}
+      onRefresh={jest.fn()} onAskAgain={jest.fn()} state={todayScreenState} />,
+  ));
+  withTiming.mockClear();
+
+  fireEvent(result.getByTestId('today-stage', hidden), 'pressIn');
+
+  expect(withTiming).toHaveBeenCalledWith(0.97, { duration: lightTheme.motion.fast });
+  withTiming.mockRestore();
+});
+
 test('the skeleton placeholders breathe on the ambient moderate step', async () => {
   const hidden = { includeHiddenElements: true };
   const withTiming = jest.spyOn(jest.requireMock('react-native-reanimated'), 'withTiming');

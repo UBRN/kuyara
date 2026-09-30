@@ -1,5 +1,5 @@
 import { use, useEffect, useState, type ReactNode } from 'react';
-import { Pressable, RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedRef,
   useAnimatedStyle,
@@ -476,7 +476,7 @@ function TodayScreenContent({
                 id="outfit"
                 label={presentation.stageAccessibilityLabel}
                 scrollBy={scrollBy}>
-                <Pressable
+                <PressScale
                   accessible
                   accessibilityLabel={presentation.stageAccessibilityLabel}
                   accessibilityRole="button"
@@ -517,7 +517,7 @@ function TodayScreenContent({
                       width={contentWidth}
                     />
                   </View>
-                </Pressable>
+                </PressScale>
               </TourTarget>
             </Dimmed>
             {/* N18 and N15: the outfit's claim sits directly under the board, where it is read
