@@ -5,6 +5,7 @@ import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import {
   AppText,
   Button,
+  Entrance,
   garmentUsualColorFamilies,
   haptics,
   Icon,
@@ -218,6 +219,7 @@ export function WardrobeItemFormScreen({
   const discardStagedPhotoRef = useRef(onDiscardStagedPhoto);
   const isProcessingPhoto = processingSource !== null;
   const busy = isBusy || isSaving || isDeleting || isProcessingPhoto;
+  const [colorSectionOnMount] = useState(values.garmentTypeId !== null);
   const selectedType = values.garmentTypeId
     ? getGarmentType(values.garmentTypeId)
     : null;
@@ -462,6 +464,29 @@ export function WardrobeItemFormScreen({
   } as const;
   const colorName = closetColorName(messages, values.colorChoice, values.colorFamily);
 
+  // Law 7: the colour section arrives once a type is chosen, after the chosen-type row
+  // above it. A section already there when the form opens is drawn at rest.
+  const colorSection = (
+    <View style={styles.section} testID="wardrobe-color-section">
+      <View style={styles.heading}>
+        <AppText accessibilityRole="header" style={styles.headingText} variant="title">
+          {copy.colorTitle}
+        </AppText>
+        {/* The swatches carry their names for assistive technology, so this is the
+            sighted reader's confirmation: colour is never the only signal. */}
+        <AppText
+          accessibilityElementsHidden
+          colorRole="textSecondary"
+          importantForAccessibility="no-hide-descendants"
+          testID="wardrobe-color-selected"
+          variant="label">
+          {colorName}
+        </AppText>
+      </View>
+      <ClosetColorPalette choice={values.colorChoice} disabled={busy} onChange={chooseColor} />
+    </View>
+  );
+
   return (
     <>
       <FormToolbar
@@ -568,24 +593,7 @@ export function WardrobeItemFormScreen({
         </View>
 
         {selectedType ? (
-          <View style={styles.section} testID="wardrobe-color-section">
-            <View style={styles.heading}>
-              <AppText accessibilityRole="header" style={styles.headingText} variant="title">
-                {copy.colorTitle}
-              </AppText>
-              {/* The swatches carry their names for assistive technology, so this is the
-                  sighted reader's confirmation: colour is never the only signal. */}
-              <AppText
-                accessibilityElementsHidden
-                colorRole="textSecondary"
-                importantForAccessibility="no-hide-descendants"
-                testID="wardrobe-color-selected"
-                variant="label">
-                {colorName}
-              </AppText>
-            </View>
-            <ClosetColorPalette choice={values.colorChoice} disabled={busy} onChange={chooseColor} />
-          </View>
+          colorSectionOnMount ? colorSection : <Entrance index={1}>{colorSection}</Entrance>
         ) : null}
 
         <View style={styles.section}>

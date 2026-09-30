@@ -9,6 +9,7 @@ import Animated, {
 import {
   AppText,
   Button,
+  Entrance,
   GarmentDrawing,
   garmentUsualColorFamilies,
   PressScale,
@@ -37,7 +38,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // the form. Six illustrated category tiles first; a tap turns them into the Closet's chip
 // rail over a grid of that category's types, each drawn in its own most natural colour and
 // named, because the catalogue shares one drawing across five pairs of types. A chosen
-// type collapses the picker to one row with "Change". The catalogue type stays required
+// type collapses the picker to one row with "Change", which arrives (Law 7). The catalogue type stays required
 // and no free-form type exists (docs/product-decisions.md, Closet).
 
 // Each category tile shows its representative piece in one colour. Illustration only: the
@@ -83,6 +84,8 @@ export function GarmentTypePicker({
   const selectedType = selectedTypeId ? getGarmentType(selectedTypeId) : null;
   const [expanded, setExpanded] = useState(selectedType === null);
   const [category, setCategory] = useState<StructuralCategory | null>(null);
+  // The collapsed row arrives when a type is picked; one already chosen on open is at rest.
+  const [rowArrives, setRowArrives] = useState(false);
   const gridOpacity = useSharedValue<number>(1);
   const gridStyle = useAnimatedStyle(() => ({ opacity: gridOpacity.get() }));
 
@@ -127,7 +130,7 @@ export function GarmentTypePicker({
   };
 
   if (selectedType && !expanded) {
-    return (
+    const row = (
       <View style={styles.row} testID="wardrobe-type-row">
         <View
           accessibilityElementsHidden
@@ -163,10 +166,12 @@ export function GarmentTypePicker({
         />
       </View>
     );
+    return rowArrives ? <Entrance>{row}</Entrance> : row;
   }
 
   const select = (typeId: GarmentTypeId) => {
     if (disabled) return;
+    setRowArrives(true);
     setExpanded(false);
     onSelect(typeId);
   };
