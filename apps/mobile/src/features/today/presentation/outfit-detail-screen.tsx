@@ -552,17 +552,19 @@ export function OutfitDetailScreen({
   };
 
   // The hint names the gesture until the first change; the strip takes its place while a
-  // piece is enlarged.
+  // piece is enlarged. It rises in once, with the screen; after a change it only returns
+  // with the board's own fade.
+  const boardHintLine = (
+    <View style={styles.boardLine}>
+      <Icon color={theme.colors.iconSecondary} name="info" size={16} />
+      <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
+        {copy.boardHint}
+      </AppText>
+    </View>
+  );
   const boardHint = (
     <View testID="outfit-detail-edit-hint">
-      <Entrance>
-        <View style={styles.boardLine}>
-          <Icon color={theme.colors.iconSecondary} name="info" size={16} />
-          <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
-            {copy.boardHint}
-          </AppText>
-        </View>
-      </Entrance>
+      {everChanged ? boardHintLine : <Entrance>{boardHintLine}</Entrance>}
     </View>
   );
 
