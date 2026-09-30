@@ -447,8 +447,10 @@ export function GarmentSwapBoard({
     : null;
 
   // The strip follows the enlargement: it arrives with it, swaps when it moves, and stays
-  // while it fades out after a settle.
+  // while it fades out after a settle. A drag the change cancelled names no piece any more.
+  const [previewId, setPreviewId] = useState<GarmentTypeId | null>(null);
   if (panels.focus !== focusedSlot) {
+    if (previewId !== null) setPreviewId(null);
     setPanels({
       focus: focusedSlot,
       current: focusedSlot && activeGrow ? { slot: focusedSlot, held: activeGrow.held } : panels.current,
@@ -459,7 +461,6 @@ export function GarmentSwapBoard({
   const [model, setModel] = useState<Model>(emptyModel);
   const [settled, setSettled] = useState(false);
   const [lastSettle, setLastSettle] = useState(settle);
-  const [previewId, setPreviewId] = useState<GarmentTypeId | null>(null);
   const [hintHeight, setHintHeight] = useState(0);
   const [hintMounted, setHintMounted] = useState(hintVisible);
   if (hintVisible && !hintMounted) setHintMounted(true);
@@ -650,6 +651,9 @@ export function GarmentSwapBoard({
           }));
           break;
         }
+        case 'home':
+          if (values.dx.get() !== 0) spring(values.dx, 0);
+          break;
         case 'drain': {
           const { key } = intent;
           values.drain.set(1);
@@ -993,17 +997,18 @@ export function GarmentSwapBoard({
         || touch.y > pager.zone.y + pager.zone.h) manager.fail();
     })
     .onStart(() => {
-      if (!curDx || stepPending()) return;
+      if (!curDx || !focusedSlot || !pager || stepPending()) return;
       // A grab mid-settle continues from where the eye last saw the piece.
       dragBase.set(curDx.get());
       curDx.set(curDx.get());
+      dragShown.set(curDx.get());
       dragPast.set(false);
       // Both neighbours are opaque while a finger holds the piece; the window clips them.
       nextOp?.set(1);
       prevOp?.set(1);
     })
     .onUpdate((event) => {
-      if (!curDx || !pager || !currentTile || stepPending()) return;
+      if (!curDx || !pager || stepPending()) return;
       // The handler counts the translation from where the drag activated, already past the
       // slop, so the piece follows the finger from that point on.
       const raw = dragBase.get() + event.translationX;
@@ -1015,10 +1020,12 @@ export function GarmentSwapBoard({
       nextDx?.set(shown + pager.strideNext);
       prevDx?.set(shown - pager.stridePrevious);
       const has = direction === 1 ? nextDx !== undefined : direction === -1 ? prevDx !== undefined : false;
-      const target = direction === 1 ? nextTile : direction === -1 ? prevTile : null;
-      const marker = swapMarkerPosition(currentTile, has ? target : null, Math.abs(shown) / stride);
-      markerX.set(marker.x);
-      markerY.set(marker.y);
+      if (currentTile) {
+        const target = direction === 1 ? nextTile : direction === -1 ? prevTile : null;
+        const marker = swapMarkerPosition(currentTile, has ? target : null, Math.abs(shown) / stride);
+        markerX.set(marker.x);
+        markerY.set(marker.y);
+      }
       const past = has && Math.abs(shown) >= stride / 2;
       if (past !== dragPast.get()) {
         dragPast.set(past);
@@ -1026,7 +1033,7 @@ export function GarmentSwapBoard({
       }
     })
     .onEnd((event, success) => {
-      if (!curDx || !focusedSlot || !pager || !currentTile || stepPending()) return;
+      if (!curDx || !focusedSlot || !pager || stepPending()) return;
       const shown = dragShown.get();
       const velocity = success ? event.velocityX : 0;
       const stride = shown > 0 ? pager.stridePrevious : pager.strideNext;
@@ -1059,8 +1066,10 @@ export function GarmentSwapBoard({
             if (finished) prevOp.set(0);
           }));
         }
-        markerX.set(withSpring(currentTile.x, spatial));
-        markerY.set(withSpring(currentTile.y, spatial));
+        if (currentTile) {
+          markerX.set(withSpring(currentTile.x, spatial));
+          markerY.set(withSpring(currentTile.y, spatial));
+        }
         if (dragPast.get()) runOnJS(setPreviewId)(null);
       }
       dragShown.set(0);

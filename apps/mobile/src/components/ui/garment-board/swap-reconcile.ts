@@ -75,7 +75,8 @@ export type Intent =
   | Readonly<{ kind: 'scale'; values: PieceValues; scale: number }>
   | Readonly<{ kind: 'wait'; values: PieceValues; box: Box; offset: number; scale: number; created: boolean }>
   | Readonly<{ kind: 'drain'; key: string; values: PieceValues }>
-  | Readonly<{ kind: 'retire'; key: string; values: PieceValues; offset: number }>;
+  | Readonly<{ kind: 'retire'; key: string; values: PieceValues; offset: number }>
+  | Readonly<{ kind: 'home'; values: PieceValues }>;
 export type Model = Readonly<{
   signature: string | null;
   instances: readonly Instance[];
@@ -85,6 +86,8 @@ export type Model = Readonly<{
   relayouting: boolean;
   intents: readonly Intent[];
   gestureCommit: Readonly<{ slot: OutfitSlot; garmentTypeId: GarmentTypeId }> | null;
+  /** The enlarged slot this model was laid out for. */
+  focus: OutfitSlot | null;
 }>;
 
 export type GarmentSwapCandidate = Readonly<{
@@ -104,6 +107,7 @@ export type Composed = Readonly<{
 
 export const emptyModel: Model = {
   signature: null, instances: [], garments: {}, entered: false, relayouting: false, intents: [], gestureCommit: null,
+  focus: null,
 };
 
 export const sameBox = (a: Box, b: Box) => Math.abs(a.x - b.x) < 0.25 && Math.abs(a.y - b.y) < 0.25
@@ -288,6 +292,15 @@ export function reconcile(model: Model, inputs: ReconcileInputs, tools: Reconcil
   // A paged piece still sliding when the enlargement ends or moves (Done or a tile right after
   // a step) finishes its slide inside the window it kept and leaves the tree on landing: a
   // neighbour no longer wanted slides on to where it waits, behind the window's edge.
+  // When the enlargement ends or moves, a drag it cancelled may have left the slot's piece
+  // off-centre; it comes home unless its own entry already takes it there.
+  const left = model.focus !== null && model.focus !== focusedSlot
+    ? byKey.get(`${model.focus}|${garments[model.focus]}`) : undefined;
+  if (left?.role === 'current' && !intents.some((intent) => intent.values === left.values
+    && (intent.kind === 'enter' || intent.kind === 'promote'))) {
+    moved = true;
+    intents.push({ kind: 'home', values: left.values });
+  }
   const instances = [...byKey.values()].map((instance) => {
     if ((instance.role !== 'previous' && instance.role !== 'next') || wanted.has(instance.key)) return instance;
     intents.push({ kind: 'retire', key: instance.key, values: instance.values, offset: instance.waits ?? 0 });
@@ -302,5 +315,6 @@ export function reconcile(model: Model, inputs: ReconcileInputs, tools: Reconcil
     relayouting: firstLayout ? false : moved || model.relayouting,
     intents,
     gestureCommit: null,
+    focus: focusedSlot,
   };
 }
