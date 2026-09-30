@@ -18,6 +18,10 @@ import {
   todayWardrobeItems,
 } from '@/features/today/__tests__/fixtures';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
+import {
+  RecommendationApplicationContext,
+  type RecommendationApplicationValue,
+} from '@/features/recommendation/application/recommendation-application-context';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import {
   createDetailCaptionLayout,
@@ -1006,6 +1010,36 @@ test('the hero board rises into a stage that stays still', async () => {
   expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
     .not.toHaveProperty('transform');
   withSpring.mockRestore();
+});
+
+// The first-run runway covers Today while the outfit lands behind it; the rise waits until
+// the runway has left, so the arrival is the thing people see.
+test('the hero board holds its rise while the first-run runway covers it, then rises', async () => {
+  const withRunway = (showFirstGenerationOverlay: boolean) => ({
+    state: { status: 'ready', snapshot: null, isRefreshing: false, lastFailure: null, phase: null,
+      exhausted: false, showFirstGenerationOverlay },
+    skipWait: jest.fn(async () => null),
+  }) as unknown as RecommendationApplicationValue;
+  const screen = (overlay: boolean) => providers(
+    <RecommendationApplicationContext value={withRunway(overlay)}>
+      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+        onAskAgain={jest.fn()} state={todayScreenState} />
+    </RecommendationApplicationContext>,
+  );
+  const hidden = { includeHiddenElements: true };
+  const rise = () => StyleSheet.flatten(
+    result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, hidden).parent!.props.style,
+  ) ?? {};
+  const result = await render(screen(true));
+  await fireEvent(result.getByTestId('today-content', hidden), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+  });
+  expect(result.getByTestId('first-generation-runway')).toBeOnTheScreen();
+  expect(rise()).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+
+  await result.rerender(screen(false));
+  await waitFor(() => expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull());
+  expect(rise().opacity ?? 1).toBe(1);
 });
 
 test('a new suggestion re-mounts the hero board, and the same one back leaves it still', async () => {

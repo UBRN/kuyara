@@ -145,6 +145,36 @@ test('a rising board starts one large step below at zero opacity and adds no nod
   expect(result.getByRole('image', { name: 'Dress, sandals' })).toHaveProp('testID', 'board');
 });
 
+test('a held rise keeps its pieces unseen at the start until released, then rises once', async () => {
+  const board = (holdRise: boolean) => (
+    <GarmentBoard
+      palette={palette}
+      accessibilityLabel="Dress, sandals"
+      holdRise={holdRise}
+      pieces={pieces}
+      preset="today"
+      rise
+      testID="board"
+      width={349}
+    />
+  );
+  const withSpring = jest.spyOn(Reanimated, 'withSpring');
+  const result = await render(board(true), { wrapper: LightTheme });
+  await result.rerender(board(true));
+  expect(withSpring).not.toHaveBeenCalled();
+  expect(StyleSheet.flatten(result.toJSON()!.props.style))
+    .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+
+  await result.rerender(board(false));
+  expect(withSpring).toHaveBeenCalledTimes(1);
+  expect(StyleSheet.flatten(result.toJSON()!.props.style)?.opacity ?? 1).toBe(1);
+  // A later hold never replays it.
+  await result.rerender(board(true));
+  await result.rerender(board(false));
+  expect(withSpring).toHaveBeenCalledTimes(1);
+  withSpring.mockRestore();
+});
+
 // A landed rise hands its resting style to React itself. Reanimated only syncs a settled
 // animation's props back to React when a JS tick falls 1 to 2 s after its last frame and
 // drops them natively after 2 s; a JS stall across that window (a cold-launch background
