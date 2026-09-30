@@ -373,7 +373,7 @@ test('the Closet heading uses the name while the rest of Profile stays the same'
   );
   expect(result.getByText("Utku's Closet")).toBeOnTheScreen();
   expect(result.getByTestId('profile-closet-heading').props.accessibilityLabel)
-    .toBe("Utku's Closet, 1.");
+    .toBe("Utku's Closet, 1 piece.");
 });
 
 test('Turkish keeps the name unchanged in the Closet heading at large text size', async () => {
@@ -385,7 +385,7 @@ test('Turkish keeps the name unchanged in the Closet heading at large text size'
   );
   expect(result.getByText('Gardırop · Utku')).toBeOnTheScreen();
   expect(result.getByTestId('profile-closet-heading').props.accessibilityLabel)
-    .toBe('Gardırop · Utku, 1.');
+    .toBe('Gardırop · Utku, 1 parça.');
 });
 
 test('a loading Closet shows the bare rack and the six cells without counts, spoken as loading', async () => {
