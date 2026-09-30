@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   runOnJS,
@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
 
 import {
   AppText,
@@ -78,10 +79,6 @@ const BADGE_GLYPH_SIZE = 16;
 const SWATCH_DOT_SIZE = 16;
 // A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
 const OUTSIDE_TAP_SLOP = 10;
-// The bars over the scroll view when the strip is revealed: the navigation bar's and the tab
-// bar's content heights, above the safe areas.
-const NAVIGATION_BAR_HEIGHT = 44;
-const TAB_BAR_HEIGHT = 49;
 
 const matchIcons: Readonly<Record<Exclude<PieceOwnershipMatch['kind'], 'none'>, IconName>> = {
   owned: 'check',
@@ -252,6 +249,8 @@ export function OutfitDetailScreen({
   const [boardAtRest, setBoardAtRest] = useState(true);
   const boardRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
+  // The stack's measured header height: the navigation bar's bottom edge in window points.
+  const headerHeight = use(HeaderHeightContext);
   // Phase 8: the tour brings the first piece row about a third of the way down the screen.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
@@ -438,8 +437,12 @@ export function OutfitDetailScreen({
   };
   // An enlargement brings the strip into view by the least scroll that shows it, never so far
   // that the enlarged piece leaves the top. The board fits itself between the bars first.
-  const visibleTop = insets.top + NAVIGATION_BAR_HEIGHT;
-  const visibleBottom = windowHeight - insets.bottom - TAB_BAR_HEIGHT;
+  // The band the bars leave visible, both edges as the system lays them out: the header ends at
+  // the navigation bar's bottom edge (54 points under the status bar on iOS 26), and a tab's
+  // bottom inset already holds the tab bar. With no header (a render outside the stack)
+  // nothing covers the top but the status bar.
+  const visibleTop = headerHeight ?? insets.top;
+  const visibleBottom = windowHeight - insets.bottom;
   const revealStrip = (area: Readonly<{ pieceTop: number; panelBottom: number }>) => {
     boardRef.current?.measureInWindow((_x, boardTop) => {
       const delta = swapRevealScroll(area, boardTop, { top: visibleTop, bottom: visibleBottom });
