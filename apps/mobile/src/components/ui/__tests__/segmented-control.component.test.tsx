@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { darkTheme, lightTheme } from '@/theme/theme';
@@ -65,6 +65,16 @@ function DarkTestProviders({ children }: PropsWithChildren) {
   return <KuyaraThemeContext.Provider value={darkTheme}>{children}</KuyaraThemeContext.Provider>;
 }
 
+const originalWindow = Dimensions.get('window');
+
+beforeEach(() => {
+  Dimensions.set({ window: { ...originalWindow, fontScale: 1 } });
+});
+
+afterEach(() => {
+  Dimensions.set({ window: originalWindow });
+});
+
 const options = [
   { label: 'Owned', value: 'owned' },
   { label: 'Wanted', value: 'wanted' },
@@ -117,3 +127,17 @@ test('fires the selection haptic and reports the new value only on an actual cha
   expect(onChange).toHaveBeenCalledWith('wanted');
   expect(haptics.haptics.selection).toHaveBeenCalledTimes(1);
 });
+
+// iOS XXXL (1.353) is the largest standard text size; 0.8 is below the default.
+test.each([[1, 44], [0.8, 44], [1.353, Math.ceil(44 * 1.353)]])(
+  'at fontScale %s the host is %s points tall, so the segment labels are never clipped',
+  async (fontScale, height) => {
+    Dimensions.set({ window: { ...originalWindow, fontScale } });
+    const result = await render(
+      <TestProviders>
+        <SegmentedControl onChange={() => {}} options={options} testID="control" value="owned" />
+      </TestProviders>,
+    );
+    expect(StyleSheet.flatten(result.getByTestId('control').props.style).height).toBe(height);
+  },
+);
