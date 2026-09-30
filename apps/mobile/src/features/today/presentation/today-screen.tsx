@@ -1,4 +1,4 @@
-import { use, useEffect, useState, type ReactNode } from 'react';
+import { use, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedRef,
@@ -125,16 +125,24 @@ export function TodayScreen(props: TodayScreenProps) {
   // S3: the runway reads the weather of the active place only, never a previous place's.
   const placeSnapshot = weather.state.status === 'ready'
     ? activeLocationSnapshot(weather.state.snapshot, weather.state.activeLocation) : null;
+  const runwayActive = recommendationState?.showFirstGenerationOverlay ?? false;
+  // The outfit's rise waits until the runway has left the screen, so the arrival is seen.
+  const [runwayShown, setRunwayShown] = useState(false);
+  const { onRunwayVisibleChange } = props;
+  const reportRunway = useCallback((visible: boolean) => {
+    setRunwayShown(visible);
+    onRunwayVisibleChange?.(visible);
+  }, [onRunwayVisibleChange]);
 
   return (
     <View style={styles.root}>
-      <TodayScreenContent {...props} now={now} />
+      <TodayScreenContent {...props} holdRise={runwayActive || runwayShown} now={now} />
       <FirstGenerationRunway
-        active={recommendationState?.showFirstGenerationOverlay ?? false}
+        active={runwayActive}
         completed={settled !== null}
         language={props.language}
         onSkip={() => { void application?.skipWait(); }}
-        onVisibleChange={props.onRunwayVisibleChange}
+        onVisibleChange={reportRunway}
         outfit={runwayOutfit && placeSnapshot ? {
           id: runwayOutfit.optionId,
           pieces: outfitBoardPieces(runwayOutfit),
@@ -161,6 +169,7 @@ export function TodayScreen(props: TodayScreenProps) {
 }
 
 function TodayScreenContent({
+  holdRise,
   now,
   state,
   language,
@@ -173,7 +182,7 @@ function TodayScreenContent({
   updatingDayType = null,
   firstDressingDay = false,
   awaitingDayQuestion = false,
-}: TodayScreenProps & Readonly<{ now: number }>) {
+}: TodayScreenProps & Readonly<{ holdRise: boolean; now: number }>) {
   const push = useSinglePush();
   // The Phase 8 tour asks Today to bring its outfit or its last action into view, and to
   // scroll further when the scroll view's end leaves that action under the tab bar.
@@ -509,6 +518,7 @@ function TodayScreenContent({
                       key={primary.id}
                       contactShade={theme.contactShade[presentation.atmosphere]}
                       fit
+                      holdRise={holdRise}
                       palette={primary.palette}
                       pieces={primary.boardPieces}
                       preset="today"

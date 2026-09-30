@@ -91,10 +91,15 @@ type GarmentBoardProps = Readonly<{
   entrance?: GarmentBoardEntrance;
   /**
    * Law 7's arrival: the pieces rise into a still stage once, on mount. A refresh, a
-   * focus change or new data never replays it, and under Reduce Motion they are drawn
-   * at rest. Ignored while `entrance` is set: a travelling board already arrives.
+   * focus change or new data never replays it. Ignored while `entrance` is set: a
+   * travelling board already arrives.
    */
   rise?: boolean;
+  /**
+   * Holds a rising board's pieces at their start, unseen, until it turns false, so the
+   * rise plays when nothing covers the stage (the first-run runway). It starts once.
+   */
+  holdRise?: boolean;
   /** Law 7's moment: change it and an entering board's pieces settle once. */
   settle?: number;
   /**
@@ -342,6 +347,7 @@ export function GarmentBoard({
   decorative = false,
   entrance,
   rise = false,
+  holdRise = false,
   settle,
   palette,
   stageColor,
@@ -401,13 +407,14 @@ export function GarmentBoard({
   // Mount only, like `Entrance`: the travel is spatial and rides the arrival role, the
   // fade is effects motion on `motion.fast`.
   useEffect(() => {
-    if (!rise || didStartRise.current) return;
+    if (!rise || holdRise || didStartRise.current) return;
     didStartRise.current = true;
     riseOpacity.set(withTiming(1, { duration: theme.motion.fast }));
     riseOffset.set(withSpring(0, theme.springs.arrival, (finished) => {
       if (finished) runOnJS(setRisen)(true);
     }));
   }, [
+    holdRise,
     rise,
     riseOffset,
     riseOpacity,
