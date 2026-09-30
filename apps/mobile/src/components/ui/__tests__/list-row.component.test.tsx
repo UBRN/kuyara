@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 
@@ -210,4 +210,19 @@ test('the group heading is sentence case bodyStrong in textSecondary and exposes
   expect(headingStyle.color).toBe(lightTheme.colors.textSecondary);
   expect(headingStyle.fontWeight).toBe(lightTheme.typography.bodyStrong.fontWeight);
   expect(headingStyle.fontSize).toBe(lightTheme.typography.bodyStrong.fontSize);
+});
+
+// A full-width row highlights on press and never scales (iOS rows highlight, they do not give way).
+test('a pressable row carries no scale transform', async () => {
+  mockFontScale(1);
+
+  const result = await render(
+    <TestProviders>
+      <ListRow glyph={locationGlyph} label="Location" onPress={() => {}} testID="row" />
+    </TestProviders>,
+  );
+
+  const row = result.getByTestId('row');
+  fireEvent(row, 'pressIn');
+  expect(StyleSheet.flatten(result.getByTestId('row').props.style).transform).toBeUndefined();
 });
