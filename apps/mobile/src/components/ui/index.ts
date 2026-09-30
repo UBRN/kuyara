@@ -1,5 +1,5 @@
 export { AppText, type AppTextProps } from './app-text';
-export { Button, type ButtonProps } from './button';
+export { Button, useButtonBox, type ButtonProps } from './button';
 export { ButtonPair, type ButtonPairProps } from './button-pair';
 export { ChoiceTile, ChoiceTileGrid, type ChoiceTileDrawing, type ChoiceTileProps } from './choice-tile';
 export {

@@ -74,7 +74,7 @@ export function Button({
     ? { ...strongEdge, borderColor: disabled ? theme.colors.borderDefined : strongEdge.borderColor }
     : null;
   const geometry = buttonGeometry[size];
-  const height = large ? Math.max(geometry.height, easierToSee.primaryActionHeight) : geometry.height;
+  const box = useButtonBox(size);
   const iconSize = geometry.iconSize * controlScale;
 
   return (
@@ -112,7 +112,7 @@ export function Button({
             pressed: pressed && !isUnavailable,
           }).backgroundColor,
           columnGap: geometry.gap,
-          minHeight: height,
+          ...box,
           paddingHorizontal: geometry.paddingHorizontal,
         },
         edge,
@@ -152,6 +152,20 @@ export function Button({
   );
 }
 
+/**
+ * A button's box at a size: its drawn height (56 while Easier to see is on) and its vertical
+ * padding. A view that stands in for a button, as a saved state replacing its action, takes
+ * the same box so nothing around it moves when one replaces the other.
+ */
+export function useButtonBox(size: ButtonSize = 'medium') {
+  const large = useEasierToSee();
+  const { height } = buttonGeometry[size];
+  return {
+    minHeight: large ? Math.max(height, easierToSee.primaryActionHeight) : height,
+    paddingVertical: spacing.sm,
+  } as const;
+}
+
 const styles = StyleSheet.create({
   button: {
     maxWidth: '100%',
@@ -166,7 +180,6 @@ const styles = StyleSheet.create({
     outlineOffset: borderWidths.strong,
     outlineStyle: 'solid',
     outlineWidth: borderWidths.strong,
-    paddingVertical: spacing.sm,
   },
   label: {
     flexShrink: 1,

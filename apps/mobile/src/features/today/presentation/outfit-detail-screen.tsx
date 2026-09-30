@@ -38,6 +38,7 @@ import {
   Screen,
   haptics,
   swapRevealScroll,
+  useButtonBox,
   useGarmentRoles,
   useTextScaling,
 } from '@/components/ui';
@@ -261,6 +262,8 @@ export function OutfitDetailScreen({
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
   const easierToSeeOn = useEasierToSee();
+  // The worn state takes the large button's box, so the swap moves nothing below it.
+  const wornBox = useButtonBox('large');
   const { hour12, temperatureUnit } = useLocalization();
   const { fontScale, stacksButtonPair, usesStackedLayout } = useTextScaling();
   const [contentWidth, setContentWidth] = useState(0);
@@ -676,7 +679,7 @@ export function OutfitDetailScreen({
                   <View
                     accessible
                     accessibilityLabel={copy.wornToday}
-                    style={[styles.wornState, { borderColor: theme.colors.borderDefined }]}
+                    style={[styles.wornState, wornBox, { borderColor: theme.colors.borderDefined }]}
                     testID="outfit-detail-worn">
                     {wornStateContent}
                   </View>
@@ -686,7 +689,7 @@ export function OutfitDetailScreen({
             {wornSwap.previous !== null ? (
               <FadeOut key={`worn-out-${wornSwap.changes}`} onDone={clearWornPrevious}>
                 {wornSwap.previous === 'state' ? (
-                  <View style={[styles.wornState, { borderColor: theme.colors.borderDefined }]}>
+                  <View style={[styles.wornState, wornBox, { borderColor: theme.colors.borderDefined }]}>
                     {wornStateContent}
                   </View>
                 ) : (
@@ -1054,7 +1057,6 @@ const styles = StyleSheet.create({
     borderWidth: borderWidths.subtle,
     flexDirection: 'row',
     gap: spacing.sm,
-    minHeight: layout.minimumTouchTarget,
     paddingHorizontal: spacing.lg,
   },
   pieceRow: {
