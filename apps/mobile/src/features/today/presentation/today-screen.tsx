@@ -679,7 +679,7 @@ function TodayScreenContent({
 
         {/* ADR 0004's offer comes last, after the alternatives (f12). */}
         {offerToRender ? (
-          <Entrance>
+          <Entrance index={alternates.length + 1}>
             <WeatherAlertOfferRow
               blocked={blockedOffer !== null}
               language={language}
