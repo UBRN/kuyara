@@ -196,9 +196,16 @@ export function ListItem({
   testID?: string;
   trailing?: ReactNode;
 }>) {
+  // The SwiftUI accessibility modifiers name the row, as they do on the real list.
+  const label = modifiers?.find((modifier) => modifier.$type === 'accessibilityLabel')?.label as string | undefined;
+  const hint = modifiers?.find((modifier) => modifier.$type === 'accessibilityHint')?.hint as string | undefined;
+  const isLink = modifiers?.some((modifier) => modifier.$type === 'accessibilityAddTraits'
+    && (modifier.traits as string[]).includes('isLink'));
   return (
     <Pressable
-      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityHint={hint}
+      accessibilityLabel={label}
+      accessibilityRole={isLink ? 'link' : onPress ? 'button' : undefined}
       {...{ modifiers }}
       onPress={onPress}
       testID={testID}>

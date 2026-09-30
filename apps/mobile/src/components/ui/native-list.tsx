@@ -1,5 +1,5 @@
 import { Column, Host as UniversalHost, Icon as ExpoIcon, List as UniversalList, ListItem, RNHostView, Row, Text as ExpoText } from '@expo/ui';
-import { accessibilityAddTraits, accessibilityHidden, font, foregroundStyle, listStyle, onAppear, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
+import { accessibilityAddTraits, accessibilityHidden, accessibilityHint, accessibilityLabel, font, foregroundStyle, listStyle, onAppear, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
 import type { ReactElement, ReactNode } from 'react';
 import { Platform, PlatformColor, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -135,12 +135,50 @@ const styles = StyleSheet.create({
   heading: { paddingLeft: spacing.lg },
 });
 
-/** Hosts a React Native content row inside a native grouped section. */
-export function NativeListContentRow({ children, testID }: Readonly<{ children: ReactNode; testID?: string }>) {
+/** The system's trailing chevron for a row that opens something (ADR 0030 section 1). */
+function RowChevron() {
+  const theme = useKuyaraTheme();
+  const easierToSee = useEasierToSee();
+  return Platform.OS === 'ios' ? (
+    <ExpoIcon color={easierToSee ? IOS_EASIER_CHEVRON_COLOR : 'tertiaryLabel'} name="chevron.right" size={13} />
+  ) : (
+    <RNHostView matchContents><Icon color={theme.colors.textSecondary} name="chevronRight" size={13} /></RNHostView>
+  );
+}
+
+type NativeListContentRowLink = Readonly<{
+  /** What the row opens, spoken as the row's name. */
+  label: string;
+  hint: string;
+  onPress: () => void;
+}>;
+
+/**
+ * Hosts a React Native content row inside a native grouped section. With `link`, the whole
+ * row is the press target: the system draws its press highlight and the chevron, and the
+ * row speaks as one link.
+ */
+export function NativeListContentRow({
+  children,
+  link,
+  testID,
+}: Readonly<{ children: ReactNode; link?: NativeListContentRowLink; testID?: string }>) {
   const { width } = useWindowDimensions();
-  return <ListItem leading={
-    <RNHostView matchContents><View style={{ maxWidth: Math.max(0, width - spacing.lg * 4) }}>{children}</View></RNHostView>
-  } testID={testID} />;
+  return (
+    <ListItem
+      leading={
+        <RNHostView matchContents><View style={{ maxWidth: Math.max(0, width - spacing.lg * 4) }}>{children}</View></RNHostView>
+      }
+      modifiers={Platform.OS === 'ios' && link ? [
+        accessibilityLabel(link.label),
+        accessibilityHint(link.hint),
+        accessibilityAddTraits(['isLink']),
+      ] : undefined}
+      onPress={link?.onPress}
+      testID={testID}
+      trailing={link ? <RowChevron /> : undefined}
+    />
+  );
 }
 
 export type NativeListRowToggle = Readonly<{
@@ -285,13 +323,7 @@ export function NativeListRow({
           </View>
         </RNHostView>
       ) : null}
-      {showChevron ? (
-        Platform.OS === 'ios' ? (
-          <ExpoIcon color={easierToSee ? IOS_EASIER_CHEVRON_COLOR : 'tertiaryLabel'} name="chevron.right" size={13} />
-        ) : (
-          <RNHostView matchContents><Icon color={theme.colors.textSecondary} name="chevronRight" size={13} /></RNHostView>
-        )
-      ) : null}
+      {showChevron ? <RowChevron /> : null}
     </Row>
   ) : undefined;
 
