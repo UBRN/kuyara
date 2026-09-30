@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react-native';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
@@ -58,4 +59,30 @@ test('a failed styles save shows its warning above Done, where the long step doe
   const warning = view.getByTestId('daily-formality-error');
   expect(warning).toHaveTextContent(messages.en.today.dailyStyle.saveError);
   expect(warning.props.accessibilityRole).toBe('alert');
+});
+
+// Law 7: the step change fades the new step in on `normal`; the first step shows at rest.
+test('the styles step fades in after the day type is chosen; the first step stands still', async () => {
+  const copy = messages.en.today.dailyStyle;
+  const withTiming = jest.spyOn(Reanimated, 'withTiming');
+  const at = (step: 'dayType' | 'styles') => (
+    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 },
+      insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
+      <KuyaraThemeContext.Provider value={lightTheme}>
+        <DailyFormalitySheet confirmLabel="Done" error={false} language="en" onChoose={jest.fn()}
+          onConfirmStyles={jest.fn()} onDismiss={jest.fn()} question="What are you dressing for?"
+          selected="smart" step={step} visible />
+      </KuyaraThemeContext.Provider>
+    </SafeAreaProvider>
+  );
+  const view = await render(at('dayType'));
+  const opacityOf = (node: ReturnType<typeof view.getByTestId>) => StyleSheet.flatten(node.parent!.props.style).opacity;
+  expect(opacityOf(view.getByTestId('daily-formality-choices'))).toBe(1);
+
+  withTiming.mockImplementation((toValue) => toValue);
+  await view.rerender(at('styles'));
+  expect(opacityOf(view.getByTestId('daily-formality-styles-note'))).toBe(0);
+  expect(opacityOf(view.getByRole('header', { name: copy.stylesQuestion }))).toBe(0);
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  withTiming.mockRestore();
 });
