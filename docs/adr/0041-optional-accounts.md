@@ -49,7 +49,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 ### 3. Moving device data into the account
 
-- On first sign-in, this phone's Closet and History are added to the account automatically, once the sync consent in section 10 is given. The welcome sheet states how many pieces and how many days were added; a day is a History day.
+- On first sign-in, this phone's Closet and History are added to the account automatically, once the sync consent in section 10 is given. Until then only the profile fields in the table below go to the account. The welcome sheet states how many pieces and how many days were added; a day is a History day.
 - What goes to the account:
 
 | Device table | Goes to the account | Stays on the device |
@@ -57,7 +57,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 | `local_profiles` | display name, gender, dress style, style aesthetics | `birth_date`, `analytics_consent`, `notifications_opt_in`, language, appearance, Easier to see, the name and walkthrough prompt gates, the morning-sheet preference and every other device setting |
 | `wardrobe_items` | every field except the photo | the photo relative path and the photo itself |
 | `dressing_day_choices` | every field | nothing |
-| `dressing_day_departures` | every field | nothing |
+| `dressing_day_departures` | every field, including the departure time and its time zone | nothing |
 | `outfit_history` | every field except the photo | `photo_path` and the mirror photo |
 
 - Photos do not go to the account in the first account release. Photo backup comes later, after real photo sizes are measured, with its own decision.
@@ -104,7 +104,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 - Deletion cannot start offline; the button is disabled with a warning line.
 - While deletion runs the person may go anywhere in the app. The work continues, and when it finishes the result sheet appears wherever they are. A failure re-enables the button with an error line stating that nothing was deleted.
 - After the result sheet closes, Settings shows a one-time confirmation row under the Account group. It disappears on the next visit to Settings, and the ordinary benefit footnote returns.
-- Daily backups on the Pro plan are kept for seven days, so deleted data leaves the backups within seven days at most. The privacy policy says so.
+- The Free plan has no daily backups, so the only backups are the ones taken by hand. A deleted account's data can remain in a manual backup until that backup is removed, and a restore never brings a deleted account back. The retention the maintainer sets for manual backups is fixed before accounts open, and the privacy policy states it.
 - Analytics is not linked to the account (section 12), so PostHog holds no account data to delete.
 
 ### 8. What never leaves the device
@@ -120,9 +120,9 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 - The Supabase project is in Frankfurt (`eu-central-1`), inside the EU. The region cannot change later, and the project address is built into the binary.
 - Every Supabase region is outside Turkey, so KVKK article 9 applies, and explicit consent is not the right basis for a regular transfer. Before accounts open, a lawyer reviews the transfer, Supabase is asked to sign the Personal Data Protection Authority's controller-to-processor standard contract, and the Authority is notified within five business days of signing. If the contract is not signed, accounts stay closed.
-- KVKK article 6/1 lists dress as special-category data. Closet items, History and daily choices are treated as possibly special-category: their sync is turned on by a separate explicit consent, distinct from the privacy notice, and the Board's adequate measures apply. A lawyer confirms this reading. The consent is asked in the sign-in flow before the first upload. Declining still completes sign-in, with those three kinds of records not synced; the Account screen offers the same consent later. Withdrawing the consent stops their sync and deletes the account's copies of them.
+- KVKK article 6/1 lists dress as special-category data. Closet items, History and daily choices are treated as possibly special-category: their sync is turned on by a separate explicit consent, distinct from the privacy notice, and the Board's adequate measures apply. A lawyer confirms this reading. The consent covers four kinds of records: Closet items, History, daily choices and departure records (the departure time and its time zone). It is asked in the sign-in flow before the first upload. Declining still completes sign-in and only the profile fields in section 3 sync; the Account screen offers the same consent later. The consent belongs to the account, not to a phone: withdrawing it on one phone stops sync on every phone signed in to that account and deletes the account's copies of the four kinds of records, and giving it later on any phone turns it on for the account.
 - A copy of the data is requested by email, and is sent as a machine-readable JSON file within 30 days. Requests have 30 days under KVKK and one month under GDPR; breach notification is 72 hours under both.
-- The minimum age for an account is 16, stated by a one-sentence declaration on the sign-in page. No age or birth date leaves the device.
+- kuyara sets no minimum age of its own for an account. It relies on the age limits of the Apple and Google accounts that sign in, shows no age declaration and never uses the birth date; no age or birth date leaves the device. Whether a person under 16 in the EU can give the sync consent is a legal question, and a lawyer answers it before accounts open.
 - Before the account binary ships, a lawyer is asked whether the Texas, Utah and Louisiana age rules apply to kuyara and whether adding accounts is a significant change; if they apply, Declared Age Range and the significant-change permission join the same binary.
 - App Privacy adds Email Address, User ID and Other User Content, all linked to the user, for App Functionality, with no tracking. Photos is added only when photo backup arrives. The privacy manifest carries the same types and ships in the binary. The privacy policy (Turkish and English) is published before the account binary.
 - A short Turkish and English "Account terms" page is published beside the privacy policy and linked from the sign-in page, with no checkbox. Apple's standard licence agreement remains the app licence.
@@ -130,8 +130,8 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 ### 11. Spending limits and plans
 
-- TestFlight testing runs on the Supabase Free plan. When accounts open to everyone, the project moves to Pro with the Spend Cap on and point-in-time recovery off. Postgres becomes the authority for account data, and the Free plan has no backups and pauses after a week of inactivity, so the public release never stays on it. Keeping a Free project alive with artificial requests is forbidden.
-- The Spend Cap is never turned off. Add-ons outside it (point-in-time recovery, custom domain, IPv4, log drains) are not enabled. No automatic top-up and no pay-as-you-go overage.
+- The Supabase project stays on the Free plan, in testing and after accounts open. Postgres is the authority for account data, and the Free plan has no daily backups and pauses a project after a week of inactivity. Both are accepted: backups are taken by hand (section 7), and a paused project is resumed by hand. Keeping the project alive with artificial requests is forbidden.
+- No paid Supabase plan and none of its add-ons (point-in-time recovery, custom domain, IPv4, log drains) are enabled; moving to a paid plan needs its own decision. No automatic top-up and no pay-as-you-go overage.
 - The Worker stays on its free plan; the new route reads the JWKS from cache.
 - Prices and quotas are reread from the official pricing pages at implementation time. This ADR freezes no price.
 
@@ -140,6 +140,12 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 - From the first remote migration: row-level security on every synced table; one policy per operation with `user_id = (select auth.uid())`, plus `with check` on insert; explicit grants to the `authenticated` role and none to `anon`; no `raw_user_meta_data` in any policy condition; the new publishable and secret key types.
 - The app contains only the project address and the publishable key. The Supabase client library is imported only from the account feature's data layer; UI and domain code never import it.
 - PostHog is never linked to the account: `identify()` is never called, and analytics stays on its install identifier. Neither `localProfileId` nor the Supabase user ID becomes an analytics identifier.
+
+### 13. Member AI allowance
+
+- A signed-in member gets 10 "Ask the stylist again" requests per day, a separate allowance from the device's own. The Worker counts them; the device counter is not trusted for members. A person without an account keeps the device allowance that exists today.
+- The member allowance ships with the first account release. The Worker identifies the member from the verified Supabase access token as in section 2 (user ID from `sub`), sent only in the `Authorization: Bearer` header, so no request or response shape of a shipped route changes. The user ID keys the counter and is never logged, sent to analytics or placed in an AI request; the [AI input boundary](../product-decisions.md#approved-ai-input-privacy-boundary) is unchanged.
+- The Worker's daily Workers AI total stays at 50 for everyone together. The member allowance never raises it, and no paid model joins the chain for members. When the total is spent, recommendations fall back to the on-device deterministic choice, for members too.
 
 ## Red lines
 
@@ -153,11 +159,17 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 - The Closet and History are never recommendation candidates or AI input.
 - Supabase anonymous sign-in is never used.
 - No account surface says where data is kept, apart from the sync consent text.
+- No minimum-age rule or age declaration for accounts, and the birth date is never used to gate one.
+- Sync consent is never per phone: withdrawing it stops sync for the whole account.
+- Declining the sync consent never blocks or undoes sign-in.
+- The member allowance never raises the Worker's daily Workers AI total and never pays for a model.
+- No paid Supabase plan without its own decision, and no artificial requests to keep a Free project from pausing.
 
 ## Consequences
 
 - The first account binary is a native change (the Sign in with Apple entitlement, the Google library, `expo-secure-store`, the privacy manifest): it needs a new binary with a date-stamp bump, an independent review of the migration, native configuration, credentials, and consent and data-collection surfaces, and a migration replay on a device database. Each new dependency is justified and checked against the current Expo SDK before it is added.
 - The Worker gains secrets and one route; its role does not change.
 - Opening accounts needs the Supabase project, the Apple key and the Google client set up. Acceptance includes physical-iPhone evidence for Sign in with Apple and revocation, which the Simulator cannot provide.
-- Photo backup, email sign-in, a higher AI allowance for members and Apple server notifications each come with their own decision.
+- Photo backup, email sign-in, a member AI allowance above 10 a day and Apple server notifications each come with their own decision.
+- The project stays on the Supabase Free plan: there is no daily backup, manual backups are taken by hand, and a paused project is resumed by hand.
 - The privacy policy, the support page and the account terms page are rewritten before the account binary ships.

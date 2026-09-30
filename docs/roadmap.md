@@ -14,7 +14,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | 6. Silhouettes and suggested colour | Ink-edge silhouettes, eight new drawings and 31-colour catalog colorways | Shipped in build 15 |
 | 7. Manual mix-and-match | Catalog-piece swaps on outfit detail: row Change and picker, tap and swipe on the board; 7b: the tapped piece grows in place and changes by swipe or the candidate strip under the board | Implemented for build 16; gesture evidence is Simulator-only. 7b implemented on main for build 17; its Simulator walkthrough passed after the reopened-board and drag-start fixes |
 | 8. Onboarding walkthrough | Nine-step coach-mark tour over the real screens for new and existing users, its one-time gate (migration 22) and the Settings, Help row | Implemented for build 16; migration replay and Simulator walkthrough passed |
-| 9. Optional accounts | Apple and Google sign-in through Supabase Auth, Closet and History sync with the server-arrival conflict rule, and account deletion with Apple token revocation ([ADR 0041](adr/0041-optional-accounts.md)) | Accepted; account rules and the undeployed deletion route built, no SDK, migration or screen yet. Public accounts wait for the KVKK transfer contract and the Supabase Pro plan |
+| 9. Optional accounts | Apple and Google sign-in through Supabase Auth, Closet and History sync with the server-arrival conflict rule, and account deletion with Apple token revocation ([ADR 0041](adr/0041-optional-accounts.md)) | Accepted; account rules and the undeployed deletion route built, no SDK, migration or screen yet. Public accounts wait for the KVKK transfer contract; Supabase stays on the Free plan |
 
 ## Milestones and release scope
 
