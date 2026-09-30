@@ -26,6 +26,11 @@ export async function appleWeatherMarkUrl(
   if (!request) {
     request = loadAttribution(language, fetchAttribution);
     cached.set(language, request);
+    // A failed load is not kept, so the next read retries instead of showing the caption until restart.
+    const failed = request;
+    failed.catch(() => {
+      if (cached.get(language) === failed) cached.delete(language);
+    });
   }
   const attribution = await request;
   const appearance = isDark ? 'Dark' : 'Light';
