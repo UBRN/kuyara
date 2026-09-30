@@ -24,14 +24,19 @@ export type EntranceProps = Readonly<{
   children: ReactNode;
   /** Position in reading order; each step waits one `motion.stagger` longer. */
   index?: number;
+  /**
+   * Holds the children at the start until it turns false: a tab screen mounts before it is
+   * shown, and an arrival played then would be over before anyone saw it.
+   */
+  waiting?: boolean;
 }>;
 
 /**
- * Animates its children in once, on mount. A re-render, a refresh or a data update
+ * Animates its children in once, on mount or when it stops waiting. A re-render, a refresh or a data update
  * never replays the entrance. The wrapper carries no accessibility
  * props, so it adds no node a screen reader stops on.
  */
-export function Entrance({ children, index = 0 }: EntranceProps) {
+export function Entrance({ children, index = 0, waiting = false }: EntranceProps) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue<number>(0);
   const offset = useSharedValue<number>(ENTRANCE_OFFSET);
@@ -42,7 +47,7 @@ export function Entrance({ children, index = 0 }: EntranceProps) {
   const [entered, setEntered] = useState(false);
 
   useEffect(() => {
-    if (hasEntered.current) return;
+    if (hasEntered.current || waiting) return;
     hasEntered.current = true;
 
     const delay = Math.min(index * theme.motion.stagger, theme.motion.deliberate);
@@ -58,6 +63,7 @@ export function Entrance({ children, index = 0 }: EntranceProps) {
     theme.motion.fast,
     theme.motion.stagger,
     theme.springs.spatial,
+    waiting,
   ]);
 
   const entranceStyle = useAnimatedStyle(() => ({

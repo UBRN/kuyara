@@ -51,6 +51,8 @@ type ProfileScreenProps = Readonly<{
   /** A category cell opens the Closet on that category (O9). */
   onOpenCategory: (category: StructuralCategory) => void;
   onOpenHistory: () => void;
+  /** False until the tab is first shown: the content arrives then, not while it is hidden. */
+  shown?: boolean;
 }>;
 
 type CategorySummary = Readonly<{ count: number; wanted: number; newest: WardrobeItem | null }>;
@@ -226,6 +228,7 @@ export function ProfileScreen({
   onOpenCategory,
   onOpenHistory,
   onOpenWardrobe,
+  shown = true,
 }: ProfileScreenProps) {
   const messages = useMessages();
   const copy = messages.profile;
@@ -276,8 +279,10 @@ export function ProfileScreen({
     <Screen contentContainerStyle={styles.content} ref={scrollRef} scrollToOverflowEnabled testID="profile-screen">
       {/* Law 7: the content arrives once, in reading order; a state change inside a block
           never replays it. */}
-      <Entrance index={0}>
+      {/* The tour measures the still wrapper outside each arrival, so its ring marks where
+          the heading and the rack come to rest even while they are still arriving. */}
       <TourTarget id="closet-head">
+      <Entrance index={0} waiting={!shown}>
       <Pressable
         accessibilityHint={copy.closetHeadingHint}
         accessibilityLabel={!isReady
@@ -331,13 +336,13 @@ export function ProfileScreen({
           </>
         )}
       </Pressable>
-      </TourTarget>
       </Entrance>
+      </TourTarget>
 
       {/* The rack stays in the same place in every state: bare while loading or after an
           error, with empty hangers waiting when the Closet is empty (O9). */}
-      <Entrance index={1}>
-        <TourTarget id="rack">
+      <TourTarget id="rack">
+        <Entrance index={1} waiting={!shown}>
           <ClosetRack
             accessibilityHint={copy.closetHeadingHint}
             accessibilityLabel={rackLabel}
@@ -345,10 +350,10 @@ export function ProfileScreen({
             pieces={rackPieces}
             testID="profile-rack"
           />
-        </TourTarget>
-      </Entrance>
+        </Entrance>
+      </TourTarget>
 
-      <Entrance index={2}>
+      <Entrance index={2} waiting={!shown}>
       {state.status === 'loading' ? (
         <CategoryCells onOpenCategory={onOpenCategory} summaries={null} />
       ) : state.status === 'error' ? (
@@ -385,7 +390,7 @@ export function ProfileScreen({
       )}
       </Entrance>
 
-      <Entrance index={3}>
+      <Entrance index={3} waiting={!shown}>
       <View style={styles.group}>
         <ListRowGroup testID="profile-group">
           {(hasOwned || hasWanted) && (

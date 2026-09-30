@@ -506,3 +506,29 @@ test('Profile content arrives in reading order and a load does not replay it', a
   expect(withDelay).not.toHaveBeenCalled();
   withDelay.mockRestore();
 });
+
+// The Profile tab mounts at launch, before it is shown. Its content waits at the start and
+// arrives on the first showing; leaving the tab and coming back never replays it.
+test('Profile content arrives when the tab is first shown, and only then', async () => {
+  mockFontScale(1);
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  const screen = (shown: boolean) => (
+    <TestProviders items={[baseItem]} status="ready">
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined}
+        onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} shown={shown} />
+    </TestProviders>
+  );
+  const { stagger } = lightTheme.motion;
+  const result = await render(screen(false));
+  expect(withDelay).not.toHaveBeenCalled();
+
+  await result.rerender(screen(true));
+  expect(withDelay.mock.calls.map(([delay]) => delay))
+    .toEqual([0, 0, stagger, stagger, 2 * stagger, 2 * stagger, 3 * stagger, 3 * stagger]);
+
+  withDelay.mockClear();
+  await result.rerender(screen(false));
+  await result.rerender(screen(true));
+  expect(withDelay).not.toHaveBeenCalled();
+  withDelay.mockRestore();
+});
