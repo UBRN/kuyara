@@ -971,6 +971,21 @@ describe.each(['en', 'tr'] as const)('%s wore this today', (language) => {
     withTiming.mockRestore();
   });
 
+  // The pill takes the button's box, so nothing below moves when one replaces the other.
+  test.each([false, true])('the worn state is as tall as the button it replaces (larger controls %s)', async (large) => {
+    const box = (element: ReturnType<typeof result.getByTestId>) => {
+      const style = StyleSheet.flatten(element.props.style);
+      return { minHeight: style.minHeight, paddingVertical: style.paddingVertical };
+    };
+    const screen = (worn: 'none' | 'this') => (
+      <EasierToSeeContext value={large}>{detail({ onWoreThis: jest.fn(), worn })}</EasierToSeeContext>
+    );
+    const result = await render(screen('none'));
+    const button = box(result.getByTestId('outfit-detail-wore-this'));
+    await result.rerender(screen('this'));
+    expect(box(result.getByTestId('outfit-detail-worn'))).toEqual(button);
+  });
+
   // The `alert` role is silent on iOS, so a failed save is spoken once, as the other error
   // lines are (`useErrorAnnouncement`); Android keeps the role's own announcement.
   test('iOS hears a failed save once when it appears; Android hears nothing extra', async () => {
