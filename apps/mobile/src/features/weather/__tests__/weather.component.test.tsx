@@ -269,7 +269,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       <Providers language={language} value={value}><WeatherScreen /></Providers>,
     );
     expect(result.getByLabelText(language === 'en'
-      ? 'Rain. 16.0 degrees Celsius. Feels like 15.0 degrees Celsius. Low 12.0 degrees Celsius · High 19.0 degrees Celsius. 50% precipitation'
+      ? 'Rain. 16.0 degrees Celsius. Feels like 15.0 degrees Celsius. Low 12.0 degrees Celsius, high 19.0 degrees Celsius. 50% chance of precipitation.'
       : 'Yağmurlu. Sıcaklık 16,0 santigrat derece. Hissedilen sıcaklık 15,0 santigrat derece. En düşük 12,0 santigrat derece, en yüksek 19,0 santigrat derece. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
       ? 'Wind 4 m/s'
@@ -281,7 +281,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       ? 'UV index 2'
       : 'UV endeksi 2')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
-      ? '12:00. 16.0 degrees Celsius. Rain. 50% precipitation'
+      ? '12:00. 16.0 degrees Celsius. Rain. 50% chance of precipitation.'
       : 'Saat 12:00. Sıcaklık 16,0 santigrat derece. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '4 m/s' : '4 m/sn')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '70%' : '%70')).toBeOnTheScreen();
@@ -842,7 +842,7 @@ test('Weather at font scale 3.1 keeps its actions, hourly heading, and last colu
     name: messages.en.weather.hourlyHeading,
   }).props.style)).toMatchObject({ lineHeight: typography.bodyStrong.lineHeight });
   expect(within(result.getByTestId('weather-hourly-rail'))
-    .getByLabelText('13:00. 17.0 degrees Celsius. Cloudy. 20% precipitation')).toBeOnTheScreen();
+    .getByLabelText('13:00. 17.0 degrees Celsius. Cloudy. 20% chance of precipitation.')).toBeOnTheScreen();
 });
 
 test('Weather offers a pull-to-refresh gesture alongside the visible refresh button', async () => {
@@ -1029,8 +1029,8 @@ test('the hourly rail drops the hours that have ended', async () => {
   const result = await render(<Providers language="en" value={value}><WeatherScreen /></Providers>);
   const bands = result.getAllByTestId('weather-hourly-band', hidden);
   expect(bands).toHaveLength(1);
-  expect(result.getByLabelText('13:00. 17.0 degrees Celsius. Cloudy. 20% precipitation')).toBeOnTheScreen();
-  expect(result.queryByLabelText('12:00. 16.0 degrees Celsius. Rain. 50% precipitation')).toBeNull();
+  expect(result.getByLabelText('13:00. 17.0 degrees Celsius. Cloudy. 20% chance of precipitation.')).toBeOnTheScreen();
+  expect(result.queryByLabelText('12:00. 16.0 degrees Celsius. Rain. 50% chance of precipitation.')).toBeNull();
 
 });
 
@@ -1049,7 +1049,7 @@ test('a dry hour drops the chance from the rail but never from its label', async
 
   expect(rail.getByText('50%')).toBeOnTheScreen();
   expect(rail.queryByText('0%')).toBeNull();
-  expect(result.getByLabelText('13:00. 17.0 degrees Celsius. Cloudy. 0% precipitation')).toBeOnTheScreen();
+  expect(result.getByLabelText('13:00. 17.0 degrees Celsius. Cloudy. 0% chance of precipitation.')).toBeOnTheScreen();
 });
 
 test('the hourly card is not rendered once every hour of the snapshot\'s day has ended', async () => {
@@ -1066,7 +1066,7 @@ test('the hourly card is not rendered once every hour of the snapshot\'s day has
 });
 
 test.each([
-  ['en', 'Fri', 'Friday, 00:00. 18.0 degrees Celsius. Cloudy. 20% precipitation'],
+  ['en', 'Fri', 'Friday, 00:00. 18.0 degrees Celsius. Cloudy. 20% chance of precipitation.'],
   ['tr', 'Cum', 'Cuma, saat 00:00. Sıcaklık 18,0 santigrat derece. Bulutlu. Yağış olasılığı yüzde 20.'],
 ] as const)('marks the first %s column of a new local day', async (
   language,
@@ -1108,7 +1108,7 @@ test('the hourly rail scrolls horizontally and plots one accent temperature seri
 
   const rail = result.getByTestId('weather-hourly-rail');
   expect(rail.props.horizontal).toBe(true);
-  expect(within(rail).getAllByLabelText(/precipitation$/)).toHaveLength(2);
+  expect(within(rail).getAllByLabelText(/chance of precipitation\.$/)).toHaveLength(2);
   expect(result.getAllByText('50%').length).toBeGreaterThan(0);
 
   // The series is placed once the first plot band has been laid out, because its offset
@@ -1327,8 +1327,8 @@ test.each([
     '1 mm · 50%',
     '20%',
     '10%',
-    'Today, Thursday. Rain. Low 12.0 degrees Celsius · High 19.0 degrees Celsius. Now 16.0 degrees Celsius. 1 mm, 50% precipitation',
-    'Saturday. Clear. Low 18.0 degrees Celsius · High 27.0 degrees Celsius. 0% precipitation',
+    'Today, Thursday. Rain. Low 12.0 degrees Celsius, high 19.0 degrees Celsius. Now 16.0 degrees Celsius. 1 mm of precipitation. 50% chance of precipitation.',
+    'Saturday. Clear. Low 18.0 degrees Celsius, high 27.0 degrees Celsius. 0% chance of precipitation.',
   ],
   [
     'tr',
@@ -1428,7 +1428,7 @@ test('a snapshot held across midnight drops the day that has ended', async () =>
   expect(card.getAllByTestId('weather-daily-rail-marker', { includeHiddenElements: true }))
     .toHaveLength(1);
   expect(result.getByLabelText(
-    'Today, Friday. Cloudy. Low 14.0 degrees Celsius · High 22.0 degrees Celsius. Now 16.0 degrees Celsius. 20% precipitation',
+    'Today, Friday. Cloudy. Low 14.0 degrees Celsius, high 22.0 degrees Celsius. Now 16.0 degrees Celsius. 20% chance of precipitation.',
   )).toBeOnTheScreen();
 });
 
@@ -1477,5 +1477,24 @@ test('the stat and stale-notice icons take the caption step and scale with the t
     typeof props.name === 'object' && props.name.ios === ios)?.[0].size;
   for (const ios of ['wind', 'humidity.fill', 'sun.max.fill', 'exclamationmark.triangle.fill']) {
     expect(sizeOf(ios)).toBeCloseTo(16 * 1.353);
+  }
+});
+
+// A spoken label reads as sentences: a chance is said as a chance, never as an amount, and
+// the visible middle dot, which a screen reader either skips or names, stays out of it.
+test.each(['en', 'tr'] as const)('%s spoken forecast labels state a chance and carry no middle dot', (language) => {
+  const copy = messages[language].weather;
+  const values = {
+    condition: 'Rain', unitName: 'degrees Celsius', temperature: '16', apparentTemperature: '15',
+    minimumTemperature: '12', maximumTemperature: '19', precipitationProbability: 0.5,
+    precipitationMillimetres: '1', day: 'Thursday', time: '12:00', currentTemperature: '16',
+  };
+  for (const label of [
+    copy.currentConditionsAccessibilityLabel(values),
+    copy.hourlyForecastAccessibilityLabel(values),
+    copy.dailyForecastAccessibilityLabel(values),
+  ]) {
+    expect(label).not.toContain('·');
+    expect(label).toMatch(language === 'en' ? /50% chance of precipitation\.$/ : /Yağış olasılığı yüzde 50\.$/);
   }
 });

@@ -1089,8 +1089,8 @@ const en = {
       precipitationProbability,
     }) =>
       `${condition}. ${temperature} ${unitName}. Feels like ${apparentTemperature} ${unitName}. ` +
-      `Low ${minimumTemperature} ${unitName} · High ${maximumTemperature} ${unitName}. ` +
-      `${Math.round(precipitationProbability * 100)}% precipitation`,
+      `Low ${minimumTemperature} ${unitName}, high ${maximumTemperature} ${unitName}. ` +
+      `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
     wind: (speed) => `Wind ${speed} m/s`,
     humidity: (humidity) => `${Math.round(humidity * 100)}% humidity`,
     uvIndex: (index) => `UV index ${index}`,
@@ -1103,7 +1103,7 @@ const en = {
       precipitationProbability,
     }) =>
       `${day ? `${day}, ` : ''}${time}. ${temperature} ${unitName}. ${condition}. ` +
-      `${Math.round(precipitationProbability * 100)}% precipitation`,
+      `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
     dailyHeading: 'Coming days',
     dailyPrecipitationValue: (millimetres, probability) => `${millimetres} mm · ${probability}`,
     dailyForecastAccessibilityLabel: ({
@@ -1117,10 +1117,10 @@ const en = {
       currentTemperature,
     }) =>
       `${currentTemperature ? `Today, ${day}` : day}. ${condition}. ` +
-      `Low ${minimumTemperature} ${unitName} · High ${maximumTemperature} ${unitName}. ` +
+      `Low ${minimumTemperature} ${unitName}, high ${maximumTemperature} ${unitName}. ` +
       `${currentTemperature ? `Now ${currentTemperature} ${unitName}. ` : ''}` +
-      `${precipitationMillimetres ? `${precipitationMillimetres} mm, ` : ''}` +
-      `${Math.round(precipitationProbability * 100)}% precipitation`,
+      `${precipitationMillimetres ? `${precipitationMillimetres} mm of precipitation. ` : ''}` +
+      `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
     windValue: (speed) => `${speed} m/s`,
     humidityValue: (humidity) => `${Math.round(humidity * 100)}%`,
     windLabel: 'Wind',
