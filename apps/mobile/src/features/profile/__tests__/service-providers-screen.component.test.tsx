@@ -114,6 +114,38 @@ describe.each(['en', 'tr'] as const)('%s Service providers screen', (language) =
     expect(result.getByText(messages[language].settings[messageKey])).toBeOnTheScreen();
   });
 
+  // Law 4 and ADR 0030 section 3: a verdict reads like the device row above it, in the
+  // label ink with an outline status symbol in its status ink, and no filled leading glyph.
+  test.each([
+    [{ kind: 'ok', checkedAt } as const, 'statusRunning', 'successInk'],
+    [{ kind: 'unavailable' } as const, 'statusOff', 'warningInk'],
+    [{ kind: 'rate-limited' } as const, 'statusOff', 'warningInk'],
+    [{ kind: 'error' } as const, 'statusUnavailable', 'textSecondary'],
+  ] as const)('draws a probe verdict with its status symbol and ink', async (aiStatus, symbol, ink) => {
+    const { rendered } = screen(language, { aiStatus });
+    const result = await rendered;
+
+    const status = result.getByTestId('settings-service-providers-result-status-symbol', { includeHiddenElements: true });
+    expect(status.props.children.props).toMatchObject({ name: symbol, color: lightTheme.colors[ink] });
+    const row = result.getByTestId('settings-service-providers-result', { includeHiddenElements: true });
+    expect(row.queryAll((node) => node.props.style?.color === 'secondaryLabel')).toHaveLength(0);
+    expect(JSON.stringify(result.toJSON())).not.toMatch(/\.fill"/);
+  });
+
+  test.each([
+    [{ aiStatus: { kind: 'checking' } as const }],
+    [{ isProbeSupported: false }],
+  ])('keeps a pending or unsupported result secondary, with no symbol', async (overrides) => {
+    const { rendered } = screen(language, overrides);
+    const result = await rendered;
+
+    const row = result.getByTestId('settings-service-providers-result', { includeHiddenElements: true });
+    expect(row.queryAll((node) => node.props.style?.color === 'secondaryLabel')).not.toHaveLength(0);
+    expect(result.queryByTestId('settings-service-providers-result-status-symbol', { includeHiddenElements: true }))
+      .toBeNull();
+    expect(JSON.stringify(result.toJSON())).not.toMatch(/\.fill"/);
+  });
+
   test('announces a localized successful result with the checked time', async () => {
     const { rendered } = screen(language, {
       aiStatus: { kind: 'ok', checkedAt },

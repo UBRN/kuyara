@@ -10,6 +10,8 @@ import { useLocalization } from '@/localization/use-messages';
 import { localeTag } from '@/presentation/format-temperature';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
+type StatusSymbol = Extract<IconName, 'statusRunning' | 'statusOff' | 'statusUnavailable'>;
+
 export type ServiceProvidersScreenProps = Readonly<{
   aiStatus: AiProbeUiState;
   isProbeSupported: boolean;
@@ -43,15 +45,16 @@ export function ServiceProvidersScreen({
           ? copy.aiStatusOnDeviceGettingReady
           : copy.aiStatusOnDeviceIncompatible
   ).replace('Apple Intelligence', 'Apple\u00A0Intelligence');
-  const statusSymbol: IconName = onDeviceAvailability?.status === 'available' ||
+  const statusSymbol: StatusSymbol = onDeviceAvailability?.status === 'available' ||
     onDeviceAvailability?.reason === 'model_not_ready'
     ? 'statusRunning'
     : onDeviceAvailability?.reason === 'apple_intelligence_not_enabled'
       ? 'statusOff'
       : 'statusUnavailable';
-  const statusColor = statusSymbol === 'statusRunning'
+  // One status symbol keeps one ink wherever it appears on this screen (Law 4).
+  const statusInk = (symbol: StatusSymbol) => symbol === 'statusRunning'
     ? theme.colors.successInk
-    : statusSymbol === 'statusOff' ? theme.colors.warningInk : theme.colors.textSecondary;
+    : symbol === 'statusOff' ? theme.colors.warningInk : theme.colors.textSecondary;
 
   // Only the last successful check names anything, and the name is never stored.
   const assistant = aiStatus.kind === 'ok' ? aiStatus.assistant : undefined;
@@ -84,17 +87,17 @@ export function ServiceProvidersScreen({
               ? copy.aiStatusResultRateLimited
               : copy.aiStatusResultError;
 
-  const resultIcon: IconName | null = !isProbeSupported
-    ? 'info'
-    : aiStatus.kind === 'idle'
-      ? null
-      : aiStatus.kind === 'checking'
-        ? 'clock'
-        : aiStatus.kind === 'ok'
-          ? 'checkCircle'
-          : aiStatus.kind === 'unavailable' || aiStatus.kind === 'rate-limited'
-            ? 'warning'
-            : 'error';
+  // A verdict carries the device row's outline status symbol; a pending check (the overlay
+  // shows its progress) and the unsupported note stay secondary text with none.
+  const resultSymbol: StatusSymbol | null = !isProbeSupported
+    ? null
+    : aiStatus.kind === 'ok'
+      ? 'statusRunning'
+      : aiStatus.kind === 'unavailable' || aiStatus.kind === 'rate-limited'
+        ? 'statusOff'
+        : aiStatus.kind === 'error'
+          ? 'statusUnavailable'
+          : null;
 
   // VoiceOver ignores the overlay's live region and the result row has none, so the start
   // of a check and its outcome are spoken here, once per change of state and never on mount.
@@ -107,7 +110,6 @@ export function ServiceProvidersScreen({
     }
   }, [aiStatus.kind, isProbeSupported, result]);
 
-  const resultRow = result !== null && resultIcon !== null ? { icon: resultIcon, text: result } : null;
   const canCheck = isProbeSupported && aiStatus.kind !== 'checking';
 
   return (
@@ -123,7 +125,7 @@ export function ServiceProvidersScreen({
             )}
             label={onDeviceCopy}
             testID="settings-service-providers-on-device"
-            trailingSymbol={{ name: statusSymbol, color: statusColor }}
+            trailingSymbol={{ name: statusSymbol, color: statusInk(statusSymbol) }}
           />
           <NativeListRow label={lastGenerationModeCopy} testID="settings-service-providers-last-mode" />
           {assistant ? (
@@ -143,12 +145,12 @@ export function ServiceProvidersScreen({
             testID="settings-service-providers-check"
             tinted={canCheck}
           />
-          {resultRow ? (
+          {result !== null ? (
             <NativeListRow
-              glyph={({ color, size }) => <Icon color={color} name={resultRow.icon} size={size} />}
-              label={resultRow.text}
-              secondary
+              label={result}
+              secondary={resultSymbol === null}
               testID="settings-service-providers-result"
+              trailingSymbol={resultSymbol ? { name: resultSymbol, color: statusInk(resultSymbol) } : undefined}
             />
           ) : null}
         </NativeListSection>
