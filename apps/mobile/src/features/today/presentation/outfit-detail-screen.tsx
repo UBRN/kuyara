@@ -1,5 +1,13 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Platform,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedRef,
@@ -216,6 +224,28 @@ function CrossfadeTitle({ title }: Readonly<{ title: string }>) {
   );
 }
 
+/**
+ * An ownership badge that lands on the board after the screen opened fades in on `fast`
+ * (effects motion; a spatial grow would need a spring role, which only `components/ui`
+ * consumes). A badge there on opening is drawn at rest.
+ */
+function BadgeArrival({
+  animate,
+  children,
+  style,
+  testID,
+}: Readonly<{ animate: boolean; children: ReactNode; style: StyleProp<ViewStyle>; testID: string }>) {
+  const theme = useKuyaraTheme();
+  const opacity = useSharedValue(animate ? 0 : 1);
+  useEffect(() => {
+    opacity.set(withTiming(1, { duration: theme.motion.fast }));
+  }, [opacity, theme.motion.fast]);
+  const arrival = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  return <Animated.View style={[style, arrival]} testID={testID}>{children}</Animated.View>;
+}
+
+type WornControl = 'state' | 'action';
+
 export function OutfitDetailScreen({
   state,
   language,
@@ -323,6 +353,22 @@ export function OutfitDetailScreen({
   }, [boardFocused, onBoardFocusChange]);
   // VoiceOver ignores the alert role, so iOS hears a failed "Wore this" save spoken once.
   useErrorAnnouncement(wornError);
+  // The failed-save line keeps its words while it closes after a retry.
+  const [shownWornError, setShownWornError] = useState(wornError);
+  if (wornError && wornError !== shownWornError) setShownWornError(wornError);
+  // "Wore this" and the worn state replace each other in place: the leaving one fades out on
+  // `fast` over the arriving one, which fades in on `normal`. Nothing fades on opening.
+  const wornShown: WornControl | null = worn === 'this' ? 'state' : onWoreThis ? 'action' : null;
+  const [wornSwap, setWornSwap] = useState<Readonly<{
+    current: WornControl | null; previous: WornControl | null; previousBusy: boolean; changes: number;
+  }>>({ current: wornShown, previous: null, previousBusy: false, changes: 0 });
+  if (wornSwap.current !== wornShown) {
+    setWornSwap({ current: wornShown, previous: wornSwap.current, previousBusy: wornBusy, changes: wornSwap.changes + 1 });
+  }
+  const clearWornPrevious = useCallback(() => setWornSwap((value) => ({ ...value, previous: null })), []);
+  // A badge that arrives after opening (a piece marked owned, the Closet loading) lands.
+  const [openingWardrobe] = useState(wardrobeItems);
+  const badgesArrive = wardrobeItems !== openingWardrobe;
   const unusual = changed && (manualMix?.unusual ?? false);
   const wasUnusual = useRef(unusual);
   // A board tile or swipe waits here until the change it asked for has rendered.
@@ -487,8 +533,9 @@ export function OutfitDetailScreen({
     const entry = entryFor(box.garmentTypeId);
     if (!entry || entry.match.kind === 'none') return null;
     return (
-      <View
-        key={`badge-${box.slot}`}
+      <BadgeArrival
+        animate={badgesArrive}
+        key={`badge-${box.slot}-${entry.match.kind}`}
         style={[styles.badge, {
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.borderDefined,
@@ -497,7 +544,7 @@ export function OutfitDetailScreen({
         }]}
         testID={`outfit-detail-badge-${box.garmentTypeId}`}>
         <Icon color={theme.colors.brandAccent} name={matchIcons[entry.match.kind]} size={BADGE_GLYPH_SIZE} />
-      </View>
+      </BadgeArrival>
     );
   };
 
@@ -514,6 +561,13 @@ export function OutfitDetailScreen({
         </View>
       </Entrance>
     </View>
+  );
+
+  const wornStateContent = (
+    <>
+      <Icon color={theme.colors.successInk} name="checkCircle" size={20} />
+      <AppText variant="bodyStrong">{copy.wornToday}</AppText>
+    </>
   );
 
   const boardOverlay = (
@@ -605,34 +659,54 @@ export function OutfitDetailScreen({
         </Presence>
 
         {/* ADR 0038: one worn record per dressing day, written only by this action. */}
-        {worn === 'this' ? (
+        {wornShown !== null || wornSwap.previous !== null ? (
           <TourTarget id="worn" style={styles.wornAction}>
-            <View
-              accessible
-              accessibilityLabel={copy.wornToday}
-              style={[styles.wornState, { borderColor: theme.colors.borderDefined }]}
-              testID="outfit-detail-worn">
-              <Icon color={theme.colors.successInk} name="checkCircle" size={20} />
-              <AppText variant="bodyStrong">{copy.wornToday}</AppText>
-            </View>
-          </TourTarget>
-        ) : onWoreThis ? (
-          <TourTarget id="worn" style={styles.wornAction}>
-            <Button
-              icon="calendarCheck"
-              label={copy.wornAction}
-              loading={wornBusy}
-              onPress={onWoreThis}
-              size="large"
-              testID="outfit-detail-wore-this"
-            />
+            {wornShown !== null ? (
+              <FadeOnChange animate={wornSwap.changes > 0} key={`worn-in-${wornSwap.changes}`}>
+                {wornShown === 'action' && onWoreThis ? (
+                  <Button
+                    icon="calendarCheck"
+                    label={copy.wornAction}
+                    loading={wornBusy}
+                    onPress={onWoreThis}
+                    size="large"
+                    testID="outfit-detail-wore-this"
+                  />
+                ) : (
+                  <View
+                    accessible
+                    accessibilityLabel={copy.wornToday}
+                    style={[styles.wornState, { borderColor: theme.colors.borderDefined }]}
+                    testID="outfit-detail-worn">
+                    {wornStateContent}
+                  </View>
+                )}
+              </FadeOnChange>
+            ) : null}
+            {wornSwap.previous !== null ? (
+              <FadeOut key={`worn-out-${wornSwap.changes}`} onDone={clearWornPrevious}>
+                {wornSwap.previous === 'state' ? (
+                  <View style={[styles.wornState, { borderColor: theme.colors.borderDefined }]}>
+                    {wornStateContent}
+                  </View>
+                ) : (
+                  <Button
+                    icon="calendarCheck"
+                    label={copy.wornAction}
+                    loading={wornSwap.previousBusy}
+                    onPress={() => undefined}
+                    size="large"
+                  />
+                )}
+              </FadeOut>
+            ) : null}
           </TourTarget>
         ) : null}
-        {wornError ? (
+        <Presence testID="outfit-detail-worn-error" visible={Boolean(wornError)}>
           <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.wornError} variant="caption">
-            {wornError}
+            {wornError ?? shownWornError}
           </AppText>
-        ) : null}
+        </Presence>
         <Presence testID="outfit-detail-reset" visible={changed}>
           <Button
             label={copy.manualMix.reset}
