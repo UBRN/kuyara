@@ -2,6 +2,7 @@ import { SegmentedControl as ExpoSegmentedControl } from '@expo/ui/community/seg
 import { StyleSheet } from 'react-native';
 
 import { haptics } from '@/components/ui/haptics';
+import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { layout } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -25,7 +26,9 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 //   forwards our `style` to it; we cannot reach in and replace `matchContents`. ADR 0019's own
 //   finding ("Host matchContents collapses to zero height inside a ScrollView... an explicit
 //   height works") is the basis for the fixed `style.height` below; the control itself draws
-//   at the standard 32-point segmented height inside that host.
+//   at the standard 32-point segmented height inside that host. SwiftUI grows the segments
+//   with the text size, so the host grows by the same capped scale as the other controls;
+//   a fixed 44 clipped the labels at the largest standard text size.
 const CONTROL_HEIGHT = layout.minimumTouchTarget;
 
 export type SegmentedControlOption<Value extends string> = Readonly<{
@@ -47,6 +50,7 @@ export function SegmentedControl<Value extends string>({
   value,
 }: SegmentedControlProps<Value>) {
   const theme = useKuyaraTheme();
+  const { controlScale } = useTextScaling();
   const selectedIndex = options.findIndex((option) => option.value === value);
 
   return (
@@ -61,7 +65,7 @@ export function SegmentedControl<Value extends string>({
         }
       }}
       selectedIndex={selectedIndex === -1 ? 0 : selectedIndex}
-      style={styles.control}
+      style={[styles.control, { height: Math.max(CONTROL_HEIGHT, Math.ceil(CONTROL_HEIGHT * controlScale)) }]}
       testID={testID}
       tintColor={theme.colors.brandPrimary}
       values={options.map((option) => option.label)}
@@ -71,7 +75,6 @@ export function SegmentedControl<Value extends string>({
 
 const styles = StyleSheet.create({
   control: {
-    height: CONTROL_HEIGHT,
     width: '100%',
   },
 });
