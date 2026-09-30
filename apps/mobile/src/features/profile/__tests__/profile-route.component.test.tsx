@@ -167,3 +167,17 @@ test('a category cell opens the Closet on its category', async () => {
   await fireEvent.press(result.getByTestId('profile-category-footwear'));
   expect(mockPush).toHaveBeenCalledWith({ params: { category: 'footwear' }, pathname: '/wardrobe' });
 });
+
+// The empty Closet's Add a piece opens the add form directly, with no category.
+test('the empty Closet Add a piece opens the add form', async () => {
+  mockPush.mockClear();
+  const result = await render(
+    <Providers displayName={null}>
+      <ProfileRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId('profile-add-piece-button'));
+  expect(mockPush).toHaveBeenCalledWith('/wardrobe/new');
+  expect(mockPush).toHaveBeenCalledTimes(1);
+});
