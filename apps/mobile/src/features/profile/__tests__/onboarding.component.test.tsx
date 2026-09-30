@@ -1,5 +1,6 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { Dimensions, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { PlaceSearchV1Data } from '@kuyara/contracts';
 
@@ -14,7 +15,7 @@ import {
 } from '@/features/weather/application/weather-application-context';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
-import { lightTheme } from '@/theme/theme';
+import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 // `useScreenViewed` (via `ProductAnalyticsProvider`) needs `expo-router`'s focus effect;
@@ -259,6 +260,25 @@ test('optional name step validates 2 to 30 characters and offers Not now', async
   await fireEvent.press(result.getByTestId('onboarding-back'));
   await fireEvent.press(result.getByTestId('onboarding-name-skip'));
   expect(result.getByTestId('onboarding-step-3')).toBeOnTheScreen();
+});
+
+test('a new step\'s body and panel arrive while the title and progress stay still', async () => {
+  const { result } = await renderOnboarding(null, null);
+  // The test mock lands every spring at once; hold the landing to read the first frame.
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  const copy = messages.en.onboarding;
+  const entering = { opacity: 0, transform: [{ translateY: spacing.md }] };
+
+  // Law 7: keyed on the step, the body and then the panel enter in reading order.
+  expect(StyleSheet.flatten(result.getByText(copy.nameBody).parent!.props.style))
+    .toMatchObject(entering);
+  expect(StyleSheet.flatten(result.getByTestId('onboarding-name-preview').parent!.parent!.props.style))
+    .toMatchObject(entering);
+  const heading = StyleSheet.flatten(result.getByText(copy.nameTitle).parent!.props.style);
+  expect(heading.opacity).toBeUndefined();
+  expect(heading.transform).toBeUndefined();
+  withSpring.mockRestore();
 });
 
 test('existing profile values prefill the reopened onboarding steps', async () => {
