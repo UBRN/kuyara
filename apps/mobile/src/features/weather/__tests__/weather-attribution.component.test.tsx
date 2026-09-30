@@ -1,6 +1,7 @@
 import { fireEvent, isHiddenFromAccessibility, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Linking } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 
 import { WeatherAttribution, weatherAttributionLink } from '@/features/weather/presentation/weather-attribution';
 import { LocalizationContext } from '@/localization/localization-context';
@@ -87,16 +88,36 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
       .toBeNull();
   });
 
-  test('shows the Apple text fallback until its combined mark loads', async () => {
+  test('crossfades the Apple caption into its combined mark in one box on the fast role', async () => {
+    const withTiming = jest.spyOn(Reanimated, 'withTiming');
+    const opacity = (testID: string) => StyleSheet.flatten(
+      result.getByTestId(testID, { includeHiddenElements: true }).props.style,
+    ).opacity;
     const result = await render(
       <Providers language={language}><WeatherAttribution sourceId="weatherkit" /></Providers>,
     );
     expect(result.getByText(copy.attributionAppleWeather)).toBeOnTheScreen();
     const mark = await result.findByTestId('weather-attribution-apple-mark', { includeHiddenElements: true });
-    fireEvent(mark, 'load');
+    // Until the mark loads it is drawn at zero opacity under the full caption.
+    expect(opacity('weather-attribution-caption')).toBe(1);
+    expect(opacity('weather-attribution-apple-mark')).toBe(0);
+    // Both layers share one box sized to the larger of the two, so the row keeps its height.
+    const box = result.getByTestId('weather-attribution-apple-box', { includeHiddenElements: true });
+    expect(StyleSheet.flatten(box.props.style)).toMatchObject({ minHeight: 16, minWidth: 112 });
+    expect(box).toContainElement(mark);
+
+    // The mock does not run the timing, so the fade is read from the call it makes: one
+    // shared value drives the mark to 1 and the caption to 1 minus it, on the fast role.
+    withTiming.mockClear();
+    await fireEvent(mark, 'load');
     await waitFor(() => expect(result.queryByText(copy.attributionAppleWeather)).toBeNull());
+    expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+
+    withTiming.mockClear();
     await fireEvent(mark, 'error');
     await waitFor(() => expect(result.getByText(copy.attributionAppleWeather)).toBeOnTheScreen());
+    expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast });
+    withTiming.mockRestore();
   });
 
   // ADR 0002 section 8: an unrecognized or legacy identifier names no provider at all.

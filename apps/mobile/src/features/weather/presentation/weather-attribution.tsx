@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image, Linking, PixelRatio, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { AppText } from '@/components/ui';
 import { appleWeatherMarkUrl } from '@/features/weather/data/apple-weather-mark';
@@ -36,6 +37,8 @@ const openWeatherLogos = {
 // Law 6's icon size for the `caption` line it sits beside.
 const LOGO_HEIGHT = 30;
 const LOGO_WIDTH = Math.round((LOGO_HEIGHT * 600) / 340);
+const APPLE_MARK_HEIGHT = 16;
+const APPLE_MARK_WIDTH = 112;
 
 type WeatherAttributionLink = Readonly<{ label: string; hint: string; open: () => void }>;
 
@@ -82,28 +85,50 @@ export function WeatherAttribution({ sourceId }: WeatherAttributionProps) {
       .catch(() => { if (active) setMarkState(null); });
     return () => { active = false; };
   }, [language, sourceId, theme.isDark, markKey]);
+  // The caption and the mark swap in one box on `motion.fast` (effects motion, Law 7): the
+  // caption fades out as the mark fades in, and the box holds the larger of the two so the
+  // row does not change height when the mark arrives or fails.
+  const markShown = appleMark?.loaded === true;
+  const markOpacity = useSharedValue(0);
+  useEffect(() => {
+    markOpacity.set(withTiming(markShown ? 1 : 0, { duration: theme.motion.fast }));
+  }, [markOpacity, markShown, theme.motion.fast]);
+  const captionFade = useAnimatedStyle(() => ({ opacity: 1 - markOpacity.get() }));
+  const markFade = useAnimatedStyle(() => ({ opacity: markOpacity.get() }));
   const link = weatherAttributionLink(sourceId, messages.weather);
   if (!link) return null;
 
   return (
     <View style={styles.row}>
-      {sourceId !== 'weatherkit' || !appleMark?.loaded ? (
+      {sourceId === 'weatherkit' ? (
+        <View style={styles.markBox} testID="weather-attribution-apple-box">
+          <Animated.View
+            accessibilityElementsHidden={markShown}
+            importantForAccessibility={markShown ? 'no-hide-descendants' : 'auto'}
+            style={captionFade}
+            testID="weather-attribution-caption">
+            <AppText colorRole="textSecondary" variant="caption">{link.label}</AppText>
+          </Animated.View>
+          {appleMark ? (
+            <View pointerEvents="none" style={styles.markLayer}>
+              <Animated.Image
+                accessibilityElementsHidden
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                onError={() => setMarkState(null)}
+                onLoad={() => setMarkState((current) => current?.key === markKey
+                  ? { ...current, loaded: true } : current)}
+                resizeMode="contain"
+                source={{ uri: appleMark.uri }}
+                style={[styles.appleMark, markFade]}
+                testID="weather-attribution-apple-mark"
+              />
+            </View>
+          ) : null}
+        </View>
+      ) : (
         <AppText colorRole="textSecondary" variant="caption">{link.label}</AppText>
-      ) : null}
-      {sourceId === 'weatherkit' && appleMark ? (
-        <Image
-          accessibilityElementsHidden
-          accessible={false}
-          importantForAccessibility="no-hide-descendants"
-          onError={() => setMarkState(null)}
-          onLoad={() => setMarkState((current) => current?.key === markKey
-            ? { ...current, loaded: true } : current)}
-          resizeMode="contain"
-          source={{ uri: appleMark.uri }}
-          style={[styles.appleMark, !appleMark.loaded && styles.hiddenMark]}
-          testID="weather-attribution-apple-mark"
-        />
-      ) : null}
+      )}
       {sourceId === 'openweather' ? (
         <Image
           accessibilityElementsHidden
@@ -130,6 +155,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   logo: { height: LOGO_HEIGHT, width: LOGO_WIDTH },
-  appleMark: { height: 16, width: 112 },
-  hiddenMark: { position: 'absolute', opacity: 0 },
+  appleMark: { height: APPLE_MARK_HEIGHT, width: APPLE_MARK_WIDTH },
+  markBox: { justifyContent: 'center', minHeight: APPLE_MARK_HEIGHT, minWidth: APPLE_MARK_WIDTH },
+  markLayer: { ...StyleSheet.absoluteFill, justifyContent: 'center' },
 });
