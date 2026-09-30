@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
@@ -40,7 +40,6 @@ import { getMessages } from '@/localization/messages';
 export default function TodayRoute() {
   const { language, hour12 } = useLocalization();
   const clock = useForegroundClock();
-  const router = useRouter();
   const push = useSinglePush();
   const {
     state: recommendationState,
@@ -400,7 +399,7 @@ export default function TodayRoute() {
           // ADR 0004: an accepted offer ends on the Notifications surface, where both kinds
           // are now on and either can be turned off in one tap. A refused permission stays
           // on Today, where the row explains itself.
-          router.push('/settings/notifications');
+          push('/settings/notifications');
           return result;
         },
         onDismiss: async () => {

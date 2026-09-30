@@ -1302,9 +1302,13 @@ test('Today explains a missing active location and opens the existing location p
   expect(result.getByTestId('today-no-location')).toBeOnTheScreen();
   expect(result.getByText(messages.en.today.noLocationTitle)).toBeOnTheScreen();
   expect(result.getByText(messages.en.today.noLocationBody)).toBeOnTheScreen();
-  await fireEvent.press(result.getByRole('button', {
+  const chooseLocation = result.getByRole('button', {
     name: messages.en.today.chooseLocationAction,
-  }));
+  });
+  await fireEvent.press(chooseLocation);
+  // A quick double tap opens one picker.
+  await fireEvent.press(chooseLocation);
+  expect(mockPush).toHaveBeenCalledTimes(1);
   expect(mockPush).toHaveBeenCalledWith('/weather/location');
 });
 

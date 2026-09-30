@@ -2,6 +2,7 @@ import { Stack, router } from 'expo-router';
 import Constants from 'expo-constants';
 import { Linking, Platform, Share } from 'react-native';
 
+import { useSinglePush } from '@/components/ui/use-single-push';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
@@ -30,6 +31,7 @@ export default function SettingsRoute() {
   const { analytics, firstUses } = useProductAnalytics();
   const androidPackage = Constants.expoConfig?.android?.package;
   const walkthrough = useWalkthrough();
+  const push = useSinglePush();
   useScreenViewed('settings');
 
   if (state.status !== 'ready') {
@@ -106,12 +108,12 @@ export default function SettingsRoute() {
             });
           });
         }}
-        onOpenServiceProviders={() => router.push('/settings/service-providers')}
-        onOpenBirthDate={() => router.push('/settings/birth-date')}
+        onOpenServiceProviders={() => push('/settings/service-providers')}
+        onOpenBirthDate={() => push('/settings/birth-date')}
         onNameChange={updateDisplayName}
-        onOpenNotifications={() => router.push('/settings/notifications')}
-        onOpenEasierToSee={() => router.push('/settings/easier-to-see')}
-        onOpenPrivacy={() => router.push('/settings/privacy')}
+        onOpenNotifications={() => push('/settings/notifications')}
+        onOpenEasierToSee={() => push('/settings/easier-to-see')}
+        onOpenPrivacy={() => push('/settings/privacy')}
         onOpenSupport={() => {
           void Linking.openURL(SUPPORT_URL[language]);
         }}
