@@ -1,10 +1,9 @@
 import { Children, Fragment, type ReactElement, type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/ui/icon';
 import { ListRowTile, type ListRowTileGlyph } from '@/components/ui/list-row-tile';
-import { PressScale } from '@/components/ui/press-scale';
 import {
   createPressHandler,
   resolveListRowGroupColors,
@@ -19,7 +18,9 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // shared row and group primitive that Profile, the Closet and Settings adopt unchanged;
 // `labelWeight` is the one exception, added for Profile's Location row, whose label is
 // `bodyStrong` rather than the anatomy's default `body` (section 1 item 5).
-// no feature screen is composed here.
+// no feature screen is composed here. A full-width row confirms a press with its pressed
+// highlight alone, the way an iOS row does; it never scales, because a scaling row reads as
+// the whole screen giving way under the finger.
 const CHEVRON_BASE_SIZE = 20;
 
 export type ListRowProps = Readonly<{
@@ -103,14 +104,14 @@ export function ListRow({
   }
 
   return (
-    <PressScale
+    <Pressable
       accessibilityLabel={accessibilityLabel ?? (value ? `${label}, ${value}` : label)}
       accessibilityRole="button"
       onPress={pressHandler}
       style={({ pressed }) => [styles.row, rowHeight, pressed && styles.pressed]}
       testID={testID}>
       {content}
-    </PressScale>
+    </Pressable>
   );
 }
 
