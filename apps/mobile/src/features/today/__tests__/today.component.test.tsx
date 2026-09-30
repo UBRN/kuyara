@@ -1110,6 +1110,39 @@ test('a new suggestion re-mounts the hero board, and the same one back leaves it
   ]);
 });
 
+test('a new outfit crossfades its title rather than snapping it', async () => {
+  const { recommendation } = todayScreenState.snapshot;
+  if (recommendation.status !== 'recommended') throw new Error('Expected a recommendation.');
+  const [first, second, ...rest] = recommendation.outfits;
+  const renewed: TodayScreenState = {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      recommendation: { ...recommendation, outfits: [second, first, ...rest] },
+    },
+  };
+  const title = (state: TodayScreenState) => {
+    const presentation = createTodayPresentation(state, 'en', false, 'celsius', fixtureNow);
+    if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
+    return presentation.suggestions[0].title;
+  };
+  expect(title(renewed)).not.toBe(title(todayScreenState));
+  const screen = (state: TodayScreenState) => providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={state} />,
+  );
+  const withTiming = jest.spyOn(Reanimated, 'withTiming');
+  const result = await render(screen(todayScreenState));
+  withTiming.mockClear();
+
+  await result.rerender(screen(renewed));
+  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast }, expect.any(Function));
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(result.getByTestId('today-archetype', { includeHiddenElements: true }))
+    .toHaveTextContent(title(renewed));
+  withTiming.mockRestore();
+});
+
 test('the save that owns the last piece fires success once and settles the board', async () => {
   const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
   const { pieces } = loadedPresentation().suggestions[0];

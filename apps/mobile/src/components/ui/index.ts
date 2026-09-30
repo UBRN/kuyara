@@ -9,6 +9,7 @@ export {
   type CoachMarkLayerProps,
   type CoachMarkRect,
 } from './coach-mark-layer';
+export { Crossfade, type CrossfadeProps } from './crossfade';
 export { Entrance, type EntranceProps } from './entrance';
 export { GarmentSlotGlyph, GarmentSlotTile } from './garment-slot-glyph';
 export { GlassButton, type GlassButtonProps } from './glass-button';

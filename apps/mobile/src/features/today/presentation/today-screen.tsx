@@ -13,6 +13,7 @@ import {
   AppText,
   Button,
   ButtonPair,
+  Crossfade,
   Entrance,
   GarmentBoard,
   GarmentDrawing,
@@ -498,9 +499,12 @@ function TodayScreenContent({
                   accessibilityRole="button"
                   onPress={() => onOpenOutfitDetail(primary.id)}
                   style={({ pressed }) => ({ opacity: pressed ? theme.interaction.pressedOpacity : 1 })}>
-                  <AppText style={styles.archetypeName} testID="today-archetype" variant="label">
-                    {primary.title}
-                  </AppText>
+                  {/* A re-ask replaces the title with a crossfade rather than a snap. */}
+                  <Crossfade contentKey={primary.title}>
+                    <AppText style={styles.archetypeName} testID="today-archetype" variant="label">
+                      {primary.title}
+                    </AppText>
+                  </Crossfade>
                   <View
                     accessibilityElementsHidden
                     importantForAccessibility="no-hide-descendants"
@@ -539,28 +543,31 @@ function TodayScreenContent({
             </Dimmed>
             {/* N18 and N15: the outfit's claim sits directly under the board, where it is read
                 with the outfit, never beside the button. While a re-ask runs, its window
-                replaces the claim and says why the outfit is dimmed. */}
-            {choosing ? (
-              <View style={styles.captionRow}>
-                <PhaseMark size={16} testID="today-choosing-mark" />
-                <AppText
-                  accessibilityLiveRegion="polite"
-                  colorRole="textSecondary"
-                  style={styles.captionText}
-                  tabularNumbers
-                  testID="today-choosing-caption"
-                  variant="caption">
-                  {choosing}
-                </AppText>
-              </View>
-            ) : presentation.coverageCaption ? (
-              <View accessible style={styles.captionRow} testID="today-coverage-caption">
-                <Icon color={theme.colors.iconSecondary} name="clock" size={16} />
-                <AppText colorRole="textSecondary" style={styles.captionText} tabularNumbers variant="caption">
-                  {presentation.coverageCaption}
-                </AppText>
-              </View>
-            ) : null}
+                replaces the claim and says why the outfit is dimmed; each hand-off crossfades. */}
+            <Crossfade
+              contentKey={choosing ? `choosing:${choosing}` : `claim:${presentation.coverageCaption ?? ''}`}>
+              {choosing ? (
+                <View style={styles.captionRow}>
+                  <PhaseMark size={16} testID="today-choosing-mark" />
+                  <AppText
+                    accessibilityLiveRegion="polite"
+                    colorRole="textSecondary"
+                    style={styles.captionText}
+                    tabularNumbers
+                    testID="today-choosing-caption"
+                    variant="caption">
+                    {choosing}
+                  </AppText>
+                </View>
+              ) : presentation.coverageCaption ? (
+                <View accessible style={styles.captionRow} testID="today-coverage-caption">
+                  <Icon color={theme.colors.iconSecondary} name="clock" size={16} />
+                  <AppText colorRole="textSecondary" style={styles.captionText} tabularNumbers variant="caption">
+                    {presentation.coverageCaption}
+                  </AppText>
+                </View>
+              ) : null}
+            </Crossfade>
             {/* Law 4: a status is ink, glyph and text together. */}
             {presentation.driftCaption ? (
               <View accessible style={styles.captionRow} testID="today-drift-caption">
@@ -587,7 +594,9 @@ function TodayScreenContent({
             ) : null}
             {presentation.dayInsight ? (
               <Dimmed dimmed={updating} style={styles.insight}>
-                <AppText testID="today-day-insight" variant="body">{presentation.dayInsight}</AppText>
+                <Crossfade contentKey={presentation.dayInsight}>
+                  <AppText testID="today-day-insight" variant="body">{presentation.dayInsight}</AppText>
+                </Crossfade>
               </Dimmed>
             ) : null}
             {primary.accessories.length > 0 || presentation.coolSpellCaption ? (
