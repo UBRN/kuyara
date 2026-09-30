@@ -5,7 +5,6 @@ import Animated, {
   cancelAnimation,
   interpolateColor,
   makeMutable,
-  runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
@@ -14,6 +13,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
@@ -304,7 +304,7 @@ function PieceView({ instance, ink, outline, settleTravel, stageWidth, stageLimi
     if (start === target || (scale - start) / (target - start) >= SWAP_HANDOFF_AFTER) {
       handTo.set(Number.NaN);
       hand.set(withTiming(0, { duration: fast }, (finished) => {
-        if (finished) runOnJS(onBigDone)(key);
+        if (finished) scheduleOnRN(onBigDone, key);
       }));
     }
   }, [fast, key, onBigDone]);
@@ -546,7 +546,7 @@ export function GarmentSwapBoard({
     appliedIntents.current = model.intents;
     const landed = () => {
       'worklet';
-      runOnJS(springLanded)();
+      scheduleOnRN(springLanded);
     };
     const spring = (value: SharedValue<number>, target: number) => {
       pendingSprings.current += 1;
@@ -577,7 +577,7 @@ export function GarmentSwapBoard({
         case 'entrance':
           // ADR 0026 section 7's entry travel keeps the role it shipped with; the swap does not touch it.
           values.p.set(withSpring(1, theme.springs.arrival, (finished) => {
-            if (finished && intent.reportsSettled) runOnJS(onEntranceSettled)();
+            if (finished && intent.reportsSettled) scheduleOnRN(onEntranceSettled);
           }));
           break;
         case 'retarget':
@@ -612,8 +612,8 @@ export function GarmentSwapBoard({
               pendingSprings.current += 1;
               values.dx.set(withSpring(swapExitOffset(intent.direction, values.dx.get(), intent.stride), spatial,
                 (finished) => {
-                  runOnJS(springLanded)();
-                  if (finished) runOnJS(removeLeaving)(key);
+                  scheduleOnRN(springLanded);
+                  if (finished) scheduleOnRN(removeLeaving, key);
                 }));
             }
             break;
@@ -623,7 +623,7 @@ export function GarmentSwapBoard({
             spring(values.sc, 1);
           }
           values.op.set(withTiming(0, { duration: fast }, (finished) => {
-            if (finished) runOnJS(removeLeaving)(key);
+            if (finished) scheduleOnRN(removeLeaving, key);
           }));
           break;
         }
@@ -640,7 +640,7 @@ export function GarmentSwapBoard({
             values.dx.set(withSpring(intent.offset, spatial, (finished) => {
               // Behind the window's edge it waits unseen, so a wider neighbour never peeks.
               if (finished) values.op.set(0);
-              runOnJS(springLanded)();
+              scheduleOnRN(springLanded);
             }));
           }
           break;
@@ -648,8 +648,8 @@ export function GarmentSwapBoard({
           const { key } = intent;
           pendingSprings.current += 1;
           values.dx.set(withSpring(intent.offset, spatial, (finished) => {
-            runOnJS(springLanded)();
-            if (finished) runOnJS(removeLeaving)(key);
+            scheduleOnRN(springLanded);
+            if (finished) scheduleOnRN(removeLeaving, key);
           }));
           break;
         }
@@ -660,7 +660,7 @@ export function GarmentSwapBoard({
           const { key } = intent;
           values.drain.set(1);
           values.drain.set(withTiming(0, { duration: normal }, (finished) => {
-            if (finished) runOnJS(clearDrain)(key);
+            if (finished) scheduleOnRN(clearDrain, key);
           }));
           break;
         }
@@ -739,7 +739,7 @@ export function GarmentSwapBoard({
     if (panelPending.get() === 1) {
       panelPending.set(0);
       panelOpacity.set(withTiming(1, { duration: fast }));
-      runOnJS(markPanelLive)();
+      scheduleOnRN(markPanelLive);
     }
     if (hintPending.get() === 1) {
       hintPending.set(0);
@@ -776,7 +776,7 @@ export function GarmentSwapBoard({
       return;
     }
     block.set(withSpring(target, spatial, (finished) => {
-      if (finished) runOnJS(blockLanded)(token);
+      if (finished) scheduleOnRN(blockLanded, token);
     }));
   };
   const afterPanelOut = () => {
@@ -837,7 +837,7 @@ export function GarmentSwapBoard({
         // Settle: the strip fades out first, then the block closes in one spring.
         panelPending.set(0);
         panelOpacity.set(withTiming(0, { duration: fast }, (finished) => {
-          if (finished) runOnJS(afterPanelOut)();
+          if (finished) scheduleOnRN(afterPanelOut);
         }));
       } else {
         // The enlargement moves: the old strip leaves on `fast`; the new one arrives at once
@@ -847,14 +847,14 @@ export function GarmentSwapBoard({
         panelOpacity.set(0);
         if (Math.abs(panelHeight - seen.panel) < 0.5) {
           leavingPanelOpacity.set(withTiming(0, { duration: fast }, (finished) => {
-            if (finished) runOnJS(afterLeavingPanelOut)();
+            if (finished) scheduleOnRN(afterLeavingPanelOut);
           }));
           panelOpacity.set(withTiming(1, { duration: normal }));
           markPanelLive();
           startBlock(blockTarget);
         } else if (panelHeight > seen.panel) {
           leavingPanelOpacity.set(withTiming(0, { duration: fast }, (finished) => {
-            if (finished) runOnJS(afterLeavingPanelOut)();
+            if (finished) scheduleOnRN(afterLeavingPanelOut);
           }));
           panelPending.set(1);
           startBlock(blockTarget);
@@ -862,7 +862,7 @@ export function GarmentSwapBoard({
         } else {
           panelPending.set(0);
           leavingPanelOpacity.set(withTiming(0, { duration: fast }, (finished) => {
-            if (finished) runOnJS(afterShorterSwap)();
+            if (finished) scheduleOnRN(afterShorterSwap);
           }));
         }
       }
@@ -873,7 +873,7 @@ export function GarmentSwapBoard({
         // A change: the hint's words leave before its space closes.
         hintPending.set(0);
         hintOpacity.set(withTiming(0, { duration: fast }, (finished) => {
-          if (finished) runOnJS(afterHintOut)();
+          if (finished) scheduleOnRN(afterHintOut);
         }));
       } else {
         // Back to kuyara's pick: the space opens, the words follow at 90 per cent.
@@ -1031,7 +1031,7 @@ export function GarmentSwapBoard({
       const past = has && Math.abs(shown) >= stride / 2;
       if (past !== dragPast.get()) {
         dragPast.set(past);
-        runOnJS(setPreviewId)(past ? (direction === 1 ? nextId : prevId) : null);
+        scheduleOnRN(setPreviewId, past ? (direction === 1 ? nextId : prevId) : null);
       }
     })
     .onEnd((event, success) => {
@@ -1048,14 +1048,14 @@ export function GarmentSwapBoard({
         incomingDx.set(withSpring(0, { ...spatial, velocity }));
         const key = curKey;
         curDx.set(withSpring(swapExitOffset(direction, shown, stride), { ...spatial, velocity }, (finished) => {
-          if (finished && key) runOnJS(removeLeaving)(key);
+          if (finished && key) scheduleOnRN(removeLeaving, key);
         }));
         if (incomingTile) {
           markerX.set(withSpring(incomingTile.x, spatial));
           markerY.set(withSpring(incomingTile.y, spatial));
         }
         steppedFrom.set(key);
-        runOnJS(commitFromGesture)(focusedSlot, incomingId);
+        scheduleOnRN(commitFromGesture, focusedSlot, incomingId);
       } else {
         curDx.set(withSpring(0, { ...spatial, velocity }));
         if (nextDx && nextOp) {
@@ -1072,7 +1072,7 @@ export function GarmentSwapBoard({
           markerX.set(withSpring(currentTile.x, spatial));
           markerY.set(withSpring(currentTile.y, spatial));
         }
-        if (dragPast.get()) runOnJS(setPreviewId)(null);
+        if (dragPast.get()) scheduleOnRN(setPreviewId, null);
       }
       dragShown.set(0);
     });
@@ -1080,7 +1080,7 @@ export function GarmentSwapBoard({
     .withTestId(`${boardTestID}-tap`)
     .maxDistance(SWAP_TOUCH_SLOP)
     .onEnd((event, success) => {
-      if (success) runOnJS(handleTap)(event.x, event.y);
+      if (success) scheduleOnRN(handleTap, event.x, event.y);
     });
   const gesture = Gesture.Exclusive(pan, tap);
 
