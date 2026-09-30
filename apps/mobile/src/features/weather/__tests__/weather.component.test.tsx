@@ -23,8 +23,10 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 let mockFocused = true;
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react');
+  const mockRouter = { push: jest.fn() };
   return {
-    router: { push: jest.fn() },
+    router: mockRouter,
+    useRouter: () => mockRouter,
     Stack: { Screen: () => null },
     useFocusEffect: (callback: () => void | (() => void)) => {
       const focused = mockFocused;
@@ -188,6 +190,17 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(router.push).toHaveBeenCalledWith('/weather/location');
     expect(result.queryByRole('radiogroup')).toBeNull();
     expect(result.getByTestId('weather-change-location-button')).toBeOnTheScreen();
+  });
+
+  test('a quick double tap on the location row opens one picker', async () => {
+    jest.mocked(router.push).mockClear();
+    const result = await render(
+      <Providers language={language} value={createValue()}><WeatherScreen /></Providers>,
+    );
+    await fireEvent.press(result.getByTestId('weather-change-location-button'));
+    await fireEvent.press(result.getByTestId('weather-change-location-button'));
+    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith('/weather/location');
   });
 
   test.each([

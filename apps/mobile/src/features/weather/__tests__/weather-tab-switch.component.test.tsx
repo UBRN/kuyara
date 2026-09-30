@@ -32,6 +32,7 @@ jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
     router: { push: jest.fn() },
+    useRouter: () => ({ push: jest.fn() }),
     useFocusEffect: (callback: () => void | (() => void)) => {
       React.useEffect(() => {
         let cleanup = callback();
