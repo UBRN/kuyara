@@ -1,4 +1,4 @@
-import { use, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { use, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedRef,
@@ -290,6 +290,16 @@ function TodayScreenContent({
       tintColor={theme.colors.iconSecondary}
     />
   );
+
+  // A confirmed re-ask brings the outfit's stage back into view on the platform's own
+  // scroll, so the new outfit's rise is seen rather than spent below the fold. Read at the
+  // top, nothing moves.
+  const reasking = presentation.kind === 'loaded' && presentation.choosingCaption !== null;
+  const wasReasking = useRef(reasking);
+  useEffect(() => {
+    if (reasking && !wasReasking.current) scrollRef.current?.scrollTo({ animated: true, y: 0 });
+    wasReasking.current = reasking;
+  }, [reasking, scrollRef]);
 
   if (presentation.kind !== 'loaded' && stageLaidOut) setStageLaidOut(false);
 
