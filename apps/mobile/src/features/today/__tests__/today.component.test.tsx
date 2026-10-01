@@ -573,6 +573,90 @@ test('the badge keeps its space while a new outfit is chosen, hidden from the sc
   withTiming.mockRestore();
 });
 
+// A new outfit with no source closes the badge row in place: the row keeps its height and the
+// last source it showed while it collapses, hidden, so the outfit under it glides up.
+test('the badge row closes in place when the new outfit has no source', async () => {
+  const screen = (state: TodayScreenState) => providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} onAskAgain={jest.fn()}
+      state={state} />,
+  );
+  const hidden = { includeHiddenElements: true };
+  const result = await render(screen(aiAssistedTodayScreenState));
+  const presence = () => StyleSheet.flatten(
+    result.getByTestId('today-provenance-badge', hidden).parent!.parent!.parent!.props.style,
+  ) ?? {};
+  expect(presence()).not.toHaveProperty('height');
+
+  // Hold the collapse at its first frame to read it.
+  const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(
+    ((toValue: number) => toValue) as typeof Reanimated.withTiming,
+  );
+  await result.rerender(screen(stateWithGenerationMode('deterministic-fallback')));
+  const badge = result.getByTestId('today-provenance-badge', hidden);
+  expect(isHiddenFromAccessibility(badge)).toBe(true);
+  expect(within(badge).getByText(messages.en.today.generationModeAiAssisted, hidden)).toBeTruthy();
+  expect(presence()).toHaveProperty('height');
+  withTiming.mockRestore();
+});
+
+// f7: the new outfit can land while the wait's caption is still up. It is never seen rising
+// under grey: the dim lifts on the rise's own fade the moment the outfit changes.
+test('a new outfit landing under the dim lifts it at once, on the rise fade', async () => {
+  const { recommendation } = todayScreenState.snapshot;
+  if (recommendation.status !== 'recommended') throw new Error('Expected a recommendation.');
+  const renewed: TodayScreenState = {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      recommendation: {
+        ...recommendation,
+        outfits: [{ ...recommendation.outfits[0], optionId: 'renewed-outfit' }, ...recommendation.outfits.slice(1)],
+      },
+    },
+  };
+  const screen = (state: TodayScreenState) => providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} onAskAgain={jest.fn()}
+      state={state} updatingDayType="formal" />,
+  );
+  const withTiming = jest.spyOn(Reanimated, 'withTiming');
+  const result = await render(screen(todayScreenState));
+  expect(withTiming).toHaveBeenCalledWith(lightTheme.interaction.disabledOpacity, { duration: lightTheme.motion.normal });
+
+  withTiming.mockClear();
+  await result.rerender(screen(renewed));
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+  expect(withTiming).not.toHaveBeenCalledWith(
+    lightTheme.interaction.disabledOpacity, { duration: lightTheme.motion.normal },
+  );
+  withTiming.mockRestore();
+});
+
+// The freshness line crossfades between its lines rather than snapping, and the phase mark
+// leaves with its own line instead of pushing the next one.
+test('a new freshness line crossfades in, the mark leaving with the old line', async () => {
+  const screen = (state: TodayScreenState) => providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} onAskAgain={jest.fn()}
+      state={state} />,
+  );
+  const hidden = { includeHiddenElements: true };
+  const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(
+    ((toValue: number) => toValue) as typeof Reanimated.withTiming,
+  );
+  const result = await render(screen({ ...todayScreenState, isRefreshing: true, refreshFailed: false,
+    phase: 'preparing-outfits' }));
+  await result.rerender(screen(todayScreenState));
+
+  const lines = result.getAllByTestId('today-freshness', hidden);
+  expect(lines).toHaveLength(2);
+  expect(result.getByTestId('today-freshness')).not.toHaveTextContent(messages.en.today.phase['preparing-outfits']);
+  const leaving = result.getByText(messages.en.today.phase['preparing-outfits'], hidden);
+  expect(isHiddenFromAccessibility(leaving)).toBe(true);
+  // The only mark left is the leaving line's own.
+  expect(result.getAllByTestId('today-phase-mark', hidden)).toHaveLength(1);
+  expect(within(leaving.parent!).getByTestId('today-phase-mark', hidden)).toBeTruthy();
+  withTiming.mockRestore();
+});
+
 test('every board draws its own outfit palette: the primary on its stage, each alternate on the ground (O15)', async () => {
   const result = await render(providers(
     <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
@@ -1076,12 +1160,34 @@ test('the hero board holds its rise while the first-run runway covers it, then r
   await fireEvent(result.getByTestId('today-content', hidden), 'layout', {
     nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
   });
+  await fireEvent(result.getByTestId('today-stage', hidden), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 400, x: 0, y: 0 } },
+  });
   expect(result.getByTestId('first-generation-runway')).toBeOnTheScreen();
   expect(rise()).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
 
   await result.rerender(screen(false));
   await waitFor(() => expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull());
   expect(rise().opacity ?? 1).toBe(1);
+});
+
+// A cold launch swaps the placeholder for the loaded screen while that screen is still being
+// drawn; the hero's rise waits for its stage to be laid out, so it is seen rather than spent.
+test('the first hero rise waits until its stage has laid out', async () => {
+  const hidden = { includeHiddenElements: true };
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={todayScreenState} />,
+  ));
+  const rise = () => StyleSheet.flatten(
+    result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, hidden).parent!.props.style,
+  ) ?? {};
+  expect(rise()).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+
+  await fireEvent(result.getByTestId('today-stage', hidden), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 400, x: 0, y: 0 } },
+  });
+  await waitFor(() => expect(rise().opacity ?? 1).toBe(1));
 });
 
 test('a new suggestion re-mounts the hero board, and the same one back leaves it still', async () => {

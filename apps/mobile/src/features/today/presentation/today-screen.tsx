@@ -64,6 +64,8 @@ import { radii, spacing } from '@/theme/theme';
 import { easierToSee as easierToSeeValues, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
+type GenerationMode = NonNullable<LoadedTodayPresentation['generationMode']>;
+
 // Law 5's escalation point, for the generic line alone. A narrated wait says what it is
 // doing, so it never needs the escalation; past this the unnarrated line has stopped being
 // informative on its own.
@@ -221,6 +223,12 @@ function TodayScreenContent({
   // the prop is already gone, and the refused offer is kept to explain itself.
   const [offerAnswered, setOfferAnswered] = useState(false);
   const [blockedOffer, setBlockedOffer] = useState<TodayAlertOffer | null>(null);
+  // The badge row closes in place when a new outfit carries no source, so while it closes it
+  // keeps drawing the source it last showed.
+  const [shownGenerationMode, setShownGenerationMode] = useState<GenerationMode | null>(null);
+  // Held until the hero stage has laid out once, so the first outfit's rise starts after the
+  // screen has been drawn rather than being spent while the loaded screen is still mounting.
+  const [stageLaidOut, setStageLaidOut] = useState(false);
   const offerToRender = blockedOffer ?? (offerAnswered ? null : alertOffer);
   // The row leaves in place, so while it closes it keeps drawing the offer it last showed.
   const [shownOffer, setShownOffer] = useState<Readonly<{ offer: TodayAlertOffer; blocked: boolean }> | null>(null);
@@ -282,6 +290,8 @@ function TodayScreenContent({
       tintColor={theme.colors.iconSecondary}
     />
   );
+
+  if (presentation.kind !== 'loaded' && stageLaidOut) setStageLaidOut(false);
 
   if (presentation.kind === 'loading') {
     return (
@@ -396,6 +406,12 @@ function TodayScreenContent({
     ? ambientIntensityOf(state.snapshot.weather.current.condition)
     : 'calm';
   const [primary, ...alternates] = presentation.suggestions;
+  const generationMode = presentation.generationMode;
+  if (generationMode && (shownGenerationMode?.mode !== generationMode.mode
+    || shownGenerationMode.label !== generationMode.label
+    || shownGenerationMode.accessibilityLabel !== generationMode.accessibilityLabel)) {
+    setShownGenerationMode(generationMode);
+  }
   const exhausted = recommendationApplication?.state.status === 'ready'
     && recommendationApplication.state.exhausted;
   // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
@@ -479,20 +495,23 @@ function TodayScreenContent({
         </View>
         {/* The badge waits for the new outfit's own source while a day-type change or a
             re-ask runs: it fades out and keeps its place, so the outfit under it never moves,
-            and the new source fades in. */}
-        {presentation.generationMode ? (
-          <TourTarget id="badge" style={styles.provenanceBadge}>
-            <ProvenanceBadge
-              generationMode={presentation.generationMode}
-              hidden={updating}
-              key={presentation.generationMode.mode}
-            />
-          </TourTarget>
-        ) : null}
+            and the new source fades in. A new outfit with no source closes the row in place,
+            so the outfit glides up instead of jumping. */}
+        <Presence visible={generationMode !== null}>
+          {shownGenerationMode ? (
+            <TourTarget id="badge" style={styles.provenanceBadge}>
+              <ProvenanceBadge
+                generationMode={shownGenerationMode}
+                hidden={updating || generationMode === null}
+                key={shownGenerationMode.mode}
+              />
+            </TourTarget>
+          ) : null}
+        </Presence>
 
         {primary ? (
           <>
-            <Dimmed dimmed={updating}>
+            <Dimmed dimmed={updating} revealKey={primary.id}>
               <TourTarget
                 activate={() => onOpenOutfitDetail(primary.id)}
                 id="outfit"
@@ -523,6 +542,7 @@ function TodayScreenContent({
                         height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true, easierToSee),
                       },
                     ]}
+                    onLayout={stageLaidOut ? undefined : () => setStageLaidOut(true)}
                     testID="today-stage">
                     <GarmentBoard
                       accessibilityLabel={presentation.stageAccessibilityLabel}
@@ -534,7 +554,7 @@ function TodayScreenContent({
                       key={primary.id}
                       contactShade={theme.contactShade[presentation.atmosphere]}
                       fit
-                      holdRise={holdRise}
+                      holdRise={holdRise || !stageLaidOut}
                       palette={primary.palette}
                       pieces={primary.boardPieces}
                       preset="today"
@@ -620,21 +640,23 @@ function TodayScreenContent({
           </>
         ) : null}
 
-        {/* O5: "Last updated" sits under the finishing touches; it no longer describes a button. */}
-        <View
-          style={[styles.provenance, usesAccessibilityLayout && styles.stackedProvenance]}
-          testID="today-provenance">
-          {presentation.header.phase ? <PhaseMark size={16} testID="today-phase-mark" /> : null}
-          <AppText
-            accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
-            colorRole="textSecondary"
-            style={[styles.freshness, usesAccessibilityLayout && styles.stackedFreshness]}
-            tabularNumbers
-            testID="today-freshness"
-            variant="caption">
-            {presentation.header.freshness}
-          </AppText>
-        </View>
+        {/* O5: "Last updated" sits under the finishing touches; it no longer describes a button.
+            Each new line crossfades, and the mark arrives and leaves with its own line, so it
+            never pushes a line that is already showing. */}
+        <Crossfade contentKey={presentation.header.freshness} style={styles.provenanceSlot} testID="today-provenance">
+          <View style={[styles.provenance, usesAccessibilityLayout && styles.stackedProvenance]}>
+            {presentation.header.phase ? <PhaseMark size={16} testID="today-phase-mark" /> : null}
+            <AppText
+              accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
+              colorRole="textSecondary"
+              style={[styles.freshness, usesAccessibilityLayout && styles.stackedFreshness]}
+              tabularNumbers
+              testID="today-freshness"
+              variant="caption">
+              {presentation.header.freshness}
+            </AppText>
+          </View>
+        </Crossfade>
 
         {presentation.noOutfit ? (
           <Surface
@@ -852,7 +874,7 @@ function WeatherAlertOfferRow({
 function ProvenanceBadge({
   generationMode,
   hidden,
-}: Readonly<{ generationMode: NonNullable<LoadedTodayPresentation['generationMode']>; hidden: boolean }>) {
+}: Readonly<{ generationMode: GenerationMode; hidden: boolean }>) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue<number>(0);
   const onDevice = generationMode.mode === 'on-device-ai';
@@ -886,16 +908,28 @@ function ProvenanceBadge({
   );
 }
 
-/** Dims the outfit while a day-type change regenerates it (f7), on the `normal` duration. */
+/**
+ * Dims the outfit while a day-type change regenerates it (f7), on the `normal` duration. Given
+ * a `revealKey`, new content arriving while still dimmed (the new outfit landing before the
+ * wait has closed) lifts the dim on `fast`, with the rise's own fade, so the new outfit is
+ * never seen arriving under grey.
+ */
 function Dimmed({
   children,
   dimmed,
+  revealKey,
   style,
-}: Readonly<{ children: ReactNode; dimmed: boolean; style?: StyleProp<ViewStyle> }>) {
+}: Readonly<{ children: ReactNode; dimmed: boolean; revealKey?: string; style?: StyleProp<ViewStyle> }>) {
   const theme = useKuyaraTheme();
-  const target = dimmed ? theme.interaction.disabledOpacity : 1;
+  // The content the dim began on; any other content under the same dim is the new arrival.
+  const [dimmedKey, setDimmedKey] = useState<string | undefined>(dimmed ? revealKey : undefined);
+  if (dimmed && dimmedKey === undefined && revealKey !== undefined) setDimmedKey(revealKey);
+  if (!dimmed && dimmedKey !== undefined) setDimmedKey(undefined);
+  const replaced = dimmed && dimmedKey !== undefined && dimmedKey !== revealKey;
+  const target = dimmed && !replaced ? theme.interaction.disabledOpacity : 1;
+  const duration = replaced ? theme.motion.fast : theme.motion.normal;
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(target, { duration: theme.motion.normal }),
+    opacity: withTiming(target, { duration }),
   }));
 
   return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
@@ -1019,7 +1053,8 @@ const styles = StyleSheet.create({
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },
   askAgain: { marginTop: spacing.md },
-  provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
+  provenanceSlot: { marginTop: spacing.sm },
+  provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },
   freshness: { flexShrink: 1 },
   stackedFreshness: { width: '100%' },
