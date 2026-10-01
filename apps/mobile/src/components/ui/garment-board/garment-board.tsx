@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation,
   interpolateColor,
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSequence,
   withSpring,
   withTiming,
@@ -61,6 +62,52 @@ const SETTLE_TRAVEL = spacing.xs;
 // screen and do not move, so only the drawn pieces carry the arrival (ADR 0021).
 const RISE_TRAVEL = spacing.xl;
 
+/**
+ * One rising piece, or its contact shade, on its own native view: Reanimated cannot move a
+ * group inside one SVG on the new architecture. The pieces leave in the board's reading
+ * order, each one `motion.stagger` after the piece before it (ADR 0020); a piece's shade
+ * rises with it. The travel rides the arrival role, the fade is effects motion on
+ * `motion.fast`. It starts once, when `held` is false.
+ */
+function RisingLayer({
+  children,
+  held,
+  index,
+  style,
+}: Readonly<{ children: ReactNode; held: boolean; index: number; style: StyleProp<ViewStyle> }>) {
+  const theme = useKuyaraTheme();
+  const offset = useSharedValue<number>(RISE_TRAVEL);
+  const opacity = useSharedValue(0);
+  const didStart = useRef(false);
+  // Once landed, React holds the resting style itself: Reanimated drops a settled view's
+  // props natively 2 s after its last frame and only syncs them to React if a JS tick
+  // lands 1 to 2 s after it, so a stall across that window left the zero-opacity start
+  // for the next re-render to commit, and the pieces vanished from a still stage.
+  const [risen, setRisen] = useState(false);
+
+  useEffect(() => {
+    if (held || didStart.current) return;
+    didStart.current = true;
+    const delay = index * theme.motion.stagger;
+    opacity.set(withDelay(delay, withTiming(1, { duration: theme.motion.fast })));
+    offset.set(withDelay(delay, withSpring(0, theme.springs.arrival, (finished) => {
+      if (finished) scheduleOnRN(setRisen, true);
+    })));
+  }, [held, index, offset, opacity, theme.motion.fast, theme.motion.stagger, theme.springs.arrival]);
+
+  useEffect(() => () => {
+    cancelAnimation(offset);
+    cancelAnimation(opacity);
+  }, [offset, opacity]);
+
+  const riseStyle = useAnimatedStyle(() => ({
+    opacity: opacity.get(),
+    transform: [{ translateY: offset.get() }],
+  }));
+
+  return <Animated.View pointerEvents="none" style={[style, risen ? undefined : riseStyle]}>{children}</Animated.View>;
+}
+
 type GarmentBoardEntrance = Readonly<{
   fromPreset: Preset;
   /** The pieces start where Today's fitted primary stage draws them (P2). */
@@ -92,9 +139,9 @@ type GarmentBoardProps = Readonly<{
   decorative?: boolean;
   entrance?: GarmentBoardEntrance;
   /**
-   * Law 7's arrival: the pieces rise into a still stage once, on mount. A refresh, a
-   * focus change or new data never replays it. Ignored while `entrance` is set: a
-   * travelling board already arrives.
+   * Law 7's arrival: the pieces rise into a still stage once, on mount, one by one in
+   * reading order. A refresh, a focus change or new data never replays it. Ignored while
+   * `entrance` is set: a travelling board already arrives.
    */
   rise?: boolean;
   /**
@@ -365,17 +412,9 @@ export function GarmentBoard({
   const progress = useSharedValue(0);
   const tintProgress = useSharedValue(0);
   const settleTravel = useSharedValue(0);
-  const riseOffset = useSharedValue(rise ? RISE_TRAVEL : 0);
-  const riseOpacity = useSharedValue(rise ? 0 : 1);
   const lastSettle = useRef(settle);
   const didStartEntrance = useRef(false);
-  const didStartRise = useRef(false);
   const didReportSettled = useRef(false);
-  // Once landed, React holds the resting style itself: Reanimated drops a settled view's
-  // props natively 2 s after its last frame and only syncs them to React if a JS tick
-  // lands 1 to 2 s after it, so a stall across that window left the zero-opacity start
-  // for the next re-render to commit, and the pieces vanished from a still stage.
-  const [risen, setRisen] = useState(!rise);
   const onSettled = entrance?.onSettled;
 
   const reportSettled = useCallback(() => {
@@ -411,24 +450,6 @@ export function GarmentBoard({
     width,
   ]);
 
-  // Mount only, like `Entrance`: the travel is spatial and rides the arrival role, the
-  // fade is effects motion on `motion.fast`.
-  useEffect(() => {
-    if (!rise || holdRise || didStartRise.current) return;
-    didStartRise.current = true;
-    riseOpacity.set(withTiming(1, { duration: theme.motion.fast }));
-    riseOffset.set(withSpring(0, theme.springs.arrival, (finished) => {
-      if (finished) scheduleOnRN(setRisen, true);
-    }));
-  }, [
-    holdRise,
-    rise,
-    riseOffset,
-    riseOpacity,
-    theme.motion.fast,
-    theme.springs.arrival,
-  ]);
-
   // Law 7's moment: one settle per completing action. The board mounts at its resting
   // value, so a board that opens already complete stays still.
   useEffect(() => {
@@ -451,14 +472,7 @@ export function GarmentBoard({
     cancelAnimation(progress);
     cancelAnimation(tintProgress);
     cancelAnimation(settleTravel);
-    cancelAnimation(riseOffset);
-    cancelAnimation(riseOpacity);
-  }, [progress, riseOffset, riseOpacity, settleTravel, tintProgress]);
-
-  const riseStyle = useAnimatedStyle(() => ({
-    opacity: riseOpacity.get(),
-    transform: [{ translateY: riseOffset.get() }],
-  }));
+  }, [progress, settleTravel, tintProgress]);
 
   const entranceBackgroundStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
@@ -482,8 +496,38 @@ export function GarmentBoard({
     testID,
   };
 
+  if (!entrance && rise) {
+    // The stage the screen draws stays where it is; the layers carry no accessibility
+    // props, so the rise adds no node a screen reader stops on. Every shade layer sits
+    // under every piece, so no shade ever crosses a garment.
+    return (
+      <View {...accessibilityProps} style={{ height, width }}>
+        {contactShade ? result.order.map((piece, index) => (
+          <RisingLayer held={holdRise} index={index} key={`shade-${piece.slot}`} style={StyleSheet.absoluteFill}>
+            <Svg height={height} width={width}>
+              <Ellipse fill={contactShade} {...contactShadeOf(placed.get(piece)!)} />
+            </Svg>
+          </RisingLayer>
+        )) : null}
+        {result.order.map((piece, index) => {
+          const box = placed.get(piece)!;
+          return (
+            <RisingLayer
+              held={holdRise}
+              index={index}
+              key={piece.slot}
+              style={[styles.piece, { height: box.h, left: box.x, top: box.y, width: box.w }]}>
+              <PieceArtwork height={box.h} ink={colors.textPrimary} outline={outline} piece={piece}
+                roles={roles.get(piece.slot)!} width={box.w} />
+            </RisingLayer>
+          );
+        })}
+      </View>
+    );
+  }
+
   if (!entrance) {
-    const board = (
+    return (
       <Svg {...accessibilityProps} height={height} width={width}>
         {/* Every shade is drawn before any piece, so no shade ever crosses a garment. */}
         {contactShade ? result.order.map((piece) => {
@@ -512,12 +556,6 @@ export function GarmentBoard({
         })}
       </Svg>
     );
-
-    // The wrapper carries no accessibility props, so the rise adds no node a screen
-    // reader stops on, and the stage the screen draws stays where it is.
-    return rise
-      ? <Animated.View style={risen ? undefined : riseStyle}>{board}</Animated.View>
-      : board;
   }
 
   const fromBoxes = entranceStartBoxes(pieces, width, entrance.fromPreset, entrance.fromFit === true, large);

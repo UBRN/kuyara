@@ -130,19 +130,57 @@ const risingBoard = (
   />
 );
 
+// Each piece rises on its own layer under the one accessible image, so the stage the
+// screen draws never moves and no layer adds a node a screen reader stops on.
+const riseLayers = (result: Awaited<ReturnType<typeof render>>) =>
+  result.getByRole('image', { name: 'Dress, sandals' }).children
+    .filter((child) => typeof child !== 'string')
+    .map((layer) => StyleSheet.flatten(layer.props.style) ?? {});
+
 test('a rising board starts one large step below at zero opacity and adds no node', async () => {
   // The test mock lands every spring at once; hold the landing to read the first frame.
   const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
   const result = await render(risingBoard, { wrapper: LightTheme });
   withSpring.mockRestore();
 
-  // The whole arrival rides one wrapper, so the stage the screen draws never moves, and
-  // the wrapper carries no accessibility props of its own.
-  const style = StyleSheet.flatten(result.toJSON()!.props.style);
-  expect(style.opacity).toBe(0);
-  expect(style.transform).toEqual([{ translateY: spacing.xl }]);
+  const layers = riseLayers(result);
+  expect(layers).toHaveLength(pieces.length);
+  for (const layer of layers) {
+    expect(layer.opacity).toBe(0);
+    expect(layer.transform).toEqual([{ translateY: spacing.xl }]);
+  }
   expect(result.getAllByRole('image')).toHaveLength(1);
   expect(result.getByRole('image', { name: 'Dress, sandals' })).toHaveProp('testID', 'board');
+});
+
+// ADR 0020: content arrives in reading order. The pieces rise one by one in the board's
+// reading order, whatever order the outfit lists them in, each one stagger step after the
+// piece before it, and each contact shade rises with its piece.
+test('a rising board staggers its pieces in reading order, each shade with its piece', async () => {
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  const result = await render(
+    <GarmentBoard accessibilityLabel="Dress, sandals" contactShade={lightTheme.contactShade.clearDay} fit
+      palette={palette} pieces={[...pieces].reverse()} preset="today" rise
+      stageColor={lightTheme.atmosphere.clearDay} width={349} />,
+    { wrapper: LightTheme },
+  );
+
+  // Every layer starts its fade and its travel after the same delay.
+  const delays = withDelay.mock.calls.map(([delay]) => delay);
+  const { stagger } = lightTheme.motion;
+  expect(delays).toEqual([0, 0, stagger, stagger, 0, 0, stagger, stagger]);
+  // The shades come first, then the pieces, each set in reading order: the dress, then the sandals.
+  const layers = result.getByRole('image').children.filter((child) => typeof child !== 'string');
+  expect(layers).toHaveLength(pieces.length * 2);
+  const [dress] = silhouettes['g-dress'].groups;
+  const [sandal] = silhouettes['g-sandal'].groups;
+  const draws = (layer: (typeof layers)[number], outline: string) =>
+    layer.queryAll((node) => node.props.d === outline).length > 0;
+  expect(layers.slice(0, pieces.length).every((layer) =>
+    layer.queryAll((node) => node.props.rx != null).length === 1)).toBe(true);
+  expect(draws(layers[2]!, dress.outline)).toBe(true);
+  expect(draws(layers[3]!, sandal.outline)).toBe(true);
+  withDelay.mockRestore();
 });
 
 test('a held rise keeps its pieces unseen at the start until released, then rises once', async () => {
@@ -162,16 +200,17 @@ test('a held rise keeps its pieces unseen at the start until released, then rise
   const result = await render(board(true), { wrapper: LightTheme });
   await result.rerender(board(true));
   expect(withSpring).not.toHaveBeenCalled();
-  expect(StyleSheet.flatten(result.toJSON()!.props.style))
-    .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  for (const layer of riseLayers(result)) {
+    expect(layer).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  }
 
   await result.rerender(board(false));
-  expect(withSpring).toHaveBeenCalledTimes(1);
-  expect(StyleSheet.flatten(result.toJSON()!.props.style)?.opacity ?? 1).toBe(1);
+  expect(withSpring).toHaveBeenCalledTimes(pieces.length);
+  for (const layer of riseLayers(result)) expect(layer.opacity ?? 1).toBe(1);
   // A later hold never replays it.
   await result.rerender(board(true));
   await result.rerender(board(false));
-  expect(withSpring).toHaveBeenCalledTimes(1);
+  expect(withSpring).toHaveBeenCalledTimes(pieces.length);
   withSpring.mockRestore();
 });
 
@@ -183,9 +222,10 @@ test('a held rise keeps its pieces unseen at the start until released, then rise
 test('a landed rise leaves no zero-opacity start in the props React commits', async () => {
   const result = await render(risingBoard, { wrapper: LightTheme });
 
-  const style = StyleSheet.flatten(result.toJSON()!.props.style) ?? {};
-  expect(style.opacity ?? 1).toBe(1);
-  expect(style.transform ?? []).toEqual([]);
+  for (const layer of riseLayers(result)) {
+    expect(layer.opacity ?? 1).toBe(1);
+    expect(layer.transform ?? []).toEqual([]);
+  }
   expect(result.getByRole('image', { name: 'Dress, sandals' })).toHaveProp('testID', 'board');
 });
 
