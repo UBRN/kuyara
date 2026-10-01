@@ -2,10 +2,13 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-naviga
 import { router, Stack, usePathname } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Share, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useCallback, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
+
+import { LaunchCurtain, type LaunchReadiness } from '@/components/ui/launch-curtain';
 
 import {
   AnalyticsConsentGate,
@@ -27,6 +30,7 @@ import {
 } from '@/features/analytics/data/observe-performance-telemetry';
 import { telemetryDispatchingEnabled } from '@/features/analytics/domain/performance-telemetry';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
+import { NotificationApplicationContext } from '@/features/notifications/application/notification-context';
 import { WeatherAlertObserver } from '@/features/notifications/application/weather-alert-observer';
 import {
   registerBackgroundWeatherAlertTask,
@@ -42,6 +46,7 @@ import { RecommendationApplicationProvider } from '@/features/recommendation/app
 import { WeatherApplicationProvider } from '@/features/weather/application/weather-application-provider';
 import { WardrobeApplicationProvider } from '@/features/wardrobe/application/wardrobe-application-provider';
 import { WalkthroughProvider } from '@/features/walkthrough/application/walkthrough-provider';
+import { isDeepLinkLaunch } from '@/features/walkthrough/domain/walkthrough-rules';
 import { openKuyaraDatabaseSync } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -60,6 +65,16 @@ configureObserveTelemetry({
 // ADR 0033 section 6: the consent sheet is asked for from the second session onwards.
 const sessionIndex = countLaunchedSession();
 
+// A process plays its launch once: a root that mounts again in the same process (a scene
+// reconnecting) is not a cold launch.
+let launchPlayed = false;
+
+// The native splash stays until the launch curtain has drawn its first frame, the same
+// picture, and hands over without a fade: iOS has none by default, and Android's 400 ms
+// fade would cross-dissolve over the curtain's own motion.
+void SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions(Platform.OS === 'android' ? { duration: 0 } : { fade: false });
+
 // The bootstrap screen renders before the router, the database and the consent answer exist,
 // so the only channel a user has for a launch failure is the system share sheet. The text is
 // composed on the device and shown in the sheet before anything is sent; a dismissed or
@@ -77,14 +92,33 @@ function shareBootstrapReport(report: BootstrapReport): void {
   }).catch(() => undefined);
 }
 
+/**
+ * The first screen is drawn: the shell's navigator mounted with it. A launch from a tapped
+ * notification or a link plays the shortened curtain, read from the same sources the tour
+ * reads. The tap that launched the app reaches the count one commit later, from the
+ * notification provider's own effect; the report follows it, and the curtain moves only on
+ * the frame after, so it reads that tap.
+ */
+function LaunchReadyReport({ onReady }: Readonly<{ onReady: (shortened: boolean) => void }>) {
+  const openedNotifications = use(NotificationApplicationContext)?.openedNotifications ?? 0;
+  const pathname = usePathname();
+  const [deepLink] = useState(() => isDeepLinkLaunch(pathname));
+  useEffect(() => {
+    onReady(deepLink || openedNotifications > 0);
+  }, [deepLink, onReady, openedNotifications]);
+  return null;
+}
+
 type ReadyApplicationShellProps = Readonly<{
   profile: LocalProfile;
   updateNotificationsOptIn: (optIn: boolean) => Promise<void>;
+  onLaunchReady: (shortened: boolean) => void;
 }>;
 
 function ReadyApplicationShell({
   profile,
   updateNotificationsOptIn,
+  onLaunchReady,
 }: ReadyApplicationShellProps) {
   const theme = useKuyaraTheme();
   // The task only ever refreshes weather to reschedule notifications, so it costs the
@@ -126,6 +160,7 @@ function ReadyApplicationShell({
         persistOptIn={updateNotificationsOptIn}>
         <WeatherApplicationProvider localProfileId={profile.id}>
           <WeatherAlertObserver />
+          <LaunchReadyReport onReady={onLaunchReady} />
           <WardrobeApplicationProvider localProfileId={profile.id}>
             <RecommendationApplicationProvider localProfileId={profile.id}>
               <ThemeProvider value={navigationTheme}>
@@ -177,8 +212,17 @@ function ReadyApplicationShell({
   );
 }
 
-function ThemedApplicationShell() {
+type ThemedApplicationShellProps = Readonly<{
+  onLaunchReady: (shortened: boolean) => void;
+  onLaunchFailed: () => void;
+}>;
+
+function ThemedApplicationShell({ onLaunchFailed, onLaunchReady }: ThemedApplicationShellProps) {
   const { retry, state, updateNotificationsOptIn } = useProfileApplication();
+  const failed = state.status === 'error';
+  useEffect(() => {
+    if (failed) onLaunchFailed();
+  }, [failed, onLaunchFailed]);
 
   if (state.status === 'loading') {
     return <BootstrapScreen status="loading" />;
@@ -198,6 +242,7 @@ function ThemedApplicationShell() {
   return (
     <AnalyticsConsentTriggerProvider>
       <ReadyApplicationShell
+        onLaunchReady={onLaunchReady}
         profile={state.profile}
         updateNotificationsOptIn={updateNotificationsOptIn}
       />
@@ -209,13 +254,32 @@ function ThemedApplicationShell() {
 // nothing, and report nothing, without this root. The package has been a native dependency
 // of every build, so this is JavaScript only.
 function RootLayout() {
+  const [cold] = useState(() => !launchPlayed);
+  useEffect(() => {
+    launchPlayed = true;
+  }, []);
+  // A drawn first screen may still learn it was opened by a notification; a failure is final.
+  // The curtain takes the answer it holds on the frame it starts and ignores any later one.
+  const [launch, setLaunch] = useState<LaunchReadiness>('pending');
+  const reportReady = useCallback((shortened: boolean) => {
+    setLaunch((current) => {
+      if (current === 'pending') return shortened ? 'shortened' : 'ready';
+      return current === 'ready' && shortened ? 'shortened' : current;
+    });
+  }, []);
+  const reportFailed = useCallback(() => {
+    setLaunch((current) => (current === 'pending' ? 'failed' : current));
+  }, []);
+
   return (
     <GestureHandlerRootView style={styles.root}>
-      <PerformanceTelemetryContext value={observePerformanceTelemetry}>
-        <ProfileApplicationProvider>
-          <ThemedApplicationShell />
-        </ProfileApplicationProvider>
-      </PerformanceTelemetryContext>
+      <LaunchCurtain cold={cold} onFirstFrame={SplashScreen.hide} readiness={launch}>
+        <PerformanceTelemetryContext value={observePerformanceTelemetry}>
+          <ProfileApplicationProvider>
+            <ThemedApplicationShell onLaunchFailed={reportFailed} onLaunchReady={reportReady} />
+          </ProfileApplicationProvider>
+        </PerformanceTelemetryContext>
+      </LaunchCurtain>
     </GestureHandlerRootView>
   );
 }

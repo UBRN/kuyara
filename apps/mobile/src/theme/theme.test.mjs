@@ -106,6 +106,13 @@ test('the stagger role steps content arrival', () => {
   assert.equal(createKuyaraTheme('light').motion.stagger, standardMotion.stagger);
 });
 
+test('the launch role is the one transition longer than deliberate', () => {
+  assert.ok(standardMotion.launch > standardMotion.deliberate);
+  // The whole launch, a breath, the dive and the curtain's fade, stays under a second.
+  assert.ok(standardMotion.fast + standardMotion.launch + standardMotion.deliberate < 1_000);
+  assert.equal(createKuyaraTheme('dark').motion.launch, standardMotion.launch);
+});
+
 test('themes expose the two spring roles', () => {
   for (const theme of [createKuyaraTheme('light'), createKuyaraTheme('dark')]) {
     for (const role of [theme.springs.spatial, theme.springs.arrival]) {
