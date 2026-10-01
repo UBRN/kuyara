@@ -96,11 +96,11 @@ const ground = Object.freeze({ light: brandColors.softMist, dark: brandColors.ni
 
 /** When the curtain starts to lift and when the layer is gone, from the moment it moves. */
 function launchTimeline(motion: LaunchMotion): Readonly<{ reveal: number; done: number }> {
-  const { deliberate, fast, launch } = standardMotion;
+  const { fast, launch, normal } = standardMotion;
   switch (motion) {
-    case 'dive': return { reveal: fast + launch, done: fast + launch + deliberate };
-    case 'short': return { reveal: fast, done: fast + deliberate };
-    case 'late': return { reveal: 0, done: deliberate };
+    case 'dive': return { reveal: fast + launch, done: fast + launch + normal };
+    case 'short': return { reveal: fast, done: fast + normal };
+    case 'late': return { reveal: 0, done: normal };
     case 'failed': return { reveal: 0, done: fast };
   }
 }
@@ -124,8 +124,8 @@ export type LaunchCurtainProps = PropsWithChildren<{
  * The cold launch. The layer's first frame is the native splash's last: the system
  * appearance's ground with the master symbol at its centre. It stays still until the first
  * screen is drawn, then the symbol breathes in, the camera dives into its upper piece while
- * the pieces turn Calm Current, and that colour, now the whole screen, fades on
- * `deliberate`. A notification or a link skips the dive: the colour fades in and out. A
+ * the pieces turn Calm Current, and that colour, now the whole screen, fades on `normal`.
+ * A notification or a link skips the dive: the colour fades in and out. A
  * first screen later than the ceiling, or a failed one, only fades the layer away. The
  * layer is never read by assistive technology and never takes a touch.
  */
@@ -206,7 +206,7 @@ function CurtainLayer({
 
   useEffect(() => {
     if (motion === null) return;
-    const { deliberate, fast, launch } = standardMotion;
+    const { fast, launch, normal } = standardMotion;
     if (motion === 'dive') {
       breath.set(withTiming(1, { duration: fast, easing: EASE_OUT }));
       dive.set(withDelay(fast, withTiming(1, { duration: launch, easing: DIVE_EASING })));
@@ -215,12 +215,12 @@ function CurtainLayer({
         fast + launch * FILL_FROM,
         withTiming(1, { duration: launch * (FILL_TO - FILL_FROM), easing: GLIDE_EASING }),
       ));
-      lift.set(withDelay(fast + launch, withTiming(0, { duration: deliberate, easing: EASE_OUT })));
+      lift.set(withDelay(fast + launch, withTiming(0, { duration: normal, easing: EASE_OUT })));
     } else if (motion === 'short') {
       veil.set(withTiming(1, { duration: fast, easing: EASE_OUT }));
-      lift.set(withDelay(fast, withTiming(0, { duration: deliberate, easing: EASE_OUT })));
+      lift.set(withDelay(fast, withTiming(0, { duration: normal, easing: EASE_OUT })));
     } else {
-      withdraw.set(withTiming(0, { duration: motion === 'late' ? deliberate : fast, easing: EASE_OUT }));
+      withdraw.set(withTiming(0, { duration: motion === 'late' ? normal : fast, easing: EASE_OUT }));
     }
   }, [breath, camera, dive, fill, lift, motion, veil, withdraw]);
 
