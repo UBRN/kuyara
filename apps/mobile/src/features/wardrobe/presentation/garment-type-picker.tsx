@@ -9,7 +9,6 @@ import Animated, {
 import {
   AppText,
   Button,
-  Entrance,
   GarmentDrawing,
   garmentUsualColorFamilies,
   PressScale,
@@ -38,7 +37,8 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // the form. Six illustrated category tiles first; a tap turns them into the Closet's chip
 // rail over a grid of that category's types, each drawn in its own most natural colour and
 // named, because the catalogue shares one drawing across five pairs of types. A chosen
-// type collapses the picker to one row with "Change", which arrives (Law 7). The catalogue type stays required
+// type collapses the picker to one row with "Change", drawn at once in the grid's place, and
+// "Change" fades the grid back in (Law 7). The catalogue type stays required
 // and no free-form type exists (docs/product-decisions.md, Closet).
 
 // Each category tile shows its representative piece in one colour. Illustration only: the
@@ -66,6 +66,8 @@ export type GarmentTypePickerProps = Readonly<{
   colorFamily: ColorFamily | null;
   disabled: boolean;
   onSelect: (typeId: GarmentTypeId) => void;
+  /** The grid opens ("Change") or closes on a pick, so the form can hold what follows it. */
+  onExpandedChange?: (expanded: boolean) => void;
 }>;
 
 export function GarmentTypePicker({
@@ -73,6 +75,7 @@ export function GarmentTypePicker({
   colorFamily,
   disabled,
   initialCategory,
+  onExpandedChange,
   onSelect,
   selectedTypeId,
 }: GarmentTypePickerProps) {
@@ -84,8 +87,6 @@ export function GarmentTypePicker({
   const selectedType = selectedTypeId ? getGarmentType(selectedTypeId) : null;
   const [expanded, setExpanded] = useState(selectedType === null);
   const [category, setCategory] = useState<StructuralCategory | null>(null);
-  // The collapsed row arrives when a type is picked; one already chosen on open is at rest.
-  const [rowArrives, setRowArrives] = useState(false);
   const gridOpacity = useSharedValue<number>(1);
   const gridStyle = useAnimatedStyle(() => ({ opacity: gridOpacity.get() }));
 
@@ -120,17 +121,21 @@ export function GarmentTypePicker({
   const contentWidth = Math.min(width, layout.maxContentWidth) - spacing.lg * 2;
   const tileSize = Math.floor((contentWidth - spacing.md * (columns - 1)) / columns);
 
-  // Law 7: a filter change is effects motion on `normal`, never a slide. The chip's own
-  // fill changes with no animation, so motion is never the only signal.
-  const changeCategory = (next: StructuralCategory) => {
-    if (next === activeCategory) return;
-    setCategory(next);
+  // Law 7: a filter change, and the grid reopening on "Change", is effects motion on
+  // `normal`, never a slide. The chip's own fill changes with no animation, so motion is
+  // never the only signal.
+  const fadeGridIn = () => {
     gridOpacity.set(0);
     gridOpacity.set(withTiming(1, { duration: theme.motion.normal }));
   };
+  const changeCategory = (next: StructuralCategory) => {
+    if (next === activeCategory) return;
+    setCategory(next);
+    fadeGridIn();
+  };
 
   if (selectedType && !expanded) {
-    const row = (
+    return (
       <View style={styles.row} testID="wardrobe-type-row">
         <View
           accessibilityElementsHidden
@@ -159,6 +164,8 @@ export function GarmentTypePicker({
           onPress={() => {
             setCategory(null);
             setExpanded(true);
+            fadeGridIn();
+            onExpandedChange?.(true);
           }}
           size="small"
           testID="wardrobe-type-change-button"
@@ -166,13 +173,12 @@ export function GarmentTypePicker({
         />
       </View>
     );
-    return rowArrives ? <Entrance>{row}</Entrance> : row;
   }
 
   const select = (typeId: GarmentTypeId) => {
     if (disabled) return;
-    setRowArrives(true);
     setExpanded(false);
+    onExpandedChange?.(false);
     onSelect(typeId);
   };
 
