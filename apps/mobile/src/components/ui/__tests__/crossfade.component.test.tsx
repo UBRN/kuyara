@@ -31,8 +31,11 @@ test('content there on mount is drawn at rest', async () => {
   withTiming.mockRestore();
 });
 
-test('a new key fades the old content out on fast over the new, which fades in on normal', async () => {
+test('a new key fades the old content out on fast, and the new waits for it, then fades in on normal', async () => {
   const landings: Landing[] = [];
+  const withDelay = jest.spyOn(Reanimated, 'withDelay').mockImplementation(
+    ((_delay: number, animation: unknown) => animation) as typeof Reanimated.withDelay,
+  );
   const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(((
     toValue: number, _config: unknown, callback?: Landing,
   ) => {
@@ -43,6 +46,7 @@ test('a new key fades the old content out on fast over the new, which fades in o
   withTiming.mockClear();
 
   await result.rerender(line('b', 'City Layers'));
+  expect(withDelay).toHaveBeenCalledWith(lightTheme.motion.fast, 1);
   expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
   expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast }, expect.any(Function));
   // Both are drawn while they cross; only the new one is in the reading order.
@@ -55,6 +59,7 @@ test('a new key fades the old content out on fast over the new, which fades in o
   expect(result.queryByText('Rain Ready', hidden)).toBeNull();
   expect(result.getAllByTestId('line', hidden)).toHaveLength(1);
   withTiming.mockRestore();
+  withDelay.mockRestore();
 });
 
 test('the same key re-renders in place, and the latest content is what leaves', async () => {
