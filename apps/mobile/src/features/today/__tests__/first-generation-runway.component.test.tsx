@@ -1,5 +1,5 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { AccessibilityInfo, Alert, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Alert, StyleSheet, View } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -311,4 +311,114 @@ test('speaks each phase once and All set on completion, and not the rotating lin
   await act(() => jest.advanceTimersByTime(dressing + 100));
   expect(announce).toHaveBeenLastCalledWith(copy.allSet);
   expect(announce).toHaveBeenCalledTimes(3);
+});
+
+// ADR 0020's one exception: a completed wait hands over to Today's stage. The field shrinks
+// once into the stage plate, each piece travels to its place there in reading order a
+// stagger step apart, and the runway leaves the tree once the last piece has landed.
+describe('the hand-off to Today', () => {
+  const stageColor = lightTheme.atmosphere.clearDay;
+  const stage = { x: 16, y: 140, width: 358, height: 300 };
+  const target = () => ({
+    current: {
+      node: { measureInWindow: (done: (...frame: number[]) => void) =>
+        done(stage.x, stage.y, stage.width, stage.height) } as unknown as View,
+      color: stageColor,
+      radius: 26,
+    },
+  });
+  const frames: Record<string, readonly number[]> = {
+    'first-generation-runway': [0, 0, 390, 844],
+    'first-generation-stage': [16, 120, 358, 420],
+  };
+  beforeEach(() => {
+    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(function measured(
+      this: { props: { testID?: string } },
+      done: (...frame: number[]) => void,
+    ) {
+      const frame = frames[this.props.testID ?? ''];
+      if (frame) done(...frame);
+    });
+  });
+
+  async function completed(overrides: Partial<Parameters<typeof runway>[0]> & Record<string, unknown> = {}) {
+    const result = await render(runway(overrides));
+    await laidOut(result);
+    await result.rerender(runway({ ...overrides, active: false, completed: true, phase: null, outfit: chosen }));
+    return result;
+  }
+
+  test('the field shrinks into the stage plate and the pieces travel in reading order', async () => {
+    const onLeave = jest.fn();
+    const onHandedOff = jest.fn();
+    const withDelay = jest.spyOn(Reanimated, 'withDelay');
+    // The test mock lands every spring at once; hold the landings to read the hand-off.
+    const springs: ((finished?: boolean) => void)[] = [];
+    const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation(((toValue: number, _config: unknown,
+      callback?: (finished?: boolean) => void) => {
+      if (callback) springs.push(callback);
+      return toValue;
+    }) as typeof Reanimated.withSpring);
+    const result = await completed({ handoffTarget: target(), onLeave, onHandedOff } as never);
+    // The board dresses and All set holds; only the hand-off is read from here on.
+    await act(() => jest.advanceTimersByTime(dressing));
+    withDelay.mockClear();
+    withSpring.mockClear();
+    springs.length = 0;
+    await act(() => jest.advanceTimersByTime(800));
+
+    expect(onLeave).toHaveBeenCalledWith(true);
+    const layer = result.getByTestId('first-generation-runway', hidden);
+    expect(StyleSheet.flatten(layer.props.style).backgroundColor).toBe('transparent');
+    expect(layer.props.pointerEvents).toBe('none');
+    // The plate starts as the whole field and shrinks on the spatial role into the stage.
+    const plate = StyleSheet.flatten(result.getByTestId('first-generation-plate', hidden).props.style);
+    expect(plate).toMatchObject({ left: 0, top: 0, width: 390, height: 844, borderRadius: 0 });
+    expect(withSpring).toHaveBeenCalledWith(1, lightTheme.springs.spatial);
+    // Each piece's travel lands on the arrival role and reports its landing.
+    expect(withSpring.mock.calls.filter(([, config, landed]) =>
+      config === lightTheme.springs.arrival && landed !== undefined)).toHaveLength(chosen.pieces.length);
+    // Each piece leaves one stagger step after the one before it, in the board's reading order.
+    // (The test mock re-runs the dressing's own delayed pours on every render; they are not
+    // multiples of the stagger step.)
+    const { stagger } = lightTheme.motion;
+    const steps = [0, stagger, 2 * stagger];
+    expect(withDelay.mock.calls.map(([delay]) => delay).filter((delay) => steps.includes(delay))).toEqual(steps);
+    expect(onHandedOff).not.toHaveBeenCalled();
+
+    await act(() => { springs.forEach((land) => land(true)); jest.advanceTimersByTime(0); });
+    expect(onHandedOff).toHaveBeenCalledTimes(1);
+    expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull();
+  });
+
+  test('a skipped wait fades out over Today instead', async () => {
+    const onLeave = jest.fn();
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => buttons?.[1]?.onPress?.());
+    const result = await render(runway({ handoffTarget: target(), onLeave } as never));
+    await laidOut(result);
+    await act(() => jest.advanceTimersByTime(10_000));
+    await fireEvent.press(result.getByTestId('first-generation-skip'));
+    await result.rerender(runway({ active: false, completed: true, phase: null, outfit: chosen,
+      handoffTarget: target(), onLeave } as never));
+    await act(() => jest.advanceTimersByTime(dressing + 800));
+
+    expect(onLeave).toHaveBeenCalledWith(false);
+    expect(result.queryByTestId('first-generation-plate', hidden)).toBeNull();
+    expect(result.queryByTestId('first-generation-runway')).toBeNull();
+  });
+
+  test('a failed wait fades out over Today, and so does a wait with no stage drawn', async () => {
+    const onLeave = jest.fn();
+    const failed = await render(runway({ handoffTarget: target(), onLeave } as never));
+    await failed.rerender(runway({ active: false, handoffTarget: target(), onLeave } as never));
+    await act(() => jest.advanceTimersByTime(0));
+    expect(onLeave).toHaveBeenLastCalledWith(false);
+    expect(failed.queryByTestId('first-generation-plate', hidden)).toBeNull();
+
+    onLeave.mockClear();
+    const unseen = await completed({ handoffTarget: { current: null }, onLeave } as never);
+    await act(() => jest.advanceTimersByTime(dressing + 800));
+    expect(onLeave).toHaveBeenLastCalledWith(false);
+    expect(unseen.queryByTestId('first-generation-plate', hidden)).toBeNull();
+  });
 });

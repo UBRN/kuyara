@@ -55,6 +55,7 @@ export { PressScale } from './press-scale';
 export { ProgressFill, type ProgressFillProps } from './progress-fill';
 export { Screen, type ScreenProps } from './screen';
 export { SectionHeader, type SectionHeaderProps } from './section-header';
+export { ShrinkingPlate, type PlateRect, type ShrinkingPlateProps } from './shrinking-plate';
 export {
   SegmentedControl,
   type SegmentedControlOption,

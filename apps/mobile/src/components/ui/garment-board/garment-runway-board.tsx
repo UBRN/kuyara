@@ -8,8 +8,10 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import { useEasierToSee } from '@/theme/easier-to-see';
 import type { MotionTokens } from '@/theme/theme';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -18,6 +20,7 @@ import { resolveGarmentArtwork } from '../garment-slot-glyph';
 import { drawnExtent, fitRunwayScale, placeOnRunway } from './compose-garment-board';
 import {
   composePieces,
+  entranceStartBoxes,
   PieceArtwork,
   useGarmentRoles,
   type ComposedPiece,
@@ -146,6 +149,9 @@ function RunwayDraft({ piece, box, ink, answered, kept, handoffDelay }: RunwayDr
   );
 }
 
+/** Where a dressed piece travels to when the runway hands its outfit to Today's stage. */
+type PieceHandoff = Readonly<{ dx: number; dy: number; scale: number; delay: number }>;
+
 type RunwayDressedProps = Readonly<{
   piece: ComposedPiece;
   box: Box;
@@ -154,18 +160,35 @@ type RunwayDressedProps = Readonly<{
   delay: number;
   /** A slot whose draft never landed enters already dressed, gliding in. */
   glides: boolean;
+  handoff?: PieceHandoff;
+  /** Called once this piece has travelled to Today's stage. */
+  onLanded?: () => void;
 }>;
 
 // The garment's outline arrives on `motion.fast`, then its colour pours up from the hem on
 // `motion.deliberate`. The pour is a clip that travels on transforms alone: the clipping
 // view moves down by the unpoured share while the artwork inside moves back up by the same
 // amount, so only the poured band from the hem up is visible and nothing is laid out again.
-function RunwayDressed({ piece, box, roles, ink, delay, glides }: RunwayDressedProps) {
+function RunwayDressed({ piece, box, roles, ink, delay, glides, handoff, onLanded }: RunwayDressedProps) {
   const theme = useKuyaraTheme();
   const pour = useSharedValue(0);
   const outline = useSharedValue(0);
   const arrival = useSharedValue(glides ? 0 : 1);
+  const travel = useSharedValue(0);
+  const didTravel = useRef(false);
   const { x, y, w, h } = box;
+  const { dx = 0, dy = 0, scale = 1 } = handoff ?? {};
+  const travelDelay = handoff?.delay;
+
+  // The hand-off is a piece landing on a board, so it rides the arrival role. A cancelled
+  // spring still reports, so Today is never left waiting under the runway.
+  useEffect(() => {
+    if (travelDelay === undefined || didTravel.current) return;
+    didTravel.current = true;
+    travel.set(withDelay(travelDelay, withSpring(1, theme.springs.arrival, () => {
+      if (onLanded) scheduleOnRN(onLanded);
+    })));
+  }, [onLanded, theme.springs.arrival, travel, travelDelay]);
 
   useEffect(() => {
     pour.set(withDelay(delay, withTiming(1, { duration: theme.motion.deliberate })));
@@ -178,9 +201,20 @@ function RunwayDressed({ piece, box, roles, ink, delay, glides }: RunwayDressedP
     };
   }, [arrival, delay, glides, outline, pour, theme.motion.deliberate, theme.motion.fast, theme.springs.arrival]);
 
+  useEffect(() => () => cancelAnimation(travel), [travel]);
+
   const glideStyle = useAnimatedStyle(() => {
     const away = 1 - arrival.get();
-    return { transform: [{ translateX: GLIDE_X * away }, { translateY: GLIDE_Y * away }] };
+    const travelled = travel.get();
+    const size = 1 + (scale - 1) * travelled;
+    return {
+      transform: [
+        { translateX: GLIDE_X * away + dx * travelled },
+        { translateY: GLIDE_Y * away + dy * travelled },
+        { scaleX: size },
+        { scaleY: size },
+      ],
+    };
   });
   const clipStyle = useAnimatedStyle(() => ({
     opacity: pour.get() > 0 ? 1 : 0,
@@ -229,6 +263,14 @@ type GarmentRunwayBoardProps = Readonly<{
   draftInk: string;
   /** The dressed garments' outline. */
   outlineInk: string;
+  /**
+   * Today's stage in this board's own coordinates. Set once, when the runway hands its
+   * outfit to Today: each dressed piece travels to where Today's fitted stage draws it,
+   * in reading order a stagger step apart.
+   */
+  handoff?: Readonly<{ x: number; y: number; width: number }> | null;
+  /** Called once every piece has travelled to Today's stage. */
+  onHandedOff?: () => void;
   testID?: string;
 }>;
 
@@ -248,9 +290,12 @@ export function GarmentRunwayBoard({
   height,
   draftInk,
   outlineInk,
+  handoff = null,
+  onHandedOff,
   testID,
 }: GarmentRunwayBoardProps) {
   const { motion } = useKuyaraTheme();
+  const large = useEasierToSee();
   const draftLayout = layoutOf(drafts);
   const chosenLayout = outfit ? layoutOf(outfit.pieces) : null;
   // The drafts keep one scale for the whole wait; the chosen outfit takes the same one
@@ -267,6 +312,28 @@ export function GarmentRunwayBoard({
   const draftIndex = new Map(draftLayout.result.order.map((piece, index) => [piece.slot, index]));
   const roles = useGarmentRoles(outfit?.palette ?? null, field);
   const startedBeforeAnswer = (slot: OutfitSlot) => (draftIndex.get(slot) ?? Infinity) < placedCount;
+  // Today's stage draws the same composition fitted to its own width, in stage-width units.
+  const stageBoxes = handoff && outfit
+    ? entranceStartBoxes(outfit.pieces, handoff.width, 'today', true, large)
+    : null;
+  const pieceHandoff = (piece: ComposedPiece, index: number): PieceHandoff | undefined => {
+    const target = stageBoxes?.get(piece.slot);
+    if (!handoff || !target) return undefined;
+    const from = chosenBox(piece);
+    const to = {
+      x: handoff.x + target.x * handoff.width,
+      y: handoff.y + target.y * handoff.width,
+      w: target.w * handoff.width,
+    };
+    // Both boards keep each drawing's aspect ratio, so one scale serves both axes.
+    const scale = to.w / from.w;
+    return {
+      dx: to.x + to.w / 2 - from.x - from.w / 2,
+      dy: to.y + (from.h * scale) / 2 - from.y - from.h / 2,
+      scale,
+      delay: index * motion.stagger,
+    };
+  };
 
   return (
     <View
@@ -309,8 +376,10 @@ export function GarmentRunwayBoard({
           delay={dressStart(index, motion)}
           roles={roles.get(piece.slot)!}
           glides={!startedBeforeAnswer(piece.slot)}
+          handoff={pieceHandoff(piece, index)}
           ink={outlineInk}
           key={`dressed-${piece.slot}`}
+          onLanded={index === chosenOrder.length - 1 ? onHandedOff : undefined}
           piece={piece}
         />
       )) : null}

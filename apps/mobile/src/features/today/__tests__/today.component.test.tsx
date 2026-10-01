@@ -1175,7 +1175,7 @@ test('the hero board holds its rise while the first-run runway covers it, then r
 
   await result.rerender(screen(false));
   await waitFor(() => expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull());
-  expect(heroRiseLayers(result).every((layer) => (layer.opacity ?? 1) === 1)).toBe(true);
+  await waitFor(() => expect(heroRiseLayers(result).every((layer) => (layer.opacity ?? 1) === 1)).toBe(true));
 });
 
 // A cold launch swaps the placeholder for the loaded screen while that screen is still being
@@ -1195,6 +1195,46 @@ test('the first hero rise waits until its stage has laid out', async () => {
     nativeEvent: { layout: { width: 358, height: 400, x: 0, y: 0 } },
   });
   await waitFor(() => expect(heroRiseLayers(result).every((layer) => (layer.opacity ?? 1) === 1)).toBe(true));
+});
+
+// ADR 0020's hand-off: while the first-run runway covers Today, the words around the stage
+// wait unseen, and they arrive in reading order once it leaves. With no runway they are
+// drawn at rest, as they always are.
+test('the words around the stage wait under the first-run runway and arrive once it leaves', async () => {
+  const withRunway = (showFirstGenerationOverlay: boolean) => ({
+    state: { status: 'ready', snapshot: null, isRefreshing: false, lastFailure: null, phase: null,
+      exhausted: false, showFirstGenerationOverlay },
+    skipWait: jest.fn(async () => null),
+  }) as unknown as RecommendationApplicationValue;
+  const screen = (overlay: boolean) => providers(
+    <RecommendationApplicationContext value={withRunway(overlay)}>
+      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+        onAskAgain={jest.fn()} state={todayScreenState} />
+    </RecommendationApplicationContext>,
+  );
+  const hidden = { includeHiddenElements: true };
+  // The nearest wrapper that carries an arrival's opacity.
+  const words = (testID: string) => {
+    for (let node = result.getByTestId(testID, hidden).parent; node; node = node.parent) {
+      const style = StyleSheet.flatten(node.props.style) ?? {};
+      if ('opacity' in style) return style;
+    }
+    return {};
+  };
+  const result = await render(screen(true));
+  for (const testID of ['today-top-row', 'today-title', 'today-provenance', 'today-alternates-heading']) {
+    expect(words(testID)).toMatchObject({ opacity: 0 });
+  }
+
+  await result.rerender(screen(false));
+  await waitFor(() => expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull());
+  await waitFor(() => expect(words('today-title').opacity ?? 1).toBe(1));
+
+  const plain = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={todayScreenState} />,
+  ));
+  expect(plain.getByTestId('today-top-row').parent!.props.testID).toBe('today-content');
 });
 
 test('a new suggestion re-mounts the hero board, and the same one back leaves it still', async () => {
