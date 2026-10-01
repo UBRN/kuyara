@@ -50,7 +50,7 @@ export type DailyOutlookRow = Readonly<{
 
 export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow[] }>) {
   const theme = useKuyaraTheme();
-  const { controlScale, fontScale, usesStackedLayout } = useTextScaling();
+  const { controlScale, usesStackedLayout } = useTextScaling();
 
   // Every rail is positioned against the same range, which is what makes a warm Sunday sit
   // visibly to the right of a cold Friday instead of each row filling its own bar.
@@ -135,18 +135,7 @@ export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow
                       second line. The row's own accessibility label still states the
                       chance, so the blank costs a reader nothing. */}
                   {row.precipitation === null ? null : (
-                    <View style={styles.precipitation}>
-                      <Icon
-                        color={theme.colors.iconSecondary}
-                        name="precipitationChance"
-                        size={16 * controlScale}
-                      />
-                      <PrecipitationCaption
-                        // A new value or text size starts again from the one-line form.
-                        key={`${row.precipitation.line}@${fontScale}`}
-                        {...row.precipitation}
-                      />
-                    </View>
+                    <PrecipitationCell {...row.precipitation} />
                   )}
                 </View>
               </View>
@@ -173,6 +162,31 @@ export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow
           </Fragment>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * The caption with its icon. The row is as wide as the day column, which no text inside it
+ * changes, so measuring it cannot loop: a column that later widens (a rotation, a split view)
+ * starts the caption again from the one-line form, which stays only if it still fits.
+ */
+function PrecipitationCell({ line, lines }: Readonly<{ line: string; lines: string }>) {
+  const theme = useKuyaraTheme();
+  const { controlScale, fontScale } = useTextScaling();
+  const [width, setWidth] = useState<number | null>(null);
+  return (
+    <View
+      onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}
+      style={styles.precipitation}
+      testID="weather-daily-precipitation-cell">
+      <Icon color={theme.colors.iconSecondary} name="precipitationChance" size={16 * controlScale} />
+      <PrecipitationCaption
+        // A new value, text size or column width starts again from the one-line form.
+        key={`${line}@${fontScale}@${width}`}
+        line={line}
+        lines={lines}
+      />
     </View>
   );
 }
