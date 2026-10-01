@@ -93,7 +93,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   permission ([ADR 0004](adr/0004-notifications-in-the-mvp.md),
   [ADR 0032](adr/0032-local-weather-alert-rules.md)): the deterministic
   precipitation-onset and temperature-swing weather alerts, and a morning briefing at
-  07:00 local projected from tomorrow's own morning hours. Each has its own opt-in, its
+  07:00 local telling tomorrow's whole day (its range and its one decision-changing event, by the Weather outlook's rule). Each has its own opt-in, its
   own row on the Settings Notifications surface, and its own schema-version-15 profile
   flag; they share the delivery ledger, the rescheduling on every persisted snapshot and
   on opt-in, permission and language changes, and the best-effort `expo-background-task`
