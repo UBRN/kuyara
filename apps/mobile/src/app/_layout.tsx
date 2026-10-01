@@ -8,7 +8,12 @@ import { Platform, Share, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { use, useCallback, useEffect, useState } from 'react';
 
-import { LaunchCurtain, type LaunchReadiness, useLaunchReveal } from '@/components/ui/launch-curtain';
+import {
+  LaunchCurtain,
+  type LaunchReadiness,
+  LaunchScreenReadyContext,
+  useLaunchReveal,
+} from '@/components/ui/launch-curtain';
 
 import {
   AnalyticsConsentGate,
@@ -92,27 +97,32 @@ function shareBootstrapReport(report: BootstrapReport): void {
   }).catch(() => undefined);
 }
 
+type ShellReport = Readonly<{ shortened: boolean; onToday: boolean }>;
+
 /**
- * The first screen is drawn: the shell's navigator mounted with it. A launch from a tapped
- * notification or a link plays the shortened curtain, read from the same sources the tour
- * reads. The tap that launched the app reaches the count one commit later, from the
- * notification provider's own effect; the report follows it, and the curtain moves only on
- * the frame after, so it reads that tap.
+ * The shell's navigator has mounted. A launch from a tapped notification or a link plays the
+ * shortened curtain, read from the same sources the tour reads. Both can arrive after the
+ * shell: the tap that launched the app reaches the count one commit later, from the
+ * notification provider's own effect, and a development client hands the router its link
+ * after the first route. The report follows each, and the curtain takes the one it holds
+ * when it starts.
  */
-function LaunchReadyReport({ onReady }: Readonly<{ onReady: (shortened: boolean) => void }>) {
+function LaunchReadyReport({ onReady }: Readonly<{ onReady: (report: ShellReport) => void }>) {
   const openedNotifications = use(NotificationApplicationContext)?.openedNotifications ?? 0;
   const pathname = usePathname();
-  const [deepLink] = useState(() => isDeepLinkLaunch(pathname));
   useEffect(() => {
-    onReady(deepLink || openedNotifications > 0);
-  }, [deepLink, onReady, openedNotifications]);
+    onReady({
+      shortened: isDeepLinkLaunch(pathname) || openedNotifications > 0,
+      onToday: pathname === '/',
+    });
+  }, [onReady, openedNotifications, pathname]);
   return null;
 }
 
 type ReadyApplicationShellProps = Readonly<{
   profile: LocalProfile;
   updateNotificationsOptIn: (optIn: boolean) => Promise<void>;
-  onLaunchReady: (shortened: boolean) => void;
+  onLaunchReady: (report: ShellReport) => void;
 }>;
 
 function ReadyApplicationShell({
@@ -215,7 +225,7 @@ function ReadyApplicationShell({
 }
 
 type ThemedApplicationShellProps = Readonly<{
-  onLaunchReady: (shortened: boolean) => void;
+  onLaunchReady: (report: ShellReport) => void;
   onLaunchFailed: () => void;
 }>;
 
@@ -260,27 +270,33 @@ function RootLayout() {
   useEffect(() => {
     launchPlayed = true;
   }, []);
-  // A drawn first screen may still learn it was opened by a notification; a failure is final.
-  // The curtain takes the answer it holds on the frame it starts and ignores any later one.
-  const [launch, setLaunch] = useState<LaunchReadiness>('pending');
-  const reportReady = useCallback((shortened: boolean) => {
-    setLaunch((current) => {
-      if (current === 'pending') return shortened ? 'shortened' : 'ready';
-      return current === 'ready' && shortened ? 'shortened' : current;
-    });
+  // A full launch on Today waits for Today to draw its content, so the dive never plays over
+  // that render; any other first screen is ready with the shell. A shell may still learn it
+  // was opened by a notification. The curtain takes the answer it holds on the frame it
+  // starts and ignores any later one.
+  const [shell, setShell] = useState<ShellReport | null>(null);
+  const [todayDrawn, setTodayDrawn] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const reportReady = useCallback((report: ShellReport) => {
+    setShell((current) => (current?.shortened ? current : report));
   }, []);
-  const reportFailed = useCallback(() => {
-    setLaunch((current) => (current === 'pending' ? 'failed' : current));
-  }, []);
+  const reportFailed = useCallback(() => setFailed(true), []);
+  const reportTodayDrawn = useCallback(() => setTodayDrawn(true), []);
+  const launch: LaunchReadiness = failed ? 'failed'
+    : shell === null ? 'pending'
+      : shell.shortened ? 'shortened'
+        : shell.onToday && !todayDrawn ? 'pending' : 'ready';
 
   return (
     <GestureHandlerRootView style={styles.root}>
       <LaunchCurtain cold={cold} onFirstFrame={SplashScreen.hide} readiness={launch}>
-        <PerformanceTelemetryContext value={observePerformanceTelemetry}>
-          <ProfileApplicationProvider>
-            <ThemedApplicationShell onLaunchFailed={reportFailed} onLaunchReady={reportReady} />
-          </ProfileApplicationProvider>
-        </PerformanceTelemetryContext>
+        <LaunchScreenReadyContext value={reportTodayDrawn}>
+          <PerformanceTelemetryContext value={observePerformanceTelemetry}>
+            <ProfileApplicationProvider>
+              <ThemedApplicationShell onLaunchFailed={reportFailed} onLaunchReady={reportReady} />
+            </ProfileApplicationProvider>
+          </PerformanceTelemetryContext>
+        </LaunchScreenReadyContext>
       </LaunchCurtain>
     </GestureHandlerRootView>
   );
