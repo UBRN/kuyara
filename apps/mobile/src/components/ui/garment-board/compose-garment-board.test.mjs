@@ -243,11 +243,11 @@ test('runway: several compositions share the scale of the one that needs the lea
 // boards on a 339-point stage, laid out as worn, within half a point.
 const p2Boards = [
   ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']],
-    { height: 244.5, extentW: 143.9, extentH: 220.5 }],
+    { height: 236.8, extentW: 142.5, extentH: 212.8 }],
   ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']],
-    { height: 288.7, extentW: 162.4, extentH: 264.7 }],
+    { height: 290.3, extentW: 162.5, extentH: 266.3 }],
   ['cold formal', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'blazer'], ['outer_layer', 'trench_coat'], ['footwear', 'closed_shoes']],
-    { height: 251.6, extentW: 162.5, extentH: 227.6 }],
+    { height: 258.3, extentW: 162.6, extentH: 234.3 }],
 ];
 
 for (const [name, slots, expected] of p2Boards) {

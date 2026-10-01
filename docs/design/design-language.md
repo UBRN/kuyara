@@ -173,9 +173,9 @@ piece is a neutral from its own colourway, with enough lightness between neighbo
 that they never merge. Every outfit is coloured this way, the Today alternates included
 (O15), and ties break on the option identifier, so an outfit shows the same colours on its
 board, its alternate tile, its finishing-touch badges, its detail and the runway, and nothing
-is stored. Each drawing is lit from the upper left by one opaque gradient between a soft light and a
-deepest shade derived from its own colour. Colour reaches no text, control, border or chrome, it is never composited through
-alpha, and it is never the only signal: the outline, the garment name and the accessibility
+is stored. Each drawing is lit from the upper left by one gradient between a soft light and a
+deepest shade derived from its own colour, and modelled inside its outline in its own tones only, every translucent layer lying over the drawing's own opaque fill. Colour reaches no text, control, border or chrome, it is never composited through
+alpha over anything behind the garment, and it is never the only signal: the outline, the garment name and the accessibility
 label say the same thing without it. Personal records in the Closet and on the Profile rack keep
 the colour-family fills: a recorded colour always wins, and a record without one stays
 neutral rather than being guessed at. Multicolour records use the approved two-stop

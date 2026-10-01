@@ -212,18 +212,31 @@ Every value, in stage-width units unless marked otherwise.
 ## 8. The silhouette set
 
 Thirty-four garment drawings, one 64×64 viewBox each, painted as rich fashion
-illustrations: each drawing is a list of outlines filled with the piece's own palette colours
-and edged in one 1.9-point ink stroke, with shade planes, folds, highlights, tone lines and
-stitches clipped inside them (`silhouettes.ts`; `garment-paint.ts` paints them). One light from
-the upper left grades every plain surface of a drawing through a single opaque gradient from a
-soft light through the piece's colour to its deepest shade, all derived from that colour;
-leather, nylon and rubber catch it in a band instead. Folds are shade slivers at elbows,
-armpits, knees and hems with highlight lines where the light catches, and the cloth carries its
-own weave: stitch columns on knit, a light diagonal twill on denim, a fine twill on suiting, a
-cross-weave on straw. A pattern or the multicolour family fill keeps its own paint. Each
-drawing stays within 90 vector elements at full detail, so a Closet grid or a swap strip of
-many drawings stays light. The drawn bounds the rule reads are measured from the outlines,
-which the light, folds and weave never cross. They cover all **41 outfit-eligible catalogue types**; seven
+illustrations in the manner of an illustrated fashion catalogue: each drawing is a list of
+outlines filled with the piece's own palette colours and edged in one 1.9-point ink stroke,
+with shade planes, folds, highlights, seams, stitches and hardware clipped inside them
+(`silhouettes.ts`; `garment-paint.ts` paints them). The outlines are cut as the garment
+falls: sloped, rounded shoulders, tapering sleeves, curved hems, trouser legs that narrow to
+a slight break, shoes with a heel, a raised instep and a sole. One light from the upper left
+models every piece. Each plain surface is graded by a single gradient from a soft light
+through the piece's colour to its deepest shade, with a soft bloom of the piece's own light
+where the form turns toward it; inside every outline the form turns away at its edge in
+nested bands of the deepest shade (eight on a body or a leg, five on a sleeve-sized part),
+and the rim nearest the light catches a thin bright band. A piece laid over another (a collar, a lapel, a hood, a sole) casts a soft shadow onto
+it, down and to the right. Seams and pocket edges carry a fine light line beside them, so
+they read as sewn; buttons, rivets and pulls stand off the cloth on a small shadow; a quilt
+seam pulls the fill into a soft valley with the light catching the baffle below it; leather,
+nylon and rubber carry a crisp glint far lighter than the cloth. Folds are shade slivers at
+elbows, armpits, knees and hems with soft highlights where the light catches, and the cloth
+carries its own weave: stitch columns on knit, a light diagonal twill on denim, a fine twill
+on suiting, a cross-weave on straw. Every tone is the piece's own (its light, shade, deepest
+shade, highlight and glint, or its material's), and every translucent layer lies inside the
+drawing over its own opaque fill, so nothing behind the garment shows through and no light
+or shadow crosses the ink edge. A pattern or the multicolour family fill keeps its own paint
+and takes the same modelling over it. Each drawing stays within 100 vector elements at full
+detail (about 53 on average), so a Closet grid or a swap strip of many drawings stays
+light. The drawn bounds the rule reads are measured from the outlines, which the modelling
+never crosses. They cover all **41 outfit-eligible catalogue types**; seven
 types share a drawing with another (`overshirt` with `shirt`; `sweatshirt`, `fleece` with
 `sweater`; `long_skirt` with `skirt`; `track_pants` with `trousers`; `knit_dress` with
 `dress`; `weather_boots` with `ankle_boots`). `polo_shirt`, `turtleneck`, `blouse`,

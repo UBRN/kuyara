@@ -51,7 +51,8 @@ type Rendered = Awaited<ReturnType<typeof render>>;
 function shirtOutlineWidth(result: Rendered): number {
   const outline = silhouettes['g-shirt'].groups[0].outline;
   const [width] = result.container
-    .queryAll((node) => node.props.d === outline && typeof node.props.strokeWidth === 'number')
+    .queryAll((node) => node.props.d === outline && typeof node.props.strokeWidth === 'number'
+      && node.props.strokeOpacity == null)
     .map((node) => node.props.strokeWidth as number);
   return width;
 }
