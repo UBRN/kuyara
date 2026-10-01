@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import {
   AppText,
@@ -181,7 +182,7 @@ export function FirstGenerationRunway({
     if (faded.current === visible) return;
     faded.current = visible;
     layerOpacity.set(withTiming(visible ? 1 : 0, { duration: theme.motion.deliberate }, (finished) => {
-      if (finished && !visible) runOnJS(setMounted)(false);
+      if (finished && !visible) scheduleOnRN(setMounted, false);
     }));
   }, [layerOpacity, theme.motion.deliberate, visible]);
   const layerStyle = useAnimatedStyle(() => ({ opacity: layerOpacity.get() }));

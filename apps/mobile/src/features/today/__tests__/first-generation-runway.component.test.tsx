@@ -164,7 +164,8 @@ test('the runway fades out on the deliberate role, then leaves and reports hidde
   expect(result.queryByTestId('first-generation-runway')).toBeNull();
   expect(onVisibleChange).not.toHaveBeenCalledWith(false);
 
-  await act(() => land?.(true));
+  // The hand-off to the React Native runtime is a microtask, which the fake clock owns.
+  await act(() => { land?.(true); jest.advanceTimersByTime(0); });
   expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull();
   expect(onVisibleChange).toHaveBeenLastCalledWith(false);
   withTiming.mockRestore();

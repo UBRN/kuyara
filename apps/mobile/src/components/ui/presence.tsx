@@ -1,13 +1,13 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
-  runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -84,7 +84,7 @@ export function Presence({ visible, children, testID }: PresenceProps) {
     textOpacity.set(withTiming(0, { duration: fast }, (faded) => {
       if (!faded || wanted.get() === 1) return;
       blockHeight.set(withSpring(0, spatial, (closed) => {
-        if (closed && wanted.get() === 0) runOnJS(setCollapsed)(true);
+        if (closed && wanted.get() === 0) scheduleOnRN(setCollapsed, true);
       }));
     }));
   }, [blockHeight, fast, full, height, spatial, textOpacity, textPending, visible, wanted]);

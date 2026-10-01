@@ -456,6 +456,19 @@ test('every exported symbol has a use outside its own definition', () => {
   assert.deepEqual(stale, [], 'an allowlisted export now has a use (or is gone): drop it from the list');
 });
 
+// Reanimated's `runOnJS` is deprecated: a worklet hands work to the React Native runtime
+// through `scheduleOnRN` from react-native-worklets, as `Crossfade` does.
+test('mobile production code never calls the deprecated runOnJS', () => {
+  const found = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\brunOnJS\b/.test(line)) found.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(found, [], 'use scheduleOnRN from react-native-worklets instead of runOnJS');
+});
+
 // ADR 0041 section 12: PostHog is never linked to the account. `identify()` is never called,
 // so analytics stays on its install identifier and neither `localProfileId` nor a Supabase user
 // ID becomes an analytics identifier.
