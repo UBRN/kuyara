@@ -442,7 +442,7 @@ test('the piece sheet offers Close and its area only once it has laid out, and a
   const emitted: TourTargetId[] = [];
   registry.subscribe((id) => emitted.push(id));
   const walkthrough = { active: true, sheetStep: true, restart: () => undefined, reportToday: () => undefined,
-    reportReturningToday: () => undefined };
+    reportReturningToday: () => undefined, reportPopCancelled: () => undefined };
   const result = await render(shell(
     <TourTargetsContext value={registry}>
       <WalkthroughContext value={walkthrough}>

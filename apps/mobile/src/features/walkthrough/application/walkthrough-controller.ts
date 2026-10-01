@@ -43,6 +43,8 @@ export class WalkthroughController {
   private readonly listeners = new Set<Listener>();
   private writeGate: (() => Promise<void>) | null = null;
   private activator: ((id: TourTargetId) => void) | null = null;
+  /** The pop to Today now under way: the state before it started and the one it produced. */
+  private pop: Readonly<{ before: WalkthroughState; after: WalkthroughState }> | null = null;
 
   /** The profile's gate write; the offered tour's close calls it. */
   setGateWriter(writeGate: (() => Promise<void>) | null): void {
@@ -108,6 +110,29 @@ export class WalkthroughController {
   observeSheet(open: boolean): void {
     if (this.state.status !== 'running') return;
     this.apply(sheetOutcome(tourSteps[this.state.stepIndex], open));
+  }
+
+  /**
+   * Outfit detail started its pop back to Today (a swipe or the back control). The tour reads
+   * it as the route change at once, so the back step does not stay over Today for the whole
+   * pop; the state it left is kept in case a swipe is let go and the pop is cancelled.
+   */
+  beginPop(): void {
+    this.pop = null;
+    if (this.state.status !== 'running') return;
+    const before = this.state;
+    this.observeRoute('today');
+    if (this.state !== before) this.pop = { before, after: this.state };
+  }
+
+  /**
+   * The swipe was cancelled and detail stays: the tour returns to the step it was on. Nothing
+   * is restored once anything else has moved the tour since the pop started.
+   */
+  cancelPop(): void {
+    const pop = this.pop;
+    this.pop = null;
+    if (pop && this.state === pop.after) this.setState(pop.before);
   }
 
   private apply(outcome: TourOutcome): void {
