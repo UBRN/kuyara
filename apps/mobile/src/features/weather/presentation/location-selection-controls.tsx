@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import {
   AppText,
   Button,
+  Crossfade,
   Icon,
   NativeList,
   NativeListRow,
@@ -98,6 +100,15 @@ export function LocationSelectionControls({
       : search.status === 'ready' && search.places.length === 0
         ? copy.placeSearchEmpty
         : null;
+
+  // The results arrive with a fade on `motion.fast` rather than popping in (Law 7). With
+  // nothing to show the list is empty, so it waits unseen for the next results.
+  const hasResults = search.status === 'ready' && search.places.length > 0;
+  const resultsOpacity = useSharedValue(hasResults ? 1 : 0);
+  useEffect(() => {
+    resultsOpacity.set(hasResults ? withTiming(1, { duration: theme.motion.fast }) : 0);
+  }, [hasResults, resultsOpacity, theme.motion.fast]);
+  const resultsFade = useAnimatedStyle(() => ({ opacity: resultsOpacity.get() }));
 
   useEffect(() => {
     // React Native live regions cover Android; VoiceOver needs an explicit announcement.
@@ -205,26 +216,30 @@ export function LocationSelectionControls({
           placeholder={copy.placeSearchPlaceholder}
           testID={`${testIDPrefix}-place-search`}
         />
+        {/* A new status crossfades in over the old rather than snapping (Law 7). */}
         {statusCopy ? (
-          <View
-            accessible
-            accessibilityLabel={statusCopy}
-            accessibilityLiveRegion="polite"
-            style={styles.status}>
-            {search.status === 'error' ? (
-              <Icon color={theme.colors.warningInk} name="warning" size={16} />
-            ) : null}
-            <AppText
-              colorRole={search.status === 'error' ? 'warningInk' : 'textSecondary'}
-              style={styles.statusText}
-              variant="caption">
-              {statusCopy}
-            </AppText>
-          </View>
+          <Crossfade contentKey={statusCopy}>
+            <View
+              accessible
+              accessibilityLabel={statusCopy}
+              accessibilityLiveRegion="polite"
+              style={styles.status}>
+              {search.status === 'error' ? (
+                <Icon color={theme.colors.warningInk} name="warning" size={16} />
+              ) : null}
+              <AppText
+                colorRole={search.status === 'error' ? 'warningInk' : 'textSecondary'}
+                style={styles.statusText}
+                variant="caption">
+                {statusCopy}
+              </AppText>
+            </View>
+          </Crossfade>
         ) : null}
       </View>
+      <Animated.View style={[styles.root, resultsFade]}>
       <NativeList testID={`${testIDPrefix}-place-results`}>
-        {search.status === 'ready' && search.places.length > 0 ? (
+        {hasResults ? (
           <NativeListSection footer={copy.placeSearchAttribution}>
             {search.places.map((place) => (
               <NativeListRow
@@ -256,6 +271,7 @@ export function LocationSelectionControls({
           </NativeListSection>
         ) : null}
       </NativeList>
+      </Animated.View>
     </View>
   );
 }
