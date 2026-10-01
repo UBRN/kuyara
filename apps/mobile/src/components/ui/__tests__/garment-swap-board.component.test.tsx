@@ -88,6 +88,18 @@ test('a second flick before the step has rendered is not a second step', async (
   expect(onStep).toHaveBeenLastCalledWith('footwear', 'sandals', true);
 });
 
+// A swiped-away piece fades from the release, as a paged-out piece does: it never slides out
+// opaque while the owner has yet to hand back the stepped pieces.
+test('a flick fades the piece it steps away from before the step has rendered', async () => {
+  const timings = jest.spyOn(Reanimated, 'withTiming');
+  const result = await render(<GarmentSwapBoard {...boardProps()} />, { wrapper: LightTheme });
+  await result.rerender(<GarmentSwapBoard {...boardProps({ focusedSlot: 'footwear' })} />);
+  timings.mockClear();
+  await act(async () => flick(-1));
+  expect(timings).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast });
+  timings.mockRestore();
+});
+
 const tap = (x: number, y: number) => fireGestureHandler(getByGestureTestId('garment-swap-board-tap'), [
   { state: State.BEGAN, x, y },
   { state: State.ACTIVE, x, y },
