@@ -1,9 +1,10 @@
 import { Children, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { GarmentDrawing } from '@/components/ui/garment-board/garment-tile-artwork';
 import { Icon } from '@/components/ui/icon';
+import { PressScale } from '@/components/ui/press-scale';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { borderWidths, radii, spacing } from '@/theme/theme';
@@ -44,7 +45,7 @@ export function ChoiceTile({ disabled = false, drawings, label, onPress, role, s
   const glyphSize = (drawings.length > 1 ? HINT_GLYPH_SIZE : SINGLE_GLYPH_SIZE) * scale;
 
   return (
-    <Pressable
+    <PressScale
       accessibilityLabel={label}
       accessibilityRole={role}
       accessibilityState={role === 'radio' ? { selected, disabled } : { checked: selected, disabled }}
@@ -74,7 +75,7 @@ export function ChoiceTile({ disabled = false, drawings, label, onPress, role, s
           <Icon color={theme.colors.brandAccent} name="checkCircle" size={CHECK_SIZE * scale} />
         </View>
       ) : null}
-    </Pressable>
+    </PressScale>
   );
 }
 

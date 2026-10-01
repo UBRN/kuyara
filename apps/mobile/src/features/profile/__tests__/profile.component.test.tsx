@@ -485,6 +485,12 @@ test('Profile registers the Closet heading, the rack and the History row for the
 
 // Law 7: Profile's heading, rack, cells and rows arrive once, in reading order; the Closet
 // finishing its load swaps the cells inside their block without replaying the arrival.
+// Two calls per arrival (the fade and the travel), one stagger step apart: the heading, the
+// rack, the six category cells one by one, then the rows, the wait capped at deliberate.
+const arrivalDelays = Array.from({ length: 9 }, (_, index) => (
+  Math.min(index * lightTheme.motion.stagger, lightTheme.motion.deliberate)
+)).flatMap((delay) => [delay, delay]);
+
 test('Profile content arrives in reading order and a load does not replay it', async () => {
   mockFontScale(1);
   const withDelay = jest.spyOn(Reanimated, 'withDelay');
@@ -494,11 +500,9 @@ test('Profile content arrives in reading order and a load does not replay it', a
         onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>
   );
-  const { stagger } = lightTheme.motion;
   const result = await render(screen('loading'));
   const delays = () => withDelay.mock.calls.map(([delay]) => delay);
-  // Two calls per block (the fade and the travel), one stagger step apart.
-  expect(delays()).toEqual([0, 0, stagger, stagger, 2 * stagger, 2 * stagger, 3 * stagger, 3 * stagger]);
+  expect(delays()).toEqual(arrivalDelays);
 
   withDelay.mockClear();
   await result.rerender(screen('ready'));
@@ -518,13 +522,11 @@ test('Profile content arrives when the tab is first shown, and only then', async
         onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} shown={shown} />
     </TestProviders>
   );
-  const { stagger } = lightTheme.motion;
   const result = await render(screen(false));
   expect(withDelay).not.toHaveBeenCalled();
 
   await result.rerender(screen(true));
-  expect(withDelay.mock.calls.map(([delay]) => delay))
-    .toEqual([0, 0, stagger, stagger, 2 * stagger, 2 * stagger, 3 * stagger, 3 * stagger]);
+  expect(withDelay.mock.calls.map(([delay]) => delay)).toEqual(arrivalDelays);
 
   withDelay.mockClear();
   await result.rerender(screen(false));
