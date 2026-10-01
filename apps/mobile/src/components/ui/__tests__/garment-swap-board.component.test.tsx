@@ -193,3 +193,46 @@ test('a change that moves pieces hides the captions in the commit that renames t
   await enlarged.rerender(<GarmentSwapBoard {...props('sandals', 'footwear')} />);
   expect(opacityOf(enlarged)).toBe(0);
 });
+
+// A re-laid-out piece's new place or size reaches the screen a frame before its motion does;
+// drawn from React, a piece that stayed showed for a frame where it was going (the lower pieces
+// after a far strip tile). A move lives only in the transform, so React draws nothing new for
+// it; a piece drawn at a new size gets a fresh view, whose first frame starts where it stands.
+test('a re-layout draws no frame of a piece at its new place before it travels there', async () => {
+  const look = (top: 'turtleneck' | 'sleeveless_top'): readonly GarmentBoardPiece[] => [
+    { slot: 'primary_top', garmentTypeId: top, category: 'top' },
+    { slot: 'outer_layer', garmentTypeId: 'parka', category: 'outerwear' },
+    { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
+    { slot: 'footwear', garmentTypeId: 'weather_boots', category: 'footwear' },
+  ];
+  const tops: readonly GarmentSwapCandidate[] = (['sleeveless_top', 'sweater', 'turtleneck'] as const)
+    .map((garmentTypeId) => ({ garmentTypeId, category: 'top', suitable: true }));
+  const props = (top: 'turtleneck' | 'sleeveless_top') => {
+    const next = look(top);
+    return boardProps({
+      candidates: { primary_top: tops },
+      pieces: next,
+      palette: { ...palette, pieces: next.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })) },
+    });
+  };
+  const result = await render(<GarmentSwapBoard {...props('turtleneck')} />, { wrapper: LightTheme });
+  const drawing = (id: string) => result.getByTestId(`garment-swap-board-drawing-${id}`);
+  const frameOf = (view: ReturnType<typeof drawing>) => {
+    const [free] = view.children as ReturnType<typeof drawing>[];
+    const [piece] = free.children as ReturnType<typeof drawing>[];
+    const { left, top, width, height } = StyleSheet.flatten(piece.props.style);
+    return { left, top, width, height };
+  };
+  const jeans = drawing('bottom-jeans');
+  const parka = drawing('outer_layer-parka');
+  const parkaFrame = frameOf(parka);
+  expect(parkaFrame).toMatchObject({ left: 0, top: 0 });
+
+  await result.rerender(<GarmentSwapBoard {...props('sleeveless_top')} />);
+  // The parka only moves: the same view, the same frame; its transform carries the travel.
+  expect(drawing('outer_layer-parka')).toBe(parka);
+  expect(frameOf(drawing('outer_layer-parka'))).toEqual(parkaFrame);
+  // The jeans are drawn larger: a fresh view at the new size.
+  expect(frameOf(drawing('bottom-jeans')).height).not.toBe(frameOf(jeans).height);
+  expect(drawing('bottom-jeans')).not.toBe(jeans);
+});

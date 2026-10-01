@@ -55,6 +55,7 @@ import {
   swapWindow,
 } from './swap-gesture';
 import {
+  drawingKey,
   emptyModel,
   neighbourIn,
   reconcile,
@@ -282,16 +283,19 @@ function PieceView({ instance, ink, outline, settleTravel, stageWidth, stageLimi
       centreX = Math.min(Math.max(centreX - w / 2, 0), stageWidth - w) + w / 2;
       centreY = Math.min(Math.max(centreY - h / 2, 0), stageLimit.get() - h) + h / 2;
     }
+    // The view stands at the stage's origin and the transform alone places it, so a re-layout
+    // that only moves the piece changes nothing React draws: no frame shows the new place
+    // before the motion that travels there.
     return {
       opacity: op.get(),
       transform: [
-        { translateX: centreX + dx.get() - (base.x + base.w / 2) },
-        { translateY: centreY - (base.y + base.h / 2) + SETTLE_TRAVEL * settleTravel.get() },
+        { translateX: centreX + dx.get() - base.w / 2 },
+        { translateY: centreY - base.h / 2 + SETTLE_TRAVEL * settleTravel.get() },
         { scaleX: w / base.w },
         { scaleY: h / base.h },
       ],
     };
-  }, [base.h, base.w, base.x, base.y, stageWidth]);
+  }, [base.h, base.w, stageWidth]);
   const drainStyle = useAnimatedStyle(() => ({ opacity: drain.get() }));
   // The resting drawing hides once the big one is fully over it, so no two outlines show.
   const restStyle = useAnimatedStyle(() => ({ opacity: big !== null && hand.get() >= 1 ? 0 : 1 }), [big]);
@@ -315,7 +319,7 @@ function PieceView({ instance, ink, outline, settleTravel, stageWidth, stageLimi
       style={clip ? [styles.clip, { height: clip.h, left: clip.x, top: clip.y, width: clip.w }] : styles.free}
       testID={testID}>
       <View style={clip ? [styles.free, { left: -clip.x, top: -clip.y }] : styles.free}>
-        <Animated.View style={[styles.piece, { height: base.h, left: base.x, top: base.y, width: base.w }, pieceStyle]}>
+        <Animated.View style={[styles.piece, styles.origin, { height: base.h, width: base.w }, pieceStyle]}>
           <Animated.View style={[StyleSheet.absoluteFill, restStyle]}>
             <PieceArtwork height={base.h} ink={ink} outline={outline} piece={instance.piece} roles={instance.roles}
               width={base.w} />
@@ -615,7 +619,9 @@ export function GarmentSwapBoard({
         case 'leave': {
           const { key } = intent;
           if (intent.paged) {
-            // Opaque and clipped: it slides out of the window and is gone on landing.
+            // Clipped, it fades out on `fast` as it slides out of the window, so it never rests
+            // cut at the window's edge, and is gone on landing.
+            values.op.set(withTiming(0, { duration: fast }));
             if (!intent.fromGesture) {
               pendingSprings.current += 1;
               values.dx.set(withSpring(swapExitOffset(intent.direction, values.dx.get(), intent.stride), spatial,
@@ -1163,7 +1169,7 @@ export function GarmentSwapBoard({
                 : pager && instance.slot === focusedSlot ? pager.window : null}
               ink={colors.textPrimary}
               instance={instance}
-              key={instance.key}
+              key={drawingKey(instance)}
               onBigDone={dropBig}
               outline={outline}
               settleTravel={settleTravel}
@@ -1309,6 +1315,10 @@ const styles = StyleSheet.create({
   panel: {
     left: 0,
     position: 'absolute',
+  },
+  origin: {
+    left: 0,
+    top: 0,
   },
   piece: {
     position: 'absolute',
