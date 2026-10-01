@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { composeGarmentBoard, detailPreset } from './compose-garment-board.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
-import { emptyModel, reconcile } from './swap-reconcile.ts';
+import { drawingKey, emptyModel, reconcile } from './swap-reconcile.ts';
 
 const WIDTH = 358;
 
@@ -162,4 +162,65 @@ test('a piece already entering or staying enlarged is not sent home', () => {
   // A tile tap and Done in one change: the entering piece's own spring already takes it home.
   const tappedAndDone = next(model, 'closed_shoes', null);
   assert.equal(tappedAndDone.intents.some((intent) => intent.kind === 'home'), false);
+});
+
+// A re-laid-out piece's new size reaches the screen a frame before its motion does, so a piece
+// kept under one view showed for a frame at its new size (the lower pieces after a far tile, the
+// paged piece before them). A piece drawn at a new size gets a fresh view; a move alone, which
+// lives only in the transform, keeps the view and its drawing.
+test('a piece drawn at a new size gets a fresh view; one that only moves keeps its view', () => {
+  let model = next(emptyModel, 'sandals', null);
+  let moved = 0;
+  const steps = [
+    ['sandals', 'footwear'], ['sneakers', 'footwear'], ['closed_shoes', 'footwear'], ['closed_shoes', null],
+    ['sneakers', null], ['sandals', 'footwear'], ['sandals', null],
+  ];
+  for (const [footwear, focus] of steps) {
+    const before = new Map(model.instances.map((one) => [one.key, one]));
+    model = next(model, footwear, focus);
+    for (const after of model.instances) {
+      const was = before.get(after.key);
+      if (!was) continue;
+      const sameSize = was.base.w === after.base.w && was.base.h === after.base.h;
+      if (sameSize && (was.base.x !== after.base.x || was.base.y !== after.base.y)) moved += 1;
+      assert.equal(drawingKey(after) === drawingKey(was), sameSize, `${after.key} after ${footwear}`);
+    }
+  }
+  assert.ok(moved > 0, `moved ${moved}`);
+
+  // The recorded far tile: a turtleneck changed for a sleeveless top lays the jeans out larger.
+  const look = (top) => [
+    { slot: 'primary_top', garmentTypeId: top, category: 'top' },
+    { slot: 'outer_layer', garmentTypeId: 'parka', category: 'outerwear' },
+    { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
+    { slot: 'footwear', garmentTypeId: 'weather_boots', category: 'footwear' },
+  ];
+  const tops = { primary_top: ['sleeveless_top', 'sweater', 'turtleneck']
+    .map((garmentTypeId) => ({ garmentTypeId, category: 'top', suitable: true })) };
+  const layout = (current, top) => {
+    const pieces = look(top);
+    const palette = paletteOf(pieces);
+    step += 1;
+    return reconcile(current, {
+      signature: `look-${step}`, composed: compose(pieces), pieces, palette, roles: rolesFor(palette), rolesFor,
+      width: WIDTH, focusedSlot: null, grow: null, pager: null, candidates: tops,
+    }, tools);
+  };
+  const turtleneck = layout(emptyModel, 'turtleneck');
+  const sleeveless = layout(turtleneck, 'sleeveless_top');
+  const jeans = (current) => current.instances.find(({ slot }) => slot === 'bottom');
+  assert.notEqual(jeans(sleeveless).base.h, jeans(turtleneck).base.h);
+  assert.notEqual(drawingKey(jeans(sleeveless)), drawingKey(jeans(turtleneck)));
+  assert.equal(jeans(sleeveless).values, jeans(turtleneck).values);
+});
+
+test('a leaving piece chosen again fades back in rather than showing at once', () => {
+  const stepped = next(enlarged('sandals'), 'closed_shoes', 'footwear');
+  assert.equal(instance(stepped, 'sandals').role, 'previous');
+  const leaving = next(enlarged('sneakers'), 'closed_shoes', 'footwear');
+  assert.equal(instance(leaving, 'sneakers').role, 'leaving');
+  const back = next(leaving, 'sneakers', 'footwear');
+  const promote = back.intents.find((intent) => intent.kind === 'promote'
+    && intent.values === instance(leaving, 'sneakers').values);
+  assert.equal(promote.paged, false);
 });

@@ -110,6 +110,15 @@ export const emptyModel: Model = {
   focus: null,
 };
 
+/**
+ * The identity a piece's view is drawn under: its drawn size is part of it. A view's first
+ * transform is computed from the piece's motion only when it mounts, and a new size reaches the
+ * screen a frame before the motion does: kept under one view, a piece drawn at a new size showed
+ * for a frame at that size with the old transform. A fresh view starts where the piece stands.
+ * A move alone keeps the view: the piece's position lives only in its transform.
+ */
+export const drawingKey = ({ key, base }: Instance) => `${key}@${base.w}x${base.h}`;
+
 export const sameBox = (a: Box, b: Box) => Math.abs(a.x - b.x) < 0.25 && Math.abs(a.y - b.y) < 0.25
   && Math.abs(a.w - b.w) < 0.25 && Math.abs(a.h - b.h) < 0.25;
 
@@ -219,7 +228,11 @@ export function reconcile(model: Model, inputs: ReconcileInputs, tools: Reconcil
       if (existing.role !== 'current') {
         moved = true;
         next = { ...next, role: 'current', base: box };
-        intents.push({ kind: 'promote', values: existing.values, box, fromGesture, scale, paged: existing.paged });
+        // A paged neighbour is opaque behind the window's edge; a leaving piece may have faded.
+        intents.push({
+          kind: 'promote', values: existing.values, box, fromGesture, scale,
+          paged: existing.paged && existing.role !== 'leaving',
+        });
       } else {
         if (!sameBox(existing.base, box)) {
           moved = true;
