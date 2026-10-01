@@ -59,6 +59,12 @@ export function Presence({ visible, children, testID }: PresenceProps) {
     }
   }, [fast]);
 
+  // A block hidden before it was measured never showed or hid anything the effect below
+  // could have recorded; its next showing is an entrance like any other, text after container.
+  useLayoutEffect(() => {
+    if (!visible && height === null) acted.current = false;
+  }, [height, visible]);
+
   useLayoutEffect(() => {
     if (height === null) return;
     const was = acted.current;

@@ -331,14 +331,18 @@ export function OutfitDetailScreen({
   }, [entries.length, ownedCount]);
 
   // Law 7's second moment: recording "Wore this today" settles the board once, with Law 8's
-  // success notification instead of the press's own impact. Only the press here asks for it,
-  // and a failed save, or a save that ends without this outfit (a declined replacement),
-  // forgets the ask, so a worn record read on opening or a change back to the worn outfit
-  // stays still.
+  // success notification instead of the press's own impact. Only a save running here asks for
+  // it (the press itself, and the save a confirmed replacement starts after the first read
+  // came back without this outfit), and a failed save, or a save that ends without this
+  // outfit (a declined replacement), forgets the ask, so a worn record read on opening or a
+  // change back to the worn outfit stays still.
   const [wearAsked, setWearAsked] = useState(false);
   const [wornMoments, setWornMoments] = useState(0);
   const [wasWornBusy, setWasWornBusy] = useState(wornBusy);
-  if (wasWornBusy !== wornBusy) setWasWornBusy(wornBusy);
+  if (wasWornBusy !== wornBusy) {
+    setWasWornBusy(wornBusy);
+    if (wornBusy) setWearAsked(true);
+  }
   if (wearAsked && (worn === 'this' || wornError || (wasWornBusy && !wornBusy))) {
     setWearAsked(false);
     if (worn === 'this') setWornMoments((count) => count + 1);
@@ -346,10 +350,6 @@ export function OutfitDetailScreen({
   useEffect(() => {
     if (wornMoments > 0) haptics.success();
   }, [wornMoments]);
-  const woreThis = onWoreThis ? () => {
-    setWearAsked(true);
-    onWoreThis();
-  } : undefined;
 
   // The route turns the iOS 26 full-screen back swipe off while a piece is focused.
   const boardFocused = focusedSlot !== null;
@@ -685,12 +685,12 @@ export function OutfitDetailScreen({
           <TourTarget id="worn" style={styles.wornAction}>
             {wornShown !== null ? (
               <FadeOnChange animate={wornSwap.changes > 0} key={`worn-in-${wornSwap.changes}`}>
-                {wornShown === 'action' && woreThis ? (
+                {wornShown === 'action' && onWoreThis ? (
                   <Button
                     icon="calendarCheck"
                     label={copy.wornAction}
                     loading={wornBusy}
-                    onPress={woreThis}
+                    onPress={onWoreThis}
                     pressHaptic={false}
                     size="large"
                     testID="outfit-detail-wore-this"

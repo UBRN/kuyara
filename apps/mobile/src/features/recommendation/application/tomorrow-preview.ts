@@ -27,6 +27,28 @@ export function forecastCoversWindow(snapshot: WeatherSnapshot, departureAt: str
 }
 
 /**
+ * Whether a stored preview still answers the question asked: the same dressing day, place,
+ * gender, dress style and sorted styles. The one owner of that comparison, so what Today shows
+ * and what the morning reuses cannot drift apart.
+ */
+export function previewAnswersQuestion(
+  preview: RecommendationSnapshot,
+  question: Readonly<{
+    localDayKey: string | undefined;
+    locationKey: string;
+    clothingPreference: string;
+    dressStyle: RecommendationSnapshot['dressStyle'];
+    styleAesthetics: readonly string[];
+  }>,
+): boolean {
+  return preview.localDayKey === question.localDayKey &&
+    preview.locationKey === question.locationKey &&
+    preview.clothingPreference === question.clothingPreference &&
+    preview.dressStyle === question.dressStyle &&
+    JSON.stringify(preview.styleAesthetics ?? []) === JSON.stringify(question.styleAesthetics);
+}
+
+/**
  * The reuse rule: when the dressing day a preview was chosen for arrives, its selection stands
  * in for a new one only if nothing the selection depended on has moved. The place, gender,
  * resolved formality, sorted styles, catalog version and day variant must match, the weather
@@ -42,11 +64,13 @@ export function reusablePreviewRecommendation(
   if (!preview || !('options' in context)) return null;
   const recommendation = preview.recommendation;
   const offered = new Set(context.options.map(({ optionId }) => optionId));
-  const same = preview.localDayKey === context.localDayKey &&
-    preview.locationKey === locationKey &&
-    preview.clothingPreference === context.clothingPreference &&
-    preview.dressStyle === (context.dressStyle ?? 'smart') &&
-    JSON.stringify(preview.styleAesthetics ?? []) === JSON.stringify(context.styleAesthetics ?? []) &&
+  const same = previewAnswersQuestion(preview, {
+    localDayKey: context.localDayKey,
+    locationKey,
+    clothingPreference: context.clothingPreference,
+    dressStyle: context.dressStyle ?? 'smart',
+    styleAesthetics: context.styleAesthetics ?? [],
+  }) &&
     preview.catalogVersion === context.catalogVersion &&
     preview.dayVariant === context.dayVariant &&
     JSON.stringify(recommendation.requirements.requirements) === JSON.stringify(context.requirements);

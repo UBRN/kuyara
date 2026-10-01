@@ -379,6 +379,9 @@ function TodayScreenContent({
   });
 
   if (presentation.kind !== 'loaded' && stageLaidOut) setStageLaidOut(false);
+  // A loading or error interlude unmounts the leaving board, so it can never report that it
+  // has left; kept, it would drop in again when the outfit returns.
+  if (presentation.kind !== 'loaded' && leavingOutfit) setLeavingOutfit(null);
 
   if (presentation.kind === 'loading') {
     return (
@@ -493,8 +496,13 @@ function TodayScreenContent({
     ? ambientIntensityOf(state.snapshot.weather.current.condition)
     : 'calm';
   const [primary, ...alternates] = presentation.suggestions;
+  const stageHeight = primary
+    ? measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true, easierToSee)
+    : 0;
   if (primary && primary.id !== stageOutfit?.id) {
-    setLeavingOutfit(stageOutfit);
+    // An outfit still waiting for the one before it to leave was never drawn, so it has nothing
+    // to drop: the board already leaving keeps leaving, and the newest outfit rises after it.
+    setLeavingOutfit(leavingOutfit ?? stageOutfit);
     setStageOutfit({
       id: primary.id, boardPieces: primary.boardPieces, palette: primary.palette, replaced: stageOutfit !== null,
     });
@@ -648,14 +656,16 @@ function TodayScreenContent({
                         backgroundColor: stageColor,
                         width: contentWidth,
                         // P2: the stage is as tall as its fitted board, never the free space.
-                        height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true, easierToSee),
+                        height: stageHeight,
                       },
                     ]}
                     onLayout={stageLaidOut ? undefined : () => setStageLaidOut(true)}
                     ref={stageView}
                     testID="today-stage">
                     {leavingOutfit ? (
-                      <View style={styles.leavingBoard}>
+                      // The leaving board is centred in the new stage's frame, whatever height its
+                      // own fitted board has.
+                      <View style={[styles.leavingBoard, { height: stageHeight, width: contentWidth }]}>
                         <GarmentBoard
                           accessibilityLabel=""
                           decorative
@@ -1208,7 +1218,7 @@ const styles = StyleSheet.create({
   outfitTarget: { marginTop: spacing.md },
   archetypeName: { marginBottom: spacing.sm },
   stage: { borderRadius: STAGE_RADIUS, overflow: 'hidden' },
-  leavingBoard: { left: 0, position: 'absolute', top: 0 },
+  leavingBoard: { justifyContent: 'center', left: 0, position: 'absolute', top: 0 },
   captionRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   captionText: { flexShrink: 1 },
   updatingRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },

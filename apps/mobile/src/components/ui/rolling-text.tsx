@@ -17,17 +17,32 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 const ROLL_EASING = Easing.bezier(0.23, 1, 0.32, 1);
 
 export type RollingTextProps = Omit<AppTextProps, 'children'> & Readonly<{
+  /** The text, whose own number decides the direction: a rise rolls up, a fall down. */
   children: string;
-  /** The number the text shows: a rise rolls the changed characters up, a fall down. */
-  value: number;
 }>;
 
-type Shown = Readonly<{ text: string; value: number; id: number }>;
+/** The number a text shows, in either language's decimal mark and either minus sign. */
+function displayedNumber(text: string): number | null {
+  const match = /[-\u2212]?\d+(?:[.,]\d+)?/.exec(text);
+  return match ? Number(match[0].replace('\u2212', '-').replace(',', '.')) : null;
+}
+
+/**
+ * Whether the roll travels up: the displayed number rose or stayed. Read from the text as
+ * shown, so a change of unit rolls the way the visible number moved, not the way the
+ * underlying measurement would have.
+ */
+export function rollsUp(from: string, to: string): boolean {
+  const before = displayedNumber(from);
+  const after = displayedNumber(to);
+  return before === null || after === null || after >= before;
+}
+
+type Shown = Readonly<{ text: string; id: number }>;
 /** A change waiting for its new text to be measured, so the roll starts knowing both widths. */
 type Pending = Readonly<{
   from: string;
   to: string;
-  toValue: number;
   up: boolean;
   id: number;
   /** The old text's width with nothing constraining it. */
@@ -179,15 +194,15 @@ function RollingFrame({ roll, setRoll, children, textProps }: Readonly<{
  * shown from the cache never rolls. At rest it is one plain text, which the screen reader
  * meets and which holds the layout while a roll plays over it.
  */
-export function RollingText({ children: text, value, style, ...rest }: RollingTextProps) {
-  const [shown, setShown] = useState<Shown>({ text, value, id: 0 });
+export function RollingText({ children: text, style, ...rest }: RollingTextProps) {
+  const [shown, setShown] = useState<Shown>({ text, id: 0 });
   const [pending, setPending] = useState<Pending | null>(null);
   const [roll, setRoll] = useState<Roll | null>(null);
   const [natural, setNatural] = useState(0);
   const [fitted, setFitted] = useState(0);
   if (text !== shown.text && pending?.to !== text) {
     setPending({
-      from: shown.text, to: text, toValue: value, up: value >= shown.value, id: shown.id + 1,
+      from: shown.text, to: text, up: rollsUp(shown.text, text), id: shown.id + 1,
       fromNatural: natural, fromFitted: fitted,
     });
   } else if (text === shown.text && pending !== null) {
@@ -197,7 +212,7 @@ export function RollingText({ children: text, value, style, ...rest }: RollingTe
   const measured = (width: number) => {
     if (pending !== null && pending.to === text) {
       setRoll({ ...pending, toNatural: width });
-      setShown({ text: pending.to, value: pending.toValue, id: pending.id });
+      setShown({ text: pending.to, id: pending.id });
       setPending(null);
     }
     setNatural(width);

@@ -42,6 +42,7 @@ import { reaskForDressingDay } from '@/features/recommendation/application/reask
 import {
   TomorrowPreviewController,
   forecastCoversWindow,
+  previewAnswersQuestion,
   type TomorrowPreviewInput,
   type TomorrowPreviewStore,
 } from '@/features/recommendation/application/tomorrow-preview';
@@ -489,10 +490,13 @@ export function RecommendationApplicationProvider({
   }, [activeDeparture, choiceReady, departureReady, language, profileState, resolvedDressStyle,
     resolvedStyles, weatherApplication, weatherState]);
 
-  // Tomorrow's preview is chosen only after a foreground open of Today has asked for it.
-  const [previewWanted, setPreviewWanted] = useState(false);
+  // Tomorrow's preview is chosen only after a foreground open of Today has asked for it, and the
+  // ask belongs to the dressing day it was made in: an open in the afternoon does not carry into
+  // the evening, whose own first foreground open of Today must ask again.
+  const [previewWantedKey, setPreviewWantedKey] = useState<string | null>(null);
+  const previewWanted = previewWantedKey === localDay.key;
   const evaluateApprovedTriggers = useCallback(async (foreground = false) => {
-    if (foreground) setPreviewWanted(true);
+    if (foreground) setPreviewWantedKey(deviceLocalDay().key);
     const generationInput = currentInput();
     if (!generationInput) return;
     if (foreground) foregroundEvaluationRequested.current = true;
@@ -559,18 +563,27 @@ export function RecommendationApplicationProvider({
     settledRecommendation, tomorrowKey, tomorrowMorning, tomorrowStyles]);
   // Shown only while it still answers tomorrow's question: the same place, gender, dress style
   // and styles. Otherwise it simply does not appear; the day's one selection is not spent again.
-  const tomorrowPreview = preview && tomorrowKey && input && preview.localDayKey === tomorrowKey &&
-    preview.locationKey === input.snapshot.locationKey &&
-    preview.clothingPreference === input.clothingPreference && preview.dressStyle === profileDefault &&
-    JSON.stringify(preview.styleAesthetics ?? []) === JSON.stringify(tomorrowStyles)
-    ? preview : null;
+  const tomorrowPreview = preview && tomorrowKey && input && previewAnswersQuestion(preview, {
+    localDayKey: tomorrowKey,
+    locationKey: input.snapshot.locationKey,
+    clothingPreference: input.clothingPreference,
+    dressStyle: profileDefault,
+    styleAesthetics: tomorrowStyles,
+  }) ? preview : null;
 
+  // A new object after every recorded day, so whoever reads History through it (the Closet's
+  // worn counts) reads it again instead of keeping the answer from before the write.
+  const [historyRevision, setHistoryRevision] = useState(0);
   const outfitHistory = useMemo(() => ({
+    revision: historyRevision,
     list: async () => (await loadHistoryRepository()).list(localProfileId),
     get: async (dayKey: string) => (await loadHistoryRepository()).get(localProfileId, dayKey),
-    log: async (dayKey: string, outfit: WornOutfit) =>
-      (await loadHistoryRepository()).log(localProfileId, dayKey, outfit),
-  }), [localProfileId]);
+    log: async (dayKey: string, outfit: WornOutfit) => {
+      const record = await (await loadHistoryRepository()).log(localProfileId, dayKey, outfit);
+      setHistoryRevision((revision) => revision + 1);
+      return record;
+    },
+  }), [historyRevision, localProfileId]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,

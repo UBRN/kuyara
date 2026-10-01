@@ -7,6 +7,8 @@ import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reani
 // The values live here so no feature file authors a motion value.
 export const DEPTH_TRAVEL = 0.25;
 export const DEPTH_SCALE = 0.97;
+/** The share of its height at which a receded header is as good as gone and stops taking touches. */
+export const DEPTH_INERT_SHARE = 0.95;
 
 export type ScrollDepthProps = Readonly<{
   children: ReactNode;
@@ -17,7 +19,7 @@ export type ScrollDepthProps = Readonly<{
 /**
  * Follows the scroll on the UI thread, with no timing of its own: the finger drives it and a
  * scroll back returns it exactly. It recedes over its own height, and a pull past the top
- * leaves it at rest. It adds no accessibility node.
+ * leaves it at rest. Once it has all but faded it takes no touches. It adds no accessibility node.
  */
 export function ScrollDepth({ children, scrollOffset }: ScrollDepthProps) {
   const [height, setHeight] = useState(0);
@@ -27,6 +29,8 @@ export function ScrollDepth({ children, scrollOffset }: ScrollDepthProps) {
     const share = height > 0 ? scrolled / height : 0;
     return {
       opacity: 1 - share,
+      // A header you cannot see must not answer a tap meant for the content over it.
+      pointerEvents: share >= DEPTH_INERT_SHARE ? 'none' : 'auto',
       transform: [
         { translateY: scrolled * DEPTH_TRAVEL },
         { scale: 1 - (1 - DEPTH_SCALE) * share },
