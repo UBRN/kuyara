@@ -1,5 +1,5 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { AccessibilityInfo, Dimensions } from 'react-native';
+import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { EasierToSeeScreen } from '@/features/profile/presentation/easier-to-see-screen';
@@ -138,4 +138,26 @@ test('a rejected save shows the save error in the footer and speaks it once', as
   expect(announce).toHaveBeenCalledTimes(1);
   expect(announce).toHaveBeenLastCalledWith(messages.en.settings.saveError);
   announce.mockRestore();
+});
+
+// Turning the switch on draws the preview larger. The card is always as tall as its "on"
+// drawing, so the switch under the finger never moves: while the mode is off, an unseen,
+// unspoken "on" copy measures that height and the card holds it.
+test('the preview card keeps its "on" height while the mode is off, so the switch stays put', async () => {
+  const result = await renderScreen('en', { boldText: false, increaseContrast: false });
+  const preview = result.getByTestId('settings-easier-to-see-preview');
+  const measure = preview.parent!.children.find((child) => typeof child !== 'string' && child !== preview);
+  expect(measure).toBeDefined();
+  if (typeof measure === 'string' || measure === undefined) return;
+  expect(measure.props.accessibilityElementsHidden).toBe(true);
+  expect(StyleSheet.flatten(measure.props.style)).toMatchObject({ opacity: 0, position: 'absolute' });
+
+  await fireEvent(measure, 'layout', { nativeEvent: { layout: { height: 214, width: 300, x: 0, y: 0 } } });
+  expect(StyleSheet.flatten(result.getByTestId('settings-easier-to-see-preview').props.style))
+    .toMatchObject({ minHeight: 214 });
+
+  // With the mode on, the card is its own "on" size and needs no copy.
+  const on = await renderScreen('en', { boldText: false, increaseContrast: false }, true);
+  const onPreview = on.getByTestId('settings-easier-to-see-preview');
+  expect(onPreview.parent!.children.filter((child) => typeof child !== 'string')).toHaveLength(1);
 });

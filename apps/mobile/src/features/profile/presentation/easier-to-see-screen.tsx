@@ -16,7 +16,7 @@ import {
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useMessages } from '@/localization/use-messages';
-import { useSystemVisibility } from '@/theme/easier-to-see';
+import { EasierToSeeContext, useEasierToSee, useSystemVisibility } from '@/theme/easier-to-see';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -57,6 +57,7 @@ export function EasierToSeeScreen({ enabled, isSaving, onChange }: EasierToSeeSc
   const { fontScale, usesStackedLayout } = useTextScaling();
   const system = useSystemVisibility();
   const [hasSaveError, setHasSaveError] = useState(false);
+  const [onHeight, setOnHeight] = useState(0);
   // VoiceOver reads no footer change, so a failed save is spoken as well as shown.
   useErrorAnnouncement(hasSaveError ? messages.settings.saveError : null);
   const cardWidth = Math.max(0, width - spacing.lg * 4);
@@ -79,33 +80,38 @@ export function EasierToSeeScreen({ enabled, isSaving, onChange }: EasierToSeeSc
     <NativeList testID="settings-easier-to-see">
       <NativeListSection heading={copy.previewHeading} testID="settings-easier-to-see-preview-group">
         <NativeListContentRow testID="settings-easier-to-see-preview-row">
+          {/* The card is always as tall as its "on" drawing, so turning the switch on or off
+              changes what the card shows but never moves the switch under the finger. While
+              the mode is off, an unseen "on" copy measures that height. */}
           <View
             accessibilityLabel={enabled ? copy.previewLabelOn : copy.previewLabelOff}
             accessibilityRole="image"
             accessible
-            style={[styles.preview, usesStackedLayout && styles.stackedPreview, { width: cardWidth }]}
+            style={[
+              styles.preview,
+              usesStackedLayout && styles.stackedPreview,
+              { minHeight: enabled ? undefined : onHeight, width: cardWidth },
+            ]}
             testID="settings-easier-to-see-preview">
-            <View style={[styles.stage, { backgroundColor: theme.colors.stage, width: stageWidth }]}>
-              <GarmentBoard
-                accessibilityLabel={enabled ? copy.previewLabelOn : copy.previewLabelOff}
-                decorative
-                palette={previewPalette}
-                pieces={previewPieces}
-                preset="today"
-                stageColor={theme.colors.stage}
-                testID="settings-easier-to-see-preview-board"
-                width={stageWidth}
-              />
-            </View>
-            <View style={styles.previewText}>
-              <AppText testID="settings-easier-to-see-preview-name" variant="label">
-                {copy.previewOutfitName}
-              </AppText>
-              <AppText testID="settings-easier-to-see-preview-insight" variant="body">
-                {messages.today.dayInsight.sentences.cloudy_day_chilly}
-              </AppText>
-            </View>
+            <PreviewContent stageWidth={stageWidth} testIDs />
           </View>
+          {enabled ? null : (
+            <EasierToSeeContext value>
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                onLayout={(event) => setOnHeight(event.nativeEvent.layout.height)}
+                pointerEvents="none"
+                style={[
+                  styles.preview,
+                  usesStackedLayout && styles.stackedPreview,
+                  styles.measure,
+                  { width: cardWidth },
+                ]}>
+                <PreviewContent stageWidth={stageWidth} />
+              </View>
+            </EasierToSeeContext>
+          )}
         </NativeListContentRow>
       </NativeListSection>
       <NativeListSection
@@ -149,6 +155,38 @@ export function EasierToSeeScreen({ enabled, isSaving, onChange }: EasierToSeeSc
   );
 }
 
+/** The preview's stage and two lines, drawn in whichever mode its provider gives it. */
+function PreviewContent({ stageWidth, testIDs = false }: Readonly<{ stageWidth: number; testIDs?: boolean }>) {
+  const messages = useMessages();
+  const copy = messages.settings.easierToSee;
+  const theme = useKuyaraTheme();
+  const enabled = useEasierToSee();
+  return (
+    <>
+      <View style={[styles.stage, { backgroundColor: theme.colors.stage, width: stageWidth }]}>
+        <GarmentBoard
+          accessibilityLabel={enabled ? copy.previewLabelOn : copy.previewLabelOff}
+          decorative
+          palette={previewPalette}
+          pieces={previewPieces}
+          preset="today"
+          stageColor={theme.colors.stage}
+          testID={testIDs ? 'settings-easier-to-see-preview-board' : undefined}
+          width={stageWidth}
+        />
+      </View>
+      <View style={styles.previewText}>
+        <AppText testID={testIDs ? 'settings-easier-to-see-preview-name' : undefined} variant="label">
+          {copy.previewOutfitName}
+        </AppText>
+        <AppText testID={testIDs ? 'settings-easier-to-see-preview-insight' : undefined} variant="body">
+          {messages.today.dayInsight.sentences.cloudy_day_chilly}
+        </AppText>
+      </View>
+    </>
+  );
+}
+
 function glyph(name: IconName) {
   return function RowGlyph({ color, size }: Readonly<{ color: string; size: number }>) {
     return <Icon color={color} name={name} size={size} />;
@@ -165,6 +203,8 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     flexDirection: 'column',
   },
+  // Out of the flow and unseen: it only measures the "on" card's height.
+  measure: { left: 0, opacity: 0, position: 'absolute', top: 0 },
   stage: {
     borderRadius: radii.control,
     overflow: 'hidden',
