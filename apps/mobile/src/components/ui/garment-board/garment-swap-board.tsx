@@ -22,6 +22,7 @@ import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier
 import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
+import { haptics } from '../haptics';
 import { PRESENCE_TEXT_AFTER } from '../presence';
 import {
   composePieces,
@@ -83,6 +84,9 @@ export type { GarmentSwapCandidate } from './swap-reconcile';
 
 // Law 7's completion moment, as in `GarmentBoard`.
 const SETTLE_TRAVEL = spacing.xs;
+// Law 7's dressing: a piece taken off rises one `md` step as it fades on `fast`, and a piece
+// put on is hung from that height onto its place on the arrival spring.
+const DRESS_LIFT = spacing.md;
 
 /** A grow with the strip height and the visible height it was fitted to. */
 type Enlargement = Grow & Readonly<{ panel: number; visible: number }>;
@@ -93,6 +97,8 @@ export type GarmentSwapBoardLabels = GarmentSwapStripLabels & Readonly<{
   slotName: (slot: OutfitSlot) => string;
   /** Spoken when VoiceOver's activate enlarges a piece: the strip has opened below it. */
   stripShown: string;
+  /** Spoken after a board piece's value: where the reader's Closet already has it, if anywhere. */
+  pieceState?: (garmentTypeId: GarmentTypeId) => string | null;
 }>;
 
 export type GarmentSwapBoardProps = Readonly<{
@@ -258,7 +264,8 @@ function pagerFor(
 function valuesFor(start: PieceStart): PieceValues {
   return {
     from: makeMutable<Box>(start.from), to: makeMutable<Box>(start.box), p: makeMutable(start.p),
-    dx: makeMutable(start.dx), op: makeMutable(start.op), sc: makeMutable(start.sc), drain: makeMutable(0),
+    dx: makeMutable(start.dx), dy: makeMutable(0), op: makeMutable(start.op), sc: makeMutable(start.sc),
+    drain: makeMutable(0),
     hand: makeMutable(start.hand), handFrom: makeMutable(1), handTo: makeMutable(Number.NaN),
   };
 }
@@ -280,7 +287,7 @@ function PieceView({
 }>) {
   const theme = useKuyaraTheme();
   const { base, values, big, key } = instance;
-  const { from, to, p, dx, op, sc, drain, hand, handFrom, handTo } = values;
+  const { from, to, p, dx, dy, op, sc, drain, hand, handFrom, handTo } = values;
   const fast = theme.motion.fast;
   const pieceStyle = useAnimatedStyle(() => {
     const box = lerpBox(from.get(), to.get(), p.get());
@@ -301,7 +308,7 @@ function PieceView({
       opacity: op.get(),
       transform: [
         { translateX: centreX + dx.get() - base.w / 2 },
-        { translateY: centreY - base.h / 2 + SETTLE_TRAVEL * settleTravel.get() },
+        { translateY: centreY - base.h / 2 + SETTLE_TRAVEL * settleTravel.get() + dy.get() },
         { scaleX: w / base.w },
         { scaleY: h / base.h },
       ],
@@ -576,9 +583,24 @@ export function GarmentSwapBoard({
       'worklet';
       scheduleOnRN(springLanded);
     };
-    const spring = (value: SharedValue<number>, target: number) => {
+    const spring = (value: SharedValue<number>, target: number, config = spatial) => {
       pendingSprings.current += 1;
-      value.set(withSpring(target, spatial, landed));
+      value.set(withSpring(target, config, landed));
+    };
+    // Law 7's dressing, with the piece's shadow drawn in the same view: the piece taken off
+    // lifts away as it fades, the one put on is hung on from above, and one the finger has
+    // already carried in catches its weight with the moment's settle.
+    const liftOff = (values: PieceValues) => values.dy.set(withTiming(-DRESS_LIFT, { duration: fast }));
+    const hangOn = (values: PieceValues) => {
+      values.dy.set(-DRESS_LIFT);
+      spring(values.dy, 0, theme.springs.arrival);
+    };
+    const catchWeight = (values: PieceValues) => {
+      pendingSprings.current += 1;
+      values.dy.set(withSequence(
+        withTiming(SETTLE_TRAVEL, { duration: fast }),
+        withSpring(0, theme.springs.arrival, landed),
+      ));
     };
     const visualOf = (values: PieceValues) => lerpBox(values.from.get(), values.to.get(), values.p.get());
     const retarget = (values: PieceValues, box: Box) => {
@@ -621,6 +643,8 @@ export function GarmentSwapBoard({
           values.op.set(intent.paged ? 1 : withTiming(1, { duration: fast }));
           if (!intent.fromGesture) spring(values.dx, 0);
           if (values.sc.get() !== intent.scale) scaleTo(values, intent.scale);
+          if (intent.fromGesture) catchWeight(values);
+          else hangOn(values);
           break;
         case 'enter': {
           if (intent.previous) {
@@ -633,11 +657,13 @@ export function GarmentSwapBoard({
           }
           spring(values.p, 1);
           spring(values.dx, 0);
+          hangOn(values);
           if (!intent.paged) values.op.set(withTiming(1, { duration: fast }));
           break;
         }
         case 'leave': {
           const { key } = intent;
+          liftOff(values);
           if (intent.paged) {
             // Clipped, it fades out on `fast` as it slides out of the window, so it never rests
             // cut at the window's edge, and is gone on landing.
@@ -1066,6 +1092,9 @@ export function GarmentSwapBoard({
 
   const curDx = focused?.values.dx;
   const curOp = focused?.values.op;
+  const curDy = focused?.values.dy;
+  // Handed to the UI runtime as a plain function, as the other callbacks the drag schedules.
+  const selectionTick = haptics.selection;
   const curKey = focused?.key ?? null;
   const nextDx = nextInstance?.values.dx;
   const nextOp = nextInstance?.values.op;
@@ -1138,6 +1167,8 @@ export function GarmentSwapBoard({
       const past = has && Math.abs(shown) >= stride / 2;
       if (past !== dragPast.get()) {
         dragPast.set(past);
+        // Law 8: half a step toward a candidate is a threshold crossed under the finger.
+        if (past) scheduleOnRN(selectionTick);
         scheduleOnRN(setPreviewId, past ? (direction === 1 ? nextId : prevId) : null);
       }
     })
@@ -1155,9 +1186,10 @@ export function GarmentSwapBoard({
       const incomingTile = direction === 1 ? nextTile : prevTile;
       if (incomingId && incomingDx && direction !== 0) {
         incomingDx.set(withSpring(0, { ...spatial, velocity }));
-        // The piece swiped away fades from the release, as a paged-out piece does, instead
-        // of sliding out opaque until the owner has applied the step.
+        // The piece swiped away fades and lifts off from the release, as a paged-out piece
+        // does, instead of sliding out opaque until the owner has applied the step.
         curOp?.set(withTiming(0, { duration: fast }));
+        curDy?.set(withTiming(-DRESS_LIFT, { duration: fast }));
         const key = curKey;
         curDx.set(withSpring(swapExitOffset(direction, shown, stride), { ...spatial, velocity }, (finished) => {
           if (finished && key) scheduleOnRN(removeLeaving, key);
@@ -1259,7 +1291,7 @@ export function GarmentSwapBoard({
             />
           ))}
           {/* The captions and badges are drawn for the eye; each piece's adjustable element
-              speaks its slot and name, and the rows under the board carry the Closet state. */}
+              speaks its slot, its name and its Closet state. */}
           <Animated.View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
@@ -1278,6 +1310,8 @@ export function GarmentSwapBoard({
             const box = atLeast(shownBox, layout.minimumTouchTarget);
             const order = candidates[slot] ?? [];
             const position = order.findIndex((c) => c.garmentTypeId === garmentTypeId) + 1;
+            const value = labels.pieceValue(labels.pieceName(garmentTypeId), position, order.length);
+            const state = labels.pieceState?.(garmentTypeId) ?? null;
             return (
               // VoiceOver's focus is the focus: every piece is adjustable without enlarging it.
               <View
@@ -1286,7 +1320,7 @@ export function GarmentSwapBoard({
                 accessibilityRole="adjustable"
                 // The enlarged piece reads as expanded: its strip is open under the board.
                 accessibilityState={{ expanded: focusedSlot === slot }}
-                accessibilityValue={{ text: labels.pieceValue(labels.pieceName(garmentTypeId), position, order.length) }}
+                accessibilityValue={{ text: state ? `${value}, ${state}` : value }}
                 accessible
                 key={`piece-${slot}`}
                 onAccessibilityAction={({ nativeEvent }) => {

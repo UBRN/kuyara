@@ -6,13 +6,14 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 import * as Reanimated from 'react-native-reanimated';
 
 import type { GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
+import { haptics } from '@/components/ui/haptics';
 import type { GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
 import {
   GarmentSwapBoard,
   type GarmentSwapBoardProps,
   type GarmentSwapCandidate,
 } from '@/components/ui/garment-board/garment-swap-board';
-import { lightTheme } from '@/theme/theme';
+import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 function LightTheme({ children }: PropsWithChildren) {
@@ -348,4 +349,75 @@ test('a re-layout draws no frame of a piece at its new place before it travels t
   // The jeans are drawn larger: a fresh view at the new size.
   expect(frameOf(drawing('bottom-jeans')).height).not.toBe(frameOf(jeans).height);
   expect(drawing('bottom-jeans')).not.toBe(jeans);
+});
+
+// Law 8: half a step toward a candidate is a threshold under the finger, so each crossing
+// toward one ticks once; a drag that stays short of it, or draws back, does not.
+test('a swipe ticks once each time it crosses half a step toward a candidate', async () => {
+  const selection = jest.spyOn(haptics, 'selection').mockImplementation(() => undefined);
+  try {
+    const result = await render(<GarmentSwapBoard {...boardProps()} />, { wrapper: LightTheme });
+    await result.rerender(<GarmentSwapBoard {...boardProps({ focusedSlot: 'footwear' })} />);
+    const pan = () => getByGestureTestId('garment-swap-board-pan').handlers;
+    const move = (translationX: number) => ({ translationX, velocityX: 0 });
+    // One drag in one act: the test mock rebuilds shared values on every render.
+    const drag = async (path: readonly number[]) => act(async () => {
+      const handlers = pan();
+      handlers.onStart?.(move(0) as never);
+      for (const x of path) handlers.onUpdate?.(move(x) as never);
+      handlers.onEnd?.(move(0) as never, false);
+    });
+    // Short of half a step either way: no tick.
+    await drag([-10, -30, 10, 30]);
+    expect(selection).not.toHaveBeenCalled();
+    // Across, staying across, back short of it and across again: two ticks.
+    await drag([-10, -200, -210, -10, -200]);
+    expect(selection).toHaveBeenCalledTimes(2);
+  } finally {
+    selection.mockRestore();
+  }
+});
+
+// Law 7's dressing: on any change the piece taken off lifts away as it fades on `fast`, and
+// the one put on is hung on from that height and lands on the arrival spring; one the finger
+// already carried in catches its weight with the moment's settle instead.
+test('a change lifts the old piece off and hangs the new one on', async () => {
+  const timings = jest.spyOn(Reanimated, 'withTiming');
+  const springs = jest.spyOn(Reanimated, 'withSpring');
+  const sequences = jest.spyOn(Reanimated, 'withSequence');
+  const { fast } = lightTheme.motion;
+  const { arrival } = lightTheme.springs;
+  const stepped = (garmentTypeId: 'sandals' | 'closed_shoes', focusedSlot: 'footwear' | null) => {
+    const shoes = withShoes(garmentTypeId);
+    return boardProps({
+      focusedSlot,
+      pieces: shoes,
+      palette: { ...palette, pieces: shoes.map(({ slot, garmentTypeId: id }) => ({ slot, garmentTypeId: id })) },
+    });
+  };
+  try {
+    // A tile or the picker: lifted off, hung on.
+    const result = await render(<GarmentSwapBoard {...stepped('sandals', null)} />, { wrapper: LightTheme });
+    timings.mockClear();
+    springs.mockClear();
+    sequences.mockClear();
+    await result.rerender(<GarmentSwapBoard {...stepped('closed_shoes', null)} />);
+    expect(timings).toHaveBeenCalledWith(-spacing.md, { duration: fast });
+    expect(springs).toHaveBeenCalledWith(0, arrival, expect.any(Function));
+    expect(sequences).not.toHaveBeenCalled();
+
+    // A swipe: the piece swiped away lifts from the release; the one carried in catches.
+    const swiped = await render(<GarmentSwapBoard {...stepped('sandals', 'footwear')} />, { wrapper: LightTheme });
+    timings.mockClear();
+    sequences.mockClear();
+    await act(async () => flick(-1));
+    expect(timings).toHaveBeenCalledWith(-spacing.md, { duration: fast });
+    await swiped.rerender(<GarmentSwapBoard {...stepped('closed_shoes', 'footwear')} />);
+    expect(sequences).toHaveBeenCalledTimes(1);
+    expect(timings).toHaveBeenCalledWith(spacing.xs, { duration: fast });
+  } finally {
+    timings.mockRestore();
+    springs.mockRestore();
+    sequences.mockRestore();
+  }
 });

@@ -125,8 +125,9 @@ test('Button exposes its label, role, capsule, loading slot, focus ring and touc
   // The label wraps rather than truncates, and pressed never drops the opacity.
   assert.doesNotMatch(buttonSource, /numberOfLines/);
   assert.doesNotMatch(buttonSource, /pressedOpacity|opacity:/);
-  // Law 8: only the prominent role confirms its own press.
-  assert.match(buttonSource, /if \(variant === 'prominent'\) haptics\.impactLight\(\)/);
+  // Law 8: only the prominent role confirms its own press, unless its outcome fires the
+  // success notification instead ("Wore this today").
+  assert.match(buttonSource, /if \(variant === 'prominent' && pressHaptic\) haptics\.impactLight\(\)/);
   assert.equal(layout.minimumTouchTarget, 44);
 });
 

@@ -11,7 +11,8 @@ const WIDTH = 358;
 const mutable = (value) => ({ value, get() { return this.value; }, set(next) { this.value = next; } });
 const values = (start) => ({
   from: mutable(start.from), to: mutable(start.box), p: mutable(start.p), dx: mutable(start.dx), op: mutable(start.op),
-  sc: mutable(start.sc), drain: mutable(0), hand: mutable(start.hand), handFrom: mutable(1), handTo: mutable(Number.NaN),
+  sc: mutable(start.sc), dy: mutable(0), drain: mutable(0), hand: mutable(start.hand), handFrom: mutable(1),
+  handTo: mutable(Number.NaN),
 });
 const compose = (pieces, fit = 1) => {
   const result = composeGarmentBoard(pieces.map((piece) => ({

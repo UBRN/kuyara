@@ -287,6 +287,9 @@ function TodayScreenContent({
   // The badge row closes in place when a new outfit carries no source, so while it closes it
   // keeps drawing the source it last showed.
   const [shownGenerationMode, setShownGenerationMode] = useState<GenerationMode | null>(null);
+  // Law 7's exit: the outfit on the stage, and whether it took another one's place while
+  // Today was shown, so a new outfit rises only once the pieces it replaces have left.
+  const [stageOutfit, setStageOutfit] = useState<Readonly<{ id: string; replaced: boolean }> | null>(null);
   // Held until the hero stage has laid out once, so the first outfit's rise starts after the
   // screen has been drawn rather than being spent while the loaded screen is still mounting.
   const [stageLaidOut, setStageLaidOut] = useState(false);
@@ -486,6 +489,7 @@ function TodayScreenContent({
     ? ambientIntensityOf(state.snapshot.weather.current.condition)
     : 'calm';
   const [primary, ...alternates] = presentation.suggestions;
+  if (primary && primary.id !== stageOutfit?.id) setStageOutfit({ id: primary.id, replaced: stageOutfit !== null });
   const generationMode = presentation.generationMode;
   if (generationMode && (shownGenerationMode?.mode !== generationMode.mode
     || shownGenerationMode.label !== generationMode.label
@@ -644,13 +648,15 @@ function TodayScreenContent({
                     <GarmentBoard
                       accessibilityLabel={presentation.stageAccessibilityLabel}
                       // ADR 0021 section 10's transition between suggestions: the key is the
-                      // option identity, so a new recommendation re-mounts the board and the
-                      // pieces rise once more, while a refresh that returns the same outfit
-                      // leaves it still. The rise is never the only signal; the archetype and
-                      // freshness line also change with it.
+                      // option identity, so a new recommendation re-mounts the board: the old
+                      // pieces drop and fade, then the new ones rise, while a refresh that
+                      // returns the same outfit leaves it still. The rise is never the only
+                      // signal; the archetype and freshness line also change with it.
                       key={primary.id}
                       fit
                       holdRise={holdRise || !stageLaidOut}
+                      leaves
+                      replaces={stageOutfit?.replaced === true}
                       palette={primary.palette}
                       pieces={primary.boardPieces}
                       preset="today"
