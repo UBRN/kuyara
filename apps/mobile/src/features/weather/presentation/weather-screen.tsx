@@ -240,6 +240,10 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   // starts while the screen is behind the location picker or freshly mounted keeps its
   // inset until the next pull (seen 2026-09-10 after a location change).
   const [pullInFlight, setPullInFlight] = useState(false);
+  // The forecast's marks draw in only when its data reaches a screen that was showing none
+  // (a first fetch, or a new place loading): a cached open and a refresh leave them still.
+  // The cold `loading` status is the cache being read, so it does not count as empty.
+  const [awaitingForecast, setAwaitingForecast] = useState(false);
   // The rail's clock: read once, then again whenever the tab regains focus, so a screen
   // left open across an hour boundary drops the ended hour on return without a timer.
   const now = useForegroundClock();
@@ -339,6 +343,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
     && state.snapshot.locationKey === state.activeLocation?.locationKey
     ? state.snapshot
     : null;
+  if (snapshot === null && !awaitingForecast) setAwaitingForecast(true);
   const updatedAt = snapshot
     ? copy.updatedAt(lastUpdated(snapshot.fetchedAt, language, hour12, now))
     : '';
@@ -651,7 +656,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                   variant="bodyStrong">
                   {copy.hourlyHeading}
                 </AppText>
-                <HourlyRail columns={hourlyColumns} />
+                <HourlyRail columns={hourlyColumns} drawIn={awaitingForecast} waiting={!shown} />
               </Surface>
             </Entrance>
           )}
@@ -668,7 +673,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                   variant="bodyStrong">
                   {copy.dailyHeading}
                 </AppText>
-                <DailyOutlook rows={dailyRows} />
+                <DailyOutlook drawIn={awaitingForecast} rows={dailyRows} waiting={!shown} />
               </Surface>
             </Entrance>
           )}

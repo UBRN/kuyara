@@ -1125,7 +1125,8 @@ test('the hourly rail scrolls horizontally and plots one accent temperature seri
 
   const series = result.getByTestId('weather-hourly-series', { includeHiddenElements: true });
   expect(isHiddenFromAccessibility(series)).toBe(true);
-  expect(StyleSheet.flatten(series.props.style)).toMatchObject({ position: 'absolute', top: 42 });
+  const reveal = result.getByTestId('weather-hourly-series-reveal', { includeHiddenElements: true });
+  expect(StyleSheet.flatten(reveal.props.style)).toMatchObject({ position: 'absolute', top: 42 });
   // The series is Weather's accent-coloured temperature encoding; the daily rails below
   // draw the same quantity in the same hue and count with it, not against it (Law 1).
   const line = result.getByTestId('weather-hourly-series-line', { includeHiddenElements: true });
@@ -1599,6 +1600,63 @@ test('the forecast cards arrive when the tab is first shown, and only then', asy
   await result.rerender(screen(true));
   expect(withDelay).not.toHaveBeenCalled();
   withDelay.mockRestore();
+});
+
+// The forecast's marks draw in once, when its data first reaches a Weather screen that was
+// showing none. Data already there at mount (a cached open) and a refresh of the same place
+// leave the series and the ranges at rest.
+test('the forecast draws in when its data first arrives, never on a cached open or a refresh', async () => {
+  // The test mock lands every spring at once; hold the landing to read the first frame.
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
+  const istanbul = getManualLocation('sample.istanbul')!;
+  const ready = (fetchedAt: string | null, isRefreshing = false) => (
+    <Providers language="en" value={createValue({
+      ...baseState,
+      activeLocation: istanbul,
+      snapshot: fetchedAt === null
+        ? null
+        : { ...sampleSnapshot(), fetchedAt, daily: sampleDaily },
+      freshness: fetchedAt === null ? null : 'fresh',
+      isRefreshing,
+    })}><WeatherScreen /></Providers>
+  );
+  const layoutBand = async (result: Awaited<ReturnType<typeof render>>) => {
+    const band = result.getAllByTestId('weather-hourly-band', { includeHiddenElements: true })[0];
+    await fireEvent(band, 'layout', { nativeEvent: { layout: { x: 0, y: 42, width: 64, height: 64 } } });
+  };
+  const fillTransforms = (result: Awaited<ReturnType<typeof render>>) => result
+    .getAllByTestId('weather-daily-rail-fill', { includeHiddenElements: true })
+    .map((fill) => StyleSheet.flatten(fill.props.style).transform);
+  const revealStyle = (result: Awaited<ReturnType<typeof render>>) => StyleSheet.flatten(
+    result.getByTestId('weather-hourly-series-reveal', { includeHiddenElements: true }).props.style,
+  );
+
+  // A cached open: the forecast is on screen from the first frame and does not draw.
+  const cached = await render(ready('2026-07-30T09:00:00.000Z'));
+  await layoutBand(cached);
+  expect(fillTransforms(cached).every((transform) => transform === undefined)).toBe(true);
+  expect(revealStyle(cached).transform).toBeUndefined();
+  await cached.unmount();
+
+  // A first fetch: the screen showed no forecast, so the ranges start collapsed at their
+  // low end and the series starts covered, both drawing in on the spatial spring.
+  const arriving = await render(ready(null));
+  await arriving.rerender(ready('2026-07-30T09:00:00.000Z'));
+  await layoutBand(arriving);
+  expect(fillTransforms(arriving).every((transform) => (
+    JSON.stringify(transform) === JSON.stringify([{ scaleX: 0 }])
+  ))).toBe(true);
+  const reveal = revealStyle(arriving);
+  expect(reveal.transform).toEqual([{ translateX: -Number(reveal.width) }]);
+  const drawSprings = withSpring.mock.calls.filter(([, config]) => config === lightTheme.springs.spatial).length;
+
+  // A background refresh brings a newer snapshot of the same place: nothing draws again.
+  withSpring.mockClear();
+  await arriving.rerender(ready('2026-07-30T09:00:00.000Z', true));
+  await arriving.rerender(ready('2026-07-30T09:20:00.000Z'));
+  expect(withSpring).not.toHaveBeenCalled();
+  expect(drawSprings).toBeGreaterThan(0);
+  withSpring.mockRestore();
 });
 
 // Law 7: the freshness line and the "Last updated" caption change in place with a crossfade

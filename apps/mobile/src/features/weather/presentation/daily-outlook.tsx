@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
+import { AppText, DrawGrow, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
@@ -48,7 +48,15 @@ export type DailyOutlookRow = Readonly<{
   currentCelsius: number | null;
 }>;
 
-export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow[] }>) {
+export type DailyOutlookProps = Readonly<{
+  rows: readonly DailyOutlookRow[];
+  /** True when this forecast is the first to reach the screen: each range grows in once. */
+  drawIn?: boolean;
+  /** Holds the growth at its start while the tab is not yet shown. */
+  waiting?: boolean;
+}>;
+
+export function DailyOutlook({ rows, drawIn = false, waiting = false }: DailyOutlookProps) {
   const theme = useKuyaraTheme();
   const { controlScale, usesStackedLayout } = useTextScaling();
 
@@ -81,7 +89,10 @@ export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow
               { backgroundColor: theme.colors.surfaceMuted },
             ]}
             testID="weather-daily-rail">
-            <View
+            {/* Each range grows from its low to its high, a row after the hourly series. */}
+            <DrawGrow
+              index={index + 1}
+              play={drawIn}
               style={[
                 styles.railFill,
                 {
@@ -91,6 +102,7 @@ export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow
                 },
               ]}
               testID="weather-daily-rail-fill"
+              waiting={waiting}
             />
             {row.currentCelsius === null ? null : (
               <View
