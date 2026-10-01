@@ -1116,6 +1116,13 @@ test('outfit detail carries the coverage line inside the weather recap', async (
   expect(recap.props.accessibilityLabel).toContain(line);
 });
 
+// Every piece and every contact shade rises on its own layer under the hero board.
+function heroRiseLayers(result: Awaited<ReturnType<typeof render>>) {
+  return result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, { includeHiddenElements: true }).children
+    .filter((child) => typeof child !== 'string')
+    .map((layer) => StyleSheet.flatten(layer.props.style) ?? {});
+}
+
 test('the hero board rises into a stage that stays still', async () => {
   // The test mock lands every spring at once; hold the landing to read the first frame.
   const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
@@ -1129,10 +1136,10 @@ test('the hero board rises into a stage that stays still', async () => {
   const hidden = { includeHiddenElements: true };
 
   // Law 7: the garment pieces arrive; the stage plate they land on never moves.
-  expect(StyleSheet.flatten(
-    result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, hidden).parent!.props.style,
-  ))
-    .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  expect(heroRiseLayers(result).length).toBeGreaterThan(0);
+  for (const layer of heroRiseLayers(result)) {
+    expect(layer).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  }
   expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
     .not.toHaveProperty('transform');
   withSpring.mockRestore();
@@ -1153,9 +1160,6 @@ test('the hero board holds its rise while the first-run runway covers it, then r
     </RecommendationApplicationContext>,
   );
   const hidden = { includeHiddenElements: true };
-  const rise = () => StyleSheet.flatten(
-    result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, hidden).parent!.props.style,
-  ) ?? {};
   const result = await render(screen(true));
   await fireEvent(result.getByTestId('today-content', hidden), 'layout', {
     nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
@@ -1164,11 +1168,14 @@ test('the hero board holds its rise while the first-run runway covers it, then r
     nativeEvent: { layout: { width: 358, height: 400, x: 0, y: 0 } },
   });
   expect(result.getByTestId('first-generation-runway')).toBeOnTheScreen();
-  expect(rise()).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  expect(heroRiseLayers(result).length).toBeGreaterThan(0);
+  for (const layer of heroRiseLayers(result)) {
+    expect(layer).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  }
 
   await result.rerender(screen(false));
   await waitFor(() => expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull());
-  expect(rise().opacity ?? 1).toBe(1);
+  expect(heroRiseLayers(result).every((layer) => (layer.opacity ?? 1) === 1)).toBe(true);
 });
 
 // A cold launch swaps the placeholder for the loaded screen while that screen is still being
@@ -1179,15 +1186,15 @@ test('the first hero rise waits until its stage has laid out', async () => {
     <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
       onAskAgain={jest.fn()} state={todayScreenState} />,
   ));
-  const rise = () => StyleSheet.flatten(
-    result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, hidden).parent!.props.style,
-  ) ?? {};
-  expect(rise()).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  expect(heroRiseLayers(result).length).toBeGreaterThan(0);
+  for (const layer of heroRiseLayers(result)) {
+    expect(layer).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  }
 
   await fireEvent(result.getByTestId('today-stage', hidden), 'layout', {
     nativeEvent: { layout: { width: 358, height: 400, x: 0, y: 0 } },
   });
-  await waitFor(() => expect(rise().opacity ?? 1).toBe(1));
+  await waitFor(() => expect(heroRiseLayers(result).every((layer) => (layer.opacity ?? 1) === 1)).toBe(true));
 });
 
 test('a new suggestion re-mounts the hero board, and the same one back leaves it still', async () => {
