@@ -97,6 +97,15 @@ let mockPush = jest.fn();
 // presses the bar items.
 const mockLinkTo = jest.fn();
 const mockPreventZoomDismissal = jest.fn();
+// A tile's link skips a press its handler prevented; RNTL's default event never records one.
+function linkPressEvent() {
+  return {
+    defaultPrevented: false,
+    preventDefault(this: { defaultPrevented: boolean }) {
+      this.defaultPrevented = true;
+    },
+  };
+}
 jest.mock('expo-router/build/global-state/routing', () => ({
   ...jest.requireActual('expo-router/build/global-state/routing'),
   linkTo: (...args: unknown[]) => mockLinkTo(...args),
@@ -228,6 +237,7 @@ beforeEach(() => {
   mockFocusEffects = [];
   mockSearchParams = {};
   mockPush = jest.fn();
+  mockLinkTo.mockClear();
 });
 
 const item: WardrobeItem = {
@@ -1842,19 +1852,27 @@ test('a quick double tap on the plus button or a Closet tile opens one screen', 
 
   // A second, separate route instance has its own window: the tile press is its own tap.
   const tiles = await render(closetRoute([plainItem]));
-  // The link skips a press its handler prevented; RNTL's default event never records one.
-  const pressEvent = () => ({
-    defaultPrevented: false,
-    preventDefault(this: { defaultPrevented: boolean }) {
-      this.defaultPrevented = true;
-    },
-  });
-  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`), pressEvent());
-  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`), pressEvent());
+  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`), linkPressEvent());
+  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`), linkPressEvent());
   // A tile is a link, which navigates through the router's `linkTo` rather than `push`.
   expect(mockLinkTo).toHaveBeenCalledTimes(1);
   expect(mockLinkTo).toHaveBeenCalledWith(
     expect.stringMatching(new RegExp(`^/wardrobe/${plainItem.id}\\?`)),
     expect.objectContaining({ event: 'PUSH' }),
   );
+});
+
+test('a tile and the plus button pressed together open one screen, whichever comes first', async () => {
+  mockSearchParams = { category: plainItem.category };
+  const tileFirst = await render(closetRoute([plainItem]));
+  await fireEvent.press(tileFirst.getByTestId(`wardrobe-item-${plainItem.id}`), linkPressEvent());
+  await fireEvent.press(tileFirst.getByTestId('wardrobe-add-button'));
+  expect(mockLinkTo).toHaveBeenCalledTimes(1);
+  expect(mockPush).not.toHaveBeenCalled();
+
+  const plusFirst = await render(closetRoute([plainItem]));
+  await fireEvent.press(plusFirst.getByTestId('wardrobe-add-button'));
+  await fireEvent.press(plusFirst.getByTestId(`wardrobe-item-${plainItem.id}`), linkPressEvent());
+  expect(mockPush).toHaveBeenCalledTimes(1);
+  expect(mockLinkTo).toHaveBeenCalledTimes(1);
 });

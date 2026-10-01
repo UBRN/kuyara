@@ -9,7 +9,7 @@ import {
   ANALYTICS_SCHEMA_VERSION,
   type CountBucket,
 } from '@/features/analytics/domain/analytics-events';
-import { useSinglePush } from '@/components/ui/use-single-push';
+import { useSingleTap, type SingleTap } from '@/components/ui/use-single-push';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import {
@@ -31,16 +31,23 @@ export function WardrobeListRoute({
   onCategoryInView,
   revealWanted = false,
   savedItemId,
+  singleTap,
   transitionLanded,
 }: Readonly<{
   initialCategory?: StructuralCategory;
   onCategoryInView?: (category: StructuralCategory) => void;
   revealWanted?: boolean;
   savedItemId?: string | null;
+  /**
+   * The Closet route's own guard, so its plus button, the list's add action and every tile
+   * open one screen between them however quickly they are pressed together.
+   */
+  singleTap?: SingleTap;
   transitionLanded?: boolean;
 }> = {}) {
   const router = useRouter();
-  const push = useSinglePush();
+  const ownTap = useSingleTap();
+  const tap = singleTap ?? ownTap;
   const { analytics, firstUses, retries } = useProductAnalytics();
   const { refresh, resolvePhotoUri, softDeleteItem, state } = useWardrobeApplication();
   const pendingRetryRef = useRef<PendingRetry | null>(null);
@@ -134,7 +141,7 @@ export function WardrobeListRoute({
       // the same value this add action sends, and the form opens its type chooser on the
       // category the user is looking at.
       onAdd={(category) =>
-        push({
+        tap.push({
           params: { category },
           pathname: '/wardrobe/new',
         })
@@ -142,6 +149,7 @@ export function WardrobeListRoute({
       onCategoryChange={(category) => router.setParams({ category })}
       onCategoryInView={onCategoryInView}
       itemHref={(id) => `/wardrobe/${id}`}
+      onItemPress={tap.linkPress}
       onRetry={handleRetry}
       // O10's Undo removes the piece just saved, as Delete would; it emits no analytics
       // event of its own (no event change here).

@@ -2,7 +2,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
 import { GlassButton, useTransitionLanded } from '@/components/ui';
-import { useSinglePush } from '@/components/ui/use-single-push';
+import { useSingleTap } from '@/components/ui/use-single-push';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import {
   isWardrobeRouteId,
@@ -27,7 +27,9 @@ export default function WardrobeRoute() {
   const initialCategory = parseStructuralCategoryParam(category);
   const savedItemId = isWardrobeRouteId(added) ? added : null;
   const messages = useMessages();
-  const push = useSinglePush();
+  // One guard for the plus button, the list's add action and the tiles: whichever is
+  // pressed first opens its screen, and a quick second press anywhere opens nothing.
+  const tap = useSingleTap();
   // The Closet opened from Profile's heading or Wanted row carries no category; the list
   // resolves one and reports it here so the plus button still starts on the one in view.
   const [viewedCategory, setViewedCategory] = useState<StructuralCategory | undefined>();
@@ -51,7 +53,7 @@ export default function WardrobeRoute() {
               kind="bar"
               label={messages.wardrobe.addAction}
               onPress={() =>
-                push(
+                tap.push(
                   addCategory
                     ? { params: { category: addCategory }, pathname: '/wardrobe/new' }
                     : '/wardrobe/new',
@@ -73,6 +75,7 @@ export default function WardrobeRoute() {
         key={savedItemId ?? ''}
         revealWanted={parseWardrobeEntryStateParam(filter) === 'wanted'}
         savedItemId={savedItemId}
+        singleTap={tap}
         transitionLanded={transitionLanded}
       />
     </>
