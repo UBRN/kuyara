@@ -1560,6 +1560,44 @@ test('a successful update captures closet_item_updated with only the fields that
   );
 });
 
+test('the edit form draws a piece the Closet holds on its first frame', async () => {
+  mockSearchParams = {};
+  const getItem = jest.fn(async () => plainItem);
+  const listed = await render(
+    <TestProviders>
+      <AnalyticsProviders>
+        <WardrobeApplicationContext.Provider value={wardrobeApplication({ getItem })}>
+          <WardrobeEditItemRoute itemId={plainItem.id} />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+  // No loading card in between: the zoom from the tile grows into the form itself.
+  expect(listed.getByTestId('wardrobe-edit-form')).toBeOnTheScreen();
+  expect(listed.queryByTestId('wardrobe-item-loading')).toBeNull();
+  expect(getItem).not.toHaveBeenCalled();
+});
+
+test('the edit form reads a piece the Closet does not hold from the repository', async () => {
+  mockSearchParams = {};
+  const getItem = jest.fn(async () => plainItem);
+  const unlisted = await render(
+    <TestProviders>
+      <AnalyticsProviders>
+        <WardrobeApplicationContext.Provider
+          value={wardrobeApplication({
+            getItem,
+            state: { status: 'ready', items: [], isRefreshing: false, isMutating: false, refreshFailure: null },
+          })}>
+          <WardrobeEditItemRoute itemId={plainItem.id} />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+  await waitFor(() => expect(unlisted.getByTestId('wardrobe-edit-form')).toBeOnTheScreen());
+  expect(getItem).toHaveBeenCalledWith(plainItem.id);
+});
+
 test('a changed edit form holds off the zoom close, which a clean form keeps', async () => {
   mockSearchParams = {};
   const result = await render(
@@ -1587,7 +1625,9 @@ test('a successful delete captures closet_item_deleted with the pre-delete state
   mockSearchParams = {};
   const analytics = new RecordingProductAnalytics();
   const deletedItem: WardrobeItem = { ...plainItem, photoRelativePath: 'wardrobe/photo.jpg' };
+  // The Closet's list and the repository hold the same piece.
   const application = wardrobeApplication({
+    state: { status: 'ready', items: [deletedItem], isRefreshing: false, isMutating: false, refreshFailure: null },
     getItem: async () => deletedItem,
     softDeleteItem: jest.fn(async () => ({
       ...deletedItem,

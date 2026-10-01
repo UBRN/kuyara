@@ -243,9 +243,18 @@ export function WardrobeEditItemRoute({
   const { analytics } = useProductAnalytics();
   const profileApplication = useProfileApplication();
   const router = useRouter();
-  const [item, setItem] = useState<WardrobeItem | null>(null);
+  // The Closet a tile was pressed in already holds the piece the application last read, so
+  // the form draws it on its first frame and the tile's zoom grows into the form itself
+  // rather than a loading card. A piece the list does not hold (a deep link, a Closet still
+  // loading) is read from the repository as before.
+  const [listedItem] = useState(() =>
+    application.state.status === 'ready'
+      ? (application.state.items.find((listed) => listed.id === itemId) ?? null)
+      : null,
+  );
+  const [item, setItem] = useState<WardrobeItem | null>(listedItem);
   const [loadStatus, setLoadStatus] = useState<'loading' | 'error' | 'ready'>(
-    'loading',
+    listedItem ? 'ready' : 'loading',
   );
   const [isDirty, setIsDirty] = useState(false);
   const guard = useWardrobeExitGuard(isDirty, confirmation);
@@ -272,6 +281,9 @@ export function WardrobeEditItemRoute({
   };
 
   useEffect(() => {
+    if (listedItem) {
+      return;
+    }
     let cancelled = false;
 
     getItem(normalizedId)
@@ -290,7 +302,7 @@ export function WardrobeEditItemRoute({
     return () => {
       cancelled = true;
     };
-  }, [getItem, normalizedId]);
+  }, [getItem, listedItem, normalizedId]);
 
   if (!isWardrobeRouteId(normalizedId)) {
     return (
