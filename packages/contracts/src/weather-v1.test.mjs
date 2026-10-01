@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   isValidWeatherHourlyForecastWindow,
   weatherConditionCodes,
+  weatherLocalDateKey,
   weatherHourlyForecastMaximumEntries,
   weatherV1ErrorCodes,
   weatherV1ErrorSchema,
@@ -190,4 +191,26 @@ test('includes rate_limited among the stable error codes', () => {
   assert.equal(weatherV1ErrorSchema.safeParse({
     error: { code: 'rate_limited' },
   }).success, true);
+});
+
+test('spellings of one time zone that differ only in letter case share one cached formatter', () => {
+  const real = Intl.DateTimeFormat;
+  let built = 0;
+  Intl.DateTimeFormat = class extends real {
+    constructor(...args) {
+      super(...args);
+      built += 1;
+    }
+  };
+  try {
+    const keys = ['Pacific/Chatham', 'pacific/chatham', 'PACIFIC/CHATHAM'].map((zone) => (
+      weatherLocalDateKey('2026-08-01T12:00:00.000Z', zone)
+    ));
+    assert.deepEqual(keys, ['2026-08-02', '2026-08-02', '2026-08-02']);
+    assert.equal(built, 1);
+    // The Kelvin sign is not a letter case of K, so it must not hit the cached zone.
+    assert.equal(weatherLocalDateKey('2026-08-01T12:00:00.000Z', 'Asia/\u212Aolkata'), null);
+  } finally {
+    Intl.DateTimeFormat = real;
+  }
 });
