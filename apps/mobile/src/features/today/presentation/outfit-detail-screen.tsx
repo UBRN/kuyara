@@ -50,6 +50,7 @@ import type { RecommendedOutfit } from '@/features/recommendation/application/re
 import type { ManualMix } from '@/features/recommendation/application/use-manual-mix';
 import type { SwappableSlot } from '@/features/recommendation/domain/manual-mix';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import { OutfitShareAction } from '@/features/today/presentation/outfit-share';
 import {
   PiecePickerSheet,
   type PiecePickerTarget,
@@ -974,6 +975,7 @@ export function OutfitDetailScreen({
           </View>
         </Entrance>
       </View>
+      <OutfitShareAction palette={palette} presentation={presentation} suggestion={suggestion} />
       <PiecePickerSheet
         onChoose={(garmentTypeId) => {
           if (pickerSlot && garmentTypeId !== pickerCurrent) pendingChoice.current = { slot: pickerSlot, garmentTypeId };
