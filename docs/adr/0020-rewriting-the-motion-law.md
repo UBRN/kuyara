@@ -104,7 +104,7 @@ value.
 
 Every cold launch, never a return from the background, plays one animation in a layer drawn
 above the whole app; `visual-identity.md` describes what it shows. The layer's first frame
-is the native splash's last and holds still until the first screen is drawn, for at most
+is the native splash's last and holds still until the first screen has drawn its content, for at most
 1.5 seconds. Then the symbol breathes in on `fast` (scale 1 to 0.94), and the view dives
 into its upper piece over `launch` 440: the scale grows to about 26 times on a logarithmic
 curve, the dive's focus glides to the screen's centre over its first 70 percent, and the
