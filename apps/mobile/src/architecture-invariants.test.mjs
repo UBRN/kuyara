@@ -117,6 +117,15 @@ const rules = [
       + 'that wrapper from the feature instead.',
   },
   {
+    name: 'react-native-view-shot has one importer in components/ui',
+    matches: packageMatcher('react-native-view-shot'),
+    forbiddenDirectories: null,
+    allowedDirectories: ['components/ui/share-snapshot.ts'],
+    ruleText:
+      'The view capture library is wrapped once, like haptics: `components/ui/share-snapshot.ts` '
+      + 'captures, shares and deletes the image, and feature code calls `shareSnapshot`.',
+  },
+  {
     name: 'the Foundation Models module has exactly one importer',
     matches: modulePathMatcher('modules/kuyara-on-device-ai'),
     forbiddenDirectories: null,

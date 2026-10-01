@@ -178,6 +178,8 @@ export type TodayMessages = Readonly<{
     /** The same after two or more changed pieces. */
     sourceMany: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
   }>;
+  /** The outfit detail's share button, and the name on the shared outfit card. */
+  share: Readonly<{ action: string; brandName: string }>;
   // ADR 0038: "Wore this today" and its saved state, directly under the board.
   wornAction: string;
   wornToday: string;
@@ -1428,6 +1430,7 @@ const en = {
         deterministic: 'You changed some pieces. kuyara computed the rest on your device.',
       },
     },
+    share: { action: 'Share outfit', brandName: 'kuyara' },
     wornAction: 'Wore this today',
     wornToday: 'Worn today',
     wornSaveError: 'Today’s look could not be saved. Try again.',
@@ -2295,6 +2298,7 @@ const tr = {
         deterministic: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara cihazında hesapladı.',
       },
     },
+    share: { action: 'Kombini paylaş', brandName: 'kuyara' },
     wornAction: 'Bugün bunu giydim',
     wornToday: 'Bugün giyildi',
     wornSaveError: 'Bugünkü kombin kaydedilemedi. Yeniden dene.',

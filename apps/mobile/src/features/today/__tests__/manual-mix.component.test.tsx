@@ -51,6 +51,8 @@ jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
     useFocusEffect: (callback: () => void | (() => void)) => React.useEffect(() => callback(), [callback]),
+    // The detail's share button sits in the native toolbar, which draws nothing here.
+    Stack: { Toolbar: Object.assign(() => null, { Button: () => null }) },
   };
 });
 
