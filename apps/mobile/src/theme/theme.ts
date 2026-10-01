@@ -383,6 +383,10 @@ export const standardMotion = Object.freeze({
   // order. It is a delay between transitions rather than a transition, so it stays
   // well under `fast`; content reads as one arrival instead of a queue.
   stagger: 45,
+  // The launch role: a cold launch dives into the symbol until one of its pieces fills the
+  // screen. It is the one transition that travels many times its own size, so it is longer
+  // than `deliberate`; only the launch curtain consumes it.
+  launch: 440,
   ambient: Object.freeze({
     calm: 1500,
     moderate: 1000,
