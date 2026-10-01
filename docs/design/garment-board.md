@@ -195,7 +195,7 @@ Every value, in stage-width units unless marked otherwise.
 | footwear width | 0.58 | × the core's drawn width |
 | core width cap | 0.235 | two-anchor core |
 | solo width cap | 0.300 | a lone `one_piece`, or a stagger anchor |
-| rail width cap | 0.170 | any layer or the footwear in the rail |
+| rail width cap | 0.170 | any layer or the footwear in the rail; the layers share one scale, and footwear in the rail is capped on its own width |
 | lap | 0.12 | the most of a covered piece's drawn extent another may cover (section 3) |
 | core gap | 0 | × core metric, before the waist lap |
 | rail gap | 0.10 | × core metric |

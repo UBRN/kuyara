@@ -103,6 +103,20 @@ export function createDetailCaptionLayout(
   };
 }
 
+/** The ownership badge on a board piece: a 28-point disc. */
+export const DETAIL_BADGE_SIZE = 28;
+const DETAIL_BADGE_LIFT = 4;
+
+/**
+ * The badge overhangs a piece's top right corner, which a garment leaves empty. A piece
+ * shorter than the badge (a flat shoe) fills that corner, so its badge stands just above it.
+ */
+export function createDetailBadgeLayout(box: DetailBoardBox): Readonly<{ left: number; top: number }> {
+  return box.height < DETAIL_BADGE_SIZE
+    ? { left: box.x + box.width - DETAIL_BADGE_SIZE, top: box.y - DETAIL_BADGE_SIZE - DETAIL_BADGE_LIFT }
+    : { left: box.x + box.width - DETAIL_BADGE_SIZE * 2 / 3, top: box.y - DETAIL_BADGE_SIZE / 3 };
+}
+
 type LocalizedOutfitPiece = Readonly<{
   slot: string;
   item: string;

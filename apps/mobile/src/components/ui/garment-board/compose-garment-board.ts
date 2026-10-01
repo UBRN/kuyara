@@ -118,7 +118,11 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
     let bf = footBox(rule.footWidth * coreW);
     const railScale = Math.min(1, rule.railCap / Math.max(...rb.concat(bf).map((box) => box.w)));
     rb = rb.map((box) => ({ w: box.w * railScale, h: box.h * railScale }));
-    bf = { w: bf.w * railScale, h: bf.h * railScale };
+    // The layers share one scale so their ladder holds. Footwear is sized on width, not on the
+    // ladder, so on the open board, where it stands in the rail, it takes the cap on its own
+    // width: a wide layer no longer shrinks a flat shoe below legibility.
+    const footScale = worn ? railScale : Math.min(1, rule.railCap / bf.w);
+    bf = { w: bf.w * footScale, h: bf.h * footScale };
     // Worn, the rail carries the layers alone: the footwear stands under the core.
     const railW = Math.max(0, ...(worn ? rb : rb.concat(bf)).map((box) => box.w));
     const railH = rb.reduce((sum, box) => sum + box.h, 0) + rule.railGap * metric * (rb.length - 1);
