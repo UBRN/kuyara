@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -17,7 +17,11 @@ export type CrossfadeProps = Readonly<{
  * Content that fades in when it replaces other content (effects motion), still on mount. It
  * waits until the leaving content is gone, so two lines of text are never drawn over each other.
  */
-function FadeIn({ animate, children }: Readonly<{ animate: boolean; children: ReactNode }>) {
+function FadeIn({ animate, onLayout, children }: Readonly<{
+  animate: boolean;
+  onLayout: (event: LayoutChangeEvent) => void;
+  children: ReactNode;
+}>) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue(animate ? 0 : 1);
   useEffect(() => {
@@ -25,11 +29,17 @@ function FadeIn({ animate, children }: Readonly<{ animate: boolean; children: Re
     opacity.set(withDelay(theme.motion.fast, withTiming(1, { duration: theme.motion.normal })));
   }, [animate, opacity, theme.motion.fast, theme.motion.normal]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
-  return <Animated.View pointerEvents="box-none" style={style}>{children}</Animated.View>;
+  return <Animated.View onLayout={onLayout} pointerEvents="box-none" style={style}>{children}</Animated.View>;
 }
 
-/** Leaving content: whole in its first frame, gone on `fast`, then out of the tree. */
-function FadeOut({ onDone, children }: Readonly<{ onDone: () => void; children: ReactNode }>) {
+type Size = Readonly<{ width: number; height: number }>;
+
+/**
+ * Leaving content: whole in its first frame, gone on `fast`, then out of the tree. It keeps the
+ * size it had on screen, pinned to the top left, so it never re-wraps or truncates to the box of
+ * the content replacing it; the container still follows the new content.
+ */
+function FadeOut({ onDone, size, children }: Readonly<{ onDone: () => void; size: Size | null; children: ReactNode }>) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue(1);
   useEffect(() => {
@@ -43,13 +53,20 @@ function FadeOut({ onDone, children }: Readonly<{ onDone: () => void; children: 
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       pointerEvents="none"
-      style={[StyleSheet.absoluteFill, style]}>
+      style={[styles.leaving, size, style]}
+      testID="crossfade-leaving">
       {children}
     </Animated.View>
   );
 }
 
-type Layers = Readonly<{ key: string; shown: ReactNode; leaving: ReactNode; changes: number }>;
+type Layers = Readonly<{
+  key: string;
+  shown: ReactNode;
+  leaving: ReactNode;
+  leavingSize: Size | null;
+  changes: number;
+}>;
 
 /**
  * Content that changes in place (Law 7, a state change on something already on screen): the
@@ -60,21 +77,39 @@ type Layers = Readonly<{ key: string; shown: ReactNode; leaving: ReactNode; chan
  * only the new content.
  */
 export function Crossfade({ contentKey, children, style, testID }: CrossfadeProps) {
-  const [layers, setLayers] = useState<Layers>({ key: contentKey, shown: children, leaving: null, changes: 0 });
+  const [layers, setLayers] = useState<Layers>({
+    key: contentKey, shown: children, leaving: null, leavingSize: null, changes: 0,
+  });
+  // The size the shown content last laid out at, handed to it when it becomes the leaving layer.
+  const [shownSize, setShownSize] = useState<Size | null>(null);
   // The leaving layer is what was last on screen, so the latest content is kept for it.
   if (layers.key !== contentKey) {
-    setLayers({ key: contentKey, shown: children, leaving: layers.shown, changes: layers.changes + 1 });
+    setLayers({
+      key: contentKey, shown: children, leaving: layers.shown, leavingSize: shownSize, changes: layers.changes + 1,
+    });
   } else if (layers.shown !== children) {
     setLayers({ ...layers, shown: children });
   }
-  const clearLeaving = useCallback(() => setLayers((value) => ({ ...value, leaving: null })), []);
+  const clearLeaving = useCallback(() => setLayers((value) => ({ ...value, leaving: null, leavingSize: null })), []);
+  const measureShown = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setShownSize((value) => (value?.width === width && value.height === height ? value : { width, height }));
+  }, []);
 
   return (
     <View style={style} testID={testID}>
-      <FadeIn animate={layers.changes > 0} key={`in-${layers.changes}`}>{children}</FadeIn>
+      <FadeIn animate={layers.changes > 0} key={`in-${layers.changes}`} onLayout={measureShown}>
+        {children}
+      </FadeIn>
       {layers.leaving !== null ? (
-        <FadeOut key={`out-${layers.changes}`} onDone={clearLeaving}>{layers.leaving}</FadeOut>
+        <FadeOut key={`out-${layers.changes}`} onDone={clearLeaving} size={layers.leavingSize}>
+          {layers.leaving}
+        </FadeOut>
       ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  leaving: { position: 'absolute', top: 0, left: 0 },
+});
