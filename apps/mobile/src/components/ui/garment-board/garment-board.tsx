@@ -359,7 +359,6 @@ export function GarmentBoard({
   const { colors } = theme;
   const large = useEasierToSee();
   const outline = large ? easierToSeeValues.boardOutline : undefined;
-  const { result, placed, height } = placePieces(pieces, width, preset, fit && !entrance, large);
   const roles = useGarmentRoles(palette, stageColor);
   const progress = useSharedValue(0);
   const tintProgress = useSharedValue(0);
@@ -460,6 +459,11 @@ export function GarmentBoard({
       [entrance?.fromStageColor ?? colors.background, colors.background],
     ),
   }));
+
+  // Composed after the last hook: React Compiler cannot keep a value in a memo block across a
+  // hook call, so a composition read above the hooks was redone, and every piece redrawn, on
+  // each render even when the outfit and width were unchanged.
+  const { result, placed, height } = placePieces(pieces, width, preset, fit && !entrance, large);
 
   const accessibilityProps = {
     accessible: decorative ? undefined : true,
