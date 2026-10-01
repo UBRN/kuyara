@@ -61,7 +61,8 @@ where they pass rest by about 1.6 pt once and settle without a second bounce, an
 damping adds the second bounce that reads as elastic easing. On Today the pieces rise into
 a still stage on mount, one by one in the board's reading order, each `theme.motion.stagger`
 after the piece before it, with its contact shade: the stage plate, the tint and the hero
-values do not move. Only
+values do not move. The one exception is the first outfit arriving from the runway below:
+the stage plate shrinks once. Only
 `components/ui` consumes either role.
 
 ### Content arrives in reading order
@@ -138,7 +139,13 @@ The first recommendation of a dressing day uses a runway. The day's condition-hu
 runway field fills Today down to the tab bar, which stays usable; weather particles fall or drift, neutral drafts glide
 in one by one onto the board, and the chosen outfit is dressed piece by piece when the answer arrives. Progress and a line rotating every two seconds among
 day insights, phase status and one tip that names no control sit below, without provider names.
-Completion holds a green "All set" state for 0.8 seconds. After ten seconds the user can open a
+Completion holds a green "All set" state for 0.8 seconds, then the runway hands over to
+Today: the field shrinks once into Today's stage plate on `theme.springs.spatial` and takes
+its colour and corner radius, the runway's words fade on `theme.motion.fast`, each dressed
+piece travels to its place on the stage on `theme.springs.arrival` in reading order a stagger
+step apart, and Today's words arrive in reading order once the field has become the plate.
+The outfit the runway carried does not rise again. A skipped wait, a failure, or a stage not
+yet drawn fades the runway out over Today on `theme.motion.deliberate` instead. After ten seconds the user can open a
 system alert to skip the wait; the red skip action is secondary to the blue
 keep-waiting default text, and the AI walk continues to its 46-second bound. Background
 refreshes retain the current outfit and inline phase. No mannequin, avatar or mascot

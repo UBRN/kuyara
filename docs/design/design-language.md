@@ -446,7 +446,12 @@ The condition symbol uses a closed animation vocabulary: sun turns, clouds drift
 and snow fall, and wind streams. The first recommendation uses a runway:
 the day's atmosphere colour fills Today down to the tab bar, which stays usable, weather particles fall or drift, and
 neutral five-slot outlines arrive first and the chosen outfit fills piece by piece in its own palette when the AI answer arrives; no provisional outfit is shown. Progress and a rotating line sit
-below. The runway uses the garment silhouettes without a mannequin or mascot.
+below. The runway uses the garment silhouettes without a mannequin or mascot. A completed
+wait hands over to Today: the field shrinks once into the stage plate on the spatial
+spring and takes its colour, the runway's words fade on `fast`, the pieces travel to their
+places on the stage on the arrival spring in reading order a stagger step apart, and
+Today's words then arrive in reading order. A skipped wait or a failure fades the runway
+out over Today on `deliberate`.
 
 **Spatial and effects motion.** Motion is one of two kinds. *Effects*
 motion changes a property in place: opacity, colour, a tint draining away. The three
@@ -471,6 +476,8 @@ settle without a second bounce; a lower damping adds a second bounce, which read
 elastic easing and is refused. On Today the pieces rise into a still stage on mount, one
 by one in the board's reading order, each `theme.motion.stagger` after the piece before
 it, with its contact shade; the stage plate, its tint and the hero values do not move.
+The one exception is the first outfit arriving from the runway: the stage plate shrinks
+once, as described below.
 A moment's settle travels `spacing.xs` down on
 `theme.motion.fast` and returns on the arrival spring. Only `components/ui` consumes
 either role, and `theme.test.mjs` fails feature

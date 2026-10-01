@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from 'react';
 import { Alert, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,8 @@ import {
   ProgressFill,
   runwayDressingDuration,
   Screen,
+  ShrinkingPlate,
+  type PlateRect,
   type RunwayBoardOutfit,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
@@ -81,11 +83,16 @@ function RunwayFrame({
   heading,
   board,
   text,
+  stageRef,
+  textStyle,
 }: Readonly<{
   viewportHeight: number;
   heading: ReactNode;
   board: (size: Size) => ReactNode;
   text: ReactNode;
+  stageRef: RefObject<View | null>;
+  /** The heading and the text group leave together when the runway hands over to Today. */
+  textStyle: ComponentProps<typeof Animated.View>['style'];
 }>) {
   const insets = useSafeAreaInsets();
   const [headingHeight, setHeadingHeight] = useState(0);
@@ -98,18 +105,21 @@ function RunwayFrame({
 
   return (
     <Screen style={styles.clear} testID="first-generation-runway-scroll">
-      <View onLayout={(event) => setHeadingHeight(sizeOf(event).height)} style={styles.headingBlock}>
+      <Animated.View
+        onLayout={(event) => setHeadingHeight(sizeOf(event).height)}
+        style={[styles.headingBlock, textStyle]}>
         {heading}
-      </View>
+      </Animated.View>
       <View
         onLayout={(event) => setStage(sizeOf(event))}
+        ref={stageRef}
         style={{ height: areaHeight }}
         testID="first-generation-stage">
         {board(stage)}
       </View>
-      <View onLayout={(event) => setTextHeight(sizeOf(event).height)} style={styles.textBlock}>
+      <Animated.View onLayout={(event) => setTextHeight(sizeOf(event).height)} style={[styles.textBlock, textStyle]}>
         {text}
-      </View>
+      </Animated.View>
     </Screen>
   );
 }
@@ -125,6 +135,18 @@ function FadeInFast({ children }: Readonly<{ children: ReactNode }>) {
   return <Animated.View style={style}>{children}</Animated.View>;
 }
 
+/** Today's stage, which the runway's field and outfit hand over to when the wait completes. */
+export type RunwayHandoffTarget = Readonly<{
+  node: View;
+  color: string;
+  radius: number;
+}>;
+
+type Handoff = Readonly<{
+  plate: Readonly<{ from: Readonly<{ width: number; height: number }>; to: PlateRect; color: string; radius: number }>;
+  board: Readonly<{ x: number; y: number; width: number }>;
+}>;
+
 /**
  * The first-generation runway (O1, O17). The day's field fills Today's area from behind the
  * status bar down to the tab bar, which stays usable (M22). Before the answer only neutral
@@ -134,6 +156,7 @@ function FadeInFast({ children }: Readonly<{ children: ReactNode }>) {
  */
 export function FirstGenerationRunway({
   active, completed, language, phase, weather, outfit, onSkip, onVisibleChange,
+  handoffTarget, onLeave, onHandedOff,
 }: Readonly<{
   active: boolean;
   completed: boolean;
@@ -148,6 +171,16 @@ export function FirstGenerationRunway({
    * starts to fade in, hidden once its fade-out has finished and it has left the screen.
    */
   onVisibleChange?: (visible: boolean) => void;
+  /**
+   * Today's stage once it is drawn. A wait that completes hands over to it: the field shrinks
+   * once into the stage plate and each piece travels to its place there (ADR 0020). Without
+   * it, or after a skip, the runway fades out over Today.
+   */
+  handoffTarget?: RefObject<RunwayHandoffTarget | null>;
+  /** The runway starts to leave; `handingOff` says whether it hands over or fades. */
+  onLeave?: (handingOff: boolean) => void;
+  /** Every piece has reached Today's stage; the runway leaves the tree in the same update. */
+  onHandedOff?: () => void;
 }>) {
   const theme = useKuyaraTheme();
   const copy = getMessages(language).today;
@@ -165,6 +198,15 @@ export function FirstGenerationRunway({
   // Read by the completion timers without restarting them: an outfit replaced mid-hold
   // must never cancel the hide and leave the runway over Today.
   const dressingRef = useRef(dressing);
+  const [handoff, setHandoff] = useState<Handoff | null>(null);
+  const layerRef = useRef<View>(null);
+  const stageAreaRef = useRef<View>(null);
+  const skipped = useRef(false);
+  // Read when the wait completes, so a timer started earlier hands over to today's values.
+  const leaveRef = useRef({ handoffTarget, onLeave, answered: outfit !== null });
+  useEffect(() => {
+    leaveRef.current = { handoffTarget, onLeave, answered: outfit !== null };
+  });
 
   useEffect(() => {
     dressingRef.current = dressing;
@@ -181,15 +223,25 @@ export function FirstGenerationRunway({
   useEffect(() => {
     if (faded.current === visible) return;
     faded.current = visible;
+    // A hand-off leaves on the field and the pieces; the layer itself does not fade.
+    if (!visible && handoff) return;
     layerOpacity.set(withTiming(visible ? 1 : 0, { duration: theme.motion.deliberate }, (finished) => {
       if (finished && !visible) scheduleOnRN(setMounted, false);
     }));
-  }, [layerOpacity, theme.motion.deliberate, visible]);
+  }, [handoff, layerOpacity, theme.motion.deliberate, visible]);
   const layerStyle = useAnimatedStyle(() => ({ opacity: layerOpacity.get() }));
+
+  // The runway's words leave first, on `fast`, so only the field and the outfit travel.
+  const textOpacity = useSharedValue(1);
+  useEffect(() => {
+    if (handoff) textOpacity.set(withTiming(0, { duration: theme.motion.fast }));
+  }, [handoff, textOpacity, theme.motion.fast]);
+  const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.get() }));
 
   useEffect(() => {
     if (active) {
       hadActive.current = true;
+      skipped.current = false;
       const timer = setTimeout(() => {
         setVisible(true);
         setSuccess(false);
@@ -199,12 +251,51 @@ export function FirstGenerationRunway({
     if (!hadActive.current) return undefined;
     hadActive.current = false;
     if (!completed) {
-      const timer = setTimeout(() => setVisible(false), 0);
+      const timer = setTimeout(() => {
+        setVisible(false);
+        leaveRef.current.onLeave?.(false);
+      }, 0);
       return () => clearTimeout(timer);
     }
     // The board dresses first; "All set" shows once every piece has poured, then holds.
+    const fade = () => {
+      setVisible(false);
+      leaveRef.current.onLeave?.(false);
+    };
+    const leave = () => {
+      const { handoffTarget: target, answered: dressed } = leaveRef.current;
+      const current = target?.current;
+      const stage = current?.node;
+      const layer = layerRef.current;
+      const area = stageAreaRef.current;
+      if (!current || !stage || !layer || !area || !dressed || skipped.current) {
+        fade();
+        return;
+      }
+      layer.measureInWindow((layerX, layerY, layerWidth, layerHeight) => {
+        area.measureInWindow((areaX, areaY) => {
+          stage.measureInWindow((stageX, stageY, stageWidth, stageHeight) => {
+            if (!(layerWidth > 0 && layerHeight > 0 && stageWidth > 0 && stageHeight > 0)) {
+              fade();
+              return;
+            }
+            setHandoff({
+              plate: {
+                from: { width: layerWidth, height: layerHeight },
+                to: { x: stageX - layerX, y: stageY - layerY, width: stageWidth, height: stageHeight },
+                color: current.color,
+                radius: current.radius,
+              },
+              board: { x: stageX - areaX, y: stageY - areaY, width: stageWidth },
+            });
+            setVisible(false);
+            leaveRef.current.onLeave?.(true);
+          });
+        });
+      });
+    };
     const start = setTimeout(() => setSuccess(true), dressingRef.current);
-    const timer = setTimeout(() => setVisible(false), dressingRef.current + SUCCESS_MS);
+    const timer = setTimeout(leave, dressingRef.current + SUCCESS_MS);
     return () => { clearTimeout(start); clearTimeout(timer); };
   }, [active, completed]);
 
@@ -237,6 +328,11 @@ export function FirstGenerationRunway({
 
   if (!mounted) return null;
 
+  const finishHandoff = () => {
+    onHandedOff?.();
+    setMounted(false);
+  };
+
   const field = theme.runway[runwayField(weather?.condition ?? null)];
   const particleKind = weather ? runwayParticleKind(weather.condition) : null;
   const particleInks = weather ? runwayParticleInks(theme, weather.condition, weather.daypart) : null;
@@ -260,27 +356,42 @@ export function FirstGenerationRunway({
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
       onLayout={(event) => setViewportHeight(sizeOf(event).height)}
       pointerEvents={visible ? 'auto' : 'none'}
-      style={[StyleSheet.absoluteFill, { backgroundColor: field }, layerStyle]}
+      ref={layerRef}
+      style={[StyleSheet.absoluteFill, { backgroundColor: handoff ? 'transparent' : field }, layerStyle]}
       testID="first-generation-runway">
+      {handoff ? (
+        <ShrinkingPlate
+          from={handoff.plate.from}
+          fromColor={field}
+          testID="first-generation-plate"
+          to={handoff.plate.to}
+          toColor={handoff.plate.color}
+          toRadius={handoff.plate.radius}
+        />
+      ) : null}
       <SafeAreaProvider style={styles.fill}>
         <RunwayFrame
           board={(stage) => (
             <>
               {particleKind && particleInks ? (
-                <RunwayParticles
-                  color={particleInks.ink}
-                  height={stage.height}
-                  kind={particleKind}
-                  sparkle={particleInks.sparkle}
-                  style={styles.particles}
-                  width={stage.width + 2 * spacing.lg}
-                />
+                <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, textStyle]}>
+                  <RunwayParticles
+                    color={particleInks.ink}
+                    height={stage.height}
+                    kind={particleKind}
+                    sparkle={particleInks.sparkle}
+                    style={styles.particles}
+                    width={stage.width + 2 * spacing.lg}
+                  />
+                </Animated.View>
               ) : null}
               <GarmentRunwayBoard
                 draftInk={theme.colors.iconSecondary}
                 drafts={SKELETON_PIECES}
                 field={field}
+                handoff={handoff?.board ?? null}
                 height={stage.height}
+                onHandedOff={finishHandoff}
                 outfit={outfit}
                 outlineInk={theme.colors.textPrimary}
                 placedCount={placed}
@@ -345,7 +456,14 @@ export function FirstGenerationRunway({
                         label={copy.loading.skipWait}
                         onPress={() => Alert.alert(copy.loading.heading, undefined, [
                           { text: copy.loading.keepWaiting, isPreferred: true, style: 'cancel' },
-                          { text: copy.loading.skipWait, style: 'destructive', onPress: onSkip },
+                          {
+                            text: copy.loading.skipWait,
+                            style: 'destructive',
+                            onPress: () => {
+                              skipped.current = true;
+                              onSkip();
+                            },
+                          },
                         ])}
                         style={styles.skip}
                         testID="first-generation-skip"
@@ -357,6 +475,8 @@ export function FirstGenerationRunway({
               </View>
             </>
           )}
+          stageRef={stageAreaRef}
+          textStyle={textStyle}
           viewportHeight={viewportHeight}
         />
       </SafeAreaProvider>

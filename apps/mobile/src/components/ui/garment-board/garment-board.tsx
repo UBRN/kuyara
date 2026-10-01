@@ -141,7 +141,8 @@ type GarmentBoardProps = Readonly<{
   /**
    * Law 7's arrival: the pieces rise into a still stage once, on mount, one by one in
    * reading order. A refresh, a focus change or new data never replays it. Ignored while
-   * `entrance` is set: a travelling board already arrives.
+   * `entrance` is set: a travelling board already arrives. Turned off, the pieces are drawn
+   * at rest: Today turns it off for the outfit the first-generation runway carried onto it.
    */
   rise?: boolean;
   /**
