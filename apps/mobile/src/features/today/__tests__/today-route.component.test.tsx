@@ -2708,13 +2708,16 @@ test('a regeneration that drops the outfit while detail is off screen returns To
 });
 
 // The native back control pops first and moves the route only once the pop has landed, so
-// detail tells the tour when its pop back to Today starts; an arriving push says nothing.
-test('outfit detail tells the tour when its pop back to Today starts', async () => {
+// detail tells the tour when its pop back to Today starts; an arriving push says nothing, and a
+// cancelled swipe tells it the pop is off.
+test('outfit detail tells the tour when its pop back to Today starts and when a swipe is cancelled', async () => {
   mockParams = { id: todayOutfitId(1) };
   const reportReturningToday = jest.fn();
+  const reportPopCancelled = jest.fn();
   await render(
     <WalkthroughContext value={{
       active: true, restart: () => undefined, reportToday: () => undefined, reportReturningToday,
+      reportPopCancelled,
     }}>
       <Providers
         productAnalytics={createProductAnalytics()}
@@ -2731,6 +2734,10 @@ test('outfit detail tells the tour when its pop back to Today starts', async () 
   expect(reportReturningToday).not.toHaveBeenCalled();
   await act(async () => transitionStart?.({ data: { closing: true } }));
   expect(reportReturningToday).toHaveBeenCalledTimes(1);
+  // A swipe back let go before it completes (iOS) leaves detail where it is.
+  expect(reportPopCancelled).not.toHaveBeenCalled();
+  await act(async () => mockNavigationListeners.get('gestureCancel')?.({ data: { closing: false } }));
+  expect(reportPopCancelled).toHaveBeenCalledTimes(1);
 });
 
 test('recomputing a focused outfit detail does not reopen the same suggestion', async () => {

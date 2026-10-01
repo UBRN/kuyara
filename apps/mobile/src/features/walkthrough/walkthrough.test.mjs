@@ -411,6 +411,77 @@ test('without step 6 the back step\'s pop lands on the Profile tab step and Done
   assert.deepEqual(writes, ['write']);
 });
 
+// The pop back to Today is reported when it starts, so a swipe let go before it completes
+// has already moved the tour: it must come back, and a finished pop or the back control must not.
+function controllerOnBackStep() {
+  const context = controllerWithGate();
+  context.controller.start('auto');
+  context.controller.observeRoute('detail');
+  context.controller.observeSheet(true);
+  context.controller.observeSheet(false);
+  context.controller.continue();
+  assert.deepEqual(position(context.controller), [4, 'continue']);
+  return context;
+}
+
+test('a swipe back that is cancelled returns the tour to the back step', async () => {
+  const { controller, writes } = controllerOnBackStep();
+  controller.beginPop();
+  assert.deepEqual(position(controller), [5, 'navigation']);
+  controller.cancelPop();
+  assert.deepEqual(position(controller), [4, 'continue']);
+  // The same swipe can be tried again, and a completed one then keeps the early step.
+  controller.beginPop();
+  assert.deepEqual(position(controller), [5, 'navigation']);
+  controller.observeRoute('today');
+  assert.deepEqual(position(controller), [5, 'navigation']);
+  assert.deepEqual(writes, []);
+});
+
+test('a pop that completes keeps the early step, and a late cancel does not undo it', () => {
+  const { controller } = controllerOnBackStep();
+  controller.beginPop();
+  controller.observeRoute('today'); // the pop landed
+  controller.continue(); // the person moves on from step 6
+  assert.deepEqual(position(controller), [6, 'continue']);
+  controller.cancelPop();
+  assert.deepEqual(position(controller), [6, 'continue']);
+});
+
+test('a cancel restores nothing once something else moved the tour', async () => {
+  const { controller, writes } = controllerOnBackStep();
+  controller.beginPop();
+  controller.skip();
+  await Promise.resolve();
+  assert.equal(position(controller), 'idle');
+  controller.cancelPop();
+  assert.equal(position(controller), 'idle');
+  assert.deepEqual(writes, ['write']);
+});
+
+test('a cancel without a pop that moved the tour does nothing', () => {
+  const idle = controllerWithGate().controller;
+  idle.beginPop();
+  idle.cancelPop();
+  assert.equal(position(idle), 'idle');
+  const { controller } = controllerWithGate();
+  controller.start('auto'); // step 1 is on Today: the pop report is a stay
+  controller.beginPop();
+  assert.deepEqual(position(controller), [0, 'start']);
+  controller.cancelPop();
+  assert.deepEqual(position(controller), [0, 'start']);
+});
+
+test('a swipe cancelled from a detail step that a pop would interrupt brings the tour back', () => {
+  const { controller } = controllerWithGate();
+  controller.start('auto');
+  controller.observeRoute('detail');
+  controller.beginPop();
+  assert.equal(position(controller), 'idle');
+  controller.cancelPop();
+  assert.deepEqual(position(controller), [1, 'navigation']);
+});
+
 test('VoiceOver activation performs only a tap or back step\'s live control', () => {
   const { controller } = controllerWithGate();
   const performed = [];

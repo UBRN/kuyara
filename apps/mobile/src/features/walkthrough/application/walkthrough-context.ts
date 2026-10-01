@@ -28,6 +28,8 @@ export type WalkthroughValue = Readonly<{
    * leaves the back step at once instead of drawing it over Today for the whole pop.
    */
   reportReturningToday: () => void;
+  /** A swipe back from outfit detail was let go and the pop cancelled: detail stays. */
+  reportPopCancelled: () => void;
 }>;
 
 export const WalkthroughContext = createContext<WalkthroughValue | null>(null);
