@@ -36,13 +36,15 @@ const insideClip = (node: { type: unknown; parent: unknown }): boolean => {
 const teeOutline = silhouettes['g-tee'].groups[0].outline;
 
 // Inspect authored vector props without importing the vector library outside its boundary:
-// the outline is filled once and stroked once (the ink edge), and also clips its parts.
+// the outline is filled once and stroked once (the ink edge, the one opaque stroke), and also
+// clips its parts and carries the translucent modelling bands inside it.
 function paths(result: Awaited<ReturnType<typeof render>>) {
   return result.container.queryAll((node) => node.props.d === teeOutline && node.props.strokeWidth == null
     && node.props.fill != null && node.props.fill !== 'none' && !insideClip(node));
 }
 function edges(result: Awaited<ReturnType<typeof render>>) {
-  return result.container.queryAll((node) => node.props.d === teeOutline && node.props.strokeWidth != null);
+  return result.container.queryAll((node) => node.props.d === teeOutline && node.props.strokeWidth != null
+    && node.props.strokeOpacity == null);
 }
 
 test.each([lightTheme, darkTheme])('null colour uses the page ground\u2019s neutral and blue uses the content fill in $colorScheme', async (theme) => {
@@ -131,7 +133,7 @@ test('an unreadable legacy-entry photo falls to the category glyph, and a replac
 test('a drawing below 32 points drops tone lines and stitches, and keeps its construction', async () => {
   const dashed = (result: Awaited<ReturnType<typeof render>>) =>
     result.container.queryAll((node) => node.props.strokeDasharray != null && node.props.d != null);
-  const construction = 'M25 14.5 Q32 20.2 39 14.5';
+  const construction = 'M25 14.4 Q32 20.6 39 14.4';
   const draw = (width: number, height: number) => (
     <KuyaraThemeContext.Provider value={lightTheme}>
       <GarmentTileArtwork {...props} width={width} height={height} />
@@ -241,7 +243,7 @@ test.each([32, 56, 156])('navy and camel divides the garment at %s points', asyn
   expect(vh).toBeCloseTo(size / scale);
   expect(vx + vw / 2).toBeCloseTo(bounds.x + bounds.width / 2);
   expect(vy + vh / 2).toBeCloseTo(bounds.y + bounds.height / 2);
-  expect(result.container.queryAll((node) => Array.isArray(node.props.matrix)
+  expect(result.container.queryAll((node) => String(node.type).includes('Group') && Array.isArray(node.props.matrix)
     && (node.props.matrix[0] !== 1 || node.props.matrix[4] !== 0))).toHaveLength(0);
   // The camel block starts inside the garment's own extent, with navy above it.
   const pattern = result.container.queryAll((node) => String(node.type).includes('Pattern') && node.props.name != null)[0];

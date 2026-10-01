@@ -2388,7 +2388,7 @@ describe('finishing touches', () => {
     const scale = 16 / (Math.max(bounds.width, bounds.height) + 3);
     const [edge] = drawing.queryAll((node) => typeof node.props.d === 'string'
       && node.props.d === silhouettes[garmentSilhouetteIds[accessories[0].garmentTypeId]!].groups[0].outline
-      && node.props.strokeWidth != null);
+      && node.props.strokeWidth != null && node.props.strokeOpacity == null);
     expect(edge.props.strokeWidth * scale).toBeCloseTo(1.9 * 16 / 28);
   });
 

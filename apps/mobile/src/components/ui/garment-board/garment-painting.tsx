@@ -1,5 +1,5 @@
 import { createElement, memo, useId, type ComponentType, type ReactElement } from 'react';
-import { ClipPath, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { ClipPath, Defs, G, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { paintGarment, type GarmentPaintInput, type PaintNode, type PaintTag } from './garment-paint';
 
@@ -10,7 +10,7 @@ export {
 } from './garment-paint';
 
 const elements: Record<PaintTag, ComponentType<never>> = {
-  G, Defs, ClipPath, Path, Rect, LinearGradient, Stop,
+  G, Defs, ClipPath, Path, Rect, LinearGradient, RadialGradient, Stop,
 } as unknown as Record<PaintTag, ComponentType<never>>;
 
 function render(node: PaintNode, key?: number): ReactElement {
@@ -20,7 +20,8 @@ function render(node: PaintNode, key?: number): ReactElement {
 
 /**
  * One drawing, painted in drawing units inside whatever transform the caller sets: a rich
- * illustration lit from the upper left, its cloth woven and folded, inside one ink edge
+ * illustration lit from the upper left, its form turning at every edge, its cloth woven,
+ * folded and seamed, each piece shadowing the one beneath it, inside one ink edge
  * (`garment-paint.ts` owns the art). Memoised on its props, so a board that re-renders with
  * the same outfit, size, colours and level of detail repaints nothing.
  */

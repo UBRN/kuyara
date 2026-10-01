@@ -166,14 +166,19 @@ function tones(main: string, second: string | null, hardware: string | null, dar
     l: shiftL(main, o.L > 0.85 ? -0.035 : 0.075, 0.95),
     k: setL(main, dark ? 0.34 : 0.3, 0.5),
     // The soft light and the deepest shade the illustration's gradients reach.
-    g: shiftL(main, Math.min(0.1, 0.985 - o.L), 0.85),
-    p: shiftL(main, -Math.min(0.15, o.L - 0.08), 1.05),
+    g: shiftL(main, Math.min(0.13, 0.985 - o.L), 0.85),
+    p: shiftL(main, -Math.min(0.19, o.L - 0.06), 1.05),
+    // The crisp glint on leather, nylon, rubber and metal: far lighter and greyer than the cloth.
+    x: setL(main, Math.min(0.97, o.L + 0.34), 0.45),
     a: second || main,
   };
   const oa = toGarmentOklch(t.a);
   return {
     ...t,
     as: shiftL(t.a, oa.L > 0.3 ? -0.08 : -0.05),
+    // The material's own light and deepest shade, for a sole's or a band's volume.
+    ag: shiftL(t.a, Math.min(0.1, 0.985 - oa.L), 0.85),
+    ap: shiftL(t.a, -Math.min(0.16, oa.L - 0.06), 1.05),
     ad: shiftL(t.a, oa.L >= 0.52 ? -0.24 : 0.2, 0.9),
     h: hardware || t.d,
   };
@@ -226,7 +231,11 @@ export type GarmentRoles = Readonly<{
   main: string; shade: string; toneLine: string; light: string; darkTrim: string;
   /** The gradients' soft light and deepest shade (rich illustration), never a flat fill. */
   highlight: string; deep: string;
+  /** The crisp specular glint of a glossy cloth, a button or a buckle. */
+  specular: string;
   material: string; materialShade: string; materialTone: string; hardware: string;
+  /** The material's own light and deepest shade (a sole's, a band's, a handle's volume). */
+  materialLight: string; materialDeep: string;
 }>;
 
 export type GarmentPieceColors = Readonly<{
@@ -349,8 +358,9 @@ export function garmentFillRoles(colorwayId: string, main: string, appearance: T
   const material = materialHex === null ? null : garmentFillForAppearance(materialHex, dark);
   const tone = tones(main, material, colorway?.h ?? null, dark);
   return { main: tone.m, shade: tone.s, toneLine: tone.d, light: tone.l,
-    darkTrim: tone.k, highlight: tone.g, deep: tone.p, material: tone.a, materialShade: tone.as,
-    materialTone: tone.ad, hardware: tone.h };
+    darkTrim: tone.k, highlight: tone.g, deep: tone.p, specular: tone.x, material: tone.a,
+    materialShade: tone.as, materialTone: tone.ad, hardware: tone.h, materialLight: tone.ag,
+    materialDeep: tone.ap };
 }
 
 /** One outfit's palette inputs apart from the plane it stands on and the appearance. */
