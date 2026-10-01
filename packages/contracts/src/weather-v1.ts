@@ -92,10 +92,14 @@ export function isValidWeatherHourlyForecastWindow(
 
 // Building a formatter costs about a hundred times formatting with one, and a forecast asks
 // this for every hour, so one is kept per zone. An invalid zone throws and is never kept.
+// Intl reads zone names in any ASCII letter case, so the key folds ASCII case only: the
+// client-supplied spellings of one zone share an entry instead of each adding one for the
+// isolate's life. Non-ASCII look-alikes (the Kelvin sign) keep their own key and throw.
 const localDateFormats = new Map<string, Intl.DateTimeFormat>();
 
 function localDateFormat(timeZone: string): Intl.DateTimeFormat {
-  let format = localDateFormats.get(timeZone);
+  const cacheKey = timeZone.replace(/[A-Z]/gu, (letter) => letter.toLowerCase());
+  let format = localDateFormats.get(cacheKey);
   if (!format) {
     format = new Intl.DateTimeFormat('en', {
       timeZone,
@@ -103,7 +107,7 @@ function localDateFormat(timeZone: string): Intl.DateTimeFormat {
       month: '2-digit',
       day: '2-digit',
     });
-    localDateFormats.set(timeZone, format);
+    localDateFormats.set(cacheKey, format);
   }
   return format;
 }
