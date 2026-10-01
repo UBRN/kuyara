@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import Animated, {
   cancelAnimation,
   interpolateColor,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -20,6 +21,7 @@ import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
+import { PRESENCE_TEXT_AFTER } from '../presence';
 import {
   composeGarmentBoard,
   contactShadeOf,
@@ -381,6 +383,12 @@ export function GarmentBoard({
     didReportSettled.current = true;
     onSettled?.();
   }, [onSettled]);
+
+  // What waits for the pieces follows once nine tenths of the arrival is travelled, as
+  // Presence's text follows its container, instead of waiting out the spring's overshoot.
+  useAnimatedReaction(() => progress.get() >= PRESENCE_TEXT_AFTER, (reached, was) => {
+    if (reached && !was) scheduleOnRN(reportSettled);
+  }, [reportSettled]);
 
   useEffect(() => {
     if (!entrance) return;
