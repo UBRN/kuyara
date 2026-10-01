@@ -182,7 +182,8 @@ test('a piece drawn at a new size gets a fresh view; one that only moves keeps i
     for (const after of model.instances) {
       const was = before.get(after.key);
       if (!was) continue;
-      const sameSize = was.base.w === after.base.w && was.base.h === after.base.h;
+      const sameSize = was.base.w.toFixed(2) === after.base.w.toFixed(2)
+        && was.base.h.toFixed(2) === after.base.h.toFixed(2);
       if (sameSize && (was.base.x !== after.base.x || was.base.y !== after.base.y)) moved += 1;
       assert.equal(drawingKey(after) === drawingKey(was), sameSize, `${after.key} after ${footwear}`);
     }
@@ -213,6 +214,9 @@ test('a piece drawn at a new size gets a fresh view; one that only moves keeps i
   assert.notEqual(jeans(sleeveless).base.h, jeans(turtleneck).base.h);
   assert.notEqual(drawingKey(jeans(sleeveless)), drawingKey(jeans(turtleneck)));
   assert.equal(jeans(sleeveless).values, jeans(turtleneck).values);
+  // The parka only moves; its size, recomputed through other arithmetic, differs only in noise.
+  const parka = (current) => current.instances.find(({ slot }) => slot === 'outer_layer');
+  assert.equal(drawingKey(parka(sleeveless)), drawingKey(parka(turtleneck)));
 });
 
 test('a leaving piece chosen again fades back in rather than showing at once', () => {

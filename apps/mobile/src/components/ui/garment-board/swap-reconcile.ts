@@ -117,9 +117,11 @@ export const emptyModel: Model = {
  * transform is computed from the piece's motion only when it mounts, and a new size reaches the
  * screen a frame before the motion does: kept under one view, a piece drawn at a new size showed
  * for a frame at that size with the old transform. A fresh view starts where the piece stands.
- * A move alone keeps the view: the piece's position lives only in its transform.
+ * A move alone keeps the view: the piece's position lives only in its transform. The size is read
+ * to a hundredth of a point, so arithmetic noise in a re-layout never counts as a new size.
  */
-export const drawingKey = ({ key, base }: Instance) => `${key}@${base.w}x${base.h}`;
+const drawnSize = (value: number) => value.toFixed(2);
+export const drawingKey = ({ key, base }: Instance) => `${key}@${drawnSize(base.w)}x${drawnSize(base.h)}`;
 
 export const sameBox = (a: Box, b: Box) => Math.abs(a.x - b.x) < 0.25 && Math.abs(a.y - b.y) < 0.25
   && Math.abs(a.w - b.w) < 0.25 && Math.abs(a.h - b.h) < 0.25;

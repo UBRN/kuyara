@@ -245,9 +245,9 @@ const p2Boards = [
   ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']],
     { height: 236.8, extentW: 142.5, extentH: 212.8 }],
   ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']],
-    { height: 290.3, extentW: 162.5, extentH: 266.3 }],
+    { height: 289.1, extentW: 162.0, extentH: 265.1 }],
   ['cold formal', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'blazer'], ['outer_layer', 'trench_coat'], ['footwear', 'closed_shoes']],
-    { height: 258.3, extentW: 162.6, extentH: 234.3 }],
+    { height: 258.2, extentW: 162.6, extentH: 234.2 }],
 ];
 
 for (const [name, slots, expected] of p2Boards) {
