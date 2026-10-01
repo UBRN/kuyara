@@ -574,6 +574,14 @@ test('the badge keeps its space while a new outfit is chosen, hidden from the sc
   withTiming.mockRestore();
 });
 
+// A block that is hidden has been laid out first: the nearest measuring ancestor reports its height.
+async function layOut(element: Parameters<typeof fireEvent>[0]) {
+  let node = element.parent;
+  while (node && node.props.onLayout === undefined) node = node.parent;
+  if (!node) throw new Error('No measuring ancestor.');
+  await fireEvent(node, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 40 } } });
+}
+
 // A new outfit with no source closes the badge row in place: the row keeps its height and the
 // last source it showed while it collapses, hidden, so the outfit under it glides up.
 test('the badge row closes in place when the new outfit has no source', async () => {
@@ -587,6 +595,7 @@ test('the badge row closes in place when the new outfit has no source', async ()
     result.getByTestId('today-provenance-badge', hidden).parent!.parent!.parent!.props.style,
   ) ?? {};
   expect(presence()).not.toHaveProperty('height');
+  await layOut(result.getByTestId('today-provenance-badge', hidden));
 
   // Hold the collapse at its first frame to read it.
   const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(
@@ -2485,7 +2494,12 @@ describe('the contextual weather-alert offer', () => {
       onAskAgain={jest.fn()} state={todayScreenState} />,
     ));
     const message = result.getByTestId('today-alert-offer-message').props.children;
+    await layOut(result.getByTestId('today-alert-offer-message'));
 
+    // Hold the collapse at its first frame to read it.
+    const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(
+      ((toValue: number) => toValue) as typeof Reanimated.withTiming,
+    );
     await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
     const hidden = { includeHiddenElements: true };
     const row = result.getByTestId('today-alert-offer', hidden);
@@ -2494,6 +2508,7 @@ describe('the contextual weather-alert offer', () => {
     let wrapper = row.parent;
     while (wrapper && wrapper.props.pointerEvents === undefined) wrapper = wrapper.parent;
     expect(wrapper?.props.pointerEvents).toBe('none');
+    withTiming.mockRestore();
   });
 
   test('a failed durable write leaves the offer visible and answerable', async () => {

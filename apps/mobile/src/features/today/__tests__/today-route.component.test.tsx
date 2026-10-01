@@ -1483,9 +1483,9 @@ test('Ask the stylist again opens one sheet and confirms through the application
   alert.mockRestore();
 });
 
-// The flag follows the platform sheet: a pan-down during the write closes it for good, so a
-// failed write leaves it closed and Ask again can present it again.
-test('Ask the stylist again closed by a pan-down while busy stays closed when the write fails', async () => {
+// A pan-down during the write closes the sheet, so a failed write presents it again on its
+// error line: the failure is never left on a sheet nobody can see.
+test('Ask the stylist again closed by a pan-down while busy reopens on the error when the write fails', async () => {
   let fail!: () => void;
   const reask = jest.fn(() => new Promise<{ settled: Promise<void> }>((_, reject) => {
     fail = () => reject(new Error('write failed'));
@@ -1504,8 +1504,10 @@ test('Ask the stylist again closed by a pan-down while busy stays closed when th
   const close = mockOpenSheetClosers.at(-1);
   expect(close).toBeDefined();
   await act(async () => { close!(); });
+  expect(view.queryByTestId('ask-again-sheet')).toBeNull();
   await act(async () => { fail(); });
-  await waitFor(() => expect(view.queryByTestId('ask-again-sheet')).toBeNull());
+  await waitFor(() => expect(view.getByTestId('ask-again-sheet')).toBeOnTheScreen());
+  expect(view.getByTestId('ask-again-error')).toBeOnTheScreen();
 });
 
 // Tour finding: a confirmed Later departure that is still ahead reopens the sheet on Later

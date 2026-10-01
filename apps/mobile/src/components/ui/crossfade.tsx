@@ -39,14 +39,19 @@ type Size = Readonly<{ width: number; height: number }>;
  * size it had on screen, pinned to the top left, so it never re-wraps or truncates to the box of
  * the content replacing it; the container still follows the new content.
  */
-function FadeOut({ onDone, size, children }: Readonly<{ onDone: () => void; size: Size | null; children: ReactNode }>) {
+function FadeOut({ id, onDone, size, children }: Readonly<{
+  id: number;
+  onDone: (id: number) => void;
+  size: Size | null;
+  children: ReactNode;
+}>) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue(1);
   useEffect(() => {
     opacity.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
-      if (finished) scheduleOnRN(onDone);
+      if (finished) scheduleOnRN(onDone, id);
     }));
-  }, [onDone, opacity, theme.motion.fast]);
+  }, [id, onDone, opacity, theme.motion.fast]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   return (
     <Animated.View
@@ -101,7 +106,10 @@ export function Crossfade({ contentKey, children, style, testID }: CrossfadeProp
   } else if (layers.shown !== children) {
     setLayers({ ...layers, shown: children });
   }
-  const clearLeaving = useCallback(() => setLayers((value) => ({ ...value, leaving: null, leavingSize: null })), []);
+  // A fade's end clears only its own layer: one arriving after a newer fade began is stale.
+  const clearLeaving = useCallback((id: number) => setLayers((value) => (
+    value.leavingId === id ? { ...value, leaving: null, leavingSize: null } : value
+  )), []);
   const measureShown = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setShownSize((value) => (value?.width === width && value.height === height ? value : { width, height }));
@@ -113,7 +121,7 @@ export function Crossfade({ contentKey, children, style, testID }: CrossfadeProp
         {children}
       </FadeIn>
       {layers.leaving !== null ? (
-        <FadeOut key={`out-${layers.leavingId}`} onDone={clearLeaving} size={layers.leavingSize}>
+        <FadeOut id={layers.leavingId} key={`out-${layers.leavingId}`} onDone={clearLeaving} size={layers.leavingSize}>
           {layers.leaving}
         </FadeOut>
       ) : null}

@@ -463,6 +463,10 @@ test('a new piece opens on the preview, the two ownership cards and six category
 // has both, drawn at rest.
 test('picking a type opens the colour section in place; Change fades the grid in and closes it', async () => {
   const timings = jest.spyOn(Reanimated, 'withTiming');
+  // Holds every spring at its first frame, so a collapse is read rather than finished.
+  const springs = jest.spyOn(Reanimated, 'withSpring').mockImplementation(
+    ((toValue: number) => toValue) as typeof Reanimated.withSpring,
+  );
   const presenceStyle = (result: Awaited<ReturnType<typeof render>>) =>
     StyleSheet.flatten(result.getByTestId('wardrobe-color-section').parent!.parent!.parent!.props.style) ?? {};
 
@@ -473,6 +477,10 @@ test('picking a type opens the colour section in place; Change fades the grid in
   expect(row.opacity).toBeUndefined();
   // The block opens from closed: its height is animated, never drawn at rest.
   expect(presenceStyle(created)).toHaveProperty('height');
+  // The section is laid out before Change closes it, as it is on a device.
+  await fireEvent(created.getByTestId('wardrobe-color-section').parent!, 'layout', {
+    nativeEvent: { layout: { x: 0, y: 0, width: 358, height: 120 } },
+  });
 
   timings.mockClear();
   await fireEvent.press(created.getByTestId('wardrobe-type-change-button'));
@@ -498,6 +506,7 @@ test('picking a type opens the colour section in place; Change fades the grid in
   );
   expect(presenceStyle(edited)).not.toHaveProperty('height');
   timings.mockRestore();
+  springs.mockRestore();
 });
 
 test('the toolbar pair names where the piece goes and Cancel leaves through the guard', async () => {

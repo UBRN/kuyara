@@ -38,6 +38,8 @@ export function Presence({ visible, children, testID }: PresenceProps) {
   // The content leaves the tree once a collapse has finished, and returns with the block.
   const [collapsed, setCollapsed] = useState(!visible);
   if (visible && collapsed) setCollapsed(false);
+  // A block hidden before it was ever measured has no collapse to wait for.
+  if (!visible && height === null && !collapsed) setCollapsed(true);
   // A block shown on mount keeps its natural height until it first leaves.
   const [moved, setMoved] = useState(false);
   if (visible !== shownOnMount && !moved) setMoved(true);

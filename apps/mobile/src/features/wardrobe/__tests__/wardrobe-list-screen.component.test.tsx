@@ -534,17 +534,26 @@ test('a background refresh failure shows a retryable banner without discarding t
   // VoiceOver ignores the alert role, so the line is also spoken.
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
   announce.mockClear();
-  const result = await render(
+  const screenWith = (refreshFailure: 'unavailable' | null) => (
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
         itemHref={() => '/'}
         onRetry={onRetry}
-        state={readyState([ownedItem], { refreshFailure: 'unavailable' })}
+        state={readyState([ownedItem], { refreshFailure })}
       />
-    </TestProviders>,
+    </TestProviders>
   );
+  // A failure already persisted when the screen opens was spoken when it happened.
+  const opened = await render(screenWith('unavailable'));
+  expect(opened.getByTestId('wardrobe-refresh-error')).toBeOnTheScreen();
+  expect(announce).not.toHaveBeenCalled();
+  await opened.unmount();
 
+  // One that arrives while the screen is up is spoken once, and not again on a re-render.
+  const result = await render(screenWith(null));
+  await result.rerender(screenWith('unavailable'));
+  await result.rerender(screenWith('unavailable'));
   expect(result.getByTestId('wardrobe-refresh-error')).toBeOnTheScreen();
   expect(announce).toHaveBeenCalledTimes(1);
   expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.loadErrorBody);

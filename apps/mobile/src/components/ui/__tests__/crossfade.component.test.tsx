@@ -111,3 +111,31 @@ test('a second change while the first is still fading keeps the content that was
   withTiming.mockRestore();
   jest.useRealTimers();
 });
+
+test('a fade that ends late never clears the leaving content of a newer change', async () => {
+  const landings: Landing[] = [];
+  const withDelay = jest.spyOn(Reanimated, 'withDelay').mockImplementation(
+    ((_delay: number, animation: unknown) => animation) as typeof Reanimated.withDelay,
+  );
+  const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(((
+    toValue: number, _config: unknown, callback?: Landing,
+  ) => {
+    if (callback) landings.push(callback);
+    return toValue;
+  }) as typeof Reanimated.withTiming);
+  const result = await render(line('a', 'Rain Ready'));
+  await result.rerender(line('b', 'City Layers'));
+  const [first] = landings;
+  await act(() => first!(true));
+  expect(result.queryByText('Rain Ready', hidden)).toBeNull();
+
+  await result.rerender(line('c', 'Warm until 20:00'));
+  expect(result.getByText('City Layers', hidden)).toBeTruthy();
+  // The first fade reports again, late: the second fade's layer stays until its own end.
+  await act(() => first!(true));
+  expect(result.getByText('City Layers', hidden)).toBeTruthy();
+  await act(() => landings.at(-1)!(true));
+  expect(result.queryByText('City Layers', hidden)).toBeNull();
+  withTiming.mockRestore();
+  withDelay.mockRestore();
+});
