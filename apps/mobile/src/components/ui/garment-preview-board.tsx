@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -94,41 +94,40 @@ function PreviewPiece({ placed, ink, outline, motion }: Readonly<{
   const dy = from.y + from.h / 2 - (box.y + box.h / 2);
   const scale = from.w / box.w;
 
-  const didStart = useRef(false);
   // Once landed, React holds the resting style itself, as `Entrance` does: a re-render after
   // Reanimated dropped its settled props must not commit the start again.
   const [landed, setLanded] = useState(motion.kind === 'rest');
+  // The motion is fixed for the life of the piece (a later change mounts a new one), so the
+  // effect below runs once; were it re-run (a remount in development), its cleanup cancels
+  // and its setup plays the motion again from where the piece is, instead of holding it.
+  const [fixed] = useState(motion);
 
-  // The motion is fixed for the life of the piece: a later change mounts a new one.
   useEffect(() => {
-    if (didStart.current) return;
-    didStart.current = true;
     const { fast, stagger } = theme.motion;
     const spatial = theme.springs.spatial;
     const land = (finished?: boolean) => {
       'worklet';
       if (finished) scheduleOnRN(setLanded, true);
     };
-    if (motion.kind === 'enter') {
-      const delay = motion.index * stagger;
+    if (fixed.kind === 'enter') {
+      const delay = fixed.index * stagger;
       opacity.set(withDelay(delay, withTiming(1, { duration: fast })));
       slide.set(withDelay(delay, withSpring(0, spatial, land)));
-    } else if (motion.kind === 'glide') {
+    } else if (fixed.kind === 'glide') {
       glide.set(withSpring(0, spatial, land));
-    } else if (motion.kind === 'leave') {
-      const { onDone } = motion;
+    } else if (fixed.kind === 'leave') {
+      const { onDone } = fixed;
       slide.set(withSpring(-PREVIEW_SLIDE, spatial));
       opacity.set(withTiming(0, { duration: fast }, (finished) => {
         if (finished) scheduleOnRN(onDone);
       }));
     }
-  }, [glide, motion, opacity, slide, theme.motion, theme.springs.spatial]);
-
-  useEffect(() => () => {
-    cancelAnimation(opacity);
-    cancelAnimation(slide);
-    cancelAnimation(glide);
-  }, [glide, opacity, slide]);
+    return () => {
+      cancelAnimation(opacity);
+      cancelAnimation(slide);
+      cancelAnimation(glide);
+    };
+  }, [fixed, glide, opacity, slide, theme.motion, theme.springs.spatial]);
 
   const style = useAnimatedStyle(() => {
     const at = glide.get();

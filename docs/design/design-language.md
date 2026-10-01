@@ -438,8 +438,8 @@ Two requirements are hard, not judgment calls:
   glyph beside the hero on the same row is permitted. The hero value itself may change
   in place: when Weather's current temperature changes on a refresh, only its changed
   digits roll one line on `normal`, once, up for a rise and down for a fall (a value that
-  gains or loses a digit rolls whole), and a value drawn from the cache or for a new place
-  never rolls.
+  gains or loses a digit rolls whole, and what sits beside it moves with its width), and a
+  value drawn from the cache or for a new place never rolls.
 
 App motion does not read the OS motion preference or claim adaptation to it.
 
