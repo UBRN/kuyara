@@ -39,6 +39,18 @@ import {
   type DressingDayDeparture,
 } from '@/features/recommendation/domain/dressing-day-departure';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
+import {
+  TomorrowPreviewController,
+  forecastCoversWindow,
+  type TomorrowPreviewInput,
+  type TomorrowPreviewStore,
+} from '@/features/recommendation/application/tomorrow-preview';
+import {
+  aiRequestFromContext,
+  createRecommendationContextWithPool,
+} from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
+import { nextMorningAfterEvening } from '@/features/recommendation/domain/local-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
@@ -119,6 +131,23 @@ async function loadRepository() {
     new SqliteRecommendationLocalDataSource(database),
     { createId: () => Crypto.randomUUID(), now },
   );
+}
+
+function createPreviewStore(): TomorrowPreviewStore {
+  const source = new ExpoFileRecommendationPreviewDataSource();
+  const repository = new LocalRecommendationRepository(source,
+    { createId: () => Crypto.randomUUID(), now });
+  return {
+    claim: (profileId, dayKey) => source.claim(profileId, dayKey),
+    // A preview for another day, or one that no longer validates, is no preview.
+    get: (profileId, dayKey) => repository.getSnapshot(profileId, dayKey).catch(() => null),
+    save: (profileId, input) => repository.saveSnapshot(profileId, input),
+  };
+}
+
+function composePreview(input: TomorrowPreviewInput) {
+  const { context } = createRecommendationContextWithPool(input, input.localDayKey);
+  return { context, request: aiRequestFromContext(context) };
 }
 
 async function loadChoiceRepository() {
@@ -237,11 +266,15 @@ export function RecommendationApplicationProvider({
   );
   // Re-asks reserve a daily slot before the controller enters the AI chain.
   const budget = useMemo(() => new ExpoFileAiRegenerationBudget(), []);
+  const previewStore = useMemo(createPreviewStore, []);
+  const loadRecentWorn = useCallback(async () =>
+    (await (await loadHistoryRepository()).lastSeven(localProfileId)).map((record) => record.outfit),
+  [localProfileId]);
   const controller = useMemo(
     () => new RecommendationApplicationController(localProfileId, {
       loadRepository,
-      loadRecentWorn: async () => (await (await loadHistoryRepository()).lastSeven(localProfileId))
-        .map((record) => record.outfit),
+      loadRecentWorn,
+      loadPreview: (dayKey) => previewStore.get(localProfileId, dayKey),
       client,
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
       telemetry,
@@ -250,7 +283,8 @@ export function RecommendationApplicationProvider({
       // date the evening began on, so 18:00 does not hand out a second five.
       reserveAiReask: (dayKey) => budget.reserve(dressingDayDateKey(dayKey)),
     }),
-    [analytics, budget, client, latestOnDeviceAvailability, localProfileId, telemetry],
+    [analytics, budget, client, latestOnDeviceAvailability, loadRecentWorn, localProfileId, previewStore,
+      telemetry],
   );
   const controllerState = useSyncExternalStore(
     controller.subscribe,
@@ -455,7 +489,10 @@ export function RecommendationApplicationProvider({
   }, [activeDeparture, choiceReady, departureReady, language, profileState, resolvedDressStyle,
     resolvedStyles, weatherApplication, weatherState]);
 
+  // Tomorrow's preview is chosen only after a foreground open of Today has asked for it.
+  const [previewWanted, setPreviewWanted] = useState(false);
   const evaluateApprovedTriggers = useCallback(async (foreground = false) => {
+    if (foreground) setPreviewWanted(true);
     const generationInput = currentInput();
     if (!generationInput) return;
     if (foreground) foregroundEvaluationRequested.current = true;
@@ -483,6 +520,51 @@ export function RecommendationApplicationProvider({
       styleAesthetics: resolvedStyleAesthetics(choice, settingsStyles ?? []),
     });
   }, [controller, currentInput, localDay.key, localProfileId, settingsStyles]);
+
+  // The evening preview of tomorrow: one selection per dressing day, through the same chain, once
+  // today's outfit has settled, and only when the forecast covers tomorrow's whole window.
+  const tomorrowMorning = useMemo(() => nextMorningAfterEvening(localDay.key), [localDay.key]);
+  const tomorrowKey = tomorrowMorning ? localDayKey(tomorrowMorning) : null;
+  const previewController = useMemo(() => new TomorrowPreviewController(localProfileId,
+    { store: previewStore, client, loadRecentWorn, compose: composePreview }),
+  [client, loadRecentWorn, localProfileId, previewStore]);
+  const preview = useSyncExternalStore(previewController.subscribe, previewController.getSnapshot,
+    previewController.getSnapshot);
+  useEffect(() => {
+    if (tomorrowKey) void previewController.load(tomorrowKey);
+  }, [previewController, tomorrowKey]);
+  const settledRecommendation = state.status === 'ready' && !state.isRefreshing &&
+    state.snapshot?.recommendation.status === 'recommended' ? state.snapshot.recommendation : null;
+  const tomorrowStyles = useMemo(() => [...(settingsStyles ?? [])].sort(), [settingsStyles]);
+  useEffect(() => {
+    if (!previewWanted || !tomorrowMorning || !tomorrowKey || !input || eveningChoicePending ||
+        !settledRecommendation) return;
+    const departureAt = tomorrowMorning.toISOString();
+    if (!forecastCoversWindow(input.snapshot, departureAt)) return;
+    void previewController.ensure({
+      snapshot: input.snapshot,
+      now: now(),
+      departureAt,
+      clothingPreference: input.clothingPreference,
+      dressStyle: profileDefault,
+      styleAesthetics: tomorrowStyles,
+      dayVariant: localDayVariant(tomorrowMorning),
+      dayKind: localDayKind(tomorrowMorning),
+      localDayKey: tomorrowKey,
+      locale: language,
+      // What the morning will exclude too, unless today's outfit changes before then.
+      excludedOptionIds: settledRecommendation.outfits.map(({ optionId }) => optionId),
+    });
+  }, [eveningChoicePending, input, language, previewController, previewWanted, profileDefault,
+    settledRecommendation, tomorrowKey, tomorrowMorning, tomorrowStyles]);
+  // Shown only while it still answers tomorrow's question: the same place, gender, dress style
+  // and styles. Otherwise it simply does not appear; the day's one selection is not spent again.
+  const tomorrowPreview = preview && tomorrowKey && input && preview.localDayKey === tomorrowKey &&
+    preview.locationKey === input.snapshot.locationKey &&
+    preview.clothingPreference === input.clothingPreference && preview.dressStyle === profileDefault &&
+    JSON.stringify(preview.styleAesthetics ?? []) === JSON.stringify(tomorrowStyles)
+    ? preview : null;
+
   const outfitHistory = useMemo(() => ({
     list: async () => (await loadHistoryRepository()).list(localProfileId),
     get: async (dayKey: string) => (await loadHistoryRepository()).get(localProfileId, dayKey),
@@ -497,6 +579,7 @@ export function RecommendationApplicationProvider({
     onDeviceAvailability,
     skipWait: () => controller.skipWait(),
     dressingDayKey: localDay.key,
+    tomorrowPreview,
     dressingDayChoiceReady: choiceReady,
     dressingDayChoiceFailed: choiceFailed,
     morningChoicePending,
@@ -587,6 +670,7 @@ export function RecommendationApplicationProvider({
     resolvedStyles,
     outfitHistory,
     state,
+    tomorrowPreview,
   ]);
 
   return (

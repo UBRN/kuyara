@@ -10,6 +10,7 @@ import {
 } from '@/features/recommendation/application/recommendation-application-controller';
 import { dateTimeFormat, numberFormat } from '@/domain/intl-format';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
+import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import {
   coverageDrift,
@@ -626,6 +627,62 @@ function reasonCodesByPriority(
     ...requirements.reasonCodes.filter((code) => mandatory.has(code)),
     ...requirements.reasonCodes.filter((code) => !mandatory.has(code)),
   ];
+}
+
+export type TomorrowPreviewPresentation = Readonly<{
+  heading: string;
+  weather: string;
+  weatherAccessibilityLabel: string;
+  title: string;
+  boardPieces: LoadedOutfitPresentation['boardPieces'];
+  palette: GarmentOutfitPalette;
+  boardAccessibilityLabel: string;
+}>;
+
+/**
+ * The evening's look at the next dressing day: its forecast in one line and the first outfit
+ * chosen for it, coloured by that day's own weather. Null when the forecast has no row for the
+ * day, so the section never shows an outfit without the weather it was chosen for.
+ */
+export function createTomorrowPreviewPresentation(
+  preview: RecommendationSnapshot,
+  weather: WeatherSnapshot,
+  language: SupportedLanguage,
+  temperatureUnit: TemperatureUnit,
+): TomorrowPreviewPresentation | null {
+  const outfit = preview.recommendation.outfits[0];
+  const day = weather.daily?.find(({ dateKey }) => dateKey === preview.localDayKey);
+  if (!outfit || !day || !preview.localDayKey) return null;
+  const messages = getMessages(language);
+  const copy = messages.today;
+  const condition = messages.weather.conditions[day.condition];
+  const title = archetypeLabel(messages.recommendation, outfit.archetypeId,
+    localDayKind(new Date(`${preview.localDayKey}T12:00:00`)));
+  const boardPieces = outfitBoardPieces(outfit);
+  return {
+    heading: copy.tomorrow.heading,
+    weather: copy.tomorrow.weather({
+      condition,
+      minimum: formatTemperature(day.minimumTemperatureCelsius, language, temperatureUnit),
+      maximum: formatTemperature(day.maximumTemperatureCelsius, language, temperatureUnit),
+    }),
+    weatherAccessibilityLabel: copy.tomorrow.weatherAccessibilityLabel({
+      condition,
+      minimum: formatTemperatureValue(day.minimumTemperatureCelsius, language, temperatureUnit),
+      maximum: formatTemperatureValue(day.maximumTemperatureCelsius, language, temperatureUnit),
+      unitName: messages.temperatureUnitNames[temperatureUnit],
+    }),
+    title,
+    boardPieces,
+    palette: outfitGarmentPalette(outfit, {
+      temperatureC: day.maximumTemperatureCelsius, condition: day.condition, isNight: false,
+    }),
+    boardAccessibilityLabel: copy.boardAccessibilityLabel({
+      archetype: title,
+      pieces: boardPieces.map(({ garmentTypeId }) =>
+        messages.catalog[`catalog.garment_type.${garmentTypeId}.name`]),
+    }),
+  };
 }
 
 /** A dressing-day key's calendar date as Today's top row shows it. */

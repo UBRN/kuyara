@@ -37,6 +37,7 @@ import {
   deriveClothingRequirements,
   type ClothingRequirements,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { reusablePreviewRecommendation } from '@/features/recommendation/application/tomorrow-preview';
 import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
   aiRequestFromContext,
@@ -171,6 +172,9 @@ type Dependencies = Readonly<{
   holdPhase?: (milliseconds: number) => Promise<void>;
   // A failed reservation takes the deterministic path; an AI failure keeps its slot spent.
   reserveAiReask?: (dayKey: string) => Promise<boolean>;
+  // The evening's preview of this dressing day, if one was chosen. An approved trigger reuses
+  // its selection instead of asking again when `reusablePreviewRecommendation` allows it.
+  loadPreview?: (dayKey: string) => Promise<RecommendationSnapshot | null>;
 }>;
 
 // Long enough to be read, short enough that the deterministic three still feel immediate;
@@ -546,6 +550,15 @@ export class RecommendationApplicationController {
         request = null;
       }
       if (!request && this.latestRequestKey === key) this.aiPending = false;
+    }
+    if (request && trigger !== 'regenerate' && this.dependencies.loadPreview) {
+      const preview = await this.dependencies.loadPreview(input.localDayKey).catch(() => null);
+      recommendation = reusablePreviewRecommendation(preview, context, input.snapshot.locationKey);
+      if (recommendation) {
+        request = null;
+        if (this.latestRequestKey === key) this.aiPending = false;
+        this.setPhase(key, 'preparing-outfits');
+      }
     }
     if (request) {
       try {

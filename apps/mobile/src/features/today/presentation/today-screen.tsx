@@ -48,6 +48,7 @@ import {
 } from '@/features/today/presentation/first-generation-runway';
 import {
   createTodayPresentation,
+  createTomorrowPreviewPresentation,
   garmentPaletteDay,
   outfitBoardPieces,
   outfitGarmentPalette,
@@ -493,6 +494,14 @@ function TodayScreenContent({
   }
   const exhausted = recommendationApplication?.state.status === 'ready'
     && recommendationApplication.state.exhausted;
+  // In the evening, the next dressing day's outfit under its own heading, after today's.
+  const tomorrowPreview = recommendationApplication?.tomorrowPreview ?? null;
+  const tomorrowWeather = weatherApplication.state.status === 'ready'
+    ? activeLocationSnapshot(weatherApplication.state.snapshot, weatherApplication.state.activeLocation)
+    : null;
+  const tomorrow = primary && tomorrowPreview && tomorrowWeather
+    ? createTomorrowPreviewPresentation(tomorrowPreview, tomorrowWeather, language, temperatureUnit)
+    : null;
   // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
   //: while Easier to see is on, each alternate is a full-width row
   // with its drawing at the left, so a name is never cut and the list scrolls one way.
@@ -826,11 +835,47 @@ function TodayScreenContent({
           </ArrivesAfterHandoff>
         ) : null}
 
+        {tomorrow ? (
+          <Entrance index={alternates.length + 1}>
+            <View style={styles.alternates} testID="today-tomorrow">
+              <View style={[styles.alternatesHeading, { borderBottomColor: theme.colors.borderSubtle }]}>
+                <AppText accessibilityRole="header" variant="bodyStrong">{tomorrow.heading}</AppText>
+              </View>
+              <View style={[styles.tomorrowRow, usesAccessibilityLayout && styles.stackedTomorrowRow]}>
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  style={[styles.alternateStage, {
+                    height: measureGarmentBoardHeight(tomorrow.boardPieces, ALTERNATE_ROW_BOARD_WIDTH, 'today',
+                      false, easierToSee),
+                    width: ALTERNATE_ROW_BOARD_WIDTH,
+                  }, strongEdge]}>
+                  <GarmentBoard
+                    accessibilityLabel={tomorrow.boardAccessibilityLabel}
+                    palette={tomorrow.palette}
+                    pieces={tomorrow.boardPieces}
+                    preset="today"
+                    testID="today-tomorrow-board"
+                    width={ALTERNATE_ROW_BOARD_WIDTH}
+                  />
+                </View>
+                <View accessible accessibilityLabel={`${tomorrow.boardAccessibilityLabel} ${tomorrow.weatherAccessibilityLabel}`}
+                  style={styles.tomorrowText}>
+                  <AppText testID="today-tomorrow-title" variant="label">{tomorrow.title}</AppText>
+                  <AppText colorRole="textSecondary" tabularNumbers testID="today-tomorrow-weather" variant="caption">
+                    {tomorrow.weather}
+                  </AppText>
+                </View>
+              </View>
+            </View>
+          </Entrance>
+        ) : null}
+
         {/* ADR 0004's offer comes last, after the alternatives (f12). Either answer closes
             the row in place, so the button under it glides up instead of jumping. */}
         {shownOffer ? (
           <Presence visible={offerToRender !== null}>
-            <Entrance index={alternates.length + 1}>
+            <Entrance index={alternates.length + (tomorrow ? 2 : 1)}>
               <WeatherAlertOfferRow
                 blocked={shownOffer.blocked}
                 language={language}
@@ -1166,6 +1211,9 @@ const styles = StyleSheet.create({
   alternateRowTitle: { flex: 1, marginTop: 0 },
   stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
   alternateStage: { borderRadius: 14, justifyContent: 'center', overflow: 'hidden' },
+  tomorrowRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+  stackedTomorrowRow: { alignItems: 'flex-start', flexDirection: 'column' },
+  tomorrowText: { flex: 1, flexShrink: 1, gap: spacing.xs },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
   feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },

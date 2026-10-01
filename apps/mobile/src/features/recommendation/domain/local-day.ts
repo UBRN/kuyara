@@ -1,6 +1,10 @@
 import type { DayKind } from '@kuyara/contracts';
 
-import { wardrobeDayKey } from '@/features/weather/domain/wardrobe-day';
+import {
+  dressingDayDateKey,
+  isEveningDressingDayKey,
+  wardrobeDayKey,
+} from '@/features/weather/domain/wardrobe-day';
 
 /**
  * The device-local day rules the recommendation signals are keyed to. Every function takes
@@ -38,4 +42,18 @@ export function localDayKey(date: Date): string {
     day: date.getDate(),
     hour: date.getHours(),
   });
+}
+
+/** The local hour tomorrow's preview is chosen for: a typical time to leave the house. */
+const previewDepartureHour = 8;
+
+/**
+ * The morning that follows an evening dressing day, as the device-local instant its preview is
+ * chosen for: 08:00 on the date after the evening's own date, so `localDayKey` of the result is
+ * the next bare-date dressing day. Null for a day-period key, which has no evening preview.
+ */
+export function nextMorningAfterEvening(key: string): Date | null {
+  if (!isEveningDressingDayKey(key)) return null;
+  const [year, month, day] = dressingDayDateKey(key).split('-').map(Number);
+  return new Date(year, month - 1, day + 1, previewDepartureHour);
 }
