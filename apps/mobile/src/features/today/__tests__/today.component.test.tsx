@@ -55,6 +55,7 @@ import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeig
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
 import { RING_OUTSET } from '@/components/ui/coach-mark-layer';
+import { LaunchRevealContext } from '@/components/ui/launch-curtain';
 
 // GlassButton draws the sheet close and the detail back as SwiftUI glass buttons.
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
@@ -1194,6 +1195,29 @@ test('the first hero rise waits until its stage has laid out', async () => {
   await fireEvent(result.getByTestId('today-stage', hidden), 'layout', {
     nativeEvent: { layout: { width: 358, height: 400, x: 0, y: 0 } },
   });
+  await waitFor(() => expect(heroRiseLayers(result).every((layer) => (layer.opacity ?? 1) === 1)).toBe(true));
+});
+
+// A cold launch draws Today under the launch curtain; the hero rises as the curtain lifts,
+// so the arrival is seen rather than spent behind it.
+test('the hero rise waits for the launch curtain to start lifting', async () => {
+  const hidden = { includeHiddenElements: true };
+  const screen = (revealing: boolean) => providers(
+    <LaunchRevealContext value={{ revealing, done: false }}>
+      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+        onAskAgain={jest.fn()} state={todayScreenState} />
+    </LaunchRevealContext>,
+  );
+  const result = await render(screen(false));
+  await fireEvent(result.getByTestId('today-stage', hidden), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 400, x: 0, y: 0 } },
+  });
+  expect(heroRiseLayers(result).length).toBeGreaterThan(0);
+  for (const layer of heroRiseLayers(result)) {
+    expect(layer).toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  }
+
+  await result.rerender(screen(true));
   await waitFor(() => expect(heroRiseLayers(result).every((layer) => (layer.opacity ?? 1) === 1)).toBe(true));
 });
 

@@ -3,6 +3,7 @@ import { use, useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { AccessibilityInfo, Dimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { LaunchRevealContext } from '@/components/ui/launch-curtain';
 import type { NotificationApplicationValue } from '@/features/notifications/application/notification-context';
 import { NotificationApplicationContext } from '@/features/notifications/application/notification-context';
 import {
@@ -588,18 +589,21 @@ const settledToday: WalkthroughTodayFacts = { settled: true, overlayOpen: false,
 async function renderProvider({
   exhausted = false,
   facts = settledToday,
+  launchDone = true,
   openedNotifications = 0,
   sessionIndex = 1,
   value = profile(),
 }: Readonly<{
   exhausted?: boolean;
   facts?: WalkthroughTodayFacts;
+  launchDone?: boolean;
   openedNotifications?: number;
   sessionIndex?: number;
   value?: LocalProfile;
 }> = {}) {
   const markWalkthroughSeen = jest.fn(async () => undefined);
-  const tree = (current: LocalProfile, currentFacts: WalkthroughTodayFacts, opened: number) => shell(
+  const tree = (current: LocalProfile, currentFacts: WalkthroughTodayFacts, opened: number, done = launchDone) => shell(
+    <LaunchRevealContext value={{ revealing: done, done }}>
     <ProfileApplicationContext value={profileValue(current, markWalkthroughSeen)}>
       <NotificationApplicationContext
         value={{ openedNotifications: opened } as unknown as NotificationApplicationValue}>
@@ -607,11 +611,14 @@ async function renderProvider({
           <TodayProbe exhausted={exhausted} facts={currentFacts} />
         </WalkthroughProvider>
       </NotificationApplicationContext>
-    </ProfileApplicationContext>,
+    </ProfileApplicationContext>
+    </LaunchRevealContext>,
   );
   const result = await render(tree(value, facts, openedNotifications));
-  const rerender = async (next: LocalProfile, nextFacts = facts, nextOpened = openedNotifications) => {
-    await act(async () => { await result.rerender(tree(next, nextFacts, nextOpened)); });
+  const rerender = async (
+    next: LocalProfile, nextFacts = facts, nextOpened = openedNotifications, nextDone = launchDone,
+  ) => {
+    await act(async () => { await result.rerender(tree(next, nextFacts, nextOpened, nextDone)); });
   };
   return { markWalkthroughSeen, result, rerender };
 }
@@ -639,6 +646,15 @@ test.each([
   await waitOpen(result);
   expect(result.queryByTestId('walkthrough-skip')).toBeNull();
   await rerender(profile(), settledToday);
+  await waitOpen(result);
+  expect(bubble(result).counter).toBe('Step 1 of 9');
+});
+
+test('the tour never opens over the launch curtain, and opens once it has gone', async () => {
+  const { rerender, result } = await renderProvider({ launchDone: false });
+  await waitOpen(result);
+  expect(result.queryByTestId('walkthrough-skip')).toBeNull();
+  await rerender(profile(), settledToday, 0, true);
   await waitOpen(result);
   expect(bubble(result).counter).toBe('Step 1 of 9');
 });

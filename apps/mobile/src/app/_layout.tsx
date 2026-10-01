@@ -8,7 +8,7 @@ import { Platform, Share, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { use, useCallback, useEffect, useState } from 'react';
 
-import { LaunchCurtain, type LaunchReadiness } from '@/components/ui/launch-curtain';
+import { LaunchCurtain, type LaunchReadiness, useLaunchReveal } from '@/components/ui/launch-curtain';
 
 import {
   AnalyticsConsentGate,
@@ -121,6 +121,8 @@ function ReadyApplicationShell({
   onLaunchReady,
 }: ReadyApplicationShellProps) {
   const theme = useKuyaraTheme();
+  // Nothing is presented over the launch curtain; the consent sheet waits for it to go.
+  const launch = useLaunchReveal();
   // The task only ever refreshes weather to reschedule notifications, so it costs the
   // device a background window for nothing while both kinds are off (ADR 0004).
   const wantsBackgroundRefresh = profile.notificationsOptIn || profile.morningBriefingOptIn;
@@ -167,7 +169,7 @@ function ReadyApplicationShell({
                 <StatusBar style={theme.isDark ? 'light' : 'dark'} />
                 <AnalyticsConsentGate
                   onPresent={presentAnalyticsConsent}
-                  shouldPresent={isAnalyticsConsentGateEligible({
+                  shouldPresent={launch.done && isAnalyticsConsentGateEligible({
                     analyticsConsent: profile.analyticsConsent,
                     onboardingCompleted: profile.onboardingCompleted,
                     pathname,

@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { BackHandler } from 'react-native';
 
+import { useLaunchReveal } from '@/components/ui/launch-curtain';
 import { sessionMayAskForConsent } from '@/features/analytics/domain/analytics-session';
 import { NotificationApplicationContext } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
@@ -143,7 +144,9 @@ export function WalkthroughProvider({
     if (id === 'sheet-close') controller.observeSheet(registry.has('sheet-close'));
   }), [controller, registry]);
 
-  const opening = profile ? walkthroughOpening({
+  // The tour never opens over the launch curtain.
+  const launch = useLaunchReveal();
+  const opening = profile && launch.done ? walkthroughOpening({
     running,
     due: isWalkthroughDue(profile.walkthroughVersion),
     autoOpenedThisLaunch: openedThisLaunch,

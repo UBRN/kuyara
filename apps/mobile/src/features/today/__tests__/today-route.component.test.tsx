@@ -3,6 +3,7 @@ import { useEffect, useState, useSyncExternalStore, type PropsWithChildren } fro
 import { AccessibilityInfo, Alert, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { LaunchRevealContext } from '@/components/ui/launch-curtain';
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
 import { RetryCounter } from '@/features/analytics/application/retry-counter';
@@ -670,6 +671,39 @@ test('an existing profile sees the versioned name sheet and Not now resolves it'
   expect(markRecommendationShown).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByTestId('name-sheet-dismiss'));
   await waitFor(() => expect(profile.updateDisplayName).toHaveBeenCalledWith(null));
+});
+
+test('the name sheet waits for the launch curtain to go', async () => {
+  const profile = profileValue({ namePromptVersion: 0 });
+  const route = (done: boolean) => (
+    <Providers productAnalytics={createProductAnalytics()} profile={profile}
+      recommendation={recommendationReady()} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <LaunchRevealContext value={{ revealing: true, done }}>
+        <TodayRoute />
+      </LaunchRevealContext>
+    </Providers>
+  );
+  const view = await render(route(false));
+  expect(view.queryByText(messages.en.onboarding.nameTitle)).toBeNull();
+
+  await view.rerender(route(true));
+  expect(await view.findByText(messages.en.onboarding.nameTitle)).toBeOnTheScreen();
+});
+
+test('the morning question waits for the launch curtain to go', async () => {
+  const route = (done: boolean) => (
+    <Providers {...morningPendingProps()} recommendation={recommendationReady({ snapshot: null })}
+      weather={weatherValue()}>
+      <LaunchRevealContext value={{ revealing: true, done }}>
+        <TodayRoute />
+      </LaunchRevealContext>
+    </Providers>
+  );
+  const view = await render(route(false));
+  expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+
+  await view.rerender(route(true));
+  expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
 });
 
 test('Today releases its name prompt when saving the dismissal gate fails', async () => {

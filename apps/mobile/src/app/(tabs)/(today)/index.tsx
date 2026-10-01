@@ -2,6 +2,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
+import { useLaunchReveal } from '@/components/ui/launch-curtain';
 import { useSinglePush } from '@/components/ui/use-single-push';
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
@@ -113,6 +114,8 @@ export default function TodayRoute() {
   const walkthrough = useWalkthrough();
   const tourActive = walkthrough?.active === true;
   const [runwayVisible, setRunwayVisible] = useState(false);
+  // Nothing opens over the launch curtain: the name prompt and the day question wait for it.
+  const launch = useLaunchReveal();
   useScreenViewed('today');
 
   const { state, todayFailure, recommendationFailure } = classifyTodayState({
@@ -161,12 +164,12 @@ export default function TodayRoute() {
   const pendingQuestion = morningChoicePending ? 'morning' : eveningChoicePending ? 'evening' : null;
   useEffect(() => {
     // The Phase 8 tour holds the question back until it ends: one overlay at a time.
-    if (!isFocused || !pendingQuestion || showNamePrompt || tourActive || !currentDressingDayKey ||
+    if (!isFocused || !launch.done || !pendingQuestion || showNamePrompt || tourActive || !currentDressingDayKey ||
         !mayOfferDayQuestion(weatherState, state) || offeredKey.current === currentDressingDayKey) return;
     offeredKey.current = currentDressingDayKey;
     setSheetTarget(pendingQuestion);
-  }, [currentDressingDayKey, isFocused, pendingQuestion, setSheetTarget, showNamePrompt, state, tourActive,
-    weatherState]);
+  }, [currentDressingDayKey, isFocused, launch.done, pendingQuestion, setSheetTarget, showNamePrompt, state,
+    tourActive, weatherState]);
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const profileDressStyle = profile?.dressStyle ?? 'smart';
   // f25 and M16: the first dressing day is the one the profile was set up on. Its greeting
@@ -465,7 +468,7 @@ export default function TodayRoute() {
         );
       }}
       onSave={updateDisplayName}
-      visible={showNamePrompt}
+      visible={showNamePrompt && launch.done}
     />
     </>
   );
