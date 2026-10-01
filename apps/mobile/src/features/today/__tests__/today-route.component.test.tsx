@@ -33,6 +33,7 @@ import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client'
 import { slotCandidates } from '@/features/recommendation/domain/manual-mix';
 import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
+import { WalkthroughContext } from '@/features/walkthrough/application/walkthrough-context';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { garmentColorFamiliesBySlot } from '@/components/ui';
@@ -126,6 +127,7 @@ let mockParams: { id?: string } = {};
 
 const mockStackScreen = jest.fn();
 const mockDispatch = jest.fn();
+const mockNavigationListeners = new Map<string, (event: { data: { closing: boolean } }) => void>();
 let mockFocused = true;
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react');
@@ -133,7 +135,13 @@ jest.mock('expo-router', () => {
     Stack: { Screen: (props: unknown) => { mockStackScreen(props); return null; } },
     useFocusEffect: (callback: () => void | (() => void)) => actualReact.useEffect(callback, [callback]),
     useIsFocused: () => mockFocused,
-    useNavigation: () => ({ dispatch: mockDispatch }),
+    useNavigation: () => ({
+      dispatch: mockDispatch,
+      addListener: (name: string, listener: (event: { data: { closing: boolean } }) => void) => {
+        mockNavigationListeners.set(name, listener);
+        return () => mockNavigationListeners.delete(name);
+      },
+    }),
     useRouter: () => ({
       push: mockPush,
       back: mockBack,
@@ -2697,6 +2705,32 @@ test('a regeneration that drops the outfit while detail is off screen returns To
   } finally {
     mockFocused = true;
   }
+});
+
+// The native back control pops first and moves the route only once the pop has landed, so
+// detail tells the tour when its pop back to Today starts; an arriving push says nothing.
+test('outfit detail tells the tour when its pop back to Today starts', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const reportReturningToday = jest.fn();
+  await render(
+    <WalkthroughContext value={{
+      active: true, restart: () => undefined, reportToday: () => undefined, reportReturningToday,
+    }}>
+      <Providers
+        productAnalytics={createProductAnalytics()}
+        profile={profileValue()}
+        recommendation={recommendationReady()}
+        wardrobe={wardrobeValue()}
+        weather={weatherValue()}>
+        <OutfitDetailRoute />
+      </Providers>
+    </WalkthroughContext>,
+  );
+  const transitionStart = mockNavigationListeners.get('transitionStart');
+  await act(async () => transitionStart?.({ data: { closing: false } }));
+  expect(reportReturningToday).not.toHaveBeenCalled();
+  await act(async () => transitionStart?.({ data: { closing: true } }));
+  expect(reportReturningToday).toHaveBeenCalledTimes(1);
 });
 
 test('recomputing a focused outfit detail does not reopen the same suggestion', async () => {

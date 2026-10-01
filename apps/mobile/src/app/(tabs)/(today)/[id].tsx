@@ -35,6 +35,7 @@ import {
   type PieceSheetValues,
 } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import { showWardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
+import { useTourPopReport } from '@/features/walkthrough/application/use-tour-pop-report';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
@@ -115,6 +116,7 @@ export default function OutfitDetailRoute() {
   useEffect(() => {
     if (!isFocused && outfitGone) navigation.dispatch(StackActions.popToTop());
   }, [isFocused, navigation, outfitGone]);
+  useTourPopReport();
 
   useFocusEffect(useCallback(() => {
     reevaluateLocalDay();

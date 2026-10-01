@@ -22,6 +22,12 @@ export type WalkthroughValue = Readonly<{
   /** Settings, Help: the tour from step 1 over Today, without touching the gate. */
   restart: () => void;
   reportToday: (facts: WalkthroughTodayFacts) => void;
+  /**
+   * Outfit detail has started its pop back to Today. The native back control pops first and
+   * moves the route only once the pop has landed, so the tour hears the pop's start here and
+   * leaves the back step at once instead of drawing it over Today for the whole pop.
+   */
+  reportReturningToday: () => void;
 }>;
 
 export const WalkthroughContext = createContext<WalkthroughValue | null>(null);

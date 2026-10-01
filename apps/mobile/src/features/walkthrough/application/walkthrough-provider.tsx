@@ -178,10 +178,11 @@ export function WalkthroughProvider({
     setToday((current) => (sameFacts(current, facts) ? current : facts));
   }, []);
   const restart = useCallback(() => setManualPending(true), []);
+  const reportReturningToday = useCallback(() => controller.observeRoute('today'), [controller]);
   const sheetStep = state.status === 'running' && tourSteps[state.stepIndex].inSheet === true;
   const value = useMemo<WalkthroughValue>(
-    () => ({ active: running, sheetStep, restart, reportToday }),
-    [reportToday, restart, running, sheetStep],
+    () => ({ active: running, sheetStep, restart, reportToday, reportReturningToday }),
+    [reportReturningToday, reportToday, restart, running, sheetStep],
   );
 
   return (
