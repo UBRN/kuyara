@@ -986,6 +986,7 @@ export function GarmentSwapBoard({
   };
 
   const curDx = focused?.values.dx;
+  const curOp = focused?.values.op;
   const curKey = focused?.key ?? null;
   const nextDx = nextInstance?.values.dx;
   const nextOp = nextInstance?.values.op;
@@ -1069,6 +1070,9 @@ export function GarmentSwapBoard({
       const incomingTile = direction === 1 ? nextTile : prevTile;
       if (incomingId && incomingDx && direction !== 0) {
         incomingDx.set(withSpring(0, { ...spatial, velocity }));
+        // The piece swiped away fades from the release, as a paged-out piece does, instead
+        // of sliding out opaque until the owner has applied the step.
+        curOp?.set(withTiming(0, { duration: fast }));
         const key = curKey;
         curDx.set(withSpring(swapExitOffset(direction, shown, stride), { ...spatial, velocity }, (finished) => {
           if (finished && key) scheduleOnRN(removeLeaving, key);
