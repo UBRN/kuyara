@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/launch-curtain';
 import { brandColors, standardMotion } from '@/theme/theme';
 
-const { deliberate, fast, launch } = standardMotion;
+const { fast, launch, normal } = standardMotion;
 
 function Probe() {
   const { done, revealing } = useLaunchReveal();
@@ -113,7 +113,7 @@ test('a cold launch dives, lifts the curtain, then leaves', async () => {
   expect(probe()).toBe('covered playing');
   await advance(1);
   expect(probe()).toBe('revealing playing');
-  await advance(deliberate - 1);
+  await advance(normal - 1);
   expect(screen.getByTestId('launch-curtain', hidden)).toBeTruthy();
   await advance(1);
   expect(probe()).toBe('revealing done');
@@ -130,7 +130,7 @@ test('a launch from a notification or a link skips the dive: the colour fades in
   expect(probe()).toBe('covered playing');
   await advance(1);
   expect(probe()).toBe('revealing playing');
-  await advance(deliberate);
+  await advance(normal);
   expect(probe()).toBe('revealing done');
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });
@@ -142,7 +142,7 @@ test('a drawn first screen that turns out to be a notification\'s, within the fr
   await result.rerender(curtain('ready'));
   await result.rerender(curtain('shortened'));
   await nextFrame();
-  await advance(fast + deliberate);
+  await advance(fast + normal);
   // The dive would still be covering the screen here.
   expect(probe()).toBe('revealing done');
 });
@@ -160,7 +160,7 @@ test('the symbol waits for a slow first screen, and withdraws at the ceiling wit
   expect(probe()).toBe('revealing playing');
   // A first screen that arrives now changes nothing.
   await result.rerender(curtain('ready'));
-  await advance(deliberate);
+  await advance(normal);
   expect(probe()).toBe('revealing done');
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });

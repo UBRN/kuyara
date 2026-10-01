@@ -106,10 +106,10 @@ test('the stagger role steps content arrival', () => {
   assert.equal(createKuyaraTheme('light').motion.stagger, standardMotion.stagger);
 });
 
-test('the launch role is the one transition longer than deliberate', () => {
-  assert.ok(standardMotion.launch > standardMotion.deliberate);
-  // The whole launch, a breath, the dive and the curtain's fade, stays under a second.
-  assert.ok(standardMotion.fast + standardMotion.launch + standardMotion.deliberate < 1_000);
+test('the launch role keeps the whole launch to 600 ms', () => {
+  // A breath on `fast`, the dive on `launch` and the curtain's fade on `normal`.
+  assert.equal(standardMotion.fast + standardMotion.launch + standardMotion.normal, 600);
+  assert.ok(standardMotion.launch > standardMotion.normal);
   assert.equal(createKuyaraTheme('dark').motion.launch, standardMotion.launch);
 });
 
