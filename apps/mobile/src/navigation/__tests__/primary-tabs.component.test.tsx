@@ -270,7 +270,7 @@ describe.each([
       <TestProviders language={language}>
         <WardrobeListScreen
           onAdd={() => undefined}
-          onEdit={() => undefined}
+          itemHref={() => '/'}
           onRetry={() => undefined}
           state={{
             status: 'ready',

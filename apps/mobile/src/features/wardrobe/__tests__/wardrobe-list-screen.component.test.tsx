@@ -14,11 +14,20 @@ import {
   resolveGridGeometry,
   tileEntranceIndex,
 } from '@/features/wardrobe/presentation/wardrobe-list-screen';
+import { PUSH_WINDOW_MS } from '@/components/ui/use-single-push';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { EasierToSeeContext, SystemVisibilityContext } from '@/theme/easier-to-see';
+
+// A tile is an expo-router `Link`, which navigates through the router's own `linkTo`; this
+// screen renders outside a router, so the test reads the navigation it asks for there.
+const mockLinkTo = jest.fn();
+jest.mock('expo-router/build/global-state/routing', () => ({
+  ...jest.requireActual('expo-router/build/global-state/routing'),
+  linkTo: (...args: unknown[]) => mockLinkTo(...args),
+}));
 
 jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
@@ -103,7 +112,7 @@ test('loading state exposes an accessible progressbar and no artwork', async () 
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={{ status: 'loading' }}
       />
@@ -123,7 +132,7 @@ test('error state retries and shows no category tabs', async () => {
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={onRetry}
         state={{ status: 'error' }}
       />
@@ -144,7 +153,7 @@ test('an empty Closet opens on the first category, says it is empty and adds int
     <TestProviders>
       <WardrobeListScreen
         onAdd={onAdd}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([])}
       />
@@ -166,7 +175,7 @@ test('an empty category page names its own category and adds into it', async () 
       <WardrobeListScreen
         initialCategory="one_piece"
         onAdd={onAdd}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([ownedItem])}
       />
@@ -186,7 +195,7 @@ test('owned and wanted are sections of one category page, owned first, each with
       <WardrobeListScreen
         initialCategory="footwear"
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([ownedItem, wantedItem, ownedShoe])}
       />
@@ -210,7 +219,7 @@ test('a wanted tile has no stage fill, a dashed frame, a heart badge and says Wa
       <WardrobeListScreen
         initialCategory="footwear"
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([wantedItem])}
       />
@@ -231,7 +240,7 @@ test('a named item shows its own name and the type as the subline', async () => 
     <TestProviders language="tr">
       <WardrobeListScreen
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([ownedItem])}
       />
@@ -247,7 +256,7 @@ test('a legacy row with no type shows the category and explains the missing type
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([legacyItem])}
       />
@@ -260,21 +269,55 @@ test('a legacy row with no type shows the category and explains the missing type
   expect(result.getByText(messages.en.wardrobe.unclassifiedType)).toBeOnTheScreen();
 });
 
-test('selecting a tile emits the edit intent', async () => {
-  const onEdit = jest.fn();
+test('a tile opens its piece once, however quickly a second tap or another tile follows', async () => {
+  const otherItem = { ...ownedItem, id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', name: 'Second' };
   const result = await render(
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
-        onEdit={onEdit}
+        itemHref={(id) => `/wardrobe/${id}`}
         onRetry={() => undefined}
-        state={readyState([ownedItem])}
+        state={readyState([ownedItem, otherItem])}
       />
     </TestProviders>,
   );
+  // A plain push of the piece's form; on iOS the link adds the id of the tile it zooms out of.
+  const openedWithZoom = (id: string) =>
+    expect.stringMatching(new RegExp(`^/wardrobe/${id}\\?\\w*zoom_transition_source_id=`));
+  // The press event says whether the tile let its link navigate (`Link` skips a prevented one).
+  const press = async (id: string) => {
+    let prevented = false;
+    await fireEvent.press(result.getByTestId(`wardrobe-item-${id}`), {
+      defaultPrevented: false,
+      preventDefault(this: { defaultPrevented: boolean }) {
+        this.defaultPrevented = true;
+        prevented = true;
+      },
+    });
+    return prevented;
+  };
+  const now = jest.spyOn(Date, 'now').mockReturnValue(10_000);
 
-  await fireEvent.press(result.getByTestId(`wardrobe-item-${ownedItem.id}`));
-  expect(onEdit).toHaveBeenCalledWith(ownedItem.id);
+  try {
+    expect(await press(ownedItem.id)).toBe(false);
+    expect(await press(ownedItem.id)).toBe(true);
+    expect(await press(otherItem.id)).toBe(true);
+    expect(mockLinkTo).toHaveBeenCalledTimes(1);
+    expect(mockLinkTo).toHaveBeenCalledWith(
+      openedWithZoom(ownedItem.id),
+      expect.objectContaining({ event: 'PUSH' }),
+    );
+
+    // Once the form's transition has had its time, the next tap opens a piece again.
+    now.mockReturnValue(10_000 + PUSH_WINDOW_MS);
+    expect(await press(otherItem.id)).toBe(false);
+    expect(mockLinkTo).toHaveBeenLastCalledWith(
+      openedWithZoom(otherItem.id),
+      expect.objectContaining({ event: 'PUSH' }),
+    );
+  } finally {
+    now.mockRestore();
+  }
 });
 
 test('a held tile dims while it is pressed and returns when the finger leaves', async () => {
@@ -282,7 +325,7 @@ test('a held tile dims while it is pressed and returns when the finger leaves', 
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([ownedItem])}
       />
@@ -293,18 +336,19 @@ test('a held tile dims while it is pressed and returns when the finger leaves', 
   // rebuilds on every render, so the visible half of the response is what is read here:
   // the tile dims, and motion is never the only indication that it is held.
   const tile = result.getByTestId(`wardrobe-item-${ownedItem.id}`);
-  expect(StyleSheet.flatten(tile.props.style).opacity).toBe(1);
+  const contentOpacity = () =>
+    StyleSheet.flatten(result.getByTestId(`wardrobe-item-${ownedItem.id}-content`).props.style)
+      .opacity;
+  expect(contentOpacity()).toBe(1);
 
   fireEvent(tile, 'pressIn');
   await waitFor(() => {
-    expect(StyleSheet.flatten(result.getByTestId(`wardrobe-item-${ownedItem.id}`).props.style).opacity)
-      .toBe(lightTheme.interaction.pressedOpacity);
+    expect(contentOpacity()).toBe(lightTheme.interaction.pressedOpacity);
   });
 
   fireEvent(tile, 'pressOut');
   await waitFor(() => {
-    expect(StyleSheet.flatten(result.getByTestId(`wardrobe-item-${ownedItem.id}`).props.style).opacity)
-      .toBe(1);
+    expect(contentOpacity()).toBe(1);
   });
 });
 
@@ -314,7 +358,7 @@ test('a photo tile falls back to the silhouette after a load failure', async () 
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         resolvePhotoUri={() => 'file:///private/documents/photo.jpg'}
         state={readyState([withPhoto])}
@@ -345,7 +389,7 @@ test('the six category tabs always show in catalogue order with counts, and a ta
       <WardrobeListScreen
         onAdd={() => undefined}
         onCategoryChange={onCategoryChange}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([ownedItem, legacyItem, wantedItem])}
       />
@@ -395,7 +439,7 @@ test.each([
       <EasierToSeeContext value={easierToSee}>
         <WardrobeListScreen
           onAdd={() => undefined}
-          onEdit={() => undefined}
+          itemHref={() => '/'}
           onRetry={() => undefined}
           state={readyState(tops)}
         />
@@ -427,7 +471,7 @@ test.each([
         <SystemVisibilityContext value={{ boldText: false, increaseContrast }}>
           <WardrobeListScreen
             onAdd={() => undefined}
-            onEdit={() => undefined}
+            itemHref={() => '/'}
             onRetry={() => undefined}
             state={readyState([ownedTop, wantedTop])}
           />
@@ -487,7 +531,7 @@ test('a background refresh failure shows a retryable banner without discarding t
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={onRetry}
         state={readyState([ownedItem], { refreshFailure: 'unavailable' })}
       />
@@ -529,7 +573,7 @@ test('the grid draws coloured silhouettes for typed garments and accessories, an
   for (const item of [ownedItem, accessory]) {
     const result = await render(
       <TestProviders>
-        <WardrobeListScreen onAdd={() => undefined} onEdit={() => undefined} onRetry={() => undefined}
+        <WardrobeListScreen onAdd={() => undefined} itemHref={() => '/'} onRetry={() => undefined}
           initialCategory={item.category} state={readyState(items)} />
       </TestProviders>,
     );
@@ -539,7 +583,7 @@ test('the grid draws coloured silhouettes for typed garments and accessories, an
   }
   const result = await render(
     <TestProviders>
-      <WardrobeListScreen onAdd={() => undefined} onEdit={() => undefined} onRetry={() => undefined}
+      <WardrobeListScreen onAdd={() => undefined} itemHref={() => '/'} onRetry={() => undefined}
         initialCategory="top" state={readyState(items)} />
     </TestProviders>,
   );
@@ -573,7 +617,7 @@ test('deleting a piece refills the grid at rest instead of replaying its arrival
   const pieces = [at('a', 1), at('b', 2), at('c', 3), at('d', 4), at('e', 5)];
   const screen = (items: readonly WardrobeItem[]) => (
     <TestProviders>
-      <WardrobeListScreen initialCategory="top" onAdd={() => undefined} onEdit={() => undefined}
+      <WardrobeListScreen initialCategory="top" onAdd={() => undefined} itemHref={() => '/'}
         onRetry={() => undefined} state={readyState(items)} />
     </TestProviders>
   );
@@ -595,7 +639,7 @@ test('the category follows the route, so a return from the add flow reselects it
       <WardrobeListScreen
         initialCategory="outerwear"
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([ownedItem, wantedItem])}
       />
@@ -611,7 +655,7 @@ test('the category follows the route, so a return from the add flow reselects it
       <WardrobeListScreen
         initialCategory="footwear"
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         revealWanted
         savedItemId={wantedItem.id}
@@ -639,7 +683,7 @@ test('the saved piece is named with Undo and ringed, and Undo removes it or repo
       <WardrobeListScreen
         initialCategory="outerwear"
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         onUndoSaved={onUndoSaved}
         savedItemId={plainPiece.id}
@@ -678,7 +722,7 @@ test('the saved piece is named with Undo and ringed, and Undo removes it or repo
       <WardrobeListScreen
         initialCategory="outerwear"
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         state={readyState([plainPiece])}
       />
@@ -693,7 +737,7 @@ test('a wanted piece is confirmed as added to the wanted pieces, in Turkish too'
       <WardrobeListScreen
         initialCategory="footwear"
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={() => undefined}
         savedItemId={wantedItem.id}
         state={readyState([wantedItem])}
@@ -716,7 +760,7 @@ test('the pull gesture reports its own source, distinct from either retry button
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
-        onEdit={() => undefined}
+        itemHref={() => '/'}
         onRetry={onRetry}
         state={readyState([ownedItem])}
       />
@@ -747,7 +791,7 @@ test('the Wanted reveal happens once per request, not again on every tab switch'
     return (
       <TestProviders>
         <WardrobeListScreen initialCategory={category} onAdd={() => undefined}
-          onCategoryChange={setCategory} onEdit={() => undefined} onRetry={() => undefined}
+          onCategoryChange={setCategory} itemHref={() => '/'} onRetry={() => undefined}
           revealWanted state={readyState(items)} />
       </TestProviders>
     );

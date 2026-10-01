@@ -32,3 +32,11 @@ jest.mock('react-native-reanimated', () => {
     },
   };
 });
+
+// On a device `Link.AppleZoom` wraps its child in a native zoom source view; Jest has no such
+// view, and the library then renders nothing in its place. The stand-in renders the child,
+// as the native view does, so the Closet tiles it wraps stay in the tree.
+jest.mock('expo-router/build/link/preview/native', () => ({
+  ...jest.requireActual('expo-router/build/link/preview/native'),
+  LinkZoomTransitionSource: ({ children }: { children?: unknown }) => children,
+}));
