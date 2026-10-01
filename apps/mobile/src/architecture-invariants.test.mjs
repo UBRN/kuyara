@@ -949,3 +949,25 @@ test('no private tool instruction, setting or screenshot-tooling path is tracked
   ].join('|')})`, 'i');
   assert.deepEqual(tracked.filter((relative) => privatePath.test(relative)), []);
 });
+
+test('a screen that reads its scroll offset hands the scroll ref to every Screen it renders', () => {
+  // Reanimated reads the ref when the first branch mounts; a loading or error branch without it
+  // leaves the offset unattached and logs a warning on every cold launch.
+  const offenders = [];
+  for (const relativePath of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    const reader = text.match(/useScrollOffset\((\w+)\)/);
+    if (!reader) continue;
+    const file = ts.createSourceFile(relativePath, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const visit = (node) => {
+      if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText() === 'Screen') {
+        const carriesRef = node.attributes.properties.some((attribute) => ts.isJsxAttribute(attribute)
+          && attribute.name.getText() === 'ref' && attribute.initializer?.expression?.getText() === reader[1]);
+        if (!carriesRef) offenders.push(`${relativePath}:${file.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
+  }
+  assert.deepEqual(offenders, []);
+});

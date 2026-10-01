@@ -299,9 +299,11 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const [shownNotice, setShownNotice] = useState(failureCopy?.notice ?? null);
   if (failureCopy && failureCopy.notice !== shownNotice) setShownNotice(failureCopy.notice);
 
+  // Every branch carries the scroll ref: Reanimated reads it when the first branch mounts, and
+  // a branch without it leaves the offset unattached and warns on every cold launch.
   if (state.status === 'loading') {
     return (
-      <Screen contentContainerStyle={styles.center} fill testID="weather-screen">
+      <Screen contentContainerStyle={styles.center} fill ref={scrollRef} testID="weather-screen">
         <AppText accessibilityRole="header" variant="titleLarge">{copy.title}</AppText>
         <AppText colorRole="textSecondary">{copy.loading}</AppText>
       </Screen>
@@ -310,7 +312,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
 
   if (state.status === 'error') {
     return (
-      <Screen contentContainerStyle={styles.center} fill testID="weather-screen">
+      <Screen contentContainerStyle={styles.center} fill ref={scrollRef} testID="weather-screen">
         <AppText accessibilityRole="header" variant="titleLarge">{copy.loadErrorTitle}</AppText>
         <AppText colorRole="textSecondary">{copy.loadErrorBody}</AppText>
         <Button label={copy.retry} onPress={() => void application.retry()} />
