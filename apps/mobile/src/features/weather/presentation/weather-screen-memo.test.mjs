@@ -21,8 +21,14 @@ test('the hourly rail columns are not rebuilt when only the refresh flags change
   const lines = compiled.split('\n');
   const call = lines.findIndex((line) => line.includes('hourlyRailColumns(') && !line.includes('function'));
   assert.ok(call > 0, 'the screen builds its columns with hourlyRailColumns');
-  const guard = lines.slice(0, call).findLast((line) => /if \(\$\[\d+\] !==/u.test(line));
-  assert.ok(guard, 'the columns sit in a memo block');
+  const guardIndex = lines.slice(0, call).findLastIndex((line) => /if \(\$\[\d+\] !==/u.test(line));
+  assert.ok(guardIndex >= 0, 'the columns sit in a memo block');
+  const guard = lines[guardIndex];
+  // The nearest earlier guard could belong to some other block if the columns lost their own,
+  // so the guard must be the columns' own: it sits right above the call and reads the snapshot
+  // the columns are built from.
+  assert.ok(call - guardIndex <= 2, `the columns call is not the body of its own memo block: ${guard.trim()}`);
+  assert.match(guard, /\$\[\d+\] !== snapshot\b/u, `the columns' memo block is not keyed on the snapshot: ${guard.trim()}`);
   for (const flag of ['isRefreshing', 'refreshFailure', 'pullInFlight', 'freshnessStatus', 'handleRefresh']) {
     assert.ok(!guard.includes(flag), `the columns' memo block is keyed on ${flag}: ${guard.trim()}`);
   }
