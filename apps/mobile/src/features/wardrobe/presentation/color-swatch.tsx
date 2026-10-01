@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { ClosetColorDisc } from '@/components/ui';
+import { ClosetColorDisc, PressScale } from '@/components/ui';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import { borderWidths, interaction, layout } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -36,7 +36,7 @@ export function ColorSwatch({
   const theme = useKuyaraTheme();
 
   return (
-    <Pressable
+    <PressScale
       accessibilityLabel={label}
       accessibilityRole="radio"
       accessibilityState={{ disabled, selected }}
@@ -50,7 +50,7 @@ export function ColorSwatch({
       ]}
       testID={testID}>
       <ClosetColorDisc choice={choice} selected={selected} size={DISC_SIZE} testID={`${testID}-disc`} />
-    </Pressable>
+    </PressScale>
   );
 }
 

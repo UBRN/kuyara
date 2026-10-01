@@ -12,6 +12,7 @@ import {
   Icon,
   ListRow,
   ListRowGroup,
+  PressScale,
   Screen,
   useTextScaling,
   type RackPiece,
@@ -170,7 +171,7 @@ function CategoryCell({
   }
 
   return (
-    <Pressable
+    <PressScale
       accessibilityLabel={messages.wardrobe.categoryAccessibilityLabel({
         category: label,
         count: summary.count,
@@ -182,15 +183,20 @@ function CategoryCell({
       testID={`profile-category-${category}`}>
       {tile}
       {name}
-    </Pressable>
+    </PressScale>
   );
 }
 
 function CategoryCells({
+  firstIndex,
   onOpenCategory,
+  shown,
   summaries,
 }: Readonly<{
+  /** The first cell's place in the screen's arrival; the cells follow in reading order. */
+  firstIndex: number;
   onOpenCategory: (category: StructuralCategory) => void;
+  shown: boolean;
   summaries: Readonly<Record<StructuralCategory, CategorySummary>> | null;
 }>) {
   const messages = useMessages();
@@ -207,16 +213,21 @@ function CategoryCells({
       accessible={isLoading}
       style={styles.cells}
       testID={isLoading ? 'profile-category-cells-loading' : 'profile-category-cells'}>
-      {rows.map((row) => (
+      {rows.map((row, rowIndex) => (
         <View key={row.join('-')} style={styles.cellRow}>
-          {row.map((category) => (
-            <CategoryCell
-              category={category}
+          {row.map((category, column) => (
+            <Entrance
+              index={firstIndex + rowIndex * row.length + column}
               key={category}
-              onPress={() => onOpenCategory(category)}
-              scale={scale}
-              summary={summaries?.[category] ?? null}
-            />
+              style={styles.cellSlot}
+              waiting={!shown}>
+              <CategoryCell
+                category={category}
+                onPress={() => onOpenCategory(category)}
+                scale={scale}
+                summary={summaries?.[category] ?? null}
+              />
+            </Entrance>
           ))}
         </View>
       ))}
@@ -357,10 +368,11 @@ export function ProfileScreen({
         </Entrance>
       </TourTarget>
 
+      {/* The six cells arrive one by one in reading order; the loading cells become the
+          ready ones in place, so the Closet loading never replays their arrival. */}
+      {state.status === 'error' || isFullyEmpty ? (
       <Entrance index={2} waiting={!shown}>
-      {state.status === 'loading' ? (
-        <CategoryCells onOpenCategory={onOpenCategory} summaries={null} />
-      ) : state.status === 'error' ? (
+      {state.status === 'error' ? (
         <View style={styles.errorState} testID="profile-closet-error">
           <Icon color={theme.colors.dangerInk} name="error" size={20} />
           <AppText accessibilityRole="header" style={styles.errorTitle} variant="bodyStrong">
@@ -377,7 +389,7 @@ export function ProfileScreen({
             variant="tonal"
           />
         </View>
-      ) : isFullyEmpty ? (
+      ) : (
         <View style={styles.emptyState} testID="profile-closet-empty">
           <AppText style={styles.emptyStateCopy}>
             {copy.wardrobeEmpty}
@@ -389,12 +401,18 @@ export function ProfileScreen({
             testID="profile-add-piece-button"
           />
         </View>
-      ) : (
-        <CategoryCells onOpenCategory={onOpenCategory} summaries={summaries} />
       )}
       </Entrance>
+      ) : (
+        <CategoryCells
+          firstIndex={2}
+          onOpenCategory={onOpenCategory}
+          shown={shown}
+          summaries={state.status === 'loading' ? null : summaries}
+        />
+      )}
 
-      <Entrance index={3} waiting={!shown}>
+      <Entrance index={2 + structuralCategories.length} waiting={!shown}>
       <View style={styles.group}>
         <ListRowGroup testID="profile-group">
           {(hasOwned || hasWanted) && (
@@ -496,6 +514,10 @@ const styles = StyleSheet.create({
   cellRow: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  cellSlot: {
+    flex: 1,
+    minWidth: 0,
   },
   cell: {
     flex: 1,

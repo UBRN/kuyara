@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -29,6 +30,8 @@ export type EntranceProps = Readonly<{
    * shown, and an arrival played then would be over before anyone saw it.
    */
   waiting?: boolean;
+  /** The wrapper's own layout, for a child that sizes itself in a row (a grid cell's flex). */
+  style?: StyleProp<ViewStyle>;
 }>;
 
 /**
@@ -36,7 +39,7 @@ export type EntranceProps = Readonly<{
  * never replays the entrance. The wrapper carries no accessibility
  * props, so it adds no node a screen reader stops on.
  */
-export function Entrance({ children, index = 0, waiting = false }: EntranceProps) {
+export function Entrance({ children, index = 0, waiting = false, style }: EntranceProps) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue<number>(0);
   const offset = useSharedValue<number>(ENTRANCE_OFFSET);
@@ -71,5 +74,5 @@ export function Entrance({ children, index = 0, waiting = false }: EntranceProps
     transform: [{ translateY: offset.get() }],
   }));
 
-  return <Animated.View style={entered ? undefined : entranceStyle}>{children}</Animated.View>;
+  return <Animated.View style={[style, entered ? undefined : entranceStyle]}>{children}</Animated.View>;
 }

@@ -1,6 +1,6 @@
-import { Platform, Pressable, StyleSheet, type AccessibilityRole, type LayoutChangeEvent } from 'react-native';
+import { Platform, StyleSheet, type AccessibilityRole, type LayoutChangeEvent } from 'react-native';
 
-import { AppText, GarmentSlotGlyph } from '@/components/ui';
+import { AppText, GarmentSlotGlyph, PressScale } from '@/components/ui';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { borderWidths, interaction, radii, spacing } from '@/theme/theme';
 import { easierToSee, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
@@ -61,7 +61,7 @@ export function WardrobeCategoryChip({
   const ink = selected ? theme.colors.textOnBrand : theme.colors.textPrimary;
 
   return (
-    <Pressable
+    <PressScale
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole={role === 'tab' && Platform.OS === 'ios' ? 'button' : role}
       accessibilityState={{ selected }}
@@ -93,7 +93,7 @@ export function WardrobeCategoryChip({
           {count}
         </AppText>
       )}
-    </Pressable>
+    </PressScale>
   );
 }
 
