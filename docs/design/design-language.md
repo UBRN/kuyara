@@ -486,7 +486,8 @@ board, where the pieces settle once with the arrival spring and Law 8's success
 notification fires.
 
 **Press feedback.** A pressed surface scales to 0.97 and back with `theme.motion.fast`.
-The pressed state stays visible without motion, so the response never depends on the
+A full-width list row is the exception: it dims and keeps its size, as iOS rows do. The
+pressed state stays visible without motion, so the response never depends on the
 animation running.
 
 ## Law 8: non-visual feedback
