@@ -30,6 +30,7 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
+import { useLaunchReveal } from '@/components/ui/launch-curtain';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useSinglePush } from '@/components/ui/use-single-push';
@@ -173,6 +174,8 @@ export function TodayScreen(props: TodayScreenProps) {
     return () => clearTimeout(timer);
   }, [leaving, theme.motion.deliberate]);
   const holdingWords = (runwayActive || runwayShown) && !skipped && !wordsReleased;
+  // On a cold launch the outfit rises as the launch curtain lifts, so the arrival is seen.
+  const launch = useLaunchReveal();
 
   return (
     <View style={styles.root}>
@@ -180,7 +183,7 @@ export function TodayScreen(props: TodayScreenProps) {
         <TodayScreenContent
           {...props}
           carriedOutfitId={carriedOutfitId}
-          holdRise={runwayActive || runwayShown}
+          holdRise={runwayActive || runwayShown || !launch.revealing}
           now={now}
           stageTargetRef={stageTargetRef}
         />
