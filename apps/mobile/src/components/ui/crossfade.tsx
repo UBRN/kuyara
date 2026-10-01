@@ -65,6 +65,9 @@ type Layers = Readonly<{
   shown: ReactNode;
   leaving: ReactNode;
   leavingSize: Size | null;
+  /** Which leaving layer this is: it advances only when content starts leaving, so a change
+   *  that lands mid-fade lets the layer already leaving carry on instead of restarting it. */
+  leavingId: number;
   changes: number;
 }>;
 
@@ -78,14 +81,22 @@ type Layers = Readonly<{
  */
 export function Crossfade({ contentKey, children, style, testID }: CrossfadeProps) {
   const [layers, setLayers] = useState<Layers>({
-    key: contentKey, shown: children, leaving: null, leavingSize: null, changes: 0,
+    key: contentKey, shown: children, leaving: null, leavingSize: null, leavingId: 0, changes: 0,
   });
   // The size the shown content last laid out at, handed to it when it becomes the leaving layer.
   const [shownSize, setShownSize] = useState<Size | null>(null);
-  // The leaving layer is what was last on screen, so the latest content is kept for it.
+  // The leaving layer is what was last on screen, so the latest content is kept for it. When a
+  // change lands while another is still fading, the shown content never faded in (it is still
+  // in its delay): the layer already leaving stays, and the shown content is dropped unseen.
   if (layers.key !== contentKey) {
+    const midFade = layers.leaving !== null;
     setLayers({
-      key: contentKey, shown: children, leaving: layers.shown, leavingSize: shownSize, changes: layers.changes + 1,
+      key: contentKey,
+      shown: children,
+      leaving: midFade ? layers.leaving : layers.shown,
+      leavingSize: midFade ? layers.leavingSize : shownSize,
+      leavingId: midFade ? layers.leavingId : layers.leavingId + 1,
+      changes: layers.changes + 1,
     });
   } else if (layers.shown !== children) {
     setLayers({ ...layers, shown: children });
@@ -102,7 +113,7 @@ export function Crossfade({ contentKey, children, style, testID }: CrossfadeProp
         {children}
       </FadeIn>
       {layers.leaving !== null ? (
-        <FadeOut key={`out-${layers.changes}`} onDone={clearLeaving} size={layers.leavingSize}>
+        <FadeOut key={`out-${layers.leavingId}`} onDone={clearLeaving} size={layers.leavingSize}>
           {layers.leaving}
         </FadeOut>
       ) : null}
