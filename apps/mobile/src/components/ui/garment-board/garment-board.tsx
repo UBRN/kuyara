@@ -3,7 +3,6 @@ import { StyleSheet } from 'react-native';
 import Animated, {
   cancelAnimation,
   interpolateColor,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -11,6 +10,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Ellipse, G } from 'react-native-svg';
 
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
@@ -392,7 +392,7 @@ export function GarmentBoard({
     // A cancelled spring still leaves the pieces where they are; the captions must not
     // wait on a completion that will never come.
     progress.set(withSpring(1, theme.springs.arrival, () => {
-      runOnJS(reportSettled)();
+      scheduleOnRN(reportSettled);
     }));
   }, [
     entrance,
@@ -411,7 +411,7 @@ export function GarmentBoard({
     didStartRise.current = true;
     riseOpacity.set(withTiming(1, { duration: theme.motion.fast }));
     riseOffset.set(withSpring(0, theme.springs.arrival, (finished) => {
-      if (finished) runOnJS(setRisen)(true);
+      if (finished) scheduleOnRN(setRisen, true);
     }));
   }, [
     holdRise,

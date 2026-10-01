@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { FullWindowOverlay } from 'react-native-screens';
 
 import { AMBIENT_PULSE_FLOOR, useAmbientPulse } from '@/components/ui/use-ambient-pulse';
@@ -118,7 +118,7 @@ export function CoachMarkLayer({
         duration: Math.round(theme.motion.deliberate * 0.75),
         easing: Easing.in(Easing.quad),
       }, (finished) => {
-        if (finished) runOnJS(finishHiding)();
+        if (finished) scheduleOnRN(finishHiding);
       }));
   }, [finishHiding, opacity, theme.motion.deliberate, visible]);
 

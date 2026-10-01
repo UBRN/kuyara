@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -53,7 +53,7 @@ export function Entrance({ children, index = 0, waiting = false }: EntranceProps
     const delay = Math.min(index * theme.motion.stagger, theme.motion.deliberate);
     opacity.set(withDelay(delay, withTiming(1, { duration: theme.motion.fast })));
     offset.set(withDelay(delay, withSpring(0, theme.springs.spatial, (finished) => {
-      if (finished) runOnJS(setEntered)(true);
+      if (finished) scheduleOnRN(setEntered, true);
     })));
   }, [
     index,
