@@ -1,6 +1,6 @@
 import { act, fireEvent, isHiddenFromAccessibility, render, waitFor, within } from '@testing-library/react-native';
 import { SymbolView } from 'expo-symbols';
-import { AccessibilityInfo, AppState, Dimensions, Platform, processColor, StyleSheet } from 'react-native';
+import { AccessibilityInfo, AppState, Dimensions, Platform, processColor, ScrollView, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -2677,6 +2677,32 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
     expect(result.getByTestId('today-choosing-caption'))
       .toHaveTextContent(messages[language].today.coverage.choosing('15:00', '20:00'));
     expect(result.queryByTestId('today-coverage-caption')).toBeNull();
+  });
+
+  // The re-ask is asked from the end of the screen; once confirmed, Today scrolls back to its
+  // stage so the new outfit's rise is seen. A refresh alone never moves the screen.
+  test('a confirmed re-ask scrolls back to the stage, once, and a refresh does not', async () => {
+    const base = coveredState();
+    if (base.kind !== 'loaded') throw new Error('loaded fixture required');
+    const choosing: TodayScreenState = { ...base, isRefreshing: true,
+      choosingWindow: { start: '2026-08-13T12:00:00.000Z', end: '2026-08-13T17:00:00.000Z' } };
+    const screen = (state: TodayScreenState) => providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={state} />,
+      lightTheme, language,
+    );
+    const scrollTo = jest.mocked(ScrollView.prototype.scrollTo);
+    const result = await render(screen(base));
+    scrollTo.mockClear();
+
+    await result.rerender(screen({ ...base, isRefreshing: true }));
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    await result.rerender(screen(choosing));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith({ animated: true, y: 0 });
+    await result.rerender(screen({ ...choosing, isRefreshing: false }));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
   });
 });
 
