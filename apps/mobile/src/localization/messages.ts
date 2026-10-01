@@ -117,6 +117,14 @@ export type TodayMessages = Readonly<{
   // N19: a later short cool spell is a finishing touch, one line beside the cardigan.
   coolSpell: (time: string) => string;
   otherOptionsHeading: string;
+  // In the evening, the outfit chosen for the next dressing day under its own heading.
+  tomorrow: Readonly<{
+    heading: string;
+    weather: (values: { condition: string; minimum: string; maximum: string }) => string;
+    weatherAccessibilityLabel: (values: {
+      condition: string; minimum: string; maximum: string; unitName: string;
+    }) => string;
+  }>;
   piecesHeading: string;
   reasonsHeading: string;
   finishingTouchesHeading: string;
@@ -1363,6 +1371,12 @@ const en = {
     },
     coolSpell: (time) => `Take a light layer for the cool spell around ${time}.`,
     otherOptionsHeading: 'Alternative outfits',
+    tomorrow: {
+      heading: 'Tomorrow',
+      weather: ({ condition, minimum, maximum }) => `${condition} · Low ${minimum} · High ${maximum}`,
+      weatherAccessibilityLabel: ({ condition, minimum, maximum, unitName }) =>
+        `${condition}. Low ${minimum} ${unitName}, high ${maximum} ${unitName}.`,
+    },
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
     finishingTouchesHeading: 'Finishing touches',
@@ -2224,6 +2238,12 @@ const tr = {
     },
     coolSpell: (time) => `Yanına ince bir kat al, saat ${time} gibi hava serinliyor.`,
     otherOptionsHeading: 'Alternatif kombinler',
+    tomorrow: {
+      heading: 'Yarın',
+      weather: ({ condition, minimum, maximum }) => `${condition} · En düşük ${minimum} · En yüksek ${maximum}`,
+      weatherAccessibilityLabel: ({ condition, minimum, maximum, unitName }) =>
+        `${condition}. En düşük ${minimum} ${unitName}, en yüksek ${maximum} ${unitName}.`,
+    },
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
     finishingTouchesHeading: 'Son dokunuşlar',

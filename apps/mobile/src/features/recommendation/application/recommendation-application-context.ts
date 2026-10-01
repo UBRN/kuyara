@@ -24,6 +24,11 @@ export type RecommendationApplicationValue = Readonly<{
    */
   regenerate: () => Promise<RecommendationSnapshot | null>;
   dressingDayKey?: string;
+  /**
+   * In the evening, the outfit chosen for the next dressing day, or null when none was chosen
+   * or it no longer fits tomorrow's place, gender, dress style or styles.
+   */
+  tomorrowPreview?: RecommendationSnapshot | null;
   dressingDayChoiceReady?: boolean;
   dressingDayChoiceFailed?: boolean;
   morningChoicePending?: boolean;

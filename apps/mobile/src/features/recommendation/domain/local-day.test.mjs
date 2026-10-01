@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { localDayKey, localDayKind, localDayVariant } from './local-day.ts';
+import { localDayKey, localDayKind, localDayVariant, nextMorningAfterEvening } from './local-day.ts';
 
 // The dressing day turns at 04:00 and 18:00 and never at midnight. No fake timers: every
 // case builds its own local date, because the rules take the date they read.
@@ -37,4 +37,13 @@ test('the day variant is a deterministic seven-day ring', () => {
   assert.equal(localDayVariant(new Date(2026, 0, 2, 12)), 2);
   assert.equal(localDayVariant(new Date(2026, 0, 8, 12)), 1);
   assert.equal(localDayVariant(new Date(2026, 0, 1, 23, 59)), localDayVariant(new Date(2026, 0, 1, 0, 1)));
+});
+
+test('the morning after an evening is 08:00 on the next date, and a day key has none', () => {
+  const morning = nextMorningAfterEvening('2026-12-31:evening');
+  assert.equal(morning.getTime(), new Date(2027, 0, 1, 8).getTime());
+  assert.equal(localDayKey(morning), '2027-01-01');
+  // At 02:00 the evening that began yesterday is still the key, and its morning is today's date.
+  assert.equal(localDayKey(nextMorningAfterEvening(localDayKey(new Date(2026, 9, 2, 2)))), '2026-10-02');
+  assert.equal(nextMorningAfterEvening('2026-10-01'), null);
 });
