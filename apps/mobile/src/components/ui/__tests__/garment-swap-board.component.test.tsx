@@ -105,3 +105,26 @@ test('a quick second tap on the piece just enlarged shrinks it', async () => {
   expect(onFocusChange).toHaveBeenCalledTimes(2);
   expect(onFocusChange).toHaveBeenLastCalledWith(null);
 });
+
+// When the enlargement moves to another piece while a finger still drags, the rest of that
+// drag belongs to the piece it started on: it never moves or steps the newly enlarged piece.
+test('a drag that outlives a focus change does not step the newly enlarged piece', async () => {
+  const onStep = jest.fn();
+  const dresses: readonly GarmentSwapCandidate[] = (['jumpsuit', 'dress', 'knit_dress'] as const)
+    .map((garmentTypeId) => ({ garmentTypeId, category: 'one_piece', suitable: true }));
+  const candidates = { footwear, one_piece: dresses };
+  const result = await render(<GarmentSwapBoard {...boardProps({ onStep, candidates })} />, { wrapper: LightTheme });
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onStep, candidates, focusedSlot: 'footwear' })} />);
+  const pan = () => getByGestureTestId('garment-swap-board-pan').handlers;
+  const move = (translationX: number) => ({ translationX, velocityX: -600 });
+  await act(async () => {
+    pan().onStart?.(move(0) as never);
+    pan().onUpdate?.(move(-60) as never);
+  });
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onStep, candidates, focusedSlot: 'one_piece' })} />);
+  await act(async () => {
+    pan().onUpdate?.(move(-200) as never);
+    pan().onEnd?.(move(-200) as never, true);
+  });
+  expect(onStep).not.toHaveBeenCalled();
+});
