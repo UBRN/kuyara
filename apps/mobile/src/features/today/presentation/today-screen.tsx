@@ -70,6 +70,7 @@ import { easierToSee as easierToSeeValues, useEasierToSee, useStrongEdge } from 
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type GenerationMode = NonNullable<LoadedTodayPresentation['generationMode']>;
+type StageOutfit = Pick<LoadedOutfitPresentation, 'id' | 'boardPieces' | 'palette'> & Readonly<{ replaced: boolean }>;
 
 // Law 5's escalation point, for the generic line alone. A narrated wait says what it is
 // doing, so it never needs the escalation; past this the unnarrated line has stopped being
@@ -287,9 +288,12 @@ function TodayScreenContent({
   // The badge row closes in place when a new outfit carries no source, so while it closes it
   // keeps drawing the source it last showed.
   const [shownGenerationMode, setShownGenerationMode] = useState<GenerationMode | null>(null);
-  // Law 7's exit: the outfit on the stage, and whether it took another one's place while
-  // Today was shown, so a new outfit rises only once the pieces it replaces have left.
-  const [stageOutfit, setStageOutfit] = useState<Readonly<{ id: string; replaced: boolean }> | null>(null);
+  // Law 7's exit: the outfit on the stage, whether it took another one's place while Today was
+  // shown, and the outfit it took the place of while that one leaves, so a new outfit rises
+  // only once the pieces it replaces have dropped away.
+  const [stageOutfit, setStageOutfit] = useState<StageOutfit | null>(null);
+  const [leavingOutfit, setLeavingOutfit] = useState<StageOutfit | null>(null);
+  const clearLeavingOutfit = useCallback(() => setLeavingOutfit(null), []);
   // Held until the hero stage has laid out once, so the first outfit's rise starts after the
   // screen has been drawn rather than being spent while the loaded screen is still mounting.
   const [stageLaidOut, setStageLaidOut] = useState(false);
@@ -489,7 +493,12 @@ function TodayScreenContent({
     ? ambientIntensityOf(state.snapshot.weather.current.condition)
     : 'calm';
   const [primary, ...alternates] = presentation.suggestions;
-  if (primary && primary.id !== stageOutfit?.id) setStageOutfit({ id: primary.id, replaced: stageOutfit !== null });
+  if (primary && primary.id !== stageOutfit?.id) {
+    setLeavingOutfit(stageOutfit);
+    setStageOutfit({
+      id: primary.id, boardPieces: primary.boardPieces, palette: primary.palette, replaced: stageOutfit !== null,
+    });
+  }
   const generationMode = presentation.generationMode;
   if (generationMode && (shownGenerationMode?.mode !== generationMode.mode
     || shownGenerationMode.label !== generationMode.label
@@ -645,6 +654,23 @@ function TodayScreenContent({
                     onLayout={stageLaidOut ? undefined : () => setStageLaidOut(true)}
                     ref={stageView}
                     testID="today-stage">
+                    {leavingOutfit ? (
+                      <View style={styles.leavingBoard}>
+                        <GarmentBoard
+                          accessibilityLabel=""
+                          decorative
+                          fit
+                          key={leavingOutfit.id}
+                          onLeft={clearLeavingOutfit}
+                          palette={leavingOutfit.palette}
+                          pieces={leavingOutfit.boardPieces}
+                          preset="today"
+                          stageColor={stageColor}
+                          testID="today-leaving-board"
+                          width={contentWidth}
+                        />
+                      </View>
+                    ) : null}
                     <GarmentBoard
                       accessibilityLabel={presentation.stageAccessibilityLabel}
                       // ADR 0021 section 10's transition between suggestions: the key is the
@@ -655,7 +681,6 @@ function TodayScreenContent({
                       key={primary.id}
                       fit
                       holdRise={holdRise || !stageLaidOut}
-                      leaves
                       replaces={stageOutfit?.replaced === true}
                       palette={primary.palette}
                       pieces={primary.boardPieces}
@@ -1183,6 +1208,7 @@ const styles = StyleSheet.create({
   outfitTarget: { marginTop: spacing.md },
   archetypeName: { marginBottom: spacing.sm },
   stage: { borderRadius: STAGE_RADIUS, overflow: 'hidden' },
+  leavingBoard: { left: 0, position: 'absolute', top: 0 },
   captionRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   captionText: { flexShrink: 1 },
   updatingRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },

@@ -78,17 +78,20 @@ const RISE_TRAVEL = spacing.xl;
 // step and fades on `fast`, as one view, its shadows with it, before the new pieces rise.
 const EXIT_TRAVEL = spacing.sm;
 
-function boardExit(duration: number) {
-  return () => {
-    'worklet';
-    return {
-      initialValues: { opacity: 1, transform: [{ translateY: 0 }] },
-      animations: {
-        opacity: withTiming(0, { duration }),
-        transform: [{ translateY: withTiming(EXIT_TRAVEL, { duration }) }],
-      },
-    };
-  };
+/** The leaving board: drawn at rest, it drops and fades once on mount, then reports it has left. */
+function LeavingLayer({ children, onLeft }: Readonly<{ children: ReactNode; onLeft: () => void }>) {
+  const theme = useKuyaraTheme();
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.set(withTiming(1, { duration: theme.motion.fast }, (finished) => {
+      if (finished) scheduleOnRN(onLeft);
+    }));
+  }, [onLeft, progress, theme.motion.fast]);
+  const style = useAnimatedStyle(() => ({
+    opacity: 1 - progress.get(),
+    transform: [{ translateY: EXIT_TRAVEL * progress.get() }],
+  }));
+  return <Animated.View pointerEvents="none" style={style}>{children}</Animated.View>;
 }
 
 /**
@@ -182,10 +185,10 @@ type GarmentBoardProps = Readonly<{
    */
   holdRise?: boolean;
   /**
-   * Law 7's exit: taken off the screen, the board drops and fades as one on `fast`. Today's
-   * hero board sets it; its key is the outfit, so a new outfit takes the old one off.
+   * Law 7's exit: the board is the outfit Today's stage has just let go. Drawn at rest, it
+   * drops and fades as one on `fast`, then calls this so its screen can unmount it.
    */
-  leaves?: boolean;
+  onLeft?: () => void;
   /** The board takes another outfit's place: its rise waits out that board's exit. */
   replaces?: boolean;
   /** Law 7's moment: change it and an entering board's pieces settle once. */
@@ -549,7 +552,7 @@ export function GarmentBoard({
   entrance,
   rise = false,
   holdRise = false,
-  leaves = false,
+  onLeft,
   replaces = false,
   settle,
   palette,
@@ -653,13 +656,12 @@ export function GarmentBoard({
   // Every board draws its pieces in the dressing order, so where two overlap the later one
   // lies over the earlier and casts its shadow on it.
   const reading = new Map(result.order.map((piece, index) => [piece, index]));
-  const exiting = leaves ? boardExit(theme.motion.fast) : undefined;
 
   if (!entrance && rise) {
     // The stage the screen draws stays where it is; the layers carry no accessibility
     // props, so the rise adds no node a screen reader stops on.
     return (
-      <Animated.View {...accessibilityProps} exiting={exiting} style={{ height, width }}>
+      <View {...accessibilityProps} style={{ height, width }}>
         {result.stack.map((piece) => {
           const box = placed.get(piece)!;
           return (
@@ -674,7 +676,7 @@ export function GarmentBoard({
             </RisingLayer>
           );
         })}
-      </Animated.View>
+      </View>
     );
   }
 
@@ -695,7 +697,7 @@ export function GarmentBoard({
         ))}
       </Svg>
     );
-    return exiting ? <Animated.View exiting={exiting}>{board}</Animated.View> : board;
+    return onLeft ? <LeavingLayer onLeft={onLeft}>{board}</LeavingLayer> : board;
   }
 
   const fromBoxes = entranceStartBoxes(pieces, width, entrance.fromPreset, entrance.fromFit === true, large);
