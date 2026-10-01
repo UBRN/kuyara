@@ -475,6 +475,9 @@ export function GarmentSwapBoard({
   const dragBase = useSharedValue(0);
   const dragPast = useSharedValue(false);
   const dragShown = useSharedValue(0);
+  // The slot a drag started on: when the enlargement moves mid-drag, the rest of that drag is
+  // dropped rather than moving the newly enlarged piece from the old piece's offset.
+  const dragSlot = useSharedValue<OutfitSlot | null>(null);
   // The piece a swipe has just stepped away from. Until the owner's new pieces render, the
   // gesture's handlers still name it, so a touch then must neither drag it nor step again.
   // Made once and held in state like each piece's values, so every render and both sets of
@@ -1013,6 +1016,7 @@ export function GarmentSwapBoard({
     .onStart(() => {
       if (!curDx || !focusedSlot || !pager || stepPending()) return;
       // A grab mid-settle continues from where the eye last saw the piece.
+      dragSlot.set(focusedSlot);
       dragBase.set(curDx.get());
       curDx.set(curDx.get());
       dragShown.set(curDx.get());
@@ -1022,7 +1026,7 @@ export function GarmentSwapBoard({
       prevOp?.set(1);
     })
     .onUpdate((event) => {
-      if (!curDx || !pager || stepPending()) return;
+      if (!curDx || !pager || stepPending() || dragSlot.get() !== focusedSlot) return;
       // The handler counts the translation from where the drag activated, already past the
       // slop, so the piece follows the finger from that point on.
       const raw = dragBase.get() + event.translationX;
@@ -1047,7 +1051,7 @@ export function GarmentSwapBoard({
       }
     })
     .onEnd((event, success) => {
-      if (!curDx || !focusedSlot || !pager || stepPending()) return;
+      if (!curDx || !focusedSlot || !pager || stepPending() || dragSlot.get() !== focusedSlot) return;
       const shown = dragShown.get();
       const velocity = success ? event.velocityX : 0;
       const stride = shown > 0 ? pager.stridePrevious : pager.strideNext;
