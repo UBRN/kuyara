@@ -668,6 +668,8 @@ export type AppMessages = Readonly<{
     loadErrorBody: string;
     retryAction: string;
     unclassifiedType: string;
+    /** Days a Closet piece was recorded worn in History; never a streak or an absence. */
+    wornCount: (count: number) => string;
     ownedLabel: string;
     wantedLabel: string;
     // ADR 0029 section 2: new plural chip strings for the Closet's category filter. The
@@ -1285,6 +1287,7 @@ const en = {
     loadErrorBody: 'Your saved items are still safe. Please try again.',
     retryAction: 'Try again',
     unclassifiedType: 'Type not selected',
+    wornCount: (count: number) => (count === 1 ? 'Worn once' : `Worn ${count} times`),
     ownedLabel: englishOwnershipStateLabels.owned,
     wantedLabel: englishOwnershipStateLabels.wanted,
     categoryFilterLabels: {
@@ -2294,6 +2297,7 @@ const tr = {
     loadErrorBody: 'Kayıtlı parçaların güvende. Lütfen yeniden dene.',
     retryAction: 'Yeniden dene',
     unclassifiedType: 'Tür seçilmedi',
+    wornCount: (count: number) => `${count} kez giyildi`,
     ownedLabel: 'Sahip olduklarım',
     // ADR 0028 section 5: the twelve-letter "İstediklerim" could not fit the label
     // column at fontScale 3.118. The Profile screen already unified profile.wantedLabel;

@@ -8,6 +8,11 @@ import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { ProfileApplicationContext, type ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import {
+  RecommendationApplicationContext,
+  type RecommendationApplicationValue,
+} from '@/features/recommendation/application/recommendation-application-context';
+import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
+import {
   WardrobeApplicationContext,
   type WardrobeApplicationValue,
 } from '@/features/wardrobe/application/wardrobe-application-context';
@@ -236,6 +241,35 @@ test('Undo on the saved confirmation removes the piece through the application a
   await waitFor(() => expect(application.softDeleteItem).toHaveBeenCalledWith(item.id));
   expect(analytics.captures.slice(before).map(({ name }) => name)).not.toContain('closet_item_deleted');
 });
+// ADR 0038: a quiet worn count under each owned piece, read from History by type; a piece
+// sharing its type with another owned record, or never worn, shows none.
+test('an owned piece says how many recorded days it was worn', async () => {
+  const worn = (dayKey: string, garments: OutfitHistoryRecord['outfit']['garments']) =>
+    ({ dayKey, outfit: { garments, archetypeId: 'rain_ready', formality: 'casual', source: 'recommended' } });
+  const days = [
+    worn('2026-09-23', { primary_top: 't_shirt', bottom: 'jeans', outer_layer: 'rain_jacket', footwear: 'sneakers' }),
+    worn('2026-09-22', { primary_top: 't_shirt', bottom: 'jeans', outer_layer: 'rain_jacket', footwear: 'sneakers' }),
+    worn('2026-09-21', { primary_top: 't_shirt', bottom: 'jeans', footwear: 'sneakers' }),
+  ];
+  const parka = { ...item, id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', name: 'Parka', garmentTypeId: 'parka' as const };
+  const result = await render(
+    <TestProviders>
+      <RecommendationApplicationContext value={{
+        outfitHistory: { list: async () => days, get: jest.fn(), log: jest.fn() },
+      } as unknown as RecommendationApplicationValue}>
+        <WardrobeApplicationContext.Provider value={createApplication([item, parka])}>
+          <WardrobeListRoute initialCategory="outerwear" />
+        </WardrobeApplicationContext.Provider>
+      </RecommendationApplicationContext>
+    </TestProviders>,
+  );
+  expect(await result.findByText(messages.en.wardrobe.wornCount(2))).toBeOnTheScreen();
+  expect(result.getByTestId(`wardrobe-item-${item.id}`).props.accessibilityLabel).toContain('Worn 2 times');
+  expect(result.queryByTestId(`wardrobe-item-${parka.id}-worn`)).toBeNull();
+  expect(messages.tr.wardrobe.wornCount(3)).toBe('3 kez giyildi');
+  expect(messages.en.wardrobe.wornCount(1)).toBe('Worn once');
+});
+
 test('switching the category tab writes it back to the route', async () => {
   const result = await renderRoute([item]);
   await fireEvent.press(result.getByTestId('wardrobe-category-tab-footwear'));

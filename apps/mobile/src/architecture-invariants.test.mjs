@@ -245,11 +245,13 @@ for (const rule of rules) {
 // Closet and the Profile rack draw personal records and never take a board or its palette.
 // Onboarding's welcome step (O14) is the one other board: a fixed sample of what Today
 // shows, drawn in its own palette like any outfit. The "Easier to see" preview card (O13,
-// ADR 0030 section 5) is the second fixed sample, drawn the same way.
+// ADR 0030 section 5) is the second fixed sample, drawn the same way. History (ADR 0038)
+// draws each worn outfit, which stores no colours, in one fixed palette per day.
 const boardFiles = [
   'features/today/presentation/',
   'features/profile/presentation/onboarding-screen.tsx',
   'features/profile/presentation/easier-to-see-screen.tsx',
+  'features/profile/presentation/history-screen.tsx',
 ];
 test('every garment board carries its outfit palette and only Today draws one', () => {
   const boards = sourceFiles().flatMap((relativePath) => (

@@ -59,6 +59,8 @@ export type WardrobeGridTileProps = Readonly<{
   resolvePhotoUri: (relativePath: string | null) => string | null;
   /** O10: the piece just saved wears a 2 point `brandAccent` ring beside its confirmation. */
   highlighted?: boolean;
+  /** Days History recorded this piece worn; a quiet line under the name, absent at zero. */
+  wornCount?: number;
   testID?: string;
 }>;
 
@@ -71,6 +73,7 @@ export function WardrobeGridTile({
   onPress,
   resolvePhotoUri,
   testID,
+  wornCount = 0,
 }: WardrobeGridTileProps) {
   const theme = useKuyaraTheme();
   // O13 (owner decision 9): while higher contrast applies the tile wears a 2-point ring in
@@ -82,7 +85,8 @@ export function WardrobeGridTile({
   const photoUri = resolvePhotoUri(item.photoRelativePath);
   const { subline, title } = resolveTileCopy(item, messages);
   const wanted = item.entryState === 'wanted';
-  const accessibilityLabel = [title, subline, wanted ? messages.wardrobe.wantedTileLabel : null]
+  const worn = wornCount > 0 ? messages.wardrobe.wornCount(wornCount) : null;
+  const accessibilityLabel = [title, subline, wanted ? messages.wardrobe.wantedTileLabel : null, worn]
     .filter(Boolean)
     .join('. ');
   const glyphSize = Math.min(geometry.width, geometry.height) * GLYPH_SIZE_RATIO;
@@ -153,6 +157,17 @@ export function WardrobeGridTile({
                 style={{ width: geometry.width }}
                 variant="caption">
                 {subline}
+              </AppText>
+            ) : null}
+            {worn ? (
+              <AppText
+                colorRole="textSecondary"
+                numberOfLines={1}
+                style={{ width: geometry.width }}
+                tabularNumbers
+                testID={testID ? `${testID}-worn` : undefined}
+                variant="caption">
+                {worn}
               </AppText>
             ) : null}
           </View>

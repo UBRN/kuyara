@@ -28,3 +28,35 @@ export function matchPieceOwnership(
   const wanted = sameType.find((item) => item.entryState === 'wanted');
   return wanted ? { kind: 'wanted', item: wanted } : { kind: 'none' };
 }
+
+/**
+ * How many recorded days each owned Closet record was worn (ADR 0038), counted at read time.
+ * A worn day stores catalog types without colour, so each type meets the Closet through
+ * `matchPieceOwnership` with no colour family. The answer is kept only when it is certain:
+ * when two or more owned records share the type, a worn day cannot say which one it was, so
+ * none of them is counted. Wanted records are never worn. A record never worn is absent.
+ */
+export function closetWearCounts(
+  items: readonly WardrobeItem[],
+  wornDays: readonly (readonly GarmentTypeId[])[],
+): ReadonlyMap<string, number> {
+  const ownedByType = new Map<GarmentTypeId, number>();
+  for (const item of items) {
+    if (item.entryState === 'owned' && item.garmentTypeId) {
+      ownedByType.set(item.garmentTypeId, (ownedByType.get(item.garmentTypeId) ?? 0) + 1);
+    }
+  }
+  const counts = new Map<string, number>();
+  const matched = new Map<GarmentTypeId, string | null>();
+  for (const day of wornDays) {
+    for (const typeId of new Set(day)) {
+      if (!matched.has(typeId)) {
+        const match = matchPieceOwnership(typeId, null, items);
+        matched.set(typeId, match.kind === 'owned' && ownedByType.get(typeId) === 1 ? match.item.id : null);
+      }
+      const id = matched.get(typeId);
+      if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+  return counts;
+}

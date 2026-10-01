@@ -74,7 +74,6 @@ test('a time zone is valid when Intl names it', () => {
 const allowedConstructions = new Map([
   ['domain/intl-format.ts', 3],
   ['features/notifications/application/weather-alert-scheduler.ts', 1],
-  ['features/profile/presentation/history-screen.tsx', 1],
   ['features/profile/presentation/service-providers-screen.tsx', 1],
   ['features/profile/presentation/settings-screen.tsx', 1],
   ['features/today/presentation/today-presentation.ts', 3],

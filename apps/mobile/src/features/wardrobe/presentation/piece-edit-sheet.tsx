@@ -22,6 +22,7 @@ import {
   type WardrobePhotoChange,
 } from '@/features/wardrobe/application/wardrobe-photo-manager';
 import { sameClosetColorChoice } from '@/features/wardrobe/application/wardrobe-form';
+import { useClosetWearCounts } from '@/features/wardrobe/application/use-closet-wear-counts';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import {
   colorChoiceFamily,
@@ -111,6 +112,7 @@ function PieceEditForm({
   const theme = useKuyaraTheme();
   const { match } = target;
   const record = match.kind === 'owned' || match.kind === 'wanted' ? match.item : null;
+  const wornCount = useClosetWearCounts().get(record?.id ?? '') ?? 0;
   const [entryState, setEntryState] = useState<WardrobeEntryState | null>(record?.entryState ?? null);
   const [colorFamily, setColorFamily] = useState<ColorFamily | null>(
     record ? record.colorFamily : target.suggestedColorFamily,
@@ -209,6 +211,11 @@ function PieceEditForm({
           <AppText testID="piece-edit-color-name" variant="bodyStrong">
             {closetColorName(messages, colorChoice, colorFamily)}
           </AppText>
+          {wornCount > 0 ? (
+            <AppText colorRole="textSecondary" tabularNumbers testID="piece-edit-worn" variant="caption">
+              {copy.wornCount(wornCount)}
+            </AppText>
+          ) : null}
         </View>
       </View>
 
