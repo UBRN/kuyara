@@ -19,7 +19,6 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
-import { useSingleLinkPress } from '@/components/ui/use-single-push';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import {
   structuralCategories,
@@ -65,6 +64,8 @@ type WardrobeListScreenProps = Readonly<{
   onAdd: (category: StructuralCategory) => void;
   /** The edit form a tile opens; the route owns the path. */
   itemHref: (id: string) => Href;
+  /** Runs before a tile's link navigates; preventing the event keeps the Closet in place. */
+  onItemPress?: (event: Readonly<{ preventDefault: () => void }>) => void;
   onCategoryChange?: (category: StructuralCategory) => void;
   /**
    * The category on screen once the list is ready, including the one it resolved itself when
@@ -211,6 +212,7 @@ export function WardrobeListScreen({
   onCategoryChange = () => undefined,
   itemHref,
   onCategoryInView,
+  onItemPress,
   onRetry,
   onUndoSaved = async () => undefined,
   resolvePhotoUri = () => null,
@@ -229,9 +231,6 @@ export function WardrobeListScreen({
   const { width: windowWidth } = useWindowDimensions();
   const copy = messages.wardrobe;
   const listRef = useRef<FlatList<ClosetRow>>(null);
-  // Every tile shares one guard, so a quick second tap on the same or another tile opens
-  // nothing more while the first form is on its way.
-  const singleTilePress = useSingleLinkPress();
   const stripRef = useRef<ScrollView>(null);
   const tabOffsets = useRef<Partial<Record<StructuralCategory, number>>>({});
   const revealHandled = useRef(false);
@@ -424,7 +423,7 @@ export function WardrobeListScreen({
         messages={messages}
         highlighted={item.id === savedItem?.id}
         href={itemHref(item.id)}
-        onPress={singleTilePress}
+        onPress={onItemPress}
         resolvePhotoUri={resolvePhotoUri}
         testID={`wardrobe-item-${item.id}`}
       />

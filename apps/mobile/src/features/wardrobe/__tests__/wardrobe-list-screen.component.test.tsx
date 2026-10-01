@@ -14,7 +14,7 @@ import {
   resolveGridGeometry,
   tileEntranceIndex,
 } from '@/features/wardrobe/presentation/wardrobe-list-screen';
-import { PUSH_WINDOW_MS } from '@/components/ui/use-single-push';
+import { PUSH_WINDOW_MS, useSingleTap } from '@/components/ui/use-single-push';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -269,16 +269,23 @@ test('a legacy row with no type shows the category and explains the missing type
   expect(result.getByText(messages.en.wardrobe.unclassifiedType)).toBeOnTheScreen();
 });
 
-test('a tile opens its piece once, however quickly a second tap or another tile follows', async () => {
+test('tiles under one guard open one piece, however quickly a second tap or another tile follows', async () => {
   const otherItem = { ...ownedItem, id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', name: 'Second' };
-  const result = await render(
-    <TestProviders>
+  function GuardedCloset() {
+    const tap = useSingleTap();
+    return (
       <WardrobeListScreen
         onAdd={() => undefined}
         itemHref={(id) => `/wardrobe/${id}`}
+        onItemPress={tap.linkPress}
         onRetry={() => undefined}
         state={readyState([ownedItem, otherItem])}
       />
+    );
+  }
+  const result = await render(
+    <TestProviders>
+      <GuardedCloset />
     </TestProviders>,
   );
   // A plain push of the piece's form; on iOS the link adds the id of the tile it zooms out of.
