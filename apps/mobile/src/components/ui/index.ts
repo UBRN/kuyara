@@ -95,6 +95,7 @@ export {
   runwayDressingDuration,
   type RunwayBoardOutfit,
 } from './garment-board/garment-runway-board';
+export { GarmentPreviewBoard, type GarmentPreviewBoardProps } from './garment-preview-board';
 export {
   garmentColorFamiliesBySlot,
   garmentUsualColorFamilies,
