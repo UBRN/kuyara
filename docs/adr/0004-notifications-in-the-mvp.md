@@ -60,9 +60,12 @@ location store.
 
 There are **two notification kinds**, each with its own opt-in behind the single OS
 permission. The weather alert is the rule-driven one ADR 0032 owns. The **morning
-briefing** is one notification a day at 07:00 local, carrying the morning's own
-temperature range, its condition and whether precipitation is likely, plus the fact that
-the day's outfit is ready. It composes nothing: no recommendation is generated for
+briefing** is one notification a day at 07:00 local, telling the whole day: the
+temperature range from 07:00 to the end of that local day and the day's one
+decision-changing event with its local time, found by the rule behind the Weather card's
+outlook (precipitation starting or easing, or an apparent-temperature swing). A day with
+no such event reads as its range and the sky the morning opens with. A forecast that ends
+before the last hour of the day is described only up to the hour it ends at. It composes nothing: no recommendation is generated for
 tomorrow, the approved recommendation triggers and cache identity are untouched, and
 tapping the briefing opens Today, where the outfit is produced by those ordinary
 triggers. The briefing's opt-in is `morning_briefing_opt_in` on `local_profiles` (schema
@@ -119,7 +122,8 @@ The decision is scoped into three milestones:
 - The MVP is limited to on-device local notifications, with no server-sent push.
 - The briefing depends on the hourly window reaching the selected morning, which the
   36-hour contract normally gives but a short provider response can withhold. A day it
-  cannot cover is a silent day, not a fabricated one.
+  cannot cover is a silent day, not a fabricated one, and a day it covers only in part is
+  described only as far as the forecast reaches.
 - The briefing's fire time is 07:00 in the snapshot's time zone, the end of quiet hours
   there. [ADR 0032](0032-local-weather-alert-rules.md) section 4 records that quiet hours
   are read in the device's time zone, so the two can disagree while the person is

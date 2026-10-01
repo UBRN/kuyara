@@ -265,7 +265,7 @@ test('the morning briefing is scheduled beside the alerts, on its own opt-in', a
     identifier: 'morning_briefing:2026-09-10',
     fireAt: '2026-09-10T07:00:00.000Z',
     title: 'Good morning',
-    body: 'A cloudy morning at 11\u00b0C. Your outfit for today is waiting in kuyara.',
+    body: 'Until 07:00: 11\u00b0C. A cloudy morning.',
   });
   assert.deepEqual(both.upserted[0].map(({ id }) => id), [
     'precipitation_onset:manual:sample.istanbul:2026-09-09:evening',
@@ -300,10 +300,10 @@ test('the morning briefing is scheduled beside the alerts, on its own opt-in', a
     briefingOnly.scheduled.map(({ identifier }) => identifier),
     ['morning_briefing:2026-09-10'],
   );
-  // A morning with more than one hour reads as a rounded range.
+  // A forecast with more than one hour reads as a rounded range up to its last hour.
   assert.equal(
     briefingOnly.scheduled[0].body,
-    'A cloudy morning between 11\u00b0C and 17\u00b0C. Your outfit for today is waiting in kuyara.',
+    'Until 10:00: 11\u201317\u00b0C. A cloudy morning.',
   );
 });
 
@@ -336,10 +336,82 @@ test('the briefing formats its temperatures for the active language', async () =
 
   assert.equal(
     turkish.scheduled[0].body,
-    'Açık bir sabah, -4\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.',
+    '07:00 saatine kadar: -4\u00b0C. Sabah hava açık.',
   );
   assert.equal(turkish.scheduled[0].title, 'Günaydın');
 });
+
+function dayHour(forecastAt, overrides = {}) {
+  return {
+    forecastAt,
+    temperatureCelsius: 14,
+    apparentTemperatureCelsius: 14,
+    condition: 'cloudy',
+    precipitationProbability: 0,
+    windSpeedMetersPerSecond: 1,
+    humidity: 0.5,
+    uvIndex: 0,
+    ...overrides,
+  };
+}
+
+// The brief for the whole day: the range from the briefing hour to the end of the day and
+// the day's one event, in a closed sentence per language. A forecast that stops early says
+// where it stops and claims nothing beyond it.
+const briefingDays = {
+  'rain at 19:00': {
+    hourly: [
+      dayHour('2026-09-10T07:00:00.000Z', { temperatureCelsius: 14, apparentTemperatureCelsius: 14 }),
+      dayHour('2026-09-10T15:00:00.000Z', { temperatureCelsius: 22, apparentTemperatureCelsius: 20 }),
+      dayHour('2026-09-10T19:00:00.000Z', { condition: 'rain', temperatureCelsius: 18, apparentTemperatureCelsius: 17 }),
+      dayHour('2026-09-10T23:00:00.000Z', { condition: 'rain', temperatureCelsius: 16, apparentTemperatureCelsius: 16 }),
+    ],
+    en: 'Today 14\u201322\u00b0C. Rain starts at 19:00.',
+    tr: 'Bugün 14\u201322\u00b0C. Yağmur saat 19:00 civarında başlıyor.',
+  },
+  'a dry day': {
+    hourly: [
+      dayHour('2026-09-10T07:00:00.000Z', { temperatureCelsius: 14, condition: 'clear' }),
+      dayHour('2026-09-10T15:00:00.000Z', { temperatureCelsius: 20, condition: 'clear' }),
+      dayHour('2026-09-10T23:00:00.000Z', { temperatureCelsius: 16, condition: 'clear' }),
+    ],
+    en: 'Today 14\u201320\u00b0C. A clear morning.',
+    tr: 'Bugün 14\u201320\u00b0C. Sabah hava açık.',
+  },
+  'a forecast that ends at 15:00': {
+    hourly: [
+      dayHour('2026-09-10T07:00:00.000Z', { temperatureCelsius: 14 }),
+      dayHour('2026-09-10T15:00:00.000Z', { temperatureCelsius: 20 }),
+    ],
+    en: 'Until 15:00: 14\u201320\u00b0C. A cloudy morning.',
+    tr: '15:00 saatine kadar: 14\u201320\u00b0C. Sabah hava bulutlu.',
+  },
+  'a temperature swing': {
+    hourly: [
+      dayHour('2026-09-10T07:00:00.000Z', { temperatureCelsius: 12, apparentTemperatureCelsius: 12 }),
+      dayHour('2026-09-10T13:00:00.000Z', { temperatureCelsius: 22, apparentTemperatureCelsius: 21 }),
+      dayHour('2026-09-10T23:00:00.000Z', { temperatureCelsius: 18, apparentTemperatureCelsius: 20 }),
+    ],
+    en: 'Today 12\u201322\u00b0C. Warmer around 13:00, feeling like 21\u00b0C.',
+    tr: 'Bugün 12\u201322\u00b0C. Saat 13:00 civarında hava ısınıyor, hissedilen 21\u00b0C.',
+  },
+};
+
+for (const [name, { hourly, en, tr }] of Object.entries(briefingDays)) {
+  for (const [language, expected] of [['en', en], ['tr', tr]]) {
+    test(`the ${language} briefing body for ${name}`, async () => {
+      const harness = createSchedulerHarness();
+      await harness.scheduler.reschedule({
+        ...enabledInput,
+        snapshot: { ...weatherSnapshot(), hourly },
+        weatherAlertsEnabled: false,
+        morningBriefingEnabled: true,
+        language,
+      });
+      assert.equal(harness.scheduled[0].body, expected);
+    });
+  }
+}
 
 test('a briefing range rounded to zero reads as one temperature', async () => {
   const morning = {
@@ -360,14 +432,14 @@ test('a briefing range rounded to zero reads as one temperature', async () => {
 
   assert.equal(
     harness.scheduled[0].body,
-    'A cloudy morning at 0\u00b0C. Your outfit for today is waiting in kuyara.',
+    'Until 10:00: 0\u00b0C. A cloudy morning.',
   );
 });
 
 for (const [language, expectedBriefing, expectedAlert] of [
-  ['en', 'A cloudy morning at 51°F. Your outfit for today is waiting in kuyara.',
+  ['en', 'Until 10:00: 51°F. A cloudy morning.',
     'Around 18:00, it will feel like 44°F. Take a warmer layer with you.'],
-  ['tr', 'Bulutlu bir sabah, 51°F. Bugünün kombini kuyara\u2019da seni bekliyor.',
+  ['tr', '10:00 saatine kadar: 51°F. Sabah hava bulutlu.',
     'Saat 18:00 civarında hissedilen sıcaklık 44°F olacak. Yanına daha sıcak tutan bir kat al.'],
 ]) {
   test(`${language} notifications convert a Fahrenheit briefing and swing alert`, async () => {

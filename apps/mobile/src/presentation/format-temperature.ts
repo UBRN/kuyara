@@ -53,6 +53,24 @@ export function formatWholeTemperature(
   return `${formatWholeTemperatureValue(valueCelsius, language, unit)}°${unit === 'fahrenheit' ? 'F' : 'C'}`;
 }
 
+/**
+ * A whole-degree range such as "14–22°C" with one unit at the end, or the single
+ * temperature when both ends display the same value. The ends are compared as displayed,
+ * so a converted range that rounds to one degree reads as one temperature.
+ */
+export function formatWholeTemperatureRange(
+  lowCelsius: number,
+  highCelsius: number,
+  language: SupportedLanguage,
+  unit: TemperatureUnit,
+): string {
+  const low = formatWholeTemperatureValue(lowCelsius, language, unit);
+  const high = formatWholeTemperatureValue(highCelsius, language, unit);
+  return low === high
+    ? formatWholeTemperature(lowCelsius, language, unit)
+    : `${low}–${high}°${unit === 'fahrenheit' ? 'F' : 'C'}`;
+}
+
 export function formatWholeTemperatureValue(
   valueCelsius: number,
   language: SupportedLanguage,

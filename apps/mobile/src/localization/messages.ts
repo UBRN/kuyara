@@ -301,7 +301,6 @@ export type PreferenceMessages = Readonly<{
 }>;
 
 /** A morning's low and high, already formatted; equal values read as one temperature. */
-export type MorningTemperatures = Readonly<{ low: string; high: string }>;
 
 export type AppMessages = Readonly<{
   temperatureUnitNames: Readonly<Record<'celsius' | 'fahrenheit', string>>;
@@ -496,22 +495,29 @@ export type AppMessages = Readonly<{
       dismissAction: string;
     }>;
     /**
-     * ADR 0004's second notification kind. Each body is one complete localized text read at
-     * 07:00 on the morning it describes, never assembled from fragments.
+     * ADR 0004's second notification kind. Range and event are complete localized sentences.
      */
     morningBriefing: Readonly<{
       toggleLabel: string;
       /** `time` arrives formatted for the device's 12 or 24-hour clock. */
       hint: (time: string) => string;
       title: string;
-      /**
-       * `low` and `high` arrive already formatted for the language's locale, as the alert
-       * bodies' temperatures do; the range dash and the single-value form belong
-       * to the copy. Each value already carries its unit.
-       */
-      clearBody: (values: MorningTemperatures) => string;
-      cloudyBody: (values: MorningTemperatures) => string;
-      wetBody: (values: MorningTemperatures) => string;
+      /** `range` arrives formatted ("14–22°C"); the whole day is covered. */
+      fullRange: (range: string) => string;
+      /** The forecast stops at `through`, so only the hours up to it are described. */
+      partialRange: (values: { range: string; through: string }) => string;
+      /** The sky the briefing hour opens with, said only when the day has no event. */
+      clearMorning: string;
+      cloudyMorning: string;
+      wetMorning: string;
+      /** Event sentences: `time` arrives formatted for the device's 12 or 24-hour clock. */
+      rainStarting: (time: string) => string;
+      snowStarting: (time: string) => string;
+      rainEasing: (time: string) => string;
+      snowEasing: (time: string) => string;
+      /** `temperature` is the apparent temperature the swing reaches. */
+      temperatureDrop: (values: { time: string; temperature: string }) => string;
+      temperatureRise: (values: { time: string; temperature: string }) => string;
     }>;
     alerts: Readonly<{
       rainTitle: string;
@@ -994,17 +1000,19 @@ const en = {
     },
     morningBriefing: {
       toggleLabel: 'Morning briefing',
-      hint: (time) => `A single notification at ${time} with the morning\u2019s weather, when tomorrow morning is already in the forecast.`,
+      hint: (time) => `A single notification at ${time} with the day\u2019s temperature range and its one big weather change, when tomorrow morning is already in the forecast.`,
       title: 'Good morning',
-      clearBody: ({ low, high }) => (low === high
-        ? `A clear morning at ${low}. Your outfit for today is waiting in kuyara.`
-        : `A clear morning between ${low} and ${high}. Your outfit for today is waiting in kuyara.`),
-      cloudyBody: ({ low, high }) => (low === high
-        ? `A cloudy morning at ${low}. Your outfit for today is waiting in kuyara.`
-        : `A cloudy morning between ${low} and ${high}. Your outfit for today is waiting in kuyara.`),
-      wetBody: ({ low, high }) => (low === high
-        ? `A wet morning at ${low}. Your outfit for today is waiting in kuyara.`
-        : `A wet morning between ${low} and ${high}. Your outfit for today is waiting in kuyara.`),
+      fullRange: (range) => `Today ${range}.`,
+      partialRange: ({ range, through }) => `Until ${through}: ${range}.`,
+      clearMorning: 'A clear morning.',
+      cloudyMorning: 'A cloudy morning.',
+      wetMorning: 'Rain or snow is likely this morning.',
+      rainStarting: (time) => `Rain starts at ${time}.`,
+      snowStarting: (time) => `Snow starts at ${time}.`,
+      rainEasing: (time) => `Rain eases at ${time}.`,
+      snowEasing: (time) => `Snow eases at ${time}.`,
+      temperatureDrop: ({ time, temperature }) => `Cooler around ${time}, feeling like ${temperature}.`,
+      temperatureRise: ({ time, temperature }) => `Warmer around ${time}, feeling like ${temperature}.`,
     },
     alerts: {
       rainTitle: 'Rain is on the way',
@@ -1851,17 +1859,19 @@ const tr = {
     },
     morningBriefing: {
       toggleLabel: 'Sabah brifingi',
-      hint: (time) => `Yarın sabah tahminde yer aldığında, sabahın havasını anlatan tek bir bildirim (saat ${time}).`,
+      hint: (time) => `Yarın sabah tahminde yer aldığında, günün sıcaklık aralığını ve en önemli hava değişimini anlatan tek bir bildirim (saat ${time}).`,
       title: 'Günaydın',
-      clearBody: ({ low, high }) => (low === high
-        ? `Açık bir sabah, ${low}. Bugünün kombini kuyara\u2019da seni bekliyor.`
-        : `Açık bir sabah, ${low} ile ${high} arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
-      cloudyBody: ({ low, high }) => (low === high
-        ? `Bulutlu bir sabah, ${low}. Bugünün kombini kuyara\u2019da seni bekliyor.`
-        : `Bulutlu bir sabah, ${low} ile ${high} arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
-      wetBody: ({ low, high }) => (low === high
-        ? `Yağışlı bir sabah, ${low}. Bugünün kombini kuyara\u2019da seni bekliyor.`
-        : `Yağışlı bir sabah, ${low} ile ${high} arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
+      fullRange: (range) => `Bugün ${range}.`,
+      partialRange: ({ range, through }) => `${through} saatine kadar: ${range}.`,
+      clearMorning: 'Sabah hava açık.',
+      cloudyMorning: 'Sabah hava bulutlu.',
+      wetMorning: 'Sabah yağış bekleniyor.',
+      rainStarting: (time) => `Yağmur saat ${time} civarında başlıyor.`,
+      snowStarting: (time) => `Kar saat ${time} civarında başlıyor.`,
+      rainEasing: (time) => `Yağmur saat ${time} civarında hafifliyor.`,
+      snowEasing: (time) => `Kar saat ${time} civarında hafifliyor.`,
+      temperatureDrop: ({ time, temperature }) => `Saat ${time} civarında hava soğuyor, hissedilen ${temperature}.`,
+      temperatureRise: ({ time, temperature }) => `Saat ${time} civarında hava ısınıyor, hissedilen ${temperature}.`,
     },
     alerts: {
       rainTitle: 'Yağmur geliyor',

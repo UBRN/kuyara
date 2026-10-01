@@ -17,7 +17,7 @@ import { weatherFreshness, type WeatherSnapshot } from '@/features/weather/domai
 import type { TemperatureUnit } from '@/localization/device-locale';
 import { localeTag } from '@/localization/locale-tag';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { formatWholeTemperature } from '@/presentation/format-temperature';
+import { formatWholeTemperature, formatWholeTemperatureRange } from '@/presentation/format-temperature';
 
 type RescheduleInput = Readonly<{
   localProfileId: string;
@@ -42,8 +42,8 @@ const deliveryRetentionMilliseconds = 3 * 24 * 60 * 60 * 1000;
 
 // The notification reads on the lock screen beside the system clock, so the crossing wears
 // the clock the device is set to rather than a fixed 24-hour one.
-function crossingTime(
-  plan: WeatherAlertPlan,
+function notificationTime(
+  at: string,
   timeZone: string,
   language: SupportedLanguage,
   hour12: boolean,
@@ -53,26 +53,51 @@ function crossingTime(
     hour: hour12 ? 'numeric' : '2-digit',
     minute: '2-digit',
     hour12,
-  }).format(new Date(plan.crossingAt));
+  }).format(new Date(at));
 }
 
 function briefingCopy(
   plan: MorningBriefingPlan,
+  timeZone: string,
   language: SupportedLanguage,
+  hour12: boolean,
   temperatureUnit: TemperatureUnit,
 ): Readonly<{ title: string; body: string }> {
   const copy = messages[language].notifications.morningBriefing;
-  const { condition, precipitationLikely } = plan.content;
-  // Compare the displayed values so a converted range that rounds to one degree
-  // reads as one temperature.
-  const temperatures = {
-    low: formatWholeTemperature(plan.content.minimumTemperatureCelsius, language, temperatureUnit),
-    high: formatWholeTemperature(plan.content.maximumTemperatureCelsius, language, temperatureUnit),
-  };
-  if (precipitationLikely) return { title: copy.title, body: copy.wetBody(temperatures) };
-  return ['clear', 'mostly_clear'].includes(condition)
-    ? { title: copy.title, body: copy.clearBody(temperatures) }
-    : { title: copy.title, body: copy.cloudyBody(temperatures) };
+  const { condition, coveredThrough, event, precipitationLikely } = plan.content;
+  const range = formatWholeTemperatureRange(
+    plan.content.minimumTemperatureCelsius,
+    plan.content.maximumTemperatureCelsius,
+    language,
+    temperatureUnit,
+  );
+  const lead = coveredThrough === null
+    ? copy.fullRange(range)
+    : copy.partialRange({
+      range,
+      through: notificationTime(coveredThrough, timeZone, language, hour12),
+    });
+  // The day's one event, when it has one, closes the sentence; a day without one falls back
+  // to the sky the briefing hour opens with and claims nothing beyond it.
+  let detail: string;
+  if (event?.kind === 'precipitation_onset' || event?.kind === 'precipitation_easing') {
+    const time = notificationTime(event.atHour, timeZone, language, hour12);
+    const snow = event.form === 'snow';
+    detail = event.kind === 'precipitation_onset'
+      ? (snow ? copy.snowStarting(time) : copy.rainStarting(time))
+      : (snow ? copy.snowEasing(time) : copy.rainEasing(time));
+  } else if (event?.kind === 'temperature_change') {
+    const values = {
+      time: notificationTime(event.atHour, timeZone, language, hour12),
+      temperature: formatWholeTemperature(event.toApparentCelsius, language, temperatureUnit),
+    };
+    detail = event.direction === 'drop' ? copy.temperatureDrop(values) : copy.temperatureRise(values);
+  } else if (precipitationLikely) {
+    detail = copy.wetMorning;
+  } else {
+    detail = ['clear', 'mostly_clear'].includes(condition) ? copy.clearMorning : copy.cloudyMorning;
+  }
+  return { title: copy.title, body: `${lead} ${detail}` };
 }
 
 function alertCopy(
@@ -83,7 +108,7 @@ function alertCopy(
   temperatureUnit: TemperatureUnit,
 ): Readonly<{ title: string; body: string }> {
   const copy = messages[language].notifications.alerts;
-  const time = crossingTime(plan, timeZone, language, hour12);
+  const time = notificationTime(plan.crossingAt, timeZone, language, hour12);
   if (plan.detail.kind === 'precipitation') {
     return plan.detail.form === 'snow'
       ? { title: copy.snowTitle, body: copy.snowBody(time) }
@@ -205,7 +230,9 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     for (const plan of plans) {
       await schedule(plan, alertCopy(plan, snapshot.timeZone, input.language, input.hour12, input.temperatureUnit));
     }
-    if (briefing) await schedule(briefing, briefingCopy(briefing, input.language, input.temperatureUnit));
+    if (briefing) await schedule(briefing, briefingCopy(
+      briefing, snapshot.timeZone, input.language, input.hour12, input.temperatureUnit,
+    ));
 
     await repository.upsertScheduled(scheduled);
     await repository.pruneBefore(
