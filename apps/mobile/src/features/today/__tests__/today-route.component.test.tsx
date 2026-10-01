@@ -3018,6 +3018,41 @@ test('a changed outfit records as manual, turns the full-screen back swipe off w
   expect(result.queryByRole('button', { name: messages.en.today.manualMix.reset })).toBeNull();
 });
 
+// The board's swipe hint plays once for life: the first enlargement stores the profile flag,
+// a second enlargement in the same visit stores nothing more, and a profile whose flag is
+// stored never plays it.
+test('the first enlargement on outfit detail stores the swipe hint flag once', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const layout = { nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } } };
+  const open = async (swapHintShown: boolean) => {
+    const profile = { ...profileValue({ swapHintShown }), markSwapHintShown: jest.fn(async () => undefined) };
+    const props = {
+      productAnalytics: createProductAnalytics(),
+      profile,
+      recommendation: recommendationReady(),
+      wardrobe: wardrobeValue(),
+      weather: weatherValue(),
+    };
+    const result = await render(<Providers {...props}><OutfitDetailRoute /></Providers>);
+    await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', layout);
+    const activate = () => fireEvent(result.getByTestId('outfit-detail-board-piece-footwear'),
+      'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    return { activate, profile, result };
+  };
+
+  const due = await open(false);
+  await due.activate();
+  expect(due.profile.markSwapHintShown).toHaveBeenCalledTimes(1);
+  await due.activate();
+  await due.activate();
+  expect(due.profile.markSwapHintShown).toHaveBeenCalledTimes(1);
+  await due.result.unmount();
+
+  const stored = await open(true);
+  await stored.activate();
+  expect(stored.profile.markSwapHintShown).not.toHaveBeenCalled();
+});
+
 test('accepting the offer with the briefing already on records only the alert preference change', async () => {
   mockOffer = { kind: 'offer', ruleId: 'precipitation_onset' };
   const productAnalytics = createProductAnalytics();

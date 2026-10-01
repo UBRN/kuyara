@@ -25,6 +25,8 @@ export const SWAP_RUBBER_BAND = 0.55;
 export const SWAP_EDGE_GUARD = 24;
 /** The hairline before the first unsuitable tile. */
 export const SWAP_HAIRLINE_LENGTH = 24;
+/** How far the one-time swipe hint shows the neighbour past the window's edge, in pt. */
+export const SWAP_HINT_PEEK = 32;
 
 export type SwapBox = Readonly<{ x: number; y: number; w: number; h: number }>;
 

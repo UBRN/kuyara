@@ -100,6 +100,40 @@ test('a flick fades the piece it steps away from before the step has rendered', 
   timings.mockRestore();
 });
 
+// The swipe hint plays on the first enlargement only, while the owner still asks for it: the
+// neighbour comes out from the window's edge once and goes back, and the owner hears once
+// that it played so it can store the flag.
+test('the swipe hint plays once, on the first enlargement, and only while it is still wanted', async () => {
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  const onSwipeHintShown = jest.fn();
+  const board = (focusedSlot: 'footwear' | null, swipeHint = true) => (
+    <GarmentSwapBoard {...boardProps({ focusedSlot, onSwipeHintShown, swipeHint })} />
+  );
+  const result = await render(board(null), { wrapper: LightTheme });
+  expect(onSwipeHintShown).not.toHaveBeenCalled();
+
+  await result.rerender(board('footwear'));
+  expect(onSwipeHintShown).toHaveBeenCalledTimes(1);
+  // It waits for the enlargement's own spring, then moves the piece and its neighbour.
+  expect(withDelay.mock.calls.filter(([delay]) => delay === lightTheme.springs.spatial.duration))
+    .toHaveLength(3);
+
+  // Settled and enlarged again, in the same visit: it does not play a second time.
+  withDelay.mockClear();
+  await result.rerender(board(null));
+  await result.rerender(board('footwear'));
+  expect(onSwipeHintShown).toHaveBeenCalledTimes(1);
+  expect(withDelay).not.toHaveBeenCalled();
+  await result.unmount();
+
+  // An owner whose flag is stored never asks for it.
+  const stored = await render(board(null, false), { wrapper: LightTheme });
+  await stored.rerender(board('footwear', false));
+  expect(onSwipeHintShown).toHaveBeenCalledTimes(1);
+  expect(withDelay).not.toHaveBeenCalled();
+  withDelay.mockRestore();
+});
+
 const tap = (x: number, y: number) => fireGestureHandler(getByGestureTestId('garment-swap-board-tap'), [
   { state: State.BEGAN, x, y },
   { state: State.ACTIVE, x, y },

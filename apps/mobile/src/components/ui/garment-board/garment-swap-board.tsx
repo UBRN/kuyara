@@ -8,6 +8,7 @@ import Animated, {
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSequence,
   withSpring,
   withTiming,
@@ -37,6 +38,7 @@ import { GarmentSwapStrip, type GarmentSwapStripLabels } from './garment-swap-st
 import {
   SWAP_EDGE_GUARD,
   SWAP_HANDOFF_AFTER,
+  SWAP_HINT_PEEK,
   SWAP_STEP_BACK,
   SWAP_TOUCH_SLOP,
   swapCommitDirection,
@@ -129,6 +131,13 @@ export type GarmentSwapBoardProps = Readonly<{
    * composes narrower until they fit (ADR 0026 section 6). Left out, the board keeps its width.
    */
   visibleHeight?: number;
+  /**
+   * The first enlargement shows the next candidate at the window's edge once, telling the
+   * piece pages sideways. The owner passes true until the hint has played for good.
+   */
+  swipeHint?: boolean;
+  /** Called once, as the hint starts, so the owner can store that it played. */
+  onSwipeHintShown?: () => void;
   testID?: string;
 }>;
 
@@ -379,6 +388,8 @@ export function GarmentSwapBoard({
   settle,
   onReveal,
   visibleHeight = 0,
+  swipeHint = false,
+  onSwipeHintShown,
   testID,
 }: GarmentSwapBoardProps) {
   const theme = useKuyaraTheme();
@@ -900,6 +911,37 @@ export function GarmentSwapBoard({
       return;
     }
     if (Math.abs(blockTarget - seen.target) >= 0.5 && !(focusedSlot === null && panels.current)) startBlock(blockTarget);
+  });
+
+  // The swipe hint: once the enlargement has grown, the piece and its neighbour move one
+  // `SWAP_HINT_PEEK` the way a swipe to that neighbour would, on the spatial spring, and come
+  // back on it, the neighbour opaque only while it is out. It moves nothing a screen reader
+  // is on, and a finger that grabs the piece meanwhile takes over its values as it does
+  // mid-settle.
+  const swipeHinted = useRef(false);
+  const hintFocus = useRef(focusedSlot);
+  useLayoutEffect(() => {
+    const was = hintFocus.current;
+    hintFocus.current = focusedSlot;
+    if (was !== null || focusedSlot === null || !swipeHint || swipeHinted.current || !settled) return;
+    const neighbour = nextInstance ?? previousInstance;
+    const piece = focused?.values.dx;
+    if (!pager || !neighbour || !piece) return;
+    swipeHinted.current = true;
+    const direction = nextInstance ? 1 : -1;
+    const rest = direction === 1 ? pager.strideNext : -pager.stridePrevious;
+    const peek = -direction * SWAP_HINT_PEEK;
+    const { dx, op } = neighbour.values;
+    const delay = spatial.duration;
+    op.set(withDelay(delay, withTiming(1, { duration: theme.motion.immediate })));
+    dx.set(withDelay(delay, withSequence(
+      withSpring(rest + peek, spatial),
+      withSpring(rest, spatial, (finished) => {
+        if (finished) op.set(0);
+      }),
+    )));
+    piece.set(withDelay(delay, withSequence(withSpring(peek, spatial), withSpring(0, spatial))));
+    onSwipeHintShown?.();
   });
 
   const stepSlot = (slot: OutfitSlot, direction: 1 | -1) => {
