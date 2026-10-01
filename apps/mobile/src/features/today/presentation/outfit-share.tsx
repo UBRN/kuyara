@@ -117,7 +117,6 @@ export function OutfitShareCard({
             }]}>
             <GarmentBoard
               accessibilityLabel={suggestion.boardAccessibilityLabel}
-              contactShade={theme.contactShade[presentation.atmosphere]}
               decorative
               fit
               palette={palette}
