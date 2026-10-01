@@ -3018,9 +3018,9 @@ test('a changed outfit records as manual, turns the full-screen back swipe off w
   expect(result.queryByRole('button', { name: messages.en.today.manualMix.reset })).toBeNull();
 });
 
-// The board's swipe hint plays once for life: the first enlargement stores the profile flag,
-// a second enlargement in the same visit stores nothing more, and a profile whose flag is
-// stored never plays it.
+// The board's swipe hint plays once for life: the first enlargement stores the profile flag as
+// the hint starts, a second enlargement in the same visit stores nothing more, and a profile
+// whose flag is stored never plays it.
 test('the first enlargement on outfit detail stores the swipe hint flag once', async () => {
   mockParams = { id: todayOutfitId(1) };
   const layout = { nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } } };
@@ -3040,16 +3040,24 @@ test('the first enlargement on outfit detail stores the swipe hint flag once', a
     return { activate, profile, result };
   };
 
+  // The hint plays, and is stored, once the enlargement's growth has landed.
+  const growthLanded = () => act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, lightTheme.springs.spatial.duration + 50));
+  });
+
   const due = await open(false);
   await due.activate();
+  await growthLanded();
   expect(due.profile.markSwapHintShown).toHaveBeenCalledTimes(1);
   await due.activate();
   await due.activate();
+  await growthLanded();
   expect(due.profile.markSwapHintShown).toHaveBeenCalledTimes(1);
   await due.result.unmount();
 
   const stored = await open(true);
   await stored.activate();
+  await growthLanded();
   expect(stored.profile.markSwapHintShown).not.toHaveBeenCalled();
 });
 
