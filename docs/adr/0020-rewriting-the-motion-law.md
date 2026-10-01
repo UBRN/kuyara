@@ -59,7 +59,9 @@ The overshoot is a brand decision: duration 550 ms and damping ratio 0.65 were k
 watching the Today hero pieces rise 24 pt on the iPhone 17 Pro Simulator on 2026-09-12,
 where they pass rest by about 1.6 pt once and settle without a second bounce, and a lower
 damping adds the second bounce that reads as elastic easing. On Today the pieces rise into
-a still stage on mount: the stage plate, the tint and the hero values do not move. Only
+a still stage on mount, one by one in the board's reading order, each `theme.motion.stagger`
+after the piece before it, with its contact shade: the stage plate, the tint and the hero
+values do not move. Only
 `components/ui` consumes either role.
 
 ### Content arrives in reading order
