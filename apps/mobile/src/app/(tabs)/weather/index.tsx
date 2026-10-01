@@ -1,4 +1,4 @@
-import { Stack, useFocusEffect } from 'expo-router';
+import { Stack, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback } from 'react';
 
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
@@ -26,11 +26,13 @@ export default function WeatherRoute() {
         : state.refreshFailure,
   );
   useFocusEffect(useCallback(() => () => retries.reset('weather'), [retries]));
+  // The tab mounts at launch, before it is shown; its cards arrive on the first showing.
+  const shown = useIsFocused();
   return (
     <>
       {/* The header stays hidden; the title only names the back button on /weather/location. */}
       <Stack.Screen options={{ title: messages.weather.title }} />
-      <WeatherScreen />
+      <WeatherScreen shown={shown} />
     </>
   );
 }

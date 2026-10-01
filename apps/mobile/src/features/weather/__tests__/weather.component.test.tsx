@@ -1573,3 +1573,30 @@ test('the forecast cards arrive in reading order and again for a new place', asy
   cards.forEach((card, index) => expect(result.getByTestId(card)).not.toBe(first[index]));
   withSpring.mockRestore();
 });
+
+// The Weather tab mounts at launch, before it is shown. Its forecast cards wait at the start
+// and arrive on the first showing; leaving the tab and coming back never replays them.
+test('the forecast cards arrive when the tab is first shown, and only then', async () => {
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  const istanbul = getManualLocation('sample.istanbul')!;
+  const screen = (shown: boolean) => (
+    <Providers language="en" value={createValue({
+      ...baseState,
+      activeLocation: istanbul,
+      snapshot: { ...sampleSnapshot(), locationKey: istanbul.locationKey, daily: sampleDaily },
+      freshness: 'fresh',
+    })}><WeatherScreen shown={shown} /></Providers>
+  );
+  const { stagger } = lightTheme.motion;
+  const result = await render(screen(false));
+  expect(withDelay).not.toHaveBeenCalled();
+
+  await result.rerender(screen(true));
+  expect(withDelay.mock.calls.map(([delay]) => delay)).toEqual([0, 0, stagger, stagger]);
+
+  withDelay.mockClear();
+  await result.rerender(screen(false));
+  await result.rerender(screen(true));
+  expect(withDelay).not.toHaveBeenCalled();
+  withDelay.mockRestore();
+});

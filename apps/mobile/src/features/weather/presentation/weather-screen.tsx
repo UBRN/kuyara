@@ -220,7 +220,12 @@ function locationName(
   return location.displayName ?? copy.currentLocation;
 }
 
-export function WeatherScreen() {
+type WeatherScreenProps = Readonly<{
+  /** False until the tab is first shown: the forecast cards arrive then, not while it is hidden. */
+  shown?: boolean;
+}>;
+
+export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const { hour12, language, messages, temperatureUnit } = useLocalization();
   const theme = useKuyaraTheme();
   const { controlScale, usesStackedLayout } = useTextScaling();
@@ -625,7 +630,7 @@ export function WeatherScreen() {
           {locationSection}
 
           {hourlyColumns.length > 0 && (
-            <Entrance index={0}>
+            <Entrance index={0} waiting={!shown}>
               <Surface
                 style={[styles.card, theme.elevation.raised]}
                 testID="weather-hourly-card">
@@ -642,7 +647,7 @@ export function WeatherScreen() {
           )}
 
           {dailyRows.length > 0 && (
-            <Entrance index={1}>
+            <Entrance index={1} waiting={!shown}>
               <Surface
                 style={[styles.card, theme.elevation.raised]}
                 testID="weather-daily-card">
