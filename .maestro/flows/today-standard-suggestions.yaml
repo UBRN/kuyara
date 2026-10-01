@@ -114,6 +114,21 @@ tags:
       - tapOn:
           id: "analytics-consent-decline"
 
+# A fresh install meets the one-time walkthrough over Today (migration 22's gate); its overlay
+# hides Today's elements from the tree Maestro reads, so the flow skips it when it shows.
+- extendedWaitUntil:
+    visible:
+      id: "walkthrough-skip"
+    timeout: 5000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "walkthrough-skip"
+    commands:
+      - tapOn:
+          id: "walkthrough-skip"
+
 - assertVisible:
     id: today-screen
 
@@ -131,12 +146,14 @@ tags:
 
 # The deterministic fallback carries no badge at rest (ADR 0034 section 4), so the settled
 # observable is an outfit whose provenance line holds nothing but the freshness stamp: the
-# archetype is on screen and `today-generation-mode` does not exist. Either AI tier would
+# outfit is on screen and `today-generation-mode` does not exist. Either AI tier would
 # have put a badge there. The recommendation already resolved (see above), so this should
 # settle almost immediately.
+# The archetype title sits inside the stage's single accessible button, so the tree exposes the
+# primary board rather than the title's own identifier.
 - extendedWaitUntil:
     visible:
-      id: "today-archetype"
+      id: "today-primary-board-outfit:.*"
     timeout: 10000
 - assertNotVisible:
     id: "today-generation-mode"
