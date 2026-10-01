@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Appearance, Dimensions, processColor, Text } from 'react-native';
 
 import {
+  LAUNCH_IDLE_TIMEOUT_MS,
   LAUNCH_READY_CEILING_MS,
   LaunchCurtain,
   type LaunchReadiness,
@@ -55,14 +56,19 @@ async function drawFirstFrame() {
 const FRAME = 16;
 const nextFrame = () => advance(2 * FRAME);
 
+// Under sustained load the idle callback never comes by itself; only its timeout does.
+let busy = false;
+
 beforeAll(() => {
   Object.assign(globalThis, {
-    requestIdleCallback: (callback: () => void) => setTimeout(callback, 1),
+    requestIdleCallback: (callback: () => void, options?: { timeout?: number }) =>
+      setTimeout(callback, busy ? (options?.timeout ?? 1e9) : 1),
     cancelIdleCallback: (handle: ReturnType<typeof setTimeout>) => clearTimeout(handle),
   });
 });
 
 beforeEach(() => {
+  busy = false;
   jest.useFakeTimers();
 });
 
@@ -77,7 +83,8 @@ test('the first frame is the native splash in the system appearance, and the spl
   await render(curtain('pending', onFirstFrame));
 
   const layer = screen.getByTestId('launch-curtain', hidden);
-  expect(layer.props.pointerEvents).toBe('none');
+  // While opaque the layer takes the touches, so no hidden control is pressed.
+  expect(layer.props.pointerEvents).toBe('auto');
   expect(layer.props.accessibilityElementsHidden).toBe(true);
   expect(layer.props.importantForAccessibility).toBe('no-hide-descendants');
   expect(groundFill()).toEqual(brush(brandColors.nightLayer));
@@ -118,6 +125,30 @@ test('a cold launch dives, lifts the curtain, then leaves', async () => {
   await advance(1);
   expect(probe()).toBe('revealing done');
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
+test('the opaque layer takes touches until the curtain lifts, then lets them through', async () => {
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  await result.rerender(curtain('ready'));
+  await nextFrame();
+  await advance(fast + launch - 1);
+  expect(screen.getByTestId('launch-curtain', hidden).props.pointerEvents).toBe('auto');
+  await advance(1);
+  expect(screen.getByTestId('launch-curtain', hidden).props.pointerEvents).toBe('none');
+});
+
+test('a JavaScript thread that is never idle still lets the launch move, within the idle timeout', async () => {
+  busy = true;
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  await result.rerender(curtain('ready'));
+  await advance(LAUNCH_IDLE_TIMEOUT_MS - 1);
+  expect(probe()).toBe('covered playing');
+  await advance(1);
+  await nextFrame();
+  await advance(fast + launch + normal);
+  expect(probe()).toBe('revealing done');
 });
 
 test('a launch from a notification or a link skips the dive: the colour fades in, then away', async () => {

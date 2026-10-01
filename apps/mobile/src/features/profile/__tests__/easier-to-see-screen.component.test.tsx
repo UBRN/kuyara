@@ -141,8 +141,8 @@ test('a rejected save shows the save error in the footer and speaks it once', as
 });
 
 // Turning the switch on draws the preview larger. The card is always as tall as its "on"
-// drawing, so the switch under the finger never moves: while the mode is off, an unseen,
-// unspoken "on" copy measures that height and the card holds it.
+// drawing, so the switch under the finger never moves: an unseen, unspoken "on" copy measures
+// that height, whatever the mode, and the card holds it.
 test('the preview card keeps its "on" height while the mode is off, so the switch stays put', async () => {
   const result = await renderScreen('en', { boldText: false, increaseContrast: false });
   const preview = result.getByTestId('settings-easier-to-see-preview');
@@ -156,8 +156,13 @@ test('the preview card keeps its "on" height while the mode is off, so the switc
   expect(StyleSheet.flatten(result.getByTestId('settings-easier-to-see-preview').props.style))
     .toMatchObject({ minHeight: 214 });
 
-  // With the mode on, the card is its own "on" size and needs no copy.
+  // Opening with the mode on and turning it off must not jump either: the copy is there too.
   const on = await renderScreen('en', { boldText: false, increaseContrast: false }, true);
   const onPreview = on.getByTestId('settings-easier-to-see-preview');
-  expect(onPreview.parent!.children.filter((child) => typeof child !== 'string')).toHaveLength(1);
+  const onMeasure = onPreview.parent!.children.find((child) => typeof child !== 'string' && child !== onPreview);
+  expect(onMeasure).toBeDefined();
+  if (typeof onMeasure === 'string' || onMeasure === undefined) return;
+  await fireEvent(onMeasure, 'layout', { nativeEvent: { layout: { height: 214, width: 300, x: 0, y: 0 } } });
+  expect(StyleSheet.flatten(on.getByTestId('settings-easier-to-see-preview').props.style))
+    .toMatchObject({ minHeight: 214 });
 });

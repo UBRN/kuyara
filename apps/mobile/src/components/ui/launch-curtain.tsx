@@ -88,6 +88,9 @@ const FILL_TO = 0.7;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 const DIVE_EASING = Easing.bezier(0.65, 0, 0.35, 1);
 const GLIDE_EASING = Easing.bezier(0.77, 0, 0.175, 1);
+// The longest the launch waits for an idle JavaScript thread: under sustained load the idle
+// callback never comes, and the opaque layer must not outlast it.
+export const LAUNCH_IDLE_TIMEOUT_MS = 300;
 
 type Scheme = 'light' | 'dark';
 
@@ -152,7 +155,7 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
     let frame: number | null = null;
     const idle = requestIdleCallback(() => {
       frame = requestAnimationFrame(() => setMotion(answer));
-    });
+    }, { timeout: LAUNCH_IDLE_TIMEOUT_MS });
     return () => {
       cancelIdleCallback(idle);
       if (frame !== null) cancelAnimationFrame(frame);
@@ -183,15 +186,16 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
   return (
     <>
       <LaunchRevealContext value={reveal}>{children}</LaunchRevealContext>
-      {reveal.done ? null : <CurtainLayer motion={motion} onLayout={reportDrawn} />}
+      {reveal.done ? null : <CurtainLayer blocking={!reveal.revealing} motion={motion} onLayout={reportDrawn} />}
     </>
   );
 }
 
 function CurtainLayer({
+  blocking,
   motion,
   onLayout,
-}: Readonly<{ motion: LaunchMotion | null; onLayout: () => void }>) {
+}: Readonly<{ blocking: boolean; motion: LaunchMotion | null; onLayout: () => void }>) {
   // The native splash follows the system appearance, not the app's theme setting, which is
   // applied only once the profile has loaded; the layer reads it once, on mount.
   const [scheme] = useState<Scheme>(() => (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'));
@@ -266,7 +270,7 @@ function CurtainLayer({
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       onLayout={onLayout}
-      pointerEvents="none"
+      pointerEvents={blocking ? 'auto' : 'none'}
       style={StyleSheet.absoluteFill}
       testID="launch-curtain">
       {/* One drawing, every layer of it redrawn by the same animated SVG props: the ground

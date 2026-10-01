@@ -81,8 +81,8 @@ export function EasierToSeeScreen({ enabled, isSaving, onChange }: EasierToSeeSc
       <NativeListSection heading={copy.previewHeading} testID="settings-easier-to-see-preview-group">
         <NativeListContentRow testID="settings-easier-to-see-preview-row">
           {/* The card is always as tall as its "on" drawing, so turning the switch on or off
-              changes what the card shows but never moves the switch under the finger. While
-              the mode is off, an unseen "on" copy measures that height. */}
+              changes what the card shows but never moves the switch under the finger. An unseen
+              "on" copy measures that height whatever the mode, so no first toggle jumps. */}
           <View
             accessibilityLabel={enabled ? copy.previewLabelOn : copy.previewLabelOff}
             accessibilityRole="image"
@@ -90,28 +90,26 @@ export function EasierToSeeScreen({ enabled, isSaving, onChange }: EasierToSeeSc
             style={[
               styles.preview,
               usesStackedLayout && styles.stackedPreview,
-              { minHeight: enabled ? undefined : onHeight, width: cardWidth },
+              { minHeight: onHeight, width: cardWidth },
             ]}
             testID="settings-easier-to-see-preview">
             <PreviewContent stageWidth={stageWidth} testIDs />
           </View>
-          {enabled ? null : (
-            <EasierToSeeContext value>
-              <View
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                onLayout={(event) => setOnHeight(event.nativeEvent.layout.height)}
-                pointerEvents="none"
-                style={[
-                  styles.preview,
-                  usesStackedLayout && styles.stackedPreview,
-                  styles.measure,
-                  { width: cardWidth },
-                ]}>
-                <PreviewContent stageWidth={stageWidth} />
-              </View>
-            </EasierToSeeContext>
-          )}
+          <EasierToSeeContext value>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              onLayout={(event) => setOnHeight(event.nativeEvent.layout.height)}
+              pointerEvents="none"
+              style={[
+                styles.preview,
+                usesStackedLayout && styles.stackedPreview,
+                styles.measure,
+                { width: cardWidth },
+              ]}>
+              <PreviewContent stageWidth={stageWidth} />
+            </View>
+          </EasierToSeeContext>
         </NativeListContentRow>
       </NativeListSection>
       <NativeListSection

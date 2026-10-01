@@ -330,8 +330,10 @@ export function WardrobeListScreen({
     : null;
   // VoiceOver ignores the alert role on these lines, so iOS also speaks them.
   useErrorAnnouncement(savedItem && undoStatus === 'failed' ? copy.deleteError : null);
+  // A failure already persisted when the screen opened was spoken when it happened.
   useErrorAnnouncement(
     state.status === 'ready' && state.refreshFailure !== null ? copy.loadErrorBody : null,
+    { skipInitial: true },
   );
 
   if (state.status === 'loading') {

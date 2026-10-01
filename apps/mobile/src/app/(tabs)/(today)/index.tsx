@@ -239,7 +239,9 @@ export default function TodayRoute() {
       void settled.finally(() => setChoosingWindow(null));
       setAskOpenedAt(null);
     })()
-      .catch(() => setAskError(true))
+      // A failure after the person closed the sheet reopens it on the error line, as a failed
+      // day answer does, so a closed sheet never swallows it.
+      .catch(() => { setAskError(true); setAskOpenedAt((opened) => opened ?? Date.now()); })
       .finally(() => setAskBusy(false));
   };
   const viewedThisFocusRef = useRef(false);
