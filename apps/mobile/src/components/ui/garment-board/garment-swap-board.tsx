@@ -916,10 +916,20 @@ export function GarmentSwapBoard({
   // VoiceOver's focus back to the piece that opened the strip, whose element stays.
   const pieceTargets = useRef(new Map<OutfitSlot, View>());
   const [focusReturn, setFocusReturn] = useState<OutfitSlot | null>(null);
+  // The focus a tap last asked for. The owner's answer arrives a render later, and a quick
+  // second tap reaches handlers built before it, so a tap reads the request, not the prop.
+  const requestedFocus = useSharedValue<OutfitSlot | null>(focusedSlot);
+  useLayoutEffect(() => {
+    requestedFocus.set(focusedSlot);
+  }, [focusedSlot, requestedFocus]);
+  const requestFocus = (slot: OutfitSlot | null) => {
+    requestedFocus.set(slot);
+    onFocusChange(slot);
+  };
   const settleToPiece = () => {
     if (!focusedSlot) return;
     setFocusReturn(focusedSlot);
-    onFocusChange(null);
+    requestFocus(null);
   };
   useEffect(() => {
     if (focusedSlot !== null || focusReturn === null) return undefined;
@@ -947,7 +957,7 @@ export function GarmentSwapBoard({
           if (distance < nearest) { nearest = distance; hit = slot; }
         }
       }
-      if (hit) onFocusChange(hit);
+      if (hit) requestFocus(hit);
       else settleToPiece();
       return;
     }
@@ -961,7 +971,8 @@ export function GarmentSwapBoard({
         if (distance < nearest) { nearest = distance; hit = slot; }
       }
     }
-    onFocusChange(hit);
+    // A tap on the piece it just enlarged, before the enlargement has rendered, shrinks it.
+    requestFocus(hit !== null && hit === requestedFocus.get() ? null : hit);
   };
 
   const curDx = focused?.values.dx;

@@ -85,3 +85,23 @@ test('a second flick before the step has rendered is not a second step', async (
   expect(onStep).toHaveBeenCalledTimes(2);
   expect(onStep).toHaveBeenLastCalledWith('footwear', 'sandals', true);
 });
+
+const tap = (x: number, y: number) => fireGestureHandler(getByGestureTestId('garment-swap-board-tap'), [
+  { state: State.BEGAN, x, y },
+  { state: State.ACTIVE, x, y },
+  { state: State.END, x, y },
+]);
+
+// The owner enlarges a piece only after a render; a second tap on the same piece before that
+// render arrives shrinks it instead of asking for the same enlargement again.
+test('a quick second tap on the piece just enlarged shrinks it', async () => {
+  const onFocusChange = jest.fn();
+  // The caption lies below the stage, so a tap on it reaches only the footwear.
+  const captionRects = { footwear: { x: 0, y: 1000, w: 100, h: 50 } };
+  await render(<GarmentSwapBoard {...boardProps({ onFocusChange, captionRects })} />, { wrapper: LightTheme });
+  await act(async () => tap(20, 1020));
+  expect(onFocusChange).toHaveBeenLastCalledWith('footwear');
+  await act(async () => tap(20, 1020));
+  expect(onFocusChange).toHaveBeenCalledTimes(2);
+  expect(onFocusChange).toHaveBeenLastCalledWith(null);
+});
