@@ -75,12 +75,12 @@ function Providers({ children, language, list, log }: PropsWithChildren<{
   );
 }
 
-// ADR 0038 and O6: newest first, each entry titled by its locale-formatted date, with the
-// look's name and day type under it.
+// ADR 0038 and O6: newest first, the latest day large under its full date with the look's
+// name and day type, earlier days as small boards under their month, each spoken in full.
 test.each([
-  ['en', 'Wednesday 23 September', 'Monday 21 September'],
-  ['tr', '23 Eylül Çarşamba', '21 Eylül Pazartesi'],
-] as const)('%s History lists worn looks under their dates', async (language, first, second) => {
+  ['en', 'Wednesday 23 September', 'Monday 21 September', 'September 2026'],
+  ['tr', '23 Eylül Çarşamba', '21 Eylül Pazartesi', 'Eylül 2026'],
+] as const)('%s History shows worn looks as a diary of boards', async (language, first, second, month) => {
   const result = await render(
     <Providers language={language} list={async () => [
       record('2026-09-23', 'layered_warmth', 'casual'),
@@ -91,13 +91,43 @@ test.each([
   );
 
   const copy = messages[language];
-  await waitFor(() => expect(result.getByTestId('history-list')).toBeOnTheScreen());
+  await waitFor(() => expect(result.getByTestId('history-entry-2026-09-23')).toBeOnTheScreen());
   expect(result.getByText(copy.profile.historyIntro)).toBeOnTheScreen();
+  expect(result.getByRole('header', { name: month })).toBeOnTheScreen();
   const newest = within(result.getByTestId('history-entry-2026-09-23'));
   expect(newest.getByText(first)).toBeOnTheScreen();
   expect(newest.getByText(copy.recommendation.archetypes.layered_warmth)).toBeOnTheScreen();
   expect(newest.getByText(copy.today.dailyStyle.casual)).toBeOnTheScreen();
-  expect(within(result.getByTestId('history-entry-2026-09-21')).getByText(second)).toBeOnTheScreen();
+  expect(newest.getByTestId('history-entry-board-2026-09-23')).toBeOnTheScreen();
+  const earlier = result.getByTestId('history-entry-2026-09-21');
+  expect(earlier.props.accessibilityLabel).toBe(
+    `${second}. ${copy.recommendation.archetypes.rain_ready}. ${copy.today.dailyStyle.smart}`);
+  expect(within(earlier).getByTestId('history-entry-board-2026-09-21')).toBeOnTheScreen();
+});
+
+test('one worn day stands alone as the large latest day', async () => {
+  const result = await render(
+    <Providers language="en" list={async () => [record('2026-09-23', 'layered_warmth', 'casual')]}>
+      <HistoryRoute />
+    </Providers>,
+  );
+  const entry = await result.findByTestId('history-entry-2026-09-23');
+  expect(within(entry).getByText('Wednesday 23 September')).toBeOnTheScreen();
+  expect(result.queryAllByTestId(/^history-entry-\d/)).toHaveLength(1);
+});
+
+test('a year of History renders only what is near the screen', async () => {
+  const start = Date.UTC(2026, 8, 30);
+  const year = Array.from({ length: 365 }, (_, day) => record(
+    new Date(start - day * 86_400_000).toISOString().slice(0, 10), 'layered_warmth', 'casual'));
+  const result = await render(
+    <Providers language="en" list={async () => year}>
+      <HistoryRoute />
+    </Providers>,
+  );
+  expect(await result.findByTestId('history-entry-2026-09-30')).toBeOnTheScreen();
+  expect(result.queryAllByTestId(/^history-entry-\d/).length).toBeLessThan(60);
+  expect(result.queryByTestId('history-entry-2025-10-01')).toBeNull();
 });
 
 test('History says so when nothing has been worn yet', async () => {
@@ -181,11 +211,11 @@ test('History arrives in reading order and a new day arrives alone', async () =>
   const { stagger } = lightTheme.motion;
   const result = await render(screen([entry('2026-09-23'), entry('2026-09-21')]));
   const delays = () => withDelay.mock.calls.map(([delay]) => delay);
-  // Two calls per arrival (the fade and the travel): intro, then each entry.
-  expect(delays()).toEqual([0, 0, stagger, stagger, 2 * stagger, 2 * stagger]);
+  // Two calls per arrival (the fade and the travel): intro, month, then each day.
+  expect(delays()).toEqual([0, 0, stagger, stagger, 2 * stagger, 2 * stagger, 3 * stagger, 3 * stagger]);
 
   withDelay.mockClear();
   await result.rerender(screen([entry('2026-09-24'), entry('2026-09-23'), entry('2026-09-21')]));
-  expect(delays()).toEqual([stagger, stagger]);
+  expect(delays()).toEqual([0, 0]);
   withDelay.mockRestore();
 });

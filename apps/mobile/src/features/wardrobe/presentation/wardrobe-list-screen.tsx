@@ -78,6 +78,8 @@ type WardrobeListScreenProps = Readonly<{
   resolvePhotoUri?: (relativePath: string | null) => string | null;
   /** False while the push onto the Closet is still moving: the tiles arrive once it lands. */
   transitionLanded?: boolean;
+  /** Each owned piece's worn days from History, by item id. */
+  wornCounts?: ReadonlyMap<string, number>;
 }>;
 
 // Three columns of 174.5 by 218 proportioned tiles (112 by 140 on the 393 point reference
@@ -220,6 +222,7 @@ export function WardrobeListScreen({
   savedItemId = null,
   state,
   transitionLanded = true,
+  wornCounts,
 }: WardrobeListScreenProps) {
   const insets = useSafeAreaInsets();
   const messages = useMessages();
@@ -428,6 +431,7 @@ export function WardrobeListScreen({
         onPress={onItemPress}
         resolvePhotoUri={resolvePhotoUri}
         testID={`wardrobe-item-${item.id}`}
+        wornCount={wornCounts?.get(item.id)}
       />
     </TileSlot>
   );

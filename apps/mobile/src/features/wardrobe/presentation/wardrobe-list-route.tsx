@@ -12,6 +12,7 @@ import {
 import { useSingleTap, type SingleTap } from '@/components/ui/use-single-push';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
+import { useClosetWearCounts } from '@/features/wardrobe/application/use-closet-wear-counts';
 import {
   WardrobeListScreen,
   type WardrobeRetrySource,
@@ -50,6 +51,7 @@ export function WardrobeListRoute({
   const tap = singleTap ?? ownTap;
   const { analytics, firstUses, retries } = useProductAnalytics();
   const { refresh, resolvePhotoUri, softDeleteItem, state } = useWardrobeApplication();
+  const wornCounts = useClosetWearCounts();
   const pendingRetryRef = useRef<PendingRetry | null>(null);
   const stateStatusRef = useRef(state.status);
 
@@ -136,6 +138,7 @@ export function WardrobeListRoute({
 
   return (
     <WardrobeListScreen
+      wornCounts={wornCounts}
       initialCategory={initialCategory}
       // The category lives on the route, so the plus bar button in the route file reads
       // the same value this add action sends, and the form opens its type chooser on the

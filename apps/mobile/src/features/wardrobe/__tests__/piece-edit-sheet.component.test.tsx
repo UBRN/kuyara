@@ -7,6 +7,14 @@ import {
   nearestFamilyForHex,
 } from '@/features/wardrobe/domain/closet-color-options';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import {
+  RecommendationApplicationContext,
+  type RecommendationApplicationValue,
+} from '@/features/recommendation/application/recommendation-application-context';
+import {
+  WardrobeApplicationContext,
+  type WardrobeApplicationValue,
+} from '@/features/wardrobe/application/wardrobe-application-context';
 import { PieceEditSheet, type PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -379,4 +387,42 @@ test('a failed save shows its error right under the head, before the piece and i
   const errorAt = tree.indexOf('piece-edit-error');
   expect(errorAt).toBeGreaterThan(tree.indexOf('piece-edit-done'));
   expect(errorAt).toBeLessThan(tree.indexOf('piece-edit-color-name'));
+});
+
+// ADR 0038: the owned piece's worn days, a quiet line under its colour; never shown at zero.
+test.each([['en', 'Worn 2 times'], ['tr', '2 kez giyildi']] as const)(
+  '%s an owned piece says how many recorded days it was worn', async (language, line) => {
+    const day = (dayKey: string) => ({ dayKey, outfit: {
+      garments: { primary_top: 't_shirt', bottom: 'jeans', footwear: 'sneakers' },
+      archetypeId: 'rain_ready', formality: 'casual', source: 'recommended' } });
+    const target: PieceSheetTarget = {
+      garmentTypeId: 'jeans', category: 'bottom', name: 'Jeans', slot: 'Bottom',
+      suggestedColorFamily: 'black', match: { kind: 'owned', item: yours },
+    };
+    const result = await render(
+      <RecommendationApplicationContext value={{ outfitHistory: {
+        list: async () => [day('2026-09-23'), day('2026-09-22')], get: jest.fn(), log: jest.fn(),
+      } } as unknown as RecommendationApplicationValue}>
+        <WardrobeApplicationContext value={{ state: {
+          status: 'ready', items: [yours], isRefreshing: false, isMutating: false, refreshFailure: null,
+        } } as unknown as WardrobeApplicationValue}>
+          <LocalizationContext value={{ language, messages: messages[language], hour12: false }}>
+            <KuyaraThemeContext value={lightTheme}>
+              <PieceEditSheet onDiscardStagedPhoto={jest.fn(async () => undefined)} onDismiss={jest.fn()}
+                onSave={jest.fn(async () => undefined)} onSelectPhoto={jest.fn(async () => null)}
+                resolvePhotoUri={() => null} target={target} />
+            </KuyaraThemeContext>
+          </LocalizationContext>
+        </WardrobeApplicationContext>
+      </RecommendationApplicationContext>,
+    );
+    expect(await result.findByTestId('piece-edit-worn')).toHaveTextContent(line);
+  });
+
+test('a piece with no History shows no worn line', async () => {
+  const result = await renderSheet({
+    garmentTypeId: 'jeans', category: 'bottom', name: 'Jeans', slot: 'Bottom',
+    suggestedColorFamily: 'black', match: { kind: 'owned', item: yours },
+  });
+  expect(result.queryByTestId('piece-edit-worn')).toBeNull();
 });
