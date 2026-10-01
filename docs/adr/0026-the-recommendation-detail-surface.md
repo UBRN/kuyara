@@ -116,10 +116,12 @@ settles finishes its slide in the window it had. The first enlargement a profile
 the piece pages, once: when the growth has landed (one `springs.spatial` duration), the piece
 and the next candidate, or the previous one at the end of the order, move 32 points the way a
 swipe to it would and come back, both on `springs.spatial`, so the neighbour's edge shows
-past the window and then waits behind it again. The profile's `swap_hint_shown` flag
-(migration 23) is stored as it starts, so no later enlargement, visit or launch plays it; it
-moves no VoiceOver focus and announces nothing, and a finger that grabs the piece meanwhile
-takes it over. One height carries the stage
+past the window and then waits behind it again, clipped by the same window as a drag, so it
+never covers a stepped-back piece. The profile's `swap_hint_shown` flag
+(migration 23) is stored as the motion starts, so no later enlargement, visit or launch plays
+it; a settle, a moved enlargement, a grab or leaving the screen before then cancels it
+unplayed and unstored. It moves no VoiceOver focus and announces nothing, and a finger that
+grabs the piece mid-hint takes it over. One height carries the stage
 and the hint or the strip on the spatial spring, so the content under the board moves once
 when a piece is enlarged and once when it settles; text enters once its space is nine
 tenths open and leaves before it closes, and the unusual note, "Back to kuyara's pick" and

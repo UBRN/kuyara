@@ -8,7 +8,6 @@ import Animated, {
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSequence,
   withSpring,
   withTiming,
@@ -913,35 +912,53 @@ export function GarmentSwapBoard({
     if (Math.abs(blockTarget - seen.target) >= 0.5 && !(focusedSlot === null && panels.current)) startBlock(blockTarget);
   });
 
-  // The swipe hint: once the enlargement has grown, the piece and its neighbour move one
-  // `SWAP_HINT_PEEK` the way a swipe to that neighbour would, on the spatial spring, and come
-  // back on it, the neighbour opaque only while it is out. It moves nothing a screen reader
-  // is on, and a finger that grabs the piece meanwhile takes over its values as it does
-  // mid-settle.
+  // The swipe hint: one `springs.spatial` duration after the first enlargement, once its growth
+  // has landed, the piece and its neighbour move one `SWAP_HINT_PEEK` the way a swipe to that
+  // neighbour would, on the spatial spring, and come back on it. The neighbour is opaque only
+  // while it is out, in the same window clip a drag uses, so it never covers a stepped-back
+  // piece. The owner hears that it played as the motion starts: a settle, a moved
+  // enlargement, a grab or leaving the screen during the wait cancels it unplayed and
+  // unrecorded. It moves nothing a screen reader is on, and a finger that grabs the piece
+  // mid-hint takes over its values.
   const swipeHinted = useRef(false);
   const hintFocus = useRef(focusedSlot);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintStart = useRef<() => void>(() => undefined);
+  const hintGrabbed = useSharedValue(false);
+  useEffect(() => () => {
+    if (hintTimer.current !== null) clearTimeout(hintTimer.current);
+  }, []);
   useLayoutEffect(() => {
+    hintStart.current = () => {
+      hintTimer.current = null;
+      const neighbour = nextInstance ?? previousInstance;
+      const piece = focused?.values.dx;
+      if (!pager || !neighbour || !piece || hintGrabbed.get()) return;
+      swipeHinted.current = true;
+      const direction = nextInstance ? 1 : -1;
+      const rest = direction === 1 ? pager.strideNext : -pager.stridePrevious;
+      const peek = -direction * SWAP_HINT_PEEK;
+      const { dx, op } = neighbour.values;
+      op.set(1);
+      dx.set(withSequence(
+        withSpring(rest + peek, spatial),
+        withSpring(rest, spatial, (finished) => {
+          if (finished) op.set(0);
+        }),
+      ));
+      piece.set(withSequence(withSpring(peek, spatial), withSpring(0, spatial)));
+      onSwipeHintShown?.();
+    };
     const was = hintFocus.current;
     hintFocus.current = focusedSlot;
+    if (was === focusedSlot) return;
+    if (hintTimer.current !== null) {
+      clearTimeout(hintTimer.current);
+      hintTimer.current = null;
+    }
     if (was !== null || focusedSlot === null || !swipeHint || swipeHinted.current || !settled) return;
-    const neighbour = nextInstance ?? previousInstance;
-    const piece = focused?.values.dx;
-    if (!pager || !neighbour || !piece) return;
-    swipeHinted.current = true;
-    const direction = nextInstance ? 1 : -1;
-    const rest = direction === 1 ? pager.strideNext : -pager.stridePrevious;
-    const peek = -direction * SWAP_HINT_PEEK;
-    const { dx, op } = neighbour.values;
-    const delay = spatial.duration;
-    op.set(withDelay(delay, withTiming(1, { duration: theme.motion.immediate })));
-    dx.set(withDelay(delay, withSequence(
-      withSpring(rest + peek, spatial),
-      withSpring(rest, spatial, (finished) => {
-        if (finished) op.set(0);
-      }),
-    )));
-    piece.set(withDelay(delay, withSequence(withSpring(peek, spatial), withSpring(0, spatial))));
-    onSwipeHintShown?.();
+    hintGrabbed.set(false);
+    hintTimer.current = setTimeout(() => hintStart.current(), spatial.duration);
   });
 
   const stepSlot = (slot: OutfitSlot, direction: 1 | -1) => {
@@ -1064,6 +1081,8 @@ export function GarmentSwapBoard({
         || touch.y > pager.zone.y + pager.zone.h) manager.fail();
     })
     .onStart(() => {
+      // A grab during the hint's wait takes the piece, and the hint does not play.
+      hintGrabbed.set(true);
       if (!curDx || !focusedSlot || !pager || stepPending()) return;
       // A grab mid-settle continues from where the eye last saw the piece.
       dragSlot.set(focusedSlot);
