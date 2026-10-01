@@ -438,8 +438,8 @@ test('a new piece opens on the preview, the two ownership cards and six category
 });
 
 // Law 7: picking a type draws the chosen row at once in the grid's place, with no blank
-// frame, and the colour section opens in place under it; "Change" fades the grid back in and
-// closes the colour section until a type is picked again. A piece opened for editing already
+// frame, and the colour section opens in place under it; "Change" fades the row out, then the
+// grid back in, and closes the colour section until a type is picked again. A piece opened for editing already
 // has both, drawn at rest.
 test('picking a type opens the colour section in place; Change fades the grid in and closes it', async () => {
   const timings = jest.spyOn(Reanimated, 'withTiming');
@@ -456,6 +456,13 @@ test('picking a type opens the colour section in place; Change fades the grid in
 
   timings.mockClear();
   await fireEvent.press(created.getByTestId('wardrobe-type-change-button'));
+  // The row fades out on `fast`, with the colour section, before the grid replaces it.
+  expect(timings).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast }, expect.any(Function));
+  // The grid's fade starts once it is laid out, not while it mounts.
+  expect(timings).not.toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  await fireEvent(created.getByTestId('wardrobe-type-grid'), 'layout', {
+    nativeEvent: { layout: { x: 0, y: 0, width: 358, height: 400 } },
+  });
   expect(timings).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
   expect(created.getByTestId('wardrobe-color-section', { includeHiddenElements: true })).toBeTruthy();
   expect(isHiddenFromAccessibility(
