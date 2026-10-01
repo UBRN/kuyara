@@ -341,6 +341,8 @@ export function WalkthroughOverlay({
   return (
     <CoachMarkLayer
       accessibilityLabel={copy.name}
+      // A step the tour reached by navigating is lit on a screen still arriving.
+      betweenScreens={running?.entry === 'navigation' && frame?.key !== stepKey}
       dimmed={!sheetMode}
       hole={sheetMode ? null : hole}
       // The piece sheet presents after the layer mounted, so step 3 restacks it above the sheet.

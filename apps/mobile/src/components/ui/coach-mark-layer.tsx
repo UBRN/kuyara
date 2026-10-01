@@ -70,6 +70,12 @@ export type CoachMarkLayerProps = Readonly<{
   ring: CoachMarkRect | null;
   /** False fades the dim out (a presented sheet dims the app itself). */
   dimmed?: boolean;
+  /**
+   * True while the next lit area is on another screen that is still arriving: the cut-out
+   * closes on `fast` instead of staying open over content sliding under it, and when this turns
+   * false it opens at the new place on `normal` instead of springing across the new screen.
+   */
+  betweenScreens?: boolean;
   /** Changing it restacks the layer above anything presented since. */
   layer: number;
   accessibilityLabel: string;
@@ -81,11 +87,13 @@ export type CoachMarkLayerProps = Readonly<{
  * The coach-mark layer (Phase 8): the `scrim` dim with a rounded cut-out, the breathing ring
  * around the one live control, and whatever the caller puts on top. Law 7's roles only: the
  * dim fades in on `deliberate` and out on three quarters of it, the cut-out moves and morphs
- * on the `spatial` spring, the ring fades in on `normal` and breathes on the ambient step.
+ * on the `spatial` spring within a screen and closes on `fast` and opens on `normal` across
+ * screens, the ring fades in on `normal` and breathes on the ambient step.
  * It draws and times; the caller decides what is lit and what takes touches.
  */
 export function CoachMarkLayer({
   accessibilityLabel,
+  betweenScreens = false,
   children,
   dimmed = true,
   hole,
@@ -104,7 +112,11 @@ export function CoachMarkLayer({
   const h = useSharedValue(0);
   const r = useSharedValue(0);
   const dim = useSharedValue(dimmed ? 1 : 0);
+  // The dim drawn over the cut-out itself: 1 closes it.
+  const cover = useSharedValue(0);
   const placed = useRef(false);
+  const lastTarget = useRef<CoachMarkRect | null>(null);
+  const wasBetween = useRef(false);
   const hidden = useRef(onHidden);
   useEffect(() => {
     hidden.current = onHidden;
@@ -133,14 +145,41 @@ export function CoachMarkLayer({
       h.set(hole.height + OPENING_INFLATE * 2);
       r.set(hole.radius + OPENING_INFLATE);
     }
+    const previous = lastTarget.current;
+    const moved = !previous || previous.x !== target.x || previous.y !== target.y
+      || previous.width !== target.width || previous.height !== target.height || previous.radius !== target.radius;
+    lastTarget.current = target;
+    const was = wasBetween.current;
+    wasBetween.current = betweenScreens;
+    const jump = () => {
+      x.set(target.x);
+      y.set(target.y);
+      w.set(target.width);
+      h.set(target.height);
+      r.set(target.radius);
+    };
+    if (betweenScreens) {
+      // A place never lit while the screens change is covered at once; the lit one closes.
+      if (moved) {
+        jump();
+        cover.set(1);
+      } else if (!was) cover.set(withTiming(1, { duration: theme.motion.fast }));
+      return;
+    }
+    if (was) {
+      // The next screen has arrived: the cut-out opens where it now belongs.
+      jump();
+      cover.set(withTiming(0, { duration: theme.motion.normal }));
+      return;
+    }
     const spring = theme.springs.spatial;
     x.set(withSpring(target.x, spring));
     y.set(withSpring(target.y, spring));
     w.set(withSpring(target.width, spring));
     h.set(withSpring(target.height, spring));
     r.set(withSpring(target.radius, spring));
-  }, [h, hole, r, target.height, target.radius, target.width, target.x, target.y,
-    theme.springs.spatial, w, x, y]);
+  }, [betweenScreens, cover, h, hole, r, target.height, target.radius, target.width, target.x, target.y,
+    theme.motion.fast, theme.motion.normal, theme.springs.spatial, w, x, y]);
 
   useEffect(() => {
     dim.set(withTiming(dimmed ? 1 : 0, { duration: theme.motion.normal }));
@@ -170,6 +209,9 @@ export function CoachMarkLayer({
       width: w.get() + radius * 2,
     };
   });
+  const coverStyle = useAnimatedStyle(() => ({
+    height: h.get(), left: x.get(), opacity: cover.get(), top: y.get(), width: w.get(),
+  }));
   const ink = scrimInk(theme.colors.scrim);
   const dimStyle = useAnimatedStyle(() => ({ opacity: ink.alpha * dim.get() }));
 
@@ -190,6 +232,10 @@ export function CoachMarkLayer({
             <Animated.View key={index} style={[styles.scrimPiece, { backgroundColor: ink.color }, style]} />
           ))}
           <Animated.View style={[styles.scrimPiece, { borderColor: ink.color }, cornerStyle]} />
+          <Animated.View
+            style={[styles.scrimPiece, { backgroundColor: ink.color }, coverStyle]}
+            testID="coach-mark-cover"
+          />
         </Animated.View>
         {ring ? <CoachMarkRing rect={ring} /> : null}
         {children}
