@@ -84,21 +84,25 @@ export function swapGrowScale(layouts: readonly SwapCandidateLayout[]): number {
 
 /**
  * The stage held for one enlargement: the tallest stage any candidate composes, so a change
- * never moves the tiles under a tapping finger.
+ * never moves the tiles under a tapping finger, and never shorter than any candidate grown by
+ * `scale`, so a tall piece (a dress) is never cut by the window's top edge.
  */
-export function swapHeldStage(stageHeights: readonly number[]): number {
-  return Math.max(0, ...stageHeights);
+export function swapHeldStage(layouts: readonly SwapCandidateLayout[], scale: number): number {
+  return Math.max(0, ...layouts.map(({ box, stageHeight }) => Math.max(stageHeight, box.h * scale)));
 }
 
 /**
  * The paging window: the grown box widened by a touch target each side, never past the stage
- * and never into a stepped-back piece standing entirely to one side; the held stage's height.
+ * and never into a stepped-back piece standing entirely to one side; the held stage's height,
+ * reaching `outline` past its top and bottom so a piece standing on either edge keeps the
+ * half of its ink edge drawn outside its box.
  */
 export function swapWindow(
   grown: SwapBox,
   steppedBack: readonly SwapBox[],
   stageWidth: number,
   heldStage: number,
+  outline = 0,
 ): SwapBox & Readonly<{ padLeft: number; padRight: number }> {
   let left = Math.max(0, grown.x - layout.minimumTouchTarget);
   let right = Math.min(stageWidth, grown.x + grown.w + layout.minimumTouchTarget);
@@ -106,7 +110,7 @@ export function swapWindow(
     if (other.x + other.w <= grown.x) left = Math.max(left, other.x + other.w);
     else if (other.x >= grown.x + grown.w) right = Math.min(right, other.x);
   }
-  return { x: left, y: 0, w: right - left, h: heldStage, padLeft: grown.x - left, padRight: right - (grown.x + grown.w) };
+  return { x: left, y: 0 - outline, w: right - left, h: heldStage + 2 * outline, padLeft: grown.x - left, padRight: right - (grown.x + grown.w) };
 }
 
 /**

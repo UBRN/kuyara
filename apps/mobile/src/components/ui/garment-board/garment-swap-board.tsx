@@ -206,11 +206,8 @@ function growFor(
     stageHeight: current.height,
   };
   const all = [own, ...layouts];
-  return {
-    slot, width, large, fit,
-    scale: swapGrowScale(all),
-    held: swapHeldStage(all.map(({ stageHeight }) => stageHeight)),
-  };
+  const scale = swapGrowScale(all);
+  return { slot, width, large, fit, scale, held: swapHeldStage(all, scale) };
 }
 
 /** Where the slot's two neighbours stand before a drag: each centred on the slot's piece. */
@@ -246,7 +243,7 @@ function pagerFor(
   const grown = swapGrownBox(own.box, grow.scale, width, grow.held);
   const steppedBack = composed.order.filter((other) => other !== slot)
     .map((other) => swapScaledBox(composed.bySlot.get(other)!.box, SWAP_STEP_BACK));
-  const window = swapWindow(grown, steppedBack, width, grow.held);
+  const window = swapWindow(grown, steppedBack, width, grow.held, outline);
   // Each side's step keeps that side's neighbour, grown and outlined, wholly behind the window's edge.
   const incoming = (direction: 1 | -1) => {
     const box = neighbours[direction];
