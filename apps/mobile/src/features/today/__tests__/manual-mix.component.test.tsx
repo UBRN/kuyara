@@ -3,6 +3,7 @@ import { HeaderHeightContext } from 'expo-router/react-navigation';
 import ReactNative, { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { layoutGarmentBoard } from '@/components/ui';
@@ -299,11 +300,21 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
       .getByRole('header', { name: copy.manualMix.title })).toBeOnTheScreen();
     expect(result.queryByText(changedFrom)).toBeNull();
 
-    // Done settles; then "changed from" opens.
-    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
-    expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
-    expect(result.getByTestId('outfit-detail-changed-from')).toHaveTextContent(changedFrom);
-    expect(result.getByText(changedFrom)).toBeOnTheScreen();
+    // Done settles, and "changed from" opens as the strip starts closing, in one motion with
+    // it: nothing has landed yet.
+    const unlanded = [
+      jest.spyOn(Reanimated, 'withSpring').mockImplementation((target) => target),
+      jest.spyOn(Reanimated, 'withTiming').mockImplementation((target) => target),
+    ];
+    try {
+      await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+      expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
+      expect(result.getByTestId('outfit-detail-board-strip', hidden)).toBeOnTheScreen();
+      expect(result.getByTestId('outfit-detail-changed-from')).toHaveTextContent(changedFrom);
+      expect(result.getByText(changedFrom)).toBeOnTheScreen();
+    } finally {
+      for (const spy of unlanded) spy.mockRestore();
+    }
     announce.mockRestore();
   });
 

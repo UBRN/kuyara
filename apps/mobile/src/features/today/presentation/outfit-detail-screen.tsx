@@ -254,8 +254,6 @@ export function OutfitDetailScreen({
   // After the first change, replaced rows and sentences fade in; nothing fades on opening.
   const [everChanged, setEverChanged] = useState(false);
   const [shownChangedFrom, setShownChangedFrom] = useState<string | null>(null);
-  // "Changed from" changes the height above the board, so it waits for a still board.
-  const [boardAtRest, setBoardAtRest] = useState(true);
   const boardRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
   // The stack's measured header height: the navigation bar's bottom edge in window points.
@@ -268,7 +266,7 @@ export function OutfitDetailScreen({
   const now = useForegroundClock();
   // Both are built once per input: React Compiler treats a hook's result as final, so the
   // values derived from them below keep their identity across the screen's own state changes
-  // (a focused piece, a still board) instead of redrawing the board and the rows each time.
+  // (a focused piece) instead of redrawing the board and the rows each time.
   const messages = useMemo(() => getMessages(language), [language]);
   const copy = messages.today;
   const changed = (manualMix?.changedSlots.length ?? 0) > 0;
@@ -352,14 +350,16 @@ export function OutfitDetailScreen({
   const wasUnusual = useRef(unusual);
   // A board tile or swipe waits here until the change it asked for has rendered.
   const spokenStep = useRef<Readonly<{ slot: SwappableSlot; garmentTypeId: GarmentTypeId }> | null>(null);
-  // The "changed from" line keeps its words while it collapses after a reset, and opens or
-  // closes only while the board is still: never while a piece is enlarged or moving.
+  // The "changed from" line keeps its words while it collapses after a reset. It opens or
+  // closes only while no piece is enlarged: when the strip starts closing it opens with it, so
+  // the height above the board and the one under it change in one motion, never one after
+  // the other.
   if (suggestion?.changedFrom && suggestion.changedFrom !== shownChangedFrom) {
     setShownChangedFrom(suggestion.changedFrom);
   }
   const [changedFromShown, setChangedFromShown] = useState(suggestion?.changedFrom != null);
   const changedFromWanted = suggestion?.changedFrom != null;
-  if (boardAtRest && changedFromShown !== changedFromWanted) setChangedFromShown(changedFromWanted);
+  if (focusedSlot === null && changedFromShown !== changedFromWanted) setChangedFromShown(changedFromWanted);
 
   // The board's step is stable across renders, so a render mid-drag never rebuilds its gestures.
   const choose = manualMix?.choose;
@@ -579,7 +579,7 @@ export function OutfitDetailScreen({
 
         {/* ADR 0021: three equal options, so the title carries no emphasis pill. Phase 7,
             owner answer 5: after a change the title is the reader's and says where it came from.
-            The title changes in place at once; "Changed from" waits for a still board. */}
+            The title changes in place at once; "Changed from" opens once no piece is enlarged. */}
         <View style={styles.headingGroup} testID="outfit-detail-heading-group">
           <Crossfade contentKey={suggestion.title}>
             <AppText accessibilityRole="header" variant="title">{suggestion.title}</AppText>
@@ -613,7 +613,6 @@ export function OutfitDetailScreen({
               stripShown: copy.manualMix.stripShown,
             }}
             onFocusChange={setFocusedSlot}
-            onRestChange={setBoardAtRest}
             onReveal={revealStrip}
             onStep={onBoardStep}
             overlay={boardOverlay}
