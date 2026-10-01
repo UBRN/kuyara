@@ -31,6 +31,7 @@ type LocalProfileRow = Readonly<{
   display_name: string | null;
   name_prompt_version: number;
   walkthrough_version: number;
+  swap_hint_shown: number;
   language_preference: string;
   theme_preference: string;
   onboarding_completed: number;
@@ -60,6 +61,7 @@ const selectProfileSql = `
     display_name,
     name_prompt_version,
     walkthrough_version,
+    swap_hint_shown,
     language_preference,
     theme_preference,
     onboarding_completed,
@@ -86,6 +88,7 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     displayName: row.display_name,
     namePromptVersion: row.name_prompt_version,
     walkthroughVersion: row.walkthrough_version,
+    swapHintShown: row.swap_hint_shown,
     languagePreference: row.language_preference,
     themePreference: row.theme_preference,
     onboardingCompleted: row.onboarding_completed,
@@ -318,6 +321,14 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
       `UPDATE local_profiles SET walkthrough_version = ?, updated_at = ?
        WHERE singleton_key = 1 AND deleted_at IS NULL`,
       [walkthroughVersion],
+    );
+  }
+
+  markSwapHintShown(): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET swap_hint_shown = 1, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
+      [],
     );
   }
 

@@ -43,6 +43,7 @@ export interface ProfileRepository {
   updateMorningBriefingOptIn(optIn: boolean): Promise<Profile>;
   markWeatherAlertOfferShown(): Promise<Profile>;
   markWalkthroughSeen(): Promise<Profile>;
+  markSwapHintShown(): Promise<Profile>;
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile>;
 }
 
@@ -84,6 +85,9 @@ function mapRecord(record: LocalProfileRecord): Profile {
   const hasValidMorningSheetEnabled =
     record.morningSheetEnabled === undefined ||
     record.morningSheetEnabled === 0 || record.morningSheetEnabled === 1;
+  const hasValidSwapHintShown =
+    record.swapHintShown === undefined ||
+    record.swapHintShown === 0 || record.swapHintShown === 1;
   const hasValidEasierToSee =
     record.easierToSee === undefined ||
     record.easierToSee === 0 || record.easierToSee === 1;
@@ -110,6 +114,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     !hasValidMorningBriefingOptIn ||
     !hasValidMorningSheetEnabled ||
     !hasValidEasierToSee ||
+    !hasValidSwapHintShown ||
     !hasValidAnalyticsConsent ||
     !hasValidDisplayName ||
     !Number.isInteger(record.namePromptVersion) ||
@@ -135,6 +140,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     displayName: record.displayName,
     namePromptVersion: record.namePromptVersion,
     walkthroughVersion: record.walkthroughVersion ?? 0,
+    swapHintShown: record.swapHintShown === 1,
     languagePreference: record.languagePreference,
     themePreference: record.themePreference,
     onboardingCompleted: record.onboardingCompleted === 1,
@@ -239,6 +245,10 @@ export class LocalProfileRepository implements ProfileRepository {
 
   markWalkthroughSeen(): Promise<Profile> {
     return this.execute(() => this.dataSource.markWalkthroughSeen());
+  }
+
+  markSwapHintShown(): Promise<Profile> {
+    return this.execute(() => this.dataSource.markSwapHintShown());
   }
 
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile> {

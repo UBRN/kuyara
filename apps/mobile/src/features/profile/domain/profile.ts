@@ -21,6 +21,8 @@ export type Profile = Readonly<{
   namePromptVersion: number;
   /** Phase 8, ADR 0036: the coach-mark tour's stored gate; below `walkthroughVersion` it is due. */
   walkthroughVersion?: number;
+  /** The outfit detail's swipe hint has played; it plays once, on the first enlargement. */
+  swapHintShown?: boolean;
   languagePreference: LanguagePreference;
   themePreference: ThemePreference;
   onboardingCompleted: boolean;

@@ -28,6 +28,8 @@ export type ProfileApplicationValue = Readonly<{
   markWeatherAlertOfferShown: () => Promise<void>;
   /** Phase 8: stores the tour's code version; only the offered tour's close calls it. */
   markWalkthroughSeen?: () => Promise<void>;
+  /** Stores that the outfit detail's swipe hint has played; it never plays again. */
+  markSwapHintShown?: () => Promise<void>;
   updateAnalyticsConsent: (consent: AnalyticsConsent) => Promise<void>;
 }>;
 

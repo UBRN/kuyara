@@ -34,6 +34,7 @@ export interface ProfileLocalDataSource {
   updateMorningBriefingOptIn(optIn: boolean): Promise<LocalProfileRecord>;
   markWeatherAlertOfferShown(): Promise<LocalProfileRecord>;
   markWalkthroughSeen(): Promise<LocalProfileRecord>;
+  markSwapHintShown(): Promise<LocalProfileRecord>;
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<LocalProfileRecord>;
 }
 

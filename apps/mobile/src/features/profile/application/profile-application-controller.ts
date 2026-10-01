@@ -168,6 +168,10 @@ export class ProfileApplicationController {
     return this.updateProfile((repository) => repository.markWalkthroughSeen());
   }
 
+  markSwapHintShown(): Promise<void> {
+    return this.updateProfile((repository) => repository.markSwapHintShown());
+  }
+
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<void> {
     return this.updateProfile((repository) => repository.updateAnalyticsConsent(consent));
   }

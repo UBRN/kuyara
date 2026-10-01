@@ -67,7 +67,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 - The first upload sends live rows and soft-deletion markers from the last 30 days.
 - The one-profile-per-device rule (`singleton_key = 1`) stays. The account link lives in a new device table holding the linked user ID, the last linked user ID (kept after sign-out) and the last pull cursor.
 - Pending changes: each of the five tables gains a `pending_sync` flag. Every local write sets it, except that on the profile only a write to one of the four synced fields does; a successful upload clears it when the row returns with the same `updated_at` (day-keyed tables match on `(day_key, updated_at)`). This is not an outbox or an operation log: the row's latest state is sent. The "N waiting" counts on the Account screen come from these flags.
-- One new SQLite migration adds the flags and the link table, ordered after version 22 and tested with an upgrade from the last released schema and a realistic device-database replay. Existing rows start with the flag unset. Released migrations never change. The migration ships in the same binary as the account work, never on its own.
+- One new SQLite migration adds the flags and the link table, ordered after version 23 and tested with an upgrade from the last released schema and a realistic device-database replay. Existing rows start with the flag unset. Released migrations never change. The migration ships in the same binary as the account work, never on its own.
 
 ### 4. Merging and the conflict rule
 
