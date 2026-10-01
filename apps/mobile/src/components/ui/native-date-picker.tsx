@@ -6,7 +6,7 @@ import { AppText } from '@/components/ui/app-text';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { formatCalendarDate, parseCalendarDate } from '@/domain/calendar-date';
 import type { SupportedLanguage } from '@/localization/messages';
-import { localeTag } from '@/presentation/format-temperature';
+import { localeTag } from '@/localization/locale-tag';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 

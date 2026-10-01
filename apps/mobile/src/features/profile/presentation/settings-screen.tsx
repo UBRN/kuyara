@@ -20,7 +20,7 @@ import type { DressStyle, Gender, LocalProfile, StyleAesthetic } from '@/feature
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { aestheticLabels, StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useLocalization } from '@/localization/use-messages';
-import { localeTag } from '@/presentation/format-temperature';
+import { localeTag } from '@/localization/locale-tag';
 import { spacing } from '@/theme/theme';
 
 export type SettingsScreenProps = Readonly<{

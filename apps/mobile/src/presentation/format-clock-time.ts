@@ -1,5 +1,5 @@
 import type { SupportedLanguage } from '@/localization/messages';
-import { localeTag } from '@/presentation/format-temperature';
+import { localeTag } from '@/localization/locale-tag';
 
 /**
  * A fixed wall-clock time (quiet hours, the morning briefing's hour) written the way the

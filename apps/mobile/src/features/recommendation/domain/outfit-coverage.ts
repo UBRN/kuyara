@@ -1,4 +1,4 @@
-import { dateTimeFormat } from '@/domain/intl-format';
+import { zonedClock } from '@/domain/intl-format';
 import type { WeatherMeasurements } from '@/features/weather/domain/weather';
 import { chillyCelsius, isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
@@ -6,21 +6,11 @@ import type { ClothingRequirements } from '@/features/recommendation/domain/weat
 /** The outfit's useful forecast horizon, independent of the dressing-day key. */
 export type OutfitCoverage = Readonly<{ start: string; end: string }>;
 
-function localParts(instant: number, timeZone: string) {
-  const parts = dateTimeFormat('en-US', {
-    timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  }).formatToParts(new Date(instant));
-  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-  return { year: Number(values.year), month: Number(values.month),
-    day: Number(values.day), hour: Number(values.hour), minute: Number(values.minute) };
-}
-
 export function outfitCoverage(startIso: string, timeZone: string): OutfitCoverage | null {
   const start = Date.parse(startIso);
   if (!Number.isFinite(start)) return null;
   try {
-    const local = localParts(start, timeZone);
+    const local = zonedClock(start, timeZone);
     const endHour = local.hour >= 18 || local.hour < 1 ? 1
       : local.hour < 4 ? 4
         : local.hour < 11 ? 19
@@ -32,7 +22,7 @@ export function outfitCoverage(startIso: string, timeZone: string): OutfitCovera
     const first = Math.ceil((start + 1) / 900000) * 900000;
     let firstAfterSkippedHour: number | null = null;
     for (let at = first; at <= start + 30 * 3600000; at += 900000) {
-      const candidate = localParts(at, timeZone);
+      const candidate = zonedClock(at, timeZone);
       if (candidate.year === endDate.getUTCFullYear() &&
           candidate.month === endDate.getUTCMonth() + 1 &&
           candidate.day === endDate.getUTCDate() && candidate.minute === 0) {

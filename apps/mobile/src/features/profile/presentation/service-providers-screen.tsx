@@ -7,7 +7,7 @@ import type { AiProbeUiState } from '@/features/recommendation/application/use-a
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { useLocalization } from '@/localization/use-messages';
-import { localeTag } from '@/presentation/format-temperature';
+import { localeTag } from '@/localization/locale-tag';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type StatusSymbol = Extract<IconName, 'statusRunning' | 'statusOff' | 'statusUnavailable'>;

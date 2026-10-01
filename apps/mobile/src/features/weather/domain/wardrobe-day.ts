@@ -1,5 +1,5 @@
 import { formatCalendarDateParts } from '@/domain/calendar-date';
-import { dateTimeFormat } from '@/domain/intl-format';
+import { zonedClock } from '@/domain/intl-format';
 
 /**
  * The dressing day: the key for daily preferences and weather alerts.
@@ -52,35 +52,12 @@ const dayStartHour = 4;
 
 type LocalDate = Readonly<{ year: number; month: number; day: number }>;
 type LocalTime = LocalDate & Readonly<{ hour: number }>;
-type LocalWallClock = LocalTime & Readonly<{ minute: number; second: number }>;
-
-function localTimeAt(instant: number, timeZone: string): LocalWallClock {
-  const parts = dateTimeFormat('en', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).formatToParts(new Date(instant));
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return {
-    year: Number(values.year),
-    month: Number(values.month),
-    day: Number(values.day),
-    hour: Number(values.hour),
-    minute: Number(values.minute),
-    second: Number(values.second),
-  };
-}
 
 /** How far the zone's wall clock runs ahead of UTC at a given instant. */
 function zoneOffsetMilliseconds(instant: number, timeZone: string): number {
   // The formatter has no milliseconds, so the offset is measured on a whole second.
   const aligned = Math.floor(instant / 1000) * 1000;
-  const local = localTimeAt(aligned, timeZone);
+  const local = zonedClock(aligned, timeZone);
   return Date.UTC(
     local.year,
     local.month - 1,
@@ -131,7 +108,7 @@ export function wardrobeDayWindow(
   if (!Number.isFinite(now)) return null;
 
   try {
-    const local = localTimeAt(now, timeZone);
+    const local = zonedClock(now, timeZone);
     const isEvening = local.hour >= eveningStartHour || local.hour < dayStartHour;
     // Before 04:00 the evening is the one that began yesterday, so it ends at 04:00 of the
     // date the clock already shows; after 18:00 it ends at 04:00 of the date to come.

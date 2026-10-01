@@ -1,4 +1,4 @@
-import { dateTimeFormat } from '@/domain/intl-format';
+import { zonedHour } from '@/domain/intl-format';
 import {
   isWeatherConditionCode,
   type NormalizedCoordinates,
@@ -44,22 +44,15 @@ const atmosphereByDaypart = {
 >;
 
 /**
- * The number this returns is read as an hour of the day, not shown to anyone, so the fixed
- * 'en' locale and h23 cycle are the point: the device's 12-hour setting would fold the
- * evening back onto the morning and send the daypart to night at noon.
+ * The number this returns is read as an hour of the day, not shown to anyone, so the device's
+ * 12-hour setting must not fold the evening back onto the morning (see `zonedHour`).
  */
 export function localHourOf(fetchedAt: string, timeZone: string): number | null {
   const timestamp = Date.parse(fetchedAt);
   if (!Number.isFinite(timestamp)) return null;
 
   try {
-    const parts = dateTimeFormat('en', {
-      hour: '2-digit',
-      hourCycle: 'h23',
-      timeZone,
-    }).formatToParts(timestamp);
-    const hour = Number(parts.find(({ type }) => type === 'hour')?.value);
-    return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : null;
+    return zonedHour(timestamp, timeZone);
   } catch {
     return null;
   }

@@ -14,8 +14,9 @@ import {
   type WeatherAlertPlan,
 } from '@/features/notifications/domain/weather-alerts';
 import { weatherFreshness, type WeatherSnapshot } from '@/features/weather/domain/weather';
-import { messages, type SupportedLanguage } from '@/localization/messages';
 import type { TemperatureUnit } from '@/localization/device-locale';
+import { localeTag } from '@/localization/locale-tag';
+import { messages, type SupportedLanguage } from '@/localization/messages';
 import { formatWholeTemperature } from '@/presentation/format-temperature';
 
 type RescheduleInput = Readonly<{
@@ -47,7 +48,7 @@ function crossingTime(
   language: SupportedLanguage,
   hour12: boolean,
 ) {
-  return new Intl.DateTimeFormat(language === 'tr' ? 'tr-TR' : 'en-GB', {
+  return new Intl.DateTimeFormat(localeTag(language), {
     timeZone,
     hour: hour12 ? 'numeric' : '2-digit',
     minute: '2-digit',

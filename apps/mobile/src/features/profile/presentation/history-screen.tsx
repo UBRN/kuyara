@@ -4,7 +4,7 @@ import { AppText, Entrance, GarmentTileArtwork, Screen } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { archetypeLabel } from '@/features/recommendation/application/recommendation-application-controller';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
-import { localeTag } from '@/presentation/format-temperature';
+import { localeTag } from '@/localization/locale-tag';
 import { useLocalization } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';

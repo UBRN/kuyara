@@ -1,5 +1,7 @@
 import { locationDisplayNameSchema, manualLocationIdSchema } from '@kuyara/contracts';
 
+import { isValidTimeZone } from '@/domain/intl-format';
+
 export const weatherConditionCodes = [
   'clear',
   'mostly_clear',
@@ -162,15 +164,6 @@ export function deviceLocationKey(coordinates: NormalizedCoordinates): string {
 
 export function manualLocationKey(catalogId: ManualLocationId): string {
   return `manual:${catalogId}`;
-}
-
-export function isValidTimeZone(value: string): boolean {
-  try {
-    new Intl.DateTimeFormat('en', { timeZone: value }).format(0);
-    return value.length > 0;
-  } catch {
-    return false;
-  }
 }
 
 export function resolveDeviceLocationTimeZone(
