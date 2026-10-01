@@ -96,6 +96,7 @@ let mockPush = jest.fn();
 // buttons (and Android's header slots) into the tree, so a test presses them as a user
 // presses the bar items.
 const mockLinkTo = jest.fn();
+const mockPreventZoomDismissal = jest.fn();
 jest.mock('expo-router/build/global-state/routing', () => ({
   ...jest.requireActual('expo-router/build/global-state/routing'),
   linkTo: (...args: unknown[]) => mockLinkTo(...args),
@@ -134,6 +135,7 @@ jest.mock('expo-router', () => {
   return {
     // The Closet's tiles are the library's own links.
     Link: jest.requireActual('expo-router').Link,
+    usePreventZoomTransitionDismissal: (options?: unknown) => mockPreventZoomDismissal(options),
     Stack: { Screen, Toolbar },
     useFocusEffect: (effect: () => void | (() => void)) => {
     mockFocusEffects.push(effect);
@@ -1555,6 +1557,29 @@ test('a successful update captures closet_item_updated with only the fields that
         options: undefined,
       },
     ]),
+  );
+});
+
+test('a changed edit form holds off the zoom close, which a clean form keeps', async () => {
+  mockSearchParams = {};
+  const result = await render(
+    <TestProviders>
+      <AnalyticsProviders>
+        <WardrobeApplicationContext.Provider value={wardrobeApplication()}>
+          <WardrobeEditItemRoute itemId={plainItem.id} />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+
+  await waitFor(() => expect(result.getByTestId('wardrobe-edit-form')).toBeOnTheScreen());
+  expect(mockPreventZoomDismissal).toHaveBeenLastCalledWith(undefined);
+
+  await fireEvent.press(result.getByTestId('wardrobe-entry-state-wanted'));
+  await waitFor(() =>
+    expect(mockPreventZoomDismissal).toHaveBeenLastCalledWith({
+      unstable_dismissalBoundsRect: { maxX: 0, maxY: 0 },
+    }),
   );
 });
 
