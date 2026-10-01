@@ -1,6 +1,6 @@
-import { act, isHiddenFromAccessibility, render } from '@testing-library/react-native';
+import { act, fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
 import { Crossfade } from '@/components/ui';
@@ -74,5 +74,22 @@ test('the same key re-renders in place, and the latest content is what leaves', 
   await result.rerender(line('b', 'Warm until 20:00'));
   expect(result.getByText('Choosing for 16:00', hidden)).toBeTruthy();
   expect(result.queryByText('Choosing for 15:00', hidden)).toBeNull();
+  withTiming.mockRestore();
+});
+
+test('the leaving content keeps the size it had on screen, not the box of the narrower content replacing it', async () => {
+  const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(
+    ((toValue: number) => toValue) as typeof Reanimated.withTiming,
+  );
+  const layout = (width: number, height: number) => ({ nativeEvent: { layout: { x: 0, y: 0, width, height } } });
+  const result = await render(line('a', 'Refreshing weather…'));
+  await act(() => fireEvent(result.getByTestId('line').parent!, 'layout', layout(180, 20)));
+
+  await result.rerender(line('b', 'Fresh'));
+  await act(() => fireEvent(result.getByTestId('line').parent!, 'layout', layout(40, 20)));
+  const style = StyleSheet.flatten(result.getByTestId('crossfade-leaving', hidden).props.style);
+  expect(style).toMatchObject({ position: 'absolute', top: 0, left: 0, width: 180, height: 20 });
+  expect(style.right).toBeUndefined();
+  expect(style.bottom).toBeUndefined();
   withTiming.mockRestore();
 });
