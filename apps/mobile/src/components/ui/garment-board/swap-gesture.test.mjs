@@ -141,7 +141,7 @@ function threeRowEnlargements(column, large) {
               stageHeight: composed.height,
             }));
           found.push({
-            held: Math.max(swapHeldStage(layouts.map(({ stageHeight }) => stageHeight)), current.height),
+            held: Math.max(swapHeldStage(layouts, swapGrowScale(layouts)), current.height),
             panel: header + 8 + strip.height,
           });
         }
@@ -199,14 +199,55 @@ test('the grown box stays on the stage', () => {
   assert.deepEqual(swapGrownBox({ x: 300, y: 350, w: 50, h: 40 }, 2, 358, 400), { x: 258, y: 320, w: 100, h: 80 });
 });
 
-test('the held stage is the tallest candidate stage', () => {
-  assert.equal(swapHeldStage([312, 348.5, 330]), 348.5);
+test('the held stage is the tallest candidate stage, or the tallest candidate grown', () => {
+  const layout = (stageHeight, h) => ({ box: { x: 0, y: 0, w: 50, h }, others: [], stageWidth: 358, stageHeight });
+  assert.equal(swapHeldStage([layout(312, 100), layout(348.5, 100), layout(330, 100)], 2), 348.5);
+  // A dress that fills most of its stage would be cut by the window's top edge at 1.79x.
+  assert.equal(swapHeldStage([layout(252.6, 152.1)], 1.79), 152.1 * 1.79);
+});
+
+test('every candidate of a real outfit, grown, fits the held stage', () => {
+  const column = 349;
+  const compose = (pieces) => {
+    const result = composeGarmentBoard(pieces.map((piece) => ({
+      ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+    })), detailPreset);
+    const boxes = new Map(result.order.map((piece) => {
+      const box = result.boxes.get(piece);
+      return [piece.slot, { x: box.x * column, y: box.y * column, w: box.w * column, h: box.h * column }];
+    }));
+    return { boxes, order: result.order.map(({ slot }) => slot), height: result.stageHeight * column };
+  };
+  const outfits = [
+    [['one_piece', 'knit_dress', 'one_piece'], ['outer_layer', 'rain_jacket', 'outerwear'], ['footwear', 'loafers', 'footwear']],
+    [['one_piece', 'dress', 'one_piece'], ['outer_layer', 'trench_coat', 'outerwear'], ['footwear', 'ankle_boots', 'footwear']],
+    [['primary_top', 'sweater', 'top'], ['bottom', 'trousers', 'bottom'], ['outer_layer', 'parka', 'outerwear'], ['footwear', 'rain_boots', 'footwear']],
+    [['primary_top', 't_shirt', 'top'], ['bottom', 'jeans', 'bottom'], ['outer_layer', 'coat', 'outerwear'], ['footwear', 'weather_boots', 'footwear']],
+  ];
+  for (const outfit of outfits) {
+    const composed = compose(outfit.map(([slot, garmentTypeId, category]) => ({ slot, garmentTypeId, category })));
+    for (const slot of composed.order) {
+      const layouts = [{
+        box: composed.boxes.get(slot),
+        others: composed.order.filter((other) => other !== slot).map((other) => composed.boxes.get(other)),
+        stageWidth: column,
+        stageHeight: composed.height,
+      }];
+      const scale = swapGrowScale(layouts);
+      const held = swapHeldStage(layouts, scale);
+      const grown = swapGrownBox(layouts[0].box, scale, column, held);
+      assert.ok(grown.y >= 0 && grown.y + grown.h <= held + 1e-9, `${slot} of ${outfit[0][1]}`);
+      assert.ok(grown.x >= 0 && grown.x + grown.w <= column + 1e-9, `${slot} of ${outfit[0][1]}`);
+    }
+  }
 });
 
 test('the paging window never covers a stepped-back piece and reaches at most a touch target beside the grown box', () => {
   const grown = { x: 120, y: 20, w: 100, h: 140 };
   const open = swapWindow(grown, [], 358, 300);
   assert.deepEqual(open, { x: 76, y: 0, w: 188, h: 300, padLeft: 44, padRight: 44 });
+  // The window reaches the outline past the held stage, so a piece on its top edge keeps its ink.
+  assert.deepEqual(swapWindow(grown, [], 358, 300, 1.9), { x: 76, y: -1.9, w: 188, h: 303.8, padLeft: 44, padRight: 44 });
   const left = { x: 20, y: 30, w: 80, h: 80 };
   const right = { x: 240, y: 200, w: 60, h: 60 };
   const tight = swapWindow(grown, [left, right], 358, 300);
