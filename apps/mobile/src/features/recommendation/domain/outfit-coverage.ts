@@ -56,7 +56,7 @@ const hourMs = 3600000;
 /**
  * The window a sentence may promise. When the forecast stops before the coverage end, the
  * sentence ends at the last forecast hour instead: no protection is claimed for an hour the
- * forecast does not describe. Null when no forecast hour falls inside the window at all.
+ * forecast does not describe. Null when no forecast hour reaches into the window at all.
  */
 export function forecastBoundedCoverage(
   coverage: OutfitCoverage,
@@ -67,8 +67,11 @@ export function forecastBoundedCoverage(
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
   const last = Math.max(...forecastHours.map(({ forecastAt }) => Date.parse(forecastAt))
     .filter((at) => Number.isFinite(at) && at < end));
-  if (!Number.isFinite(last) || last <= start) return null;
-  return last + hourMs >= end ? coverage : { start: coverage.start, end: new Date(last).toISOString() };
+  // The forecast hour that contains the start covers start to start + 1 h, so it counts even
+  // when no later hour exists; such a window ends where that hour ends.
+  if (!Number.isFinite(last) || last + hourMs <= start) return null;
+  if (last + hourMs >= end) return coverage;
+  return { start: coverage.start, end: new Date(last > start ? last : last + hourMs).toISOString() };
 }
 
 /** What the rest of a displayed outfit's window now asks for that the outfit was not chosen for. */
