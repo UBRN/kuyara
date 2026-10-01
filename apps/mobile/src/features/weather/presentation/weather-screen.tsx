@@ -10,6 +10,7 @@ import {
 import {
   AppText,
   Button,
+  Crossfade,
   Entrance,
   haptics,
   Icon,
@@ -338,6 +339,9 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
     && state.snapshot.locationKey === state.activeLocation?.locationKey
     ? state.snapshot
     : null;
+  const updatedAt = snapshot
+    ? copy.updatedAt(lastUpdated(snapshot.fetchedAt, language, hour12, now))
+    : '';
   const outlook = snapshot
     ? findWeatherOutlook({ snapshot, now: new Date(now).toISOString() })
     : null;
@@ -611,19 +615,25 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
 
             </Surface>
             <View style={styles.headingRow}>
-              <AppText
-                accessibilityLiveRegion={
-                  state.isRefreshing || state.refreshFailure !== null || state.freshness !== 'fresh'
-                    ? 'polite'
-                    : 'none'
-                }
-                testID="weather-freshness"
-                variant="label">
-                {freshnessStatus}
-              </AppText>
-              <AppText colorRole="textSecondary" tabularNumbers variant="caption">
-                {copy.updatedAt(lastUpdated(snapshot.fetchedAt, language, hour12, now))}
-              </AppText>
+              {/* Each line crossfades when its words change rather than snapping; the leaving
+                  words are out of the reading order, so the live region speaks only the new. */}
+              <Crossfade contentKey={freshnessStatus ?? ''}>
+                <AppText
+                  accessibilityLiveRegion={
+                    state.isRefreshing || state.refreshFailure !== null || state.freshness !== 'fresh'
+                      ? 'polite'
+                      : 'none'
+                  }
+                  testID="weather-freshness"
+                  variant="label">
+                  {freshnessStatus}
+                </AppText>
+              </Crossfade>
+              <Crossfade contentKey={updatedAt}>
+                <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+                  {updatedAt}
+                </AppText>
+              </Crossfade>
             </View>
           </View>
 

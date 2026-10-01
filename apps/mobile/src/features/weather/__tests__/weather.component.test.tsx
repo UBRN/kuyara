@@ -1600,3 +1600,40 @@ test('the forecast cards arrive when the tab is first shown, and only then', asy
   expect(withDelay).not.toHaveBeenCalled();
   withDelay.mockRestore();
 });
+
+// Law 7: the freshness line and the "Last updated" caption change in place with a crossfade
+// rather than a snap. The leaving words are out of the reading order, so the new line is the
+// only one a screen reader meets and the only one carrying the live region.
+test('the freshness line crossfades to its new words and keeps one spoken line', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+  const screen = (patch: Partial<WeatherReadyState> = {}) => (
+    <Providers language="en" value={{ ...value, state: { ...value.state as WeatherReadyState, ...patch } }}>
+      <WeatherScreen />
+    </Providers>
+  );
+  const result = await render(screen());
+  // Content there on mount is drawn at rest: no fade wrapper starts transparent.
+  let node = result.getByTestId('weather-freshness').parent;
+  while (node) {
+    expect(StyleSheet.flatten(node.props.style)?.opacity).not.toBe(0);
+    node = node.parent;
+  }
+
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  await result.rerender(screen({ freshness: 'stale' }));
+  // The new words wait out the leaving ones (`fast`) before they fade in.
+  const delays = withDelay.mock.calls.map(([delay]) => delay);
+  expect(delays.length).toBeGreaterThan(0);
+  expect(new Set(delays)).toEqual(new Set([lightTheme.motion.fast]));
+  withDelay.mockRestore();
+  const spoken = result.getAllByTestId('weather-freshness')
+    .filter((line) => !isHiddenFromAccessibility(line));
+  expect(spoken).toHaveLength(1);
+  expect(spoken[0]).toHaveTextContent(messages.en.weather.stale);
+  expect(spoken[0].props.accessibilityLiveRegion).toBe('polite');
+});
