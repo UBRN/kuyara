@@ -1,7 +1,9 @@
 import { act, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
+import { StyleSheet } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
+import * as Reanimated from 'react-native-reanimated';
 
 import type { GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
 import type { GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
@@ -127,4 +129,30 @@ test('a drag that outlives a focus change does not step the newly enlarged piece
     pan().onEnd?.(move(-200) as never, true);
   });
   expect(onStep).not.toHaveBeenCalled();
+});
+
+// The captions follow the arrival once it is nine tenths travelled, as Presence's text follows
+// its container: they never wait for the arrival spring's overshoot to finish.
+test('the captions return as the arrival reaches nine tenths, before its spring has finished', async () => {
+  // Springs reach their target without reporting completion, and every reaction is kept.
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((target) => target);
+  const reactions: { prepare: () => unknown; react: (value: unknown, previous: unknown) => void }[] = [];
+  const useAnimatedReaction = jest.spyOn(Reanimated, 'useAnimatedReaction')
+    .mockImplementation(((prepare: () => unknown, react: (value: unknown, previous: unknown) => void) => {
+      reactions.push({ prepare, react });
+    }) as never);
+  const result = await render(
+    <GarmentSwapBoard {...boardProps({ overlayTestID: 'captions' })} />,
+    { wrapper: LightTheme },
+  );
+  const opacity = () => StyleSheet.flatten(result.getByTestId('captions', { includeHiddenElements: true }).props.style)
+    .opacity;
+  expect(opacity()).toBe(0);
+
+  await act(async () => {
+    for (const { prepare, react } of reactions.splice(0)) react(prepare(), null);
+  });
+  expect(opacity()).toBe(1);
+  withSpring.mockRestore();
+  useAnimatedReaction.mockRestore();
 });

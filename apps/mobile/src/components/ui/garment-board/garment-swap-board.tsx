@@ -470,6 +470,7 @@ export function GarmentSwapBoard({
   if (focusedSlot === null && liveSlot !== null) setLiveSlot(null);
 
   const tint = useSharedValue(0);
+  const arrival = useSharedValue(0);
   const settleTravel = useSharedValue(0);
   const stageLimit = useSharedValue(0);
   const dragBase = useSharedValue(0);
@@ -541,7 +542,6 @@ export function GarmentSwapBoard({
         && instance.scale <= 1 ? { ...instance, big: null } : instance)),
     }));
   };
-  const onEntranceSettled = () => setSettled(true);
 
   // Each re-layout's intents start once, however often the effect itself runs.
   const appliedIntents = useRef<readonly Intent[] | null>(null);
@@ -580,9 +580,13 @@ export function GarmentSwapBoard({
       switch (intent.kind) {
         case 'entrance':
           // ADR 0026 section 7's entry travel keeps the role it shipped with; the swap does not touch it.
-          values.p.set(withSpring(1, theme.springs.arrival, (finished) => {
-            if (finished && intent.reportsSettled) scheduleOnRN(onEntranceSettled);
-          }));
+          values.p.set(withSpring(1, theme.springs.arrival));
+          // The same arrival, read once nine tenths of it is travelled; its landing settles too.
+          if (intent.reportsSettled) {
+            arrival.set(withSpring(1, theme.springs.arrival, (finished) => {
+              if (finished) scheduleOnRN(setSettled, true);
+            }));
+          }
           break;
         case 'retarget':
           retarget(values, intent.box);
@@ -672,6 +676,12 @@ export function GarmentSwapBoard({
     }
   });
 
+  // The captions, and what waits for the pieces to arrive, follow once the arrival is nine
+  // tenths travelled, as Presence's text follows its container, instead of waiting out the
+  // spring's overshoot.
+  useAnimatedReaction(() => arrival.get() >= PRESENCE_TEXT_AFTER, (reached, was) => {
+    if (reached && !was) scheduleOnRN(setSettled, true);
+  });
   useEffect(() => {
     if (model.entered) tint.set(withTiming(1, { duration: normal }));
   }, [model.entered, normal, tint]);
@@ -684,8 +694,9 @@ export function GarmentSwapBoard({
   }, [fast, lastSettle, settleTravel, theme.springs.arrival]);
   useEffect(() => () => {
     cancelAnimation(tint);
+    cancelAnimation(arrival);
     cancelAnimation(settleTravel);
-  }, [settleTravel, tint]);
+  }, [arrival, settleTravel, tint]);
   const activeHeld = activeGrow?.held ?? null;
   useLayoutEffect(() => {
     if (activeHeld !== null) stageLimit.set(activeHeld);
