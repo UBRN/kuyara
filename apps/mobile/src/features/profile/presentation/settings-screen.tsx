@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
@@ -46,9 +46,12 @@ export type SettingsScreenProps = Readonly<{
   /** Phase 8: the coach-mark tour again, from step 1 over Today; the gate is not touched. */
   onRestartTour?: () => void;
   showRate: boolean;
+  /** The Account group's place, directly above Profile (ADR 0041 section 5); the route decides whether it shows. */
+  accountSection?: ReactNode;
 }>;
 
 export function SettingsScreen({
+  accountSection = null,
   isSaving,
   notificationsOn,
   onAppearanceChange,
@@ -201,6 +204,7 @@ export function SettingsScreen({
         />
       </NativeListSection>
 
+      {accountSection}
       <NativeListSection
         heading={messages.settings.profileHeading}
         footer={saveErrorGroup === 'profile' ? messages.settings.saveError : undefined}

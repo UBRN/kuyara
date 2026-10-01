@@ -105,3 +105,4 @@ export {
 // ADR 0028 section 6 and ADR 0029 section 5: approved content colour for the Profile
 // rack, the Closet grid, and the form's colour-family swatches. Never a theme role.
 export { colorFamilyFills } from './garment-board/color-family-fill';
+export { ProviderSignInButton, type ProviderSignInButtonProps } from './provider-sign-in-button';

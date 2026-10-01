@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 
@@ -53,6 +53,8 @@ type ProfileScreenProps = Readonly<{
   onOpenHistory: () => void;
   /** False until the tab is first shown: the content arrives then, not while it is hidden. */
   shown?: boolean;
+  /** The account card's place under the title (ADR 0041 section 5); the route decides whether it shows. */
+  accountCard?: ReactNode;
 }>;
 
 type CategorySummary = Readonly<{ count: number; wanted: number; newest: WardrobeItem | null }>;
@@ -223,6 +225,7 @@ function CategoryCells({
 }
 
 export function ProfileScreen({
+  accountCard = null,
   displayName = null,
   onAddPiece,
   onOpenCategory,
@@ -281,6 +284,7 @@ export function ProfileScreen({
           never replays it. */}
       {/* The tour measures the still wrapper outside each arrival, so its ring marks where
           the heading and the rack come to rest even while they are still arriving. */}
+      {accountCard}
       <TourTarget id="closet-head">
       <Entrance index={0} waiting={!shown}>
       <Pressable

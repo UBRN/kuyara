@@ -10,6 +10,7 @@ import type {
   WeatherConditionCode as LiveWeatherConditionCode,
 } from '@/features/weather/domain/weather';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
+import type { RestoreCounts } from '@/features/account/application/account-screens';
 import {
   catalogMessages,
   type CatalogMessages,
@@ -762,6 +763,105 @@ export type AppMessages = Readonly<{
   today: TodayMessages;
   /** Phase 8's coach-mark tour: every bubble, the counter, Skip and the spoken hint. */
   walkthrough: WalkthroughMessages;
+  /** Phase 9's account screens (ADR 0041 section 5), built behind the account screens switch. */
+  account: AccountMessages;
+}>;
+
+type ByProvider = Readonly<Record<'apple' | 'google', string>>;
+
+export type AccountMessages = Readonly<{
+  card: Readonly<{ title: string; body: string; action: string; dismiss: string }>;
+  signIn: Readonly<{
+    close: string;
+    title: string;
+    benefits: readonly [string, string, string];
+    continueWith: ByProvider;
+    notNow: string;
+    footer: string;
+    privacy: string;
+    cancelled: string;
+    offline: string;
+    failed: ByProvider;
+  }>;
+  welcome: Readonly<{
+    title: string;
+    summary: (pieces: number, days: number) => string;
+    done: string;
+  }>;
+  /** "Using Sign in with Apple": the account's sign-in method under its address. */
+  method: ByProvider;
+  settings: Readonly<{
+    group: string;
+    signIn: string;
+    signedOutFooter: string;
+    signedIn: ByProvider;
+    deleted: string;
+    signedOut: string;
+  }>;
+  sync: Readonly<{
+    heading: string;
+    upToDate: string;
+    offline: string;
+    syncing: string;
+    failed: string;
+    restoring: string;
+    offlineWaiting: (pending: number) => string;
+    waiting: (pending: number) => string;
+    syncingCount: (pending: number) => string;
+    restoringCount: (done: number, total: number) => string;
+    syncNow: string;
+    retry: string;
+    upToDateFooter: (time: string) => string;
+    offlineFooter: (pending: number, time: string) => string;
+    syncingFooter: (pending: number, time: string) => string;
+    failedFooter: (pending: number, time: string) => string;
+    restoringFooter: (counts: RestoreCounts) => string;
+    pausedFooter: (counts: RestoreCounts) => string;
+  }>;
+  account: Readonly<{
+    title: string;
+    closet: string;
+    pieces: (count: number) => string;
+    history: string;
+    days: (count: number) => string;
+    preferences: string;
+    included: string;
+    methodsHeading: string;
+    providerName: ByProvider;
+    connected: string;
+    add: ByProvider;
+    methodsFooter: string;
+    signOut: string;
+    delete: string;
+    deleteFooter: string;
+  }>;
+  signOutAlert: Readonly<{ title: string; body: string; cancel: string; confirm: string }>;
+  deletion: Readonly<{
+    title: string;
+    goneHeading: string;
+    goneAccount: ByProvider;
+    goneData: string;
+    stayHeading: string;
+    stay: string;
+    footer: ByProvider;
+    action: string;
+    deleting: string;
+    failed: string;
+    offline: string;
+  }>;
+  deleteAlert: Readonly<{ title: string; body: string; cancel: string; confirm: string }>;
+  restore: Readonly<{
+    progressTitle: string;
+    progressBody: string;
+    progressCount: (counts: RestoreCounts) => string;
+    progressKeep: string;
+    progressAction: string;
+    doneTitle: string;
+    doneBody: (pieces: number, days: number) => string;
+    doneProfile: string;
+    done: string;
+  }>;
+  deleted: Readonly<{ title: string; gone: ByProvider; stay: string; done: string }>;
 }>;
 
 type WalkthroughStepCopy = Readonly<{ title: string; body: string }>;
@@ -792,6 +892,13 @@ const englishOwnershipStateLabels = Object.freeze({
   owned: 'Owned',
   wanted: 'Wanted',
 });
+
+const enPieces = (count: number) => (count === 1 ? '1 piece' : `${count} pieces`);
+const enDays = (count: number) => (count === 1 ? '1 day' : `${count} days`);
+const enChanges = (count: number) => (count === 1 ? '1 change' : `${count} changes`);
+const enRestoreCount = (c: RestoreCounts) => `${c.piecesDone} of ${enPieces(c.piecesTotal)} and ${c.daysDone} of ${enDays(c.daysTotal)} are back.`;
+// Turkish puts no case suffix on a bare numeral here: the suffix rides on the noun instead.
+const trRestoreCount = (c: RestoreCounts) => `${c.piecesTotal} parçadan ${c.piecesDone} parça ve ${c.daysTotal} günden ${c.daysDone} gün geldi.`;
 
 const en = {
   temperatureUnitNames: { celsius: 'degrees Celsius', fahrenheit: 'degrees Fahrenheit' },
@@ -1656,6 +1763,144 @@ const en = {
       history: {
         body: 'The outfits you wore are listed here by day. To see this tour again, open Settings and find it under Help.',
       },
+    },
+  },
+  account: {
+    card: {
+      title: 'Complete your profile',
+      body: 'Sign in to take your Closet and History to a new phone.',
+      action: 'Continue',
+      dismiss: 'Don’t show again',
+    },
+    signIn: {
+      close: 'Close',
+      title: 'Complete your profile',
+      benefits: [
+        'Your Closet and History come with you to a new phone.',
+        'If you reinstall kuyara, you pick up where you left off.',
+        'Everything works the same without an account.',
+      ],
+      continueWith: { apple: 'Continue with Apple', google: 'Continue with Google' },
+      notNow: 'Not now',
+      footer: 'Signing in adds your Closet, History and style preferences to your account. Your birth date is not added.',
+      privacy: 'Privacy policy',
+      cancelled: 'Sign-in was cancelled. Choose a way to sign in when you are ready.',
+      offline: 'You are offline. You can sign in once you are connected.',
+      failed: {
+        apple: 'Apple could not complete the sign-in. Try again in a moment, or continue with Google.',
+        google: 'Google could not complete the sign-in. Try again in a moment, or continue with Apple.',
+      },
+    },
+    welcome: {
+      title: 'You’re signed in',
+      summary: (pieces: number, days: number) =>
+        `${enPieces(pieces)} from your Closet and ${enDays(days)} of History are now in your account.`,
+      done: 'Done',
+    },
+    method: { apple: 'Using Sign in with Apple', google: 'Using Sign in with Google' },
+    settings: {
+      group: 'Account',
+      signIn: 'Sign in',
+      signedOutFooter: 'Take your Closet and History to a new phone.',
+      signedIn: { apple: 'Signed in with Apple', google: 'Signed in with Google' },
+      deleted: 'Your account is deleted. What you see in kuyara stays.',
+      signedOut: 'You are signed out. Your Closet and History stay in kuyara.',
+    },
+    sync: {
+      heading: 'Sync',
+      upToDate: 'Up to date',
+      offline: 'Offline',
+      syncing: 'Syncing',
+      failed: 'Couldn’t sync',
+      restoring: 'Restoring',
+      offlineWaiting: (pending: number) => (pending > 0 ? `Offline · ${pending} waiting` : 'Offline'),
+      waiting: (pending: number) => `${pending} waiting`,
+      syncingCount: (pending: number) => `${pending} syncing`,
+      restoringCount: (done: number, total: number) => `${done} of ${total}`,
+      syncNow: 'Sync now',
+      retry: 'Try again',
+      upToDateFooter: (time: string) => `Last synced at ${time}. Your birth date is not added to your account.`,
+      offlineFooter: (pending: number, time: string) => (pending > 0
+        ? `You have ${enChanges(pending)} waiting. ${pending === 1 ? 'It syncs' : 'They sync'} when you are back online. Last synced at ${time}.`
+        : `kuyara syncs when you are back online. Last synced at ${time}.`),
+      syncingFooter: (pending: number, time: string) => (pending > 0
+        ? `Syncing ${enChanges(pending)}. Last synced at ${time}.`
+        : `Last synced at ${time}.`),
+      failedFooter: (pending: number, time: string) => (pending > 0
+        ? `kuyara could not reach your account. Your ${enChanges(pending)} ${pending === 1 ? 'is kept and syncs' : 'are kept and sync'} on the next try. Last synced at ${time}.`
+        : `kuyara could not reach your account. Last synced at ${time}.`),
+      restoringFooter: (counts: RestoreCounts) =>
+        `kuyara is bringing back your Closet and History. ${enRestoreCount(counts)}`,
+      pausedFooter: (counts: RestoreCounts) =>
+        `${enRestoreCount(counts)} The rest come back when you are online.`,
+    },
+    account: {
+      title: 'Account',
+      closet: 'Closet',
+      pieces: enPieces,
+      history: 'History',
+      days: enDays,
+      preferences: 'Style preferences',
+      included: 'Included',
+      methodsHeading: 'Sign-in methods',
+      providerName: { apple: 'Apple', google: 'Google' },
+      connected: 'Connected',
+      add: { apple: 'Add Apple', google: 'Add Google' },
+      methodsFooter: 'Add a second way to sign in to the same account.',
+      signOut: 'Sign out',
+      delete: 'Delete account',
+      deleteFooter: 'Deletes your account and everything saved to it.',
+    },
+    signOutAlert: {
+      title: 'Sign out?',
+      body: 'Your Closet and History stay in kuyara. Sign in again to sync them.',
+      cancel: 'Cancel',
+      confirm: 'Sign out',
+    },
+    deletion: {
+      title: 'Delete account',
+      goneHeading: 'What is deleted',
+      goneAccount: {
+        apple: 'Your account and your sign-in with Apple',
+        google: 'Your account and your sign-in with Google',
+      },
+      goneData: 'Your Closet, History and preferences saved to your account',
+      stayHeading: 'What stays',
+      stay: 'What you see in kuyara now stays, and kuyara keeps working without an account.',
+      footer: {
+        apple: 'Deleting takes up to a minute. kuyara tells you when it is done. You confirm with Apple before anything is deleted.',
+        google: 'Deleting takes up to a minute. kuyara tells you when it is done. You confirm with Google before anything is deleted.',
+      },
+      action: 'Delete account',
+      deleting: 'Deleting your account. This can take up to a minute.',
+      failed: 'kuyara could not delete your account. Nothing was deleted. Try again.',
+      offline: 'You are offline. You can delete your account once you are connected.',
+    },
+    deleteAlert: {
+      title: 'Delete your account?',
+      body: 'This can’t be undone.',
+      cancel: 'Cancel',
+      confirm: 'Delete',
+    },
+    restore: {
+      progressTitle: 'Bringing back your Closet and History',
+      progressBody: 'You’re signed in. You can keep using kuyara meanwhile.',
+      progressCount: enRestoreCount,
+      progressKeep: 'Continue closes this sheet, and bringing them back keeps going.',
+      progressAction: 'Continue',
+      doneTitle: 'Your Closet and History are back',
+      doneBody: (pieces: number, days: number) => `${enPieces(pieces)} and ${enDays(days)} of History are back in kuyara.`,
+      doneProfile: 'Your name, gender, dress style and style preferences come from your account.',
+      done: 'Done',
+    },
+    deleted: {
+      title: 'Your account is deleted',
+      gone: {
+        apple: 'Everything saved to your account is deleted, and your sign-in with Apple is disconnected.',
+        google: 'Everything saved to your account is deleted, and your sign-in with Google is disconnected.',
+      },
+      stay: 'What you see in kuyara stays, and kuyara keeps working without an account.',
+      done: 'Done',
     },
   },
 } satisfies AppMessages;
@@ -2527,6 +2772,144 @@ const tr = {
       history: {
         body: 'Giydiğin kombinler burada günlere göre listelenir. Bu turu yeniden görmek için Ayarlar’ı aç, Yardım bölümünde bulursun.',
       },
+    },
+  },
+  account: {
+    card: {
+      title: 'Profilini tamamla',
+      body: 'Gardırobunu ve Geçmişini yeni telefonuna taşımak için giriş yap.',
+      action: 'Devam et',
+      dismiss: 'Bir daha gösterme',
+    },
+    signIn: {
+      close: 'Kapat',
+      title: 'Profilini tamamla',
+      benefits: [
+        'Gardırobun ve Geçmişin yeni telefonuna seninle gelir.',
+        'kuyara’yı yeniden yüklersen kaldığın yerden devam edersin.',
+        'Hesap olmadan da her şey aynı şekilde çalışır.',
+      ],
+      continueWith: { apple: 'Apple ile Devam Et', google: 'Google ile devam et' },
+      notNow: 'Şimdi değil',
+      footer: 'Giriş yaptığında Gardırobun, Geçmişin ve stil tercihlerin hesabına eklenir. Doğum tarihin eklenmez.',
+      privacy: 'Gizlilik politikası',
+      cancelled: 'Giriş iptal edildi. Hazır olduğunda bir giriş yolu seç.',
+      offline: 'İnternet bağlantın yok. Bağlandıktan sonra giriş yapabilirsin.',
+      failed: {
+        apple: 'Apple girişi tamamlayamadı. Biraz sonra yeniden dene ya da Google ile devam et.',
+        google: 'Google girişi tamamlayamadı. Biraz sonra yeniden dene ya da Apple ile devam et.',
+      },
+    },
+    welcome: {
+      title: 'Giriş yaptın',
+      summary: (pieces: number, days: number) =>
+        `Gardırobundaki ${pieces} parça ve Geçmişindeki ${days} gün hesabına eklendi.`,
+      done: 'Bitti',
+    },
+    method: { apple: 'Apple ile giriş kullanılıyor', google: 'Google ile giriş kullanılıyor' },
+    settings: {
+      group: 'Hesap',
+      signIn: 'Giriş yap',
+      signedOutFooter: 'Gardırobunu ve Geçmişini yeni telefonuna taşı.',
+      signedIn: { apple: 'Apple ile giriş yapıldı', google: 'Google ile giriş yapıldı' },
+      deleted: 'Hesabın silindi. kuyara’da gördüklerin kalır.',
+      signedOut: 'Çıkış yaptın. Gardırobun ve Geçmişin kuyara’da kalır.',
+    },
+    sync: {
+      heading: 'Eşitleme',
+      upToDate: 'Güncel',
+      offline: 'Çevrimdışı',
+      syncing: 'Eşitleniyor',
+      failed: 'Eşitlenemedi',
+      restoring: 'Geri geliyor',
+      offlineWaiting: (pending: number) => (pending > 0 ? `Çevrimdışı · ${pending} bekliyor` : 'Çevrimdışı'),
+      waiting: (pending: number) => `${pending} bekliyor`,
+      syncingCount: (pending: number) => `${pending} eşitleniyor`,
+      restoringCount: (done: number, total: number) => `${done} / ${total}`,
+      syncNow: 'Şimdi eşitle',
+      retry: 'Yeniden dene',
+      upToDateFooter: (time: string) => `Son eşitleme ${time}. Doğum tarihin hesabına eklenmez.`,
+      offlineFooter: (pending: number, time: string) => (pending > 0
+        ? `Bekleyen ${pending} değişikliğin var. Bağlantı gelince eşitlenir. Son eşitleme ${time}.`
+        : `Bağlantı gelince eşitlenir. Son eşitleme ${time}.`),
+      syncingFooter: (pending: number, time: string) => (pending > 0
+        ? `${pending} değişiklik eşitleniyor. Son eşitleme ${time}.`
+        : `Son eşitleme ${time}.`),
+      failedFooter: (pending: number, time: string) => (pending > 0
+        ? `kuyara hesabına ulaşamadı. ${pending} değişikliğin korunur ve bir sonraki denemede eşitlenir. Son eşitleme ${time}.`
+        : `kuyara hesabına ulaşamadı. Son eşitleme ${time}.`),
+      restoringFooter: (counts: RestoreCounts) =>
+        `kuyara Gardırobunu ve Geçmişini geri getiriyor. ${trRestoreCount(counts)}`,
+      pausedFooter: (counts: RestoreCounts) =>
+        `${trRestoreCount(counts)} Kalanlar bağlantı gelince gelir.`,
+    },
+    account: {
+      title: 'Hesap',
+      closet: 'Gardırop',
+      pieces: (count: number) => `${count} parça`,
+      history: 'Geçmiş',
+      days: (count: number) => `${count} gün`,
+      preferences: 'Stil tercihleri',
+      included: 'Dahil',
+      methodsHeading: 'Giriş yolları',
+      providerName: { apple: 'Apple', google: 'Google' },
+      connected: 'Bağlı',
+      add: { apple: 'Apple ekle', google: 'Google ekle' },
+      methodsFooter: 'Aynı hesaba ikinci bir giriş yolu ekle.',
+      signOut: 'Çıkış yap',
+      delete: 'Hesabı sil',
+      deleteFooter: 'Hesabını ve hesabına kaydedilen her şeyi siler.',
+    },
+    signOutAlert: {
+      title: 'Çıkış yapılsın mı?',
+      body: 'Gardırobun ve Geçmişin kuyara’da kalır. Eşitlemek için yeniden giriş yap.',
+      cancel: 'Vazgeç',
+      confirm: 'Çıkış yap',
+    },
+    deletion: {
+      title: 'Hesabı sil',
+      goneHeading: 'Neler silinir',
+      goneAccount: {
+        apple: 'Hesabın ve Apple ile giriş bağlantın',
+        google: 'Hesabın ve Google ile giriş bağlantın',
+      },
+      goneData: 'Hesabına kaydedilen Gardırop, Geçmiş ve tercihlerin',
+      stayHeading: 'Neler kalır',
+      stay: 'kuyara’da şu an gördüklerin kalır ve kuyara hesapsız çalışmaya devam eder.',
+      footer: {
+        apple: 'Silme bir dakikayı bulabilir. Bitince kuyara haber verir. Bir şey silinmeden önce Apple ile onay verirsin.',
+        google: 'Silme bir dakikayı bulabilir. Bitince kuyara haber verir. Bir şey silinmeden önce Google ile onay verirsin.',
+      },
+      action: 'Hesabı sil',
+      deleting: 'Hesabın siliniyor. Bu bir dakikayı bulabilir.',
+      failed: 'kuyara hesabını silemedi. Hiçbir şey silinmedi. Yeniden dene.',
+      offline: 'İnternet bağlantın yok. Bağlandıktan sonra hesabını silebilirsin.',
+    },
+    deleteAlert: {
+      title: 'Hesabın silinsin mi?',
+      body: 'Bu işlem geri alınamaz.',
+      cancel: 'Vazgeç',
+      confirm: 'Sil',
+    },
+    restore: {
+      progressTitle: 'Gardırobun ve Geçmişin geri geliyor',
+      progressBody: 'Giriş yaptın. Bu sırada kuyara’yı kullanmaya devam edebilirsin.',
+      progressCount: trRestoreCount,
+      progressKeep: 'Devam et bu sayfayı kapatır, geri getirme sürer.',
+      progressAction: 'Devam et',
+      doneTitle: 'Gardırobun ve Geçmişin geri geldi',
+      doneBody: (pieces: number, days: number) => `${pieces} parça ve Geçmişindeki ${days} gün kuyara’ya geri geldi.`,
+      doneProfile: 'Adın, cinsiyetin, giyim stilin ve stil tercihlerin hesabından geldi.',
+      done: 'Bitti',
+    },
+    deleted: {
+      title: 'Hesabın silindi',
+      gone: {
+        apple: 'Hesabına kaydedilen her şey silindi ve Apple ile giriş bağlantın koparıldı.',
+        google: 'Hesabına kaydedilen her şey silindi ve Google ile giriş bağlantın koparıldı.',
+      },
+      stay: 'kuyara’da gördüklerin kalır ve kuyara hesapsız çalışmaya devam eder.',
+      done: 'Bitti',
     },
   },
 } satisfies AppMessages;
