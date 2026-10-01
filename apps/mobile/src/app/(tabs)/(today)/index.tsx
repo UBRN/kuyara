@@ -2,7 +2,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
-import { useLaunchReveal } from '@/components/ui/launch-curtain';
+import { useLaunchReveal, useLaunchScreenReady } from '@/components/ui/launch-curtain';
 import { useSinglePush } from '@/components/ui/use-single-push';
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
@@ -133,6 +133,8 @@ export default function TodayRoute() {
   // Today is the first screen the shell mounts after bootstrap, so its first presentation
   // is the moment the app is usable. The kind is coarse: loading, loaded or unavailable.
   useScreenInteractive({ state: state.kind });
+  // A cold launch dives only once Today has drawn what it has to show.
+  useLaunchScreenReady(state.kind !== 'loading');
 
   // Only the focused Today route can show these failures. A weather failure belongs to
   // the composite Today surface; a recommendation failure belongs to its distinct surface.

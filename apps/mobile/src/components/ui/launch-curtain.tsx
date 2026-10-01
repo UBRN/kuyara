@@ -11,14 +11,15 @@ import {
 import { Appearance, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
+  type SharedValue,
   useAnimatedProps,
   useAnimatedReaction,
-  useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { type ColumnMajorTransformMatrix, G, type GProps, Path } from 'react-native-svg';
+import Svg, { type ColumnMajorTransformMatrix, G, type GProps, Path, Rect } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { brandColors, standardMotion } from '@/theme/theme';
@@ -43,6 +44,19 @@ export const LaunchRevealContext = createContext<LaunchReveal>(revealed);
 
 export function useLaunchReveal(): LaunchReveal {
   return use(LaunchRevealContext);
+}
+
+/**
+ * How the first screen tells the launch that its content is drawn, so the dive never plays
+ * over that screen's heaviest render. Only a screen the launch waits for provides a reader.
+ */
+export const LaunchScreenReadyContext = createContext<(() => void) | null>(null);
+
+export function useLaunchScreenReady(ready: boolean): void {
+  const report = use(LaunchScreenReadyContext);
+  useEffect(() => {
+    if (ready) report?.();
+  }, [ready, report]);
 }
 
 /**
@@ -119,9 +133,11 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
   const [reveal, setReveal] = useState<LaunchReveal>(cold ? { revealing: false, done: false } : revealed);
   const [drawn, setDrawn] = useState(false);
   const [late, setLate] = useState(false);
-  // The launch moves on the frame after its answer, so an answer refined within that frame
-  // (a drawn first screen that turns out to be a notification's) is the one played. Once
-  // moving, a later answer (a retry, a ready after the ceiling) changes nothing.
+  // The launch moves once the JavaScript thread is idle and on the frame after, so the first
+  // screen's render and its native mount are behind it and never stall its frames, and an
+  // answer refined meanwhile (a drawn first screen that turns out to be a notification's) is
+  // the one played. Once moving, a later answer (a retry, a ready after the ceiling) changes
+  // nothing.
   const [motion, setMotion] = useState<LaunchMotion | null>(null);
   const answer = cold ? motionFor(readiness, late) : null;
 
@@ -133,8 +149,14 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
 
   useEffect(() => {
     if (!drawn || motion !== null || answer === null) return undefined;
-    const frame = requestAnimationFrame(() => setMotion(answer));
-    return () => cancelAnimationFrame(frame);
+    let frame: number | null = null;
+    const idle = requestIdleCallback(() => {
+      frame = requestAnimationFrame(() => setMotion(answer));
+    });
+    return () => {
+      cancelIdleCallback(idle);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
   }, [answer, drawn, motion]);
 
   useEffect(() => {
@@ -205,14 +227,15 @@ function CurtainLayer({
   const short = motion === 'short';
   // The curtain is the one colour the dive or the veil arrives at. Until it has arrived, the
   // ground and the symbol are what is seen; from then on, only the curtain.
-  const curtainOpacity = () => {
-    'worklet';
+  // Each worklet reads its shared values itself: a value read only through a helper
+  // worklet is not tracked, and the style would never update.
+  const curtainOpacity = useDerivedValue(() => {
     const arrived = short ? veil.get() >= 1 : dive.get() >= 1;
     if (arrived) return lift.get();
     return short ? veil.get() : 0;
-  };
-  const curtainStyle = useAnimatedStyle(() => ({ opacity: curtainOpacity() }));
-  const groundStyle = useAnimatedStyle(() => {
+  });
+  const curtainProps = useAnimatedProps(() => ({ opacity: curtainOpacity.get() }));
+  const groundProps = useAnimatedProps(() => {
     const arrived = short ? veil.get() >= 1 : dive.get() >= 1;
     return { opacity: arrived ? 0 : withdraw.get() };
   });
@@ -246,10 +269,11 @@ function CurtainLayer({
       pointerEvents="none"
       style={StyleSheet.absoluteFill}
       testID="launch-curtain">
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { backgroundColor: ground[scheme] }, groundStyle]}
-        testID="launch-curtain-ground">
-        <Svg height={height} width={width}>
+      {/* One drawing, every layer of it redrawn by the same animated SVG props: the ground
+          and the symbol, then the curtain over them. */}
+      <Svg height={height} width={width}>
+        <AnimatedG animatedProps={groundProps} opacity={1} testID="launch-curtain-ground">
+          <Rect fill={ground[scheme]} height={height} width={width} />
           <AnimatedG animatedProps={symbolProps} transform={restMatrix} testID="launch-curtain-symbol">
             <G fill={ink[scheme]}>
               {brandSymbolPaths.map((d) => <Path d={d} key={d} />)}
@@ -258,12 +282,11 @@ function CurtainLayer({
               {brandSymbolPaths.map((d) => <Path d={d} key={d} />)}
             </AnimatedG>
           </AnimatedG>
-        </Svg>
-      </Animated.View>
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { backgroundColor: brandColors.calmCurrent }, curtainStyle]}
-        testID="launch-curtain-colour"
-      />
+        </AnimatedG>
+        <AnimatedG animatedProps={curtainProps} opacity={0} testID="launch-curtain-colour">
+          <Rect fill={brandColors.calmCurrent} height={height} width={width} />
+        </AnimatedG>
+      </Svg>
       <CurtainStatusBar covered={curtainOpacity} />
     </View>
   );
@@ -273,9 +296,9 @@ function CurtainLayer({
  * Over Calm Current the status bar reads light; it returns to the app's own once the
  * curtain is more than half gone. Mounted after the shell's, its style wins while it lasts.
  */
-function CurtainStatusBar({ covered }: Readonly<{ covered: () => number }>) {
+function CurtainStatusBar({ covered }: Readonly<{ covered: SharedValue<number> }>) {
   const [light, setLight] = useState(false);
-  useAnimatedReaction(() => covered() >= 0.5, (now, was) => {
+  useAnimatedReaction(() => covered.get() >= 0.5, (now, was) => {
     if (now !== was) scheduleOnRN(setLight, now);
   });
   return light ? <StatusBar style="light" /> : null;
