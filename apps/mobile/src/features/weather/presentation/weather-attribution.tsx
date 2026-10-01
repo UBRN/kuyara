@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, PixelRatio, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { AppText } from '@/components/ui';
 import { appleWeatherMarkUrl } from '@/features/weather/data/apple-weather-mark';
@@ -64,6 +64,8 @@ export function weatherAttributionLink(
 }
 
 type WeatherAttributionProps = Readonly<{
+  /** False while the screen is still being pushed: the mark waits for it to land. */
+  landed?: boolean;
   sourceId: string;
 }>;
 
@@ -71,7 +73,7 @@ type WeatherAttributionProps = Readonly<{
  * The provider's sentence and mark. It is not itself pressable: the row that hosts it owns
  * the press, so the whole row opens the link and draws the system's press feedback.
  */
-export function WeatherAttribution({ sourceId }: WeatherAttributionProps) {
+export function WeatherAttribution({ landed = true, sourceId }: WeatherAttributionProps) {
   const { language, messages } = useLocalization();
   const theme = useKuyaraTheme();
   const markKey = `${language}:${theme.isDark}`;
@@ -85,15 +87,23 @@ export function WeatherAttribution({ sourceId }: WeatherAttributionProps) {
       .catch(() => { if (active) setMarkState(null); });
     return () => { active = false; };
   }, [language, sourceId, theme.isDark, markKey]);
-  // The caption and the mark swap in one box on `motion.fast` (effects motion, Law 7): the
-  // caption fades out as the mark fades in, and the box holds the larger of the two so the
-  // row does not change height when the mark arrives or fails.
-  const markShown = appleMark?.loaded === true;
-  const markOpacity = useSharedValue(0);
+  // The caption and the mark swap in one box (effects motion, Law 7) once the screen has
+  // landed, never under the moving push: the leaving one fades out on `motion.fast`, and the
+  // arriving one fades in on `motion.normal` after it, so the two are never drawn over each
+  // other. A mark there on the first render is drawn at rest. The box holds the larger of
+  // the two, so the row does not change height when the mark arrives or fails.
+  const markShown = landed && appleMark?.loaded === true;
+  const captionOpacity = useSharedValue(markShown ? 0 : 1);
+  const markOpacity = useSharedValue(markShown ? 1 : 0);
+  const restingOn = useRef(markShown);
   useEffect(() => {
-    markOpacity.set(withTiming(markShown ? 1 : 0, { duration: theme.motion.fast }));
-  }, [markOpacity, markShown, theme.motion.fast]);
-  const captionFade = useAnimatedStyle(() => ({ opacity: 1 - markOpacity.get() }));
+    if (restingOn.current === markShown) return;
+    restingOn.current = markShown;
+    const [leaving, arriving] = markShown ? [captionOpacity, markOpacity] : [markOpacity, captionOpacity];
+    leaving.set(withTiming(0, { duration: theme.motion.fast }));
+    arriving.set(withDelay(theme.motion.fast, withTiming(1, { duration: theme.motion.normal })));
+  }, [captionOpacity, markOpacity, markShown, theme.motion.fast, theme.motion.normal]);
+  const captionFade = useAnimatedStyle(() => ({ opacity: captionOpacity.get() }));
   const markFade = useAnimatedStyle(() => ({ opacity: markOpacity.get() }));
   const link = weatherAttributionLink(sourceId, messages.weather);
   if (!link) return null;

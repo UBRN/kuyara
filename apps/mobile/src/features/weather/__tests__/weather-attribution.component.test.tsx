@@ -88,14 +88,17 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
       .toBeNull();
   });
 
-  test('crossfades the Apple caption into its combined mark in one box on the fast role', async () => {
+  test('swaps the Apple caption for its combined mark in one box, one fading out before the other fades in', async () => {
     const withTiming = jest.spyOn(Reanimated, 'withTiming');
+    const withDelay = jest.spyOn(Reanimated, 'withDelay');
+    const { fast, normal } = lightTheme.motion;
     const opacity = (testID: string) => StyleSheet.flatten(
       result.getByTestId(testID, { includeHiddenElements: true }).props.style,
     ).opacity;
-    const result = await render(
-      <Providers language={language}><WeatherAttribution sourceId="weatherkit" /></Providers>,
+    const screen = (landed: boolean) => (
+      <Providers language={language}><WeatherAttribution landed={landed} sourceId="weatherkit" /></Providers>
     );
+    const result = await render(screen(false));
     expect(result.getByText(copy.attributionAppleWeather)).toBeOnTheScreen();
     const mark = await result.findByTestId('weather-attribution-apple-mark', { includeHiddenElements: true });
     // Until the mark loads it is drawn at zero opacity under the full caption.
@@ -106,18 +109,30 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
     expect(StyleSheet.flatten(box.props.style)).toMatchObject({ minHeight: 16, minWidth: 112 });
     expect(box).toContainElement(mark);
 
-    // The mock does not run the timing, so the fade is read from the call it makes: one
-    // shared value drives the mark to 1 and the caption to 1 minus it, on the fast role.
+    // A mark that loads while the screen is still being pushed waits for it to land.
     withTiming.mockClear();
+    withDelay.mockClear();
     await fireEvent(mark, 'load');
-    await waitFor(() => expect(result.queryByText(copy.attributionAppleWeather)).toBeNull());
-    expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+    expect(result.getByText(copy.attributionAppleWeather)).toBeOnTheScreen();
+    expect(withTiming).not.toHaveBeenCalled();
 
+    // The mock does not run the timing, so the swap is read from the calls it makes: the
+    // caption leaves on `fast`, and the mark arrives on `normal` once the caption has gone.
+    await result.rerender(screen(true));
+    await waitFor(() => expect(result.queryByText(copy.attributionAppleWeather)).toBeNull());
+    expect(withTiming).toHaveBeenCalledWith(0, { duration: fast });
+    expect(withTiming).toHaveBeenCalledWith(1, { duration: normal });
+    expect(withDelay).toHaveBeenCalledWith(fast, expect.anything());
+
+    // A mark that fails afterwards hands back to the caption the same way.
     withTiming.mockClear();
+    withDelay.mockClear();
     await fireEvent(mark, 'error');
     await waitFor(() => expect(result.getByText(copy.attributionAppleWeather)).toBeOnTheScreen());
-    expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast });
+    expect(withTiming).toHaveBeenCalledWith(0, { duration: fast });
+    expect(withDelay).toHaveBeenCalledWith(fast, expect.anything());
     withTiming.mockRestore();
+    withDelay.mockRestore();
   });
 
   // ADR 0002 section 8: an unrecognized or legacy identifier names no provider at all.
