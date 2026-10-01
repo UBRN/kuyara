@@ -4,6 +4,7 @@ import type { ComponentProps } from 'react';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { OnboardingScreen } from '@/features/profile/presentation/onboarding-screen';
+import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 
 export default function OnboardingRoute() {
   const { completeOnboarding, state } = useProfileApplication();
@@ -28,9 +29,16 @@ export default function OnboardingRoute() {
   );
 }
 
-type ReadyOnboardingProps = ComponentProps<typeof OnboardingScreen>;
+type ReadyOnboardingProps = Omit<ComponentProps<typeof OnboardingScreen>, 'locationStep'>;
 
 function ReadyOnboarding(props: ReadyOnboardingProps) {
   useScreenViewed('onboarding');
-  return <OnboardingScreen {...props} />;
+  return (
+    <OnboardingScreen
+      {...props}
+      locationStep={({ header, testID }) => (
+        <LocationSelectionControls header={header} testID={testID} testIDPrefix="onboarding" />
+      )}
+    />
+  );
 }

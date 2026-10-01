@@ -8,6 +8,7 @@ import { ProductAnalyticsProvider } from '@/features/analytics/application/produ
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { OnboardingScreen } from '@/features/profile/presentation/onboarding-screen';
+import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import {
   PlaceSearchApplicationContext,
   WeatherApplicationContext,
@@ -146,6 +147,9 @@ async function renderOnboarding(
                     initialDressStyle={initialDressStyle}
                     initialGender={initialGender}
                     onComplete={onComplete}
+                    locationStep={({ header, testID }) => (
+                      <LocationSelectionControls header={header} testID={testID} testIDPrefix="onboarding" />
+                    )}
                   />
                 </PlaceSearchApplicationContext>
               </WeatherApplicationContext>

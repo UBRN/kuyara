@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -43,7 +43,6 @@ import { NameInput } from '@/features/profile/presentation/name-input';
 import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics-options';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import { useLocalization } from '@/localization/use-messages';
 import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -102,6 +101,11 @@ type OnboardingScreenProps = Readonly<{
   initialBirthDate: string | null;
   initialDisplayName?: string | null;
   onComplete: (preferences: OnboardingPreferences) => Promise<void>;
+  /**
+   * The last step's location picker, which the composition route supplies from the weather
+   * feature. It is given the step's heading and the test ID the step carries.
+   */
+  locationStep: (step: Readonly<{ header: ReactNode; testID: string }>) => ReactNode;
 }>;
 
 const totalSteps = 7;
@@ -113,6 +117,7 @@ export function OnboardingScreen({
   initialStyleAesthetics = [],
   initialGender,
   onComplete,
+  locationStep,
 }: OnboardingScreenProps) {
   const [draft, dispatch] = useReducer(
     reduceOnboardingDraft,
@@ -267,11 +272,7 @@ export function OnboardingScreen({
       style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       {draft.step === 6 ? (
         <SafeAreaView edges={['top']} style={styles.screen}>
-          <LocationSelectionControls
-            header={heading}
-            testID="onboarding-step-7"
-            testIDPrefix="onboarding"
-          />
+          {locationStep({ header: heading, testID: 'onboarding-step-7' })}
         </SafeAreaView>
       ) : (
         <Screen

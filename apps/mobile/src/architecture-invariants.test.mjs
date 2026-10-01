@@ -286,8 +286,6 @@ const featureOf = (relativePath) => relativePath.match(/^features\/([^/]+)\//)?.
 // Remove the entry when its fix lands; a stale entry fails the test. The ceiling below only
 // falls: adding an entry to make a new violation pass is not allowed.
 const crossFeatureInternalImportAllowlist = [
-  // Onboarding renders weather's location controls; pass them in from app/onboarding.tsx as a slot.
-  ['features/profile/presentation/onboarding-screen.tsx', 'features/weather/presentation/location-selection-controls'],
 ].map(([importer, module]) => `${importer} -> ${module}`);
 
 test('a feature reaches another feature only through its domain or application layer', () => {
@@ -326,7 +324,7 @@ test('a feature reaches another feature only through its domain or application l
   assert.deepEqual(stale, [], `These allowlist entries no longer match an import; remove them so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
   assert.equal(
     crossFeatureInternalImportAllowlist.length,
-    1,
+    0,
     'the cross-feature allowlist only shrinks: fix the import instead of listing it, and lower this count when an entry goes',
   );
 });
