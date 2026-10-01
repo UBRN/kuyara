@@ -86,7 +86,7 @@ that makes the outfit unusual, and a `focusRing` marker rings the current tile. 
 changes while it stays large: a horizontal swipe on it, or a tile. A swipe pages the
 enlarged piece inside its own window, clipped so it never covers a stepped-back piece,
 the leaving piece fading on `motion.fast` as it goes; a release past half a step or a 500 pt/s flick commits, both ends resist like a
-rubber band, the order never wraps, and 5 points of vertical travel first hand the press
+rubber band, the order never wraps, and 8 points of vertical travel first hand the press
 to the page scroll. A pressed tile, and a swipe past half a step, name the landing piece in
 the header before it commits. Each piece is one adjustable accessibility element whose
 increment and decrement walk the same order, and the enlarged one reads as expanded; a tile
