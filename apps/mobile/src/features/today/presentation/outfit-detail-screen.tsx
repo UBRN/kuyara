@@ -121,6 +121,9 @@ type OutfitDetailScreenProps = Readonly<{
   manualMix?: ManualMix<RecommendedOutfit> | null;
   /** Phase 7: a board piece is enlarged, so the route turns the full-screen back swipe off. */
   onBoardFocusChange?: (focused: boolean) => void;
+  /** The board's one-time swipe hint is still due; see `GarmentSwapBoard`. */
+  swipeHint?: boolean;
+  onSwipeHintShown?: () => void;
 }>;
 
 type DetailSuggestion = Extract<ReturnType<typeof createTodayPresentation>, { kind: 'loaded' }>['suggestions'][number];
@@ -235,6 +238,8 @@ export function OutfitDetailScreen({
   onWoreThis,
   manualMix = null,
   onBoardFocusChange,
+  swipeHint = false,
+  onSwipeHintShown,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
   const easierToSeeOn = useEasierToSee();
@@ -615,6 +620,7 @@ export function OutfitDetailScreen({
             onFocusChange={setFocusedSlot}
             onReveal={revealStrip}
             onStep={onBoardStep}
+            onSwipeHintShown={onSwipeHintShown}
             overlay={boardOverlay}
             overlayTestID="outfit-detail-caption-overlay"
             // The opened outfit keeps the palette it had on Today (O15). The plate stands on
@@ -623,6 +629,7 @@ export function OutfitDetailScreen({
             pieces={suggestion.boardPieces}
             restHeight={plateHeight}
             settle={completions}
+            swipeHint={swipeHint}
             testID="outfit-detail-board"
             visibleHeight={visibleBottom - visibleTop}
             width={contentWidth}

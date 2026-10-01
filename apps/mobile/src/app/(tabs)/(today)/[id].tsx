@@ -60,7 +60,7 @@ export default function OutfitDetailRoute() {
   const wardrobe = useWardrobeApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
     useWeatherApplication();
-  const { state: profileState } = useProfileApplication();
+  const { markSwapHintShown, state: profileState } = useProfileApplication();
   const { analytics, firstUses } = useProductAnalytics();
   const [editing, setEditing] = useState<PieceSheetTarget | null>(null);
   const [wornGarments, setWornGarments] = useState<{ key: string; outfit: WornOutfit | null } | null>(null);
@@ -284,9 +284,16 @@ export default function OutfitDetailRoute() {
         manualMix={manualMix}
         onBoardFocusChange={setBoardFocused}
         onEditPiece={setEditing}
+        onSwipeHintShown={() => {
+          void markSwapHintShown?.().catch(() => {
+            // An unstored flag only lets the hint play once more on a later visit.
+          });
+        }}
         onWoreThis={outfitHistory && dayKey ? onWoreThis : undefined}
         state={state}
         suggestionId={suggestionId}
+        // The board's swipe hint plays until the profile says it has, once for life.
+        swipeHint={profileState.status === 'ready' && profileState.profile.swapHintShown === false}
         wardrobeItems={wardrobeItems}
         worn={worn}
         wornBusy={wornBusy}
