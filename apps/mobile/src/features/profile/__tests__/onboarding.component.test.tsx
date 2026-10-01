@@ -507,7 +507,10 @@ test('each step draws what it changes: a Today preview, a greeting and garment t
   expect(result.getByTestId('onboarding-gender-woman-drawing-2', hidden)).toBeTruthy();
   await fireEvent.press(result.getByTestId('onboarding-gender-man'));
   expect(result.getByTestId('onboarding-gender-man-check', hidden)).toBeTruthy();
+  // The sample board answers the gender and dress style choices on one stage that stays.
+  const choiceBoard = result.getByTestId('onboarding-welcome-board', hidden);
   await fireEvent.press(result.getByTestId('onboarding-continue'));
+  expect(result.getByTestId('onboarding-welcome-board', hidden)).toBe(choiceBoard);
 
   // Dress style: the morning sheet's day-type drawings.
   expect(result.getByTestId('onboarding-dress-style-casual-drawing', hidden)).toBeTruthy();

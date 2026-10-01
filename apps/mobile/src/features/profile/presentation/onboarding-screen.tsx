@@ -19,8 +19,10 @@ import {
   type ChoiceTileDrawing,
   ChoiceTileGrid,
   Entrance,
-  GarmentBoard,
+  type GarmentBoardPiece,
+  GarmentPreviewBoard,
   type GarmentOutfitPalette,
+  measureGarmentBoardHeight,
   Icon,
   NativeDatePicker,
   ProgressFill,
@@ -44,6 +46,7 @@ import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { useLocalization } from '@/localization/use-messages';
+import { useEasierToSee } from '@/theme/easier-to-see';
 import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
 import { useKuyaraTheme } from '@/theme/theme-context';
 import { borderWidths, radii, spacing } from '@/theme/theme';
@@ -57,14 +60,44 @@ const welcomePreviewPieces = [
   { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
   { slot: 'footwear', garmentTypeId: 'sneakers', category: 'footwear' },
 ] as const;
-const welcomePreviewPalette: GarmentOutfitPalette = {
+// From the gender step on, the same board answers each choice: a gender and a dress style
+// swap the pieces they change (Law 7), so the first minute already shows what a choice does.
+// Each outfit fills the same four slots, so a changed piece is replaced where it stands.
+const previewOutfit = (
+  outer: GarmentBoardPiece['garmentTypeId'],
+  top: GarmentBoardPiece['garmentTypeId'],
+  bottom: GarmentBoardPiece['garmentTypeId'],
+  footwear: GarmentBoardPiece['garmentTypeId'],
+): readonly GarmentBoardPiece[] => [
+  { slot: 'outer_layer', garmentTypeId: outer, category: 'outerwear' },
+  { slot: 'primary_top', garmentTypeId: top, category: 'top' },
+  { slot: 'bottom', garmentTypeId: bottom, category: 'bottom' },
+  { slot: 'footwear', garmentTypeId: footwear, category: 'footwear' },
+];
+const choicePreviewPieces: Readonly<Record<Gender, Readonly<Record<DressStyle, readonly GarmentBoardPiece[]>>>> = {
+  woman: {
+    casual: previewOutfit('light_jacket', 't_shirt', 'skirt', 'ballet_flats'),
+    smart: previewOutfit('trench_coat', 'blouse', 'skirt', 'loafers'),
+    formal: previewOutfit('blazer', 'blouse', 'trousers', 'closed_shoes'),
+  },
+  man: {
+    casual: previewOutfit('light_jacket', 't_shirt', 'jeans', 'sneakers'),
+    smart: previewOutfit('trench_coat', 'shirt', 'trousers', 'loafers'),
+    formal: previewOutfit('blazer', 'shirt', 'trousers', 'closed_shoes'),
+  },
+};
+const previewPalette = (pieces: readonly GarmentBoardPiece[], formality: DressStyle): GarmentOutfitPalette => ({
   optionId: 'onboarding-welcome-preview',
-  pieces: welcomePreviewPieces.map(({ garmentTypeId, slot }) => ({ garmentTypeId, slot })),
+  pieces: pieces.map(({ garmentTypeId, slot }) => ({ garmentTypeId, slot })),
   temperatureC: 14,
   condition: 'cloudy',
   isNight: false,
-  formality: 'casual',
-};
+  formality,
+});
+const allPreviewPieces = [
+  welcomePreviewPieces,
+  ...Object.values(choicePreviewPieces).flatMap((byStyle) => Object.values(byStyle)),
+];
 const welcomePreviewCondition = resolveConditionStyle('cloudy', 'day');
 // Each answer hints at the catalog it chooses, three pieces from it.
 const genderHints: Readonly<Record<Gender, readonly ChoiceTileDrawing[]>> = {
@@ -139,6 +172,7 @@ export function OnboardingScreen({
   const copy = messages.onboarding;
   const preferenceCopy = messages.preferences;
   const theme = useKuyaraTheme();
+  const largeBoard = useEasierToSee();
   const weatherState = useWeatherApplication().state;
   const activeLocationSource =
     weatherState.status === 'ready' ? weatherState.activeLocation?.source ?? null : null;
@@ -227,6 +261,41 @@ export function OnboardingScreen({
   );
   const typedName = draft.displayName?.trim() ?? '';
 
+  // One stage from the welcome to the dress style step, as tall as its tallest outfit, so a
+  // swap never moves what is under it.
+  const previewHeight = Math.max(...(draft.step === 0 ? [welcomePreviewPieces] : allPreviewPieces).map((pieces) => (
+    measureGarmentBoardHeight(pieces, previewWidth, 'today', false, largeBoard))));
+  const previewPieces = draft.step >= 2 && draft.gender
+    ? choicePreviewPieces[draft.gender][draft.dressStyle ?? 'casual']
+    : welcomePreviewPieces;
+  const previewStage = (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      onLayout={({ nativeEvent }) => setPreviewWidth(nativeEvent.layout.width)}
+      style={[styles.stage, { backgroundColor: theme.atmosphere.veiledDay }]}
+      testID="onboarding-welcome-preview">
+      <View style={styles.previewTitle}>
+        <Icon
+          color={theme.condition[welcomePreviewCondition.ink]}
+          name={welcomePreviewCondition.shape}
+          size={20}
+        />
+        <AppText tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle(`${formatWholeTemperatureValue(14, language, temperatureUnit)}°`)}</AppText>
+      </View>
+      {previewWidth > 0 ? (
+        <GarmentPreviewBoard
+          height={previewHeight}
+          palette={previewPalette(previewPieces, draft.dressStyle ?? 'casual')}
+          pieces={previewPieces}
+          stageColor={theme.atmosphere.veiledDay}
+          testID="onboarding-welcome-board"
+          width={previewWidth}
+        />
+      ) : null}
+    </View>
+  );
+
   const heading = (
     <View style={styles.heading}>
       <AppText accessibilityRole="header" ref={headingRef} variant="titleLarge">
@@ -280,36 +349,16 @@ export function OnboardingScreen({
           testID={`onboarding-step-${draft.step + 1}`}>
           {heading}
 
-      <Entrance index={1} key={`panel-${draft.step}`}>
+      {/* The gender and dress style steps share one stage: it arrives once and stays, and
+          only the pieces a choice changes move. */}
+      {draft.step === 2 || draft.step === 3 ? (
+        <Entrance index={1} key="choice-stage">{previewStage}</Entrance>
+      ) : null}
+
+      <Entrance index={draft.step === 2 || draft.step === 3 ? 2 : 1} key={`panel-${draft.step}`}>
       {draft.step === 0 ? (
         <View style={styles.panel}>
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            onLayout={({ nativeEvent }) => setPreviewWidth(nativeEvent.layout.width)}
-            style={[styles.stage, { backgroundColor: theme.atmosphere.veiledDay }]}
-            testID="onboarding-welcome-preview">
-            <View style={styles.previewTitle}>
-              <Icon
-                color={theme.condition[welcomePreviewCondition.ink]}
-                name={welcomePreviewCondition.shape}
-                size={20}
-              />
-              <AppText tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle(`${formatWholeTemperatureValue(14, language, temperatureUnit)}°`)}</AppText>
-            </View>
-            {previewWidth > 0 ? (
-              <GarmentBoard
-                accessibilityLabel={copy.welcomePreviewCaption}
-                decorative
-                palette={welcomePreviewPalette}
-                pieces={welcomePreviewPieces}
-                preset="today"
-                stageColor={theme.atmosphere.veiledDay}
-                testID="onboarding-welcome-board"
-                width={previewWidth}
-              />
-            ) : null}
-          </View>
+          {previewStage}
           <AppText>{copy.welcomePreviewCaption}</AppText>
           {locationRationale}
         </View>
