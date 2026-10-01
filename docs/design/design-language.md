@@ -468,7 +468,10 @@ product's hero and a hero that arrives flat reads as a list item. Its values are
 550 ms and damping ratio 0.65, kept after watching the Today hero pieces rise 24 pt on the
 iPhone 17 Pro Simulator on 2026-09-12, where they pass rest by about 1.6 pt once and
 settle without a second bounce; a lower damping adds a second bounce, which reads as
-elastic easing and is refused. A moment's settle travels `spacing.xs` down on
+elastic easing and is refused. On Today the pieces rise into a still stage on mount, one
+by one in the board's reading order, each `theme.motion.stagger` after the piece before
+it, with its contact shade; the stage plate, its tint and the hero values do not move.
+A moment's settle travels `spacing.xs` down on
 `theme.motion.fast` and returns on the arrival spring. Only `components/ui` consumes
 either role, and `theme.test.mjs` fails feature
 source that authors `withSpring`, `dampingRatio` or `stiffness`.
