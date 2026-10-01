@@ -1403,14 +1403,22 @@ test('a new outfit rises once the outfit it replaces has dropped away', async ()
     // The first outfit rises at once.
     await waitFor(() => expect(delays().length).toBeGreaterThan(0));
     expect(Math.min(...delays())).toBe(0);
-    const exit = result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, hidden).props.exiting;
-    expect(exit()).toMatchObject({
-      initialValues: { opacity: 1, transform: [{ translateY: 0 }] },
-      animations: { opacity: 0, transform: [{ translateY: spacing.sm }] },
-    });
+    expect(result.queryByTestId('today-leaving-board', hidden)).toBeNull();
 
     withDelay.mockClear();
-    await result.rerender(screen(renewed));
+    // Hold the fade without reporting completion, to read the leaving board: whole in its
+    // first frame, at rest, then one fade on `fast`.
+    const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation((toValue) => toValue);
+    try {
+      await result.rerender(screen(renewed));
+      const leaving = result.getByTestId('today-leaving-board', hidden);
+      expect(withTiming).toHaveBeenCalledWith(1, { duration: fast }, expect.any(Function));
+      expect(StyleSheet.flatten(leaving.parent!.props.style)).toMatchObject({
+        opacity: 1, transform: [{ translateY: 0 }],
+      });
+    } finally {
+      withTiming.mockRestore();
+    }
     await waitFor(() => expect(delays().length).toBeGreaterThan(0));
     expect(Math.min(...delays())).toBe(fast);
     for (const delay of delays()) expect((delay - fast) % stagger).toBe(0);
