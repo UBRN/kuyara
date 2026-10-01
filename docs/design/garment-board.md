@@ -216,8 +216,23 @@ illustrations in the manner of an illustrated fashion catalogue: each drawing is
 outlines filled with the piece's own palette colours and edged in one 1.9-point ink stroke,
 with shade planes, folds, highlights, seams, stitches and hardware clipped inside them
 (`silhouettes.ts`; `garment-paint.ts` paints them). The outlines are cut as the garment
-falls: sloped, rounded shoulders, tapering sleeves, curved hems, trouser legs that narrow to
-a slight break, shoes with a heel, a raised instep and a sole. One light from the upper left
+falls: sloped, rounded shoulders, set-in or raglan sleeves that taper with a slight natural
+bend into a cuff, curved hems, trouser legs that narrow to a slight break, a skirt or dress
+that flares and drapes into folds whose valleys scallop the hem, shoes on a last with toe
+spring, a heel, a welt and a sole, and hats whose brims sit in perspective. Each piece
+carries the construction it really has: notched lapels with their collar, gorge and roll on
+the blazer, coat and trench (the trench double-breasted, with gun flap, epaulettes, belt and
+buckled cuff straps); a lined hood with a crown seam, eyelets and drawcords on the hoodie,
+a fur ruff on the parka and a peaked brim on the rain jacket; baffles that bulge between
+quilt seams on the puffer and vest; rib collars, cuffs and hem bands on the bomber, polo and
+knits, with the turtleneck's folded roll neck; the biker jacket's diagonal zip, studded
+lapels and belt; the jumpsuit's placket and tie belt; the Chelsea boot's gusset and pull
+tab, the rain boot's lugged sole, the sandal's contoured cork footbed and buckled straps, the
+ballet flat's bow; a beanie's converging rib and folded cuff, a fedora's dented crown and
+band, a six-panel cap with its button and stitched peak, a balaclava's bound face opening,
+a draped scarf with its fringe, a pair of gloves with points and fourchettes, and an
+umbrella whose canopy sags between its rib tips above a wooden crook. The six category
+glyphs share the same cut in a single colour and one or two construction lines. One light from the upper left
 models every piece. Each plain surface is graded by a single gradient from a soft light
 through the piece's colour to its deepest shade, with a soft bloom of the piece's own light
 where the form turns toward it; inside every outline the form turns away at its edge in
@@ -234,7 +249,7 @@ shade, highlight and glint, or its material's), and every translucent layer lies
 drawing over its own opaque fill, so nothing behind the garment shows through and no light
 or shadow crosses the ink edge. A pattern or the multicolour family fill keeps its own paint
 and takes the same modelling over it. Each drawing stays within 100 vector elements at full
-detail (about 53 on average), so a Closet grid or a swap strip of many drawings stays
+detail (about 61 on average), so a Closet grid or a swap strip of many drawings stays
 light. The drawn bounds the rule reads are measured from the outlines, which the modelling
 never crosses. They cover all **41 outfit-eligible catalogue types**; seven
 types share a drawing with another (`overshirt` with `shirt`; `sweatshirt`, `fleece` with
@@ -243,7 +258,7 @@ types share a drawing with another (`overshirt` with `shirt`; `sweatshirt`, `fle
 `bomber_jacket`, `leather_jacket`, `coat`, `loafers` and `rain_boots` have their own
 Phase 6 drawings.
 
-Thirteen are carried unchanged from the Direction E spike. Nine entered with the MVP
+Thirteen entered with the Direction E spike. Nine entered with the MVP
 vocabulary: `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`, `dress`, `jumpsuit`,
 `sandal`. Without `dress` and `jumpsuit` a one-piece look cannot be drawn at all, which is
 why the set could not be left as it was. Four cover the enlarged catalogue: `parka`,

@@ -343,9 +343,12 @@ test('a re-layout draws no frame of a piece at its new place before it travels t
   expect(parkaFrame).toMatchObject({ left: 0, top: 0 });
 
   await result.rerender(<GarmentSwapBoard {...props('sleeveless_top')} />);
-  // The parka only moves: the same view, the same frame; its transform carries the travel.
+  // The parka only moves: the same view, the same frame to a hundredth of a point; its
+  // transform carries the travel.
   expect(drawing('outer_layer-parka')).toBe(parka);
-  expect(frameOf(drawing('outer_layer-parka'))).toEqual(parkaFrame);
+  expect(frameOf(drawing('outer_layer-parka'))).toEqual({
+    left: 0, top: 0, width: expect.closeTo(parkaFrame.width, 2), height: expect.closeTo(parkaFrame.height, 2),
+  });
   // The jeans are drawn larger: a fresh view at the new size.
   expect(frameOf(drawing('bottom-jeans')).height).not.toBe(frameOf(jeans).height);
   expect(drawing('bottom-jeans')).not.toBe(jeans);

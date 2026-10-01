@@ -54,9 +54,10 @@ const insideClip = (node: { type: unknown; parent: unknown }): boolean => {
   return false;
 };
 
-// The first group's outline, filled (its stroke-free copy; the edge and the clip are separate).
+// The first main-coloured group's outline, filled (its stroke-free copy; the edge and the clip
+// are separate).
 function fillsOf(result: Awaited<ReturnType<typeof render>>, silhouetteId: 'g-dress' | 'g-sandal') {
-  const [group] = silhouettes[silhouetteId].groups;
+  const group = silhouettes[silhouetteId].groups.find(({ fill }) => fill === 'main')!;
   return result.container
     .queryAll((node) => node.props.d === group.outline && node.props.strokeWidth == null
       && node.props.fill != null && node.props.fill !== 'none' && !insideClip(node))

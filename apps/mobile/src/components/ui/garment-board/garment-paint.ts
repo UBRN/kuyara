@@ -277,7 +277,12 @@ function groupSize(silhouette: Silhouette, index: number): number {
   const values = (silhouette.groups[index].outline.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
   const xs = values.filter((_, at) => at % 2 === 0);
   const ys = values.filter((_, at) => at % 2 === 1);
-  const size = Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const measured = Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  // The pairing reads absolute coordinates only; an outline it cannot measure (no numbers, or
+  // a lone H or V) takes the drawing's own bounds rather than an infinite or zero size.
+  const size = Number.isFinite(measured) && measured > 0
+    ? measured
+    : Math.min(silhouette.bounds.width, silhouette.bounds.height);
   sizes.set(key, size);
   return size;
 }
