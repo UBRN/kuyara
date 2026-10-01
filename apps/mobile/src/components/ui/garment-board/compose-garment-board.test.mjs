@@ -300,3 +300,15 @@ test('the piece shadow scales with its board and stays inside the lower margin',
   // Darker than the plane in both appearances, by more in light, where the plane is lighter.
   assert.ok(garmentShadowRule.step.light < garmentShadowRule.step.dark && garmentShadowRule.step.dark < 0);
 });
+
+test('on the open board a wide layer never shrinks the footwear below its own width rule', () => {
+  const categories = { one_piece: 'one_piece', outer_layer: 'outerwear', footwear: 'footwear' };
+  const pieces = [['one_piece', 'knit_dress'], ['outer_layer', 'rain_jacket'], ['footwear', 'loafers']]
+    .map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+  const result = composeGarmentBoard(pieces, detailPreset);
+  const box = (slot) => result.boxes.get(pieces.find((piece) => piece.slot === slot));
+  const expected = Math.min(detailPreset.footWidth * box('one_piece').w, detailPreset.railCap);
+  assert.ok(Math.abs(box('footwear').w - expected) < 1e-9);
+  // The jacket alone still takes the shared rail scale.
+  assert.ok(box('outer_layer').w <= detailPreset.railCap + 1e-9);
+});

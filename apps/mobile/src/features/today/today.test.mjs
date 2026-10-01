@@ -8,6 +8,7 @@ import {
   todayWeatherSnapshot,
 } from './__tests__/fixtures.ts';
 import {
+  createDetailBadgeLayout,
   createDetailCaptionLayout,
   createTodayPresentation,
   formatDressingDate,
@@ -957,4 +958,16 @@ test('a weather update that leaves the outfits alone hands each board the pieces
   assert.equal(warmer[0].boardPieces, before[0].boardPieces);
   assert.notEqual(warmer[0].palette, before[0].palette);
   assert.equal(warmer[0].palette.temperatureC, todayScreenState.snapshot.weather.current.temperatureCelsius + 9);
+});
+
+test('a detail badge overhangs a garment\'s corner and stands above a piece shorter than itself', () => {
+  assert.deepEqual(
+    createDetailBadgeLayout({ slot: 'one_piece', garmentTypeId: 'dress', x: 100, y: 20, width: 80, height: 100 }),
+    { left: 180 - 28 * 2 / 3, top: 20 - 28 / 3 },
+  );
+  // A loafer 52 points long and 20 tall: the badge clears it entirely.
+  const loafer = { slot: 'footwear', garmentTypeId: 'loafers', x: 240, y: 200, width: 52, height: 20 };
+  const badge = createDetailBadgeLayout(loafer);
+  assert.ok(badge.top + 28 <= loafer.y);
+  assert.equal(badge.left + 28, loafer.x + loafer.width);
 });

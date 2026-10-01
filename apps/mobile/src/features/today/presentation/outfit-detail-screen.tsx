@@ -56,8 +56,10 @@ import {
   type PiecePickerTarget,
 } from '@/features/today/presentation/piece-picker-sheet';
 import {
+  createDetailBadgeLayout,
   createDetailCaptionLayout,
   createTodayPresentation,
+  DETAIL_BADGE_SIZE,
 } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
@@ -84,8 +86,7 @@ const ACCESSORY_ARTWORK_SIZE = 28;
 // A piece row's thumbnail, and the smaller drawing of the user's own similar piece.
 const ROW_TILE_SIZE = 56;
 const OWN_TILE_SIZE = 32;
-// The ownership badge at a board garment's corner: a 16-point glyph on a 28-point disc.
-const BADGE_SIZE = 28;
+// The ownership badge's glyph, on a `DETAIL_BADGE_SIZE` disc at a board garment's corner.
 const BADGE_GLYPH_SIZE = 16;
 const SWATCH_DOT_SIZE = 16;
 // A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
@@ -552,8 +553,7 @@ export function OutfitDetailScreen({
         style={[styles.badge, {
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.borderDefined,
-          left: box.x + box.width - BADGE_SIZE * 2 / 3,
-          top: box.y - BADGE_SIZE / 3,
+          ...createDetailBadgeLayout(box),
         }]}
         testID={`outfit-detail-badge-${box.garmentTypeId}`}>
         <Icon color={theme.colors.brandAccent} name={matchIcons[entry.match.kind]} size={BADGE_GLYPH_SIZE} />
@@ -1052,12 +1052,12 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignItems: 'center',
-    borderRadius: BADGE_SIZE / 2,
+    borderRadius: DETAIL_BADGE_SIZE / 2,
     borderWidth: borderWidths.subtle,
-    height: BADGE_SIZE,
+    height: DETAIL_BADGE_SIZE,
     justifyContent: 'center',
     position: 'absolute',
-    width: BADGE_SIZE,
+    width: DETAIL_BADGE_SIZE,
   },
   boardLine: {
     alignItems: 'center',

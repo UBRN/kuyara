@@ -1209,8 +1209,8 @@ const en = {
     fresh: 'Fresh',
     stale: 'May be out of date',
     updatedAt: (time) => `Last updated at ${time}`,
-    feelsLike: (temperature) => `Feels like ${temperature}`,
-    range: (minimum, maximum) => `Low ${minimum} · High ${maximum}`,
+    feelsLike: (temperature) => `Feels\u00a0like\u00a0${temperature}`,
+    range: (minimum, maximum) => `Low\u00a0${minimum} · High\u00a0${maximum}`,
     currentConditionsAccessibilityLabel: ({
       condition,
       unitName,
@@ -1487,7 +1487,7 @@ const en = {
     otherOptionsHeading: 'Alternative outfits',
     tomorrow: {
       heading: 'Tomorrow',
-      weather: ({ condition, minimum, maximum }) => `${condition} · Low ${minimum} · High ${maximum}`,
+      weather: ({ condition, minimum, maximum }) => `${condition} · Low\u00a0${minimum} · High\u00a0${maximum}`,
       weatherAccessibilityLabel: ({ condition, minimum, maximum, unitName }) =>
         `${condition}. Low ${minimum} ${unitName}, high ${maximum} ${unitName}.`,
     },
@@ -1504,8 +1504,8 @@ const en = {
     ownershipYours: (color) => `Yours: ${color}`,
     ownershipOnBoard: {
       owned: 'In your Closet',
-      similar: 'Similar one in your Closet',
-      wanted: 'In your wanted pieces',
+      similar: 'Similar one in your\u00a0Closet',
+      wanted: 'In your wanted\u00a0pieces',
     },
     boardHint: 'Tap a piece, then swipe to change it.',
     editPieceAccessibilityHint: 'Opens this piece in your Closet',
@@ -2219,8 +2219,8 @@ const tr = {
     fresh: 'Güncel',
     stale: 'Güncelliğini yitirmiş olabilir',
     updatedAt: (time) => `Son güncelleme ${time}`,
-    feelsLike: (temperature) => `Hissedilen ${temperature}`,
-    range: (minimum, maximum) => `En düşük ${minimum} · En yüksek ${maximum}`,
+    feelsLike: (temperature) => `Hissedilen\u00a0${temperature}`,
+    range: (minimum, maximum) => `En\u00a0düşük\u00a0${minimum} · En\u00a0yüksek\u00a0${maximum}`,
     currentConditionsAccessibilityLabel: ({
       condition,
       unitName,
@@ -2499,7 +2499,7 @@ const tr = {
     otherOptionsHeading: 'Alternatif kombinler',
     tomorrow: {
       heading: 'Yarın',
-      weather: ({ condition, minimum, maximum }) => `${condition} · En düşük ${minimum} · En yüksek ${maximum}`,
+      weather: ({ condition, minimum, maximum }) => `${condition} · En\u00a0düşük\u00a0${minimum} · En\u00a0yüksek\u00a0${maximum}`,
       weatherAccessibilityLabel: ({ condition, minimum, maximum, unitName }) =>
         `${condition}. En düşük ${minimum} ${unitName}, en yüksek ${maximum} ${unitName}.`,
     },
