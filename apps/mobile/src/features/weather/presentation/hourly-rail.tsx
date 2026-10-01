@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -9,7 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
-import { AppText, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
+import { AppText, DrawReveal, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
 import type { Daypart } from '@/features/today/domain/atmosphere-state';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
@@ -47,8 +48,17 @@ export type HourlyRailColumn = Readonly<{
   precipitationProbability: number;
 }>;
 
-export function HourlyRail({ columns }: Readonly<{ columns: readonly HourlyRailColumn[] }>) {
+export type HourlyRailProps = Readonly<{
+  columns: readonly HourlyRailColumn[];
+  /** True when this forecast is the first to reach the screen: the series draws in once. */
+  drawIn?: boolean;
+  /** Holds the drawing at its start while the tab is not yet shown. */
+  waiting?: boolean;
+}>;
+
+export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyRailProps) {
   const theme = useKuyaraTheme();
+  const { width: windowWidth } = useWindowDimensions();
   const { controlScale, fontScale } = useTextScaling();
   // The plot band's offset inside a column depends on the scaled line boxes above it, so
   // it is measured once from the first column rather than recomputed from type tokens.
@@ -88,35 +98,44 @@ export function HourlyRail({ columns }: Readonly<{ columns: readonly HourlyRailC
         testID="weather-hourly-rail">
         <View style={{ width: contentWidth }}>
           {path !== '' && bandTop !== null ? (
-            <Svg
-              accessibilityElementsHidden
-              height={bandHeight}
-              importantForAccessibility="no-hide-descendants"
-              pointerEvents="none"
+            // The series draws from the first hour across the hours in view; the
+            // temperatures above it are drawn from the start.
+            <DrawReveal
+              play={drawIn}
+              span={Math.min(contentWidth, windowWidth)}
               style={[styles.series, { top: bandTop }]}
-              testID="weather-hourly-series"
+              testID="weather-hourly-series-reveal"
+              waiting={waiting}
               width={contentWidth}>
-              <Path
-                d={path}
-                fill="none"
-                stroke={theme.colors.brandAccent}
-                strokeLinecap="round"
-                strokeWidth={2}
-                testID="weather-hourly-series-line"
-              />
-              {points.map((point, index) => (
-                <Circle
-                  cx={point.x}
-                  cy={point.y}
-                  // The first dot is the current hour: filled and a little larger.
-                  fill={index === 0 ? theme.colors.brandAccent : cardFill}
-                  key={columns[index].key}
-                  r={index === 0 ? NOW_DOT_RADIUS : DOT_RADIUS}
+              <Svg
+                accessibilityElementsHidden
+                height={bandHeight}
+                importantForAccessibility="no-hide-descendants"
+                pointerEvents="none"
+                testID="weather-hourly-series"
+                width={contentWidth}>
+                <Path
+                  d={path}
+                  fill="none"
                   stroke={theme.colors.brandAccent}
+                  strokeLinecap="round"
                   strokeWidth={2}
+                  testID="weather-hourly-series-line"
                 />
-              ))}
-            </Svg>
+                {points.map((point, index) => (
+                  <Circle
+                    cx={point.x}
+                    cy={point.y}
+                    // The first dot is the current hour: filled and a little larger.
+                    fill={index === 0 ? theme.colors.brandAccent : cardFill}
+                    key={columns[index].key}
+                    r={index === 0 ? NOW_DOT_RADIUS : DOT_RADIUS}
+                    stroke={theme.colors.brandAccent}
+                    strokeWidth={2}
+                  />
+                ))}
+              </Svg>
+            </DrawReveal>
           ) : null}
           <View style={styles.columns}>
             {columns.map((column, index) => {
