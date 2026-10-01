@@ -1,6 +1,7 @@
-import { act, fireEvent, render, within } from '@testing-library/react-native';
+import { act, fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { AccessibilityInfo, Keyboard, Text } from 'react-native';
+import { AccessibilityInfo, Keyboard, StyleSheet, Text } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import type { PlaceSearchV1Data } from '@kuyara/contracts';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -382,4 +383,34 @@ test('the onboarding place step never navigates when a place is chosen', async (
   expect(search.selectPlaceSearchResult).toHaveBeenCalledTimes(1);
   expect(mockRouter.back).not.toHaveBeenCalled();
   expect(mockRouter.replace).not.toHaveBeenCalled();
+});
+
+// Law 7: a new search status crossfades in over the old rather than snapping, and the results
+// fade in on `motion.fast` when they appear rather than popping in. Only the new status is
+// spoken, with its live region.
+test('the search status crossfades and the results fade in when they appear', async () => {
+  const { search, Providers } = harness();
+  const copy = messages.en.weather;
+  const withTiming = jest.spyOn(Reanimated, 'withTiming');
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  search.searchPlaces.mockResolvedValueOnce({ ...data, places: [] });
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  const resultsOpacity = () =>
+    StyleSheet.flatten(result.getByTestId('weather-place-results').parent!.props.style).opacity;
+  expect(resultsOpacity()).toBe(0);
+  const field = result.getByTestId('weather-place-search');
+  await fireEvent.changeText(field, 'Zzz'); await debounce();
+  expect(result.getByLabelText(copy.placeSearchEmpty)).toBeOnTheScreen();
+
+  withDelay.mockClear();
+  await fireEvent.changeText(field, 'Ista');
+  expect(withDelay).toHaveBeenCalledWith(lightTheme.motion.fast, expect.anything());
+  const spoken = result.getAllByLabelText(/./).filter((node) => node.props.accessibilityLiveRegion === 'polite'
+    && !isHiddenFromAccessibility(node));
+  expect(spoken.map((node) => node.props.accessibilityLabel)).toEqual([copy.placeSearchLoading]);
+
+  withTiming.mockClear();
+  await debounce();
+  expect(result.getByText(copy.placeSearchAttribution)).toBeOnTheScreen();
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
 });
