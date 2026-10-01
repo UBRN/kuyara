@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, isHiddenFromAccessibility, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { AccessibilityInfo, Dimensions, Linking, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
@@ -437,25 +437,30 @@ test('a new piece opens on the preview, the two ownership cards and six category
   );
 });
 
-// Law 7: picking a type is news, so the chosen-type row and then the colour section arrive;
-// a piece opened for editing already has both, drawn at rest.
-test('picking a type brings the chosen row and the colour section in; an edit opens at rest', async () => {
-  // The test mock lands every spring at once; hold the landing to read the first frame.
-  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
-  const delays = jest.spyOn(Reanimated, 'withDelay');
-  const arriving = { opacity: 0, transform: [{ translateY: spacing.md }] };
-  const wrapperStyle = (result: Awaited<ReturnType<typeof render>>, testID: string) =>
-    StyleSheet.flatten(result.getByTestId(testID).parent!.props.style) ?? {};
+// Law 7: picking a type draws the chosen row at once in the grid's place, with no blank
+// frame, and the colour section opens in place under it; "Change" fades the grid back in and
+// closes the colour section until a type is picked again. A piece opened for editing already
+// has both, drawn at rest.
+test('picking a type opens the colour section in place; Change fades the grid in and closes it', async () => {
+  const timings = jest.spyOn(Reanimated, 'withTiming');
+  const presenceStyle = (result: Awaited<ReturnType<typeof render>>) =>
+    StyleSheet.flatten(result.getByTestId('wardrobe-color-section').parent!.parent!.parent!.props.style) ?? {};
 
   const created = await render(<CreateForm clothingPreference="womens" />);
   await fireEvent.press(created.getByTestId('wardrobe-type-category-tile-bottom'));
-  delays.mockClear();
   await fireEvent.press(created.getByTestId('wardrobe-type-jeans'));
-  expect(wrapperStyle(created, 'wardrobe-type-row')).toMatchObject(arriving);
-  expect(wrapperStyle(created, 'wardrobe-color-section')).toMatchObject(arriving);
-  // The colour section follows the row one stagger step later, in reading order.
-  expect(delays).toHaveBeenCalledWith(0, expect.anything());
-  expect(delays).toHaveBeenCalledWith(lightTheme.motion.stagger, expect.anything());
+  const row = StyleSheet.flatten(created.getByTestId('wardrobe-type-row').parent!.props.style) ?? {};
+  expect(row.opacity).toBeUndefined();
+  // The block opens from closed: its height is animated, never drawn at rest.
+  expect(presenceStyle(created)).toHaveProperty('height');
+
+  timings.mockClear();
+  await fireEvent.press(created.getByTestId('wardrobe-type-change-button'));
+  expect(timings).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(created.getByTestId('wardrobe-color-section', { includeHiddenElements: true })).toBeTruthy();
+  expect(isHiddenFromAccessibility(
+    created.getByTestId('wardrobe-color-section', { includeHiddenElements: true }),
+  )).toBe(true);
   await created.unmount();
 
   const edited = await render(
@@ -464,10 +469,8 @@ test('picking a type brings the chosen row and the colour section in; an edit op
         onDirtyChange={() => undefined} onUpdate={async () => undefined} />
     </TestProviders>,
   );
-  expect(wrapperStyle(edited, 'wardrobe-type-row').opacity).toBeUndefined();
-  expect(wrapperStyle(edited, 'wardrobe-color-section').opacity).toBeUndefined();
-  delays.mockRestore();
-  withSpring.mockRestore();
+  expect(presenceStyle(edited)).not.toHaveProperty('height');
+  timings.mockRestore();
 });
 
 test('the toolbar pair names where the piece goes and Cancel leaves through the guard', async () => {

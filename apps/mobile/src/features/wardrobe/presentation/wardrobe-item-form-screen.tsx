@@ -5,10 +5,10 @@ import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import {
   AppText,
   Button,
-  Entrance,
   garmentUsualColorFamilies,
   haptics,
   Icon,
+  Presence,
   Screen,
   Surface,
 } from '@/components/ui';
@@ -219,7 +219,8 @@ export function WardrobeItemFormScreen({
   const discardStagedPhotoRef = useRef(onDiscardStagedPhoto);
   const isProcessingPhoto = processingSource !== null;
   const busy = isBusy || isSaving || isDeleting || isProcessingPhoto;
-  const [colorSectionOnMount] = useState(values.garmentTypeId !== null);
+  // The type grid is open: on a new piece until a type is picked, and again after "Change".
+  const [browsingTypes, setBrowsingTypes] = useState(values.garmentTypeId === null);
   const selectedType = values.garmentTypeId
     ? getGarmentType(values.garmentTypeId)
     : null;
@@ -464,8 +465,9 @@ export function WardrobeItemFormScreen({
   } as const;
   const colorName = closetColorName(messages, values.colorChoice, values.colorFamily);
 
-  // Law 7: the colour section arrives once a type is chosen, after the chosen-type row
-  // above it. A section already there when the form opens is drawn at rest.
+  // Law 7: the colour section opens in place once a type is chosen, and closes while the
+  // type grid is open again, so the content under it glides instead of jumping. A section
+  // already there when the form opens is drawn at rest.
   const colorSection = (
     <View style={styles.section} testID="wardrobe-color-section">
       <View style={styles.heading}>
@@ -587,14 +589,19 @@ export function WardrobeItemFormScreen({
             colorFamily={values.colorFamily}
             disabled={busy}
             initialCategory={item?.category ?? defaultCategory}
+            onExpandedChange={setBrowsingTypes}
             onSelect={selectType}
             selectedTypeId={values.garmentTypeId}
           />
         </View>
 
-        {selectedType ? (
-          colorSectionOnMount ? colorSection : <Entrance index={1}>{colorSection}</Entrance>
-        ) : null}
+        {/* A closed block still takes a slot in the form's gap, so the block carries that gap
+            itself and the slot gives it back. */}
+        <View style={styles.closingSection}>
+          <Presence visible={selectedType !== null && !browsingTypes}>
+            {selectedType ? <View style={styles.closingSectionBody}>{colorSection}</View> : null}
+          </Presence>
+        </View>
 
         <View style={styles.section}>
           <SectionHeading heading={copy.nameLabel} tag={copy.optionalTag} variant="bodyStrong" />
@@ -651,6 +658,12 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.sm,
+  },
+  closingSection: {
+    marginTop: -spacing.md,
+  },
+  closingSectionBody: {
+    paddingTop: spacing.md,
   },
   sectionLabel: {
     gap: spacing.xs,
