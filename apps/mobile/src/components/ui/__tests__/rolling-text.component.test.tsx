@@ -31,7 +31,12 @@ async function layOut(result: Result, text: string, fitted: number, natural = fi
 const measureNew = (result: Result, width: number) => fireEvent(
   result.getByTestId('rolling-text-measure', hidden), 'layout', { nativeEvent: { layout: { width } } },
 );
-const footprintOf = (result: Result) => StyleSheet.flatten(result.root!.props.style) ?? {};
+const clipOf = (result: Result) => StyleSheet.flatten(
+  result.getByTestId('rolling-text-clip', hidden).props.style,
+) ?? {};
+const footprintOf = (result: Result) => StyleSheet.flatten(
+  result.getByTestId('rolling-text-frame', hidden).props.style,
+) ?? {};
 
 test('a value shown on mount is drawn at rest, as one text', async () => {
   const withTiming = jest.spyOn(Reanimated, 'withTiming');
@@ -87,12 +92,14 @@ test('a value that loses a digit holds its old width as the roll starts, so the 
   );
   const result = await render(hero('11.4°', 11.4));
   await layOut(result, '11.4°', 150);
-  expect(footprintOf(result).marginRight ?? 0).toBe(0);
+  expect(result.queryByTestId('rolling-text-frame', hidden)).toBeNull();
 
   await result.rerender(hero('8.4°', 8.4));
   await measureNew(result, 120);
   // The new text lays out at 120; the footprint keeps the old 150 until the roll moves it.
   expect(footprintOf(result).marginRight).toBe(30);
+  // The roll is drawn inside the old width, so the wider old value never reaches the label.
+  expect(clipOf(result).width).toBe(150);
   // The old value rolls as one piece, at least as wide as it was, from where it stood.
   expect(result.getByText('11.4°', hidden)).toBeTruthy();
   withTiming.mockRestore();
@@ -111,9 +118,13 @@ test('a value that gains a digit starts from its old width too, and the gap clos
   await result.rerender(hero('10.4°', 10.4));
   await measureNew(result, 150);
   expect(footprintOf(result).marginRight).toBe(-30);
+  // The wider new value is drawn inside the width the label has made room for so far.
+  expect(clipOf(result).width).toBe(120);
 
   await act(() => landings.forEach((land) => land(true)));
-  expect(footprintOf(result).marginRight ?? 0).toBe(0);
+  // At rest the value is one plain text again, holding only its own width.
+  expect(result.queryByTestId('rolling-text-frame', hidden)).toBeNull();
+  expect(result.getByText('10.4°')).toBeOnTheScreen();
   withTiming.mockRestore();
 });
 
