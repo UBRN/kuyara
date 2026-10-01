@@ -76,6 +76,7 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
       updateMorningBriefingOptIn,
       markWeatherAlertOfferShown,
       markWalkthroughSeen: () => controller.markWalkthroughSeen(),
+      markSwapHintShown: () => controller.markSwapHintShown(),
       updateAnalyticsConsent,
     }),
     [

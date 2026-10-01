@@ -28,7 +28,7 @@ const deviceOnly = {
     'singleton_key', 'id', 'birth_date', 'language_preference', 'theme_preference',
     'onboarding_completed', 'notifications_opt_in', 'analytics_consent',
     'weather_alert_offer_shown', 'morning_briefing_opt_in', 'name_prompt_version',
-    'morning_sheet_enabled', 'easier_to_see', 'walkthrough_version',
+    'morning_sheet_enabled', 'easier_to_see', 'walkthrough_version', 'swap_hint_shown',
   ],
   wardrobe_items: ['local_profile_id', 'photo_relative_path'],
   dressing_day_choices: ['local_profile_id'],

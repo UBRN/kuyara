@@ -191,7 +191,7 @@ The profile migration and data-source tests use Node 24's built-in in-memory SQL
 
 Production still opens Expo SQLite on device. The Node adapter is test infrastructure only and must not become an application persistence implementation.
 
-Migration tests verify empty-database application through schema 19, upgrades from frozen build 14 schema 16, re-entry and schema equality against frozen build 15 schema 19, row preservation across existing tables, constraints, and rollback without data deletion or version advancement. Profile tests cover notification and analytics defaults, persistence, mapping, and preference propagation alongside the profile lifecycle.
+Migration tests verify empty-database application through schema 19, upgrades from frozen build 14 schema 16, re-entry and schema equality against frozen build 15 schema 19 and build 16 schema 22, row preservation across existing tables, constraints, and rollback without data deletion or version advancement. Profile tests cover notification and analytics defaults, persistence, mapping, and preference propagation alongside the profile lifecycle.
 
 Wardrobe persistence tests execute the production migrations through the current schema while covering the version 3 wardrobe contract: foreign-key/category/enum constraints, version 2 row preservation, rollback, UUID creation, profile isolation, explicit domain-record mapping, active list/get behavior, taxonomy and nullable-override round trips, lifecycle preservation, atomic soft deletion, missing/deleted write behavior, relative photo-path validation, bound parameters, and sanitized repository errors. Deleted rows must disappear from default reads while remaining available only through the explicit include-deleted operation.
 

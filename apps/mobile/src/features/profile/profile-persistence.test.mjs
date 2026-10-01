@@ -36,6 +36,7 @@ const createRecord = (overrides = {}) => ({
   morningSheetEnabled: 1,
   easierToSee: 0,
   walkthroughVersion: 0,
+  swapHintShown: 0,
   styleAesthetics: '[]',
   analyticsConsent: 'undecided',
   createdAt,
@@ -167,6 +168,39 @@ for (const walkthroughVersionValue of [-1, 1.5, '1']) {
   test(`a record with the tour gate ${JSON.stringify(walkthroughVersionValue)} is rejected as invalid data`, async () => {
     const repository = new LocalProfileRepository({
       getOrCreateProfile: async () => createRecord({ walkthroughVersion: walkthroughVersionValue }),
+    });
+    await assert.rejects(
+      () => repository.getOrCreateProfile(),
+      (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data',
+    );
+  });
+}
+
+// The outfit detail's swipe hint plays once for life: its flag starts unset on a new profile,
+// the first play stores it through the SQLite data source and the repository mapper, it
+// survives a reopen, and a corrupt stored value is refused.
+test('the swipe hint flag starts unset, stores once played, and survives a reopen', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  assert.equal((await repository.getOrCreateProfile()).swapHintShown, false);
+  assert.equal((await repository.markSwapHintShown()).swapHintShown, true);
+  assert.equal((await database.getFirstAsync('SELECT swap_hint_shown FROM local_profiles'))
+    .swap_hint_shown, 1);
+  const reopened = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused', now: () => updatedAt,
+  }));
+  const after = await reopened.getOrCreateProfile();
+  assert.equal(after.swapHintShown, true);
+  // The flag is independent of every other profile field.
+  assert.deepEqual({ ...after, swapHintShown: false, updatedAt: createdAt },
+    { ...await new LocalProfileRepository({ getOrCreateProfile: async () => createRecord({
+      id: after.id }) }).getOrCreateProfile() });
+});
+
+for (const swapHintShownValue of [2, -1, '1']) {
+  test(`a record with the swipe hint flag ${JSON.stringify(swapHintShownValue)} is rejected as invalid data`, async () => {
+    const repository = new LocalProfileRepository({
+      getOrCreateProfile: async () => createRecord({ swapHintShown: swapHintShownValue }),
     });
     await assert.rejects(
       () => repository.getOrCreateProfile(),
