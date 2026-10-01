@@ -3,6 +3,7 @@ import { StyleSheet, Text } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
 import { Entrance } from '@/components/ui/entrance';
+import { PUSH_WINDOW_MS } from '@/components/ui/use-single-push';
 import { useTransitionLanded } from '@/components/ui/use-transition-landed';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
@@ -67,4 +68,21 @@ test("a navigator's first screen was not pushed and arrives at once", async () =
   expect(withSpring).toHaveBeenCalledWith(0, lightTheme.springs.spatial, expect.any(Function));
   expect(mockNavigation.listeners).toHaveLength(0);
   withSpring.mockRestore();
+});
+
+test('a pushed screen that never hears its push end still lands once a push would have finished', async () => {
+  jest.useFakeTimers();
+  mockNavigation.index = 1;
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
+  const result = await render(screen);
+  expect(withSpring).not.toHaveBeenCalled();
+  expect(StyleSheet.flatten(result.toJSON()!.props.style).opacity).toBe(0);
+
+  await act(() => jest.advanceTimersByTime(PUSH_WINDOW_MS - 1));
+  expect(withSpring).not.toHaveBeenCalled();
+  await act(() => jest.advanceTimersByTime(1));
+  expect(withSpring).toHaveBeenCalledWith(0, lightTheme.springs.spatial, expect.any(Function));
+  expect(mockNavigation.listeners).toHaveLength(0);
+  withSpring.mockRestore();
+  jest.useRealTimers();
 });

@@ -2,7 +2,7 @@ import { useRouter, type Href } from 'expo-router';
 import { useRef } from 'react';
 
 /** Long enough for the stack's own transition to cover the screen that was pressed. */
-const PUSH_WINDOW_MS = 600;
+export const PUSH_WINDOW_MS = 600;
 
 /**
  * `router.push` that opens a screen once per tap sequence. A stack push always appends, so a
