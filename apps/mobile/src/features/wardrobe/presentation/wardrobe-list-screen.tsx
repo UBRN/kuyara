@@ -1,3 +1,4 @@
+import type { Href } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   FlatList,
@@ -18,6 +19,7 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
+import { useSingleLinkPress } from '@/components/ui/use-single-push';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import {
   structuralCategories,
@@ -61,7 +63,8 @@ type WardrobeListScreenProps = Readonly<{
   /** The item the add flow has just saved, so only that tile arrives. */
   savedItemId?: string | null;
   onAdd: (category: StructuralCategory) => void;
-  onEdit: (id: string) => void;
+  /** The edit form a tile opens; the route owns the path. */
+  itemHref: (id: string) => Href;
   onCategoryChange?: (category: StructuralCategory) => void;
   /**
    * The category on screen once the list is ready, including the one it resolved itself when
@@ -206,8 +209,8 @@ export function WardrobeListScreen({
   initialCategory,
   onAdd,
   onCategoryChange = () => undefined,
+  itemHref,
   onCategoryInView,
-  onEdit,
   onRetry,
   onUndoSaved = async () => undefined,
   resolvePhotoUri = () => null,
@@ -226,6 +229,9 @@ export function WardrobeListScreen({
   const { width: windowWidth } = useWindowDimensions();
   const copy = messages.wardrobe;
   const listRef = useRef<FlatList<ClosetRow>>(null);
+  // Every tile shares one guard, so a quick second tap on the same or another tile opens
+  // nothing more while the first form is on its way.
+  const singleTilePress = useSingleLinkPress();
   const stripRef = useRef<ScrollView>(null);
   const tabOffsets = useRef<Partial<Record<StructuralCategory, number>>>({});
   const revealHandled = useRef(false);
@@ -417,7 +423,8 @@ export function WardrobeListScreen({
         key={item.id}
         messages={messages}
         highlighted={item.id === savedItem?.id}
-        onPress={() => onEdit(item.id)}
+        href={itemHref(item.id)}
+        onPress={singleTilePress}
         resolvePhotoUri={resolvePhotoUri}
         testID={`wardrobe-item-${item.id}`}
       />

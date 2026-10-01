@@ -30,12 +30,20 @@ const mockUseFocusEffect = jest.fn((effect: FocusEffect) => {
   focusEffects.push(effect);
 });
 
+const mockLinkTo = jest.fn();
+jest.mock('expo-router/build/global-state/routing', () => ({
+  ...jest.requireActual('expo-router/build/global-state/routing'),
+  linkTo: (...args: unknown[]) => mockLinkTo(...args),
+}));
+
 jest.mock('expo-router', () => {
   const push = jest.fn();
   const back = jest.fn();
   const setParams = jest.fn();
 
   return {
+    // The Closet's tiles are the library's own links, which navigate through `linkTo` below.
+    Link: jest.requireActual('expo-router').Link,
     useFocusEffect: (effect: FocusEffect) => mockUseFocusEffect(effect),
     useIsFocused: () => true,
     useRouter: () => ({ back, push, setParams }),
@@ -242,7 +250,11 @@ test('selecting an item navigates to its absolute edit route', async () => {
     `${item.name}. ${messages.en.catalog['catalog.garment_type.rain_jacket.name']}`,
   );
   await fireEvent.press(tile);
-  expect(mockPush).toHaveBeenCalledWith(`/wardrobe/${item.id}`);
+  expect(mockLinkTo).toHaveBeenCalledWith(
+    expect.stringMatching(new RegExp(`^/wardrobe/${item.id}\\?`)),
+    expect.objectContaining({ event: 'PUSH' }),
+  );
+  expect(mockPush).not.toHaveBeenCalled();
 });
 
 test('the Wanted row opens the first category holding a wanted piece; a category param wins', async () => {

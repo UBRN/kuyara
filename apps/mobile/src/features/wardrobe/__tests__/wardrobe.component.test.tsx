@@ -95,6 +95,12 @@ let mockPush = jest.fn();
 // O10: the form's Cancel/Save pair is the native header's. The mock renders both toolbar
 // buttons (and Android's header slots) into the tree, so a test presses them as a user
 // presses the bar items.
+const mockLinkTo = jest.fn();
+jest.mock('expo-router/build/global-state/routing', () => ({
+  ...jest.requireActual('expo-router/build/global-state/routing'),
+  linkTo: (...args: unknown[]) => mockLinkTo(...args),
+}));
+
 jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const { Pressable, View } = jest.requireActual('react-native') as typeof import('react-native');
@@ -126,6 +132,8 @@ jest.mock('expo-router', () => {
   const Screen = ({ options }: { options?: { headerLeft?: () => React.ReactNode; headerRight?: () => React.ReactNode } }) =>
     React.createElement(View, null, options?.headerLeft?.(), options?.headerRight?.());
   return {
+    // The Closet's tiles are the library's own links.
+    Link: jest.requireActual('expo-router').Link,
     Stack: { Screen, Toolbar },
     useFocusEffect: (effect: () => void | (() => void)) => {
     mockFocusEffects.push(effect);
@@ -1769,7 +1777,19 @@ test('a quick double tap on the plus button or a Closet tile opens one screen', 
 
   // A second, separate route instance has its own window: the tile press is its own tap.
   const tiles = await render(closetRoute([plainItem]));
-  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`));
-  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`));
-  expect(mockPush.mock.calls.filter(([href]) => href === `/wardrobe/${plainItem.id}`)).toHaveLength(1);
+  // The link skips a press its handler prevented; RNTL's default event never records one.
+  const pressEvent = () => ({
+    defaultPrevented: false,
+    preventDefault(this: { defaultPrevented: boolean }) {
+      this.defaultPrevented = true;
+    },
+  });
+  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`), pressEvent());
+  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`), pressEvent());
+  // A tile is a link, which navigates through the router's `linkTo` rather than `push`.
+  expect(mockLinkTo).toHaveBeenCalledTimes(1);
+  expect(mockLinkTo).toHaveBeenCalledWith(
+    expect.stringMatching(new RegExp(`^/wardrobe/${plainItem.id}\\?`)),
+    expect.objectContaining({ event: 'PUSH' }),
+  );
 });

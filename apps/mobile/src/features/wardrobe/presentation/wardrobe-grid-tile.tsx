@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { Link, type Href } from 'expo-router';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { AppText, GarmentTileArtwork, Icon, PressScale, useTextScaling } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
@@ -51,7 +52,10 @@ export type WardrobeGridTileProps = Readonly<{
   geometry: WardrobeGridTileGeometry;
   item: WardrobeItem;
   messages: AppMessages;
-  onPress: () => void;
+  /** The piece's edit form; on iOS it opens with the system zoom out of this tile's frame. */
+  href: Href;
+  /** Runs before the link navigates; `preventDefault` on the event cancels the navigation. */
+  onPress?: (event: Readonly<{ preventDefault: () => void }>) => void;
   resolvePhotoUri: (relativePath: string | null) => string | null;
   /** O10: the piece just saved wears a 2 point `brandAccent` ring beside its confirmation. */
   highlighted?: boolean;
@@ -61,6 +65,7 @@ export type WardrobeGridTileProps = Readonly<{
 export function WardrobeGridTile({
   geometry,
   highlighted = false,
+  href,
   item,
   messages,
   onPress,
@@ -83,71 +88,77 @@ export function WardrobeGridTile({
   const glyphSize = Math.min(geometry.width, geometry.height) * GLYPH_SIZE_RATIO;
 
   return (
-    // Law 7's press feedback: the tile dims and scales back on `motion.fast`, the same
-    // response Today's alternates give. The opacity is the visible state and the scale
-    // rides on top of it, so motion is never the only indication that the tile is held.
-    <PressScale
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.wrapper,
-        { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
-      ]}
-      testID={testID}>
-      <View
-        style={[
-          styles.tile,
-          geometry,
-          wanted
-            ? [styles.wantedTile, { borderColor: theme.colors.borderDefined }]
-            : { backgroundColor: theme.colors.surfaceMuted },
-          strongEdge,
-          highlighted && [styles.highlightedTile, { borderColor: theme.colors.brandAccent }],
-        ]}
-        testID={testID ? `${testID}-frame` : undefined}>
-        <GarmentTileArtwork
-          photoUri={photoUri}
-          garmentTypeId={item.garmentTypeId}
-          category={item.category}
-          colorFamily={item.colorFamily}
-          width={geometry.width}
-          height={geometry.height}
-          glyphSize={glyphSize}
-          photoTestID={`wardrobe-photo-${item.id}`}
-          silhouetteTestID={`wardrobe-silhouette-${item.id}`}
-          placeholderTestID={`wardrobe-photo-placeholder-${item.id}`}
-          wanted={wanted}
-        />
-        {wanted ? (
+    // The link opens the edit form; on iOS `Link.AppleZoom` grows it out of the tile's
+    // frame and the form shrinks back into it, and elsewhere it is the stack's plain push.
+    // `Link` merges its props into `PressScale` and keeps only an object `style`, so the
+    // pressed opacity is drawn by the inner view, and the zoom frame's style is flattened.
+    <Link asChild href={href} onPress={onPress} push>
+      {/* Law 7's press feedback: the tile dims and scales back on `motion.fast`, the same
+          response Today's alternates give. The opacity is the visible state and the scale
+          rides on top of it, so motion is never the only indication that the tile is held. */}
+      <PressScale accessibilityLabel={accessibilityLabel} role="button" testID={testID}>
+        {({ pressed }) => (
           <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={[
-              styles.wantedBadge,
-              { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderDefined },
-            ]}
-            testID={testID ? `${testID}-wanted-badge` : undefined}>
-            <Icon color={theme.colors.textPrimary} name="heartFilled" size={WANTED_BADGE_ICON_SIZE} />
+            style={[styles.wrapper, { opacity: pressed ? theme.interaction.pressedOpacity : 1 }]}
+            testID={testID ? `${testID}-content` : undefined}>
+            <Link.AppleZoom>
+              <View
+                style={StyleSheet.flatten<ViewStyle>([
+                  styles.tile,
+                  geometry,
+                  wanted
+                    ? [styles.wantedTile, { borderColor: theme.colors.borderDefined }]
+                    : { backgroundColor: theme.colors.surfaceMuted },
+                  strongEdge,
+                  highlighted && [styles.highlightedTile, { borderColor: theme.colors.brandAccent }],
+                ])}
+                testID={testID ? `${testID}-frame` : undefined}>
+                <GarmentTileArtwork
+                  photoUri={photoUri}
+                  garmentTypeId={item.garmentTypeId}
+                  category={item.category}
+                  colorFamily={item.colorFamily}
+                  width={geometry.width}
+                  height={geometry.height}
+                  glyphSize={glyphSize}
+                  photoTestID={`wardrobe-photo-${item.id}`}
+                  silhouetteTestID={`wardrobe-silhouette-${item.id}`}
+                  placeholderTestID={`wardrobe-photo-placeholder-${item.id}`}
+                  wanted={wanted}
+                />
+                {wanted ? (
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={[
+                      styles.wantedBadge,
+                      { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderDefined },
+                    ]}
+                    testID={testID ? `${testID}-wanted-badge` : undefined}>
+                    <Icon color={theme.colors.textPrimary} name="heartFilled" size={WANTED_BADGE_ICON_SIZE} />
+                  </View>
+                ) : null}
+              </View>
+            </Link.AppleZoom>
+            <AppText
+              numberOfLines={usesStackedLayout ? 3 : 2}
+              style={{ width: geometry.width }}
+              variant="label">
+              {title}
+            </AppText>
+            {subline ? (
+              <AppText
+                colorRole="textSecondary"
+                numberOfLines={1}
+                style={{ width: geometry.width }}
+                variant="caption">
+                {subline}
+              </AppText>
+            ) : null}
           </View>
-        ) : null}
-      </View>
-      <AppText
-        numberOfLines={usesStackedLayout ? 3 : 2}
-        style={{ width: geometry.width }}
-        variant="label">
-        {title}
-      </AppText>
-      {subline ? (
-        <AppText
-          colorRole="textSecondary"
-          numberOfLines={1}
-          style={{ width: geometry.width }}
-          variant="caption">
-          {subline}
-        </AppText>
-      ) : null}
-    </PressScale>
+        )}
+      </PressScale>
+    </Link>
   );
 }
 

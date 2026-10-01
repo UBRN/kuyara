@@ -141,7 +141,7 @@ export function WardrobeListRoute({
       }
       onCategoryChange={(category) => router.setParams({ category })}
       onCategoryInView={onCategoryInView}
-      onEdit={(id) => push(`/wardrobe/${id}`)}
+      itemHref={(id) => `/wardrobe/${id}`}
       onRetry={handleRetry}
       // O10's Undo removes the piece just saved, as Delete would; it emits no analytics
       // event of its own (no event change here).
