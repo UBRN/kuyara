@@ -450,14 +450,25 @@ export function garmentPaletteDay(
   };
 }
 
+// A weather update rebuilds Today's presentation while the saved outfits stay the same objects.
+// Handing a board the arrays it already drew lets it skip composing and painting again, so
+// each outfit keeps its pieces, and its palette for as long as the palette day is unchanged.
+const boardPiecesByOutfit = new WeakMap<OutfitCandidate, LoadedOutfitPresentation['boardPieces']>();
+const palettesByOutfit = new WeakMap<RecommendedOutfit, GarmentOutfitPalette>();
+
 /**
  * One outfit's palette inputs, accessories included, so a single resolution colours its
  * board and its finishing-touch badges together. Colour is render-only: nothing here is
  * stored or reaches a recommendation.
  */
 export function outfitGarmentPalette(outfit: RecommendedOutfit, day: GarmentPaletteDay): GarmentOutfitPalette {
-  return {
-    ...day,
+  const kept = palettesByOutfit.get(outfit);
+  if (kept && kept.temperatureC === day.temperatureC && kept.condition === day.condition &&
+      kept.isNight === day.isNight) return kept;
+  const palette: GarmentOutfitPalette = {
+    temperatureC: day.temperatureC,
+    condition: day.condition,
+    isNight: day.isNight,
     optionId: outfit.optionId,
     formality: outfit.formality,
     pieces: [
@@ -468,13 +479,19 @@ export function outfitGarmentPalette(outfit: RecommendedOutfit, day: GarmentPale
       }),
     ],
   };
+  palettesByOutfit.set(outfit, palette);
+  return palette;
 }
 
 /** The pieces a board draws for an outfit, in the board's slot order. */
 export function outfitBoardPieces(outfit: OutfitCandidate): LoadedOutfitPresentation['boardPieces'] {
-  return assignedOutfitGarments(outfit).map(({ garment, slot }) => ({
+  const kept = boardPiecesByOutfit.get(outfit);
+  if (kept) return kept;
+  const pieces = assignedOutfitGarments(outfit).map(({ garment, slot }) => ({
     slot, garmentTypeId: garment.garmentTypeId, category: garment.properties.category,
   }));
+  boardPiecesByOutfit.set(outfit, pieces);
+  return pieces;
 }
 
 function localizeOutfit(
