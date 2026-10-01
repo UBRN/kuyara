@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import * as Reanimated from 'react-native-reanimated';
@@ -155,4 +155,41 @@ test('the captions return as the arrival reaches nine tenths, before its spring 
   expect(opacity()).toBe(1);
   withSpring.mockRestore();
   useAnimatedReaction.mockRestore();
+});
+
+// A change that moves pieces hides the captions in the very commit that hands the board the
+// new pieces or the focus: none is drawn over a moving piece, none is renamed before its piece
+// changes, and they stay laid out so the plate keeps their height.
+test('a change that moves pieces hides the captions in the commit that renames them', async () => {
+  const props = (garmentTypeId: 'sandals' | 'closed_shoes', focusedSlot: 'footwear' | null = null) => {
+    const shoes = withShoes(garmentTypeId);
+    return boardProps({
+      focusedSlot,
+      overlay: <Text>{garmentTypeId}</Text>,
+      overlayTestID: 'captions',
+      pieces: shoes,
+      palette: { ...palette, pieces: shoes.map(({ slot, garmentTypeId: id }) => ({ slot, garmentTypeId: id })) },
+    });
+  };
+  const words = (result: Awaited<ReturnType<typeof render>>) => {
+    const [wrapper] = result.getAllByTestId('captions', { includeHiddenElements: true }).at(-1)!.children;
+    return wrapper as Exclude<typeof wrapper, string>;
+  };
+  const opacityOf = (result: Awaited<ReturnType<typeof render>>) =>
+    StyleSheet.flatten(words(result).props.style).opacity ?? 1;
+  const result = await render(<GarmentSwapBoard {...props('sandals')} />, { wrapper: LightTheme });
+  expect(opacityOf(result)).toBe(1);
+  expect(words(result)).toHaveTextContent('sandals', { exact: true });
+
+  // The pieces are still moving: their springs have not landed.
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((target) => target);
+  await result.rerender(<GarmentSwapBoard {...props('closed_shoes')} />);
+  expect(words(result)).toHaveTextContent('closed_shoes', { exact: true });
+  expect(opacityOf(result)).toBe(0);
+  withSpring.mockRestore();
+
+  // An enlargement hides them the same way.
+  const enlarged = await render(<GarmentSwapBoard {...props('sandals')} />, { wrapper: LightTheme });
+  await enlarged.rerender(<GarmentSwapBoard {...props('sandals', 'footwear')} />);
+  expect(opacityOf(enlarged)).toBe(0);
 });
