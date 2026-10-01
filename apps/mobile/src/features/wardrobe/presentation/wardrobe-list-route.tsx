@@ -31,11 +31,13 @@ export function WardrobeListRoute({
   onCategoryInView,
   revealWanted = false,
   savedItemId,
+  transitionLanded,
 }: Readonly<{
   initialCategory?: StructuralCategory;
   onCategoryInView?: (category: StructuralCategory) => void;
   revealWanted?: boolean;
   savedItemId?: string | null;
+  transitionLanded?: boolean;
 }> = {}) {
   const router = useRouter();
   const push = useSinglePush();
@@ -150,6 +152,7 @@ export function WardrobeListRoute({
       revealWanted={revealWanted}
       savedItemId={savedItemId}
       state={state}
+      transitionLanded={transitionLanded}
     />
   );
 }

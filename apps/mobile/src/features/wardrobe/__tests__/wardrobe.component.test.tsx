@@ -133,6 +133,7 @@ jest.mock('expo-router', () => {
   useNavigation: () => ({
     addListener: () => () => undefined,
     dispatch: () => undefined,
+    getState: () => ({ index: 0 }),
   }),
   useIsFocused: () => true,
   useLocalSearchParams: () => mockSearchParams,

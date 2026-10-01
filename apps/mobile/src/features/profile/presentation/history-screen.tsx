@@ -17,14 +17,17 @@ type HistoryScreenProps = Readonly<{
   /** Newest first; null while the first read is running. */
   entries: readonly HistoryEntry[] | null;
   loadFailed: boolean;
+  /** False while the push onto History is still moving: the content arrives once it lands. */
+  transitionLanded?: boolean;
 }>;
 
 /**
  * ADR 0038: the looks the reader chose to wear, one per dressing day, newest first. Each
  * entry's title is its date. No streak, count or penalty. Law 7: the content arrives in
- * reading order, and a refocus re-read brings in only an entry that is new.
+ * reading order once the push has landed, and a refocus re-read brings in only an entry that
+ * is new.
  */
-export function HistoryScreen({ entries, loadFailed }: HistoryScreenProps) {
+export function HistoryScreen({ entries, loadFailed, transitionLanded = true }: HistoryScreenProps) {
   const { language, messages } = useLocalization();
   const theme = useKuyaraTheme();
   const copy = messages.profile;
@@ -47,7 +50,7 @@ export function HistoryScreen({ entries, loadFailed }: HistoryScreenProps) {
   if (entries.length === 0) {
     return (
       <Screen testID="history-screen">
-        <Entrance>
+        <Entrance waiting={!transitionLanded}>
           <View style={styles.empty} testID="history-empty">
             <AppText accessibilityRole="header" style={styles.centered} variant="title">
               {copy.historyEmptyTitle}
@@ -61,7 +64,7 @@ export function HistoryScreen({ entries, loadFailed }: HistoryScreenProps) {
 
   return (
     <Screen testID="history-screen">
-      <Entrance>
+      <Entrance waiting={!transitionLanded}>
         <AppText colorRole="textSecondary" variant="caption">{copy.historyIntro}</AppText>
       </Entrance>
       <View testID="history-list">
@@ -74,7 +77,7 @@ export function HistoryScreen({ entries, loadFailed }: HistoryScreenProps) {
           const core = outfit.garments.one_piece ?? outfit.garments.primary_top;
           const coreType = core ? getGarmentType(core) : undefined;
           return (
-            <Entrance index={index + 1} key={dayKey}>
+            <Entrance index={index + 1} key={dayKey} waiting={!transitionLanded}>
               <View
                 accessible
                 style={[styles.row, index > 0 && {
