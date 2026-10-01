@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -13,13 +13,17 @@ export type CrossfadeProps = Readonly<{
   testID?: string;
 }>;
 
-/** Content that fades in when it replaces other content (effects motion), still on mount. */
+/**
+ * Content that fades in when it replaces other content (effects motion), still on mount. It
+ * waits until the leaving content is gone, so two lines of text are never drawn over each other.
+ */
 function FadeIn({ animate, children }: Readonly<{ animate: boolean; children: ReactNode }>) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue(animate ? 0 : 1);
   useEffect(() => {
-    opacity.set(withTiming(1, { duration: theme.motion.normal }));
-  }, [opacity, theme.motion.normal]);
+    if (!animate) return;
+    opacity.set(withDelay(theme.motion.fast, withTiming(1, { duration: theme.motion.normal })));
+  }, [animate, opacity, theme.motion.fast, theme.motion.normal]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   return <Animated.View pointerEvents="box-none" style={style}>{children}</Animated.View>;
 }
@@ -49,9 +53,9 @@ type Layers = Readonly<{ key: string; shown: ReactNode; leaving: ReactNode; chan
 
 /**
  * Content that changes in place (Law 7, a state change on something already on screen): the
- * old content leaves on `fast` over the new, which arrives on `normal`. Each change mounts
- * both layers afresh, so the new content's first frame is transparent and the old one's is
- * whole. Content there on mount is drawn at rest, and the same key re-renders in place. The
+ * old content leaves on `fast`, and the new arrives on `normal` once it has gone, so the two
+ * never double-expose. Each change mounts both layers afresh, so the new content's first
+ * frame is transparent and the old one's is whole. Content there on mount is drawn at rest, and the same key re-renders in place. The
  * leaving layer is out of the reading order and takes no touch, so a screen reader meets
  * only the new content.
  */
