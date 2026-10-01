@@ -85,7 +85,7 @@ export type TractionRequirement = RequirementBase<
   Exclude<TractionSuitability, 'everyday'>
 > & Readonly<{ kind: 'traction' }>;
 
-export const extremityCoverTargets = Object.freeze([
+const extremityCoverTargets = Object.freeze([
   'head',
   'neck',
   'hands',

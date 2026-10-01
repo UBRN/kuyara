@@ -37,7 +37,7 @@ export function createWeatherProvider(): WeatherProvider {
   }
 }
 
-export function createPlaceSearch(): SearchPlaces {
+function createPlaceSearch(): SearchPlaces {
   try {
     const source = new WorkerPlaceSearchDataSource({
       baseUrl: resolveAppWorkerBaseUrl(),

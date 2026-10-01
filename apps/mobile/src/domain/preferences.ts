@@ -1,10 +1,10 @@
 export const clothingPreferences = ['womens', 'mens'] as const;
 export type ClothingPreference = (typeof clothingPreferences)[number];
 
-export const languagePreferences = ['system', 'tr', 'en'] as const;
+const languagePreferences = ['system', 'tr', 'en'] as const;
 export type LanguagePreference = (typeof languagePreferences)[number];
 
-export const themePreferences = ['system', 'light', 'dark'] as const;
+const themePreferences = ['system', 'light', 'dark'] as const;
 export type ThemePreference = (typeof themePreferences)[number];
 
 export function isClothingPreference(value: unknown): value is ClothingPreference {

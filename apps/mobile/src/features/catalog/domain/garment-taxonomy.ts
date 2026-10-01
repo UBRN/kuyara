@@ -140,7 +140,7 @@ export const coverageSchema = z.enum(coverageLevels);
 export const tractionSuitabilitySchema = z.enum(tractionSuitabilities);
 export const colorFamilySchema = z.enum(colorFamilies);
 export const garmentTypeStatusSchema = z.enum(garmentTypeStatuses);
-export const formalitySchema = z.enum(formalityLevels);
+const formalitySchema = z.enum(formalityLevels);
 export const apparelPreferenceApplicabilitySchema = z.enum(clothingPreferences);
 
 export type GarmentTypeId = z.infer<typeof garmentTypeIdSchema>;
@@ -199,7 +199,7 @@ export type GarmentCatalogManifest = Readonly<
     Readonly<{ garmentTypes: readonly GarmentType[] }>
 >;
 
-export const catalogAttributeValues = Object.freeze({
+const catalogAttributeValues = Object.freeze({
   structural_category: structuralCategories,
   layer_role: layerRoles,
   body_region: bodyRegions,

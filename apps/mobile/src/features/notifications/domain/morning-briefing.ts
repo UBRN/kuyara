@@ -24,7 +24,7 @@ import { isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
 /** The briefing fires as quiet hours end, so it can never fall inside them. */
 export const morningBriefingLocalHour = defaultQuietHours.end.hour;
 /** The last hour the projection reads, so the range describes a morning and not a day. */
-export const morningBriefingLastLocalHour = 11;
+const morningBriefingLastLocalHour = 11;
 
 export type MorningBriefingContent = Readonly<{
   minimumTemperatureCelsius: number;

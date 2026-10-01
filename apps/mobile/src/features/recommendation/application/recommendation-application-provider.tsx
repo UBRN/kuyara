@@ -103,7 +103,7 @@ function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
 // it is null on Android, on web and on any build without the native surface, and the routed
 // client then reads the on-device tier as unavailable and goes straight to the Worker with
 // the whole budget. The parameter stays so tests can inject a fake module.
-export function createRecommendationClient(
+function createRecommendationClient(
   module: OnDeviceAiModule | null = onDeviceAiModule,
 ): RoutedAiClient {
   return new RoutedAiClient({
