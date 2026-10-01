@@ -147,7 +147,8 @@ a state the user set and crosses a real threshold.
 - Motion under a screen's hero value. [ADR 0018](0018-the-atmospheric-condition-band.md)
   and [ADR 0021](0021-direction-e-a-visual-first-design-language.md) keep the
   condition-tinted stage still because continuous movement beneath large text is where
-  ambient motion measurably costs readability.
+  ambient motion measurably costs readability. The value itself changing in place is not
+  motion under it: Law 7 lets Weather's temperature roll its changed digits once.
 - Motion as the sole carrier of a state change.
 - Motion that delays the user's decision, other than the cold launch above.
 - An in-app motion toggle.
