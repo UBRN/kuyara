@@ -927,3 +927,34 @@ test('a changed outfit names itself the reader\'s and says where kuyara chose th
     { optionId: pick.optionId, outfit: pick, changedSlots: [] });
   assert.equal(unchanged.generationSource, loadedPresentation().generationSource);
 });
+
+// A weather update rebuilds the screen state with new objects while the saved outfits stay the
+// same. The boards take the very arrays they already drew, so they neither compose nor paint
+// again; a different palette day still gives the outfit new colours.
+test('a weather update that leaves the outfits alone hands each board the pieces and palette it already has', () => {
+  const before = loadedPresentation().suggestions;
+  const refreshing = loadedPresentation({ ...todayScreenState, isRefreshing: true, refreshFailed: true }).suggestions;
+  assert.equal(refreshing.length, before.length);
+  refreshing.forEach((suggestion, index) => {
+    assert.equal(suggestion.boardPieces, before[index].boardPieces);
+    assert.equal(suggestion.palette, before[index].palette);
+  });
+
+  const warmer = loadedPresentation({
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      paletteBasis: undefined,
+      weather: {
+        ...todayScreenState.snapshot.weather,
+        current: {
+          ...todayScreenState.snapshot.weather.current,
+          temperatureCelsius: todayScreenState.snapshot.weather.current.temperatureCelsius + 9,
+        },
+      },
+    },
+  }).suggestions;
+  assert.equal(warmer[0].boardPieces, before[0].boardPieces);
+  assert.notEqual(warmer[0].palette, before[0].palette);
+  assert.equal(warmer[0].palette.temperatureC, todayScreenState.snapshot.weather.current.temperatureCelsius + 9);
+});
