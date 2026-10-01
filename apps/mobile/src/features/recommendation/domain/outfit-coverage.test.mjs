@@ -57,6 +57,23 @@ test('a short forecast ends the promised window at its last hour, never past it'
   assert.equal(forecastBoundedCoverage(coverage, []), null);
 });
 
+test('the forecast hour that contains the start still counts, so the caption survives just after midnight', () => {
+  // A 00:20 departure runs to 01:00. Hourly data from 00:00 holds no hour after the start,
+  // but the 00:00 hour covers the whole window.
+  const midnight = outfitCoverage('2026-09-25T00:20:00.000Z', 'UTC');
+  assert.deepEqual(midnight, { start: '2026-09-25T00:20:00.000Z', end: '2026-09-25T01:00:00.000Z' });
+  const fromMidnight = ['00:00', '01:00', '02:00'].map((clock) => hour(clock));
+  assert.deepEqual(forecastBoundedCoverage(midnight, fromMidnight), midnight);
+  assert.deepEqual(forecastBoundedCoverage(midnight, fromMidnight.slice(0, 1)), midnight);
+  // A forecast that stops inside a longer window ends it at the end of the covering hour.
+  const afternoon = { start: '2026-09-25T13:00:00.000Z', end: '2026-09-25T20:00:00.000Z' };
+  assert.deepEqual(forecastBoundedCoverage(afternoon, [hour('13:00')]),
+    { start: afternoon.start, end: '2026-09-25T14:00:00.000Z' });
+  // A forecast that ended before the start describes nothing of the window.
+  assert.equal(forecastBoundedCoverage(midnight, [{ ...hour('22:00'), forecastAt: '2026-09-24T22:00:00.000Z' }]), null);
+  assert.equal(forecastBoundedCoverage(afternoon, [hour('11:00'), hour('12:00')]), null);
+});
+
 test('drift names rain the outfit was not chosen for, and stays quiet when it was', () => {
   const hours = [hour('13:00'), hour('17:00', { condition: 'rain' }), hour('18:00', { condition: 'rain' })];
   assert.deepEqual(coverageDrift(noRequirements, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z'),
