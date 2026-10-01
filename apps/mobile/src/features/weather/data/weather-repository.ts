@@ -4,6 +4,7 @@ import {
   weatherLocalDateKey,
 } from '@kuyara/contracts';
 
+import { isValidTimeZone } from '@/domain/intl-format';
 import type { WeatherLocalDataSource } from '@/features/weather/data/weather-local-data-source';
 import type {
   ActiveLocationRecord,
@@ -14,7 +15,6 @@ import type { ProvidedWeatherSnapshot } from '@/features/weather/data/weather-pr
 import {
   deviceLocationDisplayName,
   deviceLocationKey,
-  isValidTimeZone,
   isManualLocationId,
   isWeatherConditionCode,
   manualLocationKey,

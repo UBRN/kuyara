@@ -10,7 +10,7 @@ import { SqliteDressingDayDepartureRepository } from './sqlite-dressing-day-depa
 import { SqliteDressingDayChoiceRepository } from './sqlite-dressing-day-choice-repository.ts';
 import { resolvedStyleAesthetics } from '../domain/dressing-day-choice.ts';
 import { departureTimeZoneSchema } from '../domain/dressing-day-departure.ts';
-import { isValidTimeZone } from '../../weather/domain/weather.ts';
+import { isValidTimeZone } from '../../../domain/intl-format.ts';
 
 const profileId = randomUUID();
 const now = '2026-09-24T10:00:00.000Z';

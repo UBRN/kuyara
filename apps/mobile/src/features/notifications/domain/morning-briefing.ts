@@ -1,6 +1,7 @@
 import { weatherLocalDateKey } from '@kuyara/contracts';
 
 import { calendarDateParts } from '@/domain/calendar-date';
+import { zonedHour } from '@/domain/intl-format';
 import { defaultQuietHours } from '@/features/notifications/domain/weather-alerts';
 import type {
   HourlyWeather,
@@ -52,17 +53,6 @@ function nextLocalDate(localDate: string): string {
   return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
 }
 
-// The same fixed 'en' locale and h23 cycle the quiet-hours comparison uses: this reads an
-// hour as a 0-23 number whatever the device's 12/24-hour setting says.
-function localHour(timestamp: string, timeZone: string): number | null {
-  const hour = Number(new Intl.DateTimeFormat('en', {
-    timeZone,
-    hour: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date(timestamp)));
-  return Number.isInteger(hour) ? hour : null;
-}
-
 /**
  * Plans the next eligible morning's briefing from an already-validated snapshot, or nothing when the
  * snapshot's hourly window does not reach the morning hour.
@@ -77,8 +67,7 @@ export function planMorningBriefing(input: Readonly<{
   if (today === null) return null;
 
   const todayId = morningBriefingId(today);
-  const hour = localHour(input.now, snapshot.timeZone);
-  if (hour === null) return null;
+  const hour = zonedHour(Date.parse(input.now), snapshot.timeZone);
   const localDate = hour < morningBriefingLocalHour && !input.deliveredIds.has(todayId)
     ? today
     : nextLocalDate(today);
@@ -89,10 +78,8 @@ export function planMorningBriefing(input: Readonly<{
   let briefingHour: HourlyWeather | null = null;
   for (const hour of snapshot.hourly) {
     if (weatherLocalDateKey(hour.forecastAt, snapshot.timeZone) !== localDate) continue;
-    const local = localHour(hour.forecastAt, snapshot.timeZone);
-    if (local === null
-      || local < morningBriefingLocalHour
-      || local > morningBriefingLastLocalHour) continue;
+    const local = zonedHour(Date.parse(hour.forecastAt), snapshot.timeZone);
+    if (local < morningBriefingLocalHour || local > morningBriefingLastLocalHour) continue;
     if (local === morningBriefingLocalHour) briefingHour = hour;
     morning.push(hour);
   }

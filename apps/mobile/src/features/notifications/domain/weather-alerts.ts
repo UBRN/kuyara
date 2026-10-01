@@ -1,3 +1,4 @@
+import { zonedClock } from '@/domain/intl-format';
 import type { HourlyWeather, WeatherSnapshot } from '@/features/weather/domain/weather';
 import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
 import {
@@ -53,26 +54,15 @@ function adjustForQuietHours(
   const end = quietHours.end.hour * 60 + quietHours.end.minute;
   if (start === end) return fireAt;
 
-  // Quiet hours are compared as minutes past midnight, so this formatter is arithmetic and
-  // never copy: the fixed 'en' locale and h23 cycle keep the hour a 0-23 number whatever
-  // the device's 12/24-hour setting says.
-  const formatter = new Intl.DateTimeFormat('en', {
-    timeZone: quietHours.timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  });
-
-  // Only the 30-minute adjustment budget matters. Walking real minute boundaries
-  // avoids converting ambiguous or missing local times across clock changes.
+  // Quiet hours are compared as minutes past midnight, read off the zone's wall clock. Only
+  // the 30-minute adjustment budget matters. Walking real minute boundaries avoids converting
+  // ambiguous or missing local times across clock changes.
   for (
     let candidate = fireAt;
     candidate <= latestFireAt;
     candidate = (Math.floor(candidate / minuteMilliseconds) + 1) * minuteMilliseconds
   ) {
-    const parts = formatter.formatToParts(candidate);
-    const hour = Number(parts.find(({ type }) => type === 'hour')?.value);
-    const minute = Number(parts.find(({ type }) => type === 'minute')?.value);
+    const { hour, minute } = zonedClock(candidate, quietHours.timeZone);
     const localMinute = hour * 60 + minute;
     const isQuiet = start < end
       ? localMinute >= start && localMinute < end

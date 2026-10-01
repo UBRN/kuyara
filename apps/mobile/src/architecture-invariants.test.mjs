@@ -456,6 +456,21 @@ test('every exported symbol has a use outside its own definition', () => {
   assert.deepEqual(stale, [], 'an allowlisted export now has a use (or is gone): drop it from the list');
 });
 
+// A fact has one owner: the wall clock of a zone is read through `zonedClock` and `zonedHour`
+// in domain/intl-format.ts, and the locale tag of a language through `localeTag` in
+// localization/locale-tag.ts. Neither is rebuilt inline.
+test('the zoned wall clock and the locale tag each have one owner', () => {
+  const owners = { h23: 'domain/intl-format.ts', 'tr-TR': 'localization/locale-tag.ts' };
+  const found = [];
+  for (const relativePath of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    if (/hourCycle:\s*'h23'/.test(text) && relativePath !== owners.h23) found.push(`${relativePath}: h23 clock`);
+    if (text.includes("'tr-TR'") && relativePath !== owners['tr-TR']) found.push(`${relativePath}: tr-TR tag`);
+  }
+
+  assert.deepEqual(found, [], 'read a zone\'s clock with zonedClock and a language\'s tag with localeTag');
+});
+
 // Reanimated's `runOnJS` is deprecated: a worklet hands work to the React Native runtime
 // through `scheduleOnRN` from react-native-worklets, as `Crossfade` does.
 test('mobile production code never calls the deprecated runOnJS', () => {

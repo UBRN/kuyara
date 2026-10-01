@@ -6,13 +6,7 @@ import {
   formatTemperatureValue,
   formatTemperatureDifference,
   formatWholeTemperature,
-  localeTag,
 } from './format-temperature.ts';
-
-test('the locale tag maps the two supported languages and nothing else', () => {
-  assert.equal(localeTag('en'), 'en-GB');
-  assert.equal(localeTag('tr'), 'tr-TR');
-});
 
 test('English reads the point and Turkish the comma', () => {
   assert.equal(formatTemperature(16.34, 'en', 'celsius'), '16.3°');

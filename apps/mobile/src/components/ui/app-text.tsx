@@ -4,6 +4,7 @@ import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 import { resolveAppTextStyle } from '@/components/ui/primitive-contracts';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { LocalizationContext } from '@/localization/localization-context';
+import { localeTag } from '@/localization/locale-tag';
 import {
   typography,
   type SemanticColorRole,
@@ -74,7 +75,7 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
       minimumFontScale={fitSingleLine ? 0.4 : rest.minimumFontScale}
       numberOfLines={fitSingleLine ? 1 : rest.numberOfLines}>
       {uppercasesContent(variant) && typeof children === 'string'
-        ? children.toLocaleUpperCase(language === 'tr' ? 'tr-TR' : 'en-GB')
+        ? children.toLocaleUpperCase(localeTag(language))
         : children}
     </Text>
   );

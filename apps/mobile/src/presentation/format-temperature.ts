@@ -1,14 +1,10 @@
-import type { SupportedLanguage } from '@/localization/messages';
 import { numberFormat } from '@/domain/intl-format';
 import type { TemperatureUnit } from '@/localization/device-locale';
+import { localeTag } from '@/localization/locale-tag';
+import type { SupportedLanguage } from '@/localization/messages';
 
-// One English tag for every value the app formats. A date must not change convention
-// with the day it falls on, the hourly rail must not disagree with the last-updated line
-// about the 12-hour convention, and Today must not disagree with Weather about the
-// decimal separator, so the mapping exists once.
-export function localeTag(language: SupportedLanguage): 'en-GB' | 'tr-TR' {
-  return language === 'tr' ? 'tr-TR' : 'en-GB';
-}
+// Read through here by Today's presentation, which imports it from this module.
+export { localeTag };
 
 // Every temperature the app shows carries exactly one decimal, in the reader's own
 // separator. A fixed decimal rather than a maximum one: a rail whose columns alternate
