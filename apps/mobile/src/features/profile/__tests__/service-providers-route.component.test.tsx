@@ -26,6 +26,7 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   useFocusEffect: () => undefined,
 }));
+jest.mock('@/components/ui/use-transition-landed', () => ({ useTransitionLanded: () => true }));
 
 let mockCheck: jest.Mock<Promise<AiProbeUiState | null>, []>;
 

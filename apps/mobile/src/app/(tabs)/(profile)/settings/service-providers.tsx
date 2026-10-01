@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { use } from 'react';
 
+import { useTransitionLanded } from '@/components/ui';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
@@ -20,6 +21,8 @@ export default function ServiceProvidersRoute() {
   const { check, isSupported, state: aiStatus } = useAiProbe();
   const { analytics, firstUses } = useProductAnalytics();
   useScreenViewed('settings_ai_status');
+  // The Apple Weather mark replaces its caption only once the push has landed.
+  const landed = useTransitionLanded();
 
   const lastGenerationMode: RecommendationGenerationMode | null =
     recommendation?.state.status === 'ready'
@@ -32,7 +35,7 @@ export default function ServiceProvidersRoute() {
     ? weather.state.snapshot?.origin.sourceId
     : null;
   const weatherSourceLink = sourceId ? weatherAttributionLink(sourceId, messages.weather) : null;
-  const weatherAttribution = sourceId && weatherSourceLink ? <WeatherAttribution sourceId={sourceId} /> : null;
+  const weatherAttribution = sourceId && weatherSourceLink ? <WeatherAttribution landed={landed} sourceId={sourceId} /> : null;
 
   const checkAiStatus = async () => {
     const result = await check();
