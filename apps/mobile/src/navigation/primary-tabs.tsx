@@ -21,7 +21,7 @@ export type PrimaryTabDefinition = Readonly<{
   testID: string;
 }>;
 
-export function createPrimaryTabDefinitions(
+function createPrimaryTabDefinitions(
   labels: AppMessages['navigation'],
 ): readonly PrimaryTabDefinition[] {
   return [

@@ -12,9 +12,9 @@ import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 
 import { AiProviderError, type AiProvider } from './ai-provider.ts';
 
-export const PROBE_CACHE_TTL_MS = 60_000;
+const PROBE_CACHE_TTL_MS = 60_000;
 export const PROBE_DAILY_LIMIT = 30;
-export const PROBE_ATTEMPT_TIMEOUT_MS = 20_000;
+const PROBE_ATTEMPT_TIMEOUT_MS = 20_000;
 // The probe validates one thing: three `{ optionId, archetypeId }` pairs drawn from the
 // three canned options, roughly 200 characters of JSON. 256 tokens is more than twice the
 // longest such reply, so the answer the probe checks still fits, while a probe can no
