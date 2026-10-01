@@ -157,7 +157,7 @@ with the six structural categories as its fallback tier. Both tiers use the silh
 idiom. The small raster class carries an optical stroke for 20-to-28-point use, while the
 large raster class uses the idiom-pure stroke above 32 points.
 
-The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather jacket, coat, loafer and rain boot drawings. Its single ink-edge outline retains the four-step sizing ladder. A runway board preset fits the composition to the free space while keeping that ladder and the same placement families.
+The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather jacket, coat, loafer and rain boot drawings. Every drawing is a rich fashion illustration inside its single ink-edge outline: one light from the upper left, folds, highlights and the cloth's weave, every tone derived from the garment's own colour. The outlines, and so the drawn bounds this rule reads, are unchanged by the light, and the four-step sizing ladder is retained. A runway board preset fits the composition to the free space while keeping that ladder and the same placement families.
 
 ## Consequences
 

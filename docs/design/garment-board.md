@@ -211,11 +211,19 @@ Every value, in stage-width units unless marked otherwise.
 
 ## 8. The silhouette set
 
-Thirty-four garment drawings, one 64×64 viewBox each, painted as Phase 6 colour fashion
-flats: each drawing is a list of outlines filled with the piece's own palette colours and
-edged in one 1.9-point ink stroke, with shade planes, tone lines and stitches clipped inside
-them (`silhouettes.ts`, `garment-painting.tsx`). The drawn bounds the rule reads are
-measured from the outlines. They cover all **41 outfit-eligible catalogue types**; seven
+Thirty-four garment drawings, one 64×64 viewBox each, painted as rich fashion
+illustrations: each drawing is a list of outlines filled with the piece's own palette colours
+and edged in one 1.9-point ink stroke, with shade planes, folds, highlights, tone lines and
+stitches clipped inside them (`silhouettes.ts`; `garment-paint.ts` paints them). One light from
+the upper left grades every plain surface of a drawing through a single opaque gradient from a
+soft light through the piece's colour to its deepest shade, all derived from that colour;
+leather, nylon and rubber catch it in a band instead. Folds are shade slivers at elbows,
+armpits, knees and hems with highlight lines where the light catches, and the cloth carries its
+own weave: stitch columns on knit, a light diagonal twill on denim, a fine twill on suiting, a
+cross-weave on straw. A pattern or the multicolour family fill keeps its own paint. Each
+drawing stays within 90 vector elements at full detail, so a Closet grid or a swap strip of
+many drawings stays light. The drawn bounds the rule reads are measured from the outlines,
+which the light, folds and weave never cross. They cover all **41 outfit-eligible catalogue types**; seven
 types share a drawing with another (`overshirt` with `shirt`; `sweatshirt`, `fleece` with
 `sweater`; `long_skirt` with `skirt`; `track_pants` with `trousers`; `knit_dress` with
 `dress`; `weather_boots` with `ankle_boots`). `polo_shirt`, `turtleneck`, `blouse`,

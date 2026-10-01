@@ -72,13 +72,15 @@ test('every authored bound matches the drawn outlines without stroke', () => {
   }
 });
 
-// Style A: flat fills from the piece's own roles, no gradient, no alpha, no body. A drawing
-// names only colour roles, never a colour, and every part stays inside the 64 viewBox.
-test('drawings are role-painted data with no colour, gradient or opacity of their own', () => {
-  const kinds = new Set(['fs', 'fl', 'fk', 'fa', 'fas', 'fm', 'fh', 'D', 'Dh', 'T', 'Ta', 'S', 'Sh', 'Sa']);
+// A drawing names only colour roles and a cloth, never a colour; its light, shade and weave
+// are the painting's, derived from the piece's own colour.
+test('drawings are role-painted data with no colour of their own', () => {
+  const kinds = new Set(['fs', 'fl', 'fk', 'fa', 'fas', 'fm', 'fh', 'D', 'Dh', 'T', 'Ta', 'S', 'Sh', 'Sa', 'L']);
+  const cloths = new Set([undefined, 'knit', 'denim', 'twill', 'straw', 'sheen']);
   const roles = new Set(['main', 'shade', 'toneLine', 'darkTrim', 'material', 'hardware']);
   for (const [id, silhouette] of Object.entries(silhouettes)) {
     assert.ok(silhouette.groups.length > 0, id);
+    assert.ok(cloths.has(silhouette.cloth), `${id} ${silhouette.cloth}`);
     for (const group of silhouette.groups) {
       assert.ok(roles.has(group.fill), `${id} ${group.fill}`);
       for (const [kind, d] of group.parts) {
