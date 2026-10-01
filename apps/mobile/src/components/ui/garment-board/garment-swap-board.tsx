@@ -122,8 +122,6 @@ export type GarmentSwapBoardProps = Readonly<{
   entrance: Readonly<{ fromStageColor: string; fromStageRadius: number }>;
   /** Law 7's moment: change it and the pieces settle once. */
   settle?: number;
-  /** Whether nothing is enlarged, moving or opening: what waits for a still board may show. */
-  onRestChange?: (atRest: boolean) => void;
   /** An enlargement asks its owner to bring the strip into view, in board points. */
   onReveal?: (area: Readonly<{ pieceTop: number; panelBottom: number }>) => void;
   /**
@@ -379,7 +377,6 @@ export function GarmentSwapBoard({
   labels,
   entrance,
   settle,
-  onRestChange,
   onReveal,
   visibleHeight = 0,
   testID,
@@ -773,8 +770,7 @@ export function GarmentSwapBoard({
     if (Math.abs(end - start) < 0.5 || (height - start) / (end - start) >= PRESENCE_TEXT_AFTER) flushPending();
   });
   const blockToken = useRef(0);
-  // After a settle the strip leaves the tree once the block has closed: until then the board
-  // is not still, so nothing waiting for it opens over a closing block.
+  // After a settle the strip leaves the tree once the block has closed over it.
   const closingPanel = useRef(false);
   const clearPanel = () => {
     closingPanel.current = false;
@@ -905,12 +901,6 @@ export function GarmentSwapBoard({
     }
     if (Math.abs(blockTarget - seen.target) >= 0.5 && !(focusedSlot === null && panels.current)) startBlock(blockTarget);
   });
-
-  // What waits for a still board: nothing enlarged, no piece moving, the block closed.
-  const atRest = focusedSlot === null && !model.relayouting && panels.current === null;
-  useEffect(() => {
-    onRestChange?.(atRest);
-  }, [atRest, onRestChange]);
 
   const stepSlot = (slot: OutfitSlot, direction: 1 | -1) => {
     const garmentTypeId = model.garments[slot];
