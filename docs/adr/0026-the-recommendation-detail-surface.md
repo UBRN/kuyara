@@ -84,8 +84,8 @@ candidates today, two rows of seven; the 13-candidate top takes three rows of si
 375-point phone, and a test fails before a catalog change needs more. A 1-point hairline in `borderSubtle` stands before the first piece
 that makes the outfit unusual, and a `focusRing` marker rings the current tile. The piece
 changes while it stays large: a horizontal swipe on it, or a tile. A swipe pages the
-enlarged piece opaque inside its own window, clipped so it never covers a stepped-back
-piece; a release past half a step or a 500 pt/s flick commits, both ends resist like a
+enlarged piece inside its own window, clipped so it never covers a stepped-back piece,
+the leaving piece fading on `motion.fast` as it goes; a release past half a step or a 500 pt/s flick commits, both ends resist like a
 rubber band, the order never wraps, and 5 points of vertical travel first hand the press
 to the page scroll. A pressed tile, and a swipe past half a step, name the landing piece in
 the header before it commits. Each piece is one adjustable accessibility element whose
@@ -127,7 +127,8 @@ original outfit gave it, passed to the palette resolver as a recorded swatch; no
 stored. The manual combination is not blocked when weather or composition rules would
 reject it; "Unusual for this weather" under the board, in the warning glyph and ink,
 explains the departure. The title becomes "Your outfit" in place at the change, and
-"Changed from" the archetype opens under it once the board is still, the reasons are recomputed for the pieces worn, the source sentence names the
+"Changed from" the archetype opens under it once no piece is enlarged, moving with the strip
+as it closes, the reasons are recomputed for the pieces worn, the source sentence names the
 change, and "Back to kuyara's pick" returns the recommendation. The change lives only as
 long as detail is open: nothing is saved until the reader chooses "Wore this today",
 which records a `manual` outfit (ADR 0038). No haptic marks a step, because the design
