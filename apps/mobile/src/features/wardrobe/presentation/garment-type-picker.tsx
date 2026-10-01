@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import {
   AppText,
@@ -38,7 +39,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // rail over a grid of that category's types, each drawn in its own most natural colour and
 // named, because the catalogue shares one drawing across five pairs of types. A chosen
 // type collapses the picker to one row with "Change", drawn at once in the grid's place, and
-// "Change" fades the grid back in (Law 7). The catalogue type stays required
+// "Change" fades that row out, then fades the grid back in (Law 7). The catalogue type stays required
 // and no free-form type exists (docs/product-decisions.md, Closet).
 
 // Each category tile shows its representative piece in one colour. Illustration only: the
@@ -89,6 +90,11 @@ export function GarmentTypePicker({
   const [category, setCategory] = useState<StructuralCategory | null>(null);
   const gridOpacity = useSharedValue<number>(1);
   const gridStyle = useAnimatedStyle(() => ({ opacity: gridOpacity.get() }));
+  // The grid reopened by "Change" starts its fade once it is laid out, so the time it takes
+  // to mount is not spent from the fade.
+  const gridFadePending = useRef(false);
+  const rowOpacity = useSharedValue<number>(1);
+  const rowStyle = useAnimatedStyle(() => ({ opacity: rowOpacity.get() }));
 
   // Deprecated catalogue entries stay readable on saved items but are never offered
   // again, so the picker lists active types only.
@@ -134,9 +140,16 @@ export function GarmentTypePicker({
     fadeGridIn();
   };
 
+  const openGrid = () => {
+    setCategory(null);
+    setExpanded(true);
+    gridOpacity.set(0);
+    gridFadePending.current = true;
+  };
+
   if (selectedType && !expanded) {
     return (
-      <View style={styles.row} testID="wardrobe-type-row">
+      <Animated.View style={[styles.row, rowStyle]} testID="wardrobe-type-row">
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
@@ -162,21 +175,25 @@ export function GarmentTypePicker({
           disabled={disabled}
           label={copy.typeChangeAction}
           onPress={() => {
-            setCategory(null);
-            setExpanded(true);
-            fadeGridIn();
+            // The row and the colour section under it fade out together on `fast` before
+            // the taller grid takes the row's place, so neither is cut or pushed away
+            // while still drawn.
             onExpandedChange?.(true);
+            rowOpacity.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
+              if (finished) scheduleOnRN(openGrid);
+            }));
           }}
           size="small"
           testID="wardrobe-type-change-button"
           variant="plain"
         />
-      </View>
+      </Animated.View>
     );
   }
 
   const select = (typeId: GarmentTypeId) => {
     if (disabled) return;
+    rowOpacity.set(1);
     setExpanded(false);
     onExpandedChange?.(false);
     onSelect(typeId);
@@ -242,7 +259,13 @@ export function GarmentTypePicker({
       <Animated.View
         accessibilityLabel={copy.categoryFilterLabels[activeCategory]}
         accessibilityRole="radiogroup"
-        style={[styles.grid, gridStyle]}>
+        onLayout={() => {
+          if (!gridFadePending.current) return;
+          gridFadePending.current = false;
+          fadeGridIn();
+        }}
+        style={[styles.grid, gridStyle]}
+        testID="wardrobe-type-grid">
         {visibleTypes.map((garmentType) => (
           <GarmentTypeTile
             colorFamily={garmentUsualColorFamilies(garmentType.typeId)[0] ?? null}
