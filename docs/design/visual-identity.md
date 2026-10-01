@@ -168,19 +168,18 @@ The production icon derives from the approved V2 repository master and follows t
 
 The full-color app icon, Android monochrome layer, and splash symbol are related exports with different platform roles. They are not interchangeable source systems, and none may silently modify the master geometry.
 
-## Splash screen
+## Splash screen and launch
 
-The approved MVP splash direction is:
+The native splash screen is:
 
-- Flat background
-- Centered symbol only
+- Flat background: Soft Mist in the light appearance, Night Layer in the dark
+- The centered symbol only, 160 points wide, in Deep Atmosphere on Soft Mist and Quiet Sky on Night Layer
 - No wordmark or other text
-- No animation
-- No second branded launch screen
-- Separate light and dark treatments
-- A fast transition into the first application screen
+- Separate light and dark treatments, following the system appearance
 
-The splash screen should establish continuity without delaying the user's decision or presenting a second marketing experience.
+Every cold launch then plays the launch animation in the app; a return from the background never does. Its first frame is the native splash's last, drawn from the master paths, so the hand-over is invisible. The symbol stays still until the first screen is ready, takes a short breath inward, and the view dives into its upper piece while all three pieces turn from the splash ink to Calm Current. When that piece fills the screen, the screen is one colour, Calm Current, and that colour fades away over the first screen, where Today's outfit rises as it always does. Launched from a notification or a link, the app plays the shortened launch: no dive, only the colour arriving over the splash and fading away over the requested screen. The status bar stays legible throughout: light over Calm Current, the app's own otherwise.
+
+The launch is the one place the symbol moves. Its geometry never changes; only its scale, position and fill colour do, and the fill's change to Calm Current is the one sanctioned recolouring of the symbol. Nothing else is branded about the launch: no text, no second screen, no sound. If the first screen is not ready within 1.5 seconds, the still symbol fades away without the dive; if it fails, the symbol fades at once and the error screen shows. The motion and its timing are described in [ADR 0020](../adr/0020-rewriting-the-motion-law.md).
 
 ## Web presence
 
