@@ -1109,6 +1109,28 @@ describe.each(['en', 'tr'] as const)('%s wore this today', (language) => {
     }
   });
 
+  // A replacement that is confirmed: the first read ends without this outfit (busy drops, the
+  // other look is shown), then the confirmed save runs. That save settles the board once; a
+  // declined replacement plays nothing.
+  test('a confirmed replacement settles the board once, a declined one never does', async () => {
+    const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+    try {
+      const onWoreThis = jest.fn();
+      const result = await render(detail({ onWoreThis, worn: 'unknown' }));
+      await result.rerender(detail({ onWoreThis, worn: 'other' }));
+      await result.rerender(detail({ onWoreThis, worn: 'other', wornBusy: true }));
+      await result.rerender(detail({ onWoreThis, worn: 'other' }));
+      expect(success).not.toHaveBeenCalled();
+      // The reader confirms: the replacement save starts, then lands.
+      await result.rerender(detail({ onWoreThis, worn: 'other', wornBusy: true }));
+      await result.rerender(detail({ onWoreThis, worn: 'this', wornBusy: true }));
+      await result.rerender(detail({ onWoreThis, worn: 'this' }));
+      expect(success).toHaveBeenCalledTimes(1);
+    } finally {
+      success.mockRestore();
+    }
+  });
+
   // Law 7: the button and the worn state replace each other in place. The arriving one
   // starts transparent; the leaving one is out of the reading order at once.
   test('the worn state fades in over the leaving button', async () => {
@@ -1425,6 +1447,85 @@ test('a new outfit rises once the outfit it replaces has dropped away', async ()
   } finally {
     withDelay.mockRestore();
   }
+});
+
+describe('the leaving board on a re-ask', () => {
+  const { recommendation } = todayScreenState.snapshot;
+  if (recommendation.status !== 'recommended') throw new Error('Expected a recommendation.');
+  const withPrimary = (optionId: string): TodayScreenState => ({
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      recommendation: {
+        ...recommendation,
+        outfits: [{ ...recommendation.outfits[0], optionId }, ...recommendation.outfits.slice(1)],
+      },
+    },
+  });
+  const screen = (state: TodayScreenState) => providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={state} />,
+  );
+  const hidden = { includeHiddenElements: true };
+  const leavingMounts = () => mockBoardMounts.filter((id) => id === 'today-leaving-board');
+
+  // The board that is leaving never reports that it has left while a loading or error screen
+  // stands in for Today, so it must not wait there to drop in again.
+  test.each(['loading', 'unavailable'] as const)(
+    'a %s interlude forgets the outfit that was leaving',
+    async (kind) => {
+      const interlude = { kind } as const;
+      const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation((toValue) => toValue);
+      try {
+        const result = await render(screen(todayScreenState));
+        await result.rerender(screen(withPrimary('renewed-outfit')));
+        expect(result.getByTestId('today-leaving-board', hidden)).toBeOnTheScreen();
+
+        await result.rerender(providers(
+          <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+            onAskAgain={jest.fn()} state={interlude} />,
+        ));
+        await result.rerender(screen(withPrimary('renewed-outfit')));
+        expect(result.queryByTestId('today-leaving-board', hidden)).toBeNull();
+      } finally {
+        withTiming.mockRestore();
+      }
+    },
+  );
+
+  // B arrives while A is still leaving, so B was never drawn: it must not appear at full
+  // opacity only to drop away again. A keeps leaving and C rises after it.
+  test('an outfit replaced before it was drawn never becomes the leaving board', async () => {
+    const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation((toValue) => toValue);
+    try {
+      mockBoardMounts.length = 0;
+      const result = await render(screen(todayScreenState));
+      await result.rerender(screen(withPrimary('second-outfit')));
+      expect(leavingMounts()).toHaveLength(1);
+      await result.rerender(screen(withPrimary('third-outfit')));
+      expect(leavingMounts()).toHaveLength(1);
+      expect(mockBoardMounts).toContain('today-primary-board-third-outfit');
+      expect(mockBoardMounts).toContain('today-primary-board-second-outfit');
+    } finally {
+      withTiming.mockRestore();
+    }
+  });
+
+  test('the leaving board takes the frame of the stage it leaves, not its own height', async () => {
+    const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation((toValue) => toValue);
+    try {
+      const result = await render(screen(todayScreenState));
+      await fireEvent(result.getByTestId('today-content'), 'layout', {
+        nativeEvent: { layout: { width: 358, height: 900, x: 0, y: 0 } },
+      });
+      await result.rerender(screen(withPrimary('renewed-outfit')));
+      const stage = StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style);
+      const frame = StyleSheet.flatten(result.getByTestId('today-leaving-board', hidden).parent!.parent!.props.style);
+      expect(frame).toMatchObject({ height: stage.height, width: stage.width, justifyContent: 'center' });
+    } finally {
+      withTiming.mockRestore();
+    }
+  });
 });
 
 test('a new outfit crossfades its title rather than snapping it', async () => {

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useEffect, useState, useSyncExternalStore, type PropsWithChildren } from 'react';
-import { AccessibilityInfo, Alert, StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, Alert, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LaunchRevealContext } from '@/components/ui/launch-curtain';
@@ -31,6 +31,7 @@ import {
 } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
+import * as tomorrowPreview from '@/features/recommendation/application/tomorrow-preview';
 import { slotCandidates } from '@/features/recommendation/domain/manual-mix';
 import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
@@ -38,6 +39,7 @@ import { WalkthroughContext } from '@/features/walkthrough/application/walkthrou
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { garmentColorFamiliesBySlot } from '@/components/ui';
+import { useClosetWearCounts } from '@/features/wardrobe/application/use-closet-wear-counts';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
 import { closetColorOptions, closetSolidSwatches } from '@/features/wardrobe/domain/closet-color-options';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
@@ -3126,3 +3128,116 @@ test('accepting the offer with the briefing already on records only the alert pr
   ]));
   expect(mockPush).toHaveBeenCalledWith('/settings/notifications');
 });
+
+// The Closet's worn counts follow History: a worn day recorded elsewhere reaches a Closet that
+// stayed mounted, without waiting for its items to be read again.
+test('a worn day recorded through the provider reaches the Closet counts already mounted', async () => {
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const worn = wornOutfitFrom(todayRecommendation.outfits[0]);
+  const records: { outfit: WornOutfit }[] = [];
+  const list = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'list')
+    .mockImplementation(async () => [...records] as never);
+  const log = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'log')
+    .mockImplementation(async (_profile, _day, outfit) => {
+      records.push({ outfit });
+      return { outfit } as never;
+    });
+  const items = [wardrobeItem()];
+  function Probe() {
+    const { outfitHistory } = useRecommendationApplication();
+    const counts = useClosetWearCounts();
+    return (
+      <>
+        <Text testID="wear-count">{String(counts.get('item-one') ?? 0)}</Text>
+        <Pressable testID="wear-log" onPress={() => { void outfitHistory?.log('2026-08-13', worn); }} />
+      </>
+    );
+  }
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={recommendationReady()} liveRecommendationProvider
+        wardrobe={wardrobeValue({ state: { status: 'ready', items, isRefreshing: false, isMutating: false,
+          refreshFailure: null } })} weather={weatherValue()}>
+        <Probe />
+      </Providers>,
+    );
+    await waitFor(() => expect(list).toHaveBeenCalled());
+    expect(view.getByTestId('wear-count')).toHaveTextContent('0');
+    await fireEvent.press(view.getByTestId('wear-log'));
+    await waitFor(() => expect(view.getByTestId('wear-count')).toHaveTextContent('1'));
+    expect(log).toHaveBeenCalledTimes(1);
+  } finally {
+    list.mockRestore();
+    log.mockRestore();
+  }
+});
+
+// Tomorrow's preview is chosen on a foreground open of Today after 18:00. An open of Today in
+// the afternoon asks for nothing in the evening: the ask belongs to the dressing day it was made in.
+test("an afternoon open of Today does not choose tomorrow's preview when the evening starts elsewhere", async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  const eveningKey = '2026-09-24:evening';
+  mockLocalDayKey = '2026-09-24';
+  mockRecommendationSnapshot = { ...saved.snapshot, localDayKey: '2026-09-24' };
+  mockRecommendationSave.mockImplementation(async (_profileId, entry) => ({
+    ...mockRecommendationSnapshot,
+    id: `recommendation-${entry.context.localDayKey}`,
+    localDayKey: entry.context.localDayKey,
+    weatherSnapshotId: entry.weatherSnapshotId,
+    locationKey: entry.locationKey,
+    generationMode: entry.recommendation.generationMode,
+    recommendation: entry.recommendation,
+  }));
+  mockChoiceGet.mockImplementation(async (profileId: string, dayKey: string) => ({
+    id: `choice-${dayKey}`, localProfileId: profileId, dayKey, formality: 'smart', source: 'chip',
+    styleAesthetics: null, createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z',
+    deletedAt: null,
+  }));
+  const ai = jest.spyOn(RoutedAiClient.prototype, 'recommendRouted').mockRejectedValue(new Error('offline'));
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven').mockResolvedValue([]);
+  const covers = jest.spyOn(tomorrowPreview, 'forecastCoversWindow').mockReturnValue(true);
+  const ensure = jest.spyOn(tomorrowPreview.TomorrowPreviewController.prototype, 'ensure')
+    .mockResolvedValue(undefined);
+  function Probe() {
+    const application = useRecommendationApplication();
+    return (
+      <>
+        <Text testID="probe-day">{application.dressingDayKey}</Text>
+        <Text testID="probe-settled">{String(application.state.status === 'ready' && !application.state.isRefreshing
+          && application.state.snapshot?.localDayKey === application.dressingDayKey)}</Text>
+        <Pressable testID="probe-foreground" onPress={() => { void application.evaluateApprovedTriggers(true); }} />
+        <Pressable testID="probe-clock" onPress={() => application.reevaluateLocalDay()} />
+      </>
+    );
+  }
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={saved} liveRecommendationProvider wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <Probe />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('probe-settled')).toHaveTextContent('true'));
+    // An open of Today in the afternoon.
+    await fireEvent.press(view.getByTestId('probe-foreground'));
+    expect(ensure).not.toHaveBeenCalled();
+
+    // The clock passes 18:00 while the app is elsewhere: no open of Today has asked yet.
+    mockLocalDayKey = eveningKey;
+    await fireEvent.press(view.getByTestId('probe-clock'));
+    await waitFor(() => expect(view.getByTestId('probe-day')).toHaveTextContent(eveningKey));
+    await waitFor(() => expect(view.getByTestId('probe-settled')).toHaveTextContent('true'));
+    expect(ensure).not.toHaveBeenCalled();
+
+    // The evening's own foreground open of Today asks, and the preview is chosen.
+    await fireEvent.press(view.getByTestId('probe-foreground'));
+    await waitFor(() => expect(ensure).toHaveBeenCalledTimes(1));
+  } finally {
+    ai.mockRestore();
+    history.mockRestore();
+    covers.mockRestore();
+    ensure.mockRestore();
+  }
+}, 15000);

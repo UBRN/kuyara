@@ -6,6 +6,7 @@ import {
   formatTemperatureValue,
   formatTemperatureDifference,
   formatWholeTemperature,
+  formatWholeTemperatureRange,
 } from './format-temperature.ts';
 
 test('English reads the point and Turkish the comma', () => {
@@ -59,4 +60,14 @@ test('whole-degree notifications convert then round without negative zero', () =
   assert.equal(formatWholeTemperature(-17.78, 'en', 'fahrenheit'), '0°F');
   assert.equal(formatWholeTemperature(20, 'tr', 'fahrenheit'), '68°F');
   assert.equal(formatWholeTemperature(-0.4, 'en', 'celsius'), '0°C');
+});
+
+test('a whole-degree range reads with a dash above zero and in words once it starts below zero', () => {
+  assert.equal(formatWholeTemperatureRange(14, 22, 'en', 'celsius'), '14–22°C');
+  assert.equal(formatWholeTemperatureRange(-5, -2, 'en', 'celsius'), '-5 to -2°C');
+  assert.equal(formatWholeTemperatureRange(-5, -2, 'tr', 'celsius'), '-5 ile -2°C');
+  assert.equal(formatWholeTemperatureRange(-3, 4, 'en', 'celsius'), '-3 to 4°C');
+  assert.equal(formatWholeTemperatureRange(-3, -3, 'en', 'celsius'), '-3°C');
+  assert.equal(formatWholeTemperatureRange(-5, -2, 'en', 'fahrenheit'), '23–28°F');
+  assert.equal(formatWholeTemperatureRange(-30, -20, 'en', 'fahrenheit'), '-22 to -4°F');
 });

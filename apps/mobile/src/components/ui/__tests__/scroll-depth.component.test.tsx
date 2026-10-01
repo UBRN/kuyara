@@ -3,7 +3,7 @@ import { StyleSheet, Text } from 'react-native';
 import { makeMutable } from 'react-native-reanimated';
 
 import { ScrollDepth } from '@/components/ui';
-import { DEPTH_SCALE, DEPTH_TRAVEL } from '@/components/ui/scroll-depth';
+import { DEPTH_INERT_SHARE, DEPTH_SCALE, DEPTH_TRAVEL } from '@/components/ui/scroll-depth';
 
 const header = (offset: number) => (
   <ScrollDepth scrollOffset={makeMutable(offset)}>
@@ -38,4 +38,14 @@ test('the header carries no accessibility node of its own', async () => {
   const result = await render(header(0));
   expect(result.root!.props.accessible).toBeUndefined();
   expect(result.getByText('Weather')).toBeOnTheScreen();
+});
+
+test('a header that has all but faded takes no touches, and takes them again at rest', async () => {
+  for (const [offset, pointerEvents] of [
+    [0, 'auto'], [20, 'auto'], [40 * DEPTH_INERT_SHARE - 1, 'auto'], [40 * DEPTH_INERT_SHARE, 'none'], [400, 'none'],
+  ] as const) {
+    const result = await render(header(offset));
+    await fireEvent(result.root!, 'layout', { nativeEvent: { layout: { height: 40 } } });
+    expect(styleOf(result)).toMatchObject({ pointerEvents });
+  }
 });

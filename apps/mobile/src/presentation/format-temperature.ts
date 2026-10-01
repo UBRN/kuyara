@@ -1,7 +1,7 @@
 import { numberFormat } from '@/domain/intl-format';
 import type { TemperatureUnit } from '@/localization/device-locale';
 import { localeTag } from '@/localization/locale-tag';
-import type { SupportedLanguage } from '@/localization/messages';
+import { messages, type SupportedLanguage } from '@/localization/messages';
 
 // Read through here by Today's presentation, which imports it from this module.
 export { localeTag };
@@ -56,7 +56,9 @@ export function formatWholeTemperature(
 /**
  * A whole-degree range such as "14–22°C" with one unit at the end, or the single
  * temperature when both ends display the same value. The ends are compared as displayed,
- * so a converted range that rounds to one degree reads as one temperature.
+ * so a converted range that rounds to one degree reads as one temperature. A range that
+ * starts below zero reads "-5 to -2°C" ("-5 ile -2°C"), since a dash between two signed
+ * numbers reads as a third minus.
  */
 export function formatWholeTemperatureRange(
   lowCelsius: number,
@@ -66,9 +68,11 @@ export function formatWholeTemperatureRange(
 ): string {
   const low = formatWholeTemperatureValue(lowCelsius, language, unit);
   const high = formatWholeTemperatureValue(highCelsius, language, unit);
-  return low === high
-    ? formatWholeTemperature(lowCelsius, language, unit)
-    : `${low}–${high}°${unit === 'fahrenheit' ? 'F' : 'C'}`;
+  if (low === high) return formatWholeTemperature(lowCelsius, language, unit);
+  const unitLetter = unit === 'fahrenheit' ? 'F' : 'C';
+  return /^[-\u2212]/.test(low)
+    ? `${messages[language].common.negativeTemperatureRange(low, high)}°${unitLetter}`
+    : `${low}–${high}°${unitLetter}`;
 }
 
 export function formatWholeTemperatureValue(

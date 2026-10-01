@@ -545,7 +545,6 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                       minimumFontScale={0.6}
                       numberOfLines={1}
                       tabularNumbers
-                      value={snapshot.current.temperatureCelsius}
                       variant="display">
                       {formatTemperature(snapshot.current.temperatureCelsius, language, temperatureUnit)}
                     </RollingText>

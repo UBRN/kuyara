@@ -52,6 +52,8 @@ export type RecommendationApplicationValue = Readonly<{
    * never starts a generation; the next approved one reads it for repeat avoidance.
    */
   outfitHistory?: Readonly<{
+    /** Grows with every recorded day; the object is replaced with it, so readers read again. */
+    revision?: number;
     list: () => Promise<readonly OutfitHistoryRecord[]>;
     get: (dayKey: string) => Promise<OutfitHistoryRecord | null>;
     log: (dayKey: string, outfit: WornOutfit) => Promise<OutfitHistoryRecord>;

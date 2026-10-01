@@ -322,6 +322,8 @@ export type AppMessages = Readonly<{
   common: Readonly<{
     back: string;
     continue: string;
+    /** A whole-degree range whose ends are below zero, where a dash between them would read as a minus. */
+    negativeTemperatureRange: (low: string, high: string) => string;
   }>;
   navigation: Readonly<{
     today: string;
@@ -911,6 +913,7 @@ const en = {
   common: {
     back: 'Back',
     continue: 'Continue',
+    negativeTemperatureRange: (low, high) => `${low} to ${high}`,
   },
   navigation: {
     today: 'Today',
@@ -1209,7 +1212,7 @@ const en = {
     fresh: 'Fresh',
     stale: 'May be out of date',
     updatedAt: (time) => `Last updated at ${time}`,
-    feelsLike: (temperature) => `Feels\u00a0like\u00a0${temperature}`,
+    feelsLike: (temperature) => `Feels like\u00a0${temperature}`,
     range: (minimum, maximum) => `Low\u00a0${minimum} · High\u00a0${maximum}`,
     currentConditionsAccessibilityLabel: ({
       condition,
@@ -1503,7 +1506,7 @@ const en = {
     ownershipSimilarLabel: 'You have a similar one',
     ownershipYours: (color) => `Yours: ${color}`,
     ownershipOnBoard: {
-      owned: 'In your Closet',
+      owned: 'In your\u00a0Closet',
       similar: 'Similar one in your\u00a0Closet',
       wanted: 'In your wanted\u00a0pieces',
     },
@@ -1922,6 +1925,7 @@ const tr = {
   common: {
     back: 'Geri',
     continue: 'Devam et',
+    negativeTemperatureRange: (low, high) => `${low} ile ${high}`,
   },
   navigation: {
     today: 'Bugün',

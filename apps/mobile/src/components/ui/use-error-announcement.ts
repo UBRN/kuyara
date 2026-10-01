@@ -13,18 +13,24 @@ import { AccessibilityInfo, Platform } from 'react-native';
  *
  * `skipInitial` is for a line that can already be showing when its screen opens (a failure
  * persisted earlier, spoken when it happened): it speaks only a line that appears, or
- * reappears after it went, while the screen is up.
+ * reappears after it went, while the screen is up. Pass `undefined` while the screen cannot
+ * tell yet (still loading): the first value that is not `undefined` is then the one the
+ * screen opened on, so a stored failure that arrives with the loaded list is not spoken either.
  */
 export function useErrorAnnouncement(
-  message: string | null,
+  message: string | null | undefined,
   options: Readonly<{ skipInitial?: boolean }> = {},
 ): void {
   const { skipInitial = false } = options;
-  const showing = useRef(message !== null);
+  const settled = useRef(message !== undefined);
+  const showing = useRef(message != null);
   useEffect(() => {
+    if (message === undefined) return;
+    const opening = !settled.current;
+    settled.current = true;
     const raised = !showing.current;
     showing.current = message !== null;
-    if (message === null || Platform.OS !== 'ios' || (skipInitial && !raised)) return;
+    if (message === null || Platform.OS !== 'ios' || (skipInitial && (opening || !raised))) return;
     AccessibilityInfo.announceForAccessibility(message);
   }, [message, skipInitial]);
 }

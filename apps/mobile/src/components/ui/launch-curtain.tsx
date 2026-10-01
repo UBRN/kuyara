@@ -130,7 +130,8 @@ export type LaunchCurtainProps = PropsWithChildren<{
  * the pieces turn Calm Current, and that colour, now the whole screen, fades on `normal`.
  * A notification or a link skips the dive: the colour fades in and out. A
  * first screen later than the ceiling, or a failed one, only fades the layer away. The
- * layer is never read by assistive technology and never takes a touch.
+ * layer is never read by assistive technology. It takes the touches meant for the first screen
+ * while it is opaque, so nothing under it can be pressed unseen, and none once it starts to lift.
  */
 export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: LaunchCurtainProps) {
   const [reveal, setReveal] = useState<LaunchReveal>(cold ? { revealing: false, done: false } : revealed);

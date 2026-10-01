@@ -5,6 +5,7 @@ import { archetypeDayFromRequirements } from '@kuyara/contracts';
 import {
   TomorrowPreviewController,
   forecastCoversWindow,
+  previewAnswersQuestion,
   reusablePreviewRecommendation,
 } from './tomorrow-preview.ts';
 import { RecommendationApplicationController } from './recommendation-application-controller.ts';
@@ -251,6 +252,27 @@ test('the morning reuses the preview only while every input and requirement is u
   // Another dressing day's preview is never this day's answer.
   assert.equal(reusablePreviewRecommendation(preview,
     morningContext(morningInput({ localDayKey: '2026-10-03' })), location), null);
+});
+
+test('one predicate decides whether a preview still answers the question, for Today and the morning', async () => {
+  const preview = await choosePreview();
+  const question = {
+    localDayKey: preview.localDayKey,
+    locationKey: preview.locationKey,
+    clothingPreference: preview.clothingPreference,
+    dressStyle: preview.dressStyle,
+    styleAesthetics: preview.styleAesthetics ?? [],
+  };
+  assert.equal(previewAnswersQuestion(preview, question), true);
+  for (const changed of [
+    { localDayKey: '2026-10-03' },
+    { locationKey: 'manual:sample.ankara' },
+    { clothingPreference: preview.clothingPreference === 'mens' ? 'womens' : 'mens' },
+    { dressStyle: preview.dressStyle === 'formal' ? 'casual' : 'formal' },
+    { styleAesthetics: ['sporty'] },
+  ]) {
+    assert.equal(previewAnswersQuestion(preview, { ...question, ...changed }), false);
+  }
 });
 
 test('a pick the morning no longer offers, or a deterministic preview, asks again', async () => {

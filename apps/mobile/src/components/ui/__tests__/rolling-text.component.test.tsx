@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
 import { RollingText } from '@/components/ui';
-import { rollFootprintGap, rollScale } from '@/components/ui/rolling-text';
+import { rollFootprintGap, rollScale, rollsUp } from '@/components/ui/rolling-text';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -12,9 +12,9 @@ function Providers({ children }: PropsWithChildren) {
   return <KuyaraThemeContext.Provider value={lightTheme}>{children}</KuyaraThemeContext.Provider>;
 }
 
-const hero = (text: string, value: number) => (
+const hero = (text: string) => (
   <Providers>
-    <RollingText tabularNumbers value={value} variant="display">{text}</RollingText>
+    <RollingText tabularNumbers variant="display">{text}</RollingText>
   </Providers>
 );
 const hidden = { includeHiddenElements: true };
@@ -40,7 +40,7 @@ const footprintOf = (result: Result) => StyleSheet.flatten(
 
 test('a value shown on mount is drawn at rest, as one text', async () => {
   const withTiming = jest.spyOn(Reanimated, 'withTiming');
-  const result = await render(hero('14°', 14));
+  const result = await render(hero('14°'));
   await layOut(result, '14°', 100);
   expect(result.getByText('14°')).toBeOnTheScreen();
   expect(result.queryByText('4', hidden)).toBeNull();
@@ -57,10 +57,10 @@ test('a changed value rolls only its changed characters once on normal, once the
     if (callback) landings.push(callback);
     return 0;
   }) as typeof Reanimated.withTiming);
-  const result = await render(hero('14°', 14));
+  const result = await render(hero('14°'));
   await layOut(result, '14°', 100);
 
-  await result.rerender(hero('15°', 15));
+  await result.rerender(hero('15°'));
   // Until the new text is measured the old one stays, and nothing moves.
   expect(result.getByText('14°')).toBeOnTheScreen();
   expect(withTiming).not.toHaveBeenCalled();
@@ -90,11 +90,11 @@ test('a value that loses a digit holds its old width as the roll starts, so the 
   const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(
     (() => 0) as unknown as typeof Reanimated.withTiming,
   );
-  const result = await render(hero('11.4°', 11.4));
+  const result = await render(hero('11.4°'));
   await layOut(result, '11.4°', 150);
   expect(result.queryByTestId('rolling-text-frame', hidden)).toBeNull();
 
-  await result.rerender(hero('8.4°', 8.4));
+  await result.rerender(hero('8.4°'));
   await measureNew(result, 120);
   // The new text lays out at 120; the footprint keeps the old 150 until the roll moves it.
   expect(footprintOf(result).marginRight).toBe(30);
@@ -113,9 +113,9 @@ test('a value that gains a digit starts from its old width too, and the gap clos
     if (callback) landings.push(callback);
     return 0;
   }) as typeof Reanimated.withTiming);
-  const result = await render(hero('9.4°', 9.4));
+  const result = await render(hero('9.4°'));
   await layOut(result, '9.4°', 120);
-  await result.rerender(hero('10.4°', 10.4));
+  await result.rerender(hero('10.4°'));
   await measureNew(result, 150);
   expect(footprintOf(result).marginRight).toBe(-30);
   // The wider new value is drawn inside the width the label has made room for so far.
@@ -132,10 +132,10 @@ test('a value that shrank to fit rolls at the size it was drawn at', async () =>
   const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(
     (() => 0) as unknown as typeof Reanimated.withTiming,
   );
-  const result = await render(hero('14°', 14));
+  const result = await render(hero('14°'));
   // Drawn at 80 of its natural 100: the fitted size is four fifths of the role's.
   await layOut(result, '14°', 80, 100);
-  await result.rerender(hero('15°', 15));
+  await result.rerender(hero('15°'));
   await measureNew(result, 100);
   expect(StyleSheet.flatten(result.getByTestId('rolling-text-roll', hidden).props.style))
     .toMatchObject({ transform: [{ scale: 0.8 }], transformOrigin: 'left top' });
@@ -145,15 +145,28 @@ test('a value that shrank to fit rolls at the size it was drawn at', async () =>
 test('the footprint gap and the fitted scale', () => {
   const roll = { fromNatural: 150, fromFitted: 150, toNatural: 120 };
   expect(rollScale(roll)).toBe(1);
-  expect(rollFootprintGap({ ...roll, from: '', to: '', toValue: 0, up: true, id: 1 })).toBe(30);
+  expect(rollFootprintGap({ ...roll, from: '', to: '', up: true, id: 1 })).toBe(30);
   expect(rollScale({ fromNatural: 100, fromFitted: 80 })).toBe(0.8);
   expect(rollScale({ fromNatural: 0, fromFitted: 0 })).toBe(1);
 });
 
 test('the same value re-rendered does not roll', async () => {
-  const result = await render(hero('14°', 14));
+  const result = await render(hero('14°'));
   const withTiming = jest.spyOn(Reanimated, 'withTiming');
-  await result.rerender(hero('14°', 14));
+  await result.rerender(hero('14°'));
   expect(withTiming).not.toHaveBeenCalled();
   withTiming.mockRestore();
+});
+
+// The roll travels the way the shown number moved, whatever unit or language it is shown in.
+test('the roll direction follows the displayed number', () => {
+  expect(rollsUp('14°', '15°')).toBe(true);
+  expect(rollsUp('15°', '14°')).toBe(false);
+  expect(rollsUp('-2,5°', '-4,0°')).toBe(false);
+  expect(rollsUp('-4.0°', '-2.5°')).toBe(true);
+  expect(rollsUp('\u22122°', '1°')).toBe(true);
+  // Celsius 16.3 to Fahrenheit 61.3 is a rise on screen; back again is a fall.
+  expect(rollsUp('16.3°', '61.3°')).toBe(true);
+  expect(rollsUp('61.3°', '16.3°')).toBe(false);
+  expect(rollsUp('', '14°')).toBe(true);
 });
