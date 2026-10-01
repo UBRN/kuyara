@@ -52,6 +52,8 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
 import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
 import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
+import { garmentShadowRule } from '@/components/ui/garment-board/compose-garment-board';
+import { shiftOklchLightness } from '@/theme/color-oklch';
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
 import { RING_OUTSET } from '@/components/ui/coach-mark-layer';
@@ -342,18 +344,18 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     });
     const hidden = { includeHiddenElements: true };
     const stageColor = theme.atmosphere[presentation.atmosphere];
-    // P2: the stage is as tall as its fitted board, and every piece stands on a contact shade.
+    // P2: the stage is as tall as its fitted board, and every piece casts its shadow on it.
     expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
       .toMatchObject({
         backgroundColor: stageColor, borderRadius: 26, width: 358,
         height: measureGarmentBoardHeight(primary.boardPieces, 358, 'today', true),
       });
     expect(result.getByTestId(`today-primary-board-${primary.id}`, hidden)).toBeOnTheScreen();
-    const shades = result.getByTestId('today-stage', hidden)
-      .queryAll((node) => node.props.rx != null && node.props.ry != null);
-    expect(shades).toHaveLength(primary.boardPieces.length);
-    expect(shades.every((node) => node.props.fill?.payload === processColor(theme.contactShade[presentation.atmosphere])))
-      .toBe(true);
+    const shadows = result.getByTestId('today-stage', hidden)
+      .queryAll((node) => String(node.type).includes('FeFlood'));
+    expect(shadows).toHaveLength(primary.boardPieces.length);
+    const shadow = shiftOklchLightness(stageColor, garmentShadowRule.step[theme.colorScheme]);
+    expect(shadows.every((node) => node.props.floodColor?.payload === processColor(shadow))).toBe(true);
     expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(primary.title);
     expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
       .toMatchObject(typography.label);
@@ -1128,7 +1130,7 @@ test('outfit detail carries the coverage line inside the weather recap', async (
   expect(recap.props.accessibilityLabel).toContain(line);
 });
 
-// Every piece and every contact shade rises on its own layer under the hero board.
+// Every piece, with its shadow, rises on its own layer under the hero board.
 function heroRiseLayers(result: Awaited<ReturnType<typeof render>>) {
   return result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, { includeHiddenElements: true }).children
     .filter((child) => typeof child !== 'string')

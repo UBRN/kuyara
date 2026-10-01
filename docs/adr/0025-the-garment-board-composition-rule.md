@@ -65,20 +65,40 @@ Anchors 1.00, `outer_layer` 0.74, `mid_layer` 0.56, as multipliers on the core m
 ratios span 2.86 for a sneaker to 0.94 for an ankle boot and the metric flatters a wide
 flat shape. A shoe is recognised by the length of its profile.
 
-### 3. Two placement families, chosen by one predicate
+### 3. Today lays the outfit out as worn; the detail opens it
 
-The predicate is whether the outfit carries a layer at all. Footwear is always present
-and never earns a column of its own, so this is the rule's only branch.
+One parameter, the **lap**, decides how close the pieces lie: the most of a covered
+piece's drawn extent, on the side another piece enters from, that the other piece may
+cover.
 
-**Column and rail** when a layer is present: the body core stacks on a left axis, the
-layers on a right axis with outer above mid, and footwear stands on the baseline in the
-rail column. **Stagger** when no layer is present: the anchors descend diagonally and
-footwear takes the counter-corner.
+**Today draws the worn board, with a lap of 0.12**, so an outfit reads as one combination
+laid out flat rather than as separate pieces in boxes. The body core is one column, the
+bottom's waist lying over the top's hem as if tucked in; the footwear stands at the core's
+foot, its opening over the lowest piece's hem; the layers stack on a right rail, outer
+above mid, each lying over the core's side. Pieces lie on one another in the order the
+outfit is put on: top, bottom, one-piece, mid layer, outer layer, footwear. Because no
+overlap exceeds the lap, a collar, a waist and a sole always stay in view, and the outer
+layer never overlaps the mid layer, whose collar its hem would cover.
 
-Two devices keep the first family from reading as a table, both carried from the spike's
-accepted board rather than invented: the mid layer steps off the rail axis, and the
-footwear station stops short of the core's baseline so the two columns do not land on
-one line.
+**The detail draws the open board, with a lap of 0**, because a caption sits under every
+piece there. It keeps two placement families, chosen by whether the outfit carries a
+layer at all. **Column and rail** when a layer is present: the body core stacks on a left
+axis, the layers on a right axis with outer above mid, and footwear stands on the baseline
+in the rail column. **Stagger** when no layer is present: the anchors descend diagonally
+and footwear takes the counter-corner. Two devices keep the column from reading as a
+table, both carried from the spike's accepted board: the mid layer steps off the rail
+axis, and the footwear station stops short of the core's baseline so the two columns do
+not land on one line.
+
+Both boards read in the same order, and both keep the core on the left and the layers on
+the right, so the transition between them moves the pieces rather than swapping pictures.
+
+Every piece on every board casts a soft shadow on its plane: its own drawn shape, blurred
+and dropped down, in the plane's colour moved down in OKLCH lightness. It reads only the
+painting's alpha, so it follows any drawing that declares its drawn bounds, and where two
+pieces overlap the upper one's shadow falls on the lower, which is what gives the worn
+board its depth. The parameters are in
+[`garment-board.md`](../design/garment-board.md) section 9.
 
 ### 4. The stage's height is derived from the composition
 
@@ -142,7 +162,8 @@ The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather j
 ## Consequences
 
 - **A slot list is now sufficient to draw a board.** Ten slot lists covering every shape
-  the composer can emit were generated and audited. Overlap 0 and clipping 0 on all ten;
+  the composer can emit were generated and audited. Clipping 0 on all ten, overlap 0 on
+  the open board and within the 0.12 lap on the worn board;
   anchor parity by drawn area 1.000 on all ten, against 1.654 for the same board sized by
   container width; weakest half 0.144 ink coverage, strongest 0.357.
 - **The ink-parity residual is the price of a style-invariant metric.** Within the
@@ -177,11 +198,15 @@ couples the layout to the art style and breaks ADR 0021 §1's replaceability: th
 meant to accept richer illustration, catalogue artwork or a user photograph without a
 redesign, and each of those changes the ink dramatically at identical size.
 
-**One layout family instead of two.** Attempted. A single column-and-rail structure
-applied to a two-piece or a layerless three-piece outfit leaves the rail holding one
-small shoe, which measured as an all but empty column. Forcing the stagger onto
-five-piece outfits produced overlap. The predicate is a real fork in the input, not a
-failure to generalise.
+**One open layout family instead of two.** Attempted. A single open column-and-rail
+structure applied to a two-piece or a layerless three-piece outfit leaves the rail holding
+one small shoe, which measured as an all but empty column. Forcing the stagger onto
+five-piece outfits produced overlap. The open board keeps the fork. The worn board needs
+no fork, because its footwear stands under the core and an outfit without layers is
+simply a column with an empty rail.
+
+**Overlap on the detail too.** Rejected: every gap of the open board holds a piece's
+caption, and the layers lying over the core would cover the core's captions.
 
 **A fixed stage height.** Rejected on the arithmetic in decision 4, and revisitable there
 if native validation disagrees.

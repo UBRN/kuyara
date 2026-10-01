@@ -143,10 +143,11 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
   a palette colour that passes neither moves in OKLCH lightness only, by the smallest
   passing step, with its hue unchanged. The neutral fill of a drawing without a palette
   clears the step on every plane, and the page ground the detail plate and the Today
-  alternates stand on is measured with the stages. The contact shade under each piece on
-  Today's primary stage is neither a shadow token nor a separator: it is the stage colour
-  moved in OKLCH lightness only, and the ink outline over it clears **>= 3.0:1** on every
-  atmosphere stage in both appearances, so the fill never has to clear a step against it.
+  alternates stand on is measured with the stages. The soft shadow each garment casts on
+  its plane is neither a shadow token nor a separator: it is the plane's colour moved in
+  OKLCH lightness only, and the ink outline over it clears **>= 3.0:1** on every atmosphere
+  stage and the page ground in both appearances, so the fill never has to clear a step
+  against it.
 
 ## Law 4: one accent, and a controlled role band
 
@@ -484,7 +485,7 @@ iPhone 17 Pro Simulator on 2026-09-12, where they pass rest by about 1.6 pt once
 settle without a second bounce; a lower damping adds a second bounce, which reads as
 elastic easing and is refused. On Today the pieces rise into a still stage on mount, one
 by one in the board's reading order, each `theme.motion.stagger` after the piece before
-it, with its contact shade; the stage plate, its tint and the hero values do not move.
+it, with its shadow; the stage plate, its tint and the hero values do not move.
 The one exception is the first outfit arriving from the runway: the stage plate shrinks
 once, as described below.
 A moment's settle travels `spacing.xs` down on

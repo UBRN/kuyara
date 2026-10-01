@@ -7,6 +7,7 @@ import {
   composeGarmentBoard,
   drawnExtent,
   fitTodayStage,
+  garmentShadowRule,
   placeOnRunway,
   todayPreset,
 } from '@/components/ui/garment-board/compose-garment-board';
@@ -19,6 +20,7 @@ import {
 import { garmentRolesBySlot, type GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
 import { resolveGarmentSilhouette } from '@/components/ui/garment-board/garment-silhouette-map';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+import { shiftOklchLightness } from '@/theme/color-oklch';
 import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -155,31 +157,39 @@ test('a rising board starts one large step below at zero opacity and adds no nod
 
 // ADR 0020: content arrives in reading order. The pieces rise one by one in the board's
 // reading order, whatever order the outfit lists them in, each one stagger step after the
-// piece before it, and each contact shade rises with its piece.
-test('a rising board staggers its pieces in reading order, each shade with its piece', async () => {
+// piece before it, each with its shadow; the layers stack in the dressing order, so the outer
+// layer, read before the mid layer, still lies over it.
+test('a rising board staggers its pieces in reading order and stacks them in dressing order', async () => {
+  const layered: readonly GarmentBoardPiece[] = [
+    { slot: 'footwear', garmentTypeId: 'ankle_boots', category: 'footwear' },
+    { slot: 'mid_layer', garmentTypeId: 'sweater', category: 'top' },
+    { slot: 'outer_layer', garmentTypeId: 'rain_jacket', category: 'outerwear' },
+    { slot: 'bottom', garmentTypeId: 'trousers', category: 'bottom' },
+    { slot: 'primary_top', garmentTypeId: 't_shirt', category: 'top' },
+  ];
+  const layeredPalette: GarmentOutfitPalette = {
+    ...palette, pieces: layered.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })),
+  };
   const withDelay = jest.spyOn(Reanimated, 'withDelay');
   const result = await render(
-    <GarmentBoard accessibilityLabel="Dress, sandals" contactShade={lightTheme.contactShade.clearDay} fit
-      palette={palette} pieces={[...pieces].reverse()} preset="today" rise
-      stageColor={lightTheme.atmosphere.clearDay} width={349} />,
+    <GarmentBoard accessibilityLabel="Rainy outfit" fit palette={layeredPalette} pieces={layered} preset="today"
+      rise stageColor={lightTheme.atmosphere.clearDay} width={349} />,
     { wrapper: LightTheme },
   );
 
-  // Every layer starts its fade and its travel after the same delay.
-  const delays = withDelay.mock.calls.map(([delay]) => delay);
+  // Stacked top, bottom, mid layer, outer layer, footwear; read top, bottom, outer, mid, footwear.
   const { stagger } = lightTheme.motion;
-  expect(delays).toEqual([0, 0, stagger, stagger, 0, 0, stagger, stagger]);
-  // The shades come first, then the pieces, each set in reading order: the dress, then the sandals.
+  const delays = withDelay.mock.calls.map(([delay]) => delay);
+  expect(delays).toEqual([0, 1, 3, 2, 4].flatMap((index) => [index * stagger, index * stagger]));
   const layers = result.getByRole('image').children.filter((child) => typeof child !== 'string');
-  expect(layers).toHaveLength(pieces.length * 2);
-  const [dress] = silhouettes['g-dress'].groups;
-  const [sandal] = silhouettes['g-sandal'].groups;
-  const draws = (layer: (typeof layers)[number], outline: string) =>
-    layer.queryAll((node) => node.props.d === outline).length > 0;
-  expect(layers.slice(0, pieces.length).every((layer) =>
-    layer.queryAll((node) => node.props.rx != null).length === 1)).toBe(true);
-  expect(draws(layers[2]!, dress.outline)).toBe(true);
-  expect(draws(layers[3]!, sandal.outline)).toBe(true);
+  expect(layers).toHaveLength(layered.length);
+  const ids = ['g-tee', 'g-trousers', 'g-sweater', 'g-rain', 'g-boot'] as const;
+  layers.forEach((layer, index) => {
+    const [group] = silhouettes[ids[index]].groups;
+    expect(layer.queryAll((node) => node.props.d === group.outline).length).toBeGreaterThan(0);
+    // Each piece casts its own shadow, inside its own layer, so it rises with the piece.
+    expect(layer.queryAll((node) => String(node.type).includes('FeGaussianBlur')).length).toBe(1);
+  });
   withDelay.mockRestore();
 });
 
@@ -283,28 +293,21 @@ test('a settle change moves the pieces without replaying the entrance or the acc
   expect(onSettled).toHaveBeenCalledTimes(1);
 });
 
-// P2: Today's primary stage fits the board and stands each piece on one flat contact shade,
-// all shades drawn before any piece; without the props nothing changes.
-test('a fitted board is as tall as its fitted pieces and draws every shade first', async () => {
-  const shade = lightTheme.contactShade.clearDay;
+// P2: Today's primary stage fits the board, as tall as its fitted pieces. Every board draws
+// each piece with its soft shadow, in the plane's own colour moved down in lightness.
+test('a fitted board is as tall as its fitted pieces and every piece casts a shadow', async () => {
   const fitted = await render(
-    <GarmentBoard accessibilityLabel="Dress, sandals" contactShade={shade} fit palette={palette}
+    <GarmentBoard accessibilityLabel="Dress, sandals" fit palette={palette}
       pieces={pieces} preset="today" stageColor={lightTheme.atmosphere.clearDay} width={349} />,
     { wrapper: LightTheme },
   );
   const image = fitted.getByRole('image');
   expect(image).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'today', true));
-  const shades = fitted.container.queryAll((node) => node.props.rx != null && node.props.ry != null);
-  expect(shades).toHaveLength(pieces.length);
-  expect(shades.every((node) => processColor(shade) === (node.props.fill?.payload ?? node.props.fill))).toBe(true);
-  const drawn = fitted.container.queryAll((node) => node.props.rx != null || node.props.transform != null);
-  expect(drawn.slice(0, pieces.length)).toEqual(shades);
-
-  const plain = await render(
-    <GarmentBoard accessibilityLabel="Dress, sandals" palette={palette} pieces={pieces} preset="today" width={349} />,
-    { wrapper: LightTheme },
-  );
-  expect(plain.container.queryAll((node) => node.props.rx != null && node.props.ry != null)).toHaveLength(0);
+  const floods = fitted.container.queryAll((node) => String(node.type).includes('FeFlood'));
+  expect(floods).toHaveLength(pieces.length);
+  const shadow = shiftOklchLightness(lightTheme.atmosphere.clearDay, garmentShadowRule.step.light);
+  expect(floods.every((node) => processColor(shadow) === (node.props.floodColor?.payload ?? node.props.floodColor)))
+    .toBe(true);
 });
 
 // P2: opening the detail, the pieces leave from where Today's fitted stage drew them, so
