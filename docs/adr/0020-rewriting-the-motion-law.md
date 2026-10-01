@@ -41,7 +41,8 @@ Two requirements are binding.
    requirement rather than a restraint preference.
 2. **Use the duration assignments by role.** `fast` 120 for content entering and press
    feedback, `normal` 200 for a state change on something already on screen,
-   `deliberate` 320 for a full-screen or sheet transition.
+   `deliberate` 320 for a full-screen or sheet transition, and `launch` 440 for the cold
+   launch's dive alone.
 
 The OS Reduce Motion setting is never read. kuyara makes no related accessibility
 support claim. **Risk accepted:** indefinite ambient animation and the loading
@@ -99,6 +100,30 @@ A duration is a role in the sense of
 it may be defined ahead of a second use. Ambient motion never runs under a screen's hero
 value.
 
+### The cold launch
+
+Every cold launch, never a return from the background, plays one animation in a layer drawn
+above the whole app; `visual-identity.md` describes what it shows. The layer's first frame
+is the native splash's last and holds still until the first screen is drawn, for at most
+1.5 seconds. Then the symbol breathes in on `fast` (scale 1 to 0.94), and the view dives
+into its upper piece over `launch` 440: the scale grows to about 26 times on a logarithmic
+curve, the dive's focus glides to the screen's centre over its first 70 percent, and the
+pieces' fill turns to Calm Current between 15 and 70 percent of it. The symbol is redrawn
+from its vectors at every scale, so its edges stay sharp. When the piece covers the screen,
+a full-screen Calm Current curtain takes its place and fades on `deliberate`; the whole
+launch takes 880 ms from the first screen being drawn. Today's outfit rises on its usual
+arrival spring as the curtain starts to fade, and every sheet, prompt and the coach-mark
+tour waits until the layer has gone. A launch from a notification or a link plays the
+shortened launch: the curtain arrives over the splash on `fast` and fades on `deliberate`,
+440 ms in all. A first screen later than the ceiling fades the still symbol away on
+`deliberate`, and a failed one on `fast`, so the app is never left behind the layer. The
+layer is hidden from assistive technology and never takes a touch; the status bar turns
+light while the curtain is at least half opaque. Only `components/ui` consumes the
+`launch` role.
+
+This is the one motion that holds the user's first look at the app, accepted as the
+launch's character: it adds under a second to a cold launch and plays nowhere else.
+
 ### A moment
 
 A moment is a single settle plus its haptic, fired once per user action that completes
@@ -124,8 +149,7 @@ a state the user set and crosses a real threshold.
   condition-tinted stage still because continuous movement beneath large text is where
   ambient motion measurably costs readability.
 - Motion as the sole carrier of a state change.
-- Motion that delays the user's decision, which `visual-identity.md` prohibits
-  independently.
+- Motion that delays the user's decision, other than the cold launch above.
 - An in-app motion toggle.
 - A content-detached grey-block wait surface. The runway keeps ADR 0025's boxes
   and the garment silhouettes because the wait already knows where the pieces will sit;

@@ -400,11 +400,20 @@ copy has one structure on every surface, English "Last updated at {time}" and Tu
 ## Law 7: motion
 
 Durations are already tokenized (`immediate` 0, `fast` 120, `normal` 200, `deliberate`
-320). The language adds which one to use:
+320, `launch` 440). The language adds which one to use:
 
 - `fast` 120, content entering, press feedback.
 - `normal` 200, a state change on something already on screen.
 - `deliberate` 320, reserved for a full-screen or sheet transition.
+- `launch` 440, the cold launch's dive into the symbol and nothing else.
+
+**The cold launch** is the one motion that holds the first look at the app. Its first
+frame is the native splash's last; the symbol breathes in on `fast`, the view dives into
+its upper piece on `launch` while the pieces turn Calm Current, and the one-colour screen
+fades on `deliberate` over the first screen, where Today's outfit rises as the curtain
+starts to fade. A notification or a link plays only the colour arriving and fading.
+Sheets, prompts and the coach-mark tour wait until the layer has gone. The full timing is
+in [ADR 0020](../adr/0020-rewriting-the-motion-law.md#the-cold-launch).
 
 **Continuous and repeating motion is permitted**, under the condition set by
 [ADR 0020](../adr/0020-rewriting-the-motion-law.md):
@@ -728,7 +737,7 @@ and which durations apply to which interaction. It does not cover:
 - Token names, primitive values, theme resolution, or component APIs. Those live in
   [`design-system.md`](./design-system.md).
 - Brand foundation, the approved palette's six hexes, the master symbol geometry, the
-  application icon, and splash screen treatment. Those are locked decisions in
+  application icon, and the splash screen and launch treatment. Those are locked decisions in
   [`visual-identity.md`](./visual-identity.md).
 - Concrete component variants and primitives still deferred, namely
   non-scrollable/keyboard screen APIs and platform-colour adapters. These stay governed
