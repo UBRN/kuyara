@@ -1,6 +1,7 @@
 import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
+import { useTransitionLanded } from '@/components/ui';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { HistoryScreen, type HistoryEntry } from '@/features/profile/presentation/history-screen';
 import { useMessages } from '@/localization/use-messages';
@@ -10,6 +11,7 @@ export default function HistoryRoute() {
   const { outfitHistory } = useRecommendationApplication();
   const [entries, setEntries] = useState<readonly HistoryEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const transitionLanded = useTransitionLanded();
 
   useFocusEffect(useCallback(() => {
     if (!outfitHistory) return;
@@ -32,7 +34,7 @@ export default function HistoryRoute() {
       <Stack.Screen
         options={{ headerLargeTitle: true, headerShown: true, headerTitle: messages.profile.historyLabel }}
       />
-      <HistoryScreen entries={entries} loadFailed={loadFailed} />
+      <HistoryScreen entries={entries} loadFailed={loadFailed} transitionLanded={transitionLanded} />
     </>
   );
 }

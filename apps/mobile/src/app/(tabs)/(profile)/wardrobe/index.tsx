@@ -1,7 +1,7 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
-import { GlassButton } from '@/components/ui';
+import { GlassButton, useTransitionLanded } from '@/components/ui';
 import { useSinglePush } from '@/components/ui/use-single-push';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import {
@@ -32,6 +32,9 @@ export default function WardrobeRoute() {
   // resolves one and reports it here so the plus button still starts on the one in view.
   const [viewedCategory, setViewedCategory] = useState<StructuralCategory | undefined>();
   const addCategory = initialCategory ?? viewedCategory;
+  // Held here rather than in the list, which remounts for each saved tile: only the first
+  // push onto the Closet waits for its transition.
+  const transitionLanded = useTransitionLanded();
 
   return (
     <>
@@ -70,6 +73,7 @@ export default function WardrobeRoute() {
         key={savedItemId ?? ''}
         revealWanted={parseWardrobeEntryStateParam(filter) === 'wanted'}
         savedItemId={savedItemId}
+        transitionLanded={transitionLanded}
       />
     </>
   );

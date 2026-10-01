@@ -72,6 +72,8 @@ type WardrobeListScreenProps = Readonly<{
   /** O10: Undo on the saved confirmation; rejects when the removal failed. */
   onUndoSaved?: (id: string) => Promise<void>;
   resolvePhotoUri?: (relativePath: string | null) => string | null;
+  /** False while the push onto the Closet is still moving: the tiles arrive once it lands. */
+  transitionLanded?: boolean;
 }>;
 
 // Three columns of 174.5 by 218 proportioned tiles (112 by 140 on the 393 point reference
@@ -189,9 +191,15 @@ export function tileEntranceIndex(
 }
 
 /** A grid place whose arrival is settled when it mounts, so its wrapper never swaps. */
-function TileSlot({ children, entranceIndex }: Readonly<{ children: ReactNode; entranceIndex: number | null }>) {
+function TileSlot({ children, entranceIndex, waiting }: Readonly<{
+  children: ReactNode;
+  entranceIndex: number | null;
+  waiting: boolean;
+}>) {
   const [mountedIndex] = useState(entranceIndex);
-  return mountedIndex === null ? <View>{children}</View> : <Entrance index={mountedIndex}>{children}</Entrance>;
+  return mountedIndex === null
+    ? <View>{children}</View>
+    : <Entrance index={mountedIndex} waiting={waiting}>{children}</Entrance>;
 }
 
 export function WardrobeListScreen({
@@ -206,6 +214,7 @@ export function WardrobeListScreen({
   revealWanted = false,
   savedItemId = null,
   state,
+  transitionLanded = true,
 }: WardrobeListScreenProps) {
   const insets = useSafeAreaInsets();
   const messages = useMessages();
@@ -398,7 +407,10 @@ export function WardrobeListScreen({
   };
 
   const renderTile = (item: WardrobeItem, index: number, column: number) => (
-    <TileSlot entranceIndex={tileEntranceIndex(item.id, index, arrivingItemId, firstRender)} key={column}>
+    <TileSlot
+      entranceIndex={tileEntranceIndex(item.id, index, arrivingItemId, firstRender)}
+      key={column}
+      waiting={!transitionLanded}>
       <WardrobeGridTile
         geometry={geometry}
         item={item}

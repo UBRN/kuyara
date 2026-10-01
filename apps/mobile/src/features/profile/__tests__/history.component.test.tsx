@@ -19,6 +19,7 @@ jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react') as typeof import('react');
   return {
     Stack: { Screen: () => null },
+    useNavigation: () => ({ addListener: () => () => undefined, getState: () => ({ index: 0 }) }),
     useFocusEffect: (callback: () => void | (() => void)) =>
       actualReact.useEffect(() => {
         let cleanup = callback();

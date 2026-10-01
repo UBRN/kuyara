@@ -64,6 +64,7 @@ export { resolveCardFill } from './primitive-contracts';
 export type { ButtonVariant, PillTone, SurfaceVariant } from './primitive-contracts';
 export { haptics, useRefreshOutcomeHaptics } from './haptics';
 export { useTextScaling, type TextScaling } from './use-text-scaling';
+export { useTransitionLanded } from './use-transition-landed';
 
 export {
   GarmentBoard,
