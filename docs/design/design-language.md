@@ -435,7 +435,11 @@ Two requirements are hard, not judgment calls:
   for the garment pieces on that stage; what stays still is the stage itself.
   The rule is geometric: an ambient glyph's animated bounding box must not intersect
   the hero value's line box and must not sit directly beneath it inside the stage. A
-  glyph beside the hero on the same row is permitted.
+  glyph beside the hero on the same row is permitted. The hero value itself may change
+  in place: when Weather's current temperature changes on a refresh, only its changed
+  digits roll one line on `normal`, once, up for a rise and down for a fall (a value that
+  gains or loses a digit rolls whole), and a value drawn from the cache or for a new place
+  never rolls.
 
 App motion does not read the OS motion preference or claim adaptation to it.
 
@@ -498,7 +502,10 @@ source that authors `withSpring`, `dampingRatio` or `stiffness`.
 staggered by `theme.motion.stagger`, after the platform's transition has landed. The
 transition itself is the platform's: native push, native tabs, native sheets. There are
 no custom navigation transitions, because the liveliness belongs to the content arriving
-rather than to the screen swapping.
+rather than to the screen swapping. A screen title with no native large title recedes
+as its content scrolls over it, the way a large title gives way: driven by the scroll
+rather than a duration, it fades over its own height, travels at a quarter of the
+scroll's speed and shrinks to the press scale. Weather's title row is the one site.
 
 **A moment is a single settle plus its haptic**, fired once per user action that
 completes something. A moment adds no particles, characters, mascots or sounds. One site

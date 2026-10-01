@@ -6,6 +6,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 
 import {
   AppText,
@@ -17,7 +18,9 @@ import {
   ListRow,
   ListRowGroup,
   Presence,
+  RollingText,
   Screen,
+  ScrollDepth,
   SectionHeader,
   Surface,
   useRefreshOutcomeHaptics,
@@ -235,6 +238,9 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const { revalidateFreshness, state } = application;
   const weatherEvents = useWeatherInteractionEvents();
   const push = useSinglePush();
+  // The title row has no native large title to give way as the forecast scrolls over it.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollOffset(scrollRef);
   // The control shows only a refresh the user pulled for. Binding it to the application's
   // `isRefreshing` also turned it on programmatically, and on iOS a RefreshControl that
   // starts while the screen is behind the location picker or freshly mounted keeps its
@@ -350,6 +356,18 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const outlook = snapshot
     ? findWeatherOutlook({ snapshot, now: new Date(now).toISOString() })
     : null;
+  // Lines that change in place on a refresh cross over instead of snapping (Law 7).
+  const outlookLine = snapshot && outlook
+    ? outlookSentence(outlook, copy, snapshot.timeZone, language, hour12, temperatureUnit)
+    : null;
+  const feelsLikeLine = snapshot
+    ? `${copy.feelsLike(
+      formatTemperature(snapshot.current.apparentTemperatureCelsius, language, temperatureUnit),
+    )} · ${copy.range(
+      formatTemperature(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
+      formatTemperature(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
+    )}`
+    : '';
   // The viewer's own local day, read once: it both drops the days that have already
   // ended and marks the row the current temperature belongs to.
   const localDayKey = snapshot
@@ -458,7 +476,9 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
           tintColor={theme.colors.iconSecondary}
         />
       }
+      ref={scrollRef}
       testID="weather-screen">
+      <ScrollDepth scrollOffset={scrollOffset}>
       <SectionHeader
         title={copy.title}
         trailingAction={state.activeLocation ? (
@@ -475,6 +495,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
           />
         ) : undefined}
       />
+      </ScrollDepth>
       {state.activeLocation ? null : (
         <AppText colorRole="textSecondary">{copy.introduction}</AppText>
       )}
@@ -517,26 +538,22 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                 ]}>
                 <View style={styles.currentConditionGroup}>
                   <View style={styles.currentConditionRow}>
-                    <AppText
+                    <RollingText
                       adjustsFontSizeToFit
                       minimumFontScale={0.6}
                       numberOfLines={1}
                       tabularNumbers
+                      value={snapshot.current.temperatureCelsius}
                       variant="display">
                       {formatTemperature(snapshot.current.temperatureCelsius, language, temperatureUnit)}
-                    </AppText>
+                    </RollingText>
                     <AppText variant="bodyStrong">
                       {copy.conditions[snapshot.current.condition]}
                     </AppText>
                   </View>
-                  <AppText colorRole="textSecondary" variant="caption">
-                    {`${copy.feelsLike(
-                      formatTemperature(snapshot.current.apparentTemperatureCelsius, language, temperatureUnit),
-                    )} · ${copy.range(
-                      formatTemperature(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
-                      formatTemperature(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
-                    )}`}
-                  </AppText>
+                  <Crossfade contentKey={feelsLikeLine}>
+                    <AppText colorRole="textSecondary" variant="caption">{feelsLikeLine}</AppText>
+                  </Crossfade>
                 </View>
                 <View
                   accessibilityElementsHidden
@@ -553,14 +570,16 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                 </View>
               </View>
 
-              {outlook ? (
-                <AppText
-                  colorRole="textPrimary"
-                  tabularNumbers
-                  testID="weather-outlook"
-                  variant="body">
-                  {outlookSentence(outlook, copy, snapshot.timeZone, language, hour12, temperatureUnit)}
-                </AppText>
+              {outlookLine ? (
+                <Crossfade contentKey={outlookLine}>
+                  <AppText
+                    colorRole="textPrimary"
+                    tabularNumbers
+                    testID="weather-outlook"
+                    variant="body">
+                    {outlookLine}
+                  </AppText>
+                </Crossfade>
               ) : null}
 
               <Divider testID="weather-current-divider" />

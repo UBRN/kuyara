@@ -96,6 +96,8 @@ export {
   type RunwayBoardOutfit,
 } from './garment-board/garment-runway-board';
 export { GarmentPreviewBoard, type GarmentPreviewBoardProps } from './garment-preview-board';
+export { RollingText, type RollingTextProps } from './rolling-text';
+export { ScrollDepth, type ScrollDepthProps } from './scroll-depth';
 export {
   garmentColorFamiliesBySlot,
   garmentUsualColorFamilies,

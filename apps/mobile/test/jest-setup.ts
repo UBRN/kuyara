@@ -18,6 +18,8 @@ jest.mock('react-native-reanimated', () => {
     // The mock's `makeMutable` returns the bare value; the swap board keeps per-piece shared
     // values outside hooks, so the test double builds the same proxy `useSharedValue` does.
     makeMutable: (value: unknown) => reanimated.useSharedValue(value),
+    // The mock's scroll offset is a bare `{ value }`; a style that reads it needs `get`.
+    useScrollOffset: () => reanimated.useSharedValue(0),
     interpolate: (
       value: number,
       inputRange: readonly [number, number],
