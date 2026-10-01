@@ -492,7 +492,9 @@ elastic easing and is refused. On Today the pieces rise into a still stage on mo
 by one in the board's reading order, each `theme.motion.stagger` after the piece before
 it, with its shadow; the stage plate, its tint and the hero values do not move.
 The one exception is the first outfit arriving from the runway: the stage plate shrinks
-once, as described below.
+once, as described below. When another outfit takes the stage (a confirmed re-ask, a new
+day), the outfit on it leaves first: its board drops `spacing.sm` and fades on `fast` as one
+view, shadows included, and the new pieces rise `fast` later; the plate stays where it is.
 A moment's settle travels `spacing.xs` down on
 `theme.motion.fast` and returns on the arrival spring. Only `components/ui` consumes
 either role, and `theme.test.mjs` fails feature
@@ -507,11 +509,17 @@ as its content scrolls over it, the way a large title gives way: driven by the s
 rather than a duration, it fades over its own height, travels at a quarter of the
 scroll's speed and shrinks to the press scale. Weather's title row is the one site.
 
-**A moment is a single settle plus its haptic**, fired once per user action that
-completes something. A moment adds no particles, characters, mascots or sounds. One site
-carries a moment today: marking the last piece of an outfit as owned on the outfit detail
-board, where the pieces settle once with the arrival spring and Law 8's success
-notification fires.
+**Dressing.** A piece changed on the outfit detail board, by a swipe, a strip tile, the
+row's picker or an adjustable step, is taken off and put on: the leaving piece lifts
+`spacing.md` as it fades on `fast`, and the arriving one is hung on from `spacing.md` above
+and lands on the arrival spring, its shadow drawn with it. A piece a swipe has already
+carried into place catches its weight with a moment's settle instead.
+
+**A moment is a single settle plus its haptic**, fired once per user action that completes
+something. A moment adds no particles, characters, mascots or sounds. Two sites carry a
+moment today, both on the outfit detail board, where the pieces settle once with the arrival
+spring and Law 8's success notification fires: marking the last piece of an outfit as owned,
+and recording "Wore this today".
 
 **Press feedback.** A pressed surface scales to 0.97 and back with `theme.motion.fast`.
 A full-width list row is the exception: it dims and keeps its size, as iOS rows do. The
@@ -535,12 +543,15 @@ Everywhere else, silence.
 | Selection change: tab bar, theme, language, clothing preference, wardrobe ownership toggle, the outfit detail owned/wanted pair | selection | State changes under the finger |
 | Primary action pressed, the `Button` prominent role | impact light | The screen's main action confirms the press itself |
 | Outfit ownership completed on the detail board, the last piece marked owned | notification success | Confirming a state the user set, a real threshold |
+| "Wore this today" recorded on outfit detail | notification success | Confirming a state the user set; the press fires no impact of its own |
+| A swipe on an enlarged outfit detail piece crosses half a step toward a candidate | selection, once per crossing | A physical threshold under the finger: the piece a release lands on changes |
 | Destructive confirmation | notification warning | Not reversible |
 | Navigation, including tapping an outfit card to open detail | **none** | Ordinary navigation |
 | Non-primary buttons, icon buttons and chevron rows | **none** | Same |
 
 **A primary action confirms the press itself with a light impact; no other control
-does.** Primary means the `Button` prominent role, the screen's main action. Icon
+does.** "Wore this today" is the one primary action that leaves its press silent: the
+recorded outfit fires the success notification instead. Primary means the `Button` prominent role, the screen's main action. Icon
 buttons, list rows, chips, the tab bar and pickers fire nothing on press; where the tab
 bar and the pickers do fire, it is the selection change above, which is a state changing
 under the finger rather than a press being acknowledged. The press that completes an
@@ -551,7 +562,7 @@ haptic confirmation on a tap and a clear gain from haptics at a drag boundary cr
 so the threshold sites rest on a measured result and the primary press on subjective
 preference alone; a second press-confirmation site is not argued in on performance.
 
-Six sites, not a hundred. A repeated action must not punish the hand with
+Eight sites, not a hundred. A repeated action must not punish the hand with
 constant vibration, which matches Apple's own guidance and this identity's existing
 avoidance of anything attention-demanding.
 

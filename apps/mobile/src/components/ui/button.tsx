@@ -35,6 +35,11 @@ export type ButtonProps = Omit<
   icon?: IconName;
   disabled?: boolean;
   loading?: boolean;
+  /**
+   * False for a primary action whose outcome confirms itself with Law 8's success
+   * notification: one press, one haptic.
+   */
+  pressHaptic?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -54,6 +59,7 @@ export function Button({
   onFocus,
   onPress,
   onPressIn,
+  pressHaptic = true,
   size = 'medium',
   style,
   variant = 'prominent',
@@ -101,7 +107,7 @@ export function Button({
       onPressIn={(event) => {
         // Law 8: the screen's main action confirms the press itself; no other control
         // does. The wrapper routes Android to its own feedback rather than the iOS call.
-        if (variant === 'prominent') haptics.impactLight();
+        if (variant === 'prominent' && pressHaptic) haptics.impactLight();
         onPressIn?.(event);
       }}
       style={({ pressed }) => [

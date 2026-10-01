@@ -74,6 +74,23 @@ const SETTLE_TRAVEL = spacing.xs;
 // screen and do not move, so only the drawn pieces carry the arrival (ADR 0021).
 const RISE_TRAVEL = spacing.xl;
 
+// Law 7's exit: a hero board taken off its stage for another outfit drops one small rhythm
+// step and fades on `fast`, as one view, its shadows with it, before the new pieces rise.
+const EXIT_TRAVEL = spacing.sm;
+
+function boardExit(duration: number) {
+  return () => {
+    'worklet';
+    return {
+      initialValues: { opacity: 1, transform: [{ translateY: 0 }] },
+      animations: {
+        opacity: withTiming(0, { duration }),
+        transform: [{ translateY: withTiming(EXIT_TRAVEL, { duration }) }],
+      },
+    };
+  };
+}
+
 /**
  * One rising piece, with its shadow, on its own native view: Reanimated cannot move a group
  * inside one SVG on the new architecture. The pieces leave in the board's reading order, each
@@ -83,11 +100,12 @@ const RISE_TRAVEL = spacing.xl;
  * `held` is false.
  */
 function RisingLayer({
+  after,
   children,
   held,
   index,
   style,
-}: Readonly<{ children: ReactNode; held: boolean; index: number; style: StyleProp<ViewStyle> }>) {
+}: Readonly<{ after: number; children: ReactNode; held: boolean; index: number; style: StyleProp<ViewStyle> }>) {
   const theme = useKuyaraTheme();
   const offset = useSharedValue<number>(RISE_TRAVEL);
   const opacity = useSharedValue(0);
@@ -101,12 +119,12 @@ function RisingLayer({
   useEffect(() => {
     if (held || didStart.current) return;
     didStart.current = true;
-    const delay = index * theme.motion.stagger;
+    const delay = after + index * theme.motion.stagger;
     opacity.set(withDelay(delay, withTiming(1, { duration: theme.motion.fast })));
     offset.set(withDelay(delay, withSpring(0, theme.springs.arrival, (finished) => {
       if (finished) scheduleOnRN(setRisen, true);
     })));
-  }, [held, index, offset, opacity, theme.motion.fast, theme.motion.stagger, theme.springs.arrival]);
+  }, [after, held, index, offset, opacity, theme.motion.fast, theme.motion.stagger, theme.springs.arrival]);
 
   useEffect(() => () => {
     cancelAnimation(offset);
@@ -163,6 +181,13 @@ type GarmentBoardProps = Readonly<{
    * rise plays when nothing covers the stage (the first-run runway). It starts once.
    */
   holdRise?: boolean;
+  /**
+   * Law 7's exit: taken off the screen, the board drops and fades as one on `fast`. Today's
+   * hero board sets it; its key is the outfit, so a new outfit takes the old one off.
+   */
+  leaves?: boolean;
+  /** The board takes another outfit's place: its rise waits out that board's exit. */
+  replaces?: boolean;
   /** Law 7's moment: change it and an entering board's pieces settle once. */
   settle?: number;
   /**
@@ -524,6 +549,8 @@ export function GarmentBoard({
   entrance,
   rise = false,
   holdRise = false,
+  leaves = false,
+  replaces = false,
   settle,
   palette,
   stageColor,
@@ -626,16 +653,18 @@ export function GarmentBoard({
   // Every board draws its pieces in the dressing order, so where two overlap the later one
   // lies over the earlier and casts its shadow on it.
   const reading = new Map(result.order.map((piece, index) => [piece, index]));
+  const exiting = leaves ? boardExit(theme.motion.fast) : undefined;
 
   if (!entrance && rise) {
     // The stage the screen draws stays where it is; the layers carry no accessibility
     // props, so the rise adds no node a screen reader stops on.
     return (
-      <View {...accessibilityProps} style={{ height, width }}>
+      <Animated.View {...accessibilityProps} exiting={exiting} style={{ height, width }}>
         {result.stack.map((piece) => {
           const box = placed.get(piece)!;
           return (
             <RisingLayer
+              after={replaces ? theme.motion.fast : 0}
               held={holdRise}
               index={reading.get(piece)!}
               key={piece.slot}
@@ -645,12 +674,12 @@ export function GarmentBoard({
             </RisingLayer>
           );
         })}
-      </View>
+      </Animated.View>
     );
   }
 
   if (!entrance) {
-    return (
+    const board = (
       <Svg {...accessibilityProps} height={height} width={width}>
         {result.stack.map((piece) => (
           <ShadowedPainting
@@ -666,6 +695,7 @@ export function GarmentBoard({
         ))}
       </Svg>
     );
+    return exiting ? <Animated.View exiting={exiting}>{board}</Animated.View> : board;
   }
 
   const fromBoxes = entranceStartBoxes(pieces, width, entrance.fromPreset, entrance.fromFit === true, large);

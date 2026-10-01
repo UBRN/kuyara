@@ -140,6 +140,8 @@ export type TodayMessages = Readonly<{
   ownershipSimilarLabel: string;
   /** The user's own similar piece, named by its colour family. */
   ownershipYours: (color: string) => string;
+  /** Under a board piece on detail, and in its spoken value: where the Closet already has it. */
+  ownershipOnBoard: Readonly<Record<'owned' | 'similar' | 'wanted', string>>;
   /** Phase 7: the one line under the board before a change, naming tap and swipe. */
   boardHint: string;
   /** O6: the piece row opens the piece's Closet sheet. */
@@ -1497,6 +1499,11 @@ const en = {
     ownershipUntrackedLabel: 'Not in your Closet',
     ownershipSimilarLabel: 'You have a similar one',
     ownershipYours: (color) => `Yours: ${color}`,
+    ownershipOnBoard: {
+      owned: 'In your Closet',
+      similar: 'Similar one in your Closet',
+      wanted: 'In your wanted pieces',
+    },
     boardHint: 'Tap a piece, then swipe to change it.',
     editPieceAccessibilityHint: 'Opens this piece in your Closet',
     manualMix: {
@@ -2503,6 +2510,11 @@ const tr = {
     ownershipUntrackedLabel: 'Gardırobunda yok',
     ownershipSimilarLabel: 'Sende benzeri var',
     ownershipYours: (color) => `Seninki: ${color}`,
+    ownershipOnBoard: {
+      owned: 'Gardırobunda var',
+      similar: 'Benzeri Gardırobunda',
+      wanted: 'İsteklerinde',
+    },
     boardHint: 'Bir parçaya dokun, sonra kaydırarak değiştir.',
     editPieceAccessibilityHint: 'Bu parçayı Gardırobunda açar',
     manualMix: {

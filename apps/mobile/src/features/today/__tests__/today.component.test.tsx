@@ -898,12 +898,18 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
     expect(result.getByText(row.text)).toBeOnTheScreen();
   }
 
-  // The caption names the piece; its state is spoken, and drawn in the row below.
+  // The caption names the piece and says in words where the Closet already has it, beside
+  // the badge's glyph on the piece; the piece's value speaks it, and the row below draws it.
   const copy = messages.en.today;
   const states: Record<string, string> = {
     [exactPiece.garmentTypeId]: copy.ownershipOwnedAction,
     [similarPiece.garmentTypeId]: copy.ownershipSimilarLabel,
     [wantedPiece.garmentTypeId]: copy.ownershipWantedAction,
+  };
+  const onBoard: Record<string, string> = {
+    [exactPiece.garmentTypeId]: copy.ownershipOnBoard.owned,
+    [similarPiece.garmentTypeId]: copy.ownershipOnBoard.similar,
+    [wantedPiece.garmentTypeId]: copy.ownershipOnBoard.wanted,
   };
   for (const { garmentTypeId, item, slot } of suggestion.pieces) {
     const state = states[garmentTypeId] ?? copy.ownershipUntrackedLabel;
@@ -923,9 +929,14 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
     if (states[garmentTypeId]) {
       expect(text.getByText(state, hidden)).toBeTruthy();
       expect(result.getByTestId(`outfit-detail-badge-${garmentTypeId}`, hidden)).toBeOnTheScreen();
+      expect(result.getByTestId(`outfit-detail-caption-state-${garmentTypeId}`, hidden))
+        .toHaveTextContent(onBoard[garmentTypeId]);
+      expect(piece.props.accessibilityValue.text).toMatch(new RegExp(`, ${onBoard[garmentTypeId]}$`));
     } else {
       expect(result.queryByTestId(`outfit-detail-piece-status-${garmentTypeId}`)).toBeNull();
       expect(result.queryByTestId(`outfit-detail-badge-${garmentTypeId}`, hidden)).toBeNull();
+      expect(result.queryByTestId(`outfit-detail-caption-state-${garmentTypeId}`, hidden)).toBeNull();
+      expect(Object.values(onBoard).some((words) => piece.props.accessibilityValue.text.includes(words))).toBe(false);
     }
   }
   // O7: the similar row shows the user's own piece by its colour.
@@ -1050,6 +1061,52 @@ describe.each(['en', 'tr'] as const)('%s wore this today', (language) => {
     expect(result.getByRole('alert')).toHaveTextContent(copy.wornSaveError);
     // The failed-save line opens and closes in place rather than snapping.
     expect(within(result.getByTestId('outfit-detail-worn-error')).getByRole('alert')).toBeOnTheScreen();
+  });
+
+  // Law 7's second moment and Law 8: recording the outfit settles the board once, with the
+  // success notification in place of the press's own impact. A worn record read on opening
+  // is not a moment.
+  test('recording the outfit settles the board once with the success notification', async () => {
+    const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+    const impact = jest.spyOn(haptics, 'impactLight').mockImplementation(() => undefined);
+    const withSequence = jest.spyOn(Reanimated, 'withSequence');
+    const copy = messages[language].today;
+    try {
+      const opened = await render(detail({ onWoreThis: jest.fn(), worn: 'unknown' }));
+      await opened.rerender(detail({ onWoreThis: jest.fn(), worn: 'this' }));
+      expect(success).not.toHaveBeenCalled();
+
+      const result = await render(detail({ onWoreThis: jest.fn(), worn: 'none' }));
+      const button = result.getByRole('button', { name: copy.wornAction });
+      await fireEvent(button, 'pressIn');
+      await fireEvent.press(button);
+      expect(impact).not.toHaveBeenCalled();
+      // A failed save is not a moment.
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'none', wornError: copy.wornSaveError }));
+      expect(success).not.toHaveBeenCalled();
+      // A save that ends without this outfit (a declined replacement) forgets the ask.
+      await fireEvent.press(result.getByRole('button', { name: copy.wornAction }));
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'none', wornBusy: true }));
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'other' }));
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'this' }));
+      expect(success).not.toHaveBeenCalled();
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'none' }));
+      await fireEvent.press(result.getByRole('button', { name: copy.wornAction }));
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'none', wornBusy: true }));
+      expect(withSequence).not.toHaveBeenCalled();
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'this' }));
+      expect(success).toHaveBeenCalledTimes(1);
+      // The board's settle (the test mock remakes shared values on every render, so how often
+      // later renders call it says nothing).
+      expect(withSequence).toHaveBeenCalled();
+      // A later render of the same record is not a second moment.
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'this' }));
+      expect(success).toHaveBeenCalledTimes(1);
+    } finally {
+      success.mockRestore();
+      impact.mockRestore();
+      withSequence.mockRestore();
+    }
   });
 
   // Law 7: the button and the worn state replace each other in place. The arriving one
@@ -1313,6 +1370,53 @@ test('a new suggestion re-mounts the hero board, and the same one back leaves it
     `today-primary-board-${todayOutfitId(1)}`,
     'today-primary-board-renewed-outfit',
   ]);
+});
+
+// Law 7's exit: a new outfit takes the old one off the stage first. The old board drops one
+// small step and fades on `fast` as one view, and the new pieces rise once that has played.
+test('a new outfit rises once the outfit it replaces has dropped away', async () => {
+  const { recommendation } = todayScreenState.snapshot;
+  if (recommendation.status !== 'recommended') throw new Error('Expected a recommendation.');
+  const renewed: TodayScreenState = {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      recommendation: {
+        ...recommendation,
+        outfits: [{ ...recommendation.outfits[0], optionId: 'renewed-outfit' }, ...recommendation.outfits.slice(1)],
+      },
+    },
+  };
+  const screen = (state: TodayScreenState) => providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={state} />,
+  );
+  const hidden = { includeHiddenElements: true };
+  const { fast, stagger } = lightTheme.motion;
+  const withDelay = jest.spyOn(Reanimated, 'withDelay');
+  try {
+    const result = await render(screen(todayScreenState));
+    await fireEvent(result.getByTestId('today-stage', hidden), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 400, x: 0, y: 0 } },
+    });
+    const delays = () => withDelay.mock.calls.map(([delay]) => delay);
+    // The first outfit rises at once.
+    await waitFor(() => expect(delays().length).toBeGreaterThan(0));
+    expect(Math.min(...delays())).toBe(0);
+    const exit = result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, hidden).props.exiting;
+    expect(exit()).toMatchObject({
+      initialValues: { opacity: 1, transform: [{ translateY: 0 }] },
+      animations: { opacity: 0, transform: [{ translateY: spacing.sm }] },
+    });
+
+    withDelay.mockClear();
+    await result.rerender(screen(renewed));
+    await waitFor(() => expect(delays().length).toBeGreaterThan(0));
+    expect(Math.min(...delays())).toBe(fast);
+    for (const delay of delays()) expect((delay - fast) % stagger).toBe(0);
+  } finally {
+    withDelay.mockRestore();
+  }
 });
 
 test('a new outfit crossfades its title rather than snapping it', async () => {

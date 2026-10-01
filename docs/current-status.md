@@ -11,7 +11,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   style preferences, birth date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
   Closet photos; Turkish and English; System/Light/Dark appearance; and semantic haptics
-  at the six sites the design language names. The minimum supported iOS is 26.0.
+  at the eight sites the design language names. The minimum supported iOS is 26.0.
 - **Weather:** The current-conditions card leads with the day's one remaining
   decision-changing transition, precipitation starting or easing or an apparent-temperature
   swing, before the measurements below the divider. Below the hourly rail a five-day

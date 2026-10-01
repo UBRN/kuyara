@@ -59,7 +59,7 @@ join over existing domain data.
 
 ### 5. One edit sheet owns the piece's Closet record
 
-The garment row opens the sheet; the board changes pieces (decision 6). It shows the piece, the user's owned or wanted record, the Closet palette and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone.
+The garment row opens the sheet; the board changes pieces (decision 6). It shows the piece, the user's owned or wanted record, the Closet palette and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone. On the board a matched piece carries its state's glyph on a small disc at its corner, and its caption says it in words, "In your Closet" / "Gardırobunda var", "Similar one in your Closet" / "Benzeri Gardırobunda" or "In your wanted pieces" / "İsteklerinde"; the piece's adjustable element speaks the same words after its value. None of it changes a recommendation.
 
 The Closet palette contains 33 colours, including two purple swatches, the system colour picker on iOS, and 14 fixed two-colour or pattern options; there is no free second colour. Its fields are migration 20's. The similar piece's "Yours" draws the user's own piece in its saved colour or pattern and names its option; the board keeps the outfit's palette.
 
@@ -132,7 +132,10 @@ tenths open and leaves before it closes, and the unusual note, "Back to kuyara's
 Every change lays the whole look out again with ADR 0025's composition rule, and the
 pieces glide to their new boxes on the spatial spring; the incoming piece enters from the
 side its order gives and the outgoing one leaves the other way, paged inside the window
-while the slot is enlarged and crossfading otherwise. A changed piece is
+while the slot is enlarged and crossfading otherwise. The change is a dressing: the outgoing
+piece lifts `spacing.md` as it fades on `motion.fast`, and the incoming one is hung on from
+`spacing.md` above and lands on the arrival spring, its shadow with it; a piece a swipe has
+already carried into place catches its weight with the moment's settle instead. A changed piece is
 coloured afresh, and every piece that is still kuyara's pick keeps the colour the
 original outfit gave it, passed to the palette resolver as a recorded swatch; nothing is
 stored. The manual combination is not blocked when weather or composition rules would
@@ -142,8 +145,10 @@ explains the departure. The title becomes "Your outfit" in place at the change, 
 as it closes, the reasons are recomputed for the pieces worn, the source sentence names the
 change, and "Back to kuyara's pick" returns the recommendation. The change lives only as
 long as detail is open: nothing is saved until the reader chooses "Wore this today",
-which records a `manual` outfit (ADR 0038). No haptic marks a step, because the design
-language's haptic sites do not include it. **Risk accepted:** manual mode can present an
+which records a `manual` outfit (ADR 0038); recording it settles the board once with the
+success notification, the design language's moment. A swipe that crosses half a step toward a
+candidate fires the selection feedback once per crossing, a threshold under the finger; a
+tile, the picker and an adjustable step fire none. **Risk accepted:** manual mode can present an
 outfit the deterministic recommendation engine would reject.
 
 A new record starts on the colour family the outfit draws the piece in, without sending Closet data to AI.

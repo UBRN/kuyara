@@ -16,6 +16,8 @@ export type PieceValues = Readonly<{
   to: SharedValue<Box>;
   p: SharedValue<number>;
   dx: SharedValue<number>;
+  /** The dressing lift: a leaving piece rises off the board, an arriving one is hung on. */
+  dy: SharedValue<number>;
   op: SharedValue<number>;
   sc: SharedValue<number>;
   drain: SharedValue<number>;

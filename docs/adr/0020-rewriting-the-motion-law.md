@@ -63,7 +63,10 @@ damping adds the second bounce that reads as elastic easing. On Today the pieces
 a still stage on mount, one by one in the board's reading order, each `theme.motion.stagger`
 after the piece before it, with its shadow: the stage plate, the tint and the hero
 values do not move. The one exception is the first outfit arriving from the runway below:
-the stage plate shrinks once. Only
+the stage plate shrinks once. Another outfit taking the stage first takes the old one off:
+its board drops `spacing.sm` and fades on `motion.fast` as one view, and the new pieces rise
+after it. On the outfit detail board a changed piece is dressed: the one taken off lifts as
+it fades, the one put on is hung on from above and lands on the arrival spring. Only
 `components/ui` consumes either role.
 
 ### Content arrives in reading order
@@ -127,10 +130,10 @@ launch's character: it adds 600 ms to a cold launch and plays nowhere else.
 ### A moment
 
 A moment is a single settle plus its haptic, fired once per user action that completes
-something. There are no particles, characters, mascots or sounds. One site carries a
-moment: marking the last piece of an outfit as owned on the outfit detail board, where
-the pieces settle once with the arrival spring and the success notification of Law 8
-fires.
+something. There are no particles, characters, mascots or sounds. Two sites carry a
+moment, both on the outfit detail board, where the pieces settle once with the arrival
+spring and the success notification of Law 8 fires: marking the last piece of an outfit as
+owned, and recording "Wore this today", whose press then fires no impact of its own.
 
 ### Law 8 gains a press and a site
 
@@ -139,8 +142,10 @@ or a physical threshold crossed under the finger, and the iOS impact call is nev
 Android. Two clauses belong to this decision. A primary action confirms the press itself
 with a light impact, which means the `Button` prominent role alone; icon buttons, list
 rows, chips, the tab bar and pickers fire nothing on press. And outfit ownership completed
-on the detail board fires a success notification, the moment's haptic, because it confirms
-a state the user set and crosses a real threshold.
+on the detail board, like a recorded "Wore this today", fires a success notification, the
+moment's haptic, because it confirms a state the user set and crosses a real threshold. A
+swipe on an enlarged detail piece that crosses half a step toward a candidate fires the
+selection feedback once per crossing, a threshold under the finger.
 
 ### What does not become permitted
 
