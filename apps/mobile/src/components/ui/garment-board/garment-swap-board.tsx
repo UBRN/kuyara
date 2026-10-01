@@ -1115,11 +1115,14 @@ export function GarmentSwapBoard({
   const tintStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(tint.get(), [0, 1], [entrance.fromStageColor, colors.background]),
   }), [colors.background, entrance.fromStageColor]);
-  // Captions and badges leave on `fast` and return on `normal` once every piece rests.
+  // Captions and badges leave at once when a piece starts to move: the commit that hands the
+  // board new pieces or a focus hides them, so none is drawn over a moving piece and none is
+  // renamed before its piece changes. They return on `normal` once every piece rests, and stay
+  // laid out while away, so the plate keeps their measured height.
   const overlayShown = settled && focusedSlot === null && !model.relayouting;
   const overlayStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(overlayShown ? 1 : 0, { duration: overlayShown ? normal : fast }),
-  }), [fast, normal, overlayShown]);
+    opacity: overlayShown ? withTiming(1, { duration: normal }) : 0,
+  }), [normal, overlayShown]);
   const hintStyle = useAnimatedStyle(() => ({ opacity: hintOpacity.get() }));
   const panelStyle = useAnimatedStyle(() => ({ opacity: panelOpacity.get() }));
   const leavingPanelStyle = useAnimatedStyle(() => ({ opacity: leavingPanelOpacity.get() }));
@@ -1177,7 +1180,7 @@ export function GarmentSwapBoard({
             pointerEvents="none"
             style={[StyleSheet.absoluteFill, overlayStyle]}
             testID={overlayTestID}>
-            {overlay}
+            <View style={[StyleSheet.absoluteFill, !overlayShown && styles.away]}>{overlay}</View>
           </Animated.View>
           {/* One element per piece in the outfit's slot order, the order the rows below read in. */}
           {pieces.map(({ slot }) => {
@@ -1280,6 +1283,9 @@ export function GarmentSwapBoard({
 }
 
 const styles = StyleSheet.create({
+  away: {
+    opacity: 0,
+  },
   block: {
     position: 'relative',
   },
