@@ -165,6 +165,9 @@ function tones(main: string, second: string | null, hardware: string | null, dar
     d: shiftL(main, deepDir * (o.L >= 0.52 ? 0.24 : 0.2), 0.9),
     l: shiftL(main, o.L > 0.85 ? -0.035 : 0.075, 0.95),
     k: setL(main, dark ? 0.34 : 0.3, 0.5),
+    // The soft light and the deepest shade the illustration's gradients reach.
+    g: shiftL(main, Math.min(0.1, 0.985 - o.L), 0.85),
+    p: shiftL(main, -Math.min(0.15, o.L - 0.08), 1.05),
     a: second || main,
   };
   const oa = toGarmentOklch(t.a);
@@ -221,6 +224,8 @@ export type GarmentPaletteInput = Readonly<{
 
 export type GarmentRoles = Readonly<{
   main: string; shade: string; toneLine: string; light: string; darkTrim: string;
+  /** The gradients' soft light and deepest shade (rich illustration), never a flat fill. */
+  highlight: string; deep: string;
   material: string; materialShade: string; materialTone: string; hardware: string;
 }>;
 
@@ -344,7 +349,7 @@ export function garmentFillRoles(colorwayId: string, main: string, appearance: T
   const material = materialHex === null ? null : garmentFillForAppearance(materialHex, dark);
   const tone = tones(main, material, colorway?.h ?? null, dark);
   return { main: tone.m, shade: tone.s, toneLine: tone.d, light: tone.l,
-    darkTrim: tone.k, material: tone.a, materialShade: tone.as,
+    darkTrim: tone.k, highlight: tone.g, deep: tone.p, material: tone.a, materialShade: tone.as,
     materialTone: tone.ad, hardware: tone.h };
 }
 
