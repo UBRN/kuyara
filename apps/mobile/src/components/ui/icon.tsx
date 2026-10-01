@@ -85,6 +85,15 @@ export const iconNames = Object.freeze({
   boldText: { ios: 'bold', android: 'format_bold', web: 'format_bold' },
   increaseContrast: { ios: 'circle.lefthalf.filled', android: 'contrast', web: 'contrast' },
   precipitationChance: { ios: 'drop.fill', android: 'water_drop', web: 'water_drop' },
+  // Phase 9's account screens (ADR 0041 section 5).
+  appleLogo: { ios: 'apple.logo', android: 'login', web: 'login' },
+  personCircle: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' },
+  sync: { ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' },
+  reinstall: { ios: 'arrow.counterclockwise', android: 'restart_alt', web: 'restart_alt' },
+  offline: { ios: 'wifi.slash', android: 'wifi_off', web: 'wifi_off' },
+  signOut: { ios: 'rectangle.portrait.and.arrow.right', android: 'logout', web: 'logout' },
+  plusCircle: { ios: 'plus.circle', android: 'add_circle', web: 'add_circle' },
+  restoreArrow: { ios: 'arrow.down.circle', android: 'arrow_circle_down', web: 'arrow_circle_down' },
   // The eleven weather condition codes, filled because a forecast column reports an
   // active condition (Law 6). Material has no drizzle or heavy-rain counterpart of the
   // same idiom, so those take the nearest existing name. The three conditions that show

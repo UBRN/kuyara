@@ -4,6 +4,9 @@ import { GlassButton } from '@/components/ui';
 import { useSinglePush } from '@/components/ui/use-single-push';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
+import { AccountProfileCard } from '@/features/account/presentation/account-profile-card';
+import { AccountSheet } from '@/features/account/presentation/account-sheet';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { ProfileScreen } from '@/features/profile/presentation/profile-screen';
 import { useMessages } from '@/localization/use-messages';
@@ -42,6 +45,7 @@ export default function ProfileRoute() {
         }}
       />
       <ProfileScreen
+        accountCard={ACCOUNT_SCREENS_ENABLED ? <AccountProfileCard /> : null}
         displayName={state.status === 'ready' ? state.profile.displayName : null}
         onAddPiece={() => push('/wardrobe/new')}
         onOpenCategory={(category) =>
@@ -53,6 +57,7 @@ export default function ProfileRoute() {
         }
         shown={shown}
       />
+      {ACCOUNT_SCREENS_ENABLED ? <AccountSheet host="profile" /> : null}
     </>
   );
 }

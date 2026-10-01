@@ -3,6 +3,9 @@ import Constants from 'expo-constants';
 import { Linking, Platform, Share } from 'react-native';
 
 import { useSinglePush } from '@/components/ui/use-single-push';
+import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
+import { AccountSettingsSection } from '@/features/account/presentation/account-settings-section';
+import { AccountSheet } from '@/features/account/presentation/account-sheet';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
@@ -54,6 +57,9 @@ export default function SettingsRoute() {
         }}
       />
       <SettingsScreen
+        accountSection={ACCOUNT_SCREENS_ENABLED
+          ? <AccountSettingsSection onOpenAccount={() => push('/settings/account')} />
+          : null}
         isSaving={state.isSaving}
         notificationsOn={notificationsAreActive(
           // ADR 0004: the row stands for the Notifications surface, which now holds two
@@ -141,6 +147,7 @@ export default function SettingsRoute() {
         profile={state.profile}
         showRate={Platform.OS === 'ios' || Boolean(androidPackage)}
       />
+      {ACCOUNT_SCREENS_ENABLED ? <AccountSheet host="settings" /> : null}
     </>
   );
 }

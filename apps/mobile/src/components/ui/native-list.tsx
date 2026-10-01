@@ -5,7 +5,7 @@ import { Platform, PlatformColor, StyleSheet, useWindowDimensions, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/app-text';
-import { Icon, type IconName } from '@/components/ui/icon';
+import { Icon, iconNames, type IconName } from '@/components/ui/icon';
 import { ListRowTile, type ListRowTileGlyph } from '@/components/ui/list-row-tile';
 import { NativeToggle } from '@/components/ui/native-toggle';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
@@ -202,6 +202,10 @@ export type NativeListRowProps = Readonly<{
   tinted?: boolean;
   /** Renders the headline in the system's secondary ink for an informational row. */
   secondary?: boolean;
+  /** Renders the headline in the system's red for an action that deletes (ADR 0041 section 7). */
+  destructive?: boolean;
+  /** A status symbol before the supporting text, so the status reads as ink, glyph and words (Law 4). */
+  supportingSymbol?: Readonly<{ name: IconName; color: string }>;
   /** Adds the native selected accessibility trait where the platform wrapper supports it. */
   selected?: boolean;
   /** Explicit chevron control. Defaults to on for a plain navigable row. */
@@ -223,6 +227,8 @@ export function NativeListRow({
   onPress,
   ratingStars = false,
   secondary = false,
+  destructive = false,
+  supportingSymbol,
   selected = false,
   testID,
   supportingText,
@@ -234,11 +240,19 @@ export function NativeListRow({
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
   const easierToSee = useEasierToSee();
-  const showChevron = chevron ?? (Boolean(onPress) && !toggle && !tinted);
+  const showChevron = chevron ?? (Boolean(onPress) && !toggle && !tinted && !destructive);
   const stacksValue = usesStackedLayout && value !== undefined && !toggle;
   const secondaryTextModifiers = easierToSee ? IOS_EASIER_VALUE_MODIFIERS : IOS_SECONDARY_TEXT_MODIFIERS;
 
-  const headline: ReactNode = tinted ? (
+  const headline: ReactNode = destructive ? (
+    <ExpoText
+      modifiers={Platform.OS === 'ios'
+        ? [font({ textStyle: 'body', weight: easierToSee ? 'semibold' : 'regular' }), foregroundStyle(PlatformColor('systemRed'))]
+        : undefined}
+      textStyle={{ color: theme.colors.dangerInk }}>
+      {label}
+    </ExpoText>
+  ) : tinted ? (
     <ExpoText
       modifiers={easierToSee ? IOS_EASIER_BODY_BOLD_FONT_MODIFIERS : IOS_BODY_SEMIBOLD_FONT_MODIFIERS}
       textStyle={{ color: theme.colors.brandPrimary, fontWeight: easierToSee ? '700' : '600' }}>
@@ -263,7 +277,19 @@ export function NativeListRow({
       {value}
     </ExpoText>
   ) : null;
-  const resolvedSupportingText: ReactNode = stacksValue ? (
+  const symbolSupportingText: ReactNode = supportingSymbol && supportingText !== undefined ? (
+    <Row alignment="center" spacing={6}>
+      {Platform.OS === 'ios' ? (
+        <ExpoIcon color={supportingSymbol.color} name={iconNames[supportingSymbol.name].ios} size={15} />
+      ) : (
+        <RNHostView matchContents><Icon color={supportingSymbol.color} name={supportingSymbol.name} size={15} /></RNHostView>
+      )}
+      <ExpoText modifiers={secondaryTextModifiers} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
+        {supportingText}
+      </ExpoText>
+    </Row>
+  ) : null;
+  const resolvedSupportingText: ReactNode = symbolSupportingText ?? (stacksValue ? (
     supportingText !== undefined ? (
       <Column alignment="start" spacing={2}>
         {stackedValue}
@@ -278,7 +304,7 @@ export function NativeListRow({
     <ExpoText modifiers={secondaryTextModifiers} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
       {supportingText}
     </ExpoText>
-  ) : supportingText;
+  ) : supportingText);
 
   const trailing: ReactNode = toggle ? (
     <NativeToggle
