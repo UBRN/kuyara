@@ -22,9 +22,11 @@ import {
   composePieces,
   entranceStartBoxes,
   PieceArtwork,
+  pieceShadowOf,
   useGarmentRoles,
   type ComposedPiece,
   type GarmentBoardPiece,
+  type PieceShadow,
 } from './garment-board';
 import type { GarmentOutfitPalette, GarmentRoles } from './garment-palette';
 
@@ -157,6 +159,8 @@ type RunwayDressedProps = Readonly<{
   box: Box;
   roles: GarmentRoles;
   ink: string;
+  /** The shadow the dressed piece casts once its colour has poured. */
+  shadow: PieceShadow;
   delay: number;
   /** A slot whose draft never landed enters already dressed, gliding in. */
   glides: boolean;
@@ -169,10 +173,11 @@ type RunwayDressedProps = Readonly<{
 // `motion.deliberate`. The pour is a clip that travels on transforms alone: the clipping
 // view moves down by the unpoured share while the artwork inside moves back up by the same
 // amount, so only the poured band from the hem up is visible and nothing is laid out again.
-function RunwayDressed({ piece, box, roles, ink, delay, glides, handoff, onLanded }: RunwayDressedProps) {
+function RunwayDressed({ piece, box, roles, ink, shadow, delay, glides, handoff, onLanded }: RunwayDressedProps) {
   const theme = useKuyaraTheme();
   const pour = useSharedValue(0);
   const outline = useSharedValue(0);
+  const shade = useSharedValue(0);
   const arrival = useSharedValue(glides ? 0 : 1);
   const travel = useSharedValue(0);
   const didTravel = useRef(false);
@@ -193,13 +198,16 @@ function RunwayDressed({ piece, box, roles, ink, delay, glides, handoff, onLande
   useEffect(() => {
     pour.set(withDelay(delay, withTiming(1, { duration: theme.motion.deliberate })));
     outline.set(withDelay(delay, withTiming(1, { duration: theme.motion.fast })));
+    // The shadow falls once the colour has poured, so none shows through an unpoured piece.
+    shade.set(withDelay(delay + theme.motion.deliberate, withTiming(1, { duration: theme.motion.fast })));
     if (glides) arrival.set(withDelay(delay, withSpring(1, theme.springs.arrival)));
     return () => {
       cancelAnimation(pour);
       cancelAnimation(outline);
+      cancelAnimation(shade);
       cancelAnimation(arrival);
     };
-  }, [arrival, delay, glides, outline, pour, theme.motion.deliberate, theme.motion.fast, theme.springs.arrival]);
+  }, [arrival, delay, glides, outline, pour, shade, theme.motion.deliberate, theme.motion.fast, theme.springs.arrival]);
 
   useEffect(() => () => cancelAnimation(travel), [travel]);
 
@@ -222,12 +230,17 @@ function RunwayDressed({ piece, box, roles, ink, delay, glides, handoff, onLande
   }));
   const artworkStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -(1 - pour.get()) * h }] }));
   const outlineStyle = useAnimatedStyle(() => ({ opacity: outline.get() }));
+  const shadeStyle = useAnimatedStyle(() => ({ opacity: shade.get() }));
 
   return (
     <Animated.View
       pointerEvents="none"
       style={[styles.piece, { height: h, left: x, top: y, width: w }, glideStyle]}
       testID={`runway-dressed-${piece.slot}`}>
+      <Animated.View style={[StyleSheet.absoluteFill, shadeStyle]}>
+        <PieceArtwork height={h} ink={ink} layer="fill" piece={piece} roles={roles} shadow={shadow} shadowOnly
+          width={w} />
+      </Animated.View>
       <Animated.View style={[StyleSheet.absoluteFill, styles.clip, clipStyle]}>
         <Animated.View style={artworkStyle}>
           <PieceArtwork height={h} ink={ink} layer="fill" piece={piece} roles={roles} width={w} />
@@ -294,7 +307,7 @@ export function GarmentRunwayBoard({
   onHandedOff,
   testID,
 }: GarmentRunwayBoardProps) {
-  const { motion } = useKuyaraTheme();
+  const { motion, colorScheme } = useKuyaraTheme();
   const large = useEasierToSee();
   const draftLayout = layoutOf(drafts);
   const chosenLayout = outfit ? layoutOf(outfit.pieces) : null;
@@ -307,6 +320,10 @@ export function GarmentRunwayBoard({
   const draftBox = (piece: ComposedPiece) =>
     placeOnRunway(draftLayout.result.boxes.get(piece)!, draftLayout.extent, draftScale, width, height);
   const chosenOrder = chosenLayout?.result.order ?? [];
+  // Every piece is timed in reading order and stacked in the dressing order, as Today's
+  // stage stacks it, so a later piece lies over an earlier one through the hand-off.
+  const chosenStack = chosenLayout?.result.stack ?? [];
+  const shadow = pieceShadowOf(chosenScale, field, colorScheme);
   const chosenBox = (piece: ComposedPiece) =>
     placeOnRunway(chosenLayout!.result.boxes.get(piece)!, chosenLayout!.extent, chosenScale, width, height);
   const draftIndex = new Map(draftLayout.result.order.map((piece, index) => [piece.slot, index]));
@@ -354,9 +371,9 @@ export function GarmentRunwayBoard({
           />
         );
       }) : null}
-      {draftScale > 0 ? draftLayout.result.order.map((piece, index) => {
+      {draftScale > 0 ? draftLayout.result.stack.map((piece) => {
         // Only the drafts that have come on are drawn; after the answer they hand over or leave.
-        if (index >= placedCount) return null;
+        if (draftIndex.get(piece.slot)! >= placedCount) return null;
         const kept = chosenOrder.find(({ slot }) => slot === piece.slot);
         return (
           <RunwayDraft
@@ -370,19 +387,23 @@ export function GarmentRunwayBoard({
           />
         );
       }) : null}
-      {outfit && chosenScale > 0 ? chosenOrder.map((piece, index) => (
-        <RunwayDressed
-          box={chosenBox(piece)}
-          delay={dressStart(index, motion)}
-          roles={roles.get(piece.slot)!}
-          glides={!startedBeforeAnswer(piece.slot)}
-          handoff={pieceHandoff(piece, index)}
-          ink={outlineInk}
-          key={`dressed-${piece.slot}`}
-          onLanded={index === chosenOrder.length - 1 ? onHandedOff : undefined}
-          piece={piece}
-        />
-      )) : null}
+      {outfit && chosenScale > 0 ? chosenStack.map((piece) => {
+        const index = chosenOrder.indexOf(piece);
+        return (
+          <RunwayDressed
+            box={chosenBox(piece)}
+            delay={dressStart(index, motion)}
+            roles={roles.get(piece.slot)!}
+            glides={!startedBeforeAnswer(piece.slot)}
+            handoff={pieceHandoff(piece, index)}
+            ink={outlineInk}
+            key={`dressed-${piece.slot}`}
+            onLanded={index === chosenOrder.length - 1 ? onHandedOff : undefined}
+            piece={piece}
+            shadow={shadow}
+          />
+        );
+      }) : null}
     </View>
   );
 }

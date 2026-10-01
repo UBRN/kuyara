@@ -649,7 +649,6 @@ function TodayScreenContent({
                       // leaves it still. The rise is never the only signal; the archetype and
                       // freshness line also change with it.
                       key={primary.id}
-                      contactShade={theme.contactShade[presentation.atmosphere]}
                       fit
                       holdRise={holdRise || !stageLaidOut}
                       palette={primary.palette}

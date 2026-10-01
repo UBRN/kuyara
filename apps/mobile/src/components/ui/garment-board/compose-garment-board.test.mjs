@@ -3,12 +3,13 @@ import test from 'node:test';
 
 import {
   composeGarmentBoard,
-  contactShadeOf,
-  contactShadeRule,
   detailPreset,
   drawnExtent,
   fitRunwayScale,
   fitTodayStage,
+  garmentBoardDressingOrder,
+  garmentShadowOf,
+  garmentShadowRule,
   placeOnRunway,
   runwayPreset,
   todayPreset,
@@ -16,17 +17,19 @@ import {
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
 
 // Geometric audit; ink parity needs raster coverage, which vector assets do not carry.
+// `overlap` is the deepest any piece reaches into one under it in the dressing order, as a
+// share of the covered piece's drawn extent on the side it enters from.
 function audit(result) {
   const boxes = [...result.boxes.values()];
   const height = result.stageHeight;
   let overlap = 0;
-  for (let i = 0; i < boxes.length; i++) {
-    for (let j = i + 1; j < boxes.length; j++) {
-      const a = boxes[i];
-      const b = boxes[j];
+  for (let i = 0; i < result.stack.length; i++) {
+    for (let j = i + 1; j < result.stack.length; j++) {
+      const a = result.boxes.get(result.stack[i]);
+      const b = result.boxes.get(result.stack[j]);
       const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
       const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-      if (ox > 0 && oy > 0) overlap = Math.max(overlap, Math.min(ox, oy));
+      if (ox > 0 && oy > 0) overlap = Math.max(overlap, Math.min(ox / a.w, oy / a.h));
     }
   }
   const clip = Math.max(0,
@@ -82,12 +85,16 @@ for (const [presetName, preset, min, max] of [
       const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
       const result = composeGarmentBoard(pieces, preset);
       const measured = audit(result);
-      assert.equal(measured.overlap, 0);
+      // The open detail board never touches; the worn Today board laps by at most `lap`.
+      assert.ok(measured.overlap <= preset.lap + 1e-9, `${name}: ${measured.overlap}`);
       assert.equal(measured.clip, 0);
       assert.ok(result.stageHeight >= min && result.stageHeight <= max, String(result.stageHeight));
       if (result.core.length === 2) assert.ok(Math.abs(measured.parity - 1) <= 1e-9);
       assert.equal(result.boxes.size, pieces.length);
-      assert.equal(result.family, pieces.some(({ slot }) => slot.endsWith('_layer')) ? 'column-and-rail' : 'stagger');
+      assert.equal(result.family, preset.lap > 0 || pieces.some(({ slot }) => slot.endsWith('_layer'))
+        ? 'column-and-rail' : 'stagger');
+      assert.deepEqual(result.stack.map(({ slot }) => slot),
+        garmentBoardDressingOrder.filter((slot) => slots.some(([candidate]) => slot === candidate)));
       assert.deepEqual(result.order.map(({ slot }) => slot), [
         ...slots.map(([slot]) => slot).filter((slot) => ['primary_top', 'bottom', 'one_piece'].includes(slot)),
         ...['outer_layer', 'mid_layer', 'footwear'].filter((slot) => slots.some(([candidate]) => slot === candidate)),
@@ -96,8 +103,8 @@ for (const [presetName, preset, min, max] of [
   }
 }
 
-// The six Phase 6 README boards on the Phase 6 drawings: the rule is unchanged and reads the
-// new outline bounds, so every board still composes without overlap or clipping.
+// The six Phase 6 README boards on the Phase 6 drawings: every board composes without
+// clipping, the detail board without overlap and Today's within its lap.
 const readmeBoards = [
   ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']]],
   ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']]],
@@ -109,13 +116,40 @@ const readmeBoards = [
 
 for (const [presetName, preset] of [['today', todayPreset], ['detail', detailPreset]]) {
   for (const [name, slots] of readmeBoards) {
-    test(`${presetName}: README board ${name} has no overlap and no clip`, () => {
+    test(`${presetName}: README board ${name} laps within the preset and does not clip`, () => {
       const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
       const measured = audit(composeGarmentBoard(pieces, preset));
-      assert.equal(measured.overlap, 0, name);
+      assert.ok(measured.overlap <= preset.lap + 1e-9, name);
       assert.equal(measured.clip, 0, name);
     });
   }
+}
+
+// The worn board (ADR 0025 section 3): the core is one column whose bottom's waist lies over
+// the top's hem, the footwear stands at the core's foot with its sole below the hem, and every
+// layer lies over the core's side. Only the detail board, which never laps, keeps the stagger.
+for (const [name, slots] of evidence) {
+  test(`today: ${name} is laid out as worn`, () => {
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const result = composeGarmentBoard(pieces, todayPreset);
+    const box = (slot) => result.boxes.get(pieces.find((piece) => piece.slot === slot));
+    const core = result.core.map((piece) => result.boxes.get(piece));
+    const low = core[core.length - 1];
+    if (core.length === 2) {
+      // The waist covers the top's lowest `lap` of its height, never its collar.
+      assert.ok(Math.abs(core[0].y + core[0].h - core[1].y - todayPreset.lap * core[0].h) < 1e-9, name);
+    }
+    const foot = box('footwear');
+    assert.ok(foot.y + foot.h > low.y + low.h, name);
+    assert.ok(Math.abs(low.y + low.h - foot.y - todayPreset.lap * foot.h) < 1e-9, name);
+    assert.ok(foot.x < low.x + low.w / 2 && foot.x + foot.w > low.x + low.w / 2, name);
+    for (const slot of ['outer_layer', 'mid_layer']) {
+      const layer = box(slot);
+      if (!layer) continue;
+      const coreRight = Math.max(...core.map((piece) => piece.x + piece.w));
+      assert.ok(layer.x < coreRight && layer.x + layer.w > coreRight, `${name}: ${slot}`);
+    }
+  });
 }
 
 // P2: Today's stage holds only the board, so its top inset is the detail preset's.
@@ -205,24 +239,23 @@ test('runway: several compositions share the scale of the one that needs the lea
   assert.equal(fitRunwayScale([], 339, 516), 0);
 });
 
-// P2: Today's primary stage is the runway fit with the tight height. The three spec boards
-// of the P2 mockup (vault phase-6-today-stage/measure.json, 339-point stage), within half a
-// point: the mockup reads the same drawings through a browser's bounds.
+// P2: Today's primary stage is the runway fit with the tight height. The three reference
+// boards on a 339-point stage, laid out as worn, within half a point.
 const p2Boards = [
   ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']],
-    { height: 286.5, extentW: 197.6, extentH: 262.5 }],
+    { height: 244.5, extentW: 143.9, extentH: 220.5 }],
   ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']],
-    { height: 317.4, extentW: 223.8, extentH: 293.4 }],
+    { height: 288.7, extentW: 162.4, extentH: 264.7 }],
   ['cold formal', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'blazer'], ['outer_layer', 'trench_coat'], ['footwear', 'closed_shoes']],
-    { height: 306.0, extentW: 223.5, extentH: 282.0 }],
+    { height: 251.6, extentW: 162.5, extentH: 227.6 }],
 ];
 
 for (const [name, slots, expected] of p2Boards) {
-  test(`Today stage: ${name} matches the P2 mockup's tight stage`, (context) => {
+  test(`Today stage: ${name} keeps its measured tight stage`, (context) => {
     const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
     const extent = drawnExtent(composeGarmentBoard(pieces, todayPreset).boxes.values());
     const { scale, height } = fitTodayStage(extent, 339);
-    // The 1.25 cap binds on all three boards, as it did in the mockup.
+    // The 1.25 cap binds on all three boards.
     assert.equal(scale, runwayPreset.maxScale * 339);
     assert.ok(Math.abs(height - expected.height) <= 0.5, `${name}: ${height}`);
     assert.ok(Math.abs(extent.w * scale - expected.extentW) <= 0.5, `${name}: ${extent.w * scale}`);
@@ -251,11 +284,19 @@ for (const [name, slots] of evidence) {
   });
 }
 
-test('the contact shade sits centred on the drawn bottom edge, 0.80 wide and 3 to 6 points tall', () => {
-  const box = { x: 40, y: 10, w: 60, h: 80 };
-  assert.deepEqual(contactShadeOf(box), { cx: 70, cy: 90, rx: 24, ry: 0.07 * 60 / 2 });
-  assert.equal(contactShadeOf({ ...box, w: 20 }).ry, contactShadeRule.minHeight / 2);
-  assert.equal(contactShadeOf({ ...box, w: 200 }).ry, contactShadeRule.maxHeight / 2);
-  // The lowest shade's lower half stays inside the stage's vertical margin.
-  assert.ok(contactShadeRule.maxHeight / 2 < runwayPreset.vertical / 2);
+// The piece shadow (ADR 0025 section 9) grows with the board's unit, and its visible reach,
+// the drop plus two standard deviations of blur, stays inside every board's lower margin: the
+// plain presets' bottom inset and, at Today's largest fit on a 440-point stage, half the
+// runway preset's vertical margin.
+test('the piece shadow scales with its board and stays inside the lower margin', () => {
+  const shadow = garmentShadowOf(400);
+  assert.ok(Math.abs(shadow.dx - garmentShadowRule.dx * 400) < 1e-9);
+  assert.ok(Math.abs(shadow.dy - garmentShadowRule.dy * 400) < 1e-9);
+  assert.ok(Math.abs(shadow.blur - garmentShadowRule.blur * 400) < 1e-9);
+  assert.ok(Math.abs(shadow.margin - shadow.dy - garmentShadowRule.reach * shadow.blur) < 1e-9);
+  const reach = garmentShadowRule.dy + 2 * garmentShadowRule.blur;
+  assert.ok(reach < Math.min(todayPreset.botInset, detailPreset.botInset));
+  assert.ok(reach * runwayPreset.maxScale * 440 < runwayPreset.vertical / 2);
+  // Darker than the plane in both appearances, by more in light, where the plane is lighter.
+  assert.ok(garmentShadowRule.step.light < garmentShadowRule.step.dark && garmentShadowRule.step.dark < 0);
 });

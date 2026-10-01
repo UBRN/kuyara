@@ -224,6 +224,26 @@ test('a drag that outlives a focus change does not step the newly enlarged piece
   expect(onStep).not.toHaveBeenCalled();
 });
 
+// A drag's slot lasts only from its start to its end: updates and an end that arrive without
+// a start of their own (a start that bailed) never move or step the piece.
+test('a drag without its own start does not reuse the last drag\'s slot', async () => {
+  const onStep = jest.fn();
+  const result = await render(<GarmentSwapBoard {...boardProps({ onStep })} />, { wrapper: LightTheme });
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onStep, focusedSlot: 'footwear' })} />);
+  const pan = () => getByGestureTestId('garment-swap-board-pan').handlers;
+  await act(async () => {
+    pan().onStart?.({ translationX: 0, velocityX: 0 } as never);
+    pan().onUpdate?.({ translationX: -10, velocityX: 0 } as never);
+    pan().onEnd?.({ translationX: -10, velocityX: 0 } as never, true);
+  });
+  expect(onStep).not.toHaveBeenCalled();
+  await act(async () => {
+    pan().onUpdate?.({ translationX: -200, velocityX: -600 } as never);
+    pan().onEnd?.({ translationX: -200, velocityX: -600 } as never, true);
+  });
+  expect(onStep).not.toHaveBeenCalled();
+});
+
 // The captions follow the arrival once it is nine tenths travelled, as Presence's text follows
 // its container: they never wait for the arrival spring's overshoot to finish.
 test('the captions return as the arrival reaches nine tenths, before its spring has finished', async () => {

@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { colorFamilies, garmentTypeIds } from '../../../features/catalog/domain/garment-taxonomy.ts';
+import { shiftOklchLightness } from '../../../theme/color-oklch.ts';
 import { darkTheme, lightTheme } from '../../../theme/theme.ts';
+import { garmentShadowRule } from './compose-garment-board.ts';
 import {
   garmentColorFamiliesBySlot, garmentFillForAppearance, garmentPaletteContrast, garmentPaletteMood, garmentPaletteRoutes,
   garmentSwatches, legalizeGarmentFill,
@@ -146,32 +148,24 @@ test('31 x 8 swatch-stage matrix matches the approved clamp metrics', (context) 
   context.diagnostic(`248 cells passed; moved ${moved}; max |dL| ${largestMove.toFixed(3)}; minimum fill:stage ${minimumStep.toFixed(3)}`);
 });
 
-// P2: the contact shade is the stage moved in OKLCH lightness only (light -0.060, dark
-// -0.045), and the ink outline, not the shade, carries every garment's edge: ink against
-// the shade clears 3:1 on every atmosphere stage in both appearances.
-test('every contact shade keeps the ink edge at 3:1 or better and matches the P2 mockup', (context) => {
+// The piece shadow (garment-board.md section 9) is the plane moved in OKLCH lightness only,
+// and the ink outline, not the shadow, carries every garment's edge: ink against the shadow
+// at full strength clears 3:1 on every plane a board stands on, in both appearances.
+test('every piece shadow keeps the ink edge at 3:1 or better and keeps its plane\'s hue', (context) => {
   let lowest = Infinity;
-  let highest = 0;
   for (const theme of [lightTheme, darkTheme]) {
-    assert.deepEqual(Object.keys(theme.contactShade), Object.keys(theme.atmosphere));
-    for (const [state, stage] of Object.entries(theme.atmosphere)) {
-      const shade = theme.contactShade[state];
-      const ink = garmentPaletteContrast(theme.colors.textPrimary, shade);
-      assert.ok(ink >= 3, `${theme.colorScheme} ${state}: ink:shade ${ink.toFixed(2)}`);
+    const step = garmentShadowRule.step[theme.colorScheme];
+    for (const [plane, colour] of [...Object.entries(theme.atmosphere), ['background', theme.colors.background]]) {
+      const shadow = shiftOklchLightness(colour, step);
+      const ink = garmentPaletteContrast(theme.colors.textPrimary, shadow);
+      assert.ok(ink >= 3, `${theme.colorScheme} ${plane}: ink:shadow ${ink.toFixed(2)}`);
       lowest = Math.min(lowest, ink);
-      highest = Math.max(highest, ink);
-      const step = toGarmentOklch(stage).L - toGarmentOklch(shade).L;
-      assert.ok(Math.abs(step - (theme.isDark ? 0.045 : 0.06)) < 0.005, `${theme.colorScheme} ${state}: dL ${step}`);
-      const hueDrift = Math.abs(((toGarmentOklch(shade).H - toGarmentOklch(stage).H + 540) % 360) - 180);
-      assert.ok(hueDrift < 3, `${theme.colorScheme} ${state}: hue drift ${hueDrift}`);
+      assert.ok(Math.abs(toGarmentOklch(colour).L - toGarmentOklch(shadow).L + step) < 0.005, `${theme.colorScheme} ${plane}`);
+      const hueDrift = Math.abs(((toGarmentOklch(shadow).H - toGarmentOklch(colour).H + 540) % 360) - 180);
+      assert.ok(toGarmentOklch(colour).C < 0.02 || hueDrift < 3, `${theme.colorScheme} ${plane}: hue drift ${hueDrift}`);
     }
   }
-  // The mockup's measured shades on the three spec boards' stages.
-  assert.equal(lightTheme.contactShade.clearDay, '#B8CDD1');
-  assert.equal(lightTheme.contactShade.fallingDay, '#86B0BC');
-  assert.equal(lightTheme.contactShade.veiledDay, '#BECACA');
-  assert.equal(darkTheme.contactShade.neutral, '#071F2A');
-  context.diagnostic(`ink:shade ${lowest.toFixed(2)} to ${highest.toFixed(2)}`);
+  context.diagnostic(`lowest ink:shadow ${lowest.toFixed(2)}`);
 });
 
 test('an outfit piece keeps one colour family in both appearances (O7)', () => {

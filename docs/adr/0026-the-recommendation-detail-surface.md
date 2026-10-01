@@ -20,9 +20,11 @@ separate interaction over catalog pieces and never changes the engine's candidat
 ### 1. Detail is a second parameter set, not a second layout
 
 The board is [ADR 0025](0025-the-garment-board-composition-rule.md)'s `compose()`,
-unchanged, run with a detail preset. Same algorithm, same family selection, same relative
-arrangement, same reading order. Only the gaps, the width caps and the insets differ. The
-preset is specified in [`design/garment-board.md`](../design/garment-board.md).
+unchanged, run with a detail preset. Same algorithm, same reading order, the core on the
+left and the layers on the right. The gaps, the width caps, the insets and the lap differ:
+Today lays the outfit out as worn, its pieces overlapping, and the detail's lap of 0 opens
+it so a caption fits under every piece, the footwear moving from the core's foot to the
+rail. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
 
 This is what makes the two screens share a composition rather than merely resemble each
 other, and it is what the entry transition animates. It also leaves room for garment rows below the board.

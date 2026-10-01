@@ -27,9 +27,11 @@ import {
   composePieces,
   entranceStartBoxes,
   PieceArtwork,
+  pieceShadowOf,
   useGarmentCandidateRoles,
   type ComposedPiece,
   type GarmentBoardPiece,
+  type PieceShadow,
 } from './garment-board';
 import { garmentRolesBySlot, type GarmentOutfitPalette } from './garment-palette';
 import { GARMENT_OUTLINE } from './garment-painting';
@@ -261,10 +263,13 @@ function valuesFor(start: PieceStart): PieceValues {
   };
 }
 
-function PieceView({ instance, ink, outline, settleTravel, stageWidth, stageLimit, clip, onBigDone, testID }: Readonly<{
+function PieceView({
+  instance, ink, outline, shadow, settleTravel, stageWidth, stageLimit, clip, onBigDone, testID,
+}: Readonly<{
   instance: Instance;
   ink: string;
   outline?: number;
+  shadow: PieceShadow;
   settleTravel: SharedValue<number>;
   stageWidth: number;
   stageLimit: SharedValue<number>;
@@ -328,9 +333,10 @@ function PieceView({ instance, ink, outline, settleTravel, stageWidth, stageLimi
         <Animated.View style={[styles.piece, styles.origin, { height: base.h, width: base.w }, pieceStyle]}>
           <Animated.View style={[StyleSheet.absoluteFill, restStyle]}>
             <PieceArtwork height={base.h} ink={ink} outline={outline} piece={instance.piece} roles={instance.roles}
-              width={base.w} />
+              shadow={shadow} width={base.w} />
             {instance.drainRoles ? (
-              // The ADR 0026 section 7 technique: the old colours drain off over the new.
+              // The ADR 0026 section 7 technique: the old colours drain off over the new. The
+              // shadow under them is the resting drawing's, so it does not darken twice.
               <Animated.View style={[StyleSheet.absoluteFill, drainStyle]}>
                 <PieceArtwork height={base.h} ink={ink} outline={outline} piece={instance.piece}
                   roles={instance.drainRoles} width={base.w} />
@@ -350,7 +356,13 @@ function PieceView({ instance, ink, outline, settleTravel, stageWidth, stageLimi
               }, bigStyle]}
               testID={`${testID}-big`}>
               <PieceArtwork height={base.h * big} ink={ink} outline={outline} piece={instance.piece}
-                roles={instance.roles} width={base.w * big} />
+                roles={instance.roles} shadow={{
+                  ...shadow,
+                  dx: shadow.dx * big,
+                  dy: shadow.dy * big,
+                  blur: shadow.blur * big,
+                  margin: shadow.margin * big,
+                }} width={base.w * big} />
             </Animated.View>
           ) : null}
         </Animated.View>
@@ -396,6 +408,7 @@ export function GarmentSwapBoard({
   const large = useEasierToSee();
   const outline = large ? easierToSeeValues.boardOutline : undefined;
   const drawnOutline = outline ?? GARMENT_OUTLINE;
+  const shadow = pieceShadowOf(width, colors.background, theme.colorScheme);
   const spatial = theme.springs.spatial;
   const { fast, normal } = theme.motion;
   const boardTestID = testID ?? 'garment-swap-board';
@@ -961,13 +974,20 @@ export function GarmentSwapBoard({
     hintTimer.current = setTimeout(() => hintStart.current(), spatial.duration);
   });
 
+  // A swiped step the owner has not applied is spent once another step is asked for, so a
+  // later tile or adjustable step to the same garment is never taken for the swipe.
+  const forgetGestureCommit = () => setModel((current) => (current.gestureCommit
+    ? { ...current, gestureCommit: null } : current));
   const stepSlot = (slot: OutfitSlot, direction: 1 | -1) => {
     const garmentTypeId = model.garments[slot];
     const neighbour = garmentTypeId ? neighbourIn(candidates, slot, garmentTypeId, direction) : null;
-    if (neighbour) onStep(slot, neighbour.garmentTypeId, false);
+    if (!neighbour) return;
+    forgetGestureCommit();
+    onStep(slot, neighbour.garmentTypeId, false);
   };
   const chooseTile = (garmentTypeId: GarmentTypeId) => {
     if (!focusedSlot || model.garments[focusedSlot] === garmentTypeId) return;
+    forgetGestureCommit();
     onStep(focusedSlot, garmentTypeId, true);
   };
   // An owner that has not applied a swiped step by the time the enlargement ends or moves
@@ -1083,6 +1103,8 @@ export function GarmentSwapBoard({
     .onStart(() => {
       // A grab during the hint's wait takes the piece, and the hint does not play.
       hintGrabbed.set(true);
+      // A drag that bails here leaves no slot behind for a later handler to read.
+      dragSlot.set(null);
       if (!curDx || !focusedSlot || !pager || stepPending()) return;
       // A grab mid-settle continues from where the eye last saw the piece.
       dragSlot.set(focusedSlot);
@@ -1120,7 +1142,9 @@ export function GarmentSwapBoard({
       }
     })
     .onEnd((event, success) => {
-      if (!curDx || !focusedSlot || !pager || stepPending() || dragSlot.get() !== focusedSlot) return;
+      const slot = dragSlot.get();
+      dragSlot.set(null);
+      if (!curDx || !focusedSlot || !pager || stepPending() || slot !== focusedSlot) return;
       const shown = dragShown.get();
       const velocity = success ? event.velocityX : 0;
       const stride = shown > 0 ? pager.stridePrevious : pager.strideNext;
@@ -1228,6 +1252,7 @@ export function GarmentSwapBoard({
               onBigDone={dropBig}
               outline={outline}
               settleTravel={settleTravel}
+              shadow={shadow}
               stageLimit={stageLimit}
               stageWidth={width}
               testID={`${boardTestID}-drawing-${instance.slot}-${instance.garmentTypeId}`}

@@ -13,11 +13,22 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import Svg, { Ellipse, G } from 'react-native-svg';
+import Svg, {
+  Defs,
+  FeComposite,
+  FeFlood,
+  FeGaussianBlur,
+  FeMerge,
+  FeMergeNode,
+  FeOffset,
+  Filter,
+  G,
+} from 'react-native-svg';
 
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import { useStableEntries } from '@/hooks/use-stable-value';
+import { shiftOklchLightness } from '@/theme/color-oklch';
 import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -25,11 +36,12 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 import { PRESENCE_TEXT_AFTER } from '../presence';
 import {
   composeGarmentBoard,
-  contactShadeOf,
   detailPreset,
   drawnExtent,
   easierToSeeRule,
   fitTodayStage,
+  garmentShadowOf,
+  garmentShadowRule,
   placeOnRunway,
   todayPreset,
 } from './compose-garment-board';
@@ -63,11 +75,12 @@ const SETTLE_TRAVEL = spacing.xs;
 const RISE_TRAVEL = spacing.xl;
 
 /**
- * One rising piece, or its contact shade, on its own native view: Reanimated cannot move a
- * group inside one SVG on the new architecture. The pieces leave in the board's reading
- * order, each one `motion.stagger` after the piece before it (ADR 0020); a piece's shade
- * rises with it. The travel rides the arrival role, the fade is effects motion on
- * `motion.fast`. It starts once, when `held` is false.
+ * One rising piece, with its shadow, on its own native view: Reanimated cannot move a group
+ * inside one SVG on the new architecture. The pieces leave in the board's reading order, each
+ * one `motion.stagger` after the piece before it (ADR 0020), while the views stack in the
+ * dressing order, so a later piece lies over an earlier one from its first frame. The travel
+ * rides the arrival role, the fade is effects motion on `motion.fast`. It starts once, when
+ * `held` is false.
  */
 function RisingLayer({
   children,
@@ -164,8 +177,6 @@ type GarmentBoardProps = Readonly<{
    * runway fits it, and the stage is as tall as the fitted pieces. Ignored with `entrance`.
    */
   fit?: boolean;
-  /** Today's primary stage only (P2): one flat contact shade under each piece, this colour. */
-  contactShade?: string;
   testID?: string;
 }>;
 
@@ -178,7 +189,10 @@ export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Pres
     : rule);
 }
 
-/** Every piece's drawn box in points, and the stage height, with or without Today's fit. */
+/**
+ * Every piece's drawn box in points, the stage height and the board's unit (the points one
+ * composition unit is drawn at), with or without Today's fit.
+ */
 function placePieces(pieces: readonly GarmentBoardPiece[], width: number, preset: Preset, fit: boolean, large = false) {
   const result = composePieces(pieces, preset, large);
   if (!fit) {
@@ -186,14 +200,14 @@ function placePieces(pieces: readonly GarmentBoardPiece[], width: number, preset
       const box = result.boxes.get(piece)!;
       return [piece, { x: box.x * width, y: box.y * width, w: box.w * width, h: box.h * width }];
     }));
-    return { result, placed, height: width * result.stageHeight };
+    return { result, placed, height: width * result.stageHeight, unit: width };
   }
   const extent = drawnExtent(result.boxes.values());
   const { scale, height } = fitTodayStage(extent, width);
   const placed = new Map(result.order.map((piece) => [
     piece, placeOnRunway(result.boxes.get(piece)!, extent, scale, width, height),
   ]));
-  return { result, placed, height };
+  return { result, placed, height, unit: scale };
 }
 
 export function layoutGarmentBoard(
@@ -262,7 +276,87 @@ export function useGarmentCandidateRoles(
   }));
 }
 
-/** One composed piece in its own box, the viewBox fitted to its drawn bounds. */
+/** A piece's soft shadow in points (ADR 0025 section 9), and its colour. */
+export type PieceShadow = ReturnType<typeof garmentShadowOf> & Readonly<{ color: string }>;
+
+/** The shadow the pieces of a board drawn at `unit` points cast on the plane `stageColor`. */
+export function pieceShadowOf(unit: number, stageColor: string, colorScheme: 'light' | 'dark'): PieceShadow {
+  return { ...garmentShadowOf(unit), color: shiftOklchLightness(stageColor, garmentShadowRule.step[colorScheme]) };
+}
+
+/**
+ * One piece painted at its drawn box, in points, casting its shadow. The filter reads only
+ * the painting's alpha, so it follows whatever the drawing paints; `only` draws the shadow
+ * alone. Its units are points: the scale lives on the inner group.
+ */
+function ShadowedPainting({
+  id,
+  piece,
+  box,
+  roles,
+  ink,
+  outline,
+  layer,
+  shadow,
+  only = false,
+}: Readonly<{
+  id: string;
+  piece: ComposedPiece;
+  box: DrawnBox;
+  roles: GarmentRoles;
+  ink: string;
+  outline?: number;
+  layer?: 'all' | 'fill' | 'outline';
+  shadow: PieceShadow;
+  only?: boolean;
+}>) {
+  // The composition keeps each drawing's aspect ratio, so one scale serves both axes.
+  const scale = box.w / piece.bounds.width;
+  const painting = (
+    <G transform={`translate(${box.x - piece.bounds.x * scale} ${box.y - piece.bounds.y * scale}) scale(${scale})`}>
+      <GarmentPainting
+        ink={ink}
+        layer={layer}
+        lod={garmentLevelOfDetail(Math.max(box.w, box.h))}
+        outline={outline}
+        roles={roles}
+        scale={scale}
+        silhouette={piece}
+      />
+    </G>
+  );
+  const { margin } = shadow;
+  return (
+    <G>
+      <Defs>
+        <Filter
+          filterUnits="userSpaceOnUse"
+          height={box.h + 2 * margin}
+          id={id}
+          width={box.w + 2 * margin}
+          x={box.x - margin}
+          y={box.y - margin}>
+          <FeGaussianBlur in="SourceAlpha" stdDeviation={shadow.blur} />
+          <FeOffset dx={shadow.dx} dy={shadow.dy} result="offset" />
+          <FeFlood floodColor={shadow.color} />
+          <FeComposite in2="offset" operator="in" result="shadow" />
+          {only ? null : (
+            <FeMerge>
+              <FeMergeNode in="shadow" />
+              <FeMergeNode in="SourceGraphic" />
+            </FeMerge>
+          )}
+        </Filter>
+      </Defs>
+      <G filter={`url(#${id})`}>{painting}</G>
+    </G>
+  );
+}
+
+/**
+ * One composed piece in its own box, the viewBox fitted to its drawn bounds. With a shadow
+ * the drawing spreads past the box by the shadow's margin, so nothing clips it.
+ */
 export function PieceArtwork({
   piece,
   roles,
@@ -271,6 +365,8 @@ export function PieceArtwork({
   height,
   layer,
   outline,
+  shadow = null,
+  shadowOnly = false,
 }: Readonly<{
   piece: ComposedPiece;
   roles: GarmentRoles;
@@ -280,8 +376,35 @@ export function PieceArtwork({
   layer?: 'all' | 'fill' | 'outline';
   /** The board outline in points; O13's mode draws it heavier. */
   outline?: number;
+  shadow?: PieceShadow | null;
+  /** Draws the shadow alone, for a layer that shows it under a painting drawn elsewhere. */
+  shadowOnly?: boolean;
 }>) {
   const { bounds } = piece;
+
+  if (shadow) {
+    const { margin } = shadow;
+    return (
+      <View pointerEvents="none" style={{ height, width }}>
+        <Svg
+          height={height + 2 * margin}
+          style={[styles.piece, { left: -margin, top: -margin }]}
+          width={width + 2 * margin}>
+          <ShadowedPainting
+            box={{ x: margin, y: margin, w: width, h: height }}
+            id="piece-shadow"
+            ink={ink}
+            layer={layer}
+            only={shadowOnly}
+            outline={outline}
+            piece={piece}
+            roles={roles}
+            shadow={shadow}
+          />
+        </Svg>
+      </View>
+    );
+  }
 
   return (
     <Svg
@@ -315,6 +438,7 @@ function TravellingPiece({
   roles,
   ink,
   outline,
+  shadow,
 }: Readonly<{
   piece: ComposedPiece;
   fromBox: DrawnBox;
@@ -325,6 +449,7 @@ function TravellingPiece({
   roles: GarmentRoles;
   ink: string;
   outline?: number;
+  shadow: PieceShadow;
 }>) {
   const boxWidth = toBox.w * width;
   const boxHeight = toBox.h * width;
@@ -352,7 +477,8 @@ function TravellingPiece({
         { height: boxHeight, left: toBox.x * width, top: toBox.y * width, width: boxWidth },
         travelStyle,
       ]}>
-      <PieceArtwork height={boxHeight} ink={ink} outline={outline} piece={piece} roles={roles} width={boxWidth} />
+      <PieceArtwork height={boxHeight} ink={ink} outline={outline} piece={piece} roles={roles} shadow={shadow}
+        width={boxWidth} />
     </Animated.View>
   );
 }
@@ -402,7 +528,6 @@ export function GarmentBoard({
   palette,
   stageColor,
   fit = false,
-  contactShade,
   testID,
 }: GarmentBoardProps) {
   const theme = useKuyaraTheme();
@@ -486,7 +611,8 @@ export function GarmentBoard({
   // Composed after the last hook: React Compiler cannot keep a value in a memo block across a
   // hook call, so a composition read above the hooks was redone, and every piece redrawn, on
   // each render even when the outfit and width were unchanged.
-  const { result, placed, height } = placePieces(pieces, width, preset, fit && !entrance, large);
+  const { result, placed, height, unit } = placePieces(pieces, width, preset, fit && !entrance, large);
+  const shadow = pieceShadowOf(unit, stageColor ?? colors.background, theme.colorScheme);
 
   const accessibilityProps = {
     accessible: decorative ? undefined : true,
@@ -497,29 +623,25 @@ export function GarmentBoard({
     testID,
   };
 
+  // Every board draws its pieces in the dressing order, so where two overlap the later one
+  // lies over the earlier and casts its shadow on it.
+  const reading = new Map(result.order.map((piece, index) => [piece, index]));
+
   if (!entrance && rise) {
     // The stage the screen draws stays where it is; the layers carry no accessibility
-    // props, so the rise adds no node a screen reader stops on. Every shade layer sits
-    // under every piece, so no shade ever crosses a garment.
+    // props, so the rise adds no node a screen reader stops on.
     return (
       <View {...accessibilityProps} style={{ height, width }}>
-        {contactShade ? result.order.map((piece, index) => (
-          <RisingLayer held={holdRise} index={index} key={`shade-${piece.slot}`} style={StyleSheet.absoluteFill}>
-            <Svg height={height} width={width}>
-              <Ellipse fill={contactShade} {...contactShadeOf(placed.get(piece)!)} />
-            </Svg>
-          </RisingLayer>
-        )) : null}
-        {result.order.map((piece, index) => {
+        {result.stack.map((piece) => {
           const box = placed.get(piece)!;
           return (
             <RisingLayer
               held={holdRise}
-              index={index}
+              index={reading.get(piece)!}
               key={piece.slot}
               style={[styles.piece, { height: box.h, left: box.x, top: box.y, width: box.w }]}>
               <PieceArtwork height={box.h} ink={colors.textPrimary} outline={outline} piece={piece}
-                roles={roles.get(piece.slot)!} width={box.w} />
+                roles={roles.get(piece.slot)!} shadow={shadow} width={box.w} />
             </RisingLayer>
           );
         })}
@@ -530,31 +652,18 @@ export function GarmentBoard({
   if (!entrance) {
     return (
       <Svg {...accessibilityProps} height={height} width={width}>
-        {/* Every shade is drawn before any piece, so no shade ever crosses a garment. */}
-        {contactShade ? result.order.map((piece) => {
-          const shade = contactShadeOf(placed.get(piece)!);
-          return <Ellipse fill={contactShade} key={`shade-${piece.slot}`} {...shade} />;
-        }) : null}
-        {result.order.map((piece) => {
-          const box = placed.get(piece)!;
-          // The composition keeps each drawing's aspect ratio, so one scale serves both axes.
-          const scale = box.w / piece.bounds.width;
-          return (
-            <G
-              key={piece.slot}
-              transform={`translate(${box.x - piece.bounds.x * scale} ${box.y - piece.bounds.y * scale}) scale(${scale})`}
-            >
-              <GarmentPainting
-                ink={colors.textPrimary}
-                lod={garmentLevelOfDetail(Math.max(box.w, box.h))}
-                outline={outline}
-                roles={roles.get(piece.slot)!}
-                scale={scale}
-                silhouette={piece}
-              />
-            </G>
-          );
-        })}
+        {result.stack.map((piece) => (
+          <ShadowedPainting
+            box={placed.get(piece)!}
+            id={`shadow-${piece.slot}`}
+            ink={colors.textPrimary}
+            key={piece.slot}
+            outline={outline}
+            piece={piece}
+            roles={roles.get(piece.slot)!}
+            shadow={shadow}
+          />
+        ))}
       </Svg>
     );
   }
@@ -569,7 +678,7 @@ export function GarmentBoard({
         { borderRadius: entrance.fromStageRadius, height, width },
         entranceBackgroundStyle,
       ]}>
-      {result.order.map((piece) => (
+      {result.stack.map((piece) => (
         <TravellingPiece
           fromBox={fromBoxes.get(piece.slot) ?? result.boxes.get(piece)!}
           ink={colors.textPrimary}
@@ -579,6 +688,7 @@ export function GarmentBoard({
           progress={progress}
           roles={roles.get(piece.slot)!}
           settleTravel={settleTravel}
+          shadow={shadow}
           toBox={result.boxes.get(piece)!}
           width={width}
         />

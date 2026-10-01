@@ -4,18 +4,25 @@ export const garmentBoardSlotOrder: readonly OutfitSlot[] = [
   'primary_top', 'bottom', 'one_piece', 'outer_layer', 'mid_layer', 'footwear',
 ];
 
+// The order an outfit is put on, back to front: where pieces overlap, a later piece lies
+// over an earlier one. The bottom's waist lies over the top's hem (tucked), the layers over
+// the body core, the outer layer over the mid layer, and the footwear over the core's foot.
+export const garmentBoardDressingOrder: readonly OutfitSlot[] = [
+  'primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear',
+];
+
 export const todayPreset = {
   weight: { anchor: 1, outer_layer: 0.74, mid_layer: 0.56 },
   footWidth: 0.58,
   coreCap: 0.235,
   soloCap: 0.300,
   railCap: 0.170,
-  coreGapK: 0.60,
-  railGap: 0.45,
+  coreGapK: 0,
+  railGap: 0.10,
   footClear: 0.55,
-  midInset: 0.20,
+  midInset: 0,
   footRise: 0.20,
-  gutter: 0.095,
+  gutter: 0,
   // Today's stage holds nothing but the board: the temperature and the condition symbol
   // live in the title above it, so both insets are the tint's own edge and match the detail
   // preset's. Neither is board geometry: the ladder, the caps and the gaps above are
@@ -27,6 +34,7 @@ export const todayPreset = {
   centroid: 0.47,
   sideMin: 0.09,
   stagDrop: 0.60,
+  lap: 0.12,
 };
 
 export const detailPreset = {
@@ -43,6 +51,7 @@ export const detailPreset = {
   botInset: 0.055,
   stageMin: 0.60,
   stageMax: 1.45,
+  lap: 0,
 };
 
 /**
@@ -79,7 +88,7 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
     .filter((piece): piece is Piece => piece !== undefined);
   const foot = by('footwear');
   if (!core.length || !foot) throw new Error('A garment board requires a body core and footwear.');
-  const family = rail.length ? 'column-and-rail' : 'stagger';
+  const family = rail.length || rule.lap > 0 ? 'column-and-rail' : 'stagger';
 
   const cap = family === 'stagger' || core.length === 1 ? rule.soloCap : rule.coreCap;
   const metric = cap / Math.max(...core.map((piece) => ratios(piece).w));
@@ -91,11 +100,18 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   const boxes = new Map<Piece, DrawnBox>();
   let stageHeight: number;
 
+  // Worn (a lap above 0, Today): the outfit is laid out as it is worn. The core stands as one
+  // column, the bottom's waist over the top's hem, the footwear at its foot and the layers
+  // over its side. Every piece that lies over another covers `lap` of the covered piece's
+  // drawn extent at most, on the side it enters from, so a collar, a waist and a sole stay in
+  // view. A lap of 0 is the open board (the detail), whose pieces never touch.
+  const lap = rule.lap;
+  const worn = lap > 0;
+
   if (family === 'column-and-rail') {
     const cb = core.map(coreBox);
-    const coreGap = rule.coreGapK * metric;
+    const coreGap = rule.coreGapK * metric - (core.length > 1 ? lap * cb[0].h : 0);
     const coreW = Math.max(...cb.map((box) => box.w));
-    const coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1);
 
     let rb = rail.map((piece) => boxOf(piece,
       rule.weight[piece.slot === 'outer_layer' ? 'outer_layer' : 'mid_layer'] * metric));
@@ -103,31 +119,41 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
     const railScale = Math.min(1, rule.railCap / Math.max(...rb.concat(bf).map((box) => box.w)));
     rb = rb.map((box) => ({ w: box.w * railScale, h: box.h * railScale }));
     bf = { w: bf.w * railScale, h: bf.h * railScale };
-    const railW = Math.max(...rb.concat(bf).map((box) => box.w));
+    // Worn, the rail carries the layers alone: the footwear stands under the core.
+    const railW = Math.max(0, ...(worn ? rb : rb.concat(bf)).map((box) => box.w));
     const railH = rb.reduce((sum, box) => sum + box.h, 0) + rule.railGap * metric * (rb.length - 1);
+    const coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1)
+      + (worn ? bf.h * (1 - lap) : 0);
 
-    const envelope = Math.max(coreH, railH + rule.footClear * metric + bf.h + rule.footRise * metric);
+    const envelope = worn
+      ? Math.max(coreH, railH)
+      : Math.max(coreH, railH + rule.footClear * metric + bf.h + rule.footRise * metric);
     stageHeight = Math.min(rule.stageMax, Math.max(rule.stageMin, rule.topInset + envelope + rule.botInset));
     const span = stageHeight - rule.topInset - rule.botInset;
     const top = rule.topInset + (span - envelope) / 2;
 
     let y = top + (envelope - coreH) / 2;
-    core.forEach((piece, index) => {
-      const box = cb[index];
-      boxes.set(piece, { x: -box.w / 2, y, ...box });
+    const placedCore = core.map((piece, index) => {
+      const box = { x: -cb[index].w / 2, y, ...cb[index] };
+      boxes.set(piece, box);
       y += box.h + coreGap;
+      return box;
     });
-    const railX = coreW / 2 + rule.gutter + railW / 2;
+    // Worn, every layer's left edge lies `lap` of the narrowest core piece's width over the core.
+    const railX = coreW / 2 + rule.gutter - lap * Math.min(...cb.map((box) => box.w)) + railW / 2;
     y = top;
     rail.forEach((piece, index) => {
       const box = rb[index];
       const inset = piece.slot === 'mid_layer' && rail.length > 1 ? rule.midInset * metric : 0;
-      boxes.set(piece, { x: railX + inset - box.w / 2, y, ...box });
+      boxes.set(piece, { x: railX - (worn ? railW : box.w) / 2 + inset, y, ...box });
       y += box.h + rule.railGap * metric;
     });
-    boxes.set(foot, {
-      x: railX - bf.w / 2, y: top + envelope - rule.footRise * metric - bf.h, ...bf,
-    });
+    // Worn, the footwear's heel stands a quarter of its length left of the core's axis and its
+    // opening lies over the lowest piece's hem by `lap` of its own height.
+    const low = placedCore[placedCore.length - 1];
+    boxes.set(foot, worn
+      ? { x: -bf.w / 4, y: low.y + low.h - lap * bf.h, ...bf }
+      : { x: railX - bf.w / 2, y: top + envelope - rule.footRise * metric - bf.h, ...bf });
   } else {
     const first = core[0];
     const second = core[1];
@@ -158,11 +184,15 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   dx = Math.min(dx, 1 - rule.sideMin - right);
   for (const box of bs) box.x += dx;
 
-  const order = garmentBoardSlotOrder.flatMap((slot) => {
+  const inOrder = (slots: readonly OutfitSlot[]) => slots.flatMap((slot) => {
     const piece = by(slot);
     return piece && boxes.has(piece) ? [piece] : [];
   });
-  return { boxes, stageHeight, family, metric, core, order };
+  return {
+    boxes, stageHeight, family, metric, core,
+    order: inOrder(garmentBoardSlotOrder),
+    stack: inOrder(garmentBoardDressingOrder),
+  };
 }
 
 // The runway preset (O17, P6). The runway has no stage box, so a
@@ -227,13 +257,21 @@ export function fitTodayStage(extent: DrawnExtent, width: number) {
   return { scale, height };
 }
 
-// The contact shade under each piece on Today's stage (P2): a flat ellipse 0.80 of the
-// piece's drawn width wide and 0.07 of it tall, held to 3 to 6 points, centred under the
-// piece with its centre on the drawn bottom edge, so the piece covers its upper half.
-export const contactShadeRule = { width: 0.8, height: 0.07, minHeight: 3, maxHeight: 6 } as const;
+// The soft shadow each piece casts on the plane it lies on, on every board: the piece's own
+// drawn shape, blurred and dropped down and slightly right, so it follows any drawing that
+// declares its drawn bounds. Lengths are fractions of the board's unit, the points one
+// composition unit is drawn at (the stage width, or Today's fitted scale), so the shadow
+// grows and shrinks with its piece. `reach` standard deviations of blur past the offset is
+// where the shadow is spent; the board's margins hold it. Its colour is the plane's own,
+// moved down in OKLCH lightness by `step`, so it adds no hue and no new colour.
+export const garmentShadowRule = {
+  dx: 0.0025, dy: 0.0075, blur: 0.0065, reach: 3, step: { light: -0.13, dark: -0.10 },
+} as const;
 
-/** One piece's contact shade, from its drawn box in points. */
-export function contactShadeOf(box: DrawnBox) {
-  const height = Math.min(contactShadeRule.maxHeight, Math.max(contactShadeRule.minHeight, contactShadeRule.height * box.w));
-  return { cx: box.x + box.w / 2, cy: box.y + box.h, rx: contactShadeRule.width * box.w / 2, ry: height / 2 };
+/** One board's piece shadow in points, and the margin it reaches past a piece's drawn box. */
+export function garmentShadowOf(unit: number) {
+  const dx = garmentShadowRule.dx * unit;
+  const dy = garmentShadowRule.dy * unit;
+  const blur = garmentShadowRule.blur * unit;
+  return { dx, dy, blur, margin: Math.max(dx, dy) + garmentShadowRule.reach * blur };
 }
