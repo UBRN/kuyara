@@ -93,3 +93,21 @@ test('the leaving content keeps the size it had on screen, not the box of the na
   expect(style.bottom).toBeUndefined();
   withTiming.mockRestore();
 });
+
+test('a second change while the first is still fading keeps the content that was on screen leaving, not the one that never faded in', async () => {
+  jest.useFakeTimers();
+  const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation(
+    ((toValue: number) => toValue) as typeof Reanimated.withTiming,
+  );
+  const result = await render(line('a', 'Rain Ready'));
+  await result.rerender(line('b', 'City Layers'));
+  await act(() => jest.advanceTimersByTime(50));
+  await result.rerender(line('c', 'Warm until 20:00'));
+
+  expect(result.getByText('Rain Ready', hidden)).toBeTruthy();
+  expect(result.queryByText('City Layers', hidden)).toBeNull();
+  expect(result.getByText('Warm until 20:00')).toBeOnTheScreen();
+  expect(result.getAllByTestId('crossfade-leaving', hidden)).toHaveLength(1);
+  withTiming.mockRestore();
+  jest.useRealTimers();
+});
