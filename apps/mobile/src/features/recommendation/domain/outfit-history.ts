@@ -117,9 +117,12 @@ export interface OutfitHistoryRepository {
   get(localProfileId: string, dayKey: string): Promise<OutfitHistoryRecord | null>;
   list(localProfileId: string): Promise<readonly OutfitHistoryRecord[]>;
   lastSeven(localProfileId: string): Promise<readonly OutfitHistoryRecord[]>;
-  /** `pieceColors` are the swatches the day was drawn in; null records the day without them. */
+  /**
+   * `pieceColors` are the swatches the day was drawn in; null records the day without them. Every
+   * write states them, because a write replaces the stored colours.
+   */
   log(localProfileId: string, dayKey: string, outfit: WornOutfit,
-    photo?: HistoryPhotoChange, pieceColors?: WornPieceColors | null): Promise<OutfitHistoryRecord>;
+    photo: HistoryPhotoChange, pieceColors: WornPieceColors | null): Promise<OutfitHistoryRecord>;
   softDelete(localProfileId: string, dayKey: string): Promise<boolean>;
 }
 

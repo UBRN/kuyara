@@ -191,7 +191,7 @@ The profile migration and data-source tests use Node 24's built-in in-memory SQL
 
 Production still opens Expo SQLite on device. The Node adapter is test infrastructure only and must not become an application persistence implementation.
 
-Migration tests verify empty-database application through schema 19, upgrades from frozen build 14 schema 16, re-entry and schema equality against frozen build 15 schema 19 and build 16 schema 22, row preservation across existing tables, constraints, and rollback without data deletion or version advancement. Profile tests cover notification and analytics defaults, persistence, mapping, and preference propagation alongside the profile lifecycle.
+Migration tests verify empty-database application through schema 19, upgrades from frozen build 14 schema 16, re-entry and schema equality against frozen build 15 schema 19 and build 16 schema 22, an upgrade from frozen build 17 schema 23, row preservation across existing tables, constraints, and rollback without data deletion or version advancement. Profile tests cover notification and analytics defaults, persistence, mapping, and preference propagation alongside the profile lifecycle.
 
 Wardrobe persistence tests execute the production migrations through the current schema while covering the version 3 wardrobe contract: foreign-key/category/enum constraints, version 2 row preservation, rollback, UUID creation, profile isolation, explicit domain-record mapping, active list/get behavior, taxonomy and nullable-override round trips, lifecycle preservation, atomic soft deletion, missing/deleted write behavior, relative photo-path validation, bound parameters, and sanitized repository errors. Deleted rows must disappear from default reads while remaining available only through the explicit include-deleted operation.
 
@@ -377,6 +377,17 @@ value as `build.production.env` in `apps/mobile/eas.json`, alongside
 
 ```bash
 eas env:set production --name EXPO_PUBLIC_KUYARA_WORKER_BASE_URL --value "https://kuyara-worker.ubarin08.workers.dev" --type string --visibility plaintext --scope project --non-interactive
+```
+
+Never publish an update from a tree whose `latestDatabaseVersion` is higher than the live
+binary's: the update migrates the database past the embedded bundle's schema, and whenever the
+binary falls back to that bundle it refuses to open the database. Bump the app version and ship
+a store build first. Compare the two before exporting, from `apps/mobile` with `LIVE` set to the
+commit the live binary was built from:
+
+```bash
+git show "$LIVE:apps/mobile/src/infrastructure/sqlite/migrations.ts" | grep 'latestDatabaseVersion ='
+grep 'latestDatabaseVersion =' src/infrastructure/sqlite/migrations.ts
 ```
 
 From `apps/mobile`, with a clean committed tree and green checks, export for iOS using the EAS

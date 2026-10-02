@@ -40,7 +40,7 @@ jest.mock('expo-router', () => {
 // eslint-disable-next-line import/first
 import HistoryRoute from '@/app/(tabs)/(profile)/history';
 // eslint-disable-next-line import/first
-import { HistoryScreen } from '@/features/profile/presentation/history-screen';
+import { HistoryScreen, historyBoard } from '@/features/profile/presentation/history-screen';
 
 function record(dayKey: string, archetypeId: OutfitHistoryRecord['outfit']['archetypeId'],
   formality: OutfitHistoryRecord['outfit']['formality']): OutfitHistoryRecord {
@@ -262,4 +262,13 @@ test('a day recorded with its colours is drawn in them, an older day in the fixe
   const fixed = await fills(null);
   expect([...fixed].sort()).not.toEqual([...coloured].sort());
   expect(fixed.has(paint(roles.get('primary_top')!.main))).toBe(false);
+});
+
+test('a worn day with an accessory names each slot once in its palette', () => {
+  const day = record('2026-09-24', 'rain_ready', 'smart');
+  const outfit = { ...day.outfit, garments: { ...day.outfit.garments, head: 'beanie' } } as const;
+  const { palette } = historyBoard({ dayKey: day.dayKey, outfit, pieceColors: null });
+  const slots = palette.pieces.map(({ slot }) => slot);
+  expect(slots).toEqual([...new Set(slots)]);
+  expect(slots).toContain('head');
 });

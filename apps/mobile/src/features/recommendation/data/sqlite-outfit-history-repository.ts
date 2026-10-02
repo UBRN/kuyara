@@ -129,8 +129,10 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
   }
 
   async log(profileId: string, dayKey: string, outfit: WornOutfit,
-    photo: HistoryPhotoChange = { kind: 'keep' }, pieceColors: WornPieceColors | null = null,
+    photo: HistoryPhotoChange, pieceColors: WornPieceColors | null,
   ): Promise<OutfitHistoryRecord> {
+    // A write replaces the stored colours, so one that does not state them would erase them.
+    if (pieceColors === undefined) throw new Error('History write must state its piece colours.');
     bareHistoryDayKeySchema.parse(dayKey);
     const validated = wornOutfitSchema.parse(outfit);
     // Colours that do not fit the outfit are not stored: the day is still recorded, drawn in
