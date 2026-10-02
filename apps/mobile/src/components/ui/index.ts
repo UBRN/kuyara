@@ -101,6 +101,7 @@ export { RollingText, type RollingTextProps } from './rolling-text';
 export { ScrollDepth, type ScrollDepthProps } from './scroll-depth';
 export {
   garmentColorFamiliesBySlot,
+  garmentSwatchesBySlot,
   garmentUsualColorFamilies,
   keepGarmentColors,
   type GarmentOutfitPalette,

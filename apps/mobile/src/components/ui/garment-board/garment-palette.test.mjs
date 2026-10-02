@@ -225,3 +225,24 @@ test('a changed piece leaves the untouched pieces in their colours', async () =>
   }
   assert.ok(recolouredWithoutKeeping > 0, 'the whole-set resolution recolours untouched pieces');
 });
+
+// Migration 24: "Wore this today" stores the swatch each piece was drawn in, and History draws
+// the day from them on a different day mood. Every piece comes back in the swatch it was seen
+// in, whatever the original day's weather, and the stored ids are exactly the swatch library.
+test('a worn day redrawn from its recorded swatches keeps every piece in the colour it was seen in', async () => {
+  const { garmentSwatchesBySlot } = await import('./garment-palette.ts');
+  const { garmentSwatchIds } = await import('../../../features/catalog/domain/garment-swatch.ts');
+  assert.deepEqual([...garmentSwatchIds].sort(), Object.keys(garmentSwatches).sort());
+  for (const [name, optionId, temperatureC, condition, isNight, formality, pieces] of boards) {
+    const seen = { optionId, temperatureC, condition, isNight, formality,
+      pieces: pieces.map(([slot, id]) => piece(slot, id)) };
+    const recorded = garmentSwatchesBySlot(seen);
+    assert.deepEqual(Object.keys(recorded).sort(), pieces.map(([slot]) => slot).sort(), name);
+    const history = { optionId: 'history-2026-09-24', temperatureC: 18, condition: 'cloudy', isNight: false, formality,
+      pieces: pieces.map(([slot, id]) => piece(slot, id, recorded[slot])) };
+    for (const resolved of resolveGarmentPalette(input(history))) {
+      assert.equal(resolved.swatchId, recorded[resolved.piece.slot], `${name}: ${resolved.piece.slot}`);
+      assert.equal(resolved.reason, 'recorded');
+    }
+  }
+});

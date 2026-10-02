@@ -287,3 +287,46 @@ test('a staged copy that comes back with an unmanaged path is rejected, removed 
   assert.deepEqual(deleted, ['elsewhere/a.jpg']);
   assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM outfit_history')).count, 0);
 });
+
+// Migration 24: a worn day keeps the swatch each piece was drawn in, so History draws it as it
+// was seen. The colours are display data: a value that does not fit the day is dropped to
+// null (the fixed scheme), never a reason to lose the day.
+test('history stores, overwrites and drops the colours a day was drawn in', async (t) => {
+  const db = await setup(t);
+  let clock = now;
+  const photos = { copyStaged: async () => 'kuyara/history/photos/' + randomUUID() + '.jpg',
+    discardStaged: async () => {}, deleteStored: async () => {}, resolveUri: () => null };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => clock, photos);
+  const colors = { primary_top: 'burgundy', bottom: 'indigo', footwear: 'white' };
+  const stored = async () => (await db.getFirstAsync(
+    "SELECT piece_colors_json FROM outfit_history WHERE day_key = '2026-09-24'")).piece_colors_json;
+
+  const written = await repo.log(profileId, '2026-09-24', first, undefined, colors);
+  assert.deepEqual(written.pieceColors, colors);
+  assert.deepEqual((await repo.get(profileId, '2026-09-24')).pieceColors, colors);
+  assert.deepEqual((await repo.list(profileId))[0].pieceColors, colors);
+  assert.deepEqual(JSON.parse(await stored()), colors);
+
+  // A new look for the day replaces the old look's colours, and a write without colours clears them.
+  clock = '2026-09-24T11:00:00.000Z';
+  const recoloured = { primary_top: 'oxford', bottom: 'stone', footwear: 'tan' };
+  assert.deepEqual((await repo.log(profileId, '2026-09-24', second, undefined, recoloured)).pieceColors, recoloured);
+  assert.equal((await repo.log(profileId, '2026-09-24', first)).pieceColors, null);
+  assert.equal(await stored(), null);
+
+  // Colours outside the swatch vocabulary, for a slot the day did not wear, or empty are not stored.
+  for (const invalid of [{ primary_top: 'neon' }, { head: 'navy' }, {}, { primary_top: 'Navy' }]) {
+    const record = await repo.log(profileId, '2026-09-24', first, undefined, invalid);
+    assert.equal(record.pieceColors, null);
+    assert.equal(await stored(), null);
+  }
+
+  // A stored value this build cannot read still reads the day, in the fixed scheme.
+  for (const raw of ['not json', '"navy"', '{"primary_top":"neon"}', '{"head":"navy"}', '[]']) {
+    await db.runAsync("UPDATE outfit_history SET piece_colors_json = ? WHERE day_key = '2026-09-24'", [raw]);
+    const read = await repo.get(profileId, '2026-09-24');
+    assert.deepEqual(read.outfit, first);
+    assert.equal(read.pieceColors, null);
+    assert.equal((await repo.list(profileId)).length, 1);
+  }
+});

@@ -121,6 +121,16 @@ test('columns a newer server adds are ignored, the row still maps', () => {
   assert.equal(fromRemoteWardrobeItem(record, phoneProfileId).kind, 'accepted');
 });
 
+test('pulled History colours this build cannot read draw the day in the fixed scheme, never refuse it', () => {
+  const day = arrived(toRemoteOutfitHistory(historyDay(4, '2026-09-10'), userId));
+  for (const piece_colors_json of [null, undefined, 'navy', { primary_top: 'neon_2030' }, { head: 'navy' }]) {
+    const result = fromRemoteOutfitHistory({ ...day, piece_colors_json }, phoneProfileId);
+    assert.equal(result.kind, 'accepted');
+    assert.equal(result.row.pieceColors, null);
+    assert.deepEqual(result.row.outfit, historyDay(4, '2026-09-10').outfit);
+  }
+});
+
 test('a row this build cannot parse is refused, and still reports its arrival for the cursor', () => {
   const good = (n) => arrived(toRemoteWardrobeItem(wardrobeItem(n), userId));
   const refusals = [

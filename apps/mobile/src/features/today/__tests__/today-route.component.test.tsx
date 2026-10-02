@@ -33,7 +33,7 @@ import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sq
 import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
 import * as tomorrowPreview from '@/features/recommendation/application/tomorrow-preview';
 import { slotCandidates } from '@/features/recommendation/domain/manual-mix';
-import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
+import { wornOutfitFrom, wornPieceColorsFor, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
 import { WalkthroughContext } from '@/features/walkthrough/application/walkthrough-context';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
@@ -2964,7 +2964,7 @@ test('wore this today records the outfit once per dressing day', async () => {
   const outfitHistory = {
     list: jest.fn(async () => []),
     get: jest.fn(async () => stored ? { outfit: stored } as never : null),
-    log: jest.fn(async (_day: string, outfit: WornOutfit) => {
+    log: jest.fn(async (_day: string, outfit: WornOutfit, _pieceColors: unknown) => {
       stored = outfit;
       return { outfit } as never;
     }),
@@ -2984,7 +2984,12 @@ test('wore this today records the outfit once per dressing day', async () => {
   await waitFor(() => expect(outfitHistory.get).toHaveBeenCalledWith('2026-08-13'));
   await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
   expect(outfitHistory.log).toHaveBeenCalledTimes(1);
-  expect(outfitHistory.log).toHaveBeenCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[0]));
+  expect(outfitHistory.log).toHaveBeenCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[0]),
+    expect.any(Object));
+  // Migration 24: the record carries the swatch each piece was drawn in, one per worn slot.
+  const [, recorded, pieceColors] = outfitHistory.log.mock.calls[0];
+  expect(wornPieceColorsFor(recorded, pieceColors)).toEqual(pieceColors);
+  expect(Object.keys(pieceColors as object).sort()).toEqual(Object.keys(recorded.garments).sort());
   expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
   expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
   expect(props.productAnalytics.analytics.names()).not.toContain('outfit_worn_logged');
@@ -2999,7 +3004,8 @@ test('wore this today records the outfit once per dressing day', async () => {
   const confirm = alert.mock.calls[0][2]?.find(({ style }) => style === 'destructive');
   await act(async () => { confirm?.onPress?.(); });
   expect(outfitHistory.log).toHaveBeenCalledTimes(2);
-  expect(outfitHistory.log).toHaveBeenLastCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[1]));
+  expect(outfitHistory.log).toHaveBeenLastCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[1]),
+    expect.any(Object));
   alert.mockRestore();
 });
 
@@ -3149,7 +3155,7 @@ test('a worn day recorded through the provider reaches the Closet counts already
     return (
       <>
         <Text testID="wear-count">{String(counts.get('item-one') ?? 0)}</Text>
-        <Pressable testID="wear-log" onPress={() => { void outfitHistory?.log('2026-08-13', worn); }} />
+        <Pressable testID="wear-log" onPress={() => { void outfitHistory?.log('2026-08-13', worn, null); }} />
       </>
     );
   }

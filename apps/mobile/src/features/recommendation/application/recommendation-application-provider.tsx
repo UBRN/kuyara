@@ -55,7 +55,7 @@ import { nextMorningAfterEvening } from '@/features/recommendation/domain/local-
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
-import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
+import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import {
   OnDeviceAiClient,
   type OnDeviceAiModule,
@@ -578,8 +578,8 @@ export function RecommendationApplicationProvider({
     revision: historyRevision,
     list: async () => (await loadHistoryRepository()).list(localProfileId),
     get: async (dayKey: string) => (await loadHistoryRepository()).get(localProfileId, dayKey),
-    log: async (dayKey: string, outfit: WornOutfit) => {
-      const record = await (await loadHistoryRepository()).log(localProfileId, dayKey, outfit);
+    log: async (dayKey: string, outfit: WornOutfit, pieceColors: WornPieceColors | null) => {
+      const record = await (await loadHistoryRepository()).log(localProfileId, dayKey, outfit, { kind: 'keep' }, pieceColors);
       setHistoryRevision((revision) => revision + 1);
       return record;
     },

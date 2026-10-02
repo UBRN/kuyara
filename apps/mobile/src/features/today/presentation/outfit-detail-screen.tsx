@@ -24,6 +24,7 @@ import {
   Crossfade,
   colorFamilyFills,
   garmentColorFamiliesBySlot,
+  garmentSwatchesBySlot,
   Entrance,
   GarmentSwapBoard,
   GarmentTileArtwork,
@@ -49,6 +50,7 @@ import type { RecommendedOutfit } from '@/features/recommendation/application/re
 import type { ManualMix } from '@/features/recommendation/application/use-manual-mix';
 import type { SwappableSlot } from '@/features/recommendation/domain/manual-mix';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import type { WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import { OutfitShareAction } from '@/features/today/presentation/outfit-share';
 import {
   PiecePickerSheet,
@@ -112,7 +114,8 @@ type OutfitDetailScreenProps = Readonly<{
   worn?: OutfitWornState;
   wornBusy?: boolean;
   wornError?: string | null;
-  onWoreThis?: () => void;
+  /** Receives the swatch each piece is drawn in on this board, so History draws the day the same. */
+  onWoreThis?: (pieceColors: WornPieceColors) => void;
   /**
    * Phase 7: the open outfit's manual mix, owned by the route so leaving detail forgets it.
    * Absent, the pieces cannot change.
@@ -646,7 +649,7 @@ export function OutfitDetailScreen({
                     icon="calendarCheck"
                     label={copy.wornAction}
                     loading={wornBusy}
-                    onPress={onWoreThis}
+                    onPress={() => onWoreThis(garmentSwatchesBySlot(palette))}
                     pressHaptic={false}
                     size="large"
                     testID="outfit-detail-wore-this"

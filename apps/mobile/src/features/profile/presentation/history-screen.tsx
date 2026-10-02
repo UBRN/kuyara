@@ -17,7 +17,7 @@ import { dateTimeFormat } from '@/domain/intl-format';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { archetypeLabel } from '@/features/recommendation/application/recommendation-application-controller';
 import { accessoryOutfitSlots, outfitSlots } from '@/features/recommendation/domain/outfit-composition';
-import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
+import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import { localeTag } from '@/localization/locale-tag';
 import type { AppMessages } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
@@ -25,7 +25,7 @@ import { spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-export type HistoryEntry = Readonly<{ dayKey: string; outfit: WornOutfit }>;
+export type HistoryEntry = Readonly<{ dayKey: string; outfit: WornOutfit; pieceColors: WornPieceColors | null }>;
 
 type HistoryScreenProps = Readonly<{
   /** Newest first; null while the first read is running. */
@@ -54,12 +54,13 @@ type HistoryBoard = Readonly<{ pieces: readonly GarmentBoardPiece[]; palette: Ga
 // so no time zone can move it to the day before.
 const dayDate = (dayKey: string) => new Date(`${dayKey}T12:00:00.000Z`);
 
-// A worn day keeps its catalog types by slot and no colours, so its board is drawn in the
-// pieces' natural colourways for a mild day, the same every time the day is drawn. One
-// object per stored outfit lets the board skip composing again on a re-render.
-const boards = new WeakMap<WornOutfit, HistoryBoard>();
+// A worn day is drawn in the swatches its pieces had on outfit detail. A day recorded
+// without them (before migration 24) is drawn in the pieces' natural colourways for a mild
+// day, the same every time. One object per entry lets the board skip composing again on a
+// re-render; the entry, not its outfit, is the key, because the colours belong to it.
+const boards = new WeakMap<HistoryEntry, HistoryBoard>();
 function historyBoard(entry: HistoryEntry): HistoryBoard {
-  const kept = boards.get(entry.outfit);
+  const kept = boards.get(entry);
   if (kept) return kept;
   const { garments, formality } = entry.outfit;
   const pieces = outfitSlots.flatMap((slot) => {
@@ -77,11 +78,11 @@ function historyBoard(entry: HistoryEntry): HistoryBoard {
       formality,
       pieces: [...outfitSlots, ...accessoryOutfitSlots].flatMap((slot) => {
         const id = garments[slot];
-        return id ? [{ slot, garmentTypeId: id }] : [];
+        return id ? [{ slot, garmentTypeId: id, recordedSwatchId: entry.pieceColors?.[slot] }] : [];
       }),
     },
   };
-  boards.set(entry.outfit, board);
+  boards.set(entry, board);
   return board;
 }
 
