@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   AppState,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -10,14 +11,14 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
-import { AppText } from '@/components/ui';
+import { AppText, IconButton } from '@/components/ui';
 import {
   ACCOUNT_INTRO_PAGE_DWELL_MS,
   accountIntroPageIds,
 } from '@/features/account/application/account-intro-pages';
 import { accountIntroScenes } from '@/features/account/presentation/account-intro-scenes';
 import { useMessages } from '@/localization/use-messages';
-import { radii, spacing } from '@/theme/theme';
+import { layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 const SCENE_HEIGHT = 188;
@@ -49,8 +50,9 @@ function useAppInForeground() {
 /**
  * The sign-in page's benefits (ADR 0041 section 5): one page per benefit, swiped sideways
  * from the leftmost. The pages move on by themselves once, a dwell apart, and stop on the
- * last. The first touch, swipe or dot adjustment hands them to the person for the rest of the
- * visit; they never move while a screen reader runs or the app is in the background. A page
+ * last. A touch, a swipe, a tapped dot or the pause control stops them; play resumes, and
+ * after the last page it runs one more pass from the first. They never move while a screen
+ * reader runs, which also hides the control, or while the app is in the background. A page
  * is one spoken element, its title and its sentence, and a change announces the new title.
  */
 export function AccountIntroPager() {
@@ -59,7 +61,7 @@ export function AccountIntroPager() {
   const scroll = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
-  const [advanceStopped, setAdvanceStopped] = useState(false);
+  const [playing, setPlaying] = useState(true);
   const screenReader = useScreenReaderRunning();
   const foreground = useAppInForeground();
   const announced = useRef(page);
@@ -70,7 +72,7 @@ export function AccountIntroPager() {
     setPage(target);
   };
 
-  const advancing = !advanceStopped && !screenReader && foreground && width > 0 && page < lastPage;
+  const advancing = playing && !screenReader && foreground && width > 0 && page < lastPage;
   useEffect(() => {
     if (!advancing) return;
     const timer = setTimeout(() => {
@@ -95,7 +97,13 @@ export function AccountIntroPager() {
   const onSettled = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (width > 0) setPage(Math.round(event.nativeEvent.contentOffset.x / width));
   };
-  const stopAdvancing = () => setAdvanceStopped(true);
+  const stopAdvancing = () => setPlaying(false);
+  const moving = playing && page < lastPage;
+  const togglePlaying = () => {
+    if (moving) return stopAdvancing();
+    if (page === lastPage) show(0);
+    setPlaying(true);
+  };
 
   return (
     <View style={styles.pager} testID="account-intro-pager">
@@ -137,30 +145,39 @@ export function AccountIntroPager() {
           })}
         </ScrollView>
       </View>
-      <View
-        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-        accessibilityLabel={copy.pageIndicator}
-        accessibilityRole="adjustable"
-        accessibilityValue={{ text: copy.pagePosition(page + 1, accountIntroPageIds.length) }}
-        accessible
-        onAccessibilityAction={(event) => {
-          stopAdvancing();
-          show(page + (event.nativeEvent.actionName === 'increment' ? 1 : -1));
-        }}
-        style={styles.dots}
-        testID="account-intro-dots">
-        {accountIntroPageIds.map((id, index) => (
-          <View
-            key={id}
-            style={[
-              styles.dot,
-              index === page
-                ? [styles.dotCurrent, { backgroundColor: theme.colors.brandPrimary }]
-                : { backgroundColor: theme.colors.iconSecondary },
-            ]}
-            testID={index === page ? 'account-intro-dot-current' : `account-intro-dot-${id}`}
+      <View style={styles.controls}>
+        <View style={styles.dots} testID="account-intro-dots">
+          {accountIntroPageIds.map((id, index) => (
+            <Pressable
+              accessibilityLabel={copy.pagePosition(index + 1, accountIntroPageIds.length)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: index === page }}
+              key={id}
+              onPress={() => {
+                stopAdvancing();
+                show(index);
+              }}
+              style={styles.dotTarget}
+              testID={`account-intro-dot-${id}`}>
+              <View
+                style={[
+                  styles.dot,
+                  index === page
+                    ? [styles.dotCurrent, { backgroundColor: theme.colors.brandPrimary }]
+                    : { backgroundColor: theme.colors.iconSecondary },
+                ]}
+              />
+            </Pressable>
+          ))}
+        </View>
+        {screenReader ? null : (
+          <IconButton
+            accessibilityLabel={moving ? copy.pausePages : copy.playPages}
+            icon={moving ? 'pause' : 'play'}
+            onPress={togglePlaying}
+            testID="account-intro-play"
           />
-        ))}
+        )}
       </View>
     </View>
   );
@@ -169,7 +186,15 @@ export function AccountIntroPager() {
 const styles = StyleSheet.create({
   pager: { gap: spacing.md },
   pageContent: { gap: spacing.md, paddingHorizontal: spacing.lg },
-  dots: { alignItems: 'center', alignSelf: 'center', flexDirection: 'row', gap: spacing.sm, padding: spacing.sm },
+  controls: { alignItems: 'center', alignSelf: 'center', flexDirection: 'row' },
+  dots: { flexDirection: 'row' },
+  // Each dot is drawn small but answers a full minimum touch target.
+  dotTarget: {
+    alignItems: 'center',
+    height: layout.minimumTouchTarget,
+    justifyContent: 'center',
+    width: layout.minimumTouchTarget,
+  },
   dot: { borderRadius: radii.pill, height: spacing.sm, width: spacing.sm },
   dotCurrent: { width: spacing.xl },
 });

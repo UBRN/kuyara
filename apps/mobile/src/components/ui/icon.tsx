@@ -61,6 +61,9 @@ export const iconNames = Object.freeze({
   photo: { ios: 'photo', android: 'image', web: 'image' },
   camera: { ios: 'camera', android: 'photo_camera', web: 'photo_camera' },
   skipForward: { ios: 'forward.end', android: 'skip_next', web: 'skip_next' },
+  // The sign-in benefit pages' pause and play control (ADR 0041 section 5).
+  pause: { ios: 'pause.fill', android: 'pause', web: 'pause' },
+  play: { ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' },
   wind: { ios: 'wind', android: 'air', web: 'air' },
   humidity: { ios: 'humidity.fill', android: 'water_drop', web: 'water_drop' },
   uv: { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' },

@@ -798,9 +798,11 @@ export type AccountMessages = Readonly<{
     title: string;
     /** One page per benefit, in the order `accountIntroPageIds` lists them. */
     pages: Readonly<Record<AccountIntroPageId, Readonly<{ title: string; body: string }>>>;
-    /** The page dots' spoken value: "Page 2 of 5". */
+    /** A page dot's spoken name: "Page 2 of 5". */
     pagePosition: (page: number, total: number) => string;
-    pageIndicator: string;
+    /** The control that stops or starts the pages moving on by themselves, named by its action. */
+    pausePages: string;
+    playPages: string;
     continueWith: ByProvider;
     notNow: string;
     footer: string;
@@ -1845,7 +1847,8 @@ const en = {
         },
       },
       pagePosition: (page: number, total: number) => `Page ${page} of ${total}`,
-      pageIndicator: 'Pages',
+      pausePages: 'Pause pages',
+      playPages: 'Play pages',
       continueWith: { apple: 'Continue with Apple', google: 'Continue with Google' },
       notNow: 'Not now',
       footer: 'Everything works the same without an account. Signing in adds your Closet, History and style preferences to your account. Your birth date is not added.',
@@ -2894,7 +2897,8 @@ const tr = {
         },
       },
       pagePosition: (page: number, total: number) => `Sayfa ${page} / ${total}`,
-      pageIndicator: 'Sayfalar',
+      pausePages: 'Sayfaları duraklat',
+      playPages: 'Sayfaları oynat',
       continueWith: { apple: 'Apple ile Devam Et', google: 'Google ile devam et' },
       notNow: 'Şimdi değil',
       footer: 'Hesap olmadan da her şey aynı şekilde çalışır. Giriş yaptığında Gardırobun, Geçmişin ve stil tercihlerin hesabına eklenir. Doğum tarihin eklenmez.',
