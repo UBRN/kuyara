@@ -53,13 +53,16 @@ function record(dayKey: string, archetypeId: OutfitHistoryRecord['outfit']['arch
   };
 }
 
-function Providers({ children, language, list, log }: PropsWithChildren<{
+function Providers({ children, dressingDayKey, language, list, log }: PropsWithChildren<{
+  dressingDayKey?: string;
   language: SupportedLanguage;
   list: () => Promise<readonly OutfitHistoryRecord[]>;
   log?: (dayKey: string, outfit: OutfitHistoryRecord['outfit']) => Promise<OutfitHistoryRecord>;
 }>) {
   const value = {
+    dressingDayKey,
     outfitHistory: { list, get: jest.fn(), log: log ?? jest.fn() },
+    reevaluateLocalDay: jest.fn(),
   } as unknown as RecommendationApplicationValue;
   return (
     <LocalizationContext value={{ language, messages: messages[language], hour12: false }}>
@@ -243,7 +246,7 @@ test('a day recorded with its colours is drawn in them, an older day in the fixe
       .queryAll((node) => typeof node.props.d === 'string' && node.props.fill != null && node.props.fill !== 'none'
         && !insideClip(node))
       .map((node) => JSON.stringify(node.props.fill)));
-    result.unmount();
+    await result.unmount();
     return drawn;
   };
   const roles = garmentRolesBySlot({
@@ -271,4 +274,65 @@ test('a worn day with an accessory names each slot once in its palette', () => {
   const slots = palette.pieces.map(({ slot }) => slot);
   expect(slots).toEqual([...new Set(slots)]);
   expect(slots).toContain('head');
+});
+
+// ADR 0038: on Sunday evening History opens with a look back at the week above the days.
+// 2026-10-04 is a Sunday; its week runs from Monday 28 September.
+test.each([
+  ['en', 'This week', 'You recorded 3 days', 'Dressed for rain on 1 day', 'Dressed light on 2 days',
+    'Most worn: T-shirt, 3 days'],
+  ['tr', 'Bu hafta', '3 gün kaydettin', '1 gün yağmura göre giyindin', '2 gün ince giyindin',
+    'En çok giyilen: Tişört, 3 gün'],
+] as const)('%s History opens with the week on Sunday evening', async (language, title, days, rain, light, piece) => {
+  const rainy = record('2026-10-03', 'rain_ready', 'casual');
+  const result = await render(
+    <Providers dressingDayKey="2026-10-04:evening" language={language} list={async () => [
+      { ...rainy, outfit: { ...rainy.outfit, garments: { ...rainy.outfit.garments, outer_layer: 'rain_jacket' } },
+        pieceColors: { primary_top: 'white', bottom: 'indigo', outer_layer: 'rainyellow', footwear: 'white' } },
+      record('2026-10-01', 'everyday_easy', 'casual'),
+      record('2026-09-29', 'everyday_easy', 'casual'),
+      record('2026-09-27', 'everyday_easy', 'casual'),
+    ]}>
+      <HistoryRoute />
+    </Providers>,
+  );
+
+  const week = within(await result.findByTestId('history-week'));
+  expect(week.getByRole('header', { name: title })).toBeOnTheScreen();
+  expect(week.getByTestId('history-week-days')).toHaveTextContent(days);
+  expect(week.getByTestId('history-week-rain').props.accessibilityLabel).toBe(rain);
+  expect(week.getByTestId('history-week-light').props.accessibilityLabel).toBe(light);
+  expect(week.queryByTestId('history-week-cold')).toBeNull();
+  expect(week.getByTestId('history-week-most-worn').props.accessibilityLabel).toBe(piece);
+  expect(week.getByTestId('history-week-most-worn-t_shirt', { includeHiddenElements: true })).toBeOnTheScreen();
+  // The days still follow, the week's own and the one before it.
+  expect(result.getByTestId('history-entry-2026-10-03')).toBeOnTheScreen();
+  expect(result.getByTestId('history-entry-2026-09-27')).toBeOnTheScreen();
+});
+
+test('one recorded day is shown plainly, with no piece that came back', async () => {
+  const result = await render(
+    <Providers dressingDayKey="2026-10-04:evening" language="en"
+      list={async () => [record('2026-10-02', 'everyday_easy', 'casual')]}>
+      <HistoryRoute />
+    </Providers>,
+  );
+  const week = within(await result.findByTestId('history-week'));
+  expect(week.getByTestId('history-week-days')).toHaveTextContent('You recorded 1 day');
+  expect(week.queryByTestId('history-week-most-worn')).toBeNull();
+});
+
+test.each([
+  ['Sunday before 18:00', '2026-10-04', [record('2026-10-02', 'everyday_easy', 'casual')]],
+  ['a weekday evening', '2026-10-01:evening', [record('2026-09-30', 'everyday_easy', 'casual')]],
+  ['a Sunday evening with no day recorded that week', '2026-10-04:evening',
+    [record('2026-09-27', 'everyday_easy', 'casual')]],
+] as const)('History shows no week on %s', async (_case, dressingDayKey, records) => {
+  const result = await render(
+    <Providers dressingDayKey={dressingDayKey} language="en" list={async () => records}>
+      <HistoryRoute />
+    </Providers>,
+  );
+  expect(await result.findByTestId(`history-entry-${records[0].dayKey}`)).toBeOnTheScreen();
+  expect(result.queryByTestId('history-week')).toBeNull();
 });

@@ -15,9 +15,11 @@ import {
 } from '@/components/ui';
 import { dateTimeFormat } from '@/domain/intl-format';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import { HistoryWeekSummary } from '@/features/profile/presentation/history-week-summary';
 import { archetypeLabel } from '@/features/recommendation/application/recommendation-application-controller';
 import { outfitSlots } from '@/features/recommendation/domain/outfit-composition';
 import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
+import type { WeekSummary } from '@/features/recommendation/domain/outfit-history-week';
 import { localeTag } from '@/localization/locale-tag';
 import type { AppMessages } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
@@ -31,6 +33,8 @@ type HistoryScreenProps = Readonly<{
   /** Newest first; null while the first read is running. */
   entries: readonly HistoryEntry[] | null;
   loadFailed: boolean;
+  /** Sunday evening's look back at the week, above the days; null at any other time. */
+  weekSummary?: WeekSummary | null;
   /** False while the push onto History is still moving: the content arrives once it lands. */
   transitionLanded?: boolean;
 }>;
@@ -142,7 +146,9 @@ function Arrival({ children, index, waiting }: Readonly<{
  * in reading order once the push has landed, and a refocus re-read brings in only a day that
  * is new.
  */
-export function HistoryScreen({ entries, loadFailed, transitionLanded = true }: HistoryScreenProps) {
+export function HistoryScreen({
+  entries, loadFailed, weekSummary = null, transitionLanded = true,
+}: HistoryScreenProps) {
   const { language, messages } = useLocalization();
   const theme = useKuyaraTheme();
   const insets = useSafeAreaInsets();
@@ -246,6 +252,7 @@ export function HistoryScreen({ entries, loadFailed, transitionLanded = true }: 
       ListHeaderComponent={
         <Entrance waiting={!transitionLanded}>
           <AppText colorRole="textSecondary" variant="caption">{copy.historyIntro}</AppText>
+          {weekSummary ? <HistoryWeekSummary summary={weekSummary} /> : null}
         </Entrance>
       }
       renderItem={({ item: row, index: rowIndex }) => {

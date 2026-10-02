@@ -94,6 +94,9 @@ export const iconNames = Object.freeze({
   signOut: { ios: 'rectangle.portrait.and.arrow.right', android: 'logout', web: 'logout' },
   plusCircle: { ios: 'plus.circle', android: 'add_circle', web: 'add_circle' },
   restoreArrow: { ios: 'arrow.down.circle', android: 'arrow_circle_down', web: 'arrow_circle_down' },
+  // History's look back at the week: what the recorded days were dressed for (ADR 0038).
+  dressedForRain: { ios: 'umbrella.fill', android: 'umbrella', web: 'umbrella' },
+  dressedForCold: { ios: 'thermometer.snowflake', android: 'ac_unit', web: 'ac_unit' },
   // The eleven weather condition codes, filled because a forecast column reports an
   // active condition (Law 6). Material has no drizzle or heavy-rain counterpart of the
   // same idiom, so those take the nearest existing name. The three conditions that show
