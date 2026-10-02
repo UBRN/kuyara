@@ -99,27 +99,24 @@ draws the pair.
 
 ## 3. Placement: the worn board
 
-The **lap** is the most of a covered piece's drawn extent, on the side another piece enters
-from, that the other piece may cover.
+The **clearance** is the clear space the rule keeps between neighbouring pieces, so that no
+piece covers any part of another.
 
-**Every board is the worn board**, with a lap of 0.12 (Today, the detail, the alternates,
-History and the share card). The outfit is laid out flat the way it is
-worn, so it reads as one combination rather than as separate pieces:
+**Every board is the worn board** (Today, the detail, the alternates, History and the share
+card). The outfit is laid out flat in the order it is worn, so it reads as one combination,
+with every piece drawn whole:
 
-- the body core stands as one column on a left axis, the `bottom`'s waist lying over the
-  lowest 0.12 of the `primary_top`'s height, its hem, as if tucked in;
-- the footwear stands at the foot of the core's lowest piece, its heel a quarter of its
-  length left of the core's axis and its opening over that piece's hem by 0.12 of the
-  footwear's own height, so its sole stands below the hem;
+- the body core stands as one column on a left axis, the `bottom`'s waist standing 0.05 of
+  the `primary_top`'s height under its hem;
+- the footwear stands under the core's lowest piece, its heel a quarter of its length left of
+  the core's axis and its opening 0.06 of the footwear's own height under that piece's hem;
 - the layers stack on a right rail, outer above mid, 0.10 metric apart, each with its left
-  edge lying over the core's side by 0.12 of the narrowest core piece's width.
+  edge 0.10 of the narrowest core piece's width clear of the core's side.
 
-Pieces lie on one another in the **dressing order**, back to front: `primary_top`,
-`bottom`, `one_piece`, `mid_layer`, `outer_layer`, `footwear`. Every overlap stays within
-the lap, so a collar (at the top of its piece and centred), a waist and a sole (each
-spanning its piece) are never hidden: the waist lies over the top, the layers over the
-core's side, the footwear over the hem. The outer and mid layers never overlap each other,
-because the outer layer's hem would cover the mid layer's collar.
+No drawn box touches another, so a collar, a waist, a sleeve and a sole are always whole.
+Pieces are drawn in the **dressing order**, back to front: `primary_top`, `bottom`,
+`one_piece`, `mid_layer`, `outer_layer`, `footwear`. At rest that order is invisible; it
+decides which piece lies on top only while one is enlarged or travelling.
 
 The board reads in the slot order `primary_top`, `bottom`, `one_piece`, `outer_layer`,
 `mid_layer`, `footwear`, whatever order it stacks in; the detail names its pieces under the
@@ -130,10 +127,10 @@ board in the dressing order.
 The envelope is the taller of the two columns. The core column carries the footwear:
 
 ```
-envelope = max(coreHeight + footHeight × (1 - lap), railHeight)
+envelope = max(coreHeight + footHeight × (1 + footClearance), railHeight)
 ```
 
-Both columns are centred in it. The core's internal step is minus the waist lap and the two
+Both columns are centred in it. The core's internal step is the waist clearance and the two
 layers are separated by 0.10 metric.
 
 ## 5. Horizontal: placed by ink centroid
@@ -186,7 +183,7 @@ Every value, in stage-width units unless marked otherwise.
 | solo width cap | 0.300 | a lone `one_piece` |
 | rail width cap | 0.170 | the widest of the layers and the footwear; they share one scale |
 | footwear pair | 0.86 / 0.30 / 0.04 | each shoe × the single shoe / the far shoe toward the toe / the near heel back, × a shoe's length (section 2) |
-| lap | 0.12 | the most of a covered piece's drawn extent another may cover (section 3) |
+| clearance | 0.05 / 0.10 / 0.06 | the waist × the top's height / the rail × the narrowest core width / the footwear × its own height (section 3) |
 | rail gap | 0.10 | × core metric |
 | top / bottom inset | 0.045 / 0.055 | the tint's own edge; the stage holds nothing else (Today's primary stage fits instead, section 9) |
 | stage height | 0.66 to 1.14 | derived, then clamped |
@@ -272,11 +269,11 @@ The detail preset, approved by
 [ADR 0026](../adr/0026-the-recommendation-detail-surface.md), is the same worn board with
 every width cap × 1.25, the scale Today's fitted stage reaches on the reference boards, so a
 piece leaving Today's stage for the detail keeps its size. Its names stand under the board
-as buttons, never on it, so its pieces overlap exactly as Today's do:
+as buttons, never on it, and its pieces stand apart exactly as Today's do:
 
 | parameter | Today | detail |
 | --- | --- | --- |
-| board | worn, lap 0.12 | worn, lap 0.12 |
+| board | worn, no piece touching | worn, no piece touching |
 | core / solo / rail width cap | 0.235 / 0.300 / 0.170 | × 1.25: 0.294 / 0.375 / 0.2125 |
 | top / bottom inset | 0.045 / 0.055, alternates | 0.045 / 0.055 |
 | fit to the stage | primary stage: runway preset, side 28 pt, vertical 24 pt, scale cap 1.25 × width | none |
@@ -294,8 +291,8 @@ stage is then exactly as tall as the fitted composition plus the 24 points, clam
 a quarter larger than the plain preset draws them, and the height depends on the outfit
 and the width alone:
 the provenance badge, a wrapped title or a larger text size above the stage never moves
-it. On a 339-point stage the three reference boards measure 244.5 points (warm casual),
-288.7 (rainy smart) and 251.6 (cold formal). The ladder, the caps and the worn placement
+it. On a 339-point stage the three reference boards measure 255.7 points (warm casual),
+316.2 (rainy smart) and 279.0 (cold formal). The ladder, the caps and the worn placement
 are unchanged; only the one scale is. The alternate tiles keep the plain preset with the
 insets above.
 
@@ -311,8 +308,8 @@ In the dark appearance every board stands on a light grey plate (the next paragr
 takes the same light step; the -0.10 dark step remains only for the first-generation
 runway's dark fields. Ink against the shadow at full strength clears 3:1 on every
 atmosphere stage and garment plane in both appearances (lowest 3.13, light
-`fallingNight`). A piece lying over another casts its shadow on it, which is
-what reads as depth where the pieces overlap. Each shadow is drawn inside its piece's own
+`fallingNight`). Every shadow falls on the plate, never on another piece, so
+the pieces read as lying on one surface. Each shadow is drawn inside its piece's own
 layer, so it rises, travels, grows and pages with its piece in every motion. The ink
 outline, not the shadow, carries each piece's edge, and the shadow reads on every plate in
 both appearances. The runway's dressed pieces cast theirs once their colour has poured.
@@ -324,7 +321,7 @@ condition's plate, the detail board, the alternates and tomorrow's board stand o
 the page ground and `surfaceMuted` in light. Inside a plate everything takes the light
 appearance's roles (`plateTheme`, `OnPlate`, `PlateView`): the pieces keep their light
 colours legalised against the plate, their Deep Atmosphere ink outline (8.6:1 on the
-neutral plate) and the 0.12 overlap's cast shadow; captions, badges and the hint on the
+neutral plate) and their cast shadow; captions, badges and the hint on the
 detail plate take the light text roles at AA. The light appearance is unchanged.
 
 **Captions.** A caption is centred on its piece's own axis and sits 7 points below the
@@ -344,7 +341,7 @@ appearances and audited geometrically.
 
 | check | result |
 | --- | --- |
-| overlap | detail: 0 on all ten; Today: within the 0.12 lap on all ten |
+| overlap | 0 on all ten, in both presets |
 | clipping | 0 on all ten |
 | anchor parity, drawn-box area | 1.000 on all ten, against 1.654 for the same board sized by container width |
 | anchor parity, ink area | 1.00 to 1.42 within the silhouette set, against 1.403 for the container-sized board |

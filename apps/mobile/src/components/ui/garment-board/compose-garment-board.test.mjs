@@ -20,8 +20,8 @@ import {
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
 
 // Geometric audit; ink parity needs raster coverage, which vector assets do not carry.
-// `overlap` is the deepest any piece reaches into one under it in the dressing order, as a
-// share of the covered piece's drawn extent on the side it enters from.
+// `overlap` is the deepest any piece reaches into another, as a share of the covered piece's
+// drawn extent on the side it enters from; no board lets two drawn boxes touch.
 function audit(result) {
   const boxes = [...result.boxes.values()];
   const height = result.stageHeight;
@@ -32,7 +32,7 @@ function audit(result) {
       const b = result.boxes.get(result.stack[j]);
       const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
       const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-      if (ox > 0 && oy > 0) overlap = Math.max(overlap, Math.min(ox / a.w, oy / a.h));
+      if (ox >= 0 && oy >= 0) overlap = Math.max(overlap, Math.min(ox / a.w, oy / a.h));
     }
   }
   const clip = Math.max(0,
@@ -88,8 +88,8 @@ for (const [presetName, preset, min, max] of [
       const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
       const result = composeGarmentBoard(pieces, preset);
       const measured = audit(result);
-      // Every board is worn and laps by at most `lap`.
-      assert.ok(measured.overlap <= preset.lap + 1e-9, `${name}: ${measured.overlap}`);
+      // No piece touches another.
+      assert.equal(measured.overlap, 0, `${name}: ${measured.overlap}`);
       assert.equal(measured.clip, 0);
       assert.ok(result.stageHeight >= min && result.stageHeight <= max, String(result.stageHeight));
       if (result.core.length === 2) assert.ok(Math.abs(measured.parity - 1) <= 1e-9);
@@ -105,7 +105,7 @@ for (const [presetName, preset, min, max] of [
 }
 
 // The six Phase 6 README boards on the Phase 6 drawings: every board composes without
-// clipping and within its lap.
+// clipping and without two pieces touching.
 const readmeBoards = [
   ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']]],
   ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']]],
@@ -117,18 +117,18 @@ const readmeBoards = [
 
 for (const [presetName, preset] of [['today', todayPreset], ['detail', detailPreset]]) {
   for (const [name, slots] of readmeBoards) {
-    test(`${presetName}: README board ${name} laps within the preset and does not clip`, () => {
+    test(`${presetName}: README board ${name} keeps its pieces apart and does not clip`, () => {
       const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
       const measured = audit(composeGarmentBoard(pieces, preset));
-      assert.ok(measured.overlap <= preset.lap + 1e-9, name);
+      assert.equal(measured.overlap, 0, name);
       assert.equal(measured.clip, 0, name);
     });
   }
 }
 
-// The worn board (ADR 0025 section 3): the core is one column whose bottom's waist lies over
-// the top's hem, the footwear stands at the core's foot with its sole below the hem, and every
-// layer lies over the core's side. The detail is the same board.
+// The worn board (ADR 0025 section 3): the core is one column with the bottom under the top,
+// the footwear stands under the core's hem, and every layer stands beside the core, each
+// `clearance` apart. The detail is the same board.
 const boxOfSlot = (result, slot) => [...result.boxes].find(([piece]) => piece.slot === slot)?.[1];
 for (const [name, slots] of evidence) {
   test(`today: ${name} is laid out as worn`, () => {
@@ -138,18 +138,18 @@ for (const [name, slots] of evidence) {
     const core = result.core.map((piece) => result.boxes.get(piece));
     const low = core[core.length - 1];
     if (core.length === 2) {
-      // The waist covers the top's lowest `lap` of its height, never its collar.
-      assert.ok(Math.abs(core[0].y + core[0].h - core[1].y - todayPreset.lap * core[0].h) < 1e-9, name);
+      // The waist stands `clearance.waist` of the top's height under its hem.
+      assert.ok(Math.abs(core[1].y - core[0].y - core[0].h - todayPreset.clearance.waist * core[0].h) < 1e-9, name);
     }
     const foot = box('footwear');
-    assert.ok(foot.y + foot.h > low.y + low.h, name);
-    assert.ok(Math.abs(low.y + low.h - foot.y - todayPreset.lap * foot.h) < 1e-9, name);
+    assert.ok(Math.abs(foot.y - low.y - low.h - todayPreset.clearance.foot * foot.h) < 1e-9, name);
     assert.ok(foot.x < low.x + low.w / 2 && foot.x + foot.w > low.x + low.w / 2, name);
     for (const slot of ['outer_layer', 'mid_layer']) {
       const layer = box(slot);
       if (!layer) continue;
       const coreRight = Math.max(...core.map((piece) => piece.x + piece.w));
-      assert.ok(layer.x < coreRight && layer.x + layer.w > coreRight, `${name}: ${slot}`);
+      const narrowest = Math.min(...core.map((piece) => piece.w));
+      assert.ok(Math.abs(layer.x - coreRight - todayPreset.clearance.side * narrowest) < 1e-9, `${name}: ${slot}`);
     }
   });
 }
@@ -278,11 +278,11 @@ test('runway: several compositions share the scale of the one that needs the lea
 // boards on a 339-point stage, laid out as worn, within half a point.
 const p2Boards = [
   ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']],
-    { height: 236.8, extentW: 142.5, extentH: 212.8 }],
+    { height: 255.7, extentW: 157.9, extentH: 231.7 }],
   ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']],
-    { height: 289.1, extentW: 162.0, extentH: 265.1 }],
+    { height: 316.2, extentW: 178.5, extentH: 292.2 }],
   ['cold formal', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'blazer'], ['outer_layer', 'trench_coat'], ['footwear', 'closed_shoes']],
-    { height: 258.2, extentW: 162.6, extentH: 234.2 }],
+    { height: 279.0, extentW: 179.1, extentH: 255.0 }],
 ];
 
 for (const [name, slots, expected] of p2Boards) {
