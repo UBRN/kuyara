@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 23;
+export const latestDatabaseVersion = 24;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -599,6 +599,21 @@ const migrationV23: Migration = {
   },
 };
 
+// A worn day keeps the palette swatch each piece was drawn in on outfit detail, a JSON object
+// keyed by slot (`{"primary_top":"navy","bottom":"indigo","footwear":"white"}`), so History
+// draws the day in the colours the reader saw. Nullable with no default: every day recorded
+// before this version keeps NULL and is drawn in History's fixed scheme. No CHECK on the
+// content: the repository parses it on every read and write, and a CHECK naming the swatch
+// list would need a table rebuild to admit a new swatch.
+const migrationV24: Migration = {
+  version: 24,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE outfit_history ADD COLUMN piece_colors_json TEXT;
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -623,6 +638,7 @@ const migrations = [
   migrationV21,
   migrationV22,
   migrationV23,
+  migrationV24,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

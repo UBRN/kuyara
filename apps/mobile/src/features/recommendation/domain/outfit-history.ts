@@ -1,6 +1,7 @@
 import { dressStyleSchema, outfitArchetypeIds } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { garmentSwatchIdSchema } from '@/features/catalog/domain/garment-swatch';
 import { garmentTypeIdSchema } from '@/features/catalog/domain/garment-taxonomy';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { assignedOutfitGarments, outfitSlots, type OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
@@ -73,6 +74,25 @@ export function wornOutfitFrom(
   });
 }
 
+/**
+ * The palette swatch each piece of a worn day was drawn in, by slot (migration 24). Display
+ * data for History only: it never reaches a recommendation, the AI request, analytics or logs.
+ */
+export const wornPieceColorsSchema = z.partialRecord(z.enum(outfitSlots), garmentSwatchIdSchema);
+export type WornPieceColors = z.infer<typeof wornPieceColorsSchema>;
+
+/**
+ * A day's piece colours as History can use them, or null: when they are missing or do not
+ * parse, are empty, or colour a slot the day did not wear. Null draws the day in History's
+ * fixed scheme, as every day recorded before migration 24 is drawn.
+ */
+export function wornPieceColorsFor(outfit: WornOutfit, colors: unknown): WornPieceColors | null {
+  const parsed = wornPieceColorsSchema.safeParse(colors);
+  if (!parsed.success) return null;
+  const slots = Object.keys(parsed.data);
+  return slots.length > 0 && slots.every((slot) => slot in outfit.garments) ? parsed.data : null;
+}
+
 /** Whether two worn records dress the same pieces in the same slots. */
 export function sameWornGarments(a: WornOutfit, b: WornOutfit): boolean {
   const keys = new Set([...Object.keys(a.garments), ...Object.keys(b.garments)]) as Set<keyof WornOutfit['garments']>;
@@ -84,6 +104,8 @@ export type OutfitHistoryRecord = Readonly<{
   localProfileId: string;
   dayKey: string;
   outfit: WornOutfit;
+  /** Null for a day recorded before migration 24, or whose stored colours do not parse. */
+  pieceColors: WornPieceColors | null;
   photoPath: string | null;
   wornAt: string;
   createdAt: string;
@@ -95,8 +117,9 @@ export interface OutfitHistoryRepository {
   get(localProfileId: string, dayKey: string): Promise<OutfitHistoryRecord | null>;
   list(localProfileId: string): Promise<readonly OutfitHistoryRecord[]>;
   lastSeven(localProfileId: string): Promise<readonly OutfitHistoryRecord[]>;
+  /** `pieceColors` are the swatches the day was drawn in; null records the day without them. */
   log(localProfileId: string, dayKey: string, outfit: WornOutfit,
-    photo?: HistoryPhotoChange): Promise<OutfitHistoryRecord>;
+    photo?: HistoryPhotoChange, pieceColors?: WornPieceColors | null): Promise<OutfitHistoryRecord>;
   softDelete(localProfileId: string, dayKey: string): Promise<boolean>;
 }
 

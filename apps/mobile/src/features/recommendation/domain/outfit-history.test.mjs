@@ -36,3 +36,17 @@ test('same garments compares pieces by slot, not archetype or source', () => {
   const { handheld: _handheld, ...withoutUmbrella } = worn.garments;
   assert.equal(sameWornGarments(worn, { ...worn, garments: withoutUmbrella }), false);
 });
+
+// Migration 24: a day's piece colours are parsed once at the boundary against the swatch
+// vocabulary and the day's own slots; anything else is no colour, never an error.
+test('piece colours fit the worn day or are null', async () => {
+  const { wornPieceColorsFor } = await import('./outfit-history.ts');
+  const day = wornOutfitFrom(outfit);
+  const colors = { primary_top: 'ecru', bottom: 'indigo', outer_layer: 'rainyellow', footwear: 'white', handheld: 'black' };
+  assert.deepEqual(wornPieceColorsFor(day, colors), colors);
+  assert.deepEqual(wornPieceColorsFor(day, { primary_top: 'ecru' }), { primary_top: 'ecru' });
+  for (const invalid of [null, undefined, 'navy', [], {}, { primary_top: 'neon' }, { head: 'navy' },
+    { primary_top: 'ecru', shoes: 'white' }, { primary_top: 7 }]) {
+    assert.equal(wornPieceColorsFor(day, invalid), null, JSON.stringify(invalid));
+  }
+});

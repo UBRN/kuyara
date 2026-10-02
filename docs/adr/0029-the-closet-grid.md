@@ -47,7 +47,8 @@ the piece when set, else the type, else the category. A `caption` 13 subline in
 `textSecondary` carries the type under a user name, "Type not selected" under a legacy
 row, and is otherwise absent. An owned piece that History recorded worn carries one more
 `caption` line, "Worn 3 times" / "3 kez giyildi", counted at read time from
-[ADR 0038](0038-outfit-history.md)'s rows: a worn day stores types without colour, so a
+[ADR 0038](0038-outfit-history.md)'s rows: a worn day stores types and the colours kuyara
+drew them in, which say nothing about which of the user's pieces was worn, so a
 day counts for the one owned record of its type, and a type held by two or more owned
 records counts for none of them. A piece never worn shows nothing; there is no streak,
 no "unused for" line and no analytics.

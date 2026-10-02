@@ -3,23 +3,26 @@ import { z } from 'zod';
 import {
   bareHistoryDayKeySchema,
   wornOutfitSchema,
+  wornPieceColorsFor,
   type HistoryPhotoChange,
   type HistoryPhotoStorage,
   type OutfitHistoryRecord,
   type OutfitHistoryRepository,
   type WornOutfit,
+  type WornPieceColors,
 } from '@/features/recommendation/domain/outfit-history';
 import type { SqliteDatabase, SqliteExecutor } from '@/infrastructure/sqlite/sqlite-database';
 import { isManagedHistoryPhotoPath } from '@/features/recommendation/data/history-photo-path';
 
 type Row = Readonly<{
   id: string; local_profile_id: string; day_key: string; outfit_json: string;
-  photo_path: string | null; worn_at: string; created_at: string;
+  piece_colors_json: string | null; photo_path: string | null; worn_at: string; created_at: string;
   updated_at: string; deleted_at: string | null;
 }>;
 
 const uuidV4 = z.uuid().refine((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
-const columns = 'id, local_profile_id, day_key, outfit_json, photo_path, worn_at, created_at, updated_at, deleted_at';
+const columns = `id, local_profile_id, day_key, outfit_json, piece_colors_json, photo_path, worn_at,
+  created_at, updated_at, deleted_at`;
 
 /**
  * File cleanup is best effort and always follows the database step, which has already decided
@@ -30,12 +33,28 @@ function bestEffort(cleanup: Promise<unknown>): Promise<void> {
   return cleanup.then(() => undefined, () => undefined);
 }
 
+/**
+ * The stored piece colours as the record carries them. They only colour History, so a value
+ * that is missing (every day recorded before migration 24) or unreadable is dropped to null
+ * here, the day is drawn in the fixed scheme, and the rest of the row still reads.
+ */
+function storedPieceColors(outfit: WornOutfit, json: string | null): WornPieceColors | null {
+  if (json === null) return null;
+  try {
+    return wornPieceColorsFor(outfit, JSON.parse(json));
+  } catch {
+    return null;
+  }
+}
+
 function mapRow(row: Row): OutfitHistoryRecord {
+  const outfit = wornOutfitSchema.parse(JSON.parse(row.outfit_json));
   return {
     id: uuidV4.parse(row.id),
     localProfileId: z.string().min(1).parse(row.local_profile_id),
     dayKey: bareHistoryDayKeySchema.parse(row.day_key),
-    outfit: wornOutfitSchema.parse(JSON.parse(row.outfit_json)),
+    outfit,
+    pieceColors: storedPieceColors(outfit, row.piece_colors_json),
     photoPath: row.photo_path === null || isManagedHistoryPhotoPath(row.photo_path) ? row.photo_path : null,
     wornAt: z.iso.datetime().parse(row.worn_at),
     createdAt: z.iso.datetime().parse(row.created_at),
@@ -110,9 +129,13 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
   }
 
   async log(profileId: string, dayKey: string, outfit: WornOutfit,
-    photo: HistoryPhotoChange = { kind: 'keep' }): Promise<OutfitHistoryRecord> {
+    photo: HistoryPhotoChange = { kind: 'keep' }, pieceColors: WornPieceColors | null = null,
+  ): Promise<OutfitHistoryRecord> {
     bareHistoryDayKeySchema.parse(dayKey);
     const validated = wornOutfitSchema.parse(outfit);
+    // Colours that do not fit the outfit are not stored: the day is still recorded, drawn in
+    // the fixed scheme. A new outfit for the day always replaces the old outfit's colours.
+    const colors = pieceColors === null ? null : wornPieceColorsFor(validated, pieceColors);
     const timestamp = z.iso.datetime().parse(this.now());
     const copied = photo.kind === 'replace' ? await this.photos.copyStaged(photo.stagedUri) : null;
     if (copied !== null && !isManagedHistoryPhotoPath(copied)) {
@@ -127,12 +150,15 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
         outcome.oldPhotoPath = managedPhotoPath(await readRow(transaction, profileId, dayKey));
         const nextPath = photo.kind === 'keep' ? outcome.oldPhotoPath : copied;
         await transaction.runAsync(`INSERT INTO outfit_history
-          (id, local_profile_id, day_key, outfit_json, photo_path, worn_at, created_at, updated_at, deleted_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
+          (id, local_profile_id, day_key, outfit_json, piece_colors_json, photo_path, worn_at, created_at,
+            updated_at, deleted_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
           ON CONFLICT(local_profile_id, day_key) DO UPDATE SET
-            outfit_json = excluded.outfit_json, photo_path = excluded.photo_path,
+            outfit_json = excluded.outfit_json, piece_colors_json = excluded.piece_colors_json,
+            photo_path = excluded.photo_path,
             worn_at = excluded.worn_at, updated_at = excluded.updated_at, deleted_at = NULL`,
-        [uuidV4.parse(this.createId()), profileId, dayKey, JSON.stringify(validated), nextPath,
+        [uuidV4.parse(this.createId()), profileId, dayKey, JSON.stringify(validated),
+          colors === null ? null : JSON.stringify(colors), nextPath,
           timestamp, timestamp, timestamp]);
         outcome.result = await read(transaction, profileId, dayKey);
         if (!outcome.result) throw new Error('History write was not readable.');

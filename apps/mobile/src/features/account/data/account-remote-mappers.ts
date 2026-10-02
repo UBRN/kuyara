@@ -17,7 +17,7 @@ import { canonicalServerInstant } from '@/features/account/domain/server-instant
 import { sortedStyleAesthetics, normalizeDisplayName } from '@/features/profile/domain/profile';
 import type { DressingDayChoice } from '@/features/recommendation/domain/dressing-day-choice';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
-import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
+import { wornPieceColorsFor, type OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
 import { closetColorChoiceFromColumns } from '@/features/wardrobe/domain/closet-color-options';
 import { garmentTypeIdFromColumn, type WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 
@@ -203,6 +203,7 @@ export function toRemoteOutfitHistory(record: OutfitHistoryRecord, userId: strin
     user_id: userId,
     day_key: record.dayKey,
     outfit_json: record.outfit,
+    piece_colors_json: record.pieceColors,
     worn_at: record.wornAt,
     created_at: record.createdAt,
     updated_at: record.updatedAt,
@@ -216,6 +217,7 @@ export function fromRemoteOutfitHistory(raw: unknown, localProfileId: string): R
     localProfileId,
     dayKey: row.day_key,
     outfit: row.outfit_json,
+    pieceColors: wornPieceColorsFor(row.outfit_json, row.piece_colors_json ?? null),
     photoPath: null,
     wornAt: row.worn_at,
     createdAt: row.created_at,

@@ -90,6 +90,7 @@ export type RemoteOutfitHistoryUpload = Readonly<{
   user_id: string;
   day_key: string;
   outfit_json: unknown;
+  piece_colors_json: unknown;
   worn_at: string;
   created_at: string;
   updated_at: string;
@@ -169,6 +170,9 @@ export const remoteOutfitHistoryRowSchema = z.object({
   id: rowId,
   day_key: bareHistoryDayKeySchema,
   outfit_json: wornOutfitSchema,
+  // Display colours only: an unreadable value draws the day in the fixed scheme instead of
+  // refusing the row, as the SQLite read does.
+  piece_colors_json: z.unknown(),
   worn_at: clock,
   created_at: clock,
   updated_at: clock,
