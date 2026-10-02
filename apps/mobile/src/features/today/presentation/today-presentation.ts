@@ -18,6 +18,7 @@ import {
   laterCoolSpell,
   type OutfitCoverage,
 } from '@/features/recommendation/domain/outfit-coverage';
+import { weatherCauseLinks, type WeatherCause } from '@/features/recommendation/domain/weather-causes';
 import {
   withDailyRangeReason,
   type ClothingRequirementReasonCode,
@@ -89,6 +90,17 @@ export type LocalizedRequirementRow = Readonly<{
 }>;
 
 /**
+ * "Why this outfit": one kind of weather and the outermost pieces it put in the outfit,
+ * drawn as a line from the weather to the pieces and said as one whole sentence.
+ */
+export type LocalizedWeatherLink = Readonly<{
+  cause: WeatherCause;
+  label: string;
+  pieces: readonly Readonly<{ slot: OutfitSlot; garmentTypeId: GarmentTypeId; category: StructuralCategory; item: string }>[];
+  text: string;
+}>;
+
+/**
  * Phase 7's manual mix on detail: the changed arrangement of one option, evaluated by the
  * domain, and the slots the person changed. The option keeps its id and archetype.
  */
@@ -119,6 +131,8 @@ export type LoadedOutfitPresentation = Readonly<{
   accessoriesAccessibilityLabel: string;
   reasons: readonly string[];
   requirementRows: readonly LocalizedRequirementRow[];
+  /** Empty when no weather requirement put a piece in the outfit (mild weather). */
+  weatherLinks: readonly LocalizedWeatherLink[];
   accessibilityLabel: string;
 }>;
 
@@ -535,6 +549,33 @@ function localizeOutfit(
     } satisfies LocalizedRequirementRow];
   });
 
+  // The outfit's pieces from its outer layer inwards, the order a link keeps the weather's
+  // pieces in.
+  const outermostFirst = assigned
+    .map(({ garment, slot }, assignedIndex) => ({ garment, slot, assignedIndex }))
+    .sort((a, b) => outermostSlotOrder.indexOf(a.slot) - outermostSlotOrder.indexOf(b.slot));
+  const assignedByKey = new Map(outermostFirst.map((entry) => [entry.garment.candidateKey, entry]));
+  const weatherLinks = weatherCauseLinks(
+    outfit.requirementEvaluations,
+    outermostFirst.map(({ garment }) => garment.candidateKey),
+  ).map(({ cause, candidateKeys }) => {
+    const linked = candidateKeys.flatMap((key) => {
+      const entry = assignedByKey.get(key);
+      return entry ? [{
+        slot: entry.slot,
+        garmentTypeId: entry.garment.garmentTypeId,
+        category: entry.garment.properties.category,
+        item: pieces[entry.assignedIndex].item,
+      }] : [];
+    });
+    return {
+      cause,
+      label: copy.whyOutfit.causes[cause],
+      pieces: linked,
+      text: copy.whyOutfit.link[cause](linked.map(({ item }) => item)),
+    } satisfies LocalizedWeatherLink;
+  }).filter(({ pieces: linked }) => linked.length > 0);
+
   return {
     id: outfit.optionId,
     positionLabel: copy.optionPosition(index + 1, total),
@@ -556,6 +597,7 @@ function localizeOutfit(
       : '',
     reasons,
     requirementRows,
+    weatherLinks,
     accessibilityLabel: copy.outfitAccessibilityLabel({
       position: index + 1,
       total,
@@ -565,6 +607,11 @@ function localizeOutfit(
     }),
   };
 }
+
+// From the outer layer inwards: the layers weather adds come before the base it covers.
+const outermostSlotOrder: readonly OutfitSlot[] = [
+  'outer_layer', 'mid_layer', 'footwear', 'one_piece', 'primary_top', 'bottom',
+];
 
 function requirementNameKey(
   evaluation: OutfitRequirementEvaluation,

@@ -1567,6 +1567,7 @@ test('Today keeps outfit ownership state and actions hidden', async () => {
       createItem: jest.fn(),
       updateItem: jest.fn(),
       softDeleteItem: jest.fn(),
+      seedEmptyCloset: jest.fn(),
     }}>
       <TodayScreen
         language="en"

@@ -363,6 +363,7 @@ function wardrobeValue(overrides: Partial<Record<string, unknown>> = {}) {
     createItem: jest.fn(async () => ({}) as WardrobeItem),
     updateItem: jest.fn(async () => ({}) as WardrobeItem),
     softDeleteItem: jest.fn(async () => ({}) as WardrobeItem),
+    seedEmptyCloset: jest.fn(async () => [] as readonly WardrobeItem[]),
     ...overrides,
   };
 }
@@ -3288,3 +3289,55 @@ test("an afternoon open of Today does not choose tomorrow's preview when the eve
     ensure.mockRestore();
   }
 }, 15000);
+
+test('an empty Closet takes the outfit\'s pieces with the one ownership asked, once, and the offer then goes', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const seedEmptyCloset = jest.fn(async (inputs: readonly { garmentTypeId: string }[]) =>
+    inputs.map(({ garmentTypeId }, index) => wardrobeItem({ id: `seeded-${index}`, garmentTypeId } as Partial<WardrobeItem>)));
+  const props = { productAnalytics: createProductAnalytics(), profile: profileValue(), recommendation: recommendationReady(),
+    weather: weatherValue() };
+  const copy = messages.en.today.closetSeed;
+  const view = await render(
+    <Providers {...props} wardrobe={wardrobeValue({ seedEmptyCloset })}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(view.getByTestId('outfit-detail-closet-seed-button'));
+  const owned = view.getByTestId('outfit-detail-closet-seed-owned');
+  await fireEvent.press(owned);
+  await fireEvent.press(owned);
+  expect(seedEmptyCloset).toHaveBeenCalledTimes(1);
+  const inputs = seedEmptyCloset.mock.calls[0][0] as readonly Record<string, unknown>[];
+  expect(inputs.length).toBeGreaterThan(0);
+  expect(inputs.every((input) => input.entryState === 'owned' && typeof input.garmentTypeId === 'string')).toBe(true);
+  expect(new Set(inputs.map(({ garmentTypeId }) => garmentTypeId)).size).toBe(inputs.length);
+
+  // The Closet now holds the pieces: the offer is gone and the confirmation names the count.
+  const seeded = await seedEmptyCloset.mock.results[0].value;
+  await view.rerender(
+    <Providers {...props} wardrobe={wardrobeValue({ seedEmptyCloset, state: {
+      status: 'ready', items: seeded, isRefreshing: false, isMutating: false, refreshFailure: null,
+    } })}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  await waitFor(() => expect(view.queryByTestId('outfit-detail-closet-seed-button')).toBeNull());
+  expect(view.getByText(copy.added(inputs.length))).toBeOnTheScreen();
+});
+
+test('a Closet that holds anything gets no offer to add the outfit', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()} recommendation={recommendationReady()}
+      wardrobe={wardrobeValue({ state: {
+        status: 'ready', items: [wardrobeItem()], isRefreshing: false, isMutating: false, refreshFailure: null,
+      } })}
+      weather={weatherValue()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  expect(view.getByTestId('outfit-detail-pieces')).toBeOnTheScreen();
+  expect(view.queryByTestId('outfit-detail-closet-seed-button')).toBeNull();
+  expect(view.queryByText(messages.en.today.closetSeed.body)).toBeNull();
+});

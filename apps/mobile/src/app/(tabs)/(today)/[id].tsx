@@ -1,6 +1,7 @@
 import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams, useNavigation } from 'expo-router';
 import { StackActions } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Platform } from 'react-native';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
@@ -26,11 +27,14 @@ import {
 } from '@/features/recommendation/domain/outfit-history';
 import {
   OutfitDetailScreen,
+  type ClosetSeedOffer,
   type OutfitWornState,
 } from '@/features/today/presentation/outfit-detail-screen';
 import { tomorrowForecastDay } from '@/features/today/presentation/today-presentation';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { closetFieldsChanged } from '@/features/wardrobe/application/closet-field-changes';
+import { closetSeedInputs, type ClosetSeedPiece } from '@/features/wardrobe/application/closet-seed';
+import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   PieceEditSheet,
   type PieceSheetTarget,
@@ -94,6 +98,7 @@ export default function OutfitDetailRoute() {
   const [wornBusy, setWornBusy] = useState(false);
   const [wornError, setWornError] = useState<string | null>(null);
   const [boardFocused, setBoardFocused] = useState(false);
+  const [seed, setSeed] = useState<Readonly<{ status: 'busy' | 'failed' } | { status: 'added'; count: number }> | null>(null);
   // Detail judges weather freshness itself; the clock moves on focus and on return to the
   // foreground, which is also when detail revalidates the weather.
   const clock = useForegroundClock();
@@ -284,6 +289,23 @@ export default function OutfitDetailRoute() {
     });
   };
 
+  // The empty Closet's one tap. The controller reads the Closet again inside its one change,
+  // so a second tap, or a tap from a stale screen, adds nothing; no analytics event.
+  const closetEmpty = wardrobe.state.status === 'ready' && wardrobe.state.items.length === 0;
+  const seedCloset = (pieces: readonly ClosetSeedPiece[], entryState: WardrobeEntryState) => {
+    if (seed?.status === 'busy') return;
+    setSeed({ status: 'busy' });
+    void wardrobe.seedEmptyCloset(closetSeedInputs(pieces, entryState)).then((created) => {
+      setSeed(created.length > 0 ? { status: 'added', count: created.length } : null);
+      if (created.length > 0 && Platform.OS === 'ios') {
+        AccessibilityInfo.announceForAccessibility(messages.today.closetSeed.added(created.length));
+      }
+    }, () => setSeed({ status: 'failed' }));
+  };
+  const closetSeed: ClosetSeedOffer | null = seed?.status === 'added'
+    ? { status: 'added', addedCount: seed.count, onSeed: seedCloset }
+    : closetEmpty ? { status: seed?.status ?? 'offer', addedCount: 0, onSeed: seedCloset } : null;
+
   const { state: todayState } = classifyTodayState({
     weather: weatherState,
     recommendation: recommendationState,
@@ -314,6 +336,7 @@ export default function OutfitDetailRoute() {
         }}
       />
       <OutfitDetailScreen
+        closetSeed={closetSeed}
         language={language}
         manualMix={manualMix}
         onBoardFocusChange={setBoardFocused}

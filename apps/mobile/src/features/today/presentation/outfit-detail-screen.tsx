@@ -7,6 +7,8 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  measure,
+  useAnimatedReaction,
   useAnimatedRef,
   useAnimatedStyle,
   useScrollOffset,
@@ -23,6 +25,7 @@ import {
   ClosetColorDisc,
   Crossfade,
   colorFamilyFills,
+  DrawGrow,
   garmentColorFamiliesBySlot,
   garmentSwatchesBySlot,
   Entrance,
@@ -66,6 +69,9 @@ import {
 } from '@/features/wardrobe/domain/garment-type-ownership';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
+import type { ClosetSeedPiece } from '@/features/wardrobe/application/closet-seed';
+import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
+import type { WeatherCause } from '@/features/recommendation/domain/weather-causes';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
@@ -88,6 +94,29 @@ const NAME_MARK_SIZE = 16;
 const SWATCH_DOT_SIZE = 16;
 // A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
 const OUTSIDE_TAP_SLOP = 10;
+
+// "Why this outfit": each weather's glyph, at Law 6's body step beside its word.
+const causeIcons: Readonly<Record<WeatherCause, IconName>> = {
+  rain: 'conditionRain',
+  snow: 'conditionSnow',
+  cold: 'thermometerCold',
+  heat: 'conditionClear',
+  wind: 'wind',
+  swing: 'thermometerSwing',
+};
+// The line from a weather to its pieces: a stroke, not a divider, so it reads in both appearances.
+const WHY_LINE_WIDTH = 2;
+
+/**
+ * The empty Closet's offer on detail: `offer` shows "Add this to my Closet", whose tap asks
+ * once whether the pieces are owned or wanted; `busy` is that answer being saved, `failed`
+ * offers it again with the failure, `added` names how many pieces went in.
+ */
+export type ClosetSeedOffer = Readonly<{
+  status: 'offer' | 'busy' | 'failed' | 'added';
+  addedCount: number;
+  onSeed: (pieces: readonly ClosetSeedPiece[], entryState: WardrobeEntryState) => void;
+}>;
 
 const matchIcons: Readonly<Record<Exclude<PieceOwnershipMatch['kind'], 'none'>, IconName>> = {
   owned: 'check',
@@ -126,6 +155,8 @@ type OutfitDetailScreenProps = Readonly<{
   /** The board's one-time swipe hint is still due; see `GarmentSwapBoard`. */
   swipeHint?: boolean;
   onSwipeHintShown?: () => void;
+  /** Present only while the Closet is empty, or right after this offer filled it. */
+  closetSeed?: ClosetSeedOffer | null;
 }>;
 
 type DetailSuggestion = Extract<ReturnType<typeof createTodayPresentation>, { kind: 'loaded' }>['suggestions'][number];
@@ -222,6 +253,7 @@ export function OutfitDetailScreen({
   onBoardFocusChange,
   swipeHint = false,
   onSwipeHintShown,
+  closetSeed = null,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
   const easierToSeeOn = useEasierToSee();
@@ -237,6 +269,9 @@ export function OutfitDetailScreen({
   const [focusedSlot, setFocusedSlot] = useState<OutfitSlot | null>(null);
   const [pickerSlot, setPickerSlot] = useState<SwappableSlot | null>(null);
   const [pressedRow, setPressedRow] = useState<OutfitSlot | null>(null);
+  // "Add this to my Closet" asks once, in place: the ownership answer the pieces go in with.
+  const [seedAsking, setSeedAsking] = useState(false);
+  const [seedAnswer, setSeedAnswer] = useState<WardrobeEntryState | null>(null);
   const pendingChoice = useRef<Readonly<{ slot: SwappableSlot; garmentTypeId: GarmentTypeId }> | null>(null);
   const boardTouched = useRef(false);
   const touchStart = useRef<Readonly<{ x: number; y: number; inBoard: boolean }> | null>(null);
@@ -252,6 +287,21 @@ export function OutfitDetailScreen({
   const scrollOffset = useScrollOffset(scrollRef);
   const piecesTop = useRef(0);
   const { height: windowHeight } = useWindowDimensions();
+  // "Why this outfit" draws its lines once the whole section stands clear of the floating tab
+  // bar, not while it is still below the fold or under the bar. The section's layout re-arms
+  // the check; a scroll re-runs it.
+  const whyRef = useAnimatedRef<Animated.View>();
+  const [whyLaidOut, setWhyLaidOut] = useState(0);
+  const [whyInView, setWhyInView] = useState(false);
+  const whyVisibleBottom = windowHeight - insets.bottom - layout.minimumTouchTarget;
+  useAnimatedReaction(() => {
+    scrollOffset.get();
+    if (whyLaidOut === 0) return false;
+    const box = measure(whyRef);
+    return box !== null && box.pageY + box.height < whyVisibleBottom;
+  }, (inView, before) => {
+    if (inView && !before) scheduleOnRN(setWhyInView, true);
+  }, [whyLaidOut, whyVisibleBottom]);
   const now = useForegroundClock();
   // Both are built once per input: React Compiler treats a hook's result as final, so the
   // values derived from them below keep their identity across the screen's own state changes
@@ -700,6 +750,67 @@ export function OutfitDetailScreen({
           />
         </Presence>
 
+        {/* "Why this outfit": each weather that put a piece in the outfit, drawn as a line to
+            the pieces it caused and said as one sentence. The deterministic requirements
+            decide it, never AI. Mild weather links nothing, so the section is absent. */}
+        {suggestion.weatherLinks.length > 0 ? (
+          <Animated.View
+            onLayout={() => setWhyLaidOut((count) => count + 1)}
+            ref={whyRef}
+            style={styles.section}
+            testID="outfit-detail-why">
+            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
+              {copy.whyOutfit.heading}
+            </AppText>
+            <View style={styles.whyList}>
+              {suggestion.weatherLinks.map((link, index) => (
+                <View
+                  accessible
+                  accessibilityLabel={link.text}
+                  key={link.cause}
+                  style={styles.whyRow}
+                  testID={`outfit-detail-why-${link.cause}`}>
+                  <View style={styles.whyLine}>
+                    <View style={styles.whyCause}>
+                      <Icon color={theme.colors.iconSecondary} name={causeIcons[link.cause]} size={20} />
+                      <AppText variant="bodyStrong">{link.label}</AppText>
+                    </View>
+                    <DrawGrow
+                      index={index}
+                      play
+                      style={[styles.whyStroke, { backgroundColor: theme.colors.iconSecondary }]}
+                      testID={`outfit-detail-why-line-${link.cause}`}
+                      waiting={!whyInView}
+                    />
+                    <View style={styles.whyPieces}>
+                      {link.pieces.map((piece) => (
+                        <PlateView color={theme.colors.garmentTile} key={piece.slot} style={styles.ownTile}>
+                          <GarmentTileArtwork
+                            category={piece.category}
+                            colorFamily={null}
+                            garmentTypeId={piece.garmentTypeId}
+                            glyphSize={OWN_TILE_SIZE * 0.6}
+                            height={OWN_TILE_SIZE}
+                            photoTestID={`outfit-detail-why-${link.cause}-photo-${piece.garmentTypeId}`}
+                            photoUri={null}
+                            placeholderTestID={`outfit-detail-why-${link.cause}-glyph-${piece.garmentTypeId}`}
+                            roles={pieceRoles.get(piece.slot)}
+                            silhouetteTestID={`outfit-detail-why-${link.cause}-silhouette-${piece.garmentTypeId}`}
+                            width={OWN_TILE_SIZE}
+                          />
+                        </PlateView>
+                      ))}
+                    </View>
+                  </View>
+                  <AppText colorRole="textSecondary" style={styles.whyNames} variant="caption">
+                    {link.pieces.map(({ item }) => item).join(', ')}
+                  </AppText>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        ) : null}
+
         <View
           onLayout={({ nativeEvent }) => { piecesTop.current = nativeEvent.layout.y; }}
           style={styles.section}
@@ -707,6 +818,72 @@ export function OutfitDetailScreen({
           <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
             {presentation.copy.piecesHeading}
           </AppText>
+          {/* The empty Closet's one tap: the pieces go in as owned, in the colours drawn here,
+              through the Closet's own create path. Gone once the Closet holds anything. */}
+          {closetSeed ? (
+            <>
+              <Presence testID="outfit-detail-closet-seed" visible={closetSeed.status !== 'added'}>
+                {seedAsking || closetSeed.status === 'busy' ? (
+                  <View style={styles.seedBlock} testID="outfit-detail-closet-seed-choice">
+                    <AppText accessibilityRole="header" variant="label">{copy.closetSeed.question}</AppText>
+                    <View style={styles.seedChoices}>
+                      {(['owned', 'wanted'] as const).map((entryState) => (
+                        <Button
+                          icon={entryState === 'owned' ? 'hanger' : 'heartFilled'}
+                          key={entryState}
+                          label={copy.closetSeed.choice[entryState]}
+                          loading={closetSeed.status === 'busy' && seedAnswer === entryState}
+                          onPress={() => {
+                            if (closetSeed.status === 'busy') return;
+                            setSeedAnswer(entryState);
+                            closetSeed.onSeed(entries.map(({ piece, target }) => ({
+                              garmentTypeId: piece.garmentTypeId,
+                              colorFamily: target.suggestedColorFamily,
+                            })), entryState);
+                          }}
+                          testID={`outfit-detail-closet-seed-${entryState}`}
+                          variant="tonal"
+                        />
+                      ))}
+                      <Button
+                        label={copy.closetSeed.cancel}
+                        onPress={() => {
+                          if (closetSeed.status !== 'busy') setSeedAsking(false);
+                        }}
+                        testID="outfit-detail-closet-seed-cancel"
+                        variant="plain"
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.seedBlock}>
+                    <AppText colorRole="textSecondary" variant="caption">{copy.closetSeed.body}</AppText>
+                    <Button
+                      icon="plus"
+                      label={copy.closetSeed.action}
+                      onPress={() => setSeedAsking(true)}
+                      style={styles.seedButton}
+                      testID="outfit-detail-closet-seed-button"
+                      variant="tonal"
+                    />
+                  </View>
+                )}
+                {closetSeed.status === 'failed' ? (
+                  <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.seedFailed} variant="caption">
+                    {copy.closetSeed.failed}
+                  </AppText>
+                ) : null}
+              </Presence>
+              <Presence testID="outfit-detail-closet-seeded" visible={closetSeed.status === 'added'}>
+                <View style={styles.seedDone}>
+                  <Icon color={theme.colors.successInk} name="checkCircle" size={16} />
+                  <AppText accessibilityLiveRegion="polite" style={styles.flexText} variant="caption">
+                    {copy.closetSeed.added(closetSeed.addedCount)}
+                  </AppText>
+                </View>
+              </Presence>
+            </>
+          ) : null}
           <View>
             {entries.map(({ piece, slot, match, status, target, spokenLabel }, index) => {
               const pressed = pressedRow === slot;
@@ -1111,6 +1288,55 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     width: OWN_TILE_SIZE,
+  },
+  whyList: {
+    gap: spacing.md,
+  },
+  whyRow: {
+    gap: spacing.xs,
+  },
+  whyLine: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  whyCause: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexShrink: 1,
+    gap: spacing.sm,
+  },
+  whyStroke: {
+    borderRadius: WHY_LINE_WIDTH / 2,
+    flexGrow: 1,
+    height: WHY_LINE_WIDTH,
+    minWidth: spacing.xl,
+  },
+  whyPieces: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  whyNames: {
+    textAlign: 'right',
+  },
+  seedBlock: {
+    gap: spacing.sm,
+  },
+  seedButton: {
+    alignSelf: 'flex-start',
+  },
+  seedChoices: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  seedFailed: {
+    marginTop: spacing.sm,
+  },
+  seedDone: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   swatchDot: {
     borderRadius: SWATCH_DOT_SIZE / 2,

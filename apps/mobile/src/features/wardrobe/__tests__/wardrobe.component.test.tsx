@@ -317,6 +317,7 @@ test('create route shows initialization status instead of the form until wardrob
     createItem: async () => item,
     updateItem: async () => item,
     softDeleteItem: async () => item,
+    seedEmptyCloset: async () => [],
   };
   const renderRoute = (state: WardrobeApplicationValue['state']) =>
     render(
@@ -1468,6 +1469,7 @@ function wardrobeApplication(
     createItem: async () => plainItem,
     updateItem: async () => plainItem,
     softDeleteItem: async () => plainItem,
+    seedEmptyCloset: async () => [],
     ...overrides,
   };
 }
