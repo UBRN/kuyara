@@ -8,6 +8,7 @@ import {
   darkTheme,
   lightSemanticColors,
   lightTheme,
+  plateTheme,
 } from '../../../theme/theme.ts';
 import { colorFamilyFills } from './color-family-fill.ts';
 import { NEUTRAL_GARMENT_FILL, resolveGarmentTileFill } from './garment-render-fills.ts';
@@ -26,8 +27,9 @@ function contrast(a, b) {
   return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
 }
 
-// The eight planes a board may stand on: the seven light atmosphere states of Today's
-// stage plus the dark stage, which collapses to one value under ADR 0018's ceiling.
+// The planes a board may stand on: the seven light atmosphere states of Today's stage, and
+// in the dark appearance the light grey plate each of them becomes, on which the drawing
+// takes the light appearance's roles.
 const stages = [
   ...Object.entries(lightTheme.atmosphere).map(([state, plane]) => ({
     appearance: 'light',
@@ -35,28 +37,29 @@ const stages = [
     plane,
     colors: lightTheme.colors,
   })),
-  {
+  ...Object.entries(darkTheme.atmosphere).map(([state, plane]) => ({
     appearance: 'dark',
-    state: 'neutral',
-    plane: darkTheme.atmosphere.neutral,
-    colors: darkTheme.colors,
-  },
+    state,
+    plane,
+    colors: plateTheme(darkTheme, plane).colors,
+  })),
 ];
 
-// The detail plate and the alternates stand on the page ground instead, which the spec's
-// eight cells never covered. They clear the same two thresholds.
-const grounds = [lightTheme, darkTheme].map((theme) => ({
+// The detail plate, the alternates and the tiles stand on the garment ground and tile
+// planes instead, which the spec's cells never covered. They clear the same two thresholds.
+const grounds = [lightTheme, darkTheme].flatMap((theme) => ['garmentGround', 'garmentTile'].map((role) => ({
   appearance: theme.colorScheme,
-  state: 'page ground',
-  plane: theme.colors.background,
-  colors: theme.colors,
-}));
+  state: role,
+  plane: theme.colors[role],
+  colors: plateTheme(theme, theme.colors[role]).colors,
+})));
 
 // A drawing without a palette (a Closet record with no colour, a day-type tile) takes the
 // neutral step; it must clear both floors on every plane a drawing stands on.
 test('the neutral garment fill steps off every plane without weakening the outline', (context) => {
   for (const { appearance, state, plane, colors } of [...stages, ...grounds]) {
-    const fill = resolveGarmentTileFill({ colorFamily: null, plane, colors, colorScheme: appearance });
+    // On a dark-appearance plate the drawing takes the light appearance.
+    const fill = resolveGarmentTileFill({ colorFamily: null, plane, colors, colorScheme: 'light' });
     assert.equal(fill, blend(plane, colors.textPrimary, NEUTRAL_GARMENT_FILL));
     const fillStep = contrast(fill, plane);
     const outline = contrast(colors.textPrimary, fill);

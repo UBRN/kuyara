@@ -213,7 +213,7 @@ test('owned and wanted are sections of one category page, owned first, each with
   expect(result.queryByTestId(`wardrobe-item-${ownedItem.id}`)).not.toBeOnTheScreen();
 });
 
-test('a wanted tile has no stage fill, a dashed frame, a heart badge and says Wanted', async () => {
+test('a wanted tile stands on the garment ground with a dashed frame and a heart badge and says Wanted', async () => {
   const result = await render(
     <TestProviders>
       <WardrobeListScreen
@@ -228,7 +228,8 @@ test('a wanted tile has no stage fill, a dashed frame, a heart badge and says Wa
 
   const frame = StyleSheet.flatten(result.getByTestId(`wardrobe-item-${wantedItem.id}-frame`).props.style);
   expect(frame.borderStyle).toBe('dashed');
-  expect(frame.backgroundColor).toBeUndefined();
+  // The page ground itself in the light appearance: no stage fill.
+  expect(frame.backgroundColor).toBe(lightTheme.colors.background);
   expect(result.getByTestId(`wardrobe-item-${wantedItem.id}-wanted-badge`, { includeHiddenElements: true }))
     .toBeOnTheScreen();
   expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`).props.accessibilityLabel)

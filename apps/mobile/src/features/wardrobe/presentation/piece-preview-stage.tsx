@@ -16,7 +16,8 @@ import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-
 import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
 import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import { useMessages } from '@/localization/use-messages';
-import { borderWidths, layout, radii, spacing } from '@/theme/theme';
+import { borderWidths, layout, plateTheme, radii, spacing } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // O10's preview stage: one surface shows the piece. Before a type it holds a viewfinder
@@ -74,7 +75,7 @@ export function PiecePreviewStage({
   const { width } = useWindowDimensions();
   const { stacksButtonPair } = useTextScaling();
   const stageWidth = Math.min(width, layout.maxContentWidth) - spacing.lg * 2;
-  const cornerColor = theme.colors.iconSecondary;
+  const cornerColor = plateTheme(theme, theme.colors.garmentTile).colors.iconSecondary;
 
   const cameraBusy = processingSource === 'camera';
   const libraryBusy = processingSource === 'library';
@@ -132,8 +133,9 @@ export function PiecePreviewStage({
 
   return (
     <View style={styles.wrapper}>
-      <View
-        style={[styles.stage, { backgroundColor: theme.colors.surfaceMuted }]}
+      <PlateView
+        color={theme.colors.garmentTile}
+        style={styles.stage}
         testID="wardrobe-preview-stage">
         {photoUri ? (
           <>
@@ -191,7 +193,7 @@ export function PiecePreviewStage({
           </View>
         )}
         {stacksButtonPair ? null : actions}
-      </View>
+      </PlateView>
       {stacksButtonPair ? actions : null}
     </View>
   );

@@ -6,7 +6,7 @@ import {
   findClosetColorOption,
   type ClosetColorChoice,
 } from '@/features/wardrobe/domain/closet-color-options';
-import type { ThemeColorScheme } from '@/theme/theme';
+import { plateTheme, type ThemeColorScheme } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { Icon } from '../icon';
@@ -272,7 +272,8 @@ const WELL_RING_STOPS = ['#E5484D', '#F5A524', '#F5D90A', '#46A758', '#3E9BD6', 
 
 /** The empty colour well ("More colors"), drawn at a swatch disc's size. Decorative. */
 export function ColorWellMark({ size, testID }: Readonly<{ size: number; testID?: string }>) {
-  const { colors } = useKuyaraTheme();
+  const theme = useKuyaraTheme();
+  const { colors } = theme;
   const gradientId = `color-well-${useId().replace(/[^A-Za-z0-9]/g, '')}`;
   return (
     <View
@@ -290,7 +291,7 @@ export function ColorWellMark({ size, testID }: Readonly<{ size: number; testID?
         </Defs>
         <Circle cx={8} cy={8} fill="none" r={7.2} stroke={`url(#${gradientId})`} strokeWidth={1.6} />
         <Circle cx={8} cy={8} fill={colors.stage} r={4.8} />
-        <Path d="M8 5.8 V10.2 M5.8 8 H10.2" stroke={colors.textPrimary} strokeLinecap="round" strokeWidth={1.1} />
+        <Path d="M8 5.8 V10.2 M5.8 8 H10.2" stroke={plateTheme(theme, colors.stage).colors.textPrimary} strokeLinecap="round" strokeWidth={1.1} />
       </Svg>
     </View>
   );

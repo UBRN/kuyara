@@ -306,15 +306,26 @@ of the board's scale (the stage width, or Today's fitted scale) it drops 0.0075 
 0.0025 right with a blur of standard deviation 0.0065; on Today's fitted 339-point stage
 that is about 3.2 points down and 2.8 points of blur. Its reach, the drop plus two
 standard deviations, stays inside every board's lower margin. Its colour is the plane's own
-colour moved in OKLCH lightness only, by -0.13 in light and -0.10 in dark, with hue and
-chroma kept: no new colour. Ink against the shadow at full strength clears 3:1 on every
-atmosphere stage and on the page ground in both appearances (lowest 3.13, light
+colour moved in OKLCH lightness only, by -0.13, with hue and chroma kept: no new colour.
+In the dark appearance every board stands on a light grey plate (the next paragraph), so it
+takes the same light step; the -0.10 dark step remains only for the first-generation
+runway's dark fields. Ink against the shadow at full strength clears 3:1 on every
+atmosphere stage and garment plane in both appearances (lowest 3.13, light
 `fallingNight`). A piece lying over another casts its shadow on it, which is
 what reads as depth where the pieces overlap. Each shadow is drawn inside its piece's own
 layer, so it rises, travels, grows and pages with its piece in every motion. The ink
-outline, not the shadow, carries each piece's edge; in dark the shadow is decorative, as
-Law 3 declares dark shadows. The runway's dressed pieces cast theirs once their colour has
-poured.
+outline, not the shadow, carries each piece's edge, and the shadow reads on every plate in
+both appearances. The runway's dressed pieces cast theirs once their colour has poured.
+
+**The dark appearance.** A garment never stands on the dark page. Every board, tile and
+preview sits on a soft light grey plate (`theme.ts`, `darkPlateOf`): Today's stage takes its
+condition's plate, the detail board, the alternates and tomorrow's board stand on
+`garmentGround`, and tiles on `garmentTile`, both the neutral plate `#C7CBCC` in dark and
+the page ground and `surfaceMuted` in light. Inside a plate everything takes the light
+appearance's roles (`plateTheme`, `OnPlate`, `PlateView`): the pieces keep their light
+colours legalised against the plate, their Deep Atmosphere ink outline (8.6:1 on the
+neutral plate) and the 0.12 overlap's cast shadow; captions, badges and the hint on the
+detail plate take the light text roles at AA. The light appearance is unchanged.
 
 **Captions.** A caption is centred on its piece's own axis and sits 7 points below the
 piece's drawn box. Its width is capped per column, **0.42** of the plate width for the

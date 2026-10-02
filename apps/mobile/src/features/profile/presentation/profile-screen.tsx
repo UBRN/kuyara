@@ -25,7 +25,8 @@ import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { useMessages } from '@/localization/use-messages';
-import { interaction, layout, spacing } from '@/theme/theme';
+import { interaction, layout, plateTheme, spacing } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0028 section 1: the Closet is the subject. The native large title and the
@@ -119,11 +120,9 @@ function CategoryCell({
   const label = messages.wardrobe.categoryFilterLabels[category];
   const newest = summary?.newest ?? null;
   const tile = (
-    <View
-      style={[
-        styles.cellTile,
-        { backgroundColor: theme.colors.surfaceMuted, height: CELL_TILE_HEIGHT * scale },
-      ]}>
+    <PlateView
+      color={theme.colors.garmentTile}
+      style={[styles.cellTile, { height: CELL_TILE_HEIGHT * scale }]}>
       {summary ? (
         <>
           <View style={[styles.cellIcon, { height: CELL_ICON_BOX * scale, width: CELL_ICON_BOX * scale }]}>
@@ -138,7 +137,7 @@ function CategoryCell({
             ) : (
               <GarmentSlotGlyph
                 category={category}
-                color={theme.colors.iconSecondary}
+                color={plateTheme(theme, theme.colors.garmentTile).colors.iconSecondary}
                 size={CELL_GLYPH_SIZE * scale}
               />
             )}
@@ -153,7 +152,7 @@ function CategoryCell({
           </AppText>
         </>
       ) : null}
-    </View>
+    </PlateView>
   );
   const name = (
     <AppText colorRole="textSecondary" variant="caption">

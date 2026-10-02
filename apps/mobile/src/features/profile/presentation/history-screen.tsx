@@ -22,6 +22,7 @@ import { localeTag } from '@/localization/locale-tag';
 import type { AppMessages } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 export type HistoryEntry = Readonly<{ dayKey: string; outfit: WornOutfit }>;
@@ -212,8 +213,9 @@ export function HistoryScreen({ entries, loadFailed, transitionLanded = true }: 
   const stage = (entry: HistoryEntry, width: number, height: number) => {
     const board = historyBoard(entry);
     return (
-      <View
-        style={[styles.stage, { backgroundColor: theme.colors.surfaceMuted, height, width }]}
+      <PlateView
+        color={theme.colors.garmentTile}
+        style={[styles.stage, { height, width }]}
         testID={`history-entry-board-${entry.dayKey}`}>
         <GarmentBoard
           accessibilityLabel=""
@@ -221,10 +223,10 @@ export function HistoryScreen({ entries, loadFailed, transitionLanded = true }: 
           palette={board.palette}
           pieces={board.pieces}
           preset="today"
-          stageColor={theme.colors.surfaceMuted}
+          stageColor={theme.colors.garmentTile}
           width={width}
         />
-      </View>
+      </PlateView>
     );
   };
 

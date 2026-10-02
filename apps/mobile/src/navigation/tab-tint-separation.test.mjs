@@ -41,7 +41,12 @@ test('brandPrimary clears the non-text floor over every atmosphere stage and the
   for (const appearance of ['light', 'dark']) {
     const theme = createKuyaraTheme(appearance);
     const tint = theme.colors.brandPrimary;
-    const backdrops = { ...theme.atmosphere, background: theme.colors.background };
+    // A dark-appearance garment plate is a light grey under dark glass: the selected tab is
+    // drawn on the glass's own selection capsule there, which ADR 0027 section 3 records
+    // from the Simulator, so the unblurred-backdrop measure covers the dark page only.
+    const backdrops = appearance === 'light'
+      ? { ...theme.atmosphere, background: theme.colors.background }
+      : { background: theme.colors.background };
 
     for (const [name, backdrop] of Object.entries(backdrops)) {
       const ratio = contrastRatio(tint, backdrop);

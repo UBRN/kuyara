@@ -48,8 +48,9 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { useLocalization } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
-import { borderWidths, radii, spacing } from '@/theme/theme';
+import { borderWidths, plateTheme, radii, spacing } from '@/theme/theme';
 
 // O14 onboarding visuals: each step shows what it changes, drawn only from shipped
 // silhouettes on the approved stages; no mascot, avatar or body, no new colour.
@@ -269,15 +270,16 @@ export function OnboardingScreen({
     ? choicePreviewPieces[draft.gender][draft.dressStyle ?? 'casual']
     : welcomePreviewPieces;
   const previewStage = (
-    <View
+    <PlateView
       accessibilityElementsHidden
+      color={theme.atmosphere.veiledDay}
       importantForAccessibility="no-hide-descendants"
       onLayout={({ nativeEvent }) => setPreviewWidth(nativeEvent.layout.width)}
-      style={[styles.stage, { backgroundColor: theme.atmosphere.veiledDay }]}
+      style={styles.stage}
       testID="onboarding-welcome-preview">
       <View style={styles.previewTitle}>
         <Icon
-          color={theme.condition[welcomePreviewCondition.ink]}
+          color={plateTheme(theme, theme.atmosphere.veiledDay).condition[welcomePreviewCondition.ink]}
           name={welcomePreviewCondition.shape}
           size={20}
         />
@@ -293,7 +295,7 @@ export function OnboardingScreen({
           width={previewWidth}
         />
       ) : null}
-    </View>
+    </PlateView>
   );
 
   const heading = (
@@ -366,8 +368,9 @@ export function OnboardingScreen({
 
       {draft.step === 1 ? (
         <View style={styles.panel}>
-          <View
-            style={[styles.stage, styles.greeting, { backgroundColor: theme.atmosphere.veiledDay }]}
+          <PlateView
+            color={theme.atmosphere.veiledDay}
+            style={[styles.stage, styles.greeting]}
             testID="onboarding-name-preview">
             <AppText variant="title">
               {typedName && !displayNameIssue(typedName)
@@ -375,7 +378,7 @@ export function OnboardingScreen({
                 : copy.nameGreetingEmpty}
             </AppText>
             <AppText colorRole="textSecondary" variant="caption">{copy.nameGreetingCaption}</AppText>
-          </View>
+          </PlateView>
           <NameInput
             onChangeText={(value) => dispatch({ type: 'set-display-name', value })}
             testID="onboarding-name"

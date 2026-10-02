@@ -38,6 +38,7 @@ import { WardrobeOption } from '@/features/wardrobe/presentation/wardrobe-option
 import { TourSheetScope, TourTarget } from '@/features/walkthrough/application/tour-target';
 import { useMessages } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The piece drawn large at the head of the sheet, and the two small ones in the similar card.
@@ -198,13 +199,13 @@ function PieceEditForm({
       ) : null}
 
       <View style={styles.piece}>
-        <View style={[styles.hero, { backgroundColor: theme.colors.surfaceMuted }]}>
+        <PlateView color={theme.colors.garmentTile} style={styles.hero}>
           <GarmentTileArtwork category={target.category} colorChoice={colorChoice} colorFamily={colorFamily}
             garmentTypeId={target.garmentTypeId} glyphSize={HERO_SIZE * 0.6} height={HERO_SIZE}
             photoTestID="piece-edit-photo" photoUri={photoUri}
             placeholderTestID="piece-edit-placeholder" silhouetteTestID="piece-edit-silhouette"
             width={HERO_SIZE} />
-        </View>
+        </PlateView>
         <View style={styles.pieceText}>
           <AppText variant="title">{target.name}</AppText>
           <AppText colorRole="textSecondary">{target.slot}</AppText>
