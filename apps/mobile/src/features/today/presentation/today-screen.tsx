@@ -1,4 +1,5 @@
 import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { Link, type Href } from 'expo-router';
 import { RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedRef,
@@ -107,6 +108,15 @@ type TodayScreenProps = Readonly<{
   isRefreshing?: boolean;
   alertOffer?: TodayAlertOffer | null;
   onOpenOutfitDetail: (id: string) => void;
+  /**
+   * The route's link to an outfit's detail. With it each alternative opens as a link, and on
+   * iOS the detail zooms out of the alternative's drawing and shrinks back into it; elsewhere
+   * it is the stack's plain push. `onPress` is the route's single-tap guard.
+   */
+  outfitDetailLink?: Readonly<{
+    href: (id: string) => Href;
+    onPress: (event: Readonly<{ preventDefault: () => void }>) => void;
+  }>;
   /** Opens the detail of tomorrow's previewed outfit, from the evening strip. */
   onOpenTomorrowDetail?: (id: string) => void;
   onRefresh: () => void;
@@ -242,6 +252,7 @@ function TodayScreenContent({
   isRefreshing = false,
   alertOffer = null,
   onOpenOutfitDetail,
+  outfitDetailLink,
   onOpenTomorrowDetail,
   onRefresh,
   onAskAgain,
@@ -841,40 +852,45 @@ function TodayScreenContent({
               <View
                 style={[styles.outfitList, (usesAccessibilityLayout || easierToSee) && styles.stackedOutfitList]}
                 testID="today-outfit-list">
-                {alternates.map((suggestion, index) => (
-                  <Entrance index={index + 1} key={suggestion.id}>
+                {alternates.map((suggestion, index) => {
+                  const stage = (
+                    <View
+                      accessibilityElementsHidden
+                      importantForAccessibility="no-hide-descendants"
+                      // A zoom source keeps only an object style, as the link below does.
+                      style={StyleSheet.flatten<ViewStyle>([
+                        styles.alternateStage,
+                        { backgroundColor: theme.colors.garmentGround, height: alternateStageHeight, width: alternateWidth },
+                        easierToSee ? null : strongEdge,
+                      ])}
+                      testID={`today-alternate-stage-${suggestion.id}`}>
+                      {/* O15: each alternate stands on the page ground in its own palette, so
+                          it looks the same here as on Today's stage once chosen. */}
+                      <OnPlate color={theme.colors.garmentGround}>
+                        <GarmentBoard
+                          accessibilityLabel={suggestion.boardAccessibilityLabel}
+                          palette={suggestion.palette}
+                          pieces={suggestion.boardPieces}
+                          preset="today"
+                          testID={`today-alternate-board-${suggestion.id}`}
+                          width={alternateWidth}
+                        />
+                      </OnPlate>
+                    </View>
+                  );
+                  const card = (
                     <PressScale
                       accessible
                       accessibilityLabel={suggestion.boardAccessibilityLabel}
-                      accessibilityRole="button"
-                      onPress={() => onOpenOutfitDetail(suggestion.id)}
-                      style={({ pressed }) => [
+                      onPress={outfitDetailLink ? undefined : () => onOpenOutfitDetail(suggestion.id)}
+                      pressedStyle={{ opacity: theme.interaction.pressedOpacity }}
+                      // `role` outranks the link's own, so the card still reads as a button.
+                      role="button"
+                      style={StyleSheet.flatten<ViewStyle>(
                         easierToSee ? [styles.alternateRow, strongEdge] : { width: alternateWidth },
-                        { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
-                      ]}
+                      )}
                       testID={`today-alternate-${suggestion.id}`}>
-                      <View
-                        accessibilityElementsHidden
-                        importantForAccessibility="no-hide-descendants"
-                        style={[
-                          styles.alternateStage,
-                          { backgroundColor: theme.colors.garmentGround, height: alternateStageHeight, width: alternateWidth },
-                          easierToSee ? null : strongEdge,
-                        ]}
-                        testID={`today-alternate-stage-${suggestion.id}`}>
-                        {/* O15: each alternate stands on the page ground in its own palette, so
-                            it looks the same here as on Today's stage once chosen. */}
-                        <OnPlate color={theme.colors.garmentGround}>
-                          <GarmentBoard
-                            accessibilityLabel={suggestion.boardAccessibilityLabel}
-                            palette={suggestion.palette}
-                            pieces={suggestion.boardPieces}
-                            preset="today"
-                            testID={`today-alternate-board-${suggestion.id}`}
-                            width={alternateWidth}
-                          />
-                        </OnPlate>
-                      </View>
+                      {outfitDetailLink ? <Link.AppleZoom>{stage}</Link.AppleZoom> : stage}
                       <View style={[styles.alternateTitleRow, easierToSee && styles.alternateRowTitle]}>
                         <AppText numberOfLines={2} style={styles.outfitName} variant="label">
                           {suggestion.title}
@@ -882,8 +898,17 @@ function TodayScreenContent({
                         <Icon color={theme.colors.iconSecondary} name="chevronRight" size={16} />
                       </View>
                     </PressScale>
-                  </Entrance>
-                ))}
+                  );
+                  return (
+                    <Entrance index={index + 1} key={suggestion.id}>
+                      {outfitDetailLink ? (
+                        <Link asChild href={outfitDetailLink.href(suggestion.id)} onPress={outfitDetailLink.onPress} push>
+                          {card}
+                        </Link>
+                      ) : card}
+                    </Entrance>
+                  );
+                })}
               </View>
             </View>
           </ArrivesAfterHandoff>

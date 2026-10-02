@@ -135,6 +135,9 @@ let mockFocused = true;
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react');
   return {
+    // Today's alternatives are the library's own links.
+    Link: jest.requireActual('expo-router').Link,
+    usePreventZoomTransitionDismissal: jest.fn(),
     Stack: {
       Screen: (props: unknown) => { mockStackScreen(props); return null; },
       // The detail's share button sits in the native toolbar, which draws nothing here.

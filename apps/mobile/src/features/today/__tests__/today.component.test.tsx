@@ -150,6 +150,7 @@ jest.mock('@/components/ui/native-menu', () => {
   };
 });
 const mockPush = jest.fn();
+const mockLinkProps = jest.fn();
 // Today is focused unless a test blurs it, the way another tab or a pushed route does.
 let mockFocused = true;
 jest.mock('expo-router', () => {
@@ -162,6 +163,16 @@ jest.mock('expo-router', () => {
     useRouter: () => ({ push: mockPush }),
     // The detail's share button sits in the native toolbar, which draws nothing here.
     Stack: { Toolbar: Object.assign(() => null, { Button: () => null }) },
+    // A link records what it was given and draws its child; its zoom source is a marked view.
+    Link: Object.assign(
+      (props: { children: import('react').ReactNode }) => { mockLinkProps(props); return props.children; },
+      {
+        AppleZoom: ({ children }: { children: import('react').ReactNode }) => {
+          const { View } = jest.requireActual('react-native') as typeof import('react-native');
+          return React.createElement(View, { testID: 'apple-zoom-source' }, children);
+        },
+      },
+    ),
   };
 });
 
@@ -3233,6 +3244,42 @@ describe('Today with Easier to see', () => {
     const result = await renderToday(coldTodayScreenState, true);
     expect(result.getByTestId(`today-accessory-${accessory.garmentTypeId}`, { includeHiddenElements: true }).props.height)
       .toBe(24);
+  });
+
+  test('with the route link each alternative is a pushed link whose drawing is the zoom source', async () => {
+    const linkPress = jest.fn();
+    const onOpenOutfitDetail = jest.fn();
+    const href = (id: string) => ({ pathname: '/[id]' as const, params: { id } });
+    mockLinkProps.mockClear();
+    const result = await render(providers(
+      <TodayScreen alertOffer={offer} language="en" onAskAgain={jest.fn()}
+        onOpenOutfitDetail={onOpenOutfitDetail} onRefresh={jest.fn()}
+        outfitDetailLink={{ href, onPress: linkPress }} state={todayScreenState} />,
+    ));
+    await fireEvent(result.getByTestId('today-content'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+    const alternates = loadedPresentation().suggestions.slice(1);
+    const sources = result.getAllByTestId('apple-zoom-source', { includeHiddenElements: true });
+    expect(sources).toHaveLength(alternates.length);
+    for (const [index, suggestion] of alternates.entries()) {
+      // Only the drawing grows into the detail; the caption stays outside the zoom source.
+      expect(within(sources[index]).getByTestId(`today-alternate-stage-${suggestion.id}`,
+        { includeHiddenElements: true })).toBeOnTheScreen();
+      expect(within(sources[index]).queryByText(suggestion.title)).toBeNull();
+      expect(mockLinkProps).toHaveBeenCalledWith(expect.objectContaining({
+        asChild: true, href: href(suggestion.id), onPress: linkPress, push: true,
+      }));
+      // The link navigates by itself, so the card's own press handler opens nothing.
+      await fireEvent.press(result.getByTestId(`today-alternate-${suggestion.id}`));
+    }
+    expect(onOpenOutfitDetail).not.toHaveBeenCalled();
+    expect(result.getByTestId(`today-alternate-${alternates[0].id}`)).toHaveProp('role', 'button');
+    // The pressed card still dims, though the link keeps only an object style.
+    const card = result.getByTestId(`today-alternate-${alternates[0].id}`);
+    await fireEvent(card, 'pressIn', { nativeEvent: {} });
+    expect(StyleSheet.flatten(result.getByTestId(`today-alternate-${alternates[0].id}`).props.style).opacity)
+      .toBe(lightTheme.interaction.pressedOpacity);
   });
 
   test('alternatives are full-width rows with the strong edge', async () => {

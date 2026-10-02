@@ -4,6 +4,8 @@ import {
   type GestureResponderEvent,
   type PressableProps,
   type PressableStateCallbackType,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -20,6 +22,14 @@ const PRESSED_SCALE = 0.97;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+type PressScaleProps = PressableProps & Readonly<{
+  /**
+   * Drawn over `style` while pressed. A `Link` with `asChild` keeps only an object `style`,
+   * so a pressable inside one names its pressed look here instead of in a style function.
+   */
+  pressedStyle?: StyleProp<ViewStyle>;
+}>;
+
 /**
  * `Pressable` with Law 7's press response. The pressed state is tracked here rather
  * than read from `Pressable`'s render callback, so `style` and `children` keep their
@@ -30,9 +40,10 @@ export function PressScale({
   children,
   onPressIn,
   onPressOut,
+  pressedStyle,
   style,
   ...rest
-}: PressableProps) {
+}: PressScaleProps) {
   const theme = useKuyaraTheme();
   const [pressed, setPressed] = useState(false);
   const scale = useSharedValue(1);
@@ -61,7 +72,7 @@ export function PressScale({
         animateTo(1);
         onPressOut?.(event);
       }}
-      style={[typeof style === 'function' ? style(state) : style, scaleStyle]}
+      style={[typeof style === 'function' ? style(state) : style, pressed && pressedStyle, scaleStyle]}
       {...rest}>
       {typeof children === 'function' ? children(state) : children}
     </AnimatedPressable>

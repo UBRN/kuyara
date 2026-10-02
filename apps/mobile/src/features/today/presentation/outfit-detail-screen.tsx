@@ -261,7 +261,13 @@ export function OutfitDetailScreen({
   const wornBox = useButtonBox('large');
   const { hour12, temperatureUnit } = useLocalization();
   const { stacksButtonPair } = useTextScaling();
-  const [contentWidth, setContentWidth] = useState(0);
+  // The column's width is seeded from the window, as `Screen` lays it out, so the board is
+  // drawn on the first frame: a zoom from a Today alternative grows the finished screen
+  // instead of one whose board appears after its own layout. The layout event then confirms it.
+  const { width: windowWidth } = useWindowDimensions();
+  const [contentWidth, setContentWidth] = useState(
+    () => Math.max(0, Math.min(windowWidth, layout.maxContentWidth) - 2 * spacing.lg),
+  );
   // ADR 0026 section 3: the name buttons under the board, measured in the row, and the row's height.
   const [nameRects, setNameRects] = useState<Readonly<Partial<Record<OutfitSlot, NameRect>>>>({});
   const [nameRowHeight, setNameRowHeight] = useState<number | null>(null);
