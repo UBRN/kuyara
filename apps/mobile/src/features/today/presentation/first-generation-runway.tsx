@@ -15,6 +15,7 @@ import {
   Screen,
   ShrinkingPlate,
   type PlateRect,
+  type ShrinkingPlateProps,
   type RunwayBoardOutfit,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
@@ -29,7 +30,8 @@ import { RunwayParticles } from '@/features/today/presentation/runway-particles'
 import type { runwayWeather } from '@/features/today/presentation/today-presentation';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { blend } from '@/theme/color-blend';
-import { layout, radii, spacing, type KuyaraTheme } from '@/theme/theme';
+import { OnPlate } from '@/theme/plate-theme';
+import { layout, plateTheme, radii, spacing, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext, useKuyaraTheme } from '@/theme/theme-context';
 
 const ROTATION_MS = 2_000;
@@ -52,6 +54,10 @@ const PHASE_PROGRESS: Readonly<Record<RecommendationPhase | 'starting', number>>
   'answer-received': 0.78,
   'preparing-outfits': 0.9,
 };
+
+// In the dark appearance the board stands on the garment plate inside the field, with Today's
+// stage corner, and that plate is what shrinks into Today's stage.
+const PLATE_RADIUS = 26;
 
 // The track is derived from the field, never a new hue.
 const TRACK_TONE = { light: 0.16, dark: 0.22 } as const;
@@ -124,6 +130,17 @@ function RunwayFrame({
   );
 }
 
+/** The dark field leaves as effects motion (Law 7) while the plate travels to Today's stage. */
+function FadingField({ color }: Readonly<{ color: string }>) {
+  const theme = useKuyaraTheme();
+  const opacity = useSharedValue(1);
+  useEffect(() => {
+    opacity.set(withTiming(0, { duration: theme.motion.normal }));
+  }, [opacity, theme.motion.normal]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: color }, style]} />;
+}
+
 /** Skip arrives as content entering (Law 7): it fades in on `fast`. */
 function FadeInFast({ children }: Readonly<{ children: ReactNode }>) {
   const theme = useKuyaraTheme();
@@ -143,7 +160,12 @@ export type RunwayHandoffTarget = Readonly<{
 }>;
 
 type Handoff = Readonly<{
-  plate: Readonly<{ from: Readonly<{ width: number; height: number }>; to: PlateRect; color: string; radius: number }>;
+  plate: Readonly<{
+    from: ShrinkingPlateProps['from'];
+    to: PlateRect;
+    color: string;
+    radius: number;
+  }>;
   board: Readonly<{ x: number; y: number; width: number }>;
 }>;
 
@@ -203,9 +225,10 @@ export function FirstGenerationRunway({
   const stageAreaRef = useRef<View>(null);
   const skipped = useRef(false);
   // Read when the wait completes, so a timer started earlier hands over to today's values.
-  const leaveRef = useRef({ handoffTarget, onLeave, answered: outfit !== null });
+  const onPlate = theme.isDark;
+  const leaveRef = useRef({ handoffTarget, onLeave, answered: outfit !== null, onPlate });
   useEffect(() => {
-    leaveRef.current = { handoffTarget, onLeave, answered: outfit !== null };
+    leaveRef.current = { handoffTarget, onLeave, answered: outfit !== null, onPlate };
   });
 
   useEffect(() => {
@@ -263,7 +286,7 @@ export function FirstGenerationRunway({
       leaveRef.current.onLeave?.(false);
     };
     const leave = () => {
-      const { handoffTarget: target, answered: dressed } = leaveRef.current;
+      const { handoffTarget: target, answered: dressed, onPlate: fromPlate } = leaveRef.current;
       const current = target?.current;
       const stage = current?.node;
       const layer = layerRef.current;
@@ -273,7 +296,7 @@ export function FirstGenerationRunway({
         return;
       }
       layer.measureInWindow((layerX, layerY, layerWidth, layerHeight) => {
-        area.measureInWindow((areaX, areaY) => {
+        area.measureInWindow((areaX, areaY, areaWidth, areaHeight) => {
           stage.measureInWindow((stageX, stageY, stageWidth, stageHeight) => {
             if (!(layerWidth > 0 && layerHeight > 0 && stageWidth > 0 && stageHeight > 0)) {
               fade();
@@ -281,7 +304,9 @@ export function FirstGenerationRunway({
             }
             setHandoff({
               plate: {
-                from: { width: layerWidth, height: layerHeight },
+                from: fromPlate
+                  ? { x: areaX - layerX, y: areaY - layerY, width: areaWidth, height: areaHeight, radius: PLATE_RADIUS }
+                  : { width: layerWidth, height: layerHeight },
                 to: { x: stageX - layerX, y: stageY - layerY, width: stageWidth, height: stageHeight },
                 color: current.color,
                 radius: current.radius,
@@ -334,8 +359,12 @@ export function FirstGenerationRunway({
   };
 
   const field = theme.runway[runwayField(weather?.condition ?? null)];
+  // What the board stands on: the field itself in the light appearance, the plate in the dark.
+  const plate = onPlate ? theme.colors.stage : null;
+  const boardGround = plate ?? field;
+  const boardTheme = plateTheme(theme, boardGround);
   const particleKind = weather ? runwayParticleKind(weather.condition) : null;
-  const particleInks = weather ? runwayParticleInks(theme, weather.condition, weather.daypart) : null;
+  const particleInks = weather ? runwayParticleInks(boardTheme, weather.condition, weather.daypart) : null;
   const trackColor = blend(field, theme.colors.textPrimary, TRACK_TONE[theme.colorScheme]);
   const progress = success ? 1 : answered ? PHASE_PROGRESS['preparing-outfits'] : PHASE_PROGRESS[phase ?? 'starting'];
   const progressText = success
@@ -359,10 +388,11 @@ export function FirstGenerationRunway({
       ref={layerRef}
       style={[StyleSheet.absoluteFill, { backgroundColor: handoff ? 'transparent' : field }, layerStyle]}
       testID="first-generation-runway">
+      {handoff && plate ? <FadingField color={field} /> : null}
       {handoff ? (
         <ShrinkingPlate
           from={handoff.plate.from}
-          fromColor={field}
+          fromColor={boardGround}
           testID="first-generation-plate"
           to={handoff.plate.to}
           toColor={handoff.plate.color}
@@ -371,35 +401,47 @@ export function FirstGenerationRunway({
       ) : null}
       <SafeAreaProvider style={styles.fill}>
         <RunwayFrame
-          board={(stage) => (
-            <>
-              {particleKind && particleInks ? (
-                <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, textStyle]}>
-                  <RunwayParticles
-                    color={particleInks.ink}
-                    height={stage.height}
-                    kind={particleKind}
-                    sparkle={particleInks.sparkle}
-                    style={styles.particles}
-                    width={stage.width + 2 * spacing.lg}
-                  />
-                </Animated.View>
-              ) : null}
-              <GarmentRunwayBoard
-                draftInk={theme.colors.iconSecondary}
-                drafts={SKELETON_PIECES}
-                field={field}
-                handoff={handoff?.board ?? null}
-                height={stage.height}
-                onHandedOff={finishHandoff}
-                outfit={outfit}
-                outlineInk={theme.colors.textPrimary}
-                placedCount={placed}
-                testID="first-generation-board"
-                width={stage.width}
-              />
-            </>
-          )}
+          board={(stage) => {
+            const particles = particleKind && particleInks ? (
+              <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, textStyle]}>
+                <RunwayParticles
+                  color={particleInks.ink}
+                  height={stage.height}
+                  kind={particleKind}
+                  sparkle={particleInks.sparkle}
+                  style={plate ? styles.particlesOnPlate : styles.particles}
+                  width={plate ? stage.width : stage.width + 2 * spacing.lg}
+                />
+              </Animated.View>
+            ) : null;
+            return (
+              <OnPlate color={boardGround}>
+                {/* The plate holds the particles; the pieces stay outside it, so they can
+                    travel past its edge to Today's stage. */}
+                {plate ? (
+                  <View
+                    pointerEvents="none"
+                    style={[styles.plate, { backgroundColor: handoff ? 'transparent' : plate }]}
+                    testID="first-generation-plate-ground">
+                    {particles}
+                  </View>
+                ) : particles}
+                <GarmentRunwayBoard
+                  draftInk={boardTheme.colors.iconSecondary}
+                  drafts={SKELETON_PIECES}
+                  field={boardGround}
+                  handoff={handoff?.board ?? null}
+                  height={stage.height}
+                  onHandedOff={finishHandoff}
+                  outfit={outfit}
+                  outlineInk={boardTheme.colors.textPrimary}
+                  placedCount={placed}
+                  testID="first-generation-board"
+                  width={stage.width}
+                />
+              </OnPlate>
+            );
+          }}
           heading={(
             <AppText accessibilityRole="header" variant="title">
               {copy.loading.heading}
@@ -492,6 +534,8 @@ const styles = StyleSheet.create({
   headingBlock: { paddingBottom: spacing.md, paddingTop: spacing.lg },
   // The band runs to the screen's edges, past the content inset, and stays inside the board.
   particles: { bottom: 0, left: -spacing.lg, right: -spacing.lg, top: 0 },
+  particlesOnPlate: { bottom: 0, left: 0, right: 0, top: 0 },
+  plate: { bottom: 0, borderRadius: PLATE_RADIUS, left: 0, overflow: 'hidden', position: 'absolute', right: 0, top: 0 },
   textBlock: { paddingTop: spacing.md },
   progressTrack: { borderRadius: radii.pill, height: PROGRESS_HEIGHT },
   // Two lines' worth of room, so a rotation to a longer sentence never moves the skip.

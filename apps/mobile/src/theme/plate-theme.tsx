@@ -18,3 +18,15 @@ export function PlateView({ color, style, ...props }: ViewProps & Readonly<{ col
     </OnPlate>
   );
 }
+
+/**
+ * A garment drawing that stands straight on the page or on a card in the light appearance.
+ * In the dark one it stands on the garment plate (`garmentTile`) instead, so a piece is never
+ * drawn on a dark field; `style` shapes that plate and applies only there. The light
+ * appearance renders the children alone, exactly as without the wrapper.
+ */
+export function DarkPlate({ style, children, testID }: PropsWithChildren<Pick<ViewProps, 'style' | 'testID'>>) {
+  const theme = useKuyaraTheme();
+  if (!theme.isDark) return children;
+  return <PlateView color={theme.colors.garmentTile} style={style} testID={testID}>{children}</PlateView>;
+}

@@ -317,10 +317,13 @@ both appearances. The runway's dressed pieces cast theirs once their colour has 
 **The dark appearance.** A garment never stands on the dark page. Every board, tile and
 preview sits on a soft light grey plate (`theme.ts`, `darkPlateOf`): Today's stage takes its
 condition's plate, the detail board, the alternates and tomorrow's board stand on
-`garmentGround`, and tiles on `garmentTile`, both the neutral plate `#C7CBCC` in dark and
-the page ground and `surfaceMuted` in light. Inside a plate everything takes the light
+`garmentGround`, and tiles on `garmentTile`, both the neutral plate `#D5D8D9` in dark and
+the page ground and `surfaceMuted` in light. A drawing that stands straight on the page or
+a card in light (finishing touches, the Profile rack, the Closet form's ownership scenes,
+choice tiles) gets a `garmentTile` plate in dark only (`DarkPlate`), and the runway's board
+stands on the neutral plate inside its dark field. Inside a plate everything takes the light
 appearance's roles (`plateTheme`, `OnPlate`, `PlateView`): the pieces keep their light
-colours legalised against the plate, their Deep Atmosphere ink outline (8.6:1 on the
+colours legalised against the plate, their Deep Atmosphere ink outline (9.8:1 on the
 neutral plate) and their cast shadow; captions, badges and the hint on the
 detail plate take the light text roles at AA. The light appearance is unchanged.
 

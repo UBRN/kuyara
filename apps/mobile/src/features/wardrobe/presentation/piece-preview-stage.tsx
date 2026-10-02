@@ -152,7 +152,7 @@ export function PiecePreviewStage({
               <View
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
-                style={[styles.badge, { backgroundColor: theme.colors.surface }]}
+                style={[styles.badge, { backgroundColor: theme.isDark ? theme.colors.garmentTile : theme.colors.surface }]}
                 testID="wardrobe-photo-type-badge">
                 <GarmentDrawing
                   category={category}

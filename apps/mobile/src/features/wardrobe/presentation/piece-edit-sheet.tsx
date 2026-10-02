@@ -234,13 +234,15 @@ function PieceEditForm({
               choice: match.item.colorChoice ?? null, uri: resolvePhotoUri(match.item.photoRelativePath) },
           ].map(({ key, label, family, choice, uri }) => (
             <View accessible key={key} style={styles.compareRow} testID={`piece-edit-similar-${key}`}>
-              <View style={[styles.cardTile, { backgroundColor: theme.colors.surface }]}>
+              {/* White on the muted card in the light appearance, the garment plate in the dark. */}
+              <PlateView color={theme.isDark ? theme.colors.garmentTile : theme.colors.surface}
+                style={styles.cardTile} testID={`piece-edit-similar-${key}-tile`}>
                 <GarmentTileArtwork category={target.category} colorChoice={choice} colorFamily={family}
                   garmentTypeId={target.garmentTypeId} glyphSize={CARD_TILE_SIZE * 0.6}
                   height={CARD_TILE_SIZE} photoTestID={`piece-edit-similar-${key}-photo`} photoUri={uri}
                   placeholderTestID={`piece-edit-similar-${key}-placeholder`}
                   silhouetteTestID={`piece-edit-similar-${key}-silhouette`} width={CARD_TILE_SIZE} />
-              </View>
+              </PlateView>
               <View style={styles.pieceText}>
                 <AppText colorRole="textSecondary" variant="caption">{label}</AppText>
                 <AppText variant="bodyStrong">{closetColorName(messages, choice, family)}</AppText>

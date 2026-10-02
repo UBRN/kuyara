@@ -14,8 +14,11 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 export type PlateRect = Readonly<{ x: number; y: number; width: number; height: number }>;
 
 export type ShrinkingPlateProps = Readonly<{
-  /** The plane's size when it starts, filling its parent from the top left. */
-  from: Readonly<{ width: number; height: number }>;
+  /**
+   * The plane when it starts: its size, filling its parent from the top left unless it names
+   * its own place and corner radius (the dark appearance's runway plate).
+   */
+  from: Readonly<{ width: number; height: number; x?: number; y?: number; radius?: number }>;
   fromColor: string;
   /** The rectangle it shrinks into, in its parent's coordinates. */
   to: PlateRect;
@@ -35,6 +38,7 @@ export function ShrinkingPlate({ from, fromColor, to, toColor, toRadius, testID 
   const theme = useKuyaraTheme();
   const shrink = useSharedValue(0);
   const tint = useSharedValue(0);
+  const { x: fromX = 0, y: fromY = 0, radius: fromRadius = 0 } = from;
 
   useEffect(() => {
     shrink.set(withSpring(1, theme.springs.spatial));
@@ -49,10 +53,10 @@ export function ShrinkingPlate({ from, fromColor, to, toColor, toRadius, testID 
     const shrunk = shrink.get();
     return {
       backgroundColor: interpolateColor(tint.get(), [0, 1], [fromColor, toColor]),
-      borderRadius: toRadius * shrunk,
+      borderRadius: fromRadius + (toRadius - fromRadius) * shrunk,
       height: from.height + (to.height - from.height) * shrunk,
-      left: to.x * shrunk,
-      top: to.y * shrunk,
+      left: fromX + (to.x - fromX) * shrunk,
+      top: fromY + (to.y - fromY) * shrunk,
       width: from.width + (to.width - from.width) * shrunk,
     };
   });

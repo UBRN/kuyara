@@ -71,7 +71,7 @@ import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { borderWidths, interaction, layout, plateTheme, radii, spacing } from '@/theme/theme';
 import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
-import { PlateView } from '@/theme/plate-theme';
+import { DarkPlate, PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The detail draws its pieces at board scale; an accessory is not on the board, so it reads
@@ -874,19 +874,21 @@ export function OutfitDetailScreen({
                   key={accessory.accessorySlot}
                   style={styles.accessoryRow}
                   testID={`outfit-detail-accessory-${accessory.garmentTypeId}`}>
-                  <GarmentTileArtwork
-                    category={accessory.category}
-                    colorFamily={null}
-                    roles={pieceRoles.get(accessory.accessorySlot)}
-                    garmentTypeId={accessory.garmentTypeId}
-                    glyphSize={ACCESSORY_ARTWORK_SIZE}
-                    height={ACCESSORY_ARTWORK_SIZE}
-                    photoTestID={`outfit-detail-accessory-photo-${accessory.garmentTypeId}`}
-                    photoUri={null}
-                    placeholderTestID={`outfit-detail-accessory-glyph-${accessory.garmentTypeId}`}
-                    silhouetteTestID={`outfit-detail-accessory-silhouette-${accessory.garmentTypeId}`}
-                    width={ACCESSORY_ARTWORK_SIZE}
-                  />
+                  <DarkPlate style={styles.accessoryTile}>
+                    <GarmentTileArtwork
+                      category={accessory.category}
+                      colorFamily={null}
+                      roles={pieceRoles.get(accessory.accessorySlot)}
+                      garmentTypeId={accessory.garmentTypeId}
+                      glyphSize={ACCESSORY_ARTWORK_SIZE}
+                      height={ACCESSORY_ARTWORK_SIZE}
+                      photoTestID={`outfit-detail-accessory-photo-${accessory.garmentTypeId}`}
+                      photoUri={null}
+                      placeholderTestID={`outfit-detail-accessory-glyph-${accessory.garmentTypeId}`}
+                      silhouetteTestID={`outfit-detail-accessory-silhouette-${accessory.garmentTypeId}`}
+                      width={ACCESSORY_ARTWORK_SIZE}
+                    />
+                  </DarkPlate>
                   <View style={styles.accessoryText}>
                     <AppText variant="bodyStrong">{accessory.item}</AppText>
                     <AppText colorRole="textSecondary" variant="caption">
@@ -1128,6 +1130,10 @@ const styles = StyleSheet.create({
   },
   accessoryList: {
     gap: spacing.sm,
+  },
+  accessoryTile: {
+    borderRadius: radii.compact,
+    padding: spacing.xs,
   },
   accessoryRow: {
     alignItems: 'center',
