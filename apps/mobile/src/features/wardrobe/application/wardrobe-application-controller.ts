@@ -59,7 +59,7 @@ export class WardrobeApplicationController {
   private repository: WardrobeRepository | null = null;
   private initializationPromise: Promise<void> | null = null;
   private refreshPromise: Promise<void> | null = null;
-  private mutationPromise: Promise<WardrobeItem> | null = null;
+  private mutationPromise: Promise<unknown> | null = null;
   // Bumped when a mutation starts and when it settles, so a refresh can tell that its
   // list read straddled a mutation and may hold pre-mutation data.
   private mutationEpoch = 0;
@@ -143,6 +143,26 @@ export class WardrobeApplicationController {
       (repository) => this.createItemWithPhoto(repository, input, photoChange),
       (items, created) =>
         this.sortItems([created, ...items.filter((item) => item.id !== created.id)]),
+    );
+  }
+
+  /**
+   * Adds the given pieces to an empty Closet in one change, each as a new record through
+   * the repository's ordinary create path. The emptiness is read again from the repository
+   * inside the change, so a second call (a double tap, a stale screen) finds the Closet no
+   * longer empty and adds nothing. Resolves with the records it created.
+   */
+  seedEmptyCloset(inputs: readonly CreateInput[]): Promise<readonly WardrobeItem[]> {
+    return this.mutate(
+      async (repository) => {
+        if ((await repository.listActiveItems(this.localProfileId)).length > 0) return [];
+        const created: WardrobeItem[] = [];
+        for (const input of inputs) {
+          created.push(await repository.createItem({ ...input, localProfileId: this.localProfileId }));
+        }
+        return created;
+      },
+      (items, created) => this.sortItems([...created, ...items]),
     );
   }
 
@@ -405,13 +425,13 @@ export class WardrobeApplicationController {
     }
   }
 
-  private mutate(
-    operation: (repository: WardrobeRepository) => Promise<WardrobeItem>,
+  private mutate<Result>(
+    operation: (repository: WardrobeRepository) => Promise<Result>,
     applyConfirmedItem: (
       items: readonly WardrobeItem[],
-      item: WardrobeItem,
+      item: Result,
     ) => readonly WardrobeItem[],
-  ): Promise<WardrobeItem> {
+  ): Promise<Result> {
     if (this.mutationPromise) {
       return Promise.reject(new Error('A wardrobe change is already in progress.'));
     }
@@ -423,8 +443,8 @@ export class WardrobeApplicationController {
       this.setState({ ...readyState, isMutating: true });
     }
 
-    this.mutationPromise = (async () => {
-      let item: WardrobeItem;
+    const mutation = (async () => {
+      let item: Result;
       try {
         item = await operation(repository);
       } catch (error) {
@@ -461,8 +481,9 @@ export class WardrobeApplicationController {
       this.mutationPromise = null;
       this.mutationEpoch += 1;
     });
+    this.mutationPromise = mutation;
 
-    return this.mutationPromise;
+    return mutation;
   }
 
   private sortItems(items: readonly WardrobeItem[]): readonly WardrobeItem[] {

@@ -65,6 +65,8 @@ export const iconNames = Object.freeze({
   pause: { ios: 'pause.fill', android: 'pause', web: 'pause' },
   play: { ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' },
   wind: { ios: 'wind', android: 'air', web: 'air' },
+  thermometerCold: { ios: 'thermometer.snowflake', android: 'ac_unit', web: 'ac_unit' },
+  thermometerSwing: { ios: 'thermometer.medium', android: 'thermostat', web: 'thermostat' },
   humidity: { ios: 'humidity.fill', android: 'water_drop', web: 'water_drop' },
   uv: { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' },
   error: { ios: 'exclamationmark.circle.fill', android: 'error', web: 'error' },

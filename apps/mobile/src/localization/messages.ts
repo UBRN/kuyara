@@ -5,6 +5,7 @@ import type {
 import type { SwappableSlot } from '@/features/recommendation/domain/manual-mix';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { ClothingRequirementReasonCode } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import type { WeatherCause } from '@/features/recommendation/domain/weather-causes';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import type {
   WeatherConditionCode as LiveWeatherConditionCode,
@@ -144,6 +145,22 @@ export type TodayMessages = Readonly<{
     parts: Readonly<{ item: string; slot: string }>,
   ) => string;
   ownershipOwnedAction: string;
+  /** "Why this outfit": the weather that put each piece in the outfit. */
+  whyOutfit: Readonly<{
+    heading: string;
+    causes: Readonly<Record<WeatherCause, string>>;
+    link: Readonly<Record<WeatherCause, (garments: readonly string[]) => string>>;
+  }>;
+  /** The empty Closet's one tap that adds the outfit's pieces as owned. */
+  closetSeed: Readonly<{
+    action: string;
+    body: string;
+    question: string;
+    choice: Readonly<Record<'owned' | 'wanted', string>>;
+    cancel: string;
+    added: (count: number) => string;
+    failed: string;
+  }>;
   ownershipWantedAction: string;
   ownershipUntrackedLabel: string;
   /** O7: owned pieces of the same type, every one in another colour. */
@@ -1537,6 +1554,34 @@ const en = {
       `Finishing touches: ${items.join(', ')}.`,
     finishingTouchesRowAccessibilityLabel: ({ item, slot }) => `${item}, ${slot}`,
     ownershipOwnedAction: 'I own it',
+    whyOutfit: {
+      heading: 'Why this outfit',
+      causes: {
+        rain: 'Rain',
+        snow: 'Snow',
+        cold: 'Cold',
+        heat: 'Heat',
+        wind: 'Wind',
+        swing: 'Temperature swings',
+      },
+      link: {
+        rain: (garments) => `For the rain: ${garments.join(', ')}.`,
+        snow: (garments) => `For the snow: ${garments.join(', ')}.`,
+        cold: (garments) => `For the cold: ${garments.join(', ')}.`,
+        heat: (garments) => `For the heat: ${garments.join(', ')}.`,
+        wind: (garments) => `For the wind: ${garments.join(', ')}.`,
+        swing: (garments) => `For the day's temperature swings: ${garments.join(', ')}.`,
+      },
+    },
+    closetSeed: {
+      action: 'Add this to my Closet',
+      body: 'Adds every piece of this outfit, in the colour shown here. Tap a piece later to change it.',
+      question: 'How should the pieces go in?',
+      choice: { owned: 'I own them all', wanted: 'I want them all' },
+      cancel: 'Cancel',
+      added: (count) => (count === 1 ? '1 piece added to your Closet.' : `${count} pieces added to your Closet.`),
+      failed: 'The pieces could not be added. Try again.',
+    },
     ownershipWantedAction: 'I want it',
     ownershipUntrackedLabel: 'Not in your Closet',
     ownershipSimilarLabel: 'You have a similar one',
@@ -2584,6 +2629,34 @@ const tr = {
       `Son dokunuşlar: ${items.join(', ')}.`,
     finishingTouchesRowAccessibilityLabel: ({ item, slot }) => `${item}, ${slot}`,
     ownershipOwnedAction: 'Bende var',
+    whyOutfit: {
+      heading: 'Neden bu kombin',
+      causes: {
+        rain: 'Yağmur',
+        snow: 'Kar',
+        cold: 'Soğuk',
+        heat: 'Sıcak',
+        wind: 'Rüzgâr',
+        swing: 'Sıcaklık farkı',
+      },
+      link: {
+        rain: (garments) => `Yağmur için: ${garments.join(', ')}.`,
+        snow: (garments) => `Kar için: ${garments.join(', ')}.`,
+        cold: (garments) => `Soğuk için: ${garments.join(', ')}.`,
+        heat: (garments) => `Sıcak için: ${garments.join(', ')}.`,
+        wind: (garments) => `Rüzgâr için: ${garments.join(', ')}.`,
+        swing: (garments) => `Gün içindeki sıcaklık farkı için: ${garments.join(', ')}.`,
+      },
+    },
+    closetSeed: {
+      action: 'Bunu Gardıroba ekle',
+      body: 'Bu kombinin her parçasını burada görünen renkte ekler. Sonra değiştirmek için parçaya dokun.',
+      question: 'Parçalar nasıl eklensin?',
+      choice: { owned: 'Hepsi bende var', wanted: 'Hepsini istiyorum' },
+      cancel: 'Vazgeç',
+      added: (count) => `${count} parça Gardıroba eklendi.`,
+      failed: 'Parçalar eklenemedi. Yeniden dene.',
+    },
     ownershipWantedAction: 'İstiyorum',
     ownershipUntrackedLabel: 'Gardırobunda yok',
     ownershipSimilarLabel: 'Sende benzeri var',

@@ -80,6 +80,7 @@ export function WardrobeApplicationProvider({
       updateItem: (id, input, photoChange) =>
         controller.updateItem(id, input, photoChange),
       softDeleteItem: (id) => controller.softDeleteItem(id),
+      seedEmptyCloset: (inputs) => controller.seedEmptyCloset(inputs),
     }),
     [controller],
   );

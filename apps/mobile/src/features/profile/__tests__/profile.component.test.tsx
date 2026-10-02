@@ -83,6 +83,7 @@ function application(
     createItem: async () => baseItem,
     updateItem: async () => baseItem,
     softDeleteItem: async () => baseItem,
+    seedEmptyCloset: async () => [],
   };
 }
 

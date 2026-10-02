@@ -125,6 +125,7 @@ function createApplication(items: readonly WardrobeItem[]): WardrobeApplicationV
     createItem: async () => item,
     updateItem: async () => item,
     softDeleteItem: async () => item,
+    seedEmptyCloset: async () => [],
   };
 }
 
@@ -155,6 +156,7 @@ function FakeWardrobeApplicationProvider({
     createItem: async () => item,
     updateItem: async () => item,
     softDeleteItem: async () => item,
+    seedEmptyCloset: async () => [],
   };
 
   return (

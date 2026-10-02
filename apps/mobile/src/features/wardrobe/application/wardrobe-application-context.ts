@@ -31,6 +31,10 @@ export type WardrobeApplicationValue = Readonly<{
     photoChange?: WardrobePhotoChange,
   ) => Promise<WardrobeItem>;
   softDeleteItem: (id: string) => Promise<WardrobeItem>;
+  /** Adds the pieces only while the Closet is empty; see `closetSeedInputs`. */
+  seedEmptyCloset: (
+    inputs: readonly Omit<CreateWardrobeItemInput, 'localProfileId' | 'photoRelativePath'>[],
+  ) => Promise<readonly WardrobeItem[]>;
 }>;
 
 export const WardrobeApplicationContext =

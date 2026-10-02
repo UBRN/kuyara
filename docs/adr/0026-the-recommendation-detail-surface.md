@@ -57,11 +57,19 @@ recomposes the outfit on read, so the evaluations are rebuilt on every load. Per
 reasoning requires no schema change, migration or contract change; it is a presentation
 join over existing domain data.
 
+### 4a. "Why this outfit" draws the weather to the pieces it caused
+
+Above the garment rows, each kind of weather that put a piece in the outfit is one row: its glyph and word, a line, and the outermost one or two pieces that answer it, drawn on the garment tile with their names under the line. Rain, snow, cold, heat, wind and temperature swings are read from the reason codes of the met requirements in decision 4 and the pieces that supply them, so the section is a second presentation join over the same domain data, never AI output, and it is recomputed for a changed outfit. A requirement a whole layer stack answers, such as warmth, keeps the outermost two pieces, the ones the weather put on top. A trade-off is not a cause and draws no line. Mild weather links nothing and the section is absent.
+
+The line is spatial motion: it grows from the weather toward the pieces on `springs.spatial`, once, staggered in reading order, when the section first comes into view, and rests drawn afterwards. Each row speaks one whole sentence that carries the same link, so nothing depends on the motion.
+
 ### 5. One edit sheet owns the piece's Closet record
 
 The garment row opens the sheet; the board changes pieces (decision 6). It shows the piece, the user's owned or wanted record, the Closet palette and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone. Under the board a matched piece's name button carries its state's glyph and says it in words, "In your Closet" / "Gardırobunda var", "Similar one in your Closet" / "Benzeri Gardırobunda" or "In your wanted pieces" / "İsteklerinde"; the piece's adjustable element speaks the same words after its value. None of it changes a recommendation.
 
 The Closet palette contains 33 colours, including two purple swatches, the system colour picker on iOS, and 14 fixed two-colour or pattern options; there is no free second colour. Its fields are migration 20's. The similar piece's "Yours" draws the user's own piece in its saved colour or pattern and names its option; the board keeps the outfit's palette.
+
+An empty Closet gets one shortcut here, "Add this to my Closet" / "Bunu Gardıroba ekle", at the head of the garment rows. Its tap asks once, in place rather than in a system alert, whether the pieces go in as owned or as wanted, with a way to cancel; the answer applies to every piece, so a new Closet starts without typing and without a question per piece, and each record stays one tap from the sheet that changes it. It adds every piece of the open outfit as one record with that ownership, its catalog type and the colour family it is drawn in, the fields the sheet saves for a new record, through the Closet's create path in one change that first reads the Closet again, so it never adds twice. The offer disappears once the Closet holds anything; a caption with a check names how many pieces went in.
 
 ### 6. Manual swaps sit outside recommendation selection
 
