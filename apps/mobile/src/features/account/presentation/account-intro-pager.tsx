@@ -59,7 +59,7 @@ export function AccountIntroPager() {
   const scroll = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
-  const [handedOver, setHandedOver] = useState(false);
+  const [advanceStopped, setAdvanceStopped] = useState(false);
   const screenReader = useScreenReaderRunning();
   const foreground = useAppInForeground();
   const announced = useRef(page);
@@ -70,7 +70,7 @@ export function AccountIntroPager() {
     setPage(target);
   };
 
-  const advancing = !handedOver && !screenReader && foreground && width > 0 && page < lastPage;
+  const advancing = !advanceStopped && !screenReader && foreground && width > 0 && page < lastPage;
   useEffect(() => {
     if (!advancing) return;
     const timer = setTimeout(() => {
@@ -95,7 +95,7 @@ export function AccountIntroPager() {
   const onSettled = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (width > 0) setPage(Math.round(event.nativeEvent.contentOffset.x / width));
   };
-  const stopAdvancing = () => setHandedOver(true);
+  const stopAdvancing = () => setAdvanceStopped(true);
 
   return (
     <View style={styles.pager} testID="account-intro-pager">
