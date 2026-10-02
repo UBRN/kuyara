@@ -357,8 +357,9 @@ test('an enlarged board composes just narrow enough for the stage and the strip 
   assert.equal(swapStageFit(497, panel, 0), 1);
 });
 
-// ADR 0026 section 3: the detail board overlaps like Today's, so a tap follows what the eye sees.
-test('a tap on overlapping pieces names the one drawn on top, a name button names its own piece', () => {
+// ADR 0026 section 3: a tap names the piece under it. At rest no two pieces touch, so each
+// piece's own centre names it; where an enlarged piece lies over another, the one drawn on top wins.
+test('a tap names the piece under it, the one drawn on top where two overlap, a name button its own piece', () => {
   const pieces = [['primary_top', 'sweatshirt', 'top'], ['bottom', 'jeans', 'bottom'],
     ['outer_layer', 'rain_jacket', 'outerwear'], ['footwear', 'ankle_boots', 'footwear']]
     .map(([slot, type, category]) => ({ slot, ...resolveGarmentSilhouette(type, category) }));
@@ -368,23 +369,14 @@ test('a tap on overlapping pieces names the one drawn on top, a name button name
     const box = result.boxes.get(piece);
     return { slot: piece.slot, box: { x: box.x * width, y: box.y * width, w: box.w * width, h: box.h * width } };
   });
-  const box = (slot) => stack.find((entry) => entry.slot === slot).box;
-  // Where the waist lies over the top's hem, the bottom is on top; where the jacket lies over
-  // the top's side, the jacket is.
-  const top = box('primary_top');
-  const bottom = box('bottom');
-  const hem = { x: bottom.x + bottom.w / 2, y: (bottom.y + top.y + top.h) / 2 };
-  assert.ok(hem.y > top.y && hem.y < top.y + top.h && hem.x > top.x && hem.x < top.x + top.w);
-  assert.equal(swapHitSlot(stack, hem.x, hem.y, 44), 'bottom');
-  const jacket = box('outer_layer');
-  const side = { x: (jacket.x + top.x + top.w) / 2, y: jacket.y + jacket.h / 3 };
-  assert.ok(side.x > top.x && side.x < top.x + top.w);
-  assert.equal(swapHitSlot(stack, side.x, side.y, 44), 'outer_layer');
-  // The footwear lies over the bottom's hem and wins there.
-  const foot = box('footwear');
-  assert.equal(swapHitSlot(stack, foot.x + foot.w / 2, foot.y + 1, 44), 'footwear');
-  // Reversed, the order decides: the same point names the top.
-  assert.equal(swapHitSlot([...stack].reverse(), hem.x, hem.y, 44), 'primary_top');
+  for (const { slot, box } of stack) assert.equal(swapHitSlot(stack, box.x + box.w / 2, box.y + box.h / 2, 44), slot);
+  // An enlarged top grown over the bottom: the later piece in the stack is drawn on top.
+  const top = stack.find((entry) => entry.slot === 'primary_top').box;
+  const grown = { slot: 'primary_top', box: { ...top, h: top.h * 2 } };
+  const below = stack.find((entry) => entry.slot === 'bottom');
+  const shared = { x: below.box.x + below.box.w / 2, y: below.box.y + 2 };
+  assert.equal(swapHitSlot([below, grown], shared.x, shared.y, 44), 'primary_top');
+  assert.equal(swapHitSlot([grown, below], shared.x, shared.y, 44), 'bottom');
   // A name button under the board names its piece even where a padded box reaches it.
   const button = { x: 0, y: result.stageHeight * width + 8, w: 120, h: 44 };
   const named = stack.map((entry) => ({ ...entry, button: entry.slot === 'outer_layer' ? button : null }));

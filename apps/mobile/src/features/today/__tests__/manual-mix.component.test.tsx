@@ -452,9 +452,8 @@ test('a suitable change drops the hint and raises no note', async () => {
   expect(result.queryByText(messages.en.today.manualMix.unusual)).toBeNull();
 });
 
-// ADR 0026 section 3: the detail board overlaps as worn and its names stand under it as buttons in
-// the wearing order. A tap on a name grows its piece exactly as a tap on the piece does, and a
-// tap where two pieces overlap goes to the one drawn on top.
+// ADR 0026 section 3: the detail board is laid out as worn and its names stand under it as buttons
+// in the wearing order. A tap on a name grows its piece exactly as a tap on the piece does.
 const tapBoard = async (at: Readonly<{ x: number; y: number }>) => {
   await act(async () => {
     fireGestureHandler(getByGestureTestId('outfit-detail-board-tap'), [
@@ -489,19 +488,20 @@ test('the names stand under the board as buttons in the wearing order, and a tap
   expect(result.getByTestId('outfit-detail-board-strip')).toBeOnTheScreen();
 });
 
-test('a tap where the waist lies over the hem grows the bottom, which is drawn on top', async () => {
+test('a tap on the bottom grows it, drawn over every other piece', async () => {
   const onBoardFocusChange = jest.fn();
   const result = await renderDetail('en', { onBoardFocusChange });
   const { boardPieces } = archetype('en');
   const boxes = layoutGarmentBoard(boardPieces, 358, 'detail').boxes;
   const top = boxes.find(({ slot }) => slot === 'primary_top')!;
   const bottom = boxes.find(({ slot }) => slot === 'bottom')!;
-  expect(bottom.y).toBeLessThan(top.y + top.height);
-  await tapBoard({ x: bottom.x + bottom.width / 2, y: (bottom.y + top.y + top.height) / 2 });
+  // At rest the waist stands clear of the top's hem.
+  expect(bottom.y).toBeGreaterThan(top.y + top.height);
+  await tapBoard({ x: bottom.x + bottom.width / 2, y: bottom.y + bottom.height / 2 });
   expect(onBoardFocusChange).toHaveBeenLastCalledWith(true);
   const bottomId = boardPieces.find(({ slot }) => slot === 'bottom')!.garmentTypeId;
   expect(result.getByTestId(`outfit-detail-board-drawing-bottom-${bottomId}-big`, hidden)).toBeTruthy();
-  // The enlarged piece is drawn over every other, so an overlapped piece comes fully into view.
+  // The enlarged piece is drawn over every other, so it stays whole as it grows over its neighbours.
   const plate = result.getByTestId('outfit-detail-board-plate');
   const drawings = within(plate).getAllByTestId(/^outfit-detail-board-drawing-[a-z_]+-[a-z_]+$/, hidden)
     .map((node) => node.props.testID as string);

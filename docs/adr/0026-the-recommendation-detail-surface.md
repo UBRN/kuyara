@@ -23,8 +23,8 @@ The board is [ADR 0025](0025-the-garment-board-composition-rule.md)'s `compose()
 unchanged, run with a detail preset. Same algorithm, same worn layout, same dressing order,
 the core on the left and the layers on the right, the footwear a pair at the core's foot.
 The detail preset only draws it larger: at the scale Today's fitted stage reaches, so the
-pieces keep their size as they travel in. Pieces overlap exactly as on Today, by at most
-the lap. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
+pieces keep their size as they travel in. Pieces stand apart exactly as on Today, none
+touching another. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
 
 This is what makes the two screens share a composition rather than merely resemble each
 other, and it is what the entry transition animates. It also leaves room for garment rows below the board.

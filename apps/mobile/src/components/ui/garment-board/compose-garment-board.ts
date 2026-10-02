@@ -4,9 +4,8 @@ export const garmentBoardSlotOrder: readonly OutfitSlot[] = [
   'primary_top', 'bottom', 'one_piece', 'outer_layer', 'mid_layer', 'footwear',
 ];
 
-// The order an outfit is put on, back to front: where pieces overlap, a later piece lies
-// over an earlier one. The bottom's waist lies over the top's hem (tucked), the layers over
-// the body core, the outer layer over the mid layer, and the footwear over the core's foot.
+// The order an outfit is put on, back to front. No piece touches another on a board, so
+// this is the order the pieces are drawn in and the order the detail names them.
 export const garmentBoardDressingOrder: readonly OutfitSlot[] = [
   'primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear',
 ];
@@ -28,7 +27,10 @@ export const todayPreset = {
   stageMax: 1.14,
   centroid: 0.47,
   sideMin: 0.09,
-  lap: 0.12,
+  // The clear space between neighbouring pieces: under the top before the bottom's waist,
+  // × the top's height; beside the core before the layers, × the narrowest core piece's
+  // width; under the core's hem before the footwear, × the footwear's height.
+  clearance: { waist: 0.05, side: 0.10, foot: 0.06 },
 };
 
 // A board draws its footwear as a pair, the way a flat lay shows shoes (ADR 0025
@@ -109,13 +111,12 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   });
   const boxes = new Map<BoardPiece<Piece>, DrawnBox>();
 
-  // The outfit is laid out as it is worn. The core stands as one column, the bottom's waist
-  // over the top's hem, the footwear at its foot and the layers over its side. Every piece
-  // that lies over another covers `lap` of the covered piece's drawn extent at most, on the
-  // side it enters from, so a collar, a waist and a sole stay in view.
-  const { lap } = rule;
+  // The outfit is laid out in the order it is worn. The core stands as one column, the
+  // bottom under the top, the footwear under its hem and the layers beside it, each apart
+  // from its neighbours by `clearance`, so no piece covers any part of another.
+  const { clearance } = rule;
   const cb = core.map((piece) => boxOf(piece, metric));
-  const coreGap = core.length > 1 ? -lap * cb[0].h : 0;
+  const coreGap = core.length > 1 ? clearance.waist * cb[0].h : 0;
   const coreW = Math.max(...cb.map((box) => box.w));
 
   let rb = rail.map((piece) => boxOf(piece,
@@ -126,7 +127,7 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   rb = rb.map((box) => ({ w: box.w * railScale, h: box.h * railScale }));
   bf = { w: bf.w * railScale, h: bf.h * railScale };
   const railH = rb.reduce((sum, box) => sum + box.h, 0) + rule.railGap * metric * (rb.length - 1);
-  const coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1) + bf.h * (1 - lap);
+  const coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1) + bf.h * (1 + clearance.foot);
 
   const envelope = Math.max(coreH, railH);
   const stageHeight = Math.min(rule.stageMax, Math.max(rule.stageMin, rule.topInset + envelope + rule.botInset));
@@ -139,19 +140,20 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
     y += box.h + coreGap;
     return box;
   });
-  // Every layer's left edge lies `lap` of the narrowest core piece's width over the core.
-  const railX = coreW / 2 - lap * Math.min(...cb.map((box) => box.w));
+  // Every layer's left edge stands `clearance.side` of the narrowest core piece's width
+  // clear of the core.
+  const railX = coreW / 2 + clearance.side * Math.min(...cb.map((box) => box.w));
   y = top;
   rail.forEach((piece, index) => {
     boxes.set(piece, { x: railX, y, ...rb[index] });
     y += rb[index].h + rule.railGap * metric;
   });
   // The footwear's heel stands a quarter of its length left of the core's axis and its opening
-  // lies over the lowest piece's hem by `lap` of its own height. It is drawn as a pair, which
-  // stands exactly one shoe tall, so the far shoe's opening takes that lap.
+  // stands `clearance.foot` of its own height under the lowest piece's hem. It is drawn as a
+  // pair, which stands exactly one shoe tall, so the far shoe's opening keeps that clearance.
   const low = placedCore[placedCore.length - 1];
   const pair: BoardPiece<Piece> = { ...foot, bounds: footwearPairDrawing(foot.bounds).bounds, single: foot.bounds };
-  boxes.set(pair, footwearPairBox({ x: -bf.w / 4, y: low.y + low.h - lap * bf.h, ...bf }));
+  boxes.set(pair, footwearPairBox({ x: -bf.w / 4, y: low.y + low.h + clearance.foot * bf.h, ...bf }));
 
   // Position the finished group once, by its area-weighted drawn-box centroid.
   const bs = [...boxes.values()];

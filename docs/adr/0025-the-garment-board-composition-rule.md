@@ -75,29 +75,26 @@ share one shadow. A Closet tile, the type grid and a category glyph draw one sho
 
 ### 3. Every board lays the outfit out as worn
 
-One parameter, the **lap**, decides how close the pieces lie: the most of a covered
-piece's drawn extent, on the side another piece enters from, that the other piece may
-cover.
+One parameter, the **clearance**, decides how close the pieces lie: the clear space kept
+between neighbouring pieces, so that no piece covers any part of another.
 
-**Every board is the worn board, with a lap of 0.12**, so an outfit reads as one combination
-laid out flat rather than as separate pieces in boxes. The body core is one column, the
-bottom's waist lying over the top's hem as if tucked in; the footwear stands at the core's
-foot, its opening over the lowest piece's hem; the layers stack on a right rail, outer
-above mid, each lying over the core's side. Pieces lie on one another in the order the
-outfit is put on: top, bottom, one-piece, mid layer, outer layer, footwear. Because no
-overlap exceeds the lap, a collar, a waist and a sole always stay in view, and the outer
-layer never overlaps the mid layer, whose collar its hem would cover.
+**Every board is the worn board, with no piece touching another**, so an outfit reads as one
+combination laid out flat, with every piece drawn whole. The body core is one column, the
+bottom's waist just under the top's hem; the footwear stands just under the core's lowest
+hem; the layers stack on a right rail, outer above mid, just clear of the core's side. The
+pieces are drawn in the order the outfit is put on: top, bottom, one-piece, mid layer, outer
+layer, footwear. Because no piece overlaps another, a collar, a waist, a sleeve and a sole
+are always in view.
 
 The detail draws the same board at the scale Today's fitted stage reaches (the runway
 preset's 1.25), so a piece that leaves Today's stage for the detail keeps its size. No name
 is drawn on a board: the detail names its pieces in a row of buttons under the board
-([ADR 0026](0026-the-recommendation-detail-surface.md) section 2), so its pieces may overlap.
+([ADR 0026](0026-the-recommendation-detail-surface.md) section 2).
 
 Every piece on every board casts a soft shadow on its plane: its own drawn shape, blurred
 and dropped down, in the plane's colour moved down in OKLCH lightness. It reads only the
-painting's alpha, so it follows any drawing that declares its drawn bounds, and where two
-pieces overlap the upper one's shadow falls on the lower, which is what gives the worn
-board its depth. The parameters are in
+painting's alpha, so it follows any drawing that declares its drawn bounds, and it falls on
+the plane, never on another piece. The parameters are in
 [`garment-board.md`](../design/garment-board.md) section 9.
 
 ### 4. The stage's height is derived from the composition
@@ -162,8 +159,7 @@ The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather j
 ## Consequences
 
 - **A slot list is now sufficient to draw a board.** Ten slot lists covering every shape
-  the composer can emit were generated and audited. Clipping 0 on all ten and overlap
-  within the 0.12 lap;
+  the composer can emit were generated and audited. Clipping 0 and overlap 0 on all ten;
   anchor parity by drawn area 1.000 on all ten, against 1.654 for the same board sized by
   container width; weakest half 0.144 ink coverage, strongest 0.357.
 - **The ink-parity residual is the price of a style-invariant metric.** Within the

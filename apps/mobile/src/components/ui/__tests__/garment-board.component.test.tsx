@@ -161,7 +161,7 @@ test('a rising board starts one large step below at zero opacity and adds no nod
 // ADR 0020: content arrives in reading order. The pieces rise one by one in the board's
 // reading order, whatever order the outfit lists them in, each one stagger step after the
 // piece before it, each with its shadow; the layers stack in the dressing order, so the outer
-// layer, read before the mid layer, still lies over it.
+// layer, read before the mid layer, is still drawn after it.
 test('a rising board staggers its pieces in reading order and stacks them in dressing order', async () => {
   const layered: readonly GarmentBoardPiece[] = [
     { slot: 'footwear', garmentTypeId: 'ankle_boots', category: 'footwear' },
