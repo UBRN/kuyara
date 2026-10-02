@@ -66,57 +66,6 @@ import {
 } from '@/presentation/format-temperature';
 import type { AtmosphereState } from '@/theme/theme';
 
-const DETAIL_CAPTION_GAP = 7;
-const DETAIL_CORE_CAP = 0.42;
-const DETAIL_RAIL_CAP = 0.30;
-
-type DetailBoardBox = Readonly<{
-  slot: OutfitSlot;
-  garmentTypeId: GarmentTypeId;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}>;
-
-export type DetailCaptionLayout = Readonly<{
-  left: number;
-  top: number;
-  width: number;
-}>;
-
-export function createDetailCaptionLayout(
-  box: DetailBoardBox,
-  boardWidth: number,
-): DetailCaptionLayout {
-  const cap = boardWidth * (
-    box.slot === 'mid_layer' || box.slot === 'outer_layer'
-      ? DETAIL_RAIL_CAP
-      : DETAIL_CORE_CAP
-  );
-  const centeredLeft = box.x + box.width / 2 - cap / 2;
-
-  return {
-    left: Math.min(Math.max(0, centeredLeft), boardWidth - cap),
-    top: box.y + box.height + DETAIL_CAPTION_GAP,
-    width: cap,
-  };
-}
-
-/** The ownership badge on a board piece: a 28-point disc. */
-export const DETAIL_BADGE_SIZE = 28;
-const DETAIL_BADGE_LIFT = 4;
-
-/**
- * The badge overhangs a piece's top right corner, which a garment leaves empty. A piece
- * shorter than the badge (a flat shoe) fills that corner, so its badge stands just above it.
- */
-export function createDetailBadgeLayout(box: DetailBoardBox): Readonly<{ left: number; top: number }> {
-  return box.height < DETAIL_BADGE_SIZE
-    ? { left: box.x + box.width - DETAIL_BADGE_SIZE, top: box.y - DETAIL_BADGE_SIZE - DETAIL_BADGE_LIFT }
-    : { left: box.x + box.width - DETAIL_BADGE_SIZE * 2 / 3, top: box.y - DETAIL_BADGE_SIZE / 3 };
-}
-
 type LocalizedOutfitPiece = Readonly<{
   slot: string;
   item: string;

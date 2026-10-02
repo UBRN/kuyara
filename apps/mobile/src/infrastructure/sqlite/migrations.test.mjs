@@ -2010,7 +2010,7 @@ test('a failed version 22 migration rolls back and leaves version 21 intact', as
 // version 19) and build 16's schema 22 both keep the profile row and its dependent rows
 // unchanged, gain the flag unset, and end with the schema a fresh install produces.
 for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-schema-22.sql', 22]]) {
-  test(`${fixture} upgrades to version 23 with the swipe hint unset and the profile intact`, async (t) => {
+  test(`${fixture} upgrades to the latest version with the swipe hint unset and the profile intact`, async (t) => {
     const database = new NodeSqliteDatabase();
     const fresh = new NodeSqliteDatabase();
     t.after(() => { database.close(); fresh.close(); });
@@ -2255,7 +2255,7 @@ test('build-17-schema-23.sql upgrades to version 24 with every row intact and wo
     [['2026-09-30', null], ['2026-09-29', null]]);
   assert.equal(days[0].photoPath, `kuyara/history/photos/${wornIds[0]}.jpg`);
   const colors = { primary_top: 'ecru', bottom: 'indigo', outer_layer: 'rainyellow', footwear: 'white', handheld: 'black' };
-  const logged = await repo.log('stable-profile-id', '2026-10-01', JSON.parse(historyOutfit('t_shirt')), undefined, colors);
+  const logged = await repo.log('stable-profile-id', '2026-10-01', JSON.parse(historyOutfit('t_shirt')), { kind: 'keep' }, colors);
   assert.deepEqual(logged.pieceColors, colors);
 
   await migrateDatabase(new NodeSqliteDatabase(database.database));

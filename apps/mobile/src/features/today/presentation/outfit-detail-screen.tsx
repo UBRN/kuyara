@@ -522,7 +522,7 @@ export function OutfitDetailScreen({
       </AppText>
     </View>
   );
-  // Where the board's plate shows (the dark appearance), the hint keeps off its edge.
+  // Where the board's plate shows (the dark appearance), the hint and the names keep off its edge.
   const plateShown = theme.colors.garmentGround !== theme.colors.background;
   const boardHint = (
     <View style={plateShown && styles.hintOnPlate} testID="outfit-detail-edit-hint">
@@ -544,7 +544,7 @@ export function OutfitDetailScreen({
       onLayout={({ nativeEvent }) => {
         if (nativeEvent.layout.height !== nameRowHeight) setNameRowHeight(nativeEvent.layout.height);
       }}
-      style={[styles.nameRow, { top: nameRowTop }]}
+      style={[styles.nameRow, plateShown && styles.nameRowOnPlate, { top: nameRowTop }]}
       testID="outfit-detail-names">
       {namedPieces.map(renderName)}
     </View>
@@ -1027,6 +1027,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.xs,
+  },
+  nameRowOnPlate: {
+    paddingHorizontal: spacing.md,
   },
   hintOnPlate: {
     paddingBottom: spacing.md,

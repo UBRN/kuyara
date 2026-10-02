@@ -16,7 +16,7 @@ import {
 import { dateTimeFormat } from '@/domain/intl-format';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { archetypeLabel } from '@/features/recommendation/application/recommendation-application-controller';
-import { accessoryOutfitSlots, outfitSlots } from '@/features/recommendation/domain/outfit-composition';
+import { outfitSlots } from '@/features/recommendation/domain/outfit-composition';
 import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import { localeTag } from '@/localization/locale-tag';
 import type { AppMessages } from '@/localization/messages';
@@ -59,7 +59,7 @@ const dayDate = (dayKey: string) => new Date(`${dayKey}T12:00:00.000Z`);
 // day, the same every time. One object per entry lets the board skip composing again on a
 // re-render; the entry, not its outfit, is the key, because the colours belong to it.
 const boards = new WeakMap<HistoryEntry, HistoryBoard>();
-function historyBoard(entry: HistoryEntry): HistoryBoard {
+export function historyBoard(entry: HistoryEntry): HistoryBoard {
   const kept = boards.get(entry);
   if (kept) return kept;
   const { garments, formality } = entry.outfit;
@@ -76,7 +76,7 @@ function historyBoard(entry: HistoryEntry): HistoryBoard {
       condition: 'cloudy',
       isNight: false,
       formality,
-      pieces: [...outfitSlots, ...accessoryOutfitSlots].flatMap((slot) => {
+      pieces: outfitSlots.flatMap((slot) => {
         const id = garments[slot];
         return id ? [{ slot, garmentTypeId: id, recordedSwatchId: entry.pieceColors?.[slot] }] : [];
       }),

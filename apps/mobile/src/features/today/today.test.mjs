@@ -8,8 +8,6 @@ import {
   todayWeatherSnapshot,
 } from './__tests__/fixtures.ts';
 import {
-  createDetailBadgeLayout,
-  createDetailCaptionLayout,
   createTodayPresentation,
   formatDressingDate,
 } from './presentation/today-presentation.ts';
@@ -544,23 +542,6 @@ test('detail reasoning groups garments by requirement and localizes trade-offs a
   );
 });
 
-test('detail caption geometry centers each cap on the piece axis and clamps it inside the board', () => {
-  assert.deepEqual(
-    createDetailCaptionLayout(
-      { slot: 'one_piece', garmentTypeId: 'dress', x: 100, y: 20, width: 80, height: 100 },
-      360,
-    ),
-    { left: 64.4, top: 127, width: 151.2 },
-  );
-  assert.deepEqual(
-    createDetailCaptionLayout(
-      { slot: 'outer_layer', garmentTypeId: 'rain_jacket', x: 330, y: 30, width: 30, height: 70 },
-      360,
-    ),
-    { left: 252, top: 107, width: 108 },
-  );
-});
-
 test('an unavailable recommendation keeps the loaded weather presentation and exposes local no-outfit copy', () => {
   const english = loadedPresentation(unavailableRecommendationState());
   const turkish = loadedPresentation(unavailableRecommendationState(), 'tr');
@@ -960,14 +941,3 @@ test('a weather update that leaves the outfits alone hands each board the pieces
   assert.equal(warmer[0].palette.temperatureC, todayScreenState.snapshot.weather.current.temperatureCelsius + 9);
 });
 
-test('a detail badge overhangs a garment\'s corner and stands above a piece shorter than itself', () => {
-  assert.deepEqual(
-    createDetailBadgeLayout({ slot: 'one_piece', garmentTypeId: 'dress', x: 100, y: 20, width: 80, height: 100 }),
-    { left: 180 - 28 * 2 / 3, top: 20 - 28 / 3 },
-  );
-  // A loafer 52 points long and 20 tall: the badge clears it entirely.
-  const loafer = { slot: 'footwear', garmentTypeId: 'loafers', x: 240, y: 200, width: 52, height: 20 };
-  const badge = createDetailBadgeLayout(loafer);
-  assert.ok(badge.top + 28 <= loafer.y);
-  assert.equal(badge.left + 28, loafer.x + loafer.width);
-});
