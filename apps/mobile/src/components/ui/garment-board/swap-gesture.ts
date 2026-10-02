@@ -32,6 +32,46 @@ export type SwapBox = Readonly<{ x: number; y: number; w: number; h: number }>;
 
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(value, high));
 
+const holds = (box: SwapBox, x: number, y: number) =>
+  x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h;
+
+/** A box grown about its centre to at least `minimum` on each side: a touch target. */
+export function swapTouchBox(box: SwapBox, minimum: number): SwapBox {
+  const w = Math.max(box.w, minimum);
+  const h = Math.max(box.h, minimum);
+  return { x: box.x - (w - box.w) / 2, y: box.y - (h - box.h) / 2, w, h };
+}
+
+/**
+ * The piece a tap names on the worn board, whose pieces overlap (ADR 0026 section 3). The pieces come
+ * in the order the board draws them, back to front. A name button under the board names its
+ * piece; on the board the tap goes to the piece drawn on top where it lands, as the eye sees
+ * it, and only a tap on no drawn box goes to the nearest piece whose touch box holds it.
+ */
+export function swapHitSlot<Slot>(
+  stack: readonly Readonly<{ slot: Slot; box: SwapBox; button?: SwapBox | null }>[],
+  x: number,
+  y: number,
+  minimum: number,
+): Slot | null {
+  const named = stack.find(({ button }) => button && holds(button, x, y));
+  if (named) return named.slot;
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    if (holds(stack[index].box, x, y)) return stack[index].slot;
+  }
+  let hit: Slot | null = null;
+  let nearest = Infinity;
+  for (const { slot, box } of stack) {
+    if (!holds(swapTouchBox(box, minimum), x, y)) continue;
+    const distance = Math.hypot(x - (box.x + box.w / 2), y - (box.y + box.h / 2));
+    if (distance < nearest) {
+      nearest = distance;
+      hit = slot;
+    }
+  }
+  return hit;
+}
+
 /** A box scaled about its centre: a stepped-back piece. */
 export function swapScaledBox(box: SwapBox, scale: number): SwapBox {
   const w = box.w * scale;

@@ -40,6 +40,7 @@ import {
   drawnExtent,
   easierToSeeRule,
   fitTodayStage,
+  footwearPairDrawing,
   garmentShadowOf,
   garmentShadowRule,
   placeOnRunway,
@@ -54,7 +55,7 @@ import {
 } from './garment-palette';
 import { resolveGarmentSilhouette } from './garment-silhouette-map';
 
-export { composeGarmentBoard } from './compose-garment-board';
+export { composeGarmentBoard, garmentBoardDressingOrder } from './compose-garment-board';
 
 export type GarmentBoardPiece = Readonly<{
   slot: OutfitSlot;
@@ -304,6 +305,45 @@ export function useGarmentCandidateRoles(
   }));
 }
 
+// One shoe drawing per shoe silhouette: every composition makes a new footwear piece, and a
+// drawing whose silhouette keeps its identity is not painted again.
+const pairShoes = new WeakMap<object, ComposedPiece>();
+function pairShoeOf(piece: ComposedPiece, single: NonNullable<ComposedPiece['single']>) {
+  const known = pairShoes.get(single);
+  if (known) return known;
+  const shoe = { ...piece, bounds: single } as ComposedPiece;
+  pairShoes.set(single, shoe);
+  return shoe;
+}
+
+/**
+ * One composed piece's drawing, in its drawing units: a board's footwear is its one shoe
+ * drawn twice as a pair (ADR 0025 section 2), far shoe first, each at the pair's scale.
+ */
+function BoardPainting({ piece, scale, ...props }: Readonly<{
+  piece: ComposedPiece;
+  scale: number;
+  ink: string;
+  lod: ReturnType<typeof garmentLevelOfDetail>;
+  outline?: number;
+  layer?: 'all' | 'fill' | 'outline';
+  roles: GarmentRoles;
+}>) {
+  const { single } = piece;
+  if (!single) return <GarmentPainting {...props} scale={scale} silhouette={piece} />;
+  const pair = footwearPairDrawing(single);
+  const shoe = pairShoeOf(piece, single);
+  return (
+    <G>
+      {pair.shoes.map(({ dx, dy }, index) => (
+        <G key={index === 0 ? 'far' : 'near'} transform={`translate(${dx} ${dy}) scale(${pair.scale})`}>
+          <GarmentPainting {...props} scale={scale * pair.scale} silhouette={shoe} />
+        </G>
+      ))}
+    </G>
+  );
+}
+
 /** A piece's soft shadow in points (ADR 0025 section 9), and its colour. */
 export type PieceShadow = ReturnType<typeof garmentShadowOf> & Readonly<{ color: string }>;
 
@@ -342,14 +382,14 @@ function ShadowedPainting({
   const scale = box.w / piece.bounds.width;
   const painting = (
     <G transform={`translate(${box.x - piece.bounds.x * scale} ${box.y - piece.bounds.y * scale}) scale(${scale})`}>
-      <GarmentPainting
+      <BoardPainting
         ink={ink}
         layer={layer}
         lod={garmentLevelOfDetail(Math.max(box.w, box.h))}
         outline={outline}
+        piece={piece}
         roles={roles}
         scale={scale}
-        silhouette={piece}
       />
     </G>
   );
@@ -440,14 +480,14 @@ export function PieceArtwork({
       preserveAspectRatio="none"
       viewBox={`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`}
       width={width}>
-      <GarmentPainting
+      <BoardPainting
         ink={ink}
         layer={layer}
         lod={garmentLevelOfDetail(Math.max(width, height))}
         outline={outline}
+        piece={piece}
         roles={roles}
         scale={width / bounds.width}
-        silhouette={piece}
       />
     </Svg>
   );

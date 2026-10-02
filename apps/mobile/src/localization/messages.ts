@@ -1515,7 +1515,7 @@ const en = {
       similar: 'Similar one in your\u00a0Closet',
       wanted: 'In your wanted\u00a0pieces',
     },
-    boardHint: 'Tap a piece, then swipe to change it.',
+    boardHint: 'Tap a name or a piece, then swipe to change it.',
     editPieceAccessibilityHint: 'Opens this piece in your Closet',
     manualMix: {
       change: 'Change',
@@ -2547,7 +2547,7 @@ const tr = {
       similar: 'Benzeri Gardırobunda',
       wanted: 'İsteklerinde',
     },
-    boardHint: 'Bir parçaya dokun, sonra kaydırarak değiştir.',
+    boardHint: 'Bir ada ya da parçaya dokun, sonra kaydırarak değiştir.',
     editPieceAccessibilityHint: 'Bu parçayı Gardırobunda açar',
     manualMix: {
       change: 'Değiştir',

@@ -5,8 +5,6 @@ import {
   StyleSheet,
   useWindowDimensions,
   View,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
 import Animated, {
   useAnimatedRef,
@@ -29,6 +27,7 @@ import {
   Entrance,
   GarmentSwapBoard,
   GarmentTileArtwork,
+  garmentBoardDressingOrder,
   Icon,
   type GarmentOutfitPalette,
   type IconName,
@@ -55,12 +54,7 @@ import {
   PiecePickerSheet,
   type PiecePickerTarget,
 } from '@/features/today/presentation/piece-picker-sheet';
-import {
-  createDetailBadgeLayout,
-  createDetailCaptionLayout,
-  createTodayPresentation,
-  DETAIL_BADGE_SIZE,
-} from '@/features/today/presentation/today-presentation';
+import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
 import type { TodayScreenState } from '@/features/today/model';
@@ -86,8 +80,8 @@ const ACCESSORY_ARTWORK_SIZE = 28;
 // A piece row's thumbnail, and the smaller drawing of the user's own similar piece.
 const ROW_TILE_SIZE = 56;
 const OWN_TILE_SIZE = 32;
-// The ownership badge's glyph, on a `DETAIL_BADGE_SIZE` disc at a board garment's corner.
-const BADGE_GLYPH_SIZE = 16;
+// The Closet mark in a name button, at Law 6's caption step.
+const NAME_MARK_SIZE = 16;
 const SWATCH_DOT_SIZE = 16;
 // A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
 const OUTSIDE_TAP_SLOP = 10;
@@ -103,6 +97,8 @@ const matchIcons: Readonly<Record<Exclude<PieceOwnershipMatch['kind'], 'none'>, 
  * read yet (`unknown`). One record per dressing day (ADR 0038).
  */
 export type OutfitWornState = 'this' | 'other' | 'none' | 'unknown';
+
+type NameRect = Readonly<{ x: number; y: number; w: number; h: number }>;
 
 type OutfitDetailScreenProps = Readonly<{
   state: TodayScreenState;
@@ -206,26 +202,6 @@ function FadeOut({ onDone, children }: Readonly<{ onDone: () => void; children: 
   );
 }
 
-/**
- * An ownership badge that lands on the board after the screen opened fades in on `fast`
- * (effects motion; a spatial grow would need a spring role, which only `components/ui`
- * consumes). A badge there on opening is drawn at rest.
- */
-function BadgeArrival({
-  animate,
-  children,
-  style,
-  testID,
-}: Readonly<{ animate: boolean; children: ReactNode; style: StyleProp<ViewStyle>; testID: string }>) {
-  const theme = useKuyaraTheme();
-  const opacity = useSharedValue(animate ? 0 : 1);
-  useEffect(() => {
-    opacity.set(withTiming(1, { duration: theme.motion.fast }));
-  }, [opacity, theme.motion.fast]);
-  const arrival = useAnimatedStyle(() => ({ opacity: opacity.get() }));
-  return <Animated.View style={[style, arrival]} testID={testID}>{children}</Animated.View>;
-}
-
 type WornControl = 'state' | 'action';
 
 export function OutfitDetailScreen({
@@ -248,9 +224,11 @@ export function OutfitDetailScreen({
   // The worn state takes the large button's box, so the swap moves nothing below it.
   const wornBox = useButtonBox('large');
   const { hour12, temperatureUnit } = useLocalization();
-  const { fontScale, stacksButtonPair, usesStackedLayout } = useTextScaling();
+  const { stacksButtonPair } = useTextScaling();
   const [contentWidth, setContentWidth] = useState(0);
-  const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
+  // ADR 0026 section 3: the name buttons under the board, measured in the row, and the row's height.
+  const [nameRects, setNameRects] = useState<Readonly<Partial<Record<OutfitSlot, NameRect>>>>({});
+  const [nameRowHeight, setNameRowHeight] = useState<number | null>(null);
   const [completions, setCompletions] = useState(0);
   const [focusedSlot, setFocusedSlot] = useState<OutfitSlot | null>(null);
   const [pickerSlot, setPickerSlot] = useState<SwappableSlot | null>(null);
@@ -300,18 +278,10 @@ export function OutfitDetailScreen({
   const boardLayout = useMemo(() => suggestion
     ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail', easierToSeeOn)
     : { height: 0, boxes: [] }, [contentWidth, easierToSeeOn, suggestion]);
-  const initialCaptionHeight = theme.typography.body.lineHeight * fontScale * 2;
-  // Above 1.5 the captions leave the board and the piece rows alone name the pieces, so the
-  // plate is exactly the board and nothing has to be reserved for text inside it.
-  const plateHeight = usesStackedLayout
-    ? boardLayout.height
-    : Math.max(
-        boardLayout.height,
-        ...boardLayout.boxes.map((box) => {
-          const caption = createDetailCaptionLayout(box, contentWidth);
-          return caption.top + (captionHeights[box.slot] ?? initialCaptionHeight);
-        }),
-      );
+  // The plate is the board and, under it, its row of name buttons (ADR 0026 section 3): no name is
+  // drawn over a garment, so the worn board's pieces may overlap.
+  const nameRowTop = boardLayout.height + spacing.sm;
+  const plateHeight = nameRowTop + (nameRowHeight ?? layout.minimumTouchTarget);
 
   const entries = useMemo(() => suggestion && palette ? pieceEntries(suggestion, palette, wardrobeItems, copy) : [],
     [copy, palette, suggestion, wardrobeItems]);
@@ -371,9 +341,6 @@ export function OutfitDetailScreen({
     setWornSwap({ current: wornShown, previous: wornSwap.current, previousBusy: wornBusy, changes: wornSwap.changes + 1 });
   }
   const clearWornPrevious = useCallback(() => setWornSwap((value) => ({ ...value, previous: null })), []);
-  // A badge that arrives after opening (a piece marked owned, the Closet loading) lands.
-  const [openingWardrobe] = useState(wardrobeItems);
-  const badgesArrive = wardrobeItems !== openingWardrobe;
   const unusual = changed && (manualMix?.unusual ?? false);
   const wasUnusual = useRef(unusual);
   // A board tile or swipe waits here until the change it asked for has rendered.
@@ -503,61 +470,38 @@ export function OutfitDetailScreen({
     });
   };
 
-  const captionLayouts = new Map(boardLayout.boxes.map((box) => [box.slot, createDetailCaptionLayout(box, contentWidth)]));
-  const captionRects = Object.fromEntries(boardLayout.boxes.map((box) => {
-    const caption = captionLayouts.get(box.slot)!;
-    return [box.slot, {
-      x: caption.left, y: caption.top, w: caption.width, h: captionHeights[box.slot] ?? initialCaptionHeight,
-    }];
-  }));
-  const renderCaption = (box: (typeof boardLayout.boxes)[number]) => {
-    const entry = entryFor(box.garmentTypeId);
+  // Each name button's rectangle in board points: a tap on it enlarges its piece on the board.
+  const captionRects = Object.fromEntries(Object.entries(nameRects).map(([slot, rect]) => [slot, {
+    x: rect.x, y: nameRowTop + rect.y, w: rect.w, h: rect.h,
+  }]));
+  // The names read in the order the outfit is put on, the order the board stacks its pieces.
+  const namedPieces = [...suggestion.boardPieces].sort((a, b) =>
+    garmentBoardDressingOrder.indexOf(a.slot) - garmentBoardDressingOrder.indexOf(b.slot));
+  const renderName = ({ slot, garmentTypeId }: (typeof suggestion.boardPieces)[number]) => {
+    const entry = entryFor(garmentTypeId);
     if (!entry) return null;
     return (
       <View
-        key={`caption-${box.slot}`}
-        style={[styles.captionPosition, captionLayouts.get(box.slot)]}
-        testID={`outfit-detail-caption-${box.garmentTypeId}`}>
-        <View
-          onLayout={({ nativeEvent }) => {
-            const height = nativeEvent.layout.height;
-            if (captionHeights[box.slot] === height) return;
-            setCaptionHeights((current) => ({ ...current, [box.slot]: height }));
-          }}
-          style={styles.caption}
-          testID={`outfit-detail-caption-content-${box.garmentTypeId}`}>
-          <AppText style={styles.captionText} variant="bodyStrong">{entry.piece.item}</AppText>
-          {entry.piece.changed ? (
-            <AppText colorRole="brandAccent" style={styles.captionText} variant="caption">
-              {copy.manualMix.changed}
-            </AppText>
-          ) : null}
-          {/* The badge on the piece is its glyph; the caption says it in words (Law 4). */}
-          {entry.match.kind !== 'none' ? (
-            <AppText colorRole="textSecondary" style={styles.captionText}
-              testID={`outfit-detail-caption-state-${box.garmentTypeId}`} variant="caption">
-              {copy.ownershipOnBoard[entry.match.kind]}
-            </AppText>
-          ) : null}
-        </View>
+        key={`name-${slot}`}
+        onLayout={({ nativeEvent: { layout: box } }) => {
+          const rect = nameRects[slot];
+          if (rect && rect.x === box.x && rect.y === box.y && rect.w === box.width && rect.h === box.height) return;
+          setNameRects((current) => ({ ...current, [slot]: { x: box.x, y: box.y, w: box.width, h: box.height } }));
+        }}
+        style={[styles.nameButton, { borderColor: theme.colors.borderDefined }]}
+        testID={`outfit-detail-name-${garmentTypeId}`}>
+        <AppText variant="label">{entry.piece.item}</AppText>
+        {entry.piece.changed ? (
+          <AppText colorRole="brandAccent" variant="caption">{copy.manualMix.changed}</AppText>
+        ) : null}
+        {/* The Closet match in a mark and in words (Law 4). */}
+        {entry.match.kind !== 'none' ? (
+          <View style={styles.nameState} testID={`outfit-detail-name-state-${garmentTypeId}`}>
+            <Icon color={theme.colors.brandAccent} name={matchIcons[entry.match.kind]} size={NAME_MARK_SIZE} />
+            <AppText colorRole="textSecondary" variant="caption">{copy.ownershipOnBoard[entry.match.kind]}</AppText>
+          </View>
+        ) : null}
       </View>
-    );
-  };
-  const renderBadge = (box: (typeof boardLayout.boxes)[number]) => {
-    const entry = entryFor(box.garmentTypeId);
-    if (!entry || entry.match.kind === 'none') return null;
-    return (
-      <BadgeArrival
-        animate={badgesArrive}
-        key={`badge-${box.slot}-${entry.match.kind}`}
-        style={[styles.badge, {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.borderDefined,
-          ...createDetailBadgeLayout(box),
-        }]}
-        testID={`outfit-detail-badge-${box.garmentTypeId}`}>
-        <Icon color={theme.colors.brandAccent} name={matchIcons[entry.match.kind]} size={BADGE_GLYPH_SIZE} />
-      </BadgeArrival>
     );
   };
 
@@ -585,11 +529,17 @@ export function OutfitDetailScreen({
     </>
   );
 
+  // Drawn for the eye: each piece's adjustable element on the board speaks its name and its
+  // Closet state, and the board's own tap reads the buttons' rectangles.
   const boardOverlay = (
-    <>
-      {boardLayout.boxes.map(renderBadge)}
-      {usesStackedLayout ? null : boardLayout.boxes.map(renderCaption)}
-    </>
+    <View
+      onLayout={({ nativeEvent }) => {
+        if (nativeEvent.layout.height !== nameRowHeight) setNameRowHeight(nativeEvent.layout.height);
+      }}
+      style={[styles.nameRow, { top: nameRowTop }]}
+      testID="outfit-detail-names">
+      {namedPieces.map(renderName)}
+    </View>
   );
 
   return (
@@ -1041,23 +991,31 @@ const styles = StyleSheet.create({
   boardPlate: {
     marginTop: spacing.xl,
   },
-  caption: {
-    alignItems: 'center',
-  },
-  captionPosition: {
+  nameRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    left: 0,
     position: 'absolute',
+    right: 0,
   },
-  captionText: {
-    textAlign: 'center',
-  },
-  badge: {
+  nameButton: {
     alignItems: 'center',
-    borderRadius: DETAIL_BADGE_SIZE / 2,
+    borderRadius: radii.pill,
     borderWidth: borderWidths.subtle,
-    height: DETAIL_BADGE_SIZE,
+    flexDirection: 'row',
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    gap: spacing.xs,
     justifyContent: 'center',
-    position: 'absolute',
-    width: DETAIL_BADGE_SIZE,
+    minHeight: layout.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  nameState: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
   boardLine: {
     alignItems: 'center',

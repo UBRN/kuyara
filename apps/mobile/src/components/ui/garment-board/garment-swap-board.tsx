@@ -51,11 +51,13 @@ import {
   swapGrownBox,
   swapGrowScale,
   swapHeldStage,
+  swapHitSlot,
   swapMarkerPosition,
   swapScaledBox,
   swapStageFit,
   swapStride,
   swapStripLayout,
+  swapTouchBox,
   swapWindow,
 } from './swap-gesture';
 import {
@@ -84,9 +86,9 @@ export type { GarmentSwapCandidate } from './swap-reconcile';
 
 // Law 7's completion moment, as in `GarmentBoard`.
 const SETTLE_TRAVEL = spacing.xs;
-// Law 7's dressing: a piece taken off rises one `md` step as it fades on `fast`, and a piece
+// Law 7's dressing: a piece taken off rises one `lg` step as it fades on `fast`, and a piece
 // put on is hung from that height onto its place on the arrival spring.
-const DRESS_LIFT = spacing.md;
+const DRESS_LIFT = spacing.lg;
 
 /** A grow with the strip height and the visible height it was fitted to. */
 type Enlargement = Grow & Readonly<{ panel: number; visible: number }>;
@@ -118,9 +120,12 @@ export type GarmentSwapBoardProps = Readonly<{
   onStep: (slot: OutfitSlot, garmentTypeId: GarmentTypeId, spoken: boolean) => void;
   /** The plate at rest: the composed stage, or the lowest caption under it. */
   restHeight: number;
-  /** Caption rectangles at rest, which also enlarge their piece when tapped. */
+  /**
+   * The name buttons under the board at rest (ADR 0026 section 3), in board points: a tap on one
+   * enlarges its piece exactly as a tap on the piece does.
+   */
   captionRects: Readonly<Partial<Record<OutfitSlot, Box>>>;
-  /** The screen's captions and badges; they step back while a piece is enlarged or moving. */
+  /** The screen's name buttons; they step back while a piece is enlarged or moving. */
   overlay: ReactNode;
   overlayTestID?: string;
   /** The line under the board at rest; the strip takes its place while a piece is enlarged. */
@@ -156,11 +161,6 @@ const lerpBox = (a: Box, b: Box, t: number): Box => {
   'worklet';
   return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), w: lerp(a.w, b.w, t), h: lerp(a.h, b.h, t) };
 };
-const atLeast = (box: Box, minimum: number): Box => {
-  const w = Math.max(box.w, minimum);
-  const h = Math.max(box.h, minimum);
-  return { x: box.x - (w - box.w) / 2, y: box.y - (h - box.h) / 2, w, h };
-};
 const inside = (box: Box, x: number, y: number) =>
   x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h;
 
@@ -174,7 +174,12 @@ function composeInPoints(pieces: readonly GarmentBoardPiece[], width: number, la
     const box = result.boxes.get(piece)!;
     bySlot.set(piece.slot, { piece, box: { x: left + box.x * size, y: box.y * size, w: box.w * size, h: box.h * size } });
   }
-  return { bySlot, order: result.order.map(({ slot }) => slot), height: result.stageHeight * size };
+  return {
+    bySlot,
+    order: result.order.map(({ slot }) => slot),
+    stack: result.stack.map(({ slot }) => slot),
+    height: result.stageHeight * size,
+  };
 }
 
 /**
@@ -1053,36 +1058,24 @@ export function GarmentSwapBoard({
     return () => cancelAnimationFrame(frame);
   }, [focusReturn, focusedSlot]);
   const handleTap = (x: number, y: number) => {
-    if (focusedSlot && pager && composed) {
+    if (!composed) return;
+    const minimum = layout.minimumTouchTarget;
+    if (focusedSlot && pager) {
       // The large piece or empty stage settles; a stepped-back piece takes the enlargement.
-      if (inside(atLeast(pager.grown, layout.minimumTouchTarget), x, y)) {
+      if (inside(swapTouchBox(pager.grown, minimum), x, y)) {
         settleToPiece();
         return;
       }
-      let hit: OutfitSlot | null = null;
-      let nearest = Infinity;
-      for (const slot of composed.order) {
-        if (slot === focusedSlot) continue;
-        const box = swapScaledBox(composed.bySlot.get(slot)!.box, SWAP_STEP_BACK);
-        if (inside(atLeast(box, layout.minimumTouchTarget), x, y)) {
-          const distance = Math.hypot(x - (box.x + box.w / 2), y - (box.y + box.h / 2));
-          if (distance < nearest) { nearest = distance; hit = slot; }
-        }
-      }
+      const hit = swapHitSlot(composed.stack.filter((slot) => slot !== focusedSlot).map((slot) => ({
+        slot, box: swapScaledBox(composed.bySlot.get(slot)!.box, SWAP_STEP_BACK),
+      })), x, y, minimum);
       if (hit) requestFocus(hit);
       else settleToPiece();
       return;
     }
-    let hit: OutfitSlot | null = null;
-    let nearest = Infinity;
-    for (const slot of composed?.order ?? []) {
-      const box = composed!.bySlot.get(slot)!.box;
-      const caption = captionRects[slot];
-      if (inside(atLeast(box, layout.minimumTouchTarget), x, y) || (caption && inside(caption, x, y))) {
-        const distance = Math.hypot(x - (box.x + box.w / 2), y - (box.y + box.h / 2));
-        if (distance < nearest) { nearest = distance; hit = slot; }
-      }
-    }
+    const hit = swapHitSlot(composed.stack.map((slot) => ({
+      slot, box: composed.bySlot.get(slot)!.box, button: captionRects[slot] ?? null,
+    })), x, y, minimum);
     // A tap on the piece it just enlarged, before the enlargement has rendered, shrinks it.
     requestFocus(hit !== null && hit === requestedFocus.get() ? null : hit);
   };
@@ -1244,9 +1237,13 @@ export function GarmentSwapBoard({
   // Before the pieces have arrived the strip is drawn at once, so it is live at once.
   const stripLive = panels.current !== null && focusedSlot === panels.current.slot
     && (liveSlot === focusedSlot || !settled);
+  // The pieces lie in the dressing order, so where two overlap the later lies over the earlier;
+  // the enlarged slot is drawn over them all, so an overlapped piece comes fully into view.
   const drawOrder: Role[] = ['current', 'leaving', 'previous', 'next'];
+  const dressing = composed?.stack ?? [];
   const sortedInstances = [...instances].sort((a, b) =>
     Number(a.slot === focusedSlot) - Number(b.slot === focusedSlot)
+    || dressing.indexOf(a.slot) - dressing.indexOf(b.slot)
     || drawOrder.indexOf(a.role) - drawOrder.indexOf(b.role));
   const stageHeight = focusedSlot && activeGrow ? activeGrow.held : restHeight;
   const stripLabels: GarmentSwapStripLabels = {
@@ -1304,7 +1301,7 @@ export function GarmentSwapBoard({
             const composedBox = composed.bySlot.get(slot)!.box;
             const shownBox = focusedSlot === slot && pager ? pager.grown
               : focusedSlot ? swapScaledBox(composedBox, SWAP_STEP_BACK) : composedBox;
-            const box = atLeast(shownBox, layout.minimumTouchTarget);
+            const box = swapTouchBox(shownBox, layout.minimumTouchTarget);
             const order = candidates[slot] ?? [];
             const position = order.findIndex((c) => c.garmentTypeId === garmentTypeId) + 1;
             const value = labels.pieceValue(labels.pieceName(garmentTypeId), position, order.length);

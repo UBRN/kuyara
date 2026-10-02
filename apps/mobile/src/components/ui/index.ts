@@ -70,6 +70,7 @@ export { useTransitionLanded } from './use-transition-landed';
 
 export {
   GarmentBoard,
+  garmentBoardDressingOrder,
   layoutGarmentBoard,
   measureGarmentBoardHeight,
   useGarmentCandidateRoles,
