@@ -32,6 +32,7 @@ import { WardrobeCategoryChip } from '@/features/wardrobe/presentation/wardrobe-
 import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import { useMessages } from '@/localization/use-messages';
 import { layout, spacing } from '@/theme/theme';
+import { OnPlate, PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // O10, "What is it?": the type is chosen inline, in two levels, instead of in a sheet over
@@ -150,10 +151,11 @@ export function GarmentTypePicker({
   if (selectedType && !expanded) {
     return (
       <Animated.View style={[styles.row, rowStyle]} testID="wardrobe-type-row">
-        <View
+        <PlateView
           accessibilityElementsHidden
+          color={theme.colors.garmentTile}
           importantForAccessibility="no-hide-descendants"
-          style={[styles.rowTile, { backgroundColor: theme.colors.surfaceMuted }]}>
+          style={styles.rowTile}>
           <GarmentDrawing
             category={selectedType.structuralCategory}
             colorFamily={colorFamily}
@@ -161,7 +163,7 @@ export function GarmentTypePicker({
             size={ROW_TILE_SIZE - spacing.md * 2}
             testID="wardrobe-type-row-drawing"
           />
-        </View>
+        </PlateView>
         <View style={styles.rowCopy}>
           <AppText testID="wardrobe-type-row-name" variant="bodyStrong">
             {messages.catalog[selectedType.nameKey]}
@@ -216,19 +218,21 @@ export function GarmentTypePicker({
               onPress={() => changeCategory(structuralCategory)}
               style={[
                 styles.categoryTile,
-                { backgroundColor: theme.colors.surfaceMuted, width: tileSize },
+                { backgroundColor: theme.colors.garmentTile, width: tileSize },
               ]}
               testID={`wardrobe-type-category-tile-${structuralCategory}`}>
-              <GarmentDrawing
-                category={structuralCategory}
-                colorFamily={artworkColor}
-                garmentTypeId={artworkTypeId}
-                size={CATEGORY_DRAWING_SIZE}
-                testID={`wardrobe-type-category-drawing-${structuralCategory}`}
-              />
-              <AppText numberOfLines={2} style={styles.centeredText} variant="label">
-                {label}
-              </AppText>
+              <OnPlate color={theme.colors.garmentTile}>
+                <GarmentDrawing
+                  category={structuralCategory}
+                  colorFamily={artworkColor}
+                  garmentTypeId={artworkTypeId}
+                  size={CATEGORY_DRAWING_SIZE}
+                  testID={`wardrobe-type-category-drawing-${structuralCategory}`}
+                />
+                <AppText numberOfLines={2} style={styles.centeredText} variant="label">
+                  {label}
+                </AppText>
+              </OnPlate>
             </PressScale>
           );
         })}

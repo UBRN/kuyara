@@ -1,8 +1,10 @@
 import { act, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
+import { processColor } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { garmentRolesBySlot } from '@/components/ui/garment-board/garment-palette';
 import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
@@ -38,12 +40,12 @@ jest.mock('expo-router', () => {
 // eslint-disable-next-line import/first
 import HistoryRoute from '@/app/(tabs)/(profile)/history';
 // eslint-disable-next-line import/first
-import { HistoryScreen } from '@/features/profile/presentation/history-screen';
+import { HistoryScreen, historyBoard } from '@/features/profile/presentation/history-screen';
 
 function record(dayKey: string, archetypeId: OutfitHistoryRecord['outfit']['archetypeId'],
   formality: OutfitHistoryRecord['outfit']['formality']): OutfitHistoryRecord {
   return {
-    id: `id-${dayKey}`, localProfileId: 'profile-one', dayKey, photoPath: null,
+    id: `id-${dayKey}`, localProfileId: 'profile-one', dayKey, photoPath: null, pieceColors: null,
     outfit: { garments: { primary_top: 't_shirt', bottom: 'jeans', footwear: 'sneakers' },
       archetypeId, formality, source: 'recommended' },
     wornAt: `${dayKey}T08:00:00.000Z`, createdAt: `${dayKey}T08:00:00.000Z`,
@@ -202,7 +204,7 @@ test('a transient read failure on refocus keeps the list already loaded', async 
 // refocus that finds a new day brings in that entry alone.
 test('History arrives in reading order and a new day arrives alone', async () => {
   const withDelay = jest.spyOn(Reanimated, 'withDelay');
-  const entry = (dayKey: string) => ({ dayKey, outfit: record(dayKey, 'layered_warmth', 'casual').outfit });
+  const entry = (dayKey: string) => ({ dayKey, outfit: record(dayKey, 'layered_warmth', 'casual').outfit, pieceColors: null });
   const screen = (entries: ReturnType<typeof entry>[]) => (
     <Providers language="en" list={async () => []}>
       <HistoryScreen entries={entries} loadFailed={false} />
@@ -218,4 +220,55 @@ test('History arrives in reading order and a new day arrives alone', async () =>
   await result.rerender(screen([entry('2026-09-24'), entry('2026-09-23'), entry('2026-09-21')]));
   expect(delays()).toEqual([0, 0]);
   withDelay.mockRestore();
+});
+
+// Migration 24 and decision D (option 1): a day recorded with its colours is drawn in the
+// swatches it was seen in; a day recorded before has none and keeps the fixed scheme.
+test('a day recorded with its colours is drawn in them, an older day in the fixed scheme', async () => {
+  const insideClip = (node: { parent: unknown }): boolean => {
+    for (let at = node.parent as { type: unknown; parent: unknown } | null; at; at = at.parent as typeof at) {
+      if (String(at.type).includes('ClipPath')) return true;
+    }
+    return false;
+  };
+  const outfit = record('2026-09-23', 'layered_warmth', 'casual').outfit;
+  const pieceColors = { primary_top: 'burgundy', bottom: 'blackdenim', footwear: 'black' } as const;
+  const fills = async (colors: typeof pieceColors | null) => {
+    const result = await render(
+      <Providers language="en" list={async () => []}>
+        <HistoryScreen entries={[{ dayKey: '2026-09-23', outfit, pieceColors: colors }]} loadFailed={false} />
+      </Providers>,
+    );
+    const drawn = new Set(result.getByTestId('history-entry-board-2026-09-23', { includeHiddenElements: true })
+      .queryAll((node) => typeof node.props.d === 'string' && node.props.fill != null && node.props.fill !== 'none'
+        && !insideClip(node))
+      .map((node) => JSON.stringify(node.props.fill)));
+    result.unmount();
+    return drawn;
+  };
+  const roles = garmentRolesBySlot({
+    optionId: 'history-2026-09-23', temperatureC: 18, condition: 'cloudy', isNight: false, formality: 'casual',
+    pieces: (['primary_top', 'bottom', 'footwear'] as const).map((slot) => ({
+      slot, garmentTypeId: outfit.garments[slot]!, recordedSwatchId: pieceColors[slot] })),
+    appearance: 'light', stageColor: lightTheme.colors.surfaceMuted,
+    accessoryStageColor: lightTheme.colors.background, inkColor: lightTheme.colors.textPrimary,
+  });
+  const paint = (hex: string) => JSON.stringify({ type: 0, payload: processColor(hex) });
+
+  const coloured = await fills(pieceColors);
+  for (const slot of ['primary_top', 'bottom', 'footwear'] as const) {
+    expect(coloured.has(paint(roles.get(slot)!.main))).toBe(true);
+  }
+  const fixed = await fills(null);
+  expect([...fixed].sort()).not.toEqual([...coloured].sort());
+  expect(fixed.has(paint(roles.get('primary_top')!.main))).toBe(false);
+});
+
+test('a worn day with an accessory names each slot once in its palette', () => {
+  const day = record('2026-09-24', 'rain_ready', 'smart');
+  const outfit = { ...day.outfit, garments: { ...day.outfit.garments, head: 'beanie' } } as const;
+  const { palette } = historyBoard({ dayKey: day.dayKey, outfit, pieceColors: null });
+  const slots = palette.pieces.map(({ slot }) => slot);
+  expect(slots).toEqual([...new Set(slots)]);
+  expect(slots).toContain('head');
 });

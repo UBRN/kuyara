@@ -20,6 +20,7 @@ import type {
 import { useLocalization } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // A 9:16 card, a story's shape: 1080 by 1920 pixels on a 3x screen.
@@ -110,9 +111,9 @@ export function OutfitShareCard({
           <AppText numberOfLines={2} variant="title">{suggestion.title}</AppText>
         </View>
         <View style={styles.middle}>
-          <View
+          <PlateView
+            color={theme.atmosphere[presentation.atmosphere]}
             style={[styles.stage, {
-              backgroundColor: theme.atmosphere[presentation.atmosphere],
               height: measureGarmentBoardHeight(suggestion.boardPieces, BOARD_WIDTH, 'today', true, easierToSee),
             }]}>
             <GarmentBoard
@@ -125,7 +126,7 @@ export function OutfitShareCard({
               stageColor={theme.atmosphere[presentation.atmosphere]}
               width={BOARD_WIDTH}
             />
-          </View>
+          </PlateView>
           <View style={styles.row}>
             <AppText tabularNumbers variant="bodyStrong">{titleParts.beforeSymbol}</AppText>
             <Icon color={theme.condition[conditionStyle.ink]} name={conditionStyle.shape} size={WEATHER_SYMBOL_SIZE} />

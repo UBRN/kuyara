@@ -22,6 +22,7 @@ import {
   sameWornGarments,
   wornOutfitFrom,
   type WornOutfit,
+  type WornPieceColors,
 } from '@/features/recommendation/domain/outfit-history';
 import {
   OutfitDetailScreen,
@@ -199,23 +200,24 @@ export default function OutfitDetailRoute() {
     ? 'unknown'
     : dayWorn.outfit === null ? 'none'
       : sameWornGarments(dayWorn.outfit, thisWorn) ? 'this' : 'other';
-  const logWorn = () => {
+  const logWorn = (pieceColors: WornPieceColors) => {
     if (!dayKey || !thisWorn || !outfitHistory) return;
     setWornBusy(true);
-    void outfitHistory.log(dayKey, thisWorn)
+    void outfitHistory.log(dayKey, thisWorn, pieceColors)
       .then((record) => setWornGarments({ key: dayKey, outfit: record.outfit }))
       .catch(() => setWornError(messages.today.wornSaveError))
       .finally(() => setWornBusy(false));
   };
   // Idempotent per dressing day: the day's row is read again at the tap, the same look is
-  // never written twice, and another look replaces it only after the reader confirms.
-  const onWoreThis = () => {
+  // never written twice, and another look replaces it only after the reader confirms. The
+  // colours are the ones the detail board drew, so History draws the day as it was seen.
+  const onWoreThis = (pieceColors: WornPieceColors) => {
     if (!dayKey || !thisWorn || !outfitHistory || wornBusy) return;
     setWornBusy(true);
     setWornError(null);
     void outfitHistory.get(dayKey).then((record) => {
       setWornBusy(false);
-      if (!record) { logWorn(); return; }
+      if (!record) { logWorn(pieceColors); return; }
       setWornGarments({ key: dayKey, outfit: record.outfit });
       if (sameWornGarments(record.outfit, thisWorn)) return;
       showWardrobeConfirmation({
@@ -225,7 +227,7 @@ export default function OutfitDetailRoute() {
         confirmLabel: messages.today.wornReplaceConfirm,
         destructive: true,
         colorScheme: theme.colorScheme,
-      }, logWorn);
+      }, () => logWorn(pieceColors));
     }, () => {
       setWornBusy(false);
       setWornError(messages.today.wornSaveError);

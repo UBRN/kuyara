@@ -19,7 +19,7 @@ export default function HistoryRoute() {
     void outfitHistory.list().then(
       (records) => {
         if (!live) return;
-        setEntries(records.map(({ dayKey, outfit }) => ({ dayKey, outfit })));
+        setEntries(records.map(({ dayKey, outfit, pieceColors }) => ({ dayKey, outfit, pieceColors })));
         setLoadFailed(false);
       },
       () => { if (live) setLoadFailed(true); },

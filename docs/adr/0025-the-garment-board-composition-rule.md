@@ -65,13 +65,21 @@ Anchors 1.00, `outer_layer` 0.74, `mid_layer` 0.56, as multipliers on the core m
 ratios span 2.86 for a sneaker to 0.94 for an ankle boot and the metric flatters a wide
 flat shape. A shoe is recognised by the length of its profile.
 
-### 3. Today lays the outfit out as worn; the detail opens it
+**A board draws its footwear as a pair**, the way a flat lay shows shoes: the near shoe
+whole, the far one behind it, 0.30 of a shoe's length toward the toe and raised so the pair
+stands exactly one shoe tall, each shoe 0.86 of the single shoe the width rule sizes, with
+the near heel 0.04 of a shoe behind the single shoe's. The pair is about 1.12 single shoes
+wide and one tall, so its footprint stays near one shoe's. The composer reads the pair's
+drawn bounds, so its centroid, side margins, drawn extent and stage see the pair; both shoes
+share one shadow. A Closet tile, the type grid and a category glyph draw one shoe.
+
+### 3. Every board lays the outfit out as worn
 
 One parameter, the **lap**, decides how close the pieces lie: the most of a covered
 piece's drawn extent, on the side another piece enters from, that the other piece may
 cover.
 
-**Today draws the worn board, with a lap of 0.12**, so an outfit reads as one combination
+**Every board is the worn board, with a lap of 0.12**, so an outfit reads as one combination
 laid out flat rather than as separate pieces in boxes. The body core is one column, the
 bottom's waist lying over the top's hem as if tucked in; the footwear stands at the core's
 foot, its opening over the lowest piece's hem; the layers stack on a right rail, outer
@@ -80,18 +88,10 @@ outfit is put on: top, bottom, one-piece, mid layer, outer layer, footwear. Beca
 overlap exceeds the lap, a collar, a waist and a sole always stay in view, and the outer
 layer never overlaps the mid layer, whose collar its hem would cover.
 
-**The detail draws the open board, with a lap of 0**, because a caption sits under every
-piece there. It keeps two placement families, chosen by whether the outfit carries a
-layer at all. **Column and rail** when a layer is present: the body core stacks on a left
-axis, the layers on a right axis with outer above mid, and footwear stands on the baseline
-in the rail column. **Stagger** when no layer is present: the anchors descend diagonally
-and footwear takes the counter-corner. Two devices keep the column from reading as a
-table, both carried from the spike's accepted board: the mid layer steps off the rail
-axis, and the footwear station stops short of the core's baseline so the two columns do
-not land on one line.
-
-Both boards read in the same order, and both keep the core on the left and the layers on
-the right, so the transition between them moves the pieces rather than swapping pictures.
+The detail draws the same board at the scale Today's fitted stage reaches (the runway
+preset's 1.25), so a piece that leaves Today's stage for the detail keeps its size. No name
+is drawn on a board: the detail names its pieces in a row of buttons under the board
+([ADR 0026](0026-the-recommendation-detail-surface.md) section 2), so its pieces may overlap.
 
 Every piece on every board casts a soft shadow on its plane: its own drawn shape, blurred
 and dropped down, in the plane's colour moved down in OKLCH lightness. It reads only the
@@ -157,13 +157,13 @@ with the six structural categories as its fallback tier. Both tiers use the silh
 idiom. The small raster class carries an optical stroke for 20-to-28-point use, while the
 large raster class uses the idiom-pure stroke above 32 points.
 
-The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather jacket, coat, loafer and rain boot drawings. Every drawing is a rich fashion illustration inside its single ink-edge outline, cut as the garment falls (rounded shoulders, tapering sleeves with a slight bend, curved hems, trouser legs with a slight break, skirts and dresses that flare into draped folds, notched lapels, hoods with depth, quilted baffles, shoes on a last with toe spring, a heel, a welt and a sole, and brims in perspective) and built with the construction each garment really has and modelled by one light from the upper left: a graded surface, a form that turns at every edge, the rim that catches the light, the shadow each overlying part casts, sewn seams, standing hardware, quilt valleys, the glint of leather, nylon and rubber, folds and the cloth's weave, every tone derived from the garment's own colour. Each drawing declares the drawn bounds of its outlines, which this rule reads and the modelling never crosses, and the four-step sizing ladder is retained. A runway board preset fits the composition to the free space while keeping that ladder and the same placement families.
+The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather jacket, coat, loafer and rain boot drawings. Every drawing is a rich fashion illustration inside its single ink-edge outline, cut as the garment falls (rounded shoulders, tapering sleeves with a slight bend, curved hems, trouser legs with a slight break, skirts and dresses that flare into draped folds, notched lapels, hoods with depth, quilted baffles, shoes on a last with toe spring, a heel, a welt and a sole, and brims in perspective) and built with the construction each garment really has and modelled by one light from the upper left: a graded surface, a form that turns at every edge, the rim that catches the light, the shadow each overlying part casts, sewn seams, standing hardware, quilt valleys, the glint of leather, nylon and rubber, folds and the cloth's weave, every tone derived from the garment's own colour. Each drawing declares the drawn bounds of its outlines, which this rule reads and the modelling never crosses, and the four-step sizing ladder is retained. A runway board preset fits the composition to the free space while keeping that ladder and the worn placement.
 
 ## Consequences
 
 - **A slot list is now sufficient to draw a board.** Ten slot lists covering every shape
-  the composer can emit were generated and audited. Clipping 0 on all ten, overlap 0 on
-  the open board and within the 0.12 lap on the worn board;
+  the composer can emit were generated and audited. Clipping 0 on all ten and overlap
+  within the 0.12 lap;
   anchor parity by drawn area 1.000 on all ten, against 1.654 for the same board sized by
   container width; weakest half 0.144 ink coverage, strongest 0.357.
 - **The ink-parity residual is the price of a style-invariant metric.** Within the
@@ -198,15 +198,17 @@ couples the layout to the art style and breaks ADR 0021 §1's replaceability: th
 meant to accept richer illustration, catalogue artwork or a user photograph without a
 redesign, and each of those changes the ink dramatically at identical size.
 
-**One open layout family instead of two.** Attempted. A single open column-and-rail
-structure applied to a two-piece or a layerless three-piece outfit leaves the rail holding
-one small shoe, which measured as an all but empty column. Forcing the stagger onto
-five-piece outfits produced overlap. The open board keeps the fork. The worn board needs
-no fork, because its footwear stands under the core and an outfit without layers is
-simply a column with an empty rail.
+**An open board on the detail, with a caption under every piece.** Rejected: it drew the
+same outfit two ways, separate pieces in boxes on the detail and a worn combination on
+Today, and needed two placement families (column and rail, and a stagger for an outfit
+without layers) because an open rail holding one small shoe read as an empty column. The
+names moved under the board instead.
 
-**Overlap on the detail too.** Rejected: every gap of the open board holds a piece's
-caption, and the layers lying over the core would cover the core's captions.
+**Names on the board joined to their pieces by leader lines.** Rejected: they crowd on a
+narrow screen and at large text sizes.
+
+**A single shoe on the boards, or a pair standing side by side.** Rejected: one shoe does
+not read as a flat lay, and an aligned pair reads as a catalogue and takes more room.
 
 **A fixed stage height.** Rejected on the arithmetic in decision 4, and revisitable there
 if native validation disagrees.

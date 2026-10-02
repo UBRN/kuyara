@@ -11,8 +11,12 @@ import { blend } from './color-blend.ts';
 import {
   brandColors,
   createKuyaraTheme,
+  darkPlateOf,
   darkSemanticColors,
+  darkTheme,
   lightSemanticColors,
+  lightTheme,
+  plateTheme,
   resolveColorScheme,
   standardMotion,
 } from './theme.ts';
@@ -23,6 +27,8 @@ const requiredSemanticRoles = [
   'backgroundElevated',
   'surface',
   'stage',
+  'garmentTile',
+  'garmentGround',
   'surfaceMuted',
   'surfaceInteractive',
   'textPrimary',
@@ -455,7 +461,8 @@ test('every atmosphere state clears its ink floors and appearance constraints', 
 
     for (const state of atmosphereStates) {
       const stage = theme.atmosphere[state];
-      const textContrast = contrastOfHexOverBackground(theme.colors.textPrimary, stage);
+      // Text on a dark-appearance stage takes the plate's light roles.
+      const textContrast = contrastOfHexOverBackground(plateTheme(theme, stage).colors.textPrimary, stage);
       const groundContrast = contrastOfHexOverBackground(stage, theme.colors.background);
       const groundDistance = channelDistance(stage, theme.colors.background);
 
@@ -463,7 +470,9 @@ test('every atmosphere state clears its ink floors and appearance constraints', 
       if (appearance === 'light') {
         assert.ok(groundDistance >= 15, `${state} distance from ground: ${groundDistance}`);
       } else {
-        assert.equal(stage, theme.atmosphere.neutral, `${state} dark neutral`);
+        // The dark plate keeps its light state's tint and never reads as a hole in the page.
+        assert.equal(stage, darkPlateOf(lightTheme.atmosphere[state]), `${state} dark plate`);
+        assert.ok(groundContrast >= 3, `dark ${state} plate on ground: ${groundContrast.toFixed(2)}:1`);
       }
 
       diagnostics.push([
@@ -512,13 +521,14 @@ test('condition inks clear non-text contrast on every permissible plane', (conte
     assert.equal(theme.condition.neutral, theme.colors.textPrimary);
 
     for (const [group, atmospherePlanes] of Object.entries(conditionPlanes)) {
+      // A glyph on a dark-appearance stage takes the plate's light condition inks.
       const planes = [
-        ...atmospherePlanes.map((plane) => [plane, theme.atmosphere[plane]]),
-        ['surface', theme.colors.surface],
+        ...atmospherePlanes.map((plane) => [plane, theme.atmosphere[plane], plateTheme(theme, theme.atmosphere[plane])]),
+        ['surface', theme.colors.surface, theme],
       ];
 
-      for (const [plane, background] of planes) {
-        const ratio = contrastOfHexOverBackground(theme.condition[group], background);
+      for (const [plane, background, inks] of planes) {
+        const ratio = contrastOfHexOverBackground(inks.condition[group], background);
         assert.ok(
           ratio >= 3,
           `${appearance} ${group} on ${plane}: ${ratio.toFixed(3)}:1`,
@@ -530,6 +540,34 @@ test('condition inks clear non-text contrast on every permissible plane', (conte
 
   context.diagnostic('appearance | condition group | plane | contrast');
   for (const row of diagnostics) context.diagnostic(row);
+});
+
+test('the dark garment plate is a light grey island that light content stands on', () => {
+  // The light appearance and a dark field (the runway's) are not plates.
+  assert.equal(plateTheme(lightTheme, lightSemanticColors.garmentTile), lightTheme);
+  assert.equal(plateTheme(darkTheme, darkTheme.runway.clear), darkTheme);
+  // The light appearance keeps its planes exactly.
+  assert.equal(lightSemanticColors.garmentTile, lightSemanticColors.surfaceMuted);
+  assert.equal(lightSemanticColors.garmentGround, lightSemanticColors.background);
+  assert.equal(darkSemanticColors.stage, darkPlateOf(lightSemanticColors.stage));
+  assert.equal(darkSemanticColors.garmentTile, darkSemanticColors.stage);
+  assert.equal(darkSemanticColors.garmentGround, darkSemanticColors.stage);
+
+  for (const plane of [...Object.values(darkTheme.atmosphere), darkSemanticColors.garmentGround]) {
+    const plate = plateTheme(darkTheme, plane);
+    assert.equal(plate.colorScheme, 'light');
+    assert.equal(plate.colors.background, plane);
+    assert.equal(plate.colors.textPrimary, lightSemanticColors.textPrimary);
+    // The ink outline, and text on the plate, at AA.
+    const ink = contrastOfHexOverBackground(plate.colors.textPrimary, plane);
+    assert.ok(ink >= 4.5, `ink on ${plane}: ${ink.toFixed(2)}:1`);
+  }
+  // Captions on the detail plate and the tiles: secondary text and the accent at AA.
+  const ground = plateTheme(darkTheme, darkSemanticColors.garmentGround).colors;
+  for (const role of ['textSecondary', 'brandAccent']) {
+    const ratio = contrastOfHexOverBackground(ground[role], darkSemanticColors.garmentGround);
+    assert.ok(ratio >= 4.5, `${role} on the dark plate: ${ratio.toFixed(2)}:1`);
+  }
 });
 
 test('Direction E replaces the light card step with legible stage and supporting ink', () => {

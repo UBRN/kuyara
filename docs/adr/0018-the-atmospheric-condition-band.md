@@ -83,11 +83,12 @@ chosen and measured `#98C3CF`.
 | `veiledNight` | Deep Atmosphere to Soft Mist | 0.645 | `#A4AFB3` |
 | `fallingNight` | Deep Atmosphere to Quiet Sky | 0.758 | `#7DA4B0` |
 
-In the dark appearance, Deep Atmosphere's luminance, 0.02498, is the ceiling so the sky
-never out-lightens the card plane. The dark stage `#122A35` is already at 0.0204; every
-compliant state lands only 3 to 8 RGB levels from it, inside the imperceptible range.
-Every dark atmosphere state therefore equals the neutral stage. Lifting the cap requires
-a separate decision.
+In the dark appearance the stage is a soft light grey plate that each light state is
+carried over to in OKLCH: the neutral stage lands on lightness 0.84 (`#C7CBCC`), every
+other state keeps 0.4 of its light lightness step from neutral, 0.6 of its chroma and all
+of its hue ([ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 3).
+What stands on the plate takes the light appearance's roles, so the condition inks
+measured on it are the light ones.
 
 ### 4. Measured, every state
 
@@ -117,9 +118,9 @@ alpha would invalidate every measurement in this table.
 | storm | `#253A4C` | `fallingDay`, `fallingNight` | 4.367:1 | 8.484:1 |
 | neutral | `textPrimary` | `neutral` | 10.117:1 | 10.117:1 |
 
-In the dark appearance every atmosphere state equals `#122A35`. The worst condition
-ink ratio on that stage is 7.153:1 for fog; the worst on the Weather card surface is
-6.718:1. Every group clears the 3:1 non-text floor in both appearances. The stage carries
+In the dark appearance a glyph on a plate takes the light inks, which clear 3:1 on the
+plate their condition can put behind them; on the dark Weather card surface the dark inks'
+worst ratio is 6.718:1. Every group clears the 3:1 non-text floor in both appearances. The stage carries
 no supporting ink; Today's condition caption and the weather recap captions continue to
 use full `textPrimary`.
 

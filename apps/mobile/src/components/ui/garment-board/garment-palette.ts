@@ -1,3 +1,4 @@
+import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import type { ColorFamily, Formality, GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
@@ -46,8 +47,8 @@ export const garmentSwatches = {
   blush: S('#E5C1BD', 'pink', 'accent', 'warm', 'Blush', 'Pudra'),
   skyblue: S('#93BDDF', 'blue', 'accent', 'cool', 'Sky blue', 'Gök mavisi'),
   cobalt: S('#2F5BA6', 'blue', 'accent', 'cool', 'Cobalt', 'Kobalt'),
-};
-export type GarmentSwatchId = keyof typeof garmentSwatches;
+} satisfies Record<GarmentSwatchId, ReturnType<typeof S>>;
+export type { GarmentSwatchId };
 
 // Materials: soles, handles, bands, hardware. Fixed per drawing, never a palette choice.
 const MATERIAL = {
@@ -393,6 +394,17 @@ export function garmentColorFamiliesBySlot(palette: GarmentOutfitPalette): Reado
   return new Map(resolveGarmentPalette({
     ...palette, appearance: 'light', stageColor: '#FFFFFF', inkColor: '#000000',
   }).map(({ piece, colorFamily }) => [piece.slot, colorFamily]));
+}
+
+/**
+ * The swatch each piece of one outfit is drawn in, by slot: what "Wore this today" records so
+ * History draws the day in the colours it was seen in. Like the colour families, it depends
+ * only on the outfit and its day, never on the appearance or the plane.
+ */
+export function garmentSwatchesBySlot(palette: GarmentOutfitPalette): Partial<Record<OutfitSlot, GarmentSwatchId>> {
+  return Object.fromEntries(resolveGarmentPalette({
+    ...palette, appearance: 'light', stageColor: '#FFFFFF', inkColor: '#000000',
+  }).map(({ piece, swatchId }) => [piece.slot, swatchId]));
 }
 
 /**

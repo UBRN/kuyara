@@ -11,48 +11,59 @@ export const garmentBoardDressingOrder: readonly OutfitSlot[] = [
   'primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear',
 ];
 
+// ADR 0025's one board rule. Every composed board draws the outfit as it is worn: Today's
+// stage, the detail, the alternates, History and the share card.
 export const todayPreset = {
   weight: { anchor: 1, outer_layer: 0.74, mid_layer: 0.56 },
   footWidth: 0.58,
   coreCap: 0.235,
   soloCap: 0.300,
   railCap: 0.170,
-  coreGapK: 0,
   railGap: 0.10,
-  footClear: 0.55,
-  midInset: 0,
-  footRise: 0.20,
-  gutter: 0,
-  // Today's stage holds nothing but the board: the temperature and the condition symbol
-  // live in the title above it, so both insets are the tint's own edge and match the detail
-  // preset's. Neither is board geometry: the ladder, the caps and the gaps above are
-  // ADR 0025's and do not move.
+  // The stage holds nothing but the board, so both insets are the tint's own edge. Neither
+  // is board geometry: the ladder, the caps and the gaps above are ADR 0025's and do not move.
   topInset: 0.045,
   botInset: 0.055,
   stageMin: 0.66,
   stageMax: 1.14,
   centroid: 0.47,
   sideMin: 0.09,
-  stagDrop: 0.60,
   lap: 0.12,
 };
 
-export const detailPreset = {
-  ...todayPreset,
-  coreGapK: 1.35,
-  railGap: 1.15,
-  footClear: 1.10,
-  footRise: 0.10,
-  coreCap: 0.215,
-  railCap: 0.150,
-  gutter: 0.135,
-  midInset: 0.16,
-  topInset: 0.045,
-  botInset: 0.055,
-  stageMin: 0.60,
-  stageMax: 1.45,
-  lap: 0,
-};
+// A board draws its footwear as a pair, the way a flat lay shows shoes (ADR 0025
+// section 2): the near shoe whole, the far one behind it, `toe` of a shoe's length toward the toe
+// and raised so the pair stands exactly one shoe tall, each shoe `scale` of the single shoe the
+// width rule sizes. The near shoe's heel sits `back` of that shoe's length behind the single
+// shoe's, so the pair's footprint stays near one shoe's. A Closet tile and a category glyph
+// draw one shoe; only a composed board draws the pair.
+export const footwearPair = { scale: 0.86, toe: 0.30, back: 0.04 } as const;
+
+type Bounds = Readonly<{ x: number; y: number; width: number; height: number }>;
+
+/** The box a pair takes, from the box its single shoe would take, in the same units. */
+export function footwearPairBox<Box extends Readonly<{ x: number; y: number; w: number; h: number }>>(single: Box) {
+  const { scale, toe, back } = footwearPair;
+  return { x: single.x - back * single.w, y: single.y, w: scale * (1 + toe) * single.w, h: single.h };
+}
+
+/**
+ * The pair drawn in a shoe drawing's own units: the pair's bounds, and where each shoe's
+ * drawing lands, far shoe first, as a translation after scaling the drawing by `scale`.
+ */
+export function footwearPairDrawing(single: Bounds) {
+  const box = footwearPairBox({ x: single.x, y: single.y, w: single.width, h: single.height });
+  const { scale, toe } = footwearPair;
+  const shoe = (x: number, y: number) => ({ dx: x - scale * single.x, dy: y - scale * single.y });
+  return {
+    bounds: { x: box.x, y: box.y, width: box.w, height: box.h },
+    scale,
+    shoes: [
+      shoe(box.x + toe * scale * single.width, box.y),
+      shoe(box.x, box.y + (1 - scale) * single.height),
+    ],
+  } as const;
+}
 
 /**
  * O13's "Easier to see" board: every size cap of section 7 x 1.3
@@ -65,8 +76,11 @@ export function easierToSeeRule<Rule extends typeof todayPreset>(rule: Rule, sca
 
 type ArtworkPiece = Readonly<{
   slot: OutfitSlot;
-  bounds: Readonly<{ x: number; y: number; width: number; height: number }>;
+  bounds: Bounds;
 }>;
+
+/** A composed piece: footwear carries `single`, the one shoe's bounds its pair is drawn from. */
+export type BoardPiece<Piece extends ArtworkPiece> = Piece & Readonly<{ single?: Bounds }>;
 
 type DrawnBox = { x: number; y: number; w: number; h: number };
 
@@ -88,94 +102,56 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
     .filter((piece): piece is Piece => piece !== undefined);
   const foot = by('footwear');
   if (!core.length || !foot) throw new Error('A garment board requires a body core and footwear.');
-  const family = rail.length || rule.lap > 0 ? 'column-and-rail' : 'stagger';
 
-  const cap = family === 'stagger' || core.length === 1 ? rule.soloCap : rule.coreCap;
-  const metric = cap / Math.max(...core.map((piece) => ratios(piece).w));
+  const metric = (core.length === 1 ? rule.soloCap : rule.coreCap) / Math.max(...core.map((piece) => ratios(piece).w));
   const boxOf = (piece: Piece, size: number) => ({
     w: size * ratios(piece).w, h: size * ratios(piece).h,
   });
-  const coreBox = (piece: Piece) => boxOf(piece, metric);
-  const footBox = (w: number) => ({ w, h: w * ratios(foot).h / ratios(foot).w });
-  const boxes = new Map<Piece, DrawnBox>();
-  let stageHeight: number;
+  const boxes = new Map<BoardPiece<Piece>, DrawnBox>();
 
-  // Worn (a lap above 0, Today): the outfit is laid out as it is worn. The core stands as one
-  // column, the bottom's waist over the top's hem, the footwear at its foot and the layers
-  // over its side. Every piece that lies over another covers `lap` of the covered piece's
-  // drawn extent at most, on the side it enters from, so a collar, a waist and a sole stay in
-  // view. A lap of 0 is the open board (the detail), whose pieces never touch.
-  const lap = rule.lap;
-  const worn = lap > 0;
+  // The outfit is laid out as it is worn. The core stands as one column, the bottom's waist
+  // over the top's hem, the footwear at its foot and the layers over its side. Every piece
+  // that lies over another covers `lap` of the covered piece's drawn extent at most, on the
+  // side it enters from, so a collar, a waist and a sole stay in view.
+  const { lap } = rule;
+  const cb = core.map((piece) => boxOf(piece, metric));
+  const coreGap = core.length > 1 ? -lap * cb[0].h : 0;
+  const coreW = Math.max(...cb.map((box) => box.w));
 
-  if (family === 'column-and-rail') {
-    const cb = core.map(coreBox);
-    const coreGap = rule.coreGapK * metric - (core.length > 1 ? lap * cb[0].h : 0);
-    const coreW = Math.max(...cb.map((box) => box.w));
+  let rb = rail.map((piece) => boxOf(piece,
+    rule.weight[piece.slot === 'outer_layer' ? 'outer_layer' : 'mid_layer'] * metric));
+  // Footwear is sized on width, not on the ladder, and shares the layers' one scale.
+  let bf = { w: rule.footWidth * coreW, h: rule.footWidth * coreW * ratios(foot).h / ratios(foot).w };
+  const railScale = Math.min(1, rule.railCap / Math.max(...rb.concat(bf).map((box) => box.w)));
+  rb = rb.map((box) => ({ w: box.w * railScale, h: box.h * railScale }));
+  bf = { w: bf.w * railScale, h: bf.h * railScale };
+  const railH = rb.reduce((sum, box) => sum + box.h, 0) + rule.railGap * metric * (rb.length - 1);
+  const coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1) + bf.h * (1 - lap);
 
-    let rb = rail.map((piece) => boxOf(piece,
-      rule.weight[piece.slot === 'outer_layer' ? 'outer_layer' : 'mid_layer'] * metric));
-    let bf = footBox(rule.footWidth * coreW);
-    const railScale = Math.min(1, rule.railCap / Math.max(...rb.concat(bf).map((box) => box.w)));
-    rb = rb.map((box) => ({ w: box.w * railScale, h: box.h * railScale }));
-    // The layers share one scale so their ladder holds. Footwear is sized on width, not on the
-    // ladder, so on the open board, where it stands in the rail, it takes the cap on its own
-    // width: a wide layer no longer shrinks a flat shoe below legibility.
-    const footScale = worn ? railScale : Math.min(1, rule.railCap / bf.w);
-    bf = { w: bf.w * footScale, h: bf.h * footScale };
-    // Worn, the rail carries the layers alone: the footwear stands under the core.
-    const railW = Math.max(0, ...(worn ? rb : rb.concat(bf)).map((box) => box.w));
-    const railH = rb.reduce((sum, box) => sum + box.h, 0) + rule.railGap * metric * (rb.length - 1);
-    const coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1)
-      + (worn ? bf.h * (1 - lap) : 0);
+  const envelope = Math.max(coreH, railH);
+  const stageHeight = Math.min(rule.stageMax, Math.max(rule.stageMin, rule.topInset + envelope + rule.botInset));
+  const top = rule.topInset + (stageHeight - rule.topInset - rule.botInset - envelope) / 2;
 
-    const envelope = worn
-      ? Math.max(coreH, railH)
-      : Math.max(coreH, railH + rule.footClear * metric + bf.h + rule.footRise * metric);
-    stageHeight = Math.min(rule.stageMax, Math.max(rule.stageMin, rule.topInset + envelope + rule.botInset));
-    const span = stageHeight - rule.topInset - rule.botInset;
-    const top = rule.topInset + (span - envelope) / 2;
-
-    let y = top + (envelope - coreH) / 2;
-    const placedCore = core.map((piece, index) => {
-      const box = { x: -cb[index].w / 2, y, ...cb[index] };
-      boxes.set(piece, box);
-      y += box.h + coreGap;
-      return box;
-    });
-    // Worn, every layer's left edge lies `lap` of the narrowest core piece's width over the core.
-    const railX = coreW / 2 + rule.gutter - lap * Math.min(...cb.map((box) => box.w)) + railW / 2;
-    y = top;
-    rail.forEach((piece, index) => {
-      const box = rb[index];
-      const inset = piece.slot === 'mid_layer' && rail.length > 1 ? rule.midInset * metric : 0;
-      boxes.set(piece, { x: railX - (worn ? railW : box.w) / 2 + inset, y, ...box });
-      y += box.h + rule.railGap * metric;
-    });
-    // Worn, the footwear's heel stands a quarter of its length left of the core's axis and its
-    // opening lies over the lowest piece's hem by `lap` of its own height.
-    const low = placedCore[placedCore.length - 1];
-    boxes.set(foot, worn
-      ? { x: -bf.w / 4, y: low.y + low.h - lap * bf.h, ...bf }
-      : { x: railX - bf.w / 2, y: top + envelope - rule.footRise * metric - bf.h, ...bf });
-  } else {
-    const first = core[0];
-    const second = core[1];
-    const b1 = coreBox(first);
-    const bf = footBox(rule.footWidth * b1.w);
-    boxes.set(first, { x: 0, y: 0, ...b1 });
-    if (second) {
-      const b2 = coreBox(second);
-      boxes.set(second, { x: b1.w + rule.gutter, y: b1.h * rule.stagDrop, ...b2 });
-      boxes.set(foot, { x: 0, y: b1.h * rule.stagDrop + b2.h - bf.h, ...bf });
-    } else {
-      boxes.set(foot, { x: b1.w + rule.gutter, y: b1.h - bf.h, ...bf });
-    }
-    const height = Math.max(...[...boxes.values()].map((box) => box.y + box.h));
-    stageHeight = Math.min(rule.stageMax, Math.max(rule.stageMin, rule.topInset + height + rule.botInset));
-    const dy = rule.topInset + (stageHeight - rule.topInset - rule.botInset - height) / 2;
-    for (const box of boxes.values()) box.y += dy;
-  }
+  let y = top + (envelope - coreH) / 2;
+  const placedCore = core.map((piece, index) => {
+    const box = { x: -cb[index].w / 2, y, ...cb[index] };
+    boxes.set(piece, box);
+    y += box.h + coreGap;
+    return box;
+  });
+  // Every layer's left edge lies `lap` of the narrowest core piece's width over the core.
+  const railX = coreW / 2 - lap * Math.min(...cb.map((box) => box.w));
+  y = top;
+  rail.forEach((piece, index) => {
+    boxes.set(piece, { x: railX, y, ...rb[index] });
+    y += rb[index].h + rule.railGap * metric;
+  });
+  // The footwear's heel stands a quarter of its length left of the core's axis and its opening
+  // lies over the lowest piece's hem by `lap` of its own height. It is drawn as a pair, which
+  // stands exactly one shoe tall, so the far shoe's opening takes that lap.
+  const low = placedCore[placedCore.length - 1];
+  const pair: BoardPiece<Piece> = { ...foot, bounds: footwearPairDrawing(foot.bounds).bounds, single: foot.bounds };
+  boxes.set(pair, footwearPairBox({ x: -bf.w / 4, y: low.y + low.h - lap * bf.h, ...bf }));
 
   // Position the finished group once, by its area-weighted drawn-box centroid.
   const bs = [...boxes.values()];
@@ -188,12 +164,10 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   dx = Math.min(dx, 1 - rule.sideMin - right);
   for (const box of bs) box.x += dx;
 
-  const inOrder = (slots: readonly OutfitSlot[]) => slots.flatMap((slot) => {
-    const piece = by(slot);
-    return piece && boxes.has(piece) ? [piece] : [];
-  });
+  const drawn = [...boxes.keys()];
+  const inOrder = (slots: readonly OutfitSlot[]) => slots.flatMap((slot) => drawn.filter((piece) => piece.slot === slot));
   return {
-    boxes, stageHeight, family, metric, core,
+    boxes, stageHeight, metric, core,
     order: inOrder(garmentBoardSlotOrder),
     stack: inOrder(garmentBoardDressingOrder),
   };
@@ -206,6 +180,10 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
 // area widths. ADR 0025's ladder, caps and placement families are the composition's own
 // and do not move; only the one scale does.
 export const runwayPreset = { side: 28, vertical: 24, maxScale: 1.25 } as const;
+
+// The detail draws the same worn board at the scale Today's fitted stage reaches, so a piece
+// leaving Today's stage for the detail keeps its size.
+export const detailPreset = easierToSeeRule(todayPreset, runwayPreset.maxScale, todayPreset.sideMin);
 
 export type DrawnExtent = Readonly<{ x: number; y: number; w: number; h: number }>;
 

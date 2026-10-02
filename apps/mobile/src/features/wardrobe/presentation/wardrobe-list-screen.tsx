@@ -37,6 +37,7 @@ import {
 import { useMessages } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0029, the Closet by category (O9): the six catalogue categories sit side by side in a
@@ -361,7 +362,7 @@ export function WardrobeListScreen({
               style={[
                 styles.loadingTile,
                 geometry,
-                { backgroundColor: theme.colors.surfaceMuted },
+                { backgroundColor: theme.colors.garmentTile },
               ]}
             />
           ))}
@@ -504,10 +505,11 @@ export function WardrobeListScreen({
           </ScrollView>
           {savedItem ? (
             <Surface style={styles.saved} testID="wardrobe-saved-confirmation">
-              <View
+              <PlateView
                 accessibilityElementsHidden
+                color={theme.colors.garmentTile}
                 importantForAccessibility="no-hide-descendants"
-                style={[styles.savedTile, { backgroundColor: theme.colors.surfaceMuted }]}>
+                style={styles.savedTile}>
                 <GarmentTileArtwork
                   category={savedItem.category}
                   colorFamily={savedItem.colorFamily}
@@ -521,7 +523,7 @@ export function WardrobeListScreen({
                   wanted={savedItem.entryState === 'wanted'}
                   width={SAVED_TILE_SIZE}
                 />
-              </View>
+              </PlateView>
               <AppText accessibilityLiveRegion="polite" style={styles.savedCopy}>
                 {savedItem.entryState === 'wanted'
                   ? copy.savedWantedConfirmation(savedPieceName)

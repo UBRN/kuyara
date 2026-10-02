@@ -6,7 +6,11 @@ import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 import type { DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
-import type { OutfitHistoryRecord, WornOutfit } from '@/features/recommendation/domain/outfit-history';
+import type {
+  OutfitHistoryRecord,
+  WornOutfit,
+  WornPieceColors,
+} from '@/features/recommendation/domain/outfit-history';
 
 export type RecommendationApplicationValue = Readonly<{
   state: RecommendationApplicationState;
@@ -56,7 +60,8 @@ export type RecommendationApplicationValue = Readonly<{
     revision?: number;
     list: () => Promise<readonly OutfitHistoryRecord[]>;
     get: (dayKey: string) => Promise<OutfitHistoryRecord | null>;
-    log: (dayKey: string, outfit: WornOutfit) => Promise<OutfitHistoryRecord>;
+    /** `pieceColors` are the swatches the detail board drew the outfit in, for History. */
+    log: (dayKey: string, outfit: WornOutfit, pieceColors: WornPieceColors | null) => Promise<OutfitHistoryRecord>;
   }>;
   /**
    * The confirmed "Ask the stylist again" (O3). It records a changed day type as the active

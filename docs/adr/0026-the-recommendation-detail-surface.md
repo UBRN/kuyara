@@ -20,11 +20,11 @@ separate interaction over catalog pieces and never changes the engine's candidat
 ### 1. Detail is a second parameter set, not a second layout
 
 The board is [ADR 0025](0025-the-garment-board-composition-rule.md)'s `compose()`,
-unchanged, run with a detail preset. Same algorithm, same reading order, the core on the
-left and the layers on the right. The gaps, the width caps, the insets and the lap differ:
-Today lays the outfit out as worn, its pieces overlapping, and the detail's lap of 0 opens
-it so a caption fits under every piece, the footwear moving from the core's foot to the
-rail. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
+unchanged, run with a detail preset. Same algorithm, same worn layout, same dressing order,
+the core on the left and the layers on the right, the footwear a pair at the core's foot.
+The detail preset only draws it larger: at the scale Today's fitted stage reaches, so the
+pieces keep their size as they travel in. Pieces overlap exactly as on Today, by at most
+the lap. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
 
 This is what makes the two screens share a composition rather than merely resemble each
 other, and it is what the entry transition animates. It also leaves room for garment rows below the board.
@@ -40,7 +40,7 @@ the visible statement that the weather was the input and the outfit is now the s
 
 ### 3. Garment rows sit below the board
 
-The board keeps the detail preset and no text overlaps the drawings. One line under the board says a piece is tapped and then swiped to change it, until the first change; while a piece is enlarged the candidate strip of decision 6 stands in its place. "Wore this today" sits directly under them. Below it, garment rows name each piece, its slot and its Closet state in board order; each row opens the piece's edit sheet for ownership, colour and optional photo, and carries the plain "Change" control of decision 6. Rows retain readable labels and 44-point targets at the largest standard text size, where Change moves under the row's text; above `fontScale` 1.5 the board captions leave and the rows alone name the pieces.
+No text overlaps the drawings. Directly under the board a row of small buttons names the pieces in the order they are put on, wrapping at any text size; a matched piece's button carries its Closet state as a mark and in words. A tap on a name enlarges its piece exactly as a tap on the piece does. One line under them says a name or a piece is tapped and then swiped to change it, until the first change; while a piece is enlarged the candidate strip of decision 6 stands in the place of the names and the line. "Wore this today" sits directly under them. Below it, garment rows name each piece, its slot and its Closet state in board order; each row opens the piece's edit sheet for ownership, colour and optional photo, and carries the plain "Change" control of decision 6. Rows retain readable labels and 44-point targets at the largest standard text size, where Change moves under the row's text.
 
 The slot label is used rather than `layerRole`, which would print "standalone" under a bottom.
 
@@ -59,7 +59,7 @@ join over existing domain data.
 
 ### 5. One edit sheet owns the piece's Closet record
 
-The garment row opens the sheet; the board changes pieces (decision 6). It shows the piece, the user's owned or wanted record, the Closet palette and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone. On the board a matched piece carries its state's glyph on a small disc at its corner, and its caption says it in words, "In your Closet" / "Gardırobunda var", "Similar one in your Closet" / "Benzeri Gardırobunda" or "In your wanted pieces" / "İsteklerinde"; the piece's adjustable element speaks the same words after its value. None of it changes a recommendation.
+The garment row opens the sheet; the board changes pieces (decision 6). It shows the piece, the user's owned or wanted record, the Closet palette and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone. Under the board a matched piece's name button carries its state's glyph and says it in words, "In your Closet" / "Gardırobunda var", "Similar one in your Closet" / "Benzeri Gardırobunda" or "In your wanted pieces" / "İsteklerinde"; the piece's adjustable element speaks the same words after its value. None of it changes a recommendation.
 
 The Closet palette contains 33 colours, including two purple swatches, the system colour picker on iOS, and 14 fixed two-colour or pattern options; there is no free second colour. Its fields are migration 20's. The similar piece's "Yours" draws the user's own piece in its saved colour or pattern and names its option; the board keeps the outfit's palette.
 
@@ -74,10 +74,10 @@ the domain validator's verdict: the pieces' own hard requirements and every mand
 weather requirement of the set, the same test a composed outfit passes; formality
 consistency is not part of it.
 
-On the board a tap enlarges a piece in place. It grows about its centre to twice its
+On the board a tap enlarges a piece in place. Where pieces overlap, a tap goes to the piece drawn on top there, as the eye sees it, and an enlarged piece is drawn over every other, so an overlapped piece comes fully into view. It grows about its centre to twice its
 composed size, less where the board holds less but never under 1.6 times, shifted only as
-far as the stage needs; the other pieces step back to 0.9 in full colour, and every caption
-and ownership badge leaves until the pieces rest again. Under the stage a strip names the
+far as the stage needs; the other pieces step back to 0.9 in full colour, and the name buttons
+leave until the pieces rest again. Under the stage a strip names the
 piece and its place ("Coat 3 / 12") beside "Done", over the slot's candidates in the
 picker's order as 44-point tiles 8 points apart, as many a row as the column holds and at
 most seven (seven in a 390-point phone's 358-point column, six in a 375-point phone's 343),
@@ -133,8 +133,8 @@ Every change lays the whole look out again with ADR 0025's composition rule, and
 pieces glide to their new boxes on the spatial spring; the incoming piece enters from the
 side its order gives and the outgoing one leaves the other way, paged inside the window
 while the slot is enlarged and crossfading otherwise. The change is a dressing: the outgoing
-piece lifts `spacing.md` as it fades on `motion.fast`, and the incoming one is hung on from
-`spacing.md` above and lands on the arrival spring, its shadow with it; a piece a swipe has
+piece lifts `spacing.lg` as it fades on `motion.fast`, and the incoming one is hung on from
+`spacing.lg` above and lands on the arrival spring, its shadow with it; a piece a swipe has
 already carried into place catches its weight with the moment's settle instead. A changed piece is
 coloured afresh, and every piece that is still kuyara's pick keeps the colour the
 original outfit gave it, passed to the palette resolver as a recorded swatch; nothing is
@@ -195,6 +195,10 @@ one. Simulator verification covers the animated sequence.
 
 **Captions on the tinted stage.** Would have kept Today's surface identity across the
 transition. Rejected on Law 3, which forbids secondary copy on that stage.
+
+**A caption under every piece on an open board.** Rejected: it kept the detail's pieces
+apart so a name could fit under each, which drew the outfit differently from Today, and a
+glyph disc at a piece's corner would cover a neighbour once the pieces overlap.
 
 **One reasoning row per garment.** Simpler to build and it reads as a list again. It also
 misrepresents the domain: a requirement is satisfied by a set of garments, and a garment

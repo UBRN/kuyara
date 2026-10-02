@@ -71,6 +71,7 @@ export function historyDay(n, dayKey, over = {}) {
       formality: 'casual',
       source: 'recommended',
     },
+    pieceColors: { primary_top: 'navy', bottom: 'indigo', footwear: 'white' },
     photoPath: `history/photo-${n}.jpg`,
     wornAt: stamp(2),
     createdAt: stamp(0),
