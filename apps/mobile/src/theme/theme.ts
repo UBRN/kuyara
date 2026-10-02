@@ -3,6 +3,7 @@ import type { TextStyle, ViewStyle } from 'react-native';
 import type { ThemePreference } from '@/domain/preferences';
 
 import { blend } from './color-blend';
+import { fromOklch, shiftOklchLightness, toOklch } from './color-oklch';
 
 export type { ThemePreference } from '@/domain/preferences';
 
@@ -36,6 +37,9 @@ export const lightSemanticColors = Object.freeze({
   controlTonalRaised: '#DDE8E7',
   borderSubtle: '#CCD2D4',
   stage: '#D7DCDD',
+  // The planes a garment drawing stands on outside a stage: a tile, and the detail's board.
+  garmentTile: '#E7EEED',
+  garmentGround: brandColors.softMist,
   borderDefined: '#5C7A83',
   // O13's boundary ink (owner decision 9): the secondary text value used as a 2-point stroke,
   // read only while "Easier to see" or iOS Increase Contrast is on (ADR 0030 section 5).
@@ -106,6 +110,29 @@ export type RunwayField = 'clear' | 'cloudy' | 'rain' | 'snow';
 
 type RunwayColors = Readonly<Record<RunwayField, string>>;
 
+/**
+ * The dark appearance's garment plate (owner decision): a soft light grey
+ * the pieces sit on exactly as they do in the light appearance, dark ink outline included.
+ * It is derived from the light plane it replaces, so each condition keeps its tint: the
+ * neutral stage lands on OKLCH lightness 0.84, the other planes keep 0.4 of their light
+ * step from it, and every plane keeps 0.6 of its chroma and all of its hue.
+ */
+const DARK_PLATE_LIGHTNESS = 0.84;
+const DARK_PLATE_SPREAD = 0.4;
+const DARK_PLATE_CHROMA = 0.6;
+
+export function darkPlateOf(lightPlane: string): string {
+  const neutral = toOklch(lightSemanticColors.stage).L;
+  const plane = toOklch(lightPlane);
+  return fromOklch(
+    DARK_PLATE_LIGHTNESS + (plane.L - neutral) * DARK_PLATE_SPREAD,
+    plane.C * DARK_PLATE_CHROMA,
+    plane.H,
+  );
+}
+
+const darkPlate = darkPlateOf(lightSemanticColors.stage);
+
 export const darkSemanticColors = Object.freeze({
   background: brandColors.nightLayer,
   backgroundElevated: blend(brandColors.deepAtmosphere, brandColors.quietSky, 0.08),
@@ -124,7 +151,9 @@ export const darkSemanticColors = Object.freeze({
   // 16 % Quiet Sky over the dark sheet, so a tonal fill still reads on the raised plane.
   controlTonalRaised: '#33525E',
   borderSubtle: '#26393F',
-  stage: '#122A35',
+  stage: darkPlate,
+  garmentTile: darkPlate,
+  garmentGround: darkPlate,
   // Lifted from #527E90 so the boundary still clears 3:1 on the lighter elevated plane.
   borderDefined: '#5E899A',
   borderStrong: '#B0C0C5',
@@ -155,15 +184,9 @@ const lightAtmosphere = Object.freeze({
   fallingNight: blend(brandColors.deepAtmosphere, brandColors.quietSky, 0.758),
 } as const satisfies AtmosphereColors);
 
-const darkAtmosphere = Object.freeze({
-  neutral: darkSemanticColors.stage,
-  clearDay: darkSemanticColors.stage,
-  veiledDay: darkSemanticColors.stage,
-  fallingDay: darkSemanticColors.stage,
-  clearNight: darkSemanticColors.stage,
-  veiledNight: darkSemanticColors.stage,
-  fallingNight: darkSemanticColors.stage,
-} as const satisfies AtmosphereColors);
+const darkAtmosphere = Object.freeze(
+  Object.fromEntries(Object.entries(lightAtmosphere).map(([state, plane]) => [state, darkPlateOf(plane)])),
+) as AtmosphereColors;
 
 // Fog reads green rather than grey so it can never be mistaken for cloud, and snow is the
 // least saturated of the falling family so it can never be mistaken for rain. Every value
@@ -469,4 +492,35 @@ export function resolveColorScheme(
 
 export function createKuyaraTheme(colorScheme: ThemeColorScheme): KuyaraTheme {
   return colorScheme === 'dark' ? darkTheme : lightTheme;
+}
+
+// The accent as text on a dark-appearance plate: Calm Current moved down in lightness only,
+// so a caption in it still clears 4.5:1 on the dark garment ground.
+const PLATE_ACCENT_STEP = -0.06;
+const plateThemes = new Map<string, KuyaraTheme>();
+
+/**
+ * Everything drawn on a garment plate: the pieces, their shadows, and the text and glyphs
+ * that sit on it. In the light appearance that is the theme itself. In the dark one the plate
+ * is a light grey, so what stands on it takes the light appearance's roles, with the plate
+ * as its ground.
+ */
+export function plateTheme(theme: KuyaraTheme, plate: string): KuyaraTheme {
+  // A dark field (the first-generation runway's) is not a plate: what stands on it keeps
+  // the dark roles.
+  if (!theme.isDark || toOklch(plate).L < 0.5) return theme;
+  let resolved = plateThemes.get(plate);
+  if (!resolved) {
+    resolved = Object.freeze({
+      ...lightTheme,
+      colors: Object.freeze({
+        ...lightSemanticColors,
+        background: plate,
+        backgroundElevated: plate,
+        brandAccent: shiftOklchLightness(brandColors.calmCurrent, PLATE_ACCENT_STEP),
+      }),
+    });
+    plateThemes.set(plate, resolved);
+  }
+  return resolved;
 }

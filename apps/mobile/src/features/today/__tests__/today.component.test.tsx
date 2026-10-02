@@ -41,6 +41,7 @@ import { messages, type SupportedLanguage } from '@/localization/messages';
 import {
   darkTheme,
   lightTheme,
+  plateTheme,
   radii,
   spacing,
   typography,
@@ -353,7 +354,8 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     const shadows = result.getByTestId('today-stage', hidden)
       .queryAll((node) => String(node.type).includes('FeFlood'));
     expect(shadows).toHaveLength(primary.boardPieces.length);
-    const shadow = shiftOklchLightness(stageColor, garmentShadowRule.step[theme.colorScheme]);
+    // A dark-appearance stage is a light plate: its pieces take the light shadow step.
+    const shadow = shiftOklchLightness(stageColor, garmentShadowRule.step[plateTheme(theme, stageColor).colorScheme]);
     expect(shadows.every((node) => node.props.floodColor?.payload === processColor(shadow))).toBe(true);
     expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(primary.title);
     expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
@@ -415,7 +417,8 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
         result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style,
       );
       expect(style).toMatchObject({ height: tallestStage, justifyContent: 'center' });
-      expect(style.backgroundColor).toBeUndefined();
+      // The garment ground: the page itself in light, the neutral plate in dark.
+      expect(style.backgroundColor).toBe(theme.colors.garmentGround);
     }
     for (const suggestion of presentation.suggestions.slice(1)) {
       const alternate = result.getByTestId(`today-alternate-${suggestion.id}`);
@@ -533,12 +536,12 @@ test.each([
   const stageColor = lightTheme.atmosphere[atmosphere];
   expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
     .toMatchObject({ backgroundColor: stageColor });
-  // Only the primary composition is tinted: the alternates stand on the page ground so the
-  // screen carries a single chromatic event.
+  // Only the primary composition is tinted: the alternates stand on the garment ground so
+  // the screen carries a single chromatic event.
   for (const suggestion of loadedPresentation().suggestions.slice(1)) {
     expect(StyleSheet.flatten(
       result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style,
-    ).backgroundColor).toBeUndefined();
+    ).backgroundColor).toBe(lightTheme.colors.garmentGround);
   }
 });
 

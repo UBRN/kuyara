@@ -30,7 +30,7 @@ import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composi
 import { useStableEntries } from '@/hooks/use-stable-value';
 import { shiftOklchLightness } from '@/theme/color-oklch';
 import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier-to-see';
-import { spacing } from '@/theme/theme';
+import { plateTheme, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { PRESENCE_TEXT_AFTER } from '../presence';
@@ -272,7 +272,8 @@ export function useGarmentRoles(
   palette: GarmentOutfitPalette | null,
   stageColor?: string,
 ): ReadonlyMap<OutfitSlot, GarmentRoles> {
-  const { colors, colorScheme } = useKuyaraTheme();
+  const theme = useKuyaraTheme();
+  const { colors, colorScheme } = plateTheme(theme, stageColor ?? theme.colors.background);
   return useStableEntries(palette === null ? [] : [...garmentRolesBySlot({
     ...palette,
     appearance: colorScheme,
@@ -291,7 +292,9 @@ export function useGarmentCandidateRoles(
   slot: OutfitSlot | null,
   garmentTypeIds: readonly GarmentTypeId[],
 ): ReadonlyMap<GarmentTypeId, GarmentRoles> {
-  const { colors, colorScheme } = useKuyaraTheme();
+  const theme = useKuyaraTheme();
+  // The picker's tiles are garment plates.
+  const { colors, colorScheme } = plateTheme(theme, theme.colors.garmentTile);
   // A step leaves the other candidates' colours as they were: their tiles keep their roles.
   return useStableEntries(palette === null || slot === null ? [] : garmentTypeIds.flatMap((garmentTypeId) => {
     const roles = garmentRolesBySlot({
