@@ -84,7 +84,7 @@ chosen and measured `#98C3CF`.
 | `fallingNight` | Deep Atmosphere to Quiet Sky | 0.758 | `#7DA4B0` |
 
 In the dark appearance the stage is a soft light grey plate that each light state is
-carried over to in OKLCH: the neutral stage lands on lightness 0.84 (`#C7CBCC`), every
+carried over to in OKLCH: the neutral stage lands on lightness 0.88 (`#D5D8D9`), every
 other state keeps 0.4 of its light lightness step from neutral, 0.6 of its chroma and all
 of its hue ([ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 3).
 What stands on the plate takes the light appearance's roles, so the condition inks

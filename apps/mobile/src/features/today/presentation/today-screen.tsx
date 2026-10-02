@@ -68,7 +68,7 @@ import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
 import { easierToSee as easierToSeeValues, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
-import { OnPlate } from '@/theme/plate-theme';
+import { DarkPlate, OnPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type GenerationMode = NonNullable<LoadedTodayPresentation['generationMode']>;
@@ -1132,18 +1132,20 @@ function AccessoryCaption({
       <AppText colorRole="textSecondary" variant="caption">
         {caption}
       </AppText>
-      <View style={styles.accessoryGlyphs}>
-        {suggestion.accessories.map((accessory) => (
-          <GarmentDrawing
-            category={accessory.category}
-            garmentTypeId={accessory.garmentTypeId}
-            key={accessory.accessorySlot}
-            roles={roles.get(accessory.accessorySlot)}
-            size={drawingSize}
-            testID={`today-accessory-${accessory.garmentTypeId}`}
-          />
-        ))}
-      </View>
+      <DarkPlate style={styles.accessoryPlate}>
+        <View style={styles.accessoryGlyphs}>
+          {suggestion.accessories.map((accessory) => (
+            <GarmentDrawing
+              category={accessory.category}
+              garmentTypeId={accessory.garmentTypeId}
+              key={accessory.accessorySlot}
+              roles={roles.get(accessory.accessorySlot)}
+              size={drawingSize}
+              testID={`today-accessory-${accessory.garmentTypeId}`}
+            />
+          ))}
+        </View>
+      </DarkPlate>
     </View>
   );
 }
@@ -1154,12 +1156,14 @@ function CoolSpellLine({ caption }: Readonly<{ caption: string }>) {
   const drawingSize = useAccessoryDrawingSize();
   return (
     <View accessible accessibilityLabel={caption} style={styles.coolSpell} testID="today-cool-spell">
-      <GarmentDrawing
-        category="top"
-        garmentTypeId="cardigan"
-        size={drawingSize}
-        testID="today-cool-spell-cardigan"
-      />
+      <DarkPlate style={styles.accessoryPlate}>
+        <GarmentDrawing
+          category="top"
+          garmentTypeId="cardigan"
+          size={drawingSize}
+          testID="today-cool-spell-cardigan"
+        />
+      </DarkPlate>
       <AppText colorRole="textSecondary" style={styles.captionText} tabularNumbers variant="caption">
         {caption}
       </AppText>
@@ -1276,6 +1280,8 @@ const styles = StyleSheet.create({
     rowGap: spacing.xs },
   coolSpell: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   accessoryGlyphs: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  // The dark appearance's plate behind the finishing touches: a small tile, never a card.
+  accessoryPlate: { borderRadius: radii.control, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },

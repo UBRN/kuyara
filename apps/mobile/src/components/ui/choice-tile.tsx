@@ -8,6 +8,7 @@ import { PressScale } from '@/components/ui/press-scale';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { borderWidths, radii, spacing } from '@/theme/theme';
+import { DarkPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // One drawing is the tile's picture; several are a small hint of what the choice brings.
@@ -58,17 +59,19 @@ export function ChoiceTile({ disabled = false, drawings, label, onPress, role, s
         opacity: disabled ? theme.interaction.disabledOpacity : pressed ? theme.interaction.pressedOpacity : 1,
       }]}
       testID={testID}>
-      <View style={styles.drawings}>
-        {drawings.map(({ category, garmentTypeId }, index) => (
-          <GarmentDrawing
-            category={category}
-            garmentTypeId={garmentTypeId}
-            key={garmentTypeId}
-            size={glyphSize}
-            testID={drawings.length > 1 ? `${testID}-drawing-${index}` : `${testID}-drawing`}
-          />
-        ))}
-      </View>
+      <DarkPlate style={styles.drawingPlate} testID={`${testID}-plate`}>
+        <View style={styles.drawings}>
+          {drawings.map(({ category, garmentTypeId }, index) => (
+            <GarmentDrawing
+              category={category}
+              garmentTypeId={garmentTypeId}
+              key={garmentTypeId}
+              size={glyphSize}
+              testID={drawings.length > 1 ? `${testID}-drawing-${index}` : `${testID}-drawing`}
+            />
+          ))}
+        </View>
+      </DarkPlate>
       <AppText style={styles.label} variant="bodyStrong">{label}</AppText>
       {selected ? (
         <View style={styles.check} testID={`${testID}-check`}>
@@ -115,6 +118,8 @@ const styles = StyleSheet.create({
   spacer: { flex: 1 },
   tile: { alignItems: 'center', borderRadius: radii.control, flex: 1, gap: spacing.sm,
     justifyContent: 'center', minHeight: TILE_MIN_HEIGHT, paddingHorizontal: spacing.sm, paddingVertical: spacing.md },
+  // In the dark appearance the drawings stand on the garment plate inside the tile.
+  drawingPlate: { borderRadius: radii.compact, padding: spacing.xs },
   drawings: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.xs, justifyContent: 'center' },
   label: { textAlign: 'center' },
   check: { position: 'absolute', right: spacing.xs, top: spacing.xs },

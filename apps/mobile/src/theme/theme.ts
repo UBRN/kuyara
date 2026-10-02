@@ -114,10 +114,10 @@ type RunwayColors = Readonly<Record<RunwayField, string>>;
  * The dark appearance's garment plate: a soft light grey
  * the pieces sit on exactly as they do in the light appearance, dark ink outline included.
  * It is derived from the light plane it replaces, so each condition keeps its tint: the
- * neutral stage lands on OKLCH lightness 0.84, the other planes keep 0.4 of their light
+ * neutral stage lands on OKLCH lightness 0.88, the other planes keep 0.4 of their light
  * step from it, and every plane keeps 0.6 of its chroma and all of its hue.
  */
-const DARK_PLATE_LIGHTNESS = 0.84;
+const DARK_PLATE_LIGHTNESS = 0.88;
 const DARK_PLATE_SPREAD = 0.4;
 const DARK_PLATE_CHROMA = 0.6;
 

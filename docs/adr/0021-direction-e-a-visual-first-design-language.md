@@ -86,7 +86,7 @@ worse than `neutral`. Its values sit behind ink and silhouettes rather than behi
 number.
 
 In the dark appearance the stage is a soft light grey plate, not a dark one. Each light
-state is carried over in OKLCH: the neutral stage lands on lightness 0.84 (`#C7CBCC`), every
+state is carried over in OKLCH: the neutral stage lands on lightness 0.88 (`#D5D8D9`), every
 other state keeps 0.4 of its light lightness step from neutral, 0.6 of its chroma and all of
 its hue, so the condition tint survives at night without glaring. Everything that stands on
 the plate takes the light appearance's roles with the plate as its ground: the garments
@@ -94,9 +94,14 @@ keep their light colours and their Deep Atmosphere ink outline, their shadows ta
 light step, and any text on the plate takes the light text roles, the accent moved down
 0.06 in lightness so it clears 4.5:1. The same plate replaces the dark page under every
 other garment drawing: the detail board, the alternates and tomorrow's board, History,
-the Closet tiles and type grid, the share card and the onboarding preview. The plate is
-lighter than the page, so it reads as a raised rounded plate rather than a hole. The
-first-generation runway keeps its own dark fields.
+the Closet tiles and type grid, the share card and the onboarding preview, and under every
+small drawing that stands straight on the page or a card in the light appearance (Today's
+and the detail's finishing touches, the Profile rack, the Closet form's owned and wanted
+scenes, the piece sheet's colour comparison, the photo badge and the choice tiles of
+onboarding and the day-type sheet). The plate is lighter than the page, so it reads as a
+raised rounded plate rather than a hole. The first-generation runway keeps its dark field;
+its board stands on the neutral plate inside it, and that plate is what shrinks into
+Today's stage.
 
 The spike measured why a shrunken band fails: below roughly 110 points of height a
 two-stop tonal field has no vertical room to be perceived and reads as a flat utility

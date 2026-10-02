@@ -391,6 +391,28 @@ describe('the hand-off to Today', () => {
     expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull();
   });
 
+  // In the dark appearance the board stands on the garment plate inside the dark field, and
+  // that plate, not the whole field, is what shrinks into Today's stage.
+  test('dark: the board stands on the plate, which starts at the band and shrinks into the stage', async () => {
+    const result = await render(runway({ handoffTarget: target() } as never, darkTheme));
+    await laidOut(result);
+    const ground = StyleSheet.flatten(result.getByTestId('first-generation-plate-ground', hidden).props.style);
+    expect(ground).toMatchObject({ backgroundColor: darkTheme.colors.stage, borderRadius: 26 });
+    await result.rerender(runway({ handoffTarget: target(), active: false, completed: true, phase: null,
+      outfit: chosen } as never, darkTheme));
+    await act(() => jest.advanceTimersByTime(dressing + 800));
+    const plate = StyleSheet.flatten(result.getByTestId('first-generation-plate', hidden).props.style);
+    expect(plate).toMatchObject({ left: 16, top: 120, width: 358, height: 420, borderRadius: 26 });
+    expect(StyleSheet.flatten(result.getByTestId('first-generation-plate-ground', hidden).props.style)
+      .backgroundColor).toBe('transparent');
+  });
+
+  test('light: the field is the board ground and no plate is drawn inside it', async () => {
+    const result = await render(runway());
+    await laidOut(result);
+    expect(result.queryByTestId('first-generation-plate-ground', hidden)).toBeNull();
+  });
+
   test('a skipped wait fades out over Today instead', async () => {
     const onLeave = jest.fn();
     jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => buttons?.[1]?.onPress?.());

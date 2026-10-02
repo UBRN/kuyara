@@ -124,7 +124,10 @@ light `fallingNight` stage at 5.21:1 (CIEDE2000 42.5). Every pair clears the 3:1
 floor, so the tint stays. In the dark appearance the garment plates are light grey
 (ADR 0021 section 3), and Quiet Sky over a plate measures about 1.1:1 unblurred; in the
 Simulator the bar's glass stays dark over a plate and the selected tab is drawn on the
-glass's own darker selection capsule, so the tint still reads. The dark page remains the
+glass's own darker selection capsule, so the tint still reads: measured from Simulator
+frames against that capsule, the selected tab clears 6.4:1 over the plate and 11.0:1 over
+the dark page. A darker brand blue, the dark `primaryFill`, measures lower on both (4.3:1
+and 4.5:1) and is not used. The dark page remains the
 measured backdrop in the dark appearance. The
 differentiation is lightness, not hue: tint and stage share the brand's hue family by
 design, and the light tint is dark over a light stage while the dark tint is light over a

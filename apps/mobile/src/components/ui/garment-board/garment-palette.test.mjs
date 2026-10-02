@@ -76,7 +76,7 @@ test('six boards in both appearances match README legibility counts', (context) 
   }
   assert.deepEqual({ A: count.A, B: count.B, moved: count.moved,
     largestMove: Number(count.largestMove.toFixed(3)) },
-  { A: 35, B: 25, moved: 6, largestMove: 0.05 });
+  { A: 36, B: 24, moved: 4, largestMove: 0.055 });
   context.diagnostic(`60 pieces: A ${count.A}, B ${count.B}, moved ${count.moved}, max |dL| ${count.largestMove.toFixed(3)}`);
 });
 
@@ -145,7 +145,7 @@ test('31 x 14 swatch-stage matrix matches the approved clamp metrics', (context)
     }
   }
   assert.equal(stages.length, 14);
-  assert.equal(moved, 118);
+  assert.equal(moved, 101);
   assert.equal(Number(largestMove.toFixed(3)), 0.060);
   assert.ok(minimumStep >= 1.2);
   context.diagnostic(`434 cells passed; moved ${moved}; max |dL| ${largestMove.toFixed(3)}; minimum fill:stage ${minimumStep.toFixed(3)}`);

@@ -25,8 +25,8 @@ import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { useMessages } from '@/localization/use-messages';
-import { interaction, layout, plateTheme, spacing } from '@/theme/theme';
-import { PlateView } from '@/theme/plate-theme';
+import { interaction, layout, plateTheme, radii, spacing } from '@/theme/theme';
+import { DarkPlate, PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0028 section 1: the Closet is the subject. The native large title and the
@@ -357,13 +357,15 @@ export function ProfileScreen({
           error, with empty hangers waiting when the Closet is empty (O9). */}
       <TourTarget id="rack">
         <Entrance index={1} waiting={!shown}>
-          <ClosetRack
-            accessibilityHint={copy.closetHeadingHint}
-            accessibilityLabel={rackLabel}
-            onPress={isReady ? () => onOpenWardrobe() : undefined}
-            pieces={rackPieces}
-            testID="profile-rack"
-          />
+          <DarkPlate style={styles.rackPlate}>
+            <ClosetRack
+              accessibilityHint={copy.closetHeadingHint}
+              accessibilityLabel={rackLabel}
+              onPress={isReady ? () => onOpenWardrobe() : undefined}
+              pieces={rackPieces}
+              testID="profile-rack"
+            />
+          </DarkPlate>
         </Entrance>
       </TourTarget>
 
@@ -449,6 +451,11 @@ export function ProfileScreen({
 const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
+  },
+  // The dark appearance's plate the rack stands on.
+  rackPlate: {
+    borderRadius: radii.card,
+    padding: spacing.md,
   },
   closetHeading: {
     alignItems: 'center',

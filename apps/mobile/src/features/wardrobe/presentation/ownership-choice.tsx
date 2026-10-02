@@ -17,6 +17,7 @@ import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-ite
 import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import { useMessages } from '@/localization/use-messages';
 import { borderWidths, interaction, radii, spacing } from '@/theme/theme';
+import { DarkPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // O10: "I own it" and "I want it" as two illustrated choices that draw the piece being
@@ -156,7 +157,9 @@ export function OwnershipChoice({
             ]}
             testID={`wardrobe-entry-state-${state}`}>
             <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-              {state === 'owned' ? <RailScene {...piece} /> : <WishScene {...piece} />}
+              <DarkPlate style={styles.scenePlate}>
+                {state === 'owned' ? <RailScene {...piece} /> : <WishScene {...piece} />}
+              </DarkPlate>
             </View>
             <View style={styles.label}>
               <Icon color={theme.colors.iconPrimary} name={glyph} size={LABEL_GLYPH_SIZE} />
@@ -203,6 +206,11 @@ const styles = StyleSheet.create({
   selectedCard: {
     borderWidth: borderWidths.strong,
     padding: CARD_INSET,
+  },
+  // The dark appearance's plate the scene stands on, inside the card.
+  scenePlate: {
+    borderRadius: radii.control,
+    paddingVertical: spacing.xs,
   },
   scene: {
     alignItems: 'flex-end',
