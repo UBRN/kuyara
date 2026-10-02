@@ -487,6 +487,12 @@ export type AppMessages = Readonly<{
     historyEmptyTitle: string;
     historyEmptyBody: string;
     historyLoadError: string;
+    // History's Sunday-evening look back at the week (ADR 0038): counts the reader's own
+    // records, never a goal, a streak or a missing day.
+    historyWeekTitle: string;
+    historyWeekDays: (count: number) => string;
+    historyWeekDressedFor: Readonly<Record<'rain' | 'cold' | 'light', (count: number) => string>>;
+    historyWeekMostWorn: (values: { piece: string; count: number }) => string;
     wardrobeEmpty: string;
     addPieceAction: string;
     // O9: the open rack is one button; its label names the heading and the pieces by
@@ -1109,6 +1115,14 @@ const en = {
     historyEmptyTitle: 'No worn looks yet',
     historyEmptyBody: 'When you wear a look, open it from Today and tap “Wore this today”. It will show here under that day.',
     historyLoadError: 'History could not be loaded. Try again later.',
+    historyWeekTitle: 'This week',
+    historyWeekDays: (count: number) => (count === 1 ? 'You recorded 1 day' : `You recorded ${count} days`),
+    historyWeekDressedFor: {
+      rain: (count: number) => (count === 1 ? 'Dressed for rain on 1 day' : `Dressed for rain on ${count} days`),
+      cold: (count: number) => (count === 1 ? 'Dressed for cold on 1 day' : `Dressed for cold on ${count} days`),
+      light: (count: number) => (count === 1 ? 'Dressed light on 1 day' : `Dressed light on ${count} days`),
+    },
+    historyWeekMostWorn: ({ piece, count }: { piece: string; count: number }) => `Most worn: ${piece}, ${count} days`,
     wardrobeEmpty: 'Add the pieces you own or want.',
     addPieceAction: 'Add a piece',
     rackAccessibilityLabel: ({ title, count, categories }) =>
@@ -2145,6 +2159,14 @@ const tr = {
     historyEmptyTitle: 'Henüz giyilen kombin yok',
     historyEmptyBody: 'Bir kombini giydiğinde, Bugün ekranından açıp “Bugün bunu giydim” düğmesine dokun. Burada o günün altında görünür.',
     historyLoadError: 'Geçmiş yüklenemedi. Biraz sonra yeniden dene.',
+    historyWeekTitle: 'Bu hafta',
+    historyWeekDays: (count: number) => `${count} gün kaydettin`,
+    historyWeekDressedFor: {
+      rain: (count: number) => `${count} gün yağmura göre giyindin`,
+      cold: (count: number) => `${count} gün soğuğa göre giyindin`,
+      light: (count: number) => `${count} gün ince giyindin`,
+    },
+    historyWeekMostWorn: ({ piece, count }: { piece: string; count: number }) => `En çok giyilen: ${piece}, ${count} gün`,
     wardrobeEmpty: 'Sahip olduğun ya da istediğin parçaları ekle.',
     addPieceAction: 'Parça ekle',
     rackAccessibilityLabel: ({ title, count, categories }) =>

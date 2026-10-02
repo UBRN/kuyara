@@ -1,18 +1,27 @@
 import { Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useTransitionLanded } from '@/components/ui';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
+import { weekSummary } from '@/features/recommendation/domain/outfit-history-week';
 import { HistoryScreen, type HistoryEntry } from '@/features/profile/presentation/history-screen';
 import { useMessages } from '@/localization/use-messages';
 
 export default function HistoryRoute() {
   const messages = useMessages();
-  const { outfitHistory } = useRecommendationApplication();
+  const { dressingDayKey, outfitHistory, reevaluateLocalDay } = useRecommendationApplication();
   const [entries, setEntries] = useState<readonly HistoryEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const transitionLanded = useTransitionLanded();
+  // The dressing day the application already read from the device clock: on Sunday evening
+  // History opens with the week's look back, derived from the days on screen.
+  const summary = useMemo(
+    () => (entries && dressingDayKey ? weekSummary(entries, dressingDayKey) : null),
+    [dressingDayKey, entries],
+  );
 
+  // Opening History reads the clock again, as Today does, so Sunday 18:00 is seen on arrival.
+  useFocusEffect(useCallback(() => { reevaluateLocalDay(); }, [reevaluateLocalDay]));
   useFocusEffect(useCallback(() => {
     if (!outfitHistory) return;
     let live = true;
@@ -34,7 +43,8 @@ export default function HistoryRoute() {
       <Stack.Screen
         options={{ headerLargeTitle: true, headerShown: true, headerTitle: messages.profile.historyLabel }}
       />
-      <HistoryScreen entries={entries} loadFailed={loadFailed} transitionLanded={transitionLanded} />
+      <HistoryScreen entries={entries} loadFailed={loadFailed} transitionLanded={transitionLanded}
+        weekSummary={summary} />
     </>
   );
 }
