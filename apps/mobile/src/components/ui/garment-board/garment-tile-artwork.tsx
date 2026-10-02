@@ -6,6 +6,7 @@ import type { ColorFamily, GarmentTypeId, StructuralCategory } from '@/features/
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import { easierToSee, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
 import { layout, radii } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { GarmentSlotGlyph } from '../garment-slot-glyph';
@@ -249,7 +250,7 @@ const GARMENT_CANDIDATE_TILE_SIZE = layout.minimumTouchTarget;
 
 /**
  * Phase 7's candidate tile, one catalog piece drawn in the colour the outfit would give it on
- * a `surfaceMuted` tile: the row picker's and the board strip's. Test IDs take the caller's
+ * a `garmentTile` plate: the row picker's and the board strip's. Test IDs take the caller's
  * prefix, `<prefix>-photo-<id>`, `<prefix>-glyph-<id>` and `<prefix>-silhouette-<id>`.
  */
 export function GarmentCandidateTile({
@@ -274,8 +275,9 @@ export function GarmentCandidateTile({
   const strongEdge = useStrongEdge();
   const size = GARMENT_CANDIDATE_TILE_SIZE;
   return (
-    <View
-      style={[candidateTileStyles.tile, { backgroundColor: colors.surfaceMuted }, control && strongEdge]}
+    <PlateView
+      color={colors.garmentTile}
+      style={[candidateTileStyles.tile, control && strongEdge]}
       testID={`${testIDPrefix}-tile-${garmentTypeId}`}>
       <GarmentTileArtwork
         category={category}
@@ -290,7 +292,7 @@ export function GarmentCandidateTile({
         silhouetteTestID={`${testIDPrefix}-silhouette-${garmentTypeId}`}
         width={size}
       />
-    </View>
+    </PlateView>
   );
 }
 

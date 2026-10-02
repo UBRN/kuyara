@@ -70,6 +70,7 @@ export { useTransitionLanded } from './use-transition-landed';
 
 export {
   GarmentBoard,
+  garmentBoardDressingOrder,
   layoutGarmentBoard,
   measureGarmentBoardHeight,
   useGarmentCandidateRoles,
@@ -89,7 +90,7 @@ export { swapRevealScroll } from './garment-board/swap-gesture';
 
 export { GarmentCandidateTile, GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
 export { ClosetColorDisc } from './garment-board/closet-color-art';
-export { ClosetRack, type ClosetRackProps, type RackPiece } from './garment-board/closet-rack';
+export { ClosetRack, RACK_ASPECT, type ClosetRackProps, type RackPiece } from './garment-board/closet-rack';
 export {
   GarmentRunwayBoard,
   runwayDressingDuration,
@@ -100,6 +101,7 @@ export { RollingText, type RollingTextProps } from './rolling-text';
 export { ScrollDepth, type ScrollDepthProps } from './scroll-depth';
 export {
   garmentColorFamiliesBySlot,
+  garmentSwatchesBySlot,
   garmentUsualColorFamilies,
   keepGarmentColors,
   type GarmentOutfitPalette,

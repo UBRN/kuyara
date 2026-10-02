@@ -8,7 +8,8 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import type { ColorFamily, GarmentType } from '@/features/catalog/domain/garment-taxonomy';
-import { borderWidths, interaction, spacing } from '@/theme/theme';
+import { borderWidths, interaction, plateTheme, spacing } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The Drawer's tile. It draws the same picture the Closet grid draws for the same
@@ -64,11 +65,11 @@ export function GarmentTypeTile({
       onPress={onPress}
       style={[styles.wrapper, disabled && styles.disabled]}
       testID={`wardrobe-type-${garmentType.typeId}`}>
-      <View
+      <PlateView
+        color={theme.colors.garmentTile}
         style={[
           styles.frame,
           {
-            backgroundColor: theme.colors.surfaceMuted,
             borderColor: selected ? theme.colors.brandAccent : 'transparent',
             height: size,
             width: size,
@@ -92,13 +93,13 @@ export function GarmentTypeTile({
             importantForAccessibility="no-hide-descendants"
             style={styles.mark}>
             <Icon
-              color={theme.colors.brandAccent}
+              color={plateTheme(theme, theme.colors.garmentTile).colors.brandAccent}
               name="checkCircle"
               size={SELECTED_MARK_SIZE}
             />
           </View>
         ) : null}
-      </View>
+      </PlateView>
       <AppText
         numberOfLines={usesStackedLayout ? 3 : 2}
         style={{ width: size }}

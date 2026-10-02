@@ -90,7 +90,10 @@ describe('the sign-in page (frames 02, 17, 18, 19, 33)', () => {
     const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />);
     expect(screen.getByText(en.signIn.title)).toBeTruthy();
-    en.signIn.benefits.forEach((benefit) => expect(screen.getByText(benefit)).toBeTruthy());
+    Object.values(en.signIn.pages).forEach(({ title, body }) => {
+      expect(screen.getByText(title)).toBeTruthy();
+      expect(screen.getByText(body)).toBeTruthy();
+    });
     expect(screen.getByLabelText(en.signIn.continueWith.apple)).toBeTruthy();
     expect(screen.getByLabelText(en.signIn.continueWith.google)).toBeTruthy();
     expect(screen.queryByTestId('account-sign-in-status')).toBeNull();

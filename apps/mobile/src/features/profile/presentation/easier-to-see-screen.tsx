@@ -18,6 +18,7 @@ import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useMessages } from '@/localization/use-messages';
 import { EasierToSeeContext, useEasierToSee, useSystemVisibility } from '@/theme/easier-to-see';
 import { radii, spacing } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The preview card (ADR 0030 section 5, owner decision 11): one fixed layered outfit drawn on
@@ -161,7 +162,7 @@ function PreviewContent({ stageWidth, testIDs = false }: Readonly<{ stageWidth: 
   const enabled = useEasierToSee();
   return (
     <>
-      <View style={[styles.stage, { backgroundColor: theme.colors.stage, width: stageWidth }]}>
+      <PlateView color={theme.colors.stage} style={[styles.stage, { width: stageWidth }]}>
         <GarmentBoard
           accessibilityLabel={enabled ? copy.previewLabelOn : copy.previewLabelOff}
           decorative
@@ -172,7 +173,7 @@ function PreviewContent({ stageWidth, testIDs = false }: Readonly<{ stageWidth: 
           testID={testIDs ? 'settings-easier-to-see-preview-board' : undefined}
           width={stageWidth}
         />
-      </View>
+      </PlateView>
       <View style={styles.previewText}>
         <AppText testID={testIDs ? 'settings-easier-to-see-preview-name' : undefined} variant="label">
           {copy.previewOutfitName}

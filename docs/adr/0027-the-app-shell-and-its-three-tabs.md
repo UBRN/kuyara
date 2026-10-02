@@ -120,12 +120,16 @@ tint was measured against all seven atmosphere tones and the page background in 
 appearances, taking the unblurred tone as the backdrop because blur does not move a
 region's average colour and the glass lightens over light content and darkens over dark
 content, which widens these pairs rather than narrowing them. The weakest pair is the
-light `fallingNight` stage at 5.21:1 (CIEDE2000 42.5); the dark appearance has one stage
-tone, at 8.37:1. Every pair clears the 3:1 non-text floor, so the tint stays. The
+light `fallingNight` stage at 5.21:1 (CIEDE2000 42.5). Every pair clears the 3:1 non-text
+floor, so the tint stays. In the dark appearance the garment plates are light grey
+(ADR 0021 section 3), and Quiet Sky over a plate measures about 1.1:1 unblurred; in the
+Simulator the bar's glass stays dark over a plate and the selected tab is drawn on the
+glass's own darker selection capsule, so the tint still reads. The dark page remains the
+measured backdrop in the dark appearance. The
 differentiation is lightness, not hue: tint and stage share the brand's hue family by
 design, and the light tint is dark over a light stage while the dark tint is light over a
-dark stage, the same direction as the monochromatic default Apple describes. The
-`tab-tint-separation` test holds the 3:1 floor for every pair.
+dark page, the same direction as the monochromatic default Apple describes. The
+`tab-tint-separation` test holds the 3:1 floor for every measured pair.
 
 ### 4. The bottom inset is a rule, not a number
 

@@ -5,8 +5,9 @@ import { AppText, GarmentTileArtwork, Icon, PressScale, useTextScaling } from '@
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { AppMessages } from '@/localization/messages';
-import { borderWidths, radii, spacing } from '@/theme/theme';
+import { borderWidths, plateTheme, radii, spacing } from '@/theme/theme';
 import { useStrongEdge } from '@/theme/easier-to-see';
+import { OnPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0029 sections 1 and 3. Each tile draws the first rung it can: the photo,
@@ -19,8 +20,9 @@ const TILE_RADIUS = 14;
 // ADR 0028 section 1's rail sizes its glyph rung at 72 inside a 136-wide tile; the grid
 // reuses that ratio against the tile's shorter side rather than inventing a new one.
 const GLYPH_SIZE_RATIO = 72 / 136;
-// O9: a wanted tile has no stage fill; a dashed `borderDefined` frame, a heart badge and a
-// dashed garment edge carry the state with the section heading and the spoken "Wanted",
+// O9: a wanted tile stands on the garment ground (the page in the light appearance, the
+// plate in the dark); a dashed `borderDefined` frame, a heart badge and a dashed garment
+// edge carry the state with the section heading and the spoken "Wanted",
 // so colour is never the only signal.
 const WANTED_FRAME_WIDTH = 1.5;
 const WANTED_BADGE_SIZE = 28;
@@ -85,6 +87,9 @@ export function WardrobeGridTile({
   const photoUri = resolvePhotoUri(item.photoRelativePath);
   const { subline, title } = resolveTileCopy(item, messages);
   const wanted = item.entryState === 'wanted';
+  // A wanted piece stands on the page ground in the light appearance, an owned one on a tile.
+  const plate = wanted ? theme.colors.garmentGround : theme.colors.garmentTile;
+  const onPlate = plateTheme(theme, plate).colors;
   const worn = wornCount > 0 ? messages.wardrobe.wornCount(wornCount) : null;
   const accessibilityLabel = [title, subline, wanted ? messages.wardrobe.wantedTileLabel : null, worn]
     .filter(Boolean)
@@ -110,38 +115,39 @@ export function WardrobeGridTile({
                 style={StyleSheet.flatten<ViewStyle>([
                   styles.tile,
                   geometry,
-                  wanted
-                    ? [styles.wantedTile, { borderColor: theme.colors.borderDefined }]
-                    : { backgroundColor: theme.colors.surfaceMuted },
+                  { backgroundColor: plate },
+                  wanted && [styles.wantedTile, { borderColor: theme.colors.borderDefined }],
                   strongEdge,
                   highlighted && [styles.highlightedTile, { borderColor: theme.colors.brandAccent }],
                 ])}
                 testID={testID ? `${testID}-frame` : undefined}>
-                <GarmentTileArtwork
-                  photoUri={photoUri}
-                  garmentTypeId={item.garmentTypeId}
-                  category={item.category}
-                  colorFamily={item.colorFamily}
-                  width={geometry.width}
-                  height={geometry.height}
-                  glyphSize={glyphSize}
-                  photoTestID={`wardrobe-photo-${item.id}`}
-                  silhouetteTestID={`wardrobe-silhouette-${item.id}`}
-                  placeholderTestID={`wardrobe-photo-placeholder-${item.id}`}
-                  wanted={wanted}
-                />
-                {wanted ? (
-                  <View
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                    style={[
-                      styles.wantedBadge,
-                      { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderDefined },
-                    ]}
-                    testID={testID ? `${testID}-wanted-badge` : undefined}>
-                    <Icon color={theme.colors.textPrimary} name="heartFilled" size={WANTED_BADGE_ICON_SIZE} />
-                  </View>
-                ) : null}
+                <OnPlate color={plate}>
+                  <GarmentTileArtwork
+                    photoUri={photoUri}
+                    garmentTypeId={item.garmentTypeId}
+                    category={item.category}
+                    colorFamily={item.colorFamily}
+                    width={geometry.width}
+                    height={geometry.height}
+                    glyphSize={glyphSize}
+                    photoTestID={`wardrobe-photo-${item.id}`}
+                    silhouetteTestID={`wardrobe-silhouette-${item.id}`}
+                    placeholderTestID={`wardrobe-photo-placeholder-${item.id}`}
+                    wanted={wanted}
+                  />
+                  {wanted ? (
+                    <View
+                      accessibilityElementsHidden
+                      importantForAccessibility="no-hide-descendants"
+                      style={[
+                        styles.wantedBadge,
+                        { backgroundColor: onPlate.surface, borderColor: onPlate.borderDefined },
+                      ]}
+                      testID={testID ? `${testID}-wanted-badge` : undefined}>
+                      <Icon color={onPlate.textPrimary} name="heartFilled" size={WANTED_BADGE_ICON_SIZE} />
+                    </View>
+                  ) : null}
+                </OnPlate>
               </View>
             </Link.AppleZoom>
             <AppText

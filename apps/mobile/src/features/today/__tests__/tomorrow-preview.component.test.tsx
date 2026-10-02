@@ -120,9 +120,9 @@ test.each([
   expect(result.getByTestId('today-tomorrow-weather', { includeHiddenElements: true }).props.children)
     .toBe(weatherLine);
   expect(result.getByTestId('today-tomorrow-board', { includeHiddenElements: true })).toBeTruthy();
-  // The strip comes before the alternatives, right under today's outfit.
-  expect(result.getAllByTestId(/^today-(tomorrow|alternates-heading)$/).map(({ props }) => props.testID))
-    .toEqual(['today-tomorrow', 'today-alternates-heading']);
+  // The strip sits right under today's outfit, before its last update and the alternatives.
+  expect(result.getAllByTestId(/^today-(tomorrow|provenance|alternates-heading)$/).map(({ props }) => props.testID))
+    .toEqual(['today-tomorrow', 'today-provenance', 'today-alternates-heading']);
   fireEvent.press(strip);
   expect(open).toHaveBeenCalledWith(recommendation.outfits[0].optionId);
 });

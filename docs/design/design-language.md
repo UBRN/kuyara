@@ -136,7 +136,8 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
     because the shadow overlaps completely with the object itself.
 - **Second measurable token, separately named: the garment fill step.** A garment fill
   steps **>= 1.20:1** off the plane it is drawn on and the outline over that fill clears
-  **>= 3.0:1**, measured on all seven light atmosphere states and the dark stage. This is
+  **>= 3.0:1**, measured on all seven light atmosphere states and the seven dark-appearance
+  plates, on which a garment is drawn in the light appearance with its ink. This is
   not the shadow threshold, and it is not the surface step
   [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) section 4 declines
   to bound. A garment's main fill passes it, or clears 3:1 against the plane on its own;
@@ -511,7 +512,7 @@ scroll's speed and shrinks to the press scale. Weather's title row is the one si
 
 **Dressing.** A piece changed on the outfit detail board, by a swipe, a strip tile, the
 row's picker or an adjustable step, is taken off and put on: the leaving piece lifts
-`spacing.md` as it fades on `fast`, and the arriving one is hung on from `spacing.md` above
+`spacing.lg` as it fades on `fast`, and the arriving one is hung on from `spacing.lg` above
 and lands on the arrival spring, its shadow drawn with it. A piece a swipe has already
 carried into place catches its weight with a moment's settle instead.
 

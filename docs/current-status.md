@@ -6,7 +6,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 
 ## Current State
 
-- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 23)
+- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 24)
   provide a seven-step onboarding flow (welcome, optional name, gender, dress style,
   style preferences, birth date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
@@ -274,9 +274,6 @@ The approved phase order, active work and remaining open items are in [the roadm
   appearance hook, so the `brandPrimary` tint stays Android-only until it does.
 - **Dark elevated-surface step:** `backgroundElevated` sits 1.18:1 over `surface` by
   decision; a lighter value would drop `textSecondary` below its 4.5:1 floor.
-- **Dark atmosphere states render neutral only.** ADR 0018 caps them at Deep Atmosphere's
-  luminance; every compliant variation sits only 3 to 8 RGB levels from the current
-  `#122A35` stage and is imperceptible. Lifting the cap needs a separate decision.
 - **The Pages site always animates by decision.** The website at `docs/` animates
   regardless of the OS setting and offers a System/Light/Dark selector stored in the
   browser; the decision is recorded in `product-decisions.md` and qualified in

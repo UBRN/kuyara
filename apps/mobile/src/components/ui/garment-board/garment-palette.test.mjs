@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { colorFamilies, garmentTypeIds } from '../../../features/catalog/domain/garment-taxonomy.ts';
 import { shiftOklchLightness } from '../../../theme/color-oklch.ts';
-import { darkTheme, lightTheme } from '../../../theme/theme.ts';
+import { darkTheme, lightTheme, plateTheme } from '../../../theme/theme.ts';
 import { garmentShadowRule } from './compose-garment-board.ts';
 import {
   garmentColorFamiliesBySlot, garmentFillForAppearance, garmentPaletteContrast, garmentPaletteMood, garmentPaletteRoutes,
@@ -58,11 +58,14 @@ test('six boards in both appearances match README legibility counts', (context) 
   const count = { A: 0, B: 0, moved: 0, largestMove: 0 };
   for (const [index, board] of boards.entries()) {
     const [, optionId, temperatureC, condition, isNight, formality, tuples] = board;
-    for (const theme of [lightTheme, darkTheme]) {
+    for (const outer of [lightTheme, darkTheme]) {
+      // A dark-appearance stage is a light grey plate: the board on it takes the light roles.
+      const stageColor = outer.atmosphere[planes[index]];
+      const theme = plateTheme(outer, stageColor);
       const appearance = theme.colorScheme;
       const pieces = tuples.map(([slot, type]) => piece(slot, type));
       const result = resolveGarmentPalette(input({ optionId, temperatureC, condition, isNight,
-        formality, pieces, appearance, stageColor: theme.atmosphere[planes[index]],
+        formality, pieces, appearance, stageColor,
         accessoryStageColor: theme.colors.background, inkColor: theme.colors.textPrimary }));
       for (const { legibility } of result) {
         count[legibility.route] += 1;
@@ -73,7 +76,7 @@ test('six boards in both appearances match README legibility counts', (context) 
   }
   assert.deepEqual({ A: count.A, B: count.B, moved: count.moved,
     largestMove: Number(count.largestMove.toFixed(3)) },
-  { A: 32, B: 28, moved: 10, largestMove: 0.055 });
+  { A: 35, B: 25, moved: 6, largestMove: 0.05 });
   context.diagnostic(`60 pieces: A ${count.A}, B ${count.B}, moved ${count.moved}, max |dL| ${count.largestMove.toFixed(3)}`);
 });
 
@@ -116,13 +119,12 @@ test('all catalog types resolve and all 31 swatches have a closed colorFamily', 
   }
 });
 
-test('31 x 8 swatch-stage matrix matches the approved clamp metrics', (context) => {
-  const stages = [
-    ...Object.entries(lightTheme.atmosphere).map(([name, stageColor]) => ({ name, stageColor,
-      inkColor: lightTheme.colors.textPrimary, dark: false })),
-    { name: 'dark', stageColor: darkTheme.atmosphere.neutral,
-      inkColor: darkTheme.colors.textPrimary, dark: true },
-  ];
+test('31 x 14 swatch-stage matrix matches the approved clamp metrics', (context) => {
+  // Seven light stages, and the seven dark-appearance plates, on which the pieces are drawn
+  // in the light appearance with its ink.
+  const stages = [lightTheme, darkTheme].flatMap((theme) => Object.entries(theme.atmosphere)
+    .map(([name, stageColor]) => ({ name: `${theme.colorScheme} ${name}`, stageColor,
+      inkColor: plateTheme(theme, stageColor).colors.textPrimary, dark: false })));
   let moved = 0;
   let largestMove = 0;
   let minimumStep = Infinity;
@@ -135,17 +137,18 @@ test('31 x 8 swatch-stage matrix matches the approved clamp metrics', (context) 
       const beforeHue = toGarmentOklch(transformed).H;
       const afterHue = toGarmentOklch(result.hex).H;
       const hueDrift = Math.abs(((afterHue - beforeHue + 540) % 360) - 180);
-      assert.ok(hueDrift < 3, `${swatchId} on ${stage.name}: hue drift ${hueDrift}`);
+      // A near-grey swatch has no hue to keep.
+      assert.ok(toGarmentOklch(transformed).C < 0.02 || hueDrift < 3, `${swatchId} on ${stage.name}: hue drift ${hueDrift}`);
       if (result.moved !== 0) moved += 1;
       largestMove = Math.max(largestMove, Math.abs(result.moved));
       minimumStep = Math.min(minimumStep, routes.cs);
     }
   }
-  assert.equal(stages.length, 8);
-  assert.equal(moved, 58);
+  assert.equal(stages.length, 14);
+  assert.equal(moved, 118);
   assert.equal(Number(largestMove.toFixed(3)), 0.060);
   assert.ok(minimumStep >= 1.2);
-  context.diagnostic(`248 cells passed; moved ${moved}; max |dL| ${largestMove.toFixed(3)}; minimum fill:stage ${minimumStep.toFixed(3)}`);
+  context.diagnostic(`434 cells passed; moved ${moved}; max |dL| ${largestMove.toFixed(3)}; minimum fill:stage ${minimumStep.toFixed(3)}`);
 });
 
 // The piece shadow (garment-board.md section 9) is the plane moved in OKLCH lightness only,
@@ -153,9 +156,13 @@ test('31 x 8 swatch-stage matrix matches the approved clamp metrics', (context) 
 // at full strength clears 3:1 on every plane a board stands on, in both appearances.
 test('every piece shadow keeps the ink edge at 3:1 or better and keeps its plane\'s hue', (context) => {
   let lowest = Infinity;
-  for (const theme of [lightTheme, darkTheme]) {
-    const step = garmentShadowRule.step[theme.colorScheme];
-    for (const [plane, colour] of [...Object.entries(theme.atmosphere), ['background', theme.colors.background]]) {
+  for (const outer of [lightTheme, darkTheme]) {
+    const planes = [...Object.entries(outer.atmosphere),
+      ['garmentGround', outer.colors.garmentGround], ['garmentTile', outer.colors.garmentTile]];
+    for (const [plane, colour] of planes) {
+      // A dark-appearance plate takes the light roles, its shadow step included.
+      const theme = plateTheme(outer, colour);
+      const step = garmentShadowRule.step[theme.colorScheme];
       const shadow = shiftOklchLightness(colour, step);
       const ink = garmentPaletteContrast(theme.colors.textPrimary, shadow);
       assert.ok(ink >= 3, `${theme.colorScheme} ${plane}: ink:shadow ${ink.toFixed(2)}`);
@@ -217,4 +224,25 @@ test('a changed piece leaves the untouched pieces in their colours', async () =>
     }
   }
   assert.ok(recolouredWithoutKeeping > 0, 'the whole-set resolution recolours untouched pieces');
+});
+
+// Migration 24: "Wore this today" stores the swatch each piece was drawn in, and History draws
+// the day from them on a different day mood. Every piece comes back in the swatch it was seen
+// in, whatever the original day's weather, and the stored ids are exactly the swatch library.
+test('a worn day redrawn from its recorded swatches keeps every piece in the colour it was seen in', async () => {
+  const { garmentSwatchesBySlot } = await import('./garment-palette.ts');
+  const { garmentSwatchIds } = await import('../../../features/catalog/domain/garment-swatch.ts');
+  assert.deepEqual([...garmentSwatchIds].sort(), Object.keys(garmentSwatches).sort());
+  for (const [name, optionId, temperatureC, condition, isNight, formality, pieces] of boards) {
+    const seen = { optionId, temperatureC, condition, isNight, formality,
+      pieces: pieces.map(([slot, id]) => piece(slot, id)) };
+    const recorded = garmentSwatchesBySlot(seen);
+    assert.deepEqual(Object.keys(recorded).sort(), pieces.map(([slot]) => slot).sort(), name);
+    const history = { optionId: 'history-2026-09-24', temperatureC: 18, condition: 'cloudy', isNight: false, formality,
+      pieces: pieces.map(([slot, id]) => piece(slot, id, recorded[slot])) };
+    for (const resolved of resolveGarmentPalette(input(history))) {
+      assert.equal(resolved.swatchId, recorded[resolved.piece.slot], `${name}: ${resolved.piece.slot}`);
+      assert.equal(resolved.reason, 'recorded');
+    }
+  }
 });

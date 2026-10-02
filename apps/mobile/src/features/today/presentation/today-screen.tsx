@@ -68,6 +68,7 @@ import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
 import { easierToSee as easierToSeeValues, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
+import { OnPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type GenerationMode = NonNullable<LoadedTodayPresentation['generationMode']>;
@@ -419,7 +420,9 @@ function TodayScreenContent({
           <View
             style={[styles.stage, { backgroundColor: theme.colors.stage }]}
             testID="today-skeleton-stage">
-            <GarmentBoardSkeleton testID="today-skeleton-board" width={contentWidth} />
+            <OnPlate color={theme.colors.stage}>
+              <GarmentBoardSkeleton testID="today-skeleton-board" width={contentWidth} />
+            </OnPlate>
           </View>
           {/* Law 7: the breathing placeholders and the breathing mark are never the only
               signal. This line is the state, and it is what a screen reader is given. */}
@@ -668,45 +671,47 @@ function TodayScreenContent({
                     onLayout={stageLaidOut ? undefined : () => setStageLaidOut(true)}
                     ref={stageView}
                     testID="today-stage">
-                    {leavingOutfit ? (
-                      // The leaving board is centred in the new stage's frame, whatever height its
-                      // own fitted board has.
-                      <View style={[styles.leavingBoard, { height: stageHeight, width: contentWidth }]}>
-                        <GarmentBoard
-                          accessibilityLabel=""
-                          decorative
-                          fit
-                          key={leavingOutfit.id}
-                          onLeft={clearLeavingOutfit}
-                          palette={leavingOutfit.palette}
-                          pieces={leavingOutfit.boardPieces}
-                          preset="today"
-                          stageColor={stageColor}
-                          testID="today-leaving-board"
-                          width={contentWidth}
-                        />
-                      </View>
-                    ) : null}
-                    <GarmentBoard
-                      accessibilityLabel={presentation.stageAccessibilityLabel}
-                      // ADR 0021 section 10's transition between suggestions: the key is the
-                      // option identity, so a new recommendation re-mounts the board: the old
-                      // pieces drop and fade, then the new ones rise, while a refresh that
-                      // returns the same outfit leaves it still. The rise is never the only
-                      // signal; the archetype and freshness line also change with it.
-                      key={primary.id}
-                      fit
-                      holdRise={holdRise || !stageLaidOut}
-                      replaces={stageOutfit?.replaced === true}
-                      palette={primary.palette}
-                      pieces={primary.boardPieces}
-                      preset="today"
-                      // The outfit the runway carried onto the stage has already arrived.
-                      rise={primary.id !== carriedOutfitId}
-                      stageColor={stageColor}
-                      testID={`today-primary-board-${primary.id}`}
-                      width={contentWidth}
-                    />
+                    <OnPlate color={stageColor}>
+                      {leavingOutfit ? (
+                        // The leaving board is centred in the new stage's frame, whatever height its
+                        // own fitted board has.
+                        <View style={[styles.leavingBoard, { height: stageHeight, width: contentWidth }]}>
+                          <GarmentBoard
+                            accessibilityLabel=""
+                            decorative
+                            fit
+                            key={leavingOutfit.id}
+                            onLeft={clearLeavingOutfit}
+                            palette={leavingOutfit.palette}
+                            pieces={leavingOutfit.boardPieces}
+                            preset="today"
+                            stageColor={stageColor}
+                            testID="today-leaving-board"
+                            width={contentWidth}
+                          />
+                        </View>
+                      ) : null}
+                      <GarmentBoard
+                        accessibilityLabel={presentation.stageAccessibilityLabel}
+                        // ADR 0021 section 10's transition between suggestions: the key is the
+                        // option identity, so a new recommendation re-mounts the board: the old
+                        // pieces drop and fade, then the new ones rise, while a refresh that
+                        // returns the same outfit leaves it still. The rise is never the only
+                        // signal; the archetype and freshness line also change with it.
+                        key={primary.id}
+                        fit
+                        holdRise={holdRise || !stageLaidOut}
+                        replaces={stageOutfit?.replaced === true}
+                        palette={primary.palette}
+                        pieces={primary.boardPieces}
+                        preset="today"
+                        // The outfit the runway carried onto the stage has already arrived.
+                        rise={primary.id !== carriedOutfitId}
+                        stageColor={stageColor}
+                        testID={`today-primary-board-${primary.id}`}
+                        width={contentWidth}
+                      />
+                    </OnPlate>
                   </View>
                 </PressScale>
               </TourTarget>
@@ -786,6 +791,18 @@ function TodayScreenContent({
           </>
         ) : null}
 
+        {/* B: in the evening, tomorrow's outfit is one thin strip right under today's card,
+            above its last update, a single target that opens its detail. It shows only while
+            the preview is ready. */}
+        {tomorrow && onOpenTomorrowDetail ? (
+          <Entrance index={1}>
+            <TomorrowStrip
+              onPress={() => onOpenTomorrowDetail(tomorrow.id)}
+              tomorrow={tomorrow}
+            />
+          </Entrance>
+        ) : null}
+
         {/* O5: "Last updated" sits under the finishing touches; it no longer describes a button.
             Each new line crossfades, and the mark arrives and leaves with its own line, so it
             never pushes a line that is already showing. */}
@@ -805,17 +822,6 @@ function TodayScreenContent({
             </View>
           </Crossfade>
         </ArrivesAfterHandoff>
-
-        {/* B: in the evening, tomorrow's outfit is one thin strip right under today's, a
-            single target that opens its detail. It shows only while the preview is ready. */}
-        {tomorrow && onOpenTomorrowDetail ? (
-          <Entrance index={1}>
-            <TomorrowStrip
-              onPress={() => onOpenTomorrowDetail(tomorrow.id)}
-              tomorrow={tomorrow}
-            />
-          </Entrance>
-        ) : null}
 
         {presentation.noOutfit ? (
           <Surface
@@ -863,20 +869,22 @@ function TodayScreenContent({
                         importantForAccessibility="no-hide-descendants"
                         style={[
                           styles.alternateStage,
-                          { height: alternateStageHeight, width: alternateWidth },
+                          { backgroundColor: theme.colors.garmentGround, height: alternateStageHeight, width: alternateWidth },
                           easierToSee ? null : strongEdge,
                         ]}
                         testID={`today-alternate-stage-${suggestion.id}`}>
                         {/* O15: each alternate stands on the page ground in its own palette, so
                             it looks the same here as on Today's stage once chosen. */}
-                        <GarmentBoard
-                          accessibilityLabel={suggestion.boardAccessibilityLabel}
-                          palette={suggestion.palette}
-                          pieces={suggestion.boardPieces}
-                          preset="today"
-                          testID={`today-alternate-board-${suggestion.id}`}
-                          width={alternateWidth}
-                        />
+                        <OnPlate color={theme.colors.garmentGround}>
+                          <GarmentBoard
+                            accessibilityLabel={suggestion.boardAccessibilityLabel}
+                            palette={suggestion.palette}
+                            pieces={suggestion.boardPieces}
+                            preset="today"
+                            testID={`today-alternate-board-${suggestion.id}`}
+                            width={alternateWidth}
+                          />
+                        </OnPlate>
                       </View>
                       <View style={[styles.alternateTitleRow, easierToSee && styles.alternateRowTitle]}>
                         <AppText numberOfLines={2} style={styles.outfitName} variant="label">
@@ -1202,19 +1210,23 @@ function TomorrowStrip({ onPress, tomorrow }: Readonly<{ onPress: () => void; to
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          style={{
+          style={[styles.alternateStage, {
+            backgroundColor: theme.colors.garmentGround,
             height: measureGarmentBoardHeight(tomorrow.boardPieces, TOMORROW_BOARD_WIDTH, 'today', false, easierToSee),
             width: TOMORROW_BOARD_WIDTH,
-          }}>
-          <GarmentBoard
-            accessibilityLabel=""
-            decorative
-            palette={tomorrow.palette}
-            pieces={tomorrow.boardPieces}
-            preset="today"
-            testID="today-tomorrow-board"
-            width={TOMORROW_BOARD_WIDTH}
-          />
+          }]}>
+          {/* The same garment plate the alternates stand on, so dark mode draws it alike. */}
+          <OnPlate color={theme.colors.garmentGround}>
+            <GarmentBoard
+              accessibilityLabel=""
+              decorative
+              palette={tomorrow.palette}
+              pieces={tomorrow.boardPieces}
+              preset="today"
+              testID="today-tomorrow-board"
+              width={TOMORROW_BOARD_WIDTH}
+            />
+          </OnPlate>
         </View>
         <View style={styles.tomorrowText}>
           <AppText colorRole="textSecondary" testID="today-tomorrow-heading" variant="caption">

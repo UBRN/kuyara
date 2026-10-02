@@ -104,6 +104,8 @@ export type Candidates = Readonly<Partial<Record<OutfitSlot, readonly GarmentSwa
 export type Composed = Readonly<{
   bySlot: ReadonlyMap<OutfitSlot, Readonly<{ piece: ComposedPiece; box: Box }>>;
   order: readonly OutfitSlot[];
+  /** The dressing order, back to front: the order the board draws its pieces in. */
+  stack: readonly OutfitSlot[];
   height: number;
 }>;
 
