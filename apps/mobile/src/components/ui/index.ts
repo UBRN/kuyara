@@ -89,7 +89,7 @@ export { swapRevealScroll } from './garment-board/swap-gesture';
 
 export { GarmentCandidateTile, GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
 export { ClosetColorDisc } from './garment-board/closet-color-art';
-export { ClosetRack, type ClosetRackProps, type RackPiece } from './garment-board/closet-rack';
+export { ClosetRack, RACK_ASPECT, type ClosetRackProps, type RackPiece } from './garment-board/closet-rack';
 export {
   GarmentRunwayBoard,
   runwayDressingDuration,

@@ -23,6 +23,9 @@ import { resolveGarmentTileFill } from './garment-render-fills';
 
 export type { RackPiece } from './closet-rack-layout';
 
+/** The rack's width over its height, for a caller that sizes it by height. */
+export const RACK_ASPECT = RACK_WIDTH / RACK_HEIGHT;
+
 // A side-on wanted piece keeps the dashed edge at slice size.
 const SLICE_DASH = '2.6 2';
 

@@ -11,6 +11,7 @@ import type {
 } from '@/features/weather/domain/weather';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { RestoreCounts } from '@/features/account/application/account-screens';
+import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
 import {
   catalogMessages,
   type CatalogMessages,
@@ -780,7 +781,11 @@ export type AccountMessages = Readonly<{
   signIn: Readonly<{
     close: string;
     title: string;
-    benefits: readonly [string, string, string];
+    /** One page per benefit, in the order `accountIntroPageIds` lists them. */
+    pages: Readonly<Record<AccountIntroPageId, Readonly<{ title: string; body: string }>>>;
+    /** The page dots' spoken value: "Page 2 of 5". */
+    pagePosition: (page: number, total: number) => string;
+    pageIndicator: string;
     continueWith: ByProvider;
     notNow: string;
     footer: string;
@@ -1788,14 +1793,33 @@ const en = {
     signIn: {
       close: 'Close',
       title: 'Complete your profile',
-      benefits: [
-        'Your Closet and History come with you to a new phone.',
-        'If you reinstall kuyara, you pick up where you left off.',
-        'Everything works the same without an account.',
-      ],
+      pages: {
+        closet: {
+          title: 'Your Closet comes back',
+          body: 'On a new phone or after a reinstall, sign in and every piece you added is there.',
+        },
+        history: {
+          title: 'Your History stays with you',
+          body: 'The days you wore stay with your account, each outfit as you recorded it.',
+        },
+        askAgain: {
+          title: 'More stylist asks',
+          body: 'With an account, you can ask the stylist again up to 10 times a day instead of 5.',
+        },
+        devices: {
+          title: 'Same Closet on two phones',
+          body: 'Sign in on a second phone and both show the same Closet and History.',
+        },
+        photos: {
+          title: 'Photo backup, coming soon',
+          body: 'Backing up the photos of your Closet pieces is on its way. It is not available yet.',
+        },
+      },
+      pagePosition: (page: number, total: number) => `Page ${page} of ${total}`,
+      pageIndicator: 'Pages',
       continueWith: { apple: 'Continue with Apple', google: 'Continue with Google' },
       notNow: 'Not now',
-      footer: 'Signing in adds your Closet, History and style preferences to your account. Your birth date is not added.',
+      footer: 'Everything works the same without an account. Signing in adds your Closet, History and style preferences to your account. Your birth date is not added.',
       privacy: 'Privacy policy',
       cancelled: 'Sign-in was cancelled. Choose a way to sign in when you are ready.',
       offline: 'You are offline. You can sign in once you are connected.',
@@ -2804,14 +2828,33 @@ const tr = {
     signIn: {
       close: 'Kapat',
       title: 'Profilini tamamla',
-      benefits: [
-        'Gardırobun ve Geçmişin yeni telefonuna seninle gelir.',
-        'kuyara’yı yeniden yüklersen kaldığın yerden devam edersin.',
-        'Hesap olmadan da her şey aynı şekilde çalışır.',
-      ],
+      pages: {
+        closet: {
+          title: 'Gardırobun geri gelir',
+          body: 'Yeni telefonda ya da yeniden yükledikten sonra giriş yap, eklediğin her parça yerinde.',
+        },
+        history: {
+          title: 'Geçmişin seninle',
+          body: 'Giydiğin günler hesabında kalır, her kombin kaydettiğin gibi.',
+        },
+        askAgain: {
+          title: 'Daha çok stilist hakkı',
+          body: 'Hesabınla stiliste günde 5 yerine 10 keze kadar tekrar sorabilirsin.',
+        },
+        devices: {
+          title: 'İki telefonda aynı Gardırop',
+          body: 'İkinci bir telefonda giriş yap, ikisinde de aynı Gardırop ve Geçmiş görünür.',
+        },
+        photos: {
+          title: 'Fotoğraf yedeği yakında',
+          body: 'Gardırobundaki parçaların fotoğraflarını yedekleme yakında geliyor. Şimdilik kullanılamıyor.',
+        },
+      },
+      pagePosition: (page: number, total: number) => `Sayfa ${page} / ${total}`,
+      pageIndicator: 'Sayfalar',
       continueWith: { apple: 'Apple ile Devam Et', google: 'Google ile devam et' },
       notNow: 'Şimdi değil',
-      footer: 'Giriş yaptığında Gardırobun, Geçmişin ve stil tercihlerin hesabına eklenir. Doğum tarihin eklenmez.',
+      footer: 'Hesap olmadan da her şey aynı şekilde çalışır. Giriş yaptığında Gardırobun, Geçmişin ve stil tercihlerin hesabına eklenir. Doğum tarihin eklenmez.',
       privacy: 'Gizlilik politikası',
       cancelled: 'Giriş iptal edildi. Hazır olduğunda bir giriş yolu seç.',
       offline: 'İnternet bağlantın yok. Bağlandıktan sonra giriş yapabilirsin.',
