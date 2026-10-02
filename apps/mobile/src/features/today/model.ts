@@ -3,6 +3,7 @@ import type { RecommendationPhase } from '@/features/recommendation/application/
 import type { OutfitRecommendationResult } from '@/features/recommendation/application/recommend-outfits';
 import type {
   ActiveLocation,
+  DailyWeather,
   WeatherConditionCode,
   WeatherSnapshot,
 } from '@/features/weather/domain/weather';
@@ -38,6 +39,11 @@ export type TodayScreenState =
       phase?: RecommendationPhase | null;
       /** Set while a confirmed re-ask is choosing: the window it is choosing for. */
       choosingWindow?: Readonly<{ start: string; end: string }> | null;
+      /**
+       * Detail of tomorrow's evening preview only: the forecast row it was chosen for, which
+       * the weather, colours and day name then describe instead of the current hours.
+       */
+      forecastDay?: DailyWeather | null;
     }>;
 
 export function unavailableTodayState(

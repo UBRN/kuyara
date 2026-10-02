@@ -16,7 +16,7 @@ import { useProfileApplication } from '@/features/profile/application/profile-co
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
 import { classifyTodayState } from '@/features/today/application/today-state';
-import { activeLocationRecommendation } from '@/features/today/model';
+import { activeLocationRecommendation, type TodayScreenState } from '@/features/today/model';
 import {
   historyDayKey,
   sameWornGarments,
@@ -27,6 +27,7 @@ import {
   OutfitDetailScreen,
   type OutfitWornState,
 } from '@/features/today/presentation/outfit-detail-screen';
+import { tomorrowForecastDay } from '@/features/today/presentation/today-presentation';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { closetFieldsChanged } from '@/features/wardrobe/application/closet-field-changes';
 import {
@@ -51,11 +52,36 @@ function wornOutfitOrNull(...args: Parameters<typeof wornOutfitFrom>): WornOutfi
   }
 }
 
+// Detail of the evening preview: today's loaded weather with the preview's outfit and the
+// forecast row it was chosen for. Without that pair there is no outfit to show.
+function tomorrowState(
+  state: TodayScreenState,
+  preview: ReturnType<typeof useRecommendationApplication>['tomorrowPreview'],
+): TodayScreenState {
+  if (state.kind !== 'loaded' || !preview) return { kind: 'unavailable' };
+  const forecastDay = tomorrowForecastDay(preview, state.snapshot.weather);
+  if (!forecastDay) return { kind: 'unavailable' };
+  return {
+    ...state,
+    snapshot: {
+      ...state.snapshot,
+      recommendation: preview.recommendation,
+      coverageStart: preview.coverageStart,
+      coverageEnd: preview.coverageEnd,
+      paletteBasis: undefined,
+    },
+    forecastDay,
+  };
+}
+
 export default function OutfitDetailRoute() {
-  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  // `day=tomorrow` opens the evening preview of the next dressing day, read-only for the
+  // day's worn record.
+  const { day, id } = useLocalSearchParams<{ day?: string | string[]; id?: string | string[] }>();
+  const tomorrow = (Array.isArray(day) ? day[0] : day) === 'tomorrow';
   const { language, messages } = useLocalization();
   const { dressingDayChoiceReady, dressingDayChoiceFailed, dressingDayKey, outfitHistory, reevaluateLocalDay,
-    resolvedDressStyle, state: recommendationState } = useRecommendationApplication();
+    resolvedDressStyle, state: recommendationState, tomorrowPreview = null } = useRecommendationApplication();
   const theme = useKuyaraTheme();
   const wardrobe = useWardrobeApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
@@ -72,10 +98,12 @@ export default function OutfitDetailRoute() {
   const clock = useForegroundClock();
   useScreenViewed('outfit_detail');
   const suggestionId = Array.isArray(id) ? id[0] : id;
-  const recommendation = recommendationState.status === 'ready'
-    ? activeLocationRecommendation(recommendationState.snapshot, weatherState.status === 'ready'
-      ? weatherState.activeLocation : null)
-    : null;
+  const activeLocation = weatherState.status === 'ready' ? weatherState.activeLocation : null;
+  const recommendation = tomorrow
+    ? activeLocationRecommendation(tomorrowPreview, activeLocation)
+    : recommendationState.status === 'ready'
+      ? activeLocationRecommendation(recommendationState.snapshot, activeLocation)
+      : null;
   const wardrobeItems = wardrobe.state.status === 'ready' ? wardrobe.state.items : [];
 
   const dressStyle = dressStyleProperty(
@@ -97,8 +125,9 @@ export default function OutfitDetailRoute() {
   // Phase 7: the reader's changes to this outfit live exactly as long as this route, so
   // leaving detail forgets them (owner answer 4). The candidates keep the profile's gender
   // applicability the outfit was composed with.
-  const snapshotPreference = recommendationState.status === 'ready'
-    ? recommendationState.snapshot?.clothingPreference : undefined;
+  const snapshotPreference = tomorrow
+    ? tomorrowPreview?.clothingPreference
+    : recommendationState.status === 'ready' ? recommendationState.snapshot?.clothingPreference : undefined;
   const manualMix = useManualMix(
     outfit,
     recommendation?.status === 'recommended' ? recommendation.requirements : null,
@@ -131,7 +160,8 @@ export default function OutfitDetailRoute() {
       return;
     }
     if (
-      !suggestionId || !position || !outfit || dressingDayChoiceReady === false ||
+      // Tomorrow's preview records no analytics.
+      tomorrow || !suggestionId || !position || !outfit || dressingDayChoiceReady === false ||
       recommendation?.status !== 'recommended' ||
       openedSuggestionIdRef.current === suggestionId
     ) return;
@@ -145,7 +175,7 @@ export default function OutfitDetailRoute() {
       age_bucket: ageBucket,
     });
   }, [ageBucket, analytics, dressStyle, dressingDayChoiceReady, isFocused, outfit, position,
-    recommendation, suggestionId]);
+    recommendation, suggestionId, tomorrow]);
 
   // ADR 0038: the day's worn record, read once per dressing day, so the action knows whether
   // it records, repeats nothing, or replaces another look.
@@ -165,7 +195,7 @@ export default function OutfitDetailRoute() {
     [changedOutfit, outfit],
   );
   const dayWorn = wornGarments?.key === dayKey ? wornGarments : null;
-  const worn: OutfitWornState = !dayWorn || !thisWorn
+  const worn: OutfitWornState = tomorrow || !dayWorn || !thisWorn
     ? 'unknown'
     : dayWorn.outfit === null ? 'none'
       : sameWornGarments(dayWorn.outfit, thisWorn) ? 'this' : 'other';
@@ -252,7 +282,7 @@ export default function OutfitDetailRoute() {
     });
   };
 
-  const { state } = classifyTodayState({
+  const { state: todayState } = classifyTodayState({
     weather: weatherState,
     recommendation: recommendationState,
     profile: profileState,
@@ -260,6 +290,7 @@ export default function OutfitDetailRoute() {
     surface: 'detail',
     now: new Date(clock).toISOString(),
   });
+  const state = tomorrow ? tomorrowState(todayState, tomorrowPreview) : todayState;
 
   useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);
 
@@ -272,7 +303,8 @@ export default function OutfitDetailRoute() {
         options={{
           headerBackTitle: messages.navigation.today,
           headerShown: true,
-          headerTitle: '',
+          // Tomorrow's preview names its day in the bar; today's detail needs no title.
+          headerTitle: tomorrow ? messages.today.tomorrow.heading : '',
           // Phase 7: iOS 26's full-screen back swipe would take a rightward drag on the
           // focused piece, so it is off while a piece is focused; the edge swipe stays, and
           // the platform default returns when the focus ends.
@@ -289,7 +321,7 @@ export default function OutfitDetailRoute() {
             // An unstored flag only lets the hint play once more on a later visit.
           });
         }}
-        onWoreThis={outfitHistory && dayKey ? onWoreThis : undefined}
+        onWoreThis={outfitHistory && dayKey && !tomorrow ? onWoreThis : undefined}
         state={state}
         suggestionId={suggestionId}
         // The board's swipe hint plays until the profile says it has, once for life.

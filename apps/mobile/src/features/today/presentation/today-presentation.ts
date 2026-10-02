@@ -50,7 +50,7 @@ import {
   type DayInsight,
   type DayInsightModifier,
 } from '@/features/weather/domain/day-insight';
-import type { NormalizedCoordinates, WeatherSnapshot } from '@/features/weather/domain/weather';
+import type { DailyWeather, NormalizedCoordinates, WeatherSnapshot } from '@/features/weather/domain/weather';
 import {
   getMessages,
   type SupportedLanguage,
@@ -644,19 +644,39 @@ function reasonCodesByPriority(
 }
 
 export type TomorrowPreviewPresentation = Readonly<{
+  /** The previewed outfit's option id, which its detail opens on. */
+  id: string;
   heading: string;
   weather: string;
-  weatherAccessibilityLabel: string;
   title: string;
   boardPieces: LoadedOutfitPresentation['boardPieces'];
   palette: GarmentOutfitPalette;
-  boardAccessibilityLabel: string;
+  accessibilityLabel: string;
+  accessibilityHint: string;
 }>;
 
 /**
- * The evening's look at the next dressing day: its forecast in one line and the first outfit
- * chosen for it, coloured by that day's own weather. Null when the forecast has no row for the
- * day, so the section never shows an outfit without the weather it was chosen for.
+ * The forecast row a stored preview was chosen for, or null when the forecast has none, so
+ * neither the strip nor its detail ever shows an outfit without the weather it was chosen for.
+ */
+export function tomorrowForecastDay(preview: RecommendationSnapshot, weather: WeatherSnapshot): DailyWeather | null {
+  if (!preview.localDayKey) return null;
+  return weather.daily?.find(({ dateKey }) => dateKey === preview.localDayKey) ?? null;
+}
+
+// A forecast day colours its outfit by its own high and condition, in daylight, on the strip
+// and on its detail alike.
+function forecastDayPalette(day: DailyWeather): GarmentPaletteDay {
+  return { temperatureC: day.maximumTemperatureCelsius, condition: day.condition, isNight: false };
+}
+
+function forecastDayKind(day: DailyWeather): DayKind {
+  return localDayKind(new Date(`${day.dateKey}T12:00:00`));
+}
+
+/**
+ * The evening's look at the next dressing day: the first outfit chosen for it, coloured by
+ * that day's own weather, and its forecast in one short line. Null without a forecast row.
  */
 export function createTomorrowPreviewPresentation(
   preview: RecommendationSnapshot,
@@ -665,37 +685,39 @@ export function createTomorrowPreviewPresentation(
   temperatureUnit: TemperatureUnit,
 ): TomorrowPreviewPresentation | null {
   const outfit = preview.recommendation.outfits[0];
-  const day = weather.daily?.find(({ dateKey }) => dateKey === preview.localDayKey);
-  if (!outfit || !day || !preview.localDayKey) return null;
+  const day = tomorrowForecastDay(preview, weather);
+  if (!outfit || !day) return null;
   const messages = getMessages(language);
   const copy = messages.today;
   const condition = messages.weather.conditions[day.condition];
-  const title = archetypeLabel(messages.recommendation, outfit.archetypeId,
-    localDayKind(new Date(`${preview.localDayKey}T12:00:00`)));
+  const title = archetypeLabel(messages.recommendation, outfit.archetypeId, forecastDayKind(day));
   const boardPieces = outfitBoardPieces(outfit);
+  const outfitLabel = copy.boardAccessibilityLabel({
+    archetype: title,
+    pieces: boardPieces.map(({ garmentTypeId }) =>
+      messages.catalog[`catalog.garment_type.${garmentTypeId}.name`]),
+  });
   return {
+    id: outfit.optionId,
     heading: copy.tomorrow.heading,
     weather: copy.tomorrow.weather({
       condition,
       minimum: formatTemperature(day.minimumTemperatureCelsius, language, temperatureUnit),
       maximum: formatTemperature(day.maximumTemperatureCelsius, language, temperatureUnit),
     }),
-    weatherAccessibilityLabel: copy.tomorrow.weatherAccessibilityLabel({
-      condition,
-      minimum: formatTemperatureValue(day.minimumTemperatureCelsius, language, temperatureUnit),
-      maximum: formatTemperatureValue(day.maximumTemperatureCelsius, language, temperatureUnit),
-      unitName: messages.temperatureUnitNames[temperatureUnit],
-    }),
     title,
     boardPieces,
-    palette: outfitGarmentPalette(outfit, {
-      temperatureC: day.maximumTemperatureCelsius, condition: day.condition, isNight: false,
+    palette: outfitGarmentPalette(outfit, forecastDayPalette(day)),
+    accessibilityLabel: copy.tomorrow.stripAccessibilityLabel({
+      outfit: outfitLabel,
+      weather: copy.tomorrow.weatherAccessibilityLabel({
+        condition,
+        minimum: formatTemperatureValue(day.minimumTemperatureCelsius, language, temperatureUnit),
+        maximum: formatTemperatureValue(day.maximumTemperatureCelsius, language, temperatureUnit),
+        unitName: messages.temperatureUnitNames[temperatureUnit],
+      }),
     }),
-    boardAccessibilityLabel: copy.boardAccessibilityLabel({
-      archetype: title,
-      pieces: boardPieces.map(({ garmentTypeId }) =>
-        messages.catalog[`catalog.garment_type.${garmentTypeId}.name`]),
-    }),
+    accessibilityHint: copy.tomorrow.stripAccessibilityHint,
   };
 }
 
@@ -719,15 +741,18 @@ function createLoadedPresentation(
   phase: RecommendationPhase | null,
   choosingWindow: OutfitCoverage | null,
   manual: ManualDetail | null,
+  day: DailyWeather | null,
 ): LoadedTodayPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
   const weatherCopy = messages.weather;
   const weather = snapshot.weather;
   const current = weather.current;
-  const rainProbability = todayRainOutlookProbability(weather, now);
+  // Detail of tomorrow's preview reads that day's forecast row (`day`); tonight's hours, drift
+  // and insight say nothing about it.
+  const rainProbability = day ? day.precipitationProbability : todayRainOutlookProbability(weather, now);
   const time = formatFreshnessTime(weather.fetchedAt, language, hour12, now);
-  const insight = findDayInsight({ snapshot: weather, now: new Date(now).toISOString() });
+  const insight = day ? null : findDayInsight({ snapshot: weather, now: new Date(now).toISOString() });
   const deterministicDayInsight = insight === null ? null : dayInsightSentence(
     insight,
     copy.dayInsight,
@@ -751,7 +776,7 @@ function createLoadedPresentation(
     ? windowSentence(coverageWindowParts(choosing, now, weather.timeZone, language, hour12),
       copy.coverage.choosing, copy.coverage.choosingOnDay)
     : null;
-  const drift = snapshot.coverageEnd && snapshot.recommendation.status === 'recommended' && !choosing
+  const drift = !day && snapshot.coverageEnd && snapshot.recommendation.status === 'recommended' && !choosing
     ? coverageDrift(snapshot.recommendation.requirements, weather.hourly,
       new Date(now).toISOString(), snapshot.coverageEnd)
     : null;
@@ -759,7 +784,7 @@ function createLoadedPresentation(
     ? copy.drift[drift.kind](formatTime(drift.at, language, hour12, weather.timeZone))
     : null;
   // Cold drift already says the rest of the window needs more than a layer.
-  const coolSpell = shown && snapshot.recommendation.status === 'recommended' && !choosing &&
+  const coolSpell = !day && shown && snapshot.recommendation.status === 'recommended' && !choosing &&
     drift?.kind !== 'cold'
     ? laterCoolSpell(snapshot.recommendation.requirements, weather.hourly,
       new Date(now).toISOString(), shown)
@@ -768,15 +793,16 @@ function createLoadedPresentation(
     ? copy.coolSpell(formatTime(coolSpell.at, language, hour12, weather.timeZone))
     : null;
   const isStale = snapshot.freshness === 'stale';
-  const condition = weatherCopy.conditions[current.condition];
+  const conditionCode = day?.condition ?? current.condition;
+  const condition = weatherCopy.conditions[conditionCode];
   // A stored or AI-chosen result rebuilds its reason codes from the requirements alone, so
   // the day's own spread supplies the wide-range one that no requirement carries.
   const weatherReasons = reasonCodesByPriority({
     ...snapshot.recommendation.requirements,
     reasonCodes: withDailyRangeReason(
       snapshot.recommendation.requirements.reasonCodes,
-      weather.minimumTemperatureCelsius,
-      weather.maximumTemperatureCelsius,
+      day?.minimumTemperatureCelsius ?? weather.minimumTemperatureCelsius,
+      day?.maximumTemperatureCelsius ?? weather.maximumTemperatureCelsius,
     ),
   }).map((reason) => copy.requirementReasons[reason]);
   const outfits =
@@ -785,8 +811,8 @@ function createLoadedPresentation(
       : [];
   // The label follows the day the user is reading it on, so a stored weekend result does not
   // say "Weekend Relaxed" on the Monday after.
-  const dayKind = localDayKind(new Date(now));
-  const paletteDay = garmentPaletteDay(weather, now, snapshot.paletteBasis);
+  const dayKind = day ? forecastDayKind(day) : localDayKind(new Date(now));
+  const paletteDay = day ? forecastDayPalette(day) : garmentPaletteDay(weather, now, snapshot.paletteBasis);
   const suggestions = outfits.map((outfit, index) =>
     manual && manual.changedSlots.length > 0 && outfit.optionId === manual.optionId
       ? localizeOutfit(manual.outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay,
@@ -840,15 +866,19 @@ function createLoadedPresentation(
   const primary = suggestions[0];
   // One reading of the place's own sunrise and sunset feeds both the stage tint and the
   // title symbol, so the two can never disagree about whether it is day or night there.
-  const daypart = resolveDaypart(
+  const daypart = day ? 'day' : resolveDaypart(
     new Date(now).toISOString(),
     weather.timeZone,
     snapshot.activeLocation.coordinates,
   );
+  const dayRange = day ? copy.tomorrow.range({
+    minimum: formatTemperature(day.minimumTemperatureCelsius, language, temperatureUnit),
+    maximum: formatTemperature(day.maximumTemperatureCelsius, language, temperatureUnit),
+  }) : null;
 
   // One localized template per language: the values are substituted, never the words.
   const titleLine = copy.titleTemplate
-    .replace('{temperature}', formatTemperature(current.temperatureCelsius, language, temperatureUnit))
+    .replace('{temperature}', dayRange ?? formatTemperature(current.temperatureCelsius, language, temperatureUnit))
     .replace('{condition}', condition);
   const [beforeSymbol, afterSymbol] = titleLine.split(' {symbol} ');
   const leadEnd = copy.titleTemplate.indexOf('{temperature}');
@@ -868,8 +898,8 @@ function createLoadedPresentation(
     },
     // M15: the dressing day's date, so between midnight and 04:00 it still names the
     // evening's calendar date.
-    date: formatDressingDate(localDayKey(new Date(now)), language),
-    atmosphere: resolveAtmosphereState(current.condition, daypart),
+    date: formatDressingDate(day?.dateKey ?? localDayKey(new Date(now)), language),
+    atmosphere: resolveAtmosphereState(conditionCode, daypart),
     copy: {
       piecesHeading: copy.piecesHeading,
       reasonsHeading: copy.reasonsHeading,
@@ -896,7 +926,7 @@ function createLoadedPresentation(
     },
     weather: {
       condition,
-      temperature: formatTemperature(current.temperatureCelsius, language, temperatureUnit),
+      temperature: dayRange ?? formatTemperature(current.temperatureCelsius, language, temperatureUnit),
       apparentTemperature: copy.apparentTemperature(
         formatTemperature(current.apparentTemperatureCelsius, language, temperatureUnit),
       ),
@@ -916,14 +946,21 @@ function createLoadedPresentation(
         maximum: formatTemperatureValue(weather.maximumTemperatureCelsius, language, temperatureUnit),
         rainProbability: Math.round(rainProbability * 100),
       }),
-      recapAccessibilityLabel: copy.weatherRecapAccessibilityLabel({
+      recapAccessibilityLabel: day ? copy.tomorrow.recapAccessibilityLabel({
+        condition,
+        minimum: formatTemperatureValue(day.minimumTemperatureCelsius, language, temperatureUnit),
+        maximum: formatTemperatureValue(day.maximumTemperatureCelsius, language, temperatureUnit),
+        unitName: messages.temperatureUnitNames[temperatureUnit],
+        rainProbability: Math.round(rainProbability * 100),
+        coverageCaption,
+      }) : copy.weatherRecapAccessibilityLabel({
         temperature: formatTemperatureValue(current.temperatureCelsius, language, temperatureUnit),
         unitName: messages.temperatureUnitNames[temperatureUnit],
         condition,
         rainProbability: Math.round(rainProbability * 100),
         coverageCaption,
       }),
-      conditionCode: current.condition,
+      conditionCode,
       daypart,
     },
     generationMode,
@@ -1009,5 +1046,6 @@ export function createTodayPresentation(
     state.phase ?? null,
     state.choosingWindow ?? null,
     manual,
+    state.forecastDay ?? null,
   );
 }
