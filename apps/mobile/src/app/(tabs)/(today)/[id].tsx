@@ -1,4 +1,11 @@
-import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams, useNavigation } from 'expo-router';
+import {
+  Stack,
+  useFocusEffect,
+  useIsFocused,
+  useLocalSearchParams,
+  useNavigation,
+  usePreventZoomTransitionDismissal,
+} from 'expo-router';
 import { StackActions } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform } from 'react-native';
@@ -317,6 +324,13 @@ export default function OutfitDetailRoute() {
   const state = tomorrow ? tomorrowState(todayState, tomorrowPreview) : todayState;
 
   useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);
+  // On iOS an alternative on Today zooms this screen open, and the zoom's own drag closes it
+  // from anywhere on screen. While a piece is focused that drag would take the board's
+  // swipe, so it is held off, as the full-screen back swipe is, and the back control
+  // still closes. Without the zoom the hook does nothing.
+  usePreventZoomTransitionDismissal(
+    boardFocused ? { unstable_dismissalBoundsRect: { maxX: 0, maxY: 0 } } : undefined,
+  );
 
   return (
     <>

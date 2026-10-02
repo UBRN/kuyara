@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import { useLaunchReveal, useLaunchScreenReady } from '@/components/ui/launch-curtain';
-import { useSinglePush } from '@/components/ui/use-single-push';
+import { useSingleTap } from '@/components/ui/use-single-push';
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
@@ -41,7 +41,8 @@ import { getMessages } from '@/localization/messages';
 export default function TodayRoute() {
   const { language, hour12 } = useLocalization();
   const clock = useForegroundClock();
-  const push = useSinglePush();
+  const tap = useSingleTap();
+  const push = tap.push;
   const {
     state: recommendationState,
     getSnapshot: getRecommendationSnapshot,
@@ -423,6 +424,7 @@ export default function TodayRoute() {
       displayName={profileState.status === 'ready' ? profileState.profile.displayName : null}
       isRefreshing={isPullRefreshing}
       onOpenOutfitDetail={(id) => push({ pathname: '/[id]', params: { id } })}
+      outfitDetailLink={{ href: (id) => ({ pathname: '/[id]', params: { id } }), onPress: tap.linkPress }}
       onOpenTomorrowDetail={(id) => push({ pathname: '/[id]', params: { id, day: 'tomorrow' } })}
       onRefresh={handleRefresh}
       onRunwayVisibleChange={setRunwayVisible}
