@@ -126,7 +126,7 @@ jest.mock('@/components/ui/native-menu', () => {
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
-let mockParams: { id?: string } = {};
+let mockParams: { id?: string; day?: string } = {};
 
 const mockStackScreen = jest.fn();
 const mockDispatch = jest.fn();
@@ -475,6 +475,7 @@ function Providers({
   productAnalytics,
   markRecommendationShown = jest.fn(),
   liveRecommendationProvider = false,
+  tomorrowPreview = null,
 }: PropsWithChildren<{
   weather: WeatherApplicationValue;
   recommendation: RecommendationApplicationState;
@@ -499,6 +500,7 @@ function Providers({
   productAnalytics: ReturnType<typeof createProductAnalytics>;
   markRecommendationShown?: () => void;
   liveRecommendationProvider?: boolean;
+  tomorrowPreview?: RecommendationApplicationValue['tomorrowPreview'];
 }>) {
   const screenContent = (
     <WardrobeApplicationContext value={wardrobe as never}>
@@ -532,6 +534,7 @@ function Providers({
       reask,
       activeDeparture,
       reevaluateLocalDay,
+      tomorrowPreview,
     }}>
       {screenContent}
     </RecommendationApplicationContext>
@@ -2434,7 +2437,8 @@ test('recommendation refresh and failure state reaches Today while the last outf
   expect(result.getByTestId('today-freshness')).toHaveTextContent(
     messages.en.today.refreshingStatus,
   );
-  expect(result.getByTestId('today-screen').props.refreshControl.props.refreshing).toBe(true);
+  // A background refresh keeps its line and leaves the pull control still.
+  expect(result.getByTestId('today-screen').props.refreshControl.props.refreshing).toBe(false);
   expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
 
   await result.rerender(
@@ -2953,6 +2957,43 @@ test('the piece sheet writes a new shade of the same family without an analytics
   );
   await waitFor(() => expect(result.queryByTestId('piece-edit-sheet')).toBeNull());
   expect(productAnalytics.analytics.captures.some((c) => c.name === 'closet_item_updated')).toBe(false);
+});
+
+// B: the evening strip opens tomorrow's preview in detail, with that day's forecast and
+// without the day's worn action, and it records no analytics.
+test('tomorrow\'s preview opens in detail read-only, with its own forecast', async () => {
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('fixture');
+  const preview = { ...saved.snapshot, id: 'preview-one', localDayKey: '2026-08-14' };
+  const weather = weatherValue({ snapshot: { ...todayScreenState.snapshot.weather, daily: [{
+    dateKey: '2026-08-14', condition: 'rain', minimumTemperatureCelsius: 7.2,
+    maximumTemperatureCelsius: 9.6, precipitationProbability: 0.8, precipitationMillimetres: 4,
+  }] } });
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    get: jest.fn(async () => null),
+    log: jest.fn(async () => { throw new Error('never'); }),
+  };
+  const productAnalytics = createProductAnalytics();
+  const props = {
+    productAnalytics, profile: profileValue(), recommendation: saved, wardrobe: wardrobeValue(), weather,
+    dressingDayKey: '2026-08-13:evening', outfitHistory,
+  };
+
+  mockParams = { id: todayOutfitId(1), day: 'tomorrow' };
+  const result = await render(
+    <Providers {...props} tomorrowPreview={preview}><OutfitDetailRoute /></Providers>,
+  );
+  expect(await result.findByTestId('outfit-detail-weather-recap')).toHaveTextContent(/7\.2°\sto\s9\.6°/);
+  expect(result.getByTestId('outfit-detail-weather-recap')).toHaveTextContent(/Rain/);
+  await waitFor(() => expect(outfitHistory.get).toHaveBeenCalled());
+  expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
+  expect(productAnalytics.analytics.names()).not.toContain('outfit_detail_opened');
+
+  // Without the preview there is nothing to show for tomorrow, even if today offers the id.
+  await result.rerender(<Providers {...props} tomorrowPreview={null}><OutfitDetailRoute /></Providers>);
+  expect(result.queryByTestId('outfit-detail-weather-recap')).toBeNull();
 });
 
 // ADR 0038: "Wore this today" writes one row per dressing day under its bare date. The same

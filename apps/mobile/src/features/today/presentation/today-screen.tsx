@@ -55,6 +55,7 @@ import {
   runwayWeather,
   type LoadedOutfitPresentation,
   type LoadedTodayPresentation,
+  type TomorrowPreviewPresentation,
 } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { TitleWeatherSymbol } from '@/features/today/presentation/title-weather-symbol';
@@ -105,6 +106,8 @@ type TodayScreenProps = Readonly<{
   isRefreshing?: boolean;
   alertOffer?: TodayAlertOffer | null;
   onOpenOutfitDetail: (id: string) => void;
+  /** Opens the detail of tomorrow's previewed outfit, from the evening strip. */
+  onOpenTomorrowDetail?: (id: string) => void;
   onRefresh: () => void;
   /** Opens the "Ask the stylist again" sheet (O3). The pull gesture never changes the outfit. */
   onAskAgain: () => void;
@@ -238,6 +241,7 @@ function TodayScreenContent({
   isRefreshing = false,
   alertOffer = null,
   onOpenOutfitDetail,
+  onOpenTomorrowDetail,
   onRefresh,
   onAskAgain,
   updatingDayType = null,
@@ -354,7 +358,9 @@ function TodayScreenContent({
         haptics.impactLight();
         onRefresh();
       }}
-      refreshing={presentation.kind === 'loaded' ? presentation.header.isRefreshing : isRefreshing}
+      // Only the person's own pull spins the control, as on Weather; a background refresh is
+      // told by the freshness line alone.
+      refreshing={isRefreshing}
       tintColor={theme.colors.iconSecondary}
     />
   );
@@ -800,6 +806,17 @@ function TodayScreenContent({
           </Crossfade>
         </ArrivesAfterHandoff>
 
+        {/* B: in the evening, tomorrow's outfit is one thin strip right under today's, a
+            single target that opens its detail. It shows only while the preview is ready. */}
+        {tomorrow && onOpenTomorrowDetail ? (
+          <Entrance index={1}>
+            <TomorrowStrip
+              onPress={() => onOpenTomorrowDetail(tomorrow.id)}
+              tomorrow={tomorrow}
+            />
+          </Entrance>
+        ) : null}
+
         {presentation.noOutfit ? (
           <Surface
             accessible
@@ -875,47 +892,11 @@ function TodayScreenContent({
           </ArrivesAfterHandoff>
         ) : null}
 
-        {tomorrow ? (
-          <Entrance index={alternates.length + 1}>
-            <View style={styles.alternates} testID="today-tomorrow">
-              <View style={[styles.alternatesHeading, { borderBottomColor: theme.colors.borderSubtle }]}>
-                <AppText accessibilityRole="header" variant="bodyStrong">{tomorrow.heading}</AppText>
-              </View>
-              <View style={[styles.tomorrowRow, usesAccessibilityLayout && styles.stackedTomorrowRow]}>
-                <View
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  style={[styles.alternateStage, {
-                    height: measureGarmentBoardHeight(tomorrow.boardPieces, ALTERNATE_ROW_BOARD_WIDTH, 'today',
-                      false, easierToSee),
-                    width: ALTERNATE_ROW_BOARD_WIDTH,
-                  }, strongEdge]}>
-                  <GarmentBoard
-                    accessibilityLabel={tomorrow.boardAccessibilityLabel}
-                    palette={tomorrow.palette}
-                    pieces={tomorrow.boardPieces}
-                    preset="today"
-                    testID="today-tomorrow-board"
-                    width={ALTERNATE_ROW_BOARD_WIDTH}
-                  />
-                </View>
-                <View accessible accessibilityLabel={`${tomorrow.boardAccessibilityLabel} ${tomorrow.weatherAccessibilityLabel}`}
-                  style={styles.tomorrowText}>
-                  <AppText testID="today-tomorrow-title" variant="label">{tomorrow.title}</AppText>
-                  <AppText colorRole="textSecondary" tabularNumbers testID="today-tomorrow-weather" variant="caption">
-                    {tomorrow.weather}
-                  </AppText>
-                </View>
-              </View>
-            </View>
-          </Entrance>
-        ) : null}
-
         {/* ADR 0004's offer comes last, after the alternatives (f12). Either answer closes
             the row in place, so the button under it glides up instead of jumping. */}
         {shownOffer ? (
           <Presence visible={offerToRender !== null}>
-            <Entrance index={alternates.length + (tomorrow ? 2 : 1)}>
+            <Entrance index={alternates.length + 1}>
               <WeatherAlertOfferRow
                 blocked={shownOffer.blocked}
                 language={language}
@@ -1200,6 +1181,59 @@ function PhaseMark({ size, testID }: Readonly<{ size: number; testID: string }>)
   );
 }
 
+// B: tomorrow's strip, one button: a small drawing of the outfit, the day, its name and its
+// weather in one short line, and a chevron. It sits on the muted fill the other Today rows
+// use, so it reads as a way somewhere rather than as a second hero.
+function TomorrowStrip({ onPress, tomorrow }: Readonly<{ onPress: () => void; tomorrow: TomorrowPreviewPresentation }>) {
+  const theme = useKuyaraTheme();
+  const easierToSee = useEasierToSee();
+  const strongEdge = useStrongEdge();
+  const { controlScale } = useTextScaling();
+  return (
+    <PressScale
+      accessibilityHint={tomorrow.accessibilityHint}
+      accessibilityLabel={tomorrow.accessibilityLabel}
+      accessibilityRole="button"
+      accessible
+      onPress={onPress}
+      style={({ pressed }) => [styles.tomorrowTarget, { opacity: pressed ? theme.interaction.pressedOpacity : 1 }]}
+      testID="today-tomorrow">
+      <Surface style={[styles.tomorrowStrip, strongEdge]} variant="muted">
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{
+            height: measureGarmentBoardHeight(tomorrow.boardPieces, TOMORROW_BOARD_WIDTH, 'today', false, easierToSee),
+            width: TOMORROW_BOARD_WIDTH,
+          }}>
+          <GarmentBoard
+            accessibilityLabel=""
+            decorative
+            palette={tomorrow.palette}
+            pieces={tomorrow.boardPieces}
+            preset="today"
+            testID="today-tomorrow-board"
+            width={TOMORROW_BOARD_WIDTH}
+          />
+        </View>
+        <View style={styles.tomorrowText}>
+          <AppText colorRole="textSecondary" testID="today-tomorrow-heading" variant="caption">
+            {tomorrow.heading}
+          </AppText>
+          <AppText testID="today-tomorrow-title" variant="label">{tomorrow.title}</AppText>
+          <AppText colorRole="textSecondary" tabularNumbers testID="today-tomorrow-weather" variant="caption">
+            {tomorrow.weather}
+          </AppText>
+        </View>
+        <Icon color={theme.colors.iconSecondary} name="chevronRight" size={16 * controlScale} />
+      </Surface>
+    </PressScale>
+  );
+}
+
+// The strip's drawing: small enough to keep the strip thin, wide enough to read the outfit.
+const TOMORROW_BOARD_WIDTH = 88;
+
 // O13: the drawing inside a full-width alternate row, the mockup's 128 points.
 const ALTERNATE_ROW_BOARD_WIDTH = 128;
 
@@ -1252,9 +1286,11 @@ const styles = StyleSheet.create({
   alternateRowTitle: { flex: 1, marginTop: 0 },
   stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
   alternateStage: { borderRadius: 14, justifyContent: 'center', overflow: 'hidden' },
-  tomorrowRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
-  stackedTomorrowRow: { alignItems: 'flex-start', flexDirection: 'column' },
-  tomorrowText: { flex: 1, flexShrink: 1, gap: spacing.xs },
+  tomorrowTarget: { marginTop: spacing.md },
+  // Law 2: the strip's own inset is the container inset; it is never under the 44-point target.
+  tomorrowStrip: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 44,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  tomorrowText: { flex: 1, flexShrink: 1 },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
   feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },

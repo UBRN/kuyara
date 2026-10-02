@@ -118,12 +118,21 @@ export type TodayMessages = Readonly<{
   // N19: a later short cool spell is a finishing touch, one line beside the cardigan.
   coolSpell: (time: string) => string;
   otherOptionsHeading: string;
-  // In the evening, the outfit chosen for the next dressing day under its own heading.
+  // In the evening, the outfit chosen for the next dressing day, in one strip under today's.
   tomorrow: Readonly<{
     heading: string;
+    // One line: the condition, then the day's low-to-high range.
     weather: (values: { condition: string; minimum: string; maximum: string }) => string;
+    // The same range alone, where the condition stands beside it (the detail's weather recap).
+    range: (values: { minimum: string; maximum: string }) => string;
     weatherAccessibilityLabel: (values: {
       condition: string; minimum: string; maximum: string; unitName: string;
+    }) => string;
+    stripAccessibilityLabel: (values: { outfit: string; weather: string }) => string;
+    stripAccessibilityHint: string;
+    recapAccessibilityLabel: (values: {
+      condition: string; minimum: string; maximum: string; unitName: string;
+      rainProbability: number; coverageCaption: string | null;
     }) => string;
   }>;
   piecesHeading: string;
@@ -1490,9 +1499,15 @@ const en = {
     otherOptionsHeading: 'Alternative outfits',
     tomorrow: {
       heading: 'Tomorrow',
-      weather: ({ condition, minimum, maximum }) => `${condition} · Low\u00a0${minimum} · High\u00a0${maximum}`,
+      weather: ({ condition, minimum, maximum }) => `${condition}, ${minimum}\u00a0to\u00a0${maximum}`,
+      range: ({ minimum, maximum }) => `${minimum}\u00a0to\u00a0${maximum}`,
       weatherAccessibilityLabel: ({ condition, minimum, maximum, unitName }) =>
         `${condition}. Low ${minimum} ${unitName}, high ${maximum} ${unitName}.`,
+      stripAccessibilityLabel: ({ outfit, weather }) => `Tomorrow: ${outfit} ${weather}`,
+      stripAccessibilityHint: 'Opens tomorrow’s outfit',
+      recapAccessibilityLabel: ({ condition, minimum, maximum, unitName, rainProbability, coverageCaption }) =>
+        `${condition}, ${minimum} to ${maximum} ${unitName}, ${rainProbability} percent chance of rain` +
+        (coverageCaption ? `. ${coverageCaption}` : ''),
     },
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
@@ -2503,9 +2518,15 @@ const tr = {
     otherOptionsHeading: 'Alternatif kombinler',
     tomorrow: {
       heading: 'Yarın',
-      weather: ({ condition, minimum, maximum }) => `${condition} · En\u00a0düşük\u00a0${minimum} · En\u00a0yüksek\u00a0${maximum}`,
+      weather: ({ condition, minimum, maximum }) => `${condition}, ${minimum}\u00a0ile\u00a0${maximum}\u00a0arası`,
+      range: ({ minimum, maximum }) => `${minimum}\u00a0ile\u00a0${maximum}\u00a0arası`,
       weatherAccessibilityLabel: ({ condition, minimum, maximum, unitName }) =>
         `${condition}. En düşük ${minimum} ${unitName}, en yüksek ${maximum} ${unitName}.`,
+      stripAccessibilityLabel: ({ outfit, weather }) => `Yarın: ${outfit} ${weather}`,
+      stripAccessibilityHint: 'Yarının kombinini açar',
+      recapAccessibilityLabel: ({ condition, minimum, maximum, unitName, rainProbability, coverageCaption }) =>
+        `${condition}, ${minimum} ile ${maximum} ${unitName} arası, yağmur olasılığı yüzde ${rainProbability}` +
+        (coverageCaption ? `. ${coverageCaption}` : ''),
     },
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
@@ -2519,7 +2540,7 @@ const tr = {
     ownershipSimilarLabel: 'Sende benzeri var',
     ownershipYours: (color) => `Seninki: ${color}`,
     ownershipOnBoard: {
-      owned: 'Gardırobunda var',
+      owned: 'Gardırobunda\u00a0var',
       similar: 'Benzeri Gardırobunda',
       wanted: 'İsteklerinde',
     },

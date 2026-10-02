@@ -423,6 +423,7 @@ export default function TodayRoute() {
       displayName={profileState.status === 'ready' ? profileState.profile.displayName : null}
       isRefreshing={isPullRefreshing}
       onOpenOutfitDetail={(id) => push({ pathname: '/[id]', params: { id } })}
+      onOpenTomorrowDetail={(id) => push({ pathname: '/[id]', params: { id, day: 'tomorrow' } })}
       onRefresh={handleRefresh}
       onRunwayVisibleChange={setRunwayVisible}
       onAskAgain={() => { setAskError(false); setAskOpenedAt(Date.now()); }}

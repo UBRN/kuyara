@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -56,6 +56,7 @@ function screen(
   language: SupportedLanguage,
   tomorrowPreview: RecommendationSnapshot | null,
   daily: WeatherSnapshot['daily'] = [tomorrowRow],
+  onOpenTomorrowDetail: (id: string) => void = jest.fn(),
 ) {
   const weather = {
     state: {
@@ -93,7 +94,7 @@ function screen(
           <WeatherApplicationContext value={weather}>
             <RecommendationApplicationContext value={recommendationApplication}>
               <TodayScreen language={language} onAskAgain={jest.fn()} onOpenOutfitDetail={jest.fn()}
-                onRefresh={jest.fn()} state={todayScreenState} />
+                onOpenTomorrowDetail={onOpenTomorrowDetail} onRefresh={jest.fn()} state={todayScreenState} />
             </RecommendationApplicationContext>
           </WeatherApplicationContext>
         </SafeAreaProvider>
@@ -103,16 +104,27 @@ function screen(
 }
 
 test.each([
-  ['en', 'Tomorrow', 'Rain · Low 15.0° · High 23.0°'],
-  ['tr', 'Yarın', 'Yağmurlu · En düşük 15,0° · En yüksek 23,0°'],
-] as const)('%s: the evening shows tomorrow under its own heading with its weather', async (
+  ['en', 'Tomorrow', 'Rain, 15.0°\u00a0to\u00a023.0°'],
+  ['tr', 'Yarın', 'Yağmurlu, 15,0°\u00a0ile\u00a023,0°\u00a0arası'],
+] as const)('%s: the evening shows tomorrow as one strip under today\'s outfit that opens its detail', async (
   language, heading, weatherLine,
 ) => {
-  const result = await render(screen(language, preview));
-  expect(result.getByRole('header', { name: heading })).toBeOnTheScreen();
-  expect(result.getByTestId('today-tomorrow-weather')).toHaveTextContent(weatherLine);
-  expect(result.getByTestId('today-tomorrow-title')).toBeOnTheScreen();
+  const open = jest.fn();
+  const result = await render(screen(language, preview, [tomorrowRow], open));
+  const strip = result.getByTestId('today-tomorrow');
+  expect(strip).toHaveProp('accessibilityRole', 'button');
+  expect(strip.props.accessibilityLabel).toContain(heading);
+  expect(result.getByTestId('today-tomorrow-heading', { includeHiddenElements: true }))
+    .toHaveTextContent(heading);
+  // The range's spaces are non-breaking, so it never wraps away from itself.
+  expect(result.getByTestId('today-tomorrow-weather', { includeHiddenElements: true }).props.children)
+    .toBe(weatherLine);
   expect(result.getByTestId('today-tomorrow-board', { includeHiddenElements: true })).toBeTruthy();
+  // The strip comes before the alternatives, right under today's outfit.
+  expect(result.getAllByTestId(/^today-(tomorrow|alternates-heading)$/).map(({ props }) => props.testID))
+    .toEqual(['today-tomorrow', 'today-alternates-heading']);
+  fireEvent.press(strip);
+  expect(open).toHaveBeenCalledWith(recommendation.outfits[0].optionId);
 });
 
 test('no preview, or no forecast row for its day, leaves the section out without a message', async () => {
