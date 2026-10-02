@@ -2,6 +2,7 @@ import type { DayKind } from '@kuyara/contracts';
 
 import {
   dressingDayDateKey,
+  instantOfLocalHour,
   isEveningDressingDayKey,
   wardrobeDayKey,
 } from '@/features/weather/domain/wardrobe-day';
@@ -44,16 +45,35 @@ export function localDayKey(date: Date): string {
   });
 }
 
-/** The local hour tomorrow's preview is chosen for: a typical time to leave the house. */
+/** The hour tomorrow's preview is chosen for, on the place's clock: a typical time to leave. */
 const previewDepartureHour = 8;
 
 /**
- * The morning that follows an evening dressing day, as the device-local instant its preview is
- * chosen for: 08:00 on the date after the evening's own date, so `localDayKey` of the result is
- * the next bare-date dressing day. Null for a day-period key, which has no evening preview.
+ * The morning that follows an evening dressing day on the device's clock: 08:00 on the date
+ * after the evening's own date, so `localDayKey` of the result is the next bare-date dressing
+ * day and its variant and kind read that date. Null for a day-period key, which has no
+ * evening preview. The instant the preview is chosen for is `previewDepartureAt`.
  */
 export function nextMorningAfterEvening(key: string): Date | null {
   if (!isEveningDressingDayKey(key)) return null;
   const [year, month, day] = dressingDayDateKey(key).split('-').map(Number);
   return new Date(year, month - 1, day + 1, previewDepartureHour);
+}
+
+/**
+ * The instant tomorrow's preview is chosen for: 08:00 on the place's own clock, on the date
+ * after the evening's date. The outfit window and its sentence are read in the place's zone,
+ * so the departure is too; 08:00 on the device's clock would open the window at another hour
+ * whenever the place keeps a different time. Null for a day-period key or an unknown zone.
+ */
+export function previewDepartureAt(key: string, timeZone: string): string | null {
+  const morning = nextMorningAfterEvening(key);
+  if (!morning) return null;
+  try {
+    return new Date(instantOfLocalHour({
+      year: morning.getFullYear(), month: morning.getMonth() + 1, day: morning.getDate(),
+    }, previewDepartureHour, timeZone)).toISOString();
+  } catch {
+    return null;
+  }
 }

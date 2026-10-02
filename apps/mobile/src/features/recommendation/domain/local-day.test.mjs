@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { localDayKey, localDayKind, localDayVariant, nextMorningAfterEvening } from './local-day.ts';
+import {
+  localDayKey,
+  localDayKind,
+  localDayVariant,
+  nextMorningAfterEvening,
+  previewDepartureAt,
+} from './local-day.ts';
+import { outfitCoverage } from './outfit-coverage.ts';
+import { zonedClock } from '../../../domain/intl-format.ts';
 
 // The dressing day turns at 04:00 and 18:00 and never at midnight. No fake timers: every
 // case builds its own local date, because the rules take the date they read.
@@ -46,4 +54,22 @@ test('the morning after an evening is 08:00 on the next date, and a day key has 
   // At 02:00 the evening that began yesterday is still the key, and its morning is today's date.
   assert.equal(localDayKey(nextMorningAfterEvening(localDayKey(new Date(2026, 9, 2, 2)))), '2026-10-02');
   assert.equal(nextMorningAfterEvening('2026-10-01'), null);
+});
+
+// The device in Istanbul looking at Reykjavik: 08:00 on the device's clock is 05:00 at the
+// place, which opened tomorrow's window at 05:00. The suite runs with TZ=UTC, so a place
+// ahead of and behind UTC both show the device's clock leaking into the place's hours.
+test("tomorrow's preview leaves at 08:00 on the place's clock, and its window runs to 19:00", () => {
+  for (const timeZone of ['Atlantic/Reykjavik', 'Europe/Istanbul', 'America/New_York', 'Pacific/Auckland']) {
+    const departureAt = previewDepartureAt('2026-10-02:evening', timeZone);
+    const start = zonedClock(Date.parse(departureAt), timeZone);
+    assert.deepEqual([start.year, start.month, start.day, start.hour, start.minute], [2026, 10, 3, 8, 0], timeZone);
+    const coverage = outfitCoverage(departureAt, timeZone);
+    assert.equal(coverage.start, departureAt, timeZone);
+    const end = zonedClock(Date.parse(coverage.end), timeZone);
+    assert.deepEqual([end.day, end.hour], [3, 19], timeZone);
+  }
+  assert.equal(previewDepartureAt('2026-10-02:evening', 'Europe/Istanbul'), '2026-10-03T05:00:00.000Z');
+  assert.equal(previewDepartureAt('2026-10-02', 'Europe/Istanbul'), null);
+  assert.equal(previewDepartureAt('2026-10-02:evening', 'Not/AZone'), null);
 });

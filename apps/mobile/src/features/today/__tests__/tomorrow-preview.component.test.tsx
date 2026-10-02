@@ -106,7 +106,7 @@ function screen(
 test.each([
   ['en', 'Tomorrow', 'Rain, 15.0°\u00a0to\u00a023.0°'],
   ['tr', 'Yarın', 'Yağmurlu, 15,0°\u00a0ile\u00a023,0°\u00a0arası'],
-] as const)('%s: the evening shows tomorrow as one strip under today\'s outfit that opens its detail', async (
+] as const)('%s: the evening shows tomorrow as one strip under the alternatives that opens its detail', async (
   language, heading, weatherLine,
 ) => {
   const open = jest.fn();
@@ -120,9 +120,11 @@ test.each([
   expect(result.getByTestId('today-tomorrow-weather', { includeHiddenElements: true }).props.children)
     .toBe(weatherLine);
   expect(result.getByTestId('today-tomorrow-board', { includeHiddenElements: true })).toBeTruthy();
-  // The strip sits right under today's outfit, before its last update and the alternatives.
-  expect(result.getAllByTestId(/^today-(tomorrow|provenance|alternates-heading)$/).map(({ props }) => props.testID))
-    .toEqual(['today-tomorrow', 'today-provenance', 'today-alternates-heading']);
+  // The strip sits under the alternatives, after today's last update and before the re-ask.
+  expect(result.getAllByTestId(/^today-(tomorrow|provenance|alternates-heading|outfit-list|ask-again)$/)
+    .map(({ props }) => props.testID))
+    .toEqual(['today-provenance', 'today-alternates-heading', 'today-outfit-list', 'today-tomorrow',
+      'today-ask-again']);
   fireEvent.press(strip);
   expect(open).toHaveBeenCalledWith(recommendation.outfits[0].optionId);
 });
