@@ -24,7 +24,6 @@ import {
 } from '@/features/recommendation/application/recommendation-application-context';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import {
-  createDetailCaptionLayout,
   createTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
 import { PLACEHOLDER_REST } from '@/features/today/presentation/garment-board-skeleton';
@@ -848,7 +847,7 @@ function closetFor(language: 'en' | 'tr' = 'en') {
   };
 }
 
-test('outfit detail renders the board, captions, piece rows by O7, requirement rows, and weather recap', async () => {
+test('outfit detail renders the board, its name buttons, piece rows by O7, requirement rows, and weather recap', async () => {
   const { suggestion, exactPiece, similarPiece, wantedPiece, items } = closetFor();
   const onEditPiece = jest.fn();
   const result = await render(providers(
@@ -872,34 +871,26 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
   });
   expect(result.getByRole('header', { name: suggestion.title })).toBeOnTheScreen();
   const hidden = { includeHiddenElements: true };
-  // The captions arrive after the pieces settle and stay visible; they are drawn for the eye,
-  // and each piece's adjustable element speaks for it (Phase 7).
+  // ADR 0026 section 3: the name buttons arrive after the pieces settle and stay visible; they are
+  // drawn for the eye, and each piece's adjustable element speaks for it (Phase 7).
   const overlay = result.getByTestId('outfit-detail-caption-overlay', hidden);
   expect(StyleSheet.flatten(overlay.props.style)).toMatchObject({ opacity: 1 });
   expect(isHiddenFromAccessibility(overlay)).toBe(true);
   const plate = result.getByTestId('outfit-detail-board-plate');
   expect(StyleSheet.flatten(plate.props.style)).toMatchObject({ width: 358 });
-  const plateHeightBeforeCaptionMeasure = StyleSheet.flatten(plate.props.style).height;
-  const firstBox = layoutGarmentBoard(suggestion.boardPieces, 358, 'detail')
-    .boxes.find(({ garmentTypeId }) => garmentTypeId === exactPiece.garmentTypeId);
-  expect(firstBox).toBeDefined();
-  const firstCaptionTop = createDetailCaptionLayout(firstBox!, 358).top;
-  await fireEvent(
-    result.getByTestId(`outfit-detail-caption-content-${exactPiece.garmentTypeId}`, hidden),
-    'layout',
-    { nativeEvent: { layout: { width: 120, height: 200, x: 0, y: 0 } } },
-  );
+  // The plate is the board and the measured row of names under it.
+  const boardHeight = layoutGarmentBoard(suggestion.boardPieces, 358, 'detail').height;
+  await fireEvent(result.getByTestId('outfit-detail-names', hidden), 'layout',
+    { nativeEvent: { layout: { width: 358, height: 96, x: 0, y: boardHeight + 8 } } });
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
-    .toBeGreaterThanOrEqual(firstCaptionTop + 200);
-  expect(plateHeightBeforeCaptionMeasure).toBeGreaterThan(
-    layoutGarmentBoard(suggestion.boardPieces, 358, 'detail').height,
-  );
+    .toBe(boardHeight + 8 + 96);
   for (const row of suggestion.requirementRows) {
     expect(result.getByText(row.text)).toBeOnTheScreen();
   }
 
-  // The caption names the piece and says in words where the Closet already has it, beside
-  // the badge's glyph on the piece; the piece's value speaks it, and the row below draws it.
+  // The name button names the piece and says with a mark and in words where the Closet already
+  // has it; the piece's value speaks it, and the row below draws it. No badge is drawn on a piece.
+  expect(result.queryAllByTestId(/^outfit-detail-badge-/, hidden)).toHaveLength(0);
   const copy = messages.en.today;
   const states: Record<string, string> = {
     [exactPiece.garmentTypeId]: copy.ownershipOwnedAction,
@@ -913,8 +904,8 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
   };
   for (const { garmentTypeId, item, slot } of suggestion.pieces) {
     const state = states[garmentTypeId] ?? copy.ownershipUntrackedLabel;
-    const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`, hidden);
-    expect(within(caption).getByText(item, hidden)).toBeTruthy();
+    const name = result.getByTestId(`outfit-detail-name-${garmentTypeId}`, hidden);
+    expect(within(name).getByText(item, hidden)).toBeTruthy();
     const boardSlot = suggestion.boardPieces.find((piece) => piece.garmentTypeId === garmentTypeId)!.slot;
     const piece = result.getByTestId(`outfit-detail-board-piece-${boardSlot}`);
     expect(piece).toHaveProp('accessibilityRole', 'adjustable');
@@ -928,14 +919,12 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
     expect(text.getByText(slot, hidden)).toBeTruthy();
     if (states[garmentTypeId]) {
       expect(text.getByText(state, hidden)).toBeTruthy();
-      expect(result.getByTestId(`outfit-detail-badge-${garmentTypeId}`, hidden)).toBeOnTheScreen();
-      expect(result.getByTestId(`outfit-detail-caption-state-${garmentTypeId}`, hidden))
+      expect(result.getByTestId(`outfit-detail-name-state-${garmentTypeId}`, hidden))
         .toHaveTextContent(onBoard[garmentTypeId]);
       expect(piece.props.accessibilityValue.text).toMatch(new RegExp(`, ${onBoard[garmentTypeId]}$`));
     } else {
       expect(result.queryByTestId(`outfit-detail-piece-status-${garmentTypeId}`)).toBeNull();
-      expect(result.queryByTestId(`outfit-detail-badge-${garmentTypeId}`, hidden)).toBeNull();
-      expect(result.queryByTestId(`outfit-detail-caption-state-${garmentTypeId}`, hidden)).toBeNull();
+      expect(result.queryByTestId(`outfit-detail-name-state-${garmentTypeId}`, hidden)).toBeNull();
       expect(Object.values(onBoard).some((words) => piece.props.accessibilityValue.text.includes(words))).toBe(false);
     }
   }
@@ -963,39 +952,6 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
   expect(weatherRecap.getByText('65% chance of rain')).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-weather-recap').props.style))
     .toMatchObject({ backgroundColor: lightTheme.atmosphere[loadedPresentation().atmosphere] });
-});
-
-// Law 7: a badge that lands after the screen opened fades in on `fast`; a badge there on
-// opening is drawn at rest.
-describe('ownership badges', () => {
-  const hidden = { includeHiddenElements: true };
-  const detail = (wardrobeItems: readonly WardrobeItem[]) => providers(
-    <OutfitDetailScreen language="en" onEditPiece={jest.fn()} state={todayScreenState}
-      suggestionId={todayOutfitId(1)} wardrobeItems={wardrobeItems} />,
-  );
-  const layOut = async (result: Awaited<ReturnType<typeof render>>) => {
-    await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
-      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
-    });
-  };
-
-  test('a badge there on opening stands still', async () => {
-    const { exactPiece, items } = closetFor();
-    const result = await render(detail(items));
-    await layOut(result);
-    const style = StyleSheet.flatten(result.getByTestId(`outfit-detail-badge-${exactPiece.garmentTypeId}`, hidden).props.style);
-    expect(style.opacity).toBe(1);
-  });
-
-  test('a badge added after opening arrives', async () => {
-    const { exactPiece, items } = closetFor();
-    const result = await render(detail([]));
-    await layOut(result);
-    expect(result.queryByTestId(`outfit-detail-badge-${exactPiece.garmentTypeId}`, hidden)).toBeNull();
-    await result.rerender(detail(items));
-    expect(StyleSheet.flatten(result.getByTestId(`outfit-detail-badge-${exactPiece.garmentTypeId}`, hidden).props.style))
-      .toMatchObject({ opacity: 0 });
-  });
 });
 
 // O8: the similar row's "Yours" draws the user's own piece in its saved pattern and names it
@@ -2235,7 +2191,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail generation source', (lang
 // Milestone 7 found the in-place captions breaking by character and overlapping the shoe at
 // the largest accessibility sizes. Above 1.5 they leave the board, and the piece rows under
 // it name every piece in board order (ADR 0026 section 3).
-describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (language) => {
+describe.each(['en', 'tr'] as const)('%s outfit detail names at any text size', (language) => {
   const detail = async (fontScale: number) => {
     Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
     const result = await render(providers(
@@ -2255,23 +2211,24 @@ describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (lan
     return result;
   };
 
-  test('leaves the plate exactly the board and keeps each piece a labelled row', async () => {
-    const captionId = /^outfit-detail-caption-(?!overlay$)[a-z_]+$/;
+  // The names wrap in their own row under the board, so they stay at every size and never
+  // cover a garment.
+  test('keeps one name button per piece under the board and each piece a labelled row', async () => {
+    const nameId = /^outfit-detail-name-[a-z_]+$/;
     const { pieces, boardPieces } = loadedPresentation(language).suggestions[0];
     const hidden = { includeHiddenElements: true };
-    const inline = await detail(1);
-    expect(inline.getAllByTestId(captionId, hidden)).toHaveLength(pieces.length);
-
     const board = layoutGarmentBoard(boardPieces, 358, 'detail');
-    const stacked = await detail(3);
-    const plate = stacked.getByTestId('outfit-detail-board-plate');
-    expect(stacked.queryAllByTestId(captionId, hidden)).toHaveLength(0);
-    expect(StyleSheet.flatten(plate.props.style).height).toBe(board.height);
-    for (const { garmentTypeId, item, slot } of pieces) {
-      const row = stacked.getByTestId(`outfit-detail-piece-${garmentTypeId}`);
-      expect(row).toHaveProp('accessibilityRole', 'button');
-      expect(row).toHaveProp('accessibilityHint', messages[language].today.editPieceAccessibilityHint);
-      expect(row.props.accessibilityLabel).toContain(`${item}, ${slot}`);
+    for (const scale of [1, 3]) {
+      const result = await detail(scale);
+      expect(result.getAllByTestId(nameId, hidden)).toHaveLength(pieces.length);
+      expect(StyleSheet.flatten(result.getByTestId('outfit-detail-names', hidden).props.style).top)
+        .toBeGreaterThanOrEqual(board.height);
+      for (const { garmentTypeId, item, slot } of pieces) {
+        const row = result.getByTestId(`outfit-detail-piece-${garmentTypeId}`);
+        expect(row).toHaveProp('accessibilityRole', 'button');
+        expect(row).toHaveProp('accessibilityHint', messages[language].today.editPieceAccessibilityHint);
+        expect(row.props.accessibilityLabel).toContain(`${item}, ${slot}`);
+      }
     }
   });
 });

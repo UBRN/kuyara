@@ -116,8 +116,9 @@ test('enlarging a piece and stepping it repaint only the drawings the step adds'
   await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
   await act(async () => undefined);
   // Only the piece that now waits behind the window's far edge is new: its resting drawing
-  // and its big one paint. The piece that slid in and the one that slid out keep theirs.
-  expect(board()).toEqual(['board:footwear', 'board:footwear']);
+  // and its big one paint, each a pair of shoes. The piece that slid in and the one that slid
+  // out keep theirs.
+  expect(board()).toEqual(['board:footwear', 'board:footwear', 'board:footwear', 'board:footwear']);
   // Of the tiles, only the changed piece's row paints: the strip's candidates keep their colours.
   expect(tiles()).toHaveLength(1);
 });

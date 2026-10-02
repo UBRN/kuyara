@@ -511,7 +511,7 @@ scroll's speed and shrinks to the press scale. Weather's title row is the one si
 
 **Dressing.** A piece changed on the outfit detail board, by a swipe, a strip tile, the
 row's picker or an adjustable step, is taken off and put on: the leaving piece lifts
-`spacing.md` as it fades on `fast`, and the arriving one is hung on from `spacing.md` above
+`spacing.lg` as it fades on `fast`, and the arriving one is hung on from `spacing.lg` above
 and lands on the arrival spring, its shadow drawn with it. A piece a swipe has already
 carried into place catches its weight with a moment's settle instead.
 

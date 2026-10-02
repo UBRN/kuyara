@@ -405,7 +405,7 @@ test('a change lifts the old piece off and hangs the new one on', async () => {
     springs.mockClear();
     sequences.mockClear();
     await result.rerender(<GarmentSwapBoard {...stepped('closed_shoes', null)} />);
-    expect(timings).toHaveBeenCalledWith(-spacing.md, { duration: fast });
+    expect(timings).toHaveBeenCalledWith(-spacing.lg, { duration: fast });
     expect(springs).toHaveBeenCalledWith(0, arrival, expect.any(Function));
     expect(sequences).not.toHaveBeenCalled();
 
@@ -414,7 +414,7 @@ test('a change lifts the old piece off and hangs the new one on', async () => {
     timings.mockClear();
     sequences.mockClear();
     await act(async () => flick(-1));
-    expect(timings).toHaveBeenCalledWith(-spacing.md, { duration: fast });
+    expect(timings).toHaveBeenCalledWith(-spacing.lg, { duration: fast });
     await swiped.rerender(<GarmentSwapBoard {...stepped('closed_shoes', 'footwear')} />);
     expect(sequences).toHaveBeenCalledTimes(1);
     expect(timings).toHaveBeenCalledWith(spacing.xs, { duration: fast });

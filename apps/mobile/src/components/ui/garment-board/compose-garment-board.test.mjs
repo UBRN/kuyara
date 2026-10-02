@@ -7,6 +7,9 @@ import {
   drawnExtent,
   fitRunwayScale,
   fitTodayStage,
+  footwearPair,
+  footwearPairBox,
+  footwearPairDrawing,
   garmentBoardDressingOrder,
   garmentShadowOf,
   garmentShadowRule,
@@ -78,21 +81,19 @@ const evidence = [
 
 for (const [presetName, preset, min, max] of [
   ['today', todayPreset, 0.66, 1.14],
-  ['detail', detailPreset, 0.60, 1.45],
+  ['detail', detailPreset, 0.66, 1.14],
 ]) {
   for (const [name, slots] of evidence) {
     test(`${presetName}: ${name} preserves clearance, stage limits and anchor parity`, () => {
       const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
       const result = composeGarmentBoard(pieces, preset);
       const measured = audit(result);
-      // The open detail board never touches; the worn Today board laps by at most `lap`.
+      // Every board is worn and laps by at most `lap`.
       assert.ok(measured.overlap <= preset.lap + 1e-9, `${name}: ${measured.overlap}`);
       assert.equal(measured.clip, 0);
       assert.ok(result.stageHeight >= min && result.stageHeight <= max, String(result.stageHeight));
       if (result.core.length === 2) assert.ok(Math.abs(measured.parity - 1) <= 1e-9);
       assert.equal(result.boxes.size, pieces.length);
-      assert.equal(result.family, preset.lap > 0 || pieces.some(({ slot }) => slot.endsWith('_layer'))
-        ? 'column-and-rail' : 'stagger');
       assert.deepEqual(result.stack.map(({ slot }) => slot),
         garmentBoardDressingOrder.filter((slot) => slots.some(([candidate]) => slot === candidate)));
       assert.deepEqual(result.order.map(({ slot }) => slot), [
@@ -104,7 +105,7 @@ for (const [presetName, preset, min, max] of [
 }
 
 // The six Phase 6 README boards on the Phase 6 drawings: every board composes without
-// clipping, the detail board without overlap and Today's within its lap.
+// clipping and within its lap.
 const readmeBoards = [
   ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']]],
   ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']]],
@@ -127,12 +128,13 @@ for (const [presetName, preset] of [['today', todayPreset], ['detail', detailPre
 
 // The worn board (ADR 0025 section 3): the core is one column whose bottom's waist lies over
 // the top's hem, the footwear stands at the core's foot with its sole below the hem, and every
-// layer lies over the core's side. Only the detail board, which never laps, keeps the stagger.
+// layer lies over the core's side. The detail is the same board.
+const boxOfSlot = (result, slot) => [...result.boxes].find(([piece]) => piece.slot === slot)?.[1];
 for (const [name, slots] of evidence) {
   test(`today: ${name} is laid out as worn`, () => {
     const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
     const result = composeGarmentBoard(pieces, todayPreset);
-    const box = (slot) => result.boxes.get(pieces.find((piece) => piece.slot === slot));
+    const box = (slot) => boxOfSlot(result, slot);
     const core = result.core.map((piece) => result.boxes.get(piece));
     const low = core[core.length - 1];
     if (core.length === 2) {
@@ -165,39 +167,72 @@ test('layout does not mutate artwork or depend on the input ordering', () => {
   assert.deepEqual(first, reversed);
 });
 
-test('detail pixel boxes stay inside the board with the rail right of the core and footwear lowest', () => {
-  const width = 349;
-  const pieces = evidence[6][1].map(([slot, type]) => ({
-    slot,
-    garmentTypeId: type,
-    ...resolveGarmentSilhouette(type, categories[slot]),
-  }));
-  const result = composeGarmentBoard(pieces, detailPreset);
-  const height = result.stageHeight * width;
-  const boxes = result.order.map((piece) => {
-    const box = result.boxes.get(piece);
-    return {
-      slot: piece.slot,
-      x: box.x * width,
-      y: box.y * width,
-      width: box.w * width,
-      height: box.h * width,
-    };
+// ADR 0026 section 3: the detail draws Today's worn board at the scale Today's fitted stage
+// reaches, so every piece keeps its place relative to the others and only grows.
+for (const [name, slots] of evidence) {
+  test(`detail: ${name} is Today's worn board at the fitted scale`, () => {
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const today = composeGarmentBoard(pieces, todayPreset);
+    const detail = composeGarmentBoard(pieces, detailPreset);
+    const origin = (result) => boxOfSlot(result, result.core[0].slot);
+    for (const piece of today.order) {
+      const a = boxOfSlot(today, piece.slot);
+      const b = boxOfSlot(detail, piece.slot);
+      const k = runwayPreset.maxScale;
+      assert.ok(Math.abs(b.w - k * a.w) < 1e-9 && Math.abs(b.h - k * a.h) < 1e-9, `${name}: ${piece.slot}`);
+      assert.ok(Math.abs(b.x - origin(detail).x - k * (a.x - origin(today).x)) < 1e-9, `${name}: ${piece.slot}`);
+      assert.ok(Math.abs(b.y - origin(detail).y - k * (a.y - origin(today).y)) < 1e-9, `${name}: ${piece.slot}`);
+    }
   });
-  const bySlot = new Map(boxes.map((box) => [box.slot, box]));
-  const core = [bySlot.get('primary_top'), bySlot.get('bottom')];
-  const rail = [bySlot.get('outer_layer'), bySlot.get('mid_layer')];
-  const footwear = bySlot.get('footwear');
+}
 
-  assert.equal(boxes.length, pieces.length);
-  assert.equal(boxes.every((box) =>
-    box.x >= 0 && box.y >= 0 && box.x + box.width <= width && box.y + box.height <= height
-  ), true);
-  assert.ok(Math.min(...rail.map(({ x }) => x)) > Math.max(...core.map(({ x, width: boxWidth }) => x + boxWidth)));
-  assert.ok(footwear.y + footwear.height > Math.max(
-    ...boxes.filter(({ slot }) => slot !== 'footwear').map(({ y, height: boxHeight }) => y + boxHeight),
-  ));
+// ADR 0025 section 2: a board's footwear is a flat-lay pair. Each shoe is `scale` of the one
+// shoe, the far one `toe` of a shoe toward the toe and raised so the pair is one shoe tall.
+test('the footwear pair box keeps one shoe height and stays near one shoe wide', () => {
+  const single = { x: 0.3, y: 0.7, w: 0.2, h: 0.1 };
+  const pair = footwearPairBox(single);
+  assert.equal(pair.y, single.y);
+  assert.equal(pair.h, single.h);
+  assert.ok(Math.abs(pair.x - (single.x - footwearPair.back * single.w)) < 1e-12);
+  assert.ok(Math.abs(pair.w - footwearPair.scale * (1 + footwearPair.toe) * single.w) < 1e-12);
+  assert.ok(pair.w > single.w && pair.w < 1.15 * single.w);
 });
+
+test('both shoes of a pair land inside the pair bounds, the near one low at the heel, the far one high at the toe', () => {
+  const { bounds: single } = resolveGarmentSilhouette('ankle_boots', 'footwear');
+  const drawing = footwearPairDrawing(single);
+  const { bounds } = drawing;
+  const shoes = drawing.shoes.map(({ dx, dy }) => ({
+    x: dx + drawing.scale * single.x, y: dy + drawing.scale * single.y,
+    w: drawing.scale * single.width, h: drawing.scale * single.height,
+  }));
+  const [far, near] = shoes;
+  for (const shoe of shoes) {
+    assert.ok(shoe.x >= bounds.x - 1e-9 && shoe.x + shoe.w <= bounds.x + bounds.width + 1e-9);
+    assert.ok(shoe.y >= bounds.y - 1e-9 && shoe.y + shoe.h <= bounds.y + bounds.height + 1e-9);
+  }
+  assert.ok(Math.abs(near.x - bounds.x) < 1e-9 && Math.abs(near.y + near.h - bounds.y - bounds.height) < 1e-9);
+  assert.ok(Math.abs(far.y - bounds.y) < 1e-9 && Math.abs(far.x + far.w - bounds.x - bounds.width) < 1e-9);
+  assert.ok(Math.abs(far.x - near.x - footwearPair.toe * near.w) < 1e-9);
+});
+
+for (const [name, slots] of evidence) {
+  test(`pair: ${name} feeds the pair's drawn bounds to the composer`, () => {
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const result = composeGarmentBoard(pieces, todayPreset);
+    const [foot, box] = [...result.boxes].find(([piece]) => piece.slot === 'footwear');
+    const shoe = pieces.find(({ slot }) => slot === 'footwear');
+    // The drawing keeps one shoe's bounds to draw twice; the composed piece is the pair.
+    assert.deepEqual(foot.single, shoe.bounds);
+    assert.deepEqual(foot.bounds, footwearPairDrawing(shoe.bounds).bounds);
+    // The box keeps the pair's aspect, so the pair is drawn unstretched, and the drawn extent,
+    // the centroid and the stage all read the pair.
+    assert.ok(Math.abs(box.w / box.h - foot.bounds.width / foot.bounds.height) < 1e-9, name);
+    const extent = drawnExtent(result.boxes.values());
+    assert.ok(box.x + box.w <= extent.x + extent.w + 1e-12 && box.y + box.h <= extent.y + extent.h + 1e-12);
+    assert.ok(box.x + box.w <= 1 - todayPreset.sideMin + 1e-9);
+  });
+}
 
 // The runway preset (O17, P6): one uniform scale, the ladder untouched.
 for (const [name, slots] of evidence) {
@@ -299,16 +334,4 @@ test('the piece shadow scales with its board and stays inside the lower margin',
   assert.ok(reach * runwayPreset.maxScale * 440 < runwayPreset.vertical / 2);
   // Darker than the plane in both appearances, by more in light, where the plane is lighter.
   assert.ok(garmentShadowRule.step.light < garmentShadowRule.step.dark && garmentShadowRule.step.dark < 0);
-});
-
-test('on the open board a wide layer never shrinks the footwear below its own width rule', () => {
-  const categories = { one_piece: 'one_piece', outer_layer: 'outerwear', footwear: 'footwear' };
-  const pieces = [['one_piece', 'knit_dress'], ['outer_layer', 'rain_jacket'], ['footwear', 'loafers']]
-    .map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
-  const result = composeGarmentBoard(pieces, detailPreset);
-  const box = (slot) => result.boxes.get(pieces.find((piece) => piece.slot === slot));
-  const expected = Math.min(detailPreset.footWidth * box('one_piece').w, detailPreset.railCap);
-  assert.ok(Math.abs(box('footwear').w - expected) < 1e-9);
-  // The jacket alone still takes the shared rail scale.
-  assert.ok(box('outer_layer').w <= detailPreset.railCap + 1e-9);
 });

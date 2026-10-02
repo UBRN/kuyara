@@ -15,6 +15,7 @@ import {
   swapGrownBox,
   swapGrowScale,
   swapHeldStage,
+  swapHitSlot,
   swapMarkerPosition,
   swapRubberBand,
   swapScaledBox,
@@ -24,7 +25,7 @@ import {
   swapStripLayout,
   swapWindow,
 } from './swap-gesture.ts';
-import { easierToSeeRule, composeGarmentBoard, detailPreset } from './compose-garment-board.ts';
+import { easierToSeeRule, composeGarmentBoard, detailPreset, todayPreset } from './compose-garment-board.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
 import { recommendOutfits } from '../../../features/recommendation/application/recommend-outfits.ts';
 import { getGarmentType } from '../../../features/catalog/domain/garment-catalog.ts';
@@ -354,4 +355,50 @@ test('an enlarged board composes just narrow enough for the stage and the strip 
   // Nothing measured yet: the board keeps its width.
   assert.equal(swapStageFit(0, panel, 554), 1);
   assert.equal(swapStageFit(497, panel, 0), 1);
+});
+
+// ADR 0026 section 3: the detail board overlaps like Today's, so a tap follows what the eye sees.
+test('a tap on overlapping pieces names the one drawn on top, a name button names its own piece', () => {
+  const pieces = [['primary_top', 'sweatshirt', 'top'], ['bottom', 'jeans', 'bottom'],
+    ['outer_layer', 'rain_jacket', 'outerwear'], ['footwear', 'ankle_boots', 'footwear']]
+    .map(([slot, type, category]) => ({ slot, ...resolveGarmentSilhouette(type, category) }));
+  const width = 358;
+  const result = composeGarmentBoard(pieces, detailPreset);
+  const stack = result.stack.map((piece) => {
+    const box = result.boxes.get(piece);
+    return { slot: piece.slot, box: { x: box.x * width, y: box.y * width, w: box.w * width, h: box.h * width } };
+  });
+  const box = (slot) => stack.find((entry) => entry.slot === slot).box;
+  // Where the waist lies over the top's hem, the bottom is on top; where the jacket lies over
+  // the top's side, the jacket is.
+  const top = box('primary_top');
+  const bottom = box('bottom');
+  const hem = { x: bottom.x + bottom.w / 2, y: (bottom.y + top.y + top.h) / 2 };
+  assert.ok(hem.y > top.y && hem.y < top.y + top.h && hem.x > top.x && hem.x < top.x + top.w);
+  assert.equal(swapHitSlot(stack, hem.x, hem.y, 44), 'bottom');
+  const jacket = box('outer_layer');
+  const side = { x: (jacket.x + top.x + top.w) / 2, y: jacket.y + jacket.h / 3 };
+  assert.ok(side.x > top.x && side.x < top.x + top.w);
+  assert.equal(swapHitSlot(stack, side.x, side.y, 44), 'outer_layer');
+  // The footwear lies over the bottom's hem and wins there.
+  const foot = box('footwear');
+  assert.equal(swapHitSlot(stack, foot.x + foot.w / 2, foot.y + 1, 44), 'footwear');
+  // Reversed, the order decides: the same point names the top.
+  assert.equal(swapHitSlot([...stack].reverse(), hem.x, hem.y, 44), 'primary_top');
+  // A name button under the board names its piece even where a padded box reaches it.
+  const button = { x: 0, y: result.stageHeight * width + 8, w: 120, h: 44 };
+  const named = stack.map((entry) => ({ ...entry, button: entry.slot === 'outer_layer' ? button : null }));
+  assert.equal(swapHitSlot(named, 10, button.y + 10, 44), 'outer_layer');
+  // Off every drawn box, the nearest padded touch box takes the tap; far away, nothing does.
+  const small = [{ slot: 'a', box: { x: 0, y: 0, w: 20, h: 10 } }, { slot: 'b', box: { x: 100, y: 0, w: 20, h: 10 } }];
+  assert.equal(swapHitSlot(small, 10, 20, 44), 'a');
+  assert.equal(swapHitSlot(stack, 2, 2, 44), null);
+});
+
+test('Today and the detail stack their pieces in the same dressing order', () => {
+  const pieces = [['primary_top', 'shirt', 'top'], ['bottom', 'trousers', 'bottom'], ['mid_layer', 'cardigan', 'top'],
+    ['outer_layer', 'coat', 'outerwear'], ['footwear', 'closed_shoes', 'footwear']]
+    .map(([slot, type, category]) => ({ slot, ...resolveGarmentSilhouette(type, category) }));
+  assert.deepEqual(composeGarmentBoard(pieces, detailPreset).stack.map(({ slot }) => slot),
+    composeGarmentBoard(pieces, todayPreset).stack.map(({ slot }) => slot));
 });

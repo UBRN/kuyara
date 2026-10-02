@@ -103,7 +103,9 @@ test('board fills come from the outfit palette on the plane the board stands on'
     { wrapper: LightTheme },
   );
   expect(dressFills(staticResult)).toEqual([{ type: 0, payload: processColor(roles.get('one_piece')!.main) }]);
-  expect(fillsOf(staticResult, 'g-sandal')).toEqual([{ type: 0, payload: processColor(roles.get('footwear')!.main) }]);
+  // ADR 0025 section 2: a board draws its footwear as a pair, the one shoe twice in the same colours.
+  const shoe = { type: 0, payload: processColor(roles.get('footwear')!.main) };
+  expect(fillsOf(staticResult, 'g-sandal')).toEqual([shoe, shoe]);
   expect(roles.get('one_piece')!.main).not.toBe(roles.get('footwear')!.main);
 
   const travellingResult = await render(

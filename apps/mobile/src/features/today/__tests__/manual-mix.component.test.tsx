@@ -452,6 +452,64 @@ test('a suitable change drops the hint and raises no note', async () => {
   expect(result.queryByText(messages.en.today.manualMix.unusual)).toBeNull();
 });
 
+// ADR 0026 section 3: the detail board overlaps as worn and its names stand under it as buttons in
+// the wearing order. A tap on a name grows its piece exactly as a tap on the piece does, and a
+// tap where two pieces overlap goes to the one drawn on top.
+const tapBoard = async (at: Readonly<{ x: number; y: number }>) => {
+  await act(async () => {
+    fireGestureHandler(getByGestureTestId('outfit-detail-board-tap'), [
+      { state: State.BEGAN, ...at }, { state: State.ACTIVE, ...at }, { state: State.END, ...at },
+    ]);
+  });
+};
+
+test('the names stand under the board as buttons in the wearing order, and a tap on one grows its piece', async () => {
+  const onBoardFocusChange = jest.fn();
+  const result = await renderDetail('en', { onBoardFocusChange });
+  const { boardPieces } = archetype('en');
+  const board = layoutGarmentBoard(boardPieces, 358, 'detail');
+  const wearing = ['primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear'];
+  const names = within(result.getByTestId('outfit-detail-names', hidden))
+    .getAllByTestId(/^outfit-detail-name-[a-z_]+$/, hidden).map((node) => node.props.testID);
+  expect(names).toEqual([...boardPieces].sort((a, b) => wearing.indexOf(a.slot) - wearing.indexOf(b.slot))
+    .map(({ garmentTypeId }) => `outfit-detail-name-${garmentTypeId}`));
+  // The row starts under the board: no name is drawn over a garment.
+  const row = StyleSheet.flatten(result.getByTestId('outfit-detail-names', hidden).props.style);
+  expect(row.top).toBeGreaterThanOrEqual(board.height);
+
+  const shoes = boardPieces.find(({ slot }) => slot === 'footwear')!;
+  const rect = { x: 120, y: 52, width: 110, height: 44 };
+  await act(async () => {
+    fireEvent(result.getByTestId(`outfit-detail-name-${shoes.garmentTypeId}`, hidden), 'layout',
+      { nativeEvent: { layout: rect } });
+  });
+  await tapBoard({ x: rect.x + rect.width / 2, y: row.top + rect.y + rect.height / 2 });
+  expect(onBoardFocusChange).toHaveBeenLastCalledWith(true);
+  expect(result.getByTestId(`outfit-detail-board-drawing-footwear-${shoes.garmentTypeId}-big`, hidden)).toBeTruthy();
+  expect(result.getByTestId('outfit-detail-board-strip')).toBeOnTheScreen();
+});
+
+test('a tap where the waist lies over the hem grows the bottom, which is drawn on top', async () => {
+  const onBoardFocusChange = jest.fn();
+  const result = await renderDetail('en', { onBoardFocusChange });
+  const { boardPieces } = archetype('en');
+  const boxes = layoutGarmentBoard(boardPieces, 358, 'detail').boxes;
+  const top = boxes.find(({ slot }) => slot === 'primary_top')!;
+  const bottom = boxes.find(({ slot }) => slot === 'bottom')!;
+  expect(bottom.y).toBeLessThan(top.y + top.height);
+  await tapBoard({ x: bottom.x + bottom.width / 2, y: (bottom.y + top.y + top.height) / 2 });
+  expect(onBoardFocusChange).toHaveBeenLastCalledWith(true);
+  const bottomId = boardPieces.find(({ slot }) => slot === 'bottom')!.garmentTypeId;
+  expect(result.getByTestId(`outfit-detail-board-drawing-bottom-${bottomId}-big`, hidden)).toBeTruthy();
+  // The enlarged piece is drawn over every other, so an overlapped piece comes fully into view.
+  const plate = result.getByTestId('outfit-detail-board-plate');
+  const drawings = within(plate).getAllByTestId(/^outfit-detail-board-drawing-[a-z_]+-[a-z_]+$/, hidden)
+    .map((node) => node.props.testID as string);
+  const current = drawings.indexOf(`outfit-detail-board-drawing-bottom-${bottomId}`);
+  expect(current).toBeGreaterThan(-1);
+  expect(drawings.slice(current + 1).every((id) => id.startsWith('outfit-detail-board-drawing-bottom-'))).toBe(true);
+});
+
 // The board's own gestures: a tap on a piece enlarges it, and a leftward flick on the enlarged
 // piece commits the next candidate in the picker's order.
 test('a tap enlarges a piece and a leftward flick changes it to the next candidate', async () => {
@@ -568,7 +626,7 @@ describe.each([false, true])('Easier to see %s', (large) => {
       const grow = big.width / box.width;
       expect(grow).toBeGreaterThanOrEqual(1.6);
       expect(grow).toBeLessThanOrEqual(2);
-      expect(big.transform).toEqual([{ scale: 1 / grow }]);
+      expect(big.transform[0].scale).toBeCloseTo(1 / grow, 9);
       // The adjustable element covers the grown piece, which stays on the stage.
       const target = StyleSheet.flatten(result.getByTestId(`outfit-detail-board-piece-${slot}`).props.style);
       expect(target.width).toBeGreaterThanOrEqual(Math.max(44, box.width * 1.6) - 0.01);
