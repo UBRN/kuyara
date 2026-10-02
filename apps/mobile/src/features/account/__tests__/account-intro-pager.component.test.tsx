@@ -42,7 +42,10 @@ async function renderPager(language: SupportedLanguage = 'en'): Promise<RenderRe
 }
 
 const dots = (screen: RenderResult) => screen.getByTestId('account-intro-dots');
-const position = (screen: RenderResult) => dots(screen).props.accessibilityValue.text;
+// The spoken name of the dot whose page shows.
+const position = (screen: RenderResult) =>
+  within(dots(screen)).getByRole('button', { selected: true }).props.accessibilityLabel;
+const control = (screen: RenderResult) => screen.getByTestId('account-intro-play');
 const wait = (ms: number) => act(async () => { jest.advanceTimersByTime(ms); });
 // Each page's own wait starts when the page before it lands, so time is advanced a dwell at a time.
 
@@ -72,8 +75,8 @@ describe('the sign-in benefit pages', () => {
       expect(screen.getByTestId(`account-intro-page-${id}`).props.accessibilityLabel).toBe(`${title}. ${body}`);
     }
     expect(position(screen)).toBe(en.pagePosition(1, 5));
-    const marks = within(dots(screen)).getAllByTestId(/^account-intro-dot-/).map((dot) => dot.props.testID);
-    expect(marks).toEqual(['account-intro-dot-current', ...accountIntroPageIds.slice(1).map((id) => `account-intro-dot-${id}`)]);
+    const marks = within(dots(screen)).getAllByRole('button').map((dot) => dot.props.accessibilityLabel);
+    expect(marks).toEqual([1, 2, 3, 4, 5].map((page) => en.pagePosition(page, 5)));
   });
 
   test('move on by themselves once, a dwell apart, announce each title and stop on the last', async () => {
@@ -93,17 +96,40 @@ describe('the sign-in benefit pages', () => {
     expect(position(screen)).toBe(en.pagePosition(1, 5));
   });
 
-  test('the dots are one adjustable control that moves a page at a time and stops the advance', async () => {
+  test('each dot is a button that jumps to its page and stops the advance', async () => {
     const screen = await renderPager();
-    expect(dots(screen).props.accessibilityRole).toBe('adjustable');
-    expect(dots(screen).props.accessibilityLabel).toBe(en.pageIndicator);
-    await fireEvent(dots(screen), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
-    expect(position(screen)).toBe(en.pagePosition(2, 5));
-    await fireEvent(dots(screen), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
-    await fireEvent(dots(screen), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
-    expect(position(screen)).toBe(en.pagePosition(1, 5));
+    await fireEvent.press(screen.getByTestId('account-intro-dot-devices'));
+    expect(position(screen)).toBe(en.pagePosition(4, 5));
+    expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 3);
+    expect(position(screen)).toBe(en.pagePosition(4, 5));
+  });
+
+  test('pause stops the advance and play resumes it from the page shown', async () => {
+    const screen = await renderPager();
+    expect(control(screen).props.accessibilityLabel).toBe(en.pausePages);
+    await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
+    await fireEvent.press(control(screen));
+    expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
+    await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 3);
+    expect(position(screen)).toBe(en.pagePosition(2, 5));
+    await fireEvent.press(control(screen));
+    expect(control(screen).props.accessibilityLabel).toBe(en.pausePages);
+    await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
+    expect(position(screen)).toBe(en.pagePosition(3, 5));
+  });
+
+  test('after the one pass the control offers play, and play runs one more pass from the first page', async () => {
+    const screen = await renderPager();
+    for (let step = 0; step < 4; step += 1) await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
+    expect(position(screen)).toBe(en.pagePosition(5, 5));
+    expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
+    await fireEvent.press(control(screen));
     expect(position(screen)).toBe(en.pagePosition(1, 5));
+    expect(control(screen).props.accessibilityLabel).toBe(en.pausePages);
+    for (let step = 0; step < 6; step += 1) await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
+    expect(position(screen)).toBe(en.pagePosition(5, 5));
+    expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
   });
 
   test('never move while a screen reader runs', async () => {
@@ -112,11 +138,13 @@ describe('the sign-in benefit pages', () => {
     await act(async () => {});
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 3);
     expect(position(screen)).toBe(en.pagePosition(1, 5));
+    expect(screen.queryByTestId('account-intro-play')).toBeNull();
   });
 
   test('speak Turkish', async () => {
     const screen = await renderPager('tr');
     expect(screen.getByText(messages.tr.account.signIn.pages.closet.title)).toBeTruthy();
     expect(position(screen)).toBe(messages.tr.account.signIn.pagePosition(1, 5));
+    expect(control(screen).props.accessibilityLabel).toBe(messages.tr.account.signIn.pausePages);
   });
 });

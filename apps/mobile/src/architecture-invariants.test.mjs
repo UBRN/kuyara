@@ -369,8 +369,8 @@ test('the specifier reader sees `typeof import(…)`, the form the adapters name
 
 // O5, one button system: a feature's buttons are `Button`, `ButtonPair`, `IconButton` or
 // `GlassButton` from `components/ui`. A raw `Pressable` (or `PressScale`, or a Touchable) in
-// feature presentation code is a row, tile, chip, swatch, link or field accessory, and each
-// file may hold only the number listed here. The counts only shrink; a stale entry fails.
+// feature presentation code is a row, tile, chip, swatch, page dot, link or field accessory,
+// and each file may hold only the number listed here. The counts only shrink; a stale entry fails.
 const rawPressableAllowlist = Object.freeze({
   // O10: a colour swatch, a category tile of the type picker, an ownership card.
   'features/wardrobe/presentation/color-swatch.tsx': 1,
@@ -391,6 +391,9 @@ const rawPressableAllowlist = Object.freeze({
   // The Closet heading row and a category cell (O9; the rack is `ClosetRack`'s own button).
   'features/profile/presentation/profile-screen.tsx': 2,
   'features/profile/presentation/style-aesthetics-options.tsx': 1,
+  // A page dot of the sign-in benefit pages: a small mark that jumps to its page; the pause
+  // and play control beside the dots is an `IconButton`.
+  'features/account/presentation/account-intro-pager.tsx': 1,
 });
 
 const rawPressablePattern = /<(?:Pressable|PressScale|AnimatedPressable|Touchable\w*)\b/g;
@@ -407,7 +410,7 @@ test('feature presentation code draws buttons only through the button primitives
   assert.deepEqual(
     counts,
     rawPressableAllowlist,
-    'a raw Pressable in feature presentation code must be a listed row, tile, chip or link; '
+    'a raw Pressable in feature presentation code must be a listed row, tile, chip, page dot or link; '
       + 'a button uses Button, ButtonPair, IconButton or GlassButton from components/ui',
   );
 });
