@@ -70,9 +70,9 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   empty on the first foreground open of the evening key; closing either sheet answers it with
   the profile dress style. In the evening, once that outfit has settled, a foreground open of
   Today selects tomorrow's outfit once per evening through the same chain (deterministic when the
-  AI tiers fail) when the forecast covers tomorrow from 08:00, keeps it in an app-private JSON
-  file, and shows it under the alternatives as "Tomorrow" with the day's forecast line and a
-  small board; the next morning's approved generation saves that selection instead of asking the
+  AI tiers fail) when the forecast covers tomorrow from 08:00 at the place, keeps it in an
+  app-private JSON file, and shows it under the alternatives as "Tomorrow" with the day's
+  forecast line and a small board; the next morning's approved generation saves that selection instead of asking the
   AI again when its question is unchanged. A morning or evening answer dims the
   outfit under an "Updating for a … day" line until the new one lands. The AI badge sits
   below with its own symbol (multicolor Apple Intelligence on a neutral, `sparkles` in the

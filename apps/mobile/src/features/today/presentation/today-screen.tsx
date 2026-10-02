@@ -524,7 +524,7 @@ function TodayScreenContent({
   }
   const exhausted = recommendationApplication?.state.status === 'ready'
     && recommendationApplication.state.exhausted;
-  // In the evening, the next dressing day's outfit under its own heading, after today's.
+  // In the evening, the next dressing day's outfit, after today's alternatives.
   const tomorrowPreview = recommendationApplication?.tomorrowPreview ?? null;
   const tomorrowWeather = weatherApplication.state.status === 'ready'
     ? activeLocationSnapshot(weatherApplication.state.snapshot, weatherApplication.state.activeLocation)
@@ -532,6 +532,7 @@ function TodayScreenContent({
   const tomorrow = primary && tomorrowPreview && tomorrowWeather
     ? createTomorrowPreviewPresentation(tomorrowPreview, tomorrowWeather, language, temperatureUnit)
     : null;
+  const showsTomorrow = tomorrow !== null && onOpenTomorrowDetail !== undefined;
   // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
   //: while Easier to see is on, each alternate is a full-width row
   // with its drawing at the left, so a name is never cut and the list scrolls one way.
@@ -791,18 +792,6 @@ function TodayScreenContent({
           </>
         ) : null}
 
-        {/* B: in the evening, tomorrow's outfit is one thin strip right under today's card,
-            above its last update, a single target that opens its detail. It shows only while
-            the preview is ready. */}
-        {tomorrow && onOpenTomorrowDetail ? (
-          <Entrance index={1}>
-            <TomorrowStrip
-              onPress={() => onOpenTomorrowDetail(tomorrow.id)}
-              tomorrow={tomorrow}
-            />
-          </Entrance>
-        ) : null}
-
         {/* O5: "Last updated" sits under the finishing touches; it no longer describes a button.
             Each new line crossfades, and the mark arrives and leaves with its own line, so it
             never pushes a line that is already showing. */}
@@ -900,11 +889,23 @@ function TodayScreenContent({
           </ArrivesAfterHandoff>
         ) : null}
 
-        {/* ADR 0004's offer comes last, after the alternatives (f12). Either answer closes
-            the row in place, so the button under it glides up instead of jumping. */}
+        {/* B: in the evening, tomorrow's outfit is one thin strip under the alternatives, a
+            single target that opens its detail. It shows only while the preview is ready. */}
+        {showsTomorrow ? (
+          <Entrance index={alternates.length + 1}>
+            <TomorrowStrip
+              onPress={() => onOpenTomorrowDetail(tomorrow.id)}
+              tomorrow={tomorrow}
+            />
+          </Entrance>
+        ) : null}
+
+        {/* ADR 0004's offer comes last, after the alternatives and tomorrow's strip (f12).
+            Either answer closes the row in place, so the button under it glides up instead
+            of jumping. */}
         {shownOffer ? (
           <Presence visible={offerToRender !== null}>
-            <Entrance index={alternates.length + 1}>
+            <Entrance index={alternates.length + (showsTomorrow ? 2 : 1)}>
               <WeatherAlertOfferRow
                 blocked={shownOffer.blocked}
                 language={language}

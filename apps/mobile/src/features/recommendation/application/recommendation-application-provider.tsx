@@ -51,7 +51,7 @@ import {
   createRecommendationContextWithPool,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
-import { nextMorningAfterEvening } from '@/features/recommendation/domain/local-day';
+import { nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
@@ -543,8 +543,8 @@ export function RecommendationApplicationProvider({
   useEffect(() => {
     if (!previewWanted || !tomorrowMorning || !tomorrowKey || !input || eveningChoicePending ||
         !settledRecommendation) return;
-    const departureAt = tomorrowMorning.toISOString();
-    if (!forecastCoversWindow(input.snapshot, departureAt)) return;
+    const departureAt = previewDepartureAt(localDay.key, input.snapshot.timeZone);
+    if (!departureAt || !forecastCoversWindow(input.snapshot, departureAt)) return;
     void previewController.ensure({
       snapshot: input.snapshot,
       now: now(),
@@ -559,8 +559,8 @@ export function RecommendationApplicationProvider({
       // What the morning will exclude too, unless today's outfit changes before then.
       excludedOptionIds: settledRecommendation.outfits.map(({ optionId }) => optionId),
     });
-  }, [eveningChoicePending, input, language, previewController, previewWanted, profileDefault,
-    settledRecommendation, tomorrowKey, tomorrowMorning, tomorrowStyles]);
+  }, [eveningChoicePending, input, language, localDay.key, previewController, previewWanted,
+    profileDefault, settledRecommendation, tomorrowKey, tomorrowMorning, tomorrowStyles]);
   // Shown only while it still answers tomorrow's question: the same place, gender, dress style
   // and styles. Otherwise it simply does not appear; the day's one selection is not spent again.
   const tomorrowPreview = preview && tomorrowKey && input && previewAnswersQuestion(preview, {

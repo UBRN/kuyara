@@ -73,7 +73,7 @@ function zoneOffsetMilliseconds(instant: number, timeZone: string): number {
  * is read twice because the first reading is taken at the wrong instant whenever the zone
  * changes offset inside the window, which is exactly what a daylight-saving night does.
  */
-function instantOfLocalHour(date: LocalDate, hour: number, timeZone: string): number {
+export function instantOfLocalHour(date: LocalDate, hour: number, timeZone: string): number {
   const asIfUtc = Date.UTC(date.year, date.month - 1, date.day, hour);
   const firstGuess = asIfUtc - zoneOffsetMilliseconds(asIfUtc, timeZone);
   return asIfUtc - zoneOffsetMilliseconds(firstGuess, timeZone);
