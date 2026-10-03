@@ -70,12 +70,12 @@ export class SqliteDressingDayChoiceRepository implements DressingDayChoiceRepos
       const now = this.now();
       await transaction.runAsync(
         `INSERT INTO dressing_day_choices
-         (id, local_profile_id, day_key, formality, source, style_aesthetics, created_at, updated_at, deleted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
+         (id, local_profile_id, day_key, formality, source, style_aesthetics, created_at, updated_at, deleted_at, pending_sync)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 1)
          ON CONFLICT(local_profile_id, day_key) DO UPDATE SET
            formality = excluded.formality, source = excluded.source,
            style_aesthetics = CASE WHEN ? THEN excluded.style_aesthetics ELSE dressing_day_choices.style_aesthetics END,
-           updated_at = excluded.updated_at, deleted_at = NULL`,
+           updated_at = excluded.updated_at, deleted_at = NULL, pending_sync = 1`,
         [this.createId(), profileId, dayKey, formality, source, sortedStyles, now, now,
           styleAesthetics === undefined ? 0 : 1],
       );

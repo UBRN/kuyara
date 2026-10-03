@@ -57,11 +57,11 @@ export class SqliteDressingDayDepartureRepository implements DressingDayDepartur
     let result: DressingDayDeparture | null = null;
     await this.db.withExclusiveTransactionAsync(async (transaction) => {
       await transaction.runAsync(`INSERT INTO dressing_day_departures
-        (id, local_profile_id, day_key, departure_at, time_zone, created_at, updated_at, deleted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+        (id, local_profile_id, day_key, departure_at, time_zone, created_at, updated_at, deleted_at, pending_sync)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1)
         ON CONFLICT(local_profile_id, day_key) DO UPDATE SET
           departure_at = excluded.departure_at, time_zone = excluded.time_zone,
-          updated_at = excluded.updated_at, deleted_at = NULL`,
+          updated_at = excluded.updated_at, deleted_at = NULL, pending_sync = 1`,
       [z.uuid().parse(this.createId()), profileId, dayKey, departureAt, timeZone, now, now]);
       result = await read(transaction, profileId, dayKey);
     });
@@ -73,7 +73,7 @@ export class SqliteDressingDayDepartureRepository implements DressingDayDepartur
     departureDayKeySchema.parse(dayKey);
     const now = z.iso.datetime().parse(this.now());
     const result = await this.db.runAsync(`UPDATE dressing_day_departures
-      SET deleted_at = ?, updated_at = ?
+      SET deleted_at = ?, updated_at = ?, pending_sync = 1
       WHERE local_profile_id = ? AND day_key = ? AND deleted_at IS NULL`,
     [now, now, profileId, dayKey]);
     return result.changes > 0;

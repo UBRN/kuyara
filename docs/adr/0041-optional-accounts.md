@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-30)
 
-Implementation: account screens are closed behind `ACCOUNT_SCREENS_ENABLED`; domain rules, remote mappers, application ports and the undeployed deletion route are built and tested against fakes. The shipped app has no sign-in or cross-device sync. The device migration and live Supabase, Apple and Google adapters are separate work. The maintainer creates the Supabase project and the Apple and Google credentials; nobody else creates or calls them.
+Implementation: account screens are closed behind `ACCOUNT_SCREENS_ENABLED`; domain rules, remote mappers, application ports and the undeployed deletion route are built and tested against fakes. The shipped app has no sign-in or cross-device sync. Migration 25 adds the pending flags and the device account link; the live Supabase, Apple and Google adapters are separate work. The maintainer creates the Supabase project and the Apple and Google credentials; nobody else creates or calls them.
 
 ## Context
 
@@ -65,9 +65,9 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 - `local_profile_id` stays a device link, is never uploaded, and is never used for ownership checks, because the client can write any value into it. A pulled row takes this phone's profile id. The remote profile row is keyed by `user_id`.
 - A pulled row that this app version's schema or catalog cannot parse (written by a newer version) is refused at the remote boundary, never overwrites a local row, and the cursor still advances. Remote enum values are as frozen as the v1 contracts.
 - The first upload sends live rows and soft-deletion markers from the last 30 days.
-- The one-profile-per-device rule (`singleton_key = 1`) stays. The account link lives in a new device table holding the linked user ID, the last linked user ID (kept after sign-out) and the last pull cursor.
-- Pending changes: each of the five tables gains a `pending_sync` flag. Every local write sets it, except that on the profile only a write to one of the four synced fields does; a successful upload clears it when the row returns with the same `updated_at` (day-keyed tables match on `(day_key, updated_at)`). This is not an outbox or an operation log: the row's latest state is sent. The "N waiting" counts on the Account screen come from these flags.
-- One new SQLite migration adds the flags and the link table, ordered after version 23 and tested with an upgrade from the last released schema and a realistic device-database replay. Existing rows start with the flag unset. Released migrations never change. The migration ships in the same binary as the account work, never on its own.
+- The one-profile-per-device rule (`singleton_key = 1`) stays. The account link lives in a new device table holding the linked user ID, the last linked user ID (kept after sign-out), the last pull cursor and the persisted sign-in card dismissal flag.
+- Pending changes: each of the five tables gains a `pending_sync` flag. Every local write sets it, except that on the profile only a write that changes the value of one of the four synced fields does; a successful upload clears it when the row returns with the same `updated_at` (day-keyed tables match on `(day_key, updated_at)`). This is not an outbox or an operation log: the row's latest state is sent. The "N waiting" counts on the Account screen come from these flags.
+- Migration 25 adds the flags and the link table, tested with an upgrade from the last released schema and a realistic device-database replay. Existing rows start with the flag unset. Released migrations never change. The migration ships in the first binary after build 17, with the account code present but switched off, and is never delivered by an over-the-air update to an earlier binary.
 
 ### 4. Merging and the conflict rule
 
@@ -99,7 +99,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 ### 7. Account deletion
 
-- Deletion removes everything in the account (section 2); what the phone shows stays, and kuyara continues without an account. The device's account link, the last linked user ID, the pull cursor and the session are cleared and the pending flags reset.
+- Deletion removes everything in the account (section 2); what the phone shows stays, and kuyara continues without an account. The device's account link, the last linked user ID, the pull cursor and the session are cleared and the pending flags reset; the reset keeps the sign-in card dismissal.
 - Deletion lives in the app, under Settings > Account, two taps away. Its confirmation is the deletion page, the system's "Delete your account?" alert, then a fresh Apple (Face ID) or Google authorization. The page states how long deletion takes and that the person is told when it finishes.
 - Deletion cannot start offline; the button is disabled with a warning line.
 - While deletion runs the person may go anywhere in the app. The work continues, and when it finishes the result sheet appears wherever they are. A failure re-enables the button with an error line stating that nothing was deleted.

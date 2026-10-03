@@ -22,18 +22,20 @@ import {
 const userId = uuid(900);
 
 // Every column of the five tables is either uploaded under its own name or listed here with the
-// reason it stays on the device. A new column fails the field test until it is classified.
+// reason it stays on the device (the pending flag is the device's own bookkeeping). A new
+// column fails the field test until it is classified.
 const deviceOnly = {
   local_profiles: [
     'singleton_key', 'id', 'birth_date', 'language_preference', 'theme_preference',
     'onboarding_completed', 'notifications_opt_in', 'analytics_consent',
     'weather_alert_offer_shown', 'morning_briefing_opt_in', 'name_prompt_version',
     'morning_sheet_enabled', 'easier_to_see', 'walkthrough_version', 'swap_hint_shown',
+    'pending_sync',
   ],
-  wardrobe_items: ['local_profile_id', 'photo_relative_path'],
-  dressing_day_choices: ['local_profile_id'],
-  dressing_day_departures: ['local_profile_id'],
-  outfit_history: ['local_profile_id', 'photo_path'],
+  wardrobe_items: ['local_profile_id', 'photo_relative_path', 'pending_sync'],
+  dressing_day_choices: ['local_profile_id', 'pending_sync'],
+  dressing_day_departures: ['local_profile_id', 'pending_sync'],
+  outfit_history: ['local_profile_id', 'photo_path', 'pending_sync'],
 };
 
 const uploads = {

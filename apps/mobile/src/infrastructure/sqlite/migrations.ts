@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 24;
+export const latestDatabaseVersion = 25;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -614,6 +614,33 @@ const migrationV24: Migration = {
   },
 };
 
+const migrationV25: Migration = {
+  version: 25,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE local_profiles ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0
+        CHECK (pending_sync IN (0, 1));
+      ALTER TABLE wardrobe_items ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0
+        CHECK (pending_sync IN (0, 1));
+      ALTER TABLE dressing_day_choices ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0
+        CHECK (pending_sync IN (0, 1));
+      ALTER TABLE dressing_day_departures ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0
+        CHECK (pending_sync IN (0, 1));
+      ALTER TABLE outfit_history ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0
+        CHECK (pending_sync IN (0, 1));
+      CREATE TABLE device_account_link (
+        singleton_key INTEGER PRIMARY KEY NOT NULL CHECK (singleton_key = 1),
+        linked_user_id TEXT,
+        last_linked_user_id TEXT,
+        last_pull_cursor TEXT,
+        sign_in_card_dismissed INTEGER NOT NULL DEFAULT 0
+          CHECK (sign_in_card_dismissed IN (0, 1))
+      );
+      INSERT INTO device_account_link (singleton_key) VALUES (1);
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -639,6 +666,7 @@ const migrations = [
   migrationV22,
   migrationV23,
   migrationV24,
+  migrationV25,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

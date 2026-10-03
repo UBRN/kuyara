@@ -68,7 +68,7 @@ async function insertProfile(database, id = 'stable-profile-id') {
   );
 }
 
-test('an empty database applies versions 1 through 23 in order with the final schema', async (t) => {
+test('an empty database applies all migrations in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -91,7 +91,7 @@ test('an empty database applies versions 1 through 23 in order with the final sc
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 24);
+  assert.equal(latestDatabaseVersion, 25);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -120,6 +120,7 @@ test('an empty database applies versions 1 through 23 in order with the final sc
       'easier_to_see',
       'walkthrough_version',
       'swap_hint_shown',
+      'pending_sync',
     ],
   );
   assert.match(profileTable.sql, /weather_alert_offer_shown IN \(0, 1\)/);
@@ -176,6 +177,7 @@ test('an empty database applies versions 1 through 23 in order with the final sc
       'entry_state',
       'color_option_id',
       'color_custom_hex',
+      'pending_sync',
     ],
   );
   assert.equal(
@@ -186,7 +188,7 @@ test('an empty database applies versions 1 through 23 in order with the final sc
     wardrobeColumns
       .filter(({ notnull }) => notnull === 1)
       .map(({ name }) => name),
-    ['id', 'local_profile_id', 'category', 'created_at', 'updated_at', 'entry_state'],
+    ['id', 'local_profile_id', 'category', 'created_at', 'updated_at', 'entry_state', 'pending_sync'],
   );
   assert.equal(
     wardrobeColumns.find(({ name }) => name === 'entry_state').dflt_value,
@@ -306,6 +308,7 @@ test('versions 3 through 12 preserve a released version 2 wardrobe row and are n
     entry_state: 'owned',
     color_option_id: null,
     color_custom_hex: null,
+    pending_sync: 0,
   }]);
 });
 
@@ -367,7 +370,7 @@ test('version 7 preserves version 6 wardrobe rows and defaults their entry state
       arm_coverage_override: null, leg_coverage_override: null,
       traction_suitability_override: null,
       entry_state: 'owned',
-      color_option_id: null, color_custom_hex: null,
+      color_option_id: null, color_custom_hex: null, pending_sync: 0,
     },
     {
       id: 'deleted-item', local_profile_id: 'stable-profile-id', name: 'Bot',
@@ -378,7 +381,7 @@ test('version 7 preserves version 6 wardrobe rows and defaults their entry state
       wind_protection_override: null, breathability_override: null,
       arm_coverage_override: null, leg_coverage_override: null,
       traction_suitability_override: null, entry_state: 'owned',
-      color_option_id: null, color_custom_hex: null,
+      color_option_id: null, color_custom_hex: null, pending_sync: 0,
     },
   ]);
 });
@@ -754,10 +757,10 @@ for (const [preference, gender, deletedAt] of [['womens', 'woman', null], ['mens
       style_aesthetics: '[]',
       morning_sheet_enabled: 1,
       easier_to_see: 0,
-      walkthrough_version: 0, swap_hint_shown: 0,
+      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0,
     });
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM wardrobe_items') }, {
-      ...item, color_option_id: null, color_custom_hex: null,
+      ...item, color_option_id: null, color_custom_hex: null, pending_sync: 0,
     });
     assert.equal((await database.getFirstAsync('PRAGMA user_version' )).user_version, latestDatabaseVersion);
     assert.equal((await database.getFirstAsync('PRAGMA foreign_keys')).foreign_keys, 1);
@@ -926,7 +929,7 @@ for (const [id, name] of [['sample.istanbul', 'Istanbul'], ['sample.ankara', 'An
       style_aesthetics: '[]',
       morning_sheet_enabled: 1,
       easier_to_see: 0,
-      walkthrough_version: 0, swap_hint_shown: 0,
+      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0,
       })),
     );
     assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
@@ -1019,7 +1022,7 @@ test('version 10 resets onboarding once and preserves the profile plus cached da
     style_aesthetics: '[]',
     morning_sheet_enabled: 1,
     easier_to_see: 0,
-    walkthrough_version: 0, swap_hint_shown: 0,
+    walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0,
   });
   for (const dressStyle of ['casual', 'smart', 'formal', null]) {
     await database.runAsync('UPDATE local_profiles SET dress_style = ?', [dressStyle]);
@@ -1126,13 +1129,13 @@ test('version 11 adds the weather alert ledger without changing existing rows', 
       style_aesthetics: '[]',
       morning_sheet_enabled: 1,
       easier_to_see: 0,
-      walkthrough_version: 0, swap_hint_shown: 0,
+      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0,
     })),
   );
   assert.deepEqual((await database.getAllAsync('SELECT * FROM wardrobe_items')).map((row) => ({
     ...row, color_option_id: undefined, color_custom_hex: undefined,
   })), wardrobeBefore.map((row) => ({
-    ...row, color_option_id: undefined, color_custom_hex: undefined,
+    ...row, color_option_id: undefined, color_custom_hex: undefined, pending_sync: 0,
   })));
   assert.deepEqual(
     (await database.getAllAsync('PRAGMA table_info(weather_alert_deliveries)'))
@@ -1203,7 +1206,7 @@ test('version 12 defaults an existing profile row to undecided analytics consent
       style_aesthetics: '[]',
       morning_sheet_enabled: 1,
       easier_to_see: 0,
-      walkthrough_version: 0, swap_hint_shown: 0,
+      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0,
     })),
   );
   for (const consent of ['undecided', 'granted', 'withdrawn']) {
@@ -1276,10 +1279,10 @@ test('version 15 adds the briefing opt-in without disturbing a version 14 instal
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 24);
+  assert.equal(latestDatabaseVersion, 25);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
-    profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0 })),
+    profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0 })),
   );
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM weather_alert_deliveries')).map((row) => ({ ...row })),
@@ -1501,7 +1504,7 @@ test('version 16 adds the daily outlook column without disturbing a version 15 i
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 24);
+  assert.equal(latestDatabaseVersion, 25);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM weather_snapshots')).map((row) => ({ ...row })),
     snapshotsBefore.map((row) => ({ ...row, daily_json: null })),
@@ -1595,11 +1598,11 @@ test('version 17 adds the optional name and prompt gate to a filled version 16 p
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
-    profileBefore.map((row) => ({ ...row, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0 })),
+    profileBefore.map((row) => ({ ...row, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0 })),
   );
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM wardrobe_items')).map((row) => ({ ...row })),
-    wardrobeBefore.map((row) => ({ ...row, color_option_id: null, color_custom_hex: null })),
+    wardrobeBefore.map((row) => ({ ...row, color_option_id: null, color_custom_hex: null, pending_sync: 0 })),
   );
   assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
 
@@ -1685,7 +1688,7 @@ test('version 18 keeps a filled version 17 profile and adds daily choices', asyn
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-    ...before, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0,
+    ...before, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0,
   });
   const dependentRowsAfter = Object.fromEntries(await Promise.all(dependentTables.map(async (table) => [
     table,
@@ -1694,7 +1697,7 @@ test('version 18 keeps a filled version 17 profile and adds daily choices', asyn
   assert.deepEqual(dependentRowsAfter, {
     ...dependentRowsBefore,
     wardrobe_items: dependentRowsBefore.wardrobe_items.map((row) => ({
-      ...row, color_option_id: null, color_custom_hex: null,
+      ...row, color_option_id: null, color_custom_hex: null, pending_sync: 0,
     })),
   });
   assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
@@ -1866,7 +1869,7 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
 
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-      ...before, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0,
+      ...before, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0,
     });
     const schema = async (db) => (await db.getAllAsync(
       "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -1942,11 +1945,11 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
 
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-      ...before, ...(version < 21 ? { easier_to_see: 0 } : {}), walkthrough_version: 0, swap_hint_shown: 0,
+      ...before, ...(version < 21 ? { easier_to_see: 0 } : {}), walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0,
     });
     assert.deepEqual(await dependents(), dependentsBefore.map((rows, index) => (index === 0
-      ? rows.map((row) => ({ ...row, ...(version < 20 ? { color_option_id: null, color_custom_hex: null } : {}) }))
-      : rows.map((row) => ({ ...row, piece_colors_json: null })))));
+      ? rows.map((row) => ({ ...row, ...(version < 20 ? { color_option_id: null, color_custom_hex: null } : {}), pending_sync: 0 }))
+      : rows.map((row) => ({ ...row, piece_colors_json: null, pending_sync: 0 })))));
     const schema = async (db) => (await db.getAllAsync(
       "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY name",
     )).map((row) => ({ ...row }));
@@ -2002,7 +2005,7 @@ test('a failed version 22 migration rolls back and leaves version 21 intact', as
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-    ...before, walkthrough_version: 0, swap_hint_shown: 0,
+    ...before, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0,
   });
 });
 
@@ -2039,16 +2042,16 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
     await migrateDatabase(database);
     await migrateDatabase(fresh);
 
-    assert.equal(latestDatabaseVersion, 24);
+    assert.equal(latestDatabaseVersion, 25);
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
       ...before,
       ...(version < 22 ? { easier_to_see: 0, walkthrough_version: 0 } : {}),
-      swap_hint_shown: 0,
+      swap_hint_shown: 0, pending_sync: 0,
     });
     assert.deepEqual(await dependents(), dependentsBefore.map((rows, index) => (index === 0
-      ? rows.map((row) => ({ ...row, ...(version < 20 ? { color_option_id: null, color_custom_hex: null } : {}) }))
-      : rows.map((row) => ({ ...row, piece_colors_json: null })))));
+      ? rows.map((row) => ({ ...row, ...(version < 20 ? { color_option_id: null, color_custom_hex: null } : {}), pending_sync: 0 }))
+      : rows.map((row) => ({ ...row, piece_colors_json: null, pending_sync: 0 })))));
     const schema = async (db) => (await db.getAllAsync(
       "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY name",
     )).map((row) => ({ ...row }));
@@ -2104,7 +2107,7 @@ test('a failed version 23 migration rolls back and leaves version 22 intact', as
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-    ...before, swap_hint_shown: 0,
+    ...before, swap_hint_shown: 0, pending_sync: 0,
   });
 });
 
@@ -2217,7 +2220,7 @@ const sqliteSchema = async (database) => (await database.getAllAsync(
   "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY name",
 )).map((row) => ({ ...row }));
 
-test('build-17-schema-23.sql upgrades to version 24 with every row intact and worn days uncoloured', async (t) => {
+test('build-17-schema-23.sql upgrades with every row intact and worn days uncoloured', async (t) => {
   const database = new NodeSqliteDatabase();
   const fresh = new NodeSqliteDatabase();
   t.after(() => { database.close(); fresh.close(); });
@@ -2230,14 +2233,18 @@ test('build-17-schema-23.sql upgrades to version 24 with every row intact and wo
   await migrateDatabase(database);
   await migrateDatabase(fresh);
 
-  assert.equal(latestDatabaseVersion, 24);
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 24);
+  assert.equal(latestDatabaseVersion, 25);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   const after = await tableRows(database);
-  assert.deepEqual(Object.keys(after), Object.keys(before));
+  assert.deepEqual(Object.keys(after), [...Object.keys(before), 'device_account_link'].sort());
+  assert.deepEqual(after.device_account_link, [{ singleton_key: 1, linked_user_id: null,
+    last_linked_user_id: null, last_pull_cursor: null, sign_in_card_dismissed: 0 }]);
   for (const [table, rows] of Object.entries(before)) {
-    assert.deepEqual(after[table], table === 'outfit_history'
-      ? rows.map((row) => ({ ...row, piece_colors_json: null }))
-      : rows, table);
+    assert.deepEqual(after[table], rows.map((row) => ({ ...row,
+      ...(table === 'outfit_history' ? { piece_colors_json: null } : {}),
+      ...(['local_profiles', 'wardrobe_items', 'dressing_day_choices',
+        'dressing_day_departures', 'outfit_history'].includes(table) ? { pending_sync: 0 } : {}),
+    })), table);
   }
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   const column = (await database.getAllAsync('PRAGMA table_info(outfit_history)'))
@@ -2289,7 +2296,42 @@ test('a failed version 24 migration rolls back and leaves the build 17 schema in
   assert.deepEqual(await sqliteSchema(database), schemaBefore);
   assert.deepEqual(await tableRows(database), before);
   await migrateDatabase(database);
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 24);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.equal((await database.getAllAsync('SELECT piece_colors_json FROM outfit_history'))
     .every(({ piece_colors_json: colors }) => colors === null), true);
+});
+
+test('a failed version 25 migration rolls back and leaves version 24 with its rows intact', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await database.execAsync(await readFile(new URL('./build-17-schema-23.sql', import.meta.url), 'utf8'));
+  await fillBuildSeventeen(database);
+  const failing = {
+    execAsync: database.execAsync.bind(database),
+    getFirstAsync: database.getFirstAsync.bind(database),
+    withExclusiveTransactionAsync: (task) => database.withExclusiveTransactionAsync((transaction) => task({
+      execAsync: async (sql) => {
+        await transaction.execAsync(sql);
+        if (sql.includes('CREATE TABLE device_account_link')) throw new Error('v25 failed');
+      },
+      runAsync: transaction.runAsync.bind(transaction),
+      getFirstAsync: transaction.getFirstAsync.bind(transaction),
+      getAllAsync: transaction.getAllAsync.bind(transaction),
+    })),
+  };
+  await assert.rejects(() => migrateDatabase(failing), /Migration to version 25 failed: v25 failed/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 24);
+  const before = await tableRows(database);
+  const schemaBefore = await sqliteSchema(database);
+  assert.equal(before.wardrobe_items.length > 0, true);
+  assert.equal(schemaBefore.some(({ name }) => name === 'device_account_link'), false);
+  await assert.rejects(() => migrateDatabase(failing), /Migration to version 25 failed: v25 failed/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 24);
+  assert.deepEqual(await sqliteSchema(database), schemaBefore);
+  assert.deepEqual(await tableRows(database), before);
+  await migrateDatabase(database);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.equal((await database.getFirstAsync('SELECT COUNT(*) AS n FROM device_account_link')).n, 1);
+  assert.equal((await database.getFirstAsync(
+    'SELECT COUNT(*) AS n FROM wardrobe_items WHERE pending_sync = 0')).n, before.wardrobe_items.length);
 });
