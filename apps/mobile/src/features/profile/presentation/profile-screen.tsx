@@ -57,6 +57,8 @@ type ProfileScreenProps = Readonly<{
   shown?: boolean;
   /** The account card's place under the title (ADR 0041 section 5); the route decides whether it shows. */
   accountCard?: ReactNode;
+  /** The category cells to show, in order; the route derives them from the profile and records. */
+  categories?: readonly StructuralCategory[];
 }>;
 
 type CategorySummary = Readonly<{ count: number; wanted: number; newest: WardrobeItem | null }>;
@@ -192,11 +194,13 @@ function CategoryCell({
 }
 
 function CategoryCells({
+  categories,
   firstIndex,
   onOpenCategory,
   shown,
   summaries,
 }: Readonly<{
+  categories: readonly StructuralCategory[];
   /** The first cell's place in the screen's arrival; the cells follow in reading order. */
   firstIndex: number;
   onOpenCategory: (category: StructuralCategory) => void;
@@ -206,8 +210,9 @@ function CategoryCells({
   const messages = useMessages();
   const { fontScale, usesTwoColumnGrid } = useTextScaling();
   const scale = Math.min(Math.max(fontScale, 1), CELL_SCALE_MAXIMUM);
-  // All six cells always show, so each category keeps its place and a tap can be learned.
-  const rows = chunk(structuralCategories, usesTwoColumnGrid ? 2 : 3);
+  // Every offered category shows, so each keeps its place and a tap can be learned.
+  const columns = usesTwoColumnGrid ? 2 : 3;
+  const rows = chunk(categories, columns);
   const isLoading = summaries === null;
 
   return (
@@ -219,20 +224,33 @@ function CategoryCells({
       testID={isLoading ? 'profile-category-cells-loading' : 'profile-category-cells'}>
       {rows.map((row, rowIndex) => (
         <View key={row.join('-')} style={styles.cellRow}>
-          {row.map((category, column) => (
-            <Entrance
-              index={firstIndex + rowIndex * row.length + column}
-              key={category}
-              style={styles.cellSlot}
-              waiting={!shown}>
-              <CategoryCell
-                category={category}
-                onPress={() => onOpenCategory(category)}
-                scale={scale}
-                summary={summaries?.[category] ?? null}
+          {[
+            ...row.map((category, column) => (
+              <Entrance
+                index={firstIndex + rowIndex * columns + column}
+                key={category}
+                style={styles.cellSlot}
+                waiting={!shown}>
+                <CategoryCell
+                  category={category}
+                  onPress={() => onOpenCategory(category)}
+                  scale={scale}
+                  summary={summaries?.[category] ?? null}
+                />
+              </Entrance>
+            )),
+            // A short last row keeps the grid's column width: empty slots nobody reaches.
+            ...Array.from({ length: columns - row.length }, (_, index) => (
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                key={`spacer-${index}`}
+                pointerEvents="none"
+                style={styles.cellSlot}
+                testID="profile-category-spacer"
               />
-            </Entrance>
-          ))}
+            )),
+          ]}
         </View>
       ))}
     </View>
@@ -241,6 +259,7 @@ function CategoryCells({
 
 export function ProfileScreen({
   accountCard = null,
+  categories = structuralCategories,
   displayName = null,
   onAddPiece,
   onOpenCategory,
@@ -284,7 +303,7 @@ export function ProfileScreen({
     ? copy.rackAccessibilityLabel({
         title: closetTitle,
         count: closetCount,
-        categories: structuralCategories
+        categories: categories
           .filter((category) => summaries[category].count > 0)
           .map((category) => ({
             label: messages.wardrobe.categoryFilterLabels[category],
@@ -411,6 +430,7 @@ export function ProfileScreen({
       </Entrance>
       ) : (
         <CategoryCells
+          categories={categories}
           firstIndex={2}
           onOpenCategory={onOpenCategory}
           shown={shown}
@@ -418,7 +438,7 @@ export function ProfileScreen({
         />
       )}
 
-      <Entrance index={2 + structuralCategories.length} waiting={!shown}>
+      <Entrance index={2 + categories.length} waiting={!shown}>
       <View style={styles.group}>
         <ListRowGroup testID="profile-group">
           {(hasOwned || hasWanted) && (

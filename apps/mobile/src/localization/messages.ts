@@ -1,8 +1,9 @@
 import type {
+  AccessoryOutfitSlot,
   OutfitCompositionReasonCode,
   OutfitSlot,
 } from '@/features/recommendation/domain/outfit-composition';
-import type { SwappableSlot } from '@/features/recommendation/domain/manual-mix';
+import type { RemovableSlot, SwappableSlot } from '@/features/recommendation/domain/manual-mix';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { ClothingRequirementReasonCode } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type { WeatherCause } from '@/features/recommendation/domain/weather-causes';
@@ -211,6 +212,35 @@ export type TodayMessages = Readonly<{
     sourceOne: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
     /** The same after two or more changed pieces. */
     sourceMany: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
+    // Detail edit (ADR 0026 section 6): a layer taken off or added, the finishing touches
+    // taken off, put back and added. Every sentence is whole, per slot where a slot is named.
+    /** The enlarged layer's strip action; its spoken sentence names the layer. */
+    takeOff: string;
+    takeOffAccessibilityLabel: Readonly<Record<RemovableSlot, string>>;
+    /** One announcement after a layer is taken off; the unusual one also carries the note. */
+    takenOff: Readonly<Record<RemovableSlot, string>>;
+    takenOffUnusual: Readonly<Record<RemovableSlot, string>>;
+    /** The empty place a layer taken off leaves in the rows, and its subtitle. */
+    noLayer: Readonly<Record<RemovableSlot, string>>;
+    tookOff: string;
+    changeEmptyAccessibilityLabel: Readonly<Record<RemovableSlot, string>>;
+    /** The empty place's picker entry, fixed first. */
+    wearWithout: Readonly<Record<RemovableSlot, string>>;
+    /** A layer the reader added. */
+    added: string;
+    /** A piece the reader chose to compose around. */
+    yourChoice: string;
+    addLayer: string;
+    addLayerHint: string;
+    addAccessory: string;
+    addAccessoryHint: string;
+    /** An added accessory's subtitle: its slot, then "added". */
+    accessoryAdded: (slot: string) => string;
+    accessoryTakeOffAccessibilityLabel: Readonly<Record<AccessoryOutfitSlot, (piece: string) => string>>;
+    /** The closing line once finishing touches are taken off: one whole sentence per count. */
+    accessoriesTookOff: (count: number) => string;
+    putBack: string;
+    putBackAccessibilityLabel: (count: number) => string;
   }>;
   /**
    * The outfit detail's share button, the name on the shared outfit card, and the text sent
@@ -1685,6 +1715,50 @@ const en = {
         aiAssisted: 'You changed some pieces. kuyara chose the rest with online AI.',
         deterministic: 'You changed some pieces. kuyara put the rest together on your device.',
       },
+      takeOff: 'Take off',
+      takeOffAccessibilityLabel: {
+        mid_layer: 'Take off the mid layer',
+        outer_layer: 'Take off the outer layer',
+      },
+      takenOff: {
+        mid_layer: 'Mid layer taken off.',
+        outer_layer: 'Outer layer taken off.',
+      },
+      takenOffUnusual: {
+        mid_layer: 'Mid layer taken off. Unusual for this weather. You can still wear this outfit and record it.',
+        outer_layer: 'Outer layer taken off. Unusual for this weather. You can still wear this outfit and record it.',
+      },
+      noLayer: {
+        mid_layer: 'No mid layer',
+        outer_layer: 'No outer layer',
+      },
+      tookOff: 'You took it off',
+      changeEmptyAccessibilityLabel: {
+        mid_layer: 'Change the mid layer, now none',
+        outer_layer: 'Change the outer layer, now none',
+      },
+      wearWithout: {
+        mid_layer: 'Wear without a mid layer',
+        outer_layer: 'Wear without an outer layer',
+      },
+      added: 'Added',
+      yourChoice: 'Your choice',
+      addLayer: 'Add a layer',
+      addLayerHint: 'Mid or outer layer',
+      addAccessory: 'Add an accessory',
+      addAccessoryHint: 'Head, neck, hands or carry',
+      accessoryAdded: (slot) => `${slot} · Added`,
+      accessoryTakeOffAccessibilityLabel: {
+        head: (piece) => `Take off the head accessory, now ${piece}`,
+        neck: (piece) => `Take off the neck accessory, now ${piece}`,
+        hands: (piece) => `Take off the hand accessory, now ${piece}`,
+        handheld: (piece) => `Take off what you carry, now ${piece}`,
+      },
+      accessoriesTookOff: (count) => (count === 1
+        ? 'You took off 1 finishing touch' : `You took off ${count} finishing touches`),
+      putBack: 'Put back',
+      putBackAccessibilityLabel: (count) => (count === 1
+        ? 'Put the finishing touch back' : 'Put the finishing touches back'),
     },
     share: {
       action: 'Share outfit',
@@ -2802,6 +2876,48 @@ const tr = {
         aiAssisted: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara çevrimiçi yapay zeka ile seçti.',
         deterministic: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara cihazında hazırladı.',
       },
+      takeOff: 'Çıkar',
+      takeOffAccessibilityLabel: {
+        mid_layer: 'Orta katmanı çıkar',
+        outer_layer: 'Dış katmanı çıkar',
+      },
+      takenOff: {
+        mid_layer: 'Orta katman çıkarıldı.',
+        outer_layer: 'Dış katman çıkarıldı.',
+      },
+      takenOffUnusual: {
+        mid_layer: 'Orta katman çıkarıldı. Bu hava için alışılmadık. Bu kombini yine de giyip kaydedebilirsin.',
+        outer_layer: 'Dış katman çıkarıldı. Bu hava için alışılmadık. Bu kombini yine de giyip kaydedebilirsin.',
+      },
+      noLayer: {
+        mid_layer: 'Orta katman yok',
+        outer_layer: 'Dış katman yok',
+      },
+      tookOff: 'Sen çıkardın',
+      changeEmptyAccessibilityLabel: {
+        mid_layer: 'Orta katmanı değiştir, şu an yok',
+        outer_layer: 'Dış katmanı değiştir, şu an yok',
+      },
+      wearWithout: {
+        mid_layer: 'Orta katman olmadan giy',
+        outer_layer: 'Dış katman olmadan giy',
+      },
+      added: 'Eklendi',
+      yourChoice: 'Senin seçimin',
+      addLayer: 'Katman ekle',
+      addLayerHint: 'Orta ya da dış katman',
+      addAccessory: 'Aksesuar ekle',
+      addAccessoryHint: 'Baş, boyun, eller ya da yanına al',
+      accessoryAdded: (slot) => `${slot} · Eklendi`,
+      accessoryTakeOffAccessibilityLabel: {
+        head: (piece) => `Baştaki aksesuarı çıkar, şu an ${piece}`,
+        neck: (piece) => `Boyundaki aksesuarı çıkar, şu an ${piece}`,
+        hands: (piece) => `Ellerdeki aksesuarı çıkar, şu an ${piece}`,
+        handheld: (piece) => `Yanına aldığını çıkar, şu an ${piece}`,
+      },
+      accessoriesTookOff: (count) => `${count} son dokunuşu çıkardın`,
+      putBack: 'Geri koy',
+      putBackAccessibilityLabel: (count) => (count === 1 ? 'Son dokunuşu geri koy' : 'Son dokunuşları geri koy'),
     },
     share: {
       action: 'Kombini paylaş',

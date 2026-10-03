@@ -71,6 +71,8 @@ test('piece colours fit the worn day or are null', async () => {
   const colors = { primary_top: 'ecru', bottom: 'indigo', outer_layer: 'rainyellow', footwear: 'white', handheld: 'black' };
   assert.deepEqual(wornPieceColorsFor(day, colors), colors);
   assert.deepEqual(wornPieceColorsFor(day, { primary_top: 'ecru' }), { primary_top: 'ecru' });
+  // The two swatches added for the Closet's lavender and plum parse; a day stored before them stays valid.
+  assert.deepEqual(wornPieceColorsFor(day, { primary_top: 'lavender', bottom: 'plum' }), { primary_top: 'lavender', bottom: 'plum' });
   for (const invalid of [null, undefined, 'navy', [], {}, { primary_top: 'neon' }, { head: 'navy' },
     { primary_top: 'ecru', shoes: 'white' }, { primary_top: 7 }]) {
     assert.equal(wornPieceColorsFor(day, invalid), null, JSON.stringify(invalid));

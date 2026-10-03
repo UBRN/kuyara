@@ -9,7 +9,7 @@ export const garmentSwatchIds = Object.freeze([
   'white', 'ecru', 'stone', 'sand', 'straw', 'camel', 'tan', 'chocolate',
   'black', 'charcoal', 'heather', 'lightgrey', 'navy', 'oxford', 'indigo', 'midwash',
   'lightwash', 'blackdenim', 'olive', 'rust', 'terracotta', 'mustard', 'rainyellow', 'forest',
-  'sage', 'burgundy', 'tomato', 'dustyrose', 'blush', 'skyblue', 'cobalt',
+  'sage', 'burgundy', 'tomato', 'dustyrose', 'blush', 'skyblue', 'cobalt', 'lavender', 'plum',
 ] as const);
 
 export const garmentSwatchIdSchema = z.enum(garmentSwatchIds);

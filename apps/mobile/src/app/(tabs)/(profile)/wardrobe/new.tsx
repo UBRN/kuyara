@@ -1,5 +1,7 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 
+import { resolveVisibleCategory } from '@/features/wardrobe/application/closet-categories';
+import { useVisibleClosetCategories } from '@/features/wardrobe/application/use-visible-closet-categories';
 import {
   parseStructuralCategoryParam,
   parseWardrobeEntryStateParam,
@@ -13,6 +15,7 @@ export default function WardrobeNewRoute() {
   // on it. An absent or unrecognised value leaves the form's own default in place.
   const { category, filter } = useLocalSearchParams<{ category?: string; filter?: string }>();
   const messages = useMessages();
+  const categories = useVisibleClosetCategories();
 
   return (
     <>
@@ -31,7 +34,7 @@ export default function WardrobeNewRoute() {
         }}
       />
       <WardrobeNewItemRoute
-        defaultCategory={parseStructuralCategoryParam(category)}
+        defaultCategory={resolveVisibleCategory(categories, parseStructuralCategoryParam(category))}
         defaultEntryState={parseWardrobeEntryStateParam(filter)}
       />
     </>

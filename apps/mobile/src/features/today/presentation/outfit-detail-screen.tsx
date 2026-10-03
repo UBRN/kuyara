@@ -1,6 +1,7 @@
-import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
+  findNodeHandle,
   Platform,
   StyleSheet,
   useWindowDimensions,
@@ -29,8 +30,16 @@ import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { ManualMix } from '@/features/recommendation/application/use-manual-mix';
-import type { SwappableSlot } from '@/features/recommendation/domain/manual-mix';
-import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import {
+  removableSlots,
+  type RemovableSlot,
+  type SwappableSlot,
+} from '@/features/recommendation/domain/manual-mix';
+import {
+  accessoryOutfitSlots,
+  type AccessoryOutfitSlot,
+  type OutfitSlot,
+} from '@/features/recommendation/domain/outfit-composition';
 import type { WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import type { ClosetSeedOffer, OutfitWornState } from '@/features/today/application/outfit-detail-state';
 import {
@@ -39,7 +48,11 @@ import {
   OutfitDetailNameRow,
 } from '@/features/today/presentation/outfit-detail-board-names';
 import { pieceEntries } from '@/features/today/presentation/outfit-detail-entries';
-import { OutfitDetailClosetSeed, OutfitDetailPieceRows } from '@/features/today/presentation/outfit-detail-pieces';
+import {
+  layerCategory,
+  OutfitDetailClosetSeed,
+  OutfitDetailPieceRows,
+} from '@/features/today/presentation/outfit-detail-pieces';
 import { OutfitDetailRecap } from '@/features/today/presentation/outfit-detail-recap';
 import { OutfitDetailWhy, useWhyInView } from '@/features/today/presentation/outfit-detail-why';
 import {
@@ -51,6 +64,9 @@ import { OutfitShareAction } from '@/features/today/presentation/outfit-share';
 import { pieceOwnershipMarkers } from '@/features/today/presentation/piece-ownership-marker';
 import {
   PiecePickerSheet,
+  slotPickerGroups,
+  type PiecePickerGroup,
+  type PiecePickerOption,
   type PiecePickerTarget,
 } from '@/features/today/presentation/piece-picker-sheet';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
@@ -68,6 +84,15 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 // A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
 const OUTSIDE_TAP_SLOP = 10;
+
+/** The open picker: a slot's Change, "Add a layer" on one free layer slot, or "Add an accessory". */
+type Picker =
+  | Readonly<{ kind: 'piece'; slot: SwappableSlot }>
+  | Readonly<{ kind: 'layer'; slot: RemovableSlot }>
+  | Readonly<{ kind: 'accessory' }>;
+
+const isRemovable = (slot: OutfitSlot): slot is RemovableSlot =>
+  (removableSlots as readonly OutfitSlot[]).includes(slot);
 
 type OutfitDetailScreenProps = Readonly<{
   state: TodayScreenState;
@@ -94,6 +119,15 @@ type OutfitDetailScreenProps = Readonly<{
   onSwipeHintShown?: () => void;
   /** Present only while the Closet is empty, or right after this offer filled it. */
   closetSeed?: ClosetSeedOffer | null;
+  /** The slots the reader chose to compose around: their rows read "Your choice". */
+  pinnedSlots?: readonly OutfitSlot[];
+  /** The row that opens composing around chosen pieces, drawn under "Wore this today". */
+  composeEntry?: ReactNode;
+  /**
+   * A result composed around chosen pieces: its stepping line stands under the board's names,
+   * its subtitle under the title, and its source sentence in place of the generation's.
+   */
+  composeResult?: Readonly<{ line: ReactNode; subtitle: string; source: string }> | null;
 }>;
 
 export function OutfitDetailScreen({
@@ -111,6 +145,9 @@ export function OutfitDetailScreen({
   swipeHint = false,
   onSwipeHintShown,
   closetSeed = null,
+  pinnedSlots,
+  composeEntry = null,
+  composeResult = null,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
   const easierToSeeOn = useEasierToSee();
@@ -127,12 +164,18 @@ export function OutfitDetailScreen({
   const [nameRowHeight, setNameRowHeight] = useState<number | null>(null);
   const [completions, setCompletions] = useState(0);
   const [focusedSlot, setFocusedSlot] = useState<OutfitSlot | null>(null);
-  const [pickerSlot, setPickerSlot] = useState<SwappableSlot | null>(null);
+  const [picker, setPicker] = useState<Picker | null>(null);
   const [pressedRow, setPressedRow] = useState<OutfitSlot | null>(null);
   // "Add this to my Closet" asks once, in place: the ownership answer the pieces go in with.
   const [seedAsking, setSeedAsking] = useState(false);
   const [seedAnswer, setSeedAnswer] = useState<WardrobeEntryState | null>(null);
-  const pendingChoice = useRef<Readonly<{ slot: SwappableSlot; garmentTypeId: GarmentTypeId }> | null>(null);
+  const pendingChoice = useRef<(() => void) | null>(null);
+  // Where VoiceOver lands once a piece or a finishing touch has gone: its empty place, or the
+  // line that counts what was taken off.
+  const emptyTargets = useRef(new Map<RemovableSlot, View>());
+  const removedTarget = useRef<View>(null);
+  const spokenRemoval = useRef<RemovableSlot | null>(null);
+  const focusRemoved = useRef(false);
   const boardTouched = useRef(false);
   const touchStart = useRef<Readonly<{ x: number; y: number; inBoard: boolean }> | null>(null);
   // After the first change, replaced rows and sentences fade in; nothing fades on opening.
@@ -157,11 +200,16 @@ export function OutfitDetailScreen({
   // (a focused piece) instead of redrawing the board and the rows each time.
   const messages = useMemo(() => getMessages(language), [language]);
   const copy = messages.today;
-  const changed = (manualMix?.changedSlots.length ?? 0) > 0;
+  // Any edit counts, a drawn piece or a finishing touch: an accessory-only edit is still the reader's.
+  const changed = manualMix?.edited ?? false;
   if (changed && !everChanged) setEverChanged(true);
   const presentation = useMemo(() => createTodayPresentation(state, language, hour12, temperatureUnit, now,
     manualMix && changed && suggestionId
-      ? { optionId: suggestionId, outfit: manualMix.outfit, changedSlots: manualMix.changedSlots }
+      ? {
+          optionId: suggestionId,
+          outfit: manualMix.outfit,
+          changedSlots: [...manualMix.changedSlots, ...manualMix.changedAccessorySlots],
+        }
       : null), [changed, hour12, language, manualMix, now, state, suggestionId, temperatureUnit]);
   const suggestion =
     presentation.kind === 'loaded'
@@ -250,11 +298,12 @@ export function OutfitDetailScreen({
   // closes only while no piece is enlarged: when the strip starts closing it opens with it, so
   // the height above the board and the one under it change in one motion, never one after
   // the other.
-  if (suggestion?.changedFrom && suggestion.changedFrom !== shownChangedFrom) {
-    setShownChangedFrom(suggestion.changedFrom);
+  const changedFrom = composeResult?.subtitle ?? suggestion?.changedFrom ?? null;
+  if (changedFrom && changedFrom !== shownChangedFrom) {
+    setShownChangedFrom(changedFrom);
   }
-  const [changedFromShown, setChangedFromShown] = useState(suggestion?.changedFrom != null);
-  const changedFromWanted = suggestion?.changedFrom != null;
+  const [changedFromShown, setChangedFromShown] = useState(changedFrom !== null);
+  const changedFromWanted = changedFrom !== null;
   if (focusedSlot === null && changedFromShown !== changedFromWanted) setChangedFromShown(changedFromWanted);
 
   // The board's step is stable across renders, so a render mid-drag never rebuilds its gestures.
@@ -263,18 +312,27 @@ export function OutfitDetailScreen({
     if (spoken) spokenStep.current = { slot: slot as SwappableSlot, garmentTypeId };
     choose?.(slot as SwappableSlot, garmentTypeId);
   }, [choose]);
+  // Take off, from the strip header or a piece's VoiceOver action: the focus ends in the same
+  // render, so no enlargement outlives its piece, and VoiceOver then lands on the empty place.
+  const removeLayer = manualMix?.removeLayer;
+  const takeOffLayer = useCallback((slot: OutfitSlot) => {
+    if (!removeLayer || !isRemovable(slot)) return;
+    spokenRemoval.current = slot;
+    setFocusedSlot(null);
+    removeLayer(slot);
+  }, [removeLayer]);
   // A picker choice plays on the board once the sheet has gone: on its dismissal, or after
   // the sheet transition if the platform reports none.
   const applyPendingChoice = useCallback(() => {
     const choice = pendingChoice.current;
     pendingChoice.current = null;
-    if (choice) manualMix?.choose(choice.slot, choice.garmentTypeId);
-  }, [manualMix]);
+    choice?.();
+  }, []);
   useEffect(() => {
-    if (pickerSlot !== null || pendingChoice.current === null) return undefined;
+    if (picker !== null || pendingChoice.current === null) return undefined;
     const timer = setTimeout(applyPendingChoice, theme.motion.deliberate);
     return () => clearTimeout(timer);
-  }, [applyPendingChoice, pickerSlot, theme.motion.deliberate]);
+  }, [applyPendingChoice, picker, theme.motion.deliberate]);
 
   const pieceName = (garmentTypeId: GarmentTypeId) => messages.catalog[`catalog.garment_type.${garmentTypeId}.name`];
 
@@ -285,9 +343,23 @@ export function OutfitDetailScreen({
   useEffect(() => {
     const step = spokenStep.current;
     spokenStep.current = null;
+    const removal = spokenRemoval.current;
+    spokenRemoval.current = null;
     const becameUnusual = unusual && !wasUnusual.current && Platform.OS === 'ios';
     wasUnusual.current = unusual;
-    if (step) {
+    if (focusRemoved.current) {
+      focusRemoved.current = false;
+      const node = findNodeHandle(removedTarget.current);
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+    }
+    if (removal) {
+      // Its empty place takes the focus, and one sentence says the layer went, and the note
+      // when that made the outfit unusual.
+      const node = findNodeHandle(emptyTargets.current.get(removal) ?? null);
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+      AccessibilityInfo.announceForAccessibility(becameUnusual
+        ? copy.manualMix.takenOffUnusual[removal] : copy.manualMix.takenOff[removal]);
+    } else if (step) {
       const order = manualMix?.candidates[step.slot] ?? [];
       const values = {
         piece: pieceName(step.garmentTypeId),
@@ -319,6 +391,8 @@ export function OutfitDetailScreen({
   }
 
   const stageColor = theme.atmosphere[presentation.atmosphere];
+  // A composed result is the reader's from the start.
+  const title = composeResult ? copy.manualMix.title : suggestion.title;
   const tradeoffs = suggestion.requirementRows.filter(({ kind }) => kind === 'tradeoff');
   const categoryOf = (garmentTypeId: GarmentTypeId) =>
     getGarmentType(garmentTypeId)?.structuralCategory ?? 'top';
@@ -331,18 +405,72 @@ export function OutfitDetailScreen({
   ]));
   const garmentIn = (slot: OutfitSlot) =>
     suggestion.boardPieces.find((piece) => piece.slot === slot)?.garmentTypeId;
-  const pickerCurrent = pickerSlot ? garmentIn(pickerSlot) : undefined;
-  const pickerTarget: PiecePickerTarget | null = pickerSlot && manualMix && pickerCurrent ? {
-    slot: pickerSlot,
-    title: copy.slots[pickerSlot],
-    current: pickerCurrent,
-    options: (manualMix.candidates[pickerSlot] ?? []).map(({ garmentTypeId, suitable }) => ({
-      garmentTypeId, category: categoryOf(garmentTypeId), name: pieceName(garmentTypeId), suitable,
-    })),
-  } : null;
+  const optionFor = (slot: OutfitSlot, garmentTypeId: GarmentTypeId): PiecePickerOption => ({
+    garmentTypeId, category: categoryOf(garmentTypeId), name: pieceName(garmentTypeId), slot,
+  });
+  const slotGroups = (slot: SwappableSlot) => slotPickerGroups((manualMix?.candidates[slot] ?? [])
+    .map(({ garmentTypeId, suitable }) => ({ ...optionFor(slot, garmentTypeId), suitable })), copy.manualMix);
+  // "Add an accessory": the free slots' accessories, the ones today's weather asks for first.
+  const accessoryGroups = (): readonly PiecePickerGroup[] => {
+    if (!manualMix) return [];
+    const free = manualMix.freeAccessorySlots;
+    const candidatesOf = (slot: AccessoryOutfitSlot, answersToday: boolean) => manualMix.accessoryCandidates[slot]
+      .filter((candidate) => candidate.answersToday === answersToday)
+      .map(({ garmentTypeId }) => optionFor(slot, garmentTypeId));
+    return [
+      { id: 'fits', title: copy.manualMix.pickerFits, options: free.flatMap((slot) => candidatesOf(slot, true)) },
+      ...free.map((slot) => ({ id: `group-${slot}`, title: copy.slots[slot], options: candidatesOf(slot, false) })),
+    ].filter(({ options }) => options.length > 0);
+  };
+  const freeLayers = manualMix?.freeLayerSlots ?? [];
+  const pickerTarget: PiecePickerTarget | null = !picker || !manualMix ? null
+    : picker.kind === 'piece' ? {
+      title: copy.slots[picker.slot],
+      current: garmentIn(picker.slot) ?? null,
+      // A layer taken off: its picker starts with wearing it without, current while it is off.
+      without: garmentIn(picker.slot) === undefined && isRemovable(picker.slot)
+        ? { label: copy.manualMix.wearWithout[picker.slot], category: layerCategory[picker.slot] } : null,
+      groups: slotGroups(picker.slot),
+    }
+    : picker.kind === 'layer' ? {
+      title: copy.manualMix.addLayer,
+      current: null,
+      groups: slotGroups(picker.slot),
+      tabs: freeLayers.length > 1 ? {
+        options: freeLayers.map((slot) => ({ value: slot, label: copy.slots[slot] })),
+        value: picker.slot,
+        onChange: (value) => {
+          const slot = freeLayers.find((free) => free === value);
+          if (slot) setPicker({ kind: 'layer', slot });
+        },
+      } : null,
+    }
+    : { title: copy.manualMix.addAccessory, current: null, groups: accessoryGroups() };
+  const choosePiece = (option: PiecePickerOption | null) => {
+    if (option && manualMix && picker) {
+      const { slot, garmentTypeId } = option;
+      const accessorySlot = accessoryOutfitSlots.find((one) => one === slot);
+      if (picker.kind === 'accessory') {
+        if (accessorySlot) pendingChoice.current = () => manualMix.addAccessory(accessorySlot, garmentTypeId);
+      } else if (picker.kind === 'layer') {
+        pendingChoice.current = () => manualMix.addLayer(picker.slot, garmentTypeId);
+      } else if (garmentTypeId !== garmentIn(picker.slot)) {
+        pendingChoice.current = () => manualMix.choose(picker.slot, garmentTypeId);
+      }
+    }
+    setPicker(null);
+  };
   const openPicker = (slot: SwappableSlot) => {
     setFocusedSlot(null);
-    setPickerSlot(slot);
+    setPicker({ kind: 'piece', slot });
+  };
+  const openLayerPicker = freeLayers.length > 0 ? () => {
+    setFocusedSlot(null);
+    setPicker({ kind: 'layer', slot: freeLayers[0] });
+  } : undefined;
+  const takeOffAccessory = (slot: AccessoryOutfitSlot) => {
+    focusRemoved.current = true;
+    manualMix?.removeAccessory(slot);
   };
   const reset = () => {
     setFocusedSlot(null);
@@ -416,12 +544,12 @@ export function OutfitDetailScreen({
             after a change the title is the reader's and says where it came from.
             The title changes in place at once; "Changed from" opens once no piece is enlarged. */}
         <View style={styles.headingGroup} testID="outfit-detail-heading-group">
-          <Crossfade contentKey={suggestion.title}>
-            <AppText accessibilityRole="header" variant="title">{suggestion.title}</AppText>
+          <Crossfade contentKey={title}>
+            <AppText accessibilityRole="header" variant="title">{title}</AppText>
           </Crossfade>
           <Presence testID="outfit-detail-changed-from" visible={changedFromShown}>
             <AppText colorRole="textSecondary" style={styles.changedFrom} variant="body">
-              {suggestion.changedFrom ?? shownChangedFrom}
+              {changedFrom ?? shownChangedFrom}
             </AppText>
           </Presence>
         </View>
@@ -437,8 +565,8 @@ export function OutfitDetailScreen({
               fromStageRadius: 26,
             }}
             focusedSlot={focusedSlot}
-            hint={boardHint}
-            hintVisible={!changed}
+            hint={composeResult ? composeResult.line : boardHint}
+            hintVisible={composeResult !== null || !changed}
             labels={{
               pieceName,
               slotName: (slot) => copy.slots[slot],
@@ -451,11 +579,14 @@ export function OutfitDetailScreen({
                 const kind = entryFor(garmentTypeId)?.match.kind;
                 return kind ? pieceOwnershipMarkers[kind].spoken(copy) : null;
               },
+              takeOff: copy.manualMix.takeOff,
+              takeOffAccessibilityLabel: (slot) => (isRemovable(slot) ? copy.manualMix.takeOffAccessibilityLabel[slot] : ''),
             }}
             onFocusChange={setFocusedSlot}
             onReveal={revealStrip}
             onStep={onBoardStep}
             onSwipeHintShown={onSwipeHintShown}
+            onTakeOff={takeOffLayer}
             overlay={boardOverlay}
             overlayTestID="outfit-detail-caption-overlay"
             // The opened outfit keeps the palette it had on Today (O15). The plate stands on
@@ -465,6 +596,7 @@ export function OutfitDetailScreen({
             restHeight={plateHeight}
             settle={completions + wornMoments}
             swipeHint={swipeHint}
+            takeOffSlots={manualMix ? removableSlots : undefined}
             testID="outfit-detail-board"
             visibleHeight={visibleBottom - visibleTop}
             width={contentWidth}
@@ -496,6 +628,7 @@ export function OutfitDetailScreen({
             {wornError ?? shownWornError}
           </AppText>
         </Presence>
+        {composeEntry}
         <Presence testID="outfit-detail-reset" visible={changed}>
           <Button
             label={copy.manualMix.reset}
@@ -536,15 +669,20 @@ export function OutfitDetailScreen({
             />
           ) : null}
           <OutfitDetailPieceRows
+            addedSlots={manualMix?.addedSlots}
             canChange={Boolean(manualMix)}
-            easierToSeeOn={easierToSeeOn}
+            emptyTargets={emptyTargets}
             entries={entries}
             everChanged={everChanged}
             messages={messages}
+            onAddLayer={openLayerPicker}
             onEditPiece={onEditPiece}
+            onTakeOff={manualMix ? takeOffLayer : undefined}
             openPicker={openPicker}
             pieceRoles={pieceRoles}
+            pinnedSlots={pinnedSlots}
             pressedRow={pressedRow}
+            removedSlots={manualMix?.removedSlots}
             revealFirstPiece={revealFirstPiece}
             scrollBy={scrollBy}
             setPressedRow={setPressedRow}
@@ -553,21 +691,28 @@ export function OutfitDetailScreen({
 
         <OutfitDetailRecap
           accessories={suggestion.accessories}
+          addedAccessorySlots={manualMix?.addedAccessorySlots}
           copy={copy}
           everChanged={everChanged}
+          onAddAccessory={manualMix && manualMix.freeAccessorySlots.length > 0 ? () => {
+            setFocusedSlot(null);
+            setPicker({ kind: 'accessory' });
+          } : undefined}
+          onPutBack={manualMix?.putBackAccessories}
+          onTakeOff={manualMix ? takeOffAccessory : undefined}
           pieceRoles={pieceRoles}
           presentation={presentation}
+          removedCount={manualMix?.removedAccessoryCount ?? 0}
+          removedTarget={removedTarget}
+          source={composeResult?.source ?? presentation.generationSource}
           stageColor={stageColor}
         />
       </View>
       <OutfitShareAction palette={palette} presentation={presentation} suggestion={suggestion} />
       <PiecePickerSheet
-        onChoose={(garmentTypeId) => {
-          if (pickerSlot && garmentTypeId !== pickerCurrent) pendingChoice.current = { slot: pickerSlot, garmentTypeId };
-          setPickerSlot(null);
-        }}
+        onChoose={choosePiece}
         onDismiss={() => {
-          setPickerSlot(null);
+          setPicker(null);
           applyPendingChoice();
         }}
         palette={palette}

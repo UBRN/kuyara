@@ -102,6 +102,9 @@ export type GarmentSwapBoardLabels = GarmentSwapStripLabels & Readonly<{
   stripShown: string;
   /** Spoken after a board piece's value: where the reader's Closet already has it, if anywhere. */
   pieceState?: (garmentTypeId: GarmentTypeId) => string | null;
+  /** The strip header's plain "Take off", and the whole sentence it and the piece's action speak. */
+  takeOff?: string;
+  takeOffAccessibilityLabel?: (slot: OutfitSlot) => string;
 }>;
 
 export type GarmentSwapBoardProps = Readonly<{
@@ -129,7 +132,7 @@ export type GarmentSwapBoardProps = Readonly<{
   /** The screen's name buttons; they step back while a piece is enlarged or moving. */
   overlay: ReactNode;
   overlayTestID?: string;
-  /** The line under the board at rest; the strip takes its place while a piece is enlarged. */
+  /** The line under the board at rest; the strip takes its place while a piece is enlarged. It may hold a control. */
   hint?: ReactNode;
   hintVisible?: boolean;
   labels: GarmentSwapBoardLabels;
@@ -151,6 +154,12 @@ export type GarmentSwapBoardProps = Readonly<{
   swipeHint?: boolean;
   /** Called once, as the hint starts, so the owner can store that it played. */
   onSwipeHintShown?: () => void;
+  /**
+   * The slots whose piece the reader may take off. The owner applies it and clears the focus in
+   * the same render, so the board lays out without the piece and no enlargement outlives it.
+   */
+  takeOffSlots?: readonly OutfitSlot[];
+  onTakeOff?: (slot: OutfitSlot) => void;
   testID?: string;
 }>;
 
@@ -412,6 +421,8 @@ export function GarmentSwapBoard({
   visibleHeight = 0,
   swipeHint = false,
   onSwipeHintShown,
+  takeOffSlots,
+  onTakeOff,
   testID,
 }: GarmentSwapBoardProps) {
   const theme = useKuyaraTheme();
@@ -687,6 +698,16 @@ export function GarmentSwapBoard({
             spring(values.dx, swapExitOffset(intent.direction, values.dx.get(), intent.stride));
             spring(values.sc, 1);
           }
+          values.op.set(fadeTo(0, fast, theme.motion, (finished) => {
+            'worklet';
+            if (finished) scheduleOnRN(removeLeaving, key);
+          }));
+          break;
+        }
+        case 'vanish': {
+          // A layer taken off rises and fades where it stands; nothing slides sideways.
+          const { key } = intent;
+          liftOff(values);
           values.op.set(fadeTo(0, fast, theme.motion, (finished) => {
             'worklet';
             if (finished) scheduleOnRN(removeLeaving, key);
@@ -1263,6 +1284,13 @@ export function GarmentSwapBoard({
     done: labels.done,
     otherHint: labels.otherHint,
   };
+  const takeOffLabel = (slot: OutfitSlot) => (onTakeOff && labels.takeOff && labels.takeOffAccessibilityLabel
+    && takeOffSlots?.includes(slot) ? labels.takeOffAccessibilityLabel(slot) : null);
+  const takeOffFor = (slot: OutfitSlot) => {
+    const spoken = takeOffLabel(slot);
+    return spoken && labels.takeOff && onTakeOff
+      ? { label: labels.takeOff, accessibilityLabel: spoken, onPress: () => onTakeOff(slot) } : null;
+  };
 
   return (
     <Animated.View style={[styles.block, { width }, blockStyle]} testID={`${boardTestID}-block`}>
@@ -1316,10 +1344,12 @@ export function GarmentSwapBoard({
             const position = order.findIndex((c) => c.garmentTypeId === garmentTypeId) + 1;
             const value = labels.pieceValue(labels.pieceName(garmentTypeId), position, order.length);
             const state = labels.pieceState?.(garmentTypeId) ?? null;
+            const takeOff = takeOffLabel(slot);
             return (
               // VoiceOver's focus is the focus: every piece is adjustable without enlarging it.
               <View
-                accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' }]}
+                accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' },
+                  ...(takeOff ? [{ name: 'takeOff', label: takeOff }] : [])]}
                 accessibilityLabel={labels.slotName(slot)}
                 accessibilityRole="adjustable"
                 // The enlarged piece reads as expanded: its strip is open under the board.
@@ -1330,6 +1360,7 @@ export function GarmentSwapBoard({
                 onAccessibilityAction={({ nativeEvent }) => {
                   if (nativeEvent.actionName === 'increment') stepSlot(slot, 1);
                   else if (nativeEvent.actionName === 'decrement') stepSlot(slot, -1);
+                  else if (nativeEvent.actionName === 'takeOff') onTakeOff?.(slot);
                   else if (nativeEvent.actionName === 'activate') {
                     // Focus stays on the piece; one short sentence says the strip is below.
                     if (slot !== focusedSlot) AccessibilityInfo.announceForAccessibility(labels.stripShown);
@@ -1356,7 +1387,8 @@ export function GarmentSwapBoard({
           onLayout={({ nativeEvent }) => {
             if (nativeEvent.layout.height !== hintHeight) setHintHeight(nativeEvent.layout.height);
           }}
-          pointerEvents="none"
+          // A line with a control (a composed result's "Show another") takes touches while it shows.
+          pointerEvents={hintVisible && focusedSlot === null ? 'box-none' : 'none'}
           style={[styles.hint, { top: restHeight, width }, hintStyle]}>
           {hint}
         </Animated.View>
@@ -1376,6 +1408,7 @@ export function GarmentSwapBoard({
             onDone={settleToPiece}
             previewId={null}
             roles={leavingRoles}
+            takeOff={takeOffFor(panels.leaving.slot)}
             testID={`${boardTestID}-strip-leaving`}
           />
         </Animated.View>
@@ -1398,6 +1431,7 @@ export function GarmentSwapBoard({
             }}
             previewId={focusedSlot === panels.current.slot ? previewId : null}
             roles={panelRoles}
+            takeOff={takeOffFor(panels.current.slot)}
             testID={`${boardTestID}-strip`}
           />
         </Animated.View>

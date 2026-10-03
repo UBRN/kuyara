@@ -7,9 +7,9 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The image-tile radius (ADR 0029 section 2).
 const TILE_RADIUS = 14;
-// How far an empty state's drawing fades: present enough to name the place, quiet enough
+// How far an empty place's drawing fades: present enough to name the place, quiet enough
 // that the sentence and the button lead.
-const FADED_OPACITY = 0.4;
+export const FADED_OPACITY = 0.4;
 
 /**
  * An empty state's picture: an existing garment drawing, faded, on the muted tile an empty

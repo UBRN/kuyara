@@ -47,13 +47,13 @@ const wardrobe = {
   resolvePhotoUri: () => null,
 } as unknown as WardrobeApplicationValue;
 
-function profileValue(displayName: string | null): ProfileApplicationValue {
+function profileValue(displayName: string | null, men = false): ProfileApplicationValue {
   return {
     state: {
       status: 'ready', isSaving: false,
       profile: {
-        id: 'profile-id', gender: 'woman', dressStyle: 'smart', birthDate: null,
-        displayName, namePromptVersion: 1, clothingPreference: 'womens',
+        id: 'profile-id', gender: men ? 'man' : 'woman', dressStyle: 'smart', birthDate: null,
+        displayName, namePromptVersion: 1, clothingPreference: men ? 'mens' : 'womens',
         languagePreference: 'en', themePreference: 'light', onboardingCompleted: true,
         notificationsOptIn: false, weatherAlertOfferShown: false,
         morningBriefingOptIn: false, analyticsConsent: 'undecided',
@@ -78,8 +78,9 @@ function profileValue(displayName: string | null): ProfileApplicationValue {
 function Providers({
   children,
   displayName,
+  men = false,
   wardrobeValue = wardrobe,
-}: PropsWithChildren<{ displayName: string | null; wardrobeValue?: WardrobeApplicationValue }>) {
+}: PropsWithChildren<{ displayName: string | null; men?: boolean; wardrobeValue?: WardrobeApplicationValue }>) {
   const analytics = new RecordingProductAnalytics();
   return (
     <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
@@ -94,7 +95,7 @@ function Providers({
           firstUses: new FirstUseTracker(new InMemoryFirstUseStore(), () => true),
           retries: new RetryCounter(),
         }}>
-          <ProfileApplicationContext value={profileValue(displayName)}>
+          <ProfileApplicationContext value={profileValue(displayName, men)}>
             <WardrobeApplicationContext value={wardrobeValue}>
               <SafeAreaProvider initialMetrics={{
                 frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -195,4 +196,41 @@ test('the empty Closet Add a piece opens the add form', async () => {
   await fireEvent.press(result.getByTestId('profile-add-piece-button'));
   expect(mockPush).toHaveBeenCalledWith('/wardrobe/new');
   expect(mockPush).toHaveBeenCalledTimes(1);
+});
+
+function closetHolding(categories: readonly ('footwear' | 'one_piece')[]): WardrobeApplicationValue {
+  return {
+    ...wardrobe,
+    state: {
+      status: 'ready',
+      items: categories.map((category, index) => ({
+        id: `${index + 1}18f0f4d-1d45-4ae7-a8f1-796e8297d3b4`, category, entryState: 'owned',
+        garmentTypeId: category === 'footwear' ? 'sneakers' : 'dress', colorFamily: null, name: null,
+        photoRelativePath: null, createdAt: '2026-09-09T08:00:00.000Z',
+      })),
+      isRefreshing: false,
+      isMutating: false,
+      refreshFailure: null,
+    },
+  } as unknown as WardrobeApplicationValue;
+}
+
+// Product decisions: One-piece is hidden only while a mens profile holds no one-piece record.
+test.each([
+  ['a mens profile with no one-piece record', true, ['footwear'], 5],
+  ['a mens profile holding a one-piece record', true, ['footwear', 'one_piece'], 6],
+  ['a womens profile', false, ['footwear'], 6],
+] as const)('%s shows its category cells', async (_name, men, held, cells) => {
+  const result = await render(
+    <Providers displayName={null} men={men} wardrobeValue={closetHolding(held)}>
+      <ProfileRoute />
+    </Providers>,
+  );
+
+  const shown = ['top', 'bottom', 'one_piece', 'outerwear', 'footwear', 'accessory']
+    .filter((category) => result.queryByTestId(`profile-category-${category}`) !== null);
+  expect(shown).toHaveLength(cells);
+  expect(shown.includes('one_piece')).toBe(cells === 6);
+  expect(result.queryAllByTestId('profile-category-spacer', { includeHiddenElements: true }))
+    .toHaveLength(cells === 6 ? 0 : 1);
 });

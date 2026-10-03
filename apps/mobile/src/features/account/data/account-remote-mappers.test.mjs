@@ -109,6 +109,19 @@ test('two looks of one History day round-trip as two rows, each under its own id
   assert.deepEqual(uploaded.map((row) => fromRemoteOutfitHistory(arrived(row), phoneProfileId).row), [morning, evening]);
 });
 
+test('an edited look (a layer taken off, an accessory added) and the lavender and plum swatches round-trip', () => {
+  const look = historyDay(8, '2026-09-11', {
+    outfit: {
+      garments: { primary_top: 'sweater', bottom: 'skirt', footwear: 'ankle_boots', head: 'beanie' },
+      archetypeId: 'everyday_easy', formality: 'casual', source: 'manual',
+    },
+    pieceColors: { primary_top: 'lavender', bottom: 'plum', footwear: 'black' },
+    photoPath: null,
+  });
+  const result = fromRemoteOutfitHistory(arrived(toRemoteOutfitHistory(look, userId)), phoneProfileId);
+  assert.deepEqual(result.row, look);
+});
+
 test('a custom colour and a deletion marker survive the round trip', () => {
   const item = wardrobeItem(5, {
     colorChoice: { kind: 'custom', hex: '#336699' }, colorFamily: 'blue', photoRelativePath: null,

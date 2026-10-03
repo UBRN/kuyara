@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { useState } from 'react';
 import { Appearance, Dimensions, processColor, Text } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 
 import {
   LAUNCH_IDLE_TIMEOUT_MS,
@@ -59,6 +61,24 @@ const nextFrame = () => advance(2 * FRAME);
 // Under sustained load the idle callback never comes by itself; only its timeout does.
 let busy = false;
 
+// The motion runs on the UI thread, which can start it late. Every timing that reports its
+// end is held here, by duration, until the test ends it, as the UI thread would.
+let running: { duration: number; end: () => void }[] = [];
+const durations = () => running.map(({ duration }) => duration);
+
+async function end(duration: number) {
+  const index = running.findIndex((timing) => timing.duration === duration);
+  expect(index).toBeGreaterThanOrEqual(0);
+  const [timing] = running.splice(index, 1);
+  await act(() => timing!.end());
+  // The end reaches this thread as a microtask.
+  await advance(0);
+}
+
+// A shared value keeps its identity across renders, as on a device; the library's mock
+// makes a new one each render, which would start the motion again on every render.
+const librarySharedValue = Reanimated.useSharedValue;
+
 beforeAll(() => {
   Object.assign(globalThis, {
     requestIdleCallback: (callback: () => void, options?: { timeout?: number }) =>
@@ -69,7 +89,20 @@ beforeAll(() => {
 
 beforeEach(() => {
   busy = false;
+  running = [];
   jest.useFakeTimers();
+  jest.spyOn(Reanimated, 'withTiming').mockImplementation(((
+    toValue: number,
+    config?: { duration?: number },
+    callback?: (finished?: boolean) => void,
+  ) => {
+    if (callback) running.push({ duration: config?.duration ?? 0, end: () => callback(true) });
+    return toValue;
+  }) as unknown as typeof Reanimated.withTiming);
+  jest.spyOn(Reanimated, 'useSharedValue').mockImplementation(((initial: number) => {
+    const [value] = useState(() => librarySharedValue(initial));
+    return value;
+  }) as unknown as typeof Reanimated.useSharedValue);
 });
 
 afterEach(() => {
@@ -105,7 +138,7 @@ test('the first frame is the native splash in the system appearance, and the spl
   expect(probe()).toBe('covered playing');
 });
 
-test('a cold launch dives, lifts the curtain, then leaves', async () => {
+test('a cold launch dives, lifts the curtain when the dive ends, and leaves when it has faded', async () => {
   jest.spyOn(Appearance, 'getColorScheme').mockReturnValue('light');
   const result = await render(curtain('pending'));
   await drawFirstFrame();
@@ -116,13 +149,16 @@ test('a cold launch dives, lifts the curtain, then leaves', async () => {
 
   await result.rerender(curtain('ready'));
   await nextFrame();
-  await advance(fast + launch - 1);
+  // The dive into the symbol, then the curtain's fade.
+  expect(durations()).toEqual([launch, normal]);
+  // A UI thread still mounting the first screen starts the motion late: no time on this
+  // thread lifts the curtain or takes the layer away before the motion has played.
+  await advance(fast + launch + normal + 1000);
   expect(probe()).toBe('covered playing');
-  await advance(1);
+  await end(launch);
   expect(probe()).toBe('revealing playing');
-  await advance(normal - 1);
   expect(screen.getByTestId('launch-curtain', hidden)).toBeTruthy();
-  await advance(1);
+  await end(normal);
   expect(probe()).toBe('revealing done');
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });
@@ -132,9 +168,8 @@ test('the opaque layer takes touches until the curtain lifts, then lets them thr
   await drawFirstFrame();
   await result.rerender(curtain('ready'));
   await nextFrame();
-  await advance(fast + launch - 1);
   expect(screen.getByTestId('launch-curtain', hidden).props.pointerEvents).toBe('auto');
-  await advance(1);
+  await end(launch);
   expect(screen.getByTestId('launch-curtain', hidden).props.pointerEvents).toBe('none');
 });
 
@@ -144,11 +179,10 @@ test('a JavaScript thread that is never idle still lets the launch move, within 
   await drawFirstFrame();
   await result.rerender(curtain('ready'));
   await advance(LAUNCH_IDLE_TIMEOUT_MS - 1);
-  expect(probe()).toBe('covered playing');
+  expect(durations()).toEqual([]);
   await advance(1);
   await nextFrame();
-  await advance(fast + launch + normal);
-  expect(probe()).toBe('revealing done');
+  expect(durations()).toEqual([launch, normal]);
 });
 
 test('a launch from a notification or a link skips the dive: the colour fades in, then away', async () => {
@@ -157,11 +191,11 @@ test('a launch from a notification or a link skips the dive: the colour fades in
 
   await result.rerender(curtain('shortened'));
   await nextFrame();
-  await advance(fast - 1);
+  expect(durations()).toEqual([fast, normal]);
   expect(probe()).toBe('covered playing');
-  await advance(1);
+  await end(fast);
   expect(probe()).toBe('revealing playing');
-  await advance(normal);
+  await end(normal);
   expect(probe()).toBe('revealing done');
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });
@@ -173,9 +207,8 @@ test('a drawn first screen that turns out to be a notification\'s, within the fr
   await result.rerender(curtain('ready'));
   await result.rerender(curtain('shortened'));
   await nextFrame();
-  await advance(fast + normal);
-  // The dive would still be covering the screen here.
-  expect(probe()).toBe('revealing done');
+  // The veil and its fade, not the dive.
+  expect(durations()).toEqual([fast, normal]);
 });
 
 test('the symbol waits for a slow first screen, and withdraws at the ceiling without a dive', async () => {
@@ -189,9 +222,12 @@ test('the symbol waits for a slow first screen, and withdraws at the ceiling wit
   await nextFrame();
   await advance(0);
   expect(probe()).toBe('revealing playing');
+  expect(durations()).toEqual([normal]);
   // A first screen that arrives now changes nothing.
   await result.rerender(curtain('ready'));
-  await advance(normal);
+  await nextFrame();
+  expect(durations()).toEqual([normal]);
+  await end(normal);
   expect(probe()).toBe('revealing done');
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });
@@ -204,7 +240,8 @@ test('a failed launch fades the layer away at once and the app is never left beh
   await nextFrame();
   await advance(0);
   expect(probe()).toBe('revealing playing');
-  await advance(fast);
+  expect(durations()).toEqual([fast]);
+  await end(fast);
   expect(probe()).toBe('revealing done');
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });

@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import { useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
@@ -6,6 +6,7 @@ import {
   Button,
   ClosetColorDisc,
   colorFamilyFills,
+  GarmentSlotGlyph,
   GarmentTileArtwork,
   Icon,
   Presence,
@@ -13,8 +14,14 @@ import {
   type useGarmentRoles,
   useTextScaling,
 } from '@/components/ui';
-import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
-import type { SwappableSlot } from '@/features/recommendation/domain/manual-mix';
+import { FADED_OPACITY } from '@/components/ui/empty-state-art';
+import type { ColorFamily, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
+import {
+  removableSlots,
+  swappableSlots,
+  type RemovableSlot,
+  type SwappableSlot,
+} from '@/features/recommendation/domain/manual-mix';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { ClosetSeedOffer } from '@/features/today/application/outfit-detail-state';
 import {
@@ -29,7 +36,7 @@ import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-ed
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import type { getMessages } from '@/localization/messages';
 import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
-import { easierToSee } from '@/theme/easier-to-see';
+import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -123,9 +130,171 @@ export function OutfitDetailClosetSeed({
   );
 }
 
+/** Where a layer slot's empty place draws its glyph from. */
+export const layerCategory: Readonly<Record<RemovableSlot, StructuralCategory>> = {
+  mid_layer: 'top',
+  outer_layer: 'outerwear',
+};
+
+/** ADR 0021's empty place: the muted tile with the category's glyph faded, never a plate. */
+export function EmptyPlaceTile({ category, size, testID }: Readonly<{
+  category: StructuralCategory;
+  size: number;
+  testID?: string;
+}>) {
+  const theme = useKuyaraTheme();
+  return (
+    <PlateView color={theme.colors.surfaceMuted} style={[styles.placeTile, { height: size, width: size }]} testID={testID}>
+      <View style={styles.faded}>
+        <GarmentSlotGlyph category={category} color={theme.colors.textSecondary} size={size * 0.6} />
+      </View>
+    </PlateView>
+  );
+}
+
+/**
+ * The detail's one row shell (ADR 0028 anatomy): a tile, the words, an optional trailing
+ * control, and a chevron when the whole row opens something. A row that opens nothing keeps
+ * its words as one accessible element beside its control.
+ */
+function DetailRow({
+  press,
+  pressed,
+  separated,
+  tile,
+  text,
+  textLabel,
+  textRef,
+  textTestID,
+  control,
+  testID,
+}: Readonly<{
+  press: Readonly<{
+    label: string;
+    hint?: string;
+    onPress: () => void;
+    onPressIn: () => void;
+    onPressOut: () => void;
+    actions?: readonly Readonly<{ name: string; label: string; run: () => void }>[];
+    testID: string;
+  }> | null;
+  pressed: boolean;
+  separated: boolean;
+  tile: ReactNode;
+  text: ReactNode;
+  /** Without a press, the words speak this as their own element. */
+  textLabel?: string;
+  textRef?: (node: View | null) => void;
+  textTestID?: string;
+  control: ReactNode;
+  testID: string;
+}>) {
+  const theme = useKuyaraTheme();
+  const easierToSeeOn = useEasierToSee();
+  const { stacksButtonPair } = useTextScaling();
+  const chevron = press && !control;
+  const body = (
+    <View
+      accessibilityElementsHidden={Boolean(press)}
+      accessibilityLabel={press ? undefined : textLabel}
+      accessible={!press}
+      importantForAccessibility={press ? 'no-hide-descendants' : 'yes'}
+      pointerEvents="none"
+      ref={textRef}
+      style={[styles.rowBody, pressed && styles.rowPressed]}
+      testID={textTestID}>
+      {tile}
+      <View style={styles.rowText}>{text}</View>
+      {chevron || (control && stacksButtonPair && press) ? (
+        <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
+      ) : null}
+    </View>
+  );
+  return (
+    <View
+      style={[styles.pieceRow, easierToSeeOn && styles.pieceRowLarge, separated && {
+        borderTopColor: theme.colors.borderSubtle,
+        borderTopWidth: StyleSheet.hairlineWidth,
+      }]}
+      testID={testID}>
+      {press ? (
+        <PressScale
+          accessibilityActions={press.actions?.map(({ name, label }) => ({ name, label }))}
+          accessibilityHint={press.hint}
+          accessibilityLabel={press.label}
+          accessibilityRole="button"
+          onAccessibilityAction={({ nativeEvent }) =>
+            press.actions?.find(({ name }) => name === nativeEvent.actionName)?.run()}
+          onPress={press.onPress}
+          onPressIn={press.onPressIn}
+          onPressOut={press.onPressOut}
+          style={StyleSheet.absoluteFill}
+          testID={press.testID}
+        />
+      ) : null}
+      <View pointerEvents="box-none" style={stacksButtonPair ? styles.rowStack : styles.rowLine}>
+        {body}
+        {control ? (
+          <View pointerEvents="box-none" style={stacksButtonPair ? styles.changeStacked : undefined}>{control}</View>
+        ) : null}
+        {control && press && !stacksButtonPair ? (
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={pressed && styles.rowPressed}>
+            <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** "Add a layer" and "Add an accessory": the row shell with a plus tile, the whole row a button. */
+export function DetailAddRow({ title, hint, onPress, separated = false, testID }: Readonly<{
+  title: string;
+  hint: string;
+  onPress: () => void;
+  separated?: boolean;
+  testID: string;
+}>) {
+  const theme = useKuyaraTheme();
+  const [pressed, setPressed] = useState(false);
+  return (
+    <DetailRow
+      control={null}
+      press={{
+        label: `${title}, ${hint}`,
+        onPress,
+        onPressIn: () => setPressed(true),
+        onPressOut: () => setPressed(false),
+        testID: `${testID}-button`,
+      }}
+      pressed={pressed}
+      separated={separated}
+      testID={testID}
+      text={(
+        <>
+          <AppText variant="bodyStrong">{title}</AppText>
+          <AppText colorRole="textSecondary" variant="caption">{hint}</AppText>
+        </>
+      )}
+      tile={(
+        <PlateView color={theme.colors.surfaceMuted} style={[styles.placeTile, styles.rowTile]}>
+          <Icon color={theme.colors.textPrimary} name="plus" size={24} />
+        </PlateView>
+      )}
+    />
+  );
+}
+
+type RowItem =
+  | Readonly<{ kind: 'piece'; slot: OutfitSlot; entry: PieceEntry }>
+  | Readonly<{ kind: 'empty'; slot: RemovableSlot }>;
+
 export function OutfitDetailPieceRows({
   canChange,
-  easierToSeeOn,
   entries,
   everChanged,
   messages,
@@ -136,9 +305,14 @@ export function OutfitDetailPieceRows({
   revealFirstPiece,
   scrollBy,
   setPressedRow,
+  removedSlots = [],
+  addedSlots = [],
+  pinnedSlots = [],
+  onTakeOff,
+  onAddLayer,
+  emptyTargets,
 }: Readonly<{
   canChange: boolean;
-  easierToSeeOn: boolean;
   entries: readonly PieceEntry[];
   everChanged: boolean;
   messages: ReturnType<typeof getMessages>;
@@ -149,10 +323,22 @@ export function OutfitDetailPieceRows({
   revealFirstPiece: () => void;
   scrollBy: (dy: number) => void;
   setPressedRow: Dispatch<SetStateAction<OutfitSlot | null>>;
+  /** Layers the reader took off: each keeps its place as an empty row. */
+  removedSlots?: readonly RemovableSlot[];
+  /** Layers the reader added: their rows read "Added". */
+  addedSlots?: readonly OutfitSlot[];
+  /** Pieces the reader chose to compose around: their rows read "Your choice". */
+  pinnedSlots?: readonly OutfitSlot[];
+  /** A layer row's VoiceOver action takes the layer off. */
+  onTakeOff?: (slot: RemovableSlot) => void;
+  /** Present while a layer slot is free: "Add a layer" follows the rows. */
+  onAddLayer?: () => void;
+  /** Each empty row's words, so focus can land there once its piece has gone. */
+  emptyTargets?: RefObject<Map<RemovableSlot, View>>;
 }>) {
   const theme = useKuyaraTheme();
-  const { stacksButtonPair } = useTextScaling();
   const copy = messages.today;
+  const mix = copy.manualMix;
   const colorName = (family: ColorFamily | null) => family
     ? messages.catalog[`catalog.color_family.${family}`] : messages.wardrobe.colorUnspecified;
   // O8: the user's own piece is named by its palette option when it has one, else by family.
@@ -162,152 +348,189 @@ export function OutfitDetailPieceRows({
     const fill = colorFamilyFills[theme.colorScheme][family];
     return typeof fill === 'string' ? fill : fill[0];
   };
-  return (
-    <View>
-      {entries.map(({ piece, slot, match, status, target, spokenLabel }, index) => {
-        const pressed = pressedRow === slot;
-        const rowBody = (
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            pointerEvents="none"
-            style={[styles.rowBody, pressed && styles.rowPressed]}>
-            <PlateView color={theme.colors.garmentTile} style={styles.rowTile}>
-              <GarmentTileArtwork
-                category={piece.category}
-                colorFamily={null}
-                garmentTypeId={piece.garmentTypeId}
-                glyphSize={ROW_TILE_SIZE * 0.6}
-                height={ROW_TILE_SIZE}
-                photoTestID={`outfit-detail-piece-photo-${piece.garmentTypeId}`}
-                photoUri={null}
-                placeholderTestID={`outfit-detail-piece-glyph-${piece.garmentTypeId}`}
-                roles={pieceRoles.get(slot)}
-                silhouetteTestID={`outfit-detail-piece-silhouette-${piece.garmentTypeId}`}
-                width={ROW_TILE_SIZE}
-              />
-            </PlateView>
-            <View style={styles.rowText} testID={`outfit-detail-piece-text-${piece.garmentTypeId}`}>
-              <AppText variant="bodyStrong">{piece.item}</AppText>
-              <AppText colorRole="textSecondary" variant="caption">{piece.slot}</AppText>
-              {piece.changed ? (
-                <AppText colorRole="brandAccent" testID={`outfit-detail-piece-changed-${piece.garmentTypeId}`}
-                  variant="caption">
-                  {copy.manualMix.changed}
-                </AppText>
-              ) : null}
-              {match.kind !== 'none' && status ? (
-                <View style={styles.rowStatus} testID={`outfit-detail-piece-status-${piece.garmentTypeId}`}>
-                  <Icon color={theme.colors.brandAccent} name={match.kind === 'wanted' ? 'heartFilled' : 'hanger'} size={16} />
-                  <AppText variant="caption">{status}</AppText>
-                  {match.kind === 'owned' ? (
-                    <Icon color={theme.colors.brandAccent} name="check" size={16} />
-                  ) : null}
-                </View>
-              ) : null}
-              {match.kind === 'similar' ? (
-                <View style={styles.rowStatus} testID={`outfit-detail-piece-yours-${piece.garmentTypeId}`}>
-                  <PlateView color={theme.colors.garmentTile} style={styles.ownTile}>
-                    <GarmentTileArtwork
-                      category={piece.category}
-                      colorChoice={match.item.colorChoice ?? null}
-                      colorFamily={match.item.colorFamily}
-                      garmentTypeId={piece.garmentTypeId}
-                      glyphSize={OWN_TILE_SIZE * 0.6}
-                      height={OWN_TILE_SIZE}
-                      photoTestID={`outfit-detail-yours-photo-${piece.garmentTypeId}`}
-                      photoUri={null}
-                      placeholderTestID={`outfit-detail-yours-glyph-${piece.garmentTypeId}`}
-                      silhouetteTestID={`outfit-detail-yours-silhouette-${piece.garmentTypeId}`}
-                      width={OWN_TILE_SIZE}
-                    />
-                  </PlateView>
-                  {match.item.colorChoice ? (
-                    <ClosetColorDisc
-                      choice={match.item.colorChoice}
-                      size={SWATCH_DOT_SIZE}
-                      testID={`outfit-detail-yours-swatch-${piece.garmentTypeId}`}
-                    />
-                  ) : match.item.colorFamily ? (
-                    <View style={[styles.swatchDot, {
-                      backgroundColor: swatchFill(match.item.colorFamily),
-                      borderColor: theme.colors.borderDefined,
-                    }]} />
-                  ) : null}
-                  <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
-                    {copy.ownershipYours(ownColorName(match.item))}
-                  </AppText>
-                </View>
-              ) : null}
-            </View>
-            {stacksButtonPair || !canChange ? (
-              <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
+  // The rows keep the outfit's order; a layer taken off keeps its place.
+  const items: RowItem[] = [
+    ...entries.map((entry) => ({ kind: 'piece' as const, slot: entry.slot, entry })),
+    ...removedSlots.map((slot) => ({ kind: 'empty' as const, slot })),
+  ].sort((a, b) => swappableSlots.indexOf(a.slot as SwappableSlot) - swappableSlots.indexOf(b.slot as SwappableSlot));
+
+  const emptyRow = (slot: RemovableSlot, index: number) => (
+    <DetailRow
+      control={canChange ? (
+        <Button
+          accessibilityLabel={mix.changeEmptyAccessibilityLabel[slot]}
+          label={mix.change}
+          onPress={() => openPicker(slot)}
+          size="medium"
+          testID={`outfit-detail-change-${slot}`}
+          variant="plain"
+        />
+      ) : null}
+      key={slot}
+      press={null}
+      pressed={false}
+      separated={index > 0}
+      testID={`outfit-detail-row-${slot}`}
+      text={(
+        <FadeOnChange animate={everChanged}>
+          <View style={styles.rowTextLines}>
+            <AppText variant="bodyStrong">{mix.noLayer[slot]}</AppText>
+            <AppText colorRole="textSecondary" variant="caption">{mix.tookOff}</AppText>
+          </View>
+        </FadeOnChange>
+      )}
+      textLabel={`${mix.noLayer[slot]}, ${mix.tookOff}`}
+      textRef={(node) => {
+        if (node) emptyTargets?.current.set(slot, node);
+        else emptyTargets?.current.delete(slot);
+      }}
+      textTestID={`outfit-detail-empty-${slot}`}
+      tile={<EmptyPlaceTile category={layerCategory[slot]} size={ROW_TILE_SIZE} testID={`outfit-detail-empty-tile-${slot}`} />}
+    />
+  );
+
+  const pieceRow = ({ piece, slot, match, status, target, spokenLabel }: PieceEntry, index: number) => {
+    const pressed = pressedRow === slot;
+    const added = addedSlots.includes(slot);
+    const pinned = pinnedSlots.includes(slot);
+    const note = added ? mix.added : piece.changed ? mix.changed : null;
+    const rowLabel = [
+      spokenLabel,
+      pinned ? mix.yourChoice : null,
+      note,
+      match.kind === 'similar' ? copy.ownershipYours(ownColorName(match.item)) : null,
+    ].filter(Boolean).join(', ');
+    const layer = removableSlots.find((one) => one === slot);
+    const text = (
+      <View style={styles.rowTextLines} testID={`outfit-detail-piece-text-${piece.garmentTypeId}`}>
+        <AppText variant="bodyStrong">{piece.item}</AppText>
+        <AppText colorRole="textSecondary" variant="caption">{pinned ? mix.yourChoice : piece.slot}</AppText>
+        {note ? (
+          <AppText colorRole="brandAccent"
+            testID={`outfit-detail-piece-${added ? 'added' : 'changed'}-${piece.garmentTypeId}`} variant="caption">
+            {note}
+          </AppText>
+        ) : null}
+        {match.kind !== 'none' && status ? (
+          <View style={styles.rowStatus} testID={`outfit-detail-piece-status-${piece.garmentTypeId}`}>
+            <Icon color={theme.colors.brandAccent} name={match.kind === 'wanted' ? 'heartFilled' : 'hanger'} size={16} />
+            <AppText variant="caption">{status}</AppText>
+            {match.kind === 'owned' ? (
+              <Icon color={theme.colors.brandAccent} name="check" size={16} />
             ) : null}
           </View>
-        );
-        const change = canChange ? (
-          <Button
-            accessibilityLabel={copy.manualMix.changeAccessibilityLabel[slot as SwappableSlot](piece.item)}
-            label={copy.manualMix.change}
-            onPress={() => openPicker(slot as SwappableSlot)}
-            size="medium"
-            style={stacksButtonPair ? styles.changeStacked : undefined}
-            testID={`outfit-detail-change-${slot}`}
-            variant="plain"
-          />
-        ) : null;
-        const rowLabel = [
-          spokenLabel,
-          piece.changed ? copy.manualMix.changed : null,
-          match.kind === 'similar' ? copy.ownershipYours(ownColorName(match.item)) : null,
-        ].filter(Boolean).join(', ');
-        return (
-          // Phase 8: the first piece row is the tour's step 2 control. The wrapper adds a
-          // plain view around the whole row, so the tour lights the row, and nothing else.
-          <TourTarget
-            activate={() => onEditPiece(target)}
-            id={index === 0 ? 'piece' : null}
-            key={slot}
-            label={rowLabel}
-            name={piece.item}
-            reveal={revealFirstPiece}
-            scrollBy={scrollBy}>
-            <View
-              style={[styles.pieceRow, easierToSeeOn && styles.pieceRowLarge, index > 0 && {
-                borderTopColor: theme.colors.borderSubtle,
-                borderTopWidth: StyleSheet.hairlineWidth,
-              }]}>
-              {/* O6: the row is the one control that opens the piece's Closet sheet; the
-                  Change control above it is its own element. */}
-              <PressScale
-                accessibilityHint={copy.editPieceAccessibilityHint}
-                accessibilityLabel={rowLabel}
-                accessibilityRole="button"
-                onPress={() => onEditPiece(target)}
-                onPressIn={() => setPressedRow(slot)}
-                onPressOut={() => setPressedRow(null)}
-                style={StyleSheet.absoluteFill}
-                testID={`outfit-detail-piece-${piece.garmentTypeId}`}
+        ) : null}
+        {match.kind === 'similar' ? (
+          <View style={styles.rowStatus} testID={`outfit-detail-piece-yours-${piece.garmentTypeId}`}>
+            <PlateView color={theme.colors.garmentTile} style={styles.ownTile}>
+              <GarmentTileArtwork
+                category={piece.category}
+                colorChoice={match.item.colorChoice ?? null}
+                colorFamily={match.item.colorFamily}
+                garmentTypeId={piece.garmentTypeId}
+                glyphSize={OWN_TILE_SIZE * 0.6}
+                height={OWN_TILE_SIZE}
+                photoTestID={`outfit-detail-yours-photo-${piece.garmentTypeId}`}
+                photoUri={null}
+                placeholderTestID={`outfit-detail-yours-glyph-${piece.garmentTypeId}`}
+                silhouetteTestID={`outfit-detail-yours-silhouette-${piece.garmentTypeId}`}
+                width={OWN_TILE_SIZE}
               />
-              <FadeOnChange animate={everChanged} key={piece.garmentTypeId}>
-                <View pointerEvents="box-none" style={stacksButtonPair ? styles.rowStack : styles.rowLine}>
-                  {rowBody}
-                  {change}
-                  {stacksButtonPair || !canChange ? null : (
-                    <View
-                      accessibilityElementsHidden
-                      importantForAccessibility="no-hide-descendants"
-                      pointerEvents="none"
-                      style={pressed && styles.rowPressed}>
-                      <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
-                    </View>
-                  )}
-                </View>
-              </FadeOnChange>
-            </View>
-          </TourTarget>
-        );
-      })}
+            </PlateView>
+            {match.item.colorChoice ? (
+              <ClosetColorDisc
+                choice={match.item.colorChoice}
+                size={SWATCH_DOT_SIZE}
+                testID={`outfit-detail-yours-swatch-${piece.garmentTypeId}`}
+              />
+            ) : match.item.colorFamily ? (
+              <View style={[styles.swatchDot, {
+                backgroundColor: swatchFill(match.item.colorFamily),
+                borderColor: theme.colors.borderDefined,
+              }]} />
+            ) : null}
+            <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
+              {copy.ownershipYours(ownColorName(match.item))}
+            </AppText>
+          </View>
+        ) : null}
+      </View>
+    );
+    return (
+      // Phase 8: the first piece row is the tour's step 2 control. The wrapper adds a
+      // plain view around the whole row, so the tour lights the row, and nothing else.
+      <TourTarget
+        activate={() => onEditPiece(target)}
+        id={index === 0 ? 'piece' : null}
+        key={slot}
+        label={rowLabel}
+        name={piece.item}
+        reveal={revealFirstPiece}
+        scrollBy={scrollBy}>
+        {/* O6: the row is the one control that opens the piece's Closet sheet; the Change
+            control beside it is its own element. The fade follows the piece. */}
+        <FadeOnChange animate={everChanged} key={piece.garmentTypeId}>
+          <DetailRow
+            control={canChange ? (
+              <Button
+                accessibilityLabel={mix.changeAccessibilityLabel[slot as SwappableSlot](piece.item)}
+                label={mix.change}
+                onPress={() => openPicker(slot as SwappableSlot)}
+                size="medium"
+                testID={`outfit-detail-change-${slot}`}
+                variant="plain"
+              />
+            ) : null}
+            press={{
+              label: rowLabel,
+              hint: copy.editPieceAccessibilityHint,
+              onPress: () => onEditPiece(target),
+              onPressIn: () => setPressedRow(slot),
+              onPressOut: () => setPressedRow(null),
+              actions: layer && onTakeOff
+                ? [{ name: 'takeOff', label: mix.takeOffAccessibilityLabel[layer], run: () => onTakeOff(layer) }]
+                : undefined,
+              testID: `outfit-detail-piece-${piece.garmentTypeId}`,
+            }}
+            pressed={pressed}
+            separated={index > 0}
+            testID={`outfit-detail-row-${slot}`}
+            text={text}
+            tile={(
+              <PlateView color={theme.colors.garmentTile} style={styles.rowTile}>
+                <GarmentTileArtwork
+                  category={piece.category}
+                  colorFamily={null}
+                  garmentTypeId={piece.garmentTypeId}
+                  glyphSize={ROW_TILE_SIZE * 0.6}
+                  height={ROW_TILE_SIZE}
+                  photoTestID={`outfit-detail-piece-photo-${piece.garmentTypeId}`}
+                  photoUri={null}
+                  placeholderTestID={`outfit-detail-piece-glyph-${piece.garmentTypeId}`}
+                  roles={pieceRoles.get(slot)}
+                  silhouetteTestID={`outfit-detail-piece-silhouette-${piece.garmentTypeId}`}
+                  width={ROW_TILE_SIZE}
+                />
+              </PlateView>
+            )}
+          />
+        </FadeOnChange>
+      </TourTarget>
+    );
+  };
+
+  return (
+    <View>
+      {items.map((item, index) => (item.kind === 'piece' ? pieceRow(item.entry, index) : emptyRow(item.slot, index)))}
+      {onAddLayer ? (
+        <DetailAddRow
+          hint={mix.addLayerHint}
+          onPress={onAddLayer}
+          separated={items.length > 0}
+          testID="outfit-detail-add-layer"
+          title={mix.addLayer}
+        />
+      ) : null}
     </View>
   );
 }
@@ -357,6 +580,17 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
     gap: spacing.xs,
+  },
+  rowTextLines: {
+    gap: spacing.xs,
+  },
+  placeTile: {
+    alignItems: 'center',
+    borderRadius: radii.control,
+    justifyContent: 'center',
+  },
+  faded: {
+    opacity: FADED_OPACITY,
   },
   rowStatus: {
     alignItems: 'center',

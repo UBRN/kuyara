@@ -59,6 +59,8 @@ export type WardrobeRetrySource = 'pull' | 'retry_button';
 
 type WardrobeListScreenProps = Readonly<{
   state: WardrobeApplicationState;
+  /** The categories shown as tabs, in order; the route derives them from the profile and records. */
+  categories?: readonly StructuralCategory[];
   /** The category to show; the route owns it, so it survives the add flow. */
   initialCategory?: StructuralCategory;
   /** Bring the Wanted section into view, for Profile's Wanted row and a saved wanted piece. */
@@ -167,15 +169,16 @@ export function buildCategoryRows(
 export function resolveDefaultCategory(
   items: readonly WardrobeItem[],
   revealWanted: boolean,
+  categories: readonly StructuralCategory[] = structuralCategories,
 ): StructuralCategory {
   const holds = (predicate: (item: WardrobeItem) => boolean) =>
-    structuralCategories.find((category) =>
+    categories.find((category) =>
       items.some((item) => item.category === category && predicate(item)),
     );
   return (
     (revealWanted ? holds((item) => item.entryState === 'wanted') : undefined)
     ?? holds(() => true)
-    ?? structuralCategories[0]
+    ?? categories[0]
   );
 }
 
@@ -213,6 +216,7 @@ function TileSlot({ children, entranceIndex, waiting }: Readonly<{
 }
 
 export function WardrobeListScreen({
+  categories = structuralCategories,
   initialCategory,
   onAdd,
   onCategoryChange = () => undefined,
@@ -272,7 +276,10 @@ export function WardrobeListScreen({
   const numColumns = usesTwoColumnGrid || easierToSee ? 2 : 3;
   const geometry = resolveGridGeometry(windowWidth - insets.left - insets.right, numColumns);
   const items = state.status === 'ready' ? state.items : [];
-  const category = selectedCategory ?? resolveDefaultCategory(items, revealWanted);
+  const category =
+    selectedCategory && categories.includes(selectedCategory)
+      ? selectedCategory
+      : resolveDefaultCategory(items, revealWanted, categories);
   const rows = state.status === 'ready' ? buildCategoryRows(items, category, numColumns) : [];
   const wantedRowIndex = rows.findIndex(
     (row) => row.kind === 'section' && row.entryState === 'wanted',
@@ -486,7 +493,7 @@ export function WardrobeListScreen({
             showsHorizontalScrollIndicator={false}
             style={styles.stripBleed}
             testID="wardrobe-category-tabs">
-            {structuralCategories.map((tabCategory) => {
+            {categories.map((tabCategory) => {
               const inTab = items.filter((item) => item.category === tabCategory);
               const label = copy.categoryFilterLabels[tabCategory];
               return (

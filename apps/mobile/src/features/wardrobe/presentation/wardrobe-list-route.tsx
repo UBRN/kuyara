@@ -28,6 +28,7 @@ type PendingRetry = Readonly<{
 }>;
 
 export function WardrobeListRoute({
+  categories,
   initialCategory,
   onCategoryInView,
   revealWanted = false,
@@ -35,6 +36,7 @@ export function WardrobeListRoute({
   singleTap,
   transitionLanded,
 }: Readonly<{
+  categories?: readonly StructuralCategory[];
   initialCategory?: StructuralCategory;
   onCategoryInView?: (category: StructuralCategory) => void;
   revealWanted?: boolean;
@@ -138,6 +140,7 @@ export function WardrobeListRoute({
 
   return (
     <WardrobeListScreen
+      categories={categories}
       wornCounts={wornCounts}
       initialCategory={initialCategory}
       // The category lives on the route, so the plus bar button in the route file reads
