@@ -64,6 +64,10 @@ export function AccountIntroPager({ initialPage }: Readonly<{ initialPage?: Acco
   const scroll = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(() => Math.max(0, accountIntroPageIds.indexOf(initialPage ?? 'closet')));
+  // The page shown when the width last changed. The pages take that width only in the render
+  // after it is measured, so a scroll then would land on no content: the page is instead the
+  // scroll view's starting offset, which changes only with the width.
+  const [anchor, setAnchor] = useState(page);
   const [playing, setPlaying] = useState(true);
   const screenReader = useScreenReaderRunning();
   const foreground = useAppInForeground();
@@ -95,7 +99,7 @@ export function AccountIntroPager({ initialPage }: Readonly<{ initialPage?: Acco
     const next = event.nativeEvent.layout.width;
     if (next === width) return;
     setWidth(next);
-    scroll.current?.scrollTo({ x: page * next, animated: false });
+    setAnchor(page);
   };
   const onSettled = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (width > 0) setPage(Math.round(event.nativeEvent.contentOffset.x / width));
@@ -112,7 +116,15 @@ export function AccountIntroPager({ initialPage }: Readonly<{ initialPage?: Acco
     <View style={styles.pager} testID="account-intro-pager">
       <View onLayout={onLayout}>
         <ScrollView
+          contentOffset={{ x: anchor * width, y: 0 }}
           horizontal
+          // Where a platform applies the starting offset before the pages are wide, this puts
+          // the anchored page in view once they are; the content changes size only with the width.
+          onContentSizeChange={(contentWidth) => {
+            if (width > 0 && contentWidth >= width * accountIntroPageIds.length) {
+              scroll.current?.scrollTo({ x: anchor * width, animated: false });
+            }
+          }}
           onMomentumScrollEnd={onSettled}
           onScrollBeginDrag={stopAdvancing}
           onTouchStart={stopAdvancing}

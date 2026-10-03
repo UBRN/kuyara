@@ -1,6 +1,6 @@
 import { act, fireEvent, render, within, type RenderResult } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, ScrollView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -143,6 +143,23 @@ describe('the sign-in benefit pages', () => {
     expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
     await fireEvent.press(control(screen));
     expect(position(screen)).toBe(en.pagePosition(1, 6));
+  });
+
+  test('the scroll view opens on that page once the pages have their width', async () => {
+    // Before the sheet is measured the pages have no width, so a scroll then lands nowhere: the
+    // page is the scroll view's own starting offset, given with the width.
+    const screen = await renderPager('en', 'history');
+    expect(screen.getByTestId('account-intro-pages').props.contentOffset).toEqual({ x: 390, y: 0 });
+    await fireEvent(screen.getByTestId('account-intro-pages').parent!, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } },
+    });
+    expect(screen.getByTestId('account-intro-pages').props.contentOffset).toEqual({ x: 400, y: 0 });
+    // And once the pages are that wide, the scroll view is brought to the page as well.
+    const scrollTo = jest.fn();
+    const pages = screen.getByTestId('account-intro-pages');
+    jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(scrollTo);
+    await fireEvent(pages, 'contentSizeChange', 400 * accountIntroPageIds.length, 400);
+    expect(scrollTo).toHaveBeenLastCalledWith({ x: 400, animated: false });
   });
 
   test('never move while a screen reader runs', async () => {
