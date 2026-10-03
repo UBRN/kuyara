@@ -21,6 +21,11 @@ import {
   structuralCategories,
   type StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
+import {
+  splitClosetByEntryState,
+  summarizeClosetCategories,
+  type ClosetCategorySummary,
+} from '@/features/wardrobe/application/closet-categories';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
@@ -61,33 +66,6 @@ type ProfileScreenProps = Readonly<{
   categories?: readonly StructuralCategory[];
 }>;
 
-type CategorySummary = Readonly<{ count: number; wanted: number; newest: WardrobeItem | null }>;
-
-function newestOf(items: readonly WardrobeItem[]): WardrobeItem | null {
-  return items.reduce<WardrobeItem | null>(
-    (newest, item) => (newest === null || item.createdAt > newest.createdAt ? item : newest),
-    null,
-  );
-}
-
-// Counts derive from the records, never a count table (ADR 0029). A cell's drawing is the
-// category's newest owned piece, or its newest wanted one when nothing there is owned.
-function summarizeCategories(
-  items: readonly WardrobeItem[],
-): Readonly<Record<StructuralCategory, CategorySummary>> {
-  return Object.fromEntries(
-    structuralCategories.map((category) => {
-      const inCategory = items.filter((item) => item.category === category);
-      const owned = inCategory.filter((item) => item.entryState === 'owned');
-      return [category, {
-        count: inCategory.length,
-        wanted: inCategory.length - owned.length,
-        newest: newestOf(owned) ?? newestOf(inCategory),
-      }];
-    }),
-  ) as Record<StructuralCategory, CategorySummary>;
-}
-
 function toRackPiece(item: WardrobeItem): RackPiece {
   return {
     id: item.id,
@@ -115,7 +93,7 @@ function CategoryCell({
   onPress?: () => void;
   scale: number;
   /** `null` while the Closet loads: the tile shows without a drawing or a count. */
-  summary: CategorySummary | null;
+  summary: ClosetCategorySummary | null;
 }>) {
   const messages = useMessages();
   const theme = useKuyaraTheme();
@@ -205,7 +183,7 @@ function CategoryCells({
   firstIndex: number;
   onOpenCategory: (category: StructuralCategory) => void;
   shown: boolean;
-  summaries: Readonly<Record<StructuralCategory, CategorySummary>> | null;
+  summaries: Readonly<Record<StructuralCategory, ClosetCategorySummary>> | null;
 }>) {
   const messages = useMessages();
   const { fontScale, usesTwoColumnGrid } = useTextScaling();
@@ -283,15 +261,10 @@ export function ProfileScreen({
   // repaints only when the Closet changes.
   const rackPieces = useMemo(() => readyItems?.map(toRackPiece) ?? null, [readyItems]);
   const summaries = useMemo(
-    () => (readyItems ? summarizeCategories(readyItems) : null),
+    () => (readyItems ? summarizeClosetCategories(readyItems) : null),
     [readyItems],
   );
-  const ownedItems = isReady
-    ? state.items.filter((item) => item.entryState === 'owned')
-    : [];
-  const wantedItems = isReady
-    ? state.items.filter((item) => item.entryState === 'wanted')
-    : [];
+  const { owned: ownedItems, wanted: wantedItems } = splitClosetByEntryState(readyItems ?? []);
   const hasOwned = ownedItems.length > 0;
   const hasWanted = wantedItems.length > 0;
   const isFullyEmpty = isReady && !hasOwned && !hasWanted;

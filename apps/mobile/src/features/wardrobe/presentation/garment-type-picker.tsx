@@ -17,12 +17,11 @@ import {
 } from '@/components/ui';
 import type { ClothingPreference } from '@/domain/preferences';
 import {
-  garmentCatalog,
   getGarmentType,
-  listGarmentTypesForPreference,
+  listSelectableGarmentTypes,
+  listStructuralCategoriesForPreference,
 } from '@/features/catalog/domain/garment-catalog';
 import {
-  structuralCategories,
   type ColorFamily,
   type GarmentTypeId,
   type StructuralCategory,
@@ -97,23 +96,13 @@ export function GarmentTypePicker({
   const rowOpacity = useSharedValue<number>(1);
   const rowStyle = useAnimatedStyle(() => ({ opacity: rowOpacity.get() }));
 
-  // Deprecated catalogue entries stay readable on saved items but are never offered
-  // again, so the picker lists active types only.
-  const selectableTypes = useMemo(() => {
-    const applicable = clothingPreference
-      ? new Set(
-          listGarmentTypesForPreference(clothingPreference).map(({ typeId }) => typeId),
-        )
-      : null;
-    return garmentCatalog.garmentTypes.filter(
-      (garmentType) =>
-        garmentType.status === 'active' &&
-        (applicable === null || applicable.has(garmentType.typeId)),
-    );
-  }, [clothingPreference]);
-
-  const categories = structuralCategories.filter((structuralCategory) =>
-    selectableTypes.some((type) => type.structuralCategory === structuralCategory),
+  const selectableTypes = useMemo(
+    () => listSelectableGarmentTypes(clothingPreference),
+    [clothingPreference],
+  );
+  const categories = useMemo(
+    () => listStructuralCategoriesForPreference(clothingPreference),
+    [clothingPreference],
   );
   // No stored default: the grid opens on the category tapped, else the selected type's
   // own, else the Closet category the add started from; with none, the tiles show.

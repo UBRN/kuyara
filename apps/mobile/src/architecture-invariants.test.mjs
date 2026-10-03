@@ -1088,25 +1088,21 @@ test('the active catalogue status is read only by the selectable types owner', (
   const allowlist = [
     'features/recommendation/domain/garment-eligibility.ts',
     'features/today/application/compose-selection.ts',
-    'features/wardrobe/presentation/garment-type-picker.tsx',
   ];
   const hits = sourceFiles().filter((file) =>
     file !== owner && /status\s*[!=]==\s*'active'/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'list types through listSelectableGarmentTypes');
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
-  assert.equal(allowlist.length, 3, 'the active status allowlist only shrinks');
+  assert.equal(allowlist.length, 2, 'the active status allowlist only shrinks');
 });
 
 // "Either notification kind is on" is decided once, by `wantsAnyNotification` in
-// profile/domain/profile.ts. The listed route sites are switched to it next; the list only shrinks.
+// profile/domain/profile.ts.
 test('the alerts opt-in is combined with the briefing opt-in only by wantsAnyNotification', () => {
   const owner = 'features/profile/domain/profile.ts';
-  const allowlist = ['app/(tabs)/(profile)/settings/index.tsx', 'app/_layout.tsx'];
   const hits = sourceFiles().filter((file) =>
     file !== owner && /(?<!!)notificationsOptIn\s*\|\|/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
-  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'call wantsAnyNotification');
-  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
-  assert.equal(allowlist.length, 2, 'the notification opt-in allowlist only shrinks');
+  assert.deepEqual(hits, [], 'call wantsAnyNotification');
 });
 
 // What makes a stored photo path managed (`<directory>/<uuid v4>.jpg`) is decided once, in
@@ -1137,4 +1133,17 @@ test('the font scale setter, file uri builder and source walk are defined only u
     }
   }
   assert.deepEqual(copies, []);
+});
+
+// The Closet's per-state lists, category summaries and default category are derived once, in
+// wardrobe/application/closet-categories.ts; screens never filter records by entry state.
+test('records are split by entry state only by the closet categories owner', () => {
+  const allowlist = [
+    'features/wardrobe/application/closet-categories.ts',
+    'features/wardrobe/domain/garment-type-ownership.ts',
+  ];
+  const hits = sourceFiles().filter((file) =>
+    /\.(filter|find)\(\(\w+\) => \w+\.entryState ===/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'use splitClosetByEntryState or summarizeClosetCategories');
+  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
 });

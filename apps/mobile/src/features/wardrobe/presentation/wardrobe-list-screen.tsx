@@ -26,6 +26,11 @@ import {
   structuralCategories,
   type StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
+import {
+  resolveDefaultClosetCategory,
+  splitClosetByEntryState,
+  summarizeClosetCategories,
+} from '@/features/wardrobe/application/closet-categories';
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
 import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
@@ -117,9 +122,6 @@ export type ClosetRow =
   | Readonly<{ kind: 'section'; entryState: WardrobeEntryState; count: number; afterOwned: boolean }>
   | Readonly<{ kind: 'tiles'; key: string; items: readonly WardrobeItem[]; firstIndex: number }>;
 
-const newestFirst = (items: readonly WardrobeItem[]) =>
-  [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
 /**
  * One category page: an Owned section, then a Wanted section, each newest first and cut
  * into rows of `numColumns` tiles so the list virtualises by row. An empty category has no
@@ -130,12 +132,9 @@ export function buildCategoryRows(
   category: StructuralCategory,
   numColumns: number,
 ): ClosetRow[] {
-  const inCategory = items.filter((item) => item.category === category);
+  const split = splitClosetByEntryState(items.filter((item) => item.category === category));
   const sections = (['owned', 'wanted'] as const)
-    .map((entryState) => ({
-      entryState,
-      items: newestFirst(inCategory.filter((item) => item.entryState === entryState)),
-    }))
+    .map((entryState) => ({ entryState, items: split[entryState] }))
     .filter((section) => section.items.length > 0);
   const rows: ClosetRow[] = [];
   let index = 0;
@@ -159,27 +158,6 @@ export function buildCategoryRows(
     index += section.items.length;
   }
   return rows;
-}
-
-/**
- * The category a Closet opens on without one requested: the first, in catalogue order, that
- * holds a wanted piece when the Wanted section is asked for (Profile's Wanted row), else the
- * first that holds anything, else the first category.
- */
-export function resolveDefaultCategory(
-  items: readonly WardrobeItem[],
-  revealWanted: boolean,
-  categories: readonly StructuralCategory[] = structuralCategories,
-): StructuralCategory {
-  const holds = (predicate: (item: WardrobeItem) => boolean) =>
-    categories.find((category) =>
-      items.some((item) => item.category === category && predicate(item)),
-    );
-  return (
-    (revealWanted ? holds((item) => item.entryState === 'wanted') : undefined)
-    ?? holds(() => true)
-    ?? categories[0]
-  );
 }
 
 /**
@@ -279,8 +257,9 @@ export function WardrobeListScreen({
   const category =
     selectedCategory && categories.includes(selectedCategory)
       ? selectedCategory
-      : resolveDefaultCategory(items, revealWanted, categories);
+      : resolveDefaultClosetCategory(items, revealWanted, categories);
   const rows = state.status === 'ready' ? buildCategoryRows(items, category, numColumns) : [];
+  const summaries = summarizeClosetCategories(items);
   const wantedRowIndex = rows.findIndex(
     (row) => row.kind === 'section' && row.entryState === 'wanted',
   );
@@ -494,17 +473,17 @@ export function WardrobeListScreen({
             style={styles.stripBleed}
             testID="wardrobe-category-tabs">
             {categories.map((tabCategory) => {
-              const inTab = items.filter((item) => item.category === tabCategory);
+              const summary = summaries[tabCategory];
               const label = copy.categoryFilterLabels[tabCategory];
               return (
                 <WardrobeCategoryChip
                   accessibilityLabel={copy.categoryAccessibilityLabel({
                     category: label,
-                    count: inTab.length,
-                    wanted: inTab.filter((item) => item.entryState === 'wanted').length,
+                    count: summary.count,
+                    wanted: summary.wanted,
                   })}
                   category={tabCategory}
-                  count={inTab.length}
+                  count={summary.count}
                   key={tabCategory}
                   label={label}
                   onLayout={(event) => {

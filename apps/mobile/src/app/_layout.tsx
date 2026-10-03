@@ -44,7 +44,7 @@ import {
 import type { BootstrapReport } from '@/features/profile/application/profile-application-controller';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
-import type { LocalProfile } from '@/features/profile/domain/profile';
+import { wantsAnyNotification, type LocalProfile } from '@/features/profile/domain/profile';
 import { BootstrapScreen } from '@/features/profile/presentation/bootstrap-screen';
 import { composeBootstrapReportText } from '@/features/profile/presentation/bootstrap-report-text';
 import { RecommendationApplicationProvider } from '@/features/recommendation/application/recommendation-application-provider';
@@ -135,7 +135,7 @@ function ReadyApplicationShell({
   const launch = useLaunchReveal();
   // The task only ever refreshes weather to reschedule notifications, so it costs the
   // device a background window for nothing while both kinds are off (ADR 0004).
-  const wantsBackgroundRefresh = profile.notificationsOptIn || profile.morningBriefingOptIn;
+  const wantsBackgroundRefresh = wantsAnyNotification(profile);
   useEffect(() => {
     void (wantsBackgroundRefresh
       ? registerBackgroundWeatherAlertTask()

@@ -13,6 +13,7 @@ import { SUPPORT_URL } from '@/features/analytics/domain/privacy-policy';
 import { notificationsAreActive } from '@/features/notifications/application/notification-application-controller';
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
+import { wantsAnyNotification } from '@/features/profile/domain/profile';
 import { SettingsScreen } from '@/features/profile/presentation/settings-screen';
 import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
 import { IOS_REVIEW_URL, IOS_STORE_URL, LICENCE_URL, androidStoreLinks } from '@/config/store-links';
@@ -64,7 +65,7 @@ export default function SettingsRoute() {
         notificationsOn={notificationsAreActive(
           // ADR 0004: the row stands for the Notifications surface, which now holds two
           // kinds, so either one being in force reads as On.
-          state.profile.notificationsOptIn || state.profile.morningBriefingOptIn,
+          wantsAnyNotification(state.profile),
           notificationState.permission,
         )}
         onAppearanceChange={async (value) => {
