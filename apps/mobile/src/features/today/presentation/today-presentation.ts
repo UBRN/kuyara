@@ -110,6 +110,12 @@ export type LocalizedWeatherLink = Readonly<{
 export type ManualDetail = Readonly<{
   optionId: string;
   outfit: RecommendedOutfit;
+  /**
+   * What the changes count against and the kept colours come from: kuyara's pick when absent,
+   * a composed option when the outfit was built around chosen pieces. A composed one stands in
+   * for the pick even before any change.
+   */
+  original?: RecommendedOutfit;
   changedSlots: readonly OutfitSlot[];
   /** Colours the reader chose for pieces composed around (compose only): each piece's recorded swatch. */
   pieceColors?: Readonly<Partial<Record<OutfitSlot, GarmentSwatchId>>>;
@@ -624,7 +630,7 @@ function localizeOutfit(
     boardPieces,
     palette: withPieceColors(outfitGarmentPalette(outfit, paletteDay), manual?.pieceColors),
     keptColors: manual && changed ? {
-      original: outfitGarmentPalette(manual.original, paletteDay),
+      original: withPieceColors(outfitGarmentPalette(manual.original, paletteDay), manual.pieceColors),
       slots: outfitGarmentPalette(outfit, paletteDay).pieces
         .map(({ slot }) => slot).filter((slot) => !changedSlots.includes(slot)),
     } : null,
@@ -844,11 +850,11 @@ function createLoadedPresentation(
   const dayKind = day ? forecastDayKind(day) : localDayKind(new Date(now));
   const paletteDay = day ? forecastDayPalette(day) : garmentPaletteDay(weather, now, snapshot.paletteBasis);
   const suggestions = outfits.map((outfit, index) =>
-    manual && manual.changedSlots.length > 0 && outfit.optionId === manual.optionId
-      // The changed outfit stands in the opened option's place and keeps its id; a composed
-      // one carries an id of its own.
+    manual && (manual.changedSlots.length > 0 || manual.original) && outfit.optionId === manual.optionId
+      // The changed or composed outfit stands in the opened option's place and keeps its id.
       ? { ...localizeOutfit(manual.outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay,
-        { original: outfit, changedSlots: manual.changedSlots, pieceColors: manual.pieceColors }), id: outfit.optionId }
+        { original: manual.original ?? outfit, changedSlots: manual.changedSlots, pieceColors: manual.pieceColors }),
+      id: outfit.optionId }
       : localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay),
   );
   // ADR 0034 section 4: the on-device badge appears only when the stored mode is

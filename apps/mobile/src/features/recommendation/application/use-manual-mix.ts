@@ -34,8 +34,8 @@ import {
 } from '@/features/recommendation/domain/outfit-composition';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
-type EditState = Readonly<{ optionId: string | null; edits: ManualEdits }>;
-const NO_EDITS: EditState = Object.freeze({ optionId: null, edits: NO_MANUAL_EDITS });
+type EditState = Readonly<{ key: string | null; edits: ManualEdits }>;
+const NO_EDITS: EditState = Object.freeze({ key: null, edits: NO_MANUAL_EDITS });
 
 export type ManualMix<Outfit extends OutfitCandidate> = Readonly<{
   /** The outfit detail shows: kuyara's pick until something changes. */
@@ -89,17 +89,19 @@ export type ManualMix<Outfit extends OutfitCandidate> = Readonly<{
  * and "Wore this today" is the only way they are ever recorded. The candidate
  * order is computed once per outfit; the changed outfit is re-evaluated by the domain on
  * every change. `baseUnusual` is the verdict of an outfit that is unusual before any edit.
+ * The edits belong to `editKey`, the outfit's option id unless the caller names the showing
+ * itself: a composed option can share kuyara's pick's id, and its edits must never cross.
  */
 export function useManualMix<Outfit extends OutfitCandidate & Readonly<{ optionId: string }>>(
   outfit: Outfit | null,
   requirements: ClothingRequirements | null,
   preference: ClothingPreference | null,
   baseUnusual = false,
+  editKey: string | null = outfit?.optionId ?? null,
 ): ManualMix<Outfit> | null {
   const [state, setState] = useState<EditState>(NO_EDITS);
-  const optionId = outfit?.optionId ?? null;
-  // A different outfit starts from kuyara's pick; its edits never carry over.
-  const edits = state.optionId === optionId ? state.edits : NO_MANUAL_EDITS;
+  // A different outfit, or another showing of one, starts from its own pick; edits never carry over.
+  const edits = state.key === editKey ? state.edits : NO_MANUAL_EDITS;
   const slots = useMemo(() => (outfit ? outfitCandidateSlots(outfit) : []), [outfit]);
   const baseCandidates = useMemo(() => (outfit && requirements && preference
     ? new Map(slots.map((slot) => [slot, slotCandidates(outfit, slot, requirements, preference)]))
@@ -120,10 +122,10 @@ export function useManualMix<Outfit extends OutfitCandidate & Readonly<{ optionI
   const edit = useCallback((change: (base: Outfit, current: ManualEdits) => ManualEdits) => {
     if (!outfit) return;
     setState((previous) => ({
-      optionId: outfit.optionId,
-      edits: change(outfit, previous.optionId === outfit.optionId ? previous.edits : NO_MANUAL_EDITS),
+      key: editKey,
+      edits: change(outfit, previous.key === editKey ? previous.edits : NO_MANUAL_EDITS),
     }));
-  }, [outfit]);
+  }, [editKey, outfit]);
   const choose = useCallback((slot: SwappableSlot, garmentTypeId: GarmentTypeId) =>
     edit((base, current) => withPiece(base, current, slot, garmentTypeId)), [edit]);
   const removeLayer = useCallback((slot: RemovableSlot) =>

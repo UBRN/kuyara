@@ -15,7 +15,8 @@ export type CheckRowProps = Readonly<{
   /** The row's picture, such as a garment tile; decorative, the words carry the choice. */
   leading: ReactNode;
   label: string;
-  supportingText?: string;
+  /** Parts show apart by a middle dot and are spoken apart by a comma: no spoken label carries the dot. */
+  supportingText?: string | readonly string[];
   checked: boolean;
   onPress: () => void;
   /** A limit is reached: the row keeps its words, says why in the hint and ignores a press. */
@@ -35,11 +36,12 @@ export function CheckRow({
   const theme = useKuyaraTheme();
   const { controlScale } = useTextScaling();
   const minHeight = useEasierToSee() ? easierToSee.rowHeight : layout.minimumTouchTarget;
+  const supporting = supportingText === undefined ? [] : typeof supportingText === 'string' ? [supportingText] : supportingText;
 
   return (
     <PressScale
       accessibilityHint={accessibilityHint}
-      accessibilityLabel={supportingText ? `${label}, ${supportingText}` : label}
+      accessibilityLabel={[label, ...supporting].join(', ')}
       accessibilityRole="checkbox"
       accessibilityState={{ checked, disabled: unavailable }}
       disabled={unavailable}
@@ -52,7 +54,8 @@ export function CheckRow({
       {leading}
       <View style={styles.text}>
         <AppText variant="bodyStrong">{label}</AppText>
-        {supportingText ? <AppText colorRole="textSecondary" variant="caption">{supportingText}</AppText> : null}
+        {supporting.length > 0
+          ? <AppText colorRole="textSecondary" variant="caption">{supporting.join(' · ')}</AppText> : null}
       </View>
       <View testID={`${testID}-${checked ? 'checked' : 'unchecked'}`}>
         <Icon

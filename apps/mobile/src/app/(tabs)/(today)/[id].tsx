@@ -10,8 +10,7 @@ import { StackActions } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform } from 'react-native';
 
-import { useIsMember } from '@/features/account/application/account-membership';
-import { useAccountScreens } from '@/features/account/application/account-screens-context';
+import { useIsMember, useOpenSignIn } from '@/features/account/application/account-membership';
 import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
 import { AccountSheet } from '@/features/account/presentation/account-sheet';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
@@ -26,9 +25,12 @@ import {
 import { isClothingPreference } from '@/domain/preferences';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
-import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
 import { composeCatalog } from '@/features/today/application/compose-selection';
-import { composedDetail, composePiecesOf, useDetailCompose } from '@/features/today/application/composed-detail';
+import {
+  composedDetail,
+  composePiecesOf,
+  useDetailMix,
+} from '@/features/today/application/composed-detail';
 import { classifyTodayState } from '@/features/today/application/today-state';
 import {
   closetSeedOffer,
@@ -75,7 +77,7 @@ export default function OutfitDetailRoute() {
   const { markSwapHintShown, state: profileState } = useProfileApplication();
   const { analytics, firstUses } = useProductAnalytics();
   const isMember = useIsMember();
-  const { port: accountScreens } = useAccountScreens();
+  const openSignIn = useOpenSignIn();
   const [editing, setEditing] = useState<PieceSheetTarget | null>(null);
   const [wornGarments, setWornGarments] = useState<{ key: string; looks: readonly WornOutfit[] } | null>(null);
   const [wornBusy, setWornBusy] = useState(false);
@@ -119,10 +121,10 @@ export default function OutfitDetailRoute() {
   const preference = isClothingPreference(snapshotPreference) ? snapshotPreference : null;
   // Compose around chosen pieces (members only, today only): its result is shown, edited and
   // recorded through the same manual mix, as the reader's outfit from the start.
-  const composed = useDetailCompose(tomorrow || recommendationState.status !== 'ready'
-    ? null : recommendationState.snapshot, requirements, resolvedDressStyle ?? null);
+  const { composed, manualMix } = useDetailMix(outfit, requirements, preference,
+    tomorrow || recommendationState.status !== 'ready' ? null : recommendationState.snapshot,
+    resolvedDressStyle ?? null, clock);
   const option = composed.current;
-  const manualMix = useManualMix(option?.outfit ?? outfit, requirements, preference, option?.unusual ?? false);
   // Any edit makes the outfit the reader's, a finishing touch alone included, and so does a
   // composed result; each records as `manual`.
   const changedOutfit = option || manualMix?.edited ? manualMix?.outfit ?? null : null;
@@ -291,8 +293,8 @@ export default function OutfitDetailRoute() {
     boardFocused ? { unstable_dismissalBoundsRect: { maxX: 0, maxY: 0 } } : undefined,
   );
 
-  const composedView = option && outfit && manualMix
-    ? composedDetail(outfit, manualMix.outfit, option, manualMix.changedSlots) : null;
+  const composedView = option && composed.key && manualMix
+    ? composedDetail(option, manualMix.changedSlots, manualMix.changedAccessorySlots) : null;
   // "Back to kuyara's pick" forgets the composed result too.
   const shownMix = manualMix && option
     ? { ...manualMix, reset: () => { composed.clear(); manualMix.reset(); } }
@@ -319,18 +321,18 @@ export default function OutfitDetailRoute() {
       <OutfitDetailScreen
         closetSeed={closetSeed}
         language={language}
-        composeEntry={!tomorrow && outfit && preference ? (
+        composeEntry={!tomorrow && outfit && preference ? (palette) => (ACCOUNT_SCREENS_ENABLED ? (
           <ComposeEntry
-            accountsOpen={ACCOUNT_SCREENS_ENABLED}
             catalog={composeCatalog(preference)}
             isMember={isMember}
             onCompose={composed.compose}
-            onSignIn={() => accountScreens.openSignIn('detail')}
-            palette={null}
+            onSignIn={() => openSignIn('detail')}
+            palette={palette}
             pieces={composePiecesOf(outfit)}
           />
-        ) : null}
-        composeResult={composedView ? {
+        ) : null) : null}
+        composeResult={composedView && composed.key ? {
+          key: composed.key,
           line: (
             <ComposeResultLine index={composed.index} onShowAnother={composed.showAnother} total={composed.options.length} />
           ),

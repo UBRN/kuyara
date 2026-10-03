@@ -24,6 +24,7 @@ import {
   haptics,
   swapRevealScroll,
   useGarmentRoles,
+  type GarmentOutfitPalette,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
@@ -122,14 +123,21 @@ type OutfitDetailScreenProps = Readonly<{
   closetSeed?: ClosetSeedOffer | null;
   /** The slots the reader chose to compose around: their rows read "Your choice". */
   pinnedSlots?: readonly OutfitSlot[];
-  /** The row that opens composing around chosen pieces, drawn under "Wore this today". */
-  composeEntry?: ReactNode;
+  /** The row that opens composing around chosen pieces, drawn under "Wore this today" with the board's palette. */
+  composeEntry?: ((palette: GarmentOutfitPalette) => ReactNode) | null;
   /**
    * A result composed around chosen pieces: its stepping line stands under the board's names,
    * its subtitle under the title, and its source sentence in place of the generation's.
-   * `detail` says how it differs from kuyara's pick: it is the reader's outfit from the start.
+   * `detail` is the composed option and the reader's edits to it: it is the reader's outfit
+   * from the start. `key` names the option on screen; a new one ends any enlargement.
    */
-  composeResult?: Readonly<{ line: ReactNode; subtitle: string; source: string; detail: ComposedDetail }> | null;
+  composeResult?: Readonly<{
+    key: string;
+    line: ReactNode;
+    subtitle: string;
+    source: string;
+    detail: ComposedDetail;
+  }> | null;
 }>;
 
 export function OutfitDetailScreen({
@@ -166,6 +174,14 @@ export function OutfitDetailScreen({
   const [nameRowHeight, setNameRowHeight] = useState<number | null>(null);
   const [completions, setCompletions] = useState(0);
   const [focusedSlot, setFocusedSlot] = useState<OutfitSlot | null>(null);
+  // Another composed option, or none, ends any enlargement in the same render: the focused
+  // piece may not be in the outfit that replaces it.
+  const outfitKey = composeResult?.key ?? null;
+  const [focusedOn, setFocusedOn] = useState(outfitKey);
+  if (focusedOn !== outfitKey) {
+    setFocusedOn(outfitKey);
+    setFocusedSlot(null);
+  }
   const [picker, setPicker] = useState<Picker | null>(null);
   const [pressedRow, setPressedRow] = useState<OutfitSlot | null>(null);
   // "Add this to my Closet" asks once, in place: the ownership answer the pieces go in with.
@@ -176,6 +192,9 @@ export function OutfitDetailScreen({
   // line that counts what was taken off.
   const emptyTargets = useRef(new Map<RemovableSlot, View>());
   const removedTarget = useRef<View>(null);
+  // After Put back, VoiceOver lands on the first finishing touch that came back.
+  const accessoryTargets = useRef(new Map<AccessoryOutfitSlot, View>());
+  const focusPutBack = useRef<AccessoryOutfitSlot | null>(null);
   const spokenRemoval = useRef<RemovableSlot | null>(null);
   const focusRemoved = useRef(false);
   const boardTouched = useRef(false);
@@ -211,6 +230,7 @@ export function OutfitDetailScreen({
       ? {
           optionId: suggestionId,
           outfit: manualMix.outfit,
+          original: composed?.outfit,
           changedSlots: composed
             ? composed.changedSlots
             : [...manualMix.changedSlots, ...manualMix.changedAccessorySlots],
@@ -358,13 +378,20 @@ export function OutfitDetailScreen({
       const node = findNodeHandle(removedTarget.current);
       if (node) AccessibilityInfo.setAccessibilityFocus(node);
     }
+    const putBack = focusPutBack.current;
+    focusPutBack.current = null;
+    if (putBack) {
+      const node = findNodeHandle(accessoryTargets.current.get(putBack) ?? null);
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+    }
     if (removal) {
       // Its empty place takes the focus, and one sentence says the layer went, and the note
-      // when that made the outfit unusual.
+      // when that made the outfit unusual. The sentence waits for the place to be read, so the
+      // focus move never cuts it off.
       const node = findNodeHandle(emptyTargets.current.get(removal) ?? null);
       if (node) AccessibilityInfo.setAccessibilityFocus(node);
-      AccessibilityInfo.announceForAccessibility(becameUnusual
-        ? copy.manualMix.takenOffUnusual[removal] : copy.manualMix.takenOff[removal]);
+      AccessibilityInfo.announceForAccessibilityWithOptions(becameUnusual
+        ? copy.manualMix.takenOffUnusual[removal] : copy.manualMix.takenOff[removal], { queue: true });
     } else if (step) {
       const order = manualMix?.candidates[step.slot] ?? [];
       const values = {
@@ -478,6 +505,10 @@ export function OutfitDetailScreen({
     focusRemoved.current = true;
     manualMix?.removeAccessory(slot);
   };
+  const putBackAccessories = manualMix ? () => {
+    focusPutBack.current = accessoryOutfitSlots.find((slot) => manualMix.removedAccessorySlots.includes(slot)) ?? null;
+    manualMix.putBackAccessories();
+  } : undefined;
   const reset = () => {
     setFocusedSlot(null);
     manualMix?.reset();
@@ -634,7 +665,7 @@ export function OutfitDetailScreen({
             {wornError ?? shownWornError}
           </AppText>
         </Presence>
-        {composeEntry}
+        {composeEntry?.(palette)}
         <Presence testID="outfit-detail-reset" visible={changed}>
           <Button
             label={copy.manualMix.reset}
@@ -704,7 +735,8 @@ export function OutfitDetailScreen({
             setFocusedSlot(null);
             setPicker({ kind: 'accessory' });
           } : undefined}
-          onPutBack={manualMix?.putBackAccessories}
+          accessoryTargets={accessoryTargets}
+          onPutBack={putBackAccessories}
           onTakeOff={manualMix ? takeOffAccessory : undefined}
           pieceRoles={pieceRoles}
           presentation={presentation}

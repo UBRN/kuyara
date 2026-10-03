@@ -1,9 +1,9 @@
 import type { ClothingPreference } from '@/domain/preferences';
 import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
-import type { ComposePin } from '@/features/recommendation/application/compose-around-pieces';
+import { composePieceLimit, type ComposePin } from '@/features/recommendation/application/compose-around-pieces';
 import { swappableSlots } from '@/features/recommendation/domain/manual-mix';
-import { composedOptionLimit, type OutfitPin } from '@/features/recommendation/domain/outfit-composition';
+import type { OutfitPin } from '@/features/recommendation/domain/outfit-composition';
 import { garmentFitsSlot } from '@/features/recommendation/domain/outfit-history';
 import { boardSwatchForClosetSolid } from '@/features/wardrobe/domain/closet-board-swatch';
 
@@ -39,7 +39,7 @@ export function isComposePieceChosen(selection: ComposeSelection, piece: Compose
  */
 export function canChooseComposePiece(selection: ComposeSelection, piece: ComposePiece): boolean {
   if (isComposePieceChosen(selection, piece)) return true;
-  return selection.filter((choice) => !conflicts(choice.slot, piece.slot)).length < composedOptionLimit;
+  return selection.filter((choice) => !conflicts(choice.slot, piece.slot)).length < composePieceLimit;
 }
 
 /**

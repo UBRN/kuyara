@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { AccessibilityInfo, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import type { GarmentOutfitPalette } from '@/components/ui';
+import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import { composeCatalog, type ComposePiece } from '@/features/today/application/compose-selection';
 import { ComposeEntry, ComposeResultLine } from '@/features/today/presentation/compose-entry';
 import { LocalizationContext } from '@/localization/localization-context';
@@ -34,6 +36,12 @@ const pieces: readonly ComposePiece[] = [
   { slot: 'footwear', garmentTypeId: 'loafers' },
 ];
 
+// The board's palette for those pieces; a seed is the outfit's option id.
+const boardPalette = (optionId: string): GarmentOutfitPalette => ({
+  optionId, formality: 'smart', temperatureC: 16, condition: 'cloudy', isNight: false,
+  pieces: pieces.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })),
+});
+
 function wrap(element: ReactNode, language: SupportedLanguage) {
   return (
     <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
@@ -44,19 +52,18 @@ function wrap(element: ReactNode, language: SupportedLanguage) {
   );
 }
 
-type Setup = Readonly<{ accountsOpen?: boolean; isMember?: boolean; language?: SupportedLanguage }>;
+type Setup = Readonly<{ isMember?: boolean; language?: SupportedLanguage; palette?: GarmentOutfitPalette }>;
 
-async function renderEntry({ accountsOpen = true, isMember = true, language = 'en' }: Setup = {}) {
+async function renderEntry({ isMember = true, language = 'en', palette = boardPalette('outfit-a') }: Setup = {}) {
   const onCompose = jest.fn();
   const onSignIn = jest.fn();
   const screen = await render(wrap(
     <ComposeEntry
-      accountsOpen={accountsOpen}
       catalog={composeCatalog('womens')}
       isMember={isMember}
       onCompose={onCompose}
       onSignIn={onSignIn}
-      palette={null}
+      palette={palette}
       pieces={pieces}
     />,
     language,
@@ -80,14 +87,6 @@ afterEach(() => {
 });
 
 describe('the members-only row under "Wore this today"', () => {
-  test.each([[true], [false]])('while the account screens are closed it is absent, row and sheet, for a member (%s) or not', async (isMember) => {
-    const { screen } = await renderEntry({ accountsOpen: false, isMember });
-    expect(screen.queryByTestId('compose-entry-row')).toBeNull();
-    expect(screen.queryByText(en.entry)).toBeNull();
-    expect(screen.queryByTestId('sheet-host')).toBeNull();
-    expect(screen.queryByText(en.title)).toBeNull();
-  });
-
   test('a member sees the plain row, and a tap opens the sheet', async () => {
     const { screen, onSignIn } = await renderEntry();
     const row = screen.getByTestId('compose-entry-row');
@@ -138,8 +137,44 @@ describe('"What do you want to wear today?"', () => {
     expect(within(strip).getAllByRole('radio')).toHaveLength(33);
     await fireEvent.press(screen.getByTestId('compose-color-primary_top-tomato_red'));
     const tomato = messages.en.wardrobe.colorOptionNames.tomato_red;
-    expect(screen.getByTestId('compose-piece-primary_top-shirt').props.accessibilityLabel)
-      .toBe(`${name('shirt')}, ${messages.en.today.slots.primary_top} · ${tomato}`);
+    const row = screen.getByTestId('compose-piece-primary_top-shirt');
+    // Shown with a middle dot, spoken with a comma pause: a spoken label never carries the dot.
+    expect(within(row).getByText(`${messages.en.today.slots.primary_top} · ${tomato}`)).toBeTruthy();
+    expect(row.props.accessibilityLabel).toBe(`${name('shirt')}, ${messages.en.today.slots.primary_top}, ${tomato}`);
+  });
+
+  test('an outfit piece shows the colours the board draws it in; another piece in its slot does not', async () => {
+    // Flat fills and gradient stops, without the gradients' per-render ids.
+    type Node = { props?: { fill?: unknown; stopColor?: unknown }; children?: unknown[] };
+    const fillsUnder = (node: Node): unknown[] => [
+      ...[node.props?.fill, node.props?.stopColor].filter((paint) => paint != null),
+      ...(node.children ?? []).flatMap((child) => (typeof child === 'object' && child ? fillsUnder(child as Node) : [])),
+    ];
+    const fills = (screen: RenderResult, id: string) =>
+      JSON.parse(JSON.stringify(fillsUnder(screen.getByTestId(`compose-silhouette-${id}`, { includeHiddenElements: true }) as never))
+        .replace(/"brushRef":"[^"-]+-/g, '"brushRef":"'));
+    // The board draws the shirt in one recorded swatch or another.
+    const painted = (swatchId: GarmentSwatchId): GarmentOutfitPalette => {
+      const palette = boardPalette('outfit-a');
+      return { ...palette, pieces: palette.pieces.map((piece) => (piece.slot === 'primary_top'
+        ? { ...piece, recordedSwatchId: swatchId } : piece)) };
+    };
+    const shirtOn = async (palette: GarmentOutfitPalette) => {
+      const { screen } = await renderEntry({ palette });
+      await openSheet(screen);
+      const shirt = fills(screen, 'shirt');
+      await screen.unmount();
+      return shirt;
+    };
+    const black = await shirtOn(painted('black'));
+    expect(await shirtOn(painted('burgundy'))).not.toEqual(black);
+    // A board that draws a blouse as the top paints no shirt: the shirt keeps the tile's own fill,
+    // whatever the board's colours.
+    const blouse = (palette: GarmentOutfitPalette): GarmentOutfitPalette => ({ ...palette,
+      pieces: palette.pieces.map((piece) => (piece.slot === 'primary_top' ? { ...piece, garmentTypeId: 'blouse' } : piece)) });
+    const unpainted = await shirtOn(blouse(painted('black')));
+    expect(unpainted).not.toEqual(black);
+    expect(await shirtOn(blouse(painted('burgundy')))).toEqual(unpainted);
   });
 
   test('at three pieces the others say why they wait and ignore a tick', async () => {

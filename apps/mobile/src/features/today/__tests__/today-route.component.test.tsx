@@ -3737,6 +3737,8 @@ describe('compose around chosen pieces on detail', () => {
     expect(screen.getByTestId('outfit-detail-generation-source')).toHaveTextContent(copy.compose.source);
     expect(within(screen.getByTestId('outfit-detail-row-bottom')).getByText(copy.manualMix.yourChoice, { includeHiddenElements: true }))
       .toBeOnTheScreen();
+    // The rest is kuyara's answer around the skirt, not a change to kuyara's pick.
+    expect(screen.queryAllByTestId(/^outfit-detail-piece-changed-/, { includeHiddenElements: true })).toEqual([]);
     let shown = 0;
     if (total > 1) {
       await fireEvent.press(screen.getByTestId('compose-show-another'));

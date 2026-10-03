@@ -2,12 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { gridRecommendationInput } from '../../../../test/recommendation-grid.mjs';
-import { outfitGarments } from '../domain/manual-mix.ts';
+import { outfitGarments, pinPieces } from '../domain/manual-mix.ts';
+import { composeOutfitsAroundPins } from '../domain/outfit-composition.ts';
 import { wornOutfitFrom, wornOutfitSchema } from '../domain/outfit-history.ts';
 import { deriveClothingRequirements } from '../domain/weather-to-clothing-requirements.ts';
-import { composeAroundPieces } from './compose-around-pieces.ts';
+import { composeAroundPieces, composePieceLimit } from './compose-around-pieces.ts';
 import { useComposeAroundPieces } from './use-compose-around-pieces.ts';
-import { assignComposedArchetypes, assignFallbackArchetypes, composeOutfitPool } from './recommend-outfits.ts';
+import {
+  assignComposedArchetypes,
+  assignFallbackArchetypes,
+  composeOutfitPool,
+  eligibilityCandidates,
+  orderByDressStyle,
+} from './recommend-outfits.ts';
 
 // Detail: "build an outfit around a piece". Deterministic, transient, and honest about how
 // many picks there are and when a chosen piece does not suit the weather.
@@ -65,6 +72,30 @@ test('a chosen piece the weather cannot take is swapped into the best pick, whic
   assert.equal(wornOutfitSchema.safeParse(worn(option)).success, true);
 });
 
+test('the swapped-in best pick is the dress style\'s first, as Today\'s first outfit is', () => {
+  for (const dressStyle of ['casual', 'smart', 'formal']) {
+    const input = context('hot', 'womens', dressStyle);
+    const pins = [pin('primary_top', 'sweater')];
+    const around = composeOutfitsAroundPins(
+      input.requirements, eligibilityCandidates(input.requirements, 'womens'), input.dayVariant, pins);
+    const [best] = assignComposedArchetypes(orderByDressStyle(around.outfits, input, input.requirements).slice(0, 1),
+      input.requirements);
+    const want = pinPieces(best, pins, input.requirements, 'womens').outfit;
+    const [option] = composeAroundPieces(input, pins).options;
+    assert.deepEqual(outfitGarments(option.outfit), outfitGarments(want), dressStyle);
+    assert.equal(option.outfit.archetypeId, want.archetypeId, dressStyle);
+  }
+});
+
+test('the day kind labels the picks as Today\'s do', () => {
+  const input = context('mild', 'womens', 'casual');
+  const pins = [pin('bottom', 'jeans')];
+  const weekday = composeAroundPieces({ ...input, dayKind: 'weekday' }, pins).options;
+  const weekend = composeAroundPieces({ ...input, dayKind: 'weekend' }, pins).options;
+  assert.ok(weekday.every(({ outfit }) => outfit.archetypeId !== 'weekend_relaxed'));
+  assert.ok(weekend.some(({ outfit }) => outfit.archetypeId === 'weekend_relaxed'));
+});
+
 test('with some pieces satisfiable the rest are swapped in and the others still hold', () => {
   const input = context('hot', 'womens');
   const result = composeAroundPieces(input, [pin('primary_top', 'sweater'), pin('bottom', 'skirt')]);
@@ -77,6 +108,7 @@ test('with some pieces satisfiable the rest are swapped in and the others still 
 });
 
 test('one piece to a slot and three pieces at most', () => {
+  assert.equal(composePieceLimit, 3);
   const input = context('mild', 'womens');
   assert.throws(() => composeAroundPieces(input, [pin('bottom', 'skirt'), pin('bottom', 'jeans')]), /slot/);
   assert.throws(() => composeAroundPieces(input, [

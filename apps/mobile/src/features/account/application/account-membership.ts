@@ -1,6 +1,6 @@
 import { useContext, useSyncExternalStore } from 'react';
 
-import type { AccountScreensSnapshot } from '@/features/account/application/account-screens';
+import type { AccountScreensSnapshot, AccountSheetHost } from '@/features/account/application/account-screens';
 import { AccountScreensContext } from '@/features/account/application/account-screens-context';
 
 /**
@@ -16,4 +16,12 @@ export function selectIsMember(snapshot: AccountScreensSnapshot): boolean {
 export function useIsMember(): boolean {
   const port = useContext(AccountScreensContext);
   return useSyncExternalStore(port.subscribe, () => selectIsMember(port.getSnapshot()));
+}
+
+/**
+ * Opens "Complete your profile" on a host's sheet: the one account action a members-only
+ * feature takes, without reading the session or anything else about the account.
+ */
+export function useOpenSignIn(): (host: AccountSheetHost) => void {
+  return useContext(AccountScreensContext).openSignIn;
 }

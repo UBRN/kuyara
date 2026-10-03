@@ -8,11 +8,10 @@ import {
   assignedOutfitGarments,
   composeOutfitOptions,
   composeOutfitsAroundPins,
-  composedOptionLimit,
+  composedOutfitLimit,
   offeredAccessoriesBySlot,
   outfitWearsPins,
 } from './outfit-composition.ts';
-import { wornOutfitFrom } from './outfit-history.ts';
 import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
 
 // Compose around the pieces a person chose (detail edit). The pin is a
@@ -27,18 +26,15 @@ function day(weather, preference) {
 const pin = (slot, garmentTypeId) => ({ slot, garmentTypeId });
 const wearing = (outfit, slot) => assignedOutfitGarments(outfit).find((piece) => piece.slot === slot)?.garment.garmentTypeId;
 
-test('no pin leaves the offer exactly as Today composes it', () => {
-  const { requirements, candidates } = day('mild', 'womens');
-  assert.deepEqual(composeOutfitOptions(requirements, candidates, 0, [], []),
-    composeOutfitOptions(requirements, candidates, 0));
-});
+// Compose reads `composeOutfitsAroundPins`; Today's `composeOutfitOptions` takes no pins at all.
+const around = (requirements, candidates, pins) => composeOutfitsAroundPins(requirements, candidates, 0, pins);
 
 test('a pin is a predicate on the full valid set, not on the 24 Today offers', () => {
   const { requirements, candidates } = day('mild', 'womens');
   const today = composeOutfitOptions(requirements, candidates, 0);
-  const pinned = composeOutfitOptions(requirements, candidates, 0, [], [pin('bottom', 'skirt')]);
+  const pinned = around(requirements, candidates, [pin('bottom', 'skirt')]);
   assert.equal(pinned.status, 'composed');
-  assert.ok(pinned.outfits.length >= 1 && pinned.outfits.length <= composedOptionLimit);
+  assert.ok(pinned.outfits.length >= 1 && pinned.outfits.length <= composedOutfitLimit);
   assert.ok(pinned.outfits.every((outfit) => wearing(outfit, 'bottom') === 'skirt'));
   const offered = new Set(today.outfits.map(({ compositionKey }) => compositionKey));
   assert.ok(pinned.outfits.some(({ compositionKey }) => !offered.has(compositionKey)),
@@ -47,8 +43,8 @@ test('a pin is a predicate on the full valid set, not on the 24 Today offers', (
 
 test('a pin is bound to its slot: a sweater is a top pin or a mid layer pin, never both readings', () => {
   const { requirements, candidates } = day('mild', 'womens');
-  const top = composeOutfitOptions(requirements, candidates, 0, [], [pin('primary_top', 'sweater')]);
-  const mid = composeOutfitOptions(requirements, candidates, 0, [], [pin('mid_layer', 'sweater')]);
+  const top = around(requirements, candidates, [pin('primary_top', 'sweater')]);
+  const mid = around(requirements, candidates, [pin('mid_layer', 'sweater')]);
   assert.ok(top.outfits.length > 0 && top.outfits.every((outfit) => wearing(outfit, 'primary_top') === 'sweater'));
   assert.ok(mid.outfits.length > 0 && mid.outfits.every((outfit) => wearing(outfit, 'mid_layer') === 'sweater'));
   assert.ok(mid.outfits.every((outfit) => wearing(outfit, 'primary_top') !== 'sweater'));
@@ -57,32 +53,24 @@ test('a pin is bound to its slot: a sweater is a top pin or a mid layer pin, nev
 test('several pins are all worn together, three picks at most, each meaningfully different', () => {
   const { requirements, candidates } = day('mild', 'womens');
   const pins = [pin('primary_top', 'sweater'), pin('bottom', 'skirt'), pin('footwear', 'sneakers')];
-  const result = composeOutfitOptions(requirements, candidates, 0, [], pins);
+  const result = around(requirements, candidates, pins);
   assert.ok(result.outfits.length >= 1 && result.outfits.length <= 3);
   assert.ok(result.outfits.every((outfit) => outfitWearsPins(outfit, pins)));
   assert.equal(new Set(result.outfits.map(({ compositionKey }) => compositionKey)).size, result.outfits.length);
 });
 
-test('the reader\'s pieces always show: the recently worn exclusion does not apply', () => {
-  const { requirements, candidates } = day('mild', 'womens');
-  const pins = [pin('bottom', 'skirt')];
-  const first = composeOutfitOptions(requirements, candidates, 0, [], pins).outfits;
-  const recentWorn = first.map((outfit) => wornOutfitFrom({ ...outfit, archetypeId: 'everyday_easy' }));
-  const again = composeOutfitOptions(requirements, candidates, 0, recentWorn, pins).outfits;
-  assert.deepEqual(again.map(({ compositionKey }) => compositionKey), first.map(({ compositionKey }) => compositionKey));
-});
-
 test('the picks carry the day\'s accessories like any offered outfit', () => {
   const { requirements, candidates } = day('cold_rain', 'womens');
-  const result = composeOutfitOptions(requirements, candidates, 0, [], [pin('primary_top', 'sweater')]);
+  const result = around(requirements, candidates, [pin('primary_top', 'sweater')]);
   assert.ok(result.outfits.every((outfit) => outfit.accessories.handheld?.garment.garmentTypeId === 'umbrella'));
 });
 
 test('fewer than three are returned honestly when that is all that differs', () => {
   const { requirements, candidates } = day('mild', 'womens');
   const pins = [pin('primary_top', 'sweater'), pin('bottom', 'skirt'), pin('footwear', 'sneakers'), pin('outer_layer', 'light_jacket')];
-  const result = composeOutfitOptions(requirements, candidates, 0, [], pins);
+  const result = around(requirements, candidates, pins);
   assert.equal(result.status, 'composed');
+  assert.deepEqual(result.unsatisfiedPins, []);
   assert.ok(result.outfits.length <= 2, `${result.outfits.length} picks`);
 });
 
@@ -125,7 +113,7 @@ test('a day that composes nothing fails as it does for Today, pins or not', () =
   const { requirements } = day('mild', 'womens');
   const failure = composeOutfitsAroundPins(requirements, [], 0, [pin('bottom', 'skirt')]);
   assert.equal(failure.status, 'failure');
-  assert.deepEqual(composeOutfitOptions(requirements, [], 0, [], [pin('bottom', 'skirt')]), failure);
+  assert.deepEqual(composeOutfitOptions(requirements, [], 0), failure);
 });
 
 test('the accessories that answer today are offered per slot, and none on a day that asks nothing', () => {

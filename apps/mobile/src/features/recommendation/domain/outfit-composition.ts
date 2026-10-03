@@ -1945,8 +1945,8 @@ export type OutfitPin = Readonly<{
   garmentTypeId: GarmentTypeId;
 }>;
 
-/** What compose around chosen pieces offers: at most three, one or two when that is all there are. */
-export const composedOptionLimit = 3;
+/** How many outfits compose around chosen pieces offers: at most three, one or two when that is all there are. */
+export const composedOutfitLimit = 3;
 
 function pinnedGarmentId(outfit: OutfitCandidate, slot: OutfitPin['slot']): string | undefined {
   switch (slot) {
@@ -1984,7 +1984,7 @@ function offerAroundPins(
   return withAccessories(
     selectDiverseOutfits(
       orderForOffer(result.outfits.filter((outfit) => outfitWearsPins(outfit, pins)), startOffset),
-      composedOptionLimit,
+      composedOutfitLimit,
     ),
     result.accessorySets,
   );
@@ -1995,16 +1995,9 @@ export function composeOutfitOptions(
   candidates: readonly GarmentEligibilityResult[],
   startOffset: number,
   recentWorn: readonly WornOutfit[] = [],
-  pins: readonly OutfitPin[] = [],
 ): OutfitCompositionsResult {
   const result = composeValidOutfits(requirements, candidates);
   if (result.status === 'failure') return result;
-  if (pins.length > 0) {
-    return Object.freeze({
-      status: 'composed',
-      outfits: Object.freeze(offerAroundPins(result, startOffset, pins)),
-    });
-  }
   // Accessories are attached to the offered outfits and to nothing else. The order above
   // them reads score, formality, body core and candidate keys, none of which an accessory
   // touches, so a cold day pays for 24 attachments rather than for its tens of thousands

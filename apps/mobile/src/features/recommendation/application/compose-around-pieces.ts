@@ -3,11 +3,7 @@ import type { DayKind, DressStyle, StyleAesthetic } from '@kuyara/contracts';
 import type { ClothingPreference } from '@/domain/preferences';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import { pinPieces } from '@/features/recommendation/domain/manual-mix';
-import {
-  composedOptionLimit,
-  composeOutfitsAroundPins,
-  type OutfitPin,
-} from '@/features/recommendation/domain/outfit-composition';
+import { composeOutfitsAroundPins, type OutfitPin } from '@/features/recommendation/domain/outfit-composition';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import {
   assignComposedArchetypes,
@@ -15,6 +11,9 @@ import {
   orderByDressStyle,
   type RecommendedOutfit,
 } from '@/features/recommendation/application/recommend-outfits';
+
+/** How many pieces the reader can choose to compose around. */
+export const composePieceLimit = 3;
 
 /** One piece the reader chose, and the colour it paints in on the board (a board swatch id; never read by selection). */
 export type ComposePin = OutfitPin & Readonly<{ swatchId?: GarmentSwatchId }>;
@@ -62,7 +61,7 @@ export function composeAroundPieces(
   input: ComposeAroundInput,
   pins: readonly ComposePin[],
 ): ComposeAroundResult {
-  if (pins.length > composedOptionLimit) throw new Error(`At most ${composedOptionLimit} pieces can be chosen.`);
+  if (pins.length > composePieceLimit) throw new Error(`At most ${composePieceLimit} pieces can be chosen.`);
   if (new Set(pins.map(({ slot }) => slot)).size !== pins.length) throw new Error('One piece to a slot.');
   const { requirements, clothingPreference } = input;
   const around = composeOutfitsAroundPins(
@@ -73,8 +72,10 @@ export function composeAroundPieces(
   );
   if (around.status === 'failure') return Object.freeze({ status: 'unavailable' });
 
+  // The dress style orders the picks, the swapped-in best one included, as it orders Today's.
+  const ordered = orderByDressStyle(around.outfits, input, requirements);
   if (around.unsatisfiedPins.length > 0) {
-    const [best] = assignComposedArchetypes(around.outfits.slice(0, 1), requirements, input.dayKind);
+    const [best] = assignComposedArchetypes(ordered.slice(0, 1), requirements, input.dayKind);
     const { outfit, unusual, appliedPins } = pinPieces(best, pins, requirements, clothingPreference);
     return Object.freeze({
       status: 'composed',
@@ -87,8 +88,7 @@ export function composeAroundPieces(
     });
   }
 
-  const outfits = assignComposedArchetypes(
-    orderByDressStyle(around.outfits, input, requirements), requirements, input.dayKind);
+  const outfits = assignComposedArchetypes(ordered, requirements, input.dayKind);
   return Object.freeze({
     status: 'composed',
     options: Object.freeze(outfits.map((outfit) => Object.freeze({

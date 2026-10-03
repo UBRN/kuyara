@@ -33,8 +33,8 @@ type ComposeSheetProps = Readonly<{
   pieces: readonly ComposePiece[];
   /** "Choose another piece": the catalog by slot. */
   catalog: readonly ComposeCatalogGroup[];
-  /** The outfit's palette, so an outfit piece without a chosen colour shows the outfit's own. */
-  palette: GarmentOutfitPalette | null;
+  /** The board's palette, so a piece the board draws, without a chosen colour, shows the board's own. */
+  palette: GarmentOutfitPalette;
   selection: ComposeSelection;
   onToggle: (piece: ComposePiece) => void;
   onColor: (slot: ComposeSlot, colorId: string | null) => void;
@@ -88,7 +88,10 @@ function ComposePieces({
   const roles = useGarmentRoles(palette);
   const others = selection.filter((choice) => !pieces.some((piece) => isComposePieceChosen([choice], piece)));
 
-  const row = (piece: ComposePiece, fromOutfit: boolean) => {
+  // A piece keeps the board's colours only where the board draws that very piece in its slot.
+  const drawn = (piece: ComposePiece) => palette.pieces.some((one) =>
+    one.slot === piece.slot && one.garmentTypeId === piece.garmentTypeId);
+  const row = (piece: ComposePiece) => {
     const choice = selection.find((chosen) => isComposePieceChosen([chosen], piece));
     const color = choice?.colorId ?? null;
     const slotName = messages.today.slots[piece.slot];
@@ -104,12 +107,12 @@ function ComposePieces({
               category={categoryOf(piece)}
               colorChoice={color === null ? null : { kind: 'option', id: color }}
               garmentTypeId={piece.garmentTypeId}
-              roles={color === null && fromOutfit ? roles.get(piece.slot) : undefined}
+              roles={color === null && drawn(piece) ? roles.get(piece.slot) : undefined}
               testIDPrefix="compose"
             />
           )}
           onPress={() => onToggle(piece)}
-          supportingText={color === null ? slotName : `${slotName} · ${colorName(color)}`}
+          supportingText={color === null ? slotName : [slotName, colorName(color)]}
           testID={`compose-piece-${piece.slot}-${piece.garmentTypeId}`}
           unavailable={!available}
         />
@@ -137,12 +140,12 @@ function ComposePieces({
       </View>
       <View style={styles.section}>
         <AppText accessibilityRole="header" variant="bodyStrong">{copy.fromOutfit}</AppText>
-        <View>{pieces.map((piece) => row(piece, true))}</View>
+        <View>{pieces.map(row)}</View>
       </View>
       <View style={styles.section}>
         {others.length > 0 ? <AppText accessibilityRole="header" variant="bodyStrong">{copy.yourPieces}</AppText> : null}
         <View>
-          {others.map((choice) => row(choice, false))}
+          {others.map(row)}
           <View style={styles.flush}>
             <ListRow
               glyph={({ color, size }) => <Icon color={color} name="plus" size={size} />}

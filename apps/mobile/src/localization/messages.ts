@@ -1782,7 +1782,7 @@ const en = {
         head: (piece) => `Take off the head accessory, now ${piece}`,
         neck: (piece) => `Take off the neck accessory, now ${piece}`,
         hands: (piece) => `Take off the hand accessory, now ${piece}`,
-        handheld: (piece) => `Take off what you carry, now ${piece}`,
+        handheld: (piece) => `Leave behind what you carry, now ${piece}`,
       },
       accessoriesTookOff: (count) => (count === 1
         ? 'You took off 1 finishing touch' : `You took off ${count} finishing touches`),
@@ -2974,7 +2974,7 @@ const tr = {
         head: (piece) => `Baştaki aksesuarı çıkar, şu an ${piece}`,
         neck: (piece) => `Boyundaki aksesuarı çıkar, şu an ${piece}`,
         hands: (piece) => `Ellerdeki aksesuarı çıkar, şu an ${piece}`,
-        handheld: (piece) => `Yanına aldığını çıkar, şu an ${piece}`,
+        handheld: (piece) => `Yanına aldığını bırak, şu an ${piece}`,
       },
       accessoriesTookOff: (count) => `${count} son dokunuşu çıkardın`,
       putBack: 'Geri koy',

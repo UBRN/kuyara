@@ -16,14 +16,13 @@ import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 
 export type ComposeEntryProps = Readonly<{
-  /** The account screens switch, passed in by the route: while it is off nothing here exists. */
-  accountsOpen: boolean;
   isMember: boolean;
   /** A non-member's tap: opens "Complete your profile" on detail, on the compose benefit page. */
   onSignIn: () => void;
   pieces: readonly ComposePiece[];
   catalog: readonly ComposeCatalogGroup[];
-  palette: GarmentOutfitPalette | null;
+  /** The board's palette: an outfit piece in the sheet shows the colours it has on the board. */
+  palette: GarmentOutfitPalette;
   /** Builds the result around the chosen pieces. Synchronous and transient. */
   onCompose: (pins: readonly ComposePin[]) => void;
 }>;
@@ -31,17 +30,12 @@ export type ComposeEntryProps = Readonly<{
 /**
  * "Build from a piece" under "Wore this today" (ADR 0041 section 5, ADR 0026 section 6): a
  * member opens the compose sheet; a non-member sees the row muted but legible with the
- * Members chip and a tap asks for sign-in. Absent, row and sheet, while accounts are closed.
+ * Members chip and a tap asks for sign-in. The route renders it only while accounts are open.
  * The choice outlives the sheet for as long as detail is open.
  */
-export function ComposeEntry({ accountsOpen, isMember, ...rest }: ComposeEntryProps) {
-  if (!accountsOpen) return null;
-  return <ComposeEntryContent isMember={isMember} {...rest} />;
-}
-
-function ComposeEntryContent({
+export function ComposeEntry({
   catalog, isMember, onCompose, onSignIn, palette, pieces,
-}: Omit<ComposeEntryProps, 'accountsOpen'>) {
+}: ComposeEntryProps) {
   const copy = useMessages().today.compose;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);

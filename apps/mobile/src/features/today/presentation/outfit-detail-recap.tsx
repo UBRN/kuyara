@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import type { Ref, RefObject } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Entrance, GarmentTileArtwork, Icon, type useGarmentRoles } from '@/components/ui';
@@ -25,6 +25,7 @@ const ACCESSORY_ARTWORK_SIZE = 28;
  */
 export function OutfitDetailRecap({
   accessories,
+  accessoryTargets,
   addedAccessorySlots = [],
   copy,
   everChanged,
@@ -39,6 +40,8 @@ export function OutfitDetailRecap({
   stageColor,
 }: Readonly<{
   accessories: DetailSuggestion['accessories'];
+  /** Each finishing touch's words by slot, so focus can land on one put back. */
+  accessoryTargets?: RefObject<Map<AccessoryOutfitSlot, View>>;
   addedAccessorySlots?: readonly AccessoryOutfitSlot[];
   copy: TodayCopy;
   everChanged: boolean;
@@ -67,14 +70,20 @@ export function OutfitDetailRecap({
           </AppText>
           <View style={styles.accessoryList}>
             {accessories.map((accessory) => {
-              const subtitle = addedAccessorySlots.includes(accessory.accessorySlot)
-                ? mix.accessoryAdded(accessory.slot) : accessory.slot;
+              const added = addedAccessorySlots.includes(accessory.accessorySlot);
+              const subtitle = added ? mix.accessoryAdded(accessory.slot) : accessory.slot;
+              // Spoken with a comma pause where the subtitle shows a middle dot.
+              const label = copy.finishingTouchesRowAccessibilityLabel({ item: accessory.item, slot: accessory.slot });
               return (
                 <View key={accessory.accessorySlot} style={styles.accessoryRow}>
                   {/* The row's words are one element and its Take off another, each one sentence. */}
                   <View
                     accessible
-                    accessibilityLabel={copy.finishingTouchesRowAccessibilityLabel({ item: accessory.item, slot: subtitle })}
+                    accessibilityLabel={added ? `${label}, ${mix.added}` : label}
+                    ref={(node) => {
+                      if (node) accessoryTargets?.current.set(accessory.accessorySlot, node);
+                      else accessoryTargets?.current.delete(accessory.accessorySlot);
+                    }}
                     style={styles.accessoryMain}
                     testID={`outfit-detail-accessory-${accessory.garmentTypeId}`}>
                     <DarkPlate style={styles.accessoryTile}>

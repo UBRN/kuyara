@@ -14,15 +14,25 @@ const recommendation = recommendOutfits(grid);
 const pick = recommendation.outfits[0];
 const snapshot = { clothingPreference: 'womens', dressStyle: 'smart', styleAesthetics: ['minimal'], dayVariant: 0 };
 
+// A Thursday and a Saturday in UTC, the zone these tests run in.
+const thursday = Date.parse('2026-08-13T09:00:00.000Z');
+const saturday = Date.parse('2026-08-15T09:00:00.000Z');
+
 test('compose reads the day Today was built for, or nothing when that day is unknown', () => {
-  assert.deepEqual(composeInputFor(snapshot, requirements, 'formal'), {
+  assert.deepEqual(composeInputFor(snapshot, requirements, 'formal', thursday), {
     requirements, clothingPreference: 'womens', dayVariant: 0, dressStyle: 'formal', styleAesthetics: ['minimal'],
+    dayKind: 'weekday',
   });
-  assert.equal(composeInputFor(snapshot, requirements, null).dressStyle, 'smart');
-  assert.equal(composeInputFor(null, requirements, null), null);
-  assert.equal(composeInputFor(snapshot, null, null), null);
-  assert.equal(composeInputFor({ ...snapshot, dayVariant: null }, requirements, null), null);
-  assert.equal(composeInputFor({ ...snapshot, clothingPreference: 'unknown' }, requirements, null), null);
+  assert.equal(composeInputFor(snapshot, requirements, null, thursday).dressStyle, 'smart');
+  assert.equal(composeInputFor(null, requirements, null, thursday), null);
+  assert.equal(composeInputFor(snapshot, null, null, thursday), null);
+  assert.equal(composeInputFor({ ...snapshot, dayVariant: null }, requirements, null, thursday), null);
+  assert.equal(composeInputFor({ ...snapshot, clothingPreference: 'unknown' }, requirements, null, thursday), null);
+});
+
+test('compose labels its picks for the day the reader is on, as Today does', () => {
+  assert.equal(composeInputFor(snapshot, requirements, null, saturday).dayKind, 'weekend');
+  assert.equal(composeInputFor(snapshot, requirements, null, thursday).dayKind, 'weekday');
 });
 
 test('the sheet lists the pick\'s drawn pieces in slot order', () => {
@@ -32,22 +42,22 @@ test('the sheet lists the pick\'s drawn pieces in slot order', () => {
   assert.equal(pieces.at(-1).slot, 'footwear');
 });
 
-test('a composed option is changed wherever it differs from the pick, and wherever a colour was chosen', () => {
+test('a composed option counts changes against itself: an unpinned piece is not "changed" for differing from the pick', () => {
   const [option] = composeAroundPieces(input, [
     { slot: 'bottom', garmentTypeId: 'skirt', swatchId: 'plum' },
     { slot: 'footwear', garmentTypeId: composePiecesOf(pick).at(-1).garmentTypeId, swatchId: 'black' },
   ]).options;
-  const detail = composedDetail(pick, option.outfit, option, []);
+  const detail = composedDetail(option, [], []);
+  assert.equal(detail.outfit, option.outfit);
   assert.deepEqual(detail.pinnedSlots, ['bottom', 'footwear']);
   assert.deepEqual(detail.pieceColors, { bottom: 'plum', footwear: 'black' });
-  // The footwear may be the pick's own, yet its chosen colour makes it the reader's.
-  assert.ok(detail.changedSlots.includes('bottom'));
-  assert.ok(detail.changedSlots.includes('footwear'));
+  assert.deepEqual(detail.changedSlots, []);
 });
 
-test('a pinned piece the reader then changed is no longer theirs to colour or call "your choice"', () => {
+test('the reader\'s later edits are the changes, a pinned piece changed there losing its colour and "your choice"', () => {
   const [option] = composeAroundPieces(input, [{ slot: 'bottom', garmentTypeId: 'skirt', swatchId: 'plum' }]).options;
-  const detail = composedDetail(pick, option.outfit, option, ['bottom']);
+  const detail = composedDetail(option, ['bottom'], ['neck']);
+  assert.deepEqual(detail.changedSlots, ['bottom', 'neck']);
   assert.deepEqual(detail.pinnedSlots, []);
   assert.deepEqual(detail.pieceColors, {});
 });

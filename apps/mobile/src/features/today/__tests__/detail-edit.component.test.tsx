@@ -106,12 +106,12 @@ function Detail({ state, language, ...rest }: Readonly<{ state: TodayScreenState
   );
 }
 
-async function renderDetail(
+function tree(
   language: SupportedLanguage,
   state: TodayScreenState = todayScreenState,
   props: Partial<React.ComponentProps<typeof OutfitDetailScreen>> = {},
 ) {
-  const result = await render(
+  return (
     <LocalizationContext value={{ language, messages: messages[language], hour12: false, temperatureUnit: 'celsius' }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={{
@@ -123,8 +123,16 @@ async function renderDetail(
           </HeaderHeightContext>
         </SafeAreaProvider>
       </KuyaraThemeContext.Provider>
-    </LocalizationContext>,
+    </LocalizationContext>
   );
+}
+
+async function renderDetail(
+  language: SupportedLanguage,
+  state: TodayScreenState = todayScreenState,
+  props: Partial<React.ComponentProps<typeof OutfitDetailScreen>> = {},
+) {
+  const result = await render(tree(language, state, props));
   await fireEvent(result.getByTestId('outfit-detail-content'), 'layout',
     { nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } } });
   return result;
@@ -146,12 +154,22 @@ const focusByTestID = () => {
   return jest.spyOn(AccessibilityInfo, 'setAccessibilityFocus').mockImplementation(() => undefined);
 };
 
+// A composed result standing in for kuyara's pick, as the route passes it.
+const composeResult = (key: string) => ({
+  key,
+  line: <Text testID="compose-line">1 / 3</Text>,
+  subtitle: 'composed subtitle',
+  source: 'composed source',
+  detail: { outfit: pickOf(todayScreenState).outfit, changedSlots: [], pinnedSlots: [], pieceColors: {} },
+});
+
 describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
   const copy = messages[language].today;
   const mix = copy.manualMix;
 
   test('Take off in the strip header lays the board out without the layer and leaves its row in place', async () => {
     const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+    const queued = jest.spyOn(AccessibilityInfo, 'announceForAccessibilityWithOptions').mockImplementation(() => undefined);
     const focus = focusByTestID();
     const onBoardFocusChange = jest.fn();
     const result = await renderDetail(language, todayScreenState, { onBoardFocusChange });
@@ -161,6 +179,7 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     expect(takeOff).toHaveTextContent(mix.takeOff);
     expect(takeOff).toHaveProp('accessibilityLabel', mix.takeOffAccessibilityLabel.outer_layer);
     announce.mockClear();
+    queued.mockClear();
     await fireEvent.press(takeOff);
     await nextFrame();
 
@@ -178,9 +197,11 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     expect(result.getByTestId('outfit-detail-empty-outer_layer'))
       .toHaveProp('accessibilityLabel', `${mix.noLayer.outer_layer}, ${mix.tookOff}`);
     // VoiceOver lands on the empty place, and one announcement says the layer went and the
-    // outfit is unusual for the rain now.
+    // outfit is unusual for the rain now. It waits for the focused place to be read instead of
+    // being cut off by it.
     expect(focus).toHaveBeenLastCalledWith('outfit-detail-empty-outer_layer');
-    expect(announce.mock.calls).toEqual([[mix.takenOffUnusual.outer_layer]]);
+    expect(announce).not.toHaveBeenCalled();
+    expect(queued.mock.calls).toEqual([[mix.takenOffUnusual.outer_layer, { queue: true }]]);
     expect(result.getByText(mix.unusual)).toBeOnTheScreen();
     expect(result.getByTestId('outfit-detail-generation-source')).toHaveTextContent(mix.sourceOne.deterministic);
   });
@@ -267,6 +288,10 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     expect(result.getByTestId('outfit-detail-generation-source')).toHaveTextContent(mix.sourceMany.deterministic);
 
     await fireEvent.press(touches.getByTestId('outfit-detail-accessories-put-back'));
+    await nextFrame();
+    // VoiceOver lands on the first finishing touch put back, the neck's.
+    const neckPiece = pickOf(coldTodayScreenState).outfit.accessories.neck?.garment.garmentTypeId;
+    expect(focus).toHaveBeenLastCalledWith(`outfit-detail-accessory-${neckPiece}`);
     expect(touches.getByTestId('outfit-detail-accessory-take-off-neck')).toBeOnTheScreen();
     expect(touches.getByTestId('outfit-detail-accessory-take-off-hands')).toBeOnTheScreen();
     expect(touches.queryByTestId('outfit-detail-accessories-removed')).toBeNull();
@@ -298,6 +323,9 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     const row = within(touches.getByTestId('outfit-detail-accessory-umbrella'));
     expect(row.getByText(catalogName(language, 'umbrella'))).toBeOnTheScreen();
     expect(row.getByText(mix.accessoryAdded(copy.slots.handheld))).toBeOnTheScreen();
+    // Spoken with a comma pause, never the middle dot the subtitle shows.
+    expect(touches.getByTestId('outfit-detail-accessory-umbrella').props.accessibilityLabel)
+      .toBe(`${catalogName(language, 'umbrella')}, ${copy.slots.handheld}, ${mix.added}`);
     expect(touches.getByTestId('outfit-detail-accessory-take-off-handheld')).toBeOnTheScreen();
     // Taking an added one off simply forgets it: nothing of kuyara's was taken off.
     await fireEvent.press(touches.getByTestId('outfit-detail-accessory-take-off-handheld'));
@@ -310,12 +338,17 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     const button = result.getByTestId('outfit-detail-accessory-take-off-handheld');
     expect(button.props.accessibilityLabel).toMatch(new RegExp(catalogName(language, 'umbrella')));
     expect(button.props.accessibilityLabel).not.toBe(mix.takeOff);
+    // What is carried is left behind, not taken off.
+    expect(button.props.accessibilityLabel).toBe({
+      en: `Leave behind what you carry, now ${catalogName(language, 'umbrella')}`,
+      tr: `Yanına aldığını bırak, şu an ${catalogName(language, 'umbrella')}`,
+    }[language]);
   });
 
   test('pinned slots read "Your choice", and the compose slots render where the screen leaves them', async () => {
     const result = await renderDetail(language, todayScreenState, {
       pinnedSlots: ['bottom'],
-      composeEntry: <Text testID="compose-entry">entry</Text>,
+      composeEntry: () => <Text testID="compose-entry">entry</Text>,
     });
     const bottom = within(result.getByTestId('outfit-detail-row-bottom'));
     expect(bottom.getByText(mix.yourChoice, hidden)).toBeOnTheScreen();
@@ -332,12 +365,7 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
   });
 
   test('a composed result shows its line under the names, its subtitle and its own source sentence', async () => {
-    const result = await renderDetail(language, todayScreenState, {
-      composeResult: {
-        line: <Text testID="compose-line">1 / 3</Text>, subtitle: 'composed subtitle', source: 'composed source',
-        detail: { changedSlots: [], pinnedSlots: [], pieceColors: {} },
-      },
-    });
+    const result = await renderDetail(language, todayScreenState, { composeResult: composeResult('composed#1') });
     expect(result.getByTestId('compose-line')).toBeOnTheScreen();
     // Its "Show another" takes touches: nothing above it in the board lets them fall through.
     for (let node = result.getByTestId('compose-line').parent; node; node = node.parent) {
@@ -348,5 +376,15 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
       .toBeOnTheScreen();
     expect(result.getByTestId('outfit-detail-changed-from')).toHaveTextContent('composed subtitle');
     expect(result.getByTestId('outfit-detail-generation-source')).toHaveTextContent('composed source');
+  });
+
+  test('another composed option ends the enlargement in the same render', async () => {
+    const onBoardFocusChange = jest.fn();
+    const result = await renderDetail(language, todayScreenState, { composeResult: composeResult('composed#1'), onBoardFocusChange });
+    await activate(result, 'outer_layer');
+    expect(result.getByTestId('outfit-detail-board-strip')).toBeOnTheScreen();
+    await result.rerender(tree(language, todayScreenState, { composeResult: composeResult('composed#2'), onBoardFocusChange }));
+    expect(result.queryByTestId('outfit-detail-board-strip')).toBeNull();
+    expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
   });
 });
