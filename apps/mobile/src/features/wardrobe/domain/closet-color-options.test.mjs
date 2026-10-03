@@ -118,7 +118,7 @@ test('Closet palette fields do not cross into recommendation, AI, analytics or W
   // The one approved reader outside the Closet (O8): the outfit detail draws the
   // user's own similar piece ("Yours") in its saved colour. It renders and names it only; the
   // rest of Today, recommendation, analytics and the Worker stay free of the fields.
-  const displayOnly = new Set([join(mobileSrc, 'features', 'today', 'presentation', 'outfit-detail-screen.tsx')]);
+  const displayOnly = new Set([join(mobileSrc, 'features', 'today', 'presentation', 'outfit-detail-pieces.tsx')]);
   async function scan(directory) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);

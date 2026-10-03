@@ -39,6 +39,11 @@ const hotPath = new Set([
   // Phase 7b: a piece change re-renders the whole outfit detail when any of these is skipped.
   'app/(tabs)/(today)/[id].tsx',
   'features/today/presentation/outfit-detail-screen.tsx',
+  'features/today/presentation/outfit-detail-board-names.tsx',
+  'features/today/presentation/outfit-detail-pieces.tsx',
+  'features/today/presentation/outfit-detail-recap.tsx',
+  'features/today/presentation/outfit-detail-why.tsx',
+  'features/today/presentation/outfit-detail-worn.tsx',
   'components/ui/garment-board/garment-swap-board.tsx',
 ]);
 
