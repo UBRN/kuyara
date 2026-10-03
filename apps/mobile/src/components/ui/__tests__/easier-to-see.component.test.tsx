@@ -133,6 +133,20 @@ test.each([
   });
 });
 
+// The gated ink is a muted secondary ink, so it reads in the primary ink under higher contrast too.
+test('gated text reads in the primary ink while higher contrast applies', async () => {
+  const text = <AppText colorRole="textGated" testID="text">Build from a piece</AppText>;
+  const off = await render(text, { wrapper: wrapper(false) });
+  expect(StyleSheet.flatten(off.getByTestId('text').props.style).color).toBe(lightTheme.colors.textGated);
+  await off.unmount();
+  const on = await render(
+    <KuyaraThemeContext.Provider value={lightTheme}>
+      <SystemVisibilityContext value={{ boldText: false, increaseContrast: true }}>{text}</SystemVisibilityContext>
+    </KuyaraThemeContext.Provider>,
+  );
+  expect(StyleSheet.flatten(on.getByTestId('text').props.style).color).toBe(lightTheme.colors.textPrimary);
+});
+
 // A button that is not already a dark fill takes the 2-point strong edge
 // while higher contrast applies, in its inert ink when disabled; the prominent fill is
 // already its own boundary and keeps no edge.

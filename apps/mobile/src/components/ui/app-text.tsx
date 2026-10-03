@@ -36,9 +36,10 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
   const theme = useKuyaraTheme();
   const { heavierText, higherContrast } = useVisibility();
   const { usesStackedLayout } = useTextScaling();
-  // O13: higher contrast reads secondary text in the primary ink; heavier text takes one
-  // weight step and lifts the 13-point roles to the 15-point label size.
-  const resolvedColorRole = higherContrast && colorRole === 'textSecondary' ? 'textPrimary' : colorRole;
+  // O13: higher contrast reads secondary and gated text in the primary ink; heavier text takes
+  // one weight step and lifts the 13-point roles to the 15-point label size.
+  const resolvedColorRole = higherContrast && (colorRole === 'textSecondary' || colorRole === 'textGated')
+    ? 'textPrimary' : colorRole;
   const role = typography[variant];
   const heavier = heavierText
     ? {
