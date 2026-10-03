@@ -184,3 +184,11 @@ export function alertOfferToRender<Offer>(
 export function alertOfferAfterAccept(outcome: NotificationOptInOutcome): 'blocked' | 'answered' {
   return outcome.outcome === 'blocked' ? 'blocked' : 'answered';
 }
+
+/** Today is updating while a day-type change regenerates the outfit or a window choice is being made. */
+export function isUpdatingOutfit(
+  dayType: DressStyle | null,
+  choosingCaption: string | null,
+): boolean {
+  return dayType !== null || choosingCaption !== null;
+}

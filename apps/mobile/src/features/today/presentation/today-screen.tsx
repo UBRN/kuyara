@@ -27,6 +27,7 @@ import {
   alertOfferAfterAccept,
   alertOfferToRender,
   isGenerationRunning,
+  isUpdatingOutfit,
   settledFirstOutfit,
   todayPresentationState,
 } from '@/features/today/application/today-surface';
@@ -427,7 +428,6 @@ function TodayScreenContent({
 
   const stageColor = theme.atmosphere[presentation.atmosphere];
   const choosing = presentation.choosingCaption;
-  const updating = updatingDayType !== null || choosing !== null;
   // The symbol draws the same rain at every tempo; only the condition's ambient step says
   // how fast it falls.
   const ambientIntensity = state.kind === 'loaded'
@@ -442,6 +442,7 @@ function TodayScreenContent({
       id: primary.id, boardPieces: primary.boardPieces, palette: primary.palette, replaced: stageOutfit !== null,
     });
   }
+  const updating = isUpdatingOutfit(updatingDayType, choosing);
   const generationMode = presentation.generationMode;
   if (generationMode && (shownGenerationMode?.mode !== generationMode.mode
     || shownGenerationMode.label !== generationMode.label
