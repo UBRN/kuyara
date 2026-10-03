@@ -25,7 +25,7 @@ rules out. This design retires all three.
 
 ### 1. Category pages with a grid
 
-The Closet presents six categories side by side through a horizontal tab strip. Each
+The Closet presents its applicable categories side by side through a horizontal tab strip: six, or five for a man's profile that holds no active one-piece record. Each
 selected category scrolls vertically within its own page. Owned and wanted pieces are
 sections on that page: "Owned" and its count, then, 24 below the owned tiles, a heart and
 "Wanted" and its count, each a `bodyStrong` heading in `textSecondary`. The grid has three
@@ -64,7 +64,11 @@ Sorting is newest first within each ownership section. No sort control is added.
 - Native large title, "Closet" / "Gardırop", native back to Profile, and a plus bar
   button that opens the visual "Add a piece" form with owned/wanted visuals, garment-type selection and photo-library import; in-app camera capture ships in build 16. No kuyara-drawn bar-button primitive is added.
 - The horizontal category tabs use catalogue order (tops, bottoms, one-piece, outerwear,
-  shoes, accessories), always all six, and show counts derived from active items. A tab is
+  shoes, accessories), every applicable one, and show counts derived from active items. One
+  catalogue-domain list (`listStructuralCategoriesForPreference`) says which categories a
+  clothing preference can add to, and one wardrobe rule (`visibleClosetCategories(preference,
+  items)`) hides One-piece only while a `mens` profile holds no active one-piece record, so a
+  recorded one-piece is never hidden and a man who holds one keeps the tab. A tab is
   a 40 point pill with 2 points of hit slop: the category glyph at 22, the name at
   `label`, the count in tabular figures, a `borderDefined` edge. The selected tab is the
   viewport's one accent fill. The strip bleeds off the right edge so more categories
@@ -73,7 +77,8 @@ Sorting is newest first within each ownership section. No sort control is added.
   without a state filter. Legacy rows with no garment type remain accessible through their
   structural category.
 - The Closet opens on the category it is given (Profile's cells), else on the first
-  category holding a piece. Profile's Wanted row opens the first category holding a
+  category holding a piece; a route that names a hidden category falls back to that first
+  shown category. Profile's Wanted row opens the first category holding a
   wanted piece with its Wanted section in view. The plus button and an empty page's add
   button open the form with its type chooser on the current category.
 - No haptic on category tabs or tiles.
@@ -87,7 +92,8 @@ contract rather than by a per-state layout.
 
 ### 4. States
 
-- **Empty**, per category: the category's own piece (the type its picker tile draws),
+- **Empty**, per category (a hidden One-piece category has none, so no empty state ever
+  draws a dress for a man): the category's own piece (the type its picker tile draws),
   faded on the muted tile an empty place keeps in both appearances, never the garment
   plate, then the category's own sentence ("You have not added any shoes yet.") and a
   tonal "Add a piece" button, with no accent fill because the

@@ -53,15 +53,19 @@ Top to bottom, the populated screen is:
    garment-type silhouette in their colour family, or their category glyph when they have
    no type; a photo never enters the drawing. The rack is one button that opens the Closet;
    its label names the heading, the total and the count per category.
-   Under it, 12 below, **six category cells** in three columns (two at the largest
-   standard text sizes), 12 apart: a 64 point `surfaceMuted` tile, radius 14 (in the dark
+   Under it, 12 below, the **category cells**, six in catalogue order (five for a man's profile
+   with no active one-piece record, [product decisions](../product-decisions.md#wardrobe-persistence-and-taxonomy)),
+   in three columns (two at the largest standard text sizes), 12 apart; five cells lay out
+   three over two with an invisible spacer completing the second row, and two, two and one at
+   the largest standard text size: a 64 point `surfaceMuted` tile, radius 14 (in the dark
    appearance a category holding pieces stands on the garment plate instead, while an empty
    or loading one stays on the dark `surfaceMuted` tile, so only the filled categories and
    the rack read as light plates), holding the
    category's newest owned piece drawn in its colour (the category glyph in
    `textSecondary` when the category is empty) and its count at `title` in tabular
-   figures, then the category name at `caption` in `textSecondary`, 4 below. All six
-   always show; counts are owned plus wanted, derived from the records. Each cell is a
+   figures, then the category name at `caption` in `textSecondary`, 4 below. Every
+   applicable category shows; counts are owned plus wanted, derived from the records, and a
+   hidden One-piece cell is never a gap, a placeholder or a dress drawing. Each cell is a
    button, "Tops, 7 pieces, 1 wanted.", that opens the Closet on its category.
 4. `spacing.xl` 24, the one permitted `xl` on the screen.
 5. One inset group holding a **Wanted** row (heart tile, count, chevron; opens the list on
@@ -74,7 +78,7 @@ The rack keeps its place in every state. The empty Closet shows the heading, the
 bare hangers waiting on both rails, one sentence at `body` in `textPrimary`, and an "Add a
 piece" / "Parça ekle" button (the screen's only accent fill, present only in this state)
 that opens the add form directly, with no category cells. Loading draws the bare rack, hooks and rails without hangers,
-then the six cell tiles without drawings or counts, spoken as loading. An error draws the
+then the category cell tiles without drawings or counts, spoken as loading. An error draws the
 bare rack, then a `dangerInk` glyph at 20, a `bodyStrong` title, a `body` line and a
 tonal "Try again" button. The Wanted row is hidden while nothing exists in either state.
 The History row sits in the group under Closet.

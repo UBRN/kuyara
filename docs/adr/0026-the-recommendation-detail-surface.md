@@ -12,8 +12,10 @@ Owns the recommendation detail surface named by
 Direction E makes Today visual-first and keeps garment names, layer structure, per-piece
 reasoning and weather reasoning on a recommendation detail surface reached from Today.
 
-The recommendation engine has no per-slot substitution input. Manual swapping is a
-separate interaction over catalog pieces and never changes the engine's candidates.
+The recommendation engine has no per-slot substitution input. Manual editing (swapping,
+taking a layer off, adding a layer or an accessory) and composing around chosen pieces are
+separate interactions over catalog pieces and never change Today's outfit, the engine's
+candidates or the AI request.
 
 ## Decision
 
@@ -41,6 +43,8 @@ the visible statement that the weather was the input and the outfit is now the s
 ### 3. Garment rows sit below the board
 
 No text overlaps the drawings. Directly under the board a row of small buttons names the pieces in the order they are put on, wrapping at any text size; each label is centred in its button, the buttons of one line share one height, and each button carries one Closet marker after its label and no other decoration: a filled circled tick in the accent for a piece owned in its colour, a hanger for one owned only in another colour, a filled heart for a wanted one and an empty circle for one not in the Closet, the last three in the board's secondary icon ink. A tap on a name enlarges its piece exactly as a tap on the piece does. One line under them says a name or a piece is tapped and then swiped to change it, until the first change; while a piece is enlarged the candidate strip of decision 6 stands in the place of the names and the line. "Wore this today" sits directly under them. Below it, garment rows name each piece, its slot and its Closet state in board order; each row opens the piece's edit sheet for ownership, colour and optional photo, and carries the plain "Change" control of decision 6. Rows retain readable labels and 44-point targets at the largest standard text size, where Change moves under the row's text.
+
+The rows follow the outfit's edits (decision 6). A layer the reader took off leaves its row in place as "No outer layer" / "Dış katman yok" ("No mid layer" / "Orta katman yok") on the empty-place tile, a `surfaceMuted` tile with the category's glyph faded, subtitle "You took it off" / "Sen çıkardın", with Change and nothing to open. When a layer slot is free an "Add a layer" / "Katman ekle" row follows the piece rows in the same anatomy, a plus tile and the subtitle "Mid or outer layer" / "Orta ya da dış katman". Under the piece rows, "Finishing touches" / "Son dokunuşlar" lists the accessories one row each with a trailing "Take off" / "Çıkar" and ends with an "Add an accessory" / "Aksesuar ekle" row; the heading shows even when kuyara chose none. Under "Wore this today", a result built around chosen pieces marks those rows "Your choice" / "Senin seçimin" with Change. Every added control is a text control or a row of the existing anatomy, drawn once, and a row that gains or loses its control keeps one accessible element for its text and one for its button, each speaking a whole sentence.
 
 The slot label is used rather than `layerRole`, which would print "standalone" under a bottom.
 
@@ -159,6 +163,55 @@ candidate fires the selection feedback once per crossing, a threshold under the 
 tile, the picker and an adjustable step fire none. **Risk accepted:** manual mode can present an
 outfit the deterministic recommendation engine would reject.
 
+Removal and addition belong to the layers and the finishing touches only. A `mid_layer` or
+`outer_layer` can be taken off; the top, bottom, one-piece and footwear never can. While such
+a piece is enlarged, the strip header shows its name, "n / total", a plain text "Take off" /
+"Çıkar" and "Done" / "Bitti"; no mark sits on a piece, which section 3's rejection of corner
+glyphs keeps. Taking it off lays the board out again with ADR 0025's rule without the piece:
+the piece lifts `spacing.lg` as it fades on `motion.fast`, with no sideways exit, the
+remaining pieces glide to their boxes, and the focused slot clears in the same render so no
+enlargement outlives its piece. The row becomes the empty-place row of section 3, and the
+slot's picker, opened from that row, starts with "Wear without an outer layer" / "Dış katman
+olmadan giy" ("Wear without a mid layer" / "Orta katman olmadan giy"), fixed first outside the
+score order, marked current while the layer is off. The strip never offers "none" and a swipe
+never reaches it, so no candidate list holds an empty entry. An "Add a layer" row opens the
+picker for the free layer slot, behind a segmented "Mid layer" / "Orta katman" and "Outer
+layer" / "Dış katman" when both are free; the added piece is hung on from above, starting
+transparent, and its row reads "Added" / "Eklendi". A layer taken off never changes an
+accessory on its own. Whether the weather allows the outfit without the layer is the domain
+validator's verdict, shown as the unusual note; nothing blocks it.
+
+The finishing touches are editable the same way. Each accessory row carries "Take off"; a
+taken-off accessory leaves the list and one closing line, "You took off 2 finishing
+touches" / "2 son dokunuşu çıkardın", a whole sentence for each count in each language,
+carries "Put back" / "Geri koy", which restores them all. "Add an accessory" opens a picker
+grouped Head, Neck, Hands and Carry over the eight catalogue accessories, "Fits today's
+weather" first only when the domain says an accessory answers a requirement; an added
+accessory reads "<slot> · Added" with "Take off", one accessory fills one accessory slot, and
+an accessory the day does not ask for never makes the outfit unusual, because accessories never
+count. The board still draws none of them (ADR 0025).
+
+Composing around chosen pieces answers "What do you want to wear today?" without changing the
+engine's selection. A row under "Wore this today", for a signed-in member once accounts open
+(ADR 0041 section 5), opens a sheet over the outfit's pieces and "Choose another piece", which
+turns the sheet to the catalog by slot and back (a sweater is listed as a top and as a mid
+layer). The reader ticks at most three, one for each slot; a later tick replaces the piece it
+conflicts with, so a one-piece tick clears the top and bottom ticks and the reverse. Each
+ticked piece may be coloured from
+the Closet's 33 solid colours, which only paints the drawing through the recorded swatch and
+never enters selection. The domain adds the pins as a predicate on the full valid outfit set
+before ordering, diversity and accessories, deterministically, with no AI request, no allowance
+and no Worker call; Closet records are never pins. A result is up to three outfits stepped
+through by "1 / 3" and "Show another" / "Başka göster" in the hint slot below the name
+buttons, wrapping from the last to the first, fewer when the pins leave fewer, read honestly
+as "1 / 2" or "1 / 1" (no button at one); the title reads "Your outfit" with the subtitle
+"Built from the pieces you chose" / "Seçtiğin parçalarla kuruldu". Pins that fit no valid outfit for the weather are
+composed with the largest satisfiable subset and the rest are swapped into the best pick,
+under the same unusual note. The result lives like a manual change: it is never a snapshot,
+never replaces Today and records as `manual` through "Wore this today". **Risk accepted:**
+making the row members only, for a feature that needs no identity, may draw App Review
+guideline 5.1.1(v); the risk is accepted.
+
 A new record starts on the colour family the outfit draws the piece in, without sending Closet data to AI.
 
 ### 7. The entry transition
@@ -189,7 +242,8 @@ one. Simulator verification covers the animated sequence.
 - **The detail surface places every supported item.** Garment names, layer structure,
   weather reasoning, composition trade-offs, ownership state,
   formality, the weather recap and AI provenance are all placed. Manual swaps are
-  explicitly outside engine selection by decision 6.
+  explicitly outside engine selection by decision 6, as are taking pieces off and adding them
+  and composing around chosen pieces.
 - **The screen uses two existing pieces of data**: `suppliedByCandidateKeys` and
   `OutfitCandidate.formality`.
 - **One edit sheet owns the Closet actions.** The garment rows open it; the board and the rows' Change control change pieces, so no control is duplicated.
@@ -208,6 +262,13 @@ transition. Rejected on Law 3, which forbids secondary copy on that stage.
 apart so a name could fit under each, which drew the outfit differently from Today, and a
 glyph disc at a piece's corner would cover a neighbour once the pieces overlap.
 
+**A mark on each piece, or an edit mode with minus and plus badges.** Rejected on section 3's
+no-glyph-on-a-piece rule and on the board drawing five pieces and nothing else (ADR 0025): the
+control lives in the enlarged piece's strip header and in the rows.
+
+**Swiping to an empty candidate.** Rejected: the board's lookups assume a piece for every
+focused slot, and taking a layer off is a decision, not a step in an order.
+
 **One reasoning row per garment.** Simpler to build and it reads as a list again. It also
 misrepresents the domain: a requirement is satisfied by a set of garments, and a garment
 often satisfies none, so per-garment rows would either invent reasons or leave blanks.
@@ -217,6 +278,9 @@ under a pair of jeans.
 
 ## Out of scope
 
-- Engine-generated per-slot substitutions, per decision 6.
+- Engine-generated per-slot substitutions, per decision 6. Composing around chosen pieces is
+  the reader's own pin on the deterministic composer, not an engine substitution, and never
+  uses AI.
+- Taking off or adding a top, a bottom, a one-piece or footwear.
 - The garment rendering architecture, unchanged from ADR 0021 and ADR 0025.
 - Alternate outfits and how Today offers them, which is ADR 0021 section 6.
