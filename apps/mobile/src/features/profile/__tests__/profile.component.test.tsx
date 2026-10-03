@@ -17,6 +17,7 @@ import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
 import { darkTheme, lightTheme, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { mockFontScale } from '../../../../test/font-scale';
 
 jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
@@ -28,12 +29,6 @@ const initialMetrics = {
 };
 
 const originalWindowDimensions = Dimensions.get('window');
-
-// See list-row.component.test.tsx: `useWindowDimensions` seeds from `Dimensions.get`, so
-// this must be set before render rather than mocking the exported hook.
-function mockFontScale(fontScale: number) {
-  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
-}
 
 afterEach(() => {
   Dimensions.set({ window: originalWindowDimensions });

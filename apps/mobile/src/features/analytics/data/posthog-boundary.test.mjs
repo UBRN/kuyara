@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, extname, join, relative } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { sourceFiles as listSourceFiles } from '../../../../test/source-files.mjs';
 
 const dataDirectory = dirname(fileURLToPath(import.meta.url));
 const sourceDirectory = join(dataDirectory, '..', '..', '..');
@@ -15,14 +17,8 @@ const forbiddenCalls = [
   ['capture', 'Exception('].join(''),
 ];
 
-function sourceFiles(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return sourceFiles(path);
-    if (!['.ts', '.tsx'].includes(extname(entry.name)) || entry.name.includes('.test.')) return [];
-    return [path];
-  });
-}
+const sourceFiles = (directory) =>
+  listSourceFiles(directory, { extensions: ['.ts', '.tsx'] }).map((file) => join(directory, file));
 
 const sources = sourceFiles(sourceDirectory);
 

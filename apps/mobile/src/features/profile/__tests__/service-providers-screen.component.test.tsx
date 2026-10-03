@@ -10,6 +10,7 @@ import {
   type KuyaraTheme,
 } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { mockFontScale } from '../../../../test/font-scale';
 
 jest.mock('expo-symbols', () => ({
   SymbolView: (props: Record<string, unknown>) => {
@@ -32,10 +33,6 @@ const initialMetrics = {
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
 const originalWindowDimensions = Dimensions.get('window');
-
-function mockFontScale(fontScale: number) {
-  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
-}
 
 afterEach(() => {
   Dimensions.set({ window: originalWindowDimensions });

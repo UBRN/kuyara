@@ -6,6 +6,7 @@ import { NativePickerRow } from '@/components/ui/native-picker-row';
 import { EasierToSeeContext } from '@/theme/easier-to-see';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { mockFontScale } from '../../../../test/font-scale';
 
 const { Alert, Dimensions, Platform } = ReactNative;
 const mockSelectionHaptic = jest.fn();
@@ -60,10 +61,6 @@ afterEach(() => {
 
 function ThemeWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
   return <KuyaraThemeContext.Provider value={lightTheme}>{children}</KuyaraThemeContext.Provider>;
-}
-
-function mockFontScale(fontScale: number) {
-  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
 }
 
 test('the full-width menu row renders the native picker options and changes selection once', async () => {
