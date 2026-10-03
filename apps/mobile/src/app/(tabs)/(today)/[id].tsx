@@ -10,6 +10,10 @@ import { StackActions } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform } from 'react-native';
 
+import { useIsMember } from '@/features/account/application/account-membership';
+import { useAccountScreens } from '@/features/account/application/account-screens-context';
+import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
+import { AccountSheet } from '@/features/account/presentation/account-sheet';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
@@ -23,6 +27,8 @@ import { isClothingPreference } from '@/domain/preferences';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
+import { composeCatalog } from '@/features/today/application/compose-selection';
+import { composedDetail, composePiecesOf, useDetailCompose } from '@/features/today/application/composed-detail';
 import { classifyTodayState } from '@/features/today/application/today-state';
 import {
   closetSeedOffer,
@@ -39,6 +45,7 @@ import {
   type WornOutfit,
   type WornPieceColors,
 } from '@/features/recommendation/domain/outfit-history';
+import { ComposeEntry, ComposeResultLine } from '@/features/today/presentation/compose-entry';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { closetFieldsChanged } from '@/features/wardrobe/application/closet-field-changes';
@@ -67,6 +74,8 @@ export default function OutfitDetailRoute() {
     useWeatherApplication();
   const { markSwapHintShown, state: profileState } = useProfileApplication();
   const { analytics, firstUses } = useProductAnalytics();
+  const isMember = useIsMember();
+  const { port: accountScreens } = useAccountScreens();
   const [editing, setEditing] = useState<PieceSheetTarget | null>(null);
   const [wornGarments, setWornGarments] = useState<{ key: string; looks: readonly WornOutfit[] } | null>(null);
   const [wornBusy, setWornBusy] = useState(false);
@@ -106,13 +115,17 @@ export default function OutfitDetailRoute() {
   const snapshotPreference = tomorrow
     ? tomorrowPreview?.clothingPreference
     : recommendationState.status === 'ready' ? recommendationState.snapshot?.clothingPreference : undefined;
-  const manualMix = useManualMix(
-    outfit,
-    recommendation?.status === 'recommended' ? recommendation.requirements : null,
-    isClothingPreference(snapshotPreference) ? snapshotPreference : null,
-  );
-  // Any edit makes the outfit the reader's, a finishing touch alone included, and records as `manual`.
-  const changedOutfit = manualMix?.edited ? manualMix.outfit : null;
+  const requirements = recommendation?.status === 'recommended' ? recommendation.requirements : null;
+  const preference = isClothingPreference(snapshotPreference) ? snapshotPreference : null;
+  // Compose around chosen pieces (members only, today only): its result is shown, edited and
+  // recorded through the same manual mix, as the reader's outfit from the start.
+  const composed = useDetailCompose(tomorrow || recommendationState.status !== 'ready'
+    ? null : recommendationState.snapshot, requirements, resolvedDressStyle ?? null);
+  const option = composed.current;
+  const manualMix = useManualMix(option?.outfit ?? outfit, requirements, preference, option?.unusual ?? false);
+  // Any edit makes the outfit the reader's, a finishing touch alone included, and so does a
+  // composed result; each records as `manual`.
+  const changedOutfit = option || manualMix?.edited ? manualMix?.outfit ?? null : null;
 
   // A regeneration that lands while the reader is on another tab and no longer offers this
   // outfit leaves nothing to come back to, so the Today stack returns to its root rather
@@ -278,6 +291,13 @@ export default function OutfitDetailRoute() {
     boardFocused ? { unstable_dismissalBoundsRect: { maxX: 0, maxY: 0 } } : undefined,
   );
 
+  const composedView = option && outfit && manualMix
+    ? composedDetail(outfit, manualMix.outfit, option, manualMix.changedSlots) : null;
+  // "Back to kuyara's pick" forgets the composed result too.
+  const shownMix = manualMix && option
+    ? { ...manualMix, reset: () => { composed.clear(); manualMix.reset(); } }
+    : manualMix;
+
   return (
     <>
       {/* O14: every pushed screen goes back the same way, through the system's glass back
@@ -299,7 +319,27 @@ export default function OutfitDetailRoute() {
       <OutfitDetailScreen
         closetSeed={closetSeed}
         language={language}
-        manualMix={manualMix}
+        composeEntry={!tomorrow && outfit && preference ? (
+          <ComposeEntry
+            accountsOpen={ACCOUNT_SCREENS_ENABLED}
+            catalog={composeCatalog(preference)}
+            isMember={isMember}
+            onCompose={composed.compose}
+            onSignIn={() => accountScreens.openSignIn('detail')}
+            palette={null}
+            pieces={composePiecesOf(outfit)}
+          />
+        ) : null}
+        composeResult={composedView ? {
+          line: (
+            <ComposeResultLine index={composed.index} onShowAnother={composed.showAnother} total={composed.options.length} />
+          ),
+          subtitle: messages.today.compose.builtFrom,
+          source: messages.today.compose.source,
+          detail: composedView,
+        } : null}
+        manualMix={shownMix}
+        pinnedSlots={composedView?.pinnedSlots}
         onBoardFocusChange={setBoardFocused}
         onEditPiece={setEditing}
         onSwipeHintShown={() => {
@@ -317,6 +357,7 @@ export default function OutfitDetailRoute() {
         wornBusy={wornBusy}
         wornError={wornError}
       />
+      {ACCOUNT_SCREENS_ENABLED ? <AccountSheet host="detail" /> : null}
       <PieceEditSheet
         onDiscardStagedPhoto={wardrobe.discardStagedPhoto}
         onDismiss={() => setEditing(null)}

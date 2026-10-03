@@ -333,7 +333,10 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
 
   test('a composed result shows its line under the names, its subtitle and its own source sentence', async () => {
     const result = await renderDetail(language, todayScreenState, {
-      composeResult: { line: <Text testID="compose-line">1 / 3</Text>, subtitle: 'composed subtitle', source: 'composed source' },
+      composeResult: {
+        line: <Text testID="compose-line">1 / 3</Text>, subtitle: 'composed subtitle', source: 'composed source',
+        detail: { changedSlots: [], pinnedSlots: [], pieceColors: {} },
+      },
     });
     expect(result.getByTestId('compose-line')).toBeOnTheScreen();
     // Its "Show another" takes touches: nothing above it in the board lets them fall through.

@@ -263,6 +263,10 @@ export type TodayMessages = Readonly<{
     colorLabel: Readonly<Record<SwappableSlot, string>>;
     build: string;
     chosenCount: (count: number) => string;
+    /** The result's subtitle under the title. */
+    builtFrom: string;
+    /** Compose never asks AI, so its source sentence has one form. */
+    source: string;
     /** The visible "1 / 3" and its spoken whole phrase. */
     position: (position: number, total: number) => string;
     positionAccessibilityLabel: (position: number, total: number) => string;
@@ -1807,6 +1811,8 @@ const en = {
       },
       build: 'Build the outfit',
       chosenCount: (count) => `${count} / 3 pieces chosen`,
+      builtFrom: 'Built from the pieces you chose',
+      source: 'You chose the pieces. kuyara put the rest together on your device.',
       position: (position, total) => `${position} / ${total}`,
       positionAccessibilityLabel: (position, total) => `Outfit ${position} of ${total}`,
       showAnother: 'Show another',
@@ -2995,6 +3001,8 @@ const tr = {
       },
       build: 'Kombini kur',
       chosenCount: (count) => `${count} / 3 parça seçildi`,
+      builtFrom: 'Seçtiğin parçalarla kuruldu',
+      source: 'Parçaları sen seçtin. Kalanını kuyara cihazında hazırladı.',
       position: (position, total) => `${position} / ${total}`,
       positionAccessibilityLabel: (position, total) => `Kombin ${position} / ${total}`,
       showAnother: 'Başka göster',

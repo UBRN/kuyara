@@ -69,6 +69,7 @@ import {
   type PiecePickerOption,
   type PiecePickerTarget,
 } from '@/features/today/presentation/piece-picker-sheet';
+import type { ComposedDetail } from '@/features/today/application/composed-detail';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
@@ -126,8 +127,9 @@ type OutfitDetailScreenProps = Readonly<{
   /**
    * A result composed around chosen pieces: its stepping line stands under the board's names,
    * its subtitle under the title, and its source sentence in place of the generation's.
+   * `detail` says how it differs from kuyara's pick: it is the reader's outfit from the start.
    */
-  composeResult?: Readonly<{ line: ReactNode; subtitle: string; source: string }> | null;
+  composeResult?: Readonly<{ line: ReactNode; subtitle: string; source: string; detail: ComposedDetail }> | null;
 }>;
 
 export function OutfitDetailScreen({
@@ -201,16 +203,20 @@ export function OutfitDetailScreen({
   const messages = useMemo(() => getMessages(language), [language]);
   const copy = messages.today;
   // Any edit counts, a drawn piece or a finishing touch: an accessory-only edit is still the reader's.
-  const changed = manualMix?.edited ?? false;
+  const composed = composeResult?.detail ?? null;
+  const changed = composed !== null || (manualMix?.edited ?? false);
   if (changed && !everChanged) setEverChanged(true);
   const presentation = useMemo(() => createTodayPresentation(state, language, hour12, temperatureUnit, now,
     manualMix && changed && suggestionId
       ? {
           optionId: suggestionId,
           outfit: manualMix.outfit,
-          changedSlots: [...manualMix.changedSlots, ...manualMix.changedAccessorySlots],
+          changedSlots: composed
+            ? composed.changedSlots
+            : [...manualMix.changedSlots, ...manualMix.changedAccessorySlots],
+          pieceColors: composed?.pieceColors,
         }
-      : null), [changed, hour12, language, manualMix, now, state, suggestionId, temperatureUnit]);
+      : null), [changed, composed, hour12, language, manualMix, now, state, suggestionId, temperatureUnit]);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)

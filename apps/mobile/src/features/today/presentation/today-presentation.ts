@@ -9,6 +9,7 @@ import {
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import { dateTimeFormat, numberFormat, zonedClock, zonedDateKey } from '@/domain/intl-format';
+import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
@@ -110,6 +111,8 @@ export type ManualDetail = Readonly<{
   optionId: string;
   outfit: RecommendedOutfit;
   changedSlots: readonly OutfitSlot[];
+  /** Colours the reader chose for pieces composed around (compose only): each piece's recorded swatch. */
+  pieceColors?: Readonly<Partial<Record<OutfitSlot, GarmentSwatchId>>>;
 }>;
 
 export type LoadedOutfitPresentation = Readonly<{
@@ -458,6 +461,18 @@ const palettesByOutfit = new WeakMap<RecommendedOutfit, GarmentOutfitPalette>();
  * board and its finishing-touch badges together. Colour is render-only: nothing here is
  * stored or reaches a recommendation.
  */
+/** The reader's chosen colours drawn as recorded swatches; colour only paints, it never selects. */
+function withPieceColors(palette: GarmentOutfitPalette, colors: ManualDetail['pieceColors']): GarmentOutfitPalette {
+  if (!colors || Object.keys(colors).length === 0) return palette;
+  return {
+    ...palette,
+    pieces: palette.pieces.map((piece) => {
+      const recordedSwatchId = colors[piece.slot];
+      return recordedSwatchId === undefined ? piece : { ...piece, recordedSwatchId };
+    }),
+  };
+}
+
 export function outfitGarmentPalette(outfit: RecommendedOutfit, day: GarmentPaletteDay): GarmentOutfitPalette {
   const kept = palettesByOutfit.get(outfit);
   if (kept && kept.temperatureC === day.temperatureC && kept.condition === day.condition &&
@@ -499,7 +514,11 @@ function localizeOutfit(
   language: SupportedLanguage,
   dayKind: DayKind,
   paletteDay: GarmentPaletteDay,
-  manual: Readonly<{ original: RecommendedOutfit; changedSlots: readonly OutfitSlot[] }> | null = null,
+  manual: Readonly<{
+    original: RecommendedOutfit;
+    changedSlots: readonly OutfitSlot[];
+    pieceColors?: ManualDetail['pieceColors'];
+  }> | null = null,
 ): LoadedOutfitPresentation {
   const changedSlots = manual?.changedSlots ?? [];
   const messages = getMessages(language);
@@ -603,7 +622,7 @@ function localizeOutfit(
     summary,
     pieces,
     boardPieces,
-    palette: outfitGarmentPalette(outfit, paletteDay),
+    palette: withPieceColors(outfitGarmentPalette(outfit, paletteDay), manual?.pieceColors),
     keptColors: manual && changed ? {
       original: outfitGarmentPalette(manual.original, paletteDay),
       slots: outfitGarmentPalette(outfit, paletteDay).pieces
@@ -826,8 +845,10 @@ function createLoadedPresentation(
   const paletteDay = day ? forecastDayPalette(day) : garmentPaletteDay(weather, now, snapshot.paletteBasis);
   const suggestions = outfits.map((outfit, index) =>
     manual && manual.changedSlots.length > 0 && outfit.optionId === manual.optionId
-      ? localizeOutfit(manual.outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay,
-        { original: outfit, changedSlots: manual.changedSlots })
+      // The changed outfit stands in the opened option's place and keeps its id; a composed
+      // one carries an id of its own.
+      ? { ...localizeOutfit(manual.outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay,
+        { original: outfit, changedSlots: manual.changedSlots, pieceColors: manual.pieceColors }), id: outfit.optionId }
       : localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay),
   );
   // ADR 0034 section 4: the on-device badge appears only when the stored mode is

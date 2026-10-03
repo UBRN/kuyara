@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { useEffect, useState, useSyncExternalStore, type PropsWithChildren } from 'react';
 import { AccessibilityInfo, Alert, AppState, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -71,6 +71,13 @@ jest.mock('@expo/ui/community/bottom-sheet', () => {
     return index >= 0 ? React.createElement(View, null, children) : null;
   } };
 });
+// Compose around chosen pieces sits behind the account screens switch: each test injects it.
+let mockAccountsOpen = false;
+jest.mock('@/features/account/application/account-screens-flag', () => ({
+  get ACCOUNT_SCREENS_ENABLED() {
+    return mockAccountsOpen;
+  },
+}));
 jest.mock('@/components/ui/native-menu', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const {
@@ -581,6 +588,7 @@ import TodayRoute from '@/app/(tabs)/(today)/index';
 import OutfitDetailRoute from '@/app/(tabs)/(today)/[id]';
 
 beforeEach(() => {
+  mockAccountsOpen = false;
   mockPush.mockClear();
   mockBack.mockClear();
   mockDispatch.mockClear();
@@ -3638,4 +3646,125 @@ test.each([
     refresh.mockRestore();
     jest.useRealTimers();
   }
+});
+
+describe('compose around chosen pieces on detail', () => {
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const { AccountScreensContext } = jest.requireActual('@/features/account/application/account-screens-context');
+  const { accountScenarios, createInMemoryAccountScreens } = jest.requireActual('@/features/account/application/account-screens');
+  const composeModule = jest.requireActual('@/features/recommendation/application/compose-around-pieces');
+  const copy = messages.en.today;
+  const pins = [{ slot: 'bottom', garmentTypeId: 'skirt' }] as const;
+  // An earlier test restores its AppState spy onto the preset's mock without its subscription;
+  // the sign-in pager subscribes, so each test here gets a working one.
+  let appState: jest.SpyInstance;
+  beforeEach(() => {
+    appState = jest.spyOn(AppState, 'addEventListener').mockImplementation(() => ({ remove: jest.fn() }) as never);
+  });
+  afterEach(() => appState.mockRestore());
+  const expected = () => composeModule.composeAroundPieces({
+    requirements: todayRecommendation.requirements, clothingPreference: 'womens', dayVariant: 0, dressStyle: 'smart',
+  }, pins);
+
+  function renderDetail(scenario: 'upToDate' | 'signedOut', outfitHistory?: RecommendationApplicationValue['outfitHistory']) {
+    mockParams = { id: todayOutfitId(1) };
+    const port = createInMemoryAccountScreens(accountScenarios[scenario]);
+    const props = {
+      productAnalytics: createProductAnalytics(),
+      profile: profileValue(),
+      recommendation: recommendationReady(),
+      wardrobe: wardrobeValue(),
+      weather: weatherValue(),
+      dressingDayKey: '2026-08-13',
+      outfitHistory,
+    };
+    return {
+      port,
+      result: render(
+        <Providers {...props}>
+          <AccountScreensContext.Provider value={port}><OutfitDetailRoute /></AccountScreensContext.Provider>
+        </Providers>,
+      ),
+    };
+  }
+
+  async function composeSkirt(result: Awaited<ReturnType<typeof render>>) {
+    await fireEvent.press(result.getByTestId('compose-entry-row'));
+    await fireEvent.press(result.getByTestId('compose-choose-another'));
+    await fireEvent.press(result.getByTestId('compose-catalog-bottom-skirt'));
+    await fireEvent.press(result.getByTestId('compose-build'));
+  }
+
+  test('while the account screens are closed there is no row, no sheet and no account sheet', async () => {
+    const { port, result } = renderDetail('signedOut');
+    const screen = await result;
+    port.openSignIn('detail');
+    expect(await screen.findByTestId('outfit-detail-screen')).toBeOnTheScreen();
+    expect(screen.queryByTestId('compose-entry-row')).toBeNull();
+    expect(screen.queryByTestId('compose-sheet')).toBeNull();
+    expect(screen.queryByTestId('account-sheet-detail')).toBeNull();
+  });
+
+  test('a non-member\'s muted row opens Complete your profile on the compose benefit page', async () => {
+    mockAccountsOpen = true;
+    const { port, result } = renderDetail('signedOut');
+    const screen = await result;
+    const row = await screen.findByTestId('compose-entry-row');
+    expect(row.props.accessibilityLabel).toBe(`${copy.compose.entry}, ${copy.compose.membersChip}`);
+    await fireEvent.press(row);
+    expect(port.getSnapshot().sheet).toBe('detail');
+    expect(await screen.findByTestId('account-sheet-detail')).toBeOnTheScreen();
+    expect(screen.getByTestId('account-intro-dot-compose').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.queryByTestId('compose-sheet')).toBeNull();
+  });
+
+  test('a member composes: the result steps through its outfits, the chosen piece reads Your choice, and Wore this today records it as manual', async () => {
+    mockAccountsOpen = true;
+    const want = expected();
+    if (want.status !== 'composed') throw new Error('fixture');
+    const outfitHistory = {
+      list: jest.fn(async () => []),
+      day: jest.fn(async () => []),
+      log: jest.fn(async (_day: string, outfit: WornOutfit) => ({ outfit }) as never),
+    };
+    const { result } = renderDetail('upToDate', outfitHistory);
+    const screen = await result;
+    await composeSkirt(screen);
+    const total = want.options.length;
+    const position = await screen.findByTestId('compose-result-position');
+    expect(position).toHaveTextContent(`1 / ${total}`);
+    expect(screen.getByTestId('outfit-detail-changed-from')).toHaveTextContent(copy.compose.builtFrom);
+    expect(screen.getByTestId('outfit-detail-generation-source')).toHaveTextContent(copy.compose.source);
+    expect(within(screen.getByTestId('outfit-detail-row-bottom')).getByText(copy.manualMix.yourChoice, { includeHiddenElements: true }))
+      .toBeOnTheScreen();
+    let shown = 0;
+    if (total > 1) {
+      await fireEvent.press(screen.getByTestId('compose-show-another'));
+      shown = 1;
+      expect(screen.getByTestId('compose-result-position')).toHaveTextContent(`2 / ${total}`);
+    } else {
+      expect(screen.queryByTestId('compose-show-another')).toBeNull();
+    }
+    await waitFor(() => expect(outfitHistory.day).toHaveBeenCalled());
+    await fireEvent.press(await screen.findByTestId('outfit-detail-wore-this'));
+    expect(outfitHistory.log).toHaveBeenCalledWith('2026-08-13', wornOutfitFrom(want.options[shown].outfit, 'manual'),
+      expect.any(Object));
+
+    // Back to kuyara's pick forgets the composed result.
+    await fireEvent.press(screen.getByTestId('outfit-detail-reset-button'));
+    expect(screen.queryByTestId('compose-result-position')).toBeNull();
+  });
+
+  test('a day that composes nothing leaves the outfit as it was', async () => {
+    mockAccountsOpen = true;
+    const spy = jest.spyOn(composeModule, 'composeAroundPieces').mockReturnValue({ status: 'unavailable' });
+    const { result } = renderDetail('upToDate');
+    const screen = await result;
+    await composeSkirt(screen);
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(screen.queryByTestId('compose-result-position')).toBeNull();
+    expect(screen.getByTestId('outfit-detail-screen')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('outfit-detail-heading-group')).queryByText(copy.manualMix.title)).toBeNull();
+    spy.mockRestore();
+  });
 });
