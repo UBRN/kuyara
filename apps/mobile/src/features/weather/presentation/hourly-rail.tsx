@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -17,29 +18,20 @@ import type { WeatherConditionCode } from '@/features/weather/domain/weather';
 import { borderWidths, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-import { HOURLY_LABEL_LIFT, layoutHourlyRail } from './hourly-rail-layout';
+import { hourlyRailMetrics, layoutHourlyRail, type HourlyRailLayout } from './hourly-rail-layout';
 
-// O14 rail A. A column is 52 wide at a pitch of 56, so a 393-point phone shows six whole
-// hours and a preview of the seventh under the edge fade. The widest temperature a column
-// carries is six glyphs ("-12,0°"), about 46 points in `label` at the default size; the
-// column grows with the text so it still holds at the largest standard size.
-const COLUMN_WIDTH = 52;
-const COLUMN_GROWTH = 0.92;
-const PLOT_HEIGHT = 40;
-const PLOT_GROWTH_CAP = 1.25;
-// `label`'s line box. Feature code may not name the typography metric here (the greppable
-// Law 5 check), so the label row reserves it by number.
-const TEMPERATURE_LABEL_HEIGHT = 20;
 const FADE_WIDTH = 28;
 const DOT_RADIUS = 3;
 const NOW_DOT_RADIUS = 4.5;
+
+/** "Now" and the first hour of a new day read in the primary ink at weight 600. */
+export type HourlyTimeEmphasis = 'now' | 'newDay';
 
 export type HourlyRailColumn = Readonly<{
   key: string;
   accessibilityLabel: string;
   time: string;
-  /** "Now" and the first hour of a new day read in the primary ink at weight 600. */
-  timeEmphasis?: 'now' | 'newDay';
+  timeEmphasis?: HourlyTimeEmphasis;
   condition: WeatherConditionCode;
   daypart: Daypart | null;
   temperature: string;
@@ -59,7 +51,7 @@ export type HourlyRailProps = Readonly<{
 export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyRailProps) {
   const theme = useKuyaraTheme();
   const { width: windowWidth } = useWindowDimensions();
-  const { controlScale, fontScale } = useTextScaling();
+  const { fontScale } = useTextScaling();
   // The plot band's offset inside a column depends on the scaled line boxes above it, so
   // it is measured once from the first column rather than recomputed from type tokens.
   const [bandTop, setBandTop] = useState<number | null>(null);
@@ -72,20 +64,19 @@ export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyR
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(event.nativeEvent.contentOffset.x > 1);
   }, []);
+  // The rail opens on "Now": coming back to the screen, or a change in which hour leads the
+  // rail, scrolls it back to the start. A refresh that keeps the same hours leaves it alone.
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToNow = useCallback(() => {
+    scrollRef.current?.scrollTo({ x: 0, animated: false });
+  }, []);
+  useFocusEffect(scrollToNow);
+  const currentHour = columns[0]?.key;
+  useEffect(scrollToNow, [currentHour, scrollToNow]);
 
   const cardFill = resolveCardFill(theme);
-  const columnWidth = Math.round(COLUMN_WIDTH * Math.max(1, fontScale * COLUMN_GROWTH));
-  const labelHeight = TEMPERATURE_LABEL_HEIGHT * fontScale;
-  const { bandHeight, contentWidth, path, points } = layoutHourlyRail(
-    columns.map((column) => column.temperatureCelsius),
-    {
-      columnGap: spacing.xs,
-      columnWidth,
-      inset: spacing.lg,
-      labelHeight,
-      plotHeight: Math.round(PLOT_HEIGHT * Math.min(fontScale, PLOT_GROWTH_CAP)),
-    },
-  );
+  const metrics = hourlyRailMetrics(fontScale, { columnGap: spacing.xs, inset: spacing.lg });
+  const layout = layoutHourlyRail(columns.map((column) => column.temperatureCelsius), metrics);
 
   return (
     <View style={styles.rail}>
@@ -93,125 +84,153 @@ export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyR
         decelerationRate="normal"
         horizontal
         onScroll={handleScroll}
+        ref={scrollRef}
         scrollEventThrottle={16}
         showsHorizontalScrollIndicator={false}
         testID="weather-hourly-rail">
-        <View style={{ width: contentWidth }}>
-          {path !== '' && bandTop !== null ? (
+        <View style={{ width: layout.contentWidth }}>
+          {layout.path !== '' && bandTop !== null ? (
             // The series draws from the first hour across the hours in view; the
             // temperatures above it are drawn from the start.
             <DrawReveal
               play={drawIn}
-              span={Math.min(contentWidth, windowWidth)}
+              span={Math.min(layout.contentWidth, windowWidth)}
               style={[styles.series, { top: bandTop }]}
               testID="weather-hourly-series-reveal"
               waiting={waiting}
-              width={contentWidth}>
-              <Svg
-                accessibilityElementsHidden
-                height={bandHeight}
-                importantForAccessibility="no-hide-descendants"
-                pointerEvents="none"
-                testID="weather-hourly-series"
-                width={contentWidth}>
-                <Path
-                  d={path}
-                  fill="none"
-                  stroke={theme.colors.brandAccent}
-                  strokeLinecap="round"
-                  strokeWidth={2}
-                  testID="weather-hourly-series-line"
-                />
-                {points.map((point, index) => (
-                  <Circle
-                    cx={point.x}
-                    cy={point.y}
-                    // The first dot is the current hour: filled and a little larger.
-                    fill={index === 0 ? theme.colors.brandAccent : cardFill}
-                    key={columns[index].key}
-                    r={index === 0 ? NOW_DOT_RADIUS : DOT_RADIUS}
-                    stroke={theme.colors.brandAccent}
-                    strokeWidth={2}
-                  />
-                ))}
-              </Svg>
+              width={layout.contentWidth}>
+              <HourlySeries cardFill={cardFill} columns={columns} layout={layout} />
             </DrawReveal>
           ) : null}
           <View style={styles.columns}>
-            {columns.map((column, index) => {
-              const conditionStyle = resolveConditionStyle(column.condition, column.daypart);
-              const emphasised = column.timeEmphasis !== undefined;
-              return (
-                <View
-                  accessible
-                  accessibilityLabel={column.accessibilityLabel}
-                  key={column.key}
-                  style={[styles.column, { width: columnWidth }]}>
-                  {column.timeEmphasis === 'newDay' ? (
-                    // A hairline at midnight: the day changes between these two columns.
-                    <View
-                      style={[styles.dayDivider, { backgroundColor: theme.colors.borderSubtle }]}
-                      testID="weather-hourly-day-divider"
-                    />
-                  ) : null}
-                  <AppText
-                    colorRole={emphasised ? 'textPrimary' : 'textSecondary'}
-                    style={emphasised ? styles.emphasisedTime : undefined}
-                    tabularNumbers
-                    variant="caption">
-                    {column.time}
-                  </AppText>
-                  <Icon
-                    color={theme.condition[conditionStyle.ink]}
-                    name={conditionStyle.shape}
-                    size={20 * controlScale}
-                  />
-                  <View
-                    onLayout={index === 0 ? handleBandLayout : undefined}
-                    style={[styles.band, { height: bandHeight }]}
-                    testID="weather-hourly-band">
-                    {/* The number rides above its own dot, so the curve never crosses it
-                        and nothing has to be knocked out of the line. */}
-                    <AppText
-                      numberOfLines={1}
-                      style={[
-                        styles.temperature,
-                        { top: points[index].y - labelHeight - HOURLY_LABEL_LIFT },
-                      ]}
-                      tabularNumbers
-                      testID="weather-hourly-temperature"
-                      variant="label">
-                      {column.temperature}
-                    </AppText>
-                  </View>
-                  {/* A dry hour says nothing rather than saying zero: a rail of "0%" under
-                      every column is noise the eye has to read past. The slot keeps its
-                      height, so every column's dot and label stay on one grid. The
-                      column's own accessibility label states the chance either way. */}
-                  <View style={styles.chance}>
-                    {column.precipitationProbability > 0 ? (
-                      <>
-                        <Icon
-                          color={theme.colors.iconSecondary}
-                          name="precipitationChance"
-                          size={14 * controlScale}
-                        />
-                        <AppText colorRole="textSecondary" tabularNumbers variant="caption">
-                          {column.precipitation}
-                        </AppText>
-                      </>
-                    ) : (
-                      <AppText variant="caption">{' '}</AppText>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
+            {columns.map((column, index) => (
+              <HourlyColumn
+                bandHeight={layout.bandHeight}
+                column={column}
+                key={column.key}
+                labelTop={layout.labelTops[index]}
+                onBandLayout={index === 0 ? handleBandLayout : undefined}
+                width={metrics.columnWidth}
+              />
+            ))}
           </View>
         </View>
       </ScrollView>
       {scrolled ? <EdgeFade color={cardFill} side="left" /> : null}
       <EdgeFade color={cardFill} side="right" />
+    </View>
+  );
+}
+
+/** The accent temperature curve and one dot per hour; the first, the current hour, filled. */
+function HourlySeries({ cardFill, columns, layout }: Readonly<{
+  cardFill: string;
+  columns: readonly HourlyRailColumn[];
+  layout: HourlyRailLayout;
+}>) {
+  const theme = useKuyaraTheme();
+  return (
+    <Svg
+      accessibilityElementsHidden
+      height={layout.bandHeight}
+      importantForAccessibility="no-hide-descendants"
+      pointerEvents="none"
+      testID="weather-hourly-series"
+      width={layout.contentWidth}>
+      <Path
+        d={layout.path}
+        fill="none"
+        stroke={theme.colors.brandAccent}
+        strokeLinecap="round"
+        strokeWidth={2}
+        testID="weather-hourly-series-line"
+      />
+      {layout.points.map((point, index) => (
+        <Circle
+          cx={point.x}
+          cy={point.y}
+          fill={index === 0 ? theme.colors.brandAccent : cardFill}
+          key={columns[index].key}
+          r={index === 0 ? NOW_DOT_RADIUS : DOT_RADIUS}
+          stroke={theme.colors.brandAccent}
+          strokeWidth={2}
+        />
+      ))}
+    </Svg>
+  );
+}
+
+/** One hour: its time, condition, temperature over its dot, and chance of precipitation. */
+function HourlyColumn({ bandHeight, column, labelTop, onBandLayout, width }: Readonly<{
+  bandHeight: number;
+  column: HourlyRailColumn;
+  labelTop: number;
+  onBandLayout?: (event: LayoutChangeEvent) => void;
+  width: number;
+}>) {
+  const theme = useKuyaraTheme();
+  const { controlScale } = useTextScaling();
+  const conditionStyle = resolveConditionStyle(column.condition, column.daypart);
+  const emphasised = column.timeEmphasis !== undefined;
+  return (
+    <View
+      accessible
+      accessibilityLabel={column.accessibilityLabel}
+      style={[styles.column, { width }]}>
+      {column.timeEmphasis === 'newDay' ? (
+        // A hairline at midnight: the day changes between these two columns.
+        <View
+          style={[styles.dayDivider, { backgroundColor: theme.colors.borderSubtle }]}
+          testID="weather-hourly-day-divider"
+        />
+      ) : null}
+      <AppText
+        colorRole={emphasised ? 'textPrimary' : 'textSecondary'}
+        style={emphasised ? styles.emphasisedTime : undefined}
+        tabularNumbers
+        variant="caption">
+        {column.time}
+      </AppText>
+      <Icon
+        color={theme.condition[conditionStyle.ink]}
+        name={conditionStyle.shape}
+        size={20 * controlScale}
+      />
+      <View
+        onLayout={onBandLayout}
+        style={[styles.band, { height: bandHeight }]}
+        testID="weather-hourly-band">
+        {/* The number rides above its own dot, so the curve never crosses it and nothing
+            has to be knocked out of the line. */}
+        <AppText
+          numberOfLines={1}
+          style={[styles.temperature, { top: labelTop }]}
+          tabularNumbers
+          testID="weather-hourly-temperature"
+          variant="label">
+          {column.temperature}
+        </AppText>
+      </View>
+      {/* A dry hour says nothing rather than saying zero: a rail of "0%" under every column
+          is noise the eye has to read past. The slot keeps its height, so every column's
+          dot and label stay on one grid. The column's own accessibility label states the
+          chance either way. */}
+      <View style={styles.chance}>
+        {column.precipitationProbability > 0 ? (
+          <>
+            <Icon
+              color={theme.colors.iconSecondary}
+              name="precipitationChance"
+              size={14 * controlScale}
+            />
+            <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+              {column.precipitation}
+            </AppText>
+          </>
+        ) : (
+          <AppText variant="caption">{' '}</AppText>
+        )}
+      </View>
     </View>
   );
 }
