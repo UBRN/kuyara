@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import { todayActiveLocation, todayScreenState, todayWeatherSnapshot } from './__tests__/fixtures.ts';
 import {
+  alertOfferAfterAccept,
+  alertOfferToRender,
   isFirstDressingDay,
   isGenerationRunning,
   manualRefreshOutcome,
@@ -180,4 +182,20 @@ test('generation runs while Today loads, except while a day question waits', () 
   assert.equal(isGenerationRunning('loading', false), true);
   assert.equal(isGenerationRunning('loading', true), false);
   assert.equal(isGenerationRunning('loaded', false), false);
+});
+
+test('the alert offer shown is the refused one, else the unanswered one handed down', () => {
+  const offered = { ruleId: 'rain' };
+  const refused = { ruleId: 'morning_briefing' };
+  assert.equal(alertOfferToRender(null, false, offered), offered);
+  assert.equal(alertOfferToRender(null, true, offered), null);
+  assert.equal(alertOfferToRender(refused, true, offered), refused);
+  assert.equal(alertOfferToRender(refused, false, null), refused);
+  assert.equal(alertOfferToRender(null, false, null), null);
+});
+
+test('accepting the alert offer ends it unless the system refused', () => {
+  assert.equal(alertOfferAfterAccept({ outcome: 'enabled' }), 'answered');
+  assert.equal(alertOfferAfterAccept({ outcome: 'disabled' }), 'answered');
+  assert.equal(alertOfferAfterAccept({ outcome: 'blocked', canRequestAgain: false }), 'blocked');
 });

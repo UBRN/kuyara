@@ -24,6 +24,8 @@ import { RecommendationApplicationContext } from '@/features/recommendation/appl
 import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import {
+  alertOfferAfterAccept,
+  alertOfferToRender,
   isGenerationRunning,
   settledFirstOutfit,
   todayPresentationState,
@@ -273,7 +275,7 @@ function TodayScreenContent({
   // Held until the hero stage has laid out once, so the first outfit's rise starts after the
   // screen has been drawn rather than being spent while the loaded screen is still mounting.
   const [stageLaidOut, setStageLaidOut] = useState(false);
-  const offerToRender = blockedOffer ?? (offerAnswered ? null : alertOffer);
+  const offerToRender = alertOfferToRender(blockedOffer, offerAnswered, alertOffer);
   // The row leaves in place, so while it closes it keeps drawing the offer it last showed.
   const [shownOffer, setShownOffer] = useState<Readonly<{ offer: TodayAlertOffer; blocked: boolean }> | null>(null);
   if (offerToRender && (shownOffer?.offer !== offerToRender || shownOffer.blocked !== (blockedOffer !== null))) {
@@ -287,7 +289,7 @@ function TodayScreenContent({
     if (!alertOffer) return;
     try {
       const result = await alertOffer.onAccept();
-      if (result.outcome === 'blocked') setBlockedOffer(alertOffer);
+      if (alertOfferAfterAccept(result) === 'blocked') setBlockedOffer(alertOffer);
       else setOfferAnswered(true);
     } catch {
       // The durable flag did not commit, so the once-only offer must remain answerable.
