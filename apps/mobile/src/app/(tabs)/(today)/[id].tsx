@@ -24,20 +24,22 @@ import { useProfileApplication } from '@/features/profile/application/profile-co
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
 import { classifyTodayState } from '@/features/today/application/today-state';
-import { activeLocationRecommendation, type TodayScreenState } from '@/features/today/model';
+import {
+  closetSeedOffer,
+  detailOutfit,
+  outfitWornState,
+  tomorrowDetailState,
+  wornOutfitOrNull,
+  type ClosetSeedProgress,
+} from '@/features/today/application/outfit-detail-state';
+import { activeLocationRecommendation } from '@/features/today/model';
 import {
   historyDayKey,
   sameWornGarments,
-  wornOutfitFrom,
   type WornOutfit,
   type WornPieceColors,
 } from '@/features/recommendation/domain/outfit-history';
-import {
-  OutfitDetailScreen,
-  type ClosetSeedOffer,
-  type OutfitWornState,
-} from '@/features/today/presentation/outfit-detail-screen';
-import { tomorrowForecastDay } from '@/features/today/presentation/today-presentation';
+import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { closetFieldsChanged } from '@/features/wardrobe/application/closet-field-changes';
 import { closetSeedInputs, type ClosetSeedPiece } from '@/features/wardrobe/application/closet-seed';
@@ -50,50 +52,9 @@ import {
 import { showWardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { useTourPopReport } from '@/features/walkthrough/application/use-tour-pop-report';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
-import { activeLocationSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
-
-// The worn record for an outfit, or none when it does not parse. Outside the route because
-// React Compiler skips a component that holds a value block inside try/catch.
-function wornOutfitOrNull(...args: Parameters<typeof wornOutfitFrom>): WornOutfit | null {
-  try {
-    return wornOutfitFrom(...args);
-  } catch {
-    return null;
-  }
-}
-
-// Detail of the evening preview reads its own outfit and the active place's forecast.
-function tomorrowState(
-  weather: WeatherApplicationState,
-  preview: ReturnType<typeof useRecommendationApplication>['tomorrowPreview'],
-  now: string,
-): TodayScreenState {
-  if (weather.status !== 'ready' || !preview || !weather.activeLocation) return { kind: 'unavailable' };
-  const placeSnapshot = activeLocationSnapshot(weather.snapshot, weather.activeLocation);
-  if (!placeSnapshot) return { kind: 'unavailable' };
-  const forecastDay = tomorrowForecastDay(preview, placeSnapshot);
-  if (!forecastDay || !activeLocationRecommendation(preview, weather.activeLocation)) {
-    return { kind: 'unavailable' };
-  }
-  return {
-    kind: 'loaded',
-    snapshot: {
-      weather: placeSnapshot,
-      activeLocation: weather.activeLocation,
-      freshness: weatherFreshness(placeSnapshot.fetchedAt, now) === 'fresh' ? 'fresh' : 'stale',
-      recommendation: preview.recommendation,
-      coverageStart: preview.coverageStart,
-      coverageEnd: preview.coverageEnd,
-    },
-    isRefreshing: weather.isRefreshing,
-    refreshFailed: weather.refreshFailure !== null,
-    forecastDay,
-  };
-}
 
 export default function OutfitDetailRoute() {
   // `day=tomorrow` opens the evening preview of the next dressing day, read-only for the
@@ -114,7 +75,7 @@ export default function OutfitDetailRoute() {
   const [wornBusy, setWornBusy] = useState(false);
   const [wornError, setWornError] = useState<string | null>(null);
   const [boardFocused, setBoardFocused] = useState(false);
-  const [seed, setSeed] = useState<Readonly<{ status: 'busy' | 'failed' } | { status: 'added'; count: number }> | null>(null);
+  const [seed, setSeed] = useState<ClosetSeedProgress | null>(null);
   // Detail judges weather freshness itself; the clock moves on focus and on return to the
   // foreground, which is also when detail revalidates the weather.
   const clock = useForegroundClock();
@@ -140,10 +101,7 @@ export default function OutfitDetailRoute() {
   // The route is keyed by the outfit's stable option id, so a regeneration that finishes
   // while detail is open cannot swap another outfit under the user; an outfit the current
   // snapshot no longer offers renders the unavailable state instead.
-  const outfits = recommendation?.status === 'recommended' ? recommendation.outfits : [];
-  const outfitIndex = outfits.findIndex(({ optionId }) => optionId === suggestionId);
-  const outfit = outfits[outfitIndex] ?? null;
-  const position = outfit ? ((outfitIndex + 1) as 1 | 2 | 3) : null;
+  const { outfit, position } = detailOutfit(recommendation, suggestionId);
   // Phase 7: the reader's changes to this outfit live exactly as long as this route, so
   // leaving detail forgets them. The candidates keep the profile's gender
   // applicability the outfit was composed with.
@@ -217,10 +175,7 @@ export default function OutfitDetailRoute() {
     [changedOutfit, outfit],
   );
   const dayWorn = wornGarments?.key === dayKey ? wornGarments : null;
-  const worn: OutfitWornState = tomorrow || !dayWorn || !thisWorn
-    ? 'unknown'
-    : dayWorn.outfit === null ? 'none'
-      : sameWornGarments(dayWorn.outfit, thisWorn) ? 'this' : 'other';
+  const worn = outfitWornState(tomorrow, dayWorn, thisWorn);
   const logWorn = (pieceColors: WornPieceColors) => {
     if (!dayKey || !thisWorn || !outfitHistory) return;
     setWornBusy(true);
@@ -318,9 +273,7 @@ export default function OutfitDetailRoute() {
       }
     }, () => setSeed({ status: 'failed' }));
   };
-  const closetSeed: ClosetSeedOffer | null = seed?.status === 'added'
-    ? { status: 'added', addedCount: seed.count, onSeed: seedCloset }
-    : closetEmpty ? { status: seed?.status ?? 'offer', addedCount: 0, onSeed: seedCloset } : null;
+  const closetSeed = closetSeedOffer(seed, closetEmpty, seedCloset);
 
   const { state: todayState } = classifyTodayState({
     weather: weatherState,
@@ -330,7 +283,7 @@ export default function OutfitDetailRoute() {
     surface: 'detail',
     now: new Date(clock).toISOString(),
   });
-  const state = tomorrow ? tomorrowState(weatherState, tomorrowPreview, new Date(clock).toISOString()) : todayState;
+  const state = tomorrow ? tomorrowDetailState(weatherState, tomorrowPreview, new Date(clock).toISOString()) : todayState;
 
   useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);
   // On iOS an alternative on Today zooms this screen open, and the zoom's own drag closes it

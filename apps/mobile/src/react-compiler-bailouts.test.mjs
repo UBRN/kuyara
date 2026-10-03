@@ -50,7 +50,7 @@ const hotPath = new Set([
 // list only shrinks, and a count that no longer matches fails in both directions.
 const knownPruned = new Map([
   // The recommendation and the open outfit, read from provider state whose identity holds.
-  ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 8 }],
+  ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 7 }],
   ['features/today/presentation/outfit-detail-screen.tsx', {}],
   ['components/ui/garment-board/garment-swap-board.tsx', { GarmentSwapBoard: 28 }],
   ['components/ui/garment-board/garment-painting.tsx', {}],

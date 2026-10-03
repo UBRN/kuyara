@@ -8,10 +8,11 @@ import {
   localDayKind,
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
-import { dateTimeFormat, numberFormat, zonedClock } from '@/domain/intl-format';
+import { dateTimeFormat, numberFormat, zonedClock, zonedDateKey } from '@/domain/intl-format';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import { tomorrowForecastDay } from '@/features/today/application/outfit-detail-state';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import {
   coverageDrift,
@@ -267,11 +268,6 @@ function formatFreshnessTime(
 // in a sentence about the afternoon's weather.
 const quarterHourMs = 15 * 60 * 1000;
 
-function localDate(instant: number, timeZone: string): string {
-  return dateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
-    .format(new Date(instant));
-}
-
 /** The long day name a window sentence uses when it starts on another calendar date. */
 function formatWindowDay(instant: number, language: SupportedLanguage, timeZone: string): string {
   return dateTimeFormat(localeTag(language), {
@@ -292,7 +288,7 @@ export function coverageWindowParts(
 ): Readonly<{ day: string | null; start: string; end: string }> {
   const start = Math.floor(Date.parse(window.start) / quarterHourMs) * quarterHourMs;
   return {
-    day: localDate(start, timeZone) === localDate(now, timeZone)
+    day: zonedDateKey(start, timeZone) === zonedDateKey(now, timeZone)
       ? null : formatWindowDay(start, language, timeZone),
     start: formatTime(new Date(start).toISOString(), language, hour12, timeZone),
     end: formatTime(window.end, language, hour12, timeZone),
@@ -344,7 +340,7 @@ export function eveningLaterReadyLine(
   const readyClock = zonedClock(readyAt, departure.timeZone);
   const currentClock = zonedClock(now, departure.timeZone);
   if (readyClock.hour < 18 || currentClock.hour < 18 ||
-      localDate(readyAt, departure.timeZone) !== localDate(now, departure.timeZone)) return null;
+      zonedDateKey(readyAt, departure.timeZone) !== zonedDateKey(now, departure.timeZone)) return null;
   return getMessages(language).today.laterReady({
     departure: formatDepartureTime(departure.departureAt, language, hour12, departure.timeZone),
     ready: formatDepartureTime(departure.updatedAt, language, hour12, departure.timeZone),
@@ -674,18 +670,6 @@ export type TomorrowPreviewPresentation = Readonly<{
   accessibilityHint: string;
 }>;
 
-/**
- * The forecast row a stored preview was chosen for, or null when the forecast has none, so
- * neither the strip nor its detail ever shows an outfit without the weather it was chosen for.
- */
-export function tomorrowForecastDay(preview: RecommendationSnapshot, weather: WeatherSnapshot): DailyWeather | null {
-  const departure = preview.coverageStart ? Date.parse(preview.coverageStart) : NaN;
-  const dateKey = Number.isFinite(departure)
-    ? localDate(departure, weather.timeZone) : preview.localDayKey;
-  if (!dateKey) return null;
-  return weather.daily?.find((day) => day.dateKey === dateKey) ?? null;
-}
-
 // A forecast day colours its outfit by its own high and condition, in daylight, on the strip
 // and on its detail alike.
 function forecastDayPalette(day: DailyWeather): GarmentPaletteDay {
@@ -713,7 +697,7 @@ export function createTomorrowPreviewPresentation(
   const messages = getMessages(language);
   const copy = messages.today;
   const thisMorning = zonedClock(now, weather.timeZone).hour < 4 &&
-    localDate(now, weather.timeZone) === day.dateKey;
+    zonedDateKey(now, weather.timeZone) === day.dateKey;
   const condition = messages.weather.conditions[day.condition];
   const title = archetypeLabel(messages.recommendation, outfit.archetypeId, forecastDayKind(day));
   const boardPieces = outfitBoardPieces(outfit);

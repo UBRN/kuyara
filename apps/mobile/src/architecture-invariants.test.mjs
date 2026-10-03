@@ -1064,3 +1064,31 @@ test('a screen that reads its scroll offset hands the scroll ref to every Screen
   }
   assert.deepEqual(offenders, []);
 });
+
+// The Today tab's routes compose: they read the providers, ask `features/today/application`
+// what to show, and render. The domain modules they still reach directly are listed here, and
+// the list only shrinks: a rule a route needs moves into the application layer instead.
+const todayRouteDomainImports = Object.freeze({
+  'app/(tabs)/(today)/index.tsx': [
+    '@/features/analytics/domain/analytics-events',
+    '@/features/analytics/domain/analytics-mappers',
+    '@/features/recommendation/domain/outfit-coverage',
+    '@/features/weather/domain/wardrobe-day',
+    '@/features/weather/domain/weather',
+  ],
+  'app/(tabs)/(today)/[id].tsx': [
+    '@/domain/preferences',
+    '@/features/analytics/domain/analytics-events',
+    '@/features/analytics/domain/analytics-mappers',
+    '@/features/recommendation/domain/outfit-history',
+    '@/features/wardrobe/domain/wardrobe-item',
+  ],
+});
+
+test('the Today routes reach no data layer and only the listed domain modules', () => {
+  for (const [route, allowed] of Object.entries(todayRouteDomainImports)) {
+    const specifiers = [...new Set(specifiersIn(route).map(({ specifier }) => specifier))];
+    assert.deepEqual(specifiers.filter((specifier) => /\/data\//.test(specifier)), [], route);
+    assert.deepEqual(specifiers.filter((specifier) => /(?:^|\/)domain\//.test(specifier)).sort(), allowed, route);
+  }
+});

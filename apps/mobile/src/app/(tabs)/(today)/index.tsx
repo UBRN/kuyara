@@ -21,13 +21,24 @@ import {
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useWeatherAlertOffer } from '@/features/notifications/application/use-weather-alert-offer';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
-import { namePromptVersion, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
-import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
-import { classifyTodayState, mayOfferDayQuestion } from '@/features/today/application/today-state';
+import { classifyTodayState } from '@/features/today/application/today-state';
+import {
+  isFirstDressingDay,
+  manualRefreshOutcome,
+  mayOpenDayQuestion,
+  namePromptDue,
+  pendingDayQuestion,
+  recommendationCacheState,
+  showsLaterReadyLine,
+  styleAestheticsChanged,
+  todayOutfitSettled,
+  todayRetrySucceeded,
+  updatingDayType as dayTypeUpdating,
+} from '@/features/today/application/today-surface';
 import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import { eveningLaterReadyLine } from '@/features/today/presentation/today-presentation';
@@ -100,10 +111,7 @@ export default function TodayRoute() {
   const shownStylesStep = shownSheet.stylesStep;
   const offeredKey = useRef<string | null>(null);
   const savingChoice = useRef(false);
-  const showNamePrompt = profileState.status === 'ready'
-    && profileState.profile.onboardingCompleted
-    && !namePromptDismissed
-    && profileState.profile.namePromptVersion < namePromptVersion;
+  const showNamePrompt = namePromptDue(profileState, namePromptDismissed);
   const { analytics, firstUses, retries } = useProductAnalytics();
   const { markRecommendationShown } = useAnalyticsConsentTrigger();
   // ADR 0004: the one contextual offer. The reason, the durable flag and the opt-in flow all
@@ -172,29 +180,40 @@ export default function TodayRoute() {
       retries.reset('today');
     };
   }, [reevaluateLocalDay, retries, revalidateWeatherFreshness]));
-  // M16 and N20: the first foreground open of a bare-date day asks the morning question, and
-  // the first one after 18:00 asks the evening question, starting empty.
-  const pendingQuestion = morningChoicePending ? 'morning' : eveningChoicePending ? 'evening' : null;
+  // The day question starts empty; the Phase 8 tour holds it back until it ends.
+  const pendingQuestion = pendingDayQuestion(morningChoicePending, eveningChoicePending);
   useEffect(() => {
-    // The Phase 8 tour holds the question back until it ends: one overlay at a time.
-    if (!isFocused || !launch.done || !pendingQuestion || showNamePrompt || tourActive || !currentDressingDayKey ||
-        !mayOfferDayQuestion(weatherState, state) || offeredKey.current === currentDressingDayKey) return;
+    if (!pendingQuestion || !currentDressingDayKey || !mayOpenDayQuestion({
+      focused: isFocused,
+      launchDone: launch.done,
+      pending: pendingQuestion,
+      namePromptShown: showNamePrompt,
+      tourActive,
+      dressingDayKey: currentDressingDayKey,
+      offeredDayKey: offeredKey.current,
+      weather: weatherState,
+      state,
+    })) return;
     offeredKey.current = currentDressingDayKey;
     setSheetTarget(pendingQuestion);
   }, [currentDressingDayKey, isFocused, launch.done, pendingQuestion, setSheetTarget, showNamePrompt, state,
     tourActive, weatherState]);
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const profileDressStyle = profile?.dressStyle ?? 'smart';
-  // f25 and M16: the first dressing day is the one the profile was set up on. Its greeting
-  // is a welcome, and its morning question opens on the answer given in setup.
-  const firstDressingDay = Boolean(profile?.onboardingCompleted && currentDressingDayKey &&
-    localDayKey(new Date(profile.createdAt)).slice(0, 10) === currentDressingDayKey.slice(0, 10));
-  // f7: the outfit on screen was made for another day type, and its replacement is running.
-  const snapshotDressStyle = recommendationState.status === 'ready'
-    ? recommendationState.snapshot?.dressStyle ?? null : null;
-  const updatingDayType = recommendationState.status === 'ready' && recommendationState.isRefreshing &&
-    resolvedDressStyle && snapshotDressStyle !== null && snapshotDressStyle !== resolvedDressStyle
-    ? resolvedDressStyle : null;
+  const firstDressingDay = isFirstDressingDay(profile, currentDressingDayKey);
+  const updatingDayType = dayTypeUpdating(recommendationState, resolvedDressStyle);
+  // Phase 8's settled outfit, read here, before the effects below: handed to a function after
+  // them, the day type's block would span those hooks and React Compiler would drop it.
+  const outfitSettled = todayOutfitSettled({
+    focused: isFocused,
+    state,
+    runwayVisible,
+    pullRefreshing: isPullRefreshing,
+    dayQuestionPending,
+    dressingDayChoiceReady,
+    updatingDayType,
+    choosingWindow,
+  });
   // The one write that answers the sheet. `styles` is left out unless step 2 changed them,
   // so an untouched step keeps the Settings defaults following Settings (N4).
   const answerSheet = async (style: DressStyle, styles?: readonly StyleAesthetic[]) => {
@@ -218,8 +237,7 @@ export default function TodayRoute() {
   };
   const confirmStyles = () => {
     if (!stylesStep) return;
-    const changed = JSON.stringify(orderStyleAesthetics(stylesStep.draft)) !==
-      JSON.stringify(orderStyleAesthetics(stylesStep.initial));
+    const changed = styleAestheticsChanged(stylesStep.initial, stylesStep.draft);
     void answerSheet(stylesStep.style, changed ? stylesStep.draft : undefined);
   };
   // P6: closing the question answers it with the profile's own dress style, through the same
@@ -264,15 +282,10 @@ export default function TodayRoute() {
     if (viewedThisFocusRef.current || dayQuestionPending || dressingDayChoiceReady === false) return;
     if (state.kind !== 'loaded' || state.snapshot.recommendation.status !== 'recommended') return;
     viewedThisFocusRef.current = true;
-    const cacheState = state.isRefreshing
-      ? 'refreshing'
-      : state.snapshot.freshness === 'stale'
-        ? 'stale_shown'
-        : 'fresh';
     analytics.capture('recommendation_viewed', {
       schema_version: ANALYTICS_SCHEMA_VERSION,
       generation_mode: generationModeProperty(state.snapshot.recommendation.generationMode),
-      cache_state: cacheState,
+      cache_state: recommendationCacheState(state),
       outfit_count: 3,
       dress_style: dressStyleProperty(
         resolvedDressStyle ?? (profileState.status === 'ready' ? profileState.profile.dressStyle : null),
@@ -293,10 +306,6 @@ export default function TodayRoute() {
   // Phase 8: Today tells the tour whether its outfit has settled and what else claims the
   // screen; the tour decides when to open (README "When it opens").
   const reportToday = walkthrough?.reportToday;
-  const outfitSettled = isFocused && isRecommendationShown && state.kind === 'loaded' && !state.isRefreshing
-    && !runwayVisible
-    && !isPullRefreshing && !dayQuestionPending && dressingDayChoiceReady !== false
-    && updatingDayType === null && choosingWindow === null;
   const overlayOpen = sheetTarget !== null || askOpenedAt !== null || showNamePrompt;
   const dayQuestionClaim = sheetTarget !== null || dayQuestionPending === true;
   useEffect(() => {
@@ -329,18 +338,8 @@ export default function TodayRoute() {
 
       const after = weatherApplication.getSnapshot?.() ?? weatherApplication.state;
       const recommendationAfter = getRecommendationSnapshot();
-      const outcome = after.status !== 'ready'
-        ? ('failure_no_snapshot' as const)
-        : after.refreshFailure === null
-          ? ('success' as const)
-          : after.snapshot
-            ? ('failure_kept_last_known' as const)
-            : ('failure_no_snapshot' as const);
       if (wasFailing) {
-        const retrySucceeded = after.status === 'ready' && after.refreshFailure === null &&
-          after.snapshot !== null && after.activeLocation !== null && after.freshness !== null &&
-          recommendationAfter.status === 'ready' && recommendationAfter.lastFailure === null &&
-          recommendationAfter.snapshot?.recommendation.status === 'recommended';
+        const retrySucceeded = todayRetrySucceeded(after, recommendationAfter);
         analytics.capture('retry_after_failure_triggered', {
           schema_version: ANALYTICS_SCHEMA_VERSION,
           surface: 'today',
@@ -353,7 +352,7 @@ export default function TodayRoute() {
       analytics.capture('manual_refresh_triggered', {
         schema_version: ANALYTICS_SCHEMA_VERSION,
         surface: 'today',
-        result: outcome,
+        result: manualRefreshOutcome(after),
       });
       void firstUses.markFirstUse('manual_refresh').then((firstUse) => {
         if (!firstUse) return;
@@ -439,9 +438,7 @@ export default function TodayRoute() {
       onRefresh={handleRefresh}
       onRunwayVisibleChange={setRunwayVisible}
       onAskAgain={() => { setAskError(false); setAskOpenedAt(Date.now()); }}
-      laterReadyLine={state.kind === 'loaded' && !state.isRefreshing &&
-        state.snapshot.recommendation.status === 'recommended' &&
-        state.snapshot.coverageStart === activeDeparture?.departureAt
+      laterReadyLine={showsLaterReadyLine(state, activeDeparture)
         ? eveningLaterReadyLine(activeDeparture ?? null, clock, language, hour12) : null}
       updatingDayType={updatingDayType}
       firstDressingDay={firstDressingDay}
