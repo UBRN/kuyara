@@ -1,7 +1,7 @@
 import { dressStyleSchema, styleAestheticSchema, type DressStyle } from '@kuyara/contracts';
 import { z } from 'zod';
 
-import { formatCalendarDate } from '@/domain/calendar-date';
+import { calendarDateKeySchema, formatCalendarDate } from '@/domain/calendar-date';
 import type {
   ClothingPreference,
   LanguagePreference,
@@ -109,7 +109,7 @@ const MAXIMUM_BIRTH_YEAR = 2100;
 // schema below refuses. Noon local time, as the picker's own dates are.
 export const minimumBirthDate = new Date(MINIMUM_BIRTH_YEAR, 0, 1, 12);
 
-const birthDateSchema = z.iso.date().refine((value) => {
+const birthDateSchema = calendarDateKeySchema.refine((value) => {
   const year = Number(value.slice(0, 4));
   return year >= MINIMUM_BIRTH_YEAR && year <= MAXIMUM_BIRTH_YEAR;
 }).nullable();

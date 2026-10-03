@@ -1,6 +1,11 @@
 // The one home of the `YYYY-MM-DD` calendar-date key: how it is read into parts or a Date and
 // how parts or a Date are written back. A calendar date carries no time zone and no offset.
 
+import { z } from 'zod';
+
+/** A real calendar date as a `YYYY-MM-DD` key; a month or day that does not exist is refused. */
+export const calendarDateKeySchema = z.iso.date();
+
 export type CalendarDateParts = Readonly<{ year: number; month: number; day: number }>;
 
 /** Reads a well-formed `YYYY-MM-DD` key into its numeric parts. */
@@ -13,6 +18,20 @@ export function calendarDateParts(value: string): CalendarDateParts {
 export function formatCalendarDateParts({ year, month, day }: CalendarDateParts): string {
   const pad = (part: number) => String(part).padStart(2, '0');
   return `${year}-${pad(month)}-${pad(day)}`;
+}
+
+/**
+ * The calendar date `days` after (or, when negative, before) `parts`. A calendar date carries
+ * no offset, so UTC is only the arithmetic here and never a time zone claim: month, year and
+ * leap-day rollover are the Date constructor's own.
+ */
+export function shiftCalendarDateParts(parts: CalendarDateParts, days: number): CalendarDateParts {
+  const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
 }
 
 /** The device-local Date for a calendar key, at noon so a DST shift cannot move the day. */

@@ -1,6 +1,6 @@
 import { weatherLocalDateKey } from '@kuyara/contracts';
 
-import { calendarDateParts } from '@/domain/calendar-date';
+import { calendarDateParts, formatCalendarDateParts, shiftCalendarDateParts } from '@/domain/calendar-date';
 import { zonedHour } from '@/domain/intl-format';
 import { defaultQuietHours } from '@/features/notifications/domain/weather-alerts';
 import type {
@@ -52,10 +52,7 @@ export function morningBriefingId(localDate: string): string {
 }
 
 function nextLocalDate(localDate: string): string {
-  const { year, month, day } = calendarDateParts(localDate);
-  // Calendar arithmetic on the date key itself: a local date has no offset to carry, so
-  // UTC is only the arithmetic here and never a time zone claim.
-  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+  return formatCalendarDateParts(shiftCalendarDateParts(calendarDateParts(localDate), 1));
 }
 
 /**

@@ -1105,3 +1105,46 @@ test('wind speed is converted for display only by the wind speed owner', () => {
   // The pattern still recognizes the inline form it replaced.
   assert.ok(conversion.test('Math.round(snapshot.current.windSpeedMetersPerSecond * 3.6)'));
 });
+
+// Calendar-date arithmetic has one owner: `shiftCalendarDateParts` in domain/calendar-date.ts.
+// A `Date.UTC(` line elsewhere is either whole-instant arithmetic on a zone's wall clock or a
+// weekday or day-of-year read; the list only shrinks and a stale count fails.
+const dateUtcAllowlist = {
+  'domain/calendar-date.ts': 1,
+  'features/account/__tests__/account-fixtures.mjs': 1,
+  'features/recommendation/domain/local-day.ts': 2,
+  'features/recommendation/domain/outfit-history-week.ts': 1,
+  'features/weather/domain/wardrobe-day.ts': 2,
+  'presentation/format-clock-time.ts': 1,
+};
+
+test('Date.UTC appears only where the allowlist names it', () => {
+  const counts = {};
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line) => {
+      if (line.includes('Date.UTC(')) counts[relativePath] = (counts[relativePath] ?? 0) + 1;
+    });
+  }
+
+  assert.deepEqual(counts, dateUtcAllowlist, 'shift a date with shiftCalendarDateParts from @/domain/calendar-date; the allowlist only shrinks');
+});
+
+// A `YYYY-MM-DD` key is checked by `calendarDateKeySchema` (domain/calendar-date.ts) and a
+// dressing-day key by `dressingDayKeySchema` (weather/domain/wardrobe-day.ts). The weather
+// repository's own looser shape check stays because persisted rows may hold dates the schema
+// refuses.
+test('a calendar-date key schema is built only by its owners', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'domain/calendar-date.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/z\.iso\.date\(|\\d\{4\}-\\d\{2\}-\\d\{2\}(?:\(:evening\)\?)?\$/.test(line)) hits.push(`${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(
+    hits.map((hit) => hit.replace(/:\d+$/, '')),
+    ['features/weather/data/weather-repository.ts', 'features/weather/domain/wardrobe-day.ts'],
+    `use calendarDateKeySchema or dressingDayKeySchema: ${hits.join(', ')}`,
+  );
+});

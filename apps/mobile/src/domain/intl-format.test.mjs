@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import test from 'node:test';
 
-import { dateTimeFormat, isValidTimeZone, numberFormat, zonedClock, zonedHour } from './intl-format.ts';
+import { dateTimeFormat, isValidTimeZone, numberFormat, zonedClock, zonedDateKey, zonedHour } from './intl-format.ts';
 
 test('a zoned date formatter is built once per locale and options', () => {
   const options = { timeZone: 'Europe/Istanbul', hour: '2-digit', hourCycle: 'h23' };
@@ -100,4 +100,13 @@ test('formatter construction outside intl-format.ts only shrinks', () => {
   for (const [file, count] of found) {
     assert.ok(count <= (allowedConstructions.get(file) ?? 0), `${file} builds ${count} formatters per call`);
   }
+});
+
+test('a zone date key is the date the zone clock reads, across the date line and year end', () => {
+  const instant = Date.parse('2026-12-31T23:30:00Z');
+  assert.equal(zonedDateKey(instant, 'UTC'), '2026-12-31');
+  assert.equal(zonedDateKey(instant, 'Europe/Istanbul'), '2027-01-01');
+  assert.equal(zonedDateKey(instant, 'America/Los_Angeles'), '2026-12-31');
+  assert.equal(zonedDateKey(Date.parse('2024-02-29T23:59:59Z'), 'Pacific/Kiritimati'), '2024-03-01');
+  assert.throws(() => zonedDateKey(instant, 'Not/AZone'));
 });

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   dressingDayDateKey,
+  dressingDayKeySchema,
   isEveningDressingDayKey,
   wardrobeDayKey,
   wardrobeDayWindow,
@@ -168,4 +169,11 @@ test('isEveningDressingDayKey and dressingDayDateKey agree with the window at ev
     assert.equal(isEveningDressingDayKey(key), period === 'evening', instant);
     assert.equal(dressingDayDateKey(key), date, instant);
   }
+});
+
+test('the dressing-day key schema accepts the bare date and the evening key only', () => {
+  assert.equal(dressingDayKeySchema.safeParse('2026-10-04').success, true);
+  assert.equal(dressingDayKeySchema.safeParse('2026-10-04:evening').success, true);
+  assert.equal(dressingDayKeySchema.safeParse('2026-10-04:night').success, false);
+  assert.equal(dressingDayKeySchema.safeParse('2026-10-4').success, false);
 });

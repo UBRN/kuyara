@@ -4,6 +4,8 @@
 // Today and Weather over a hundred milliseconds per weather update. A formatter is kept per
 // locale and options, which the call sites keep to a small fixed set.
 
+import { formatCalendarDateParts } from '@/domain/calendar-date';
+
 const dateTimeFormats = new Map<string, Intl.DateTimeFormat>();
 const numberFormats = new Map<string, Intl.NumberFormat>();
 
@@ -97,6 +99,5 @@ export function zonedHour(instant: number, timeZone: string): number {
 
 /** The `YYYY-MM-DD` calendar date a zone's wall clock reads at `instant`. */
 export function zonedDateKey(instant: number, timeZone: string): string {
-  return dateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
-    .format(new Date(instant));
+  return formatCalendarDateParts(zonedClock(instant, timeZone));
 }

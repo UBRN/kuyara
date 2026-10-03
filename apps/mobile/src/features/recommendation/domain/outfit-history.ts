@@ -1,13 +1,14 @@
 import { dressStyleSchema, outfitArchetypeIds } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { calendarDateKeySchema } from '@/domain/calendar-date';
 import { garmentSwatchIdSchema } from '@/features/catalog/domain/garment-swatch';
 import { garmentTypeIdSchema } from '@/features/catalog/domain/garment-taxonomy';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { assignedOutfitGarments, outfitSlots, type OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
 import { dressingDayDateKey } from '@/features/weather/domain/wardrobe-day';
 
-export const bareHistoryDayKeySchema = z.iso.date();
+export const bareHistoryDayKeySchema = calendarDateKeySchema;
 /** Whether a catalog garment type can dress one outfit slot: the rule the composer and the worn record share. */
 export function garmentFitsSlot(slot: (typeof outfitSlots)[number], id: string): boolean {
   const type = getGarmentType(id);

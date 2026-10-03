@@ -68,6 +68,7 @@ import type {
 import { validateInsightSentence } from '@/features/recommendation/domain/insight-sentence';
 import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
+import { dressingDayKeySchema } from '@/features/weather/domain/wardrobe-day';
 
 export class WorkerAiRecommendationMappingError extends Error {
   constructor() {
@@ -86,7 +87,7 @@ const recommendationContextSchema = z.strictObject({
   dayKind: dayKindSchema.optional(),
   // The dressing-day key: a bare local date, or that date plus `:evening` for the hours
   // from 18:00 through 04:00. A row written before the evening window still parses.
-  localDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}(:evening)?$/).optional(),
+  localDayKey: dressingDayKeySchema.optional(),
   paletteWeather: z.strictObject({
     temperatureC: z.number().finite(),
     condition: z.enum(weatherConditionCodes),

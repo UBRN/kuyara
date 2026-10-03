@@ -1,4 +1,4 @@
-import { calendarDateParts, formatCalendarDateParts } from '@/domain/calendar-date';
+import { calendarDateParts, formatCalendarDateParts, shiftCalendarDateParts } from '@/domain/calendar-date';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { garmentTypeIds, type GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
@@ -54,14 +54,10 @@ const kinds: readonly DressedFor[] = ['rain', 'cold', 'light'];
  */
 export function summaryWeek(dressingDayKey: string): readonly string[] | null {
   if (!isEveningDressingDayKey(dressingDayKey)) return null;
-  const { year, month, day } = calendarDateParts(dressingDayDateKey(dressingDayKey));
-  if (new Date(Date.UTC(year, month - 1, day)).getUTCDay() !== 0) return null;
-  return Array.from({ length: DAYS_IN_WEEK }, (_, index) => {
-    const date = new Date(Date.UTC(year, month - 1, day - (DAYS_IN_WEEK - 1 - index)));
-    return formatCalendarDateParts({
-      year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(),
-    });
-  });
+  const sunday = calendarDateParts(dressingDayDateKey(dressingDayKey));
+  if (new Date(Date.UTC(sunday.year, sunday.month - 1, sunday.day)).getUTCDay() !== 0) return null;
+  return Array.from({ length: DAYS_IN_WEEK }, (_, index) =>
+    formatCalendarDateParts(shiftCalendarDateParts(sunday, index - (DAYS_IN_WEEK - 1))));
 }
 
 /**
