@@ -13,7 +13,8 @@ import {
   outfitSwappableSlots,
   slotCandidates,
 } from './manual-mix.ts';
-import { garmentFitsSlot, wornOutfitFrom, wornOutfitSchema } from './outfit-history.ts';
+import { garmentFitsSlot } from './outfit-composition.ts';
+import { wornOutfitFrom, wornOutfitSchema } from './outfit-history.ts';
 
 // Phase 7, manual mix. Two days read against the domain: 8 degrees and cloudy with a chance
 // of rain, where a T-shirt or sandals make the outfit unusual, and a mild rainy day.

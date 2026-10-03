@@ -12,6 +12,7 @@ import {
   collectValidOutfits,
   composeOutfitOptions,
   excludeRecentlyWornOutfits,
+  onePieceExcludes,
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
   outfitSlots,
@@ -1125,4 +1126,14 @@ test('the offered order repeats exactly for the same input', () => {
   const keys = () =>
     offeredForWeather(clearDay(20)).map(({ compositionKey }) => compositionKey);
   assert.deepEqual(keys(), keys());
+});
+
+test('a one-piece excludes a top and a bottom and nothing else', () => {
+  const excluded = [];
+  for (const left of outfitSlots) for (const right of outfitSlots) {
+    if (onePieceExcludes(left, right)) excluded.push(`${left}|${right}`);
+  }
+  assert.deepEqual(excluded.sort(), [
+    'bottom|one_piece', 'one_piece|bottom', 'one_piece|primary_top', 'primary_top|one_piece',
+  ]);
 });

@@ -3,8 +3,7 @@ import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { composePieceLimit, type ComposePin } from '@/features/recommendation/application/compose-around-pieces';
 import { swappableSlots } from '@/features/recommendation/domain/manual-mix';
-import type { OutfitPin } from '@/features/recommendation/domain/outfit-composition';
-import { garmentFitsSlot } from '@/features/recommendation/domain/outfit-history';
+import { garmentFitsSlot, onePieceExcludes, type OutfitPin } from '@/features/recommendation/domain/outfit-composition';
 import { boardSwatchForClosetSolid } from '@/features/wardrobe/domain/closet-board-swatch';
 
 export type ComposeSlot = OutfitPin['slot'];
@@ -17,13 +16,9 @@ export type ComposeChoice = ComposePiece & Readonly<{ colorId: string | null }>;
 
 export type ComposeSelection = readonly ComposeChoice[];
 
-const isSeparate = (slot: ComposeSlot) => slot === 'primary_top' || slot === 'bottom';
-
 // One piece to a slot, and a one-piece never stands with a top or a bottom.
 function conflicts(left: ComposeSlot, right: ComposeSlot): boolean {
-  return left === right
-    || (left === 'one_piece' && isSeparate(right))
-    || (right === 'one_piece' && isSeparate(left));
+  return left === right || onePieceExcludes(left, right);
 }
 
 const samePiece = (choice: ComposePiece, piece: ComposePiece) =>

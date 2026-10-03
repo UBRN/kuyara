@@ -3,7 +3,8 @@ import test from 'node:test';
 
 import { recommendOutfits } from '../application/recommend-outfits.ts';
 import { outfitGarments, pinPieces } from './manual-mix.ts';
-import { garmentFitsSlot, wornOutfitFrom, wornOutfitSchema } from './outfit-history.ts';
+import { garmentFitsSlot } from './outfit-composition.ts';
+import { wornOutfitFrom, wornOutfitSchema } from './outfit-history.ts';
 
 // Pins that fit no valid outfit are swapped into the best pick: the weather judges the result
 // (unusual) and the worn record still has to accept it, so every garment appears once and the

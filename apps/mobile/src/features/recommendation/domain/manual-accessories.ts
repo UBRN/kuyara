@@ -8,12 +8,12 @@ import {
 import {
   accessoryOutfitSlots,
   assignAccessory,
+  garmentFitsSlot,
   offeredAccessoriesBySlot,
   type AccessoryOutfitSlot,
   type OutfitAccessories,
   type OutfitCandidate,
 } from '@/features/recommendation/domain/outfit-composition';
-import { garmentFitsSlot } from '@/features/recommendation/domain/outfit-history';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
 /**

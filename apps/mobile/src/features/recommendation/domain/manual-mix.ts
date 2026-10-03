@@ -15,11 +15,12 @@ import {
 import {
   accessoryOutfitSlots as accessoryOutfitSlotOrder,
   evaluateArrangement,
+  garmentFitsSlot,
+  onePieceExcludes,
   type AccessoryOutfitSlot,
   type OutfitCandidate,
   type OutfitPin,
 } from '@/features/recommendation/domain/outfit-composition';
-import { garmentFitsSlot } from '@/features/recommendation/domain/outfit-history';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
 /**
@@ -314,9 +315,7 @@ export function pinPieces<Outfit extends OutfitCandidate>(
   }
   for (const pin of pins) {
     if (kept.has(pin.slot)) continue;
-    const bodyConflict = pin.slot === 'one_piece'
-      ? kept.has('primary_top') || kept.has('bottom')
-      : (pin.slot === 'primary_top' || pin.slot === 'bottom') && kept.has('one_piece');
+    const bodyConflict = [...kept].some((slot) => onePieceExcludes(pin.slot, slot));
     const holder = swappableSlots.find((slot) => slot !== pin.slot && garments[slot] === pin.garmentTypeId);
     if (bodyConflict || (holder !== undefined && kept.has(holder))) continue;
     if (pin.slot === 'one_piece') { delete garments.primary_top; delete garments.bottom; }
