@@ -1,4 +1,4 @@
-import { styleAesthetics } from '@kuyara/contracts';
+import { dressStyles, styleAesthetics, styleAestheticsLimit } from '@kuyara/contracts';
 import {
   AccessibilityInfo,
   findNodeHandle,
@@ -45,7 +45,12 @@ import type {
   StyleAesthetic,
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
-import { displayNameIssue, minimumBirthDate, orderStyleAesthetics } from '@/features/profile/domain/profile';
+import {
+  displayNameIssue,
+  genderSchema,
+  minimumBirthDate,
+  orderStyleAesthetics,
+} from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics-options';
 import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
@@ -56,6 +61,7 @@ import {
   type WeatherConditionCode,
   type WeatherSnapshot,
 } from '@/features/weather/domain/weather';
+import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
@@ -149,7 +155,6 @@ const styleDrawings: Readonly<Record<StyleAesthetic, ChoiceTileDrawing>> = {
   streetwear: { garmentTypeId: 'hoodie', category: 'top' },
   relaxed: { garmentTypeId: 'sandals', category: 'footwear' },
 };
-const STYLE_LIMIT = 3;
 
 type OnboardingScreenProps = Readonly<{
   initialGender: Gender | null;
@@ -191,7 +196,8 @@ export function OnboardingScreen({
   const [previewWidth, setPreviewWidth] = useState(0);
   const announcedStep = useRef(false);
   const headingRef = useRef<Text>(null);
-  const maximumBirthDate = useMemo(() => new Date(), []);
+  const now = useForegroundClock();
+  const maximumBirthDate = useMemo(() => new Date(now), [now]);
   const { language, messages, temperatureUnit } = useLocalization();
   const copy = messages.onboarding;
   const preferenceCopy = messages.preferences;
@@ -461,7 +467,7 @@ export function OnboardingScreen({
       {step === 'gender' ? (
         <View style={styles.section} accessibilityLabel={preferenceCopy.genderTitle}>
           <ChoiceTileGrid accessibilityRole="radiogroup" columns={2}>
-            {(['woman', 'man'] as const).map((gender) => (
+            {genderSchema.options.map((gender) => (
               <ChoiceTile
                 drawings={genderHints[gender]}
                 key={gender}
@@ -488,7 +494,7 @@ export function OnboardingScreen({
       {step === 'dress_style' ? (
         <View style={styles.section} accessibilityLabel={preferenceCopy.dressStyleTitle}>
           <ChoiceTileGrid accessibilityRole="radiogroup" columns={3}>
-            {(['casual', 'smart', 'formal'] as const).map((style) => (
+            {dressStyles.map((style) => (
               <ChoiceTile
                 drawings={[dressStyleDrawings[style]]}
                 key={style}
@@ -521,7 +527,7 @@ export function OnboardingScreen({
               const checked = draft.styleAesthetics.includes(style);
               return (
                 <ChoiceTile
-                  disabled={!checked && draft.styleAesthetics.length >= STYLE_LIMIT}
+                  disabled={!checked && draft.styleAesthetics.length >= styleAestheticsLimit}
                   drawings={[styleDrawings[style]]}
                   key={style}
                   label={aestheticLabel(preferenceCopy, style)}
@@ -538,7 +544,7 @@ export function OnboardingScreen({
               );
             })}
           </ChoiceTileGrid>
-          {draft.styleAesthetics.length >= STYLE_LIMIT ? (
+          {draft.styleAesthetics.length >= styleAestheticsLimit ? (
             <AppText variant="caption">{preferenceCopy.stylePreferencesLimit}</AppText>
           ) : null}
         </View>

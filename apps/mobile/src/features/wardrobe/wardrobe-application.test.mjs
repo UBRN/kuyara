@@ -190,10 +190,9 @@ test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access
   // The type picker sits inside the form rather than on a route of its own, so it is the
   // one that reads the catalogue and filters it by clothing preference; the route
   // composition carries neither, and passes the preference down instead.
-  assert.doesNotMatch(routeComposition, /garmentCatalog|listGarmentTypesForPreference/);
+  assert.doesNotMatch(routeComposition, /garmentCatalog|listGarmentTypesForPreference|listSelectableGarmentTypes/);
   assert.match(routeComposition, /clothingPreference/);
-  assert.match(typeSheet, /garmentCatalog\.garmentTypes/);
-  assert.match(typeSheet, /listGarmentTypesForPreference/);
+  assert.match(typeSheet, /listSelectableGarmentTypes\(clothingPreference\)/);
   assert.match(form, /<OwnershipChoice|<ColorSwatch/);
   assert.match(form, /accessibilityRole="alert"/);
 });

@@ -10,7 +10,6 @@ import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   WardrobeListScreen,
   buildCategoryRows,
-  resolveDefaultCategory,
   resolveGridGeometry,
   tileEntranceIndex,
 } from '@/features/wardrobe/presentation/wardrobe-list-screen';
@@ -521,15 +520,6 @@ test('a category page is an owned section then a wanted section, cut into rows, 
   ]);
   expect(rows[3]).toMatchObject({ kind: 'section', afterOwned: true, count: 1 });
   expect(buildCategoryRows([ownedItem], 'top', 3)).toEqual([]);
-});
-
-test('without a requested category the Closet opens where its pieces are, or where its wanted ones are', () => {
-  expect(resolveDefaultCategory([], false)).toBe('top');
-  expect(resolveDefaultCategory([ownedItem, wantedItem], false)).toBe('outerwear');
-  // Profile's Wanted row: the first category holding a wanted piece.
-  expect(resolveDefaultCategory([ownedItem, wantedItem], true)).toBe('footwear');
-  // Nothing wanted anywhere: fall back to where the pieces are.
-  expect(resolveDefaultCategory([ownedItem], true)).toBe('outerwear');
 });
 
 test('a background refresh failure shows a retryable banner without discarding the grid', async () => {

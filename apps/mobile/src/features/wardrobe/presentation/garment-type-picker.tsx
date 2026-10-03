@@ -17,12 +17,11 @@ import {
 } from '@/components/ui';
 import type { ClothingPreference } from '@/domain/preferences';
 import {
-  garmentCatalog,
   getGarmentType,
-  listGarmentTypesForPreference,
+  listSelectableGarmentTypes,
+  listStructuralCategoriesForPreference,
 } from '@/features/catalog/domain/garment-catalog';
 import {
-  structuralCategories,
   type ColorFamily,
   type GarmentTypeId,
   type StructuralCategory,
@@ -31,7 +30,7 @@ import { GarmentTypeTile } from '@/features/wardrobe/presentation/garment-type-t
 import { WardrobeCategoryChip } from '@/features/wardrobe/presentation/wardrobe-category-chip';
 import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import { useMessages } from '@/localization/use-messages';
-import { layout, spacing } from '@/theme/theme';
+import { layout, radii, spacing } from '@/theme/theme';
 import { OnPlate, PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -53,8 +52,6 @@ const CATEGORY_ARTWORK_COLOR: Readonly<Record<StructuralCategory, ColorFamily>> 
   footwear: 'white',
   accessory: 'yellow',
 };
-// ADR 0029 section 2 fixes an image tile's radius at 14.
-const TILE_RADIUS = 14;
 const CATEGORY_DRAWING_SIZE = 56;
 const ROW_TILE_SIZE = 64;
 
@@ -97,23 +94,13 @@ export function GarmentTypePicker({
   const rowOpacity = useSharedValue<number>(1);
   const rowStyle = useAnimatedStyle(() => ({ opacity: rowOpacity.get() }));
 
-  // Deprecated catalogue entries stay readable on saved items but are never offered
-  // again, so the picker lists active types only.
-  const selectableTypes = useMemo(() => {
-    const applicable = clothingPreference
-      ? new Set(
-          listGarmentTypesForPreference(clothingPreference).map(({ typeId }) => typeId),
-        )
-      : null;
-    return garmentCatalog.garmentTypes.filter(
-      (garmentType) =>
-        garmentType.status === 'active' &&
-        (applicable === null || applicable.has(garmentType.typeId)),
-    );
-  }, [clothingPreference]);
-
-  const categories = structuralCategories.filter((structuralCategory) =>
-    selectableTypes.some((type) => type.structuralCategory === structuralCategory),
+  const selectableTypes = useMemo(
+    () => listSelectableGarmentTypes(clothingPreference),
+    [clothingPreference],
+  );
+  const categories = useMemo(
+    () => listStructuralCategoriesForPreference(clothingPreference),
+    [clothingPreference],
   );
   // No stored default: the grid opens on the category tapped, else the selected type's
   // own, else the Closet category the add started from; with none, the tiles show.
@@ -296,7 +283,7 @@ const styles = StyleSheet.create({
   },
   rowTile: {
     alignItems: 'center',
-    borderRadius: TILE_RADIUS,
+    borderRadius: radii.imageTile,
     height: ROW_TILE_SIZE,
     justifyContent: 'center',
     width: ROW_TILE_SIZE,
@@ -326,7 +313,7 @@ const styles = StyleSheet.create({
   },
   categoryTile: {
     alignItems: 'center',
-    borderRadius: TILE_RADIUS,
+    borderRadius: radii.imageTile,
     gap: spacing.sm,
     justifyContent: 'center',
     minHeight: 112,

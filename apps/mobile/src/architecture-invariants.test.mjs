@@ -835,8 +835,7 @@ const undefinedSwallowAllowlist = new Map([
   ['features/recommendation/data/expo-file-ai-regeneration-budget.ts', 1],
   ['features/recommendation/data/sqlite-outfit-history-repository.ts', 1],
   ['features/walkthrough/application/walkthrough-controller.ts', 1],
-  ['features/wardrobe/presentation/piece-edit-sheet.tsx', 2],
-  ['features/wardrobe/presentation/wardrobe-item-form-screen.tsx', 6],
+  ['features/wardrobe/presentation/wardrobe-item-form-screen.tsx', 1],
 ]);
 
 test('an error swallowed as `undefined` appears only where the allowlist names it', () => {
@@ -861,7 +860,7 @@ test('an error swallowed as `undefined` appears only where the allowlist names i
   );
   assert.equal(
     [...undefinedSwallowAllowlist.values()].reduce((sum, count) => sum + count, 0),
-    18,
+    11,
     'the `undefined` swallow allowlist only shrinks: lower this total when an entry goes',
   );
 });
@@ -1248,29 +1247,25 @@ test('the active catalogue status is read only by the selectable types owner', (
   const allowlist = [
     'features/recommendation/domain/garment-eligibility.ts',
     'features/today/application/compose-selection.ts',
-    'features/wardrobe/presentation/garment-type-picker.tsx',
   ];
   const hits = sourceFiles().filter((file) =>
     file !== owner && /status\s*[!=]==\s*'active'/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'list types through listSelectableGarmentTypes');
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
-  assert.equal(allowlist.length, 3, 'the active status allowlist only shrinks');
+  assert.equal(allowlist.length, 2, 'the active status allowlist only shrinks');
 });
 
 // "Either notification kind is on" is decided once, by `wantsAnyNotification` in
-// profile/domain/profile.ts. The listed route sites are switched to it next; the list only shrinks.
+// profile/domain/profile.ts.
 test('the alerts opt-in is combined with the briefing opt-in only by wantsAnyNotification', () => {
   const owner = 'features/profile/domain/profile.ts';
-  const allowlist = ['app/(tabs)/(profile)/settings/index.tsx', 'app/_layout.tsx'];
   const hits = sourceFiles().filter((file) =>
     file !== owner && /(?<!!)notificationsOptIn\s*\|\|/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   // Its negation ("neither kind is on") is `!wantsAnyNotification(...)`, never spelled out.
   const negated = sourceFiles().filter((file) =>
     /notificationsOptIn\s*&&\s*!\S*morningBriefingOptIn/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(negated, [], 'negate wantsAnyNotification');
-  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'call wantsAnyNotification');
-  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
-  assert.equal(allowlist.length, 2, 'the notification opt-in allowlist only shrinks');
+  assert.deepEqual(hits, [], 'call wantsAnyNotification');
 });
 
 // What makes a stored photo path managed (`<directory>/<uuid v4>.jpg`) is decided once, in
@@ -1301,4 +1296,65 @@ test('the font scale setter, file uri builder and source walk are defined only u
     }
   }
   assert.deepEqual(copies, []);
+});
+
+// The Closet's per-state lists, category summaries and default category are derived once, in
+// wardrobe/application/closet-categories.ts; screens never filter records by entry state.
+test('records are split by entry state only by the closet categories owner', () => {
+  const allowlist = [
+    'features/wardrobe/application/closet-categories.ts',
+    'features/wardrobe/domain/garment-type-ownership.ts',
+  ];
+  const hits = sourceFiles().filter((file) =>
+    /\.(filter|find)\(\(\w+\) => \w+\.entryState ===/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'use splitClosetByEntryState or summarizeClosetCategories');
+  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
+});
+
+// The image-tile radius is the theme's `radii.imageTile`. The listed file is switched to it
+// separately; the list only shrinks.
+test('the image-tile radius is written only in the theme', () => {
+  const allowlist = ['features/today/presentation/today-alternates.tsx'];
+  const hits = sourceFiles().filter((file) =>
+    file !== 'theme/theme.ts'
+    && /RADIUS\s*=\s*14\b|borderRadius:\s*14\b/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'use radii.imageTile');
+  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
+});
+
+// Screens list genders and dress styles from their schemas (`genderSchema.options`, contracts
+// `dressStyles`), and the style limit from contracts `styleAestheticsLimit`, never as literals.
+test('screens read the gender and dress style lists and the style limit from their owners', () => {
+  const screens = sourceFiles().filter((file) => file.startsWith('app/') || file.includes('/presentation/'));
+  const hits = screens.filter((file) =>
+    /\[\s*'woman',\s*'man'\s*\]|\[\s*'casual',\s*'smart',\s*'formal'\s*\]|STYLE_LIMIT\s*=|styleAesthetics\.length\s*>=\s*\d|selected\.length\s*>=\s*\d/
+      .test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'use genderSchema.options, dressStyles and styleAestheticsLimit');
+});
+
+// History's mild drawing sky is written once, as `historyDrawingSky`.
+test('the History drawing sky is written only by its owner', () => {
+  const owner = 'features/profile/presentation/history-drawing-sky.ts';
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && /temperatureC:\s*18\b/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'spread historyDrawingSky');
+});
+
+// A form's staged photo is held and discarded only by `useStagedWardrobePhoto`.
+test('presentation holds a staged photo only through useStagedWardrobePhoto', () => {
+  const owner = 'features/wardrobe/presentation/use-staged-wardrobe-photo.ts';
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && (file.startsWith('app/') || file.includes('/presentation/'))
+    && /useRef<StagedWardrobePhoto|[dD]iscardStagedPhoto\w*(\.current)?\(/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'use useStagedWardrobePhoto');
+});
+
+// A screen reads the wall clock only through `useForegroundClock`, which rereads it on focus and
+// on return to the foreground; a clock captured once at mount goes stale while the app is open.
+test('presentation reads the wall clock only through useForegroundClock', () => {
+  const owner = 'hooks/use-foreground-clock.ts';
+  const hits = sourceFiles().filter((file) =>
+    file !== owner
+    && /useState\(\(\) => Date\.now\(\)\)|useMemo\(\(\) => new Date\(\)/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'read the clock with useForegroundClock');
 });

@@ -10,18 +10,18 @@ import {
   type IconName,
 } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import { historyDrawingSky } from '@/features/profile/presentation/history-drawing-sky';
 import type { DressedFor, WeekSummary } from '@/features/recommendation/domain/outfit-history-week';
 import { useMessages } from '@/localization/use-messages';
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Law 6: a glyph beside body text is 20.
 const LINE_GLYPH_SIZE = 20;
-// The piece stands on a small garment plate, the image-tile radius History's days use.
+// The piece stands on a small garment plate, drawn at the image-tile radius History's days use.
 const PLATE_SIZE = 56;
 const DRAWING_SIZE = 44;
-const TILE_RADIUS = 14;
 
 const dressedForGlyph: Readonly<Record<DressedFor, IconName>> = {
   rain: 'dressedForRain',
@@ -37,9 +37,7 @@ function MostWornLine({ mostWorn }: Readonly<{ mostWorn: NonNullable<WeekSummary
   // none of its days kept colours, as History draws such a day.
   const palette = useMemo<GarmentOutfitPalette>(() => ({
     optionId: `history-week-${mostWorn.garmentTypeId}`,
-    temperatureC: 18,
-    condition: 'cloudy',
-    isNight: false,
+    ...historyDrawingSky,
     formality: type?.formality ?? 'casual',
     pieces: [{
       slot: mostWorn.slot,
@@ -102,7 +100,7 @@ const styles = StyleSheet.create({
   lineText: { flexShrink: 1 },
   plate: {
     alignItems: 'center',
-    borderRadius: TILE_RADIUS,
+    borderRadius: radii.imageTile,
     height: PLATE_SIZE,
     justifyContent: 'center',
     overflow: 'hidden',
