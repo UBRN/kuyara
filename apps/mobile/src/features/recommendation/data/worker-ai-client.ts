@@ -43,7 +43,7 @@ export class WorkerAiClient {
   private readonly requestTimeoutMilliseconds: number;
 
   constructor(dependencies: Dependencies) {
-    this.baseUrl = dependencies.baseUrl.replace(/\/$/, '');
+    this.baseUrl = dependencies.baseUrl;
     this.fetch = dependencies.fetch ?? globalThis.fetch;
     // One budget across the boundary: the Worker stops its AI walk at 36 s, so the phone
     // waits that long plus transport instead of aborting an attempt that is still working.

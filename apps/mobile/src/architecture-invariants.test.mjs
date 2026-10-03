@@ -1233,3 +1233,17 @@ test('the weather coordinate bounds are spelled only in weather/domain/weather.t
 
   assert.deepEqual(hits, [], 'call isNormalizedCoordinates from @/features/weather/domain/weather');
 });
+
+// `resolveWorkerBaseUrl` already returns a bare origin (no path, no trailing slash), so no
+// Worker client trims the base URL again.
+test('a Worker client does not trim the base URL it is given', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (!/^features\/[^/]+\/data\//.test(relativePath)) continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/baseUrl[^\n]*\.replace\(/.test(line)) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'pass the origin from resolveAppWorkerBaseUrl through unchanged');
+});

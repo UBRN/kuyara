@@ -12,7 +12,7 @@ const successData = {
 test('posts the probe request and returns validated data', async () => {
   let received;
   const client = new WorkerAiProbeClient({
-    baseUrl: 'https://worker.example/',
+    baseUrl: 'https://worker.example',
     fetch: async (input, init) => {
       received = { input, init };
       return new Response(JSON.stringify({ data: successData }), { status: 200 });

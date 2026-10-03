@@ -55,7 +55,7 @@ function option(optionId, primaryTop, bottom, footwear, formality = 'casual') {
 test('posts the validated recommendation request and returns validated data', async () => {
   let received;
   const client = new WorkerAiClient({
-    baseUrl: 'https://worker.example/',
+    baseUrl: 'https://worker.example',
     fetch: async (input, init) => {
       received = { input, init };
       return new Response(JSON.stringify({ data: responseData }), {

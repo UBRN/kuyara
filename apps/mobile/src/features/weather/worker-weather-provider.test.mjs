@@ -59,7 +59,7 @@ function jsonResponse(body, init = {}) {
 test('posts only the shared location request and restores local identity while mapping success', async () => {
   let request;
   const provider = new WorkerWeatherProvider({
-    baseUrl: 'http://127.0.0.1:8788/',
+    baseUrl: 'http://127.0.0.1:8788',
     fetch: async (input, init) => {
       request = { input, init };
       return jsonResponse(successBody);
