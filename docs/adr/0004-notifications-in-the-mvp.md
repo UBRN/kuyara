@@ -88,9 +88,10 @@ notification would have been sent: an alert would have fired under
 have been scheduled. Because a briefing is scheduled every day, the offer arrives on the
 first fresh open rather than waiting for a rare rule crossing, and the person is asked
 where the value is visible rather than three taps into Settings. The offer names both
-kinds in one sentence, with an accept action and a dismiss action of the same size and no
-accent fill; accepting turns both kinds on and lands on the Notifications surface, where
-each can be turned off immediately. That offer is made once for the life of the install:
+kinds in one sentence, with a tonal accept button and a dismiss action drawn as a small
+text link that is still a full-size button target, and no accent fill; accepting turns
+both kinds on and lands on the Notifications surface, where each can be turned off
+immediately. That offer is made once for the life of the install:
 accepting it or dismissing it sets a durable `weather_alert_offer_shown` flag on
 `local_profiles`, and a person who says no is never asked again. No other screen
 asks, and nothing asks on a schedule.

@@ -12,6 +12,7 @@ import {
   Icon,
   Presence,
   Screen,
+  TextButton,
   useRefreshOutcomeHaptics,
   useTextScaling,
 } from '@/components/ui';
@@ -629,7 +630,7 @@ function WeatherAlertOfferRow({
 }>) {
   const theme = useKuyaraTheme();
   const { controlScale } = useTextScaling();
-  // O13: while "Easier to see" is on the two actions stack as 56-point buttons.
+  // O13: while "Easier to see" is on the two actions stack, each with a 56-point target.
   const easierToSee = useEasierToSee();
   const actionSize = easierToSee ? 'large' : 'small';
   const copy = getMessages(language).notifications;
@@ -683,14 +684,13 @@ function WeatherAlertOfferRow({
             variant="tonal"
           />
         )}
+        // Owner decision: the dismissal is a small text link, still a full-size target.
         secondary={(
-          <Button
+          <TextButton
             disabled={isAnswering}
             label={copy.offer.dismissAction}
             onPress={() => void dismiss()}
-            size={actionSize}
             testID="today-alert-offer-dismiss"
-            variant="plain"
           />
         )}
       />

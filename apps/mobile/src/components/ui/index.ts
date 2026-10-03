@@ -63,6 +63,7 @@ export {
   type SegmentedControlProps,
 } from './segmented-control';
 export { Surface, type SurfaceProps } from './surface';
+export { TextButton, type TextButtonProps } from './text-button';
 export { resolveCardFill } from './primitive-contracts';
 export type { ButtonVariant, PillTone, SurfaceVariant } from './primitive-contracts';
 export { haptics, useRefreshOutcomeHaptics } from './haptics';
