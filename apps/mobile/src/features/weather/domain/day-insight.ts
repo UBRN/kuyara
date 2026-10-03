@@ -4,6 +4,7 @@ import type {
   WeatherSnapshot,
 } from '@/features/weather/domain/weather';
 import {
+  forecastHoursAhead,
   wardrobeDayWindow,
   type WardrobeDayPeriod,
 } from '@/features/weather/domain/wardrobe-day';
@@ -157,10 +158,7 @@ export function findDayInsight(input: Readonly<{
   if (dayWindow === null || !Number.isFinite(now)) return null;
 
   const windowEnd = Date.parse(dayWindow.end);
-  const hours = snapshot.hourly.filter(({ forecastAt }) => {
-    const forecast = Date.parse(forecastAt);
-    return forecast >= now && forecast < windowEnd;
-  });
+  const hours = forecastHoursAhead(snapshot.hourly, now, dayWindow);
   if (hours.length < minimumRemainingHours) return null;
   // A snapshot that stops short of the window describes a fraction of the day, and a line
   // that says "all day" over a fraction would be inventing the rest of it.

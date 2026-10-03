@@ -1,5 +1,6 @@
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
 import {
+  forecastHoursAhead,
   wardrobeDayWindow,
   type WardrobeDayPeriod,
 } from '@/features/weather/domain/wardrobe-day';
@@ -53,11 +54,7 @@ export function findWeatherOutlook(input: Readonly<{
   // The alert planner's window exactly: the hours of the dressing day the person is living
   // that have not happened yet. The rail shows the next 36 hours; this line is about the
   // decision they are making now.
-  const windowEnd = Date.parse(dayWindow.end);
-  const remainingHours = snapshot.hourly.filter(({ forecastAt }) => {
-    const forecast = Date.parse(forecastAt);
-    return forecast > now && forecast < windowEnd;
-  });
+  const remainingHours = forecastHoursAhead(snapshot.hourly, now, dayWindow);
 
   const isWetNow = isWetMeasurement(snapshot.current);
   // Easing claims precipitation is falling right now and will stop, and only the condition

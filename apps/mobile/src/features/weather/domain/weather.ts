@@ -193,6 +193,25 @@ export function weatherFreshness(
   return current - fetched <= weatherFreshnessWindowMilliseconds ? 'fresh' : 'stale';
 }
 
+/**
+ * A snapshot a provider returned for `location`, or an error when it is for another place,
+ * another zone or carries a fetch time the device cannot trust. The one rule the foreground
+ * refresh and the background task both apply before a provided snapshot is stored.
+ */
+export function acceptProvidedSnapshot<T extends Pick<WeatherSnapshot, 'locationKey' | 'timeZone' | 'fetchedAt'>>(
+  location: Pick<ActiveLocation, 'locationKey' | 'timeZone'>,
+  provided: T,
+  now: string,
+): T {
+  if (provided.locationKey !== location.locationKey || provided.timeZone !== location.timeZone) {
+    throw new Error('Mismatched weather location.');
+  }
+  if (weatherFreshness(provided.fetchedAt, now) === 'invalid') {
+    throw new Error('Invalid weather fetch time.');
+  }
+  return provided;
+}
+
 export function isWeatherConditionCode(value: string): value is WeatherConditionCode {
   return (weatherConditionCodes as readonly string[]).includes(value);
 }

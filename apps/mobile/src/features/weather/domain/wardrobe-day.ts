@@ -127,3 +127,21 @@ export function wardrobeDayWindow(
     return null;
   }
 }
+
+/**
+ * The forecast hours of the dressing day that have not happened yet: those starting after
+ * `now` and before the window closes. Every reading of "the rest of the day" (the outlook, the
+ * day insight and the alert planner) takes its hours from here, so an hour starting exactly at
+ * `now` is behind all of them.
+ */
+export function forecastHoursAhead<T extends Readonly<{ forecastAt: string }>>(
+  hourly: readonly T[],
+  now: number,
+  window: Pick<WardrobeDayWindow, 'end'>,
+): T[] {
+  const windowEnd = Date.parse(window.end);
+  return hourly.filter(({ forecastAt }) => {
+    const forecast = Date.parse(forecastAt);
+    return forecast > now && forecast < windowEnd;
+  });
+}

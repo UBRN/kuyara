@@ -1,6 +1,6 @@
 import { zonedClock } from '@/domain/intl-format';
 import type { HourlyWeather, WeatherSnapshot } from '@/features/weather/domain/weather';
-import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
+import { forecastHoursAhead, wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
 import {
   isWetMeasurement,
   temperatureSwingCelsius,
@@ -90,12 +90,8 @@ export function planWeatherAlerts(input: Readonly<{
   const dayWindow = wardrobeDayWindow(input.now, snapshot.timeZone);
   if (dayWindow === null || !Number.isFinite(now)) return [];
 
-  const windowEnd = Date.parse(dayWindow.end);
   const windowKey = dayWindow.key;
-  const remainingHours = snapshot.hourly.filter(({ forecastAt }) => {
-    const forecast = Date.parse(forecastAt);
-    return forecast > now && forecast < windowEnd;
-  });
+  const remainingHours = forecastHoursAhead(snapshot.hourly, now, dayWindow);
   const plans: WeatherAlertPlan[] = [];
 
   function addPlan(

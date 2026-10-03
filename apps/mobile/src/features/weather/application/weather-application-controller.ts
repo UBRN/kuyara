@@ -23,6 +23,8 @@ import type { WeatherProvider } from '@/features/weather/data/weather-provider';
 import { getManualLocation } from '@/features/weather/domain/manual-location-catalog';
 import { WeatherProviderError } from '@/features/weather/domain/weather-provider-error';
 import {
+  acceptProvidedSnapshot,
+  activeLocationSnapshot,
   isManualLocationId,
   manualLocationKey,
   normalizeCoordinates,
@@ -230,8 +232,7 @@ export class WeatherApplicationController {
     // A snapshot retained from a previous location is the last valid result, never a
     // current reading of the active one: its own timestamp may still be inside the
     // window, so freshness alone would short-circuit the new location's first refresh.
-    const describesActiveLocation = snapshot !== null
-      && snapshot.locationKey === current.activeLocation?.locationKey;
+    const describesActiveLocation = activeLocationSnapshot(snapshot, current.activeLocation) !== null;
     const resolved: WeatherFreshness | null = freshness === null || freshness === 'invalid'
       ? null
       : describesActiveLocation ? freshness : 'stale';
@@ -393,13 +394,8 @@ export class WeatherApplicationController {
       this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey;
     const startedAt = Date.now();
     try {
-      const provided = await this.dependencies.provider.fetchSnapshot(location);
-      if (provided.locationKey !== location.locationKey || provided.timeZone !== location.timeZone) {
-        throw new Error('Mismatched weather location.');
-      }
-      if (weatherFreshness(provided.fetchedAt, this.dependencies.now()) === 'invalid') {
-        throw new Error('Invalid weather fetch time.');
-      }
+      const provided = acceptProvidedSnapshot(
+        location, await this.dependencies.provider.fetchSnapshot(location), this.dependencies.now());
       const snapshot = await this.requireRepository().saveSnapshot(this.localProfileId, provided);
       if (isCurrent() && this.state.status === 'ready') {
         const freshness = weatherFreshness(snapshot.fetchedAt, this.dependencies.now());

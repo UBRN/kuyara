@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   dressingDayDateKey,
   dressingDayKeySchema,
+  forecastHoursAhead,
   isEveningDressingDayKey,
   wardrobeDayKey,
   wardrobeDayWindow,
@@ -176,4 +177,21 @@ test('the dressing-day key schema accepts the bare date and the evening key only
   assert.equal(dressingDayKeySchema.safeParse('2026-10-04:evening').success, true);
   assert.equal(dressingDayKeySchema.safeParse('2026-10-04:night').success, false);
   assert.equal(dressingDayKeySchema.safeParse('2026-10-4').success, false);
+});
+
+test('forecast hours ahead are those after now and before the window closes', () => {
+  const window = wardrobeDayWindow('2026-09-09T05:00:00.000Z', 'Europe/Istanbul');
+  const hour = (iso) => ({ forecastAt: iso });
+  const hourly = [
+    hour('2026-09-09T04:00:00.000Z'),
+    hour('2026-09-09T05:00:00.000Z'),
+    hour('2026-09-09T06:00:00.000Z'),
+    hour('2026-09-09T20:59:00.000Z'),
+    hour('2026-09-09T21:00:00.000Z'),
+    hour('2026-09-09T22:00:00.000Z'),
+  ];
+  assert.deepEqual(
+    forecastHoursAhead(hourly, Date.parse('2026-09-09T05:00:00.000Z'), window).map(({ forecastAt }) => forecastAt),
+    ['2026-09-09T06:00:00.000Z', '2026-09-09T20:59:00.000Z'],
+  );
 });

@@ -1148,3 +1148,17 @@ test('a calendar-date key schema is built only by its owners', () => {
     `use calendarDateKeySchema or dressingDayKeySchema: ${hits.join(', ')}`,
   );
 });
+
+// A provided weather snapshot is accepted by `acceptProvidedSnapshot` and the forecast hours
+// still ahead in the dressing day come from `forecastHoursAhead`; neither rule is spelled twice.
+test('snapshot acceptance and the hours ahead each have one owner', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/weather/domain/weather.ts' || relativePath === 'features/weather/domain/wardrobe-day.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/Mismatched weather location|Invalid weather fetch time|forecast >=? now/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call acceptProvidedSnapshot from weather/domain/weather.ts or forecastHoursAhead from weather/domain/wardrobe-day.ts');
+});
