@@ -12,6 +12,11 @@ import { messages } from '@/localization/messages';
 import { darkTheme, lightTheme, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
+jest.mock('expo-router', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  return { useFocusEffect: (effect: () => void | (() => void)) => React.useEffect(effect, [effect]) };
+});
+
 const onSkip = jest.fn();
 const chosen: RunwayOutfit = {
   id: 'ai-option',
@@ -178,7 +183,7 @@ test('a runway that starts after mount fades in rather than appearing in one fra
   await result.rerender(runway());
   await act(() => jest.advanceTimersByTime(0));
   expect(result.getByTestId('first-generation-runway')).toBeOnTheScreen();
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.deliberate }, expect.any(Function));
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.deliberate, easing: expect.anything() }, expect.any(Function));
   withTiming.mockRestore();
 });
 
@@ -217,8 +222,8 @@ test('each new line crossfades in on the one spoken node, and All set crossfades
   const spoken = result.getByTestId('first-generation-line');
   withTiming.mockClear();
   await act(() => jest.advanceTimersByTime(2_000));
-  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast }, expect.any(Function));
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast, easing: expect.anything() }, expect.any(Function));
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal, easing: expect.anything() });
   expect(result.getByTestId('first-generation-line')).toBe(spoken);
   expect(spoken.props.accessibilityLabel).toBe(messages.en.today.phase['asking-stylist']);
 
@@ -226,7 +231,7 @@ test('each new line crossfades in on the one spoken node, and All set crossfades
   withTiming.mockClear();
   await act(() => jest.advanceTimersByTime(dressing));
   expect(result.getByTestId('first-generation-success')).toBeOnTheScreen();
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal, easing: expect.anything() });
   withTiming.mockRestore();
 });
 
@@ -246,7 +251,7 @@ test('skip appears at ten seconds, uses the native alert roles and leaves with t
   const withTiming = jest.spyOn(Reanimated, 'withTiming');
   await act(() => jest.advanceTimersByTime(1));
   // Skip arrives as content entering, on the fast role.
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast, easing: expect.anything() });
   withTiming.mockRestore();
   await fireEvent.press(result.getByTestId('first-generation-skip'));
   expect(alert).toHaveBeenCalledTimes(1);

@@ -12,6 +12,7 @@ export {
 export { Crossfade, type CrossfadeProps } from './crossfade';
 export { DrawGrow, DrawReveal, type DrawGrowProps, type DrawRevealProps } from './draw-in';
 export { Entrance, type EntranceProps } from './entrance';
+export { FadeIn, fadeEasing, fadeTo } from './fade';
 export { GarmentSlotGlyph, GarmentSlotTile } from './garment-slot-glyph';
 export { GlassButton, type GlassButtonProps } from './glass-button';
 export { Icon, iconNames, type IconName } from './icon';

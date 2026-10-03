@@ -83,6 +83,6 @@ test('the styles step fades in after the day type is chosen; the first step stan
   await view.rerender(at('styles'));
   expect(opacityOf(view.getByTestId('daily-formality-styles-note'))).toBe(0);
   expect(opacityOf(view.getByRole('header', { name: copy.stylesQuestion }))).toBe(0);
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal, easing: expect.anything() });
   withTiming.mockRestore();
 });

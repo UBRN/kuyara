@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { PressScale } from '@/components/ui/press-scale';
+import { fadeTo } from '@/components/ui/fade';
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
 import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
@@ -52,8 +53,8 @@ function HeaderWords({ from, children }: Readonly<{ from: number; children: Reac
   const theme = useKuyaraTheme();
   const opacity = useSharedValue(from);
   useEffect(() => {
-    opacity.set(withTiming(1, { duration: theme.motion.fast }));
-  }, [opacity, theme.motion.fast]);
+    opacity.set(fadeTo(1, theme.motion.fast, theme.motion));
+  }, [opacity, theme.motion]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   return <Animated.View style={style}>{children}</Animated.View>;
 }

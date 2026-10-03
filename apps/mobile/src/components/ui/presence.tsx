@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedReaction,
@@ -10,6 +10,7 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { useKuyaraTheme } from '@/theme/theme-context';
+import { fadeEasing } from './fade';
 
 /** Text enters once its container is this share open: container before content (Law 7). */
 export const PRESENCE_TEXT_AFTER = 0.9;
@@ -32,6 +33,7 @@ export type PresenceProps = Readonly<{
 export function Presence({ visible, children, testID }: PresenceProps) {
   const theme = useKuyaraTheme();
   const { fast } = theme.motion;
+  const easing = useMemo(() => fadeEasing(theme.motion), [theme.motion]);
   const spatial = theme.springs.spatial;
   const [shownOnMount] = useState(visible);
   const [height, setHeight] = useState<number | null>(null);
@@ -55,9 +57,9 @@ export function Presence({ visible, children, testID }: PresenceProps) {
   useAnimatedReaction(() => blockHeight.get(), (value) => {
     if (textPending.get() === 1 && value >= PRESENCE_TEXT_AFTER * full.get()) {
       textPending.set(0);
-      textOpacity.set(withTiming(1, { duration: fast }));
+      textOpacity.set(withTiming(1, { duration: fast, easing }));
     }
-  }, [fast]);
+  }, [easing, fast]);
 
   // A block hidden before it was measured never showed or hid anything the effect below
   // could have recorded; its next showing is an entrance like any other, text after container.
@@ -80,7 +82,7 @@ export function Presence({ visible, children, testID }: PresenceProps) {
       blockHeight.set(withSpring(height, spatial, (finished) => {
         if (finished && textPending.get() === 1) {
           textPending.set(0);
-          textOpacity.set(withTiming(1, { duration: fast }));
+          textOpacity.set(withTiming(1, { duration: fast, easing }));
         }
       }));
       return;
@@ -89,13 +91,13 @@ export function Presence({ visible, children, testID }: PresenceProps) {
     // Leaving: the text goes first, then the height closes.
     textPending.set(0);
     blockHeight.set(height);
-    textOpacity.set(withTiming(0, { duration: fast }, (faded) => {
+    textOpacity.set(withTiming(0, { duration: fast, easing }, (faded) => {
       if (!faded || wanted.get() === 1) return;
       blockHeight.set(withSpring(0, spatial, (closed) => {
         if (closed && wanted.get() === 0) scheduleOnRN(setCollapsed, true);
       }));
     }));
-  }, [blockHeight, fast, full, height, spatial, textOpacity, textPending, visible, wanted]);
+  }, [blockHeight, easing, fast, full, height, spatial, textOpacity, textPending, visible, wanted]);
 
   const presenceStyle = useAnimatedStyle(() => (drawnAtRest ? { opacity: 1 } : {
     height: blockHeight.get(),

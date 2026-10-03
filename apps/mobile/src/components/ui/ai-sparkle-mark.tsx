@@ -13,6 +13,7 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 
 import { Icon } from '@/components/ui/icon';
+import { fadeTo } from '@/components/ui/fade';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // O11: the Worker's "Chosen with AI" mark, V1 "confetti twinkle". The SF Symbol `sparkles` has
@@ -130,14 +131,14 @@ function Star({
     const delay = index * theme.motion.stagger;
     scale.set(withDelay(delay, withSpring(1, theme.springs.arrival)));
     turn.set(withDelay(delay, withSpring(0, theme.springs.arrival)));
-    opacity.set(withDelay(delay, withTiming(1, { duration: theme.motion.normal })));
+    opacity.set(withDelay(delay, fadeTo(1, theme.motion.normal, theme.motion)));
 
     return () => {
       cancelAnimation(scale);
       cancelAnimation(turn);
       cancelAnimation(opacity);
     };
-  }, [index, opacity, play, scale, theme.motion.normal, theme.motion.stagger, theme.springs.arrival, turn]);
+  }, [index, opacity, play, scale, theme.motion, theme.springs.arrival, turn]);
 
   useEffect(() => {
     if (twinkle === 0) {

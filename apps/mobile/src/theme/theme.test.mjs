@@ -112,6 +112,12 @@ test('the stagger role steps content arrival', () => {
   assert.equal(createKuyaraTheme('light').motion.stagger, standardMotion.stagger);
 });
 
+test('one ease-out curve belongs to the motion theme in both appearances', () => {
+  assert.deepEqual(standardMotion.fadeCurve, [0.16, 1, 0.3, 1]);
+  assert.equal(createKuyaraTheme('light').motion.fadeCurve, standardMotion.fadeCurve);
+  assert.equal(createKuyaraTheme('dark').motion.fadeCurve, standardMotion.fadeCurve);
+});
+
 test('the launch role keeps the whole launch to 600 ms', () => {
   // A breath on `fast`, the dive on `launch` and the curtain's fade on `normal`.
   assert.equal(standardMotion.fast + standardMotion.launch + standardMotion.normal, 600);

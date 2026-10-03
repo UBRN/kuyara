@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import type { RunwayParticleKind } from '@/features/today/presentation/runway-palette';
+import { useScreenVisible } from '@/components/ui/use-screen-visible';
 import type { MotionTokens } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -81,12 +82,16 @@ function RunwayParticle({
   color,
   width,
   height,
-}: Readonly<{ kind: RunwayParticleKind; particle: Particle; color: string; width: number; height: number }>) {
+  visible,
+}: Readonly<{ kind: RunwayParticleKind; particle: Particle; color: string; width: number; height: number; visible: boolean }>) {
   const theme = useKuyaraTheme();
   const progress = useSharedValue(0);
   const duration = loopDuration(kind, particle.size, theme.motion.ambient);
 
   useEffect(() => {
+    cancelAnimation(progress);
+    progress.set(0);
+    if (!visible) return undefined;
     // Motes breathe there and back on an eased leg; everything else travels one way, linear.
     const mote = kind === 'mote';
     progress.set(withRepeat(
@@ -95,7 +100,7 @@ function RunwayParticle({
       mote,
     ));
     return () => cancelAnimation(progress);
-  }, [duration, kind, progress]);
+  }, [duration, kind, progress, visible]);
 
   const { phase, sway } = particle;
   const animatedStyle = useAnimatedStyle(() => {
@@ -153,6 +158,7 @@ export function RunwayParticles({
   height: number;
   style?: StyleProp<ViewStyle>;
 }>) {
+  const visible = useScreenVisible();
   if (width <= 0 || height <= 0) return null;
   return (
     <View
@@ -169,6 +175,7 @@ export function RunwayParticles({
           kind={kind}
           particle={particle}
           width={width}
+          visible={visible}
         />
       ))}
     </View>

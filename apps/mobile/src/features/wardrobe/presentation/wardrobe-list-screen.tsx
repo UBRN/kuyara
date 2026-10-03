@@ -442,6 +442,9 @@ export function WardrobeListScreen({
   return (
     <FlatList<ClosetRow>
       accessibilityLabel={copy.title}
+      // Five viewports keep nearby tiles; five initial rows cap first-render artwork.
+      windowSize={5}
+      initialNumToRender={5}
       contentContainerStyle={[contentInsets, styles.listContent]}
       contentInsetAdjustmentBehavior="automatic"
       data={rows}

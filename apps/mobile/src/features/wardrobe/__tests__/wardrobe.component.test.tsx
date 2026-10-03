@@ -486,13 +486,13 @@ test('picking a type opens the colour section in place; Change fades the grid in
   timings.mockClear();
   await fireEvent.press(created.getByTestId('wardrobe-type-change-button'));
   // The row fades out on `fast`, with the colour section, before the grid replaces it.
-  expect(timings).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast }, expect.any(Function));
+  expect(timings).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast, easing: expect.anything() }, expect.any(Function));
   // The grid's fade starts once it is laid out, not while it mounts.
-  expect(timings).not.toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(timings).not.toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal, easing: expect.anything() });
   await fireEvent(created.getByTestId('wardrobe-type-grid'), 'layout', {
     nativeEvent: { layout: { x: 0, y: 0, width: 358, height: 400 } },
   });
-  expect(timings).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(timings).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal, easing: expect.anything() });
   expect(created.getByTestId('wardrobe-color-section', { includeHiddenElements: true })).toBeTruthy();
   expect(isHiddenFromAccessibility(
     created.getByTestId('wardrobe-color-section', { includeHiddenElements: true }),

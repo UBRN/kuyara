@@ -25,6 +25,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { brandColors, standardMotion } from '@/theme/theme';
 
 import { brandSymbolPaths, brandSymbolViewBox } from './brand-symbol';
+import { fadeTo } from './fade';
 
 // The group's native transform is its `matrix`, which the typed props leave out.
 const AnimatedG = Animated.createAnimatedComponent(
@@ -218,14 +219,14 @@ function CurtainLayer({
       camera.set(withDelay(fast, withTiming(1, { duration: launch * CAMERA_SHARE, easing: GLIDE_EASING })));
       fill.set(withDelay(
         fast + launch * FILL_FROM,
-        withTiming(1, { duration: launch * (FILL_TO - FILL_FROM), easing: GLIDE_EASING }),
+        fadeTo(1, launch * (FILL_TO - FILL_FROM), standardMotion),
       ));
-      lift.set(withDelay(fast + launch, withTiming(0, { duration: normal, easing: EASE_OUT })));
+      lift.set(withDelay(fast + launch, fadeTo(0, normal, standardMotion)));
     } else if (motion === 'short') {
-      veil.set(withTiming(1, { duration: fast, easing: EASE_OUT }));
-      lift.set(withDelay(fast, withTiming(0, { duration: normal, easing: EASE_OUT })));
+      veil.set(fadeTo(1, fast, standardMotion));
+      lift.set(withDelay(fast, fadeTo(0, normal, standardMotion)));
     } else {
-      withdraw.set(withTiming(0, { duration: motion === 'late' ? normal : fast, easing: EASE_OUT }));
+      withdraw.set(fadeTo(0, motion === 'late' ? normal : fast, standardMotion));
     }
   }, [breath, camera, dive, fill, lift, motion, veil, withdraw]);
 

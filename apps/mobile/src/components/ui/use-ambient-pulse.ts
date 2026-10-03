@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import {
   cancelAnimation,
   useSharedValue,
@@ -10,6 +10,7 @@ import {
 } from 'react-native-reanimated';
 
 import { useKuyaraTheme } from '@/theme/theme-context';
+import { useWhileVisible } from '@/components/ui/use-screen-visible';
 
 /** The trough of one breath. The crest is 1, so a consumer scales the whole range. */
 export const AMBIENT_PULSE_FLOOR = 0.45;
@@ -26,10 +27,9 @@ export const AMBIENT_PULSE_FLOOR = 0.45;
 export function useAmbientPulse(index = 0): SharedValue<number> {
   const theme = useKuyaraTheme();
   const progress = useSharedValue(AMBIENT_PULSE_FLOOR);
+  const leg = theme.motion.ambient.moderate;
 
-  useEffect(() => {
-    const leg = theme.motion.ambient.moderate;
-
+  useWhileVisible(useCallback(() => {
     progress.set(withDelay(
       index * leg,
       withRepeat(
@@ -40,9 +40,11 @@ export function useAmbientPulse(index = 0): SharedValue<number> {
         -1,
       ),
     ));
-
-    return () => cancelAnimation(progress);
-  }, [index, progress, theme.motion.ambient.moderate]);
+    return () => {
+      cancelAnimation(progress);
+      progress.set(AMBIENT_PULSE_FLOOR);
+    };
+  }, [index, leg, progress]));
 
   return progress;
 }

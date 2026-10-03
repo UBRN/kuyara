@@ -19,6 +19,7 @@ jest.mock('expo-symbols', () => ({
   },
 }));
 
+jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
 jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));

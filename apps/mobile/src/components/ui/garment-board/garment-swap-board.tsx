@@ -23,6 +23,7 @@ import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { haptics } from '../haptics';
+import { fadeEasing, fadeTo } from '../fade';
 import { PRESENCE_TEXT_AFTER } from '../presence';
 import {
   composePieces,
@@ -288,6 +289,7 @@ function PieceView({
   testID: string;
 }>) {
   const theme = useKuyaraTheme();
+  const fadeEase = useMemo(() => fadeEasing(theme.motion), [theme.motion]);
   const { base, values, big, key } = instance;
   const { from, to, p, dx, dy, op, sc, drain, hand, handFrom, handTo } = values;
   const fast = theme.motion.fast;
@@ -327,11 +329,11 @@ function PieceView({
     const start = handFrom.get();
     if (start === target || (scale - start) / (target - start) >= SWAP_HANDOFF_AFTER) {
       handTo.set(Number.NaN);
-      hand.set(withTiming(0, { duration: fast }, (finished) => {
+      hand.set(withTiming(0, { duration: fast, easing: fadeEase }, (finished) => {
         if (finished) scheduleOnRN(onBigDone, key);
       }));
     }
-  }, [fast, key, onBigDone]);
+  }, [fadeEase, fast, key, onBigDone]);
 
   return (
     <View
@@ -413,6 +415,7 @@ export function GarmentSwapBoard({
   testID,
 }: GarmentSwapBoardProps) {
   const theme = useKuyaraTheme();
+  const fadeEase = useMemo(() => fadeEasing(theme.motion), [theme.motion]);
   const { colors } = theme;
   const large = useEasierToSee();
   const outline = large ? easierToSeeValues.boardOutline : undefined;
@@ -616,7 +619,7 @@ export function GarmentSwapBoard({
       if (scale > 1) {
         // Growing: the big drawing fades in over the resting one from the tap frame.
         values.handTo.set(Number.NaN);
-        values.hand.set(withTiming(1, { duration: fast }));
+        values.hand.set(fadeTo(1, fast, theme.motion));
       } else if (values.hand.get() > 0) {
         values.handFrom.set(now);
         values.handTo.set(scale);
@@ -642,7 +645,7 @@ export function GarmentSwapBoard({
         case 'promote':
           retarget(values, intent.box);
           // A paged neighbour is already opaque and large; a piece coming back from leaving fades in.
-          values.op.set(intent.paged ? 1 : withTiming(1, { duration: fast }));
+          values.op.set(intent.paged ? 1 : fadeTo(1, fast, theme.motion));
           if (!intent.fromGesture) spring(values.dx, 0);
           if (values.sc.get() !== intent.scale) scaleTo(values, intent.scale);
           if (intent.fromGesture) catchWeight(values);
@@ -660,7 +663,7 @@ export function GarmentSwapBoard({
           spring(values.p, 1);
           spring(values.dx, 0);
           hangOn(values);
-          if (!intent.paged) values.op.set(withTiming(1, { duration: fast }));
+          if (!intent.paged) values.op.set(fadeTo(1, fast, theme.motion));
           break;
         }
         case 'leave': {
@@ -669,7 +672,7 @@ export function GarmentSwapBoard({
           if (intent.paged) {
             // Clipped, it fades out on `fast` as it slides out of the window, so it never rests
             // cut at the window's edge, and is gone on landing.
-            values.op.set(withTiming(0, { duration: fast }));
+            values.op.set(fadeTo(0, fast, theme.motion));
             if (!intent.fromGesture) {
               pendingSprings.current += 1;
               values.dx.set(withSpring(swapExitOffset(intent.direction, values.dx.get(), intent.stride), spatial,
@@ -684,7 +687,8 @@ export function GarmentSwapBoard({
             spring(values.dx, swapExitOffset(intent.direction, values.dx.get(), intent.stride));
             spring(values.sc, 1);
           }
-          values.op.set(withTiming(0, { duration: fast }, (finished) => {
+          values.op.set(fadeTo(0, fast, theme.motion, (finished) => {
+            'worklet';
             if (finished) scheduleOnRN(removeLeaving, key);
           }));
           break;
@@ -721,7 +725,8 @@ export function GarmentSwapBoard({
         case 'drain': {
           const { key } = intent;
           values.drain.set(1);
-          values.drain.set(withTiming(0, { duration: normal }, (finished) => {
+          values.drain.set(fadeTo(0, normal, theme.motion, (finished) => {
+            'worklet';
             if (finished) scheduleOnRN(clearDrain, key);
           }));
           break;
@@ -807,12 +812,12 @@ export function GarmentSwapBoard({
     'worklet';
     if (panelPending.get() === 1) {
       panelPending.set(0);
-      panelOpacity.set(withTiming(1, { duration: fast }));
+      panelOpacity.set(withTiming(1, { duration: fast, easing: fadeEase }));
       scheduleOnRN(markPanelLive);
     }
     if (hintPending.get() === 1) {
       hintPending.set(0);
-      hintOpacity.set(withTiming(1, { duration: fast }));
+      hintOpacity.set(withTiming(1, { duration: fast, easing: fadeEase }));
     }
   };
   useAnimatedReaction(() => block.get(), (height) => {
@@ -862,7 +867,7 @@ export function GarmentSwapBoard({
     afterLeavingPanelOut();
     if (latest.current.focus === null) return;
     startBlock(latest.current.target);
-    panelOpacity.set(withTiming(1, { duration: normal }));
+    panelOpacity.set(fadeTo(1, normal, theme.motion));
     markPanelLive();
   };
   const afterHintOut = () => {
@@ -898,13 +903,14 @@ export function GarmentSwapBoard({
         panelOpacity.set(0);
         panelPending.set(1);
         hintPending.set(0);
-        hintOpacity.set(withTiming(0, { duration: fast }));
+        hintOpacity.set(fadeTo(0, fast, theme.motion));
         startBlock(blockTarget);
         reveal(focusedSlot);
       } else if (focusedSlot === null) {
         // Settle: the strip fades out first, then the block closes in one spring.
         panelPending.set(0);
-        panelOpacity.set(withTiming(0, { duration: fast }, (finished) => {
+        panelOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
+          'worklet';
           if (finished) scheduleOnRN(afterPanelOut);
         }));
       } else {
@@ -914,14 +920,16 @@ export function GarmentSwapBoard({
         leavingPanelOpacity.set(1);
         panelOpacity.set(0);
         if (Math.abs(panelHeight - seen.panel) < 0.5) {
-          leavingPanelOpacity.set(withTiming(0, { duration: fast }, (finished) => {
+          leavingPanelOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
+            'worklet';
             if (finished) scheduleOnRN(afterLeavingPanelOut);
           }));
-          panelOpacity.set(withTiming(1, { duration: normal }));
+          panelOpacity.set(fadeTo(1, normal, theme.motion));
           markPanelLive();
           startBlock(blockTarget);
         } else if (panelHeight > seen.panel) {
-          leavingPanelOpacity.set(withTiming(0, { duration: fast }, (finished) => {
+          leavingPanelOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
+            'worklet';
             if (finished) scheduleOnRN(afterLeavingPanelOut);
           }));
           panelPending.set(1);
@@ -929,7 +937,8 @@ export function GarmentSwapBoard({
           reveal(focusedSlot);
         } else {
           panelPending.set(0);
-          leavingPanelOpacity.set(withTiming(0, { duration: fast }, (finished) => {
+          leavingPanelOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
+            'worklet';
             if (finished) scheduleOnRN(afterShorterSwap);
           }));
         }
@@ -940,7 +949,8 @@ export function GarmentSwapBoard({
       if (!hintVisible) {
         // A change: the hint's words leave before its space closes.
         hintPending.set(0);
-        hintOpacity.set(withTiming(0, { duration: fast }, (finished) => {
+        hintOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
+          'worklet';
           if (finished) scheduleOnRN(afterHintOut);
         }));
       } else {
@@ -1178,7 +1188,7 @@ export function GarmentSwapBoard({
         incomingDx.set(withSpring(0, { ...spatial, velocity }));
         // The piece swiped away fades and lifts off from the release, as a paged-out piece
         // does, instead of sliding out opaque until the owner has applied the step.
-        curOp?.set(withTiming(0, { duration: fast }));
+        curOp?.set(withTiming(0, { duration: fast, easing: fadeEase }));
         curDy?.set(withTiming(-DRESS_LIFT, { duration: fast }));
         const key = curKey;
         curDx.set(withSpring(swapExitOffset(direction, shown, stride), { ...spatial, velocity }, (finished) => {
@@ -1228,8 +1238,8 @@ export function GarmentSwapBoard({
   // laid out while away, so the plate keeps their measured height.
   const overlayShown = settled && focusedSlot === null && !model.relayouting;
   const overlayStyle = useAnimatedStyle(() => ({
-    opacity: overlayShown ? withTiming(1, { duration: normal }) : 0,
-  }), [normal, overlayShown]);
+    opacity: overlayShown ? withTiming(1, { duration: normal, easing: fadeEase }) : 0,
+  }), [fadeEase, normal, overlayShown]);
   const hintStyle = useAnimatedStyle(() => ({ opacity: hintOpacity.get() }));
   const panelStyle = useAnimatedStyle(() => ({ opacity: panelOpacity.get() }));
   const leavingPanelStyle = useAnimatedStyle(() => ({ opacity: leavingPanelOpacity.get() }));

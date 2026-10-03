@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import {
   AppText,
   Button,
   Crossfade,
+  fadeTo,
   Icon,
   NativeList,
   NativeListRow,
@@ -106,8 +107,8 @@ export function LocationSelectionControls({
   const hasResults = search.status === 'ready' && search.places.length > 0;
   const resultsOpacity = useSharedValue(hasResults ? 1 : 0);
   useEffect(() => {
-    resultsOpacity.set(hasResults ? withTiming(1, { duration: theme.motion.fast }) : 0);
-  }, [hasResults, resultsOpacity, theme.motion.fast]);
+    resultsOpacity.set(hasResults ? fadeTo(1, theme.motion.fast, theme.motion) : 0);
+  }, [hasResults, resultsOpacity, theme.motion]);
   const resultsFade = useAnimatedStyle(() => ({ opacity: resultsOpacity.get() }));
 
   useEffect(() => {

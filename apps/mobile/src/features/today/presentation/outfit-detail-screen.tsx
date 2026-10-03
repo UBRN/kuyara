@@ -13,7 +13,6 @@ import Animated, {
   useAnimatedStyle,
   useScrollOffset,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +28,8 @@ import {
   garmentColorFamiliesBySlot,
   garmentSwatchesBySlot,
   Entrance,
+  FadeIn,
+  fadeTo,
   GarmentSwapBoard,
   GarmentTileArtwork,
   garmentBoardDressingOrder,
@@ -198,13 +199,8 @@ function pieceEntries(
 /** Content that fades in when it is replaced (effects motion), and stays still on mount. */
 function FadeOnChange({ animate, children }: Readonly<{ animate: boolean; children: ReactNode }>) {
   const theme = useKuyaraTheme();
-  const opacity = useSharedValue(animate ? 0 : 1);
-  useEffect(() => {
-    opacity.set(withTiming(1, { duration: theme.motion.normal }));
-  }, [opacity, theme.motion.normal]);
-  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   // A piece row draws this over its full-row pressable, so the fade itself never takes a touch.
-  return <Animated.View pointerEvents="box-none" style={style}>{children}</Animated.View>;
+  return <FadeIn animate={animate} duration={theme.motion.normal} pointerEvents="box-none">{children}</FadeIn>;
 }
 
 /** A leaving worn control: whole in its first frame, gone on `fast`, then out of the tree. */
@@ -212,10 +208,11 @@ function FadeOut({ onDone, children }: Readonly<{ onDone: () => void; children: 
   const theme = useKuyaraTheme();
   const opacity = useSharedValue(1);
   useEffect(() => {
-    opacity.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
+    opacity.set(fadeTo(0, theme.motion.fast, theme.motion, (finished) => {
+      'worklet';
       if (finished) scheduleOnRN(onDone);
     }));
-  }, [onDone, opacity, theme.motion.fast]);
+  }, [onDone, opacity, theme.motion]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   return (
     <Animated.View

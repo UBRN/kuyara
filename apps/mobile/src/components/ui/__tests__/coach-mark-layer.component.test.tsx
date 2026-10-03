@@ -45,9 +45,9 @@ test('a step on another screen closes the lit area and opens it at the new place
   const withTiming = jest.spyOn(Reanimated, 'withTiming');
 
   await result.rerender(layer(here, true));
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast, easing: expect.anything() });
 
   await result.rerender(layer(there));
-  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.normal });
+  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.normal, easing: expect.anything() });
   expect(withSpring).not.toHaveBeenCalled();
 });
