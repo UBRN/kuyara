@@ -146,19 +146,25 @@ test('daily departure insert, update and clear mark the day row', async (t) => {
   assert.equal(await pending(database, 'dressing_day_departures'), 1);
 });
 
-test('History log, overwrite and soft delete mark the day row', async (t) => {
+test('History marks a new look and its soft delete, and the same look again writes nothing', async (t) => {
   const database = await setup(t);
   await insertProfile(database);
   const photos = { resolveUri: () => null, deleteStored: async () => {} };
-  const repository = new SqliteOutfitHistoryRepository(database, () => dayId, () => now, photos);
+  const ids = [dayId, '5c7e9a1b-3d5f-4a7b-9c1d-2e3f4a5b6c7d'];
+  const repository = new SqliteOutfitHistoryRepository(database, () => ids.shift(), () => now, photos);
+  const flags = async () => (await database.getAllAsync('SELECT id, pending_sync FROM outfit_history ORDER BY rowid'))
+    .map(({ id, pending_sync: flag }) => [id, flag]);
   const outfit = { garments: { primary_top: 't_shirt', bottom: 'jeans', footwear: 'sneakers' },
     archetypeId: 'everyday_easy', formality: 'casual', source: 'recommended' };
-  await repository.log(profileId, '2026-10-02', outfit, { kind: 'keep' }, null);
-  assert.equal(await pending(database, 'outfit_history'), 1);
+  const morning = await repository.log(profileId, '2026-10-02', outfit, { kind: 'keep' }, null);
+  assert.deepEqual(await flags(), [[dayId, 1]]);
   await database.runAsync('UPDATE outfit_history SET pending_sync = 0');
   await repository.log(profileId, '2026-10-02', outfit, { kind: 'keep' }, null);
-  assert.equal(await pending(database, 'outfit_history'), 1);
+  assert.deepEqual(await flags(), [[dayId, 0]]);
+  const evening = await repository.log(profileId, '2026-10-02',
+    { ...outfit, garments: { ...outfit.garments, primary_top: 'shirt' } }, { kind: 'keep' }, null);
+  assert.deepEqual(await flags(), [[dayId, 0], [evening.id, 1]]);
   await database.runAsync('UPDATE outfit_history SET pending_sync = 0');
-  assert.equal(await repository.softDelete(profileId, '2026-10-02'), true);
-  assert.equal(await pending(database, 'outfit_history'), 1);
+  assert.equal(await repository.softDelete(profileId, morning.id), true);
+  assert.deepEqual(await flags(), [[dayId, 1], [evening.id, 0]]);
 });
