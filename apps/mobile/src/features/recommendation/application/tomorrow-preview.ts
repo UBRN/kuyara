@@ -1,5 +1,6 @@
 import type { AiRecommendV1Request } from '@kuyara/contracts';
 
+import type { SupportedLanguage } from '@/domain/preferences';
 import {
   recommendOutfits,
   type OutfitRecommendationInput,
@@ -13,6 +14,7 @@ import type { RecommendationContext } from '@/features/recommendation/data/worke
 import { forecastBoundedCoverage, outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
+import { defaultDressStyle, sameStyleAesthetics } from '@/features/profile/domain/profile';
 
 /**
  * Whether the forecast describes the whole coverage window an outfit chosen for `departureAt`
@@ -45,7 +47,7 @@ export function previewAnswersQuestion(
     preview.locationKey === question.locationKey &&
     preview.clothingPreference === question.clothingPreference &&
     preview.dressStyle === question.dressStyle &&
-    JSON.stringify(preview.styleAesthetics ?? []) === JSON.stringify(question.styleAesthetics);
+    sameStyleAesthetics(preview.styleAesthetics, question.styleAesthetics);
 }
 
 /**
@@ -68,7 +70,7 @@ export function reusablePreviewRecommendation(
     localDayKey: context.localDayKey,
     locationKey,
     clothingPreference: context.clothingPreference,
-    dressStyle: context.dressStyle ?? 'smart',
+    dressStyle: context.dressStyle ?? defaultDressStyle,
     styleAesthetics: context.styleAesthetics ?? [],
   }) &&
     preview.catalogVersion === context.catalogVersion &&
@@ -99,7 +101,7 @@ type Dependencies = Readonly<{
   client: Readonly<{
     recommendRouted(
       request: AiRecommendV1Request,
-      options?: Readonly<{ locale?: 'tr' | 'en' }>,
+      options?: Readonly<{ locale?: SupportedLanguage }>,
     ): Promise<OutfitRecommendationSuccess>;
   }>;
   loadRecentWorn?: () => Promise<readonly WornOutfit[]>;
@@ -107,7 +109,7 @@ type Dependencies = Readonly<{
 
 export type TomorrowPreviewInput = OutfitRecommendationInput & Readonly<{
   localDayKey: string;
-  locale?: 'tr' | 'en';
+  locale?: SupportedLanguage;
 }>;
 
 type Listener = () => void;

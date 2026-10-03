@@ -31,6 +31,16 @@ export function localDayKind(date: Date): DayKind {
 }
 
 /**
+ * The kind of a `YYYY-MM-DD` calendar date, read from the date itself in no zone: a forecast
+ * day or a history day is the weekday it names wherever the device is.
+ */
+export function dateKeyDayKind(dateKey: string): DayKind {
+  const { year, month, day } = calendarDateParts(dateKey);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return weekday === 0 || weekday === 6 ? 'weekend' : 'weekday';
+}
+
+/**
  * The dressing day the device clock is in: the bare local date until 18:00, and that date
  * plus `:evening` from 18:00 through 04:00 the next morning. It keeps its name, its type and
  * its place in the signals, so the existing `local-day-changed` trigger fires at 04:00

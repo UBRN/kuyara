@@ -1,4 +1,9 @@
-import { dressStyleSchema, styleAestheticSchema, type DressStyle } from '@kuyara/contracts';
+import {
+  dressStyleSchema,
+  styleAestheticSchema,
+  styleAestheticsLimit,
+  type DressStyle,
+} from '@kuyara/contracts';
 import { z } from 'zod';
 
 import { calendarDateKeySchema, formatCalendarDate } from '@/domain/calendar-date';
@@ -49,6 +54,9 @@ export type OnboardingPreferences = Readonly<{
   birthDate: string | null;
 }>;
 
+/** The dress style a profile or a stored row without one is read as (ADR 0031). */
+export const defaultDressStyle: DressStyle = 'smart';
+
 export const genderSchema = z.enum(['woman', 'man']);
 export type Gender = z.infer<typeof genderSchema>;
 /** The one place a gender becomes the catalog it draws from. */
@@ -57,13 +65,21 @@ export const catalogPreferenceByGender = {
   man: 'mens',
 } as const satisfies Readonly<Record<Gender, ClothingPreference>>;
 export type StyleAesthetic = z.infer<typeof styleAestheticSchema>;
-export const styleAestheticsSchema = z.array(styleAestheticSchema).max(3).refine(
+export const styleAestheticsSchema = z.array(styleAestheticSchema).max(styleAestheticsLimit).refine(
   (values) => new Set(values).size === values.length,
 );
 
 /** The one stored and compared order of a style-aesthetics list: alphabetical, as a copy. */
 export function orderStyleAesthetics<T extends string>(values: readonly T[]): T[] {
   return [...values].sort();
+}
+
+/** Whether two style lists name the same styles, whatever order each arrives in. */
+export function sameStyleAesthetics(
+  left: readonly string[] | null | undefined,
+  right: readonly string[] | null | undefined,
+): boolean {
+  return JSON.stringify(orderStyleAesthetics(left ?? [])) === JSON.stringify(orderStyleAesthetics(right ?? []));
 }
 
 /** A list read from storage or a server in that order, or none when it is not a valid list. */

@@ -14,6 +14,7 @@ import {
   dayKindSchema,
   dressStyleSchema,
   styleAestheticSchema,
+  styleAestheticsLimit,
   garmentTypeIds,
   layerRoles,
   outfitArchetypeIds,
@@ -29,9 +30,10 @@ import {
   type AiRecommendV2Success,
   type OutfitArchetypeId,
 } from '@kuyara/contracts';
+import type { SupportedLanguage } from '@/domain/preferences';
 import { z } from 'zod';
 
-import { orderStyleAesthetics } from '@/features/profile/domain/profile';
+import { defaultDressStyle, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import {
   assignFallbackArchetypes,
@@ -80,7 +82,7 @@ export class WorkerAiRecommendationMappingError extends Error {
 const recommendationContextSchema = z.strictObject({
   clothingPreference: z.enum(clothingPreferences),
   dressStyle: dressStyleSchema.optional(),
-  styleAesthetics: z.array(styleAestheticSchema).max(3).optional(),
+  styleAesthetics: z.array(styleAestheticSchema).max(styleAestheticsLimit).optional(),
   catalogVersion: z.number().int().min(1),
   dayVariant: z.number().int().min(0).max(6),
   // Optional, so a row persisted before the weekday rule still parses and keeps its label.
@@ -157,7 +159,7 @@ function normalizeRetiredContext(value: unknown): unknown {
   const record = value as Record<string, unknown>;
   if (!Object.hasOwn(record, retiredAgeBandKey)) return value;
   const { [retiredAgeBandKey]: _retired, ...rest } = record;
-  return { ...rest, dressStyle: 'smart' };
+  return { ...rest, dressStyle: defaultDressStyle };
 }
 
 /**
@@ -230,7 +232,7 @@ export function createRecommendationContextWithPool(
     : [];
   const parsed = recommendationContextSchema.safeParse({
     clothingPreference: input.clothingPreference,
-    dressStyle: input.dressStyle ?? 'smart',
+    dressStyle: input.dressStyle ?? defaultDressStyle,
     ...(input.styleAesthetics?.length ? { styleAesthetics: orderStyleAesthetics(input.styleAesthetics) } : {}),
     catalogVersion: garmentCatalogVersion,
     dayVariant: input.dayVariant,
@@ -254,18 +256,10 @@ export function createRecommendationContextWithPool(
   };
 }
 
-export function createAiRecommendationRequest(
-  input: OutfitRecommendationInput,
-): AiRecommendV1Request {
-  const request = aiRequestFromContext(createRecommendationContext(input));
-  if (!request) throw new WorkerAiRecommendationMappingError();
-  return request;
-}
-
 export function parseRecommendationContext(value: unknown): RecommendationContext {
   const current = recommendationContextSchema.safeParse(normalizeRetiredContext(value));
   if (current.success) {
-    return { ...current.data, dressStyle: current.data.dressStyle ?? 'smart' };
+    return { ...current.data, dressStyle: current.data.dressStyle ?? defaultDressStyle };
   }
   const legacy = legacyRecommendationContextSchema.safeParse(value);
   if (!legacy.success) throw new WorkerAiRecommendationMappingError();
@@ -350,7 +344,7 @@ export function mapWorkerAiRecommendation(
   request: AiRecommendV1Request,
   data: AiRecommendV2Success['data'],
   generationMode: AiGenerationMode = 'ai-assisted',
-  insight?: Readonly<{ locale: 'tr' | 'en' }>,
+  insight?: Readonly<{ locale: SupportedLanguage }>,
 ): OutfitRecommendationSuccess {
   const validated = aiRecommendV1SuccessSchema.safeParse({ data });
   if (!validated.success) throw new WorkerAiRecommendationMappingError();

@@ -2,6 +2,7 @@ import {
   archetypeDayFromRequirements,
   dayBlindArchetypeDay,
   formalityOrderByDressStyle,
+  optionIdSchema,
   type ArchetypeDay,
   type DayKind,
   type DressStyle,
@@ -10,7 +11,7 @@ import {
   type StyleAesthetic,
 } from '@kuyara/contracts';
 
-import type { ClothingPreference } from '@/domain/preferences';
+import type { ClothingPreference, SupportedLanguage } from '@/domain/preferences';
 import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
 import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
 import {
@@ -32,6 +33,7 @@ import {
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
+import { defaultDressStyle } from '@/features/profile/domain/profile';
 
 export type OutfitRecommendationInput = Readonly<{
   snapshot: WeatherSnapshot;
@@ -52,7 +54,7 @@ export type OutfitRecommendationInput = Readonly<{
 export type OutfitRecommendationSuccess = Readonly<{
   status: 'recommended';
   insightSentence?: string;
-  insightLocale?: 'tr' | 'en';
+  insightLocale?: SupportedLanguage;
   generationMode: RecommendationGenerationMode;
   requirements: ClothingRequirements;
   outfits: readonly RecommendedOutfit[];
@@ -180,7 +182,7 @@ function hashCompositionKey(value: string, seed: number): string {
 
 export function outfitOptionId(outfit: OutfitCandidate): string {
   const candidate = outfit.compositionKey.replaceAll('|', ':');
-  return /^[A-Za-z0-9:_-]{1,32}$/.test(candidate)
+  return optionIdSchema.safeParse(candidate).success
     ? candidate
     : `outfit:${hashCompositionKey(candidate, 0x811c9dc5)}${hashCompositionKey(candidate, 0x9e3779b9)}`;
 }
@@ -305,7 +307,7 @@ export function orderByDressStyle(
   requirements: ClothingRequirements,
 ): readonly OutfitCandidate[] {
   const day = archetypeDayFromRequirements(requirements.requirements);
-  const order: readonly FormalityLevel[] = formalityOrderByDressStyle[dressStyle ?? 'smart'];
+  const order: readonly FormalityLevel[] = formalityOrderByDressStyle[dressStyle ?? defaultDressStyle];
   return [...sortByAestheticAffinity(outfits, styleAesthetics ?? [],
     (outfit, id) => outfitMatchesArchetype(outfit, id, dayKind, day))].sort(
     (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),

@@ -1,7 +1,14 @@
 import type { FailureCategory } from '@/domain/failure-category';
 import type { ProfileApplicationState } from '@/features/profile/application/profile-application-controller';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
-import { activeLocationRecommendation, unavailableTodayState, type TodayScreenState } from '@/features/today/model';
+import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import {
+  activeLocationRecommendation,
+  todayFreshness,
+  unavailableTodayState,
+  type TodayScreenState,
+  type TodaySnapshot,
+} from '@/features/today/model';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
 import { activeLocationSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
 
@@ -23,6 +30,15 @@ type TodayStateInput = TodayStateShared & (
   }>
   | Readonly<{ surface: 'detail'; now: string }>
 );
+
+/** The weather the stored outfit's palette was chosen for, with the day it belongs to; none for a result stored without one. */
+export function paletteBasisOf(
+  snapshot: Pick<RecommendationSnapshot, 'paletteWeather' | 'localDayKey'> | null | undefined,
+): TodaySnapshot['paletteBasis'] {
+  return snapshot?.paletteWeather
+    ? { ...snapshot.paletteWeather, localDayKey: snapshot.localDayKey }
+    : undefined;
+}
 
 export function classifyTodayState(input: TodayStateInput): Readonly<{
   state: TodayScreenState;
@@ -82,17 +98,13 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
       snapshot: {
         weather: placeSnapshot,
         activeLocation,
-        freshness: input.surface === 'detail'
-          ? weatherFreshness(placeSnapshot.fetchedAt, input.now) === 'fresh'
-            ? 'fresh' : 'stale'
-          : weather.freshness === 'fresh' ? 'fresh' : 'stale',
+        freshness: todayFreshness(input.surface === 'detail'
+          ? weatherFreshness(placeSnapshot.fetchedAt, input.now)
+          : weather.freshness),
         recommendation: outfit,
         coverageStart: recommendation.snapshot?.coverageStart,
         coverageEnd: recommendation.snapshot?.coverageEnd,
-        paletteBasis: recommendation.snapshot?.paletteWeather
-          ? { ...recommendation.snapshot.paletteWeather,
-              localDayKey: recommendation.snapshot.localDayKey }
-          : undefined,
+        paletteBasis: paletteBasisOf(recommendation.snapshot),
       },
       isRefreshing: (input.surface === 'today' && Boolean(input.isPullRefreshing)) || weather.isRefreshing || recommendation.isRefreshing,
       refreshFailed: weather.refreshFailure !== null || recommendation.lastFailure !== null,

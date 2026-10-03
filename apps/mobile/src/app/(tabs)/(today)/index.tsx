@@ -60,7 +60,6 @@ export default function TodayRoute() {
   const {
     state: recommendationState,
     getSnapshot: getRecommendationSnapshot,
-    refresh: refreshRecommendation,
     evaluateApprovedTriggers,
     reevaluateLocalDay,
     dressingDayKey,
@@ -73,6 +72,7 @@ export default function TodayRoute() {
     chooseFormality,
     reask,
     activeDeparture,
+    refreshAfterPull,
   } = useRecommendationApplication();
   const weatherApplication = useWeatherApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
@@ -287,9 +287,7 @@ export default function TodayRoute() {
       generation_mode: generationModeProperty(state.snapshot.recommendation.generationMode),
       cache_state: recommendationCacheState(state),
       outfit_count: 3,
-      dress_style: dressStyleProperty(
-        resolvedDressStyle ?? (profileState.status === 'ready' ? profileState.profile.dressStyle : null),
-      ),
+      dress_style: dressStyleProperty(resolvedDressStyle),
       age_bucket: ageBucketProperty(
         profileState.status === 'ready' ? profileState.profile.birthDate : null,
       ),
@@ -328,13 +326,7 @@ export default function TodayRoute() {
     if (dressingDayChoiceFailed) reevaluateLocalDay();
     await (async () => {
       await weatherApplication.refresh();
-      const currentRecommendation = getRecommendationSnapshot();
-      if (currentRecommendation.status === 'ready' &&
-          currentRecommendation.snapshot?.recommendation.status !== 'recommended') {
-        await refreshRecommendation();
-      } else if (currentRecommendation.status === 'ready') {
-        await evaluateApprovedTriggers();
-      }
+      await refreshAfterPull();
 
       const after = weatherApplication.getSnapshot?.() ?? weatherApplication.state;
       const recommendationAfter = getRecommendationSnapshot();
@@ -449,7 +441,7 @@ export default function TodayRoute() {
       question={shownSheet.target === 'evening'
         ? getMessages(language).today.dailyStyle.questionEvening
         : getMessages(language).today.dailyStyle.question}
-      selected={shownSheet.target === 'evening' ? null : resolvedDressStyle ?? profileDressStyle}
+      selected={shownSheet.target === 'evening' ? null : resolvedDressStyle}
       firstDay={shownSheet.target === 'morning' && firstDressingDay}
       error={sheetError} onChoose={handleChoice} onDismiss={dismissChoice}
       step={shownStylesStep ? 'styles' : 'dayType'}
@@ -471,7 +463,7 @@ export default function TodayRoute() {
         now={askOpenedAt ?? clock}
         onConfirm={(choice) => { void confirmAskAgain(choice); }}
         onDismiss={() => setAskOpenedAt(null)}
-        selected={resolvedDressStyle ?? profileDressStyle}
+        selected={resolvedDressStyle}
         timeZone={placeTimeZone}
         visible={askOpenedAt !== null}
       />

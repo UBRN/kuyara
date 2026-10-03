@@ -11,29 +11,17 @@ import {
   SegmentedControl,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
+import { departureOptions } from '@/features/recommendation/domain/dressing-day-departure';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import { DayTypeTiles } from '@/features/today/presentation/daily-formality-sheet';
 import { askAgainWarning, formatDepartureTime } from '@/features/today/presentation/today-presentation';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { spacing } from '@/theme/theme';
 
-const quarterHourMs = 15 * 60 * 1000;
-// A 15-minute wheel over the next 12 hours; the forecast is hourly.
-const horizonMs = 12 * 60 * 60 * 1000;
 // The wheel opens about an hour ahead, the nearest departure worth planning for.
 const defaultLeadMs = 60 * 60 * 1000;
 
 export type AskAgainChoice = Readonly<{ formality: DressStyle; departureAt: string | null }>;
-
-/** The quarter hours after `now` and within the horizon, as ISO instants. */
-export function departureOptions(now: number): readonly string[] {
-  const first = Math.floor(now / quarterHourMs) * quarterHourMs + quarterHourMs;
-  const options: string[] = [];
-  for (let at = first; at <= now + horizonMs; at += quarterHourMs) {
-    options.push(new Date(at).toISOString());
-  }
-  return options;
-}
 
 type Draft = Readonly<{
   formality: DressStyle;

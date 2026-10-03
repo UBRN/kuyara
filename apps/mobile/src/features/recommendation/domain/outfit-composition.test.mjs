@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
+import { aiV1OptionLimit } from '@kuyara/contracts';
+
 import {
   evaluateGarmentEligibility,
   projectCatalogEffectiveGarment,
@@ -12,6 +14,8 @@ import {
   collectValidOutfits,
   composeOutfitOptions,
   excludeRecentlyWornOutfits,
+  offeredOutfitLimit,
+  onePieceExcludes,
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
   outfitSlots,
@@ -1125,4 +1129,18 @@ test('the offered order repeats exactly for the same input', () => {
   const keys = () =>
     offeredForWeather(clearDay(20)).map(({ compositionKey }) => compositionKey);
   assert.deepEqual(keys(), keys());
+});
+
+test('a one-piece excludes a top and a bottom and nothing else', () => {
+  const excluded = [];
+  for (const left of outfitSlots) for (const right of outfitSlots) {
+    if (onePieceExcludes(left, right)) excluded.push(`${left}|${right}`);
+  }
+  assert.deepEqual(excluded.sort(), [
+    'bottom|one_piece', 'one_piece|bottom', 'one_piece|primary_top', 'primary_top|one_piece',
+  ]);
+});
+
+test('Today offers at most as many outfits as one AI request carries', () => {
+  assert.equal(offeredOutfitLimit, aiV1OptionLimit);
 });

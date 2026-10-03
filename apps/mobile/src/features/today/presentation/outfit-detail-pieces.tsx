@@ -31,7 +31,11 @@ import {
   type TodayCopy,
 } from '@/features/today/presentation/outfit-detail-entries';
 import { FadeOnChange } from '@/features/today/presentation/outfit-detail-fades';
-import type { WardrobeItem, WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
+import {
+  wardrobeEntryStateSchema,
+  type WardrobeEntryState,
+  type WardrobeItem,
+} from '@/features/wardrobe/domain/wardrobe-item';
 import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import type { getMessages } from '@/localization/messages';
@@ -71,7 +75,7 @@ export function OutfitDetailClosetSeed({
           <View style={styles.seedBlock} testID="outfit-detail-closet-seed-choice">
             <AppText accessibilityRole="header" variant="label">{copy.closetSeed.question}</AppText>
             <View style={styles.seedChoices}>
-              {(['owned', 'wanted'] as const).map((entryState) => (
+              {wardrobeEntryStateSchema.options.map((entryState) => (
                 <Button
                   icon={entryState === 'owned' ? 'hanger' : 'heartFilled'}
                   key={entryState}

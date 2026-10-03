@@ -23,6 +23,26 @@ export function departureDressingDayKey(departureAt: string): string | null {
   return localDayKey(new Date(instant));
 }
 
+/** The quarter hour a departure is chosen and spoken in: an instant to the minute reads as noise. */
+export const quarterHourMs = 15 * 60 * 1000;
+// A 15-minute wheel over the next 12 hours; the forecast is hourly.
+const departureHorizonMs = 12 * 60 * 60 * 1000;
+
+/** The quarter hours after `now` and within the horizon, as ISO instants: what the departure wheel offers. */
+export function departureOptions(now: number): readonly string[] {
+  const first = Math.floor(now / quarterHourMs) * quarterHourMs + quarterHourMs;
+  const options: string[] = [];
+  for (let at = first; at <= now + departureHorizonMs; at += quarterHourMs) {
+    options.push(new Date(at).toISOString());
+  }
+  return options;
+}
+
+/** Whether a departure is still ahead of `now`: one that has passed, or does not parse, no longer shapes the day. */
+export function departureIsAhead(departure: Pick<DressingDayDeparture, 'departureAt'>, now: number): boolean {
+  return Date.parse(departure.departureAt) > now;
+}
+
 export type DressingDayDeparture = Readonly<{
   id: string;
   localProfileId: string;

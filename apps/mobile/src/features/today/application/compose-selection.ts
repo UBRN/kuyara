@@ -1,10 +1,9 @@
 import type { ClothingPreference } from '@/domain/preferences';
-import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
+import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { composePieceLimit, type ComposePin } from '@/features/recommendation/application/compose-around-pieces';
 import { swappableSlots } from '@/features/recommendation/domain/manual-mix';
-import type { OutfitPin } from '@/features/recommendation/domain/outfit-composition';
-import { garmentFitsSlot } from '@/features/recommendation/domain/outfit-history';
+import { garmentFitsSlot, onePieceExcludes, type OutfitPin } from '@/features/recommendation/domain/outfit-composition';
 import { boardSwatchForClosetSolid } from '@/features/wardrobe/domain/closet-board-swatch';
 
 export type ComposeSlot = OutfitPin['slot'];
@@ -17,13 +16,9 @@ export type ComposeChoice = ComposePiece & Readonly<{ colorId: string | null }>;
 
 export type ComposeSelection = readonly ComposeChoice[];
 
-const isSeparate = (slot: ComposeSlot) => slot === 'primary_top' || slot === 'bottom';
-
 // One piece to a slot, and a one-piece never stands with a top or a bottom.
 function conflicts(left: ComposeSlot, right: ComposeSlot): boolean {
-  return left === right
-    || (left === 'one_piece' && isSeparate(right))
-    || (right === 'one_piece' && isSeparate(left));
+  return left === right || onePieceExcludes(left, right);
 }
 
 const samePiece = (choice: ComposePiece, piece: ComposePiece) =>
@@ -84,7 +79,7 @@ export type ComposeCatalogGroup = Readonly<{ slot: ComposeSlot; garmentTypeIds: 
  * sweater is a top or a mid layer) is listed under both. The Closet never supplies a piece.
  */
 export function composeCatalog(preference: ClothingPreference): readonly ComposeCatalogGroup[] {
-  const types = listGarmentTypesForPreference(preference).filter(({ status }) => status === 'active');
+  const types = listSelectableGarmentTypes(preference);
   return swappableSlots.flatMap((slot) => {
     const garmentTypeIds = types.filter(({ typeId }) => garmentFitsSlot(slot, typeId)).map(({ typeId }) => typeId);
     return garmentTypeIds.length > 0 ? [{ slot, garmentTypeIds }] : [];

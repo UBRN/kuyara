@@ -14,6 +14,7 @@ import { deriveClothingRequirements } from '@/features/recommendation/domain/wea
 import {
   aiRequestFromContext,
   createRecommendationContext,
+  createRecommendationContextWithPool,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 
 const gridNow = '2026-09-14T12:00:00.000Z';
@@ -205,4 +206,11 @@ export function sampleIndexTriples(size, sampleSize) {
   }
   const stride = Math.max(1, Math.ceil(triples.length / sampleSize));
   return triples.filter((_triple, index) => index % stride === 0);
+}
+
+/** The request the application sends for an input: the context it builds, then the request from that context. */
+export function aiRequestFor(input, localDayKey) {
+  const request = aiRequestFromContext(createRecommendationContextWithPool(input, localDayKey).context);
+  if (!request) throw new Error('The input offers no AI request.');
+  return request;
 }

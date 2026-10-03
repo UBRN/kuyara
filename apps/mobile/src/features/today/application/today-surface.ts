@@ -1,7 +1,7 @@
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import type { ProfileApplicationState } from '@/features/profile/application/profile-application-controller';
-import { namePromptVersion, orderStyleAesthetics } from '@/features/profile/domain/profile';
+import { namePromptVersion, sameStyleAesthetics } from '@/features/profile/domain/profile';
 import {
   localDayKey,
   type RecommendationApplicationState,
@@ -13,6 +13,7 @@ import type { WeatherAlertOfferReason } from '@/features/notifications/domain/we
 import type { AppMessages } from '@/localization/messages';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import type { TodayScreenState } from '@/features/today/model';
+import { dressingDayDateKey } from '@/features/weather/domain/wardrobe-day';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 
@@ -63,7 +64,7 @@ export function mayOpenDayQuestion(input: Readonly<{
  */
 export function isFirstDressingDay(profile: Profile | null, dressingDayKey: string | null): boolean {
   return Boolean(profile?.onboardingCompleted && dressingDayKey &&
-    localDayKey(new Date(profile.createdAt)).slice(0, 10) === dressingDayKey.slice(0, 10));
+    dressingDayDateKey(localDayKey(new Date(profile.createdAt))) === dressingDayDateKey(dressingDayKey));
 }
 
 /** f7: the outfit on screen was made for another day type, and its replacement is running. */
@@ -83,7 +84,7 @@ export function styleAestheticsChanged(
   initial: readonly StyleAesthetic[],
   draft: readonly StyleAesthetic[],
 ): boolean {
-  return JSON.stringify(orderStyleAesthetics(draft)) !== JSON.stringify(orderStyleAesthetics(initial));
+  return !sameStyleAesthetics(draft, initial);
 }
 
 /** The evening's "ready later" line stands only under the settled outfit made for that departure. */

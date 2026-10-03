@@ -20,6 +20,11 @@ export type RecommendationApplicationValue = Readonly<{
   onDeviceAvailability: OnDeviceAiAvailability | null;
   refresh: () => Promise<RecommendationSnapshot | null>;
   evaluateApprovedTriggers: (foreground?: boolean) => Promise<void>;
+  /**
+   * Today's pull gesture, after the weather refreshed: regenerates when no outfits are held,
+   * otherwise evaluates the approved triggers.
+   */
+  refreshAfterPull: () => Promise<void>;
   skipWait: () => Promise<RecommendationSnapshot | null>;
   /**
    * Today's "show another outfit" action: it regenerates the recommendation and leaves
@@ -41,7 +46,7 @@ export type RecommendationApplicationValue = Readonly<{
   readDeparture?: (dayKey: string) => Promise<DressingDayDeparture | null>;
   setDeparture?: (departureAt: string, timeZone: string) => Promise<DressingDayDeparture>;
   clearDeparture?: (dayKey: string) => Promise<boolean>;
-  resolvedDressStyle?: DressStyle;
+  resolvedDressStyle: DressStyle;
   /** The active dressing day's styles: its own answer, else the Settings defaults (N4). */
   resolvedStyleAesthetics?: readonly StyleAesthetic[];
   /**

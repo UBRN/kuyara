@@ -16,10 +16,10 @@ import { WorkerAiClientError } from '../data/worker-ai-client.ts';
 import { RecommendationRepositoryError } from '../data/recommendation-repository.ts';
 import { assignFallbackArchetypes, composeOutfitPool, outfitOptionId } from './recommend-outfits.ts';
 import {
-  createAiRecommendationRequest,
   createRecommendationContextWithPool,
   mapWorkerAiRecommendation,
 } from '../data/worker-ai-recommendation-mapper.ts';
+import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
 
 const profileId = 'profile-one';
 const now = '2026-08-01T20:00:00.000Z';
@@ -546,7 +546,7 @@ test('a new-day generation excludes the persisted previous-day option ids', asyn
 test('a same-day regeneration excludes the three options already on screen', async () => {
   const previous = await persistedRecommendation();
   const shownOptionIds = previous.recommendation.outfits.map(({ optionId }) => optionId);
-  const unfiltered = createAiRecommendationRequest(input(16));
+  const unfiltered = aiRequestFor(input(16));
   const { controller, requests } = createHarness({ cached: previous });
   await controller.initialize();
 
@@ -564,7 +564,7 @@ test('a same-day regeneration excludes the three options already on screen', asy
 });
 
 test('a fresh install generates with the complete offered option list', async () => {
-  const expected = createAiRecommendationRequest(input(16));
+  const expected = aiRequestFor(input(16));
   const { controller, requests } = createHarness();
   await controller.initialize();
 

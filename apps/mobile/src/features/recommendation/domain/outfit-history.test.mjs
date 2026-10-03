@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { historyDayKey, historyDays, sameWornGarments, wornAlready, wornOutfitFrom } from './outfit-history.ts';
+import { historyDayKey, historyDays, sameWornGarments, wornAlready, wornOutfitFrom, wornOutfitSchema } from './outfit-history.ts';
 
 const assigned = (slot, garmentTypeId) => ({ slot, garment: { garmentTypeId } });
 const outfit = {
@@ -77,4 +77,17 @@ test('piece colours fit the worn day or are null', async () => {
     { primary_top: 'ecru', shoes: 'white' }, { primary_top: 7 }]) {
     assert.equal(wornPieceColorsFor(day, invalid), null, JSON.stringify(invalid));
   }
+});
+
+test('a worn record needs footwear and a body: a one-piece, or a top and a bottom, never both', () => {
+  const record = (garments) => wornOutfitSchema.safeParse({
+    garments, archetypeId: 'rain_ready', formality: 'casual', source: 'recommended',
+  }).success;
+  assert.equal(record({ primary_top: 't_shirt', bottom: 'jeans', footwear: 'sneakers' }), true);
+  assert.equal(record({ one_piece: 'dress', footwear: 'sneakers' }), true);
+  assert.equal(record({ one_piece: 'dress', primary_top: 't_shirt', footwear: 'sneakers' }), false);
+  assert.equal(record({ one_piece: 'dress', bottom: 'jeans', footwear: 'sneakers' }), false);
+  assert.equal(record({ primary_top: 't_shirt', footwear: 'sneakers' }), false);
+  assert.equal(record({ bottom: 'jeans', footwear: 'sneakers' }), false);
+  assert.equal(record({ primary_top: 't_shirt', bottom: 'jeans' }), false);
 });

@@ -34,6 +34,7 @@ import {
   todayPresentationState,
   tomorrowStrip,
 } from '@/features/today/application/today-surface';
+import { paletteBasisOf } from '@/features/today/application/today-state';
 import type { TodayScreenState } from '@/features/today/model';
 import {
   FirstGenerationRunway,
@@ -193,12 +194,7 @@ export function TodayScreen(props: TodayScreenProps) {
         outfit={runwayOutfit && placeSnapshot ? {
           id: runwayOutfit.optionId,
           pieces: outfitBoardPieces(runwayOutfit),
-          palette: outfitGarmentPalette(runwayOutfit, garmentPaletteDay(
-            placeSnapshot, now,
-            snapshot?.paletteWeather
-              ? { ...snapshot.paletteWeather, localDayKey: snapshot.localDayKey }
-              : undefined,
-          )),
+          palette: outfitGarmentPalette(runwayOutfit, garmentPaletteDay(placeSnapshot, now, paletteBasisOf(snapshot))),
         } : null}
         phase={recommendationState?.phase ?? null}
         weather={placeSnapshot && weather.state.status === 'ready'

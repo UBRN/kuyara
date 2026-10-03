@@ -8,11 +8,17 @@ import {
   localDayKind,
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
+import { calendarDateParts } from '@/domain/calendar-date';
 import { dateTimeFormat, numberFormat, zonedClock, zonedDateKey } from '@/domain/intl-format';
-import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
-import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
+import {
+  departureIsAhead,
+  quarterHourMs,
+  type DressingDayDeparture,
+} from '@/features/recommendation/domain/dressing-day-departure';
+import { dateKeyDayKind } from '@/features/recommendation/domain/local-day';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { ManualDetail } from '@/features/today/application/composed-detail';
 import { previewIsThisMorning, tomorrowForecastDay } from '@/features/today/application/outfit-detail-state';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import {
@@ -61,8 +67,13 @@ import {
   type TodayMessages,
   type TodayRequirementName,
 } from '@/localization/messages';
-import { isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
+import {
+  dressingDayDateKey,
+  eveningHasStarted,
+  isEveningDressingDayKey,
+} from '@/features/weather/domain/wardrobe-day';
 import type { TemperatureUnit } from '@/localization/device-locale';
+import { formatClockTime, formatLastUpdated } from '@/presentation/format-clock-time';
 import {
   formatTemperature,
   formatTemperatureValue,
@@ -101,24 +112,6 @@ export type LocalizedWeatherLink = Readonly<{
   label: string;
   pieces: readonly Readonly<{ slot: OutfitSlot; garmentTypeId: GarmentTypeId; category: StructuralCategory; item: string }>[];
   text: string;
-}>;
-
-/**
- * Phase 7's manual mix on detail: the changed arrangement of one option, evaluated by the
- * domain, and the slots the person changed. The option keeps its id and archetype.
- */
-export type ManualDetail = Readonly<{
-  optionId: string;
-  outfit: RecommendedOutfit;
-  /**
-   * What the changes count against and the kept colours come from: kuyara's pick when absent,
-   * a composed option when the outfit was built around chosen pieces. A composed one stands in
-   * for the pick even before any change.
-   */
-  original?: RecommendedOutfit;
-  changedSlots: readonly OutfitSlot[];
-  /** Colours the reader chose for pieces composed around (compose only): each piece's recorded swatch. */
-  pieceColors?: Readonly<Partial<Record<OutfitSlot, GarmentSwatchId>>>;
 }>;
 
 export type LoadedOutfitPresentation = Readonly<{
@@ -235,48 +228,6 @@ function formatPercent(ratio: number, language: SupportedLanguage): string {
   }).format(ratio);
 }
 
-// The freshness line answers "how old is this?", so it is read against the viewer's own
-// clock: the device time zone, and the device's 12/24-hour setting rather than a fixed
-// 24-hour label or the application language.
-function formatTime(
-  value: string,
-  language: SupportedLanguage,
-  hour12: boolean,
-  // The freshness line is read against the viewer's own clock and passes none; an hour that
-  // belongs to the forecast passes the place's zone, so the sentence and the rail agree.
-  timeZone?: string,
-): string {
-  return dateTimeFormat(localeTag(language), {
-    hour: hour12 ? 'numeric' : '2-digit',
-    minute: '2-digit',
-    hour12,
-    timeZone,
-  }).format(new Date(value));
-}
-
-// The freshness line's time, read against the viewer's calendar as well as their clock: once
-// the snapshot is not from the current local day, "06:05" alone would read as minutes old, so
-// the locale's short date joins it, as it does on Weather's "last updated" label.
-function formatFreshnessTime(
-  value: string,
-  language: SupportedLanguage,
-  hour12: boolean,
-  now: number,
-): string {
-  const fetched = new Date(value);
-  if (fetched.toDateString() === new Date(now).toDateString()) {
-    return formatTime(value, language, hour12);
-  }
-  return new Intl.DateTimeFormat(
-    localeTag(language),
-    { dateStyle: 'short', timeStyle: 'short', hour12 },
-  ).format(fetched);
-}
-
-// The quarter hour the window is spoken from: "now" is an instant, and 13:02 reads as noise
-// in a sentence about the afternoon's weather.
-const quarterHourMs = 15 * 60 * 1000;
-
 /** The long day name a window sentence uses when it starts on another calendar date. */
 function formatWindowDay(instant: number, language: SupportedLanguage, timeZone: string): string {
   return dateTimeFormat(localeTag(language), {
@@ -299,8 +250,8 @@ export function coverageWindowParts(
   return {
     day: zonedDateKey(start, timeZone) === zonedDateKey(now, timeZone)
       ? null : formatWindowDay(start, language, timeZone),
-    start: formatTime(new Date(start).toISOString(), language, hour12, timeZone),
-    end: formatTime(window.end, language, hour12, timeZone),
+    start: formatClockTime(start, language, hour12, timeZone),
+    end: formatClockTime(window.end, language, hour12, timeZone),
   };
 }
 
@@ -332,7 +283,7 @@ export function formatDepartureTime(
   hour12: boolean,
   timeZone: string,
 ): string {
-  return formatTime(instant, language, hour12, timeZone);
+  return formatClockTime(instant, language, hour12, timeZone);
 }
 
 export function eveningLaterReadyLine(
@@ -343,12 +294,10 @@ export function eveningLaterReadyLine(
 ): string | null {
   if (!departure || !isEveningDressingDayKey(departure.dayKey)) return null;
   const readyAt = Date.parse(departure.updatedAt);
-  const leavingAt = Date.parse(departure.departureAt);
-  if (!Number.isFinite(readyAt) || !Number.isFinite(leavingAt) ||
-      readyAt > now || leavingAt <= now) return null;
+  if (!Number.isFinite(readyAt) || readyAt > now || !departureIsAhead(departure, now)) return null;
   const readyClock = zonedClock(readyAt, departure.timeZone);
   const currentClock = zonedClock(now, departure.timeZone);
-  if (readyClock.hour < 18 || currentClock.hour < 18 ||
+  if (!eveningHasStarted(readyClock.hour) || !eveningHasStarted(currentClock.hour) ||
       zonedDateKey(readyAt, departure.timeZone) !== zonedDateKey(now, departure.timeZone)) return null;
   return getMessages(language).today.laterReady({
     departure: formatDepartureTime(departure.departureAt, language, hour12, departure.timeZone),
@@ -433,7 +382,7 @@ export function runwayWeather(
     insight: insight === null ? null : dayInsightSentence(
       insight,
       getMessages(language).today.dayInsight,
-      (value) => formatTime(value, language, hour12, weather.timeZone),
+      (value) => formatClockTime(value, language, hour12, weather.timeZone),
     ),
   };
 }
@@ -701,10 +650,6 @@ function forecastDayPalette(day: DailyWeather): GarmentPaletteDay {
   return { temperatureC: day.maximumTemperatureCelsius, condition: day.condition, isNight: false };
 }
 
-function forecastDayKind(day: DailyWeather): DayKind {
-  return localDayKind(new Date(`${day.dateKey}T12:00:00`));
-}
-
 /**
  * The evening's look at the next dressing day: the first outfit chosen for it, coloured by
  * that day's own weather, and its forecast in one short line. Null without a forecast row.
@@ -723,7 +668,7 @@ export function createTomorrowPreviewPresentation(
   const copy = messages.today;
   const thisMorning = previewIsThisMorning(now, weather.timeZone, day.dateKey);
   const condition = messages.weather.conditions[day.condition];
-  const title = archetypeLabel(messages.recommendation, outfit.archetypeId, forecastDayKind(day));
+  const title = archetypeLabel(messages.recommendation, outfit.archetypeId, dateKeyDayKind(day.dateKey));
   const boardPieces = outfitBoardPieces(outfit);
   const outfitLabel = copy.boardAccessibilityLabel({
     archetype: title,
@@ -759,7 +704,8 @@ export function createTomorrowPreviewPresentation(
 
 /** A dressing-day key's calendar date as Today's top row shows it. */
 export function formatDressingDate(dayKey: string, language: SupportedLanguage): string {
-  const date = new Date(`${dayKey.slice(0, 10)}T12:00:00`);
+  const { year, month, day } = calendarDateParts(dressingDayDateKey(dayKey));
+  const date = new Date(year, month - 1, day, 12);
   return [
     new Intl.DateTimeFormat(localeTag(language), { weekday: 'short' }).format(date),
     new Intl.DateTimeFormat(localeTag(language), { day: 'numeric', month: 'short' }).format(date),
@@ -787,12 +733,12 @@ function createLoadedPresentation(
   // Detail of tomorrow's preview reads that day's forecast row (`day`); tonight's hours, drift
   // and insight say nothing about it.
   const rainProbability = day ? day.precipitationProbability : todayRainOutlookProbability(weather, now);
-  const time = formatFreshnessTime(weather.fetchedAt, language, hour12, now);
+  const time = formatLastUpdated(weather.fetchedAt, language, hour12, now);
   const insight = day ? null : findDayInsight({ snapshot: weather, now: new Date(now).toISOString() });
   const deterministicDayInsight = insight === null ? null : dayInsightSentence(
     insight,
     copy.dayInsight,
-    (value) => formatTime(value, language, hour12, weather.timeZone),
+    (value) => formatClockTime(value, language, hour12, weather.timeZone),
   );
   const acceptedInsight = snapshot.recommendation.status === 'recommended'
     && snapshot.recommendation.insightLocale === language
@@ -817,7 +763,7 @@ function createLoadedPresentation(
       new Date(now).toISOString(), snapshot.coverageEnd)
     : null;
   const driftCaption = drift
-    ? copy.drift[drift.kind](formatTime(drift.at, language, hour12, weather.timeZone))
+    ? copy.drift[drift.kind](formatClockTime(drift.at, language, hour12, weather.timeZone))
     : null;
   // Cold drift already says the rest of the window needs more than a layer.
   const coolSpell = !day && shown && snapshot.recommendation.status === 'recommended' && !choosing &&
@@ -826,7 +772,7 @@ function createLoadedPresentation(
       new Date(now).toISOString(), shown)
     : null;
   const coolSpellCaption = coolSpell
-    ? copy.coolSpell(formatTime(coolSpell.at, language, hour12, weather.timeZone))
+    ? copy.coolSpell(formatClockTime(coolSpell.at, language, hour12, weather.timeZone))
     : null;
   const isStale = snapshot.freshness === 'stale';
   const conditionCode = day?.condition ?? current.condition;
@@ -847,7 +793,7 @@ function createLoadedPresentation(
       : [];
   // The label follows the day the user is reading it on, so a stored weekend result does not
   // say "Weekend Relaxed" on the Monday after.
-  const dayKind = day ? forecastDayKind(day) : localDayKind(new Date(now));
+  const dayKind = day ? dateKeyDayKind(day.dateKey) : localDayKind(new Date(now));
   const paletteDay = day ? forecastDayPalette(day) : garmentPaletteDay(weather, now, snapshot.paletteBasis);
   const suggestions = outfits.map((outfit, index) =>
     manual && (manual.changedSlots.length > 0 || manual.original) && outfit.optionId === manual.optionId
@@ -943,7 +889,7 @@ function createLoadedPresentation(
     // M15: the dressing day's date, so between midnight and 04:00 it still names the
     // evening's calendar date.
     date: formatDressingDate(dressingDayKey, language),
-    dateKey: dressingDayKey.slice(0, 10),
+    dateKey: dressingDayDateKey(dressingDayKey),
     atmosphere: resolveAtmosphereState(conditionCode, daypart),
     copy: {
       piecesHeading: copy.piecesHeading,

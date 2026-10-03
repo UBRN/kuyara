@@ -24,6 +24,7 @@ import {
   type RecommendationApplicationValue,
   useRecommendationApplication,
 } from '@/features/recommendation/application/recommendation-application-context';
+import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import {
   RecommendationRepositoryError,
@@ -469,7 +470,7 @@ function Providers({
   recommendationRefresh = jest.fn(async () => null),
   recommendationEvaluateApprovedTriggers = jest.fn(async () => undefined),
   recommendationRegenerate = jest.fn(async () => null),
-  resolvedDressStyle,
+  resolvedDressStyle = 'smart',
   resolvedStyleAesthetics,
   outfitHistory,
   dressingDayChoiceReady,
@@ -531,6 +532,11 @@ function Providers({
       onDeviceAvailability: null,
       refresh: recommendationRefresh,
       evaluateApprovedTriggers: recommendationEvaluateApprovedTriggers,
+      refreshAfterPull: () => refreshAfterPull({
+        getSnapshot: recommendationGetSnapshot ?? (() => recommendation),
+        refresh: recommendationRefresh,
+        evaluateApprovedTriggers: () => recommendationEvaluateApprovedTriggers(),
+      }),
       skipWait: jest.fn(async () => null),
       regenerate: recommendationRegenerate,
       resolvedDressStyle,
@@ -2675,7 +2681,7 @@ test('opening an outfit reports screen_viewed and outfit_detail_opened with its 
     <Providers
       productAnalytics={productAnalytics}
       profile={profileValue({ dressStyle: 'formal', birthDate: '1990-01-01' })}
-      recommendation={recommendationReady()}
+      recommendation={recommendationReady()} resolvedDressStyle="formal"
       wardrobe={wardrobeValue()}
       weather={weatherValue()}>
       <OutfitDetailRoute />

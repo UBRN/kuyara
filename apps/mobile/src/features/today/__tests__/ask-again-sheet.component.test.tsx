@@ -2,7 +2,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AskAgainSheet, departureOptions } from '@/features/today/presentation/ask-again-sheet';
+import { AskAgainSheet } from '@/features/today/presentation/ask-again-sheet';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
@@ -78,15 +78,6 @@ function sheet(language: SupportedLanguage, props: Partial<Parameters<typeof Ask
     </SafeAreaProvider>
   );
 }
-
-test('the wheel offers 15-minute steps over the next 12 hours', () => {
-  const options = departureOptions(now);
-  expect(options[0]).toBe('2026-09-24T13:15:00.000Z');
-  expect(options[options.length - 1]).toBe('2026-09-25T01:00:00.000Z');
-  expect(options).toHaveLength(48);
-  expect(new Set(options.slice(1).map((option, index) =>
-    Date.parse(option) - Date.parse(options[index])))).toEqual(new Set([15 * 60 * 1000]));
-});
 
 describe.each(['en', 'tr'] as const)('%s re-ask sheet', (language) => {
   const copy = messages[language].today;

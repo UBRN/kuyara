@@ -9,7 +9,6 @@ import {
 
 import {
   aiRequestFromContext,
-  createAiRecommendationRequest,
   createRecommendationContext,
   mapStoredRecommendation,
   mapWorkerAiRecommendation,
@@ -18,6 +17,7 @@ import {
   WorkerAiRecommendationMappingError,
 } from './worker-ai-recommendation-mapper.ts';
 import { recommendOutfits } from '../application/recommend-outfits.ts';
+import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
 
 const observedAt = '2026-08-01T18:00:00.000Z';
 
@@ -136,9 +136,9 @@ function picks(request) {
 }
 
 test('different day variants rotate distinct deterministic option sets for identical weather', () => {
-  const first = createAiRecommendationRequest(input());
-  const repeated = createAiRecommendationRequest(input());
-  const next = createAiRecommendationRequest({ ...input(), dayVariant: 1 });
+  const first = aiRequestFor(input());
+  const repeated = aiRequestFor(input());
+  const next = aiRequestFor({ ...input(), dayVariant: 1 });
 
   assert.deepEqual(first, repeated);
   assert.equal(first.catalogVersion, 6);
@@ -155,13 +155,13 @@ test('different day variants rotate distinct deterministic option sets for ident
 });
 
 test('history filters local options without sending history rows in the AI request', () => {
-  const first = createAiRecommendationRequest(input());
+  const first = aiRequestFor(input());
   const worn = { id: 'private-history-id',
     garments: Object.fromEntries(first.options[0].garments.map((garment) =>
       [garment.slot, garment.garmentTypeId])),
     archetypeId: 'everyday_easy', formality: first.options[0].formality,
     source: 'recommended' };
-  const next = createAiRecommendationRequest({ ...input(), recentWorn: [worn] });
+  const next = aiRequestFor({ ...input(), recentWorn: [worn] });
   const key = (garments) => [...new Set(garments.map((garment) => garment.garmentTypeId))]
     .sort().join('|');
   assert.equal(next.options.some((option) => key(option.garments) ===
@@ -171,7 +171,7 @@ test('history filters local options without sending history rows in the AI reque
 });
 
 test('maps each validated pick to its locally composed outfit and archetype', () => {
-  const request = createAiRecommendationRequest(input());
+  const request = aiRequestFor(input());
   const selected = picks(request);
   const result = mapWorkerAiRecommendation(request, { picks: selected });
 
@@ -185,7 +185,7 @@ test('maps each validated pick to its locally composed outfit and archetype', ()
 });
 
 test('validates optional prose without altering valid outfit picks', () => {
-  const request = createAiRecommendationRequest(input());
+  const request = aiRequestFor(input());
   const selected = picks(request);
   const accepted = mapWorkerAiRecommendation(request, {
     picks: selected, insightSentence: 'The outfit suits the day.',
@@ -219,7 +219,7 @@ test('stored context requires sentence and locale together while older rows pars
 });
 
 test('rejects a response pick whose option id was not supplied', () => {
-  const request = createAiRecommendationRequest(input());
+  const request = aiRequestFor(input());
   const selected = picks(request);
   selected[0] = { ...selected[0], optionId: 'unknown-option' };
 
@@ -230,9 +230,9 @@ test('rejects a response pick whose option id was not supplied', () => {
 });
 
 test('mobile request sends only dress style and preserves the candidate set across styles', () => {
-  const smart = createAiRecommendationRequest({ ...input(), dressStyle: 'smart' });
+  const smart = aiRequestFor({ ...input(), dressStyle: 'smart' });
   for (const dressStyle of ['casual', 'smart', 'formal']) {
-    const request = createAiRecommendationRequest({
+    const request = aiRequestFor({
       ...input(),
       dressStyle,
       birthDate: '2000-01-01',
@@ -247,7 +247,7 @@ test('mobile request sends only dress style and preserves the candidate set acro
 });
 
 test('records the tier that produced the picks as the generation mode', () => {
-  const request = createAiRecommendationRequest(input());
+  const request = aiRequestFor(input());
   const selected = picks(request);
 
   assert.equal(
@@ -264,7 +264,7 @@ test('records the tier that produced the picks as the generation mode', () => {
 // the near-duplicate has to be built. Whichever gate fires first, the answer is rejected
 // whole and never repaired into a different outfit.
 test('rejects an answer that fails the shared distinctness rule, whichever tier chose it', () => {
-  const request = createAiRecommendationRequest(input());
+  const request = aiRequestFor(input());
   const selected = picks(request);
   const twin = {
     ...request.options.find(({ optionId }) => optionId === selected[0].optionId),
@@ -402,7 +402,7 @@ test('every deterministic recommendation round-trips through the stored mapper',
 // 4 degrees, where the cold makes a mid layer the best arrangement its body core has, so the
 // offer carries these signatures without the alternate-core layering rule choosing them.
 test('rebuilds an offered option with its mid layer instead of the simpler arrangement', () => {
-  const request = createAiRecommendationRequest(input({ temperatureCelsius: 4 }));
+  const request = aiRequestFor(input({ temperatureCelsius: 4 }));
   // Both arrangements are re-read from the offer whenever the offer order changes, and they
   // now carry the coat the thermal ladder's top rung asks 4 degrees for. What they have to
   // keep is the shape: a mid layer whose bare arrangement is valid too, so rebuilding from
@@ -439,7 +439,7 @@ test('rebuilds an offered option with its mid layer instead of the simpler arran
 });
 
 test('rejects an option that names a garment the catalog does not have', () => {
-  const request = createAiRecommendationRequest(input());
+  const request = aiRequestFor(input());
   const selected = picks(request);
   const [option, ...rest] = request.options;
   const invented = {
@@ -454,7 +454,7 @@ test('rejects an option that names a garment the catalog does not have', () => {
 });
 
 test('rejects an option that moves a garment into a slot it cannot occupy', () => {
-  const request = createAiRecommendationRequest(input());
+  const request = aiRequestFor(input());
   const selected = picks(request);
   const [option, ...rest] = request.options;
   const misplaced = {
@@ -473,8 +473,8 @@ test('rejects an option that moves a garment into a slot it cannot occupy', () =
 // Accessories travel with the option as ordinary garments and come back attached, so the
 // round trip has to be read on a day that has them and on a day that has none.
 test('accessories survive the option and the stored round trip', () => {
-  const cold = createAiRecommendationRequest(input({ temperatureCelsius: -3 }));
-  const mild = createAiRecommendationRequest(input({ temperatureCelsius: 24 }));
+  const cold = aiRequestFor(input({ temperatureCelsius: -3 }));
+  const mild = aiRequestFor(input({ temperatureCelsius: 24 }));
 
   const carried = cold.options.map((option) =>
     option.garments.filter(({ slot }) => accessoryOutfitSlots.includes(slot)));

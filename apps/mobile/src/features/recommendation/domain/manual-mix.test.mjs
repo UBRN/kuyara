@@ -10,10 +10,10 @@ import {
   normalizeSwaps,
   outfitCandidateSlots,
   outfitGarments,
-  outfitSwappableSlots,
   slotCandidates,
 } from './manual-mix.ts';
-import { garmentFitsSlot, wornOutfitFrom, wornOutfitSchema } from './outfit-history.ts';
+import { garmentFitsSlot } from './outfit-composition.ts';
+import { wornOutfitFrom, wornOutfitSchema } from './outfit-history.ts';
 
 // Phase 7, manual mix. Two days read against the domain: 8 degrees and cloudy with a chance
 // of rain, where a T-shirt or sandals make the outfit unusual, and a mild rainy day.
@@ -56,7 +56,7 @@ test('every slot lists the catalog pieces that fit it, weather-suitable first, t
     { ...cold, preference: 'mens' }, { ...mild, preference: 'womens' },
   ]) {
     const garments = outfitGarments(outfit);
-    for (const slot of outfitSwappableSlots(outfit)) {
+    for (const slot of Object.keys(garments)) {
       const candidates = slotCandidates(outfit, slot, requirements, preference);
       const ids = candidates.map(({ garmentTypeId }) => garmentTypeId);
       assert.ok(ids.includes(garments[slot]), `${slot} keeps kuyara's own piece`);
@@ -72,7 +72,7 @@ test('every slot lists the catalog pieces that fit it, weather-suitable first, t
 });
 
 test('suitability is the domain validator\'s verdict on kuyara\'s pick with that one piece changed', () => {
-  const slots = outfitSwappableSlots(cold.outfit);
+  const slots = Object.keys(outfitGarments(cold.outfit));
   let sawOther = false;
   for (const slot of slots) {
     for (const { garmentTypeId, suitable } of slotCandidates(cold.outfit, slot, cold.requirements, 'mens')) {
@@ -91,7 +91,7 @@ test('suitability is the domain validator\'s verdict on kuyara\'s pick with that
 test('candidates keep the profile\'s gender applicability and come from the catalog only, never the Closet', () => {
   for (const [{ outfit, requirements }, preference] of [[cold, 'mens'], [mild, 'womens']]) {
     const catalog = new Set(listGarmentTypesForPreference(preference).map(({ typeId }) => typeId));
-    for (const slot of outfitSwappableSlots(outfit)) {
+    for (const slot of Object.keys(outfitGarments(outfit))) {
       const candidates = slotCandidates(outfit, slot, requirements, preference);
       const expected = [...catalog].filter((typeId) => garmentFitsSlot(slot, typeId));
       assert.deepEqual(new Set(candidates.map(({ garmentTypeId }) => garmentTypeId)), new Set(expected), slot);
@@ -184,7 +184,7 @@ test('no slot ever offers more candidates than the strip\'s two rows hold', () =
         if (result.status !== 'recommended') continue;
         for (const outfit of result.outfits) {
           const garments = outfitGarments(outfit);
-          for (const slot of outfitSwappableSlots(outfit)) {
+          for (const slot of Object.keys(garments)) {
             const shown = availableCandidates(slotCandidates(outfit, slot, result.requirements, preference), slot, garments);
             assert.ok(shown.length <= STRIP_TILES, `${preference} ${slot} at ${temperature} shows ${shown.length}`);
           }
@@ -230,7 +230,7 @@ test('a layer taken off on a warm day stays suitable', () => {
 });
 
 test('a free layer slot lists catalog candidates, weather-suitable first, and the none entry is never one', () => {
-  assert.deepEqual(outfitSwappableSlots(bare.outfit), ['primary_top', 'bottom', 'footwear']);
+  assert.deepEqual(Object.keys(outfitGarments(bare.outfit)), ['primary_top', 'bottom', 'footwear']);
   assert.deepEqual(outfitCandidateSlots(bare.outfit), ['primary_top', 'bottom', 'mid_layer', 'outer_layer', 'footwear']);
   for (const slot of ['mid_layer', 'outer_layer']) {
     const candidates = slotCandidates(bare.outfit, slot, bare.requirements, 'mens');

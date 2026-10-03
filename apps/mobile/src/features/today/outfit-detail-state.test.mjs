@@ -6,6 +6,7 @@ import {
   closetSeedOffer,
   detailOutfit,
   outfitWornState,
+  previewIsThisMorning,
   tomorrowDetailIsThisMorning,
   tomorrowDetailState,
   wornOutfitOrNull,
@@ -93,4 +94,12 @@ test('the Closet seed offer stands while the Closet is empty and once after it f
   assert.deepEqual(closetSeedOffer({ status: 'failed' }, true, onSeed), { status: 'failed', addedCount: 0, onSeed });
   assert.deepEqual(closetSeedOffer({ status: 'added', count: 4 }, false, onSeed), { status: 'added', addedCount: 4, onSeed });
   assert.equal(closetSeedOffer(null, false, onSeed), null);
+});
+
+test('the coming morning is "this morning" up to 03:59 and not from 04:00', () => {
+  const morning = (iso) => previewIsThisMorning(Date.parse(iso), 'UTC', '2026-08-14');
+  assert.equal(morning('2026-08-14T03:59:00.000Z'), true);
+  assert.equal(morning('2026-08-14T04:00:00.000Z'), false);
+  assert.equal(morning('2026-08-13T17:59:00.000Z'), false);
+  assert.equal(morning('2026-08-13T18:00:00.000Z'), false);
 });

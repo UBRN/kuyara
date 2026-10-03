@@ -22,13 +22,12 @@ import {
   dressStyleProperty,
   generationModeProperty,
 } from '@/features/analytics/domain/analytics-mappers';
-import { isClothingPreference } from '@/domain/preferences';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { composeCatalog } from '@/features/today/application/compose-selection';
 import {
-  composedDetail,
   composePiecesOf,
+  detailShowing,
   useDetailMix,
 } from '@/features/today/application/composed-detail';
 import { classifyTodayState } from '@/features/today/application/today-state';
@@ -38,7 +37,6 @@ import {
   outfitWornState,
   tomorrowDetailIsThisMorning,
   tomorrowDetailState,
-  wornOutfitOrNull,
   type ClosetSeedProgress,
 } from '@/features/today/application/outfit-detail-state';
 import { activeLocationRecommendation } from '@/features/today/model';
@@ -98,9 +96,7 @@ export default function OutfitDetailRoute() {
       : null;
   const wardrobeItems = wardrobe.state.status === 'ready' ? wardrobe.state.items : [];
 
-  const dressStyle = dressStyleProperty(
-    resolvedDressStyle ?? (profileState.status === 'ready' ? profileState.profile.dressStyle : null),
-  );
+  const dressStyle = dressStyleProperty(resolvedDressStyle);
   const ageBucket = ageBucketProperty(
     profileState.status === 'ready' ? profileState.profile.birthDate : null,
   );
@@ -114,20 +110,20 @@ export default function OutfitDetailRoute() {
   // Phase 7: the reader's changes to this outfit live exactly as long as this route, so
   // leaving detail forgets them. The candidates keep the profile's gender
   // applicability the outfit was composed with.
-  const snapshotPreference = tomorrow
+  const preference = (tomorrow
     ? tomorrowPreview?.clothingPreference
-    : recommendationState.status === 'ready' ? recommendationState.snapshot?.clothingPreference : undefined;
+    : recommendationState.status === 'ready' ? recommendationState.snapshot?.clothingPreference : undefined) ?? null;
   const requirements = recommendation?.status === 'recommended' ? recommendation.requirements : null;
-  const preference = isClothingPreference(snapshotPreference) ? snapshotPreference : null;
   // Compose around chosen pieces (members only, today only): its result is shown, edited and
   // recorded through the same manual mix, as the reader's outfit from the start.
   const { composed, manualMix } = useDetailMix(outfit, requirements, preference,
     tomorrow || recommendationState.status !== 'ready' ? null : recommendationState.snapshot,
-    resolvedDressStyle ?? null, clock);
+    resolvedDressStyle, clock);
   const option = composed.current;
   // Any edit makes the outfit the reader's, a finishing touch alone included, and so does a
-  // composed result; each records as `manual`.
-  const changedOutfit = option || manualMix?.edited ? manualMix?.outfit ?? null : null;
+  // composed result; each records as `manual` (ADR 0038).
+  const { composed: composedView, worn: thisWorn } = useMemo(
+    () => detailShowing(outfit, option, manualMix), [manualMix, option, outfit]);
 
   // A regeneration that lands while the reader is on another tab and no longer offers this
   // outfit leaves nothing to come back to, so the Today stack returns to its root rather
@@ -183,11 +179,6 @@ export default function OutfitDetailRoute() {
     );
     return () => { live = false; };
   }, [dayKey, outfitHistory]);
-  // A changed outfit records as `manual` (ADR 0038); the schema already carries the source.
-  const thisWorn = useMemo(
-    () => changedOutfit ? wornOutfitOrNull(changedOutfit, 'manual') : outfit ? wornOutfitOrNull(outfit) : null,
-    [changedOutfit, outfit],
-  );
   const dayWorn = wornGarments?.key === dayKey ? wornGarments : null;
   const worn = outfitWornState(tomorrow, dayWorn, thisWorn);
   // Each look worn in a day is recorded beside the day's earlier ones; the repository keeps the
@@ -293,8 +284,6 @@ export default function OutfitDetailRoute() {
     boardFocused ? { unstable_dismissalBoundsRect: { maxX: 0, maxY: 0 } } : undefined,
   );
 
-  const composedView = option && composed.key && manualMix
-    ? composedDetail(option, manualMix.changedSlots, manualMix.changedAccessorySlots) : null;
   // "Back to kuyara's pick" forgets the composed result too.
   const shownMix = manualMix && option
     ? { ...manualMix, reset: () => { composed.clear(); manualMix.reset(); } }

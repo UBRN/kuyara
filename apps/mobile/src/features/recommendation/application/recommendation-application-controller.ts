@@ -1,6 +1,7 @@
 import type { AiRecommendV1Request, DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
-import { isClothingPreference } from '@/domain/preferences';
+import type { SupportedLanguage } from '@/domain/preferences';
+import { sameStyleAesthetics } from '@/features/profile/domain/profile';
 import {
   failureCategoryFromErrorKind,
   type FailureCategory,
@@ -71,7 +72,7 @@ export type RecommendationSignals = Readonly<{
 
 export type RecommendationApplicationInput = OutfitRecommendationInput & Readonly<{
   localDayKey: string;
-  locale?: 'tr' | 'en';
+  locale?: SupportedLanguage;
 }>;
 
 export function recommendationRefreshTrigger(
@@ -89,8 +90,7 @@ export function recommendationRefreshTrigger(
     return 'clothing-preference-changed';
   }
   if (previous.dressStyle !== current.dressStyle) return 'dress-style-changed';
-  if (JSON.stringify(previous.styleAesthetics ?? []) !==
-      JSON.stringify(current.styleAesthetics ?? [])) return 'dress-style-changed';
+  if (!sameStyleAesthetics(previous.styleAesthetics, current.styleAesthetics)) return 'dress-style-changed';
   if (previous.localDayKey !== current.localDayKey) return 'local-day-changed';
   return null;
 }
@@ -146,7 +146,7 @@ function recommendationFailureCategory(error: unknown): FailureCategory {
 type AiClient = Readonly<{
   recommendRouted(
     request: AiRecommendV1Request,
-    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: 'tr' | 'en' }>,
+    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: SupportedLanguage }>,
   ): Promise<OutfitRecommendationSuccess>;
 }>;
 
@@ -220,17 +220,15 @@ function storedPoolOptionIds(
   snapshot: RecommendationSnapshot | null,
   recentWorn: readonly WornOutfit[],
 ): readonly string[] | null {
-  const preference = snapshot?.clothingPreference;
   if (
     !snapshot ||
-    !isClothingPreference(preference) ||
     snapshot.dayVariant === null ||
     snapshot.catalogVersion !== garmentCatalogVersion
   ) return null;
   try {
     const composition = composeOutfitPool(
       snapshot.recommendation.requirements,
-      preference,
+      snapshot.clothingPreference,
       snapshot.dayVariant,
       recentWorn,
     );
@@ -501,8 +499,7 @@ export class RecommendationApplicationController {
         }
       }
       this.poolOptionIds = lastFailure === null ? storedPoolOptionIds(snapshot, recentWorn) : null;
-      this.poolKey = this.poolOptionIds && snapshot &&
-        isClothingPreference(snapshot.clothingPreference) && snapshot.dayVariant !== null
+      this.poolKey = this.poolOptionIds && snapshot && snapshot.dayVariant !== null
         ? poolCompositionKey(snapshot.recommendation.requirements,
           snapshot.clothingPreference, snapshot.dayVariant, recentWorn)
         : null;

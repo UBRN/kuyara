@@ -1,3 +1,4 @@
+import { aiV1OptionLimit } from '@kuyara/contracts';
 import type {
   Breathability,
   Coverage,
@@ -45,6 +46,36 @@ export const outfitSlots = Object.freeze([
 ] as const);
 
 export type OutfitSlot = (typeof outfitSlots)[number];
+
+/** A one-piece is the whole body: it never stands with a top or a bottom. */
+export function onePieceExcludes(left: OutfitSlot, right: OutfitSlot): boolean {
+  const separate = (slot: OutfitSlot) => slot === 'primary_top' || slot === 'bottom';
+  return (left === 'one_piece' && separate(right)) || (right === 'one_piece' && separate(left));
+}
+
+/** Whether a catalog garment type can dress one outfit slot: the rule the composer, the manual mix and the worn record share. */
+export function garmentFitsSlot(slot: OutfitSlot, id: string): boolean {
+  const type = getGarmentType(id);
+  if (!type) return false;
+  switch (slot) {
+    case 'primary_top': return type.structuralCategory === 'top'
+      && (type.supportedLayerRoles.includes('base') || type.supportedLayerRoles.includes('standalone'));
+    case 'bottom': return type.structuralCategory === 'bottom'
+      && type.supportedLayerRoles.includes('standalone');
+    case 'one_piece': return type.structuralCategory === 'one_piece'
+      && type.supportedLayerRoles.includes('standalone');
+    case 'mid_layer': return type.structuralCategory === 'top'
+      && type.supportedLayerRoles.includes('mid');
+    case 'outer_layer': return (type.structuralCategory === 'top' || type.structuralCategory === 'outerwear')
+      && type.supportedLayerRoles.includes('outer');
+    case 'footwear': return type.structuralCategory === 'footwear';
+    case 'head': case 'neck': case 'hands': return type.structuralCategory === 'accessory'
+      && type.bodyRegion === slot;
+    case 'handheld': return type.structuralCategory === 'accessory'
+      && type.bodyRegion === null;
+    default: return false;
+  }
+}
 
 /**
  * The four slots an outfit may finish with. They are not composed: the six body slots are
@@ -1945,6 +1976,9 @@ export type OutfitPin = Readonly<{
   garmentTypeId: GarmentTypeId;
 }>;
 
+/** How many outfits Today offers: as many as one AI request carries. */
+export const offeredOutfitLimit = aiV1OptionLimit;
+
 /** How many outfits compose around chosen pieces offers: at most three, one or two when that is all there are. */
 export const composedOutfitLimit = 3;
 
@@ -2005,7 +2039,7 @@ export function composeOutfitOptions(
   return Object.freeze({
     status: 'composed',
     outfits: excludeRecentlyWornOutfits(withAccessories(
-      selectDiverseOutfits(orderForOffer(result.outfits, startOffset), 24),
+      selectDiverseOutfits(orderForOffer(result.outfits, startOffset), offeredOutfitLimit),
       result.accessorySets,
     ), recentWorn),
   });

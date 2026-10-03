@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  dateKeyDayKind,
   localDayKey,
   localDayKind,
   localDayVariant,
@@ -103,4 +104,11 @@ test("tomorrow's key stays one key for a whole evening when the place keeps anot
   } finally {
     process.env.TZ = previousZone;
   }
+});
+
+test('a calendar date key has the kind of the weekday it names, in any zone', () => {
+  // 2026-09-18 is a Friday; 2026-12-31 a Thursday, 2027-01-02 a Saturday.
+  const kinds = ['2026-09-18', '2026-09-19', '2026-09-20', '2026-09-21', '2026-12-31', '2027-01-02']
+    .map(dateKeyDayKind);
+  assert.deepEqual(kinds, ['weekday', 'weekend', 'weekend', 'weekday', 'weekday', 'weekend']);
 });

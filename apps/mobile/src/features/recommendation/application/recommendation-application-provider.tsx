@@ -28,7 +28,7 @@ import { usePerformanceTelemetry } from '@/features/analytics/application/use-pe
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
-import { orderStyleAesthetics } from '@/features/profile/domain/profile';
+import { defaultDressStyle, orderStyleAesthetics, sameStyleAesthetics } from '@/features/profile/domain/profile';
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
@@ -36,8 +36,10 @@ import { SqliteDressingDayChoiceRepository } from '@/features/recommendation/dat
 import { SqliteDressingDayDepartureRepository } from '@/features/recommendation/data/sqlite-dressing-day-departure-repository';
 import {
   departureDressingDayKey,
+  departureIsAhead,
   type DressingDayDeparture,
 } from '@/features/recommendation/domain/dressing-day-departure';
+import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import {
   TomorrowPreviewController,
@@ -56,10 +58,7 @@ import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, typ
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
 import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
-import {
-  OnDeviceAiClient,
-  type OnDeviceAiModule,
-} from '@/features/recommendation/data/on-device-ai-client';
+import { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
 import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
 import {
   WorkerAiClient,
@@ -81,7 +80,7 @@ function approvedSignals(input: RecommendationApplicationInput): RecommendationS
     weatherSnapshotId: input.snapshot.id,
     locationKey: input.snapshot.locationKey,
     clothingPreference: input.clothingPreference,
-    dressStyle: input.dressStyle ?? 'smart',
+    dressStyle: input.dressStyle ?? defaultDressStyle,
     styleAesthetics: input.styleAesthetics,
     catalogVersion: garmentCatalogVersion,
     localDayKey: input.localDayKey,
@@ -112,14 +111,12 @@ function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
 
 // ADR 0034 section 1: the composition boundary that builds the AI chain, on-device ahead of
 // the Worker. The native module arrives through the data layer, which is its only importer;
-// it is null on Android, on web and on any build without the native surface, and the routed
-// client then reads the on-device tier as unavailable and goes straight to the Worker with
-// the whole budget. The parameter stays so tests can inject a fake module.
-function createRecommendationClient(
-  module: OnDeviceAiModule | null = onDeviceAiModule,
-): RoutedAiClient {
+// it is null on Android and on any build without the native surface, and the routed client
+// then reads the on-device tier as unavailable and goes straight to the Worker with the
+// whole budget.
+function createRecommendationClient(): RoutedAiClient {
   return new RoutedAiClient({
-    onDevice: new OnDeviceAiClient({ module }),
+    onDevice: new OnDeviceAiClient({ module: onDeviceAiModule }),
     worker: createWorkerClient(),
   });
 }
@@ -196,7 +193,7 @@ export function RecommendationApplicationProvider({
   }, [localDay.key, localProfileId]);
   const departureReady = departureState?.key === localDay.key;
   const activeDeparture = departureState?.key === localDay.key &&
-    departureState.value && Date.parse(departureState.value.departureAt) > Date.now()
+    departureState.value && departureIsAhead(departureState.value, Date.now())
     ? departureState.value : null;
   const choiceReadFailed = useRef(false);
   useEffect(() => {
@@ -234,7 +231,7 @@ export function RecommendationApplicationProvider({
     ? currentDayChoice.choice
     : currentDayChoice?.status === 'unknown' ? currentDayChoice.previousChoice : null;
   const profileDefault = profileState.status === 'ready'
-    ? profileState.profile.dressStyle ?? 'smart' : 'smart';
+    ? profileState.profile.dressStyle ?? defaultDressStyle : defaultDressStyle;
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
   const resolvedStyles = resolvedStyleAesthetics(dayChoice,
     profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
@@ -382,8 +379,7 @@ export function RecommendationApplicationProvider({
     // A persistent aesthetic edit made inside that sheet is already a profile-change
     // trigger, so it may refresh that look while the day's formality stays unanswered.
     if (morningChoicePending || eveningChoicePending) {
-      if (previous && JSON.stringify(previous.styleAesthetics ?? []) !==
-          JSON.stringify(current.styleAesthetics ?? [])) {
+      if (previous && !sameStyleAesthetics(previous.styleAesthetics, current.styleAesthetics)) {
         await controller.refresh('dress-style-changed', generationInput);
         return true;
       }
@@ -595,6 +591,14 @@ export function RecommendationApplicationProvider({
     state,
     getSnapshot: controller.getSnapshot,
     evaluateApprovedTriggers,
+    refreshAfterPull: () => refreshAfterPull({
+      getSnapshot: controller.getSnapshot,
+      refresh: async () => {
+        const generationInput = currentInput();
+        if (generationInput) await controller.refresh('explicit', generationInput);
+      },
+      evaluateApprovedTriggers: () => evaluateApprovedTriggers(),
+    }),
     onDeviceAvailability,
     skipWait: () => controller.skipWait(),
     dressingDayKey: localDay.key,

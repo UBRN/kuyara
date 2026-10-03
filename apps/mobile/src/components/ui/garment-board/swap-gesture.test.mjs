@@ -32,7 +32,6 @@ import { getGarmentType } from '../../../features/catalog/domain/garment-catalog
 import {
   availableCandidates,
   outfitGarments,
-  outfitSwappableSlots,
   slotCandidates,
 } from '../../../features/recommendation/domain/manual-mix.ts';
 
@@ -128,7 +127,7 @@ function threeRowEnlargements(column, large) {
         const pieces = Object.entries(garments).map(([slot, garmentTypeId]) => ({
           slot, garmentTypeId, category: getGarmentType(garmentTypeId).structuralCategory,
         }));
-        for (const slot of outfitSwappableSlots(outfit)) {
+        for (const slot of Object.keys(garments)) {
           const shown = availableCandidates(slotCandidates(outfit, slot, result.requirements, 'womens'), slot, garments);
           const strip = swapStripLayout(shown.length, shown.filter(({ suitable }) => suitable).length, column);
           if (strip.rows < 3) continue;

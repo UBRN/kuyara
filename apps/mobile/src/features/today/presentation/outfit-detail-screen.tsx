@@ -70,7 +70,7 @@ import {
   type PiecePickerOption,
   type PiecePickerTarget,
 } from '@/features/today/presentation/piece-picker-sheet';
-import type { ComposedDetail } from '@/features/today/application/composed-detail';
+import { manualDetailOf, type ComposedDetail } from '@/features/today/application/composed-detail';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
@@ -226,17 +226,8 @@ export function OutfitDetailScreen({
   const changed = composed !== null || (manualMix?.edited ?? false);
   if (changed && !everChanged) setEverChanged(true);
   const presentation = useMemo(() => createTodayPresentation(state, language, hour12, temperatureUnit, now,
-    manualMix && changed && suggestionId
-      ? {
-          optionId: suggestionId,
-          outfit: manualMix.outfit,
-          original: composed?.outfit,
-          changedSlots: composed
-            ? composed.changedSlots
-            : [...manualMix.changedSlots, ...manualMix.changedAccessorySlots],
-          pieceColors: composed?.pieceColors,
-        }
-      : null), [changed, composed, hour12, language, manualMix, now, state, suggestionId, temperatureUnit]);
+    manualDetailOf(manualMix, composed, suggestionId)),
+  [composed, hour12, language, manualMix, now, state, suggestionId, temperatureUnit]);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)

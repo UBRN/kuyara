@@ -1,7 +1,8 @@
-import { dressStyleSchema, styleAestheticSchema, type DressStyle, type StyleAesthetic } from '@kuyara/contracts';
+import { dressStyleSchema, type DressStyle, type StyleAesthetic } from '@kuyara/contracts';
 import { z } from 'zod';
 
 import { utcIsoTimestampSchema, uuidV4Schema } from '@/domain/record-identity';
+import { styleAestheticsSchema } from '@/features/profile/domain/profile';
 import { dressingDayKeySchema } from '@/features/weather/domain/wardrobe-day';
 
 export { dressingDayKeySchema };
@@ -27,9 +28,8 @@ export interface DressingDayChoiceRepository {
     source: DressingDayChoiceSource, styleAesthetics?: readonly StyleAesthetic[] | null): Promise<DressingDayChoice>;
 }
 
-export const dailyStyleAestheticsSchema = z.array(styleAestheticSchema).max(3).refine(
-  (values) => new Set(values).size === values.length,
-);
+/** A day's styles follow the rule of the profile's styles. */
+export const dailyStyleAestheticsSchema = styleAestheticsSchema;
 
 export function resolvedStyleAesthetics(
   choice: DressingDayChoice | null,

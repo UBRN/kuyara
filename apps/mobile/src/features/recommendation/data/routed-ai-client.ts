@@ -3,6 +3,7 @@ import type {
   AiRecommendV1Success,
   AiRecommendV2Success,
 } from '@kuyara/contracts';
+import type { SupportedLanguage } from '@/domain/preferences';
 
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { OutfitRecommendationSuccess } from '@/features/recommendation/application/recommend-outfits';
@@ -24,13 +25,13 @@ export type AiRecommendationValidator = (
   request: AiRecommendV1Request,
   data: AiRecommendV1Success['data'],
   generationMode: AiGenerationMode,
-  insight?: Readonly<{ locale: 'tr' | 'en' }>,
+  insight?: Readonly<{ locale: SupportedLanguage }>,
 ) => OutfitRecommendationSuccess;
 
 type WorkerClient = Readonly<{
   recommend(
     request: AiRecommendV1Request,
-    options?: Readonly<{ timeoutMilliseconds?: number; locale?: 'tr' | 'en' }>,
+    options?: Readonly<{ timeoutMilliseconds?: number; locale?: SupportedLanguage }>,
   ): Promise<AiRecommendV2Success['data']>;
 }>;
 
@@ -68,7 +69,7 @@ export class RoutedAiClient {
 
   async recommendRouted(
     request: AiRecommendV1Request,
-    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: 'tr' | 'en' }>,
+    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: SupportedLanguage }>,
   ): Promise<OutfitRecommendationSuccess> {
     const onPhase = options?.onPhase;
     try {

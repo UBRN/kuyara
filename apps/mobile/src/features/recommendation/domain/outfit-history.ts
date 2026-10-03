@@ -4,43 +4,24 @@ import { z } from 'zod';
 import { calendarDateKeySchema } from '@/domain/calendar-date';
 import { garmentSwatchIdSchema } from '@/features/catalog/domain/garment-swatch';
 import { garmentTypeIdSchema } from '@/features/catalog/domain/garment-taxonomy';
-import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
-import { assignedOutfitGarments, outfitSlots, type OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
+import {
+  assignedOutfitGarments,
+  garmentFitsSlot,
+  onePieceExcludes,
+  outfitSlots,
+  type OutfitCandidate,
+  type OutfitSlot,
+} from '@/features/recommendation/domain/outfit-composition';
 import { dressingDayDateKey } from '@/features/weather/domain/wardrobe-day';
 
 export const bareHistoryDayKeySchema = calendarDateKeySchema;
-/** Whether a catalog garment type can dress one outfit slot: the rule the composer and the worn record share. */
-export function garmentFitsSlot(slot: (typeof outfitSlots)[number], id: string): boolean {
-  const type = getGarmentType(id);
-  if (!type) return false;
-  switch (slot) {
-    case 'primary_top': return type.structuralCategory === 'top'
-      && (type.supportedLayerRoles.includes('base') || type.supportedLayerRoles.includes('standalone'));
-    case 'bottom': return type.structuralCategory === 'bottom'
-      && type.supportedLayerRoles.includes('standalone');
-    case 'one_piece': return type.structuralCategory === 'one_piece'
-      && type.supportedLayerRoles.includes('standalone');
-    case 'mid_layer': return type.structuralCategory === 'top'
-      && type.supportedLayerRoles.includes('mid');
-    case 'outer_layer': return (type.structuralCategory === 'top' || type.structuralCategory === 'outerwear')
-      && type.supportedLayerRoles.includes('outer');
-    case 'footwear': return type.structuralCategory === 'footwear';
-    case 'head': case 'neck': case 'hands': return type.structuralCategory === 'accessory'
-      && type.bodyRegion === slot;
-    case 'handheld': return type.structuralCategory === 'accessory'
-      && type.bodyRegion === null;
-    default: return false;
-  }
-}
-function validWornGarments(garments: Partial<Record<(typeof outfitSlots)[number], string>>): boolean {
-  const hasOnePiece = Boolean(garments.one_piece);
-  if (!garments.footwear || (hasOnePiece
-    ? Boolean(garments.primary_top || garments.bottom)
-    : !garments.primary_top || !garments.bottom)) return false;
+function validWornGarments(garments: Partial<Record<OutfitSlot, string>>): boolean {
+  const worn = outfitSlots.filter((slot) => garments[slot]);
+  if (!garments.footwear || worn.some((left) => worn.some((right) => onePieceExcludes(left, right)))) return false;
+  if (!garments.one_piece && (!garments.primary_top || !garments.bottom)) return false;
   const ids = Object.values(garments);
   if (new Set(ids).size !== ids.length) return false;
-  return Object.entries(garments).every(([slot, id]) =>
-    garmentFitsSlot(slot as (typeof outfitSlots)[number], id));
+  return Object.entries(garments).every(([slot, id]) => garmentFitsSlot(slot as OutfitSlot, id));
 }
 export const wornOutfitSchema = z.strictObject({
   garments: z.partialRecord(z.enum(outfitSlots), garmentTypeIdSchema).refine(validWornGarments),

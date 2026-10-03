@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     minHeight: easierToSeeValues.rowHeight, padding: spacing.md },
   alternateRowTitle: { flex: 1, marginTop: 0 },
   stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
-  alternateStage: { borderRadius: 14, justifyContent: 'center', overflow: 'hidden' },
+  alternateStage: { borderRadius: radii.imageTile, justifyContent: 'center', overflow: 'hidden' },
   tomorrowTarget: { marginTop: spacing.md },
   // Law 2: the strip's own inset is the container inset; it is never under the 44-point target.
   tomorrowStrip: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 44,

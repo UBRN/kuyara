@@ -1052,7 +1052,6 @@ const todayRouteDomainImports = Object.freeze({
     '@/features/weather/domain/weather',
   ],
   'app/(tabs)/(today)/[id].tsx': [
-    '@/domain/preferences',
     '@/features/analytics/domain/analytics-events',
     '@/features/analytics/domain/analytics-mappers',
     '@/features/recommendation/domain/outfit-history',
@@ -1080,13 +1079,100 @@ test('wind speed is converted for display only by the wind speed owner', () => {
   assert.ok(conversion.test('Math.round(snapshot.current.windSpeedMetersPerSecond * 3.6)'));
 });
 
+// A missing dress style is read as `defaultDressStyle` (profile/domain/profile.ts), never as a
+// second spelling of its value. These screen and analytics defaults are the only ones left, and
+// the list only shrinks: a stale entry fails the test.
+const spelledDefaultDressStyle = [
+  'app/(tabs)/(today)/index.tsx',
+  'features/analytics/domain/analytics-mappers.ts',
+  'features/profile/presentation/settings-screen.tsx',
+];
+
+test('a missing dress style defaults through defaultDressStyle, not a literal', () => {
+  const files = sourceFiles().filter((relativePath) =>
+    /\?\? 'smart'/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(files, [...spelledDefaultDressStyle].sort(),
+    'use defaultDressStyle from @/features/profile/domain/profile, and shrink the list when a file stops spelling it');
+});
+
+// Whether two style lists name the same styles is answered by `sameStyleAesthetics` in
+// profile/domain/profile.ts, not by comparing stringified lists.
+test('style lists are compared only by sameStyleAesthetics', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/profile/domain/profile.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/JSON\.stringify\([^)]*[sS]tyleAesthetics[^\n]*[!=]==|[!=]==\s*JSON\.stringify\([^)]*[sS]tyleAesthetics/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call sameStyleAesthetics from @/features/profile/domain/profile');
+});
+
+// The quarter hour a departure is chosen and spoken in, and the wheel of departures it steps,
+// are defined once, in recommendation/domain/dressing-day-departure.ts.
+test('the departure quarter hour and wheel are defined only in the departure owner', () => {
+  const files = sourceFiles().filter((relativePath) =>
+    relativePath !== 'features/recommendation/domain/dressing-day-departure.ts' &&
+    /\bconst quarterHourMs\b|\bfunction departureOptions\b/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(files, [], 'import quarterHourMs or departureOptions from dressing-day-departure');
+});
+
+// A clothing preference is parsed once, at the boundary that reads it, and carries its type from
+// there; nothing re-checks it with isClothingPreference.
+test('a parsed clothing preference is not re-checked inside the app', () => {
+  const files = sourceFiles().filter((relativePath) =>
+    /\bisClothingPreference\(/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(files, [], 'drop the re-check');
+});
+
+// The outfit detail's manual view is typed and built once, in today/application/composed-detail.ts.
+test('the detail manual view is defined and assembled only in composed-detail', () => {
+  const owner = 'features/today/application/composed-detail.ts';
+  const copies = sourceFiles().filter((relativePath) =>
+    relativePath !== owner &&
+    /\btype ManualDetail\b|optionId: suggestionId/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(copies, [], 'import ManualDetail or call manualDetailOf from composed-detail');
+});
+
+// A dressing-day key's calendar date is read by dressingDayDateKey (weather/domain/wardrobe-day.ts),
+// never by slicing the key.
+test('a day key is not sliced for its date', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/[kK]ey\.slice\(0, 10\)/.test(line) && !relativePath.includes('__tests__/')) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+  assert.deepEqual(hits, [], 'call dressingDayDateKey from @/features/weather/domain/wardrobe-day');
+});
+
+// The two app languages are `SupportedLanguage` (domain/preferences.ts); nobody spells the union
+// again. These files still do, and the list only shrinks.
+const spelledLanguageUnion = [
+  'features/catalog/domain/garment-catalog.ts',
+  'features/catalog/localization/catalog-messages.ts',
+  'features/weather/presentation/hourly-rail-columns.ts',
+  'features/weather/presentation/weather-format.ts',
+  'features/weather/presentation/weather-screen.tsx',
+  'localization/messages.ts',
+];
+
+test('the language union is spelled only through SupportedLanguage', () => {
+  const files = sourceFiles().filter((relativePath) =>
+    relativePath !== 'domain/preferences.ts' &&
+    /'tr' \| 'en'|'en' \| 'tr'/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(files, [...spelledLanguageUnion].sort(),
+    'use SupportedLanguage from @/domain/preferences, and shrink the list when a file stops spelling the union');
+});
+
 // Calendar-date arithmetic has one owner: `shiftCalendarDateParts` in domain/calendar-date.ts.
 // A `Date.UTC(` line elsewhere is either whole-instant arithmetic on a zone's wall clock or a
 // weekday or day-of-year read; the list only shrinks and a stale count fails.
 const dateUtcAllowlist = {
   'domain/calendar-date.ts': 1,
   'features/account/__tests__/account-fixtures.mjs': 1,
-  'features/recommendation/domain/local-day.ts': 2,
+  'features/recommendation/domain/local-day.ts': 3,
   'features/recommendation/domain/outfit-history-week.ts': 1,
   'features/weather/domain/wardrobe-day.ts': 2,
   'presentation/format-clock-time.ts': 1,
@@ -1155,7 +1241,6 @@ test('the device time zone and the default quiet hours each have one owner', () 
 // presentation/format-clock-time.ts; the screens listed here still spell it and the list only
 // shrinks.
 const clockPatternAllowlist = {
-  'features/today/presentation/today-presentation.ts': 1,
   'presentation/format-clock-time.ts': 1,
 };
 
@@ -1246,13 +1331,12 @@ test('the active catalogue status is read only by the selectable types owner', (
   const owner = 'features/catalog/domain/garment-catalog.ts';
   const allowlist = [
     'features/recommendation/domain/garment-eligibility.ts',
-    'features/today/application/compose-selection.ts',
   ];
   const hits = sourceFiles().filter((file) =>
     file !== owner && /status\s*[!=]==\s*'active'/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'list types through listSelectableGarmentTypes');
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
-  assert.equal(allowlist.length, 2, 'the active status allowlist only shrinks');
+  assert.equal(allowlist.length, 1, 'the active status allowlist only shrinks');
 });
 
 // "Either notification kind is on" is decided once, by `wantsAnyNotification` in
@@ -1311,15 +1395,12 @@ test('records are split by entry state only by the closet categories owner', () 
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
 });
 
-// The image-tile radius is the theme's `radii.imageTile`. The listed file is switched to it
-// separately; the list only shrinks.
+// The image-tile radius is the theme's `radii.imageTile`.
 test('the image-tile radius is written only in the theme', () => {
-  const allowlist = ['features/today/presentation/today-alternates.tsx'];
   const hits = sourceFiles().filter((file) =>
     file !== 'theme/theme.ts'
     && /RADIUS\s*=\s*14\b|borderRadius:\s*14\b/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
-  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'use radii.imageTile');
-  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
+  assert.deepEqual(hits, [], 'use radii.imageTile');
 });
 
 // Screens list genders and dress styles from their schemas (`genderSchema.options`, contracts
