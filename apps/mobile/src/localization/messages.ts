@@ -1190,7 +1190,7 @@ const en = {
     wantedLabel: 'Wanted',
     historyLabel: 'History',
     historyIntro: 'Looks you chose to wear.',
-    historyEmptyBody: 'Looks you mark “Wore this today” on Today gather here, day by day.',
+    historyEmptyBody: 'The outfits you mark “Wore this today” on Today gather here, day by day.',
     historyEmptyAction: 'Go to Today',
     historyLoadError: 'History could not be loaded. Try again later.',
     historyWeekTitle: 'This week',
