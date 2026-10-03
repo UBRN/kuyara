@@ -43,7 +43,7 @@ import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { hourlyRailColumns } from '@/features/weather/presentation/hourly-rail-columns';
 import { uvLevelOf } from '@/features/weather/presentation/uv-level';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
-import { percentage, weekday } from '@/features/weather/presentation/weather-format';
+import { dateKeyWeekday, percentage } from '@/features/weather/presentation/weather-format';
 import { WeatherErrorState, WeatherLoadingState } from '@/features/weather/presentation/weather-states';
 import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { numberFormat } from '@/domain/intl-format';
@@ -304,9 +304,6 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
     : snapshot.daily
       .filter((day) => localDayKey === null || day.dateKey >= localDayKey)
       .slice(0, dailyOutlookDayCount).map((day) => {
-      // A `dateKey` is a calendar date, not an instant: it is read in UTC so a place west
-      // of Greenwich cannot have its Thursday rendered as a Wednesday.
-      const date = `${day.dateKey}T00:00:00.000Z`;
       const chance = percentage(day.precipitationProbability, language);
       // Whole millimetres: a day's total is a coarse figure, and a decimal in a row this
       // narrow costs the rail more width than the tenth is worth. Anything under half a
@@ -325,7 +322,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
       return {
         key: day.dateKey,
         accessibilityLabel: copy.dailyForecastAccessibilityLabel({
-          day: weekday(date, 'UTC', language, 'long'),
+          day: dateKeyWeekday(day.dateKey, language, 'long'),
           condition: copy.conditions[day.condition],
           unitName: messages.temperatureUnitNames[temperatureUnit],
           minimumTemperature: formatTemperatureValue(day.minimumTemperatureCelsius, language, temperatureUnit),
@@ -345,7 +342,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
         precipitation: amount !== null
           ? { line: copy.dailyPrecipitationValue(amount, chance), lines: copy.dailyPrecipitationStacked(amount, chance) }
           : day.precipitationProbability > 0 ? { line: chance, lines: chance } : null,
-        weekday: weekday(date, 'UTC', language, 'short'),
+        weekday: dateKeyWeekday(day.dateKey, language, 'short'),
       };
     });
   const hourlyColumns = snapshot === null ? [] : hourlyRailColumns(

@@ -34,6 +34,15 @@ export function shiftCalendarDateParts(parts: CalendarDateParts, days: number): 
   };
 }
 
+/**
+ * The UTC midnight of a calendar key, for reading the date itself (its weekday) in no zone.
+ * Read it back only in UTC: it is the date's own arithmetic, never an instant in some place.
+ */
+export function calendarDateUtcMidnight(value: string): Date {
+  const { year, month, day } = calendarDateParts(value);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
 /** The device-local Date for a calendar key, at noon so a DST shift cannot move the day. */
 export function parseCalendarDate(value: string): Date {
   const { year, month, day } = calendarDateParts(value);

@@ -1,5 +1,5 @@
 import type { DayKind } from '@kuyara/contracts';
-import { calendarDateParts, shiftCalendarDateParts } from '@/domain/calendar-date';
+import { calendarDateParts, calendarDateUtcMidnight, shiftCalendarDateParts } from '@/domain/calendar-date';
 import {
   dressingDayDateKey,
   instantOfLocalHour,
@@ -35,8 +35,7 @@ export function localDayKind(date: Date): DayKind {
  * day or a history day is the weekday it names wherever the device is.
  */
 export function dateKeyDayKind(dateKey: string): DayKind {
-  const { year, month, day } = calendarDateParts(dateKey);
-  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const weekday = calendarDateUtcMidnight(dateKey).getUTCDay();
   return weekday === 0 || weekday === 6 ? 'weekend' : 'weekday';
 }
 
