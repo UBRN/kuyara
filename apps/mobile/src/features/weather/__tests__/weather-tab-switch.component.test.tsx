@@ -1,6 +1,7 @@
 import { act, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Profiler, useMemo, useSyncExternalStore } from 'react';
+import { ScrollView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -194,6 +195,46 @@ test('returning after an hour has ended still drops it from the rail', async () 
 
   expect(mockRailColumnCounts.length).toBeGreaterThan(railRenders);
   expect(mockRailColumnCounts.at(-1)).toBe(1);
+});
+
+// A rail left scrolled must not open on later hours than the current one: coming back to
+// Weather, or the hours themselves changing, brings the rail back to "Now". A refresh that
+// keeps the same hours leaves a reader who is scrolling where they are.
+test('the hourly rail opens on the current hour after a tab switch or a change of hours', async () => {
+  const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
+  const value = ready();
+  const result = await render(<Providers value={value}><WeatherScreen /></Providers>);
+  await act(async () => undefined);
+  const backToNow = () => scrollTo.mock.calls.filter(([to]) => (
+    JSON.stringify(to) === JSON.stringify({ x: 0, animated: false })
+  )).length;
+
+  scrollTo.mockClear();
+  await switchTab(false);
+  now += 10_000;
+  await switchTab(true);
+  expect(backToNow()).toBe(1);
+
+  // The same hours, refreshed: the reader keeps their place.
+  scrollTo.mockClear();
+  const refreshed = { ...sampleSnapshot(), fetchedAt: '2026-07-30T09:20:00.000Z' };
+  await result.rerender(
+    <Providers value={{ ...value, state: { ...value.state as WeatherReadyState, snapshot: refreshed } }}>
+      <WeatherScreen />
+    </Providers>,
+  );
+  expect(backToNow()).toBe(0);
+
+  // The first hour has ended and a new snapshot starts an hour later: back to "Now".
+  const later = sampleSnapshot();
+  later.hourly = [{ ...later.hourly[1] }, { ...later.hourly[1], forecastAt: '2026-07-30T11:00:00.000Z' }];
+  await result.rerender(
+    <Providers value={{ ...value, state: { ...value.state as WeatherReadyState, snapshot: later } }}>
+      <WeatherScreen />
+    </Providers>,
+  );
+  expect(backToNow()).toBe(1);
+  scrollTo.mockRestore();
 });
 
 // The provider hands every consumer a new context value whenever the controller publishes a
