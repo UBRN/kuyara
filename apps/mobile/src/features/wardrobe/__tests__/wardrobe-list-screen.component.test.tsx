@@ -183,6 +183,9 @@ test('an empty category page names its own category and adds into it', async () 
   );
 
   expect(result.getByText(messages.tr.wardrobe.categoryEmpty.one_piece)).toBeOnTheScreen();
+  // The category's own piece, faded on the muted tile, stands over the sentence.
+  expect(result.getByTestId('wardrobe-empty-art', { includeHiddenElements: true })).toBeTruthy();
+  expect(result.getByTestId('wardrobe-empty-drawing', { includeHiddenElements: true })).toBeTruthy();
   expect(result.queryByTestId(`wardrobe-item-${ownedItem.id}`)).not.toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('wardrobe-empty-add-button'));
   expect(onAdd).toHaveBeenCalledWith('one_piece');

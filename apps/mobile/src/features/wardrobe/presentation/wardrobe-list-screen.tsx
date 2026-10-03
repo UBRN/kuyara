@@ -13,11 +13,13 @@ import {
   AppText,
   Button,
   Entrance,
+  GarmentDrawing,
   GarmentTileArtwork,
   Icon,
   Surface,
   useTextScaling,
 } from '@/components/ui';
+import { EmptyStateArt } from '@/components/ui/empty-state-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import {
@@ -26,6 +28,7 @@ import {
 } from '@/features/catalog/domain/garment-taxonomy';
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
 import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import {
   categoryTabListRole,
   WardrobeCategoryChip,
@@ -91,8 +94,8 @@ const GRID_GAP = spacing.md;
 const GRID_INSET = spacing.lg;
 const TILE_ASPECT = 218 / 174.5;
 const LOADING_TILE_COUNT = 6;
-// Law 6: a standalone glyph over the empty sentence.
-const EMPTY_GLYPH_SIZE = 44;
+// An empty category page shows the category's own piece, faded, over its sentence.
+const EMPTY_DRAWING_SIZE = 72;
 // Where the revealed Wanted heading lands, as a fraction of the viewport, so it clears the
 // collapsed navigation bar whatever the content inset.
 const REVEAL_VIEW_POSITION = 0.25;
@@ -454,7 +457,14 @@ export function WardrobeListScreen({
       }
       ListEmptyComponent={
         <View style={styles.empty} testID="wardrobe-empty">
-          <Icon color={theme.colors.iconSecondary} name="hanger" size={EMPTY_GLYPH_SIZE} />
+          <EmptyStateArt testID="wardrobe-empty-art">
+            <GarmentDrawing
+              category={category}
+              garmentTypeId={CATEGORY_REPRESENTATIVE_TYPE[category]}
+              size={EMPTY_DRAWING_SIZE}
+              testID="wardrobe-empty-drawing"
+            />
+          </EmptyStateArt>
           <AppText style={styles.emptyCopy}>{copy.categoryEmpty[category]}</AppText>
           {/* No accent fill here: the selected tab already holds the viewport's one. */}
           <Button
@@ -706,7 +716,7 @@ const styles = StyleSheet.create({
   savedCopy: {
     flex: 1,
   },
-  // An empty category page (ADR 0029 section 4): the hanger, the sentence and the add
+  // An empty category page (ADR 0029 section 4): the faded piece, the sentence and the add
   // button, centred under the strip rather than in the leftover space.
   empty: {
     alignItems: 'center',
