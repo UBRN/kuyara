@@ -132,7 +132,7 @@ export type GarmentSwapBoardProps = Readonly<{
   /** The screen's name buttons; they step back while a piece is enlarged or moving. */
   overlay: ReactNode;
   overlayTestID?: string;
-  /** The line under the board at rest; the strip takes its place while a piece is enlarged. */
+  /** The line under the board at rest; the strip takes its place while a piece is enlarged. It may hold a control. */
   hint?: ReactNode;
   hintVisible?: boolean;
   labels: GarmentSwapBoardLabels;
@@ -1387,7 +1387,8 @@ export function GarmentSwapBoard({
           onLayout={({ nativeEvent }) => {
             if (nativeEvent.layout.height !== hintHeight) setHintHeight(nativeEvent.layout.height);
           }}
-          pointerEvents="none"
+          // A line with a control (a composed result's "Show another") takes touches while it shows.
+          pointerEvents={hintVisible && focusedSlot === null ? 'box-none' : 'none'}
           style={[styles.hint, { top: restHeight, width }, hintStyle]}>
           {hint}
         </Animated.View>
