@@ -2612,19 +2612,20 @@ describe('the contextual weather-alert offer', () => {
     expect(within(accept).getByText(copy.offer.acceptAction, { includeHiddenElements: true })).toHaveStyle({
       ...typography.label, color: lightTheme.colors.brandAccent,
     });
+    // The dismissal is a small secondary-ink caption, not a second button
+    // of the same size, and it still reaches the 44-point target with its own box.
     expect(within(dismiss).getByText(copy.offer.dismissAction, { includeHiddenElements: true })).toHaveStyle({
-      ...typography.label, color: lightTheme.colors.brandAccent,
+      ...typography.caption, color: lightTheme.colors.textSecondary,
     });
-    // O5: a tonal Small offer beside a plain Small dismissal, drawn at 36 and reaching the
-    // 44-point target through the slop; neither is an accent fill.
+    // O5: a tonal Small offer, drawn at 36 and reaching the 44-point target through the slop.
     expect(StyleSheet.flatten(accept.props.style).backgroundColor)
       .toBe(lightTheme.colors.surfaceInteractive);
-    expect(StyleSheet.flatten(dismiss.props.style).backgroundColor).toBe('transparent');
-    for (const action of [accept, dismiss]) {
-      expect(action.props.accessibilityRole).toBe('button');
-      expect(StyleSheet.flatten(action.props.style)).toMatchObject({ minHeight: 36 });
-      expect(action.props.hitSlop).toBe(4);
-    }
+    expect(StyleSheet.flatten(accept.props.style)).toMatchObject({ minHeight: 36 });
+    expect(accept.props.hitSlop).toBe(4);
+    expect(StyleSheet.flatten(dismiss.props.style).backgroundColor).toBeUndefined();
+    expect(StyleSheet.flatten(dismiss.props.style)).toMatchObject({ minHeight: 44, minWidth: 44 });
+    for (const action of [accept, dismiss]) expect(action.props.accessibilityRole).toBe('button');
+    expect(dismiss.props.accessibilityLabel).toBe(copy.offer.dismissAction);
     // S15: a quiet line on the ground plane, never a card.
     expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style).backgroundColor)
       .toBeUndefined();
@@ -3249,9 +3250,9 @@ describe.each(['en', 'tr'] as const)('%s Today states each fact once', (language
 });
 
 // O13 "Easier to see" on Today (renders 10 to 13): the switch draws the finishing touches at
-// 24 points, lists the alternatives as full-width rows, stacks the offer's actions as 56-point
-// buttons, and every kuyara-drawn control takes the 2-point strong edge. iOS Increase
-// Contrast alone brings the edges, not the switch's layout.
+// 24 points, lists the alternatives as full-width rows, stacks the offer's button over its
+// text link, both 56-point targets, and every kuyara-drawn control but that link takes the
+// 2-point strong edge. iOS Increase Contrast alone brings the edges, not the switch's layout.
 describe('Today with Easier to see', () => {
   const offer: TodayAlertOffer = {
     ruleId: 'precipitation_onset',
@@ -3344,16 +3345,20 @@ describe('Today with Easier to see', () => {
     expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style).flexDirection).toBe('column');
   });
 
-  test('the offer stacks two 56-point actions with strong edges on the ground plane', async () => {
+  test('the offer stacks a 56-point button over a 56-point text link on the ground plane', async () => {
     const result = await renderToday(todayScreenState, true);
     const accept = result.getByTestId('today-alert-offer-accept');
     const dismiss = result.getByTestId('today-alert-offer-dismiss');
     expect(StyleSheet.flatten(accept.parent!.props.style)).toMatchObject({ flexDirection: 'column' });
-    for (const action of [accept, dismiss]) {
-      expect(StyleSheet.flatten(action.props.style)).toMatchObject({ ...edge, minHeight: 56 });
-      expect(within(action).getByText(/./, { includeHiddenElements: true }))
-        .toHaveStyle({ fontSize: typography.bodyStrong.fontSize, fontWeight: '700' });
-    }
+    expect(StyleSheet.flatten(accept.props.style)).toMatchObject({ ...edge, minHeight: 56 });
+    expect(within(accept).getByText(/./, { includeHiddenElements: true }))
+      .toHaveStyle({ fontSize: typography.bodyStrong.fontSize, fontWeight: '700' });
+    // The link keeps its small ink and takes no edge; only its target grows.
+    const link = StyleSheet.flatten(dismiss.props.style);
+    expect(link).toMatchObject({ minHeight: 56 });
+    expect(link.borderWidth).toBeUndefined();
+    expect(StyleSheet.flatten(within(dismiss).getByText(/./, { includeHiddenElements: true }).props.style).fontSize)
+      .toBeLessThan(typography.bodyStrong.fontSize);
     // S15: the line itself is no card, so the edge belongs to its actions alone.
     expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style).borderWidth).toBeUndefined();
     expect(StyleSheet.flatten(result.getByTestId('today-ask-again').props.style)).toMatchObject({ ...edge, minHeight: 56 });
