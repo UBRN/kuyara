@@ -31,7 +31,9 @@ export const weatherSourceIds = ['sample', 'open-meteo', 'openweather', 'weather
 
 const utcTimestampSchema = z.iso.datetime({ offset: false });
 
-export const ianaTimeZoneSchema = z.string().trim().min(1).max(100).refine((value) => {
+export const ianaTimeZoneMaxLength = 100;
+
+export const ianaTimeZoneSchema = z.string().trim().min(1).max(ianaTimeZoneMaxLength).refine((value) => {
   try {
     new Intl.DateTimeFormat('en', { timeZone: value }).format(0);
     return true;

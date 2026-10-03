@@ -1,4 +1,7 @@
-/** The one owner of how a Worker route reads a request: content type, client IP, rate limit and body. */
+/**
+ * The one owner of how a Worker route reads a request: content type, client IP, rate limit and
+ * body, and the body never unbounded.
+ */
 
 export type RateLimiter = Readonly<{
   limit(input: { key: string }): Promise<{ success: boolean }>;
@@ -78,7 +81,8 @@ export async function readJsonBody(
     const text = await readTextWithLimit(body, maxBytes, options);
     return text === undefined ? undefined : JSON.parse(text);
   } catch {
-    // Not decodable or not JSON: the one answer is `undefined`, the caller says invalid_request.
+    // A stream error, bytes that are not decodable or text that is not JSON: the one answer is
+    // `undefined`, and the caller says invalid_request.
     return undefined;
   }
 }

@@ -23,7 +23,7 @@ import {
 import { raceWithTimeout } from '../attempt-timeout.ts';
 import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
 import {
-  checkRateLimit, isJsonRequest, rateLimitedHeaders, type RateLimiter,
+  checkRateLimit, isJsonRequest, rateLimitedHeaders, readJsonBody, type RateLimiter,
 } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
@@ -111,6 +111,13 @@ function requestBudgetMs(request: Request, configuredDeadlineMs: number): number
 }
 
 const errorResponse = createErrorResponse<AiV1ErrorCode>(aiV1ErrorSchema);
+
+/**
+ * Both recommend routes share this limit: at least 1.5 times the largest compact body a client
+ * sends on either version (the handler test measures it). A larger body is invalid_request,
+ * refused before it is read in full.
+ */
+export const aiRecommendRequestMaxBytes = 65_536;
 
 function defaultCache(): Cache | undefined {
   return (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
@@ -240,12 +247,7 @@ export function createAiHandler({
     }
     if (!isJsonRequest(request)) return errorResponse(400, 'invalid_request');
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return errorResponse(400, 'invalid_request');
-    }
+    const body = await readJsonBody(request.body, aiRecommendRequestMaxBytes);
     const requestResult = isV2
       ? aiRecommendV2RequestSchema.safeParse(body)
       : aiRecommendV1RequestSchema.safeParse(body);

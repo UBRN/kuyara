@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { placeSearchV1ErrorCodes } from '@kuyara/contracts';
+import { placeSearchV1ErrorCodes, placeSearchV1RequestSchema } from '@kuyara/contracts';
 import worker from '../index.ts';
 import { OpenMeteoPlaceProvider, PlaceSearchProviderError } from './open-meteo-place-provider.ts';
-import { createPlaceSearchHandler } from './place-search-handler.ts';
+import { createPlaceSearchHandler, placeSearchRequestMaxBytes } from './place-search-handler.ts';
+import { bodyBytes, largestPlaceSearchRequest, paddedBody } from '../__tests__/largest-valid-requests.mjs';
 
 const query = { query: 'Ankara', limit: 5, language: 'tr' };
 const raw = { results: [{ id: 311046, name: 'İzmir', admin1: 'İzmir', country: 'Türkiye', latitude: 38.41273, longitude: 27.13838, timezone: 'Europe/Istanbul', population: 2500603 }] };
@@ -147,4 +148,25 @@ test('the composed route is limited by its own binding alone', async (t) => {
   assert.equal(denied.headers.get('retry-after'), '60');
   assert.deepEqual(await denied.json(), { error: { code: 'rate_limited' } });
   assert.deepEqual(asked, [['places', 'places:192.0.2.1']]);
+});
+
+test('the body limit covers the largest valid place search request', () => {
+  const largest = largestPlaceSearchRequest;
+  assert.equal(placeSearchV1RequestSchema.safeParse(largest).success, true);
+  assert.equal(placeSearchV1RequestSchema.safeParse({ ...largest, query: `${largest.query}a` }).success, false);
+  assert.equal(placeSearchV1RequestSchema.safeParse({ ...largest, limit: largest.limit + 1 }).success, false);
+  assert.ok(bodyBytes(largest) <= placeSearchRequestMaxBytes);
+});
+
+test('a body at the limit is answered and one byte more is invalid_request without an upstream call', async () => {
+  let calls = 0;
+  const handle = setup(async () => { calls++; return Response.json(raw); });
+  const post = (body) => new Request('https://worker.test/v1/places/search', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body,
+  });
+  assert.equal((await handle(post(paddedBody(query, placeSearchRequestMaxBytes)))).status, 200);
+  const oversized = await handle(post(paddedBody(query, placeSearchRequestMaxBytes + 1)));
+  assert.equal(oversized.status, 400);
+  assert.deepEqual(await oversized.json(), { error: { code: 'invalid_request' } });
+  assert.equal(calls, 1);
 });

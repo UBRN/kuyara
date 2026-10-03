@@ -4,11 +4,13 @@ import test from 'node:test';
 import {
   weatherV1ErrorCodes,
   weatherV1ErrorSchema,
+  weatherV1RequestSchema,
   weatherV1SuccessSchema,
   weatherV2SuccessSchema,
 } from '@kuyara/contracts';
 
-import { createWeatherHandler } from './weather-handler.ts';
+import { createWeatherHandler, weatherRequestMaxBytes } from './weather-handler.ts';
+import { bodyBytes, largestWeatherRequestCeiling, paddedBody } from './__tests__/largest-valid-requests.mjs';
 import { DeterministicMockWeatherProvider } from './weather/__tests__/mock-weather-provider.ts';
 import { WeatherProviderError } from './weather/weather-provider-error.ts';
 
@@ -258,4 +260,33 @@ test('a failing rate-limit binding answers a stable weather_unavailable, not a t
     await assertError(await handler(request(path)), 503, 'weather_unavailable');
   }
   assert.equal(JSON.stringify(warnings).includes('binding down'), false);
+});
+
+test('the body limit covers the largest valid weather request', () => {
+  // The longest zone the runtime resolves is valid; the contract's length cap is the bound.
+  const longestZone = Intl.supportedValuesOf('timeZone')
+    .reduce((a, b) => (b.length > a.length ? b : a));
+  assert.equal(weatherV1RequestSchema.safeParse({ ...largestWeatherRequestCeiling, timeZone: longestZone }).success, true);
+  for (const outOfRange of [{ latitudeE2: -9001 }, { longitudeE2: -18001 }]) {
+    assert.equal(weatherV1RequestSchema.safeParse({ ...validBody, ...outOfRange }).success, false);
+  }
+  assert.ok(bodyBytes(largestWeatherRequestCeiling) <= weatherRequestMaxBytes);
+});
+
+test('a body at the limit is answered on both routes and one byte more is invalid_request', async () => {
+  let calls = 0;
+  const inner = new DeterministicMockWeatherProvider({ now: () => fixedNow });
+  const handler = createWeatherHandler({
+    provider: { fetchWeather: (input) => { calls += 1; return inner.fetchWeather(input); } },
+    rateLimiter: permissiveRateLimiter,
+  });
+  for (const path of ['/v1/weather', '/v2/weather']) {
+    assert.equal((await handler(request(path, { body: paddedBody(validBody, weatherRequestMaxBytes) }))).status, 200);
+    await assertError(
+      await handler(request(path, { body: paddedBody(validBody, weatherRequestMaxBytes + 1) })),
+      400,
+      'invalid_request',
+    );
+  }
+  assert.equal(calls, 2);
 });

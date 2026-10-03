@@ -6,7 +6,9 @@ import {
   type WeatherV1ErrorCode,
 } from '@kuyara/contracts';
 
-import { checkRateLimit, isJsonRequest, rateLimitedHeaders, type RateLimiter } from './json-request.ts';
+import {
+  checkRateLimit, isJsonRequest, rateLimitedHeaders, readJsonBody, type RateLimiter,
+} from './json-request.ts';
 import { createErrorResponse, jsonHeaders } from './json-response.ts';
 
 import {
@@ -36,6 +38,13 @@ function responseMapper(pathname: string) {
 
 const errorResponse = createErrorResponse<WeatherV1ErrorCode>(weatherV1ErrorSchema);
 
+/**
+ * Both weather routes read the same strict request. The limit is at least 1.5 times the
+ * largest compact body a client sends (the handler test measures it), and a larger body is
+ * the route's invalid_request, refused before it is read in full.
+ */
+export const weatherRequestMaxBytes = 256;
+
 export function createWeatherHandler(
   dependencies: Dependencies,
 ): (request: Request) => Promise<Response> {
@@ -59,13 +68,7 @@ export function createWeatherHandler(
     }
     if (!isJsonRequest(request)) return errorResponse(400, 'invalid_request');
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return errorResponse(400, 'invalid_request');
-    }
-
+    const body = await readJsonBody(request.body, weatherRequestMaxBytes);
     const requestResult = weatherV1RequestSchema.safeParse(body);
     if (!requestResult.success) return errorResponse(400, 'invalid_request');
 

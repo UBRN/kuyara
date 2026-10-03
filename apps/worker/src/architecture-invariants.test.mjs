@@ -209,3 +209,22 @@ test('JSON.parse sites that do not feed a schema are a frozen, shrink-only list'
 
   assert.deepEqual([...found].sort(), [...allowed].sort(), 'do not add a site; remove one from the list when it goes');
 });
+
+// A client body is read only through `json-request.ts`, which stops at a byte limit; the
+// runtime's own readers buffer whatever arrives. The feedback route now reads through the
+// shared reader too, so no route keeps a reader of its own.
+test('client request bodies are read only through the bounded reader', () => {
+  const unbounded = [];
+  const readers = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\b(?:request|req)(?:\.clone\(\))?\.(?:json|text|arrayBuffer|formData|blob|bytes)\(|new Response\((?:request|req)\.body/.test(line)) {
+        unbounded.push(`${relativePath}:${index + 1}`);
+      }
+      if (/\.getReader\(/.test(line)) readers.push(relativePath);
+    });
+  }
+
+  assert.deepEqual(unbounded, [], 'read the body with readJsonBody and a byte limit');
+  assert.deepEqual(readers.sort(), ['json-request.ts']);
+});
