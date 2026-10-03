@@ -1172,9 +1172,7 @@ test('the clock-time pattern is spelled only where the allowlist names it', () =
 });
 
 // sRGB colour maths has one owner, domain/srgb-color.ts: the OKLab matrix and the 6-digit hex
-// pattern are spelled nowhere else. The native colour well's own text check is the one entry
-// that still spells the pattern; the list only shrinks.
-const hexPatternAllowlist = ['components/ui/native-color-well.tsx'];
+// pattern are spelled nowhere else.
 
 test('the OKLab matrix and the 6-digit hex pattern live only in domain/srgb-color.ts', () => {
   const owner = 'domain/srgb-color.ts';
@@ -1188,7 +1186,7 @@ test('the OKLab matrix and the 6-digit hex pattern live only in domain/srgb-colo
   }
 
   assert.deepEqual(matrix, [], `use toOklab or toOklch from @/domain/srgb-color`);
-  assert.deepEqual(pattern, hexPatternAllowlist, 'use isSrgbHex from @/domain/srgb-color; the allowlist only shrinks');
+  assert.deepEqual(pattern, [], 'use isSrgbHex from @/domain/srgb-color');
 });
 
 // Weather coordinate bounds are owned by `isNormalizedCoordinates` in weather/domain/weather.ts.

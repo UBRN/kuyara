@@ -1,6 +1,7 @@
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { ClosetColorDisc, ColorWellMark } from '@/components/ui/garment-board/closet-color-art';
+import { isSrgbHex } from '@/domain/srgb-color';
 import { borderWidths, interaction, layout } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -63,7 +64,7 @@ export function NativeColorWell({
   if (Platform.OS !== 'ios' || !swiftUI || !modifiers) return null;
 
   const report = (next: string) => {
-    if (/^#[0-9a-fA-F]{6}$/.test(next)) onChange(next.toUpperCase());
+    if (isSrgbHex(next)) onChange(next.toUpperCase());
   };
   const chosen = selected && value !== null ? value : null;
 
