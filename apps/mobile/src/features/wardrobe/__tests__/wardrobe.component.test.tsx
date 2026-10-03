@@ -206,10 +206,12 @@ function readyProfileApplication(
 function AnalyticsProviders({
   analytics,
   children,
-}: PropsWithChildren<{ analytics?: RecordingProductAnalytics }>) {
+  profileOverrides = {},
+}: PropsWithChildren<{ analytics?: RecordingProductAnalytics; profileOverrides?: Partial<LocalProfile> }>) {
   return (
     <ProfileApplicationContext.Provider value={readyProfileApplication({
       analyticsConsent: analytics?.isApplied() === false ? 'undecided' : 'granted',
+      ...profileOverrides,
     })}>
       <ProductAnalyticsProvider
         analytics={analytics ?? new RecordingProductAnalytics()}
@@ -1801,10 +1803,10 @@ test('while the form is busy the type tiles are dimmed and report themselves dis
   expect(onSelect).not.toHaveBeenCalled();
 });
 
-function closetRoute(items: WardrobeItem[]) {
+function closetRoute(items: WardrobeItem[], profileOverrides: Partial<LocalProfile> = {}) {
   return (
     <TestProviders>
-      <AnalyticsProviders>
+      <AnalyticsProviders profileOverrides={profileOverrides}>
         <WardrobeApplicationContext.Provider value={wardrobeApplication({
           state: { status: 'ready', items, isRefreshing: false, isMutating: false, refreshFailure: null },
         })}>
@@ -1861,4 +1863,48 @@ test('a tile and the plus button pressed together open one screen, whichever com
   await fireEvent.press(plusFirst.getByTestId(`wardrobe-item-${plainItem.id}`), linkPressEvent());
   expect(mockPush).toHaveBeenCalledTimes(1);
   expect(mockLinkTo).toHaveBeenCalledTimes(1);
+});
+
+const mensProfile = { gender: 'man', clothingPreference: 'mens' } as const;
+const tabIds = (result: Awaited<ReturnType<typeof render>>) =>
+  within(result.getByTestId('wardrobe-category-tabs'))
+    .getAllByRole('button')
+    .map((tab) => tab.props.testID);
+
+// Product decisions: One-piece is hidden only while a mens profile holds no one-piece record,
+// so a link asking for it lands on the first tab and no empty dress is ever drawn.
+test('a mens Closet with no one-piece record has five tabs and sends a One-piece link to the first', async () => {
+  mockSearchParams = { category: 'one_piece' };
+  const result = await render(closetRoute([plainItem], mensProfile));
+
+  expect(tabIds(result)).toEqual([
+    'wardrobe-category-tab-top',
+    'wardrobe-category-tab-bottom',
+    'wardrobe-category-tab-outerwear',
+    'wardrobe-category-tab-footwear',
+    'wardrobe-category-tab-accessory',
+  ]);
+  expect(result.getByTestId('wardrobe-category-tab-top').props.accessibilityState.selected).toBe(true);
+  expect(result.getByText(messages.en.wardrobe.categoryEmpty.top)).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.wardrobe.categoryEmpty.one_piece)).toBeNull();
+});
+
+test('a mens Closet holding a one-piece record keeps all six tabs and opens One-piece', async () => {
+  mockSearchParams = { category: 'one_piece' };
+  const dress: WardrobeItem = {
+    ...plainItem, id: '518f0f4d-1d45-4ae7-a8f1-796e8297d3b4', category: 'one_piece', garmentTypeId: 'dress',
+  };
+  const result = await render(closetRoute([plainItem, dress], mensProfile));
+
+  expect(tabIds(result)).toHaveLength(6);
+  expect(result.getByTestId('wardrobe-category-tab-one_piece').props.accessibilityState.selected).toBe(true);
+  expect(result.getByTestId(`wardrobe-item-${dress.id}`)).toBeOnTheScreen();
+});
+
+test('a womens Closet keeps all six tabs and opens an empty One-piece page', async () => {
+  mockSearchParams = { category: 'one_piece' };
+  const result = await render(closetRoute([plainItem]));
+
+  expect(tabIds(result)).toHaveLength(6);
+  expect(result.getByText(messages.en.wardrobe.categoryEmpty.one_piece)).toBeOnTheScreen();
 });

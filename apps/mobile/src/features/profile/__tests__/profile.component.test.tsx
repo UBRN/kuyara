@@ -4,6 +4,7 @@ import { Dimensions, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { structuralCategories } from '@/features/catalog/domain/garment-taxonomy';
 import { ProfileScreen } from '@/features/profile/presentation/profile-screen';
 import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
 import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
@@ -259,6 +260,59 @@ test.each([
   for (const row of rows) {
     expect(row.props.children).toHaveLength(columns);
   }
+});
+
+// A mens profile with no one-piece record offers five categories: the last row keeps the
+// grid's column width with a spacer nobody can reach, and each cell keeps its arrival place.
+test.each([
+  [1, [3, 2]],
+  [1.353, [2, 2, 1]],
+] as const)('five categories at fontScale %s sit in rows of %j with an unreachable spacer', async (fontScale, rowSizes) => {
+  mockFontScale(fontScale);
+  const fiveCategories = structuralCategories.filter((category) => category !== 'one_piece');
+  const result = await render(
+    <TestProviders items={[baseItem]}>
+      <ProfileScreen categories={fiveCategories} onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+    </TestProviders>,
+  );
+
+  expect(result.queryByTestId('profile-category-one_piece')).toBeNull();
+  const columns = rowSizes[0];
+  const rows: { props: { children: { key: string; props: { index?: number } }[] } }[] =
+    result.getByTestId('profile-category-cells').props.children;
+  expect(rows.map((row) => row.props.children.filter((child) => !child.key.startsWith('spacer')).length))
+    .toEqual(rowSizes);
+  // Every row holds the same number of slots, so the columns line up.
+  for (const row of rows) {
+    expect(row.props.children).toHaveLength(columns);
+  }
+  const arrival = rows.flatMap((row) =>
+    row.props.children.filter((child) => !child.key.startsWith('spacer')).map((child) => [child.key, child.props.index]),
+  );
+  expect(arrival).toEqual(fiveCategories.map((category, index) => [category, 2 + index]));
+
+  expect(result.queryByTestId('profile-category-spacer')).toBeNull();
+  const spacer = result.getByTestId('profile-category-spacer', { includeHiddenElements: true });
+  expect(spacer.props.accessibilityElementsHidden).toBe(true);
+  expect(spacer.props.importantForAccessibility).toBe('no-hide-descendants');
+  expect(spacer.props.pointerEvents).toBe('none');
+  expect(spacer.props.accessible).not.toBe(true);
+  expect(spacer.props.onPress).toBeUndefined();
+});
+
+test('six categories need no spacer and keep their arrival places', async () => {
+  mockFontScale(1);
+  const result = await render(
+    <TestProviders items={[baseItem]}>
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+    </TestProviders>,
+  );
+
+  expect(result.queryByTestId('profile-category-spacer', { includeHiddenElements: true })).toBeNull();
+  const rows: { props: { children: { key: string; props: { index?: number } }[] } }[] =
+    result.getByTestId('profile-category-cells').props.children;
+  expect(rows.flatMap((row) => row.props.children.map((child) => [child.key, child.props.index])))
+    .toEqual(structuralCategories.map((category, index) => [category, 2 + index]));
 });
 
 test('the empty Closet shows the empty rack, the sentence and the Add a piece action, and hides the Wanted row', async () => {
