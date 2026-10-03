@@ -38,6 +38,7 @@ import {
   departureDressingDayKey,
   type DressingDayDeparture,
 } from '@/features/recommendation/domain/dressing-day-departure';
+import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import {
   TomorrowPreviewController,
@@ -594,6 +595,14 @@ export function RecommendationApplicationProvider({
     state,
     getSnapshot: controller.getSnapshot,
     evaluateApprovedTriggers,
+    refreshAfterPull: () => refreshAfterPull({
+      getSnapshot: controller.getSnapshot,
+      refresh: async () => {
+        const generationInput = currentInput();
+        if (generationInput) await controller.refresh('explicit', generationInput);
+      },
+      evaluateApprovedTriggers: () => evaluateApprovedTriggers(),
+    }),
     onDeviceAvailability,
     skipWait: () => controller.skipWait(),
     dressingDayKey: localDay.key,

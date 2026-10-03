@@ -24,6 +24,7 @@ import {
   type RecommendationApplicationValue,
   useRecommendationApplication,
 } from '@/features/recommendation/application/recommendation-application-context';
+import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import {
   RecommendationRepositoryError,
@@ -531,6 +532,11 @@ function Providers({
       onDeviceAvailability: null,
       refresh: recommendationRefresh,
       evaluateApprovedTriggers: recommendationEvaluateApprovedTriggers,
+      refreshAfterPull: () => refreshAfterPull({
+        getSnapshot: recommendationGetSnapshot ?? (() => recommendation),
+        refresh: recommendationRefresh,
+        evaluateApprovedTriggers: () => recommendationEvaluateApprovedTriggers(),
+      }),
       skipWait: jest.fn(async () => null),
       regenerate: recommendationRegenerate,
       resolvedDressStyle,

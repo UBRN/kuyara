@@ -20,6 +20,11 @@ export type RecommendationApplicationValue = Readonly<{
   onDeviceAvailability: OnDeviceAiAvailability | null;
   refresh: () => Promise<RecommendationSnapshot | null>;
   evaluateApprovedTriggers: (foreground?: boolean) => Promise<void>;
+  /**
+   * Today's pull gesture, after the weather refreshed: regenerates when no outfits are held,
+   * otherwise evaluates the approved triggers.
+   */
+  refreshAfterPull: () => Promise<void>;
   skipWait: () => Promise<RecommendationSnapshot | null>;
   /**
    * Today's "show another outfit" action: it regenerates the recommendation and leaves
