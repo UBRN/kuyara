@@ -44,6 +44,32 @@ test('first link pulls and merges before uploading, then records the cursor', as
   assert.deepEqual(calls[2][1].wardrobeItems.map((row) => row.id), [phone.wardrobeItems[0].id]);
 });
 
+test('a different account receives the changes the previous account had not synced yet', async () => {
+  const uploads = [];
+  const edited = wardrobeItem(1, { name: 'Edited after the last sync' });
+  const removed = wardrobeItem(2, { deletedAt: '2026-10-02T00:00:00.000Z' });
+  const day = historyDay(3, '2026-10-02');
+  let rows = local({ ...empty(), wardrobeItems: [edited, removed], outfitHistory: [day] }, true);
+  const source = {
+    read: async () => rows,
+    cursor: async () => '2026-09-30T00:00:00.000000Z',
+    applyFirstLink: async (merge) => { rows = local(merge.sendToAccount, true); },
+    clearPendingIfUnchanged: async () => {},
+    writePulled: async () => assert.fail('write'),
+  };
+  const remote = {
+    pullSnapshot: async (userId) => { assert.equal(userId, 'user-b'); return { rows: empty(), cursor: null }; },
+    upload: async (userId, sent) => { uploads.push([userId, sent]); return sent; },
+    pull: async () => assert.fail('pull'),
+  };
+  const counts = await createAccountSyncFlow(source, remote, () => '2026-10-03T00:00:00Z').firstLink('user-b', true);
+  assert.deepEqual(counts, { piecesAdded: 1, historyDaysAdded: 1, piecesReceived: 0, historyDaysReceived: 0 });
+  assert.equal(uploads.length, 1);
+  assert.equal(uploads[0][0], 'user-b');
+  assert.deepEqual(uploads[0][1].wardrobeItems, [edited, removed]);
+  assert.deepEqual(uploads[0][1].outfitHistory, [day]);
+});
+
 test('ongoing sync uploads pending rows, clears only matched versions, then lands server arrival and cursor', async () => {
   const calls = [];
   const own = wardrobeItem(1, { name: 'Here' });

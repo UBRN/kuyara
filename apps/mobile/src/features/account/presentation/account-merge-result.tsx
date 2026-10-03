@@ -8,8 +8,8 @@ import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 /**
- * The merge result (ADR 0041 section 4), in the account sheet's result anatomy: what each
- * side gave the other, per kind, the rule that settled a piece or day both held, and where
+ * The merge result (ADR 0041 sections 4 and 6), after a first link or a different account, in
+ * the account sheet's result anatomy: what this phone and the account gave each other, per kind, the rule that settled a piece or day both held, and where
  * the profile came from. Duplicates are never removed for the person, so "Open Closet" sits
  * beside "Done".
  */

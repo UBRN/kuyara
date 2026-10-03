@@ -80,8 +80,10 @@ function mergeByDay<Item extends DayRow>(
 const keep = <Item>(pulled: Item) => pulled;
 
 /**
- * The first link of a phone to an account pulls the account's rows and merges them with the
- * phone's before anything is uploaded (ADR 0041 section 4). Pure: the caller reads both sides,
+ * The first link of a phone to an account, and a sign-in with a different account than the last
+ * one, pull the account's rows and merge them with the phone's before anything is uploaded
+ * (ADR 0041 sections 4 and 6). Every live row goes, so changes the previous account had not
+ * synced yet join the new one. Pure: the caller reads both sides,
  * writes `writeToPhone`, uploads `sendToAccount` and shows `counts`. Without the sync consent
  * only the profile is settled; its four fields come from the account when it has them.
  */
