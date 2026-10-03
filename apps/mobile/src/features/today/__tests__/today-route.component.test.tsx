@@ -2328,14 +2328,14 @@ test('pull-to-refresh clears a saved outfit failure when its approved inputs are
   );
   productAnalytics.analytics.captures.length = 0;
   recommendationEvaluateApprovedTriggers.mockClear();
-  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn’t refresh/);
 
   await act(async () => result.getByTestId('today-screen').props.refreshControl.props.onRefresh());
 
   expect(recommendationRefresh).not.toHaveBeenCalled();
   expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledWith();
   expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
-  expect(result.getByTestId('today-freshness')).not.toHaveTextContent(/Couldn't refresh/);
+  expect(result.getByTestId('today-freshness')).not.toHaveTextContent(/Couldn’t refresh/);
   expect(productAnalytics.analytics.captures.find(({ name }) =>
     name === 'retry_after_failure_triggered')?.properties).toEqual({
     schema_version: 3, surface: 'today', attempt_number: 1, result: 'success',
@@ -2377,7 +2377,7 @@ test('a failed weather refresh with the same snapshot skips recommendation regen
   expect(weather.refresh).toHaveBeenCalledTimes(1);
   expect(recommendationRefresh).not.toHaveBeenCalled();
   expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledWith();
-  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn’t refresh/);
   expect(productAnalytics.analytics.captures.find(({ name }) =>
     name === 'retry_after_failure_triggered')?.properties).toEqual({
     schema_version: 3, surface: 'today', attempt_number: 1, result: 'failure',
@@ -2514,7 +2514,7 @@ test('recommendation refresh and failure state reaches Today while the last outf
       <TodayRoute />
     </Providers>,
   );
-  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn’t refresh/);
   expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
 });
 

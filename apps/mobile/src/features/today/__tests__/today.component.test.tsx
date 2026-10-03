@@ -2094,7 +2094,7 @@ test('refreshing, failure and staleness announce freshness while retaining the l
   // A refresh nobody pulled is told by the line alone; the control spins only for a pull.
   expect(result.getByTestId('today-screen').props.refreshControl.props.refreshing).toBe(false);
   await result.rerender(screen(false, true));
-  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn’t refresh/);
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   expect(result.getByTestId('today-archetype')).toHaveTextContent('Rain Ready');
   await fireEvent.press(result.getByTestId('today-archetype'));

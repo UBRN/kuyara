@@ -26,7 +26,7 @@ Sabah ve 18.00'den sonraki akşam sorusunda günün resmiyet düzeyini ve en faz
 özelliğini seçebilirsin. Öneriler yeni günün yanıtı kaydedilince, konumun ya da kayıtlı giyim
 tercihlerin değişince, tahmin kapsama süresi bitip Bugün'ü yeniden açınca veya "Stiliste
 tekrar sor"u onaylayınca yenilenebilir. Hava durumu yenilenince yalnızca hava içgörüsü
-güncellenir, kombin değişmez. Yapay zeka kullanılamadığında yerleşik yöntem yine üç kombin
+güncellenir, kombin değişmez. Yapay zekâ kullanılamadığında yerleşik yöntem yine üç kombin
 seçer.
 
 **kuyara neden konumumu istiyor?**

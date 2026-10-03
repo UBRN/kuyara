@@ -264,7 +264,7 @@ test('the morning briefing is scheduled beside the alerts, on its own opt-in', a
   assert.deepEqual(both.scheduled.at(-1), {
     identifier: 'morning_briefing:2026-09-10',
     fireAt: '2026-09-10T07:00:00.000Z',
-    title: 'Good morning',
+    title: 'Morning summary',
     body: 'Until 07:00: 11\u00b0C. A cloudy morning.',
   });
   assert.deepEqual(both.upserted[0].map(({ id }) => id), [
@@ -338,7 +338,7 @@ test('the briefing formats its temperatures for the active language', async () =
     turkish.scheduled[0].body,
     '07:00 saatine kadar: -4\u00b0C. Sabah hava açık.',
   );
-  assert.equal(turkish.scheduled[0].title, 'Günaydın');
+  assert.equal(turkish.scheduled[0].title, 'Sabah özeti');
 });
 
 function dayHour(forecastAt, overrides = {}) {

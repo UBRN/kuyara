@@ -192,7 +192,7 @@ test('the rack is one button whose label names the Closet and its pieces by cate
   const rack = result.getByTestId('profile-rack');
   expect(rack.props.accessibilityRole).toBe('button');
   // Catalogue order, and only the categories that hold something.
-  expect(rack.props.accessibilityLabel).toBe("Deniz's Closet, 3 pieces: Tops 2, Outerwear 1.");
+  expect(rack.props.accessibilityLabel).toBe('Deniz’s Closet, 3 pieces: Tops 2, Outerwear 1.');
   expect(rack.props.accessibilityHint).toBe(messages.en.profile.closetHeadingHint);
   await fireEvent.press(rack);
   expect(onOpenWardrobe).toHaveBeenCalledWith();
@@ -393,9 +393,9 @@ test('the Closet heading uses the name while the rest of Profile stays the same'
       <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
-  expect(result.getByText("Utku's Closet")).toBeOnTheScreen();
+  expect(result.getByText('Utku’s Closet')).toBeOnTheScreen();
   expect(result.getByTestId('profile-closet-heading').props.accessibilityLabel)
-    .toBe("Utku's Closet, 1 piece.");
+    .toBe('Utku’s Closet, 1 piece.');
 });
 
 test('Turkish keeps the name unchanged in the Closet heading at large text size', async () => {

@@ -223,7 +223,7 @@ test('English and Turkish locale resolution preserve the supported product langu
   assert.equal(messages.en.profile.closetHeadingAccessibilityLabel({ count: 1 }), 'Closet, 1 piece.');
   assert.equal(
     messages.en.profile.closetHeadingNamedAccessibilityLabel({ name: 'Ada', count: 3 }),
-    "Ada's Closet, 3 pieces.",
+    'Ada’s Closet, 3 pieces.',
   );
   assert.equal(
     messages.tr.profile.closetHeadingAccessibilityLabel({ count: 3 }),
