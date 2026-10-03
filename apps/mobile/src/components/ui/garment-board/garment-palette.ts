@@ -2,6 +2,7 @@ import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import type { ColorFamily, Formality, GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
+import { isWetCondition } from '@/features/weather/domain/weather-thresholds';
 import type { ThemeColorScheme } from '@/theme/theme';
 
 import { fromOklch, linearRgb, toOklch } from '@/theme/color-oklch';
@@ -14,41 +15,41 @@ export const toGarmentOklch = toOklch;
 const shiftL = (h: string, dL: number, cK = 1): string => { const o = toGarmentOklch(h); return fromOklch(o.L + dL, o.C * cK, o.H); };
 const setL = (h: string, L: number, cK = 1): string => { const o = toGarmentOklch(h); return fromOklch(L, o.C * cK, o.H); };
 
-const S = (hex: string, fam: ColorFamily, kind: 'neutral' | 'accent', temp: 'none' | 'warm' | 'cool', en: string, tr: string) => ({ hex, fam, kind, temp, en, tr });
+const S = (hex: string, fam: ColorFamily, kind: 'neutral' | 'accent', temp: 'none' | 'warm' | 'cool') => ({ hex, fam, kind, temp });
 export const garmentSwatches = {
-  white: S('#F4F3EE', 'white', 'neutral', 'none', 'White', 'Beyaz'),
-  ecru: S('#E8DEC8', 'beige', 'neutral', 'warm', 'Ecru', 'Ekru'),
-  stone: S('#D0C3A8', 'beige', 'neutral', 'warm', 'Stone', 'Taş rengi'),
-  sand: S('#C8AE86', 'beige', 'neutral', 'warm', 'Sand', 'Kum'),
-  straw: S('#D9C28E', 'beige', 'neutral', 'warm', 'Straw', 'Hasır'),
-  camel: S('#B7854D', 'brown', 'neutral', 'warm', 'Camel', 'Deve tüyü'),
-  tan: S('#96673C', 'brown', 'neutral', 'warm', 'Tan leather', 'Taba deri'),
-  chocolate: S('#4E3526', 'brown', 'neutral', 'warm', 'Chocolate', 'Çikolata'),
-  black: S('#25272B', 'black', 'neutral', 'none', 'Black', 'Siyah'),
-  charcoal: S('#3E434A', 'gray', 'neutral', 'cool', 'Charcoal', 'Antrasit'),
-  heather: S('#A6AAAC', 'gray', 'neutral', 'cool', 'Heather gray', 'Gri melanj'),
-  lightgrey: S('#CACECE', 'gray', 'neutral', 'cool', 'Light gray', 'Açık gri'),
-  navy: S('#26334F', 'blue', 'neutral', 'cool', 'Navy', 'Lacivert'),
-  oxford: S('#BACFE3', 'blue', 'neutral', 'cool', 'Oxford blue', 'Oxford mavisi'),
-  indigo: S('#33507A', 'blue', 'neutral', 'none', 'Indigo denim', 'İndigo kot'),
-  midwash: S('#5A7DA7', 'blue', 'neutral', 'none', 'Mid-wash denim', 'Orta yıkama kot'),
-  lightwash: S('#9BB5D1', 'blue', 'neutral', 'none', 'Light-wash denim', 'Açık yıkama kot'),
-  blackdenim: S('#303338', 'black', 'neutral', 'none', 'Black denim', 'Siyah kot'),
-  olive: S('#65663A', 'green', 'neutral', 'warm', 'Olive', 'Haki'),
-  rust: S('#AE4F2B', 'orange', 'accent', 'warm', 'Rust', 'Kiremit'),
-  terracotta: S('#C26A46', 'orange', 'accent', 'warm', 'Terracotta', 'Terrakota'),
-  mustard: S('#C7982F', 'yellow', 'accent', 'warm', 'Mustard', 'Hardal'),
-  rainyellow: S('#E5BD2F', 'yellow', 'accent', 'warm', 'Rain yellow', 'Yağmurluk sarısı'),
-  forest: S('#2F4E3E', 'green', 'accent', 'cool', 'Forest green', 'Orman yeşili'),
-  sage: S('#93A88C', 'green', 'accent', 'cool', 'Sage', 'Adaçayı'),
-  burgundy: S('#6B2534', 'red', 'accent', 'warm', 'Burgundy', 'Bordo'),
-  tomato: S('#C13C31', 'red', 'accent', 'warm', 'Tomato red', 'Domates kırmızısı'),
-  dustyrose: S('#CD9597', 'pink', 'accent', 'warm', 'Dusty rose', 'Gül kurusu'),
-  blush: S('#E5C1BD', 'pink', 'accent', 'warm', 'Blush', 'Pudra'),
-  skyblue: S('#93BDDF', 'blue', 'accent', 'cool', 'Sky blue', 'Gök mavisi'),
-  cobalt: S('#2F5BA6', 'blue', 'accent', 'cool', 'Cobalt', 'Kobalt'),
-  lavender: S('#B7A6CF', 'purple', 'accent', 'cool', 'Lavender', 'Lavanta'),
-  plum: S('#5B3A5E', 'purple', 'accent', 'cool', 'Plum', 'Erik'),
+  white: S('#F4F3EE', 'white', 'neutral', 'none'),
+  ecru: S('#E8DEC8', 'beige', 'neutral', 'warm'),
+  stone: S('#D0C3A8', 'beige', 'neutral', 'warm'),
+  sand: S('#C8AE86', 'beige', 'neutral', 'warm'),
+  straw: S('#D9C28E', 'beige', 'neutral', 'warm'),
+  camel: S('#B7854D', 'brown', 'neutral', 'warm'),
+  tan: S('#96673C', 'brown', 'neutral', 'warm'),
+  chocolate: S('#4E3526', 'brown', 'neutral', 'warm'),
+  black: S('#25272B', 'black', 'neutral', 'none'),
+  charcoal: S('#3E434A', 'gray', 'neutral', 'cool'),
+  heather: S('#A6AAAC', 'gray', 'neutral', 'cool'),
+  lightgrey: S('#CACECE', 'gray', 'neutral', 'cool'),
+  navy: S('#26334F', 'blue', 'neutral', 'cool'),
+  oxford: S('#BACFE3', 'blue', 'neutral', 'cool'),
+  indigo: S('#33507A', 'blue', 'neutral', 'none'),
+  midwash: S('#5A7DA7', 'blue', 'neutral', 'none'),
+  lightwash: S('#9BB5D1', 'blue', 'neutral', 'none'),
+  blackdenim: S('#303338', 'black', 'neutral', 'none'),
+  olive: S('#65663A', 'green', 'neutral', 'warm'),
+  rust: S('#AE4F2B', 'orange', 'accent', 'warm'),
+  terracotta: S('#C26A46', 'orange', 'accent', 'warm'),
+  mustard: S('#C7982F', 'yellow', 'accent', 'warm'),
+  rainyellow: S('#E5BD2F', 'yellow', 'accent', 'warm'),
+  forest: S('#2F4E3E', 'green', 'accent', 'cool'),
+  sage: S('#93A88C', 'green', 'accent', 'cool'),
+  burgundy: S('#6B2534', 'red', 'accent', 'warm'),
+  tomato: S('#C13C31', 'red', 'accent', 'warm'),
+  dustyrose: S('#CD9597', 'pink', 'accent', 'warm'),
+  blush: S('#E5C1BD', 'pink', 'accent', 'warm'),
+  skyblue: S('#93BDDF', 'blue', 'accent', 'cool'),
+  cobalt: S('#2F5BA6', 'blue', 'accent', 'cool'),
+  lavender: S('#B7A6CF', 'purple', 'accent', 'cool'),
+  plum: S('#5B3A5E', 'purple', 'accent', 'cool'),
 } satisfies Record<GarmentSwatchId, ReturnType<typeof S>>;
 export type { GarmentSwatchId };
 
@@ -254,7 +255,7 @@ export type GarmentPieceColors = Readonly<{
 export function garmentPaletteMood({ temperatureC, condition, isNight }: Pick<GarmentPaletteInput, 'temperatureC' | 'condition' | 'isNight'>): keyof typeof MOOD {
   if (isNight) return 'night';
   if (condition === 'snow' || condition === 'sleet' || temperatureC < 10) return 'cold';
-  if (condition === 'rain' || condition === 'heavy_rain' || condition === 'drizzle' || condition === 'thunderstorm') return 'wet';
+  if (isWetCondition(condition)) return 'wet';
   return temperatureC >= 24 ? 'light' : 'mild';
 }
 

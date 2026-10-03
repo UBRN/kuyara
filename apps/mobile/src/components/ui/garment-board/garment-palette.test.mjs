@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { colorFamilies, garmentTypeIds } from '../../../features/catalog/domain/garment-taxonomy.ts';
+import { weatherConditionCodes } from '../../../features/weather/domain/weather.ts';
 import { shiftOklchLightness } from '../../../theme/color-oklch.ts';
 import { darkTheme, lightTheme, plateTheme } from '../../../theme/theme.ts';
 import { garmentShadowRule } from './compose-garment-board.ts';
@@ -88,6 +89,15 @@ test('weather mood uses approved thresholds and night override', () => {
   assert.equal(mood(20, 'drizzle'), 'wet');
   assert.equal(mood(20, 'sleet'), 'cold');
   assert.equal(mood(30, 'clear', true), 'night');
+});
+
+test('a mild day is wet for falling rain and cold for falling snow or sleet', () => {
+  const moods = Object.fromEntries(weatherConditionCodes.map((condition) => [
+    condition, garmentPaletteMood({ temperatureC: 20, condition, isNight: false }),
+  ]).filter(([, mood]) => mood !== 'mild'));
+  assert.deepEqual(moods, {
+    drizzle: 'wet', rain: 'wet', heavy_rain: 'wet', thunderstorm: 'wet', sleet: 'cold', snow: 'cold',
+  });
 });
 
 test('recorded swatch wins and suppresses a derived accent', () => {
