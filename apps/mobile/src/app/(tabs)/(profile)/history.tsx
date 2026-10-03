@@ -29,7 +29,7 @@ export default function HistoryRoute() {
     void outfitHistory.list().then(
       (records) => {
         if (!live) return;
-        setEntries(records.map(({ id, dayKey, wornAt, outfit, pieceColors }) => ({ id, dayKey, wornAt, outfit, pieceColors })));
+        setEntries(records);
         setLoadFailed(false);
       },
       () => { if (live) setLoadFailed(true); },
