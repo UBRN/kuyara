@@ -23,7 +23,11 @@ import type { NotificationOptInOutcome } from '@/features/notifications/applicat
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
 import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
-import { settledFirstOutfit, todayPresentationState } from '@/features/today/application/today-surface';
+import {
+  isGenerationRunning,
+  settledFirstOutfit,
+  todayPresentationState,
+} from '@/features/today/application/today-surface';
 import type { TodayScreenState } from '@/features/today/model';
 import {
   FirstGenerationRunway,
@@ -248,7 +252,7 @@ function TodayScreenContent({
   // Measure the content after Screen applies its safe-area insets and width cap.
   const [contentWidth, setContentWidth] = useState(0);
   // Waiting for the day question is not a slow generation, so its clock starts at the answer.
-  const isGenerating = presentation.kind === 'loading' && !awaitingDayQuestion;
+  const isGenerating = isGenerationRunning(presentation.kind, awaitingDayQuestion);
   // Law 5's warning structure: the same fact, plus what is still happening, once the
   // wait has run past the point where the first line alone stops being informative.
   const [isLongWait, setIsLongWait] = useState(false);

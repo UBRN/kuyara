@@ -4,6 +4,7 @@ import test from 'node:test';
 import { todayActiveLocation, todayScreenState, todayWeatherSnapshot } from './__tests__/fixtures.ts';
 import {
   isFirstDressingDay,
+  isGenerationRunning,
   manualRefreshOutcome,
   mayOpenDayQuestion,
   namePromptDue,
@@ -172,4 +173,11 @@ test('the settled outfit is the first one made for the current local day', () =>
   assert.equal(settledFirstOutfit(snapshot, now), todayScreenState.snapshot.recommendation.outfits[0]);
   assert.equal(settledFirstOutfit({ ...snapshot, localDayKey: '2026-08-12' }, now), null);
   assert.equal(settledFirstOutfit(null, now), null);
+});
+
+test('generation runs while Today loads, except while a day question waits', () => {
+  assert.equal(isGenerationRunning('loading', undefined), true);
+  assert.equal(isGenerationRunning('loading', false), true);
+  assert.equal(isGenerationRunning('loading', true), false);
+  assert.equal(isGenerationRunning('loaded', false), false);
 });

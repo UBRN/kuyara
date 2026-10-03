@@ -161,3 +161,8 @@ export function settledFirstOutfit(snapshot: RecommendationSnapshot | null | und
     ? snapshot.recommendation.outfits[0] ?? null
     : null;
 }
+
+/** Generation counts as running while Today is loading, except while a day question waits: that wait is on the person. */
+export function isGenerationRunning(presentationKind: string, awaitingDayQuestion: boolean | undefined): boolean {
+  return presentationKind === 'loading' && !awaitingDayQuestion;
+}
