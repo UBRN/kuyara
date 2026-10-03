@@ -31,6 +31,7 @@ import {
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import {
   assignFallbackArchetypes,
@@ -229,7 +230,7 @@ export function createRecommendationContextWithPool(
   const parsed = recommendationContextSchema.safeParse({
     clothingPreference: input.clothingPreference,
     dressStyle: input.dressStyle ?? 'smart',
-    ...(input.styleAesthetics?.length ? { styleAesthetics: [...input.styleAesthetics].sort() } : {}),
+    ...(input.styleAesthetics?.length ? { styleAesthetics: orderStyleAesthetics(input.styleAesthetics) } : {}),
     catalogVersion: garmentCatalogVersion,
     dayVariant: input.dayVariant,
     dayKind: input.dayKind,

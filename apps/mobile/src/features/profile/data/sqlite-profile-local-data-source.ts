@@ -4,7 +4,7 @@ import type {
   Gender,
   StyleAesthetic,
 } from '@/features/profile/domain/profile';
-import { namePromptVersion, walkthroughVersion } from '@/features/profile/domain/profile';
+import { namePromptVersion, orderStyleAesthetics, walkthroughVersion } from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -197,13 +197,13 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
       [
         preferences.gender,
         preferences.dressStyle,
-        JSON.stringify([...(preferences.styleAesthetics ?? [])].sort()),
+        JSON.stringify(orderStyleAesthetics(preferences.styleAesthetics ?? [])),
         preferences.birthDate,
         preferences.displayName ?? null,
         namePromptVersion,
         preferences.gender,
         preferences.dressStyle,
-        JSON.stringify([...(preferences.styleAesthetics ?? [])].sort()),
+        JSON.stringify(orderStyleAesthetics(preferences.styleAesthetics ?? [])),
         preferences.displayName ?? null,
       ],
     );
@@ -230,7 +230,7 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
   }
 
   updateStyleAesthetics(values: readonly StyleAesthetic[]): Promise<LocalProfileRecord> {
-    const serialized = JSON.stringify([...values].sort());
+    const serialized = JSON.stringify(orderStyleAesthetics(values));
 
     return this.updateProfile(
       `UPDATE local_profiles

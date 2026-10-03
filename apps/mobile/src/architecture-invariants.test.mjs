@@ -672,6 +672,21 @@ test('a network call times out and parses its JSON only through fetchJsonWithTim
   assert.deepEqual(copies, [], 'call fetchJsonWithTimeout from @/infrastructure/network/fetch-json-with-timeout');
 });
 
+// A style-aesthetics list has one order, and `orderStyleAesthetics` in profile/domain/profile.ts
+// is its only owner: storage, the account rows, the AI request and a screen's changed check all
+// compare the same alphabetical copy. Nobody sorts such a list inline.
+test('a style-aesthetics list is ordered only by orderStyleAesthetics', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/profile/domain/profile.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/(?:[Ss]tyle|style_aesthetics)[^\n]*\.sort\(/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call orderStyleAesthetics from @/features/profile/domain/profile');
+});
+
 // The Worker origin variable is read in one place, `config/`, and the app has no web target
 // branch: kuyara ships for iOS and Android only.
 test('the Worker base URL variable is read once, under config/', () => {

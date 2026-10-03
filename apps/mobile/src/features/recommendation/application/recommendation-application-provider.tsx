@@ -28,6 +28,7 @@ import { usePerformanceTelemetry } from '@/features/analytics/application/use-pe
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
+import { orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
@@ -541,7 +542,7 @@ export function RecommendationApplicationProvider({
   }, [previewController, tomorrowKey]);
   const settledRecommendation = state.status === 'ready' && !state.isRefreshing &&
     state.snapshot?.recommendation.status === 'recommended' ? state.snapshot.recommendation : null;
-  const tomorrowStyles = useMemo(() => [...(settingsStyles ?? [])].sort(), [settingsStyles]);
+  const tomorrowStyles = useMemo(() => orderStyleAesthetics(settingsStyles ?? []), [settingsStyles]);
   useEffect(() => {
     if (!previewWanted || !tomorrowMorning || !tomorrowKey || !input || eveningChoicePending ||
         !settledRecommendation) return;

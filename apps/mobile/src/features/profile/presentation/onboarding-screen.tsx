@@ -41,7 +41,7 @@ import type {
   StyleAesthetic,
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
-import { displayNameIssue, minimumBirthDate } from '@/features/profile/domain/profile';
+import { displayNameIssue, minimumBirthDate, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics-options';
 import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
@@ -501,7 +501,7 @@ export function OnboardingScreen({
                     type: 'select-style-aesthetics',
                     value: checked
                       ? draft.styleAesthetics.filter((value) => value !== style)
-                      : [...draft.styleAesthetics, style].sort(),
+                      : orderStyleAesthetics([...draft.styleAesthetics, style]),
                   })}
                   role="checkbox"
                   selected={checked}
