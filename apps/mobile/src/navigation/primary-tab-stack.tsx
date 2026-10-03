@@ -1,6 +1,8 @@
 import { Stack } from 'expo-router';
+import type { ReactNode } from 'react';
 
-export function PrimaryTabStack() {
+/** A primary tab's stack; `children` declares a route's options the push itself needs. */
+export function PrimaryTabStack({ children }: Readonly<{ children?: ReactNode }> = {}) {
   return (
     <Stack
       screenOptions={{
@@ -17,7 +19,8 @@ export function PrimaryTabStack() {
           right: 'automatic',
           top: 'hard',
         },
-      }}
-    />
+      }}>
+      {children}
+    </Stack>
   );
 }

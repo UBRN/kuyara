@@ -292,9 +292,8 @@ test('tiles under one guard open one piece, however quickly a second tap or anot
       <GuardedCloset />
     </TestProviders>,
   );
-  // A plain push of the piece's form; on iOS the link adds the id of the tile it zooms out of.
-  const openedWithZoom = (id: string) =>
-    expect.stringMatching(new RegExp(`^/wardrobe/${id}\\?\\w*zoom_transition_source_id=`));
+  // A plain push of the piece's form, with no zoom out of the tile: it slides up instead.
+  const opened = (id: string) => `/wardrobe/${id}`;
   // The press event says whether the tile let its link navigate (`Link` skips a prevented one).
   const press = async (id: string) => {
     let prevented = false;
@@ -315,7 +314,7 @@ test('tiles under one guard open one piece, however quickly a second tap or anot
     expect(await press(otherItem.id)).toBe(true);
     expect(mockLinkTo).toHaveBeenCalledTimes(1);
     expect(mockLinkTo).toHaveBeenCalledWith(
-      openedWithZoom(ownedItem.id),
+      opened(ownedItem.id),
       expect.objectContaining({ event: 'PUSH' }),
     );
 
@@ -323,7 +322,7 @@ test('tiles under one guard open one piece, however quickly a second tap or anot
     now.mockReturnValue(10_000 + PUSH_WINDOW_MS);
     expect(await press(otherItem.id)).toBe(false);
     expect(mockLinkTo).toHaveBeenLastCalledWith(
-      openedWithZoom(otherItem.id),
+      opened(otherItem.id),
       expect.objectContaining({ event: 'PUSH' }),
     );
   } finally {

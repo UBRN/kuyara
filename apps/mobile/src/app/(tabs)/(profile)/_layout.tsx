@@ -1,3 +1,5 @@
+import { Stack } from 'expo-router';
+
 import { PrimaryTabStack } from '@/navigation/primary-tab-stack';
 
 // Expo Router orders a stack's routes by name length when nothing anchors it, so
@@ -6,4 +8,19 @@ import { PrimaryTabStack } from '@/navigation/primary-tab-stack';
 // the tab and under every deep link into the stack.
 export const unstable_settings = { anchor: 'profile' };
 
-export default PrimaryTabStack;
+export default function ProfileStack() {
+  return (
+    <PrimaryTabStack>
+      {/* A declared screen goes before the undeclared ones, so Profile is declared first to
+          stay the stack's root. */}
+      <Stack.Screen name="profile" />
+      {/* Editing a Closet piece slides up from the bottom as a full-height page over the tab
+          bar. The presentation and the header are decided here, before the push: a modal
+          that turns its header on from inside remounts and loses its title. */}
+      <Stack.Screen
+        name="wardrobe/[id]"
+        options={{ headerBackVisible: false, headerLargeTitle: false, headerShown: true, presentation: 'fullScreenModal' }}
+      />
+    </PrimaryTabStack>
+  );
+}

@@ -11,11 +11,8 @@ export default function WardrobeItemRoute() {
     <>
       <Stack.Screen
         options={{
-          // O10: an inline title between the toolbar's Cancel and Save, which the
-          // form sets itself; Cancel replaces the back button.
-          headerBackVisible: false,
-          headerLargeTitle: false,
-          headerShown: true,
+          // O10: an inline title between the toolbar's Cancel and Save, which the form
+          // sets itself; the Profile stack's layout shows this modal's header without a back.
           headerTitle: messages.wardrobe.editTitle,
         }}
       />

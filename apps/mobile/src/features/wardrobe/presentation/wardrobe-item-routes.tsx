@@ -1,4 +1,4 @@
-import { useNavigation, usePreventZoomTransitionDismissal, useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
@@ -244,8 +244,8 @@ export function WardrobeEditItemRoute({
   const profileApplication = useProfileApplication();
   const router = useRouter();
   // The Closet a tile was pressed in already holds the piece the application last read, so
-  // the form draws it on its first frame and the tile's zoom grows into the form itself
-  // rather than a loading card. A piece the list does not hold (a deep link, a Closet still
+  // the form draws it on its first frame and slides up as the form itself rather than a
+  // loading card. A piece the list does not hold (a deep link, a Closet still
   // loading) is read from the repository as before.
   const [listedItem] = useState(() =>
     application.state.status === 'ready'
@@ -258,13 +258,6 @@ export function WardrobeEditItemRoute({
   );
   const [isDirty, setIsDirty] = useState(false);
   const guard = useWardrobeExitGuard(isDirty, confirmation);
-  // On iOS a Closet tile zooms this form open, and the zoom's own drag closes it from
-  // anywhere on screen, past the discard confirmation above. While there are changes the
-  // drag is held off, as a back swipe is, and Cancel confirms the discard; a clean form
-  // closes with it as usual. Without the zoom the hook does nothing.
-  usePreventZoomTransitionDismissal(
-    isDirty ? { unstable_dismissalBoundsRect: { maxX: 0, maxY: 0 } } : undefined,
-  );
   const normalizedId = typeof itemId === 'string' ? itemId : '';
   const getItem = application.getItem;
   useScreenViewed('closet_item_form');

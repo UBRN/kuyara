@@ -287,7 +287,7 @@ test('selecting an item navigates to its absolute edit route', async () => {
   );
   await fireEvent.press(tile);
   expect(mockLinkTo).toHaveBeenCalledWith(
-    expect.stringMatching(new RegExp(`^/wardrobe/${item.id}\\?`)),
+    `/wardrobe/${item.id}`,
     expect.objectContaining({ event: 'PUSH' }),
   );
   expect(mockPush).not.toHaveBeenCalled();

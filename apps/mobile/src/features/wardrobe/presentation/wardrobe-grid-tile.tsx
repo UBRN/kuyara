@@ -1,5 +1,5 @@
 import { Link, type Href } from 'expo-router';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText, GarmentTileArtwork, Icon, PressScale, useTextScaling } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
@@ -54,7 +54,7 @@ export type WardrobeGridTileProps = Readonly<{
   geometry: WardrobeGridTileGeometry;
   item: WardrobeItem;
   messages: AppMessages;
-  /** The piece's edit form; on iOS it opens with the system zoom out of this tile's frame. */
+  /** The piece's edit form. */
   href: Href;
   /** Runs before the link navigates; `preventDefault` on the event cancels the navigation. */
   onPress?: (event: Readonly<{ preventDefault: () => void }>) => void;
@@ -97,10 +97,10 @@ export function WardrobeGridTile({
   const glyphSize = Math.min(geometry.width, geometry.height) * GLYPH_SIZE_RATIO;
 
   return (
-    // The link opens the edit form; on iOS `Link.AppleZoom` grows it out of the tile's
-    // frame and the form shrinks back into it, and elsewhere it is the stack's plain push.
-    // `Link` merges its props into `PressScale` and keeps only an object `style`, so the
-    // pressed opacity is drawn by the inner view, and the zoom frame's style is flattened.
+    // The link opens the edit form, which slides up from the bottom as a full-height page
+    // (the Profile stack's layout sets that presentation). `Link` merges its props into
+    // `PressScale` and keeps only an object `style`, so the pressed opacity is drawn by the
+    // inner view.
     <Link asChild href={href} onPress={onPress} push>
       {/* Law 7's press feedback: the tile dims and scales back on `motion.fast`, the same
           response Today's alternates give. The opacity is the visible state and the scale
@@ -110,46 +110,44 @@ export function WardrobeGridTile({
           <View
             style={[styles.wrapper, { opacity: pressed ? theme.interaction.pressedOpacity : 1 }]}
             testID={testID ? `${testID}-content` : undefined}>
-            <Link.AppleZoom>
-              <View
-                style={StyleSheet.flatten<ViewStyle>([
-                  styles.tile,
-                  geometry,
-                  { backgroundColor: plate },
-                  wanted && [styles.wantedTile, { borderColor: theme.colors.borderDefined }],
-                  strongEdge,
-                  highlighted && [styles.highlightedTile, { borderColor: theme.colors.brandAccent }],
-                ])}
-                testID={testID ? `${testID}-frame` : undefined}>
-                <OnPlate color={plate}>
-                  <GarmentTileArtwork
-                    photoUri={photoUri}
-                    garmentTypeId={item.garmentTypeId}
-                    category={item.category}
-                    colorFamily={item.colorFamily}
-                    width={geometry.width}
-                    height={geometry.height}
-                    glyphSize={glyphSize}
-                    photoTestID={`wardrobe-photo-${item.id}`}
-                    silhouetteTestID={`wardrobe-silhouette-${item.id}`}
-                    placeholderTestID={`wardrobe-photo-placeholder-${item.id}`}
-                    wanted={wanted}
-                  />
-                  {wanted ? (
-                    <View
-                      accessibilityElementsHidden
-                      importantForAccessibility="no-hide-descendants"
-                      style={[
-                        styles.wantedBadge,
-                        { backgroundColor: onPlate.surface, borderColor: onPlate.borderDefined },
-                      ]}
-                      testID={testID ? `${testID}-wanted-badge` : undefined}>
-                      <Icon color={onPlate.textPrimary} name="heartFilled" size={WANTED_BADGE_ICON_SIZE} />
-                    </View>
-                  ) : null}
-                </OnPlate>
-              </View>
-            </Link.AppleZoom>
+            <View
+              style={[
+                styles.tile,
+                geometry,
+                { backgroundColor: plate },
+                wanted && [styles.wantedTile, { borderColor: theme.colors.borderDefined }],
+                strongEdge,
+                highlighted && [styles.highlightedTile, { borderColor: theme.colors.brandAccent }],
+              ]}
+              testID={testID ? `${testID}-frame` : undefined}>
+              <OnPlate color={plate}>
+                <GarmentTileArtwork
+                  photoUri={photoUri}
+                  garmentTypeId={item.garmentTypeId}
+                  category={item.category}
+                  colorFamily={item.colorFamily}
+                  width={geometry.width}
+                  height={geometry.height}
+                  glyphSize={glyphSize}
+                  photoTestID={`wardrobe-photo-${item.id}`}
+                  silhouetteTestID={`wardrobe-silhouette-${item.id}`}
+                  placeholderTestID={`wardrobe-photo-placeholder-${item.id}`}
+                  wanted={wanted}
+                />
+                {wanted ? (
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={[
+                      styles.wantedBadge,
+                      { backgroundColor: onPlate.surface, borderColor: onPlate.borderDefined },
+                    ]}
+                    testID={testID ? `${testID}-wanted-badge` : undefined}>
+                    <Icon color={onPlate.textPrimary} name="heartFilled" size={WANTED_BADGE_ICON_SIZE} />
+                  </View>
+                ) : null}
+              </OnPlate>
+            </View>
             <AppText
               numberOfLines={usesStackedLayout ? 3 : 2}
               style={{ width: geometry.width }}
