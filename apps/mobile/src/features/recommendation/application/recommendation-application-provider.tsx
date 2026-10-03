@@ -636,6 +636,7 @@ export function RecommendationApplicationProvider({
       return cleared;
     },
     resolvedDressStyle,
+    profileDressStyle: profileDefault,
     resolvedStyleAesthetics: resolvedStyles,
     chooseFormality,
     answerSetupDay,
@@ -691,6 +692,7 @@ export function RecommendationApplicationProvider({
     activeDeparture,
     onDeviceAvailability,
     reevaluateLocalDay,
+    profileDefault,
     resolvedDressStyle,
     resolvedStyles,
     outfitHistory,

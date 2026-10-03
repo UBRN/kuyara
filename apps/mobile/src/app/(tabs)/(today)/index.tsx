@@ -68,6 +68,7 @@ export default function TodayRoute() {
     morningChoicePending,
     eveningChoicePending,
     resolvedDressStyle,
+    profileDressStyle,
     resolvedStyleAesthetics,
     chooseFormality,
     reask,
@@ -199,7 +200,6 @@ export default function TodayRoute() {
   }, [currentDressingDayKey, isFocused, launch.done, pendingQuestion, setSheetTarget, showNamePrompt, state,
     tourActive, weatherState]);
   const profile = profileState.status === 'ready' ? profileState.profile : null;
-  const profileDressStyle = profile?.dressStyle ?? 'smart';
   const firstDressingDay = isFirstDressingDay(profile, currentDressingDayKey);
   const updatingDayType = dayTypeUpdating(recommendationState, resolvedDressStyle);
   // Phase 8's settled outfit, read here, before the effects below: handed to a function after
