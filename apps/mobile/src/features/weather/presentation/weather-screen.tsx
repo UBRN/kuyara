@@ -33,26 +33,26 @@ import { useWeatherInteractionEvents } from '@/features/analytics/application/us
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { locationCaptionKey } from '@/features/weather/domain/location-caption';
-import type { ActiveLocation, NormalizedCoordinates, WeatherSnapshot } from '@/features/weather/domain/weather';
+import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { findWeatherOutlook, type WeatherOutlook } from '@/features/weather/domain/weather-outlook';
 import {
   DailyOutlook,
   type DailyOutlookRow,
 } from '@/features/weather/presentation/daily-outlook';
-import { HourlyRail, type HourlyRailColumn } from '@/features/weather/presentation/hourly-rail';
-import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
+import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
+import { hourlyRailColumns } from '@/features/weather/presentation/hourly-rail-columns';
 import { uvLevelOf } from '@/features/weather/presentation/uv-level';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
+import { percentage, time, weekday } from '@/features/weather/presentation/weather-format';
 import { WeatherErrorState, WeatherLoadingState } from '@/features/weather/presentation/weather-states';
 import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
-import { dateTimeFormat, numberFormat } from '@/domain/intl-format';
+import { numberFormat } from '@/domain/intl-format';
 import { wholeWindSpeed } from '@/domain/wind-speed';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { localeTag } from '@/localization/locale-tag';
 import { formatTemperature, formatTemperatureDifference, formatTemperatureValue } from '@/presentation/format-temperature';
 import type { TemperatureUnit } from '@/localization/device-locale';
-import type { AppMessages } from '@/localization/messages';
 import { PlateView } from '@/theme/plate-theme';
 import { plateTheme, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -62,19 +62,6 @@ function decimal(value: number, language: 'en' | 'tr'): string {
     maximumFractionDigits: 1,
     // A wind that rounds away to nothing must not read as blowing backwards.
   }).format(Math.round(Math.abs(value) * 10) === 0 ? 0 : value);
-}
-
-function time(
-  value: string,
-  timeZone: string,
-  language: 'en' | 'tr',
-  hour12: boolean,
-): string {
-  return dateTimeFormat(localeTag(language), {
-    // A padded hour reads as a stopwatch in the 12-hour convention ("02:00 PM"), so the
-    // 12-hour label drops the padding the 24-hour one keeps.
-    hour: hour12 ? 'numeric' : '2-digit', minute: '2-digit', hour12, timeZone,
-  }).format(new Date(value));
 }
 
 // "Last updated" answers "how old is this?", so it is read against the viewer's own clock
@@ -94,79 +81,6 @@ function lastUpdated(
       ? { hour: hour12 ? 'numeric' : '2-digit', minute: '2-digit', hour12 }
       : { dateStyle: 'short', timeStyle: 'short', hour12 },
   ).format(fetched);
-}
-
-function weekday(
-  value: string,
-  timeZone: string,
-  language: 'en' | 'tr',
-  length: 'short' | 'long',
-): string {
-  return dateTimeFormat(localeTag(language), {
-    timeZone,
-    weekday: length,
-  }).format(new Date(value));
-}
-
-function percentage(value: number, language: 'en' | 'tr'): string {
-  return numberFormat(localeTag(language), {
-    maximumFractionDigits: 0,
-    style: 'percent',
-  }).format(value);
-}
-
-// The rail's columns, from frozen inputs only: built inline, the compiler kept them in the
-// screen's widest memo scope, so every refresh flag change redrew all of the rail's hours.
-function hourlyRailColumns(
-  snapshot: WeatherSnapshot,
-  now: number,
-  coordinates: NormalizedCoordinates | undefined,
-  language: 'en' | 'tr',
-  hour12: boolean,
-  temperatureUnit: TemperatureUnit,
-  copy: AppMessages['weather'],
-  unitName: string,
-): readonly HourlyRailColumn[] {
-  const remainingHourly = remainingHourlyForecast(snapshot.hourly, now);
-  return remainingHourly.map((hour, index): HourlyRailColumn => {
-    const localDate = weatherLocalDateKey(hour.forecastAt, snapshot.timeZone);
-    const previousLocalDate = index === 0
-      ? localDate
-      : weatherLocalDateKey(remainingHourly[index - 1].forecastAt, snapshot.timeZone);
-    const startsNewLocalDay = localDate !== previousLocalDate;
-    const hourLabel = time(hour.forecastAt, snapshot.timeZone, language, hour12);
-    return {
-      key: hour.forecastAt,
-      accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
-        day: startsNewLocalDay
-          ? weekday(hour.forecastAt, snapshot.timeZone, language, 'long')
-          : undefined,
-        time: hourLabel,
-        unitName,
-        temperature: formatTemperatureValue(hour.temperatureCelsius, language, temperatureUnit),
-        condition: copy.conditions[hour.condition],
-        precipitationProbability: hour.precipitationProbability,
-      }),
-      condition: hour.condition,
-      daypart: resolveDaypart(
-        hour.forecastAt,
-        snapshot.timeZone,
-        coordinates,
-      ),
-      precipitationProbability: hour.precipitationProbability,
-      precipitation: percentage(hour.precipitationProbability, language),
-      temperature: formatTemperature(hour.temperatureCelsius, language, temperatureUnit),
-      temperatureCelsius: hour.temperatureCelsius,
-      // O14 rail A: the first column is the current hour, so it says "Now";
-      // its spoken label keeps the clock time.
-      time: index === 0
-        ? copy.hourlyNow
-        : startsNewLocalDay
-          ? weekday(hour.forecastAt, snapshot.timeZone, language, 'short')
-          : hourLabel,
-      timeEmphasis: index === 0 ? 'now' : startsNewLocalDay ? 'newDay' : undefined,
-    };
-  });
 }
 
 function accessibilitySentence(...parts: readonly (string | null)[]): string {
@@ -455,11 +369,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
     snapshot,
     now,
     state.activeLocation?.coordinates,
-    language,
-    hour12,
-    temperatureUnit,
-    copy,
-    messages.temperatureUnitNames[temperatureUnit],
+    { copy, hour12, language, temperatureUnit, unitName: messages.temperatureUnitNames[temperatureUnit] },
   );
   const locationAccessibilityLabel = accessibilitySentence(
     activeName,
