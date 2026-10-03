@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { GlassButton, useTransitionLanded } from '@/components/ui';
 import { useSingleTap } from '@/components/ui/use-single-push';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
+import { resolveVisibleCategory } from '@/features/wardrobe/application/closet-categories';
+import { useVisibleClosetCategories } from '@/features/wardrobe/application/use-visible-closet-categories';
 import {
   isWardrobeRouteId,
   parseStructuralCategoryParam,
@@ -24,7 +26,9 @@ export default function WardrobeRoute() {
     category?: string;
     filter?: string;
   }>();
-  const initialCategory = parseStructuralCategoryParam(category);
+  const categories = useVisibleClosetCategories();
+  // A category the profile does not offer and holds nothing in falls back to the first shown.
+  const initialCategory = resolveVisibleCategory(categories, parseStructuralCategoryParam(category));
   const savedItemId = isWardrobeRouteId(added) ? added : null;
   const messages = useMessages();
   // One guard for the plus button, the list's add action and the tiles: whichever is
@@ -70,6 +74,7 @@ export default function WardrobeRoute() {
           second Closet, so the list mounts afresh for each saved tile, as a newly opened
           Closet would: that tile alone arrives and its confirmation shows. */}
       <WardrobeListRoute
+        categories={categories}
         initialCategory={initialCategory}
         onCategoryInView={setViewedCategory}
         key={savedItemId ?? ''}

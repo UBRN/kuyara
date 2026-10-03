@@ -5,10 +5,12 @@ import {
   garmentCatalog,
   garmentCatalogVersion,
   GarmentCatalogValidationError,
+  listStructuralCategoriesForPreference,
   validateGarmentCatalog,
   validateGarmentCatalogLocalization,
 } from './domain/garment-catalog.ts';
 import {
+  structuralCategories,
   catalogLocalizationKeys,
   garmentTypeIds,
 } from './domain/garment-taxonomy.ts';
@@ -187,4 +189,13 @@ test('the exported catalog is deep frozen', () => {
   assert.throws(() => {
     garmentCatalog.garmentTypes[0].formality = 'formal';
   }, TypeError);
+});
+
+test('structural categories for a preference keep catalogue order and drop the empty ones', () => {
+  assert.deepEqual(listStructuralCategoriesForPreference('womens'), structuralCategories);
+  assert.deepEqual(
+    listStructuralCategoriesForPreference('mens'),
+    structuralCategories.filter((category) => category !== 'one_piece'),
+  );
+  assert.deepEqual(listStructuralCategoriesForPreference(null), structuralCategories);
 });

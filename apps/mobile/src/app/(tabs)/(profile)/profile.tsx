@@ -8,6 +8,7 @@ import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-
 import { AccountProfileCard } from '@/features/account/presentation/account-profile-card';
 import { AccountSheet } from '@/features/account/presentation/account-sheet';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
+import { useVisibleClosetCategories } from '@/features/wardrobe/application/use-visible-closet-categories';
 import { ProfileScreen } from '@/features/profile/presentation/profile-screen';
 import { useMessages } from '@/localization/use-messages';
 
@@ -19,6 +20,7 @@ export default function ProfileRoute() {
   // the first render.
   useScreenInteractive({ state: 'ready' });
   const { state } = useProfileApplication();
+  const categories = useVisibleClosetCategories();
   // The tab mounts at launch, before it is shown; its content arrives on the first showing.
   const shown = useIsFocused();
 
@@ -45,6 +47,7 @@ export default function ProfileRoute() {
         }}
       />
       <ProfileScreen
+        categories={categories}
         accountCard={ACCOUNT_SCREENS_ENABLED ? <AccountProfileCard /> : null}
         displayName={state.status === 'ready' ? state.profile.displayName : null}
         onAddPiece={() => push('/wardrobe/new')}
