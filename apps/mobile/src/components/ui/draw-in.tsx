@@ -58,16 +58,27 @@ export type DrawRevealProps = DrawInTiming & Readonly<{
 }>;
 
 /**
+ * How much of a reveal `width` wide is uncovered at `progress`. It travels `span` while it
+ * draws and uncovers everything from the end of the spring on: Reanimated keeps the last
+ * frame an animated style wrote after the style is detached, so the frame it lands on must
+ * be the resting one, or the series stays clipped at the span for good.
+ */
+function revealedWidth(progress: number, span: number, width: number): number {
+  'worklet';
+  return progress >= 1 ? width : Math.min(width, progress * span);
+}
+
+/**
  * Uncovers its children from the start edge, the way a line is drawn. Two opposed
  * translations clip without resizing anything, so the reveal stays on the UI thread.
  */
 export function DrawReveal({ children, width, span, style, testID, ...timing }: DrawRevealProps) {
   const { drawn, progress } = useDrawIn(timing);
   const clip = useAnimatedStyle(() => ({
-    transform: [{ translateX: Math.min(width, progress.get() * span) - width }],
+    transform: [{ translateX: revealedWidth(progress.get(), span, width) - width }],
   }));
   const counter = useAnimatedStyle(() => ({
-    transform: [{ translateX: width - Math.min(width, progress.get() * span) }],
+    transform: [{ translateX: width - revealedWidth(progress.get(), span, width) }],
   }));
   return (
     <Animated.View
