@@ -19,7 +19,7 @@ import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { HistoryWeekSummary } from '@/features/profile/presentation/history-week-summary';
 import { archetypeLabel } from '@/features/recommendation/application/recommendation-application-controller';
 import { outfitSlots } from '@/features/recommendation/domain/outfit-composition';
-import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
+import { historyDays, type WornOutfit, type WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import type { WeekSummary } from '@/features/recommendation/domain/outfit-history-week';
 import { localeTag } from '@/localization/locale-tag';
 import type { AppMessages } from '@/localization/messages';
@@ -28,10 +28,13 @@ import { spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-export type HistoryEntry = Readonly<{ dayKey: string; outfit: WornOutfit; pieceColors: WornPieceColors | null }>;
+/** One worn look; a day can hold several, worn at different times. */
+export type HistoryEntry = Readonly<{
+  id: string; dayKey: string; wornAt: string; outfit: WornOutfit; pieceColors: WornPieceColors | null;
+}>;
 
 type HistoryScreenProps = Readonly<{
-  /** Newest first; null while the first read is running. */
+  /** Newest date first, a date's looks morning first; null while the first read is running. */
   entries: readonly HistoryEntry[] | null;
   loadFailed: boolean;
   /** Sunday evening's look back at the week, above the days; null at any other time. */
@@ -51,10 +54,16 @@ const EMPTY_BOARD_WIDTH = 160;
 // later is simply there.
 const ARRIVING_ROWS = 6;
 
+/** A look as History draws it: `key` is its day, then `-2`, `-3` for a day's later looks. */
+type DayLook = Readonly<{ key: string; entry: HistoryEntry }>;
+
 type HistoryRow =
   | Readonly<{ kind: 'month'; key: string; label: string }>
-  | Readonly<{ kind: 'latest'; key: string; entry: HistoryEntry }>
-  | Readonly<{ kind: 'days'; key: string; entries: readonly HistoryEntry[] }>;
+  | Readonly<{ kind: 'latest'; key: string; dayKey: string; looks: readonly DayLook[] }>
+  // Earlier days worn once, side by side.
+  | Readonly<{ kind: 'days'; key: string; looks: readonly DayLook[] }>
+  // An earlier day worn more than once: its date once, then its looks.
+  | Readonly<{ kind: 'day'; key: string; dayKey: string; looks: readonly DayLook[] }>;
 
 type HistoryBoard = Readonly<{ pieces: readonly GarmentBoardPiece[]; palette: GarmentOutfitPalette }>;
 
@@ -65,9 +74,11 @@ const dayDate = (dayKey: string) => new Date(`${dayKey}T12:00:00.000Z`);
 // A worn day is drawn in the swatches its pieces had on outfit detail. A day recorded
 // without them (before migration 24) is drawn in the pieces' natural colourways for a mild
 // day, the same every time. One object per entry lets the board skip composing again on a
-// re-render; the entry, not its outfit, is the key, because the colours belong to it.
-const boards = new WeakMap<HistoryEntry, HistoryBoard>();
-export function historyBoard(entry: HistoryEntry): HistoryBoard {
+// re-render; the entry, not its outfit, is the key, because the colours belong to it. The
+// look key names the drawing, so a day's first look is drawn as its one record always was.
+type BoardEntry = Pick<HistoryEntry, 'dayKey' | 'outfit' | 'pieceColors'>;
+const boards = new WeakMap<BoardEntry, HistoryBoard>();
+export function historyBoard(entry: BoardEntry, lookKey = entry.dayKey): HistoryBoard {
   const kept = boards.get(entry);
   if (kept) return kept;
   const { garments, formality } = entry.outfit;
@@ -79,7 +90,7 @@ export function historyBoard(entry: HistoryEntry): HistoryBoard {
   const board: HistoryBoard = {
     pieces,
     palette: {
-      optionId: `history-${entry.dayKey}`,
+      optionId: `history-${lookKey}`,
       temperatureC: 18,
       condition: 'cloudy',
       isNight: false,
@@ -105,7 +116,10 @@ const EMPTY_BOARD = historyBoard({
   pieceColors: null,
 });
 
-/** Newest first: the latest day on its own, then each month's days in rows of `columns`. */
+/**
+ * Newest first: the latest day on its own, then each month's days, those worn once in rows of
+ * `columns` and a day worn more than once on rows of its own. A day's looks run morning first.
+ */
 function historyRows(
   entries: readonly HistoryEntry[],
   columns: number,
@@ -113,30 +127,36 @@ function historyRows(
 ): HistoryRow[] {
   const rows: HistoryRow[] = [];
   let month = '';
-  let pending: HistoryEntry[] = [];
+  let pending: DayLook[] = [];
   const flush = () => {
-    if (pending.length) rows.push({ kind: 'days', key: `days-${pending[0].dayKey}`, entries: pending });
+    if (pending.length) rows.push({ kind: 'days', key: `days-${pending[0].key}`, looks: pending });
     pending = [];
   };
-  entries.forEach((entry, index) => {
-    const entryMonth = entry.dayKey.slice(0, 7);
-    if (entryMonth !== month) {
+  historyDays(entries).forEach(({ dayKey, looks: dayLooks }, index) => {
+    const dayMonth = dayKey.slice(0, 7);
+    if (dayMonth !== month) {
       flush();
-      month = entryMonth;
-      rows.push({ kind: 'month', key: `month-${entryMonth}`, label: monthLabel(dayDate(entry.dayKey)) });
+      month = dayMonth;
+      rows.push({ kind: 'month', key: `month-${dayMonth}`, label: monthLabel(dayDate(dayKey)) });
     }
+    const looks = dayLooks.map((entry, look) => ({ key: look === 0 ? dayKey : `${dayKey}-${look + 1}`, entry }));
     if (index === 0) {
-      rows.push({ kind: 'latest', key: `latest-${entry.dayKey}`, entry });
+      rows.push({ kind: 'latest', key: `latest-${dayKey}`, dayKey, looks });
       return;
     }
-    pending.push(entry);
+    if (looks.length > 1) {
+      flush();
+      rows.push({ kind: 'day', key: `day-${dayKey}`, dayKey, looks });
+      return;
+    }
+    pending.push(looks[0]);
     if (pending.length === columns) flush();
   });
   flush();
   return rows;
 }
 
-function dayCopy(entry: HistoryEntry, messages: AppMessages) {
+function dayCopy(entry: BoardEntry, messages: AppMessages) {
   const date = dayDate(entry.dayKey);
   const dayKind = date.getUTCDay() === 0 || date.getUTCDay() === 6 ? 'weekend' : 'weekday';
   return {
@@ -156,7 +176,8 @@ function Arrival({ children, index, waiting }: Readonly<{
 
 /**
  * ADR 0038: the looks the reader chose to wear, as a diary of small boards. The latest day
- * stands large; earlier days follow under their month, newest first. No streak, count or
+ * stands large; earlier days follow under their month, newest first. A day worn more than once
+ * shows its date once and its looks under it, morning first. No streak, count or
  * penalty, and a day is a record to look at, not a control. Law 7: the first screenful arrives
  * in reading order once the push has landed, and a refocus re-read brings in only a day that
  * is new.
@@ -183,15 +204,15 @@ export function HistoryScreen({
     () => (entries ? historyRows(entries, columns, (date) => formats.month.format(date)) : []),
     [columns, entries, formats],
   );
-  // The days the previous read showed, null until a read has landed before this one: the
-  // first read's screenful arrives, a later read brings in only days that are new.
+  // The looks the previous read showed, null until a read has landed before this one: the
+  // first read's screenful arrives, a later read brings in only looks that are new.
   const [shown, setShown] = useState<Readonly<{
     entries: readonly HistoryEntry[] | null; before: ReadonlySet<string> | null;
   }>>({ entries: null, before: null });
   if (entries !== shown.entries) {
     setShown({
       entries,
-      before: shown.entries ? new Set(shown.entries.map(({ dayKey }) => dayKey)) : shown.before,
+      before: shown.entries ? new Set(shown.entries.map(({ id }) => id)) : shown.before,
     });
   }
   const { before } = shown;
@@ -237,19 +258,19 @@ export function HistoryScreen({
 
   const contentWidth = windowWidth - insets.left - insets.right - spacing.lg * 2;
   const tileWidth = (contentWidth - spacing.md * (columns - 1)) / columns;
-  const arrivalIndex = (dayKey: string | null, rowIndex: number, offset: number) => {
+  const arrivalIndex = (id: string | null, rowIndex: number, offset: number) => {
     if (!before) return rowIndex < ARRIVING_ROWS ? rowIndex + offset + 1 : null;
-    if (dayKey === null) return null;
-    return before.has(dayKey) ? null : 0;
+    if (id === null) return null;
+    return before.has(id) ? null : 0;
   };
 
-  const stage = (entry: HistoryEntry, width: number, height: number) => {
-    const board = historyBoard(entry);
+  const stage = ({ entry, key }: DayLook, width: number, height: number) => {
+    const board = historyBoard(entry, key);
     return (
       <PlateView
         color={theme.colors.garmentTile}
         style={[styles.stage, { height, width }]}
-        testID={`history-entry-board-${entry.dayKey}`}>
+        testID={`history-entry-board-${key}`}>
         <GarmentBoard
           accessibilityLabel=""
           decorative
@@ -293,52 +314,78 @@ export function HistoryScreen({
           );
         }
         if (row.kind === 'latest') {
-          const { entry } = row;
-          const { date, style, title } = dayCopy(entry, messages);
-          const fullDate = formats.full.format(date);
+          const fullDate = formats.full.format(dayDate(row.dayKey));
+          const several = row.looks.length > 1;
           return (
-            <Arrival index={arrivalIndex(entry.dayKey, rowIndex, 0)} waiting={!transitionLanded}>
+            <View style={styles.latestDay}>
+              {several ? (
+                <Arrival index={arrivalIndex(null, rowIndex, 0)} waiting={!transitionLanded}>
+                  <AppText accessibilityRole="header" testID={`history-day-${row.dayKey}`} variant="title">
+                    {fullDate}
+                  </AppText>
+                </Arrival>
+              ) : null}
+              {row.looks.map((look, offset) => {
+                const { style, title } = dayCopy(look.entry, messages);
+                return (
+                  <Arrival index={arrivalIndex(look.entry.id, rowIndex, offset + Number(several))}
+                    key={look.key} waiting={!transitionLanded}>
+                    <View
+                      accessibilityLabel={`${fullDate}. ${title}. ${style}`}
+                      accessible
+                      style={styles.latest}
+                      testID={`history-entry-${look.key}`}>
+                      {stage(look, contentWidth,
+                        measureGarmentBoardHeight(historyBoard(look.entry, look.key).pieces, contentWidth, 'today'))}
+                      <View style={styles.text}>
+                        {several ? null : <AppText variant="title">{fullDate}</AppText>}
+                        <AppText colorRole="textSecondary">{title}</AppText>
+                        <AppText colorRole="textSecondary" variant="caption">{style}</AppText>
+                      </View>
+                    </View>
+                  </Arrival>
+                );
+              })}
+            </View>
+          );
+        }
+        // Looks side by side share the taller stage, so their captions sit on one line.
+        const height = Math.max(...row.looks.map(({ entry, key }) =>
+          measureGarmentBoardHeight(historyBoard(entry, key).pieces, tileWidth, 'today')));
+        const tiles = row.looks.map((look, offset) => {
+          const date = dayDate(look.entry.dayKey);
+          const { style, title } = dayCopy(look.entry, messages);
+          return (
+            <Arrival index={arrivalIndex(look.entry.id, rowIndex, offset + Number(row.kind === 'day'))}
+              key={look.key} waiting={!transitionLanded}>
               <View
-                accessibilityLabel={`${fullDate}. ${title}. ${style}`}
+                accessibilityLabel={`${formats.full.format(date)}. ${title}. ${style}`}
                 accessible
-                style={styles.latest}
-                testID={`history-entry-${entry.dayKey}`}>
-                {stage(entry, contentWidth,
-                  measureGarmentBoardHeight(historyBoard(entry).pieces, contentWidth, 'today'))}
-                <View style={styles.text}>
-                  <AppText variant="title">{fullDate}</AppText>
-                  <AppText colorRole="textSecondary">{title}</AppText>
-                  <AppText colorRole="textSecondary" variant="caption">{style}</AppText>
-                </View>
+                style={[styles.day, { width: tileWidth }]}
+                testID={`history-entry-${look.key}`}>
+                {stage(look, tileWidth, height)}
+                {/* A day worn more than once names its date once, above its looks. */}
+                {row.kind === 'days' ? (
+                  <AppText tabularNumbers variant="label">{formats.short.format(date)}</AppText>
+                ) : null}
+                <AppText colorRole="textSecondary" numberOfLines={usesStackedLayout ? 3 : 2}
+                  variant="caption">
+                  {title}
+                </AppText>
               </View>
             </Arrival>
           );
-        }
-        // Two days side by side share the taller stage, so their dates sit on one line.
-        const height = Math.max(...row.entries.map((entry) =>
-          measureGarmentBoardHeight(historyBoard(entry).pieces, tileWidth, 'today')));
+        });
+        if (row.kind === 'days') return <View style={styles.days}>{tiles}</View>;
         return (
-          <View style={styles.days}>
-            {row.entries.map((entry, offset) => {
-              const { date, style, title } = dayCopy(entry, messages);
-              return (
-                <Arrival index={arrivalIndex(entry.dayKey, rowIndex, offset)} key={entry.dayKey}
-                  waiting={!transitionLanded}>
-                  <View
-                    accessibilityLabel={`${formats.full.format(date)}. ${title}. ${style}`}
-                    accessible
-                    style={[styles.day, { width: tileWidth }]}
-                    testID={`history-entry-${entry.dayKey}`}>
-                    {stage(entry, tileWidth, height)}
-                    <AppText tabularNumbers variant="label">{formats.short.format(date)}</AppText>
-                    <AppText colorRole="textSecondary" numberOfLines={usesStackedLayout ? 3 : 2}
-                      variant="caption">
-                      {title}
-                    </AppText>
-                  </View>
-                </Arrival>
-              );
-            })}
+          <View style={styles.text}>
+            <Arrival index={arrivalIndex(null, rowIndex, 0)} waiting={!transitionLanded}>
+              <AppText accessibilityRole="header" tabularNumbers testID={`history-day-${row.dayKey}`}
+                variant="label">
+                {formats.short.format(dayDate(row.dayKey))}
+              </AppText>
+            </Arrival>
+            <View style={[styles.days, styles.wrap]}>{tiles}</View>
           </View>
         );
       }}
@@ -356,9 +403,11 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.md },
   centered: { textAlign: 'center' },
   month: { paddingTop: spacing.md },
+  latestDay: { gap: spacing.md },
   latest: { gap: spacing.sm },
   stage: { borderRadius: TILE_RADIUS, justifyContent: 'center', overflow: 'hidden' },
   text: { gap: spacing.xs },
   days: { flexDirection: 'row', gap: spacing.md },
+  wrap: { flexWrap: 'wrap' },
   day: { gap: spacing.xs },
 });

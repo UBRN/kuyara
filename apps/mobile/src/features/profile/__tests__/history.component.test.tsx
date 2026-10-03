@@ -63,7 +63,7 @@ function Providers({ children, dressingDayKey, language, list, log }: PropsWithC
 }>) {
   const value = {
     dressingDayKey,
-    outfitHistory: { list, get: jest.fn(), log: log ?? jest.fn() },
+    outfitHistory: { list, day: jest.fn(), log: log ?? jest.fn() },
     reevaluateLocalDay: jest.fn(),
   } as unknown as RecommendationApplicationValue;
   return (
@@ -110,6 +110,49 @@ test.each([
   expect(earlier.props.accessibilityLabel).toBe(
     `${second}. ${copy.recommendation.archetypes.rain_ready}. ${copy.today.dailyStyle.smart}`);
   expect(within(earlier).getByTestId('history-entry-board-2026-09-21')).toBeOnTheScreen();
+});
+
+// Owner decision, 3 October: a day can hold several looks. Its date shows once, the looks
+// under it morning first, each spoken with the full date, its name and day type.
+test.each([
+  ['en', 'Wednesday 23 September', 'Mon 21'],
+  ['tr', '23 Eylül Çarşamba', '21 Pzt'],
+] as const)('%s History lists the looks of one date under it, morning first', async (language, latest, earlier) => {
+  const look = (dayKey: string, hour: string, archetypeId: OutfitHistoryRecord['outfit']['archetypeId'],
+    formality: OutfitHistoryRecord['outfit']['formality'], top = 't_shirt' as const) => {
+    const base = record(dayKey, archetypeId, formality);
+    return { ...base, id: `id-${dayKey}-${hour}`, wornAt: `${dayKey}T${hour}:00:00.000Z`,
+      outfit: { ...base.outfit, garments: { ...base.outfit.garments, primary_top: top } } };
+  };
+  const copy = messages[language];
+  const result = await render(
+    <Providers language={language} list={async () => [
+      // Stored order is not trusted: the screen orders a date's looks by when they were worn.
+      look('2026-09-23', '17', 'rain_ready', 'smart'),
+      look('2026-09-23', '06', 'layered_warmth', 'casual'),
+      look('2026-09-22', '08', 'layered_warmth', 'casual'),
+      look('2026-09-21', '18', 'rain_ready', 'formal'),
+      look('2026-09-21', '07', 'layered_warmth', 'casual'),
+    ]}>
+      <HistoryRoute />
+    </Providers>,
+  );
+  await waitFor(() => expect(result.getByTestId('history-entry-2026-09-23')).toBeOnTheScreen());
+  expect(result.getByRole('header', { name: latest })).toBeOnTheScreen();
+  const ids = result.queryAllByTestId(/^history-entry-\d{4}-\d{2}-\d{2}(-\d)?$/).map((node) => node.props.testID);
+  expect(ids).toEqual(['history-entry-2026-09-23', 'history-entry-2026-09-23-2', 'history-entry-2026-09-22',
+    'history-entry-2026-09-21', 'history-entry-2026-09-21-2']);
+  const morning = within(result.getByTestId('history-entry-2026-09-23'));
+  expect(morning.getByText(copy.recommendation.archetypes.layered_warmth)).toBeOnTheScreen();
+  expect(morning.queryByText(latest)).toBeNull();
+  expect(result.getByTestId('history-entry-2026-09-23-2').props.accessibilityLabel).toBe(
+    `${latest}. ${copy.recommendation.archetypes.rain_ready}. ${copy.today.dailyStyle.smart}`);
+  // An earlier day worn twice names its date once, as a heading above its looks.
+  expect(result.getByRole('header', { name: earlier })).toBeOnTheScreen();
+  expect(result.getAllByText(earlier)).toHaveLength(1);
+  expect(within(result.getByTestId('history-entry-2026-09-21')).queryByText(earlier)).toBeNull();
+  expect(within(result.getByTestId('history-entry-2026-09-22')).getByText(/22/)).toBeOnTheScreen();
+  expect(result.getByTestId('history-entry-board-2026-09-21-2')).toBeOnTheScreen();
 });
 
 test('one worn day stands alone as the large latest day', async () => {
@@ -209,9 +252,9 @@ test('a transient read failure on refocus keeps the list already loaded', async 
 
 // Law 7: the intro and the entries arrive in reading order, one stagger step apart; a
 // refocus that finds a new day brings in that entry alone.
-test('History arrives in reading order and a new day arrives alone', async () => {
+test('History arrives in reading order and a new day or look arrives alone', async () => {
   const withDelay = jest.spyOn(Reanimated, 'withDelay');
-  const entry = (dayKey: string) => ({ dayKey, outfit: record(dayKey, 'layered_warmth', 'casual').outfit, pieceColors: null });
+  const entry = (dayKey: string) => ({ ...record(dayKey, 'layered_warmth', 'casual'), pieceColors: null });
   const screen = (entries: ReturnType<typeof entry>[]) => (
     <Providers language="en" list={async () => []}>
       <HistoryScreen entries={entries} loadFailed={false} />
@@ -226,6 +269,13 @@ test('History arrives in reading order and a new day arrives alone', async () =>
   withDelay.mockClear();
   await result.rerender(screen([entry('2026-09-24'), entry('2026-09-23'), entry('2026-09-21')]));
   expect(delays()).toEqual([0, 0]);
+
+  // A second look for a day already shown arrives alone too.
+  withDelay.mockClear();
+  const evening = { ...entry('2026-09-24'), id: 'id-2026-09-24-evening', wornAt: '2026-09-24T18:00:00.000Z' };
+  await result.rerender(screen([entry('2026-09-24'), evening, entry('2026-09-23'), entry('2026-09-21')]));
+  expect(delays()).toEqual([0, 0]);
+  expect(result.getByTestId('history-entry-2026-09-24-2')).toBeOnTheScreen();
   withDelay.mockRestore();
 });
 
@@ -243,7 +293,8 @@ test('a day recorded with its colours is drawn in them, an older day in the fixe
   const fills = async (colors: typeof pieceColors | null) => {
     const result = await render(
       <Providers language="en" list={async () => []}>
-        <HistoryScreen entries={[{ dayKey: '2026-09-23', outfit, pieceColors: colors }]} loadFailed={false} />
+        <HistoryScreen entries={[{ ...record('2026-09-23', 'layered_warmth', 'casual'), pieceColors: colors }]}
+          loadFailed={false} />
       </Providers>,
     );
     const drawn = new Set(result.getByTestId('history-entry-board-2026-09-23', { includeHiddenElements: true })
