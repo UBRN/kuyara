@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import test from 'node:test';
 
+import { sourceFiles as listSourceFiles } from '../../test/source-files.mjs';
 import { dateTimeFormat, isValidTimeZone, numberFormat, zonedClock, zonedHour } from './intl-format.ts';
 
 test('a zoned date formatter is built once per locale and options', () => {
@@ -82,13 +83,8 @@ const allowedConstructions = new Map([
   ['presentation/format-clock-time.ts', 1],
 ]);
 
-function sourceFiles(directory) {
-  return readdirSync(directory).flatMap((name) => {
-    const path = join(directory, name);
-    if (statSync(path).isDirectory()) return sourceFiles(path);
-    return /\.tsx?$/u.test(name) && !name.includes('.test.') ? [path] : [];
-  });
-}
+const sourceFiles = (directory) =>
+  listSourceFiles(directory, { extensions: ['.ts', '.tsx'] }).map((file) => join(directory, file));
 
 test('formatter construction outside intl-format.ts only shrinks', () => {
   const root = new URL('..', import.meta.url).pathname;

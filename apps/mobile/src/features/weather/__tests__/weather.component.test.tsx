@@ -47,6 +47,7 @@ jest.mock('expo-symbols', () => ({
 
 // eslint-disable-next-line import/first
 import WeatherRoute from '@/app/(tabs)/weather';
+import { mockFontScale } from '../../../../test/font-scale';
 
 // "Last updated" is read in the device time zone while the rail stays in the location's.
 // `test:components` pins the device zone to UTC; the sample location is Europe/Istanbul.
@@ -56,10 +57,6 @@ const initialMetrics = {
 };
 
 const originalWindowDimensions = Dimensions.get('window');
-
-function mockFontScale(fontScale: number) {
-  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
-}
 
 // The sample snapshot's hours are 09:00 and 10:00 UTC on 2026-07-30; the rail keeps only
 // the hours that have not ended, so the clock sits inside the first of them by default.

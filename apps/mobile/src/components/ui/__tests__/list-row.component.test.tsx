@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icon';
 import { ListRow, ListRowGroup } from '@/components/ui/list-row';
 import { darkTheme, lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { mockFontScale } from '../../../../test/font-scale';
 
 function TestProviders({ children }: PropsWithChildren) {
   return <KuyaraThemeContext.Provider value={lightTheme}>{children}</KuyaraThemeContext.Provider>;
@@ -20,13 +21,6 @@ const locationGlyph = ({ color, size }: { color: string; size: number }) => (
 );
 
 const originalWindowDimensions = Dimensions.get('window');
-
-// `useWindowDimensions` seeds its initial state from `Dimensions.get('window')`, so
-// setting it before render, the way `react-native`'s own test utilities do, is what
-// actually reaches the hook; a jest.spyOn of the exported hook function does not.
-function mockFontScale(fontScale: number) {
-  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
-}
 
 afterEach(() => {
   Dimensions.set({ window: originalWindowDimensions });

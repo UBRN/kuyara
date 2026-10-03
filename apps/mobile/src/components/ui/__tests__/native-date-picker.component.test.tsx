@@ -7,6 +7,7 @@ import { NativeDatePicker } from '@/components/ui/native-date-picker';
 import type { SupportedLanguage } from '@/localization/messages';
 import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { mockFontScale } from '../../../../test/font-scale';
 
 // The native identifiers of the one English convention (en-GB) and of Turkish; a bare `en` draws
 // the US month-first, Sunday-first picker.
@@ -30,10 +31,6 @@ function TestProviders({ children }: PropsWithChildren) {
 }
 
 const originalWindowDimensions = Dimensions.get('window');
-
-function mockFontScale(fontScale: number) {
-  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
-}
 
 afterEach(() => {
   Dimensions.set({ window: originalWindowDimensions });

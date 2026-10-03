@@ -3,21 +3,16 @@
 // and proves that every production file reaching an account screen goes through it.
 
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
+import { sourceFiles as listSourceFiles } from '../../../test/source-files.mjs';
 import { ACCOUNT_SCREENS_ENABLED } from './application/account-screens-flag.ts';
 
 const sourceRoot = path.resolve(import.meta.dirname, '../..');
 
-function sourceFiles(directory = sourceRoot, relative = '') {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const entryRelative = relative ? `${relative}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : sourceFiles(path.join(directory, entry.name), entryRelative);
-    return /\.(ts|tsx)$/.test(entry.name) && !/\.test\./.test(entry.name) ? [entryRelative] : [];
-  });
-}
+const sourceFiles = () => listSourceFiles(sourceRoot, { extensions: ['.ts', '.tsx'] });
 
 const read = (file) => readFileSync(path.join(sourceRoot, file), 'utf8');
 

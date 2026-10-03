@@ -18,44 +18,18 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
 
+import { sourceFiles as listSourceFiles } from '../test/source-files.mjs';
+
 const sourceRoot = import.meta.dirname;
 const repoRelativeRoot = 'apps/mobile/src';
 
-const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
-const skippedDirectories = new Set(['node_modules', '.expo', '.expo-shared', 'dist', 'build']);
-
 /** Every non-test source file under `src`, as paths relative to `src` in posix form. */
-function sourceFiles(directory = sourceRoot, { includeTests = false } = {}, relative = '') {
-  const found = [];
-
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const entryRelative = relative ? `${relative}/${entry.name}` : entry.name;
-
-    if (entry.isDirectory()) {
-      if (skippedDirectories.has(entry.name)) {
-        continue;
-      }
-      found.push(...sourceFiles(path.join(directory, entry.name), { includeTests }, entryRelative));
-      continue;
-    }
-
-    if (!entry.isFile() || !sourceExtensions.has(path.extname(entry.name))) {
-      continue;
-    }
-    if (!includeTests && entry.name.includes('.test.')) {
-      continue;
-    }
-
-    found.push(entryRelative);
-  }
-
-  return found;
-}
+const sourceFiles = (directory = sourceRoot, options) => listSourceFiles(directory, options);
 
 const specifierPatterns = [
   // `import x from '…'`, `import type { x } from '…'`, `export { x } from '…'`
@@ -1144,4 +1118,23 @@ test('a managed photo path pattern is written only in domain/managed-photo-path.
     file !== owner && stemPattern.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(copies, [], `use isManagedPhotoPath from @/${owner.replace('.ts', '')}`);
   assert.ok(stemPattern.test(readFileSync(path.join(sourceRoot, owner), 'utf8')), 'the pattern still recognizes the owner');
+});
+
+// Test helpers with one owner under apps/mobile/test: the font-scale setter, the stand-in file
+// uri and the source tree walk are imported, never written again in a test file.
+test('the font scale setter, file uri builder and source walk are defined only under test/', () => {
+  const copies = [];
+  const definitions = [
+    [/function mockFontScale\b/, 'test/font-scale.ts'],
+    [/function (?:fileUri|nativeUri|nativeFileUri)\(parts\)/, 'test/file-uri.mjs'],
+    [/function sourceFiles\b/, 'test/source-files.mjs'],
+  ];
+  for (const relativePath of sourceFiles(sourceRoot, { includeTests: true })) {
+    if (relativePath === 'architecture-invariants.test.mjs') continue;
+    const source = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    for (const [pattern, owner] of definitions) {
+      if (pattern.test(source)) copies.push(`${repoRelativeRoot}/${relativePath} (import from ${owner})`);
+    }
+  }
+  assert.deepEqual(copies, []);
 });
