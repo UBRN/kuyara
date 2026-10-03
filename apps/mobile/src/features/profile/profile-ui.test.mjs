@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 import {
   createOnboardingDraft,
   onboardingPreferencesFromDraft,
+  onboardingSteps,
   reduceOnboardingDraft,
 } from './application/onboarding-state.ts';
 import { resolveProfileHomeRoute } from './application/profile-route-gate.ts';
@@ -23,38 +24,39 @@ const profile = (onboardingCompleted) => ({
   updatedAt: '2026-07-30T10:00:00.000Z',
 });
 
-test('onboarding asks the optional name before required gender and dress style', () => {
+test('onboarding asks the location after welcome, then the optional name and age, then required gender and dress style', () => {
   let draft = createOnboardingDraft({
     gender: null,
     dressStyle: null,
     birthDate: null,
   });
 
+  assert.deepEqual(onboardingSteps, ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles']);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
   assert.equal(draft.step, 1);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
   assert.equal(draft.step, 2);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 2);
+  assert.equal(draft.step, 3);
+  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  assert.equal(draft.step, 3);
   assert.equal(draft.hasValidationError, true);
   assert.equal(onboardingPreferencesFromDraft(draft), null);
 
   draft = reduceOnboardingDraft(draft, { type: 'select-gender', value: 'woman' });
   assert.equal(draft.hasValidationError, false);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 3);
+  assert.equal(draft.step, 4);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 3);
+  assert.equal(draft.step, 4);
   assert.equal(draft.hasValidationError, true);
   draft = reduceOnboardingDraft(draft, { type: 'select-dress-style', value: 'smart' });
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 4);
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
   assert.equal(draft.step, 5);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 6);
+  assert.equal(draft.step, 5);
   draft = reduceOnboardingDraft(draft, { type: 'back' });
-  assert.equal(draft.step, 5);
+  assert.equal(draft.step, 4);
 });
 
 test('onboarding keeps personal choices independent and reviewable', () => {

@@ -11,8 +11,9 @@ import {
   onboardingLocationMethodProperty,
 } from '@/features/analytics/domain/analytics-mappers';
 import {
-  onboardingStepNames,
+  onboardingSteps,
   type OnboardingDraft,
+  type OnboardingStepId,
 } from '@/features/profile/application/onboarding-state';
 import type { OnboardingPreferences } from '@/features/profile/domain/profile';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
@@ -30,27 +31,31 @@ export function useOnboardingEvents() {
   }, []);
 
   return {
-    stepAdvanced: (draft: OnboardingDraft) => {
-      const stepName = onboardingStepNames[draft.step];
-      if (!stepName || draft.step === 6) return;
+    stepAdvanced: (draft: OnboardingDraft, activeLocationSource: ActiveLocation['source'] | null) => {
+      const step = onboardingSteps[draft.step];
+      // Each taxonomy step keeps its own number whatever its place on screen; the name is
+      // not a taxonomy step, so the shared name and birth date step reports the birth date.
+      const reported = {
+        welcome: { step_name: 'welcome', step_index: 1, skipped: false },
+        gender: { step_name: 'gender', step_index: 2, skipped: false },
+        dress_style: { step_name: 'dress_style', step_index: 3, skipped: false },
+        about: { step_name: 'birth_date', step_index: 4, skipped: draft.birthDate === null },
+        location: { step_name: 'location', step_index: 5, skipped: activeLocationSource === null },
+        styles: null,
+      } as const satisfies Record<OnboardingStepId, Omit<AnalyticsEventProperties<'onboarding_step_completed'>,
+        'schema_version' | 'dress_style'> | null>;
+      const stepProperties = reported[step];
+      if (!stepProperties) return;
       const properties: AnalyticsEventProperties<'onboarding_step_completed'> = {
         schema_version: ANALYTICS_SCHEMA_VERSION,
-        step_name: stepName,
-        step_index: (draft.step === 0 ? 1 : draft.step >= 5 ? draft.step - 1 : draft.step) as 1 | 2 | 3 | 4,
-        skipped: draft.step === 5 ? draft.birthDate === null : false,
+        ...stepProperties,
       };
       analytics.capture('onboarding_step_completed',
-        draft.step === 3 && draft.dressStyle
+        step === 'dress_style' && draft.dressStyle
           ? { ...properties, dress_style: draft.dressStyle }
           : properties);
     },
     completed: (preferences: OnboardingPreferences, activeLocationSource: ActiveLocation['source'] | null) => {
-      analytics.capture('onboarding_step_completed', {
-        schema_version: ANALYTICS_SCHEMA_VERSION,
-        step_name: 'location',
-        step_index: 5,
-        skipped: activeLocationSource === null,
-      });
       analytics.capture('onboarding_completed', {
         schema_version: ANALYTICS_SCHEMA_VERSION,
         dress_style: preferences.dressStyle,

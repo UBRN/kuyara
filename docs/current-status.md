@@ -7,8 +7,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 ## Current State
 
 - **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 25)
-  provide a seven-step onboarding flow (welcome, optional name, gender, dress style,
-  style preferences, birth date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
+  provide a six-step onboarding flow (welcome, optional location, optional name and birth
+  date on one step, gender, dress style, style preferences); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
   Closet photos; Turkish and English; System/Light/Dark appearance; and semantic haptics
   at the eight sites the design language names. The minimum supported iOS is 26.0.

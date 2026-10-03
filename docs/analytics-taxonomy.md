@@ -216,9 +216,13 @@ app used?"
 
 ### 5.2 Onboarding progress and abandonment
 
-Onboarding has five steps: welcome, gender, dress style, birth date (optional), location
-(optional); ADR 0031 section 5 and the implementation (`totalSteps = 5` in
-`features/profile/presentation/onboarding-screen.tsx`) agree. Abandonment is read from
+The funnel has five reported steps: welcome, gender, dress style, birth date (optional),
+location (optional). On screen they run welcome, location, the name and birth date step,
+gender, dress style and the unreported style preferences step, which completes onboarding
+(ADR 0031 section 5, `onboardingSteps` in `features/profile/application/onboarding-state.ts`).
+Each reported step keeps its own `step_index` whatever its place on screen; the name and
+birth date step reports `birth_date`, and the location step reports when the user leaves it
+forward. Abandonment is read from
 PostHog funnels between `onboarding_started` and `onboarding_completed`, not from a
 dedicated abandonment event, since there is no reliable trigger for "the user will never
 come back."
@@ -232,8 +236,8 @@ come back."
 `gender` is intentionally absent from every onboarding event (section 3/4).
 
 The five-value onboarding step enum is final: the consent surface is shown on Today after
-the first recommendation has rendered, so onboarding stays the five steps ADR 0031 records
-and no consent step is added.
+the first recommendation has rendered, so onboarding keeps the steps ADR 0031 records and no
+consent step is added.
 
 **Product questions answered.**
 
@@ -258,7 +262,7 @@ screen: the grid's tile opens the edit form directly, so `closet_item_form` cove
 new and edit routes. Adding a route means adding a value here, not inventing an ad hoc name
 at the call site.
 
-The `onboarding` screen value covers the five-step flow. The consent surface is shown on
+The `onboarding` screen value covers the whole onboarding flow. The consent surface is shown on
 Today after the first recommendation has rendered, so `screen_name` also carries
 `analytics_consent_sheet`; like `settings_privacy` it is provisional only in the sense that
 its route lands with milestone 10.

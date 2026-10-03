@@ -45,6 +45,15 @@ export function localDayKey(date: Date): string {
   });
 }
 
+/**
+ * Whether a dressing day is the one the profile was set up on. Setup has just asked how the
+ * user dresses, so that day counts as answered: its day question is not asked again and the
+ * day resolves to the setup answer.
+ */
+export function isSetupDressingDay(profileCreatedAt: string, dressingDayKey: string): boolean {
+  return localDayKey(new Date(profileCreatedAt)) === dressingDayKey;
+}
+
 /** The hour tomorrow's preview is chosen for, on the place's clock: a typical time to leave. */
 const previewDepartureHour = 8;
 

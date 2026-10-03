@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  isSetupDressingDay,
   localDayKey,
   localDayKind,
   localDayVariant,
@@ -98,4 +99,14 @@ test('the preview morning follows the place date when the device is at +03:00', 
   } finally {
     process.env.TZ = previousZone;
   }
+});
+
+test('the dressing day the profile was set up on counts as answered, and only that one', () => {
+  const setUpAt = new Date(2026, 9, 3, 9, 30).toISOString();
+  assert.equal(isSetupDressingDay(setUpAt, '2026-10-03'), true);
+  assert.equal(isSetupDressingDay(setUpAt, '2026-10-03:evening'), false);
+  assert.equal(isSetupDressingDay(setUpAt, '2026-10-04'), false);
+  const setUpInTheEvening = new Date(2026, 9, 3, 20, 0).toISOString();
+  assert.equal(isSetupDressingDay(setUpInTheEvening, '2026-10-03:evening'), true);
+  assert.equal(isSetupDressingDay(setUpInTheEvening, '2026-10-04'), false);
 });

@@ -74,7 +74,7 @@ or other network payloads. No bucket is stored. Do not derive an age band anywhe
 
 ### 5. Onboarding and Settings
 
-Onboarding asks welcome, optional display name, required gender, required dress style, optional style aesthetics, optional birth date and optional location. The location step remains governed by [ADR 0016](0016-location-in-onboarding-and-an-honest-empty-state.md). Settings > Profile edits name, gender, dress style, style aesthetics and birth date. Its birth-date helper footer is removed.
+Onboarding asks welcome, optional location, optional display name and optional birth date on one step (the birth date under the heading "Your age"), required gender, required dress style and optional style aesthetics, which completes it. The location comes right after welcome so the later previews draw the place's real weather; it remains governed by [ADR 0016](0016-location-in-onboarding-and-an-honest-empty-state.md). Birth date copy says only that it is optional and helps kuyara understand who uses it; it makes no claim about recommendations. The dressing day the profile was set up on counts as answered by the dress style answer, so no day-type question opens that day ([ADR 0037](0037-daily-formality-and-style-aesthetics.md)). Settings > Profile edits name, gender, dress style, style aesthetics and birth date. Its birth-date helper footer is removed.
 
 ### 6. Schema
 

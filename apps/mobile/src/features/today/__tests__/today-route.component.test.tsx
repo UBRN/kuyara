@@ -3430,3 +3430,41 @@ test('a Closet that holds anything gets no offer to add the outfit', async () =>
   expect(view.queryByTestId('outfit-detail-closet-seed-button')).toBeNull();
   expect(view.queryByText(messages.en.today.closetSeed.body)).toBeNull();
 });
+
+test('the day the profile was set up on asks no day question and dresses for the setup answer', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(async () => null);
+  try {
+    const props = {
+      productAnalytics: createProductAnalytics(),
+      recommendation: saved,
+      liveRecommendationProvider: true,
+      wardrobe: wardrobeValue(),
+      weather: weatherValue(),
+    };
+    const setUpToday = await render(
+      <Providers {...props} profile={profileValue({
+        morningSheetEnabled: true, dressStyle: 'formal', createdAt: '2026-09-24T06:00:00.000Z',
+      })}><TodayRoute /></Providers>,
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(refresh.mock.calls[0][1].dressStyle).toBe('formal');
+    expect(setUpToday.queryByTestId('daily-formality-sheet')).toBeNull();
+    expect(mockChoiceUpsert).not.toHaveBeenCalled();
+    await setUpToday.unmount();
+
+    // The next dressing day asks again.
+    refresh.mockClear();
+    const setUpYesterday = await render(
+      <Providers {...props} profile={profileValue({
+        morningSheetEnabled: true, dressStyle: 'formal', createdAt: '2026-09-23T06:00:00.000Z',
+      })}><TodayRoute /></Providers>,
+    );
+    expect(await setUpYesterday.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    expect(refresh).not.toHaveBeenCalled();
+  } finally {
+    refresh.mockRestore();
+  }
+});

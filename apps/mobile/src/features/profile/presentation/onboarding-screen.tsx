@@ -32,6 +32,7 @@ import { useOnboardingEvents } from '@/features/analytics/application/use-intera
 import {
   createOnboardingDraft,
   onboardingPreferencesFromDraft,
+  onboardingSteps,
   reduceOnboardingDraft,
 } from '@/features/profile/application/onboarding-state';
 import type {
@@ -43,8 +44,10 @@ import type {
 import { displayNameIssue, minimumBirthDate } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics-options';
+import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { activeLocationSnapshot, type WeatherConditionCode } from '@/features/weather/domain/weather';
 import { useLocalization } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
@@ -54,7 +57,7 @@ import { borderWidths, plateTheme, radii, spacing } from '@/theme/theme';
 
 // O14 onboarding visuals: each step shows what it changes, drawn only from shipped
 // silhouettes on the approved stages; no mascot, avatar or body, no new colour.
-// Step 1's preview is a fixed sample: no location is known yet.
+// The preview draws a fixed sample sky until the location step has found the place's weather.
 const welcomePreviewPieces = [
   { slot: 'outer_layer', garmentTypeId: 'light_jacket', category: 'outerwear' },
   { slot: 'primary_top', garmentTypeId: 't_shirt', category: 'top' },
@@ -87,19 +90,28 @@ const choicePreviewPieces: Readonly<Record<Gender, Readonly<Record<DressStyle, r
     formal: previewOutfit('blazer', 'shirt', 'trousers', 'closed_shoes'),
   },
 };
-const previewPalette = (pieces: readonly GarmentBoardPiece[], formality: DressStyle): GarmentOutfitPalette => ({
+type PreviewSky = Readonly<{
+  temperatureC: number;
+  condition: WeatherConditionCode;
+  daypart: 'day' | 'night' | null;
+}>;
+const sampleSky: PreviewSky = { temperatureC: 14, condition: 'cloudy', daypart: 'day' };
+const previewPalette = (
+  pieces: readonly GarmentBoardPiece[],
+  formality: DressStyle,
+  sky: PreviewSky,
+): GarmentOutfitPalette => ({
   optionId: 'onboarding-welcome-preview',
   pieces: pieces.map(({ garmentTypeId, slot }) => ({ garmentTypeId, slot })),
-  temperatureC: 14,
-  condition: 'cloudy',
-  isNight: false,
+  temperatureC: sky.temperatureC,
+  condition: sky.condition,
+  isNight: sky.daypart === 'night',
   formality,
 });
 const allPreviewPieces = [
   welcomePreviewPieces,
   ...Object.values(choicePreviewPieces).flatMap((byStyle) => Object.values(byStyle)),
 ];
-const welcomePreviewCondition = resolveConditionStyle('cloudy', 'day');
 // Each answer hints at the catalog it chooses, three pieces from it.
 const genderHints: Readonly<Record<Gender, readonly ChoiceTileDrawing[]>> = {
   woman: [
@@ -136,13 +148,13 @@ type OnboardingScreenProps = Readonly<{
   initialDisplayName?: string | null;
   onComplete: (preferences: OnboardingPreferences) => Promise<void>;
   /**
-   * The last step's location picker, which the composition route supplies from the weather
+   * The location step's picker, which the composition route supplies from the weather
    * feature. It is given the step's heading and the test ID the step carries.
    */
   locationStep: (step: Readonly<{ header: ReactNode; testID: string }>) => ReactNode;
 }>;
 
-const totalSteps = 7;
+const totalSteps = onboardingSteps.length;
 
 export function OnboardingScreen({
   initialBirthDate,
@@ -175,25 +187,40 @@ export function OnboardingScreen({
   const theme = useKuyaraTheme();
   const largeBoard = useEasierToSee();
   const weatherState = useWeatherApplication().state;
-  const activeLocationSource =
-    weatherState.status === 'ready' ? weatherState.activeLocation?.source ?? null : null;
+  const activeLocation = weatherState.status === 'ready' ? weatherState.activeLocation : null;
+  const activeLocationSource = activeLocation?.source ?? null;
   const hasActiveLocation = activeLocationSource !== null;
+  // Once the location step has found the place's weather, every preview draws its sky.
+  const placeWeather = weatherState.status === 'ready'
+    ? activeLocationSnapshot(weatherState.snapshot, activeLocation) : null;
+  const sky: PreviewSky = placeWeather ? {
+    temperatureC: placeWeather.current.temperatureCelsius,
+    condition: placeWeather.current.condition,
+    daypart: resolveDaypart(placeWeather.current.observedAt, placeWeather.timeZone, activeLocation?.coordinates),
+  } : sampleSky;
+  const skyStage = theme.atmosphere[resolveAtmosphereState(sky.condition, sky.daypart)];
+  const skyCondition = resolveConditionStyle(sky.condition, sky.daypart);
+  const step = onboardingSteps[draft.step];
   const hasValidName = Boolean(draft.displayName?.trim())
     && !displayNameIssue(draft.displayName ?? '');
   const onboardingEvents = useOnboardingEvents();
 
-  const stepTitle =
-    draft.step === 0
-      ? copy.welcomeTitle
-      : draft.step === 1
-        ? copy.nameTitle
-        : draft.step === 2
-          ? copy.genderTitle
-          : draft.step === 3
-            ? copy.dressStyleTitle
-            : draft.step === 4
-              ? copy.stylePreferencesTitle
-              : draft.step === 5 ? copy.birthDateTitle : copy.locationTitle;
+  const stepTitle = {
+    welcome: copy.welcomeTitle,
+    location: copy.locationTitle,
+    about: copy.nameTitle,
+    gender: copy.genderTitle,
+    dress_style: copy.dressStyleTitle,
+    styles: copy.stylePreferencesTitle,
+  }[step];
+  const stepBody = {
+    welcome: copy.welcomeBody,
+    location: copy.locationBody,
+    about: copy.nameBody,
+    gender: copy.genderBody,
+    dress_style: copy.dressStyleBody,
+    styles: copy.stylePreferencesBody,
+  }[step];
 
   useEffect(() => {
     if (announcedStep.current) {
@@ -213,10 +240,10 @@ export function OnboardingScreen({
   const goForward = () => {
     setSaveError(false);
 
-    const nameInvalid = draft.step === 1 && !hasValidName;
+    const nameInvalid = step === 'about' && !hasValidName;
     if (nameInvalid) return;
-    const genderMissing = draft.step === 2 && !draft.gender;
-    const dressStyleMissing = draft.step === 3 && !draft.dressStyle;
+    const genderMissing = step === 'gender' && !draft.gender;
+    const dressStyleMissing = step === 'dress_style' && !draft.dressStyle;
     if (genderMissing) {
       AccessibilityInfo.announceForAccessibility(copy.genderRequiredError);
     }
@@ -225,7 +252,7 @@ export function OnboardingScreen({
     }
     // Taxonomy 5.2: only a step the user actually advances past is reported; a step the
     // reducer blocks for a missing required value stays silent.
-    if (!genderMissing && !dressStyleMissing) onboardingEvents.stepAdvanced(draft);
+    if (!genderMissing && !dressStyleMissing) onboardingEvents.stepAdvanced(draft, activeLocationSource);
     dispatch({ type: 'continue' });
   };
 
@@ -264,33 +291,37 @@ export function OnboardingScreen({
 
   // One stage from the welcome to the dress style step, as tall as its tallest outfit, so a
   // swap never moves what is under it.
-  const previewHeight = Math.max(...(draft.step === 0 ? [welcomePreviewPieces] : allPreviewPieces).map((pieces) => (
+  const previewHeight = Math.max(...(step === 'welcome' ? [welcomePreviewPieces] : allPreviewPieces).map((pieces) => (
     measureGarmentBoardHeight(pieces, previewWidth, 'today', false, largeBoard))));
-  const previewPieces = draft.step >= 2 && draft.gender
+  const previewPieces = step !== 'welcome' && draft.gender
     ? choicePreviewPieces[draft.gender][draft.dressStyle ?? 'casual']
     : welcomePreviewPieces;
+  const choiceStep = step === 'gender' || step === 'dress_style';
   const previewStage = (
     <PlateView
       accessibilityElementsHidden
-      color={theme.atmosphere.veiledDay}
+      color={skyStage}
       importantForAccessibility="no-hide-descendants"
       onLayout={({ nativeEvent }) => setPreviewWidth(nativeEvent.layout.width)}
       style={styles.stage}
       testID="onboarding-welcome-preview">
       <View style={styles.previewTitle}>
         <Icon
-          color={plateTheme(theme, theme.atmosphere.veiledDay).condition[welcomePreviewCondition.ink]}
-          name={welcomePreviewCondition.shape}
+          color={plateTheme(theme, skyStage).condition[skyCondition.ink]}
+          name={skyCondition.shape}
           size={20}
         />
-        <AppText tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle(`${formatWholeTemperatureValue(14, language, temperatureUnit)}°`)}</AppText>
+        <AppText tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle(
+          `${formatWholeTemperatureValue(sky.temperatureC, language, temperatureUnit)}°`,
+          messages.weather.conditions[sky.condition],
+        )}</AppText>
       </View>
       {previewWidth > 0 ? (
         <GarmentPreviewBoard
           height={previewHeight}
-          palette={previewPalette(previewPieces, draft.dressStyle ?? 'casual')}
+          palette={previewPalette(previewPieces, draft.dressStyle ?? 'casual', sky)}
           pieces={previewPieces}
-          stageColor={theme.atmosphere.veiledDay}
+          stageColor={skyStage}
           testID="onboarding-welcome-board"
           width={previewWidth}
         />
@@ -320,19 +351,7 @@ export function OnboardingScreen({
       {/* The title and progress stay still while each step's own content arrives
           (Law 7): keyed on the step, the body and then the panel enter in reading order. */}
       <Entrance index={0} key={`body-${draft.step}`}>
-      <AppText colorRole="textSecondary">
-        {draft.step === 0
-          ? copy.welcomeBody
-          : draft.step === 1
-            ? copy.nameBody
-            : draft.step === 2
-              ? copy.genderBody
-              : draft.step === 3
-                ? copy.dressStyleBody
-                : draft.step === 4
-                  ? copy.stylePreferencesBody
-                  : draft.step === 5 ? copy.birthDateBody : copy.locationBody}
-      </AppText>
+      <AppText colorRole="textSecondary">{stepBody}</AppText>
       </Entrance>
     </View>
   );
@@ -341,9 +360,9 @@ export function OnboardingScreen({
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      {draft.step === 6 ? (
+      {step === 'location' ? (
         <SafeAreaView edges={['top']} style={styles.screen}>
-          {locationStep({ header: heading, testID: 'onboarding-step-7' })}
+          {locationStep({ header: heading, testID: `onboarding-step-${draft.step + 1}` })}
         </SafeAreaView>
       ) : (
         <Screen
@@ -353,12 +372,12 @@ export function OnboardingScreen({
 
       {/* The gender and dress style steps share one stage: it arrives once and stays, and
           only the pieces a choice changes move. */}
-      {draft.step === 2 || draft.step === 3 ? (
+      {choiceStep ? (
         <Entrance index={1} key="choice-stage">{previewStage}</Entrance>
       ) : null}
 
-      <Entrance index={draft.step === 2 || draft.step === 3 ? 2 : 1} key={`panel-${draft.step}`}>
-      {draft.step === 0 ? (
+      <Entrance index={choiceStep ? 2 : 1} key={`panel-${draft.step}`}>
+      {step === 'welcome' ? (
         <View style={styles.panel}>
           {previewStage}
           <AppText>{copy.welcomePreviewCaption}</AppText>
@@ -366,7 +385,7 @@ export function OnboardingScreen({
         </View>
       ) : null}
 
-      {draft.step === 1 ? (
+      {step === 'about' ? (
         <View style={styles.panel}>
           <PlateView
             color={theme.atmosphere.veiledDay}
@@ -384,10 +403,34 @@ export function OnboardingScreen({
             testID="onboarding-name"
             value={draft.displayName ?? ''}
           />
+          <View style={styles.age}>
+            <AppText accessibilityRole="header" variant="bodyStrong">{copy.ageTitle}</AppText>
+            <AppText colorRole="textSecondary" variant="caption">{copy.birthDateBody}</AppText>
+            {draft.birthDate === null ? (
+              <AppText colorRole="textSecondary">{copy.birthDateNotSet}</AppText>
+            ) : null}
+            <NativeDatePicker
+              accessibilityLabel={copy.birthDateTitle}
+              language={language}
+              maximumDate={maximumBirthDate}
+              minimumDate={minimumBirthDate}
+              onChange={(value) => dispatch({ type: 'select-birth-date', value })}
+              standalone
+              testID="onboarding-birth-date"
+              value={draft.birthDate}
+            />
+            {draft.birthDate !== null ? (
+              <Button
+                label={copy.birthDateClearAction}
+                onPress={() => dispatch({ type: 'select-birth-date', value: null })}
+                variant="plain"
+              />
+            ) : null}
+          </View>
         </View>
       ) : null}
 
-      {draft.step === 2 ? (
+      {step === 'gender' ? (
         <View style={styles.section} accessibilityLabel={preferenceCopy.genderTitle}>
           <ChoiceTileGrid accessibilityRole="radiogroup" columns={2}>
             {(['woman', 'man'] as const).map((gender) => (
@@ -414,7 +457,7 @@ export function OnboardingScreen({
         </View>
       ) : null}
 
-      {draft.step === 3 ? (
+      {step === 'dress_style' ? (
         <View style={styles.section} accessibilityLabel={preferenceCopy.dressStyleTitle}>
           <ChoiceTileGrid accessibilityRole="radiogroup" columns={3}>
             {(['casual', 'smart', 'formal'] as const).map((style) => (
@@ -443,7 +486,7 @@ export function OnboardingScreen({
         </View>
       ) : null}
 
-      {draft.step === 4 ? (
+      {step === 'styles' ? (
         <View style={styles.section}>
           <ChoiceTileGrid columns={2} testID="onboarding-style-option">
             {styleAesthetics.map((style) => {
@@ -473,30 +516,6 @@ export function OnboardingScreen({
         </View>
       ) : null}
 
-      {draft.step === 5 ? (
-        <View style={styles.section}>
-          {draft.birthDate === null ? (
-            <AppText colorRole="textSecondary">{copy.birthDateNotSet}</AppText>
-          ) : null}
-          <NativeDatePicker
-            accessibilityLabel={copy.birthDateTitle}
-            language={language}
-            maximumDate={maximumBirthDate}
-            minimumDate={minimumBirthDate}
-            onChange={(value) => dispatch({ type: 'select-birth-date', value })}
-            standalone
-            testID="onboarding-birth-date"
-            value={draft.birthDate}
-          />
-          {draft.birthDate !== null ? (
-            <Button
-              label={copy.birthDateClearAction}
-              onPress={() => dispatch({ type: 'select-birth-date', value: null })}
-              variant="plain"
-            />
-          ) : null}
-        </View>
-      ) : null}
       </Entrance>
 
       {saveError ? (
@@ -522,33 +541,33 @@ export function OnboardingScreen({
             borderColor: theme.colors.borderSubtle,
           },
         ]}>
-        {draft.step === 6 && saveError ? (
-          <AppText
-            accessibilityLiveRegion="assertive"
-            accessibilityRole="alert"
-            colorRole="textSecondary"
-            testID="onboarding-save-error">
-            {copy.saveError}
-          </AppText>
-        ) : null}
         <ButtonPair
-          primary={draft.step === totalSteps - 1 ? (
+          primary={step === 'location' ? (
             <View style={styles.primaryAction} testID="onboarding-location-skip">
               <Button
-                label={hasActiveLocation ? copy.completeAction : copy.locationSkipAction}
-                loading={isSaving}
-                onPress={complete}
+                label={hasActiveLocation ? messages.common.continue : copy.locationSkipAction}
+                onPress={goForward}
                 style={styles.skipAction}
-                testID="onboarding-complete"
+                testID="onboarding-continue"
                 variant="tonal"
               />
             </View>
-          ) : draft.step === 1 ? (
+          ) : step === 'styles' ? (
+            <Button
+              label={copy.completeAction}
+              loading={isSaving}
+              onPress={complete}
+              size="large"
+              style={styles.primaryAction}
+              testID="onboarding-complete"
+            />
+          ) : step === 'about' ? (
             <View style={styles.nameActions}>
               <Button
                 label={copy.nameNotNow}
                 onPress={() => {
                   dispatch({ type: 'set-display-name', value: null });
+                  onboardingEvents.stepAdvanced(draft, activeLocationSource);
                   dispatch({ type: 'continue' });
                 }}
                 testID="onboarding-name-skip"
@@ -623,6 +642,9 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.md,
+  },
+  age: {
+    gap: spacing.sm,
   },
   options: {
     gap: spacing.md,

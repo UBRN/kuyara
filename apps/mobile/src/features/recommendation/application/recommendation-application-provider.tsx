@@ -51,7 +51,7 @@ import {
   createRecommendationContextWithPool,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
-import { nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
+import { isSetupDressingDay, nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
@@ -243,11 +243,12 @@ export function RecommendationApplicationProvider({
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
   const resolvedStyles = resolvedStyleAesthetics(dayChoice,
     profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
-  const morningChoicePending = Boolean(currentDayChoice?.status === 'none' &&
-    !isEveningDressingDayKey(localDay.key) && profileState.status === 'ready' &&
-    profileState.profile.morningSheetEnabled);
-  const eveningChoicePending = Boolean(currentDayChoice?.status === 'none' &&
-    isEveningDressingDayKey(localDay.key) && profileState.status === 'ready');
+  // The day the profile was set up on is answered by setup, so neither question is asked then.
+  const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready' &&
+    !isSetupDressingDay(profileState.profile.createdAt, localDay.key);
+  const morningChoicePending = Boolean(dayQuestionOpen && !isEveningDressingDayKey(localDay.key) &&
+    profileState.status === 'ready' && profileState.profile.morningSheetEnabled);
+  const eveningChoicePending = Boolean(dayQuestionOpen && isEveningDressingDayKey(localDay.key));
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const reevaluateLocalDay = useCallback(() => {
     const next = deviceLocalDay();

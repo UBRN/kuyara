@@ -385,7 +385,7 @@ export type AppMessages = Readonly<{
     nameNotNow: string;
     welcomeTitle: string;
     welcomeBody: string;
-    welcomePreviewTitle: (temperature: string) => string;
+    welcomePreviewTitle: (temperature: string, condition: string) => string;
     welcomePreviewCaption: string;
     nameGreetingEmpty: string;
     nameGreetingCaption: string;
@@ -396,6 +396,7 @@ export type AppMessages = Readonly<{
     dressStyleRequiredError: string;
     stylePreferencesTitle: string;
     stylePreferencesBody: string;
+    ageTitle: string;
     birthDateTitle: string;
     birthDateBody: string;
     birthDateNotSet: string;
@@ -1013,7 +1014,7 @@ const en = {
     nameNotNow: 'Not now',
     welcomeTitle: 'Welcome to kuyara',
     welcomeBody: 'A calm way to make daily clothing choices with the weather in mind.',
-    welcomePreviewTitle: (temperature) => `Today · ${temperature} · Cloudy`,
+    welcomePreviewTitle: (temperature, condition) => `Today · ${temperature} · ${condition}`,
     welcomePreviewCaption: 'Every morning: one outfit for the day’s weather.',
     nameGreetingEmpty: 'Welcome',
     nameGreetingCaption: 'Your name appears here on Today.',
@@ -1024,8 +1025,9 @@ const en = {
     dressStyleRequiredError: 'Choose how you usually dress to continue.',
     stylePreferencesTitle: 'Which styles feel like you?',
     stylePreferencesBody: 'Optional. Choose up to three styles. They shape the order of suggestions, without excluding outfits.',
+    ageTitle: 'Your age',
     birthDateTitle: 'Your birth date',
-    birthDateBody: 'Optional. It helps us understand who uses kuyara. It does not change your suggestions.',
+    birthDateBody: 'Optional. It helps us understand who uses kuyara.',
     birthDateNotSet: 'Not set',
     birthDateClearAction: 'Remove birth date',
     locationTitle: 'Set your location',
@@ -2124,7 +2126,7 @@ const tr = {
     nameNotNow: 'Şimdi değil',
     welcomeTitle: 'kuyara’ya hoş geldin',
     welcomeBody: 'Hava durumuna göre her gün ne giyeceğine sakince karar vermenin yolu.',
-    welcomePreviewTitle: (temperature) => `Bugün · ${temperature} · Bulutlu`,
+    welcomePreviewTitle: (temperature, condition) => `Bugün · ${temperature} · ${condition}`,
     welcomePreviewCaption: 'Her sabah: günün havasına göre bir kombin.',
     nameGreetingEmpty: 'Hoş geldin',
     nameGreetingCaption: 'Adın Bugün ekranında burada görünür.',
@@ -2135,8 +2137,9 @@ const tr = {
     dressStyleRequiredError: 'Devam etmek için giyim stilini seç.',
     stylePreferencesTitle: 'Hangi stiller sana yakın?',
     stylePreferencesBody: 'İsteğe bağlı. En fazla üç stil seç. Bu seçimler kombinleri elemeden öneri sırasını etkiler.',
+    ageTitle: 'Yaşın',
     birthDateTitle: 'Doğum tarihin',
-    birthDateBody: 'İsteğe bağlı. kuyara’yı kimlerin kullandığını anlamamıza yardımcı olur. Önerilerini değiştirmez.',
+    birthDateBody: 'İsteğe bağlı. kuyara’yı kimlerin kullandığını anlamamıza yardımcı olur.',
     birthDateNotSet: 'Ayarlanmadı',
     birthDateClearAction: 'Doğum tarihini kaldır',
     locationTitle: 'Konumunu ayarla',
