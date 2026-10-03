@@ -73,6 +73,14 @@ function mockFontScale(fontScale: number) {
   Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
 }
 
+// React Native provides the idle callback the weather previews wait for; Jest's environment does not.
+beforeAll(() => {
+  Object.assign(globalThis, {
+    requestIdleCallback: (callback: () => void) => setTimeout(callback, 0),
+    cancelIdleCallback: (handle: ReturnType<typeof setTimeout>) => clearTimeout(handle),
+  });
+});
+
 afterEach(() => {
   Dimensions.set({ window: originalWindowDimensions });
 });

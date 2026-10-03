@@ -51,6 +51,11 @@ export type OnboardingPreferences = Readonly<{
 
 export const genderSchema = z.enum(['woman', 'man']);
 export type Gender = z.infer<typeof genderSchema>;
+/** The one place a gender becomes the catalog it draws from. */
+export const catalogPreferenceByGender = {
+  woman: 'womens',
+  man: 'mens',
+} as const satisfies Readonly<Record<Gender, ClothingPreference>>;
 export type StyleAesthetic = z.infer<typeof styleAestheticSchema>;
 export const styleAestheticsSchema = z.array(styleAestheticSchema).max(3).refine(
   (values) => new Set(values).size === values.length,
