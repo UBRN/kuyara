@@ -1,5 +1,6 @@
 import type { AiRecommendV1Request, DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
+import type { SupportedLanguage } from '@/domain/preferences';
 import { sameStyleAesthetics } from '@/features/profile/domain/profile';
 import {
   failureCategoryFromErrorKind,
@@ -71,7 +72,7 @@ export type RecommendationSignals = Readonly<{
 
 export type RecommendationApplicationInput = OutfitRecommendationInput & Readonly<{
   localDayKey: string;
-  locale?: 'tr' | 'en';
+  locale?: SupportedLanguage;
 }>;
 
 export function recommendationRefreshTrigger(
@@ -145,7 +146,7 @@ function recommendationFailureCategory(error: unknown): FailureCategory {
 type AiClient = Readonly<{
   recommendRouted(
     request: AiRecommendV1Request,
-    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: 'tr' | 'en' }>,
+    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: SupportedLanguage }>,
   ): Promise<OutfitRecommendationSuccess>;
 }>;
 

@@ -1,4 +1,5 @@
 import { insightSentenceSchema } from '@kuyara/contracts';
+import type { SupportedLanguage } from '@/domain/preferences';
 
 const functionWords = {
   en: new Set(['a', 'an', 'and', 'as', 'at', 'for', 'from', 'in', 'is', 'of', 'on', 'the', 'to', 'with', 'your']),
@@ -11,7 +12,7 @@ export function validateInsightSentence({
   locale,
 }: Readonly<{
   sentence: unknown;
-  locale: 'tr' | 'en';
+  locale: SupportedLanguage;
 }>): string | null {
   const parsed = insightSentenceSchema.safeParse(sentence);
   if (!parsed.success || bannedContent.test(parsed.data) || /\p{Decimal_Number}/u.test(parsed.data)) {

@@ -9,6 +9,7 @@ import {
   type AiRecommendV1Request,
   type AiRecommendV2Success,
 } from '@kuyara/contracts';
+import type { SupportedLanguage } from '@/domain/preferences';
 
 import { fetchJsonWithTimeout, type Fetch } from '@/infrastructure/network/fetch-json-with-timeout';
 
@@ -57,7 +58,7 @@ export class WorkerAiClient {
   // before the on-device tier existed.
   async recommend(
     input: AiRecommendV1Request,
-    options?: Readonly<{ timeoutMilliseconds?: number; locale?: 'tr' | 'en' }>,
+    options?: Readonly<{ timeoutMilliseconds?: number; locale?: SupportedLanguage }>,
   ): Promise<AiRecommendV2Success['data']> {
     const request = aiRecommendV2RequestSchema.safeParse({ ...input, locale: options?.locale ?? 'en' });
     if (!request.success) throw new WorkerAiClientError('invalid-request');

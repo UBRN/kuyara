@@ -1164,3 +1164,22 @@ test('a parsed clothing preference is not re-checked inside the app', () => {
   assert.deepEqual(files, [...recheckedClothingPreference].sort(),
     'drop the re-check, and shrink the list when a file stops making it');
 });
+
+// The two app languages are `SupportedLanguage` (domain/preferences.ts); nobody spells the union
+// again. These files still do, and the list only shrinks.
+const spelledLanguageUnion = [
+  'features/catalog/domain/garment-catalog.ts',
+  'features/catalog/localization/catalog-messages.ts',
+  'features/weather/presentation/hourly-rail-columns.ts',
+  'features/weather/presentation/weather-format.ts',
+  'features/weather/presentation/weather-screen.tsx',
+  'localization/messages.ts',
+];
+
+test('the language union is spelled only through SupportedLanguage', () => {
+  const files = sourceFiles().filter((relativePath) =>
+    relativePath !== 'domain/preferences.ts' &&
+    /'tr' \| 'en'|'en' \| 'tr'/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(files, [...spelledLanguageUnion].sort(),
+    'use SupportedLanguage from @/domain/preferences, and shrink the list when a file stops spelling the union');
+});

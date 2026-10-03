@@ -1,5 +1,6 @@
 import type { AiRecommendV1Request } from '@kuyara/contracts';
 
+import type { SupportedLanguage } from '@/domain/preferences';
 import {
   recommendOutfits,
   type OutfitRecommendationInput,
@@ -100,7 +101,7 @@ type Dependencies = Readonly<{
   client: Readonly<{
     recommendRouted(
       request: AiRecommendV1Request,
-      options?: Readonly<{ locale?: 'tr' | 'en' }>,
+      options?: Readonly<{ locale?: SupportedLanguage }>,
     ): Promise<OutfitRecommendationSuccess>;
   }>;
   loadRecentWorn?: () => Promise<readonly WornOutfit[]>;
@@ -108,7 +109,7 @@ type Dependencies = Readonly<{
 
 export type TomorrowPreviewInput = OutfitRecommendationInput & Readonly<{
   localDayKey: string;
-  locale?: 'tr' | 'en';
+  locale?: SupportedLanguage;
 }>;
 
 type Listener = () => void;

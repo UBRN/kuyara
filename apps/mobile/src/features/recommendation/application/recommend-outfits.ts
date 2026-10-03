@@ -11,7 +11,7 @@ import {
   type StyleAesthetic,
 } from '@kuyara/contracts';
 
-import type { ClothingPreference } from '@/domain/preferences';
+import type { ClothingPreference, SupportedLanguage } from '@/domain/preferences';
 import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
 import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
 import {
@@ -54,7 +54,7 @@ export type OutfitRecommendationInput = Readonly<{
 export type OutfitRecommendationSuccess = Readonly<{
   status: 'recommended';
   insightSentence?: string;
-  insightLocale?: 'tr' | 'en';
+  insightLocale?: SupportedLanguage;
   generationMode: RecommendationGenerationMode;
   requirements: ClothingRequirements;
   outfits: readonly RecommendedOutfit[];

@@ -30,6 +30,7 @@ import {
   type AiRecommendV2Success,
   type OutfitArchetypeId,
 } from '@kuyara/contracts';
+import type { SupportedLanguage } from '@/domain/preferences';
 import { z } from 'zod';
 
 import { defaultDressStyle, orderStyleAesthetics } from '@/features/profile/domain/profile';
@@ -342,7 +343,7 @@ export function mapWorkerAiRecommendation(
   request: AiRecommendV1Request,
   data: AiRecommendV2Success['data'],
   generationMode: AiGenerationMode = 'ai-assisted',
-  insight?: Readonly<{ locale: 'tr' | 'en' }>,
+  insight?: Readonly<{ locale: SupportedLanguage }>,
 ): OutfitRecommendationSuccess {
   const validated = aiRecommendV1SuccessSchema.safeParse({ data });
   if (!validated.success) throw new WorkerAiRecommendationMappingError();
