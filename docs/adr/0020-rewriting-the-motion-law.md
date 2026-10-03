@@ -120,8 +120,10 @@ tour waits until the layer has gone. A launch from a notification or a link play
 shortened launch: the curtain arrives over the splash on `fast` and fades on `normal`,
 320 ms in all. A first screen later than the ceiling fades the still symbol away on
 `normal`, and a failed one on `fast`, so the app is never left behind the layer. The
-layer is hidden from assistive technology and never takes a touch; the status bar turns
-light while the curtain is at least half opaque. Only `components/ui` consumes the
+layer is hidden from assistive technology. While it is opaque it takes the touches meant
+for the screen beneath, so nothing unseen can be pressed, and it lets every touch through
+once the curtain starts to lift. The status bar turns light while the curtain is at least
+half opaque. Only `components/ui` consumes the
 `launch` role.
 
 This is the one motion that holds the user's first look at the app, accepted as the
