@@ -19,6 +19,7 @@ import {
 import { parseCalendarDate } from '@/domain/calendar-date';
 import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
 import {
+  defaultDressStyle,
   genderSchema,
   type DressStyle,
   type Gender,
@@ -256,7 +257,7 @@ export function SettingsScreen({
             }[value],
             value,
           }))}
-          selection={profile.dressStyle ?? 'smart'}
+          selection={profile.dressStyle ?? defaultDressStyle}
           icon="clothing"
           testID="settings-dress-style-row"
         />

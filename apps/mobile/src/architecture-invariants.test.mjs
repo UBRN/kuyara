@@ -1101,11 +1101,10 @@ test('wind speed is converted for display only by the wind speed owner', () => {
 });
 
 // A missing dress style is read as `defaultDressStyle` (profile/domain/profile.ts), never as a
-// second spelling of its value. These screen and analytics defaults are the only ones left, and
-// the list only shrinks: a stale entry fails the test.
+// second spelling of its value. The analytics default is the only one left, and the list only
+// shrinks: a stale entry fails the test.
 const spelledDefaultDressStyle = [
   'features/analytics/domain/analytics-mappers.ts',
-  'features/profile/presentation/settings-screen.tsx',
 ];
 
 test('a missing dress style defaults through defaultDressStyle, not a literal', () => {
