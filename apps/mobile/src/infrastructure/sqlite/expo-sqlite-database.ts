@@ -89,7 +89,7 @@ async function openConnection(): Promise<SqliteDatabase> {
 }
 
 /**
- * Six composition roots open the database independently. expo-sqlite already hands them one
+ * The composition roots open the database independently. expo-sqlite already hands them one
  * shared native connection, but each call used to wrap it in a new object, so the migration
  * memo in `migrateDatabase` had nothing stable to key on. Memoizing the open promise gives
  * all of them the same handle. A failed open is not cached: the next caller retries.

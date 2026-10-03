@@ -1,7 +1,6 @@
 import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, Appearance } from 'react-native';
+import { AccessibilityInfo, Appearance, useColorScheme } from 'react-native';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { EasierToSeeContext, SystemVisibilityContext, type SystemVisibility } from '@/theme/easier-to-see';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import {
