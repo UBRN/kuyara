@@ -1,19 +1,12 @@
-import {
-  isValidWeatherHourlyForecastWindow,
-  isWeatherHourlyForecastInWindow,
-  weatherDailyForecastMaximumEntries,
-  weatherHourlyForecastMaximumEntries,
-  weatherLocalDateKey,
-  type WeatherConditionCode,
-} from '@kuyara/contracts';
+import type { WeatherConditionCode } from '@kuyara/contracts';
 import { z } from 'zod';
 
-import type {
-  ProviderDailyForecast,
-  ProviderLocation,
-  ProviderWeatherMeasurements,
-  ProviderWeatherSnapshot,
-} from './weather-provider.ts';
+import {
+  assembleProviderSnapshot,
+  type ProviderDayInput,
+  type ProviderHourInput,
+} from './provider-snapshot.ts';
+import type { ProviderLocation, ProviderWeatherSnapshot } from './weather-provider.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 
 const percentageSchema = z.number().min(0).max(100);
@@ -135,12 +128,12 @@ function utcIso(timestamp: string, utcOffsetSeconds = 0): string {
   return new Date(milliseconds).toISOString();
 }
 
-function mapHourly(raw: OpenMeteoResponse['hourly'], utcOffsetSeconds: number, observedAt: string) {
-  return raw.time.map((time, index) => ({ forecastAt: utcIso(time, utcOffsetSeconds), index }))
-    .filter(({ forecastAt }) => isWeatherHourlyForecastInWindow(forecastAt, observedAt))
-    .sort((left, right) => left.forecastAt.localeCompare(right.forecastAt))
-    .slice(0, weatherHourlyForecastMaximumEntries)
-    .map(({ forecastAt, index }) => {
+// Only the hours the snapshot reads are parsed, so an invalid value outside the window or
+// the nearest hour does not fail the response.
+function mapHours(raw: OpenMeteoResponse['hourly'], utcOffsetSeconds: number): ProviderHourInput[] {
+  return raw.time.map((time, index) => ({
+    forecastAt: utcIso(time, utcOffsetSeconds),
+    read: () => {
       const parsed = hourlyEntrySchema.safeParse({
         temperature_2m: raw.temperature_2m[index],
         apparent_temperature: raw.apparent_temperature[index],
@@ -160,9 +153,10 @@ function mapHourly(raw: OpenMeteoResponse['hourly'], utcOffsetSeconds: number, o
         windSpeedMetersPerSecond: entry.wind_speed_10m,
         humidity: entry.relative_humidity_2m / 100,
         uvIndex: entry.uv_index,
-        forecastAt,
+        forecastAt: utcIso(time, utcOffsetSeconds),
       };
-    });
+    },
+  }));
 }
 
 function readDailyEntry(raw: OpenMeteoResponse['daily'], index: number) {
@@ -177,82 +171,47 @@ function readDailyEntry(raw: OpenMeteoResponse['daily'], index: number) {
   return parsed.data;
 }
 
+// The days stop at the first one the response cannot describe (a null weather code or
+// probability past the provider's own horizon) rather than guessing one.
+function mapDays(raw: OpenMeteoResponse['daily']): ProviderDayInput[] {
+  const described = raw.time.findIndex((_, index) => (
+    raw.weather_code[index] === null || raw.precipitation_probability_max[index] === null
+  ));
+  return raw.time.slice(0, described < 0 ? raw.time.length : described).map((dateKey, index) => ({
+    dateKey,
+    read: () => {
+      const entry = readDailyEntry(raw, index);
+      return {
+        minimumTemperatureCelsius: entry.temperature_2m_min,
+        maximumTemperatureCelsius: entry.temperature_2m_max,
+        condition: mapOpenMeteoWeatherCode(entry.weather_code),
+        precipitationProbability: entry.precipitation_probability_max / 100,
+        precipitationMillimetres: entry.precipitation_sum,
+      };
+    },
+  }));
+}
+
 export function mapOpenMeteoResponse(
   raw: OpenMeteoResponse,
   location: ProviderLocation,
   fetchedAt: string,
 ): ProviderWeatherSnapshot {
-  const observedAt = utcIso(raw.current.time, raw.utc_offset_seconds);
-  const hourly = mapHourly(raw.hourly, raw.utc_offset_seconds, observedAt);
-  if (!isValidWeatherHourlyForecastWindow(hourly, observedAt)) {
-    throw new WeatherProviderError('invalid_response');
-  }
-  const nearest = hourly.reduce((best, entry) => (
-    Math.abs(Date.parse(entry.forecastAt) - Date.parse(observedAt))
-      < Math.abs(Date.parse(best.forecastAt) - Date.parse(observedAt))
-      ? entry
-      : best
-  ));
-  const current: ProviderWeatherMeasurements & Readonly<{ observedAt: string }> = {
-    temperatureCelsius: raw.current.temperature_2m,
-    apparentTemperatureCelsius: raw.current.apparent_temperature,
-    condition: mapOpenMeteoWeatherCode(raw.current.weather_code),
-    precipitationProbability: nearest.precipitationProbability,
-    windSpeedMetersPerSecond: raw.current.wind_speed_10m,
-    humidity: raw.current.relative_humidity_2m / 100,
-    uvIndex: nearest.uvIndex,
-    observedAt,
-  };
-  // The low and the high belong to the local day the observation falls in, which is the
-  // entry the response labels with that date, not necessarily the first one.
-  const localDate = weatherLocalDateKey(observedAt, location.timeZone);
-  const todayIndex = raw.daily.time.indexOf(localDate ?? '');
-  if (todayIndex < 0) throw new WeatherProviderError('invalid_response');
-  const today = readDailyEntry(raw.daily, todayIndex);
-
-  const minimumTemperatureCelsius = Math.min(
-    today.temperature_2m_min,
-    current.temperatureCelsius,
-  );
-  const maximumTemperatureCelsius = Math.max(
-    today.temperature_2m_max,
-    current.temperatureCelsius,
-  );
-  const daily: ProviderDailyForecast[] = [];
-  for (
-    let index = todayIndex;
-    index < raw.daily.time.length && daily.length < weatherDailyForecastMaximumEntries;
-    index += 1
-  ) {
-    const weatherCode = raw.daily.weather_code[index];
-    const probability = raw.daily.precipitation_probability_max[index];
-    if (weatherCode === null || probability === null) break;
-    const entry = index === todayIndex ? today : readDailyEntry(raw.daily, index);
-    daily.push({
-      dateKey: raw.daily.time[index],
-      condition: mapOpenMeteoWeatherCode(entry.weather_code),
-      // Today's row is the card's own low and high, clamped around the current reading, so the
-      // two never contradict each other on screen.
-      minimumTemperatureCelsius: index === todayIndex
-        ? minimumTemperatureCelsius
-        : entry.temperature_2m_min,
-      maximumTemperatureCelsius: index === todayIndex
-        ? maximumTemperatureCelsius
-        : entry.temperature_2m_max,
-      precipitationProbability: entry.precipitation_probability_max / 100,
-      precipitationMillimetres: entry.precipitation_sum,
-    });
-  }
-
-  return {
+  return assembleProviderSnapshot({
+    sourceId: 'open-meteo',
     timeZone: location.timeZone,
     fetchedAt: utcIso(fetchedAt),
-    provenance: 'live',
-    sourceId: 'open-meteo',
-    current,
-    minimumTemperatureCelsius,
-    maximumTemperatureCelsius,
-    hourly,
-    daily,
-  };
+    observedAt: utcIso(raw.current.time, raw.utc_offset_seconds),
+    hours: mapHours(raw.hourly, raw.utc_offset_seconds),
+    days: mapDays(raw.daily),
+    current: (nearest) => ({
+      temperatureCelsius: raw.current.temperature_2m,
+      apparentTemperatureCelsius: raw.current.apparent_temperature,
+      condition: mapOpenMeteoWeatherCode(raw.current.weather_code),
+      precipitationProbability: nearest.precipitationProbability,
+      windSpeedMetersPerSecond: raw.current.wind_speed_10m,
+      humidity: raw.current.relative_humidity_2m / 100,
+      uvIndex: nearest.uvIndex,
+    }),
+  });
 }

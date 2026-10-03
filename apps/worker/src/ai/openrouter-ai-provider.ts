@@ -1,5 +1,6 @@
 import type { AiRecommendV1Request } from '@kuyara/contracts';
 
+import { defaultFetch, type FetchLike } from '../default-fetch.ts';
 import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 import {
   AiProviderError,
@@ -13,14 +14,14 @@ const recommendationMaxTokens = 2048;
 type Options = Readonly<{
   apiKey: string;
   model: string;
-  fetch?: typeof globalThis.fetch;
+  fetch?: FetchLike;
 }>;
 
 export class OpenRouterAiProvider implements AiProvider {
   readonly id = 'openrouter' as const;
   readonly model: string;
   readonly #apiKey: string;
-  readonly #fetch: typeof globalThis.fetch | undefined;
+  readonly #fetch: FetchLike | undefined;
 
   constructor({ apiKey, model, fetch }: Options) {
     this.model = model;
@@ -35,7 +36,7 @@ export class OpenRouterAiProvider implements AiProvider {
   ): Promise<unknown> {
     const messages = buildMessages(request);
     const responseSchema = buildPickJsonSchema(request.options, 'locale' in request);
-    const response = await (this.#fetch ?? globalThis.fetch)(
+    const response = await (this.#fetch ?? defaultFetch())(
       'https://openrouter.ai/api/v1/chat/completions',
       {
         method: 'POST',

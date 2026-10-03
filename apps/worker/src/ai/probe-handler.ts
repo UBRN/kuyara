@@ -8,9 +8,12 @@ import {
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
+import { raceWithTimeout } from '../attempt-timeout.ts';
+import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
+import { checkRateLimit, rateLimitedHeaders, type RateLimiter } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 
-import { AiProviderError, type AiProvider } from './ai-provider.ts';
+import { attemptFailureReason, type AiProvider } from './ai-provider.ts';
 
 const PROBE_CACHE_TTL_MS = 60_000;
 export const PROBE_DAILY_LIMIT = 30;
@@ -21,19 +24,10 @@ const PROBE_ATTEMPT_TIMEOUT_MS = 20_000;
 // longer spend a recommendation's worth of the shared pool.
 export const PROBE_MAX_TOKENS = 256;
 
-export interface RateLimiter {
-  limit(input: { key: string }): Promise<{ success: boolean }>;
-}
-
-/** Adds one counted attempt under `dateKey` atomically and returns the new count. */
-export interface ProbeDailyCounter {
-  increment(dateKey: string): Promise<number>;
-}
-
 type Dependencies = Readonly<{
   providers: readonly AiProvider[];
   rateLimiter: RateLimiter;
-  dailyCounter: ProbeDailyCounter;
+  dailyCounter: DailyCounterPort;
   now?: () => Date;
   attemptTimeoutMs?: number;
 }>;
@@ -151,18 +145,16 @@ export function createProbeHandler({
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
 
-    const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-    let success: boolean;
-    try {
-      ({ success } = await rateLimiter.limit({ key: `probe:${ip}` }));
-    } catch {
-      // A failing binding answers in the route's own closed code; no error text is logged.
-      console.warn({ event: 'rate_limiter_error', route: aiProbeV1Path, limiter: 'ai_probe_burst' });
-      return errorResponse(503, 'ai_unavailable');
-    }
-    if (!success) {
+    const limit = await checkRateLimit(rateLimiter, request, {
+      keyPrefix: 'probe',
+      route: aiProbeV1Path,
+      limiter: 'ai_probe_burst',
+    });
+    // A failing binding answers in the route's own closed code.
+    if (limit === 'unavailable') return errorResponse(503, 'ai_unavailable');
+    if (limit === 'limited') {
       console.warn({ event: 'rate_limited', route: aiProbeV1Path, limiter: 'ai_probe_burst' });
-      return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
+      return errorResponse(429, 'rate_limited', rateLimitedHeaders);
     }
 
     if (cached && now().getTime() < cachedExpiresAt) {
@@ -176,7 +168,7 @@ export function createProbeHandler({
       // decides whether the provider is called at all, so concurrent probes cannot slip
       // past the cap between a read and a write. A failed or timed-out attempt has still
       // spent one counted attempt. Without a provider there is nothing to count.
-      const dateKey = `probe:${now().toISOString().slice(0, 10)}`;
+      const dateKey = dailyCounterKey('probe', now());
       let count: number;
       try {
         count = await dailyCounter.increment(dateKey);
@@ -187,27 +179,18 @@ export function createProbeHandler({
       }
       if (count > PROBE_DAILY_LIMIT) {
         console.warn({ event: 'rate_limited', route: aiProbeV1Path, limiter: 'ai_probe_daily' });
-        return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
+        return errorResponse(429, 'rate_limited', rateLimitedHeaders);
       }
 
       const controller = new AbortController();
-      let timedOut = false;
-      let timeoutId: ReturnType<typeof setTimeout>;
-      const timeout = new Promise<never>((_resolve, reject) => {
-        timeoutId = setTimeout(() => {
-          timedOut = true;
-          controller.abort();
-          reject(new Error('AI provider attempt timed out.'));
-        }, attemptTimeoutMs);
-      });
-
       try {
-        const output = await Promise.race([
-          answering.generateOutfits(PROBE_REQUEST, controller.signal, {
+        const output = await raceWithTimeout(
+          controller,
+          () => answering.generateOutfits(PROBE_REQUEST, controller.signal, {
             maxTokens: PROBE_MAX_TOKENS,
           }),
-          timeout,
-        ]);
+          attemptTimeoutMs,
+        );
         const result = aiRecommendV1SuccessSchema.safeParse(output);
         if (controller.signal.aborted) {
           logProbeFailure(answering, 'timeout');
@@ -223,14 +206,7 @@ export function createProbeHandler({
       } catch (error) {
         // Provider failures are intentionally collapsed into unavailable in the response;
         // only the log keeps the reason.
-        logProbeFailure(
-          answering,
-          timedOut ? 'timeout'
-            : error instanceof AiProviderError ? error.kind
-              : 'provider_error',
-        );
-      } finally {
-        clearTimeout(timeoutId!);
+        logProbeFailure(answering, attemptFailureReason(error, controller.signal));
       }
     }
 

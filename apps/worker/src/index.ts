@@ -28,6 +28,7 @@ import {
   type WorkersAiBinding,
 } from './ai/workers-ai-provider.ts';
 import { createDurableDailyCounter, type DailyCounterNamespace } from './daily-counter.ts';
+import type { RateLimiter } from './json-request.ts';
 import { createRouter, type ExecutionContext, type Handler } from './router.ts';
 import { jsonHeaders } from './json-response.ts';
 import { createWeatherHandler } from './weather-handler.ts';
@@ -49,10 +50,6 @@ import { WeatherKitWeatherProvider } from './weather/weatherkit-weather-provider
 // Wrangler resolves the Durable Object class from the main module's exports.
 export { DailyCounter } from './daily-counter.ts';
 
-interface RateLimitBinding {
-  limit(input: { key: string }): Promise<{ success: boolean }>;
-}
-
 export type Env = Readonly<{
   OPENROUTER_API_KEY?: string;
   OPENROUTER_MODELS?: readonly string[];
@@ -61,15 +58,15 @@ export type Env = Readonly<{
   // One Durable Object per counter name: the AI probe, the Workers AI attempt budget and
   // the two capped weather providers each get their own object (see daily-counter.ts).
   DAILY_COUNTERS?: DailyCounterNamespace;
-  AI_PROBE_RATE_LIMIT?: RateLimitBinding;
-  AI_RECOMMEND_RATE_LIMIT?: RateLimitBinding;
+  AI_PROBE_RATE_LIMIT?: RateLimiter;
+  AI_RECOMMEND_RATE_LIMIT?: RateLimiter;
   OPENWEATHER_API_KEY?: string;
   WEATHERKIT_TEAM_ID?: string;
   WEATHERKIT_SERVICE_ID?: string;
   WEATHERKIT_KEY_ID?: string;
   WEATHERKIT_PRIVATE_KEY?: string;
-  WEATHER_RATE_LIMIT?: RateLimitBinding;
-  PLACE_SEARCH_RATE_LIMIT?: RateLimitBinding;
+  WEATHER_RATE_LIMIT?: RateLimiter;
+  PLACE_SEARCH_RATE_LIMIT?: RateLimiter;
   // Account deletion: two plain variables, three secrets and one limiter. Missing any one
   // takes the route offline (see `buildAccountDeleteHandler`).
   SUPABASE_URL?: string;
@@ -77,9 +74,9 @@ export type Env = Readonly<{
   SUPABASE_SECRET_KEY?: string;
   APPLE_SIGN_IN_PRIVATE_KEY?: string;
   APPLE_SIGN_IN_KEY_ID?: string;
-  ACCOUNT_DELETE_RATE_LIMIT?: RateLimitBinding;
+  ACCOUNT_DELETE_RATE_LIMIT?: RateLimiter;
   FEEDBACK_DB?: FeedbackDatabase;
-  FEEDBACK_RATE_LIMIT?: RateLimitBinding;
+  FEEDBACK_RATE_LIMIT?: RateLimiter;
 }>;
 
 /**

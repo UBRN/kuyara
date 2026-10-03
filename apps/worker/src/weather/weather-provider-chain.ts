@@ -1,3 +1,4 @@
+import { AttemptTimeoutError, raceWithTimeout } from '../attempt-timeout.ts';
 import type { WeatherProvider } from './weather-provider.ts';
 import {
   isFallbackEligible,
@@ -27,20 +28,16 @@ export function createWeatherProviderChain(dependencies: Readonly<{
         if (signal?.aborted) throw new WeatherProviderError('timeout');
 
         const controller = new AbortController();
-        let timeoutId: ReturnType<typeof setTimeout>;
-        const timeout = new Promise<never>((_resolve, reject) => {
-          timeoutId = setTimeout(() => {
-            controller.abort();
-            reject(new WeatherProviderError('timeout'));
-          }, dependencies.attemptTimeoutMs ?? weatherAttemptTimeoutMs);
-        });
-
         try {
-          return await Promise.race([
-            provider.fetchWeather(location, controller.signal),
-            timeout,
-          ]);
-        } catch (error) {
+          return await raceWithTimeout(
+            controller,
+            () => provider.fetchWeather(location, controller.signal),
+            dependencies.attemptTimeoutMs ?? weatherAttemptTimeoutMs,
+          );
+        } catch (thrown) {
+          const error = thrown instanceof AttemptTimeoutError
+            ? new WeatherProviderError('timeout')
+            : thrown;
           if (!(error instanceof WeatherProviderError)) throw error;
           // The chain answers 200 from a lower-ranked provider, so a dead one is invisible
           // in the response. The attempt position is the configured chain order; the kind
@@ -52,8 +49,6 @@ export function createWeatherProviderChain(dependencies: Readonly<{
           });
           if (!isFallbackEligible(error)) throw error;
           lastEligibleError = error;
-        } finally {
-          clearTimeout(timeoutId!);
         }
       }
 

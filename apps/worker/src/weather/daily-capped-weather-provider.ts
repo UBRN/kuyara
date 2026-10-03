@@ -1,3 +1,4 @@
+import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
 import type { WeatherProvider } from './weather-provider.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 
@@ -7,23 +8,19 @@ export const openWeatherDailyCallLimit = 500;
 // roughly 16,129 per 31-day month; this is half of that. See ADR 0014.
 export const weatherKitDailyCallLimit = 8000;
 
-export type WeatherDailyCounter = Readonly<{
-  /** Adds one attempt under `key` atomically and returns the new count. */
-  increment(key: string): Promise<number>;
-}>;
-
 export function createDailyCappedWeatherProvider(dependencies: Readonly<{
   provider: WeatherProvider;
-  counter: WeatherDailyCounter;
+  counter: DailyCounterPort;
   dailyLimit: number;
   sourceSlug: string;
   now?: () => Date;
 }>): WeatherProvider {
   return {
     async fetchWeather(location, signal) {
-      const key = `weather:${dependencies.sourceSlug}:${(
-        dependencies.now?.() ?? new Date()
-      ).toISOString().slice(0, 10)}`;
+      const key = dailyCounterKey(
+        `weather:${dependencies.sourceSlug}`,
+        dependencies.now?.() ?? new Date(),
+      );
       // The increment is the gate, and it happens before the attempt: the count it
       // returns decides whether the wrapped provider is called at all. A provider call that
       // then fails has still spent one counted attempt, which is intended, because attempts

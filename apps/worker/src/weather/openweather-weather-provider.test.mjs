@@ -120,6 +120,7 @@ test('ignores the provider time zone and clamps both daily temperature bounds', 
 for (const [status, kind] of [
   [429, 'quota'],
   [401, 'auth'],
+  [403, 'auth'],
   [400, 'invalid_request'],
   [404, 'availability'],
   [500, 'upstream'],

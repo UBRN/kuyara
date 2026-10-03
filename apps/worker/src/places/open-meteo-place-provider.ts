@@ -1,21 +1,22 @@
 import {
   ianaTimeZoneSchema,
+  locationDisplayNameSchema,
   placeSearchMaxResults,
-  placeSearchV1RequestSchema,
-  placeSearchV1SuccessSchema,
+  placeSearchRegionMaxLength,
   type PlaceSearchV1Data,
   type PlaceSearchV1Request,
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
-const maxRegionLength = 400; // placeSearchResultSchema's region bound
+import { defaultFetch, type FetchLike } from '../default-fetch.ts';
+
 const rawPlaceSchema = z.object({
   id: z.number().int().positive().safe(),
-  name: z.string().trim().min(1).max(200),
-  admin1: z.string().trim().min(1).max(200).optional(),
+  name: locationDisplayNameSchema,
+  admin1: locationDisplayNameSchema.optional(),
   // Decoration only: a blank or over-long district means "no district", never a lost place.
-  admin2: z.string().trim().min(1).max(200).optional().catch(undefined),
-  country: z.string().trim().min(1).max(200).optional(),
+  admin2: locationDisplayNameSchema.optional().catch(undefined),
+  country: locationDisplayNameSchema.optional(),
   country_code: z.string().regex(/^[A-Z]{2}$/).optional(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
@@ -55,19 +56,15 @@ export class PlaceSearchProviderError extends Error {
 }
 
 export class OpenMeteoPlaceProvider {
-  private readonly fetch: typeof globalThis.fetch;
+  private readonly fetch: FetchLike;
   private readonly timeoutMs: number;
 
-  constructor(dependencies: { fetch?: typeof globalThis.fetch; timeoutMs?: number } = {}) {
-    // Bind the global: storing `globalThis.fetch` on the instance and calling it as `this.fetch`
-    // passes the provider as `this`, which workerd rejects with "Illegal invocation" and Node
-    // tolerates. Every production search returned 503 until this was found on 2026-09-08.
-    this.fetch = dependencies.fetch ?? globalThis.fetch.bind(globalThis);
+  constructor(dependencies: { fetch?: FetchLike; timeoutMs?: number } = {}) {
+    this.fetch = dependencies.fetch ?? defaultFetch();
     this.timeoutMs = dependencies.timeoutMs ?? 4000;
   }
 
-  async search(input: PlaceSearchV1Request): Promise<PlaceSearchV1Data> {
-    const request = placeSearchV1RequestSchema.parse(input);
+  async search(request: PlaceSearchV1Request): Promise<PlaceSearchV1Data> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -106,7 +103,7 @@ export class OpenMeteoPlaceProvider {
           parts(place.admin1, country),
           parts(place.admin1),
           parts(country),
-        ].find((region) => region.length > 0 && region.length <= maxRegionLength) ?? '';
+        ].find((region) => region.length > 0 && region.length <= placeSearchRegionMaxLength) ?? '';
       };
       const labelCounts = new Map<string, number>();
       for (const place of valid) {
@@ -121,10 +118,7 @@ export class OpenMeteoPlaceProvider {
         longitudeE2: Math.round(place.longitude * 100) || 0,
         timeZone: place.timezone ?? null,
       }));
-      if (places.length > request.limit) throw new PlaceSearchProviderError();
-      return placeSearchV1SuccessSchema.parse({
-        data: { places, attribution: ['open-meteo', 'geonames'] },
-      }).data;
+      return { places, attribution: ['open-meteo', 'geonames'] };
     } catch {
       throw new PlaceSearchProviderError();
     } finally {

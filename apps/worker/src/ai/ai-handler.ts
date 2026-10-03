@@ -20,15 +20,15 @@ import {
   type OutfitArchetypeId,
 } from '@kuyara/contracts';
 
+import { raceWithTimeout } from '../attempt-timeout.ts';
+import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
+import {
+  checkRateLimit, isJsonRequest, rateLimitedHeaders, type RateLimiter,
+} from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
-import { AiProviderError, type AiProvider } from './ai-provider.ts';
-import { PROBE_DAILY_LIMIT, type RateLimiter } from './probe-handler.ts';
-
-/** Adds one counted attempt under `dateKey` atomically and returns the new count. */
-export interface AiDailyCounter {
-  increment(dateKey: string): Promise<number>;
-}
+import { attemptFailureReason, type AiProvider } from './ai-provider.ts';
+import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
 
 type Dependencies = Readonly<{
   providers: readonly AiProvider[];
@@ -37,7 +37,7 @@ type Dependencies = Readonly<{
    * Optional in the type so the unit tests can leave it out; the composition in `index.ts`
    * always supplies both, and a missing counter binding takes the route offline there.
    */
-  dailyCounter?: AiDailyCounter;
+  dailyCounter?: DailyCounterPort;
   dailyLimit?: number;
   now?: () => Date;
   attemptTimeoutMs?: number;
@@ -118,19 +118,6 @@ function defaultCache(): Cache | undefined {
 
 function logProviderFailure(provider: AiProvider, reason: ProviderFailureReason): void {
   console.warn({ event: 'ai_provider_attempt_failed', model: provider.model, reason });
-}
-
-/**
- * A spent provider quota and an upstream 429 both used to read as `provider_error`, so the
- * 2026-09-13 outage had to be proved from Cloudflare's own counters. The reason now names
- * them. Every failure still hands the turn to the next provider; the one addition is that
- * a Workers AI `quota_exceeded` marks the shared Neuron pool spent, so the remaining
- * Workers AI providers are skipped and the walk continues with OpenRouter.
- */
-function attemptFailureReason(error: unknown, timedOut: boolean): ProviderFailureReason {
-  if (timedOut) return 'timeout';
-  if (error instanceof AiProviderError) return error.kind;
-  return 'provider_error';
 }
 
 /**
@@ -233,39 +220,25 @@ export function createAiHandler({
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
     // The total budget covers the whole request, including the rate limiter, the body
     // parse and the shared cache lookup, not only the provider walk.
-    const deadline = Date.now() + requestBudgetMs(request, totalDeadlineMs);
+    const deadline = now().getTime() + requestBudgetMs(request, totalDeadlineMs);
     const url = new URL(request.url);
     const isV2 = url.pathname === aiRecommendV2Path;
     if (!isV2 && url.pathname !== aiRecommendV1Path) return errorResponse(404, 'not_found');
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
-    if (rateLimiter) {
-      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-      let success: boolean;
-      try {
-        ({ success } = await rateLimiter.limit({ key: `recommend:${ip}` }));
-      } catch {
-        // A failing binding answers in the route's own closed code; no error text is logged.
-        console.warn({
-          event: 'rate_limiter_error',
-          route: url.pathname,
-          limiter: 'ai_recommend_burst',
-        });
-        return errorResponse(503, 'ai_unavailable');
-      }
-      if (!success) {
-        console.warn({
-          event: 'rate_limited',
-          route: url.pathname,
-          limiter: 'ai_recommend_burst',
-        });
-        return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
-      }
+    const limit = await checkRateLimit(rateLimiter, request, {
+      keyPrefix: 'recommend',
+      route: url.pathname,
+      limiter: 'ai_recommend_burst',
+    });
+    // A failing binding answers in the route's own closed code.
+    if (limit === 'unavailable') return errorResponse(503, 'ai_unavailable');
+    if (limit === 'limited') {
+      console.warn({ event: 'rate_limited', route: url.pathname, limiter: 'ai_recommend_burst' });
+      return errorResponse(429, 'rate_limited', rateLimitedHeaders);
     }
-    if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
-      return errorResponse(400, 'invalid_request');
-    }
+    if (!isJsonRequest(request)) return errorResponse(400, 'invalid_request');
 
     let body: unknown;
     try {
@@ -314,7 +287,7 @@ export function createAiHandler({
       if (provider.id === 'workers-ai') {
         if (workersAiPoolSpent) continue;
         if (dailyCounter && dailyLimit !== undefined) {
-          const dateKey = `ai:workers-ai:${now().toISOString().slice(0, 10)}`;
+          const dateKey = dailyCounterKey('ai:workers-ai', now());
           let count: number;
           try {
             count = await dailyCounter.increment(dateKey);
@@ -337,24 +310,16 @@ export function createAiHandler({
           }
         }
       }
-      const remainingMs = deadline - Date.now();
+      const remainingMs = deadline - now().getTime();
       const attemptWindowMs = Math.min(attemptTimeoutMs, remainingMs);
       if (attemptWindowMs < Math.min(attemptTimeoutMs, minimumUsefulAttemptMs)) break;
       const controller = new AbortController();
-      let timedOut = false;
-      let timeoutId: ReturnType<typeof setTimeout>;
-      const timeout = new Promise<never>((_resolve, reject) => {
-        timeoutId = setTimeout(() => {
-          timedOut = true;
-          controller.abort();
-          reject(new Error('AI provider attempt timed out.'));
-        }, attemptWindowMs);
-      });
       try {
-        const output = await Promise.race([
-          provider.generateOutfits(requestResult.data, controller.signal),
-          timeout,
-        ]);
+        const output = await raceWithTimeout(
+          controller,
+          () => provider.generateOutfits(requestResult.data, controller.signal),
+          attemptWindowMs,
+        );
         if (controller.signal.aborted) {
           logProviderFailure(provider, 'timeout');
           continue;
@@ -421,7 +386,7 @@ export function createAiHandler({
         }
         return response;
       } catch (error) {
-        const reason = attemptFailureReason(error, timedOut);
+        const reason = attemptFailureReason(error, controller.signal);
         logProviderFailure(provider, reason);
         // Every Workers AI model draws on the one account-level Neuron pool, so once it is
         // spent the remaining Workers AI attempts can only fail the same way and are
@@ -431,8 +396,6 @@ export function createAiHandler({
           console.warn({ event: 'ai_workers_ai_quota_exhausted', model: provider.model });
           workersAiPoolSpent = true;
         }
-      } finally {
-        clearTimeout(timeoutId!);
       }
     }
     return errorResponse(503, 'ai_unavailable');

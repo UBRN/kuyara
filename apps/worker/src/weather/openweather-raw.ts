@@ -1,19 +1,14 @@
-import {
-  isValidWeatherHourlyForecastWindow,
-  isWeatherHourlyForecastInWindow,
-  weatherDailyForecastMaximumEntries,
-  weatherHourlyForecastMaximumEntries,
-  type WeatherConditionCode,
-} from '@kuyara/contracts';
+import type { WeatherConditionCode } from '@kuyara/contracts';
 import { z } from 'zod';
 
 import { isoTimestamp, localDateKey } from './raw-time.ts';
-import type {
-  ProviderDailyForecast,
-  ProviderLocation,
-  ProviderWeatherMeasurements,
-  ProviderWeatherSnapshot,
-} from './weather-provider.ts';
+import {
+  assembleProviderSnapshot,
+  type ProviderDayInput,
+  type ProviderHour,
+  type ProviderHourInput,
+} from './provider-snapshot.ts';
+import type { ProviderLocation, ProviderWeatherSnapshot } from './weather-provider.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 
 const finiteNumberSchema = z.number();
@@ -109,17 +104,42 @@ function precipitationMillimetres(
   return (rain ?? 0) + (snow ?? 0);
 }
 
-function mapHourly(raw: OpenWeatherResponse['hourly']) {
-  return raw.map((entry) => ({
-    temperatureCelsius: entry.temp,
-    apparentTemperatureCelsius: entry.feels_like,
-    condition: mapOpenWeatherCondition(entry.weather[0].id),
-    precipitationProbability: entry.pop,
-    windSpeedMetersPerSecond: entry.wind_speed,
-    humidity: entry.humidity / 100,
-    uvIndex: entry.uvi,
-    forecastAt: unixSecondsToIso(entry.dt),
-  })).sort((left, right) => left.forecastAt.localeCompare(right.forecastAt));
+function mapHours(raw: OpenWeatherResponse['hourly']): ProviderHourInput[] {
+  return raw.map((entry) => {
+    const hour: ProviderHour = {
+      temperatureCelsius: entry.temp,
+      apparentTemperatureCelsius: entry.feels_like,
+      condition: mapOpenWeatherCondition(entry.weather[0].id),
+      precipitationProbability: entry.pop,
+      windSpeedMetersPerSecond: entry.wind_speed,
+      humidity: entry.humidity / 100,
+      uvIndex: entry.uvi,
+      forecastAt: unixSecondsToIso(entry.dt),
+    };
+    return { forecastAt: hour.forecastAt, read: () => hour };
+  });
+}
+
+// One Call stamps each daily entry at local midday, so its local date key is the day it
+// describes. The card's low and high come from the same entry the daily block starts on.
+function mapDays(raw: OpenWeatherResponse['daily'], timeZone: string): ProviderDayInput[] {
+  return raw.flatMap((day) => (day.dt === undefined
+    ? []
+    : [{
+      dateKey: localDateKey(unixSecondsToIso(day.dt), timeZone),
+      read: () => {
+        if (day.pop === undefined || day.weather === undefined) {
+          throw new WeatherProviderError('invalid_response');
+        }
+        return {
+          minimumTemperatureCelsius: day.temp.min,
+          maximumTemperatureCelsius: day.temp.max,
+          condition: mapOpenWeatherCondition(day.weather[0].id),
+          precipitationProbability: day.pop,
+          precipitationMillimetres: precipitationMillimetres(day.rain, day.snow),
+        };
+      },
+    }]));
 }
 
 export function mapOpenWeatherResponse(
@@ -127,77 +147,21 @@ export function mapOpenWeatherResponse(
   location: ProviderLocation,
   fetchedAt: string,
 ): ProviderWeatherSnapshot {
-  if (raw.hourly.length === 0) throw new WeatherProviderError('invalid_response');
-
-  const observedAt = unixSecondsToIso(raw.current.dt);
-  const nearest = raw.hourly.reduce((best, entry) => (
-    Math.abs(entry.dt - raw.current.dt) < Math.abs(best.dt - raw.current.dt)
-      ? entry
-      : best
-  ));
-  const current: ProviderWeatherMeasurements & Readonly<{ observedAt: string }> = {
-    temperatureCelsius: raw.current.temp,
-    apparentTemperatureCelsius: raw.current.feels_like,
-    condition: mapOpenWeatherCondition(raw.current.weather[0].id),
-    precipitationProbability: nearest.pop,
-    windSpeedMetersPerSecond: raw.current.wind_speed,
-    humidity: raw.current.humidity / 100,
-    uvIndex: raw.current.uvi,
-    observedAt,
-  };
-  const hourly = mapHourly(raw.hourly).filter(({ forecastAt }) => (
-    isWeatherHourlyForecastInWindow(forecastAt, observedAt)
-  )).slice(0, weatherHourlyForecastMaximumEntries);
-  if (!isValidWeatherHourlyForecastWindow(hourly, observedAt)) {
-    throw new WeatherProviderError('invalid_response');
-  }
-
-  // One Call stamps each daily entry at local midday, so its local date key is the day it
-  // describes. The card's low and high come from the same entry the daily block starts on.
-  const days = raw.daily
-    .flatMap((day) => (day.dt === undefined
-      ? []
-      : [{ day, dateKey: localDateKey(unixSecondsToIso(day.dt), location.timeZone) }]))
-    .sort((left, right) => left.dateKey.localeCompare(right.dateKey));
-  const currentLocalDay = localDateKey(observedAt, location.timeZone);
-  const todayIndex = days.findIndex(({ dateKey }) => dateKey === currentLocalDay);
-  if (todayIndex < 0) throw new WeatherProviderError('invalid_response');
-
-  const minimumTemperatureCelsius = Math.min(
-    days[todayIndex].day.temp.min,
-    current.temperatureCelsius,
-  );
-  const maximumTemperatureCelsius = Math.max(
-    days[todayIndex].day.temp.max,
-    current.temperatureCelsius,
-  );
-  const daily: ProviderDailyForecast[] = days
-    .slice(todayIndex, todayIndex + weatherDailyForecastMaximumEntries)
-    .map(({ day, dateKey }, index) => {
-      if (day.pop === undefined || day.weather === undefined) {
-        throw new WeatherProviderError('invalid_response');
-      }
-      return {
-        dateKey,
-        condition: mapOpenWeatherCondition(day.weather[0].id),
-        // Today's row is the card's own low and high, clamped around the current reading, so the
-        // two never contradict each other on screen.
-        minimumTemperatureCelsius: index === 0 ? minimumTemperatureCelsius : day.temp.min,
-        maximumTemperatureCelsius: index === 0 ? maximumTemperatureCelsius : day.temp.max,
-        precipitationProbability: day.pop,
-        precipitationMillimetres: precipitationMillimetres(day.rain, day.snow),
-      };
-    });
-
-  return {
+  return assembleProviderSnapshot({
+    sourceId: 'openweather',
     timeZone: location.timeZone,
     fetchedAt: isoTimestamp(fetchedAt),
-    provenance: 'live',
-    sourceId: 'openweather',
-    current,
-    minimumTemperatureCelsius,
-    maximumTemperatureCelsius,
-    hourly,
-    daily,
-  };
+    observedAt: unixSecondsToIso(raw.current.dt),
+    hours: mapHours(raw.hourly),
+    days: mapDays(raw.daily, location.timeZone),
+    current: (nearest) => ({
+      temperatureCelsius: raw.current.temp,
+      apparentTemperatureCelsius: raw.current.feels_like,
+      condition: mapOpenWeatherCondition(raw.current.weather[0].id),
+      precipitationProbability: nearest.precipitationProbability,
+      windSpeedMetersPerSecond: raw.current.wind_speed,
+      humidity: raw.current.humidity / 100,
+      uvIndex: raw.current.uvi,
+    }),
+  });
 }

@@ -7,9 +7,11 @@ import {
 } from '@kuyara/contracts';
 
 import type { AppleTokenRevoker } from './apple-token-revoker.ts';
+import {
+  checkRateLimit, isJsonRequest, rateLimitedHeaders, readJsonBody, type RateLimiter,
+} from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import { AccountError } from './account-error.ts';
-import { readTextWithLimit } from './bounded-fetch.ts';
 import type { SupabaseAdmin } from './supabase-admin.ts';
 import type { SupabaseTokenVerifier } from './supabase-token-verifier.ts';
 
@@ -17,7 +19,7 @@ type Dependencies = Readonly<{
   verifier: SupabaseTokenVerifier;
   admin: SupabaseAdmin;
   revoker: AppleTokenRevoker;
-  rateLimiter: { limit(input: { key: string }): Promise<{ success: boolean }> };
+  rateLimiter: RateLimiter;
 }>;
 
 // The body is `{}` or one code of at most 1024 characters; anything past this is refused unread.
@@ -58,33 +60,26 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
   return async (request: Request): Promise<Response> => {
     if (new URL(request.url).pathname !== accountDeleteV1Path) return error('not_found');
     if (request.method !== 'POST') return error('method_not_allowed', { Allow: 'POST' });
-    try {
-      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-      if (!(await rateLimiter.limit({ key: `account-delete:${ip}` })).success) {
-        console.warn({ event: 'rate_limited', route: accountDeleteV1Path, limiter: 'account_delete_burst' });
-        return error('rate_limited', { 'Retry-After': '60' });
-      }
-    } catch {
-      // A limiter outage fails closed; its message is not worth logging.
-      return error('unavailable');
+    const limit = await checkRateLimit(rateLimiter, request, {
+      keyPrefix: 'account-delete',
+      route: accountDeleteV1Path,
+      limiter: 'account_delete_burst',
+    });
+    // A limiter outage fails closed.
+    if (limit === 'unavailable') return error('unavailable');
+    if (limit === 'limited') {
+      console.warn({ event: 'rate_limited', route: accountDeleteV1Path, limiter: 'account_delete_burst' });
+      return error('rate_limited', rateLimitedHeaders);
     }
     const accessToken = bearerToken(request);
     if (accessToken === undefined) return error('unauthorized');
-    if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
-      return error('invalid_request');
-    }
+    if (!isJsonRequest(request)) return error('invalid_request');
     // This body is unauthenticated: bound it before it is parsed, by the declared length and
     // again while reading, since a header can lie or be absent. Too large is invalid_request.
     const declared = Number(request.headers.get('content-length') ?? 0);
     if (!Number.isFinite(declared) || declared > maxRequestBodyBytes) return error('invalid_request');
-    let body: unknown;
-    try {
-      const text = await readTextWithLimit(request.body, maxRequestBodyBytes);
-      if (text === undefined) return error('invalid_request');
-      body = JSON.parse(text);
-    } catch {
-      return error('invalid_request');
-    }
+    const body = await readJsonBody(request.body, maxRequestBodyBytes);
+    if (body === undefined) return error('invalid_request');
     const parsed = accountDeleteV1RequestSchema.safeParse(body);
     if (!parsed.success) return error('invalid_request');
 

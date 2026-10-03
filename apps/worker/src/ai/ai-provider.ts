@@ -1,5 +1,7 @@
 import type { AiProviderId, AiRecommendV1Request, AiRecommendV2Request } from '@kuyara/contracts';
 
+import { AttemptTimeoutError } from '../attempt-timeout.ts';
+
 /**
  * Failure classification shared by every AI provider adapter, mirroring
  * `WeatherProviderError`. An adapter raises one of these kinds so the handler can
@@ -24,6 +26,20 @@ export class AiProviderError extends Error {
     this.name = 'AiProviderError';
     this.kind = kind;
   }
+}
+
+/**
+ * Why one provider attempt threw, as the closed vocabulary the handlers log. A spent quota
+ * and an upstream 429 are named, never folded into `provider_error`. Only the attempt's own
+ * timer aborts its signal, so an aborted signal reads as a timeout whichever rejection won.
+ */
+export function attemptFailureReason(
+  error: unknown,
+  signal?: AbortSignal,
+): 'timeout' | AiProviderErrorKind | 'provider_error' {
+  if (signal?.aborted || error instanceof AttemptTimeoutError) return 'timeout';
+  if (error instanceof AiProviderError) return error.kind;
+  return 'provider_error';
 }
 
 /** Per-call knobs a caller may narrow; the adapter's own default applies otherwise. */

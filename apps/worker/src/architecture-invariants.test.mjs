@@ -101,3 +101,111 @@ test('only json-response.ts defines the Worker JSON headers', () => {
 
   assert.deepEqual(definers, ['json-response.ts']);
 });
+
+// The snapshot rules every provider shares (nearest hour, hourly window and cap, today's
+// widened low and high, daily slice) have one owner, `weather/provider-snapshot.ts`.
+test('the raw weather adapters leave the shared snapshot rules to provider-snapshot.ts', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (!/^weather\/[\w-]+-raw\.ts$/.test(relativePath)) continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/Math\.(?:min|max)\(|isWeatherHourlyForecastInWindow|isValidWeatherHourlyForecastWindow/.test(line)) {
+        hits.push(`${relativePath}:${index + 1}`);
+      }
+    });
+  }
+
+  assert.deepEqual(hits, [], 'pass the provider rows to assembleProviderSnapshot instead');
+});
+
+// The day part of a daily counter key (`name:YYYY-MM-DD`) has one owner, `daily-counter.ts`.
+test('only daily-counter.ts builds the UTC day of a daily counter key', () => {
+  const hits = sourceFiles()
+    .filter((relativePath) => relativePath !== 'daily-counter.ts')
+    .filter((relativePath) => /slice\(0, 10\)/.test(
+      readFileSync(path.join(sourceRoot, relativePath), 'utf8'),
+    ));
+
+  assert.deepEqual(hits, [], 'build the key with dailyCounterKey(name, now)');
+});
+
+// How a route reads its request (content type, client IP, per-IP limiter key, Retry-After and
+// the bounded body reader) has one owner, `json-request.ts`.
+test('only json-request.ts reads the content type, the client IP and the 429 header', () => {
+  const patterns = [/headers\.get\(['"]content-type['"]\)/i, /cf-connecting-ip/i, /['"]Retry-After['"]\s*:/];
+  const hits = sourceFiles()
+    .filter((relativePath) => relativePath !== 'json-request.ts')
+    .filter((relativePath) => {
+      const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+      return patterns.some((pattern) => pattern.test(text));
+    });
+
+  assert.deepEqual(hits, [], 'use isJsonRequest, checkRateLimit and rateLimitedHeaders');
+});
+
+test('only json-request.ts declares the rate limiter type and reads a stream by chunks', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'json-request.ts') continue;
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    if (/limit\(input: \{ key: string \}\)/.test(text)) hits.push(`${relativePath}: limiter type`);
+    if (/\.getReader\(\)/.test(text)) hits.push(`${relativePath}: stream reader`);
+  }
+
+  assert.deepEqual(hits, [], 'import RateLimiter and readTextWithLimit from json-request.ts');
+});
+
+// The runtime's fetch is bound in one place, and a per-attempt deadline race is run in one place.
+test('only default-fetch.ts reads globalThis.fetch and only attempt-timeout.ts races a deadline', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    if (relativePath !== 'default-fetch.ts' && /globalThis\.fetch/.test(text)) {
+      hits.push(`${relativePath}: globalThis.fetch`);
+    }
+    if (relativePath !== 'attempt-timeout.ts' && /Promise\.race\(/.test(text)) {
+      hits.push(`${relativePath}: Promise.race`);
+    }
+  }
+
+  assert.deepEqual(hits, [], 'use defaultFetch() and raceWithTimeout()');
+});
+
+// The AI handler reads time only through its injected clock.
+test('the AI handlers read the clock only through the injected now', () => {
+  const hits = ['ai/ai-handler.ts', 'ai/probe-handler.ts'].filter((relativePath) => (
+    /Date\.now\(/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8'))
+  ));
+
+  assert.deepEqual(hits, [], 'call the injected now() instead of Date.now()');
+});
+
+// The place search handler parses the request and the answer once; the provider does neither,
+// and its field bounds come from the contract rather than a second copy.
+test('the place provider leaves the contract parse to the handler and owns no bound of its own', () => {
+  const text = readFileSync(path.join(sourceRoot, 'places/open-meteo-place-provider.ts'), 'utf8');
+
+  assert.equal(/placeSearchV1(?:Request|Success)Schema/.test(text), false);
+  assert.equal(/\.max\((?:200|400)\)/.test(text), false, 'import the bound from @kuyara/contracts');
+});
+
+// A `JSON.parse(` whose result does not go straight into a schema is a place untrusted input
+// can slip past the boundary, so each one is named here and every caller validates what it
+// gets. The list only shrinks: parse at the boundary and hand the schema the text instead.
+test('JSON.parse sites that do not feed a schema are a frozen, shrink-only list', () => {
+  const allowed = new Map([
+    ['account/bounded-fetch.ts', 1],
+    ['account/supabase-token-verifier.ts', 1],
+    ['ai/openrouter-ai-provider.ts', 1],
+    ['json-request.ts', 1],
+  ]);
+  const found = new Map();
+  for (const relativePath of sourceFiles()) {
+    const count = readFileSync(path.join(sourceRoot, relativePath), 'utf8')
+      .split('\n')
+      .filter((line) => /JSON\.parse\(/.test(line) && !/Schema\b/.test(line)).length;
+    if (count > 0) found.set(relativePath, count);
+  }
+
+  assert.deepEqual([...found].sort(), [...allowed].sort(), 'do not add a site; remove one from the list when it goes');
+});
