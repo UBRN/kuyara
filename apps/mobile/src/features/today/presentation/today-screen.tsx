@@ -28,6 +28,7 @@ import {
   alertOfferToRender,
   isGenerationRunning,
   isUpdatingOutfit,
+  showsAskAgain,
   settledFirstOutfit,
   todayPresentationState,
   tomorrowStrip,
@@ -562,7 +563,7 @@ function TodayScreenContent({
 
         {/* O4: one tonal Large capsule, followed only by the notification offer. A7 hides it
             and puts nothing in its place. */}
-        {primary && !exhausted ? (
+        {showsAskAgain(primary, exhausted) ? (
           <TourTarget
             id="again"
             reveal={() => scrollRef.current?.scrollToEnd({ animated: true })}

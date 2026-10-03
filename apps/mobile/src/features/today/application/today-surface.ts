@@ -203,3 +203,8 @@ export function tomorrowStrip<Tomorrow, Open>(
 ): Readonly<{ tomorrow: Tomorrow; onOpenDetail: Open }> | null {
   return tomorrow !== null && onOpenDetail !== undefined ? { tomorrow, onOpenDetail } : null;
 }
+
+/** The "Ask the stylist again" capsule shows with an outfit on screen, unless the alternatives are used up. */
+export function showsAskAgain(primary: unknown, exhausted: boolean | undefined): boolean {
+  return Boolean(primary) && !exhausted;
+}

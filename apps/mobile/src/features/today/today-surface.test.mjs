@@ -14,6 +14,7 @@ import {
   pendingDayQuestion,
   recommendationCacheState,
   settledFirstOutfit,
+  showsAskAgain,
   showsLaterReadyLine,
   styleAestheticsChanged,
   todayOutfitSettled,
@@ -215,4 +216,11 @@ test('the tomorrow strip shows only with a ready preview and a way to open it', 
   assert.deepEqual(tomorrowStrip(tomorrow, open), { tomorrow, onOpenDetail: open });
   assert.equal(tomorrowStrip(tomorrow, undefined), null);
   assert.equal(tomorrowStrip(null, open), null);
+});
+
+test('ask again shows with an outfit on screen unless the alternatives are used up', () => {
+  assert.equal(showsAskAgain({ id: 'a' }, false), true);
+  assert.equal(showsAskAgain({ id: 'a' }, undefined), true);
+  assert.equal(showsAskAgain({ id: 'a' }, true), false);
+  assert.equal(showsAskAgain(undefined, false), false);
 });
