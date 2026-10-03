@@ -96,6 +96,7 @@ for (const [status, kind] of [
   [401, 'auth'],
   [403, 'auth'],
   [400, 'invalid_request'],
+  [404, 'availability'],
   [500, 'upstream'],
 ]) {
   test(`classifies HTTP ${status} as ${kind} without leaking upstream data`, async () => {
