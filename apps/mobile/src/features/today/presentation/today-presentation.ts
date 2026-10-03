@@ -12,7 +12,7 @@ import { dateTimeFormat, numberFormat, zonedClock, zonedDateKey } from '@/domain
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
-import { tomorrowForecastDay } from '@/features/today/application/outfit-detail-state';
+import { previewIsThisMorning, tomorrowForecastDay } from '@/features/today/application/outfit-detail-state';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import {
   coverageDrift,
@@ -696,8 +696,7 @@ export function createTomorrowPreviewPresentation(
   if (!outfit || !day) return null;
   const messages = getMessages(language);
   const copy = messages.today;
-  const thisMorning = zonedClock(now, weather.timeZone).hour < 4 &&
-    zonedDateKey(now, weather.timeZone) === day.dateKey;
+  const thisMorning = previewIsThisMorning(now, weather.timeZone, day.dateKey);
   const condition = messages.weather.conditions[day.condition];
   const title = archetypeLabel(messages.recommendation, outfit.archetypeId, forecastDayKind(day));
   const boardPieces = outfitBoardPieces(outfit);

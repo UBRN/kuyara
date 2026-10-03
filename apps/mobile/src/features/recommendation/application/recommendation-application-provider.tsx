@@ -51,7 +51,7 @@ import {
   createRecommendationContextWithPool,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
-import { isSetupDressingDay, nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
+import { nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
@@ -238,9 +238,9 @@ export function RecommendationApplicationProvider({
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
   const resolvedStyles = resolvedStyleAesthetics(dayChoice,
     profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
-  // The day the profile was set up on is answered by setup, so neither question is asked then.
-  const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready' &&
-    !isSetupDressingDay(profileState.profile.createdAt, localDay.key);
+  // The day setup finished on is answered by setup (a choice row written as it completes), so
+  // neither question is asked then.
+  const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready';
   const morningChoicePending = Boolean(dayQuestionOpen && !isEveningDressingDayKey(localDay.key) &&
     profileState.status === 'ready' && profileState.profile.morningSheetEnabled);
   const eveningChoicePending = Boolean(dayQuestionOpen && isEveningDressingDayKey(localDay.key));
@@ -490,11 +490,9 @@ export function RecommendationApplicationProvider({
   // ask belongs to the dressing day it was made in: an open in the afternoon does not carry into
   // the evening, whose own first foreground open of Today must ask again.
   const [previewWantedKey, setPreviewWantedKey] = useState<string | null>(null);
-  const [previewClock, setPreviewClock] = useState(Date.now);
   const previewWanted = previewWantedKey === localDay.key;
   const evaluateApprovedTriggers = useCallback(async (foreground = false) => {
     if (foreground) {
-      setPreviewClock(Date.now());
       setPreviewWantedKey(deviceLocalDay().key);
     }
     const generationInput = currentInput();
@@ -525,12 +523,17 @@ export function RecommendationApplicationProvider({
     });
   }, [controller, currentInput, localDay.key, localProfileId, settingsStyles]);
 
+  const answerSetupDay = useCallback(async (formality: DressStyle) => {
+    const key = deviceLocalDay().key;
+    const choice = await (await loadChoiceRepository()).upsert(localProfileId, key, formality, 'morning');
+    if (key === localDay.key) setDayChoiceState({ profileId: localProfileId, key, status: 'row', choice });
+  }, [localDay.key, localProfileId]);
+
   // The evening preview of tomorrow: one selection per dressing day, through the same chain, once
   // today's outfit has settled, and only when the forecast covers tomorrow's whole window.
   const placeTimeZone = input?.snapshot.timeZone;
-  const tomorrowMorning = useMemo(() => placeTimeZone ? nextMorningAfterEvening(
-    localDay.key, placeTimeZone, new Date(previewClock).toISOString(),
-  ) : null, [placeTimeZone, localDay.key, previewClock]);
+  const tomorrowMorning = useMemo(() => placeTimeZone ? nextMorningAfterEvening(localDay.key) : null,
+    [placeTimeZone, localDay.key]);
   const tomorrowKey = tomorrowMorning ? localDayKey(tomorrowMorning) : null;
   const previewController = useMemo(() => new TomorrowPreviewController(localProfileId,
     { store: previewStore, client, loadRecentWorn, compose: composePreview }),
@@ -546,8 +549,7 @@ export function RecommendationApplicationProvider({
   useEffect(() => {
     if (!previewWanted || !tomorrowMorning || !tomorrowKey || !input || eveningChoicePending ||
         !settledRecommendation) return;
-    const departureAt = previewDepartureAt(localDay.key, input.snapshot.timeZone,
-      new Date(previewClock).toISOString());
+    const departureAt = previewDepartureAt(localDay.key, input.snapshot.timeZone);
     if (!departureAt || !forecastCoversWindow(input.snapshot, departureAt)) return;
     void previewController.ensure({
       snapshot: input.snapshot,
@@ -563,7 +565,7 @@ export function RecommendationApplicationProvider({
       // What the morning will exclude too, unless today's outfit changes before then.
       excludedOptionIds: settledRecommendation.outfits.map(({ optionId }) => optionId),
     });
-  }, [eveningChoicePending, input, language, localDay.key, previewClock, previewController, previewWanted,
+  }, [eveningChoicePending, input, language, localDay.key, previewController, previewWanted,
     profileDefault, settledRecommendation, tomorrowKey, tomorrowMorning, tomorrowStyles]);
   // Shown only while it still answers tomorrow's question: the same place, gender, dress style
   // and styles. Otherwise it simply does not appear; the day's one selection is not spent again.
@@ -632,6 +634,7 @@ export function RecommendationApplicationProvider({
     resolvedDressStyle,
     resolvedStyleAesthetics: resolvedStyles,
     chooseFormality,
+    answerSetupDay,
     outfitHistory,
     reask: async ({ formality, departureAt, timeZone }) => {
       const result = await reaskForDressingDay({ formality, departureAt, timeZone }, {
@@ -674,6 +677,7 @@ export function RecommendationApplicationProvider({
     localProfileId,
     evaluateApprovedTriggers,
     chooseFormality,
+    answerSetupDay,
     choiceReady,
     choiceFailed,
     currentDayChoice,

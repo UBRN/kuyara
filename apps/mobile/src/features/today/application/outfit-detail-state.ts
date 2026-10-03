@@ -1,4 +1,4 @@
-import { zonedDateKey } from '@/domain/intl-format';
+import { zonedClock, zonedDateKey } from '@/domain/intl-format';
 import type {
   OutfitRecommendationResult,
   RecommendedOutfit,
@@ -45,6 +45,20 @@ export function tomorrowForecastDay(preview: RecommendationSnapshot, weather: We
     ? zonedDateKey(departure, weather.timeZone) : preview.localDayKey;
   if (!dateKey) return null;
   return weather.daily?.find((day) => day.dateKey === dateKey) ?? null;
+}
+
+/**
+ * Whether the preview's day is the morning the place's clock is already in: between midnight
+ * and 04:00 the coming morning is "This morning". The strip and the detail title both read it.
+ */
+export function previewIsThisMorning(now: number, timeZone: string, dateKey: string): boolean {
+  return zonedClock(now, timeZone).hour < 4 && zonedDateKey(now, timeZone) === dateKey;
+}
+
+/** Tomorrow's detail is titled "This morning" while its forecast day is the place's current morning. */
+export function tomorrowDetailIsThisMorning(state: TodayScreenState, now: number): boolean {
+  return state.kind === 'loaded' && state.forecastDay != null &&
+    previewIsThisMorning(now, state.snapshot.weather.timeZone, state.forecastDay.dateKey);
 }
 
 /** Detail of the evening preview reads its own outfit and the active place's forecast. */
