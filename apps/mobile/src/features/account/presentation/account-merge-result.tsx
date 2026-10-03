@@ -1,0 +1,50 @@
+import { StyleSheet, View } from 'react-native';
+
+import { AppText, Button, Icon } from '@/components/ui';
+import type { MergeCounts } from '@/features/account/domain/account-merge';
+import { ResultRow } from '@/features/account/presentation/account-result';
+import { useMessages } from '@/localization/use-messages';
+import { spacing } from '@/theme/theme';
+import { useKuyaraTheme } from '@/theme/theme-context';
+
+/**
+ * The merge result (ADR 0041 section 4), in the account sheet's result anatomy: what each
+ * side gave the other, per kind, the rule that settled a piece or day both held, and where
+ * the profile came from. Duplicates are never removed for the person, so "Open Closet" sits
+ * beside "Done".
+ */
+export function AccountMergeResultContent({
+  counts,
+  onDone,
+  onOpenCloset,
+}: Readonly<{ counts: MergeCounts; onDone: () => void; onOpenCloset: () => void }>) {
+  const account = useMessages().account;
+  const copy = account.merge;
+  const theme = useKuyaraTheme();
+
+  return (
+    <View style={styles.content} testID="account-result-merged">
+      <Icon color={theme.colors.successInk} name="checkCircle" size={28} />
+      <AppText accessibilityRole="header" variant="titleLarge">{copy.title}</AppText>
+      <ResultRow icon="hanger">
+        <AppText tabularNumbers testID="account-merge-closet">{copy.closet(counts.piecesAdded, counts.piecesReceived)}</AppText>
+      </ResultRow>
+      <ResultRow icon="calendar">
+        <AppText tabularNumbers testID="account-merge-history">
+          {copy.history(counts.historyDaysAdded, counts.historyDaysReceived)}
+        </AppText>
+      </ResultRow>
+      <ResultRow icon="sync">
+        <AppText>{copy.rule}</AppText>
+        <AppText colorRole="textSecondary" variant="caption">{copy.duplicates}</AppText>
+      </ResultRow>
+      <ResultRow icon="personCircle"><AppText>{account.restore.doneProfile}</AppText></ResultRow>
+      <Button label={copy.done} onPress={onDone} size="large" testID="account-result-done" />
+      <Button label={copy.openCloset} onPress={onOpenCloset} size="large" testID="account-merge-open-closet" variant="plain" />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.xl },
+});
