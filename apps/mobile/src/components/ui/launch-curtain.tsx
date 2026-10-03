@@ -4,6 +4,7 @@ import {
   createContext,
   type PropsWithChildren,
   use,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -98,17 +99,6 @@ type Scheme = 'light' | 'dark';
 const ink = Object.freeze({ light: brandColors.deepAtmosphere, dark: brandColors.quietSky });
 const ground = Object.freeze({ light: brandColors.softMist, dark: brandColors.nightLayer });
 
-/** When the curtain starts to lift and when the layer is gone, from the moment it moves. */
-function launchTimeline(motion: LaunchMotion): Readonly<{ reveal: number; done: number }> {
-  const { fast, launch, normal } = standardMotion;
-  switch (motion) {
-    case 'dive': return { reveal: fast + launch, done: fast + launch + normal };
-    case 'short': return { reveal: fast, done: fast + normal };
-    case 'late': return { reveal: 0, done: normal };
-    case 'failed': return { reveal: 0, done: fast };
-  }
-}
-
 function motionFor(readiness: LaunchReadiness, late: boolean): LaunchMotion | null {
   if (readiness === 'ready') return 'dive';
   if (readiness === 'shortened') return 'short';
@@ -139,10 +129,9 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
   const [drawn, setDrawn] = useState(false);
   const [late, setLate] = useState(false);
   // The launch moves once the JavaScript thread is idle and on the frame after, so the first
-  // screen's render and its native mount are behind it and never stall its frames, and an
-  // answer refined meanwhile (a drawn first screen that turns out to be a notification's) is
-  // the one played. Once moving, a later answer (a retry, a ready after the ceiling) changes
-  // nothing.
+  // screen's render is behind it, and an answer refined meanwhile (a drawn first screen that
+  // turns out to be a notification's) is the one played. Once moving, a later answer (a retry,
+  // a ready after the ceiling) changes nothing.
   const [motion, setMotion] = useState<LaunchMotion | null>(null);
   const answer = cold ? motionFor(readiness, late) : null;
 
@@ -164,16 +153,13 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
     };
   }, [answer, drawn, motion]);
 
-  useEffect(() => {
-    if (motion === null) return undefined;
-    const timeline = launchTimeline(motion);
-    const lifting = setTimeout(() => setReveal({ revealing: true, done: false }), timeline.reveal);
-    const gone = setTimeout(() => setReveal(revealed), timeline.done);
-    return () => {
-      clearTimeout(lifting);
-      clearTimeout(gone);
-    };
-  }, [motion]);
+  // The motion itself says when the curtain lifts and when the layer has gone. The UI thread
+  // can still be mounting the first screen when the motion is asked for and start it hundreds
+  // of milliseconds late; a clock on this thread would take the layer away mid-dive.
+  const lifting = useCallback(() => {
+    setReveal((current) => (current.revealing ? current : { revealing: true, done: false }));
+  }, []);
+  const gone = useCallback(() => setReveal(revealed), []);
 
   const reported = useRef(false);
   const reportDrawn = () => {
@@ -188,16 +174,30 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
   return (
     <>
       <LaunchRevealContext value={reveal}>{children}</LaunchRevealContext>
-      {reveal.done ? null : <CurtainLayer blocking={!reveal.revealing} motion={motion} onLayout={reportDrawn} />}
+      {reveal.done ? null : (
+        <CurtainLayer
+          blocking={!reveal.revealing}
+          motion={motion}
+          onGone={gone}
+          onLayout={reportDrawn}
+          onLifting={lifting}
+        />
+      )}
     </>
   );
 }
 
-function CurtainLayer({
-  blocking,
-  motion,
-  onLayout,
-}: Readonly<{ blocking: boolean; motion: LaunchMotion | null; onLayout: () => void }>) {
+type CurtainLayerProps = Readonly<{
+  blocking: boolean;
+  motion: LaunchMotion | null;
+  onLayout: () => void;
+  /** The curtain starts to lift: the dive or the veil has arrived, or the layer withdraws. */
+  onLifting: () => void;
+  /** The layer has faded away. */
+  onGone: () => void;
+}>;
+
+function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: CurtainLayerProps) {
   // The native splash follows the system appearance, not the app's theme setting, which is
   // applied only once the profile has loaded; the layer reads it once, on mount.
   const [scheme] = useState<Scheme>(() => (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'));
@@ -213,22 +213,32 @@ function CurtainLayer({
   useEffect(() => {
     if (motion === null) return;
     const { fast, launch, normal } = standardMotion;
+    // Each ends on the UI thread, where the motion runs, however late it started.
+    const lifted = () => {
+      'worklet';
+      scheduleOnRN(onLifting);
+    };
+    const faded = () => {
+      'worklet';
+      scheduleOnRN(onGone);
+    };
     if (motion === 'dive') {
       breath.set(withTiming(1, { duration: fast, easing: EASE_OUT }));
-      dive.set(withDelay(fast, withTiming(1, { duration: launch, easing: DIVE_EASING })));
+      dive.set(withDelay(fast, withTiming(1, { duration: launch, easing: DIVE_EASING }, lifted)));
       camera.set(withDelay(fast, withTiming(1, { duration: launch * CAMERA_SHARE, easing: GLIDE_EASING })));
       fill.set(withDelay(
         fast + launch * FILL_FROM,
         fadeTo(1, launch * (FILL_TO - FILL_FROM), standardMotion),
       ));
-      lift.set(withDelay(fast + launch, fadeTo(0, normal, standardMotion)));
+      lift.set(withDelay(fast + launch, fadeTo(0, normal, standardMotion, faded)));
     } else if (motion === 'short') {
-      veil.set(fadeTo(1, fast, standardMotion));
-      lift.set(withDelay(fast, fadeTo(0, normal, standardMotion)));
+      veil.set(fadeTo(1, fast, standardMotion, lifted));
+      lift.set(withDelay(fast, fadeTo(0, normal, standardMotion, faded)));
     } else {
-      withdraw.set(fadeTo(0, motion === 'late' ? normal : fast, standardMotion));
+      onLifting();
+      withdraw.set(fadeTo(0, motion === 'late' ? normal : fast, standardMotion, faded));
     }
-  }, [breath, camera, dive, fill, lift, motion, veil, withdraw]);
+  }, [breath, camera, dive, fill, lift, motion, onGone, onLifting, veil, withdraw]);
 
   const short = motion === 'short';
   // The curtain is the one colour the dive or the veil arrives at. Until it has arrived, the
