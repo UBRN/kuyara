@@ -19,8 +19,10 @@ export const latestDatabaseVersion = 26;
 //
 // Red lines for future migrations:
 // - A table rebuild must copy the v8/v13 recipe: `PRAGMA defer_foreign_keys = ON` before the
-//   copy, a `foreign_key_check` scoped to the rebuilt table, and `PRAGMA defer_foreign_keys =
-//   OFF` after that check when the rebuilt table is a parent. `DROP TABLE` of a parent runs
+//   copy and, when the rebuilt table is a parent, a `foreign_key_check` scoped to it followed
+//   by `PRAGMA defer_foreign_keys = OFF`. A child-only rebuild (v13, v26) skips the check: its
+//   rows go into an identical foreign key, and throwing on an orphan the device already holds
+//   would stop the app from starting. `DROP TABLE` of a parent runs
 //   an implicit DELETE that, under enforcement, bumps the deferred violation counter; the
 //   rename that follows makes the rows consistent again but the counter stays, so COMMIT
 //   fails unless the OFF pragma resets it. The pragma documentation cautions that this reset
