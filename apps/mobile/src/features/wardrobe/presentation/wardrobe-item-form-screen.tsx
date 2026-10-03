@@ -55,6 +55,7 @@ import { FormToolbar } from '@/features/wardrobe/presentation/form-toolbar';
 import { GarmentTypePicker } from '@/features/wardrobe/presentation/garment-type-picker';
 import { OwnershipChoice } from '@/features/wardrobe/presentation/ownership-choice';
 import { PiecePreviewStage } from '@/features/wardrobe/presentation/piece-preview-stage';
+import { useStagedWardrobePhoto } from '@/features/wardrobe/presentation/use-staged-wardrobe-photo';
 import {
   showWardrobeConfirmation,
   type WardrobeConfirmation,
@@ -207,16 +208,13 @@ export function WardrobeItemFormScreen({
   const [photoProblem, setPhotoProblem] = useState<WardrobePhotoProblem | null>(null);
   // Where the staged photo came from, so a camera photo is replaced by the camera again.
   const [photoSource, setPhotoSource] = useState<WardrobePhotoSource>('library');
-  const [photoChange, setPhotoChange] = useState<WardrobePhotoChange>(
-    unchangedWardrobePhoto,
-  );
+  const { photoChange, previewUri: resolvedPreviewUri, changePhoto: stagePhotoChange, commitPhoto } =
+    useStagedWardrobePhoto(onDiscardStagedPhoto, photoPreviewUri);
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
   // O10: a new piece starts on its type's most natural colour until the user picks one.
   const colorChosenRef = useRef(mode === 'edit');
   const operationRef = useRef<Promise<void> | null>(null);
   const mountedRef = useRef(true);
-  const stagedPhotoRef = useRef<StagedWardrobePhoto | null>(null);
-  const discardStagedPhotoRef = useRef(onDiscardStagedPhoto);
   const isProcessingPhoto = processingSource !== null;
   const busy = isBusy || isSaving || isDeleting || isProcessingPhoto;
   // The type grid is open: on a new piece until a type is picked, and again after "Change".
@@ -227,12 +225,6 @@ export function WardrobeItemFormScreen({
   const selectedTypeLabel = selectedType
     ? messages.catalog[selectedType.nameKey]
     : null;
-  const resolvedPreviewUri =
-    photoChange.kind === 'replace'
-      ? photoChange.stagedPhoto.previewUri
-      : photoChange.kind === 'remove'
-        ? null
-        : photoPreviewUri;
   const hasPhoto =
     resolvedPreviewUri !== null ||
     (photoChange.kind === 'unchanged' && Boolean(item?.photoRelativePath));
@@ -246,25 +238,16 @@ export function WardrobeItemFormScreen({
         : copy.saveOwnedAction;
 
   useEffect(() => {
-    discardStagedPhotoRef.current = onDiscardStagedPhoto;
-  }, [onDiscardStagedPhoto]);
-
-  useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      const stagedPhoto = stagedPhotoRef.current;
-      if (stagedPhoto) {
-        void discardStagedPhotoRef.current(stagedPhoto).catch(() => undefined);
-      }
     };
   }, []);
 
   const changePhoto = (next: WardrobePhotoChange) => {
-    stagedPhotoRef.current =
-      next.kind === 'replace' ? next.stagedPhoto : null;
-    setPhotoChange(next);
+    if (!stagePhotoChange(next)) return false;
     setSaveError(false);
+    return true;
   };
 
   const updateValues = useCallback((
@@ -305,27 +288,12 @@ export function WardrobeItemFormScreen({
     setPhotoProblem(null);
     setProcessingSource(source);
     void onSelectPhoto(source)
-      .then(async (stagedPhoto) => {
-        if (!stagedPhoto) {
-          return;
-        }
-
-        if (!mountedRef.current) {
-          await onDiscardStagedPhoto(stagedPhoto).catch(() => undefined);
-          return;
-        }
-
-        const previous = stagedPhotoRef.current;
-        if (previous) {
-          await onDiscardStagedPhoto(previous).catch(() => undefined);
-        }
-        if (!mountedRef.current) {
-          await onDiscardStagedPhoto(stagedPhoto).catch(() => undefined);
+      .then((stagedPhoto) => {
+        if (!stagedPhoto || !changePhoto({ kind: 'replace', stagedPhoto })) {
           return;
         }
         setUnreadablePhotoUri(null);
         setPhotoSource(source);
-        changePhoto({ kind: 'replace', stagedPhoto });
       })
       .catch((error: unknown) => {
         if (mountedRef.current) {
@@ -344,10 +312,6 @@ export function WardrobeItemFormScreen({
       return;
     }
 
-    const stagedPhoto = stagedPhotoRef.current;
-    if (stagedPhoto) {
-      void onDiscardStagedPhoto(stagedPhoto).catch(() => undefined);
-    }
     setUnreadablePhotoUri(null);
     setPhotoProblem(null);
     changePhoto(item?.photoRelativePath ? { kind: 'remove' } : unchangedWardrobePhoto);
@@ -416,6 +380,8 @@ export function WardrobeItemFormScreen({
               : onUpdate({ ...payload, entryState }, photoChange)
             : Promise.reject(new Error('Update is unavailable.'));
         })())
+      // The record now owns the committed photo, so leaving must not discard it.
+      .then(commitPhoto)
       .catch(() => {
         setSaveError(true);
         // The failure line sits at the top, above the stage, where the toolbar's Save is.

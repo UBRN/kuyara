@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
@@ -34,6 +34,7 @@ import {
   closetColorName,
   ClosetColorPalette,
 } from '@/features/wardrobe/presentation/closet-color-palette';
+import { useStagedWardrobePhoto } from '@/features/wardrobe/presentation/use-staged-wardrobe-photo';
 import { WardrobeOption } from '@/features/wardrobe/presentation/wardrobe-option';
 import { TourSheetScope, TourTarget } from '@/features/walkthrough/application/tour-target';
 import { useMessages } from '@/localization/use-messages';
@@ -119,24 +120,16 @@ function PieceEditForm({
     record ? record.colorFamily : target.suggestedColorFamily,
   );
   const [colorChoice, setColorChoice] = useState<ClosetColorChoice | null>(record?.colorChoice ?? null);
-  const [photoChange, setPhotoChange] = useState<WardrobePhotoChange>(unchangedWardrobePhoto);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [photoError, setPhotoError] = useState(false);
   // A stored file that exists but cannot be decoded: the preview steps aside for the hero's
   // drawing (Change and Remove stay reachable) instead of leaving a blank block.
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
-  const staged = useRef<StagedWardrobePhoto | null>(null);
-  const discard = useRef(onDiscardStagedPhoto);
-  useEffect(() => { discard.current = onDiscardStagedPhoto; }, [onDiscardStagedPhoto]);
-  // A picked photo that was never saved leaves with the sheet.
-  useEffect(() => () => {
-    if (staged.current) void discard.current(staged.current).catch(() => undefined);
-  }, []);
-
-  const photoUri = photoChange.kind === 'replace'
-    ? photoChange.stagedPhoto.previewUri
-    : photoChange.kind === 'remove' ? null : resolvePhotoUri(record?.photoRelativePath ?? null);
+  const { photoChange, previewUri: photoUri, changePhoto, commitPhoto } = useStagedWardrobePhoto(
+    onDiscardStagedPhoto,
+    resolvePhotoUri(record?.photoRelativePath ?? null),
+  );
   const saveErrorCopy = saveError ? (record ? copy.updateError : copy.createError) : null;
   useErrorAnnouncement(saveErrorCopy);
   useErrorAnnouncement(photoError ? copy.photoError : null);
@@ -145,18 +138,12 @@ function PieceEditForm({
     setColorFamily(colorChoiceFamily(next));
   };
 
-  const replacePhoto = (next: WardrobePhotoChange) => {
-    const previous = staged.current;
-    if (previous) void onDiscardStagedPhoto(previous).catch(() => undefined);
-    staged.current = next.kind === 'replace' ? next.stagedPhoto : null;
-    setPhotoChange(next);
-  };
   const selectPhoto = () => {
     if (busy) return;
     setPhotoError(false);
     setBusy(true);
     void onSelectPhoto()
-      .then((photo) => { if (photo) replacePhoto({ kind: 'replace', stagedPhoto: photo }); })
+      .then((photo) => { if (photo) changePhoto({ kind: 'replace', stagedPhoto: photo }); })
       .catch(() => setPhotoError(true))
       .finally(() => setBusy(false));
   };
@@ -170,7 +157,7 @@ function PieceEditForm({
       ? { entryState, colorFamily, colorChoice: changedChoice, photoChange }
       : { entryState, colorFamily, photoChange })
       // The record now owns a committed photo, so the unmount must not discard it.
-      .then(() => { staged.current = null; })
+      .then(commitPhoto)
       .catch(() => { setSaveError(true); setBusy(false); });
   };
   const chooseEntryState = (next: WardrobeEntryState) => {
@@ -279,7 +266,7 @@ function PieceEditForm({
           onPress={selectPhoto} testID="piece-edit-photo-select" variant="tonal" />
         {photoUri ? (
           <Button disabled={busy} label={copy.removePhotoAction}
-            onPress={() => replacePhoto(record?.photoRelativePath ? { kind: 'remove' } : unchangedWardrobePhoto)}
+            onPress={() => changePhoto(record?.photoRelativePath ? { kind: 'remove' } : unchangedWardrobePhoto)}
             testID="piece-edit-photo-remove" variant="plain" />
         ) : null}
         {photoError ? (

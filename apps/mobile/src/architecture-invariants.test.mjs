@@ -835,8 +835,7 @@ const undefinedSwallowAllowlist = new Map([
   ['features/recommendation/data/expo-file-ai-regeneration-budget.ts', 1],
   ['features/recommendation/data/sqlite-outfit-history-repository.ts', 1],
   ['features/walkthrough/application/walkthrough-controller.ts', 1],
-  ['features/wardrobe/presentation/piece-edit-sheet.tsx', 2],
-  ['features/wardrobe/presentation/wardrobe-item-form-screen.tsx', 6],
+  ['features/wardrobe/presentation/wardrobe-item-form-screen.tsx', 1],
 ]);
 
 test('an error swallowed as `undefined` appears only where the allowlist names it', () => {
@@ -861,7 +860,7 @@ test('an error swallowed as `undefined` appears only where the allowlist names i
   );
   assert.equal(
     [...undefinedSwallowAllowlist.values()].reduce((sum, count) => sum + count, 0),
-    18,
+    11,
     'the `undefined` swallow allowlist only shrinks: lower this total when an entry goes',
   );
 });
@@ -1175,4 +1174,13 @@ test('the History drawing sky is written only by its owner', () => {
   const hits = sourceFiles().filter((file) =>
     file !== owner && /temperatureC:\s*18\b/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits, [], 'spread historyDrawingSky');
+});
+
+// A form's staged photo is held and discarded only by `useStagedWardrobePhoto`.
+test('presentation holds a staged photo only through useStagedWardrobePhoto', () => {
+  const owner = 'features/wardrobe/presentation/use-staged-wardrobe-photo.ts';
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && (file.startsWith('app/') || file.includes('/presentation/'))
+    && /useRef<StagedWardrobePhoto|[dD]iscardStagedPhoto\w*(\.current)?\(/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'use useStagedWardrobePhoto');
 });
