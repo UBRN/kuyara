@@ -2,6 +2,7 @@ import type {
   Breathability,
   Coverage,
   Formality,
+  GarmentTypeId,
   LayerRole,
   ThermalLevel,
   TractionSuitability,
@@ -1296,6 +1297,33 @@ function offeredAccessories(
   );
 }
 
+function accessoriesOfSlot(
+  accessories: readonly EligibleGarmentResult[],
+  slot: AccessoryOutfitSlot,
+): readonly EligibleGarmentResult[] {
+  const region = accessoryRegionBySlot[slot];
+  return accessories.filter(({ garment }) => garment.properties.bodyRegion === region);
+}
+
+/**
+ * The accessories that answer a requirement today, by the slot each one fills: the ones the
+ * composer would offer for that slot on this day, best first. Detail's accessory picker lists
+ * them first. Candidates that are not eligible, or that answer nothing the day asked, are
+ * left out; on a day that asks nothing of the head, neck, hands or rain, every slot is empty.
+ */
+export function offeredAccessoriesBySlot(
+  candidates: readonly GarmentEligibilityResult[],
+): Readonly<Record<AccessoryOutfitSlot, readonly EligibleGarmentResult[]>> {
+  const offered = offeredAccessories(
+    candidates
+      .filter((candidate): candidate is EligibleGarmentResult => candidate.status === 'eligible')
+      .sort(compareGarmentEligibilityResults),
+  );
+  return Object.freeze(Object.fromEntries(
+    accessoryOutfitSlots.map((slot) => [slot, accessoriesOfSlot(offered, slot)]),
+  ) as Record<AccessoryOutfitSlot, readonly EligibleGarmentResult[]>);
+}
+
 function formalityDistance(
   result: EligibleGarmentResult,
   outfitRank: number,
@@ -1316,10 +1344,7 @@ function accessoryForSlot(
   slot: AccessoryOutfitSlot,
   formality: Formality,
 ): AssignedOutfitGarment | null {
-  const region = accessoryRegionBySlot[slot];
-  const offered = accessories.filter(
-    ({ garment }) => garment.properties.bodyRegion === region,
-  );
+  const offered = accessoriesOfSlot(accessories, slot);
   if (offered.length === 0) {
     return null;
   }
@@ -1830,6 +1855,29 @@ export type OutfitArrangement = Readonly<{
 }>;
 
 /**
+ * A piece a person chose reads as eligible even when it fails a hard requirement: its
+ * evaluations and a zero score still describe what they chose.
+ */
+function asEligibleDraftPart(result: GarmentEligibilityResult): EligibleGarmentResult {
+  if (result.status === 'eligible') return result;
+  if (result.garment === null) throw new Error('An arrangement piece has no catalog garment.');
+  return Object.freeze({ ...result, status: 'eligible', garment: result.garment, score: 0,
+    scoreBeforePenalties: 0, penaltyPoints: 0 });
+}
+
+/**
+ * One accessory a person put on in detail, built as the composer builds one it attached. An
+ * accessory that does not answer today's weather is still wearable and never changes the
+ * outfit's verdict: accessories are not part of the arrangement.
+ */
+export function assignAccessory(
+  slot: AccessoryOutfitSlot,
+  result: GarmentEligibilityResult,
+): AssignedOutfitGarment {
+  return assignedGarment(asEligibleDraftPart(result), slot, null);
+}
+
+/**
  * Evaluates an arrangement with the composer's own rules, without composing anything. The
  * arrangement is never rejected: `suitable` is the domain's weather verdict, true only when
  * every piece passes its own hard requirements and the set meets every mandatory
@@ -1850,20 +1898,14 @@ export function evaluateArrangement(
     arrangement.outerLayer,
     arrangement.footwear,
   ].filter((result) => result !== null);
-  const asDraftPart = (result: GarmentEligibilityResult): EligibleGarmentResult => {
-    if (result.status === 'eligible') return result;
-    if (result.garment === null) throw new Error('An arrangement piece has no catalog garment.');
-    return Object.freeze({ ...result, status: 'eligible', garment: result.garment, score: 0,
-      scoreBeforePenalties: 0, penaltyPoints: 0 });
-  };
   const draft: DraftComposition = Object.freeze({
     body: arrangement.body.kind === 'separates'
-      ? Object.freeze({ kind: 'separates', primaryTop: asDraftPart(arrangement.body.primaryTop),
-        bottom: asDraftPart(arrangement.body.bottom) })
-      : Object.freeze({ kind: 'one_piece', onePiece: asDraftPart(arrangement.body.onePiece) }),
-    midLayer: arrangement.midLayer ? asDraftPart(arrangement.midLayer) : null,
-    outerLayer: arrangement.outerLayer ? asDraftPart(arrangement.outerLayer) : null,
-    footwear: asDraftPart(arrangement.footwear),
+      ? Object.freeze({ kind: 'separates', primaryTop: asEligibleDraftPart(arrangement.body.primaryTop),
+        bottom: asEligibleDraftPart(arrangement.body.bottom) })
+      : Object.freeze({ kind: 'one_piece', onePiece: asEligibleDraftPart(arrangement.body.onePiece) }),
+    midLayer: arrangement.midLayer ? asEligibleDraftPart(arrangement.midLayer) : null,
+    outerLayer: arrangement.outerLayer ? asEligibleDraftPart(arrangement.outerLayer) : null,
+    footwear: asEligibleDraftPart(arrangement.footwear),
   });
   const outfit = evaluateDraft(draft, bodyClothingRequirements(requirements));
   return Object.freeze({
@@ -1893,26 +1935,131 @@ export function collectValidOutfits(
       });
 }
 
+/**
+ * A piece a person chose to wear around: one catalog garment type held to one of the six body
+ * slots. Slot-bound, because a sweater is either a top or a mid layer and the two are
+ * different outfits.
+ */
+export type OutfitPin = Readonly<{
+  slot: Exclude<OutfitSlot, AccessoryOutfitSlot>;
+  garmentTypeId: GarmentTypeId;
+}>;
+
+/** What compose around chosen pieces offers: at most three, one or two when that is all there are. */
+export const composedOptionLimit = 3;
+
+function pinnedGarmentId(outfit: OutfitCandidate, slot: OutfitPin['slot']): string | undefined {
+  switch (slot) {
+    case 'primary_top':
+      return outfit.body.kind === 'separates' ? outfit.body.primaryTop.garment.garmentTypeId : undefined;
+    case 'bottom':
+      return outfit.body.kind === 'separates' ? outfit.body.bottom.garment.garmentTypeId : undefined;
+    case 'one_piece':
+      return outfit.body.kind === 'one_piece' ? outfit.body.onePiece.garment.garmentTypeId : undefined;
+    case 'mid_layer':
+      return outfit.midLayer?.garment.garmentTypeId;
+    case 'outer_layer':
+      return outfit.outerLayer?.garment.garmentTypeId;
+    case 'footwear':
+      return outfit.footwear.garment.garmentTypeId;
+  }
+}
+
+/** Whether an outfit wears every pin in the slot the pin names. */
+export function outfitWearsPins(outfit: OutfitCandidate, pins: readonly OutfitPin[]): boolean {
+  return pins.every(({ slot, garmentTypeId }) => pinnedGarmentId(outfit, slot) === garmentTypeId);
+}
+
+/**
+ * The offer around pins. The pin is a predicate on the full valid set, taken before the
+ * order, the diversity rule and the accessories, because the 24 Today offers hold the pin in
+ * none of their outfits more often than not. The reader's own pieces always show, so the
+ * recently worn exclusion does not apply, and the three picks are the most that can differ.
+ */
+function offerAroundPins(
+  result: Extract<ComposedDrafts, { status: 'composed' }>,
+  startOffset: number,
+  pins: readonly OutfitPin[],
+): readonly OutfitCandidate[] {
+  return withAccessories(
+    selectDiverseOutfits(
+      orderForOffer(result.outfits.filter((outfit) => outfitWearsPins(outfit, pins)), startOffset),
+      composedOptionLimit,
+    ),
+    result.accessorySets,
+  );
+}
+
 export function composeOutfitOptions(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
   startOffset: number,
   recentWorn: readonly WornOutfit[] = [],
+  pins: readonly OutfitPin[] = [],
 ): OutfitCompositionsResult {
   const result = composeValidOutfits(requirements, candidates);
+  if (result.status === 'failure') return result;
+  if (pins.length > 0) {
+    return Object.freeze({
+      status: 'composed',
+      outfits: Object.freeze(offerAroundPins(result, startOffset, pins)),
+    });
+  }
   // Accessories are attached to the offered outfits and to nothing else. The order above
   // them reads score, formality, body core and candidate keys, none of which an accessory
   // touches, so a cold day pays for 24 attachments rather than for its tens of thousands
   // of valid arrangements.
-  return result.status === 'failure'
-    ? result
-    : Object.freeze({
-        status: 'composed',
-        outfits: excludeRecentlyWornOutfits(withAccessories(
-          selectDiverseOutfits(orderForOffer(result.outfits, startOffset), 24),
-          result.accessorySets,
-        ), recentWorn),
-      });
+  return Object.freeze({
+    status: 'composed',
+    outfits: excludeRecentlyWornOutfits(withAccessories(
+      selectDiverseOutfits(orderForOffer(result.outfits, startOffset), 24),
+      result.accessorySets,
+    ), recentWorn),
+  });
+}
+
+export type OutfitsAroundPins = Readonly<{
+  status: 'composed';
+  /** At most three. Empty only when no outfit at all is valid for the day, which is a failure instead. */
+  outfits: readonly OutfitCandidate[];
+  /** The largest set of pins one valid outfit wears, earlier pins winning a tie. */
+  satisfiedPins: readonly OutfitPin[];
+  /** The rest: no valid outfit wears them together with the satisfied ones. */
+  unsatisfiedPins: readonly OutfitPin[];
+}>;
+
+function pinSubsets(pins: readonly OutfitPin[]): readonly (readonly OutfitPin[])[] {
+  const subsets: OutfitPin[][] = [[]];
+  for (const pin of pins) subsets.push(...subsets.map((subset) => [...subset, pin]));
+  return subsets.sort((left, right) => right.length - left.length);
+}
+
+/**
+ * Compose around the pins, keeping as many as any valid outfit can wear together. The valid
+ * set is built once; the subsets are only filters over it. Whatever pins fit no valid outfit
+ * are reported back for the caller to put into the best pick, which the weather then calls
+ * unusual, exactly as a manual change does.
+ */
+export function composeOutfitsAroundPins(
+  requirements: ClothingRequirements,
+  candidates: readonly GarmentEligibilityResult[],
+  startOffset: number,
+  pins: readonly OutfitPin[],
+): OutfitCompositionFailure | OutfitsAroundPins {
+  const result = composeValidOutfits(requirements, candidates);
+  if (result.status === 'failure') return result;
+  for (const subset of pinSubsets(pins)) {
+    const outfits = offerAroundPins(result, startOffset, subset);
+    if (outfits.length === 0) continue;
+    return Object.freeze({
+      status: 'composed',
+      outfits: Object.freeze(outfits),
+      satisfiedPins: Object.freeze(subset),
+      unsatisfiedPins: Object.freeze(pins.filter((pin) => !subset.includes(pin))),
+    });
+  }
+  // Only an empty valid set reaches here, and that is the failure above.
+  throw new Error('A valid composition set is never empty.');
 }
 
 function garmentIdSet(outfit: OutfitCandidate): string {
