@@ -10,10 +10,8 @@ import {
   todayWeatherSnapshot,
 } from '@/features/today/__tests__/fixtures';
 import type { TodayScreenState } from '@/features/today/model';
-import {
-  OutfitDetailScreen,
-  type ClosetSeedOffer,
-} from '@/features/today/presentation/outfit-detail-screen';
+import type { ClosetSeedOffer } from '@/features/today/application/outfit-detail-state';
+import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { darkTheme, lightTheme } from '@/theme/theme';

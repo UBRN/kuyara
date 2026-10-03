@@ -94,3 +94,9 @@ export function zonedClock(instant: number, timeZone: string): ZonedClock {
 export function zonedHour(instant: number, timeZone: string): number {
   return zonedClock(instant, timeZone).hour;
 }
+
+/** The `YYYY-MM-DD` calendar date a zone's wall clock reads at `instant`. */
+export function zonedDateKey(instant: number, timeZone: string): string {
+  return dateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date(instant));
+}

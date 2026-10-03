@@ -12,8 +12,8 @@ import {
   createTomorrowPreviewPresentation,
   eveningLaterReadyLine,
   formatDressingDate,
-  tomorrowForecastDay,
 } from './presentation/today-presentation.ts';
+import { tomorrowForecastDay } from './application/outfit-detail-state.ts';
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
 import { composeGarmentBoard } from '../../components/ui/garment-board/compose-garment-board.ts';
