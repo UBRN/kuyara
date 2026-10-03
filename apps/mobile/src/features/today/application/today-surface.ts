@@ -10,6 +10,7 @@ import type { DressingDayDeparture } from '@/features/recommendation/domain/dres
 import { mayOfferDayQuestion } from '@/features/today/application/today-state';
 import type { TodayScreenState } from '@/features/today/model';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
+import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 
 type Profile = Extract<ProfileApplicationState, { status: 'ready' }>['profile'];
 
@@ -145,4 +146,18 @@ export function todayRetrySucceeded(
     after.snapshot !== null && after.activeLocation !== null && after.freshness !== null &&
     recommendation.status === 'ready' && recommendation.lastFailure === null &&
     recommendation.snapshot?.recommendation.status === 'recommended';
+}
+
+/** Today reads an unavailable state without an active place as the "choose a place" state. */
+export function todayPresentationState(state: TodayScreenState, weather: WeatherApplicationState): TodayScreenState {
+  return state.kind === 'unavailable' && weather.status === 'ready' && weather.activeLocation === null
+    ? { ...state, reason: 'no-active-location' }
+    : state;
+}
+
+/** The first outfit of a recommendation made for the current local day, or none. */
+export function settledFirstOutfit(snapshot: RecommendationSnapshot | null | undefined, now: number) {
+  return snapshot?.localDayKey === localDayKey(new Date(now)) && snapshot.recommendation.status === 'recommended'
+    ? snapshot.recommendation.outfits[0] ?? null
+    : null;
 }
