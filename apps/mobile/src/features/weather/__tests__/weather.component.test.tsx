@@ -275,7 +275,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       ? 'Rain. 16.0 degrees Celsius. Feels like 15.0 degrees Celsius. Low 12.0 degrees Celsius, high 19.0 degrees Celsius. 50% chance of precipitation.'
       : 'Yağmurlu. Sıcaklık 16,0 santigrat derece. Hissedilen sıcaklık 15,0 santigrat derece. En düşük 12,0 santigrat derece, en yüksek 19,0 santigrat derece. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
-      ? 'Wind 14 kilometres per hour'
+      ? 'Wind 14 kilometers per hour'
       : 'Rüzgâr saatte 14 kilometre')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
       ? '70% humidity'

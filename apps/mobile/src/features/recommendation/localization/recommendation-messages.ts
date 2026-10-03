@@ -36,7 +36,7 @@ const tr: RecommendationMessages = {
     cold_shield: 'Soğuğa Karşı',
     rain_ready: 'Yağmura Hazır',
     snow_day: 'Karlı Gün',
-    wind_guard: 'Rüzgara Karşı',
+    wind_guard: 'Rüzgâra Karşı',
     light_and_airy: 'Hafif ve Ferah',
     on_the_move: 'Hareketli Gün',
     in_between: 'Değişken Hava',

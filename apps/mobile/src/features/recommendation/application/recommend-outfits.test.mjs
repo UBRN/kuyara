@@ -261,7 +261,7 @@ test('a continental spring day still composes three outfits from the bundled cat
 
 test('the rationale grid keeps band-neutral reasons across boundary temperatures', () => {
   const temperatureLowEn = 'The temperature calls for warmth.';
-  const temperatureLowTr = 'Hava daha sıcak giyinmeyi gerektiriyor.';
+  const temperatureLowTr = 'Hava soğuk, daha sıcak giyinmek gerekiyor.';
 
   for (const temperatureCelsius of [12, 13]) {
     const result = recommendOutfits({

@@ -307,11 +307,11 @@ test('shared weather reasons lead every outfit and per-outfit composition reason
   assert.deepEqual(english.suggestions[1].reasons, weatherReasons);
   assert.equal(
     english.suggestions[0].accessibilityLabel,
-    'Option 1 of 3. Rain Ready. Top: T-shirt. Bottom: Skirt. Outer layer: Rain jacket. Footwear: Rain boots. Why it works: Strong wind requires wind protection. Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection.',
+    'Option 1 of 3. Rain Ready. Top: T-shirt. Bottom: Skirt. Outer layer: Rain jacket. Footwear: Rain boots. Why this outfit: Strong wind requires wind protection. Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection.',
   );
   assert.equal(
     turkish.suggestions[0].accessibilityLabel,
-    '3 seçenekten birincisi. Yağmura Hazır. Üst: Tişört. Alt: Etek. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Bu kombin şu nedenlerle uygun: Kuvvetli rüzgâr, rüzgâr koruması gerektiriyor. Beklenen yağış su koruması gerektiriyor. Çiseleme hafif su koruması gerektiriyor. Yağmur su koruması gerektiriyor.',
+    '3 seçenekten birincisi. Yağmura Hazır. Üst: Tişört. Alt: Etek. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Neden bu kombin: Rüzgâr kuvvetli, rüzgâr koruması gerekiyor. Yağış bekleniyor, su koruması gerekiyor. Çiselemede hafif bir su koruması gerekiyor. Yağmurda su koruması gerekiyor.',
   );
 });
 
@@ -627,7 +627,7 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.match(turkish.header.freshness, /06:05.*Güncelliğini yitirmiş olabilir/);
   assert.deepEqual(
     turkish.suggestions.map(({ title }) => title),
-    ['Yağmura Hazır', 'Rüzgara Karşı', 'Keyifli Gün'],
+    ['Yağmura Hazır', 'Rüzgâra Karşı', 'Keyifli Gün'],
   );
   assert.deepEqual(
     turkish.suggestions.map(({ summary }) => summary),
@@ -793,7 +793,7 @@ test('the freshness line reports refreshing, failure, staleness, and last update
   assert.equal(refreshing.header.announceFreshness, true);
 
   const failed = loadedPresentation({ ...base, isRefreshing: false, refreshFailed: true });
-  assert.match(failed.header.freshness, /^Couldn't refresh · Showing last update from /);
+  assert.match(failed.header.freshness, /^Couldn’t refresh · Showing last update from /);
   assert.equal(failed.header.isRefreshing, false);
   assert.equal(failed.header.announceFreshness, true);
 
@@ -812,7 +812,7 @@ test('the freshness line carries the short date once the snapshot is not from th
   assert.doesNotMatch(sameDay.header.freshness, /2026|\//);
   for (const days of [1, 3]) {
     const later = loadedPresentation(failed, 'en', false, fixtureNow + days * 24 * 3_600_000);
-    assert.match(later.header.freshness, /^Couldn't refresh · Showing last update from 13\/08\/2026, 06:05$/);
+    assert.match(later.header.freshness, /^Couldn’t refresh · Showing last update from 13\/08\/2026, 06:05$/);
   }
   const turkish = loadedPresentation(
     { ...todayScreenState, isRefreshing: false, refreshFailed: false },
@@ -840,11 +840,11 @@ test('a narrated refresh replaces the generic freshness line with the phase, in 
     'using-standard': 'AI did not answer. Using standard suggestions.',
   };
   const turkish = {
-    'checking-on-device': 'Cihaz içi AI kontrol ediliyor.',
-    'asking-stylist': 'AI stiliste soruluyor.',
-    'answer-received': 'AI yanıt verdi. Seçimler kontrol ediliyor.',
+    'checking-on-device': 'Cihazdaki yapay zekâ kontrol ediliyor.',
+    'asking-stylist': 'Yapay zekâ stilistine soruluyor.',
+    'answer-received': 'Yapay zekâ yanıt verdi. Seçimler kontrol ediliyor.',
     'preparing-outfits': 'Kombinlerin hazırlanıyor.',
-    'using-standard': 'AI yanıt vermedi. Standart öneriler kullanılıyor.',
+    'using-standard': 'Yapay zekâ yanıt vermedi. Standart öneriler kullanılıyor.',
   };
 
   for (const phase of phases) {

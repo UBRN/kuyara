@@ -117,7 +117,7 @@ test('Profile shows a personalized Closet heading without a location row', async
     </Providers>,
   );
 
-  expect(result.getByText("Utku's Closet")).toBeOnTheScreen();
+  expect(result.getByText('Utku’s Closet')).toBeOnTheScreen();
   expect(result.queryByTestId('profile-location-row')).toBeNull();
 });
 
