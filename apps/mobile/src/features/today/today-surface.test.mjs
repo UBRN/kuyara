@@ -19,6 +19,7 @@ import {
   todayOutfitSettled,
   todayPresentationState,
   todayRetrySucceeded,
+  tomorrowStrip,
   updatingDayType,
 } from './application/today-surface.ts';
 import { namePromptVersion } from '../profile/domain/profile.ts';
@@ -206,4 +207,12 @@ test('Today is updating while a day-type change or a window choice is under way'
   assert.equal(isUpdatingOutfit('smart', null), true);
   assert.equal(isUpdatingOutfit(null, 'Choosing'), true);
   assert.equal(isUpdatingOutfit('formal', 'Choosing'), true);
+});
+
+test('the tomorrow strip shows only with a ready preview and a way to open it', () => {
+  const tomorrow = { id: 'x' };
+  const open = () => {};
+  assert.deepEqual(tomorrowStrip(tomorrow, open), { tomorrow, onOpenDetail: open });
+  assert.equal(tomorrowStrip(tomorrow, undefined), null);
+  assert.equal(tomorrowStrip(null, open), null);
 });
