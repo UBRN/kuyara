@@ -137,8 +137,6 @@ export type DetailShowing = Readonly<{
   composed: ComposedDetail | null;
   /** What the presentation draws in the opened option's place, or null while kuyara's pick shows. */
   manual: ManualDetail | null;
-  /** The reader's own outfit (a composed result or any edit), or null while kuyara's pick shows. */
-  changedOutfit: RecommendedOutfit | null;
   /** The look "Wore this today" records: `manual` once the outfit is the reader's, else the pick as recommended. */
   worn: WornOutfit | null;
 }>;
@@ -168,5 +166,5 @@ export function detailShowing(
   const worn = changedOutfit
     ? wornOutfitOrNull(changedOutfit, 'manual')
     : pick ? wornOutfitOrNull(pick) : null;
-  return { composed, manual, changedOutfit, worn };
+  return { composed, manual, worn };
 }

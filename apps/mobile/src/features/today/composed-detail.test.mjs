@@ -68,14 +68,12 @@ test('kuyara\'s pick shows as recommended until the reader changes it', () => {
   const showing = detailShowing(pick, null, mixOf(pick), pick.optionId);
   assert.equal(showing.composed, null);
   assert.equal(showing.manual, null);
-  assert.equal(showing.changedOutfit, null);
   assert.equal(showing.worn.source, 'recommended');
   assert.equal(detailShowing(null, null, null, undefined).worn, null);
 });
 
 test('a composed result with no edits is the reader\'s own and records as manual', () => {
   const showing = detailShowing(pick, composedOption, mixOf(composedOption.outfit), pick.optionId);
-  assert.equal(showing.changedOutfit, composedOption.outfit);
   assert.equal(showing.worn.source, 'manual');
   assert.deepEqual(showing.manual, {
     optionId: pick.optionId,
@@ -89,7 +87,6 @@ test('a composed result with no edits is the reader\'s own and records as manual
 
 test('a finishing touch alone makes the outfit the reader\'s, counted against kuyara\'s pick', () => {
   const showing = detailShowing(pick, null, mixOf(pick, { edited: true, changedAccessorySlots: ['neck'] }), pick.optionId);
-  assert.equal(showing.changedOutfit, pick);
   assert.equal(showing.worn.source, 'manual');
   assert.deepEqual(showing.manual.changedSlots, ['neck']);
   assert.equal(showing.manual.original, undefined);
