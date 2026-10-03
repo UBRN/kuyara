@@ -56,9 +56,15 @@ export const styleAestheticsSchema = z.array(styleAestheticSchema).max(3).refine
   (values) => new Set(values).size === values.length,
 );
 
+/** The one stored and compared order of a style-aesthetics list: alphabetical, as a copy. */
+export function orderStyleAesthetics<T extends string>(values: readonly T[]): T[] {
+  return [...values].sort();
+}
+
+/** A list read from storage or a server in that order, or none when it is not a valid list. */
 export function sortedStyleAesthetics(value: unknown): readonly StyleAesthetic[] {
   const parsed = styleAestheticsSchema.safeParse(value);
-  return parsed.success ? [...parsed.data].sort() : [];
+  return parsed.success ? orderStyleAesthetics(parsed.data) : [];
 }
 
 export function normalizeDisplayName(value: string | null): string | null {

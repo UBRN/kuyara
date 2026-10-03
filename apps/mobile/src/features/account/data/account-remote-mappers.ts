@@ -14,7 +14,7 @@ import {
 } from '@/features/account/data/account-remote-records';
 import type { SyncedProfile } from '@/features/account/domain/account-rows';
 import { canonicalServerInstant } from '@/features/account/domain/server-instant';
-import { sortedStyleAesthetics, normalizeDisplayName } from '@/features/profile/domain/profile';
+import { orderStyleAesthetics, sortedStyleAesthetics, normalizeDisplayName } from '@/features/profile/domain/profile';
 import type { DressingDayChoice } from '@/features/recommendation/domain/dressing-day-choice';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import { wornPieceColorsFor, type OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
@@ -144,7 +144,7 @@ export function toRemoteDressingDayChoice(choice: DressingDayChoice, userId: str
     day_key: choice.dayKey,
     formality: choice.formality,
     source: choice.source,
-    style_aesthetics: choice.styleAesthetics === null ? null : [...choice.styleAesthetics].sort(),
+    style_aesthetics: choice.styleAesthetics === null ? null : orderStyleAesthetics(choice.styleAesthetics),
     created_at: choice.createdAt,
     updated_at: choice.updatedAt,
     deleted_at: choice.deletedAt,
@@ -158,7 +158,7 @@ export function fromRemoteDressingDayChoice(raw: unknown, localProfileId: string
     dayKey: row.day_key,
     formality: row.formality,
     source: row.source,
-    styleAesthetics: row.style_aesthetics === null ? null : [...row.style_aesthetics].sort(),
+    styleAesthetics: row.style_aesthetics === null ? null : orderStyleAesthetics(row.style_aesthetics),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,

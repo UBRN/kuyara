@@ -21,7 +21,7 @@ import {
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useWeatherAlertOffer } from '@/features/notifications/application/use-weather-alert-offer';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
-import { namePromptVersion } from '@/features/profile/domain/profile';
+import { namePromptVersion, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
@@ -218,8 +218,8 @@ export default function TodayRoute() {
   };
   const confirmStyles = () => {
     if (!stylesStep) return;
-    const changed = JSON.stringify([...stylesStep.draft].sort()) !==
-      JSON.stringify([...stylesStep.initial].sort());
+    const changed = JSON.stringify(orderStyleAesthetics(stylesStep.draft)) !==
+      JSON.stringify(orderStyleAesthetics(stylesStep.initial));
     void answerSheet(stylesStep.style, changed ? stylesStep.draft : undefined);
   };
   // P6: closing the question answers it with the profile's own dress style, through the same

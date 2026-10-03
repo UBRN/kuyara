@@ -2,6 +2,7 @@ import { styleAesthetics, type StyleAesthetic } from '@kuyara/contracts';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Icon } from '@/components/ui';
+import { orderStyleAesthetics } from '@/features/profile/domain/profile';
 import type { PreferenceMessages } from '@/localization/messages';
 import { borderWidths, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -45,7 +46,7 @@ export function StyleAestheticsOptions({
             key={id}
             onPress={() => onChange(checked
               ? selected.filter((value) => value !== id)
-              : [...selected, id].sort())}
+              : orderStyleAesthetics([...selected, id]))}
             style={({ pressed }) => [styles.option, {
               borderColor: checked ? theme.colors.brandAccent : theme.colors.borderDefined,
               backgroundColor: theme.colors.surface,

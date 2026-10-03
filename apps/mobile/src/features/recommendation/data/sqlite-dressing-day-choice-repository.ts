@@ -9,6 +9,7 @@ import {
   type DressingDayChoiceRepository,
   type DressingDayChoiceSource,
 } from '@/features/recommendation/domain/dressing-day-choice';
+import { orderStyleAesthetics } from '@/features/profile/domain/profile';
 import type { SqliteDatabase, SqliteExecutor } from '@/infrastructure/sqlite/sqlite-database';
 
 type Row = Readonly<{
@@ -64,7 +65,7 @@ export class SqliteDressingDayChoiceRepository implements DressingDayChoiceRepos
         !dressingDayChoiceSourceSchema.safeParse(source).success ||
         (styleAesthetics != null && !dailyStyleAestheticsSchema.safeParse(styleAesthetics).success))
       throw new Error('Invalid choice.');
-    const sortedStyles = styleAesthetics == null ? null : JSON.stringify([...styleAesthetics].sort());
+    const sortedStyles = styleAesthetics == null ? null : JSON.stringify(orderStyleAesthetics(styleAesthetics));
     let choice: DressingDayChoice | null = null;
     await this.database.withExclusiveTransactionAsync(async (transaction) => {
       const now = this.now();
