@@ -367,6 +367,12 @@ The recommendation provider's `refresh` callback is the remaining production sou
 `explicit_request`; a later caller of that callback would also emit it. Confirmed re-asks
 use `regenerate` instead.
 
+Manual edits on outfit detail emit no event and carry no property: taking a layer off,
+adding a layer or an accessory, taking an accessory off, swapping a piece and composing
+around chosen pieces are not generation triggers, produce no `trigger_reason` value, and
+the members-only compose row and its sign-in sheet add neither an event nor a property.
+A composed result that is worn records through "Wore this today", which emits no event.
+
 **Product questions answered.**
 
 - `recommendation_viewed`: how often do people see a fresh, stale, AI-assisted, or fallback

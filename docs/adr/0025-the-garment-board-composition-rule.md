@@ -135,10 +135,13 @@ Phase 6 drawings for `polo_shirt`, `turtleneck`, `blouse`, `bomber_jacket`,
 `sandal` is the weakest of the nine and is explicitly accepted as redrawable during a
 later visual iteration rather than treated as a blocker.
 
-Seven per-type accessory silhouettes, `beanie`, `brimmed_hat`, `cap`, `balaclava`,
-`scarf`, `gloves` and `umbrella`, bring the implemented vocabulary to 41 drawings covering all 49
-catalogue types. They are drawn on the Closet and Profile surfaces, the recommendation
-detail and Today badges. The garment board itself does not draw them.
+Seven accessory silhouettes, `beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`, `gloves`
+and `umbrella`, serve the eight catalogue accessories (`neck_gaiter` shares `scarf`'s) and
+bring the implemented vocabulary to 41 drawings covering all 49 catalogue types. They are
+drawn on the Closet and Profile surfaces, the recommendation detail (its finishing-touch rows
+and the "Add an accessory" picker, [ADR 0026](0026-the-recommendation-detail-surface.md)
+section 6) and Today badges. The garment board itself does not draw them, so taking an
+accessory off or adding one never changes the board.
 
 ### 7. Law 6 boundaries for board artwork
 

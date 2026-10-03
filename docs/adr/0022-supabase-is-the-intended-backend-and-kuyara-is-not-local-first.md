@@ -89,9 +89,11 @@ the current schema and boundaries, and must be preserved:
 ### 5. Accounts must earn themselves
 
 - Basic weather and general outfit recommendations stay usable for a signed-out user.
-- An account is optional and gates no existing feature. What it earns its place with is
-  continuity: the Closet and History are the things a user actually loses today when they
-  change phones, so the account carries them across devices.
+- An account is optional, and only one feature is gated behind it. What it
+  earns its place with is continuity: the Closet and History are the things a user actually
+  loses today when they change phones, so the account carries them across devices. It also
+  earns a place by one feature: composing around chosen pieces on outfit detail is members
+  only, hidden until accounts open ([ADR 0041](0041-optional-accounts.md) section 5).
 
 [ADR 0041](0041-optional-accounts.md) defines what the account carries, how device rows
 move into it, and how sign-out and deletion behave.
@@ -116,5 +118,5 @@ decision, is a violation of both:
 - Supabase tables, Auth, Storage buckets, client SDK, or remote repository
   implementations.
 - Placeholder or "fake" sync abstractions with no current caller.
-- Account UI, sign-in, or gating of any existing feature.
+- Account UI, sign-in, or gating of any feature other than the one members-only feature ADR 0041 section 5 names.
 - Any change to the Cloudflare Worker's role.
