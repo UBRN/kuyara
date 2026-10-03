@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { fetchJsonWithTimeout } from '@/infrastructure/network/fetch-json-with-timeout';
 import type { SupportedLanguage } from '@/localization/messages';
 
 const baseUrl = 'https://weatherkit.apple.com';
@@ -43,15 +44,13 @@ async function loadAttribution(
   language: SupportedLanguage,
   fetchAttribution: typeof globalThis.fetch,
 ): Promise<Attribution> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-  try {
-    const response = await fetchAttribution(`${baseUrl}/attribution/${language}`, {
-      signal: controller.signal,
-    });
-    if (!response.ok) throw new Error('Attribution unavailable');
-    return attributionSchema.parse(await response.json());
-  } finally {
-    clearTimeout(timeout);
-  }
+  const { response, body } = await fetchJsonWithTimeout(
+    fetchAttribution,
+    `${baseUrl}/attribution/${language}`,
+    {},
+    5000,
+    { network: (cause) => cause, invalidJson: () => new Error('Attribution unavailable') },
+  );
+  if (!response.ok) throw new Error('Attribution unavailable');
+  return attributionSchema.parse(body);
 }

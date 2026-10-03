@@ -7,6 +7,7 @@ import {
   type PlaceSearchV1Request,
 } from '@kuyara/contracts';
 
+import { fetchJsonWithTimeout } from '@/infrastructure/network/fetch-json-with-timeout';
 import { PlaceSearchError } from '@/features/weather/domain/place-search-error';
 
 export class WorkerPlaceSearchDataSource {
@@ -23,37 +24,30 @@ export class WorkerPlaceSearchDataSource {
   async search(input: PlaceSearchV1Request): Promise<PlaceSearchV1Data> {
     const request = placeSearchV1RequestSchema.safeParse(input);
     if (!request.success) throw new PlaceSearchError('invalid-input');
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-    try {
-      const response = await this.fetch(`${this.baseUrl}${placeSearchV1Path}`, {
+    const { response, body } = await fetchJsonWithTimeout(
+      this.fetch,
+      `${this.baseUrl}${placeSearchV1Path}`,
+      {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(request.data),
-        signal: controller.signal,
-      });
-      let body: unknown;
-      try {
-        body = await response.json();
-      } catch {
-        throw new PlaceSearchError('invalid-response');
-      }
-      if (!response.ok) {
-        const error = placeSearchV1ErrorSchema.safeParse(body);
-        if (!error.success) throw new PlaceSearchError('invalid-response');
-        const rateLimited = response.status === 429 || error.data.error.code === 'rate_limited';
-        throw new PlaceSearchError(rateLimited ? 'rate-limited' : 'unavailable');
-      }
-      const result = placeSearchV1SuccessSchema.safeParse(body);
-      if (!result.success || result.data.data.places.length > request.data.limit) {
-        throw new PlaceSearchError('invalid-response');
-      }
-      return result.data.data;
-    } catch (error) {
-      if (error instanceof PlaceSearchError) throw error;
-      throw new PlaceSearchError('unavailable');
-    } finally {
-      clearTimeout(timeout);
+      },
+      this.timeoutMs,
+      {
+        network: () => new PlaceSearchError('unavailable'),
+        invalidJson: () => new PlaceSearchError('invalid-response'),
+      },
+    );
+    if (!response.ok) {
+      const error = placeSearchV1ErrorSchema.safeParse(body);
+      if (!error.success) throw new PlaceSearchError('invalid-response');
+      const rateLimited = response.status === 429 || error.data.error.code === 'rate_limited';
+      throw new PlaceSearchError(rateLimited ? 'rate-limited' : 'unavailable');
     }
+    const result = placeSearchV1SuccessSchema.safeParse(body);
+    if (!result.success || result.data.data.places.length > request.data.limit) {
+      throw new PlaceSearchError('invalid-response');
+    }
+    return result.data.data;
   }
 }
