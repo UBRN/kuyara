@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 
+import { defaultFetch, type FetchLike } from '../default-fetch.ts';
 import { mapProviderWeatherToApiV2 } from './provider-weather-mapper.ts';
 import type { ProviderWeatherSnapshot } from './weather-provider.ts';
 import {
@@ -21,7 +22,7 @@ export function weatherHttpErrorKind(status: number): WeatherProviderErrorKind {
 }
 
 export type ProviderFetchOptions<Raw> = Readonly<{
-  fetch: typeof globalThis.fetch | undefined;
+  fetch: FetchLike | undefined;
   url: URL;
   init?: Omit<RequestInit, 'signal'>;
   signal?: AbortSignal;
@@ -40,7 +41,7 @@ export async function fetchProviderWeather<Raw>(
   const { signal } = options;
   let response: Response;
   try {
-    response = await (options.fetch ?? globalThis.fetch)(options.url, { ...options.init, signal });
+    response = await (options.fetch ?? defaultFetch())(options.url, { ...options.init, signal });
   } catch {
     throw new WeatherProviderError(signal?.aborted ? 'timeout' : 'availability');
   }

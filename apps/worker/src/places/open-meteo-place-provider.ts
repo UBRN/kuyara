@@ -8,6 +8,8 @@ import {
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { defaultFetch, type FetchLike } from '../default-fetch.ts';
+
 const maxRegionLength = 400; // placeSearchResultSchema's region bound
 const rawPlaceSchema = z.object({
   id: z.number().int().positive().safe(),
@@ -55,14 +57,11 @@ export class PlaceSearchProviderError extends Error {
 }
 
 export class OpenMeteoPlaceProvider {
-  private readonly fetch: typeof globalThis.fetch;
+  private readonly fetch: FetchLike;
   private readonly timeoutMs: number;
 
-  constructor(dependencies: { fetch?: typeof globalThis.fetch; timeoutMs?: number } = {}) {
-    // Bind the global: storing `globalThis.fetch` on the instance and calling it as `this.fetch`
-    // passes the provider as `this`, which workerd rejects with "Illegal invocation" and Node
-    // tolerates. Every production search returned 503 until this was found on 2026-09-08.
-    this.fetch = dependencies.fetch ?? globalThis.fetch.bind(globalThis);
+  constructor(dependencies: { fetch?: FetchLike; timeoutMs?: number } = {}) {
+    this.fetch = dependencies.fetch ?? defaultFetch();
     this.timeoutMs = dependencies.timeoutMs ?? 4000;
   }
 

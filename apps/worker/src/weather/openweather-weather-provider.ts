@@ -1,4 +1,5 @@
 import { mapOpenWeatherResponse, openWeatherResponseSchema } from './openweather-raw.ts';
+import type { FetchLike } from '../default-fetch.ts';
 import { fetchProviderWeather } from './provider-fetch.ts';
 import type {
   ProviderLocation,
@@ -10,12 +11,12 @@ const baseUrl = 'https://api.openweathermap.org/data/3.0/onecall';
 
 export class OpenWeatherWeatherProvider implements WeatherProvider {
   readonly #apiKey: string;
-  readonly #fetch: typeof globalThis.fetch | undefined;
+  readonly #fetch: FetchLike | undefined;
   readonly #now: () => Date;
 
   constructor(dependencies: Readonly<{
     apiKey: string;
-    fetch?: typeof globalThis.fetch;
+    fetch?: FetchLike;
     now?: () => Date;
   }>) {
     this.#apiKey = dependencies.apiKey;

@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
+import { defaultFetch, type FetchLike } from '../default-fetch.ts';
 import { base64UrlDecode } from '../es256-jwt.ts';
 import { AccountError } from './account-error.ts';
-import { boundedFetch, defaultFetch, type FetchLike } from './bounded-fetch.ts';
+import { boundedFetch } from './bounded-fetch.ts';
 import { userIdPattern } from './user-id.ts';
 
 export type VerifiedSupabaseUser = Readonly<{ userId: string }>;

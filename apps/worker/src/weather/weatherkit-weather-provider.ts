@@ -1,4 +1,5 @@
 import { fetchProviderWeather } from './provider-fetch.ts';
+import type { FetchLike } from '../default-fetch.ts';
 import type {
   ProviderLocation,
   ProviderWeatherSnapshot,
@@ -11,12 +12,12 @@ const baseUrl = 'https://weatherkit.apple.com/api/v1/weather';
 
 export class WeatherKitWeatherProvider implements WeatherProvider {
   readonly #token: WeatherKitTokenProvider;
-  readonly #fetch: typeof globalThis.fetch | undefined;
+  readonly #fetch: FetchLike | undefined;
   readonly #now: () => Date;
 
   constructor(dependencies: Readonly<{
     token: WeatherKitTokenProvider;
-    fetch?: typeof globalThis.fetch;
+    fetch?: FetchLike;
     now?: () => Date;
   }>) {
     this.#token = dependencies.token;

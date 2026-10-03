@@ -1,5 +1,6 @@
 import { weatherDailyForecastMaximumEntries } from '@kuyara/contracts';
 
+import type { FetchLike } from '../default-fetch.ts';
 import { mapOpenMeteoResponse, openMeteoResponseSchema } from './open-meteo-raw.ts';
 import { fetchProviderWeather } from './provider-fetch.ts';
 import type {
@@ -11,11 +12,11 @@ import type {
 const baseUrl = 'https://api.open-meteo.com/v1/forecast';
 
 export class OpenMeteoWeatherProvider implements WeatherProvider {
-  readonly #fetch: typeof globalThis.fetch | undefined;
+  readonly #fetch: FetchLike | undefined;
   readonly #now: () => Date;
 
   constructor(
-    dependencies?: Readonly<{ fetch?: typeof globalThis.fetch; now?: () => Date }>,
+    dependencies?: Readonly<{ fetch?: FetchLike; now?: () => Date }>,
   ) {
     this.#fetch = dependencies?.fetch;
     this.#now = dependencies?.now ?? (() => new Date());

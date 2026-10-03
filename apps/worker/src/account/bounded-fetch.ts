@@ -1,15 +1,9 @@
+import type { FetchLike } from '../default-fetch.ts';
 import { readTextWithLimit } from '../json-request.ts';
 import { AccountError } from './account-error.ts';
 
-export type FetchLike = typeof globalThis.fetch;
-
 // The account routes read small JSON bodies; anything larger is not an answer they know.
 const maxBodyBytes = 65_536;
-
-/** Bind the global: calling it as a stored property passes the wrong `this`, which workerd rejects. */
-export function defaultFetch(): FetchLike {
-  return globalThis.fetch.bind(globalThis);
-}
 
 /**
  * One upstream call with a deadline that also covers reading the body. A network failure or

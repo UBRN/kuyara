@@ -20,13 +20,14 @@ import {
   type OutfitArchetypeId,
 } from '@kuyara/contracts';
 
+import { raceWithTimeout } from '../attempt-timeout.ts';
 import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
 import {
   checkRateLimit, isJsonRequest, rateLimitedHeaders, type RateLimiter,
 } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
-import { AiProviderError, type AiProvider } from './ai-provider.ts';
+import { attemptFailureReason, type AiProvider } from './ai-provider.ts';
 import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
 
 type Dependencies = Readonly<{
@@ -117,19 +118,6 @@ function defaultCache(): Cache | undefined {
 
 function logProviderFailure(provider: AiProvider, reason: ProviderFailureReason): void {
   console.warn({ event: 'ai_provider_attempt_failed', model: provider.model, reason });
-}
-
-/**
- * A spent provider quota and an upstream 429 both used to read as `provider_error`, so the
- * 2026-09-13 outage had to be proved from Cloudflare's own counters. The reason now names
- * them. Every failure still hands the turn to the next provider; the one addition is that
- * a Workers AI `quota_exceeded` marks the shared Neuron pool spent, so the remaining
- * Workers AI providers are skipped and the walk continues with OpenRouter.
- */
-function attemptFailureReason(error: unknown, timedOut: boolean): ProviderFailureReason {
-  if (timedOut) return 'timeout';
-  if (error instanceof AiProviderError) return error.kind;
-  return 'provider_error';
 }
 
 /**
@@ -232,7 +220,7 @@ export function createAiHandler({
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
     // The total budget covers the whole request, including the rate limiter, the body
     // parse and the shared cache lookup, not only the provider walk.
-    const deadline = Date.now() + requestBudgetMs(request, totalDeadlineMs);
+    const deadline = now().getTime() + requestBudgetMs(request, totalDeadlineMs);
     const url = new URL(request.url);
     const isV2 = url.pathname === aiRecommendV2Path;
     if (!isV2 && url.pathname !== aiRecommendV1Path) return errorResponse(404, 'not_found');
@@ -322,24 +310,16 @@ export function createAiHandler({
           }
         }
       }
-      const remainingMs = deadline - Date.now();
+      const remainingMs = deadline - now().getTime();
       const attemptWindowMs = Math.min(attemptTimeoutMs, remainingMs);
       if (attemptWindowMs < Math.min(attemptTimeoutMs, minimumUsefulAttemptMs)) break;
       const controller = new AbortController();
-      let timedOut = false;
-      let timeoutId: ReturnType<typeof setTimeout>;
-      const timeout = new Promise<never>((_resolve, reject) => {
-        timeoutId = setTimeout(() => {
-          timedOut = true;
-          controller.abort();
-          reject(new Error('AI provider attempt timed out.'));
-        }, attemptWindowMs);
-      });
       try {
-        const output = await Promise.race([
-          provider.generateOutfits(requestResult.data, controller.signal),
-          timeout,
-        ]);
+        const output = await raceWithTimeout(
+          controller,
+          () => provider.generateOutfits(requestResult.data, controller.signal),
+          attemptWindowMs,
+        );
         if (controller.signal.aborted) {
           logProviderFailure(provider, 'timeout');
           continue;
@@ -406,7 +386,7 @@ export function createAiHandler({
         }
         return response;
       } catch (error) {
-        const reason = attemptFailureReason(error, timedOut);
+        const reason = attemptFailureReason(error);
         logProviderFailure(provider, reason);
         // Every Workers AI model draws on the one account-level Neuron pool, so once it is
         // spent the remaining Workers AI attempts can only fail the same way and are
@@ -416,8 +396,6 @@ export function createAiHandler({
           console.warn({ event: 'ai_workers_ai_quota_exhausted', model: provider.model });
           workersAiPoolSpent = true;
         }
-      } finally {
-        clearTimeout(timeoutId!);
       }
     }
     return errorResponse(503, 'ai_unavailable');

@@ -8,11 +8,12 @@ import {
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
+import { raceWithTimeout } from '../attempt-timeout.ts';
 import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
 import { checkRateLimit, rateLimitedHeaders, type RateLimiter } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 
-import { AiProviderError, type AiProvider } from './ai-provider.ts';
+import { attemptFailureReason, type AiProvider } from './ai-provider.ts';
 
 const PROBE_CACHE_TTL_MS = 60_000;
 export const PROBE_DAILY_LIMIT = 30;
@@ -182,23 +183,14 @@ export function createProbeHandler({
       }
 
       const controller = new AbortController();
-      let timedOut = false;
-      let timeoutId: ReturnType<typeof setTimeout>;
-      const timeout = new Promise<never>((_resolve, reject) => {
-        timeoutId = setTimeout(() => {
-          timedOut = true;
-          controller.abort();
-          reject(new Error('AI provider attempt timed out.'));
-        }, attemptTimeoutMs);
-      });
-
       try {
-        const output = await Promise.race([
-          answering.generateOutfits(PROBE_REQUEST, controller.signal, {
+        const output = await raceWithTimeout(
+          controller,
+          () => answering.generateOutfits(PROBE_REQUEST, controller.signal, {
             maxTokens: PROBE_MAX_TOKENS,
           }),
-          timeout,
-        ]);
+          attemptTimeoutMs,
+        );
         const result = aiRecommendV1SuccessSchema.safeParse(output);
         if (controller.signal.aborted) {
           logProbeFailure(answering, 'timeout');
@@ -214,14 +206,7 @@ export function createProbeHandler({
       } catch (error) {
         // Provider failures are intentionally collapsed into unavailable in the response;
         // only the log keeps the reason.
-        logProbeFailure(
-          answering,
-          timedOut ? 'timeout'
-            : error instanceof AiProviderError ? error.kind
-              : 'provider_error',
-        );
-      } finally {
-        clearTimeout(timeoutId!);
+        logProbeFailure(answering, attemptFailureReason(error));
       }
     }
 
