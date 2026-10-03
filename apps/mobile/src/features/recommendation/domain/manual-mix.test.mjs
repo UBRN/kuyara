@@ -8,6 +8,7 @@ import {
   availableCandidates,
   neighbourCandidate,
   normalizeSwaps,
+  outfitCandidateSlots,
   outfitGarments,
   outfitSwappableSlots,
   slotCandidates,
@@ -38,6 +39,17 @@ function recommended(snapshot, clothingPreference) {
 
 const cold = recommended(day(8, 'cloudy', 0.35), 'mens');
 const mild = recommended(day(20, 'rain', 0.65), 'womens');
+// Layers: a mens 16 degree dry day picks a bare shirt (no layer to take off, two free slots), and
+// a womens 3 degree rainy day wears a mid layer and an outer layer with every accessory.
+const bare = recommended(day(16, 'clear', 0), 'mens');
+function nth(snapshot, preference, index) {
+  const result = recommendOutfits({ snapshot, now: snapshot.current.observedAt, clothingPreference: preference, dayVariant: 0 });
+  return { outfit: result.outfits[index], requirements: result.requirements };
+}
+const layered = nth(day(3, 'rain', 0.9), 'womens', 1);
+// A one-piece pick (a dress under a light jacket) and a warm day whose blazer nothing needs.
+const dressed = nth(day(20, 'clear', 0), 'womens', 1);
+const warmBlazer = nth(day(26, 'clear', 0), 'womens', 1);
 
 test('every slot lists the catalog pieces that fit it, weather-suitable first, the current piece included', () => {
   for (const { outfit, requirements, preference } of [
@@ -180,4 +192,94 @@ test('no slot ever offers more candidates than the strip\'s two rows hold', () =
       }
     }
   }
+});
+
+test('only a mid layer or an outer layer can be taken off, and only when kuyara wore one', () => {
+  assert.deepEqual(normalizeSwaps(cold.outfit, { outer_layer: null }), { outer_layer: null });
+  assert.deepEqual(normalizeSwaps(cold.outfit, { mid_layer: null }), {}, 'nothing to take off');
+  for (const slot of ['primary_top', 'bottom', 'footwear']) {
+    assert.throws(() => normalizeSwaps(cold.outfit, { [slot]: null }), /taken off/, slot);
+  }
+  assert.throws(() => normalizeSwaps(dressed.outfit, { one_piece: null }), /taken off/);
+});
+
+test('taking a layer off leaves the rest of the pick and every finishing touch alone', () => {
+  const taken = applySwaps(layered.outfit, { outer_layer: null }, layered.requirements, 'womens');
+  assert.equal(taken.outfit.outerLayer, null);
+  assert.deepEqual(taken.changedSlots, ['outer_layer']);
+  assert.deepEqual(taken.removedSlots, ['outer_layer']);
+  assert.deepEqual(taken.addedSlots, []);
+  const { outer_layer: gone, ...rest } = outfitGarments(layered.outfit);
+  assert.ok(gone);
+  assert.deepEqual(outfitGarments(taken.outfit), rest);
+  // Nothing is dropped by itself: the neck, hands, head and umbrella stay kuyara's.
+  assert.equal(taken.outfit.accessories, layered.outfit.accessories);
+  assert.equal(taken.outfit.optionId, layered.outfit.optionId);
+  // The weather says what it says: a parka off on a 3 degree rainy day is not suitable.
+  assert.equal(taken.unusual, true);
+  const both = applySwaps(layered.outfit, { outer_layer: null, mid_layer: null }, layered.requirements, 'womens');
+  assert.deepEqual(both.removedSlots, ['mid_layer', 'outer_layer']);
+});
+
+test('a layer taken off on a warm day stays suitable', () => {
+  assert.equal(outfitGarments(warmBlazer.outfit).outer_layer, 'blazer');
+  const off = applySwaps(warmBlazer.outfit, { outer_layer: null }, warmBlazer.requirements, 'womens');
+  assert.equal(off.unusual, false);
+  assert.deepEqual(off.removedSlots, ['outer_layer']);
+  assert.deepEqual(off.changedSlots, ['outer_layer']);
+});
+
+test('a free layer slot lists catalog candidates, weather-suitable first, and the none entry is never one', () => {
+  assert.deepEqual(outfitSwappableSlots(bare.outfit), ['primary_top', 'bottom', 'footwear']);
+  assert.deepEqual(outfitCandidateSlots(bare.outfit), ['primary_top', 'bottom', 'mid_layer', 'outer_layer', 'footwear']);
+  for (const slot of ['mid_layer', 'outer_layer']) {
+    const candidates = slotCandidates(bare.outfit, slot, bare.requirements, 'mens');
+    const expected = listGarmentTypesForPreference('mens').map(({ typeId }) => typeId).filter((typeId) => garmentFitsSlot(slot, typeId));
+    assert.deepEqual(new Set(candidates.map(({ garmentTypeId }) => garmentTypeId)), new Set(expected), slot);
+    assert.ok(candidates.length > 0 && candidates.length <= STRIP_TILES);
+    const firstOther = candidates.findIndex(({ suitable }) => !suitable);
+    if (firstOther >= 0) assert.ok(candidates.slice(firstOther).every(({ suitable }) => !suitable));
+    assert.deepEqual(slotCandidates(bare.outfit, slot, bare.requirements, 'mens'), candidates);
+  }
+  // A body slot a one-piece pick does not wear still has none.
+  assert.deepEqual(slotCandidates(dressed.outfit, 'primary_top', dressed.requirements, 'womens'), []);
+});
+
+test('adding a layer to a free slot changes that slot and is judged by the domain', () => {
+  const [first] = slotCandidates(bare.outfit, 'outer_layer', bare.requirements, 'mens');
+  const added = applySwaps(bare.outfit, { outer_layer: first.garmentTypeId }, bare.requirements, 'mens');
+  assert.deepEqual(added.changedSlots, ['outer_layer']);
+  assert.deepEqual(added.addedSlots, ['outer_layer']);
+  assert.deepEqual(added.removedSlots, []);
+  assert.equal(outfitGarments(added.outfit).outer_layer, first.garmentTypeId);
+  assert.equal(added.unusual, !first.suitable);
+  assert.equal(added.outfit.outerLayer.garment.source, 'catalog');
+  // A swap of a layer kuyara did wear is a change, not an addition.
+  const swapped = applySwaps(cold.outfit, { outer_layer: 'coat' }, cold.requirements, 'mens');
+  assert.deepEqual(swapped.addedSlots, []);
+  assert.deepEqual(swapped.removedSlots, []);
+  // An addition on a body slot a one-piece does not wear is refused.
+  assert.deepEqual(normalizeSwaps(dressed.outfit, { primary_top: 'shirt' }), {});
+});
+
+test('a slot taken off and put back is no change, and a piece worn elsewhere is skipped for the free slot', () => {
+  const back = outfitGarments(layered.outfit).outer_layer;
+  assert.deepEqual(normalizeSwaps(layered.outfit, { outer_layer: back }), {});
+  const garments = { primary_top: 'sweater', footwear: 'sneakers' };
+  const candidates = [{ garmentTypeId: 'sweater', suitable: true }, { garmentTypeId: 'cardigan', suitable: true }];
+  assert.deepEqual(availableCandidates(candidates, 'mid_layer', garments).map(({ garmentTypeId }) => garmentTypeId), ['cardigan']);
+});
+
+test('"Wore this today" records what an edited outfit shows: layers off or added, accessories as they are', () => {
+  const taken = applySwaps(layered.outfit, { outer_layer: null, mid_layer: null }, layered.requirements, 'womens').outfit;
+  const worn = wornOutfitFrom(taken, 'manual');
+  assert.equal(wornOutfitSchema.safeParse(worn).success, true);
+  assert.equal(worn.garments.outer_layer, undefined);
+  assert.equal(worn.garments.mid_layer, undefined);
+  assert.equal(worn.garments.umbrella, undefined);
+  assert.equal(worn.garments.handheld, 'umbrella');
+  const [first] = slotCandidates(bare.outfit, 'mid_layer', bare.requirements, 'mens');
+  const added = wornOutfitFrom(applySwaps(bare.outfit, { mid_layer: first.garmentTypeId }, bare.requirements, 'mens').outfit, 'manual');
+  assert.equal(wornOutfitSchema.safeParse(added).success, true);
+  assert.equal(added.garments.mid_layer, first.garmentTypeId);
 });
