@@ -2,6 +2,7 @@ import {
   archetypeDayFromRequirements,
   dayBlindArchetypeDay,
   formalityOrderByDressStyle,
+  optionIdSchema,
   type ArchetypeDay,
   type DayKind,
   type DressStyle,
@@ -181,7 +182,7 @@ function hashCompositionKey(value: string, seed: number): string {
 
 export function outfitOptionId(outfit: OutfitCandidate): string {
   const candidate = outfit.compositionKey.replaceAll('|', ':');
-  return /^[A-Za-z0-9:_-]{1,32}$/.test(candidate)
+  return optionIdSchema.safeParse(candidate).success
     ? candidate
     : `outfit:${hashCompositionKey(candidate, 0x811c9dc5)}${hashCompositionKey(candidate, 0x9e3779b9)}`;
 }

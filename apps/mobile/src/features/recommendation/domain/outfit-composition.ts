@@ -1,3 +1,4 @@
+import { aiV1OptionLimit } from '@kuyara/contracts';
 import type {
   Breathability,
   Coverage,
@@ -1975,6 +1976,9 @@ export type OutfitPin = Readonly<{
   garmentTypeId: GarmentTypeId;
 }>;
 
+/** How many outfits Today offers: as many as one AI request carries. */
+export const offeredOutfitLimit = aiV1OptionLimit;
+
 /** How many outfits compose around chosen pieces offers: at most three, one or two when that is all there are. */
 export const composedOutfitLimit = 3;
 
@@ -2035,7 +2039,7 @@ export function composeOutfitOptions(
   return Object.freeze({
     status: 'composed',
     outfits: excludeRecentlyWornOutfits(withAccessories(
-      selectDiverseOutfits(orderForOffer(result.outfits, startOffset), 24),
+      selectDiverseOutfits(orderForOffer(result.outfits, startOffset), offeredOutfitLimit),
       result.accessorySets,
     ), recentWorn),
   });
