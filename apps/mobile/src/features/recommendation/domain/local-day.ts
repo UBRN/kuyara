@@ -1,4 +1,5 @@
 import type { DayKind } from '@kuyara/contracts';
+import { calendarDateParts } from '@/domain/calendar-date';
 import {
   dressingDayDateKey,
   instantOfLocalHour,
@@ -26,6 +27,16 @@ export function localDayVariant(date: Date): number {
 // own local date, so a traveller's day matches the day they are dressing for.
 export function localDayKind(date: Date): DayKind {
   const weekday = date.getDay();
+  return weekday === 0 || weekday === 6 ? 'weekend' : 'weekday';
+}
+
+/**
+ * The kind of a `YYYY-MM-DD` calendar date, read from the date itself in no zone: a forecast
+ * day or a history day is the weekday it names wherever the device is.
+ */
+export function dateKeyDayKind(dateKey: string): DayKind {
+  const { year, month, day } = calendarDateParts(dateKey);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   return weekday === 0 || weekday === 6 ? 'weekend' : 'weekday';
 }
 
