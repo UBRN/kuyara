@@ -138,6 +138,16 @@ export function wardrobeDayWindow(
   }
 }
 
+const hourMilliseconds = 60 * 60 * 1000;
+
+/**
+ * Whether the forecast hour starting at `forecastAt` (epoch milliseconds) has not ended at
+ * `now`. An hour runs sixty minutes, so the hour `now` falls in is still one to speak about.
+ */
+export function forecastHourHasNotEnded(forecastAt: number, now: number): boolean {
+  return forecastAt + hourMilliseconds > now;
+}
+
 /**
  * The forecast hours of the dressing day that have not happened yet: those starting after
  * `now` and before the window closes. Every reading of "the rest of the day" (the outlook, the

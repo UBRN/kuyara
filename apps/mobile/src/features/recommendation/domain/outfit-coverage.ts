@@ -1,5 +1,6 @@
 import { shiftCalendarDateParts } from '@/domain/calendar-date';
 import { zonedClock } from '@/domain/intl-format';
+import { forecastHourHasNotEnded } from '@/features/weather/domain/wardrobe-day';
 import type { WeatherMeasurements } from '@/features/weather/domain/weather';
 import { chillyCelsius, isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
@@ -91,7 +92,7 @@ export function coverageDrift(
   const remaining = [...hourly]
     .filter(({ forecastAt }) => {
       const at = Date.parse(forecastAt);
-      return at + hourMs > now && at < end;
+      return forecastHourHasNotEnded(at, now) && at < end;
     })
     .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt));
   const rainProtected = chosen.requirements.some((requirement) =>
@@ -146,7 +147,7 @@ export function laterCoolSpell(
   const tail = hourly
     .filter(({ forecastAt }) => {
       const at = Date.parse(forecastAt);
-      return at >= start + 4 * hourMs && at < end && at + hourMs > now;
+      return at >= start + 4 * hourMs && at < end && forecastHourHasNotEnded(at, now);
     })
     .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt));
   if (firstMandatoryCold(tail)) return null;

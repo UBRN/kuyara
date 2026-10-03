@@ -5,6 +5,7 @@ import {
   dressingDayDateKey,
   dressingDayKeySchema,
   eveningHasStarted,
+  forecastHourHasNotEnded,
   forecastHoursAhead,
   isBeforeDayStart,
   isEveningDressingDayKey,
@@ -202,4 +203,12 @@ test('forecast hours ahead are those after now and before the window closes', ()
     forecastHoursAhead(hourly, Date.parse('2026-09-09T05:00:00.000Z'), window).map(({ forecastAt }) => forecastAt),
     ['2026-09-09T06:00:00.000Z', '2026-09-09T20:59:00.000Z'],
   );
+});
+
+test('a forecast hour has not ended until sixty minutes after it starts', () => {
+  const start = Date.parse('2026-09-18T10:00:00.000Z');
+  assert.equal(forecastHourHasNotEnded(start, start), true);
+  assert.equal(forecastHourHasNotEnded(start, start + 59 * 60_000 + 59_999), true);
+  assert.equal(forecastHourHasNotEnded(start, start + 60 * 60_000), false);
+  assert.equal(forecastHourHasNotEnded(Number.NaN, start), false);
 });

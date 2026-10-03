@@ -1233,6 +1233,20 @@ test('snapshot acceptance and the hours ahead each have one owner', () => {
   assert.deepEqual(copies, [], 'call acceptProvidedSnapshot from weather/domain/weather.ts or forecastHoursAhead from weather/domain/wardrobe-day.ts');
 });
 
+// Whether a forecast hour is still running at `now` is answered by `forecastHourHasNotEnded`
+// (weather/domain/wardrobe-day.ts); no reader adds an hour to a forecast instant itself.
+test('the hour-has-not-ended rule has one owner', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/weather/domain/wardrobe-day.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\+\s*(?:\w*hour\w*|3600000|3_600_000|60 \* 60 \* 1000)\s*>\s*now\b/i.test(line)) copies.push(`${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call forecastHourHasNotEnded from @/features/weather/domain/wardrobe-day');
+});
+
 // The device's time zone is read once, by `getDeviceTimeZone` in domain/intl-format.ts, and the
 // default quiet hours are put on a zone once, by `deviceQuietHours`.
 test('the device time zone and the default quiet hours each have one owner', () => {
