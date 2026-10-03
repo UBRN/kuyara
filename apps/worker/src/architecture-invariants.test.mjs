@@ -188,3 +188,24 @@ test('the place provider leaves the contract parse to the handler and owns no bo
   assert.equal(/placeSearchV1(?:Request|Success)Schema/.test(text), false);
   assert.equal(/\.max\((?:200|400)\)/.test(text), false, 'import the bound from @kuyara/contracts');
 });
+
+// A `JSON.parse(` whose result does not go straight into a schema is a place untrusted input
+// can slip past the boundary, so each one is named here and every caller validates what it
+// gets. The list only shrinks: parse at the boundary and hand the schema the text instead.
+test('JSON.parse sites that do not feed a schema are a frozen, shrink-only list', () => {
+  const allowed = new Map([
+    ['account/bounded-fetch.ts', 1],
+    ['account/supabase-token-verifier.ts', 1],
+    ['ai/openrouter-ai-provider.ts', 1],
+    ['json-request.ts', 1],
+  ]);
+  const found = new Map();
+  for (const relativePath of sourceFiles()) {
+    const count = readFileSync(path.join(sourceRoot, relativePath), 'utf8')
+      .split('\n')
+      .filter((line) => /JSON\.parse\(/.test(line) && !/Schema\b/.test(line)).length;
+    if (count > 0) found.set(relativePath, count);
+  }
+
+  assert.deepEqual([...found].sort(), [...allowed].sort(), 'do not add a site; remove one from the list when it goes');
+});
