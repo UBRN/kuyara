@@ -96,7 +96,6 @@ let mockPush = jest.fn();
 // buttons (and Android's header slots) into the tree, so a test presses them as a user
 // presses the bar items.
 const mockLinkTo = jest.fn();
-const mockPreventZoomDismissal = jest.fn();
 // A tile's link skips a press its handler prevented; RNTL's default event never records one.
 function linkPressEvent() {
   return {
@@ -144,7 +143,6 @@ jest.mock('expo-router', () => {
   return {
     // The Closet's tiles are the library's own links.
     Link: jest.requireActual('expo-router').Link,
-    usePreventZoomTransitionDismissal: (options?: unknown) => mockPreventZoomDismissal(options),
     Stack: { Screen, Toolbar },
     useFocusEffect: (effect: () => void | (() => void)) => {
     mockFocusEffects.push(effect);
@@ -1593,7 +1591,7 @@ test('the edit form draws a piece the Closet holds on its first frame', async ()
       </AnalyticsProviders>
     </TestProviders>,
   );
-  // No loading card in between: the zoom from the tile grows into the form itself.
+  // No loading card in between: the form slides up already drawn.
   expect(listed.getByTestId('wardrobe-edit-form')).toBeOnTheScreen();
   expect(listed.queryByTestId('wardrobe-item-loading')).toBeNull();
   expect(getItem).not.toHaveBeenCalled();
@@ -1617,29 +1615,6 @@ test('the edit form reads a piece the Closet does not hold from the repository',
   );
   await waitFor(() => expect(unlisted.getByTestId('wardrobe-edit-form')).toBeOnTheScreen());
   expect(getItem).toHaveBeenCalledWith(plainItem.id);
-});
-
-test('a changed edit form holds off the zoom close, which a clean form keeps', async () => {
-  mockSearchParams = {};
-  const result = await render(
-    <TestProviders>
-      <AnalyticsProviders>
-        <WardrobeApplicationContext.Provider value={wardrobeApplication()}>
-          <WardrobeEditItemRoute itemId={plainItem.id} />
-        </WardrobeApplicationContext.Provider>
-      </AnalyticsProviders>
-    </TestProviders>,
-  );
-
-  await waitFor(() => expect(result.getByTestId('wardrobe-edit-form')).toBeOnTheScreen());
-  expect(mockPreventZoomDismissal).toHaveBeenLastCalledWith(undefined);
-
-  await fireEvent.press(result.getByTestId('wardrobe-entry-state-wanted'));
-  await waitFor(() =>
-    expect(mockPreventZoomDismissal).toHaveBeenLastCalledWith({
-      unstable_dismissalBoundsRect: { maxX: 0, maxY: 0 },
-    }),
-  );
 });
 
 test('a successful delete captures closet_item_deleted with the pre-delete state and photo presence', async () => {
@@ -1868,7 +1843,7 @@ test('a quick double tap on the plus button or a Closet tile opens one screen', 
   // A tile is a link, which navigates through the router's `linkTo` rather than `push`.
   expect(mockLinkTo).toHaveBeenCalledTimes(1);
   expect(mockLinkTo).toHaveBeenCalledWith(
-    expect.stringMatching(new RegExp(`^/wardrobe/${plainItem.id}\\?`)),
+    `/wardrobe/${plainItem.id}`,
     expect.objectContaining({ event: 'PUSH' }),
   );
 });
