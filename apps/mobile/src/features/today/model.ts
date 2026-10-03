@@ -10,6 +10,11 @@ import type {
 
 export type TodayFreshness = 'fresh' | 'stale';
 
+/** What Today shows of a weather freshness: fresh only when it is, stale for anything else. */
+export function todayFreshness(freshness: string | null): TodayFreshness {
+  return freshness === 'fresh' ? 'fresh' : 'stale';
+}
+
 export type TodaySnapshot = Readonly<{
   weather: WeatherSnapshot;
   activeLocation: ActiveLocation;

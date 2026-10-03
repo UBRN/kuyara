@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { todayActiveLocation, todayScreenState, todayWeatherSnapshot } from './__tests__/fixtures.ts';
-import { classifyTodayState } from './application/today-state.ts';
+import { classifyTodayState, paletteBasisOf } from './application/today-state.ts';
+import { todayFreshness } from './model.ts';
 
 function weather(overrides = {}) {
   return {
@@ -77,4 +78,21 @@ test('the detail surface reads freshness against the given now, not the ambient 
   assert.equal(fresh.state.kind, 'loaded');
   assert.equal(fresh.state.snapshot.freshness, 'fresh');
   assert.equal(loaded('2026-08-13T06:36:00.000Z').state.snapshot.freshness, 'stale');
+});
+
+test('only a fresh weather shows as fresh', () => {
+  assert.equal(todayFreshness('fresh'), 'fresh');
+  assert.equal(todayFreshness('stale'), 'stale');
+  assert.equal(todayFreshness('invalid'), 'stale');
+  assert.equal(todayFreshness(null), 'stale');
+});
+
+test('the palette basis is the stored palette weather with its day, or none', () => {
+  const paletteWeather = { temperatureC: 12, condition: 'rain' };
+  assert.deepEqual(paletteBasisOf({ paletteWeather, localDayKey: '2026-08-13' }),
+    { temperatureC: 12, condition: 'rain', localDayKey: '2026-08-13' });
+  assert.deepEqual(paletteBasisOf({ paletteWeather, localDayKey: null }),
+    { temperatureC: 12, condition: 'rain', localDayKey: null });
+  assert.equal(paletteBasisOf({ localDayKey: '2026-08-13' }), undefined);
+  assert.equal(paletteBasisOf(null), undefined);
 });

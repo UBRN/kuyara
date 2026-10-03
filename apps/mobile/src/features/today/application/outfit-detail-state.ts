@@ -9,7 +9,7 @@ import {
   wornOutfitFrom,
   type WornOutfit,
 } from '@/features/recommendation/domain/outfit-history';
-import { activeLocationRecommendation, type TodayScreenState } from '@/features/today/model';
+import { activeLocationRecommendation, todayFreshness, type TodayScreenState } from '@/features/today/model';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
 import { isBeforeDayStart } from '@/features/weather/domain/wardrobe-day';
 import { activeLocationSnapshot, weatherFreshness, type DailyWeather, type WeatherSnapshot } from '@/features/weather/domain/weather';
@@ -80,7 +80,7 @@ export function tomorrowDetailState(
     snapshot: {
       weather: placeSnapshot,
       activeLocation: weather.activeLocation,
-      freshness: weatherFreshness(placeSnapshot.fetchedAt, now) === 'fresh' ? 'fresh' : 'stale',
+      freshness: todayFreshness(weatherFreshness(placeSnapshot.fetchedAt, now)),
       recommendation: preview.recommendation,
       coverageStart: preview.coverageStart,
       coverageEnd: preview.coverageEnd,
