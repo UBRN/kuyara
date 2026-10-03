@@ -194,14 +194,18 @@ count. The board still draws none of them (ADR 0025).
 Composing around chosen pieces answers "What do you want to wear today?" without changing the
 engine's selection. A row under "Wore this today", for a signed-in member once accounts open
 (ADR 0041 section 5), opens a sheet over the outfit's pieces and "Choose another piece", which
-reuses the slot picker's catalog list. The reader ticks at most three, one for each slot (a
-one-piece excludes a bottom, and a sweater is a top or a mid layer), and may colour each from
+turns the sheet to the catalog by slot and back (a sweater is listed as a top and as a mid
+layer). The reader ticks at most three, one for each slot; a later tick replaces the piece it
+conflicts with, so a one-piece tick clears the top and bottom ticks and the reverse. Each
+ticked piece may be coloured from
 the Closet's 33 solid colours, which only paints the drawing through the recorded swatch and
 never enters selection. The domain adds the pins as a predicate on the full valid outfit set
 before ordering, diversity and accessories, deterministically, with no AI request, no allowance
 and no Worker call; Closet records are never pins. A result is up to three outfits stepped
-through by "1 / 3 · Show another" / "1 / 3 · Başka göster", fewer when the pins leave fewer,
-read honestly as "1 / 2" or "1 / 1". Pins that fit no valid outfit for the weather are
+through by "1 / 3" and "Show another" / "Başka göster" in the hint slot below the name
+buttons, wrapping from the last to the first, fewer when the pins leave fewer, read honestly
+as "1 / 2" or "1 / 1" (no button at one); the title reads "Your outfit" with the subtitle
+"Built from the pieces you chose" / "Seçtiğin parçalarla kuruldu". Pins that fit no valid outfit for the weather are
 composed with the largest satisfiable subset and the rest are swapped into the best pick,
 under the same unusual note. The result lives like a manual change: it is never a snapshot,
 never replaces Today and records as `manual` through "Wore this today". **Risk accepted:**
