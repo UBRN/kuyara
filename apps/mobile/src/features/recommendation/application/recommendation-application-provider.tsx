@@ -531,9 +531,10 @@ export function RecommendationApplicationProvider({
 
   // The evening preview of tomorrow: one selection per dressing day, through the same chain, once
   // today's outfit has settled, and only when the forecast covers tomorrow's whole window.
-  const tomorrowMorning = useMemo(() => nextMorningAfterEvening(
-    localDay.key, input?.snapshot.timeZone, new Date(previewClock).toISOString(),
-  ), [input?.snapshot.timeZone, localDay.key, previewClock]);
+  const placeTimeZone = input?.snapshot.timeZone;
+  const tomorrowMorning = useMemo(() => placeTimeZone ? nextMorningAfterEvening(
+    localDay.key, placeTimeZone, new Date(previewClock).toISOString(),
+  ) : null, [placeTimeZone, localDay.key, previewClock]);
   const tomorrowKey = tomorrowMorning ? localDayKey(tomorrowMorning) : null;
   const previewController = useMemo(() => new TomorrowPreviewController(localProfileId,
     { store: previewStore, client, loadRecentWorn, compose: composePreview }),
