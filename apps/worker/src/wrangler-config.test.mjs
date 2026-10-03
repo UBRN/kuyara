@@ -33,6 +33,7 @@ const rateLimitNames = [
   'AI_RECOMMEND_RATE_LIMIT',
   'WEATHER_RATE_LIMIT',
   'PLACE_SEARCH_RATE_LIMIT',
+  'FEEDBACK_RATE_LIMIT',
 ];
 
 test('production WORKERS_AI_MODELS stays inside the models the daily attempt limit was priced with', () => {
@@ -75,4 +76,16 @@ test('the e2e environment redeclares the Durable Object and rate-limit bindings 
     assert.ok(bindings.some((binding) => binding.name === 'DAILY_COUNTERS'));
   }
   assert.deepEqual(config.env.e2e.ai, { binding: 'AI' });
+});
+
+test('feedback D1 is bound only in the local e2e environment, next to its rate limiter', () => {
+  assert.equal(config.d1_databases, undefined);
+  assert.equal(config.env.feedback_setup, undefined);
+  assert.deepEqual(config.env.e2e.d1_databases, [{
+    binding: 'FEEDBACK_DB',
+    database_name: 'kuyara-feedback-e2e',
+    database_id: '00000000-0000-0000-0000-000000000000',
+    migrations_dir: 'migrations',
+  }]);
+  assert.ok(config.env.e2e.ratelimits.some((binding) => binding.name === 'FEEDBACK_RATE_LIMIT'));
 });

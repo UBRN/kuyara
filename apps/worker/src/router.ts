@@ -8,6 +8,7 @@ import {
   aiV1ErrorSchema,
   healthV1Path,
   healthV1SuccessSchema,
+  feedbackV1Path,
   weatherV1Path,
   weatherV2Path,
   placeSearchV1Path,
@@ -29,6 +30,7 @@ type Dependencies = Readonly<{
   weatherHandler: Handler;
   placeSearchHandler: Handler;
   accountDeleteHandler: Handler;
+  feedbackHandler: Handler;
   aiHandler: Handler;
   probeHandler: Handler;
   aiReady: boolean;
@@ -40,6 +42,7 @@ export function createRouter({
   weatherHandler,
   placeSearchHandler,
   accountDeleteHandler,
+  feedbackHandler,
   aiHandler,
   probeHandler,
   aiReady,
@@ -48,6 +51,7 @@ export function createRouter({
     const pathname = new URL(request.url).pathname;
     if (pathname === placeSearchV1Path) return placeSearchHandler(request, ctx);
     if (pathname === accountDeleteV1Path) return accountDeleteHandler(request, ctx);
+    if (pathname === feedbackV1Path) return feedbackHandler(request, ctx);
     if (pathname === weatherV1Path || pathname === weatherV2Path) {
       return weatherHandler(request, ctx);
     }

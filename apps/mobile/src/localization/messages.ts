@@ -441,6 +441,19 @@ export type AppMessages = Readonly<{
     versionLine: (version: string, build?: string | null) => string;
     developmentBuild: string;
     supportRow: string;
+    feedback: Readonly<{
+      title: string;
+      body: string;
+      messageLabel: string;
+      placeholder: string;
+      characterCount: (current: number, maximum: number) => string;
+      send: string;
+      cancel: string;
+      failed: string;
+      sentTitle: string;
+      sentBody: string;
+      done: string;
+    }>;
     shareRow: string;
     shareText: string;
     rateRow: string;
@@ -1095,6 +1108,19 @@ const en = {
     versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
     developmentBuild: 'Development build',
     supportRow: 'Support',
+    feedback: {
+      title: 'Send feedback',
+      body: 'Tell us what you think. Your message, app version, platform and language will be sent to kuyara. Do not include sensitive information. We cannot reply through this form.',
+      messageLabel: 'Your message',
+      placeholder: 'Write your feedback here',
+      characterCount: (current, maximum) => `${current} of ${maximum} characters`,
+      send: 'Send',
+      cancel: 'Cancel',
+      failed: 'Your feedback could not be sent. Please try again.',
+      sentTitle: 'Thank you',
+      sentBody: 'Your feedback was sent.',
+      done: 'Done',
+    },
     shareRow: 'Share kuyara',
     shareText: 'I use kuyara to decide what to wear each day. Take a look.',
     rateRow: 'Rate kuyara',
@@ -2207,6 +2233,19 @@ const tr = {
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     developmentBuild: 'Geliştirme derlemesi',
     supportRow: 'Destek',
+    feedback: {
+      title: 'Geri bildirim gönder',
+      body: 'Düşüncelerini bizimle paylaş. Mesajın, uygulama sürümü, platform ve dil kuyara’ya gönderilecek. Hassas bilgi yazma. Bu form üzerinden yanıt veremiyoruz.',
+      messageLabel: 'Mesajın',
+      placeholder: 'Geri bildirimini buraya yaz',
+      characterCount: (current, maximum) => `${current} / ${maximum} karakter`,
+      send: 'Gönder',
+      cancel: 'Vazgeç',
+      failed: 'Geri bildirimin gönderilemedi. Yeniden dene.',
+      sentTitle: 'Teşekkürler',
+      sentBody: 'Geri bildirimin gönderildi.',
+      done: 'Bitti',
+    },
     shareRow: 'kuyara’yı paylaş',
     shareText: 'Günlük kombinimi seçerken kuyara bana yardımcı oluyor. Sen de göz at.',
     rateRow: 'kuyara’yı değerlendir',

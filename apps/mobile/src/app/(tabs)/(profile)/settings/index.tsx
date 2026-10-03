@@ -123,6 +123,7 @@ export default function SettingsRoute() {
         onOpenSupport={() => {
           void Linking.openURL(SUPPORT_URL[language]);
         }}
+        onOpenFeedback={() => push('/settings/feedback')}
         onOpenLicence={() => { void Linking.openURL(LICENCE_URL); }}
         // Phase 8: the tour starts over Today, from Profile's root so its step 7 lands there.
         onRestartTour={walkthrough ? () => {
