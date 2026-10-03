@@ -44,6 +44,8 @@ type GarmentSwapStripProps = Readonly<{
   interactive: boolean;
   onChoose: (garmentTypeId: GarmentTypeId) => void;
   onDone: () => void;
+  /** A layer the reader can take off: a plain text action before Done, with a whole spoken sentence. */
+  takeOff?: Readonly<{ label: string; accessibilityLabel: string; onPress: () => void }> | null;
   onHeaderLayout?: (height: number) => void;
   testID: string;
 }>;
@@ -61,7 +63,7 @@ function HeaderWords({ from, children }: Readonly<{ from: number; children: Reac
 
 /**
  * Phase 7b's candidate strip under the enlarged piece (vault phase-7b final-spec): a header
- * naming the piece and its place with Done, then the slot's catalog pieces in the picker's
+ * naming the piece and its place with Done (and Take off for a layer), then the slot's catalog pieces in the picker's
  * order as a grid of 44-point tiles, the current one marked. It lives outside the board's
  * gesture: a tile, Done or a gap between tiles never reaches the board. A pressed tile names
  * itself in the header before release, because two pieces can share a drawing.
@@ -77,6 +79,7 @@ export function GarmentSwapStrip({
   interactive,
   onChoose,
   onDone,
+  takeOff = null,
   onHeaderLayout,
   testID,
 }: GarmentSwapStripProps) {
@@ -85,7 +88,8 @@ export function GarmentSwapStrip({
   // Easier to see: Done is a 56-point target like every kuyara-drawn button, so the header is too.
   const headerHeight = useEasierToSee() ? easierToSee.primaryActionHeight : layout.minimumTouchTarget;
   const [pressedId, setPressedId] = useState<GarmentTypeId | null>(null);
-  const [doneWidth, setDoneWidth] = useState<number>(layout.minimumTouchTarget);
+  // The header's actions are measured, so the name and counter keep clear of them.
+  const [actionsWidth, setActionsWidth] = useState<number>(layout.minimumTouchTarget);
   const suitableCount = candidates.filter(({ suitable }) => suitable).length;
   const strip = swapStripLayout(candidates.length, suitableCount, columnWidth);
   const indexOf = (garmentTypeId: GarmentTypeId) =>
@@ -123,7 +127,7 @@ export function GarmentSwapStrip({
         accessibilityLabel={labels.pieceValue(shownName, shownPosition, candidates.length)}
         accessible
         onLayout={({ nativeEvent }) => onHeaderLayout?.(nativeEvent.layout.height)}
-        style={[styles.header, { minHeight: headerHeight, paddingRight: doneWidth }]}
+        style={[styles.header, { minHeight: headerHeight, paddingRight: actionsWidth }]}
         testID={`${testID}-header`}>
         <HeaderWords from={fades === 0 ? 1 : 0} key={fades}>
           <View style={styles.headerLine}>
@@ -176,21 +180,36 @@ export function GarmentSwapStrip({
           testID={`${testID}-marker`}
         />
       </View>
-      {/* Done reads after the tiles and stands at the header's trailing edge. It is a plain
-          button: its press shows the tonal capsule, and Easier to see gives it 56 points and,
-          with higher contrast, the strong edge. */}
-      <View pointerEvents="box-none" style={[styles.doneRow, { minHeight: headerHeight, width: strip.width }]}>
-        <Button
-          label={labels.done}
+      {/* Take off and Done read after the tiles and stand at the header's trailing edge. Each
+          is a plain button: its press shows the tonal capsule, and Easier to see gives it 56
+          points and, with higher contrast, the strong edge. */}
+      <View pointerEvents="box-none" style={[styles.actionsRow, { minHeight: headerHeight, width: strip.width }]}>
+        <View
           onLayout={({ nativeEvent }) => {
-            if (nativeEvent.layout.width !== doneWidth) setDoneWidth(nativeEvent.layout.width);
+            if (nativeEvent.layout.width !== actionsWidth) setActionsWidth(nativeEvent.layout.width);
           }}
-          onPress={onDone}
-          size="small"
-          style={styles.done}
-          testID={`${testID}-done`}
-          variant="plain"
-        />
+          pointerEvents="box-none"
+          style={styles.actions}>
+          {takeOff ? (
+            <Button
+              accessibilityLabel={takeOff.accessibilityLabel}
+              label={takeOff.label}
+              onPress={takeOff.onPress}
+              size="small"
+              style={styles.action}
+              testID={`${testID}-take-off`}
+              variant="plain"
+            />
+          ) : null}
+          <Button
+            label={labels.done}
+            onPress={onDone}
+            size="small"
+            style={styles.action}
+            testID={`${testID}-done`}
+            variant="plain"
+          />
+        </View>
       </View>
     </View>
   );
@@ -201,11 +220,15 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   // The capsule keeps `spacing.sm` around the word, so the name and counter keep their room.
-  done: {
+  action: {
     minWidth: layout.minimumTouchTarget,
     paddingHorizontal: spacing.sm,
   },
-  doneRow: {
+  actions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  actionsRow: {
     alignItems: 'flex-end',
     justifyContent: 'center',
     left: 0,

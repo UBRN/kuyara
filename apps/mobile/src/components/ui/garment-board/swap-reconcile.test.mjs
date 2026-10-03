@@ -229,3 +229,66 @@ test('a leaving piece chosen again fades back in rather than showing at once', (
     && intent.values === instance(leaving, 'sneakers').values);
   assert.equal(promote.paged, false);
 });
+
+// A layer taken off or added: the slot vanishes from the pieces, or appears in them.
+const layered = (outer) => [
+  { slot: 'primary_top', garmentTypeId: 'shirt', category: 'top' },
+  ...(outer ? [{ slot: 'outer_layer', garmentTypeId: outer, category: 'outerwear' }] : []),
+  { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
+  { slot: 'footwear', garmentTypeId: 'sneakers', category: 'footwear' },
+];
+const outers = { outer_layer: ['light_jacket', 'parka'].map((garmentTypeId) => ({ garmentTypeId, category: 'outerwear', suitable: true })) };
+const outerGrow = { ...grow, slot: 'outer_layer' };
+function layer(model, outer, focusedSlot) {
+  const pieces = layered(outer);
+  const palette = paletteOf(pieces);
+  step += 1;
+  return reconcile(model, {
+    signature: `layer-${step}`, composed: compose(pieces), pieces, palette, roles: rolesFor(palette), rolesFor,
+    width: WIDTH, focusedSlot, grow: focusedSlot ? outerGrow : null, pager: focusedSlot ? pager : null,
+    candidates: outers,
+  }, tools);
+}
+
+test('a layer taken off lifts away and fades in place: no sideways exit, and the slot is forgotten', () => {
+  const worn = layer(emptyModel, 'light_jacket', null);
+  const jacket = instance(worn, 'light_jacket');
+  const off = layer(worn, null, null);
+  assert.equal(instance(off, 'light_jacket').role, 'leaving');
+  assert.deepEqual(intentsFor(off, 'light_jacket'), ['vanish']);
+  assert.equal(off.intents.find((intent) => intent.kind === 'vanish').key, jacket.key);
+  assert.equal(off.garments.outer_layer, undefined);
+  assert.equal(off.relayouting, true);
+  // The pieces that stay glide to their new boxes.
+  assert.ok(off.intents.some((intent) => intent.kind === 'retarget'));
+});
+
+test('a layer taken off while it is enlarged leaves the same way and is never sent home', () => {
+  const enlargedJacket = layer(layer(emptyModel, 'light_jacket', null), 'light_jacket', 'outer_layer');
+  assert.equal(instance(enlargedJacket, 'parka').role, 'next');
+  // The owner clears the focus in the same render as the removal.
+  const off = layer(enlargedJacket, null, null);
+  assert.deepEqual(intentsFor(off, 'light_jacket'), ['vanish']);
+  assert.equal(off.intents.some((intent) => intent.kind === 'home' || intent.kind === 'leave'), false);
+  assert.equal(instance(off, 'parka').role, 'leaving');
+  assert.equal(off.focus, null);
+});
+
+test('an added layer starts unseen and is hung on', () => {
+  const bare = layer(emptyModel, null, null);
+  const added = layer(bare, 'parka', null);
+  const parka = instance(added, 'parka');
+  assert.equal(parka.role, 'current');
+  assert.deepEqual(intentsFor(added, 'parka'), ['enter']);
+  assert.equal(parka.values.op.get(), 0);
+  assert.equal(parka.values.p.get(), 1);
+  assert.equal(added.garments.outer_layer, 'parka');
+});
+
+test('a layer taken off and put back fades back in rather than showing at once', () => {
+  const off = layer(layer(emptyModel, 'light_jacket', null), null, null);
+  const back = layer(off, 'light_jacket', null);
+  const promote = back.intents.find((intent) => intent.kind === 'promote');
+  assert.equal(promote.values, instance(off, 'light_jacket').values);
+  assert.equal(promote.paged, false);
+});

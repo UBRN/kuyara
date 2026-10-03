@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { State } from 'react-native-gesture-handler';
@@ -422,5 +422,78 @@ test('a change lifts the old piece off and hangs the new one on', async () => {
     timings.mockRestore();
     springs.mockRestore();
     sequences.mockRestore();
+  }
+});
+
+// A layer the reader can take off: its enlarged strip header carries "Take off" beside Done.
+const layered = (outer: 'light_jacket' | 'parka' | null): readonly GarmentBoardPiece[] => [
+  { slot: 'primary_top', garmentTypeId: 'shirt', category: 'top' },
+  ...(outer ? [{ slot: 'outer_layer', garmentTypeId: outer, category: 'outerwear' } as const] : []),
+  { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
+  { slot: 'footwear', garmentTypeId: 'sneakers', category: 'footwear' },
+];
+const outerCandidates: readonly GarmentSwapCandidate[] = (['light_jacket', 'parka'] as const)
+  .map((garmentTypeId) => ({ garmentTypeId, category: 'outerwear', suitable: true }));
+const layeredProps = (outer: 'light_jacket' | 'parka' | null, overrides: Partial<GarmentSwapBoardProps> = {}) => {
+  const worn = layered(outer);
+  return boardProps({
+    pieces: worn,
+    palette: { ...palette, pieces: worn.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })) },
+    candidates: outer ? { outer_layer: outerCandidates, footwear } : { footwear },
+    takeOffSlots: ['mid_layer', 'outer_layer'],
+    labels: {
+      ...boardProps().labels,
+      takeOff: 'Take off',
+      takeOffAccessibilityLabel: (slot) => `Take the ${slot} off`,
+    },
+    ...overrides,
+  });
+};
+
+test('an enlarged layer offers Take off in its strip header and as an action on its piece', async () => {
+  const onTakeOff = jest.fn();
+  const result = await render(<GarmentSwapBoard {...layeredProps('light_jacket', { onTakeOff })} />,
+    { wrapper: LightTheme });
+  const piece = result.getByTestId('garment-swap-board-piece-outer_layer');
+  expect(piece.props.accessibilityActions).toContainEqual({ name: 'takeOff', label: 'Take the outer_layer off' });
+  expect(result.getByTestId('garment-swap-board-piece-footwear').props.accessibilityActions
+    .some(({ name }: { name: string }) => name === 'takeOff')).toBe(false);
+  await act(async () => piece.props.onAccessibilityAction({ nativeEvent: { actionName: 'takeOff' } }));
+  expect(onTakeOff).toHaveBeenLastCalledWith('outer_layer');
+
+  await result.rerender(<GarmentSwapBoard {...layeredProps('light_jacket', { onTakeOff, focusedSlot: 'outer_layer' })} />);
+  const takeOff = result.getByTestId('garment-swap-board-strip-take-off');
+  expect(takeOff).toHaveProp('accessibilityLabel', 'Take the outer_layer off');
+  expect(result.getByTestId('garment-swap-board-strip-done')).toBeOnTheScreen();
+  await fireEvent.press(takeOff);
+  expect(onTakeOff).toHaveBeenCalledTimes(2);
+
+  // Footwear can never be taken off: its strip has Done alone.
+  await result.rerender(<GarmentSwapBoard {...layeredProps('light_jacket', { onTakeOff, focusedSlot: 'footwear' })} />);
+  expect(result.queryByTestId('garment-swap-board-strip-take-off')).toBeNull();
+});
+
+test('a layer taken off lifts and fades in place, and an added one is hung on from unseen', async () => {
+  const timings = jest.spyOn(Reanimated, 'withTiming');
+  const springs = jest.spyOn(Reanimated, 'withSpring');
+  const { fast } = lightTheme.motion;
+  try {
+    const result = await render(<GarmentSwapBoard {...layeredProps('light_jacket')} />, { wrapper: LightTheme });
+    timings.mockClear();
+    springs.mockClear();
+    await result.rerender(<GarmentSwapBoard {...layeredProps(null)} />);
+    expect(timings).toHaveBeenCalledWith(-spacing.lg, { duration: fast });
+    // Nothing slides sideways: the only springs are the pieces that stay gliding to their boxes.
+    expect(springs.mock.calls.map(([target]) => target).filter((target) => target !== 1)).toEqual([]);
+    expect(result.queryByTestId('garment-swap-board-piece-outer_layer')).toBeNull();
+    expect(result.queryByTestId('garment-swap-board-strip')).toBeNull();
+
+    springs.mockClear();
+    await result.rerender(<GarmentSwapBoard {...layeredProps('parka')} />);
+    expect(springs).toHaveBeenCalledWith(0, lightTheme.springs.arrival, expect.any(Function));
+    expect(result.getByTestId('garment-swap-board-piece-outer_layer')).toBeOnTheScreen();
+  } finally {
+    timings.mockRestore();
+    springs.mockRestore();
   }
 });
