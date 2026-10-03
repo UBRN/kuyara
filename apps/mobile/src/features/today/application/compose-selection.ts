@@ -1,5 +1,5 @@
 import type { ClothingPreference } from '@/domain/preferences';
-import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
+import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { composePieceLimit, type ComposePin } from '@/features/recommendation/application/compose-around-pieces';
 import { swappableSlots } from '@/features/recommendation/domain/manual-mix';
@@ -79,7 +79,7 @@ export type ComposeCatalogGroup = Readonly<{ slot: ComposeSlot; garmentTypeIds: 
  * sweater is a top or a mid layer) is listed under both. The Closet never supplies a piece.
  */
 export function composeCatalog(preference: ClothingPreference): readonly ComposeCatalogGroup[] {
-  const types = listGarmentTypesForPreference(preference).filter(({ status }) => status === 'active');
+  const types = listSelectableGarmentTypes(preference);
   return swappableSlots.flatMap((slot) => {
     const garmentTypeIds = types.filter(({ typeId }) => garmentFitsSlot(slot, typeId)).map(({ typeId }) => typeId);
     return garmentTypeIds.length > 0 ? [{ slot, garmentTypeIds }] : [];

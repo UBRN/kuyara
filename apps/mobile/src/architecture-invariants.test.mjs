@@ -1111,20 +1111,13 @@ test('style lists are compared only by sameStyleAesthetics', () => {
   assert.deepEqual(copies, [], 'call sameStyleAesthetics from @/features/profile/domain/profile');
 });
 
-// The quarter hour a departure is chosen and spoken in is defined once, in
-// recommendation/domain/dressing-day-departure.ts. These screens still spell their own copy;
-// the list only shrinks.
-const spelledQuarterHour = [
-  'features/today/presentation/ask-again-sheet.tsx',
-  'features/today/presentation/today-presentation.ts',
-];
-
-test('the departure quarter hour is defined only in the departure owner', () => {
+// The quarter hour a departure is chosen and spoken in, and the wheel of departures it steps,
+// are defined once, in recommendation/domain/dressing-day-departure.ts.
+test('the departure quarter hour and wheel are defined only in the departure owner', () => {
   const files = sourceFiles().filter((relativePath) =>
     relativePath !== 'features/recommendation/domain/dressing-day-departure.ts' &&
-    /\bconst quarterHourMs\b/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
-  assert.deepEqual(files, [...spelledQuarterHour].sort(),
-    'import quarterHourMs from dressing-day-departure, and shrink the list when a file stops defining it');
+    /\bconst quarterHourMs\b|\bfunction departureOptions\b/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(files, [], 'import quarterHourMs or departureOptions from dressing-day-departure');
 });
 
 // A clothing preference is parsed once, at the boundary that reads it, and carries its type from
@@ -1138,6 +1131,18 @@ test('a parsed clothing preference is not re-checked inside the app', () => {
     /\bisClothingPreference\(/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
   assert.deepEqual(files, [...recheckedClothingPreference].sort(),
     'drop the re-check, and shrink the list when a file stops making it');
+});
+
+// A dressing-day key's calendar date is read by dressingDayDateKey (weather/domain/wardrobe-day.ts),
+// never by slicing the key.
+test('a day key is not sliced for its date', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/[kK]ey\.slice\(0, 10\)/.test(line) && !relativePath.includes('__tests__/')) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+  assert.deepEqual(hits, [], 'call dressingDayDateKey from @/features/weather/domain/wardrobe-day');
 });
 
 // The two app languages are `SupportedLanguage` (domain/preferences.ts); nobody spells the union
@@ -1236,7 +1241,6 @@ test('the device time zone and the default quiet hours each have one owner', () 
 const clockPatternAllowlist = {
   'features/account/presentation/account-sync-view.ts': 1,
   'features/profile/presentation/service-providers-screen.tsx': 1,
-  'features/today/presentation/today-presentation.ts': 1,
   'features/weather/presentation/weather-format.ts': 1,
   'features/weather/presentation/weather-screen.tsx': 1,
   'presentation/format-clock-time.ts': 1,
@@ -1331,14 +1335,13 @@ test('the active catalogue status is read only by the selectable types owner', (
   const owner = 'features/catalog/domain/garment-catalog.ts';
   const allowlist = [
     'features/recommendation/domain/garment-eligibility.ts',
-    'features/today/application/compose-selection.ts',
     'features/wardrobe/presentation/garment-type-picker.tsx',
   ];
   const hits = sourceFiles().filter((file) =>
     file !== owner && /status\s*[!=]==\s*'active'/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'list types through listSelectableGarmentTypes');
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
-  assert.equal(allowlist.length, 3, 'the active status allowlist only shrinks');
+  assert.equal(allowlist.length, 2, 'the active status allowlist only shrinks');
 });
 
 // "Either notification kind is on" is decided once, by `wantsAnyNotification` in
