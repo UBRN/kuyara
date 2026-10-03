@@ -97,7 +97,7 @@ test('the day question opens once per dressing day and never over another overla
 test('the first dressing day is the local day the profile was created on', () => {
   const profile = readyProfile().profile;
   assert.equal(isFirstDressingDay(profile, '2026-08-13'), true);
-  assert.equal(isFirstDressingDay(profile, '2026-08-13-evening'), true);
+  assert.equal(isFirstDressingDay(profile, '2026-08-13:evening'), true);
   assert.equal(isFirstDressingDay(profile, '2026-08-14'), false);
   assert.equal(isFirstDressingDay({ ...profile, onboardingCompleted: false }, '2026-08-13'), false);
   assert.equal(isFirstDressingDay(null, '2026-08-13'), false);

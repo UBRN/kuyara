@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   dressingDayDateKey,
+  eveningHasStarted,
+  isBeforeDayStart,
   isEveningDressingDayKey,
   wardrobeDayKey,
   wardrobeDayWindow,
@@ -168,4 +170,10 @@ test('isEveningDressingDayKey and dressingDayDateKey agree with the window at ev
     assert.equal(isEveningDressingDayKey(key), period === 'evening', instant);
     assert.equal(dressingDayDateKey(key), date, instant);
   }
+});
+
+test('the evening and the small hours are told apart at their exact local hours', () => {
+  const hours = [3, 4, 17, 18];
+  assert.deepEqual(hours.map(isBeforeDayStart), [true, false, false, false]);
+  assert.deepEqual(hours.map(eveningHasStarted), [false, false, false, true]);
 });

@@ -13,6 +13,7 @@ import type { WeatherAlertOfferReason } from '@/features/notifications/domain/we
 import type { AppMessages } from '@/localization/messages';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import type { TodayScreenState } from '@/features/today/model';
+import { dressingDayDateKey } from '@/features/weather/domain/wardrobe-day';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 
@@ -63,7 +64,7 @@ export function mayOpenDayQuestion(input: Readonly<{
  */
 export function isFirstDressingDay(profile: Profile | null, dressingDayKey: string | null): boolean {
   return Boolean(profile?.onboardingCompleted && dressingDayKey &&
-    localDayKey(new Date(profile.createdAt)).slice(0, 10) === dressingDayKey.slice(0, 10));
+    dressingDayDateKey(localDayKey(new Date(profile.createdAt))) === dressingDayDateKey(dressingDayKey));
 }
 
 /** f7: the outfit on screen was made for another day type, and its replacement is running. */

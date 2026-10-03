@@ -11,6 +11,7 @@ import {
 } from '@/features/recommendation/domain/outfit-history';
 import { activeLocationRecommendation, type TodayScreenState } from '@/features/today/model';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
+import { isBeforeDayStart } from '@/features/weather/domain/wardrobe-day';
 import { activeLocationSnapshot, weatherFreshness, type DailyWeather, type WeatherSnapshot } from '@/features/weather/domain/weather';
 import type { ClosetSeedPiece } from '@/features/wardrobe/application/closet-seed';
 import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
@@ -52,7 +53,7 @@ export function tomorrowForecastDay(preview: RecommendationSnapshot, weather: We
  * and 04:00 the coming morning is "This morning". The strip and the detail title both read it.
  */
 export function previewIsThisMorning(now: number, timeZone: string, dateKey: string): boolean {
-  return zonedClock(now, timeZone).hour < 4 && zonedDateKey(now, timeZone) === dateKey;
+  return isBeforeDayStart(zonedClock(now, timeZone).hour) && zonedDateKey(now, timeZone) === dateKey;
 }
 
 /** Tomorrow's detail is titled "This morning" while its forecast day is the place's current morning. */

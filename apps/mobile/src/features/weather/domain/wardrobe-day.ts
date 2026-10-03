@@ -50,6 +50,16 @@ const eveningStartHour = 18;
 /** The local hour the overnight stretch ends at, and the day period begins. */
 const dayStartHour = 4;
 
+/** Whether a local hour is at or past the start of the evening. */
+export function eveningHasStarted(hour: number): boolean {
+  return hour >= eveningStartHour;
+}
+
+/** Whether a local hour is still in the small hours before the day period begins. */
+export function isBeforeDayStart(hour: number): boolean {
+  return hour < dayStartHour;
+}
+
 type LocalDate = Readonly<{ year: number; month: number; day: number }>;
 type LocalTime = LocalDate & Readonly<{ hour: number }>;
 
@@ -94,8 +104,8 @@ function shiftLocalDate(date: LocalDate, days: number): LocalDate {
  * signals are keyed to the day the person is living on their own phone.
  */
 export function wardrobeDayKey(local: LocalTime): string {
-  if (local.hour >= eveningStartHour) return `${formatCalendarDateParts(local)}${eveningKeySuffix}`;
-  if (local.hour < dayStartHour) return `${formatCalendarDateParts(shiftLocalDate(local, -1))}${eveningKeySuffix}`;
+  if (eveningHasStarted(local.hour)) return `${formatCalendarDateParts(local)}${eveningKeySuffix}`;
+  if (isBeforeDayStart(local.hour)) return `${formatCalendarDateParts(shiftLocalDate(local, -1))}${eveningKeySuffix}`;
   return formatCalendarDateParts(local);
 }
 
@@ -109,10 +119,10 @@ export function wardrobeDayWindow(
 
   try {
     const local = zonedClock(now, timeZone);
-    const isEvening = local.hour >= eveningStartHour || local.hour < dayStartHour;
+    const isEvening = eveningHasStarted(local.hour) || isBeforeDayStart(local.hour);
     // Before 04:00 the evening is the one that began yesterday, so it ends at 04:00 of the
     // date the clock already shows; after 18:00 it ends at 04:00 of the date to come.
-    const endDate = local.hour < dayStartHour ? local : shiftLocalDate(local, 1);
+    const endDate = isBeforeDayStart(local.hour) ? local : shiftLocalDate(local, 1);
     const end = instantOfLocalHour(endDate, isEvening ? dayStartHour : 0, timeZone);
 
     return {
