@@ -9,7 +9,8 @@ export const aiRecommendV2Path = '/v2/ai/recommend' as const;
 export const styleAesthetics = ['minimal', 'classic', 'sporty', 'streetwear', 'relaxed'] as const;
 export const styleAestheticSchema = z.enum(styleAesthetics);
 
-const styleAestheticsSchema = z.array(styleAestheticSchema).max(3).refine(
+export const styleAestheticsLimit = 3;
+export const styleAestheticsSchema = z.array(styleAestheticSchema).max(styleAestheticsLimit).refine(
   (values) => values.every((value, index) => index === 0 || values[index - 1] < value),
   'Style aesthetics must be sorted and unique.',
 );

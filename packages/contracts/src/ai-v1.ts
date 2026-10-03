@@ -188,7 +188,7 @@ export const aiV1ErrorCodes = [
 // Transport budget, not a model limit: 24 options keep the prompt near 2 KB.
 export const aiV1OptionLimit = 24;
 
-const optionIdSchema = z.string().regex(/^[A-Za-z0-9:_-]{1,32}$/);
+export const optionIdSchema = z.string().regex(/^[A-Za-z0-9:_-]{1,32}$/);
 const prioritySchema = z.enum(clothingRequirementPriorities);
 const reasonCodesSchema = z
   .array(z.enum(clothingRequirementReasonCodes))

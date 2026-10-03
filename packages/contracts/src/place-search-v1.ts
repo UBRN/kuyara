@@ -5,6 +5,9 @@ import { ianaTimeZoneSchema, weatherV1RequestSchema } from './weather-v1.ts';
 
 export const placeSearchV1Path = '/v1/places/search' as const;
 export const placeSearchMaxResults = 5;
+export const placeSearchQueryMinLength = 2;
+export const placeSearchQueryMaxLength = 100;
+export const placeSearchRegionMaxLength = 400;
 export const placeIdSchema = z.string().regex(/^place\.[1-9][0-9]{0,15}(?![\s\S])/);
 export const manualLocationIdSchema = z.union([
   z.string().regex(/^sample\.[a-z][a-z0-9-]{0,63}(?![\s\S])/),
@@ -13,7 +16,7 @@ export const manualLocationIdSchema = z.union([
 export const locationDisplayNameSchema = z.string().trim().min(1).max(200);
 
 export const placeSearchV1RequestSchema = z.strictObject({
-  query: z.string().trim().min(2).max(100),
+  query: z.string().trim().min(placeSearchQueryMinLength).max(placeSearchQueryMaxLength),
   limit: z.number().int().min(1).max(placeSearchMaxResults),
   language: z.enum(['tr', 'en']),
 });
@@ -21,7 +24,7 @@ export const placeSearchV1RequestSchema = z.strictObject({
 export const placeSearchResultSchema = z.object({
   id: placeIdSchema,
   displayName: locationDisplayNameSchema,
-  region: z.string().trim().min(1).max(400),
+  region: z.string().trim().min(1).max(placeSearchRegionMaxLength),
   latitudeE2: weatherV1RequestSchema.shape.latitudeE2,
   longitudeE2: weatherV1RequestSchema.shape.longitudeE2,
   timeZone: ianaTimeZoneSchema.nullable(),
