@@ -2,6 +2,7 @@ import {
   catalogLocalizationKeys,
   garmentCatalogManifestSchema,
   garmentTypeIds,
+  structuralCategories,
   type CatalogMessageKey,
   type GarmentCatalogManifest,
   type GarmentType,
@@ -974,4 +975,23 @@ export function listGarmentTypesForPreference(
       apparelPreferenceApplicability.includes(preference),
     ),
   );
+}
+
+/**
+ * The structural categories that offer at least one active type for the preference, in
+ * catalogue order. With no preference every category with an active type is offered.
+ */
+export function listStructuralCategoriesForPreference(
+  preference: ClothingPreference | null,
+): readonly StructuralCategory[] {
+  const offered = new Set(
+    garmentCatalog.garmentTypes
+      .filter(
+        ({ status, apparelPreferenceApplicability }) =>
+          status === 'active'
+          && (preference === null || apparelPreferenceApplicability.includes(preference)),
+      )
+      .map(({ structuralCategory }) => structuralCategory),
+  );
+  return Object.freeze(structuralCategories.filter((category) => offered.has(category)));
 }
