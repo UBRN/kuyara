@@ -5,7 +5,7 @@ import type {
 } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 import {
-  sameWornGarments,
+  wornAlready,
   wornOutfitFrom,
   type WornOutfit,
 } from '@/features/recommendation/domain/outfit-history';
@@ -30,8 +30,8 @@ export type ClosetSeedOffer = Readonly<{
 export type ClosetSeedProgress = Readonly<{ status: 'busy' | 'failed' } | { status: 'added'; count: number }>;
 
 /**
- * Whether today's worn record is this outfit (`this`), another one (`other`), none, or not
- * read yet (`unknown`). One record per dressing day (ADR 0038).
+ * Whether today's worn looks hold this outfit (`this`), only others (`other`), none, or are not
+ * read yet (`unknown`). A day can hold several looks (ADR 0038).
  */
 export type OutfitWornState = 'this' | 'other' | 'none' | 'unknown';
 
@@ -115,18 +115,18 @@ export function wornOutfitOrNull(...args: Parameters<typeof wornOutfitFrom>): Wo
 }
 
 /**
- * ADR 0038: the open outfit against the dressing day's worn record. Tomorrow's preview and a
- * record not read yet say nothing.
+ * ADR 0038: the open outfit against the dressing day's worn looks. Tomorrow's preview and a
+ * day not read yet say nothing.
  */
 export function outfitWornState(
   tomorrow: boolean,
-  dayWorn: Readonly<{ outfit: WornOutfit | null }> | null,
+  dayWorn: Readonly<{ looks: readonly WornOutfit[] }> | null,
   thisWorn: WornOutfit | null,
 ): OutfitWornState {
   return tomorrow || !dayWorn || !thisWorn
     ? 'unknown'
-    : dayWorn.outfit === null ? 'none'
-      : sameWornGarments(dayWorn.outfit, thisWorn) ? 'this' : 'other';
+    : dayWorn.looks.length === 0 ? 'none'
+      : wornAlready(dayWorn.looks, thisWorn) ? 'this' : 'other';
 }
 
 /**

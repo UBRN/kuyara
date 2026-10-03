@@ -36,7 +36,6 @@ import {
 import { activeLocationRecommendation } from '@/features/today/model';
 import {
   historyDayKey,
-  sameWornGarments,
   type WornOutfit,
   type WornPieceColors,
 } from '@/features/recommendation/domain/outfit-history';
@@ -50,12 +49,10 @@ import {
   type PieceSheetTarget,
   type PieceSheetValues,
 } from '@/features/wardrobe/presentation/piece-edit-sheet';
-import { showWardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { useTourPopReport } from '@/features/walkthrough/application/use-tour-pop-report';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
-import { useKuyaraTheme } from '@/theme/theme-context';
 
 export default function OutfitDetailRoute() {
   // `day=tomorrow` opens the evening preview of the next dressing day, read-only for the
@@ -65,14 +62,13 @@ export default function OutfitDetailRoute() {
   const { language, messages } = useLocalization();
   const { dressingDayChoiceReady, dressingDayChoiceFailed, dressingDayKey, outfitHistory, reevaluateLocalDay,
     resolvedDressStyle, state: recommendationState, tomorrowPreview = null } = useRecommendationApplication();
-  const theme = useKuyaraTheme();
   const wardrobe = useWardrobeApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
     useWeatherApplication();
   const { markSwapHintShown, state: profileState } = useProfileApplication();
   const { analytics, firstUses } = useProductAnalytics();
   const [editing, setEditing] = useState<PieceSheetTarget | null>(null);
-  const [wornGarments, setWornGarments] = useState<{ key: string; outfit: WornOutfit | null } | null>(null);
+  const [wornGarments, setWornGarments] = useState<{ key: string; looks: readonly WornOutfit[] } | null>(null);
   const [wornBusy, setWornBusy] = useState(false);
   const [wornError, setWornError] = useState<string | null>(null);
   const [boardFocused, setBoardFocused] = useState(false);
@@ -159,14 +155,14 @@ export default function OutfitDetailRoute() {
   }, [ageBucket, analytics, dressStyle, dressingDayChoiceReady, isFocused, outfit, position,
     recommendation, suggestionId, tomorrow]);
 
-  // ADR 0038: the day's worn record, read once per dressing day, so the action knows whether
-  // it records, repeats nothing, or replaces another look.
+  // ADR 0038: the day's worn looks, read once per dressing day, so the action knows whether
+  // this outfit is already among them.
   const dayKey = dressingDayKey ? historyDayKey(dressingDayKey) : null;
   useEffect(() => {
     if (!dayKey || !outfitHistory) return;
     let live = true;
-    void outfitHistory.get(dayKey).then(
-      (record) => { if (live) setWornGarments({ key: dayKey, outfit: record?.outfit ?? null }); },
+    void outfitHistory.day(dayKey).then(
+      (records) => { if (live) setWornGarments({ key: dayKey, looks: records.map(({ outfit }) => outfit) }); },
       () => { if (live) setWornGarments(null); },
     );
     return () => { live = false; };
@@ -178,38 +174,20 @@ export default function OutfitDetailRoute() {
   );
   const dayWorn = wornGarments?.key === dayKey ? wornGarments : null;
   const worn = outfitWornState(tomorrow, dayWorn, thisWorn);
-  const logWorn = (pieceColors: WornPieceColors) => {
-    if (!dayKey || !thisWorn || !outfitHistory) return;
-    setWornBusy(true);
-    void outfitHistory.log(dayKey, thisWorn, pieceColors)
-      .then((record) => setWornGarments({ key: dayKey, outfit: record.outfit }))
-      .catch(() => setWornError(messages.today.wornSaveError))
-      .finally(() => setWornBusy(false));
-  };
-  // Idempotent per dressing day: the day's row is read again at the tap, the same look is
-  // never written twice, and another look replaces it only after the reader confirms. The
-  // colours are the ones the detail board drew, so History draws the day as it was seen.
+  // Each look worn in a day is recorded beside the day's earlier ones; the repository keeps the
+  // same look to one record. The colours are the ones the detail board drew, so History draws
+  // the look as it was seen.
   const onWoreThis = (pieceColors: WornPieceColors) => {
     if (!dayKey || !thisWorn || !outfitHistory || wornBusy) return;
     setWornBusy(true);
     setWornError(null);
-    void outfitHistory.get(dayKey).then((record) => {
-      setWornBusy(false);
-      if (!record) { logWorn(pieceColors); return; }
-      setWornGarments({ key: dayKey, outfit: record.outfit });
-      if (sameWornGarments(record.outfit, thisWorn)) return;
-      showWardrobeConfirmation({
-        title: messages.today.wornReplaceTitle,
-        message: messages.today.wornReplaceBody,
-        cancelLabel: messages.today.wornReplaceCancel,
-        confirmLabel: messages.today.wornReplaceConfirm,
-        destructive: true,
-        colorScheme: theme.colorScheme,
-      }, () => logWorn(pieceColors));
-    }, () => {
-      setWornBusy(false);
-      setWornError(messages.today.wornSaveError);
-    });
+    void outfitHistory.log(dayKey, thisWorn, pieceColors)
+      .then((record) => setWornGarments((day) => ({
+        key: dayKey,
+        looks: [...(day?.key === dayKey ? day.looks : []), record.outfit],
+      })))
+      .catch(() => setWornError(messages.today.wornSaveError))
+      .finally(() => setWornBusy(false));
   };
 
   // O6: one sheet writes the piece's Closet record. Taxonomy 5.8's existing events, with

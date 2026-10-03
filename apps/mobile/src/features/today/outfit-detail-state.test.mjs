@@ -69,16 +69,17 @@ test('a detail route finds its outfit by option id, with its place among the thr
   assert.deepEqual(detailOutfit(null, outfits[0].optionId), { outfit: null, position: null });
 });
 
-test('the worn state compares the open outfit with the day record', () => {
+test('the worn state compares the open outfit with every look of the day', () => {
   const thisWorn = wornOutfitOrNull(outfits[0]);
   const otherWorn = wornOutfitOrNull(outfits[1]);
   assert.ok(thisWorn && otherWorn);
-  assert.equal(outfitWornState(false, { outfit: thisWorn }, thisWorn), 'this');
-  assert.equal(outfitWornState(false, { outfit: otherWorn }, thisWorn), 'other');
-  assert.equal(outfitWornState(false, { outfit: null }, thisWorn), 'none');
+  assert.equal(outfitWornState(false, { looks: [thisWorn] }, thisWorn), 'this');
+  assert.equal(outfitWornState(false, { looks: [otherWorn, thisWorn] }, thisWorn), 'this');
+  assert.equal(outfitWornState(false, { looks: [otherWorn] }, thisWorn), 'other');
+  assert.equal(outfitWornState(false, { looks: [] }, thisWorn), 'none');
   assert.equal(outfitWornState(false, null, thisWorn), 'unknown');
-  assert.equal(outfitWornState(false, { outfit: thisWorn }, null), 'unknown');
-  assert.equal(outfitWornState(true, { outfit: thisWorn }, thisWorn), 'unknown');
+  assert.equal(outfitWornState(false, { looks: [thisWorn] }, null), 'unknown');
+  assert.equal(outfitWornState(true, { looks: [thisWorn] }, thisWorn), 'unknown');
 });
 
 test('a worn record that does not parse is none', () => {

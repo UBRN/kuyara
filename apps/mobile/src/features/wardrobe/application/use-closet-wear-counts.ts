@@ -1,6 +1,7 @@
 import { use, useEffect, useState } from 'react';
 
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
+import { historyDays } from '@/features/recommendation/domain/outfit-history';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
 import { closetWearCounts } from '@/features/wardrobe/domain/garment-type-ownership';
 
@@ -22,7 +23,9 @@ export function useClosetWearCounts(): ReadonlyMap<string, number> {
     let live = true;
     history.list().then(
       (records) => {
-        if (live) setCounts(closetWearCounts(items, records.map(({ outfit }) => Object.values(outfit.garments))));
+        // A day with several looks counts a piece once.
+        if (live) setCounts(closetWearCounts(items, historyDays(records).map(({ looks }) =>
+          looks.flatMap(({ outfit }) => Object.values(outfit.garments)))));
       },
       () => { if (live) setCounts(none); },
     );

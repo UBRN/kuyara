@@ -59,15 +59,19 @@ export type RecommendationApplicationValue = Readonly<{
    */
   answerSetupDay?: (formality: DressStyle) => Promise<void>;
   /**
-   * Outfit history (ADR 0038) for this profile, keyed by the bare-date day. Writing it
-   * never starts a generation; the next approved one reads it for repeat avoidance.
+   * Outfit history (ADR 0038) for this profile: each bare-date day holds the looks worn on it.
+   * Writing it never starts a generation; the next approved one reads it for repeat avoidance.
    */
   outfitHistory?: Readonly<{
-    /** Grows with every recorded day; the object is replaced with it, so readers read again. */
+    /** Grows with every recorded look; the object is replaced with it, so readers read again. */
     revision?: number;
     list: () => Promise<readonly OutfitHistoryRecord[]>;
-    get: (dayKey: string) => Promise<OutfitHistoryRecord | null>;
-    /** `pieceColors` are the swatches the detail board drew the outfit in, for History. */
+    /** The day's looks, morning first. */
+    day: (dayKey: string) => Promise<readonly OutfitHistoryRecord[]>;
+    /**
+     * Records a look for the day beside its earlier ones; the same look again stays one record.
+     * `pieceColors` are the swatches the detail board drew the outfit in, for History.
+     */
     log: (dayKey: string, outfit: WornOutfit, pieceColors: WornPieceColors | null) => Promise<OutfitHistoryRecord>;
   }>;
   /**

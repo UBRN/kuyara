@@ -29,30 +29,53 @@ async function setup(t) {
   return db;
 }
 
-test('history overwrites and revives one day, lists newest first, and reads only seven live rows', async (t) => {
+test('history appends each look of a day morning first, records the same look once, and reads the seven latest', async (t) => {
   const db = await setup(t);
   let clock = now;
   const photos = { copyStaged: async () => 'kuyara/history/photos/' + randomUUID() + '.jpg',
     discardStaged: async () => {}, deleteStored: async () => {}, resolveUri: () => null };
   const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => clock, photos);
-  const original = await repo.log(profileId, '2026-09-01', first, { kind: 'keep' }, null);
+  const keep = { kind: 'keep' };
+  const ids = async (day) => (await repo.day(profileId, day)).map((look) => look.id);
+  const morning = await repo.log(profileId, '2026-09-01', first, keep, null);
   clock = '2026-09-24T11:00:00.000Z';
-  const overwritten = await repo.log(profileId, '2026-09-01', second, { kind: 'keep' }, null);
-  assert.equal(overwritten.id, original.id);
-  assert.equal(overwritten.createdAt, original.createdAt);
-  assert.equal(overwritten.outfit.source, 'manual');
-  assert.equal(await repo.softDelete(profileId, '2026-09-01'), true);
-  assert.equal(await repo.get(profileId, '2026-09-01'), null);
-  const revived = await repo.log(profileId, '2026-09-01', first, { kind: 'keep' }, null);
-  assert.equal(revived.id, original.id);
-  assert.equal(revived.deletedAt, null);
+  // The same look again the same day is the record already there, untouched.
+  assert.deepEqual(await repo.log(profileId, '2026-09-01', first, keep,
+    { primary_top: 'navy', bottom: 'indigo', footwear: 'white' }), morning);
+  clock = '2026-09-24T18:00:00.000Z';
+  const evening = await repo.log(profileId, '2026-09-01', second, keep, null);
+  assert.notEqual(evening.id, morning.id);
+  assert.equal(evening.outfit.source, 'manual');
+  assert.equal(evening.wornAt, clock);
+  assert.deepEqual(await ids('2026-09-01'), [morning.id, evening.id]);
+  assert.equal((await repo.log(profileId, '2026-09-01', second, keep, null)).id, evening.id);
+  assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM outfit_history')).count, 2);
+
+  // Deleting one look leaves the day's other; wearing the deleted look again is a new record.
+  assert.equal(await repo.softDelete(profileId, morning.id), true);
+  assert.equal(await repo.softDelete(profileId, morning.id), false);
+  assert.deepEqual(await ids('2026-09-01'), [evening.id]);
+  clock = '2026-09-24T19:00:00.000Z';
+  const again = await repo.log(profileId, '2026-09-01', first, keep, null);
+  assert.notEqual(again.id, morning.id);
+  assert.deepEqual(await ids('2026-09-01'), [evening.id, again.id]);
+
   for (let day = 2; day <= 9; day++) {
-    await repo.log(profileId, `2026-09-${String(day).padStart(2, '0')}`, first, { kind: 'keep' }, null);
+    clock = `2026-09-24T2${day % 4}:00:00.000Z`;
+    await repo.log(profileId, `2026-09-${String(day).padStart(2, '0')}`, first, keep, null);
   }
-  assert.equal((await repo.list(profileId)).length, 9);
-  assert.deepEqual((await repo.lastSeven(profileId)).map((entry) => entry.dayKey),
-    ['09', '08', '07', '06', '05', '04', '03'].map((day) => `2026-09-${day}`));
-  assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM outfit_history')).count, 9);
+  clock = '2026-09-24T23:30:00.000Z';
+  const late = await repo.log(profileId, '2026-09-09', second, keep, null);
+  const listed = await repo.list(profileId);
+  assert.deepEqual(listed.map(({ dayKey }) => dayKey.slice(-2)),
+    ['09', '09', '08', '07', '06', '05', '04', '03', '02', '01', '01']);
+  assert.deepEqual(listed.slice(0, 2).map(({ outfit }) => outfit.source), ['recommended', 'manual']);
+  assert.deepEqual(listed.slice(-2).map(({ id }) => id), [evening.id, again.id]);
+  const seven = await repo.lastSeven(profileId);
+  assert.equal(seven[0].id, late.id);
+  assert.deepEqual(seven.map(({ dayKey }) => dayKey.slice(-2)), ['09', '09', '08', '07', '06', '05', '04']);
+  assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM outfit_history')).count, 12);
+  assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM outfit_history WHERE pending_sync = 1')).count, 12);
 });
 
 test('history skips corrupt rows while preserving seven valid reads and recommendation generation', async (t) => {
@@ -67,7 +90,7 @@ test('history skips corrupt rows while preserving seven valid reads and recommen
     ['{"garments":"invalid"}', '2026-09-07']);
   assert.deepEqual((await repo.list(profileId)).map((entry) => entry.dayKey),
     ['08', '06', '05', '04', '03', '02', '01'].map((day) => `2026-09-${day}`));
-  assert.equal((await repo.get(profileId, '2026-09-08')).dayKey, '2026-09-08');
+  assert.deepEqual((await repo.day(profileId, '2026-09-08')).map(({ dayKey }) => dayKey), ['2026-09-08']);
   const recentWorn = (await repo.lastSeven(profileId)).map((entry) => entry.outfit);
   assert.equal(recentWorn.length, 7);
   const observedAt = '2026-09-24T09:00:00.000Z';
@@ -121,10 +144,14 @@ test('history photo copy precedes write; failed write cleans new file and leaves
   const original = await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' }, null);
   const oldPath = original.photoPath;
   assert.deepEqual(events, ['copy', 'discard']);
-  const retained = await repo.log(profileId, '2026-09-24', second, { kind: 'keep' }, null);
-  assert.equal(retained.photoPath, oldPath);
+  // Another look of the day is its own record, without the first look's photo.
+  const other = await repo.log(profileId, '2026-09-24', second, { kind: 'keep' }, null);
+  assert.equal(other.photoPath, null);
+  assert.equal((await repo.day(profileId, '2026-09-24'))[0].photoPath, oldPath);
+  // The same look again carries a photo change to its record.
   const replacement = await repo.log(profileId, '2026-09-24', first,
     { kind: 'replace', stagedUri: 'stage' }, null);
+  assert.equal(replacement.id, original.id);
   assert.deepEqual(events, ['copy', 'discard', 'copy', 'discard', `delete:${oldPath}`]);
   assert.notEqual(replacement.photoPath, oldPath);
   const removed = await repo.log(profileId, '2026-09-24', first, { kind: 'remove' }, null);
@@ -143,6 +170,7 @@ test('history photo copy precedes write; failed write cleans new file and leaves
     withExclusiveTransactionAsync: (task) => db.withExclusiveTransactionAsync((transaction) => task({
       ...transaction,
       getFirstAsync: transaction.getFirstAsync.bind(transaction),
+      getAllAsync: transaction.getAllAsync.bind(transaction),
       runAsync: async () => { throw new Error('write failed'); },
     })),
   };
@@ -150,7 +178,7 @@ test('history photo copy precedes write; failed write cleans new file and leaves
   await assert.rejects(() => failingRepo.log(profileId, '2026-09-24', first,
     { kind: 'replace', stagedUri: 'stage' }, null), /write failed/);
   assert.match(events.at(-1), /^delete:kuyara\/history\/photos\//);
-  assert.equal((await repo.get(profileId, '2026-09-24')).photoPath, beforeFailure.photoPath);
+  assert.equal((await repo.day(profileId, '2026-09-24'))[0].photoPath, beforeFailure.photoPath);
   assert.equal(events.includes(`delete:${beforeFailure.photoPath}`), false);
 });
 
@@ -197,23 +225,23 @@ test('departure zones accept every name the weather layer accepts but not numeri
   }
 });
 
-test('an invalid same-day row reads as absent and can be overwritten or deleted, with its photo cleaned up', async (t) => {
+test('an invalid row reads as absent, a look is recorded beside it, and its delete cleans up the photo', async (t) => {
   const db = await setup(t);
   const deleted = [];
   const photoPath = `kuyara/history/photos/${randomUUID()}.jpg`;
   const photos = { copyStaged: async () => photoPath, discardStaged: async () => {},
     deleteStored: async (path) => { deleted.push(path); }, resolveUri: () => null };
   const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
-  await repo.log(profileId, '2026-09-07', first, { kind: 'replace', stagedUri: 'stage' }, null);
-  await repo.log(profileId, '2026-09-08', first, { kind: 'replace', stagedUri: 'stage' }, null);
+  const broken = await repo.log(profileId, '2026-09-07', first, { kind: 'replace', stagedUri: 'stage' }, null);
+  const other = await repo.log(profileId, '2026-09-08', first, { kind: 'replace', stagedUri: 'stage' }, null);
   await db.runAsync(`UPDATE outfit_history SET outfit_json = ?`, ['{"garments":"invalid"}']);
 
-  assert.equal(await repo.get(profileId, '2026-09-07'), null);
-  const overwritten = await repo.log(profileId, '2026-09-07', second, { kind: 'remove' }, null);
-  assert.equal(overwritten.outfit.source, 'manual');
-  assert.equal(deleted.at(-1), photoPath);
-  assert.equal(await repo.softDelete(profileId, '2026-09-08'), true);
-  assert.equal(deleted.length, 2);
+  assert.deepEqual(await repo.day(profileId, '2026-09-07'), []);
+  const look = await repo.log(profileId, '2026-09-07', first, { kind: 'remove' }, null);
+  assert.notEqual(look.id, broken.id);
+  assert.deepEqual(deleted, []);
+  assert.equal(await repo.softDelete(profileId, other.id), true);
+  assert.deepEqual(deleted, [photoPath]);
 });
 
 // The history stores the user's own photos. File cleanup follows a database step that has
@@ -230,13 +258,13 @@ test('history file cleanup that rejects never fails a write that already committ
   const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
   const stored = await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' }, null);
   assert.notEqual(stored.photoPath, null);
-  const replaced = await repo.log(profileId, '2026-09-24', second, { kind: 'replace', stagedUri: 'stage' }, null);
-  assert.equal(replaced.outfit.source, 'manual');
+  const replaced = await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' }, null);
+  assert.equal(replaced.id, stored.id);
   assert.notEqual(replaced.photoPath, stored.photoPath);
   const removed = await repo.log(profileId, '2026-09-24', first, { kind: 'remove' }, null);
   assert.equal(removed.photoPath, null);
   await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' }, null);
-  assert.equal(await repo.softDelete(profileId, '2026-09-24'), true);
+  assert.equal(await repo.softDelete(profileId, stored.id), true);
   const row = await db.getFirstAsync(
     'SELECT photo_path, deleted_at FROM outfit_history WHERE day_key = ?', ['2026-09-24']);
   assert.equal(row.photo_path, null);
@@ -256,16 +284,17 @@ for (const unmanaged of ['../../Library/x.jpg', '/abs/x.jpg', 'kuyara/history/ph
       resolveUri: () => null,
     };
     const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+    const looks = [];
     for (const day of ['2026-09-10', '2026-09-11']) {
-      await repo.log(profileId, day, first, { kind: 'replace', stagedUri: 'stage' }, null);
+      looks.push(await repo.log(profileId, day, first, { kind: 'replace', stagedUri: 'stage' }, null));
     }
     deleted.length = 0;
     await db.runAsync('UPDATE outfit_history SET photo_path = ?', [unmanaged]);
 
-    assert.equal((await repo.get(profileId, '2026-09-10')).photoPath, null);
+    assert.equal((await repo.day(profileId, '2026-09-10'))[0].photoPath, null);
     assert.equal((await repo.list(profileId)).every((entry) => entry.photoPath === null), true);
-    await repo.log(profileId, '2026-09-10', second, { kind: 'remove' }, null);
-    assert.equal(await repo.softDelete(profileId, '2026-09-11'), true);
+    await repo.log(profileId, '2026-09-10', first, { kind: 'remove' }, null);
+    assert.equal(await repo.softDelete(profileId, looks[1].id), true);
     assert.deepEqual(deleted, [], 'an unmanaged path must never reach deleteStored');
   });
 }
@@ -291,47 +320,48 @@ test('a staged copy that comes back with an unmanaged path is rejected, removed 
 // Migration 24: a worn day keeps the swatch each piece was drawn in, so History draws it as it
 // was seen. The colours are display data: a value that does not fit the day is dropped to
 // null (the fixed scheme), never a reason to lose the day.
-test('history stores, overwrites and drops the colours a day was drawn in', async (t) => {
+test('history stores the colours of each look and drops colours that do not fit', async (t) => {
   const db = await setup(t);
   let clock = now;
   const photos = { copyStaged: async () => 'kuyara/history/photos/' + randomUUID() + '.jpg',
     discardStaged: async () => {}, deleteStored: async () => {}, resolveUri: () => null };
   const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => clock, photos);
   const colors = { primary_top: 'burgundy', bottom: 'indigo', footwear: 'white' };
-  const stored = async () => (await db.getFirstAsync(
-    "SELECT piece_colors_json FROM outfit_history WHERE day_key = '2026-09-24'")).piece_colors_json;
+  const stored = async (id) => (await db.getFirstAsync(
+    'SELECT piece_colors_json FROM outfit_history WHERE id = ?', [id])).piece_colors_json;
 
   const written = await repo.log(profileId, '2026-09-24', first, { kind: 'keep' }, colors);
   assert.deepEqual(written.pieceColors, colors);
-  assert.deepEqual((await repo.get(profileId, '2026-09-24')).pieceColors, colors);
+  assert.deepEqual((await repo.day(profileId, '2026-09-24'))[0].pieceColors, colors);
   assert.deepEqual((await repo.list(profileId))[0].pieceColors, colors);
-  assert.deepEqual(JSON.parse(await stored()), colors);
+  assert.deepEqual(JSON.parse(await stored(written.id)), colors);
 
-  // A new look for the day replaces the old look's colours, and a write without colours clears them.
-  clock = '2026-09-24T11:00:00.000Z';
+  // The day's next look keeps its own colours beside the first look's.
+  clock = '2026-09-24T18:00:00.000Z';
   const recoloured = { primary_top: 'oxford', bottom: 'stone', footwear: 'tan' };
-  assert.deepEqual((await repo.log(profileId, '2026-09-24', second, { kind: 'keep' }, recoloured)).pieceColors, recoloured);
-  assert.equal((await repo.log(profileId, '2026-09-24', first, { kind: 'keep' }, null)).pieceColors, null);
-  assert.equal(await stored(), null);
+  const evening = await repo.log(profileId, '2026-09-24', second, { kind: 'keep' }, recoloured);
+  assert.deepEqual(evening.pieceColors, recoloured);
+  assert.deepEqual((await repo.day(profileId, '2026-09-24')).map(({ pieceColors }) => pieceColors),
+    [colors, recoloured]);
 
-  // A write that does not state its colours is refused and leaves the stored ones alone.
-  await repo.log(profileId, '2026-09-24', first, { kind: 'keep' }, colors);
-  await assert.rejects(() => repo.log(profileId, '2026-09-24', second, { kind: 'keep' }), /piece colours/);
-  assert.deepEqual(JSON.parse(await stored()), colors);
+  // A write that does not state its colours is refused and stores nothing.
+  await assert.rejects(() => repo.log(profileId, '2026-09-25', second, { kind: 'keep' }), /piece colours/);
+  assert.deepEqual(await repo.day(profileId, '2026-09-25'), []);
 
-  // Colours outside the swatch vocabulary, for a slot the day did not wear, or empty are not stored.
-  for (const invalid of [{ primary_top: 'neon' }, { head: 'navy' }, {}, { primary_top: 'Navy' }]) {
-    const record = await repo.log(profileId, '2026-09-24', first, { kind: 'keep' }, invalid);
+  // Colours outside the swatch vocabulary, for a slot the look did not wear, or empty are not stored.
+  const invalidColors = [{ primary_top: 'neon' }, { head: 'navy' }, {}, { primary_top: 'Navy' }];
+  for (const [index, invalid] of invalidColors.entries()) {
+    const record = await repo.log(profileId, `2026-09-1${index}`, first, { kind: 'keep' }, invalid);
     assert.equal(record.pieceColors, null);
-    assert.equal(await stored(), null);
+    assert.equal(await stored(record.id), null);
   }
 
-  // A stored value this build cannot read still reads the day, in the fixed scheme.
+  // A stored value this build cannot read still reads the look, in the fixed scheme.
   for (const raw of ['not json', '"navy"', '{"primary_top":"neon"}', '{"head":"navy"}', '[]']) {
-    await db.runAsync("UPDATE outfit_history SET piece_colors_json = ? WHERE day_key = '2026-09-24'", [raw]);
-    const read = await repo.get(profileId, '2026-09-24');
+    await db.runAsync('UPDATE outfit_history SET piece_colors_json = ? WHERE id = ?', [raw, written.id]);
+    const [read] = await repo.day(profileId, '2026-09-24');
     assert.deepEqual(read.outfit, first);
     assert.equal(read.pieceColors, null);
-    assert.equal((await repo.list(profileId)).length, 1);
+    assert.equal((await repo.day(profileId, '2026-09-24')).length, 2);
   }
 });

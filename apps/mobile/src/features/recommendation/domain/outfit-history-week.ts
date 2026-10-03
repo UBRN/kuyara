@@ -14,7 +14,8 @@ import { dressingDayDateKey, isEveningDressingDayKey } from '@/features/weather/
 
 type Slot = (typeof outfitSlots)[number];
 
-export type WeekSummaryDay = Readonly<{
+/** One worn look; a day can hold several. */
+export type WeekSummaryLook = Readonly<{
   dayKey: string;
   outfit: WornOutfit;
   pieceColors: WornPieceColors | null;
@@ -26,7 +27,10 @@ export type DressedFor = 'rain' | 'cold' | 'light';
 export type WeekSummary = Readonly<{
   /** How many of those days carry a worn record; at least one. */
   days: number;
-  /** Days per kind, in the order rain, cold, light; a kind with no day is left out. */
+  /**
+   * Days per kind, in the order rain, cold, light; a kind with no day is left out. A day with
+   * several looks counts once toward each kind any of its looks was dressed for.
+   */
   dressedFor: readonly Readonly<{ kind: DressedFor; days: number }>[];
   /**
    * The piece worn on the most days, when one came back (two days or more). It carries the
@@ -79,11 +83,14 @@ export function dressedFor(outfit: WornOutfit): readonly DressedFor[] {
 
 type PieceTally = {
   garmentTypeId: GarmentTypeId;
-  days: number;
+  /** The days it was worn on, counted once a day however many of the day's looks wore it. */
+  days: Set<string>;
   lastDay: string;
   lastSlot: Slot;
-  swatches: Map<GarmentSwatchId, Readonly<{ days: number; lastDay: string }>>;
+  swatches: Map<GarmentSwatchId, Set<string>>;
 };
+
+const latest = (days: ReadonlySet<string>) => [...days].reduce((a, b) => (b > a ? b : a));
 
 const catalogIndex = (id: GarmentTypeId) => garmentTypeIds.indexOf(id);
 
@@ -91,14 +98,16 @@ const catalogIndex = (id: GarmentTypeId) => garmentTypeIds.indexOf(id);
 // order (tops before bottoms before shoes before accessories), so the same week always
 // names the same piece.
 function morePresent(a: PieceTally, b: PieceTally): number {
-  return b.days - a.days
+  return b.days.size - a.days.size
     || (a.lastDay === b.lastDay ? 0 : a.lastDay > b.lastDay ? -1 : 1)
     || catalogIndex(a.garmentTypeId) - catalogIndex(b.garmentTypeId);
 }
 
 function mostFrequentSwatch(tally: PieceTally): GarmentSwatchId | null {
   let best: Readonly<{ id: GarmentSwatchId; days: number; lastDay: string }> | null = null;
-  for (const [id, { days, lastDay }] of tally.swatches) {
+  for (const [id, swatchDays] of tally.swatches) {
+    const days = swatchDays.size;
+    const lastDay = latest(swatchDays);
     if (!best || days > best.days || (days === best.days && lastDay > best.lastDay)) best = { id, days, lastDay };
   }
   return best?.id ?? null;
@@ -109,48 +118,42 @@ function mostFrequentSwatch(tally: PieceTally): GarmentSwatchId | null {
  * that window, or when none of the week's seven days carries a worn record.
  */
 export function weekSummary(
-  records: readonly WeekSummaryDay[],
+  looks: readonly WeekSummaryLook[],
   dressingDayKey: string,
 ): WeekSummary | null {
   const week = summaryWeek(dressingDayKey);
   if (!week) return null;
   const inWeek = new Set(week);
-  const days = new Map<string, WeekSummaryDay>();
-  for (const record of records) if (inWeek.has(record.dayKey)) days.set(record.dayKey, record);
-  if (days.size === 0) return null;
+  const weekLooks = looks.filter(({ dayKey }) => inWeek.has(dayKey));
+  if (weekLooks.length === 0) return null;
 
-  const kindDays = new Map<DressedFor, number>();
+  const kindDays = new Map<DressedFor, Set<string>>();
   const pieces = new Map<GarmentTypeId, PieceTally>();
-  for (const { dayKey, outfit, pieceColors } of days.values()) {
-    for (const kind of dressedFor(outfit)) kindDays.set(kind, (kindDays.get(kind) ?? 0) + 1);
-    // A worn record never repeats a piece (its schema refuses it), so each piece counts once a day.
+  for (const { dayKey, outfit, pieceColors } of weekLooks) {
+    for (const kind of dressedFor(outfit)) kindDays.set(kind, (kindDays.get(kind) ?? new Set()).add(dayKey));
+    // A worn record never repeats a piece (its schema refuses it); the sets count each piece
+    // and each of its colours once a day across the day's looks.
     for (const [slot, id] of Object.entries(outfit.garments) as [Slot, GarmentTypeId | undefined][]) {
       if (!id) continue;
       const tally = pieces.get(id)
-        ?? { garmentTypeId: id, days: 0, lastDay: dayKey, lastSlot: slot, swatches: new Map() };
-      tally.days += 1;
+        ?? { garmentTypeId: id, days: new Set<string>(), lastDay: dayKey, lastSlot: slot, swatches: new Map() };
+      tally.days.add(dayKey);
       if (dayKey >= tally.lastDay) { tally.lastDay = dayKey; tally.lastSlot = slot; }
       const swatch = pieceColors?.[slot];
-      if (swatch) {
-        const kept = tally.swatches.get(swatch);
-        tally.swatches.set(swatch, {
-          days: (kept?.days ?? 0) + 1,
-          lastDay: kept && kept.lastDay > dayKey ? kept.lastDay : dayKey,
-        });
-      }
+      if (swatch) tally.swatches.set(swatch, (tally.swatches.get(swatch) ?? new Set()).add(dayKey));
       pieces.set(id, tally);
     }
   }
 
   const [top] = [...pieces.values()].sort(morePresent);
   return {
-    days: days.size,
+    days: new Set(weekLooks.map(({ dayKey }) => dayKey)).size,
     dressedFor: kinds.flatMap((kind) => {
-      const count = kindDays.get(kind);
-      return count ? [{ kind, days: count }] : [];
+      const days = kindDays.get(kind)?.size;
+      return days ? [{ kind, days }] : [];
     }),
-    mostWorn: top && top.days >= 2
-      ? { garmentTypeId: top.garmentTypeId, slot: top.lastSlot, days: top.days, swatchId: mostFrequentSwatch(top) }
+    mostWorn: top && top.days.size >= 2
+      ? { garmentTypeId: top.garmentTypeId, slot: top.lastSlot, days: top.days.size, swatchId: mostFrequentSwatch(top) }
       : null,
   };
 }
