@@ -1,3 +1,5 @@
+import { systemDate } from '@/infrastructure/system-clock';
+
 // What the account screens show (ADR 0041 section 5) and what they ask for. The real port
 // joins once the Supabase, Apple and Google work lands; until then an in-memory port drives
 // every state, for the component tests and for the development scenarios below.
@@ -154,7 +156,7 @@ export function isAccountScenarioName(value: unknown): value is AccountScenarioN
  */
 export function createInMemoryAccountScreens(
   initial: AccountScreensSnapshot = signedOut,
-  now: () => Date = () => new Date(),
+  now: () => Date = systemDate,
 ): AccountScreensPort {
   let snapshot = initial;
   const listeners = new Set<() => void>();

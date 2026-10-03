@@ -1,4 +1,3 @@
-import * as Crypto from 'expo-crypto';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 import { AppState, type AppStateStatus } from 'react-native';
 import {
@@ -73,9 +72,9 @@ import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
+import { newUuid } from '@/infrastructure/new-uuid';
+import { systemNow as now } from '@/infrastructure/system-clock';
 import { useLocalization } from '@/localization/use-messages';
-
-const now = () => new Date().toISOString();
 
 function approvedSignals(input: RecommendationApplicationInput): RecommendationSignals {
   return {
@@ -130,14 +129,14 @@ async function loadRepository() {
   await migrateDatabase(database);
   return new LocalRecommendationRepository(
     new SqliteRecommendationLocalDataSource(database),
-    { createId: () => Crypto.randomUUID(), now },
+    { createId: newUuid, now },
   );
 }
 
 function createPreviewStore(): TomorrowPreviewStore {
   const source = new ExpoFileRecommendationPreviewDataSource();
   const repository = new LocalRecommendationRepository(source,
-    { createId: () => Crypto.randomUUID(), now });
+    { createId: newUuid, now });
   return {
     claim: (profileId, dayKey) => source.claim(profileId, dayKey),
     // A preview for another day, or one that no longer validates, is no preview.
@@ -154,20 +153,20 @@ function composePreview(input: TomorrowPreviewInput) {
 async function loadChoiceRepository() {
   const database = await openKuyaraDatabase();
   await migrateDatabase(database);
-  return new SqliteDressingDayChoiceRepository(database, () => Crypto.randomUUID(), now);
+  return new SqliteDressingDayChoiceRepository(database, newUuid, now);
 }
 
 async function loadDepartureRepository() {
   const database = await openKuyaraDatabase();
   await migrateDatabase(database);
-  return new SqliteDressingDayDepartureRepository(database, () => Crypto.randomUUID(), now);
+  return new SqliteDressingDayDepartureRepository(database, newUuid, now);
 }
 
 async function loadHistoryRepository() {
   const database = await openKuyaraDatabase();
   await migrateDatabase(database);
-  return new SqliteOutfitHistoryRepository(database, () => Crypto.randomUUID(), now,
-    new ExpoHistoryPhotoStorage(() => Crypto.randomUUID()));
+  return new SqliteOutfitHistoryRepository(database, newUuid, now,
+    new ExpoHistoryPhotoStorage(newUuid));
 }
 
 type DayChoiceReadState = Readonly<{ profileId: string; key: string }> & (

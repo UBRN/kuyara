@@ -37,6 +37,7 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
+import { systemNow } from '@/infrastructure/system-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { getMessages } from '@/localization/messages';
 
@@ -245,7 +246,7 @@ export default function TodayRoute() {
     setAskError(false);
     await (async () => {
       const { settled } = await reask({ formality, departureAt, timeZone: placeTimeZone });
-      setChoosingWindow(outfitCoverage(departureAt ?? new Date().toISOString(), placeTimeZone));
+      setChoosingWindow(outfitCoverage(departureAt ?? systemNow(), placeTimeZone));
       void settled.finally(() => setChoosingWindow(null));
       setAskOpenedAt(null);
     })()

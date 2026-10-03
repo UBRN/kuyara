@@ -7,7 +7,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import * as Crypto from 'expo-crypto';
+
+import { newUuid } from '@/infrastructure/new-uuid';
 
 export type AnalyticsConsentTriggerValue = Readonly<{
   recommendationShown: boolean;
@@ -29,7 +30,7 @@ export function AnalyticsConsentTriggerProvider({ children }: PropsWithChildren)
   const answerInFlight = useRef<Promise<void> | null>(null);
   const markRecommendationShown = useCallback(() => setRecommendationShown(true), []);
   const beginConsentPresentation = useCallback(
-    () => (presentationPending.current = Crypto.randomUUID()), []);
+    () => (presentationPending.current = newUuid()), []);
   const matchesConsentPresentation = useCallback(
     (nonce: string | undefined) => !!nonce && presentationPending.current === nonce, []);
   const clearConsentPresentation = useCallback((nonce: string) => {

@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { systemNow } from '@/infrastructure/system-clock';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { NotificationApplicationController } from '@/features/notifications/application/notification-application-controller';
 import {
@@ -40,7 +41,7 @@ export function NotificationApplicationProvider(
     () => new WeatherAlertScheduler(
       gateway,
       loadWeatherAlertDeliveryRepository(),
-      () => new Date().toISOString(),
+      systemNow,
     ),
     [gateway],
   );

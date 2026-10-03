@@ -623,6 +623,25 @@ test('row id and timestamp schemas are built only in domain/record-identity.ts',
   );
 });
 
+// The device clock and the id generator each have one edge module. A stored or sent timestamp is
+// `systemNow()` (or `systemDate()` for a `Date`) from infrastructure/system-clock.ts and a new
+// random UUID is `newUuid()` from infrastructure/new-uuid.ts; a repository, loader or task takes
+// them as its `now` and `createId` dependencies. Presentation clocks (`useForegroundClock`, a
+// duration read with `Date.now()`) are a different fact and are not covered here.
+test('the system clock read and the UUID generator each live in one infrastructure module', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'infrastructure/system-clock.ts' || relativePath === 'infrastructure/new-uuid.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/new Date\(\)\.toISOString\(\)|=\s*\(\)\s*=>\s*new Date\(\)|randomUUID|expo-crypto/.test(line)) {
+        copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+      }
+    });
+  }
+
+  assert.deepEqual(copies, [], 'import systemNow or systemDate from @/infrastructure/system-clock, newUuid from @/infrastructure/new-uuid');
+});
+
 // The Worker origin variable is read in one place, `config/`, and the app has no web target
 // branch: kuyara ships for iOS and Android only.
 test('the Worker base URL variable is read once, under config/', () => {

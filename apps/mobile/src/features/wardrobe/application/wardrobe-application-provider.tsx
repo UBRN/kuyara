@@ -1,4 +1,3 @@
-import * as Crypto from 'expo-crypto';
 import {
   type PropsWithChildren,
   useEffect,
@@ -21,6 +20,8 @@ import {
 } from '@/features/wardrobe/data/expo-wardrobe-photo-adapters';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
+import { newUuid } from '@/infrastructure/new-uuid';
+import { systemNow } from '@/infrastructure/system-clock';
 
 async function loadWardrobeRepository() {
   const database = await openKuyaraDatabase();
@@ -29,8 +30,8 @@ async function loadWardrobeRepository() {
   return new LocalWardrobeRepository(
     new SqliteWardrobeLocalDataSource(database),
     {
-      createId: () => Crypto.randomUUID(),
-      now: () => new Date().toISOString(),
+      createId: newUuid,
+      now: systemNow,
     },
   );
 }
@@ -38,7 +39,7 @@ async function loadWardrobeRepository() {
 const wardrobePhotoManager = new LocalWardrobePhotoManager(
   new ExpoSystemWardrobePhotoPicker(),
   new ExpoWardrobePhotoProcessor(),
-  new ExpoPrivateWardrobePhotoStorage(() => Crypto.randomUUID()),
+  new ExpoPrivateWardrobePhotoStorage(newUuid),
 );
 
 type WardrobeApplicationProviderProps = PropsWithChildren<{

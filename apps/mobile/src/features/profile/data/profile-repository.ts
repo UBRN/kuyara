@@ -26,6 +26,7 @@ import {
   type StyleAesthetic,
 } from '@/features/profile/domain/profile';
 import { isUtcIsoTimestamp } from '@/domain/record-identity';
+import { systemDate } from '@/infrastructure/system-clock';
 
 export interface ProfileRepository {
   getOrCreateProfile(): Promise<Profile>;
@@ -158,7 +159,7 @@ export class LocalProfileRepository implements ProfileRepository {
 
   private readonly now: () => Date;
 
-  constructor(dataSource: ProfileLocalDataSource, now: () => Date = () => new Date()) {
+  constructor(dataSource: ProfileLocalDataSource, now: () => Date = systemDate) {
     this.dataSource = dataSource;
     this.now = now;
   }
