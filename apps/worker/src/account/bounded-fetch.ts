@@ -1,34 +1,10 @@
+import { readTextWithLimit } from '../json-request.ts';
 import { AccountError } from './account-error.ts';
 
 export type FetchLike = typeof globalThis.fetch;
 
 // The account routes read small JSON bodies; anything larger is not an answer they know.
 const maxBodyBytes = 65_536;
-
-/**
- * Reads a body as text but stops, cancelling the stream, once it passes `maxBytes`; that
- * case is `undefined`. The limit is enforced while reading, never after buffering it all.
- */
-export async function readTextWithLimit(
-  body: ReadableStream<Uint8Array> | null,
-  maxBytes: number,
-): Promise<string | undefined> {
-  if (body === null) return '';
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let text = '';
-  let received = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) return text + decoder.decode();
-    received += value.byteLength;
-    if (received > maxBytes) {
-      await reader.cancel();
-      return undefined;
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-}
 
 /** Bind the global: calling it as a stored property passes the wrong `this`, which workerd rejects. */
 export function defaultFetch(): FetchLike {

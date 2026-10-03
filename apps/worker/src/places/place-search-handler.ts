@@ -8,6 +8,7 @@ import {
   type PlaceSearchV1Request,
 } from '@kuyara/contracts';
 
+import { readJsonBody } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 
 type Dependencies = Readonly<{
@@ -15,6 +16,12 @@ type Dependencies = Readonly<{
   rateLimiter: { limit(input: { key: string }): Promise<{ success: boolean }> };
 }>;
 const error = createErrorResponse<PlaceSearchV1ErrorCode>(placeSearchV1ErrorSchema);
+
+/**
+ * At least 1.5 times the largest compact body a client sends (the handler test measures it);
+ * a larger body is invalid_request, refused before it is read in full.
+ */
+export const placeSearchRequestMaxBytes = 1024;
 
 export function createPlaceSearchHandler({ provider, rateLimiter }: Dependencies) {
   return async (request: Request): Promise<Response> => {
@@ -38,12 +45,7 @@ export function createPlaceSearchHandler({ provider, rateLimiter }: Dependencies
     if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
       return error(400, 'invalid_request');
     }
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return error(400, 'invalid_request');
-    }
+    const body = await readJsonBody(request.body, placeSearchRequestMaxBytes);
     const parsed = placeSearchV1RequestSchema.safeParse(body);
     if (!parsed.success) return error(400, 'invalid_request');
     try {

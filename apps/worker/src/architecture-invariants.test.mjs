@@ -101,3 +101,22 @@ test('only json-response.ts defines the Worker JSON headers', () => {
 
   assert.deepEqual(definers, ['json-response.ts']);
 });
+
+// A client body is read only through `json-request.ts`, which stops at a byte limit; the
+// runtime's own readers buffer whatever arrives. The feedback route keeps its own bounded
+// reader until it moves onto the shared one; that exception may only shrink.
+test('client request bodies are read only through the bounded reader', () => {
+  const unbounded = [];
+  const readers = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\b(?:request|req)(?:\.clone\(\))?\.(?:json|text|arrayBuffer|formData|blob|bytes)\(|new Response\((?:request|req)\.body/.test(line)) {
+        unbounded.push(`${relativePath}:${index + 1}`);
+      }
+      if (/\.getReader\(/.test(line)) readers.push(relativePath);
+    });
+  }
+
+  assert.deepEqual(unbounded, [], 'read the body with readJsonBody and a byte limit');
+  assert.deepEqual(readers.sort(), ['feedback-handler.ts', 'json-request.ts']);
+});

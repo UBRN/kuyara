@@ -8,8 +8,8 @@ import {
 
 import type { AppleTokenRevoker } from './apple-token-revoker.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
+import { readJsonBody } from '../json-request.ts';
 import { AccountError } from './account-error.ts';
-import { readTextWithLimit } from './bounded-fetch.ts';
 import type { SupabaseAdmin } from './supabase-admin.ts';
 import type { SupabaseTokenVerifier } from './supabase-token-verifier.ts';
 
@@ -77,14 +77,7 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
     // again while reading, since a header can lie or be absent. Too large is invalid_request.
     const declared = Number(request.headers.get('content-length') ?? 0);
     if (!Number.isFinite(declared) || declared > maxRequestBodyBytes) return error('invalid_request');
-    let body: unknown;
-    try {
-      const text = await readTextWithLimit(request.body, maxRequestBodyBytes);
-      if (text === undefined) return error('invalid_request');
-      body = JSON.parse(text);
-    } catch {
-      return error('invalid_request');
-    }
+    const body = await readJsonBody(request.body, maxRequestBodyBytes);
     const parsed = accountDeleteV1RequestSchema.safeParse(body);
     if (!parsed.success) return error('invalid_request');
 

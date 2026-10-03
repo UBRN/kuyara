@@ -1,12 +1,26 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 
-import { aiModelInputFromRequest, aiRecommendV1SuccessSchema, archetypeDayFromRequirements } from '@kuyara/contracts';
+import {
+  aiModelInputFromRequest,
+  aiRecommendV1RequestSchema,
+  aiRecommendV1SuccessSchema,
+  aiRecommendV2RequestSchema,
+  archetypeDayFromRequirements,
+} from '@kuyara/contracts';
 
 import {
   WORKERS_AI_DAILY_ATTEMPT_LIMIT,
+  aiRecommendRequestMaxBytes,
   createAiHandler as createAiHandlerWithContext,
 } from './ai-handler.ts';
+import {
+  bodyBytes,
+  largestAiRecommendV1Request,
+  largestAiRecommendV2Request,
+  largestOption,
+  paddedBody,
+} from '../__tests__/largest-valid-requests.mjs';
 import { AiProviderError } from './ai-provider.ts';
 import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
@@ -1685,4 +1699,48 @@ test('a failing rate-limit binding answers a stable ai_unavailable, not a thrown
   await assertError(await handle(request({ body: JSON.stringify(validRequestBody()) })),
     503, 'ai_unavailable');
   assert.equal(providerCalls, 0);
+});
+
+test('the body limit covers the largest valid v1 and v2 request', async () => {
+  const v1 = largestAiRecommendV1Request();
+  const v2 = largestAiRecommendV2Request();
+  assert.equal(aiRecommendV1RequestSchema.safeParse(v1).success, true);
+  assert.equal(aiRecommendV2RequestSchema.safeParse(v2).success, true);
+  const [requirement] = v1.requirements;
+  const [option] = v1.options;
+  for (const wider of [
+    { ...v2, options: [...v2.options, largestOption(v2.options.length)] },
+    { ...v2, requirements: [...v2.requirements, requirement] },
+    { ...v2, requirements: [{ ...requirement, reasonCodes: [...requirement.reasonCodes, requirement.reasonCodes[0]] }] },
+    { ...v2, options: [{ ...option, optionId: `${option.optionId}A` }] },
+    { ...v2, options: [{ ...option, garments: [...option.garments, { slot: 'one_piece', layerRole: null, garmentTypeId: 'dress' }] }] },
+    { ...v2, catalogVersion: Number.MAX_SAFE_INTEGER + 2 },
+    { ...v2, styleAesthetics: ['classic', 'minimal', 'relaxed', 'streetwear'] },
+  ]) {
+    assert.equal(aiRecommendV2RequestSchema.safeParse(wider).success, false);
+  }
+  assert.ok(bodyBytes(v1) <= aiRecommendRequestMaxBytes);
+  assert.ok(bodyBytes(v2) <= aiRecommendRequestMaxBytes);
+  // The largest body is read and parsed: with no provider it reaches the walk, not a 400.
+  const handler = createAiHandler({ providers: [] });
+  await assertError(await handler(request({ path: '/v2/ai/recommend', body: JSON.stringify(v2) })), 503, 'ai_unavailable');
+});
+
+test('a body at the limit is answered on both routes and one byte more is invalid_request', async () => {
+  let calls = 0;
+  const handler = createAiHandler({
+    providers: [{ id: 'openrouter', generateOutfits: async () => { calls += 1; return validOutput(); } }],
+  });
+  for (const [path, body] of [
+    ['/v1/ai/recommend', validRequestBody()],
+    ['/v2/ai/recommend', { ...validRequestBody(), locale: 'en' }],
+  ]) {
+    assert.equal((await handler(request({ path, body: paddedBody(body, aiRecommendRequestMaxBytes) }))).status, 200);
+    await assertError(
+      await handler(request({ path, body: paddedBody(body, aiRecommendRequestMaxBytes + 1) })),
+      400,
+      'invalid_request',
+    );
+  }
+  assert.equal(calls, 2);
 });
