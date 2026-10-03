@@ -1,4 +1,4 @@
-import { Stack, useFocusEffect } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useTransitionLanded } from '@/components/ui';
@@ -13,6 +13,7 @@ export default function HistoryRoute() {
   const [entries, setEntries] = useState<readonly HistoryEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const transitionLanded = useTransitionLanded();
+  const router = useRouter();
   // The dressing day the application already read from the device clock: on Sunday evening
   // History opens with the week's look back, derived from the days on screen.
   const summary = useMemo(
@@ -43,8 +44,8 @@ export default function HistoryRoute() {
       <Stack.Screen
         options={{ headerLargeTitle: true, headerShown: true, headerTitle: messages.profile.historyLabel }}
       />
-      <HistoryScreen entries={entries} loadFailed={loadFailed} transitionLanded={transitionLanded}
-        weekSummary={summary} />
+      <HistoryScreen entries={entries} loadFailed={loadFailed} onOpenToday={() => router.navigate('/')}
+        transitionLanded={transitionLanded} weekSummary={summary} />
     </>
   );
 }

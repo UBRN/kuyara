@@ -521,8 +521,8 @@ export type AppMessages = Readonly<{
     wantedLabel: string;
     historyLabel: string;
     historyIntro: string;
-    historyEmptyTitle: string;
     historyEmptyBody: string;
+    historyEmptyAction: string;
     historyLoadError: string;
     // History's Sunday-evening look back at the week (ADR 0038): counts the reader's own
     // records, never a goal, a streak or a missing day.
@@ -1190,8 +1190,8 @@ const en = {
     wantedLabel: 'Wanted',
     historyLabel: 'History',
     historyIntro: 'Looks you chose to wear.',
-    historyEmptyTitle: 'No worn looks yet',
-    historyEmptyBody: 'When you wear a look, open it from Today and tap “Wore this today”. It will show here under that day.',
+    historyEmptyBody: 'Looks you mark “Wore this today” on Today gather here, day by day.',
+    historyEmptyAction: 'Go to Today',
     historyLoadError: 'History could not be loaded. Try again later.',
     historyWeekTitle: 'This week',
     historyWeekDays: (count: number) => (count === 1 ? 'You recorded 1 day' : `You recorded ${count} days`),
@@ -2314,8 +2314,8 @@ const tr = {
     wantedLabel: 'İstekler',
     historyLabel: 'Geçmiş',
     historyIntro: 'Giymeyi seçtiğin kombinler.',
-    historyEmptyTitle: 'Henüz giyilen kombin yok',
-    historyEmptyBody: 'Bir kombini giydiğinde, Bugün ekranından açıp “Bugün bunu giydim” düğmesine dokun. Burada o günün altında görünür.',
+    historyEmptyBody: 'Bugün ekranında “Bugün bunu giydim” dediğin kombinler burada gün gün birikir.',
+    historyEmptyAction: 'Bugün’e git',
     historyLoadError: 'Geçmiş yüklenemedi. Biraz sonra yeniden dene.',
     historyWeekTitle: 'Bu hafta',
     historyWeekDays: (count: number) => `${count} gün kaydettin`,

@@ -4,15 +4,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AppText,
+  Button,
   Entrance,
   GarmentBoard,
-  Icon,
   measureGarmentBoardHeight,
   Screen,
   useTextScaling,
   type GarmentBoardPiece,
   type GarmentOutfitPalette,
 } from '@/components/ui';
+import { EmptyStateArt } from '@/components/ui/empty-state-art';
 import { dateTimeFormat } from '@/domain/intl-format';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { HistoryWeekSummary } from '@/features/profile/presentation/history-week-summary';
@@ -37,12 +38,15 @@ type HistoryScreenProps = Readonly<{
   weekSummary?: WeekSummary | null;
   /** False while the push onto History is still moving: the content arrives once it lands. */
   transitionLanded?: boolean;
+  /** An empty History's button: Today is where a look is marked worn. */
+  onOpenToday?: () => void;
 }>;
 
 // The image-tile radius the Closet grid and Today's alternates draw (ADR 0029 section 2).
 const TILE_RADIUS = 14;
-// Law 6: a standalone glyph over the empty sentence, as the Closet's empty category has.
-const EMPTY_GLYPH_SIZE = 44;
+// An empty History shows a plain worn look, faded, over its sentence, as the Closet's empty
+// category shows its own piece.
+const EMPTY_BOARD_WIDTH = 160;
 // Only the rows of the first screenful arrive with Law 7's stagger; a row scrolled into view
 // later is simply there.
 const ARRIVING_ROWS = 6;
@@ -89,6 +93,17 @@ export function historyBoard(entry: HistoryEntry): HistoryBoard {
   boards.set(entry, board);
   return board;
 }
+
+const EMPTY_BOARD = historyBoard({
+  dayKey: '2000-01-01',
+  outfit: {
+    garments: { primary_top: 't_shirt', bottom: 'jeans', footwear: 'sneakers' },
+    archetypeId: 'everyday_easy',
+    formality: 'casual',
+    source: 'recommended',
+  },
+  pieceColors: null,
+});
 
 /** Newest first: the latest day on its own, then each month's days in rows of `columns`. */
 function historyRows(
@@ -147,7 +162,7 @@ function Arrival({ children, index, waiting }: Readonly<{
  * is new.
  */
 export function HistoryScreen({
-  entries, loadFailed, weekSummary = null, transitionLanded = true,
+  entries, loadFailed, weekSummary = null, transitionLanded = true, onOpenToday,
 }: HistoryScreenProps) {
   const { language, messages } = useLocalization();
   const theme = useKuyaraTheme();
@@ -198,11 +213,22 @@ export function HistoryScreen({
       <Screen testID="history-screen">
         <Entrance waiting={!transitionLanded}>
           <View style={styles.empty} testID="history-empty">
-            <Icon color={theme.colors.iconSecondary} name="calendarCheck" size={EMPTY_GLYPH_SIZE} />
-            <AppText accessibilityRole="header" style={styles.centered} variant="title">
-              {copy.historyEmptyTitle}
-            </AppText>
-            <AppText colorRole="textSecondary" style={styles.centered}>{copy.historyEmptyBody}</AppText>
+            <EmptyStateArt testID="history-empty-art">
+              <GarmentBoard
+                accessibilityLabel=""
+                decorative
+                palette={EMPTY_BOARD.palette}
+                pieces={EMPTY_BOARD.pieces}
+                preset="today"
+                stageColor={theme.colors.surfaceMuted}
+                width={EMPTY_BOARD_WIDTH}
+              />
+            </EmptyStateArt>
+            <AppText style={styles.centered}>{copy.historyEmptyBody}</AppText>
+            {onOpenToday ? (
+              // The screen's one accent fill: nothing else on an empty History holds it.
+              <Button label={copy.historyEmptyAction} onPress={onOpenToday} testID="history-empty-today-button" />
+            ) : null}
           </View>
         </Entrance>
       </Screen>
@@ -327,7 +353,7 @@ export function HistoryScreen({
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   list: { gap: spacing.md },
-  empty: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.md },
+  empty: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.md },
   centered: { textAlign: 'center' },
   month: { paddingTop: spacing.md },
   latest: { gap: spacing.sm },

@@ -1,4 +1,4 @@
-import { act, render, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { processColor } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
@@ -17,11 +17,13 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 const mockHistoryFocus = { refocus: undefined as (() => void) | undefined };
+const mockNavigate = jest.fn();
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react') as typeof import('react');
   return {
     Stack: { Screen: () => null },
     useNavigation: () => ({ addListener: () => () => undefined, getState: () => ({ index: 0 }) }),
+    useRouter: () => ({ navigate: mockNavigate }),
     useFocusEffect: (callback: () => void | (() => void)) =>
       actualReact.useEffect(() => {
         let cleanup = callback();
@@ -135,7 +137,7 @@ test('a year of History renders only what is near the screen', async () => {
   expect(result.queryByTestId('history-entry-2025-10-01')).toBeNull();
 });
 
-test('History says so when nothing has been worn yet', async () => {
+test('an empty History shows a faded look, one sentence and a way to Today', async () => {
   const result = await render(
     <Providers language="en" list={async () => []}>
       <HistoryRoute />
@@ -143,8 +145,10 @@ test('History says so when nothing has been worn yet', async () => {
   );
 
   const empty = await result.findByTestId('history-empty');
-  expect(within(empty).getByRole('header', { name: messages.en.profile.historyEmptyTitle })).toBeOnTheScreen();
+  expect(within(empty).getByTestId('history-empty-art', { includeHiddenElements: true })).toBeTruthy();
   expect(within(empty).getByText(messages.en.profile.historyEmptyBody)).toBeOnTheScreen();
+  await fireEvent.press(within(empty).getByTestId('history-empty-today-button'));
+  expect(mockNavigate).toHaveBeenCalledWith('/');
 });
 
 test('a failed History read says so instead of showing an empty list', async () => {

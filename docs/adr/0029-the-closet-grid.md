@@ -87,8 +87,10 @@ contract rather than by a per-state layout.
 
 ### 4. States
 
-- **Empty**, per category: a hanger glyph, the category's own sentence ("You have not
-  added any shoes yet.") and a tonal "Add a piece" button, with no accent fill because the
+- **Empty**, per category: the category's own piece (the type its picker tile draws),
+  faded on the muted tile an empty place keeps in both appearances, never the garment
+  plate, then the category's own sentence ("You have not added any shoes yet.") and a
+  tonal "Add a piece" button, with no accent fill because the
   selected tab holds it. The empty copy never promises that the Closet feeds
   recommendations; ADR 0005 rules that out.
 - **Loading**: the grid's stage fills without artwork.

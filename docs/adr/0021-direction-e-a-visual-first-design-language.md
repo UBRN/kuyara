@@ -100,7 +100,9 @@ and the detail's finishing touches, the Profile rack and the Profile category ce
 hold pieces, the Closet form's owned and wanted
 scenes, the piece sheet's colour comparison, the photo badge and the choice tiles of
 onboarding and the day-type sheet). The plate is lighter than the page, so it reads as a
-raised rounded plate rather than a hole. The first-generation runway keeps its dark field;
+raised rounded plate rather than a hole. An empty place is not a plate: an empty Profile
+category cell and the faded drawing of an empty Closet category or an empty History keep
+the dark `surfaceMuted` tile. The first-generation runway keeps its dark field;
 its board stands on the neutral plate inside it, and that plate is what shrinks into
 Today's stage.
 
