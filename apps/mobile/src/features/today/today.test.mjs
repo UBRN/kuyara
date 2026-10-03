@@ -533,7 +533,7 @@ test('only the AI generation modes carry a localized accessible generation mark'
   assert.equal(deterministic.generationMode, null);
   assert.equal(
     deterministic.generationSource,
-    'AI was not used. kuyara computed this outfit on your device.',
+    'kuyara put this outfit together on your device.',
   );
 });
 
@@ -945,7 +945,7 @@ test('a changed outfit names itself the reader\'s and says where kuyara chose th
     assert.equal(untouched.changedFrom, null);
     assert.deepEqual(changed.pieces.filter(({ changed: mark }) => mark).map(({ garmentTypeId }) => garmentTypeId),
       ['trench_coat']);
-    // "Why it works" is recomputed: the rain jacket no longer answers the rain.
+    // The reasoning is recomputed: the rain jacket no longer answers the rain.
     assert.notDeepEqual(changed.requirementRows, untouched.requirementRows);
     assert.equal(changed.requirementRows.some(({ text }) => text.includes(
       messages[language].catalog['catalog.garment_type.rain_jacket.name'])), false);

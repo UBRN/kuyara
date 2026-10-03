@@ -12,7 +12,7 @@ import {
 } from '@/components/ui';
 import { brandSymbolPaths, brandSymbolViewBox } from '@/components/ui/brand-symbol';
 import { shareSnapshot } from '@/components/ui/share-snapshot';
-import { resolveConditionStyle } from '@/features/today/domain/condition-style';
+import { IOS_STORE_URL } from '@/config/store-links';
 import type {
   LoadedOutfitPresentation,
   LoadedTodayPresentation,
@@ -26,13 +26,13 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // A 9:16 card, a story's shape: 1080 by 1920 pixels on a 3x screen.
 const CARD_WIDTH = 360;
 const CARD_HEIGHT = 640;
-const CARD_INSET = spacing.xl;
+const CARD_INSET = spacing.lg;
 const BOARD_WIDTH = CARD_WIDTH - CARD_INSET * 2;
 // Today's stage plate, so the shared board stands where the user first saw it.
 const STAGE_RADIUS = 26;
 // Law 6: 20 beside the body line; the symbol's master viewBox keeps its own margin, so the
 // lockup's mark is drawn at 28 to read at the name's height.
-const WEATHER_SYMBOL_SIZE = 20;
+const PLACE_SYMBOL_SIZE = 20;
 const BRAND_SYMBOL_SIZE = 28;
 
 type ShareProps = Readonly<{
@@ -54,7 +54,10 @@ export function OutfitShareAction(props: ShareProps) {
   if (Platform.OS !== 'ios') return null;
 
   const capture = () => {
-    void shareSnapshot(cardRef).then(() => setCapturing(false));
+    void shareSnapshot(cardRef, {
+      fileName: `kuyara-${props.presentation.dateKey}.png`,
+      message: messages.today.share.message(IOS_STORE_URL),
+    }).then(() => setCapturing(false));
   };
 
   return (
@@ -81,7 +84,7 @@ export function OutfitShareAction(props: ShareProps) {
   );
 }
 
-/** The shared image: the outfit on its weather stage, the day, and the kuyara name. */
+/** The shared image: the outfit drawn large on its weather stage, the place, and the kuyara name. */
 export function OutfitShareCard({
   presentation,
   suggestion,
@@ -92,8 +95,7 @@ export function OutfitShareCard({
   const theme = useKuyaraTheme();
   const { messages } = useLocalization();
   const easierToSee = useEasierToSee();
-  const { weather, titleParts } = presentation;
-  const conditionStyle = resolveConditionStyle(weather.conditionCode, weather.daypart);
+  const stageColor = theme.atmosphere[presentation.atmosphere];
 
   return (
     <View
@@ -102,38 +104,28 @@ export function OutfitShareCard({
       ref={ref}
       style={[styles.card, { backgroundColor: theme.colors.background }]}
       testID="outfit-share-card">
-      {/* The outfit block stands centred in the story frame, the name at its foot. */}
+      {/* The board is the subject, at detail's scale, with the place it was dressed for under it. */}
       <View style={styles.body}>
-        <View style={styles.heading}>
-          <AppText colorRole="textSecondary" tabularNumbers variant="caption">
-            {presentation.date}
+        <PlateView
+          color={stageColor}
+          style={[styles.stage, {
+            height: measureGarmentBoardHeight(suggestion.boardPieces, BOARD_WIDTH, 'detail', false, easierToSee),
+          }]}>
+          <GarmentBoard
+            accessibilityLabel={suggestion.boardAccessibilityLabel}
+            decorative
+            palette={palette}
+            pieces={suggestion.boardPieces}
+            preset="detail"
+            stageColor={stageColor}
+            width={BOARD_WIDTH}
+          />
+        </PlateView>
+        <View style={styles.row}>
+          <Icon color={theme.colors.iconSecondary} name="location" size={PLACE_SYMBOL_SIZE} />
+          <AppText numberOfLines={2} style={styles.shrink} variant="bodyStrong">
+            {presentation.header.location}
           </AppText>
-          <AppText numberOfLines={2} variant="title">{suggestion.title}</AppText>
-        </View>
-        <View style={styles.middle}>
-          <PlateView
-            color={theme.atmosphere[presentation.atmosphere]}
-            style={[styles.stage, {
-              height: measureGarmentBoardHeight(suggestion.boardPieces, BOARD_WIDTH, 'today', true, easierToSee),
-            }]}>
-            <GarmentBoard
-              accessibilityLabel={suggestion.boardAccessibilityLabel}
-              decorative
-              fit
-              palette={palette}
-              pieces={suggestion.boardPieces}
-              preset="today"
-              stageColor={theme.atmosphere[presentation.atmosphere]}
-              width={BOARD_WIDTH}
-            />
-          </PlateView>
-          <View style={styles.row}>
-            <AppText tabularNumbers variant="bodyStrong">{titleParts.beforeSymbol}</AppText>
-            <Icon color={theme.condition[conditionStyle.ink]} name={conditionStyle.shape} size={WEATHER_SYMBOL_SIZE} />
-            <AppText numberOfLines={1} style={styles.shrink} variant="body">
-              {titleParts.afterSymbol}
-            </AppText>
-          </View>
         </View>
       </View>
       <View style={styles.row}>
@@ -158,9 +150,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing['2xl'],
     width: CARD_WIDTH,
   },
-  body: { flex: 1, gap: spacing.xl, justifyContent: 'center' },
-  heading: { gap: spacing.xs },
-  middle: { gap: spacing.md },
+  body: { flex: 1, gap: spacing.md, justifyContent: 'center' },
   stage: { borderRadius: STAGE_RADIUS, overflow: 'hidden', width: BOARD_WIDTH },
   row: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   shrink: { flexShrink: 1 },

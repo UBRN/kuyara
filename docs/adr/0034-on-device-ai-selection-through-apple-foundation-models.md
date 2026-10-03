@@ -126,13 +126,13 @@ The badge is a fragment, so the spoken label carries the subject the badge canno
 | `ai-assisted` | Recommendation source: kuyara chose this outfit with AI | Öneri kaynağı: kuyara bu kombini AI ile seçti |
 
 The recommendation detail has room for a whole sentence, so it says the source in all three
-modes, in plain words after the reasons and before the weather recap:
+modes, in plain words after the pieces and before the weather recap. The deterministic sentence names kuyara as the subject and no AI:
 
 | Generation mode | English | Turkish |
 | --- | --- | --- |
 | `on-device-ai` | kuyara chose this outfit on your device with Apple Intelligence. | Bu kombini kuyara, cihazında Apple Intelligence ile seçti. |
 | `ai-assisted` | kuyara chose this outfit with online AI. | Bu kombini kuyara çevrimiçi AI ile seçti. |
-| `deterministic-fallback` | AI was not used. kuyara computed this outfit on your device. | AI kullanılmadı, bu kombini kuyara cihazında hesapladı. |
+| `deterministic-fallback` | kuyara put this outfit together on your device. | kuyara bu kombini cihazında hazırladı. |
 
 No string names a provider or a model. What they say is where the outfit was chosen, which
 is the fact a user can act on; the provider and model behind the last check are technical

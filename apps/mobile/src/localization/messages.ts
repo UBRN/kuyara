@@ -142,7 +142,6 @@ export type TodayMessages = Readonly<{
     }) => string;
   }>;
   piecesHeading: string;
-  reasonsHeading: string;
   finishingTouchesHeading: string;
   finishingTouchesAccessibilityLabel: (items: readonly string[]) => string;
   finishingTouchesRowAccessibilityLabel: (
@@ -212,8 +211,11 @@ export type TodayMessages = Readonly<{
     /** The same after two or more changed pieces. */
     sourceMany: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
   }>;
-  /** The outfit detail's share button, and the name on the shared outfit card. */
-  share: Readonly<{ action: string; brandName: string }>;
+  /**
+   * The outfit detail's share button, the name on the shared outfit card, and the text sent
+   * with the image, which carries the App Store link.
+   */
+  share: Readonly<{ action: string; brandName: string; message: (storeUrl: string) => string }>;
   // ADR 0038: "Wore this today" and its saved state, directly under the board.
   wornAction: string;
   wornToday: string;
@@ -1512,7 +1514,7 @@ const en = {
       'Recommendation source: kuyara chose this outfit with AI',
     generationSourceOnDeviceAi: 'kuyara chose this outfit on your device with Apple Intelligence.',
     generationSourceAiAssisted: 'kuyara chose this outfit with online AI.',
-    generationSourceDeterministic: 'AI was not used. kuyara computed this outfit on your device.',
+    generationSourceDeterministic: 'kuyara put this outfit together on your device.',
     askAgain: {
       action: 'Ask the stylist again',
       hint: 'Chooses a new outfit for the time you pick.',
@@ -1556,7 +1558,6 @@ const en = {
         (coverageCaption ? `. ${coverageCaption}` : ''),
     },
     piecesHeading: 'Wear',
-    reasonsHeading: 'Why it works',
     finishingTouchesHeading: 'Finishing touches',
     finishingTouchesAccessibilityLabel: (items) =>
       `Finishing touches: ${items.join(', ')}.`,
@@ -1631,15 +1632,19 @@ const en = {
       sourceOne: {
         onDeviceAi: 'You changed a piece. kuyara chose the rest on your device with Apple Intelligence.',
         aiAssisted: 'You changed a piece. kuyara chose the rest with online AI.',
-        deterministic: 'You changed a piece. kuyara computed the rest on your device.',
+        deterministic: 'You changed a piece. kuyara put the rest together on your device.',
       },
       sourceMany: {
         onDeviceAi: 'You changed some pieces. kuyara chose the rest on your device with Apple Intelligence.',
         aiAssisted: 'You changed some pieces. kuyara chose the rest with online AI.',
-        deterministic: 'You changed some pieces. kuyara computed the rest on your device.',
+        deterministic: 'You changed some pieces. kuyara put the rest together on your device.',
       },
     },
-    share: { action: 'Share outfit', brandName: 'kuyara' },
+    share: {
+      action: 'Share outfit',
+      brandName: 'kuyara',
+      message: (storeUrl) => `Dressed for the weather with kuyara: ${storeUrl}`,
+    },
     wornAction: 'Wore this today',
     wornToday: 'Worn today',
     wornSaveError: 'Today’s look could not be saved. Try again.',
@@ -2591,7 +2596,7 @@ const tr = {
       'Öneri kaynağı: kuyara bu kombini AI ile seçti',
     generationSourceOnDeviceAi: 'Bu kombini kuyara, cihazında Apple Intelligence ile seçti.',
     generationSourceAiAssisted: 'Bu kombini kuyara çevrimiçi AI ile seçti.',
-    generationSourceDeterministic: 'AI kullanılmadı, bu kombini kuyara cihazında hesapladı.',
+    generationSourceDeterministic: 'kuyara bu kombini cihazında hazırladı.',
     askAgain: {
       action: 'Stiliste tekrar sor',
       hint: 'Seçeceğin saat için yeni bir kombin seçer.',
@@ -2635,7 +2640,6 @@ const tr = {
         (coverageCaption ? `. ${coverageCaption}` : ''),
     },
     piecesHeading: 'Parçalar',
-    reasonsHeading: 'Neden uygun',
     finishingTouchesHeading: 'Son dokunuşlar',
     finishingTouchesAccessibilityLabel: (items) =>
       `Son dokunuşlar: ${items.join(', ')}.`,
@@ -2710,15 +2714,19 @@ const tr = {
       sourceOne: {
         onDeviceAi: 'Bir parçayı sen değiştirdin. Kalanını kuyara, cihazında Apple Intelligence ile seçti.',
         aiAssisted: 'Bir parçayı sen değiştirdin. Kalanını kuyara çevrimiçi AI ile seçti.',
-        deterministic: 'Bir parçayı sen değiştirdin. Kalanını kuyara cihazında hesapladı.',
+        deterministic: 'Bir parçayı sen değiştirdin. Kalanını kuyara cihazında hazırladı.',
       },
       sourceMany: {
         onDeviceAi: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara, cihazında Apple Intelligence ile seçti.',
         aiAssisted: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara çevrimiçi AI ile seçti.',
-        deterministic: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara cihazında hesapladı.',
+        deterministic: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara cihazında hazırladı.',
       },
     },
-    share: { action: 'Kombini paylaş', brandName: 'kuyara' },
+    share: {
+      action: 'Kombini paylaş',
+      brandName: 'kuyara',
+      message: (storeUrl) => `Havaya göre giyinmek için kuyara: ${storeUrl}`,
+    },
     wornAction: 'Bugün bunu giydim',
     wornToday: 'Bugün giyildi',
     wornSaveError: 'Bugünkü kombin kaydedilemedi. Yeniden dene.',

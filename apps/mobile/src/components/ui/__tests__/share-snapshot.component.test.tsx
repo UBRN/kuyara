@@ -28,6 +28,6 @@ test('a capture library that throws on load fails only the share', async () => {
   const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { shareSnapshot } = require('@/components/ui/share-snapshot') as typeof import('@/components/ui/share-snapshot');
-  await expect(shareSnapshot(viewRef)).resolves.toBeUndefined();
+  await expect(shareSnapshot(viewRef, { fileName: 'kuyara-2026-10-03.png', message: 'kuyara' })).resolves.toBeUndefined();
   expect(share).not.toHaveBeenCalled();
 });

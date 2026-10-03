@@ -63,10 +63,7 @@ import { createTodayPresentation } from '@/features/today/presentation/today-pre
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
 import type { TodayScreenState } from '@/features/today/model';
-import {
-  matchPieceOwnership,
-  type PieceOwnershipMatch,
-} from '@/features/wardrobe/domain/garment-type-ownership';
+import { matchPieceOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import type { ClosetSeedPiece } from '@/features/wardrobe/application/closet-seed';
@@ -89,7 +86,7 @@ const ACCESSORY_ARTWORK_SIZE = 28;
 // A piece row's thumbnail, and the smaller drawing of the user's own similar piece.
 const ROW_TILE_SIZE = 56;
 const OWN_TILE_SIZE = 32;
-// The Closet mark in a name button, at Law 6's caption step.
+// An owned piece's tick in its name button, at Law 6's caption step.
 const NAME_MARK_SIZE = 16;
 const SWATCH_DOT_SIZE = 16;
 // A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
@@ -117,12 +114,6 @@ export type ClosetSeedOffer = Readonly<{
   addedCount: number;
   onSeed: (pieces: readonly ClosetSeedPiece[], entryState: WardrobeEntryState) => void;
 }>;
-
-const matchIcons: Readonly<Record<Exclude<PieceOwnershipMatch['kind'], 'none'>, IconName>> = {
-  owned: 'check',
-  similar: 'hanger',
-  wanted: 'heartFilled',
-};
 
 /**
  * Whether today's worn record is this outfit (`this`), another one (`other`), none, or not
@@ -487,6 +478,7 @@ export function OutfitDetailScreen({
   }
 
   const stageColor = theme.atmosphere[presentation.atmosphere];
+  const tradeoffs = suggestion.requirementRows.filter(({ kind }) => kind === 'tradeoff');
   const categoryOf = (garmentTypeId: GarmentTypeId) =>
     getGarmentType(garmentTypeId)?.structuralCategory ?? 'top';
   // Each slot's order, the picker's and the board's: without a mix, only the piece itself.
@@ -552,15 +544,12 @@ export function OutfitDetailScreen({
         }}
         style={[styles.nameButton, { borderColor: onBoard.borderDefined }]}
         testID={`outfit-detail-name-${garmentTypeId}`}>
-        <AppText variant="label">{entry.piece.item}</AppText>
-        {entry.piece.changed ? (
-          <AppText colorRole="brandAccent" variant="caption">{copy.manualMix.changed}</AppText>
-        ) : null}
-        {/* The Closet match in a mark and in words (Law 4). */}
-        {entry.match.kind !== 'none' ? (
-          <View style={styles.nameState} testID={`outfit-detail-name-state-${garmentTypeId}`}>
-            <Icon color={onBoard.brandAccent} name={matchIcons[entry.match.kind]} size={NAME_MARK_SIZE} />
-            <AppText colorRole="textSecondary" variant="caption">{copy.ownershipOnBoard[entry.match.kind]}</AppText>
+        <AppText style={styles.nameLabel} variant="label">{entry.piece.item}</AppText>
+        {/* An owned piece carries a tick and nothing else; its row and its board element say it
+            in words. */}
+        {entry.match.kind === 'owned' ? (
+          <View testID={`outfit-detail-name-owned-${garmentTypeId}`}>
+            <Icon color={onBoard.brandAccent} name="check" size={NAME_MARK_SIZE} />
           </View>
         ) : null}
       </View>
@@ -757,9 +746,11 @@ export function OutfitDetailScreen({
         </Presence>
 
         {/* "Why this outfit": each weather that put a piece in the outfit, drawn as a line to
-            the pieces it caused and said as one sentence. The deterministic requirements
-            decide it, never AI. Mild weather links nothing, so the section is absent. */}
-        {suggestion.weatherLinks.length > 0 ? (
+            the pieces it caused and said as one sentence, then the honest "but" of any
+            trade-off the outfit makes. The deterministic requirements decide it, never AI, and
+            a change recomputes it for the pieces worn. Mild weather with no trade-off leaves
+            the section absent. */}
+        {suggestion.weatherLinks.length > 0 || tradeoffs.length > 0 ? (
           <Animated.View
             onLayout={() => setWhyLaidOut((count) => count + 1)}
             ref={whyRef}
@@ -810,6 +801,15 @@ export function OutfitDetailScreen({
                   </View>
                   <AppText colorRole="textSecondary" style={styles.whyNames} variant="caption">
                     {link.pieces.map(({ item }) => item).join(', ')}
+                  </AppText>
+                </View>
+              ))}
+              {tradeoffs.map((row) => (
+                // A trade-off is a status, so it keeps Law 4's warning ink, glyph and words.
+                <View key={`tradeoff-${row.id}`} style={styles.tradeoffRow} testID={`outfit-detail-tradeoff-${row.id}`}>
+                  <Icon color={theme.colors.warningInk} name="warning" size={20} />
+                  <AppText colorRole="textSecondary" style={styles.flexText} variant="body">
+                    {row.text}
                   </AppText>
                 </View>
               ))}
@@ -1084,36 +1084,8 @@ export function OutfitDetailScreen({
           </View>
         ) : null}
 
-        {/* After a change the reasons are the changed outfit's own,
-            recomputed by the domain, never kuyara's pick's. */}
-        {suggestion.requirementRows.length > 0 ? (
-          <View style={styles.section} testID="outfit-detail-reasons">
-            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
-              {presentation.copy.reasonsHeading}
-            </AppText>
-            <View style={styles.reasonList}>
-              {suggestion.requirementRows.map((row) => (
-                <View key={row.id} style={styles.reasonRow}>
-                  {/* Law 1's accent budget: a satisfied requirement is a bullet beside its
-                      sentence, not a status site, so it carries the secondary icon ink and
-                      leaves the viewport's one accent fill to the ownership markers. A
-                      tradeoff is a real status and keeps Law 4's ink, glyph and text. */}
-                  <Icon
-                    color={row.kind === 'tradeoff' ? theme.colors.warningInk : theme.colors.iconSecondary}
-                    name={row.kind === 'tradeoff' ? 'warning' : 'checkCircle'}
-                    size={20}
-                  />
-                  <AppText colorRole="textSecondary" style={styles.reasonText} variant="body">
-                    {row.text}
-                  </AppText>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
         {/* ADR 0034 section 4: where the outfit was chosen is metadata, so it reads last,
-            after the reasons and before the weather recap, as one plain sentence on the
+            after the pieces and before the weather recap, as one plain sentence on the
             page ground. No card, no glyph, no accent, no pill, and no provider name. */}
         {presentation.generationSource ? (
           <FadeOnChange animate={everChanged} key={presentation.generationSource}>
@@ -1188,6 +1160,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   nameRow: {
+    alignItems: 'stretch',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
@@ -1195,23 +1168,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
   },
+  // The row stretches its buttons to one height per line; a button centres its label and tick.
   nameButton: {
     alignItems: 'center',
     borderRadius: radii.pill,
     borderWidth: borderWidths.subtle,
     flexDirection: 'row',
     flexShrink: 1,
-    flexWrap: 'wrap',
     gap: spacing.xs,
     justifyContent: 'center',
     minHeight: layout.minimumTouchTarget,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  nameState: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.xs,
+  nameLabel: {
+    flexShrink: 1,
+    textAlign: 'center',
   },
   nameRowOnPlate: {
     paddingHorizontal: spacing.md,
@@ -1357,9 +1329,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.md,
   },
-  reasonList: {
-    gap: spacing.sm,
-  },
   accessoryList: {
     gap: spacing.sm,
   },
@@ -1376,14 +1345,10 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
   },
-  reasonRow: {
+  tradeoffRow: {
     alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.sm,
-  },
-  reasonText: {
-    flex: 1,
-    flexShrink: 1,
   },
   weatherRecap: {
     borderRadius: radii.card,

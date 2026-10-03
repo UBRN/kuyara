@@ -149,10 +149,11 @@ export type LoadedTodayPresentation = Readonly<{
   titleParts: Readonly<{ lead: string; beforeSymbol: string; afterSymbol: string }>;
   /** The dressing day's date for the top row, which turns at 04:00, not at midnight. */
   date: string;
+  /** The same day as `YYYY-MM-DD`, which names the shared outfit image. */
+  dateKey: string;
   atmosphere: AtmosphereState;
   copy: Readonly<{
     piecesHeading: string;
-    reasonsHeading: string;
     finishingTouchesHeading: string;
     otherOptionsHeading: string;
   }>;
@@ -909,6 +910,7 @@ function createLoadedPresentation(
     .replace('{condition}', condition);
   const [beforeSymbol, afterSymbol] = titleLine.split(' {symbol} ');
   const leadEnd = copy.titleTemplate.indexOf('{temperature}');
+  const dressingDayKey = day?.dateKey ?? localDayKey(new Date(now));
 
   return {
     kind: 'loaded',
@@ -925,11 +927,11 @@ function createLoadedPresentation(
     },
     // M15: the dressing day's date, so between midnight and 04:00 it still names the
     // evening's calendar date.
-    date: formatDressingDate(day?.dateKey ?? localDayKey(new Date(now)), language),
+    date: formatDressingDate(dressingDayKey, language),
+    dateKey: dressingDayKey.slice(0, 10),
     atmosphere: resolveAtmosphereState(conditionCode, daypart),
     copy: {
       piecesHeading: copy.piecesHeading,
-      reasonsHeading: copy.reasonsHeading,
       finishingTouchesHeading: copy.finishingTouchesHeading,
       otherOptionsHeading: copy.otherOptionsHeading,
     },
