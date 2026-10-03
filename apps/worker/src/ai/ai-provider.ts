@@ -30,12 +30,14 @@ export class AiProviderError extends Error {
 
 /**
  * Why one provider attempt threw, as the closed vocabulary the handlers log. A spent quota
- * and an upstream 429 are named, never folded into `provider_error`.
+ * and an upstream 429 are named, never folded into `provider_error`. Only the attempt's own
+ * timer aborts its signal, so an aborted signal reads as a timeout whichever rejection won.
  */
 export function attemptFailureReason(
   error: unknown,
+  signal?: AbortSignal,
 ): 'timeout' | AiProviderErrorKind | 'provider_error' {
-  if (error instanceof AttemptTimeoutError) return 'timeout';
+  if (signal?.aborted || error instanceof AttemptTimeoutError) return 'timeout';
   if (error instanceof AiProviderError) return error.kind;
   return 'provider_error';
 }

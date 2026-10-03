@@ -206,7 +206,7 @@ export function createProbeHandler({
       } catch (error) {
         // Provider failures are intentionally collapsed into unavailable in the response;
         // only the log keeps the reason.
-        logProbeFailure(answering, attemptFailureReason(error));
+        logProbeFailure(answering, attemptFailureReason(error, controller.signal));
       }
     }
 

@@ -386,7 +386,7 @@ export function createAiHandler({
         }
         return response;
       } catch (error) {
-        const reason = attemptFailureReason(error);
+        const reason = attemptFailureReason(error, controller.signal);
         logProviderFailure(provider, reason);
         // Every Workers AI model draws on the one account-level Neuron pool, so once it is
         // spent the remaining Workers AI attempts can only fail the same way and are
