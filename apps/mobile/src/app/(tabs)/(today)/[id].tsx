@@ -111,7 +111,8 @@ export default function OutfitDetailRoute() {
     recommendation?.status === 'recommended' ? recommendation.requirements : null,
     isClothingPreference(snapshotPreference) ? snapshotPreference : null,
   );
-  const changedOutfit = manualMix && manualMix.changedSlots.length > 0 ? manualMix.outfit : null;
+  // Any edit makes the outfit the reader's, a finishing touch alone included, and records as `manual`.
+  const changedOutfit = manualMix?.edited ? manualMix.outfit : null;
 
   // A regeneration that lands while the reader is on another tab and no longer offers this
   // outfit leaves nothing to come back to, so the Today stack returns to its root rather

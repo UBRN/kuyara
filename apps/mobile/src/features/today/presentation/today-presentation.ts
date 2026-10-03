@@ -863,14 +863,19 @@ function createLoadedPresentation(
     : null;
   // Phase 7: after a change the sentence says the person changed a piece and
   // where kuyara chose the rest, one whole sentence per mode and per count.
-  const manualSources = manual && manual.changedSlots.length > 0
-    ? (manual.changedSlots.length === 1 ? copy.manualMix.sourceOne : copy.manualMix.sourceMany)
-    : null;
-  const manualGenerationSources: Record<RecommendationGenerationMode, string> | null = manualSources ? {
-    'on-device-ai': manualSources.onDeviceAi,
-    'ai-assisted': manualSources.aiAssisted,
-    'deterministic-fallback': manualSources.deterministic,
-  } : null;
+  // Every edit counts: a swap, a layer taken off or added, a finishing touch taken off or added.
+  const { sourceOne, sourceMany } = copy.manualMix;
+  const manualGenerationSources: Record<RecommendationGenerationMode, string> | null =
+    !manual || manual.changedSlots.length === 0 ? null
+      : manual.changedSlots.length === 1 ? {
+        'on-device-ai': sourceOne.onDeviceAi,
+        'ai-assisted': sourceOne.aiAssisted,
+        'deterministic-fallback': sourceOne.deterministic,
+      } : {
+        'on-device-ai': sourceMany.onDeviceAi,
+        'ai-assisted': sourceMany.aiAssisted,
+        'deterministic-fallback': sourceMany.deterministic,
+      };
   const generationMode = settledMode ? generationModeBadges[settledMode] : null;
   const generationSource = settledMode
     ? (manualGenerationSources ?? generationSources)[settledMode] : null;

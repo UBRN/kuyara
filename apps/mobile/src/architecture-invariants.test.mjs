@@ -956,7 +956,7 @@ test('the dressing-day key suffix is spelled only in weather/domain/wardrobe-day
 // property (`copy[captionKey]`, a `Record<Id, keyof Messages>` table), named here by parent
 // with an exact count so a new unread key cannot hide behind them.
 const computedlyReadMessageKeys = {
-  'TodayMessages.dailyStyle': 3, 'TodayMessages.drift': 3, 'TodayMessages.manualMix.sourceOne': 3,
+  'TodayMessages.dailyStyle': 3, 'TodayMessages.drift': 3,
   'PreferenceMessages': 5, 'AppMessages.weather': 3, 'WalkthroughMessages.steps': 6,
 };
 

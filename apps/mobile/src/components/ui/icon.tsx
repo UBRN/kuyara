@@ -57,6 +57,8 @@ export const iconNames = Object.freeze({
   hanger: { ios: 'hanger', android: 'checkroom', web: 'checkroom' },
   calendarCheck: { ios: 'calendar.badge.checkmark', android: 'event_available', web: 'event_available' },
   plus: { ios: 'plus', android: 'add', web: 'add' },
+  // The detail's closing line for the finishing touches taken off.
+  minus: { ios: 'minus', android: 'remove', web: 'remove' },
   // O5's leading button icons: each names its action faster than the words do.
   trash: { ios: 'trash', android: 'delete', web: 'delete' },
   photo: { ios: 'photo', android: 'image', web: 'image' },
