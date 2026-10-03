@@ -909,9 +909,9 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, trade
     }
   }
 
-  // The name button names the piece and carries a tick, and nothing else, when the Closet owns
-  // it; the piece's value speaks every Closet state, and the row below draws it. No badge is
-  // drawn on a piece.
+  // The name button names the piece and carries one marker per Closet state, the accent tick
+  // only for the exact match; the piece's value speaks every state, the untracked one included,
+  // and the row below draws it. No badge is drawn on a piece.
   expect(result.queryAllByTestId(/^outfit-detail-badge-/, hidden)).toHaveLength(0);
   const copy = messages.en.today;
   const states: Record<string, string> = {
@@ -924,6 +924,12 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, trade
     [similarPiece.garmentTypeId]: copy.ownershipOnBoard.similar,
     [wantedPiece.garmentTypeId]: copy.ownershipOnBoard.wanted,
   };
+  const markers: Record<string, readonly [string, string, string]> = {
+    [exactPiece.garmentTypeId]: ['owned', 'checkmark.circle.fill', lightTheme.colors.brandAccent],
+    [similarPiece.garmentTypeId]: ['similar', 'hanger', lightTheme.colors.iconSecondary],
+    [wantedPiece.garmentTypeId]: ['wanted', 'heart.fill', lightTheme.colors.iconSecondary],
+  };
+  const drawnSymbols = (SymbolView as unknown as jest.Mock).mock.calls.map(([props]) => props);
   for (const { garmentTypeId, item, slot } of suggestion.pieces) {
     const state = states[garmentTypeId] ?? copy.ownershipUntrackedLabel;
     const name = result.getByTestId(`outfit-detail-name-${garmentTypeId}`, hidden);
@@ -939,19 +945,18 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, trade
     const text = within(result.getByTestId(`outfit-detail-piece-text-${garmentTypeId}`, hidden));
     expect(text.getByText(item, hidden)).toBeTruthy();
     expect(text.getByText(slot, hidden)).toBeTruthy();
+    const [kind, symbol, ink] = markers[garmentTypeId] ?? ['none', 'circle', lightTheme.colors.iconSecondary];
+    expect(within(name).getByTestId(`outfit-detail-name-marker-${garmentTypeId}-${kind}`, hidden)).toBeTruthy();
+    expect(drawnSymbols).toContainEqual(expect.objectContaining({
+      name: expect.objectContaining({ ios: symbol }), size: 16, tintColor: ink,
+    }));
+    const spoken = onBoard[garmentTypeId] ?? copy.ownershipUntrackedLabel;
+    expect(name).not.toHaveTextContent(spoken, { exact: false });
+    expect(piece.props.accessibilityValue.text).toMatch(new RegExp(`, ${spoken}$`));
     if (states[garmentTypeId]) {
       expect(text.getByText(state, hidden)).toBeTruthy();
-      if (garmentTypeId === exactPiece.garmentTypeId) {
-        expect(result.getByTestId(`outfit-detail-name-owned-${garmentTypeId}`, hidden)).toBeTruthy();
-      } else {
-        expect(result.queryByTestId(`outfit-detail-name-owned-${garmentTypeId}`, hidden)).toBeNull();
-      }
-      expect(name).not.toHaveTextContent(onBoard[garmentTypeId], { exact: false });
-      expect(piece.props.accessibilityValue.text).toMatch(new RegExp(`, ${onBoard[garmentTypeId]}$`));
     } else {
       expect(result.queryByTestId(`outfit-detail-piece-status-${garmentTypeId}`)).toBeNull();
-      expect(result.queryByTestId(`outfit-detail-name-owned-${garmentTypeId}`, hidden)).toBeNull();
-      expect(Object.values(onBoard).some((words) => piece.props.accessibilityValue.text.includes(words))).toBe(false);
     }
   }
   // O7: the similar row shows the user's own piece by its colour.

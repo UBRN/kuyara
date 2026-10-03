@@ -217,10 +217,12 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
     const value = (id: string) => copy.manualMix.pieceValue({
       piece: catalogName(language, id), position: position(id), total: order.length,
     });
+    // The Closet is empty, so the board piece speaks the untracked state after its value.
+    const spoken = (id: string) => `${value(id)}, ${copy.ownershipUntrackedLabel}`;
     const piece = () => result.getByTestId('outfit-detail-board-piece-footwear');
     expect(piece()).toHaveProp('accessibilityRole', 'adjustable');
     expect(piece()).toHaveProp('accessibilityLabel', copy.slots.footwear);
-    expect(piece().props.accessibilityValue).toEqual({ text: value('rain_boots') });
+    expect(piece().props.accessibilityValue).toEqual({ text: spoken('rain_boots') });
     expect(result.queryByTestId('outfit-detail-board-strip')).toBeNull();
     expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
 
@@ -252,20 +254,20 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
     // Increment and decrement walk the picker's order.
     const next = order[position('rain_boots')];
     await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
-    expect(piece().props.accessibilityValue).toEqual({ text: value(next) });
+    expect(piece().props.accessibilityValue).toEqual({ text: spoken(next) });
     expect(within(result.getByTestId('outfit-detail-heading-group'))
       .getByRole('header', { name: copy.manualMix.title })).toBeOnTheScreen();
     await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
-    expect(piece().props.accessibilityValue).toEqual({ text: value('rain_boots') });
+    expect(piece().props.accessibilityValue).toEqual({ text: spoken('rain_boots') });
     // Kuyara's own piece back is no change.
     expect(within(result.getByTestId('outfit-detail-heading-group'))
       .getByRole('header', { name: archetype(language).title })).toBeOnTheScreen();
 
     // The first candidate has nothing before it.
     await fireEvent.press(result.getByTestId(`outfit-detail-board-strip-tile-${order[0]}`));
-    expect(piece().props.accessibilityValue).toEqual({ text: value(order[0]) });
+    expect(piece().props.accessibilityValue).toEqual({ text: spoken(order[0]) });
     await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
-    expect(piece().props.accessibilityValue).toEqual({ text: value(order[0]) });
+    expect(piece().props.accessibilityValue).toEqual({ text: spoken(order[0]) });
 
     await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
