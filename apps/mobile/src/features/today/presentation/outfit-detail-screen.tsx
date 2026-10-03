@@ -48,6 +48,7 @@ import {
   type WornSwap,
 } from '@/features/today/presentation/outfit-detail-worn';
 import { OutfitShareAction } from '@/features/today/presentation/outfit-share';
+import { pieceOwnershipMarkers } from '@/features/today/presentation/piece-ownership-marker';
 import {
   PiecePickerSheet,
   type PiecePickerTarget,
@@ -448,7 +449,7 @@ export function OutfitDetailScreen({
               stripShown: copy.manualMix.stripShown,
               pieceState: (garmentTypeId) => {
                 const kind = entryFor(garmentTypeId)?.match.kind;
-                return kind && kind !== 'none' ? copy.ownershipOnBoard[kind] : null;
+                return kind ? pieceOwnershipMarkers[kind].spoken(copy) : null;
               },
             }}
             onFocusChange={setFocusedSlot}

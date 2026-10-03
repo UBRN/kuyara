@@ -4,9 +4,10 @@ import { StyleSheet, View } from 'react-native';
 import { AppText, Entrance, garmentBoardDressingOrder, Icon } from '@/components/ui';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { DetailSuggestion, PieceEntry } from '@/features/today/presentation/outfit-detail-entries';
+import { pieceOwnershipMarkers } from '@/features/today/presentation/piece-ownership-marker';
 import { borderWidths, layout, type plateTheme, radii, spacing } from '@/theme/theme';
 
-// An owned piece's tick in its name button, at Law 6's caption step.
+// A name button's Closet marker, at Law 6's caption step.
 const NAME_MARK_SIZE = 16;
 
 export type NameRect = Readonly<{ x: number; y: number; w: number; h: number }>;
@@ -70,6 +71,7 @@ export function OutfitDetailNameRow({
   const renderName = ({ slot, garmentTypeId }: DetailSuggestion['boardPieces'][number]) => {
     const entry = entries.find(({ piece }) => piece.garmentTypeId === garmentTypeId);
     if (!entry) return null;
+    const marker = pieceOwnershipMarkers[entry.match.kind];
     return (
       <View
         key={`name-${slot}`}
@@ -81,13 +83,10 @@ export function OutfitDetailNameRow({
         style={[styles.nameButton, { borderColor: onBoard.borderDefined }]}
         testID={`outfit-detail-name-${garmentTypeId}`}>
         <AppText style={styles.nameLabel} variant="label">{entry.piece.item}</AppText>
-        {/* An owned piece carries a tick and nothing else; its row and its board element say it
-            in words. */}
-        {entry.match.kind === 'owned' ? (
-          <View testID={`outfit-detail-name-owned-${garmentTypeId}`}>
-            <Icon color={onBoard.brandAccent} name="check" size={NAME_MARK_SIZE} />
-          </View>
-        ) : null}
+        {/* One marker per Closet state; the piece's board element and its row say it in words. */}
+        <View testID={`outfit-detail-name-marker-${garmentTypeId}-${entry.match.kind}`}>
+          <Icon color={onBoard[marker.ink]} name={marker.icon} size={NAME_MARK_SIZE} />
+        </View>
       </View>
     );
   };
@@ -113,7 +112,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
   },
-  // The row stretches its buttons to one height per line; a button centres its label and tick.
+  // The row stretches its buttons to one height per line; a button centres its label and marker.
   nameButton: {
     alignItems: 'center',
     borderRadius: radii.pill,
