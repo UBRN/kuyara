@@ -18,14 +18,12 @@ import {
   ExpoSystemWardrobePhotoPicker,
   ExpoWardrobePhotoProcessor,
 } from '@/features/wardrobe/data/expo-wardrobe-photo-adapters';
-import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
-import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
+import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-database';
 import { newUuid } from '@/infrastructure/new-uuid';
 import { systemNow } from '@/infrastructure/system-clock';
 
 async function loadWardrobeRepository() {
-  const database = await openKuyaraDatabase();
-  await migrateDatabase(database);
+  const database = await openMigratedDatabase();
 
   return new LocalWardrobeRepository(
     new SqliteWardrobeLocalDataSource(database),

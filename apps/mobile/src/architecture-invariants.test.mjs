@@ -642,6 +642,21 @@ test('the system clock read and the UUID generator each live in one infrastructu
   assert.deepEqual(copies, [], 'import systemNow or systemDate from @/infrastructure/system-clock, newUuid from @/infrastructure/new-uuid');
 });
 
+// The device database is opened through one gate, `openMigratedDatabase`: the shared connection,
+// migrated. A loader or provider that opened the connection and ran the migrations itself could
+// forget one half, and the background task entry reaches the database through the same loaders.
+test('the device database is opened and migrated only through openMigratedDatabase', () => {
+  const calls = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath.startsWith('infrastructure/sqlite/')) continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\b(?:openKuyaraDatabase|migrateDatabase)\b/.test(line)) calls.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(calls, [], 'call openMigratedDatabase from @/infrastructure/sqlite/open-migrated-database');
+});
+
 // The Worker origin variable is read in one place, `config/`, and the app has no web target
 // branch: kuyara ships for iOS and Android only.
 test('the Worker base URL variable is read once, under config/', () => {
