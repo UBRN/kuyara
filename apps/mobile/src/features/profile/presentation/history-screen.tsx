@@ -14,12 +14,14 @@ import {
   type GarmentOutfitPalette,
 } from '@/components/ui';
 import { EmptyStateArt } from '@/components/ui/empty-state-art';
+import { parseCalendarDate } from '@/domain/calendar-date';
 import { dateTimeFormat } from '@/domain/intl-format';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { historyDrawingSky } from '@/features/profile/presentation/history-drawing-sky';
 import { HistoryWeekSummary } from '@/features/profile/presentation/history-week-summary';
 import { archetypeLabel } from '@/features/recommendation/application/recommendation-application-controller';
 import { outfitSlots } from '@/features/recommendation/domain/outfit-composition';
+import { dateKeyDayKind } from '@/features/recommendation/domain/local-day';
 import { historyDays, type WornOutfit, type WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import type { WeekSummary } from '@/features/recommendation/domain/outfit-history-week';
 import { localeTag } from '@/localization/locale-tag';
@@ -65,10 +67,6 @@ type HistoryRow =
   | Readonly<{ kind: 'day'; key: string; dayKey: string; looks: readonly DayLook[] }>;
 
 type HistoryBoard = Readonly<{ pieces: readonly GarmentBoardPiece[]; palette: GarmentOutfitPalette }>;
-
-// A bare date is a calendar day, not an instant: read it at noon UTC and format it in UTC,
-// so no time zone can move it to the day before.
-const dayDate = (dayKey: string) => new Date(`${dayKey}T12:00:00.000Z`);
 
 // A worn day is drawn in the swatches its pieces had on outfit detail. A day recorded
 // without them (before migration 24) is drawn in the pieces' natural colourways for a mild
@@ -134,7 +132,7 @@ function historyRows(
     if (dayMonth !== month) {
       flush();
       month = dayMonth;
-      rows.push({ kind: 'month', key: `month-${dayMonth}`, label: monthLabel(dayDate(dayKey)) });
+      rows.push({ kind: 'month', key: `month-${dayMonth}`, label: monthLabel(parseCalendarDate(dayKey)) });
     }
     const looks = dayLooks.map((entry, look) => ({ key: look === 0 ? dayKey : `${dayKey}-${look + 1}`, entry }));
     if (index === 0) {
@@ -154,11 +152,8 @@ function historyRows(
 }
 
 function dayCopy(entry: BoardEntry, messages: AppMessages) {
-  const date = dayDate(entry.dayKey);
-  const dayKind = date.getUTCDay() === 0 || date.getUTCDay() === 6 ? 'weekend' : 'weekday';
   return {
-    date,
-    title: archetypeLabel(messages.recommendation, entry.outfit.archetypeId, dayKind),
+    title: archetypeLabel(messages.recommendation, entry.outfit.archetypeId, dateKeyDayKind(entry.dayKey)),
     style: messages.today.dailyStyle[entry.outfit.formality],
   };
 }
@@ -191,9 +186,9 @@ export function HistoryScreen({
   const formats = useMemo(() => {
     const tag = localeTag(language);
     return {
-      full: dateTimeFormat(tag, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }),
-      short: dateTimeFormat(tag, { weekday: 'short', day: 'numeric', timeZone: 'UTC' }),
-      month: dateTimeFormat(tag, { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+      full: dateTimeFormat(tag, { weekday: 'long', day: 'numeric', month: 'long' }),
+      short: dateTimeFormat(tag, { weekday: 'short', day: 'numeric' }),
+      month: dateTimeFormat(tag, { month: 'long', year: 'numeric' }),
     };
   }, [language]);
   const columns = usesStackedLayout ? 1 : 2;
@@ -311,7 +306,7 @@ export function HistoryScreen({
           );
         }
         if (row.kind === 'latest') {
-          const fullDate = formats.full.format(dayDate(row.dayKey));
+          const fullDate = formats.full.format(parseCalendarDate(row.dayKey));
           const several = row.looks.length > 1;
           return (
             <View style={styles.latestDay}>
@@ -350,7 +345,7 @@ export function HistoryScreen({
         const height = Math.max(...row.looks.map(({ entry, key }) =>
           measureGarmentBoardHeight(historyBoard(entry, key).pieces, tileWidth, 'today')));
         const tiles = row.looks.map((look, offset) => {
-          const date = dayDate(look.entry.dayKey);
+          const date = parseCalendarDate(look.entry.dayKey);
           const { style, title } = dayCopy(look.entry, messages);
           return (
             <Arrival index={arrivalIndex(look.entry.id, rowIndex, offset + Number(row.kind === 'day'))}
@@ -379,7 +374,7 @@ export function HistoryScreen({
             <Arrival index={arrivalIndex(null, rowIndex, 0)} waiting={!transitionLanded}>
               <AppText accessibilityRole="header" tabularNumbers testID={`history-day-${row.dayKey}`}
                 variant="label">
-                {formats.short.format(dayDate(row.dayKey))}
+                {formats.short.format(parseCalendarDate(row.dayKey))}
               </AppText>
             </Arrival>
             <View style={[styles.days, styles.wrap]}>{tiles}</View>

@@ -32,7 +32,11 @@ import {
   summarizeClosetCategories,
 } from '@/features/wardrobe/application/closet-categories';
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
-import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import {
+  wardrobeEntryStateSchema,
+  type WardrobeEntryState,
+  type WardrobeItem,
+} from '@/features/wardrobe/domain/wardrobe-item';
 import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import {
   categoryTabListRole,
@@ -133,7 +137,7 @@ export function buildCategoryRows(
   numColumns: number,
 ): ClosetRow[] {
   const split = splitClosetByEntryState(items.filter((item) => item.category === category));
-  const sections = (['owned', 'wanted'] as const)
+  const sections = wardrobeEntryStateSchema.options
     .map((entryState) => ({ entryState, items: split[entryState] }))
     .filter((section) => section.items.length > 0);
   const rows: ClosetRow[] = [];

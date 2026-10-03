@@ -798,6 +798,27 @@ test('the device-local dressing day key is derived only in recommendation/domain
   assert.deepEqual(callers, ['features/recommendation/domain/local-day.ts']);
 });
 
+// A `YYYY-MM-DD` key becomes a Date only through `parseCalendarDate` in domain/calendar-date.ts,
+// and its weekend rule lives only in `dateKeyDayKind` in recommendation/domain/local-day.ts.
+test('a calendar date key is read and its weekend decided only by their owners', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/T12:00|getUTCDay\(\) === [06]/.test(line)) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'use parseCalendarDate and dateKeyDayKind');
+});
+
+// The Closet entry states are listed only by `wardrobeEntryStateSchema`.
+test('the Closet entry states are spelled as a list only by wardrobeEntryStateSchema', () => {
+  const hits = sourceFiles().filter((relativePath) =>
+    /\[\s*'owned',\s*'wanted'\s*\]/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+
+  assert.deepEqual(hits, ['features/wardrobe/domain/wardrobe-item.ts'], 'use wardrobeEntryStateSchema.options');
+});
+
 // A swallowed error is justified in one line: an empty `catch` block says nothing about why
 // losing the error is safe. The promise form `.catch(() => {})` is the same swallow
 // and is held to the same measure, whatever the parameter spelling: `()`, `(error)`,
