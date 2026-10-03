@@ -82,6 +82,8 @@ const boundEnv = {
   SUPABASE_SECRET_KEY: 'sb_secret_placeholder',
   APPLE_SIGN_IN_PRIVATE_KEY: 'placeholder',
   APPLE_SIGN_IN_KEY_ID: 'KEY1234567',
+  FEEDBACK_DB: { prepare: () => ({ bind: () => ({ run: async () => ({}) }) }) },
+  FEEDBACK_RATE_LIMIT: openLimiter,
 };
 
 const env = {
