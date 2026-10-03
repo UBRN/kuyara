@@ -17,6 +17,7 @@ import type { WeatherReadyState } from '@/features/weather/application/weather-a
 import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
+import type { WindSpeedUnit } from '@/domain/wind-speed';
 import { layout, lightTheme, radii, spacing, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -132,15 +133,18 @@ function Providers({
   productAnalytics,
   hour12 = false,
   temperatureUnit = 'celsius',
+  windSpeedUnit = 'kilometresPerHour',
 }: PropsWithChildren<{
   language: SupportedLanguage;
   value: WeatherApplicationValue;
   productAnalytics?: ReturnType<typeof createProductAnalyticsValue>;
   hour12?: boolean;
   temperatureUnit?: 'celsius' | 'fahrenheit';
+  windSpeedUnit?: WindSpeedUnit;
 }>) {
   return (
-    <LocalizationContext.Provider value={{ language, messages: messages[language], hour12, temperatureUnit }}>
+    <LocalizationContext.Provider
+      value={{ language, messages: messages[language], hour12, temperatureUnit, windSpeedUnit }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <ProductAnalyticsContext value={productAnalytics ?? createProductAnalyticsValue()}>
           <WeatherApplicationContext.Provider value={value}>
@@ -178,6 +182,22 @@ test('Weather renders Fahrenheit in the current reading and its accessible label
   );
   expect(result.getAllByText('60.8°').length).toBeGreaterThan(0);
   expect(result.getAllByLabelText(/60\.8 degrees Fahrenheit/).length).toBeGreaterThan(0);
+});
+
+test.each([
+  ['en', '9\u00a0mph', 'Wind 9 miles per hour'],
+  ['tr', '9\u00a0mil/sa', 'Rüzgâr saatte 9 mil'],
+] as const)('%s Weather shows wind in miles an hour on a US customary device', async (language, value, label) => {
+  const result = await render(
+    <Providers language={language} windSpeedUnit="milesPerHour" value={createValue({
+      ...baseState,
+      activeLocation: getManualLocation('sample.istanbul')!,
+      snapshot: sampleSnapshot(),
+      freshness: 'fresh',
+    })}><WeatherScreen /></Providers>,
+  );
+  expect(result.getByText(value)).toBeOnTheScreen();
+  expect(result.getByLabelText(label)).toBeOnTheScreen();
 });
 
 describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {

@@ -4,6 +4,7 @@ import type {
   AppMessages,
   SupportedLanguage,
 } from '@/localization/messages';
+import { type WindSpeedUnit, windSpeedUnitFor } from '@/domain/wind-speed';
 import type { TemperatureUnit } from '@/localization/device-locale';
 
 export type LocalizationValue = Readonly<{
@@ -15,16 +16,24 @@ export type LocalizationValue = Readonly<{
    */
   hour12: boolean;
   temperatureUnit?: TemperatureUnit;
+  windSpeedUnit?: WindSpeedUnit;
 }>;
 
 export const LocalizationContext = createContext<LocalizationValue | null>(null);
 
-export function useLocalizationContext(): LocalizationValue & { temperatureUnit: TemperatureUnit } {
+export function useLocalizationContext(): LocalizationValue & {
+  temperatureUnit: TemperatureUnit;
+  windSpeedUnit: WindSpeedUnit;
+} {
   const localization = use(LocalizationContext);
 
   if (!localization) {
     throw new Error('useLocalization must be used within LocalizationProvider');
   }
 
-  return { ...localization, temperatureUnit: localization.temperatureUnit ?? 'celsius' };
+  return {
+    ...localization,
+    temperatureUnit: localization.temperatureUnit ?? 'celsius',
+    windSpeedUnit: localization.windSpeedUnit ?? windSpeedUnitFor(undefined),
+  };
 }

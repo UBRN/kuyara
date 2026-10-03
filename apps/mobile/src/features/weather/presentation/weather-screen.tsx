@@ -46,6 +46,7 @@ import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
 import { WeatherErrorState, WeatherLoadingState } from '@/features/weather/presentation/weather-states';
 import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { dateTimeFormat, numberFormat } from '@/domain/intl-format';
+import { wholeWindSpeed } from '@/domain/wind-speed';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { localeTag } from '@/localization/locale-tag';
@@ -233,7 +234,7 @@ type WeatherScreenProps = Readonly<{
 }>;
 
 export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
-  const { hour12, language, messages, temperatureUnit } = useLocalization();
+  const { hour12, language, messages, temperatureUnit, windSpeedUnit } = useLocalization();
   const theme = useKuyaraTheme();
   const { controlScale, usesStackedLayout } = useTextScaling();
   const copy = messages.weather;
@@ -369,9 +370,8 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   // What stands on the stage draws in the stage's own roles (`PlateView` provides them below).
   const plate = plateTheme(theme, stageColor);
   const uvLevel = snapshot ? copy.uvLevels[uvLevelOf(snapshot.current.uvIndex)] : '';
-  // Kilometres an hour, in whole numbers: the speed a reader knows from a road sign.
   const windSpeed = snapshot
-    ? decimal(Math.round(snapshot.current.windSpeedMetersPerSecond * 3.6), language)
+    ? decimal(wholeWindSpeed(snapshot.current.windSpeedMetersPerSecond, windSpeedUnit), language)
     : '';
   const updatedAt = snapshot
     ? copy.updatedAt(lastUpdated(snapshot.fetchedAt, language, hour12, now))
@@ -614,10 +614,10 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                 ]}>
                 {([
                   {
-                    accessibilityLabel: copy.wind(windSpeed),
+                    accessibilityLabel: copy.wind[windSpeedUnit](windSpeed),
                     icon: 'wind',
                     label: copy.windLabel,
-                    value: copy.windValue(windSpeed),
+                    value: copy.windValue[windSpeedUnit](windSpeed),
                   },
                   {
                     accessibilityLabel: copy.humidity(snapshot.current.humidity),

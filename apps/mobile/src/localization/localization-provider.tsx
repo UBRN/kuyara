@@ -1,7 +1,12 @@
 import { type PropsWithChildren, useMemo } from 'react';
 
 import type { LanguagePreference } from '@/domain/preferences';
-import { getDeviceHour12, getDeviceLocale, useDeviceTemperatureUnit } from '@/localization/device-locale';
+import {
+  getDeviceHour12,
+  getDeviceLocale,
+  useDeviceTemperatureUnit,
+  useDeviceWindSpeedUnit,
+} from '@/localization/device-locale';
 import { resolveLanguagePreference } from '@/localization/language-preference';
 import {
   LocalizationContext,
@@ -18,6 +23,7 @@ export function LocalizationProvider({
   preference = 'system',
 }: LocalizationProviderProps) {
   const temperatureUnit = useDeviceTemperatureUnit();
+  const windSpeedUnit = useDeviceWindSpeedUnit();
   // Read on every render, outside the memo: the unit hook re-renders this provider when the
   // app returns to the foreground, and the 12/24-hour switch is re-read on that same pass.
   const deviceLocale = getDeviceLocale();
@@ -29,8 +35,9 @@ export function LocalizationProvider({
       messages: getMessages(language),
       hour12,
       temperatureUnit,
+      windSpeedUnit,
     };
-  }, [preference, deviceLocale, hour12, temperatureUnit]);
+  }, [preference, deviceLocale, hour12, temperatureUnit, windSpeedUnit]);
 
   return (
     <LocalizationContext value={localization}>{children}</LocalizationContext>

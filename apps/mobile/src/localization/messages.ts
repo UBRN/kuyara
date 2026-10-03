@@ -13,6 +13,7 @@ import type {
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { RestoreCounts } from '@/features/account/application/account-screens';
 import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
+import type { WindSpeedUnit } from '@/domain/wind-speed';
 import {
   catalogMessages,
   type CatalogMessages,
@@ -664,7 +665,8 @@ export type AppMessages = Readonly<{
       maximumTemperature: string;
       precipitationProbability: number;
     }) => string;
-    wind: (speed: string) => string;
+    /** Spoken wind line, one per unit in `@/domain/wind-speed`. */
+    wind: Readonly<Record<WindSpeedUnit, (speed: string) => string>>;
     humidity: (humidity: number) => string;
     /** The spoken UV line: the whole index and its band's word. */
     uvIndex: (index: string, level: string) => string;
@@ -697,7 +699,7 @@ export type AppMessages = Readonly<{
        */
       currentTemperature?: string;
     }) => string;
-    windValue: (speed: string) => string;
+    windValue: Readonly<Record<WindSpeedUnit, (speed: string) => string>>;
     humidityValue: (humidity: number) => string;
     windLabel: string;
     humidityLabel: string;
@@ -1331,7 +1333,10 @@ const en = {
       `${condition}. ${temperature} ${unitName}. Feels like ${apparentTemperature} ${unitName}. ` +
       `Low ${minimumTemperature} ${unitName}, high ${maximumTemperature} ${unitName}. ` +
       `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
-    wind: (speed) => `Wind ${speed} kilometers per hour`,
+    wind: {
+      kilometresPerHour: (speed) => `Wind ${speed} kilometers per hour`,
+      milesPerHour: (speed) => `Wind ${speed} miles per hour`,
+    },
     humidity: (humidity) => `${Math.round(humidity * 100)}% humidity`,
     uvIndex: (index, level) => `UV index ${index}: ${level}`,
     uvLevels: { low: 'Low', moderate: 'Moderate', high: 'High', veryHigh: 'Very high', extreme: 'Extreme' },
@@ -1366,7 +1371,10 @@ const en = {
       `${currentTemperature ? `Now ${currentTemperature} ${unitName}. ` : ''}` +
       `${precipitationMillimetres ? `${precipitationMillimetres} mm of precipitation. ` : ''}` +
       `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
-    windValue: (speed) => `${speed}\u00a0km/h`,
+    windValue: {
+      kilometresPerHour: (speed) => `${speed}\u00a0km/h`,
+      milesPerHour: (speed) => `${speed}\u00a0mph`,
+    },
     humidityValue: (humidity) => `${Math.round(humidity * 100)}%`,
     windLabel: 'Wind',
     humidityLabel: 'Humidity',
@@ -2455,7 +2463,10 @@ const tr = {
       `${condition}. Sıcaklık ${temperature} ${unitName}. Hissedilen sıcaklık ${apparentTemperature} ${unitName}. ` +
       `En düşük ${minimumTemperature} ${unitName}, en yüksek ${maximumTemperature} ${unitName}. ` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
-    wind: (speed) => `Rüzgâr saatte ${speed} kilometre`,
+    wind: {
+      kilometresPerHour: (speed) => `Rüzgâr saatte ${speed} kilometre`,
+      milesPerHour: (speed) => `Rüzgâr saatte ${speed} mil`,
+    },
     humidity: (humidity) => `%${Math.round(humidity * 100)} nem`,
     uvIndex: (index, level) => `UV endeksi ${index}: ${level}`,
     uvLevels: { low: 'Düşük', moderate: 'Orta', high: 'Yüksek', veryHigh: 'Çok yüksek', extreme: 'Aşırı' },
@@ -2490,7 +2501,10 @@ const tr = {
       `${currentTemperature ? `Şu an ${currentTemperature} ${unitName}. ` : ''}` +
       `${precipitationMillimetres ? `${precipitationMillimetres} milimetre yağış. ` : ''}` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
-    windValue: (speed) => `${speed}\u00a0km/sa`,
+    windValue: {
+      kilometresPerHour: (speed) => `${speed}\u00a0km/sa`,
+      milesPerHour: (speed) => `${speed}\u00a0mil/sa`,
+    },
     humidityValue: (humidity) => `%${Math.round(humidity * 100)}`,
     windLabel: 'Rüzgâr',
     humidityLabel: 'Nem',

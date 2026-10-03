@@ -1094,3 +1094,15 @@ test('the Today routes reach no data layer and only the listed domain modules', 
     assert.deepEqual(specifiers.filter((specifier) => /(?:^|\/)domain\//.test(specifier)).sort(), allowed, route);
   }
 });
+
+test('wind speed is converted for display only by the wind speed owner', () => {
+  // `domain/wind-speed.ts` owns the device-to-unit choice and the m/s conversion; a second
+  // `* 3.6` or a miles factor elsewhere would let two screens disagree about the same wind.
+  const owner = 'domain/wind-speed.ts';
+  const conversion = /\*\s*3\.6\b|1609\.344|2\.23694/;
+  const violations = sourceFiles().filter((file) =>
+    file !== owner && conversion.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(violations, [], `convert wind speed through ${owner}:\n${violations.join('\n')}`);
+  // The pattern still recognizes the inline form it replaced.
+  assert.ok(conversion.test('Math.round(snapshot.current.windSpeedMetersPerSecond * 3.6)'));
+});
