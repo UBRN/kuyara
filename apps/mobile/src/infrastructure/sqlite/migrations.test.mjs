@@ -91,7 +91,7 @@ test('an empty database applies all migrations in order with the final schema', 
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 25);
+  assert.equal(latestDatabaseVersion, 26);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -1279,7 +1279,7 @@ test('version 15 adds the briefing opt-in without disturbing a version 14 instal
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 25);
+  assert.equal(latestDatabaseVersion, 26);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
     profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0 })),
@@ -1504,7 +1504,7 @@ test('version 16 adds the daily outlook column without disturbing a version 15 i
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 25);
+  assert.equal(latestDatabaseVersion, 26);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM weather_snapshots')).map((row) => ({ ...row })),
     snapshotsBefore.map((row) => ({ ...row, daily_json: null })),
@@ -2042,7 +2042,7 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
     await migrateDatabase(database);
     await migrateDatabase(fresh);
 
-    assert.equal(latestDatabaseVersion, 25);
+    assert.equal(latestDatabaseVersion, 26);
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
       ...before,
@@ -2233,7 +2233,7 @@ test('build-17-schema-23.sql upgrades with every row intact and worn days uncolo
   await migrateDatabase(database);
   await migrateDatabase(fresh);
 
-  assert.equal(latestDatabaseVersion, 25);
+  assert.equal(latestDatabaseVersion, 26);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   const after = await tableRows(database);
   assert.deepEqual(Object.keys(after), [...Object.keys(before), 'device_account_link'].sort());
@@ -2334,4 +2334,117 @@ test('a failed version 25 migration rolls back and leaves version 24 with its ro
   assert.equal((await database.getFirstAsync('SELECT COUNT(*) AS n FROM device_account_link')).n, 1);
   assert.equal((await database.getFirstAsync(
     'SELECT COUNT(*) AS n FROM wardrobe_items WHERE pending_sync = 0')).n, before.wardrobe_items.length);
+});
+
+// Migration 26: a dressing day holds several worn looks. The table is rebuilt without the
+// `(local_profile_id, day_key)` constraint; every version 25 row keeps every value.
+function failingOn(database, marker, message) {
+  return {
+    execAsync: database.execAsync.bind(database),
+    getFirstAsync: database.getFirstAsync.bind(database),
+    withExclusiveTransactionAsync: (task) => database.withExclusiveTransactionAsync((transaction) => task({
+      execAsync: async (sql) => {
+        await transaction.execAsync(sql);
+        if (sql.includes(marker)) throw new Error(message);
+      },
+      runAsync: transaction.runAsync.bind(transaction),
+      getFirstAsync: transaction.getFirstAsync.bind(transaction),
+      getAllAsync: transaction.getAllAsync.bind(transaction),
+    })),
+  };
+}
+
+/** A filled build 17 database carried to version 25, with every kind of history value set. */
+async function filledVersionTwentyFive(database) {
+  await database.execAsync(await readFile(new URL('./build-17-schema-23.sql', import.meta.url), 'utf8'));
+  await fillBuildSeventeen(database);
+  // The runner stops at 26 here (its whole script runs, then the failure rolls it back), so the
+  // database is exactly what version 25 left.
+  await assert.rejects(() => migrateDatabase(failingOn(database, 'outfit_history_v26', 'stop at 25')),
+    /Migration to version 26 failed: stop at 25/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 25);
+  await database.runAsync(`UPDATE outfit_history SET piece_colors_json = ?, pending_sync = 1 WHERE id = ?`,
+    ['{"primary_top":"navy","bottom":"indigo","footwear":"white"}', wornIds[0]]);
+  // A row whose profile is gone, as foreign keys off once allowed: it rides through the rebuild.
+  await database.execAsync('PRAGMA foreign_keys = OFF;');
+  await database.runAsync(`INSERT INTO outfit_history
+    (id, local_profile_id, day_key, outfit_json, worn_at, created_at, updated_at)
+    VALUES ('4e5f6a7b-8c9d-4e0f-a1b2-c3d4e5f6a7b8', 'gone-profile', '2026-09-27', ?, ?, ?, ?)`,
+  [historyOutfit('t_shirt'), timestamp, timestamp, timestamp]);
+  await database.execAsync('PRAGMA foreign_keys = ON;');
+}
+
+test('version 26 keeps every version 25 row and value and lets a day hold several looks', async (t) => {
+  const database = new NodeSqliteDatabase();
+  const fresh = new NodeSqliteDatabase();
+  t.after(() => { database.close(); fresh.close(); });
+  await filledVersionTwentyFive(database);
+  const before = await tableRows(database);
+  assert.equal(before.outfit_history.length, 4);
+  const orphansBefore = (await database.getAllAsync('PRAGMA foreign_key_check')).map((row) => ({ ...row }));
+  assert.equal(orphansBefore.length, 1);
+
+  await migrateDatabase(database);
+  await migrateDatabase(new NodeSqliteDatabase(database.database));
+  await migrateDatabase(fresh);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 26);
+  assert.deepEqual(await tableRows(database), before);
+  assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
+  assert.deepEqual((await database.getAllAsync('PRAGMA foreign_key_check')).map((row) => ({ ...row })), orphansBefore);
+  assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
+
+  // A second look for a day that already holds one is a second row.
+  await database.runAsync(`INSERT INTO outfit_history
+    (id, local_profile_id, day_key, outfit_json, worn_at, created_at, updated_at)
+    VALUES ('5f6a7b8c-9d0e-4f1a-b2c3-d4e5f6a7b8c9', 'stable-profile-id', '2026-09-30', ?, ?, ?, ?)`,
+  [historyOutfit('sweater'), deletedTimestamp, deletedTimestamp, deletedTimestamp]);
+  assert.equal((await database.getFirstAsync(
+    "SELECT COUNT(*) AS n FROM outfit_history WHERE day_key = '2026-09-30'")).n, 2);
+});
+
+test('a fresh version 26 schema keeps the history checks, foreign key and index without the day constraint', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await migrateDatabase(database);
+  await insertProfile(database);
+  const { sql } = await database.getFirstAsync("SELECT sql FROM sqlite_master WHERE name = 'outfit_history'");
+  assert.doesNotMatch(sql, /UNIQUE/);
+  assert.deepEqual((await database.getAllAsync('PRAGMA table_info(outfit_history)')).map(({ name }) => name),
+    ['id', 'local_profile_id', 'day_key', 'outfit_json', 'photo_path', 'worn_at', 'created_at',
+      'updated_at', 'deleted_at', 'piece_colors_json', 'pending_sync']);
+  assert.deepEqual((await database.getAllAsync('PRAGMA index_list(outfit_history)'))
+    .map(({ name, unique }) => [name, unique]).sort(),
+  [['idx_outfit_history_profile_live_day', 0], ['sqlite_autoindex_outfit_history_1', 1]]);
+  assert.deepEqual((await database.getAllAsync('PRAGMA index_xinfo(idx_outfit_history_profile_live_day)'))
+    .filter(({ key }) => key === 1).map(({ name, desc }) => [name, desc]),
+  [['local_profile_id', 0], ['deleted_at', 0], ['day_key', 1]]);
+  const insert = (id, profile, day, pending = 0) => database.runAsync(`INSERT INTO outfit_history
+    (id, local_profile_id, day_key, outfit_json, worn_at, created_at, updated_at, pending_sync)
+    VALUES (?, ?, ?, '{}', ?, ?, ?, ?)`, [id, profile, day, timestamp, timestamp, timestamp, pending]);
+  await insert('a', 'stable-profile-id', '2026-10-03');
+  await insert('b', 'stable-profile-id', '2026-10-03', 1);
+  await assert.rejects(() => insert('a', 'stable-profile-id', '2026-10-04'), /UNIQUE constraint/);
+  await assert.rejects(() => insert('c', 'stable-profile-id', '3 Oct'), /CHECK constraint/);
+  await assert.rejects(() => insert('d', 'stable-profile-id', '2026-10-03', 2), /CHECK constraint/);
+  await assert.rejects(() => insert('e', 'unknown-profile', '2026-10-03'), /FOREIGN KEY constraint/);
+});
+
+test('a failed version 26 migration rolls back the rebuild and leaves version 25 with its rows intact', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await filledVersionTwentyFive(database);
+  const before = await tableRows(database);
+  const schemaBefore = await sqliteSchema(database);
+  // The failure lands after the old table was dropped and the new one renamed into place.
+  const failing = failingOn(database, 'DROP TABLE outfit_history', 'v26 failed');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await assert.rejects(() => migrateDatabase(failing), /Migration to version 26 failed: v26 failed/);
+    assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 25);
+    assert.deepEqual(await sqliteSchema(database), schemaBefore);
+    assert.deepEqual(await tableRows(database), before);
+  }
+  await migrateDatabase(database);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 26);
+  assert.deepEqual(await tableRows(database), before);
 });
