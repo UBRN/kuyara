@@ -6,6 +6,7 @@ import {
   type WeatherV1Error,
 } from '@kuyara/contracts';
 
+import { fetchJsonWithTimeout, type Fetch } from '@/infrastructure/network/fetch-json-with-timeout';
 import { mapWorkerWeatherToProvidedSnapshot } from '@/features/weather/data/worker-weather-mapper';
 import type {
   ProvidedWeatherSnapshot,
@@ -17,7 +18,6 @@ import {
 } from '@/features/weather/domain/weather-provider-error';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 
-type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 const requestTimeoutMilliseconds = 10000;
 
 type Dependencies = Readonly<{
@@ -40,14 +40,6 @@ export class WorkerWeatherProviderError extends WeatherProviderError {
   }
 }
 
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch {
-    throw new WorkerWeatherProviderError('invalid-response');
-  }
-}
-
 export class WorkerWeatherProvider implements WeatherProvider {
   private readonly baseUrl: string;
   private readonly fetch: Fetch;
@@ -66,43 +58,38 @@ export class WorkerWeatherProvider implements WeatherProvider {
       timeZone: location.timeZone,
     });
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMilliseconds);
+    const { response, body } = await fetchJsonWithTimeout(
+      this.fetch,
+      `${this.baseUrl}${weatherV2Path}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+      },
+      this.requestTimeoutMilliseconds,
+      {
+        network: () => new WorkerWeatherProviderError('network'),
+        invalidJson: () => new WorkerWeatherProviderError('invalid-response'),
+      },
+    );
+    if (!response.ok) {
+      const error = weatherV1ErrorSchema.safeParse(body);
+      if (!error.success) throw new WorkerWeatherProviderError('invalid-response');
+      const kind = response.status === 429 || error.data.error.code === 'rate_limited'
+        ? 'rate-limited'
+        : 'service';
+      throw new WorkerWeatherProviderError(kind, error.data.error.code);
+    }
+
+    // The v2 success schema is v1's plus `daily`, and it strips unknown keys the same
+    // way, so a Worker that adds a response field later still parses here.
+    const success = weatherV2SuccessSchema.safeParse(body);
+    if (!success.success) throw new WorkerWeatherProviderError('invalid-response');
+
     try {
-      let response: Response;
-      try {
-        response = await this.fetch(`${this.baseUrl}${weatherV2Path}`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(request),
-          signal: controller.signal,
-        });
-      } catch {
-        throw new WorkerWeatherProviderError('network');
-      }
-
-      const body = await readJson(response);
-      if (!response.ok) {
-        const error = weatherV1ErrorSchema.safeParse(body);
-        if (!error.success) throw new WorkerWeatherProviderError('invalid-response');
-        const kind = response.status === 429 || error.data.error.code === 'rate_limited'
-          ? 'rate-limited'
-          : 'service';
-        throw new WorkerWeatherProviderError(kind, error.data.error.code);
-      }
-
-      // The v2 success schema is v1's plus `daily`, and it strips unknown keys the same
-      // way, so a Worker that adds a response field later still parses here.
-      const success = weatherV2SuccessSchema.safeParse(body);
-      if (!success.success) throw new WorkerWeatherProviderError('invalid-response');
-
-      try {
-        return mapWorkerWeatherToProvidedSnapshot(location, success.data.data);
-      } catch {
-        throw new WorkerWeatherProviderError('invalid-response');
-      }
-    } finally {
-      clearTimeout(timeout);
+      return mapWorkerWeatherToProvidedSnapshot(location, success.data.data);
+    } catch {
+      throw new WorkerWeatherProviderError('invalid-response');
     }
   }
 }

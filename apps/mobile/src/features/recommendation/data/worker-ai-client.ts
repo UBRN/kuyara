@@ -10,10 +10,10 @@ import {
   type AiRecommendV2Success,
 } from '@kuyara/contracts';
 
+import { fetchJsonWithTimeout, type Fetch } from '@/infrastructure/network/fetch-json-with-timeout';
+
 // Leaves one second for HTTP transport before the mobile client's abort.
 const workerTransportMarginMilliseconds = 1_000;
-
-type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
 type Dependencies = Readonly<{
   baseUrl: string;
@@ -34,14 +34,6 @@ export class WorkerAiClientError extends Error {
     super('The AI recommendation request could not be completed.');
     this.name = 'WorkerAiClientError';
     this.kind = kind;
-  }
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch {
-    throw new WorkerAiClientError('invalid-response');
   }
 }
 
@@ -75,47 +67,38 @@ export class WorkerAiClient {
     const workerBudget = aiRecommendV1BudgetMillisecondsSchema.safeParse(
       requestTimeoutMilliseconds - workerTransportMarginMilliseconds,
     );
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
+    const { response, body } = await fetchJsonWithTimeout(
+      this.fetch,
+      `${this.baseUrl}${aiRecommendV2Path}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(workerBudget.success
+            ? { [aiRecommendV1BudgetHeader]: String(workerBudget.data) }
+            : {}),
+        },
+        body: JSON.stringify(request.data),
+      },
       requestTimeoutMilliseconds,
+      {
+        network: () => new WorkerAiClientError('network'),
+        invalidJson: () => new WorkerAiClientError('invalid-response'),
+      },
     );
-
-    try {
-      let response: Response;
-      try {
-        response = await this.fetch(`${this.baseUrl}${aiRecommendV2Path}`, {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            ...(workerBudget.success
-              ? { [aiRecommendV1BudgetHeader]: String(workerBudget.data) }
-              : {}),
-          },
-          body: JSON.stringify(request.data),
-          signal: controller.signal,
-        });
-      } catch {
-        throw new WorkerAiClientError('network');
+    if (!response.ok) {
+      if (!aiV1ErrorSchema.safeParse(body).success) {
+        throw new WorkerAiClientError('invalid-response');
       }
-
-      const body = await readJson(response);
-      if (!response.ok) {
-        if (!aiV1ErrorSchema.safeParse(body).success) {
-          throw new WorkerAiClientError('invalid-response');
-        }
-        throw new WorkerAiClientError('service');
-      }
-
-      const success = aiRecommendV2SuccessSchema.safeParse(body);
-      if (success.success) return success.data.data;
-      // A bad optional sentence loses only the prose. The pick gate is still the
-      // shared v1 schema; a malformed pick fails both readers.
-      const picks = aiRecommendV1SuccessSchema.safeParse(body);
-      if (!picks.success) throw new WorkerAiClientError('invalid-response');
-      return picks.data.data;
-    } finally {
-      clearTimeout(timeout);
+      throw new WorkerAiClientError('service');
     }
+
+    const success = aiRecommendV2SuccessSchema.safeParse(body);
+    if (success.success) return success.data.data;
+    // A bad optional sentence loses only the prose. The pick gate is still the
+    // shared v1 schema; a malformed pick fails both readers.
+    const picks = aiRecommendV1SuccessSchema.safeParse(body);
+    if (!picks.success) throw new WorkerAiClientError('invalid-response');
+    return picks.data.data;
   }
 }

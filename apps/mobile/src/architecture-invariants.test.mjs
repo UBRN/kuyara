@@ -657,6 +657,21 @@ test('the device database is opened and migrated only through openMigratedDataba
   assert.deepEqual(calls, [], 'call openMigratedDatabase from @/infrastructure/sqlite/open-migrated-database');
 });
 
+// A mobile data-layer network call has one way to time out and parse a body:
+// `fetchJsonWithTimeout`. Each caller keeps its own timeout value and error mapping and does not
+// hand-roll an `AbortController` or read `response.json()` itself.
+test('a network call times out and parses its JSON only through fetchJsonWithTimeout', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'infrastructure/network/fetch-json-with-timeout.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/new AbortController\(|\.json\(\)/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call fetchJsonWithTimeout from @/infrastructure/network/fetch-json-with-timeout');
+});
+
 // The Worker origin variable is read in one place, `config/`, and the app has no web target
 // branch: kuyara ships for iOS and Android only.
 test('the Worker base URL variable is read once, under config/', () => {
