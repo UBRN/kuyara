@@ -1158,3 +1158,13 @@ test('the image-tile radius is written only in the theme', () => {
   assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'use radii.imageTile');
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
 });
+
+// Screens list genders and dress styles from their schemas (`genderSchema.options`, contracts
+// `dressStyles`), and the style limit from contracts `styleAestheticsLimit`, never as literals.
+test('screens read the gender and dress style lists and the style limit from their owners', () => {
+  const screens = sourceFiles().filter((file) => file.startsWith('app/') || file.includes('/presentation/'));
+  const hits = screens.filter((file) =>
+    /\[\s*'woman',\s*'man'\s*\]|\[\s*'casual',\s*'smart',\s*'formal'\s*\]|STYLE_LIMIT\s*=|styleAesthetics\.length\s*>=\s*\d|selected\.length\s*>=\s*\d/
+      .test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'use genderSchema.options, dressStyles and styleAestheticsLimit');
+});

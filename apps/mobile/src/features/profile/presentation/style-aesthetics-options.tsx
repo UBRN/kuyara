@@ -1,4 +1,4 @@
-import { styleAesthetics, type StyleAesthetic } from '@kuyara/contracts';
+import { styleAesthetics, styleAestheticsLimit, type StyleAesthetic } from '@kuyara/contracts';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Icon } from '@/components/ui';
@@ -31,7 +31,7 @@ export function StyleAestheticsOptions({
   disabled?: boolean;
 }>) {
   const theme = useKuyaraTheme();
-  const atLimit = selected.length >= 3;
+  const atLimit = selected.length >= styleAestheticsLimit;
   return (
     <View style={styles.options} testID={testID}>
       {styleAesthetics.map((id) => {

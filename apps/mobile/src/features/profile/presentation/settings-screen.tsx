@@ -1,3 +1,4 @@
+import { dressStyles } from '@kuyara/contracts';
 import Constants from 'expo-constants';
 import { useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -17,7 +18,13 @@ import {
 } from '@/components/ui';
 import { parseCalendarDate } from '@/domain/calendar-date';
 import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
-import type { DressStyle, Gender, LocalProfile, StyleAesthetic } from '@/features/profile/domain/profile';
+import {
+  genderSchema,
+  type DressStyle,
+  type Gender,
+  type LocalProfile,
+  type StyleAesthetic,
+} from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { aestheticLabels, StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useLocalization } from '@/localization/use-messages';
@@ -226,10 +233,10 @@ export function SettingsScreen({
             'profile',
             () => onGenderChange(value),
           )}
-          options={[
-            { label: copy.genderWoman, value: 'woman' },
-            { label: copy.genderMan, value: 'man' },
-          ]}
+          options={genderSchema.options.map((value) => ({
+            label: { woman: copy.genderWoman, man: copy.genderMan }[value],
+            value,
+          }))}
           selection={profile.gender ?? 'woman'}
           icon="tabProfileOutline"
           testID="settings-gender-row"
@@ -241,11 +248,14 @@ export function SettingsScreen({
             'profile',
             () => onDressStyleChange(value),
           )}
-          options={[
-            { label: copy.dressStyleCasual, value: 'casual' },
-            { label: copy.dressStyleSmart, value: 'smart' },
-            { label: copy.dressStyleFormal, value: 'formal' },
-          ]}
+          options={dressStyles.map((value) => ({
+            label: {
+              casual: copy.dressStyleCasual,
+              smart: copy.dressStyleSmart,
+              formal: copy.dressStyleFormal,
+            }[value],
+            value,
+          }))}
           selection={profile.dressStyle ?? 'smart'}
           icon="clothing"
           testID="settings-dress-style-row"
