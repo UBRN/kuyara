@@ -984,7 +984,7 @@ test('every message key has a production reader or a counted computed read', () 
     }
     ts.forEachChild(node, (child) => visit(child, trail));
   };
-  const aliases = ['AppMessages', 'TodayMessages', 'PreferenceMessages', 'WalkthroughMessages'];
+  const aliases = ['AppMessages', 'TodayMessages', 'PreferenceMessages', 'WalkthroughMessages', 'AccountMessages'];
   ts.forEachChild(service.getProgram().getSourceFile(file), (node) => {
     if (ts.isTypeAliasDeclaration(node) && aliases.includes(node.name.text)) visit(node, []);
   });
