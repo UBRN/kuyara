@@ -1156,11 +1156,7 @@ test('the device time zone and the default quiet hours each have one owner', () 
 // presentation/format-clock-time.ts; the screens listed here still spell it and the list only
 // shrinks.
 const clockPatternAllowlist = {
-  'features/account/presentation/account-sync-view.ts': 1,
-  'features/profile/presentation/service-providers-screen.tsx': 1,
   'features/today/presentation/today-presentation.ts': 1,
-  'features/weather/presentation/weather-format.ts': 1,
-  'features/weather/presentation/weather-screen.tsx': 1,
   'presentation/format-clock-time.ts': 1,
 };
 

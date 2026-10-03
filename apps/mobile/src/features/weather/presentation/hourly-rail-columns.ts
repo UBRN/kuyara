@@ -3,15 +3,16 @@ import { weatherLocalDateKey } from '@kuyara/contracts';
 import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import type { HourlyWeather, NormalizedCoordinates, WeatherSnapshot } from '@/features/weather/domain/weather';
 import type { TemperatureUnit } from '@/localization/device-locale';
-import type { AppMessages } from '@/localization/messages';
+import type { AppMessages, SupportedLanguage } from '@/localization/messages';
+import { formatClockTime } from '@/presentation/format-clock-time';
 import { formatTemperature, formatTemperatureValue } from '@/presentation/format-temperature';
 
 import type { HourlyRailColumn, HourlyTimeEmphasis } from './hourly-rail';
 import { remainingHourlyForecast } from './remaining-hours';
-import { percentage, time, weekday } from './weather-format';
+import { percentage, weekday } from './weather-format';
 
 export type HourlyColumnWording = Readonly<{
-  language: 'en' | 'tr';
+  language: SupportedLanguage;
   hour12: boolean;
   temperatureUnit: TemperatureUnit;
   copy: AppMessages['weather'];
@@ -59,7 +60,7 @@ export function hourlyRailColumns(
   return hours.map((hour, index): HourlyRailColumn => {
     const newLocalDay = startsNewLocalDay(hours, index, timeZone);
     const timeEmphasis = hourlyTimeEmphasis(index, newLocalDay);
-    const clockTime = time(hour.forecastAt, timeZone, language, hour12);
+    const clockTime = formatClockTime(hour.forecastAt, language, hour12, timeZone);
     return {
       key: hour.forecastAt,
       // The spoken label keeps the clock time even where the column shows "Now" or a day.

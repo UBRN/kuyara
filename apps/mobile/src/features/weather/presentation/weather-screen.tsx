@@ -43,7 +43,7 @@ import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { hourlyRailColumns } from '@/features/weather/presentation/hourly-rail-columns';
 import { uvLevelOf } from '@/features/weather/presentation/uv-level';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
-import { percentage, time, weekday } from '@/features/weather/presentation/weather-format';
+import { percentage, weekday } from '@/features/weather/presentation/weather-format';
 import { WeatherErrorState, WeatherLoadingState } from '@/features/weather/presentation/weather-states';
 import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { numberFormat } from '@/domain/intl-format';
@@ -51,36 +51,19 @@ import { wholeWindSpeed } from '@/domain/wind-speed';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { localeTag } from '@/localization/locale-tag';
+import { formatClockTime, formatLastUpdated } from '@/presentation/format-clock-time';
 import { formatTemperature, formatTemperatureDifference, formatTemperatureValue } from '@/presentation/format-temperature';
 import type { TemperatureUnit } from '@/localization/device-locale';
+import type { SupportedLanguage } from '@/localization/messages';
 import { PlateView } from '@/theme/plate-theme';
 import { plateTheme, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-function decimal(value: number, language: 'en' | 'tr'): string {
+function decimal(value: number, language: SupportedLanguage): string {
   return numberFormat(localeTag(language), {
     maximumFractionDigits: 1,
     // A wind that rounds away to nothing must not read as blowing backwards.
   }).format(Math.round(Math.abs(value) * 10) === 0 ? 0 : value);
-}
-
-// "Last updated" answers "how old is this?", so it is read against the viewer's own clock
-// and calendar rather than the selected city's: the device time zone, and the date as
-// well as the time once the snapshot is no longer from the viewer's current local day.
-function lastUpdated(
-  value: string,
-  language: 'en' | 'tr',
-  hour12: boolean,
-  now: number,
-): string {
-  const fetched = new Date(value);
-  const isCurrentLocalDay = fetched.toDateString() === new Date(now).toDateString();
-  return new Intl.DateTimeFormat(
-    localeTag(language),
-    isCurrentLocalDay
-      ? { hour: hour12 ? 'numeric' : '2-digit', minute: '2-digit', hour12 }
-      : { dateStyle: 'short', timeStyle: 'short', hour12 },
-  ).format(fetched);
 }
 
 function accessibilitySentence(...parts: readonly (string | null)[]): string {
@@ -97,7 +80,7 @@ function outlookSentence(
   outlook: WeatherOutlook,
   copy: ReturnType<typeof useLocalization>['messages']['weather'],
   timeZone: string,
-  language: 'en' | 'tr',
+  language: SupportedLanguage,
   hour12: boolean,
   temperatureUnit: TemperatureUnit,
 ): string {
@@ -109,7 +92,7 @@ function outlookSentence(
   if (outlook.kind === 'steady') {
     return outlook.period === 'evening' ? copy.outlook.steadyEvening : copy.outlook.steady;
   }
-  const at = time(outlook.atHour, timeZone, language, hour12);
+  const at = formatClockTime(outlook.atHour, language, hour12, timeZone);
   if (outlook.kind === 'temperature_change') {
     const values = {
       time: at,
@@ -288,7 +271,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
     ? decimal(wholeWindSpeed(snapshot.current.windSpeedMetersPerSecond, windSpeedUnit), language)
     : '';
   const updatedAt = snapshot
-    ? copy.updatedAt(lastUpdated(snapshot.fetchedAt, language, hour12, now))
+    ? copy.updatedAt(formatLastUpdated(snapshot.fetchedAt, language, hour12, now))
     : '';
   const outlook = snapshot
     ? findWeatherOutlook({ snapshot, now: new Date(now).toISOString() })

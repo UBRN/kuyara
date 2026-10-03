@@ -7,7 +7,7 @@ import type { AiProbeUiState } from '@/features/recommendation/application/use-a
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { useLocalization } from '@/localization/use-messages';
-import { localeTag } from '@/localization/locale-tag';
+import { formatClockTime } from '@/presentation/format-clock-time';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type StatusSymbol = Extract<IconName, 'statusRunning' | 'statusOff' | 'statusUnavailable'>;
@@ -78,11 +78,7 @@ export function ServiceProvidersScreen({
         ? copy.aiStatusChecking
         : aiStatus.kind === 'ok'
           ? copy.aiStatusResultOk(
-              new Intl.DateTimeFormat(localeTag(language), {
-                hour: hour12 ? 'numeric' : '2-digit',
-                minute: '2-digit',
-                hour12,
-              }).format(new Date(aiStatus.checkedAt)),
+              formatClockTime(aiStatus.checkedAt, language, hour12),
             )
           : aiStatus.kind === 'unavailable'
             ? copy.aiStatusResultUnavailable

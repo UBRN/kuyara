@@ -1,7 +1,6 @@
-import { dateTimeFormat } from '@/domain/intl-format';
 import type { AccountSession } from '@/features/account/application/account-screens';
-import { localeTag } from '@/localization/locale-tag';
 import type { AccountMessages, SupportedLanguage } from '@/localization/messages';
+import { formatClockTime } from '@/presentation/format-clock-time';
 
 type SignedIn = Extract<AccountSession, { kind: 'signedIn' }>;
 
@@ -21,11 +20,7 @@ export type SyncView = Readonly<{
 }>;
 
 export function formatSyncTime(iso: string, language: SupportedLanguage, hour12: boolean): string {
-  return dateTimeFormat(localeTag(language), {
-    hour: hour12 ? 'numeric' : '2-digit',
-    minute: '2-digit',
-    hour12,
-  }).format(new Date(iso));
+  return formatClockTime(iso, language, hour12);
 }
 
 /** One owner for what the Account screen and the Settings row say about sync (frames 06-08, 21, 22, 34-36). */
