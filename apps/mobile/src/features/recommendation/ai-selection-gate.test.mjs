@@ -20,13 +20,13 @@ import {
 import { outfitMatchesArchetype, outfitOptionId } from './application/recommend-outfits.ts';
 import {
   aiRequestFromContext,
-  createAiRecommendationRequest,
   mapStoredRecommendation,
   mapWorkerAiRecommendation,
   toStoredRecommendationOutfits,
   WorkerAiRecommendationMappingError,
 } from './data/worker-ai-recommendation-mapper.ts';
 import {
+  aiRequestFor,
   gridOutfitCells,
   gridRecommendationInput,
   gridRequestCells,
@@ -88,10 +88,10 @@ test('T1a the narrowest grid pool still clears the AI request floor', () => {
   assert.ok(minimum >= 3);
 });
 
-test('T1a createAiRecommendationRequest agrees with the controller\'s two-step build', () => {
+test('T1a aiRequestFor agrees with the controller\'s two-step build', () => {
   const cell = gridRequestCells()[0];
   assert.deepEqual(
-    createAiRecommendationRequest(
+    aiRequestFor(
       gridRecommendationInput(cell.weatherKey, cell.clothingPreference, cell.dressStyle),
     ),
     cell.request,

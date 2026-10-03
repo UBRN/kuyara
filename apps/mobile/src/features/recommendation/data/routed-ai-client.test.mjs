@@ -13,7 +13,7 @@ import {
   onDeviceAiBudgetMilliseconds,
 } from './on-device-ai-client.ts';
 import { RoutedAiClient } from './routed-ai-client.ts';
-import { createAiRecommendationRequest } from './worker-ai-recommendation-mapper.ts';
+import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
 
 const observedAt = '2026-08-01T18:00:00.000Z';
 
@@ -55,7 +55,7 @@ function input() {
   };
 }
 
-const request = createAiRecommendationRequest(input());
+const request = aiRequestFor(input());
 const day = archetypeDayFromRequirements(request.requirements);
 
 // Three options that differ in their body core, so the shared distinctness rule accepts

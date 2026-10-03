@@ -15,12 +15,12 @@ import { SqliteRecommendationLocalDataSource } from './sqlite-recommendation-loc
 import { SqliteDressingDayChoiceRepository } from './sqlite-dressing-day-choice-repository.ts';
 import { SqliteDressingDayDepartureRepository } from './sqlite-dressing-day-departure-repository.ts';
 import {
-  createAiRecommendationRequest,
   createRecommendationContext,
 } from './worker-ai-recommendation-mapper.ts';
 import { recommendOutfits } from '../application/recommend-outfits.ts';
 import { latestDatabaseVersion, migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
+import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
 
 const profileId = 'profile-recommendation-test';
 const recommendationId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
@@ -332,7 +332,7 @@ test('cold new-day generation excludes yesterday, while regenerate offers the fu
   const previousIds = previous.recommendation.outfits.map(({ optionId }) => optionId);
   // Keep the composition seed fixed so the test observes exclusion, not rotation.
   const nextInput = { ...generated.input, localDayKey: '2026-08-02' };
-  const fullPool = createAiRecommendationRequest(nextInput).options.map(({ optionId }) => optionId);
+  const fullPool = aiRequestFor(nextInput).options.map(({ optionId }) => optionId);
   const requests = [];
   const controller = new RecommendationApplicationController(profileId, {
     loadRepository: async () => repository,

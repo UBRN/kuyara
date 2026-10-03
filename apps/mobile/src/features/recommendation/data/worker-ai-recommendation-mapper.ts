@@ -254,14 +254,6 @@ export function createRecommendationContextWithPool(
   };
 }
 
-export function createAiRecommendationRequest(
-  input: OutfitRecommendationInput,
-): AiRecommendV1Request {
-  const request = aiRequestFromContext(createRecommendationContext(input));
-  if (!request) throw new WorkerAiRecommendationMappingError();
-  return request;
-}
-
 export function parseRecommendationContext(value: unknown): RecommendationContext {
   const current = recommendationContextSchema.safeParse(normalizeRetiredContext(value));
   if (current.success) {

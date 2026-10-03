@@ -57,10 +57,7 @@ import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, typ
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
 import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
-import {
-  OnDeviceAiClient,
-  type OnDeviceAiModule,
-} from '@/features/recommendation/data/on-device-ai-client';
+import { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
 import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
 import {
   WorkerAiClient,
@@ -113,14 +110,12 @@ function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
 
 // ADR 0034 section 1: the composition boundary that builds the AI chain, on-device ahead of
 // the Worker. The native module arrives through the data layer, which is its only importer;
-// it is null on Android, on web and on any build without the native surface, and the routed
-// client then reads the on-device tier as unavailable and goes straight to the Worker with
-// the whole budget. The parameter stays so tests can inject a fake module.
-function createRecommendationClient(
-  module: OnDeviceAiModule | null = onDeviceAiModule,
-): RoutedAiClient {
+// it is null on Android and on any build without the native surface, and the routed client
+// then reads the on-device tier as unavailable and goes straight to the Worker with the
+// whole budget.
+function createRecommendationClient(): RoutedAiClient {
   return new RoutedAiClient({
-    onDevice: new OnDeviceAiClient({ module }),
+    onDevice: new OnDeviceAiClient({ module: onDeviceAiModule }),
     worker: createWorkerClient(),
   });
 }
