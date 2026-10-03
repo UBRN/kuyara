@@ -1,0 +1,117 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  checkRateLimit,
+  isJsonRequest,
+  rateLimitedHeaders,
+  readJsonBody,
+  readTextWithLimit,
+} from './json-request.ts';
+
+const scope = { keyPrefix: 'weather', route: '/v1/weather', limiter: 'weather_burst' };
+const requestFrom = (headers = {}) => new Request('https://worker.test/', { method: 'POST', headers });
+
+function streamOf(...chunks) {
+  return new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+      controller.close();
+    },
+  });
+}
+
+const encode = (text) => new TextEncoder().encode(text);
+
+test('the 429 header is one minute', () => {
+  assert.deepEqual(rateLimitedHeaders, { 'Retry-After': '60' });
+});
+
+for (const [contentType, expected] of [
+  ['application/json', true],
+  ['Application/JSON; charset=utf-8', true],
+  [' application/json ;x=1', true],
+  ['text/plain', false],
+  ['application/jsonx', false],
+  [undefined, false],
+]) {
+  test(`content type ${contentType} is ${expected ? '' : 'not '}JSON`, () => {
+    const headers = contentType === undefined ? {} : { 'content-type': contentType };
+    assert.equal(isJsonRequest(requestFrom(headers)), expected);
+  });
+}
+
+test('the limiter key is the prefix and the client IP, or unknown without one', async () => {
+  const keys = [];
+  const limiter = { limit: async ({ key }) => { keys.push(key); return { success: true }; } };
+  assert.equal(
+    await checkRateLimit(limiter, requestFrom({ 'cf-connecting-ip': '192.0.2.1' }), scope),
+    'allowed',
+  );
+  assert.equal(await checkRateLimit(limiter, requestFrom(), scope), 'allowed');
+  assert.deepEqual(keys, ['weather:192.0.2.1', 'weather:unknown']);
+});
+
+test('a denied limiter is limited and logs nothing itself', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  assert.equal(
+    await checkRateLimit({ limit: async () => ({ success: false }) }, requestFrom(), scope),
+    'limited',
+  );
+  assert.deepEqual(warnings, []);
+});
+
+test('a failing limiter is unavailable and logged by name only', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  assert.equal(
+    await checkRateLimit({ limit: async () => { throw new Error('private'); } }, requestFrom(), scope),
+    'unavailable',
+  );
+  assert.deepEqual(warnings, [
+    { event: 'rate_limiter_error', route: '/v1/weather', limiter: 'weather_burst' },
+  ]);
+});
+
+test('no limiter is no limit', async () => {
+  assert.equal(await checkRateLimit(undefined, requestFrom(), scope), 'allowed');
+});
+
+test('a body over the limit is cancelled before it is read to the end', async () => {
+  let pulled = 0;
+  const body = new ReadableStream({
+    pull(controller) {
+      pulled += 1;
+      controller.enqueue(new Uint8Array(1024));
+    },
+  });
+  assert.equal(await readTextWithLimit(body, 4096), undefined);
+  assert.ok(pulled <= 6);
+});
+
+test('no body reads as empty text', async () => {
+  assert.equal(await readTextWithLimit(null, 10), '');
+});
+
+test('multi-byte characters split across chunks decode whole', async () => {
+  const bytes = encode('İzmir');
+  assert.equal(await readTextWithLimit(streamOf(bytes.slice(0, 1), bytes.slice(1)), 64), 'İzmir');
+});
+
+test('invalid UTF-8 is a replacement character, or a failure with fatal', async () => {
+  const bad = () => streamOf(new Uint8Array([0x7b, 0xff, 0x7d]));
+  assert.equal(await readTextWithLimit(bad(), 64), '{�}');
+  await assert.rejects(readTextWithLimit(bad(), 64, { fatal: true }));
+  assert.equal(await readJsonBody(streamOf(encode('{"a":"�"}')), 64, { fatal: true }) !== undefined, true);
+  assert.equal(await readJsonBody(streamOf(new Uint8Array([0x22, 0xff, 0x22])), 64, { fatal: true }), undefined);
+});
+
+test('a JSON body parses, and every failure is undefined', async () => {
+  assert.deepEqual(await readJsonBody(streamOf(encode('{"a":1}')), 64), { a: 1 });
+  assert.equal(await readJsonBody(streamOf(encode('null')), 64), null);
+  assert.equal(await readJsonBody(null, 64), undefined);
+  assert.equal(await readJsonBody(streamOf(encode('')), 64), undefined);
+  assert.equal(await readJsonBody(streamOf(encode('not json')), 64), undefined);
+  assert.equal(await readJsonBody(streamOf(encode('{"a":"'.padEnd(100, 'x') + '"}')), 64), undefined);
+});

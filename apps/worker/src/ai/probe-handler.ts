@@ -9,6 +9,7 @@ import {
 } from '@kuyara/contracts';
 
 import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
+import { checkRateLimit, rateLimitedHeaders, type RateLimiter } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 
 import { AiProviderError, type AiProvider } from './ai-provider.ts';
@@ -21,10 +22,6 @@ const PROBE_ATTEMPT_TIMEOUT_MS = 20_000;
 // longest such reply, so the answer the probe checks still fits, while a probe can no
 // longer spend a recommendation's worth of the shared pool.
 export const PROBE_MAX_TOKENS = 256;
-
-export interface RateLimiter {
-  limit(input: { key: string }): Promise<{ success: boolean }>;
-}
 
 type Dependencies = Readonly<{
   providers: readonly AiProvider[];
@@ -147,18 +144,16 @@ export function createProbeHandler({
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
 
-    const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-    let success: boolean;
-    try {
-      ({ success } = await rateLimiter.limit({ key: `probe:${ip}` }));
-    } catch {
-      // A failing binding answers in the route's own closed code; no error text is logged.
-      console.warn({ event: 'rate_limiter_error', route: aiProbeV1Path, limiter: 'ai_probe_burst' });
-      return errorResponse(503, 'ai_unavailable');
-    }
-    if (!success) {
+    const limit = await checkRateLimit(rateLimiter, request, {
+      keyPrefix: 'probe',
+      route: aiProbeV1Path,
+      limiter: 'ai_probe_burst',
+    });
+    // A failing binding answers in the route's own closed code.
+    if (limit === 'unavailable') return errorResponse(503, 'ai_unavailable');
+    if (limit === 'limited') {
       console.warn({ event: 'rate_limited', route: aiProbeV1Path, limiter: 'ai_probe_burst' });
-      return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
+      return errorResponse(429, 'rate_limited', rateLimitedHeaders);
     }
 
     if (cached && now().getTime() < cachedExpiresAt) {
@@ -183,7 +178,7 @@ export function createProbeHandler({
       }
       if (count > PROBE_DAILY_LIMIT) {
         console.warn({ event: 'rate_limited', route: aiProbeV1Path, limiter: 'ai_probe_daily' });
-        return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
+        return errorResponse(429, 'rate_limited', rateLimitedHeaders);
       }
 
       const controller = new AbortController();

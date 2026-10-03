@@ -128,3 +128,29 @@ test('only daily-counter.ts builds the UTC day of a daily counter key', () => {
 
   assert.deepEqual(hits, [], 'build the key with dailyCounterKey(name, now)');
 });
+
+// How a route reads its request (content type, client IP, per-IP limiter key, Retry-After and
+// the bounded body reader) has one owner, `json-request.ts`.
+test('only json-request.ts reads the content type, the client IP and the 429 header', () => {
+  const patterns = [/headers\.get\(['"]content-type['"]\)/i, /cf-connecting-ip/i, /['"]Retry-After['"]\s*:/];
+  const hits = sourceFiles()
+    .filter((relativePath) => relativePath !== 'json-request.ts')
+    .filter((relativePath) => {
+      const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+      return patterns.some((pattern) => pattern.test(text));
+    });
+
+  assert.deepEqual(hits, [], 'use isJsonRequest, checkRateLimit and rateLimitedHeaders');
+});
+
+test('only json-request.ts declares the rate limiter type and reads a stream by chunks', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'json-request.ts') continue;
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    if (/limit\(input: \{ key: string \}\)/.test(text)) hits.push(`${relativePath}: limiter type`);
+    if (/\.getReader\(\)/.test(text)) hits.push(`${relativePath}: stream reader`);
+  }
+
+  assert.deepEqual(hits, [], 'import RateLimiter and readTextWithLimit from json-request.ts');
+});

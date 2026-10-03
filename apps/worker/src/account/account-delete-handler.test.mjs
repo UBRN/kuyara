@@ -147,7 +147,7 @@ test('routing: unknown path is 404 and a wrong method is 405, with no side effec
   assert.deepEqual(events, []);
 });
 
-test('rate limiting stops everything and logs only the closed denial', async (t) => {
+test('rate limiting stops everything and logs only the closed denial and outage', async (t) => {
   const warnings = [];
   t.mock.method(console, 'warn', (entry) => warnings.push(entry));
   const denied = setup({ rateLimiter: { limit: async () => ({ success: false }) } });
@@ -158,7 +158,10 @@ test('rate limiting stops everything and logs only the closed denial', async (t)
   const broken = setup({ rateLimiter: { limit: async () => { throw new Error('private'); } } });
   await expectError(await broken.handle(request()), 503, 'unavailable');
   assert.deepEqual(broken.events, []);
-  assert.deepEqual(warnings, [{ event: 'rate_limited', route: '/v1/account/delete', limiter: 'account_delete_burst' }]);
+  assert.deepEqual(warnings, [
+    { event: 'rate_limited', route: '/v1/account/delete', limiter: 'account_delete_burst' },
+    { event: 'rate_limiter_error', route: '/v1/account/delete', limiter: 'account_delete_burst' },
+  ]);
 });
 
 test('failures log a closed stage and code, never a token, code, id or message', async (t) => {

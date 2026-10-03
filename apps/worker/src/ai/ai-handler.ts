@@ -21,10 +21,13 @@ import {
 } from '@kuyara/contracts';
 
 import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
+import {
+  checkRateLimit, isJsonRequest, rateLimitedHeaders, type RateLimiter,
+} from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
 import { AiProviderError, type AiProvider } from './ai-provider.ts';
-import { PROBE_DAILY_LIMIT, type RateLimiter } from './probe-handler.ts';
+import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
 
 type Dependencies = Readonly<{
   providers: readonly AiProvider[];
@@ -236,32 +239,18 @@ export function createAiHandler({
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
-    if (rateLimiter) {
-      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-      let success: boolean;
-      try {
-        ({ success } = await rateLimiter.limit({ key: `recommend:${ip}` }));
-      } catch {
-        // A failing binding answers in the route's own closed code; no error text is logged.
-        console.warn({
-          event: 'rate_limiter_error',
-          route: url.pathname,
-          limiter: 'ai_recommend_burst',
-        });
-        return errorResponse(503, 'ai_unavailable');
-      }
-      if (!success) {
-        console.warn({
-          event: 'rate_limited',
-          route: url.pathname,
-          limiter: 'ai_recommend_burst',
-        });
-        return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
-      }
+    const limit = await checkRateLimit(rateLimiter, request, {
+      keyPrefix: 'recommend',
+      route: url.pathname,
+      limiter: 'ai_recommend_burst',
+    });
+    // A failing binding answers in the route's own closed code.
+    if (limit === 'unavailable') return errorResponse(503, 'ai_unavailable');
+    if (limit === 'limited') {
+      console.warn({ event: 'rate_limited', route: url.pathname, limiter: 'ai_recommend_burst' });
+      return errorResponse(429, 'rate_limited', rateLimitedHeaders);
     }
-    if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
-      return errorResponse(400, 'invalid_request');
-    }
+    if (!isJsonRequest(request)) return errorResponse(400, 'invalid_request');
 
     let body: unknown;
     try {

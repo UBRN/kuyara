@@ -6,6 +6,7 @@ import {
   type WeatherV1ErrorCode,
 } from '@kuyara/contracts';
 
+import { checkRateLimit, isJsonRequest, rateLimitedHeaders, type RateLimiter } from './json-request.ts';
 import { createErrorResponse, jsonHeaders } from './json-response.ts';
 
 import {
@@ -15,10 +16,6 @@ import {
 } from './weather/provider-weather-mapper.ts';
 import type { WeatherProvider } from './weather/weather-provider.ts';
 import { WeatherProviderError } from './weather/weather-provider-error.ts';
-
-type RateLimiter = Readonly<{
-  limit(input: { key: string }): Promise<{ success: boolean }>;
-}>;
 
 type Dependencies = Readonly<{
   provider: WeatherProvider;
@@ -49,23 +46,18 @@ export function createWeatherHandler(
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
-    const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-    let success: boolean;
-    try {
-      ({ success } = await dependencies.rateLimiter?.limit({ key: `weather:${ip}` })
-        ?? { success: true });
-    } catch {
-      // A failing binding answers in the route's own closed code; no error text is logged.
-      console.warn({ event: 'rate_limiter_error', route: url.pathname, limiter: 'weather_burst' });
-      return errorResponse(503, 'weather_unavailable');
-    }
-    if (!success) {
+    const limit = await checkRateLimit(dependencies.rateLimiter, request, {
+      keyPrefix: 'weather',
+      route: url.pathname,
+      limiter: 'weather_burst',
+    });
+    // A failing binding answers in the route's own closed code.
+    if (limit === 'unavailable') return errorResponse(503, 'weather_unavailable');
+    if (limit === 'limited') {
       console.warn({ event: 'rate_limited', route: url.pathname, limiter: 'weather_burst' });
-      return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
+      return errorResponse(429, 'rate_limited', rateLimitedHeaders);
     }
-    if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
-      return errorResponse(400, 'invalid_request');
-    }
+    if (!isJsonRequest(request)) return errorResponse(400, 'invalid_request');
 
     let body: unknown;
     try {

@@ -74,13 +74,12 @@ test('rate limits and limiter outages stop upstream calls', async (t) => {
     if (response.status === 429) assert.equal(response.headers.get('retry-after'), '60');
     assert.equal(calls, 0);
   }
-  // Only the denial is logged, never the limiter outage (it answers 503) and never the
-  // caller IP or the query text.
-  assert.deepEqual(warnings, [{
-    event: 'rate_limited',
-    route: '/v1/places/search',
-    limiter: 'places_burst',
-  }]);
+  // The denial and the limiter outage are logged by name only, never the caller IP, the
+  // outage's error text or the query text.
+  assert.deepEqual(warnings, [
+    { event: 'rate_limited', route: '/v1/places/search', limiter: 'places_burst' },
+    { event: 'rate_limiter_error', route: '/v1/places/search', limiter: 'places_burst' },
+  ]);
   assert.equal(JSON.stringify(warnings).includes('192.0.2.1'), false);
   assert.equal(JSON.stringify(warnings).includes('İzmir'), false);
 });
