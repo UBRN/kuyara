@@ -5,7 +5,7 @@ import { gridRecommendationInput } from '../../../test/recommendation-grid.mjs';
 import { composeAroundPieces } from '../recommendation/application/compose-around-pieces.ts';
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { deriveClothingRequirements } from '../recommendation/domain/weather-to-clothing-requirements.ts';
-import { composedDetail, composeInputFor, composePiecesOf } from './application/composed-detail.ts';
+import { composedDetail, composeInputFor, composePiecesOf, detailShowing } from './application/composed-detail.ts';
 
 const grid = gridRecommendationInput('mild', 'womens', 'smart');
 const requirements = deriveClothingRequirements(grid.snapshot, grid.now);
@@ -60,4 +60,46 @@ test('the reader\'s later edits are the changes, a pinned piece changed there lo
   assert.deepEqual(detail.changedSlots, ['bottom', 'neck']);
   assert.deepEqual(detail.pinnedSlots, []);
   assert.deepEqual(detail.pieceColors, {});
+});
+
+const composedOption = composeAroundPieces(input, [{ slot: 'bottom', garmentTypeId: 'skirt', swatchId: 'plum' }]).options[0];
+const mixOf = (outfit, parts = {}) => ({ outfit, edited: false, changedSlots: [], changedAccessorySlots: [], ...parts });
+
+test('kuyara\'s pick shows as recommended until the reader changes it', () => {
+  const showing = detailShowing(pick, null, mixOf(pick), pick.optionId);
+  assert.equal(showing.composed, null);
+  assert.equal(showing.manual, null);
+  assert.equal(showing.changedOutfit, null);
+  assert.equal(showing.worn.source, 'recommended');
+  assert.equal(detailShowing(null, null, null, undefined).worn, null);
+});
+
+test('a composed result with no edits is the reader\'s own and records as manual', () => {
+  const showing = detailShowing(pick, composedOption, mixOf(composedOption.outfit), pick.optionId);
+  assert.equal(showing.changedOutfit, composedOption.outfit);
+  assert.equal(showing.worn.source, 'manual');
+  assert.deepEqual(showing.manual, {
+    optionId: pick.optionId,
+    outfit: composedOption.outfit,
+    original: composedOption.outfit,
+    changedSlots: [],
+    pieceColors: composedOption.pieceColors,
+  });
+  assert.deepEqual(showing.composed.pinnedSlots, ['bottom']);
+});
+
+test('a finishing touch alone makes the outfit the reader\'s, counted against kuyara\'s pick', () => {
+  const showing = detailShowing(pick, null, mixOf(pick, { edited: true, changedAccessorySlots: ['neck'] }), pick.optionId);
+  assert.equal(showing.changedOutfit, pick);
+  assert.equal(showing.worn.source, 'manual');
+  assert.deepEqual(showing.manual.changedSlots, ['neck']);
+  assert.equal(showing.manual.original, undefined);
+  assert.equal(showing.composed, null);
+});
+
+test('a reset keeps the pick as the worn source and draws nothing changed', () => {
+  const reset = detailShowing(pick, null, mixOf(pick, { changedSlots: ['bottom'] }), pick.optionId);
+  assert.equal(reset.manual, null);
+  assert.equal(reset.worn.source, 'recommended');
+  assert.equal(detailShowing(pick, null, mixOf(pick, { edited: true }), undefined).manual, null);
 });

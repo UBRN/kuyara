@@ -21,7 +21,9 @@ import type {
   OutfitSlot,
 } from '@/features/recommendation/domain/outfit-composition';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { wornOutfitOrNull } from '@/features/today/application/outfit-detail-state';
 import type { ComposePiece } from '@/features/today/application/compose-selection';
+import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 
 /**
  * What compose around chosen pieces reads from the day Today was built for: its requirements,
@@ -112,4 +114,61 @@ export function composedDetail(
     pinnedSlots,
     pieceColors,
   };
+}
+
+/**
+ * Phase 7's manual mix on detail: the changed arrangement of one option, evaluated by the
+ * domain, and the slots the person changed. The option keeps its id and archetype.
+ */
+export type ManualDetail = Readonly<{
+  optionId: string;
+  outfit: RecommendedOutfit;
+  /**
+   * What the changes count against and the kept colours come from: kuyara's pick when absent,
+   * a composed option when the outfit was built around chosen pieces. A composed one stands in
+   * for the pick even before any change.
+   */
+  original?: RecommendedOutfit;
+  changedSlots: readonly OutfitSlot[];
+  /** Colours the reader chose for pieces composed around (compose only): each piece's recorded swatch. */
+  pieceColors?: Readonly<Partial<Record<OutfitSlot, GarmentSwatchId>>>;
+}>;
+
+export type DetailShowing = Readonly<{
+  /** The composed option's view, or null while there is no composed result. */
+  composed: ComposedDetail | null;
+  /** What the presentation draws in the opened option's place, or null while kuyara's pick shows. */
+  manual: ManualDetail | null;
+  /** The reader's own outfit (a composed result or any edit), or null while kuyara's pick shows. */
+  changedOutfit: RecommendedOutfit | null;
+  /** The look "Wore this today" records: `manual` once the outfit is the reader's, else the pick as recommended. */
+  worn: WornOutfit | null;
+}>;
+
+/**
+ * Whether the outfit on detail is the reader's own, and everything that follows from it. A
+ * composed result is the reader's from the start and any edit makes it so, a finishing touch
+ * alone included; a reset leaves neither, and kuyara's pick shows again as recommended.
+ */
+export function detailShowing(
+  pick: RecommendedOutfit | null,
+  option: ComposedOption | null,
+  mix: Pick<ManualMix<RecommendedOutfit>, 'outfit' | 'edited' | 'changedSlots' | 'changedAccessorySlots'> | null,
+  suggestionId: string | undefined,
+): DetailShowing {
+  const composed = option && mix ? composedDetail(option, mix.changedSlots, mix.changedAccessorySlots) : null;
+  const changedOutfit = mix && (option || mix.edited) ? mix.outfit : null;
+  const manual = mix && suggestionId && (composed || mix.edited)
+    ? {
+        optionId: suggestionId,
+        outfit: mix.outfit,
+        original: composed?.outfit,
+        changedSlots: composed ? composed.changedSlots : [...mix.changedSlots, ...mix.changedAccessorySlots],
+        pieceColors: composed?.pieceColors,
+      }
+    : null;
+  const worn = changedOutfit
+    ? wornOutfitOrNull(changedOutfit, 'manual')
+    : pick ? wornOutfitOrNull(pick) : null;
+  return { composed, manual, changedOutfit, worn };
 }
