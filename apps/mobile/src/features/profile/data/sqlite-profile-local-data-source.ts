@@ -187,6 +187,10 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
           display_name = ?,
           name_prompt_version = ?,
           onboarding_completed = 1,
+          pending_sync = CASE
+            WHEN gender IS ? AND dress_style IS ? AND style_aesthetics IS ? AND display_name IS ?
+            THEN pending_sync ELSE 1
+          END,
           updated_at = ?
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
@@ -197,6 +201,10 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         preferences.birthDate,
         preferences.displayName ?? null,
         namePromptVersion,
+        preferences.gender,
+        preferences.dressStyle,
+        JSON.stringify([...(preferences.styleAesthetics ?? [])].sort()),
+        preferences.displayName ?? null,
       ],
     );
   }
@@ -205,26 +213,30 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
     return this.updateProfile(
       `
         UPDATE local_profiles
-        SET gender = ?, updated_at = ?
+        SET gender = ?, pending_sync = CASE WHEN gender IS ? THEN pending_sync ELSE 1 END, updated_at = ?
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
-      [preference],
+      [preference, preference],
     );
   }
 
   updateDressStyle(dressStyle: DressStyle): Promise<LocalProfileRecord> {
     return this.updateProfile(
-      `UPDATE local_profiles SET dress_style = ?, updated_at = ?
+      `UPDATE local_profiles
+       SET dress_style = ?, pending_sync = CASE WHEN dress_style IS ? THEN pending_sync ELSE 1 END, updated_at = ?
        WHERE singleton_key = 1 AND deleted_at IS NULL`,
-      [dressStyle],
+      [dressStyle, dressStyle],
     );
   }
 
   updateStyleAesthetics(values: readonly StyleAesthetic[]): Promise<LocalProfileRecord> {
+    const serialized = JSON.stringify([...values].sort());
+
     return this.updateProfile(
-      `UPDATE local_profiles SET style_aesthetics = ?, updated_at = ?
+      `UPDATE local_profiles
+       SET style_aesthetics = ?, pending_sync = CASE WHEN style_aesthetics IS ? THEN pending_sync ELSE 1 END, updated_at = ?
        WHERE singleton_key = 1 AND deleted_at IS NULL`,
-      [JSON.stringify([...values].sort())],
+      [serialized, serialized],
     );
   }
 
@@ -254,9 +266,11 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
 
   updateDisplayName(displayName: string | null): Promise<LocalProfileRecord> {
     return this.updateProfile(
-      `UPDATE local_profiles SET display_name = ?, name_prompt_version = ?, updated_at = ?
+      `UPDATE local_profiles
+       SET display_name = ?, name_prompt_version = ?,
+         pending_sync = CASE WHEN display_name IS ? THEN pending_sync ELSE 1 END, updated_at = ?
        WHERE singleton_key = 1 AND deleted_at IS NULL`,
-      [displayName, namePromptVersion],
+      [displayName, namePromptVersion, displayName],
     );
   }
 

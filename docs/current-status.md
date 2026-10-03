@@ -6,7 +6,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 
 ## Current State
 
-- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 24)
+- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 25)
   provide a seven-step onboarding flow (welcome, optional name, gender, dress style,
   style preferences, birth date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
@@ -160,8 +160,9 @@ record mappers, an application-layer session manager, deletion client and sync f
 ports with fakes, and account screens behind `ACCOUNT_SCREENS_ENABLED = false` exist in
 `apps/mobile/src/features/account/`. The Worker carries the undeployed account deletion
 route (`/v1/account/delete`), which answers 503 until its settings exist. No Supabase
-project, Apple key or Google client exists yet. Live provider
-adapters, the device migration and the sync consent are not built. The project is
+project, Apple key or Google client exists yet. Migration 25
+adds the pending flags and the device account link; live provider adapters and the sync
+consent are not built. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 

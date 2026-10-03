@@ -153,12 +153,13 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
         const nextPath = photo.kind === 'keep' ? outcome.oldPhotoPath : copied;
         await transaction.runAsync(`INSERT INTO outfit_history
           (id, local_profile_id, day_key, outfit_json, piece_colors_json, photo_path, worn_at, created_at,
-            updated_at, deleted_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+            updated_at, deleted_at, pending_sync)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 1)
           ON CONFLICT(local_profile_id, day_key) DO UPDATE SET
             outfit_json = excluded.outfit_json, piece_colors_json = excluded.piece_colors_json,
             photo_path = excluded.photo_path,
-            worn_at = excluded.worn_at, updated_at = excluded.updated_at, deleted_at = NULL`,
+            worn_at = excluded.worn_at, updated_at = excluded.updated_at, deleted_at = NULL,
+            pending_sync = 1`,
         [uuidV4.parse(this.createId()), profileId, dayKey, JSON.stringify(validated),
           colors === null ? null : JSON.stringify(colors), nextPath,
           timestamp, timestamp, timestamp]);
@@ -189,7 +190,7 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
       const old = await readRow(transaction, profileId, dayKey);
       if (!old) return;
       const updated = await transaction.runAsync(`UPDATE outfit_history SET
-        photo_path = NULL, deleted_at = ?, updated_at = ?
+        photo_path = NULL, deleted_at = ?, updated_at = ?, pending_sync = 1
         WHERE local_profile_id = ? AND day_key = ? AND deleted_at IS NULL`,
       [now, now, profileId, dayKey]);
       changed = updated.changes > 0;

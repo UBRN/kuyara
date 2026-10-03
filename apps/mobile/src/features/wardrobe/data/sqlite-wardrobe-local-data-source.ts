@@ -137,8 +137,9 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
             photo_relative_path,
             created_at,
             updated_at,
-            deleted_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            deleted_at,
+            pending_sync
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         `,
         [
           record.id,
@@ -287,7 +288,8 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
             leg_coverage_override = ?,
             traction_suitability_override = ?,
             photo_relative_path = ?,
-            updated_at = ?
+            updated_at = ?,
+            pending_sync = 1
           WHERE id = ? AND local_profile_id = ? AND deleted_at IS NULL
         `,
         [
@@ -338,7 +340,7 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
       const result = await transaction.runAsync(
         `
           UPDATE wardrobe_items
-          SET deleted_at = ?, updated_at = ?
+          SET deleted_at = ?, updated_at = ?, pending_sync = 1
           WHERE id = ? AND local_profile_id = ? AND deleted_at IS NULL
         `,
         [deletedAt, deletedAt, id, localProfileId],
