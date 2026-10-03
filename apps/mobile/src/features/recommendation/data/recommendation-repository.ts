@@ -17,6 +17,7 @@ import {
   type RecommendationContext,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 import { isUtcIsoTimestamp, isUuidV4 } from '@/domain/record-identity';
+import { defaultDressStyle } from '@/features/profile/domain/profile';
 
 export type RecommendationSnapshot = Readonly<{
   id: string;
@@ -106,7 +107,7 @@ function mapRecord(record: RecommendationSnapshotRecord, localDayKey?: string): 
       weatherSnapshotId: record.weatherSnapshotId,
       locationKey: record.locationKey,
       clothingPreference: context.clothingPreference,
-      dressStyle: 'dressStyle' in context ? context.dressStyle ?? 'smart' : 'smart',
+      dressStyle: 'dressStyle' in context ? context.dressStyle ?? defaultDressStyle : defaultDressStyle,
       styleAesthetics: 'styleAesthetics' in context ? context.styleAesthetics ?? [] : [],
       catalogVersion: 'catalogVersion' in context ? context.catalogVersion : null,
       dayVariant: 'dayVariant' in context ? context.dayVariant : null,

@@ -31,7 +31,7 @@ import {
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
-import { orderStyleAesthetics } from '@/features/profile/domain/profile';
+import { defaultDressStyle, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import {
   assignFallbackArchetypes,
@@ -156,7 +156,7 @@ function normalizeRetiredContext(value: unknown): unknown {
   const record = value as Record<string, unknown>;
   if (!Object.hasOwn(record, retiredAgeBandKey)) return value;
   const { [retiredAgeBandKey]: _retired, ...rest } = record;
-  return { ...rest, dressStyle: 'smart' };
+  return { ...rest, dressStyle: defaultDressStyle };
 }
 
 /**
@@ -229,7 +229,7 @@ export function createRecommendationContextWithPool(
     : [];
   const parsed = recommendationContextSchema.safeParse({
     clothingPreference: input.clothingPreference,
-    dressStyle: input.dressStyle ?? 'smart',
+    dressStyle: input.dressStyle ?? defaultDressStyle,
     ...(input.styleAesthetics?.length ? { styleAesthetics: orderStyleAesthetics(input.styleAesthetics) } : {}),
     catalogVersion: garmentCatalogVersion,
     dayVariant: input.dayVariant,
@@ -264,7 +264,7 @@ export function createAiRecommendationRequest(
 export function parseRecommendationContext(value: unknown): RecommendationContext {
   const current = recommendationContextSchema.safeParse(normalizeRetiredContext(value));
   if (current.success) {
-    return { ...current.data, dressStyle: current.data.dressStyle ?? 'smart' };
+    return { ...current.data, dressStyle: current.data.dressStyle ?? defaultDressStyle };
   }
   const legacy = legacyRecommendationContextSchema.safeParse(value);
   if (!legacy.success) throw new WorkerAiRecommendationMappingError();

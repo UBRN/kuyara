@@ -28,7 +28,7 @@ import { usePerformanceTelemetry } from '@/features/analytics/application/use-pe
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
-import { orderStyleAesthetics } from '@/features/profile/domain/profile';
+import { defaultDressStyle, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
@@ -81,7 +81,7 @@ function approvedSignals(input: RecommendationApplicationInput): RecommendationS
     weatherSnapshotId: input.snapshot.id,
     locationKey: input.snapshot.locationKey,
     clothingPreference: input.clothingPreference,
-    dressStyle: input.dressStyle ?? 'smart',
+    dressStyle: input.dressStyle ?? defaultDressStyle,
     styleAesthetics: input.styleAesthetics,
     catalogVersion: garmentCatalogVersion,
     localDayKey: input.localDayKey,
@@ -234,7 +234,7 @@ export function RecommendationApplicationProvider({
     ? currentDayChoice.choice
     : currentDayChoice?.status === 'unknown' ? currentDayChoice.previousChoice : null;
   const profileDefault = profileState.status === 'ready'
-    ? profileState.profile.dressStyle ?? 'smart' : 'smart';
+    ? profileState.profile.dressStyle ?? defaultDressStyle : defaultDressStyle;
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
   const resolvedStyles = resolvedStyleAesthetics(dayChoice,
     profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);

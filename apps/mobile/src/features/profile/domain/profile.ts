@@ -49,6 +49,9 @@ export type OnboardingPreferences = Readonly<{
   birthDate: string | null;
 }>;
 
+/** The dress style a profile or a stored row without one is read as (ADR 0031). */
+export const defaultDressStyle: DressStyle = 'smart';
+
 export const genderSchema = z.enum(['woman', 'man']);
 export type Gender = z.infer<typeof genderSchema>;
 /** The one place a gender becomes the catalog it draws from. */

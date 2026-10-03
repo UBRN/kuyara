@@ -469,7 +469,7 @@ function Providers({
   recommendationRefresh = jest.fn(async () => null),
   recommendationEvaluateApprovedTriggers = jest.fn(async () => undefined),
   recommendationRegenerate = jest.fn(async () => null),
-  resolvedDressStyle,
+  resolvedDressStyle = 'smart',
   resolvedStyleAesthetics,
   outfitHistory,
   dressingDayChoiceReady,
@@ -2675,7 +2675,7 @@ test('opening an outfit reports screen_viewed and outfit_detail_opened with its 
     <Providers
       productAnalytics={productAnalytics}
       profile={profileValue({ dressStyle: 'formal', birthDate: '1990-01-01' })}
-      recommendation={recommendationReady()}
+      recommendation={recommendationReady()} resolvedDressStyle="formal"
       wardrobe={wardrobeValue()}
       weather={weatherValue()}>
       <OutfitDetailRoute />

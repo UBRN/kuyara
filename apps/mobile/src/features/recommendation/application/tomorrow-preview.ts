@@ -13,6 +13,7 @@ import type { RecommendationContext } from '@/features/recommendation/data/worke
 import { forecastBoundedCoverage, outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
+import { defaultDressStyle } from '@/features/profile/domain/profile';
 
 /**
  * Whether the forecast describes the whole coverage window an outfit chosen for `departureAt`
@@ -68,7 +69,7 @@ export function reusablePreviewRecommendation(
     localDayKey: context.localDayKey,
     locationKey,
     clothingPreference: context.clothingPreference,
-    dressStyle: context.dressStyle ?? 'smart',
+    dressStyle: context.dressStyle ?? defaultDressStyle,
     styleAesthetics: context.styleAesthetics ?? [],
   }) &&
     preview.catalogVersion === context.catalogVersion &&

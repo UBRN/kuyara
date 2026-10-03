@@ -41,7 +41,7 @@ export type RecommendationApplicationValue = Readonly<{
   readDeparture?: (dayKey: string) => Promise<DressingDayDeparture | null>;
   setDeparture?: (departureAt: string, timeZone: string) => Promise<DressingDayDeparture>;
   clearDeparture?: (dayKey: string) => Promise<boolean>;
-  resolvedDressStyle?: DressStyle;
+  resolvedDressStyle: DressStyle;
   /** The active dressing day's styles: its own answer, else the Settings defaults (N4). */
   resolvedStyleAesthetics?: readonly StyleAesthetic[];
   /**

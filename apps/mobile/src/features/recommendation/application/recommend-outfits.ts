@@ -32,6 +32,7 @@ import {
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
+import { defaultDressStyle } from '@/features/profile/domain/profile';
 
 export type OutfitRecommendationInput = Readonly<{
   snapshot: WeatherSnapshot;
@@ -305,7 +306,7 @@ export function orderByDressStyle(
   requirements: ClothingRequirements,
 ): readonly OutfitCandidate[] {
   const day = archetypeDayFromRequirements(requirements.requirements);
-  const order: readonly FormalityLevel[] = formalityOrderByDressStyle[dressStyle ?? 'smart'];
+  const order: readonly FormalityLevel[] = formalityOrderByDressStyle[dressStyle ?? defaultDressStyle];
   return [...sortByAestheticAffinity(outfits, styleAesthetics ?? [],
     (outfit, id) => outfitMatchesArchetype(outfit, id, dayKind, day))].sort(
     (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),

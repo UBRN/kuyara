@@ -22,3 +22,7 @@ test('optional names trim whitespace and accept only 2 to 30 characters', () => 
   assert.throws(() => profile.normalizeDisplayName('A'));
   assert.throws(() => profile.normalizeDisplayName('a'.repeat(31)));
 });
+
+test('the default dress style is smart, one of the three styles', () => {
+  assert.equal(profile.defaultDressStyle, 'smart');
+});
