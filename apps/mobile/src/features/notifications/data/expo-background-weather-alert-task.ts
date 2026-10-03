@@ -8,12 +8,11 @@ import { ExpoNotificationGateway } from '@/features/notifications/data/expo-noti
 import { loadProfileRepository } from '@/features/profile/application/profile-repository-loader';
 import { createWeatherProvider } from '@/features/weather/application/weather-application-provider';
 import { loadWeatherRepository } from '@/features/weather/application/weather-repository-loader';
+import { systemNow as now } from '@/infrastructure/system-clock';
 import { getDeviceHour12, getDeviceLocale, getDeviceTemperatureUnit } from '@/localization/device-locale';
 
 export const backgroundWeatherAlertTaskName = 'kuyara-background-weather-alert-refresh';
 export const backgroundWeatherAlertMinimumIntervalMinutes = 15;
-
-const now = () => new Date().toISOString();
 
 const loadProfile = async () => (await loadProfileRepository()).getOrCreateProfile();
 

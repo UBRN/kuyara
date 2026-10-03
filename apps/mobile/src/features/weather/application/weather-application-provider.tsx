@@ -20,8 +20,7 @@ import { loadWeatherRepository } from '@/features/weather/application/weather-re
 import { WorkerWeatherProvider } from '@/features/weather/data/worker-weather-provider';
 import { WorkerPlaceSearchDataSource } from '@/features/weather/data/worker-place-search-data-source';
 import type { SearchPlaces } from '@/features/weather/application/place-search-controller';
-
-const now = () => new Date().toISOString();
+import { systemNow as now } from '@/infrastructure/system-clock';
 const deviceLocation = new ExpoDeviceLocationGateway();
 
 export function createWeatherProvider(): WeatherProvider {

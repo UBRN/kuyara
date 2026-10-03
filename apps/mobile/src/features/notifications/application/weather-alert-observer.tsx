@@ -6,6 +6,7 @@ import { useNotificationApplication } from '@/features/notifications/application
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { activeLocationSnapshot } from '@/features/weather/domain/weather';
+import { systemNow } from '@/infrastructure/system-clock';
 import { useLocalizationContext } from '@/localization/localization-context';
 
 export function WeatherAlertObserver() {
@@ -35,7 +36,7 @@ export function WeatherAlertObserver() {
   // are not date changes, so they are caught by becoming active or by the next render
   // rather than by a timer, which is the consequence ADR 0032 records.
   const localDate = snapshot
-    && weatherLocalDateKey(new Date().toISOString(), snapshot.timeZone);
+    && weatherLocalDateKey(systemNow(), snapshot.timeZone);
 
   const rescheduleWeatherAlerts = useEffectEvent(() => {
     if (!localProfileId) return;

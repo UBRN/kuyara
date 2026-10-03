@@ -17,8 +17,7 @@ import { ExpoFileFirstUseStore } from '@/features/analytics/data/expo-file-first
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
 import { ProfileApplicationContext } from '@/features/profile/application/profile-context';
 import type { AnalyticsConsent } from '@/features/profile/domain/profile';
-
-const now = () => new Date().toISOString();
+import { systemNow as now } from '@/infrastructure/system-clock';
 
 type ProductAnalyticsProviderProps = PropsWithChildren<{
   analytics?: ProductAnalytics;
