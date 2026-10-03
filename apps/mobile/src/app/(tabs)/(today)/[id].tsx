@@ -37,7 +37,7 @@ import {
   type ClosetSeedOffer,
   type OutfitWornState,
 } from '@/features/today/presentation/outfit-detail-screen';
-import { tomorrowForecastDay } from '@/features/today/presentation/today-presentation';
+import { previewIsThisMorning, tomorrowForecastDay } from '@/features/today/presentation/today-presentation';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { closetFieldsChanged } from '@/features/wardrobe/application/closet-field-changes';
 import { closetSeedInputs, type ClosetSeedPiece } from '@/features/wardrobe/application/closet-seed';
@@ -118,7 +118,8 @@ export default function OutfitDetailRoute() {
   // Detail judges weather freshness itself; the clock moves on focus and on return to the
   // foreground, which is also when detail revalidates the weather.
   const clock = useForegroundClock();
-  useScreenViewed('outfit_detail');
+  // Tomorrow's preview records no analytics, its screen view included.
+  useScreenViewed('outfit_detail', !tomorrow);
   const suggestionId = Array.isArray(id) ? id[0] : id;
   const activeLocation = weatherState.status === 'ready' ? weatherState.activeLocation : null;
   const recommendation = tomorrow
@@ -332,6 +333,10 @@ export default function OutfitDetailRoute() {
   });
   const state = tomorrow ? tomorrowState(weatherState, tomorrowPreview, new Date(clock).toISOString()) : todayState;
 
+  const previewTitle = state.kind === 'loaded' && state.forecastDay &&
+    previewIsThisMorning(clock, state.snapshot.weather.timeZone, state.forecastDay.dateKey)
+    ? messages.today.tomorrow.morningHeading : messages.today.tomorrow.heading;
+
   useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);
   // On iOS an alternative on Today zooms this screen open, and the zoom's own drag closes it
   // from anywhere on screen. While a piece is focused that drag would take the board's
@@ -350,8 +355,9 @@ export default function OutfitDetailRoute() {
         options={{
           headerBackTitle: messages.navigation.today,
           headerShown: true,
-          // Tomorrow's preview names its day in the bar; today's detail needs no title.
-          headerTitle: tomorrow ? messages.today.tomorrow.heading : '',
+          // Tomorrow's preview names its day in the bar, as the strip does ("This morning" in
+          // the small hours); today's detail needs no title.
+          headerTitle: tomorrow ? previewTitle : '',
           // Phase 7: iOS 26's full-screen back swipe would take a rightward drag on the
           // focused piece, so it is off while a piece is focused; the edge swipe stays, and
           // the platform default returns when the focus ends.

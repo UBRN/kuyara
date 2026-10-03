@@ -697,6 +697,14 @@ function forecastDayKind(day: DailyWeather): DayKind {
 }
 
 /**
+ * Whether the preview's day is the morning the place's clock is already in: between midnight
+ * and 04:00 the coming morning is "This morning". The strip and the detail title both read it.
+ */
+export function previewIsThisMorning(now: number, timeZone: string, dateKey: string): boolean {
+  return zonedClock(now, timeZone).hour < 4 && localDate(now, timeZone) === dateKey;
+}
+
+/**
  * The evening's look at the next dressing day: the first outfit chosen for it, coloured by
  * that day's own weather, and its forecast in one short line. Null without a forecast row.
  */
@@ -712,8 +720,7 @@ export function createTomorrowPreviewPresentation(
   if (!outfit || !day) return null;
   const messages = getMessages(language);
   const copy = messages.today;
-  const thisMorning = zonedClock(now, weather.timeZone).hour < 4 &&
-    localDate(now, weather.timeZone) === day.dateKey;
+  const thisMorning = previewIsThisMorning(now, weather.timeZone, day.dateKey);
   const condition = messages.weather.conditions[day.condition];
   const title = archetypeLabel(messages.recommendation, outfit.archetypeId, forecastDayKind(day));
   const boardPieces = outfitBoardPieces(outfit);

@@ -10,6 +10,7 @@ import {
 import {
   createTodayPresentation,
   createTomorrowPreviewPresentation,
+  previewIsThisMorning,
   eveningLaterReadyLine,
   formatDressingDate,
   tomorrowForecastDay,
@@ -59,6 +60,13 @@ test('the overnight preview says this morning in both languages', () => {
   assert.match(english?.accessibilityLabel ?? '', /^This morning:/);
   assert.equal(turkish?.heading, 'Bu sabah');
   assert.match(turkish?.accessibilityLabel ?? '', /^Bu sabah:/);
+});
+
+test('the preview is this morning only between midnight and 04:00 on the place clock', () => {
+  const at = (iso) => Date.parse(iso);
+  assert.equal(previewIsThisMorning(at('2026-08-13T22:30:00.000Z'), 'Europe/Istanbul', '2026-08-14'), true);
+  assert.equal(previewIsThisMorning(at('2026-08-14T01:00:00.000Z'), 'Europe/Istanbul', '2026-08-14'), false);
+  assert.equal(previewIsThisMorning(at('2026-08-13T22:30:00.000Z'), 'Europe/Istanbul', '2026-08-15'), false);
 });
 
 test('the evening Later note uses the saved choice times in both languages', () => {

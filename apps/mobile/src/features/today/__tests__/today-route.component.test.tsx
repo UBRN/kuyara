@@ -3061,6 +3061,8 @@ test('tomorrow\'s preview opens in detail read-only, with its own forecast', asy
   await waitFor(() => expect(outfitHistory.get).toHaveBeenCalled());
   expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
   expect(productAnalytics.analytics.names()).not.toContain('outfit_detail_opened');
+  // Its screen view is not recorded either: tomorrow's preview records no analytics at all.
+  expect(productAnalytics.analytics.names()).not.toContain('screen_viewed');
 
   // Without the preview there is nothing to show for tomorrow, even if today offers the id.
   await result.rerender(<Providers {...props} tomorrowPreview={null}><OutfitDetailRoute /></Providers>);
@@ -3084,6 +3086,38 @@ test('tomorrow detail opens from its preview when today has no recommendation', 
     </Providers>,
   );
   expect(await view.findByTestId('outfit-detail-weather-recap')).toHaveTextContent(/7\.2°\sto\s9\.6°/);
+});
+
+// Between 00:00 and 04:00 the strip says "This morning", and the detail's title follows it.
+test.each([
+  ['2026-08-13T22:30:00.000Z', messages.en.today.tomorrow.morningHeading],
+  ['2026-08-13T17:30:00.000Z', messages.en.today.tomorrow.heading],
+])('tomorrow detail at %s is titled %s', async (at, title) => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('fixture');
+  const preview = { ...saved.snapshot, id: 'preview-one', localDayKey: '2026-08-14' };
+  const weather = weatherValue({ snapshot: { ...todayScreenState.snapshot.weather, daily: [{
+    dateKey: '2026-08-14', condition: 'rain', minimumTemperatureCelsius: 7.2,
+    maximumTemperatureCelsius: 9.6, precipitationProbability: 0.8, precipitationMillimetres: 4,
+  }] } });
+  jest.useFakeTimers({ now: new Date(at),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  mockParams = { id: todayOutfitId(1), day: 'tomorrow' };
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={{ ...saved, snapshot: null }} tomorrowPreview={preview}
+        wardrobe={wardrobeValue()} weather={weather}>
+        <OutfitDetailRoute />
+      </Providers>,
+    );
+    expect(await view.findByTestId('outfit-detail-weather-recap')).toBeOnTheScreen();
+    expect(mockStackScreen).toHaveBeenLastCalledWith({
+      options: expect.objectContaining({ headerTitle: title }),
+    });
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 // ADR 0038: "Wore this today" writes one row per dressing day under its bare date. The same
@@ -3379,6 +3413,74 @@ test("an afternoon open of Today does not choose tomorrow's preview when the eve
   }
 }, 15000);
 
+// The device in New York and the place in Istanbul: 19:00 on the device is 02:00 at the place and
+// 21:00 is 04:00, so a coming morning read from the place's clock moved to the next date in the
+// middle of the evening and claimed a second preview. The key stays the evening's own.
+test("tomorrow's preview keeps one key through an evening when the place keeps another time", async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  const previousZone = process.env.TZ;
+  process.env.TZ = 'America/New_York';
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date('2026-09-24T23:00:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  mockRecommendationSnapshot = { ...saved.snapshot, localDayKey: '2026-09-24:evening' };
+  mockRecommendationSave.mockImplementation(async (_profileId, entry) => ({
+    ...mockRecommendationSnapshot,
+    id: `recommendation-${entry.context.localDayKey}`,
+    localDayKey: entry.context.localDayKey,
+    weatherSnapshotId: entry.weatherSnapshotId,
+    locationKey: entry.locationKey,
+    generationMode: entry.recommendation.generationMode,
+    recommendation: entry.recommendation,
+  }));
+  mockChoiceGet.mockImplementation(async (profileId: string, dayKey: string) => ({
+    id: `choice-${dayKey}`, localProfileId: profileId, dayKey, formality: 'smart', source: 'chip',
+    styleAesthetics: null, createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z',
+    deletedAt: null,
+  }));
+  const ai = jest.spyOn(RoutedAiClient.prototype, 'recommendRouted').mockRejectedValue(new Error('offline'));
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven').mockResolvedValue([]);
+  const covers = jest.spyOn(tomorrowPreview, 'forecastCoversWindow').mockReturnValue(true);
+  const ensure = jest.spyOn(tomorrowPreview.TomorrowPreviewController.prototype, 'ensure')
+    .mockResolvedValue(undefined);
+  function Probe() {
+    const application = useRecommendationApplication();
+    return (
+      <>
+        <Text testID="probe-settled">{String(application.state.status === 'ready' && !application.state.isRefreshing
+          && application.state.snapshot?.localDayKey === application.dressingDayKey)}</Text>
+        <Pressable testID="probe-foreground" onPress={() => { void application.evaluateApprovedTriggers(true); }} />
+      </>
+    );
+  }
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={saved} liveRecommendationProvider wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <Probe />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('probe-settled')).toHaveTextContent('true'));
+    await fireEvent.press(view.getByTestId('probe-foreground'));
+    await waitFor(() => expect(ensure).toHaveBeenCalled());
+
+    // Two hours later the device still sits in the same evening, and the place has crossed 04:00.
+    jest.setSystemTime(new Date('2026-09-25T01:00:00.000Z'));
+    await fireEvent.press(view.getByTestId('probe-foreground'));
+    await act(async () => undefined);
+    const keys = new Set(ensure.mock.calls.map(([input]) => input.localDayKey));
+    expect([...keys]).toEqual(['2026-09-25']);
+  } finally {
+    process.env.TZ = previousZone;
+    jest.useRealTimers();
+    ai.mockRestore();
+    history.mockRestore();
+    covers.mockRestore();
+    ensure.mockRestore();
+  }
+}, 15000);
+
 test('an empty Closet takes the outfit\'s pieces with the one ownership asked, once, and the offer then goes', async () => {
   mockParams = { id: todayOutfitId(1) };
   const seedEmptyCloset = jest.fn(async (inputs: readonly { garmentTypeId: string }[]) =>
@@ -3431,7 +3533,15 @@ test('a Closet that holds anything gets no offer to add the outfit', async () =>
   expect(view.queryByText(messages.en.today.closetSeed.body)).toBeNull();
 });
 
-test('the day the profile was set up on asks no day question and dresses for the setup answer', async () => {
+function setupRow(dayKey: string) {
+  return {
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one', dayKey,
+    formality: 'formal', source: 'morning', styleAesthetics: null,
+    createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z', deletedAt: null,
+  };
+}
+
+test('the day setup finished on asks no day question and dresses for the setup answer', async () => {
   const saved = recommendationReady();
   if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
   const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
@@ -3444,9 +3554,11 @@ test('the day the profile was set up on asks no day question and dresses for the
       wardrobe: wardrobeValue(),
       weather: weatherValue(),
     };
+    // Setup recorded its answer under this dressing day, whenever the profile row was created.
+    mockChoiceGet.mockResolvedValue(setupRow('2026-09-24'));
     const setUpToday = await render(
       <Providers {...props} profile={profileValue({
-        morningSheetEnabled: true, dressStyle: 'formal', createdAt: '2026-09-24T06:00:00.000Z',
+        morningSheetEnabled: true, dressStyle: 'formal', createdAt: '2026-09-23T06:00:00.000Z',
       })}><TodayRoute /></Providers>,
     );
     await waitFor(() => expect(refresh).toHaveBeenCalled());
@@ -3455,16 +3567,72 @@ test('the day the profile was set up on asks no day question and dresses for the
     expect(mockChoiceUpsert).not.toHaveBeenCalled();
     await setUpToday.unmount();
 
-    // The next dressing day asks again.
+    // A dressing day setup did not finish on asks, however recently the profile was created.
     refresh.mockClear();
-    const setUpYesterday = await render(
+    mockChoiceGet.mockResolvedValue(null);
+    const otherDay = await render(
       <Providers {...props} profile={profileValue({
-        morningSheetEnabled: true, dressStyle: 'formal', createdAt: '2026-09-23T06:00:00.000Z',
+        morningSheetEnabled: true, dressStyle: 'formal', createdAt: '2026-09-24T06:00:00.000Z',
       })}><TodayRoute /></Providers>,
     );
-    expect(await setUpYesterday.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    expect(await otherDay.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
     expect(refresh).not.toHaveBeenCalled();
   } finally {
     refresh.mockRestore();
+  }
+});
+
+function SetupFinisher() {
+  const { answerSetupDay } = useRecommendationApplication();
+  return (
+    <Pressable onPress={() => void answerSetupDay?.('formal')} testID="finish-setup">
+      <Text>finish</Text>
+    </Pressable>
+  );
+}
+
+// The profile row is created at first launch; what counts is the clock when setup finishes.
+// First launch at 17:55 and setup done at 18:03 is the evening, and 03:50 then 04:10 is the
+// next morning: the answer is recorded under the dressing day the finishing moment is in.
+test.each([
+  ['2026-09-24T18:03:00.000Z', '2026-09-24:evening'],
+  ['2026-09-25T04:10:00.000Z', '2026-09-25'],
+])('finishing setup at %s answers the dressing day %s', async (at, key) => {
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date(at),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  mockChoiceUpsert.mockImplementation(async (_profile: string, dayKey: string) => setupRow(dayKey));
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(async () => null);
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()}
+        profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal',
+          onboardingCompleted: false, createdAt: new Date(Date.parse(at) - 8 * 60_000).toISOString() })}
+        recommendation={recommendationReady()} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <SetupFinisher />
+      </Providers>,
+    );
+    await fireEvent.press(await view.findByTestId('finish-setup'));
+    await waitFor(() => expect(mockChoiceUpsert).toHaveBeenCalledTimes(1));
+    expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', key, 'formal', 'morning');
+    await view.unmount();
+
+    // The next open of Today on that day reads the answer and asks nothing.
+    mockChoiceGet.mockResolvedValue(setupRow(key));
+    const today = await render(
+      <Providers productAnalytics={createProductAnalytics()}
+        profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal' })}
+        recommendation={recommendationReady()} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(today.queryByTestId('daily-formality-sheet')).toBeNull();
+  } finally {
+    refresh.mockRestore();
+    jest.useRealTimers();
   }
 });
