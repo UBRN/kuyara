@@ -17,7 +17,7 @@ import type { WeatherReadyState } from '@/features/weather/application/weather-a
 import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { layout, lightTheme, spacing, typography } from '@/theme/theme';
+import { layout, lightTheme, radii, spacing, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 // Weather is focused unless a test blurs it, the way another tab or a pushed route does.
@@ -275,24 +275,29 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       ? 'Rain. 16.0 degrees Celsius. Feels like 15.0 degrees Celsius. Low 12.0 degrees Celsius, high 19.0 degrees Celsius. 50% chance of precipitation.'
       : 'Yağmurlu. Sıcaklık 16,0 santigrat derece. Hissedilen sıcaklık 15,0 santigrat derece. En düşük 12,0 santigrat derece, en yüksek 19,0 santigrat derece. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
-      ? 'Wind 4 m/s'
-      : 'Rüzgâr 4 m/sn')).toBeOnTheScreen();
+      ? 'Wind 14 kilometres per hour'
+      : 'Rüzgâr saatte 14 kilometre')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
       ? '70% humidity'
       : '%70 nem')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
-      ? 'UV index 2'
-      : 'UV endeksi 2')).toBeOnTheScreen();
+      ? 'UV index 2: Low'
+      : 'UV endeksi 2: Düşük')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
       ? '12:00. 16.0 degrees Celsius. Rain. 50% chance of precipitation.'
       : 'Saat 12:00. Sıcaklık 16,0 santigrat derece. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
-    expect(result.getByText(language === 'en' ? '4 m/s' : '4 m/sn')).toBeOnTheScreen();
+    expect(result.getByText(language === 'en' ? '14\u00a0km/h' : '14\u00a0km/sa')).toBeOnTheScreen();
+    expect(result.getByText(language === 'en' ? 'Low' : 'Düşük')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '70%' : '%70')).toBeOnTheScreen();
     const currentCard = result.getByTestId('weather-current-card');
     expect(within(currentCard).getByText(language === 'en'
       ? 'Feels like 15.0° · Low 12.0° · High 19.0°'
       : 'Hissedilen 15,0° · En düşük 12,0° · En yüksek 19,0°')).toBeOnTheScreen();
-    expect(StyleSheet.flatten(currentCard.props.style)).toMatchObject(lightTheme.elevation.raised);
+    // The current conditions stand on Today's weather-coloured stage, not on a raised card.
+    const stageStyle = StyleSheet.flatten(currentCard.props.style);
+    expect(stageStyle.borderRadius).toBe(radii.stage);
+    expect(Object.values(lightTheme.atmosphere)).toContain(stageStyle.backgroundColor);
+    expect(stageStyle).not.toHaveProperty('shadowOpacity');
     expect(StyleSheet.flatten(within(currentCard).getByText(language === 'en' ? '16.0°' : '16,0°').props.style).fontSize)
       .toBe(typography.display.fontSize);
     expect(StyleSheet.flatten(result.getByTestId('weather-hourly-card').props.style))
@@ -511,8 +516,8 @@ test('a temperature swing is spelled with the one decimal every temperature carr
   };
 
   for (const [language, sentence] of [
-    ['en', 'Down 8.4\u00b0 by 13:00'],
-    ['tr', 'Saat 13:00 civar\u0131nda 8,4\u00b0 d\u00fc\u015f\u00fcyor'],
+    ['en', 'About 8.4\u00b0 cooler by 13:00'],
+    ['tr', 'Saat 13:00 civar\u0131nda 8,4\u00b0 daha serin'],
   ] as const) {
     const result = await render(
       <Providers
@@ -576,7 +581,7 @@ test.each(['en', 'tr'] as const)(
     expect(result.queryByTestId('weather-current-card')).toBeNull();
     expect(result.queryByTestId('weather-hourly-card')).toBeNull();
     expect(result.queryByText(copy.conditions.rain)).toBeNull();
-    expect(result.getByText(copy.loading)).toBeOnTheScreen();
+    expect(result.getByLabelText(copy.loading)).toBeOnTheScreen();
 
     const failed = createValue({
       ...loading.state,
@@ -693,7 +698,7 @@ test('the cold load says it is loading rather than refreshing', async () => {
     <Providers language="en" value={createValue({ status: 'loading' })}><WeatherScreen /></Providers>,
   );
 
-  expect(result.getByText(messages.en.weather.loading)).toBeOnTheScreen();
+  expect(result.getByLabelText(messages.en.weather.loading)).toBeOnTheScreen();
   expect(result.queryByText(messages.en.weather.refreshing)).toBeNull();
 });
 
@@ -1276,7 +1281,7 @@ test('rounded weather measurements never render negative zero', async () => {
   // -0.4 is genuinely below zero and keeps its sign; -0.04 is not and must not borrow one.
   expect(result.queryAllByText('-0.0°')).toHaveLength(0);
   expect(result.getAllByText('-0.4°').length).toBeGreaterThan(0);
-  expect(result.getByText('0 m/s')).toBeOnTheScreen();
+  expect(result.getByText('0\u00a0km/h')).toBeOnTheScreen();
 });
 
 // The outlook's own day is the local calendar day of the snapshot, 30 July in Istanbul, and
@@ -1694,4 +1699,60 @@ test('the freshness line crossfades to its new words and keeps one spoken line',
   expect(spoken).toHaveLength(1);
   expect(spoken[0]).toHaveTextContent(messages.en.weather.stale);
   expect(spoken[0].props.accessibilityLiveRegion).toBe('polite');
+});
+
+// The loading and error states take the Closet's anatomy (ADR 0029 section 4).
+test('the cold load shows the empty stage as one progress element under the title', async () => {
+  const result = await render(
+    <Providers language="en" value={createValue({ status: 'loading' })}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.getByRole('header', { name: messages.en.weather.title })).toBeOnTheScreen();
+  expect(result.getByRole('progressbar', { name: messages.en.weather.loading })).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.weather.loading)).toBeNull();
+});
+
+test('a failed load reads glyph, title, line and a retry that retries', async () => {
+  const value = createValue({ status: 'error' } as WeatherApplicationValue['state']);
+  const result = await render(
+    <Providers language="tr" value={value}><WeatherScreen /></Providers>,
+  );
+  const copy = messages.tr.weather;
+  const error = result.getByTestId('weather-load-error');
+  expect(within(error).getByRole('header', { name: copy.loadErrorTitle })).toBeOnTheScreen();
+  expect(within(error).getByText(copy.loadErrorBody)).toBeOnTheScreen();
+  await fireEvent.press(within(error).getByRole('button', { name: copy.retry }));
+  expect(value.retry).toHaveBeenCalledTimes(1);
+});
+
+test('a cacheless refresh failure offers its own retry in the same anatomy', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    refreshFailure: 'unavailable',
+  });
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+  const error = result.getByTestId('weather-load-error');
+  expect(within(error).getByRole('header', { name: messages.en.weather.unavailableTitle })).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('weather-retry-button'));
+  expect(value.refresh).toHaveBeenCalledTimes(1);
+});
+
+test('everything on the current-conditions stage is drawn in the primary ink', async () => {
+  const result = await render(
+    <Providers language="en" value={createValue({
+      ...baseState,
+      activeLocation: getManualLocation('sample.istanbul')!,
+      snapshot: sampleSnapshot(),
+      freshness: 'fresh',
+    })}><WeatherScreen /></Providers>,
+  );
+  // Secondary ink falls under AA on the darker night planes; the primary ink is measured
+  // at AA on every one of them.
+  const stage = result.getByTestId('weather-current-card');
+  for (const text of within(stage).getAllByText(/./)) {
+    expect(StyleSheet.flatten(text.props.style).color).not.toBe(lightTheme.colors.textSecondary);
+  }
 });

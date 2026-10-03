@@ -41,8 +41,10 @@ import {
 } from '@/features/weather/presentation/daily-outlook';
 import { HourlyRail, type HourlyRailColumn } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
+import { uvLevelOf } from '@/features/weather/presentation/uv-level';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
-import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
+import { WeatherErrorState, WeatherLoadingState } from '@/features/weather/presentation/weather-states';
+import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { dateTimeFormat, numberFormat } from '@/domain/intl-format';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
@@ -50,7 +52,8 @@ import { localeTag } from '@/localization/locale-tag';
 import { formatTemperature, formatTemperatureDifference, formatTemperatureValue } from '@/presentation/format-temperature';
 import type { TemperatureUnit } from '@/localization/device-locale';
 import type { AppMessages } from '@/localization/messages';
-import { radii, spacing, typography } from '@/theme/theme';
+import { PlateView } from '@/theme/plate-theme';
+import { plateTheme, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 function decimal(value: number, language: 'en' | 'tr'): string {
@@ -303,9 +306,9 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   // a branch without it leaves the offset unattached and warns on every cold launch.
   if (state.status === 'loading') {
     return (
-      <Screen contentContainerStyle={styles.center} fill ref={scrollRef} testID="weather-screen">
-        <AppText accessibilityRole="header" variant="titleLarge">{copy.title}</AppText>
-        <AppText colorRole="textSecondary">{copy.loading}</AppText>
+      <Screen contentContainerStyle={styles.content} ref={scrollRef} testID="weather-screen">
+        <SectionHeader title={copy.title} />
+        <WeatherLoadingState label={copy.loading} />
       </Screen>
     );
   }
@@ -313,9 +316,12 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   if (state.status === 'error') {
     return (
       <Screen contentContainerStyle={styles.center} fill ref={scrollRef} testID="weather-screen">
-        <AppText accessibilityRole="header" variant="titleLarge">{copy.loadErrorTitle}</AppText>
-        <AppText colorRole="textSecondary">{copy.loadErrorBody}</AppText>
-        <Button label={copy.retry} onPress={() => void application.retry()} />
+        <WeatherErrorState
+          body={copy.loadErrorBody}
+          onRetry={() => void application.retry()}
+          retryLabel={copy.retry}
+          title={copy.loadErrorTitle}
+        />
       </Screen>
     );
   }
@@ -352,6 +358,21 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
     ? state.snapshot
     : null;
   if (snapshot === null && !awaitingForecast) setAwaitingForecast(true);
+  // One reading of the daypart colours the stage and draws the glyph on it, so each condition
+  // ink is only ever measured against the planes its own daypart can put behind it.
+  const currentDaypart = snapshot
+    ? resolveDaypart(new Date(now).toISOString(), snapshot.timeZone, state.activeLocation?.coordinates)
+    : null;
+  const stageColor = snapshot
+    ? theme.atmosphere[resolveAtmosphereState(snapshot.current.condition, currentDaypart)]
+    : theme.colors.stage;
+  // What stands on the stage draws in the stage's own roles (`PlateView` provides them below).
+  const plate = plateTheme(theme, stageColor);
+  const uvLevel = snapshot ? copy.uvLevels[uvLevelOf(snapshot.current.uvIndex)] : '';
+  // Kilometres an hour, in whole numbers: the speed a reader knows from a road sign.
+  const windSpeed = snapshot
+    ? decimal(Math.round(snapshot.current.windSpeedMetersPerSecond * 3.6), language)
+    : '';
   const updatedAt = snapshot
     ? copy.updatedAt(lastUpdated(snapshot.fetchedAt, language, hour12, now))
     : '';
@@ -517,8 +538,13 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
           ) : null}
 
           <View style={styles.currentSection}>
-            <Surface
-              style={[styles.card, theme.elevation.raised]}
+            {/* The current conditions stand on the same weather-coloured stage as Today's
+                outfit, from the same reading of condition and daypart; the forecast cards
+                below stay plain. Everything on it takes the plate's roles and the primary
+                ink, which is the role measured at AA on every atmosphere plane. */}
+            <PlateView
+              color={stageColor}
+              style={styles.stage}
               testID="weather-current-card">
               <View
                 accessible
@@ -553,7 +579,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                     </AppText>
                   </View>
                   <Crossfade contentKey={feelsLikeLine}>
-                    <AppText colorRole="textSecondary" variant="caption">{feelsLikeLine}</AppText>
+                    <AppText variant="caption">{feelsLikeLine}</AppText>
                   </Crossfade>
                 </View>
                 <View
@@ -562,11 +588,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                   <WeatherGlyph
                     condition={snapshot.current.condition}
                     intensity={ambientIntensityOf(snapshot.current.condition)}
-                    daypart={resolveDaypart(
-                      new Date(now).toISOString(),
-                      snapshot.timeZone,
-                      state.activeLocation?.coordinates,
-                    )}
+                    daypart={currentDaypart}
                   />
                 </View>
               </View>
@@ -592,14 +614,10 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                 ]}>
                 {([
                   {
-                    accessibilityLabel: copy.wind(
-                      decimal(snapshot.current.windSpeedMetersPerSecond, language),
-                    ),
+                    accessibilityLabel: copy.wind(windSpeed),
                     icon: 'wind',
                     label: copy.windLabel,
-                    value: copy.windValue(
-                      decimal(snapshot.current.windSpeedMetersPerSecond, language),
-                    ),
+                    value: copy.windValue(windSpeed),
                   },
                   {
                     accessibilityLabel: copy.humidity(snapshot.current.humidity),
@@ -609,11 +627,12 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                   },
                   {
                     accessibilityLabel: copy.uvIndex(
-                      decimal(snapshot.current.uvIndex, language),
+                      decimal(Math.round(snapshot.current.uvIndex), language),
+                      uvLevel,
                     ),
                     icon: 'uv',
                     label: copy.uvIndexLabel,
-                    value: decimal(snapshot.current.uvIndex, language),
+                    value: uvLevel,
                   },
                 ] as const)
                   // A UV index of 0 is every night and every overcast winter day: the row
@@ -629,8 +648,8 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                       styles.stat,
                       usesStackedLayout && styles.stackedStat,
                     ]}>
-                    <Icon color={theme.colors.iconSecondary} name={stat.icon} size={16 * controlScale} />
-                    <AppText colorRole="textSecondary" variant="eyebrow">
+                    <Icon color={plate.colors.iconPrimary} name={stat.icon} size={16 * controlScale} />
+                    <AppText variant="eyebrow">
                       {stat.label}
                     </AppText>
                     <AppText tabularNumbers variant="bodyStrong">{stat.value}</AppText>
@@ -638,7 +657,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                 ))}
               </View>
 
-            </Surface>
+            </PlateView>
             <View style={styles.headingRow}>
               {/* Each line crossfades when its words change rather than snapping; the leaving
                   words are out of the reading order, so the live region speaks only the new. */}
@@ -698,16 +717,16 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
             </Entrance>
           )}
         </Fragment>
-      ) : (
-        <Surface style={styles.card} variant="muted">
-          {failureCopy && (
-            <AppText accessibilityRole="header" variant="title">{failureCopy.title}</AppText>
-          )}
-          <AppText accessibilityLiveRegion={failureCopy ? 'polite' : undefined}>
-            {failureCopy?.body ?? (state.activeLocation ? copy.loading : copy.noSnapshot)}
-          </AppText>
-        </Surface>
-      )}
+      ) : failureCopy ? (
+        <WeatherErrorState
+          body={failureCopy.body}
+          onRetry={() => void handleRefresh()}
+          retryLabel={copy.retry}
+          title={failureCopy.title}
+        />
+      ) : state.activeLocation ? (
+        <WeatherLoadingState label={copy.loading} />
+      ) : null}
 
       {/* The notice opens and closes in place (Law 7). Its slot takes back the screen's gap
           and the notice carries it inside, so a closed notice leaves no space behind. */}
@@ -746,8 +765,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
+  stage: { borderRadius: radii.stage, gap: spacing.md, padding: spacing.lg },
   // Stretched, not flex-start: at accessibility sizes the 56-point hero needs the whole
-  // card width to lay out on one line (ADR 0017's recorded risk).
+  // stage width to lay out on one line (ADR 0017's recorded risk).
   stackedCurrentHero: {
     alignItems: 'stretch',
     flexDirection: 'column',

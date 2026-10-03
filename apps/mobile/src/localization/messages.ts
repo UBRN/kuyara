@@ -604,7 +604,6 @@ export type AppMessages = Readonly<{
     sampleDisclosure: string;
     hourlyHeading: string;
     hourlyNow: string;
-    noSnapshot: string;
     loadErrorTitle: string;
     loadErrorBody: string;
     retry: string;
@@ -653,7 +652,10 @@ export type AppMessages = Readonly<{
     }) => string;
     wind: (speed: string) => string;
     humidity: (humidity: number) => string;
-    uvIndex: (index: string) => string;
+    /** The spoken UV line: the whole index and its band's word. */
+    uvIndex: (index: string, level: string) => string;
+    /** The WHO UV index bands, as a reader says them. */
+    uvLevels: Readonly<Record<'low' | 'moderate' | 'high' | 'veryHigh' | 'extreme', string>>;
     hourlyForecastAccessibilityLabel: (values: {
       day?: string;
       time: string;
@@ -1229,7 +1231,7 @@ const en = {
   },
   weather: {
     title: 'Weather',
-    introduction: 'Choose one active location for today’s weather.',
+    introduction: 'Choose a place to see its weather.',
     noLocation: 'No location selected yet.',
     currentLocation: 'Current location',
     approximateLocation: 'Approximate location',
@@ -1247,24 +1249,23 @@ const en = {
     sampleDisclosure: 'Sample weather data, not live weather.',
     hourlyHeading: 'Coming hours',
     hourlyNow: 'Now',
-    noSnapshot: 'Weather will appear once a location is selected.',
-    loadErrorTitle: 'Weather could not be prepared',
-    loadErrorBody: 'Your saved data is still safe. Please try again.',
+    loadErrorTitle: 'Couldn’t open the weather',
+    loadErrorBody: 'Nothing you saved is lost. Try again.',
     retry: 'Try again',
     refresh: 'Refresh',
     refreshAccessibilityLabel: 'Refresh weather',
     refreshing: 'Refreshing weather…',
     refreshFailed: "Couldn't refresh",
     loading: 'Loading weather…',
-    offlineTitle: 'You appear to be offline',
-    offlineBody: 'Connect to the internet and try loading weather again.',
-    offlineNotice: 'You are offline. The last matching weather remains visible.',
-    unavailableTitle: 'Weather is temporarily unavailable',
-    unavailableBody: 'The weather service could not provide valid data. Please try again.',
-    unavailableNotice: 'Weather is temporarily unavailable. The last matching weather remains visible.',
+    offlineTitle: 'You’re offline',
+    offlineBody: 'Connect to the internet and try again.',
+    offlineNotice: 'You’re offline. This is the weather from the last update.',
+    unavailableTitle: 'The weather can’t be reached right now',
+    unavailableBody: 'This usually passes quickly. Try again in a moment.',
+    unavailableNotice: 'The weather can’t be reached right now. This is the weather from the last update.',
     rateLimitedTitle: 'Weather updates are paused for a moment',
-    rateLimitedBody: 'Too many weather requests right now. Please try again shortly.',
-    rateLimitedNotice: 'Weather updates are paused for a moment. The last matching weather remains visible.',
+    rateLimitedBody: 'Try again in a minute.',
+    rateLimitedNotice: 'Weather updates are paused for a moment. This is the weather from the last update.',
     attributionOpenMeteo: 'Weather data by Open-Meteo.com (CC BY 4.0)',
     attributionOpenWeather: 'Weather data provided by OpenWeather (ODbL)',
     attributionAppleWeather: 'Weather data by Apple Weather',
@@ -1277,7 +1278,7 @@ const en = {
     placeSearchAttribution: 'Place data by Open-Meteo and GeoNames',
     placeSearchResultLabel: (name, region) => `${name}, ${region}`,
     placeSearchErrors: {
-      'invalid-input': 'Enter a city name between 2 and 100 characters.',
+      'invalid-input': 'That name is too long. Try a shorter city name.',
       'invalid-response': 'Search results could not be loaded. Try again.',
       unavailable: 'Place search is temporarily unavailable. Try again later.',
       'rate-limited': 'Too many searches. Wait a moment and try again.',
@@ -1285,7 +1286,7 @@ const en = {
     placeDeniedBody: 'Location access was not granted. Search for a city or try again later.',
     placePermanentDeniedBody: 'Location access can no longer be requested here. Open system settings or search for a city.',
     placeServicesUnavailableBody: 'Location services are unavailable or turned off. Search for a city or try again after enabling them.',
-    fresh: 'Fresh',
+    fresh: 'Up to date',
     stale: 'May be out of date',
     updatedAt: (time) => `Last updated at ${time}`,
     feelsLike: (temperature) => `Feels like\u00a0${temperature}`,
@@ -1302,9 +1303,10 @@ const en = {
       `${condition}. ${temperature} ${unitName}. Feels like ${apparentTemperature} ${unitName}. ` +
       `Low ${minimumTemperature} ${unitName}, high ${maximumTemperature} ${unitName}. ` +
       `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
-    wind: (speed) => `Wind ${speed} m/s`,
+    wind: (speed) => `Wind ${speed} kilometres per hour`,
     humidity: (humidity) => `${Math.round(humidity * 100)}% humidity`,
-    uvIndex: (index) => `UV index ${index}`,
+    uvIndex: (index, level) => `UV index ${index}: ${level}`,
+    uvLevels: { low: 'Low', moderate: 'Moderate', high: 'High', veryHigh: 'Very high', extreme: 'Extreme' },
     hourlyForecastAccessibilityLabel: ({
       day,
       time,
@@ -1336,7 +1338,7 @@ const en = {
       `${currentTemperature ? `Now ${currentTemperature} ${unitName}. ` : ''}` +
       `${precipitationMillimetres ? `${precipitationMillimetres} mm of precipitation. ` : ''}` +
       `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
-    windValue: (speed) => `${speed} m/s`,
+    windValue: (speed) => `${speed}\u00a0km/h`,
     humidityValue: (humidity) => `${Math.round(humidity * 100)}%`,
     windLabel: 'Wind',
     humidityLabel: 'Humidity',
@@ -1346,8 +1348,8 @@ const en = {
       snowStarting: (time) => `Snow starts around ${time}`,
       rainEasing: (time) => `Rain eases around ${time}`,
       snowEasing: (time) => `Snow eases around ${time}`,
-      temperatureDrop: ({ time, degrees }) => `Down ${degrees} by ${time}`,
-      temperatureRise: ({ time, degrees }) => `Up ${degrees} by ${time}`,
+      temperatureDrop: ({ time, degrees }) => `About ${degrees} cooler by ${time}`,
+      temperatureRise: ({ time, degrees }) => `About ${degrees} warmer by ${time}`,
       steady: 'No notable change for the rest of today',
       steadyEvening: 'No notable change for the rest of the evening',
     },
@@ -2339,7 +2341,7 @@ const tr = {
   },
   weather: {
     title: 'Hava',
-    introduction: 'Bugünün hava durumu için tek bir etkin konum seç.',
+    introduction: 'Havasını görmek için bir yer seç.',
     noLocation: 'Henüz konum seçilmedi.',
     currentLocation: 'Mevcut konum',
     approximateLocation: 'Yaklaşık konum',
@@ -2357,24 +2359,23 @@ const tr = {
     sampleDisclosure: 'Örnek hava durumu verisi, canlı değildir.',
     hourlyHeading: 'Önümüzdeki saatler',
     hourlyNow: 'Şimdi',
-    noSnapshot: 'Bir konum seçildiğinde hava durumu burada görünecek.',
-    loadErrorTitle: 'Hava durumu hazırlanamadı',
-    loadErrorBody: 'Kayıtlı verilerin güvende. Lütfen yeniden dene.',
+    loadErrorTitle: 'Hava durumu açılamadı',
+    loadErrorBody: 'Kaydettiğin hiçbir şey kaybolmadı. Yeniden dene.',
     retry: 'Yeniden dene',
     refresh: 'Yenile',
     refreshAccessibilityLabel: 'Hava durumunu yenile',
     refreshing: 'Hava durumu yenileniyor…',
     refreshFailed: 'Yenilenemedi',
     loading: 'Hava durumu yükleniyor…',
-    offlineTitle: 'Çevrimdışı görünüyorsun',
-    offlineBody: 'İnternete bağlanıp hava durumunu yeniden yüklemeyi dene.',
-    offlineNotice: 'Çevrimdışısın. Son eşleşen hava durumu gösterilmeye devam ediyor.',
-    unavailableTitle: 'Hava durumu geçici olarak kullanılamıyor',
-    unavailableBody: 'Hava durumu servisi geçerli veri sağlayamadı. Lütfen yeniden dene.',
-    unavailableNotice: 'Hava durumu geçici olarak kullanılamıyor. Son eşleşen hava durumu gösterilmeye devam ediyor.',
-    rateLimitedTitle: 'Hava durumu güncellemeleri kısa süreliğine durduruldu',
-    rateLimitedBody: 'Şu anda çok fazla hava durumu isteği var. Lütfen kısa süre sonra yeniden dene.',
-    rateLimitedNotice: 'Hava durumu güncellemeleri kısa süreliğine durduruldu. Son eşleşen hava durumu gösterilmeye devam ediyor.',
+    offlineTitle: 'Çevrimdışısın',
+    offlineBody: 'İnternete bağlanıp yeniden dene.',
+    offlineNotice: 'Çevrimdışısın. Gördüğün, son güncellemedeki hava durumu.',
+    unavailableTitle: 'Hava durumuna şu an ulaşılamıyor',
+    unavailableBody: 'Bu genelde kısa sürer. Biraz sonra yeniden dene.',
+    unavailableNotice: 'Hava durumuna şu an ulaşılamıyor. Gördüğün, son güncellemedeki hava durumu.',
+    rateLimitedTitle: 'Hava durumu güncellemesine kısa bir ara verildi',
+    rateLimitedBody: 'Bir dakika sonra yeniden dene.',
+    rateLimitedNotice: 'Hava durumu güncellemesine kısa bir ara verildi. Gördüğün, son güncellemedeki hava durumu.',
     attributionOpenMeteo: 'Hava durumu verisi: Open-Meteo.com (CC BY 4.0)',
     attributionOpenWeather: 'Hava durumu verisi: OpenWeather (ODbL)',
     attributionAppleWeather: 'Hava durumu verisi: Apple Weather',
@@ -2387,7 +2388,7 @@ const tr = {
     placeSearchAttribution: 'Yer verileri: Open-Meteo ve GeoNames',
     placeSearchResultLabel: (name, region) => `${name}, ${region}`,
     placeSearchErrors: {
-      'invalid-input': '2 ile 100 karakter arasında bir şehir adı yaz.',
+      'invalid-input': 'Bu ad çok uzun. Daha kısa bir şehir adı dene.',
       'invalid-response': 'Arama sonuçları yüklenemedi. Tekrar dene.',
       unavailable: 'Yer araması şu anda kullanılamıyor. Daha sonra tekrar dene.',
       'rate-limited': 'Çok fazla arama yapıldı. Biraz bekleyip tekrar dene.',
@@ -2396,7 +2397,7 @@ const tr = {
     placePermanentDeniedBody: 'Konum izni buradan tekrar istenemiyor. Sistem ayarlarını aç veya bir şehir ara.',
     placeServicesUnavailableBody: 'Konum servisleri kullanılamıyor veya kapalı. Bir şehir ara veya servisleri açıp tekrar dene.',
     fresh: 'Güncel',
-    stale: 'Güncelliğini yitirmiş olabilir',
+    stale: 'Biraz eskimiş olabilir',
     updatedAt: (time) => `Son güncelleme ${time}`,
     feelsLike: (temperature) => `Hissedilen\u00a0${temperature}`,
     range: (minimum, maximum) => `En\u00a0düşük\u00a0${minimum} · En\u00a0yüksek\u00a0${maximum}`,
@@ -2412,9 +2413,10 @@ const tr = {
       `${condition}. Sıcaklık ${temperature} ${unitName}. Hissedilen sıcaklık ${apparentTemperature} ${unitName}. ` +
       `En düşük ${minimumTemperature} ${unitName}, en yüksek ${maximumTemperature} ${unitName}. ` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
-    wind: (speed) => `Rüzgâr ${speed} m/sn`,
+    wind: (speed) => `Rüzgâr saatte ${speed} kilometre`,
     humidity: (humidity) => `%${Math.round(humidity * 100)} nem`,
-    uvIndex: (index) => `UV endeksi ${index}`,
+    uvIndex: (index, level) => `UV endeksi ${index}: ${level}`,
+    uvLevels: { low: 'Düşük', moderate: 'Orta', high: 'Yüksek', veryHigh: 'Çok yüksek', extreme: 'Aşırı' },
     hourlyForecastAccessibilityLabel: ({
       day,
       time,
@@ -2446,7 +2448,7 @@ const tr = {
       `${currentTemperature ? `Şu an ${currentTemperature} ${unitName}. ` : ''}` +
       `${precipitationMillimetres ? `${precipitationMillimetres} milimetre yağış. ` : ''}` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
-    windValue: (speed) => `${speed} m/sn`,
+    windValue: (speed) => `${speed}\u00a0km/sa`,
     humidityValue: (humidity) => `%${Math.round(humidity * 100)}`,
     windLabel: 'Rüzgâr',
     humidityLabel: 'Nem',
@@ -2456,8 +2458,8 @@ const tr = {
       snowStarting: (time) => `Kar ${time} civarında başlıyor`,
       rainEasing: (time) => `Yağmur ${time} civarında hafifliyor`,
       snowEasing: (time) => `Kar ${time} civarında hafifliyor`,
-      temperatureDrop: ({ time, degrees }) => `Saat ${time} civarında ${degrees} düşüyor`,
-      temperatureRise: ({ time, degrees }) => `Saat ${time} civarında ${degrees} yükseliyor`,
+      temperatureDrop: ({ time, degrees }) => `Saat ${time} civarında ${degrees} daha serin`,
+      temperatureRise: ({ time, degrees }) => `Saat ${time} civarında ${degrees} daha sıcak`,
       steady: 'Bugünün kalanında belirgin bir değişiklik yok',
       steadyEvening: 'Akşamın kalanında belirgin bir değişiklik yok',
     },
