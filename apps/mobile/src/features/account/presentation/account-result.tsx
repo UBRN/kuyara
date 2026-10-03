@@ -7,7 +7,8 @@ import { useMessages } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-function ResultRow({ children, icon }: Readonly<{ children: ReactNode; icon: IconName }>) {
+/** One result line: a secondary-ink mark and its sentence. */
+export function ResultRow({ children, icon }: Readonly<{ children: ReactNode; icon: IconName }>) {
   const theme = useKuyaraTheme();
   return (
     <View style={styles.row}>

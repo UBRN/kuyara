@@ -36,6 +36,8 @@ export type NativeSheetProps = Readonly<{
    * editor (O14), whose height changes by at most one line while it is open.
    */
   size?: 'default' | 'large' | 'fit';
+  /** False for a choice the person must answer: no swipe, no scrim tap, no back press closes it. */
+  dismissible?: boolean;
   testID?: string;
   visible: boolean;
 }>;
@@ -44,14 +46,14 @@ export type NativeSheetProps = Readonly<{
  * A platform bottom sheet over the current screen. The sheet owns its presentation,
  * its dismissal, its grabber and its scrim; the caller owns only what is inside it.
  */
-export function NativeSheet({ children, onDismiss, size = 'default', testID, visible }: NativeSheetProps) {
+export function NativeSheet({ children, dismissible = true, onDismiss, size = 'default', testID, visible }: NativeSheetProps) {
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
 
   return (
     <BottomSheet
       backgroundStyle={{ backgroundColor: theme.colors.surface }}
-      enablePanDownToClose
+      enablePanDownToClose={dismissible}
       index={visible ? 0 : -1}
       onClose={onDismiss}
       snapPoints={size === 'fit'

@@ -913,6 +913,29 @@ export type AccountMessages = Readonly<{
     done: string;
   }>;
   deleted: Readonly<{ title: string; gone: ByProvider; stay: string; done: string }>;
+  /** The sheet that cannot be swiped away when a different account signs in (ADR 0041 section 6). */
+  switchAccount: Readonly<{
+    title: string;
+    body: string;
+    holds: (pieces: number, days: number) => string;
+    pending: (pending: number) => string;
+    add: string;
+    addHint: string;
+    dontAdd: string;
+    dontAddHint: string;
+  }>;
+  /** The result sheet after the first link merges this phone and the account (ADR 0041 section 4). */
+  merge: Readonly<{
+    title: string;
+    closet: (added: number, received: number) => string;
+    history: (added: number, received: number) => string;
+    rule: string;
+    duplicates: string;
+    openCloset: string;
+    done: string;
+  }>;
+  /** The system alert when the identity being added belongs to another account (ADR 0041 section 1). */
+  identityTaken: Readonly<{ title: ByProvider; body: ByProvider; ok: string }>;
 }>;
 
 type WalkthroughStepCopy = Readonly<{ title: string; body: string }>;
@@ -2029,6 +2052,36 @@ const en = {
       stay: 'What you see in kuyara stays, and kuyara keeps working without an account.',
       done: 'Done',
     },
+    switchAccount: {
+      title: 'Add this Closet and History to this account?',
+      body: 'kuyara was last signed in to a different account on this phone.',
+      holds: (pieces: number, days: number) => `Your Closet has ${enPieces(pieces)} and your History ${enDays(days)}.`,
+      pending: (pending: number) =>
+        `${enChanges(pending)} from the other account ${pending === 1 ? 'has' : 'have'} not synced yet. Don’t add loses ${pending === 1 ? 'it' : 'them'}.`,
+      add: 'Add',
+      addHint: 'They join this account. The other account keeps what it already has.',
+      dontAdd: 'Don’t add',
+      dontAddHint: 'kuyara shows only this account’s Closet and History.',
+    },
+    merge: {
+      title: 'Your Closet and History are together',
+      closet: (added: number, received: number) =>
+        `${enPieces(added)} joined your account, and ${enPieces(received)} from your account joined your Closet.`,
+      history: (added: number, received: number) =>
+        `${enDays(added)} joined your account, and ${enDays(received)} from your account joined your History.`,
+      rule: 'Where both had the same piece or the same day, your account’s copy was kept.',
+      duplicates: 'A piece added separately on two phones can show twice. You can delete one in Closet.',
+      openCloset: 'Open Closet',
+      done: 'Done',
+    },
+    identityTaken: {
+      title: { apple: 'This Apple account is already in use', google: 'This Google account is already in use' },
+      body: {
+        apple: 'It belongs to another kuyara account. To use it, sign out, then sign in with Apple.',
+        google: 'It belongs to another kuyara account. To use it, sign out, then sign in with Google.',
+      },
+      ok: 'OK',
+    },
   },
 } satisfies AppMessages;
 
@@ -3113,6 +3166,35 @@ const tr = {
       },
       stay: 'kuyara’da gördüklerin kalır ve kuyara hesapsız çalışmaya devam eder.',
       done: 'Bitti',
+    },
+    switchAccount: {
+      title: 'Bu Gardırop ve Geçmiş bu hesaba eklensin mi?',
+      body: 'Bu telefonda en son başka bir hesapla giriş yapılmıştı.',
+      holds: (pieces: number, days: number) => `Gardırobunda ${pieces} parça, Geçmişinde ${days} gün var.`,
+      pending: (pending: number) => `Diğer hesabın ${pending} değişikliği henüz eşitlenmedi. Eklemezsen kaybolur.`,
+      add: 'Ekle',
+      addHint: 'Bu hesaba katılırlar. Diğer hesap zaten aldıklarını korur.',
+      dontAdd: 'Ekleme',
+      dontAddHint: 'kuyara yalnız bu hesabın Gardırobunu ve Geçmişini gösterir.',
+    },
+    merge: {
+      title: 'Gardırobun ve Geçmişin birleşti',
+      closet: (added: number, received: number) =>
+        `Hesabına ${added} parça katıldı, hesabından Gardırobuna ${received} parça geldi.`,
+      history: (added: number, received: number) =>
+        `Hesabına ${added} gün katıldı, hesabından Geçmişine ${received} gün geldi.`,
+      rule: 'Aynı parça ya da aynı gün iki tarafta da varsa hesabındaki kaldı.',
+      duplicates: 'İki telefonda ayrı ayrı eklenen bir parça iki kez görünebilir. Birini Gardırobundan silebilirsin.',
+      openCloset: 'Gardırobu aç',
+      done: 'Bitti',
+    },
+    identityTaken: {
+      title: { apple: 'Bu Apple hesabı zaten kullanılıyor', google: 'Bu Google hesabı zaten kullanılıyor' },
+      body: {
+        apple: 'Başka bir kuyara hesabına bağlı. Onu kullanmak için çıkış yap, sonra Apple ile giriş yap.',
+        google: 'Başka bir kuyara hesabına bağlı. Onu kullanmak için çıkış yap, sonra Google ile giriş yap.',
+      },
+      ok: 'Tamam',
     },
   },
 } satisfies AppMessages;
