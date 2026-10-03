@@ -16,6 +16,7 @@ import {
 import { EmptyStateArt } from '@/components/ui/empty-state-art';
 import { dateTimeFormat } from '@/domain/intl-format';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import { historyDrawingSky } from '@/features/profile/presentation/history-drawing-sky';
 import { HistoryWeekSummary } from '@/features/profile/presentation/history-week-summary';
 import { archetypeLabel } from '@/features/recommendation/application/recommendation-application-controller';
 import { outfitSlots } from '@/features/recommendation/domain/outfit-composition';
@@ -89,9 +90,7 @@ export function historyBoard(entry: BoardEntry, lookKey = entry.dayKey): History
     pieces,
     palette: {
       optionId: `history-${lookKey}`,
-      temperatureC: 18,
-      condition: 'cloudy',
-      isNight: false,
+      ...historyDrawingSky,
       formality,
       pieces: outfitSlots.flatMap((slot) => {
         const id = garments[slot];

@@ -1168,3 +1168,11 @@ test('screens read the gender and dress style lists and the style limit from the
       .test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits, [], 'use genderSchema.options, dressStyles and styleAestheticsLimit');
 });
+
+// History's mild drawing sky is written once, as `historyDrawingSky`.
+test('the History drawing sky is written only by its owner', () => {
+  const owner = 'features/profile/presentation/history-drawing-sky.ts';
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && /temperatureC:\s*18\b/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'spread historyDrawingSky');
+});

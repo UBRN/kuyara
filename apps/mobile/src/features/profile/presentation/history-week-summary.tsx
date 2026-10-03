@@ -10,6 +10,7 @@ import {
   type IconName,
 } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import { historyDrawingSky } from '@/features/profile/presentation/history-drawing-sky';
 import type { DressedFor, WeekSummary } from '@/features/recommendation/domain/outfit-history-week';
 import { useMessages } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
@@ -36,9 +37,7 @@ function MostWornLine({ mostWorn }: Readonly<{ mostWorn: NonNullable<WeekSummary
   // none of its days kept colours, as History draws such a day.
   const palette = useMemo<GarmentOutfitPalette>(() => ({
     optionId: `history-week-${mostWorn.garmentTypeId}`,
-    temperatureC: 18,
-    condition: 'cloudy',
-    isNight: false,
+    ...historyDrawingSky,
     formality: type?.formality ?? 'casual',
     pieces: [{
       slot: mostWorn.slot,
