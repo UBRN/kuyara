@@ -119,10 +119,15 @@ function CategoryCell({
   const theme = useKuyaraTheme();
   const label = messages.wardrobe.categoryFilterLabels[category];
   const newest = summary?.newest ?? null;
+  // Only a category holding pieces stands on the garment plate; an empty or loading one keeps
+  // the muted page tile, so in the dark appearance the filled categories and the rack are the
+  // light plates and the empty ones stay dark. In light the two fills are the same colour.
+  const tileColor = summary && summary.count > 0 ? theme.colors.garmentTile : theme.colors.surfaceMuted;
   const tile = (
     <PlateView
-      color={theme.colors.garmentTile}
-      style={[styles.cellTile, { height: CELL_TILE_HEIGHT * scale }]}>
+      color={tileColor}
+      style={[styles.cellTile, { height: CELL_TILE_HEIGHT * scale }]}
+      testID={`profile-category-${category}-tile`}>
       {summary ? (
         <>
           <View style={[styles.cellIcon, { height: CELL_ICON_BOX * scale, width: CELL_ICON_BOX * scale }]}>
@@ -137,7 +142,7 @@ function CategoryCell({
             ) : (
               <GarmentSlotGlyph
                 category={category}
-                color={plateTheme(theme, theme.colors.garmentTile).colors.iconSecondary}
+                color={plateTheme(theme, tileColor).colors.iconSecondary}
                 size={CELL_GLYPH_SIZE * scale}
               />
             )}
