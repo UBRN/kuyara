@@ -1,6 +1,5 @@
-import { z } from 'zod';
+import { offsetIsoInstantSchema } from '@/domain/record-identity';
 
-const offsetDatetime = z.iso.datetime({ offset: true });
 const parts = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$/;
 
 /**
@@ -9,7 +8,7 @@ const parts = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d
  * pull cursor never passes through a millisecond `Date` that could skip or repeat a row.
  */
 export function canonicalServerInstant(value: unknown): string | null {
-  const parsed = offsetDatetime.safeParse(value);
+  const parsed = offsetIsoInstantSchema.safeParse(value);
   const match = parsed.success ? parts.exec(parsed.data) : null;
   if (!match) return null;
   const [, whole, fraction = '', offset] = match;

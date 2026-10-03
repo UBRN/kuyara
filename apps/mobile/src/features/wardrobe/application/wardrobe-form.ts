@@ -1,3 +1,4 @@
+import { isUuidV4 } from '@/domain/record-identity';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import {
   breathabilityLevels,
@@ -287,12 +288,7 @@ export function mapWardrobeUpdateValues(
 }
 
 export function isWardrobeRouteId(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
-  );
+  return typeof value === 'string' && isUuidV4(value);
 }
 
 // The Closet carries its category and the section to reveal into the add flow and back

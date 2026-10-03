@@ -1,3 +1,4 @@
+import { isUuidV4 } from '@/domain/record-identity';
 import { normalizeWardrobePhotoRelativePath } from '@/features/wardrobe/domain/wardrobe-item';
 import { WardrobePhotoValidationError } from '@/features/wardrobe/domain/wardrobe-photo';
 
@@ -7,13 +8,10 @@ export const managedWardrobePhotoDirectorySegments = Object.freeze([
   'photos',
 ] as const);
 
-const managedPhotoPathPattern =
-  /^kuyara\/wardrobe\/photos\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.jpg$/i;
-const uuidV4Pattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const managedPhotoPathPattern = /^kuyara\/wardrobe\/photos\/([^/]+)\.jpg$/i;
 
 export function requireWardrobePhotoUuidV4(value: string): string {
-  if (!uuidV4Pattern.test(value)) {
+  if (!isUuidV4(value)) {
     throw new WardrobePhotoValidationError();
   }
 
@@ -27,7 +25,8 @@ export function createManagedWardrobePhotoRelativePath(id: string): string {
 export function isManagedWardrobePhotoRelativePath(value: string): boolean {
   try {
     const normalized = normalizeWardrobePhotoRelativePath(value);
-    return normalized !== null && managedPhotoPathPattern.test(normalized);
+    const fileId = normalized === null ? undefined : managedPhotoPathPattern.exec(normalized)?.[1];
+    return fileId !== undefined && isUuidV4(fileId);
   } catch {
     return false;
   }

@@ -1,6 +1,8 @@
 import { dressStyleSchema, styleAestheticSchema, type DressStyle, type StyleAesthetic } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { utcIsoTimestampSchema, uuidV4Schema } from '@/domain/record-identity';
+
 export const dressingDayChoiceSourceSchema = z.enum(['morning', 'chip', 'plan', 'random']);
 export type DressingDayChoiceSource = z.infer<typeof dressingDayChoiceSourceSchema>;
 export const dressingDayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}(:evening)?$/);
@@ -43,14 +45,14 @@ export function resolvedFormality(
 
 export function parseDressingDayChoice(value: unknown): DressingDayChoice {
   return z.strictObject({
-    id: z.uuid(),
+    id: uuidV4Schema,
     localProfileId: z.string().min(1),
     dayKey: dressingDayKeySchema,
     formality: dressStyleSchema,
     source: dressingDayChoiceSourceSchema,
     styleAesthetics: dailyStyleAestheticsSchema.nullable(),
-    createdAt: z.iso.datetime(),
-    updatedAt: z.iso.datetime(),
-    deletedAt: z.iso.datetime().nullable(),
+    createdAt: utcIsoTimestampSchema,
+    updatedAt: utcIsoTimestampSchema,
+    deletedAt: utcIsoTimestampSchema.nullable(),
   }).parse(value);
 }
