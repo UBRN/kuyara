@@ -9,9 +9,11 @@ import {
   namePromptDue,
   pendingDayQuestion,
   recommendationCacheState,
+  settledFirstOutfit,
   showsLaterReadyLine,
   styleAestheticsChanged,
   todayOutfitSettled,
+  todayPresentationState,
   todayRetrySucceeded,
   updatingDayType,
 } from './application/today-surface.ts';
@@ -155,4 +157,19 @@ test('a retry succeeds only when both the weather and a recommendation stand', (
   assert.equal(todayRetrySucceeded({ ...readyWeather, freshness: null }, readyRecommendation()), false);
   assert.equal(todayRetrySucceeded(readyWeather, readyRecommendation({ lastFailure: 'offline' })), false);
   assert.equal(todayRetrySucceeded(readyWeather, readyRecommendation({ snapshot: null })), false);
+});
+
+test('an unavailable Today without an active place asks for a place', () => {
+  assert.deepEqual(todayPresentationState({ kind: 'unavailable' }, { ...readyWeather, activeLocation: null }),
+    { kind: 'unavailable', reason: 'no-active-location' });
+  assert.deepEqual(todayPresentationState({ kind: 'unavailable' }, readyWeather), { kind: 'unavailable' });
+  assert.equal(todayPresentationState(todayScreenState, { ...readyWeather, activeLocation: null }), todayScreenState);
+});
+
+test('the settled outfit is the first one made for the current local day', () => {
+  const now = Date.parse('2026-08-13T10:00:00.000Z');
+  const snapshot = { localDayKey: '2026-08-13', recommendation: todayScreenState.snapshot.recommendation };
+  assert.equal(settledFirstOutfit(snapshot, now), todayScreenState.snapshot.recommendation.outfits[0]);
+  assert.equal(settledFirstOutfit({ ...snapshot, localDayKey: '2026-08-12' }, now), null);
+  assert.equal(settledFirstOutfit(null, now), null);
 });

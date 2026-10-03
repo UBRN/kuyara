@@ -21,9 +21,9 @@ import { useSinglePush } from '@/components/ui/use-single-push';
 import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
-import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
 import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
+import { settledFirstOutfit, todayPresentationState } from '@/features/today/application/today-surface';
 import type { TodayScreenState } from '@/features/today/model';
 import {
   FirstGenerationRunway,
@@ -123,10 +123,7 @@ export function TodayScreen(props: TodayScreenProps) {
   const now = useForegroundClock();
   const recommendationState = application?.state.status === 'ready' ? application.state : null;
   const snapshot = recommendationState?.snapshot;
-  const settled = snapshot?.localDayKey === localDayKey(new Date(now))
-    && snapshot.recommendation.status === 'recommended'
-    ? snapshot.recommendation.outfits[0] ?? null
-    : null;
+  const settled = settledFirstOutfit(snapshot, now);
   // The runway draws neutral drafts while the wait runs and receives the chosen outfit
   // once, when the answer is in (N2, O1); skipping makes the device's pick that answer.
   const runwayOutfit = settled;
@@ -242,12 +239,7 @@ function TodayScreenContent({
   const recommendationApplication = use(RecommendationApplicationContext);
   const weatherApplication = useWeatherApplication();
   const { hour12, temperatureUnit } = useLocalization();
-  const presentationState =
-    state.kind === 'unavailable' &&
-    weatherApplication.state.status === 'ready' &&
-    weatherApplication.state.activeLocation === null
-      ? { ...state, reason: 'no-active-location' as const }
-      : state;
+  const presentationState = todayPresentationState(state, weatherApplication.state);
   const presentation = createTodayPresentation(presentationState, language, hour12, temperatureUnit, now);
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
