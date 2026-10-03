@@ -4,6 +4,7 @@ import test from 'node:test';
 import { todayActiveLocation, todayScreenState, todayWeatherSnapshot } from './__tests__/fixtures.ts';
 import {
   alertOfferAfterAccept,
+  alertOfferMessage,
   alertOfferToRender,
   isFirstDressingDay,
   isGenerationRunning,
@@ -23,6 +24,7 @@ import {
   tomorrowStrip,
   updatingDayType,
 } from './application/today-surface.ts';
+import { morningBriefingLocalHour } from '../notifications/domain/morning-briefing.ts';
 import { namePromptVersion } from '../profile/domain/profile.ts';
 
 const readyWeather = Object.freeze({
@@ -223,4 +225,19 @@ test('ask again shows with an outfit on screen unless the alternatives are used 
   assert.equal(showsAskAgain({ id: 'a' }, undefined), true);
   assert.equal(showsAskAgain({ id: 'a' }, true), false);
   assert.equal(showsAskAgain(undefined, false), false);
+});
+
+test('the alert offer says the refused permission hint, a rule sentence or the morning hour', () => {
+  const copy = {
+    permissionDeniedHint: 'denied',
+    offer: {
+      sentences: { precipitation_onset: 'rain', temperature_swing: 'swing' },
+      morningBriefingSentence: (time) => `morning at ${time}`,
+    },
+  };
+  const format = ({ hour, minute }) => `${hour}:${String(minute).padStart(2, '0')}`;
+  assert.equal(alertOfferMessage(copy, true, 'morning_briefing', format), 'denied');
+  assert.equal(alertOfferMessage(copy, false, 'precipitation_onset', format), 'rain');
+  assert.equal(alertOfferMessage(copy, false, 'temperature_swing', format), 'swing');
+  assert.equal(alertOfferMessage(copy, false, 'morning_briefing', format), `morning at ${morningBriefingLocalHour}:00`);
 });
