@@ -1247,3 +1247,27 @@ test('a Worker client does not trim the base URL it is given', () => {
 
   assert.deepEqual(hits, [], 'pass the origin from resolveAppWorkerBaseUrl through unchanged');
 });
+
+// A `JSON.parse(` result is `unknown` until a schema has read it: it is assigned to an
+// `unknown` binding or handed straight to a schema's `parse`. These sites hand the raw result
+// to a typed helper instead; the list is frozen and only shrinks, and a stale count fails.
+const untypedJsonParseAllowlist = {
+  'features/profile/data/profile-repository.ts': 1,
+  'features/recommendation/data/on-device-ai-client.ts': 1,
+  'features/recommendation/data/recommendation-repository.ts': 2,
+  'features/recommendation/data/sqlite-dressing-day-choice-repository.ts': 1,
+  'features/recommendation/data/sqlite-outfit-history-repository.ts': 1,
+};
+
+test('JSON.parse feeds an unknown binding or a schema except where the allowlist names it', () => {
+  const counts = {};
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line) => {
+      if (!line.includes('JSON.parse(')) return;
+      if (/:\s*unknown\s*=\s*JSON\.parse\(|Schema\.parse\(JSON\.parse\(/.test(line)) return;
+      counts[relativePath] = (counts[relativePath] ?? 0) + 1;
+    });
+  }
+
+  assert.deepEqual(counts, untypedJsonParseAllowlist, 'parse the result with a schema at the boundary; the allowlist only shrinks');
+});
