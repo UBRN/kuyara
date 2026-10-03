@@ -4,8 +4,9 @@ import { AppText, Icon, ListRowTile, NativeList, NativeListContentRow, NativeLis
 import type { AccountProvider } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { SyncToneGlyph } from '@/features/account/presentation/account-status';
-import { describeSync, formatSyncTime } from '@/features/account/presentation/account-sync-view';
+import { describeSync } from '@/features/account/presentation/account-sync-view';
 import { useLocalization } from '@/localization/use-messages';
+import { formatClockTime } from '@/presentation/format-clock-time';
 import { spacing } from '@/theme/theme';
 
 const allProviders: readonly AccountProvider[] = ['apple', 'google'];
@@ -23,7 +24,7 @@ export function AccountScreen({ onOpenDelete }: Readonly<{ onOpenDelete: () => v
   const { session } = snapshot;
   if (session.kind !== 'signedIn') return null;
 
-  const sync = describeSync(session, snapshot.online, copy, formatSyncTime(session.lastSyncedAt, language, hour12));
+  const sync = describeSync(session, snapshot.online, copy, formatClockTime(session.lastSyncedAt, language, hour12));
   const confirmSignOut = () => Alert.alert(copy.signOutAlert.title, copy.signOutAlert.body, [
     { style: 'cancel', text: copy.signOutAlert.cancel },
     { onPress: port.signOut, text: copy.signOutAlert.confirm },

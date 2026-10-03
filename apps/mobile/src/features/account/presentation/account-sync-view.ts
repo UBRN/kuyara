@@ -1,6 +1,5 @@
 import type { AccountSession } from '@/features/account/application/account-screens';
-import type { AccountMessages, SupportedLanguage } from '@/localization/messages';
-import { formatClockTime } from '@/presentation/format-clock-time';
+import type { AccountMessages } from '@/localization/messages';
 
 type SignedIn = Extract<AccountSession, { kind: 'signedIn' }>;
 
@@ -18,10 +17,6 @@ export type SyncView = Readonly<{
   /** "Sync now" turns into "Try again" after a failure; it is inactive while nothing can run. */
   action: Readonly<{ label: string; enabled: boolean }>;
 }>;
-
-export function formatSyncTime(iso: string, language: SupportedLanguage, hour12: boolean): string {
-  return formatClockTime(iso, language, hour12);
-}
 
 /** One owner for what the Account screen and the Settings row say about sync (frames 06-08, 21, 22, 34-36). */
 export function describeSync(session: SignedIn, online: boolean, copy: AccountMessages, time: string): SyncView {
