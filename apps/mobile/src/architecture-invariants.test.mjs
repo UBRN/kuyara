@@ -597,6 +597,32 @@ test('UUID v4 and UTC ISO validators are defined only in domain/record-identity.
   assert.deepEqual(copies, [], 'import isUuidV4 or isUtcIsoTimestamp from @/domain/record-identity');
 });
 
+// The same two facts as Zod schemas: a row id is `uuidV4Schema`, a stored client clock is
+// `utcIsoTimestampSchema`, an instant that may carry an offset is `offsetIsoInstantSchema`. Nobody
+// else spells the UUID v4 pattern or builds an id or timestamp schema from `z.uuid()` or
+// `z.iso.datetime()`. The one allowed exception is the Worker's own coverage window, which is a
+// response field and not a stored clock; the allowlist only shrinks.
+const isoDatetimeAllowlist = { 'features/recommendation/data/worker-ai-recommendation-mapper.ts': 2 };
+
+test('row id and timestamp schemas are built only in domain/record-identity.ts', () => {
+  const copies = [];
+  const datetimeCounts = {};
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'domain/record-identity.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\[0-9a-f\]\{8\}-|z\.uuid\(/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+      if (/z\.iso\.datetime\(/.test(line)) datetimeCounts[relativePath] = (datetimeCounts[relativePath] ?? 0) + 1;
+    });
+  }
+
+  assert.deepEqual(copies, [], 'use uuidV4Schema or isUuidV4 from @/domain/record-identity');
+  assert.deepEqual(
+    datetimeCounts,
+    isoDatetimeAllowlist,
+    'use utcIsoTimestampSchema or offsetIsoInstantSchema from @/domain/record-identity; the allowlist only shrinks',
+  );
+});
+
 // The Worker origin variable is read in one place, `config/`, and the app has no web target
 // branch: kuyara ships for iOS and Android only.
 test('the Worker base URL variable is read once, under config/', () => {

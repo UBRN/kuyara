@@ -1,9 +1,9 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
+import { isUuidV4 } from '@/domain/record-identity';
 import type { HistoryPhotoStorage } from '@/features/recommendation/domain/outfit-history';
 import { isManagedHistoryPhotoPath } from '@/features/recommendation/data/history-photo-path';
 
-const uuidV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const photoDirectory = ['kuyara', 'history', 'photos'] as const;
 
 export class ExpoHistoryPhotoStorage implements HistoryPhotoStorage {
@@ -14,7 +14,7 @@ export class ExpoHistoryPhotoStorage implements HistoryPhotoStorage {
   async copyStaged(stagedUri: string): Promise<string> {
     const source = this.requireStaged(stagedUri);
     const id = this.createId();
-    if (!uuidV4.test(id)) throw new Error('Invalid history photo identifier.');
+    if (!isUuidV4(id)) throw new Error('Invalid history photo identifier.');
     const relativePath = `${photoDirectory.join('/')}/${id.toLowerCase()}.jpg`;
     const directory = new Directory(Paths.document, ...photoDirectory);
     directory.create({ idempotent: true, intermediates: true });

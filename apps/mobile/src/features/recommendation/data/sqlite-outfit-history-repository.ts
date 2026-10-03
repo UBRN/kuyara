@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { utcIsoTimestampSchema, uuidV4Schema } from '@/domain/record-identity';
 import {
   bareHistoryDayKeySchema,
   wornOutfitSchema,
@@ -20,7 +21,6 @@ type Row = Readonly<{
   updated_at: string; deleted_at: string | null;
 }>;
 
-const uuidV4 = z.uuid().refine((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 const columns = `id, local_profile_id, day_key, outfit_json, piece_colors_json, photo_path, worn_at,
   created_at, updated_at, deleted_at`;
 
@@ -50,16 +50,16 @@ function storedPieceColors(outfit: WornOutfit, json: string | null): WornPieceCo
 function mapRow(row: Row): OutfitHistoryRecord {
   const outfit = wornOutfitSchema.parse(JSON.parse(row.outfit_json));
   return {
-    id: uuidV4.parse(row.id),
+    id: uuidV4Schema.parse(row.id),
     localProfileId: z.string().min(1).parse(row.local_profile_id),
     dayKey: bareHistoryDayKeySchema.parse(row.day_key),
     outfit,
     pieceColors: storedPieceColors(outfit, row.piece_colors_json),
     photoPath: row.photo_path === null || isManagedHistoryPhotoPath(row.photo_path) ? row.photo_path : null,
-    wornAt: z.iso.datetime().parse(row.worn_at),
-    createdAt: z.iso.datetime().parse(row.created_at),
-    updatedAt: z.iso.datetime().parse(row.updated_at),
-    deletedAt: z.iso.datetime().nullable().parse(row.deleted_at),
+    wornAt: utcIsoTimestampSchema.parse(row.worn_at),
+    createdAt: utcIsoTimestampSchema.parse(row.created_at),
+    updatedAt: utcIsoTimestampSchema.parse(row.updated_at),
+    deletedAt: utcIsoTimestampSchema.nullable().parse(row.deleted_at),
   };
 }
 
@@ -138,7 +138,7 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
     // Colours that do not fit the outfit are not stored: the day is still recorded, drawn in
     // the fixed scheme. A new outfit for the day always replaces the old outfit's colours.
     const colors = pieceColors === null ? null : wornPieceColorsFor(validated, pieceColors);
-    const timestamp = z.iso.datetime().parse(this.now());
+    const timestamp = utcIsoTimestampSchema.parse(this.now());
     const copied = photo.kind === 'replace' ? await this.photos.copyStaged(photo.stagedUri) : null;
     if (copied !== null && !isManagedHistoryPhotoPath(copied)) {
       await this.photos.deleteStored(copied);
@@ -160,7 +160,7 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
             photo_path = excluded.photo_path,
             worn_at = excluded.worn_at, updated_at = excluded.updated_at, deleted_at = NULL,
             pending_sync = 1`,
-        [uuidV4.parse(this.createId()), profileId, dayKey, JSON.stringify(validated),
+        [uuidV4Schema.parse(this.createId()), profileId, dayKey, JSON.stringify(validated),
           colors === null ? null : JSON.stringify(colors), nextPath,
           timestamp, timestamp, timestamp]);
         outcome.result = await read(transaction, profileId, dayKey);
@@ -183,7 +183,7 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
 
   async softDelete(profileId: string, dayKey: string): Promise<boolean> {
     bareHistoryDayKeySchema.parse(dayKey);
-    const now = z.iso.datetime().parse(this.now());
+    const now = utcIsoTimestampSchema.parse(this.now());
     let oldPhotoPath: string | null = null;
     let changed = false;
     await this.db.withExclusiveTransactionAsync(async (transaction) => {

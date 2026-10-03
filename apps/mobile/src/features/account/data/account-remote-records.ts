@@ -1,7 +1,7 @@
 import { dressStyleSchema } from '@kuyara/contracts';
 import { z } from 'zod';
 
-import { isUuidV4 } from '@/domain/record-identity';
+import { offsetIsoInstantSchema, uuidV4Schema } from '@/domain/record-identity';
 import {
   breathabilitySchema,
   colorFamilySchema,
@@ -100,8 +100,7 @@ export type RemoteOutfitHistoryUpload = Readonly<{
 // What a pull returns is untrusted. Columns a newer server adds are ignored; a value this build
 // does not know (an enum member, a catalog id) fails the schema, and the row is refused. The
 // client clocks come back in Postgres form and are read as the instant they name.
-const rowId = z.string().refine(isUuidV4);
-const clock = z.iso.datetime({ offset: true }).transform((value) => new Date(value).toISOString());
+const clock = offsetIsoInstantSchema.transform((value) => new Date(value).toISOString());
 const serverInstant = z.string().transform((value, context) => {
   const canonical = canonicalServerInstant(value);
   if (canonical === null) context.addIssue({ code: 'custom', message: 'Invalid server instant.' });
@@ -121,7 +120,7 @@ export const remoteProfileRowSchema = z.object({
 });
 
 export const remoteWardrobeItemRowSchema = z.object({
-  id: rowId,
+  id: uuidV4Schema,
   name: optionalText,
   category: structuralCategorySchema,
   entry_state: wardrobeEntryStateSchema,
@@ -144,7 +143,7 @@ export const remoteWardrobeItemRowSchema = z.object({
 });
 
 export const remoteDressingDayChoiceRowSchema = z.object({
-  id: rowId,
+  id: uuidV4Schema,
   day_key: dressingDayKeySchema,
   formality: dressStyleSchema,
   source: dressingDayChoiceSourceSchema,
@@ -156,7 +155,7 @@ export const remoteDressingDayChoiceRowSchema = z.object({
 });
 
 export const remoteDressingDayDepartureRowSchema = z.object({
-  id: rowId,
+  id: uuidV4Schema,
   day_key: dressingDayKeySchema,
   departure_at: clock,
   time_zone: departureTimeZoneSchema,
@@ -167,7 +166,7 @@ export const remoteDressingDayDepartureRowSchema = z.object({
 });
 
 export const remoteOutfitHistoryRowSchema = z.object({
-  id: rowId,
+  id: uuidV4Schema,
   day_key: bareHistoryDayKeySchema,
   outfit_json: wornOutfitSchema,
   // Display colours only: an unreadable value draws the day in the fixed scheme instead of
