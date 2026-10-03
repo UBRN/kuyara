@@ -1,3 +1,4 @@
+import { placeSearchQueryMaxLength } from '@kuyara/contracts';
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
@@ -212,7 +213,7 @@ export function LocationSelectionControls({
         ) : null}
         <NativeTextField
           label={copy.placeSearchLabel}
-          maxLength={100}
+          maxLength={placeSearchQueryMaxLength}
           onChangeText={setQuery}
           placeholder={copy.placeSearchPlaceholder}
           testID={`${testIDPrefix}-place-search`}

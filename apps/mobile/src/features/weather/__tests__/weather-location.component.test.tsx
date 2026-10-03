@@ -2,7 +2,7 @@ import { act, fireEvent, isHiddenFromAccessibility, render, within } from '@test
 import type { PropsWithChildren } from 'react';
 import { AccessibilityInfo, Keyboard, StyleSheet, Text } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
-import type { PlaceSearchV1Data } from '@kuyara/contracts';
+import { placeSearchQueryMaxLength, type PlaceSearchV1Data } from '@kuyara/contracts';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
@@ -96,6 +96,7 @@ test.each(['tr', 'en'] as const)('%s picker searches, attributes results and sel
   expect(result.getByTestId('weather-location-controls')).toBeOnTheScreen();
   const field = result.getByLabelText(copy.placeSearchLabel);
   expect(field.props.placeholder).toBe(copy.placeSearchPlaceholder);
+  expect(field.props.maxLength).toBe(placeSearchQueryMaxLength);
   await fireEvent.changeText(field, 'I'); await debounce();
   expect(search.searchPlaces).not.toHaveBeenCalled();
   await fireEvent.changeText(field, ' Ista ');
