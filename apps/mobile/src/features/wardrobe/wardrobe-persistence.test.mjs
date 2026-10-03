@@ -1136,6 +1136,43 @@ test('repository rejects invalid stored data without exposing persistence detail
   );
 });
 
+test('seeding an empty Closet creates every piece in one transaction, each marked pending sync, and a second call adds nothing', async (t) => {
+  const { database, repository } = await createRepository(t);
+  const inputs = [
+    { garmentTypeId: 'rain_jacket', colorFamily: 'blue', entryState: 'owned' },
+    { garmentTypeId: 't_shirt', entryState: 'owned' },
+  ];
+
+  const created = await repository.createItemsIfEmpty(profileId, inputs);
+  assert.deepEqual(created.map((item) => item.garmentTypeId), ['rain_jacket', 't_shirt']);
+  assert.equal(created.every((item) => item.localProfileId === profileId), true);
+  const rows = await database.getAllAsync('SELECT pending_sync FROM wardrobe_items');
+  assert.deepEqual(rows.map((row) => row.pending_sync), [1, 1]);
+
+  assert.deepEqual(await repository.createItemsIfEmpty(profileId, inputs), []);
+  assert.equal((await repository.listActiveItems(profileId)).length, 2);
+});
+
+test('seeding leaves zero new rows when an insert in the middle fails', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await migrateDatabase(database);
+  await insertProfile(database);
+  const ids = [itemIds[0], itemIds[1], itemIds[1]];
+  let index = 0;
+  const repository = new LocalWardrobeRepository(new SqliteWardrobeLocalDataSource(database), {
+    createId: () => ids[index++],
+    now: () => createdAt,
+  });
+  const inputs = ['rain_jacket', 't_shirt', 'rain_boots'].map((garmentTypeId) => ({ garmentTypeId }));
+
+  await assert.rejects(
+    () => repository.createItemsIfEmpty(profileId, inputs),
+    assertRepositoryError('unavailable'),
+  );
+  assert.equal((await database.getAllAsync('SELECT id FROM wardrobe_items')).length, 0);
+});
+
 test('repository sanitizes SQLite failures and does not leak wardrobe content or paths', async () => {
   const failingRepository = new LocalWardrobeRepository({
     createItem: async () => {

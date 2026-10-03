@@ -26,6 +26,15 @@ export type UpdateWardrobeItemRecord = Readonly<{
 
 export interface WardrobeLocalDataSource {
   createItem(record: CreateWardrobeItemRecord): Promise<WardrobeItemRecord>;
+  /**
+   * Inserts every record in one transaction, but only while the profile has no active item,
+   * read inside that same transaction. Resolves with the inserted records, or none when the
+   * profile already had one. Any failure rolls the whole batch back.
+   */
+  createItemsIfEmpty(
+    localProfileId: string,
+    records: readonly CreateWardrobeItemRecord[],
+  ): Promise<WardrobeItemRecord[]>;
   getActiveItem(localProfileId: string, id: string): Promise<WardrobeItemRecord | null>;
   getItemIncludingDeleted(
     localProfileId: string,

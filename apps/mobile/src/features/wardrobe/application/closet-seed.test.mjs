@@ -31,25 +31,28 @@ function memoryRepository() {
     items,
     async listActiveItems() { return [...items]; },
     async listPendingPhotoCleanup() { return []; },
-    async createItem(input) {
+    async createItemsIfEmpty(localProfileId, inputs) {
       calls.create += 1;
-      next += 1;
-      const at = `2026-10-02T10:00:0${next}.000Z`;
-      const item = {
-        id: `00000000-0000-4000-8000-00000000000${next}`, localProfileId: input.localProfileId, name: null,
-        category: 'top', entryState: input.entryState ?? 'owned', color: null, photoRelativePath: null,
-        garmentTypeId: input.garmentTypeId, colorFamily: input.colorFamily ?? null, colorChoice: null,
-        thermalLevelOverride: null, waterProtectionOverride: null, windProtectionOverride: null,
-        breathabilityOverride: null, armCoverageOverride: null, legCoverageOverride: null,
-        tractionSuitabilityOverride: null, createdAt: at, updatedAt: at, deletedAt: null,
-      };
-      items.push(item);
-      return item;
+      if (items.length > 0) return [];
+      return inputs.map((input) => {
+        next += 1;
+        const at = `2026-10-02T10:00:0${next}.000Z`;
+        const item = {
+          id: `00000000-0000-4000-8000-00000000000${next}`, localProfileId, name: null,
+          category: 'top', entryState: input.entryState ?? 'owned', color: null, photoRelativePath: null,
+          garmentTypeId: input.garmentTypeId, colorFamily: input.colorFamily ?? null, colorChoice: null,
+          thermalLevelOverride: null, waterProtectionOverride: null, windProtectionOverride: null,
+          breathabilityOverride: null, armCoverageOverride: null, legCoverageOverride: null,
+          tractionSuitabilityOverride: null, createdAt: at, updatedAt: at, deletedAt: null,
+        };
+        items.push(item);
+        return item;
+      });
     },
   };
 }
 
-test('seeding an empty Closet creates every piece through the repository in one change', async () => {
+test('seeding an empty Closet creates every piece through one repository call', async () => {
   const repository = memoryRepository();
   const controller = new WardrobeApplicationController(profileId, async () => repository);
   await controller.initialize();
@@ -80,6 +83,6 @@ test('a second seed, concurrent or later, never duplicates the pieces', async ()
   await assert.rejects(controller.seedEmptyCloset(inputs), /already in progress/);
   assert.equal((await first).length, 1);
   assert.deepEqual(await controller.seedEmptyCloset(inputs), []);
-  assert.equal(repository.calls.create, 1);
+  assert.equal(repository.calls.create, 2);
   assert.equal(repository.items.length, 1);
 });

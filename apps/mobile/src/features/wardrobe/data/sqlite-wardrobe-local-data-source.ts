@@ -103,6 +103,74 @@ async function readItem(
   return row ? mapRow(row) : null;
 }
 
+async function insertItem(
+  database: SqliteExecutor,
+  record: CreateWardrobeItemRecord,
+): Promise<WardrobeItemRecord> {
+  const result = await database.runAsync(
+    `
+      INSERT INTO wardrobe_items (
+        id,
+        local_profile_id,
+        name,
+        category,
+        entry_state,
+        garment_type_id,
+        color,
+        color_family,
+        color_option_id,
+        color_custom_hex,
+        thermal_level_override,
+        water_protection_override,
+        wind_protection_override,
+        breathability_override,
+        arm_coverage_override,
+        leg_coverage_override,
+        traction_suitability_override,
+        photo_relative_path,
+        created_at,
+        updated_at,
+        deleted_at,
+        pending_sync
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `,
+    [
+      record.id,
+      record.localProfileId,
+      record.name,
+      record.category,
+      record.entryState,
+      record.garmentTypeId,
+      record.color,
+      record.colorFamily,
+      record.colorOptionId,
+      record.colorCustomHex,
+      record.thermalLevelOverride,
+      record.waterProtectionOverride,
+      record.windProtectionOverride,
+      record.breathabilityOverride,
+      record.armCoverageOverride,
+      record.legCoverageOverride,
+      record.tractionSuitabilityOverride,
+      record.photoRelativePath,
+      record.createdAt,
+      record.updatedAt,
+      record.deletedAt,
+    ],
+  );
+
+  if (result.changes !== 1) {
+    throw new WardrobeDataSourceError('write-failed');
+  }
+
+  const created = await readItem(database, record.localProfileId, record.id, true);
+  if (!created) {
+    throw new WardrobeDataSourceError('write-failed');
+  }
+
+  return created;
+}
+
 export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
   private readonly database: SqliteDatabase;
 
@@ -114,73 +182,35 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
     let created: WardrobeItemRecord | null = null;
 
     await this.database.withExclusiveTransactionAsync(async (transaction) => {
-      const result = await transaction.runAsync(
-        `
-          INSERT INTO wardrobe_items (
-            id,
-            local_profile_id,
-            name,
-            category,
-            entry_state,
-            garment_type_id,
-            color,
-            color_family,
-            color_option_id,
-            color_custom_hex,
-            thermal_level_override,
-            water_protection_override,
-            wind_protection_override,
-            breathability_override,
-            arm_coverage_override,
-            leg_coverage_override,
-            traction_suitability_override,
-            photo_relative_path,
-            created_at,
-            updated_at,
-            deleted_at,
-            pending_sync
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-        `,
-        [
-          record.id,
-          record.localProfileId,
-          record.name,
-          record.category,
-          record.entryState,
-          record.garmentTypeId,
-          record.color,
-          record.colorFamily,
-          record.colorOptionId,
-          record.colorCustomHex,
-          record.thermalLevelOverride,
-          record.waterProtectionOverride,
-          record.windProtectionOverride,
-          record.breathabilityOverride,
-          record.armCoverageOverride,
-          record.legCoverageOverride,
-          record.tractionSuitabilityOverride,
-          record.photoRelativePath,
-          record.createdAt,
-          record.updatedAt,
-          record.deletedAt,
-        ],
-      );
-
-      if (result.changes !== 1) {
-        throw new WardrobeDataSourceError('write-failed');
-      }
-
-      created = await readItem(
-        transaction,
-        record.localProfileId,
-        record.id,
-        true,
-      );
+      created = await insertItem(transaction, record);
     });
 
     if (!created) {
       throw new WardrobeDataSourceError('write-failed');
     }
+
+    return created;
+  }
+
+  async createItemsIfEmpty(
+    localProfileId: string,
+    records: readonly CreateWardrobeItemRecord[],
+  ): Promise<WardrobeItemRecord[]> {
+    const created: WardrobeItemRecord[] = [];
+
+    await this.database.withExclusiveTransactionAsync(async (transaction) => {
+      const existing = await transaction.getFirstAsync<{ id: string }>(
+        'SELECT id FROM wardrobe_items WHERE local_profile_id = ? AND deleted_at IS NULL LIMIT 1',
+        [localProfileId],
+      );
+      if (existing) {
+        return;
+      }
+
+      for (const record of records) {
+        created.push(await insertItem(transaction, record));
+      }
+    });
 
     return created;
   }

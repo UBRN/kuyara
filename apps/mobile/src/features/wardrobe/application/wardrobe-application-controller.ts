@@ -147,21 +147,14 @@ export class WardrobeApplicationController {
   }
 
   /**
-   * Adds the given pieces to an empty Closet in one change, each as a new record through
-   * the repository's ordinary create path. The emptiness is read again from the repository
-   * inside the change, so a second call (a double tap, a stale screen) finds the Closet no
-   * longer empty and adds nothing. Resolves with the records it created.
+   * Adds the given pieces to an empty Closet in one database transaction: every piece is
+   * created or none is. The repository reads the emptiness inside that transaction, so a
+   * second call (a double tap, a stale screen) finds the Closet no longer empty and adds
+   * nothing. Resolves with the records it created.
    */
   seedEmptyCloset(inputs: readonly CreateInput[]): Promise<readonly WardrobeItem[]> {
     return this.mutate(
-      async (repository) => {
-        if ((await repository.listActiveItems(this.localProfileId)).length > 0) return [];
-        const created: WardrobeItem[] = [];
-        for (const input of inputs) {
-          created.push(await repository.createItem({ ...input, localProfileId: this.localProfileId }));
-        }
-        return created;
-      },
+      (repository) => repository.createItemsIfEmpty(this.localProfileId, inputs),
       (items, created) => this.sortItems([...created, ...items]),
     );
   }

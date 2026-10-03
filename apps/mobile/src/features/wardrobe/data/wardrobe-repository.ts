@@ -25,7 +25,10 @@ import {
   WardrobeItemMappingError,
 } from '@/features/wardrobe/data/wardrobe-item-mapper';
 import type { WardrobeItemRecord } from '@/features/wardrobe/data/wardrobe-item-record';
-import type { WardrobeLocalDataSource } from '@/features/wardrobe/data/wardrobe-local-data-source';
+import type {
+  CreateWardrobeItemRecord,
+  WardrobeLocalDataSource,
+} from '@/features/wardrobe/data/wardrobe-local-data-source';
 import {
   colorChoiceFamily,
   normalizeClosetColorChoice,
@@ -86,6 +89,15 @@ type MutableWardrobeFields = Readonly<{
 
 export interface WardrobeRepository {
   createItem(input: CreateWardrobeItemInput): Promise<WardrobeItem>;
+  /**
+   * Creates every input in one transaction, but only while the profile has no active item,
+   * read inside that transaction. Resolves with the created items, or none when the Closet
+   * was not empty. Any failure leaves nothing behind.
+   */
+  createItemsIfEmpty(
+    localProfileId: string,
+    inputs: readonly Omit<CreateWardrobeItemInput, 'localProfileId'>[],
+  ): Promise<WardrobeItem[]>;
   getActiveItem(localProfileId: string, id: string): Promise<WardrobeItem | null>;
   getItemIncludingDeleted(localProfileId: string, id: string): Promise<WardrobeItem | null>;
   listActiveItems(localProfileId: string): Promise<WardrobeItem[]>;
@@ -389,40 +401,22 @@ export class LocalWardrobeRepository implements WardrobeRepository {
 
   createItem(input: CreateWardrobeItemInput): Promise<WardrobeItem> {
     return this.execute(async () => {
-      const localProfileId = requireIdentifier(input.localProfileId);
-      const id = this.dependencies.createId();
-      const now = requireTimestamp(this.dependencies.now());
+      const record = await this.dataSource.createItem(this.newItemRecord(input));
+      return this.mapScopedRecord(record, input.localProfileId, false);
+    });
+  }
 
-      if (!isUuidV4(id)) {
-        throw new WardrobeItemValidationError();
-      }
-
-      const fields = mutableFieldsFromCreate(input);
-      const record = await this.dataSource.createItem({
-        id,
-        localProfileId,
-        name: fields.name,
-        category: mapWardrobeCategoryToRecord(fields.category),
-        entryState: fields.entryState,
-        garmentTypeId: fields.garmentTypeId,
-        color: fields.color,
-        colorFamily: fields.colorFamily,
-        colorOptionId: fields.colorChoice?.kind === 'option' ? fields.colorChoice.id : null,
-        colorCustomHex: fields.colorChoice?.kind === 'custom' ? fields.colorChoice.hex : null,
-        thermalLevelOverride: fields.thermalLevelOverride,
-        waterProtectionOverride: fields.waterProtectionOverride,
-        windProtectionOverride: fields.windProtectionOverride,
-        breathabilityOverride: fields.breathabilityOverride,
-        armCoverageOverride: fields.armCoverageOverride,
-        legCoverageOverride: fields.legCoverageOverride,
-        tractionSuitabilityOverride: fields.tractionSuitabilityOverride,
-        photoRelativePath: fields.photoRelativePath,
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null,
-      });
-
-      return this.mapScopedRecord(record, localProfileId, false);
+  createItemsIfEmpty(
+    localProfileId: string,
+    inputs: readonly Omit<CreateWardrobeItemInput, 'localProfileId'>[],
+  ): Promise<WardrobeItem[]> {
+    return this.execute(async () => {
+      const profileId = requireIdentifier(localProfileId);
+      const records = inputs.map((input) =>
+        this.newItemRecord({ ...input, localProfileId: profileId }),
+      );
+      const created = await this.dataSource.createItemsIfEmpty(profileId, records);
+      return created.map((record) => this.mapScopedRecord(record, profileId, false));
     });
   }
 
@@ -594,6 +588,41 @@ export class LocalWardrobeRepository implements WardrobeRepository {
     }
 
     return item;
+  }
+
+  private newItemRecord(input: CreateWardrobeItemInput): CreateWardrobeItemRecord {
+    const localProfileId = requireIdentifier(input.localProfileId);
+    const id = this.dependencies.createId();
+    const now = requireTimestamp(this.dependencies.now());
+
+    if (!isUuidV4(id)) {
+      throw new WardrobeItemValidationError();
+    }
+
+    const fields = mutableFieldsFromCreate(input);
+    return {
+      id,
+      localProfileId,
+      name: fields.name,
+      category: mapWardrobeCategoryToRecord(fields.category),
+      entryState: fields.entryState,
+      garmentTypeId: fields.garmentTypeId,
+      color: fields.color,
+      colorFamily: fields.colorFamily,
+      colorOptionId: fields.colorChoice?.kind === 'option' ? fields.colorChoice.id : null,
+      colorCustomHex: fields.colorChoice?.kind === 'custom' ? fields.colorChoice.hex : null,
+      thermalLevelOverride: fields.thermalLevelOverride,
+      waterProtectionOverride: fields.waterProtectionOverride,
+      windProtectionOverride: fields.windProtectionOverride,
+      breathabilityOverride: fields.breathabilityOverride,
+      armCoverageOverride: fields.armCoverageOverride,
+      legCoverageOverride: fields.legCoverageOverride,
+      tractionSuitabilityOverride: fields.tractionSuitabilityOverride,
+      photoRelativePath: fields.photoRelativePath,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    };
   }
 
   private async execute<Result>(operation: () => Promise<Result>): Promise<Result> {
