@@ -931,18 +931,7 @@ export type AccountMessages = Readonly<{
     done: string;
   }>;
   deleted: Readonly<{ title: string; gone: ByProvider; stay: string; done: string }>;
-  /** The sheet that cannot be swiped away when a different account signs in (ADR 0041 section 6). */
-  switchAccount: Readonly<{
-    title: string;
-    body: string;
-    holds: (pieces: number, days: number) => string;
-    pending: (pending: number) => string;
-    add: string;
-    addHint: string;
-    dontAdd: string;
-    dontAddHint: string;
-  }>;
-  /** The result sheet after the first link merges this phone and the account (ADR 0041 section 4). */
+  /** The result sheet after a link merges this phone and the account, first or different (ADR 0041 sections 4 and 6). */
   merge: Readonly<{
     title: string;
     closet: (added: number, received: number) => string;
@@ -2090,23 +2079,12 @@ const en = {
       stay: 'What you see in kuyara stays, and kuyara keeps working without an account.',
       done: 'Done',
     },
-    switchAccount: {
-      title: 'Add this Closet and History to this account?',
-      body: 'kuyara was last signed in to a different account on this phone.',
-      holds: (pieces: number, days: number) => `Your Closet has ${enPieces(pieces)} and your History ${enDays(days)}.`,
-      pending: (pending: number) =>
-        `${enChanges(pending)} from the other account ${pending === 1 ? 'has' : 'have'} not synced yet. Don’t add loses ${pending === 1 ? 'it' : 'them'}.`,
-      add: 'Add',
-      addHint: 'They join this account. The other account keeps what it already has.',
-      dontAdd: 'Don’t add',
-      dontAddHint: 'kuyara shows only this account’s Closet and History.',
-    },
     merge: {
       title: 'Your Closet and History are together',
       closet: (added: number, received: number) =>
-        `${enPieces(added)} joined your account, and ${enPieces(received)} from your account joined your Closet.`,
+        `${enPieces(added)} from this phone joined your account, and ${enPieces(received)} from your account joined your Closet.`,
       history: (added: number, received: number) =>
-        `${enDays(added)} joined your account, and ${enDays(received)} from your account joined your History.`,
+        `${enDays(added)} from this phone joined your account, and ${enDays(received)} from your account joined your History.`,
       rule: 'Where both had the same piece or the same day, your account’s copy was kept.',
       duplicates: 'A piece added separately on two phones can show twice. You can delete one in Closet.',
       openCloset: 'Open Closet',
@@ -3225,22 +3203,12 @@ const tr = {
       stay: 'kuyara’da gördüklerin kalır ve kuyara hesapsız çalışmaya devam eder.',
       done: 'Bitti',
     },
-    switchAccount: {
-      title: 'Bu Gardırop ve Geçmiş bu hesaba eklensin mi?',
-      body: 'Bu telefonda en son başka bir hesapla giriş yapılmıştı.',
-      holds: (pieces: number, days: number) => `Gardırobunda ${pieces} parça, Geçmişinde ${days} gün var.`,
-      pending: (pending: number) => `Diğer hesabın ${pending} değişikliği henüz eşitlenmedi. Eklemezsen kaybolur.`,
-      add: 'Ekle',
-      addHint: 'Bu hesaba katılırlar. Diğer hesap zaten aldıklarını korur.',
-      dontAdd: 'Ekleme',
-      dontAddHint: 'kuyara yalnız bu hesabın Gardırobunu ve Geçmişini gösterir.',
-    },
     merge: {
       title: 'Gardırobun ve Geçmişin birleşti',
       closet: (added: number, received: number) =>
-        `Hesabına ${added} parça katıldı, hesabından Gardırobuna ${received} parça geldi.`,
+        `Bu telefondan hesabına ${added} parça katıldı, hesabından Gardırobuna ${received} parça geldi.`,
       history: (added: number, received: number) =>
-        `Hesabına ${added} gün katıldı, hesabından Geçmişine ${received} gün geldi.`,
+        `Bu telefondan hesabına ${added} gün katıldı, hesabından Geçmişine ${received} gün geldi.`,
       rule: 'Aynı parça ya da aynı gün iki tarafta da varsa hesabındaki korundu.',
       duplicates: 'İki telefonda ayrı ayrı eklenen bir parça iki kez görünebilir. Birini Gardırobundan silebilirsin.',
       openCloset: 'Gardırobu aç',

@@ -93,7 +93,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 - Signing out keeps everything on the phone, and kuyara continues without an account.
 - If there is a connection, pending changes upload before sign-out. Without one, sign-out still proceeds and the flags remain. Signing back in with the same account syncs silently.
-- Signing in with a different account asks, on a sheet that cannot be swiped away, whether the previous Closet and History should be added to this account, with two equally weighted options. "Add" adds the rows to the new account (the synced copy also stays in the previous account). "Don't add" shows only the new account's data on the phone and removes the previous rows locally. Because unsynced changes are lost with "Don't add", the sheet also states the number of pending changes when there are any.
+- Signing in with an account other than the one this phone was last linked to asks nothing: the phone links to it the way a first link does (sections 3 and 4). This phone's Closet and History, including changes the previous account had not synced yet, are added to the new account and merged with what it holds, and the merge result sheet states how many pieces and days came from this phone. The previous account keeps what it already received, and nothing on the phone is removed.
 - The session is deleted locally; an issued access token stays valid until it expires.
 - After sign-out, Settings shows a neutral information row under the Account group. It disappears on the next visit to Settings, and the ordinary benefit footnote returns.
 

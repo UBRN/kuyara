@@ -10,45 +10,19 @@ export type AccountLink = Readonly<{
 
 export const unlinked: AccountLink = { userId: null, lastUserId: null, cursor: null };
 
-export type DifferentAccountChoice = 'add' | 'dont-add';
+export type SignInOutcome = Readonly<{
+  link: AccountLink;
+  /**
+   * `resume` continues from the cursor for the account this phone was last linked to. Any other
+   * account, the first or a different one, takes `first-link`: it pulls and merges from the
+   * beginning, so this phone's Closet and History, unsynced changes included, join it.
+   */
+  sync: 'first-link' | 'resume';
+}>;
 
-export type SignInOutcome =
-  /** A different account than last time: the sheet asks, stating how many changes are waiting. */
-  | Readonly<{ kind: 'choose-for-previous-rows'; pendingCount: number }>
-  | Readonly<{
-    kind: 'linked';
-    link: AccountLink;
-    /** `first-link` pulls and merges from the beginning before uploading; `resume` continues from the cursor. */
-    sync: 'first-link' | 'resume';
-    /** `remove` deletes the previous account's Closet and History rows on the phone. */
-    previousRows: 'keep' | 'remove';
-  }>;
-
-export function signIn(
-  link: AccountLink,
-  userId: string,
-  pendingCount: number,
-  choice: DifferentAccountChoice | null,
-): SignInOutcome {
-  if (link.lastUserId === userId) {
-    return {
-      kind: 'linked',
-      link: { userId, lastUserId: userId, cursor: link.cursor },
-      sync: 'resume',
-      previousRows: 'keep',
-    };
-  }
-  const fromTheBeginning: AccountLink = { userId, lastUserId: userId, cursor: null };
-  if (link.lastUserId === null) {
-    return { kind: 'linked', link: fromTheBeginning, sync: 'first-link', previousRows: 'keep' };
-  }
-  if (choice === null) return { kind: 'choose-for-previous-rows', pendingCount };
-  return {
-    kind: 'linked',
-    link: fromTheBeginning,
-    sync: 'first-link',
-    previousRows: choice === 'add' ? 'keep' : 'remove',
-  };
+export function signIn(link: AccountLink, userId: string): SignInOutcome {
+  if (link.lastUserId === userId) return { link: { ...link, userId }, sync: 'resume' };
+  return { link: { userId, lastUserId: userId, cursor: null }, sync: 'first-link' };
 }
 
 /** Signing out keeps everything on the phone, including the flags, the last user and the cursor. */
