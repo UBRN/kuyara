@@ -1,41 +1,21 @@
-import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Link, type Href } from 'expo-router';
-import { RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedRef,
-  useAnimatedStyle,
-  useScrollOffset,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { use, useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { RefreshControl, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 import type { DressStyle } from '@kuyara/contracts';
 
 import {
   AppText,
   Button,
   ButtonPair,
-  Crossfade,
   Entrance,
-  fadeEasing,
-  fadeTo,
-  GarmentBoard,
-  GarmentDrawing,
   haptics,
   Icon,
-  PressScale,
-  measureGarmentBoardHeight,
-  Pill,
   Presence,
-  useGarmentRoles,
   Screen,
-  ScrollDepth,
-  Surface,
   useRefreshOutcomeHaptics,
   useTextScaling,
 } from '@/components/ui';
-import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
 import { useLaunchReveal } from '@/components/ui/launch-curtain';
-import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useSinglePush } from '@/components/ui/use-single-push';
 import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
@@ -45,11 +25,30 @@ import { localDayKey } from '@/features/recommendation/application/recommendatio
 import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import type { TodayScreenState } from '@/features/today/model';
-import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
 import {
   FirstGenerationRunway,
   type RunwayHandoffTarget,
 } from '@/features/today/presentation/first-generation-runway';
+import { TodayAlternates, TomorrowStrip } from '@/features/today/presentation/today-alternates';
+import { TodayHeader } from '@/features/today/presentation/today-header';
+import {
+  TodayFeedbackCard,
+  TodayLoadingContent,
+  TodayNoOutfit,
+} from '@/features/today/presentation/today-interludes';
+import {
+  ArrivesAfterHandoff,
+  HandoffHoldContext,
+  ProvenanceBadge,
+  type GenerationMode,
+} from '@/features/today/presentation/today-motion';
+import {
+  STAGE_RADIUS,
+  TodayOutfit,
+  type OutfitDetailLink,
+  type StageOutfit,
+} from '@/features/today/presentation/today-outfit';
+import { TodayFreshness, TodayOutfitNotes } from '@/features/today/presentation/today-outfit-notes';
 import {
   createTodayPresentation,
   createTomorrowPreviewPresentation,
@@ -57,12 +56,8 @@ import {
   outfitBoardPieces,
   outfitGarmentPalette,
   runwayWeather,
-  type LoadedOutfitPresentation,
-  type LoadedTodayPresentation,
-  type TomorrowPreviewPresentation,
 } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
-import { TitleWeatherSymbol } from '@/features/today/presentation/title-weather-symbol';
 import { formatWallClockTime } from '@/presentation/format-clock-time';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
@@ -70,26 +65,14 @@ import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { radii, spacing } from '@/theme/theme';
-import { easierToSee as easierToSeeValues, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
-import { DarkPlate, OnPlate } from '@/theme/plate-theme';
+import { spacing } from '@/theme/theme';
+import { useEasierToSee } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
-
-type GenerationMode = NonNullable<LoadedTodayPresentation['generationMode']>;
-type StageOutfit = Pick<LoadedOutfitPresentation, 'id' | 'boardPieces' | 'palette'> & Readonly<{ replaced: boolean }>;
 
 // Law 5's escalation point, for the generic line alone. A narrated wait says what it is
 // doing, so it never needs the escalation; past this the unnarrated line has stopped being
 // informative on its own.
 const LONG_WAIT_MS = 8_000;
-// Law 6: a drawing beside caption text is drawn at the caption's 16 points, cropped to its
-// own artwork so the garment itself is that tall. "Easier to see" draws it at 24 (O13).
-const ACCESSORY_CAPTION_SIZE = 16;
-
-function useAccessoryDrawingSize(): number {
-  const { controlScale } = useTextScaling();
-  return (useEasierToSee() ? easierToSeeValues.accessoryDrawingSize : ACCESSORY_CAPTION_SIZE) * controlScale;
-}
 
 /**
  * ADR 0004's one contextual offer, handed down already decided: the route owns the rule, and
@@ -116,10 +99,7 @@ type TodayScreenProps = Readonly<{
    * iOS the detail zooms out of the alternative's drawing and shrinks back into it; elsewhere
    * it is the stack's plain push. `onPress` is the route's single-tap guard.
    */
-  outfitDetailLink?: Readonly<{
-    href: (id: string) => Href;
-    onPress: (event: Readonly<{ preventDefault: () => void }>) => void;
-  }>;
+  outfitDetailLink?: OutfitDetailLink;
   /** Opens the detail of tomorrow's previewed outfit, from the evening strip. */
   onOpenTomorrowDetail?: (id: string) => void;
   onRefresh: () => void;
@@ -135,23 +115,6 @@ type TodayScreenProps = Readonly<{
   /** The first-generation runway shows or leaves (the Phase 8 tour never opens over it). */
   onRunwayVisibleChange?: (visible: boolean) => void;
 }>;
-
-// The stage plate's corner radius; the first-generation runway's field shrinks to it.
-const STAGE_RADIUS = 26;
-
-// While the first-generation runway hands its outfit to Today, the words around the stage
-// wait unseen; once the field has shrunk into the stage plate they arrive in reading order.
-const HandoffHoldContext = createContext(false);
-
-/**
- * One block of Today's words in reading order. It takes part only if it was drawn while
- * the runway's hand-off was pending; anywhere else it is drawn at rest, as it always is.
- */
-function ArrivesAfterHandoff({ children, index }: Readonly<{ children: ReactNode; index: number }>) {
-  const holding = use(HandoffHoldContext);
-  const [arrives] = useState(holding);
-  return arrives ? <Entrance index={index} waiting={holding}>{children}</Entrance> : children;
-}
 
 export function TodayScreen(props: TodayScreenProps) {
   const application = use(RecommendationApplicationContext);
@@ -288,10 +251,6 @@ function TodayScreenContent({
   const presentation = createTodayPresentation(presentationState, language, hour12, temperatureUnit, now);
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
-  const easierToSee = useEasierToSee();
-  // The one source for the strong edge: the switch or iOS Increase
-  // Contrast. A full-width row wears it; a two-up tile wears it on its drawing plate.
-  const strongEdge = useStrongEdge();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
   const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // Measure the content after Screen applies its safe-area insets and width cap.
@@ -422,40 +381,17 @@ function TodayScreenContent({
         <View
           onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
           testID="today-loading-screen">
-          {/* The wait says what is being prepared. Without it the first run is a breathing
-              placeholder and one status line, and the mapper's own title and body had no
-              reader on this screen. */}
-          <View style={styles.loadingIntro} testID="today-loading-intro">
-            <AppText accessibilityRole="header" variant="title">
-              {presentation.title}
-            </AppText>
-            <AppText colorRole="textSecondary">{presentation.body}</AppText>
-          </View>
-          {/* The plate takes its height from the placeholders it holds, the way the
-              loaded stage takes its own from the drawn pieces. */}
-          <View
-            style={[styles.stage, { backgroundColor: theme.colors.stage }]}
-            testID="today-skeleton-stage">
-            <OnPlate color={theme.colors.stage}>
-              <GarmentBoardSkeleton testID="today-skeleton-board" width={contentWidth} />
-            </OnPlate>
-          </View>
-          {/* Law 7: the breathing placeholders and the breathing mark are never the only
-              signal. This line is the state, and it is what a screen reader is given. */}
-          <View style={styles.generatingStatus} testID="today-generating-status-row">
-            {presentation.phase ? <PhaseMark size={20} testID="today-generating-mark" /> : null}
-            <AppText
-              accessibilityLiveRegion="polite"
-              colorRole="textSecondary"
-              style={styles.generatingStatusText}
-              testID="today-generating-status">
-              {presentation.phase
-                ? copy.phase[presentation.phase]
-                : isLongWait
-                  ? copy.generatingLongWaitStatus
-                  : copy.generatingStatus}
-            </AppText>
-          </View>
+          <TodayLoadingContent
+            body={presentation.body}
+            contentWidth={contentWidth}
+            showsPhaseMark={Boolean(presentation.phase)}
+            status={presentation.phase
+              ? copy.phase[presentation.phase]
+              : isLongWait
+                ? copy.generatingLongWaitStatus
+                : copy.generatingStatus}
+            title={presentation.title}
+          />
         </View>
       </Screen>
     );
@@ -475,43 +411,18 @@ function TodayScreenContent({
         ref={scrollRef}
         refreshControl={refreshControl}
         testID="today-screen">
-        {/* The card arrives the way the loaded outfit does, once, and waits behind a runway
-            that is still fading out over it. */}
-        <Entrance style={styles.feedbackEntrance} waiting={use(HandoffHoldContext)}>
-        <Surface
-          style={styles.feedbackCard}
-          testID={
+        <TodayFeedbackCard
+          accessibilityLabel={presentation.accessibilityLabel}
+          actionLabel={presentation.actionLabel}
+          body={presentation.body}
+          noActiveLocation={presentation.reason === 'no-active-location'}
+          onAction={
             presentation.reason === 'no-active-location'
-              ? 'today-no-location'
-              : 'today-unavailable-screen'
+              ? () => push('/weather/location')
+              : onRefresh
           }
-          variant="elevated">
-          {/* The text reads as one alert and the action beside it stays its own element: on
-              iOS an accessible view hides everything inside it from VoiceOver. */}
-          <View
-            accessible
-            accessibilityLabel={presentation.accessibilityLabel}
-            accessibilityRole="alert"
-            style={styles.feedbackText}>
-            <AppText accessibilityRole="header" variant="title" style={styles.centerText}>
-              {presentation.title}
-            </AppText>
-            <AppText colorRole="textSecondary" style={styles.centerText}>
-              {presentation.body}
-            </AppText>
-          </View>
-          {presentation.actionLabel ? (
-            <Button
-              label={presentation.actionLabel}
-              onPress={
-                presentation.reason === 'no-active-location'
-                  ? () => push('/weather/location')
-                  : onRefresh
-              }
-            />
-          ) : null}
-        </Surface>
-        </Entrance>
+          title={presentation.title}
+        />
       </Screen>
     );
   }
@@ -525,9 +436,6 @@ function TodayScreenContent({
     ? ambientIntensityOf(state.snapshot.weather.current.condition)
     : 'calm';
   const [primary, ...alternates] = presentation.suggestions;
-  const stageHeight = primary
-    ? measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true, easierToSee)
-    : 0;
   if (primary && primary.id !== stageOutfit?.id) {
     // An outfit still waiting for the one before it to leave was never drawn, so it has nothing
     // to drop: the board already leaving keeps leaving, and the newest outfit rises after it.
@@ -553,103 +461,6 @@ function TodayScreenContent({
     ? createTomorrowPreviewPresentation(tomorrowPreview, tomorrowWeather, language, temperatureUnit, now)
     : null;
   const showsTomorrow = tomorrow !== null && onOpenTomorrowDetail !== undefined;
-  // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
-  //: while Easier to see is on, each alternate is a full-width row
-  // with its drawing at the left, so a name is never cut and the list scrolls one way.
-  const alternateWidth = easierToSee
-    ? ALTERNATE_ROW_BOARD_WIDTH
-    : usesAccessibilityLayout
-      ? contentWidth
-      : Math.max(0, (contentWidth - spacing.md) / 2);
-  // Each board's stage height is derived from its own pieces, so two alternates side by
-  // side would end at different heights and their captions would sit on different
-  // baselines. The alternates share the taller stage and centre their board in it.
-  const alternateStageHeight = Math.max(
-    0,
-    ...alternates.map((suggestion) =>
-      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', false, easierToSee),
-    ),
-  );
-
-  const primaryStage = primary ? (
-    <View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      // A zoom source keeps only an object style, as the link below does.
-      style={StyleSheet.flatten<ViewStyle>([
-        styles.stage,
-        {
-          backgroundColor: stageColor,
-          width: contentWidth,
-          // P2: the stage is as tall as its fitted board, never the free space.
-          height: stageHeight,
-        },
-      ])}
-      onLayout={stageLaidOut ? undefined : () => setStageLaidOut(true)}
-      ref={stageView}
-      testID="today-stage">
-      <OnPlate color={stageColor}>
-        {leavingOutfit ? (
-          // The leaving board is centred in the new stage's frame, whatever height its
-          // own fitted board has.
-          <View style={[styles.leavingBoard, { height: stageHeight, width: contentWidth }]}>
-            <GarmentBoard
-              accessibilityLabel=""
-              decorative
-              fit
-              key={leavingOutfit.id}
-              onLeft={clearLeavingOutfit}
-              palette={leavingOutfit.palette}
-              pieces={leavingOutfit.boardPieces}
-              preset="today"
-              stageColor={stageColor}
-              testID="today-leaving-board"
-              width={contentWidth}
-            />
-          </View>
-        ) : null}
-        <GarmentBoard
-          accessibilityLabel={presentation.stageAccessibilityLabel}
-          // ADR 0021 section 10's transition between suggestions: the key is the
-          // option identity, so a new recommendation re-mounts the board: the old
-          // pieces drop and fade, then the new ones rise, while a refresh that
-          // returns the same outfit leaves it still. The rise is never the only
-          // signal; the archetype and freshness line also change with it.
-          key={primary.id}
-          fit
-          holdRise={holdRise || !stageLaidOut}
-          replaces={stageOutfit?.replaced === true}
-          palette={primary.palette}
-          pieces={primary.boardPieces}
-          preset="today"
-          // The outfit the runway carried onto the stage has already arrived.
-          rise={primary.id !== carriedOutfitId}
-          stageColor={stageColor}
-          testID={`today-primary-board-${primary.id}`}
-          width={contentWidth}
-        />
-      </OnPlate>
-    </View>
-  ) : null;
-  const primaryCard = primary ? (
-    <PressScale
-      accessible
-      accessibilityLabel={presentation.stageAccessibilityLabel}
-      onPress={outfitDetailLink ? undefined : () => onOpenOutfitDetail(primary.id)}
-      pressedStyle={{ opacity: theme.interaction.pressedOpacity }}
-      // `role` outranks the link's own, so the outfit still reads as a button.
-      role="button">
-      {/* A re-ask replaces the title with a crossfade rather than a snap. */}
-      <ArrivesAfterHandoff index={3}>
-        <Crossfade contentKey={primary.title}>
-          <AppText style={styles.archetypeName} testID="today-archetype" variant="label">
-            {primary.title}
-          </AppText>
-        </Crossfade>
-      </ArrivesAfterHandoff>
-      {outfitDetailLink ? <Link.AppleZoom>{primaryStage}</Link.AppleZoom> : primaryStage}
-    </PressScale>
-  ) : null;
 
   return (
     <Screen
@@ -666,61 +477,14 @@ function TodayScreenContent({
       scrollToOverflowEnabled
       testID="today-screen">
       <View onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)} testID="today-content">
-        {/* S23: the header recedes behind the scrolling outfit the way Weather's does. */}
-        <ScrollDepth scrollOffset={scrollOffset}>
-        {/* M7: the place at left and the dressing day's date opposite it. */}
-        <ArrivesAfterHandoff index={0}>
-          <View style={styles.topRow} testID="today-top-row">
-            <View style={styles.placeRow}>
-              <Icon name="location" color={theme.colors.iconSecondary} size={16} />
-              <AppText colorRole="textSecondary" numberOfLines={2} style={styles.location} variant="caption">
-                {presentation.header.location}
-              </AppText>
-            </View>
-            <AppText colorRole="textSecondary" tabularNumbers testID="today-date" variant="caption">
-              {presentation.date}
-            </AppText>
-          </View>
-        </ArrivesAfterHandoff>
-
-        {displayName ? (
-          <ArrivesAfterHandoff index={1}>
-            <AppText colorRole="textSecondary" style={styles.greeting} testID="today-greeting" variant="bodyStrong">
-              {firstDressingDay ? copy.greetingFirstNamed(displayName) : copy.greetingNamed(displayName)}
-            </AppText>
-          </ArrivesAfterHandoff>
-        ) : null}
-        {/* O2: Today has no day-type pill. Inside the title the line may break only after the
-            separator: the temperature, symbol and condition stay together. */}
-        <ArrivesAfterHandoff index={2}>
-          <View style={styles.titleRow}>
-            <View
-              accessible
-              accessibilityLabel={presentation.titleAccessibilityLabel}
-              accessibilityRole="header"
-              style={styles.title}
-              testID="today-title">
-              <AppText style={styles.titleText} tabularNumbers variant="title">
-                {presentation.titleParts.lead}
-              </AppText>
-              <View style={styles.titleValues}>
-                <AppText style={styles.titleText} tabularNumbers variant="title">
-                  {presentation.titleParts.beforeSymbol}
-                </AppText>
-                <TitleWeatherSymbol
-                  condition={presentation.weather.conditionCode}
-                  daypart={presentation.weather.daypart}
-                  intensity={ambientIntensity}
-                  testID="today-title-symbol"
-                />
-                <AppText style={styles.titleText} variant="title">
-                  {presentation.titleParts.afterSymbol}
-                </AppText>
-              </View>
-            </View>
-          </View>
-        </ArrivesAfterHandoff>
-        </ScrollDepth>
+        <TodayHeader
+          ambientIntensity={ambientIntensity}
+          copy={copy}
+          displayName={displayName}
+          firstDressingDay={firstDressingDay}
+          presentation={presentation}
+          scrollOffset={scrollOffset}
+        />
         {/* The badge waits for the new outfit's own source while a day-type change or a
             re-ask runs: it fades out and keeps its place, so the outfit under it never moves,
             and the new source fades in. A new outfit with no source closes the row in place,
@@ -739,206 +503,49 @@ function TodayScreenContent({
 
         {primary ? (
           <>
-            <Dimmed dimmed={updating} revealKey={primary.id}>
-              <TourTarget
-                activate={() => onOpenOutfitDetail(primary.id)}
-                id="outfit"
-                label={presentation.stageAccessibilityLabel}
-                scrollBy={scrollBy}
-                style={styles.outfitTarget}>
-                {outfitDetailLink ? (
-                  // S21: on iOS the outfit's detail zooms out of the stage, as an alternative's does.
-                  <Link asChild href={outfitDetailLink.href(primary.id)} onPress={outfitDetailLink.onPress} push>
-                    {primaryCard}
-                  </Link>
-                ) : primaryCard}
-              </TourTarget>
-            </Dimmed>
-            <ArrivesAfterHandoff index={4}>
-              {/* N18 and N15: the outfit's claim sits directly under the board, where it is read
-                  with the outfit, never beside the button. While a re-ask runs, its window
-                  replaces the claim and says why the outfit is dimmed; each hand-off crossfades. */}
-              <Crossfade
-                contentKey={choosing ? `choosing:${choosing}` : `claim:${presentation.coverageCaption ?? ''}`}>
-                {choosing ? (
-                  <View style={styles.captionRow}>
-                    <PhaseMark size={16} testID="today-choosing-mark" />
-                    <AppText
-                      accessibilityLiveRegion="polite"
-                      colorRole="textSecondary"
-                      style={styles.captionText}
-                      tabularNumbers
-                      testID="today-choosing-caption"
-                      variant="caption">
-                      {choosing}
-                    </AppText>
-                  </View>
-                ) : presentation.coverageCaption ? (
-                  <View accessible style={styles.captionRow} testID="today-coverage-caption">
-                    <Icon color={theme.colors.iconSecondary} name="clock" size={16} />
-                    <AppText colorRole="textSecondary" style={styles.captionText} tabularNumbers variant="caption">
-                      {presentation.coverageCaption}
-                    </AppText>
-                  </View>
-                ) : null}
-              </Crossfade>
-              {/* Law 4: a status is ink, glyph and text together. */}
-              {presentation.driftCaption ? (
-                <View accessible style={styles.captionRow} testID="today-drift-caption">
-                  <Icon color={theme.colors.warningInk} name="warning" size={16} />
-                  <AppText colorRole="warningInk" style={styles.captionText} tabularNumbers variant="caption">
-                    {presentation.driftCaption}
-                  </AppText>
-                </View>
-              ) : null}
-              {/* f7: a morning or evening answer is regenerating the outfit; this line says why
-                  it is dimmed, and it stays until the new outfit lands. */}
-              {updatingDayType && !choosing ? (
-                <View style={styles.updatingRow}>
-                  <PhaseMark size={16} testID="today-updating-mark" />
-                  <AppText
-                    accessibilityLiveRegion="polite"
-                    colorRole="textSecondary"
-                    style={styles.updatingText}
-                    testID="today-updating-status"
-                    variant="caption">
-                    {copy.dailyStyle.updating[updatingDayType]}
-                  </AppText>
-                </View>
-              ) : null}
-              {presentation.dayInsight ? (
-                <Dimmed dimmed={updating} style={styles.insight}>
-                  <Crossfade contentKey={presentation.dayInsight}>
-                    <AppText testID="today-day-insight" variant="body">{presentation.dayInsight}</AppText>
-                  </Crossfade>
-                </Dimmed>
-              ) : null}
-              {primary.accessories.length > 0 || presentation.coolSpellCaption ? (
-                <View style={styles.finishingTouches}>
-                  <AccessoryCaption
-                    caption={presentation.copy.finishingTouchesHeading}
-                    stageColor={stageColor}
-                    suggestion={primary}
-                  />
-                  {presentation.coolSpellCaption ? (
-                    <CoolSpellLine caption={presentation.coolSpellCaption} />
-                  ) : null}
-                </View>
-              ) : null}
-            </ArrivesAfterHandoff>
+            <TodayOutfit
+              carriedOutfitId={carriedOutfitId}
+              contentWidth={contentWidth}
+              holdRise={holdRise || !stageLaidOut}
+              leavingOutfit={leavingOutfit}
+              onLeavingLeft={clearLeavingOutfit}
+              onOpenOutfitDetail={onOpenOutfitDetail}
+              onStageLayout={stageLaidOut ? undefined : () => setStageLaidOut(true)}
+              outfitDetailLink={outfitDetailLink}
+              primary={primary}
+              replaces={stageOutfit?.replaced === true}
+              scrollBy={scrollBy}
+              stageAccessibilityLabel={presentation.stageAccessibilityLabel}
+              stageColor={stageColor}
+              stageRef={stageView}
+              updating={updating}
+            />
+            <TodayOutfitNotes
+              copy={copy}
+              presentation={presentation}
+              primary={primary}
+              stageColor={stageColor}
+              updating={updating}
+              updatingDayType={updatingDayType}
+            />
           </>
         ) : null}
 
-        {/* O5: "Last updated" sits under the finishing touches; it no longer describes a button.
-            Each new line crossfades, and the mark arrives and leaves with its own line, so it
-            never pushes a line that is already showing. */}
-        <ArrivesAfterHandoff index={5}>
-          <Crossfade contentKey={presentation.header.freshness} style={styles.provenanceSlot} testID="today-provenance">
-            <View style={[styles.provenance, usesAccessibilityLayout && styles.stackedProvenance]}>
-              {presentation.header.phase ? <PhaseMark size={16} testID="today-phase-mark" /> : null}
-              <AppText
-                accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
-                colorRole="textSecondary"
-                style={[styles.freshness, usesAccessibilityLayout && styles.stackedFreshness]}
-                tabularNumbers
-                testID="today-freshness"
-                variant="caption">
-                {presentation.header.freshness}
-              </AppText>
-            </View>
-          </Crossfade>
-        </ArrivesAfterHandoff>
+        <TodayFreshness header={presentation.header} usesAccessibilityLayout={usesAccessibilityLayout} />
 
         {presentation.noOutfit ? (
-          <Entrance index={1}>
-          <Surface
-            accessible
-            accessibilityLabel={`${presentation.noOutfit.title}. ${presentation.noOutfit.body}`}
-            accessibilityRole="alert"
-            style={[styles.feedbackCard, styles.noOutfit]}
-            variant="muted">
-            <AppText accessibilityRole="header" style={styles.centerText} variant="title">
-              {presentation.noOutfit.title}
-            </AppText>
-            <AppText colorRole="textSecondary" style={styles.centerText}>
-              {presentation.noOutfit.body}
-            </AppText>
-          </Surface>
-          </Entrance>
+          <TodayNoOutfit body={presentation.noOutfit.body} title={presentation.noOutfit.title} />
         ) : null}
 
         {alternates.length > 0 ? (
           <ArrivesAfterHandoff index={6}>
-            <View style={styles.alternates}>
-              <View
-                style={[styles.alternatesHeading, { borderBottomColor: theme.colors.borderSubtle }]}
-                testID="today-alternates-heading">
-                <AppText accessibilityRole="header" variant="bodyStrong">
-                  {presentation.copy.otherOptionsHeading}
-                </AppText>
-              </View>
-              <View
-                style={[styles.outfitList, (usesAccessibilityLayout || easierToSee) && styles.stackedOutfitList]}
-                testID="today-outfit-list">
-                {alternates.map((suggestion, index) => {
-                  const stage = (
-                    <View
-                      accessibilityElementsHidden
-                      importantForAccessibility="no-hide-descendants"
-                      // A zoom source keeps only an object style, as the link below does.
-                      style={StyleSheet.flatten<ViewStyle>([
-                        styles.alternateStage,
-                        { backgroundColor: theme.colors.garmentGround, height: alternateStageHeight, width: alternateWidth },
-                        easierToSee ? null : strongEdge,
-                      ])}
-                      testID={`today-alternate-stage-${suggestion.id}`}>
-                      {/* O15: each alternate stands on the page ground in its own palette, so
-                          it looks the same here as on Today's stage once chosen. */}
-                      <OnPlate color={theme.colors.garmentGround}>
-                        <GarmentBoard
-                          accessibilityLabel={suggestion.boardAccessibilityLabel}
-                          palette={suggestion.palette}
-                          pieces={suggestion.boardPieces}
-                          preset="today"
-                          testID={`today-alternate-board-${suggestion.id}`}
-                          width={alternateWidth}
-                        />
-                      </OnPlate>
-                    </View>
-                  );
-                  const card = (
-                    <PressScale
-                      accessible
-                      accessibilityLabel={suggestion.boardAccessibilityLabel}
-                      onPress={outfitDetailLink ? undefined : () => onOpenOutfitDetail(suggestion.id)}
-                      pressedStyle={{ opacity: theme.interaction.pressedOpacity }}
-                      // `role` outranks the link's own, so the card still reads as a button.
-                      role="button"
-                      style={StyleSheet.flatten<ViewStyle>(
-                        easierToSee ? [styles.alternateRow, strongEdge] : { width: alternateWidth },
-                      )}
-                      testID={`today-alternate-${suggestion.id}`}>
-                      {outfitDetailLink ? <Link.AppleZoom>{stage}</Link.AppleZoom> : stage}
-                      <View style={[styles.alternateTitleRow, easierToSee && styles.alternateRowTitle]}>
-                        <AppText numberOfLines={2} style={styles.outfitName} variant="label">
-                          {suggestion.title}
-                        </AppText>
-                        <Icon color={theme.colors.iconSecondary} name="chevronRight" size={16} />
-                      </View>
-                    </PressScale>
-                  );
-                  return (
-                    <Entrance index={index + 1} key={suggestion.id}>
-                      {outfitDetailLink ? (
-                        <Link asChild href={outfitDetailLink.href(suggestion.id)} onPress={outfitDetailLink.onPress} push>
-                          {card}
-                        </Link>
-                      ) : card}
-                    </Entrance>
-                  );
-                })}
-              </View>
-            </View>
+            <TodayAlternates
+              alternates={alternates}
+              contentWidth={contentWidth}
+              heading={presentation.copy.otherOptionsHeading}
+              onOpenOutfitDetail={onOpenOutfitDetail}
+              outfitDetailLink={outfitDetailLink}
+            />
           </ArrivesAfterHandoff>
         ) : null}
 
@@ -1091,291 +698,14 @@ function WeatherAlertOfferRow({
   );
 }
 
-/**
- * The provenance badge under the title (ADR 0034 section 4, M1). Apple Intelligence: the
- * multicolor `apple.intelligence` symbol and the words on the muted neutral, never purple.
- * The Worker's AI: the multicolour animated `sparkles` (O11) on the provenance container. The
- * badge speaks one sentence; its visible words are grouped under it. Law 7: it arrives and
- * leaves as a state change, so it fades on the `normal` duration and moves nothing. A hidden
- * badge keeps its space and is out of the reading order.
- */
-function ProvenanceBadge({
-  generationMode,
-  hidden,
-}: Readonly<{ generationMode: GenerationMode; hidden: boolean }>) {
-  const theme = useKuyaraTheme();
-  const opacity = useSharedValue<number>(0);
-  const onDevice = generationMode.mode === 'on-device-ai';
-
-  useEffect(() => {
-    opacity.set(fadeTo(hidden ? 0 : 1, theme.motion.normal, theme.motion));
-  }, [hidden, opacity, theme.motion]);
-
-  const arrivalStyle = useAnimatedStyle(() => ({ opacity: opacity.get() }));
-
-  return (
-    <View
-      accessibilityElementsHidden={hidden}
-      accessibilityLabel={generationMode.accessibilityLabel}
-      accessible={!hidden}
-      importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
-      testID="today-provenance-badge">
-      <Animated.View style={arrivalStyle}>
-        <Pill
-          icon={(color) => (onDevice ? (
-            <Icon color={color} name="appleIntelligence" rendering="multicolor" size={16} />
-          ) : (
-            <AiSparkleMark color={color} size={16} />
-          ))}
-          label={generationMode.label}
-          testID="today-generation-mode"
-          tone={onDevice ? 'muted' : 'provenance'}
-        />
-      </Animated.View>
-    </View>
-  );
-}
-
-/**
- * Dims the outfit while a day-type change regenerates it (f7), on the `normal` duration. Given
- * a `revealKey`, new content arriving while still dimmed (the new outfit landing before the
- * wait has closed) lifts the dim on `fast`, with the rise's own fade, so the new outfit is
- * never seen arriving under grey.
- */
-function Dimmed({
-  children,
-  dimmed,
-  revealKey,
-  style,
-}: Readonly<{ children: ReactNode; dimmed: boolean; revealKey?: string; style?: StyleProp<ViewStyle> }>) {
-  const theme = useKuyaraTheme();
-  // The content the dim began on; any other content under the same dim is the new arrival.
-  const [dimmedKey, setDimmedKey] = useState<string | undefined>(dimmed ? revealKey : undefined);
-  if (dimmed && dimmedKey === undefined && revealKey !== undefined) setDimmedKey(revealKey);
-  if (!dimmed && dimmedKey !== undefined) setDimmedKey(undefined);
-  const replaced = dimmed && dimmedKey !== undefined && dimmedKey !== revealKey;
-  const target = dimmed && !replaced ? theme.interaction.disabledOpacity : 1;
-  const duration = replaced ? theme.motion.fast : theme.motion.normal;
-  const easing = useMemo(() => fadeEasing(theme.motion), [theme.motion]);
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(target, { duration, easing }),
-  }));
-
-  return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
-}
-
-/**
- * The accessories the outfit finishes with: the caption, then each drawing at the caption's
- * size (Law 6), cropped to its own artwork with the stroke scaled to it (M21), in the colours
- * the outfit's palette gave it with the board (O15). One accessible element reads the names,
- * never animated. A day that asks for no accessory renders nothing at all.
- */
-function AccessoryCaption({
-  caption,
-  stageColor,
-  suggestion,
-}: Readonly<{ caption: string; stageColor: string; suggestion: LoadedOutfitPresentation }>) {
-  const drawingSize = useAccessoryDrawingSize();
-  // The board's own resolution, read back from the palette memo: accessories stand on the
-  // page ground, which the palette already measures them against.
-  const roles = useGarmentRoles(suggestion.palette, stageColor);
-  if (suggestion.accessories.length === 0) {
-    return null;
-  }
-
-  return (
-    <View
-      accessible
-      accessibilityLabel={suggestion.accessoriesAccessibilityLabel}
-      style={styles.accessoryCaption}
-      testID="today-accessory-badges">
-      <AppText colorRole="textSecondary" variant="caption">
-        {caption}
-      </AppText>
-      <DarkPlate style={styles.accessoryPlate}>
-        <View style={styles.accessoryGlyphs}>
-          {suggestion.accessories.map((accessory) => (
-            <GarmentDrawing
-              category={accessory.category}
-              garmentTypeId={accessory.garmentTypeId}
-              key={accessory.accessorySlot}
-              roles={roles.get(accessory.accessorySlot)}
-              size={drawingSize}
-              testID={`today-accessory-${accessory.garmentTypeId}`}
-            />
-          ))}
-        </View>
-      </DarkPlate>
-    </View>
-  );
-}
-
-// N19: a later short cool spell is one finishing-touch line, led by the cardigan
-// silhouette at caption size (law 6), so the layer it asks for is named and drawn.
-function CoolSpellLine({ caption }: Readonly<{ caption: string }>) {
-  const drawingSize = useAccessoryDrawingSize();
-  return (
-    <View accessible accessibilityLabel={caption} style={styles.coolSpell} testID="today-cool-spell">
-      <DarkPlate style={styles.accessoryPlate}>
-        <GarmentDrawing
-          category="top"
-          garmentTypeId="cardigan"
-          size={drawingSize}
-          testID="today-cool-spell-cardigan"
-        />
-      </DarkPlate>
-      <AppText colorRole="textSecondary" style={styles.captionText} tabularNumbers variant="caption">
-        {caption}
-      </AppText>
-    </View>
-  );
-}
-
-// Law 6: a waiting mark, sized to the text it sits beside and drawn in the secondary icon
-// ink rather than the accent, because the wait is not the screen's one accent-filled
-// element. It is a clock rather than a sparkle: `visual-identity.md` refuses the AI-sparkle
-// convention, and the pulsing mark is where that convention was most visible. Law 7: it
-// breathes on the ambient moderate step and stays out
-// of the accessibility tree because the adjacent line is the state.
-function PhaseMark({ size, testID }: Readonly<{ size: number; testID: string }>) {
-  const theme = useKuyaraTheme();
-  const pulse = useAmbientPulse();
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: pulse.get() }));
-
-  return (
-    <Animated.View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={animatedStyle}
-      testID={testID}>
-      <Icon color={theme.colors.iconSecondary} name="clock" size={size} />
-    </Animated.View>
-  );
-}
-
-// B: tomorrow's strip, one button: a small drawing of the outfit, the day, its name and its
-// weather in one short line, and a chevron. It sits on the muted fill the other Today rows
-// use, so it reads as a way somewhere rather than as a second hero.
-function TomorrowStrip({ onPress, tomorrow }: Readonly<{ onPress: () => void; tomorrow: TomorrowPreviewPresentation }>) {
-  const theme = useKuyaraTheme();
-  const easierToSee = useEasierToSee();
-  const strongEdge = useStrongEdge();
-  const { controlScale } = useTextScaling();
-  return (
-    <PressScale
-      accessibilityHint={tomorrow.accessibilityHint}
-      accessibilityLabel={tomorrow.accessibilityLabel}
-      accessibilityRole="button"
-      accessible
-      onPress={onPress}
-      style={({ pressed }) => [styles.tomorrowTarget, { opacity: pressed ? theme.interaction.pressedOpacity : 1 }]}
-      testID="today-tomorrow">
-      <Surface style={[styles.tomorrowStrip, strongEdge]} variant="muted">
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={[styles.alternateStage, {
-            backgroundColor: theme.colors.garmentGround,
-            height: measureGarmentBoardHeight(tomorrow.boardPieces, TOMORROW_BOARD_WIDTH, 'today', false, easierToSee),
-            width: TOMORROW_BOARD_WIDTH,
-          }]}>
-          {/* The same garment plate the alternates stand on, so dark mode draws it alike. */}
-          <OnPlate color={theme.colors.garmentGround}>
-            <GarmentBoard
-              accessibilityLabel=""
-              decorative
-              palette={tomorrow.palette}
-              pieces={tomorrow.boardPieces}
-              preset="today"
-              testID="today-tomorrow-board"
-              width={TOMORROW_BOARD_WIDTH}
-            />
-          </OnPlate>
-        </View>
-        <View style={styles.tomorrowText}>
-          <AppText colorRole="textSecondary" testID="today-tomorrow-heading" variant="caption">
-            {tomorrow.heading}
-          </AppText>
-          <AppText testID="today-tomorrow-title" variant="label">{tomorrow.title}</AppText>
-          <AppText colorRole="textSecondary" tabularNumbers testID="today-tomorrow-weather" variant="caption">
-            {tomorrow.weather}
-          </AppText>
-        </View>
-        <Icon color={theme.colors.iconSecondary} name="chevronRight" size={16 * controlScale} />
-      </Surface>
-    </PressScale>
-  );
-}
-
-// The strip's drawing: small enough to keep the strip thin, wide enough to read the outfit.
-const TOMORROW_BOARD_WIDTH = 88;
-
-// O13: the drawing inside a full-width alternate row, the mockup's 128 points.
-const ALTERNATE_ROW_BOARD_WIDTH = 128;
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  topRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
-  placeRow: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: spacing.xs },
-  location: { flex: 1, flexShrink: 1 },
-  greeting: { marginBottom: spacing.xs },
-  titleRow: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.sm },
-  title: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexShrink: 1, flexWrap: 'wrap' },
-  titleValues: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
-  titleText: { fontWeight: '700' },
   provenanceBadge: { marginTop: spacing.sm },
-  // The gap above the outfit sits outside its tour target, so the tour's ring clears the badge.
-  outfitTarget: { marginTop: spacing.md },
-  archetypeName: { marginBottom: spacing.sm },
-  stage: { borderRadius: STAGE_RADIUS, overflow: 'hidden' },
-  leavingBoard: { justifyContent: 'center', left: 0, position: 'absolute', top: 0 },
-  captionRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  captionText: { flexShrink: 1 },
-  updatingRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  updatingText: { flexShrink: 1 },
-  outfitName: { flex: 1, flexShrink: 1 },
-  insight: { marginTop: spacing.xl },
-  finishingTouches: { gap: spacing.sm, marginTop: spacing.md },
-  accessoryCaption: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexWrap: 'wrap',
-    rowGap: spacing.xs },
-  coolSpell: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
-  accessoryGlyphs: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
-  // The dark appearance's plate behind the finishing touches: a small tile, never a card.
-  accessoryPlate: { borderRadius: radii.control, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
-  loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
-  generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
-  generatingStatusText: { flexShrink: 1 },
   askAgain: { marginTop: spacing.md },
   laterReady: { marginTop: spacing.xs },
-  provenanceSlot: { marginTop: spacing.sm },
-  provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },
-  freshness: { flexShrink: 1 },
-  stackedFreshness: { width: '100%' },
-  noOutfit: { marginTop: spacing.md },
   // S15: a quiet line on the ground plane, never a card, after the last button.
   alertOffer: { gap: spacing.sm, marginTop: spacing.lg },
   alertOfferMessage: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   alertOfferText: { flex: 1, flexShrink: 1 },
-  alternates: { marginTop: spacing.md },
-  alternatesHeading: { paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
-  outfitList: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
-  // O13's alternate row: 60-point target and card radius; its edge is `strongEdge`.
-  alternateRow: { alignItems: 'center', borderRadius: radii.card, flexDirection: 'row', gap: spacing.md,
-    minHeight: easierToSeeValues.rowHeight, padding: spacing.md },
-  alternateRowTitle: { flex: 1, marginTop: 0 },
-  stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
-  alternateStage: { borderRadius: 14, justifyContent: 'center', overflow: 'hidden' },
-  tomorrowTarget: { marginTop: spacing.md },
-  // Law 2: the strip's own inset is the container inset; it is never under the 44-point target.
-  tomorrowStrip: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 44,
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  tomorrowText: { flex: 1, flexShrink: 1 },
-  alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
-  feedbackEntrance: { alignItems: 'center', width: '100%' },
-  feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },
-  // The card's own centring and gap, carried inside the grouped text so nothing moves.
-  feedbackText: { alignItems: 'center', alignSelf: 'stretch', gap: spacing.md },
-  centerText: { textAlign: 'center' },
 });

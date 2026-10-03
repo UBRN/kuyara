@@ -380,8 +380,10 @@ const rawPressableAllowlist = Object.freeze({
   'features/wardrobe/presentation/wardrobe-grid-tile.tsx': 1,
   'features/wardrobe/presentation/wardrobe-option.tsx': 1,
   'features/wardrobe/presentation/garment-type-tile.tsx': 1,
-  // The hero board, the alternate tiles and the evening's tomorrow row.
-  'features/today/presentation/today-screen.tsx': 3,
+  // The hero board.
+  'features/today/presentation/today-outfit.tsx': 1,
+  // The alternate tiles and the evening's tomorrow row.
+  'features/today/presentation/today-alternates.tsx': 2,
   // O6: the piece row opens the piece's sheet (the board changes pieces since Phase 7).
   'features/today/presentation/outfit-detail-pieces.tsx': 1,
   // Phase 7: a candidate row of the piece picker.
