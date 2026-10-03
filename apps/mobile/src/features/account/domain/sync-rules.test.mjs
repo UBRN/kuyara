@@ -16,7 +16,7 @@ import {
 } from './sync-rules.ts';
 import { canonicalServerInstant } from './server-instant.ts';
 import {
-  historyDay, phoneProfileId, stamp, syncedProfile, uuid, wardrobeItem,
+  dayChoice, historyDay, phoneProfileId, stamp, syncedProfile, uuid, wardrobeItem,
 } from '../__tests__/account-fixtures.mjs';
 
 const at = (minute) => canonicalServerInstant(`2026-09-30T10:${String(minute).padStart(2, '0')}:00+00:00`);
@@ -50,8 +50,10 @@ test('a pull never overwrites a pending row', () => {
     landedWardrobeItem,
   );
   assert.deepEqual(write, []);
-  assert.deepEqual(applyPulledByDay([pending(historyDay(1, '2026-09-10'))],
-    [arrival(historyDay(2, '2026-09-10'), 1)], landedOutfitHistory), []);
+  assert.deepEqual(applyPulledById([pending(historyDay(1, '2026-09-10'))],
+    [arrival(historyDay(1, '2026-09-10'), 1)], landedOutfitHistory), []);
+  assert.deepEqual(applyPulledByDay([pending(dayChoice(1, '2026-09-10'))],
+    [arrival(dayChoice(2, '2026-09-10'), 1)], (row) => row), []);
 });
 
 test('a deletion marker is a write like any other, and one for a row the phone never held is dropped', () => {
@@ -70,18 +72,25 @@ test('a row only the account holds is written, and among several arrivals for on
   assert.deepEqual(write.map((row) => row.name), ['Second', 'Other']);
 });
 
-test('a same-day row with a different id overwrites the phone\'s row, which adopts the account id and keeps its photo', () => {
-  const local = historyDay(1, '2026-09-10', { photoPath: 'history/mine.jpg' });
-  const pulled = historyDay(2, '2026-09-10', { photoPath: null });
-  const write = applyPulledByDay([settled(local)], [arrival(pulled, 1)], landedOutfitHistory);
-  assert.deepEqual(write, [{ ...pulled, photoPath: 'history/mine.jpg' }]);
+test('a pulled History look lands beside the phone\'s looks of its day, and the same look keeps its photo', () => {
+  const mine = historyDay(1, '2026-09-10', { photoPath: 'history/mine.jpg' });
+  const sameLook = historyDay(1, '2026-09-10', { photoPath: null, updatedAt: stamp(7) });
+  const otherLook = historyDay(2, '2026-09-10', { photoPath: null });
+  const write = applyPulledById([settled(mine)], [arrival(sameLook, 1), arrival(otherLook, 2)], landedOutfitHistory);
+  assert.deepEqual(write, [{ ...sameLook, photoPath: 'history/mine.jpg' }, otherLook]);
+});
+
+test('a same-day choice with a different id overwrites the phone\'s row, which adopts the account id', () => {
+  const write = applyPulledByDay([settled(dayChoice(1, '2026-09-10'))],
+    [arrival(dayChoice(2, '2026-09-10', { formality: 'formal' }), 1)], (row) => row);
+  assert.deepEqual(write.map((row) => [row.id, row.formality]), [[uuid(2), 'formal']]);
 });
 
 test('a pulled day the phone does not hold is written, its deletion marker dropped', () => {
   const write = applyPulledByDay([], [
-    arrival(historyDay(2, '2026-09-10', { photoPath: null }), 1),
-    arrival(marker(historyDay(3, '2026-09-11', { photoPath: null })), 2),
-  ], landedOutfitHistory);
+    arrival(dayChoice(2, '2026-09-10'), 1),
+    arrival(marker(dayChoice(3, '2026-09-11')), 2),
+  ], (row) => row);
   assert.deepEqual(write.map((row) => row.dayKey), ['2026-09-10']);
 });
 
@@ -92,8 +101,8 @@ test('the pending flag clears when the row returns with the same updated_at, by 
 });
 
 test('on a day table the flag clears by day and updated_at, whatever id the server holds', () => {
-  const local = [historyDay(1, '2026-09-10', { updatedAt: stamp(5) }), historyDay(3, '2026-09-11', { updatedAt: stamp(9) })];
-  const returned = [historyDay(2, '2026-09-10', { updatedAt: stamp(5) }), historyDay(3, '2026-09-11', { updatedAt: stamp(5) })];
+  const local = [dayChoice(1, '2026-09-10', { updatedAt: stamp(5) }), dayChoice(3, '2026-09-11', { updatedAt: stamp(9) })];
+  const returned = [dayChoice(2, '2026-09-10', { updatedAt: stamp(5) }), dayChoice(3, '2026-09-11', { updatedAt: stamp(5) })];
   assert.deepEqual(pendingCleared(local, returned, keyByDay).map((row) => row.dayKey), ['2026-09-10']);
 });
 

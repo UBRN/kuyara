@@ -51,7 +51,7 @@ export type AccountRowsSourcePort = Readonly<{
 export type AccountRemotePort = Readonly<{
   /** Returns validated domain rows and the last server arrival, including refused rows. */
   pullSnapshot: (userId: string, syncConsent: boolean) => Promise<Readonly<{ rows: AccountRows; cursor: string | null }>>;
-  /** Map to remote DTOs without device fields; upsert by UUID or day key and return acknowledged versions. */
+  /** Map to remote DTOs without device fields; upsert by UUID (choices and departures by day key) and return acknowledged versions. */
   upload: (userId: string, rows: AccountRows) => Promise<AccountRows>;
   /** Parses each remote row once, retaining every arrival in `arrivals`. */
   pull: (userId: string, cursor: string | null, syncConsent: boolean) => Promise<PulledAccountRows>;
@@ -102,7 +102,7 @@ export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: Acc
         wardrobeItems: syncConsent ? applyPulledById(local.wardrobeItems, pulled.wardrobeItems, landedWardrobeItem) : [],
         dressingDayChoices: syncConsent ? applyPulledByDay(local.dressingDayChoices, pulled.dressingDayChoices, (row) => row) : [],
         dressingDayDepartures: syncConsent ? applyPulledByDay(local.dressingDayDepartures, pulled.dressingDayDepartures, (row) => row) : [],
-        outfitHistory: syncConsent ? applyPulledByDay(local.outfitHistory, pulled.outfitHistory, landedOutfitHistory) : [],
+        outfitHistory: syncConsent ? applyPulledById(local.outfitHistory, pulled.outfitHistory, landedOutfitHistory) : [],
       }, nextCursor(cursor, pulled.arrivals));
     },
   };
