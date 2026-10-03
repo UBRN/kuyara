@@ -1056,7 +1056,8 @@ function WeatherAlertOfferRow({
           accessibilityRole="text"
           colorRole="textSecondary"
           style={styles.alertOfferText}
-          testID="today-alert-offer-message">
+          testID="today-alert-offer-message"
+          variant="caption">
           {message}
         </AppText>
       </View>
