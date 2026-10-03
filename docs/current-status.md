@@ -162,7 +162,10 @@ ports with fakes, and account screens behind `ACCOUNT_SCREENS_ENABLED = false` e
 route (`/v1/account/delete`), which answers 503 until its settings exist. No Supabase
 project, Apple key or Google client exists yet. Migration 25
 adds the pending flags and the device account link; live provider adapters and the sync
-consent are not built. The project is
+consent are not built. Before `ACCOUNT_SCREENS_ENABLED` turns on, the real account port must
+be composed into the app: today nothing provides `AccountScreensContext`, so `useIsMember`,
+which gates composing around chosen pieces, reads the in-memory port, whose sign-in always
+succeeds. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 
