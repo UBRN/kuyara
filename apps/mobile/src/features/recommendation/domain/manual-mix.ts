@@ -75,12 +75,6 @@ export function outfitGarments(outfit: OutfitCandidate): Readonly<Garments> {
   return Object.freeze(garments);
 }
 
-/** The outfit's changeable slots in the stable slot order. */
-export function outfitSwappableSlots(outfit: OutfitCandidate): readonly SwappableSlot[] {
-  const garments = outfitGarments(outfit);
-  return swappableSlots.filter((slot) => garments[slot] !== undefined);
-}
-
 /**
  * The slots whose candidates the picker may need: the pieces kuyara drew, and both layer
  * slots whether or not kuyara filled them, since a free layer slot takes a piece.
