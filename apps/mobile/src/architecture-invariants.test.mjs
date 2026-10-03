@@ -1199,3 +1199,23 @@ test('the clock-time pattern is spelled only where the allowlist names it', () =
 
   assert.deepEqual(counts, clockPatternAllowlist, 'call formatClockTime from @/presentation/format-clock-time; the allowlist only shrinks');
 });
+
+// sRGB colour maths has one owner, domain/srgb-color.ts: the OKLab matrix and the 6-digit hex
+// pattern are spelled nowhere else. The native colour well's own text check is the one entry
+// that still spells the pattern; the list only shrinks.
+const hexPatternAllowlist = ['components/ui/native-color-well.tsx'];
+
+test('the OKLab matrix and the 6-digit hex pattern live only in domain/srgb-color.ts', () => {
+  const owner = 'domain/srgb-color.ts';
+  const matrix = [];
+  const pattern = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === owner) continue;
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    if (text.includes('0.4122214708')) matrix.push(relativePath);
+    if (/\[0-9a-fA?-?F?\]\{6\}/.test(text)) pattern.push(relativePath);
+  }
+
+  assert.deepEqual(matrix, [], `use toOklab or toOklch from @/domain/srgb-color`);
+  assert.deepEqual(pattern, hexPatternAllowlist, 'use isSrgbHex from @/domain/srgb-color; the allowlist only shrinks');
+});
