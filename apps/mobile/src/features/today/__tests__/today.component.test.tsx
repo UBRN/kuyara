@@ -861,7 +861,7 @@ function closetFor(language: 'en' | 'tr' = 'en') {
   };
 }
 
-test('outfit detail renders the board, its name buttons, piece rows by O7, requirement rows, and weather recap', async () => {
+test('outfit detail renders the board, its name buttons, piece rows by O7, trade-offs under why, and weather recap', async () => {
   const { suggestion, exactPiece, similarPiece, wantedPiece, items } = closetFor();
   const onEditPiece = jest.fn();
   const result = await render(providers(
@@ -877,8 +877,8 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, requi
     nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
   });
 
-  const reasonsHeading = result.getByRole('header', { name: messages.en.today.reasonsHeading });
-  expect(StyleSheet.flatten(reasonsHeading.props.style)).toMatchObject({
+  const whyHeading = result.getByRole('header', { name: messages.en.today.whyOutfit.heading });
+  expect(StyleSheet.flatten(whyHeading.props.style)).toMatchObject({
     color: lightTheme.colors.textPrimary,
     fontSize: typography.bodyStrong.fontSize,
     fontWeight: typography.bodyStrong.fontWeight,
@@ -898,12 +898,20 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, requi
     { nativeEvent: { layout: { width: 358, height: 96, x: 0, y: boardHeight + 8 } } });
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
     .toBe(boardHeight + 8 + 96);
+  // ADR 0026 section 4: "Why this outfit" carries the trade-offs; a met requirement is said by
+  // its weather line, so no separate reasons list is drawn.
+  expect(result.queryByTestId('outfit-detail-reasons')).toBeNull();
   for (const row of suggestion.requirementRows) {
-    expect(result.getByText(row.text)).toBeOnTheScreen();
+    if (row.kind === 'tradeoff') {
+      expect(within(result.getByTestId('outfit-detail-why')).getByText(row.text)).toBeOnTheScreen();
+    } else {
+      expect(result.queryByText(row.text)).toBeNull();
+    }
   }
 
-  // The name button names the piece and says with a mark and in words where the Closet already
-  // has it; the piece's value speaks it, and the row below draws it. No badge is drawn on a piece.
+  // The name button names the piece and carries a tick, and nothing else, when the Closet owns
+  // it; the piece's value speaks every Closet state, and the row below draws it. No badge is
+  // drawn on a piece.
   expect(result.queryAllByTestId(/^outfit-detail-badge-/, hidden)).toHaveLength(0);
   const copy = messages.en.today;
   const states: Record<string, string> = {
@@ -933,12 +941,16 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, requi
     expect(text.getByText(slot, hidden)).toBeTruthy();
     if (states[garmentTypeId]) {
       expect(text.getByText(state, hidden)).toBeTruthy();
-      expect(result.getByTestId(`outfit-detail-name-state-${garmentTypeId}`, hidden))
-        .toHaveTextContent(onBoard[garmentTypeId]);
+      if (garmentTypeId === exactPiece.garmentTypeId) {
+        expect(result.getByTestId(`outfit-detail-name-owned-${garmentTypeId}`, hidden)).toBeTruthy();
+      } else {
+        expect(result.queryByTestId(`outfit-detail-name-owned-${garmentTypeId}`, hidden)).toBeNull();
+      }
+      expect(name).not.toHaveTextContent(onBoard[garmentTypeId], { exact: false });
       expect(piece.props.accessibilityValue.text).toMatch(new RegExp(`, ${onBoard[garmentTypeId]}$`));
     } else {
       expect(result.queryByTestId(`outfit-detail-piece-status-${garmentTypeId}`)).toBeNull();
-      expect(result.queryByTestId(`outfit-detail-name-state-${garmentTypeId}`, hidden)).toBeNull();
+      expect(result.queryByTestId(`outfit-detail-name-owned-${garmentTypeId}`, hidden)).toBeNull();
       expect(Object.values(onBoard).some((words) => piece.props.accessibilityValue.text.includes(words))).toBe(false);
     }
   }

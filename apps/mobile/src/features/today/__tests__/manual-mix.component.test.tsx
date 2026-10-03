@@ -199,9 +199,10 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
     expect(result.getByText(copy.manualMix.unusual)).toBeOnTheScreen();
     expect(result.queryByText(copy.boardHint)).toBeNull();
     expect(announce).toHaveBeenCalledWith(copy.manualMix.unusualAccessibilityLabel);
-    // "Why it works" is the changed outfit's own: the rain jacket answers nothing now.
-    expect(within(result.getByTestId('outfit-detail-reasons')).queryByText(
-      new RegExp(catalogName(language, 'rain_jacket')))).toBeNull();
+    // "Why this outfit" is the changed outfit's own: no weather draws a line to the rain jacket now.
+    for (const row of result.queryAllByTestId(/^outfit-detail-why-(rain|snow|cold|heat|wind|swing)$/)) {
+      expect(row.props.accessibilityLabel).not.toMatch(new RegExp(catalogName(language, 'rain_jacket')));
+    }
     // Owner answer 3: the way back sits under "Wore this today", only after a change.
     expect(result.getByRole('button', { name: copy.manualMix.reset })).toBeOnTheScreen();
     announce.mockRestore();

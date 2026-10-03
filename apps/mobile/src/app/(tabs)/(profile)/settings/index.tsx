@@ -15,7 +15,7 @@ import { useNotificationApplication } from '@/features/notifications/application
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { SettingsScreen } from '@/features/profile/presentation/settings-screen';
 import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
-import { IOS_REVIEW_URL, IOS_STORE_URL, LICENCE_URL, androidStoreLinks } from '@/features/profile/presentation/store-links';
+import { IOS_REVIEW_URL, IOS_STORE_URL, LICENCE_URL, androidStoreLinks } from '@/config/store-links';
 import { useLocalization } from '@/localization/use-messages';
 
 export default function SettingsRoute() {

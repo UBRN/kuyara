@@ -16,6 +16,19 @@ jest.mock('react-native-view-shot', () => ({
   captureRef: (...args: unknown[]) => mockCapture(...args),
   releaseCapture: (...args: unknown[]) => mockRelease(...args),
 }));
+// The shared copy is a file in the cache directory named for the day; the stand-in records it.
+const mockFiles = new Set<string>();
+const mockCopies: [string, string][] = [];
+jest.mock('expo-file-system', () => {
+  class File {
+    uri: string;
+    constructor(...parts: string[]) { this.uri = parts.join('/'); }
+    get exists() { return mockFiles.has(this.uri); }
+    delete() { mockFiles.delete(this.uri); }
+    async copy(target: File) { mockCopies.push([this.uri, target.uri]); mockFiles.add(target.uri); }
+  }
+  return { File, Paths: { cache: 'file:///cache' } };
+});
 jest.mock('expo-symbols', () => ({ SymbolView: jest.fn(() => null) }));
 jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -51,6 +64,8 @@ async function renderAction(language: SupportedLanguage) {
 }
 
 beforeEach(() => {
+  mockFiles.clear();
+  mockCopies.length = 0;
   mockCapture.mockReset();
   mockRelease.mockReset();
   jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
@@ -58,7 +73,7 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe.each(['en', 'tr'] as const)('%s outfit share', (language) => {
-  test('the system share glyph draws the card, shares it as a file, and deletes it', async () => {
+  test('the system share glyph draws the card, shares it as a dated file with the store link, and deletes it', async () => {
     mockCapture.mockResolvedValue(CAPTURE_PATH);
     const { presentation, suggestion } = await renderAction(language);
     const button = screen.getByLabelText(messages[language].today.share.action);
@@ -68,18 +83,24 @@ describe.each(['en', 'tr'] as const)('%s outfit share', (language) => {
     await fireEvent.press(button);
     const card = screen.getByTestId('outfit-share-card', hidden);
     expect(isHiddenFromAccessibility(card)).toBe(true);
-    // The card shows what detail already shows: the day, the outfit and its weather, and no place.
-    expect(card).toHaveTextContent(presentation.date, { exact: false });
-    expect(card).toHaveTextContent(suggestion.title, { exact: false });
-    expect(card).toHaveTextContent(presentation.titleParts.beforeSymbol, { exact: false });
-    expect(card).toHaveTextContent(presentation.weather.condition, { exact: false });
+    // The card is the outfit drawn large, the place it was dressed for, and the kuyara name.
+    expect(card).toHaveTextContent(presentation.header.location, { exact: false });
     expect(card).toHaveTextContent('kuyara', { exact: false });
-    expect(card).not.toHaveTextContent(presentation.header.location, { exact: false });
+    expect(card).not.toHaveTextContent(suggestion.title, { exact: false });
+    expect(card).not.toHaveTextContent(presentation.date, { exact: false });
 
     await fireEvent(card, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 640 } } });
     await waitFor(() => expect(mockRelease).toHaveBeenCalledWith(CAPTURE_PATH));
     expect(mockCapture).toHaveBeenCalledWith(expect.anything(), { format: 'png', result: 'tmpfile' });
-    expect(Share.share).toHaveBeenCalledWith({ url: `file://${CAPTURE_PATH}` });
+    const named = `file:///cache/kuyara-${presentation.dateKey}.png`;
+    expect(presentation.dateKey).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(mockCopies).toEqual([[`file://${CAPTURE_PATH}`, named]]);
+    expect(Share.share).toHaveBeenCalledWith({
+      message: messages[language].today.share.message('https://apps.apple.com/app/kuyara/id6806664440'),
+      url: named,
+    });
+    // The named copy goes once the sheet closes, with the capture.
+    expect(mockFiles.has(named)).toBe(false);
     await waitFor(() => expect(screen.queryByTestId('outfit-share-card', hidden)).toBeNull());
   });
 

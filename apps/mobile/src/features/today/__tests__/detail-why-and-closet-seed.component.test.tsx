@@ -67,6 +67,30 @@ const mildState = {
   },
 } as TodayScreenState;
 
+// 31 degrees in heavy rain: the outfit needs a waterproof shell and high breathability at once,
+// so it trades some breathability for the protection.
+const hotRainMeasurements = {
+  temperatureCelsius: 31, apparentTemperatureCelsius: 33, condition: 'rain' as const,
+  precipitationProbability: 0.9, windSpeedMetersPerSecond: 3, humidity: 0.8, uvIndex: 4,
+};
+const hotRainWeather = {
+  ...todayWeatherSnapshot,
+  current: { observedAt: '2026-08-13T06:00:00.000Z', ...hotRainMeasurements },
+  minimumTemperatureCelsius: 29,
+  maximumTemperatureCelsius: 32,
+  hourly: [{ forecastAt: '2026-08-13T07:00:00.000Z', ...hotRainMeasurements }],
+};
+const hotRainState = {
+  ...todayScreenState,
+  snapshot: {
+    ...todayScreenState.snapshot,
+    weather: hotRainWeather,
+    recommendation: recommendOutfits({
+      snapshot: hotRainWeather, now: hotRainWeather.current.observedAt, clothingPreference: 'womens', dayVariant: 0,
+    }),
+  },
+} as TodayScreenState;
+
 const catalogName = (language: SupportedLanguage, id: string) =>
   messages[language].catalog[`catalog.garment_type.${id}.name` as keyof (typeof messages)['en']['catalog']];
 
@@ -108,6 +132,17 @@ async function renderDetail(...args: Parameters<typeof tree>) {
 
 describe.each(['en', 'tr'] as const)('%s outfit detail', (language) => {
   const copy = messages[language].today;
+
+  test('a trade-off reads under "Why this outfit", and no reasons list is drawn', async () => {
+    const result = await renderDetail(language, hotRainState);
+    const why = result.getByTestId('outfit-detail-why');
+    const tradeoffs = result.queryAllByTestId(/^outfit-detail-tradeoff-/);
+    expect(tradeoffs.length).toBeGreaterThan(0);
+    for (const row of tradeoffs) expect(why).toContainElement(row);
+    expect(tradeoffs[0]).toHaveTextContent(copy.requirementTradeoffRow({ requirement: '', garments: [] }).split('(')[0],
+      { exact: false });
+    expect(result.queryByTestId('outfit-detail-reasons')).toBeNull();
+  });
 
   test('"Why this outfit" ties the rain to the pieces it put on, in a sentence and a drawn line', async () => {
     const result = await renderDetail(language, todayScreenState);
