@@ -508,7 +508,8 @@ no custom navigation transitions, because the liveliness belongs to the content 
 rather than to the screen swapping. A screen title with no native large title recedes
 as its content scrolls over it, the way a large title gives way: driven by the scroll
 rather than a duration, it fades over its own height, travels at a quarter of the
-scroll's speed and shrinks to the press scale. Weather's title row is the one site.
+scroll's speed and shrinks to the press scale. Weather's title row and Today's header
+(place row, greeting and title) are the two sites.
 
 **Dressing.** A piece changed on the outfit detail board, by a swipe, a strip tile, the
 row's picker or an adjustable step, is taken off and put on: the leaving piece lifts
