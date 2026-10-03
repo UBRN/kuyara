@@ -31,7 +31,8 @@ export const iconNames = Object.freeze({
     ios: 'chevron.up.chevron.down', android: 'arrow_drop_down', web: 'arrow_drop_down',
   },
   refresh: { ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' },
-  location: { ios: 'mappin.and.ellipse', android: 'location_on', web: 'location_on' },
+  // A plain pin names "this place"; the pin over an ellipse read as an anchor at caption size.
+  location: { ios: 'mappin', android: 'location_on', web: 'location_on' },
   sparkle: { ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' },
   chevronDown: { ios: 'chevron.down', android: 'expand_more', web: 'expand_more' },
   close: { ios: 'xmark', android: 'close', web: 'close' },
