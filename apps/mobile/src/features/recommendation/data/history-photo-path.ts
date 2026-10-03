@@ -1,8 +1,12 @@
-import { isUuidV4 } from '@/domain/record-identity';
+import { isManagedPhotoPath, managedPhotoRelativePath } from '@/domain/managed-photo-path';
 
-const managedPathPattern = /^kuyara\/history\/photos\/([^/]+)\.jpg$/i;
+export const historyPhotoDirectory = Object.freeze(['kuyara', 'history', 'photos'] as const);
 
+export function createManagedHistoryPhotoPath(id: string): string | null {
+  return managedPhotoRelativePath(historyPhotoDirectory, id);
+}
+
+// A history path is read exactly as stored: there is no record normalisation to apply first.
 export function isManagedHistoryPhotoPath(path: string): boolean {
-  const fileId = managedPathPattern.exec(path)?.[1];
-  return fileId !== undefined && isUuidV4(fileId);
+  return isManagedPhotoPath(historyPhotoDirectory, path);
 }

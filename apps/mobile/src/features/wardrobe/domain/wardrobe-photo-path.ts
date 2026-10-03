@@ -1,3 +1,4 @@
+import { isManagedPhotoPath, managedPhotoRelativePath } from '@/domain/managed-photo-path';
 import { isUuidV4 } from '@/domain/record-identity';
 import { normalizeWardrobePhotoRelativePath } from '@/features/wardrobe/domain/wardrobe-item';
 import { WardrobePhotoValidationError } from '@/features/wardrobe/domain/wardrobe-photo';
@@ -8,8 +9,6 @@ export const managedWardrobePhotoDirectorySegments = Object.freeze([
   'photos',
 ] as const);
 
-const managedPhotoPathPattern = /^kuyara\/wardrobe\/photos\/([^/]+)\.jpg$/i;
-
 export function requireWardrobePhotoUuidV4(value: string): string {
   if (!isUuidV4(value)) {
     throw new WardrobePhotoValidationError();
@@ -19,15 +18,19 @@ export function requireWardrobePhotoUuidV4(value: string): string {
 }
 
 export function createManagedWardrobePhotoRelativePath(id: string): string {
-  return `${managedWardrobePhotoDirectorySegments.join('/')}/${requireWardrobePhotoUuidV4(id)}.jpg`;
+  const path = managedPhotoRelativePath(managedWardrobePhotoDirectorySegments, id);
+  if (path === null) {
+    throw new WardrobePhotoValidationError();
+  }
+
+  return path;
 }
 
+// A stored wardrobe path is read through the record's own normalisation (trim, reject unsafe).
 export function isManagedWardrobePhotoRelativePath(value: string): boolean {
-  try {
-    const normalized = normalizeWardrobePhotoRelativePath(value);
-    const fileId = normalized === null ? undefined : managedPhotoPathPattern.exec(normalized)?.[1];
-    return fileId !== undefined && isUuidV4(fileId);
-  } catch {
-    return false;
-  }
+  return isManagedPhotoPath(
+    managedWardrobePhotoDirectorySegments,
+    value,
+    normalizeWardrobePhotoRelativePath,
+  );
 }

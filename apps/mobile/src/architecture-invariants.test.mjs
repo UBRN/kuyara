@@ -1134,3 +1134,14 @@ test('the alerts opt-in is combined with the briefing opt-in only by wantsAnyNot
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
   assert.equal(allowlist.length, 2, 'the notification opt-in allowlist only shrinks');
 });
+
+// What makes a stored photo path managed (`<directory>/<uuid v4>.jpg`) is decided once, in
+// domain/managed-photo-path.ts; each feature only names its directory.
+test('a managed photo path pattern is written only in domain/managed-photo-path.ts', () => {
+  const owner = 'domain/managed-photo-path.ts';
+  const stemPattern = /\(\[\^\/\]\+\)\\+\.jpg/;
+  const copies = sourceFiles().filter((file) =>
+    file !== owner && stemPattern.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(copies, [], `use isManagedPhotoPath from @/${owner.replace('.ts', '')}`);
+  assert.ok(stemPattern.test(readFileSync(path.join(sourceRoot, owner), 'utf8')), 'the pattern still recognizes the owner');
+});
