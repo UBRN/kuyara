@@ -115,10 +115,15 @@ test('an equal-distance tie goes to the earlier swatch', () => {
 test('Closet palette fields do not cross into recommendation, AI, analytics or Worker code', async () => {
   const mobileSrc = fileURLToPath(new URL('../../../', import.meta.url));
   const workerSrc = fileURLToPath(new URL('../../../../../worker/src/', import.meta.url));
-  // The one approved reader outside the Closet (O8): the outfit detail draws the
-  // user's own similar piece ("Yours") in its saved colour. It renders and names it only; the
-  // rest of Today, recommendation, analytics and the Worker stay free of the fields.
-  const displayOnly = new Set([join(mobileSrc, 'features', 'today', 'presentation', 'outfit-detail-pieces.tsx')]);
+  // The approved readers outside the Closet. The outfit detail draws the user's own
+  // similar piece ("Yours") in its saved colour (O8), and the compose sheet paints a ticked
+  // catalog piece in the solid the reader picks; the pick reaches composing only as a board
+  // swatch id. Both render only; the rest of Today, recommendation, analytics and the Worker
+  // stay free of the fields.
+  const displayOnly = new Set([
+    join(mobileSrc, 'features', 'today', 'presentation', 'outfit-detail-pieces.tsx'),
+    join(mobileSrc, 'features', 'today', 'presentation', 'compose-sheet.tsx'),
+  ]);
   async function scan(directory) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
