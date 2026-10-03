@@ -172,9 +172,14 @@ function mapHourly(record: HourlyWeatherRecord): HourlyWeather {
   };
 }
 
+/** The origin of a snapshot, or null when its kind is unknown or its source is blank. */
+function parseOrigin(kind: string, sourceId: string): WeatherSnapshot['origin'] | null {
+  return (kind === 'sample' || kind === 'live') && sourceId.trim() ? { kind, sourceId } : null;
+}
+
 /**
  * The rules a snapshot's own fields obey in both directions, a row read back and a snapshot
- * about to be written: its identity, zone, clock stamps, origin and temperature range.
+ * about to be written: its identity, zone, clock stamps and temperature range.
  */
 function hasValidSnapshotFields(fields: Readonly<{
   id: string;
@@ -183,8 +188,6 @@ function hasValidSnapshotFields(fields: Readonly<{
   timeZone: string;
   fetchedAt: string;
   observedAt: string;
-  originKind: string;
-  sourceId: string;
   minimumTemperatureCelsius: number;
   maximumTemperatureCelsius: number;
   currentTemperatureCelsius: number;
@@ -193,7 +196,6 @@ function hasValidSnapshotFields(fields: Readonly<{
   return isUuidV4(fields.id) && Boolean(fields.localProfileId) && Boolean(fields.locationKey) &&
     isValidTimeZone(fields.timeZone) && isUtcIsoTimestamp(fields.fetchedAt) &&
     isUtcIsoTimestamp(fields.observedAt) &&
-    (fields.originKind === 'sample' || fields.originKind === 'live') && Boolean(fields.sourceId.trim()) &&
     Number.isFinite(fields.minimumTemperatureCelsius) &&
     Number.isFinite(fields.maximumTemperatureCelsius) &&
     fields.minimumTemperatureCelsius <= fields.maximumTemperatureCelsius &&
@@ -205,7 +207,8 @@ function hasValidSnapshotFields(fields: Readonly<{
 function mapSnapshot(record: WeatherSnapshotRecord): WeatherSnapshot {
   try {
     const current = requireMeasurements(record);
-    if (!hasValidSnapshotFields({
+    const origin = parseOrigin(record.originKind, record.sourceId);
+    if (origin === null || !hasValidSnapshotFields({
       ...record, currentTemperatureCelsius: current.temperatureCelsius, hourlyCount: record.hourly.length,
     })) throw new WeatherMappingError();
     const hourly = record.hourly.map(mapHourly);
@@ -228,7 +231,7 @@ function mapSnapshot(record: WeatherSnapshotRecord): WeatherSnapshot {
       locationKey: record.locationKey,
       timeZone: record.timeZone,
       fetchedAt: record.fetchedAt,
-      origin: { kind: record.originKind, sourceId: record.sourceId },
+      origin,
       current: {
         temperatureCelsius: current.temperatureCelsius,
         apparentTemperatureCelsius: current.apparentTemperatureCelsius,
@@ -256,15 +259,13 @@ function toRecord(
   snapshot: ProvidedWeatherSnapshot,
 ): WeatherSnapshotRecord {
   requireMeasurements(snapshot.current);
-  if (!hasValidSnapshotFields({
+  if (parseOrigin(snapshot.origin.kind, snapshot.origin.sourceId) === null || !hasValidSnapshotFields({
     id,
     localProfileId,
     locationKey: snapshot.locationKey,
     timeZone: snapshot.timeZone,
     fetchedAt: snapshot.fetchedAt,
     observedAt: snapshot.current.observedAt,
-    originKind: snapshot.origin.kind,
-    sourceId: snapshot.origin.sourceId,
     minimumTemperatureCelsius: snapshot.minimumTemperatureCelsius,
     maximumTemperatureCelsius: snapshot.maximumTemperatureCelsius,
     currentTemperatureCelsius: snapshot.current.temperatureCelsius,
