@@ -24,7 +24,7 @@ import type { WeekSummary } from '@/features/recommendation/domain/outfit-histor
 import { localeTag } from '@/localization/locale-tag';
 import type { AppMessages } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -45,8 +45,6 @@ type HistoryScreenProps = Readonly<{
   onOpenToday?: () => void;
 }>;
 
-// The image-tile radius the Closet grid and Today's alternates draw (ADR 0029 section 2).
-const TILE_RADIUS = 14;
 // An empty History shows a plain worn look, faded, over its sentence, as the Closet's empty
 // category shows its own piece.
 const EMPTY_BOARD_WIDTH = 160;
@@ -405,7 +403,7 @@ const styles = StyleSheet.create({
   month: { paddingTop: spacing.md },
   latestDay: { gap: spacing.md },
   latest: { gap: spacing.sm },
-  stage: { borderRadius: TILE_RADIUS, justifyContent: 'center', overflow: 'hidden' },
+  stage: { borderRadius: radii.imageTile, justifyContent: 'center', overflow: 'hidden' },
   text: { gap: spacing.xs },
   days: { flexDirection: 'row', gap: spacing.md },
   wrap: { flexWrap: 'wrap' },

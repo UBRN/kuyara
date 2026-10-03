@@ -39,10 +39,8 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // they are chrome the OS draws, not this screen's content. O9 draws the Closet as an open
 // rack (`ClosetRack`) with six category cells under it as its legend.
 
-// A cell is a 64 point stage-fill tile holding a 48 point drawing and the count. No token
-// in `radii` is 14; ADR 0028 section 2 fixes image tiles at 14, as the Closet grid does.
+// A cell is a 64 point stage-fill image tile holding a 48 point drawing and the count.
 const CELL_TILE_HEIGHT = 64;
-const CELL_TILE_RADIUS = 14;
 const CELL_ICON_BOX = 48;
 const CELL_DRAWING_SIZE = 44;
 const CELL_GLYPH_SIZE = 36;
@@ -530,7 +528,7 @@ const styles = StyleSheet.create({
   },
   cellTile: {
     alignItems: 'center',
-    borderRadius: CELL_TILE_RADIUS,
+    borderRadius: radii.imageTile,
     flexDirection: 'row',
     gap: spacing.sm,
     paddingLeft: spacing.sm,

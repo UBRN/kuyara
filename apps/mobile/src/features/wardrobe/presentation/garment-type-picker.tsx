@@ -30,7 +30,7 @@ import { GarmentTypeTile } from '@/features/wardrobe/presentation/garment-type-t
 import { WardrobeCategoryChip } from '@/features/wardrobe/presentation/wardrobe-category-chip';
 import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import { useMessages } from '@/localization/use-messages';
-import { layout, spacing } from '@/theme/theme';
+import { layout, radii, spacing } from '@/theme/theme';
 import { OnPlate, PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -52,8 +52,6 @@ const CATEGORY_ARTWORK_COLOR: Readonly<Record<StructuralCategory, ColorFamily>> 
   footwear: 'white',
   accessory: 'yellow',
 };
-// ADR 0029 section 2 fixes an image tile's radius at 14.
-const TILE_RADIUS = 14;
 const CATEGORY_DRAWING_SIZE = 56;
 const ROW_TILE_SIZE = 64;
 
@@ -285,7 +283,7 @@ const styles = StyleSheet.create({
   },
   rowTile: {
     alignItems: 'center',
-    borderRadius: TILE_RADIUS,
+    borderRadius: radii.imageTile,
     height: ROW_TILE_SIZE,
     justifyContent: 'center',
     width: ROW_TILE_SIZE,
@@ -315,7 +313,7 @@ const styles = StyleSheet.create({
   },
   categoryTile: {
     alignItems: 'center',
-    borderRadius: TILE_RADIUS,
+    borderRadius: radii.imageTile,
     gap: spacing.sm,
     justifyContent: 'center',
     minHeight: 112,

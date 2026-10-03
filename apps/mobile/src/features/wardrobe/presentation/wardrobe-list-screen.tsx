@@ -44,7 +44,7 @@ import {
 } from '@/features/wardrobe/presentation/wardrobe-grid-tile';
 import { useMessages } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingTile: {
-    borderRadius: 14,
+    borderRadius: radii.imageTile,
   },
   // Error state, section 4: the glyph, 8, a `bodyStrong` title, 4, a `body` line, 12,
   // the retry button. Precise per-gap margins rather than a uniform container gap,

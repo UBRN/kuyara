@@ -1147,3 +1147,14 @@ test('records are split by entry state only by the closet categories owner', () 
   assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'use splitClosetByEntryState or summarizeClosetCategories');
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
 });
+
+// The image-tile radius is the theme's `radii.imageTile`. The listed file is switched to it
+// separately; the list only shrinks.
+test('the image-tile radius is written only in the theme', () => {
+  const allowlist = ['features/today/presentation/today-alternates.tsx'];
+  const hits = sourceFiles().filter((file) =>
+    file !== 'theme/theme.ts'
+    && /RADIUS\s*=\s*14\b|borderRadius:\s*14\b/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'use radii.imageTile');
+  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
+});

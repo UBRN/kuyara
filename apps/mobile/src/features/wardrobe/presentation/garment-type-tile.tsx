@@ -8,20 +8,18 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import type { ColorFamily, GarmentType } from '@/features/catalog/domain/garment-taxonomy';
-import { borderWidths, interaction, plateTheme, spacing } from '@/theme/theme';
+import { borderWidths, interaction, plateTheme, radii, spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The Drawer's tile. It draws the same picture the Closet grid draws for the same
 // object, so the piece a user picks here is the piece they keep seeing, and it reuses
-// the Closet tile's geometry rather than inventing a second one: ADR 0029 section 2
-// fixes an image tile's radius at 14, and section 1 sizes the glyph rung at 72 inside a
-// 136-wide tile.
+// the Closet tile's geometry rather than inventing a second one: the image-tile radius,
+// and ADR 0029 section 1's glyph rung of 72 inside a 136-wide tile.
 //
 // Selection is a `brandAccent` ring plus a filled check, never an accent fill: the chip
 // rail above already spends the viewport's single accent fill (Law 1). The ring is drawn
 // in both states, transparent when unselected, so selecting a tile never moves the grid.
-const TILE_RADIUS = 14;
 const GLYPH_SIZE_RATIO = 72 / 136;
 // Law 6's ladder: 20 beside `label`/`body` text.
 const SELECTED_MARK_SIZE = 20;
@@ -116,7 +114,7 @@ const styles = StyleSheet.create({
   },
   frame: {
     alignItems: 'center',
-    borderRadius: TILE_RADIUS,
+    borderRadius: radii.imageTile,
     borderWidth: borderWidths.strong,
     justifyContent: 'center',
     overflow: 'hidden',

@@ -1,12 +1,10 @@
 import type { PropsWithChildren } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-// The image-tile radius (ADR 0029 section 2).
-const TILE_RADIUS = 14;
 // How far an empty place's drawing fades: present enough to name the place, quiet enough
 // that the sentence and the button lead.
 export const FADED_OPACITY = 0.4;
@@ -32,6 +30,6 @@ export function EmptyStateArt({ children, testID }: PropsWithChildren<Readonly<{
 }
 
 const styles = StyleSheet.create({
-  tile: { borderRadius: TILE_RADIUS, padding: spacing.lg },
+  tile: { borderRadius: radii.imageTile, padding: spacing.lg },
   faded: { opacity: FADED_OPACITY },
 });

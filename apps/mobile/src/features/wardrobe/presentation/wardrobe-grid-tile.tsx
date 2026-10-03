@@ -14,9 +14,6 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // cover-cropped, else the colour-filled silhouette, else the structural-category glyph.
 // All three rungs share this one frame, one stage fill, one name line and
 // one subline slot, so mixed rows never stagger and legacy rows are never drawn broken.
-// No radius token in `radii` is 14; section 2's anatomy table fixes image tiles at 14
-// regardless of Law 3's 20 container radius, matching the rail's own local constant.
-const TILE_RADIUS = 14;
 // ADR 0028 section 1's rail sizes its glyph rung at 72 inside a 136-wide tile; the grid
 // reuses that ratio against the tile's shorter side rather than inventing a new one.
 const GLYPH_SIZE_RATIO = 72 / 136;
@@ -187,7 +184,7 @@ const styles = StyleSheet.create({
   },
   tile: {
     alignItems: 'center',
-    borderRadius: TILE_RADIUS,
+    borderRadius: radii.imageTile,
     justifyContent: 'center',
     overflow: 'hidden',
   },

@@ -315,6 +315,8 @@ export type TypographyRole = keyof typeof typography;
 export const radii = Object.freeze({
   compact: 8,
   control: 12,
+  // A garment picture's tile: the Closet grid, the type picker, History and empty places.
+  imageTile: 14,
   card: 20,
   // The weather-coloured stage: Today's outfit stands on it, and Weather's current conditions.
   stage: 26,
