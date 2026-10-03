@@ -98,19 +98,22 @@ export function NativeListSection({ children, footer, heading, testID }: NativeL
   // asks for, and an unconstrained line of text asks for as much as it needs, so at the
   // largest accessibility size the heading ran past the list and was clipped. The list fills
   // the window, so the heading is given that width less one gutter: it now wraps inside the
-  // host and the host reports the wrapped height back to the section.
+  // host and the host reports the wrapped height back to the section. The host follows the
+  // size of the view it first hosted, and the text is replaced when the text size changes,
+  // so the text sits inside a view that stays.
   const { width } = useWindowDimensions();
   const easierToSee = useEasierToSee();
   const header = heading ? (
     <RNHostView matchContents>
-      <AppText
-        accessibilityRole="header"
-        colorRole="textSecondary"
-        style={[styles.heading, { width: Math.max(0, width - spacing.lg) }]}
-        testID={testID ? `${testID}-heading` : undefined}
-        variant="bodyStrong">
-        {heading}
-      </AppText>
+      <View style={[styles.heading, { width: Math.max(0, width - spacing.lg) }]}>
+        <AppText
+          accessibilityRole="header"
+          colorRole="textSecondary"
+          testID={testID ? `${testID}-heading` : undefined}
+          variant="bodyStrong">
+          {heading}
+        </AppText>
+      </View>
     </RNHostView>
   ) : undefined;
   const nativeFooter = typeof footer === 'string'

@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Dimensions, PlatformColor, StyleSheet, View as RNView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -260,10 +260,9 @@ test('sections share one full-height themed host and one inset grouped list', as
     { $type: 'tint', color: lightTheme.colors.brandPrimary },
   ]);
   expect(result.getAllByTestId('expo-ui-section')).toHaveLength(2);
-  expect(result.getByRole('header', { name: 'About you' })).toHaveStyle({
-    color: lightTheme.colors.textSecondary,
-    paddingLeft: 16,
-  });
+  const heading = result.getByRole('header', { name: 'About you' });
+  expect(heading).toHaveStyle({ color: lightTheme.colors.textSecondary });
+  expect(headingFrame(heading)).toHaveStyle({ paddingLeft: 16 });
   expect(result.getByText('Catalog selection')).toBeOnTheScreen();
   expect(result.getByText('Choose a catalog')).toBeOnTheScreen();
 });
@@ -285,10 +284,46 @@ test('a section heading is bound to the list width so it wraps instead of clippi
   );
 
   const heading = result.getByTestId('group-heading');
-  const style = StyleSheet.flatten(heading.props.style);
+  const style = StyleSheet.flatten(headingFrame(heading).props.style);
   expect(style.width).toBe(Dimensions.get('window').width - 16);
   expect(style.paddingLeft).toBe(16);
   expect(heading.props.numberOfLines).toBeUndefined();
+});
+
+type HostElement = ReturnType<Awaited<ReturnType<typeof render>>['getByTestId']>;
+
+/** The view the native host sizes itself from: the one it hosts directly. */
+function headingFrame(heading: HostElement): HostElement {
+  let node: HostElement | null = heading;
+  while (node && node.parent?.props.testID !== 'expo-ui-rn-host') node = node.parent;
+  if (!node) throw new Error('the heading is not hosted');
+  return node;
+}
+
+// The native host follows the size of the view it first hosted. A changed text size replaces
+// the heading text so it is measured again, so the text sits inside a view that stays: hosted
+// directly, the replaced text left the host at the old size and the heading out of place.
+test('a changed text size keeps the view the section heading host sizes itself from', async () => {
+  mockFontScale(1);
+  const result = await render(
+    <TestProviders>
+      <NativeList>
+        <NativeListSection heading="Erişilebilirlik" testID="group">
+          <NativeListRow label="Language" />
+        </NativeListSection>
+      </NativeList>
+    </TestProviders>,
+  );
+  const heading = result.getByTestId('group-heading');
+  const frame = headingFrame(heading);
+
+  await act(async () => {
+    mockFontScale(1.353);
+  });
+
+  const grown = result.getByTestId('group-heading');
+  expect(grown).not.toBe(heading);
+  expect(headingFrame(grown)).toBe(frame);
 });
 
 test('the rating row draws five grey 13-point stars that scale with the text', async () => {

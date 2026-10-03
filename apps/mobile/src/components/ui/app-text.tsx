@@ -35,7 +35,7 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
 ) {
   const theme = useKuyaraTheme();
   const { heavierText, higherContrast } = useVisibility();
-  const { usesStackedLayout } = useTextScaling();
+  const { fontScale, usesStackedLayout } = useTextScaling();
   // O13: higher contrast reads secondary and gated text in the primary ink; heavier text takes
   // one weight step and lifts the 13-point roles to the 15-point label size.
   const resolvedColorRole = higherContrast && (colorRole === 'textSecondary' || colorRole === 'textGated')
@@ -59,8 +59,12 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
     variant === 'code' ? Platform.select({ ios: 'ui-monospace', default: 'monospace' }) : undefined;
 
   return (
+    // A text size changed in iOS Settings while kuyara runs does not dirty a text whose props
+    // stay the same, so it kept its old measured frame: a heading grown to the largest size
+    // lost its descenders. A new native text per size is measured at the new size.
     <Text
       allowFontScaling={allowFontScaling}
+      key={fontScale}
       ref={ref}
       style={[
         styles.text,
