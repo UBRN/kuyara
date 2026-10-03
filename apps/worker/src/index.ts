@@ -1,6 +1,8 @@
 import {
   accountDeleteV1ErrorSchema,
   accountDeleteV1Path,
+  feedbackV1ErrorSchema,
+  feedbackV1Path,
   aiProbeV1Path,
   aiRecommendV1Path,
   aiV1ErrorSchema,
@@ -11,6 +13,7 @@ import {
 } from '@kuyara/contracts';
 
 import { createAccountDeleteHandler } from './account/account-delete-handler.ts';
+import { createFeedbackHandler, type FeedbackDatabase } from './feedback-handler.ts';
 import { createAppleTokenRevoker } from './account/apple-token-revoker.ts';
 import { createSupabaseAdmin } from './account/supabase-admin.ts';
 import { createSupabaseTokenVerifier } from './account/supabase-token-verifier.ts';
@@ -75,6 +78,8 @@ export type Env = Readonly<{
   APPLE_SIGN_IN_PRIVATE_KEY?: string;
   APPLE_SIGN_IN_KEY_ID?: string;
   ACCOUNT_DELETE_RATE_LIMIT?: RateLimitBinding;
+  FEEDBACK_DB?: FeedbackDatabase;
+  FEEDBACK_RATE_LIMIT?: RateLimitBinding;
 }>;
 
 /**
@@ -91,6 +96,7 @@ const weatherUnavailable = weatherV1ErrorSchema.parse({ error: { code: 'weather_
 const placesUnavailable = placeSearchV1ErrorSchema.parse({ error: { code: 'places_unavailable' } });
 const aiUnavailable = aiV1ErrorSchema.parse({ error: { code: 'ai_unavailable' } });
 const accountUnavailable = accountDeleteV1ErrorSchema.parse({ error: { code: 'unavailable' } });
+const feedbackUnavailable = feedbackV1ErrorSchema.parse({ error: { code: 'unavailable' } });
 
 export function createAiProviders(env: Env): AiProvider[] {
   const providers: AiProvider[] = [];
@@ -247,6 +253,10 @@ export function buildRouter(env: Env): Handler {
     weatherHandler,
     placeSearchHandler,
     accountDeleteHandler: buildAccountDeleteHandler(env),
+    feedbackHandler: env.FEEDBACK_DB && env.FEEDBACK_RATE_LIMIT
+      ? createFeedbackHandler({ database: env.FEEDBACK_DB, rateLimiter: env.FEEDBACK_RATE_LIMIT })
+      : offlineRoute(feedbackV1Path,
+        !env.FEEDBACK_DB ? 'FEEDBACK_DB' : 'FEEDBACK_RATE_LIMIT', feedbackUnavailable),
     aiHandler,
     probeHandler,
     aiReady: providers.length > 0,
@@ -293,6 +303,8 @@ function compositionKey(env: Env): string {
     Boolean(env.WEATHER_RATE_LIMIT),
     Boolean(env.PLACE_SEARCH_RATE_LIMIT),
     Boolean(env.ACCOUNT_DELETE_RATE_LIMIT),
+    Boolean(env.FEEDBACK_DB),
+    Boolean(env.FEEDBACK_RATE_LIMIT),
   ]);
 }
 

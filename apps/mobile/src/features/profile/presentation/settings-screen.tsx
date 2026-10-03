@@ -3,6 +3,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
+import { FEEDBACK_FORM_ENABLED } from '@/features/feedback/application/feedback-form-flag';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import {
   AppText,
@@ -40,6 +41,7 @@ export type SettingsScreenProps = Readonly<{
   onNameChange: (value: string | null) => Promise<void>;
   onOpenPrivacy: () => void;
   onOpenSupport: () => void;
+  onOpenFeedback?: () => void;
   onShare: () => void;
   onRate: () => void;
   onOpenLicence: () => void;
@@ -67,6 +69,7 @@ export function SettingsScreen({
   onOpenEasierToSee,
   onOpenPrivacy,
   onOpenSupport,
+  onOpenFeedback,
   onShare,
   onRate,
   onOpenLicence,
@@ -274,6 +277,14 @@ export function SettingsScreen({
         />
       </NativeListSection>
       <NativeListSection heading={messages.settings.helpHeading} testID="settings-help-group">
+        {FEEDBACK_FORM_ENABLED && onOpenFeedback ? (
+          <NativeListRow
+            glyph={({ color, size }) => <Icon color={color} name="document" size={size} />}
+            label={messages.settings.feedback.title}
+            onPress={onOpenFeedback}
+            testID="settings-feedback-row"
+          />
+        ) : null}
         <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="helpOutline" size={size} />}
           label={messages.settings.supportRow}
