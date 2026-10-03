@@ -70,8 +70,7 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { dressingDayDateKey, isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
-import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
-import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
+import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-database';
 import { newUuid } from '@/infrastructure/new-uuid';
 import { systemNow as now } from '@/infrastructure/system-clock';
 import { useLocalization } from '@/localization/use-messages';
@@ -125,8 +124,7 @@ function createRecommendationClient(
 }
 
 async function loadRepository() {
-  const database = await openKuyaraDatabase();
-  await migrateDatabase(database);
+  const database = await openMigratedDatabase();
   return new LocalRecommendationRepository(
     new SqliteRecommendationLocalDataSource(database),
     { createId: newUuid, now },
@@ -151,20 +149,17 @@ function composePreview(input: TomorrowPreviewInput) {
 }
 
 async function loadChoiceRepository() {
-  const database = await openKuyaraDatabase();
-  await migrateDatabase(database);
+  const database = await openMigratedDatabase();
   return new SqliteDressingDayChoiceRepository(database, newUuid, now);
 }
 
 async function loadDepartureRepository() {
-  const database = await openKuyaraDatabase();
-  await migrateDatabase(database);
+  const database = await openMigratedDatabase();
   return new SqliteDressingDayDepartureRepository(database, newUuid, now);
 }
 
 async function loadHistoryRepository() {
-  const database = await openKuyaraDatabase();
-  await migrateDatabase(database);
+  const database = await openMigratedDatabase();
   return new SqliteOutfitHistoryRepository(database, newUuid, now,
     new ExpoHistoryPhotoStorage(newUuid));
 }
