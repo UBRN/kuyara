@@ -28,6 +28,15 @@ export function dateTimeFormat(
   return format;
 }
 
+/**
+ * The time zone the device's own clock keeps, read fresh each time so a person who travels is
+ * not held to the old zone. It may be empty on an engine that cannot name one; each caller
+ * keeps its own fallback.
+ */
+export function getDeviceTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
 /** Whether `value` names a time zone Intl accepts: UTC, CET and Europe/Istanbul, and also a numeric offset. */
 export function isValidTimeZone(value: string): boolean {
   try {

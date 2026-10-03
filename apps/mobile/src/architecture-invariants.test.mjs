@@ -1162,3 +1162,17 @@ test('snapshot acceptance and the hours ahead each have one owner', () => {
 
   assert.deepEqual(copies, [], 'call acceptProvidedSnapshot from weather/domain/weather.ts or forecastHoursAhead from weather/domain/wardrobe-day.ts');
 });
+
+// The device's time zone is read once, by `getDeviceTimeZone` in domain/intl-format.ts, and the
+// default quiet hours are put on a zone once, by `deviceQuietHours`.
+test('the device time zone and the default quiet hours each have one owner', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (relativePath !== 'domain/intl-format.ts' && /resolvedOptions\(\)\.timeZone/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+      if (relativePath !== 'features/notifications/domain/weather-alerts.ts' && /\.\.\.defaultQuietHours/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call getDeviceTimeZone from @/domain/intl-format or deviceQuietHours from weather-alerts.ts');
+});

@@ -27,6 +27,11 @@ export const defaultQuietHours: Omit<QuietHours, 'timeZone'> = Object.freeze({
   end: Object.freeze({ hour: 7, minute: 0 }),
 });
 
+/** The default quiet hours on the wall clock of `timeZone`. */
+export function deviceQuietHours(timeZone: string): QuietHours {
+  return { ...defaultQuietHours, timeZone };
+}
+
 export type WeatherAlertPlan = Readonly<{
   id: string;
   ruleId: WeatherAlertRuleId;

@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { getDeviceTimeZone } from '@/domain/intl-format';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import {
@@ -50,7 +51,7 @@ export function useWeatherAlertOffer(): WeatherAlertOfferApplication {
       alreadyOffered,
       snapshot,
       now: new Date(now).toISOString(),
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+      timeZone: getDeviceTimeZone() || 'UTC',
     }),
     [alreadyOffered, now, optedIn, snapshot],
   );

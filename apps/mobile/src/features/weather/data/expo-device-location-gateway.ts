@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import { Linking } from 'react-native';
 
+import { getDeviceTimeZone } from '@/domain/intl-format';
 import type {
   DeviceLocationGateway,
   DeviceLocationResult,
@@ -94,7 +95,7 @@ export class ExpoDeviceLocationGateway implements DeviceLocationGateway {
       // Expo Location 57's Android result always sets timezone to null, so the device zone carries it there.
       const timeZone = resolveDeviceLocationTimeZone(
         address?.timezone ?? null,
-        Intl.DateTimeFormat().resolvedOptions().timeZone,
+        getDeviceTimeZone(),
       );
 
       if (timeZone === null) {

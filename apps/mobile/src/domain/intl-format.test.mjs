@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import test from 'node:test';
 
-import { dateTimeFormat, isValidTimeZone, numberFormat, zonedClock, zonedDateKey, zonedHour } from './intl-format.ts';
+import { dateTimeFormat, isValidTimeZone, getDeviceTimeZone, numberFormat, zonedClock, zonedDateKey, zonedHour } from './intl-format.ts';
 
 test('a zoned date formatter is built once per locale and options', () => {
   const options = { timeZone: 'Europe/Istanbul', hour: '2-digit', hourCycle: 'h23' };
@@ -109,4 +109,9 @@ test('a zone date key is the date the zone clock reads, across the date line and
   assert.equal(zonedDateKey(instant, 'America/Los_Angeles'), '2026-12-31');
   assert.equal(zonedDateKey(Date.parse('2024-02-29T23:59:59Z'), 'Pacific/Kiritimati'), '2024-03-01');
   assert.throws(() => zonedDateKey(instant, 'Not/AZone'));
+});
+
+test('the device time zone is the zone Intl resolves for the device clock', () => {
+  assert.equal(getDeviceTimeZone(), Intl.DateTimeFormat().resolvedOptions().timeZone);
+  assert.equal(isValidTimeZone(getDeviceTimeZone()), true);
 });

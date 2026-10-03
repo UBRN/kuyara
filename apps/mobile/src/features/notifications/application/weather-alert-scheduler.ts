@@ -1,3 +1,4 @@
+import { getDeviceTimeZone } from '@/domain/intl-format';
 import type {
   NotificationGateway,
   NotificationKind,
@@ -9,7 +10,7 @@ import {
   type MorningBriefingPlan,
 } from '@/features/notifications/domain/morning-briefing';
 import {
-  defaultQuietHours,
+  deviceQuietHours,
   planWeatherAlerts,
   type WeatherAlertPlan,
 } from '@/features/notifications/domain/weather-alerts';
@@ -190,12 +191,12 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     if (!snapshot) return;
 
     const deliveredAlertIds = await repository.listFiredIds(input.localProfileId, now);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const timeZone = getDeviceTimeZone() || 'UTC';
     const plans = input.weatherAlertsEnabled
       ? planWeatherAlerts({
         snapshot,
         now,
-        quietHours: { ...defaultQuietHours, timeZone },
+        quietHours: deviceQuietHours(timeZone),
         deliveredAlertIds,
         leadTimeMinutes: input.leadTimeMinutes,
       })
