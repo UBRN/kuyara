@@ -35,6 +35,10 @@ import {
   onboardingSteps,
   reduceOnboardingDraft,
 } from '@/features/profile/application/onboarding-state';
+import {
+  onboardingPreviewOutfits,
+  type OnboardingPreviewOutfits,
+} from '@/features/profile/application/onboarding-preview';
 import type {
   DressStyle,
   Gender,
@@ -47,7 +51,11 @@ import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics
 import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import { activeLocationSnapshot, type WeatherConditionCode } from '@/features/weather/domain/weather';
+import {
+  activeLocationSnapshot,
+  type WeatherConditionCode,
+  type WeatherSnapshot,
+} from '@/features/weather/domain/weather';
 import { useLocalization } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
@@ -66,7 +74,8 @@ const welcomePreviewPieces = [
 ] as const;
 // From the gender step on, the same board answers each choice: a gender and a dress style
 // swap the pieces they change (Law 7), so the first minute already shows what a choice does.
-// Each outfit fills the same four slots, so a changed piece is replaced where it stands.
+// Once the place's weather is known, the outfits are the ones the device's rules choose for it;
+// until then these sample outfits, which fill the same four slots, dress the sample sky.
 const previewOutfit = (
   outer: GarmentBoardPiece['garmentTypeId'],
   top: GarmentBoardPiece['garmentTypeId'],
@@ -108,10 +117,12 @@ const previewPalette = (
   isNight: sky.daypart === 'night',
   formality,
 });
-const allPreviewPieces = [
+const stagePieces = (choices: typeof choicePreviewPieces) => [
   welcomePreviewPieces,
-  ...Object.values(choicePreviewPieces).flatMap((byStyle) => Object.values(byStyle)),
+  ...Object.values(choices).flatMap((byStyle) => Object.values(byStyle)),
 ];
+const stageHeight = (outfits: readonly (readonly GarmentBoardPiece[])[], width: number, large: boolean) => (
+  Math.max(...outfits.map((pieces) => measureGarmentBoardHeight(pieces, width, 'today', false, large))));
 // Each answer hints at the catalog it chooses, three pieces from it.
 const genderHints: Readonly<Record<Gender, readonly ChoiceTileDrawing[]>> = {
   woman: [
@@ -198,6 +209,23 @@ export function OnboardingScreen({
     condition: placeWeather.current.condition,
     daypart: resolveDaypart(placeWeather.current.observedAt, placeWeather.timeZone, activeLocation?.coordinates),
   } : sampleSky;
+  // The rules take a moment, so they run off the render once the place's weather has
+  // settled, steps before the board shows them; until then the sample outfits stand.
+  const [weatherOutfits, setWeatherOutfits] = useState<Readonly<{
+    snapshot: WeatherSnapshot;
+    outfits: OnboardingPreviewOutfits | null;
+  }> | null>(null);
+  useEffect(() => {
+    if (!placeWeather) return undefined;
+    const idle = requestIdleCallback(() => setWeatherOutfits({
+      snapshot: placeWeather,
+      outfits: onboardingPreviewOutfits(placeWeather),
+    }));
+    return () => cancelIdleCallback(idle);
+  }, [placeWeather]);
+  const ruledOutfits = weatherOutfits !== null && weatherOutfits.snapshot === placeWeather
+    ? weatherOutfits.outfits : null;
+  const choicePieces = ruledOutfits ?? choicePreviewPieces;
   const skyStage = theme.atmosphere[resolveAtmosphereState(sky.condition, sky.daypart)];
   const skyCondition = resolveConditionStyle(sky.condition, sky.daypart);
   const step = onboardingSteps[draft.step];
@@ -291,10 +319,10 @@ export function OnboardingScreen({
 
   // One stage from the welcome to the dress style step, as tall as its tallest outfit, so a
   // swap never moves what is under it.
-  const previewHeight = Math.max(...(step === 'welcome' ? [welcomePreviewPieces] : allPreviewPieces).map((pieces) => (
-    measureGarmentBoardHeight(pieces, previewWidth, 'today', false, largeBoard))));
+  const previewHeight = stageHeight(
+    step === 'welcome' ? [welcomePreviewPieces] : stagePieces(choicePieces), previewWidth, largeBoard);
   const previewPieces = step !== 'welcome' && draft.gender
-    ? choicePreviewPieces[draft.gender][draft.dressStyle ?? 'casual']
+    ? choicePieces[draft.gender][draft.dressStyle ?? 'casual']
     : welcomePreviewPieces;
   const choiceStep = step === 'gender' || step === 'dress_style';
   const previewStage = (

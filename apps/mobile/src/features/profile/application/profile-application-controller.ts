@@ -13,8 +13,7 @@ import type {
   Gender,
   StyleAesthetic,
 } from '@/features/profile/domain/profile';
-
-const catalogPreferenceByGender = { woman: 'womens', man: 'mens' } as const;
+import { catalogPreferenceByGender } from '@/features/profile/domain/profile';
 
 const singleLine = (value: string): string => value.replace(/[\r\n]+/g, ' ');
 
