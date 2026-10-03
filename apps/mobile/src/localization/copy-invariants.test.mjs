@@ -121,9 +121,10 @@ test('no user-visible string in either language holds a straight apostrophe', ()
   }
 });
 
-test('Turkish copy says "yapay zekâ", never "AI" or "yapay zeka"', () => {
+test('Turkish copy says "yapay zeka", never "AI" or "zekâ"', () => {
   assert.deepEqual(offenders('tr', /\bAI\b/), []);
-  assert.deepEqual(offenders('tr', /yapay zeka(?!â)/i), []);
+  assert.deepEqual(offenders('tr', /zekâ/i), []);
+  assert.ok(languageLiterals(SOURCES[0], 'tr').some(({ text }) => text === 'Yapay zeka ile seçildi'));
 });
 
 test('Turkish copy writes "Gardırop" with a capital in every form', () => {
