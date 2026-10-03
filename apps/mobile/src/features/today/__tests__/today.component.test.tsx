@@ -3289,7 +3289,7 @@ describe('Today with Easier to see', () => {
       .toBe(24);
   });
 
-  test('with the route link each alternative is a pushed link whose drawing is the zoom source', async () => {
+  test('with the route link the outfit and each alternative are pushed links whose drawing is the zoom source', async () => {
     const linkPress = jest.fn();
     const onOpenOutfitDetail = jest.fn();
     const href = (id: string) => ({ pathname: '/[id]' as const, params: { id } });
@@ -3302,9 +3302,15 @@ describe('Today with Easier to see', () => {
     await fireEvent(result.getByTestId('today-content'), 'layout', {
       nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
     });
-    const alternates = loadedPresentation().suggestions.slice(1);
-    const sources = result.getAllByTestId('apple-zoom-source', { includeHiddenElements: true });
+    const [primary, ...alternates] = loadedPresentation().suggestions;
+    const [primarySource, ...sources] = result.getAllByTestId('apple-zoom-source', { includeHiddenElements: true });
     expect(sources).toHaveLength(alternates.length);
+    // S21: the outfit on the stage zooms out of its stage the same way, behind the same guard.
+    expect(within(primarySource).getByTestId('today-stage', { includeHiddenElements: true })).toBeOnTheScreen();
+    expect(within(primarySource).queryByTestId('today-archetype')).toBeNull();
+    expect(mockLinkProps).toHaveBeenCalledWith(expect.objectContaining({
+      asChild: true, href: href(primary.id), onPress: linkPress, push: true,
+    }));
     for (const [index, suggestion] of alternates.entries()) {
       // Only the drawing grows into the detail; the caption stays outside the zoom source.
       expect(within(sources[index]).getByTestId(`today-alternate-stage-${suggestion.id}`,
@@ -3316,6 +3322,7 @@ describe('Today with Easier to see', () => {
       // The link navigates by itself, so the card's own press handler opens nothing.
       await fireEvent.press(result.getByTestId(`today-alternate-${suggestion.id}`));
     }
+    await fireEvent.press(result.getByTestId('today-archetype'));
     expect(onOpenOutfitDetail).not.toHaveBeenCalled();
     expect(result.getByTestId(`today-alternate-${alternates[0].id}`)).toHaveProp('role', 'button');
     // The pressed card still dims, though the link keeps only an object style.
