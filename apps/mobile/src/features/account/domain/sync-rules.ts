@@ -63,7 +63,10 @@ export function applyPulledById<Item extends IdRow>(
   return applyPulled(local, pulled, keyById, land);
 }
 
-/** Day tables are keyed by day: a same-day row under another id overwrites, and the phone adopts its id. */
+/**
+ * Daily choices and departures are keyed by day: a same-day row under another id overwrites, and
+ * the phone adopts its id. History holds several looks a day and is keyed by id.
+ */
 export function applyPulledByDay<Item extends DayRow>(
   local: readonly LocalSyncRow<Item>[],
   pulled: readonly PulledSyncRow<Item>[],
@@ -83,8 +86,8 @@ export function applyPulledProfile(
 /**
  * The rows whose pending flag clears after an upload: the server returned the row with the same
  * `updated_at` the phone holds now. A row edited during the upload has moved on and stays pending.
- * Match by the row's identity: `keyById` for the Closet, `keyByDay` for a day table, where the
- * server may hold the day under another id.
+ * Match by the row's identity: `keyById` for the Closet and History, `keyByDay` for daily choices
+ * and departures, where the server may hold the day under another id.
  */
 export function pendingCleared<Item extends Readonly<{ updatedAt: string }>>(
   local: readonly Item[],

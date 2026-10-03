@@ -45,7 +45,7 @@ export function landedWardrobeItem(pulled: WardrobeItem, local: WardrobeItem | n
   return { ...pulled, photoRelativePath: local?.photoRelativePath ?? null };
 }
 
-/** A pulled History day keeps the mirror photo this phone holds for that day, under whichever id. */
+/** Photos never sync: a pulled History look keeps the mirror photo this phone holds for it. */
 export function landedOutfitHistory(
   pulled: OutfitHistoryRecord,
   local: OutfitHistoryRecord | null,

@@ -4,14 +4,16 @@ import {
   type AccountRows,
 } from '@/features/account/domain/account-rows';
 import { firstUploadRows } from '@/features/account/domain/first-upload';
+import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
 
 export type MergeCounts = Readonly<{
   /** Live Closet pieces the account did not hold and now does. */
   piecesAdded: number;
-  /** Live History days the account did not hold and now does. */
+  /** History days with a live look that the account did not hold and now does. */
   historyDaysAdded: number;
   /** Live Closet pieces this phone did not hold and now does. */
   piecesReceived: number;
+  /** History days with a live look that this phone did not hold and now does. */
   historyDaysReceived: number;
 }>;
 
@@ -29,7 +31,7 @@ type Merged<Item> = Readonly<{ write: readonly Item[]; send: readonly Item[]; ad
 
 const isLive = (row: Row | null) => row !== null && row.deletedAt === null;
 
-/** The Closet merges by ID and the account's copy wins (ADR 0041 section 4). */
+/** The Closet and History merge by ID and the account's copy wins (ADR 0041 section 4). */
 function mergeById<Item extends Row>(
   candidates: readonly Item[],
   local: readonly Item[],
@@ -51,7 +53,7 @@ function mergeById<Item extends Row>(
 }
 
 /**
- * Day-keyed tables are one row per day: when both hold the day, a live account record stays and
+ * Daily choices and departures are one row per day: when both hold the day, a live account record stays and
  * the phone adopts its id. An account deletion marker never overrides the phone: it yields to a
  * live record there, so the phone's day is not lost, and is otherwise not worth writing.
  */
@@ -75,6 +77,24 @@ function mergeByDay<Item extends DayRow>(
     return account === undefined || (!isLive(account) && isLive(row));
   });
   return { write, send, added: send.filter(isLive).length, received };
+}
+
+/**
+ * A History day can hold several looks (ADR 0038), so looks merge by ID: both sides' looks of a
+ * day stand side by side and the account's copy of the same look wins. The counts stay in days.
+ */
+function mergeHistory(
+  candidates: readonly OutfitHistoryRecord[],
+  local: readonly OutfitHistoryRecord[],
+  remote: readonly OutfitHistoryRecord[],
+): Merged<OutfitHistoryRecord> {
+  const merged = mergeById(candidates, local, remote, landedOutfitHistory);
+  const liveDays = (rows: readonly OutfitHistoryRecord[]) => new Set(rows.filter(isLive).map((row) => row.dayKey));
+  const newDays = (rows: readonly OutfitHistoryRecord[], held: readonly OutfitHistoryRecord[]) => {
+    const heldDays = liveDays(held);
+    return [...liveDays(rows)].filter((dayKey) => !heldDays.has(dayKey)).length;
+  };
+  return { ...merged, added: newDays(merged.send, remote), received: newDays(merged.write, local) };
 }
 
 const keep = <Item>(pulled: Item) => pulled;
@@ -106,7 +126,7 @@ export function mergeAtFirstLink(
   const closet = mergeById(candidates.wardrobeItems, local.wardrobeItems, remote.wardrobeItems, landedWardrobeItem);
   const choices = mergeByDay(candidates.dressingDayChoices, local.dressingDayChoices, remote.dressingDayChoices, keep);
   const departures = mergeByDay(candidates.dressingDayDepartures, local.dressingDayDepartures, remote.dressingDayDepartures, keep);
-  const history = mergeByDay(candidates.outfitHistory, local.outfitHistory, remote.outfitHistory, landedOutfitHistory);
+  const history = mergeHistory(candidates.outfitHistory, local.outfitHistory, remote.outfitHistory);
   return {
     writeToPhone: {
       profile: writeProfile,

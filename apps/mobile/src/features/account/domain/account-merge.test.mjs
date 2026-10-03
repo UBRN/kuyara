@@ -78,13 +78,27 @@ test('an account deletion marker on the same id deletes the phone copy, on an un
   assert.deepEqual(result.counts, { piecesAdded: 0, historyDaysAdded: 0, piecesReceived: 0, historyDaysReceived: 0 });
 });
 
-test('a day both hold: the account\'s record stays, the phone adopts its id and its mirror photo moves to it', () => {
-  const local = historyDay(1, '2026-09-10', { photoPath: 'history/mine.jpg' });
-  const remote = historyDay(2, '2026-09-10', { photoPath: null, outfit: { ...local.outfit, archetypeId: 'rain_ready' } });
-  const result = merge({ outfitHistory: [local] }, { outfitHistory: [remote] });
-  assert.deepEqual(result.writeToPhone.outfitHistory, [{ ...remote, photoPath: 'history/mine.jpg' }]);
-  assert.deepEqual(result.sendToAccount.outfitHistory, []);
+test('looks of one day from both sides stand side by side, and the same look keeps the account copy and this phone\'s photo', () => {
+  const mine = historyDay(1, '2026-09-10', { photoPath: 'history/mine.jpg' });
+  const shared = historyDay(3, '2026-09-10', { photoPath: 'history/shared.jpg' });
+  const theirs = historyDay(2, '2026-09-10', { photoPath: null, outfit: { ...mine.outfit, archetypeId: 'rain_ready' } });
+  const accountShared = historyDay(3, '2026-09-10', { photoPath: null, updatedAt: stamp(9) });
+  const result = merge({ outfitHistory: [mine, shared] }, { outfitHistory: [theirs, accountShared] });
+  assert.deepEqual(result.writeToPhone.outfitHistory, [theirs, { ...accountShared, photoPath: 'history/shared.jpg' }]);
+  assert.deepEqual(ids(result.sendToAccount.outfitHistory), [uuid(1)]);
+  // Counted in days: both sides already held 10 September.
   assert.deepEqual([result.counts.historyDaysAdded, result.counts.historyDaysReceived], [0, 0]);
+});
+
+test('History counts days, not looks, in both directions', () => {
+  const result = merge(
+    { outfitHistory: [historyDay(1, '2026-09-10'), historyDay(2, '2026-09-10'), historyDay(3, '2026-09-12')] },
+    { outfitHistory: [historyDay(4, '2026-09-11', { photoPath: null }), historyDay(5, '2026-09-11', { photoPath: null }),
+      historyDay(6, '2026-09-12', { photoPath: null })] },
+  );
+  assert.deepEqual(ids(result.sendToAccount.outfitHistory), [uuid(1), uuid(2), uuid(3)]);
+  assert.deepEqual(ids(result.writeToPhone.outfitHistory), [uuid(4), uuid(5), uuid(6)]);
+  assert.deepEqual([result.counts.historyDaysAdded, result.counts.historyDaysReceived], [1, 1]);
 });
 
 test('the day rule covers choices and departures, and the evening is its own day', () => {
@@ -101,7 +115,7 @@ test('the day rule covers choices and departures, and the evening is its own day
   assert.deepEqual(result.sendToAccount.dressingDayDepartures, []);
 });
 
-test('an account deletion marker on a day the phone holds live yields to the phone\'s record', () => {
+test('an account deletion marker for another look leaves the phone\'s look of that day alone', () => {
   const marker = historyDay(2, '2026-09-10', { deletedAt: stamp(9), updatedAt: stamp(9), photoPath: null });
   const result = merge({ outfitHistory: [historyDay(1, '2026-09-10')] }, { outfitHistory: [marker] });
   assert.deepEqual(result.writeToPhone.outfitHistory, []);
@@ -109,19 +123,29 @@ test('an account deletion marker on a day the phone holds live yields to the pho
   assert.equal(result.counts.historyDaysAdded, 1);
 });
 
-test('a live account day wins over a deletion marker on the phone and counts as received', () => {
+test('a live account look of a day the phone holds only a deletion marker for counts as received', () => {
   const marker = historyDay(1, '2026-09-10', { deletedAt: now, updatedAt: now });
   const result = merge({ outfitHistory: [marker] }, { outfitHistory: [historyDay(2, '2026-09-10', { photoPath: null })] });
   assert.deepEqual(ids(result.writeToPhone.outfitHistory), [uuid(2)]);
-  assert.deepEqual(result.sendToAccount.outfitHistory, []);
+  assert.deepEqual(ids(result.sendToAccount.outfitHistory), [uuid(1)]);
   assert.equal(result.counts.historyDaysReceived, 1);
+  assert.equal(result.counts.historyDaysAdded, 0);
+});
+
+test('an account deletion marker on the same look deletes it on the phone', () => {
+  const marker = historyDay(1, '2026-09-10', { deletedAt: stamp(9), updatedAt: stamp(9), photoPath: null });
+  const result = merge({ outfitHistory: [historyDay(1, '2026-09-10', { photoPath: 'history/mine.jpg' })] },
+    { outfitHistory: [marker] });
+  assert.deepEqual(result.writeToPhone.outfitHistory, [{ ...marker, photoPath: 'history/mine.jpg' }]);
+  assert.deepEqual(result.sendToAccount.outfitHistory, []);
+  assert.deepEqual([result.counts.historyDaysAdded, result.counts.historyDaysReceived], [0, 0]);
 });
 
 test('phone deletion markers go up only when the account holds nothing for that key, and are not counted', () => {
   const marker = (n, dayKey) => historyDay(n, dayKey, { deletedAt: now, updatedAt: now });
   const result = merge(
     { outfitHistory: [marker(1, '2026-09-10'), marker(2, '2026-09-11')] },
-    { outfitHistory: [marker(3, '2026-09-11')] },
+    { outfitHistory: [marker(2, '2026-09-11')] },
   );
   assert.deepEqual(ids(result.sendToAccount.outfitHistory), [uuid(1)]);
   assert.equal(result.counts.historyDaysAdded, 0);

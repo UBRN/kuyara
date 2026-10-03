@@ -100,6 +100,15 @@ test('every table round-trips through the account, landing under this phone\'s p
   }
 });
 
+test('two looks of one History day round-trip as two rows, each under its own id and worn time', () => {
+  const morning = historyDay(6, '2026-09-10', { wornAt: '2026-09-10T06:00:00.000Z', photoPath: null });
+  const evening = historyDay(7, '2026-09-10', { wornAt: '2026-09-10T17:00:00.000Z', photoPath: null,
+    pieceColors: null, outfit: { ...morning.outfit, source: 'manual' } });
+  const uploaded = [morning, evening].map((look) => toRemoteOutfitHistory(look, userId));
+  assert.deepEqual(uploaded.map(({ id, day_key: dayKey }) => [id, dayKey]), [[uuid(6), '2026-09-10'], [uuid(7), '2026-09-10']]);
+  assert.deepEqual(uploaded.map((row) => fromRemoteOutfitHistory(arrived(row), phoneProfileId).row), [morning, evening]);
+});
+
 test('a custom colour and a deletion marker survive the round trip', () => {
   const item = wardrobeItem(5, {
     colorChoice: { kind: 'custom', hex: '#336699' }, colorFamily: 'blue', photoRelativePath: null,
