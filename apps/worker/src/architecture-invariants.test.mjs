@@ -179,3 +179,12 @@ test('the AI handlers read the clock only through the injected now', () => {
 
   assert.deepEqual(hits, [], 'call the injected now() instead of Date.now()');
 });
+
+// The place search handler parses the request and the answer once; the provider does neither,
+// and its field bounds come from the contract rather than a second copy.
+test('the place provider leaves the contract parse to the handler and owns no bound of its own', () => {
+  const text = readFileSync(path.join(sourceRoot, 'places/open-meteo-place-provider.ts'), 'utf8');
+
+  assert.equal(/placeSearchV1(?:Request|Success)Schema/.test(text), false);
+  assert.equal(/\.max\((?:200|400)\)/.test(text), false, 'import the bound from @kuyara/contracts');
+});
