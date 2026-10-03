@@ -1,5 +1,4 @@
 import Constants from 'expo-constants';
-import * as Crypto from 'expo-crypto';
 import { Redirect, Stack, router } from 'expo-router';
 import { Platform } from 'react-native';
 
@@ -7,6 +6,7 @@ import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { FEEDBACK_FORM_ENABLED } from '@/features/feedback/application/feedback-form-flag';
 import { sendFeedback } from '@/features/feedback/data/worker-feedback-client';
 import { FeedbackScreen } from '@/features/feedback/presentation/feedback-screen';
+import { newUuid } from '@/infrastructure/new-uuid';
 import { useLocalization } from '@/localization/use-messages';
 
 export default function FeedbackRoute() {
@@ -19,7 +19,7 @@ function FeedbackRouteContent() {
     <>
       <Stack.Screen options={{ headerShown: true, headerTitle: messages.settings.feedback.title }} />
       <FeedbackScreen
-        createSubmissionId={() => Crypto.randomUUID()}
+        createSubmissionId={newUuid}
         onCancel={() => router.back()}
         onSend={(message, submissionId) => sendFeedback(resolveAppWorkerBaseUrl(), {
           submissionId,
