@@ -569,6 +569,86 @@ function TodayScreenContent({
     ),
   );
 
+  const primaryStage = primary ? (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      // A zoom source keeps only an object style, as the link below does.
+      style={StyleSheet.flatten<ViewStyle>([
+        styles.stage,
+        {
+          backgroundColor: stageColor,
+          width: contentWidth,
+          // P2: the stage is as tall as its fitted board, never the free space.
+          height: stageHeight,
+        },
+      ])}
+      onLayout={stageLaidOut ? undefined : () => setStageLaidOut(true)}
+      ref={stageView}
+      testID="today-stage">
+      <OnPlate color={stageColor}>
+        {leavingOutfit ? (
+          // The leaving board is centred in the new stage's frame, whatever height its
+          // own fitted board has.
+          <View style={[styles.leavingBoard, { height: stageHeight, width: contentWidth }]}>
+            <GarmentBoard
+              accessibilityLabel=""
+              decorative
+              fit
+              key={leavingOutfit.id}
+              onLeft={clearLeavingOutfit}
+              palette={leavingOutfit.palette}
+              pieces={leavingOutfit.boardPieces}
+              preset="today"
+              stageColor={stageColor}
+              testID="today-leaving-board"
+              width={contentWidth}
+            />
+          </View>
+        ) : null}
+        <GarmentBoard
+          accessibilityLabel={presentation.stageAccessibilityLabel}
+          // ADR 0021 section 10's transition between suggestions: the key is the
+          // option identity, so a new recommendation re-mounts the board: the old
+          // pieces drop and fade, then the new ones rise, while a refresh that
+          // returns the same outfit leaves it still. The rise is never the only
+          // signal; the archetype and freshness line also change with it.
+          key={primary.id}
+          fit
+          holdRise={holdRise || !stageLaidOut}
+          replaces={stageOutfit?.replaced === true}
+          palette={primary.palette}
+          pieces={primary.boardPieces}
+          preset="today"
+          // The outfit the runway carried onto the stage has already arrived.
+          rise={primary.id !== carriedOutfitId}
+          stageColor={stageColor}
+          testID={`today-primary-board-${primary.id}`}
+          width={contentWidth}
+        />
+      </OnPlate>
+    </View>
+  ) : null;
+  const primaryCard = primary ? (
+    <PressScale
+      accessible
+      accessibilityLabel={presentation.stageAccessibilityLabel}
+      onPress={outfitDetailLink ? undefined : () => onOpenOutfitDetail(primary.id)}
+      pressedStyle={{ opacity: theme.interaction.pressedOpacity }}
+      // `role` outranks the link's own, so the outfit still reads as a button.
+      role="button">
+      {/* A re-ask replaces the title with a crossfade rather than a snap. */}
+      <ArrivesAfterHandoff index={3}>
+        <Crossfade contentKey={primary.title}>
+          <AppText style={styles.archetypeName} testID="today-archetype" variant="label">
+            {primary.title}
+          </AppText>
+        </Crossfade>
+      </ArrivesAfterHandoff>
+      {outfitDetailLink ? <Link.AppleZoom>{primaryStage}</Link.AppleZoom> : primaryStage}
+    </PressScale>
+  ) : null;
+
   return (
     <Screen
       // The visible refresh gesture cannot be performed by a screen reader. The custom
@@ -664,78 +744,12 @@ function TodayScreenContent({
                 label={presentation.stageAccessibilityLabel}
                 scrollBy={scrollBy}
                 style={styles.outfitTarget}>
-                <PressScale
-                  accessible
-                  accessibilityLabel={presentation.stageAccessibilityLabel}
-                  accessibilityRole="button"
-                  onPress={() => onOpenOutfitDetail(primary.id)}
-                  style={({ pressed }) => ({ opacity: pressed ? theme.interaction.pressedOpacity : 1 })}>
-                  {/* A re-ask replaces the title with a crossfade rather than a snap. */}
-                  <ArrivesAfterHandoff index={3}>
-                    <Crossfade contentKey={primary.title}>
-                      <AppText style={styles.archetypeName} testID="today-archetype" variant="label">
-                        {primary.title}
-                      </AppText>
-                    </Crossfade>
-                  </ArrivesAfterHandoff>
-                  <View
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                    style={[
-                      styles.stage,
-                      {
-                        backgroundColor: stageColor,
-                        width: contentWidth,
-                        // P2: the stage is as tall as its fitted board, never the free space.
-                        height: stageHeight,
-                      },
-                    ]}
-                    onLayout={stageLaidOut ? undefined : () => setStageLaidOut(true)}
-                    ref={stageView}
-                    testID="today-stage">
-                    <OnPlate color={stageColor}>
-                      {leavingOutfit ? (
-                        // The leaving board is centred in the new stage's frame, whatever height its
-                        // own fitted board has.
-                        <View style={[styles.leavingBoard, { height: stageHeight, width: contentWidth }]}>
-                          <GarmentBoard
-                            accessibilityLabel=""
-                            decorative
-                            fit
-                            key={leavingOutfit.id}
-                            onLeft={clearLeavingOutfit}
-                            palette={leavingOutfit.palette}
-                            pieces={leavingOutfit.boardPieces}
-                            preset="today"
-                            stageColor={stageColor}
-                            testID="today-leaving-board"
-                            width={contentWidth}
-                          />
-                        </View>
-                      ) : null}
-                      <GarmentBoard
-                        accessibilityLabel={presentation.stageAccessibilityLabel}
-                        // ADR 0021 section 10's transition between suggestions: the key is the
-                        // option identity, so a new recommendation re-mounts the board: the old
-                        // pieces drop and fade, then the new ones rise, while a refresh that
-                        // returns the same outfit leaves it still. The rise is never the only
-                        // signal; the archetype and freshness line also change with it.
-                        key={primary.id}
-                        fit
-                        holdRise={holdRise || !stageLaidOut}
-                        replaces={stageOutfit?.replaced === true}
-                        palette={primary.palette}
-                        pieces={primary.boardPieces}
-                        preset="today"
-                        // The outfit the runway carried onto the stage has already arrived.
-                        rise={primary.id !== carriedOutfitId}
-                        stageColor={stageColor}
-                        testID={`today-primary-board-${primary.id}`}
-                        width={contentWidth}
-                      />
-                    </OnPlate>
-                  </View>
-                </PressScale>
+                {outfitDetailLink && primary ? (
+                  // S21: on iOS the outfit's detail zooms out of the stage, as an alternative's does.
+                  <Link asChild href={outfitDetailLink.href(primary.id)} onPress={outfitDetailLink.onPress} push>
+                    {primaryCard}
+                  </Link>
+                ) : primaryCard}
               </TourTarget>
             </Dimmed>
             <ArrivesAfterHandoff index={4}>

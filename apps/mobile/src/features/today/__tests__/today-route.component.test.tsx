@@ -2699,11 +2699,14 @@ test('Today opens outfit detail by the outfit\'s stable option id', async () => 
     </Providers>,
   );
 
-  await fireEvent.press(result.getByTestId('today-archetype'));
-
-  expect(mockPush).toHaveBeenCalledWith({ pathname: '/[id]', params: { id: todayOutfitId(1) } });
+  // S21: the outfit is the stack's own link to its detail, as each alternative is.
+  let link = result.getByTestId('today-archetype').parent;
+  while (link && link.props.href === undefined) link = link.parent;
+  expect(link?.props.href).toMatch(new RegExp(`^/${encodeURIComponent(todayOutfitId(1))}(\\?|$)`));
 });
 
+// The link navigates by itself behind the route's single-tap guard (the component suite checks
+// the outfit's link carries it), so a double tap never reaches the imperative push.
 test('a quick double tap on an outfit opens one detail, not two stacked on each other', async () => {
   const result = await render(
     <Providers
@@ -2720,7 +2723,7 @@ test('a quick double tap on an outfit opens one detail, not two stacked on each 
   await fireEvent.press(result.getByTestId('today-archetype'));
 
   expect(mockPush.mock.calls.filter(([href]) => typeof href === 'object' && href.pathname === '/[id]'))
-    .toHaveLength(1);
+    .toHaveLength(0);
 });
 
 test('a regeneration finishing under an open detail keeps the same outfit or shows none, never another', async () => {
