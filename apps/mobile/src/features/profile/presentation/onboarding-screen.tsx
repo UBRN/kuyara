@@ -61,6 +61,7 @@ import {
   type WeatherConditionCode,
   type WeatherSnapshot,
 } from '@/features/weather/domain/weather';
+import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
@@ -195,7 +196,8 @@ export function OnboardingScreen({
   const [previewWidth, setPreviewWidth] = useState(0);
   const announcedStep = useRef(false);
   const headingRef = useRef<Text>(null);
-  const maximumBirthDate = useMemo(() => new Date(), []);
+  const now = useForegroundClock();
+  const maximumBirthDate = useMemo(() => new Date(now), [now]);
   const { language, messages, temperatureUnit } = useLocalization();
   const copy = messages.onboarding;
   const preferenceCopy = messages.preferences;

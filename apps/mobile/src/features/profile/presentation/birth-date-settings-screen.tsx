@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { NativeDatePicker, NativeList, NativeListRow, NativeListSection } from '@/components/ui';
 import { minimumBirthDate } from '@/features/profile/domain/profile';
+import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 
 export type BirthDateSettingsScreenProps = Readonly<{
@@ -17,7 +18,8 @@ export function BirthDateSettingsScreen({
 }: BirthDateSettingsScreenProps) {
   const { language, messages } = useLocalization();
   const [hasSaveError, setHasSaveError] = useState(false);
-  const maximumBirthDate = useMemo(() => new Date(), []);
+  const now = useForegroundClock();
+  const maximumBirthDate = useMemo(() => new Date(now), [now]);
   // The system picker always displays a date, so the null state is said in words (ADR 0030 §6).
   const footer = hasSaveError
     ? messages.settings.saveError

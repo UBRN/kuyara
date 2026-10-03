@@ -1184,3 +1184,13 @@ test('presentation holds a staged photo only through useStagedWardrobePhoto', ()
     && /useRef<StagedWardrobePhoto|[dD]iscardStagedPhoto\w*(\.current)?\(/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits, [], 'use useStagedWardrobePhoto');
 });
+
+// A screen reads the wall clock only through `useForegroundClock`, which rereads it on focus and
+// on return to the foreground; a clock captured once at mount goes stale while the app is open.
+test('presentation reads the wall clock only through useForegroundClock', () => {
+  const owner = 'hooks/use-foreground-clock.ts';
+  const hits = sourceFiles().filter((file) =>
+    file !== owner
+    && /useState\(\(\) => Date\.now\(\)\)|useMemo\(\(\) => new Date\(\)/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'read the clock with useForegroundClock');
+});

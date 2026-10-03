@@ -12,6 +12,7 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 // the US month-first, Sunday-first picker.
 const nativeLocale = { en: 'en_GB', tr: 'tr_TR' } as const;
 
+jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui', () =>
