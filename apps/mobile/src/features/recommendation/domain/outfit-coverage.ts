@@ -1,5 +1,6 @@
 import { shiftCalendarDateParts } from '@/domain/calendar-date';
 import { zonedClock } from '@/domain/intl-format';
+import { forecastHourHasNotEnded } from '@/features/weather/domain/wardrobe-day';
 import type { WeatherMeasurements } from '@/features/weather/domain/weather';
 import { chillyCelsius, isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
@@ -7,16 +8,26 @@ import type { ClothingRequirements } from '@/features/recommendation/domain/weat
 /** The outfit's useful forecast horizon, independent of the dressing-day key. */
 export type OutfitCoverage = Readonly<{ start: string; end: string }>;
 
+// The coverage window's own bands. They happen to share numbers with the dressing day's
+// evening and day start (weather/domain/wardrobe-day.ts) but answer a different question:
+// how far ahead an outfit chosen now has to hold, not which day a preference belongs to.
+// A dressing-day change must not move them, so they are not imported from there.
+/** From this local hour on, the outfit covers the night through 01:00 of the next date. */
+const coverageNightStartHour = 18;
+/** Before this local hour (from 01:00), the outfit covers only the small hours, to this hour. */
+const coverageSmallHoursEndHour = 4;
+
 export function outfitCoverage(startIso: string, timeZone: string): OutfitCoverage | null {
   const start = Date.parse(startIso);
   if (!Number.isFinite(start)) return null;
   try {
     const local = zonedClock(start, timeZone);
-    const endHour = local.hour >= 18 || local.hour < 1 ? 1
-      : local.hour < 4 ? 4
+    const isNight = local.hour >= coverageNightStartHour;
+    const endHour = isNight || local.hour < 1 ? 1
+      : local.hour < coverageSmallHoursEndHour ? coverageSmallHoursEndHour
         : local.hour < 11 ? 19
           : local.hour < 16 ? 20 : 22;
-    const endDate = shiftCalendarDateParts(local, local.hour >= 18 ? 1 : 0);
+    const endDate = shiftCalendarDateParts(local, isNight ? 1 : 0);
     // Search actual instants, not a fixed UTC offset. This also chooses the first 01:00
     // on a fall-back night and handles a changed offset before the end of the window.
     const first = Math.ceil((start + 1) / 900000) * 900000;
@@ -91,7 +102,7 @@ export function coverageDrift(
   const remaining = [...hourly]
     .filter(({ forecastAt }) => {
       const at = Date.parse(forecastAt);
-      return at + hourMs > now && at < end;
+      return forecastHourHasNotEnded(at, now) && at < end;
     })
     .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt));
   const rainProtected = chosen.requirements.some((requirement) =>
@@ -146,7 +157,7 @@ export function laterCoolSpell(
   const tail = hourly
     .filter(({ forecastAt }) => {
       const at = Date.parse(forecastAt);
-      return at >= start + 4 * hourMs && at < end && at + hourMs > now;
+      return at >= start + 4 * hourMs && at < end && forecastHourHasNotEnded(at, now);
     })
     .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt));
   if (firstMandatoryCold(tail)) return null;

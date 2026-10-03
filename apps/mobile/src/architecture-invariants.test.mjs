@@ -1188,9 +1188,9 @@ test('the language union is spelled only through SupportedLanguage', () => {
 // A `Date.UTC(` line elsewhere is either whole-instant arithmetic on a zone's wall clock or a
 // weekday or day-of-year read; the list only shrinks and a stale count fails.
 const dateUtcAllowlist = {
-  'domain/calendar-date.ts': 1,
+  'domain/calendar-date.ts': 2,
   'features/account/__tests__/account-fixtures.mjs': 1,
-  'features/recommendation/domain/local-day.ts': 3,
+  'features/recommendation/domain/local-day.ts': 2,
   'features/recommendation/domain/outfit-history-week.ts': 1,
   'features/weather/domain/wardrobe-day.ts': 2,
   'presentation/format-clock-time.ts': 1,
@@ -1205,6 +1205,19 @@ test('Date.UTC appears only where the allowlist names it', () => {
   }
 
   assert.deepEqual(counts, dateUtcAllowlist, 'shift a date with shiftCalendarDateParts from @/domain/calendar-date; the allowlist only shrinks');
+});
+
+// A `YYYY-MM-DD` key is read as a date in no zone by `calendarDateUtcMidnight`
+// (domain/calendar-date.ts), never by gluing a midnight instant onto the key.
+test('a calendar-date key is never turned into an instant by string concatenation', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\}T00:00(?::00(?:\.000)?)?Z/.test(line)) hits.push(`${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'read the date with calendarDateUtcMidnight from @/domain/calendar-date');
 });
 
 // A `YYYY-MM-DD` key is checked by `calendarDateKeySchema` (domain/calendar-date.ts) and a
@@ -1239,6 +1252,20 @@ test('snapshot acceptance and the hours ahead each have one owner', () => {
   }
 
   assert.deepEqual(copies, [], 'call acceptProvidedSnapshot from weather/domain/weather.ts or forecastHoursAhead from weather/domain/wardrobe-day.ts');
+});
+
+// Whether a forecast hour is still running at `now` is answered by `forecastHourHasNotEnded`
+// (weather/domain/wardrobe-day.ts); no reader adds an hour to a forecast instant itself.
+test('the hour-has-not-ended rule has one owner', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/weather/domain/wardrobe-day.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\+\s*(?:\w*hour\w*|3600000|3_600_000|60 \* 60 \* 1000)\s*>\s*now\b/i.test(line)) copies.push(`${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call forecastHourHasNotEnded from @/features/weather/domain/wardrobe-day');
 });
 
 // The device's time zone is read once, by `getDeviceTimeZone` in domain/intl-format.ts, and the

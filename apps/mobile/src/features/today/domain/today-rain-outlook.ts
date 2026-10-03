@@ -1,7 +1,5 @@
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
-import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
-
-const HOUR_IN_MILLISECONDS = 60 * 60 * 1000;
+import { forecastHourHasNotEnded, wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
 
 /**
  * The highest rain chance ahead, including current conditions and only hourly entries that
@@ -22,7 +20,7 @@ export function todayRainOutlookProbability(
   return weather.hourly.reduce((highest, hour) => {
     const forecastAt = Date.parse(hour.forecastAt);
     const isRemainingToday = Number.isFinite(forecastAt) &&
-      forecastAt + HOUR_IN_MILLISECONDS > now &&
+      forecastHourHasNotEnded(forecastAt, now) &&
       forecastAt < windowEnd;
 
     return isRemainingToday

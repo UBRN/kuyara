@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   calendarDateKeySchema,
   calendarDateParts,
+  calendarDateUtcMidnight,
   formatCalendarDate,
   formatCalendarDateParts,
   parseCalendarDate,
@@ -47,4 +48,9 @@ test('the date key schema refuses a month or day that does not exist', () => {
   assert.equal(calendarDateKeySchema.safeParse('2026-02-29').success, false);
   assert.equal(calendarDateKeySchema.safeParse('2026-13-01').success, false);
   assert.equal(calendarDateKeySchema.safeParse('2026-1-01').success, false);
+});
+
+test('a calendar key reads as its own UTC midnight, whatever zone the device is in', () => {
+  assert.equal(calendarDateUtcMidnight('2026-10-01').toISOString(), '2026-10-01T00:00:00.000Z');
+  assert.equal(calendarDateUtcMidnight('2024-02-29').getUTCDay(), 4);
 });

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { coverageDrift, forecastBoundedCoverage, laterCoolSpell, outfitCoverage } from './outfit-coverage.ts';
+import { wardrobeDayWindow } from '../../weather/domain/wardrobe-day.ts';
 
 test('coverage end follows departure hour across the full dressing day', () => {
   for (let hour = 0; hour < 24; hour += 1) {
@@ -130,4 +131,19 @@ test('a later short cool spell is a finishing touch, never mandatory cold', () =
   const insulated = { reasonCodes: [], requirements: [{ kind: 'thermal', minimum: 'light',
     priority: 'mandatory', reasonCodes: ['temperature_low'] }] };
   assert.equal(laterCoolSpell(insulated, short, nowIso, coverage), null);
+});
+
+test('the coverage window keeps its own bands, apart from the dressing day', () => {
+  const at = (clock) => `2026-09-25T${clock}:00.000Z`;
+  // The small-hours band ends at 04:00 on the date the clock shows.
+  assert.equal(outfitCoverage(at('03:59'), 'UTC')?.end, '2026-09-25T04:00:00.000Z');
+  assert.equal(outfitCoverage(at('04:00'), 'UTC')?.end, '2026-09-25T19:00:00.000Z');
+  // The night band starts at 18:00 and runs to 01:00 of the next date.
+  assert.equal(outfitCoverage(at('17:59'), 'UTC')?.end, '2026-09-25T22:00:00.000Z');
+  assert.equal(outfitCoverage(at('18:00'), 'UTC')?.end, '2026-09-26T01:00:00.000Z');
+  // Not a copy of the dressing day: at 00:30 that runs to 04:00, coverage only to 01:00,
+  // and at 18:00 that runs to 04:00 the next morning, coverage to 01:00.
+  assert.equal(wardrobeDayWindow(at('00:30'), 'UTC')?.end, '2026-09-25T04:00:00.000Z');
+  assert.equal(outfitCoverage(at('00:30'), 'UTC')?.end, '2026-09-25T01:00:00.000Z');
+  assert.equal(wardrobeDayWindow(at('18:00'), 'UTC')?.end, '2026-09-26T04:00:00.000Z');
 });
