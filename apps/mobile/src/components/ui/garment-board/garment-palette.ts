@@ -47,6 +47,8 @@ export const garmentSwatches = {
   blush: S('#E5C1BD', 'pink', 'accent', 'warm', 'Blush', 'Pudra'),
   skyblue: S('#93BDDF', 'blue', 'accent', 'cool', 'Sky blue', 'Gök mavisi'),
   cobalt: S('#2F5BA6', 'blue', 'accent', 'cool', 'Cobalt', 'Kobalt'),
+  lavender: S('#B7A6CF', 'purple', 'accent', 'cool', 'Lavender', 'Lavanta'),
+  plum: S('#5B3A5E', 'purple', 'accent', 'cool', 'Plum', 'Erik'),
 } satisfies Record<GarmentSwatchId, ReturnType<typeof S>>;
 export type { GarmentSwatchId };
 

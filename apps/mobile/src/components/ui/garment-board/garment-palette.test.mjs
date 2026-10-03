@@ -108,8 +108,8 @@ test('formal derives deep accent on accessory only', () => {
   assert.deepEqual(accents.map(({ swatchId, piece: { slot } }) => [swatchId, slot]), [['burgundy', 'neck']]);
 });
 
-test('all catalog types resolve and all 31 swatches have a closed colorFamily', () => {
-  assert.equal(Object.keys(garmentSwatches).length, 31);
+test('all catalog types resolve and all 33 swatches have a closed colorFamily', () => {
+  assert.equal(Object.keys(garmentSwatches).length, 33);
   for (const { fam } of Object.values(garmentSwatches)) assert.ok(colorFamilies.includes(fam));
   for (const garmentTypeId of garmentTypeIds) {
     const actual = resolveGarmentPalette(input({ pieces: [piece('primary_top', garmentTypeId)] }));
@@ -119,7 +119,7 @@ test('all catalog types resolve and all 31 swatches have a closed colorFamily', 
   }
 });
 
-test('31 x 14 swatch-stage matrix matches the approved clamp metrics', (context) => {
+test('33 x 14 swatch-stage matrix matches the approved clamp metrics', (context) => {
   // Seven light stages, and the seven dark-appearance plates, on which the pieces are drawn
   // in the light appearance with its ink.
   const stages = [lightTheme, darkTheme].flatMap((theme) => Object.entries(theme.atmosphere)
@@ -145,10 +145,10 @@ test('31 x 14 swatch-stage matrix matches the approved clamp metrics', (context)
     }
   }
   assert.equal(stages.length, 14);
-  assert.equal(moved, 101);
+  assert.equal(moved, 105);
   assert.equal(Number(largestMove.toFixed(3)), 0.060);
   assert.ok(minimumStep >= 1.2);
-  context.diagnostic(`434 cells passed; moved ${moved}; max |dL| ${largestMove.toFixed(3)}; minimum fill:stage ${minimumStep.toFixed(3)}`);
+  context.diagnostic(`462 cells passed; moved ${moved}; max |dL| ${largestMove.toFixed(3)}; minimum fill:stage ${minimumStep.toFixed(3)}`);
 });
 
 // The piece shadow (garment-board.md section 9) is the plane moved in OKLCH lightness only,
