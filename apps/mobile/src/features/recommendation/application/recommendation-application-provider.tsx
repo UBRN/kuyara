@@ -36,6 +36,7 @@ import { SqliteDressingDayChoiceRepository } from '@/features/recommendation/dat
 import { SqliteDressingDayDepartureRepository } from '@/features/recommendation/data/sqlite-dressing-day-departure-repository';
 import {
   departureDressingDayKey,
+  departureIsAhead,
   type DressingDayDeparture,
 } from '@/features/recommendation/domain/dressing-day-departure';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
@@ -192,7 +193,7 @@ export function RecommendationApplicationProvider({
   }, [localDay.key, localProfileId]);
   const departureReady = departureState?.key === localDay.key;
   const activeDeparture = departureState?.key === localDay.key &&
-    departureState.value && Date.parse(departureState.value.departureAt) > Date.now()
+    departureState.value && departureIsAhead(departureState.value, Date.now())
     ? departureState.value : null;
   const choiceReadFailed = useRef(false);
   useEffect(() => {

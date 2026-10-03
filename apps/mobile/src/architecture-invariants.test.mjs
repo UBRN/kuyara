@@ -1135,3 +1135,19 @@ test('style lists are compared only by sameStyleAesthetics', () => {
 
   assert.deepEqual(copies, [], 'call sameStyleAesthetics from @/features/profile/domain/profile');
 });
+
+// The quarter hour a departure is chosen and spoken in is defined once, in
+// recommendation/domain/dressing-day-departure.ts. These screens still spell their own copy;
+// the list only shrinks.
+const spelledQuarterHour = [
+  'features/today/presentation/ask-again-sheet.tsx',
+  'features/today/presentation/today-presentation.ts',
+];
+
+test('the departure quarter hour is defined only in the departure owner', () => {
+  const files = sourceFiles().filter((relativePath) =>
+    relativePath !== 'features/recommendation/domain/dressing-day-departure.ts' &&
+    /\bconst quarterHourMs\b/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(files, [...spelledQuarterHour].sort(),
+    'import quarterHourMs from dressing-day-departure, and shrink the list when a file stops defining it');
+});
