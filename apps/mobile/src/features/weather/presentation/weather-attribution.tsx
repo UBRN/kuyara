@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, PixelRatio, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withDelay } from 'react-native-reanimated';
 
-import { AppText } from '@/components/ui';
+import { AppText, fadeTo } from '@/components/ui';
 import { appleWeatherMarkUrl } from '@/features/weather/data/apple-weather-mark';
 import type { AppMessages } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
@@ -100,9 +100,9 @@ export function WeatherAttribution({ landed = true, sourceId }: WeatherAttributi
     if (restingOn.current === markShown) return;
     restingOn.current = markShown;
     const [leaving, arriving] = markShown ? [captionOpacity, markOpacity] : [markOpacity, captionOpacity];
-    leaving.set(withTiming(0, { duration: theme.motion.fast }));
-    arriving.set(withDelay(theme.motion.fast, withTiming(1, { duration: theme.motion.normal })));
-  }, [captionOpacity, markOpacity, markShown, theme.motion.fast, theme.motion.normal]);
+    leaving.set(fadeTo(0, theme.motion.fast, theme.motion));
+    arriving.set(withDelay(theme.motion.fast, fadeTo(1, theme.motion.normal, theme.motion)));
+  }, [captionOpacity, markOpacity, markShown, theme.motion]);
   const captionFade = useAnimatedStyle(() => ({ opacity: captionOpacity.get() }));
   const markFade = useAnimatedStyle(() => ({ opacity: markOpacity.get() }));
   const link = weatherAttributionLink(sourceId, messages.weather);

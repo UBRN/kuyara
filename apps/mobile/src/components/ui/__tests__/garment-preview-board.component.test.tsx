@@ -71,8 +71,8 @@ test('a choice slides the piece it changes out and its successor in, and the old
   // on fast while it slides home on the spatial spring.
   expect(withSpring).toHaveBeenCalledWith(-PREVIEW_SLIDE, lightTheme.springs.spatial);
   expect(withSpring).toHaveBeenCalledWith(0, lightTheme.springs.spatial, expect.any(Function));
-  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast }, expect.any(Function));
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast, easing: expect.anything() }, expect.any(Function));
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast, easing: expect.anything() });
   expect(result.getByTestId('preview', hidden).children).toHaveLength(4);
 
   await act(() => fades.forEach((land) => land(true)));

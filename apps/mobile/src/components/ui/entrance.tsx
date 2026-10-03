@@ -5,12 +5,12 @@ import Animated, {
   useSharedValue,
   withDelay,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+import { fadeTo } from './fade';
 
 // Law 7, "content arrives, navigation does not": a screen's content enters in reading
 // order, staggered by `motion.stagger`, after the platform's transition has landed.
@@ -54,7 +54,7 @@ export function Entrance({ children, index = 0, waiting = false, style }: Entran
     hasEntered.current = true;
 
     const delay = Math.min(index * theme.motion.stagger, theme.motion.deliberate);
-    opacity.set(withDelay(delay, withTiming(1, { duration: theme.motion.fast })));
+    opacity.set(withDelay(delay, fadeTo(1, theme.motion.fast, theme.motion)));
     offset.set(withDelay(delay, withSpring(0, theme.springs.spatial, (finished) => {
       if (finished) scheduleOnRN(setEntered, true);
     })));
@@ -62,9 +62,7 @@ export function Entrance({ children, index = 0, waiting = false, style }: Entran
     index,
     offset,
     opacity,
-    theme.motion.deliberate,
-    theme.motion.fast,
-    theme.motion.stagger,
+    theme.motion,
     theme.springs.spatial,
     waiting,
   ]);

@@ -391,6 +391,8 @@ export const standardMotion = Object.freeze({
   fast: 120,
   normal: 200,
   deliberate: 320,
+  // One ease-out for opacity changes: starts fast and comes gently to rest.
+  fadeCurve: Object.freeze([0.16, 1, 0.3, 1] as const),
   // Law 7's stagger role: the step between two pieces of content arriving in reading
   // order. It is a delay between transitions rather than a transition, so it stays
   // well under `fast`; content reads as one arrival instead of a queue.
@@ -407,8 +409,8 @@ export const standardMotion = Object.freeze({
 } as const);
 
 export type MotionTokens =
-  & Readonly<Record<Exclude<keyof typeof standardMotion, 'ambient'>, number>>
-  & Readonly<{ ambient: AmbientMotionTokens }>;
+  & Readonly<Record<Exclude<keyof typeof standardMotion, 'ambient' | 'fadeCurve'>, number>>
+  & Readonly<{ ambient: AmbientMotionTokens; fadeCurve: readonly [number, number, number, number] }>;
 
 export type SpringRole = Readonly<{ duration: number; dampingRatio: number }>;
 

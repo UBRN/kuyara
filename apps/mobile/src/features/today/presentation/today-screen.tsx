@@ -1,4 +1,4 @@
-import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Link, type Href } from 'expo-router';
 import { RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
@@ -16,6 +16,8 @@ import {
   ButtonPair,
   Crossfade,
   Entrance,
+  fadeEasing,
+  fadeTo,
   GarmentBoard,
   GarmentDrawing,
   haptics,
@@ -1106,8 +1108,8 @@ function ProvenanceBadge({
   const onDevice = generationMode.mode === 'on-device-ai';
 
   useEffect(() => {
-    opacity.set(withTiming(hidden ? 0 : 1, { duration: theme.motion.normal }));
-  }, [hidden, opacity, theme.motion.normal]);
+    opacity.set(fadeTo(hidden ? 0 : 1, theme.motion.normal, theme.motion));
+  }, [hidden, opacity, theme.motion]);
 
   const arrivalStyle = useAnimatedStyle(() => ({ opacity: opacity.get() }));
 
@@ -1154,8 +1156,9 @@ function Dimmed({
   const replaced = dimmed && dimmedKey !== undefined && dimmedKey !== revealKey;
   const target = dimmed && !replaced ? theme.interaction.disabledOpacity : 1;
   const duration = replaced ? theme.motion.fast : theme.motion.normal;
+  const easing = useMemo(() => fadeEasing(theme.motion), [theme.motion]);
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(target, { duration }),
+    opacity: withTiming(target, { duration, easing }),
   }));
 
   return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;

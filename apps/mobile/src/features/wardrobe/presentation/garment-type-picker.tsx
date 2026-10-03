@@ -3,13 +3,13 @@ import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native'
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import {
   AppText,
   Button,
+  fadeTo,
   GarmentDrawing,
   garmentUsualColorFamilies,
   PressScale,
@@ -133,7 +133,7 @@ export function GarmentTypePicker({
   // never the only signal.
   const fadeGridIn = () => {
     gridOpacity.set(0);
-    gridOpacity.set(withTiming(1, { duration: theme.motion.normal }));
+    gridOpacity.set(fadeTo(1, theme.motion.normal, theme.motion));
   };
   const changeCategory = (next: StructuralCategory) => {
     if (next === activeCategory) return;
@@ -181,7 +181,8 @@ export function GarmentTypePicker({
             // the taller grid takes the row's place, so neither is cut or pushed away
             // while still drawn.
             onExpandedChange?.(true);
-            rowOpacity.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
+            rowOpacity.set(fadeTo(0, theme.motion.fast, theme.motion, (finished) => {
+              'worklet';
               if (finished) scheduleOnRN(openGrid);
             }));
           }}

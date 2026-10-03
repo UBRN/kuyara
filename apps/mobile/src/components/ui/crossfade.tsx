@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { useKuyaraTheme } from '@/theme/theme-context';
+import { FadeIn, fadeTo } from './fade';
 
 export type CrossfadeProps = Readonly<{
   /** What the content says. A new key replaces the content with a crossfade. */
@@ -17,21 +18,6 @@ export type CrossfadeProps = Readonly<{
  * Content that fades in when it replaces other content (effects motion), still on mount. It
  * waits until the leaving content is gone, so two lines of text are never drawn over each other.
  */
-function FadeIn({ animate, onLayout, children }: Readonly<{
-  animate: boolean;
-  onLayout: (event: LayoutChangeEvent) => void;
-  children: ReactNode;
-}>) {
-  const theme = useKuyaraTheme();
-  const opacity = useSharedValue(animate ? 0 : 1);
-  useEffect(() => {
-    if (!animate) return;
-    opacity.set(withDelay(theme.motion.fast, withTiming(1, { duration: theme.motion.normal })));
-  }, [animate, opacity, theme.motion.fast, theme.motion.normal]);
-  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
-  return <Animated.View onLayout={onLayout} pointerEvents="box-none" style={style}>{children}</Animated.View>;
-}
-
 type Size = Readonly<{ width: number; height: number }>;
 
 /**
@@ -48,10 +34,11 @@ function FadeOut({ id, onDone, size, children }: Readonly<{
   const theme = useKuyaraTheme();
   const opacity = useSharedValue(1);
   useEffect(() => {
-    opacity.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
+    opacity.set(fadeTo(0, theme.motion.fast, theme.motion, (finished) => {
+      'worklet';
       if (finished) scheduleOnRN(onDone, id);
     }));
-  }, [id, onDone, opacity, theme.motion.fast]);
+  }, [id, onDone, opacity, theme.motion]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   return (
     <Animated.View
@@ -85,6 +72,7 @@ type Layers = Readonly<{
  * only the new content.
  */
 export function Crossfade({ contentKey, children, style, testID }: CrossfadeProps) {
+  const theme = useKuyaraTheme();
   const [layers, setLayers] = useState<Layers>({
     key: contentKey, shown: children, leaving: null, leavingSize: null, leavingId: 0, changes: 0,
   });
@@ -117,7 +105,7 @@ export function Crossfade({ contentKey, children, style, testID }: CrossfadeProp
 
   return (
     <View style={style} testID={testID}>
-      <FadeIn animate={layers.changes > 0} key={`in-${layers.changes}`} onLayout={measureShown}>
+      <FadeIn animate={layers.changes > 0} delay={theme.motion.fast} duration={theme.motion.normal} key={`in-${layers.changes}`} onLayout={measureShown} pointerEvents="box-none">
         {children}
       </FadeIn>
       {layers.leaving !== null ? (

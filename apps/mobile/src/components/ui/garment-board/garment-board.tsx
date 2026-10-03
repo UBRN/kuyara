@@ -34,6 +34,7 @@ import { plateTheme, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { PRESENCE_TEXT_AFTER } from '../presence';
+import { fadeTo } from '../fade';
 import {
   composeGarmentBoard,
   detailPreset,
@@ -84,10 +85,11 @@ function LeavingLayer({ children, onLeft }: Readonly<{ children: ReactNode; onLe
   const theme = useKuyaraTheme();
   const progress = useSharedValue(0);
   useEffect(() => {
-    progress.set(withTiming(1, { duration: theme.motion.fast }, (finished) => {
+    progress.set(fadeTo(1, theme.motion.fast, theme.motion, (finished) => {
+      'worklet';
       if (finished) scheduleOnRN(onLeft);
     }));
-  }, [onLeft, progress, theme.motion.fast]);
+  }, [onLeft, progress, theme.motion]);
   const style = useAnimatedStyle(() => ({
     opacity: 1 - progress.get(),
     transform: [{ translateY: EXIT_TRAVEL * progress.get() }],
@@ -124,11 +126,11 @@ function RisingLayer({
     if (held || didStart.current) return;
     didStart.current = true;
     const delay = after + index * theme.motion.stagger;
-    opacity.set(withDelay(delay, withTiming(1, { duration: theme.motion.fast })));
+    opacity.set(withDelay(delay, fadeTo(1, theme.motion.fast, theme.motion)));
     offset.set(withDelay(delay, withSpring(0, theme.springs.arrival, (finished) => {
       if (finished) scheduleOnRN(setRisen, true);
     })));
-  }, [after, held, index, offset, opacity, theme.motion.fast, theme.motion.stagger, theme.springs.arrival]);
+  }, [after, held, index, offset, opacity, theme.motion, theme.springs.arrival]);
 
   useEffect(() => () => {
     cancelAnimation(offset);

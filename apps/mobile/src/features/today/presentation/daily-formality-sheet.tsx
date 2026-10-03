@@ -1,10 +1,9 @@
 import type { DressStyle } from '@kuyara/contracts';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
-import { AppText, Button, ChoiceTile, ChoiceTileGrid, GlassButton, NativeSheet } from '@/components/ui';
+import { AppText, Button, ChoiceTile, ChoiceTileGrid, FadeIn, GlassButton, NativeSheet } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { spacing } from '@/theme/theme';
@@ -57,12 +56,7 @@ function StepFade({
   animate, children, style,
 }: Readonly<{ animate: boolean; children: ReactNode; style: StyleProp<ViewStyle> }>) {
   const theme = useKuyaraTheme();
-  const opacity = useSharedValue(animate ? 0 : 1);
-  useEffect(() => {
-    opacity.set(withTiming(1, { duration: theme.motion.normal }));
-  }, [opacity, theme.motion.normal]);
-  const fade = useAnimatedStyle(() => ({ opacity: opacity.get() }));
-  return <Animated.View style={[style, fade]}>{children}</Animated.View>;
+  return <FadeIn animate={animate} duration={theme.motion.normal} style={style}>{children}</FadeIn>;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from 'react';
 import { Alert, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -8,6 +8,8 @@ import {
   AppText,
   Button,
   Crossfade,
+  FadeIn,
+  fadeTo,
   GarmentRunwayBoard,
   Icon,
   ProgressFill,
@@ -135,21 +137,10 @@ function FadingField({ color }: Readonly<{ color: string }>) {
   const theme = useKuyaraTheme();
   const opacity = useSharedValue(1);
   useEffect(() => {
-    opacity.set(withTiming(0, { duration: theme.motion.normal }));
-  }, [opacity, theme.motion.normal]);
+    opacity.set(fadeTo(0, theme.motion.normal, theme.motion));
+  }, [opacity, theme.motion]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: color }, style]} />;
-}
-
-/** Skip arrives as content entering (Law 7): it fades in on `fast`. */
-function FadeInFast({ children }: Readonly<{ children: ReactNode }>) {
-  const theme = useKuyaraTheme();
-  const opacity = useSharedValue(0);
-  useEffect(() => {
-    opacity.set(withTiming(1, { duration: theme.motion.fast }));
-  }, [opacity, theme.motion.fast]);
-  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
-  return <Animated.View style={style}>{children}</Animated.View>;
 }
 
 /** Today's stage, which the runway's field and outfit hand over to when the wait completes. */
@@ -248,17 +239,18 @@ export function FirstGenerationRunway({
     faded.current = visible;
     // A hand-off leaves on the field and the pieces; the layer itself does not fade.
     if (!visible && handoff) return;
-    layerOpacity.set(withTiming(visible ? 1 : 0, { duration: theme.motion.deliberate }, (finished) => {
+    layerOpacity.set(fadeTo(visible ? 1 : 0, theme.motion.deliberate, theme.motion, (finished) => {
+      'worklet';
       if (finished && !visible) scheduleOnRN(setMounted, false);
     }));
-  }, [handoff, layerOpacity, theme.motion.deliberate, visible]);
+  }, [handoff, layerOpacity, theme.motion, visible]);
   const layerStyle = useAnimatedStyle(() => ({ opacity: layerOpacity.get() }));
 
   // The runway's words leave first, on `fast`, so only the field and the outfit travel.
   const textOpacity = useSharedValue(1);
   useEffect(() => {
-    if (handoff) textOpacity.set(withTiming(0, { duration: theme.motion.fast }));
-  }, [handoff, textOpacity, theme.motion.fast]);
+    if (handoff) textOpacity.set(fadeTo(0, theme.motion.fast, theme.motion));
+  }, [handoff, textOpacity, theme.motion]);
   const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.get() }));
 
   useEffect(() => {
@@ -491,7 +483,7 @@ export function FirstGenerationRunway({
               {/* The slot keeps its height when Skip is hidden, so the board never resizes. */}
               <View style={styles.skipSlot}>
                 {showSkip ? (
-                  <FadeInFast>
+                  <FadeIn duration={theme.motion.fast}>
                     <KuyaraThemeContext value={onField(theme)}>
                       <Button
                         icon="skipForward"
@@ -512,7 +504,7 @@ export function FirstGenerationRunway({
                         variant="plain"
                       />
                     </KuyaraThemeContext>
-                  </FadeInFast>
+                  </FadeIn>
                 ) : null}
               </View>
             </>

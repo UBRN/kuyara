@@ -6,7 +6,6 @@ import Animated, {
   useSharedValue,
   withDelay,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -17,6 +16,7 @@ import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { resolveGarmentArtwork } from '../garment-slot-glyph';
+import { fadeTo } from '../fade';
 import { drawnExtent, fitRunwayScale, placeOnRunway } from './compose-garment-board';
 import {
   composePieces,
@@ -87,18 +87,18 @@ function RunwayDraft({ piece, box, ink, answered, kept, handoffDelay }: RunwayDr
 
   useEffect(() => {
     arrival.set(withSpring(1, theme.springs.arrival));
-    opacity.set(withTiming(1, { duration: theme.motion.fast }));
-  }, [arrival, opacity, theme.motion.fast, theme.springs.arrival]);
+    opacity.set(fadeTo(1, theme.motion.fast, theme.motion));
+  }, [arrival, opacity, theme.motion, theme.springs.arrival]);
 
   useEffect(() => {
     if (!answered) return;
     if (kept) {
-      opacity.set(withDelay(handoffDelay, withTiming(0, { duration: theme.motion.fast })));
+      opacity.set(withDelay(handoffDelay, fadeTo(0, theme.motion.fast, theme.motion)));
     } else {
       leave.set(withSpring(1, theme.springs.spatial));
-      opacity.set(withTiming(0, { duration: theme.motion.deliberate }));
+      opacity.set(fadeTo(0, theme.motion.deliberate, theme.motion));
     }
-  }, [answered, handoffDelay, kept, leave, opacity, theme.motion.deliberate, theme.motion.fast, theme.springs.spatial]);
+  }, [answered, handoffDelay, kept, leave, opacity, theme.motion, theme.springs.spatial]);
 
   // A kept slot moves from its draft box to its garment's box on the spatial spring.
   useEffect(() => {
@@ -196,10 +196,10 @@ function RunwayDressed({ piece, box, roles, ink, shadow, delay, glides, handoff,
   }, [onLanded, theme.springs.arrival, travel, travelDelay]);
 
   useEffect(() => {
-    pour.set(withDelay(delay, withTiming(1, { duration: theme.motion.deliberate })));
-    outline.set(withDelay(delay, withTiming(1, { duration: theme.motion.fast })));
+    pour.set(withDelay(delay, fadeTo(1, theme.motion.deliberate, theme.motion)));
+    outline.set(withDelay(delay, fadeTo(1, theme.motion.fast, theme.motion)));
     // The shadow falls once the colour has poured, so none shows through an unpoured piece.
-    shade.set(withDelay(delay + theme.motion.deliberate, withTiming(1, { duration: theme.motion.fast })));
+    shade.set(withDelay(delay + theme.motion.deliberate, fadeTo(1, theme.motion.fast, theme.motion)));
     if (glides) arrival.set(withDelay(delay, withSpring(1, theme.springs.arrival)));
     return () => {
       cancelAnimation(pour);
@@ -207,7 +207,7 @@ function RunwayDressed({ piece, box, roles, ink, shadow, delay, glides, handoff,
       cancelAnimation(shade);
       cancelAnimation(arrival);
     };
-  }, [arrival, delay, glides, outline, pour, shade, theme.motion.deliberate, theme.motion.fast, theme.springs.arrival]);
+  }, [arrival, delay, glides, outline, pour, shade, theme.motion, theme.springs.arrival]);
 
   useEffect(() => () => cancelAnimation(travel), [travel]);
 

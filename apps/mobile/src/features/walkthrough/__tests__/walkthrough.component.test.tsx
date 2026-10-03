@@ -51,6 +51,7 @@ let mockPathname = '/';
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), dismissAll: jest.fn(), navigate: jest.fn() },
   usePathname: () => mockPathname,
+  useFocusEffect: () => undefined,
 }));
 
 const initialMetrics = {

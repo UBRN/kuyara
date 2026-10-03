@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { FullWindowOverlay } from 'react-native-screens';
 
 import { AMBIENT_PULSE_FLOOR, useAmbientPulse } from '@/components/ui/use-ambient-pulse';
+import { fadeTo } from '@/components/ui/fade';
 import { borderWidths } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -125,14 +124,12 @@ export function CoachMarkLayer({
 
   useEffect(() => {
     opacity.set(visible
-      ? withTiming(1, { duration: theme.motion.deliberate, easing: Easing.out(Easing.quad) })
-      : withTiming(0, {
-        duration: Math.round(theme.motion.deliberate * 0.75),
-        easing: Easing.in(Easing.quad),
-      }, (finished) => {
+      ? fadeTo(1, theme.motion.deliberate, theme.motion)
+      : fadeTo(0, Math.round(theme.motion.deliberate * 0.75), theme.motion, (finished) => {
+        'worklet';
         if (finished) scheduleOnRN(finishHiding);
       }));
-  }, [finishHiding, opacity, theme.motion.deliberate, visible]);
+  }, [finishHiding, opacity, theme.motion, visible]);
 
   const target = hole ?? { x: width / 2, y: height / 2, width: 0, height: 0, radius: 0 };
   useEffect(() => {
@@ -163,13 +160,13 @@ export function CoachMarkLayer({
       if (moved) {
         jump();
         cover.set(1);
-      } else if (!was) cover.set(withTiming(1, { duration: theme.motion.fast }));
+      } else if (!was) cover.set(fadeTo(1, theme.motion.fast, theme.motion));
       return;
     }
     if (was) {
       // The next screen has arrived: the cut-out opens where it now belongs.
       jump();
-      cover.set(withTiming(0, { duration: theme.motion.normal }));
+      cover.set(fadeTo(0, theme.motion.normal, theme.motion));
       return;
     }
     const spring = theme.springs.spatial;
@@ -179,11 +176,11 @@ export function CoachMarkLayer({
     h.set(withSpring(target.height, spring));
     r.set(withSpring(target.radius, spring));
   }, [betweenScreens, cover, h, hole, r, target.height, target.radius, target.width, target.x, target.y,
-    theme.motion.fast, theme.motion.normal, theme.springs.spatial, w, x, y]);
+    theme.motion, theme.springs.spatial, w, x, y]);
 
   useEffect(() => {
-    dim.set(withTiming(dimmed ? 1 : 0, { duration: theme.motion.normal }));
-  }, [dim, dimmed, theme.motion.normal]);
+    dim.set(fadeTo(dimmed ? 1 : 0, theme.motion.normal, theme.motion));
+  }, [dim, dimmed, theme.motion]);
 
   const layerStyle = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   const topStyle = useAnimatedStyle(() => ({
@@ -255,8 +252,8 @@ export function CoachMarkRing({ rect }: Readonly<{ rect: CoachMarkRect }>) {
   const opacity = useSharedValue(0);
   const pulse = useAmbientPulse();
   useEffect(() => {
-    opacity.set(withTiming(1, { duration: theme.motion.normal }));
-  }, [opacity, theme.motion.normal]);
+    opacity.set(fadeTo(1, theme.motion.normal, theme.motion));
+  }, [opacity, theme.motion]);
   const style = useAnimatedStyle(() => {
     const breath = (pulse.get() - AMBIENT_PULSE_FLOOR) / (1 - AMBIENT_PULSE_FLOOR);
     return { opacity: opacity.get() * (RING_FLOOR + (1 - RING_FLOOR) * breath) };
@@ -294,9 +291,9 @@ export function CoachMarkArrival({
   const offset = useSharedValue(from === 'below' ? ARRIVAL_TRAVEL : -ARRIVAL_TRAVEL);
 
   useEffect(() => {
-    opacity.set(withTiming(1, { duration: theme.motion.fast, easing: Easing.out(Easing.quad) }));
+    opacity.set(fadeTo(1, theme.motion.fast, theme.motion));
     offset.set(withSpring(0, theme.springs.spatial));
-  }, [offset, opacity, theme.motion.fast, theme.springs.spatial]);
+  }, [offset, opacity, theme.motion, theme.springs.spatial]);
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.get(),

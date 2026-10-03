@@ -97,7 +97,7 @@ test('a flick fades the piece it steps away from before the step has rendered', 
   await result.rerender(<GarmentSwapBoard {...boardProps({ focusedSlot: 'footwear' })} />);
   timings.mockClear();
   await act(async () => flick(-1));
-  expect(timings).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast });
+  expect(timings).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast, easing: expect.anything() });
   timings.mockRestore();
 });
 

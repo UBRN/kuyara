@@ -52,7 +52,7 @@ test('a block that mounts shown, hides before it is measured and shows again ent
     expect(withTiming).not.toHaveBeenCalled();
     // Once it has opened, the text follows on `fast`.
     await act(() => springs[0](true));
-    expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+    expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast, easing: expect.anything() });
   } finally {
     withSpring.mockRestore();
     withTiming.mockRestore();

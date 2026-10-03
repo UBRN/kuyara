@@ -120,8 +120,8 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
     // caption leaves on `fast`, and the mark arrives on `normal` once the caption has gone.
     await result.rerender(screen(true));
     await waitFor(() => expect(result.queryByText(copy.attributionAppleWeather)).toBeNull());
-    expect(withTiming).toHaveBeenCalledWith(0, { duration: fast });
-    expect(withTiming).toHaveBeenCalledWith(1, { duration: normal });
+    expect(withTiming).toHaveBeenCalledWith(0, { duration: fast, easing: expect.anything() });
+    expect(withTiming).toHaveBeenCalledWith(1, { duration: normal, easing: expect.anything() });
     expect(withDelay).toHaveBeenCalledWith(fast, expect.anything());
 
     // A mark that fails afterwards hands back to the caption the same way.
@@ -129,7 +129,7 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
     withDelay.mockClear();
     await fireEvent(mark, 'error');
     await waitFor(() => expect(result.getByText(copy.attributionAppleWeather)).toBeOnTheScreen());
-    expect(withTiming).toHaveBeenCalledWith(0, { duration: fast });
+    expect(withTiming).toHaveBeenCalledWith(0, { duration: fast, easing: expect.anything() });
     expect(withDelay).toHaveBeenCalledWith(fast, expect.anything());
     withTiming.mockRestore();
     withDelay.mockRestore();

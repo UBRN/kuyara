@@ -6,9 +6,9 @@ import Animated, {
   useSharedValue,
   withDelay,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { fadeTo } from './fade';
 
 import {
   composePieces,
@@ -111,14 +111,15 @@ function PreviewPiece({ placed, ink, outline, motion }: Readonly<{
     };
     if (fixed.kind === 'enter') {
       const delay = fixed.index * stagger;
-      opacity.set(withDelay(delay, withTiming(1, { duration: fast })));
+      opacity.set(withDelay(delay, fadeTo(1, fast, theme.motion)));
       slide.set(withDelay(delay, withSpring(0, spatial, land)));
     } else if (fixed.kind === 'glide') {
       glide.set(withSpring(0, spatial, land));
     } else if (fixed.kind === 'leave') {
       const { onDone } = fixed;
       slide.set(withSpring(-PREVIEW_SLIDE, spatial));
-      opacity.set(withTiming(0, { duration: fast }, (finished) => {
+      opacity.set(fadeTo(0, fast, theme.motion, (finished) => {
+        'worklet';
         if (finished) scheduleOnRN(onDone);
       }));
     }

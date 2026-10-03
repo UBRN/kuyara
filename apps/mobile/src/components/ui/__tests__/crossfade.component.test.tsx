@@ -47,8 +47,8 @@ test('a new key fades the old content out on fast, and the new waits for it, the
 
   await result.rerender(line('b', 'City Layers'));
   expect(withDelay).toHaveBeenCalledWith(lightTheme.motion.fast, 1);
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
-  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast }, expect.any(Function));
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal, easing: expect.anything() });
+  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast, easing: expect.anything() }, expect.any(Function));
   // Both are drawn while they cross; only the new one is in the reading order.
   expect(result.getByText('City Layers')).toBeOnTheScreen();
   const leaving = result.getByText('Rain Ready', hidden);

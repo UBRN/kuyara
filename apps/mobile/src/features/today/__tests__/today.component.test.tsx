@@ -582,12 +582,12 @@ test('the badge keeps its space while a new outfit is chosen, hidden from the sc
   expect(isHiddenFromAccessibility(badge)).toBe(true);
   expect(badge.props.accessible).toBe(false);
   expect(result.queryByTestId('today-provenance-badge')).toBeNull();
-  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.normal });
+  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.normal, easing: expect.anything() });
 
   withTiming.mockClear();
   await result.rerender(screen(null));
   expect(result.getByTestId('today-provenance-badge')).toBeOnTheScreen();
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal, easing: expect.anything() });
   withTiming.mockRestore();
 });
 
@@ -647,13 +647,13 @@ test('a new outfit landing under the dim lifts it at once, on the rise fade', as
   );
   const withTiming = jest.spyOn(Reanimated, 'withTiming');
   const result = await render(screen(todayScreenState));
-  expect(withTiming).toHaveBeenCalledWith(lightTheme.interaction.disabledOpacity, { duration: lightTheme.motion.normal });
+  expect(withTiming).toHaveBeenCalledWith(lightTheme.interaction.disabledOpacity, { duration: lightTheme.motion.normal, easing: expect.anything() });
 
   withTiming.mockClear();
   await result.rerender(screen(renewed));
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast, easing: expect.anything() });
   expect(withTiming).not.toHaveBeenCalledWith(
-    lightTheme.interaction.disabledOpacity, { duration: lightTheme.motion.normal },
+    lightTheme.interaction.disabledOpacity, { duration: lightTheme.motion.normal, easing: expect.anything() },
   );
   withTiming.mockRestore();
 });
@@ -1417,7 +1417,7 @@ test('a new outfit rises once the outfit it replaces has dropped away', async ()
     try {
       await result.rerender(screen(renewed));
       const leaving = result.getByTestId('today-leaving-board', hidden);
-      expect(withTiming).toHaveBeenCalledWith(1, { duration: fast }, expect.any(Function));
+      expect(withTiming).toHaveBeenCalledWith(1, { duration: fast, easing: expect.anything() }, expect.any(Function));
       expect(StyleSheet.flatten(leaving.parent!.props.style)).toMatchObject({
         opacity: 1, transform: [{ translateY: 0 }],
       });
@@ -1537,8 +1537,8 @@ test('a new outfit crossfades its title rather than snapping it', async () => {
   withTiming.mockClear();
 
   await result.rerender(screen(renewed));
-  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast }, expect.any(Function));
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal });
+  expect(withTiming).toHaveBeenCalledWith(0, { duration: lightTheme.motion.fast, easing: expect.anything() }, expect.any(Function));
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal, easing: expect.anything() });
   expect(result.getByTestId('today-archetype', { includeHiddenElements: true }))
     .toHaveTextContent(title(renewed));
   withTiming.mockRestore();

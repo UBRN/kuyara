@@ -412,5 +412,5 @@ test('the search status crossfades and the results fade in when they appear', as
   withTiming.mockClear();
   await debounce();
   expect(result.getByText(copy.placeSearchAttribution)).toBeOnTheScreen();
-  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast });
+  expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast, easing: expect.anything() });
 });

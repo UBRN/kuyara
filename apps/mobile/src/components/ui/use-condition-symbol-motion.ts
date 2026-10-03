@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import {
   cancelAnimation,
   Easing,
@@ -9,6 +9,7 @@ import {
 } from 'react-native-reanimated';
 
 import type { ConditionStyle } from '@/features/today/domain/condition-style';
+import { useWhileVisible } from '@/components/ui/use-screen-visible';
 
 // ADR 0020's closed vocabulary for the condition symbol, on Today and on Weather alike: the
 // sun turns, clouds drift, what comes down falls. A night sky and an unknown condition hold
@@ -46,15 +47,16 @@ export function useConditionSymbolMotion(conditionStyle: ConditionStyle, legMs: 
   const motion = conditionStyle.ink === 'neutral' ? 'still' : motionByShape[conditionStyle.shape];
   const progress = useSharedValue(0);
 
-  useEffect(() => {
-    cancelAnimation(progress);
-    progress.set(0);
+  useWhileVisible(useCallback(() => {
     if (motion === 'still') return undefined;
     progress.set(motion === 'turn'
       ? withRepeat(withTiming(1, { duration: legMs, easing: Easing.linear }), -1, false)
       : withRepeat(withTiming(1, { duration: legMs }), -1, true));
-    return () => cancelAnimation(progress);
-  }, [legMs, motion, progress]);
+    return () => {
+      cancelAnimation(progress);
+      progress.set(0);
+    };
+  }, [legMs, motion, progress]));
 
   return useAnimatedStyle(() => {
     const value = progress.get();
