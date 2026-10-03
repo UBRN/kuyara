@@ -473,16 +473,22 @@ test('an enlarged layer offers Take off in its strip header and as an action on 
   expect(result.queryByTestId('garment-swap-board-strip-take-off')).toBeNull();
 });
 
+// The frame that mounts a take-off can reach the screen after most of a `fast` fade has run on
+// the wall clock; the lift and the fade advance per drawn frame, so the piece is seen leaving.
 test('a layer taken off lifts and fades in place, and an added one is hung on from unseen', async () => {
   const timings = jest.spyOn(Reanimated, 'withTiming');
   const springs = jest.spyOn(Reanimated, 'withSpring');
+  const paced = jest.mocked(Reanimated.defineAnimation);
   const { fast } = lightTheme.motion;
   try {
     const result = await render(<GarmentSwapBoard {...layeredProps('light_jacket')} />, { wrapper: LightTheme });
     timings.mockClear();
     springs.mockClear();
+    paced.mockClear();
     await result.rerender(<GarmentSwapBoard {...layeredProps(null)} />);
     expect(timings).toHaveBeenCalledWith(-spacing.lg, { duration: fast });
+    // The mock's timing stands for its target: the lift and the fade are each paced.
+    expect(paced.mock.calls.map(([starting]) => starting)).toEqual([-spacing.lg, 0]);
     // Nothing slides sideways: the only springs are the pieces that stay gliding to their boxes.
     expect(springs.mock.calls.map(([target]) => target).filter((target) => target !== 1)).toEqual([]);
     expect(result.queryByTestId('garment-swap-board-piece-outer_layer')).toBeNull();

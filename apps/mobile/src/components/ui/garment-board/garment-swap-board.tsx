@@ -3,6 +3,7 @@ import { AccessibilityInfo, findNodeHandle, StyleSheet, View } from 'react-nativ
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
+  defineAnimation,
   interpolateColor,
   makeMutable,
   useAnimatedReaction,
@@ -11,6 +12,7 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
+  type AnimationObject,
   type SharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -38,6 +40,7 @@ import {
 import { garmentRolesBySlot, type GarmentOutfitPalette } from './garment-palette';
 import { GARMENT_OUTLINE } from './garment-painting';
 import { GarmentSwapStrip, type GarmentSwapStripLabels } from './garment-swap-strip';
+import { pacedClock, pacedTick, type PacedClock } from './paced-clock';
 import {
   SWAP_EDGE_GUARD,
   SWAP_HANDOFF_AFTER,
@@ -271,6 +274,36 @@ function pagerFor(
     stridePrevious: swapStride(window, incoming(-1), -1, outline),
     zone: swapDragZone(grown, grow.held),
   };
+}
+
+type PacedAnimation = AnimationObject<number> & { clock: PacedClock };
+
+/** `animation` on a `pacedClock`: a frame that reaches the screen late moves it by one frame. */
+function paced(animation: number): number {
+  'worklet';
+  return defineAnimation<PacedAnimation, AnimationObject<number>>(animation, () => {
+    'worklet';
+    const inner = (typeof animation === 'function'
+      ? (animation as () => AnimationObject<number>)() : animation) as unknown as AnimationObject<number>;
+    return {
+      isHigherOrder: true,
+      clock: pacedClock(0),
+      current: inner.current,
+      previousAnimation: null,
+      onStart: (self: PacedAnimation, value: number, now: number, previous: AnimationObject<number> | null) => {
+        self.clock = pacedClock(now);
+        self.current = value;
+        inner.onStart(inner, value, now, previous);
+      },
+      onFrame: (self: PacedAnimation, now: number) => {
+        self.clock = pacedTick(self.clock, now);
+        const finished = inner.onFrame(inner, self.clock.time);
+        self.current = inner.current;
+        return finished;
+      },
+      callback: (finished?: boolean) => inner.callback?.(finished),
+    };
+  }) as unknown as number;
 }
 
 function valuesFor(start: PieceStart): PieceValues {
@@ -705,13 +738,14 @@ export function GarmentSwapBoard({
           break;
         }
         case 'vanish': {
-          // A layer taken off rises and fades where it stands; nothing slides sideways.
+          // A layer taken off rises and fades where it stands; nothing slides sideways. Its
+          // frame is the one that mounts the change, and comes late: the motion is paced.
           const { key } = intent;
-          liftOff(values);
-          values.op.set(fadeTo(0, fast, theme.motion, (finished) => {
+          values.dy.set(paced(withTiming(-DRESS_LIFT, { duration: fast })));
+          values.op.set(paced(fadeTo(0, fast, theme.motion, (finished) => {
             'worklet';
             if (finished) scheduleOnRN(removeLeaving, key);
-          }));
+          })));
           break;
         }
         case 'scale':
