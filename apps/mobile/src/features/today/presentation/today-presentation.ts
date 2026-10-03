@@ -336,7 +336,7 @@ export function eveningLaterReadyLine(
   language: SupportedLanguage,
   hour12: boolean,
 ): string | null {
-  if (!departure?.dayKey.endsWith(':evening')) return null;
+  if (!departure || !isEveningDressingDayKey(departure.dayKey)) return null;
   const readyAt = Date.parse(departure.updatedAt);
   const leavingAt = Date.parse(departure.departureAt);
   if (!Number.isFinite(readyAt) || !Number.isFinite(leavingAt) ||
