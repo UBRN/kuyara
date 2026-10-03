@@ -33,6 +33,7 @@ const requiredSemanticRoles = [
   'surfaceInteractive',
   'textPrimary',
   'textSecondary',
+  'textGated',
   'textOnBrand',
   'textOnPrimaryFill',
   'brandPrimary',
@@ -679,6 +680,26 @@ test('defined borders identify interactive boundaries on every plane', () => {
     contrastOfHexOverBackground(lightSemanticColors.borderDefined, lightSemanticColors.surface) <
       contrastOfHexOverBackground(lightSemanticColors.textSecondary, lightSemanticColors.surface),
   );
+});
+
+// A members-only row a non-member sees (ADR 0041 section 5): muted but legible, never the
+// disabled look. Its ink is the secondary ink stepped toward the page, lighter than the
+// secondary ink yet clearing 4.5:1 as text on every ground a row stands on, and 3:1 as a glyph
+// on the list row's tile fill over those grounds.
+test('the gated ink is a derived, lighter secondary ink that stays legible on every ground', () => {
+  for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {
+    const tileAlpha = semanticColors === lightSemanticColors ? 0.08 : 0.12;
+    for (const plane of ['surface', 'background', 'backgroundElevated']) {
+      const ground = semanticColors[plane];
+      const text = contrastOfHexOverBackground(semanticColors.textGated, ground);
+      assert.ok(text >= 4.5, `gated text on ${plane}: ${text.toFixed(2)}:1`);
+      assert.ok(text < contrastOfHexOverBackground(semanticColors.textSecondary, ground), plane);
+      const tile = blend(ground, semanticColors.textPrimary, tileAlpha);
+      assert.ok(contrastOfHexOverBackground(semanticColors.textGated, tile) >= 3, `gated glyph on the ${plane} tile`);
+    }
+  }
+  assert.equal(lightSemanticColors.textGated, blend(lightSemanticColors.textSecondary, lightSemanticColors.background, 0.2));
+  assert.equal(darkSemanticColors.textGated, blend(darkSemanticColors.textSecondary, darkSemanticColors.background, 0.15));
 });
 
 // O13: the strong boundary is the secondary text value as a stroke, no

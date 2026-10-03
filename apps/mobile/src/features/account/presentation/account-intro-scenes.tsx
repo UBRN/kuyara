@@ -290,12 +290,69 @@ function PhotosScene({ active, width, height }: IntroSceneProps) {
   );
 }
 
+// The reader's pieces, in the Closet colours they chose, and the outfit kuyara builds around them.
+const chosenPieces: readonly DrawnPiece[] = [['sweater', 'top', 'red'], ['skirt', 'bottom', 'white']];
+const builtOutfit = outfit('trench_coat', 'sweater', 'skirt', 'ankle_boots');
+const builtPalette: GarmentOutfitPalette = {
+  ...paletteOf('compose', builtOutfit),
+  pieces: builtOutfit.map(({ garmentTypeId, slot }) => (
+    garmentTypeId === 'sweater' ? { garmentTypeId, slot, recordedSwatchId: 'tomato' }
+      : garmentTypeId === 'skirt' ? { garmentTypeId, slot, recordedSwatchId: 'white' }
+        : { garmentTypeId, slot })),
+};
+
+/** "Build from the pieces you choose": two ticked pieces, then the whole outfit around them. */
+function ComposeScene({ active, width, height }: IntroSceneProps) {
+  const theme = useKuyaraTheme();
+  const large = useEasierToSee();
+  const built = useBeats(active, theme.motion.ambient.calm, 1) > 0;
+  const boardWidth = fittedBoardWidth([builtOutfit], width - spacing.lg * 2, height - spacing.md * 2, large);
+  const boardHeight = measureGarmentBoardHeight(builtOutfit, boardWidth, 'today', false, large);
+  const tile = Math.min(height - spacing.xl, (width - spacing.md) / 2);
+  const stage = theme.atmosphere.veiledDay;
+  return (
+    <View style={[styles.centre, styles.stage, { backgroundColor: stage, height }]}>
+      <Crossfade contentKey={built ? 'built' : 'chosen'}>
+        {built ? (
+          <GarmentPreviewBoard
+            height={boardHeight}
+            palette={builtPalette}
+            pieces={builtOutfit}
+            stageColor={stage}
+            testID="account-intro-compose-board"
+            width={boardWidth}
+          />
+        ) : (
+          <View style={styles.row}>
+            {chosenPieces.map(([garmentTypeId, category, colorFamily]) => (
+              <View key={garmentTypeId}
+                style={[styles.tile, styles.centre, { backgroundColor: theme.colors.surfaceMuted, height: tile, width: tile }]}>
+                <GarmentDrawing
+                  category={category}
+                  colorFamily={colorFamily}
+                  garmentTypeId={garmentTypeId}
+                  size={tile - spacing.xl}
+                  testID={`account-intro-chosen-${garmentTypeId}`}
+                />
+                <View style={styles.photoMark}>
+                  <Icon color={theme.colors.brandAccent} name="checkCircle" size={20} />
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </Crossfade>
+    </View>
+  );
+}
+
 export const accountIntroScenes: Readonly<Record<AccountIntroPageId, (props: IntroSceneProps) => React.ReactElement>> = {
   closet: ClosetScene,
   history: HistoryScene,
   askAgain: StylistScene,
   devices: DevicesScene,
   photos: PhotosScene,
+  compose: ComposeScene,
 };
 
 const styles = StyleSheet.create({

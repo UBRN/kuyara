@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, NativeColorWell } from '@/components/ui';
+import { AppText, ColorSwatch, NativeColorWell } from '@/components/ui';
 import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
 import {
   closetColorOptions,
@@ -9,7 +9,6 @@ import {
   normalizeCustomColorHex,
   type ClosetColorChoice,
 } from '@/features/wardrobe/domain/closet-color-options';
-import { ColorSwatch } from '@/features/wardrobe/presentation/color-swatch';
 import type { AppMessages } from '@/localization/messages';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';

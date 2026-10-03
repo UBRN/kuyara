@@ -226,3 +226,50 @@ test('a pressable row carries no scale transform', async () => {
   fireEvent(row, 'pressIn');
   expect(StyleSheet.flatten(result.getByTestId('row').props.style).transform).toBeUndefined();
 });
+
+describe('the gated row (ADR 0041 section 5): members only, muted but legible, never disabled', () => {
+  test.each([['light', TestProviders, lightTheme], ['dark', DarkTestProviders, darkTheme]] as const)(
+    'in %s it draws its words, glyph and chevron in the gated ink and carries the chip',
+    async (_appearance, Providers, theme) => {
+      const glyph = jest.fn(locationGlyph);
+      const onPress = jest.fn();
+      const result = await render(
+        <Providers>
+          <ListRow
+            accessibilityHint="Opens sign-in."
+            chip="Members"
+            gated
+            glyph={glyph}
+            label="Build from a piece"
+            onPress={onPress}
+            testID="row"
+          />
+        </Providers>,
+      );
+      const row = result.getByTestId('row');
+      expect(row.props.accessibilityRole).toBe('button');
+      expect(row.props.accessibilityLabel).toBe('Build from a piece, Members');
+      expect(row.props.accessibilityHint).toBe('Opens sign-in.');
+      // Never the disabled or dimmed trait: the row still acts.
+      expect(row.props.accessibilityState?.disabled).toBeFalsy();
+      expect(StyleSheet.flatten(row.props.style).opacity ?? 1).toBe(1);
+      await fireEvent.press(row);
+      expect(onPress).toHaveBeenCalledTimes(1);
+      expect(StyleSheet.flatten(result.getByText('Build from a piece').props.style).color).toBe(theme.colors.textGated);
+      expect(glyph).toHaveBeenLastCalledWith(expect.objectContaining({ color: theme.colors.textGated }));
+      expect(result.getByTestId('row-chip')).toHaveTextContent('Members');
+    },
+  );
+
+  test('an ungated row keeps the primary ink and has no chip', async () => {
+    const glyph = jest.fn(locationGlyph);
+    const result = await render(
+      <TestProviders>
+        <ListRow glyph={glyph} label="Build from a piece" onPress={() => {}} testID="row" />
+      </TestProviders>,
+    );
+    expect(result.getByTestId('row').props.accessibilityLabel).toBe('Build from a piece');
+    expect(glyph).toHaveBeenLastCalledWith(expect.objectContaining({ color: lightTheme.colors.textPrimary }));
+    expect(result.queryByTestId('row-chip')).toBeNull();
+  });
+});

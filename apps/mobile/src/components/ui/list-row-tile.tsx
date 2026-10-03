@@ -15,6 +15,8 @@ export type ListRowTileGlyph = (props: Readonly<{ color: string; size: number }>
 
 export type ListRowTileProps = Readonly<{
   glyph: ListRowTileGlyph;
+  /** A gated row's tile draws its glyph in the gated ink (ADR 0041 section 5). */
+  gated?: boolean;
   testID?: string;
 }>;
 
@@ -26,7 +28,7 @@ export function listRowTileColors(theme: KuyaraTheme) {
   } as const;
 }
 
-export function ListRowTile({ glyph, testID }: ListRowTileProps) {
+export function ListRowTile({ gated = false, glyph, testID }: ListRowTileProps) {
   const theme = useKuyaraTheme();
   const { controlScale } = useTextScaling();
   const geometry = resolveListRowTileGeometry(controlScale);
@@ -44,7 +46,7 @@ export function ListRowTile({ glyph, testID }: ListRowTileProps) {
         },
       ]}
       testID={testID}>
-      {glyph({ color: colors.ink, size: geometry.glyphSize })}
+      {glyph({ color: gated ? theme.colors.textGated : colors.ink, size: geometry.glyphSize })}
     </View>
   );
 }

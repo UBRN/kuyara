@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   ACCOUNT_INTRO_PAGE_DWELL_MS,
   accountIntroPageIds,
+  type AccountIntroPageId,
 } from '@/features/account/application/account-intro-pages';
 import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
 import { AccountIntroPager } from '@/features/account/presentation/account-intro-pager';
@@ -24,12 +25,12 @@ jest.mock('@expo/ui/community/bottom-sheet', () => ({
 
 const en = messages.en.account.signIn;
 
-async function renderPager(language: SupportedLanguage = 'en'): Promise<RenderResult> {
+async function renderPager(language: SupportedLanguage = 'en', initialPage?: AccountIntroPageId): Promise<RenderResult> {
   const screen = await render(
     <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
       <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
-          <AccountIntroPager />
+          <AccountIntroPager initialPage={initialPage} />
         </KuyaraThemeContext.Provider>
       </LocalizationContext.Provider>
     </SafeAreaProvider>,
@@ -67,42 +68,42 @@ describe('the sign-in benefit pages', () => {
     expect(ACCOUNT_SCREENS_ENABLED).toBe(false);
   });
 
-  test('show five pages, each one spoken element with its title and sentence, starting at the leftmost', async () => {
+  test('show six pages, each one spoken element with its title and sentence, starting at the leftmost', async () => {
     const screen = await renderPager();
-    expect(accountIntroPageIds).toHaveLength(5);
+    expect(accountIntroPageIds).toHaveLength(6);
     for (const id of accountIntroPageIds) {
       const { title, body } = en.pages[id];
       expect(screen.getByTestId(`account-intro-page-${id}`).props.accessibilityLabel).toBe(`${title}. ${body}`);
     }
-    expect(position(screen)).toBe(en.pagePosition(1, 5));
+    expect(position(screen)).toBe(en.pagePosition(1, 6));
     const marks = within(dots(screen)).getAllByRole('button').map((dot) => dot.props.accessibilityLabel);
-    expect(marks).toEqual([1, 2, 3, 4, 5].map((page) => en.pagePosition(page, 5)));
+    expect(marks).toEqual([1, 2, 3, 4, 5, 6].map((page) => en.pagePosition(page, 6)));
   });
 
   test('move on by themselves once, a dwell apart, announce each title and stop on the last', async () => {
     const screen = await renderPager();
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
-    expect(position(screen)).toBe(en.pagePosition(2, 5));
+    expect(position(screen)).toBe(en.pagePosition(2, 6));
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenLastCalledWith(en.pages.history.title);
     for (let step = 0; step < 6; step += 1) await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
-    expect(position(screen)).toBe(en.pagePosition(5, 5));
-    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenLastCalledWith(en.pages.photos.title);
+    expect(position(screen)).toBe(en.pagePosition(6, 6));
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenLastCalledWith(en.pages.compose.title);
   });
 
   test('a touch hands them over: they stop moving for the rest of the visit', async () => {
     const screen = await renderPager();
     await fireEvent(screen.getByTestId('account-intro-pages'), 'touchStart');
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 3);
-    expect(position(screen)).toBe(en.pagePosition(1, 5));
+    expect(position(screen)).toBe(en.pagePosition(1, 6));
   });
 
   test('each dot is a button that jumps to its page and stops the advance', async () => {
     const screen = await renderPager();
     await fireEvent.press(screen.getByTestId('account-intro-dot-devices'));
-    expect(position(screen)).toBe(en.pagePosition(4, 5));
+    expect(position(screen)).toBe(en.pagePosition(4, 6));
     expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 3);
-    expect(position(screen)).toBe(en.pagePosition(4, 5));
+    expect(position(screen)).toBe(en.pagePosition(4, 6));
   });
 
   test('pause stops the advance and play resumes it from the page shown', async () => {
@@ -112,24 +113,36 @@ describe('the sign-in benefit pages', () => {
     await fireEvent.press(control(screen));
     expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 3);
-    expect(position(screen)).toBe(en.pagePosition(2, 5));
+    expect(position(screen)).toBe(en.pagePosition(2, 6));
     await fireEvent.press(control(screen));
     expect(control(screen).props.accessibilityLabel).toBe(en.pausePages);
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
-    expect(position(screen)).toBe(en.pagePosition(3, 5));
+    expect(position(screen)).toBe(en.pagePosition(3, 6));
   });
 
   test('after the one pass the control offers play, and play runs one more pass from the first page', async () => {
     const screen = await renderPager();
-    for (let step = 0; step < 4; step += 1) await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
-    expect(position(screen)).toBe(en.pagePosition(5, 5));
+    for (let step = 0; step < 5; step += 1) await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
+    expect(position(screen)).toBe(en.pagePosition(6, 6));
     expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
     await fireEvent.press(control(screen));
-    expect(position(screen)).toBe(en.pagePosition(1, 5));
+    expect(position(screen)).toBe(en.pagePosition(1, 6));
     expect(control(screen).props.accessibilityLabel).toBe(en.pausePages);
     for (let step = 0; step < 6; step += 1) await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
-    expect(position(screen)).toBe(en.pagePosition(5, 5));
+    expect(position(screen)).toBe(en.pagePosition(6, 6));
     expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
+  });
+
+  test('opened on a page, they start there; on the last they rest and play runs a pass from the first', async () => {
+    const screen = await renderPager('en', 'compose');
+    expect(position(screen)).toBe(en.pagePosition(6, 6));
+    expect(screen.getByTestId('account-intro-page-compose').props.accessibilityLabel)
+      .toBe(`${en.pages.compose.title}. ${en.pages.compose.body}`);
+    await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 2);
+    expect(position(screen)).toBe(en.pagePosition(6, 6));
+    expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
+    await fireEvent.press(control(screen));
+    expect(position(screen)).toBe(en.pagePosition(1, 6));
   });
 
   test('never move while a screen reader runs', async () => {
@@ -137,14 +150,14 @@ describe('the sign-in benefit pages', () => {
     const screen = await renderPager();
     await act(async () => {});
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 3);
-    expect(position(screen)).toBe(en.pagePosition(1, 5));
+    expect(position(screen)).toBe(en.pagePosition(1, 6));
     expect(screen.queryByTestId('account-intro-play')).toBeNull();
   });
 
   test('speak Turkish', async () => {
     const screen = await renderPager('tr');
     expect(screen.getByText(messages.tr.account.signIn.pages.closet.title)).toBeTruthy();
-    expect(position(screen)).toBe(messages.tr.account.signIn.pagePosition(1, 5));
+    expect(position(screen)).toBe(messages.tr.account.signIn.pagePosition(1, 6));
     expect(control(screen).props.accessibilityLabel).toBe(messages.tr.account.signIn.pausePages);
   });
 });

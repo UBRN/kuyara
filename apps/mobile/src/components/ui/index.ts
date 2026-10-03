@@ -1,6 +1,7 @@
 export { AppText, type AppTextProps } from './app-text';
 export { Button, useButtonBox, type ButtonProps } from './button';
 export { ButtonPair, type ButtonPairProps } from './button-pair';
+export { CheckRow, type CheckRowProps } from './check-row';
 export { ChoiceTile, ChoiceTileGrid, type ChoiceTileDrawing, type ChoiceTileProps } from './choice-tile';
 export {
   CoachMarkArrival,
@@ -9,6 +10,8 @@ export {
   type CoachMarkLayerProps,
   type CoachMarkRect,
 } from './coach-mark-layer';
+export { ClosetSolidStrip, type ClosetSolidStripProps } from './closet-solid-strip';
+export { ColorSwatch } from './color-swatch';
 export { Crossfade, type CrossfadeProps } from './crossfade';
 export { DrawGrow, DrawReveal, type DrawGrowProps, type DrawRevealProps } from './draw-in';
 export { Entrance, type EntranceProps } from './entrance';

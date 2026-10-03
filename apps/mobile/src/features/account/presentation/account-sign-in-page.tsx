@@ -1,6 +1,7 @@
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText, Button, GlassButton, ProviderSignInButton } from '@/components/ui';
+import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
 import type { AccountProvider } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { AccountIntroPager } from '@/features/account/presentation/account-intro-pager';
@@ -17,7 +18,7 @@ const providers: readonly AccountProvider[] = ['apple', 'google'];
  * a centred "Not now" and the footnote with the privacy policy. Close stays live while a
  * sign-in runs and cancels it. At large text sizes the whole page scrolls.
  */
-export function AccountSignInPage() {
+export function AccountSignInPage({ initialPage }: Readonly<{ initialPage?: AccountIntroPageId }>) {
   const { port, snapshot } = useAccountScreens();
   const copy = useMessages().account.signIn;
   const { signIn } = snapshot;
@@ -36,7 +37,7 @@ export function AccountSignInPage() {
         <GlassButton kind="close" label={copy.close} onPress={port.closeSheet} testID="account-sign-in-close" />
         <AppText accessibilityRole="header" variant="titleLarge">{copy.title}</AppText>
       </View>
-      <AccountIntroPager />
+      <AccountIntroPager initialPage={initialPage} />
       <View style={styles.spacer} />
       <View style={[styles.inset, styles.foot]}>
         {status ? <StatusLine testID="account-sign-in-status" text={status.text} tone={status.tone} /> : null}

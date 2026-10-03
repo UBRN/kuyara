@@ -43,8 +43,11 @@ export type AccountResult =
   | Readonly<{ kind: 'restored'; pieces: number; days: number }>
   | Readonly<{ kind: 'deleted'; provider: AccountProvider }>;
 
-/** Which screen presents the account sheet. Profile stays mounted under Settings, so each hosts its own. */
-export type AccountSheetHost = 'profile' | 'settings';
+/**
+ * Which screen presents the account sheet. Profile stays mounted under Settings, so each hosts
+ * its own; outfit detail hosts one for its members-only row.
+ */
+export type AccountSheetHost = 'profile' | 'settings' | 'detail';
 
 export type AccountScreensSnapshot = Readonly<{
   online: boolean;

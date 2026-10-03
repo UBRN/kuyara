@@ -25,6 +25,9 @@ export const lightSemanticColors = Object.freeze({
   surfaceInteractive: '#DDE8E7',
   textPrimary: brandColors.deepAtmosphere,
   textSecondary: '#2F4650',
+  // A members-only row a non-member sees (ADR 0041 section 5): the secondary ink stepped a
+  // fifth toward the page, muted but legible on every ground, never the disabled look.
+  textGated: blend('#2F4650', brandColors.softMist, 0.2),
   textOnBrand: brandColors.cloudWhite,
   textOnPrimaryFill: brandColors.cloudWhite,
   brandPrimary: brandColors.deepAtmosphere,
@@ -141,6 +144,8 @@ export const darkSemanticColors = Object.freeze({
   surfaceInteractive: '#21434A',
   textPrimary: brandColors.cloudWhite,
   textSecondary: '#B0C0C5',
+  // Stepped less than in light: the dark row group's raised ground leaves less room.
+  textGated: blend('#B0C0C5', brandColors.nightLayer, 0.15),
   textOnBrand: brandColors.nightLayer,
   textOnPrimaryFill: brandColors.cloudWhite,
   brandPrimary: brandColors.quietSky,

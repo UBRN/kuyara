@@ -1,4 +1,5 @@
 import { NativeSheet } from '@/components/ui';
+import { accountIntroFirstPage } from '@/features/account/application/account-intro-pages';
 import type { AccountSheetHost } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { AccountResultContent } from '@/features/account/presentation/account-result';
@@ -21,7 +22,9 @@ export function AccountSheet({ host }: Readonly<{ host: AccountSheetHost }>) {
       size={result ? 'fit' : 'large'}
       testID={`account-sheet-${host}`}
       visible={snapshot.sheet === host}>
-      {result ? <AccountResultContent onDone={port.closeSheet} result={result} /> : <AccountSignInPage />}
+      {result
+        ? <AccountResultContent onDone={port.closeSheet} result={result} />
+        : <AccountSignInPage initialPage={accountIntroFirstPage(host)} />}
     </NativeSheet>
   );
 }

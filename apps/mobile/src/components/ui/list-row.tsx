@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/ui/icon';
 import { ListRowTile, type ListRowTileGlyph } from '@/components/ui/list-row-tile';
+import { Pill } from '@/components/ui/pill';
 import {
   createPressHandler,
   resolveListRowGroupColors,
@@ -32,11 +33,23 @@ export type ListRowProps = Readonly<{
   valueTabular?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
+  /**
+   * The gated press style (ADR 0041 section 5): a feature for members that a non-member sees.
+   * Words, glyph and chevron take the derived `textGated` ink, muted but legible on every
+   * ground; the row stays a full button and never takes the disabled or dimmed trait.
+   */
+  gated?: boolean;
+  /** A short tag after the label, such as "Members"; spoken after the label. */
+  chip?: string;
   testID?: string;
 }>;
 
 export function ListRow({
+  accessibilityHint,
   accessibilityLabel,
+  chip,
+  gated = false,
   glyph,
   label,
   labelWeight = 'body',
@@ -54,12 +67,13 @@ export function ListRow({
 
   const content = (
     <>
-      <ListRowTile glyph={glyph} testID={testID ? `${testID}-tile` : undefined} />
+      <ListRowTile gated={gated} glyph={glyph} testID={testID ? `${testID}-tile` : undefined} />
       <View style={styles.textColumn}>
         <View style={styles.labelLine} testID={testID ? `${testID}-label-line` : undefined}>
-          <AppText style={styles.label} variant={labelWeight}>
+          <AppText colorRole={gated ? 'textGated' : 'textPrimary'} style={styles.label} variant={labelWeight}>
             {label}
           </AppText>
+          {chip ? <Pill label={chip} testID={testID ? `${testID}-chip` : undefined} tone="muted" /> : null}
           {!usesStackedLayout && value ? (
             <AppText
               colorRole="textSecondary"
@@ -71,7 +85,7 @@ export function ListRow({
           ) : null}
           {onPress ? (
             <Icon
-              color={theme.colors.textSecondary}
+              color={gated ? theme.colors.textGated : theme.colors.textSecondary}
               name="chevronRight"
               size={CHEVRON_BASE_SIZE * controlScale}
             />
@@ -87,7 +101,7 @@ export function ListRow({
           </AppText>
         ) : null}
         {supportingText ? (
-          <AppText colorRole="textSecondary" variant="caption">
+          <AppText colorRole={gated ? 'textGated' : 'textSecondary'} variant="caption">
             {supportingText}
           </AppText>
         ) : null}
@@ -105,7 +119,8 @@ export function ListRow({
 
   return (
     <Pressable
-      accessibilityLabel={accessibilityLabel ?? (value ? `${label}, ${value}` : label)}
+      accessibilityHint={accessibilityHint}
+      accessibilityLabel={accessibilityLabel ?? [label, chip, value].filter(Boolean).join(', ')}
       accessibilityRole="button"
       onPress={pressHandler}
       style={({ pressed }) => [styles.row, rowHeight, pressed && styles.pressed]}

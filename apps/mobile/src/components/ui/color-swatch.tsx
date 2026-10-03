@@ -1,12 +1,14 @@
 import { StyleSheet } from 'react-native';
 
-import { ClosetColorDisc, PressScale } from '@/components/ui';
+import { ClosetColorDisc } from '@/components/ui/garment-board/closet-color-art';
+import { PressScale } from '@/components/ui/press-scale';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import { borderWidths, interaction, layout } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-// One palette option of the Closet colour grids (O8). The colour is shown rather than named
-// forty-seven times; the name is the radio's accessible label.
+// One palette option of the Closet colour grids (O8) and of the compose sheet's solids strip.
+// The colour is shown rather than named forty-seven times; the name is the radio's accessible
+// label.
 //
 // Selection is a 2 point `brandAccent` ring around the disc, never a fill: Law 1 allows one
 // accent-filled element per viewport. The ring's slot is drawn in both states, so selecting

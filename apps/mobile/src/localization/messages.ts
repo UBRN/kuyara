@@ -213,6 +213,32 @@ export type TodayMessages = Readonly<{
     sourceMany: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
   }>;
   /**
+   * Compose around chosen pieces (ADR 0026 section 6): the members-only row under "Wore this
+   * today", its sheet, and the result's line. The colour group's name is one whole phrase per
+   * slot, never a piece name inflected in place.
+   */
+  compose: Readonly<{
+    entry: string;
+    membersChip: string;
+    /** Spoken after a non-member's row: what a tap opens. */
+    membersHint: string;
+    title: string;
+    subtitle: string;
+    fromOutfit: string;
+    yourPieces: string;
+    chooseAnother: string;
+    back: string;
+    /** Spoken on a piece that cannot be ticked while three are chosen. */
+    limitHint: string;
+    colorLabel: Readonly<Record<SwappableSlot, string>>;
+    build: string;
+    chosenCount: (count: number) => string;
+    /** The visible "1 / 3" and its spoken whole phrase. */
+    position: (position: number, total: number) => string;
+    positionAccessibilityLabel: (position: number, total: number) => string;
+    showAnother: string;
+  }>;
+  /**
    * The outfit detail's share button, the name on the shared outfit card, and the text sent
    * with the image, which carries the App Store link.
    */
@@ -1686,6 +1712,31 @@ const en = {
         deterministic: 'You changed some pieces. kuyara put the rest together on your device.',
       },
     },
+    compose: {
+      entry: 'Build from a piece',
+      membersChip: 'Members',
+      membersHint: 'Opens Complete your profile.',
+      title: 'What do you want to wear today?',
+      subtitle: 'Choose up to three pieces. kuyara completes the rest for today’s weather.',
+      fromOutfit: 'From this outfit',
+      yourPieces: 'Your pieces',
+      chooseAnother: 'Choose another piece',
+      back: 'Back',
+      limitHint: 'Three pieces are chosen. Let one go to choose this one.',
+      colorLabel: {
+        primary_top: 'Color of the top',
+        bottom: 'Color of the bottom',
+        one_piece: 'Color of the one-piece',
+        mid_layer: 'Color of the mid layer',
+        outer_layer: 'Color of the outer layer',
+        footwear: 'Color of the footwear',
+      },
+      build: 'Build the outfit',
+      chosenCount: (count) => `${count} / 3 pieces chosen`,
+      position: (position, total) => `${position} / ${total}`,
+      positionAccessibilityLabel: (position, total) => `Outfit ${position} of ${total}`,
+      showAnother: 'Show another',
+    },
     share: {
       action: 'Share outfit',
       brandName: 'kuyara',
@@ -1945,13 +1996,17 @@ const en = {
           title: 'Photo backup, coming soon',
           body: 'Backing up the photos of your Closet pieces is on its way. It is not available yet.',
         },
+        compose: {
+          title: 'Build from the pieces you choose',
+          body: 'Signed in, you choose up to three pieces and kuyara builds the outfit around them.',
+        },
       },
       pagePosition: (page: number, total: number) => `Page ${page} of ${total}`,
       pausePages: 'Pause pages',
       playPages: 'Play pages',
       continueWith: { apple: 'Continue with Apple', google: 'Continue with Google' },
       notNow: 'Not now',
-      footer: 'Everything works the same without an account. Signing in adds your Closet, History and style preferences to your account. Your birth date is not added.',
+      footer: 'Weather and outfit suggestions work without an account. Signing in adds your Closet, History and style preferences to your account. Your birth date is not added.',
       privacy: 'Privacy policy',
       cancelled: 'Sign-in was canceled. Choose a way to sign in when you are ready.',
       offline: 'You are offline. You can sign in once you are connected.',
@@ -2803,6 +2858,31 @@ const tr = {
         deterministic: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara cihazında hazırladı.',
       },
     },
+    compose: {
+      entry: 'Bir parçayla kombin kur',
+      membersChip: 'Üyelere',
+      membersHint: 'Profilini tamamla sayfasını açar.',
+      title: 'Bugün ne giymek istiyorsun?',
+      subtitle: 'En çok üç parça seç. Kalanını kuyara bugünkü havaya göre tamamlar.',
+      fromOutfit: 'Bu kombinden',
+      yourPieces: 'Seçtiğin parçalar',
+      chooseAnother: 'Başka bir parça seç',
+      back: 'Geri',
+      limitHint: 'Üç parça seçili. Bunu seçmek için birini bırak.',
+      colorLabel: {
+        primary_top: 'Üstün rengi',
+        bottom: 'Altın rengi',
+        one_piece: 'Tek parçanın rengi',
+        mid_layer: 'Orta katmanın rengi',
+        outer_layer: 'Dış katmanın rengi',
+        footwear: 'Ayakkabının rengi',
+      },
+      build: 'Kombini kur',
+      chosenCount: (count) => `${count} / 3 parça seçildi`,
+      position: (position, total) => `${position} / ${total}`,
+      positionAccessibilityLabel: (position, total) => `Kombin ${position} / ${total}`,
+      showAnother: 'Başka göster',
+    },
     share: {
       action: 'Kombini paylaş',
       brandName: 'kuyara',
@@ -3065,13 +3145,17 @@ const tr = {
           title: 'Fotoğraf yedeği yakında',
           body: 'Gardırobundaki parçaların fotoğraflarını yedekleme yakında geliyor. Şimdilik kullanılamıyor.',
         },
+        compose: {
+          title: 'Seçtiğin parçalarla kombin',
+          body: 'Giriş yaptığında en çok üç parça seçersin, kuyara kombini onların çevresinde kurar.',
+        },
       },
       pagePosition: (page: number, total: number) => `Sayfa ${page} / ${total}`,
       pausePages: 'Sayfaları duraklat',
       playPages: 'Sayfaları oynat',
       continueWith: { apple: 'Apple ile devam et', google: 'Google ile devam et' },
       notNow: 'Şimdi değil',
-      footer: 'Hesap olmadan da her şey aynı şekilde çalışır. Giriş yaptığında Gardırobun, Geçmişin ve stil tercihlerin hesabına eklenir. Doğum tarihin eklenmez.',
+      footer: 'Hava ve kombin önerileri hesap olmadan da çalışır. Giriş yaptığında Gardırobun, Geçmişin ve stil tercihlerin hesabına eklenir. Doğum tarihin eklenmez.',
       privacy: 'Gizlilik politikası',
       cancelled: 'Giriş iptal edildi. Hazır olduğunda bir giriş yolu seç.',
       offline: 'İnternet bağlantın yok. Bağlandıktan sonra giriş yapabilirsin.',

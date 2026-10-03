@@ -141,6 +141,30 @@ describe('the sign-in page (frames 02, 17, 18, 19, 33)', () => {
     expect(port.getSnapshot()).toMatchObject({ sheet: null, result: null, session: { kind: 'signedIn' } });
   });
 
+  test('opened from outfit detail, the sheet starts on the compose benefit page', async () => {
+    const port = portFor('signedOut');
+    port.openSignIn('detail');
+    const screen = await renderWith(port, <AccountSheet host="detail" />);
+    expect(screen.getByTestId('account-sheet-detail')).toBeTruthy();
+    expect(screen.getByTestId('account-intro-dot-compose').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByTestId('account-intro-dot-closet').props.accessibilityState).toEqual({ selected: false });
+    // Profile and Settings keep starting on the first page.
+    const fromProfile = await renderWith(portFor('signIn'), <AccountSheet host="profile" />);
+    expect(fromProfile.getAllByTestId('account-intro-dot-closet').at(-1)!.props.accessibilityState).toEqual({ selected: true });
+  });
+
+  test('the footnote says weather and outfit suggestions work without an account, never that everything works the same', async () => {
+    for (const language of ['en', 'tr'] as const) {
+      const { footer } = messages[language].account.signIn;
+      expect(footer.startsWith(language === 'en'
+        ? 'Weather and outfit suggestions work without an account.'
+        : 'Hava ve kombin önerileri hesap olmadan da çalışır.')).toBe(true);
+      expect(footer).not.toMatch(/works the same|aynı şekilde/);
+    }
+    const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />);
+    expect(screen.getByText(new RegExp(en.signIn.footer.slice(0, 40)))).toBeTruthy();
+  });
+
   test('the Turkish page uses the approved copy', async () => {
     const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />, 'tr');
     expect(screen.getByText(tr.signIn.title)).toBeTruthy();

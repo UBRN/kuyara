@@ -15,6 +15,7 @@ import { AppText, IconButton } from '@/components/ui';
 import {
   ACCOUNT_INTRO_PAGE_DWELL_MS,
   accountIntroPageIds,
+  type AccountIntroPageId,
 } from '@/features/account/application/account-intro-pages';
 import { accountIntroScenes } from '@/features/account/presentation/account-intro-scenes';
 import { useMessages } from '@/localization/use-messages';
@@ -54,13 +55,15 @@ function useAppInForeground() {
  * after the last page it runs one more pass from the first. They never move while a screen
  * reader runs, which also hides the control, or while the app is in the background. A page
  * is one spoken element, its title and its sentence, and a change announces the new title.
+ * `initialPage` opens on another page than the leftmost; from the last one nothing moves until
+ * play runs a pass from the first.
  */
-export function AccountIntroPager() {
+export function AccountIntroPager({ initialPage }: Readonly<{ initialPage?: AccountIntroPageId }>) {
   const copy = useMessages().account.signIn;
   const theme = useKuyaraTheme();
   const scroll = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(() => Math.max(0, accountIntroPageIds.indexOf(initialPage ?? 'closet')));
   const [playing, setPlaying] = useState(true);
   const screenReader = useScreenReaderRunning();
   const foreground = useAppInForeground();

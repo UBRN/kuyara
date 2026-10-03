@@ -372,8 +372,7 @@ test('the specifier reader sees `typeof import(…)`, the form the adapters name
 // feature presentation code is a row, tile, chip, swatch, page dot, link or field accessory,
 // and each file may hold only the number listed here. The counts only shrink; a stale entry fails.
 const rawPressableAllowlist = Object.freeze({
-  // O10: a colour swatch, a category tile of the type picker, an ownership card.
-  'features/wardrobe/presentation/color-swatch.tsx': 1,
+  // O10: a category tile of the type picker, an ownership card.
   'features/wardrobe/presentation/garment-type-picker.tsx': 1,
   'features/wardrobe/presentation/ownership-choice.tsx': 1,
   'features/wardrobe/presentation/wardrobe-category-chip.tsx': 1,

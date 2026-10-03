@@ -257,12 +257,15 @@ export function GarmentCandidateTile({
   garmentTypeId,
   category,
   roles,
+  colorChoice = null,
   control = false,
   testIDPrefix,
 }: Readonly<{
   garmentTypeId: GarmentTypeId;
   category: StructuralCategory;
   roles?: GarmentRoles;
+  /** A Closet solid the reader chose for the piece (the compose sheet); drawn when `roles` is absent. */
+  colorChoice?: ClosetColorChoice | null;
   /**
    * The tile is itself the control (the board strip), so it takes the strong edge while
    * higher contrast applies, as the Closet's tiles do. In the picker the row is the control
@@ -281,6 +284,7 @@ export function GarmentCandidateTile({
       testID={`${testIDPrefix}-tile-${garmentTypeId}`}>
       <GarmentTileArtwork
         category={category}
+        colorChoice={colorChoice}
         colorFamily={null}
         garmentTypeId={garmentTypeId}
         glyphSize={size * 0.6}
