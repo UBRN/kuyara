@@ -28,7 +28,7 @@ works_catalogue: >-
   Geriye kalanlardan, uygulamanın içindeki katalogla eksiksiz ve mantıklı kombinler
   kuruluyor.
 works_assist: >-
-  Küçük bir yapay zekâ adımı, aralarından birbirinden gerçekten farklı olanları
+  Küçük bir yapay zeka adımı, aralarından birbirinden gerçekten farklı olanları
   seçiyor. Yeni bir iPhone'da bu adım cihazda çalışıyor. Çalışamadığında aynı
   kurallar onsuz seçiyor.
 

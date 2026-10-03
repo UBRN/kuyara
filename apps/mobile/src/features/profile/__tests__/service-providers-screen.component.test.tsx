@@ -157,7 +157,7 @@ describe.each(['en', 'tr'] as const)('%s Service providers screen', (language) =
     expect(
       result.getByText(language === 'en'
         ? /^Online AI answered at .+\.$/
-        : /^Çevrimiçi yapay zekâ yanıt verdi \(.+\)\.$/),
+        : /^Çevrimiçi yapay zeka yanıt verdi \(.+\)\.$/),
     ).toBeOnTheScreen();
   });
 

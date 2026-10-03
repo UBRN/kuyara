@@ -847,11 +847,11 @@ test('a narrated refresh replaces the generic freshness line with the phase, in 
     'using-standard': 'AI did not answer. Using standard suggestions.',
   };
   const turkish = {
-    'checking-on-device': 'Cihazdaki yapay zekâ kontrol ediliyor.',
-    'asking-stylist': 'Yapay zekâ stilistine soruluyor.',
-    'answer-received': 'Yapay zekâ yanıt verdi. Seçimler kontrol ediliyor.',
+    'checking-on-device': 'Cihazdaki yapay zeka kontrol ediliyor.',
+    'asking-stylist': 'Yapay zeka stilistine soruluyor.',
+    'answer-received': 'Yapay zeka yanıt verdi. Seçimler kontrol ediliyor.',
     'preparing-outfits': 'Kombinlerin hazırlanıyor.',
-    'using-standard': 'Yapay zekâ yanıt vermedi. Standart öneriler kullanılıyor.',
+    'using-standard': 'Yapay zeka yanıt vermedi. Standart öneriler kullanılıyor.',
   };
 
   for (const phase of phases) {
