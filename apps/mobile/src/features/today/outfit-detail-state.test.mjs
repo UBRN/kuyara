@@ -6,6 +6,7 @@ import {
   closetSeedOffer,
   detailOutfit,
   outfitWornState,
+  tomorrowDetailIsThisMorning,
   tomorrowDetailState,
   wornOutfitOrNull,
 } from './application/outfit-detail-state.ts';
@@ -52,6 +53,14 @@ test('tomorrow detail is unavailable without the preview, the place, its forecas
   assert.equal(tomorrowDetailState({ ...weather, snapshot: { ...weather.snapshot, daily: [] } }, preview, now).kind,
     'unavailable');
   assert.equal(tomorrowDetailState(weather, { ...preview, locationKey: 'manual:elsewhere' }, now).kind, 'unavailable');
+});
+
+test('tomorrow detail is titled this morning only between midnight and 04:00 of its own day', () => {
+  const state = tomorrowDetailState(weather, preview, '2026-08-13T06:10:00.000Z');
+  assert.equal(tomorrowDetailIsThisMorning(state, Date.parse('2026-08-13T22:30:00.000Z')), true);
+  assert.equal(tomorrowDetailIsThisMorning(state, Date.parse('2026-08-14T02:00:00.000Z')), false);
+  assert.equal(tomorrowDetailIsThisMorning(state, Date.parse('2026-08-13T18:00:00.000Z')), false);
+  assert.equal(tomorrowDetailIsThisMorning({ kind: 'unavailable' }, Date.parse('2026-08-13T22:30:00.000Z')), false);
 });
 
 test('a detail route finds its outfit by option id, with its place among the three', () => {

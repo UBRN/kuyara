@@ -52,6 +52,13 @@ export type RecommendationApplicationValue = Readonly<{
   chooseFormality?: (key: string, formality: DressStyle, source: DressingDayChoiceSource,
     styleAesthetics?: readonly StyleAesthetic[]) => Promise<void>;
   /**
+   * Setup has just asked how the user dresses, so the dressing day it finishes on counts as
+   * answered: the day's question is not asked again and the day dresses for that answer. It
+   * records the answer under the dressing day the device clock is in now, without starting a
+   * generation. Setup calls it as it completes, before the profile reads as finished.
+   */
+  answerSetupDay?: (formality: DressStyle) => Promise<void>;
+  /**
    * Outfit history (ADR 0038) for this profile, keyed by the bare-date day. Writing it
    * never starts a generation; the next approved one reads it for repeat avoidance.
    */
