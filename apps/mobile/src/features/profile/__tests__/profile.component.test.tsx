@@ -14,7 +14,7 @@ import {
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
-import { lightTheme } from '@/theme/theme';
+import { darkTheme, lightTheme, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({
@@ -93,16 +93,18 @@ function TestProviders({
   status,
   resolvePhotoUri,
   language = 'en',
+  theme = lightTheme,
 }: PropsWithChildren<{
   items: readonly WardrobeItem[];
   status?: 'ready' | 'loading' | 'error';
   resolvePhotoUri?: WardrobeApplicationValue['resolvePhotoUri'];
   language?: 'en' | 'tr';
+  theme?: KuyaraTheme;
 }>) {
   return (
     <WardrobeApplicationContext.Provider value={{ ...application(items, status), ...(resolvePhotoUri ? { resolvePhotoUri } : {}) }}>
       <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
-        <KuyaraThemeContext.Provider value={lightTheme}>
+        <KuyaraThemeContext.Provider value={theme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
             {children}
           </SafeAreaProvider>
@@ -221,6 +223,24 @@ test('six category cells always show, counting owned plus wanted, and a cell ope
   expect(result.getByTestId('profile-category-footwear').props.accessibilityLabel).toBe('Shoes, 0 pieces.');
   await fireEvent.press(result.getByTestId('profile-category-footwear'));
   expect(onOpenCategory).toHaveBeenCalledWith('footwear');
+});
+
+// In dark only a category holding pieces stands on the light garment plate; an empty one
+// keeps the dark muted tile. In light the two fills are the same colour.
+test.each([
+  [darkTheme, darkTheme.colors.garmentTile, darkTheme.colors.surfaceMuted],
+  [lightTheme, lightTheme.colors.garmentTile, lightTheme.colors.garmentTile],
+] as const)('a filled category stands on the plate and an empty one stays muted', async (theme, filled, empty) => {
+  mockFontScale(1);
+  const result = await render(
+    <TestProviders items={[baseItem]} theme={theme}>
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+    </TestProviders>,
+  );
+  const fill = (category: string) =>
+    StyleSheet.flatten(result.getByTestId(`profile-category-${category}-tile`).props.style).backgroundColor;
+  expect(fill('outerwear')).toBe(filled);
+  expect(fill('footwear')).toBe(empty);
 });
 
 test.each([

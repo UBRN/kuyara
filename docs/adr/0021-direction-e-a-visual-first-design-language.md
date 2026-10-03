@@ -96,7 +96,8 @@ light step, and any text on the plate takes the light text roles, the accent mov
 other garment drawing: the detail board, the alternates and tomorrow's board, History,
 the Closet tiles and type grid, the share card and the onboarding preview, and under every
 small drawing that stands straight on the page or a card in the light appearance (Today's
-and the detail's finishing touches, the Profile rack, the Closet form's owned and wanted
+and the detail's finishing touches, the Profile rack and the Profile category cells that
+hold pieces, the Closet form's owned and wanted
 scenes, the piece sheet's colour comparison, the photo badge and the choice tiles of
 onboarding and the day-type sheet). The plate is lighter than the page, so it reads as a
 raised rounded plate rather than a hole. The first-generation runway keeps its dark field;

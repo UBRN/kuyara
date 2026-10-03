@@ -54,7 +54,10 @@ Top to bottom, the populated screen is:
    no type; a photo never enters the drawing. The rack is one button that opens the Closet;
    its label names the heading, the total and the count per category.
    Under it, 12 below, **six category cells** in three columns (two at the largest
-   standard text sizes), 12 apart: a 64 point `surfaceMuted` tile, radius 14, holding the
+   standard text sizes), 12 apart: a 64 point `surfaceMuted` tile, radius 14 (in the dark
+   appearance a category holding pieces stands on the garment plate instead, while an empty
+   or loading one stays on the dark `surfaceMuted` tile, so only the filled categories and
+   the rack read as light plates), holding the
    category's newest owned piece drawn in its colour (the category glyph in
    `textSecondary` when the category is empty) and its count at `title` in tabular
    figures, then the category name at `caption` in `textSecondary`, 4 below. All six
