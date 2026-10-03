@@ -1,7 +1,6 @@
 import type { DayKind } from '@kuyara/contracts';
-import { zonedClock } from '@/domain/intl-format';
-
 import {
+  dressingDayDateKey,
   instantOfLocalHour,
   isEveningDressingDayKey,
   wardrobeDayKey,
@@ -45,48 +44,31 @@ export function localDayKey(date: Date): string {
   });
 }
 
-/**
- * Whether a dressing day is the one the profile was set up on. Setup has just asked how the
- * user dresses, so that day counts as answered: its day question is not asked again and the
- * day resolves to the setup answer.
- */
-export function isSetupDressingDay(profileCreatedAt: string, dressingDayKey: string): boolean {
-  return localDayKey(new Date(profileCreatedAt)) === dressingDayKey;
-}
-
 /** The hour tomorrow's preview is chosen for, on the place's clock: a typical time to leave. */
 const previewDepartureHour = 8;
 
 /**
- * The morning following an evening on the place's clock. Between midnight and 04:00 it is
- * the coming morning; otherwise it is the next date. The returned date carries that calendar
- * day for the variant, kind and key. The actual departure instant is `previewDepartureAt`.
+ * The morning following an evening dressing day: 08:00 on the date after the key's own date,
+ * which stays the same for the whole evening, small hours included (the key keeps the evening's
+ * date until 04:00). It is read from the key alone, never from a clock, so a place keeping
+ * another time than the device cannot move it in the middle of an evening and claim a second
+ * preview. The returned date carries that calendar day for the variant, kind and key; the actual
+ * departure instant is `previewDepartureAt`.
  */
-export function nextMorningAfterEvening(
-  key: string,
-  timeZone: string,
-  nowIso: string,
-): Date | null {
+export function nextMorningAfterEvening(key: string): Date | null {
   if (!isEveningDressingDayKey(key)) return null;
-  const now = Date.parse(nowIso);
-  if (!Number.isFinite(now)) return null;
-  try {
-    const place = zonedClock(now, timeZone);
-    return new Date(place.year, place.month - 1,
-      place.day + (place.hour < 4 ? 0 : 1), previewDepartureHour);
-  } catch {
-    return null;
-  }
+  const [year, month, day] = dressingDayDateKey(key).split('-').map(Number);
+  return new Date(year, month - 1, day + 1, previewDepartureHour);
 }
 
 /**
- * The instant the preview is chosen for: 08:00 on the place's own coming morning. The outfit
- * window and its sentence are read in the place's zone,
- * so the departure is too; 08:00 on the device's clock would open the window at another hour
- * whenever the place keeps a different time. Null for a day-period key or an unknown zone.
+ * The instant the preview is chosen for: 08:00 on the place's own clock on that coming morning.
+ * The outfit window and its sentence are read in the place's zone, so the departure is too;
+ * 08:00 on the device's clock would open the window at another hour whenever the place keeps a
+ * different time. Null for a day-period key or an unknown zone.
  */
-export function previewDepartureAt(key: string, timeZone: string, nowIso: string): string | null {
-  const morning = nextMorningAfterEvening(key, timeZone, nowIso);
+export function previewDepartureAt(key: string, timeZone: string): string | null {
+  const morning = nextMorningAfterEvening(key);
   if (!morning) return null;
   try {
     return new Date(instantOfLocalHour({
