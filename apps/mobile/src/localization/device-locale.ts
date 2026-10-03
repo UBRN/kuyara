@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { AppState, I18nManager, NativeModules, Platform } from 'react-native';
 import { getLocales, useLocales } from 'expo-localization';
 
+import { type WindSpeedUnit, windSpeedUnitFor } from '@/domain/wind-speed';
+
 type AppleSettings = Record<string, unknown> | undefined;
 export type TemperatureUnit = 'celsius' | 'fahrenheit';
 
@@ -144,4 +146,9 @@ export function useDeviceTemperatureUnit(): TemperatureUnit {
     Platform.OS === 'ios' ? getAppleSettings() : undefined,
     locales,
   );
+}
+
+// The device's Measurement System setting; expo-localization re-reads it when the locale changes.
+export function useDeviceWindSpeedUnit(): WindSpeedUnit {
+  return windSpeedUnitFor(useLocales()[0]?.measurementSystem);
 }
