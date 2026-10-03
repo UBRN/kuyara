@@ -1,4 +1,3 @@
-import type { OnboardingStepName } from '@/features/analytics/domain/analytics-events';
 import type {
   DressStyle,
   Gender,
@@ -6,19 +5,15 @@ import type {
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
 
-export type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-
-// The existing analytics taxonomy has five steps. The optional name step has no event
-// until that taxonomy is deliberately revised, and its value is never an event property.
-export const onboardingStepNames: readonly (OnboardingStepName | null)[] = [
-  'welcome',
-  null,
-  'gender',
-  'dress_style',
-  null,
-  'birth_date',
-  'location',
-];
+/**
+ * The steps in the order they are shown. The location comes right after the welcome, so the
+ * steps after it can draw the place's real weather; the optional name and birth date share
+ * one step.
+ */
+export const onboardingSteps = ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles'] as const;
+export type OnboardingStepId = (typeof onboardingSteps)[number];
+export type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5;
+const lastStep = (onboardingSteps.length - 1) as OnboardingStep;
 
 export type OnboardingDraft = Readonly<{
   step: OnboardingStep;
@@ -61,15 +56,15 @@ export function reduceOnboardingDraft(
 ): OnboardingDraft {
   switch (action.type) {
     case 'continue':
-      if (state.step === 2 && !state.gender) {
+      if (onboardingSteps[state.step] === 'gender' && !state.gender) {
         return { ...state, hasValidationError: true };
       }
-      if (state.step === 3 && !state.dressStyle) {
+      if (onboardingSteps[state.step] === 'dress_style' && !state.dressStyle) {
         return { ...state, hasValidationError: true };
       }
       return {
         ...state,
-        step: Math.min(state.step + 1, 6) as OnboardingStep,
+        step: Math.min(state.step + 1, lastStep) as OnboardingStep,
         hasValidationError: false,
       };
     case 'back':

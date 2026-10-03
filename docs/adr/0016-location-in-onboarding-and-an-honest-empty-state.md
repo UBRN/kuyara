@@ -34,8 +34,8 @@ user goes looking".
 
 ### 1. Onboarding asks for location, as its own explained step
 
-Location selection is the seventh and last onboarding step, after birth date;
-the seven steps are recorded in
+Location selection is the second onboarding step, right after welcome, so the
+previews on the later steps draw the place's real weather; the six steps are recorded in
 [ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5. The step
 explains what location is used for before any system permission sheet appears,
 which is what the existing rule protects. The rationale is not removed; it is
@@ -95,8 +95,8 @@ requested. It does not decide the step's layout or its copy; the step count is
 
 ## Consequences
 
-- Location selection is the seventh and last onboarding step, after the profile
-  steps [ADR 0015](0015-gender-and-age-band-in-the-profile.md) defines; the full
+- Location selection is the second onboarding step, before the profile steps
+  [ADR 0015](0015-gender-and-age-band-in-the-profile.md) defines; the full
   sequence is [ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5.
 - Every new user is asked for location permission during their first run. The
   grant rate is higher than it would be with the request effectively hidden on

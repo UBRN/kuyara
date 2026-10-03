@@ -163,6 +163,15 @@ async function renderOnboarding(
   };
 }
 
+// Welcome, then location, then the optional name and age on one step, then gender, dress
+// style and styles, which completes.
+async function pressUntilStep(result: Awaited<ReturnType<typeof renderOnboarding>>['result'], step: number) {
+  for (let current = 1; current < step; current += 1) {
+    await fireEvent.press(result.getByTestId(current === 3 ? 'onboarding-name-skip' : 'onboarding-continue'));
+  }
+  expect(result.getByTestId(`onboarding-step-${step}`)).toBeOnTheScreen();
+}
+
 test('gender and dress style are required and a null birth date completes honestly', async () => {
   const { analytics, onComplete, result } = await renderOnboarding(null, null);
   expect(analytics.captures).toEqual([
@@ -171,38 +180,37 @@ test('gender and dress style are required and a null birth date completes honest
 
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-2')).toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
+  expect(result.getByText(messages.en.onboarding.locationTitle)).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-location-device')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-place-search')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-location-skip'))
+    .toHaveTextContent(messages.en.onboarding.locationSkipAction);
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-3')).toBeOnTheScreen();
+  expect(result.getByText(messages.en.onboarding.ageTitle)).toBeOnTheScreen();
+  expect(result.getByText(messages.en.onboarding.birthDateNotSet)).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-birth-date').props.accessibilityLabel).toBe(
+    messages.en.onboarding.birthDateTitle,
+  );
+  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
+  expect(result.getByTestId('onboarding-step-4')).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-gender-error')).toHaveTextContent(
     messages.en.onboarding.genderRequiredError,
   );
-  // A blocked "continue" (no gender chosen yet) reports nothing: still just the welcome
-  // step's completion alongside the initial `onboarding_started`.
-  expect(analytics.captures).toHaveLength(2);
+  // A blocked "continue" (no gender chosen yet) reports nothing.
+  expect(analytics.captures).toHaveLength(4);
   await fireEvent.press(result.getByTestId('onboarding-gender-woman'));
   await fireEvent.press(result.getByTestId('onboarding-continue'));
-  expect(result.getByTestId('onboarding-step-4')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-step-5')).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-dress-style-error')).toHaveTextContent(
     messages.en.onboarding.dressStyleRequiredError,
   );
   await fireEvent.press(result.getByTestId('onboarding-dress-style-formal'));
   await fireEvent.press(result.getByTestId('onboarding-continue'));
-  expect(result.getByTestId('onboarding-step-5')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-step-6')).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-style-option')).toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('onboarding-continue'));
-  expect(result.getByText(messages.en.onboarding.birthDateNotSet)).toBeOnTheScreen();
-  expect(result.getByTestId('onboarding-birth-date').props.accessibilityLabel).toBe(
-    messages.en.onboarding.birthDateTitle,
-  );
-
-  await fireEvent.press(result.getByTestId('onboarding-continue'));
-  expect(result.getByTestId('onboarding-step-7')).toBeOnTheScreen();
-  expect(result.getByText(messages.en.onboarding.locationTitle)).toBeOnTheScreen();
-  expect(result.getByTestId('onboarding-location-device')).toBeOnTheScreen();
-  expect(result.getByTestId('onboarding-place-search')).toBeOnTheScreen();
-  expect(result.getByTestId('onboarding-location-skip')).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('onboarding-complete'));
   await waitFor(() => expect(onComplete).toHaveBeenCalledWith({
     displayName: null,
@@ -212,9 +220,12 @@ test('gender and dress style are required and a null birth date completes honest
     birthDate: null,
   }));
 
+  // Each taxonomy step keeps its own number, whatever its place on screen.
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
     { schema_version: 3 },
     { schema_version: 3, step_name: 'welcome', step_index: 1, skipped: false },
+    { schema_version: 3, step_name: 'location', step_index: 5, skipped: true },
+    { schema_version: 3, step_name: 'birth_date', step_index: 4, skipped: true },
     { schema_version: 3, step_name: 'gender', step_index: 2, skipped: false },
     {
       schema_version: 3,
@@ -223,8 +234,6 @@ test('gender and dress style are required and a null birth date completes honest
       skipped: false,
       dress_style: 'formal',
     },
-    { schema_version: 3, step_name: 'birth_date', step_index: 4, skipped: true },
-    { schema_version: 3, step_name: 'location', step_index: 5, skipped: true },
     {
       schema_version: 3,
       dress_style: 'formal',
@@ -246,7 +255,8 @@ test('gender and dress style are required and a null birth date completes honest
 test('optional name step validates 2 to 30 characters and offers Not now', async () => {
   const { result } = await renderOnboarding(null, null);
   await fireEvent.press(result.getByTestId('onboarding-continue'));
-  expect(result.getByTestId('onboarding-step-2')).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  expect(result.getByTestId('onboarding-step-3')).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-continue').props.accessibilityState.disabled).toBe(true);
 
   await fireEvent.changeText(result.getByTestId('onboarding-name'), '   ');
@@ -260,14 +270,32 @@ test('optional name step validates 2 to 30 characters and offers Not now', async
   await fireEvent.changeText(result.getByTestId('onboarding-name'), '  Utku  ');
   expect(result.queryByTestId('onboarding-name-error')).toBeNull();
   await fireEvent.press(result.getByTestId('onboarding-continue'));
-  expect(result.getByTestId('onboarding-step-3')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-step-4')).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('onboarding-back'));
   await fireEvent.press(result.getByTestId('onboarding-name-skip'));
-  expect(result.getByTestId('onboarding-step-3')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-step-4')).toBeOnTheScreen();
+});
+
+test('Not now skips only the name and keeps the birth date chosen on the same step', async () => {
+  const { analytics, onComplete, result } = await renderOnboarding('woman', null, 'smart');
+  await pressUntilStep(result, 3);
+  await fireEvent(result.getByTestId('onboarding-birth-date'), 'dateChange', new Date(1994, 2, 14, 12));
+  await fireEvent.changeText(result.getByTestId('onboarding-name'), 'A');
+  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  await fireEvent.press(result.getByTestId('onboarding-complete'));
+  await waitFor(() => expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
+    displayName: null,
+    birthDate: '1994-03-14',
+  })));
+  expect(analytics.captures.find((capture) => 'step_name' in capture.properties && capture.properties.step_name === 'birth_date')?.properties)
+    .toMatchObject({ step_index: 4, skipped: false });
 });
 
 test('a new step\'s body and panel arrive while the title and progress stay still', async () => {
   const { result } = await renderOnboarding(null, null);
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
   // The test mock lands every spring at once; hold the landing to read the first frame.
   const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
   await fireEvent.press(result.getByTestId('onboarding-continue'));
@@ -288,27 +316,21 @@ test('a new step\'s body and panel arrive while the title and progress stay stil
 test('existing profile values prefill the reopened onboarding steps', async () => {
   const { result } = await renderOnboarding('man', '1994-03-14', 'smart');
 
-  await fireEvent.press(result.getByTestId('onboarding-continue'));
-  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
-  expect(result.getByTestId('onboarding-gender-man').props.accessibilityState.selected).toBe(true);
-  await fireEvent.press(result.getByTestId('onboarding-continue'));
-  expect(result.getByTestId('onboarding-dress-style-smart').props.accessibilityState.selected).toBe(true);
-  await fireEvent.press(result.getByTestId('onboarding-continue'));
-  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  await pressUntilStep(result, 3);
   expect(result.queryByText(messages.en.onboarding.birthDateNotSet)).toBeNull();
   expect(result.getByTestId('onboarding-birth-date').props.accessibilityValue.text).toContain(
     '1994-03-14',
   );
+  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
+  expect(result.getByTestId('onboarding-gender-man').props.accessibilityState.selected).toBe(true);
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  expect(result.getByTestId('onboarding-dress-style-smart').props.accessibilityState.selected).toBe(true);
 });
 
 test('the onboarding birth date picker cannot select a date the birth date rule refuses', async () => {
   const { result } = await renderOnboarding('man', null, 'smart');
 
-  await fireEvent.press(result.getByTestId('onboarding-continue'));
-  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
-  for (let step = 0; step < 3; step += 1) {
-    await fireEvent.press(result.getByTestId('onboarding-continue'));
-  }
+  await pressUntilStep(result, 3);
   expect(result.getByTestId('onboarding-birth-date').props.range.start.getFullYear()).toBe(1900);
 });
 
@@ -322,11 +344,7 @@ test('selecting a searched place uses the weather application without completing
     onComplete,
   );
 
-  await fireEvent.press(result.getByTestId('onboarding-continue'));
-  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
-  for (let step = 0; step < 4; step += 1) {
-    await fireEvent.press(result.getByTestId('onboarding-continue'));
-  }
+  await pressUntilStep(result, 2);
   await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista');
   await act(async () => {
     jest.advanceTimersByTime(300);
@@ -336,17 +354,13 @@ test('selecting a searched place uses the weather application without completing
 
   expect(search.selectPlaceSearchResult).toHaveBeenCalledWith(place);
   expect(onComplete).not.toHaveBeenCalled();
-  expect(result.getByTestId('onboarding-step-7')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-step-2')).toBeOnTheScreen();
   jest.useRealTimers();
 });
 
 test('device selection starts the shared flow and permanent denial keeps Settings available', async () => {
   const active = await renderOnboarding('woman', null, 'smart');
-  await fireEvent.press(active.result.getByTestId('onboarding-continue'));
-  await fireEvent.press(active.result.getByTestId('onboarding-name-skip'));
-  for (let step = 0; step < 4; step += 1) {
-    await fireEvent.press(active.result.getByTestId('onboarding-continue'));
-  }
+  await pressUntilStep(active.result, 2);
   await fireEvent.press(active.result.getByTestId('onboarding-location-device'));
   expect(active.weather.beginDeviceLocationSelection).toHaveBeenCalledTimes(1);
   await active.result.unmount();
@@ -363,31 +377,29 @@ test('device selection starts the shared flow and permanent denial keeps Setting
     refreshFailure: null,
   });
   const denied = await renderOnboarding('woman', null, 'smart', undefined, deniedWeather);
-  await fireEvent.press(denied.result.getByTestId('onboarding-continue'));
-  await fireEvent.press(denied.result.getByTestId('onboarding-name-skip'));
-  for (let step = 0; step < 4; step += 1) {
-    await fireEvent.press(denied.result.getByTestId('onboarding-continue'));
-  }
+  await pressUntilStep(denied.result, 2);
   expect(denied.result.getByText(messages.en.weather.placePermanentDeniedBody))
     .toBeOnTheScreen();
   await fireEvent.press(denied.result.getByRole('button', {
     name: messages.en.weather.openSettings,
   }));
   expect(deniedWeather.openApplicationSettings).toHaveBeenCalledTimes(1);
-  expect(denied.result.getByTestId('onboarding-complete')).toBeOnTheScreen();
+  expect(denied.result.getByTestId('onboarding-location-skip')).toBeOnTheScreen();
 });
 
-test('a chosen location turns the final quiet action into the start action', async () => {
+const istanbul = {
+  source: 'manual',
+  catalogId: place.id,
+  displayName: place.displayName,
+  locationKey: `manual:${place.id}`,
+  coordinates: { latitudeE2: place.latitudeE2, longitudeE2: place.longitudeE2 },
+  timeZone: place.timeZone,
+} as const;
+
+test('a chosen location turns the quiet location action into Continue and is reported', async () => {
   const weather = createWeatherApplication({
     status: 'ready',
-    activeLocation: {
-      source: 'manual',
-      catalogId: place.id,
-      displayName: place.displayName,
-      locationKey: `manual:${place.id}`,
-      coordinates: { latitudeE2: place.latitudeE2, longitudeE2: place.longitudeE2 },
-      timeZone: place.timeZone,
-    },
+    activeLocation: istanbul,
     snapshot: null,
     freshness: null,
     permission: { kind: 'undetermined' },
@@ -396,21 +408,65 @@ test('a chosen location turns the final quiet action into the start action', asy
     isRefreshing: false,
     refreshFailure: null,
   });
-  const { result, onComplete } = await renderOnboarding('woman', null, 'smart', undefined, weather);
-  await fireEvent.press(result.getByTestId('onboarding-continue'));
-  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
-  for (let step = 0; step < 4; step += 1) {
-    await fireEvent.press(result.getByTestId('onboarding-continue'));
-  }
+  const { analytics, result, onComplete } = await renderOnboarding('woman', null, 'smart', undefined, weather);
+  await pressUntilStep(result, 2);
   expect(result.queryByText(messages.en.onboarding.locationSkipAction)).not.toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-location-skip')).toHaveTextContent(messages.en.common.continue);
+  await pressUntilStep(result, 6);
   await fireEvent.press(result.getByRole('button', {
     name: messages.en.onboarding.completeAction,
   }));
   await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+  expect(analytics.captures.find((capture) => 'step_name' in capture.properties && capture.properties.step_name === 'location')?.properties)
+    .toMatchObject({ step_index: 5, skipped: false });
+  expect(analytics.captures.at(-1)?.properties).toMatchObject({ location_method: 'manual' });
+});
+
+test('once the place is known, the choice previews draw its weather instead of the sample', async () => {
+  mockFontScale(1);
+  const weather = createWeatherApplication({
+    status: 'ready',
+    activeLocation: istanbul,
+    snapshot: {
+      id: 'weather-one',
+      localProfileId: 'profile-one',
+      locationKey: istanbul.locationKey,
+      timeZone: place.timeZone,
+      fetchedAt: '2026-10-03T09:00:00.000Z',
+      origin: { kind: 'live', sourceId: 'open-meteo' },
+      current: {
+        observedAt: '2026-10-03T09:00:00.000Z',
+        temperatureCelsius: 23,
+        apparentTemperatureCelsius: 23,
+        condition: 'rain',
+        precipitationProbability: 80,
+        windSpeedMetersPerSecond: 3,
+        humidity: 70,
+        uvIndex: 2,
+      },
+      minimumTemperatureCelsius: 18,
+      maximumTemperatureCelsius: 25,
+      hourly: [],
+    },
+    freshness: 'fresh',
+    permission: { kind: 'undetermined' },
+    locationFlow: 'idle',
+    isSelectingLocation: false,
+    isRefreshing: false,
+    refreshFailure: null,
+  });
+  const { result } = await renderOnboarding('woman', null, 'smart', undefined, weather);
+  await pressUntilStep(result, 4);
+  const hidden = { includeHiddenElements: true };
+  expect(result.getByText(messages.en.onboarding.welcomePreviewTitle('23°', messages.en.weather.conditions.rain), hidden))
+    .toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-welcome-preview', hidden)).toHaveStyle({
+    backgroundColor: lightTheme.atmosphere.fallingDay,
+  });
 });
 
 test.each(['tr', 'en'] as const)(
-  'the step 6 picker takes the app language %s and stacks its title above the control at accessibility sizes',
+  'the name and age step\'s picker takes the app language %s and stacks its title above the control at accessibility sizes',
   async (language) => {
     mockFontScale(3);
     const { result } = await renderOnboarding(
@@ -423,12 +479,7 @@ test.each(['tr', 'en'] as const)(
       language,
     );
 
-    await fireEvent.press(result.getByTestId('onboarding-continue'));
-    await fireEvent.press(result.getByTestId('onboarding-name-skip'));
-    for (let step = 0; step < 3; step += 1) {
-      await fireEvent.press(result.getByTestId('onboarding-continue'));
-    }
-    expect(result.getByTestId('onboarding-step-6')).toBeOnTheScreen();
+    await pressUntilStep(result, 3);
 
     const picker = result.getByTestId('onboarding-birth-date');
     expect(picker.props.modifiers).toEqual([
@@ -476,7 +527,7 @@ test('the onboarding weather sample follows Fahrenheit', async () => {
   const { result } = await renderOnboarding(
     null, null, undefined, undefined, undefined, undefined, undefined, undefined, 'fahrenheit',
   );
-  expect(result.getByText(messages.en.onboarding.welcomePreviewTitle('57°'), {
+  expect(result.getByText(messages.en.onboarding.welcomePreviewTitle('57°', messages.en.weather.conditions.cloudy), {
     includeHiddenElements: true,
   })).toBeOnTheScreen();
 });
@@ -494,6 +545,7 @@ test('each step draws what it changes: a Today preview, a greeting and garment t
   await fireEvent(preview, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 361, height: 300 } } });
   expect(result.getByTestId('onboarding-welcome-board', hidden)).toBeTruthy();
 
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(within(result.getByTestId('onboarding-name-preview')).getByText(copy.nameGreetingEmpty))
     .toBeOnTheScreen();

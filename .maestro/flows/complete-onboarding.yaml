@@ -12,32 +12,28 @@ tags:
     id: onboarding-continue
 - assertVisible:
     id: onboarding-step-2
+- assertVisible:
+    id: onboarding-place-search
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-3
 - tapOn:
     id: onboarding-name-skip
 - assertVisible:
-    id: onboarding-step-3
+    id: onboarding-step-4
 - tapOn:
     id: onboarding-gender-woman
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-4
+    id: onboarding-step-5
 - tapOn:
     id: onboarding-dress-style-smart
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-5
-- tapOn:
-    id: onboarding-continue
-- assertVisible:
     id: onboarding-step-6
-- tapOn:
-    id: onboarding-continue
-- assertVisible:
-    id: onboarding-step-7
-- assertVisible:
-    id: onboarding-place-search
 - tapOn:
     id: onboarding-complete
 - runFlow: ../subflows/close-day-type-sheet.yaml
