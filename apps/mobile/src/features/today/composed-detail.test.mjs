@@ -27,7 +27,6 @@ test('compose reads the day Today was built for, or nothing when that day is unk
   assert.equal(composeInputFor(null, requirements, null, thursday), null);
   assert.equal(composeInputFor(snapshot, null, null, thursday), null);
   assert.equal(composeInputFor({ ...snapshot, dayVariant: null }, requirements, null, thursday), null);
-  assert.equal(composeInputFor({ ...snapshot, clothingPreference: 'unknown' }, requirements, null, thursday), null);
 });
 
 test('compose labels its picks for the day the reader is on, as Today does', () => {

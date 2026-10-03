@@ -17,6 +17,7 @@ import {
   type RecommendationContext,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 import { isUtcIsoTimestamp, isUuidV4 } from '@/domain/record-identity';
+import type { ClothingPreference } from '@/domain/preferences';
 import { defaultDressStyle } from '@/features/profile/domain/profile';
 
 export type RecommendationSnapshot = Readonly<{
@@ -24,7 +25,7 @@ export type RecommendationSnapshot = Readonly<{
   localProfileId: string;
   weatherSnapshotId: string;
   locationKey: string;
-  clothingPreference: string;
+  clothingPreference: ClothingPreference;
   dressStyle: DressStyle;
   styleAesthetics?: readonly StyleAesthetic[];
   catalogVersion: number | null;

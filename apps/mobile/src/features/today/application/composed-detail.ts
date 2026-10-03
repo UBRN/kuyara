@@ -1,6 +1,6 @@
 import type { DressStyle } from '@kuyara/contracts';
 
-import { isClothingPreference, type ClothingPreference } from '@/domain/preferences';
+import type { ClothingPreference } from '@/domain/preferences';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import type {
   ComposeAroundInput,
@@ -38,11 +38,9 @@ export function composeInputFor(
   now: number,
 ): ComposeAroundInput | null {
   if (!snapshot || !requirements || snapshot.dayVariant === null) return null;
-  const { clothingPreference } = snapshot;
-  if (!isClothingPreference(clothingPreference)) return null;
   return {
     requirements,
-    clothingPreference,
+    clothingPreference: snapshot.clothingPreference,
     dayVariant: snapshot.dayVariant,
     dressStyle: resolvedDressStyle ?? snapshot.dressStyle,
     styleAesthetics: snapshot.styleAesthetics,

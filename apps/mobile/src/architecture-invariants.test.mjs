@@ -1151,3 +1151,16 @@ test('the departure quarter hour is defined only in the departure owner', () => 
   assert.deepEqual(files, [...spelledQuarterHour].sort(),
     'import quarterHourMs from dressing-day-departure, and shrink the list when a file stops defining it');
 });
+
+// A clothing preference is parsed once, at the boundary that reads it, and carries its type from
+// there; nothing re-checks it with isClothingPreference. The route still does, and the list only
+// shrinks.
+const recheckedClothingPreference = ['app/(tabs)/(today)/[id].tsx'];
+
+test('a parsed clothing preference is not re-checked inside the app', () => {
+  const files = sourceFiles().filter((relativePath) =>
+    relativePath !== 'domain/preferences.ts' &&
+    /\bisClothingPreference\(/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(files, [...recheckedClothingPreference].sort(),
+    'drop the re-check, and shrink the list when a file stops making it');
+});

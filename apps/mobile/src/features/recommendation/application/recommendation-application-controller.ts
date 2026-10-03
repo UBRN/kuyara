@@ -1,6 +1,5 @@
 import type { AiRecommendV1Request, DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
-import { isClothingPreference } from '@/domain/preferences';
 import { sameStyleAesthetics } from '@/features/profile/domain/profile';
 import {
   failureCategoryFromErrorKind,
@@ -220,17 +219,15 @@ function storedPoolOptionIds(
   snapshot: RecommendationSnapshot | null,
   recentWorn: readonly WornOutfit[],
 ): readonly string[] | null {
-  const preference = snapshot?.clothingPreference;
   if (
     !snapshot ||
-    !isClothingPreference(preference) ||
     snapshot.dayVariant === null ||
     snapshot.catalogVersion !== garmentCatalogVersion
   ) return null;
   try {
     const composition = composeOutfitPool(
       snapshot.recommendation.requirements,
-      preference,
+      snapshot.clothingPreference,
       snapshot.dayVariant,
       recentWorn,
     );
@@ -501,8 +498,7 @@ export class RecommendationApplicationController {
         }
       }
       this.poolOptionIds = lastFailure === null ? storedPoolOptionIds(snapshot, recentWorn) : null;
-      this.poolKey = this.poolOptionIds && snapshot &&
-        isClothingPreference(snapshot.clothingPreference) && snapshot.dayVariant !== null
+      this.poolKey = this.poolOptionIds && snapshot && snapshot.dayVariant !== null
         ? poolCompositionKey(snapshot.recommendation.requirements,
           snapshot.clothingPreference, snapshot.dayVariant, recentWorn)
         : null;
