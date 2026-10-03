@@ -29,17 +29,20 @@ test('midnight does not turn the dressing day, including across a year', () => {
   assert.equal(localDayKey(new Date(2026, 0, 1, 0, 1)), '2025-12-31:evening');
 });
 
-test('the day kind is read from the calendar date, weekend on Saturday and Sunday', () => {
+test('the day kind is read from the dressing day, weekend on Saturday and Sunday from 04:00', () => {
   // 2026-09-18 is a Friday, 19 a Saturday, 20 a Sunday, 21 a Monday.
   const kinds = [18, 19, 20, 21].map((day) => localDayKind(new Date(2026, 8, day, 12)));
   assert.deepEqual(kinds, ['weekday', 'weekend', 'weekend', 'weekday']);
-  // The kind follows the date the clock shows, so Saturday 00:30 is a weekend even though
-  // its dressing day key still belongs to Friday evening.
+  // The small hours keep the evening's kind: Saturday 00:30 is still Friday evening.
   const saturdayNight = new Date(2026, 8, 19, 0, 30);
-  assert.equal(localDayKind(saturdayNight), 'weekend');
   assert.equal(localDayKey(saturdayNight), '2026-09-18:evening');
-  assert.equal(localDayKind(new Date(2026, 8, 19, 3, 59)), 'weekend');
+  assert.equal(localDayKind(saturdayNight), 'weekday');
+  assert.equal(localDayKind(new Date(2026, 8, 19, 3, 59)), 'weekday');
+  assert.equal(localDayKind(new Date(2026, 8, 19, 4, 0)), 'weekend');
   assert.equal(localDayKind(new Date(2026, 8, 20, 18, 0)), 'weekend');
+  // Monday's small hours are still Sunday evening.
+  assert.equal(localDayKind(new Date(2026, 8, 21, 3, 59)), 'weekend');
+  assert.equal(localDayKind(new Date(2026, 8, 21, 4, 0)), 'weekday');
 });
 
 test('the day variant is a deterministic seven-day ring', () => {

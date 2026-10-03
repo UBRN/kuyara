@@ -23,11 +23,11 @@ export function localDayVariant(date: Date): number {
   return dayOfYear % 7;
 }
 
-// Saturday and Sunday are the weekend; everything else is a weekday. Read from the device's
-// own local date, so a traveller's day matches the day they are dressing for.
+// Saturday and Sunday are the weekend; everything else is a weekday. Read from the dressing day
+// the device clock is in, so the small hours until 04:00 keep the evening's kind: Saturday 00:30
+// is still Friday evening, a weekday.
 export function localDayKind(date: Date): DayKind {
-  const weekday = date.getDay();
-  return weekday === 0 || weekday === 6 ? 'weekend' : 'weekday';
+  return dateKeyDayKind(dressingDayDateKey(localDayKey(date)));
 }
 
 /**

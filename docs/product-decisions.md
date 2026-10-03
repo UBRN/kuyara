@@ -189,7 +189,7 @@ On the on-device tier the inference itself never leaves the device. Both tiers u
 - the closed response-language locale (`tr` or `en`),
 - a closed sorted list of up to three style aesthetics (`minimal`, `classic`, `sporty`, `streetwear`, `relaxed`),
 - a local calendar day seed,
-- whether that local day is a weekday or a weekend.
+- whether that local day is a weekday or a weekend, read from the dressing day, so the small hours until 04:00 keep the evening's kind (Saturday 00:30 is still Friday evening, a weekday).
 
 AI must not receive Wardrobe-derived data of any kind, including source kinds, overrides, photos, photo paths or URIs, free-form names, or ownership state. The optional display name is also forbidden. AI must not receive `localProfileId`, profile or device identifiers, exact coordinates, raw location payloads, secrets, complete internal database records, birth date or birth year, or unrelated personal data.
 
