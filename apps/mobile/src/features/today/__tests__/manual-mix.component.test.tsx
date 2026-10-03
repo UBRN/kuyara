@@ -651,9 +651,10 @@ describe.each([false, true])('Easier to see %s', (large) => {
   });
 });
 
-// Final-spec section 8: at the largest standard text size the header keeps one line: the name
-// truncates as a guard, the counter and Done never do, and the header is at least 44 points.
-test.each(['en', 'tr'] as const)('%s strip header keeps one line at the largest standard text size', async (language) => {
+// At the largest standard text size a long name wraps onto a second line instead of
+// truncating, with the counter beside it; Take off and Done stay, and the header is at least
+// 44 points. A name that fits stays on one line, as at the default size.
+test.each(['en', 'tr'] as const)('%s strip header reads the whole name at the largest standard text size', async (language) => {
   Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale: 1.353 } });
   const result = await renderDetail(language);
   for (const { slot } of archetype(language).boardPieces) {
@@ -662,8 +663,11 @@ test.each(['en', 'tr'] as const)('%s strip header keeps one line at the largest 
     const header = result.getByTestId('outfit-detail-board-strip-header');
     expect(StyleSheet.flatten(header.props.style).minHeight).toBe(44);
     const [name, counter] = within(header).getAllByText(/.+/);
-    expect(name.props.numberOfLines).toBe(1);
+    expect(name.props.numberOfLines).toBeUndefined();
     expect(counter.props.numberOfLines).toBeUndefined();
+    // The counter stays with the name, on its row.
+    expect(name.parent).toBe(counter.parent);
+    expect(StyleSheet.flatten(name.parent!.props.style).flexDirection).toBe('row');
     expect(result.getByTestId('outfit-detail-board-strip-done')).toHaveTextContent(messages[language].today.manualMix.done);
     for (const tile of result.getAllByTestId(/^outfit-detail-board-strip-tile-/)) {
       expect(StyleSheet.flatten(tile.props.style).position).toBe('absolute');

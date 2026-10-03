@@ -131,7 +131,8 @@ export function GarmentSwapStrip({
         testID={`${testID}-header`}>
         <HeaderWords from={fades === 0 ? 1 : 0} key={fades}>
           <View style={styles.headerLine}>
-            <AppText numberOfLines={1} style={styles.name} variant="bodyStrong">{shownName}</AppText>
+            {/* A long name wraps rather than truncates, the counter beside it; one that fits keeps one line. */}
+            <AppText style={styles.name} variant="bodyStrong">{shownName}</AppText>
             <AppText colorRole="textSecondary" style={styles.counter} tabularNumbers variant="caption">
               {labels.counter(shownPosition, candidates.length)}
             </AppText>
