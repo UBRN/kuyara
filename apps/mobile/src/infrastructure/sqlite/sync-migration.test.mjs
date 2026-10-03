@@ -24,8 +24,8 @@ test('fresh schema has five checked pending flags and one device account link', 
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await migrateDatabase(database);
-  assert.equal(latestDatabaseVersion, 25);
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 25);
+  assert.equal(latestDatabaseVersion, 26);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   for (const table of syncedTables) {
     const column = (await database.getAllAsync(`PRAGMA table_info(${table})`))
       .find(({ name }) => name === 'pending_sync');
@@ -65,7 +65,7 @@ test('version 24 rows in all sync tables keep every value and start unmarked', a
   const before = Object.fromEntries(await Promise.all(syncedTables.map(async (table) =>
     [table, await rows(database, table)])));
   await migrateDatabase(database);
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 25);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   for (const table of syncedTables) {
     assert.deepEqual(await rows(database, table),
       before[table].map((row) => ({ ...row, pending_sync: 0 })), table);
@@ -75,7 +75,7 @@ test('version 24 rows in all sync tables keep every value and start unmarked', a
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
 });
 
-test('copied device database replays version 24 to 25 without losing rows',
+test('copied device database replays version 24 to the latest version with every row and value intact',
   { skip: !process.env.KUYARA_DEVICE_DB_FIXTURE }, async (t) => {
     const source = process.env.KUYARA_DEVICE_DB_FIXTURE;
     const directory = await mkdtemp(join(tmpdir(), 'kuyara-sync-migration-'));
@@ -91,17 +91,18 @@ test('copied device database replays version 24 to 25 without losing rows',
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"))
       .map(({ name }) => name);
     const before = Object.fromEntries(await Promise.all(tables.map(async (table) =>
-      [table, (await database.getFirstAsync(`SELECT COUNT(*) AS count FROM ${table}`)).count])));
+      [table, await rows(database, table)])));
+    const orphansBefore = (await database.getAllAsync('PRAGMA foreign_key_check')).length;
     await migrateDatabase(database);
+    assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     for (const table of tables) {
-      const count = (await database.getFirstAsync(`SELECT COUNT(*) AS count FROM ${table}`)).count;
-      assert.equal(count, before[table], table);
-      t.diagnostic(`${table}: ${count} -> ${count}`);
+      const after = await rows(database, table);
+      assert.deepEqual(after, before[table].map((row) => (
+        syncedTables.includes(table) ? { ...row, pending_sync: 0 } : row)), table);
+      t.diagnostic(`${table}: ${before[table].length} -> ${after.length}`);
     }
-    for (const table of syncedTables) {
-      assert.equal((await database.getFirstAsync(
-        `SELECT COUNT(*) AS count FROM ${table} WHERE pending_sync <> 0`)).count, 0, table);
-    }
-    assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 25);
+    assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, orphansBefore);
+    assert.doesNotMatch((await database.getFirstAsync(
+      "SELECT sql FROM sqlite_master WHERE name = 'outfit_history'")).sql, /UNIQUE/);
     assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
   });

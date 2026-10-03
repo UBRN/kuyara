@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 25;
+export const latestDatabaseVersion = 26;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -641,6 +641,50 @@ const migrationV25: Migration = {
   },
 };
 
+// ADR 0038: a dressing day can hold several worn looks, so `(local_profile_id, day_key)` is no
+// longer unique. SQLite cannot drop a table constraint in place, so the table is rebuilt with
+// the same columns in the same order, the same CHECKs, the same foreign key and its one index,
+// and every row is copied verbatim in rowid order: ids, days, outfits, colours, photo paths,
+// clocks, deletion markers and pending flags stay exactly as they were. The v13 recipe applies:
+// deferred for the copy and nothing inspected afterwards, because the rows enter an identical
+// foreign key, so a check could only find an orphan the device already carried, and throwing
+// on it would leave the app unable to start. An orphan's copy bumps the deferred counter and
+// the old table's implicit DELETE lowers it again. `outfit_history` is no parent, so no reset
+// is needed; SQLite clears the deferral at the end of the transaction.
+const migrationV26: Migration = {
+  version: 26,
+  async migrate(database) {
+    await database.execAsync('PRAGMA defer_foreign_keys = ON;');
+    await database.execAsync(`
+      CREATE TABLE outfit_history_v26 (
+        id TEXT PRIMARY KEY NOT NULL,
+        local_profile_id TEXT NOT NULL,
+        day_key TEXT NOT NULL CHECK (day_key GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+        outfit_json TEXT NOT NULL,
+        photo_path TEXT,
+        worn_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT,
+        piece_colors_json TEXT,
+        pending_sync INTEGER NOT NULL DEFAULT 0 CHECK (pending_sync IN (0, 1)),
+        FOREIGN KEY (local_profile_id) REFERENCES local_profiles(id)
+          ON UPDATE RESTRICT ON DELETE RESTRICT
+      );
+      INSERT INTO outfit_history_v26 (
+        id, local_profile_id, day_key, outfit_json, photo_path, worn_at, created_at,
+        updated_at, deleted_at, piece_colors_json, pending_sync
+      ) SELECT id, local_profile_id, day_key, outfit_json, photo_path, worn_at, created_at,
+        updated_at, deleted_at, piece_colors_json, pending_sync
+      FROM outfit_history ORDER BY rowid;
+      DROP TABLE outfit_history;
+      ALTER TABLE outfit_history_v26 RENAME TO outfit_history;
+      CREATE INDEX idx_outfit_history_profile_live_day
+        ON outfit_history (local_profile_id, deleted_at, day_key DESC);
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -667,6 +711,7 @@ const migrations = [
   migrationV23,
   migrationV24,
   migrationV25,
+  migrationV26,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {
