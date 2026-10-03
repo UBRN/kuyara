@@ -893,17 +893,18 @@ test('an error swallowed as `undefined` appears only where the allowlist names i
 });
 
 // Untrusted values are parsed before they are typed: the Closet category reaches the domain
-// type through `isWardrobeItemCategory`, never a cast. The weather-condition and on-device AI
-// casts of the same kind stay outside this check until their own goals land.
-test('the wardrobe category is narrowed by its guard, never cast', () => {
+// type through `isWardrobeItemCategory`, never a cast, and a stored weather condition through
+// `isWeatherConditionCode`. The on-device AI casts of the same kind stay outside this check
+// until their own goals land.
+test('the wardrobe category and the weather condition are narrowed by their guards, never cast', () => {
   const casts = [];
   for (const relativePath of sourceFiles()) {
     readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
-      if (/\bas WardrobeItemCategory\b/.test(line)) casts.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+      if (/\bas WardrobeItemCategory\b|\bas \w+(?:\['\w+'\])*\['condition'\]|\bas WeatherConditionCode\b/.test(line)) casts.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
     });
   }
 
-  assert.deepEqual(casts, [], 'narrow with isWardrobeItemCategory instead of casting');
+  assert.deepEqual(casts, [], 'narrow with isWardrobeItemCategory or isWeatherConditionCode instead of casting');
 });
 
 // Presentation and routes render a failure; they never sort it. The caught error reaches a
@@ -1218,4 +1219,17 @@ test('the OKLab matrix and the 6-digit hex pattern live only in domain/srgb-colo
 
   assert.deepEqual(matrix, [], `use toOklab or toOklch from @/domain/srgb-color`);
   assert.deepEqual(pattern, hexPatternAllowlist, 'use isSrgbHex from @/domain/srgb-color; the allowlist only shrinks');
+});
+
+// Weather coordinate bounds are owned by `isNormalizedCoordinates` in weather/domain/weather.ts.
+test('the weather coordinate bounds are spelled only in weather/domain/weather.ts', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/weather/domain/weather.ts' || relativePath.startsWith('infrastructure/sqlite/')) continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\b(?:9000|18000)\b/.test(line)) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'call isNormalizedCoordinates from @/features/weather/domain/weather');
 });

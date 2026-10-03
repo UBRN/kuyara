@@ -123,6 +123,15 @@ export class WeatherValidationError extends Error {
   }
 }
 
+const maximumLatitudeE2 = 9000;
+const maximumLongitudeE2 = 18000;
+
+/** Whether the two values are whole hundredths of a degree inside the globe: a stored or sent pair. */
+export function isNormalizedCoordinates(latitudeE2: number, longitudeE2: number): boolean {
+  return Number.isInteger(latitudeE2) && Math.abs(latitudeE2) <= maximumLatitudeE2 &&
+    Number.isInteger(longitudeE2) && Math.abs(longitudeE2) <= maximumLongitudeE2;
+}
+
 export function normalizeCoordinates(
   latitude: number,
   longitude: number,
@@ -130,10 +139,8 @@ export function normalizeCoordinates(
   if (
     !Number.isFinite(latitude) ||
     !Number.isFinite(longitude) ||
-    latitude < -90 ||
-    latitude > 90 ||
-    longitude < -180 ||
-    longitude > 180
+    Math.abs(latitude) > maximumLatitudeE2 / 100 ||
+    Math.abs(longitude) > maximumLongitudeE2 / 100
   ) {
     throw new WeatherValidationError();
   }

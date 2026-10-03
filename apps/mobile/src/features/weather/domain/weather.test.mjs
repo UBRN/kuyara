@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { acceptProvidedSnapshot, activeLocationSnapshot } from './weather.ts';
+import { acceptProvidedSnapshot, activeLocationSnapshot, isNormalizedCoordinates, normalizeCoordinates } from './weather.ts';
 
 const location = { locationKey: 'manual:sample.istanbul', timeZone: 'Europe/Istanbul' };
 const now = '2026-10-04T10:00:00.000Z';
@@ -46,4 +46,20 @@ test('a snapshot belongs to the active place only by its location key', () => {
   assert.equal(activeLocationSnapshot(snapshot, { ...location, locationKey: 'manual:sample.ankara' }), null);
   assert.equal(activeLocationSnapshot(snapshot, null), null);
   assert.equal(activeLocationSnapshot(null, location), null);
+});
+
+test('coordinates are whole hundredths of a degree inside the globe', () => {
+  assert.equal(isNormalizedCoordinates(9000, 18000), true);
+  assert.equal(isNormalizedCoordinates(-9000, -18000), true);
+  assert.equal(isNormalizedCoordinates(0, 0), true);
+  for (const [latitudeE2, longitudeE2] of [[9001, 0], [-9001, 0], [0, 18001], [0, -18001], [1.5, 0], [0, 0.5], [Number.NaN, 0], [0, Infinity]]) {
+    assert.equal(isNormalizedCoordinates(latitudeE2, longitudeE2), false, `${latitudeE2},${longitudeE2}`);
+  }
+});
+
+test('normalizing keeps the degree limits the stored bounds imply', () => {
+  assert.deepEqual(normalizeCoordinates(90, 180), { latitudeE2: 9000, longitudeE2: 18000 });
+  assert.deepEqual(normalizeCoordinates(-0.001, 0), { latitudeE2: 0, longitudeE2: 0 });
+  assert.throws(() => normalizeCoordinates(90.01, 0), { name: 'WeatherValidationError' });
+  assert.throws(() => normalizeCoordinates(0, -180.01), { name: 'WeatherValidationError' });
 });

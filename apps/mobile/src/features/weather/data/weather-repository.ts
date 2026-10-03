@@ -16,6 +16,7 @@ import {
   deviceLocationDisplayName,
   deviceLocationKey,
   isManualLocationId,
+  isNormalizedCoordinates,
   isWeatherConditionCode,
   manualLocationKey,
   type ActiveLocation,
@@ -47,18 +48,22 @@ export class WeatherRepositoryError extends Error {
 
 class WeatherMappingError extends Error {}
 
-function requireMeasurements(value: WeatherMeasurements): WeatherMeasurements {
+/** Measurements as a row or a provider hands them over: the condition is not yet known to be a code. */
+type RawMeasurements = Omit<WeatherMeasurements, 'condition'> & Readonly<{ condition: string }>;
+
+function requireMeasurements(value: RawMeasurements): WeatherMeasurements {
+  const { condition } = value;
   if (
     !Number.isFinite(value.temperatureCelsius) ||
     !Number.isFinite(value.apparentTemperatureCelsius) ||
-    !isWeatherConditionCode(value.condition) ||
+    !isWeatherConditionCode(condition) ||
     !Number.isFinite(value.precipitationProbability) ||
     value.precipitationProbability < 0 || value.precipitationProbability > 1 ||
     !Number.isFinite(value.windSpeedMetersPerSecond) || value.windSpeedMetersPerSecond < 0 ||
     !Number.isFinite(value.humidity) || value.humidity < 0 || value.humidity > 1 ||
     !Number.isFinite(value.uvIndex) || value.uvIndex < 0
   ) throw new WeatherValidationError();
-  return value;
+  return { ...value, condition };
 }
 
 const localDateKeyPattern = /^\d{4}-\d{2}-\d{2}$/u;
@@ -118,8 +123,7 @@ function mapDaily(dailyJson: string | null): readonly DailyWeather[] | undefined
 function mapLocation(record: ActiveLocationRecord): ActiveLocation {
   if (
     !record.localProfileId || !record.locationKey ||
-    !Number.isInteger(record.latitudeE2) || record.latitudeE2 < -9000 || record.latitudeE2 > 9000 ||
-    !Number.isInteger(record.longitudeE2) || record.longitudeE2 < -18000 || record.longitudeE2 > 18000 ||
+    !isNormalizedCoordinates(record.latitudeE2, record.longitudeE2) ||
     !isValidTimeZone(record.timeZone) || !isUtcIsoTimestamp(record.createdAt) || !isUtcIsoTimestamp(record.updatedAt)
   ) throw new WeatherMappingError();
 
@@ -154,7 +158,7 @@ function mapLocation(record: ActiveLocationRecord): ActiveLocation {
 }
 
 function mapHourly(record: HourlyWeatherRecord): HourlyWeather {
-  const value = requireMeasurements({ ...record, condition: record.condition as HourlyWeather['condition'] });
+  const value = requireMeasurements(record);
   if (!isUtcIsoTimestamp(record.forecastAt)) throw new WeatherMappingError();
   return {
     temperatureCelsius: value.temperatureCelsius,
@@ -168,20 +172,42 @@ function mapHourly(record: HourlyWeatherRecord): HourlyWeather {
   };
 }
 
+/**
+ * The rules a snapshot's own fields obey in both directions, a row read back and a snapshot
+ * about to be written: its identity, zone, clock stamps, origin and temperature range.
+ */
+function hasValidSnapshotFields(fields: Readonly<{
+  id: string;
+  localProfileId: string;
+  locationKey: string;
+  timeZone: string;
+  fetchedAt: string;
+  observedAt: string;
+  originKind: string;
+  sourceId: string;
+  minimumTemperatureCelsius: number;
+  maximumTemperatureCelsius: number;
+  currentTemperatureCelsius: number;
+  hourlyCount: number;
+}>): boolean {
+  return isUuidV4(fields.id) && Boolean(fields.localProfileId) && Boolean(fields.locationKey) &&
+    isValidTimeZone(fields.timeZone) && isUtcIsoTimestamp(fields.fetchedAt) &&
+    isUtcIsoTimestamp(fields.observedAt) &&
+    (fields.originKind === 'sample' || fields.originKind === 'live') && Boolean(fields.sourceId.trim()) &&
+    Number.isFinite(fields.minimumTemperatureCelsius) &&
+    Number.isFinite(fields.maximumTemperatureCelsius) &&
+    fields.minimumTemperatureCelsius <= fields.maximumTemperatureCelsius &&
+    fields.currentTemperatureCelsius >= fields.minimumTemperatureCelsius &&
+    fields.currentTemperatureCelsius <= fields.maximumTemperatureCelsius &&
+    fields.hourlyCount > 0;
+}
+
 function mapSnapshot(record: WeatherSnapshotRecord): WeatherSnapshot {
   try {
-    const current = requireMeasurements({ ...record, condition: record.condition as WeatherSnapshot['current']['condition'] });
-    if (
-      !isUuidV4(record.id) || !record.localProfileId || !record.locationKey ||
-      !isValidTimeZone(record.timeZone) || !isUtcIsoTimestamp(record.fetchedAt) || !isUtcIsoTimestamp(record.observedAt) ||
-      (record.originKind !== 'sample' && record.originKind !== 'live') || !record.sourceId.trim() ||
-      !Number.isFinite(record.minimumTemperatureCelsius) ||
-      !Number.isFinite(record.maximumTemperatureCelsius) ||
-      record.minimumTemperatureCelsius > record.maximumTemperatureCelsius ||
-      current.temperatureCelsius < record.minimumTemperatureCelsius ||
-      current.temperatureCelsius > record.maximumTemperatureCelsius ||
-      record.hourly.length === 0
-    ) throw new WeatherMappingError();
+    const current = requireMeasurements(record);
+    if (!hasValidSnapshotFields({
+      ...record, currentTemperatureCelsius: current.temperatureCelsius, hourlyCount: record.hourly.length,
+    })) throw new WeatherMappingError();
     const hourly = record.hourly.map(mapHourly);
     const daily = mapDaily(record.dailyJson);
     const currentLocalDate = weatherLocalDateKey(record.observedAt, record.timeZone);
@@ -230,19 +256,20 @@ function toRecord(
   snapshot: ProvidedWeatherSnapshot,
 ): WeatherSnapshotRecord {
   requireMeasurements(snapshot.current);
-  if (
-    !isUuidV4(id) || !localProfileId || !snapshot.locationKey ||
-    !isValidTimeZone(snapshot.timeZone) || !isUtcIsoTimestamp(snapshot.fetchedAt) ||
-    !isUtcIsoTimestamp(snapshot.current.observedAt) ||
-    (snapshot.origin.kind !== 'sample' && snapshot.origin.kind !== 'live') ||
-    !snapshot.origin.sourceId.trim() ||
-    !Number.isFinite(snapshot.minimumTemperatureCelsius) ||
-    !Number.isFinite(snapshot.maximumTemperatureCelsius) ||
-    snapshot.minimumTemperatureCelsius > snapshot.maximumTemperatureCelsius ||
-    snapshot.current.temperatureCelsius < snapshot.minimumTemperatureCelsius ||
-    snapshot.current.temperatureCelsius > snapshot.maximumTemperatureCelsius ||
-    snapshot.hourly.length === 0
-  ) throw new WeatherValidationError();
+  if (!hasValidSnapshotFields({
+    id,
+    localProfileId,
+    locationKey: snapshot.locationKey,
+    timeZone: snapshot.timeZone,
+    fetchedAt: snapshot.fetchedAt,
+    observedAt: snapshot.current.observedAt,
+    originKind: snapshot.origin.kind,
+    sourceId: snapshot.origin.sourceId,
+    minimumTemperatureCelsius: snapshot.minimumTemperatureCelsius,
+    maximumTemperatureCelsius: snapshot.maximumTemperatureCelsius,
+    currentTemperatureCelsius: snapshot.current.temperatureCelsius,
+    hourlyCount: snapshot.hourly.length,
+  })) throw new WeatherValidationError();
   for (const hour of snapshot.hourly) {
     requireMeasurements(hour);
     if (!isUtcIsoTimestamp(hour.forecastAt)) throw new WeatherValidationError();
@@ -307,10 +334,9 @@ export class LocalWeatherRepository implements WeatherRepository {
         location.source === 'device' && location.displayName != null &&
         !locationDisplayNameSchema.safeParse(location.displayName).success
       ) throw new WeatherValidationError();
-      if (
-        !Number.isInteger(location.coordinates.latitudeE2) || Math.abs(location.coordinates.latitudeE2) > 9000 ||
-        !Number.isInteger(location.coordinates.longitudeE2) || Math.abs(location.coordinates.longitudeE2) > 18000
-      ) throw new WeatherValidationError();
+      if (!isNormalizedCoordinates(location.coordinates.latitudeE2, location.coordinates.longitudeE2)) {
+        throw new WeatherValidationError();
+      }
       const expectedLocationKey = location.source === 'manual'
         ? manualLocationKey(location.catalogId)
         : deviceLocationKey(location.coordinates);
