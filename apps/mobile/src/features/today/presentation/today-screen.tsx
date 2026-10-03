@@ -927,25 +927,8 @@ function TodayScreenContent({
           </Entrance>
         ) : null}
 
-        {/* ADR 0004's offer comes last, after the alternatives and tomorrow's strip (f12).
-            Either answer closes the row in place, so the button under it glides up instead
-            of jumping. */}
-        {shownOffer ? (
-          <Presence visible={offerToRender !== null}>
-            <Entrance index={alternates.length + (showsTomorrow ? 2 : 1)}>
-              <WeatherAlertOfferRow
-                blocked={shownOffer.blocked}
-                language={language}
-                onAccept={answerOffer}
-                onDismiss={dismissOffer}
-                ruleId={shownOffer.offer.ruleId}
-              />
-            </Entrance>
-          </Presence>
-        ) : null}
-
-        {/* O4: the last element of the content, one tonal Large capsule. A7 hides it and puts
-            nothing in its place. */}
+        {/* O4: one tonal Large capsule, followed only by the notification offer. A7 hides it
+            and puts nothing in its place. */}
         {primary && !exhausted ? (
           <TourTarget
             id="again"
@@ -969,14 +952,30 @@ function TodayScreenContent({
             {laterReadyLine}
           </AppText>
         ) : null}
+
+        {/* ADR 0004's offer is the very end of the content, one line and its actions under
+            "Ask the stylist again" (S15). Either answer closes the row in place. */}
+        {shownOffer ? (
+          <Presence visible={offerToRender !== null}>
+            <Entrance index={alternates.length + (showsTomorrow ? 2 : 1)}>
+              <WeatherAlertOfferRow
+                blocked={shownOffer.blocked}
+                language={language}
+                onAccept={answerOffer}
+                onDismiss={dismissOffer}
+                ruleId={shownOffer.offer.ruleId}
+              />
+            </Entrance>
+          </Presence>
+        ) : null}
       </View>
     </Screen>
   );
 }
 
 /**
- * ADR 0004's contextual offer, as a quiet row on the ground plane rather than a card on a
- * card (Law 3). It carries no accent fill (Law 1): the primary action is accent ink and the
+ * ADR 0004's contextual offer, as one quiet line and its pair of actions on the ground plane
+ * at the end of the content (S15), never a card (Law 3). It carries no accent fill (Law 1): the primary action is accent ink and the
  * secondary is the secondary ink, both at the same size, the way the consent sheet's pair is.
  * Law 7's "content arrives": the row fades and travels one rhythm unit into place on the
  * screen it appears on, and either action ends it: it fades and closes in place.
@@ -996,10 +995,8 @@ function WeatherAlertOfferRow({
 }>) {
   const theme = useKuyaraTheme();
   const { controlScale } = useTextScaling();
-  // O13: while "Easier to see" is on the two actions stack as 56-point buttons, and the row
-  // takes the strong edge while higher contrast applies.
+  // O13: while "Easier to see" is on the two actions stack as 56-point buttons.
   const easierToSee = useEasierToSee();
-  const strongEdge = useStrongEdge();
   const actionSize = easierToSee ? 'large' : 'small';
   const copy = getMessages(language).notifications;
   const { hour12 } = useLocalization();
@@ -1026,13 +1023,14 @@ function WeatherAlertOfferRow({
   };
 
   return (
-    <Surface style={[styles.alertOffer, strongEdge]} testID="today-alert-offer" variant="muted">
+    <View style={styles.alertOffer} testID="today-alert-offer">
       <View style={styles.alertOfferMessage}>
-        <Icon color={theme.colors.iconSecondary} name="bell" size={20 * controlScale} />
+        <Icon color={theme.colors.iconSecondary} name="bell" size={16 * controlScale} />
         <AppText
           accessible
           accessibilityLiveRegion={blocked ? 'polite' : 'none'}
           accessibilityRole="text"
+          colorRole="textSecondary"
           style={styles.alertOfferText}
           testID="today-alert-offer-message">
           {message}
@@ -1062,7 +1060,7 @@ function WeatherAlertOfferRow({
           />
         )}
       />
-    </Surface>
+    </View>
   );
 }
 
@@ -1327,8 +1325,9 @@ const styles = StyleSheet.create({
   freshness: { flexShrink: 1 },
   stackedFreshness: { width: '100%' },
   noOutfit: { marginTop: spacing.md },
-  alertOffer: { gap: spacing.md, marginTop: spacing.md, padding: spacing.lg },
-  alertOfferMessage: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
+  // S15: a quiet line on the ground plane, never a card, after the last button.
+  alertOffer: { gap: spacing.sm, marginTop: spacing.lg },
+  alertOfferMessage: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   alertOfferText: { flex: 1, flexShrink: 1 },
   alternates: { marginTop: spacing.md },
   alternatesHeading: { paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },

@@ -2596,8 +2596,9 @@ describe('the contextual weather-alert offer', () => {
       expect(StyleSheet.flatten(action.props.style)).toMatchObject({ minHeight: 36 });
       expect(action.props.hitSlop).toBe(4);
     }
-    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style))
-      .toMatchObject({ backgroundColor: lightTheme.colors.surfaceMuted });
+    // S15: a quiet line on the ground plane, never a card.
+    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style).backgroundColor)
+      .toBeUndefined();
   });
 
   test('scales the bell with the shared capped control scale', async () => {
@@ -2616,7 +2617,7 @@ describe('the contextual weather-alert offer', () => {
       typeof props.name === 'object' && props.name !== null && 'ios' in props.name
         && props.name.ios === 'bell.fill',
     );
-    expect(bell?.[0].size).toBe(30);
+    expect(bell?.[0].size).toBe(24);
   });
 
   // ADR 0020: content arrives in reading order. The offer is the last block, so it waits one
@@ -2791,7 +2792,7 @@ function hostTestIds(tree: unknown): string[] {
 // O4: "Ask the stylist again" is one tonal Large capsule, the last element of Today's
 // content, and its old caption is its accessibility hint.
 describe.each(['en', 'tr'] as const)('%s ask-again control', (language) => {
-  test('is the last element, reads its localized keys and opens the sheet only', async () => {
+  test('closes the outfit content above the offer, reads its localized keys and opens the sheet only', async () => {
     const onAskAgain = jest.fn();
     const onRefresh = jest.fn();
     const offer: TodayAlertOffer = {
@@ -2823,13 +2824,14 @@ describe.each(['en', 'tr'] as const)('%s ask-again control', (language) => {
       borderRadius: radii.pill,
       minHeight: 50,
     });
-    // The end of the content, after the alternatives and the notification offer.
+    // After the alternatives; only the notification offer follows it (S15).
     const ids = hostTestIds(result.toJSON());
     const askIndex = ids.indexOf('today-ask-again');
-    for (const earlier of ['today-freshness', 'today-outfit-list', 'today-alert-offer']) {
+    for (const earlier of ['today-freshness', 'today-outfit-list']) {
       expect(ids.indexOf(earlier)).toBeGreaterThanOrEqual(0);
       expect(ids.indexOf(earlier)).toBeLessThan(askIndex);
     }
+    expect(ids.indexOf('today-alert-offer')).toBeGreaterThan(askIndex);
 
     await fireEvent.press(action);
     expect(onAskAgain).toHaveBeenCalledTimes(1);
@@ -3306,7 +3308,7 @@ describe('Today with Easier to see', () => {
     expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style).flexDirection).toBe('column');
   });
 
-  test('the offer stacks two 56-point actions with strong edges and the row takes the edge', async () => {
+  test('the offer stacks two 56-point actions with strong edges on the ground plane', async () => {
     const result = await renderToday(todayScreenState, true);
     const accept = result.getByTestId('today-alert-offer-accept');
     const dismiss = result.getByTestId('today-alert-offer-dismiss');
@@ -3316,7 +3318,8 @@ describe('Today with Easier to see', () => {
       expect(within(action).getByText(/./, { includeHiddenElements: true }))
         .toHaveStyle({ fontSize: typography.bodyStrong.fontSize, fontWeight: '700' });
     }
-    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style)).toMatchObject(edge);
+    // S15: the line itself is no card, so the edge belongs to its actions alone.
+    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style).borderWidth).toBeUndefined();
     expect(StyleSheet.flatten(result.getByTestId('today-ask-again').props.style)).toMatchObject({ ...edge, minHeight: 56 });
   });
 
@@ -3325,7 +3328,6 @@ describe('Today with Easier to see', () => {
     const accept = result.getByTestId('today-alert-offer-accept');
     expect(StyleSheet.flatten(accept.props.style)).toMatchObject({ ...edge, minHeight: 36 });
     expect(StyleSheet.flatten(accept.parent!.props.style)).toMatchObject({ flexDirection: 'row' });
-    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style)).toMatchObject(edge);
     // The alternatives stay two-up tiles, and each tile's drawing plate takes the edge.
     for (const alternate of loadedPresentation().suggestions.slice(1)) {
       const tile = StyleSheet.flatten(result.getByTestId(`today-alternate-${alternate.id}`).props.style);
@@ -3342,8 +3344,7 @@ describe('Today with Easier to see', () => {
     for (const id of ['today-alert-offer-accept', 'today-alert-offer-dismiss', 'today-ask-again']) {
       expect(StyleSheet.flatten(result.getByTestId(id).props.style).borderWidth).toBeUndefined();
     }
-    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style))
-      .toMatchObject({ borderColor: lightTheme.colors.borderSubtle, borderWidth: 1 });
+    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style).borderWidth).toBeUndefined();
     for (const alternate of loadedPresentation().suggestions.slice(1)) {
       expect(StyleSheet.flatten(
         result.getByTestId(`today-alternate-stage-${alternate.id}`, { includeHiddenElements: true }).props.style,
