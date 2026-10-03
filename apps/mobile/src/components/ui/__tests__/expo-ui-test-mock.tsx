@@ -59,7 +59,7 @@ export function Button({ label, modifiers, onPress, role, systemImage, testID }:
 }
 
 export function RNHostView({ children }: Readonly<{ children?: ReactNode }>) {
-  return <View>{children}</View>;
+  return <View testID="expo-ui-rn-host">{children}</View>;
 }
 
 export function Section({ children, footer, header, testID }: Readonly<{
