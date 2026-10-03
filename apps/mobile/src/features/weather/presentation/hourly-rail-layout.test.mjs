@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { HOURLY_LABEL_GAP, layoutHourlyRail } from './hourly-rail-layout.ts';
+import { HOURLY_LABEL_GAP, hourlyRailMetrics, layoutHourlyRail } from './hourly-rail-layout.ts';
 
 const metrics = {
   columnGap: 4,
@@ -86,4 +86,26 @@ test('columns are evenly spaced and the content width counts the gaps between th
     layout.points[24].x,
     layout.contentWidth - metrics.inset - metrics.columnWidth / 2,
   );
+});
+
+test('each label sits just above its own dot, clear of the dot and its stroke', () => {
+  const layout = layoutHourlyRail([12, 18], metrics);
+
+  assert.deepEqual(layout.labelTops, layout.points.map(({ y }) => y - metrics.labelHeight - 6));
+  // The warmest label stays inside the band: it starts at the band's top edge or below.
+  assert.ok(Math.min(...layout.labelTops) >= 0);
+});
+
+test('the default text size gives the 52-point column at a 56-point pitch', () => {
+  assert.deepEqual(hourlyRailMetrics(1, { columnGap: 4, inset: 16 }), metrics);
+});
+
+test('larger text widens the column and grows the plot only up to its cap', () => {
+  const large = hourlyRailMetrics(2, { columnGap: 4, inset: 16 });
+
+  assert.equal(large.columnWidth, Math.round(52 * 2 * 0.92));
+  assert.equal(large.labelHeight, 40);
+  assert.equal(large.plotHeight, 50);
+  // A smaller text size never narrows the column below the default.
+  assert.equal(hourlyRailMetrics(0.8, { columnGap: 4, inset: 16 }).columnWidth, 52);
 });
