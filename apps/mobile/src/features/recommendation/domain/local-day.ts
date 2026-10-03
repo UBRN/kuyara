@@ -1,7 +1,7 @@
 import type { DayKind } from '@kuyara/contracts';
+import { zonedClock } from '@/domain/intl-format';
 
 import {
-  dressingDayDateKey,
   instantOfLocalHour,
   isEveningDressingDayKey,
   wardrobeDayKey,
@@ -49,25 +49,35 @@ export function localDayKey(date: Date): string {
 const previewDepartureHour = 8;
 
 /**
- * The morning that follows an evening dressing day on the device's clock: 08:00 on the date
- * after the evening's own date, so `localDayKey` of the result is the next bare-date dressing
- * day and its variant and kind read that date. Null for a day-period key, which has no
- * evening preview. The instant the preview is chosen for is `previewDepartureAt`.
+ * The morning following an evening on the place's clock. Between midnight and 04:00 it is
+ * the coming morning; otherwise it is the next date. The returned date carries that calendar
+ * day for the variant, kind and key. The actual departure instant is `previewDepartureAt`.
  */
-export function nextMorningAfterEvening(key: string): Date | null {
+export function nextMorningAfterEvening(
+  key: string,
+  timeZone: string,
+  nowIso: string,
+): Date | null {
   if (!isEveningDressingDayKey(key)) return null;
-  const [year, month, day] = dressingDayDateKey(key).split('-').map(Number);
-  return new Date(year, month - 1, day + 1, previewDepartureHour);
+  const now = Date.parse(nowIso);
+  if (!Number.isFinite(now)) return null;
+  try {
+    const place = zonedClock(now, timeZone);
+    return new Date(place.year, place.month - 1,
+      place.day + (place.hour < 4 ? 0 : 1), previewDepartureHour);
+  } catch {
+    return null;
+  }
 }
 
 /**
- * The instant tomorrow's preview is chosen for: 08:00 on the place's own clock, on the date
- * after the evening's date. The outfit window and its sentence are read in the place's zone,
+ * The instant the preview is chosen for: 08:00 on the place's own coming morning. The outfit
+ * window and its sentence are read in the place's zone,
  * so the departure is too; 08:00 on the device's clock would open the window at another hour
  * whenever the place keeps a different time. Null for a day-period key or an unknown zone.
  */
-export function previewDepartureAt(key: string, timeZone: string): string | null {
-  const morning = nextMorningAfterEvening(key);
+export function previewDepartureAt(key: string, timeZone: string, nowIso: string): string | null {
+  const morning = nextMorningAfterEvening(key, timeZone, nowIso);
   if (!morning) return null;
   try {
     return new Date(instantOfLocalHour({

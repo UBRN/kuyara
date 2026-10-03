@@ -8,7 +8,8 @@ import {
   localDayKind,
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
-import { dateTimeFormat, numberFormat } from '@/domain/intl-format';
+import { dateTimeFormat, numberFormat, zonedClock } from '@/domain/intl-format';
+import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
@@ -326,6 +327,27 @@ export function formatDepartureTime(
   timeZone: string,
 ): string {
   return formatTime(instant, language, hour12, timeZone);
+}
+
+export function eveningLaterReadyLine(
+  departure: DressingDayDeparture | null,
+  now: number,
+  language: SupportedLanguage,
+  hour12: boolean,
+): string | null {
+  if (!departure?.dayKey.endsWith(':evening')) return null;
+  const readyAt = Date.parse(departure.updatedAt);
+  const leavingAt = Date.parse(departure.departureAt);
+  if (!Number.isFinite(readyAt) || !Number.isFinite(leavingAt) ||
+      readyAt > now || leavingAt <= now) return null;
+  const readyClock = zonedClock(readyAt, departure.timeZone);
+  const currentClock = zonedClock(now, departure.timeZone);
+  if (readyClock.hour < 18 || currentClock.hour < 18 ||
+      localDate(readyAt, departure.timeZone) !== localDate(now, departure.timeZone)) return null;
+  return getMessages(language).today.laterReady({
+    departure: formatDepartureTime(departure.departureAt, language, hour12, departure.timeZone),
+    ready: formatDepartureTime(departure.updatedAt, language, hour12, departure.timeZone),
+  });
 }
 
 const dayInsightModifierKeys = {
@@ -656,8 +678,11 @@ export type TomorrowPreviewPresentation = Readonly<{
  * neither the strip nor its detail ever shows an outfit without the weather it was chosen for.
  */
 export function tomorrowForecastDay(preview: RecommendationSnapshot, weather: WeatherSnapshot): DailyWeather | null {
-  if (!preview.localDayKey) return null;
-  return weather.daily?.find(({ dateKey }) => dateKey === preview.localDayKey) ?? null;
+  const departure = preview.coverageStart ? Date.parse(preview.coverageStart) : NaN;
+  const dateKey = Number.isFinite(departure)
+    ? localDate(departure, weather.timeZone) : preview.localDayKey;
+  if (!dateKey) return null;
+  return weather.daily?.find((day) => day.dateKey === dateKey) ?? null;
 }
 
 // A forecast day colours its outfit by its own high and condition, in daylight, on the strip
@@ -679,12 +704,15 @@ export function createTomorrowPreviewPresentation(
   weather: WeatherSnapshot,
   language: SupportedLanguage,
   temperatureUnit: TemperatureUnit,
+  now: number,
 ): TomorrowPreviewPresentation | null {
   const outfit = preview.recommendation.outfits[0];
   const day = tomorrowForecastDay(preview, weather);
   if (!outfit || !day) return null;
   const messages = getMessages(language);
   const copy = messages.today;
+  const thisMorning = zonedClock(now, weather.timeZone).hour < 4 &&
+    localDate(now, weather.timeZone) === day.dateKey;
   const condition = messages.weather.conditions[day.condition];
   const title = archetypeLabel(messages.recommendation, outfit.archetypeId, forecastDayKind(day));
   const boardPieces = outfitBoardPieces(outfit);
@@ -695,7 +723,7 @@ export function createTomorrowPreviewPresentation(
   });
   return {
     id: outfit.optionId,
-    heading: copy.tomorrow.heading,
+    heading: thisMorning ? copy.tomorrow.morningHeading : copy.tomorrow.heading,
     weather: copy.tomorrow.weather({
       condition,
       minimum: formatTemperature(day.minimumTemperatureCelsius, language, temperatureUnit),
@@ -704,7 +732,9 @@ export function createTomorrowPreviewPresentation(
     title,
     boardPieces,
     palette: outfitGarmentPalette(outfit, forecastDayPalette(day)),
-    accessibilityLabel: copy.tomorrow.stripAccessibilityLabel({
+    accessibilityLabel: (thisMorning
+      ? copy.tomorrow.morningStripAccessibilityLabel
+      : copy.tomorrow.stripAccessibilityLabel)({
       outfit: outfitLabel,
       weather: copy.tomorrow.weatherAccessibilityLabel({
         condition,
@@ -713,7 +743,8 @@ export function createTomorrowPreviewPresentation(
         unitName: messages.temperatureUnitNames[temperatureUnit],
       }),
     }),
-    accessibilityHint: copy.tomorrow.stripAccessibilityHint,
+    accessibilityHint: thisMorning ? copy.tomorrow.morningStripAccessibilityHint
+      : copy.tomorrow.stripAccessibilityHint,
   };
 }
 

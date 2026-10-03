@@ -122,6 +122,7 @@ type TodayScreenProps = Readonly<{
   onRefresh: () => void;
   /** Opens the "Ask the stylist again" sheet (O3). The pull gesture never changes the outfit. */
   onAskAgain: () => void;
+  laterReadyLine?: string | null;
   /** Set while a day-type answer from the morning or evening sheet is regenerating the outfit. */
   updatingDayType?: DressStyle | null;
   /** The first dressing day, the day the profile was set up, takes its own greeting. */
@@ -256,6 +257,7 @@ function TodayScreenContent({
   onOpenTomorrowDetail,
   onRefresh,
   onAskAgain,
+  laterReadyLine = null,
   updatingDayType = null,
   firstDressingDay = false,
   awaitingDayQuestion = false,
@@ -541,7 +543,7 @@ function TodayScreenContent({
     ? activeLocationSnapshot(weatherApplication.state.snapshot, weatherApplication.state.activeLocation)
     : null;
   const tomorrow = primary && tomorrowPreview && tomorrowWeather
-    ? createTomorrowPreviewPresentation(tomorrowPreview, tomorrowWeather, language, temperatureUnit)
+    ? createTomorrowPreviewPresentation(tomorrowPreview, tomorrowWeather, language, temperatureUnit, now)
     : null;
   const showsTomorrow = tomorrow !== null && onOpenTomorrowDetail !== undefined;
   // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
@@ -961,6 +963,12 @@ function TodayScreenContent({
             />
           </TourTarget>
         ) : null}
+        {laterReadyLine ? (
+          <AppText colorRole="textSecondary" style={styles.laterReady} tabularNumbers
+            testID="today-later-ready" variant="caption">
+            {laterReadyLine}
+          </AppText>
+        ) : null}
       </View>
     </Screen>
   );
@@ -1312,6 +1320,7 @@ const styles = StyleSheet.create({
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },
   askAgain: { marginTop: spacing.md },
+  laterReady: { marginTop: spacing.xs },
   provenanceSlot: { marginTop: spacing.sm },
   provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },

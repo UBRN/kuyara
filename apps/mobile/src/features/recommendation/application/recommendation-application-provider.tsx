@@ -346,7 +346,7 @@ export function RecommendationApplicationProvider({
       appState.current = next;
       if (wasInactive && next === 'active') reevaluateLocalDay();
     });
-    return () => subscription.remove();
+    return () => subscription?.remove();
   }, [reevaluateLocalDay]);
 
   const approvedTriggerInFlight = useRef<{
@@ -494,9 +494,13 @@ export function RecommendationApplicationProvider({
   // ask belongs to the dressing day it was made in: an open in the afternoon does not carry into
   // the evening, whose own first foreground open of Today must ask again.
   const [previewWantedKey, setPreviewWantedKey] = useState<string | null>(null);
+  const [previewClock, setPreviewClock] = useState(Date.now);
   const previewWanted = previewWantedKey === localDay.key;
   const evaluateApprovedTriggers = useCallback(async (foreground = false) => {
-    if (foreground) setPreviewWantedKey(deviceLocalDay().key);
+    if (foreground) {
+      setPreviewClock(Date.now());
+      setPreviewWantedKey(deviceLocalDay().key);
+    }
     const generationInput = currentInput();
     if (!generationInput) return;
     if (foreground) foregroundEvaluationRequested.current = true;
@@ -527,7 +531,9 @@ export function RecommendationApplicationProvider({
 
   // The evening preview of tomorrow: one selection per dressing day, through the same chain, once
   // today's outfit has settled, and only when the forecast covers tomorrow's whole window.
-  const tomorrowMorning = useMemo(() => nextMorningAfterEvening(localDay.key), [localDay.key]);
+  const tomorrowMorning = useMemo(() => nextMorningAfterEvening(
+    localDay.key, input?.snapshot.timeZone, new Date(previewClock).toISOString(),
+  ), [input?.snapshot.timeZone, localDay.key, previewClock]);
   const tomorrowKey = tomorrowMorning ? localDayKey(tomorrowMorning) : null;
   const previewController = useMemo(() => new TomorrowPreviewController(localProfileId,
     { store: previewStore, client, loadRecentWorn, compose: composePreview }),
@@ -543,7 +549,8 @@ export function RecommendationApplicationProvider({
   useEffect(() => {
     if (!previewWanted || !tomorrowMorning || !tomorrowKey || !input || eveningChoicePending ||
         !settledRecommendation) return;
-    const departureAt = previewDepartureAt(localDay.key, input.snapshot.timeZone);
+    const departureAt = previewDepartureAt(localDay.key, input.snapshot.timeZone,
+      new Date(previewClock).toISOString());
     if (!departureAt || !forecastCoversWindow(input.snapshot, departureAt)) return;
     void previewController.ensure({
       snapshot: input.snapshot,
@@ -559,7 +566,7 @@ export function RecommendationApplicationProvider({
       // What the morning will exclude too, unless today's outfit changes before then.
       excludedOptionIds: settledRecommendation.outfits.map(({ optionId }) => optionId),
     });
-  }, [eveningChoicePending, input, language, localDay.key, previewController, previewWanted,
+  }, [eveningChoicePending, input, language, localDay.key, previewClock, previewController, previewWanted,
     profileDefault, settledRecommendation, tomorrowKey, tomorrowMorning, tomorrowStyles]);
   // Shown only while it still answers tomorrow's question: the same place, gender, dress style
   // and styles. Otherwise it simply does not appear; the day's one selection is not spent again.

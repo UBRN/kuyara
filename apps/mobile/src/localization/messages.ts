@@ -119,10 +119,12 @@ export type TodayMessages = Readonly<{
   }>;
   // N19: a later short cool spell is a finishing touch, one line beside the cardigan.
   coolSpell: (time: string) => string;
+  laterReady: (values: { departure: string; ready: string }) => string;
   otherOptionsHeading: string;
   // In the evening, the outfit chosen for the next dressing day, in one strip under today's.
   tomorrow: Readonly<{
     heading: string;
+    morningHeading: string;
     // One line: the condition, then the day's low-to-high range.
     weather: (values: { condition: string; minimum: string; maximum: string }) => string;
     // The same range alone, where the condition stands beside it (the detail's weather recap).
@@ -132,6 +134,8 @@ export type TodayMessages = Readonly<{
     }) => string;
     stripAccessibilityLabel: (values: { outfit: string; weather: string }) => string;
     stripAccessibilityHint: string;
+    morningStripAccessibilityLabel: (values: { outfit: string; weather: string }) => string;
+    morningStripAccessibilityHint: string;
     recapAccessibilityLabel: (values: {
       condition: string; minimum: string; maximum: string; unitName: string;
       rainProbability: number; coverageCaption: string | null;
@@ -1534,15 +1538,19 @@ const en = {
       cold: (time) => `This outfit wasn’t chosen for the cold after ${time}.`,
     },
     coolSpell: (time) => `Take a light layer for the cool spell around ${time}.`,
+    laterReady: ({ departure, ready }) => `Your ${departure} outfit is ready at ${ready}`,
     otherOptionsHeading: 'Alternative outfits',
     tomorrow: {
       heading: 'Tomorrow',
+      morningHeading: 'This morning',
       weather: ({ condition, minimum, maximum }) => `${condition}, ${minimum}\u00a0to\u00a0${maximum}`,
       range: ({ minimum, maximum }) => `${minimum}\u00a0to\u00a0${maximum}`,
       weatherAccessibilityLabel: ({ condition, minimum, maximum, unitName }) =>
         `${condition}. Low ${minimum} ${unitName}, high ${maximum} ${unitName}.`,
       stripAccessibilityLabel: ({ outfit, weather }) => `Tomorrow: ${outfit} ${weather}`,
       stripAccessibilityHint: 'Opens tomorrow’s outfit',
+      morningStripAccessibilityLabel: ({ outfit, weather }) => `This morning: ${outfit} ${weather}`,
+      morningStripAccessibilityHint: 'Opens this morning’s outfit',
       recapAccessibilityLabel: ({ condition, minimum, maximum, unitName, rainProbability, coverageCaption }) =>
         `${condition}, ${minimum} to ${maximum} ${unitName}, ${rainProbability} percent chance of rain` +
         (coverageCaption ? `. ${coverageCaption}` : ''),
@@ -2609,15 +2617,19 @@ const tr = {
       cold: (time) => `Bu kombin ${time} soğuğuna göre seçilmedi.`,
     },
     coolSpell: (time) => `Yanına ince bir kat al, saat ${time} gibi hava serinliyor.`,
+    laterReady: ({ departure, ready }) => `Saat ${departure} kombinin, saat ${ready} itibarıyla hazır`,
     otherOptionsHeading: 'Alternatif kombinler',
     tomorrow: {
       heading: 'Yarın',
+      morningHeading: 'Bu sabah',
       weather: ({ condition, minimum, maximum }) => `${condition}, ${minimum}\u00a0ile\u00a0${maximum}\u00a0arası`,
       range: ({ minimum, maximum }) => `${minimum}\u00a0ile\u00a0${maximum}\u00a0arası`,
       weatherAccessibilityLabel: ({ condition, minimum, maximum, unitName }) =>
         `${condition}. En düşük ${minimum} ${unitName}, en yüksek ${maximum} ${unitName}.`,
       stripAccessibilityLabel: ({ outfit, weather }) => `Yarın: ${outfit} ${weather}`,
       stripAccessibilityHint: 'Yarının kombinini açar',
+      morningStripAccessibilityLabel: ({ outfit, weather }) => `Bu sabah: ${outfit} ${weather}`,
+      morningStripAccessibilityHint: 'Bu sabahın kombinini açar',
       recapAccessibilityLabel: ({ condition, minimum, maximum, unitName, rainProbability, coverageCaption }) =>
         `${condition}, ${minimum} ile ${maximum} ${unitName} arası, yağmur olasılığı yüzde ${rainProbability}` +
         (coverageCaption ? `. ${coverageCaption}` : ''),

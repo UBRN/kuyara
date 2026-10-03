@@ -50,6 +50,8 @@ import {
 import { showWardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { useTourPopReport } from '@/features/walkthrough/application/use-tour-pop-report';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
+import { activeLocationSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -64,24 +66,31 @@ function wornOutfitOrNull(...args: Parameters<typeof wornOutfitFrom>): WornOutfi
   }
 }
 
-// Detail of the evening preview: today's loaded weather with the preview's outfit and the
-// forecast row it was chosen for. Without that pair there is no outfit to show.
+// Detail of the evening preview reads its own outfit and the active place's forecast.
 function tomorrowState(
-  state: TodayScreenState,
+  weather: WeatherApplicationState,
   preview: ReturnType<typeof useRecommendationApplication>['tomorrowPreview'],
+  now: string,
 ): TodayScreenState {
-  if (state.kind !== 'loaded' || !preview) return { kind: 'unavailable' };
-  const forecastDay = tomorrowForecastDay(preview, state.snapshot.weather);
-  if (!forecastDay) return { kind: 'unavailable' };
+  if (weather.status !== 'ready' || !preview || !weather.activeLocation) return { kind: 'unavailable' };
+  const placeSnapshot = activeLocationSnapshot(weather.snapshot, weather.activeLocation);
+  if (!placeSnapshot) return { kind: 'unavailable' };
+  const forecastDay = tomorrowForecastDay(preview, placeSnapshot);
+  if (!forecastDay || !activeLocationRecommendation(preview, weather.activeLocation)) {
+    return { kind: 'unavailable' };
+  }
   return {
-    ...state,
+    kind: 'loaded',
     snapshot: {
-      ...state.snapshot,
+      weather: placeSnapshot,
+      activeLocation: weather.activeLocation,
+      freshness: weatherFreshness(placeSnapshot.fetchedAt, now) === 'fresh' ? 'fresh' : 'stale',
       recommendation: preview.recommendation,
       coverageStart: preview.coverageStart,
       coverageEnd: preview.coverageEnd,
-      paletteBasis: undefined,
     },
+    isRefreshing: weather.isRefreshing,
+    refreshFailed: weather.refreshFailure !== null,
     forecastDay,
   };
 }
@@ -321,7 +330,7 @@ export default function OutfitDetailRoute() {
     surface: 'detail',
     now: new Date(clock).toISOString(),
   });
-  const state = tomorrow ? tomorrowState(todayState, tomorrowPreview) : todayState;
+  const state = tomorrow ? tomorrowState(weatherState, tomorrowPreview, new Date(clock).toISOString()) : todayState;
 
   useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);
   // On iOS an alternative on Today zooms this screen open, and the zoom's own drag closes it
