@@ -109,3 +109,24 @@ test('a colour tie goes to the most recent colour, and a day without colours add
   ], sundayEvening);
   assert.deepEqual(summary.mostWorn, { garmentTypeId: 't_shirt', slot: 'primary_top', days: 3, swatchId: 'olive' });
 });
+
+test('a day with several looks counts once: in the days, per kind, and per piece and colour', () => {
+  const summary = weekSummary([
+    day('2026-10-03', rainy, { primary_top: 'white', bottom: 'indigo', outer_layer: 'rainyellow', footwear: 'white' }),
+    day('2026-10-03', tee, { primary_top: 'navy', bottom: 'indigo', footwear: 'white' }),
+    day('2026-10-03', cold),
+    day('2026-10-01', tee, { primary_top: 'navy', bottom: 'midwash', footwear: 'black' }),
+  ], sundayEvening);
+  assert.equal(summary.days, 2);
+  // Saturday counts once toward rain, cold and light; Thursday once toward light.
+  assert.deepEqual(summary.dressedFor, [{ kind: 'rain', days: 1 }, { kind: 'cold', days: 1 }, { kind: 'light', days: 2 }]);
+  // The T-shirt, jeans and sneakers were worn on two days, not four looks; the T-shirt comes
+  // first in the catalog, and navy is its colour on both days.
+  assert.deepEqual(summary.mostWorn, { garmentTypeId: 't_shirt', slot: 'primary_top', days: 2, swatchId: 'navy' });
+});
+
+test('one day with two looks is still a single day, with no piece that came back', () => {
+  const summary = weekSummary([day('2026-10-02', tee), day('2026-10-02', rainy)], sundayEvening);
+  assert.equal(summary.days, 1);
+  assert.equal(summary.mostWorn, null);
+});

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { utcIsoTimestampSchema, uuidV4Schema } from '@/domain/record-identity';
 import {
   bareHistoryDayKeySchema,
+  sameWornGarments,
   wornOutfitSchema,
   wornPieceColorsFor,
   type HistoryPhotoChange,
@@ -75,23 +76,18 @@ function validRows(rows: readonly Row[]): OutfitHistoryRecord[] {
   return records;
 }
 
-async function readRow(db: SqliteExecutor, profileId: string, dayKey: string): Promise<Row | null> {
-  return db.getFirstAsync<Row>(`SELECT ${columns} FROM outfit_history
-    WHERE local_profile_id = ? AND day_key = ? AND deleted_at IS NULL`, [profileId, dayKey]);
+const live = `FROM outfit_history WHERE local_profile_id = ? AND deleted_at IS NULL`;
+
+async function readDay(db: SqliteExecutor, profileId: string, dayKey: string): Promise<OutfitHistoryRecord[]> {
+  return validRows(await db.getAllAsync<Row>(`SELECT ${columns} ${live} AND day_key = ?
+    ORDER BY worn_at ASC`, [profileId, dayKey]));
 }
 
-/** A row that no longer validates is absent for the reader, as it is in `list`. */
-async function read(db: SqliteExecutor, profileId: string, dayKey: string): Promise<OutfitHistoryRecord | null> {
-  const row = await readRow(db, profileId, dayKey);
-  if (!row) return null;
-  try {
-    return mapRow(row);
-  } catch {
-    return null;
-  }
+async function readLook(db: SqliteExecutor, profileId: string, id: string): Promise<Row | null> {
+  return db.getFirstAsync<Row>(`SELECT ${columns} ${live} AND id = ?`, [profileId, id]);
 }
 
-/** The stored photo of the day's row, valid or not, so an overwrite or delete still cleans it up. */
+/** The stored photo of a row, valid or not, so a delete still cleans it up. */
 function managedPhotoPath(row: Row | null): string | null {
   return row && row.photo_path !== null && isManagedHistoryPhotoPath(row.photo_path) ? row.photo_path : null;
 }
@@ -111,20 +107,20 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
     this.photos = photos;
   }
 
-  get(profileId: string, dayKey: string): Promise<OutfitHistoryRecord | null> {
+  day(profileId: string, dayKey: string): Promise<readonly OutfitHistoryRecord[]> {
     bareHistoryDayKeySchema.parse(dayKey);
-    return read(this.db, profileId, dayKey);
+    return readDay(this.db, profileId, dayKey);
   }
 
   async list(profileId: string): Promise<readonly OutfitHistoryRecord[]> {
-    const rows = await this.db.getAllAsync<Row>(`SELECT ${columns} FROM outfit_history
-      WHERE local_profile_id = ? AND deleted_at IS NULL ORDER BY day_key DESC`, [profileId]);
+    const rows = await this.db.getAllAsync<Row>(`SELECT ${columns} ${live}
+      ORDER BY day_key DESC, worn_at ASC`, [profileId]);
     return validRows(rows);
   }
 
   async lastSeven(profileId: string): Promise<readonly OutfitHistoryRecord[]> {
-    const rows = await this.db.getAllAsync<Row>(`SELECT ${columns} FROM outfit_history
-      WHERE local_profile_id = ? AND deleted_at IS NULL ORDER BY day_key DESC`, [profileId]);
+    const rows = await this.db.getAllAsync<Row>(`SELECT ${columns} ${live}
+      ORDER BY day_key DESC, worn_at DESC`, [profileId]);
     return validRows(rows).slice(0, 7);
   }
 
@@ -149,21 +145,31 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
     };
     try {
       await this.db.withExclusiveTransactionAsync(async (transaction) => {
-        outcome.oldPhotoPath = managedPhotoPath(await readRow(transaction, profileId, dayKey));
-        const nextPath = photo.kind === 'keep' ? outcome.oldPhotoPath : copied;
-        await transaction.runAsync(`INSERT INTO outfit_history
-          (id, local_profile_id, day_key, outfit_json, piece_colors_json, photo_path, worn_at, created_at,
-            updated_at, deleted_at, pending_sync)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 1)
-          ON CONFLICT(local_profile_id, day_key) DO UPDATE SET
-            outfit_json = excluded.outfit_json, piece_colors_json = excluded.piece_colors_json,
-            photo_path = excluded.photo_path,
-            worn_at = excluded.worn_at, updated_at = excluded.updated_at, deleted_at = NULL,
-            pending_sync = 1`,
-        [uuidV4Schema.parse(this.createId()), profileId, dayKey, JSON.stringify(validated),
-          colors === null ? null : JSON.stringify(colors), nextPath,
-          timestamp, timestamp, timestamp]);
-        outcome.result = await read(transaction, profileId, dayKey);
+        // The same look twice in one day is one record: it stays as it is, and only a photo
+        // change reaches it. Any other look is a new record beside the day's earlier ones.
+        const same = (await readDay(transaction, profileId, dayKey))
+          .find((look) => sameWornGarments(look.outfit, validated));
+        if (same && photo.kind === 'keep') {
+          outcome.result = same;
+          return;
+        }
+        let id: string;
+        if (same) {
+          id = same.id;
+          outcome.oldPhotoPath = same.photoPath;
+          await transaction.runAsync(`UPDATE outfit_history SET photo_path = ?, updated_at = ?,
+            pending_sync = 1 WHERE id = ?`, [copied, timestamp, id]);
+        } else {
+          id = uuidV4Schema.parse(this.createId());
+          await transaction.runAsync(`INSERT INTO outfit_history
+            (id, local_profile_id, day_key, outfit_json, piece_colors_json, photo_path, worn_at, created_at,
+              updated_at, deleted_at, pending_sync)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 1)`,
+          [id, profileId, dayKey, JSON.stringify(validated), colors === null ? null : JSON.stringify(colors),
+            copied, timestamp, timestamp, timestamp]);
+        }
+        const row = await readLook(transaction, profileId, id);
+        outcome.result = row ? mapRow(row) : null;
         if (!outcome.result) throw new Error('History write was not readable.');
       });
     } catch (error) {
@@ -181,18 +187,17 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
     return result;
   }
 
-  async softDelete(profileId: string, dayKey: string): Promise<boolean> {
-    bareHistoryDayKeySchema.parse(dayKey);
+  async softDelete(profileId: string, id: string): Promise<boolean> {
     const now = utcIsoTimestampSchema.parse(this.now());
     let oldPhotoPath: string | null = null;
     let changed = false;
     await this.db.withExclusiveTransactionAsync(async (transaction) => {
-      const old = await readRow(transaction, profileId, dayKey);
+      const old = await readLook(transaction, profileId, id);
       if (!old) return;
       const updated = await transaction.runAsync(`UPDATE outfit_history SET
         photo_path = NULL, deleted_at = ?, updated_at = ?, pending_sync = 1
-        WHERE local_profile_id = ? AND day_key = ? AND deleted_at IS NULL`,
-      [now, now, profileId, dayKey]);
+        WHERE local_profile_id = ? AND id = ? AND deleted_at IS NULL`,
+      [now, now, profileId, id]);
       changed = updated.changes > 0;
       if (changed) oldPhotoPath = managedPhotoPath(old);
     });

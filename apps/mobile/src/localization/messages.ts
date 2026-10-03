@@ -221,10 +221,6 @@ export type TodayMessages = Readonly<{
   wornAction: string;
   wornToday: string;
   wornSaveError: string;
-  wornReplaceTitle: string;
-  wornReplaceBody: string;
-  wornReplaceConfirm: string;
-  wornReplaceCancel: string;
   slots: Readonly<Record<OutfitSlot, string>>;
   requirementNames: Readonly<Record<TodayRequirementName, string>>;
   requirementRow: (values: { requirement: string; garments: readonly string[] }) => string;
@@ -1698,10 +1694,6 @@ const en = {
     wornAction: 'Wore this today',
     wornToday: 'Worn today',
     wornSaveError: 'Today’s look could not be saved. Try again.',
-    wornReplaceTitle: 'Replace today’s look?',
-    wornReplaceBody: 'Only one look can be saved for a day. This replaces the look you recorded earlier today.',
-    wornReplaceConfirm: 'Replace look',
-    wornReplaceCancel: 'Cancel',
     slots: {
       primary_top: 'Top',
       bottom: 'Bottom',
@@ -2819,10 +2811,6 @@ const tr = {
     wornAction: 'Bugün bunu giydim',
     wornToday: 'Bugün giyildi',
     wornSaveError: 'Bugünkü kombin kaydedilemedi. Yeniden dene.',
-    wornReplaceTitle: 'Bugünkü kombin değişsin mi?',
-    wornReplaceBody: 'Bir güne yalnızca bir kombin kaydedilebilir. Bu işlem, bugün daha önce kaydettiğin kombinin yerini alır.',
-    wornReplaceConfirm: 'Kombini değiştir',
-    wornReplaceCancel: 'Vazgeç',
     slots: {
       primary_top: 'Üst',
       bottom: 'Alt',

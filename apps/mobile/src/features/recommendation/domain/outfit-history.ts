@@ -49,7 +49,7 @@ export const wornOutfitSchema = z.strictObject({
 });
 export type WornOutfit = z.infer<typeof wornOutfitSchema>;
 
-/** The bare-date day a dressing-day key records under: the evening shares its date's row. */
+/** The bare-date day a dressing-day key records under: the evening's looks join their date's. */
 export function historyDayKey(dressingDayKey: string): string {
   return bareHistoryDayKeySchema.parse(dressingDayDateKey(dressingDayKey));
 }
@@ -99,6 +99,32 @@ export function sameWornGarments(a: WornOutfit, b: WornOutfit): boolean {
   return [...keys].every((slot) => a.garments[slot] === b.garments[slot]);
 }
 
+/** Whether a day's looks already hold this outfit: "Wore this today" never records one twice. */
+export function wornAlready(looks: readonly WornOutfit[], outfit: WornOutfit): boolean {
+  return looks.some((look) => sameWornGarments(look, outfit));
+}
+
+export type HistoryDay<Look> = Readonly<{ dayKey: string; looks: readonly Look[] }>;
+
+const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * History's days (ADR 0038): the newest date first, and under one date its looks in the order
+ * they were worn, morning first. A day can hold several looks; History, the week's look back
+ * and the Closet's worn days all count and order days through this one grouping.
+ */
+export function historyDays<Look extends Readonly<{ dayKey: string; wornAt: string }>>(
+  looks: readonly Look[],
+): readonly HistoryDay<Look>[] {
+  const days = new Map<string, Look[]>();
+  for (const look of [...looks].sort((a, b) => byText(b.dayKey, a.dayKey) || byText(a.wornAt, b.wornAt))) {
+    const day = days.get(look.dayKey);
+    if (day) day.push(look);
+    else days.set(look.dayKey, [look]);
+  }
+  return [...days].map(([dayKey, dayLooks]) => ({ dayKey, looks: dayLooks }));
+}
+
 export type OutfitHistoryRecord = Readonly<{
   id: string;
   localProfileId: string;
@@ -114,16 +140,20 @@ export type OutfitHistoryRecord = Readonly<{
 }>;
 
 export interface OutfitHistoryRepository {
-  get(localProfileId: string, dayKey: string): Promise<OutfitHistoryRecord | null>;
+  /** The day's live looks, morning first. */
+  day(localProfileId: string, dayKey: string): Promise<readonly OutfitHistoryRecord[]>;
+  /** Every live look, the newest date first and morning first within a date. */
   list(localProfileId: string): Promise<readonly OutfitHistoryRecord[]>;
+  /** The seven most recently worn live looks, latest first. */
   lastSeven(localProfileId: string): Promise<readonly OutfitHistoryRecord[]>;
   /**
-   * `pieceColors` are the swatches the day was drawn in; null records the day without them. Every
-   * write states them, because a write replaces the stored colours.
+   * Records a look worn on the day: a new row, unless the day already holds a look with the same
+   * pieces, which is kept as it is (a photo change still applies to it). `pieceColors` are the
+   * swatches the look was drawn in; null records it without them. Every write states them.
    */
   log(localProfileId: string, dayKey: string, outfit: WornOutfit,
     photo: HistoryPhotoChange, pieceColors: WornPieceColors | null): Promise<OutfitHistoryRecord>;
-  softDelete(localProfileId: string, dayKey: string): Promise<boolean>;
+  softDelete(localProfileId: string, id: string): Promise<boolean>;
 }
 
 export type HistoryPhotoChange =

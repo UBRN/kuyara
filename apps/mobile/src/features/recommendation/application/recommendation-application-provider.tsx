@@ -577,13 +577,13 @@ export function RecommendationApplicationProvider({
     styleAesthetics: tomorrowStyles,
   }) ? preview : null;
 
-  // A new object after every recorded day, so whoever reads History through it (the Closet's
+  // A new object after every recorded look, so whoever reads History through it (the Closet's
   // worn counts) reads it again instead of keeping the answer from before the write.
   const [historyRevision, setHistoryRevision] = useState(0);
   const outfitHistory = useMemo(() => ({
     revision: historyRevision,
     list: async () => (await loadHistoryRepository()).list(localProfileId),
-    get: async (dayKey: string) => (await loadHistoryRepository()).get(localProfileId, dayKey),
+    day: async (dayKey: string) => (await loadHistoryRepository()).day(localProfileId, dayKey),
     log: async (dayKey: string, outfit: WornOutfit, pieceColors: WornPieceColors | null) => {
       const record = await (await loadHistoryRepository()).log(localProfileId, dayKey, outfit, { kind: 'keep' }, pieceColors);
       setHistoryRevision((revision) => revision + 1);

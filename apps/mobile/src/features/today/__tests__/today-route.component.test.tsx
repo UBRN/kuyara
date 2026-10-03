@@ -3043,7 +3043,7 @@ test('tomorrow\'s preview opens in detail read-only, with its own forecast', asy
   }] } });
   const outfitHistory = {
     list: jest.fn(async () => []),
-    get: jest.fn(async () => null),
+    day: jest.fn(async () => []),
     log: jest.fn(async () => { throw new Error('never'); }),
   };
   const productAnalytics = createProductAnalytics();
@@ -3058,7 +3058,7 @@ test('tomorrow\'s preview opens in detail read-only, with its own forecast', asy
   );
   expect(await result.findByTestId('outfit-detail-weather-recap')).toHaveTextContent(/7\.2°\sto\s9\.6°/);
   expect(result.getByTestId('outfit-detail-weather-recap')).toHaveTextContent(/Rain/);
-  await waitFor(() => expect(outfitHistory.get).toHaveBeenCalled());
+  await waitFor(() => expect(outfitHistory.day).toHaveBeenCalled());
   expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
   expect(productAnalytics.analytics.names()).not.toContain('outfit_detail_opened');
   // Its screen view is not recorded either: tomorrow's preview records no analytics at all.
@@ -3120,17 +3120,17 @@ test.each([
   }
 });
 
-// ADR 0038: "Wore this today" writes one row per dressing day under its bare date. The same
-// look is never written twice, and another look replaces the day only after a confirmation.
-test('wore this today records the outfit once per dressing day', async () => {
+// ADR 0038: "Wore this today" records each look of a dressing day under its bare date, beside
+// the day's earlier looks, with no confirmation. The same look is never written twice.
+test('wore this today records each look of the day beside the earlier ones', async () => {
   mockParams = { id: todayOutfitId(1) };
   if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
-  let stored: WornOutfit | null = null;
+  const stored: WornOutfit[] = [];
   const outfitHistory = {
     list: jest.fn(async () => []),
-    get: jest.fn(async () => stored ? { outfit: stored } as never : null),
+    day: jest.fn(async () => stored.map((outfit) => ({ outfit })) as never),
     log: jest.fn(async (_day: string, outfit: WornOutfit, _pieceColors: unknown) => {
-      stored = outfit;
+      stored.push(outfit);
       return { outfit } as never;
     }),
   };
@@ -3146,7 +3146,7 @@ test('wore this today records the outfit once per dressing day', async () => {
   };
   const result = await render(<Providers {...props}><OutfitDetailRoute /></Providers>);
 
-  await waitFor(() => expect(outfitHistory.get).toHaveBeenCalledWith('2026-08-13'));
+  await waitFor(() => expect(outfitHistory.day).toHaveBeenCalledWith('2026-08-13'));
   await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
   expect(outfitHistory.log).toHaveBeenCalledTimes(1);
   expect(outfitHistory.log).toHaveBeenCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[0]),
@@ -3159,18 +3159,21 @@ test('wore this today records the outfit once per dressing day', async () => {
   expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
   expect(props.productAnalytics.analytics.names()).not.toContain('outfit_worn_logged');
 
-  // Another outfit of the same day asks before it replaces the record.
+  // Another outfit of the same day is recorded beside the first, without asking.
   mockParams = { id: todayOutfitId(2) };
   await result.rerender(<Providers {...props}><OutfitDetailRoute /></Providers>);
   await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
-  expect(alert).toHaveBeenCalledTimes(1);
-  expect(alert.mock.calls[0][0]).toBe(messages.en.today.wornReplaceTitle);
-  expect(outfitHistory.log).toHaveBeenCalledTimes(1);
-  const confirm = alert.mock.calls[0][2]?.find(({ style }) => style === 'destructive');
-  await act(async () => { confirm?.onPress?.(); });
   expect(outfitHistory.log).toHaveBeenCalledTimes(2);
   expect(outfitHistory.log).toHaveBeenLastCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[1]),
     expect.any(Object));
+  expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
+  expect(alert).not.toHaveBeenCalled();
+
+  // Back on the first look, the day still shows it worn.
+  mockParams = { id: todayOutfitId(1) };
+  await result.rerender(<Providers {...props}><OutfitDetailRoute /></Providers>);
+  expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
+  expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
   alert.mockRestore();
 });
 
@@ -3185,7 +3188,7 @@ test('a changed outfit records as manual, turns the full-screen back swipe off w
   const next = footwear[footwear.indexOf(pick.footwear.garment.garmentTypeId) + 1];
   const outfitHistory = {
     list: jest.fn(async () => []),
-    get: jest.fn(async () => null),
+    day: jest.fn(async () => []),
     log: jest.fn(async (_day: string, outfit: WornOutfit) => ({ outfit }) as never),
   };
   const props = {
