@@ -2533,6 +2533,21 @@ describe('finishing touches', () => {
   });
 });
 
+// S23: Today's header recedes as the outfit scrolls over it, through Weather's own ScrollDepth.
+test('the place row and the title recede together through the shared scroll depth', async () => {
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={todayScreenState} />,
+  ));
+  let depth = result.getByTestId('today-top-row').parent;
+  while (depth && StyleSheet.flatten(depth.props.style)?.pointerEvents === undefined) depth = depth.parent;
+  expect(StyleSheet.flatten(depth?.props.style)).toMatchObject({
+    opacity: 1, pointerEvents: 'auto', transform: [{ translateY: 0 }, { scale: 1 }],
+  });
+  expect(within(depth!).getByTestId('today-title')).toBeOnTheScreen();
+  expect(within(depth!).queryByTestId('today-stage', { includeHiddenElements: true })).toBeNull();
+});
+
 describe('the contextual weather-alert offer', () => {
   function offerProps(overrides: Partial<TodayAlertOffer> = {}): TodayAlertOffer {
     return {

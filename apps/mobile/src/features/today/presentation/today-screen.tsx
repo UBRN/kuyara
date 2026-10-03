@@ -26,6 +26,7 @@ import {
   Presence,
   useGarmentRoles,
   Screen,
+  ScrollDepth,
   Surface,
   useRefreshOutcomeHaptics,
   useTextScaling,
@@ -579,6 +580,8 @@ function TodayScreenContent({
       scrollToOverflowEnabled
       testID="today-screen">
       <View onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)} testID="today-content">
+        {/* S23: the header recedes behind the scrolling outfit the way Weather's does. */}
+        <ScrollDepth scrollOffset={scrollOffset}>
         {/* M7: the place at left and the dressing day's date opposite it. */}
         <ArrivesAfterHandoff index={0}>
           <View style={styles.topRow} testID="today-top-row">
@@ -631,6 +634,7 @@ function TodayScreenContent({
             </View>
           </View>
         </ArrivesAfterHandoff>
+        </ScrollDepth>
         {/* The badge waits for the new outfit's own source while a day-type change or a
             re-ask runs: it fades out and keeps its place, so the outfit under it never moves,
             and the new source fades in. A new outfit with no source closes the row in place,
