@@ -8,6 +8,7 @@ import {
 } from '@/features/recommendation/application/recommendation-application-controller';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import { mayOfferDayQuestion } from '@/features/today/application/today-state';
+import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import type { TodayScreenState } from '@/features/today/model';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
@@ -165,4 +166,21 @@ export function settledFirstOutfit(snapshot: RecommendationSnapshot | null | und
 /** Generation counts as running while Today is loading, except while a day question waits: that wait is on the person. */
 export function isGenerationRunning(presentationKind: string, awaitingDayQuestion: boolean | undefined): boolean {
   return presentationKind === 'loading' && !awaitingDayQuestion;
+}
+
+/**
+ * Which alert offer Today draws: a refused one stays to explain itself, an answered one is
+ * gone at once, and otherwise the offer the route handed down.
+ */
+export function alertOfferToRender<Offer>(
+  blockedOffer: Offer | null,
+  answered: boolean,
+  offered: Offer | null,
+): Offer | null {
+  return blockedOffer ?? (answered ? null : offered);
+}
+
+/** Accepting spends the once-only offer whatever the OS answers; a refusal keeps it to explain itself. */
+export function alertOfferAfterAccept(outcome: NotificationOptInOutcome): 'blocked' | 'answered' {
+  return outcome.outcome === 'blocked' ? 'blocked' : 'answered';
 }
