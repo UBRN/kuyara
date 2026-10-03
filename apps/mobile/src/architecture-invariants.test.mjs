@@ -1053,7 +1053,6 @@ const todayRouteDomainImports = Object.freeze({
     '@/features/weather/domain/weather',
   ],
   'app/(tabs)/(today)/[id].tsx': [
-    '@/domain/preferences',
     '@/features/analytics/domain/analytics-events',
     '@/features/analytics/domain/analytics-mappers',
     '@/features/recommendation/domain/outfit-history',
@@ -1121,16 +1120,20 @@ test('the departure quarter hour and wheel are defined only in the departure own
 });
 
 // A clothing preference is parsed once, at the boundary that reads it, and carries its type from
-// there; nothing re-checks it with isClothingPreference. The route still does, and the list only
-// shrinks.
-const recheckedClothingPreference = ['app/(tabs)/(today)/[id].tsx'];
-
+// there; nothing re-checks it with isClothingPreference.
 test('a parsed clothing preference is not re-checked inside the app', () => {
   const files = sourceFiles().filter((relativePath) =>
-    relativePath !== 'domain/preferences.ts' &&
     /\bisClothingPreference\(/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
-  assert.deepEqual(files, [...recheckedClothingPreference].sort(),
-    'drop the re-check, and shrink the list when a file stops making it');
+  assert.deepEqual(files, [], 'drop the re-check');
+});
+
+// The outfit detail's manual view is typed and built once, in today/application/composed-detail.ts.
+test('the detail manual view is defined and assembled only in composed-detail', () => {
+  const owner = 'features/today/application/composed-detail.ts';
+  const copies = sourceFiles().filter((relativePath) =>
+    relativePath !== owner &&
+    /\btype ManualDetail\b|optionId: suggestionId/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(copies, [], 'import ManualDetail or call manualDetailOf from composed-detail');
 });
 
 // A dressing-day key's calendar date is read by dressingDayDateKey (weather/domain/wardrobe-day.ts),

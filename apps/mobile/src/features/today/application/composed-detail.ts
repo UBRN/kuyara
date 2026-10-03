@@ -135,11 +135,31 @@ export type ManualDetail = Readonly<{
 export type DetailShowing = Readonly<{
   /** The composed option's view, or null while there is no composed result. */
   composed: ComposedDetail | null;
-  /** What the presentation draws in the opened option's place, or null while kuyara's pick shows. */
-  manual: ManualDetail | null;
   /** The look "Wore this today" records: `manual` once the outfit is the reader's, else the pick as recommended. */
   worn: WornOutfit | null;
 }>;
+
+type DetailMix = Pick<ManualMix<RecommendedOutfit>, 'outfit' | 'edited' | 'changedSlots' | 'changedAccessorySlots'>;
+
+/**
+ * What the presentation draws in the opened option's place: the reader's outfit once it is a
+ * composed result or carries an edit, or null while kuyara's pick shows as recommended.
+ */
+export function manualDetailOf(
+  mix: DetailMix | null,
+  composed: ComposedDetail | null,
+  suggestionId: string | undefined,
+): ManualDetail | null {
+  return mix && suggestionId && (composed || mix.edited)
+    ? {
+        optionId: suggestionId,
+        outfit: mix.outfit,
+        original: composed?.outfit,
+        changedSlots: composed ? composed.changedSlots : [...mix.changedSlots, ...mix.changedAccessorySlots],
+        pieceColors: composed?.pieceColors,
+      }
+    : null;
+}
 
 /**
  * Whether the outfit on detail is the reader's own, and everything that follows from it. A
@@ -149,22 +169,12 @@ export type DetailShowing = Readonly<{
 export function detailShowing(
   pick: RecommendedOutfit | null,
   option: ComposedOption | null,
-  mix: Pick<ManualMix<RecommendedOutfit>, 'outfit' | 'edited' | 'changedSlots' | 'changedAccessorySlots'> | null,
-  suggestionId: string | undefined,
+  mix: DetailMix | null,
 ): DetailShowing {
   const composed = option && mix ? composedDetail(option, mix.changedSlots, mix.changedAccessorySlots) : null;
   const changedOutfit = mix && (option || mix.edited) ? mix.outfit : null;
-  const manual = mix && suggestionId && (composed || mix.edited)
-    ? {
-        optionId: suggestionId,
-        outfit: mix.outfit,
-        original: composed?.outfit,
-        changedSlots: composed ? composed.changedSlots : [...mix.changedSlots, ...mix.changedAccessorySlots],
-        pieceColors: composed?.pieceColors,
-      }
-    : null;
   const worn = changedOutfit
     ? wornOutfitOrNull(changedOutfit, 'manual')
     : pick ? wornOutfitOrNull(pick) : null;
-  return { composed, manual, worn };
+  return { composed, worn };
 }
