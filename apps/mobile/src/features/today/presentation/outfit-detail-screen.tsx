@@ -1,4 +1,4 @@
-import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Platform,
@@ -6,55 +6,47 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, {
-  measure,
-  useAnimatedReaction,
-  useAnimatedRef,
-  useAnimatedStyle,
-  useScrollOffset,
-  useSharedValue,
-} from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 
 import {
   AppText,
   Button,
-  ClosetColorDisc,
   Crossfade,
-  colorFamilyFills,
-  DrawGrow,
-  garmentColorFamiliesBySlot,
-  garmentSwatchesBySlot,
-  Entrance,
-  FadeIn,
-  fadeTo,
   GarmentSwapBoard,
-  GarmentTileArtwork,
-  garmentBoardDressingOrder,
   Icon,
-  type GarmentOutfitPalette,
-  type IconName,
   keepGarmentColors,
   layoutGarmentBoard,
   Presence,
-  PressScale,
   Screen,
   haptics,
   swapRevealScroll,
-  useButtonBox,
   useGarmentRoles,
-  useTextScaling,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
-import type { ColorFamily, GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
+import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { ManualMix } from '@/features/recommendation/application/use-manual-mix';
 import type { SwappableSlot } from '@/features/recommendation/domain/manual-mix';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { WornPieceColors } from '@/features/recommendation/domain/outfit-history';
+import type { ClosetSeedOffer, OutfitWornState } from '@/features/today/application/outfit-detail-state';
+import {
+  type NameRect,
+  OutfitDetailBoardHint,
+  OutfitDetailNameRow,
+} from '@/features/today/presentation/outfit-detail-board-names';
+import { pieceEntries } from '@/features/today/presentation/outfit-detail-entries';
+import { OutfitDetailClosetSeed, OutfitDetailPieceRows } from '@/features/today/presentation/outfit-detail-pieces';
+import { OutfitDetailRecap } from '@/features/today/presentation/outfit-detail-recap';
+import { OutfitDetailWhy, useWhyInView } from '@/features/today/presentation/outfit-detail-why';
+import {
+  OutfitDetailWorn,
+  type WornControl,
+  type WornSwap,
+} from '@/features/today/presentation/outfit-detail-worn';
 import { OutfitShareAction } from '@/features/today/presentation/outfit-share';
 import {
   PiecePickerSheet,
@@ -64,65 +56,17 @@ import { createTodayPresentation } from '@/features/today/presentation/today-pre
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
 import type { TodayScreenState } from '@/features/today/model';
-import { matchPieceOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
-import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
-import type { ClosetSeedPiece } from '@/features/wardrobe/application/closet-seed';
-import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
-import type { WeatherCause } from '@/features/recommendation/domain/weather-causes';
-import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { borderWidths, interaction, layout, plateTheme, radii, spacing } from '@/theme/theme';
-import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
-import { DarkPlate, PlateView } from '@/theme/plate-theme';
+import { layout, plateTheme, spacing } from '@/theme/theme';
+import { useEasierToSee } from '@/theme/easier-to-see';
+import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-// The detail draws its pieces at board scale; an accessory is not on the board, so it reads
-// at Law 6's standalone mark step. The artwork fills about 60 percent of its box, so 28
-// draws roughly 17 points of garment: enough for the silhouettes to stay apart from each
-// other. It is deliberately larger than the 20 point reason-row icons, which are glyphs
-// sized to the body line they sit beside rather than drawings that have to be recognised.
-const ACCESSORY_ARTWORK_SIZE = 28;
-// A piece row's thumbnail, and the smaller drawing of the user's own similar piece.
-const ROW_TILE_SIZE = 56;
-const OWN_TILE_SIZE = 32;
-// An owned piece's tick in its name button, at Law 6's caption step.
-const NAME_MARK_SIZE = 16;
-const SWATCH_DOT_SIZE = 16;
 // A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
 const OUTSIDE_TAP_SLOP = 10;
-
-// "Why this outfit": each weather's glyph, at Law 6's body step beside its word.
-const causeIcons: Readonly<Record<WeatherCause, IconName>> = {
-  rain: 'conditionRain',
-  snow: 'conditionSnow',
-  cold: 'thermometerCold',
-  heat: 'conditionClear',
-  wind: 'wind',
-  swing: 'thermometerSwing',
-};
-// The line from a weather to its pieces: a stroke, not a divider, so it reads in both appearances.
-const WHY_LINE_WIDTH = 2;
-
-/**
- * The empty Closet's offer on detail: `offer` shows "Add this to my Closet", whose tap asks
- * once whether the pieces are owned or wanted; `busy` is that answer being saved, `failed`
- * offers it again with the failure, `added` names how many pieces went in.
- */
-export type ClosetSeedOffer = Readonly<{
-  status: 'offer' | 'busy' | 'failed' | 'added';
-  addedCount: number;
-  onSeed: (pieces: readonly ClosetSeedPiece[], entryState: WardrobeEntryState) => void;
-}>;
-
-/**
- * Whether today's worn record is this outfit (`this`), another one (`other`), none, or not
- * read yet (`unknown`). One record per dressing day (ADR 0038).
- */
-export type OutfitWornState = 'this' | 'other' | 'none' | 'unknown';
-
-type NameRect = Readonly<{ x: number; y: number; w: number; h: number }>;
 
 type OutfitDetailScreenProps = Readonly<{
   state: TodayScreenState;
@@ -151,82 +95,6 @@ type OutfitDetailScreenProps = Readonly<{
   closetSeed?: ClosetSeedOffer | null;
 }>;
 
-type DetailSuggestion = Extract<ReturnType<typeof createTodayPresentation>, { kind: 'loaded' }>['suggestions'][number];
-
-/**
- * O7: each piece against the Closet, by type and the colour family the outfit draws it in.
- * The board, the captions and the rows all read this one list.
- */
-function pieceEntries(
-  suggestion: DetailSuggestion,
-  palette: GarmentOutfitPalette,
-  wardrobeItems: readonly WardrobeItem[],
-  copy: ReturnType<typeof getMessages>['today'],
-) {
-  const colorFamilies = garmentColorFamiliesBySlot(palette);
-  return suggestion.pieces.flatMap((piece) => {
-    const boardPiece = suggestion.boardPieces.find(
-      ({ garmentTypeId }) => garmentTypeId === piece.garmentTypeId,
-    );
-    if (!boardPiece) return [];
-    const colorFamily: ColorFamily | null = colorFamilies.get(boardPiece.slot) ?? null;
-    const match = matchPieceOwnership(piece.garmentTypeId, colorFamily, wardrobeItems);
-    const status = match.kind === 'owned'
-      ? copy.ownershipOwnedAction
-      : match.kind === 'similar'
-        ? copy.ownershipSimilarLabel
-        : match.kind === 'wanted' ? copy.ownershipWantedAction : null;
-    const target: PieceSheetTarget = {
-      garmentTypeId: piece.garmentTypeId,
-      category: piece.category,
-      name: piece.item,
-      slot: piece.slot,
-      suggestedColorFamily: colorFamily,
-      match,
-    };
-    return [{
-      piece,
-      slot: boardPiece.slot,
-      match,
-      status,
-      target,
-      // Assistive tech hears the state of every piece, the untracked default included.
-      spokenLabel: `${piece.item}, ${piece.slot}, ${status ?? copy.ownershipUntrackedLabel}`,
-    }];
-  });
-}
-
-/** Content that fades in when it is replaced (effects motion), and stays still on mount. */
-function FadeOnChange({ animate, children }: Readonly<{ animate: boolean; children: ReactNode }>) {
-  const theme = useKuyaraTheme();
-  // A piece row draws this over its full-row pressable, so the fade itself never takes a touch.
-  return <FadeIn animate={animate} duration={theme.motion.normal} pointerEvents="box-none">{children}</FadeIn>;
-}
-
-/** A leaving worn control: whole in its first frame, gone on `fast`, then out of the tree. */
-function FadeOut({ onDone, children }: Readonly<{ onDone: () => void; children: ReactNode }>) {
-  const theme = useKuyaraTheme();
-  const opacity = useSharedValue(1);
-  useEffect(() => {
-    opacity.set(fadeTo(0, theme.motion.fast, theme.motion, (finished) => {
-      'worklet';
-      if (finished) scheduleOnRN(onDone);
-    }));
-  }, [onDone, opacity, theme.motion]);
-  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
-  return (
-    <Animated.View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      pointerEvents="none"
-      style={[StyleSheet.absoluteFill, style]}>
-      {children}
-    </Animated.View>
-  );
-}
-
-type WornControl = 'state' | 'action';
-
 export function OutfitDetailScreen({
   state,
   language,
@@ -245,10 +113,7 @@ export function OutfitDetailScreen({
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
   const easierToSeeOn = useEasierToSee();
-  // The worn state takes the large button's box, so the swap moves nothing below it.
-  const wornBox = useButtonBox('large');
   const { hour12, temperatureUnit } = useLocalization();
-  const { stacksButtonPair } = useTextScaling();
   // The column's width is seeded from the window, as `Screen` lays it out, so the board is
   // drawn on the first frame: a zoom from a Today alternative grows the finished screen
   // instead of one whose board appears after its own layout. The layout event then confirms it.
@@ -282,21 +147,9 @@ export function OutfitDetailScreen({
   const piecesTop = useRef(0);
   const { height: windowHeight } = useWindowDimensions();
   // "Why this outfit" draws its lines once the whole section stands clear of the floating tab
-  // bar, not while it is still below the fold or under the bar. The section's layout re-arms
-  // the check; a scroll re-runs it until the section has been seen, and then it measures no more.
-  const whyRef = useAnimatedRef<Animated.View>();
-  const [whyLaidOut, setWhyLaidOut] = useState(0);
-  const [whyInView, setWhyInView] = useState(false);
-  const whyVisibleBottom = windowHeight - insets.bottom - layout.minimumTouchTarget;
-  useAnimatedReaction(() => {
-    if (whyInView) return true;
-    scrollOffset.get();
-    if (whyLaidOut === 0) return false;
-    const box = measure(whyRef);
-    return box !== null && box.pageY + box.height < whyVisibleBottom;
-  }, (inView, before) => {
-    if (inView && !before) scheduleOnRN(setWhyInView, true);
-  }, [whyInView, whyLaidOut, whyVisibleBottom]);
+  // bar; see `useWhyInView`.
+  const { whyRef, whyInView, onWhyLayout } = useWhyInView(
+    scrollOffset, windowHeight - insets.bottom - layout.minimumTouchTarget);
   const now = useForegroundClock();
   // Both are built once per input: React Compiler treats a hook's result as final, so the
   // values derived from them below keep their identity across the screen's own state changes
@@ -383,9 +236,7 @@ export function OutfitDetailScreen({
   // "Wore this" and the worn state replace each other in place: the leaving one fades out on
   // `fast` over the arriving one, which fades in on `normal`. Nothing fades on opening.
   const wornShown: WornControl | null = worn === 'this' ? 'state' : onWoreThis ? 'action' : null;
-  const [wornSwap, setWornSwap] = useState<Readonly<{
-    current: WornControl | null; previous: WornControl | null; previousBusy: boolean; changes: number;
-  }>>({ current: wornShown, previous: null, previousBusy: false, changes: 0 });
+  const [wornSwap, setWornSwap] = useState<WornSwap>({ current: wornShown, previous: null, previousBusy: false, changes: 0 });
   if (wornSwap.current !== wornShown) {
     setWornSwap({ current: wornShown, previous: wornSwap.current, previousBusy: wornBusy, changes: wornSwap.changes + 1 });
   }
@@ -424,15 +275,6 @@ export function OutfitDetailScreen({
     return () => clearTimeout(timer);
   }, [applyPendingChoice, pickerSlot, theme.motion.deliberate]);
 
-  const colorName = (family: ColorFamily | null) => family
-    ? messages.catalog[`catalog.color_family.${family}`] : messages.wardrobe.colorUnspecified;
-  // O8: the user's own piece is named by its palette option when it has one, else by family.
-  const ownColorName = (item: WardrobeItem) => (item.colorChoice?.kind === 'option'
-    ? messages.wardrobe.colorOptionNames[item.colorChoice.id] : undefined) ?? colorName(item.colorFamily);
-  const swatchFill = (family: ColorFamily) => {
-    const fill = colorFamilyFills[theme.colorScheme][family];
-    return typeof fill === 'string' ? fill : fill[0];
-  };
   const pieceName = (garmentTypeId: GarmentTypeId) => messages.catalog[`catalog.garment_type.${garmentTypeId}.name`];
 
   // One announcement per change, never two that cut each other off (final-spec section 8):
@@ -524,74 +366,31 @@ export function OutfitDetailScreen({
   const captionRects = Object.fromEntries(Object.entries(nameRects).map(([slot, rect]) => [slot, {
     x: rect.x, y: nameRowTop + rect.y, w: rect.w, h: rect.h,
   }]));
-  // The names read in the order the outfit is put on, the order the board stacks its pieces.
-  const namedPieces = [...suggestion.boardPieces].sort((a, b) =>
-    garmentBoardDressingOrder.indexOf(a.slot) - garmentBoardDressingOrder.indexOf(b.slot));
   // The names, the hint and their marks stand on the board's plate.
   const onBoard = plateTheme(theme, theme.colors.garmentGround).colors;
-  const renderName = ({ slot, garmentTypeId }: (typeof suggestion.boardPieces)[number]) => {
-    const entry = entryFor(garmentTypeId);
-    if (!entry) return null;
-    return (
-      <View
-        key={`name-${slot}`}
-        onLayout={({ nativeEvent: { layout: box } }) => {
-          const rect = nameRects[slot];
-          if (rect && rect.x === box.x && rect.y === box.y && rect.w === box.width && rect.h === box.height) return;
-          setNameRects((current) => ({ ...current, [slot]: { x: box.x, y: box.y, w: box.width, h: box.height } }));
-        }}
-        style={[styles.nameButton, { borderColor: onBoard.borderDefined }]}
-        testID={`outfit-detail-name-${garmentTypeId}`}>
-        <AppText style={styles.nameLabel} variant="label">{entry.piece.item}</AppText>
-        {/* An owned piece carries a tick and nothing else; its row and its board element say it
-            in words. */}
-        {entry.match.kind === 'owned' ? (
-          <View testID={`outfit-detail-name-owned-${garmentTypeId}`}>
-            <Icon color={onBoard.brandAccent} name="check" size={NAME_MARK_SIZE} />
-          </View>
-        ) : null}
-      </View>
-    );
-  };
-
-  // The hint names the gesture until the first change; the strip takes its place while a
-  // piece is enlarged. It rises in once, with the screen; after a change it only returns
-  // with the board's own fade.
-  const boardHintLine = (
-    <View style={styles.boardLine}>
-      <Icon color={onBoard.iconSecondary} name="info" size={16} />
-      <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
-        {copy.boardHint}
-      </AppText>
-    </View>
-  );
   // Where the board's plate shows (the dark appearance), the hint and the names keep off its edge.
   const plateShown = theme.colors.garmentGround !== theme.colors.background;
   const boardHint = (
-    <View style={plateShown && styles.hintOnPlate} testID="outfit-detail-edit-hint">
-      {everChanged ? boardHintLine : <Entrance>{boardHintLine}</Entrance>}
-    </View>
+    <OutfitDetailBoardHint everChanged={everChanged} onBoard={onBoard} plateShown={plateShown} text={copy.boardHint} />
   );
-
-  const wornStateContent = (
-    <>
-      <Icon color={theme.colors.successInk} name="checkCircle" size={20} />
-      <AppText variant="bodyStrong">{copy.wornToday}</AppText>
-    </>
-  );
-
-  // Drawn for the eye: each piece's adjustable element on the board speaks its name and its
-  // Closet state, and the board's own tap reads the buttons' rectangles.
   const boardOverlay = (
-    <View
-      onLayout={({ nativeEvent }) => {
-        if (nativeEvent.layout.height !== nameRowHeight) setNameRowHeight(nativeEvent.layout.height);
-      }}
-      style={[styles.nameRow, plateShown && styles.nameRowOnPlate, { top: nameRowTop }]}
-      testID="outfit-detail-names">
-      {namedPieces.map(renderName)}
-    </View>
+    <OutfitDetailNameRow
+      boardPieces={suggestion.boardPieces}
+      entries={entries}
+      nameRects={nameRects}
+      nameRowHeight={nameRowHeight}
+      onBoard={onBoard}
+      plateShown={plateShown}
+      setNameRects={setNameRects}
+      setNameRowHeight={setNameRowHeight}
+      top={nameRowTop}
+    />
   );
+  const revealFirstPiece = () => scrollRef.current?.scrollTo({
+    animated: true,
+    y: Math.max(0, piecesTop.current - windowHeight / 3),
+  });
+  const scrollBy = (dy: number) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy });
 
   return (
     <Screen ref={scrollRef} scrollToOverflowEnabled testID="outfit-detail-screen">
@@ -682,51 +481,15 @@ export function OutfitDetailScreen({
           </View>
         </Presence>
 
-        {/* ADR 0038: one worn record per dressing day, written only by this action. */}
-        {wornShown !== null || wornSwap.previous !== null ? (
-          <TourTarget id="worn" style={styles.wornAction}>
-            {wornShown !== null ? (
-              <FadeOnChange animate={wornSwap.changes > 0} key={`worn-in-${wornSwap.changes}`}>
-                {wornShown === 'action' && onWoreThis ? (
-                  <Button
-                    icon="calendarCheck"
-                    label={copy.wornAction}
-                    loading={wornBusy}
-                    onPress={() => onWoreThis(garmentSwatchesBySlot(palette))}
-                    pressHaptic={false}
-                    size="large"
-                    testID="outfit-detail-wore-this"
-                  />
-                ) : (
-                  <View
-                    accessible
-                    accessibilityLabel={copy.wornToday}
-                    style={[styles.wornState, wornBox, { borderColor: theme.colors.borderDefined }]}
-                    testID="outfit-detail-worn">
-                    {wornStateContent}
-                  </View>
-                )}
-              </FadeOnChange>
-            ) : null}
-            {wornSwap.previous !== null ? (
-              <FadeOut key={`worn-out-${wornSwap.changes}`} onDone={clearWornPrevious}>
-                {wornSwap.previous === 'state' ? (
-                  <View style={[styles.wornState, wornBox, { borderColor: theme.colors.borderDefined }]}>
-                    {wornStateContent}
-                  </View>
-                ) : (
-                  <Button
-                    icon="calendarCheck"
-                    label={copy.wornAction}
-                    loading={wornSwap.previousBusy}
-                    onPress={() => undefined}
-                    size="large"
-                  />
-                )}
-              </FadeOut>
-            ) : null}
-          </TourTarget>
-        ) : null}
+        <OutfitDetailWorn
+          copy={copy}
+          onPreviousDone={clearWornPrevious}
+          onWoreThis={onWoreThis}
+          palette={palette}
+          wornBusy={wornBusy}
+          wornShown={wornShown}
+          wornSwap={wornSwap}
+        />
         <Presence testID="outfit-detail-worn-error" visible={Boolean(wornError)}>
           <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.wornError} variant="caption">
             {wornError ?? shownWornError}
@@ -743,77 +506,15 @@ export function OutfitDetailScreen({
           />
         </Presence>
 
-        {/* "Why this outfit": each weather that put a piece in the outfit, drawn as a line to
-            the pieces it caused and said as one sentence, then the honest "but" of any
-            trade-off the outfit makes. The deterministic requirements decide it, never AI, and
-            a change recomputes it for the pieces worn. Mild weather with no trade-off leaves
-            the section absent. */}
-        {suggestion.weatherLinks.length > 0 || tradeoffs.length > 0 ? (
-          <Animated.View
-            onLayout={whyInView ? undefined : () => setWhyLaidOut((count) => count + 1)}
-            ref={whyRef}
-            style={styles.section}
-            testID="outfit-detail-why">
-            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
-              {copy.whyOutfit.heading}
-            </AppText>
-            <View style={styles.whyList}>
-              {suggestion.weatherLinks.map((link, index) => (
-                <View
-                  accessible
-                  accessibilityLabel={link.text}
-                  key={link.cause}
-                  style={styles.whyRow}
-                  testID={`outfit-detail-why-${link.cause}`}>
-                  <View style={styles.whyLine}>
-                    <View style={styles.whyCause}>
-                      <Icon color={theme.colors.iconSecondary} name={causeIcons[link.cause]} size={20} />
-                      <AppText variant="bodyStrong">{link.label}</AppText>
-                    </View>
-                    <DrawGrow
-                      index={index}
-                      play
-                      style={[styles.whyStroke, { backgroundColor: theme.colors.iconSecondary }]}
-                      testID={`outfit-detail-why-line-${link.cause}`}
-                      waiting={!whyInView}
-                    />
-                    <View style={styles.whyPieces}>
-                      {link.pieces.map((piece) => (
-                        <PlateView color={theme.colors.garmentTile} key={piece.slot} style={styles.ownTile}>
-                          <GarmentTileArtwork
-                            category={piece.category}
-                            colorFamily={null}
-                            garmentTypeId={piece.garmentTypeId}
-                            glyphSize={OWN_TILE_SIZE * 0.6}
-                            height={OWN_TILE_SIZE}
-                            photoTestID={`outfit-detail-why-${link.cause}-photo-${piece.garmentTypeId}`}
-                            photoUri={null}
-                            placeholderTestID={`outfit-detail-why-${link.cause}-glyph-${piece.garmentTypeId}`}
-                            roles={pieceRoles.get(piece.slot)}
-                            silhouetteTestID={`outfit-detail-why-${link.cause}-silhouette-${piece.garmentTypeId}`}
-                            width={OWN_TILE_SIZE}
-                          />
-                        </PlateView>
-                      ))}
-                    </View>
-                  </View>
-                  <AppText colorRole="textSecondary" style={styles.whyNames} variant="caption">
-                    {link.pieces.map(({ item }) => item).join(', ')}
-                  </AppText>
-                </View>
-              ))}
-              {tradeoffs.map((row) => (
-                // A trade-off is a status, so it keeps Law 4's warning ink, glyph and words.
-                <View key={`tradeoff-${row.id}`} style={styles.tradeoffRow} testID={`outfit-detail-tradeoff-${row.id}`}>
-                  <Icon color={theme.colors.warningInk} name="warning" size={20} />
-                  <AppText colorRole="textSecondary" style={styles.flexText} variant="body">
-                    {row.text}
-                  </AppText>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        ) : null}
+        <OutfitDetailWhy
+          copy={copy}
+          onWhyLayout={onWhyLayout}
+          pieceRoles={pieceRoles}
+          tradeoffs={tradeoffs}
+          weatherLinks={suggestion.weatherLinks}
+          whyInView={whyInView}
+          whyRef={whyRef}
+        />
 
         <View
           onLayout={({ nativeEvent }) => { piecesTop.current = nativeEvent.layout.y; }}
@@ -822,306 +523,41 @@ export function OutfitDetailScreen({
           <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
             {presentation.copy.piecesHeading}
           </AppText>
-          {/* The empty Closet's one tap: the pieces go in as owned, in the colours drawn here,
-              through the Closet's own create path. Gone once the Closet holds anything. */}
           {closetSeed ? (
-            <>
-              <Presence testID="outfit-detail-closet-seed" visible={closetSeed.status !== 'added'}>
-                {seedAsking || closetSeed.status === 'busy' ? (
-                  <View style={styles.seedBlock} testID="outfit-detail-closet-seed-choice">
-                    <AppText accessibilityRole="header" variant="label">{copy.closetSeed.question}</AppText>
-                    <View style={styles.seedChoices}>
-                      {(['owned', 'wanted'] as const).map((entryState) => (
-                        <Button
-                          icon={entryState === 'owned' ? 'hanger' : 'heartFilled'}
-                          key={entryState}
-                          label={copy.closetSeed.choice[entryState]}
-                          loading={closetSeed.status === 'busy' && seedAnswer === entryState}
-                          onPress={() => {
-                            if (closetSeed.status === 'busy') return;
-                            setSeedAnswer(entryState);
-                            closetSeed.onSeed(entries.map(({ piece, target }) => ({
-                              garmentTypeId: piece.garmentTypeId,
-                              colorFamily: target.suggestedColorFamily,
-                            })), entryState);
-                          }}
-                          testID={`outfit-detail-closet-seed-${entryState}`}
-                          variant="tonal"
-                        />
-                      ))}
-                      <Button
-                        label={copy.closetSeed.cancel}
-                        onPress={() => {
-                          if (closetSeed.status !== 'busy') setSeedAsking(false);
-                        }}
-                        testID="outfit-detail-closet-seed-cancel"
-                        variant="plain"
-                      />
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.seedBlock}>
-                    <AppText colorRole="textSecondary" variant="caption">{copy.closetSeed.body}</AppText>
-                    <Button
-                      icon="plus"
-                      label={copy.closetSeed.action}
-                      onPress={() => setSeedAsking(true)}
-                      style={styles.seedButton}
-                      testID="outfit-detail-closet-seed-button"
-                      variant="tonal"
-                    />
-                  </View>
-                )}
-                {closetSeed.status === 'failed' ? (
-                  <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.seedFailed} variant="caption">
-                    {copy.closetSeed.failed}
-                  </AppText>
-                ) : null}
-              </Presence>
-              <Presence testID="outfit-detail-closet-seeded" visible={closetSeed.status === 'added'}>
-                <View style={styles.seedDone}>
-                  <Icon color={theme.colors.successInk} name="checkCircle" size={16} />
-                  <AppText accessibilityLiveRegion="polite" style={styles.flexText} variant="caption">
-                    {copy.closetSeed.added(closetSeed.addedCount)}
-                  </AppText>
-                </View>
-              </Presence>
-            </>
+            <OutfitDetailClosetSeed
+              closetSeed={closetSeed}
+              copy={copy}
+              entries={entries}
+              seedAnswer={seedAnswer}
+              seedAsking={seedAsking}
+              setSeedAnswer={setSeedAnswer}
+              setSeedAsking={setSeedAsking}
+            />
           ) : null}
-          <View>
-            {entries.map(({ piece, slot, match, status, target, spokenLabel }, index) => {
-              const pressed = pressedRow === slot;
-              const rowBody = (
-                <View
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  pointerEvents="none"
-                  style={[styles.rowBody, pressed && styles.rowPressed]}>
-                  <PlateView color={theme.colors.garmentTile} style={styles.rowTile}>
-                    <GarmentTileArtwork
-                      category={piece.category}
-                      colorFamily={null}
-                      garmentTypeId={piece.garmentTypeId}
-                      glyphSize={ROW_TILE_SIZE * 0.6}
-                      height={ROW_TILE_SIZE}
-                      photoTestID={`outfit-detail-piece-photo-${piece.garmentTypeId}`}
-                      photoUri={null}
-                      placeholderTestID={`outfit-detail-piece-glyph-${piece.garmentTypeId}`}
-                      roles={pieceRoles.get(slot)}
-                      silhouetteTestID={`outfit-detail-piece-silhouette-${piece.garmentTypeId}`}
-                      width={ROW_TILE_SIZE}
-                    />
-                  </PlateView>
-                  <View style={styles.rowText} testID={`outfit-detail-piece-text-${piece.garmentTypeId}`}>
-                    <AppText variant="bodyStrong">{piece.item}</AppText>
-                    <AppText colorRole="textSecondary" variant="caption">{piece.slot}</AppText>
-                    {piece.changed ? (
-                      <AppText colorRole="brandAccent" testID={`outfit-detail-piece-changed-${piece.garmentTypeId}`}
-                        variant="caption">
-                        {copy.manualMix.changed}
-                      </AppText>
-                    ) : null}
-                    {match.kind !== 'none' && status ? (
-                      <View style={styles.rowStatus} testID={`outfit-detail-piece-status-${piece.garmentTypeId}`}>
-                        <Icon color={theme.colors.brandAccent} name={match.kind === 'wanted' ? 'heartFilled' : 'hanger'} size={16} />
-                        <AppText variant="caption">{status}</AppText>
-                        {match.kind === 'owned' ? (
-                          <Icon color={theme.colors.brandAccent} name="check" size={16} />
-                        ) : null}
-                      </View>
-                    ) : null}
-                    {match.kind === 'similar' ? (
-                      <View style={styles.rowStatus} testID={`outfit-detail-piece-yours-${piece.garmentTypeId}`}>
-                        <PlateView color={theme.colors.garmentTile} style={styles.ownTile}>
-                          <GarmentTileArtwork
-                            category={piece.category}
-                            colorChoice={match.item.colorChoice ?? null}
-                            colorFamily={match.item.colorFamily}
-                            garmentTypeId={piece.garmentTypeId}
-                            glyphSize={OWN_TILE_SIZE * 0.6}
-                            height={OWN_TILE_SIZE}
-                            photoTestID={`outfit-detail-yours-photo-${piece.garmentTypeId}`}
-                            photoUri={null}
-                            placeholderTestID={`outfit-detail-yours-glyph-${piece.garmentTypeId}`}
-                            silhouetteTestID={`outfit-detail-yours-silhouette-${piece.garmentTypeId}`}
-                            width={OWN_TILE_SIZE}
-                          />
-                        </PlateView>
-                        {match.item.colorChoice ? (
-                          <ClosetColorDisc
-                            choice={match.item.colorChoice}
-                            size={SWATCH_DOT_SIZE}
-                            testID={`outfit-detail-yours-swatch-${piece.garmentTypeId}`}
-                          />
-                        ) : match.item.colorFamily ? (
-                          <View style={[styles.swatchDot, {
-                            backgroundColor: swatchFill(match.item.colorFamily),
-                            borderColor: theme.colors.borderDefined,
-                          }]} />
-                        ) : null}
-                        <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
-                          {copy.ownershipYours(ownColorName(match.item))}
-                        </AppText>
-                      </View>
-                    ) : null}
-                  </View>
-                  {stacksButtonPair || !manualMix ? (
-                    <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
-                  ) : null}
-                </View>
-              );
-              const change = manualMix ? (
-                <Button
-                  accessibilityLabel={copy.manualMix.changeAccessibilityLabel[slot as SwappableSlot](piece.item)}
-                  label={copy.manualMix.change}
-                  onPress={() => openPicker(slot as SwappableSlot)}
-                  size="medium"
-                  style={stacksButtonPair ? styles.changeStacked : undefined}
-                  testID={`outfit-detail-change-${slot}`}
-                  variant="plain"
-                />
-              ) : null;
-              const rowLabel = [
-                spokenLabel,
-                piece.changed ? copy.manualMix.changed : null,
-                match.kind === 'similar' ? copy.ownershipYours(ownColorName(match.item)) : null,
-              ].filter(Boolean).join(', ');
-              return (
-                // Phase 8: the first piece row is the tour's step 2 control. The wrapper adds a
-                // plain view around the whole row, so the tour lights the row, and nothing else.
-                <TourTarget
-                  activate={() => onEditPiece(target)}
-                  id={index === 0 ? 'piece' : null}
-                  key={slot}
-                  label={rowLabel}
-                  name={piece.item}
-                  reveal={() => scrollRef.current?.scrollTo({
-                    animated: true,
-                    y: Math.max(0, piecesTop.current - windowHeight / 3),
-                  })}
-                  scrollBy={(dy) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy })}>
-                  <View
-                    style={[styles.pieceRow, easierToSeeOn && styles.pieceRowLarge, index > 0 && {
-                      borderTopColor: theme.colors.borderSubtle,
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                    }]}>
-                    {/* O6: the row is the one control that opens the piece's Closet sheet; the
-                        Change control above it is its own element. */}
-                    <PressScale
-                      accessibilityHint={copy.editPieceAccessibilityHint}
-                      accessibilityLabel={rowLabel}
-                      accessibilityRole="button"
-                      onPress={() => onEditPiece(target)}
-                      onPressIn={() => setPressedRow(slot)}
-                      onPressOut={() => setPressedRow(null)}
-                      style={StyleSheet.absoluteFill}
-                      testID={`outfit-detail-piece-${piece.garmentTypeId}`}
-                    />
-                    <FadeOnChange animate={everChanged} key={piece.garmentTypeId}>
-                      <View pointerEvents="box-none" style={stacksButtonPair ? styles.rowStack : styles.rowLine}>
-                        {rowBody}
-                        {change}
-                        {stacksButtonPair || !manualMix ? null : (
-                          <View
-                            accessibilityElementsHidden
-                            importantForAccessibility="no-hide-descendants"
-                            pointerEvents="none"
-                            style={pressed && styles.rowPressed}>
-                            <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
-                          </View>
-                        )}
-                      </View>
-                    </FadeOnChange>
-                  </View>
-                </TourTarget>
-              );
-            })}
-          </View>
+          <OutfitDetailPieceRows
+            canChange={Boolean(manualMix)}
+            easierToSeeOn={easierToSeeOn}
+            entries={entries}
+            everChanged={everChanged}
+            messages={messages}
+            onEditPiece={onEditPiece}
+            openPicker={openPicker}
+            pieceRoles={pieceRoles}
+            pressedRow={pressedRow}
+            revealFirstPiece={revealFirstPiece}
+            scrollBy={scrollBy}
+            setPressedRow={setPressedRow}
+          />
         </View>
 
-        {suggestion.accessories.length > 0 ? (
-          <View style={styles.section} testID="outfit-detail-finishing-touches">
-            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
-              {presentation.copy.finishingTouchesHeading}
-            </AppText>
-            <View style={styles.accessoryList}>
-              {suggestion.accessories.map((accessory) => (
-                <View
-                  accessible
-                  accessibilityLabel={copy.finishingTouchesRowAccessibilityLabel({
-                    item: accessory.item,
-                    slot: accessory.slot,
-                  })}
-                  key={accessory.accessorySlot}
-                  style={styles.accessoryRow}
-                  testID={`outfit-detail-accessory-${accessory.garmentTypeId}`}>
-                  <DarkPlate style={styles.accessoryTile}>
-                    <GarmentTileArtwork
-                      category={accessory.category}
-                      colorFamily={null}
-                      roles={pieceRoles.get(accessory.accessorySlot)}
-                      garmentTypeId={accessory.garmentTypeId}
-                      glyphSize={ACCESSORY_ARTWORK_SIZE}
-                      height={ACCESSORY_ARTWORK_SIZE}
-                      photoTestID={`outfit-detail-accessory-photo-${accessory.garmentTypeId}`}
-                      photoUri={null}
-                      placeholderTestID={`outfit-detail-accessory-glyph-${accessory.garmentTypeId}`}
-                      silhouetteTestID={`outfit-detail-accessory-silhouette-${accessory.garmentTypeId}`}
-                      width={ACCESSORY_ARTWORK_SIZE}
-                    />
-                  </DarkPlate>
-                  <View style={styles.accessoryText}>
-                    <AppText variant="bodyStrong">{accessory.item}</AppText>
-                    <AppText colorRole="textSecondary" variant="caption">
-                      {accessory.slot}
-                    </AppText>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {/* ADR 0034 section 4: where the outfit was chosen is metadata, so it reads last,
-            after the pieces and before the weather recap, as one plain sentence on the
-            page ground. No card, no glyph, no accent, no pill, and no provider name. */}
-        {presentation.generationSource ? (
-          <FadeOnChange animate={everChanged} key={presentation.generationSource}>
-            <AppText
-              colorRole="textSecondary"
-              style={styles.generationSource}
-              testID="outfit-detail-generation-source"
-              variant="caption">
-              {presentation.generationSource}
-            </AppText>
-          </FadeOnChange>
-        ) : null}
-
-        <Entrance index={1}>
-          <PlateView
-            accessible
-            accessibilityLabel={presentation.weather.recapAccessibilityLabel}
-            color={stageColor}
-            style={styles.weatherRecap}
-            testID="outfit-detail-weather-recap">
-            <View style={styles.weatherRecapValues}>
-              <AppText tabularNumbers variant="caption">{presentation.weather.temperature}</AppText>
-              <AppText colorRole="textPrimary" variant="caption">{presentation.weather.condition}</AppText>
-              <AppText colorRole="textPrimary" tabularNumbers variant="caption">
-                {presentation.weather.rainProbability}
-              </AppText>
-            </View>
-            {/* N18: the hours this outfit was chosen for belong with the weather they describe. */}
-            {presentation.coverageCaption ? (
-              <View style={styles.weatherRecapCoverage} testID="outfit-detail-coverage">
-                <Icon color={plateTheme(theme, stageColor).colors.textPrimary} name="clock" size={16} />
-                <AppText colorRole="textPrimary" style={styles.weatherRecapCoverageText} tabularNumbers variant="caption">
-                  {presentation.coverageCaption}
-                </AppText>
-              </View>
-            ) : null}
-          </PlateView>
-        </Entrance>
+        <OutfitDetailRecap
+          accessories={suggestion.accessories}
+          copy={copy}
+          everChanged={everChanged}
+          pieceRoles={pieceRoles}
+          presentation={presentation}
+          stageColor={stageColor}
+        />
       </View>
       <OutfitShareAction palette={palette} presentation={presentation} suggestion={suggestion} />
       <PiecePickerSheet
@@ -1144,9 +580,6 @@ const styles = StyleSheet.create({
   missingSuggestionBody: {
     marginTop: spacing.sm,
   },
-  generationSource: {
-    marginTop: spacing.md,
-  },
   headingGroup: {
     marginTop: spacing.md,
   },
@@ -1156,39 +589,6 @@ const styles = StyleSheet.create({
   boardPlate: {
     borderRadius: 26,
     marginTop: spacing.xl,
-  },
-  nameRow: {
-    alignItems: 'stretch',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-  },
-  // The row stretches its buttons to one height per line; a button centres its label and tick.
-  nameButton: {
-    alignItems: 'center',
-    borderRadius: radii.pill,
-    borderWidth: borderWidths.subtle,
-    flexDirection: 'row',
-    flexShrink: 1,
-    gap: spacing.xs,
-    justifyContent: 'center',
-    minHeight: layout.minimumTouchTarget,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  nameLabel: {
-    flexShrink: 1,
-    textAlign: 'center',
-  },
-  nameRowOnPlate: {
-    paddingHorizontal: spacing.md,
-  },
-  hintOnPlate: {
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.md,
   },
   boardLine: {
     alignItems: 'center',
@@ -1203,170 +603,11 @@ const styles = StyleSheet.create({
   wornAction: {
     marginTop: spacing.md,
   },
-  wornState: {
-    alignItems: 'center',
-    borderRadius: radii.pill,
-    borderWidth: borderWidths.subtle,
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  pieceRow: {
-    minHeight: layout.minimumTouchTarget,
-    paddingVertical: spacing.md,
-  },
-  pieceRowLarge: {
-    minHeight: easierToSee.rowHeight,
-  },
-  rowLine: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  rowStack: {
-    gap: spacing.xs,
-  },
-  rowBody: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  rowPressed: {
-    opacity: interaction.pressedOpacity,
-  },
-  changeStacked: {
-    alignSelf: 'flex-start',
-    marginLeft: ROW_TILE_SIZE + spacing.md,
-  },
-  rowTile: {
-    alignItems: 'center',
-    borderRadius: radii.control,
-    height: ROW_TILE_SIZE,
-    justifyContent: 'center',
-    overflow: 'hidden',
-    width: ROW_TILE_SIZE,
-  },
-  rowText: {
-    flex: 1,
-    flexShrink: 1,
-    gap: spacing.xs,
-  },
-  rowStatus: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  ownTile: {
-    alignItems: 'center',
-    borderRadius: radii.control,
-    height: OWN_TILE_SIZE,
-    justifyContent: 'center',
-    overflow: 'hidden',
-    width: OWN_TILE_SIZE,
-  },
-  whyList: {
-    gap: spacing.md,
-  },
-  whyRow: {
-    gap: spacing.xs,
-  },
-  whyLine: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  whyCause: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexShrink: 1,
-    gap: spacing.sm,
-  },
-  whyStroke: {
-    borderRadius: WHY_LINE_WIDTH / 2,
-    flexGrow: 1,
-    height: WHY_LINE_WIDTH,
-    minWidth: spacing.xl,
-  },
-  whyPieces: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  whyNames: {
-    textAlign: 'right',
-  },
-  seedBlock: {
-    gap: spacing.sm,
-  },
-  seedButton: {
-    alignSelf: 'flex-start',
-  },
-  seedChoices: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  seedFailed: {
-    marginTop: spacing.sm,
-  },
-  seedDone: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  swatchDot: {
-    borderRadius: SWATCH_DOT_SIZE / 2,
-    borderWidth: borderWidths.subtle,
-    height: SWATCH_DOT_SIZE,
-    width: SWATCH_DOT_SIZE,
-  },
   wornError: {
     marginTop: spacing.sm,
   },
   section: {
     gap: spacing.md,
     marginTop: spacing.md,
-  },
-  accessoryList: {
-    gap: spacing.sm,
-  },
-  accessoryTile: {
-    borderRadius: radii.compact,
-    padding: spacing.xs,
-  },
-  accessoryRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  accessoryText: {
-    flex: 1,
-    flexShrink: 1,
-  },
-  tradeoffRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  weatherRecap: {
-    borderRadius: radii.card,
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    padding: spacing.lg,
-  },
-  weatherRecapValues: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    justifyContent: 'space-between',
-  },
-  weatherRecapCoverage: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  weatherRecapCoverageText: {
-    flexShrink: 1,
   },
 });

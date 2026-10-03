@@ -383,7 +383,7 @@ const rawPressableAllowlist = Object.freeze({
   // The hero board, the alternate tiles and the evening's tomorrow row.
   'features/today/presentation/today-screen.tsx': 3,
   // O6: the piece row opens the piece's sheet (the board changes pieces since Phase 7).
-  'features/today/presentation/outfit-detail-screen.tsx': 1,
+  'features/today/presentation/outfit-detail-pieces.tsx': 1,
   // Phase 7: a candidate row of the piece picker.
   'features/today/presentation/piece-picker-sheet.tsx': 1,
   // The text field's inline clear glyph.
