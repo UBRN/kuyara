@@ -16,6 +16,7 @@ import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment
 import {
   evaluateGarmentEligibility,
   projectCatalogEffectiveGarment,
+  type GarmentEligibilityResult,
 } from '@/features/recommendation/domain/garment-eligibility';
 import {
   assignedOutfitGarments,
@@ -194,6 +195,19 @@ export function excludeOutfitOptions(
   return filtered.length >= 3 ? Object.freeze(filtered) : outfits;
 }
 
+/** Every catalog garment of the profile's applicability, evaluated against the day: what the composer reads. */
+export function eligibilityCandidates(
+  requirements: ClothingRequirements,
+  clothingPreference: ClothingPreference,
+): readonly GarmentEligibilityResult[] {
+  return listGarmentTypesForPreference(clothingPreference).map((type) =>
+    evaluateGarmentEligibility(
+      requirements,
+      projectCatalogEffectiveGarment(type.typeId, clothingPreference),
+    ),
+  );
+}
+
 let lastComposedPool: Readonly<{ key: string; result: OutfitCompositionsResult }> | null = null;
 
 export function composeOutfitPool(
@@ -204,13 +218,12 @@ export function composeOutfitPool(
 ): OutfitCompositionsResult {
   const key = JSON.stringify([requirements, clothingPreference, dayVariant, recentWorn]);
   if (lastComposedPool?.key === key) return lastComposedPool.result;
-  const candidates = listGarmentTypesForPreference(clothingPreference).map((type) =>
-    evaluateGarmentEligibility(
-      requirements,
-      projectCatalogEffectiveGarment(type.typeId, clothingPreference),
-    ),
+  const result = composeOutfitOptions(
+    requirements,
+    eligibilityCandidates(requirements, clothingPreference),
+    dayVariant,
+    recentWorn,
   );
-  const result = composeOutfitOptions(requirements, candidates, dayVariant, recentWorn);
   lastComposedPool = { key, result };
   return result;
 }
@@ -220,6 +233,18 @@ export function composeOutfitPool(
  * the labels themselves both come from the same requirements, so a day can never be snowy
  * for the order and dry for the predicate.
  */
+function firstUnusedArchetype(
+  outfit: OutfitCandidate,
+  order: readonly OutfitArchetypeId[],
+  used: ReadonlySet<OutfitArchetypeId>,
+  dayKind: DayKind | undefined,
+  day: ArchetypeDay,
+): OutfitArchetypeId | undefined {
+  return order.find(
+    (candidate) => !used.has(candidate) && outfitMatchesArchetype(outfit, candidate, dayKind, day),
+  );
+}
+
 export function assignFallbackArchetypes(
   outfits: readonly OutfitCandidate[],
   requirements: ClothingRequirements,
@@ -231,10 +256,7 @@ export function assignFallbackArchetypes(
   const used = new Set<OutfitArchetypeId>();
   const selected: RecommendedOutfit[] = [];
   for (const outfit of outfits) {
-    const archetypeId = order.find(
-      (candidate) => !used.has(candidate)
-        && outfitMatchesArchetype(outfit, candidate, dayKind, day),
-    );
+    const archetypeId = firstUnusedArchetype(outfit, order, used, dayKind, day);
     if (!archetypeId) continue;
     used.add(archetypeId);
     selected.push(Object.freeze({
@@ -248,16 +270,55 @@ export function assignFallbackArchetypes(
   return Object.freeze(selected);
 }
 
+/**
+ * The labels for the one, two or three outfits compose around chosen pieces offers: the same
+ * order and predicates as Today's, each label used once while one fits, and the catch-all
+ * label for an outfit nothing else fits. Compose never throws for want of a distinct label;
+ * Today's three-pick path above still does.
+ */
+export function assignComposedArchetypes(
+  outfits: readonly OutfitCandidate[],
+  requirements: ClothingRequirements,
+  dayKind?: DayKind,
+): readonly RecommendedOutfit[] {
+  const order = fallbackArchetypeOrderFor(requirements);
+  const day = archetypeDayFromRequirements(requirements.requirements);
+  const used = new Set<OutfitArchetypeId>();
+  return Object.freeze(outfits.map((outfit) => {
+    const archetypeId = firstUnusedArchetype(outfit, order, used, dayKind, day) ?? 'everyday_easy';
+    used.add(archetypeId);
+    return Object.freeze({ ...outfit, optionId: outfitOptionId(outfit), archetypeId });
+  }));
+}
+
+/**
+ * Dress style reorders what is offered and excludes nothing (ADR 0031): aesthetic affinity
+ * first, then the style's formality ladder. Today's three and the compose picks share it.
+ */
+export function orderByDressStyle(
+  outfits: readonly OutfitCandidate[],
+  { dressStyle, styleAesthetics, dayKind }: Readonly<{
+    dressStyle?: DressStyle;
+    styleAesthetics?: readonly StyleAesthetic[];
+    dayKind?: DayKind;
+  }>,
+  requirements: ClothingRequirements,
+): readonly OutfitCandidate[] {
+  const day = archetypeDayFromRequirements(requirements.requirements);
+  const order: readonly FormalityLevel[] = formalityOrderByDressStyle[dressStyle ?? 'smart'];
+  return [...sortByAestheticAffinity(outfits, styleAesthetics ?? [],
+    (outfit, id) => outfitMatchesArchetype(outfit, id, dayKind, day))].sort(
+    (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
+  );
+}
+
 export function recommendOutfits(
   input: OutfitRecommendationInput,
 ): OutfitRecommendationResult {
   const requirements = deriveClothingRequirements(input.snapshot, input.now,
     input.departureAt ?? input.now);
-  const day = archetypeDayFromRequirements(requirements.requirements);
   const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
     input.recentWorn);
-  const order: readonly FormalityLevel[] =
-    formalityOrderByDressStyle[input.dressStyle ?? 'smart'];
 
   const availableOutfits = composition.status === 'composed'
     ? excludeOutfitOptions(composition.outfits, input.excludedOptionIds)
@@ -274,10 +335,7 @@ export function recommendOutfits(
         generationMode: 'deterministic-fallback',
         requirements,
         outfits: assignFallbackArchetypes(
-          [...sortByAestheticAffinity(availableOutfits, input.styleAesthetics ?? [],
-            (outfit, id) => outfitMatchesArchetype(outfit, id, input.dayKind, day))].sort(
-            (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
-          ),
+          orderByDressStyle(availableOutfits, input, requirements),
           requirements,
           Math.min(3, availableOutfits.length),
           input.dayKind,
