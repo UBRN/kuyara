@@ -22,3 +22,14 @@ test('optional names trim whitespace and accept only 2 to 30 characters', () => 
   assert.throws(() => profile.normalizeDisplayName('A'));
   assert.throws(() => profile.normalizeDisplayName('a'.repeat(31)));
 });
+
+test('either notification opt-in counts as wanting notifications', () => {
+  for (const [notificationsOptIn, morningBriefingOptIn, expected] of [
+    [false, false, false],
+    [true, false, true],
+    [false, true, true],
+    [true, true, true],
+  ]) {
+    assert.equal(profile.wantsAnyNotification({ notificationsOptIn, morningBriefingOptIn }), expected);
+  }
+});

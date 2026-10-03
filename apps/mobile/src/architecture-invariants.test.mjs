@@ -1122,3 +1122,15 @@ test('the active catalogue status is read only by the selectable types owner', (
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
   assert.equal(allowlist.length, 3, 'the active status allowlist only shrinks');
 });
+
+// "Either notification kind is on" is decided once, by `wantsAnyNotification` in
+// profile/domain/profile.ts. The listed route sites are switched to it next; the list only shrinks.
+test('the alerts opt-in is combined with the briefing opt-in only by wantsAnyNotification', () => {
+  const owner = 'features/profile/domain/profile.ts';
+  const allowlist = ['app/(tabs)/(profile)/settings/index.tsx', 'app/_layout.tsx'];
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && /(?<!!)notificationsOptIn\s*\|\|/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'call wantsAnyNotification');
+  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
+  assert.equal(allowlist.length, 2, 'the notification opt-in allowlist only shrinks');
+});

@@ -72,6 +72,13 @@ export function sortedStyleAesthetics(value: unknown): readonly StyleAesthetic[]
   return parsed.success ? orderStyleAesthetics(parsed.data) : [];
 }
 
+/** Either notification kind is on: the alerts opt-in or the morning briefing's. */
+export function wantsAnyNotification(
+  profile: Pick<Profile, 'notificationsOptIn' | 'morningBriefingOptIn'>,
+): boolean {
+  return profile.notificationsOptIn || profile.morningBriefingOptIn;
+}
+
 export function normalizeDisplayName(value: string | null): string | null {
   const name = value?.trim() ?? '';
   if (name === '') return null;
