@@ -7,6 +7,7 @@ import {
   alertOfferToRender,
   isFirstDressingDay,
   isGenerationRunning,
+  isUpdatingOutfit,
   manualRefreshOutcome,
   mayOpenDayQuestion,
   namePromptDue,
@@ -198,4 +199,11 @@ test('accepting the alert offer ends it unless the system refused', () => {
   assert.equal(alertOfferAfterAccept({ outcome: 'enabled' }), 'answered');
   assert.equal(alertOfferAfterAccept({ outcome: 'disabled' }), 'answered');
   assert.equal(alertOfferAfterAccept({ outcome: 'blocked', canRequestAgain: false }), 'blocked');
+});
+
+test('Today is updating while a day-type change or a window choice is under way', () => {
+  assert.equal(isUpdatingOutfit(null, null), false);
+  assert.equal(isUpdatingOutfit('smart', null), true);
+  assert.equal(isUpdatingOutfit(null, 'Choosing'), true);
+  assert.equal(isUpdatingOutfit('formal', 'Choosing'), true);
 });
