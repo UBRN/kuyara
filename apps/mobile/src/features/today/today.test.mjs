@@ -394,14 +394,14 @@ test('the unavailable branch offers a retry and says when the cause is being off
   assert.equal(generic.title, 'Today’s guidance is unavailable');
   assert.equal(rateLimited.title, 'Today’s guidance is unavailable');
   assert.equal(rateLimited.actionLabel, 'Refresh');
-  assert.equal(offline.title, 'You appear to be offline');
-  assert.equal(offline.body, 'Connect to the internet and try loading weather again.');
+  assert.equal(offline.title, 'You’re offline');
+  assert.equal(offline.body, 'Connect to the internet and try again.');
   assert.equal(
     offline.accessibilityLabel,
-    'You appear to be offline. Connect to the internet and try loading weather again.',
+    'You’re offline. Connect to the internet and try again.',
   );
   assert.equal(offline.actionLabel, 'Refresh');
-  assert.equal(offlineTurkish.title, 'Çevrimdışı görünüyorsun');
+  assert.equal(offlineTurkish.title, 'Çevrimdışısın');
   assert.equal(offlineTurkish.actionLabel, 'Yenile');
   // The missing-location branch keeps its own action: it opens the picker, not a retry.
   assert.equal(noLocation.actionLabel, 'Choose a location');

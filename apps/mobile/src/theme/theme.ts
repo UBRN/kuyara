@@ -311,6 +311,8 @@ export const radii = Object.freeze({
   compact: 8,
   control: 12,
   card: 20,
+  // The weather-coloured stage: Today's outfit stands on it, and Weather's current conditions.
+  stage: 26,
   sheet: 28,
   pill: 999,
 } as const);
