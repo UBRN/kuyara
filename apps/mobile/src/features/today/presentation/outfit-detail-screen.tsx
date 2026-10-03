@@ -286,19 +286,20 @@ export function OutfitDetailScreen({
   const { height: windowHeight } = useWindowDimensions();
   // "Why this outfit" draws its lines once the whole section stands clear of the floating tab
   // bar, not while it is still below the fold or under the bar. The section's layout re-arms
-  // the check; a scroll re-runs it.
+  // the check; a scroll re-runs it until the section has been seen, and then it measures no more.
   const whyRef = useAnimatedRef<Animated.View>();
   const [whyLaidOut, setWhyLaidOut] = useState(0);
   const [whyInView, setWhyInView] = useState(false);
   const whyVisibleBottom = windowHeight - insets.bottom - layout.minimumTouchTarget;
   useAnimatedReaction(() => {
+    if (whyInView) return true;
     scrollOffset.get();
     if (whyLaidOut === 0) return false;
     const box = measure(whyRef);
     return box !== null && box.pageY + box.height < whyVisibleBottom;
   }, (inView, before) => {
     if (inView && !before) scheduleOnRN(setWhyInView, true);
-  }, [whyLaidOut, whyVisibleBottom]);
+  }, [whyInView, whyLaidOut, whyVisibleBottom]);
   const now = useForegroundClock();
   // Both are built once per input: React Compiler treats a hook's result as final, so the
   // values derived from them below keep their identity across the screen's own state changes
@@ -752,7 +753,7 @@ export function OutfitDetailScreen({
             the section absent. */}
         {suggestion.weatherLinks.length > 0 || tradeoffs.length > 0 ? (
           <Animated.View
-            onLayout={() => setWhyLaidOut((count) => count + 1)}
+            onLayout={whyInView ? undefined : () => setWhyLaidOut((count) => count + 1)}
             ref={whyRef}
             style={styles.section}
             testID="outfit-detail-why">
