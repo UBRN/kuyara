@@ -20,15 +20,11 @@ import {
   type OutfitArchetypeId,
 } from '@kuyara/contracts';
 
+import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
 import { AiProviderError, type AiProvider } from './ai-provider.ts';
 import { PROBE_DAILY_LIMIT, type RateLimiter } from './probe-handler.ts';
-
-/** Adds one counted attempt under `dateKey` atomically and returns the new count. */
-export interface AiDailyCounter {
-  increment(dateKey: string): Promise<number>;
-}
 
 type Dependencies = Readonly<{
   providers: readonly AiProvider[];
@@ -37,7 +33,7 @@ type Dependencies = Readonly<{
    * Optional in the type so the unit tests can leave it out; the composition in `index.ts`
    * always supplies both, and a missing counter binding takes the route offline there.
    */
-  dailyCounter?: AiDailyCounter;
+  dailyCounter?: DailyCounterPort;
   dailyLimit?: number;
   now?: () => Date;
   attemptTimeoutMs?: number;
@@ -314,7 +310,7 @@ export function createAiHandler({
       if (provider.id === 'workers-ai') {
         if (workersAiPoolSpent) continue;
         if (dailyCounter && dailyLimit !== undefined) {
-          const dateKey = `ai:workers-ai:${now().toISOString().slice(0, 10)}`;
+          const dateKey = dailyCounterKey('ai:workers-ai', now());
           let count: number;
           try {
             count = await dailyCounter.increment(dateKey);

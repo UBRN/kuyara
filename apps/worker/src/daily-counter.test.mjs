@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { DailyCounter, createDurableDailyCounter } from './daily-counter.ts';
+import { DailyCounter, createDurableDailyCounter, dailyCounterKey } from './daily-counter.ts';
 
 // A Map-backed stand-in for `DurableObjectState.storage`: the four methods the counter uses.
 function fakeStorage(initial = {}) {
@@ -25,16 +25,16 @@ async function call(counter, method, path) {
   return { status: response.status, body: response.status === 200 ? await response.json() : null };
 }
 
-test('GET /count reads zero for an unknown key and the stored value otherwise', async () => {
-  const { counter } = counterObject({ 'probe:2026-09-15': 4 });
-  assert.deepEqual(await call(counter, 'GET', '/count?key=probe:2026-09-15'), {
-    status: 200,
-    body: { count: 4 },
-  });
-  assert.deepEqual(await call(counter, 'GET', '/count?key=probe:2026-09-16'), {
-    status: 200,
-    body: { count: 0 },
-  });
+test('dailyCounterKey is the counter name and the UTC day', () => {
+  assert.equal(dailyCounterKey('probe', new Date('2026-09-15T23:59:59.999Z')), 'probe:2026-09-15');
+  assert.equal(
+    dailyCounterKey('weather:weatherkit', new Date('2026-09-16T00:00:00.000Z')),
+    'weather:weatherkit:2026-09-16',
+  );
+  assert.equal(
+    dailyCounterKey('ai:workers-ai', new Date('2026-09-15T22:30:00.000-03:00')),
+    'ai:workers-ai:2026-09-16',
+  );
 });
 
 test('POST /increment returns the new count and persists it', async () => {
@@ -84,10 +84,10 @@ test('a straggler incrementing an older key does not delete the newer one', asyn
 
 test('rejects a missing key, an unknown path and a wrong method', async () => {
   const { counter } = counterObject();
-  assert.equal((await call(counter, 'GET', '/count')).status, 400);
+  assert.equal((await call(counter, 'POST', '/increment')).status, 400);
   assert.equal((await call(counter, 'POST', '/increment?key=')).status, 400);
   assert.equal((await call(counter, 'GET', '/other?key=a')).status, 404);
-  assert.equal((await call(counter, 'POST', '/count?key=a')).status, 405);
+  assert.equal((await call(counter, 'GET', '/count?key=a')).status, 404);
   assert.equal((await call(counter, 'GET', '/increment?key=a')).status, 405);
 });
 
@@ -110,13 +110,11 @@ function fakeNamespace() {
   };
 }
 
-test('the adapter increments and reads through the Durable Object stub', async () => {
+test('the adapter increments through the Durable Object stub', async () => {
   const namespace = fakeNamespace();
   const counter = createDurableDailyCounter(namespace, 'probe');
-  assert.equal(await counter.get('probe:2026-09-15'), 0);
   assert.equal(await counter.increment('probe:2026-09-15'), 1);
   assert.equal(await counter.increment('probe:2026-09-15'), 2);
-  assert.equal(await counter.get('probe:2026-09-15'), 2);
 });
 
 test('different counter names never share an object', async () => {
@@ -126,7 +124,7 @@ test('different counter names never share an object', async () => {
   assert.equal(await probe.increment('2026-09-15'), 1);
   assert.equal(await weather.increment('2026-09-15'), 1);
   assert.equal(await probe.increment('2026-09-15'), 2);
-  assert.equal(await weather.get('2026-09-15'), 1);
+  assert.equal(await weather.increment('2026-09-16'), 1);
   assert.deepEqual([...namespace.objects.keys()], ['probe', 'weather:weatherkit']);
 });
 
@@ -136,7 +134,6 @@ test('the adapter throws when the object answers anything but 200', async () => 
     get: () => ({ fetch: async () => new Response('broken', { status: 500 }) }),
   }, 'probe');
   await assert.rejects(counter.increment('probe:2026-09-15'), /500/);
-  await assert.rejects(counter.get('probe:2026-09-15'), /500/);
 });
 
 // A Durable Object stub is an I/O object bound to the request that created it, and the
@@ -155,7 +152,6 @@ test('the adapter resolves the stub from the namespace on every call', async () 
   }, 'probe');
   assert.equal(stubsTaken, 0);
   await counter.increment('probe:2026-09-15');
-  await counter.get('probe:2026-09-15');
   await counter.increment('probe:2026-09-15');
-  assert.equal(stubsTaken, 3);
+  assert.equal(stubsTaken, 2);
 });

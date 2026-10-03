@@ -117,3 +117,14 @@ test('the raw weather adapters leave the shared snapshot rules to provider-snaps
 
   assert.deepEqual(hits, [], 'pass the provider rows to assembleProviderSnapshot instead');
 });
+
+// The day part of a daily counter key (`name:YYYY-MM-DD`) has one owner, `daily-counter.ts`.
+test('only daily-counter.ts builds the UTC day of a daily counter key', () => {
+  const hits = sourceFiles()
+    .filter((relativePath) => relativePath !== 'daily-counter.ts')
+    .filter((relativePath) => /slice\(0, 10\)/.test(
+      readFileSync(path.join(sourceRoot, relativePath), 'utf8'),
+    ));
+
+  assert.deepEqual(hits, [], 'build the key with dailyCounterKey(name, now)');
+});

@@ -8,6 +8,7 @@ import {
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
+import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 
 import { AiProviderError, type AiProvider } from './ai-provider.ts';
@@ -25,15 +26,10 @@ export interface RateLimiter {
   limit(input: { key: string }): Promise<{ success: boolean }>;
 }
 
-/** Adds one counted attempt under `dateKey` atomically and returns the new count. */
-export interface ProbeDailyCounter {
-  increment(dateKey: string): Promise<number>;
-}
-
 type Dependencies = Readonly<{
   providers: readonly AiProvider[];
   rateLimiter: RateLimiter;
-  dailyCounter: ProbeDailyCounter;
+  dailyCounter: DailyCounterPort;
   now?: () => Date;
   attemptTimeoutMs?: number;
 }>;
@@ -176,7 +172,7 @@ export function createProbeHandler({
       // decides whether the provider is called at all, so concurrent probes cannot slip
       // past the cap between a read and a write. A failed or timed-out attempt has still
       // spent one counted attempt. Without a provider there is nothing to count.
-      const dateKey = `probe:${now().toISOString().slice(0, 10)}`;
+      const dateKey = dailyCounterKey('probe', now());
       let count: number;
       try {
         count = await dailyCounter.increment(dateKey);
