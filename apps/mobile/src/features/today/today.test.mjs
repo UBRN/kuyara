@@ -9,7 +9,10 @@ import {
 } from './__tests__/fixtures.ts';
 import {
   createTodayPresentation,
+  createTomorrowPreviewPresentation,
+  eveningLaterReadyLine,
   formatDressingDate,
+  tomorrowForecastDay,
 } from './presentation/today-presentation.ts';
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
@@ -24,6 +27,55 @@ const weatherReasons = [
 // `pnpm --filter @kuyara/mobile test` pins the device zone to UTC; the fixture location is
 // Europe/Istanbul, so a label in UTC is the proof it followed the device and not the city.
 const fixtureNow = Date.parse('2026-08-13T06:30:00.000Z');
+
+test('tomorrow weather follows the preview departure on the place clock', () => {
+  const preview = {
+    localDayKey: '2026-08-15',
+    coverageStart: '2026-08-14T15:00:00.000Z',
+  };
+  const rows = ['2026-08-14', '2026-08-15'].map((dateKey) => ({
+    dateKey, condition: 'rain', minimumTemperatureCelsius: 15,
+    maximumTemperatureCelsius: 23, precipitationProbability: 0.6, precipitationMillimetres: 4,
+  }));
+  assert.equal(tomorrowForecastDay(preview, { ...todayWeatherSnapshot,
+    timeZone: 'America/Los_Angeles', daily: rows })?.dateKey, '2026-08-14');
+  assert.equal(tomorrowForecastDay({ ...preview, localDayKey: '2026-08-14',
+    coverageStart: '2026-08-14T22:00:00.000Z' }, { ...todayWeatherSnapshot,
+    timeZone: 'Australia/Brisbane', daily: rows })?.dateKey, '2026-08-15');
+});
+
+test('the overnight preview says this morning in both languages', () => {
+  const recommendation = todayScreenState.snapshot.recommendation;
+  assert.equal(recommendation.status, 'recommended');
+  const preview = { localDayKey: '2026-08-14', recommendation };
+  const weather = { ...todayWeatherSnapshot, daily: [{
+    dateKey: '2026-08-14', condition: 'rain', minimumTemperatureCelsius: 15,
+    maximumTemperatureCelsius: 23, precipitationProbability: 0.6, precipitationMillimetres: 4,
+  }] };
+  const now = Date.parse('2026-08-13T22:30:00.000Z');
+  const english = createTomorrowPreviewPresentation(preview, weather, 'en', 'celsius', now);
+  const turkish = createTomorrowPreviewPresentation(preview, weather, 'tr', 'celsius', now);
+  assert.equal(english?.heading, 'This morning');
+  assert.match(english?.accessibilityLabel ?? '', /^This morning:/);
+  assert.equal(turkish?.heading, 'Bu sabah');
+  assert.match(turkish?.accessibilityLabel ?? '', /^Bu sabah:/);
+});
+
+test('the evening Later note uses the saved choice times in both languages', () => {
+  const departure = {
+    dayKey: '2026-08-13:evening', timeZone: 'Europe/Istanbul',
+    departureAt: '2026-08-13T16:00:00.000Z',
+    createdAt: '2026-08-13T14:00:00.000Z',
+    updatedAt: '2026-08-13T15:00:00.000Z',
+  };
+  const now = Date.parse('2026-08-13T15:30:00.000Z');
+  assert.equal(eveningLaterReadyLine(departure, now, 'en', false),
+    'Your 19:00 outfit is ready at 18:00');
+  assert.equal(eveningLaterReadyLine(departure, now, 'tr', false),
+    'Saat 19:00 kombinin, saat 18:00 itibarıyla hazır');
+  assert.equal(eveningLaterReadyLine({ ...departure,
+    updatedAt: '2026-08-13T14:00:00.000Z' }, now, 'en', false), null);
+});
 
 function loadedPresentation(
   state = todayScreenState,
@@ -940,4 +992,3 @@ test('a weather update that leaves the outfits alone hands each board the pieces
   assert.notEqual(warmer[0].palette, before[0].palette);
   assert.equal(warmer[0].palette.temperatureC, todayScreenState.snapshot.weather.current.temperatureCelsius + 9);
 });
-

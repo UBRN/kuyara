@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useEffect, useState, useSyncExternalStore, type PropsWithChildren } from 'react';
-import { AccessibilityInfo, Alert, Pressable, StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, Alert, AppState, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LaunchRevealContext } from '@/components/ui/launch-curtain';
@@ -2404,6 +2404,70 @@ test('focusing Today asks the recommendation provider to re-evaluate the local d
   expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledWith(true);
 });
 
+test('returning to a focused Today re-evaluates the day, triggers and weather freshness', async () => {
+  const reevaluateLocalDay = jest.fn();
+  const recommendationEvaluateApprovedTriggers = jest.fn(async () => undefined);
+  const weather = weatherValue();
+  const onChange: ((state: string) => void)[] = [];
+  const subscription = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={recommendationReady()}
+        recommendationEvaluateApprovedTriggers={recommendationEvaluateApprovedTriggers}
+        reevaluateLocalDay={reevaluateLocalDay} wardrobe={wardrobeValue()} weather={weather}>
+        <TodayRoute />
+      </Providers>,
+    );
+    expect(onChange.length).toBeGreaterThan(0);
+    const before = [reevaluateLocalDay.mock.calls.length,
+      recommendationEvaluateApprovedTriggers.mock.calls.length,
+      (weather.revalidateFreshness as jest.Mock).mock.calls.length];
+    await act(async () => {
+      onChange.forEach((listener) => listener('background'));
+      onChange.forEach((listener) => listener('active'));
+    });
+    expect(reevaluateLocalDay).toHaveBeenCalledTimes(before[0] + 1);
+    expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledTimes(before[1] + 1);
+    expect(weather.revalidateFreshness).toHaveBeenCalledTimes(before[2] + 1);
+    view.unmount();
+  } finally {
+    subscription.mockRestore();
+  }
+});
+
+test('an evening Later choice explains its departure and ready times on Today', async () => {
+  const ready = recommendationReady();
+  if (ready.status !== 'ready' || !ready.snapshot) throw new Error('fixture');
+  jest.useFakeTimers({
+    now: new Date('2026-08-13T18:30:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={{ ...ready, snapshot: { ...ready.snapshot,
+          coverageStart: '2026-08-13T19:00:00.000Z' } }}
+        wardrobe={wardrobeValue()} weather={weatherValue()}
+        activeDeparture={{
+          id: 'departure-one', localProfileId: 'profile-one', dayKey: '2026-08-13:evening',
+          departureAt: '2026-08-13T19:00:00.000Z', timeZone: 'Europe/Istanbul',
+          createdAt: '2026-08-13T18:00:00.000Z', updatedAt: '2026-08-13T18:00:00.000Z',
+          deletedAt: null,
+        }}>
+        <TodayRoute />
+      </Providers>,
+    );
+    expect(view.getByTestId('today-later-ready')).toHaveTextContent(
+      'Your 22:00 outfit is ready at 21:00');
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 test('focusing outfit detail re-evaluates the local day and weather freshness', async () => {
   mockParams = { id: todayOutfitId(1) };
   const reevaluateLocalDay = jest.fn();
@@ -2998,6 +3062,25 @@ test('tomorrow\'s preview opens in detail read-only, with its own forecast', asy
   // Without the preview there is nothing to show for tomorrow, even if today offers the id.
   await result.rerender(<Providers {...props} tomorrowPreview={null}><OutfitDetailRoute /></Providers>);
   expect(result.queryByTestId('outfit-detail-weather-recap')).toBeNull();
+});
+
+test('tomorrow detail opens from its preview when today has no recommendation', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('fixture');
+  const preview = { ...saved.snapshot, id: 'preview-one', localDayKey: '2026-08-14' };
+  const weather = weatherValue({ snapshot: { ...todayScreenState.snapshot.weather, daily: [{
+    dateKey: '2026-08-14', condition: 'rain', minimumTemperatureCelsius: 7.2,
+    maximumTemperatureCelsius: 9.6, precipitationProbability: 0.8, precipitationMillimetres: 4,
+  }] } });
+  mockParams = { id: todayOutfitId(1), day: 'tomorrow' };
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={{ ...saved, snapshot: null }} tomorrowPreview={preview}
+      wardrobe={wardrobeValue()} weather={weather}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  expect(await view.findByTestId('outfit-detail-weather-recap')).toHaveTextContent(/7\.2°\sto\s9\.6°/);
 });
 
 // ADR 0038: "Wore this today" writes one row per dressing day under its bare date. The same

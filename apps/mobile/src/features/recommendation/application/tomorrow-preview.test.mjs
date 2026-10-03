@@ -19,7 +19,7 @@ import { localDayKey, localDayKind, localDayVariant, nextMorningAfterEvening } f
 // The suite runs with TZ=UTC, so the device clock and the place's zone read the same hours.
 const profileId = 'profile-one';
 const evening = '2026-10-01T19:00:00.000Z';
-const morning = nextMorningAfterEvening(localDayKey(new Date(evening)));
+const morning = nextMorningAfterEvening(localDayKey(new Date(evening)), 'UTC', evening);
 const tomorrowKey = localDayKey(morning);
 
 function hour(at, temperatureCelsius, condition = 'clear') {

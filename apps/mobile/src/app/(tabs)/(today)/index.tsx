@@ -1,5 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import { useLaunchReveal, useLaunchScreenReady } from '@/components/ui/launch-curtain';
@@ -29,6 +30,7 @@ import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage
 import { classifyTodayState, mayOfferDayQuestion } from '@/features/today/application/today-state';
 import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
+import { eveningLaterReadyLine } from '@/features/today/presentation/today-presentation';
 import { AskAgainSheet, type AskAgainChoice } from '@/features/today/presentation/ask-again-sheet';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
@@ -151,13 +153,20 @@ export default function TodayRoute() {
   const isRecommendationShown = state.kind === 'loaded'
     && state.snapshot.recommendation.status === 'recommended';
   useFocusEffect(useCallback(() => {
-    reevaluateLocalDay();
-    void evaluateOnFocus.current(true);
-    // Today's freshness line ages with the clock, so returning to the tab re-evaluates it
-    // and starts the stale refresh the existing coalescing then shares.
-    void revalidateWeatherFreshness();
+    const recheck = () => {
+      reevaluateLocalDay();
+      void evaluateOnFocus.current(true);
+      void revalidateWeatherFreshness();
+    };
+    recheck();
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && previousState !== 'active') recheck();
+      previousState = nextState;
+    });
     setIsFocused(true);
     return () => {
+      subscription?.remove();
       setIsFocused(false);
       retries.reset('today');
     };
@@ -429,6 +438,10 @@ export default function TodayRoute() {
       onRefresh={handleRefresh}
       onRunwayVisibleChange={setRunwayVisible}
       onAskAgain={() => { setAskError(false); setAskOpenedAt(Date.now()); }}
+      laterReadyLine={state.kind === 'loaded' && !state.isRefreshing &&
+        state.snapshot.recommendation.status === 'recommended' &&
+        state.snapshot.coverageStart === activeDeparture?.departureAt
+        ? eveningLaterReadyLine(activeDeparture ?? null, clock, language, hour12) : null}
       updatingDayType={updatingDayType}
       firstDressingDay={firstDressingDay}
       awaitingDayQuestion={dayQuestionPending}
