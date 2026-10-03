@@ -13,7 +13,7 @@ import type { RecommendationContext } from '@/features/recommendation/data/worke
 import { forecastBoundedCoverage, outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
-import { defaultDressStyle } from '@/features/profile/domain/profile';
+import { defaultDressStyle, sameStyleAesthetics } from '@/features/profile/domain/profile';
 
 /**
  * Whether the forecast describes the whole coverage window an outfit chosen for `departureAt`
@@ -46,7 +46,7 @@ export function previewAnswersQuestion(
     preview.locationKey === question.locationKey &&
     preview.clothingPreference === question.clothingPreference &&
     preview.dressStyle === question.dressStyle &&
-    JSON.stringify(preview.styleAesthetics ?? []) === JSON.stringify(question.styleAesthetics);
+    sameStyleAesthetics(preview.styleAesthetics, question.styleAesthetics);
 }
 
 /**

@@ -14,6 +14,7 @@ import {
   dayKindSchema,
   dressStyleSchema,
   styleAestheticSchema,
+  styleAestheticsLimit,
   garmentTypeIds,
   layerRoles,
   outfitArchetypeIds,
@@ -79,7 +80,7 @@ export class WorkerAiRecommendationMappingError extends Error {
 const recommendationContextSchema = z.strictObject({
   clothingPreference: z.enum(clothingPreferences),
   dressStyle: dressStyleSchema.optional(),
-  styleAesthetics: z.array(styleAestheticSchema).max(3).optional(),
+  styleAesthetics: z.array(styleAestheticSchema).max(styleAestheticsLimit).optional(),
   catalogVersion: z.number().int().min(1),
   dayVariant: z.number().int().min(0).max(6),
   // Optional, so a row persisted before the weekday rule still parses and keeps its label.

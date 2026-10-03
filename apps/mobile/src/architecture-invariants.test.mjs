@@ -1121,3 +1121,17 @@ test('a missing dress style defaults through defaultDressStyle, not a literal', 
   assert.deepEqual(files, [...spelledDefaultDressStyle].sort(),
     'use defaultDressStyle from @/features/profile/domain/profile, and shrink the list when a file stops spelling it');
 });
+
+// Whether two style lists name the same styles is answered by `sameStyleAesthetics` in
+// profile/domain/profile.ts, not by comparing stringified lists.
+test('style lists are compared only by sameStyleAesthetics', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/profile/domain/profile.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/JSON\.stringify\([^)]*[sS]tyleAesthetics[^\n]*[!=]==|[!=]==\s*JSON\.stringify\([^)]*[sS]tyleAesthetics/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call sameStyleAesthetics from @/features/profile/domain/profile');
+});

@@ -1,7 +1,7 @@
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import type { ProfileApplicationState } from '@/features/profile/application/profile-application-controller';
-import { namePromptVersion, orderStyleAesthetics } from '@/features/profile/domain/profile';
+import { namePromptVersion, sameStyleAesthetics } from '@/features/profile/domain/profile';
 import {
   localDayKey,
   type RecommendationApplicationState,
@@ -84,7 +84,7 @@ export function styleAestheticsChanged(
   initial: readonly StyleAesthetic[],
   draft: readonly StyleAesthetic[],
 ): boolean {
-  return JSON.stringify(orderStyleAesthetics(draft)) !== JSON.stringify(orderStyleAesthetics(initial));
+  return !sameStyleAesthetics(draft, initial);
 }
 
 /** The evening's "ready later" line stands only under the settled outfit made for that departure. */

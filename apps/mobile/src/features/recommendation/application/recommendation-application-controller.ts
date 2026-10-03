@@ -1,6 +1,7 @@
 import type { AiRecommendV1Request, DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import { isClothingPreference } from '@/domain/preferences';
+import { sameStyleAesthetics } from '@/features/profile/domain/profile';
 import {
   failureCategoryFromErrorKind,
   type FailureCategory,
@@ -89,8 +90,7 @@ export function recommendationRefreshTrigger(
     return 'clothing-preference-changed';
   }
   if (previous.dressStyle !== current.dressStyle) return 'dress-style-changed';
-  if (JSON.stringify(previous.styleAesthetics ?? []) !==
-      JSON.stringify(current.styleAesthetics ?? [])) return 'dress-style-changed';
+  if (!sameStyleAesthetics(previous.styleAesthetics, current.styleAesthetics)) return 'dress-style-changed';
   if (previous.localDayKey !== current.localDayKey) return 'local-day-changed';
   return null;
 }

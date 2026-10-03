@@ -28,7 +28,7 @@ import { usePerformanceTelemetry } from '@/features/analytics/application/use-pe
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
-import { defaultDressStyle, orderStyleAesthetics } from '@/features/profile/domain/profile';
+import { defaultDressStyle, orderStyleAesthetics, sameStyleAesthetics } from '@/features/profile/domain/profile';
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
@@ -382,8 +382,7 @@ export function RecommendationApplicationProvider({
     // A persistent aesthetic edit made inside that sheet is already a profile-change
     // trigger, so it may refresh that look while the day's formality stays unanswered.
     if (morningChoicePending || eveningChoicePending) {
-      if (previous && JSON.stringify(previous.styleAesthetics ?? []) !==
-          JSON.stringify(current.styleAesthetics ?? [])) {
+      if (previous && !sameStyleAesthetics(previous.styleAesthetics, current.styleAesthetics)) {
         await controller.refresh('dress-style-changed', generationInput);
         return true;
       }
