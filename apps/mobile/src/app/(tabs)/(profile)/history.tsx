@@ -15,7 +15,7 @@ export default function HistoryRoute() {
   const transitionLanded = useTransitionLanded();
   const router = useRouter();
   // The dressing day the application already read from the device clock: on Sunday evening
-  // History opens with the week's look back, derived from the days on screen.
+  // History opens with the week's look back, derived from the looks on screen.
   const summary = useMemo(
     () => (entries && dressingDayKey ? weekSummary(entries, dressingDayKey) : null),
     [dressingDayKey, entries],
@@ -29,7 +29,7 @@ export default function HistoryRoute() {
     void outfitHistory.list().then(
       (records) => {
         if (!live) return;
-        setEntries(records.map(({ dayKey, outfit, pieceColors }) => ({ dayKey, outfit, pieceColors })));
+        setEntries(records.map(({ id, dayKey, wornAt, outfit, pieceColors }) => ({ id, dayKey, wornAt, outfit, pieceColors })));
         setLoadFailed(false);
       },
       () => { if (live) setLoadFailed(true); },
