@@ -73,13 +73,11 @@ test('a time zone is valid when Intl names it', () => {
 // a rare path or a one-off value. A new render path goes through intl-format.ts instead.
 const allowedConstructions = new Map([
   ['domain/intl-format.ts', 3],
-  ['features/notifications/application/weather-alert-scheduler.ts', 1],
   ['features/profile/presentation/service-providers-screen.tsx', 1],
   ['features/profile/presentation/settings-screen.tsx', 1],
   ['features/today/presentation/today-presentation.ts', 3],
   ['features/weather/presentation/weather-screen.tsx', 1],
   ['localization/device-locale.ts', 1],
-  ['presentation/format-clock-time.ts', 1],
 ]);
 
 function sourceFiles(directory) {

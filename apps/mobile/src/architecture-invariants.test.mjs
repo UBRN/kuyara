@@ -1176,3 +1176,26 @@ test('the device time zone and the default quiet hours each have one owner', () 
 
   assert.deepEqual(copies, [], 'call getDeviceTimeZone from @/domain/intl-format or deviceQuietHours from weather-alerts.ts');
 });
+
+// The clock-time pattern (`hour12 ? 'numeric' : '2-digit'`) is spelled by `formatClockTime` in
+// presentation/format-clock-time.ts; the screens listed here still spell it and the list only
+// shrinks.
+const clockPatternAllowlist = {
+  'features/account/presentation/account-sync-view.ts': 1,
+  'features/profile/presentation/service-providers-screen.tsx': 1,
+  'features/today/presentation/today-presentation.ts': 1,
+  'features/weather/presentation/weather-format.ts': 1,
+  'features/weather/presentation/weather-screen.tsx': 1,
+  'presentation/format-clock-time.ts': 1,
+};
+
+test('the clock-time pattern is spelled only where the allowlist names it', () => {
+  const counts = {};
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line) => {
+      if (line.includes("hour12 ? 'numeric' : '2-digit'")) counts[relativePath] = (counts[relativePath] ?? 0) + 1;
+    });
+  }
+
+  assert.deepEqual(counts, clockPatternAllowlist, 'call formatClockTime from @/presentation/format-clock-time; the allowlist only shrinks');
+});
