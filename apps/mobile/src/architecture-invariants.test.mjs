@@ -1152,9 +1152,6 @@ test('a day key is not sliced for its date', () => {
 const spelledLanguageUnion = [
   'features/catalog/domain/garment-catalog.ts',
   'features/catalog/localization/catalog-messages.ts',
-  'features/weather/presentation/hourly-rail-columns.ts',
-  'features/weather/presentation/weather-format.ts',
-  'features/weather/presentation/weather-screen.tsx',
   'localization/messages.ts',
 ];
 
