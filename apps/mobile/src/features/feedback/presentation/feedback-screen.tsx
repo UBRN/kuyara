@@ -33,15 +33,11 @@ export function FeedbackScreen({
     if (!text || inFlight.current) return;
     inFlight.current = true;
     setState('sending');
-    try {
-      submissionId.current ??= createSubmissionId();
-      await onSend(text, submissionId.current);
-      setState('sent');
-    } catch {
-      setState('failed');
-    } finally {
-      inFlight.current = false;
-    }
+    if (submissionId.current === null) submissionId.current = createSubmissionId();
+    const id = submissionId.current;
+    const sent = await onSend(text, id).then(() => true, () => false);
+    inFlight.current = false;
+    setState(sent ? 'sent' : 'failed');
   };
 
   return (
