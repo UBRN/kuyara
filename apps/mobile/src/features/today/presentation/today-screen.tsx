@@ -473,6 +473,9 @@ function TodayScreenContent({
         ref={scrollRef}
         refreshControl={refreshControl}
         testID="today-screen">
+        {/* The card arrives the way the loaded outfit does, once, and waits behind a runway
+            that is still fading out over it. */}
+        <Entrance style={styles.feedbackEntrance} waiting={use(HandoffHoldContext)}>
         <Surface
           style={styles.feedbackCard}
           testID={
@@ -506,6 +509,7 @@ function TodayScreenContent({
             />
           ) : null}
         </Surface>
+        </Entrance>
       </Screen>
     );
   }
@@ -830,6 +834,7 @@ function TodayScreenContent({
         </ArrivesAfterHandoff>
 
         {presentation.noOutfit ? (
+          <Entrance index={1}>
           <Surface
             accessible
             accessibilityLabel={`${presentation.noOutfit.title}. ${presentation.noOutfit.body}`}
@@ -843,6 +848,7 @@ function TodayScreenContent({
               {presentation.noOutfit.body}
             </AppText>
           </Surface>
+          </Entrance>
         ) : null}
 
         {alternates.length > 0 ? (
@@ -1349,6 +1355,7 @@ const styles = StyleSheet.create({
   tomorrowText: { flex: 1, flexShrink: 1 },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
+  feedbackEntrance: { alignItems: 'center', width: '100%' },
   feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },
   // The card's own centring and gap, carried inside the grouped text so nothing moves.
   feedbackText: { alignItems: 'center', alignSelf: 'stretch', gap: spacing.md },

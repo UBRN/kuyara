@@ -1332,7 +1332,8 @@ test('the words around the stage wait under the first-run runway and arrive once
     <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
       onAskAgain={jest.fn()} state={todayScreenState} />,
   ));
-  expect(plain.getByTestId('today-top-row').parent!.props.testID).toBe('today-content');
+  // At rest no arrival wraps the header: only the scroll depth (S23) stands between it and the content.
+  expect(plain.getByTestId('today-top-row').parent!.parent!.props.testID).toBe('today-content');
 });
 
 test('a new suggestion re-mounts the hero board, and the same one back leaves it still', async () => {
@@ -1875,6 +1876,19 @@ test('Today keeps the generic unavailable copy for failures with an active locat
   expect(result.getByText(messages.en.today.unavailableTitle)).toBeOnTheScreen();
   expect(result.getByText(messages.en.today.unavailableBody)).toBeOnTheScreen();
   expect(result.queryByTestId('today-no-location')).not.toBeOnTheScreen();
+});
+
+// Law 7: the unavailable card arrives once, the way the loaded content does, never cutting in.
+test('the unavailable card enters rather than appearing mid-screen', async () => {
+  // The test mock lands every spring at once; hold the landing to read the first frame.
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={() => undefined}
+      onRefresh={() => undefined} onAskAgain={jest.fn()} state={{ kind: 'unavailable' }} />,
+  ));
+  expect(StyleSheet.flatten(result.getByTestId('today-unavailable-screen').parent!.props.style))
+    .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.md }] });
+  withSpring.mockRestore();
 });
 
 // The route composes the cause into the state. Being offline is the one cause the user can
