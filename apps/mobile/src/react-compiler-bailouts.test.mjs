@@ -35,6 +35,12 @@ const hotPath = new Set([
   'app/(tabs)/(today)/index.tsx',
   'app/(tabs)/weather/index.tsx',
   'features/today/presentation/today-screen.tsx',
+  'features/today/presentation/today-alternates.tsx',
+  'features/today/presentation/today-header.tsx',
+  'features/today/presentation/today-interludes.tsx',
+  'features/today/presentation/today-motion.tsx',
+  'features/today/presentation/today-outfit.tsx',
+  'features/today/presentation/today-outfit-notes.tsx',
   'features/weather/presentation/weather-screen.tsx',
   // Phase 7b: a piece change re-renders the whole outfit detail when any of these is skipped.
   'app/(tabs)/(today)/[id].tsx',
