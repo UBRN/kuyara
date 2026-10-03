@@ -4,8 +4,9 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { AppText, Icon, NativeListRow, NativeListSection } from '@/components/ui';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { syncToneSymbol } from '@/features/account/presentation/account-status';
-import { describeSync, formatSyncTime } from '@/features/account/presentation/account-sync-view';
+import { describeSync } from '@/features/account/presentation/account-sync-view';
 import { useLocalization } from '@/localization/use-messages';
+import { formatClockTime } from '@/presentation/format-clock-time';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -26,7 +27,7 @@ export function AccountSettingsSection({ onOpenAccount }: Readonly<{ onOpenAccou
   useEffect(() => port.clearNotice, [port]);
 
   if (session.kind === 'signedIn') {
-    const sync = describeSync(session, snapshot.online, copy, formatSyncTime(session.lastSyncedAt, language, hour12));
+    const sync = describeSync(session, snapshot.online, copy, formatClockTime(session.lastSyncedAt, language, hour12));
     return (
       <NativeListSection heading={copy.settings.group} testID="settings-account-group">
         <NativeListRow

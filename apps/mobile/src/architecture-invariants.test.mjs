@@ -1104,7 +1104,6 @@ test('wind speed is converted for display only by the wind speed owner', () => {
 // second spelling of its value. These screen and analytics defaults are the only ones left, and
 // the list only shrinks: a stale entry fails the test.
 const spelledDefaultDressStyle = [
-  'app/(tabs)/(today)/index.tsx',
   'features/analytics/domain/analytics-mappers.ts',
   'features/profile/presentation/settings-screen.tsx',
 ];

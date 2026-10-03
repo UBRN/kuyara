@@ -18,7 +18,7 @@ import {
 } from '@/features/notifications/application/notification-context';
 import type { WeatherAlertOffer } from '@/features/notifications/domain/weather-alert-offer';
 import { ProfileApplicationContext } from '@/features/profile/application/profile-context';
-import type { LocalProfile } from '@/features/profile/domain/profile';
+import { defaultDressStyle, type LocalProfile } from '@/features/profile/domain/profile';
 import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
@@ -540,6 +540,7 @@ function Providers({
       skipWait: jest.fn(async () => null),
       regenerate: recommendationRegenerate,
       resolvedDressStyle,
+      profileDressStyle: profile.state.profile.dressStyle ?? defaultDressStyle,
       resolvedStyleAesthetics,
       outfitHistory,
       dressingDayChoiceReady,
@@ -882,6 +883,28 @@ test('Today waits for the day choice before reporting resolved formality', async
     event.name === 'recommendation_viewed')).toHaveLength(1));
   expect(productAnalytics.analytics.captures.find((event) =>
     event.name === 'recommendation_viewed')?.properties).toMatchObject({ dress_style: 'formal' });
+});
+
+test('the provider keeps the profile dress style apart from the day answer', async () => {
+  function DressStyles() {
+    const { resolvedDressStyle, profileDressStyle } = useRecommendationApplication();
+    return <Text testID="dress-styles">{`${resolvedDressStyle}/${profileDressStyle}`}</Text>;
+  }
+  mockChoiceGet.mockImplementation(async (_profile: string, key: string) => ({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey: key, formality: 'formal', source: 'morning', styleAesthetics: null,
+    createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z',
+    deletedAt: null,
+  }));
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ dressStyle: 'casual' })} recommendation={recommendationReady()}
+      liveRecommendationProvider wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <DressStyles />
+    </Providers>,
+  );
+
+  await waitFor(() => expect(view.getByTestId('dress-styles')).toHaveTextContent('formal/casual'));
 });
 
 test('a rejected day-choice read leaves the morning sheet closed and writes no choice', async () => {
