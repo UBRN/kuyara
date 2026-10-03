@@ -744,7 +744,7 @@ function TodayScreenContent({
                 label={presentation.stageAccessibilityLabel}
                 scrollBy={scrollBy}
                 style={styles.outfitTarget}>
-                {outfitDetailLink && primary ? (
+                {outfitDetailLink ? (
                   // S21: on iOS the outfit's detail zooms out of the stage, as an alternative's does.
                   <Link asChild href={outfitDetailLink.href(primary.id)} onPress={outfitDetailLink.onPress} push>
                     {primaryCard}
