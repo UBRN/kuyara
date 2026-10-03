@@ -231,6 +231,9 @@ describe('the Account screen (frames 07-10, 21, 22, 34, 35)', () => {
   test('up to date: identity, counts, the last sync and the birth-date sentence', async () => {
     const screen = await renderWith(portFor('upToDate'), <AccountScreen onOpenDelete={jest.fn()} />);
     expect(screen.getByText('q7m2x9kd4v@privaterelay.appleid.com')).toBeTruthy();
+    expect(screen.getByText('q7m2x9kd4v@privaterelay.appleid.com').props).toEqual(expect.objectContaining({
+      ellipsizeMode: 'middle', numberOfLines: 1,
+    }));
     expect(screen.getByText(en.method.apple)).toBeTruthy();
     expect(screen.getByText(en.sync.upToDate)).toBeTruthy();
     expect(screen.getByText('14 pieces')).toBeTruthy();

@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-30)
 
-Implementation: not started. The shipped app has no sign-in. This ADR specifies the account, sync and account-deletion work of phase 9; the parts that need no live Supabase, Apple or Google account (the device migration, mappers, shared contracts, the Worker route and their tests) may be built now. The maintainer creates the Supabase project and the Apple and Google credentials; nobody else creates or calls them.
+Implementation: account screens are closed behind `ACCOUNT_SCREENS_ENABLED`; domain rules, remote mappers, application ports and the undeployed deletion route are built and tested against fakes. The shipped app has no sign-in or cross-device sync. The device migration and live Supabase, Apple and Google adapters are separate work. The maintainer creates the Supabase project and the Apple and Google credentials; nobody else creates or calls them.
 
 ## Context
 

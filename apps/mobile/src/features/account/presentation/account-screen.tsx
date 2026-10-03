@@ -1,11 +1,12 @@
-import { Alert } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
-import { Icon, NativeList, NativeListRow, NativeListSection } from '@/components/ui';
+import { AppText, Icon, ListRowTile, NativeList, NativeListContentRow, NativeListRow, NativeListSection } from '@/components/ui';
 import type { AccountProvider } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { SyncToneGlyph } from '@/features/account/presentation/account-status';
 import { describeSync, formatSyncTime } from '@/features/account/presentation/account-sync-view';
 import { useLocalization } from '@/localization/use-messages';
+import { spacing } from '@/theme/theme';
 
 const allProviders: readonly AccountProvider[] = ['apple', 'google'];
 
@@ -31,12 +32,15 @@ export function AccountScreen({ onOpenDelete }: Readonly<{ onOpenDelete: () => v
   return (
     <NativeList testID="account-screen">
       <NativeListSection testID="account-identity-group">
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="personCircle" size={size} />}
-          label={session.email}
-          supportingText={copy.method[session.provider]}
-          testID="account-identity-row"
-        />
+        <NativeListContentRow testID="account-identity-row">
+          <View style={styles.identity}>
+            <ListRowTile glyph={({ color, size }) => <Icon color={color} name="personCircle" size={size} />} />
+            <View style={styles.identityText}>
+              <AppText ellipsizeMode="middle" numberOfLines={1}>{session.email}</AppText>
+              <AppText colorRole="textSecondary" variant="caption">{copy.method[session.provider]}</AppText>
+            </View>
+          </View>
+        </NativeListContentRow>
       </NativeListSection>
 
       <NativeListSection footer={sync.footer} heading={copy.sync.heading} testID="account-sync-group">
@@ -117,3 +121,8 @@ export function AccountScreen({ onOpenDelete }: Readonly<{ onOpenDelete: () => v
     </NativeList>
   );
 }
+
+const styles = StyleSheet.create({
+  identity: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  identityText: { flex: 1, minWidth: 0 },
+});

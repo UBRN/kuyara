@@ -5,8 +5,7 @@ const deletionMarkerWindowMs = 30 * 24 * 60 * 60 * 1000;
 /**
  * What the first sign-in sends (ADR 0041 section 3): every live row, and the soft-deletion
  * markers of the last 30 days (a marker exactly 30 days old still goes). Without the sync
- * consent only the profile goes; the departures are held back with the other day records
- * until the owner rules on whether they need the consent at all.
+ * consent only the profile goes; the consent also covers departure records.
  */
 export function firstUploadRows(
   local: AccountRows,
