@@ -211,7 +211,8 @@ function CategoryCells({
   const { fontScale, usesTwoColumnGrid } = useTextScaling();
   const scale = Math.min(Math.max(fontScale, 1), CELL_SCALE_MAXIMUM);
   // Every offered category shows, so each keeps its place and a tap can be learned.
-  const rows = chunk(categories, usesTwoColumnGrid ? 2 : 3);
+  const columns = usesTwoColumnGrid ? 2 : 3;
+  const rows = chunk(categories, columns);
   const isLoading = summaries === null;
 
   return (
@@ -223,20 +224,33 @@ function CategoryCells({
       testID={isLoading ? 'profile-category-cells-loading' : 'profile-category-cells'}>
       {rows.map((row, rowIndex) => (
         <View key={row.join('-')} style={styles.cellRow}>
-          {row.map((category, column) => (
-            <Entrance
-              index={firstIndex + rowIndex * row.length + column}
-              key={category}
-              style={styles.cellSlot}
-              waiting={!shown}>
-              <CategoryCell
-                category={category}
-                onPress={() => onOpenCategory(category)}
-                scale={scale}
-                summary={summaries?.[category] ?? null}
+          {[
+            ...row.map((category, column) => (
+              <Entrance
+                index={firstIndex + rowIndex * columns + column}
+                key={category}
+                style={styles.cellSlot}
+                waiting={!shown}>
+                <CategoryCell
+                  category={category}
+                  onPress={() => onOpenCategory(category)}
+                  scale={scale}
+                  summary={summaries?.[category] ?? null}
+                />
+              </Entrance>
+            )),
+            // A short last row keeps the grid's column width: empty slots nobody reaches.
+            ...Array.from({ length: columns - row.length }, (_, index) => (
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                key={`spacer-${index}`}
+                pointerEvents="none"
+                style={styles.cellSlot}
+                testID="profile-category-spacer"
               />
-            </Entrance>
-          ))}
+            )),
+          ]}
         </View>
       ))}
     </View>

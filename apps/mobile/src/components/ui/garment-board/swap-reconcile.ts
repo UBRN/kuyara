@@ -74,6 +74,8 @@ export type Intent =
       kind: 'leave'; key: string; values: PieceValues; direction: 1 | -1; stride: number; fromGesture: boolean;
       paged: boolean;
     }>
+  /** A slot the pieces no longer hold (a layer taken off): the piece lifts away and fades where it stands. */
+  | Readonly<{ kind: 'vanish'; key: string; values: PieceValues }>
   | Readonly<{ kind: 'scale'; values: PieceValues; scale: number }>
   | Readonly<{ kind: 'wait'; values: PieceValues; box: Box; offset: number; scale: number; created: boolean }>
   | Readonly<{ kind: 'drain'; key: string; values: PieceValues }>
@@ -254,10 +256,11 @@ export function reconcile(model: Model, inputs: ReconcileInputs, tools: Reconcil
     } else {
       moved = true;
       // Paged, the piece slides in opaque and already large from behind the window's edge;
-      // otherwise it crossfades in beside the piece it replaces (Phase 7). Either way it starts
-      // unseen: its first frame would draw it where the piece it replaces still stands.
+      // otherwise it crossfades in beside the piece it replaces (Phase 7), or, in a slot the
+      // outfit did not wear (a layer added), is hung on in its own place. Either way it starts
+      // unseen: its first frame would draw it before its motion starts.
       const values = tools.values({
-        from: box, box, p: previous ? 0 : 1, dx: 0, op: previous ? 0 : 1, sc: scale, hand: paged ? 1 : 0,
+        from: box, box, p: previous ? 0 : 1, dx: 0, op: 0, sc: scale, hand: paged ? 1 : 0,
       });
       byKey.set(key, {
         key, slot, garmentTypeId, role: 'current', piece, base: box, roles: pieceRoles, drainRoles: null, values,
@@ -272,6 +275,19 @@ export function reconcile(model: Model, inputs: ReconcileInputs, tools: Reconcil
     }
     garments[slot] = garmentTypeId;
   });
+
+  // A slot the pieces no longer hold (a layer taken off) lifts away and fades where it stands,
+  // never sideways. Its slot is forgotten before the focus check below, so a piece enlarged
+  // when it was taken off is never sent home.
+  for (const slot of Object.keys(model.garments) as OutfitSlot[]) {
+    if (composed.bySlot.has(slot)) continue;
+    const gone = byKey.get(`${slot}|${model.garments[slot]}`);
+    delete garments[slot];
+    if (gone?.role !== 'current') continue;
+    moved = true;
+    byKey.set(gone.key, { ...gone, role: 'leaving', paged: false, window: null, waits: null });
+    intents.push({ kind: 'vanish', key: gone.key, values: gone.values });
+  }
 
   // The enlarged slot's two neighbours wait behind the window's edges, already large, so a
   // drag moves them from its first frame. A leaving piece that is now a neighbour stays.
