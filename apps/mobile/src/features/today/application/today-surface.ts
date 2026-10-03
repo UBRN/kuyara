@@ -8,6 +8,9 @@ import {
 } from '@/features/recommendation/application/recommendation-application-controller';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import { mayOfferDayQuestion } from '@/features/today/application/today-state';
+import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
+import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
+import type { AppMessages } from '@/localization/messages';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import type { TodayScreenState } from '@/features/today/model';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
@@ -207,4 +210,21 @@ export function tomorrowStrip<Tomorrow, Open>(
 /** The "Ask the stylist again" capsule shows with an outfit on screen, unless the alternatives are used up. */
 export function showsAskAgain(primary: unknown, exhausted: boolean | undefined): boolean {
   return Boolean(primary) && !exhausted;
+}
+
+/**
+ * The sentence the alert offer row shows: the refused permission's own hint after a refusal,
+ * otherwise the rule's sentence, with the morning briefing's carrying its local hour.
+ */
+export function alertOfferMessage(
+  copy: Pick<AppMessages['notifications'], 'offer' | 'permissionDeniedHint'>,
+  blocked: boolean,
+  ruleId: WeatherAlertOfferReason,
+  formatTime: (time: Readonly<{ hour: number; minute: number }>) => string,
+): string {
+  return blocked
+    ? copy.permissionDeniedHint
+    : ruleId === 'morning_briefing'
+      ? copy.offer.morningBriefingSentence(formatTime({ hour: morningBriefingLocalHour, minute: 0 }))
+      : copy.offer.sentences[ruleId];
 }

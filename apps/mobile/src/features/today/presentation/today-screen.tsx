@@ -21,10 +21,10 @@ import { useSinglePush } from '@/components/ui/use-single-push';
 import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
-import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import {
   alertOfferAfterAccept,
+  alertOfferMessage,
   alertOfferToRender,
   isGenerationRunning,
   isUpdatingOutfit,
@@ -637,13 +637,12 @@ function WeatherAlertOfferRow({
   const [isAnswering, setIsAnswering] = useState(false);
   // A refused permission is explained with the Settings surface's own copy and its own way
   // out, rather than with a second wording of the same fact.
-  const message = blocked
-    ? copy.permissionDeniedHint
-    : ruleId === 'morning_briefing'
-      ? copy.offer.morningBriefingSentence(
-        formatWallClockTime({ hour: morningBriefingLocalHour, minute: 0 }, language, hour12),
-      )
-      : copy.offer.sentences[ruleId];
+  const message = alertOfferMessage(
+    copy,
+    blocked,
+    ruleId,
+    (time) => formatWallClockTime(time, language, hour12),
+  );
   const acceptLabel = blocked ? copy.openSettingsAction : copy.offer.acceptAction;
   // The live region below covers Android; VoiceOver keeps focus on the button and hears nothing.
   useErrorAnnouncement(blocked ? copy.permissionDeniedHint : null);
