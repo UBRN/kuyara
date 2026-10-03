@@ -1105,3 +1105,20 @@ test('wind speed is converted for display only by the wind speed owner', () => {
   // The pattern still recognizes the inline form it replaced.
   assert.ok(conversion.test('Math.round(snapshot.current.windSpeedMetersPerSecond * 3.6)'));
 });
+
+// Which catalogue types a person may pick is derived once, by `listSelectableGarmentTypes` in
+// catalog/domain/garment-catalog.ts. The listed sites read one type's own status rather than
+// listing the catalogue, or are switched to the owner next; the list only shrinks.
+test('the active catalogue status is read only by the selectable types owner', () => {
+  const owner = 'features/catalog/domain/garment-catalog.ts';
+  const allowlist = [
+    'features/recommendation/domain/garment-eligibility.ts',
+    'features/today/application/compose-selection.ts',
+    'features/wardrobe/presentation/garment-type-picker.tsx',
+  ];
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && /status\s*[!=]==\s*'active'/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'list types through listSelectableGarmentTypes');
+  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
+  assert.equal(allowlist.length, 3, 'the active status allowlist only shrinks');
+});
