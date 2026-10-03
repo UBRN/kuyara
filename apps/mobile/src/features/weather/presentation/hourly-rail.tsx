@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -63,6 +64,15 @@ export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyR
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(event.nativeEvent.contentOffset.x > 1);
   }, []);
+  // The rail opens on "Now": coming back to the screen, or a change in which hour leads the
+  // rail, scrolls it back to the start. A refresh that keeps the same hours leaves it alone.
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToNow = useCallback(() => {
+    scrollRef.current?.scrollTo({ x: 0, animated: false });
+  }, []);
+  useFocusEffect(scrollToNow);
+  const currentHour = columns[0]?.key;
+  useEffect(scrollToNow, [currentHour, scrollToNow]);
 
   const cardFill = resolveCardFill(theme);
   const metrics = hourlyRailMetrics(fontScale, { columnGap: spacing.xs, inset: spacing.lg });
@@ -74,6 +84,7 @@ export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyR
         decelerationRate="normal"
         horizontal
         onScroll={handleScroll}
+        ref={scrollRef}
         scrollEventThrottle={16}
         showsHorizontalScrollIndicator={false}
         testID="weather-hourly-rail">
