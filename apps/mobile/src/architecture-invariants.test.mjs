@@ -471,6 +471,22 @@ test('mobile production code never calls the deprecated runOnJS', () => {
   assert.deepEqual(found, [], 'use scheduleOnRN from react-native-worklets instead of runOnJS');
 });
 
+// posthog-react-native loads either package below as its native plugin when it is installed.
+// With `uncaughtExceptions` on, that plugin starts the native PostHog SDK, which fetches its
+// config at launch outside the consent fetch gate and keeps a crash queue opt-out does not clear.
+test('the native PostHog plugin is not a dependency', () => {
+  const { dependencies = {}, devDependencies = {} } = JSON.parse(
+    readFileSync(path.join(sourceRoot, '../package.json'), 'utf8'),
+  );
+  const installed = Object.keys({ ...dependencies, ...devDependencies });
+
+  assert.deepEqual(
+    installed.filter((name) =>
+      name === '@posthog/react-native-plugin' || name === 'posthog-react-native-session-replay'),
+    [],
+  );
+});
+
 // ADR 0041 section 12: PostHog is never linked to the account. `identify()` is never called,
 // so analytics stays on its install identifier and neither `localProfileId` nor a Supabase user
 // ID becomes an analytics identifier.
