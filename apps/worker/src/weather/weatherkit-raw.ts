@@ -1,19 +1,14 @@
-import {
-  isValidWeatherHourlyForecastWindow,
-  isWeatherHourlyForecastInWindow,
-  weatherDailyForecastMaximumEntries,
-  weatherHourlyForecastMaximumEntries,
-  type WeatherConditionCode,
-} from '@kuyara/contracts';
+import type { WeatherConditionCode } from '@kuyara/contracts';
 import { z } from 'zod';
 
 import { isoTimestamp, localDateKey } from './raw-time.ts';
-import type {
-  ProviderDailyForecast,
-  ProviderLocation,
-  ProviderWeatherMeasurements,
-  ProviderWeatherSnapshot,
-} from './weather-provider.ts';
+import {
+  assembleProviderSnapshot,
+  type ProviderDayInput,
+  type ProviderHour,
+  type ProviderHourInput,
+} from './provider-snapshot.ts';
+import type { ProviderLocation, ProviderWeatherSnapshot } from './weather-provider.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 
 const finiteNumberSchema = z.number();
@@ -115,17 +110,41 @@ export function mapWeatherKitCondition(conditionCode: string): WeatherConditionC
   return condition;
 }
 
-function mapHourly(raw: WeatherKitResponse['forecastHourly']['hours']) {
-  return raw.map((entry) => ({
-    temperatureCelsius: entry.temperature,
-    apparentTemperatureCelsius: entry.temperatureApparent,
-    condition: mapWeatherKitCondition(entry.conditionCode),
-    precipitationProbability: entry.precipitationChance,
-    windSpeedMetersPerSecond: entry.windSpeed / 3.6,
-    humidity: entry.humidity,
-    uvIndex: entry.uvIndex,
-    forecastAt: isoTimestamp(entry.forecastStart),
-  })).sort((left, right) => left.forecastAt.localeCompare(right.forecastAt));
+function mapHours(raw: WeatherKitResponse['forecastHourly']['hours']): ProviderHourInput[] {
+  return raw.map((entry) => {
+    const hour: ProviderHour = {
+      temperatureCelsius: entry.temperature,
+      apparentTemperatureCelsius: entry.temperatureApparent,
+      condition: mapWeatherKitCondition(entry.conditionCode),
+      precipitationProbability: entry.precipitationChance,
+      windSpeedMetersPerSecond: entry.windSpeed / 3.6,
+      humidity: entry.humidity,
+      uvIndex: entry.uvIndex,
+      forecastAt: isoTimestamp(entry.forecastStart),
+    };
+    return { forecastAt: hour.forecastAt, read: () => hour };
+  });
+}
+
+function mapDays(
+  raw: WeatherKitResponse['forecastDaily']['days'],
+  timeZone: string,
+): ProviderDayInput[] {
+  return raw.map((day) => ({
+    dateKey: localDateKey(isoTimestamp(day.forecastStart), timeZone),
+    read: () => {
+      if (day.conditionCode === undefined || day.precipitationChance === undefined) {
+        throw new WeatherProviderError('invalid_response');
+      }
+      return {
+        minimumTemperatureCelsius: day.temperatureMin,
+        maximumTemperatureCelsius: day.temperatureMax,
+        condition: mapWeatherKitCondition(day.conditionCode),
+        precipitationProbability: day.precipitationChance,
+        precipitationMillimetres: day.precipitationAmount ?? null,
+      };
+    },
+  }));
 }
 
 export function mapWeatherKitResponse(
@@ -133,74 +152,21 @@ export function mapWeatherKitResponse(
   location: ProviderLocation,
   fetchedAt: string,
 ): ProviderWeatherSnapshot {
-  const observedAt = isoTimestamp(raw.currentWeather.asOf);
-  const currentLocalDay = localDateKey(observedAt, location.timeZone);
-
-  const allHourly = mapHourly(raw.forecastHourly.hours);
-  const nearest = allHourly.reduce((best, entry) => (
-    Math.abs(Date.parse(entry.forecastAt) - Date.parse(observedAt))
-      < Math.abs(Date.parse(best.forecastAt) - Date.parse(observedAt))
-      ? entry
-      : best
-  ));
-  const current: ProviderWeatherMeasurements & Readonly<{ observedAt: string }> = {
-    temperatureCelsius: raw.currentWeather.temperature,
-    apparentTemperatureCelsius: raw.currentWeather.temperatureApparent,
-    condition: mapWeatherKitCondition(raw.currentWeather.conditionCode),
-    precipitationProbability: nearest.precipitationProbability,
-    windSpeedMetersPerSecond: raw.currentWeather.windSpeed / 3.6,
-    humidity: raw.currentWeather.humidity,
-    uvIndex: raw.currentWeather.uvIndex,
-    observedAt,
-  };
-  const hourly = allHourly.filter(({ forecastAt }) => (
-    isWeatherHourlyForecastInWindow(forecastAt, observedAt)
-  )).slice(0, weatherHourlyForecastMaximumEntries);
-  if (!isValidWeatherHourlyForecastWindow(hourly, observedAt)) {
-    throw new WeatherProviderError('invalid_response');
-  }
-
-  const days = raw.forecastDaily.days
-    .map((day) => ({ day, dateKey: localDateKey(isoTimestamp(day.forecastStart), location.timeZone) }))
-    .sort((left, right) => left.dateKey.localeCompare(right.dateKey));
-  const todayIndex = days.findIndex(({ dateKey }) => dateKey === currentLocalDay);
-  if (todayIndex < 0) throw new WeatherProviderError('invalid_response');
-
-  const minimumTemperatureCelsius = Math.min(
-    days[todayIndex].day.temperatureMin,
-    current.temperatureCelsius,
-  );
-  const maximumTemperatureCelsius = Math.max(
-    days[todayIndex].day.temperatureMax,
-    current.temperatureCelsius,
-  );
-  const daily: ProviderDailyForecast[] = days
-    .slice(todayIndex, todayIndex + weatherDailyForecastMaximumEntries)
-    .map(({ day, dateKey }, index) => {
-      if (day.conditionCode === undefined || day.precipitationChance === undefined) {
-        throw new WeatherProviderError('invalid_response');
-      }
-      return {
-        dateKey,
-        condition: mapWeatherKitCondition(day.conditionCode),
-        // Today's row is the card's own low and high, clamped around the current reading, so the
-        // two never contradict each other on screen.
-        minimumTemperatureCelsius: index === 0 ? minimumTemperatureCelsius : day.temperatureMin,
-        maximumTemperatureCelsius: index === 0 ? maximumTemperatureCelsius : day.temperatureMax,
-        precipitationProbability: day.precipitationChance,
-        precipitationMillimetres: day.precipitationAmount ?? null,
-      };
-    });
-
-  return {
+  return assembleProviderSnapshot({
+    sourceId: 'weatherkit',
     timeZone: location.timeZone,
     fetchedAt: isoTimestamp(fetchedAt),
-    provenance: 'live',
-    sourceId: 'weatherkit',
-    current,
-    minimumTemperatureCelsius,
-    maximumTemperatureCelsius,
-    hourly,
-    daily,
-  };
+    observedAt: isoTimestamp(raw.currentWeather.asOf),
+    hours: mapHours(raw.forecastHourly.hours),
+    days: mapDays(raw.forecastDaily.days, location.timeZone),
+    current: (nearest) => ({
+      temperatureCelsius: raw.currentWeather.temperature,
+      apparentTemperatureCelsius: raw.currentWeather.temperatureApparent,
+      condition: mapWeatherKitCondition(raw.currentWeather.conditionCode),
+      precipitationProbability: nearest.precipitationProbability,
+      windSpeedMetersPerSecond: raw.currentWeather.windSpeed / 3.6,
+      humidity: raw.currentWeather.humidity,
+      uvIndex: raw.currentWeather.uvIndex,
+    }),
+  });
 }

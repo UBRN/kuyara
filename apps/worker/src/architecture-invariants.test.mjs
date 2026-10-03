@@ -101,3 +101,19 @@ test('only json-response.ts defines the Worker JSON headers', () => {
 
   assert.deepEqual(definers, ['json-response.ts']);
 });
+
+// The snapshot rules every provider shares (nearest hour, hourly window and cap, today's
+// widened low and high, daily slice) have one owner, `weather/provider-snapshot.ts`.
+test('the raw weather adapters leave the shared snapshot rules to provider-snapshot.ts', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (!/^weather\/[\w-]+-raw\.ts$/.test(relativePath)) continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/Math\.(?:min|max)\(|isWeatherHourlyForecastInWindow|isValidWeatherHourlyForecastWindow/.test(line)) {
+        hits.push(`${relativePath}:${index + 1}`);
+      }
+    });
+  }
+
+  assert.deepEqual(hits, [], 'pass the provider rows to assembleProviderSnapshot instead');
+});
