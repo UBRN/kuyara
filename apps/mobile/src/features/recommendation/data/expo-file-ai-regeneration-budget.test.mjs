@@ -1,17 +1,12 @@
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
+import { fileUri } from '../../../../test/file-uri.mjs';
 
 // Mock the device file to verify durable, serialized reservations.
 const files = new Map();
 let readFailure = false;
 let writeFailure = false;
-
-function fileUri(parts) {
-  const [root, ...segments] = parts;
-  const rootUri = typeof root === 'string' ? root : root.uri;
-  return [rootUri.replace(/\/$/, ''), ...segments].join('/');
-}
 
 function throwOnRead() {
   if (readFailure) throw new Error('read failed');

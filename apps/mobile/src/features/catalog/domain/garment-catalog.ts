@@ -978,20 +978,30 @@ export function listGarmentTypesForPreference(
 }
 
 /**
- * The structural categories that offer at least one active type for the preference, in
+ * The active catalogue types the preference offers, in catalogue order; with no preference
+ * every active type. A deprecated type stays readable on saved items but is never offered.
+ */
+export function listSelectableGarmentTypes(
+  preference: ClothingPreference | null,
+): readonly GarmentType[] {
+  return Object.freeze(
+    garmentCatalog.garmentTypes.filter(
+      ({ status, apparelPreferenceApplicability }) =>
+        status === 'active'
+        && (preference === null || apparelPreferenceApplicability.includes(preference)),
+    ),
+  );
+}
+
+/**
+ * The structural categories that offer at least one selectable type for the preference, in
  * catalogue order. With no preference every category with an active type is offered.
  */
 export function listStructuralCategoriesForPreference(
   preference: ClothingPreference | null,
 ): readonly StructuralCategory[] {
   const offered = new Set(
-    garmentCatalog.garmentTypes
-      .filter(
-        ({ status, apparelPreferenceApplicability }) =>
-          status === 'active'
-          && (preference === null || apparelPreferenceApplicability.includes(preference)),
-      )
-      .map(({ structuralCategory }) => structuralCategory),
+    listSelectableGarmentTypes(preference).map(({ structuralCategory }) => structuralCategory),
   );
   return Object.freeze(structuralCategories.filter((category) => offered.has(category)));
 }

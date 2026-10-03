@@ -1,3 +1,4 @@
+import { isSrgbHex, toOklab } from '@/domain/srgb-color';
 import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
 
 export type ClosetColorChoice =
@@ -80,37 +81,21 @@ export function findClosetColorOption(id: string): ClosetSolidSwatch | ClosetFix
 }
 
 export function normalizeCustomColorHex(value: string): string {
-  if (typeof value !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(value)) {
+  if (!isSrgbHex(value)) {
     throw new Error('Invalid sRGB colour hex.');
   }
   return value.toUpperCase();
-}
-
-function oklab(hex: string): readonly [number, number, number] {
-  const channels = [1, 3, 5].map((offset) => {
-    const srgb = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
-    return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
-  });
-  const [r, g, b] = channels;
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  return [
-    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
-    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
-    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
-  ];
 }
 
 export function nearestFamilyForHex(
   value: string,
   swatches: readonly ClosetSolidSwatch[] = closetSolidSwatches,
 ): ColorFamily {
-  const target = oklab(normalizeCustomColorHex(value));
+  const target = toOklab(normalizeCustomColorHex(value));
   let nearest: ClosetSolidSwatch | undefined;
   let shortest = Number.POSITIVE_INFINITY;
   for (const swatch of swatches) {
-    const candidate = oklab(swatch.hex);
+    const candidate = toOklab(swatch.hex);
     const distance = target.reduce((sum, channel, index) =>
       sum + (channel - candidate[index]) ** 2, 0);
     if (distance < shortest) {

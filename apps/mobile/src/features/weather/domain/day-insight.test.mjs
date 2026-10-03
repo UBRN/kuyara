@@ -114,8 +114,8 @@ test('a wet run inside the day names where it begins and where it has stopped', 
 });
 
 test('a run already falling in the first remaining hour names no beginning', () => {
-  // The hour that sits exactly on `now` is part of the day, which is why this run has no
-  // dry hour in front of it to name.
+  // The hour after `now` is the first remaining one, so this run has no dry hour in front of
+  // it to name.
   assert.deepEqual(find(dayHours({ 8: wet, 9: wet })), {
     kind: 'wet_window',
     form: 'rain',
@@ -280,4 +280,8 @@ test('the projection is pure and leaves its input alone', () => {
   const second = findDayInsight({ snapshot: snapshot(hourly), now: morning });
   assert.deepEqual(first, second);
   assert.deepEqual(hourly, dayHours({ 11: wet, 12: wet }));
+});
+
+test('an hour starting exactly at now is behind the day, as it is for the alert planner', () => {
+  assert.deepEqual(find(dayHours({ 8: wet })), { kind: 'clear_all_day', modifier: null, period: 'day' });
 });

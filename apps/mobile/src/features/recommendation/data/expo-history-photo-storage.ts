@@ -1,10 +1,11 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { isUuidV4 } from '@/domain/record-identity';
 import type { HistoryPhotoStorage } from '@/features/recommendation/domain/outfit-history';
-import { isManagedHistoryPhotoPath } from '@/features/recommendation/data/history-photo-path';
-
-const photoDirectory = ['kuyara', 'history', 'photos'] as const;
+import {
+  createManagedHistoryPhotoPath,
+  historyPhotoDirectory,
+  isManagedHistoryPhotoPath,
+} from '@/features/recommendation/data/history-photo-path';
 
 export class ExpoHistoryPhotoStorage implements HistoryPhotoStorage {
   private readonly createId: () => string;
@@ -13,10 +14,9 @@ export class ExpoHistoryPhotoStorage implements HistoryPhotoStorage {
 
   async copyStaged(stagedUri: string): Promise<string> {
     const source = this.requireStaged(stagedUri);
-    const id = this.createId();
-    if (!isUuidV4(id)) throw new Error('Invalid history photo identifier.');
-    const relativePath = `${photoDirectory.join('/')}/${id.toLowerCase()}.jpg`;
-    const directory = new Directory(Paths.document, ...photoDirectory);
+    const relativePath = createManagedHistoryPhotoPath(this.createId());
+    if (relativePath === null) throw new Error('Invalid history photo identifier.');
+    const directory = new Directory(Paths.document, ...historyPhotoDirectory);
     directory.create({ idempotent: true, intermediates: true });
     const stored = new File(Paths.document, ...relativePath.split('/'));
     try {

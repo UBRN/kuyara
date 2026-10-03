@@ -1,6 +1,6 @@
 import { planMorningBriefing } from '@/features/notifications/domain/morning-briefing';
 import {
-  defaultQuietHours,
+  deviceQuietHours,
   planWeatherAlerts,
   type WeatherAlertRuleId,
 } from '@/features/notifications/domain/weather-alerts';
@@ -42,7 +42,7 @@ export function weatherAlertOfferState(input: Readonly<{
   const [plan] = planWeatherAlerts({
     snapshot,
     now,
-    quietHours: { ...defaultQuietHours, timeZone: input.timeZone },
+    quietHours: deviceQuietHours(input.timeZone),
     deliveredAlertIds: delivered,
   });
   // An alert is about the next few hours and the briefing is about tomorrow, so a day that

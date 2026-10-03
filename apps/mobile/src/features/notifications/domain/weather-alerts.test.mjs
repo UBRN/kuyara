@@ -9,6 +9,7 @@ import {
 } from '@/features/weather/domain/weather-thresholds';
 import {
   defaultQuietHours,
+  deviceQuietHours,
   planWeatherAlerts,
   weatherAlertBackgroundLeadTimeMinutes,
   weatherAlertLeadTimeMinutes,
@@ -382,4 +383,8 @@ test('a crossing after 18:00 keeps one identity from the morning plan through th
     deliveredAlertIds: fired,
     leadTimeMinutes: 15,
   }), []);
+});
+
+test('device quiet hours are the default hours on the given zone', () => {
+  assert.deepEqual(deviceQuietHours('Europe/Istanbul'), { ...defaultQuietHours, timeZone: 'Europe/Istanbul' });
 });

@@ -1,3 +1,4 @@
+import { getDeviceTimeZone } from '@/domain/intl-format';
 import type {
   NotificationGateway,
   NotificationKind,
@@ -9,14 +10,14 @@ import {
   type MorningBriefingPlan,
 } from '@/features/notifications/domain/morning-briefing';
 import {
-  defaultQuietHours,
+  deviceQuietHours,
   planWeatherAlerts,
   type WeatherAlertPlan,
 } from '@/features/notifications/domain/weather-alerts';
 import { weatherFreshness, type WeatherSnapshot } from '@/features/weather/domain/weather';
 import type { TemperatureUnit } from '@/localization/device-locale';
-import { localeTag } from '@/localization/locale-tag';
 import { messages, type SupportedLanguage } from '@/localization/messages';
+import { formatClockTime } from '@/presentation/format-clock-time';
 import { formatWholeTemperature, formatWholeTemperatureRange } from '@/presentation/format-temperature';
 
 type RescheduleInput = Readonly<{
@@ -40,22 +41,6 @@ export interface WeatherAlertScheduling {
 
 const deliveryRetentionMilliseconds = 3 * 24 * 60 * 60 * 1000;
 
-// The notification reads on the lock screen beside the system clock, so the crossing wears
-// the clock the device is set to rather than a fixed 24-hour one.
-function notificationTime(
-  at: string,
-  timeZone: string,
-  language: SupportedLanguage,
-  hour12: boolean,
-) {
-  return new Intl.DateTimeFormat(localeTag(language), {
-    timeZone,
-    hour: hour12 ? 'numeric' : '2-digit',
-    minute: '2-digit',
-    hour12,
-  }).format(new Date(at));
-}
-
 function briefingCopy(
   plan: MorningBriefingPlan,
   timeZone: string,
@@ -75,20 +60,20 @@ function briefingCopy(
     ? copy.fullRange(range)
     : copy.partialRange({
       range,
-      through: notificationTime(coveredThrough, timeZone, language, hour12),
+      through: formatClockTime(coveredThrough, language, hour12, timeZone),
     });
   // The day's one event, when it has one, closes the sentence; a day without one falls back
   // to the sky the briefing hour opens with and claims nothing beyond it.
   let detail: string;
   if (event?.kind === 'precipitation_onset' || event?.kind === 'precipitation_easing') {
-    const time = notificationTime(event.atHour, timeZone, language, hour12);
+    const time = formatClockTime(event.atHour, language, hour12, timeZone);
     const snow = event.form === 'snow';
     detail = event.kind === 'precipitation_onset'
       ? (snow ? copy.snowStarting(time) : copy.rainStarting(time))
       : (snow ? copy.snowEasing(time) : copy.rainEasing(time));
   } else if (event?.kind === 'temperature_change') {
     const values = {
-      time: notificationTime(event.atHour, timeZone, language, hour12),
+      time: formatClockTime(event.atHour, language, hour12, timeZone),
       temperature: formatWholeTemperature(event.toApparentCelsius, language, temperatureUnit),
     };
     detail = event.direction === 'drop' ? copy.temperatureDrop(values) : copy.temperatureRise(values);
@@ -108,7 +93,7 @@ function alertCopy(
   temperatureUnit: TemperatureUnit,
 ): Readonly<{ title: string; body: string }> {
   const copy = messages[language].notifications.alerts;
-  const time = notificationTime(plan.crossingAt, timeZone, language, hour12);
+  const time = formatClockTime(plan.crossingAt, language, hour12, timeZone);
   if (plan.detail.kind === 'precipitation') {
     return plan.detail.form === 'snow'
       ? { title: copy.snowTitle, body: copy.snowBody(time) }
@@ -190,12 +175,12 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     if (!snapshot) return;
 
     const deliveredAlertIds = await repository.listFiredIds(input.localProfileId, now);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const timeZone = getDeviceTimeZone() || 'UTC';
     const plans = input.weatherAlertsEnabled
       ? planWeatherAlerts({
         snapshot,
         now,
-        quietHours: { ...defaultQuietHours, timeZone },
+        quietHours: deviceQuietHours(timeZone),
         deliveredAlertIds,
         leadTimeMinutes: input.leadTimeMinutes,
       })

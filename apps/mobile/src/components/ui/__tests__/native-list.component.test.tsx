@@ -11,6 +11,7 @@ import {
 import { EasierToSeeContext } from '@/theme/easier-to-see';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { mockFontScale } from '../../../../test/font-scale';
 
 jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 
@@ -34,10 +35,6 @@ function glyph({ color, size }: Readonly<{ color: string; size: number }>) {
 }
 
 const originalWindowDimensions = Dimensions.get('window');
-
-function mockFontScale(fontScale: number) {
-  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
-}
 
 afterEach(() => {
   Dimensions.set({ window: originalWindowDimensions });

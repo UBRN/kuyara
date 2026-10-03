@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import test from 'node:test';
 
-import { dateTimeFormat, isValidTimeZone, numberFormat, zonedClock, zonedHour } from './intl-format.ts';
+import { sourceFiles as listSourceFiles } from '../../test/source-files.mjs';
+import { dateTimeFormat, isValidTimeZone, getDeviceTimeZone, numberFormat, zonedClock, zonedDateKey, zonedHour } from './intl-format.ts';
 
 test('a zoned date formatter is built once per locale and options', () => {
   const options = { timeZone: 'Europe/Istanbul', hour: '2-digit', hourCycle: 'h23' };
@@ -73,22 +74,15 @@ test('a time zone is valid when Intl names it', () => {
 // a rare path or a one-off value. A new render path goes through intl-format.ts instead.
 const allowedConstructions = new Map([
   ['domain/intl-format.ts', 3],
-  ['features/notifications/application/weather-alert-scheduler.ts', 1],
   ['features/profile/presentation/service-providers-screen.tsx', 1],
   ['features/profile/presentation/settings-screen.tsx', 1],
   ['features/today/presentation/today-presentation.ts', 3],
   ['features/weather/presentation/weather-screen.tsx', 1],
   ['localization/device-locale.ts', 1],
-  ['presentation/format-clock-time.ts', 1],
 ]);
 
-function sourceFiles(directory) {
-  return readdirSync(directory).flatMap((name) => {
-    const path = join(directory, name);
-    if (statSync(path).isDirectory()) return sourceFiles(path);
-    return /\.tsx?$/u.test(name) && !name.includes('.test.') ? [path] : [];
-  });
-}
+const sourceFiles = (directory) =>
+  listSourceFiles(directory, { extensions: ['.ts', '.tsx'] }).map((file) => join(directory, file));
 
 test('formatter construction outside intl-format.ts only shrinks', () => {
   const root = new URL('..', import.meta.url).pathname;
@@ -100,4 +94,18 @@ test('formatter construction outside intl-format.ts only shrinks', () => {
   for (const [file, count] of found) {
     assert.ok(count <= (allowedConstructions.get(file) ?? 0), `${file} builds ${count} formatters per call`);
   }
+});
+
+test('a zone date key is the date the zone clock reads, across the date line and year end', () => {
+  const instant = Date.parse('2026-12-31T23:30:00Z');
+  assert.equal(zonedDateKey(instant, 'UTC'), '2026-12-31');
+  assert.equal(zonedDateKey(instant, 'Europe/Istanbul'), '2027-01-01');
+  assert.equal(zonedDateKey(instant, 'America/Los_Angeles'), '2026-12-31');
+  assert.equal(zonedDateKey(Date.parse('2024-02-29T23:59:59Z'), 'Pacific/Kiritimati'), '2024-03-01');
+  assert.throws(() => zonedDateKey(instant, 'Not/AZone'));
+});
+
+test('the device time zone is the zone Intl resolves for the device clock', () => {
+  assert.equal(getDeviceTimeZone(), Intl.DateTimeFormat().resolvedOptions().timeZone);
+  assert.equal(isValidTimeZone(getDeviceTimeZone()), true);
 });

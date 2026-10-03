@@ -16,7 +16,7 @@ export class WorkerPlaceSearchDataSource {
   private readonly timeoutMs: number;
 
   constructor(dependencies: { baseUrl: string; fetch?: typeof globalThis.fetch; timeoutMs?: number }) {
-    this.baseUrl = dependencies.baseUrl.replace(/\/$/, '');
+    this.baseUrl = dependencies.baseUrl;
     this.fetch = dependencies.fetch ?? globalThis.fetch;
     this.timeoutMs = dependencies.timeoutMs ?? 10000;
   }

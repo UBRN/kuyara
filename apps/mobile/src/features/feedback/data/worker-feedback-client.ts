@@ -13,7 +13,7 @@ export async function sendFeedback(
   const request = feedbackV1RequestSchema.parse(input);
   const { response, body } = await fetchJsonWithTimeout(
     fetcher,
-    `${baseUrl.replace(/\/$/u, '')}${feedbackV1Path}`,
+    `${baseUrl}${feedbackV1Path}`,
     { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request) },
     10000,
     { network: () => new Error('send_failed'), invalidJson: () => new Error('invalid_response') },

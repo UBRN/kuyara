@@ -1,4 +1,11 @@
-import type { PlaceSearchResult, PlaceSearchV1Data, PlaceSearchV1Request } from '@kuyara/contracts';
+import {
+  placeSearchMaxResults,
+  placeSearchQueryMaxLength,
+  placeSearchQueryMinLength,
+  type PlaceSearchResult,
+  type PlaceSearchV1Data,
+  type PlaceSearchV1Request,
+} from '@kuyara/contracts';
 
 import { PlaceSearchError } from '@/features/weather/domain/place-search-error';
 
@@ -33,17 +40,17 @@ export class PlaceSearchController {
   search(rawQuery: string, language: PlaceSearchV1Request['language']): void {
     this.cancel();
     const query = rawQuery.trim();
-    if (query.length < 2) {
+    if (query.length < placeSearchQueryMinLength) {
       this.setState({ status: 'idle' });
       return;
     }
-    if (query.length > 100) {
+    if (query.length > placeSearchQueryMaxLength) {
       this.setState({ status: 'error', code: 'invalid-input' });
       return;
     }
     const generation = this.generation;
     this.setState({ status: 'loading' });
-    this.timer = setTimeout(() => void this.run({ query, language, limit: 5 }, generation), 300);
+    this.timer = setTimeout(() => void this.run({ query, language, limit: placeSearchMaxResults }, generation), 300);
   }
 
   private async run(request: PlaceSearchV1Request, generation: number): Promise<void> {

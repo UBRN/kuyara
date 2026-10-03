@@ -729,7 +729,7 @@ async function readUserVersion(database: SqliteExecutor): Promise<number> {
 const migrationRuns = new WeakMap<SqliteDatabase, Promise<void>>();
 
 /**
- * One migration run per database handle. Six composition roots call this on the one
+ * One migration run per database handle. Every composition root calls this on the one
  * connection `openKuyaraDatabase` memoizes; without the memo they all read
  * `user_version = 0` on a clean install and race the same migration, each on its own
  * transaction connection. On the device that was a deferred `BEGIN` with `busy_timeout` 0

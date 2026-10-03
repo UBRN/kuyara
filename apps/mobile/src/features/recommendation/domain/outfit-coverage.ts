@@ -1,3 +1,4 @@
+import { shiftCalendarDateParts } from '@/domain/calendar-date';
 import { zonedClock } from '@/domain/intl-format';
 import type { WeatherMeasurements } from '@/features/weather/domain/weather';
 import { chillyCelsius, isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
@@ -15,17 +16,16 @@ export function outfitCoverage(startIso: string, timeZone: string): OutfitCovera
       : local.hour < 4 ? 4
         : local.hour < 11 ? 19
           : local.hour < 16 ? 20 : 22;
-    const endDate = new Date(Date.UTC(local.year, local.month - 1,
-      local.day + (local.hour >= 18 ? 1 : 0)));
+    const endDate = shiftCalendarDateParts(local, local.hour >= 18 ? 1 : 0);
     // Search actual instants, not a fixed UTC offset. This also chooses the first 01:00
     // on a fall-back night and handles a changed offset before the end of the window.
     const first = Math.ceil((start + 1) / 900000) * 900000;
     let firstAfterSkippedHour: number | null = null;
     for (let at = first; at <= start + 30 * 3600000; at += 900000) {
       const candidate = zonedClock(at, timeZone);
-      if (candidate.year === endDate.getUTCFullYear() &&
-          candidate.month === endDate.getUTCMonth() + 1 &&
-          candidate.day === endDate.getUTCDate() && candidate.minute === 0) {
+      if (candidate.year === endDate.year &&
+          candidate.month === endDate.month &&
+          candidate.day === endDate.day && candidate.minute === 0) {
         if (candidate.hour === endHour) {
           return { start: new Date(start).toISOString(), end: new Date(at).toISOString() };
         }

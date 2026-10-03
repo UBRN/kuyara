@@ -4,15 +4,10 @@ import test from 'node:test';
 
 import { FirstUseTracker } from './application/first-use-tracker.ts';
 import { InMemoryFirstUseStore } from './data/in-memory-first-use-store.ts';
+import { fileUri } from '../../../test/file-uri.mjs';
 
 const files = new Map();
 const createdDirectories = [];
-
-function fileUri(parts) {
-  const [root, ...segments] = parts;
-  const rootUri = typeof root === 'string' ? root : root.uri;
-  return [rootUri.replace(/\/$/, ''), ...segments].join('/');
-}
 
 globalThis.__kuyaraFirstUseFileMocks = {
   Directory: class {

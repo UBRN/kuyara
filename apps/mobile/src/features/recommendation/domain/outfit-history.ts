@@ -1,6 +1,7 @@
 import { dressStyleSchema, outfitArchetypeIds } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { calendarDateKeySchema } from '@/domain/calendar-date';
 import { garmentSwatchIdSchema } from '@/features/catalog/domain/garment-swatch';
 import { garmentTypeIdSchema } from '@/features/catalog/domain/garment-taxonomy';
 import {
@@ -13,7 +14,7 @@ import {
 } from '@/features/recommendation/domain/outfit-composition';
 import { dressingDayDateKey } from '@/features/weather/domain/wardrobe-day';
 
-export const bareHistoryDayKeySchema = z.iso.date();
+export const bareHistoryDayKeySchema = calendarDateKeySchema;
 function validWornGarments(garments: Partial<Record<OutfitSlot, string>>): boolean {
   const worn = outfitSlots.filter((slot) => garments[slot]);
   if (!garments.footwear || worn.some((left) => worn.some((right) => onePieceExcludes(left, right)))) return false;

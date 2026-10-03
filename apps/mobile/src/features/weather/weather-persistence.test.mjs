@@ -607,3 +607,34 @@ test('a contracts v2 payload survives the schema, the mapper and the repository 
     body.data.daily,
   );
 });
+
+test('a snapshot or place outside the shared rules is refused before any write', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const istanbul = getManualLocation('sample.istanbul');
+  await repository.setActiveLocation(profileId, istanbul);
+  const invalid = (error) => error instanceof WeatherRepositoryError && error.code === 'invalid-input';
+
+  for (const coordinates of [
+    { latitudeE2: 9001, longitudeE2: 0 }, { latitudeE2: -9001, longitudeE2: 0 },
+    { latitudeE2: 0, longitudeE2: 18001 }, { latitudeE2: 0, longitudeE2: -18001 },
+    { latitudeE2: Number.NaN, longitudeE2: 0 },
+  ]) {
+    await assert.rejects(() => repository.setActiveLocation(profileId, { ...istanbul, coordinates }), invalid);
+  }
+
+  const base = provided(istanbul, '2026-07-30T10:00:00.000Z');
+  for (const patch of [
+    { current: { ...base.current, condition: 'hail' } },
+    { hourly: [{ ...base.hourly[0], condition: 'hail' }] },
+    { origin: { kind: 'cached', sourceId: 'open-meteo' } },
+    { origin: { kind: 'live', sourceId: ' ' } },
+    { minimumTemperatureCelsius: base.maximumTemperatureCelsius + 1 },
+    { maximumTemperatureCelsius: base.current.temperatureCelsius - 1 },
+    { timeZone: 'Not/AZone' },
+    { hourly: [] },
+  ]) {
+    await assert.rejects(() => repository.saveSnapshot(profileId, { ...base, ...patch }), invalid);
+  }
+  assert.equal(await repository.getSnapshot(profileId, istanbul.locationKey), null);
+});

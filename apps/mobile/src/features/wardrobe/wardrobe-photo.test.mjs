@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { WardrobeApplicationController } from './application/wardrobe-application-controller.ts';
 import { LocalWardrobePhotoManager } from './application/wardrobe-photo-manager.ts';
+import { fileUri as nativeFileUri } from '../../../test/file-uri.mjs';
 import {
   createManagedWardrobePhotoRelativePath,
   isManagedWardrobePhotoRelativePath,
@@ -22,12 +23,6 @@ const nativeFiles = new Set();
 let nativeCopyFailure = null;
 let nativeDeleteFailure = null;
 let nativeSaveFailure = null;
-
-function nativeFileUri(parts) {
-  const [root, ...segments] = parts;
-  const rootUri = typeof root === 'string' ? root : root.uri;
-  return [rootUri.replace(/\/$/, ''), ...segments].join('/');
-}
 
 globalThis.__kuyaraWardrobePhotoNativeMocks = {
   Directory: class {

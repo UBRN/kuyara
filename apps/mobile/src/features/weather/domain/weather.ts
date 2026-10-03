@@ -123,6 +123,15 @@ export class WeatherValidationError extends Error {
   }
 }
 
+const maximumLatitudeE2 = 9000;
+const maximumLongitudeE2 = 18000;
+
+/** Whether the two values are whole hundredths of a degree inside the globe: a stored or sent pair. */
+export function isNormalizedCoordinates(latitudeE2: number, longitudeE2: number): boolean {
+  return Number.isInteger(latitudeE2) && Math.abs(latitudeE2) <= maximumLatitudeE2 &&
+    Number.isInteger(longitudeE2) && Math.abs(longitudeE2) <= maximumLongitudeE2;
+}
+
 export function normalizeCoordinates(
   latitude: number,
   longitude: number,
@@ -130,10 +139,8 @@ export function normalizeCoordinates(
   if (
     !Number.isFinite(latitude) ||
     !Number.isFinite(longitude) ||
-    latitude < -90 ||
-    latitude > 90 ||
-    longitude < -180 ||
-    longitude > 180
+    Math.abs(latitude) > maximumLatitudeE2 / 100 ||
+    Math.abs(longitude) > maximumLongitudeE2 / 100
   ) {
     throw new WeatherValidationError();
   }
@@ -191,6 +198,25 @@ export function weatherFreshness(
   }
 
   return current - fetched <= weatherFreshnessWindowMilliseconds ? 'fresh' : 'stale';
+}
+
+/**
+ * A snapshot a provider returned for `location`, or an error when it is for another place,
+ * another zone or carries a fetch time the device cannot trust. The one rule the foreground
+ * refresh and the background task both apply before a provided snapshot is stored.
+ */
+export function acceptProvidedSnapshot<T extends Pick<WeatherSnapshot, 'locationKey' | 'timeZone' | 'fetchedAt'>>(
+  location: Pick<ActiveLocation, 'locationKey' | 'timeZone'>,
+  provided: T,
+  now: string,
+): T {
+  if (provided.locationKey !== location.locationKey || provided.timeZone !== location.timeZone) {
+    throw new Error('Mismatched weather location.');
+  }
+  if (weatherFreshness(provided.fetchedAt, now) === 'invalid') {
+    throw new Error('Invalid weather fetch time.');
+  }
+  return provided;
 }
 
 export function isWeatherConditionCode(value: string): value is WeatherConditionCode {

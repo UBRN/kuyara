@@ -5,7 +5,7 @@ import { PlaceSearchError } from './domain/place-search-error.ts';
 
 const query = { query: 'İzmir', limit: 5, language: 'tr' };
 const data = { places: [{ id: 'place.311046', displayName: 'İzmir', region: 'Türkiye', latitudeE2: 3841, longitudeE2: 2714, timeZone: 'Europe/Istanbul' }], attribution: ['open-meteo', 'geonames'] };
-function source(fetch) { return new WorkerPlaceSearchDataSource({ baseUrl: 'https://worker.test/', fetch, timeoutMs: 5 }); }
+function source(fetch) { return new WorkerPlaceSearchDataSource({ baseUrl: 'https://worker.test', fetch, timeoutMs: 5 }); }
 
 test('future picker searches only the Worker and receives validated display names and attribution', async () => {
   let calls = 0;

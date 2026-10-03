@@ -9,7 +9,7 @@ test('sends only the validated fields and accepts the receipt', async () => {
     sent = JSON.parse(init.body);
     return Response.json({ data: { status: 'received' } });
   };
-  await sendFeedback('https://worker.test/', { message: 'hello', submissionId: '3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b', appVersion: '0.1.20261002', platform: 'ios', locale: 'en' }, fetcher);
+  await sendFeedback('https://worker.test', { message: 'hello', submissionId: '3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b', appVersion: '0.1.20261002', platform: 'ios', locale: 'en' }, fetcher);
   assert.deepEqual(sent, { message: 'hello', submissionId: '3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b', appVersion: '0.1.20261002', platform: 'ios', locale: 'en' });
 });
 

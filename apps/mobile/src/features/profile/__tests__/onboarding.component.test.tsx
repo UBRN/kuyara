@@ -18,6 +18,7 @@ import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
 import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { mockFontScale } from '../../../../test/font-scale';
 
 // `useScreenViewed` (via `ProductAnalyticsProvider`) needs `expo-router`'s focus effect;
 // this suite exercises step and completion analytics, not focus-driven screen views.
@@ -68,10 +69,6 @@ const initialMetrics = {
 };
 
 const originalWindowDimensions = Dimensions.get('window');
-
-function mockFontScale(fontScale: number) {
-  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
-}
 
 // React Native provides the idle callback the weather previews wait for; Jest's environment does not.
 beforeAll(() => {

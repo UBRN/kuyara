@@ -1,4 +1,10 @@
-import { formatCalendarDateParts } from '@/domain/calendar-date';
+import { z } from 'zod';
+
+import {
+  formatCalendarDateParts,
+  shiftCalendarDateParts,
+  type CalendarDateParts,
+} from '@/domain/calendar-date';
 import { zonedClock } from '@/domain/intl-format';
 
 /**
@@ -32,6 +38,12 @@ export type WardrobeDayWindow = Readonly<{
   key: string;
 }>;
 
+/**
+ * The shape of a dressing-day key as it is stored and read back: the bare local date, or that
+ * date plus `:evening`. The date part is only shape-checked, as persisted rows are.
+ */
+export const dressingDayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}(:evening)?$/);
+
 /** What follows the date in the key of an evening dressing day. */
 const eveningKeySuffix = ':evening';
 
@@ -60,8 +72,7 @@ export function isBeforeDayStart(hour: number): boolean {
   return hour < dayStartHour;
 }
 
-type LocalDate = Readonly<{ year: number; month: number; day: number }>;
-type LocalTime = LocalDate & Readonly<{ hour: number }>;
+type LocalTime = CalendarDateParts & Readonly<{ hour: number }>;
 
 /** How far the zone's wall clock runs ahead of UTC at a given instant. */
 function zoneOffsetMilliseconds(instant: number, timeZone: string): number {
@@ -83,19 +94,10 @@ function zoneOffsetMilliseconds(instant: number, timeZone: string): number {
  * is read twice because the first reading is taken at the wrong instant whenever the zone
  * changes offset inside the window, which is exactly what a daylight-saving night does.
  */
-export function instantOfLocalHour(date: LocalDate, hour: number, timeZone: string): number {
+export function instantOfLocalHour(date: CalendarDateParts, hour: number, timeZone: string): number {
   const asIfUtc = Date.UTC(date.year, date.month - 1, date.day, hour);
   const firstGuess = asIfUtc - zoneOffsetMilliseconds(asIfUtc, timeZone);
   return asIfUtc - zoneOffsetMilliseconds(firstGuess, timeZone);
-}
-
-function shiftLocalDate(date: LocalDate, days: number): LocalDate {
-  const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
-  return {
-    year: shifted.getUTCFullYear(),
-    month: shifted.getUTCMonth() + 1,
-    day: shifted.getUTCDate(),
-  };
 }
 
 /**
@@ -105,7 +107,7 @@ function shiftLocalDate(date: LocalDate, days: number): LocalDate {
  */
 export function wardrobeDayKey(local: LocalTime): string {
   if (eveningHasStarted(local.hour)) return `${formatCalendarDateParts(local)}${eveningKeySuffix}`;
-  if (isBeforeDayStart(local.hour)) return `${formatCalendarDateParts(shiftLocalDate(local, -1))}${eveningKeySuffix}`;
+  if (isBeforeDayStart(local.hour)) return `${formatCalendarDateParts(shiftCalendarDateParts(local, -1))}${eveningKeySuffix}`;
   return formatCalendarDateParts(local);
 }
 
@@ -122,7 +124,7 @@ export function wardrobeDayWindow(
     const isEvening = eveningHasStarted(local.hour) || isBeforeDayStart(local.hour);
     // Before 04:00 the evening is the one that began yesterday, so it ends at 04:00 of the
     // date the clock already shows; after 18:00 it ends at 04:00 of the date to come.
-    const endDate = isBeforeDayStart(local.hour) ? local : shiftLocalDate(local, 1);
+    const endDate = isBeforeDayStart(local.hour) ? local : shiftCalendarDateParts(local, 1);
     const end = instantOfLocalHour(endDate, isEvening ? dayStartHour : 0, timeZone);
 
     return {
@@ -134,4 +136,22 @@ export function wardrobeDayWindow(
     // An unknown zone is what lands here: `Intl` rejects one rather than guessing.
     return null;
   }
+}
+
+/**
+ * The forecast hours of the dressing day that have not happened yet: those starting after
+ * `now` and before the window closes. Every reading of "the rest of the day" (the outlook, the
+ * day insight and the alert planner) takes its hours from here, so an hour starting exactly at
+ * `now` is behind all of them.
+ */
+export function forecastHoursAhead<T extends Readonly<{ forecastAt: string }>>(
+  hourly: readonly T[],
+  now: number,
+  window: Pick<WardrobeDayWindow, 'end'>,
+): T[] {
+  const windowEnd = Date.parse(window.end);
+  return hourly.filter(({ forecastAt }) => {
+    const forecast = Date.parse(forecastAt);
+    return forecast > now && forecast < windowEnd;
+  });
 }

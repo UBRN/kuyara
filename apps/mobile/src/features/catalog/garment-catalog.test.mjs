@@ -5,6 +5,8 @@ import {
   garmentCatalog,
   garmentCatalogVersion,
   GarmentCatalogValidationError,
+  listGarmentTypesForPreference,
+  listSelectableGarmentTypes,
   listStructuralCategoriesForPreference,
   validateGarmentCatalog,
   validateGarmentCatalogLocalization,
@@ -198,4 +200,23 @@ test('structural categories for a preference keep catalogue order and drop the e
     structuralCategories.filter((category) => category !== 'one_piece'),
   );
   assert.deepEqual(listStructuralCategoriesForPreference(null), structuralCategories);
+});
+
+test('selectable types are the active ones the preference offers, in catalogue order', () => {
+  const active = garmentCatalog.garmentTypes.filter(({ status }) => status === 'active');
+  assert.deepEqual(listSelectableGarmentTypes(null), active);
+  for (const preference of ['womens', 'mens']) {
+    assert.deepEqual(
+      listSelectableGarmentTypes(preference),
+      listGarmentTypesForPreference(preference).filter(({ status }) => status === 'active'),
+    );
+  }
+  assert.ok(Object.isFrozen(listSelectableGarmentTypes('mens')));
+});
+
+test('a deprecated type is never selectable', () => {
+  const deprecated = garmentCatalog.garmentTypes.filter(({ status }) => status !== 'active');
+  for (const type of deprecated) {
+    assert.ok(!listSelectableGarmentTypes(null).some(({ typeId }) => typeId === type.typeId));
+  }
 });

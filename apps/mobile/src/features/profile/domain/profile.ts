@@ -6,7 +6,7 @@ import {
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
-import { formatCalendarDate } from '@/domain/calendar-date';
+import { calendarDateKeySchema, formatCalendarDate } from '@/domain/calendar-date';
 import type {
   ClothingPreference,
   LanguagePreference,
@@ -88,6 +88,13 @@ export function sortedStyleAesthetics(value: unknown): readonly StyleAesthetic[]
   return parsed.success ? orderStyleAesthetics(parsed.data) : [];
 }
 
+/** Either notification kind is on: the alerts opt-in or the morning briefing's. */
+export function wantsAnyNotification(
+  profile: Pick<Profile, 'notificationsOptIn' | 'morningBriefingOptIn'>,
+): boolean {
+  return profile.notificationsOptIn || profile.morningBriefingOptIn;
+}
+
 export function normalizeDisplayName(value: string | null): string | null {
   const name = value?.trim() ?? '';
   if (name === '') return null;
@@ -125,7 +132,7 @@ const MAXIMUM_BIRTH_YEAR = 2100;
 // schema below refuses. Noon local time, as the picker's own dates are.
 export const minimumBirthDate = new Date(MINIMUM_BIRTH_YEAR, 0, 1, 12);
 
-const birthDateSchema = z.iso.date().refine((value) => {
+const birthDateSchema = calendarDateKeySchema.refine((value) => {
   const year = Number(value.slice(0, 4));
   return year >= MINIMUM_BIRTH_YEAR && year <= MAXIMUM_BIRTH_YEAR;
 }).nullable();

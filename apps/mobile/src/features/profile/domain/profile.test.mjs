@@ -26,3 +26,14 @@ test('optional names trim whitespace and accept only 2 to 30 characters', () => 
 test('the default dress style is smart, one of the three styles', () => {
   assert.equal(profile.defaultDressStyle, 'smart');
 });
+
+test('either notification opt-in counts as wanting notifications', () => {
+  for (const [notificationsOptIn, morningBriefingOptIn, expected] of [
+    [false, false, false],
+    [true, false, true],
+    [false, true, true],
+    [true, true, true],
+  ]) {
+    assert.equal(profile.wantsAnyNotification({ notificationsOptIn, morningBriefingOptIn }), expected);
+  }
+});

@@ -4,7 +4,7 @@ import type { NotificationPermissionState } from '@/features/notifications/data/
 import type { Profile } from '@/features/profile/domain/profile';
 import type { WeatherProvider } from '@/features/weather/data/weather-provider';
 import type { WeatherRepository } from '@/features/weather/data/weather-repository';
-import { weatherFreshness } from '@/features/weather/domain/weather';
+import { acceptProvidedSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
 import { resolveLanguagePreference } from '@/localization/language-preference';
 import type { TemperatureUnit } from '@/localization/device-locale';
 
@@ -45,16 +45,8 @@ export async function runBackgroundWeatherAlertTask(
       ? cached
       : null;
     if (!snapshot) {
-      const provided = await dependencies.provider.fetchSnapshot(location);
-      if (
-        provided.locationKey !== location.locationKey
-        || provided.timeZone !== location.timeZone
-      ) {
-        throw new Error('Mismatched weather location.');
-      }
-      if (weatherFreshness(provided.fetchedAt, dependencies.now()) === 'invalid') {
-        throw new Error('Invalid weather fetch time.');
-      }
+      const provided = acceptProvidedSnapshot(
+        location, await dependencies.provider.fetchSnapshot(location), dependencies.now());
       snapshot = await repository.saveSnapshot(profile.id, provided);
     }
 

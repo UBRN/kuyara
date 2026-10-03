@@ -1,6 +1,6 @@
 import { zonedClock } from '@/domain/intl-format';
 import type { HourlyWeather, WeatherSnapshot } from '@/features/weather/domain/weather';
-import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
+import { forecastHoursAhead, wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
 import {
   isWetMeasurement,
   temperatureSwingCelsius,
@@ -26,6 +26,11 @@ export const defaultQuietHours: Omit<QuietHours, 'timeZone'> = Object.freeze({
   start: Object.freeze({ hour: 22, minute: 0 }),
   end: Object.freeze({ hour: 7, minute: 0 }),
 });
+
+/** The default quiet hours on the wall clock of `timeZone`. */
+export function deviceQuietHours(timeZone: string): QuietHours {
+  return { ...defaultQuietHours, timeZone };
+}
 
 export type WeatherAlertPlan = Readonly<{
   id: string;
@@ -90,12 +95,8 @@ export function planWeatherAlerts(input: Readonly<{
   const dayWindow = wardrobeDayWindow(input.now, snapshot.timeZone);
   if (dayWindow === null || !Number.isFinite(now)) return [];
 
-  const windowEnd = Date.parse(dayWindow.end);
   const windowKey = dayWindow.key;
-  const remainingHours = snapshot.hourly.filter(({ forecastAt }) => {
-    const forecast = Date.parse(forecastAt);
-    return forecast > now && forecast < windowEnd;
-  });
+  const remainingHours = forecastHoursAhead(snapshot.hourly, now, dayWindow);
   const plans: WeatherAlertPlan[] = [];
 
   function addPlan(

@@ -1,5 +1,5 @@
 import type { DayKind } from '@kuyara/contracts';
-import { calendarDateParts } from '@/domain/calendar-date';
+import { calendarDateParts, shiftCalendarDateParts } from '@/domain/calendar-date';
 import {
   dressingDayDateKey,
   instantOfLocalHour,
@@ -68,8 +68,9 @@ const previewDepartureHour = 8;
  */
 export function nextMorningAfterEvening(key: string): Date | null {
   if (!isEveningDressingDayKey(key)) return null;
-  const [year, month, day] = dressingDayDateKey(key).split('-').map(Number);
-  return new Date(year, month - 1, day + 1, previewDepartureHour);
+  const { year, month, day } = shiftCalendarDateParts(
+    calendarDateParts(dressingDayDateKey(key)), 1);
+  return new Date(year, month - 1, day, previewDepartureHour);
 }
 
 /**

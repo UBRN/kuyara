@@ -4,6 +4,7 @@ import { useEffect, useEffectEvent } from 'react';
 
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
+import { wantsAnyNotification } from '@/features/profile/domain/profile';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { systemNow } from '@/infrastructure/system-clock';
@@ -49,7 +50,7 @@ export function WeatherAlertObserver() {
     // which plans nothing and would reach the scheduler as a cancellation.
     // ADR 0004: the two kinds have their own opt-ins, so either one on is a reason to plan
     // and both off is the opt-out that cancels.
-    const anyOptIn = notificationsOptIn || morningBriefingOptIn;
+    const anyOptIn = wantsAnyNotification({ notificationsOptIn, morningBriefingOptIn });
     // A place switch keeps the previous snapshot visible while the new one loads. Cancel
     // the old place's pending alerts before a failed refresh can leave them on the device.
     const cancels = !anyOptIn || permission.kind === 'denied' || locationMismatch;

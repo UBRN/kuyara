@@ -1,18 +1,13 @@
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
+import { fileUri as nativeUri } from '../../../../test/file-uri.mjs';
 
 // The real file adapter behind history photos, run against a stand-in for expo-file-system
 // (the same registerHooks pattern as the wardrobe photo tests).
 const nativeFiles = new Set();
 const createdDirectories = [];
 let nativeCopyFailure = null;
-
-function nativeUri(parts) {
-  const [root, ...segments] = parts;
-  const rootUri = typeof root === 'string' ? root : root.uri;
-  return [rootUri.replace(/\/$/, ''), ...segments].join('/');
-}
 
 globalThis.__kuyaraHistoryPhotoNativeMocks = {
   Directory: class {

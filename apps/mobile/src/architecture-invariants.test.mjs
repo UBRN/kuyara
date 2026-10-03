@@ -18,44 +18,18 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
 
+import { sourceFiles as listSourceFiles } from '../test/source-files.mjs';
+
 const sourceRoot = import.meta.dirname;
 const repoRelativeRoot = 'apps/mobile/src';
 
-const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
-const skippedDirectories = new Set(['node_modules', '.expo', '.expo-shared', 'dist', 'build']);
-
 /** Every non-test source file under `src`, as paths relative to `src` in posix form. */
-function sourceFiles(directory = sourceRoot, { includeTests = false } = {}, relative = '') {
-  const found = [];
-
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const entryRelative = relative ? `${relative}/${entry.name}` : entry.name;
-
-    if (entry.isDirectory()) {
-      if (skippedDirectories.has(entry.name)) {
-        continue;
-      }
-      found.push(...sourceFiles(path.join(directory, entry.name), { includeTests }, entryRelative));
-      continue;
-    }
-
-    if (!entry.isFile() || !sourceExtensions.has(path.extname(entry.name))) {
-      continue;
-    }
-    if (!includeTests && entry.name.includes('.test.')) {
-      continue;
-    }
-
-    found.push(entryRelative);
-  }
-
-  return found;
-}
+const sourceFiles = (directory = sourceRoot, options) => listSourceFiles(directory, options);
 
 const specifierPatterns = [
   // `import x from '…'`, `import type { x } from '…'`, `export { x } from '…'`
@@ -893,17 +867,18 @@ test('an error swallowed as `undefined` appears only where the allowlist names i
 });
 
 // Untrusted values are parsed before they are typed: the Closet category reaches the domain
-// type through `isWardrobeItemCategory`, never a cast. The weather-condition and on-device AI
-// casts of the same kind stay outside this check until their own goals land.
-test('the wardrobe category is narrowed by its guard, never cast', () => {
+// type through `isWardrobeItemCategory`, never a cast, and a stored weather condition through
+// `isWeatherConditionCode`. The on-device AI casts of the same kind stay outside this check
+// until their own goals land.
+test('the wardrobe category and the weather condition are narrowed by their guards, never cast', () => {
   const casts = [];
   for (const relativePath of sourceFiles()) {
     readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
-      if (/\bas WardrobeItemCategory\b/.test(line)) casts.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+      if (/\bas WardrobeItemCategory\b|\bas \w+(?:\['\w+'\])*\['condition'\]|\bas WeatherConditionCode\b/.test(line)) casts.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
     });
   }
 
-  assert.deepEqual(casts, [], 'narrow with isWardrobeItemCategory instead of casting');
+  assert.deepEqual(casts, [], 'narrow with isWardrobeItemCategory or isWeatherConditionCode instead of casting');
 });
 
 // Presentation and routes render a failure; they never sort it. The caught error reaches a
@@ -1182,4 +1157,228 @@ test('the language union is spelled only through SupportedLanguage', () => {
     /'tr' \| 'en'|'en' \| 'tr'/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
   assert.deepEqual(files, [...spelledLanguageUnion].sort(),
     'use SupportedLanguage from @/domain/preferences, and shrink the list when a file stops spelling the union');
+});
+
+// Calendar-date arithmetic has one owner: `shiftCalendarDateParts` in domain/calendar-date.ts.
+// A `Date.UTC(` line elsewhere is either whole-instant arithmetic on a zone's wall clock or a
+// weekday or day-of-year read; the list only shrinks and a stale count fails.
+const dateUtcAllowlist = {
+  'domain/calendar-date.ts': 1,
+  'features/account/__tests__/account-fixtures.mjs': 1,
+  'features/recommendation/domain/local-day.ts': 3,
+  'features/recommendation/domain/outfit-history-week.ts': 1,
+  'features/weather/domain/wardrobe-day.ts': 2,
+  'presentation/format-clock-time.ts': 1,
+};
+
+test('Date.UTC appears only where the allowlist names it', () => {
+  const counts = {};
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line) => {
+      if (line.includes('Date.UTC(')) counts[relativePath] = (counts[relativePath] ?? 0) + 1;
+    });
+  }
+
+  assert.deepEqual(counts, dateUtcAllowlist, 'shift a date with shiftCalendarDateParts from @/domain/calendar-date; the allowlist only shrinks');
+});
+
+// A `YYYY-MM-DD` key is checked by `calendarDateKeySchema` (domain/calendar-date.ts) and a
+// dressing-day key by `dressingDayKeySchema` (weather/domain/wardrobe-day.ts). The weather
+// repository's own looser shape check stays because persisted rows may hold dates the schema
+// refuses.
+test('a calendar-date key schema is built only by its owners', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'domain/calendar-date.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/z\.iso\.date\(|\\d\{4\}-\\d\{2\}-\\d\{2\}(?:\(:evening\)\?)?\$/.test(line)) hits.push(`${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(
+    hits.map((hit) => hit.replace(/:\d+$/, '')),
+    ['features/weather/data/weather-repository.ts', 'features/weather/domain/wardrobe-day.ts'],
+    `use calendarDateKeySchema or dressingDayKeySchema: ${hits.join(', ')}`,
+  );
+});
+
+// A provided weather snapshot is accepted by `acceptProvidedSnapshot` and the forecast hours
+// still ahead in the dressing day come from `forecastHoursAhead`; neither rule is spelled twice.
+test('snapshot acceptance and the hours ahead each have one owner', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/weather/domain/weather.ts' || relativePath === 'features/weather/domain/wardrobe-day.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/Mismatched weather location|Invalid weather fetch time|forecast >=? now/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call acceptProvidedSnapshot from weather/domain/weather.ts or forecastHoursAhead from weather/domain/wardrobe-day.ts');
+});
+
+// The device's time zone is read once, by `getDeviceTimeZone` in domain/intl-format.ts, and the
+// default quiet hours are put on a zone once, by `deviceQuietHours`.
+test('the device time zone and the default quiet hours each have one owner', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (relativePath !== 'domain/intl-format.ts' && /resolvedOptions\(\)\.timeZone/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+      if (relativePath !== 'features/notifications/domain/weather-alerts.ts' && /\.\.\.defaultQuietHours/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'call getDeviceTimeZone from @/domain/intl-format or deviceQuietHours from weather-alerts.ts');
+});
+
+// The clock-time pattern (`hour12 ? 'numeric' : '2-digit'`) is spelled by `formatClockTime` in
+// presentation/format-clock-time.ts; the screens listed here still spell it and the list only
+// shrinks.
+const clockPatternAllowlist = {
+  'features/account/presentation/account-sync-view.ts': 1,
+  'features/profile/presentation/service-providers-screen.tsx': 1,
+  'features/today/presentation/today-presentation.ts': 1,
+  'features/weather/presentation/weather-format.ts': 1,
+  'features/weather/presentation/weather-screen.tsx': 1,
+  'presentation/format-clock-time.ts': 1,
+};
+
+test('the clock-time pattern is spelled only where the allowlist names it', () => {
+  const counts = {};
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line) => {
+      if (line.includes("hour12 ? 'numeric' : '2-digit'")) counts[relativePath] = (counts[relativePath] ?? 0) + 1;
+    });
+  }
+
+  assert.deepEqual(counts, clockPatternAllowlist, 'call formatClockTime from @/presentation/format-clock-time; the allowlist only shrinks');
+});
+
+// sRGB colour maths has one owner, domain/srgb-color.ts: the OKLab matrix and the 6-digit hex
+// pattern are spelled nowhere else. The native colour well's own text check is the one entry
+// that still spells the pattern; the list only shrinks.
+const hexPatternAllowlist = ['components/ui/native-color-well.tsx'];
+
+test('the OKLab matrix and the 6-digit hex pattern live only in domain/srgb-color.ts', () => {
+  const owner = 'domain/srgb-color.ts';
+  const matrix = [];
+  const pattern = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === owner) continue;
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    if (text.includes('0.4122214708')) matrix.push(relativePath);
+    if (/\[0-9a-fA?-?F?\]\{6\}/.test(text)) pattern.push(relativePath);
+  }
+
+  assert.deepEqual(matrix, [], `use toOklab or toOklch from @/domain/srgb-color`);
+  assert.deepEqual(pattern, hexPatternAllowlist, 'use isSrgbHex from @/domain/srgb-color; the allowlist only shrinks');
+});
+
+// Weather coordinate bounds are owned by `isNormalizedCoordinates` in weather/domain/weather.ts.
+test('the weather coordinate bounds are spelled only in weather/domain/weather.ts', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'features/weather/domain/weather.ts' || relativePath.startsWith('infrastructure/sqlite/')) continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\b(?:9000|18000)\b/.test(line)) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'call isNormalizedCoordinates from @/features/weather/domain/weather');
+});
+
+// `resolveWorkerBaseUrl` already returns a bare origin (no path, no trailing slash), so no
+// Worker client trims the base URL again.
+test('a Worker client does not trim the base URL it is given', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (!/^features\/[^/]+\/data\//.test(relativePath)) continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/baseUrl[^\n]*\.replace\(/.test(line)) hits.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'pass the origin from resolveAppWorkerBaseUrl through unchanged');
+});
+
+// A `JSON.parse(` result is `unknown` until a schema has read it: it is assigned to an
+// `unknown` binding or handed straight to a schema's `parse`. These sites hand the raw result
+// to a typed helper instead; the list is frozen and only shrinks, and a stale count fails.
+const untypedJsonParseAllowlist = {
+  'features/profile/data/profile-repository.ts': 1,
+  'features/recommendation/data/on-device-ai-client.ts': 1,
+  'features/recommendation/data/recommendation-repository.ts': 2,
+  'features/recommendation/data/sqlite-dressing-day-choice-repository.ts': 1,
+  'features/recommendation/data/sqlite-outfit-history-repository.ts': 1,
+};
+
+test('JSON.parse feeds an unknown binding or a schema except where the allowlist names it', () => {
+  const counts = {};
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line) => {
+      if (!line.includes('JSON.parse(')) return;
+      if (/:\s*unknown\s*=\s*JSON\.parse\(|Schema\.parse\(JSON\.parse\(/.test(line)) return;
+      counts[relativePath] = (counts[relativePath] ?? 0) + 1;
+    });
+  }
+
+  assert.deepEqual(counts, untypedJsonParseAllowlist, 'parse the result with a schema at the boundary; the allowlist only shrinks');
+});
+
+// Which catalogue types a person may pick is derived once, by `listSelectableGarmentTypes` in
+// catalog/domain/garment-catalog.ts. The listed sites read one type's own status rather than
+// listing the catalogue, or are switched to the owner next; the list only shrinks.
+test('the active catalogue status is read only by the selectable types owner', () => {
+  const owner = 'features/catalog/domain/garment-catalog.ts';
+  const allowlist = [
+    'features/recommendation/domain/garment-eligibility.ts',
+    'features/today/application/compose-selection.ts',
+    'features/wardrobe/presentation/garment-type-picker.tsx',
+  ];
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && /status\s*[!=]==\s*'active'/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'list types through listSelectableGarmentTypes');
+  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
+  assert.equal(allowlist.length, 3, 'the active status allowlist only shrinks');
+});
+
+// "Either notification kind is on" is decided once, by `wantsAnyNotification` in
+// profile/domain/profile.ts. The listed route sites are switched to it next; the list only shrinks.
+test('the alerts opt-in is combined with the briefing opt-in only by wantsAnyNotification', () => {
+  const owner = 'features/profile/domain/profile.ts';
+  const allowlist = ['app/(tabs)/(profile)/settings/index.tsx', 'app/_layout.tsx'];
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && /(?<!!)notificationsOptIn\s*\|\|/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'call wantsAnyNotification');
+  assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
+  assert.equal(allowlist.length, 2, 'the notification opt-in allowlist only shrinks');
+});
+
+// What makes a stored photo path managed (`<directory>/<uuid v4>.jpg`) is decided once, in
+// domain/managed-photo-path.ts; each feature only names its directory.
+test('a managed photo path pattern is written only in domain/managed-photo-path.ts', () => {
+  const owner = 'domain/managed-photo-path.ts';
+  const stemPattern = /\(\[\^\/\]\+\)\\+\.jpg/;
+  const copies = sourceFiles().filter((file) =>
+    file !== owner && stemPattern.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(copies, [], `use isManagedPhotoPath from @/${owner.replace('.ts', '')}`);
+  assert.ok(stemPattern.test(readFileSync(path.join(sourceRoot, owner), 'utf8')), 'the pattern still recognizes the owner');
+});
+
+// Test helpers with one owner under apps/mobile/test: the font-scale setter, the stand-in file
+// uri and the source tree walk are imported, never written again in a test file.
+test('the font scale setter, file uri builder and source walk are defined only under test/', () => {
+  const copies = [];
+  const definitions = [
+    [/function mockFontScale\b/, 'test/font-scale.ts'],
+    [/function (?:fileUri|nativeUri|nativeFileUri)\(parts\)/, 'test/file-uri.mjs'],
+    [/function sourceFiles\b/, 'test/source-files.mjs'],
+  ];
+  for (const relativePath of sourceFiles(sourceRoot, { includeTests: true })) {
+    if (relativePath === 'architecture-invariants.test.mjs') continue;
+    const source = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    for (const [pattern, owner] of definitions) {
+      if (pattern.test(source)) copies.push(`${repoRelativeRoot}/${relativePath} (import from ${owner})`);
+    }
+  }
+  assert.deepEqual(copies, []);
 });

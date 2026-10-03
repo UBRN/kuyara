@@ -3,10 +3,12 @@ import { z } from 'zod';
 
 import { utcIsoTimestampSchema, uuidV4Schema } from '@/domain/record-identity';
 import { styleAestheticsSchema } from '@/features/profile/domain/profile';
+import { dressingDayKeySchema } from '@/features/weather/domain/wardrobe-day';
+
+export { dressingDayKeySchema };
 
 export const dressingDayChoiceSourceSchema = z.enum(['morning', 'chip', 'plan', 'random']);
 export type DressingDayChoiceSource = z.infer<typeof dressingDayChoiceSourceSchema>;
-export const dressingDayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}(:evening)?$/);
 
 export type DressingDayChoice = Readonly<{
   id: string;

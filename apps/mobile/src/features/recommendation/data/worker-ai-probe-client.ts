@@ -20,7 +20,7 @@ export class WorkerAiProbeClient {
   private readonly requestTimeoutMilliseconds: number;
 
   constructor(dependencies: Dependencies) {
-    this.baseUrl = dependencies.baseUrl.replace(/\/$/, '');
+    this.baseUrl = dependencies.baseUrl;
     this.fetch = dependencies.fetch ?? globalThis.fetch;
     this.requestTimeoutMilliseconds = dependencies.requestTimeoutMilliseconds ?? 25000;
   }
