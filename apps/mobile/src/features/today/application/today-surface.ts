@@ -192,3 +192,14 @@ export function isUpdatingOutfit(
 ): boolean {
   return dayType !== null || choosingCaption !== null;
 }
+
+/**
+ * The evening's tomorrow strip: its preview and the way to open it, only while the preview is
+ * ready and the screen can open its detail.
+ */
+export function tomorrowStrip<Tomorrow, Open>(
+  tomorrow: Tomorrow | null,
+  onOpenDetail: Open | undefined,
+): Readonly<{ tomorrow: Tomorrow; onOpenDetail: Open }> | null {
+  return tomorrow !== null && onOpenDetail !== undefined ? { tomorrow, onOpenDetail } : null;
+}

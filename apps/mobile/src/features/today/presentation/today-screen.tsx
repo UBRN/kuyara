@@ -30,6 +30,7 @@ import {
   isUpdatingOutfit,
   settledFirstOutfit,
   todayPresentationState,
+  tomorrowStrip,
 } from '@/features/today/application/today-surface';
 import type { TodayScreenState } from '@/features/today/model';
 import {
@@ -459,7 +460,7 @@ function TodayScreenContent({
   const tomorrow = primary && tomorrowPreview && tomorrowWeather
     ? createTomorrowPreviewPresentation(tomorrowPreview, tomorrowWeather, language, temperatureUnit, now)
     : null;
-  const showsTomorrow = tomorrow !== null && onOpenTomorrowDetail !== undefined;
+  const tomorrowRow = tomorrowStrip(tomorrow, onOpenTomorrowDetail);
 
   return (
     <Screen
@@ -550,11 +551,11 @@ function TodayScreenContent({
 
         {/* B: in the evening, tomorrow's outfit is one thin strip under the alternatives, a
             single target that opens its detail. It shows only while the preview is ready. */}
-        {showsTomorrow ? (
+        {tomorrowRow ? (
           <Entrance index={alternates.length + 1}>
             <TomorrowStrip
-              onPress={() => onOpenTomorrowDetail(tomorrow.id)}
-              tomorrow={tomorrow}
+              onPress={() => tomorrowRow.onOpenDetail(tomorrowRow.tomorrow.id)}
+              tomorrow={tomorrowRow.tomorrow}
             />
           </Entrance>
         ) : null}
@@ -589,7 +590,7 @@ function TodayScreenContent({
             "Ask the stylist again" (S15). Either answer closes the row in place. */}
         {shownOffer ? (
           <Presence visible={offerToRender !== null}>
-            <Entrance index={alternates.length + (showsTomorrow ? 2 : 1)}>
+            <Entrance index={alternates.length + (tomorrowRow ? 2 : 1)}>
               <WeatherAlertOfferRow
                 blocked={shownOffer.blocked}
                 language={language}
