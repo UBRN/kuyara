@@ -1,7 +1,7 @@
 import type { WeatherAlertScheduling } from '@/features/notifications/application/weather-alert-scheduler';
 import { weatherAlertBackgroundLeadTimeMinutes } from '@/features/notifications/domain/weather-alerts';
 import type { NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
-import type { Profile } from '@/features/profile/domain/profile';
+import { wantsAnyNotification, type Profile } from '@/features/profile/domain/profile';
 import type { WeatherProvider } from '@/features/weather/data/weather-provider';
 import type { WeatherRepository } from '@/features/weather/data/weather-repository';
 import { acceptProvidedSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
@@ -28,7 +28,7 @@ export async function runBackgroundWeatherAlertTask(
   try {
     const profile = await dependencies.loadProfile();
     // ADR 0004: either notification kind being on is a reason to refresh and reschedule.
-    if (!profile?.notificationsOptIn && !profile?.morningBriefingOptIn) return 'success';
+    if (!profile || !wantsAnyNotification(profile)) return 'success';
 
     const permission = await dependencies.getNotificationPermission();
     if (permission.kind !== 'granted') return 'success';

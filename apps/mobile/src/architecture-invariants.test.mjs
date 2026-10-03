@@ -1264,6 +1264,10 @@ test('the alerts opt-in is combined with the briefing opt-in only by wantsAnyNot
   const allowlist = ['app/(tabs)/(profile)/settings/index.tsx', 'app/_layout.tsx'];
   const hits = sourceFiles().filter((file) =>
     file !== owner && /(?<!!)notificationsOptIn\s*\|\|/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  // Its negation ("neither kind is on") is `!wantsAnyNotification(...)`, never spelled out.
+  const negated = sourceFiles().filter((file) =>
+    /notificationsOptIn\s*&&\s*!\S*morningBriefingOptIn/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(negated, [], 'negate wantsAnyNotification');
   assert.deepEqual(hits.filter((file) => !allowlist.includes(file)), [], 'call wantsAnyNotification');
   assert.deepEqual(allowlist.filter((file) => !hits.includes(file)), [], 'remove these entries so the list only shrinks');
   assert.equal(allowlist.length, 2, 'the notification opt-in allowlist only shrinks');
