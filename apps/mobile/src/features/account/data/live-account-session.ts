@@ -13,6 +13,11 @@ import {
 import { createAccountSessionSync } from '@/features/account/application/account-session-sync';
 import { createEncryptedSessionStorage } from '@/features/account/data/encrypted-session-storage';
 import { createExpoAppleSignIn, createNonceSource } from '@/features/account/data/expo-native-sign-in';
+import {
+  createGoogleSignIn,
+  resolveGoogleSignInSettings,
+  type GoogleOneTapModule,
+} from '@/features/account/data/google-native-sign-in';
 import { createNetworkState, type AccountNetwork } from '@/features/account/data/network-state';
 import {
   createSqliteAccountRowsSource,
@@ -37,6 +42,12 @@ const sessionKeyName = 'kuyara.account.session-key';
 const keychain = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 /** The name the auth client stores its session under, so an offline launch can read it too. */
 const sessionStorageKey = 'kuyara.account.session';
+/**
+ * Google's native sign-in library (`GoogleOneTapSignIn` of its Universal edition) is not in this
+ * build, so Google sign-in fails closed (ADR 0041 section 1).
+ */
+const googleModule: GoogleOneTapModule | null = null;
+
 /** A token read that may refresh never holds a re-ask longer than this; the re-ask goes without it. */
 const accessTokenWaitMs = 3000;
 
@@ -49,6 +60,12 @@ export type LiveAccountSession = Readonly<{
   /** The session's access token for the member AI allowance, null when there is none. */
   accessToken: () => Promise<string | null>;
 }>;
+
+/** Google sign-in when both its library and its client settings are in the build, else null. */
+function googleSignIn() {
+  const settings = resolveGoogleSignInSettings();
+  return googleModule !== null && settings !== null ? createGoogleSignIn(googleModule, settings) : null;
+}
 
 export function createLiveAccountSession({ database, fetcher, localProfileId, settings, workerBaseUrl }: Readonly<{
   database: SqliteDatabase;
@@ -74,6 +91,7 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
   const supabaseAuth = createSupabaseAccountAuth({
     client,
     apple: createExpoAppleSignIn(AppleAuthentication),
+    google: googleSignIn(),
     nonce: createNonceSource(deviceCrypto),
     storedSession: () => storage.getItem(sessionStorageKey),
     removeStoredSession: () => storage.removeItem(sessionStorageKey),

@@ -23,7 +23,12 @@ export type AppleSignIn = Readonly<{
   credentialState: (appleUserId: string) => Promise<AppleCredentialState>;
 }>;
 
-/** A fresh nonce: the raw value goes to Supabase, its SHA-256 (hex) to Apple. */
+/** Native Sign in with Google with the SHA-256 of the raw nonce; `null` is the person cancelling. */
+export type GoogleSignIn = Readonly<{
+  idToken: (hashedNonce: string) => Promise<Readonly<{ idToken: string }> | null>;
+}>;
+
+/** A fresh nonce: the raw value goes to Supabase, its SHA-256 (hex) to Apple or Google. */
 export type NonceSource = () => Promise<Readonly<{ raw: string; hashed: string }>>;
 
 const isAccountProvider = (value: unknown): value is AccountProvider => value === 'apple' || value === 'google';
@@ -79,23 +84,17 @@ function storedUserOf(json: string | null): UserSession | null {
   }
 }
 
-/**
- * Google sign-in waits for its library's licence (ADR 0041 section 1). Until then this is the one
- * place it fails, the way a provider failure does; the Google adapter replaces it.
- */
-function googleIdToken(): Promise<never> {
-  return Promise.reject(new AccountProviderError('unavailable'));
-}
-
 const sessionOrFail = (session: Session | null): AuthSession => {
   const mapped = session === null ? null : authSessionOf(session);
   if (mapped === null) throw new AccountProviderError('failed');
   return mapped;
 };
 
-export function createSupabaseAccountAuth({ apple, client, nonce, removeStoredSession, storedSession: readStored }: Readonly<{
+export function createSupabaseAccountAuth({ apple, client, google = null, nonce, removeStoredSession, storedSession: readStored }: Readonly<{
   client: SupabaseClient;
   apple: AppleSignIn;
+  /** Null until the Google library and its client settings are in the build: Google then fails closed. */
+  google?: GoogleSignIn | null;
   nonce: NonceSource;
   /** The auth client's stored session as text, read without the network. */
   storedSession: () => Promise<string | null>;
@@ -133,6 +132,25 @@ export function createSupabaseAccountAuth({ apple, client, nonce, removeStoredSe
     return { token: credential.identityToken, rawNonce: raw };
   }
 
+  /**
+   * A Google ID token for the raw nonce, or null when the person cancels. Without the library or
+   * its settings in this build it fails the way a provider failure does (ADR 0041 section 1).
+   */
+  async function googleIdToken(): Promise<Readonly<{ token: string; rawNonce: string }> | null> {
+    if (google === null) throw new AccountProviderError('unavailable');
+    const { hashed, raw } = await nonce();
+    let credential: Readonly<{ idToken: string }> | null;
+    try {
+      credential = await google.idToken(hashed);
+    } catch {
+      throw new AccountProviderError('failed');
+    }
+    return credential === null ? null : { token: credential.idToken, rawNonce: raw };
+  }
+
+  /** The ID token of `provider` for the raw nonce, or null when the person cancels. */
+  const idToken = (provider: AccountProvider) => (provider === 'apple' ? appleIdToken() : googleIdToken());
+
   async function storedSession(): Promise<Session | null> {
     const { data, error } = await auth.getSession();
     if (error) throw new AccountProviderError('failed');
@@ -142,10 +160,9 @@ export function createSupabaseAccountAuth({ apple, client, nonce, removeStoredSe
   return {
     currentSession: readSession,
     async signIn(provider) {
-      if (provider === 'google') return googleIdToken();
-      const apple = await appleIdToken();
-      if (apple === null) return null;
-      const { data, error } = await auth.signInWithIdToken({ provider: 'apple', token: apple.token, nonce: apple.rawNonce });
+      const credential = await idToken(provider);
+      if (credential === null) return null;
+      const { data, error } = await auth.signInWithIdToken({ provider, token: credential.token, nonce: credential.rawNonce });
       if (error) throw new AccountProviderError('failed');
       return sessionOrFail(data.session);
     },
@@ -160,10 +177,9 @@ export function createSupabaseAccountAuth({ apple, client, nonce, removeStoredSe
     },
     refreshSession: readSession,
     async addProvider(provider) {
-      if (provider === 'google') return googleIdToken();
-      const apple = await appleIdToken();
-      if (apple === null) throw new AccountProviderError('cancelled');
-      const { data, error } = await auth.linkIdentity({ provider: 'apple', token: apple.token, nonce: apple.rawNonce });
+      const credential = await idToken(provider);
+      if (credential === null) throw new AccountProviderError('cancelled');
+      const { data, error } = await auth.linkIdentity({ provider, token: credential.token, nonce: credential.rawNonce });
       if (error) throw new AccountProviderError(error.code === 'identity_already_exists' ? 'identityTaken' : 'failed');
       return sessionOrFail(data.session);
     },
@@ -181,8 +197,9 @@ export function createSupabaseAccountAuth({ apple, client, nonce, removeStoredSe
         }
         if (answer === null) return null;
         appleAuthorizationCode = answer.authorizationCode;
-      } else {
-        await googleIdToken();
+      } else if (await googleIdToken() === null) {
+        // A Google account re-authenticates with Google instead (ADR 0041 section 2); a cancel stops deletion.
+        return null;
       }
       const { data, error } = await auth.refreshSession();
       if (error || data.session === null) throw new AccountProviderError('failed');
