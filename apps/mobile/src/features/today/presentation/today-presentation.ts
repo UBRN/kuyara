@@ -978,7 +978,9 @@ function createLoadedPresentation(
     }) : '',
     suggestions,
     moreIdeas,
-    moreIdeasCaption: ideas.length > 0 ? copy.moreIdeas.caption(ideas.length) : null,
+    moreIdeasCaption: ideas.length === 0 ? null
+      : (settledMode === 'deterministic-fallback' ? copy.moreIdeas.captionDeterministic
+        : copy.moreIdeas.caption)(ideas.length),
     noOutfit:
       snapshot.recommendation.status === 'unavailable'
         ? { title: copy.noOutfitTitle, body: copy.noOutfitBody }

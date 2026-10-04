@@ -134,6 +134,8 @@ export type TodayMessages = Readonly<{
   moreIdeas: Readonly<{
     heading: string;
     caption: (count: number) => string;
+    /** A deterministic day: no stylist looked, so the line names the weather alone. */
+    captionDeterministic: (count: number) => string;
   }>;
   // In the evening, the outfit chosen for the next dressing day, in one strip under today's.
   tomorrow: Readonly<{
@@ -1744,6 +1746,9 @@ const en = {
       caption: (count) => (count === 1
         ? '1 more outfit the stylist looked at. It suits today’s weather.'
         : `${count} more outfits the stylist looked at. All suit today’s weather.`),
+      captionDeterministic: (count) => (count === 1
+        ? '1 more outfit that suits today’s weather.'
+        : `${count} more outfits that suit today’s weather.`),
     },
     tomorrow: {
       heading: 'Tomorrow',
@@ -3010,6 +3015,9 @@ const tr = {
       caption: (count) => (count === 1
         ? 'Stilistin baktığı 1 kombin daha. Bugünkü havaya uygun.'
         : `Stilistin baktığı ${count} kombin daha. Hepsi bugünkü havaya uygun.`),
+      captionDeterministic: (count) => (count === 1
+        ? 'Bugünkü havaya uygun 1 kombin daha.'
+        : `Bugünkü havaya uygun ${count} kombin daha.`),
     },
     tomorrow: {
       heading: 'Yarın',
