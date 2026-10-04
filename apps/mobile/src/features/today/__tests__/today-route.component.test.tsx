@@ -2003,6 +2003,95 @@ test.each([
   }
 });
 
+// The day's first outfit is chosen from the weather a refresh already in flight brings, and from
+// the weather it has when that refresh fails.
+test.each([
+  ['succeeds', true],
+  ['fails', false],
+])('the day\'s first generation waits for a weather refresh in flight and runs once it %s', async (
+  _outcome, succeeds,
+) => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-23' };
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  const stale = todayScreenState.snapshot.weather;
+  const fresh = { ...stale, id: '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4' };
+  const tree = (weather: WeatherApplicationValue) => (
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={saved} liveRecommendationProvider
+      wardrobe={wardrobeValue()} weather={weather}>
+      <TodayRoute />
+    </Providers>
+  );
+  try {
+    const view = await render(tree(weatherValue({ freshness: 'stale', isRefreshing: true })));
+    await waitFor(() => expect(mockChoiceGet).toHaveBeenCalledWith('profile-one', '2026-09-24'));
+    await waitFor(() => expect(mockDepartureGet).toHaveBeenCalledWith('profile-one', '2026-09-24'));
+    await act(async () => { await Promise.resolve(); });
+    expect(refresh).not.toHaveBeenCalled();
+
+    await view.rerender(tree(succeeds
+      ? weatherValue({ snapshot: fresh })
+      : weatherValue({ freshness: 'stale', refreshFailure: 'unavailable' })));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+    expect(refresh.mock.calls[0][1].snapshot.id).toBe(succeeds ? fresh.id : stale.id);
+    expect(refresh.mock.calls[0][1].localDayKey).toBe('2026-09-24');
+  } finally {
+    history.mockRestore();
+    refresh.mockRestore();
+  }
+});
+
+test('a morning answer given while the weather refreshes waits for that weather', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-23' };
+  mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
+    source: string) => ({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey: key, formality, source, styleAesthetics: null,
+    createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z', deletedAt: null,
+  }));
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  const fresh = { ...todayScreenState.snapshot.weather, id: '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4' };
+  const tree = (weather: WeatherApplicationValue) => (
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal' })}
+      recommendation={saved} liveRecommendationProvider
+      wardrobe={wardrobeValue()} weather={weather}>
+      <TodayRoute />
+    </Providers>
+  );
+  try {
+    const view = await render(tree(weatherValue({ freshness: 'stale', isRefreshing: true })));
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    await fireEvent.press(view.getByTestId('daily-formality-close'));
+    await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+    expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', '2026-09-24', 'formal', 'morning', undefined);
+    await act(async () => { await Promise.resolve(); });
+    expect(refresh).not.toHaveBeenCalled();
+
+    await view.rerender(tree(weatherValue({ snapshot: fresh })));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+    expect(refresh.mock.calls[0][1]).toMatchObject({ dressStyle: 'formal', localDayKey: '2026-09-24' });
+    expect(refresh.mock.calls[0][1].snapshot.id).toBe(fresh.id);
+  } finally {
+    history.mockRestore();
+    refresh.mockRestore();
+  }
+});
+
 // N20: the first foreground open after 18:00 asks the evening question with nothing checked,
 // and closing it answers the evening with the profile's dress style (P6).
 test('the evening sheet arrives empty and its dismissal uses the profile dress style', async () => {
