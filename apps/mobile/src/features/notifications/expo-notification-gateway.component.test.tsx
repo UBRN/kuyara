@@ -36,6 +36,16 @@ afterEach(() => {
   Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatform });
 });
 
+test('a permission read that fails is unknown, never a denial', async () => {
+  notifications.getPermissionsAsync.mockRejectedValue(new Error('native read failed'));
+  notifications.requestPermissionsAsync.mockRejectedValue(new Error('native request failed'));
+
+  await expect(new ExpoNotificationGateway().getPermissionState())
+    .resolves.toEqual({ kind: 'unknown' });
+  await expect(new ExpoNotificationGateway().requestPermission())
+    .resolves.toEqual({ kind: 'unknown' });
+});
+
 test('cancellation tries every prefixed kuyara weather alert and reports the failure', async () => {
   notifications.getAllScheduledNotificationsAsync.mockResolvedValue([
     { identifier: 'foreign-alert' },

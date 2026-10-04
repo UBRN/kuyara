@@ -369,6 +369,7 @@ const rescheduleSpy = () => jest.fn<
 
 test.each([
   ['an undetermined permission', { kind: 'undetermined' } as const, 'ready' as const],
+  ['a permission read that failed', { kind: 'unknown' } as const, 'ready' as const],
   ['weather that is still loading', { kind: 'granted' } as const, 'loading' as const],
   ['weather that failed to load', { kind: 'granted' } as const, 'error' as const],
 ])('%s neither plans nor cancels when both kinds remain enabled', async (_label, permission, weatherStatus) => {
