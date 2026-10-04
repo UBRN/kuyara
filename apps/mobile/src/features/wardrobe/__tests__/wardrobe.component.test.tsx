@@ -1268,6 +1268,112 @@ test('edit keeps replace and remove actions available when a stored photo file i
   expect(result.getByRole('button', { name: messages.en.wardrobe.removePhotoAction })).toBeOnTheScreen();
 });
 
+// The keyboard rises over the form's last field, Name: the scroll view takes the keyboard's
+// height as inset and scrolls the focused field above it.
+test('the add and edit forms keep the focused Name field above the keyboard', async () => {
+  const created = await render(<CreateForm />);
+  expect(created.getByTestId('wardrobe-create-form').props.automaticallyAdjustKeyboardInsets).toBe(true);
+  await created.unmount();
+  const edited = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen isBusy={false} item={item} mode="edit" onCreate={async () => undefined}
+        onDirtyChange={() => undefined} onUpdate={async () => undefined} />
+    </TestProviders>,
+  );
+  expect(edited.getByTestId('wardrobe-edit-form').props.automaticallyAdjustKeyboardInsets).toBe(true);
+});
+
+test('Delete reads as unavailable while a photo is being prepared, as it ignores the tap', async () => {
+  let resolveSelection: ((photo: StagedWardrobePhoto) => void) | undefined;
+  const confirmation = jest.fn();
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        confirmation={confirmation}
+        isBusy={false}
+        item={item}
+        mode="edit"
+        onCreate={async () => undefined}
+        onDelete={async () => undefined}
+        onDirtyChange={() => undefined}
+        onSelectPhoto={() => new Promise((resolve) => { resolveSelection = resolve; })}
+        onUpdate={async () => undefined}
+      />
+    </TestProviders>,
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-photo-select-button'));
+  expect(result.getByTestId('wardrobe-delete-button').props.accessibilityState).toEqual(
+    expect.objectContaining({ disabled: true }),
+  );
+  await act(async () => resolveSelection?.(stagedPhoto));
+  await waitFor(() => expect(result.getByTestId('wardrobe-delete-button').props.accessibilityState).toEqual(
+    expect.objectContaining({ disabled: false }),
+  ));
+});
+
+test.each(['en', 'tr'] as const)(
+  'in %s, a photo of a piece with no type yet is named in one whole sentence',
+  async (language) => {
+    const result = await render(
+      <TestProviders language={language}>
+        <WardrobeItemFormScreen
+          isBusy={false}
+          mode="create"
+          onCreate={async () => undefined}
+          onDirtyChange={() => undefined}
+          onSelectPhoto={async () => stagedPhoto}
+        />
+      </TestProviders>,
+    );
+    await fireEvent.press(result.getByTestId('wardrobe-photo-select-button'));
+    await waitFor(() => expect(result.getByTestId('wardrobe-photo-preview')).toBeOnTheScreen());
+    expect(result.getByTestId('wardrobe-photo-preview').props.accessibilityLabel).toBe(
+      messages[language].wardrobe.untypedPhotoAccessibilityLabel,
+    );
+  },
+);
+
+// Since catalog version 4 the one-piece types are womens-only, so a mens profile is never
+// offered one for a new piece. A stored dress edited there still opens on its own category
+// with the dress marked, and stays choosable after another type is tried.
+test.each([
+  ['dress', 'one_piece'],
+  ['skirt', 'bottom'],
+] as const)('a mens profile editing a stored %s keeps its type in the grid', async (garmentTypeId, category) => {
+  const stored: WardrobeItem = {
+    ...item,
+    category,
+    garmentTypeId,
+    thermalLevelOverride: null,
+    waterProtectionOverride: null,
+    breathabilityOverride: null,
+    armCoverageOverride: null,
+  };
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen clothingPreference="mens" isBusy={false} item={stored} mode="edit"
+        onCreate={async () => undefined} onDirtyChange={() => undefined} onUpdate={async () => undefined} />
+    </TestProviders>,
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-type-change-button'));
+  expect(result.getByTestId(`wardrobe-type-category-${category}`).props.accessibilityState).toEqual(
+    expect.objectContaining({ selected: true }),
+  );
+  expect(result.getByTestId(`wardrobe-type-${garmentTypeId}`).props.accessibilityState).toEqual(
+    expect.objectContaining({ selected: true }),
+  );
+
+  await chooseType(result, 'top', 't_shirt');
+  await fireEvent.press(result.getByTestId('wardrobe-type-change-button'));
+  await fireEvent.press(result.getByTestId(`wardrobe-type-category-${category}`));
+  expect(result.getByTestId(`wardrobe-type-${garmentTypeId}`)).toBeOnTheScreen();
+  // Only the stored type is held: no other womens-only type joins the mens offer.
+  expect(result.queryByTestId(`wardrobe-type-${garmentTypeId === 'dress' ? 'jumpsuit' : 'leggings'}`))
+    .not.toBeOnTheScreen();
+});
+
 test('leaving a form discards its staged photo', async () => {
   const onDiscard = jest.fn(async () => undefined);
   const result = await render(

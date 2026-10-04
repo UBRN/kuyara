@@ -855,6 +855,7 @@ export type AppMessages = Readonly<{
     cameraUnavailableMessage: string;
     openSettingsAction: string;
     photoAccessibilityLabel: (type: string) => string;
+    untypedPhotoAccessibilityLabel: string;
     entryStateTitle: string;
     typeTitle: string;
     typeChangeAction: string;
@@ -1578,6 +1579,7 @@ const en = {
       'The camera is not available on this device. You can choose a photo instead.',
     openSettingsAction: 'Open Settings',
     photoAccessibilityLabel: (type: string) => `${type} Closet item photo.`,
+    untypedPhotoAccessibilityLabel: 'Closet item photo, type not chosen yet.',
     entryStateTitle: 'Do you own this piece?',
     typeTitle: 'What is it?',
     typeChangeAction: 'Change',
@@ -2844,6 +2846,7 @@ const tr = {
       'Bu cihazda kamera kullanılamıyor. Bunun yerine bir fotoğraf seçebilirsin.',
     openSettingsAction: 'Ayarları aç',
     photoAccessibilityLabel: (type: string) => `${type} Gardırop parçası fotoğrafı.`,
+    untypedPhotoAccessibilityLabel: 'Gardırop parçası fotoğrafı, türü henüz seçilmedi.',
     entryStateTitle: 'Bu parça sende var mı?',
     typeTitle: 'Bu ne?',
     typeChangeAction: 'Değiştir',
