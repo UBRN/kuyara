@@ -310,6 +310,7 @@ export default function OutfitDetailRoute() {
       <OutfitDetailScreen
         closetSeed={closetSeed}
         language={language}
+        onBack={() => navigation.goBack()}
         composeEntry={!tomorrow && outfit && preference ? (palette) => (ACCOUNT_SCREENS_ENABLED ? (
           <ComposeEntry
             catalog={composeCatalog(preference)}
