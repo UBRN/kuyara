@@ -15,10 +15,10 @@ License Agreement) düzenler. Kişisel verilerinin nasıl işlendiğini
 
 ## 1. Hesap nedir
 
-Hesabı Apple ya da Google ile oturum açarak kurarsın. Hesap, kayıtlarını yeni bir telefona ya
-da yeniden kurulan uygulamaya getirir ve telefonların arasında eşitler. Hangi kayıtların hesaba
-gideceğini sen seçersin. Üyeler ayrıca "Bir parçayla kombin kur" özelliğini kullanabilir ve
-stiliste günde 5 yerine 10 kez tekrar sorabilir.
+Hesabı Apple ya da Google ile oturum açarak kurarsın. Hesap, kayıtlarını yeni bir telefona ya da
+yeniden kurulan uygulamaya getirir ve telefonların arasında eşitler. Görünen adın ve cinsiyetin
+dışında hangi kayıtların hesaba gideceğini sen seçersin. Üyeler ayrıca "Bir parçayla kombin kur"
+özelliğini kullanabilir ve stiliste günde 5 yerine 10 kez tekrar sorabilir.
 
 ## 2. İsteğe bağlı ve ücretsiz
 

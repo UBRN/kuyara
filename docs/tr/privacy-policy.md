@@ -304,9 +304,9 @@ aktarılabilir; bu aktarım Cloudflare'ın veri işleme sözleşmesine dayanır.
   telefonlarına da ulaşabilmesi için hesapta yalnız kaydın kimliği, günü ve silinme zamanı
   kalır; izni geri çektiğinde ya da hesabını sildiğinde bunlar da silinir.
 - Elle alınan yedekler: hesap hizmetinin otomatik yedeği yoktur. Geliştirici veritabanını elle
-  ve şifreli olarak, anahtarını ayrı tutarak yedekler ve her yedeği en geç [saklama süresi]
+  ve şifreli olarak, anahtarını ayrı tutarak yedekler ve her yedeği en geç 30 gün
   sonra siler. Silinen veriler, silinen bir hesap da dahil, bu yedeklerde en çok
-  [saklama süresi] kalır. Yedekler yalnız bir arızadan sonra geri yükleme için tutulur. Bir
+  30 gün kalır. Yedekler yalnız bir arızadan sonra geri yükleme için tutulur. Bir
   yedek geri yüklenirse silinmiş bir hesap ya da geri çekilmiş bir izin geri gelmez.
 - Güvenlik kayıtları: oturum işlemlerinin kayıtları veritabanına yazılmaz; hesap hizmetinin
   kayıt deposunda kısa süre tutulur ve kuyara'nın kullandığı planda en çok 1 gün geriye

@@ -16,9 +16,9 @@ personal data is processed.
 ## 1. What the account is
 
 You create an account by signing in with Apple or Google. The account brings your records to a
-new phone or a reinstalled app and keeps them in step across your phones. You choose which
-records go to the account. Members can also use "Build from a piece" and ask the stylist again
-10 times a day instead of 5.
+new phone or a reinstalled app and keeps them in step across your phones. Apart from your
+display name and gender, you choose which records go to the account. Members can also use "Build
+from a piece" and ask the stylist again 10 times a day instead of 5.
 
 ## 2. Optional and free
 

@@ -299,8 +299,8 @@ relies on Cloudflare's data processing agreement.
   in the account; these are also deleted when you withdraw consent or delete your account.
 - Manual backups: the account service makes no automatic backups. The developer backs up the
   database by hand, encrypted, with the key kept separately, and deletes each backup within
-  [retention period]. Deleted data, including a deleted account, stays in these backups for up
-  to [retention period]. Backups are kept only to restore the service after a fault. Restoring
+  30 days. Deleted data, including a deleted account, stays in these backups for up
+  to 30 days. Backups are kept only to restore the service after a fault. Restoring
   a backup never brings back a deleted account or a withdrawn consent.
 - Security records: the records of session events are not written to the database; they are
   kept briefly in the account service's log store and, on the plan kuyara uses, can be viewed
