@@ -210,9 +210,9 @@ export function createAiHandler({
   dailyLimit,
   now = () => new Date(),
   // Workers AI answered within 2 to 4.5 s when measured live; a provider that does not
-  // answer stalls indefinitely, so 7 s cuts it off and hands the turn to the next provider. Never raise
-  // this toward the total deadline: one stall then eats the whole budget and the fallback
-  // chain never runs.
+  // answer stalls indefinitely, so 7 s cuts it off and hands the turn to the next provider.
+  // Never raise this toward the total deadline: one stall then eats the whole budget and the
+  // fallback chain never runs.
   attemptTimeoutMs = 7_000,
   // 36 s = 5 × 7 s plus one second for the rate limiter, the body parse and the cache
   // lookup, so the refresh takes as long as it needs and the deterministic fallback only
@@ -259,7 +259,7 @@ export function createAiHandler({
     // A confirmed re-ask asks for a different trio than the one the cache holds for this
     // request, so it neither reads nor writes the shared cache. The burst limiter above and
     // the daily counter below count it exactly like a first generation.
-    const reask = isV2 && 'reask' in requestResult.data && requestResult.data.reask === true;
+    const reask = 'reask' in requestResult.data && requestResult.data.reask;
     const cache = reask ? undefined : defaultCache();
     let cacheRequest: Request | undefined;
     if (cache) {

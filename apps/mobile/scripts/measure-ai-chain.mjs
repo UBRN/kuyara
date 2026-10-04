@@ -92,7 +92,6 @@ async function measure({ baseUrl, request, name, route }) {
     latencyMs,
     schemaAccepts,
     gateAccepts,
-    insightSentence: isV2 && schemaAccepts && typeof body.data.insightSentence === 'string',
     errorCode: body?.error?.code ?? null,
     transportError,
   };
@@ -137,7 +136,7 @@ async function main() {
     const result = await measure({ ...fixture, baseUrl, route });
     results.push(result);
     console.log(
-      `[${results.length}/${maxCalls}] ${result.name} HTTP ${result.status ?? 'none'} ${result.latencyMs}ms schema=${result.schemaAccepts} gate=${result.gateAccepts}${route === 'v2' ? ` sentence=${result.insightSentence}` : ''}${result.errorCode ? ` error=${result.errorCode}` : ''}${result.transportError ? ` transport=${result.transportError}` : ''}`,
+      `[${results.length}/${maxCalls}] ${result.name} HTTP ${result.status ?? 'none'} ${result.latencyMs}ms schema=${result.schemaAccepts} gate=${result.gateAccepts}${result.errorCode ? ` error=${result.errorCode}` : ''}${result.transportError ? ` transport=${result.transportError}` : ''}`,
     );
   }
 
