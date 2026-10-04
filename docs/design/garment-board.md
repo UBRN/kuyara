@@ -130,7 +130,9 @@ The envelope is the taller of the two columns. The core column carries the footw
 envelope = max(coreHeight + footHeight × (1 + footClearance), railHeight)
 ```
 
-Both columns are centred in it. The core's internal step is the waist clearance and the two
+The envelope is centred in the stage. The core column is centred in the envelope; the layer
+column is aligned to its top, so the outermost layer starts level with the envelope's top
+edge. The core's internal step is the waist clearance and the two
 layers are separated by 0.10 metric.
 
 ## 5. Horizontal: placed by ink centroid
