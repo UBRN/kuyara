@@ -46,11 +46,8 @@ type FlatPiece = Readonly<{
 }>;
 type Box = { x: number; y: number; w: number; h: number };
 
-// A drawing's outline, sampled once per drawing: lines at their ends, curves at 16 steps.
-const sampled = new WeakMap<readonly Outline[], readonly (readonly [number, number])[]>();
+// A drawing's outline, sampled: lines at their ends, curves at 16 steps.
 function outlinePoints(groups: readonly Outline[]) {
-  const known = sampled.get(groups);
-  if (known) return known;
   const points: (readonly [number, number])[] = [];
   for (const { outline } of groups) {
     const tokens = outline.match(/[A-Za-z]|-?\d+(?:\.\d+)?/g) ?? [];
@@ -83,7 +80,6 @@ function outlinePoints(groups: readonly Outline[]) {
       }
     }
   }
-  sampled.set(groups, points);
   return points;
 }
 
@@ -105,6 +101,7 @@ export function structurePoints(piece: FlatPiece): readonly StructurePoint[] {
   return found;
 }
 
+// Found once per drawing and slot.
 const structure = new WeakMap<readonly Outline[], ReadonlyMap<OutfitSlot, readonly StructurePoint[]>>();
 function findStructure(piece: FlatPiece): readonly StructurePoint[] {
   const { bounds } = piece;
@@ -246,7 +243,6 @@ export function composeFlatLay<Piece extends FlatPiece>(pieces: readonly Piece[]
 export function fitTodayStage(extent: DrawnExtent, width: number, coreWidth: number, coreCap: number) {
   const max = todayPreset.stageMax * width;
   const { side, vertical } = flatLayPreset;
-  if (width <= 0) return { scale: 0, height: todayPreset.stageMin * width };
   const scale = Math.max(0, Math.min((width - 2 * side) / extent.w, (max - vertical) / extent.h, coreCap / coreWidth));
   const height = Math.min(max, Math.max(todayPreset.stageMin * width, extent.h * scale + vertical));
   return { scale, height };
