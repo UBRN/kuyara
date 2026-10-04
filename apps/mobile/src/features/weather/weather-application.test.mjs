@@ -161,7 +161,7 @@ function createHarness({
     now: currentTime,
     captureAnalyticsEvent,
   });
-  return { controller, calls, repository, byKey };
+  return { controller, calls, repository, byKey, deviceLocation };
 }
 
 async function settle() {
@@ -461,6 +461,41 @@ test('foreground re-persists a different resolved locality name without invalida
   assert.equal(harness.controller.getSnapshot().activeLocation.displayName, 'Istanbul');
   assert.equal(harness.controller.getSnapshot().snapshot, cached);
   assert.equal(harness.calls.provider, 0);
+});
+
+test('a manual pick still saving when the foreground lookup lands wins over the moved device', async () => {
+  const harness = createHarness({
+    active: travelledFrom,
+    snapshots: [snapshotFor(travelledFrom, '2026-07-30T09:55:00.000Z')],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+  });
+  await harness.controller.initialize();
+  const moved = await harness.deviceLocation.getCurrentLocation();
+  let resolveLookup;
+  harness.deviceLocation.getCurrentLocation = () => new Promise((resolve) => { resolveLookup = resolve; });
+  // Writes queue as the device's exclusive transactions do; the first one, the manual pick,
+  // is held until the lookup has answered.
+  const write = harness.repository.setActiveLocation;
+  let releaseManual;
+  const manualHeld = new Promise((resolve) => { releaseManual = resolve; });
+  let tail = manualHeld;
+  harness.repository.setActiveLocation = (profile, location) => {
+    const result = tail.then(() => write(profile, location));
+    tail = result.catch(() => undefined);
+    return result;
+  };
+
+  const foreground = harness.controller.onForeground();
+  await settle();
+  const picking = harness.controller.selectManualLocation('sample.istanbul');
+  resolveLookup(moved);
+  await settle();
+  releaseManual();
+  await Promise.all([foreground, picking]);
+  await settle();
+
+  assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, 'manual:sample.istanbul');
+  assert.equal((await harness.repository.getActiveLocation()).locationKey, 'manual:sample.istanbul');
 });
 
 test('a manual location is never re-acquired on foreground', async () => {

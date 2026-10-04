@@ -292,7 +292,8 @@ export class WeatherApplicationController {
     const previous = this.requireReady().activeLocation;
     if (previous?.source === 'device' && permission.kind === 'granted') {
       const result = await this.dependencies.deviceLocation.getCurrentLocation();
-      const active = this.requireReady().activeLocation;
+      const latest = this.requireReady();
+      const active = latest.activeLocation;
       const moved = result.kind === 'success'
         && (result.location.locationKey !== previous.locationKey
           || result.location.timeZone !== previous.timeZone);
@@ -301,9 +302,10 @@ export class WeatherApplicationController {
       const renamed = result.kind === 'success'
         && result.location.displayName != null
         && (result.location.displayName ?? null) !== (previous.displayName ?? null);
-      // A selection made while the lookup ran wins over the lookup it raced.
+      // A selection made while the lookup ran wins over the lookup it raced, including one
+      // still being saved when the lookup answers.
       const unchanged = active?.locationKey === previous.locationKey
-        && active.timeZone === previous.timeZone;
+        && active.timeZone === previous.timeZone && !latest.isSelectingLocation;
       if ((moved || renamed) && unchanged) {
         await this.selectLocation(result.location);
         return;
