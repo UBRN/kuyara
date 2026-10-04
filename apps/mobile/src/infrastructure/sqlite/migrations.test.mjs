@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -2447,4 +2448,150 @@ test('a failed version 26 migration rolls back the rebuild and leaves version 25
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 26);
   assert.deepEqual(await tableRows(database), before);
+});
+
+// Build 18 ships schema 25. A phone holding it, with rows in every table (history with photo
+// paths, wardrobe, profile, account link), upgrades to the current version with every row and
+// value intact, ends with the schema a fresh install creates, and a second run changes nothing.
+async function fillBuildEighteen(database) {
+  await database.execAsync(await readFile(new URL('./build-18-schema-25.sql', import.meta.url), 'utf8'));
+  await insertProfile(database);
+  await database.runAsync(`UPDATE local_profiles SET gender = 'man', dress_style = 'casual',
+    display_name = 'Can', name_prompt_version = 1, onboarding_completed = 1,
+    analytics_consent = 'granted', theme_preference = 'light', language_preference = 'en',
+    style_aesthetics = '["classic"]', walkthrough_version = 1, swap_hint_shown = 1, pending_sync = 1`);
+  await database.execAsync(`
+    INSERT INTO wardrobe_items
+      (id, local_profile_id, name, category, color_family, photo_relative_path, created_at,
+       updated_at, deleted_at, entry_state, garment_type_id, color_option_id, color_custom_hex,
+       pending_sync)
+    VALUES
+      ('owned-coat', 'stable-profile-id', 'Rain coat', 'outerwear', 'yellow',
+       'kuyara/wardrobe/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
+       '${timestamp}', '${timestamp}', NULL, 'owned', 'rain_jacket', 'rainyellow', NULL, 1),
+      ('custom-tee', 'stable-profile-id', NULL, 'top', 'red', NULL,
+       '${timestamp}', '${timestamp}', NULL, 'owned', 't_shirt', NULL, '#AA3344', 0),
+      ('deleted-jeans', 'stable-profile-id', NULL, 'bottom', 'blue', NULL,
+       '${timestamp}', '${deletedTimestamp}', '${deletedTimestamp}', 'wanted', 'jeans', NULL, NULL, 1);
+    INSERT INTO active_locations
+      (local_profile_id, location_key, source, manual_catalog_id, latitude_e2,
+       longitude_e2, time_zone, device_accuracy, created_at, updated_at, display_name)
+    VALUES ('stable-profile-id', 'manual:sample.istanbul', 'manual', 'sample.istanbul',
+      4101, 2898, 'Europe/Istanbul', NULL, '${timestamp}', '${timestamp}', 'Istanbul');
+    INSERT INTO weather_snapshots
+      (id, local_profile_id, location_key, time_zone, fetched_at, observed_at,
+       origin_kind, source_id, temperature_c, apparent_temperature_c,
+       minimum_temperature_c, maximum_temperature_c, condition_code,
+       precipitation_probability, wind_speed_mps, humidity, uv_index, daily_json)
+    VALUES ('weather', 'stable-profile-id', 'manual:sample.istanbul', 'Europe/Istanbul',
+      '${timestamp}', '${timestamp}', 'sample', 'test', 9.4, 7, 7.2, 9.6, 'rain',
+      0.8, 5.5, 0.9, 1, '[{"date":"2026-07-31"}]');
+    INSERT INTO weather_hourly_entries
+      (snapshot_id, forecast_at, temperature_c, apparent_temperature_c, condition_code,
+       precipitation_probability, wind_speed_mps, humidity, uv_index)
+    VALUES ('weather', '${timestamp}', 9.4, 7, 'rain', 0.8, 5.5, 0.9, 1);
+    INSERT INTO recommendation_snapshots
+      (id, local_profile_id, weather_snapshot_id, location_key, generation_mode,
+       context_json, outfits_json, created_at, updated_at)
+    VALUES ('recommendation', 'stable-profile-id', 'weather', 'manual:sample.istanbul',
+      'on-device-ai', '{"fixture":true}', '[]', '${timestamp}', '${timestamp}');
+    INSERT INTO weather_alert_deliveries (id, local_profile_id, fire_at, created_at)
+    VALUES ('precipitation_onset:manual:sample.istanbul:2026-10-02',
+      'stable-profile-id', '${timestamp}', '${timestamp}');
+    INSERT INTO dressing_day_choices
+      (id, local_profile_id, day_key, formality, source, created_at, updated_at, deleted_at,
+       style_aesthetics, pending_sync)
+    VALUES ('choice', 'stable-profile-id', '2026-10-02', 'casual', 'chip', '${timestamp}',
+      '${timestamp}', NULL, '["classic"]', 1);
+    INSERT INTO dressing_day_departures
+      (id, local_profile_id, day_key, departure_at, time_zone, created_at, updated_at, deleted_at)
+    VALUES ('departure', 'stable-profile-id', '2026-10-02', '2026-10-02T06:30:00.000Z',
+      'Europe/Istanbul', '${timestamp}', '${timestamp}', NULL);
+    INSERT INTO outfit_history
+      (id, local_profile_id, day_key, outfit_json, photo_path, worn_at, created_at, updated_at,
+       deleted_at, piece_colors_json, pending_sync)
+    VALUES
+      ('${wornIds[0]}', 'stable-profile-id', '2026-10-02', '${historyOutfit('t_shirt')}',
+       'kuyara/history/photos/${wornIds[0]}.jpg', '${timestamp}', '${timestamp}', '${timestamp}',
+       NULL, '{"primary_top":"navy","bottom":"indigo","footwear":"white"}', 1),
+      ('${wornIds[1]}', 'stable-profile-id', '2026-10-01', '${historyOutfit('sweater')}',
+       NULL, '${timestamp}', '${timestamp}', '${timestamp}', NULL, NULL, 0),
+      ('${wornIds[2]}', 'stable-profile-id', '2026-09-30', '${historyOutfit('shirt')}',
+       NULL, '${timestamp}', '${timestamp}', '${deletedTimestamp}', '${deletedTimestamp}', NULL, 0);
+    INSERT INTO device_account_link
+      (singleton_key, linked_user_id, last_linked_user_id, last_pull_cursor, sign_in_card_dismissed)
+    VALUES (1, '9b2f6c1e-0d3a-4b8e-a7c4-5e1f2a3b4c5d', '9b2f6c1e-0d3a-4b8e-a7c4-5e1f2a3b4c5d',
+      '2026-10-02T09:00:00.000Z', 1);
+  `);
+}
+
+test('build-18-schema-25.sql upgrades with every row intact and matches a fresh install', async (t) => {
+  const database = new NodeSqliteDatabase();
+  const fresh = new NodeSqliteDatabase();
+  t.after(() => { database.close(); fresh.close(); });
+  await fillBuildEighteen(database);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 25);
+  const before = await tableRows(database);
+  assert.equal(Object.keys(before).length, 11);
+  assert.ok(Object.values(before).every((rows) => rows.length > 0), 'every build 18 table holds a row');
+
+  await migrateDatabase(database);
+  await migrateDatabase(fresh);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.deepEqual(await tableRows(database), before);
+  assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
+  assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, 0);
+  assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
+
+  // Re-entry through a second caller runs the chain again and changes nothing.
+  const upgradedSchema = await sqliteSchema(database);
+  await migrateDatabase(new NodeSqliteDatabase(database.database));
+  assert.deepEqual(await tableRows(database), before);
+  assert.deepEqual(await sqliteSchema(database), upgradedSchema);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+});
+
+// Released migrations are never edited. Each hash is a sha256 prefix of the version's source with
+// whitespace collapsed and whole-line comments dropped; to add the next version, append its line
+// (run the same normalisation over its block) and leave the earlier ones alone.
+const releasedMigrationHashes = {
+  1: 'bfc300a3d913a052',
+  2: '6f4d8af79a428d5a',
+  3: '34f05d02b87c6221',
+  4: '6f96def4b2879c02',
+  5: '2489cd9cc38b13ba',
+  6: '1f69dabe77240401',
+  7: '293941bfa88aea53',
+  8: 'fccbe8fef805276d',
+  9: '6b6e0b617493d8f4',
+  10: '2c05b2f90b704206',
+  11: 'f7a37cdd96367662',
+  12: '1e3a7ad377e1ba59',
+  13: 'a7d37d8c5d0bc665',
+  14: '8416e0cedca700d9',
+  15: '1facfd37c8c72bcb',
+  16: 'ce98e206673a0385',
+  17: 'c303abb18b693490',
+  18: '0c59e330a7152ea0',
+  19: 'd41d66fd595ed7fd',
+  20: '5b67ef2103c29cfc',
+  21: '406e263d0f419bde',
+  22: 'e6b3615060fb0317',
+  23: '58a4ccba3107e333',
+  24: '3c9930adb70b2bd7',
+  25: '076827bf1bc6faed',
+  26: '91802149fcd4f7c3',
+};
+
+test('released migrations 1 to 26 keep their source, and later versions may be appended', async () => {
+  const source = await readFile(new URL('./migrations.ts', import.meta.url), 'utf8');
+  const blocks = Array.from(source.matchAll(/^const migrationV(\d+): Migration = \{\n[\s\S]*?^\};$/gm));
+  const hashes = Object.fromEntries(blocks.map(([block, version]) => [version, createHash('sha256')
+    .update(block.replace(/^\s*\/\/.*$/gm, '').replace(/\s+/g, ' ').trim()).digest('hex').slice(0, 16)]));
+  assert.deepEqual(blocks.map(([, version]) => Number(version)),
+    Array.from({ length: latestDatabaseVersion }, (_, index) => index + 1));
+  for (const [version, hash] of Object.entries(releasedMigrationHashes)) {
+    assert.equal(hashes[version], hash, `migration ${version} was edited after release`);
+  }
 });

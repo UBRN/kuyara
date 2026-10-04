@@ -75,7 +75,7 @@ test('version 24 rows in all sync tables keep every value and start unmarked', a
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
 });
 
-test('copied device database replays version 24 to the latest version with every row and value intact',
+test('copied device database replays version 24 or 25 to the latest version with every row and value intact',
   { skip: !process.env.KUYARA_DEVICE_DB_FIXTURE }, async (t) => {
     const source = process.env.KUYARA_DEVICE_DB_FIXTURE;
     const directory = await mkdtemp(join(tmpdir(), 'kuyara-sync-migration-'));
@@ -86,7 +86,7 @@ test('copied device database replays version 24 to the latest version with every
     }
     const database = new NodeSqliteDatabase(new DatabaseSync(target));
     t.after(() => database.close());
-    assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 24);
+    assert.ok([24, 25].includes((await database.getFirstAsync('PRAGMA user_version')).user_version));
     const tables = (await database.getAllAsync(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"))
       .map(({ name }) => name);
@@ -97,6 +97,7 @@ test('copied device database replays version 24 to the latest version with every
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     for (const table of tables) {
       const after = await rows(database, table);
+      assert.equal(after.length, before[table].length, `${table} row count`);
       assert.deepEqual(after, before[table].map((row) => (
         syncedTables.includes(table) ? { ...row, pending_sync: 0 } : row)), table);
       t.diagnostic(`${table}: ${before[table].length} -> ${after.length}`);
