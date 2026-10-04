@@ -16,9 +16,10 @@ import {
 } from '../data/worker-ai-recommendation-mapper.ts';
 import { localDayKey, localDayKind, localDayVariant, nextMorningAfterEvening } from '../domain/local-day.ts';
 
-// The suite runs with TZ=UTC, so the device clock and the place's zone read the same hours.
+// The place's zone is UTC, and the evening is 19:00 on the device's own clock, so the dressing
+// day key is the evening's under any device zone; the weather fixtures read in the place's zone.
 const profileId = 'profile-one';
-const evening = '2026-10-01T19:00:00.000Z';
+const evening = new Date(2026, 9, 1, 19).toISOString();
 const morning = nextMorningAfterEvening(localDayKey(new Date(evening)), 'UTC', evening);
 const tomorrowKey = localDayKey(morning);
 
