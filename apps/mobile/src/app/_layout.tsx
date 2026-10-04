@@ -15,6 +15,7 @@ import {
   useLaunchReveal,
 } from '@/components/ui/launch-curtain';
 
+import { AccountApplicationProvider } from '@/features/account/application/account-application-provider';
 import {
   AnalyticsConsentGate,
   isAnalyticsConsentGateEligible,
@@ -167,6 +168,8 @@ function ReadyApplicationShell({
 
   return (
     <ProductAnalyticsProvider analytics={analytics}>
+      {/* ADR 0041: the live account session, composed only while accounts are switched on. */}
+      <AccountApplicationProvider localProfileId={profile.id}>
       <NotificationApplicationProvider
         notificationsOptIn={profile.notificationsOptIn}
         persistOptIn={updateNotificationsOptIn}>
@@ -220,6 +223,7 @@ function ReadyApplicationShell({
           </WardrobeApplicationProvider>
         </WeatherApplicationProvider>
       </NotificationApplicationProvider>
+      </AccountApplicationProvider>
     </ProductAnalyticsProvider>
   );
 }

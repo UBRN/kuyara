@@ -28,15 +28,32 @@ import { wardrobeEntryStateSchema } from '@/features/wardrobe/domain/wardrobe-it
 // paths, `birth_date`, the consents and every device setting) have no field here, and the
 // server-written `server_updated_at` is never sent.
 
+/**
+ * Dress style and style aesthetics are present only when the profile carries them (the sync
+ * consent): an upsert leaves a column it does not send as the account holds it.
+ */
 export type RemoteProfileUpload = Readonly<{
   user_id: string;
   display_name: string | null;
   gender: string | null;
-  dress_style: string | null;
-  style_aesthetics: readonly string[];
+  dress_style?: string | null;
+  style_aesthetics?: readonly string[];
   created_at: string;
   updated_at: string;
   deleted_at: null;
+}>;
+
+/**
+ * A soft-deleted row goes to the account without its content (ADR 0041 section 3): the id, the
+ * day for the day-keyed tables, the owner and the clocks. The server clears any content anyway.
+ */
+export type RemoteDeletionMarkerUpload = Readonly<{
+  id: string;
+  user_id: string;
+  day_key?: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string;
 }>;
 
 export type RemoteWardrobeItemUpload = Readonly<{
@@ -101,7 +118,8 @@ export type RemoteOutfitHistoryUpload = Readonly<{
 // does not know (an enum member, a catalog id) fails the schema, and the row is refused. The
 // client clocks come back in Postgres form and are read as the instant they name.
 const clock = offsetIsoInstantSchema.transform((value) => new Date(value).toISOString());
-const serverInstant = z.string().transform((value, context) => {
+/** A server arrival instant in canonical form; an unreadable one fails the row. */
+export const serverInstant = z.string().transform((value, context) => {
   const canonical = canonicalServerInstant(value);
   if (canonical === null) context.addIssue({ code: 'custom', message: 'Invalid server instant.' });
   return canonical ?? '';
@@ -177,4 +195,58 @@ export const remoteOutfitHistoryRowSchema = z.object({
   updated_at: clock,
   deleted_at: clock.nullable(),
   server_updated_at: serverInstant,
+});
+
+// A deletion marker as a pull returns it: the server keeps only the identity and the clocks of a
+// soft-deleted row and clears every content column, so each content column is null or absent.
+// A soft-deleted row that still carries content reads through the whole-row schema above.
+const cleared = z.null().optional();
+const markerClocks = {
+  id: uuidV4Schema,
+  created_at: clock,
+  updated_at: clock,
+  deleted_at: clock,
+  server_updated_at: serverInstant,
+};
+
+export const remoteWardrobeItemMarkerSchema = z.object({
+  ...markerClocks,
+  name: cleared,
+  category: cleared,
+  entry_state: cleared,
+  garment_type_id: cleared,
+  color: cleared,
+  color_family: cleared,
+  color_option_id: cleared,
+  color_custom_hex: cleared,
+  thermal_level_override: cleared,
+  water_protection_override: cleared,
+  wind_protection_override: cleared,
+  breathability_override: cleared,
+  arm_coverage_override: cleared,
+  leg_coverage_override: cleared,
+  traction_suitability_override: cleared,
+});
+
+export const remoteDressingDayChoiceMarkerSchema = z.object({
+  ...markerClocks,
+  day_key: dressingDayKeySchema,
+  formality: cleared,
+  source: cleared,
+  style_aesthetics: cleared,
+});
+
+export const remoteDressingDayDepartureMarkerSchema = z.object({
+  ...markerClocks,
+  day_key: dressingDayKeySchema,
+  departure_at: cleared,
+  time_zone: cleared,
+});
+
+export const remoteOutfitHistoryMarkerSchema = z.object({
+  ...markerClocks,
+  day_key: bareHistoryDayKeySchema,
+  outfit_json: cleared,
+  piece_colors_json: cleared,
+  worn_at: cleared,
 });

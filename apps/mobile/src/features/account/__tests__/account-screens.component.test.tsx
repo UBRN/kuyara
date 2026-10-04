@@ -15,6 +15,7 @@ import { AccountScreen } from '@/features/account/presentation/account-screen';
 import { AccountSettingsSection } from '@/features/account/presentation/account-settings-section';
 import { AccountSheet } from '@/features/account/presentation/account-sheet';
 import { DeleteAccountScreen } from '@/features/account/presentation/delete-account-screen';
+import { ACCOUNT_TERMS_URL } from '@/features/account/domain/account-terms';
 import { PRIVACY_POLICY_URL } from '@/features/analytics/domain/privacy-policy';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -35,8 +36,10 @@ jest.mock('@expo/ui/community/bottom-sheet', () => {
 });
 
 const mockParams: { accountScenario?: string } = {};
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
+  useRouter: () => ({ push: mockPush }),
 }));
 
 const en = messages.en.account;
@@ -165,6 +168,16 @@ describe('the sign-in page (frames 02, 17, 18, 19, 33)', () => {
     expect(screen.getByText(new RegExp(en.signIn.footer.slice(0, 40)))).toBeTruthy();
   });
 
+  test('the footnote is the approved one and links the Account terms and the privacy policy', async () => {
+    expect(en.signIn.footer).toBe('Weather and outfit suggestions work without an account. By continuing you accept the Account terms.');
+    expect(tr.signIn.footer).toBe('Hava ve kombin önerileri hesap olmadan da çalışır. Devam ederek Hesap koşullarını kabul edersin.');
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />);
+    expect(screen.getByTestId('account-sign-in-terms')).toHaveTextContent(en.signIn.terms);
+    await fireEvent.press(screen.getByTestId('account-sign-in-terms'));
+    expect(openURL).toHaveBeenCalledWith(ACCOUNT_TERMS_URL);
+  });
+
   test('the Turkish page uses the approved copy', async () => {
     const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />, 'tr');
     expect(screen.getByText(tr.signIn.title)).toBeTruthy();
@@ -195,6 +208,37 @@ describe('the result sheets (frames 04, 14, 15, 26)', () => {
     expect(screen.getByText(en.restore.doneTitle)).toBeTruthy();
     expect(screen.getByText(en.restore.doneBody(14, 9))).toBeTruthy();
     expect(screen.getByText(en.restore.doneProfile)).toBeTruthy();
+  });
+
+  test('a merge result states both directions and opens the Closet after closing the sheet', async () => {
+    mockPush.mockClear();
+    const port = portFor('merged');
+    const screen = await renderWith(port, <AccountSheet host="profile" />);
+    expect(screen.getByTestId('account-result-merged')).toBeTruthy();
+    expect(screen.getByTestId('account-merge-closet')).toHaveTextContent(en.merge.closet(3, 11));
+    expect(screen.getByTestId('account-merge-history')).toHaveTextContent(en.merge.history(2, 7));
+    await act(async () => fireEvent.press(screen.getByTestId('account-merge-open-closet')));
+    expect(port.getSnapshot().sheet).toBeNull();
+    expect(mockPush).toHaveBeenCalledWith('/wardrobe');
+  });
+
+  test('adding a method another account holds shows the system alert; other failures say nothing', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    for (const outcome of ['identityTaken', 'unchanged', 'linked'] as const) {
+      alert.mockClear();
+      const base = portFor('upToDate');
+      const port: AccountScreensPort = { ...base, addProvider: jest.fn(async () => outcome) };
+      const screen = await renderWith(port, <AccountScreen onOpenDelete={jest.fn()} />);
+      await act(async () => fireEvent.press(screen.getByTestId('account-add-google-row')));
+      expect(port.addProvider).toHaveBeenCalledWith('google');
+      if (outcome === 'identityTaken') {
+        expect(alert).toHaveBeenCalledWith(en.identityTaken.title.google, en.identityTaken.body.google, [{ text: en.identityTaken.ok }]);
+      } else {
+        expect(alert).not.toHaveBeenCalled();
+      }
+      await screen.unmount();
+    }
+    alert.mockRestore();
   });
 
   test('the deletion result shows on Settings, never on Profile', async () => {

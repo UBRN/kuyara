@@ -51,38 +51,89 @@ test('an account without Apple is verified, looked up and deleted, and no code i
   ]);
 });
 
-test('an Apple account revokes with its own subject before it deletes', async () => {
-  const { events, handle } = setup({
-    admin: {
-      getAccount: async (id) => { events.push(['getAccount', id]); return { appleSubject: subject }; },
-      deleteUser: async (id) => { events.push(['deleteUser', id]); },
-    },
-  });
+const appleAdmin = (events) => ({
+  getAccount: async (id) => { events.push(['getAccount', id]); return { appleSubject: subject }; },
+  deleteUser: async (id) => { events.push(['deleteUser', id]); },
+});
+
+test('an Apple account revokes with its own subject before it deletes', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  const events = [];
+  const { handle } = setup({ admin: appleAdmin(events), revoker: async (input) => { events.push(['revoke', input]); return 'revoked'; } });
   const response = await handle(request({ body: { appleAuthorizationCode: code } }));
   assert.equal(response.status, 200);
-  assert.deepEqual(events.slice(1), [
-    ['verify', token], ['getAccount', userId],
+  assert.deepEqual(accountDeleteV1SuccessSchema.parse(await response.json()), { data: { status: 'deleted' } });
+  assert.deepEqual(events, [
+    ['getAccount', userId],
     ['revoke', { authorizationCode: code, expectedSubject: subject }], ['deleteUser', userId],
   ]);
+  assert.deepEqual(infos, []);
 });
 
-test('an Apple account without a code is apple_code_invalid and nothing is revoked or deleted', async () => {
-  const { events, handle } = setup({
-    admin: { getAccount: async () => ({ appleSubject: subject }), deleteUser: async () => { events.push(['deleteUser']); } },
+test('an Apple account without a code is deleted unrevoked and Apple is never asked', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  const events = [];
+  const { handle } = setup({ admin: appleAdmin(events), revoker: async () => { events.push(['revoke']); return 'revoked'; } });
+  const response = await handle(request());
+  assert.equal(response.status, 200);
+  assert.deepEqual(accountDeleteV1SuccessSchema.parse(await response.json()), { data: { status: 'deleted_apple_unrevoked' } });
+  assert.deepEqual(events, [['getAccount', userId], ['deleteUser', userId]]);
+  assert.deepEqual(infos, [{ event: 'account_delete_apple_unrevoked', reason: 'no_code' }]);
+});
+
+test('a code Apple refuses deletes the account unrevoked', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  const events = [];
+  const { handle } = setup({ admin: appleAdmin(events), revoker: async () => { events.push(['revoke']); return 'refused'; } });
+  const response = await handle(request({ body: { appleAuthorizationCode: code } }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { data: { status: 'deleted_apple_unrevoked' } });
+  // The attempt comes first, then the delete.
+  assert.deepEqual(events, [['getAccount', userId], ['revoke'], ['deleteUser', userId]]);
+  assert.deepEqual(infos, [{ event: 'account_delete_apple_unrevoked', reason: 'refused' }]);
+});
+
+test('a code sent for an account without Apple is never exchanged', async () => {
+  const events = [];
+  const { handle } = setup({ revoker: async () => { events.push(['revoke']); return 'revoked'; } });
+  const response = await handle(request({ body: { appleAuthorizationCode: code } }));
+  assert.deepEqual(await response.json(), { data: { status: 'deleted' } });
+  assert.equal(events.length, 0);
+});
+
+test('Apple being unreachable or the revoke call failing is unavailable and nothing is deleted', async () => {
+  const events = [];
+  const { handle } = setup({
+    admin: appleAdmin(events),
+    revoker: async () => { throw new AccountError('unavailable'); },
   });
-  await expectError(await handle(request()), 400, 'apple_code_invalid');
-  assert.deepEqual(names(events), ['limit', 'verify']);
+  await expectError(await handle(request({ body: { appleAuthorizationCode: code } })), 503, 'unavailable');
+  assert.equal(events.some(([name]) => name === 'deleteUser'), false);
 });
 
-test('a refused or failed revocation stops before the delete', async () => {
-  for (const [failure, status, errorCode] of [['apple_code_invalid', 400, 'apple_code_invalid'], ['unavailable', 503, 'unavailable']]) {
-    const { events, handle } = setup({
-      admin: { getAccount: async () => ({ appleSubject: subject }), deleteUser: async () => { events.push(['deleteUser']); } },
-      revoker: async () => { throw new AccountError(failure); },
-    });
-    await expectError(await handle(request({ body: { appleAuthorizationCode: code } })), status, errorCode);
-    assert.equal(names(events).includes('deleteUser'), false);
-  }
+test('a failed delete after a revoked token answers unavailable and reports no success', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  const events = [];
+  const { handle } = setup({
+    admin: {
+      getAccount: async () => ({ appleSubject: subject }),
+      deleteUser: async () => { events.push(['deleteUser']); throw new AccountError('unavailable'); },
+    },
+    revoker: async () => { events.push(['revoke']); return 'revoked'; },
+  });
+  await expectError(await handle(request({ body: { appleAuthorizationCode: code } })), 503, 'unavailable');
+  assert.deepEqual(events, [['revoke'], ['deleteUser']]);
+  // A failed delete after a refused code is not counted as an unrevoked deletion either.
+  const refused = setup({
+    admin: { getAccount: async () => ({ appleSubject: subject }), deleteUser: async () => { throw new AccountError('unavailable'); } },
+    revoker: async () => 'refused',
+  });
+  await expectError(await refused.handle(request({ body: { appleAuthorizationCode: code } })), 503, 'unavailable');
+  assert.deepEqual(infos, []);
 });
 
 test('a failed delete answers unavailable', async () => {
@@ -173,7 +224,7 @@ test('failures log a closed stage and code, never a token, code, id or message',
     { admin: { getAccount: async () => { throw new AccountError('unavailable'); }, deleteUser: async () => {} } },
     {
       admin: { getAccount: async () => ({ appleSubject: subject }), deleteUser: async () => {} },
-      revoker: async () => { throw new AccountError('apple_code_invalid'); },
+      revoker: async () => { throw new AccountError('unavailable'); },
     },
     { admin: { getAccount: async () => ({ appleSubject: null }), deleteUser: async () => { throw new AccountError('unavailable'); } } },
   ];
@@ -184,7 +235,7 @@ test('failures log a closed stage and code, never a token, code, id or message',
     { event: 'account_delete_failed', stage: 'verify', code: 'unauthorized' },
     { event: 'account_delete_failed', stage: 'verify', code: 'internal_error' },
     { event: 'account_delete_failed', stage: 'lookup', code: 'unavailable' },
-    { event: 'account_delete_failed', stage: 'apple', code: 'apple_code_invalid' },
+    { event: 'account_delete_failed', stage: 'apple', code: 'unavailable' },
     { event: 'account_delete_failed', stage: 'delete', code: 'unavailable' },
   ]);
 });

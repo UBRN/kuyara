@@ -32,20 +32,22 @@ test('request is strict, has one optional bounded code and never carries a token
   }
 });
 
-test('success is tolerant and closed to one status', () => {
-  const body = { data: { status: 'deleted' } };
-  assert.deepEqual(accountDeleteV1SuccessSchema.parse(body), body);
-  assert.deepEqual(
-    accountDeleteV1SuccessSchema.parse({ data: { status: 'deleted', userId: 'private' }, extra: 1 }),
-    body,
-  );
+test('success is tolerant and closed to two statuses', () => {
+  for (const status of ['deleted', 'deleted_apple_unrevoked']) {
+    const body = { data: { status } };
+    assert.deepEqual(accountDeleteV1SuccessSchema.parse(body), body);
+    assert.deepEqual(
+      accountDeleteV1SuccessSchema.parse({ data: { status, userId: 'private' }, extra: 1 }),
+      body,
+    );
+  }
   assert.equal(accountDeleteV1SuccessSchema.safeParse({ data: { status: 'pending' } }).success, false);
 });
 
 test('error codes are a closed list read through the named unknown branch', () => {
   assert.deepEqual(accountDeleteV1ErrorCodes, [
     'invalid_request', 'not_found', 'method_not_allowed', 'unauthorized',
-    'apple_code_invalid', 'rate_limited', 'unavailable', 'internal_error',
+    'rate_limited', 'unavailable', 'internal_error',
   ]);
   for (const code of accountDeleteV1ErrorCodes) {
     assert.deepEqual(accountDeleteV1ErrorSchema.parse({ error: { code } }), { error: { code } });

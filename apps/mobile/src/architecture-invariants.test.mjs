@@ -635,11 +635,13 @@ test('row id and timestamp schemas are built only in domain/record-identity.ts',
 // `systemNow()` (or `systemDate()` for a `Date`) from infrastructure/system-clock.ts and a new
 // random UUID is `newUuid()` from infrastructure/new-uuid.ts; a repository, loader or task takes
 // them as its `now` and `createId` dependencies. Presentation clocks (`useForegroundClock`, a
-// duration read with `Date.now()`) are a different fact and are not covered here.
+// duration read with `Date.now()`) are a different fact and are not covered here. The device's
+// other cryptography (random bytes, SHA-256, AES-GCM) has its own edge, infrastructure/device-crypto.ts.
+const cryptoEdges = ['infrastructure/system-clock.ts', 'infrastructure/new-uuid.ts', 'infrastructure/device-crypto.ts'];
 test('the system clock read and the UUID generator each live in one infrastructure module', () => {
   const copies = [];
   for (const relativePath of sourceFiles()) {
-    if (relativePath === 'infrastructure/system-clock.ts' || relativePath === 'infrastructure/new-uuid.ts') continue;
+    if (cryptoEdges.includes(relativePath)) continue;
     readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
       if (/new Date\(\)\.toISOString\(\)|=\s*\(\)\s*=>\s*new Date\(\)|randomUUID|expo-crypto/.test(line)) {
         copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);

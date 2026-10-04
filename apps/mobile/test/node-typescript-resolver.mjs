@@ -13,7 +13,8 @@ registerHooks({
       return { shortCircuit: true, url: url.href };
     }
 
-    if (isRelative && !extname(specifier)) {
+    // A dependency's own extensionless relative requires resolve as Node resolves them.
+    if (isRelative && !extname(specifier) && !context.parentURL?.includes('/node_modules/')) {
       return nextResolve(`${specifier}.ts`, context);
     }
 

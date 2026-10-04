@@ -39,9 +39,10 @@ import {
   colorChoiceFamily,
   type ClosetColorChoice,
 } from '@/features/wardrobe/domain/closet-color-options';
-import type {
-  WardrobeEntryState,
-  WardrobeItem,
+import {
+  WARDROBE_NAME_MAX_LENGTH,
+  type WardrobeEntryState,
+  type WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   classifyWardrobePhotoProblem,
@@ -576,6 +577,7 @@ export function WardrobeItemFormScreen({
           <TextInput
             accessibilityLabel={copy.nameLabel}
             editable={!busy}
+            maxLength={WARDROBE_NAME_MAX_LENGTH}
             onChangeText={(name) => updateValues((current) => ({ ...current, name }))}
             placeholder={copy.namePlaceholder}
             placeholderTextColor={theme.colors.textSecondary}

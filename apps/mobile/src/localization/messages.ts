@@ -915,7 +915,9 @@ export type AccountMessages = Readonly<{
     playPages: string;
     continueWith: ByProvider;
     notNow: string;
+    /** ADR 0041 section 5: what works without an account, then that continuing accepts the Account terms. */
     footer: string;
+    terms: string;
     privacy: string;
     cancelled: string;
     offline: string;
@@ -924,6 +926,8 @@ export type AccountMessages = Readonly<{
   welcome: Readonly<{
     title: string;
     summary: (pieces: number, days: number) => string;
+    /** After sign-in without the sync consent: only name and gender went to the account. */
+    withoutRecords: string;
     done: string;
   }>;
   /** "Using Sign in with Apple": the account's sign-in method under its address. */
@@ -964,6 +968,7 @@ export type AccountMessages = Readonly<{
     days: (count: number) => string;
     preferences: string;
     included: string;
+    notIncluded: string;
     methodsHeading: string;
     providerName: ByProvider;
     connected: string;
@@ -973,12 +978,15 @@ export type AccountMessages = Readonly<{
     delete: string;
     deleteFooter: string;
   }>;
-  signOutAlert: Readonly<{ title: string; body: string; cancel: string; confirm: string }>;
+  /** `body` while the records sync; `bodyWithoutRecords` without the sync consent. */
+  signOutAlert: Readonly<{ title: string; body: string; bodyWithoutRecords: string; cancel: string; confirm: string }>;
   deletion: Readonly<{
     title: string;
     goneHeading: string;
     goneAccount: ByProvider;
+    /** What the account holds: with the sync consent the records, without it the name and gender. */
     goneData: string;
+    goneDataWithoutRecords: string;
     stayHeading: string;
     stay: string;
     footer: ByProvider;
@@ -996,10 +1004,20 @@ export type AccountMessages = Readonly<{
     progressAction: string;
     doneTitle: string;
     doneBody: (pieces: number, days: number) => string;
+    /** Where the profile came from: all four fields, or the name and gender only (`ProfileSource`). */
     doneProfile: string;
+    doneNameAndGender: string;
     done: string;
   }>;
-  deleted: Readonly<{ title: string; gone: ByProvider; stay: string; done: string }>;
+  deleted: Readonly<{
+    title: string;
+    gone: ByProvider;
+    /** When Apple's sign-in could not be disconnected: what was deleted, then how to remove it. */
+    goneUnrevoked: string;
+    appleUnrevoked: string;
+    stay: string;
+    done: string;
+  }>;
   /** The result sheet after a link merges this phone and the account, first or different (ADR 0041 sections 4 and 6). */
   merge: Readonly<{
     title: string;
@@ -1012,6 +1030,37 @@ export type AccountMessages = Readonly<{
   }>;
   /** The system alert when the identity being added belongs to another account (ADR 0041 section 1). */
   identityTaken: Readonly<{ title: ByProvider; body: ByProvider; ok: string }>;
+  /** The sync consent sheet (ADR 0041 sections 5 and 10). */
+  consent: Readonly<{
+    title: string;
+    /** The approved consent wording, verbatim; `sync-consent-text.test.mjs` pins it to the text version. */
+    syncConsentSubtitle: string;
+    syncConsentBox: string;
+    readText: string;
+    hideText: string;
+    continue: string;
+    failed: string;
+    /**
+     * The full consent text, verbatim, one entry per paragraph or bullet: `**Lead.** rest` opens a
+     * paragraph with a bold lead and `- ` marks a bullet. The one account surface that may say
+     * where records are kept.
+     */
+    syncConsentText: readonly string[];
+  }>;
+  /** The Account screen's sync consent group: whether the records sync, and the way to change it. */
+  records: Readonly<{
+    heading: string;
+    /** The status row's noun label ("Record sync" On or Off), never read as the action row. */
+    label: string;
+    on: string;
+    off: string;
+    give: string;
+    withdraw: string;
+    onFooter: string;
+    offFooter: string;
+    failed: string;
+  }>;
+  withdrawAlert: Readonly<{ title: string; body: string; cancel: string; confirm: string }>;
 }>;
 
 type WalkthroughStepCopy = Readonly<{ title: string; body: string }>;
@@ -2113,7 +2162,8 @@ const en = {
       playPages: 'Play pages',
       continueWith: { apple: 'Continue with Apple', google: 'Continue with Google' },
       notNow: 'Not now',
-      footer: 'Weather and outfit suggestions work without an account. Signing in adds your Closet, History and style preferences to your account. Your birth date is not added.',
+      footer: 'Weather and outfit suggestions work without an account. By continuing you accept the Account terms.',
+      terms: 'Account terms',
       privacy: 'Privacy policy',
       cancelled: 'Sign-in was canceled. Choose a way to sign in when you are ready.',
       offline: 'You are offline. You can sign in once you are connected.',
@@ -2126,6 +2176,7 @@ const en = {
       title: 'You’re signed in',
       summary: (pieces: number, days: number) =>
         `${enPieces(pieces)} from your Closet and ${enDays(days)} of History are now in your account.`,
+      withoutRecords: 'Your name and gender are now in your account. You can sync your Closet and History later in Settings > Account.',
       done: 'Done',
     },
     method: { apple: 'Using Sign in with Apple', google: 'Using Sign in with Google' },
@@ -2173,6 +2224,7 @@ const en = {
       days: enDays,
       preferences: 'Style preferences',
       included: 'Included',
+      notIncluded: 'Not included',
       methodsHeading: 'Sign-in methods',
       providerName: { apple: 'Apple', google: 'Google' },
       connected: 'Connected',
@@ -2185,6 +2237,7 @@ const en = {
     signOutAlert: {
       title: 'Sign out?',
       body: 'Your Closet and History stay in kuyara. Sign in again to sync them.',
+      bodyWithoutRecords: 'Your Closet and History stay in kuyara.',
       cancel: 'Cancel',
       confirm: 'Sign out',
     },
@@ -2196,6 +2249,7 @@ const en = {
         google: 'Your account and your sign-in with Google',
       },
       goneData: 'Your Closet, History and preferences saved to your account',
+      goneDataWithoutRecords: 'Your name and gender saved to your account',
       stayHeading: 'What stays',
       stay: 'What you see in kuyara now stays, and kuyara keeps working without an account.',
       footer: {
@@ -2222,6 +2276,7 @@ const en = {
       doneTitle: 'Your Closet and History are back',
       doneBody: (pieces: number, days: number) => `${enPieces(pieces)} and ${enDays(days)} of History are back in kuyara.`,
       doneProfile: 'Your name, gender, dress style and style preferences come from your account.',
+      doneNameAndGender: 'Your name and gender come from your account.',
       done: 'Done',
     },
     deleted: {
@@ -2230,6 +2285,8 @@ const en = {
         apple: 'Everything saved to your account is deleted, and your sign-in with Apple is disconnected.',
         google: 'Everything saved to your account is deleted, and your sign-in with Google is disconnected.',
       },
+      goneUnrevoked: 'Everything saved to your account is deleted.',
+      appleUnrevoked: 'kuyara could not disconnect your sign-in with Apple. To remove it, open Settings > your name > Sign in with Apple, choose kuyara and tap Delete.',
       stay: 'What you see in kuyara stays, and kuyara keeps working without an account.',
       done: 'Done',
     },
@@ -2251,6 +2308,49 @@ const en = {
         google: 'It belongs to another kuyara account. To use it, sign out, then sign in with Google.',
       },
       ok: 'OK',
+    },
+    consent: {
+      title: 'One more thing',
+      syncConsentSubtitle: 'Should your closet, history, style preferences, daily choices and departure records come with your account too?',
+      syncConsentBox: 'Yes, sync my records.',
+      readText: 'Read the text',
+      hideText: 'Hide the text',
+      continue: 'Continue',
+      failed: 'kuyara could not save your answer. Check your connection and try again.',
+      syncConsentText: [
+        '**Sync consent**',
+        'This consent is optional. You are signed in either way.',
+        '**Which records.** If you agree, a copy of these records goes to your kuyara account and is kept in step on every phone signed in to it:',
+        '- Your Closet pieces: type, name, colour and other details. Photos are not included.',
+        '- Your History: which outfit you wore on which day, with its pieces and colours. Photos are not included.',
+        '- Your dress style and style aesthetics.',
+        '- Your daily choices: the casual, smart or formal day type you chose for each day.',
+        '- Your departure records: the time you planned to head out that day and its time zone.',
+        '**Why.** So these records come back on a new phone or after you reinstall the app, and so every phone signed in to your account shows the same records.',
+        '**Why a separate consent.** Turkish law treats dress as a special category of personal data. Because these records are about what you wear, they may count as special-category data. That is why kuyara syncs them only with your explicit consent.',
+        '**Where they are kept.** Supabase Inc. (USA) stores the records on kuyara\'s behalf. The servers are in Frankfurt, Germany. Supabase\'s sub-processors, such as Amazon Web Services, take part in this. Support and maintenance staff may access them from the USA. The transfer of your records out of Türkiye is made under the standard contract set by the Turkish Personal Data Protection Board.',
+        '**If you say no.** You are still signed in. Only your display name and gender go to your account. These records stay on this phone only and do not come to a new phone. You can give consent later in Settings > Account.',
+        '**Consent belongs to your account.** Consent given on one phone applies on every phone signed in to your account.',
+        '**Withdrawing.** You can withdraw consent at any time in Settings > Account. When you do, sync stops on every phone signed in to your account, and the account\'s copies of these records are deleted. The records on your phones are not deleted. Deleted copies can remain in manual encrypted backups for up to 30 days. These backups are kept only to restore the service after a fault; restoring one never brings back a consent you withdrew.',
+        'Ticking the box and tapping Continue gives this consent. kuyara records each answer, given or withdrawn, in your account with the version of the text shown and the time, so it can prove your consent.',
+      ],
+    },
+    records: {
+      heading: 'Your records',
+      label: 'Record sync',
+      on: 'On',
+      off: 'Off',
+      give: 'Sync my records',
+      withdraw: 'Stop syncing records',
+      onFooter: 'Your Closet, History, style preferences, daily choices and departure records sync with your account.',
+      offFooter: 'Only your name and gender sync with your account. Your Closet and History stay in kuyara.',
+      failed: 'kuyara could not save your answer. Nothing changed. Try again.',
+    },
+    withdrawAlert: {
+      title: 'Stop syncing your records?',
+      body: 'Sync stops on every phone signed in to your account. Your account’s copies of your Closet, History, style preferences, daily choices and departure records are deleted. The records on this phone stay.',
+      cancel: 'Cancel',
+      confirm: 'Stop syncing',
     },
   },
 } satisfies AppMessages;
@@ -3320,7 +3420,8 @@ const tr = {
       playPages: 'Sayfaları oynat',
       continueWith: { apple: 'Apple ile devam et', google: 'Google ile devam et' },
       notNow: 'Şimdi değil',
-      footer: 'Hava ve kombin önerileri hesap olmadan da çalışır. Giriş yaptığında Gardırobun, Geçmişin ve stil tercihlerin hesabına eklenir. Doğum tarihin eklenmez.',
+      footer: 'Hava ve kombin önerileri hesap olmadan da çalışır. Devam ederek Hesap koşullarını kabul edersin.',
+      terms: 'Hesap koşulları',
       privacy: 'Gizlilik politikası',
       cancelled: 'Giriş iptal edildi. Hazır olduğunda bir giriş yolu seç.',
       offline: 'İnternet bağlantın yok. Bağlandıktan sonra giriş yapabilirsin.',
@@ -3333,6 +3434,7 @@ const tr = {
       title: 'Giriş yaptın',
       summary: (pieces: number, days: number) =>
         `Gardırobundaki ${pieces} parça ve Geçmişindeki ${days} gün hesabına eklendi.`,
+      withoutRecords: 'Adın ve cinsiyetin hesabına eklendi. Gardırobunu ve Geçmişini sonra Ayarlar > Hesap’tan eşitleyebilirsin.',
       done: 'Bitti',
     },
     method: { apple: 'Apple ile giriş kullanılıyor', google: 'Google ile giriş kullanılıyor' },
@@ -3380,6 +3482,7 @@ const tr = {
       days: (count: number) => `${count} gün`,
       preferences: 'Stil tercihleri',
       included: 'Dahil',
+      notIncluded: 'Dahil değil',
       methodsHeading: 'Giriş yolları',
       providerName: { apple: 'Apple', google: 'Google' },
       connected: 'Bağlı',
@@ -3392,6 +3495,7 @@ const tr = {
     signOutAlert: {
       title: 'Çıkış yapılsın mı?',
       body: 'Gardırobun ve Geçmişin kuyara’da kalır. Eşitlemek için yeniden giriş yap.',
+      bodyWithoutRecords: 'Gardırobun ve Geçmişin kuyara’da kalır.',
       cancel: 'Vazgeç',
       confirm: 'Çıkış yap',
     },
@@ -3403,6 +3507,7 @@ const tr = {
         google: 'Hesabın ve Google ile giriş bağlantın',
       },
       goneData: 'Hesabına kaydedilen Gardırop, Geçmiş ve tercihlerin',
+      goneDataWithoutRecords: 'Hesabına kaydedilen adın ve cinsiyetin',
       stayHeading: 'Neler kalır',
       stay: 'kuyara’da şu an gördüklerin kalır ve kuyara hesapsız çalışmaya devam eder.',
       footer: {
@@ -3429,6 +3534,7 @@ const tr = {
       doneTitle: 'Gardırobun ve Geçmişin geri geldi',
       doneBody: (pieces: number, days: number) => `${pieces} parça ve Geçmişindeki ${days} gün kuyara’ya geri geldi.`,
       doneProfile: 'Adın, cinsiyetin, giyim stilin ve stil tercihlerin hesabından geldi.',
+      doneNameAndGender: 'Adın ve cinsiyetin hesabından geldi.',
       done: 'Bitti',
     },
     deleted: {
@@ -3437,6 +3543,8 @@ const tr = {
         apple: 'Hesabına kaydedilen her şey silindi ve Apple ile giriş bağlantın koparıldı.',
         google: 'Hesabına kaydedilen her şey silindi ve Google ile giriş bağlantın koparıldı.',
       },
+      goneUnrevoked: 'Hesabına kaydedilen her şey silindi.',
+      appleUnrevoked: 'kuyara Apple ile giriş bağlantını koparamadı. Kaldırmak için Ayarlar > adın > Apple ile Giriş Yap bölümünü aç, kuyara’yı seç ve Sil’e dokun.',
       stay: 'kuyara’da gördüklerin kalır ve kuyara hesapsız çalışmaya devam eder.',
       done: 'Bitti',
     },
@@ -3458,6 +3566,49 @@ const tr = {
         google: 'Başka bir kuyara hesabına bağlı. Onu kullanmak için çıkış yap, sonra Google ile giriş yap.',
       },
       ok: 'Tamam',
+    },
+    consent: {
+      title: 'Bir şey daha',
+      syncConsentSubtitle: 'Gardırobun, geçmişin, stil tercihlerin, günlük seçimlerin ve çıkış kayıtların da hesabınla gelsin mi?',
+      syncConsentBox: 'Evet, kayıtlarım eşitlensin.',
+      readText: 'Metni aç',
+      hideText: 'Metni kapat',
+      continue: 'Devam',
+      failed: 'kuyara cevabını kaydedemedi. Bağlantını kontrol edip yeniden dene.',
+      syncConsentText: [
+        '**Eşitleme izni**',
+        'Bu izin isteğe bağlıdır. Vermesen de oturum açılır.',
+        '**Hangi kayıtlar.** İzin verirsen şu kayıtların bir kopyası kuyara hesabına gider ve hesabınla oturum açtığın telefonlarla eşitlenir:',
+        '- Gardırop parçaların: türü, adı, rengi ve diğer bilgileri. Fotoğraflar gitmez.',
+        '- Geçmişin: hangi gün hangi kombini giydiğin, kombinin parçaları ve renkleri. Fotoğraflar gitmez.',
+        '- Giyim stilin ve stil özelliklerin.',
+        '- Günlük seçimlerin: her gün için seçtiğin rahat, şık ya da resmî gün türü.',
+        '- Çıkış kayıtların: o gün çıkacağın saat ve saat dilimi.',
+        '**Neden.** Bu kayıtlar yeni bir telefonda ya da uygulamayı yeniden kurduğunda geri gelsin. Hesabınla oturum açtığın her telefonda aynı kayıtları gör.',
+        '**Neden ayrı bir izin.** Kanun kılık ve kıyafeti özel nitelikli kişisel veri sayar. Bu kayıtlar giyiminle ilgili olduğu için özel nitelikli sayılabilir. Bu yüzden onları yalnız açık rızanla eşitleriz.',
+        '**Nerede saklanır.** Kayıtları kuyara adına Supabase Inc. (ABD) saklar. Sunucular Frankfurt, Almanya\'dadır. Supabase\'in alt işleyenleri, örneğin Amazon Web Services, bu işe katılır. Destek ve bakım için ABD\'den erişim olabilir. Kayıtların Türkiye dışına aktarımı, Kişisel Verileri Koruma Kurulu\'nun belirlediği standart sözleşmeyle yapılır.',
+        '**Vermezsen.** Oturum yine açılır. Hesabına yalnız görünen adın ve cinsiyetin gider. Bu kayıtlar yalnız bu telefonda kalır ve yeni bir telefona gelmez. İzni sonra Ayarlar > Hesap\'tan verebilirsin.',
+        '**İzin hesabına aittir.** Bir telefonda verdiğin izin, hesabınla oturum açtığın her telefonda geçerlidir.',
+        '**Geri çekmek.** İzni istediğin zaman Ayarlar > Hesap\'tan geri çekebilirsin. Geri çektiğinde eşitleme, hesabınla oturum açılmış bütün telefonlarda durur. Bu kayıtların hesaptaki kopyaları silinir. Telefonlarındaki kayıtlar silinmez. Silinen kopyalar elle alınan şifreli yedeklerde en çok 30 gün kalabilir. Bu yedekler yalnız bir arızadan sonra geri yükleme için tutulur; bir yedek geri yüklenirse geri çektiğin izin geri gelmez.',
+        'Kutuyu işaretleyip Devam\'a dokunursan bu izni vermiş olursun. Verdiğin ya da geri çektiğin her cevabı, gösterilen metnin sürümü ve zamanıyla birlikte hesabında kaydederiz; böylece iznini kanıtlayabiliriz.',
+      ],
+    },
+    records: {
+      heading: 'Kayıtların',
+      label: 'Kayıt eşitleme',
+      on: 'Açık',
+      off: 'Kapalı',
+      give: 'Kayıtlarım eşitlensin',
+      withdraw: 'Kayıtları eşitlemeyi durdur',
+      onFooter: 'Gardırobun, Geçmişin, stil tercihlerin, günlük seçimlerin ve çıkış kayıtların hesabınla eşitlenir.',
+      offFooter: 'Hesabınla yalnız adın ve cinsiyetin eşitlenir. Gardırobun ve Geçmişin kuyara’da kalır.',
+      failed: 'kuyara cevabını kaydedemedi. Hiçbir şey değişmedi. Yeniden dene.',
+    },
+    withdrawAlert: {
+      title: 'Kayıtların eşitlenmesi durdurulsun mu?',
+      body: 'Hesabınla oturum açılmış bütün telefonlarda eşitleme durur. Gardırobunun, Geçmişinin, stil tercihlerinin, günlük seçimlerinin ve çıkış kayıtlarının hesabındaki kopyaları silinir. Bu telefondaki kayıtların olduğu gibi kalır.',
+      cancel: 'Vazgeç',
+      confirm: 'Eşitlemeyi durdur',
     },
   },
 } satisfies AppMessages;

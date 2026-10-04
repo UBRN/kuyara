@@ -34,7 +34,7 @@ describe('the merge result', () => {
   const counts = { piecesAdded: 4, historyDaysAdded: 3, piecesReceived: 1, historyDaysReceived: 6 };
 
   test('it states what this phone and the account each gave per kind, the conflict rule and the profile source', async () => {
-    const screen = await renderIn(<AccountMergeResultContent counts={counts} onDone={jest.fn()} onOpenCloset={jest.fn()} />);
+    const screen = await renderIn(<AccountMergeResultContent counts={counts} profileFrom="account" onDone={jest.fn()} onOpenCloset={jest.fn()} />);
     expect(screen.getByText(en.merge.title)).toBeTruthy();
     expect(screen.getByTestId('account-merge-closet')).toHaveTextContent(
       '4 pieces from this phone joined your account, and 1 piece from your account joined your Closet.',
@@ -47,10 +47,20 @@ describe('the merge result', () => {
     expect(screen.getByText(en.restore.doneProfile)).toBeTruthy();
   });
 
+  test('the profile line says only what came from the account', async () => {
+    const nameOnly = await renderIn(<AccountMergeResultContent counts={counts} onDone={jest.fn()} onOpenCloset={jest.fn()} profileFrom="accountNameAndGender" />);
+    expect(nameOnly.getByText(en.restore.doneNameAndGender)).toBeTruthy();
+    expect(nameOnly.queryByText(en.restore.doneProfile)).toBeNull();
+    await nameOnly.unmount();
+    const fromPhone = await renderIn(<AccountMergeResultContent counts={counts} onDone={jest.fn()} onOpenCloset={jest.fn()} profileFrom="phone" />);
+    expect(fromPhone.queryByText(en.restore.doneProfile)).toBeNull();
+    expect(fromPhone.queryByText(en.restore.doneNameAndGender)).toBeNull();
+  });
+
   test('"Open Closet" and "Done" each report their own press', async () => {
     const onDone = jest.fn();
     const onOpenCloset = jest.fn();
-    const screen = await renderIn(<AccountMergeResultContent counts={counts} onDone={onDone} onOpenCloset={onOpenCloset} />);
+    const screen = await renderIn(<AccountMergeResultContent counts={counts} profileFrom="account" onDone={onDone} onOpenCloset={onOpenCloset} />);
     await fireEvent.press(screen.getByTestId('account-merge-open-closet'));
     expect(onOpenCloset).toHaveBeenCalledTimes(1);
     expect(onDone).not.toHaveBeenCalled();
@@ -59,7 +69,7 @@ describe('the merge result', () => {
   });
 
   test('Turkish', async () => {
-    const screen = await renderIn(<AccountMergeResultContent counts={counts} onDone={jest.fn()} onOpenCloset={jest.fn()} />, 'tr');
+    const screen = await renderIn(<AccountMergeResultContent counts={counts} profileFrom="account" onDone={jest.fn()} onOpenCloset={jest.fn()} />, 'tr');
     expect(screen.getByText(tr.merge.title)).toBeTruthy();
     expect(screen.getByTestId('account-merge-closet')).toHaveTextContent(
       'Bu telefondan hesabına 4 parça katıldı, hesabından Gardırobuna 1 parça geldi.',

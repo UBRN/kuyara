@@ -9,7 +9,11 @@
   // of the rate-limit log lines a sibling change is adding; 1 is also the documented
   // Cloudflare default (https://developers.cloudflare.com/workers/observability/logs/workers-logs/,
   // checked 2026-09-15), so it is set explicitly rather than left implicit.
-  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // invocation_logs false stops Cloudflare's automatic per-request capture (request metadata
+  // and headers, which can include the Authorization bearer of the account routes); the
+  // Worker's own closed console logs still flow (https://developers.cloudflare.com/workers/observability/logs/workers-logs/,
+  // key shape `observability.logs.invocation_logs`, supported by the repo's wrangler config schema).
+  "observability": { "enabled": true, "head_sampling_rate": 1, "logs": { "enabled": true, "invocation_logs": false } },
   "ai": { "binding": "AI" },
   // One Durable Object per daily counter name (AI probe, AI recommend budget, the two
   // capped weather providers); SQLite-backed is the Workers Free option. Migrations are
@@ -26,14 +30,23 @@
     // 30/60s is derived in docs/architecture.md from the picker's debounce, the at most four
     // upstream calls a search costs, and Open-Meteo's free ceiling.
     { "name": "PLACE_SEARCH_RATE_LIMIT", "namespace_id": "1004", "simple": { "limit": 30, "period": 60 } },
-    { "name": "FEEDBACK_RATE_LIMIT", "namespace_id": "1005", "simple": { "limit": 3, "period": 60 } }
+    { "name": "FEEDBACK_RATE_LIMIT", "namespace_id": "1005", "simple": { "limit": 3, "period": 60 } },
+    { "name": "ACCOUNT_DELETE_RATE_LIMIT", "namespace_id": "1006", "simple": { "limit": 3, "period": 60 } }
   ],
+  // The daily Supabase keep-alive request (ADR 0041, section 11), 04:17 UTC. `triggers` is
+  // inherited by named environments, so e2e switches it off below; `wrangler dev` never
+  // runs a Cron Trigger on its own.
+  "triggers": { "crons": ["17 4 * * *"] },
+  // SUPABASE_URL and APPLE_TEAM_ID are public identifiers, not secrets (ADR 0041, section 2);
+  // the Supabase secret key and the Apple signing key are Worker secrets and never appear here.
   "vars": {
     // Empty until a free model passes the live measurement in docs/architecture.md ("AI
     // handler and provider adapter contract"); a model that stalls or fails only spends the
     // walk's time before the deterministic fallback.
     "OPENROUTER_MODELS": [],
-    "WORKERS_AI_MODELS": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/mistralai/mistral-small-3.1-24b-instruct"]
+    "WORKERS_AI_MODELS": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/mistralai/mistral-small-3.1-24b-instruct"],
+    "SUPABASE_URL": "https://bkeojzuvuzilytfmpgdu.supabase.co",
+    "APPLE_TEAM_ID": "BZL4XU3J5H"
   },
   // The local end-to-end environment of docs/testing.md, "AI tiers in E2E": real weather and
   // real place search, no AI provider at all, so /v1/ai/recommend answers 503 ai_unavailable
@@ -48,6 +61,7 @@
   // `wrangler dev --env e2e` runs locally.
   "env": {
     "e2e": {
+      "triggers": { "crons": [] },
       "ai": { "binding": "AI" },
       "durable_objects": {
         "bindings": [{ "name": "DAILY_COUNTERS", "class_name": "DailyCounter" }]
@@ -57,7 +71,8 @@
         { "name": "AI_RECOMMEND_RATE_LIMIT", "namespace_id": "2002", "simple": { "limit": 10, "period": 60 } },
         { "name": "WEATHER_RATE_LIMIT", "namespace_id": "2003", "simple": { "limit": 20, "period": 60 } },
         { "name": "PLACE_SEARCH_RATE_LIMIT", "namespace_id": "2004", "simple": { "limit": 30, "period": 60 } },
-        { "name": "FEEDBACK_RATE_LIMIT", "namespace_id": "2005", "simple": { "limit": 3, "period": 60 } }
+        { "name": "FEEDBACK_RATE_LIMIT", "namespace_id": "2005", "simple": { "limit": 3, "period": 60 } },
+        { "name": "ACCOUNT_DELETE_RATE_LIMIT", "namespace_id": "2006", "simple": { "limit": 3, "period": 60 } }
       ],
       // Local-only feedback store: `wrangler dev --env e2e` keeps D1 in local storage and
       // never reaches a remote database, so the placeholder id is never resolved. The

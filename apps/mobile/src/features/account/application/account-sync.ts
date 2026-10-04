@@ -1,8 +1,15 @@
-import { mergeAtFirstLink, type MergeCounts, type MergeResult } from '@/features/account/domain/account-merge';
+import { linkAfterFirstLink, type AccountLink } from '@/features/account/domain/account-link';
+import { mergeAtFirstLink, type MergeResult } from '@/features/account/domain/account-merge';
 import {
+  landDeletionMarkers,
   landedOutfitHistory,
   landedWardrobeItem,
+  landRemoteRows,
+  profileWithinConsent,
+  type AccountProfile,
+  type AccountRow,
   type AccountRows,
+  type RemoteAccountRows,
   type SyncedProfile,
 } from '@/features/account/domain/account-rows';
 import {
@@ -28,30 +35,49 @@ export type LocalAccountRows = Readonly<{
 }>;
 
 export type PulledAccountRows = Readonly<{
-  profile: SyncedProfile | null;
-  wardrobeItems: readonly PulledSyncRow<WardrobeItem>[];
-  dressingDayChoices: readonly PulledSyncRow<DressingDayChoice>[];
-  dressingDayDepartures: readonly PulledSyncRow<DressingDayDeparture>[];
-  outfitHistory: readonly PulledSyncRow<OutfitHistoryRecord>[];
+  profile: AccountProfile | null;
+  wardrobeItems: readonly PulledSyncRow<AccountRow<WardrobeItem>>[];
+  dressingDayChoices: readonly PulledSyncRow<AccountRow<DressingDayChoice>>[];
+  dressingDayDepartures: readonly PulledSyncRow<AccountRow<DressingDayDeparture>>[];
+  outfitHistory: readonly PulledSyncRow<AccountRow<OutfitHistoryRecord>>[];
   /** Includes arrivals rejected by the remote parser, so an unknown row never stalls the cursor. */
   arrivals: readonly Readonly<{ serverUpdatedAt: string | null }>[];
 }>;
 
 export type AccountRowsSourcePort = Readonly<{
   read: () => Promise<LocalAccountRows>;
-  cursor: () => Promise<string | null>;
-  /** One transaction writes winners, marks rows to send pending and saves the cursor. */
-  applyFirstLink: (merge: MergeResult, cursor: string | null) => Promise<void>;
+  /** The device's account link: the linked user, the account the records joined, the pull cursor. */
+  link: () => Promise<AccountLink>;
+  saveLink: (link: AccountLink) => Promise<void>;
+  /**
+   * One transaction writes winners, marks rows to send pending and saves `link`, cursor included.
+   * Under the consent (`merge.syncConsent`) the record rows of `local`, the rows the merge read,
+   * that it does not send are settled: their pending flags clear while the row still holds the
+   * identity and `updatedAt` read, so a deletion older than the marker window never uploads
+   * later and a row written during the pull keeps its flag. A
+   * profile that lacks dress style and style aesthetics writes only the fields it carries.
+   */
+  applyFirstLink: (merge: MergeResult, link: AccountLink, local: AccountRows) => Promise<void>;
   /** Compare identity and updatedAt again inside the write transaction before clearing. */
   clearPendingIfUnchanged: (returned: AccountRows) => Promise<void>;
-  /** One transaction rechecks pending, lands only settled rows without setting pending, and advances the cursor. */
+  /**
+   * One transaction rechecks pending, lands only settled rows without setting pending, and
+   * advances the cursor. A profile without dress style and style aesthetics leaves the phone's.
+   */
   writePulled: (rows: AccountRows, cursor: string | null) => Promise<void>;
 }>;
 
 export type AccountRemotePort = Readonly<{
-  /** Returns validated domain rows and the last server arrival, including refused rows. */
-  pullSnapshot: (userId: string, syncConsent: boolean) => Promise<Readonly<{ rows: AccountRows; cursor: string | null }>>;
-  /** Map to remote DTOs without device fields; upsert by UUID (choices and departures by day key) and return acknowledged versions. */
+  /**
+   * Returns validated domain rows, deletion markers among them, and the last server arrival,
+   * including refused rows.
+   */
+  pullSnapshot: (userId: string, syncConsent: boolean) => Promise<Readonly<{ rows: RemoteAccountRows; cursor: string | null }>>;
+  /**
+   * Map to remote DTOs without device fields; upsert by user and UUID (choices and departures by
+   * user and day key) and return acknowledged versions. A profile without dress style and style
+   * aesthetics sends neither column, so the account's copy keeps what it has.
+   */
   upload: (userId: string, rows: AccountRows) => Promise<AccountRows>;
   /** Parses each remote row once, retaining every arrival in `arrivals`. */
   pull: (userId: string, cursor: string | null, syncConsent: boolean) => Promise<PulledAccountRows>;
@@ -65,44 +91,76 @@ const values = (local: LocalAccountRows): AccountRows => ({
   outfitHistory: local.outfitHistory.map(({ row }) => row),
 });
 
-function pending(local: LocalAccountRows, syncConsent: boolean): AccountRows {
-  return {
-    profile: local.profile?.pendingSync ? local.profile.row : null,
+const hasRows = (rows: AccountRows) => rows.profile !== null || rows.wardrobeItems.length > 0
+  || rows.dressingDayChoices.length > 0 || rows.dressingDayDepartures.length > 0 || rows.outfitHistory.length > 0;
+
+/**
+ * What a pass uploads from this phone's rows: the pending profile, and under the consent the
+ * pending records; null when nothing waits. The one answer to "is anything waiting", so the
+ * write listener never starts a pass that would send nothing.
+ */
+export function pendingUpload(local: LocalAccountRows, syncConsent: boolean): AccountRows | null {
+  const rows: AccountRows = {
+    profile: local.profile?.pendingSync ? profileWithinConsent(local.profile.row, syncConsent) : null,
     wardrobeItems: syncConsent ? pendingRows(local.wardrobeItems) : [],
     dressingDayChoices: syncConsent ? pendingRows(local.dressingDayChoices) : [],
     dressingDayDepartures: syncConsent ? pendingRows(local.dressingDayDepartures) : [],
     outfitHistory: syncConsent ? pendingRows(local.outfitHistory) : [],
   };
+  return hasRows(rows) ? rows : null;
 }
 
-const hasRows = (rows: AccountRows) => rows.profile !== null || rows.wardrobeItems.length > 0
-  || rows.dressingDayChoices.length > 0 || rows.dressingDayDepartures.length > 0 || rows.outfitHistory.length > 0;
+/**
+ * Pulled rows with their deletion markers landed on this phone's rows (`landDeletionMarkers`),
+ * each keeping its arrival stamp.
+ */
+function landedPulls<Item extends Readonly<{ id: string; createdAt: string; updatedAt: string; deletedAt: string | null }>>(
+  pulled: readonly PulledSyncRow<AccountRow<Item>>[],
+  local: readonly LocalSyncRow<Item>[],
+  identity: 'id' | 'day',
+): readonly PulledSyncRow<Item>[] {
+  const rows = local.map(({ row }) => row);
+  return pulled.flatMap(({ row, serverUpdatedAt }) =>
+    landDeletionMarkers([row], rows, identity).map((landed) => ({ row: landed, serverUpdatedAt })));
+}
+
+/** What a first link reports for the result sheets: the domain's merge counts and the profile's source. */
+export type FirstLinkOutcome = Pick<MergeResult, 'counts' | 'profileFrom'>;
 
 export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: AccountRemotePort, now: () => string) {
-  const uploadPending = async (userId: string, syncConsent: boolean) => {
-    const rows = pending(await source.read(), syncConsent);
-    if (hasRows(rows)) await source.clearPendingIfUnchanged(await remote.upload(userId, rows));
+  const upload = async (userId: string, rows: AccountRows | null) => {
+    if (rows !== null && hasRows(rows)) await source.clearPendingIfUnchanged(await remote.upload(userId, rows));
   };
   return {
-    async firstLink(userId: string, syncConsent: boolean): Promise<MergeCounts> {
+    /** `givenAt`: the arrival of the `given` record the records join under, kept in the link. */
+    async firstLink(userId: string, syncConsent: boolean, givenAt: string | null = null): Promise<FirstLinkOutcome> {
+      const link = await source.link();
       const local = values(await source.read());
       const account = await remote.pullSnapshot(userId, syncConsent);
-      const merge = mergeAtFirstLink(local, account.rows, { syncConsent, now: now() });
-      await source.applyFirstLink(merge, account.cursor);
-      await uploadPending(userId, syncConsent);
-      return merge.counts;
+      const merge = mergeAtFirstLink(local, landRemoteRows(account.rows, local), { syncConsent, now: now() });
+      await source.applyFirstLink(merge, linkAfterFirstLink(link, userId, syncConsent, account.cursor, givenAt), local);
+      // Only what the merge chose: a deletion older than the marker window never goes.
+      await upload(userId, merge.sendToAccount);
+      return { counts: merge.counts, profileFrom: merge.profileFrom };
     },
     async sync(userId: string, syncConsent: boolean): Promise<void> {
-      await uploadPending(userId, syncConsent);
-      const cursor = await source.cursor();
+      await upload(userId, pendingUpload(await source.read(), syncConsent));
+      const { cursor } = await source.link();
       const pulled = await remote.pull(userId, cursor, syncConsent);
       const local = await source.read();
       await source.writePulled({
-        profile: applyPulledProfile(local.profile ?? { pendingSync: false }, pulled.profile),
-        wardrobeItems: syncConsent ? applyPulledById(local.wardrobeItems, pulled.wardrobeItems, landedWardrobeItem) : [],
-        dressingDayChoices: syncConsent ? applyPulledByDay(local.dressingDayChoices, pulled.dressingDayChoices, (row) => row) : [],
-        dressingDayDepartures: syncConsent ? applyPulledByDay(local.dressingDayDepartures, pulled.dressingDayDepartures, (row) => row) : [],
-        outfitHistory: syncConsent ? applyPulledById(local.outfitHistory, pulled.outfitHistory, landedOutfitHistory) : [],
+        profile: applyPulledProfile(
+          local.profile ?? { pendingSync: false },
+          pulled.profile && profileWithinConsent(pulled.profile, syncConsent),
+        ),
+        wardrobeItems: syncConsent ? applyPulledById(local.wardrobeItems,
+          landedPulls(pulled.wardrobeItems, local.wardrobeItems, 'id'), landedWardrobeItem) : [],
+        dressingDayChoices: syncConsent ? applyPulledByDay(local.dressingDayChoices,
+          landedPulls(pulled.dressingDayChoices, local.dressingDayChoices, 'day'), (row) => row) : [],
+        dressingDayDepartures: syncConsent ? applyPulledByDay(local.dressingDayDepartures,
+          landedPulls(pulled.dressingDayDepartures, local.dressingDayDepartures, 'day'), (row) => row) : [],
+        outfitHistory: syncConsent ? applyPulledById(local.outfitHistory,
+          landedPulls(pulled.outfitHistory, local.outfitHistory, 'id'), landedOutfitHistory) : [],
       }, nextCursor(cursor, pulled.arrivals));
     },
   };

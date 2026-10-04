@@ -6,7 +6,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 
 ## Current State
 
-- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 27)
+- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 28)
   provide a six-step onboarding flow (welcome, optional location, optional name and birth
   date on one step, gender, dress style, style preferences); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
@@ -155,22 +155,21 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   Android-compatible; Android validation is deferred.
 
 The shipped app has neither sign-in nor cross-device sync nor server-sent push. Supabase is the intended backend ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md))
-with no Supabase client, table or project yet. Phase 9, optional accounts, is accepted in
-[ADR 0041](adr/0041-optional-accounts.md) and partly built: tested account rules and remote
-record mappers, an application-layer session manager, deletion client and sync flow over
-ports with fakes, and account screens behind `ACCOUNT_SCREENS_ENABLED = false` exist in
-`apps/mobile/src/features/account/`. The Worker carries the deployed but offline account deletion
-route (`/v1/account/delete`), which answers `unavailable` until its rate-limit binding exists. No Supabase
-project, Apple key or Google client exists yet. Migration 25
-adds the pending flags and the device account link; live provider adapters, the sync
-consent sheet and its consent records, the launch-time Apple credential check and the daily
-Supabase Cron Trigger are not built. Two parts of the built code differ from ADR 0041: the
-deletion route refuses to delete an account with an Apple identity when no authorization
-code is sent, and the sync flow uploads dress style and style aesthetics without the sync
-consent. Before `ACCOUNT_SCREENS_ENABLED` turns on, the real account port must
-be composed into the app: today nothing provides `AccountScreensContext`, so `useIsMember`,
-which gates composing around chosen pieces, reads the in-memory port, whose sign-in always
-succeeds. The project is
+with its project in Frankfurt (`bkeojzuvuzilytfmpgdu`, Free plan). Phase 9, optional accounts
+([ADR 0041](adr/0041-optional-accounts.md)), is built and switched off behind `ACCOUNT_SCREENS_ENABLED = false`
+in `apps/mobile/src/features/account/`: Sign in with Apple through Supabase Auth with a nonce, the encrypted
+session store (Keychain key, `expo-sqlite/kv-store`), the SQLite row source, consent-gated sync with the
+server-arrival conflict rule, the post-sign-in sync consent sheet and its records, the Account screen's consent
+and withdrawal, the launch-time Apple credential check, and deletion through the Worker. With the switch on and
+no valid Supabase settings the screens fail closed. Google sign-in waits for its library licence. Migration 28
+adds the device link's joined-account columns. The Worker code carries the deletion route (deleting an Apple
+account without a usable code answers `deleted_apple_unrevoked`), its rate limit and the daily keep-alive Cron
+Trigger; it is not deployed, and the route answers `unavailable` until its secrets are set. The remote schema is
+`supabase/migrations/20261004120000_accounts.sql` and is not applied to the project yet. Evidence is automated
+tests, an in-memory Postgres run of the schema and one Simulator pass; Sign in with Apple, revocation and live
+sync have no device evidence. Before accounts open: network-state detection, screens reloading after a pull, the
+History photo sweep for pulled deletions, the member AI allowance, the privacy manifest and App Privacy, the
+Account terms page and the KVKK transfer contract. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 

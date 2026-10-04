@@ -1,23 +1,26 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Icon } from '@/components/ui';
-import type { MergeCounts } from '@/features/account/domain/account-merge';
-import { ResultRow } from '@/features/account/presentation/account-result';
+import type { MergeCounts, ProfileSource } from '@/features/account/domain/account-merge';
+import { ProfileSourceRow, ResultRow } from '@/features/account/presentation/account-result';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 /**
  * The merge result (ADR 0041 sections 4 and 6), after a first link or a different account, in
- * the account sheet's result anatomy: what this phone and the account gave each other, per kind, the rule that settled a piece or day both held, and where
- * the profile came from. Duplicates are never removed for the person, so "Open Closet" sits
- * beside "Done".
+ * the account sheet's result anatomy: what this phone and the account gave each other, per kind,
+ * the rule that settled a piece or day both held, and where the profile came from. It follows a
+ * link under the sync consent, the only link that merges records; without it the signed-in
+ * result says that only the name and gender went. Duplicates are never removed for the person,
+ * so "Open Closet" sits beside "Done".
  */
 export function AccountMergeResultContent({
   counts,
   onDone,
   onOpenCloset,
-}: Readonly<{ counts: MergeCounts; onDone: () => void; onOpenCloset: () => void }>) {
+  profileFrom,
+}: Readonly<{ counts: MergeCounts; profileFrom: ProfileSource; onDone: () => void; onOpenCloset: () => void }>) {
   const account = useMessages().account;
   const copy = account.merge;
   const theme = useKuyaraTheme();
@@ -38,7 +41,7 @@ export function AccountMergeResultContent({
         <AppText>{copy.rule}</AppText>
         <AppText colorRole="textSecondary" variant="caption">{copy.duplicates}</AppText>
       </ResultRow>
-      <ResultRow icon="personCircle"><AppText>{account.restore.doneProfile}</AppText></ResultRow>
+      <ProfileSourceRow from={profileFrom} />
       <Button label={copy.done} onPress={onDone} size="large" testID="account-result-done" />
       <Button label={copy.openCloset} onPress={onOpenCloset} size="large" testID="account-merge-open-closet" variant="plain" />
     </View>

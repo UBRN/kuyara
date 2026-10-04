@@ -17,19 +17,22 @@ export type TextButtonProps = Omit<
 > & {
   label: string;
   disabled?: boolean;
+  /** Drawn as an inline link (brand ink, underlined), still a button with the same target. */
+  link?: boolean;
 };
 
 /**
  * A quiet secondary action drawn as small text, such as an offer's "Not now" beside its
  * button. It looks like a caption but is a button: role, label, focus ring and a box at
  * least 44 points tall and wide (56 tall while Easier to see is on), so the target never
- * shrinks with the ink.
+ * shrinks with the ink. `link` draws the caption as the sign-in footnote's links are drawn.
  */
 export function TextButton({
   accessibilityLabel,
   accessibilityState,
   disabled = false,
   label,
+  link = false,
   onBlur,
   onFocus,
   onPress,
@@ -63,8 +66,9 @@ export function TextButton({
       {({ pressed }) => (
         <AppText
           accessibilityElementsHidden
-          colorRole={disabled ? 'borderDefined' : pressed ? 'textPrimary' : 'textSecondary'}
+          colorRole={disabled ? 'borderDefined' : pressed ? 'textPrimary' : link ? 'brandPrimary' : 'textSecondary'}
           importantForAccessibility="no"
+          style={link ? styles.link : undefined}
           variant="caption">
           {label}
         </AppText>
@@ -74,6 +78,7 @@ export function TextButton({
 }
 
 const styles = StyleSheet.create({
+  link: { textDecorationLine: 'underline' },
   button: {
     alignItems: 'center',
     justifyContent: 'center',

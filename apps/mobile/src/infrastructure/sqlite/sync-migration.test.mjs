@@ -14,11 +14,13 @@ const syncedTables = [
   'dressing_day_departures', 'outfit_history',
 ];
 const now = '2026-10-02T10:00:00.000Z';
-// Migration 27 gives every existing profile both unit choices at System.
+// Migration 27 gives every existing profile both unit choices at System; migration 28 gives the
+// device account link a NULL records account and consent arrival.
 const upgraded = (table, row) => ({
   ...row,
   ...(syncedTables.includes(table) ? { pending_sync: 0 } : {}),
   ...(table === 'local_profiles' ? { temperature_unit: 'system', wind_speed_unit: 'system' } : {}),
+  ...(table === 'device_account_link' ? { records_user_id: null, records_consent_recorded_at: null } : {}),
 });
 
 async function rows(database, table) {
@@ -30,7 +32,7 @@ test('fresh schema has five checked pending flags and one device account link', 
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await migrateDatabase(database);
-  assert.equal(latestDatabaseVersion, 27);
+  assert.equal(latestDatabaseVersion, 28);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   for (const table of syncedTables) {
     const column = (await database.getAllAsync(`PRAGMA table_info(${table})`))
@@ -40,7 +42,7 @@ test('fresh schema has five checked pending flags and one device account link', 
   }
   assert.deepEqual(await rows(database, 'device_account_link'), [{
     singleton_key: 1, linked_user_id: null, last_linked_user_id: null,
-    last_pull_cursor: null, sign_in_card_dismissed: 0,
+    last_pull_cursor: null, sign_in_card_dismissed: 0, records_user_id: null, records_consent_recorded_at: null,
   }]);
   await assert.rejects(() => database.runAsync(
     'INSERT INTO device_account_link (singleton_key) VALUES (2)'), /CHECK constraint/);

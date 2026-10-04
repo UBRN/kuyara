@@ -94,7 +94,7 @@ test('an empty database applies all migrations in order with the final schema', 
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 27);
+  assert.equal(latestDatabaseVersion, 28);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -1284,7 +1284,7 @@ test('version 15 adds the briefing opt-in without disturbing a version 14 instal
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 27);
+  assert.equal(latestDatabaseVersion, 28);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
     profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults })),
@@ -1509,7 +1509,7 @@ test('version 16 adds the daily outlook column without disturbing a version 15 i
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 27);
+  assert.equal(latestDatabaseVersion, 28);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM weather_snapshots')).map((row) => ({ ...row })),
     snapshotsBefore.map((row) => ({ ...row, daily_json: null })),
@@ -2047,7 +2047,7 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
     await migrateDatabase(database);
     await migrateDatabase(fresh);
 
-    assert.equal(latestDatabaseVersion, 27);
+    assert.equal(latestDatabaseVersion, 28);
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
       ...before,
@@ -2241,12 +2241,13 @@ test('build-17-schema-23.sql upgrades with every row intact and worn days uncolo
   await migrateDatabase(database);
   await migrateDatabase(fresh);
 
-  assert.equal(latestDatabaseVersion, 27);
+  assert.equal(latestDatabaseVersion, 28);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   const after = await tableRows(database);
   assert.deepEqual(Object.keys(after), [...Object.keys(before), 'device_account_link'].sort());
   assert.deepEqual(after.device_account_link, [{ singleton_key: 1, linked_user_id: null,
-    last_linked_user_id: null, last_pull_cursor: null, sign_in_card_dismissed: 0 }]);
+    last_linked_user_id: null, last_pull_cursor: null, sign_in_card_dismissed: 0, records_user_id: null,
+    records_consent_recorded_at: null }]);
   for (const [table, rows] of Object.entries(before)) {
     assert.deepEqual(after[table], rows.map((row) => ({ ...row,
       ...(table === 'outfit_history' ? { piece_colors_json: null } : {}),
@@ -2398,7 +2399,7 @@ test('version 26 keeps every version 25 row and value and lets a day hold severa
   await migrateDatabase(fresh);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.deepEqual(await tableRows(database), withUnitDefaults(before));
+  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   assert.deepEqual((await database.getAllAsync('PRAGMA foreign_key_check')).map((row) => ({ ...row })), orphansBefore);
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
@@ -2455,7 +2456,7 @@ test('a failed version 26 migration rolls back the rebuild and leaves version 25
   }
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.deepEqual(await tableRows(database), withUnitDefaults(before));
+  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
 });
 
 // Build 18 ships schema 25. A phone holding it, with rows in every table (history with photo
@@ -2547,7 +2548,7 @@ test('build-18-schema-25.sql upgrades with every row intact and matches a fresh 
   await migrateDatabase(fresh);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.deepEqual(await tableRows(database), withUnitDefaults(before));
+  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, 0);
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
@@ -2555,7 +2556,7 @@ test('build-18-schema-25.sql upgrades with every row intact and matches a fresh 
   // Re-entry through a second caller runs the chain again and changes nothing.
   const upgradedSchema = await sqliteSchema(database);
   await migrateDatabase(new NodeSqliteDatabase(database.database));
-  assert.deepEqual(await tableRows(database), withUnitDefaults(before));
+  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
   assert.deepEqual(await sqliteSchema(database), upgradedSchema);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
 });
@@ -2580,12 +2581,18 @@ test('version 27 keeps every version 26 row and value and starts both units at S
   assert.ok(Object.values(before).every((rows) => rows.length > 0), 'every version 26 table holds a row');
   const orphansBefore = (await database.getAllAsync('PRAGMA foreign_key_check')).length;
 
+  // Migration 28 follows 27, so stop the chain right after 27 to read exactly version 27.
+  await assert.rejects(() => migrateDatabase(failingOn(database, 'records_user_id', 'stop at 27')),
+    /Migration to version 28 failed: stop at 27/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 27);
+  assert.deepEqual(await tableRows(database), withUnitDefaults(before));
+
   await migrateDatabase(database);
   await migrateDatabase(new NodeSqliteDatabase(database.database));
   await migrateDatabase(fresh);
 
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 27);
-  assert.deepEqual(await tableRows(database), withUnitDefaults(before));
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, orphansBefore);
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
@@ -2635,8 +2642,8 @@ test('a failed version 27 migration rolls back and leaves version 26 with its ro
     assert.deepEqual(await tableRows(database), before);
   }
   await migrateDatabase(database);
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 27);
-  assert.deepEqual(await tableRows(database), withUnitDefaults(before));
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
 });
 
 // Released migrations are never edited. Each hash is a sha256 prefix of the version's source with
@@ -2682,4 +2689,49 @@ test('released migrations 1 to 27 keep their source, and later versions may be a
   for (const [version, hash] of Object.entries(releasedMigrationHashes)) {
     assert.equal(hashes[version], hash, `migration ${version} was edited after release`);
   }
+});
+
+/** Version 28 adds the link's records account and its consent record arrival, NULL on every existing link. */
+function withRecordsUserId(rows) {
+  return { ...rows, device_account_link: rows.device_account_link.map((row) => ({
+    ...row, records_user_id: null, records_consent_recorded_at: null,
+  })) };
+}
+
+test('version 28 keeps a used device account link and adds the records account and its consent arrival as NULL', async (t) => {
+  const database = new NodeSqliteDatabase();
+  const fresh = new NodeSqliteDatabase();
+  t.after(() => { database.close(); fresh.close(); });
+  await database.execAsync(await readFile(new URL('./build-17-schema-23.sql', import.meta.url), 'utf8'));
+  await fillBuildSeventeen(database);
+  await assert.rejects(() => migrateDatabase(failingOn(database, 'records_user_id', 'stop at 27')),
+    /Migration to version 28 failed: stop at 27/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 27);
+  await database.runAsync(`UPDATE device_account_link SET linked_user_id = 'user-a',
+    last_linked_user_id = 'user-a', last_pull_cursor = '2026-10-01T00:00:00.000000Z', sign_in_card_dismissed = 1`);
+  await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
+  const before = await tableRows(database);
+  const schemaBefore = await sqliteSchema(database);
+
+  // A failure rolls the column back, twice in a row, and the next run adds it.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await assert.rejects(() => migrateDatabase(failingOn(database, 'records_user_id', 'v28 failed')),
+      /Migration to version 28 failed: v28 failed/);
+    assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 27);
+    assert.deepEqual(await sqliteSchema(database), schemaBefore);
+    assert.deepEqual(await tableRows(database), before);
+  }
+  await migrateDatabase(database);
+  await migrateDatabase(fresh);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 28);
+  assert.deepEqual(await tableRows(database), withRecordsUserId(before));
+  assert.deepEqual(before.device_account_link.map(({ linked_user_id: linked }) => linked), ['user-a']);
+  assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
+  for (const name of ['records_user_id', 'records_consent_recorded_at']) {
+    const column = (await database.getAllAsync('PRAGMA table_info(device_account_link)'))
+      .find((info) => info.name === name);
+    assert.deepEqual({ type: column.type, notnull: column.notnull, dflt_value: column.dflt_value },
+      { type: 'TEXT', notnull: 0, dflt_value: null }, name);
+  }
+  assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
 });

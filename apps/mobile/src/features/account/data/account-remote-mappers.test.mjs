@@ -123,13 +123,45 @@ test('an edited look (a layer taken off, an accessory added) and the lavender an
   assert.deepEqual(result.row, look);
 });
 
-test('a custom colour and a deletion marker survive the round trip', () => {
-  const item = wardrobeItem(5, {
-    colorChoice: { kind: 'custom', hex: '#336699' }, colorFamily: 'blue', photoRelativePath: null,
-    deletedAt: stamp(9), updatedAt: stamp(9),
-  });
+test('a custom colour survives the round trip', () => {
+  const item = wardrobeItem(5, { colorChoice: { kind: 'custom', hex: '#336699' }, colorFamily: 'blue', photoRelativePath: null });
   const result = fromRemoteWardrobeItem(arrived(toRemoteWardrobeItem(item, userId)), phoneProfileId);
   assert.deepEqual(result.row, item);
+});
+
+test('a soft-deleted row leaves without content and comes back as a deletion marker in every table', () => {
+  const deleted = { deletedAt: stamp(9), updatedAt: stamp(9) };
+  const marker = (n, dayKey) => ({
+    kind: 'deletionMarker', id: uuid(n), ...(dayKey ? { dayKey } : {}),
+    createdAt: stamp(0), updatedAt: stamp(9), deletedAt: stamp(9),
+  });
+  const cases = [
+    [toRemoteWardrobeItem(wardrobeItem(1, deleted), userId), (row) => fromRemoteWardrobeItem(row, phoneProfileId), marker(1)],
+    [toRemoteDressingDayChoice(dayChoice(2, '2026-09-10', deleted), userId),
+      (row) => fromRemoteDressingDayChoice(row, phoneProfileId), marker(2, '2026-09-10')],
+    [toRemoteDressingDayDeparture(departure(3, '2026-09-10', deleted), userId),
+      (row) => fromRemoteDressingDayDeparture(row, phoneProfileId), marker(3, '2026-09-10')],
+    [toRemoteOutfitHistory(historyDay(4, '2026-09-10', deleted), userId),
+      (row) => fromRemoteOutfitHistory(row, phoneProfileId), marker(4, '2026-09-10')],
+  ];
+  for (const [upload, read, expected] of cases) {
+    assert.deepEqual(Object.keys(upload).sort(),
+      ['created_at', 'deleted_at', 'id', 'updated_at', 'user_id', ...(expected.dayKey ? ['day_key'] : [])].sort());
+    assert.deepEqual(read(arrived(upload)), { kind: 'accepted', row: expected, serverUpdatedAt: '2026-09-30T10:00:00.123456Z' });
+  }
+});
+
+test('a soft-deleted row whose content the server kept still reads whole', () => {
+  const record = arrived({ ...toRemoteWardrobeItem(wardrobeItem(1), userId), deleted_at: stamp(9) });
+  assert.equal(fromRemoteWardrobeItem(record, phoneProfileId).row.category, 'top');
+});
+
+test('a profile without the consent fields sends neither column, so the account keeps its own', () => {
+  const { dressStyle: _style, styleAesthetics: _aesthetics, ...nameAndGender } = syncedProfile();
+  const upload = toRemoteProfile(nameAndGender, userId);
+  assert.equal('dress_style' in upload, false);
+  assert.equal('style_aesthetics' in upload, false);
+  assert.deepEqual(toRemoteProfile({ ...nameAndGender, dressStyle: null, styleAesthetics: [] }, userId).dress_style, null);
 });
 
 test('timestamps that come back in Postgres form are normalised to the device form', () => {

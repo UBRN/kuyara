@@ -108,6 +108,9 @@ export function garmentTypeIdFromColumn(value: unknown): GarmentTypeId | null {
   return result.success ? result.data : null;
 }
 
+/** The longest Closet name the form takes, in characters; the account holds a name of up to 2000 bytes. */
+export const WARDROBE_NAME_MAX_LENGTH = 200;
+
 export function normalizeOptionalWardrobeText(
   value: string | null | undefined,
 ): string | null {

@@ -6,16 +6,20 @@ import test from 'node:test';
 // localization sources. The scan reads the source, not the evaluated objects, so a template
 // function's text is checked too and no placeholder argument has to be invented.
 //
-// The consent screen's words are fixed and stay exactly as they are, including their
+// The consent screens' words are fixed and stay exactly as they are, including their
 // straight apostrophes and lowercase "gardırop" (`analytics.consentTitle`, `consentBody` and
-// `consentSettingsBody`). They are the only exemption.
+// `consentSettingsBody`). So is the lawyer-approved sync consent wording
+// (`account.consent.syncConsentSubtitle`, `syncConsentBox` and `syncConsentText`), which
+// `sync-consent-text.test.mjs` pins to its text version. They are the only exemptions.
 const SOURCES = [
   new URL('./messages.ts', import.meta.url),
   new URL('../features/catalog/localization/catalog-messages.ts', import.meta.url),
   new URL('../features/recommendation/localization/recommendation-messages.ts', import.meta.url),
 ];
 
-const CONSENT_KEYS = new Set(['consentTitle', 'consentBody', 'consentSettingsBody']);
+const CONSENT_KEYS = new Set([
+  'consentTitle', 'consentBody', 'consentSettingsBody', 'syncConsentSubtitle', 'syncConsentBox', 'syncConsentText',
+]);
 
 /**
  * Every string literal of `source` with the object key it belongs to: line and block comments

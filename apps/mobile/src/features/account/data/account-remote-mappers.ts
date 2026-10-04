@@ -1,18 +1,28 @@
 import type { ZodType } from 'zod';
 
 import {
+  remoteDressingDayChoiceMarkerSchema,
   remoteDressingDayChoiceRowSchema,
+  remoteDressingDayDepartureMarkerSchema,
   remoteDressingDayDepartureRowSchema,
+  remoteOutfitHistoryMarkerSchema,
   remoteOutfitHistoryRowSchema,
   remoteProfileRowSchema,
+  remoteWardrobeItemMarkerSchema,
   remoteWardrobeItemRowSchema,
+  type RemoteDeletionMarkerUpload,
   type RemoteDressingDayChoiceUpload,
   type RemoteDressingDayDepartureUpload,
   type RemoteOutfitHistoryUpload,
   type RemoteProfileUpload,
   type RemoteWardrobeItemUpload,
 } from '@/features/account/data/account-remote-records';
-import type { SyncedProfile } from '@/features/account/domain/account-rows';
+import type {
+  AccountProfile,
+  AccountRow,
+  DeletionMarker,
+  SyncedProfile,
+} from '@/features/account/domain/account-rows';
 import { canonicalServerInstant } from '@/features/account/domain/server-instant';
 import { orderStyleAesthetics, sortedStyleAesthetics, normalizeDisplayName } from '@/features/profile/domain/profile';
 import type { DressingDayChoice } from '@/features/recommendation/domain/dressing-day-choice';
@@ -50,13 +60,62 @@ function read<Parsed extends Readonly<{ server_updated_at: string }>, Row>(
   }
 }
 
-export function toRemoteProfile(profile: SyncedProfile, userId: string): RemoteProfileUpload {
+type MarkerParsed = Readonly<{
+  id: string;
+  day_key?: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string;
+  server_updated_at: string;
+}>;
+
+/**
+ * A pulled row of a record table: whole when the row schema reads it, else a deletion marker
+ * when the marker schema does (content cleared by the server), else refused.
+ */
+function readRow<Parsed extends Readonly<{ server_updated_at: string }>, Row>(
+  raw: unknown,
+  schema: ZodType<Parsed>,
+  build: (parsed: Parsed) => Row,
+  markerSchema: ZodType<MarkerParsed>,
+): RemoteRowResult<AccountRow<Row>> {
+  const whole = read(raw, schema, build);
+  if (whole.kind === 'accepted') return whole;
+  const marker = markerSchema.safeParse(raw);
+  if (!marker.success) return whole;
+  const { created_at: createdAt, day_key: dayKey, deleted_at: deletedAt, id, updated_at: updatedAt } = marker.data;
+  const row: DeletionMarker = {
+    kind: 'deletionMarker', id, ...(dayKey === undefined ? {} : { dayKey }), createdAt, updatedAt, deletedAt,
+  };
+  return { kind: 'accepted', row, serverUpdatedAt: marker.data.server_updated_at };
+}
+
+/** A soft-deleted row leaves without its content (ADR 0041 section 3). */
+function deletionMarkerUpload(
+  row: Readonly<{ id: string; dayKey?: string; createdAt: string; updatedAt: string; deletedAt: string }>,
+  userId: string,
+): RemoteDeletionMarkerUpload {
+  return {
+    id: row.id,
+    user_id: userId,
+    ...(row.dayKey === undefined ? {} : { day_key: row.dayKey }),
+    created_at: row.createdAt,
+    updated_at: row.updatedAt,
+    deleted_at: row.deletedAt,
+  };
+}
+
+/**
+ * Dress style and style aesthetics go only when the profile carries them (the sync consent);
+ * otherwise neither column is sent, so the account's copy keeps what it holds.
+ */
+export function toRemoteProfile(profile: AccountProfile, userId: string): RemoteProfileUpload {
   return {
     user_id: userId,
     display_name: profile.displayName,
     gender: profile.gender,
-    dress_style: profile.dressStyle,
-    style_aesthetics: sortedStyleAesthetics(profile.styleAesthetics),
+    ...(profile.dressStyle === undefined ? {} : { dress_style: profile.dressStyle }),
+    ...(profile.styleAesthetics === undefined ? {} : { style_aesthetics: sortedStyleAesthetics(profile.styleAesthetics) }),
     created_at: profile.createdAt,
     updated_at: profile.updatedAt,
     deleted_at: null,
@@ -77,7 +136,11 @@ export function fromRemoteProfile(raw: unknown): RemoteRowResult<SyncedProfile> 
   });
 }
 
-export function toRemoteWardrobeItem(item: WardrobeItem, userId: string): RemoteWardrobeItemUpload {
+export function toRemoteWardrobeItem(
+  item: WardrobeItem,
+  userId: string,
+): RemoteWardrobeItemUpload | RemoteDeletionMarkerUpload {
+  if (item.deletedAt !== null) return deletionMarkerUpload({ ...item, deletedAt: item.deletedAt }, userId);
   return {
     id: item.id,
     user_id: userId,
@@ -102,8 +165,11 @@ export function toRemoteWardrobeItem(item: WardrobeItem, userId: string): Remote
   };
 }
 
-export function fromRemoteWardrobeItem(raw: unknown, localProfileId: string): RemoteRowResult<WardrobeItem> {
-  return read(raw, remoteWardrobeItemRowSchema, (row) => {
+export function fromRemoteWardrobeItem(
+  raw: unknown,
+  localProfileId: string,
+): RemoteRowResult<AccountRow<WardrobeItem>> {
+  return readRow(raw, remoteWardrobeItemRowSchema, (row) => {
     // The phone reads an unlisted garment type or colour option as none, to keep an old piece
     // readable. A pulled row that names one was written by a newer build and is refused whole.
     const garmentTypeId = garmentTypeIdFromColumn(row.garment_type_id);
@@ -134,10 +200,14 @@ export function fromRemoteWardrobeItem(raw: unknown, localProfileId: string): Re
       updatedAt: row.updated_at,
       deletedAt: row.deleted_at,
     };
-  });
+  }, remoteWardrobeItemMarkerSchema);
 }
 
-export function toRemoteDressingDayChoice(choice: DressingDayChoice, userId: string): RemoteDressingDayChoiceUpload {
+export function toRemoteDressingDayChoice(
+  choice: DressingDayChoice,
+  userId: string,
+): RemoteDressingDayChoiceUpload | RemoteDeletionMarkerUpload {
+  if (choice.deletedAt !== null) return deletionMarkerUpload({ ...choice, deletedAt: choice.deletedAt }, userId);
   return {
     id: choice.id,
     user_id: userId,
@@ -151,8 +221,11 @@ export function toRemoteDressingDayChoice(choice: DressingDayChoice, userId: str
   };
 }
 
-export function fromRemoteDressingDayChoice(raw: unknown, localProfileId: string): RemoteRowResult<DressingDayChoice> {
-  return read(raw, remoteDressingDayChoiceRowSchema, (row) => ({
+export function fromRemoteDressingDayChoice(
+  raw: unknown,
+  localProfileId: string,
+): RemoteRowResult<AccountRow<DressingDayChoice>> {
+  return readRow(raw, remoteDressingDayChoiceRowSchema, (row) => ({
     id: row.id,
     localProfileId,
     dayKey: row.day_key,
@@ -162,13 +235,14 @@ export function fromRemoteDressingDayChoice(raw: unknown, localProfileId: string
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
-  }));
+  }), remoteDressingDayChoiceMarkerSchema);
 }
 
 export function toRemoteDressingDayDeparture(
   departure: DressingDayDeparture,
   userId: string,
-): RemoteDressingDayDepartureUpload {
+): RemoteDressingDayDepartureUpload | RemoteDeletionMarkerUpload {
+  if (departure.deletedAt !== null) return deletionMarkerUpload({ ...departure, deletedAt: departure.deletedAt }, userId);
   return {
     id: departure.id,
     user_id: userId,
@@ -184,8 +258,8 @@ export function toRemoteDressingDayDeparture(
 export function fromRemoteDressingDayDeparture(
   raw: unknown,
   localProfileId: string,
-): RemoteRowResult<DressingDayDeparture> {
-  return read(raw, remoteDressingDayDepartureRowSchema, (row) => ({
+): RemoteRowResult<AccountRow<DressingDayDeparture>> {
+  return readRow(raw, remoteDressingDayDepartureRowSchema, (row) => ({
     id: row.id,
     localProfileId,
     dayKey: row.day_key,
@@ -194,10 +268,14 @@ export function fromRemoteDressingDayDeparture(
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
-  }));
+  }), remoteDressingDayDepartureMarkerSchema);
 }
 
-export function toRemoteOutfitHistory(record: OutfitHistoryRecord, userId: string): RemoteOutfitHistoryUpload {
+export function toRemoteOutfitHistory(
+  record: OutfitHistoryRecord,
+  userId: string,
+): RemoteOutfitHistoryUpload | RemoteDeletionMarkerUpload {
+  if (record.deletedAt !== null) return deletionMarkerUpload({ ...record, deletedAt: record.deletedAt }, userId);
   return {
     id: record.id,
     user_id: userId,
@@ -211,8 +289,11 @@ export function toRemoteOutfitHistory(record: OutfitHistoryRecord, userId: strin
   };
 }
 
-export function fromRemoteOutfitHistory(raw: unknown, localProfileId: string): RemoteRowResult<OutfitHistoryRecord> {
-  return read(raw, remoteOutfitHistoryRowSchema, (row) => ({
+export function fromRemoteOutfitHistory(
+  raw: unknown,
+  localProfileId: string,
+): RemoteRowResult<AccountRow<OutfitHistoryRecord>> {
+  return readRow(raw, remoteOutfitHistoryRowSchema, (row) => ({
     id: row.id,
     localProfileId,
     dayKey: row.day_key,
@@ -223,5 +304,5 @@ export function fromRemoteOutfitHistory(raw: unknown, localProfileId: string): R
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
-  }));
+  }), remoteOutfitHistoryMarkerSchema);
 }
