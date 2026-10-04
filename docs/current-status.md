@@ -170,9 +170,8 @@ Trigger, every six hours. That code is not deployed: the deployed Worker carries
 offline and answering `unavailable`, and no Cron Trigger. The remote schema is
 `supabase/migrations/20261004120000_accounts.sql`, applied to the project on 4 October 2026 with no security advisor finding.
 `supabase/migrations/20261005090000_account_hardening.sql` (tighter bounds and per-account caps, the 400 MB database
-size guard, the per-account lock between uploads and a consent withdrawal, one index fewer) is not applied to the
-project yet; an in-memory Postgres run applies both files in order and checks their access rules, caps, bounds,
-guard and lock. Evidence is automated
+size guard, the per-account lock between uploads and a consent withdrawal, one index fewer) followed on 4 October 2026, again with no security advisor finding; an in-memory Postgres run
+applies both files in order and checks their access rules, caps, bounds, guard and lock. Evidence is automated
 tests, an in-memory Postgres run of the schema and one Simulator pass; Sign in with Apple, revocation and live
 sync have no device evidence. Before accounts open: network-state detection, screens reloading after a pull, the
 History photo sweep for pulled deletions, the member AI allowance, the privacy manifest and App Privacy, the
