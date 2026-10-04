@@ -18,6 +18,7 @@ import { createAppleTokenRevoker } from './account/apple-token-revoker.ts';
 import { createSupabaseAdmin } from './account/supabase-admin.ts';
 import { supabaseBaseUrl } from './account/supabase-base-url.ts';
 import { runSupabaseKeepAlive } from './account/supabase-keep-alive.ts';
+import { accountUpstreamTimeoutMs } from './account/upstream-timeout.ts';
 import { createSupabaseTokenVerifier, type SupabaseTokenVerifier } from './account/supabase-token-verifier.ts';
 import { OpenMeteoPlaceProvider } from './places/open-meteo-place-provider.ts';
 import { createPlaceSearchHandler } from './places/place-search-handler.ts';
@@ -175,14 +176,6 @@ export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
   }
   return providers;
 }
-
-/**
- * The budget of each upstream call on the account deletion route. The route makes at most five
- * in a row (the JWKS, the account lookup, Apple's token and revoke calls, the delete), so
- * 5 x 3 s = 15 s stays under the phone's 20 s wait (`deletionTimeoutMs` in the mobile
- * `worker-account-deletion.ts`) with room for signing and the phone's network.
- */
-export const accountUpstreamTimeoutMs = 3000;
 
 /**
  * Account deletion needs its limiter and five settings. It never runs half-configured: the

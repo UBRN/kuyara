@@ -4,7 +4,9 @@ import test, { mock } from 'node:test';
 import { generateEs256Key } from './__tests__/es256-test-key.mjs';
 import { DailyCounter } from './daily-counter.ts';
 import { createEs256Signer, base64UrlEncode } from './es256-jwt.ts';
-import worker, { accountUpstreamTimeoutMs, buildRouter } from './index.ts';
+import { accountUpstreamTimeoutMs } from './account/upstream-timeout.ts';
+import * as entryModule from './index.ts';
+import worker, { buildRouter } from './index.ts';
 
 // The composition logs missing bindings and the chain logs failed attempts; keep that out
 // of the test output.
@@ -610,6 +612,14 @@ test('the scheduled handler makes the keep-alive request from the parsed Supabas
     await worker.scheduled({}, { ...boundEnv, ...unusable });
   }
   assert.deepEqual(calls, []);
+});
+
+test('every named export of the entry module is a function or class, as workerd requires', () => {
+  // workerd reads each named export of the main module as an entrypoint and refuses to start
+  // the Worker when one is a plain value; Node tests import the module without that rule.
+  for (const [name, value] of Object.entries(entryModule)) {
+    if (name !== 'default') assert.equal(typeof value, 'function', name);
+  }
 });
 
 test('the deletion route\'s five upstream calls fit inside the phone\'s wait with room to spare', () => {
