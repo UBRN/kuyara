@@ -66,10 +66,28 @@ export function authSessionOf(session: UserSession): AuthSession | null {
   return { userId: session.user.id, provider, email: session.user.email ?? '', providers };
 }
 
-/** Apple's user identifier for the session's Apple identity (the `sub` of Apple's ID token). */
-export function appleUserIdOf(session: UserSession): string | null {
-  const sub: unknown = session.user.identities?.find(({ provider }) => provider === 'apple')?.identity_data?.sub;
+/** A provider's user identifier for the session's identity of `provider` (the `sub` of its ID token). */
+function providerUserIdOf(session: UserSession, provider: AccountProvider): string | null {
+  const sub: unknown = session.user.identities?.find((identity) => identity.provider === provider)?.identity_data?.sub;
   return typeof sub === 'string' && sub.length > 0 ? sub : null;
+}
+
+/** Apple's user identifier for the session's Apple identity (the `sub` of Apple's ID token). */
+export const appleUserIdOf = (session: UserSession) => providerUserIdOf(session, 'apple');
+
+/**
+ * The `sub` of an ID token's payload, unverified: only compared with the session's own identity,
+ * so a confirmation from another account stops deletion. Null when the token is not a JWT.
+ */
+function idTokenSubject(token: string): string | null {
+  try {
+    const payload = token.split('.')[1] ?? '';
+    const json: unknown = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    const parsed = z.object({ sub: z.string().min(1) }).safeParse(json);
+    return parsed.success ? parsed.data.sub : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The session the auth client stored, read without the network: its user, or null. */
@@ -197,9 +215,13 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
         }
         if (answer === null) return null;
         appleAuthorizationCode = answer.authorizationCode;
-      } else if (await googleIdToken() === null) {
-        // A Google account re-authenticates with Google instead (ADR 0041 section 2); a cancel stops deletion.
-        return null;
+      } else {
+        // A Google account re-authenticates with Google instead (ADR 0041 section 2): a cancel
+        // stops deletion, and so does a confirmation from a Google account this one does not hold.
+        const google = await googleIdToken();
+        if (google === null) return null;
+        const subject = idTokenSubject(google.token);
+        if (subject === null || subject !== providerUserIdOf(session, 'google')) throw new AccountProviderError('failed');
       }
       const { data, error } = await auth.refreshSession();
       if (error || data.session === null) throw new AccountProviderError('failed');

@@ -118,9 +118,12 @@ test('without the Google library or its client configuration, Google fails close
   }
 });
 
+/** A Google ID token for `sub`; the adapter reads only its subject, never its signature. */
+const googleToken = (sub = 'google-sub') => `${base64url({ alg: 'RS256' })}.${base64url({ sub, aud: 'web-client' })}.c2ln`;
+
 function google(over = {}) {
   const calls = [];
-  return { calls, idToken: async (hashed) => { calls.push(hashed); return { idToken: 'google-id-token' }; }, ...over };
+  return { calls, idToken: async (hashed) => { calls.push(hashed); return { idToken: googleToken() }; }, ...over };
 }
 
 function googleAuth(answer, googleFake = google()) {
@@ -137,7 +140,7 @@ test('Sign in with Google sends the hashed nonce to Google and the raw nonce wit
   assert.deepEqual(googleFake.calls, ['hashed-nonce']);
   assert.equal(requests[0].grant, 'id_token');
   assert.deepEqual({ provider: requests[0].body.provider, id_token: requests[0].body.id_token, nonce: requests[0].body.nonce },
-    { provider: 'google', id_token: 'google-id-token', nonce: 'raw-nonce' });
+    { provider: 'google', id_token: googleToken(), nonce: 'raw-nonce' });
 });
 
 test('a cancelled Google sheet is no sign-in and no error; a Google failure is a provider failure', async () => {
@@ -161,7 +164,7 @@ test('adding Google links the identity with its ID token and nonce, and an ident
   assert.deepEqual((await auth.addProvider('google')).providers, ['apple', 'google']);
   const link = requests.find(({ body }) => body?.link_identity);
   assert.deepEqual({ provider: link.body.provider, id_token: link.body.id_token, nonce: link.body.nonce },
-    { provider: 'google', id_token: 'google-id-token', nonce: 'raw-nonce' });
+    { provider: 'google', id_token: googleToken(), nonce: 'raw-nonce' });
   taken = true;
   await assert.rejects(auth.addProvider('google'), (error) => error instanceof AccountProviderError && error.code === 'identityTaken');
 });
@@ -176,12 +179,29 @@ test('deleting a Google account re-authenticates with Google, sends no Apple cod
   assert.equal(requests.at(-1).grant, 'refresh_token');
 
   let cancel = false;
-  const cancelling = googleAuth(() => ({ body: session(1) }), google({ idToken: async () => (cancel ? null : { idToken: 'google-id-token' }) }));
+  const cancelling = googleAuth(() => ({ body: session(1) }), google({ idToken: async () => (cancel ? null : { idToken: googleToken() }) }));
   await cancelling.auth.signIn('google');
   cancel = true;
   const before = cancelling.requests.length;
   assert.equal(await cancelling.auth.reauthorizeDeletion(), null);
   assert.equal(cancelling.requests.length, before);
+});
+
+test('deletion does not start when Google confirms with a different Google account than the signed-in one', async () => {
+  let sub = 'google-sub';
+  const fake = googleAuth(() => ({ body: tokenResponse({ providers: ['google'], primary: 'google' }) }),
+    google({ idToken: async () => ({ idToken: googleToken(sub) }) }));
+  await fake.auth.signIn('google');
+  sub = 'someone-else';
+  const before = fake.requests.length;
+  await assert.rejects(fake.auth.reauthorizeDeletion(), (error) => error instanceof AccountProviderError && error.code === 'failed');
+  assert.equal(fake.requests.length, before);
+  for (const idToken of ['not-a-jwt', `${base64url({})}.${base64url({ aud: 'x' })}.c2ln`]) {
+    const malformed = googleAuth(() => ({ body: tokenResponse({ providers: ['google'], primary: 'google' }) }),
+      google({ idToken: async () => ({ idToken }) }));
+    await malformed.auth.signIn('google');
+    await assert.rejects(malformed.auth.reauthorizeDeletion(), (error) => error instanceof AccountProviderError && error.code === 'failed');
+  }
 });
 
 test('the session maps once, from identities and app metadata, and never from user metadata', () => {
