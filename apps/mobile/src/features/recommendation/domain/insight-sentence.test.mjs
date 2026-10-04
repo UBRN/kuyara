@@ -19,6 +19,12 @@ test('rejects every decimal digit, including times and degree values, in both lo
   }
 });
 
+test('rejects a letter from another script and a clause cut before the end, in both locales', () => {
+  assert.equal(check('These looks range from轻 casual to smart for the day.'), null);
+  assert.equal(check('Bu gün için 轻 rahat bir seçim.', 'tr'), null);
+  assert.equal(check('Casual to a smart formal look for the day,.'), null);
+});
+
 test('Turkish accepts a list word or a distinctive letter, while English requires a list word', () => {
   assert.equal(check('Clear skies, comfortable clothes.'), null);
   assert.equal(check('Hava serin.', 'tr'), null);

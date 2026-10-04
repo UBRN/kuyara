@@ -3,10 +3,10 @@ import type { PropsWithChildren } from 'react';
 import { processColor, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
+import { composeFlatLay, fitTodayStage, flatLayPreset } from '@/components/ui/garment-board/compose-flat-lay';
 import {
   composeGarmentBoard,
   drawnExtent,
-  fitTodayStage,
   garmentShadowRule,
   placeOnRunway,
   todayPreset,
@@ -160,9 +160,9 @@ test('a rising board starts one large step below at zero opacity and adds no nod
 
 // ADR 0020: content arrives in reading order. The pieces rise one by one in the board's
 // reading order, whatever order the outfit lists them in, each one stagger step after the
-// piece before it, each with its shadow; the layers stack in the dressing order, so the outer
-// layer, read before the mid layer, is still drawn after it.
-test('a rising board staggers its pieces in reading order and stacks them in dressing order', async () => {
+// piece before it, each with its shadow; Today's flat lay stacks them back to front, so the
+// layers lie under the outfit and the top over the bottom.
+test('a rising board staggers its pieces in reading order and stacks them in the flat lay\'s order', async () => {
   const layered: readonly GarmentBoardPiece[] = [
     { slot: 'footwear', garmentTypeId: 'ankle_boots', category: 'footwear' },
     { slot: 'mid_layer', garmentTypeId: 'sweater', category: 'top' },
@@ -180,13 +180,13 @@ test('a rising board staggers its pieces in reading order and stacks them in dre
     { wrapper: LightTheme },
   );
 
-  // Stacked top, bottom, mid layer, outer layer, footwear; read top, bottom, outer, mid, footwear.
+  // Stacked outer layer, mid layer, bottom, top, footwear; read top, bottom, outer, mid, footwear.
   const { stagger } = lightTheme.motion;
   const delays = withDelay.mock.calls.map(([delay]) => delay);
-  expect(delays).toEqual([0, 1, 3, 2, 4].flatMap((index) => [index * stagger, index * stagger]));
+  expect(delays).toEqual([2, 3, 1, 0, 4].flatMap((index) => [index * stagger, index * stagger]));
   const layers = result.getByRole('image').children.filter((child) => typeof child !== 'string');
   expect(layers).toHaveLength(layered.length);
-  const ids = ['g-tee', 'g-trousers', 'g-sweater', 'g-rain', 'g-boot'] as const;
+  const ids = ['g-rain', 'g-sweater', 'g-trousers', 'g-tee', 'g-boot'] as const;
   layers.forEach((layer, index) => {
     const [group] = silhouettes[ids[index]].groups;
     expect(layer.queryAll((node) => node.props.d === group.outline).length).toBeGreaterThan(0);
@@ -313,18 +313,21 @@ test('a fitted board is as tall as its fitted pieces and every piece casts a sha
     .toBe(true);
 });
 
-// P2: opening the detail, the pieces leave from where Today's fitted stage drew them, so
-// nothing jumps by the fit's scale; without the fit they leave from the plain preset.
-test('an entrance from the fitted Today stage starts on the fitted Today boxes', () => {
-  const composed = composeGarmentBoard(pieces.map((piece) => ({
+// Opening the detail, the pieces leave from where Today's band drew them, crossed in the flat
+// lay, so nothing jumps by the fit's scale; without the fit they leave from the plain preset.
+test('an entrance from Today\'s band starts on the fitted flat lay boxes', () => {
+  const resolved = pieces.map((piece) => ({
     ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
-  })), todayPreset);
-  const extent = drawnExtent(composed.boxes.values());
-  const { scale, height } = fitTodayStage(extent, 349);
+  }));
+  const composed = composeGarmentBoard(resolved, todayPreset);
+  const flat = composeFlatLay(resolved, todayPreset);
+  const extent = drawnExtent(flat.boxes.values());
+  const coreWidth = Math.max(...flat.core.map((piece) => flat.boxes.get(piece)!.w));
+  const { scale, height } = fitTodayStage(extent, 349, coreWidth, flatLayPreset.coreWidth);
   const start = entranceStartBoxes(pieces, 349, 'today', true);
   expect(start.size).toBe(pieces.length);
-  for (const piece of composed.order) {
-    const today = placeOnRunway(composed.boxes.get(piece)!, extent, scale, 349, height);
+  for (const piece of flat.order) {
+    const today = placeOnRunway(flat.boxes.get(piece)!, extent, scale, 349, height);
     const from = start.get(piece.slot)!;
     expect(from.x * 349).toBeCloseTo(today.x, 9);
     expect(from.y * 349).toBeCloseTo(today.y, 9);

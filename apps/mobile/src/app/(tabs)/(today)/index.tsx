@@ -97,10 +97,10 @@ export default function TodayRoute() {
   const [askError, setAskError] = useState(false);
   const [choosingWindow, setChoosingWindow] = useState<Readonly<{ start: string; end: string }> | null>(null);
   const [sheetError, setSheetError] = useState(false);
-  // M18 step 2, opened by "Pick styles for today": the usual day type and the styles on screen.
-  // Nothing is written until the sheet closes, so both answers land in one write and one generation.
+  // M18 step 2, opened by "Pick styles for today": the day type and the styles on screen.
+  // Nothing is written until Done, so both answers land in one write and one generation.
   const [stylesStep, setStylesStep] = useState<Readonly<{
-    initial: readonly StyleAesthetic[]; draft: readonly StyleAesthetic[];
+    initial: readonly StyleAesthetic[]; draft: readonly StyleAesthetic[]; dayType: DressStyle;
   }> | null>(null);
   // The native sheet animates out after its target clears, so it keeps drawing the question
   // it was showing (its period and step) until the next one opens.
@@ -235,12 +235,12 @@ export default function TodayRoute() {
   const pickStyles = () => {
     if (!sheetTarget || savingChoice.current) return;
     const initial = resolvedStyleAesthetics ?? [];
-    setStylesStep({ initial, draft: initial });
+    setStylesStep({ initial, draft: initial, dayType: profileDressStyle });
   };
   const confirmStyles = () => {
     if (!stylesStep) return;
     const changed = styleAestheticsChanged(stylesStep.initial, stylesStep.draft);
-    void answerSheet(profileDressStyle, changed ? stylesStep.draft : undefined);
+    void answerSheet(stylesStep.dayType, changed ? stylesStep.draft : undefined);
   };
   // P6: closing the question answers it with the profile's own dress style, through the same
   // write an answer makes, so it starts no generation the answer would not. Closed on step 2,
@@ -447,6 +447,8 @@ export default function TodayRoute() {
           onChange={(draft) => setStylesStep({ ...shownStylesStep, draft })}
           selected={shownStylesStep.draft} testID="daily-formality-styles" />
       ) : null}
+      stylesDayType={shownStylesStep?.dayType}
+      onStylesDayType={(dayType) => { if (stylesStep) setStylesStep({ ...stylesStep, dayType }); }}
       onConfirmStyles={confirmStyles}
       confirmLabel={getMessages(language).preferences.stylePreferencesDone} />
     {placeTimeZone ? (

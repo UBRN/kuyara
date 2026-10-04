@@ -33,8 +33,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 - **Recommendations:** The deterministic layer composes at most 24 valid outfits from the
   bundled catalog (version 6); the AI tier selects three and labels each with an
   archetype, on-device Apple Foundation Models where the device reports them available and
-  otherwise the Worker's chain (the Workers AI models; the OpenRouter list is empty until a
-  free model passes the live measurement); mobile validates, persists and
+  otherwise the Worker's chain (the Workers AI models, then the free OpenRouter models that
+  passed the live measurement); mobile validates, persists and
   falls back to a device-local deterministic generator. The refresh waits for a stylist answer: the
   on-device tier gets 8 seconds, the Worker request then gets 38 seconds, and the Worker
   bounds its whole AI walk at 36 seconds (five attempts of 7 seconds plus one second),
@@ -71,7 +71,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   the first foreground open of the evening key, ask whether the day is the profile's usual day
   type: one large "Yes, as usual" button answers in one tap, the other two day types are tiles
   with nothing checked that answer in one tap, and "Pick styles for today" opens the optional
-  styles step; closing either sheet answers it with the profile dress style. In the evening, once that outfit has settled, a foreground open of
+  step that picks the day type and the day's styles together; closing either sheet answers it with the profile dress style. In the evening, once that outfit has settled, a foreground open of
   Today selects tomorrow's outfit once per evening through the same chain (deterministic when the
   AI tiers fail) when the forecast covers tomorrow from 08:00 at the place, keeps it in an
   app-private JSON file, and shows it under the alternatives as "Tomorrow" with the day's
@@ -166,8 +166,8 @@ and withdrawal, the Apple credential check at launch and the revocation notifica
 no valid Supabase settings the screens fail closed. Google sign-in waits for its library licence. Migration 28
 adds the device link's joined-account columns. The Worker code carries the deletion route (deleting an Apple
 account without a usable code answers `deleted_apple_unrevoked`), its rate limit, the keep-alive Cron
-Trigger, every six hours, and the count of a signed-in member's "Ask the stylist again" requests (ten per UTC day per member, refused with the existing `rate_limited` answer). That code is not deployed: the deployed Worker carries an earlier version of the route,
-offline and answering `unavailable`, and no Cron Trigger. The remote schema is
+Trigger, every six hours, and the count of a signed-in member's "Ask the stylist again" requests (ten per UTC day per member, refused with the existing `rate_limited` answer). That code is deployed with the Apple and Supabase secrets, so the deletion route is live and the keep-alive Cron Trigger is scheduled;
+no shipped binary calls the route or sends a member token. The remote schema is
 `supabase/migrations/20261004120000_accounts.sql`, applied to the project on 4 October 2026 with no security advisor finding.
 `supabase/migrations/20261005090000_account_hardening.sql` (tighter bounds and per-account caps, the 400 MB database
 size guard, the per-account lock between uploads and a consent withdrawal, one index fewer) followed on 4 October 2026, again with no security advisor finding; an in-memory Postgres run
@@ -187,7 +187,7 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 - **Build 15:** Version `0.1.20260926`, build 15, is `READY_FOR_SALE`; App Store Connect status was checked on 27 September 2026. It was submitted on 26 September 2026 with `AFTER_APPROVAL` release and phased release configured. Build 14 (`0.1.20260920`) is the previous release.
 - **EAS Update:** Build 15 installs receive the latest production iOS update, group `ec077814-51d0-4939-a557-cbc7a049c57f`, runtime `0.1.20260926`, commit `156b8e1`, which replaced the first update from `7b5b4f8`. It carries the Today, recommendation (the formal suit rule and catalog version 6, day-aware labels, hot-day smart outfits), notification, accessibility, History and consent fixes since build 15. The EAS `production` environment carries `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` and the PostHog variables, and the Hermes source maps for release `kuyara@cf88f54` are uploaded to PostHog. Build 19 installs receive production iOS update group `7ef38e34-8d7d-4e1e-9395-0f5eb32d898e`, runtime `0.1.20261005`, commit `4942c6ec` on branch `hotfix/0.1.20261005-launch` (build 19's commit `adad5517` plus the 720 ms cold launch), with its Hermes source maps uploaded to PostHog.
-- **Worker:** The deployed Worker is version `7a8d9261-add5-4552-8d35-5eb0c5e79d98`, deployed on 4 October 2026 from commit `6e2c1469` (previous version `8f6c020e-d5f4-4597-b9a7-7187a7c0d91c`). `OPENROUTER_MODELS` is empty. `/v1/feedback` is deployed but offline: the top-level configuration has no `FEEDBACK_DB` binding and the in-app form flag is off. An earlier version of `/v1/account/delete` is deployed but offline: it has no `ACCOUNT_DELETE_RATE_LIMIT` binding and answers `unavailable`.
+- **Worker:** The deployed Worker is version `2c00c4cd-2463-4aba-a6a2-cf1520d2bffe`, deployed on 5 October 2026 from commit `34e777bd` (previous version `2540939e-9e4f-440a-b788-5bb88c295748`, the rollback target, with the Worker code of `e5e7f5b0`). `OPENROUTER_MODELS` holds `qwen/qwen3.8-27b:free` and `nvidia/nemotron-3-super-120b-a12b:free`, requested with reasoning off, and the insight sentence refuses letters outside the Latin script and a clause cut before its end. `/v1/feedback` is deployed but offline: the top-level configuration has no `FEEDBACK_DB` binding and the in-app form flag is off. `/v1/account/delete` is live with its rate limit and the Apple and Supabase secrets, the keep-alive Cron Trigger is scheduled at minute 17 every six hours (no run observed yet), and the member re-ask count is active for verified member tokens. After the deploy, health, `/v2/weather`, a realistic `/v2/ai/recommend` request (accepted by the mobile gate), a `reask` request (accepted by the schema), the AI probe and the deletion route's `unauthorized` answers were checked live; after the second deploy, health, `/v2/weather` and `/v2/ai/recommend` with and without `reask` answered 200 with valid shapes.
 - **Build 16:** Version `0.1.20260928`, build 16, built locally from commit `aeb2fd0`, is `READY_FOR_SALE`. It includes schema version 22, the expanded Closet palette and camera path, Easier to see, the coach-mark tour, manual mix, and the revised consent and analytics boundary.
 - **Build 17:** Version `0.1.20261002`, build 17, built locally from commit `b7e0514`, was submitted for App Review on 2 October 2026 with `AFTER_APPROVAL` release and phased release configured, and was approved. It adds schema version 23, the illustrated garment drawings, the worn-order garment board with per-piece shadows, the shareable outfit card (`react-native-view-shot`, a native module, so this JavaScript cannot ship as an update to build 16), the evening tomorrow preview, the whole-day morning briefing, Closet matches and wear counts, the History diary, and the account screens behind a switch that is off. Its changes have Simulator and Maestro evidence only; Android has not been built.
 - **Build 18:** Version `0.1.20261003`, build 18, schema version 25, built locally from commit `cdead67e`, was approved and is `READY_FOR_SALE`; its phased release started on 3 October 2026.

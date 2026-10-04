@@ -1175,6 +1175,34 @@ test('the morning sheet step 2 writes the usual day type and the changed styles 
   await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
 });
 
+// The styles step also asks the day type: the usual one starts checked, and a Formal day with its
+// own styles is one write.
+test('the morning sheet step 2 writes another day type and the changed styles once', async () => {
+  const chooseFormality = jest.fn(async () => undefined);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      resolvedStyleAesthetics={['classic']}
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-pick-styles'));
+  const tiles = view.getAllByRole('radio');
+  expect(tiles.map((tile) => tile.props.accessibilityState.selected)).toEqual([false, true, false]);
+  await fireEvent.press(view.getByTestId('daily-formality-day-type-formal'));
+  expect(view.getByTestId('daily-formality-day-type-formal').props.accessibilityState.selected).toBe(true);
+  await fireEvent.press(view.getByTestId('daily-formality-styles-sporty'));
+  expect(chooseFormality).not.toHaveBeenCalled();
+  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'formal', 'morning', ['classic', 'sporty']);
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+});
+
 test('closing the sheet on step 2 answers the usual day type and leaves the styles alone', async () => {
   const chooseFormality = jest.fn(async () => undefined);
   const view = await render(
@@ -1596,7 +1624,9 @@ test('Ask the stylist again reopens on the persisted Later departure', async () 
 
 // M18: the day type and the day's styles are one write, and the generation it starts
 // already carries both, so the approved triggers find nothing left to answer.
-test('the step 2 answer reaches the recommendation in the same write and generation', async () => {
+test.each(['smart', 'formal'] as const)(
+  'the step 2 answer for a %s day reaches the recommendation in the same write and generation',
+  async (dayType) => {
   const saved = recommendationReady();
   if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
   mockRecommendationSnapshot = {
@@ -1632,17 +1662,18 @@ test('the step 2 answer reaches the recommendation in the same write and generat
     expect(view.getByTestId('daily-formality-styles-classic').props.accessibilityState.checked).toBe(true);
     await fireEvent.press(view.getByTestId('daily-formality-styles-classic'));
     await fireEvent.press(view.getByTestId('daily-formality-styles-minimal'));
+    await fireEvent.press(view.getByTestId(`daily-formality-day-type-${dayType}`));
     expect(refresh).not.toHaveBeenCalled();
     await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
 
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(mockChoiceUpsert).toHaveBeenCalledTimes(1);
     expect(mockChoiceUpsert).toHaveBeenCalledWith(
-      'profile-one', '2026-09-24', 'smart', 'morning', ['minimal']);
+      'profile-one', '2026-09-24', dayType, 'morning', ['minimal']);
     await act(async () => { await Promise.resolve(); });
     // Every generation after the answer asks for both answers; none for the old day.
     for (const [, input] of refresh.mock.calls) {
-      expect(input).toMatchObject({ dressStyle: 'smart', styleAesthetics: ['minimal'] });
+      expect(input).toMatchObject({ dressStyle: dayType, styleAesthetics: ['minimal'] });
     }
     expect(refresh.mock.calls[0][0]).toBe('dress-style-changed');
     // The approved triggers see the same answers, so any request they make is the identical

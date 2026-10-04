@@ -24,9 +24,9 @@ candidates or the AI request.
 The board is [ADR 0025](0025-the-garment-board-composition-rule.md)'s `compose()`,
 unchanged, run with a detail preset. Same algorithm, same worn layout, same dressing order,
 the core on the left and the layers on the right, the footwear a pair at the core's foot.
-The detail preset only draws it larger: at the scale Today's fitted stage reaches, so the
-pieces keep their size as they travel in. Pieces stand apart exactly as on Today, none
-touching another. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
+The detail preset only draws it larger, at the runway preset's 1.25. Pieces stand apart,
+none touching another; they travel in from Today's flat lay, the same composition with its
+gaps closed. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
 
 This is what makes the two screens share a composition rather than merely resemble each
 other, and it is what the entry transition animates. It also leaves room for garment rows below the board.
@@ -230,7 +230,7 @@ rather than a cross-fade between two pictures.
    The tint difference remains, because it carries meaning rather than motion.
 
 The push remains the platform's. Garment travel is an in-screen re-layout from the boxes
-Today's fitted primary stage draws to the detail preset, not a shared-element transition,
+Today's band draws (its flat lay) to the detail preset, not a shared-element transition,
 on the spatial role
 `theme.springs.spatial`. Each piece travels as a plain view with a native transform,
 because Reanimated cannot drive react-native-svg's `transform` or `fill` on the new

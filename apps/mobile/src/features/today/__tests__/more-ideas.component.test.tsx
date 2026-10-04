@@ -7,7 +7,7 @@ import {
   composeOutfitPool,
   outfitOptionId,
 } from '@/features/recommendation/application/recommend-outfits';
-import { todayScreenState } from '@/features/today/__tests__/fixtures';
+import { aiAssistedTodayScreenState, todayScreenState } from '@/features/today/__tests__/fixtures';
 import type { TodayScreenState } from '@/features/today/model';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
@@ -37,10 +37,12 @@ const shown = new Set(recommendation.outfits.map(({ optionId }) => optionId));
 const ideas = assignComposedArchetypes(
   pool.outfits.filter((outfit) => !shown.has(outfitOptionId(outfit))), recommendation.requirements);
 
+// The stylist's count line belongs to an AI day; the deterministic one is checked below.
 function withIdeas(count: number): TodayScreenState {
   return {
-    ...todayScreenState,
-    snapshot: { ...todayScreenState.snapshot, ...(count > 0 ? { moreIdeas: ideas.slice(0, count) } : {}) },
+    ...aiAssistedTodayScreenState,
+    snapshot: { ...aiAssistedTodayScreenState.snapshot,
+      ...(count > 0 ? { moreIdeas: ideas.slice(0, count) } : {}) },
   };
 }
 
@@ -133,4 +135,29 @@ test('no ideas leave the section out, with nothing in its place', async () => {
   const result = await render(screen('en', withIdeas(0)));
   expect(result.queryByTestId('today-more-ideas-heading')).toBeNull();
   expect(result.queryByText(messages.en.today.moreIdeas.heading)).toBeNull();
+});
+
+function withMode(count: number, generationMode: 'on-device-ai' | 'ai-assisted' | 'deterministic-fallback') {
+  const { snapshot } = aiAssistedTodayScreenState;
+  return {
+    ...aiAssistedTodayScreenState,
+    snapshot: { ...snapshot, moreIdeas: ideas.slice(0, count),
+      recommendation: { ...snapshot.recommendation, generationMode } },
+  } satisfies TodayScreenState;
+}
+
+// A day without AI has no stylist who looked: its count line names the weather alone.
+test.each([
+  ['on-device-ai', 'en', 1, '1 more outfit the stylist looked at. It suits today’s weather.'],
+  ['ai-assisted', 'en', 4, '4 more outfits the stylist looked at. All suit today’s weather.'],
+  ['deterministic-fallback', 'en', 1, '1 more outfit that suits today’s weather.'],
+  ['deterministic-fallback', 'en', 4, '4 more outfits that suit today’s weather.'],
+  ['on-device-ai', 'tr', 4, 'Stilistin baktığı 4 kombin daha. Hepsi bugünkü havaya uygun.'],
+  ['ai-assisted', 'tr', 1, 'Stilistin baktığı 1 kombin daha. Bugünkü havaya uygun.'],
+  ['deterministic-fallback', 'tr', 1, 'Bugünkü havaya uygun 1 kombin daha.'],
+  ['deterministic-fallback', 'tr', 4, 'Bugünkü havaya uygun 4 kombin daha.'],
+] as const)('the %s count line in %s for %i ideas', (mode, language, count, caption) => {
+  const presentation = createTodayPresentation(withMode(count, mode), language, false, 'celsius', Date.now());
+  if (presentation.kind !== 'loaded') throw new Error('Expected a loaded presentation.');
+  expect(presentation.moreIdeasCaption).toBe(caption);
 });

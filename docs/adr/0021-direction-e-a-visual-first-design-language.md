@@ -73,12 +73,15 @@ location opposite the localized date. The title below combines Today, temperatur
 the device locale's unit, an animated condition symbol, and condition. A small archetype label sits below. The morning and evening sheets ask for day type; during the day, it changes inside "Ask the stylist again". The card does not repeat the weather line. One primary-ink body insight sentence
 replaces the overview rationale.
 
-### 3. The weather tints the stage rather than occupying a band
+### 3. The weather tints the stage rather than occupying a band of its own
 
 [ADR 0018](0018-the-atmospheric-condition-band.md) defines a condition tint on the
 surface the garments lie on. Temperature and the animated condition symbol sit in the
-title, outside the garment card. The sky colours the ground under today's clothes and
-the two halves of the product become one object. Do not add a separate full-width atmosphere strip.
+title, outside the stage. The sky colours the ground under today's clothes and
+the two halves of the product become one object. On Today that ground is a cornerless band
+reaching both screen edges, as tall as the outfit laid on it: it is the stage itself and holds
+the board and nothing else. Do not add a separate full-width atmosphere strip above, below or
+beside it.
 
 ADR 0018 owns the seven-state closed set, the derivation of every value as a blend of two
 approved brand hexes, the contrast floors, and the rule that no state may make contrast
@@ -100,7 +103,8 @@ and the detail's finishing touches, the Profile rack and the Profile category ce
 hold pieces, the Closet form's owned and wanted
 scenes, the piece sheet's colour comparison, the photo badge and the choice tiles of
 onboarding and the day-type sheet). The plate is lighter than the page, so it reads as a
-raised rounded plate rather than a hole. An empty place is not a plate: an empty Profile
+raised plate rather than a hole: rounded under every other board, and on Today a cornerless
+band from edge to edge. An empty place is not a plate: an empty Profile
 category cell and the faded drawing of an empty Closet category or an empty History keep
 the dark `surfaceMuted` tile. The first-generation runway keeps its dark field;
 its board stands on the neutral plate inside it, and that plate is what shrinks into

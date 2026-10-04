@@ -7,6 +7,8 @@ export interface WeatherAlertDeliveryRepository {
   upsertScheduled(deliveries: readonly WeatherAlertDeliveryRecord[]): Promise<void>;
   deletePending(localProfileId: string, now: string, kind?: NotificationKind): Promise<void>;
   listFiredIds(localProfileId: string, now: string): Promise<ReadonlySet<string>>;
+  /** What the OS accepted and has not fired yet. */
+  listPending(localProfileId: string, now: string): Promise<readonly WeatherAlertDeliveryRecord[]>;
   pruneBefore(localProfileId: string, isoDate: string): Promise<void>;
 }
 
@@ -36,6 +38,17 @@ implements WeatherAlertDeliveryRepository {
       throw new Error('The weather alert delivery record is invalid.');
     }
     return new Set(records.map(({ id }) => id));
+  }
+
+  async listPending(localProfileId: string, now: string): Promise<readonly WeatherAlertDeliveryRecord[]> {
+    if (!localProfileId || !isUtcIsoTimestamp(now)) {
+      throw new Error('The weather alert delivery query is invalid.');
+    }
+    const records = await this.dataSource.listPending(localProfileId, now);
+    if (records.some((record) => record.localProfileId !== localProfileId)) {
+      throw new Error('The weather alert delivery record is invalid.');
+    }
+    return records;
   }
 
   async deletePending(localProfileId: string, now: string, kind?: NotificationKind): Promise<void> {

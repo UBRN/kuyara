@@ -115,9 +115,9 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   // bottom under the top, the footwear under its hem and the layers beside it, each apart
   // from its neighbours by `clearance`, so no piece covers any part of another.
   const { clearance } = rule;
-  const cb = core.map((piece) => boxOf(piece, metric));
-  const coreGap = core.length > 1 ? clearance.waist * cb[0].h : 0;
-  const coreW = Math.max(...cb.map((box) => box.w));
+  let cb = core.map((piece) => boxOf(piece, metric));
+  let coreGap = core.length > 1 ? clearance.waist * cb[0].h : 0;
+  let coreW = Math.max(...cb.map((box) => box.w));
 
   let rb = rail.map((piece) => boxOf(piece,
     rule.weight[piece.slot === 'outer_layer' ? 'outer_layer' : 'mid_layer'] * metric));
@@ -126,8 +126,21 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   const railScale = Math.min(1, rule.railCap / Math.max(...rb.concat(bf).map((box) => box.w)));
   rb = rb.map((box) => ({ w: box.w * railScale, h: box.h * railScale }));
   bf = { w: bf.w * railScale, h: bf.h * railScale };
-  const railH = rb.reduce((sum, box) => sum + box.h, 0) + rule.railGap * metric * (rb.length - 1);
-  const coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1) + bf.h * (1 + clearance.foot);
+  let railGap = rule.railGap * metric;
+  let railH = rb.reduce((sum, box) => sum + box.h, 0) + railGap * (rb.length - 1);
+  let coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1) + bf.h * (1 + clearance.foot);
+
+  // A composition taller than the stage's ceiling (Easier to see on the detail's larger caps)
+  // is scaled down once, uniformly, until it fits, the way Today's fitted stage scales its
+  // board: every size and every gap keeps its ratio to the others.
+  const fit = (rule.stageMax - rule.topInset - rule.botInset) / Math.max(coreH, railH);
+  if (fit < 1) {
+    const scaled = (box: { w: number; h: number }) => ({ w: box.w * fit, h: box.h * fit });
+    cb = cb.map(scaled);
+    rb = rb.map(scaled);
+    bf = scaled(bf);
+    [coreGap, coreW, railGap, railH, coreH] = [coreGap, coreW, railGap, railH, coreH].map((length) => length * fit);
+  }
 
   const envelope = Math.max(coreH, railH);
   const stageHeight = Math.min(rule.stageMax, Math.max(rule.stageMin, rule.topInset + envelope + rule.botInset));
@@ -146,7 +159,7 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   y = top;
   rail.forEach((piece, index) => {
     boxes.set(piece, { x: railX, y, ...rb[index] });
-    y += rb[index].h + rule.railGap * metric;
+    y += rb[index].h + railGap;
   });
   // The footwear's heel stands a quarter of its length left of the core's axis and its opening
   // stands `clearance.foot` of its own height under the lowest piece's hem. It is drawn as a
@@ -183,8 +196,7 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
 // and do not move; only the one scale does.
 export const runwayPreset = { side: 28, vertical: 24, maxScale: 1.25 } as const;
 
-// The detail draws the same worn board at the scale Today's fitted stage reaches, so a piece
-// leaving Today's stage for the detail keeps its size.
+// The detail draws the same worn board at the runway preset's largest scale.
 export const detailPreset = easierToSeeRule(todayPreset, runwayPreset.maxScale, todayPreset.sideMin);
 
 export type DrawnExtent = Readonly<{ x: number; y: number; w: number; h: number }>;
@@ -227,18 +239,6 @@ export function placeOnRunway(
     w: box.w * scale,
     h: box.h * scale,
   };
-}
-
-// Today's primary stage (O17 and P2) takes the runway fit: the composition
-// is trimmed to its drawn extent and scaled once, uniformly, with the runway preset. The
-// stage is then only as tall as the fitted composition plus the preset's vertical margin,
-// within ADR 0025's clamp, so it depends on the outfit and the width alone and nothing
-// above it (a badge, a wrapped title) moves it. The alternates keep the plain Today preset.
-export function fitTodayStage(extent: DrawnExtent, width: number) {
-  const max = todayPreset.stageMax * width;
-  const scale = fitRunwayScale([extent], width, max);
-  const height = Math.min(max, Math.max(todayPreset.stageMin * width, extent.h * scale + runwayPreset.vertical));
-  return { scale, height };
 }
 
 // The soft shadow each piece casts on the plane it lies on, on every board: the piece's own

@@ -2,11 +2,11 @@ import type { RefObject } from 'react';
 import { Link, type Href } from 'expo-router';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { AppText, Crossfade, GarmentBoard, measureGarmentBoardHeight, PressScale } from '@/components/ui';
+import { AppText, Crossfade, GarmentBoard, measureGarmentBoardHeight, PressScale, useScreenGutters } from '@/components/ui';
 import { ArrivesAfterHandoff, Dimmed } from '@/features/today/presentation/today-motion';
 import type { LoadedOutfitPresentation } from '@/features/today/presentation/today-presentation';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
-import { radii, spacing } from '@/theme/theme';
+import { spacing } from '@/theme/theme';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { OnPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -18,7 +18,11 @@ export type OutfitDetailLink = Readonly<{
   onPress: (event: Readonly<{ preventDefault: () => void }>) => void;
 }>;
 
-/** Today's hero: the outfit's name over its stage, one target that opens its detail. */
+/**
+ * Today's hero: the outfit's name over its stage, one target that opens its detail. The stage
+ * is a cornerless band reaching both screen edges, past the page's gutters, and the board on
+ * it is the flat lay (garment-board.md section 10).
+ */
 export function TodayOutfit({
   carriedOutfitId,
   contentWidth,
@@ -54,7 +58,9 @@ export function TodayOutfit({
 }>) {
   const theme = useKuyaraTheme();
   const easierToSee = useEasierToSee();
-  const stageHeight = measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true, easierToSee);
+  const gutters = useScreenGutters();
+  const bandWidth = contentWidth + gutters.left + gutters.right;
+  const stageHeight = measureGarmentBoardHeight(primary.boardPieces, bandWidth, 'today', true, easierToSee);
 
   const primaryStage = (
     <View
@@ -65,7 +71,7 @@ export function TodayOutfit({
         styles.stage,
         {
           backgroundColor: stageColor,
-          width: contentWidth,
+          width: bandWidth,
           // P2: the stage is as tall as its fitted board, never the free space.
           height: stageHeight,
         },
@@ -77,7 +83,7 @@ export function TodayOutfit({
         {leavingOutfit ? (
           // The leaving board is centred in the new stage's frame, whatever height its
           // own fitted board has.
-          <View style={[styles.leavingBoard, { height: stageHeight, width: contentWidth }]}>
+          <View style={[styles.leavingBoard, { height: stageHeight, width: bandWidth }]}>
             <GarmentBoard
               accessibilityLabel=""
               decorative
@@ -89,7 +95,7 @@ export function TodayOutfit({
               preset="today"
               stageColor={stageColor}
               testID="today-leaving-board"
-              width={contentWidth}
+              width={bandWidth}
             />
           </View>
         ) : null}
@@ -111,7 +117,7 @@ export function TodayOutfit({
           rise={primary.id !== carriedOutfitId}
           stageColor={stageColor}
           testID={`today-primary-board-${primary.id}`}
-          width={contentWidth}
+          width={bandWidth}
         />
       </OnPlate>
     </View>
@@ -127,7 +133,10 @@ export function TodayOutfit({
       {/* A re-ask replaces the title with a crossfade rather than a snap. */}
       <ArrivesAfterHandoff index={3}>
         <Crossfade contentKey={primary.title}>
-          <AppText style={styles.archetypeName} testID="today-archetype" variant="label">
+          <AppText
+            style={[styles.archetypeName, { marginLeft: gutters.left, marginRight: gutters.right }]}
+            testID="today-archetype"
+            variant="label">
             {primary.title}
           </AppText>
         </Crossfade>
@@ -143,7 +152,7 @@ export function TodayOutfit({
         id="outfit"
         label={stageAccessibilityLabel}
         scrollBy={scrollBy}
-        style={styles.outfitTarget}>
+        style={[styles.outfitTarget, { marginLeft: -gutters.left, marginRight: -gutters.right }]}>
         {outfitDetailLink ? (
           // S21: on iOS the outfit's detail zooms out of the stage, as an alternative's does.
           <Link asChild href={outfitDetailLink.href(primary.id)} onPress={outfitDetailLink.onPress} push>
@@ -159,6 +168,6 @@ const styles = StyleSheet.create({
   // The gap above the outfit sits outside its tour target, so the tour's ring clears the badge.
   outfitTarget: { marginTop: spacing.md },
   archetypeName: { marginBottom: spacing.sm },
-  stage: { borderRadius: radii.stage, overflow: 'hidden' },
+  stage: { overflow: 'hidden' },
   leavingBoard: { justifyContent: 'center', left: 0, position: 'absolute', top: 0 },
 });

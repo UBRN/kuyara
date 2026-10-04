@@ -67,12 +67,13 @@ function StepFade({
  * usual day type: the large button answers yes in one tap, and the other two day types below,
  * none checked, each answer in one tap too. The evening sheet asks the same about the profile's
  * day type and never carries the morning answer (N20). "Pick styles for today" opens step 2
- * (M18) at the large detent (N7); its styles and the usual day type are written together, once.
+ * (M18) at the large detent (N7): the three day types, the usual one checked, above the styles;
+ * Done writes the day type and the styles together, once. A tile on that step only picks.
  * Closing the sheet answers with the usual day type on either step.
  */
 export function DailyFormalitySheet({
   visible, language, period, usual, onChoose, onPickStyles, onDismiss, error,
-  step = 'dayType', styles: styleOptions, onConfirmStyles, confirmLabel,
+  step = 'dayType', styles: styleOptions, stylesDayType, onStylesDayType, onConfirmStyles, confirmLabel,
 }: Readonly<{
   visible: boolean;
   language: SupportedLanguage;
@@ -87,6 +88,9 @@ export function DailyFormalitySheet({
   step?: 'dayType' | 'styles';
   /** The day's style options, composed by the route (they belong to the profile feature). */
   styles?: ReactNode;
+  /** The day type checked on the styles step, owned by the route until Done writes it. */
+  stylesDayType?: DressStyle;
+  onStylesDayType?: (style: DressStyle) => void;
   onConfirmStyles?: () => void;
   confirmLabel?: string;
 }>) {
@@ -125,6 +129,15 @@ export function DailyFormalitySheet({
         <StepFade animate={stepFades} key={`step-${stepSwap.changes}`} style={styles.step}>
           {stylesStep ? (
             <>
+              {onStylesDayType ? (
+                <View style={styles.different}>
+                  <AppText colorRole="textSecondary" testID="daily-formality-styles-day-type" variant="caption">
+                    {period === 'evening' ? copy.questionEvening : copy.question}
+                  </AppText>
+                  <DayTypeTiles language={language} onSelect={onStylesDayType}
+                    selected={stylesDayType ?? usual} testID="daily-formality-day-type" />
+                </View>
+              ) : null}
               <AppText colorRole="textSecondary" testID="daily-formality-styles-note" variant="caption">
                 {copy.stylesNote}
               </AppText>

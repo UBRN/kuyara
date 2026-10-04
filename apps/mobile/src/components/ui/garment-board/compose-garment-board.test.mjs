@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
   composeGarmentBoard,
   detailPreset,
   drawnExtent,
+  easierToSeeRule,
   fitRunwayScale,
-  fitTodayStage,
   footwearPair,
   footwearPairBox,
   footwearPairDrawing,
@@ -167,10 +168,10 @@ test('layout does not mutate artwork or depend on the input ordering', () => {
   assert.deepEqual(first, reversed);
 });
 
-// ADR 0026 section 3: the detail draws Today's worn board at the scale Today's fitted stage
-// reaches, so every piece keeps its place relative to the others and only grows.
+// ADR 0026 section 3: the detail draws the worn board at the runway preset's largest scale, so
+// every piece keeps its place relative to the others and only grows.
 for (const [name, slots] of evidence) {
-  test(`detail: ${name} is Today's worn board at the fitted scale`, () => {
+  test(`detail: ${name} is the worn board at the runway's largest scale`, () => {
     const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
     const today = composeGarmentBoard(pieces, todayPreset);
     const detail = composeGarmentBoard(pieces, detailPreset);
@@ -274,55 +275,10 @@ test('runway: several compositions share the scale of the one that needs the lea
   assert.equal(fitRunwayScale([], 339, 516), 0);
 });
 
-// P2: Today's primary stage is the runway fit with the tight height. The three reference
-// boards on a 339-point stage, laid out as worn, within half a point.
-const p2Boards = [
-  ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']],
-    { height: 255.7, extentW: 157.9, extentH: 231.7 }],
-  ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']],
-    { height: 316.2, extentW: 178.5, extentH: 292.2 }],
-  ['cold formal', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'blazer'], ['outer_layer', 'trench_coat'], ['footwear', 'closed_shoes']],
-    { height: 279.0, extentW: 179.1, extentH: 255.0 }],
-];
-
-for (const [name, slots, expected] of p2Boards) {
-  test(`Today stage: ${name} keeps its measured tight stage`, (context) => {
-    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
-    const extent = drawnExtent(composeGarmentBoard(pieces, todayPreset).boxes.values());
-    const { scale, height } = fitTodayStage(extent, 339);
-    // The 1.25 cap binds on all three boards.
-    assert.equal(scale, runwayPreset.maxScale * 339);
-    assert.ok(Math.abs(height - expected.height) <= 0.5, `${name}: ${height}`);
-    assert.ok(Math.abs(extent.w * scale - expected.extentW) <= 0.5, `${name}: ${extent.w * scale}`);
-    assert.ok(Math.abs(extent.h * scale - expected.extentH) <= 0.5, `${name}: ${extent.h * scale}`);
-    context.diagnostic(`${name}: stage ${height.toFixed(1)} pt, scale x${(scale / 339).toFixed(3)}`);
-  });
-}
-
-for (const [name, slots] of evidence) {
-  test(`Today stage: ${name} is the fitted board plus its margin, inside ADR 0025's clamp`, () => {
-    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
-    const result = composeGarmentBoard(pieces, todayPreset);
-    const extent = drawnExtent(result.boxes.values());
-    for (const width of [339, 358, 402]) {
-      const { scale, height } = fitTodayStage(extent, width);
-      assert.ok(height >= todayPreset.stageMin * width - 1e-9 && height <= todayPreset.stageMax * width + 1e-9, name);
-      // Tight: the stage never carries more than the vertical margin, unless the clamp's floor lifts it.
-      assert.ok(height <= Math.max(todayPreset.stageMin * width, extent.h * scale + runwayPreset.vertical) + 1e-9, name);
-      assert.ok(scale <= runwayPreset.maxScale * width + 1e-9, name);
-      const placed = [...result.boxes.values()].map((box) => placeOnRunway(box, extent, scale, width, height));
-      assert.ok(Math.min(...placed.map((box) => box.x)) >= runwayPreset.side - 1e-9, name);
-      assert.ok(Math.max(...placed.map((box) => box.x + box.w)) <= width - runwayPreset.side + 1e-9, name);
-      assert.ok(Math.min(...placed.map((box) => box.y)) >= runwayPreset.vertical / 2 - 1e-9, name);
-      assert.ok(Math.max(...placed.map((box) => box.y + box.h)) <= height - runwayPreset.vertical / 2 + 1e-9, name);
-    }
-  });
-}
-
 // The piece shadow (ADR 0025 section 9) grows with the board's unit, and its visible reach,
 // the drop plus two standard deviations of blur, stays inside every board's lower margin: the
-// plain presets' bottom inset and, at Today's largest fit on a 440-point stage, half the
-// runway preset's vertical margin.
+// plain presets' bottom inset and, at the runway's largest fit on a 440-point stage, half the
+// runway preset's vertical margin. Today's band checks its own margin (compose-flat-lay.test).
 test('the piece shadow scales with its board and stays inside the lower margin', () => {
   const shadow = garmentShadowOf(400);
   assert.ok(Math.abs(shadow.dx - garmentShadowRule.dx * 400) < 1e-9);
@@ -334,4 +290,60 @@ test('the piece shadow scales with its board and stays inside the lower margin',
   assert.ok(reach * runwayPreset.maxScale * 440 < runwayPreset.vertical / 2);
   // Darker than the plane in both appearances, by more in light, where the plane is lighter.
   assert.ok(garmentShadowRule.step.light < garmentShadowRule.step.dark && garmentShadowRule.step.dark < 0);
+});
+
+// Easier to see (ADR 0030) grows every cap x 1.3 on the detail's larger caps. A composition
+// taller than the stage's ceiling is scaled down once, uniformly, until it fits, so no piece
+// leaves the stage on the detail or the share card.
+const largeDetail = easierToSeeRule(detailPreset, 1.3, 0.05);
+for (const [name, slots] of [
+  ...readmeBoards,
+  ...evidence,
+  ['turtleneck, trousers, ankle boots', [['primary_top', 'turtleneck'], ['bottom', 'trousers'], ['footwear', 'ankle_boots']]],
+  ['sleeveless top, jeans, rain jacket, rain boots', [['primary_top', 'sleeveless_top'], ['bottom', 'jeans'], ['outer_layer', 'rain_jacket'], ['footwear', 'rain_boots']]],
+]) {
+  test(`Easier to see detail: ${name} keeps its pieces apart and does not clip`, () => {
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const result = composeGarmentBoard(pieces, largeDetail);
+    const measured = audit(result);
+    assert.equal(measured.overlap, 0, name);
+    assert.equal(measured.clip, 0, `${name}: ${measured.clip}`);
+    assert.ok(result.stageHeight <= largeDetail.stageMax, name);
+    if (result.core.length === 2) assert.ok(Math.abs(measured.parity - 1) <= 1e-9);
+  });
+}
+
+// The fit to the stage acts only on a composition taller than the ceiling: every board drawn
+// without Easier to see keeps exactly the layout it had.
+test('the boards without Easier to see keep their exact layouts', () => {
+  const layouts = [['today', todayPreset], ['detail', detailPreset]].flatMap(([presetName, preset]) =>
+    [...evidence, ...readmeBoards].map(([name, slots]) => {
+      const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+      const result = composeGarmentBoard(pieces, preset);
+      return [presetName, name, result.stageHeight, result.metric,
+        result.order.map((piece) => [piece.slot, result.boxes.get(piece)])];
+    }));
+  const digest = createHash('sha256').update(JSON.stringify(layouts)).digest('hex');
+  assert.equal(digest, 'f1a25497359fd17e61aea14179b21d150715fd967db8c623e7291ca0670a8a4a');
+});
+
+// Only Today's primary stage takes the flat lay. Every other board, the plain and Easier to see
+// presets of Today's alternates, History and the detail, and the runway's fitted board, keeps
+// its exact layout.
+test('every board but Today\'s primary stage keeps its exact layout', () => {
+  const presets = [
+    ['today', todayPreset], ['detail', detailPreset],
+    ['today large', easierToSeeRule(todayPreset, 1.3, 0.05)], ['detail large', easierToSeeRule(detailPreset, 1.3, 0.05)],
+  ];
+  const layouts = presets.flatMap(([presetName, preset]) => [...evidence, ...readmeBoards].map(([name, slots]) => {
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const result = composeGarmentBoard(pieces, preset);
+    const extent = drawnExtent(result.boxes.values());
+    const scale = fitRunwayScale([extent], 339, 516);
+    return [presetName, name, result.stageHeight, result.metric,
+      result.stack.map((piece) => [piece.slot, result.boxes.get(piece)]),
+      result.order.map((piece) => placeOnRunway(result.boxes.get(piece), extent, scale, 339, 516))];
+  }));
+  const digest = createHash('sha256').update(JSON.stringify(layouts)).digest('hex');
+  assert.equal(digest, '80290a97829d090c473f8ac7e7bd0b0470f8816fc4e3242197757e386186b366');
 });

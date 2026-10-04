@@ -23,6 +23,15 @@ export type ScreenProps = Omit<AnimatedScrollViewProps, 'contentInset'> &
     fill?: boolean;
   }>;
 
+/**
+ * The page's side gutters in points: the safe area plus the content inset. A band that
+ * reaches both screen edges pulls out by exactly these.
+ */
+export function useScreenGutters() {
+  const { left, right } = useSafeAreaInsets();
+  return { left: left + spacing.lg, right: right + spacing.lg };
+}
+
 export function Screen({
   children,
   contentContainerStyle,
@@ -33,6 +42,7 @@ export function Screen({
   ...rest
 }: ScreenProps) {
   const safeAreaInsets = useSafeAreaInsets();
+  const gutters = useScreenGutters();
   const theme = useKuyaraTheme();
   // iOS resolves both safe areas itself through contentInsetAdjustmentBehavior,
   // which is also what UIRefreshControl measures its pull against, and under native
@@ -52,14 +62,14 @@ export function Screen({
     ios: {
       paddingTop,
       paddingBottom: bottomInset,
-      paddingLeft: safeAreaInsets.left + spacing.lg,
-      paddingRight: safeAreaInsets.right + spacing.lg,
+      paddingLeft: gutters.left,
+      paddingRight: gutters.right,
     },
     android: {
       paddingTop,
       paddingBottom: bottomInset,
-      paddingLeft: safeAreaInsets.left + spacing.lg,
-      paddingRight: safeAreaInsets.right + spacing.lg,
+      paddingLeft: gutters.left,
+      paddingRight: gutters.right,
     },
     web: {
       paddingTop: spacing.lg,

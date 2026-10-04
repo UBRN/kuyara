@@ -75,7 +75,7 @@ import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { radii, spacing } from '@/theme/theme';
+import { spacing } from '@/theme/theme';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -353,7 +353,8 @@ function TodayScreenContent({
   const loadedStageColor = presentation.kind === 'loaded' ? theme.atmosphere[presentation.atmosphere] : null;
   useEffect(() => {
     stageTargetRef.current = stageView.current && loadedStageColor
-      ? { node: stageView.current, color: loadedStageColor, radius: radii.stage }
+      // The stage is a cornerless band, so the runway's plate lands square.
+      ? { node: stageView.current, color: loadedStageColor, radius: 0 }
       : null;
   });
 

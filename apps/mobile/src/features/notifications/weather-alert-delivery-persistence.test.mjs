@@ -57,6 +57,12 @@ test('scheduled alert deliveries upsert, retain fired rows, delete pending rows,
     ['precipitation_onset:location:2026-09-09'],
   );
   assert.deepEqual(
+    (await repository.listPending(profileId, '2026-09-09T09:00:00.000Z'))
+      .map(({ id, fireAt }) => ({ id, fireAt })),
+    [{ id: 'temperature_swing:location:2026-09-09', fireAt: '2026-09-09T12:00:00.000Z' }],
+  );
+  assert.deepEqual(await repository.listPending('another-profile', '2026-09-09T09:00:00.000Z'), []);
+  assert.deepEqual(
     (await database.getAllAsync(
       'SELECT id, fire_at, created_at FROM weather_alert_deliveries ORDER BY id',
     )).map((row) => ({ ...row })),
