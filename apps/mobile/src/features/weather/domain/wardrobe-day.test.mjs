@@ -109,6 +109,22 @@ test('a spring-forward night still ends at a real 04:00', () => {
   assert.equal((Date.parse(result.end) - Date.parse('2026-03-28T19:00:00.000Z')) / 3600000, 8);
 });
 
+test('a day whose next local midnight is skipped ends at the first valid instant after it', () => {
+  // America/Santiago (5 September 2026) and America/Havana (7 March 2026) move 24:00 or
+  // 00:00 straight to 01:00, so local midnight does not exist and the window must end where
+  // the clock jumps, never an hour earlier at 23:00. Asia/Beirut (28 March) is the zone whose
+  // first valid instant was already right.
+  for (const [now, timeZone, end] of [
+    ['2026-09-05T14:00:00.000Z', 'America/Santiago', '2026-09-06T04:00:00.000Z'],
+    ['2026-03-07T15:00:00.000Z', 'America/Havana', '2026-03-08T05:00:00.000Z'],
+    ['2026-03-28T10:00:00.000Z', 'Asia/Beirut', '2026-03-28T22:00:00.000Z'],
+  ]) {
+    const result = window(now, timeZone);
+    assert.equal(result.period, 'day', timeZone);
+    assert.equal(result.end, end, timeZone);
+  }
+});
+
 test('a fall-back night ends at the 04:00 after the repeated hour', () => {
   // America/New_York repeats 01:00 to 02:00 on 1 November 2026, so 19:00 EDT to 04:00 EST
   // is ten real hours even though the clock advances nine.
