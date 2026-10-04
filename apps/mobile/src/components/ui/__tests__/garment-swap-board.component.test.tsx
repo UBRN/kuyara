@@ -1,12 +1,17 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
-import type { PropsWithChildren } from 'react';
+import { useEffect, type PropsWithChildren } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import * as Reanimated from 'react-native-reanimated';
 
 import { flatLayStack } from '@/components/ui/garment-board/compose-flat-lay';
-import { entranceStartBoxes, type GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
+import {
+  composePieces,
+  entranceStartBoxes,
+  measureGarmentBoardHeight,
+  type GarmentBoardPiece,
+} from '@/components/ui/garment-board/garment-board';
 import { haptics } from '@/components/ui/haptics';
 import type { GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
 import {
@@ -557,6 +562,104 @@ test.each([393, 440])('the entrance starts from Today\'s band as drawn on a %i-p
     const [tint] = result.getByTestId('garment-swap-board-plate').children as (typeof drawings)[number][];
     expect(StyleSheet.flatten(tint.props.style)).toMatchObject({ height: expect.any(Number) });
     expect(StyleSheet.flatten(tint.props.style).borderRadius ?? 0).toBe(0);
+  } finally {
+    held.mockRestore();
+  }
+});
+
+const topBottomShoes: readonly GarmentBoardPiece[] = [
+  { slot: 'primary_top', garmentTypeId: 'shirt', category: 'top' },
+  { slot: 'bottom', garmentTypeId: 'trousers', category: 'bottom' },
+  { slot: 'footwear', garmentTypeId: 'closed_shoes', category: 'footwear' },
+];
+const bandEntrance = (screen: number) => boardProps({
+  width: screen - 2 * spacing.lg,
+  pieces: topBottomShoes,
+  candidates: {},
+  palette: { ...palette, pieces: topBottomShoes.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })) },
+  entrance: { fromStageColor: lightTheme.atmosphere.fallingDay, fromWidth: screen },
+});
+const drawnSlots = (result: Awaited<ReturnType<typeof render>>) => result
+  .getAllByTestId(/^garment-swap-board-drawing-/)
+  .map((node) => String(node.props.testID).split('-').at(-2));
+const tintOf = (result: Awaited<ReturnType<typeof render>>) => {
+  const plate = result.getByTestId('garment-swap-board-plate');
+  const [tint] = plate.children as (typeof plate)[];
+  return StyleSheet.flatten(tint.props.style) as Record<string, unknown>;
+};
+
+// ADR 0026 section 7: the pieces keep the band's stacking until they are at rest, so a piece
+// still overlapping its neighbour near the end of the travel never pops in front of it.
+test.each([320, 393, 440])('a %i-point entrance keeps the band\'s stacking until the pieces rest', async (screen) => {
+  const landings: ((finished: boolean) => void)[] = [];
+  const springs = jest.spyOn(Reanimated, 'withSpring').mockImplementation(((to: number, _config: unknown,
+    landed?: (finished: boolean) => void) => {
+    if (landed) landings.push(landed);
+    return to;
+  }) as never);
+  // The reaction runs as on a device, so the arrival is past nine tenths from the first frame.
+  const reactions = jest.spyOn(Reanimated, 'useAnimatedReaction').mockImplementation(((
+    prepare: () => unknown, react: (now: unknown, was: unknown) => void,
+  ) => useEffect(() => { react(prepare(), null); })) as never);
+  try {
+    const result = await render(<GarmentSwapBoard {...bandEntrance(screen)} />, { wrapper: LightTheme });
+    const flat = flatLayStack.filter((slot) => topBottomShoes.some((piece) => piece.slot === slot));
+    const dressing = composePieces(topBottomShoes, 'detail').stack.map(({ slot }) => slot);
+    expect(dressing).not.toEqual(flat);
+    // Past nine tenths of the travel the captions may follow, but the stacking holds.
+    expect(drawnSlots(result)).toEqual(flat);
+    await act(async () => { for (const landed of landings) landed(true); });
+    expect(drawnSlots(result)).toEqual(dressing);
+  } finally {
+    reactions.mockRestore();
+    springs.mockRestore();
+  }
+});
+
+// The first frame is the band: its tint stands the band's height, then settles to the board's.
+test.each([320, 393])('a %i-point entrance\'s first tint stands the band\'s height', async (screen) => {
+  const band = measureGarmentBoardHeight(topBottomShoes, screen, 'today', true);
+  const detail = composePieces(topBottomShoes, 'detail').stageHeight * (screen - 2 * spacing.lg);
+  const landings: ((finished: boolean) => void)[] = [];
+  const springs = jest.spyOn(Reanimated, 'withSpring').mockImplementation(((to: number, _config: unknown,
+    landed?: (finished: boolean) => void) => {
+    if (landed) landings.push(landed);
+    return to;
+  }) as never);
+  try {
+    const result = await render(<GarmentSwapBoard {...bandEntrance(screen)} />, { wrapper: LightTheme });
+    expect(band).not.toBeCloseTo(detail, 0);
+    expect(tintOf(result).height).toBeCloseTo(band, 3);
+    expect(tintOf(result).borderRadius ?? 0).toBe(0);
+    await act(async () => { for (const landed of landings) landed(true); });
+    expect(tintOf(result).height).toBeCloseTo(detail, 3);
+  } finally {
+    springs.mockRestore();
+  }
+});
+
+// An opening the band never drew keeps Today's fitted stage: the pieces leave from the fitted
+// composition at the board's own width, the tint has the stage's corners and the board's height,
+// and the pieces lie in the dressing order from the first frame.
+test('an entrance without a band leaves from the fitted stage', async () => {
+  const width = 358;
+  const held = jest.spyOn(Reanimated, 'withSpring').mockImplementation(((_to: number) => 0) as never);
+  try {
+    const result = await render(<GarmentSwapBoard {...bandEntrance(width + 2 * spacing.lg)}
+      entrance={{ fromStageColor: lightTheme.atmosphere.fallingDay, fromWidth: null }} />, { wrapper: LightTheme });
+    expect(drawnSlots(result)).toEqual(composePieces(topBottomShoes, 'detail').stack.map(({ slot }) => slot));
+    expect(tintOf(result)).toMatchObject({
+      borderRadius: lightTheme.radii.stage,
+      height: expect.closeTo(composePieces(topBottomShoes, 'detail').stageHeight * width, 3),
+    });
+    const fitted = entranceStartBoxes(topBottomShoes, width, 'today', true);
+    const drawing = result.getByTestId('garment-swap-board-drawing-footwear-closed_shoes');
+    const [free] = drawing.children as (typeof drawing)[];
+    const [view] = free.children as (typeof drawing)[];
+    const style = StyleSheet.flatten(view.props.style);
+    const [, { translateY }, , { scaleY }] = style.transform;
+    expect(translateY + style.height / 2 - (scaleY * style.height) / 2)
+      .toBeCloseTo(fitted.get('footwear')!.y * width, 3);
   } finally {
     held.mockRestore();
   }

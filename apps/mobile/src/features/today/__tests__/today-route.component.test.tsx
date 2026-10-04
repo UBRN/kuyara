@@ -4263,3 +4263,34 @@ describe('compose around chosen pieces on detail', () => {
     spy.mockRestore();
   });
 });
+
+// ADR 0026 section 7: only an outfit opened from Today's primary board leaves from the band
+// the band drew; the Tomorrow strip and the other tiles open from Today's fitted stage, with
+// its corners, because the band never drew their outfit.
+test.each(['primary', 'tomorrow', 'idea'] as const)('the %s opening starts its entrance where Today drew it', async (opening) => {
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const pool = composeOutfitPool(todayRecommendation.requirements, 'womens', 0);
+  if (pool.status !== 'composed') throw new Error('fixture');
+  const saved = recommendationReady({ pool: pool.outfits });
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('fixture');
+  const shown = new Set(todayRecommendation.outfits.map(({ optionId }) => optionId));
+  mockParams = opening === 'primary' ? { id: todayOutfitId(1) }
+    : opening === 'tomorrow' ? { id: todayOutfitId(1), day: 'tomorrow' }
+      : { id: outfitOptionId(pool.outfits.find((outfit) => !shown.has(outfitOptionId(outfit)))!) };
+  const preview = { ...saved.snapshot, id: 'preview-one', localDayKey: '2026-08-14' };
+  const weather = weatherValue({ snapshot: { ...todayScreenState.snapshot.weather, daily: [{
+    dateKey: '2026-08-14', condition: 'rain', minimumTemperatureCelsius: 7.2,
+    maximumTemperatureCelsius: 9.6, precipitationProbability: 0.8, precipitationMillimetres: 4,
+  }] } });
+  const result = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()} recommendation={saved}
+      dressingDayKey="2026-08-13:evening" tomorrowPreview={opening === 'tomorrow' ? preview : null}
+      wardrobe={wardrobeValue()} weather={weather}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  const plate = await result.findByTestId('outfit-detail-board-plate');
+  const [tint] = plate.children as (typeof plate)[];
+  expect(StyleSheet.flatten(tint.props.style).borderRadius ?? 0)
+    .toBe(opening === 'primary' ? 0 : lightTheme.radii.stage);
+});

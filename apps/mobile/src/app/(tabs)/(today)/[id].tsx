@@ -313,6 +313,8 @@ export default function OutfitDetailRoute() {
       />
       <OutfitDetailScreen
         closetSeed={closetSeed}
+        // Today's primary board draws the first of the three; tomorrow's strip and the tiles never draw it.
+        fromBand={!tomorrow && position === 1}
         language={language}
         composeEntry={!tomorrow && outfit && preference ? (palette) => (ACCOUNT_SCREENS_ENABLED ? (
           <ComposeEntry

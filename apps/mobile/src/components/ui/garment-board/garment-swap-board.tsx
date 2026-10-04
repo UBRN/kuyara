@@ -4,6 +4,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   defineAnimation,
+  Extrapolation,
+  interpolate,
   interpolateColor,
   makeMutable,
   useAnimatedReaction,
@@ -30,6 +32,7 @@ import { PRESENCE_TEXT_AFTER } from '../presence';
 import {
   composePieces,
   entranceStartBoxes,
+  measureGarmentBoardHeight,
   PieceArtwork,
   pieceShadowOf,
   useGarmentCandidateRoles,
@@ -141,10 +144,11 @@ export type GarmentSwapBoardProps = Readonly<{
   hintVisible?: boolean;
   labels: GarmentSwapBoardLabels;
   /**
-   * The pieces leave from exactly where Today's band drew them (ADR 0026 section 7): the band
-   * is `fromWidth` wide, centred on this board, cornerless, in `fromStageColor`.
+   * Where the pieces leave from (ADR 0026 section 7), in `fromStageColor`: exactly where Today's
+   * band drew them, the band `fromWidth` wide, centred on this board and cornerless; or, with
+   * `fromWidth` null, Today's fitted stage at this board's width, with the stage's corners.
    */
-  entrance: Readonly<{ fromStageColor: string; fromWidth: number }>;
+  entrance: Readonly<{ fromStageColor: string; fromWidth: number | null }>;
   /** Law 7's moment: change it and the pieces settle once. */
   settle?: number;
   /** An enlargement asks its owner to bring the strip into view, in board points. */
@@ -473,6 +477,10 @@ export function GarmentSwapBoard({
   onTakeOff,
   testID,
 }: GarmentSwapBoardProps) {
+  // The entrance is nine tenths travelled, so what waits for the pieces follows; then it has
+  // landed, no piece moving any more, so none overlaps another as it travels.
+  const [settled, setSettled] = useState(false);
+  const [arrived, setArrived] = useState(false);
   const theme = useKuyaraTheme();
   const fadeEase = useMemo(() => fadeEasing(theme.motion), [theme.motion]);
   const { colors } = theme;
@@ -554,7 +562,6 @@ export function GarmentSwapBoard({
   }
 
   const [model, setModel] = useState<Model>(emptyModel);
-  const [settled, setSettled] = useState(false);
   const [lastSettle, setLastSettle] = useState(settle);
   const [hintHeight, setHintHeight] = useState(0);
   const [hintMounted, setHintMounted] = useState(hintVisible);
@@ -600,7 +607,9 @@ export function GarmentSwapBoard({
     const tools: ReconcileTools = {
       values: valuesFor,
       compose: (next, nextFit) => composeInPoints(next, width, large, nextFit),
-      entranceBoxes: (next) => bandBoxes(next, entrance.fromWidth, width, large),
+      entranceBoxes: (next) => (entrance.fromWidth === null
+        ? entranceStartBoxes(next, width, 'today', true, large)
+        : bandBoxes(next, entrance.fromWidth, width, large)),
     };
     setModel(reconcile(model, {
       signature, composed, pieces, palette, roles, rolesFor, width, focusedSlot, grow: activeGrow, pager, candidates,
@@ -694,7 +703,10 @@ export function GarmentSwapBoard({
           // The same arrival, read once nine tenths of it is travelled; its landing settles too.
           if (intent.reportsSettled) {
             arrival.set(withSpring(1, theme.springs.arrival, (finished) => {
-              if (finished) scheduleOnRN(setSettled, true);
+              if (finished) {
+                scheduleOnRN(setSettled, true);
+                scheduleOnRN(setArrived, true);
+              }
             }));
           }
           break;
@@ -1299,9 +1311,16 @@ export function GarmentSwapBoard({
   const gesture = Gesture.Exclusive(pan, tap);
 
   const blockStyle = useAnimatedStyle(() => ({ height: block.get() }));
+  // From the band the tint first stands the band's height and settles to the board's as it fades
+  // to the page ground; from the fitted stage it has the board's height and the stage's corners.
+  const boardHeight = composed?.height ?? 0;
+  const bandHeight = entrance.fromWidth === null ? null
+    : measureGarmentBoardHeight(pieces, entrance.fromWidth, 'today', true, large);
   const tintStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(tint.get(), [0, 1], [entrance.fromStageColor, colors.background]),
-  }), [colors.background, entrance.fromStageColor]);
+    height: bandHeight === null || arrived ? boardHeight
+      : interpolate(tint.get(), [0, 1], [bandHeight, boardHeight], Extrapolation.CLAMP),
+  }), [arrived, bandHeight, boardHeight, colors.background, entrance.fromStageColor]);
   // Captions and badges leave at once when a piece starts to move: the commit that hands the
   // board new pieces or a focus hides them, so none is drawn over a moving piece and none is
   // renamed before its piece changes. They return on `normal` once every piece rests, and stay
@@ -1319,9 +1338,9 @@ export function GarmentSwapBoard({
     && (liveSlot === focusedSlot || !settled);
   // The pieces lie in the dressing order, so where two overlap the later lies over the earlier;
   // the enlarged slot is drawn over them all, so an overlapped piece comes fully into view.
-  // Until the entrance settles they lie as Today's flat lay stacks them, as they left the band.
+  // Leaving the band they lie as Today's flat lay stacks them until they rest.
   const drawOrder: Role[] = ['current', 'leaving', 'previous', 'next'];
-  const dressing = settled ? composed?.stack ?? [] : flatLayStack;
+  const dressing = arrived || entrance.fromWidth === null ? composed?.stack ?? [] : flatLayStack;
   const sortedInstances = [...instances].sort((a, b) =>
     Number(a.slot === focusedSlot) - Number(b.slot === focusedSlot)
     || dressing.indexOf(a.slot) - dressing.indexOf(b.slot)
@@ -1352,7 +1371,7 @@ export function GarmentSwapBoard({
           {composed ? (
             <Animated.View
               pointerEvents="none"
-              style={[styles.tint, { height: composed.height }, tintStyle]}
+              style={[styles.tint, entrance.fromWidth === null && { borderRadius: theme.radii.stage }, tintStyle]}
             />
           ) : null}
           {sortedInstances.map((instance) => (

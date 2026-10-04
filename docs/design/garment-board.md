@@ -340,9 +340,9 @@ edges; in the dark appearance it is the condition's light grey plate, edge to ed
 on it is a **flat lay**: the worn board of section 3, every piece at the worn board's size,
 with the gaps closed and the pieces crossing as they would on a table. Only this stage takes
 it. The detail, the alternates, History, the share card, onboarding and every other board
-keep the worn board, piece for piece. Opening the detail, the pieces leave from exactly
-what the band drew, at the band's size, square and in the flat lay's stacking, and travel to the
-worn board, apart.
+keep the worn board, piece for piece. Opening the detail from the band, the pieces leave from
+exactly what the band drew, at the band's size, square and in the flat lay's stacking until they
+rest, and travel to the worn board, apart.
 
 **Stacking**, back to front: `outer_layer`, `mid_layer`, `bottom`, `primary_top` or
 `one_piece`, `footwear`. The layers lie under the outfit, the top over the bottom's waist and

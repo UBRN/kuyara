@@ -140,6 +140,8 @@ type OutfitDetailScreenProps = Readonly<{
     source: string;
     detail: ComposedDetail;
   }> | null;
+  /** Opened from Today's primary board, so the pieces leave from the band that drew them. */
+  fromBand?: boolean;
 }>;
 
 export function OutfitDetailScreen({
@@ -160,6 +162,7 @@ export function OutfitDetailScreen({
   pinnedSlots,
   composeEntry = null,
   composeResult = null,
+  fromBand = false,
 }: OutfitDetailScreenProps) {
   const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
@@ -591,9 +594,10 @@ export function OutfitDetailScreen({
             candidates={candidates}
             captionRects={captionRects}
             entrance={{
-              // The pieces leave from where Today's band drew them (P2).
+              // The pieces leave from where Today drew them (P2): the band, or the fitted stage
+              // for an outfit the band never drew.
               fromStageColor: stageColor,
-              fromWidth: bandWidth,
+              fromWidth: fromBand ? bandWidth : null,
             }}
             focusedSlot={focusedSlot}
             hint={composeResult ? composeResult.line : boardHint}
