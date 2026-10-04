@@ -55,8 +55,8 @@ records; no row is discarded.
 
 ### 3. Daily variation and cache identity
 
-Recommendation input includes a `dayVariant`, defined as the local day of year
-modulo 7. Within one local day, the result is stable and cacheable. Consecutive
+Recommendation input includes a `dayVariant`, defined as the local date's day
+count from 31 December 2025 modulo 7. Within one local day, the result is stable and cacheable. Consecutive
 local days produce different outfits from the same weather; unchanged buckets
 may recur weekly.
 

@@ -120,7 +120,7 @@ Approved 2026-08-30; the catalog-only boundary is in [ADR 0005](adr/0005-catalog
 - Each Wardrobe entry is `owned` or `wanted`, stored locale-independently; there is no separate wishlist table, screen or tab, and neither state affects recommendations in the MVP.
 - Ownership state appears only on outfit detail, never on Today.
 - Both AI and the device-local deterministic three-outfit fallback compose from the catalog only.
-- A local day variant, the local day of year modulo 7, is the deterministic composition seed. A separate persisted dressing-day key detects every new dressing day, including the one that starts on New Year's Day.
+- A local day variant, the local date's day count from 31 December 2025 modulo 7 (so every 2026 date keeps its day of year modulo 7, and 31 December and 1 January differ), is the deterministic composition seed. A separate persisted dressing-day key detects every new dressing day, including the one that starts on New Year's Day.
 
 ## Approved product model and API budget
 

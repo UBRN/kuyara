@@ -13,14 +13,20 @@ import {
  * in, so the same date always gives the same key, variant and kind.
  */
 
-/** The day of the year modulo seven, which gives each weekday a different outfit variant. */
+// The day the count starts from: 31 December 2025, so every date of 2026 keeps the variant
+// its day of the year gave it.
+const variantEpoch = Date.UTC(2025, 11, 31);
+
+/**
+ * The days since a fixed date modulo seven, which gives each weekday a different outfit
+ * variant. The count runs on across the new year, so 31 December and 1 January differ too.
+ */
 export function localDayVariant(date: Date): number {
-  const dayOfYear = Math.floor(
-    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) -
-      Date.UTC(date.getFullYear(), 0, 0)) /
+  const days = Math.round(
+    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - variantEpoch) /
       (24 * 60 * 60 * 1000),
   );
-  return dayOfYear % 7;
+  return ((days % 7) + 7) % 7;
 }
 
 // Saturday and Sunday are the weekend; everything else is a weekday. Read from the dressing day
