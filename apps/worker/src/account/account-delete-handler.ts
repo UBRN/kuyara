@@ -4,6 +4,7 @@ import {
   accountDeleteV1RequestSchema,
   accountDeleteV1SuccessSchema,
   type AccountDeleteV1ErrorCode,
+  type AccountDeleteV1Status,
 } from '@kuyara/contracts';
 
 import type { AppleTokenRevoker } from './apple-token-revoker.ts';
@@ -29,7 +30,6 @@ type Stage = 'verify' | 'lookup' | 'apple' | 'delete';
 
 const statuses: Readonly<Record<AccountDeleteV1ErrorCode, number>> = {
   invalid_request: 400,
-  apple_code_invalid: 400,
   unauthorized: 401,
   not_found: 404,
   method_not_allowed: 405,
@@ -95,19 +95,25 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
     } catch (thrown) {
       return failure('lookup', thrown);
     }
+    let status: AccountDeleteV1Status = 'deleted';
     // A valid token for a user that no longer exists is a repeated request: already deleted.
     if (account !== null) {
       // Revocation comes first: a delete that succeeds while revocation fails would leave
-      // Apple's requirement unmet with no way to get the token again.
+      // Apple's requirement unmet with no way to get the token again. A missing, refused or
+      // foreign code never blocks the delete (ADR 0041, section 2); only Apple being
+      // unreachable or the revoke call failing does, and that throws.
+      let unrevokedReason: 'no_code' | 'refused' | undefined;
       if (account.appleSubject !== null) {
-        try {
-          if (parsed.data.appleAuthorizationCode === undefined) throw new AccountError('apple_code_invalid');
-          await revoker({
-            authorizationCode: parsed.data.appleAuthorizationCode,
-            expectedSubject: account.appleSubject,
-          });
-        } catch (thrown) {
-          return failure('apple', thrown);
+        const authorizationCode = parsed.data.appleAuthorizationCode;
+        if (authorizationCode === undefined) {
+          unrevokedReason = 'no_code';
+        } else {
+          try {
+            const revocation = await revoker({ authorizationCode, expectedSubject: account.appleSubject });
+            if (revocation === 'refused') unrevokedReason = 'refused';
+          } catch (thrown) {
+            return failure('apple', thrown);
+          }
         }
       }
       try {
@@ -115,7 +121,12 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
       } catch (thrown) {
         return failure('delete', thrown);
       }
+      if (unrevokedReason !== undefined) {
+        status = 'deleted_apple_unrevoked';
+        // One closed event, so these can be counted without personal data.
+        console.info({ event: 'account_delete_apple_unrevoked', reason: unrevokedReason });
+      }
     }
-    return Response.json(accountDeleteV1SuccessSchema.parse({ data: { status: 'deleted' } }), { headers: jsonHeaders });
+    return Response.json(accountDeleteV1SuccessSchema.parse({ data: { status } }), { headers: jsonHeaders });
   };
 }

@@ -15,7 +15,9 @@ import {
 import { createAccountDeleteHandler } from './account/account-delete-handler.ts';
 import { createFeedbackHandler, type FeedbackDatabase } from './feedback-handler.ts';
 import { createAppleTokenRevoker } from './account/apple-token-revoker.ts';
+import { isHttpsUrl } from './account/https-url.ts';
 import { createSupabaseAdmin } from './account/supabase-admin.ts';
+import { runSupabaseKeepAlive } from './account/supabase-keep-alive.ts';
 import { createSupabaseTokenVerifier } from './account/supabase-token-verifier.ts';
 import { OpenMeteoPlaceProvider } from './places/open-meteo-place-provider.ts';
 import { createPlaceSearchHandler } from './places/place-search-handler.ts';
@@ -172,15 +174,6 @@ export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
   return providers;
 }
 
-function isHttpsUrl(value: string): boolean {
-  try {
-    return new URL(value).protocol === 'https:';
-  } catch {
-    // Not a URL at all: the same answer as a missing setting.
-    return false;
-  }
-}
-
 /**
  * Account deletion needs its limiter and five settings. It never runs half-configured: the
  * first missing one, named in the log line, takes only this route offline with 503
@@ -312,5 +305,10 @@ export default {
     const key = compositionKey(env);
     if (composed?.key !== key) composed = { key, router: buildRouter(env) };
     return composed.router(request, ctx);
+  },
+  // The daily Cron Trigger of wrangler.jsonc: the Supabase keep-alive request (ADR 0041,
+  // section 11). It needs no router, only the two settings it reads.
+  async scheduled(_controller: unknown, env: Env): Promise<void> {
+    await runSupabaseKeepAlive({ supabaseUrl: env.SUPABASE_URL, secretKey: env.SUPABASE_SECRET_KEY });
   },
 };

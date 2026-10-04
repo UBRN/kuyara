@@ -149,7 +149,14 @@
       "expo-image",
       "expo-web-browser",
       "posthog-react-native/expo",
-      "./plugins/with-ios-scene-lifecycle.js"
+      "./plugins/with-ios-scene-lifecycle.js",
+      "expo-apple-authentication",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ]
     ],
     "locales": {
       "en": "./src/localization/native/en.json",

@@ -5,6 +5,7 @@ import type { AccountIntroPageId } from '@/features/account/application/account-
 import type { AccountProvider } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { AccountIntroPager } from '@/features/account/presentation/account-intro-pager';
+import { ACCOUNT_TERMS_URL } from '@/features/account/domain/account-terms';
 import { StatusLine, type StatusLineTone } from '@/features/account/presentation/account-status';
 import { PRIVACY_POLICY_URL } from '@/features/analytics/domain/privacy-policy';
 import { useLocalization } from '@/localization/use-messages';
@@ -15,7 +16,7 @@ const providers: readonly AccountProvider[] = ['apple', 'google'];
 /**
  * Frames 02, 17, 18, 19 and 33: the sign-in page. The benefit pages first, swiped sideways,
  * then, still while they move, the Apple and Google buttons, equal in size, at thumb reach,
- * a centred "Not now" and the footnote with the privacy policy. Close stays live while a
+ * a centred "Not now" and the footnote with the Account terms and the privacy policy. Close stays live while a
  * sign-in runs and cancels it. At large text sizes the whole page scrolls.
  */
 export function AccountSignInPage({ initialPage }: Readonly<{ initialPage?: AccountIntroPageId }>) {
@@ -69,10 +70,25 @@ export function AccountSignInPage({ initialPage }: Readonly<{ initialPage?: Acco
             accessibilityRole="link"
             colorRole="brandPrimary"
             onPress={() => {
+              void Linking.openURL(ACCOUNT_TERMS_URL).catch(() => {
+                // A link the system cannot open leaves the screen as it was; nothing is lost.
+              });
+            }}
+            style={styles.link}
+            testID="account-sign-in-terms"
+            variant="caption">
+            {copy.terms}
+          </AppText>
+          {' · '}
+          <AppText
+            accessibilityRole="link"
+            colorRole="brandPrimary"
+            onPress={() => {
               void Linking.openURL(PRIVACY_POLICY_URL[language]).catch(() => {
                 // A link the system cannot open leaves the screen as it was; nothing is lost.
               });
             }}
+            style={styles.link}
             testID="account-sign-in-privacy"
             variant="caption">
             {copy.privacy}
@@ -91,4 +107,5 @@ const styles = StyleSheet.create({
   foot: { gap: spacing.md },
   buttons: { gap: spacing.md },
   notNow: { alignSelf: 'center' },
+  link: { textDecorationLine: 'underline' },
 });

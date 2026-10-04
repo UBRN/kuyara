@@ -49,9 +49,11 @@ test('the profile fields come from the account when it has them, else the phone 
   const withAccount = merge({ profile: phone }, { profile: account });
   assert.deepEqual(withAccount.writeToPhone.profile, account);
   assert.equal(withAccount.sendToAccount.profile, null);
+  assert.equal(withAccount.profileFrom, 'account');
   const without = merge({ profile: phone }, {});
   assert.equal(without.writeToPhone.profile, null);
   assert.deepEqual(without.sendToAccount.profile, phone);
+  assert.equal(without.profileFrom, 'phone');
 });
 
 test('the same Closet id on both sides: the account copy wins and keeps this phone\'s photo', () => {
@@ -162,7 +164,28 @@ test('without the sync consent only the profile is merged, in both directions', 
     { wardrobeItems: [wardrobeItem(3)], dressingDayChoices: [dayChoice(4, '2026-09-10')] },
     false,
   );
-  assert.deepEqual(result.sendToAccount, { ...empty, profile: syncedProfile() });
+  const { dressStyle: _style, styleAesthetics: _aesthetics, ...nameAndGender } = syncedProfile();
+  assert.deepEqual(result.sendToAccount, { ...empty, profile: nameAndGender });
   assert.deepEqual(result.writeToPhone, empty);
   assert.deepEqual(result.counts, { piecesAdded: 0, historyDaysAdded: 0, piecesReceived: 0, historyDaysReceived: 0 });
+});
+
+test('without the sync consent the account\'s dress style and style aesthetics never reach the phone', () => {
+  const account = syncedProfile({ displayName: 'Account', dressStyle: 'formal', styleAesthetics: ['sporty'] });
+  const { dressStyle: _style, styleAesthetics: _aesthetics, ...nameAndGender } = account;
+  const result = merge({ profile: syncedProfile() }, { profile: account }, false);
+  assert.deepEqual(result.writeToPhone.profile, nameAndGender);
+  assert.equal(result.sendToAccount.profile, null);
+  assert.equal(result.profileFrom, 'accountNameAndGender');
+});
+
+test('an account profile without a dress style takes the phone\'s style instead of clearing it', () => {
+  // The profile reached the account without the consent, or a withdrawal emptied its style.
+  const account = syncedProfile({ displayName: 'Account', gender: 'man', dressStyle: null, styleAesthetics: [] });
+  const phone = syncedProfile({ displayName: 'Phone', dressStyle: 'formal', styleAesthetics: ['classic'] });
+  const result = merge({ profile: phone }, { profile: account });
+  const { dressStyle: _style, styleAesthetics: _aesthetics, ...nameAndGender } = account;
+  assert.deepEqual(result.writeToPhone.profile, nameAndGender);
+  assert.deepEqual(result.sendToAccount.profile, { ...phone, displayName: 'Account', gender: 'man' });
+  assert.equal(result.profileFrom, 'accountNameAndGender');
 });

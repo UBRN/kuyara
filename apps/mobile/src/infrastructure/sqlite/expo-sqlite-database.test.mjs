@@ -14,6 +14,10 @@ const stub = `
     const stub = globalThis.__expoSqliteStub;
     const id = ++stub.handles;
     let inTransaction = false;
+    // What SQLite's total_changes() reports for this connection: one per write statement, none
+    // for a statement whose WHERE matches nothing.
+    let changes = 0;
+    const count = (sql) => { if (/^(INSERT|UPDATE|DELETE)/.test(sql) && !sql.includes('WHERE 0')) changes += 1; };
     stub.log.push([id, 'openDatabaseAsync', name, options]);
     const record = (method, ...args) => stub.log.push([id, method, ...args]);
     const exec = async (sql) => {
@@ -23,13 +27,22 @@ const stub = `
         if (failure.inTransaction !== undefined) inTransaction = failure.inTransaction;
         throw failure.error;
       }
+      count(sql);
       if (sql.startsWith('BEGIN')) inTransaction = true;
       if (sql === 'COMMIT;' || sql === 'ROLLBACK;') inTransaction = false;
     };
     return {
       execAsync: exec,
-      runAsync: async (sql) => { record('runAsync', sql); return { changes: 0, lastInsertRowId: 0 }; },
-      getFirstAsync: async (sql) => { record('getFirstAsync', sql); return null; },
+      runAsync: async (sql) => {
+        record('runAsync', sql);
+        const before = changes;
+        count(sql);
+        return { changes: changes - before, lastInsertRowId: 0 };
+      },
+      getFirstAsync: async (sql) => {
+        record('getFirstAsync', sql);
+        return sql === 'SELECT total_changes() AS changes' ? { changes } : null;
+      },
       getAllAsync: async (sql) => { record('getAllAsync', sql); return []; },
       isInTransactionAsync: async () => { record('isInTransactionAsync'); return inTransaction; },
       closeAsync: async () => { record('closeAsync'); },
@@ -158,6 +171,7 @@ test('a transaction runs on its own connection: pragmas, BEGIN IMMEDIATE, body, 
   assert.deepEqual(log(), [
     ...transactionPreamble,
     [2, 'execAsync', 'INSERT INTO t DEFAULT VALUES;'],
+    [2, 'getFirstAsync', 'SELECT total_changes() AS changes'],
     [2, 'execAsync', 'COMMIT;'],
     [2, 'closeAsync'],
   ]);
@@ -210,6 +224,7 @@ test('a COMMIT failure that already ended the transaction is rethrown without a 
   assert.deepEqual(log(), [
     ...transactionPreamble,
     [2, 'runAsync', 'INSERT INTO t DEFAULT VALUES;'],
+    [2, 'getFirstAsync', 'SELECT total_changes() AS changes'],
     [2, 'execAsync', 'COMMIT;'],
     [2, 'isInTransactionAsync'],
     [2, 'closeAsync'],
@@ -233,4 +248,30 @@ test('the sync consent reader opens its own connection and closes only that one'
     [2, 'closeSync'],
   ]);
   assert.deepEqual(log().filter(([id]) => id === 1), [], 'the shared handle is never touched');
+});
+
+test('a committed transaction that changed rows tells the write listeners once; a rolled back, unchanged or quiet one does not', async () => {
+  const module = await loadFreshModule();
+  const database = await module.openKuyaraDatabase();
+  let writes = 0;
+  const unsubscribe = module.subscribeDatabaseWrites(() => { writes += 1; });
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
+    assert.equal(writes, 0, 'nothing is told before the commit');
+  });
+  assert.equal(writes, 1);
+  await assert.rejects(database.withExclusiveTransactionAsync(async () => { throw new Error('body failed'); }));
+  await database.runAsync('UPDATE local_profiles SET pending_sync = 1 WHERE 0');
+  assert.equal(writes, 1);
+  // A commit that changed no row, and one that asked not to tell, tell nobody.
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync('UPDATE wardrobe_items SET pending_sync = 0 WHERE 0');
+  });
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync('UPDATE wardrobe_items SET pending_sync = 0');
+  }, { notifyWrites: false });
+  assert.equal(writes, 1);
+  unsubscribe();
+  await database.withExclusiveTransactionAsync(async () => {});
+  assert.equal(writes, 1);
 });

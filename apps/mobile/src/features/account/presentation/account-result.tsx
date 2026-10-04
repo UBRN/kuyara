@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Icon, ProgressFill, type IconName } from '@/components/ui';
 import type { AccountResult } from '@/features/account/application/account-screens';
+import type { ProfileSource } from '@/features/account/domain/account-merge';
 import { useMessages } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -18,11 +19,25 @@ export function ResultRow({ children, icon }: Readonly<{ children: ReactNode; ic
   );
 }
 
+/** Where the profile came from, in a whole sentence; nothing when the phone's went to the account. */
+export function ProfileSourceRow({ from }: Readonly<{ from: ProfileSource }>) {
+  const copy = useMessages().account.restore;
+  if (from === 'phone') return null;
+  return (
+    <ResultRow icon="personCircle">
+      <AppText>{from === 'account' ? copy.doneProfile : copy.doneNameAndGender}</AppText>
+    </ResultRow>
+  );
+}
+
 /**
  * Frames 04, 14, 15 and 26: the shared result anatomy on a sheet sized to its content. A
  * mark, a title, rows with an icon each, and one filled button that closes the sheet.
  */
-export function AccountResultContent({ onDone, result }: Readonly<{ result: AccountResult; onDone: () => void }>) {
+/** Every result but the merge, which has its own content with "Open Closet" (`account-merge-result.tsx`). */
+type SingleResult = Exclude<AccountResult, Readonly<{ kind: 'merged' }>>;
+
+export function AccountResultContent({ onDone, result }: Readonly<{ result: SingleResult; onDone: () => void }>) {
   const copy = useMessages().account;
   const theme = useKuyaraTheme();
   const success = { color: theme.colors.successInk, name: 'checkCircle' } as const;
@@ -42,7 +57,9 @@ export function AccountResultContent({ onDone, result }: Readonly<{ result: Acco
             <AppText colorRole="textSecondary" variant="caption">{copy.method[result.provider]}</AppText>
           </ResultRow>
           <ResultRow icon="hanger">
-            <AppText tabularNumbers>{copy.welcome.summary(result.pieces, result.days)}</AppText>
+            {result.records
+              ? <AppText tabularNumbers>{copy.welcome.summary(result.pieces, result.days)}</AppText>
+              : <AppText>{copy.welcome.withoutRecords}</AppText>}
           </ResultRow>
         </>
       );
@@ -71,7 +88,7 @@ export function AccountResultContent({ onDone, result }: Readonly<{ result: Acco
           <ResultRow icon="hanger">
             <AppText tabularNumbers>{copy.restore.doneBody(result.pieces, result.days)}</AppText>
           </ResultRow>
-          <ResultRow icon="personCircle"><AppText>{copy.restore.doneProfile}</AppText></ResultRow>
+          <ProfileSourceRow from={result.profileFrom} />
         </>
       );
       break;
@@ -80,7 +97,14 @@ export function AccountResultContent({ onDone, result }: Readonly<{ result: Acco
       action = copy.deleted.done;
       body = (
         <>
-          <ResultRow icon="trash"><AppText>{copy.deleted.gone[result.provider]}</AppText></ResultRow>
+          <ResultRow icon="trash">
+            <AppText>{result.appleUnrevoked ? copy.deleted.goneUnrevoked : copy.deleted.gone[result.provider]}</AppText>
+          </ResultRow>
+          {result.appleUnrevoked ? (
+            <ResultRow icon="appleLogo">
+              <AppText testID="account-result-apple-unrevoked">{copy.deleted.appleUnrevoked}</AppText>
+            </ResultRow>
+          ) : null}
           <ResultRow icon="statusRunning"><AppText>{copy.deleted.stay}</AppText></ResultRow>
         </>
       );

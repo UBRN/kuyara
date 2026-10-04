@@ -1,4 +1,4 @@
-export type AccountErrorCode = 'unauthorized' | 'apple_code_invalid' | 'unavailable';
+export type AccountErrorCode = 'unauthorized' | 'unavailable';
 
 /**
  * The only failure the account modules raise. Its message is the closed code itself, so no

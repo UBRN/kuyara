@@ -93,3 +93,25 @@ test('feedback D1 is bound only in the local e2e environment, next to its rate l
   }]);
   assert.ok(config.env.e2e.ratelimits.some((binding) => binding.name === 'FEEDBACK_RATE_LIMIT'));
 });
+
+test('the keep-alive cron runs once a day in production only, and its public settings are plain vars', () => {
+  assert.equal(config.triggers.crons.length, 1);
+  assert.match(config.triggers.crons[0], /^\d{1,2} \d{1,2} \* \* \*$/u, 'one daily schedule');
+  // Named environments inherit `triggers`, so e2e must override it with an empty list.
+  assert.deepEqual(config.env.e2e.triggers, { crons: [] });
+  assert.equal(config.vars.SUPABASE_URL, 'https://bkeojzuvuzilytfmpgdu.supabase.co');
+  assert.equal(config.vars.APPLE_TEAM_ID, 'BZL4XU3J5H');
+  // e2e declares no vars of its own for them, and no secret appears anywhere in the file.
+  assert.equal(config.env.e2e.vars.SUPABASE_URL, undefined);
+  assert.equal(config.env.e2e.vars.APPLE_TEAM_ID, undefined);
+  const text = readFileSync(path.join(import.meta.dirname, '..', 'wrangler.jsonc'), 'utf8');
+  assert.equal(/SUPABASE_SECRET_KEY|APPLE_SIGN_IN_PRIVATE_KEY|sb_secret_/u.test(text), false);
+});
+
+test('automatic invocation logs are off, so request headers never reach Workers Logs, while our own logs stay on', () => {
+  assert.deepEqual(config.observability, {
+    enabled: true,
+    head_sampling_rate: 1,
+    logs: { enabled: true, invocation_logs: false },
+  });
+});

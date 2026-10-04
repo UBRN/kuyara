@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 27;
+export const latestDatabaseVersion = 28;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -702,6 +702,21 @@ const migrationV27: Migration = {
   },
 };
 
+// ADR 0041 section 3: the device account link also records the account this phone's Closet and
+// History joined under the sync consent, and the server arrival of the consent record they joined
+// under, both kept after sign-out, so a later sign-in to that account resumes instead of merging
+// again, unless the consent was withdrawn and given again since. Nullable with no default: every
+// existing link keeps NULL, which reads as "joined no account" and costs at most one merge by ID.
+const migrationV28: Migration = {
+  version: 28,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE device_account_link ADD COLUMN records_user_id TEXT;
+      ALTER TABLE device_account_link ADD COLUMN records_consent_recorded_at TEXT;
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -730,6 +745,7 @@ const migrations = [
   migrationV25,
   migrationV26,
   migrationV27,
+  migrationV28,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

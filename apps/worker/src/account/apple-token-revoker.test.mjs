@@ -51,7 +51,7 @@ async function assertRejects(promise, code_) {
 
 test('exchanges the code, checks the subject, then revokes the refresh token', async () => {
   const { key, calls, revoke } = await setup(happy);
-  await revoke({ authorizationCode: code, expectedSubject: subject });
+  assert.equal(await revoke({ authorizationCode: code, expectedSubject: subject }), 'revoked');
   assert.deepEqual(calls.map((call) => call.url), [tokenUrl, revokeUrl]);
   for (const call of calls) {
     assert.equal(call.init.method, 'POST');
@@ -78,9 +78,9 @@ test('exchanges the code, checks the subject, then revokes the refresh token', a
   assert.ok(calls[1].form.client_secret.split('.').length === 3);
 });
 
-test('a subject that is not the account\'s Apple identity revokes and deletes nothing', async () => {
+test('a subject that is not the account\'s Apple identity is refused and nothing is revoked', async () => {
   const { calls, revoke } = await setup(happy);
-  await assertRejects(revoke({ authorizationCode: code, expectedSubject: 'someone.else' }), 'apple_code_invalid');
+  assert.equal(await revoke({ authorizationCode: code, expectedSubject: 'someone.else' }), 'refused');
   assert.deepEqual(calls.map((call) => call.url), [tokenUrl]);
 });
 
@@ -92,9 +92,9 @@ test('an id_token that is not Apple\'s for this app is an upstream fault, not a 
   }
 });
 
-test('an expired or reused code (invalid_grant) is apple_code_invalid', async () => {
+test('an expired or reused code (invalid_grant) is refused, without a revoke call', async () => {
   const { calls, revoke } = await setup(() => Response.json({ error: 'invalid_grant', error_description: 'private detail' }, { status: 400 }));
-  await assertRejects(revoke({ authorizationCode: code, expectedSubject: subject }), 'apple_code_invalid');
+  assert.equal(await revoke({ authorizationCode: code, expectedSubject: subject }), 'refused');
   assert.equal(calls.length, 1);
 });
 

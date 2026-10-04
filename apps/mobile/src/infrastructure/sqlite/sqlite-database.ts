@@ -13,9 +13,18 @@ export interface SqliteExecutor {
   getAllAsync<Row>(source: string, params?: SqliteBindParams): Promise<Row[]>;
 }
 
+export type SqliteTransactionOptions = Readonly<{
+  /**
+   * False keeps the commit from the write listeners: the account sync's own bookkeeping, which
+   * must not schedule another sync pass. Defaults to true.
+   */
+  notifyWrites?: boolean;
+}>;
+
 export interface SqliteDatabase extends SqliteExecutor {
   withExclusiveTransactionAsync(
     task: (transaction: SqliteExecutor) => Promise<void>,
+    options?: SqliteTransactionOptions,
   ): Promise<void>;
 }
 

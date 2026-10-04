@@ -1,6 +1,8 @@
 import {
   landedOutfitHistory,
   landedWardrobeItem,
+  profileWithinConsent,
+  type AccountProfile,
   type AccountRows,
 } from '@/features/account/domain/account-rows';
 import { firstUploadRows } from '@/features/account/domain/first-upload';
@@ -17,12 +19,25 @@ export type MergeCounts = Readonly<{
   historyDaysReceived: number;
 }>;
 
+/**
+ * Where the phone's profile came from at a link: all four fields from the account, its name and
+ * gender only (no consent, or the account held no dress style), or nothing (the account held no
+ * profile, so the phone's went to it). The result sheets pick their sentence by it.
+ */
+export type ProfileSource = 'account' | 'accountNameAndGender' | 'phone';
+
 export type MergeResult = Readonly<{
   /** Rows to write on the phone: the account's winners and the rows only the account holds. */
   writeToPhone: AccountRows;
   /** Rows to upload: the phone's rows the account does not settle. */
   sendToAccount: AccountRows;
   counts: MergeCounts;
+  profileFrom: ProfileSource;
+  /**
+   * The merge ran under the sync consent, so it settled the records: every record row it does
+   * not send (a deletion older than the marker window) has nothing left to upload.
+   */
+  syncConsent: boolean;
 }>;
 
 type Row = Readonly<{ id: string; deletedAt: string | null }>;
@@ -100,26 +115,51 @@ function mergeHistory(
 const keep = <Item>(pulled: Item) => pulled;
 
 /**
+ * The profile at a first link. Display name and gender come from the account when it has a
+ * profile, else the phone offers its own. Dress style and style aesthetics cross only under the
+ * consent; then they come from the account too, unless the account holds no dress style (the
+ * profile reached it without the consent, or the consent was withdrawn), when the phone's style
+ * goes to the account rather than the account's empty one clearing the phone's.
+ */
+function mergeProfile(
+  local: AccountProfile | null,
+  remote: AccountProfile | null,
+  syncConsent: boolean,
+): Readonly<{ write: AccountProfile | null; send: AccountProfile | null; from: ProfileSource }> {
+  if (remote === null) return { write: null, send: local && profileWithinConsent(local, syncConsent), from: 'phone' };
+  const phoneStyleGoes = syncConsent && remote.dressStyle == null && local?.dressStyle != null;
+  if (!phoneStyleGoes) {
+    return { write: profileWithinConsent(remote, syncConsent), send: null, from: syncConsent ? 'account' : 'accountNameAndGender' };
+  }
+  return {
+    write: profileWithinConsent(remote, false),
+    send: { ...local, displayName: remote.displayName, gender: remote.gender },
+    from: 'accountNameAndGender',
+  };
+}
+
+/**
  * The first link of a phone to an account, and a sign-in with a different account than the last
  * one, pull the account's rows and merge them with the phone's before anything is uploaded
  * (ADR 0041 sections 4 and 6). Every live row goes, so changes the previous account had not
  * synced yet join the new one. Pure: the caller reads both sides,
  * writes `writeToPhone`, uploads `sendToAccount` and shows `counts`. Without the sync consent
- * only the profile is settled; its four fields come from the account when it has them.
+ * only the profile's display name and gender are settled (`mergeProfile`).
  */
 export function mergeAtFirstLink(
   local: AccountRows,
   remote: AccountRows,
   options: Readonly<{ syncConsent: boolean; now: string }>,
 ): MergeResult {
-  const writeProfile = remote.profile;
-  const sendProfile = remote.profile === null ? local.profile : null;
+  const profile = mergeProfile(local.profile, remote.profile, options.syncConsent);
   if (!options.syncConsent) {
     const none = { wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] };
     return {
-      writeToPhone: { profile: writeProfile, ...none },
-      sendToAccount: { profile: sendProfile, ...none },
+      writeToPhone: { profile: profile.write, ...none },
+      sendToAccount: { profile: profile.send, ...none },
       counts: { piecesAdded: 0, historyDaysAdded: 0, piecesReceived: 0, historyDaysReceived: 0 },
+      profileFrom: profile.from,
+      syncConsent: false,
     };
   }
   const candidates = firstUploadRows(local, options);
@@ -129,14 +169,14 @@ export function mergeAtFirstLink(
   const history = mergeHistory(candidates.outfitHistory, local.outfitHistory, remote.outfitHistory);
   return {
     writeToPhone: {
-      profile: writeProfile,
+      profile: profile.write,
       wardrobeItems: closet.write,
       dressingDayChoices: choices.write,
       dressingDayDepartures: departures.write,
       outfitHistory: history.write,
     },
     sendToAccount: {
-      profile: sendProfile,
+      profile: profile.send,
       wardrobeItems: closet.send,
       dressingDayChoices: choices.send,
       dressingDayDepartures: departures.send,
@@ -148,5 +188,7 @@ export function mergeAtFirstLink(
       piecesReceived: closet.received,
       historyDaysReceived: history.received,
     },
+    profileFrom: profile.from,
+    syncConsent: true,
   };
 }

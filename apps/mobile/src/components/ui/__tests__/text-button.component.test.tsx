@@ -37,3 +37,18 @@ test('a disabled text button ignores presses and says so', async () => {
   expect(onPress).not.toHaveBeenCalled();
   expect(getByTestId('link').props.accessibilityState).toMatchObject({ disabled: true });
 });
+
+test('a link text button is drawn in the brand ink, underlined, with the same button target', async () => {
+  const { getByTestId, getByText } = await render(
+    <KuyaraThemeContext.Provider value={lightTheme}>
+      <TextButton accessibilityState={{ expanded: false }} label="Read the text" link onPress={jest.fn()} testID="link" />
+    </KuyaraThemeContext.Provider>,
+  );
+  const link = getByTestId('link');
+  expect(link.props.accessibilityRole).toBe('button');
+  expect(link.props.accessibilityState).toMatchObject({ expanded: false });
+  expect(StyleSheet.flatten(link.props.style)).toMatchObject({ minHeight: 44, minWidth: 44 });
+  expect(getByText('Read the text', { includeHiddenElements: true })).toHaveStyle({
+    fontSize: typography.caption.fontSize, color: lightTheme.colors.brandPrimary, textDecorationLine: 'underline',
+  });
+});

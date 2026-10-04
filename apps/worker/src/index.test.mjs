@@ -552,3 +552,59 @@ test('adding a missing account secret recomposes the memoised worker', async (t)
   // The same isolate serves the route once the secret exists, without waiting to recycle.
   assert.equal((await worker.fetch(noAuthorization(), boundEnv, fakeContext())).status, 401);
 });
+
+// The composed route over a fake network, for an Apple account whose code cannot revoke
+// anything: it is deleted without a revoke call and answers deleted_apple_unrevoked.
+test('the composed account route deletes an Apple account unrevoked when no code or a refused code arrives', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  t.mock.method(console, 'info', () => {});
+  const userId = '3f2b8c1e-5d4a-4c1b-9a7e-0d6f1b2c3d4e';
+  const appleKey = await generateEs256Key();
+  const supabaseKey = await generateEs256Key();
+  const sign = createEs256Signer(supabaseKey.bare);
+  const token = await sign({ alg: 'ES256', kid: 'k1' }, {
+    iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', sub: userId, exp: Math.floor(Date.now() / 1000) + 600,
+  });
+  const seen = [];
+  t.mock.method(globalThis, 'fetch', async (input, init) => {
+    const url = String(input);
+    seen.push([init?.method ?? 'GET', url]);
+    if (url.endsWith('/.well-known/jwks.json')) return Response.json({ keys: [{ ...supabaseKey.publicJwk, kid: 'k1' }] });
+    if (url.endsWith(`/admin/users/${userId}`) && init.method === 'GET') {
+      return Response.json({ id: userId, identities: [{ provider: 'apple', provider_id: 'apple-subject' }] });
+    }
+    if (url.endsWith(`/admin/users/${userId}`)) return new Response('{}', { status: 200 });
+    if (url.endsWith('/auth/token')) return Response.json({ error: 'invalid_grant' }, { status: 400 });
+    throw new Error('unexpected upstream call');
+  });
+  const route = buildRouter({ ...boundEnv, APPLE_SIGN_IN_PRIVATE_KEY: appleKey.pem });
+
+  const noCode = await route(accountDeleteRequest(token, {}), fakeContext());
+  assert.equal(noCode.status, 200);
+  assert.deepEqual(await noCode.json(), { data: { status: 'deleted_apple_unrevoked' } });
+  assert.deepEqual(seen.map(([method, url]) => `${method} ${new URL(url).pathname}`), [
+    'GET /auth/v1/.well-known/jwks.json', `GET /auth/v1/admin/users/${userId}`, `DELETE /auth/v1/admin/users/${userId}`,
+  ]);
+
+  seen.length = 0;
+  const refused = await route(accountDeleteRequest(token, { appleAuthorizationCode: 'code-sentinel' }), fakeContext());
+  assert.equal(refused.status, 200);
+  assert.deepEqual(await refused.json(), { data: { status: 'deleted_apple_unrevoked' } });
+  assert.deepEqual(seen.map(([method, url]) => `${method} ${new URL(url).pathname}`), [
+    `GET /auth/v1/admin/users/${userId}`, 'POST /auth/token', `DELETE /auth/v1/admin/users/${userId}`,
+  ]);
+});
+
+test('the scheduled handler makes the keep-alive request from the Supabase settings, and skips without them', async (t) => {
+  t.mock.method(console, 'info', () => {});
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (input, init) => {
+    calls.push([init.method, String(input), init.headers.apikey]);
+    return Response.json(true);
+  });
+  await worker.scheduled({}, boundEnv);
+  assert.deepEqual(calls, [['POST', 'https://project.supabase.co/rest/v1/rpc/keep_alive', 'sb_secret_placeholder']]);
+  calls.length = 0;
+  await worker.scheduled({}, { ...boundEnv, SUPABASE_SECRET_KEY: undefined });
+  assert.deepEqual(calls, []);
+});

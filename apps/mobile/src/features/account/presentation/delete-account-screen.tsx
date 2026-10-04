@@ -34,7 +34,8 @@ export function DeleteAccountScreen() {
         />
         <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="hanger" size={size} />}
-          label={copy.deletion.goneData}
+          label={session.syncConsent === 'none' || session.syncConsent === 'withdrawn'
+            ? copy.deletion.goneDataWithoutRecords : copy.deletion.goneData}
         />
       </NativeListSection>
       <NativeListSection footer={copy.deletion.footer[session.provider]} heading={copy.deletion.stayHeading} testID="delete-account-stay-group">

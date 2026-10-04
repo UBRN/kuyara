@@ -90,10 +90,15 @@ export type NativeListSectionProps = Readonly<{
   children?: ReactNode;
   heading?: string;
   footer?: string | ReactElement;
+  /**
+   * A status mark before a text footer, such as a failure: the system draws the footer, so it
+   * follows the list's insets and wraps at any text size, and the mark carries the status ink.
+   */
+  footerSymbol?: Readonly<{ name: IconName; color: string }>;
   testID?: string;
 }>;
 
-export function NativeListSection({ children, footer, heading, testID }: NativeListSectionProps) {
+export function NativeListSection({ children, footer, footerSymbol, heading, testID }: NativeListSectionProps) {
   // `RNHostView matchContents` sizes the host to the intrinsic width its React Native child
   // asks for, and an unconstrained line of text asks for as much as it needs, so at the
   // largest accessibility size the heading ran past the list and was clipped. The list fills
@@ -116,9 +121,23 @@ export function NativeListSection({ children, footer, heading, testID }: NativeL
       </View>
     </RNHostView>
   ) : undefined;
-  const nativeFooter = typeof footer === 'string'
-    ? <ExpoText modifiers={easierToSee ? IOS_EASIER_FOOTER_MODIFIERS : undefined}>{footer}</ExpoText>
-    : footer ? <RNHostView matchContents>{footer}</RNHostView> : undefined;
+  const footerText = typeof footer === 'string' ? (
+    <ExpoText
+      modifiers={easierToSee ? IOS_EASIER_FOOTER_MODIFIERS : undefined}
+      testID={testID && footerSymbol ? `${testID}-footer` : undefined}>
+      {footer}
+    </ExpoText>
+  ) : null;
+  const nativeFooter = footerText && footerSymbol ? (
+    <Row alignment="start" spacing={6}>
+      {Platform.OS === 'ios' ? (
+        <ExpoIcon color={footerSymbol.color} name={iconNames[footerSymbol.name].ios} size={15} />
+      ) : (
+        <RNHostView matchContents><Icon color={footerSymbol.color} name={footerSymbol.name} size={15} /></RNHostView>
+      )}
+      {footerText}
+    </Row>
+  ) : footerText ?? (footer && typeof footer !== 'string' ? <RNHostView matchContents>{footer}</RNHostView> : undefined);
 
   return swiftUI ? (
     <swiftUI.Section footer={nativeFooter} header={header} testID={testID}>

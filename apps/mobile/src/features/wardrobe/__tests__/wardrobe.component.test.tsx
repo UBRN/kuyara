@@ -24,7 +24,7 @@ import {
   type WardrobeApplicationValue,
 } from '@/features/wardrobe/application/wardrobe-application-context';
 import { nearestFamilyForHex } from '@/features/wardrobe/domain/closet-color-options';
-import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import { WARDROBE_NAME_MAX_LENGTH, type WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   WardrobeCameraAccessError,
   type WardrobePhotoSource,
@@ -924,6 +924,12 @@ test('unchanged and changed forms report distinct dirty state to the exit guard'
   expect(onDirtyChange).toHaveBeenLastCalledWith(true);
   await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), '');
   expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+});
+
+test('the name input stops at the Closet name limit, so one long name never blocks sync', async () => {
+  const result = await render(<CreateForm />);
+  expect(WARDROBE_NAME_MAX_LENGTH).toBe(200);
+  expect(result.getByTestId('wardrobe-name-input').props.maxLength).toBe(WARDROBE_NAME_MAX_LENGTH);
 });
 
 // The header is the platform's, so the form draws no title and no back control of its own.

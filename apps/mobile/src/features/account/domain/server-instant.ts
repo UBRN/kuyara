@@ -16,3 +16,14 @@ export function canonicalServerInstant(value: unknown): string | null {
   if (!Number.isFinite(milliseconds)) return null;
   return `${new Date(milliseconds).toISOString().slice(0, 19)}.${fraction.slice(0, 6).padEnd(6, '0')}Z`;
 }
+
+/**
+ * A canonical server instant moved back by whole `seconds`, still canonical: the fractional
+ * digits are kept as they are, so the result compares correctly as text with other instants.
+ */
+export function serverInstantSecondsBefore(instant: string, seconds: number): string | null {
+  const canonical = canonicalServerInstant(instant);
+  if (canonical === null) return null;
+  const whole = Date.parse(`${canonical.slice(0, 19)}Z`) - seconds * 1000;
+  return `${new Date(whole).toISOString().slice(0, 19)}${canonical.slice(19)}`;
+}

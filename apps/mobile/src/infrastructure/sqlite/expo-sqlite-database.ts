@@ -11,6 +11,7 @@ import type {
   SqliteExecutor,
   SqliteRunResult,
   SqliteSyncReader,
+  SqliteTransactionOptions,
 } from '@/infrastructure/sqlite/sqlite-database';
 
 class ExpoSqliteExecutor implements SqliteExecutor {
@@ -43,9 +44,33 @@ const databaseName = 'kuyara.db';
 // inside the ten seconds the app already waits for weather, so a deadlock is an error, not a hang.
 const busyTimeoutMs = 5000;
 
+const writeListeners = new Set<() => void>();
+
+/**
+ * Called after a write to the device database commits: a transaction that changed at least one
+ * row, or a statement run outside one that did, unless the transaction asked not to tell
+ * (`notifyWrites: false`). The account sync listens so a local edit uploads shortly after it
+ * lands; it receives no table, row or value.
+ */
+export function subscribeDatabaseWrites(listener: () => void): () => void {
+  writeListeners.add(listener);
+  return () => {
+    writeListeners.delete(listener);
+  };
+}
+
+const notifyWrites = () => writeListeners.forEach((listener) => listener());
+
 class ExpoSqliteDatabase extends ExpoSqliteExecutor implements SqliteDatabase {
+  override async runAsync(source: string, params: SqliteBindParams = []): Promise<SqliteRunResult> {
+    const result = await super.runAsync(source, params);
+    if (result.changes > 0) notifyWrites();
+    return result;
+  }
+
   async withExclusiveTransactionAsync(
     task: (transaction: SqliteExecutor) => Promise<void>,
+    { notifyWrites: notify = true }: SqliteTransactionOptions = {},
   ): Promise<void> {
     // The same fresh connection expo's own transaction helper would open, bypassing its
     // connection cache on both platforms, but with kuyara's pragmas and lock mode. Both
@@ -61,7 +86,12 @@ class ExpoSqliteDatabase extends ExpoSqliteExecutor implements SqliteDatabase {
       await transactionConnection.execAsync('BEGIN IMMEDIATE;');
       try {
         await task(new ExpoSqliteExecutor(transactionConnection));
+        // The connection is this transaction's own, so its total is exactly what the body changed.
+        const changed = notify
+          ? (await transactionConnection.getFirstAsync<Readonly<{ changes: number }>>('SELECT total_changes() AS changes'))?.changes ?? 0
+          : 0;
         await transactionConnection.execAsync('COMMIT;');
+        if (changed > 0) notifyWrites();
       } catch (error) {
         // COMMIT can fail and leave the transaction open (SQLITE_BUSY) or already rolled back
         // (SQLITE_FULL, IOERR); ask before rolling back so the body's error survives.

@@ -1,4 +1,4 @@
-import { syncedProfileOf, type SyncedProfile } from '@/features/account/domain/account-rows';
+import { syncedProfileOf, type AccountProfile } from '@/features/account/domain/account-rows';
 import type { Profile } from '@/features/profile/domain/profile';
 
 // The ongoing sync rules of ADR 0041 section 4. The phone holds one flag per row, `pendingSync`,
@@ -78,8 +78,8 @@ export function applyPulledByDay<Item extends DayRow>(
 /** The single profile row: a pull writes it unless the phone's own edit is still waiting. */
 export function applyPulledProfile(
   local: Readonly<{ pendingSync: boolean }>,
-  pulled: SyncedProfile | null,
-): SyncedProfile | null {
+  pulled: AccountProfile | null,
+): AccountProfile | null {
   return local.pendingSync ? null : pulled;
 }
 
