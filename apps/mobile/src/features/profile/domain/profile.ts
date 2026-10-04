@@ -62,6 +62,11 @@ export type OnboardingPreferences = Readonly<{
 /** The dress style a profile or a stored row without one is read as (ADR 0031). */
 export const defaultDressStyle: DressStyle = 'smart';
 
+/** The day-question switch: a profile that never answered it reads as on. */
+export function isMorningSheetEnabled(profile: Readonly<{ morningSheetEnabled?: boolean }>): boolean {
+  return profile.morningSheetEnabled ?? true;
+}
+
 export const genderSchema = z.enum(['woman', 'man']);
 export type Gender = z.infer<typeof genderSchema>;
 /** The one place a gender becomes the catalog it draws from. */

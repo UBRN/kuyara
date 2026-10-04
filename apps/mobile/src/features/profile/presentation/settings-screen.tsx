@@ -26,6 +26,7 @@ import type {
 import {
   defaultDressStyle,
   genderSchema,
+  isMorningSheetEnabled,
   type DressStyle,
   type Gender,
   type LocalProfile,
@@ -318,7 +319,7 @@ export function SettingsScreen({
           glyph={({ color, size }) => <Icon color={color} name="sunrise" size={size} />}
           label={copy.dayQuestionsTitle}
           testID="settings-morning-question-row"
-          toggle={{ value: profile.morningSheetEnabled ?? true, disabled: isSaving,
+          toggle={{ value: isMorningSheetEnabled(profile), disabled: isSaving,
             onValueChange: (enabled) => { void savePreference('profile', () => onMorningSheetEnabledChange(enabled)); } }}
         />
         <NativeListRow
