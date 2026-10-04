@@ -1886,3 +1886,16 @@ test('a shared-cache hit logs one closed line with the route only', async (t) =>
   await handle(v2({ reask: true }));
   assert.equal(infos.some(({ event }) => event === 'ai_cache_hit'), false);
 });
+
+test('a re-ask reaches the provider without the flag and with the same prompt as a first ask', async () => {
+  const received = [];
+  const handle = createAiHandler({ providers: [{
+    async generateOutfits(body) { received.push(body); return validOutput(); },
+  }] });
+  await handle(request({ path: '/v2/ai/recommend', body: reaskBody({ reask: true }) }));
+  await handle(request({ path: '/v2/ai/recommend', body: reaskBody() }));
+  assert.equal(received.length, 2);
+  assert.equal('reask' in received[0], false);
+  assert.deepEqual(received[0], received[1]);
+  assert.deepEqual(buildMessages(received[0]), buildMessages(received[1]));
+});

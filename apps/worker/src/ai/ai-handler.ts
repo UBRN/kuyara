@@ -154,6 +154,19 @@ function validSelection(
   ));
 }
 
+/**
+ * The re-ask flag only switches the shared cache off. It is split off once, right after the
+ * parse, so the cache key, the selection gate and every provider see the request without it
+ * and the model input never carries it.
+ */
+function splitReask(
+  request: AiRecommendV1Request | AiRecommendV2Request,
+): Readonly<{ reask: boolean; aiRequest: AiRecommendV1Request | AiRecommendV2Request }> {
+  if (!('reask' in request)) return { reask: false, aiRequest: request };
+  const { reask, ...aiRequest } = request;
+  return { reask: reask === true, aiRequest };
+}
+
 async function buildCacheRequest(
   request: AiRecommendV1Request | AiRecommendV2Request,
   route: string,
@@ -252,26 +265,26 @@ export function createAiHandler({
       ? aiRecommendV2RequestSchema.safeParse(body)
       : aiRecommendV1RequestSchema.safeParse(body);
     if (!requestResult.success) return errorResponse(400, 'invalid_request');
+    const { reask, aiRequest } = splitReask(requestResult.data);
 
     const options = new Map(
-      requestResult.data.options.map((option) => [option.optionId, option]),
+      aiRequest.options.map((option) => [option.optionId, option]),
     );
     // A confirmed re-ask asks for a different trio than the one the cache holds for this
     // request, so it neither reads nor writes the shared cache. The burst limiter above and
     // the daily counter below count it exactly like a first generation.
-    const reask = 'reask' in requestResult.data && requestResult.data.reask;
     const cache = reask ? undefined : defaultCache();
     let cacheRequest: Request | undefined;
     if (cache) {
       try {
-        cacheRequest = await buildCacheRequest(requestResult.data, url.pathname);
+        cacheRequest = await buildCacheRequest(aiRequest, url.pathname);
         const cached = await cache.match(cacheRequest);
         if (cached) {
           const payload: unknown = await cached.json();
           const parsed = isV2
             ? aiRecommendV2SuccessSchema.safeParse(payload)
             : aiRecommendV1SuccessSchema.safeParse(payload);
-          if (parsed.success && validSelection(parsed.data.data.picks, requestResult.data, options)) {
+          if (parsed.success && validSelection(parsed.data.data.picks, aiRequest, options)) {
             console.info({ event: 'ai_cache_hit', route: url.pathname });
             return Response.json(parsed.data, { status: 200, headers: jsonHeaders });
           }
@@ -324,7 +337,7 @@ export function createAiHandler({
       try {
         const output = await raceWithTimeout(
           controller,
-          () => provider.generateOutfits(requestResult.data, controller.signal),
+          () => provider.generateOutfits(aiRequest, controller.signal),
           attemptWindowMs,
         );
         if (controller.signal.aborted) {
@@ -349,7 +362,7 @@ export function createAiHandler({
           logProviderFailure(provider, 'picks_not_distinct');
           continue;
         }
-        if (!validSelection(result.data.data.picks, requestResult.data, options)) {
+        if (!validSelection(result.data.data.picks, aiRequest, options)) {
           logProviderFailure(provider, 'archetype_precondition');
           continue;
         }
