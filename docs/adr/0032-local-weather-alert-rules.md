@@ -128,9 +128,12 @@ Alerts are planned only when the profile's `notificationsOptIn` is true and the 
 permission is granted, and only from a snapshot that is fresh under the existing 30-minute
 window. A stale or invalid snapshot cancels nothing and writes nothing; the existing
 schedule and ledger remain until a fresh snapshot arrives. One exception keeps the text
-honest: when the temperature unit changes while the snapshot is stale, the notifications
-still pending are written again in the new unit from that snapshot, under the same
-identifier and fire time, and nothing is added or dropped. The two kinds gate
+honest: pending text follows the current preferences, so when the temperature unit, the
+language or the 12/24-hour clock setting changes while the snapshot is stale, the
+notifications still pending are written again from the newest stored snapshot (the one the
+background task may have planned them from), under the same identifier and fire time, and
+nothing is added or dropped. The change is recorded as written only after the rewrite was
+accepted, so a failed write is retried by the next run. The two kinds gate
 independently: the scheduler runs while either opt-in is on, and each kind is planned only
 under its own. Turning both off cancels every pending notification regardless of snapshot
 age.

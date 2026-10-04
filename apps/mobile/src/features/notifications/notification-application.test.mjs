@@ -141,7 +141,9 @@ function weatherSnapshot(id = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4') {
   };
 }
 
-function createSchedulerHarness({ firedIds = new Set(), cancel, schedule, now = '2026-09-09T15:00:00.000Z' } = {}) {
+function createSchedulerHarness({
+  firedIds = new Set(), cancel, schedule, now = '2026-09-09T15:00:00.000Z', newestSnapshot,
+} = {}) {
   const events = [];
   const scheduled = [];
   const upserted = [];
@@ -187,6 +189,7 @@ function createSchedulerHarness({ firedIds = new Set(), cancel, schedule, now = 
       gateway,
       repository,
       () => now,
+      newestSnapshot,
     ),
   };
 }
@@ -679,6 +682,108 @@ test('a unit change with stale weather rewrites the pending text with the same i
     'Rain is expected around 18:00. Take something waterproof with you.',
     'Around 18:00, it will feel like 44°F. Take a warmer layer with you.',
   ]);
+});
+
+const staleSnapshot = { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' };
+
+// Pending text follows everything it depends on: the language and the clock setting, not
+// the unit alone.
+for (const [name, change, expectedBodies] of [
+  ['language', { language: 'tr' }, [
+    'Saat 18:00 civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.',
+    'Saat 18:00 civarında hissedilen sıcaklık 6°C olacak. Yanına daha sıcak tutan bir kat al.',
+  ]],
+  ['12-hour clock', { hour12: true }, [
+    'Rain is expected around 6:00 pm. Take something waterproof with you.',
+    'Around 6:00 pm, it will feel like 6°C. Take a warmer layer with you.',
+  ]],
+]) test(`a ${name} change with stale weather rewrites the pending text`, async () => {
+  const harness = createSchedulerHarness();
+  await harness.scheduler.reschedule(enabledInput);
+  harness.scheduled.length = 0;
+
+  await harness.scheduler.reschedule({ ...enabledInput, ...change, snapshot: staleSnapshot });
+
+  assert.deepEqual(harness.scheduled.map(({ body }) => body), expectedBodies);
+  // The same text again is not written a second time.
+  harness.scheduled.length = 0;
+  await harness.scheduler.reschedule({ ...enabledInput, ...change, snapshot: staleSnapshot });
+  assert.deepEqual(harness.scheduled, []);
+});
+
+test('a reschedule whose cancellation failed does not mark its text as written', async () => {
+  for (const failure of ['throws', 'returns-false']) {
+    let failNext = false;
+    const harness = createSchedulerHarness({
+      cancel: async (kind) => {
+        if (kind) return true;
+        if (!failNext) return true;
+        failNext = false;
+        if (failure === 'throws') throw new Error('cancel failed');
+        return false;
+      },
+    });
+    await harness.scheduler.reschedule(enabledInput);
+    failNext = true;
+    await harness.scheduler.reschedule({ ...enabledInput, temperatureUnit: 'fahrenheit' }).catch(() => undefined);
+    harness.scheduled.length = 0;
+
+    // The pending text is still in Celsius, so the next stale run has to write it again.
+    await harness.scheduler.reschedule({
+      ...enabledInput, temperatureUnit: 'fahrenheit', snapshot: staleSnapshot,
+    });
+
+    assert.deepEqual(harness.scheduled.map(({ body }) => body), [
+      'Rain is expected around 18:00. Take something waterproof with you.',
+      'Around 18:00, it will feel like 44°F. Take a warmer layer with you.',
+    ], failure);
+  }
+});
+
+// The background task may have planned the pending alerts from a snapshot stored after the one
+// this process holds in memory; the rewrite reads the newest stored one, never older values
+// under the newer fire times.
+test('a rewrite uses the newest stored snapshot, not the older one in memory', async () => {
+  const newer = {
+    ...enabledInput.snapshot,
+    hourly: [{ ...enabledInput.snapshot.hourly[0], apparentTemperatureCelsius: 4 }],
+  };
+  const lookups = [];
+  const harness = createSchedulerHarness({
+    newestSnapshot: async (...args) => { lookups.push(args); return newer; },
+  });
+  await harness.scheduler.reschedule({ ...enabledInput, snapshot: newer });
+  harness.scheduled.length = 0;
+
+  await harness.scheduler.reschedule({
+    ...enabledInput, temperatureUnit: 'fahrenheit', snapshot: staleSnapshot,
+  });
+
+  assert.deepEqual(lookups, [['profile-id', 'manual:sample.istanbul']]);
+  assert.deepEqual(harness.scheduled.map(({ body }) => body), [
+    'Rain is expected around 18:00. Take something waterproof with you.',
+    'Around 18:00, it will feel like 39°F. Take a warmer layer with you.',
+  ]);
+});
+
+test('a rewrite stays unwritten when the stored snapshot cannot be read, and is retried', async () => {
+  let readable = false;
+  const harness = createSchedulerHarness({
+    newestSnapshot: async () => {
+      if (!readable) throw new Error('read failed');
+      return null;
+    },
+  });
+  await harness.scheduler.reschedule(enabledInput);
+  harness.scheduled.length = 0;
+  const stale = { ...enabledInput, temperatureUnit: 'fahrenheit', snapshot: staleSnapshot };
+
+  await assert.rejects(() => harness.scheduler.reschedule(stale));
+  assert.deepEqual(harness.scheduled, []);
+  readable = true;
+  await harness.scheduler.reschedule(stale);
+
+  assert.equal(harness.scheduled.length, 2);
 });
 
 test('stale weather with the unit unchanged leaves the pending text alone', async () => {

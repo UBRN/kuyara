@@ -60,7 +60,8 @@ test('v2 sentence is Latin script and ends cleanly, with one terminator and no s
     assert.equal(insightSentenceSchema.safeParse(sentence).success, true, sentence);
   }
   for (const sentence of ['These looks range from轻 casual to smart.', 'Отличный день.', 'A calm day for مشي.',
-    'Casual to a smart formal,.', 'A calm day;.', 'A calm day:!', 'A calm day..', 'A calm day?!']) {
+    'Casual to a smart formal,.', 'A calm day;.', 'A calm day:!', 'A calm day..', 'A calm day?!',
+    'These looks range from casual to smart,', 'A light look for the day:', 'A calm day;']) {
     assert.equal(insightSentenceSchema.safeParse(sentence).success, false, sentence);
   }
 });
