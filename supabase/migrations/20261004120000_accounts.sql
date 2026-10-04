@@ -200,8 +200,8 @@ create trigger dressing_day_departures_row_cap
   after insert on public.dressing_day_departures
   for each statement execute function public.enforce_user_row_cap('20000');
 
--- The consent answers cap only refuses a statement that inserts a 'given' record past 400: a
--- withdrawal always lands, so consent can be withdrawn however many answers an account holds.
+-- The consent answers cap: past 400 answers only a single withdrawal of a consent that is still
+-- given lands, so a given consent can always be withdrawn and the table stays bounded (401).
 create function public.enforce_consent_record_cap()
 returns trigger
 language plpgsql
