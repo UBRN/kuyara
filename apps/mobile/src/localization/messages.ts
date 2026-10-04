@@ -12,7 +12,6 @@ import type {
   WeatherConditionCode as LiveWeatherConditionCode,
 } from '@/features/weather/domain/weather';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
-import type { RestoreCounts } from '@/features/account/application/account-screens';
 import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
 import type { WindSpeedUnit } from '@/domain/wind-speed';
 import {
@@ -941,6 +940,8 @@ export type AccountMessages = Readonly<{
     summary: (pieces: number, days: number) => string;
     /** After sign-in without the sync consent: only name and gender went to the account. */
     withoutRecords: string;
+    /** After sign-in whose first sync failed or did not run: nothing reached the account yet. */
+    notYet: string;
     done: string;
   }>;
   /** "Using Sign in with Apple": the account's sign-in method under its address. */
@@ -959,19 +960,15 @@ export type AccountMessages = Readonly<{
     offline: string;
     syncing: string;
     failed: string;
-    restoring: string;
     offlineWaiting: (pending: number) => string;
     waiting: (pending: number) => string;
     syncingCount: (pending: number) => string;
-    restoringCount: (done: number, total: number) => string;
     syncNow: string;
     retry: string;
     upToDateFooter: (time: string) => string;
     offlineFooter: (pending: number, time: string) => string;
     syncingFooter: (pending: number, time: string) => string;
     failedFooter: (pending: number, time: string) => string;
-    restoringFooter: (counts: RestoreCounts) => string;
-    pausedFooter: (counts: RestoreCounts) => string;
   }>;
   account: Readonly<{
     title: string;
@@ -1010,11 +1007,6 @@ export type AccountMessages = Readonly<{
   }>;
   deleteAlert: Readonly<{ title: string; body: string; cancel: string; confirm: string }>;
   restore: Readonly<{
-    progressTitle: string;
-    progressBody: string;
-    progressCount: (counts: RestoreCounts) => string;
-    progressKeep: string;
-    progressAction: string;
     doneTitle: string;
     doneBody: (pieces: number, days: number) => string;
     /** Where the profile came from: all four fields, or the name and gender only (`ProfileSource`). */
@@ -1108,9 +1100,6 @@ const englishOwnershipStateLabels = Object.freeze({
 const enPieces = (count: number) => (count === 1 ? '1 piece' : `${count} pieces`);
 const enDays = (count: number) => (count === 1 ? '1 day' : `${count} days`);
 const enChanges = (count: number) => (count === 1 ? '1 change' : `${count} changes`);
-const enRestoreCount = (c: RestoreCounts) => `${c.piecesDone} of ${enPieces(c.piecesTotal)} and ${c.daysDone} of ${enDays(c.daysTotal)} are back.`;
-// Turkish puts no case suffix on a bare numeral here: the suffix rides on the noun instead.
-const trRestoreCount = (c: RestoreCounts) => `${c.piecesTotal} parçadan ${c.piecesDone} parça ve ${c.daysTotal} günden ${c.daysDone} gün geldi.`;
 
 const en = {
   temperatureUnitNames: { celsius: 'degrees Celsius', fahrenheit: 'degrees Fahrenheit' },
@@ -2209,6 +2198,7 @@ const en = {
       summary: (pieces: number, days: number) =>
         `${enPieces(pieces)} from your Closet and ${enDays(days)} of History are now in your account.`,
       withoutRecords: 'Your name and gender are now in your account. You can sync your Closet and History later in Settings > Account.',
+      notYet: 'Your account is ready. Your details will be added to it at the next sync.',
       done: 'Done',
     },
     method: { apple: 'Using Sign in with Apple', google: 'Using Sign in with Google' },
@@ -2226,11 +2216,9 @@ const en = {
       offline: 'Offline',
       syncing: 'Syncing',
       failed: 'Couldn’t sync',
-      restoring: 'Restoring',
       offlineWaiting: (pending: number) => (pending > 0 ? `Offline · ${pending} waiting` : 'Offline'),
       waiting: (pending: number) => `${pending} waiting`,
       syncingCount: (pending: number) => `${pending} syncing`,
-      restoringCount: (done: number, total: number) => `${done} of ${total}`,
       syncNow: 'Sync now',
       retry: 'Try again',
       upToDateFooter: (time: string) => `Last synced at ${time}. Your birth date is not added to your account.`,
@@ -2243,10 +2231,6 @@ const en = {
       failedFooter: (pending: number, time: string) => (pending > 0
         ? `kuyara could not reach your account. Your ${enChanges(pending)} ${pending === 1 ? 'is kept and syncs' : 'are kept and sync'} on the next try. Last synced at ${time}.`
         : `kuyara could not reach your account. Last synced at ${time}.`),
-      restoringFooter: (counts: RestoreCounts) =>
-        `kuyara is bringing back your Closet and History. ${enRestoreCount(counts)}`,
-      pausedFooter: (counts: RestoreCounts) =>
-        `${enRestoreCount(counts)} The rest come back when you are online.`,
     },
     account: {
       title: 'Account',
@@ -2300,11 +2284,6 @@ const en = {
       confirm: 'Delete',
     },
     restore: {
-      progressTitle: 'Bringing back your Closet and History',
-      progressBody: 'You’re signed in. You can keep using kuyara meanwhile.',
-      progressCount: enRestoreCount,
-      progressKeep: 'Continue closes this sheet, and bringing them back keeps going.',
-      progressAction: 'Continue',
       doneTitle: 'Your Closet and History are back',
       doneBody: (pieces: number, days: number) => `${enPieces(pieces)} and ${enDays(days)} of History are back in kuyara.`,
       doneProfile: 'Your name, gender, dress style and style preferences come from your account.',
@@ -3486,6 +3465,7 @@ const tr = {
       summary: (pieces: number, days: number) =>
         `Gardırobundaki ${pieces} parça ve Geçmişindeki ${days} gün hesabına eklendi.`,
       withoutRecords: 'Adın ve cinsiyetin hesabına eklendi. Gardırobunu ve Geçmişini sonra Ayarlar > Hesap’tan eşitleyebilirsin.',
+      notYet: 'Hesabın hazır. Bilgilerin bir sonraki eşitlemede hesabına eklenecek.',
       done: 'Bitti',
     },
     method: { apple: 'Apple ile giriş kullanılıyor', google: 'Google ile giriş kullanılıyor' },
@@ -3503,11 +3483,9 @@ const tr = {
       offline: 'Çevrimdışı',
       syncing: 'Eşitleniyor',
       failed: 'Eşitlenemedi',
-      restoring: 'Geri geliyor',
       offlineWaiting: (pending: number) => (pending > 0 ? `Çevrimdışı · ${pending} bekliyor` : 'Çevrimdışı'),
       waiting: (pending: number) => `${pending} bekliyor`,
       syncingCount: (pending: number) => `${pending} eşitleniyor`,
-      restoringCount: (done: number, total: number) => `${done} / ${total}`,
       syncNow: 'Şimdi eşitle',
       retry: 'Yeniden dene',
       upToDateFooter: (time: string) => `Son eşitleme ${time}. Doğum tarihin hesabına eklenmez.`,
@@ -3520,10 +3498,6 @@ const tr = {
       failedFooter: (pending: number, time: string) => (pending > 0
         ? `kuyara hesabına ulaşamadı. ${pending} değişikliğin korunur ve bir sonraki denemede eşitlenir. Son eşitleme ${time}.`
         : `kuyara hesabına ulaşamadı. Son eşitleme ${time}.`),
-      restoringFooter: (counts: RestoreCounts) =>
-        `kuyara Gardırobunu ve Geçmişini geri getiriyor. ${trRestoreCount(counts)}`,
-      pausedFooter: (counts: RestoreCounts) =>
-        `${trRestoreCount(counts)} Kalanlar bağlantı gelince gelir.`,
     },
     account: {
       title: 'Hesap',
@@ -3577,11 +3551,6 @@ const tr = {
       confirm: 'Sil',
     },
     restore: {
-      progressTitle: 'Gardırobun ve Geçmişin geri geliyor',
-      progressBody: 'Giriş yaptın. Bu sırada kuyara’yı kullanmaya devam edebilirsin.',
-      progressCount: trRestoreCount,
-      progressKeep: '“Devam et” bu sayfayı kapatır, geri getirme sürer.',
-      progressAction: 'Devam et',
       doneTitle: 'Gardırobun ve Geçmişin geri geldi',
       doneBody: (pieces: number, days: number) => `${pieces} parça ve Geçmişindeki ${days} gün kuyara’ya geri geldi.`,
       doneProfile: 'Adın, cinsiyetin, giyim stilin ve stil tercihlerin hesabından geldi.',

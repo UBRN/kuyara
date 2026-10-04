@@ -267,7 +267,7 @@ const whereValues = (byDay: boolean, profileId: string, row: Keyed) =>
  * Lands one account row as a settled row (pending cleared). A pending row is left alone unless
  * `overPending` (the first link, where the account's copy wins). A day-keyed row adopts the
  * account's id. A row the phone cannot store (a constraint this build enforces) is skipped, so
- * one row never stalls every later pass.
+ * one row never stalls every later pass; any other write failure throws.
  */
 async function land<Item extends Keyed>(
   db: SqliteExecutor, write: TableWrite<Item>, profileId: string, row: Item, overPending: boolean,
@@ -289,8 +289,11 @@ async function land<Item extends Keyed>(
         [row.id, profileId, ...(write.byDay ? [row.dayKey ?? ''] : []), ...content,
           row.createdAt, row.updatedAt, row.deletedAt, 0]);
     }
-  } catch {
-    // Skipped: the phone keeps what it had, and the next first link can bring the row again.
+  } catch (error) {
+    // Only a constraint failure is skipped: the phone keeps what it had, and the next first link
+    // can bring the row again. Any other failure (a full disk, an I/O error) fails the whole pass,
+    // so its pull cursor stays where it was.
+    if (!(error instanceof Error && /constraint failed/i.test(error.message))) throw error;
   }
 }
 

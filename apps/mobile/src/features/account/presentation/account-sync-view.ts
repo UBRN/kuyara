@@ -9,7 +9,7 @@ export type SyncTone = 'success' | 'progress' | 'warning' | 'danger';
 export type SyncView = Readonly<{
   tone: SyncTone;
   label: string;
-  /** The count beside the status: waiting, syncing or restored so far. */
+  /** The count beside the status: waiting or syncing. */
   value?: string;
   footer: string;
   /** The Settings row's line under "Signed in with Apple". */
@@ -25,13 +25,6 @@ export function describeSync(session: SignedIn, online: boolean, copy: AccountMe
   const waiting = pending > 0 ? sync.waiting(pending) : undefined;
   const inactive = { label: sync.syncNow, enabled: false };
 
-  if (session.sync.kind === 'restoring') {
-    const { counts } = session.sync;
-    const value = sync.restoringCount(counts.piecesDone, counts.piecesTotal);
-    return online
-      ? { tone: 'progress', label: sync.restoring, value, footer: sync.restoringFooter(counts), settingsLine: sync.restoring, action: inactive }
-      : { tone: 'warning', label: sync.offline, value, footer: sync.pausedFooter(counts), settingsLine: sync.offlineWaiting(0), action: inactive };
-  }
   if (!online) {
     return { tone: 'warning', label: sync.offline, value: waiting, footer: sync.offlineFooter(pending, time), settingsLine: sync.offlineWaiting(pending), action: inactive };
   }

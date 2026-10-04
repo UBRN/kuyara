@@ -190,6 +190,22 @@ test('an upload upserts by user and UUID, by user and day for choices and depart
   }]);
 });
 
+test('more than 200 rows of a table upload in batches of 200, each matched against its own answer', async () => {
+  const items = Array.from({ length: 201 }, (_, index) => wardrobeItem(index + 1));
+  // Another phone rewrote one row of each batch in between: their versions do not match.
+  const rewritten = new Set([uuid(5), uuid(201)]);
+  const { client, requests } = fakeClient(({ body }) => body.map((row) => ({
+    id: row.id, updated_at: rewritten.has(row.id) ? pg(stamp(9)) : pg(row.updated_at),
+  })));
+  const acknowledged = await createSupabaseAccountRemote(client, phoneProfileId).upload(userId, {
+    profile: null, wardrobeItems: items, dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [],
+  });
+  const batches = requests.filter(({ path }) => path === 'wardrobe_items');
+  assert.deepEqual(batches.map(({ method, body, query }) => [method, body.length, query.get('on_conflict')]),
+    [['POST', 200, 'user_id,id'], ['POST', 1, 'user_id,id']]);
+  assert.deepEqual(acknowledged.wardrobeItems, items.filter(({ id }) => !rewritten.has(id)));
+});
+
 test('no upload body carries a device-only value: the profile id, a photo path or the pending flag', async () => {
   const { client, requests } = fakeClient(({ body }) => (Array.isArray(body) ? [] : []));
   await createSupabaseAccountRemote(client, phoneProfileId).upload(userId, {

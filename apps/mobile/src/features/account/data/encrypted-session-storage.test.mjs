@@ -70,6 +70,15 @@ test('a value sealed under another key, or tampered with, reads as signed out', 
   assert.equal(await storage.getItem('sb-session'), null);
 });
 
+test('a Keychain or store that cannot be read throws instead of reading as signed out', async () => {
+  const { keys, values } = stores();
+  await createEncryptedSessionStorage({ keys, values, cipher }).setItem('sb-session', session);
+  const locked = createEncryptedSessionStorage({ keys: { ...keys, get: async () => { throw new Error('locked'); } }, values, cipher });
+  await assert.rejects(locked.getItem('sb-session'), /locked/);
+  const unreadable = createEncryptedSessionStorage({ keys, values: { ...values, get: async () => { throw new Error('I/O'); } }, cipher });
+  await assert.rejects(unreadable.getItem('sb-session'), /I\/O/);
+});
+
 test('concurrent first writes create one key, so neither value is lost to a second key', async () => {
   const { keychain, keys, values } = stores();
   const storage = createEncryptedSessionStorage({ keys, values, cipher });

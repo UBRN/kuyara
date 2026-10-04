@@ -12,16 +12,19 @@ function harness({ snapshot = accountScenarios.upToDate, pending = true, dismiss
     start: async () => { calls.push('start'); },
     foreground: async () => { calls.push('foreground'); },
     localWrite: async () => { calls.push('localWrite'); },
+    signOut: async () => { calls.push('signOut'); },
     setOnline: () => {},
   };
   let appState = null;
   let write = null;
+  let revoked = null;
   const timers = [];
   const disconnect = connectAccountLifecycle({
     manager,
     onAppStateChange: (listener) => { appState = listener; return () => { appState = null; }; },
     isActive: () => active,
     onDatabaseWrite: (listener) => { write = listener; return () => { write = null; }; },
+    onAppleRevoked: (listener) => { revoked = listener; return () => { revoked = null; }; },
     hasPending: async (records) => { calls.push(['hasPending', records]); return pending; },
     autoRefresh: { start: () => calls.push('refresh:start'), stop: () => calls.push('refresh:stop') },
     card: { dismissed: async () => dismissed, dismiss: async () => { calls.push('card:stored'); } },
@@ -35,7 +38,7 @@ function harness({ snapshot = accountScenarios.upToDate, pending = true, dismiss
     for (const timer of timers.splice(0)) if (!timer.cancelled) timer.task();
     await new Promise((resolve) => setImmediate(resolve));
   };
-  return { calls, manager, disconnect, flush, timers, appState: (state) => appState(state), write: () => write() };
+  return { calls, manager, disconnect, flush, timers, appState: (state) => appState(state), write: () => write(), revoke: () => revoked?.() };
 }
 
 test('the session starts once at launch', async () => {
@@ -44,9 +47,12 @@ test('the session starts once at launch', async () => {
   assert.deepEqual(calls.filter((call) => call === 'start'), ['start']);
 });
 
-test('connecting while the app is already in the foreground starts the token refresh at once', () => {
+test('the token refresh starts at connect only in the foreground, else at the first foreground', () => {
   assert.deepEqual(harness({ active: true }).calls.filter((call) => call === 'refresh:start'), ['refresh:start']);
-  assert.deepEqual(harness({ active: false }).calls.filter((call) => call === 'refresh:start'), []);
+  const background = harness({ active: false });
+  assert.deepEqual(background.calls.filter((call) => call === 'refresh:start'), []);
+  background.appState('active');
+  assert.deepEqual(background.calls.filter((call) => call === 'refresh:start'), ['refresh:start']);
 });
 
 test('the foreground syncs and runs the token refresh; the background stops it', () => {
@@ -74,7 +80,7 @@ test('without the consent only a waiting profile counts, and nothing waiting mea
   assert.deepEqual(calls.filter((call) => call === 'localWrite' || Array.isArray(call)), [['hasPending', false]]);
 });
 
-test('signed out, a write starts nothing; during a pass it waits for the pass to end', async () => {
+test('signed out, a write starts nothing; during a pass it asks the manager once, which runs it after the pass', async () => {
   const signedOut = harness({ snapshot: accountScenarios.signedOut });
   signedOut.write();
   await signedOut.flush();
@@ -82,11 +88,26 @@ test('signed out, a write starts nothing; during a pass it waits for the pass to
 
   const syncing = harness({ snapshot: accountScenarios.syncing });
   syncing.write();
+  assert.equal(syncing.timers.length, 1);
   await syncing.flush();
-  assert.equal(syncing.calls.includes('localWrite'), false);
+  assert.deepEqual(syncing.calls.filter((call) => call === 'localWrite'), ['localWrite']);
   syncing.manager.load(accountScenarios.upToDate);
   await syncing.flush();
-  assert.equal(syncing.calls.includes('localWrite'), true);
+  assert.deepEqual(syncing.calls.filter((call) => call === 'localWrite'), ['localWrite']);
+  assert.equal(syncing.timers.length, 0);
+});
+
+test('Apple revoking kuyara ends an Apple session the way signing out does, and nothing else', async () => {
+  const apple = harness();
+  apple.revoke();
+  assert.deepEqual(apple.calls.filter((call) => call === 'signOut'), ['signOut']);
+  const google = harness();
+  google.manager.load({ ...accountScenarios.upToDate,
+    session: { ...accountScenarios.upToDate.session, provider: 'google', providers: ['google'] } });
+  google.revoke();
+  const signedOut = harness({ snapshot: accountScenarios.signedOut });
+  signedOut.revoke();
+  assert.equal([...google.calls, ...signedOut.calls].includes('signOut'), false);
 });
 
 test('the card dismissal is stored once and restored at launch', async () => {
@@ -102,9 +123,11 @@ test('the card dismissal is stored once and restored at launch', async () => {
 });
 
 test('disconnecting stops the refresh and every listener', async () => {
-  const { calls, disconnect, flush, timers, write } = harness();
+  const { calls, disconnect, flush, revoke, timers, write } = harness();
   write();
   disconnect();
+  revoke();
+  assert.equal(calls.includes('signOut'), false);
   assert.equal(timers.every(({ cancelled }) => cancelled), true);
   await flush();
   assert.equal(calls.includes('localWrite'), false);

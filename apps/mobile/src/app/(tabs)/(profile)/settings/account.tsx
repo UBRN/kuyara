@@ -19,7 +19,8 @@ function AccountRouteContent() {
   const { snapshot } = useAccountScreens();
   const signedOut = snapshot.session.kind === 'signedOut';
 
-  // Sign-out and deletion end on Settings, where the one-time line says what happened.
+  // Sign-out and deletion leave the ended account's screens for Settings, where the one-time line
+  // follows; the deletion result itself shows on the app-wide sheet the tab layout hosts.
   useEffect(() => {
     if (signedOut) router.dismissTo('/settings');
   }, [signedOut]);

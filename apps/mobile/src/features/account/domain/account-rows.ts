@@ -1,10 +1,6 @@
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
-import {
-  sortedStyleAesthetics,
-  type Gender,
-  type Profile,
-} from '@/features/profile/domain/profile';
+import type { Gender } from '@/features/profile/domain/profile';
 import type { DressingDayChoice } from '@/features/recommendation/domain/dressing-day-choice';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
@@ -79,21 +75,29 @@ const identityOf = (row: Readonly<{ id: string; dayKey?: string }>, identity: Id
  * A deletion marker carries no content, so it lands on the phone's row of the same identity (by
  * id, or by day for daily choices and departures) as that row soft-deleted, under the marker's
  * id and clocks. A marker for a row this phone does not hold has nothing to land on and is
- * dropped. Whole rows pass through.
+ * dropped. Whole rows pass through. The phone's rows are indexed once, then each row lands.
  */
-export function landDeletionMarkers<Item extends MarkedRow>(
-  rows: readonly AccountRow<Item>[],
+export function deletionMarkerLanding<Item extends MarkedRow>(
   local: readonly Item[],
   identity: Identity,
-): Item[] {
+): (row: AccountRow<Item>) => Item[] {
   const localByKey = new Map(local.map((row) => [identityOf(row, identity), row]));
-  return rows.flatMap((row) => {
+  return (row) => {
     if (!isDeletionMarker(row)) return [row];
     const own = localByKey.get(identityOf(row, identity));
     if (own === undefined) return [];
     const { createdAt, deletedAt, id, updatedAt } = row;
     return [{ ...own, id, createdAt, updatedAt, deletedAt }];
-  });
+  };
+}
+
+/** `deletionMarkerLanding` over every row of one table. */
+export function landDeletionMarkers<Item extends MarkedRow>(
+  rows: readonly AccountRow<Item>[],
+  local: readonly Item[],
+  identity: Identity,
+): Item[] {
+  return rows.flatMap(deletionMarkerLanding(local, identity));
 }
 
 /** `landDeletionMarkers` for every record table of one side, against the phone's rows. */
@@ -107,17 +111,6 @@ export function landRemoteRows(remote: RemoteAccountRows, local: AccountRows): A
   };
 }
 
-export function syncedProfileOf(profile: Profile): SyncedProfile {
-  return {
-    displayName: profile.displayName,
-    gender: profile.gender,
-    dressStyle: profile.dressStyle,
-    styleAesthetics: sortedStyleAesthetics(profile.styleAesthetics ?? []),
-    createdAt: profile.createdAt,
-    updatedAt: profile.updatedAt,
-  };
-}
-
 /**
  * The profile fields that cross to or from the account: display name and gender always, dress
  * style and style aesthetics only under the sync consent. The one owner of that rule; it copies
@@ -128,17 +121,4 @@ export function profileWithinConsent(profile: AccountProfile, syncConsent: boole
   return syncConsent && dressStyle !== undefined && styleAesthetics !== undefined
     ? { displayName, gender, dressStyle, styleAesthetics, createdAt, updatedAt }
     : { displayName, gender, createdAt, updatedAt };
-}
-
-/** Photos never sync: a pulled Closet row keeps the photo this phone already holds for it. */
-export function landedWardrobeItem(pulled: WardrobeItem, local: WardrobeItem | null): WardrobeItem {
-  return { ...pulled, photoRelativePath: local?.photoRelativePath ?? null };
-}
-
-/** Photos never sync: a pulled History look keeps the mirror photo this phone holds for it. */
-export function landedOutfitHistory(
-  pulled: OutfitHistoryRecord,
-  local: OutfitHistoryRecord | null,
-): OutfitHistoryRecord {
-  return { ...pulled, photoPath: local?.photoPath ?? null };
 }

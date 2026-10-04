@@ -144,7 +144,7 @@ test('an unusable signing key is unavailable and calls Apple never', async () =>
   let calls = 0;
   const revoke = createAppleTokenRevoker({
     teamId: 'T', keyId: 'K', privateKeyPem: 'sentinel-key-material',
-    now: () => new Date(nowSeconds * 1000), fetch: async () => { calls += 1; return new Response(''); },
+    now: () => new Date(nowSeconds * 1000), timeoutMs: 20, fetch: async () => { calls += 1; return new Response(''); },
   });
   await assertRejects(revoke({ authorizationCode: code, expectedSubject: subject }), 'unavailable');
   assert.equal(calls, 0);

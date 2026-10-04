@@ -40,6 +40,7 @@ export type LiveAccountSession = Readonly<{
   manager: AccountSessionManager;
   source: SqliteAccountRowsSource;
   autoRefresh: Readonly<{ start: () => void; stop: () => void }>;
+  onAppleRevoked: (listener: () => void) => () => void;
 }>;
 
 export function createLiveAccountSession({ database, fetcher, localProfileId, settings, workerBaseUrl }: Readonly<{
@@ -57,8 +58,10 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
     values: deviceKeyValueStore,
     cipher: deviceCrypto.aesGcm,
   });
+  // Off, because on React Native the client would otherwise start its own refresh ticker that runs
+  // in the background too; `connectAccountLifecycle` runs it in the foreground only (ADR 0041 section 9).
   const client = createClient(settings.url, settings.publishableKey, {
-    auth: { storage, storageKey: sessionStorageKey, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
+    auth: { storage, storageKey: sessionStorageKey, autoRefreshToken: false, persistSession: true, detectSessionInUrl: false },
   });
   const source = createSqliteAccountRowsSource(database);
   const supabaseAuth = createSupabaseAccountAuth({
@@ -97,6 +100,11 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
     autoRefresh: {
       start: () => void client.auth.startAutoRefresh(),
       stop: () => void client.auth.stopAutoRefresh(),
+    },
+    onAppleRevoked(listener) {
+      // Off iOS the module is a stub whose listener call returns nothing, despite its type.
+      const subscription = AppleAuthentication.addRevokeListener(listener) as ReturnType<typeof AppleAuthentication.addRevokeListener> | undefined;
+      return () => subscription?.remove();
     },
   };
 }

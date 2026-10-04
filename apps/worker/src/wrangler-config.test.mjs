@@ -94,9 +94,8 @@ test('feedback D1 is bound only in the local e2e environment, next to its rate l
   assert.ok(config.env.e2e.ratelimits.some((binding) => binding.name === 'FEEDBACK_RATE_LIMIT'));
 });
 
-test('the keep-alive cron runs once a day in production only, and its public settings are plain vars', () => {
-  assert.equal(config.triggers.crons.length, 1);
-  assert.match(config.triggers.crons[0], /^\d{1,2} \d{1,2} \* \* \*$/u, 'one daily schedule');
+test('the keep-alive cron runs four times a day in production only, and its public settings are plain vars', () => {
+  assert.deepEqual(config.triggers.crons, ['17 */6 * * *']);
   // Named environments inherit `triggers`, so e2e must override it with an empty list.
   assert.deepEqual(config.env.e2e.triggers, { crons: [] });
   assert.equal(config.vars.SUPABASE_URL, 'https://bkeojzuvuzilytfmpgdu.supabase.co');

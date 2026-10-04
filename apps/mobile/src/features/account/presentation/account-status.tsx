@@ -1,6 +1,7 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AppText, Icon, type IconName } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { SyncTone } from '@/features/account/presentation/account-sync-view';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -38,9 +39,11 @@ const lineGlyph: Readonly<Record<StatusLineTone, IconName>> = {
  * The one line kuyara draws for a sign-in or deletion outcome (frames 17-19, 37, 38): a mark
  * and a whole sentence, fact first, then the next step. Cancelling is not an error, so it is
  * neutral; offline is the warning band and a failure the danger band, each with a hairline
- * edge in its ink. The sentence stays in the primary ink.
+ * edge in its ink. The sentence stays in the primary ink. VoiceOver ignores the live region
+ * and the alert role, so the line is also spoken on iOS when it appears or changes.
  */
 export function StatusLine({ testID, text, tone }: Readonly<{ text: string; tone: StatusLineTone; testID?: string }>) {
+  useErrorAnnouncement(text);
   const theme = useKuyaraTheme();
   const { colors } = theme;
   const band = tone === 'neutral'

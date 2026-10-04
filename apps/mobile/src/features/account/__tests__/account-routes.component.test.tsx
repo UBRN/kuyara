@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react-native';
-import type { ComponentType } from 'react';
+import type { ComponentType, PropsWithChildren } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LocalizationContext } from '@/localization/localization-context';
@@ -11,6 +11,19 @@ jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-u
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
+jest.mock('@expo/ui/community/bottom-sheet', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual('react-native') as typeof import('react-native');
+  return {
+    BottomSheet: ({ children, index }: PropsWithChildren<{ index: number }>) =>
+      (index >= 0 ? React.createElement(View, { testID: 'sheet-host' }, children) : null),
+  };
+});
+jest.mock('@/navigation/primary-tabs', () => ({ PrimaryTabs: () => null }));
+jest.mock('@/features/profile/application/profile-context', () => ({
+  useProfileApplication: () => ({ state: { status: 'ready', profile: {} } }),
+}));
+jest.mock('@/features/profile/application/profile-route-gate', () => ({ resolveProfileHomeRoute: () => 'today' }));
 jest.mock('expo-router', () => {
   const { Text: MockText } = jest.requireActual('react-native') as typeof import('react-native');
   return {
@@ -70,4 +83,28 @@ test('with the switch on, the routes draw their screens', async () => {
     expect(screen.queryByTestId('account-screen') ?? screen.queryByTestId('delete-account-screen')).toBeTruthy();
     await screen.unmount();
   }
+});
+
+describe('the tab layout', () => {
+  const load = () => jest.requireActual('@/app/(tabs)/_layout').default;
+
+  test('with the switch on, a deletion result shows on the app-wide sheet over every tab', async () => {
+    mockEnabled = true;
+    const { AccountScreensContext } = jest.requireActual('@/features/account/application/account-screens-context');
+    const { accountScenarios, createInMemoryAccountScreens } = jest.requireActual('@/features/account/application/account-screens');
+    const Layout = load();
+    const screen = await renderRoute(() => (
+      <AccountScreensContext.Provider value={createInMemoryAccountScreens(accountScenarios.deletedAppleUnrevoked)}>
+        <Layout />
+      </AccountScreensContext.Provider>
+    ));
+    expect(screen.getByTestId('account-sheet-app')).toBeTruthy();
+    expect(screen.getByTestId('account-result-apple-unrevoked')).toHaveTextContent(messages.en.account.deleted.appleUnrevoked);
+  });
+
+  test('while the switch is off, the layout mounts no account sheet', async () => {
+    const Layout = load();
+    const screen = await renderRoute(Layout);
+    expect(screen.queryByTestId('account-sheet-app')).toBeNull();
+  });
 });

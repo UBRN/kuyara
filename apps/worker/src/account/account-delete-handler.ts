@@ -74,18 +74,16 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
     const accessToken = bearerToken(request);
     if (accessToken === undefined) return error('unauthorized');
     if (!isJsonRequest(request)) return error('invalid_request');
-    // This body is unauthenticated: bound it before it is parsed, by the declared length and
-    // again while reading, since a header can lie or be absent. Too large is invalid_request.
-    const declared = Number(request.headers.get('content-length') ?? 0);
-    if (!Number.isFinite(declared) || declared > maxRequestBodyBytes) return error('invalid_request');
+    // This body is unauthenticated: readJsonBody bounds it while reading. Too large is invalid_request.
     const body = await readJsonBody(request.body, maxRequestBodyBytes);
     if (body === undefined) return error('invalid_request');
     const parsed = accountDeleteV1RequestSchema.safeParse(body);
     if (!parsed.success) return error('invalid_request');
 
     let userId: string;
+    let hasAppleIdentity: boolean;
     try {
-      ({ userId } = await verifier(accessToken));
+      ({ userId, hasAppleIdentity } = await verifier(accessToken));
     } catch (thrown) {
       return failure('verify', thrown);
     }
@@ -97,6 +95,12 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
     }
     let status: AccountDeleteV1Status = 'deleted';
     // A valid token for a user that no longer exists is a repeated request: already deleted.
+    // Whether the earlier attempt revoked Apple's token is unknown, so an account whose token
+    // names Apple gets the safe instruction to remove kuyara in Settings.
+    if (account === null && hasAppleIdentity) {
+      status = 'deleted_apple_unrevoked';
+      console.info({ event: 'account_delete_apple_unrevoked', reason: 'already_deleted' });
+    }
     if (account !== null) {
       // Revocation comes first: a delete that succeeds while revocation fails would leave
       // Apple's requirement unmet with no way to get the token again. A missing, refused or

@@ -3,25 +3,14 @@ import type { AccountRows } from '@/features/account/domain/account-rows';
 const deletionMarkerWindowMs = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * What the first sign-in sends (ADR 0041 section 3): every live row, and the soft-deletion
- * markers of the last 30 days (a marker exactly 30 days old still goes). Without the sync
- * consent only the profile goes; the consent also covers departure records.
+ * The record rows a first link may send (ADR 0041 section 3): every live row, and the
+ * soft-deletion markers of the last 30 days (a marker exactly 30 days old still goes).
  */
-export function firstUploadRows(
-  local: AccountRows,
-  { syncConsent, now }: Readonly<{ syncConsent: boolean; now: string }>,
-): AccountRows {
-  if (!syncConsent) {
-    return {
-      profile: local.profile, wardrobeItems: [], dressingDayChoices: [],
-      dressingDayDepartures: [], outfitHistory: [],
-    };
-  }
+export function firstUploadRows(local: Omit<AccountRows, 'profile'>, now: string): Omit<AccountRows, 'profile'> {
   const oldest = Date.parse(now) - deletionMarkerWindowMs;
   const goes = (row: Readonly<{ deletedAt: string | null }>) =>
     row.deletedAt === null || Date.parse(row.deletedAt) >= oldest;
   return {
-    profile: local.profile,
     wardrobeItems: local.wardrobeItems.filter(goes),
     dressingDayChoices: local.dressingDayChoices.filter(goes),
     dressingDayDepartures: local.dressingDayDepartures.filter(goes),

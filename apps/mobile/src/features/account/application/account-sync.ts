@@ -1,9 +1,7 @@
 import { linkAfterFirstLink, type AccountLink } from '@/features/account/domain/account-link';
 import { mergeAtFirstLink, type MergeResult } from '@/features/account/domain/account-merge';
 import {
-  landDeletionMarkers,
-  landedOutfitHistory,
-  landedWardrobeItem,
+  deletionMarkerLanding,
   landRemoteRows,
   profileWithinConsent,
   type AccountProfile,
@@ -91,8 +89,11 @@ const values = (local: LocalAccountRows): AccountRows => ({
   outfitHistory: local.outfitHistory.map(({ row }) => row),
 });
 
-const hasRows = (rows: AccountRows) => rows.profile !== null || rows.wardrobeItems.length > 0
-  || rows.dressingDayChoices.length > 0 || rows.dressingDayDepartures.length > 0 || rows.outfitHistory.length > 0;
+/** How many rows `rows` holds across the five tables; none for null. */
+export const rowCount = (rows: AccountRows | null) => rows === null ? 0 : (rows.profile ? 1 : 0)
+  + rows.wardrobeItems.length + rows.dressingDayChoices.length + rows.dressingDayDepartures.length + rows.outfitHistory.length;
+
+const hasRows = (rows: AccountRows) => rowCount(rows) > 0;
 
 /**
  * What a pass uploads from this phone's rows: the pending profile, and under the consent the
@@ -111,7 +112,7 @@ export function pendingUpload(local: LocalAccountRows, syncConsent: boolean): Ac
 }
 
 /**
- * Pulled rows with their deletion markers landed on this phone's rows (`landDeletionMarkers`),
+ * Pulled rows with their deletion markers landed on this phone's rows (`deletionMarkerLanding`),
  * each keeping its arrival stamp.
  */
 function landedPulls<Item extends Readonly<{ id: string; createdAt: string; updatedAt: string; deletedAt: string | null }>>(
@@ -119,9 +120,8 @@ function landedPulls<Item extends Readonly<{ id: string; createdAt: string; upda
   local: readonly LocalSyncRow<Item>[],
   identity: 'id' | 'day',
 ): readonly PulledSyncRow<Item>[] {
-  const rows = local.map(({ row }) => row);
-  return pulled.flatMap(({ row, serverUpdatedAt }) =>
-    landDeletionMarkers([row], rows, identity).map((landed) => ({ row: landed, serverUpdatedAt })));
+  const land = deletionMarkerLanding(local.map(({ row }) => row), identity);
+  return pulled.flatMap(({ row, serverUpdatedAt }) => land(row).map((landed) => ({ row: landed, serverUpdatedAt })));
 }
 
 /** What a first link reports for the result sheets: the domain's merge counts and the profile's source. */
@@ -154,13 +154,13 @@ export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: Acc
           pulled.profile && profileWithinConsent(pulled.profile, syncConsent),
         ),
         wardrobeItems: syncConsent ? applyPulledById(local.wardrobeItems,
-          landedPulls(pulled.wardrobeItems, local.wardrobeItems, 'id'), landedWardrobeItem) : [],
+          landedPulls(pulled.wardrobeItems, local.wardrobeItems, 'id')) : [],
         dressingDayChoices: syncConsent ? applyPulledByDay(local.dressingDayChoices,
-          landedPulls(pulled.dressingDayChoices, local.dressingDayChoices, 'day'), (row) => row) : [],
+          landedPulls(pulled.dressingDayChoices, local.dressingDayChoices, 'day')) : [],
         dressingDayDepartures: syncConsent ? applyPulledByDay(local.dressingDayDepartures,
-          landedPulls(pulled.dressingDayDepartures, local.dressingDayDepartures, 'day'), (row) => row) : [],
+          landedPulls(pulled.dressingDayDepartures, local.dressingDayDepartures, 'day')) : [],
         outfitHistory: syncConsent ? applyPulledById(local.outfitHistory,
-          landedPulls(pulled.outfitHistory, local.outfitHistory, 'id'), landedOutfitHistory) : [],
+          landedPulls(pulled.outfitHistory, local.outfitHistory, 'id')) : [],
       }, nextCursor(cursor, pulled.arrivals));
     },
   };

@@ -162,16 +162,21 @@ with its project in Frankfurt (`bkeojzuvuzilytfmpgdu`, Free plan). Phase 9, opti
 in `apps/mobile/src/features/account/`: Sign in with Apple through Supabase Auth with a nonce, the encrypted
 session store (Keychain key, `expo-sqlite/kv-store`), the SQLite row source, consent-gated sync with the
 server-arrival conflict rule, the post-sign-in sync consent sheet and its records, the Account screen's consent
-and withdrawal, the launch-time Apple credential check, and deletion through the Worker. With the switch on and
+and withdrawal, the Apple credential check at launch and the revocation notification while the app runs, and deletion through the Worker, whose result shows on an app-wide sheet. With the switch on and
 no valid Supabase settings the screens fail closed. Google sign-in waits for its library licence. Migration 28
 adds the device link's joined-account columns. The Worker code carries the deletion route (deleting an Apple
-account without a usable code answers `deleted_apple_unrevoked`), its rate limit and the daily keep-alive Cron
-Trigger; it is not deployed, and the route answers `unavailable` until its secrets are set. The remote schema is
-`supabase/migrations/20261004120000_accounts.sql`, applied to the project on 4 October 2026 with no security advisor finding. Evidence is automated
+account without a usable code answers `deleted_apple_unrevoked`), its rate limit and the keep-alive Cron
+Trigger, every six hours. That code is not deployed: the deployed Worker carries an earlier version of the route,
+offline and answering `unavailable`, and no Cron Trigger. The remote schema is
+`supabase/migrations/20261004120000_accounts.sql`, applied to the project on 4 October 2026 with no security advisor finding.
+`supabase/migrations/20261005090000_account_hardening.sql` (tighter bounds and per-account caps, the 400 MB database
+size guard, the per-account lock between uploads and a consent withdrawal, one index fewer) is not applied to the
+project yet; an in-memory Postgres run applies both files in order and checks their access rules, caps, bounds,
+guard and lock. Evidence is automated
 tests, an in-memory Postgres run of the schema and one Simulator pass; Sign in with Apple, revocation and live
 sync have no device evidence. Before accounts open: network-state detection, screens reloading after a pull, the
 History photo sweep for pulled deletions, the member AI allowance, the privacy manifest and App Privacy, the
-Account terms page and the KVKK transfer contract. The project is
+Account terms pages (`docs/account-terms.md` and `docs/tr/account-terms.md`, which the app links) and the KVKK transfer contract. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 
@@ -183,7 +188,7 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 - **Build 15:** Version `0.1.20260926`, build 15, is `READY_FOR_SALE`; App Store Connect status was checked on 27 September 2026. It was submitted on 26 September 2026 with `AFTER_APPROVAL` release and phased release configured. Build 14 (`0.1.20260920`) is the previous release.
 - **EAS Update:** Build 15 installs receive the latest production iOS update, group `ec077814-51d0-4939-a557-cbc7a049c57f`, runtime `0.1.20260926`, commit `156b8e1`, which replaced the first update from `7b5b4f8`. It carries the Today, recommendation (the formal suit rule and catalog version 6, day-aware labels, hot-day smart outfits), notification, accessibility, History and consent fixes since build 15. The EAS `production` environment carries `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` and the PostHog variables, and the Hermes source maps for release `kuyara@cf88f54` are uploaded to PostHog. Build 19 installs receive production iOS update group `7ef38e34-8d7d-4e1e-9395-0f5eb32d898e`, runtime `0.1.20261005`, commit `4942c6ec` on branch `hotfix/0.1.20261005-launch` (build 19's commit `adad5517` plus the 720 ms cold launch), with its Hermes source maps uploaded to PostHog.
-- **Worker:** The deployed Worker is version `7a8d9261-add5-4552-8d35-5eb0c5e79d98`, deployed on 4 October 2026 from commit `6e2c1469` (previous version `8f6c020e-d5f4-4597-b9a7-7187a7c0d91c`). `OPENROUTER_MODELS` is empty. `/v1/feedback` is deployed but offline: the top-level configuration has no `FEEDBACK_DB` binding and the in-app form flag is off. `/v1/account/delete` is deployed but offline: it has no `ACCOUNT_DELETE_RATE_LIMIT` binding and answers `unavailable`.
+- **Worker:** The deployed Worker is version `7a8d9261-add5-4552-8d35-5eb0c5e79d98`, deployed on 4 October 2026 from commit `6e2c1469` (previous version `8f6c020e-d5f4-4597-b9a7-7187a7c0d91c`). `OPENROUTER_MODELS` is empty. `/v1/feedback` is deployed but offline: the top-level configuration has no `FEEDBACK_DB` binding and the in-app form flag is off. An earlier version of `/v1/account/delete` is deployed but offline: it has no `ACCOUNT_DELETE_RATE_LIMIT` binding and answers `unavailable`.
 - **Build 16:** Version `0.1.20260928`, build 16, built locally from commit `aeb2fd0`, is `READY_FOR_SALE`. It includes schema version 22, the expanded Closet palette and camera path, Easier to see, the coach-mark tour, manual mix, and the revised consent and analytics boundary.
 - **Build 17:** Version `0.1.20261002`, build 17, built locally from commit `b7e0514`, was submitted for App Review on 2 October 2026 with `AFTER_APPROVAL` release and phased release configured, and was approved. It adds schema version 23, the illustrated garment drawings, the worn-order garment board with per-piece shadows, the shareable outfit card (`react-native-view-shot`, a native module, so this JavaScript cannot ship as an update to build 16), the evening tomorrow preview, the whole-day morning briefing, Closet matches and wear counts, the History diary, and the account screens behind a switch that is off. Its changes have Simulator and Maestro evidence only; Android has not been built.
 - **Build 18:** Version `0.1.20261003`, build 18, schema version 25, built locally from commit `cdead67e`, was approved and is `READY_FOR_SALE`; its phased release started on 3 October 2026.

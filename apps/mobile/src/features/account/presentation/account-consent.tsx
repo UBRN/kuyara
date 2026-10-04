@@ -100,27 +100,36 @@ export function AccountConsentContent({ expanded, onContinue, onToggleText, stat
   );
 }
 
+/**
+ * Whether the consent text is open, for the sheet that asks. While it is open a swipe inside it
+ * scrolls the text and never closes the sheet; a new question starts with the text closed.
+ */
+export function useConsentTextToggle(asking: boolean) {
+  const [open, setOpen] = useState(false);
+  const [wasAsking, setWasAsking] = useState(asking);
+  if (wasAsking !== asking) {
+    setWasAsking(asking);
+    setOpen(false);
+  }
+  return { open: asking && open, toggle: () => setOpen((value) => !value) };
+}
+
 /** The same question asked later from the Account screen, on that screen's own sheet. */
 export function AccountConsentSheet() {
   const { port, snapshot } = useAccountScreens();
   const visible = snapshot.consent.prompt === 'account';
-  const [textOpen, setTextOpen] = useState(false);
-  const [wasVisible, setWasVisible] = useState(visible);
-  if (wasVisible !== visible) {
-    setWasVisible(visible);
-    setTextOpen(false);
-  }
+  const text = useConsentTextToggle(visible);
   return (
     <NativeSheet
-      dismissible={!textOpen}
+      dismissible={!text.open}
       onDismiss={port.closeConsent}
       size="large"
       testID="account-consent-sheet"
       visible={visible}>
       <AccountConsentContent
-        expanded={textOpen}
+        expanded={text.open}
         onContinue={port.answerConsent}
-        onToggleText={() => setTextOpen((open) => !open)}
+        onToggleText={text.toggle}
         status={snapshot.consent.status}
       />
     </NativeSheet>

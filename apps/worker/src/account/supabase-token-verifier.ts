@@ -6,15 +6,18 @@ import { AccountError } from './account-error.ts';
 import { boundedFetch } from './bounded-fetch.ts';
 import { userIdPattern } from './user-id.ts';
 
-export type VerifiedSupabaseUser = Readonly<{ userId: string }>;
+// hasAppleIdentity: the token's signed `app_metadata.providers` names Apple when it was issued.
+export type VerifiedSupabaseUser = Readonly<{ userId: string; hasAppleIdentity: boolean }>;
 export type SupabaseTokenVerifier = (accessToken: string) => Promise<VerifiedSupabaseUser>;
 
 type Dependencies = Readonly<{
+  // The https origin from `supabaseBaseUrl`, used as is.
   supabaseUrl: string;
   now: () => Date;
   fetch?: FetchLike;
-  timeoutMs?: number;
-  // A known key is trusted for this long before the set is read again.
+  timeoutMs: number;
+  // A known key is trusted for this long before the set is read again, so it also bounds how
+  // long a key Supabase has revoked (removed from the set) keeps verifying tokens.
   jwksMaxAgeMs?: number;
   // An unknown key id may trigger a refetch at most once per this period.
   jwksCooldownMs?: number;
@@ -29,6 +32,7 @@ const claimsSchema = z.object({
   sub: z.string().regex(userIdPattern),
   exp: z.number(),
   nbf: z.number().optional(),
+  app_metadata: z.object({ providers: z.array(z.string()).max(10).optional() }).optional(),
 });
 const jwksSchema = z.object({ keys: z.array(z.unknown()).max(50) });
 const jwkSchema = z.object({
@@ -59,11 +63,12 @@ function decodeJson(segment: string): unknown {
  */
 export function createSupabaseTokenVerifier(dependencies: Dependencies): SupabaseTokenVerifier {
   const fetchImpl = dependencies.fetch ?? defaultFetch();
-  const timeoutMs = dependencies.timeoutMs ?? 4000;
-  const maxAgeMs = dependencies.jwksMaxAgeMs ?? 3_600_000;
+  const { timeoutMs } = dependencies;
+  // Ten minutes, as Supabase's own client caches the set: with Supabase's ten-minute edge
+  // cache, a revoked key stops verifying here within about twenty minutes.
+  const maxAgeMs = dependencies.jwksMaxAgeMs ?? 600_000;
   const cooldownMs = dependencies.jwksCooldownMs ?? 60_000;
-  const base = dependencies.supabaseUrl.replace(/\/+$/u, '');
-  const issuer = `${base}/auth/v1`;
+  const issuer = `${dependencies.supabaseUrl}/auth/v1`;
   const jwksUrl = `${issuer}/.well-known/jwks.json`;
 
   let keys: ReadonlyMap<string, CryptoKey> | undefined;
@@ -130,7 +135,7 @@ export function createSupabaseTokenVerifier(dependencies: Dependencies): Supabas
     const claims = claimsSchema.safeParse(decodeJson(payloadSegment));
     if (!verified || !claims.success) throw new AccountError('unauthorized');
     const nowSeconds = dependencies.now().getTime() / 1000;
-    const { iss, aud, sub, exp, nbf } = claims.data;
+    const { iss, aud, sub, exp, nbf, app_metadata: appMetadata } = claims.data;
     const audiences = typeof aud === 'string' ? [aud] : aud;
     if (
       iss !== issuer
@@ -140,6 +145,6 @@ export function createSupabaseTokenVerifier(dependencies: Dependencies): Supabas
     ) {
       throw new AccountError('unauthorized');
     }
-    return { userId: sub };
+    return { userId: sub, hasAppleIdentity: appMetadata?.providers?.includes('apple') === true };
   };
 }

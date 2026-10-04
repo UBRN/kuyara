@@ -1,11 +1,9 @@
-import { useState } from 'react';
-
 import { NativeSheet } from '@/components/ui';
 import { useSinglePush } from '@/components/ui/use-single-push';
 import { accountIntroFirstPage } from '@/features/account/application/account-intro-pages';
 import type { AccountSheetHost } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
-import { AccountConsentContent } from '@/features/account/presentation/account-consent';
+import { AccountConsentContent, useConsentTextToggle } from '@/features/account/presentation/account-consent';
 import { AccountMergeResultContent } from '@/features/account/presentation/account-merge-result';
 import { AccountResultContent } from '@/features/account/presentation/account-result';
 import { AccountSignInPage } from '@/features/account/presentation/account-sign-in-page';
@@ -25,14 +23,7 @@ export function AccountSheet({ host }: Readonly<{ host: AccountSheetHost }>) {
   const push = useSinglePush();
   const { consent, result } = snapshot;
   const asking = consent.prompt === 'signIn';
-  // While the consent text is open a swipe inside it scrolls the text and never closes the sheet.
-  // A new question starts with the text closed.
-  const [textOpen, setTextOpen] = useState(false);
-  const [wasAsking, setWasAsking] = useState(asking);
-  if (wasAsking !== asking) {
-    setWasAsking(asking);
-    setTextOpen(false);
-  }
+  const text = useConsentTextToggle(asking);
   // Duplicates are never removed for the person: the merge result opens the Closet (ADR 0041 section 4).
   const openCloset = () => {
     port.closeSheet();
@@ -41,7 +32,7 @@ export function AccountSheet({ host }: Readonly<{ host: AccountSheetHost }>) {
 
   return (
     <NativeSheet
-      dismissible={!(asking && textOpen)}
+      dismissible={!text.open}
       onDismiss={port.closeSheet}
       size={result && !asking ? 'fit' : 'large'}
       testID={`account-sheet-${host}`}
@@ -49,9 +40,9 @@ export function AccountSheet({ host }: Readonly<{ host: AccountSheetHost }>) {
       {asking
         ? (
           <AccountConsentContent
-            expanded={textOpen}
+            expanded={text.open}
             onContinue={port.answerConsent}
-            onToggleText={() => setTextOpen((open) => !open)}
+            onToggleText={text.toggle}
             status={consent.status}
           />
         )

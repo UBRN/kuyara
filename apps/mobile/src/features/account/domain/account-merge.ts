@@ -1,6 +1,4 @@
 import {
-  landedOutfitHistory,
-  landedWardrobeItem,
   profileWithinConsent,
   type AccountProfile,
   type AccountRows,
@@ -44,14 +42,21 @@ type Row = Readonly<{ id: string; deletedAt: string | null }>;
 type DayRow = Row & Readonly<{ dayKey: string }>;
 type Merged<Item> = Readonly<{ write: readonly Item[]; send: readonly Item[]; added: number; received: number }>;
 
-const isLive = (row: Row | null) => row !== null && row.deletedAt === null;
+/** A row that exists and is not soft-deleted. */
+export const isLiveRow = (row: Row | null) => row !== null && row.deletedAt === null;
+
+/**
+ * The History days with a live look: a day can hold several looks (ADR 0038), and the counts the
+ * person reads are in days (ADR 0041 section 3).
+ */
+export const liveHistoryDays = (rows: readonly OutfitHistoryRecord[]): ReadonlySet<string> =>
+  new Set(rows.filter(isLiveRow).map((row) => row.dayKey));
 
 /** The Closet and History merge by ID and the account's copy wins (ADR 0041 section 4). */
 function mergeById<Item extends Row>(
   candidates: readonly Item[],
   local: readonly Item[],
   remote: readonly Item[],
-  land: (pulled: Item, local: Item | null) => Item,
 ): Merged<Item> {
   const localById = new Map(local.map((row) => [row.id, row]));
   const remoteIds = new Set(remote.map((row) => row.id));
@@ -59,12 +64,12 @@ function mergeById<Item extends Row>(
   let received = 0;
   for (const row of remote) {
     const own = localById.get(row.id) ?? null;
-    if (own === null && !isLive(row)) continue; // a deletion marker for a piece this phone never held
-    write.push(land(row, own));
-    if (isLive(row) && !isLive(own)) received += 1;
+    if (own === null && !isLiveRow(row)) continue; // a deletion marker for a piece this phone never held
+    write.push(row);
+    if (isLiveRow(row) && !isLiveRow(own)) received += 1;
   }
   const send = candidates.filter((row) => !remoteIds.has(row.id));
-  return { write, send, added: send.filter(isLive).length, received };
+  return { write, send, added: send.filter(isLiveRow).length, received };
 }
 
 /**
@@ -76,22 +81,21 @@ function mergeByDay<Item extends DayRow>(
   candidates: readonly Item[],
   local: readonly Item[],
   remote: readonly Item[],
-  land: (pulled: Item, local: Item | null) => Item,
 ): Merged<Item> {
   const localByDay = new Map(local.map((row) => [row.dayKey, row]));
   const remoteByDay = new Map(remote.map((row) => [row.dayKey, row]));
   const write: Item[] = [];
   let received = 0;
-  for (const row of remote.filter(isLive)) {
+  for (const row of remote.filter(isLiveRow)) {
     const own = localByDay.get(row.dayKey) ?? null;
-    write.push(land(row, own));
-    if (!isLive(own)) received += 1;
+    write.push(row);
+    if (!isLiveRow(own)) received += 1;
   }
   const send = candidates.filter((row) => {
     const account = remoteByDay.get(row.dayKey);
-    return account === undefined || (!isLive(account) && isLive(row));
+    return account === undefined || (!isLiveRow(account) && isLiveRow(row));
   });
-  return { write, send, added: send.filter(isLive).length, received };
+  return { write, send, added: send.filter(isLiveRow).length, received };
 }
 
 /**
@@ -103,16 +107,13 @@ function mergeHistory(
   local: readonly OutfitHistoryRecord[],
   remote: readonly OutfitHistoryRecord[],
 ): Merged<OutfitHistoryRecord> {
-  const merged = mergeById(candidates, local, remote, landedOutfitHistory);
-  const liveDays = (rows: readonly OutfitHistoryRecord[]) => new Set(rows.filter(isLive).map((row) => row.dayKey));
+  const merged = mergeById(candidates, local, remote);
   const newDays = (rows: readonly OutfitHistoryRecord[], held: readonly OutfitHistoryRecord[]) => {
-    const heldDays = liveDays(held);
-    return [...liveDays(rows)].filter((dayKey) => !heldDays.has(dayKey)).length;
+    const heldDays = liveHistoryDays(held);
+    return [...liveHistoryDays(rows)].filter((dayKey) => !heldDays.has(dayKey)).length;
   };
   return { ...merged, added: newDays(merged.send, remote), received: newDays(merged.write, local) };
 }
-
-const keep = <Item>(pulled: Item) => pulled;
 
 /**
  * The profile at a first link. Display name and gender come from the account when it has a
@@ -162,10 +163,10 @@ export function mergeAtFirstLink(
       syncConsent: false,
     };
   }
-  const candidates = firstUploadRows(local, options);
-  const closet = mergeById(candidates.wardrobeItems, local.wardrobeItems, remote.wardrobeItems, landedWardrobeItem);
-  const choices = mergeByDay(candidates.dressingDayChoices, local.dressingDayChoices, remote.dressingDayChoices, keep);
-  const departures = mergeByDay(candidates.dressingDayDepartures, local.dressingDayDepartures, remote.dressingDayDepartures, keep);
+  const candidates = firstUploadRows(local, options.now);
+  const closet = mergeById(candidates.wardrobeItems, local.wardrobeItems, remote.wardrobeItems);
+  const choices = mergeByDay(candidates.dressingDayChoices, local.dressingDayChoices, remote.dressingDayChoices);
+  const departures = mergeByDay(candidates.dressingDayDepartures, local.dressingDayDepartures, remote.dressingDayDepartures);
   const history = mergeHistory(candidates.outfitHistory, local.outfitHistory, remote.outfitHistory);
   return {
     writeToPhone: {

@@ -1,12 +1,9 @@
 import {
   accountDeleteV1ErrorSchema,
-  accountDeleteV1Path,
   accountDeleteV1RequestSchema,
   accountDeleteV1SuccessSchema,
   type AccountDeleteV1ErrorCode,
 } from '@kuyara/contracts';
-
-import { afterAccountDeletion } from '@/features/account/domain/account-link';
 
 export type AccountDeletionCode = AccountDeleteV1ErrorCode | 'unknown';
 
@@ -19,13 +16,13 @@ export type AccountDeletionPort = Readonly<{
 }>;
 
 export type AccountDeletionNetworkPort = Readonly<{
+  /** The deletion request, authorized by `accessToken`. */
   request: (
-    path: typeof accountDeleteV1Path,
     body: Readonly<{ appleAuthorizationCode?: string }>,
-    headers: Readonly<{ Authorization: string }>,
+    accessToken: string,
   ) => Promise<Readonly<{ status: number; body: unknown }>>;
   /** Resets the device link and flags, then ends the local session even when the reset failed. */
-  cleanup: (change: ReturnType<typeof afterAccountDeletion> & Readonly<{ clearSession: true }>) => Promise<void>;
+  cleanup: () => Promise<void>;
 }>;
 
 export function createAccountDeletionClient(port: AccountDeletionNetworkPort): AccountDeletionPort {
@@ -37,7 +34,7 @@ export function createAccountDeletionClient(port: AccountDeletionNetworkPort): A
       if (!request.success || input.accessToken.length === 0) return { kind: 'failed', code: 'invalid_request' };
       let response: Readonly<{ status: number; body: unknown }>;
       try {
-        response = await port.request(accountDeleteV1Path, request.data, { Authorization: `Bearer ${input.accessToken}` });
+        response = await port.request(request.data, input.accessToken);
       } catch {
         return { kind: 'failed', code: 'unavailable' };
       }
@@ -46,7 +43,7 @@ export function createAccountDeletionClient(port: AccountDeletionNetworkPort): A
         if (!success.success) return { kind: 'failed', code: 'unknown' };
         // The account is gone whatever happens on the phone now, so the answer stays `deleted`.
         // A cleanup that fails is tried once more; the data layer ends the session either way.
-        const cleanup = () => port.cleanup({ ...afterAccountDeletion(), clearSession: true });
+        const cleanup = () => port.cleanup();
         try {
           await cleanup().catch(cleanup);
         } catch {

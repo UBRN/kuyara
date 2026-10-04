@@ -3,9 +3,7 @@ import test from 'node:test';
 
 import { createAccountSyncFlow } from './account-sync.ts';
 import { unlinked } from '../domain/account-link.ts';
-import { historyDay, syncedProfile, wardrobeItem } from '../__tests__/account-fixtures.mjs';
-
-const empty = () => ({ profile: null, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] });
+import { emptyRows as empty, historyDay, syncedProfile, wardrobeItem } from '../__tests__/account-fixtures.mjs';
 const local = (rows = empty(), pending = false) => ({
   profile: rows.profile === null ? null : { row: rows.profile, pendingSync: pending },
   wardrobeItems: rows.wardrobeItems.map((row) => ({ row, pendingSync: pending })),
@@ -220,6 +218,41 @@ test('a pulled deletion marker soft-deletes the phone\'s settled row, skips a pe
     wardrobeItem(1, { updatedAt: '2026-10-01T00:00:00.000Z', deletedAt: '2026-10-01T00:00:00.000Z' }),
   ]);
   assert.equal(writes[0][1], '2026-10-01T00:00:00.000001Z');
+});
+
+test('a pull mixing markers and whole rows lands each with its own arrival, the latest per row winning', async () => {
+  const at = (n) => `2026-10-01T00:00:00.00000${n}Z`;
+  const marker = (n) => ({ kind: 'deletionMarker', id: wardrobeItem(n).id, createdAt: wardrobeItem(n).createdAt,
+    updatedAt: '2026-10-01T00:00:00.000Z', deletedAt: '2026-10-01T00:00:00.000Z' });
+  const writes = [];
+  const source = {
+    read: async () => local({ ...empty(), wardrobeItems: [wardrobeItem(1), wardrobeItem(2)] }),
+    link: async () => ({ userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: null }),
+    clearPendingIfUnchanged: async () => {},
+    writePulled: async (rows) => writes.push(rows),
+    applyFirstLink: async () => assert.fail('first link'),
+  };
+  const remote = {
+    upload: async (_id, rows) => rows,
+    pull: async () => ({
+      ...empty(),
+      wardrobeItems: [
+        { row: wardrobeItem(1, { name: 'Older' }), serverUpdatedAt: at(1) },
+        { row: marker(1), serverUpdatedAt: at(2) },
+        { row: marker(2), serverUpdatedAt: at(1) },
+        { row: wardrobeItem(2, { name: 'Newer' }), serverUpdatedAt: at(3) },
+        { row: wardrobeItem(4), serverUpdatedAt: at(1) },
+      ],
+      arrivals: [{ serverUpdatedAt: at(3) }],
+    }),
+    pullSnapshot: async () => assert.fail('snapshot'),
+  };
+  await createAccountSyncFlow(source, remote, () => '2026-10-03T00:00:00Z').sync('user-a', true);
+  assert.deepEqual(writes[0].wardrobeItems.map((row) => [row.id, row.name, row.deletedAt]), [
+    [wardrobeItem(1).id, 'Linen shirt', '2026-10-01T00:00:00.000Z'],
+    [wardrobeItem(2).id, 'Newer', null],
+    [wardrobeItem(4).id, 'Linen shirt', null],
+  ]);
 });
 
 test('at a first link an account marker deletes the phone\'s copy and is never sent back', async () => {

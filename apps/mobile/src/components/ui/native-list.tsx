@@ -86,6 +86,19 @@ export function NativeList({ children, testID }: NativeListProps) {
   );
 }
 
+type StatusSymbol = Readonly<{ name: IconName; color: string }>;
+
+const STATUS_SYMBOL_SIZE = 15;
+
+/** The status mark drawn before a footer or a row's supporting text, in the status ink. */
+function StatusSymbolIcon({ color, name }: StatusSymbol) {
+  return Platform.OS === 'ios' ? (
+    <ExpoIcon color={color} name={iconNames[name].ios} size={STATUS_SYMBOL_SIZE} />
+  ) : (
+    <RNHostView matchContents><Icon color={color} name={name} size={STATUS_SYMBOL_SIZE} /></RNHostView>
+  );
+}
+
 export type NativeListSectionProps = Readonly<{
   children?: ReactNode;
   heading?: string;
@@ -94,7 +107,7 @@ export type NativeListSectionProps = Readonly<{
    * A status mark before a text footer, such as a failure: the system draws the footer, so it
    * follows the list's insets and wraps at any text size, and the mark carries the status ink.
    */
-  footerSymbol?: Readonly<{ name: IconName; color: string }>;
+  footerSymbol?: StatusSymbol;
   testID?: string;
 }>;
 
@@ -130,11 +143,7 @@ export function NativeListSection({ children, footer, footerSymbol, heading, tes
   ) : null;
   const nativeFooter = footerText && footerSymbol ? (
     <Row alignment="start" spacing={6}>
-      {Platform.OS === 'ios' ? (
-        <ExpoIcon color={footerSymbol.color} name={iconNames[footerSymbol.name].ios} size={15} />
-      ) : (
-        <RNHostView matchContents><Icon color={footerSymbol.color} name={footerSymbol.name} size={15} /></RNHostView>
-      )}
+      <StatusSymbolIcon {...footerSymbol} />
       {footerText}
     </Row>
   ) : footerText ?? (footer && typeof footer !== 'string' ? <RNHostView matchContents>{footer}</RNHostView> : undefined);
@@ -227,7 +236,7 @@ export type NativeListRowProps = Readonly<{
   /** Renders the headline in the system's red for an action that deletes (ADR 0041 section 7). */
   destructive?: boolean;
   /** A status symbol before the supporting text, so the status reads as ink, glyph and words (Law 4). */
-  supportingSymbol?: Readonly<{ name: IconName; color: string }>;
+  supportingSymbol?: StatusSymbol;
   /** Adds the native selected accessibility trait where the platform wrapper supports it. */
   selected?: boolean;
   /** Explicit chevron control. Defaults to on for a plain navigable row. */
@@ -301,11 +310,7 @@ export function NativeListRow({
   ) : null;
   const symbolSupportingText: ReactNode = supportingSymbol && supportingText !== undefined ? (
     <Row alignment="center" spacing={6}>
-      {Platform.OS === 'ios' ? (
-        <ExpoIcon color={supportingSymbol.color} name={iconNames[supportingSymbol.name].ios} size={15} />
-      ) : (
-        <RNHostView matchContents><Icon color={supportingSymbol.color} name={supportingSymbol.name} size={15} /></RNHostView>
-      )}
+      <StatusSymbolIcon {...supportingSymbol} />
       <ExpoText modifiers={secondaryTextModifiers} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
         {supportingText}
       </ExpoText>

@@ -3,16 +3,16 @@ import test from 'node:test';
 
 import { createAccountDeletionClient } from './account-delete.ts';
 
-test('sends token only in header, validates success and clears the account link after success', async () => {
+test('sends the validated body and the token, then cleans up the phone once after success', async () => {
   const sent = [];
-  const cleared = [];
+  let cleanup = 0;
   const client = createAccountDeletionClient({
-    request: async (path, body, headers) => { sent.push([path, body, headers]); return { status: 200, body: { data: { status: 'deleted' } } }; },
-    cleanup: async (change) => { cleared.push(change); },
+    request: async (body, accessToken) => { sent.push([body, accessToken]); return { status: 200, body: { data: { status: 'deleted' } } }; },
+    cleanup: async () => { cleanup += 1; },
   });
   assert.deepEqual(await client.deleteAccount({ accessToken: 'secret', appleAuthorizationCode: 'code' }), { kind: 'deleted', appleUnrevoked: false });
-  assert.deepEqual(sent, [['/v1/account/delete', { appleAuthorizationCode: 'code' }, { Authorization: 'Bearer secret' }]]);
-  assert.deepEqual(cleared, [{ link: { userId: null, lastUserId: null, recordsUserId: null, recordsConsentRecordedAt: null, cursor: null }, resetPendingFlags: true, clearSession: true }]);
+  assert.deepEqual(sent, [[{ appleAuthorizationCode: 'code' }, 'secret']]);
+  assert.equal(cleanup, 1);
 });
 
 test('an unrevoked Apple deletion still clears the device link and says so', async () => {

@@ -1,5 +1,10 @@
 // Plain rows for the account tests: valid domain values, one builder per synced table.
 
+/** Nothing in any of the five synced tables. */
+export const emptyRows = () => ({
+  profile: null, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [],
+});
+
 export const phoneProfileId = 'phone-profile-sentinel';
 
 export const uuid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;

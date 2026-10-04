@@ -152,9 +152,9 @@ test('a first link leaves the flag of a row written after the merge read it, and
   assert.deepEqual(await flag(database, 'dressing_day_choices'), [1]);
 });
 
-test('a first link that fails part way leaves the phone and the link as they were', async (t) => {
-  const { database } = await setup(t);
-  const failing = new Proxy(database, {
+/** The database with every transaction `runAsync` whose SQL `fails` matches rejecting as a full disk would. */
+function failingWrites(database, fails) {
+  return new Proxy(database, {
     get(target, name) {
       if (name === 'withExclusiveTransactionAsync') {
         return (task) => target.withExclusiveTransactionAsync((transaction) => task({
@@ -162,7 +162,7 @@ test('a first link that fails part way leaves the phone and the link as they wer
           getFirstAsync: transaction.getFirstAsync.bind(transaction),
           getAllAsync: transaction.getAllAsync.bind(transaction),
           execAsync: transaction.execAsync.bind(transaction),
-          runAsync: (sql, params) => (sql.includes('device_account_link')
+          runAsync: (sql, params) => (fails(sql)
             ? Promise.reject(new Error('disk full')) : transaction.runAsync(sql, params)),
         }));
       }
@@ -170,6 +170,11 @@ test('a first link that fails part way leaves the phone and the link as they wer
       return typeof value === 'function' ? value.bind(target) : value;
     },
   });
+}
+
+test('a first link that fails part way leaves the phone and the link as they were', async (t) => {
+  const { database } = await setup(t);
+  const failing = failingWrites(database, (sql) => sql.includes('device_account_link'));
   const source = createSqliteAccountRowsSource(failing);
   const merge = mergeAtFirstLink(none, { ...none, profile: syncedProfile({ displayName: 'Account' }), wardrobeItems: [wardrobeItem(1)] },
     { syncConsent: true, now: stamp(10) });
@@ -177,6 +182,25 @@ test('a first link that fails part way leaves the phone and the link as they wer
   assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items')).n, 0);
   assert.equal((await database.getFirstAsync('SELECT display_name FROM local_profiles')).display_name, 'Phone');
   assert.deepEqual(await source.link(), unlinked);
+});
+
+test('a pulled row that fails to write for any reason but a constraint fails the pull and keeps the cursor', async (t) => {
+  const { database } = await setup(t);
+  await createSqliteAccountRowsSource(database).saveLink({ ...unlinked, userId: 'user-a', lastUserId: 'user-a', cursor: 'cursor-1' });
+  const source = createSqliteAccountRowsSource(failingWrites(database, (sql) => sql.includes('wardrobe_items')));
+  await assert.rejects(source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))] }, 'cursor-2'), /disk full/);
+  assert.equal((await source.link()).cursor, 'cursor-1');
+  assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items')).n, 0);
+});
+
+test('a pulled row this build\'s constraints refuse is skipped, the rest land and the cursor moves on', async (t) => {
+  const { database, source } = await setup(t);
+  await source.writePulled({ ...none, wardrobeItems: [
+    mine(wardrobeItem(1)), mine(wardrobeItem(2, { colorFamily: 'not-a-family' })), mine(wardrobeItem(3)),
+  ] }, 'cursor-2');
+  const ids = await database.getAllAsync('SELECT id FROM wardrobe_items ORDER BY id');
+  assert.deepEqual(ids.map(({ id }) => id), [uuid(1), uuid(3)]);
+  assert.equal((await source.link()).cursor, 'cursor-2');
 });
 
 test('an acknowledged upload clears a flag only while the row still holds the version sent', async (t) => {
@@ -278,6 +302,7 @@ test('a pending row this build cannot read is not waiting, so a write never star
     onAppStateChange: () => () => {},
     isActive: () => false,
     onDatabaseWrite: (listener) => { timers.push(listener); return () => {}; },
+    onAppleRevoked: () => () => {},
     hasPending: source.hasPending,
     autoRefresh: { start: () => {}, stop: () => {} },
     card: { dismissed: async () => false, dismiss: async () => {} },

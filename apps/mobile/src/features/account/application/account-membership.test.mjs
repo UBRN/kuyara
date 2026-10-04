@@ -4,12 +4,12 @@ import test from 'node:test';
 import { accountScenarios, createInMemoryAccountScreens } from './account-screens.ts';
 import { selectIsMember, useIsMember } from './account-membership.ts';
 
-test('a signed-in session is a member and nothing else is', () => {
+test('a signed-in session is a member and nothing else is', async () => {
   const port = createInMemoryAccountScreens();
   assert.equal(selectIsMember(port.getSnapshot()), false);
-  port.signIn('apple');
+  await port.signIn('apple');
   assert.equal(selectIsMember(port.getSnapshot()), true);
-  port.signOut();
+  await port.signOut();
   assert.equal(selectIsMember(port.getSnapshot()), false);
 });
 

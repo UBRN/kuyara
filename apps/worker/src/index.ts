@@ -15,8 +15,8 @@ import {
 import { createAccountDeleteHandler } from './account/account-delete-handler.ts';
 import { createFeedbackHandler, type FeedbackDatabase } from './feedback-handler.ts';
 import { createAppleTokenRevoker } from './account/apple-token-revoker.ts';
-import { isHttpsUrl } from './account/https-url.ts';
 import { createSupabaseAdmin } from './account/supabase-admin.ts';
+import { supabaseBaseUrl } from './account/supabase-base-url.ts';
 import { runSupabaseKeepAlive } from './account/supabase-keep-alive.ts';
 import { createSupabaseTokenVerifier } from './account/supabase-token-verifier.ts';
 import { OpenMeteoPlaceProvider } from './places/open-meteo-place-provider.ts';
@@ -175,6 +175,14 @@ export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
 }
 
 /**
+ * The budget of each upstream call on the account deletion route. The route makes at most five
+ * in a row (the JWKS, the account lookup, Apple's token and revoke calls, the delete), so
+ * 5 x 3 s = 15 s stays under the phone's 20 s wait (`deletionTimeoutMs` in the mobile
+ * `worker-account-deletion.ts`) with room for signing and the phone's network.
+ */
+export const accountUpstreamTimeoutMs = 3000;
+
+/**
  * Account deletion needs its limiter and five settings. It never runs half-configured: the
  * first missing one, named in the log line, takes only this route offline with 503
  * `unavailable`, and nothing is called upstream. The project address must be https because
@@ -183,7 +191,6 @@ export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
 function buildAccountDeleteHandler(env: Env): Handler {
   const {
     ACCOUNT_DELETE_RATE_LIMIT: rateLimiter,
-    SUPABASE_URL: supabaseUrl,
     APPLE_TEAM_ID: teamId,
     SUPABASE_SECRET_KEY: secretKey,
     APPLE_SIGN_IN_PRIVATE_KEY: privateKeyPem,
@@ -191,15 +198,18 @@ function buildAccountDeleteHandler(env: Env): Handler {
   } = env;
   const offline = (binding: string) => offlineRoute(accountDeleteV1Path, binding, accountUnavailable);
   if (!rateLimiter) return offline('ACCOUNT_DELETE_RATE_LIMIT');
-  if (!supabaseUrl || !isHttpsUrl(supabaseUrl)) return offline('SUPABASE_URL');
+  const supabaseUrl = supabaseBaseUrl(env.SUPABASE_URL);
+  if (!supabaseUrl) return offline('SUPABASE_URL');
   if (!teamId) return offline('APPLE_TEAM_ID');
   if (!secretKey) return offline('SUPABASE_SECRET_KEY');
   if (!privateKeyPem) return offline('APPLE_SIGN_IN_PRIVATE_KEY');
   if (!keyId) return offline('APPLE_SIGN_IN_KEY_ID');
   return createAccountDeleteHandler({
-    verifier: createSupabaseTokenVerifier({ supabaseUrl, now: () => new Date() }),
-    admin: createSupabaseAdmin({ supabaseUrl, secretKey }),
-    revoker: createAppleTokenRevoker({ teamId, keyId, privateKeyPem, now: () => new Date() }),
+    verifier: createSupabaseTokenVerifier({ supabaseUrl, now: () => new Date(), timeoutMs: accountUpstreamTimeoutMs }),
+    admin: createSupabaseAdmin({ supabaseUrl, secretKey, timeoutMs: accountUpstreamTimeoutMs }),
+    revoker: createAppleTokenRevoker({
+      teamId, keyId, privateKeyPem, now: () => new Date(), timeoutMs: accountUpstreamTimeoutMs,
+    }),
     rateLimiter,
   });
 }
@@ -306,9 +316,9 @@ export default {
     if (composed?.key !== key) composed = { key, router: buildRouter(env) };
     return composed.router(request, ctx);
   },
-  // The daily Cron Trigger of wrangler.jsonc: the Supabase keep-alive request (ADR 0041,
-  // section 11). It needs no router, only the two settings it reads.
+  // The Cron Trigger of wrangler.jsonc, four times a day: the Supabase keep-alive request
+  // (ADR 0041, section 11). It needs no router, only the two settings it reads.
   async scheduled(_controller: unknown, env: Env): Promise<void> {
-    await runSupabaseKeepAlive({ supabaseUrl: env.SUPABASE_URL, secretKey: env.SUPABASE_SECRET_KEY });
+    await runSupabaseKeepAlive({ supabaseUrl: supabaseBaseUrl(env.SUPABASE_URL), secretKey: env.SUPABASE_SECRET_KEY });
   },
 };

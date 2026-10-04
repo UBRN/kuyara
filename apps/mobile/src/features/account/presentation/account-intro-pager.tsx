@@ -39,10 +39,15 @@ function useScreenReaderRunning() {
   return running;
 }
 
+// The same foreground test as the screen visibility hooks, for the first value and every change.
+function inForeground(state: string) {
+  return state !== 'background' && state !== 'inactive';
+}
+
 function useAppInForeground() {
-  const [foreground, setForeground] = useState(AppState.currentState !== 'background');
+  const [foreground, setForeground] = useState(() => inForeground(AppState.currentState));
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => setForeground(state === 'active'));
+    const subscription = AppState.addEventListener('change', (state) => setForeground(inForeground(state)));
     return () => subscription.remove();
   }, []);
   return foreground;

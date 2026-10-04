@@ -153,16 +153,22 @@ test('adding Apple links the identity with the ID token and nonce, and an identi
     (error) => error instanceof AccountProviderError && error.code === 'identityTaken');
 });
 
-/** Settles `promise` while the client's retry backoff runs on mocked timers. */
+/** Settles `promise` while the client's retry backoff runs on mocked timers; fails after 100 s of them. */
 async function settled(t, promise) {
   let done = false;
   promise.then(() => { done = true; }, () => { done = true; });
-  while (!done) {
+  for (let tick = 0; !done; tick += 1) {
+    if (tick === 200) assert.fail('the promise never settled within 100 s of mocked time');
     t.mock.timers.tick(500);
     await new Promise((resolve) => setImmediate(resolve));
   }
   return promise;
 }
+
+test('settling a promise that never settles fails instead of hanging the run', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  await assert.rejects(settled(t, new Promise(() => {})), /never settled/);
+});
 
 test('offline or a failing server never ends the session; a refused refresh token does', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });

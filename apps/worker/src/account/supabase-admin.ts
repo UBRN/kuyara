@@ -18,12 +18,12 @@ export type SupabaseAdmin = Readonly<{
 }>;
 
 type Dependencies = Readonly<{
+  // The https origin from `supabaseBaseUrl`, used as is.
   supabaseUrl: string;
   secretKey: string;
   fetch?: FetchLike;
-  timeoutMs?: number;
+  timeoutMs: number;
 }>;
-
 
 const userSchema = z.object({
   id: z.string(),
@@ -41,8 +41,8 @@ const userSchema = z.object({
  */
 export function createSupabaseAdmin(dependencies: Dependencies): SupabaseAdmin {
   const fetchImpl = dependencies.fetch ?? defaultFetch();
-  const timeoutMs = dependencies.timeoutMs ?? 4000;
-  const base = `${dependencies.supabaseUrl.replace(/\/+$/u, '')}/auth/v1/admin/users`;
+  const { timeoutMs } = dependencies;
+  const base = `${dependencies.supabaseUrl}/auth/v1/admin/users`;
   const headers = { apikey: dependencies.secretKey, Accept: 'application/json' };
 
   function urlFor(userId: string): string {

@@ -1,22 +1,18 @@
-import { act, fireEvent, render, within, type RenderResult } from '@testing-library/react-native';
-import type { PropsWithChildren, ReactElement } from 'react';
-import { Alert, StyleSheet } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { act, fireEvent, within } from '@testing-library/react-native';
+import type { PropsWithChildren } from 'react';
+import { AccessibilityInfo, Alert, StyleSheet } from 'react-native';
 
 import {
   accountScenarios,
   createInMemoryAccountScreens,
   type AccountScenarioName,
-  type AccountScreensPort,
 } from '@/features/account/application/account-screens';
-import { AccountScreensContext } from '@/features/account/application/account-screens-context';
+import { renderWith } from '@/features/account/__tests__/render-account-screen';
 import { AccountScreen } from '@/features/account/presentation/account-screen';
 import { AccountSheet } from '@/features/account/presentation/account-sheet';
 import { DeleteAccountScreen } from '@/features/account/presentation/delete-account-screen';
-import { LocalizationContext } from '@/localization/localization-context';
-import { messages, type SupportedLanguage } from '@/localization/messages';
+import { messages } from '@/localization/messages';
 import { borderWidths, layout, lightTheme, spacing, typography } from '@/theme/theme';
-import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
@@ -39,18 +35,6 @@ jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({}), useRouter: (
 
 const en = messages.en.account;
 const tr = messages.tr.account;
-
-function renderWith(port: AccountScreensPort, element: ReactElement, language: SupportedLanguage = 'en'): Promise<RenderResult> {
-  return render(
-    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
-      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
-        <KuyaraThemeContext.Provider value={lightTheme}>
-          <AccountScreensContext.Provider value={port}>{element}</AccountScreensContext.Provider>
-        </KuyaraThemeContext.Provider>
-      </LocalizationContext.Provider>
-    </SafeAreaProvider>,
-  );
-}
 
 const portFor = (scenario: AccountScenarioName) =>
   createInMemoryAccountScreens(accountScenarios[scenario], () => new Date('2026-10-04T07:05:00.000Z'));
@@ -90,13 +74,23 @@ describe('the sync consent sheet after sign-in (ADR 0041 section 5)', () => {
     expect(screen.getByText(en.welcome.withoutRecords)).toBeTruthy();
   });
 
+  test.each(['en', 'tr'] as const)('after a first sync that failed, the welcome claims nothing reached the account yet (%s)', async (language) => {
+    const welcome = accountScenarios.welcomeWithoutRecords;
+    if (welcome.result?.kind !== 'signedIn') throw new Error('the scenario shows the welcome');
+    const port = createInMemoryAccountScreens({ ...welcome, result: { ...welcome.result, added: 'nothingYet' } });
+    const screen = await renderWith(port, <AccountSheet host="profile" />, language);
+    const copy = messages[language].account.welcome;
+    expect(screen.getByText(copy.notYet)).toBeTruthy();
+    expect(screen.queryByText(copy.withoutRecords)).toBeNull();
+  });
+
   test('Continue with the box ticked gives the consent', async () => {
     const port = portFor('consentAfterSignIn');
     const screen = await renderWith(port, <AccountSheet host="profile" />);
     await fireEvent.press(screen.getByRole('checkbox'));
     await fireEvent.press(screen.getByTestId('account-consent-continue'));
     expect(port.getSnapshot().session).toMatchObject({ syncConsent: 'given' });
-    expect(port.getSnapshot().result).toMatchObject({ kind: 'signedIn', records: true });
+    expect(port.getSnapshot().result).toMatchObject({ kind: 'signedIn', added: 'records' });
   });
 
   test('Read the text opens the full text in place and Hide the text closes it', async () => {
@@ -124,9 +118,20 @@ describe('the sync consent sheet after sign-in (ADR 0041 section 5)', () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
-  test('an answer that could not be saved shows the error line and keeps Continue', async () => {
+  test('while the answer is saved Continue spins and takes no second press', async () => {
+    const port = portFor('consentSaving');
+    const answer = jest.spyOn(port, 'answerConsent');
+    const screen = await renderWith(port, <AccountSheet host="profile" />);
+    expect(screen.getByTestId('account-consent-continue')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('account-consent-continue'));
+    expect(answer).not.toHaveBeenCalled();
+  });
+
+  test('an answer that could not be saved shows the error line, spoken, and keeps Continue', async () => {
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
     const screen = await renderWith(portFor('consentFailed'), <AccountSheet host="profile" />);
     expect(screen.getByTestId('account-consent-failed')).toHaveTextContent(en.consent.failed);
+    expect(announce).toHaveBeenCalledWith(en.consent.failed);
     expect(screen.getByTestId('account-consent-continue')).not.toBeDisabled();
   });
 
@@ -281,6 +286,16 @@ describe('the Account screen records group (ADR 0041 section 10)', () => {
     expect(alert).toHaveBeenCalledWith(en.signOutAlert.title, en.signOutAlert.bodyWithoutRecords, expect.any(Array));
   });
 
+  test('while an answer or a withdrawal is saved the records row does nothing', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const port = portFor('recordsSaving');
+    const open = jest.spyOn(port, 'openConsent');
+    const screen = await renderWith(port, <AccountScreen onOpenDelete={jest.fn()} />);
+    await fireEvent.press(screen.getByTestId('account-records-action-row'));
+    expect(open).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+  });
+
   test('a withdrawal that failed says nothing changed in the system footer, with the danger mark', async () => {
     const screen = await renderWith(portFor('withdrawFailed'), <AccountScreen onOpenDelete={jest.fn()} />);
     const group = screen.getByTestId('account-records-group');
@@ -314,7 +329,7 @@ describe('the restore result names only what came from the account', () => {
 
 describe('the deletion result when Apple could not be disconnected (ADR 0041 section 7)', () => {
   test('it says what was deleted and how to remove kuyara from Sign in with Apple', async () => {
-    const screen = await renderWith(portFor('deletedAppleUnrevoked'), <AccountSheet host="settings" />);
+    const screen = await renderWith(portFor('deletedAppleUnrevoked'), <AccountSheet host="app" />);
     expect(screen.getByText(en.deleted.goneUnrevoked)).toBeTruthy();
     expect(screen.queryByText(en.deleted.gone.apple)).toBeNull();
     expect(screen.getByTestId('account-result-apple-unrevoked'))
@@ -322,13 +337,13 @@ describe('the deletion result when Apple could not be disconnected (ADR 0041 sec
   });
 
   test('in Turkish it names the path in Turkish iOS terms', async () => {
-    const screen = await renderWith(portFor('deletedAppleUnrevoked'), <AccountSheet host="settings" />, 'tr');
+    const screen = await renderWith(portFor('deletedAppleUnrevoked'), <AccountSheet host="app" />, 'tr');
     expect(screen.getByTestId('account-result-apple-unrevoked'))
       .toHaveTextContent(/Ayarlar > adın > Apple ile Giriş Yap bölümünü aç, kuyara’yı seç ve Sil’e dokun\./);
   });
 
   test('a revoked deletion shows no such line', async () => {
-    const screen = await renderWith(portFor('deleted'), <AccountSheet host="settings" />);
+    const screen = await renderWith(portFor('deleted'), <AccountSheet host="app" />);
     expect(screen.queryByTestId('account-result-apple-unrevoked')).toBeNull();
     expect(screen.getByText(en.deleted.gone.apple)).toBeTruthy();
   });

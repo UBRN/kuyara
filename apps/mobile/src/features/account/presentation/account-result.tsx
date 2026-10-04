@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Icon, ProgressFill, type IconName } from '@/components/ui';
+import { AppText, Button, Icon, type IconName } from '@/components/ui';
 import type { AccountResult } from '@/features/account/application/account-screens';
 import type { ProfileSource } from '@/features/account/domain/account-merge';
 import { useMessages } from '@/localization/use-messages';
-import { radii, spacing } from '@/theme/theme';
+import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 /** One result line: a secondary-ink mark and its sentence. */
@@ -40,8 +40,6 @@ type SingleResult = Exclude<AccountResult, Readonly<{ kind: 'merged' }>>;
 export function AccountResultContent({ onDone, result }: Readonly<{ result: SingleResult; onDone: () => void }>) {
   const copy = useMessages().account;
   const theme = useKuyaraTheme();
-  const success = { color: theme.colors.successInk, name: 'checkCircle' } as const;
-  const mark = result.kind === 'restoring' ? { color: theme.colors.textPrimary, name: 'restoreArrow' } as const : success;
 
   let title: string;
   let body: ReactNode;
@@ -57,29 +55,13 @@ export function AccountResultContent({ onDone, result }: Readonly<{ result: Sing
             <AppText colorRole="textSecondary" variant="caption">{copy.method[result.provider]}</AppText>
           </ResultRow>
           <ResultRow icon="hanger">
-            {result.records
+            {result.added === 'records'
               ? <AppText tabularNumbers>{copy.welcome.summary(result.pieces, result.days)}</AppText>
-              : <AppText>{copy.welcome.withoutRecords}</AppText>}
+              : <AppText>{result.added === 'profile' ? copy.welcome.withoutRecords : copy.welcome.notYet}</AppText>}
           </ResultRow>
         </>
       );
       break;
-    case 'restoring': {
-      const { counts } = result;
-      const done = counts.piecesDone + counts.daysDone;
-      const total = counts.piecesTotal + counts.daysTotal;
-      title = copy.restore.progressTitle;
-      action = copy.restore.progressAction;
-      body = (
-        <>
-          <ProgressFill progress={total > 0 ? done / total : 0} style={styles.progress} />
-          <AppText tabularNumbers testID="account-result-progress">{copy.restore.progressCount(counts)}</AppText>
-          <AppText>{copy.restore.progressBody}</AppText>
-          <AppText colorRole="textSecondary" variant="caption">{copy.restore.progressKeep}</AppText>
-        </>
-      );
-      break;
-    }
     case 'restored':
       title = copy.restore.doneTitle;
       action = copy.restore.done;
@@ -113,7 +95,7 @@ export function AccountResultContent({ onDone, result }: Readonly<{ result: Sing
 
   return (
     <View style={styles.content} testID={`account-result-${result.kind}`}>
-      <Icon color={mark.color} name={mark.name} size={28} />
+      <Icon color={theme.colors.successInk} name="checkCircle" size={28} />
       <AppText accessibilityRole="header" variant="titleLarge">{title}</AppText>
       {body}
       <Button label={action} onPress={onDone} size="large" testID="account-result-done" />
@@ -125,5 +107,4 @@ const styles = StyleSheet.create({
   content: { gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.xl },
   row: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.md },
   rowText: { flex: 1, gap: spacing.xs },
-  progress: { borderRadius: radii.pill, height: 6 },
 });

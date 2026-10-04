@@ -11,7 +11,7 @@ const userId = '3f2b8c1e-5d4a-4c1b-9a7e-0d6f1b2c3d4e';
 function setup(handler) {
   const calls = [];
   const admin = createSupabaseAdmin({
-    supabaseUrl: `${supabaseUrl}/`, secretKey, timeoutMs: 20,
+    supabaseUrl, secretKey, timeoutMs: 20,
     fetch: async (url, init) => { calls.push({ url: String(url), init }); return handler({ url: String(url), init }); },
   });
   return { calls, admin };

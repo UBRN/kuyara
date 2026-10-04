@@ -25,7 +25,8 @@ export type TextButtonProps = Omit<
  * A quiet secondary action drawn as small text, such as an offer's "Not now" beside its
  * button. It looks like a caption but is a button: role, label, focus ring and a box at
  * least 44 points tall and wide (56 tall while Easier to see is on), so the target never
- * shrinks with the ink. `link` draws the caption as the sign-in footnote's links are drawn.
+ * shrinks with the ink. `link` draws the caption in brand ink, underlined, for links such as the
+ * sign-in footnote's.
  */
 export function TextButton({
   accessibilityLabel,

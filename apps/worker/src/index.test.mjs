@@ -4,7 +4,7 @@ import test, { mock } from 'node:test';
 import { generateEs256Key } from './__tests__/es256-test-key.mjs';
 import { DailyCounter } from './daily-counter.ts';
 import { createEs256Signer, base64UrlEncode } from './es256-jwt.ts';
-import worker, { buildRouter } from './index.ts';
+import worker, { accountUpstreamTimeoutMs, buildRouter } from './index.ts';
 
 // The composition logs missing bindings and the chain logs failed attempts; keep that out
 // of the test output.
@@ -595,16 +595,25 @@ test('the composed account route deletes an Apple account unrevoked when no code
   ]);
 });
 
-test('the scheduled handler makes the keep-alive request from the Supabase settings, and skips without them', async (t) => {
+test('the scheduled handler makes the keep-alive request from the parsed Supabase settings, and skips without them', async (t) => {
   t.mock.method(console, 'info', () => {});
   const calls = [];
   t.mock.method(globalThis, 'fetch', async (input, init) => {
     calls.push([init.method, String(input), init.headers.apikey]);
     return Response.json(true);
   });
-  await worker.scheduled({}, boundEnv);
+  await worker.scheduled({}, { ...boundEnv, SUPABASE_URL: 'https://project.supabase.co/' });
   assert.deepEqual(calls, [['POST', 'https://project.supabase.co/rest/v1/rpc/keep_alive', 'sb_secret_placeholder']]);
   calls.length = 0;
-  await worker.scheduled({}, { ...boundEnv, SUPABASE_SECRET_KEY: undefined });
+  for (const unusable of [{ SUPABASE_SECRET_KEY: undefined }, { SUPABASE_URL: 'http://project.supabase.co' }, { SUPABASE_URL: 'not a url' }]) {
+    await worker.scheduled({}, { ...boundEnv, ...unusable });
+  }
   assert.deepEqual(calls, []);
+});
+
+test('the deletion route\'s five upstream calls fit inside the phone\'s wait with room to spare', () => {
+  // The phone's deletionTimeoutMs (apps/mobile worker-account-deletion.ts) is 20 s; signing,
+  // the Worker itself and the phone's own network need the rest.
+  const phoneWaitMs = 20_000;
+  assert.ok(5 * accountUpstreamTimeoutMs <= phoneWaitMs - 5000, String(accountUpstreamTimeoutMs));
 });

@@ -28,21 +28,17 @@ export function signOut(link: AccountLink): AccountLink {
   return { ...link, userId: null };
 }
 
-/** Deletion clears the link, the last linked user, the cursor and every pending flag. */
-export function afterAccountDeletion(): Readonly<{ link: AccountLink; resetPendingFlags: true }> {
-  return { link: unlinked, resetPendingFlags: true };
-}
-
 /**
- * Which pass a sync runs for the signed-in `userId`. With the consent, a phone whose records
- * have not joined this account under its current consent takes a first link, which pulls and
- * merges everything: a new account, a consent given later on any phone, or a consent withdrawn
- * and given again while this phone was away (`withdrawnAt`, the latest `withdrawn` record's
- * arrival, is newer than the `given` record the records joined under; a redundant later `given`
- * with no withdrawal after the joining one resumes, so the phone's pending edits are not
- * overwritten). Without it only the profile crosses: the account
- * this phone was last linked to resumes silently, so a name or gender edit made while signed out
- * uploads (section 6); any other account takes a first link.
+ * Which pass a sync runs for the signed-in `userId`. An account other than the one this phone
+ * was last linked to always takes a first link (section 6), with the consent or without it, so
+ * the pull starts from that account's own cursor. With the consent, the last linked account also
+ * takes one while this phone's records have not joined it under its current consent, which pulls
+ * and merges everything: a consent given later on any phone, or a consent withdrawn and given
+ * again while this phone was away (`withdrawnAt`, the latest `withdrawn` record's arrival, is
+ * newer than the `given` record the records joined under; a redundant later `given` with no
+ * withdrawal after the joining one resumes, so the phone's pending edits are not overwritten).
+ * Without it only the profile crosses, and the last linked account resumes silently, so a name
+ * or gender edit made while signed out uploads.
  */
 export function syncPassFor(
   link: AccountLink,
@@ -50,7 +46,8 @@ export function syncPassFor(
   syncConsent: boolean,
   withdrawnAt: string | null,
 ): 'first-link' | 'sync' {
-  if (!syncConsent) return link.lastUserId === userId ? 'sync' : 'first-link';
+  if (link.lastUserId !== userId) return 'first-link';
+  if (!syncConsent) return 'sync';
   const joinedAt = link.recordsConsentRecordedAt;
   const joined = link.recordsUserId === userId && joinedAt !== null && (withdrawnAt === null || withdrawnAt <= joinedAt);
   return joined ? 'sync' : 'first-link';

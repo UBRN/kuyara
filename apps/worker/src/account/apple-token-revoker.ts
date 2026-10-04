@@ -19,14 +19,14 @@ type Dependencies = Readonly<{
   teamId: string;
   keyId: string;
   privateKeyPem: string;
-  // The bundle identifier: Apple's client id for the native flow.
-  clientId?: string;
   now: () => Date;
   fetch?: FetchLike;
-  timeoutMs?: number;
+  timeoutMs: number;
 }>;
 
 const appleOrigin = 'https://appleid.apple.com';
+// The bundle identifier: Apple's client id for the native flow.
+const appleClientId = 'com.ubrn.kuyara';
 const clientSecretLifetimeSeconds = 300;
 
 const tokenAnswerSchema = z.object({
@@ -63,8 +63,7 @@ function idTokenClaims(idToken: string): z.infer<typeof idTokenClaimsSchema> | u
  */
 export function createAppleTokenRevoker(dependencies: Dependencies): AppleTokenRevoker {
   const fetchImpl = dependencies.fetch ?? defaultFetch();
-  const timeoutMs = dependencies.timeoutMs ?? 4000;
-  const clientId = dependencies.clientId ?? 'com.ubrn.kuyara';
+  const { timeoutMs } = dependencies;
   const sign = createEs256Signer(dependencies.privateKeyPem);
 
   async function clientSecret(): Promise<string> {
@@ -77,7 +76,7 @@ export function createAppleTokenRevoker(dependencies: Dependencies): AppleTokenR
           iat: issuedAt,
           exp: issuedAt + clientSecretLifetimeSeconds,
           aud: appleOrigin,
-          sub: clientId,
+          sub: appleClientId,
         },
       );
     } catch {
@@ -97,7 +96,7 @@ export function createAppleTokenRevoker(dependencies: Dependencies): AppleTokenR
   return async ({ authorizationCode, expectedSubject }) => {
     const secret = await clientSecret();
     const exchange = await boundedFetch(fetchImpl, `${appleOrigin}/auth/token`, form({
-      client_id: clientId,
+      client_id: appleClientId,
       client_secret: secret,
       code: authorizationCode,
       grant_type: 'authorization_code',
@@ -108,13 +107,13 @@ export function createAppleTokenRevoker(dependencies: Dependencies): AppleTokenR
     const answer = exchange.status === 200 ? tokenAnswerSchema.safeParse(exchange.json) : undefined;
     if (!answer?.success) throw new AccountError('unavailable');
     const claims = idTokenClaims(answer.data.id_token);
-    if (claims === undefined || claims.aud !== clientId) throw new AccountError('unavailable');
+    if (claims === undefined || claims.aud !== appleClientId) throw new AccountError('unavailable');
     // A code from another Apple account must not revoke that account's token; the token
     // obtained here is dropped unused.
     if (claims.sub !== expectedSubject) return 'refused';
 
     const revocation = await boundedFetch(fetchImpl, `${appleOrigin}/auth/revoke`, form({
-      client_id: clientId,
+      client_id: appleClientId,
       client_secret: secret,
       token: answer.data.refresh_token,
       token_type_hint: 'refresh_token',

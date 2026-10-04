@@ -11,6 +11,8 @@ const userId = '3f2b8c1e-5d4a-4c1b-9a7e-0d6f1b2c3d4e';
 const nowSeconds = 1_800_000_000;
 const now = () => new Date(nowSeconds * 1000);
 const jwksUrl = `${supabaseUrl}/auth/v1/.well-known/jwks.json`;
+const timeoutMs = 50;
+const verified = { userId, hasAppleIdentity: false };
 
 const claims = (patch = {}) => ({
   iss: `${supabaseUrl}/auth/v1`, aud: 'authenticated', sub: userId, role: 'authenticated',
@@ -41,10 +43,10 @@ async function assertRejects(promise, code) {
 test('a valid token returns the user id from sub and reads the JWKS once', async () => {
   const { jwk, sign } = await fixture();
   const calls = [];
-  const verify = createSupabaseTokenVerifier({ supabaseUrl, now, fetch: jwksFetch(() => [jwk('k1')], calls) });
+  const verify = createSupabaseTokenVerifier({ supabaseUrl, timeoutMs, now, fetch: jwksFetch(() => [jwk('k1')], calls) });
   const token = await sign({ alg: 'ES256', kid: 'k1', typ: 'JWT' }, claims());
-  assert.deepEqual(await verify(token), { userId });
-  assert.deepEqual(await verify(token), { userId });
+  assert.deepEqual(await verify(token), verified);
+  assert.deepEqual(await verify(token), verified);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, jwksUrl);
   // 'manual', not 'error': workerd rejects 'error' before any network call.
@@ -52,21 +54,15 @@ test('a valid token returns the user id from sub and reads the JWKS once', async
   assert.ok(calls[0].init.signal);
 });
 
-test('a trailing slash on the project address does not change the issuer', async () => {
-  const { jwk, sign } = await fixture();
-  const verify = createSupabaseTokenVerifier({ supabaseUrl: `${supabaseUrl}/`, now, fetch: jwksFetch(() => [jwk('k1')]) });
-  assert.deepEqual(await verify(await sign({ alg: 'ES256', kid: 'k1' }, claims())), { userId });
-});
-
 test('an aud array containing authenticated is accepted', async () => {
   const { jwk, sign } = await fixture();
-  const verify = createSupabaseTokenVerifier({ supabaseUrl, now, fetch: jwksFetch(() => [jwk('k1')]) });
-  assert.deepEqual(await verify(await sign({ alg: 'ES256', kid: 'k1' }, claims({ aud: ['x', 'authenticated'] }))), { userId });
+  const verify = createSupabaseTokenVerifier({ supabaseUrl, timeoutMs, now, fetch: jwksFetch(() => [jwk('k1')]) });
+  assert.deepEqual(await verify(await sign({ alg: 'ES256', kid: 'k1' }, claims({ aud: ['x', 'authenticated'] }))), verified);
 });
 
 test('claims that do not match are unauthorized', async () => {
   const { jwk, sign } = await fixture();
-  const verify = createSupabaseTokenVerifier({ supabaseUrl, now, fetch: jwksFetch(() => [jwk('k1')]) });
+  const verify = createSupabaseTokenVerifier({ supabaseUrl, timeoutMs, now, fetch: jwksFetch(() => [jwk('k1')]) });
   const header = { alg: 'ES256', kid: 'k1' };
   for (const patch of [
     { exp: nowSeconds }, { exp: nowSeconds - 1 }, { exp: undefined }, { exp: '9999999999' },
@@ -81,7 +77,7 @@ test('claims that do not match are unauthorized', async () => {
 
 test('only ES256 with a matching signature passes', async () => {
   const { jwk, sign } = await fixture();
-  const verify = createSupabaseTokenVerifier({ supabaseUrl, now, fetch: jwksFetch(() => [jwk('k1')]) });
+  const verify = createSupabaseTokenVerifier({ supabaseUrl, timeoutMs, now, fetch: jwksFetch(() => [jwk('k1')]) });
   const good = await sign({ alg: 'ES256', kid: 'k1' }, claims());
   const [header, payload, signature] = good.split('.');
   const encode = (value) => base64UrlEncode(new TextEncoder().encode(JSON.stringify(value)));
@@ -109,7 +105,7 @@ test('an unknown key id refetches once, then waits for the cooldown', async () =
   let clock = nowSeconds * 1000;
   const calls = [];
   const verify = createSupabaseTokenVerifier({
-    supabaseUrl, now: () => new Date(clock), jwksCooldownMs: 60_000, fetch: jwksFetch(() => [jwk('k1')], calls),
+    supabaseUrl, timeoutMs, now: () => new Date(clock), jwksCooldownMs: 60_000, fetch: jwksFetch(() => [jwk('k1')], calls),
   });
   const known = await sign({ alg: 'ES256', kid: 'k1' }, claims());
   await verify(known);
@@ -133,12 +129,12 @@ test('a rotated key is found by the one refetch', async () => {
   let keys = [first.jwk('k1')];
   const calls = [];
   const verify = createSupabaseTokenVerifier({
-    supabaseUrl, now: () => new Date(clock), jwksCooldownMs: 60_000, fetch: jwksFetch(() => keys, calls),
+    supabaseUrl, timeoutMs, now: () => new Date(clock), jwksCooldownMs: 60_000, fetch: jwksFetch(() => keys, calls),
   });
   await verify(await first.sign({ alg: 'ES256', kid: 'k1' }, claims()));
   clock += 61_000;
   keys = [first.jwk('k1'), second.jwk('k2')];
-  assert.deepEqual(await verify(await second.sign({ alg: 'ES256', kid: 'k2' }, claims({ exp: nowSeconds + 7200 }))), { userId });
+  assert.deepEqual(await verify(await second.sign({ alg: 'ES256', kid: 'k2' }, claims({ exp: nowSeconds + 7200 }))), verified);
   assert.equal(calls.length, 2);
 });
 
@@ -147,7 +143,7 @@ test('a cached key set expires and is read again', async () => {
   let clock = nowSeconds * 1000;
   const calls = [];
   const verify = createSupabaseTokenVerifier({
-    supabaseUrl, now: () => new Date(clock), jwksMaxAgeMs: 600_000, fetch: jwksFetch(() => [jwk('k1')], calls),
+    supabaseUrl, timeoutMs, now: () => new Date(clock), jwksMaxAgeMs: 600_000, fetch: jwksFetch(() => [jwk('k1')], calls),
   });
   const token = await sign({ alg: 'ES256', kid: 'k1' }, claims({ exp: nowSeconds + 7200 }));
   await verify(token);
@@ -159,10 +155,38 @@ test('a cached key set expires and is read again', async () => {
   assert.equal(calls.length, 2);
 });
 
+test('by default a key Supabase revoked stops verifying ten minutes after the set was read', async () => {
+  const { jwk, sign } = await fixture();
+  let clock = nowSeconds * 1000;
+  let keys = [jwk('k1')];
+  const verify = createSupabaseTokenVerifier({
+    supabaseUrl, timeoutMs, now: () => new Date(clock), fetch: jwksFetch(() => keys),
+  });
+  const token = await sign({ alg: 'ES256', kid: 'k1' }, claims({ exp: nowSeconds + 7200 }));
+  assert.deepEqual(await verify(token), verified);
+  keys = [];
+  clock += 599_000;
+  assert.deepEqual(await verify(token), verified);
+  clock += 1000;
+  await assertRejects(verify(token), 'unauthorized');
+});
+
+test('the signed providers claim tells whether the account had an Apple identity', async () => {
+  const { jwk, sign } = await fixture();
+  const verify = createSupabaseTokenVerifier({ supabaseUrl, timeoutMs, now, fetch: jwksFetch(() => [jwk('k1')]) });
+  const header = { alg: 'ES256', kid: 'k1' };
+  const withProviders = (providers) => claims({ app_metadata: { provider: providers[0], providers } });
+  assert.deepEqual(await verify(await sign(header, withProviders(['google', 'apple']))), { userId, hasAppleIdentity: true });
+  assert.deepEqual(await verify(await sign(header, withProviders(['google']))), verified);
+  assert.deepEqual(await verify(await sign(header, claims({ app_metadata: {} }))), verified);
+  assert.deepEqual(await verify(await sign(header, claims())), verified);
+  await assertRejects(verify(await sign(header, claims({ app_metadata: { providers: 'apple' } }))), 'unauthorized');
+});
+
 test('concurrent verifications share one JWKS request', async () => {
   const { jwk, sign } = await fixture();
   const calls = [];
-  const verify = createSupabaseTokenVerifier({ supabaseUrl, now, fetch: jwksFetch(() => [jwk('k1')], calls) });
+  const verify = createSupabaseTokenVerifier({ supabaseUrl, timeoutMs, now, fetch: jwksFetch(() => [jwk('k1')], calls) });
   const token = await sign({ alg: 'ES256', kid: 'k1' }, claims());
   await Promise.all([verify(token), verify(token), verify(token)]);
   assert.equal(calls.length, 1);
@@ -171,8 +195,8 @@ test('concurrent verifications share one JWKS request', async () => {
 test('non-EC and malformed keys in the set are ignored', async () => {
   const { jwk, sign } = await fixture();
   const keys = [{ kty: 'RSA', kid: 'k0', n: 'AQAB', e: 'AQAB' }, { kty: 'EC', crv: 'P-256', kid: 'bad', x: '!', y: '!' }, jwk('k1')];
-  const verify = createSupabaseTokenVerifier({ supabaseUrl, now, fetch: jwksFetch(() => keys) });
-  assert.deepEqual(await verify(await sign({ alg: 'ES256', kid: 'k1' }, claims())), { userId });
+  const verify = createSupabaseTokenVerifier({ supabaseUrl, timeoutMs, now, fetch: jwksFetch(() => keys) });
+  assert.deepEqual(await verify(await sign({ alg: 'ES256', kid: 'k1' }, claims())), verified);
   await assertRejects(verify(await sign({ alg: 'ES256', kid: 'k0' }, claims())), 'unauthorized');
 });
 
@@ -187,7 +211,7 @@ test('JWKS outages are unavailable and carry no upstream detail', async () => {
     async () => Response.json({ nothing: true }),
   ];
   for (const fetch of failures) {
-    const verify = createSupabaseTokenVerifier({ supabaseUrl, now, fetch });
+    const verify = createSupabaseTokenVerifier({ supabaseUrl, timeoutMs, now, fetch });
     await assert.rejects(verify(token), (error) => {
       assert.ok(error instanceof AccountError);
       assert.equal(error.code, 'unavailable');
@@ -213,10 +237,10 @@ test('a failed fetch does not stay cached: the next call tries again', async () 
   const { jwk, sign } = await fixture();
   let calls = 0;
   const verify = createSupabaseTokenVerifier({
-    supabaseUrl, now,
+    supabaseUrl, timeoutMs, now,
     fetch: async () => { calls += 1; return calls === 1 ? new Response('x', { status: 503 }) : Response.json({ keys: [jwk('k1')] }); },
   });
   const token = await sign({ alg: 'ES256', kid: 'k1' }, claims());
   await assertRejects(verify(token), 'unavailable');
-  assert.deepEqual(await verify(token), { userId });
+  assert.deepEqual(await verify(token), verified);
 });

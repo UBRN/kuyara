@@ -5,12 +5,15 @@ import type {
 } from '@/features/account/application/account-session';
 import {
   createAccountSyncFlow,
+  pendingUpload,
+  rowCount,
   type AccountRemotePort,
   type AccountRowsSourcePort,
   type FirstLinkOutcome,
   type LocalAccountRows,
 } from '@/features/account/application/account-sync';
 import { linkAtPass, syncPassFor } from '@/features/account/domain/account-link';
+import { isLiveRow, liveHistoryDays } from '@/features/account/domain/account-merge';
 import {
   givenConsentRecordedAt,
   latestWithdrawnRecordedAt,
@@ -18,17 +21,13 @@ import {
   type SyncConsentState,
 } from '@/features/account/domain/sync-consent';
 
-const live = (row: Readonly<{ deletedAt: string | null }>) => row.deletedAt === null;
-
 /** What the Account screen counts: what the account receives from this phone under `state`. */
 function summaryOf(local: LocalAccountRows, state: SyncConsentState, firstLink: FirstLinkOutcome | null): AccountSyncSummary {
   const records = state === 'given';
-  const waiting = [local.wardrobeItems, local.dressingDayChoices, local.dressingDayDepartures, local.outfitHistory]
-    .reduce((count, rows) => count + rows.filter((entry) => entry.pendingSync).length, 0);
   return {
-    pendingChanges: (local.profile?.pendingSync ? 1 : 0) + (records ? waiting : 0),
-    closetPieces: records ? local.wardrobeItems.filter(({ row }) => live(row)).length : 0,
-    historyDays: records ? new Set(local.outfitHistory.filter(({ row }) => live(row)).map(({ row }) => row.dayKey)).size : 0,
+    pendingChanges: rowCount(pendingUpload(local, records)),
+    closetPieces: records ? local.wardrobeItems.filter(({ row }) => isLiveRow(row)).length : 0,
+    historyDays: records ? liveHistoryDays(local.outfitHistory.map(({ row }) => row)).size : 0,
     syncConsent: state,
     firstLink,
   };

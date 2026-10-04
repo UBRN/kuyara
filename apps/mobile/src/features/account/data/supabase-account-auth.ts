@@ -165,7 +165,7 @@ export function createSupabaseAccountAuth({ apple, client, nonce, removeStoredSe
       if (apple === null) throw new AccountProviderError('cancelled');
       const { data, error } = await auth.linkIdentity({ provider: 'apple', token: apple.token, nonce: apple.rawNonce });
       if (error) throw new AccountProviderError(error.code === 'identity_already_exists' ? 'identityTaken' : 'failed');
-      return sessionOrFail(data.session ?? await storedSession());
+      return sessionOrFail(data.session);
     },
     async reauthorizeDeletion() {
       const session = await storedSession();

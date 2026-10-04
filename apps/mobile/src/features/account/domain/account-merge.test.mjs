@@ -3,13 +3,11 @@ import test from 'node:test';
 
 import { mergeAtFirstLink } from './account-merge.ts';
 import {
-  dayChoice, departure, historyDay, stamp, syncedProfile, uuid, wardrobeItem,
+  dayChoice, departure, emptyRows, historyDay, stamp, syncedProfile, uuid, wardrobeItem,
 } from '../__tests__/account-fixtures.mjs';
 
 const now = '2026-10-01T12:00:00.000Z';
-const empty = {
-  profile: null, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [],
-};
+const empty = emptyRows();
 const merge = (local, remote, syncConsent = true) => mergeAtFirstLink(
   { ...empty, ...local }, { ...empty, ...remote }, { syncConsent, now },
 );
@@ -56,11 +54,11 @@ test('the profile fields come from the account when it has them, else the phone 
   assert.equal(without.profileFrom, 'phone');
 });
 
-test('the same Closet id on both sides: the account copy wins and keeps this phone\'s photo', () => {
+test('the same Closet id on both sides: the account copy wins as pulled', () => {
   const local = wardrobeItem(1, { name: 'Phone copy', photoRelativePath: 'wardrobe/mine.jpg' });
   const remote = wardrobeItem(1, { name: 'Account copy', photoRelativePath: null });
   const result = merge({ wardrobeItems: [local] }, { wardrobeItems: [remote] });
-  assert.deepEqual(result.writeToPhone.wardrobeItems, [{ ...remote, photoRelativePath: 'wardrobe/mine.jpg' }]);
+  assert.deepEqual(result.writeToPhone.wardrobeItems, [remote]);
   assert.deepEqual(result.sendToAccount.wardrobeItems, []);
   assert.equal(result.counts.piecesAdded, 0);
   assert.equal(result.counts.piecesReceived, 0);
@@ -80,13 +78,13 @@ test('an account deletion marker on the same id deletes the phone copy, on an un
   assert.deepEqual(result.counts, { piecesAdded: 0, historyDaysAdded: 0, piecesReceived: 0, historyDaysReceived: 0 });
 });
 
-test('looks of one day from both sides stand side by side, and the same look keeps the account copy and this phone\'s photo', () => {
+test('looks of one day from both sides stand side by side, and the same look keeps the account copy', () => {
   const mine = historyDay(1, '2026-09-10', { photoPath: 'history/mine.jpg' });
   const shared = historyDay(3, '2026-09-10', { photoPath: 'history/shared.jpg' });
   const theirs = historyDay(2, '2026-09-10', { photoPath: null, outfit: { ...mine.outfit, archetypeId: 'rain_ready' } });
   const accountShared = historyDay(3, '2026-09-10', { photoPath: null, updatedAt: stamp(9) });
   const result = merge({ outfitHistory: [mine, shared] }, { outfitHistory: [theirs, accountShared] });
-  assert.deepEqual(result.writeToPhone.outfitHistory, [theirs, { ...accountShared, photoPath: 'history/shared.jpg' }]);
+  assert.deepEqual(result.writeToPhone.outfitHistory, [theirs, accountShared]);
   assert.deepEqual(ids(result.sendToAccount.outfitHistory), [uuid(1)]);
   // Counted in days: both sides already held 10 September.
   assert.deepEqual([result.counts.historyDaysAdded, result.counts.historyDaysReceived], [0, 0]);
@@ -138,7 +136,7 @@ test('an account deletion marker on the same look deletes it on the phone', () =
   const marker = historyDay(1, '2026-09-10', { deletedAt: stamp(9), updatedAt: stamp(9), photoPath: null });
   const result = merge({ outfitHistory: [historyDay(1, '2026-09-10', { photoPath: 'history/mine.jpg' })] },
     { outfitHistory: [marker] });
-  assert.deepEqual(result.writeToPhone.outfitHistory, [{ ...marker, photoPath: 'history/mine.jpg' }]);
+  assert.deepEqual(result.writeToPhone.outfitHistory, [marker]);
   assert.deepEqual(result.sendToAccount.outfitHistory, []);
   assert.deepEqual([result.counts.historyDaysAdded, result.counts.historyDaysReceived], [0, 0]);
 });

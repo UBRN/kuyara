@@ -1,6 +1,6 @@
 import { act, fireEvent, render, within, type RenderResult } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { AccessibilityInfo, ScrollView } from 'react-native';
+import { AccessibilityInfo, AppState, ScrollView, type AppStateStatus } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -169,6 +169,24 @@ describe('the sign-in benefit pages', () => {
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 3);
     expect(position(screen)).toBe(en.pagePosition(1, 6));
     expect(screen.queryByTestId('account-intro-play')).toBeNull();
+  });
+
+  test('opened while the app is inactive, they wait until it is active again', async () => {
+    let change: (state: AppStateStatus) => void = () => undefined;
+    // The test renderer's AppState mock has no state of its own, so the test sets one.
+    const mutable = AppState as { currentState: unknown };
+    const original = mutable.currentState;
+    mutable.currentState = 'inactive';
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      change = listener as typeof change;
+      return { remove: () => undefined };
+    });
+    const screen = await renderPager().finally(() => { mutable.currentState = original; });
+    await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 2);
+    expect(position(screen)).toBe(en.pagePosition(1, 6));
+    await act(async () => change('active'));
+    await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
+    expect(position(screen)).toBe(en.pagePosition(2, 6));
   });
 
   test('speak Turkish', async () => {

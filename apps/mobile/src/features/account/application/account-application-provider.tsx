@@ -3,12 +3,34 @@ import { AppState } from 'react-native';
 
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { resolveSupabaseSettings, type SupabaseSettings } from '@/config/supabase-settings';
-import { connectAccountLifecycle } from '@/features/account/application/account-lifecycle';
+import { connectAccountLifecycle, type AccountLifecyclePorts } from '@/features/account/application/account-lifecycle';
 import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
 import { createClosedAccountScreens, type AccountScreensPort } from '@/features/account/application/account-screens';
 import { AccountScreensContext } from '@/features/account/application/account-screens-context';
+import type { LiveAccountSession } from '@/features/account/data/live-account-session';
 import { subscribeDatabaseWrites } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-database';
+
+/** The app's lifetime ports for the live session: its manager, the app state, the database writes and Apple's revocation. */
+export function liveLifecyclePorts(live: LiveAccountSession): AccountLifecyclePorts {
+  return {
+    manager: live.manager,
+    onAppStateChange: (listener) => {
+      const subscription = AppState.addEventListener('change', listener);
+      return () => subscription.remove();
+    },
+    isActive: () => AppState.currentState === 'active',
+    onDatabaseWrite: subscribeDatabaseWrites,
+    hasPending: live.source.hasPending,
+    onAppleRevoked: live.onAppleRevoked,
+    autoRefresh: live.autoRefresh,
+    card: { dismissed: live.source.cardDismissed, dismiss: live.source.dismissCard },
+    schedule: (task, delayMs) => {
+      const timer = setTimeout(task, delayMs);
+      return () => clearTimeout(timer);
+    },
+  };
+}
 
 /**
  * The live session for this profile, connected to the app's lifetime; resolves with the port
@@ -23,22 +45,7 @@ async function connectLiveAccounts(localProfileId: string, settings: SupabaseSet
   const live = createLiveAccountSession({
     database, localProfileId, settings, workerBaseUrl: resolveAppWorkerBaseUrl(), fetcher: fetch,
   });
-  const disconnect = connectAccountLifecycle({
-    manager: live.manager,
-    onAppStateChange: (listener) => {
-      const subscription = AppState.addEventListener('change', listener);
-      return () => subscription.remove();
-    },
-    isActive: () => AppState.currentState === 'active',
-    onDatabaseWrite: subscribeDatabaseWrites,
-    hasPending: live.source.hasPending,
-    autoRefresh: live.autoRefresh,
-    card: { dismissed: live.source.cardDismissed, dismiss: live.source.dismissCard },
-    schedule: (task, delayMs) => {
-      const timer = setTimeout(task, delayMs);
-      return () => clearTimeout(timer);
-    },
-  });
+  const disconnect = connectAccountLifecycle(liveLifecyclePorts(live));
   const port: AccountScreensPort = live.manager;
   return { port, disconnect };
 }

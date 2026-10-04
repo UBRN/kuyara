@@ -1,6 +1,6 @@
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, GlassButton, ProviderSignInButton } from '@/components/ui';
+import { AppText, Button, GlassButton, ProviderSignInButton, TextButton } from '@/components/ui';
 import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
 import type { AccountProvider } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
@@ -12,6 +12,12 @@ import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 
 const providers: readonly AccountProvider[] = ['apple', 'google'];
+
+function open(url: string) {
+  void Linking.openURL(url).catch(() => {
+    // A link the system cannot open leaves the screen as it was; nothing is lost.
+  });
+}
 
 /**
  * Frames 02, 17, 18, 19 and 33: the sign-in page. The benefit pages first, swiped sideways,
@@ -64,36 +70,13 @@ export function AccountSignInPage({ initialPage }: Readonly<{ initialPage?: Acco
           testID="account-sign-in-not-now"
           variant="plain"
         />
-        <AppText colorRole="textSecondary" variant="caption">
-          {copy.footer}{' '}
-          <AppText
-            accessibilityRole="link"
-            colorRole="brandPrimary"
-            onPress={() => {
-              void Linking.openURL(ACCOUNT_TERMS_URL).catch(() => {
-                // A link the system cannot open leaves the screen as it was; nothing is lost.
-              });
-            }}
-            style={styles.link}
-            testID="account-sign-in-terms"
-            variant="caption">
-            {copy.terms}
-          </AppText>
-          {' · '}
-          <AppText
-            accessibilityRole="link"
-            colorRole="brandPrimary"
-            onPress={() => {
-              void Linking.openURL(PRIVACY_POLICY_URL[language]).catch(() => {
-                // A link the system cannot open leaves the screen as it was; nothing is lost.
-              });
-            }}
-            style={styles.link}
-            testID="account-sign-in-privacy"
-            variant="caption">
-            {copy.privacy}
-          </AppText>
-        </AppText>
+        <View>
+          <AppText colorRole="textSecondary" variant="caption">{copy.footer}</AppText>
+          <View style={styles.links}>
+            <TextButton link label={copy.terms} onPress={() => open(ACCOUNT_TERMS_URL[language])} testID="account-sign-in-terms" />
+            <TextButton link label={copy.privacy} onPress={() => open(PRIVACY_POLICY_URL[language])} testID="account-sign-in-privacy" />
+          </View>
+        </View>
       </View>
     </ScrollView>
   );
@@ -107,5 +90,6 @@ const styles = StyleSheet.create({
   foot: { gap: spacing.md },
   buttons: { gap: spacing.md },
   notNow: { alignSelf: 'center' },
-  link: { textDecorationLine: 'underline' },
+  // Each link answers a full touch target; its words line up with the footnote's.
+  links: { flexDirection: 'row', flexWrap: 'wrap', marginLeft: -spacing.sm },
 });

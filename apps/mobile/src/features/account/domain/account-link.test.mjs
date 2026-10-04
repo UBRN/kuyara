@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  afterAccountDeletion, linkAfterFirstLink, linkAtPass, signOut, syncPassFor, unlinked,
+  linkAfterFirstLink, linkAtPass, signOut, syncPassFor, unlinked,
 } from './account-link.ts';
 
 const cursor = '2026-09-30T10:00:00.000000Z';
@@ -72,12 +72,18 @@ test('a pass relinks a signed-out link to the signed-in account and keeps what i
   assert.deepEqual(linkAtPass(signOut(joined), 'user-b', false), { ...joined, userId: 'user-b' });
 });
 
-test('deletion clears the link, the last account, the joined records, the cursor and the pending flags', () => {
-  assert.deepEqual(afterAccountDeletion(), { link: unlinked, resetPendingFlags: true });
+test('after a deletion, which saves the link unlinked, even the same account links as a first link again', () => {
+  assert.equal(syncPassFor(unlinked, 'user-a', true, null), 'first-link');
+  assert.equal(syncPassFor(unlinked, 'user-a', false, null), 'first-link');
 });
 
-test('after a deletion even the same account links as a first link again', () => {
-  const { link } = afterAccountDeletion();
-  assert.equal(syncPassFor(link, 'user-a', true, null), 'first-link');
-  assert.equal(syncPassFor(link, 'user-a', false, null), 'first-link');
+test('under the consent, an account other than the last linked one takes a first link from its own cursor', () => {
+  const afterA = signOut(linkAfterFirstLink(unlinked, 'user-a', true, cursor, givenAt));
+  const afterB = signOut(linkAfterFirstLink(linkAtPass(afterA, 'user-b', false), 'user-b', false, 'b-cursor', null));
+  const back = linkAtPass(afterB, 'user-a', true);
+  assert.equal(syncPassFor(back, 'user-a', true, null), 'first-link');
+  const relinked = linkAfterFirstLink(back, 'user-a', true, 'a-cursor', givenAt);
+  assert.equal(relinked.lastUserId, 'user-a');
+  assert.equal(relinked.cursor, 'a-cursor');
+  assert.equal(syncPassFor(relinked, 'user-a', true, null), 'sync');
 });

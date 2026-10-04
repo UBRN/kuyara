@@ -1,8 +1,9 @@
 // The Supabase session at rest (ADR 0041 section 9): a random AES-GCM key in the Keychain, the
 // sealed session in the key-value store. The key never leaves this device (it is stored
 // `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`), so a phone restored from a backup cannot open the
-// session, and a reinstall, which removes the store, starts signed out. Anything that cannot
-// be opened reads as no session.
+// session, and a reinstall, which removes the store, starts signed out. A value that cannot be
+// opened reads as no session; a store that cannot be read throws, so the session is read again
+// later instead of ending.
 
 /** The one Keychain entry that holds the encoded key. */
 export type SessionKeyStore = Readonly<{
@@ -73,11 +74,11 @@ export function createEncryptedSessionStorage({ cipher, keys, values }: Readonly
 
   return {
     async getItem(name) {
+      const sealed = await values.get(name);
+      if (sealed === null) return null;
+      const key = await keys.get();
+      if (key === null) return null;
       try {
-        const sealed = await values.get(name);
-        if (sealed === null) return null;
-        const key = await keys.get();
-        if (key === null) return null;
         return utf8Text(await cipher.open(key, sealed));
       } catch {
         return null;

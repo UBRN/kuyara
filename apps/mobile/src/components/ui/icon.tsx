@@ -101,7 +101,6 @@ export const iconNames = Object.freeze({
   offline: { ios: 'wifi.slash', android: 'wifi_off', web: 'wifi_off' },
   signOut: { ios: 'rectangle.portrait.and.arrow.right', android: 'logout', web: 'logout' },
   plusCircle: { ios: 'plus.circle', android: 'add_circle', web: 'add_circle' },
-  restoreArrow: { ios: 'arrow.down.circle', android: 'arrow_circle_down', web: 'arrow_circle_down' },
   // History's look back at the week: what the recorded days were dressed for (ADR 0038).
   dressedForRain: { ios: 'umbrella.fill', android: 'umbrella', web: 'umbrella' },
   dressedForCold: { ios: 'thermometer.snowflake', android: 'ac_unit', web: 'ac_unit' },

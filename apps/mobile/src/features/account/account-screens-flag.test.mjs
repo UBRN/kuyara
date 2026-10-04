@@ -21,7 +21,7 @@ test('the account screens are switched off', () => {
   assert.match(read('features/account/application/account-screens-flag.ts'), /ACCOUNT_SCREENS_ENABLED: boolean = false;/);
 });
 
-test('only the five composition files reach the account screens, each behind the switch', () => {
+test('only the six composition files reach the account screens, each behind the switch', () => {
   const reaching = sourceFiles()
     .filter((file) => !file.startsWith('features/account/'))
     .filter((file) => /from '@\/features\/account\/presentation\//.test(read(file)));
@@ -32,6 +32,7 @@ test('only the five composition files reach the account screens, each behind the
     'app/(tabs)/(profile)/settings/delete-account.tsx',
     'app/(tabs)/(profile)/settings/index.tsx',
     'app/(tabs)/(today)/[id].tsx',
+    'app/(tabs)/_layout.tsx',
   ]);
   for (const file of reaching) {
     const source = read(file);
@@ -40,7 +41,7 @@ test('only the five composition files reach the account screens, each behind the
       assert.match(source, /export default function \w+\(\) \{\n {2}return ACCOUNT_SCREENS_ENABLED \? <\w+ \/> : <Redirect href="\/settings" \/>;\n\}/, file);
       continue;
     }
-    // Every account element Profile, Settings and outfit detail render is the true branch of the switch.
+    // Every account element Profile, Settings, outfit detail and the tab layout render is the true branch of the switch.
     const uses = source.match(/<Account\w+/g) ?? [];
     const gated = source.match(/ACCOUNT_SCREENS_ENABLED\s*\?\s*<Account\w+/g) ?? [];
     assert.ok(uses.length > 0, `${file} renders an account screen`);

@@ -14,7 +14,7 @@ function setup(overrides = {}) {
   const events = [];
   const deps = {
     rateLimiter: { limit: async ({ key }) => { events.push(['limit', key]); return { success: true }; } },
-    verifier: async (accessToken) => { events.push(['verify', accessToken]); return { userId }; },
+    verifier: async (accessToken) => { events.push(['verify', accessToken]); return { userId, hasAppleIdentity: false }; },
     admin: {
       getAccount: async (id) => { events.push(['getAccount', id]); return { appleSubject: null }; },
       deleteUser: async (id) => { events.push(['deleteUser', id]); },
@@ -149,7 +149,24 @@ test('an account that is already gone is deleted without revoking or deleting ag
   });
   const response = await handle(request({ body: { appleAuthorizationCode: code } }));
   assert.equal(response.status, 200);
+  assert.deepEqual(accountDeleteV1SuccessSchema.parse(await response.json()), { data: { status: 'deleted' } });
   assert.deepEqual(names(events), ['limit', 'verify']);
+});
+
+test('an already gone account whose token names Apple answers deleted_apple_unrevoked, since revocation is unknown', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  const events = [];
+  const { handle } = setup({
+    verifier: async () => ({ userId, hasAppleIdentity: true }),
+    admin: { getAccount: async () => null, deleteUser: async () => { events.push(['deleteUser']); } },
+    revoker: async () => { events.push(['revoke']); return 'revoked'; },
+  });
+  const response = await handle(request({ body: { appleAuthorizationCode: code } }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(accountDeleteV1SuccessSchema.parse(await response.json()), { data: { status: 'deleted_apple_unrevoked' } });
+  assert.deepEqual(events, []);
+  assert.deepEqual(infos, [{ event: 'account_delete_apple_unrevoked', reason: 'already_deleted' }]);
 });
 
 test('token failures map to closed codes', async () => {
@@ -257,13 +274,6 @@ test('an oversized body is refused as invalid_request, read only up to the limit
   });
   await expectError(await handle(oversized), 400, 'invalid_request');
   assert.ok(pulled <= 8, `read ${pulled} chunks of a 1024-chunk body`);
-  assert.deepEqual(names(events), ['limit']);
-});
-
-test('a declared Content-Length over the limit is refused before the body is read', async () => {
-  const { events, handle } = setup();
-  const declared = request({ headers: { 'content-length': '5000' } });
-  await expectError(await handle(declared), 400, 'invalid_request');
   assert.deepEqual(names(events), ['limit']);
 });
 

@@ -17,7 +17,7 @@ test('one authenticated RPC call to keep_alive, secret key in the apikey header 
   const logs = capture(t);
   const calls = [];
   await runSupabaseKeepAlive({
-    supabaseUrl: `${supabaseUrl}/`, secretKey, timeoutMs: 20,
+    supabaseUrl, secretKey, timeoutMs: 20,
     fetch: async (url, init) => { calls.push({ url: String(url), init }); return Response.json(true); },
   });
   assert.equal(calls.length, 1);
@@ -31,7 +31,7 @@ test('one authenticated RPC call to keep_alive, secret key in the apikey header 
   assert.deepEqual(logs, [['info', { event: 'supabase_keep_alive', outcome: 'ok' }]]);
 });
 
-test('a missing or unusable setting calls nothing and logs skipped_unconfigured', async (t) => {
+test('a missing setting calls nothing and logs skipped_unconfigured', async (t) => {
   const logs = capture(t);
   let calls = 0;
   const fetch = async () => { calls += 1; return Response.json(true); };
@@ -40,8 +40,6 @@ test('a missing or unusable setting calls nothing and logs skipped_unconfigured'
     { supabaseUrl: '', secretKey },
     { supabaseUrl, secretKey: undefined },
     { supabaseUrl, secretKey: '' },
-    { supabaseUrl: 'http://project.supabase.co', secretKey },
-    { supabaseUrl: 'not a url', secretKey },
   ];
   for (const settings of cases) await runSupabaseKeepAlive({ ...settings, fetch });
   assert.equal(calls, 0);
