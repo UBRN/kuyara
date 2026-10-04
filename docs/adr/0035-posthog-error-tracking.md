@@ -113,7 +113,7 @@ Capturing exceptions and not resolving them would spend the privacy and cost bud
 data nobody can read, so source map upload is part of the same change, not a follow-up.
 
 The mechanism, from PostHog's React Native source map documentation (read 2026-09-14):
-the pinned `@posthog/cli` 0.18.2 devDependency, chunk id injection through the
+the pinned `@posthog/cli` 0.18.9 devDependency, chunk id injection through the
 `posthog-react-native/expo` config plugin with `getPostHogExpoConfig` in
 `metro.config.js` (Expo 50 or later), automatic upload from the Xcode and Gradle build
 phases during a native build, and `posthog-cli hermes upload --directory dist` after an

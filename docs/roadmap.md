@@ -35,6 +35,9 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | Sheet close button | The glass close button on the name, day-type (both steps), ask-again and piece-edit sheets draws a clipped glyph instead of an xmark on device and Simulator; the fix gives it an explicit `xmark` image and circle shape like the confirm button, keeps `role="close"`, and adds a close-button check to the Simulator walkthrough | Shipped to build 15 installs by the production EAS Update from commit `7b5b4f8` ([procedure](testing.md#javascript-only-fix-for-the-live-version)) |
 | Build 15 | Completed build 15 milestones, including A and B | On the App Store (`READY_FOR_SALE`) |
 | Build 16 | Phase 5 colour and camera work; O13 Easier to see; Phase 7 manual mix; Phase 8 walkthrough; consent and analytics copy, and the Worker free-model guard | Submitted for App Review on 28 September 2026 (version 0.1.20260928) |
+| Build 17 | Illustrated garments, shareable outfit card, History diary and the account screens behind a switch that is off (schema 23) | Approved (version 0.1.20261002) |
+| Build 18 | Schema 25, built from `cdead67e` | On the App Store (`READY_FOR_SALE`), phased release started 3 October 2026 (version 0.1.20261003) |
+| Build 19 | Settings unit choices (schema 27), morning and evening question switch, re-ask past the shared cache, recommendation timing and UI fixes | Submitted for App Review on 4 October 2026 (version 0.1.20261005) |
 | pnpm 12 | pnpm 12.6.0 replaces 11.18.0 in `packageManager` and both `eas.json` profiles. The lockfile keeps every resolved package and now opens with pnpm's own version record; `pnpm-workspace.yaml` needed no change. `pnpm check`, the component suite, Expo Doctor and a local Simulator build pass with it. It never rides an `eas update`, because the `appVersion` runtime policy lets an update reach installs without a native check | On main; first ships in build 16, never via an update |
 
 Release evidence:

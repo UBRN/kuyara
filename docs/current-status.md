@@ -130,7 +130,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   consenting users. Its adapter allowlists exception fields, deduplicates matching failures
   and caps each client session at five exceptions; console capture, native crashes,
   breadcrumbs and session replay remain off. The Expo plugin, Metro chunk ids and pinned
-  `@posthog/cli` 0.18.2 wire Hermes source-map upload ([ADR 0035](adr/0035-posthog-error-tracking.md)).
+  `@posthog/cli` 0.18.9 wire Hermes source-map upload ([ADR 0035](adr/0035-posthog-error-tracking.md)).
 - **Design:** Direction E ([ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md))
   is implemented on every surface: Today's garment board and the Direction E tokens,
   the recommendation detail surface ([ADR 0026](adr/0026-the-recommendation-detail-surface.md)
@@ -159,8 +159,8 @@ with no Supabase client, table or project yet. Phase 9, optional accounts, is ac
 [ADR 0041](adr/0041-optional-accounts.md) and partly built: tested account rules and remote
 record mappers, an application-layer session manager, deletion client and sync flow over
 ports with fakes, and account screens behind `ACCOUNT_SCREENS_ENABLED = false` exist in
-`apps/mobile/src/features/account/`. The Worker carries the undeployed account deletion
-route (`/v1/account/delete`), which answers 503 until its settings exist. No Supabase
+`apps/mobile/src/features/account/`. The Worker carries the deployed but offline account deletion
+route (`/v1/account/delete`), which answers `unavailable` until its rate-limit binding exists. No Supabase
 project, Apple key or Google client exists yet. Migration 25
 adds the pending flags and the device account link; live provider adapters, the sync
 consent sheet and its consent records, the launch-time Apple credential check and the daily
@@ -182,9 +182,11 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 - **Build 15:** Version `0.1.20260926`, build 15, is `READY_FOR_SALE`; App Store Connect status was checked on 27 September 2026. It was submitted on 26 September 2026 with `AFTER_APPROVAL` release and phased release configured. Build 14 (`0.1.20260920`) is the previous release.
 - **EAS Update:** Build 15 installs receive the latest production iOS update, group `ec077814-51d0-4939-a557-cbc7a049c57f`, runtime `0.1.20260926`, commit `156b8e1`, which replaced the first update from `7b5b4f8`. It carries the Today, recommendation (the formal suit rule and catalog version 6, day-aware labels, hot-day smart outfits), notification, accessibility, History and consent fixes since build 15. The EAS `production` environment carries `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` and the PostHog variables, and the Hermes source maps for release `kuyara@cf88f54` are uploaded to PostHog.
-- **Worker:** The deployed Worker is version `8f6c020e`, built from commit `3b76f19`: only free OpenRouter models (`:free` slugs or the `openrouter/free` router) are composed into the AI chain, the v2 insight sentence is grounded in closed day flags, and the content-keyed AI cache keeps gate version 3; `/v1/health` returned 200 and `/v1/weather` answered from WeatherKit after the deploy.
+- **Worker:** The deployed Worker is version `7a8d9261-add5-4552-8d35-5eb0c5e79d98`, deployed on 4 October 2026 from commit `6e2c1469` (previous version `8f6c020e-d5f4-4597-b9a7-7187a7c0d91c`). `OPENROUTER_MODELS` is empty. `/v1/feedback` is deployed but offline: the top-level configuration has no `FEEDBACK_DB` binding and the in-app form flag is off. `/v1/account/delete` is deployed but offline: it has no `ACCOUNT_DELETE_RATE_LIMIT` binding and answers `unavailable`.
 - **Build 16:** Version `0.1.20260928`, build 16, built locally from commit `aeb2fd0`, is `READY_FOR_SALE`. It includes schema version 22, the expanded Closet palette and camera path, Easier to see, the coach-mark tour, manual mix, and the revised consent and analytics boundary.
-- **Build 17:** Version `0.1.20261002`, build 17, built locally from commit `b7e0514`, was submitted for App Review on 2 October 2026 with `AFTER_APPROVAL` release and phased release configured. It adds schema version 23, the illustrated garment drawings, the worn-order garment board with per-piece shadows, the shareable outfit card (`react-native-view-shot`, a native module, so this JavaScript cannot ship as an update to build 16), the evening tomorrow preview, the whole-day morning briefing, Closet matches and wear counts, the History diary, and the account screens behind a switch that is off. Its changes have Simulator and Maestro evidence only; Android has not been built.
+- **Build 17:** Version `0.1.20261002`, build 17, built locally from commit `b7e0514`, was submitted for App Review on 2 October 2026 with `AFTER_APPROVAL` release and phased release configured, and was approved. It adds schema version 23, the illustrated garment drawings, the worn-order garment board with per-piece shadows, the shareable outfit card (`react-native-view-shot`, a native module, so this JavaScript cannot ship as an update to build 16), the evening tomorrow preview, the whole-day morning briefing, Closet matches and wear counts, the History diary, and the account screens behind a switch that is off. Its changes have Simulator and Maestro evidence only; Android has not been built.
+- **Build 18:** Version `0.1.20261003`, build 18, schema version 25, built locally from commit `cdead67e`, was approved and is `READY_FOR_SALE`; its phased release started on 3 October 2026.
+- **Build 19:** Version `0.1.20261005`, build 19, built locally from commit `adad5517`, was uploaded (`VALID`) and submitted for App Review on 4 October 2026 with `AFTER_APPROVAL` release and phased release configured. It carries schema version 27 (migration 27 adds the temperature and wind unit choices), the Settings unit choices, the morning and evening question switch, the re-ask that skips the Worker's shared cache, the recommendation timing fixes and small UI fixes. It is the first native build with `@posthog/cli` 0.18.9.
 - **Compatibility:** Builds 8 and 9 were released before commit `f0ab923` and carry strict `/v1` response schemas. Keep `/v1` response shapes frozen while either binary remains installed; changed shapes use a new route.
 
 ## Known Issues and Manual Verification Gaps
