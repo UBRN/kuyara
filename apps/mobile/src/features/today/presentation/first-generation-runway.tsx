@@ -58,8 +58,7 @@ const PHASE_PROGRESS: Readonly<Record<RecommendationPhase | 'starting', number>>
 };
 
 // In the dark appearance the board stands on the garment plate inside the field, with Today's
-// stage corner, and that plate is what shrinks into Today's stage.
-const PLATE_RADIUS = 26;
+// stage corner (`radii.stage`), and that plate is what shrinks into Today's stage.
 
 // The track is derived from the field, never a new hue.
 const TRACK_TONE = { light: 0.16, dark: 0.22 } as const;
@@ -297,7 +296,7 @@ export function FirstGenerationRunway({
             setHandoff({
               plate: {
                 from: fromPlate
-                  ? { x: areaX - layerX, y: areaY - layerY, width: areaWidth, height: areaHeight, radius: PLATE_RADIUS }
+                  ? { x: areaX - layerX, y: areaY - layerY, width: areaWidth, height: areaHeight, radius: radii.stage }
                   : { width: layerWidth, height: layerHeight },
                 to: { x: stageX - layerX, y: stageY - layerY, width: stageWidth, height: stageHeight },
                 color: current.color,
@@ -527,7 +526,7 @@ const styles = StyleSheet.create({
   // The band runs to the screen's edges, past the content inset, and stays inside the board.
   particles: { bottom: 0, left: -spacing.lg, right: -spacing.lg, top: 0 },
   particlesOnPlate: { bottom: 0, left: 0, right: 0, top: 0 },
-  plate: { bottom: 0, borderRadius: PLATE_RADIUS, left: 0, overflow: 'hidden', position: 'absolute', right: 0, top: 0 },
+  plate: { bottom: 0, borderRadius: radii.stage, left: 0, overflow: 'hidden', position: 'absolute', right: 0, top: 0 },
   textBlock: { paddingTop: spacing.md },
   progressTrack: { borderRadius: radii.pill, height: PROGRESS_HEIGHT },
   // Two lines' worth of room, so a rotation to a longer sentence never moves the skip.

@@ -4,8 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppText, Button, Entrance, Surface } from '@/components/ui';
 import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
 import { HandoffHoldContext, PhaseMark } from '@/features/today/presentation/today-motion';
-import { STAGE_RADIUS } from '@/features/today/presentation/today-outfit';
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
 import { OnPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -135,7 +134,7 @@ export function TodayNoOutfit({ body, title }: Readonly<{ body: string; title: s
 }
 
 const styles = StyleSheet.create({
-  stage: { borderRadius: STAGE_RADIUS, overflow: 'hidden' },
+  stage: { borderRadius: radii.stage, overflow: 'hidden' },
   loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },

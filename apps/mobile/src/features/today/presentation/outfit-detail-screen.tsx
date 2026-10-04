@@ -79,7 +79,7 @@ import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domai
 import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { layout, plateTheme, spacing } from '@/theme/theme';
+import { layout, plateTheme, radii, spacing } from '@/theme/theme';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
   },
   boardPlate: {
-    borderRadius: 26,
+    borderRadius: radii.stage,
     marginTop: spacing.xl,
   },
   boardLine: {

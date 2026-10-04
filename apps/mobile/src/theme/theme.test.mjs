@@ -363,6 +363,24 @@ test('feature source keeps typography on theme roles instead of literal fontSize
   }
 });
 
+test('the stage corner has one owner, radii.stage, and feature source restates it nowhere', async () => {
+  const sourceRoot = new URL('../features/', import.meta.url);
+  const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
+  const sourceFiles = entries.filter(
+    (entry) => entry.isFile() && /\.(ts|tsx)$/.test(entry.name) && !/\.test\./.test(entry.name),
+  );
+
+  for (const entry of sourceFiles) {
+    const source = await readFile(`${entry.parentPath}/${entry.name}`, 'utf8');
+
+    assert.equal(
+      /\bSTAGE_RADIUS\b|(borderRadius|RADIUS)\s*[:=]\s*26\b/.test(source),
+      false,
+      `${entry.parentPath}/${entry.name} restates the stage corner; use radii.stage instead`,
+    );
+  }
+});
+
 test('feature source keeps opacity on theme interaction roles instead of literal fractions', async () => {
   const sourceRoot = new URL('../features/', import.meta.url);
   const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });

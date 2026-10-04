@@ -6,13 +6,10 @@ import { AppText, Crossfade, GarmentBoard, measureGarmentBoardHeight, PressScale
 import { ArrivesAfterHandoff, Dimmed } from '@/features/today/presentation/today-motion';
 import type { LoadedOutfitPresentation } from '@/features/today/presentation/today-presentation';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { OnPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
-
-// The stage plate's corner radius; the first-generation runway's field shrinks to it.
-export const STAGE_RADIUS = 26;
 
 export type StageOutfit = Pick<LoadedOutfitPresentation, 'id' | 'boardPieces' | 'palette'> & Readonly<{ replaced: boolean }>;
 
@@ -162,6 +159,6 @@ const styles = StyleSheet.create({
   // The gap above the outfit sits outside its tour target, so the tour's ring clears the badge.
   outfitTarget: { marginTop: spacing.md },
   archetypeName: { marginBottom: spacing.sm },
-  stage: { borderRadius: STAGE_RADIUS, overflow: 'hidden' },
+  stage: { borderRadius: radii.stage, overflow: 'hidden' },
   leavingBoard: { justifyContent: 'center', left: 0, position: 'absolute', top: 0 },
 });
