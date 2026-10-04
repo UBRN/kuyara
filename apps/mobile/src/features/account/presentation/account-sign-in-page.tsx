@@ -7,7 +7,7 @@ import { useAccountScreens } from '@/features/account/application/account-screen
 import { AccountIntroPager } from '@/features/account/presentation/account-intro-pager';
 import { StatusLine, type StatusLineTone } from '@/features/account/presentation/account-status';
 import { PRIVACY_POLICY_URL } from '@/features/analytics/domain/privacy-policy';
-import { useMessages } from '@/localization/use-messages';
+import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 
 const providers: readonly AccountProvider[] = ['apple', 'google'];
@@ -20,7 +20,8 @@ const providers: readonly AccountProvider[] = ['apple', 'google'];
  */
 export function AccountSignInPage({ initialPage }: Readonly<{ initialPage?: AccountIntroPageId }>) {
   const { port, snapshot } = useAccountScreens();
-  const copy = useMessages().account.signIn;
+  const { language, messages } = useLocalization();
+  const copy = messages.account.signIn;
   const { signIn } = snapshot;
   const pending = signIn.kind === 'pending' ? signIn.provider : null;
   const status: Readonly<{ tone: StatusLineTone; text: string }> | null = signIn.kind === 'cancelled'
@@ -68,7 +69,7 @@ export function AccountSignInPage({ initialPage }: Readonly<{ initialPage?: Acco
             accessibilityRole="link"
             colorRole="brandPrimary"
             onPress={() => {
-              void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {
+              void Linking.openURL(PRIVACY_POLICY_URL[language]).catch(() => {
                 // A link the system cannot open leaves the screen as it was; nothing is lost.
               });
             }}
