@@ -190,6 +190,9 @@ test('an empty History shows a faded look, one sentence and a way to Today', asy
   const empty = await result.findByTestId('history-empty');
   expect(within(empty).getByTestId('history-empty-art', { includeHiddenElements: true })).toBeTruthy();
   expect(within(empty).getByText(messages.en.profile.historyEmptyBody)).toBeOnTheScreen();
+  // The empty History's button is the calm tonal one, as the Closet's.
+  expect(within(empty).getByTestId('history-empty-today-button'))
+    .toHaveStyle({ backgroundColor: lightTheme.colors.surfaceInteractive });
   await fireEvent.press(within(empty).getByTestId('history-empty-today-button'));
   expect(mockNavigate).toHaveBeenCalledWith('/');
 });
@@ -203,6 +206,24 @@ test('a failed History read says so instead of showing an empty list', async () 
 
   expect(await result.findByTestId('history-error')).toHaveTextContent(messages.en.profile.historyLoadError);
   expect(result.queryByTestId('history-empty')).toBeNull();
+});
+
+test('a failed History read offers Try again, which reads History again', async () => {
+  const list = jest.fn<Promise<readonly OutfitHistoryRecord[]>, []>()
+    .mockRejectedValueOnce(new Error('database busy'))
+    .mockResolvedValueOnce([record('2026-09-23', 'layered_warmth', 'casual')]);
+  const result = await render(
+    <Providers language="en" list={list}>
+      <HistoryRoute />
+    </Providers>,
+  );
+  await result.findByTestId('history-error');
+
+  await fireEvent.press(result.getByRole('button', { name: messages.en.profile.historyRetryAction }));
+
+  expect(await result.findByTestId('history-entry-2026-09-23')).toBeOnTheScreen();
+  expect(result.queryByTestId('history-error')).toBeNull();
+  expect(list).toHaveBeenCalledTimes(2);
 });
 
 test('History reloads when it regains focus while still mounted', async () => {

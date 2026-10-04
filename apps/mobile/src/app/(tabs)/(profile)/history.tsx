@@ -23,19 +23,22 @@ export default function HistoryRoute() {
 
   // Opening History reads the clock again, as Today does, so Sunday 18:00 is seen on arrival.
   useFocusEffect(useCallback(() => { reevaluateLocalDay(); }, [reevaluateLocalDay]));
-  useFocusEffect(useCallback(() => {
+  const read = useCallback((live: () => boolean) => {
     if (!outfitHistory) return;
-    let live = true;
     void outfitHistory.list().then(
       (records) => {
-        if (!live) return;
+        if (!live()) return;
         setEntries(records);
         setLoadFailed(false);
       },
-      () => { if (live) setLoadFailed(true); },
+      () => { if (live()) setLoadFailed(true); },
     );
+  }, [outfitHistory]);
+  useFocusEffect(useCallback(() => {
+    let live = true;
+    read(() => live);
     return () => { live = false; };
-  }, [outfitHistory]));
+  }, [read]));
 
   return (
     <>
@@ -45,6 +48,7 @@ export default function HistoryRoute() {
         options={{ headerLargeTitle: true, headerShown: true, headerTitle: messages.profile.historyLabel }}
       />
       <HistoryScreen entries={entries} loadFailed={loadFailed} onOpenToday={() => router.navigate('/')}
+        onRetry={() => read(() => true)}
         transitionLanded={transitionLanded} weekSummary={summary} />
     </>
   );
