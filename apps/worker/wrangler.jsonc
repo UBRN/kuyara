@@ -41,10 +41,10 @@
   // SUPABASE_URL and APPLE_TEAM_ID are public identifiers, not secrets (ADR 0041, section 2);
   // the Supabase secret key and the Apple signing key are Worker secrets and never appear here.
   "vars": {
-    // Empty until a free model passes the live measurement in docs/architecture.md ("AI
-    // handler and provider adapter contract"); a model that stalls or fails only spends the
-    // walk's time before the deterministic fallback.
-    "OPENROUTER_MODELS": [],
+    // Only free models that passed the live measurement in docs/architecture.md ("AI handler
+    // and provider adapter contract"), most often accepted first, then fastest; a model that
+    // stalls or fails only spends the walk's time before the deterministic fallback.
+    "OPENROUTER_MODELS": ["qwen/qwen3.8-27b:free", "nvidia/nemotron-3-super-120b-a12b:free"],
     "WORKERS_AI_MODELS": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/mistralai/mistral-small-3.1-24b-instruct"],
     "SUPABASE_URL": "https://bkeojzuvuzilytfmpgdu.supabase.co",
     "APPLE_TEAM_ID": "BZL4XU3J5H"
