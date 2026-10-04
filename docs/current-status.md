@@ -167,7 +167,7 @@ no valid Supabase settings the screens fail closed. Google sign-in waits for its
 adds the device link's joined-account columns. The Worker code carries the deletion route (deleting an Apple
 account without a usable code answers `deleted_apple_unrevoked`), its rate limit and the daily keep-alive Cron
 Trigger; it is not deployed, and the route answers `unavailable` until its secrets are set. The remote schema is
-`supabase/migrations/20261004120000_accounts.sql` and is not applied to the project yet. Evidence is automated
+`supabase/migrations/20261004120000_accounts.sql`, applied to the project on 4 October 2026 with no security advisor finding. Evidence is automated
 tests, an in-memory Postgres run of the schema and one Simulator pass; Sign in with Apple, revocation and live
 sync have no device evidence. Before accounts open: network-state detection, screens reloading after a pull, the
 History photo sweep for pulled deletions, the member AI allowance, the privacy manifest and App Privacy, the
