@@ -15,6 +15,7 @@ import {
   NativeTextField,
   Presence,
   Surface,
+  useTextScaling,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useKeyboardVisible } from '@/components/ui/use-keyboard-visible';
@@ -46,6 +47,7 @@ export function LocationSelectionControls({
   testID,
   testIDPrefix,
 }: LocationSelectionControlsProps) {
+  const { controlScale } = useTextScaling();
   const application = useWeatherApplication();
   const { state } = application;
   const { searchPlaces, selectPlaceSearchResult } = usePlaceSearchApplication();
@@ -227,7 +229,7 @@ export function LocationSelectionControls({
               accessibilityLiveRegion="polite"
               style={styles.status}>
               {search.status === 'error' ? (
-                <Icon color={theme.colors.warningInk} name="warning" size={16} />
+                <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} />
               ) : null}
               <AppText
                 colorRole={search.status === 'error' ? 'warningInk' : 'textSecondary'}

@@ -25,6 +25,7 @@ import {
   swapRevealScroll,
   useGarmentRoles,
   type GarmentOutfitPalette,
+  useTextScaling,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
@@ -162,6 +163,7 @@ export function OutfitDetailScreen({
   composeEntry = null,
   composeResult = null,
 }: OutfitDetailScreenProps) {
+  const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   const easierToSeeOn = useEasierToSee();
   const { hour12, temperatureUnit } = useLocalization();
@@ -643,7 +645,7 @@ export function OutfitDetailScreen({
             change, when the hint has gone, so the two never stand together. */}
         <Presence testID="outfit-detail-unusual" visible={unusual}>
           <View style={styles.boardLine}>
-            <Icon color={theme.colors.warningInk} name="warning" size={16} />
+            <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} />
             <AppText accessibilityLiveRegion="polite" colorRole="warningInk" style={styles.flexText} variant="caption">
               {copy.manualMix.unusual}
             </AppText>

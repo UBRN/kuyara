@@ -381,6 +381,32 @@ test('the stage corner has one owner, radii.stage, and feature source restates i
   }
 });
 
+// An inline glyph beside a line of text grows with the text, as `controlScale` caps it. A
+// glyph drawn into a fixed tile or a scene keeps its size; this list may only shrink.
+const fixedSixteenPointGlyphs = new Map([
+  ['account-intro-scenes.tsx', 2],
+  ['outfit-detail-recap.tsx', 1],
+  ['today-motion.tsx', 1],
+]);
+
+test('feature source scales its inline 16-point glyphs with the text', async () => {
+  const sourceRoot = new URL('../features/', import.meta.url);
+  const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
+  const sourceFiles = entries.filter(
+    (entry) => entry.isFile() && /\.tsx$/.test(entry.name) && !/\.test\./.test(entry.name),
+  );
+
+  for (const entry of sourceFiles) {
+    const source = await readFile(`${entry.parentPath}/${entry.name}`, 'utf8');
+    const fixed = source.match(/<Icon\b[^>]*\bsize=\{16\}/g)?.length ?? 0;
+
+    assert.ok(
+      fixed <= (fixedSixteenPointGlyphs.get(entry.name) ?? 0),
+      `${entry.parentPath}/${entry.name} draws a fixed 16-point glyph; scale it with controlScale`,
+    );
+  }
+});
+
 test('feature source keeps opacity on theme interaction roles instead of literal fractions', async () => {
   const sourceRoot = new URL('../features/', import.meta.url);
   const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });

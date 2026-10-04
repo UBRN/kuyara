@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
-import { AppText, Icon, ScrollDepth } from '@/components/ui';
+import { AppText, Icon, ScrollDepth, useTextScaling } from '@/components/ui';
 import type { TodayCopy } from '@/features/today/presentation/outfit-detail-entries';
 import { ArrivesAfterHandoff } from '@/features/today/presentation/today-motion';
 import type { LoadedTodayPresentation } from '@/features/today/presentation/today-presentation';
@@ -26,6 +26,7 @@ export function TodayHeader({
   presentation: LoadedTodayPresentation;
   scrollOffset: SharedValue<number>;
 }>) {
+  const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   return (
     // S23: the header recedes behind the scrolling outfit the way Weather's does.
@@ -34,7 +35,7 @@ export function TodayHeader({
       <ArrivesAfterHandoff index={0}>
         <View style={styles.topRow} testID="today-top-row">
           <View style={styles.placeRow}>
-            <Icon name="location" color={theme.colors.iconSecondary} size={16} />
+            <Icon name="location" color={theme.colors.iconSecondary} size={16 * controlScale} />
             <AppText colorRole="textSecondary" numberOfLines={2} style={styles.location} variant="caption">
               {presentation.header.location}
             </AppText>
