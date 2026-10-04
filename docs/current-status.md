@@ -161,8 +161,12 @@ ports with fakes, and account screens behind `ACCOUNT_SCREENS_ENABLED = false` e
 `apps/mobile/src/features/account/`. The Worker carries the undeployed account deletion
 route (`/v1/account/delete`), which answers 503 until its settings exist. No Supabase
 project, Apple key or Google client exists yet. Migration 25
-adds the pending flags and the device account link; live provider adapters and the sync
-consent are not built. Before `ACCOUNT_SCREENS_ENABLED` turns on, the real account port must
+adds the pending flags and the device account link; live provider adapters, the sync
+consent sheet and its consent records, the launch-time Apple credential check and the daily
+Supabase Cron Trigger are not built. Two parts of the built code differ from ADR 0041: the
+deletion route refuses to delete an account with an Apple identity when no authorization
+code is sent, and the sync flow uploads dress style and style aesthetics without the sync
+consent. Before `ACCOUNT_SCREENS_ENABLED` turns on, the real account port must
 be composed into the app: today nothing provides `AccountScreensContext`, so `useIsMember`,
 which gates composing around chosen pieces, reads the in-memory port, whose sign-in always
 succeeds. The project is
