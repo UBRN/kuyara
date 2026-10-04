@@ -1029,6 +1029,45 @@ test('weather_refreshed reports automatic_stale on foreground and location_chang
   assert.equal(captured[0].properties.trigger_method, 'location_changed');
 });
 
+test('weather_refreshed reports automatic_stale when a selection keeps the same place', async () => {
+  let clock = '2026-07-30T10:00:00.000Z';
+  const stayed = {
+    source: 'device', accuracy: 'approximate', locationKey: 'device:4101:2898',
+    displayName: 'Kadikoy', coordinates: { latitudeE2: 4101, longitudeE2: 2898 },
+    timeZone: 'Europe/Istanbul',
+  };
+  const captured = [];
+  const renamed = createHarness({
+    active: stayed,
+    snapshots: [snapshotFor(stayed, '2026-07-30T09:55:00.000Z')],
+    now: () => clock,
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+    locationResult: { kind: 'success', location: { ...stayed, displayName: 'Istanbul' } },
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await renamed.controller.initialize();
+  clock = '2026-07-30T10:40:00.000Z';
+  await renamed.controller.onForeground();
+  await settle();
+  assert.equal(renamed.controller.getSnapshot().activeLocation.displayName, 'Istanbul');
+  assert.deepEqual(captured.map(({ properties }) => properties.trigger_method), ['automatic_stale']);
+
+  captured.length = 0;
+  clock = '2026-07-30T10:00:00.000Z';
+  const istanbul = getManualLocation('sample.istanbul');
+  const repicked = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:55:00.000Z')],
+    now: () => clock,
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await repicked.controller.initialize();
+  clock = '2026-07-30T10:40:00.000Z';
+  await repicked.controller.selectManualLocation(istanbul.catalogId);
+  await settle();
+  assert.deepEqual(captured.map(({ properties }) => properties.trigger_method), ['automatic_stale']);
+});
+
 test('weather_refreshed reports failure_no_snapshot and failure_kept_last_known', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const captured = [];

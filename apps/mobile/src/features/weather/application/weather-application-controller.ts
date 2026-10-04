@@ -392,13 +392,19 @@ export class WeatherApplicationController {
       const ready = this.requireReady();
       const validLoadedFreshness = loadedFreshness === 'invalid' ? null : loadedFreshness;
       const validLoadedSnapshot = validLoadedFreshness ? loadedSnapshot : null;
+      const snapshot = validLoadedSnapshot ?? ready.snapshot;
       this.setReady({
         ...ready,
-        snapshot: validLoadedSnapshot ?? ready.snapshot,
+        snapshot,
         freshness: validLoadedSnapshot ? validLoadedFreshness : ready.freshness,
         isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
       });
-      if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted, 'location_changed');
+      // Taxonomy 5.4: only a changed place is `location_changed`. The same place picked again
+      // or renamed refreshes for the state of its cache, as a foreground refresh does.
+      const trigger: WeatherRefreshTrigger = locationChanged
+        ? 'location_changed'
+        : snapshot ? 'automatic_stale' : 'automatic_no_cache';
+      if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted, trigger);
     } catch {
       this.setReady({
         ...this.requireReady(), isSelectingLocation: false, refreshFailure: 'unavailable',
