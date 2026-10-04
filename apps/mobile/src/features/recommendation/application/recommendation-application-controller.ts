@@ -146,7 +146,13 @@ function recommendationFailureCategory(error: unknown): FailureCategory {
 type AiClient = Readonly<{
   recommendRouted(
     request: AiRecommendV1Request,
-    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: SupportedLanguage }>,
+    options?: Readonly<{
+      onPhase?: (phase: RecommendationPhase) => void;
+      locale?: SupportedLanguage;
+      // Only a re-ask whose allowance was reserved sets it, so the Worker answers without its
+      // shared cache instead of returning the trio the reader asked to replace.
+      reask?: true;
+    }>,
   ): Promise<OutfitRecommendationSuccess>;
 }>;
 
@@ -564,6 +570,7 @@ export class RecommendationApplicationController {
         recommendation = await this.dependencies.client.recommendRouted(request, {
           onPhase: (phase) => this.setPhase(key, phase),
           locale: input.locale ?? 'en',
+          ...(trigger === 'regenerate' ? { reask: true as const } : {}),
         });
         this.setPhase(key, 'preparing-outfits');
       } catch (error) {

@@ -7,6 +7,7 @@ import {
   aiRecommendV2SuccessSchema,
   styleAesthetics,
 } from './ai-v2.ts';
+import { aiRecommendV1RequestSchema } from './ai-v1.ts';
 
 const option = (optionId) => ({
   optionId,
@@ -72,4 +73,16 @@ test('v2 sentence is optional, trimmed, one line, and at most 90 characters', ()
   assert.equal(aiRecommendV2SuccessSchema.safeParse({ data: { picks: [
     success.data.picks[0], success.data.picks[0], success.data.picks[2],
   ] } }).success, false);
+});
+
+test('v2 request accepts an optional re-ask flag that is only ever true and v1 still refuses it', () => {
+  assert.equal(aiRecommendV2RequestSchema.safeParse(request).success, true);
+  assert.equal(aiRecommendV2RequestSchema.parse({ ...request, reask: true }).reask, true);
+  assert.equal('reask' in aiRecommendV2RequestSchema.parse(request), false);
+  for (const reask of [false, 'true', 1, null]) {
+    assert.equal(aiRecommendV2RequestSchema.safeParse({ ...request, reask }).success, false, String(reask));
+  }
+  const { locale: _locale, ...v1Request } = request;
+  assert.equal(aiRecommendV1RequestSchema.safeParse(v1Request).success, true);
+  assert.equal(aiRecommendV1RequestSchema.safeParse({ ...v1Request, reask: true }).success, false);
 });

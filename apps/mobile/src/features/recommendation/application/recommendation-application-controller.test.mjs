@@ -1074,3 +1074,20 @@ test('joining a superseded in-flight refresh leaves the controller settled when 
 
   assert.equal(controller.getSnapshot().isRefreshing, false);
 });
+
+test('only an approved re-ask asks the routed client to skip the shared cache', async () => {
+  const optionsSeen = [];
+  const { controller } = createHarness({
+    client: {
+      recommendRouted: async (request, options) => {
+        optionsSeen.push(options?.reask === true);
+        return mapWorkerAiRecommendation(request, workerResponse(request), 'ai-assisted');
+      },
+    },
+  });
+  await controller.initialize();
+  await controller.refresh('first-recommendation', input(20));
+  await controller.refresh('explicit', input(24));
+  await controller.refresh('regenerate', input(24));
+  assert.deepEqual(optionsSeen, [false, false, true]);
+});

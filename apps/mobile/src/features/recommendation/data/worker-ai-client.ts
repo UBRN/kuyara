@@ -55,12 +55,17 @@ export class WorkerAiClient {
 
   // `options.timeoutMilliseconds` is the wait the routed client grants the Worker tier.
   // Omitted, the instance default applies and the Worker path behaves exactly as it did
-  // before the on-device tier existed.
+  // before the on-device tier existed. `options.reask` marks an approved re-ask, which the
+  // Worker answers without its shared cache; every other request leaves the field out.
   async recommend(
     input: AiRecommendV1Request,
-    options?: Readonly<{ timeoutMilliseconds?: number; locale?: SupportedLanguage }>,
+    options?: Readonly<{ timeoutMilliseconds?: number; locale?: SupportedLanguage; reask?: true }>,
   ): Promise<AiRecommendV2Success['data']> {
-    const request = aiRecommendV2RequestSchema.safeParse({ ...input, locale: options?.locale ?? 'en' });
+    const request = aiRecommendV2RequestSchema.safeParse({
+      ...input,
+      locale: options?.locale ?? 'en',
+      ...(options?.reask ? { reask: true } : {}),
+    });
     if (!request.success) throw new WorkerAiClientError('invalid-request');
 
     const requestTimeoutMilliseconds =

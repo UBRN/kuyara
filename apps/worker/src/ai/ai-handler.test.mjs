@@ -1744,3 +1744,122 @@ test('a body at the limit is answered on both routes and one byte more is invali
   }
   assert.equal(calls, 2);
 });
+
+// A confirmed "Ask the stylist again" carries `reask: true` on v2. The shared cache would
+// hand back the trio the reader asked to replace, so a re-ask neither reads nor writes it;
+// every limit still counts it exactly like a first generation.
+function reaskBody(fields = {}) {
+  return JSON.stringify({ ...validRequestBody(), locale: 'en', ...fields });
+}
+
+function countingMemoryCache() {
+  const previous = globalThis.caches;
+  const entries = new Map();
+  const counts = { match: 0, put: 0 };
+  globalThis.caches = { default: {
+    async match(cacheRequest) {
+      counts.match += 1;
+      return entries.get(cacheRequest.url)?.clone();
+    },
+    async put(cacheRequest, response) {
+      counts.put += 1;
+      entries.set(cacheRequest.url, response.clone());
+    },
+  } };
+  return { counts, restore: () => {
+    if (previous === undefined) delete globalThis.caches;
+    else globalThis.caches = previous;
+  } };
+}
+
+test('a re-ask neither reads nor writes the shared cache', async (t) => {
+  const { counts, restore } = countingMemoryCache();
+  t.after(restore);
+  const answers = [validOutput(), {
+    data: { picks: [...validOutput().data.picks].reverse() },
+  }];
+  let calls = 0;
+  const handle = createAiHandler({ providers: [{
+    async generateOutfits() { return answers[Math.min(calls++, 1)]; },
+  }] });
+  const v2 = (fields) => request({ path: '/v2/ai/recommend', body: reaskBody(fields) });
+
+  assert.deepEqual(await (await handle(v2())).json(), answers[0]);
+  assert.deepEqual(counts, { match: 1, put: 1 });
+
+  const reask = await handle(v2({ reask: true }));
+  assert.equal(reask.status, 200);
+  assert.deepEqual(await reask.json(), answers[1]);
+  assert.equal(calls, 2, 'the re-ask reaches the provider although the first answer is cached');
+  assert.deepEqual(counts, { match: 1, put: 1 }, 'the re-ask neither reads nor writes the cache');
+
+  // The ordinary request still finds the first answer: the re-ask replaced nothing.
+  assert.deepEqual(await (await handle(v2())).json(), answers[0]);
+  assert.equal(calls, 2);
+  assert.deepEqual(counts, { match: 2, put: 1 });
+});
+
+test('a re-ask is held by the burst limiter like any request', async () => {
+  const keys = [];
+  let providerCalls = 0;
+  const response = await createAiHandler({
+    providers: [{ async generateOutfits() { providerCalls += 1; return validOutput(); } }],
+    rateLimiter: { async limit(input) { keys.push(input.key); return { success: false }; } },
+  })(request({ path: '/v2/ai/recommend', body: reaskBody({ reask: true }) }));
+  await assertError(response, 429, 'rate_limited');
+  assert.deepEqual(keys, ['recommend:unknown']);
+  assert.equal(providerCalls, 0);
+});
+
+test('a re-ask increments the Workers AI daily counter even when the answer is cached', async (t) => {
+  const { restore } = countingMemoryCache();
+  t.after(restore);
+  const calls = [];
+  const counter = dailyCounter([1, 2]);
+  const handle = createAiHandler({
+    providers: [workersAi('@cf/first', calls)],
+    dailyCounter: counter,
+    dailyLimit: LIMIT,
+    now: fixedNow,
+  });
+  assert.equal((await handle(request({ path: '/v2/ai/recommend', body: reaskBody() }))).status, 200);
+  assert.equal((await handle(request({ path: '/v2/ai/recommend', body: reaskBody({ reask: true }) }))).status, 200);
+  assert.deepEqual(calls, ['@cf/first', '@cf/first']);
+  assert.deepEqual(counter.keys, ['ai:workers-ai:2026-09-15', 'ai:workers-ai:2026-09-15']);
+});
+
+test('a re-ask past the daily limit is refused Workers AI and reaches only OpenRouter', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const { restore } = countingMemoryCache();
+  t.after(restore);
+  const reask = () => request({ path: '/v2/ai/recommend', body: reaskBody({ reask: true }) });
+
+  const workersOnly = [];
+  await assertError(await createAiHandler({
+    providers: [workersAi('@cf/first', workersOnly)],
+    dailyCounter: dailyCounter([LIMIT + 1]),
+    dailyLimit: LIMIT,
+    now: fixedNow,
+  })(reask()), 503, 'ai_unavailable');
+  assert.deepEqual(workersOnly, []);
+
+  const calls = [];
+  const response = await createAiHandler({
+    providers: [workersAi('@cf/first', calls), openRouter('router/free', calls)],
+    dailyCounter: dailyCounter([LIMIT + 1]),
+    dailyLimit: LIMIT,
+    now: fixedNow,
+  })(reask());
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ['router/free']);
+  assert.deepEqual(warnings.map(({ event }) => event),
+    ['ai_daily_budget_exhausted', 'ai_daily_budget_exhausted']);
+});
+
+test('the re-ask flag never reaches the model prompt', () => {
+  const body = { ...validRequestBody(), locale: 'en' };
+  const flagged = aiRecommendV2RequestSchema.parse({ ...body, reask: true });
+  assert.deepEqual(buildMessages(flagged), buildMessages(aiRecommendV2RequestSchema.parse(body)));
+  assert.equal(JSON.stringify(buildMessages(flagged)).includes('reask'), false);
+});

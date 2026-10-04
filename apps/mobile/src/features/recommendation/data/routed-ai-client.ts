@@ -31,7 +31,7 @@ export type AiRecommendationValidator = (
 type WorkerClient = Readonly<{
   recommend(
     request: AiRecommendV1Request,
-    options?: Readonly<{ timeoutMilliseconds?: number; locale?: SupportedLanguage }>,
+    options?: Readonly<{ timeoutMilliseconds?: number; locale?: SupportedLanguage; reask?: true }>,
   ): Promise<AiRecommendV2Success['data']>;
 }>;
 
@@ -69,7 +69,11 @@ export class RoutedAiClient {
 
   async recommendRouted(
     request: AiRecommendV1Request,
-    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: SupportedLanguage }>,
+    options?: Readonly<{
+      onPhase?: (phase: RecommendationPhase) => void;
+      locale?: SupportedLanguage;
+      reask?: true;
+    }>,
   ): Promise<OutfitRecommendationSuccess> {
     const onPhase = options?.onPhase;
     try {
@@ -89,6 +93,7 @@ export class RoutedAiClient {
     const data = await this.worker.recommend(request, {
       timeoutMilliseconds: workerWaitMilliseconds,
       locale: options?.locale ?? 'en',
+      ...(options?.reask ? { reask: true as const } : {}),
     });
     onPhase?.('answer-received');
     return this.validate(request, data, 'ai-assisted', { locale: options?.locale ?? 'en' });

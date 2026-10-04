@@ -256,7 +256,11 @@ export function createAiHandler({
     const options = new Map(
       requestResult.data.options.map((option) => [option.optionId, option]),
     );
-    const cache = defaultCache();
+    // A confirmed re-ask asks for a different trio than the one the cache holds for this
+    // request, so it neither reads nor writes the shared cache. The burst limiter above and
+    // the daily counter below count it exactly like a first generation.
+    const reask = isV2 && 'reask' in requestResult.data && requestResult.data.reask === true;
+    const cache = reask ? undefined : defaultCache();
     let cacheRequest: Request | undefined;
     if (cache) {
       try {
