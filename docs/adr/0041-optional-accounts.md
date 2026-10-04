@@ -111,6 +111,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 - After the result sheet closes, Settings shows a one-time confirmation row under the Account group. It disappears on the next visit to Settings, and the ordinary benefit footnote returns.
 - The Free plan has no daily backups, so the only backups are the ones taken by hand. Each manual backup is encrypted, and its key is kept separately from the backup. A deleted account's data can remain in a manual backup until that backup is removed, and a restore never brings a deleted account back. The retention the maintainer sets for manual backups is fixed before accounts open, and the privacy policy states it.
 - Analytics is not linked to the account (section 12), so PostHog holds no account data to delete.
+- The Worker's per-member AI re-ask counter (section 13) keeps only a pseudonymous count under an object named by the user ID and holds no user ID in what it stores; it is not deleted with the account and expires on its own within seven days.
 
 ### 8. What never leaves the device
 
@@ -152,7 +153,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 ### 13. Member AI allowance
 
-- A signed-in member gets 10 "Ask the stylist again" requests per local day; everyone else keeps 5 per install per local day, the device allowance that exists today. The Worker counts members' requests; the device counter is not trusted for members.
+- A signed-in member gets 10 "Ask the stylist again" requests per UTC day; everyone else keeps 5 per install per local day, the device allowance that exists today. The Worker counts members' requests on the UTC day, because no request carries the person's local day; the device counter is not trusted for members.
 - The member allowance is enforced from the first account release, when accounts open; until then every install keeps 5. The Worker identifies the member from the verified Supabase access token as in section 2 (user ID from `sub`), sent only in the `Authorization: Bearer` header, so no request or response shape of a shipped route changes. The user ID keys the counter and is never logged, sent to analytics or placed in an AI request; the [AI input boundary](../product-decisions.md#approved-ai-input-privacy-boundary) is unchanged.
 - The Worker's daily Workers AI total stays at 50 for everyone together. The member allowance never raises it, and no paid model joins the chain for members. When the total is spent, recommendations fall back to the on-device deterministic choice, for members too.
 

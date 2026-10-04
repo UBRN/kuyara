@@ -28,6 +28,7 @@ import {
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
 import { attemptFailureReason, type AiProvider } from './ai-provider.ts';
+import type { MemberAllowance } from './member-allowance.ts';
 import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
 
 type Dependencies = Readonly<{
@@ -39,6 +40,11 @@ type Dependencies = Readonly<{
    */
   dailyCounter?: DailyCounterPort;
   dailyLimit?: number;
+  /**
+   * Counts a signed-in member's re-asks (ADR 0041, section 13). Absent when the Supabase
+   * settings are missing: every request is then handled as a non-member's.
+   */
+  memberAllowance?: MemberAllowance;
   now?: () => Date;
   attemptTimeoutMs?: number;
   totalDeadlineMs?: number;
@@ -221,6 +227,7 @@ export function createAiHandler({
   rateLimiter,
   dailyCounter,
   dailyLimit,
+  memberAllowance,
   now = () => new Date(),
   // Workers AI answered within 2 to 4.5 s when measured live; a provider that does not
   // answer stalls indefinitely, so 7 s cuts it off and hands the turn to the next provider.
@@ -266,6 +273,13 @@ export function createAiHandler({
       : aiRecommendV1RequestSchema.safeParse(body);
     if (!requestResult.success) return errorResponse(400, 'invalid_request');
     const { reask, aiRequest } = splitReask(requestResult.data);
+    // Only a re-ask can be a member request. It is counted before the cache and the provider
+    // walk, so a refused one spends nothing; the Workers AI total below still applies to
+    // members. The same closed answer as the burst limiter: installed binaries handle it.
+    if (reask && memberAllowance && await memberAllowance(request, now()) === 'exhausted') {
+      console.warn({ event: 'ai_member_allowance_exhausted', route: url.pathname });
+      return errorResponse(429, 'rate_limited', rateLimitedHeaders);
+    }
 
     const options = new Map(
       aiRequest.options.map((option) => [option.optionId, option]),

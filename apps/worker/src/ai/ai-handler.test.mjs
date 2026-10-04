@@ -21,8 +21,10 @@ import {
   largestOption,
   paddedBody,
 } from '../__tests__/largest-valid-requests.mjs';
+import { AccountError } from '../account/account-error.ts';
 import { AiProviderError } from './ai-provider.ts';
 import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
+import { MEMBER_REASK_DAILY_LIMIT, createMemberAllowance } from './member-allowance.ts';
 import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
 
 // The handler reports every provider attempt; keep that out of the test output.
@@ -1898,4 +1900,170 @@ test('a re-ask reaches the provider without the flag and with the same prompt as
   assert.equal('reask' in received[0], false);
   assert.deepEqual(received[0], received[1]);
   assert.deepEqual(buildMessages(received[0]), buildMessages(received[1]));
+});
+
+// The member allowance (ADR 0041, section 13): a signed-in member's re-asks are counted per
+// member and per day by the Worker. The handler asks the injected allowance only for a
+// re-ask and answers the existing closed 429 when it is exhausted.
+const memberId = '3f2b8c1e-5d4a-4c1b-9a7e-0d6f1b2c3d4e';
+
+function memberNamespace() {
+  const counts = new Map();
+  return {
+    idFromName(name) { return { name }; },
+    get(id) {
+      return {
+        async fetch(input) {
+          const key = `${id.name}|${new URL(String(input)).searchParams.get('key')}`;
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+          return Response.json({ count: counts.get(key) });
+        },
+      };
+    },
+  };
+}
+
+function memberHandler(providers, { verifier, dependencies = {} } = {}) {
+  const verified = [];
+  const handle = createAiHandler({
+    providers,
+    memberAllowance: createMemberAllowance({
+      verifier: verifier ?? (async (token) => { verified.push(token); return { userId: memberId, hasAppleIdentity: false }; }),
+      namespace: memberNamespace(),
+    }),
+    now: fixedNow,
+    ...dependencies,
+  });
+  return { handle, verified };
+}
+
+function memberReask({ reask = true, token = 'member.access.token' } = {}) {
+  return request({
+    path: '/v2/ai/recommend',
+    body: reaskBody(reask ? { reask: true } : {}),
+    headers: {
+      'content-type': 'application/json',
+      ...(token === null ? {} : { authorization: `Bearer ${token}` }),
+    },
+  });
+}
+
+test('the eleventh member re-ask of a day is refused with the existing closed 429', async () => {
+  let providerCalls = 0;
+  const { handle } = memberHandler([{ async generateOutfits() { providerCalls += 1; return validOutput(); } }]);
+  for (let count = 1; count <= MEMBER_REASK_DAILY_LIMIT; count += 1) {
+    assert.equal((await handle(memberReask())).status, 200, `re-ask ${count}`);
+  }
+  assert.equal(providerCalls, MEMBER_REASK_DAILY_LIMIT);
+
+  const refused = await handle(memberReask());
+  await assertError(refused, 429, 'rate_limited');
+  assert.equal(refused.headers.get('retry-after'), '60');
+  assert.equal(providerCalls, MEMBER_REASK_DAILY_LIMIT, 'a refused re-ask reaches no provider');
+});
+
+test('a request without a verified member token is never member-counted', async () => {
+  const providers = [{ async generateOutfits() { return validOutput(); } }];
+  const cases = [
+    ['no header', memberHandler(providers), { token: null }],
+    ['a rejected token', memberHandler(providers, {
+      verifier: async () => { throw new AccountError('unauthorized'); },
+    }), {}],
+    ['a verifier outage', memberHandler(providers, {
+      verifier: async () => { throw new AccountError('unavailable'); },
+    }), {}],
+    ['a verifier that throws', memberHandler(providers, {
+      verifier: async () => { throw new Error('boom'); },
+    }), {}],
+  ];
+  for (const [label, { handle }, options] of cases) {
+    for (let count = 0; count < MEMBER_REASK_DAILY_LIMIT + 3; count += 1) {
+      assert.equal((await handle(memberReask(options))).status, 200, `${label}, re-ask ${count + 1}`);
+    }
+  }
+});
+
+test('Supabase settings missing leaves a bearer re-ask exactly as it is today', async () => {
+  let providerCalls = 0;
+  const handle = createAiHandler({
+    providers: [{ async generateOutfits() { providerCalls += 1; return validOutput(); } }],
+    now: fixedNow,
+  });
+  for (let count = 0; count < MEMBER_REASK_DAILY_LIMIT + 3; count += 1) {
+    assert.equal((await handle(memberReask())).status, 200);
+  }
+  assert.equal(providerCalls, MEMBER_REASK_DAILY_LIMIT + 3);
+});
+
+test('a request that is not a re-ask is not verified or counted, token or not', async () => {
+  const { handle, verified } = memberHandler([{ async generateOutfits() { return validOutput(); } }]);
+  for (let count = 0; count < MEMBER_REASK_DAILY_LIMIT + 3; count += 1) {
+    assert.equal((await handle(memberReask({ reask: false }))).status, 200);
+  }
+  assert.equal((await handle(request({
+    headers: { 'content-type': 'application/json', authorization: 'Bearer member.access.token' },
+  }))).status, 200);
+  assert.deepEqual(verified, []);
+  // The member's allowance is untouched: all ten re-asks are still available.
+  for (let count = 1; count <= MEMBER_REASK_DAILY_LIMIT; count += 1) {
+    assert.equal((await handle(memberReask())).status, 200);
+  }
+  await assertError(await handle(memberReask()), 429, 'rate_limited');
+});
+
+test('a member re-ask within the allowance still meets the global Workers AI cap', async () => {
+  const calls = [];
+  const counter = dailyCounter([LIMIT + 1]);
+  const { handle } = memberHandler([workersAi('@cf/first', calls)], {
+    dependencies: { dailyCounter: counter, dailyLimit: LIMIT },
+  });
+  await assertError(await handle(memberReask()), 503, 'ai_unavailable');
+  assert.deepEqual(calls, []);
+  assert.deepEqual(counter.keys, ['ai:workers-ai:2026-09-15']);
+});
+
+test('the user id appears in no log line and in no model input', async (t) => {
+  const lines = [];
+  for (const level of ['warn', 'info', 'log', 'error']) {
+    t.mock.method(console, level, (...args) => lines.push(JSON.stringify(args)));
+  }
+  const received = [];
+  const { handle } = memberHandler([{ async generateOutfits(body) { received.push(body); return validOutput(); } }]);
+  for (let count = 0; count <= MEMBER_REASK_DAILY_LIMIT; count += 1) await handle(memberReask());
+
+  assert.ok(lines.some((line) => line.includes('ai_member_allowance_exhausted')));
+  assert.equal(lines.some((line) => line.includes(memberId)), false);
+  assert.equal(JSON.stringify(received).includes(memberId), false);
+  assert.equal(JSON.stringify(received).includes('member.access.token'), false);
+});
+
+test('a refused member re-ask is logged once with the route only', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const { handle } = memberHandler([{ async generateOutfits() { return validOutput(); } }]);
+  for (let count = 0; count <= MEMBER_REASK_DAILY_LIMIT; count += 1) await handle(memberReask());
+  assert.deepEqual(warnings, [{ event: 'ai_member_allowance_exhausted', route: '/v2/ai/recommend' }]);
+});
+
+test('a re-ask refused by the burst limiter is not verified or member-counted', async () => {
+  const { handle, verified } = memberHandler([{ async generateOutfits() { return validOutput(); } }], {
+    dependencies: { rateLimiter: { async limit() { return { success: false }; } } },
+  });
+  for (let count = 0; count < MEMBER_REASK_DAILY_LIMIT + 3; count += 1) {
+    await assertError(await handle(memberReask()), 429, 'rate_limited');
+  }
+  assert.deepEqual(verified, []);
+});
+
+test('burst-limited re-asks leave the whole member allowance intact', async () => {
+  let limited = true;
+  const { handle } = memberHandler([{ async generateOutfits() { return validOutput(); } }], {
+    dependencies: { rateLimiter: { async limit() { return { success: !limited }; } } },
+  });
+  for (let count = 0; count < MEMBER_REASK_DAILY_LIMIT + 3; count += 1) await handle(memberReask());
+  limited = false;
+  for (let count = 1; count <= MEMBER_REASK_DAILY_LIMIT; count += 1) {
+    assert.equal((await handle(memberReask())).status, 200, `re-ask ${count}`);
+  }
+  await assertError(await handle(memberReask()), 429, 'rate_limited');
 });

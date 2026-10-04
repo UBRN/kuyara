@@ -233,14 +233,39 @@ test('a JWKS request that hangs is aborted at the timeout', async () => {
   assert.equal(aborted, true);
 });
 
-test('a failed fetch does not stay cached: the next call tries again', async () => {
+test('a failed fetch does not stay cached: the next call after the cooldown tries again', async () => {
   const { jwk, sign } = await fixture();
   let calls = 0;
+  let at = nowSeconds * 1000;
   const verify = createSupabaseTokenVerifier({
-    supabaseUrl, timeoutMs, now,
+    supabaseUrl, timeoutMs, now: () => new Date(at),
     fetch: async () => { calls += 1; return calls === 1 ? new Response('x', { status: 503 }) : Response.json({ keys: [jwk('k1')] }); },
   });
   const token = await sign({ alg: 'ES256', kid: 'k1' }, claims());
   await assertRejects(verify(token), 'unavailable');
+  at += 60_000;
   assert.deepEqual(await verify(token), verified);
+});
+
+test('during an outage with no key set loaded, calls inside the cooldown fail without fetching', async () => {
+  const { jwk, sign } = await fixture();
+  let calls = 0;
+  let up = false;
+  let at = nowSeconds * 1000;
+  const verify = createSupabaseTokenVerifier({
+    supabaseUrl, timeoutMs, now: () => new Date(at),
+    fetch: async () => { calls += 1; return up ? Response.json({ keys: [jwk('k1')] }) : new Response('x', { status: 503 }); },
+  });
+  const token = await sign({ alg: 'ES256', kid: 'k1' }, claims());
+  await assertRejects(verify(token), 'unavailable');
+  at += 30_000;
+  await assertRejects(verify(token), 'unavailable');
+  assert.equal(calls, 1, 'the second call inside the cooldown does not fetch');
+  at += 30_000;
+  await assertRejects(verify(token), 'unavailable');
+  assert.equal(calls, 2, 'after the cooldown the keys are read again');
+  up = true;
+  at += 60_000;
+  assert.deepEqual(await verify(token), verified);
+  assert.equal(calls, 3);
 });

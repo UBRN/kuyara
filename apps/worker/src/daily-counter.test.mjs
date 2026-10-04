@@ -3,11 +3,14 @@ import test from 'node:test';
 
 import { DailyCounter, createDurableDailyCounter, dailyCounterKey } from './daily-counter.ts';
 
-// A Map-backed stand-in for `DurableObjectState.storage`: the four methods the counter uses.
+// A Map-backed stand-in for `DurableObjectState.storage`: the methods the counter uses.
 function fakeStorage(initial = {}) {
   const map = new Map(Object.entries(initial));
+  const state = { alarm: null };
   return {
     map,
+    state,
+    async setAlarm(time) { state.alarm = time; },
     async get(key) { return map.get(key); },
     async put(key, value) { map.set(key, value); },
     async delete(key) { return map.delete(key); },
@@ -154,4 +157,78 @@ test('the adapter resolves the stub from the namespace on every call', async () 
   await counter.increment('probe:2026-09-15');
   await counter.increment('probe:2026-09-15');
   assert.equal(stubsTaken, 2);
+});
+
+const day = 86_400_000;
+
+test('the first increment of a day sets an alarm seven days after that day starts', async () => {
+  const { counter, storage } = counterObject();
+  await call(counter, 'POST', '/increment?key=ai:member:abc:2026-09-15');
+  assert.equal(storage.state.alarm, Date.parse('2026-09-15T00:00:00.000Z') + 7 * day);
+});
+
+test('a later new day moves the alarm out', async () => {
+  const { counter, storage } = counterObject();
+  await call(counter, 'POST', '/increment?key=probe:2026-09-15');
+  await call(counter, 'POST', '/increment?key=probe:2026-09-16');
+  assert.equal(storage.state.alarm, Date.parse('2026-09-16T00:00:00.000Z') + 7 * day);
+});
+
+test('only the first increment of a key touches the alarm', async () => {
+  const { counter, storage } = counterObject();
+  await call(counter, 'POST', '/increment?key=probe:2026-09-15');
+  storage.state.alarm = 1;
+  await call(counter, 'POST', '/increment?key=probe:2026-09-15');
+  assert.equal(storage.state.alarm, 1);
+});
+
+const keyDay = (date) => Date.parse(`${date}T00:00:00.000Z`);
+
+test('the alarm deletes only keys whose seven days are over and re-arms for the earliest left', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: keyDay('2026-09-22') });
+  const { counter, storage } = counterObject({
+    'ai:member:2026-09-14': 3,
+    'ai:member:2026-09-15': 5,
+    'ai:member:2026-09-22': 1,
+  });
+  await counter.alarm();
+  assert.deepEqual([...storage.map.entries()], [['ai:member:2026-09-22', 1]], 'the alarm day key survives');
+  assert.equal(storage.state.alarm, keyDay('2026-09-29'));
+});
+
+test('the alarm empties an object whose keys are all stale and arms nothing', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: keyDay('2026-09-22') });
+  const { counter, storage } = counterObject({ 'ai:member:2026-09-15': 5 });
+  await counter.alarm();
+  assert.equal(storage.map.size, 0);
+  assert.equal(storage.state.alarm, null);
+});
+
+test('a late request with yesterday\'s key moving the alarm back only ever costs stale days', async (t) => {
+  const { counter, storage } = counterObject();
+  await call(counter, 'POST', '/increment?key=ai:member:2026-09-22');
+  assert.equal(storage.state.alarm, keyDay('2026-09-29'));
+  await call(counter, 'POST', '/increment?key=ai:member:2026-09-21');
+  assert.equal(storage.state.alarm, keyDay('2026-09-28'), 'the straggler moved the alarm back');
+  t.mock.timers.enable({ apis: ['Date'], now: keyDay('2026-09-28') });
+  await counter.alarm();
+  assert.deepEqual([...storage.map.keys()], ['ai:member:2026-09-22'], 'only the stale day went');
+  assert.equal(storage.state.alarm, keyDay('2026-09-29'), 'it re-arms for the earliest remaining expiry');
+});
+
+test('a failing alarm API never fails the increment', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const { counter, storage } = counterObject();
+  storage.setAlarm = async () => { throw new Error('alarm unavailable'); };
+  assert.deepEqual(await call(counter, 'POST', '/increment?key=probe:2026-09-15'), {
+    status: 200,
+    body: { count: 1 },
+  });
+  assert.equal(storage.map.get('probe:2026-09-15'), 1);
+});
+
+test('a key without a date suffix sets no alarm', async () => {
+  const { counter, storage } = counterObject();
+  await call(counter, 'POST', '/increment?key=probe');
+  assert.equal(storage.state.alarm, null);
 });

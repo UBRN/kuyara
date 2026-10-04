@@ -165,8 +165,8 @@ server-arrival conflict rule, the post-sign-in sync consent sheet and its record
 and withdrawal, the Apple credential check at launch and the revocation notification while the app runs, and deletion through the Worker, whose result shows on an app-wide sheet. With the switch on and
 no valid Supabase settings the screens fail closed. Google sign-in waits for its library licence. Migration 28
 adds the device link's joined-account columns. The Worker code carries the deletion route (deleting an Apple
-account without a usable code answers `deleted_apple_unrevoked`), its rate limit and the keep-alive Cron
-Trigger, every six hours. That code is not deployed: the deployed Worker carries an earlier version of the route,
+account without a usable code answers `deleted_apple_unrevoked`), its rate limit, the keep-alive Cron
+Trigger, every six hours, and the count of a signed-in member's "Ask the stylist again" requests (ten per UTC day per member, refused with the existing `rate_limited` answer). That code is not deployed: the deployed Worker carries an earlier version of the route,
 offline and answering `unavailable`, and no Cron Trigger. The remote schema is
 `supabase/migrations/20261004120000_accounts.sql`, applied to the project on 4 October 2026 with no security advisor finding.
 `supabase/migrations/20261005090000_account_hardening.sql` (tighter bounds and per-account caps, the 400 MB database
@@ -174,7 +174,7 @@ size guard, the per-account lock between uploads and a consent withdrawal, one i
 applies both files in order and checks their access rules, caps, bounds, guard and lock. Evidence is automated
 tests, an in-memory Postgres run of the schema and one Simulator pass; Sign in with Apple, revocation and live
 sync have no device evidence. Before accounts open: network-state detection, screens reloading after a pull, the
-History photo sweep for pulled deletions, the member AI allowance, the privacy manifest and App Privacy, the
+History photo sweep for pulled deletions, the phone side of the member AI allowance, the privacy manifest and App Privacy, the
 Account terms pages (`docs/account-terms.md` and `docs/tr/account-terms.md`, which the app links) and the KVKK transfer contract. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
