@@ -488,6 +488,7 @@ export type AppMessages = Readonly<{
     helpHeading: string;
     aboutHeading: string;
     accessibilityHeading: string;
+    unitsHeading: string;
     easierToSee: Readonly<{
       title: string;
       on: string;
@@ -1199,6 +1200,7 @@ const en = {
     helpHeading: 'Help',
     aboutHeading: 'About',
     accessibilityHeading: 'Accessibility',
+    unitsHeading: 'Units',
     easierToSee: {
       title: 'Easier to see',
       on: 'On',
@@ -2467,6 +2469,7 @@ const tr = {
     helpHeading: 'Yardım',
     aboutHeading: 'Hakkında',
     accessibilityHeading: 'Erişilebilirlik',
+    unitsHeading: 'Birimler',
     easierToSee: {
       title: 'Görme kolaylığı',
       on: 'Açık',

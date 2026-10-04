@@ -56,6 +56,20 @@ implements WeatherAlertDeliveryLocalDataSource {
     return rows.map(mapRow);
   }
 
+  async listPending(
+    localProfileId: string,
+    now: string,
+  ): Promise<readonly WeatherAlertDeliveryRecord[]> {
+    const rows = await this.database.getAllAsync<WeatherAlertDeliveryRow>(
+      `SELECT id, local_profile_id, fire_at, created_at
+       FROM weather_alert_deliveries
+       WHERE local_profile_id = ? AND fire_at > ?
+       ORDER BY id ASC`,
+      [localProfileId, now],
+    );
+    return rows.map(mapRow);
+  }
+
   async deletePending(localProfileId: string, now: string, kind?: NotificationKind): Promise<void> {
     await this.database.runAsync(
       `DELETE FROM weather_alert_deliveries
