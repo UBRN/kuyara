@@ -47,10 +47,7 @@ function mapPermission(
   return { kind: 'denied', canRequestAgain: permission.canAskAgain };
 }
 
-const failedPermission = (): NotificationPermissionState => ({
-  kind: 'denied',
-  canRequestAgain: false,
-});
+const failedPermission = (): NotificationPermissionState => ({ kind: 'unknown' });
 
 export class ExpoNotificationGateway implements NotificationGateway {
   private weatherAlertChannelReady = false;

@@ -87,10 +87,18 @@ function find(hourly, now = morning, snapshotOverrides = {}) {
 
 const wet = { condition: 'rain' };
 
-test('a day wet in every remaining hour is wet all day', () => {
+const wetNow = { current: { observedAt: morning, ...measurements({ condition: 'rain' }) } };
+
+test('a day wet in every remaining hour while it is falling now is wet all day', () => {
   assert.deepEqual(find(dayHours(Object.fromEntries(
     Array.from({ length: 16 }, (_, index) => [index + 8, wet]),
-  ))), { kind: 'wet_all_day', form: 'rain', period: 'day' });
+  )), morning, wetNow), { kind: 'wet_all_day', form: 'rain', period: 'day' });
+});
+
+test('rain forecast in every remaining hour but dry now begins at the first hour', () => {
+  assert.deepEqual(find(dayHours(Object.fromEntries(
+    Array.from({ length: 16 }, (_, index) => [index + 8, wet]),
+  ))), { kind: 'wet_window', form: 'rain', fromHour: utcHour(9), untilHour: null });
 });
 
 test('sleet and snow read as snow, every other wet hour as rain', () => {
@@ -113,14 +121,23 @@ test('a wet run inside the day names where it begins and where it has stopped', 
   });
 });
 
-test('a run already falling in the first remaining hour names no beginning', () => {
-  // The hour after `now` is the first remaining one, so this run has no dry hour in front of
-  // it to name.
-  assert.deepEqual(find(dayHours({ 8: wet, 9: wet })), {
+test('a run already falling now and in the first remaining hour names no beginning', () => {
+  // The hour after `now` is the first remaining one; only a wet current condition means the
+  // run began before it.
+  assert.deepEqual(find(dayHours({ 8: wet, 9: wet }), morning, wetNow), {
     kind: 'wet_window',
     form: 'rain',
     fromHour: null,
     untilHour: utcHour(10),
+  });
+});
+
+test('rain that begins in the next full hour while it is dry now names that hour', () => {
+  assert.deepEqual(find(dayHours({ 9: wet, 10: wet, 11: wet })), {
+    kind: 'wet_window',
+    form: 'rain',
+    fromHour: utcHour(9),
+    untilHour: utcHour(12),
   });
 });
 
@@ -246,7 +263,7 @@ test('an evening window carries its own period and reaches past midnight', () =>
   });
   assert.deepEqual(find(eveningHours(Object.fromEntries(
     Array.from({ length: 9 }, (_, index) => [index + 19, wet]),
-  )), evening), { kind: 'wet_all_day', form: 'rain', period: 'evening' });
+  )), evening, wetNow), { kind: 'wet_all_day', form: 'rain', period: 'evening' });
 });
 
 test('two remaining hours still describe the day and one does not', () => {

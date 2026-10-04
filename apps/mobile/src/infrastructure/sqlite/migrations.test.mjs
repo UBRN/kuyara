@@ -2462,13 +2462,15 @@ test('a failed version 26 migration rolls back the rebuild and leaves version 25
 // Build 18 ships schema 25. A phone holding it, with rows in every table (history with photo
 // paths, wardrobe, profile, account link), upgrades to the current version with every row and
 // value intact, ends with the schema a fresh install creates, and a second run changes nothing.
-async function fillBuildEighteen(database) {
-  await database.execAsync(await readFile(new URL('./build-18-schema-25.sql', import.meta.url), 'utf8'));
+async function fillBuildEighteen(
+  database, schema = 'build-18-schema-25.sql', laterProfileColumns = '',
+) {
+  await database.execAsync(await readFile(new URL(`./${schema}`, import.meta.url), 'utf8'));
   await insertProfile(database);
   await database.runAsync(`UPDATE local_profiles SET gender = 'man', dress_style = 'casual',
     display_name = 'Can', name_prompt_version = 1, onboarding_completed = 1,
     analytics_consent = 'granted', theme_preference = 'light', language_preference = 'en',
-    style_aesthetics = '["classic"]', walkthrough_version = 1, swap_hint_shown = 1, pending_sync = 1`);
+    style_aesthetics = '["classic"]', walkthrough_version = 1, swap_hint_shown = 1, pending_sync = 1${laterProfileColumns}`);
   await database.execAsync(`
     INSERT INTO wardrobe_items
       (id, local_profile_id, name, category, color_family, photo_relative_path, created_at,
@@ -2559,6 +2561,40 @@ test('build-18-schema-25.sql upgrades with every row intact and matches a fresh 
   assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
   assert.deepEqual(await sqliteSchema(database), upgradedSchema);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+});
+
+// Build 19 ships schema 27, the first build to carry the unit choices. A phone holding it, with
+// rows in every table and the units its owner picked, upgrades to the current version with every
+// row and value intact, including the pending flags and the unit choices, and ends with the
+// schema a fresh install creates.
+test('build-19-schema-27.sql upgrades with every row intact and matches a fresh install', async (t) => {
+  const database = new NodeSqliteDatabase();
+  const fresh = new NodeSqliteDatabase();
+  t.after(() => { database.close(); fresh.close(); });
+  await fillBuildEighteen(database, 'build-19-schema-27.sql',
+    ", easier_to_see = 1, temperature_unit = 'fahrenheit', wind_speed_unit = 'mph'");
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 27);
+  const before = await tableRows(database);
+  assert.equal(Object.keys(before).length, 11);
+  assert.ok(Object.values(before).every((rows) => rows.length > 0), 'every build 19 table holds a row');
+  assert.equal(before.local_profiles[0].temperature_unit, 'fahrenheit');
+  assert.ok(Object.values(before).flat().some((row) => row.pending_sync === 1));
+
+  await migrateDatabase(database);
+  await migrateDatabase(fresh);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  // Version 28 adds only the two NULL link columns: the units, the pending flags and every
+  // other value stay exactly as the phone stored them.
+  assert.deepEqual(await tableRows(database), withRecordsUserId(before));
+  assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
+  assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, 0);
+  assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
+
+  const upgradedSchema = await sqliteSchema(database);
+  await migrateDatabase(new NodeSqliteDatabase(database.database));
+  assert.deepEqual(await tableRows(database), withRecordsUserId(before));
+  assert.deepEqual(await sqliteSchema(database), upgradedSchema);
 });
 
 // Migration 27: the temperature and wind unit choices, device-only profile columns that start at
@@ -2677,9 +2713,10 @@ const releasedMigrationHashes = {
   25: '076827bf1bc6faed',
   26: '91802149fcd4f7c3',
   27: '516b4d6f4eddaeb4',
+  28: '9c0af0743970463f',
 };
 
-test('the hash lock freezes every migration through 27, and later versions may be appended', async () => {
+test('the hash lock freezes every migration through 28, and later versions may be appended', async () => {
   const source = await readFile(new URL('./migrations.ts', import.meta.url), 'utf8');
   const blocks = Array.from(source.matchAll(/^const migrationV(\d+): Migration = \{\n[\s\S]*?^\};$/gm));
   const hashes = Object.fromEntries(blocks.map(([block, version]) => [version, createHash('sha256')

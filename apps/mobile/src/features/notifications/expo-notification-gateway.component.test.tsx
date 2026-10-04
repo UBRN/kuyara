@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { ExpoNotificationGateway } from '@/features/notifications/data/expo-notification-gateway';
 
 const notifications = jest.requireMock('expo-notifications') as {
+  getPermissionsAsync: jest.Mock;
+  requestPermissionsAsync: jest.Mock;
   getAllScheduledNotificationsAsync: jest.Mock;
   cancelScheduledNotificationAsync: jest.Mock;
   scheduleNotificationAsync: jest.Mock;
@@ -34,6 +36,16 @@ const originalPlatform = Platform.OS;
 afterEach(() => {
   jest.clearAllMocks();
   Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatform });
+});
+
+test('a permission read that fails is unknown, never a denial', async () => {
+  notifications.getPermissionsAsync.mockRejectedValue(new Error('native read failed'));
+  notifications.requestPermissionsAsync.mockRejectedValue(new Error('native request failed'));
+
+  await expect(new ExpoNotificationGateway().getPermissionState())
+    .resolves.toEqual({ kind: 'unknown' });
+  await expect(new ExpoNotificationGateway().requestPermission())
+    .resolves.toEqual({ kind: 'unknown' });
 });
 
 test('cancellation tries every prefixed kuyara weather alert and reports the failure', async () => {

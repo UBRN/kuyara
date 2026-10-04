@@ -103,7 +103,8 @@ function input(temperatureCelsius = 30) {
 }
 
 function createHarness({ cached = null, client, failSave = false, captureAnalyticsEvent, holdPhase,
-  loadRecentWorn, createContextWithPool } = {}) {
+  loadRecentWorn, createContextWithPool, reserveAiReask = async () => true,
+  releaseAiReask } = {}) {
   let stored = cached;
   const calls = { client: 0, saves: 0 };
   const requests = [];
@@ -156,7 +157,8 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
     client: aiClient,
     captureAnalyticsEvent,
     holdPhase: holdPhase ?? (async () => undefined),
-    reserveAiReask: async () => true,
+    reserveAiReask,
+    releaseAiReask,
   });
   return { controller, calls, repository, requests, getStored: () => stored };
 }
@@ -1123,4 +1125,110 @@ test('only an approved re-ask asks the routed client to skip the shared cache', 
   await controller.refresh('explicit', input(24));
   await controller.refresh('regenerate', input(24));
   assert.deepEqual(optionsSeen, [false, false, true]);
+});
+
+const networkDown = async () => { throw new WorkerAiClientError('network'); };
+
+function bodyGarmentSets(snapshot) {
+  return snapshot.recommendation.outfits.map(garmentIdSet);
+}
+
+test('a re-ask whose allowance is spent shows other outfits than the ones on screen', async () => {
+  const { controller, calls } = createHarness({
+    client: { recommendRouted: networkDown },
+    reserveAiReask: async () => false,
+  });
+  await controller.initialize();
+  const first = await controller.refresh('first-recommendation', input(20));
+  const shown = new Set(bodyGarmentSets(first));
+  assert.equal(shown.size, 3);
+
+  const again = await controller.refresh('regenerate', input(20));
+
+  assert.equal(again.generationMode, 'deterministic-fallback');
+  assert.equal(again.recommendation.outfits.length, 3);
+  assert.deepEqual(bodyGarmentSets(again).filter((set) => shown.has(set)), []);
+  // The spent allowance means the AI was never asked for the re-ask.
+  assert.equal(calls.client, 1);
+});
+
+test('a re-ask the AI could not answer also moves on to other outfits', async () => {
+  const { controller } = createHarness({
+    client: { recommendRouted: networkDown },
+    releaseAiReask: async () => undefined,
+  });
+  await controller.initialize();
+  const first = await controller.refresh('first-recommendation', input(20));
+  const shown = new Set(bodyGarmentSets(first));
+
+  const again = await controller.refresh('regenerate', input(20));
+
+  assert.equal(again.generationMode, 'deterministic-fallback');
+  assert.deepEqual(bodyGarmentSets(again).filter((set) => shown.has(set)), []);
+});
+
+test('a re-ask that never got a response gives its reserved allowance back', async () => {
+  const released = [];
+  const { controller } = createHarness({
+    client: { recommendRouted: networkDown },
+    releaseAiReask: async (dayKey) => { released.push(dayKey); },
+  });
+  await controller.initialize();
+  await controller.refresh('first-recommendation', input(20));
+  assert.deepEqual(released, []);
+
+  await controller.refresh('regenerate', input(20));
+
+  assert.deepEqual(released, ['2026-08-01']);
+});
+
+test('an allowance stays spent once the AI answered or the Worker replied with an error', async () => {
+  const released = [];
+  const answered = createHarness({ releaseAiReask: async (dayKey) => { released.push(dayKey); } });
+  await answered.controller.initialize();
+  await answered.controller.refresh('first-recommendation', input(20));
+  await answered.controller.refresh('regenerate', input(20));
+
+  const refused = createHarness({
+    client: { recommendRouted: async () => { throw new WorkerAiClientError('service'); } },
+    releaseAiReask: async (dayKey) => { released.push(dayKey); },
+  });
+  await refused.controller.initialize();
+  await refused.controller.refresh('first-recommendation', input(20));
+  await refused.controller.refresh('regenerate', input(20));
+
+  assert.deepEqual(released, []);
+});
+
+test('only a re-ask releases an allowance, never a first recommendation or an ordinary refresh', async () => {
+  const released = [];
+  const { controller } = createHarness({
+    client: { recommendRouted: networkDown },
+    releaseAiReask: async (dayKey) => { released.push(dayKey); },
+  });
+  await controller.initialize();
+  await controller.refresh('first-recommendation', input(20));
+  await controller.refresh('explicit', input(20));
+
+  assert.deepEqual(released, []);
+});
+
+test('skipping the wait of a re-ask shows other outfits than the ones on screen', async () => {
+  let calls = 0;
+  const ai = new Promise(() => undefined);
+  const { controller } = createHarness({
+    client: { recommendRouted: () => {
+      calls += 1;
+      return calls === 1 ? networkDown() : ai;
+    } },
+  });
+  await controller.initialize();
+  const first = await controller.refresh('first-recommendation', input(20));
+  const shown = new Set(bodyGarmentSets(first));
+  controller.refresh('regenerate', input(20));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const skipped = await controller.skipWait();
+
+  assert.deepEqual(bodyGarmentSets(skipped).filter((set) => shown.has(set)), []);
 });

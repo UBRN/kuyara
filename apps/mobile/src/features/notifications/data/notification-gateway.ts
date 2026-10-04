@@ -1,5 +1,10 @@
+/**
+ * `unknown` is a read that failed: the OS was not heard from, so it proves neither a grant
+ * nor a denial and never cancels what is already scheduled.
+ */
 export type NotificationPermissionState =
   | Readonly<{ kind: 'undetermined' }>
+  | Readonly<{ kind: 'unknown' }>
   | Readonly<{ kind: 'granted' }>
   | Readonly<{ kind: 'denied'; canRequestAgain: boolean }>;
 

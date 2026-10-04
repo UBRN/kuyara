@@ -45,3 +45,15 @@ test('rejects banned content in both languages and preserves valid picks indepen
   assert.equal(check('The AI day.'), null);
   assert.deepEqual(picks, [{ optionId: 'one' }]);
 });
+
+test('matches banned brand and model words as whole words only', () => {
+  assert.equal(check('The metallic sheen suits the day.'), 'The metallic sheen suits the day.');
+  assert.equal(check('A gptless plan for the day.'), 'A gptless plan for the day.');
+  assert.equal(check('Kollama için uygun bir gün.', 'tr'), 'Kollama için uygun bir gün.');
+  assert.equal(check('Sallama ile hafif bir gün.', 'tr'), 'Sallama ile hafif bir gün.');
+  assert.equal(check('The metal buckle is for the day.'), 'The metal buckle is for the day.');
+  // The banned words are still refused beside punctuation and a Turkish suffix mark.
+  assert.equal(check('The day is Meta.'), null);
+  assert.equal(check("Bu gün Gemini'nin için.", 'tr'), null);
+  assert.equal(check('The (llama) is for the day.'), null);
+});

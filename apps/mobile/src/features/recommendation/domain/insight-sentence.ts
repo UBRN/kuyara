@@ -6,7 +6,9 @@ const functionWords = {
   tr: new Set(['bir', 'bu', 'da', 'de', 'gibi', 'için', 'ile', 'ise', 've', 'ya', 'değil', 'olan', 'olarak', 'sana', 'senin']),
 } as const;
 
-const bannedContent = /workers ai|cloudflare|openrouter|llama|gpt|gemini|claude|mistral|qwen|deepseek|nvidia|meta|openai|apple intelligence|\bai\b|yapay zek[aâ]|http|www\.|\.com|\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20e3/iu;
+// Brand and model names are banned as whole words, so "metallic" or the Turkish "kollama" is
+// still prose; links, the Turkish phrase (it takes suffixes) and emoji match anywhere.
+const bannedContent = /(?<![\p{L}\p{N}])(?:workers ai|cloudflare|openrouter|llama|gpt|gemini|claude|mistral|qwen|deepseek|nvidia|meta|openai|apple intelligence|ai)(?![\p{L}\p{N}])|yapay zek[aâ]|http|www\.|\.com|\p{Extended_Pictographic}|\p{Regional_Indicator}|⃣/iu;
 export function validateInsightSentence({
   sentence,
   locale,
