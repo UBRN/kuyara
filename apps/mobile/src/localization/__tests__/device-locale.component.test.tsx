@@ -1,4 +1,5 @@
 import { act, render } from '@testing-library/react-native';
+import { getLocales } from 'expo-localization';
 import { AppState, NativeModules, Platform, Text } from 'react-native';
 
 import { LocalizationProvider } from '@/localization/localization-provider';
@@ -10,6 +11,7 @@ import {
   getDeviceTemperatureUnit,
   resolveDeviceHour12,
   resolveDeviceTemperatureUnit,
+  resolveTemperatureUnit,
   useDeviceTemperatureUnit,
 } from '@/localization/device-locale';
 
@@ -49,6 +51,57 @@ describe('resolveDeviceTemperatureUnit', () => {
     [undefined, [{ temperatureUnit: 'junk' }], 'celsius'],
   ] as const)('resolves settings and locale values', (settings, locales, expected) => {
     expect(resolveDeviceTemperatureUnit(settings, locales)).toBe(expected);
+  });
+});
+
+// The stored choice wins on every device; System is the device's own Temperature setting,
+// which on a UK (en_GB) device is Celsius, as Apple's Foundation formats it there.
+describe('resolveTemperatureUnit', () => {
+  const deviceUnitBySystem = { metric: 'celsius', us: 'fahrenheit', uk: 'celsius' } as const;
+  test.each(Object.entries(deviceUnitBySystem))('every choice on a %s device', (_system, localeUnit) => {
+    const deviceUnit = resolveDeviceTemperatureUnit(undefined, [{ temperatureUnit: localeUnit }]);
+    expect(resolveTemperatureUnit('system', deviceUnit)).toBe(localeUnit);
+    expect(resolveTemperatureUnit('celsius', deviceUnit)).toBe('celsius');
+    expect(resolveTemperatureUnit('fahrenheit', deviceUnit)).toBe('fahrenheit');
+  });
+
+  test('System follows an iOS Temperature setting that overrides the region', () => {
+    const forced = resolveDeviceTemperatureUnit({ AppleTemperatureUnit: 'Fahrenheit' }, [{ temperatureUnit: 'celsius' }]);
+    expect(resolveTemperatureUnit('system', forced)).toBe('fahrenheit');
+    expect(resolveTemperatureUnit('celsius', forced)).toBe('celsius');
+  });
+});
+
+// Every surface reads the units from the provider, so the stored choices reach Today, Weather
+// and the foreground alert scheduler through this one place.
+describe('the localization provider applies the stored unit choices', () => {
+  function UnitReader() {
+    const { temperatureUnit, windSpeedUnit } = useLocalization();
+    return <Text testID="units">{`${temperatureUnit} ${windSpeedUnit}`}</Text>;
+  }
+
+  test.each([
+    ['metric', 'system', 'system', 'celsius kilometresPerHour'],
+    ['us', 'system', 'system', 'celsius milesPerHour'],
+    ['uk', 'system', 'system', 'celsius milesPerHour'],
+    ['metric', 'fahrenheit', 'mph', 'fahrenheit milesPerHour'],
+    ['us', 'celsius', 'kmh', 'celsius kilometresPerHour'],
+    ['uk', 'fahrenheit', 'kmh', 'fahrenheit kilometresPerHour'],
+  ] as const)('on a %s device, temperature %s and wind %s read %s', async (system, temperature, wind, expected) => {
+    const locale = getLocales()[0] as { measurementSystem?: string };
+    const original = locale.measurementSystem;
+    locale.measurementSystem = system;
+    try {
+      const view = await render(
+        <LocalizationProvider temperatureUnitPreference={temperature} windSpeedUnitPreference={wind}>
+          <UnitReader />
+        </LocalizationProvider>,
+      );
+      expect(view.getByTestId('units')).toHaveTextContent(expected);
+      await view.unmount();
+    } finally {
+      locale.measurementSystem = original;
+    }
   });
 });
 

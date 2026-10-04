@@ -3,10 +3,21 @@ import test from 'node:test';
 
 import { wholeWindSpeed, windSpeedUnitFor } from './wind-speed.ts';
 
-test('US customary devices read miles an hour, every other system kilometres an hour', () => {
-  assert.equal(windSpeedUnitFor('us'), 'milesPerHour');
-  for (const system of ['metric', 'uk', null, undefined, 'junk', 'toString', 1]) {
-    assert.equal(windSpeedUnitFor(system), 'kilometresPerHour', String(system));
+// The stored choice wins; System follows the device's measurement system as the OS formats it.
+// Apple's Foundation formats a speed in mph for en_GB (Locale.measurementSystem `uk`) and in km/h
+// for metric locales, as CLDR's speed preferences list mile-per-hour for GB and US.
+test('every wind choice on every device measurement system', () => {
+  const systemUnit = { metric: 'kilometresPerHour', us: 'milesPerHour', uk: 'milesPerHour' };
+  for (const [system, unit] of Object.entries(systemUnit)) {
+    assert.equal(windSpeedUnitFor('system', system), unit, `system on ${system}`);
+    assert.equal(windSpeedUnitFor('kmh', system), 'kilometresPerHour', `kmh on ${system}`);
+    assert.equal(windSpeedUnitFor('mph', system), 'milesPerHour', `mph on ${system}`);
+  }
+});
+
+test('System on an unknown or missing measurement system reads kilometres an hour', () => {
+  for (const system of [null, undefined, 'junk', 'toString', 1]) {
+    assert.equal(windSpeedUnitFor('system', system), 'kilometresPerHour', String(system));
   }
 });
 
