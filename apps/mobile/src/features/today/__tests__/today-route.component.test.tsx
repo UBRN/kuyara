@@ -1783,7 +1783,7 @@ test('cold evening open waits for its unanswered choice and generates once after
   try {
     const view = await render(
       <Providers productAnalytics={analytics}
-        profile={profileValue({ morningSheetEnabled: false, dressStyle: 'formal' })}
+        profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal' })}
         recommendation={saved} liveRecommendationProvider
         wardrobe={wardrobeValue()} weather={weatherValue()}>
         <TodayRoute />
@@ -1896,7 +1896,7 @@ test('a warm process crossing 18:00 opens the evening question over a wait', asy
     .mockImplementation(() => new Promise(() => undefined));
   try {
     const view = await render(
-      <Providers productAnalytics={analytics} profile={profileValue()}
+      <Providers productAnalytics={analytics} profile={profileValue({ morningSheetEnabled: true })}
         recommendation={saved} liveRecommendationProvider
         wardrobe={wardrobeValue()} weather={weatherValue()}>
         <ForegroundProbe />
@@ -2089,6 +2089,61 @@ test('a morning answer given while the weather refreshes waits for that weather'
   } finally {
     history.mockRestore();
     refresh.mockRestore();
+  }
+});
+
+// The Settings switch turns off both questions: with it off, the evening is dressed for the
+// profile dress style without a sheet, and the morning answer does not carry over.
+test('with the day questions off, 18:00 opens no sheet and dresses the evening for the profile style', async () => {
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date('2026-09-24T17:59:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    dressStyle: 'formal', localDayKey: '2026-09-24' };
+  mockChoiceGet.mockImplementation(async (_profile: string, key: string) =>
+    key === '2026-09-24' ? {
+      id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+      dayKey: key, formality: 'formal', source: 'chip', styleAesthetics: null,
+      createdAt: '2026-09-24T09:00:00.000Z', updatedAt: '2026-09-24T09:00:00.000Z', deletedAt: null,
+    } : null);
+  const onChange: ((state: string) => void)[] = [];
+  const appState = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()}
+        profile={profileValue({ morningSheetEnabled: false, dressStyle: 'smart' })}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen());
+    expect(refresh).not.toHaveBeenCalled();
+
+    jest.setSystemTime(new Date('2026-09-24T18:00:00.000Z'));
+    await act(async () => {
+      onChange.forEach((listener) => listener('background'));
+      onChange.forEach((listener) => listener('active'));
+    });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+    expect(mockChoiceUpsert).not.toHaveBeenCalled();
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+    expect(refresh.mock.calls[0][1]).toMatchObject({ localDayKey: '2026-09-24:evening', dressStyle: 'smart' });
+  } finally {
+    appState.mockRestore();
+    history.mockRestore();
+    refresh.mockRestore();
+    jest.useRealTimers();
   }
 });
 

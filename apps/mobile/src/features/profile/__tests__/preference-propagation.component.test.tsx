@@ -278,6 +278,9 @@ test('live preferences and support propagate localized behavior without remounti
   await fireEvent.press(result.getByTestId('settings-style-option-minimal'));
   await fireEvent.press(result.getByTestId('settings-style-done'));
   await waitFor(() => expect(mockProfile.styleAesthetics).toBe('["classic","minimal"]'));
+  // One switch for both day questions, named for both.
+  expect(result.getByTestId('settings-morning-question-row-toggle'))
+    .toHaveProp('accessibilityLabel', 'Morning and evening question');
   await fireEvent(result.getByTestId('settings-morning-question-row-toggle'), 'valueChange', false);
   await waitFor(() => expect(mockProfile.morningSheetEnabled).toBe(0));
   expect(result.getByRole('header', { name: messages.en.settings.profileHeading })).toHaveStyle({

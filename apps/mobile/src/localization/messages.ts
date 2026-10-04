@@ -385,7 +385,7 @@ export type PreferenceMessages = Readonly<{
   styleAestheticSporty: string;
   styleAestheticStreetwear: string;
   styleAestheticRelaxed: string;
-  morningQuestionTitle: string;
+  dayQuestionsTitle: string;
   genderTitle: string;
   genderWoman: string;
   genderMan: string;
@@ -1108,7 +1108,7 @@ const en = {
     styleAestheticSporty: 'Sporty',
     styleAestheticStreetwear: 'Streetwear',
     styleAestheticRelaxed: 'Laid-back',
-    morningQuestionTitle: 'Morning question',
+    dayQuestionsTitle: 'Morning and evening question',
     genderTitle: 'Gender',
     genderWoman: 'Woman',
     genderMan: 'Man',
@@ -2299,7 +2299,7 @@ const tr = {
     styleAestheticSporty: 'Sportif',
     styleAestheticStreetwear: 'Sokak stili',
     styleAestheticRelaxed: 'Serbest',
-    morningQuestionTitle: 'Sabah sorusu',
+    dayQuestionsTitle: 'Sabah ve akşam sorusu',
     genderTitle: 'Cinsiyet',
     genderWoman: 'Kadın',
     genderMan: 'Erkek',

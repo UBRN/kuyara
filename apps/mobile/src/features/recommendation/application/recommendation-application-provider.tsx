@@ -236,10 +236,11 @@ export function RecommendationApplicationProvider({
   const resolvedStyles = resolvedStyleAesthetics(dayChoice,
     profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
   // The day setup finished on is answered by setup (a choice row written as it completes), so
-  // neither question is asked then.
-  const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready';
-  const morningChoicePending = Boolean(dayQuestionOpen && !isEveningDressingDayKey(localDay.key) &&
-    profileState.status === 'ready' && profileState.profile.morningSheetEnabled);
+  // neither question is asked then. The one Settings switch turns off both questions; an
+  // unasked day resolves to the profile dress style, as a dismissed question does.
+  const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready' &&
+    Boolean(profileState.profile.morningSheetEnabled);
+  const morningChoicePending = Boolean(dayQuestionOpen && !isEveningDressingDayKey(localDay.key));
   const eveningChoicePending = Boolean(dayQuestionOpen && isEveningDressingDayKey(localDay.key));
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const reevaluateLocalDay = useCallback(() => {
