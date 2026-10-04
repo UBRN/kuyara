@@ -1,3 +1,5 @@
+import { coalescedRun } from '@/domain/coalesced-run';
+
 /**
  * History's answer to a database write it did not make, such as a sync pull landing another
  * phone's looks or deletions (ADR 0041 section 4). The returned check reads History's change
@@ -11,9 +13,7 @@ export function createHistoryWriteWatch({ changeKey, changed, cleanupPendingPhot
   changed: () => void;
 }>): () => void {
   let last: string | null = null;
-  let running = false;
-  let stale = false;
-  const readOnce = async () => {
+  const run = coalescedRun(async () => {
     let key: string;
     try {
       key = await changeKey();
@@ -29,19 +29,6 @@ export function createHistoryWriteWatch({ changeKey, changed, cleanupPendingPhot
     } catch {
       // A photo that cannot be removed now keeps its name on the deleted look for the next try.
     }
-  };
-  return () => {
-    if (running) {
-      stale = true;
-      return;
-    }
-    running = true;
-    void (async () => {
-      do {
-        stale = false;
-        await readOnce();
-      } while (stale);
-      running = false;
-    })();
-  };
+  });
+  return () => void run();
 }

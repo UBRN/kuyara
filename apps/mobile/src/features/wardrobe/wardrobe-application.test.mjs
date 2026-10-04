@@ -470,3 +470,26 @@ test('a reload before the Closet has loaded reads nothing: the first load reads 
   assert.equal(calls.list, 0);
   assert.deepEqual(controller.getSnapshot(), { status: 'loading' });
 });
+
+test('a refresh that started before a reload never replaces the reloaded list with its older read', async () => {
+  let held = null;
+  let next = [item];
+  const { repository } = createRepository({
+    async listActiveItems() {
+      if (held) { const wait = held; held = null; return wait; }
+      return next;
+    },
+  });
+  const controller = new WardrobeApplicationController(profileId, async () => repository);
+  await controller.initialize();
+  let releaseRefresh;
+  held = new Promise((resolve) => { releaseRefresh = resolve; });
+  const refreshing = controller.refresh();
+  const pulled = { ...item, name: 'Pulled from the account', updatedAt: '2026-07-31T10:00:00.000Z' };
+  next = [pulled];
+  await controller.reload();
+  releaseRefresh([]);
+  await refreshing;
+  assert.deepEqual(controller.getSnapshot().items, [pulled]);
+  assert.equal(controller.getSnapshot().isRefreshing, false);
+});

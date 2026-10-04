@@ -16,6 +16,7 @@ import type {
   StyleAesthetic,
 } from '@/features/profile/domain/profile';
 import { catalogPreferenceByGender } from '@/features/profile/domain/profile';
+import { coalescedRun } from '@/domain/coalesced-run';
 
 const singleLine = (value: string): string => value.replace(/[\r\n]+/g, ' ');
 
@@ -70,8 +71,7 @@ export class ProfileApplicationController {
   private repository: ProfileRepository | null = null;
   private initializationPromise: Promise<void> | null = null;
   private updatePromise: Promise<void> | null = null;
-  private reloadPromise: Promise<void> | null = null;
-  private reloadStale = false;
+  private readonly reloadRun = coalescedRun(() => this.reloadOnce());
   private readonly listeners = new Set<Listener>();
   private readonly loadRepository: () => Promise<ProfileRepository>;
   private readonly reportError: (error: TelemetryError) => void;
@@ -121,19 +121,7 @@ export class ProfileApplicationController {
    * one more read after it. Before the profile has loaded it reads nothing.
    */
   reload(): Promise<void> {
-    if (this.reloadPromise) {
-      this.reloadStale = true;
-      return this.reloadPromise;
-    }
-    this.reloadPromise = (async () => {
-      do {
-        this.reloadStale = false;
-        await this.reloadOnce();
-      } while (this.reloadStale);
-    })().finally(() => {
-      this.reloadPromise = null;
-    });
-    return this.reloadPromise;
+    return this.reloadRun();
   }
 
   completeOnboarding(preferences: OnboardingPreferences): Promise<void> {
@@ -245,8 +233,9 @@ export class ProfileApplicationController {
     }
   }
 
-  private async reloadOnce(): Promise<void> {
-    if (this.state.status !== 'ready' || !this.repository) return;
+  /** Answers true when an update started during the read, so the reload reads once more after it. */
+  private async reloadOnce(): Promise<boolean> {
+    if (this.state.status !== 'ready' || !this.repository) return false;
     try {
       await this.updatePromise;
     } catch {
@@ -258,16 +247,14 @@ export class ProfileApplicationController {
       profile = applicationProfile(await repository.getOrCreateProfile());
     } catch {
       // The shown profile stays; the next write reads again.
-      return;
+      return false;
     }
-    if (this.updatePromise) {
-      // An update started meanwhile: read again after it, never over its result.
-      this.reloadStale = true;
-      return;
-    }
+    // An update started meanwhile: read again after it, never over its result.
+    if (this.updatePromise) return true;
     if (this.state.status === 'ready' && JSON.stringify(profile) !== JSON.stringify(this.state.profile)) {
       this.setState({ ...this.state, profile });
     }
+    return false;
   }
 
   private updateProfile(

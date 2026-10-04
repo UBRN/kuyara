@@ -22,6 +22,7 @@ import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-phot
 import { isManagedWardrobePhotoRelativePath } from '@/features/wardrobe/domain/wardrobe-photo-path';
 import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
 import { WardrobeRepositoryError } from '@/features/wardrobe/domain/wardrobe-repository-error';
+import { coalescedRun } from '@/domain/coalesced-run';
 
 export type WardrobeApplicationState =
   | Readonly<{ status: 'loading' }>
@@ -63,8 +64,11 @@ export class WardrobeApplicationController {
   // Bumped when a mutation starts and when it settles, so a refresh can tell that its
   // list read straddled a mutation and may hold pre-mutation data.
   private mutationEpoch = 0;
-  private reloadPromise: Promise<void> | null = null;
-  private reloadStale = false;
+  // Each list read takes a ticket when it starts; a read lands only if no later-started read
+  // has landed, so a refresh begun before a reload never replaces the reloaded list.
+  private readTicket = 0;
+  private landedTicket = 0;
+  private readonly reloadRun = coalescedRun(() => this.reloadOnce());
   private readonly listeners = new Set<Listener>();
   private readonly localProfileId: string;
   private readonly loadRepository: () => Promise<WardrobeRepository>;
@@ -122,19 +126,7 @@ export class WardrobeApplicationController {
    * one more read after it. Before the first load it reads nothing: that load reads the phone.
    */
   reload(): Promise<void> {
-    if (this.reloadPromise) {
-      this.reloadStale = true;
-      return this.reloadPromise;
-    }
-    this.reloadPromise = (async () => {
-      do {
-        this.reloadStale = false;
-        await this.reloadOnce();
-      } while (this.reloadStale);
-    })().finally(() => {
-      this.reloadPromise = null;
-    });
-    return this.reloadPromise;
+    return this.reloadRun();
   }
 
   async getItem(id: string): Promise<WardrobeItem | null> {
@@ -238,8 +230,9 @@ export class WardrobeApplicationController {
     }
   }
 
-  private async reloadOnce(): Promise<void> {
-    if (this.state.status !== 'ready' || !this.repository) return;
+  /** Answers true when a save started during the read, so the reload reads once more after it. */
+  private async reloadOnce(): Promise<boolean> {
+    if (this.state.status !== 'ready' || !this.repository) return false;
     try {
       await this.mutationPromise;
     } catch {
@@ -247,22 +240,29 @@ export class WardrobeApplicationController {
     }
     const repository = this.repository;
     const epoch = this.mutationEpoch;
+    const ticket = ++this.readTicket;
     let items: readonly WardrobeItem[];
     try {
       items = await repository.listActiveItems(this.localProfileId);
     } catch {
       // The shown list stays; the next write, focus or retry reads again.
-      return;
+      return false;
     }
-    if (epoch !== this.mutationEpoch) {
-      // A save started meanwhile: read again after it, never over its result.
-      this.reloadStale = true;
-      return;
-    }
-    if (this.state.status === 'ready' && JSON.stringify(items) !== JSON.stringify(this.state.items)) {
+    // A save started meanwhile: read again after it, never over its result.
+    if (epoch !== this.mutationEpoch) return true;
+    if (this.lands(ticket) && this.state.status === 'ready'
+      && JSON.stringify(items) !== JSON.stringify(this.state.items)) {
       this.setState({ ...this.state, items });
     }
     await this.cleanupPendingPhotos(repository);
+    return false;
+  }
+
+  /** Whether a read that started with `ticket` is still the newest to land, recording it if so. */
+  private lands(ticket: number): boolean {
+    if (ticket < this.landedTicket) return false;
+    this.landedTicket = ticket;
+    return true;
   }
 
   private async refreshOnce(): Promise<void> {
@@ -278,11 +278,13 @@ export class WardrobeApplicationController {
     }
 
     const epoch = this.mutationEpoch;
+    const ticket = ++this.readTicket;
     try {
       const items = await repository.listActiveItems(this.localProfileId);
-      if (epoch !== this.mutationEpoch && this.state.status === 'ready') {
-        // A mutation started or settled during the read. It owns the list and the
-        // isMutating flag, so this possibly pre-mutation result must not overwrite them.
+      if ((epoch !== this.mutationEpoch || !this.lands(ticket)) && this.state.status === 'ready') {
+        // A mutation started or settled during the read, or a later read already landed. It
+        // owns the list (and a mutation the isMutating flag), so this older result must not
+        // overwrite them.
         this.setState({ ...this.state, isRefreshing: false });
         return;
       }
