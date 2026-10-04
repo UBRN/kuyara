@@ -14,6 +14,12 @@ const syncedTables = [
   'dressing_day_departures', 'outfit_history',
 ];
 const now = '2026-10-02T10:00:00.000Z';
+// Migration 27 gives every existing profile both unit choices at System.
+const upgraded = (table, row) => ({
+  ...row,
+  ...(syncedTables.includes(table) ? { pending_sync: 0 } : {}),
+  ...(table === 'local_profiles' ? { temperature_unit: 'system', wind_speed_unit: 'system' } : {}),
+});
 
 async function rows(database, table) {
   return (await database.getAllAsync(`SELECT * FROM ${table} ORDER BY rowid`))
@@ -24,7 +30,7 @@ test('fresh schema has five checked pending flags and one device account link', 
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await migrateDatabase(database);
-  assert.equal(latestDatabaseVersion, 26);
+  assert.equal(latestDatabaseVersion, 27);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   for (const table of syncedTables) {
     const column = (await database.getAllAsync(`PRAGMA table_info(${table})`))
@@ -68,14 +74,14 @@ test('version 24 rows in all sync tables keep every value and start unmarked', a
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   for (const table of syncedTables) {
     assert.deepEqual(await rows(database, table),
-      before[table].map((row) => ({ ...row, pending_sync: 0 })), table);
+      before[table].map((row) => upgraded(table, row)), table);
     await assert.rejects(() => database.runAsync(`UPDATE ${table} SET pending_sync = 2`),
       /CHECK constraint/, table);
   }
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
 });
 
-test('copied device database replays version 24 or 25 to the latest version with every row and value intact',
+test('copied device database replays version 24, 25 or 26 to the latest version with every row and value intact',
   { skip: !process.env.KUYARA_DEVICE_DB_FIXTURE }, async (t) => {
     const source = process.env.KUYARA_DEVICE_DB_FIXTURE;
     const directory = await mkdtemp(join(tmpdir(), 'kuyara-sync-migration-'));
@@ -86,7 +92,9 @@ test('copied device database replays version 24 or 25 to the latest version with
     }
     const database = new NodeSqliteDatabase(new DatabaseSync(target));
     t.after(() => database.close());
-    assert.ok([24, 25].includes((await database.getFirstAsync('PRAGMA user_version')).user_version));
+    const versionBefore = (await database.getFirstAsync('PRAGMA user_version')).user_version;
+    assert.ok([24, 25, 26].includes(versionBefore));
+    t.diagnostic(`user_version: ${versionBefore} -> ${latestDatabaseVersion}`);
     const tables = (await database.getAllAsync(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"))
       .map(({ name }) => name);
@@ -98,8 +106,7 @@ test('copied device database replays version 24 or 25 to the latest version with
     for (const table of tables) {
       const after = await rows(database, table);
       assert.equal(after.length, before[table].length, `${table} row count`);
-      assert.deepEqual(after, before[table].map((row) => (
-        syncedTables.includes(table) ? { ...row, pending_sync: 0 } : row)), table);
+      assert.deepEqual(after, before[table].map((row) => upgraded(table, row)), table);
       t.diagnostic(`${table}: ${before[table].length} -> ${after.length}`);
     }
     assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, orphansBefore);

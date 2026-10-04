@@ -30,7 +30,7 @@ const deviceOnly = {
     'onboarding_completed', 'notifications_opt_in', 'analytics_consent',
     'weather_alert_offer_shown', 'morning_briefing_opt_in', 'name_prompt_version',
     'morning_sheet_enabled', 'easier_to_see', 'walkthrough_version', 'swap_hint_shown',
-    'pending_sync',
+    'pending_sync', 'temperature_unit', 'wind_speed_unit',
   ],
   wardrobe_items: ['local_profile_id', 'photo_relative_path', 'pending_sync'],
   dressing_day_choices: ['local_profile_id', 'pending_sync'],
@@ -60,7 +60,8 @@ test('an upload record carries every SQLite column except the listed device-only
 test('no device-only value reaches any upload record, by name or by value', () => {
   const secrets = [phoneProfileId, 'wardrobe/photo-1.jpg', 'history/photo-4.jpg', '1990-05-06'];
   const names = ['local_profile_id', 'birth_date', 'photo_relative_path', 'photo_path', 'analytics_consent',
-    'notifications_opt_in', 'language_preference', 'theme_preference', 'server_updated_at'];
+    'notifications_opt_in', 'language_preference', 'theme_preference', 'server_updated_at',
+    'temperature_unit', 'wind_speed_unit'];
   for (const [table, upload] of Object.entries(uploads)) {
     const text = JSON.stringify(upload());
     for (const name of names) assert.equal(text.includes(`"${name}"`), false, `${table} carries ${name}`);

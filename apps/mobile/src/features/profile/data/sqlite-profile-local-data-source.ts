@@ -7,7 +7,9 @@ import type {
 import { namePromptVersion, orderStyleAesthetics, walkthroughVersion } from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
+  TemperatureUnitPreference,
   ThemePreference,
+  WindSpeedUnitPreference,
 } from '@/domain/preferences';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
 import {
@@ -34,6 +36,8 @@ type LocalProfileRow = Readonly<{
   swap_hint_shown: number;
   language_preference: string;
   theme_preference: string;
+  temperature_unit: string;
+  wind_speed_unit: string;
   onboarding_completed: number;
   notifications_opt_in: number;
   weather_alert_offer_shown: number;
@@ -64,6 +68,8 @@ const selectProfileSql = `
     swap_hint_shown,
     language_preference,
     theme_preference,
+    temperature_unit,
+    wind_speed_unit,
     onboarding_completed,
     notifications_opt_in,
     weather_alert_offer_shown,
@@ -91,6 +97,8 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     swapHintShown: row.swap_hint_shown,
     languagePreference: row.language_preference,
     themePreference: row.theme_preference,
+    temperatureUnitPreference: row.temperature_unit,
+    windSpeedUnitPreference: row.wind_speed_unit,
     onboardingCompleted: row.onboarding_completed,
     notificationsOptIn: row.notifications_opt_in,
     weatherAlertOfferShown: row.weather_alert_offer_shown,
@@ -292,6 +300,22 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         SET theme_preference = ?, updated_at = ?
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
+      [preference],
+    );
+  }
+
+  updateTemperatureUnitPreference(preference: TemperatureUnitPreference): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET temperature_unit = ?, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
+      [preference],
+    );
+  }
+
+  updateWindSpeedUnitPreference(preference: WindSpeedUnitPreference): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET wind_speed_unit = ?, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
       [preference],
     );
   }

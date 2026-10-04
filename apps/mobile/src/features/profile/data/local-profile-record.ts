@@ -12,6 +12,8 @@ export type LocalProfileRecord = Readonly<{
   swapHintShown?: number;
   languagePreference: string;
   themePreference: string;
+  temperatureUnitPreference?: string;
+  windSpeedUnitPreference?: string;
   onboardingCompleted: number;
   notificationsOptIn: number;
   weatherAlertOfferShown: number;

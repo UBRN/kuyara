@@ -1,8 +1,12 @@
 import {
   isLanguagePreference,
+  isTemperatureUnitPreference,
   isThemePreference,
+  isWindSpeedUnitPreference,
   type LanguagePreference,
+  type TemperatureUnitPreference,
   type ThemePreference,
+  type WindSpeedUnitPreference,
 } from '@/domain/preferences';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
 import {
@@ -40,6 +44,8 @@ export interface ProfileRepository {
   updateDisplayName(displayName: string | null): Promise<Profile>;
   updateLanguagePreference(preference: LanguagePreference): Promise<Profile>;
   updateThemePreference(preference: ThemePreference): Promise<Profile>;
+  updateTemperatureUnitPreference(preference: TemperatureUnitPreference): Promise<Profile>;
+  updateWindSpeedUnitPreference(preference: WindSpeedUnitPreference): Promise<Profile>;
   updateNotificationsOptIn(optIn: boolean): Promise<Profile>;
   updateMorningBriefingOptIn(optIn: boolean): Promise<Profile>;
   markWeatherAlertOfferShown(): Promise<Profile>;
@@ -98,6 +104,8 @@ function mapRecord(record: LocalProfileRecord): Profile {
     try { return normalizeDisplayName(record.displayName) === record.displayName; }
     catch { return false; }
   })();
+  const temperatureUnitPreference = record.temperatureUnitPreference ?? 'system';
+  const windSpeedUnitPreference = record.windSpeedUnitPreference ?? 'system';
   const completedWithoutPreference =
     record.onboardingCompleted === 1 &&
     (record.gender === null || record.dressStyle === null);
@@ -109,6 +117,8 @@ function mapRecord(record: LocalProfileRecord): Profile {
     !isStoredBirthDate(record.birthDate) ||
     !isLanguagePreference(record.languagePreference) ||
     !isThemePreference(record.themePreference) ||
+    !isTemperatureUnitPreference(temperatureUnitPreference) ||
+    !isWindSpeedUnitPreference(windSpeedUnitPreference) ||
     !hasValidCompletion ||
     !hasValidNotificationsOptIn ||
     !hasValidOfferShown ||
@@ -144,6 +154,8 @@ function mapRecord(record: LocalProfileRecord): Profile {
     swapHintShown: record.swapHintShown === 1,
     languagePreference: record.languagePreference,
     themePreference: record.themePreference,
+    temperatureUnitPreference,
+    windSpeedUnitPreference,
     onboardingCompleted: record.onboardingCompleted === 1,
     notificationsOptIn: record.notificationsOptIn === 1,
     weatherAlertOfferShown: record.weatherAlertOfferShown === 1,
@@ -230,6 +242,20 @@ export class LocalProfileRepository implements ProfileRepository {
 
   updateThemePreference(preference: ThemePreference): Promise<Profile> {
     return this.execute(() => this.dataSource.updateThemePreference(preference));
+  }
+
+  updateTemperatureUnitPreference(preference: TemperatureUnitPreference): Promise<Profile> {
+    return this.execute(() => {
+      if (!isTemperatureUnitPreference(preference)) throw new ProfileMappingError();
+      return this.dataSource.updateTemperatureUnitPreference(preference);
+    });
+  }
+
+  updateWindSpeedUnitPreference(preference: WindSpeedUnitPreference): Promise<Profile> {
+    return this.execute(() => {
+      if (!isWindSpeedUnitPreference(preference)) throw new ProfileMappingError();
+      return this.dataSource.updateWindSpeedUnitPreference(preference);
+    });
   }
 
   updateNotificationsOptIn(optIn: boolean): Promise<Profile> {

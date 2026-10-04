@@ -29,6 +29,8 @@ const createRecord = (overrides = {}) => ({
   namePromptVersion: 0,
   languagePreference: 'system',
   themePreference: 'system',
+  temperatureUnitPreference: 'system',
+  windSpeedUnitPreference: 'system',
   onboardingCompleted: 0,
   notificationsOptIn: 0,
   weatherAlertOfferShown: 0,
@@ -139,6 +141,41 @@ test('Easier to see defaults off, persists both ways, and rejects an invalid sto
   assert.equal((await reopened.getOrCreateProfile()).easierToSee, true);
   assert.equal((await reopened.updateEasierToSee(false)).easierToSee, false);
   assert.equal((await database.getFirstAsync('SELECT easier_to_see FROM local_profiles')).easier_to_see, 0);
+});
+
+// The unit choices start at System on a new profile, each round-trips through the SQLite data
+// source and the repository mapper and survives a reopen, an unknown value is refused before it
+// is written, and a corrupt stored value is refused rather than read as a unit.
+test('the unit choices default to System, persist both ways, and reject unknown values', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  const created = await repository.getOrCreateProfile();
+  assert.equal(created.temperatureUnitPreference, 'system');
+  assert.equal(created.windSpeedUnitPreference, 'system');
+  assert.equal((await repository.updateTemperatureUnitPreference('fahrenheit')).temperatureUnitPreference, 'fahrenheit');
+  assert.equal((await repository.updateWindSpeedUnitPreference('mph')).windSpeedUnitPreference, 'mph');
+  assert.deepEqual({ ...await database.getFirstAsync(
+    'SELECT temperature_unit, wind_speed_unit, pending_sync FROM local_profiles') },
+  { temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', pending_sync: 0 });
+  const reopened = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused', now: () => updatedAt,
+  }));
+  const read = await reopened.getOrCreateProfile();
+  assert.equal(read.temperatureUnitPreference, 'fahrenheit');
+  assert.equal(read.windSpeedUnitPreference, 'mph');
+  assert.equal((await reopened.updateTemperatureUnitPreference('system')).temperatureUnitPreference, 'system');
+  assert.equal((await reopened.updateWindSpeedUnitPreference('kmh')).windSpeedUnitPreference, 'kmh');
+  await assert.rejects(() => reopened.updateTemperatureUnitPreference('kelvin'), { code: 'invalid-data' });
+  await assert.rejects(() => reopened.updateWindSpeedUnitPreference('knots'), { code: 'invalid-data' });
+  assert.deepEqual({ ...await database.getFirstAsync('SELECT temperature_unit, wind_speed_unit FROM local_profiles') },
+    { temperature_unit: 'system', wind_speed_unit: 'kmh' });
+  await database.execAsync('PRAGMA ignore_check_constraints = ON;');
+  await database.runAsync("UPDATE local_profiles SET wind_speed_unit = 'knots'");
+  await database.execAsync('PRAGMA ignore_check_constraints = OFF;');
+  const corrupt = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused', now: () => updatedAt,
+  }));
+  await assert.rejects(() => corrupt.getOrCreateProfile(), { code: 'invalid-data' });
 });
 
 // Phase 8, ADR 0036: the coach-mark tour's gate starts at 0 on a new profile, the offered
