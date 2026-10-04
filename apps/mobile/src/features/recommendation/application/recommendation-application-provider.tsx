@@ -39,6 +39,7 @@ import {
   departureIsAhead,
   type DressingDayDeparture,
 } from '@/features/recommendation/domain/dressing-day-departure';
+import { isMemberNow, memberAccessToken } from '@/features/account/application/account-membership';
 import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
 import { createHistoryWriteWatch } from '@/features/recommendation/application/history-write-watch';
@@ -67,6 +68,7 @@ import {
   WorkerAiClientError,
 } from '@/features/recommendation/data/worker-ai-client';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
+import { dailyAiRegenerationsFor } from '@/features/recommendation/domain/regeneration-policy';
 import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { dressingDayDateKey, isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
@@ -104,6 +106,7 @@ function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
   try {
     return new WorkerAiClient({
       baseUrl: resolveAppWorkerBaseUrl(),
+      memberAccessToken,
     });
   } catch (error) {
     if (!(error instanceof WorkerBaseUrlConfigurationError)) throw error;
@@ -282,9 +285,10 @@ export function RecommendationApplicationProvider({
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
       telemetry,
       getOnDeviceAvailability: () => latestOnDeviceAvailability.value,
-      // Five regenerations per dressing day: the evening and its small hours count against the
-      // date the evening began on, so 18:00 does not hand out a second five.
-      reserveAiReask: (dayKey) => budget.reserve(dressingDayDateKey(dayKey)),
+      // Five regenerations per dressing day, ten for a signed-in member: the evening and its small
+      // hours count against the date the evening began on, so 18:00 does not hand out a second five.
+      reserveAiReask: (dayKey) => budget.reserve(dressingDayDateKey(dayKey), dailyAiRegenerationsFor(isMemberNow())),
+      releaseAiReask: (dayKey) => budget.release(dressingDayDateKey(dayKey)),
     }),
     [analytics, budget, client, latestOnDeviceAvailability, loadRecentWorn, localProfileId, previewStore,
       telemetry],

@@ -20,6 +20,12 @@ type Dependencies = Readonly<{
   baseUrl: string;
   fetch?: Fetch;
   requestTimeoutMilliseconds?: number;
+  /**
+   * A signed-in member's access token, null for everyone else. Only a re-ask sends it, as a
+   * bearer header, so the Worker counts the member's allowance (ADR 0041 section 13); the
+   * request body is unchanged.
+   */
+  memberAccessToken?: () => Promise<string | null>;
 }>;
 
 export type WorkerAiClientFailureKind =
@@ -42,6 +48,7 @@ export class WorkerAiClient {
   private readonly baseUrl: string;
   private readonly fetch: Fetch;
   private readonly requestTimeoutMilliseconds: number;
+  private readonly memberAccessToken: () => Promise<string | null>;
 
   constructor(dependencies: Dependencies) {
     this.baseUrl = dependencies.baseUrl;
@@ -51,6 +58,18 @@ export class WorkerAiClient {
     // A refresh may take as long as it needs while a stylist answer is still obtainable;
     // standard suggestions are what a failed last provider produces, not a short clock.
     this.requestTimeoutMilliseconds = dependencies.requestTimeoutMilliseconds ?? 38_000;
+    this.memberAccessToken = dependencies.memberAccessToken ?? (async () => null);
+  }
+
+  /** The bearer header of a member's re-ask; none when there is no token or it cannot be read. */
+  private async memberAuthorization(): Promise<Readonly<Record<string, string>>> {
+    let token: string | null;
+    try {
+      token = await this.memberAccessToken();
+    } catch {
+      token = null;
+    }
+    return token ? { authorization: `Bearer ${token}` } : {};
   }
 
   // `options.timeoutMilliseconds` is the wait the routed client grants the Worker tier.
@@ -70,6 +89,8 @@ export class WorkerAiClient {
 
     const requestTimeoutMilliseconds =
       options?.timeoutMilliseconds ?? this.requestTimeoutMilliseconds;
+    // Read only for a re-ask, so every other request leaves at once, exactly as before.
+    const authorization = options?.reask ? await this.memberAuthorization() : {};
     const workerBudget = aiRecommendV1BudgetMillisecondsSchema.safeParse(
       requestTimeoutMilliseconds - workerTransportMarginMilliseconds,
     );
@@ -80,6 +101,7 @@ export class WorkerAiClient {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
+          ...authorization,
           ...(workerBudget.success
             ? { [aiRecommendV1BudgetHeader]: String(workerBudget.data) }
             : {}),

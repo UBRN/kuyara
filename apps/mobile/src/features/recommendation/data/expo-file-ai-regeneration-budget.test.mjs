@@ -133,3 +133,51 @@ test('a failed write does not falsely consume or grant a slot', async () => {
   assert.equal(await budget.reserve('2026-09-18'), true);
   assert.equal(await budget.reserve('2026-09-18'), false);
 });
+
+test('a released slot is given back to its day, never below zero and never to another day', async () => {
+  const budget = new ExpoFileAiRegenerationBudget();
+  for (let attempt = 0; attempt < 5; attempt += 1) await budget.reserve('2026-09-18');
+  assert.equal(await budget.reserve('2026-09-18'), false);
+  await budget.release('2026-09-18');
+  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 4 }));
+  assert.equal(await budget.reserve('2026-09-18'), true);
+
+  await budget.release('2026-09-17');
+  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 5 }));
+
+  files.set(budgetPath, JSON.stringify({ dayKey: '2026-09-19', count: 0 }));
+  await budget.release('2026-09-19');
+  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-19', count: 0 }));
+  files.clear();
+  await budget.release('2026-09-19');
+  assert.equal(files.has(budgetPath), false);
+});
+
+test('a release runs in turn with reservations, and a store it cannot use changes nothing', async () => {
+  files.set(budgetPath, JSON.stringify({ dayKey: '2026-09-18', count: 5 }));
+  const budget = new ExpoFileAiRegenerationBudget();
+  const [released, reserved] = await Promise.all([budget.release('2026-09-18'), new ExpoFileAiRegenerationBudget().reserve('2026-09-18')]);
+  assert.equal(released, undefined);
+  assert.equal(reserved, true);
+  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 5 }));
+
+  writeFailure = true;
+  await budget.release('2026-09-18');
+  writeFailure = false;
+  readFailure = true;
+  await budget.release('2026-09-18');
+  readFailure = false;
+  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 5 }));
+});
+
+test('a signed-in member\'s day allows ten re-asks; everyone else keeps five', async () => {
+  const { dailyAiRegenerationsFor } = await import('../domain/regeneration-policy.ts');
+  assert.equal(dailyAiRegenerationsFor(false), 5);
+  assert.equal(dailyAiRegenerationsFor(true), 10);
+  const budget = new ExpoFileAiRegenerationBudget();
+  const member = [];
+  for (let attempt = 0; attempt < 11; attempt += 1) member.push(await budget.reserve('2026-09-18', dailyAiRegenerationsFor(true)));
+  assert.deepEqual(member, [...Array(10).fill(true), false]);
+  // Signing out the same day leaves the five a non-member has, already spent.
+  assert.equal(await budget.reserve('2026-09-18', dailyAiRegenerationsFor(false)), false);
+});

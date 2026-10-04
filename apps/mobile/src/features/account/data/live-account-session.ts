@@ -37,6 +37,8 @@ const sessionKeyName = 'kuyara.account.session-key';
 const keychain = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 /** The name the auth client stores its session under, so an offline launch can read it too. */
 const sessionStorageKey = 'kuyara.account.session';
+/** A token read that may refresh never holds a re-ask longer than this; the re-ask goes without it. */
+const accessTokenWaitMs = 3000;
 
 export type LiveAccountSession = Readonly<{
   manager: AccountSessionManager;
@@ -44,6 +46,8 @@ export type LiveAccountSession = Readonly<{
   autoRefresh: Readonly<{ start: () => void; stop: () => void }>;
   onAppleRevoked: (listener: () => void) => () => void;
   network: AccountNetwork;
+  /** The session's access token for the member AI allowance, null when there is none. */
+  accessToken: () => Promise<string | null>;
 }>;
 
 export function createLiveAccountSession({ database, fetcher, localProfileId, settings, workerBaseUrl }: Readonly<{
@@ -105,6 +109,16 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
       stop: () => void client.auth.stopAutoRefresh(),
     },
     network: createNetworkState(Network),
+    async accessToken() {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const late = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), accessTokenWaitMs); });
+      try {
+        const read = client.auth.getSession().then(({ data, error }) => (error ? null : data.session?.access_token ?? null));
+        return await Promise.race([read, late]);
+      } finally {
+        clearTimeout(timer);
+      }
+    },
     onAppleRevoked(listener) {
       // Off iOS the module is a stub whose listener call returns nothing, despite its type.
       const subscription = AppleAuthentication.addRevokeListener(listener) as ReturnType<typeof AppleAuthentication.addRevokeListener> | undefined;

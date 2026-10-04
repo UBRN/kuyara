@@ -202,3 +202,41 @@ test('sends the re-ask flag only when the caller marks an approved re-ask', asyn
   assert.equal('reask' in bodies[1], false);
   assert.deepEqual(bodies[2], { ...request, locale: 'en', reask: true });
 });
+
+test('a member\'s re-ask carries the access token as a bearer header, and nothing else ever does', async () => {
+  const sent = [];
+  let token = 'member-access-token';
+  const client = new WorkerAiClient({
+    baseUrl: 'https://worker.example',
+    memberAccessToken: async () => token,
+    fetch: async (_input, init) => {
+      sent.push(init);
+      return new Response(JSON.stringify({ data: responseData }), { status: 200 });
+    },
+  });
+
+  await client.recommend(request);
+  await client.recommend(request, { reask: true });
+  token = null;
+  await client.recommend(request, { reask: true });
+
+  assert.equal('authorization' in sent[0].headers, false);
+  assert.equal(sent[1].headers.authorization, 'Bearer member-access-token');
+  assert.equal('authorization' in sent[2].headers, false);
+  // The token never enters the body: the request shape is the shipped one.
+  for (const init of sent) assert.doesNotMatch(init.body, /member-access-token/);
+});
+
+test('a member token that cannot be read sends the re-ask without one', async () => {
+  let headers;
+  const client = new WorkerAiClient({
+    baseUrl: 'https://worker.example',
+    memberAccessToken: async () => { throw new Error('No session.'); },
+    fetch: async (_input, init) => {
+      headers = init.headers;
+      return new Response(JSON.stringify({ data: responseData }), { status: 200 });
+    },
+  });
+  await client.recommend(request, { reask: true });
+  assert.equal('authorization' in headers, false);
+});
