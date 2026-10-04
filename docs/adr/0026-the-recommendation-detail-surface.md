@@ -230,11 +230,15 @@ rather than a cross-fade between two pictures.
 5. The OS motion preference does not suppress the re-layout or garment travel.
    The tint difference remains, because it carries meaning rather than motion.
 
-The push remains the platform's. Garment travel is an in-screen re-layout from the boxes
-Today's band draws (its flat lay at the band's width, centred on the detail board, stacked
-as the band stacks it until the pieces settle) to the detail preset, not a shared-element
-transition, on the arrival role `theme.springs.arrival`, the spring for garment pieces
-landing on a board. Each piece travels as a plain view with a native transform,
+The push remains the platform's. Only an outfit opened from Today's primary board starts from
+the band: its garment travel is an in-screen re-layout from the boxes Today's band draws (its
+flat lay at the band's width, centred on the detail board, stacked as the band stacks it until
+the pieces rest, on a cornerless tint that first stands the band's height and settles to the
+board's with the pieces) to the detail preset. An outfit the band never drew, opened from the
+Tomorrow strip or a tile under the band, starts from Today's fitted stage at the board's own
+width, with the stage's corners and the board's height, stacked in the dressing order. Neither
+is a shared-element transition; both travel on the arrival role `theme.springs.arrival`, the
+spring for garment pieces landing on a board. Each piece travels as a plain view with a native transform,
 because Reanimated cannot drive react-native-svg's `transform` or `fill` on the new
 architecture; the fill fades by draining a tinted copy of the artwork over the resting
 one. Simulator verification covers the animated sequence.
