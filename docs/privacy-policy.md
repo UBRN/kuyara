@@ -6,14 +6,17 @@ ref: privacy-policy
 
 # kuyara privacy policy
 
-Effective date: 2026-09-27.
+Effective date: [effective date].
 
 kuyara is a weather and outfit recommendation app for iOS and Android. This policy
 describes what data the app sends off your device, why, and what you can do about it.
+This policy is the notice required by KVKK Article 10 and GDPR Article 13.
 
 ## Summary
 
-- kuyara does not ask you to sign in. Your profile, Closet and settings live on your device.
+- You can use kuyara without an account; an account is optional. Without one, your profile,
+  Closet and settings live on your device. If you sign in, the [Accounts](#accounts) section
+  explains what goes to your account.
 - Usage analytics and performance diagnostics follow the choice you make in the app, apart
   from rare technical records described below.
 - Two requests made by Expo, the toolkit kuyara is built with, happen every time the app
@@ -194,7 +197,10 @@ calls weather and AI providers. This is a live request, not a record of you:
   outfit categories. The provider also receives an instruction to write in the app language.
   Style aesthetics affect option ordering on your device but are not sent to the AI provider.
   The server receives no location, Closet contents, outfit history, photos, display name,
-  birth date, or identifier for you or your device in this request.
+  birth date, or identifier for your device in this request. If you are signed in, an "Ask
+  the stylist again" request also carries your account's sign-in token so the server can count
+  your daily member allowance. The server uses the account identifier only for that count; it
+  is not logged and never reaches the AI provider.
 - **On the device.** Your profile, including an optional display name, Closet entries and
   photos, worn outfit history, daily formality and style aesthetics choices, Later departure
   plans, cached weather, and weather alert schedules are stored in the app's private storage
@@ -205,13 +211,141 @@ calls weather and AI providers. This is a live request, not a record of you:
   the maintainer never receives it. You can delete Closet entries and clear a Later plan in
   the app. The current History screen has no delete control. Deleting kuyara removes its
   local app data from the device; copies in your device backups remain subject to your backup
-  settings.
+  settings. If you sign in, copies of some of these records also go to your account; see
+  [Accounts](#accounts). Photos never go to the account.
 
 ## Accounts
 
-kuyara does not offer sign-in or cross-device sync today. Accounts are planned for a
-later version. When they arrive, this policy will be updated before they launch, and
-account deletion will cover any analytics data associated with the account.
+An account in kuyara is optional. If you do not sign in, this section does not apply to you.
+This section is the notice required by Article 10 of Turkey's Personal Data Protection Law
+No. 6698 (KVKK) and Article 13 of the EU General Data Protection Regulation (GDPR). You do not
+need to approve it.
+
+**Controller.** ubrn (Utku Barın), an individual developer based in Türkiye. Email:
+[quint.inboard_9t@icloud.com](mailto:quint.inboard_9t@icloud.com). A postal address for written
+applications is shared on request by email.
+
+**What data.**
+
+- **Account details.** The email address and user identifier Apple or Google provides, your
+  kuyara account identifier, and when the account was created and last signed in. If you chose
+  Hide My Email with Apple, kuyara sees only Apple's relay address. Apple is not asked for your
+  name. If you sign in with Google, Google also sends your name and profile picture. The account
+  service keeps them in the account record as part of the sign-in record; kuyara copies them
+  into no table and never reads or uses them. They are kept on the same basis as the account
+  details and are deleted when you delete your account.
+- **Profile.** Your display name and gender. These sync for every account.
+- **Records synced with consent.** Only if you give the sync consent: your Closet pieces
+  (without photos), your History (without photos), your dress style and style aesthetics, your
+  daily choices, and your departure records (time and time zone).
+- **Security records.** The account service records the time, IP address and the client
+  information the app sends with the request when you sign in, refresh your session or sign
+  out. The record of an open session holds the same IP address and client information.
+- **Member counter.** kuyara's server uses your account identifier to count members' daily
+  "Ask the stylist again" requests and to carry out account deletion. The identifier is not
+  logged and never reaches the AI provider.
+- **Sync consent record.** Each answer you give to the sync consent (given or withdrawn), the
+  version of the text shown and the time.
+- **Request correspondence.** Emails you send us and our replies.
+
+Your birth date, the analytics consent and your other consent choices, notification setting,
+language and appearance settings, locations and photos never go to the account. Account data
+never enters an AI request. Analytics is never linked to your account: kuyara never connects
+the analytics identifier to your account, so the analytics processor holds no account data.
+
+**Purposes and legal bases.**
+
+| Data | Purpose | KVKK | GDPR |
+| --- | --- | --- | --- |
+| Account details, display name, gender | Creating and running the account, bringing your profile to your phones | Formation and performance of a contract (Art. 5/2-c) | Contract (Art. 6(1)(b)) |
+| Records synced with consent | Bringing records to a new phone or a reinstalled app, keeping phones in step | Explicit consent (Art. 6/3-a; may be special-category data) | Explicit consent (Art. 6(1)(a); Art. 9(2)(a) where it counts as special-category data) |
+| Security records | Protecting the account against abuse | Legitimate interest (Art. 5/2-f) | Legitimate interest (Art. 6(1)(f)) |
+| Member counter | Counting the member allowance, deleting the account | Performance of a contract (Art. 5/2-c) | Contract (Art. 6(1)(b)) |
+| Sync consent record | Proving that consent was given or withdrawn | Legal obligation and protecting a right (Art. 5/2-ç and Art. 5/2-e) | Legal obligation (Art. 6(1)(c), read with Art. 7(1)) |
+| Request correspondence | Answering requests about your rights | Legal obligation (Art. 5/2-ç) | Legal obligation (Art. 6(1)(c)) |
+
+**How data is collected.** Through the app, by automated means, in electronic form, when you
+sign in with Apple or Google and while you use the app. Request correspondence arrives by email.
+
+**Recipients.**
+
+- **Supabase Inc. (USA).** Provides the account and database service as a processor on
+  kuyara's behalf. Data is held on servers in Frankfurt, Germany. Supabase's sub-processors
+  include Amazon Web Services. Support and maintenance staff may access data from the USA.
+  Sub-processor list:
+  [supabase.com/legal/customer-resources/subprocessor-list](https://supabase.com/legal/customer-resources/subprocessor-list).
+- **Cloudflare, Inc. (USA).** kuyara's server runs on Cloudflare. As a processor on kuyara's
+  behalf, Cloudflare processes your account identifier only for the member counter and account
+  deletion; the server does not log it. Cloudflare's servers are in many countries.
+- **Apple and Google.** They provide the account you sign in with and work under their own
+  privacy policies. When you delete an account created with Apple, kuyara sends Apple the
+  revocation of your sign-in permission.
+- **Public authorities.** Only when the law requires it.
+
+**Transfer abroad.** Your account data is held outside Türkiye, in Germany, and may be accessed
+from the USA. This transfer relies on the standard contract signed with Supabase under KVKK
+Article 9, which has been notified to the Turkish Personal Data Protection Authority. If you
+live in the EU, any access from outside the EU relies on the EU standard contractual clauses in
+Supabase's data processing agreement. Because your account identifier is also processed by
+kuyara's server, it may be transferred to Cloudflare servers outside Türkiye; this transfer
+relies on Cloudflare's data processing agreement.
+
+**How long data is kept.**
+
+- Account details and profile: until you delete your account.
+- Records synced with consent: until you withdraw consent or delete your account. If you delete
+  a record in the app, the content of its copy in the account is deleted right away. So that the
+  deletion reaches your other phones, only the record's identifier, day and deletion time stay
+  in the account; these are also deleted when you withdraw consent or delete your account.
+- Manual backups: the account service makes no automatic backups. The developer backs up the
+  database by hand, encrypted, with the key kept separately, and deletes each backup within
+  [retention period]. Deleted data, including a deleted account, stays in these backups for up
+  to [retention period]. Backups are kept only to restore the service after a fault. Restoring
+  a backup never brings back a deleted account or a withdrawn consent.
+- Security records: the records of session events are not written to the database; they are
+  kept briefly in the account service's log store and, on the plan kuyara uses, can be viewed
+  for at most the last day. The record of an open session stays until the session ends or you
+  delete your account.
+- Member counter: only a count of the day's requests is kept, under a name made from your
+  account identifier, and the stored count holds no identifier. It is not deleted with your
+  account and expires on its own within 7 days.
+- Sync consent record: until you delete your account.
+- Request correspondence: 2 years after the request is closed.
+
+**Managing your account and consent.** You can change your display name and gender in Profile.
+You can give or withdraw the sync consent in Settings > Account; withdrawing deletes the
+account's copies of those records. You can delete your account in Settings > Account; deletion
+removes everything in it. For an account created with Apple, kuyara revokes your Sign in with
+Apple permission where Apple allows it; when it cannot, the app tells you to remove kuyara
+under Settings > your name > Sign in with Apple on your iPhone.
+
+**Your rights.** Under KVKK Article 11 you can ask to learn whether your data is processed and,
+if so, for information about it; to learn the purpose and whether data is used accordingly; to
+know who it was transferred to in Türkiye or abroad; to have incomplete or wrong data corrected;
+to have data deleted or destroyed; to have those corrections and deletions passed on to the
+recipients; to object to a result against you that comes only from automated analysis; and to
+claim compensation for damage caused by unlawful processing. If you live in the EU, the GDPR
+also gives you the rights of access, rectification, erasure, restriction, objection and data
+portability, and you can withdraw consent at any time. kuyara makes no automated decision about
+you from your account data.
+
+**How to apply.** Write to [quint.inboard_9t@icloud.com](mailto:quint.inboard_9t@icloud.com)
+from the email address of your account. If you write from another address, we send an email to
+your account's address to confirm it is you; replying is enough. If you chose Hide My Email with
+Apple, that email reaches you through Apple's relay. You can also apply in writing by post; we
+share the postal address on request by email. A written application must include your name,
+surname and signature, your Turkish ID number if you are a Turkish citizen or otherwise your
+nationality and passport or ID number, an address for notices, and your request (Communiqué on
+the Procedures and Principles of Application to the Data Controller). We answer free of charge
+within 30 days (under the GDPR within one month, which can be extended by two months for
+complex requests, with notice). If you ask for a copy of your data, we send it as a
+machine-readable JSON file, encrypted, and send the password in a separate message.
+
+**Complaints.** If your request is refused, you find the answer insufficient, or you get no
+answer within 30 days, you can complain to the Turkish Personal Data Protection Board within 30
+days of learning the answer, and in any case within 60 days of your request (KVKK Article 14).
+If you live in the EU, you can complain to the data protection authority of the country where
+you live or work.
 
 ## Changes
 
@@ -219,6 +353,7 @@ Changes to this policy are published at this address with a new effective date.
 
 ## Contact
 
-Questions and deletion requests: email the maintainer at
-[quint.inboard_9t@icloud.com](mailto:quint.inboard_9t@icloud.com). Bug reports belong on the
+Controller: ubrn. Questions, deletion requests, data copies and other requests:
+[quint.inboard_9t@icloud.com](mailto:quint.inboard_9t@icloud.com). A postal address for written
+applications is shared on request by email. Bug reports belong on the
 [support page](support).
