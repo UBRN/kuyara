@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -517,6 +517,30 @@ test('a Closet that cannot load shows the bare rack and a retry that refreshes i
   expect(result.queryByTestId('profile-wanted-row')).toBeNull();
   await fireEvent.press(result.getByTestId('profile-closet-retry-button'));
   expect(refresh).toHaveBeenCalledTimes(1);
+});
+
+// The error body is the one line that says what happened: Android hears it as a live region,
+// and iOS, which ignores live regions, speaks it when it appears while Profile is up.
+test('the Closet error body is a live region, spoken when the error appears', async () => {
+  mockFontScale(1);
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const tree = (status: 'ready' | 'error') => (
+    <WardrobeApplicationContext.Provider value={application([], status)}>
+      <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
+        <KuyaraThemeContext.Provider value={lightTheme}>
+          <SafeAreaProvider initialMetrics={initialMetrics}>
+            <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+          </SafeAreaProvider>
+        </KuyaraThemeContext.Provider>
+      </LocalizationContext.Provider>
+    </WardrobeApplicationContext.Provider>
+  );
+  const result = await render(tree('ready'));
+  expect(announce).not.toHaveBeenCalledWith(messages.en.wardrobe.loadErrorBody);
+  await result.rerender(tree('error'));
+  expect(result.getByText(messages.en.wardrobe.loadErrorBody)).toHaveProp('accessibilityLiveRegion', 'polite');
+  expect(announce).toHaveBeenCalledWith(messages.en.wardrobe.loadErrorBody);
+  announce.mockRestore();
 });
 
 // ADR 0025 gives the accessories their own silhouettes, so an accessory draws like any

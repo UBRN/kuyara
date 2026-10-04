@@ -228,12 +228,12 @@ test('departure zones accept every name the weather layer accepts but not numeri
 test('an invalid row reads as absent, a look is recorded beside it, and its delete cleans up the photo', async (t) => {
   const db = await setup(t);
   const deleted = [];
-  const photoPath = `kuyara/history/photos/${randomUUID()}.jpg`;
-  const photos = { copyStaged: async () => photoPath, discardStaged: async () => {},
+  const photos = { copyStaged: async () => `kuyara/history/photos/${randomUUID()}.jpg`, discardStaged: async () => {},
     deleteStored: async (path) => { deleted.push(path); }, resolveUri: () => null };
   const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
   const broken = await repo.log(profileId, '2026-09-07', first, { kind: 'replace', stagedUri: 'stage' }, null);
   const other = await repo.log(profileId, '2026-09-08', first, { kind: 'replace', stagedUri: 'stage' }, null);
+  const photoPath = other.photoPath;
   await db.runAsync(`UPDATE outfit_history SET outfit_json = ?`, ['{"garments":"invalid"}']);
 
   assert.deepEqual(await repo.day(profileId, '2026-09-07'), []);
@@ -242,6 +242,8 @@ test('an invalid row reads as absent, a look is recorded beside it, and its dele
   assert.deepEqual(deleted, []);
   assert.equal(await repo.softDelete(profileId, other.id), true);
   assert.deepEqual(deleted, [photoPath]);
+  const row = await db.getFirstAsync('SELECT photo_path FROM outfit_history WHERE id = ?', [other.id]);
+  assert.equal(row.photo_path, null, 'a removed photo is no longer named on the deleted row');
 });
 
 // The history stores the user's own photos. File cleanup follows a database step that has
@@ -265,10 +267,50 @@ test('history file cleanup that rejects never fails a write that already committ
   assert.equal(removed.photoPath, null);
   await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' }, null);
   assert.equal(await repo.softDelete(profileId, stored.id), true);
+  // The photo that could not be removed stays named on the deleted row, so a later cleanup
+  // can retry it, as the Closet does.
   const row = await db.getFirstAsync(
     'SELECT photo_path, deleted_at FROM outfit_history WHERE day_key = ?', ['2026-09-24']);
-  assert.equal(row.photo_path, null);
+  assert.match(row.photo_path, /^kuyara\/history\/photos\//);
   assert.notEqual(row.deleted_at, null);
+  assert.deepEqual(await repo.list(profileId), []);
+});
+
+test('a deleted look whose photo could not be removed has it removed by a later cleanup', async (t) => {
+  const db = await setup(t);
+  const deleted = [];
+  let locked = true;
+  const photos = {
+    copyStaged: async () => `kuyara/history/photos/${randomUUID()}.jpg`,
+    discardStaged: async () => {},
+    deleteStored: async (path) => {
+      if (locked) throw new Error('file locked');
+      deleted.push(path);
+    },
+    resolveUri: () => null,
+  };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  const look = await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' }, null);
+  const kept = await repo.log(profileId, '2026-09-25', second, { kind: 'replace', stagedUri: 'stage' }, null);
+  assert.equal(await repo.softDelete(profileId, look.id), true);
+  await db.runAsync('UPDATE outfit_history SET pending_sync = 0');
+  const before = await db.getFirstAsync('SELECT updated_at FROM outfit_history WHERE id = ?', [look.id]);
+
+  // Still locked: the photo stays pending, nothing is lost.
+  await repo.cleanupPendingPhotos(profileId);
+  assert.deepEqual(deleted, []);
+
+  locked = false;
+  await repo.cleanupPendingPhotos(profileId);
+  assert.deepEqual(deleted, [look.photoPath], 'only the deleted look\'s photo is removed');
+  const row = await db.getFirstAsync(
+    'SELECT photo_path, updated_at, pending_sync FROM outfit_history WHERE id = ?', [look.id]);
+  // Clearing the file's name is device housekeeping: the record itself does not change.
+  assert.deepEqual({ ...row }, { photo_path: null, updated_at: before.updated_at, pending_sync: 0 });
+  assert.equal((await repo.list(profileId))[0].photoPath, kept.photoPath);
+
+  await repo.cleanupPendingPhotos(profileId);
+  assert.deepEqual(deleted, [look.photoPath], 'a cleared photo is not removed twice');
 });
 
 // A photo_path that is not a managed kuyara/history/photos/<uuid>.jpg is never trusted: it

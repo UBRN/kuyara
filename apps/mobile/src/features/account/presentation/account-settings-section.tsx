@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { AppText, Icon, NativeListRow, NativeListSection } from '@/components/ui';
+import { AppText, Icon, NativeListRow, NativeListSection, useTextScaling } from '@/components/ui';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { syncToneSymbol } from '@/features/account/presentation/account-status';
 import { describeSync } from '@/features/account/presentation/account-sync-view';
@@ -17,6 +17,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
  * footnote until the next visit.
  */
 export function AccountSettingsSection({ onOpenAccount }: Readonly<{ onOpenAccount: () => void }>) {
+  const { controlScale } = useTextScaling();
   const { port, snapshot } = useAccountScreens();
   const { hour12, language, messages } = useLocalization();
   const theme = useKuyaraTheme();
@@ -54,7 +55,7 @@ export function AccountSettingsSection({ onOpenAccount }: Readonly<{ onOpenAccou
     <NativeListSection
       footer={notice ? (
         <View style={[styles.notice, { width: Math.max(0, width - spacing.lg * 4) }]} testID="settings-account-notice">
-          <Icon color={notice.color} name={notice.icon} size={16} />
+          <Icon color={notice.color} name={notice.icon} size={16 * controlScale} />
           <AppText style={styles.noticeText} variant="caption">{notice.text}</AppText>
         </View>
       ) : copy.settings.signedOutFooter}

@@ -19,7 +19,7 @@ import type {
 } from '@/features/today/presentation/today-presentation';
 import { useLocalization } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -28,8 +28,6 @@ const CARD_WIDTH = 360;
 const CARD_HEIGHT = 640;
 const CARD_INSET = spacing.lg;
 const BOARD_WIDTH = CARD_WIDTH - CARD_INSET * 2;
-// Today's stage plate, so the shared board stands where the user first saw it.
-const STAGE_RADIUS = 26;
 // Law 6: 20 beside the body line; the symbol's master viewBox keeps its own margin, so the
 // lockup's mark is drawn at 28 to read at the name's height.
 const PLACE_SYMBOL_SIZE = 20;
@@ -151,7 +149,8 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
   },
   body: { flex: 1, gap: spacing.md, justifyContent: 'center' },
-  stage: { borderRadius: STAGE_RADIUS, overflow: 'hidden', width: BOARD_WIDTH },
+  // Today's stage corner, so the shared board stands where the user first saw it.
+  stage: { borderRadius: radii.stage, overflow: 'hidden', width: BOARD_WIDTH },
   row: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   shrink: { flexShrink: 1 },
 });

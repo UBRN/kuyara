@@ -680,9 +680,6 @@ const styles = StyleSheet.create({
   age: {
     gap: spacing.sm,
   },
-  options: {
-    gap: spacing.md,
-  },
   primaryAction: {
     flexGrow: 1,
   },

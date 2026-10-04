@@ -54,7 +54,6 @@ import {
   type GenerationMode,
 } from '@/features/today/presentation/today-motion';
 import {
-  STAGE_RADIUS,
   TodayOutfit,
   type OutfitDetailLink,
   type StageOutfit,
@@ -76,7 +75,7 @@ import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -354,7 +353,7 @@ function TodayScreenContent({
   const loadedStageColor = presentation.kind === 'loaded' ? theme.atmosphere[presentation.atmosphere] : null;
   useEffect(() => {
     stageTargetRef.current = stageView.current && loadedStageColor
-      ? { node: stageView.current, color: loadedStageColor, radius: STAGE_RADIUS }
+      ? { node: stageView.current, color: loadedStageColor, radius: radii.stage }
       : null;
   });
 

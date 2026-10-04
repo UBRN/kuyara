@@ -591,6 +591,7 @@ export type AppMessages = Readonly<{
     historyEmptyBody: string;
     historyEmptyAction: string;
     historyLoadError: string;
+    historyRetryAction: string;
     // History's Sunday-evening look back at the week (ADR 0038): counts the reader's own
     // records, never a goal, a streak or a missing day.
     historyWeekTitle: string;
@@ -797,6 +798,8 @@ export type AppMessages = Readonly<{
     wornCount: (count: number) => string;
     ownedLabel: string;
     wantedLabel: string;
+    /** A Closet section heading spoken whole: its name and how many pieces it holds. */
+    sectionAccessibilityLabel: Readonly<Record<'owned' | 'wanted', (count: number) => string>>;
     // ADR 0029 section 2: new plural chip strings for the Closet's category filter. The
     // catalogue's singular attribute labels (`catalog.attribute.structural_category.*`)
     // stay for the type picker and the tile subline.
@@ -1258,7 +1261,8 @@ const en = {
     historyIntro: 'Looks you chose to wear.',
     historyEmptyBody: 'The outfits you mark “Wore this today” on Today gather here, day by day.',
     historyEmptyAction: 'Go to Today',
-    historyLoadError: 'History could not be loaded. Try again later.',
+    historyLoadError: 'History could not be loaded. Nothing you saved is lost.',
+    historyRetryAction: 'Try again',
     historyWeekTitle: 'This week',
     historyWeekDays: (count: number) => (count === 1 ? 'You recorded 1 day' : `You recorded ${count} days`),
     historyWeekDressedFor: {
@@ -1471,6 +1475,10 @@ const en = {
     wornCount: (count: number) => (count === 1 ? 'Worn once' : `Worn ${count} times`),
     ownedLabel: englishOwnershipStateLabels.owned,
     wantedLabel: englishOwnershipStateLabels.wanted,
+    sectionAccessibilityLabel: {
+      owned: (count) => `Owned, ${count} ${count === 1 ? 'piece' : 'pieces'}`,
+      wanted: (count) => `Wanted, ${count} ${count === 1 ? 'piece' : 'pieces'}`,
+    },
     categoryFilterLabels: {
       top: 'Tops',
       bottom: 'Bottoms',
@@ -2457,7 +2465,8 @@ const tr = {
     historyIntro: 'Giymeyi seçtiğin kombinler.',
     historyEmptyBody: 'Bugün ekranında “Bugün bunu giydim” dediğin kombinler burada gün gün birikir.',
     historyEmptyAction: 'Bugün’e git',
-    historyLoadError: 'Geçmiş yüklenemedi. Biraz sonra yeniden dene.',
+    historyLoadError: 'Geçmiş yüklenemedi. Kaydettiğin hiçbir şey kaybolmadı.',
+    historyRetryAction: 'Yeniden dene',
     historyWeekTitle: 'Bu hafta',
     historyWeekDays: (count: number) => `${count} gün kaydettin`,
     historyWeekDressedFor: {
@@ -2673,6 +2682,10 @@ const tr = {
     // column at fontScale 3.118. The Profile screen already unified profile.wantedLabel;
     // this closes the same key here so the two screens cannot drift again.
     wantedLabel: 'İstekler',
+    sectionAccessibilityLabel: {
+      owned: (count) => `Sahip olduklarım, ${count} parça`,
+      wanted: (count) => `İstekler, ${count} parça`,
+    },
     categoryFilterLabels: {
       top: 'Üstler',
       bottom: 'Altlar',

@@ -25,6 +25,7 @@ import {
   swapRevealScroll,
   useGarmentRoles,
   type GarmentOutfitPalette,
+  useTextScaling,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
@@ -79,7 +80,7 @@ import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domai
 import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { layout, plateTheme, spacing } from '@/theme/theme';
+import { layout, plateTheme, radii, spacing } from '@/theme/theme';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -159,6 +160,7 @@ export function OutfitDetailScreen({
   composeEntry = null,
   composeResult = null,
 }: OutfitDetailScreenProps) {
+  const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   const easierToSeeOn = useEasierToSee();
   const { hour12, temperatureUnit } = useLocalization();
@@ -405,11 +407,10 @@ export function OutfitDetailScreen({
         <AppText accessibilityRole="header" variant="titleLarge">
           {missingSuggestion ? copy.noOutfitTitle : presentation.title}
         </AppText>
-        {missingSuggestion ? (
-          <AppText colorRole="textSecondary" style={styles.missingSuggestionBody} variant="body">
-            {copy.noOutfitBody}
-          </AppText>
-        ) : null}
+        <AppText colorRole="textSecondary" style={styles.missingSuggestionBody} variant="body">
+          {missingSuggestion ? copy.noOutfitBody : presentation.body}
+        </AppText>
+        {/* O14: the way back stays the system's back capsule in the bar, so no button here. */}
       </Screen>
     );
   }
@@ -635,7 +636,7 @@ export function OutfitDetailScreen({
             change, when the hint has gone, so the two never stand together. */}
         <Presence testID="outfit-detail-unusual" visible={unusual}>
           <View style={styles.boardLine}>
-            <Icon color={theme.colors.warningInk} name="warning" size={16} />
+            <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} />
             <AppText accessibilityLiveRegion="polite" colorRole="warningInk" style={styles.flexText} variant="caption">
               {copy.manualMix.unusual}
             </AppText>
@@ -762,7 +763,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
   },
   boardPlate: {
-    borderRadius: 26,
+    borderRadius: radii.stage,
     marginTop: spacing.xl,
   },
   boardLine: {

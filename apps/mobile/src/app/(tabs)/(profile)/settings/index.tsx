@@ -126,10 +126,16 @@ export default function SettingsRoute() {
         onOpenEasierToSee={() => push('/settings/easier-to-see')}
         onOpenPrivacy={() => push('/settings/privacy')}
         onOpenSupport={() => {
-          void Linking.openURL(SUPPORT_URL[language]);
+          void Linking.openURL(SUPPORT_URL[language]).catch(() => {
+            // A link the system cannot open leaves the screen as it was; nothing is lost.
+          });
         }}
         onOpenFeedback={() => push('/settings/feedback')}
-        onOpenLicence={() => { void Linking.openURL(LICENCE_URL); }}
+        onOpenLicence={() => {
+          void Linking.openURL(LICENCE_URL).catch(() => {
+            // A link the system cannot open leaves the screen as it was; nothing is lost.
+          });
+        }}
         // Phase 8: the tour starts over Today, from Profile's root so its step 7 lands there.
         onRestartTour={walkthrough ? () => {
           walkthrough.restart();
@@ -140,7 +146,9 @@ export default function SettingsRoute() {
           const url = Platform.OS === 'ios'
             ? IOS_REVIEW_URL
             : androidPackage ? androidStoreLinks(androidPackage).review : null;
-          if (url) void Linking.openURL(url);
+          if (url) void Linking.openURL(url).catch(() => {
+            // A link the system cannot open leaves the screen as it was; nothing is lost.
+          });
         }}
         onShare={() => {
           const sentence = messages.settings.shareText;

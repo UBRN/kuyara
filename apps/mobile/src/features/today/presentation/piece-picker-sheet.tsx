@@ -12,6 +12,7 @@ import {
   useGarmentCandidateRoles,
   type GarmentOutfitPalette,
   type SegmentedControlOption,
+  useTextScaling,
 } from '@/components/ui';
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
@@ -197,6 +198,7 @@ function PickerRow({
   testID: string;
   tile: ReactNode;
 }>) {
+  const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   return (
     <PressScale
@@ -210,7 +212,7 @@ function PickerRow({
       <AppText style={styles.name} variant="bodyStrong">{label}</AppText>
       {current ? (
         <View style={styles.current} testID={`piece-picker-current-${testID}`}>
-          <Icon color={theme.colors.brandAccent} name="check" size={16} />
+          <Icon color={theme.colors.brandAccent} name="check" size={16 * controlScale} />
           <AppText colorRole="brandAccent" variant="caption">{currentLabel}</AppText>
         </View>
       ) : null}

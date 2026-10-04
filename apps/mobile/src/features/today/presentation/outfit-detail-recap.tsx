@@ -1,7 +1,7 @@
 import type { Ref, RefObject } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Entrance, GarmentTileArtwork, Icon, type useGarmentRoles } from '@/components/ui';
+import { AppText, Button, Entrance, GarmentTileArtwork, Icon, type useGarmentRoles, useTextScaling } from '@/components/ui';
 import type { AccessoryOutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { DetailPresentation, DetailSuggestion, TodayCopy } from '@/features/today/presentation/outfit-detail-entries';
 import { FadeOnChange } from '@/features/today/presentation/outfit-detail-fades';
@@ -59,6 +59,7 @@ export function OutfitDetailRecap({
   source: string | null;
   stageColor: string;
 }>) {
+  const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   const mix = copy.manualMix;
   return (
@@ -186,7 +187,7 @@ export function OutfitDetailRecap({
           {/* N18: the hours this outfit was chosen for belong with the weather they describe. */}
           {presentation.coverageCaption ? (
             <View style={styles.weatherRecapCoverage} testID="outfit-detail-coverage">
-              <Icon color={plateTheme(theme, stageColor).colors.textPrimary} name="clock" size={16} />
+              <Icon color={plateTheme(theme, stageColor).colors.textPrimary} name="clock" size={16 * controlScale} />
               <AppText colorRole="textPrimary" style={styles.weatherRecapCoverageText} tabularNumbers variant="caption">
                 {presentation.coverageCaption}
               </AppText>

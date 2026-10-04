@@ -38,6 +38,7 @@ export function TodayOutfitNotes({
   updating: boolean;
   updatingDayType: DressStyle | null;
 }>) {
+  const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   const choosing = presentation.choosingCaption;
   return (
@@ -62,7 +63,7 @@ export function TodayOutfitNotes({
           </View>
         ) : presentation.coverageCaption ? (
           <View accessible style={styles.captionRow} testID="today-coverage-caption">
-            <Icon color={theme.colors.iconSecondary} name="clock" size={16} />
+            <Icon color={theme.colors.iconSecondary} name="clock" size={16 * controlScale} />
             <AppText colorRole="textSecondary" style={styles.captionText} tabularNumbers variant="caption">
               {presentation.coverageCaption}
             </AppText>
@@ -72,7 +73,7 @@ export function TodayOutfitNotes({
       {/* Law 4: a status is ink, glyph and text together. */}
       {presentation.driftCaption ? (
         <View accessible style={styles.captionRow} testID="today-drift-caption">
-          <Icon color={theme.colors.warningInk} name="warning" size={16} />
+          <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} />
           <AppText colorRole="warningInk" style={styles.captionText} tabularNumbers variant="caption">
             {presentation.driftCaption}
           </AppText>

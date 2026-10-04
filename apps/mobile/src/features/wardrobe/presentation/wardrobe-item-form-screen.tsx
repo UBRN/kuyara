@@ -11,6 +11,7 @@ import {
   Presence,
   Screen,
   Surface,
+  useTextScaling,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { ClothingPreference } from '@/domain/preferences';
@@ -110,6 +111,7 @@ function SectionHeading({
   testID?: string;
   variant?: 'title' | 'bodyStrong';
 }>) {
+  const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   return (
     <View style={styles.heading}>
@@ -118,7 +120,7 @@ function SectionHeading({
       </AppText>
       {tag ? (
         <View style={styles.tag} testID={testID}>
-          {invalid ? <Icon color={theme.colors.dangerInk} name="error" size={16} /> : null}
+          {invalid ? <Icon color={theme.colors.dangerInk} name="error" size={16 * controlScale} /> : null}
           <AppText colorRole={invalid ? 'dangerInk' : 'textSecondary'} variant="label">
             {tag}
           </AppText>

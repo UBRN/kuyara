@@ -67,6 +67,7 @@ export function OutfitDetailClosetSeed({
   setSeedAnswer: Dispatch<SetStateAction<WardrobeEntryState | null>>;
   setSeedAsking: Dispatch<SetStateAction<boolean>>;
 }>) {
+  const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   return (
     <>
@@ -124,7 +125,7 @@ export function OutfitDetailClosetSeed({
       </Presence>
       <Presence testID="outfit-detail-closet-seeded" visible={closetSeed.status === 'added'}>
         <View style={styles.seedDone}>
-          <Icon color={theme.colors.successInk} name="checkCircle" size={16} />
+          <Icon color={theme.colors.successInk} name="checkCircle" size={16 * controlScale} />
           <AppText accessibilityLiveRegion="polite" style={styles.flexText} variant="caption">
             {copy.closetSeed.added(closetSeed.addedCount)}
           </AppText>
@@ -340,6 +341,7 @@ export function OutfitDetailPieceRows({
   /** Each empty row's words, so focus can land there once its piece has gone. */
   emptyTargets?: RefObject<Map<RemovableSlot, View>>;
 }>) {
+  const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   const copy = messages.today;
   const mix = copy.manualMix;
@@ -417,10 +419,10 @@ export function OutfitDetailPieceRows({
         ) : null}
         {match.kind !== 'none' && status ? (
           <View style={styles.rowStatus} testID={`outfit-detail-piece-status-${piece.garmentTypeId}`}>
-            <Icon color={theme.colors.brandAccent} name={match.kind === 'wanted' ? 'heartFilled' : 'hanger'} size={16} />
+            <Icon color={theme.colors.brandAccent} name={match.kind === 'wanted' ? 'heartFilled' : 'hanger'} size={16 * controlScale} />
             <AppText variant="caption">{status}</AppText>
             {match.kind === 'owned' ? (
-              <Icon color={theme.colors.brandAccent} name="check" size={16} />
+              <Icon color={theme.colors.brandAccent} name="check" size={16 * controlScale} />
             ) : null}
           </View>
         ) : null}

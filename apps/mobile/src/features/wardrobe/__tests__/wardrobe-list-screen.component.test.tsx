@@ -207,8 +207,9 @@ test('owned and wanted are sections of one category page, owned first, each with
   const owned = result.getByTestId('wardrobe-section-owned');
   const wanted = result.getByTestId('wardrobe-section-wanted');
   expect(owned.props.accessibilityRole).toBe('header');
-  expect(owned.props.accessibilityLabel).toBe('Owned, 1');
-  expect(wanted.props.accessibilityLabel).toBe('Wanted, 1');
+  // One whole sentence each, never a label and a bare number joined in code.
+  expect(owned.props.accessibilityLabel).toBe('Owned, 1 piece');
+  expect(wanted.props.accessibilityLabel).toBe('Wanted, 1 piece');
   expect(result.getByTestId(`wardrobe-item-${ownedShoe.id}`)).toBeOnTheScreen();
   expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`)).toBeOnTheScreen();
   // The outerwear piece belongs to another page.

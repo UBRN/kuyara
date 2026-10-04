@@ -596,7 +596,16 @@ export function RecommendationApplicationProvider({
   const [historyRevision, setHistoryRevision] = useState(0);
   const outfitHistory = useMemo(() => ({
     revision: historyRevision,
-    list: async () => (await loadHistoryRepository()).list(localProfileId),
+    list: async () => {
+      const history = await loadHistoryRepository();
+      const records = await history.list(localProfileId);
+      // Opening History retries the photos of deleted looks that could not be removed, as
+      // opening the Closet does for its pieces.
+      void history.cleanupPendingPhotos(localProfileId).catch(() => {
+        // A photo still pending keeps its name on the deleted row for the next opening.
+      });
+      return records;
+    },
     day: async (dayKey: string) => (await loadHistoryRepository()).day(localProfileId, dayKey),
     log: async (dayKey: string, outfit: WornOutfit, pieceColors: WornPieceColors | null) => {
       const record = await (await loadHistoryRepository()).log(localProfileId, dayKey, outfit, { kind: 'keep' }, pieceColors);

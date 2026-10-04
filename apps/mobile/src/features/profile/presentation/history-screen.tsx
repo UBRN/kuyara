@@ -46,6 +46,8 @@ type HistoryScreenProps = Readonly<{
   transitionLanded?: boolean;
   /** An empty History's button: Today is where a look is marked worn. */
   onOpenToday?: () => void;
+  /** A failed first read's Try again. */
+  onRetry?: () => void;
 }>;
 
 // An empty History shows a plain worn look, faded, over its sentence, as the Closet's empty
@@ -175,7 +177,7 @@ function Arrival({ children, index, waiting }: Readonly<{
  * is new.
  */
 export function HistoryScreen({
-  entries, loadFailed, weekSummary = null, transitionLanded = true, onOpenToday,
+  entries, loadFailed, weekSummary = null, transitionLanded = true, onOpenToday, onRetry,
 }: HistoryScreenProps) {
   const { language, messages } = useLocalization();
   const theme = useKuyaraTheme();
@@ -214,9 +216,14 @@ export function HistoryScreen({
     // screen only when there is nothing to show.
     return (
       <Screen testID="history-screen">
-        <AppText accessibilityRole="alert" colorRole="textSecondary" testID="history-error">
-          {copy.historyLoadError}
-        </AppText>
+        <View style={styles.error}>
+          <AppText accessibilityRole="alert" colorRole="textSecondary" testID="history-error">
+            {copy.historyLoadError}
+          </AppText>
+          {onRetry ? (
+            <Button label={copy.historyRetryAction} onPress={() => onRetry()} testID="history-retry-button" />
+          ) : null}
+        </View>
       </Screen>
     );
   }
@@ -239,8 +246,9 @@ export function HistoryScreen({
             </EmptyStateArt>
             <AppText style={styles.centered}>{copy.historyEmptyBody}</AppText>
             {onOpenToday ? (
-              // The screen's one accent fill: nothing else on an empty History holds it.
-              <Button label={copy.historyEmptyAction} onPress={onOpenToday} testID="history-empty-today-button" />
+              // Calm, as the Closet's empty button is.
+              <Button label={copy.historyEmptyAction} onPress={onOpenToday} testID="history-empty-today-button"
+                variant="tonal" />
             ) : null}
           </View>
         </Entrance>
@@ -393,6 +401,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   list: { gap: spacing.md },
   empty: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.md },
+  error: { alignItems: 'flex-start', gap: spacing.md },
   centered: { textAlign: 'center' },
   month: { paddingTop: spacing.md },
   latestDay: { gap: spacing.md },

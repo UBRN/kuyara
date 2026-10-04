@@ -41,7 +41,7 @@ export function TodayAlternates({
   // Contrast. A full-width row wears it; a two-up tile wears it on its drawing plate.
   const strongEdge = useStrongEdge();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
-  const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
+  const { controlScale, usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
   //: while Easier to see is on, each alternate is a full-width row
   // with its drawing at the left, so a name is never cut and the list scrolls one way.
@@ -115,7 +115,7 @@ export function TodayAlternates({
                 <AppText numberOfLines={2} style={styles.outfitName} variant="label">
                   {suggestion.title}
                 </AppText>
-                <Icon color={theme.colors.iconSecondary} name="chevronRight" size={16} />
+                <Icon color={theme.colors.iconSecondary} name="chevronRight" size={16 * controlScale} />
               </View>
             </PressScale>
           );

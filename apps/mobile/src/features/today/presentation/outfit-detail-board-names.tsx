@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Entrance, garmentBoardDressingOrder, Icon } from '@/components/ui';
+import { AppText, Entrance, garmentBoardDressingOrder, Icon, useTextScaling } from '@/components/ui';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { DetailSuggestion, PieceEntry } from '@/features/today/presentation/outfit-detail-entries';
 import { pieceOwnershipMarkers } from '@/features/today/presentation/piece-ownership-marker';
@@ -25,9 +25,10 @@ export function OutfitDetailBoardHint({ everChanged, onBoard, plateShown, text }
   plateShown: boolean;
   text: string;
 }>) {
+  const { controlScale } = useTextScaling();
   const boardHintLine = (
     <View style={styles.boardLine}>
-      <Icon color={onBoard.iconSecondary} name="info" size={16} />
+      <Icon color={onBoard.iconSecondary} name="info" size={16 * controlScale} />
       <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
         {text}
       </AppText>

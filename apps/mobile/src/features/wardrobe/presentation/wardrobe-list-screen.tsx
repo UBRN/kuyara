@@ -217,7 +217,7 @@ export function WardrobeListScreen({
   const insets = useSafeAreaInsets();
   const messages = useMessages();
   const theme = useKuyaraTheme();
-  const { usesTwoColumnGrid } = useTextScaling();
+  const { usesTwoColumnGrid, controlScale } = useTextScaling();
   // O13: Easier to see keeps the Closet at two columns, whose tiles hold
   // the 1.3 times larger drawings.
   const easierToSee = useEasierToSee();
@@ -545,7 +545,7 @@ export function WardrobeListScreen({
           ) : null}
           {savedItem && undoStatus === 'failed' ? (
             <View style={styles.inlineError} testID="wardrobe-undo-error">
-              <Icon color={theme.colors.dangerInk} name="error" size={16} />
+              <Icon color={theme.colors.dangerInk} name="error" size={16 * controlScale} />
               <AppText
                 accessibilityRole="alert"
                 colorRole="dangerInk"
@@ -557,7 +557,7 @@ export function WardrobeListScreen({
           ) : null}
           {state.refreshFailure !== null ? (
             <View style={styles.inlineError} testID="wardrobe-refresh-error">
-              <Icon color={theme.colors.dangerInk} name="error" size={16} />
+              <Icon color={theme.colors.dangerInk} name="error" size={16 * controlScale} />
               <AppText
                 accessibilityRole="alert"
                 colorRole="textSecondary"
@@ -590,7 +590,7 @@ export function WardrobeListScreen({
           const label = wanted ? copy.wantedLabel : copy.ownedLabel;
           return (
             <View
-              accessibilityLabel={`${label}, ${row.count}`}
+              accessibilityLabel={copy.sectionAccessibilityLabel[row.entryState](row.count)}
               accessibilityRole="header"
               accessible
               style={[styles.sectionHeading, row.afterOwned && styles.sectionAfterOwned]}

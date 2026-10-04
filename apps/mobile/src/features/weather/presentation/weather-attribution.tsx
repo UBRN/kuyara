@@ -60,7 +60,11 @@ export function weatherAttributionLink(
   const url = attributionUrls[sourceId];
   const host = attributionHosts[sourceId];
   if (!label || !url || !host) return null;
-  return { label, hint: copy.attributionHint(host), open: () => { void Linking.openURL(url); } };
+  return { label, hint: copy.attributionHint(host), open: () => {
+    void Linking.openURL(url).catch(() => {
+      // A link the system cannot open leaves the screen as it was; nothing is lost.
+    });
+  } };
 }
 
 type WeatherAttributionProps = Readonly<{

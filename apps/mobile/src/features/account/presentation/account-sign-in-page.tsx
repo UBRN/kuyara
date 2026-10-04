@@ -67,7 +67,11 @@ export function AccountSignInPage({ initialPage }: Readonly<{ initialPage?: Acco
           <AppText
             accessibilityRole="link"
             colorRole="brandPrimary"
-            onPress={() => { void Linking.openURL(PRIVACY_POLICY_URL); }}
+            onPress={() => {
+              void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {
+                // A link the system cannot open leaves the screen as it was; nothing is lost.
+              });
+            }}
             testID="account-sign-in-privacy"
             variant="caption">
             {copy.privacy}

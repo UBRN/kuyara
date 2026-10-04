@@ -10,6 +10,7 @@ import {
   Icon,
   NativeSheet,
   Surface,
+  useTextScaling,
 } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type {
@@ -120,7 +121,10 @@ function PieceEditForm({
     record ? record.colorFamily : target.suggestedColorFamily,
   );
   const [colorChoice, setColorChoice] = useState<ClosetColorChoice | null>(record?.colorChoice ?? null);
-  const [busy, setBusy] = useState(false);
+  // Saving spins Done; choosing a photo only holds the controls, as nothing is being saved.
+  const [saving, setSaving] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const busy = saving || picking;
   const [saveError, setSaveError] = useState(false);
   const [photoError, setPhotoError] = useState(false);
   // A stored file that exists but cannot be decoded: the preview steps aside for the hero's
@@ -141,16 +145,16 @@ function PieceEditForm({
   const selectPhoto = () => {
     if (busy) return;
     setPhotoError(false);
-    setBusy(true);
+    setPicking(true);
     void onSelectPhoto()
       .then((photo) => { if (photo) changePhoto({ kind: 'replace', stagedPhoto: photo }); })
       .catch(() => setPhotoError(true))
-      .finally(() => setBusy(false));
+      .finally(() => setPicking(false));
   };
   const save = () => {
     if (busy || !entryState) return;
     setSaveError(false);
-    setBusy(true);
+    setSaving(true);
     const changedChoice = colorChoice && !sameClosetColorChoice(colorChoice, record?.colorChoice)
       ? colorChoice : null;
     void onSave(changedChoice
@@ -158,7 +162,11 @@ function PieceEditForm({
       : { entryState, colorFamily, photoChange })
       // The record now owns a committed photo, so the unmount must not discard it.
       .then(commitPhoto)
-      .catch(() => { setSaveError(true); setBusy(false); });
+      .catch(() => { setSaveError(true); setSaving(false); });
+  };
+  const removePhoto = () => {
+    setPhotoError(false);
+    changePhoto(record?.photoRelativePath ? { kind: 'remove' } : unchangedWardrobePhoto);
   };
   const chooseEntryState = (next: WardrobeEntryState) => {
     if (next !== entryState) haptics.selection();
@@ -175,14 +183,12 @@ function PieceEditForm({
         <AppText accessibilityRole="header" style={styles.title} variant="bodyStrong">
           {record ? copy.pieceSheetEditTitle : copy.pieceSheetAddTitle}
         </AppText>
-        <Button disabled={!entryState} label={copy.pieceSheetDone} loading={busy} onPress={save}
+        <Button disabled={!entryState || picking} label={copy.pieceSheetDone} loading={saving} onPress={save}
           size="small" testID="piece-edit-done" />
       </View>
 
       {saveErrorCopy ? (
-        <AppText accessibilityRole="alert" colorRole="dangerInk" testID="piece-edit-error">
-          {saveErrorCopy}
-        </AppText>
+        <SheetErrorLine glyphSize={20} testID="piece-edit-error">{saveErrorCopy}</SheetErrorLine>
       ) : null}
 
       <View style={styles.piece}>
@@ -266,14 +272,31 @@ function PieceEditForm({
           onPress={selectPhoto} testID="piece-edit-photo-select" variant="tonal" />
         {photoUri ? (
           <Button disabled={busy} label={copy.removePhotoAction}
-            onPress={() => changePhoto(record?.photoRelativePath ? { kind: 'remove' } : unchangedWardrobePhoto)}
+            onPress={removePhoto}
             testID="piece-edit-photo-remove" variant="plain" />
         ) : null}
         {photoError ? (
-          <AppText accessibilityRole="alert" colorRole="dangerInk" variant="caption">{copy.photoError}</AppText>
+          <SheetErrorLine caption glyphSize={16} testID="piece-edit-photo-error">{copy.photoError}</SheetErrorLine>
         ) : null}
       </View>
     </ScrollView>
+  );
+}
+
+/** An error line in the sheet: the error glyph and the words, as the Closet's error lines are. */
+function SheetErrorLine({ caption = false, children, glyphSize, testID }: Readonly<{
+  caption?: boolean; children: string; glyphSize: number; testID: string;
+}>) {
+  const theme = useKuyaraTheme();
+  const { controlScale } = useTextScaling();
+  return (
+    <View style={styles.errorLine} testID={`${testID}-line`}>
+      <Icon color={theme.colors.dangerInk} name="error" size={glyphSize * controlScale} />
+      <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.errorCopy} testID={testID}
+        variant={caption ? 'caption' : 'body'}>
+        {children}
+      </AppText>
+    </View>
   );
 }
 
@@ -291,5 +314,7 @@ const styles = StyleSheet.create({
   cardTile: { alignItems: 'center', borderRadius: radii.control, height: CARD_TILE_SIZE,
     justifyContent: 'center', overflow: 'hidden', width: CARD_TILE_SIZE },
   section: { gap: spacing.sm },
+  errorLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  errorCopy: { flex: 1 },
   photo: { borderRadius: radii.card, height: 180, width: '100%' },
 });
