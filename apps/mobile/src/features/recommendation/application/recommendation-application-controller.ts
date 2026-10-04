@@ -200,8 +200,9 @@ export { localDayKey, localDayKind, localDayVariant } from '@/features/recommend
 
 /**
  * The three outfits the persisted snapshot is showing, whatever day it was written on.
- * Ordinary generation excludes their body garments when at least three alternatives remain. A confirmed
- * re-ask does not exclude them; its pool may repeat a selection shown earlier that day.
+ * Ordinary generation excludes their body garments when at least three alternatives remain.
+ * A confirmed re-ask does not exclude them; its pool may repeat a selection shown earlier that
+ * day.
  */
 function shownOutfits(snapshot: RecommendationSnapshot | null): readonly RecommendedOutfit[] {
   const outfits = snapshot?.recommendation.outfits;
