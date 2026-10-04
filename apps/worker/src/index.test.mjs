@@ -56,6 +56,7 @@ function fakeDailyCounters() {
           async put(key, value) { map.set(key, value); },
           async delete(key) { return map.delete(key); },
           async list() { return new Map(map); },
+          async setAlarm() {},
         } }, {});
         objects.set(id.name, object);
       }
@@ -616,4 +617,108 @@ test('the deletion route\'s five upstream calls fit inside the phone\'s wait wit
   // the Worker itself and the phone's own network need the rest.
   const phoneWaitMs = 20_000;
   assert.ok(5 * accountUpstreamTimeoutMs <= phoneWaitMs - 5000, String(accountUpstreamTimeoutMs));
+});
+
+// The member AI allowance, composed: a re-ask carrying a Supabase access token the shared
+// verifier accepts is counted per member in the DAILY_COUNTERS object; every other request
+// behaves as before. A real signed token and a fake network prove the wiring end to end.
+async function memberFixture(t) {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse(`${recommendDate}T10:00:00.000Z`) });
+  t.mock.method(console, 'info', () => {});
+  const memberId = '3f2b8c1e-5d4a-4c1b-9a7e-0d6f1b2c3d4e';
+  const supabaseKey = await generateEs256Key();
+  const sign = createEs256Signer(supabaseKey.bare);
+  const claims = {
+    iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', sub: memberId,
+    exp: Math.floor(Date.now() / 1000) + 600,
+  };
+  const token = await sign({ alg: 'ES256', kid: 'k1' }, claims);
+  const seen = [];
+  let jwksOutage = false;
+  t.mock.method(globalThis, 'fetch', async (input) => {
+    const url = String(input);
+    seen.push(url);
+    if (jwksOutage) throw new Error('supabase unreachable');
+    if (url.endsWith('/.well-known/jwks.json')) return Response.json({ keys: [{ ...supabaseKey.publicJwk, kid: 'k1' }] });
+    throw new Error('unexpected upstream call');
+  });
+  const counters = fakeDailyCounters();
+  const lines = [];
+  for (const level of ['warn', 'info', 'log', 'error']) {
+    t.mock.method(console, level, (...args) => lines.push(JSON.stringify(args)));
+  }
+  const runs = { count: 0 };
+  const compose = (overrides = {}) => buildRouter({
+    ...boundEnv,
+    DAILY_COUNTERS: counters,
+    WORKERS_AI_MODELS: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast'],
+    AI: { async run() { runs.count += 1; return { response: recommendAnswer }; } },
+    ...overrides,
+  });
+  const reask = ({ bearer = token, reaskFlag = true, version = 'v2' } = {}) => new Request(
+    `https://worker.test/${version}/ai/recommend`,
+    {
+      method: 'POST',
+      headers: {
+        'cf-connecting-ip': '203.0.113.10',
+        'content-type': 'application/json',
+        ...(bearer === null ? {} : { authorization: `Bearer ${bearer}` }),
+      },
+      body: JSON.stringify(version === 'v2'
+        ? { ...recommendRequestBody(), locale: 'en', ...(reaskFlag ? { reask: true } : {}) }
+        : recommendRequestBody()),
+    },
+  );
+  return { memberId, token, seen, counters, lines, runs, compose, reask, outage: () => { jwksOutage = true; } };
+}
+
+test('the composed route refuses the eleventh member re-ask with the closed 429 and reads the keys once', async (t) => {
+  const { memberId, seen, lines, runs, compose, reask } = await memberFixture(t);
+  const route = compose();
+  for (let count = 1; count <= 10; count += 1) {
+    assert.equal((await route(reask(), fakeContext())).status, 200, `re-ask ${count}`);
+  }
+  assert.equal(runs.count, 10);
+  const refused = await route(reask(), fakeContext());
+  assert.equal(refused.status, 429);
+  assert.deepEqual(await refused.json(), { error: { code: 'rate_limited' } });
+  assert.equal(runs.count, 10);
+  assert.equal(seen.length, 1, 'the key set is read once and cached');
+  assert.equal(lines.some((line) => line.includes(memberId)), false);
+});
+
+test('the composed route does not count a non-re-ask, a bad token or a request without a header', async (t) => {
+  const { seen, runs, compose, reask } = await memberFixture(t);
+  const route = compose();
+  for (let count = 0; count < 13; count += 1) {
+    assert.equal((await route(reask({ reaskFlag: false }), fakeContext())).status, 200);
+    assert.equal((await route(reask({ bearer: null }), fakeContext())).status, 200);
+    assert.equal((await route(reask({ bearer: 'not.a.token' }), fakeContext())).status, 200);
+  }
+  assert.equal(runs.count, 39);
+  assert.deepEqual(seen, [], 'only a re-ask with a well-formed token is verified, and those fail before the JWKS');
+});
+
+test('the composed route runs unchanged when the Supabase address is missing or the verifier is down', async (t) => {
+  const { seen, runs, compose, reask, outage } = await memberFixture(t);
+  const noSupabase = compose({ SUPABASE_URL: undefined });
+  for (let count = 0; count < 12; count += 1) {
+    assert.equal((await noSupabase(reask(), fakeContext())).status, 200);
+  }
+  assert.deepEqual(seen, []);
+  outage();
+  const down = compose();
+  for (let count = 0; count < 12; count += 1) {
+    assert.equal((await down(reask(), fakeContext())).status, 200);
+  }
+  assert.equal(runs.count, 24);
+});
+
+test('a member re-ask within its allowance still stops at the global Workers AI total', async (t) => {
+  const { counters, runs, compose, reask } = await memberFixture(t);
+  const { WORKERS_AI_DAILY_ATTEMPT_LIMIT } = await import('./ai/ai-handler.ts');
+  await incrementCounter(counters, 'ai:workers-ai', `ai:workers-ai:${recommendDate}`, WORKERS_AI_DAILY_ATTEMPT_LIMIT);
+  const response = await compose()(reask(), fakeContext());
+  await assertOffline(response, 'ai_unavailable');
+  assert.equal(runs.count, 0);
 });

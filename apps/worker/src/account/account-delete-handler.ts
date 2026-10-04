@@ -13,6 +13,7 @@ import {
 } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import { AccountError } from './account-error.ts';
+import { bearerToken } from './bearer-token.ts';
 import type { SupabaseAdmin } from './supabase-admin.ts';
 import type { SupabaseTokenVerifier } from './supabase-token-verifier.ts';
 
@@ -49,11 +50,6 @@ function failure(stage: Stage, thrown: unknown): Response {
   const code = thrown instanceof AccountError ? thrown.code : 'internal_error';
   console.warn({ event: 'account_delete_failed', stage, code });
   return error(code);
-}
-
-function bearerToken(request: Request): string | undefined {
-  const match = /^bearer ([^\s]+)$/iu.exec(request.headers.get('authorization') ?? '');
-  return match?.[1];
 }
 
 export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimiter }: Dependencies) {

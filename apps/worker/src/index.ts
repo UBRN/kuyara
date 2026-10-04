@@ -18,12 +18,13 @@ import { createAppleTokenRevoker } from './account/apple-token-revoker.ts';
 import { createSupabaseAdmin } from './account/supabase-admin.ts';
 import { supabaseBaseUrl } from './account/supabase-base-url.ts';
 import { runSupabaseKeepAlive } from './account/supabase-keep-alive.ts';
-import { createSupabaseTokenVerifier } from './account/supabase-token-verifier.ts';
+import { createSupabaseTokenVerifier, type SupabaseTokenVerifier } from './account/supabase-token-verifier.ts';
 import { OpenMeteoPlaceProvider } from './places/open-meteo-place-provider.ts';
 import { createPlaceSearchHandler } from './places/place-search-handler.ts';
 import { WORKERS_AI_DAILY_ATTEMPT_LIMIT, createAiHandler } from './ai/ai-handler.ts';
 import type { AiProvider } from './ai/ai-provider.ts';
 import { OpenRouterAiProvider } from './ai/openrouter-ai-provider.ts';
+import { createMemberAllowance } from './ai/member-allowance.ts';
 import { createProbeHandler } from './ai/probe-handler.ts';
 import {
   WorkersAiProvider,
@@ -57,8 +58,9 @@ export type Env = Readonly<{
   OPENROUTER_MODELS?: readonly string[];
   WORKERS_AI_MODELS?: readonly string[];
   AI?: WorkersAiBinding;
-  // One Durable Object per counter name: the AI probe, the Workers AI attempt budget and
-  // the two capped weather providers each get their own object (see daily-counter.ts).
+  // One Durable Object per counter name: the AI probe, the Workers AI attempt budget, the
+  // two capped weather providers and each signed-in member's re-ask count each get their
+  // own object (see daily-counter.ts).
   DAILY_COUNTERS?: DailyCounterNamespace;
   AI_PROBE_RATE_LIMIT?: RateLimiter;
   AI_RECOMMEND_RATE_LIMIT?: RateLimiter;
@@ -188,7 +190,7 @@ export const accountUpstreamTimeoutMs = 3000;
  * `unavailable`, and nothing is called upstream. The project address must be https because
  * the token issuer and every admin call are built from it.
  */
-function buildAccountDeleteHandler(env: Env): Handler {
+function buildAccountDeleteHandler(env: Env, verifier: SupabaseTokenVerifier | undefined): Handler {
   const {
     ACCOUNT_DELETE_RATE_LIMIT: rateLimiter,
     APPLE_TEAM_ID: teamId,
@@ -199,13 +201,13 @@ function buildAccountDeleteHandler(env: Env): Handler {
   const offline = (binding: string) => offlineRoute(accountDeleteV1Path, binding, accountUnavailable);
   if (!rateLimiter) return offline('ACCOUNT_DELETE_RATE_LIMIT');
   const supabaseUrl = supabaseBaseUrl(env.SUPABASE_URL);
-  if (!supabaseUrl) return offline('SUPABASE_URL');
+  if (!supabaseUrl || !verifier) return offline('SUPABASE_URL');
   if (!teamId) return offline('APPLE_TEAM_ID');
   if (!secretKey) return offline('SUPABASE_SECRET_KEY');
   if (!privateKeyPem) return offline('APPLE_SIGN_IN_PRIVATE_KEY');
   if (!keyId) return offline('APPLE_SIGN_IN_KEY_ID');
   return createAccountDeleteHandler({
-    verifier: createSupabaseTokenVerifier({ supabaseUrl, now: () => new Date(), timeoutMs: accountUpstreamTimeoutMs }),
+    verifier,
     admin: createSupabaseAdmin({ supabaseUrl, secretKey, timeoutMs: accountUpstreamTimeoutMs }),
     revoker: createAppleTokenRevoker({
       teamId, keyId, privateKeyPem, now: () => new Date(), timeoutMs: accountUpstreamTimeoutMs,
@@ -214,8 +216,20 @@ function buildAccountDeleteHandler(env: Env): Handler {
   });
 }
 
+/**
+ * One token verifier, and so one cached key set, for the deletion route and the member AI
+ * allowance. Undefined while the Supabase address is missing or not https.
+ */
+function buildSupabaseTokenVerifier(env: Env): SupabaseTokenVerifier | undefined {
+  const supabaseUrl = supabaseBaseUrl(env.SUPABASE_URL);
+  return supabaseUrl
+    ? createSupabaseTokenVerifier({ supabaseUrl, now: () => new Date(), timeoutMs: accountUpstreamTimeoutMs })
+    : undefined;
+}
+
 export function buildRouter(env: Env): Handler {
   const providers = createAiProviders(env);
+  const verifier = buildSupabaseTokenVerifier(env);
   const weatherHandler = env.WEATHER_RATE_LIMIT
     ? createWeatherHandler({
       provider: createWeatherProviderChain({ providers: createWeatherProviders(env) }),
@@ -239,6 +253,9 @@ export function buildRouter(env: Env): Handler {
         rateLimiter: env.AI_RECOMMEND_RATE_LIMIT,
         dailyCounter: createDurableDailyCounter(env.DAILY_COUNTERS, 'ai:workers-ai'),
         dailyLimit: WORKERS_AI_DAILY_ATTEMPT_LIMIT,
+        memberAllowance: verifier
+          ? createMemberAllowance({ verifier, namespace: env.DAILY_COUNTERS })
+          : undefined,
       });
   const probeHandler = !env.AI_PROBE_RATE_LIMIT
     ? offlineRoute(aiProbeV1Path, 'AI_PROBE_RATE_LIMIT', aiUnavailable)
@@ -252,7 +269,7 @@ export function buildRouter(env: Env): Handler {
   return createRouter({
     weatherHandler,
     placeSearchHandler,
-    accountDeleteHandler: buildAccountDeleteHandler(env),
+    accountDeleteHandler: buildAccountDeleteHandler(env, verifier),
     feedbackHandler: env.FEEDBACK_DB && env.FEEDBACK_RATE_LIMIT
       ? createFeedbackHandler({ database: env.FEEDBACK_DB, rateLimiter: env.FEEDBACK_RATE_LIMIT })
       : offlineRoute(feedbackV1Path,

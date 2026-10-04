@@ -104,6 +104,11 @@ export function createSupabaseTokenVerifier(dependencies: Dependencies): Supabas
 
   async function keyFor(kid: string): Promise<CryptoKey | undefined> {
     const at = dependencies.now().getTime();
+    // No key set was ever loaded and the last read failed inside the cooldown: Supabase is
+    // down, so callers fail at once instead of each waiting out a fresh fetch.
+    if (keys === undefined && inflight === undefined && lastFetchAt > 0 && at - lastFetchAt < cooldownMs) {
+      throw new AccountError('unavailable');
+    }
     const stale = keys === undefined || at - lastFetchAt >= maxAgeMs;
     const unknownAndDue = keys !== undefined && !keys.has(kid) && at - lastFetchAt >= cooldownMs;
     if (stale || unknownAndDue) {

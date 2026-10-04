@@ -8,6 +8,12 @@
  * in `/increment` relies on it; a caller that mixed prefixes in one object would have its
  * later-sorting prefix swept by the other one's new day.
  *
+ * The sweep runs only when an object is incremented again, so an object nobody returns to
+ * (a member who stopped asking) would keep its last count for good. The first increment of
+ * a day therefore also sets an alarm seven days after that key's day, and the alarm empties
+ * the keys whose seven days are over, re-arming for the earliest key left; a count outlives
+ * its own day by at most six more days.
+ *
  * Nothing here imports `cloudflare:workers`: the Node test runner cannot resolve that
  * scheme and `index.test.mjs` imports `index.ts`, which re-exports this class for wrangler.
  * The runtime shapes below are the structural subset the counter uses, so a Map-backed fake
@@ -19,6 +25,7 @@ export interface DailyCounterStorage {
   put<T>(key: string, value: T): Promise<void>;
   delete(key: string): Promise<boolean>;
   list<T = unknown>(): Promise<Map<string, T>>;
+  setAlarm(scheduledTime: number): Promise<void>;
 }
 
 export interface DailyCounterState {
@@ -46,6 +53,15 @@ export function dailyCounterKey(name: string, now: Date): string {
 }
 
 const dailyCounterOrigin = 'https://daily-counter';
+
+const counterRetentionDays = 7;
+
+/** Midnight UTC, `counterRetentionDays` after the day a key ends in; undefined for any other key. */
+function expiryOfKey(key: string): number | undefined {
+  const day = /(\d{4}-\d{2}-\d{2})$/u.exec(key)?.[1];
+  const start = day === undefined ? Number.NaN : Date.parse(`${day}T00:00:00.000Z`);
+  return Number.isNaN(start) ? undefined : start + counterRetentionDays * 86_400_000;
+}
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status });
@@ -80,10 +96,41 @@ export class DailyCounter {
         for (const stored of (await this.#storage.list()).keys()) {
           if (stored < key) await this.#storage.delete(stored);
         }
+        await this.#scheduleExpiry(key);
       }
       return json({ count });
     }
     return json({ error: 'not_found' }, 404);
+  }
+
+  /**
+   * The count is already stored, so a failure here only delays cleanup and must not fail
+   * the request.
+   */
+  async #scheduleExpiry(key: string): Promise<void> {
+    const expiry = expiryOfKey(key);
+    if (expiry === undefined) return;
+    try {
+      await this.#storage.setAlarm(expiry);
+    } catch {
+      console.warn({ event: 'daily_counter_alarm_failed' });
+    }
+  }
+
+  /**
+   * Deletes the keys whose expiry has passed and re-arms the alarm for the earliest one left.
+   * An alarm may run alongside requests to the same object, so the object is never emptied
+   * wholesale: a key opened by a request that is in flight is not expired and stays.
+   */
+  async alarm(): Promise<void> {
+    const now = Date.now();
+    let earliest: number | undefined;
+    for (const key of (await this.#storage.list()).keys()) {
+      const expiry = expiryOfKey(key);
+      if (expiry === undefined || expiry <= now) await this.#storage.delete(key);
+      else earliest = Math.min(earliest ?? expiry, expiry);
+    }
+    if (earliest !== undefined) await this.#storage.setAlarm(earliest);
   }
 }
 
