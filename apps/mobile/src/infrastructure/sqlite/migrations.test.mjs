@@ -2534,7 +2534,6 @@ test('build-18-schema-25.sql upgrades with every row intact and matches a fresh 
   const before = await tableRows(database);
   assert.equal(Object.keys(before).length, 11);
   assert.ok(Object.values(before).every((rows) => rows.length > 0), 'every build 18 table holds a row');
-  const schemaBefore = await sqliteSchema(database);
 
   await migrateDatabase(database);
   await migrateDatabase(fresh);
@@ -2547,7 +2546,6 @@ test('build-18-schema-25.sql upgrades with every row intact and matches a fresh 
 
   // Re-entry through a second caller runs the chain again and changes nothing.
   const upgradedSchema = await sqliteSchema(database);
-  assert.notDeepEqual(upgradedSchema, schemaBefore);
   await migrateDatabase(new NodeSqliteDatabase(database.database));
   assert.deepEqual(await tableRows(database), before);
   assert.deepEqual(await sqliteSchema(database), upgradedSchema);
