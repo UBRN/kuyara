@@ -542,7 +542,7 @@ Everywhere else, silence.
 | --- | --- | --- |
 | Pull-to-refresh threshold crossed, Today and Weather | impact light | Finger is on the glass, a physical threshold |
 | Refresh outcome, success or failure | notification success / error | The user may not be looking at the screen |
-| Selection change: tab bar, theme, language, clothing preference, wardrobe ownership toggle, the outfit detail owned/wanted pair | selection | State changes under the finger |
+| Selection change: tab bar, theme, language, temperature and wind units, clothing preference, wardrobe ownership toggle, the outfit detail owned/wanted pair | selection | State changes under the finger |
 | Primary action pressed, the `Button` prominent role | impact light | The screen's main action confirms the press itself |
 | Outfit ownership completed on the detail board, the last piece marked owned | notification success | Confirming a state the user set, a real threshold |
 | "Wore this today" recorded on outfit detail | notification success | Confirming a state the user set; the press fires no impact of its own |

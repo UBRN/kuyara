@@ -31,7 +31,7 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 
 ### 2. Root groups, in order
 
-1. **Appearance:** Language and theme, each a value row opening the native picker.
+1. **Appearance:** Language, theme, Temperature (System, °C, °F) and Wind speed (System, km/h, mph), each a value row opening the native picker.
 2. **Accessibility:** one "Easier to see" / "Görme kolaylığı" value row (On or Off) opening its pushed surface (section 5).
 3. **Notifications:** the notification preference and its pushed surface.
 4. **Profile:** display name, gender, dress style, style aesthetics, the Morning question switch and birth date. The `aboutYouFooter` helper text under birth date is removed. This foundation permits an Account group above Profile when optional accounts arrive.
@@ -47,7 +47,7 @@ Share kuyara opens the platform share sheet with the App Store link on iOS or Pl
 
 Every root row carries the shared leading tile:
 28 × 28, radius 7, a monochrome glyph at 20 in the system label ink, fill from that ink
-at 8% in light and 12% in dark. Language, Appearance, Gender and Dress style draw the same tile in SwiftUI inside their Menu labels, because a Menu label cannot host the React Native one, and their labels read in the system label ink, never the tint. Every row glyph is the outline weight. Every tile follows the same anatomy. The separator starts 56 from the group
+at 8% in light and 12% in dark. Language, Appearance, Temperature, Wind speed, Gender and Dress style draw the same tile in SwiftUI inside their Menu labels, because a Menu label cannot host the React Native one, and their labels read in the system label ink, never the tint. Every row glyph is the outline weight. Every tile follows the same anatomy. The separator starts 56 from the group
 edge. The trailing value is the system's secondary before the chevron, and above
 `fontScale` 1.5 it stacks under the label. The leading tile is kuyara's own React Native
 view hosted inside the native row, so it keeps ADR 0028 section 3's capped control scale
@@ -90,7 +90,7 @@ recommendation behavior.
 - Tint is `brandPrimary` on the toggle, the button rows and the back buttons. The
   installed `@expo/ui` 57.0.8 SwiftUI API exposes `tint`, so the wrapper applies it to
   the list and toggle; this is verified on the iPhone 17 Pro / iOS 26.3 Simulator.
-- Haptics: selection on language, appearance, gender, and dress-style changes, the sites
+- Haptics: selection on language, appearance, unit, gender, and dress-style changes, the sites
   Law 8 already names; native toggles supply their own; none on navigation rows.
 - No motion of kuyara's.
 - `KuyaraThemeProvider` applies the in-app appearance override through React Native's
