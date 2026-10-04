@@ -206,7 +206,8 @@ test('v2 emits only valid optional prose and v1 remains shape-frozen', async () 
 });
 
 test('invalid or absent v2 prose does not fail valid picks', async () => {
-  for (const sentence of ['Two sentences. Another.', 'x'.repeat(91), undefined]) {
+  for (const sentence of ['Two sentences. Another.', 'x'.repeat(91), 'These looks range from轻 casual to smart.',
+    'Casual to a smart formal,.', undefined]) {
     const handler = createAiHandler({ providers: [{
       generateOutfits: async () => ({ data: {
         ...validOutput().data, ...(sentence === undefined ? {} : { insightSentence: sentence }),

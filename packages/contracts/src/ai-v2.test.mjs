@@ -5,6 +5,7 @@ import {
   aiRecommendV2Path,
   aiRecommendV2RequestSchema,
   aiRecommendV2SuccessSchema,
+  insightSentenceSchema,
   styleAesthetics,
 } from './ai-v2.ts';
 import { aiRecommendV1RequestSchema } from './ai-v1.ts';
@@ -52,6 +53,16 @@ test('v2 request requires the reader locale and a sorted closed aesthetics list'
   assert.equal(aiRecommendV2RequestSchema.safeParse({
     ...request, styleAesthetics: ['classic', 'minimal', 'sporty'].sort(),
   }).success, true);
+});
+
+test('v2 sentence is Latin script and ends cleanly, with one terminator and no stray mark before it', () => {
+  for (const sentence of ['Bu kıyafet güne uygun.', 'Şık ve rahat bir gün, İstanbul için.', 'A café look for today!']) {
+    assert.equal(insightSentenceSchema.safeParse(sentence).success, true, sentence);
+  }
+  for (const sentence of ['These looks range from轻 casual to smart.', 'Отличный день.', 'A calm day for مشي.',
+    'Casual to a smart formal,.', 'A calm day;.', 'A calm day:!', 'A calm day..', 'A calm day?!']) {
+    assert.equal(insightSentenceSchema.safeParse(sentence).success, false, sentence);
+  }
 });
 
 test('v2 sentence is optional, trimmed, one line, and at most 90 characters', () => {
