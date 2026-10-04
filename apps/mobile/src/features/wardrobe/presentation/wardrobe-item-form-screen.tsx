@@ -468,7 +468,10 @@ export function WardrobeItemFormScreen({
         saveDisabled={busy}
         saveLabel={saveLabel}
       />
+      {/* Name is the form's last field: the keyboard's height becomes the scroll inset and
+          the focused field is scrolled above it. */}
       <Screen
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         ref={scrollRef}
@@ -607,7 +610,7 @@ export function WardrobeItemFormScreen({
             ) : null}
             <Button
               accessibilityHint={copy.deleteSectionBody}
-              disabled={isSaving || isBusy}
+              disabled={isSaving || isBusy || isProcessingPhoto}
               icon="trash"
               label={isDeleting ? copy.deletingLabel : copy.deleteAction}
               loading={isDeleting}

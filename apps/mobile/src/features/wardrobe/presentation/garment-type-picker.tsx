@@ -94,20 +94,33 @@ export function GarmentTypePicker({
   const rowOpacity = useSharedValue<number>(1);
   const rowStyle = useAnimatedStyle(() => ({ opacity: rowOpacity.get() }));
 
-  const selectableTypes = useMemo(
-    () => listSelectableGarmentTypes(clothingPreference),
-    [clothingPreference],
-  );
-  const categories = useMemo(
-    () => listStructuralCategoriesForPreference(clothingPreference),
-    [clothingPreference],
-  );
+  // The type the form opened with. A stored piece keeps its type choosable even when the
+  // preference does not offer it (a dress on a mens profile); a new piece holds nothing, so
+  // only the preference's types are ever offered for it. A deprecated type is never offered.
+  const [heldTypeId] = useState(selectedTypeId);
+  const { categories, selectableTypes } = useMemo(() => {
+    const offered = listSelectableGarmentTypes(clothingPreference);
+    const isOffered = (typeId: GarmentTypeId) => offered.some((garmentType) => garmentType.typeId === typeId);
+    if (!heldTypeId || isOffered(heldTypeId)) {
+      return { categories: listStructuralCategoriesForPreference(clothingPreference), selectableTypes: offered };
+    }
+    const types = listSelectableGarmentTypes(null)
+      .filter(({ typeId }) => typeId === heldTypeId || isOffered(typeId));
+    return {
+      categories: listStructuralCategoriesForPreference(null)
+        .filter((structuralCategory) => types.some((garmentType) => garmentType.structuralCategory === structuralCategory)),
+      selectableTypes: types,
+    };
+  }, [clothingPreference, heldTypeId]);
+  const offeredCategory = (candidate: StructuralCategory | undefined) =>
+    candidate && categories.includes(candidate) ? candidate : null;
   // No stored default: the grid opens on the category tapped, else the selected type's
-  // own, else the Closet category the add started from; with none, the tiles show.
+  // own, else the Closet category the add started from; with none, the tiles show. A
+  // category that offers nothing is never opened, so the grid is never empty.
   const activeCategory =
     category
-    ?? selectedType?.structuralCategory
-    ?? (initialCategory && categories.includes(initialCategory) ? initialCategory : null);
+    ?? offeredCategory(selectedType?.structuralCategory)
+    ?? offeredCategory(initialCategory);
   const visibleTypes = selectableTypes.filter(
     (garmentType) => garmentType.structuralCategory === activeCategory,
   );

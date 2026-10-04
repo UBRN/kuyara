@@ -1,24 +1,32 @@
 import { Fragment, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { AppText, DrawGrow, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
+import { AppText, DrawReveal, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
+import { useEasierToSee, useVisibility } from '@/theme/easier-to-see';
 import { layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-// The rail is a graphic, not type: it stays 4 points tall at every text size, because a
-// band that grew with Dynamic Type would leave the row without a legible number beside it
-// long before it gained any meaning. Its dot is the current temperature on today's row.
+import { temperatureStops, type TemperatureGradientStop } from './temperature-gradient';
+
+// The rail is a graphic, not type: it stays 6 points tall at every text size (8 with Easier
+// to see), because a band that grew with Dynamic Type would leave the row without a legible
+// number beside it long before it gained any meaning. Its dot is the current temperature on
+// today's row: the primary ink, ringed in the card's own fill so it reads on any colour.
 //
-// Its fill is `brandAccent` and not the day's condition ink, which the glyph already
-// carries: one hue for one quantity, the same hue the hourly card draws its temperature
-// series in, so the two cards read as one encoding of temperature rather than as two
-// accents competing. Law 1 counts accent-FILLED elements; these are data marks in the same
-// family as that series and are bounded by this rule instead.
-const RAIL_HEIGHT = 4;
-const MARKER_SIZE = 3;
+// Each capsule is coloured on the fixed temperature scale the hourly line uses, clipped to
+// the day's own low and high, so a temperature has one colour on every row and in both
+// cards. Colour follows the Celsius value whatever unit the numbers are in, and it is never
+// the only signal: the low and the high sit beside the capsule and the row's label states
+// them.
+const RAIL_HEIGHT = 6;
+const EASIER_RAIL_HEIGHT = 8;
+const DOT_SIZE = 10;
+const EASIER_DOT_SIZE = 12;
+const DOT_RING = 2;
 // The glyph column the separator starts after (Law 6: 20 beside `body`).
 const GLYPH_SIZE = 20;
 // Every rail has to sit on a track of the SAME length, or the same temperature lands at a
@@ -59,6 +67,12 @@ export type DailyOutlookProps = Readonly<{
 export function DailyOutlook({ rows, drawIn = false, waiting = false }: DailyOutlookProps) {
   const theme = useKuyaraTheme();
   const { controlScale, usesStackedLayout } = useTextScaling();
+  const easierToSee = useEasierToSee();
+  const { higherContrast } = useVisibility();
+  const ramp = theme.temperature[higherContrast ? 'strong' : 'standard'];
+  const railHeight = easierToSee ? EASIER_RAIL_HEIGHT : RAIL_HEIGHT;
+  // The dot and its ring together: the ring is drawn inside the view's edge.
+  const markerSize = (easierToSee ? EASIER_DOT_SIZE : DOT_SIZE) + DOT_RING * 2;
 
   // Every rail is positioned against the same range, which is what makes a warm Sunday sit
   // visibly to the right of a cold Friday instead of each row filling its own bar.
@@ -86,33 +100,35 @@ export function DailyOutlook({ rows, drawIn = false, waiting = false }: DailyOut
             style={[
               styles.rail,
               usesStackedLayout && styles.stackedRail,
-              { backgroundColor: theme.colors.surfaceMuted },
+              { backgroundColor: theme.colors.surfaceMuted, height: railHeight },
             ]}
             testID="weather-daily-rail">
-            {/* Each range grows from its low to its high, a row after the hourly series. */}
-            <DrawGrow
-              index={index + 1}
-              play={drawIn}
-              style={[
-                styles.railFill,
-                {
-                  backgroundColor: theme.colors.brandAccent,
-                  left: `${start * 100}%`,
-                  width: `${width * 100}%`,
-                },
-              ]}
-              testID="weather-daily-rail-fill"
-              waiting={waiting}
-            />
+            {/* Each range is uncovered from its low to its high, a row after the hourly
+                series: a clip rather than a stretch, so the colours never squeeze. */}
+            <View style={styles.track}>
+              <RangeCapsule
+                gradientId={`daily-temperature-${row.key}`}
+                height={railHeight}
+                index={index + 1}
+                play={drawIn}
+                start={start}
+                stops={temperatureStops(ramp, row.minimumCelsius, row.maximumCelsius)}
+                waiting={waiting}
+                width={width}
+              />
+            </View>
             {row.currentCelsius === null ? null : (
               <View
                 style={[
                   styles.railMarker,
                   {
-                    // The card's own fill, knocked out of the accent the way the hourly
-                    // rail knocks its numbers out of the series.
-                    backgroundColor: resolveCardFill(theme),
+                    backgroundColor: theme.colors.textPrimary,
+                    borderColor: resolveCardFill(theme),
+                    height: markerSize,
                     left: `${position(row.currentCelsius) * 100}%`,
+                    marginStart: -markerSize / 2,
+                    top: (railHeight - markerSize) / 2,
+                    width: markerSize,
                   },
                 ]}
                 testID="weather-daily-rail-marker"
@@ -174,6 +190,60 @@ export function DailyOutlook({ rows, drawIn = false, waiting = false }: DailyOut
           </Fragment>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * One day's low-to-high capsule on the shared track, filled with its stretch of the
+ * temperature scale. The gradient is drawn at the capsule's measured width, so it waits for
+ * that width before it draws or reveals.
+ */
+function RangeCapsule({ gradientId, height, index, play, start, stops, waiting, width }: Readonly<{
+  gradientId: string;
+  height: number;
+  index: number;
+  play: boolean;
+  start: number;
+  stops: readonly TemperatureGradientStop[];
+  waiting: boolean;
+  width: number;
+}>) {
+  const [measured, setMeasured] = useState<number | null>(null);
+  return (
+    <View
+      onLayout={({ nativeEvent }) => setMeasured(nativeEvent.layout.width)}
+      style={[styles.capsule, { left: `${start * 100}%`, minWidth: height, width: `${width * 100}%` }]}
+      testID="weather-daily-rail-fill">
+      {measured === null ? null : (
+        <DrawReveal
+          index={index}
+          play={play}
+          span={measured}
+          testID="weather-daily-rail-reveal"
+          waiting={waiting}
+          width={measured}>
+          <Svg
+            accessibilityElementsHidden
+            height={height}
+            importantForAccessibility="no-hide-descendants"
+            width={measured}>
+            {stops.length === 1 ? null : (
+              <Defs>
+                <LinearGradient id={gradientId} x1="0" x2="1" y1="0" y2="0">
+                  {stops.map((stop) => <Stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />)}
+                </LinearGradient>
+              </Defs>
+            )}
+            <Rect
+              fill={stops.length === 1 ? stops[0].color : `url(#${gradientId})`}
+              height={height}
+              testID="weather-daily-rail-paint"
+              width={measured}
+            />
+          </Svg>
+        </DrawReveal>
+      )}
     </View>
   );
 }
@@ -255,16 +325,12 @@ const styles = StyleSheet.create({
     width: RANGE_COLUMN_SHARE,
   },
   temperature: { textAlign: 'right' },
-  rail: { borderRadius: radii.pill, flex: 1, height: RAIL_HEIGHT, overflow: 'hidden' },
-  // A day whose low and high are the same still shows as a mark rather than as nothing,
-  // and the rail's own `overflow` keeps that mark inside the track at the warm end.
-  railFill: { borderRadius: radii.pill, bottom: 0, minWidth: RAIL_HEIGHT, position: 'absolute', top: 0 },
-  railMarker: {
-    borderRadius: radii.pill,
-    height: MARKER_SIZE,
-    marginStart: -MARKER_SIZE / 2,
-    position: 'absolute',
-    top: (RAIL_HEIGHT - MARKER_SIZE) / 2,
-    width: MARKER_SIZE,
-  },
+  // The rail does not clip: today's dot is taller than it and overhangs it. The capsules
+  // sit in a clipping layer of their own instead, so a day whose low and high are the same
+  // still shows as a round mark rather than as nothing, kept inside the track at the warm
+  // end, and each capsule clips its colours to its own rounded ends.
+  rail: { borderRadius: radii.pill, flex: 1 },
+  track: { borderRadius: radii.pill, bottom: 0, left: 0, overflow: 'hidden', position: 'absolute', right: 0, top: 0 },
+  capsule: { borderRadius: radii.pill, bottom: 0, overflow: 'hidden', position: 'absolute', top: 0 },
+  railMarker: { borderRadius: radii.pill, borderWidth: DOT_RING, position: 'absolute' },
 });

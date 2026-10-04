@@ -14,12 +14,17 @@ const syncedTables = [
   'dressing_day_departures', 'outfit_history',
 ];
 const now = '2026-10-02T10:00:00.000Z';
-// Migration 27 gives every existing profile both unit choices at System; migration 28 gives the
-// device account link a NULL records account and consent arrival.
-const upgraded = (table, row) => ({
+// What each migration adds to an existing row, by the schema the database starts from.
+// Migration 25 adds the pending flag at 0, so a database that already holds it (build 18 and
+// later) keeps the flags it was left with, and every Closet or History edit made on those
+// builds is still marked. Migration 27 gives every existing profile both unit choices at System
+// and a database that already holds them keeps the choices; migration 28 gives the device
+// account link a NULL records account and consent arrival.
+const upgraded = (table, row, versionBefore = 24) => ({
   ...row,
-  ...(syncedTables.includes(table) ? { pending_sync: 0 } : {}),
-  ...(table === 'local_profiles' ? { temperature_unit: 'system', wind_speed_unit: 'system' } : {}),
+  ...(syncedTables.includes(table) && versionBefore < 25 ? { pending_sync: 0 } : {}),
+  ...(table === 'local_profiles' && versionBefore < 27
+    ? { temperature_unit: 'system', wind_speed_unit: 'system' } : {}),
   ...(table === 'device_account_link' ? { records_user_id: null, records_consent_recorded_at: null } : {}),
 });
 
@@ -83,7 +88,7 @@ test('version 24 rows in all sync tables keep every value and start unmarked', a
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
 });
 
-test('copied device database replays version 24, 25 or 26 to the latest version with every row and value intact',
+test('copied device database replays any version from 19 to the one before the latest to the latest version with every row and value intact',
   { skip: !process.env.KUYARA_DEVICE_DB_FIXTURE }, async (t) => {
     const source = process.env.KUYARA_DEVICE_DB_FIXTURE;
     const directory = await mkdtemp(join(tmpdir(), 'kuyara-sync-migration-'));
@@ -95,7 +100,8 @@ test('copied device database replays version 24, 25 or 26 to the latest version 
     const database = new NodeSqliteDatabase(new DatabaseSync(target));
     t.after(() => database.close());
     const versionBefore = (await database.getFirstAsync('PRAGMA user_version')).user_version;
-    assert.ok([24, 25, 26].includes(versionBefore));
+    assert.ok(versionBefore >= 19 && versionBefore < latestDatabaseVersion,
+      `user_version ${versionBefore} is outside 19 to ${latestDatabaseVersion - 1}`);
     t.diagnostic(`user_version: ${versionBefore} -> ${latestDatabaseVersion}`);
     const tables = (await database.getAllAsync(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"))
@@ -108,7 +114,13 @@ test('copied device database replays version 24, 25 or 26 to the latest version 
     for (const table of tables) {
       const after = await rows(database, table);
       assert.equal(after.length, before[table].length, `${table} row count`);
-      assert.deepEqual(after, before[table].map((row) => upgraded(table, row)), table);
+      // Migrations 20 to 24 add columns to some tables of an older database; those are not
+      // compared here, every column the source had is, along with the ones 25, 27 and 28 add.
+      const expected = before[table].map((row) => upgraded(table, row, versionBefore));
+      assert.deepEqual(
+        after.map((row, index) => Object.fromEntries(Object.keys(expected[index]).map((column) =>
+          [column, row[column]]))),
+        expected, table);
       t.diagnostic(`${table}: ${before[table].length} -> ${after.length}`);
     }
     assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, orphansBefore);

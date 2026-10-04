@@ -141,7 +141,7 @@ export function PiecePreviewStage({
           <>
             <Image
               accessible
-              accessibilityLabel={copy.photoAccessibilityLabel(typeLabel ?? copy.unclassifiedType)}
+              accessibilityLabel={typeLabel ? copy.photoAccessibilityLabel(typeLabel) : copy.untypedPhotoAccessibilityLabel}
               onError={onPhotoError}
               resizeMode="cover"
               source={{ uri: photoUri }}

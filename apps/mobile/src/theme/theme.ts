@@ -114,6 +114,19 @@ export type RunwayField = 'clear' | 'cloudy' | 'rain' | 'snow';
 type RunwayColors = Readonly<Record<RunwayField, string>>;
 
 /**
+ * The temperature scale's seven colours, one per stop of `temperatureScaleStopsCelsius`
+ * (-5, 5, 12, 18, 23, 28 and 35 degrees Celsius). Each keeps the hue of an approved value
+ * (heavy rain, Quiet Sky, partly cloudy, fog and success, clear, mostly clear and danger)
+ * and moves only in lightness and chroma; between two stops the colour is interpolated in
+ * OKLCH. Like `condition.*` they are a closed content encoding, read only by the Weather
+ * screen's daily capsules and hourly line, never through alpha and never on text.
+ */
+export type TemperatureRamp = readonly [string, string, string, string, string, string, string];
+
+/** The standard ramp, and the stronger one drawn while higher contrast applies. */
+type TemperatureColors = Readonly<{ standard: TemperatureRamp; strong: TemperatureRamp }>;
+
+/**
  * The dark appearance's garment plate: a soft light grey
  * the pieces sit on exactly as they do in the light appearance, dark ink outline included.
  * It is derived from the light plane it replaces, so each condition keeps its tint: the
@@ -231,6 +244,18 @@ const darkCondition = Object.freeze({
   thunderstorm: '#C29EDB',
   neutral: darkSemanticColors.textPrimary,
 } as const satisfies ConditionColors);
+
+// Every half degree clears 3:1 (standard) and 4.5:1 (strong) against the white card and
+// the `surfaceMuted` track in light, and 4.5:1 and 7:1 against the dark card and track.
+const lightTemperature = Object.freeze({
+  standard: Object.freeze(['#5C86D6', '#1893AE', '#039894', '#249870', '#AB8023', '#C77137', '#CF6963'] as const),
+  strong: Object.freeze(['#3F68B5', '#1B7489', '#107773', '#0A7957', '#8A640D', '#A65312', '#AE4C47'] as const),
+} as const satisfies TemperatureColors);
+
+const darkTemperature = Object.freeze({
+  standard: Object.freeze(['#7BA1E6', '#37AFCB', '#2CB2AD', '#50B38C', '#C49B4A', '#DA8F61', '#E18982'] as const),
+  strong: Object.freeze(['#ACC9FE', '#72D5EF', '#6DD9D4', '#82D9B4', '#E9C27B', '#FFB98E', '#FCB8B1'] as const),
+} as const satisfies TemperatureColors);
 
 const lightRunway = Object.freeze({
   clear: '#F1DDA8',
@@ -445,6 +470,7 @@ export type KuyaraTheme = Readonly<{
   atmosphere: AtmosphereColors;
   condition: ConditionColors;
   runway: RunwayColors;
+  temperature: TemperatureColors;
   spacing: typeof spacing;
   typography: typeof typography;
   radii: typeof radii;
@@ -474,6 +500,7 @@ export const lightTheme = Object.freeze({
   atmosphere: lightAtmosphere,
   condition: lightCondition,
   runway: lightRunway,
+  temperature: lightTemperature,
   elevation: lightElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);
@@ -486,6 +513,7 @@ export const darkTheme = Object.freeze({
   atmosphere: darkAtmosphere,
   condition: darkCondition,
   runway: darkRunway,
+  temperature: darkTemperature,
   elevation: darkElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);

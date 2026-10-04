@@ -630,7 +630,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
               style={styles.staleNotice}
               variant="muted">
               <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} />
-              <AppText colorRole="warningInk" variant="caption">
+              <AppText colorRole="warningInk" style={styles.staleNoticeText} variant="caption">
                 {failureCopy?.notice ?? shownNotice}
               </AppText>
             </Surface>
@@ -691,4 +691,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.md,
   },
+  // Beside the glyph the notice wraps inside the card instead of running past its edge.
+  staleNoticeText: { flexShrink: 1, minWidth: 0 },
 });

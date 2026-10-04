@@ -134,6 +134,9 @@ function PieceEditForm({
     onDiscardStagedPhoto,
     resolvePhotoUri(record?.photoRelativePath ?? null),
   );
+  // The record's stored path counts even when its file is gone, so Remove can clear it.
+  const hasPhoto = photoUri !== null
+    || (photoChange.kind === 'unchanged' && Boolean(record?.photoRelativePath));
   const saveErrorCopy = saveError ? (record ? copy.updateError : copy.createError) : null;
   useErrorAnnouncement(saveErrorCopy);
   useErrorAnnouncement(photoError ? copy.photoError : null);
@@ -268,9 +271,9 @@ function PieceEditForm({
             testID="piece-edit-photo-preview" />
         ) : null}
         <Button disabled={busy} icon="photo"
-          label={photoUri ? copy.changePhotoAction : copy.selectPhotoAction}
+          label={hasPhoto ? copy.changePhotoAction : copy.selectPhotoAction}
           onPress={selectPhoto} testID="piece-edit-photo-select" variant="tonal" />
-        {photoUri ? (
+        {hasPhoto ? (
           <Button disabled={busy} label={copy.removePhotoAction}
             onPress={removePhoto}
             testID="piece-edit-photo-remove" variant="plain" />

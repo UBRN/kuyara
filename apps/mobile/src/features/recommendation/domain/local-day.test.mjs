@@ -50,7 +50,26 @@ test('the day variant is a deterministic seven-day ring', () => {
   assert.equal(localDayVariant(new Date(2026, 0, 1, 12)), 1);
   assert.equal(localDayVariant(new Date(2026, 0, 2, 12)), 2);
   assert.equal(localDayVariant(new Date(2026, 0, 8, 12)), 1);
-  assert.equal(localDayVariant(new Date(2026, 0, 1, 23, 59)), localDayVariant(new Date(2026, 0, 1, 0, 1)));
+  assert.equal(localDayVariant(new Date(2026, 0, 1, 23, 59)), localDayVariant(new Date(2026, 0, 1, 4, 0)));
+});
+
+// The variant is the dressing day's, so it turns where the key turns (04:00) and not at
+// midnight: Saturday 00:30 is still Friday evening and takes Friday's variant.
+test('the day variant follows the dressing day, not the calendar date', () => {
+  // 2026-09-18 is a Friday, 19 a Saturday.
+  const fridayEvening = localDayVariant(new Date(2026, 8, 18, 20, 0));
+  assert.equal(localDayVariant(new Date(2026, 8, 19, 0, 30)), fridayEvening);
+  assert.equal(localDayVariant(new Date(2026, 8, 19, 3, 59)), fridayEvening);
+  assert.equal(localDayVariant(new Date(2026, 8, 19, 4, 0)), (fridayEvening + 1) % 7);
+  assert.equal(localDayKey(new Date(2026, 8, 19, 0, 30)), '2026-09-18:evening');
+  // The variant of the dressing day across a year boundary.
+  assert.equal(localDayVariant(new Date(2026, 0, 1, 0, 30)), localDayVariant(new Date(2025, 11, 31, 20, 0)));
+});
+
+test('a daytime launch keeps the variant its date has always had', () => {
+  assert.equal(localDayVariant(new Date(2026, 0, 1, 12)), 1);
+  assert.equal(localDayVariant(new Date(2026, 5, 15, 4, 0)), localDayVariant(new Date(2026, 5, 15, 17, 59)));
+  assert.equal(localDayVariant(new Date(2026, 5, 15, 18, 0)), localDayVariant(new Date(2026, 5, 15, 12)));
 });
 
 // 31 December of a common year is day 365, and 365 and 1 leave the same remainder by seven,

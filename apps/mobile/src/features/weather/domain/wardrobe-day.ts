@@ -97,7 +97,14 @@ function zoneOffsetMilliseconds(instant: number, timeZone: string): number {
 export function instantOfLocalHour(date: CalendarDateParts, hour: number, timeZone: string): number {
   const asIfUtc = Date.UTC(date.year, date.month - 1, date.day, hour);
   const firstGuess = asIfUtc - zoneOffsetMilliseconds(asIfUtc, timeZone);
-  return asIfUtc - zoneOffsetMilliseconds(firstGuess, timeZone);
+  const instant = asIfUtc - zoneOffsetMilliseconds(firstGuess, timeZone);
+  const local = zonedClock(instant, timeZone);
+  if (local.year === date.year && local.month === date.month && local.day === date.day
+    && local.hour === hour) return instant;
+  // The wall clock skips this hour (a spring-forward gap), so no instant reads it. The reading
+  // that makes sense is the first instant after the gap: the later of the two candidates, which
+  // is the one the second reading lands on in some zones and the first guess in the others.
+  return Math.max(instant, firstGuess);
 }
 
 /**

@@ -185,6 +185,9 @@ type Dependencies = Readonly<{
   holdPhase?: (milliseconds: number) => Promise<void>;
   // A failed reservation takes the deterministic path; an AI failure keeps its slot spent.
   reserveAiReask?: (dayKey: string) => Promise<boolean>;
+  // Gives back a slot reserved for a re-ask whose request never got a response (offline,
+  // refused or timed out), so a re-ask that never reached the AI is not charged for it.
+  releaseAiReask?: (dayKey: string) => Promise<void>;
   // The evening's preview of this dressing day, if one was chosen. An approved trigger reuses
   // its selection instead of asking again when `reusablePreviewRecommendation` allows it.
   loadPreview?: (dayKey: string) => Promise<RecommendationSnapshot | null>;
@@ -312,6 +315,7 @@ export class RecommendationApplicationController {
     key: string;
     context: RecommendationContext;
     input: RecommendationApplicationInput;
+    trigger: RecommendationRefreshTrigger;
     poolOptionIds: readonly string[];
     pool: readonly OutfitCandidate[] | null;
   }> | null = null;
@@ -429,14 +433,14 @@ export class RecommendationApplicationController {
       // on again, so it must be latest for its own finish to end the refreshing state.
       if (this.latestRequestKey !== key) {
         this.latestRequestKey = key;
-        this.pendingSkip = { key, context, input: generationInput, poolOptionIds, pool };
+        this.pendingSkip = { key, context, input: generationInput, trigger, poolOptionIds, pool };
         this.aiPending = request !== null;
       }
       return existing;
     }
 
     this.latestRequestKey = key;
-    this.pendingSkip = { key, context, input: generationInput, poolOptionIds, pool };
+    this.pendingSkip = { key, context, input: generationInput, trigger, poolOptionIds, pool };
     this.aiPending = request !== null;
     this.setRefreshing(true, generationInput);
     const refresh = this.refreshOnce(key, context, request, generationInput, trigger, poolOptionIds, pool).finally(() => {
@@ -452,6 +456,21 @@ export class RecommendationApplicationController {
     return refresh;
   }
 
+  /**
+   * The input the deterministic composition reads when the AI did not decide. A confirmed
+   * re-ask that reaches the AI offers the whole pool, so it may repeat an earlier selection;
+   * the deterministic one is a pure function of the same inputs and would return the trio on
+   * screen, so it leaves those outfits out whenever three others remain.
+   */
+  private fallbackInput(
+    input: RecommendationApplicationInput,
+    trigger: RecommendationRefreshTrigger,
+  ): RecommendationApplicationInput {
+    return trigger === 'regenerate'
+      ? { ...input, excludedOutfits: shownOutfits(this.currentSnapshot()) }
+      : input;
+  }
+
   /** Show the deterministic three now, without cancelling or starting an AI request. */
   skipWait(): Promise<RecommendationSnapshot | null> {
     const pending = this.pendingSkip;
@@ -459,7 +478,7 @@ export class RecommendationApplicationController {
       return this.skipPromise ?? Promise.resolve(this.currentSnapshot());
     }
     this.skipPromise = (async () => {
-      const fallback = recommendOutfits(pending.input);
+      const fallback = recommendOutfits(this.fallbackInput(pending.input, pending.trigger));
       if (fallback.status !== 'recommended' || this.latestRequestKey !== pending.key) {
         return this.currentSnapshot();
       }
@@ -567,9 +586,11 @@ export class RecommendationApplicationController {
     let recommendation: OutfitRecommendationSuccess | null = null;
     let aiFailure: FailureCategory | null = null;
     const startedAt = Date.now();
+    let reserved = false;
     if (request && trigger === 'regenerate') {
       try {
-        if (!(await this.dependencies.reserveAiReask?.(input.localDayKey))) request = null;
+        reserved = (await this.dependencies.reserveAiReask?.(input.localDayKey)) === true;
+        if (!reserved) request = null;
       } catch {
         request = null;
       }
@@ -596,6 +617,9 @@ export class RecommendationApplicationController {
         this.setPhase(key, 'preparing-outfits');
       } catch (error) {
         aiFailure = recommendationFailureCategory(error);
+        if (reserved && error instanceof WorkerAiClientError && error.kind === 'network') {
+          await this.dependencies.releaseAiReask?.(input.localDayKey).catch(() => undefined);
+        }
       } finally {
         if (this.latestRequestKey === key) this.aiPending = false;
       }
@@ -617,7 +641,7 @@ export class RecommendationApplicationController {
       this.setPhase(key, 'using-standard');
       try {
         await this.holdPhase(usingStandardPhaseMilliseconds);
-        const fallback = recommendOutfits(input);
+        const fallback = recommendOutfits(this.fallbackInput(input, trigger));
         if (fallback.status !== 'recommended') {
           this.setLastFailure(aiFailure ?? 'unknown');
           this.captureRegenerated(trigger, this.currentSnapshot() !== null);
