@@ -1,7 +1,15 @@
 import type { FailureCategory } from '@/domain/failure-category';
 import type { ProfileApplicationState } from '@/features/profile/application/profile-application-controller';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
+import {
+  assignComposedArchetypes,
+  orderByDressStyle,
+  outfitOptionId,
+  type RecommendedOutfit,
+} from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import { dateKeyDayKind } from '@/features/recommendation/domain/local-day';
+import type { OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
 import {
   activeLocationRecommendation,
   todayFreshness,
@@ -38,6 +46,37 @@ export function paletteBasisOf(
   return snapshot?.paletteWeather
     ? { ...snapshot.paletteWeather, localDayKey: snapshot.localDayKey }
     : undefined;
+}
+
+type IdeasSnapshot = Pick<RecommendationSnapshot,
+  'dressStyle' | 'styleAesthetics' | 'localDayKey' | 'recommendation'>;
+
+let lastIdeas: Readonly<{
+  pool: readonly OutfitCandidate[];
+  snapshot: IdeasSnapshot;
+  ideas: readonly RecommendedOutfit[];
+}> | null = null;
+
+/**
+ * "More ideas": the pool the shown outfits were picked from, past those outfits, ordered by the
+ * day's dress style and labelled as compose labels its picks. It reads the pool the
+ * recommendation controller already composed and composes nothing; the same pool and snapshot
+ * answer with the same list.
+ */
+export function moreIdeas(
+  pool: readonly OutfitCandidate[] | null | undefined,
+  snapshot: IdeasSnapshot,
+): readonly RecommendedOutfit[] {
+  if (!pool) return [];
+  if (lastIdeas?.pool === pool && lastIdeas.snapshot === snapshot) return lastIdeas.ideas;
+  const shown = new Set(snapshot.recommendation.outfits.map(({ optionId }) => optionId));
+  const rest = pool.filter((outfit) => !shown.has(outfitOptionId(outfit)));
+  const dayKind = snapshot.localDayKey ? dateKeyDayKind(snapshot.localDayKey) : undefined;
+  const { requirements } = snapshot.recommendation;
+  const ideas = rest.length === 0 ? [] : assignComposedArchetypes(
+    orderByDressStyle(rest, { ...snapshot, dayKind }, requirements), requirements, dayKind);
+  lastIdeas = { pool, snapshot, ideas };
+  return ideas;
 }
 
 export function classifyTodayState(input: TodayStateInput): Readonly<{
@@ -105,6 +144,7 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
         coverageStart: recommendation.snapshot?.coverageStart,
         coverageEnd: recommendation.snapshot?.coverageEnd,
         paletteBasis: paletteBasisOf(recommendation.snapshot),
+        ...ideasOf(recommendation.pool, recommendation.snapshot),
       },
       isRefreshing: (input.surface === 'today' && Boolean(input.isPullRefreshing)) || weather.isRefreshing || recommendation.isRefreshing,
       refreshFailed: weather.refreshFailure !== null || recommendation.lastFailure !== null,
@@ -115,6 +155,14 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
     todayFailure: weather.refreshFailure,
     recommendationFailure: recommendation.lastFailure,
   };
+}
+
+function ideasOf(
+  pool: readonly OutfitCandidate[] | null | undefined,
+  snapshot: RecommendationSnapshot | null,
+): Pick<TodaySnapshot, 'moreIdeas'> {
+  const ideas = snapshot ? moreIdeas(pool, snapshot) : [];
+  return ideas.length > 0 ? { moreIdeas: ideas } : {};
 }
 
 export function mayOfferDayQuestion(

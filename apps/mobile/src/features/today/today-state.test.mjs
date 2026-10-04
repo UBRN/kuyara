@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { todayActiveLocation, todayScreenState, todayWeatherSnapshot } from './__tests__/fixtures.ts';
-import { classifyTodayState, paletteBasisOf } from './application/today-state.ts';
+import { classifyTodayState, moreIdeas, paletteBasisOf } from './application/today-state.ts';
+import { composeOutfitPool, outfitOptionId } from '../recommendation/application/recommend-outfits.ts';
 import { todayFreshness } from './model.ts';
 
 function weather(overrides = {}) {
@@ -95,4 +96,57 @@ test('the palette basis is the stored palette weather with its day, or none', ()
     { temperatureC: 12, condition: 'rain', localDayKey: null });
   assert.equal(paletteBasisOf({ localDayKey: '2026-08-13' }), undefined);
   assert.equal(paletteBasisOf(null), undefined);
+});
+
+const shownRecommendation = todayScreenState.snapshot.recommendation;
+const composedPool = composeOutfitPool(shownRecommendation.requirements, 'womens', 0);
+const storedSnapshot = {
+  locationKey: todayWeatherSnapshot.locationKey,
+  dressStyle: 'smart',
+  styleAesthetics: [],
+  localDayKey: '2026-08-13',
+  recommendation: shownRecommendation,
+};
+
+test('more ideas are the composed pool past the outfits on screen, each labelled, none composed anew', () => {
+  assert.equal(composedPool.status, 'composed');
+  const shown = new Set(shownRecommendation.outfits.map(({ optionId }) => optionId));
+  const ideas = moreIdeas(composedPool.outfits, storedSnapshot);
+  assert.equal(ideas.length, composedPool.outfits.length - 3);
+  assert.ok(ideas.every(({ optionId }) => !shown.has(optionId)));
+  assert.deepEqual(new Set(ideas.map(({ optionId }) => optionId)),
+    new Set(composedPool.outfits.map(outfitOptionId).filter((id) => !shown.has(id))));
+  assert.ok(ideas.every(({ archetypeId }) => typeof archetypeId === 'string'));
+  // The same pool and snapshot answer with the same list, so the strip never redraws for nothing.
+  assert.equal(moreIdeas(composedPool.outfits, storedSnapshot), ideas);
+});
+
+test('no recovered pool, or a pool no larger than the outfits on screen, offers no ideas', () => {
+  assert.deepEqual(moreIdeas(null, storedSnapshot), []);
+  assert.deepEqual(moreIdeas(undefined, storedSnapshot), []);
+  const onScreen = composedPool.outfits.filter((outfit) =>
+    shownRecommendation.outfits.some(({ optionId }) => optionId === outfitOptionId(outfit)));
+  assert.deepEqual(moreIdeas(onScreen, storedSnapshot), []);
+});
+
+test('Today and detail both read the ideas from the state, and only for the active place', () => {
+  const classifyWith = (pool, surface) => classifyTodayState({
+    weather: weather({
+      snapshot: todayWeatherSnapshot,
+      activeLocation: { ...todayActiveLocation, locationKey: todayWeatherSnapshot.locationKey },
+      freshness: 'fresh',
+    }),
+    recommendation: {
+      status: 'ready', snapshot: storedSnapshot, isRefreshing: false, lastFailure: null, phase: null,
+      exhausted: false, showFirstGenerationOverlay: false, pool,
+    },
+    profile: { status: 'loading' },
+    surface,
+    ...(surface === 'detail' ? { now: '2026-08-13T06:10:00.000Z' } : {}),
+  });
+  for (const surface of ['today', 'detail']) {
+    const { state } = classifyWith(composedPool.outfits, surface);
+    assert.equal(state.snapshot.moreIdeas.length, composedPool.outfits.length - 3);
+    assert.equal(classifyWith(null, surface).state.snapshot.moreIdeas, undefined);
+  }
 });

@@ -1,6 +1,9 @@
 import type { FailureCategory } from '@/domain/failure-category';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
-import type { OutfitRecommendationResult } from '@/features/recommendation/application/recommend-outfits';
+import type {
+  OutfitRecommendationResult,
+  RecommendedOutfit,
+} from '@/features/recommendation/application/recommend-outfits';
 import type {
   ActiveLocation,
   DailyWeather,
@@ -23,6 +26,8 @@ export type TodaySnapshot = Readonly<{
   coverageStart?: string;
   coverageEnd?: string;
   paletteBasis?: Readonly<{ temperatureC: number; condition: WeatherConditionCode; localDayKey: string | null }>;
+  /** "More ideas": the composed pool past the outfits on screen; absent when there are none. */
+  moreIdeas?: readonly RecommendedOutfit[];
 }>;
 
 export type TodayScreenState =

@@ -40,7 +40,7 @@ import {
   FirstGenerationRunway,
   type RunwayHandoffTarget,
 } from '@/features/today/presentation/first-generation-runway';
-import { TodayAlternates, TomorrowStrip } from '@/features/today/presentation/today-alternates';
+import { MoreIdeas, TodayAlternates, TomorrowStrip } from '@/features/today/presentation/today-alternates';
 import { TodayHeader } from '@/features/today/presentation/today-header';
 import {
   TodayFeedbackCard,
@@ -540,6 +540,20 @@ function TodayScreenContent({
               alternates={alternates}
               contentWidth={contentWidth}
               heading={presentation.copy.otherOptionsHeading}
+              onOpenOutfitDetail={onOpenOutfitDetail}
+              outfitDetailLink={outfitDetailLink}
+            />
+          </ArrivesAfterHandoff>
+        ) : null}
+
+        {/* The composed pool past the outfits on screen, one sideways row
+            under the alternatives. It asks for nothing; each tile opens the ordinary detail. */}
+        {presentation.moreIdeasCaption ? (
+          <ArrivesAfterHandoff index={7}>
+            <MoreIdeas
+              caption={presentation.moreIdeasCaption}
+              heading={presentation.copy.moreIdeasHeading}
+              ideas={presentation.moreIdeas}
               onOpenOutfitDetail={onOpenOutfitDetail}
               outfitDetailLink={outfitDetailLink}
             />

@@ -131,6 +131,11 @@ export type TodayMessages = Readonly<{
   coolSpell: (time: string) => string;
   laterReady: (values: { departure: string; ready: string }) => string;
   otherOptionsHeading: string;
+  // The composed pool past the outfits on screen, in one strip under the alternatives.
+  moreIdeas: Readonly<{
+    heading: string;
+    caption: (count: number) => string;
+  }>;
   // In the evening, the outfit chosen for the next dressing day, in one strip under today's.
   tomorrow: Readonly<{
     heading: string;
@@ -1696,6 +1701,12 @@ const en = {
     coolSpell: (time) => `Take a light layer for the cool spell around ${time}.`,
     laterReady: ({ departure, ready }) => `Your ${departure} outfit is ready at ${ready}`,
     otherOptionsHeading: 'Alternative outfits',
+    moreIdeas: {
+      heading: 'More ideas',
+      caption: (count) => (count === 1
+        ? '1 more outfit the stylist looked at. It suits today’s weather.'
+        : `${count} more outfits the stylist looked at. All suit today’s weather.`),
+    },
     tomorrow: {
       heading: 'Tomorrow',
       morningHeading: 'This morning',
@@ -2915,6 +2926,12 @@ const tr = {
     coolSpell: (time) => `Yanına ince bir kat al, saat ${time} gibi hava serinliyor.`,
     laterReady: ({ departure, ready }) => `Saat ${departure} kombinin, saat ${ready} itibarıyla hazır`,
     otherOptionsHeading: 'Alternatif kombinler',
+    moreIdeas: {
+      heading: 'Daha fazla fikir',
+      caption: (count) => (count === 1
+        ? 'Stilistin baktığı 1 kombin daha. Bugünkü havaya uygun.'
+        : `Stilistin baktığı ${count} kombin daha. Hepsi bugünkü havaya uygun.`),
+    },
     tomorrow: {
       heading: 'Yarın',
       morningHeading: 'Bu sabah',

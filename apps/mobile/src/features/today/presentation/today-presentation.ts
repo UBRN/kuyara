@@ -159,6 +159,7 @@ export type LoadedTodayPresentation = Readonly<{
     piecesHeading: string;
     finishingTouchesHeading: string;
     otherOptionsHeading: string;
+    moreIdeasHeading: string;
   }>;
   header: Readonly<{
     location: string;
@@ -206,6 +207,10 @@ export type LoadedTodayPresentation = Readonly<{
   dayInsight: string | null;
   stageAccessibilityLabel: string;
   suggestions: readonly LoadedOutfitPresentation[];
+  /** "More ideas": the composed pool past the outfits on screen, empty when there is none. */
+  moreIdeas: readonly LoadedOutfitPresentation[];
+  /** How many ideas the strip holds, one whole sentence; null without ideas. */
+  moreIdeasCaption: string | null;
   noOutfit: Readonly<{ title: string; body: string }> | null;
 }>;
 
@@ -803,6 +808,9 @@ function createLoadedPresentation(
       id: outfit.optionId }
       : localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay),
   );
+  const ideas = snapshot.moreIdeas ?? [];
+  const moreIdeas = ideas.map((outfit, index) =>
+    localizeOutfit(outfit, index, ideas.length, weatherReasons, language, dayKind, paletteDay));
   // ADR 0034 section 4: the on-device badge appears only when the stored mode is
   // `on-device-ai`, so the words never advertise a tier that did not produce this result,
   // and a settled deterministic result carries no badge at all, because the absence of the
@@ -895,6 +903,7 @@ function createLoadedPresentation(
       piecesHeading: copy.piecesHeading,
       finishingTouchesHeading: copy.finishingTouchesHeading,
       otherOptionsHeading: copy.otherOptionsHeading,
+      moreIdeasHeading: copy.moreIdeas.heading,
     },
     header: {
       // A device fix names its locality when the reverse geocode resolved one, and falls
@@ -968,6 +977,8 @@ function createLoadedPresentation(
       archetype: primary.title,
     }) : '',
     suggestions,
+    moreIdeas,
+    moreIdeasCaption: ideas.length > 0 ? copy.moreIdeas.caption(ideas.length) : null,
     noOutfit:
       snapshot.recommendation.status === 'unavailable'
         ? { title: copy.noOutfitTitle, body: copy.noOutfitBody }
