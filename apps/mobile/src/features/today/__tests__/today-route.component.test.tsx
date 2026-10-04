@@ -1095,10 +1095,10 @@ test('a changed preference during regeneration runs once more with the latest in
   }
 });
 
-// M6 step 1: the day-type tiles are one radio group, the current answer checked by three
-// cues together, and one tap chooses. M18 step 2 then offers the day's styles; an untouched
-// step writes the day type alone, so the Settings styles keep applying (N4).
-test('the morning sheet is a radio group with the day answer preselected, and one tap chooses', async () => {
+// The one-tap question: it names the profile's usual day type, one large
+// button answers it, the other two day types sit below with nothing checked and answer in one
+// tap too. Either answer writes the day type alone, so the Settings styles keep applying (N4).
+test('the morning sheet answers the usual day type in one tap and closes', async () => {
   const chooseFormality = jest.fn(async () => undefined);
   const view = await render(
     <Providers productAnalytics={createProductAnalytics()}
@@ -1110,60 +1110,24 @@ test('the morning sheet is a radio group with the day answer preselected, and on
     </Providers>,
   );
 
+  const copy = messages.en.today.dailyStyle;
   expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
-  expect(view.getByText(messages.en.today.dailyStyle.question)).toBeOnTheScreen();
+  expect(view.getByText(copy.usualQuestion.smart)).toBeOnTheScreen();
   expect(view.getByTestId('daily-formality-choices').props.accessibilityRole).toBe('radiogroup');
   const tiles = view.getAllByRole('radio');
-  expect(tiles.map((tile) => tile.props.accessibilityLabel)).toEqual(['Casual', 'Smart', 'Formal']);
-  expect(tiles.map((tile) => tile.props.accessibilityState.selected)).toEqual([false, true, false]);
-  expect(view.getByTestId('daily-formality-smart-check')).toBeOnTheScreen();
-  expect(view.queryByTestId('daily-formality-casual-check')).toBeNull();
-  expect(StyleSheet.flatten(view.getByTestId('daily-formality-smart').props.style)).toMatchObject({
-    backgroundColor: lightTheme.colors.surfaceInteractive,
-    borderColor: lightTheme.colors.brandAccent,
-    borderWidth: 2,
-  });
-  expect(view.queryByTestId('daily-formality-more')).toBeNull();
-  expect(view.queryByTestId('daily-formality-first-day')).toBeNull();
-  expect(view.getByTestId('daily-formality-close').props.accessibilityLabel)
-    .toBe(messages.en.today.dailyStyle.close);
+  expect(tiles.map((tile) => tile.props.accessibilityLabel)).toEqual(['Casual', 'Formal']);
+  expect(tiles.map((tile) => tile.props.accessibilityState.selected)).toEqual([false, false]);
+  expect(view.queryByTestId('daily-formality-smart')).toBeNull();
+  expect(view.getByTestId('daily-formality-close').props.accessibilityLabel).toBe(copy.close);
 
-  await fireEvent.press(view.getByTestId('daily-formality-formal'));
-  expect(chooseFormality).not.toHaveBeenCalled();
-  expect(view.getByText(messages.en.today.dailyStyle.stylesQuestion)).toBeOnTheScreen();
-  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
+  await fireEvent.press(view.getByTestId('daily-formality-usual'));
   expect(chooseFormality).toHaveBeenCalledTimes(1);
-  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'formal', 'morning', undefined);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'smart', 'morning', undefined);
   await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+  expect(view.queryByText(copy.stylesQuestion)).toBeNull();
 });
 
-// M18 step 2 at the large detent (N7): the day's styles start on what the day resolves to,
-// and the changed answer rides the same single write as the day type.
-test('the morning sheet step 2 writes the day type and the changed styles once', async () => {
-  const chooseFormality = jest.fn(async () => undefined);
-  const view = await render(
-    <Providers productAnalytics={createProductAnalytics()}
-      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
-      recommendation={recommendationReady()} resolvedDressStyle="smart"
-      resolvedStyleAesthetics={['classic']}
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
-      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
-      <TodayRoute />
-    </Providers>,
-  );
-
-  await fireEvent.press(await view.findByTestId('daily-formality-casual'));
-  expect(view.getByTestId('daily-formality-styles-classic').props.accessibilityState.checked).toBe(true);
-  expect(view.getByTestId('daily-formality-styles-note'))
-    .toHaveTextContent(messages.en.today.dailyStyle.stylesNote);
-  await fireEvent.press(view.getByTestId('daily-formality-styles-sporty'));
-  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
-  expect(chooseFormality).toHaveBeenCalledTimes(1);
-  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'casual', 'morning', ['classic', 'sporty']);
-  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
-});
-
-test('closing the sheet on step 2 keeps the chosen day type and leaves the styles alone', async () => {
+test('a day-type tile answers the morning question in one tap and closes', async () => {
   const chooseFormality = jest.fn(async () => undefined);
   const view = await render(
     <Providers productAnalytics={createProductAnalytics()}
@@ -1176,15 +1140,60 @@ test('closing the sheet on step 2 keeps the chosen day type and leaves the style
   );
 
   await fireEvent.press(await view.findByTestId('daily-formality-formal'));
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'formal', 'morning', undefined);
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+});
+
+// M18 step 2 at the large detent (N7), opened only by "Pick styles for today": the day's styles
+// start on what the day resolves to, and the changed answer rides one write with the usual day type.
+test('the morning sheet step 2 writes the usual day type and the changed styles once', async () => {
+  const chooseFormality = jest.fn(async () => undefined);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      resolvedStyleAesthetics={['classic']}
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-pick-styles'));
+  expect(chooseFormality).not.toHaveBeenCalled();
+  expect(view.getByTestId('daily-formality-styles-classic').props.accessibilityState.checked).toBe(true);
+  expect(view.getByTestId('daily-formality-styles-note'))
+    .toHaveTextContent(messages.en.today.dailyStyle.stylesNote);
+  await fireEvent.press(view.getByTestId('daily-formality-styles-sporty'));
+  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'smart', 'morning', ['classic', 'sporty']);
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+});
+
+test('closing the sheet on step 2 answers the usual day type and leaves the styles alone', async () => {
+  const chooseFormality = jest.fn(async () => undefined);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-pick-styles'));
   await fireEvent.press(view.getByTestId('daily-formality-styles-minimal'));
   await fireEvent.press(view.getByTestId('daily-formality-close'));
   expect(chooseFormality).toHaveBeenCalledTimes(1);
-  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'formal', 'morning');
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'smart', 'morning');
 });
 
-// M16: on the day onboarding finishes the sheet still asks, with the setup answer checked
-// and one caption saying so.
-test('the first dressing day preselects the setup answer and says so', async () => {
+// f25: the first dressing day greets with a welcome; its question, when asked, offers the setup
+// answer as the usual one and checks nothing.
+test('the first dressing day offers the setup answer as the usual one', async () => {
   const view = await render(
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal', displayName: 'Utku' })}
@@ -1195,9 +1204,9 @@ test('the first dressing day preselects the setup answer and says so', async () 
     </Providers>,
   );
 
-  expect(await view.findByTestId('daily-formality-first-day'))
-    .toHaveTextContent(messages.en.today.dailyStyle.firstDayNote);
-  expect(view.getByTestId('daily-formality-formal').props.accessibilityState.selected).toBe(true);
+  expect(await view.findByText(messages.en.today.dailyStyle.usualQuestion.formal)).toBeOnTheScreen();
+  expect(view.getAllByRole('radio').map((tile) => tile.props.accessibilityState.selected))
+    .toEqual([false, false]);
   // f25: the first day's greeting is a welcome, not a welcome back.
   expect(view.getByTestId('today-greeting')).toHaveTextContent('Welcome, Utku');
 });
@@ -1474,7 +1483,6 @@ test('a save error from a failed confirm does not follow a successful dismissal 
   );
 
   await fireEvent.press(await view.findByTestId('daily-formality-formal'));
-  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
   expect(await view.findByText(messages.en.today.dailyStyle.saveError)).toBeOnTheScreen();
 
   await fireEvent.press(view.getByTestId('daily-formality-close'));
@@ -1617,7 +1625,7 @@ test('the step 2 answer reaches the recommendation in the same write and generat
         <TodayRoute />
       </Providers>,
     );
-    await fireEvent.press(await view.findByTestId('daily-formality-casual'));
+    await fireEvent.press(await view.findByTestId('daily-formality-pick-styles'));
     expect(view.getByTestId('daily-formality-styles-classic').props.accessibilityState.checked).toBe(true);
     await fireEvent.press(view.getByTestId('daily-formality-styles-classic'));
     await fireEvent.press(view.getByTestId('daily-formality-styles-minimal'));
@@ -1627,11 +1635,11 @@ test('the step 2 answer reaches the recommendation in the same write and generat
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(mockChoiceUpsert).toHaveBeenCalledTimes(1);
     expect(mockChoiceUpsert).toHaveBeenCalledWith(
-      'profile-one', '2026-09-24', 'casual', 'morning', ['minimal']);
+      'profile-one', '2026-09-24', 'smart', 'morning', ['minimal']);
     await act(async () => { await Promise.resolve(); });
     // Every generation after the answer asks for both answers; none for the old day.
     for (const [, input] of refresh.mock.calls) {
-      expect(input).toMatchObject({ dressStyle: 'casual', styleAesthetics: ['minimal'] });
+      expect(input).toMatchObject({ dressStyle: 'smart', styleAesthetics: ['minimal'] });
     }
     expect(refresh.mock.calls[0][0]).toBe('dress-style-changed');
     // The approved triggers see the same answers, so any request they make is the identical
@@ -2147,8 +2155,9 @@ test('with the day questions off, 18:00 opens no sheet and dresses the evening f
   }
 });
 
-// N20: the first foreground open after 18:00 asks the evening question with nothing checked,
-// and closing it answers the evening with the profile's dress style (P6).
+// N20: the first foreground open after 18:00 asks whether the evening is the profile's usual
+// day type, with no tile checked and nothing carried from the morning; closing it answers the
+// evening with the profile's dress style (P6).
 test('the evening sheet arrives empty and its dismissal uses the profile dress style', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
   const chooseFormality = jest.fn(async () => undefined);
@@ -2164,10 +2173,11 @@ test('the evening sheet arrives empty and its dismissal uses the profile dress s
 
   const copy = messages.en.today.dailyStyle;
   expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
-  expect(view.getByText(copy.questionEvening)).toBeOnTheScreen();
+  expect(view.getByText(copy.usualQuestionEvening.formal)).toBeOnTheScreen();
+  expect(view.getByText(copy.differentQuestionEvening)).toBeOnTheScreen();
   expect(view.getAllByRole('radio').map((tile) => tile.props.accessibilityState.selected))
-    .toEqual([false, false, false]);
-  expect(view.queryByTestId('daily-formality-smart-check')).toBeNull();
+    .toEqual([false, false]);
+  expect(view.queryByTestId('daily-formality-casual-check')).toBeNull();
 
   await fireEvent.press(view.getByTestId('daily-formality-close'));
   expect(alert).not.toHaveBeenCalled();
@@ -2177,7 +2187,7 @@ test('the evening sheet arrives empty and its dismissal uses the profile dress s
 });
 
 // The native sheet animates out after it is closed: while it does, it still draws the question
-// it was showing, never the morning question with the day's dress style checked.
+// it was showing, never the morning question.
 test('a closing evening sheet keeps its question and its empty choice while it animates out', async () => {
   const view = await render(
     <Providers productAnalytics={createProductAnalytics()}
@@ -2188,7 +2198,7 @@ test('a closing evening sheet keeps its question and its empty choice while it a
       <TodayRoute />
     </Providers>,
   );
-  expect(await view.findByText(messages.en.today.dailyStyle.questionEvening)).toBeOnTheScreen();
+  expect(await view.findByText(messages.en.today.dailyStyle.usualQuestionEvening.smart)).toBeOnTheScreen();
   const sheet = jest.mocked(DailyFormalitySheet);
   sheet.mockClear();
 
@@ -2196,9 +2206,8 @@ test('a closing evening sheet keeps its question and its empty choice while it a
   await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
   const closing = sheet.mock.calls.map(([props]) => props).filter((props) => !props.visible);
   expect(closing).not.toHaveLength(0);
-  expect(closing.map(({ question, selected, firstDay, step }) => ({ question, selected, firstDay, step })))
-    .toEqual(closing.map(() => ({ question: messages.en.today.dailyStyle.questionEvening,
-      selected: null, firstDay: false, step: 'dayType' })));
+  expect(closing.map(({ period, usual, step }) => ({ period, usual, step })))
+    .toEqual(closing.map(() => ({ period: 'evening', usual: 'smart', step: 'dayType' })));
 });
 
 test('a sheet answered on step 2 keeps the styles step while it animates out', async () => {
@@ -2212,7 +2221,7 @@ test('a sheet answered on step 2 keeps the styles step while it animates out', a
       <TodayRoute />
     </Providers>,
   );
-  await fireEvent.press(await view.findByTestId('daily-formality-casual'));
+  await fireEvent.press(await view.findByTestId('daily-formality-pick-styles'));
   const sheet = jest.mocked(DailyFormalitySheet);
   sheet.mockClear();
 

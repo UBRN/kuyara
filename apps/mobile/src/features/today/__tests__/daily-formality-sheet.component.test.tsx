@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { AccessibilityInfo, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -25,7 +25,7 @@ function sheet(error: boolean) {
       insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <DailyFormalitySheet error={error} language="en" onChoose={jest.fn()} onDismiss={jest.fn()}
-          question="What are you dressing for?" selected="smart" visible />
+          onPickStyles={jest.fn()} period="morning" usual="smart" visible />
       </KuyaraThemeContext.Provider>
     </SafeAreaProvider>
   );
@@ -49,8 +49,8 @@ test('a failed styles save shows its warning above Done, where the long step doe
       insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <DailyFormalitySheet confirmLabel="Done" error language="en" onChoose={jest.fn()}
-          onConfirmStyles={jest.fn()} onDismiss={jest.fn()} question="What are you dressing for?"
-          selected="smart" step="styles" visible />
+          onConfirmStyles={jest.fn()} onDismiss={jest.fn()} onPickStyles={jest.fn()} period="morning"
+          step="styles" usual="smart" visible />
       </KuyaraThemeContext.Provider>
     </SafeAreaProvider>,
   );
@@ -61,8 +61,55 @@ test('a failed styles save shows its warning above Done, where the long step doe
   expect(warning.props.accessibilityRole).toBe('alert');
 });
 
+// The one-tap question: it names the profile's usual day type and answers it with one large
+// button; the other two day types sit below as tiles with nothing checked, each an answer too,
+// and the day's styles are one optional text button away.
+test.each([
+  ['morning', 'en', 'A usual Smart day?', 'Or is today different?'],
+  ['evening', 'en', 'A usual Smart evening?', 'Or is this evening different?'],
+  ['morning', 'tr', 'Her zamanki gibi Şık bir gün mü?', 'Yoksa bugün farklı mı?'],
+  ['evening', 'tr', 'Her zamanki gibi Şık bir akşam mı?', 'Yoksa bu akşam farklı mı?'],
+] as const)('the %s sheet in %s asks about the usual day type and answers it in one tap',
+  async (period, language, question, different) => {
+    const onChoose = jest.fn();
+    const onPickStyles = jest.fn();
+    const copy = messages[language].today.dailyStyle;
+    const view = await render(
+      <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 },
+        insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
+        <KuyaraThemeContext.Provider value={lightTheme}>
+          <DailyFormalitySheet error={false} language={language} onChoose={onChoose} onDismiss={jest.fn()}
+            onPickStyles={onPickStyles} period={period} usual="smart" visible />
+        </KuyaraThemeContext.Provider>
+      </SafeAreaProvider>,
+    );
+
+    expect(view.getByRole('header', { name: question })).toBeOnTheScreen();
+    const usual = view.getByTestId('daily-formality-usual');
+    expect(usual).toHaveTextContent(copy.usualAction);
+    expect(view.getByTestId('daily-formality-different')).toHaveTextContent(different);
+    const tiles = view.getAllByRole('radio');
+    expect(tiles.map((tile) => tile.props.accessibilityLabel)).toEqual([copy.casual, copy.formal]);
+    expect(tiles.map((tile) => tile.props.accessibilityState.selected)).toEqual([false, false]);
+    expect(view.getByTestId('daily-formality-pick-styles')).toHaveTextContent(copy.pickStyles);
+    // Reading order: the question, the usual answer, the other day types, then the styles.
+    expect(view.getAllByTestId(/^daily-formality-(usual|different|choices|pick-styles)$/)
+      .map((node) => node.props.testID)).toEqual([
+      'daily-formality-usual', 'daily-formality-different', 'daily-formality-choices',
+      'daily-formality-pick-styles',
+    ]);
+
+    await fireEvent.press(usual);
+    expect(onChoose).toHaveBeenLastCalledWith('smart');
+    await fireEvent.press(view.getByTestId('daily-formality-formal'));
+    expect(onChoose).toHaveBeenLastCalledWith('formal');
+    await fireEvent.press(view.getByTestId('daily-formality-pick-styles'));
+    expect(onPickStyles).toHaveBeenCalledTimes(1);
+    expect(onChoose).toHaveBeenCalledTimes(2);
+  });
+
 // Law 7: the step change fades the new step in on `normal`; the first step shows at rest.
-test('the styles step fades in after the day type is chosen; the first step stands still', async () => {
+test('the styles step fades in once it is opened; the first step stands still', async () => {
   const copy = messages.en.today.dailyStyle;
   const withTiming = jest.spyOn(Reanimated, 'withTiming');
   const at = (step: 'dayType' | 'styles') => (
@@ -70,14 +117,14 @@ test('the styles step fades in after the day type is chosen; the first step stan
       insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <DailyFormalitySheet confirmLabel="Done" error={false} language="en" onChoose={jest.fn()}
-          onConfirmStyles={jest.fn()} onDismiss={jest.fn()} question="What are you dressing for?"
-          selected="smart" step={step} visible />
+          onConfirmStyles={jest.fn()} onDismiss={jest.fn()} onPickStyles={jest.fn()} period="morning"
+          step={step} usual="smart" visible />
       </KuyaraThemeContext.Provider>
     </SafeAreaProvider>
   );
   const view = await render(at('dayType'));
   const opacityOf = (node: ReturnType<typeof view.getByTestId>) => StyleSheet.flatten(node.parent!.props.style).opacity;
-  expect(opacityOf(view.getByTestId('daily-formality-choices'))).toBe(1);
+  expect(opacityOf(view.getByTestId('daily-formality-usual'))).toBe(1);
 
   withTiming.mockImplementation((toValue) => toValue);
   await view.rerender(at('styles'));

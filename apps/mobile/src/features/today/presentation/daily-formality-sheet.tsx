@@ -18,22 +18,25 @@ const choices = [
 ] as const satisfies readonly Readonly<{ style: DressStyle; garmentTypeId: GarmentTypeId; category: string }>[];
 
 /**
- * The three day-type tiles as one radio group (the shared `ChoiceTile`, O14, which onboarding's
- * dress-style step draws too). With nothing checked (the 18:00 evening sheet, N20) every tile
- * draws its resting state.
+ * The day-type tiles as one radio group (the shared `ChoiceTile`, O14, which onboarding's
+ * dress-style step draws too). With nothing checked every tile draws its resting state.
+ * `except` leaves one day type out: the day question offers it as its large usual answer.
  */
 export function DayTypeTiles({
-  language, selected, onSelect, testID,
+  language, selected, onSelect, testID, except,
 }: Readonly<{
   language: SupportedLanguage;
   selected: DressStyle | null;
   onSelect: (style: DressStyle) => void;
   testID: string;
+  except?: DressStyle;
 }>) {
   const copy = getMessages(language).today.dailyStyle;
+  const shown = choices.filter(({ style }) => style !== except);
   return (
-    <ChoiceTileGrid accessibilityRole="radiogroup" columns={3} testID={`${testID}-choices`}>
-      {choices.map(({ style, garmentTypeId, category }) => (
+    <ChoiceTileGrid accessibilityRole="radiogroup" columns={shown.length === 2 ? 2 : 3}
+      testID={`${testID}-choices`}>
+      {shown.map(({ style, garmentTypeId, category }) => (
         <ChoiceTile
           drawings={[{ category, garmentTypeId }]}
           key={style}
@@ -60,25 +63,25 @@ function StepFade({
 }
 
 /**
- * The morning sheet and the 18:00 evening sheet. Step 1 asks the day type: one tap on a tile
- * chooses it. Step 2 (M18) offers the day's styles at the large detent (N7); its answer and
- * the day type are written together, once. Closing the sheet answers with what it holds:
- * the profile's dress style on step 1, the chosen day type on step 2. The evening sheet opens
- * with nothing checked, because the morning answer never carries into the evening (N20).
+ * The morning sheet and the 18:00 evening sheet. Step 1 asks whether the day is the profile's
+ * usual day type: the large button answers yes in one tap, and the other two day types below,
+ * none checked, each answer in one tap too. The evening sheet asks the same about the profile's
+ * day type and never carries the morning answer (N20). "Pick styles for today" opens step 2
+ * (M18) at the large detent (N7); its styles and the usual day type are written together, once.
+ * Closing the sheet answers with the usual day type on either step.
  */
 export function DailyFormalitySheet({
-  visible, language, question, selected, firstDay = false, onChoose, onDismiss, error,
+  visible, language, period, usual, onChoose, onPickStyles, onDismiss, error,
   step = 'dayType', styles: styleOptions, onConfirmStyles, confirmLabel,
 }: Readonly<{
   visible: boolean;
   language: SupportedLanguage;
-  /** The whole question, already worded for the day it asks about. */
-  question: string;
-  /** The answer checked when the sheet opens, so one tap confirms it; null checks none. */
-  selected: DressStyle | null;
-  /** The day onboarding finished: the checked answer is the one given in setup. */
-  firstDay?: boolean;
+  /** Which dressing day the sheet asks about: the bare date or its `:evening` key. */
+  period: 'morning' | 'evening';
+  /** The profile's own day type, offered as the one-tap answer. */
+  usual: DressStyle;
   onChoose: (style: DressStyle) => void;
+  onPickStyles: () => void;
   onDismiss: () => void;
   error: boolean;
   step?: 'dayType' | 'styles';
@@ -108,7 +111,8 @@ export function DailyFormalitySheet({
         <View style={styles.head}>
           <StepFade animate={stepFades} key={`question-${stepSwap.changes}`} style={styles.questionSlot}>
             <AppText accessibilityRole="header" style={styles.question} variant="title">
-              {stylesStep ? copy.stylesQuestion : question}
+              {stylesStep ? copy.stylesQuestion
+                : (period === 'evening' ? copy.usualQuestionEvening : copy.usualQuestion)[usual]}
             </AppText>
           </StepFade>
           <GlassButton
@@ -133,13 +137,18 @@ export function DailyFormalitySheet({
             </>
           ) : (
             <>
-              {firstDay ? (
-                <AppText colorRole="textSecondary" testID="daily-formality-first-day" variant="caption">
-                  {copy.firstDayNote}
+              <Button label={copy.usualAction} onPress={() => onChoose(usual)} size="large"
+                testID="daily-formality-usual" />
+              <View style={styles.different}>
+                <AppText colorRole="textSecondary" testID="daily-formality-different" variant="caption">
+                  {period === 'evening' ? copy.differentQuestionEvening : copy.differentQuestion}
                 </AppText>
-              ) : null}
-              <DayTypeTiles language={language} onSelect={onChoose} selected={selected} testID="daily-formality" />
+                <DayTypeTiles except={usual} language={language} onSelect={onChoose} selected={null}
+                  testID="daily-formality" />
+              </View>
               {errorLine}
+              <Button label={copy.pickStyles} onPress={onPickStyles} style={styles.pickStyles}
+                testID="daily-formality-pick-styles" variant="plain" />
             </>
           )}
         </StepFade>
@@ -154,4 +163,7 @@ const styles = StyleSheet.create({
   questionSlot: { flex: 1 },
   question: { fontWeight: '600', marginTop: spacing.xs },
   step: { gap: spacing.md },
+  // The line names the tiles under it, so it binds to them (Law 2).
+  different: { gap: spacing.xs },
+  pickStyles: { alignSelf: 'center' },
 });

@@ -59,8 +59,7 @@ export function mayOpenDayQuestion(input: Readonly<{
 }
 
 /**
- * f25 and M16: the first dressing day is the one the profile was set up on. Its greeting is a
- * welcome, and its morning question opens on the answer given in setup.
+ * f25: the first dressing day is the one the profile was set up on. Its greeting is a welcome.
  */
 export function isFirstDressingDay(profile: Profile | null, dressingDayKey: string | null): boolean {
   return Boolean(profile?.onboardingCompleted && dressingDayKey &&
