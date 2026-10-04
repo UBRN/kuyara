@@ -200,6 +200,7 @@ const mockRecommendationSave = jest.fn();
 let mockLocalDayKey: string | null = '2026-09-24';
 jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
   openKuyaraDatabase: async () => ({}),
+  subscribeDatabaseWrites: () => () => undefined,
 }));
 jest.mock('@/infrastructure/sqlite/migrations', () => ({ migrateDatabase: async () => undefined }));
 jest.mock('@/features/recommendation/data/sqlite-dressing-day-choice-repository', () => ({

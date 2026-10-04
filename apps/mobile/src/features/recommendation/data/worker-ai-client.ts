@@ -20,6 +20,12 @@ type Dependencies = Readonly<{
   baseUrl: string;
   fetch?: Fetch;
   requestTimeoutMilliseconds?: number;
+  /**
+   * A signed-in member's access token, null for everyone else; it answers null rather than
+   * throw. Only a re-ask sends it, as a bearer header, so the Worker counts the member's
+   * allowance (ADR 0041 section 13); the request body is unchanged.
+   */
+  memberAccessToken?: () => Promise<string | null>;
 }>;
 
 export type WorkerAiClientFailureKind =
@@ -30,18 +36,28 @@ export type WorkerAiClientFailureKind =
 
 export class WorkerAiClientError extends Error {
   readonly kind: WorkerAiClientFailureKind;
+  /**
+   * A `network` failure the phone's own timeout aborted: the Worker may still have answered and
+   * counted the request. False for one that never reached it (offline, refused).
+   */
+  readonly timedOut: boolean;
 
-  constructor(kind: WorkerAiClientFailureKind) {
+  constructor(kind: WorkerAiClientFailureKind, { timedOut = false }: Readonly<{ timedOut?: boolean }> = {}) {
     super('The AI recommendation request could not be completed.');
     this.name = 'WorkerAiClientError';
     this.kind = kind;
+    this.timedOut = timedOut;
   }
 }
+
+/** Whether a fetch failure is the abort `fetchJsonWithTimeout` raises at its deadline. */
+const isAbort = (cause: unknown) => cause instanceof Error && cause.name === 'AbortError';
 
 export class WorkerAiClient {
   private readonly baseUrl: string;
   private readonly fetch: Fetch;
   private readonly requestTimeoutMilliseconds: number;
+  private readonly memberAccessToken: () => Promise<string | null>;
 
   constructor(dependencies: Dependencies) {
     this.baseUrl = dependencies.baseUrl;
@@ -51,6 +67,13 @@ export class WorkerAiClient {
     // A refresh may take as long as it needs while a stylist answer is still obtainable;
     // standard suggestions are what a failed last provider produces, not a short clock.
     this.requestTimeoutMilliseconds = dependencies.requestTimeoutMilliseconds ?? 38_000;
+    this.memberAccessToken = dependencies.memberAccessToken ?? (async () => null);
+  }
+
+  /** The bearer header of a member's re-ask; none without a token. */
+  private async memberAuthorization(): Promise<Readonly<Record<string, string>>> {
+    const token = await this.memberAccessToken();
+    return token ? { authorization: `Bearer ${token}` } : {};
   }
 
   // `options.timeoutMilliseconds` is the wait the routed client grants the Worker tier.
@@ -70,6 +93,8 @@ export class WorkerAiClient {
 
     const requestTimeoutMilliseconds =
       options?.timeoutMilliseconds ?? this.requestTimeoutMilliseconds;
+    // Read only for a re-ask, so every other request leaves at once, exactly as before.
+    const authorization = options?.reask ? await this.memberAuthorization() : {};
     const workerBudget = aiRecommendV1BudgetMillisecondsSchema.safeParse(
       requestTimeoutMilliseconds - workerTransportMarginMilliseconds,
     );
@@ -80,6 +105,7 @@ export class WorkerAiClient {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
+          ...authorization,
           ...(workerBudget.success
             ? { [aiRecommendV1BudgetHeader]: String(workerBudget.data) }
             : {}),
@@ -88,7 +114,7 @@ export class WorkerAiClient {
       },
       requestTimeoutMilliseconds,
       {
-        network: () => new WorkerAiClientError('network'),
+        network: (cause) => new WorkerAiClientError('network', { timedOut: isAbort(cause) }),
         invalidJson: () => new WorkerAiClientError('invalid-response'),
       },
     );

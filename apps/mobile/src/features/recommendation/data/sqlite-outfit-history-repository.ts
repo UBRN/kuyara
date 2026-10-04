@@ -188,6 +188,20 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
   }
 
   /**
+   * What changes when a look is added, edited or deleted, whoever wrote it (a sync pull writes
+   * beside this repository): compared to tell History to read again, never shown. Clearing a
+   * deleted look's photo name leaves it as it is.
+   */
+  async changeKey(profileId: string): Promise<string> {
+    // The ordered aggregate (SQLite 3.44 and later; expo-sqlite bundles a newer one) makes the
+    // key independent of the order rows are visited in.
+    const row = await this.db.getFirstAsync<Readonly<{ key: string | null }>>(`SELECT
+      group_concat(id || '|' || updated_at || '|' || coalesce(deleted_at, ''), ',' ORDER BY id) AS key
+      FROM outfit_history WHERE local_profile_id = ?`, [profileId]);
+    return row?.key ?? '';
+  }
+
+  /**
    * The deleted row keeps naming its photo until the file is gone, as a deleted Closet piece
    * does, so a removal that fails now is retried by `cleanupPendingPhotos`.
    */

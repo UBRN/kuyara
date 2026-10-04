@@ -163,7 +163,7 @@ in `apps/mobile/src/features/account/`: Sign in with Apple through Supabase Auth
 session store (Keychain key, `expo-sqlite/kv-store`), the SQLite row source, consent-gated sync with the
 server-arrival conflict rule, the post-sign-in sync consent sheet and its records, the Account screen's consent
 and withdrawal, the Apple credential check at launch and the revocation notification while the app runs, and deletion through the Worker, whose result shows on an app-wide sheet. With the switch on and
-no valid Supabase settings the screens fail closed. Google sign-in waits for its library licence. Migration 28
+no valid Supabase settings the screens fail closed. Sign in with Google is built through Google's native library with a nonce and fails closed until that library, which waits for its licence, and the two Google client ids are in the build; deleting a Google account needs a confirmation from that same Google account. The session follows the device's connection through `expo-network` (unknown counts as online), a sync pull that lands rows reloads the Closet, History and Profile and removes a pulled deletion's photo, a signed-in member's re-ask carries the member's token and allows ten a day only when that token was read, and the privacy manifest declares the account's email, name, user id and records, linked and never tracking. Migration 28
 adds the device link's joined-account columns. The Worker code carries the deletion route (deleting an Apple
 account without a usable code answers `deleted_apple_unrevoked`), its rate limit, the keep-alive Cron
 Trigger, every six hours, and the count of a signed-in member's "Ask the stylist again" requests (ten per UTC day per member, refused with the existing `rate_limited` answer). That code is deployed with the Apple and Supabase secrets, so the deletion route is live and the keep-alive Cron Trigger is scheduled;
@@ -173,9 +173,8 @@ no shipped binary calls the route or sends a member token. The remote schema is
 size guard, the per-account lock between uploads and a consent withdrawal, one index fewer) followed on 4 October 2026, again with no security advisor finding; an in-memory Postgres run
 applies both files in order and checks their access rules, caps, bounds, guard and lock. Evidence is automated
 tests, an in-memory Postgres run of the schema and one Simulator pass; Sign in with Apple, revocation and live
-sync have no device evidence. Before accounts open: network-state detection, screens reloading after a pull, the
-History photo sweep for pulled deletions, the phone side of the member AI allowance, the privacy manifest and App Privacy, the
-Account terms pages (`docs/account-terms.md` and `docs/tr/account-terms.md`, which the app links) and the KVKK transfer contract. The project is
+sync have no device evidence. Before accounts open: the KVKK transfer contract, the Google library and client ids, App Privacy in App Store Connect,
+device evidence, and the account terms pages with the account versions of the privacy policy and support pages (`docs/account-terms.md` and `docs/tr/account-terms.md`, which the app links), which are written and publish just before submission. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 

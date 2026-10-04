@@ -407,3 +407,39 @@ test('history stores the colours of each look and drops colours that do not fit'
     assert.equal((await repo.day(profileId, '2026-09-24')).length, 2);
   }
 });
+
+test('the change key moves when a look is added, edited or deleted by any writer, and not when only a photo name is cleared', async (t) => {
+  const db = await setup(t);
+  const photos = { copyStaged: async () => '', discardStaged: async () => {}, deleteStored: async () => {}, resolveUri: () => null };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  const empty = await repo.changeKey(profileId);
+  const look = await repo.log(profileId, '2026-09-01', first, { kind: 'keep' }, null);
+  const logged = await repo.changeKey(profileId);
+  assert.notEqual(logged, empty);
+  // A sync pull writes beside the repository: another phone's edit and deletion.
+  await db.runAsync('UPDATE outfit_history SET updated_at = ? WHERE id = ?', ['2026-09-25T10:00:00.000Z', look.id]);
+  const edited = await repo.changeKey(profileId);
+  assert.notEqual(edited, logged);
+  await db.runAsync(`UPDATE outfit_history SET deleted_at = ?, photo_path = ? WHERE id = ?`,
+    ['2026-09-25T10:00:00.000Z', `kuyara/history/photos/${randomUUID()}.jpg`, look.id]);
+  const deleted = await repo.changeKey(profileId);
+  assert.notEqual(deleted, edited);
+  await repo.cleanupPendingPhotos(profileId);
+  assert.equal(await repo.changeKey(profileId), deleted);
+});
+
+test('the change key does not depend on the order rows are stored in', async (t) => {
+  const db = await setup(t);
+  const photos = { copyStaged: async () => '', discardStaged: async () => {}, deleteStored: async () => {}, resolveUri: () => null };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  const [a, b] = ['00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-00000000000b'];
+  const insert = (id) => db.runAsync(`INSERT INTO outfit_history (id, local_profile_id, day_key, outfit_json, worn_at,
+    created_at, updated_at) VALUES (?, ?, '2026-09-01', ?, ?, ?, ?)`, [id, profileId, JSON.stringify(first), now, now, now]);
+  await insert(b);
+  await insert(a);
+  const reversed = await repo.changeKey(profileId);
+  await db.runAsync('DELETE FROM outfit_history');
+  await insert(a);
+  await insert(b);
+  assert.equal(await repo.changeKey(profileId), reversed);
+});

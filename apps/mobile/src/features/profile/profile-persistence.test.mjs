@@ -988,3 +988,59 @@ test('onboarding stores the optional name and marks its invitation answered', as
     'SELECT display_name, name_prompt_version FROM local_profiles',
   ) }, { display_name: 'Deniz', name_prompt_version: 1 });
 });
+
+test('a reload after a sync pull shows the account\'s profile fields and keeps an unchanged profile as it is', async () => {
+  let profile = {
+    id: 'profile-id', gender: 'woman', dressStyle: 'smart', birthDate: null, displayName: 'Phone',
+    languagePreference: 'system', themePreference: 'system', onboardingCompleted: true, createdAt, updatedAt: createdAt,
+  };
+  const controller = new ProfileApplicationController(async () => ({ getOrCreateProfile: async () => profile }));
+  await controller.initialize();
+  const before = controller.getSnapshot();
+  let notified = 0;
+  controller.subscribe(() => { notified += 1; });
+
+  await controller.reload();
+  assert.equal(controller.getSnapshot(), before);
+  assert.equal(notified, 0);
+
+  profile = { ...profile, displayName: 'From the account', gender: 'man' };
+  await controller.reload();
+  const after = controller.getSnapshot();
+  assert.equal(after.profile.displayName, 'From the account');
+  assert.equal(after.profile.clothingPreference, 'mens');
+  assert.equal(after.isSaving, false);
+});
+
+test('a reload waits for a profile update in progress, so the update\'s result is never replaced by an older read', async () => {
+  let profile = {
+    id: 'profile-id', gender: 'woman', dressStyle: 'smart', birthDate: null,
+    languagePreference: 'system', themePreference: 'system', onboardingCompleted: true, createdAt, updatedAt: createdAt,
+  };
+  const update = Promise.withResolvers();
+  const reads = [];
+  const controller = new ProfileApplicationController(async () => ({
+    getOrCreateProfile: async () => { reads.push(profile.dressStyle); return profile; },
+    updateDressStyle: async (dressStyle) => {
+      await update.promise;
+      return (profile = { ...profile, dressStyle });
+    },
+  }));
+  await controller.initialize();
+  const saving = controller.updateDressStyle('formal');
+  const reloading = controller.reload();
+  update.resolve();
+  await saving;
+  await reloading;
+  assert.deepEqual(reads, ['smart', 'formal']);
+  assert.equal(controller.getSnapshot().profile.dressStyle, 'formal');
+});
+
+test('a reload before the profile has loaded reads nothing', async () => {
+  let reads = 0;
+  const controller = new ProfileApplicationController(async () => ({
+    getOrCreateProfile: async () => { reads += 1; throw new Error('unavailable'); },
+  }));
+  await controller.reload();
+  assert.equal(reads, 0);
+});

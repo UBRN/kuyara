@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { resolveSupabaseSettings, type SupabaseSettings } from '@/config/supabase-settings';
 import { connectAccountLifecycle, type AccountLifecyclePorts } from '@/features/account/application/account-lifecycle';
+import { provideMemberAccess } from '@/features/account/application/account-membership';
 import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
 import { createClosedAccountScreens, type AccountScreensPort } from '@/features/account/application/account-screens';
 import { AccountScreensContext } from '@/features/account/application/account-screens-context';
@@ -11,7 +12,10 @@ import type { LiveAccountSession } from '@/features/account/data/live-account-se
 import { subscribeDatabaseWrites } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-database';
 
-/** The app's lifetime ports for the live session: its manager, the app state, the database writes and Apple's revocation. */
+/**
+ * The app's lifetime ports for the live session: its manager, the app state, the database
+ * writes, the connection and Apple's revocation.
+ */
 export function liveLifecyclePorts(live: LiveAccountSession): AccountLifecyclePorts {
   return {
     manager: live.manager,
@@ -23,6 +27,7 @@ export function liveLifecyclePorts(live: LiveAccountSession): AccountLifecyclePo
     onDatabaseWrite: subscribeDatabaseWrites,
     hasPending: live.source.hasPending,
     onAppleRevoked: live.onAppleRevoked,
+    network: live.network,
     autoRefresh: live.autoRefresh,
     card: { dismissed: live.source.cardDismissed, dismiss: live.source.dismissCard },
     schedule: (task, delayMs) => {
@@ -45,9 +50,17 @@ async function connectLiveAccounts(localProfileId: string, settings: SupabaseSet
   const live = createLiveAccountSession({
     database, localProfileId, settings, workerBaseUrl: resolveAppWorkerBaseUrl(), fetcher: fetch,
   });
-  const disconnect = connectAccountLifecycle(liveLifecyclePorts(live));
+  const disconnectLifecycle = connectAccountLifecycle(liveLifecyclePorts(live));
+  // The member re-ask allowance reads membership and the token at the moment of a re-ask.
+  const stopMemberAccess = provideMemberAccess({ port: live.manager, accessToken: live.accessToken });
   const port: AccountScreensPort = live.manager;
-  return { port, disconnect };
+  return {
+    port,
+    disconnect: () => {
+      stopMemberAccess();
+      disconnectLifecycle();
+    },
+  };
 }
 
 /**

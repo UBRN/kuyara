@@ -1182,6 +1182,18 @@ test('a re-ask that never got a response gives its reserved allowance back', asy
   assert.deepEqual(released, ['2026-08-01']);
 });
 
+test('a re-ask whose request timed out keeps its allowance spent: the Worker may have answered and counted it', async () => {
+  const released = [];
+  const { controller } = createHarness({
+    client: { recommendRouted: async () => { throw new WorkerAiClientError('network', { timedOut: true }); } },
+    releaseAiReask: async (dayKey) => { released.push(dayKey); },
+  });
+  await controller.initialize();
+  await controller.refresh('first-recommendation', input(20));
+  await controller.refresh('regenerate', input(20));
+  assert.deepEqual(released, []);
+});
+
 test('an allowance stays spent once the AI answered or the Worker replied with an error', async () => {
   const released = [];
   const answered = createHarness({ releaseAiReask: async (dayKey) => { released.push(dayKey); } });

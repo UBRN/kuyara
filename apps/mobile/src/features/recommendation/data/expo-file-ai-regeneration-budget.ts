@@ -41,9 +41,9 @@ export class ExpoFileAiRegenerationBudget implements AiRegenerationBudget {
     return text === null ? 0 : storedCount(text, dayKey);
   }
 
-  private async reserveOnce(dayKey: string): Promise<boolean> {
+  private async reserveOnce(dayKey: string, dailyLimit: number): Promise<boolean> {
     const count = await this.countFor(dayKey);
-    if (count === null || count >= regenerationPolicy.dailyAiRegenerations) return false;
+    if (count === null || count >= dailyLimit) return false;
     try {
       new Directory(Paths.document, ...directorySegments).create({
         idempotent: true,
@@ -56,9 +56,28 @@ export class ExpoFileAiRegenerationBudget implements AiRegenerationBudget {
     }
   }
 
-  reserve(dayKey: string): Promise<boolean> {
-    const result = ExpoFileAiRegenerationBudget.pending.then(() => this.reserveOnce(dayKey));
+  private async releaseOnce(dayKey: string): Promise<void> {
+    const count = await this.countFor(dayKey);
+    if (count === null || count === 0) return;
+    try {
+      this.file().write(JSON.stringify({ dayKey, count: count - 1 }));
+    } catch {
+      // Not given back: the slot stays spent, as it was before the release.
+    }
+  }
+
+  /** One file operation at a time across instances, so a release and a reservation never interleave. */
+  private static serialized<Result>(operation: () => Promise<Result>): Promise<Result> {
+    const result = ExpoFileAiRegenerationBudget.pending.then(operation);
     ExpoFileAiRegenerationBudget.pending = result.then(() => undefined, () => undefined);
     return result;
+  }
+
+  reserve(dayKey: string, dailyLimit: number = regenerationPolicy.dailyAiRegenerations): Promise<boolean> {
+    return ExpoFileAiRegenerationBudget.serialized(() => this.reserveOnce(dayKey, dailyLimit));
+  }
+
+  release(dayKey: string): Promise<void> {
+    return ExpoFileAiRegenerationBudget.serialized(() => this.releaseOnce(dayKey));
   }
 }

@@ -22,6 +22,7 @@ import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-phot
 import { isManagedWardrobePhotoRelativePath } from '@/features/wardrobe/domain/wardrobe-photo-path';
 import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
 import { WardrobeRepositoryError } from '@/features/wardrobe/domain/wardrobe-repository-error';
+import { coalescedRun } from '@/domain/coalesced-run';
 
 export type WardrobeApplicationState =
   | Readonly<{ status: 'loading' }>
@@ -63,6 +64,11 @@ export class WardrobeApplicationController {
   // Bumped when a mutation starts and when it settles, so a refresh can tell that its
   // list read straddled a mutation and may hold pre-mutation data.
   private mutationEpoch = 0;
+  // Each list read takes a ticket when it starts; a read lands only if no later-started read
+  // has landed, so a refresh begun before a reload never replaces the reloaded list.
+  private readTicket = 0;
+  private landedTicket = 0;
+  private readonly reloadRun = coalescedRun(() => this.reloadOnce());
   private readonly listeners = new Set<Listener>();
   private readonly localProfileId: string;
   private readonly loadRepository: () => Promise<WardrobeRepository>;
@@ -110,6 +116,17 @@ export class WardrobeApplicationController {
       this.refreshPromise = null;
     });
     return this.refreshPromise;
+  }
+
+  /**
+   * Reads the Closet again after a write this controller did not make, such as a sync pull
+   * landing another phone's pieces (ADR 0041 section 4). It shows no refresh indicator, keeps
+   * the shown state when nothing changed, waits for a save in progress so that save's own read
+   * stands, and removes the photo of a piece deleted elsewhere. A request during a reload gets
+   * one more read after it. Before the first load it reads nothing: that load reads the phone.
+   */
+  reload(): Promise<void> {
+    return this.reloadRun();
   }
 
   async getItem(id: string): Promise<WardrobeItem | null> {
@@ -213,6 +230,41 @@ export class WardrobeApplicationController {
     }
   }
 
+  /** Answers true when a save started during the read, so the reload reads once more after it. */
+  private async reloadOnce(): Promise<boolean> {
+    if (this.state.status !== 'ready' || !this.repository) return false;
+    try {
+      await this.mutationPromise;
+    } catch {
+      // The save reports its own failure; the reload only reads after it.
+    }
+    const repository = this.repository;
+    const epoch = this.mutationEpoch;
+    const ticket = ++this.readTicket;
+    let items: readonly WardrobeItem[];
+    try {
+      items = await repository.listActiveItems(this.localProfileId);
+    } catch {
+      // The shown list stays; the next write, focus or retry reads again.
+      return false;
+    }
+    // A save started meanwhile: read again after it, never over its result.
+    if (epoch !== this.mutationEpoch) return true;
+    if (this.lands(ticket) && this.state.status === 'ready'
+      && JSON.stringify(items) !== JSON.stringify(this.state.items)) {
+      this.setState({ ...this.state, items });
+    }
+    await this.cleanupPendingPhotos(repository);
+    return false;
+  }
+
+  /** Whether a read that started with `ticket` is still the newest to land, recording it if so. */
+  private lands(ticket: number): boolean {
+    if (ticket < this.landedTicket) return false;
+    this.landedTicket = ticket;
+    return true;
+  }
+
   private async refreshOnce(): Promise<void> {
     const repository = this.requireRepository();
     const previous = this.state.status === 'ready' ? this.state : null;
@@ -226,11 +278,13 @@ export class WardrobeApplicationController {
     }
 
     const epoch = this.mutationEpoch;
+    const ticket = ++this.readTicket;
     try {
       const items = await repository.listActiveItems(this.localProfileId);
-      if (epoch !== this.mutationEpoch && this.state.status === 'ready') {
-        // A mutation started or settled during the read. It owns the list and the
-        // isMutating flag, so this possibly pre-mutation result must not overwrite them.
+      if ((epoch !== this.mutationEpoch || !this.lands(ticket)) && this.state.status === 'ready') {
+        // A mutation started or settled during the read, or a later read already landed. It
+        // owns the list (and a mutation the isMutating flag), so this older result must not
+        // overwrite them.
         this.setState({ ...this.state, isRefreshing: false });
         return;
       }
