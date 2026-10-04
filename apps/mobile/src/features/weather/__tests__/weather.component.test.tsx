@@ -276,6 +276,9 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(result.getByLabelText(copy[noticeKey]).props.accessibilityLiveRegion).toBe('polite');
     // Law 7: the notice opens and closes in place rather than snapping.
     expect(within(result.getByTestId('weather-stale-notice')).getByLabelText(copy[noticeKey])).toBeOnTheScreen();
+    // The notice wraps beside its glyph inside the card instead of running past it.
+    const noticeText = within(result.getByTestId('weather-stale-notice')).getByText(copy[noticeKey]);
+    expect(StyleSheet.flatten(noticeText.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
   });
 
   test('groups localized current metrics and hides the decorative glyph', async () => {
