@@ -4,10 +4,14 @@ import test from 'node:test';
 import { archetypeDayFromRequirements, outfitArchetypeIds } from '@kuyara/contracts';
 
 import { messages } from '@/localization/messages';
-import { assignedOutfitGarments } from '@/features/recommendation/domain/outfit-composition';
+import {
+  assignedOutfitGarments,
+  collectValidOutfits,
+} from '@/features/recommendation/domain/outfit-composition';
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import {
   composeOutfitPool,
+  eligibilityCandidates,
   excludeOutfitOptions,
   outfitMatchesArchetype,
   outfitOptionId,
@@ -653,14 +657,14 @@ test('a narrow pool keeps the three shown options rather than running out', () =
   assert.deepEqual(excludeOutfitOptions(narrow, narrow.slice(0, 3)), narrow);
 });
 
-function dayWeather(temperatureCelsius, condition, precipitationProbability) {
+function dayWeather(temperatureCelsius, condition, precipitationProbability, windSpeedMetersPerSecond = 2) {
   return snapshot({
     current: {
       temperatureCelsius,
       apparentTemperatureCelsius: temperatureCelsius,
       condition,
       precipitationProbability,
-      windSpeedMetersPerSecond: 2,
+      windSpeedMetersPerSecond,
       humidity: 0.6,
     },
     maximumTemperatureCelsius: temperatureCelsius,
@@ -708,6 +712,35 @@ test('the next day never repeats yesterday\'s body garments when only the access
   }
 
   assert.deepEqual(repeats, []);
+});
+
+// A day whose only formal outfit is a suit lost it to the diversity rule whenever a smart look
+// in the same shirt and trousers came first, so a formal dress style was shown smart outfits.
+test('the offered pool keeps an outfit of every formality the day can compose', () => {
+  const cells = [
+    ['mens', [8, 'clear', 0, 6], 2],
+    ['mens', [8, 'cloudy', 0.4, 2], 3],
+    ['mens', [13, 'clear', 0, 2], 1],
+    ['mens', [25, 'clear', 0, 2], 5],
+    ['mens', [30, 'clear', 0, 2], 5],
+    ['womens', [8, 'clear', 0, 6], 4],
+    ['womens', [19, 'clear', 0, 9], 4],
+  ];
+  const missing = [];
+  for (const [clothingPreference, day, dayVariant] of cells) {
+    const requirements = deriveClothingRequirements(dayWeather(...day), observedAt);
+    const valid = collectValidOutfits(requirements, eligibilityCandidates(requirements, clothingPreference));
+    const offered = composeOutfitPool(requirements, clothingPreference, dayVariant);
+    assert.equal(valid.status, 'composed');
+    assert.equal(offered.status, 'composed');
+    for (const formality of new Set(valid.outfits.map((outfit) => outfit.formality))) {
+      if (!offered.outfits.some((outfit) => outfit.formality === formality)) {
+        missing.push(`${clothingPreference} ${day} variant ${dayVariant}: ${formality}`);
+      }
+    }
+  }
+
+  assert.deepEqual(missing, []);
 });
 
 // A day with no thermal requirement once offered no layered arrangement at all, so the three
