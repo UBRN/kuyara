@@ -115,9 +115,9 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   // bottom under the top, the footwear under its hem and the layers beside it, each apart
   // from its neighbours by `clearance`, so no piece covers any part of another.
   const { clearance } = rule;
-  const cb = core.map((piece) => boxOf(piece, metric));
-  const coreGap = core.length > 1 ? clearance.waist * cb[0].h : 0;
-  const coreW = Math.max(...cb.map((box) => box.w));
+  let cb = core.map((piece) => boxOf(piece, metric));
+  let coreGap = core.length > 1 ? clearance.waist * cb[0].h : 0;
+  let coreW = Math.max(...cb.map((box) => box.w));
 
   let rb = rail.map((piece) => boxOf(piece,
     rule.weight[piece.slot === 'outer_layer' ? 'outer_layer' : 'mid_layer'] * metric));
@@ -126,8 +126,21 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   const railScale = Math.min(1, rule.railCap / Math.max(...rb.concat(bf).map((box) => box.w)));
   rb = rb.map((box) => ({ w: box.w * railScale, h: box.h * railScale }));
   bf = { w: bf.w * railScale, h: bf.h * railScale };
-  const railH = rb.reduce((sum, box) => sum + box.h, 0) + rule.railGap * metric * (rb.length - 1);
-  const coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1) + bf.h * (1 + clearance.foot);
+  let railGap = rule.railGap * metric;
+  let railH = rb.reduce((sum, box) => sum + box.h, 0) + railGap * (rb.length - 1);
+  let coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1) + bf.h * (1 + clearance.foot);
+
+  // A composition taller than the stage's ceiling (Easier to see on the detail's larger caps)
+  // is scaled down once, uniformly, until it fits, the way Today's fitted stage scales its
+  // board: every size and every gap keeps its ratio to the others.
+  const fit = (rule.stageMax - rule.topInset - rule.botInset) / Math.max(coreH, railH);
+  if (fit < 1) {
+    const scaled = (box: { w: number; h: number }) => ({ w: box.w * fit, h: box.h * fit });
+    cb = cb.map(scaled);
+    rb = rb.map(scaled);
+    bf = scaled(bf);
+    [coreGap, coreW, railGap, railH, coreH] = [coreGap, coreW, railGap, railH, coreH].map((length) => length * fit);
+  }
 
   const envelope = Math.max(coreH, railH);
   const stageHeight = Math.min(rule.stageMax, Math.max(rule.stageMin, rule.topInset + envelope + rule.botInset));
@@ -146,7 +159,7 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   y = top;
   rail.forEach((piece, index) => {
     boxes.set(piece, { x: railX, y, ...rb[index] });
-    y += rb[index].h + rule.railGap * metric;
+    y += rb[index].h + railGap;
   });
   // The footwear's heel stands a quarter of its length left of the core's axis and its opening
   // stands `clearance.foot` of its own height under the lowest piece's hem. It is drawn as a

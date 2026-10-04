@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
   composeGarmentBoard,
   detailPreset,
   drawnExtent,
+  easierToSeeRule,
   fitRunwayScale,
   fitTodayStage,
   footwearPair,
@@ -334,4 +336,39 @@ test('the piece shadow scales with its board and stays inside the lower margin',
   assert.ok(reach * runwayPreset.maxScale * 440 < runwayPreset.vertical / 2);
   // Darker than the plane in both appearances, by more in light, where the plane is lighter.
   assert.ok(garmentShadowRule.step.light < garmentShadowRule.step.dark && garmentShadowRule.step.dark < 0);
+});
+
+// Easier to see (ADR 0030) grows every cap x 1.3 on the detail's larger caps. A composition
+// taller than the stage's ceiling is scaled down once, uniformly, until it fits, so no piece
+// leaves the stage on the detail or the share card.
+const largeDetail = easierToSeeRule(detailPreset, 1.3, 0.05);
+for (const [name, slots] of [
+  ...readmeBoards,
+  ...evidence,
+  ['turtleneck, trousers, ankle boots', [['primary_top', 'turtleneck'], ['bottom', 'trousers'], ['footwear', 'ankle_boots']]],
+  ['sleeveless top, jeans, rain jacket, rain boots', [['primary_top', 'sleeveless_top'], ['bottom', 'jeans'], ['outer_layer', 'rain_jacket'], ['footwear', 'rain_boots']]],
+]) {
+  test(`Easier to see detail: ${name} keeps its pieces apart and does not clip`, () => {
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const result = composeGarmentBoard(pieces, largeDetail);
+    const measured = audit(result);
+    assert.equal(measured.overlap, 0, name);
+    assert.equal(measured.clip, 0, `${name}: ${measured.clip}`);
+    assert.ok(result.stageHeight <= largeDetail.stageMax, name);
+    if (result.core.length === 2) assert.ok(Math.abs(measured.parity - 1) <= 1e-9);
+  });
+}
+
+// The fit to the stage acts only on a composition taller than the ceiling: every board drawn
+// without Easier to see keeps exactly the layout it had.
+test('the boards without Easier to see keep their exact layouts', () => {
+  const layouts = [['today', todayPreset], ['detail', detailPreset]].flatMap(([presetName, preset]) =>
+    [...evidence, ...readmeBoards].map(([name, slots]) => {
+      const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+      const result = composeGarmentBoard(pieces, preset);
+      return [presetName, name, result.stageHeight, result.metric,
+        result.order.map((piece) => [piece.slot, result.boxes.get(piece)])];
+    }));
+  const digest = createHash('sha256').update(JSON.stringify(layouts)).digest('hex');
+  assert.equal(digest, 'f1a25497359fd17e61aea14179b21d150715fd967db8c623e7291ca0670a8a4a');
 });

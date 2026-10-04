@@ -154,6 +154,9 @@ The stage height is therefore derived, insets plus the envelope, and clamped to
 **0.66 to 1.14** times the stage width. Across the ten evidence boards it takes values
 from 0.680 to 1.135. Today's primary stage replaces the insets with a fit to the stage and
 is the fitted composition plus its vertical margin, within the same clamp (section 9).
+An envelope taller than the clamp's ceiling allows, which only Easier to see's larger caps
+on the detail reach, is scaled down once, uniformly, until it fits, so no piece leaves the
+stage; every board without Easier to see is untouched by it.
 Today's copy below the stage moves with it.
 
 The two insets are the tint's own margin around the composition and are not board
