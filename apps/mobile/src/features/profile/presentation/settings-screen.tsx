@@ -274,7 +274,7 @@ export function SettingsScreen({
         />
         <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="sunrise" size={size} />}
-          label={copy.morningQuestionTitle}
+          label={copy.dayQuestionsTitle}
           testID="settings-morning-question-row"
           toggle={{ value: profile.morningSheetEnabled ?? true, disabled: isSaving,
             onValueChange: (enabled) => { void savePreference('profile', () => onMorningSheetEnabledChange(enabled)); } }}

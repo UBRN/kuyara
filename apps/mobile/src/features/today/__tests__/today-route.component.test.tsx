@@ -1783,7 +1783,7 @@ test('cold evening open waits for its unanswered choice and generates once after
   try {
     const view = await render(
       <Providers productAnalytics={analytics}
-        profile={profileValue({ morningSheetEnabled: false, dressStyle: 'formal' })}
+        profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal' })}
         recommendation={saved} liveRecommendationProvider
         wardrobe={wardrobeValue()} weather={weatherValue()}>
         <TodayRoute />
@@ -1896,7 +1896,7 @@ test('a warm process crossing 18:00 opens the evening question over a wait', asy
     .mockImplementation(() => new Promise(() => undefined));
   try {
     const view = await render(
-      <Providers productAnalytics={analytics} profile={profileValue()}
+      <Providers productAnalytics={analytics} profile={profileValue({ morningSheetEnabled: true })}
         recommendation={saved} liveRecommendationProvider
         wardrobe={wardrobeValue()} weather={weatherValue()}>
         <ForegroundProbe />
@@ -1920,6 +1920,227 @@ test('a warm process crossing 18:00 opens the evening question over a wait', asy
       .toBe(true);
     expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
   } finally {
+    history.mockRestore();
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+// A return from the background across a key flip asks the new key's question before anything
+// is chosen, and its answer starts the one generation, with the new key's own Later departure
+// rather than the previous key's answer.
+test.each([
+  ['evening', '2026-09-24T17:59:00.000Z', '2026-09-24T18:00:00.000Z', '2026-09-24',
+    '2026-09-24:evening', '2026-09-24T19:30:00.000Z'],
+  ['morning', '2026-09-24T03:59:00.000Z', '2026-09-24T04:00:00.000Z', '2026-09-23:evening',
+    '2026-09-24', '2026-09-24T08:30:00.000Z'],
+])('a warm return across the %s flip asks first and generates once with the new key', async (
+  _question, before, after, previousKey, nextKey, departureAt,
+) => {
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date(before),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    dressStyle: 'formal', localDayKey: previousKey };
+  mockChoiceGet.mockImplementation(async (_profile: string, key: string) =>
+    key === previousKey ? {
+      id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+      dayKey: key, formality: 'formal', source: 'morning', styleAesthetics: null,
+      createdAt: before, updatedAt: before, deletedAt: null,
+    } : null);
+  mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
+    source: string) => ({
+    id: '1f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey: key, formality, source, styleAesthetics: null,
+    createdAt: after, updatedAt: after, deletedAt: null,
+  }));
+  mockDepartureGet.mockImplementation(async (_profile: string, key: string) =>
+    key === nextKey ? { id: 'departure-one', localProfileId: 'profile-one', dayKey: key,
+      departureAt, timeZone: 'Europe/Istanbul', createdAt: before, updatedAt: before,
+      deletedAt: null } : null);
+  const onChange: ((state: string) => void)[] = [];
+  const appState = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()}
+        profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen());
+    expect(refresh).not.toHaveBeenCalled();
+
+    jest.setSystemTime(new Date(after));
+    await act(async () => {
+      onChange.forEach((listener) => listener('background'));
+      onChange.forEach((listener) => listener('active'));
+    });
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    expect(refresh).not.toHaveBeenCalled();
+
+    await fireEvent.press(view.getByTestId('daily-formality-close'));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(mockChoiceUpsert).toHaveBeenCalledTimes(1);
+    expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', nextKey, 'smart', 'morning', undefined);
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+    expect(refresh.mock.calls[0][1]).toMatchObject({ localDayKey: nextKey, dressStyle: 'smart', departureAt });
+  } finally {
+    appState.mockRestore();
+    history.mockRestore();
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+// The day's first outfit is chosen from the weather a refresh already in flight brings, and from
+// the weather it has when that refresh fails.
+test.each([
+  ['succeeds', true],
+  ['fails', false],
+])('the day\'s first generation waits for a weather refresh in flight and runs once it %s', async (
+  _outcome, succeeds,
+) => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-23' };
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  const stale = todayScreenState.snapshot.weather;
+  const fresh = { ...stale, id: '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4' };
+  const tree = (weather: WeatherApplicationValue) => (
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={saved} liveRecommendationProvider
+      wardrobe={wardrobeValue()} weather={weather}>
+      <TodayRoute />
+    </Providers>
+  );
+  try {
+    const view = await render(tree(weatherValue({ freshness: 'stale', isRefreshing: true })));
+    await waitFor(() => expect(mockChoiceGet).toHaveBeenCalledWith('profile-one', '2026-09-24'));
+    await waitFor(() => expect(mockDepartureGet).toHaveBeenCalledWith('profile-one', '2026-09-24'));
+    await act(async () => { await Promise.resolve(); });
+    expect(refresh).not.toHaveBeenCalled();
+
+    await view.rerender(tree(succeeds
+      ? weatherValue({ snapshot: fresh })
+      : weatherValue({ freshness: 'stale', refreshFailure: 'unavailable' })));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+    expect(refresh.mock.calls[0][1].snapshot.id).toBe(succeeds ? fresh.id : stale.id);
+    expect(refresh.mock.calls[0][1].localDayKey).toBe('2026-09-24');
+  } finally {
+    history.mockRestore();
+    refresh.mockRestore();
+  }
+});
+
+test('a morning answer given while the weather refreshes waits for that weather', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-23' };
+  mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
+    source: string) => ({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey: key, formality, source, styleAesthetics: null,
+    createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z', deletedAt: null,
+  }));
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  const fresh = { ...todayScreenState.snapshot.weather, id: '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4' };
+  const tree = (weather: WeatherApplicationValue) => (
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal' })}
+      recommendation={saved} liveRecommendationProvider
+      wardrobe={wardrobeValue()} weather={weather}>
+      <TodayRoute />
+    </Providers>
+  );
+  try {
+    const view = await render(tree(weatherValue({ freshness: 'stale', isRefreshing: true })));
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    await fireEvent.press(view.getByTestId('daily-formality-close'));
+    await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+    expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', '2026-09-24', 'formal', 'morning', undefined);
+    await act(async () => { await Promise.resolve(); });
+    expect(refresh).not.toHaveBeenCalled();
+
+    await view.rerender(tree(weatherValue({ snapshot: fresh })));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+    expect(refresh.mock.calls[0][1]).toMatchObject({ dressStyle: 'formal', localDayKey: '2026-09-24' });
+    expect(refresh.mock.calls[0][1].snapshot.id).toBe(fresh.id);
+  } finally {
+    history.mockRestore();
+    refresh.mockRestore();
+  }
+});
+
+// The Settings switch turns off both questions: with it off, the evening is dressed for the
+// profile dress style without a sheet, and the morning answer does not carry over.
+test('with the day questions off, 18:00 opens no sheet and dresses the evening for the profile style', async () => {
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date('2026-09-24T17:59:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    dressStyle: 'formal', localDayKey: '2026-09-24' };
+  mockChoiceGet.mockImplementation(async (_profile: string, key: string) =>
+    key === '2026-09-24' ? {
+      id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+      dayKey: key, formality: 'formal', source: 'chip', styleAesthetics: null,
+      createdAt: '2026-09-24T09:00:00.000Z', updatedAt: '2026-09-24T09:00:00.000Z', deletedAt: null,
+    } : null);
+  const onChange: ((state: string) => void)[] = [];
+  const appState = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()}
+        profile={profileValue({ morningSheetEnabled: false, dressStyle: 'smart' })}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen());
+    expect(refresh).not.toHaveBeenCalled();
+
+    jest.setSystemTime(new Date('2026-09-24T18:00:00.000Z'));
+    await act(async () => {
+      onChange.forEach((listener) => listener('background'));
+      onChange.forEach((listener) => listener('active'));
+    });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+    expect(mockChoiceUpsert).not.toHaveBeenCalled();
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+    expect(refresh.mock.calls[0][1]).toMatchObject({ localDayKey: '2026-09-24:evening', dressStyle: 'smart' });
+  } finally {
+    appState.mockRestore();
     history.mockRestore();
     refresh.mockRestore();
     jest.useRealTimers();

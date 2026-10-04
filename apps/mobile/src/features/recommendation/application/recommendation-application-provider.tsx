@@ -236,11 +236,12 @@ export function RecommendationApplicationProvider({
   const resolvedStyles = resolvedStyleAesthetics(dayChoice,
     profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
   // The day setup finished on is answered by setup (a choice row written as it completes), so
-  // neither question is asked then.
-  const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready';
-  const morningChoicePending = Boolean(dayQuestionOpen && !isEveningDressingDayKey(localDay.key) &&
-    profileState.status === 'ready' && profileState.profile.morningSheetEnabled);
-  const eveningChoicePending = Boolean(dayQuestionOpen && isEveningDressingDayKey(localDay.key));
+  // neither question is asked then. The one Settings switch turns off both questions; an
+  // unasked day resolves to the profile dress style, as a dismissed question does.
+  const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready' &&
+    Boolean(profileState.profile.morningSheetEnabled);
+  const morningChoicePending = dayQuestionOpen && !isEveningDressingDayKey(localDay.key);
+  const eveningChoicePending = dayQuestionOpen && isEveningDressingDayKey(localDay.key);
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const reevaluateLocalDay = useCallback(() => {
     const next = deviceLocalDay();
@@ -354,6 +355,15 @@ export function RecommendationApplicationProvider({
   // it runs would see its own new day type as a change and start a second, unreserved
   // generation, so evaluation waits for it and then reads the persisted result.
   const reaskInFlight = useRef<Promise<unknown> | null>(null);
+  // A dressing day's first outfit waits for a weather refresh already in flight and is chosen
+  // from what it brings, or from the weather already here when it fails. Either way the refresh
+  // settles into a new weather state, whose input evaluates the approved triggers again.
+  const awaitsWeatherRefresh = useCallback((dayKey: string) => {
+    const liveWeather = weatherApplication.getSnapshot?.() ?? weatherState;
+    const liveState = controller.getSnapshot();
+    return liveWeather.status === 'ready' && liveWeather.isRefreshing &&
+      !(liveState.status === 'ready' && liveState.snapshot?.localDayKey === dayKey);
+  }, [controller, weatherApplication, weatherState]);
   const evaluateApprovedTriggersOnce = useCallback(async (
     generationInput: RecommendationApplicationInput,
   ): Promise<boolean> => {
@@ -389,6 +399,7 @@ export function RecommendationApplicationProvider({
     const trigger = recommendationRefreshTrigger(previous, current);
 
     if (trigger) {
+      if (awaitsWeatherRefresh(generationInput.localDayKey)) return false;
       foregroundEvaluationRequested.current = false;
       await controller.refresh(trigger, generationInput);
       return true;
@@ -404,7 +415,7 @@ export function RecommendationApplicationProvider({
     foregroundEvaluationRequested.current = false;
     controller.updatePoolAvailability(generationInput);
     return false;
-  }, [controller, eveningChoicePending, morningChoicePending]);
+  }, [awaitsWeatherRefresh, controller, eveningChoicePending, morningChoicePending]);
 
   const evaluateApprovedTriggersForInput = useCallback(function evaluateApprovedTriggersForInput(
     generationInput: RecommendationApplicationInput,
@@ -453,10 +464,13 @@ export function RecommendationApplicationProvider({
   }, [evaluateApprovedTriggersForInput, input, state.status]);
 
   // The generation input as of this moment, re-read from the live weather and profile rather
-  // than from the render that bound the handler. `null` when there is nothing to compose for.
+  // than from the render that bound the handler. `null` when there is nothing to compose for,
+  // and when the dressing day has flipped since that render: its answer, departure and pending
+  // question are not read yet, so the render that reads them generates instead.
   const currentInput = useCallback(() => {
     const currentDay = deviceLocalDay();
     setLocalDay((previous) => previous.key === currentDay.key ? previous : currentDay);
+    if (currentDay.key !== localDay.key) return null;
     const currentWeather = weatherApplication.getSnapshot?.() ?? weatherState;
     const clothingPreference = profileState.status === 'ready'
       ? profileState.profile.clothingPreference
@@ -479,8 +493,8 @@ export function RecommendationApplicationProvider({
       localDayKey: currentDay.key,
       locale: language,
     };
-  }, [activeDeparture, choiceReady, departureReady, language, profileState, resolvedDressStyle,
-    resolvedStyles, weatherApplication, weatherState]);
+  }, [activeDeparture, choiceReady, departureReady, language, localDay.key, profileState,
+    resolvedDressStyle, resolvedStyles, weatherApplication, weatherState]);
 
   // Tomorrow's preview is chosen only after a foreground open of Today has asked for it, and the
   // ask belongs to the dressing day it was made in: an open in the afternoon does not carry into
@@ -513,11 +527,11 @@ export function RecommendationApplicationProvider({
     // Both answers ride one generation, with the styles the next render resolves too, so
     // the approved triggers see nothing new and join this request instead of adding one.
     const generationInput = currentInput();
-    if (generationInput) void controller.refresh('dress-style-changed', {
+    if (generationInput && !awaitsWeatherRefresh(key)) void controller.refresh('dress-style-changed', {
       ...generationInput, dressStyle: formality,
       styleAesthetics: resolvedStyleAesthetics(choice, settingsStyles ?? []),
     });
-  }, [controller, currentInput, localDay.key, localProfileId, settingsStyles]);
+  }, [awaitsWeatherRefresh, controller, currentInput, localDay.key, localProfileId, settingsStyles]);
 
   const answerSetupDay = useCallback(async (formality: DressStyle) => {
     const key = deviceLocalDay().key;

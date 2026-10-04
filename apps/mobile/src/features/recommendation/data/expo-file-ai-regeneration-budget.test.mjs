@@ -91,13 +91,30 @@ test('the dressing-day date shares one allowance and a new date resets it', asyn
   assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-19', count: 1 }));
 });
 
-test('malformed, unreadable and unwritable stores deny a reservation', async () => {
-  const budget = new ExpoFileAiRegenerationBudget();
-  for (const stored of ['not json', 'null', '[]', '{"dayKey":"2026-09-18"}',
-    '{"dayKey":"2026-09-18","count":"2"}', '{"dayKey":"2026-09-18","count":-1}']) {
+test('corrupt content starts a fresh count that is rewritten, and still caps the day at five', async () => {
+  for (const stored of ['not json', '', 'null', '[]', '{"dayKey":"2026-09-18"}',
+    '{"dayKey":"2026-09-18","count":"2"}', '{"dayKey":"2026-09-18","count":-1}',
+    '{"dayKey":"2026-09-18","count":1.5}']) {
     files.set(budgetPath, stored);
-    assert.equal(await budget.reserve('2026-09-18'), false, stored);
+    assert.equal(await new ExpoFileAiRegenerationBudget().reserve('2026-09-18'), true, stored);
+    assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 1 }), stored);
   }
+  files.set(budgetPath, 'not json');
+  const reservations = [];
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    reservations.push(await new ExpoFileAiRegenerationBudget().reserve('2026-09-18'));
+  }
+  assert.deepEqual(reservations, [true, true, true, true, true, false]);
+  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 5 }));
+});
+
+test('unreadable and unwritable stores deny a reservation', async () => {
+  const budget = new ExpoFileAiRegenerationBudget();
+  files.set(budgetPath, JSON.stringify({ dayKey: '2026-09-18', count: 1 }));
+  readFailure = true;
+  assert.equal(await budget.reserve('2026-09-18'), false);
+  readFailure = false;
+  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 1 }));
   files.clear();
   readFailure = true;
   assert.equal(await budget.reserve('2026-09-18'), false);
