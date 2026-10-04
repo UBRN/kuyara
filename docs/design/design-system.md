@@ -37,6 +37,7 @@ Both appearances expose the same semantic roles:
 - Piece shadow: no token. Every garment board derives it from the plane it draws on, the plane's colour moved in OKLCH lightness only, -0.13 light and -0.10 dark, through `theme/color-oklch.ts` ([`garment-board.md`](garment-board.md) section 9); `textPrimary` clears 3:1 on every value.
 - Runway: four condition-hued fields per appearance (`clear`, `cloudy`, `rain`, `snow`; light `#F1DDA8`, `#C7D0DD`, `#7FB1CC`, `#D5E5EE`, dark `#1B3350`, `#1C2B37`, `#0E3A52`, `#193344`), roadmap item O1. Only the first-generation runway reads `theme.runway`, and `runway-palette.test.mjs` fails on any other consumer or any other file spelling the values. `textPrimary` clears 4.5:1, and the drafts' `iconSecondary` outline 3:1, on all eight.
 - Condition: a closed 15-role ink set, listed below, consumed only by condition glyphs and hourly condition icons. It is content colour selected by weather data, never an accent or status colour, and is always rendered at full opacity.
+- Temperature: two seven-stop ramps per appearance, `temperature.standard` and `temperature.strong`, one colour per stop of the fixed Celsius scale in `features/weather/domain/temperature-scale.ts` (-5, 5, 12, 18, 23, 28, 35), listed below. `strong` is read while `useVisibility().higherContrast` holds. `weather/presentation/temperature-gradient.ts` looks a Celsius value up on a ramp with `mixOklch` (`theme/color-oklch.ts`) and turns a low-to-high pair, or the hourly axis, into SVG stops at both ends and every whole degree. Only the Weather daily outlook and hourly rail read the ramps, and `temperature-gradient.test.mjs` fails on any other reader, any other file spelling the values, or a half degree under its contrast floor ([`design-language.md`](design-language.md#temperature-colour-is-content-data)).
 
 [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) reallocates the light foundation and the supporting ink: the page ground rises to Soft Mist, which lifts `textPrimary` from 10.04:1 to 12.90:1, and supporting text becomes a derived neutral rather than Calm Current, leaving Calm Current as a selective accent. This reallocation is app-wide: Profile, Closet and Settings adopt Direction E rather than keeping a white-card step. Light `background` is Soft Mist, `textSecondary` and `iconSecondary` are the derived neutral `#2F4650` (dark `#B0C0C5`), `borderSubtle` is `#CCD2D4` (dark `#26393F`), and a new `stage` role, `#D7DCDD` light and the light grey plate `#D5D8D9` dark, is the condition-tinted stage in its neutral state; `garmentGround` (light `background`) and `garmentTile` (light `surfaceMuted`) are the planes a garment drawing stands on elsewhere, both the neutral plate in dark, where everything on a plate takes the light roles (`plateTheme`). The per-condition states carry ADR 0018's values at ADR 0021's raised luminance.
 
@@ -78,6 +79,16 @@ These are derived semantic values in the same class as the existing derived neut
 | `snow` | `#2D4653` | `#8BAFC1` |
 | `thunderstorm` | `#5B2D7B` | `#C29EDB` |
 | `neutral` | `textPrimary` | `textPrimary` |
+
+| temperature stop | light standard | light strong | dark standard | dark strong |
+| --- | --- | --- | --- | --- |
+| -5 °C | `#5C86D6` | `#3F68B5` | `#7BA1E6` | `#ACC9FE` |
+| 5 °C | `#1893AE` | `#1B7489` | `#37AFCB` | `#72D5EF` |
+| 12 °C | `#039894` | `#107773` | `#2CB2AD` | `#6DD9D4` |
+| 18 °C | `#249870` | `#0A7957` | `#50B38C` | `#82D9B4` |
+| 23 °C | `#AB8023` | `#8A640D` | `#C49B4A` | `#E9C27B` |
+| 28 °C | `#C77137` | `#A65312` | `#DA8F61` | `#FFB98E` |
+| 35 °C | `#CF6963` | `#AE4C47` | `#E18982` | `#FCB8B1` |
 
 ### Contrast evidence
 

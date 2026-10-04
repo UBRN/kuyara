@@ -14,6 +14,7 @@ import { RecordingProductAnalytics } from '@/features/analytics/data/recording-p
 import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
 import { getManualLocation } from '@/features/weather/domain/manual-location-catalog';
 import type { WeatherReadyState } from '@/features/weather/application/weather-application-controller';
+import { temperatureColor, temperatureStops } from '@/features/weather/presentation/temperature-gradient';
 import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -179,6 +180,39 @@ test('Weather renders Fahrenheit in the current reading and its accessible label
   );
   expect(result.getAllByText('60.8°').length).toBeGreaterThan(0);
   expect(result.getAllByLabelText(/60\.8 degrees Fahrenheit/).length).toBeGreaterThan(0);
+});
+
+// Colour follows the Celsius value: Fahrenheit changes the numbers and nothing else.
+test('Fahrenheit changes the forecast\'s numbers but not its temperature colours', async () => {
+  const colours = async (temperatureUnit: 'celsius' | 'fahrenheit') => {
+    const result = await render(
+      <Providers language="en" temperatureUnit={temperatureUnit} value={dailyValue()}><WeatherScreen /></Providers>,
+    );
+    const band = result.getAllByTestId('weather-hourly-band', { includeHiddenElements: true })[0];
+    await fireEvent(band, 'layout', { nativeEvent: { layout: { x: 0, y: 42, width: 64, height: 64 } } });
+    for (const capsule of result.getAllByTestId('weather-daily-rail-fill', { includeHiddenElements: true })) {
+      await fireEvent(capsule, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 80, height: 6 } } });
+    }
+    const card = within(result.getByTestId('weather-daily-card'));
+    const drawn = {
+      gradients: result.container.queryAll((node) => node.type === 'RNSVGLinearGradient')
+        .filter((node) => node.props.name !== undefined && !String(node.props.name).startsWith('hourly-fade'))
+        .map((node) => node.props.gradient),
+      dots: result.getAllByTestId('weather-hourly-series-dot', { includeHiddenElements: true })
+        .map((dot) => dot.props.stroke),
+      high: card.getAllByText(/°$/).map((text) => text.props.children),
+    };
+    await result.unmount();
+    return drawn;
+  };
+
+  const celsius = await colours('celsius');
+  const fahrenheit = await colours('fahrenheit');
+  // The hourly axis and the five capsules.
+  expect(celsius.gradients).toHaveLength(6);
+  expect(fahrenheit.gradients).toEqual(celsius.gradients);
+  expect(fahrenheit.dots).toEqual(celsius.dots);
+  expect(fahrenheit.high).not.toEqual(celsius.high);
 });
 
 test.each([
@@ -1123,7 +1157,7 @@ test.each([
   expect(result.getByLabelText(accessibilityLabel)).toBeOnTheScreen();
 });
 
-test('the hourly rail scrolls horizontally and plots one accent temperature series', async () => {
+test('the hourly rail scrolls horizontally and plots the temperature series on the temperature scale', async () => {
   const value = createValue({
     ...baseState,
     activeLocation: getManualLocation('sample.istanbul')!,
@@ -1152,12 +1186,24 @@ test('the hourly rail scrolls horizontally and plots one accent temperature seri
   expect(isHiddenFromAccessibility(series)).toBe(true);
   const reveal = result.getByTestId('weather-hourly-series-reveal', { includeHiddenElements: true });
   expect(StyleSheet.flatten(reveal.props.style)).toMatchObject({ position: 'absolute', top: 42 });
-  // The series is Weather's accent-coloured temperature encoding; the daily rails below
-  // draw the same quantity in the same hue and count with it, not against it (Law 1).
+  // The series is coloured on the same fixed temperature scale as the daily capsules below:
+  // a vertical gradient on the plot's own axis, from its warmest hour down to its coldest.
   const line = result.getByTestId('weather-hourly-series-line', { includeHiddenElements: true });
-  // react-native-svg normalizes the stroke into a processed colour before it reaches the
-  // host element, so the accent is compared in that form.
-  expect(line.props.stroke.payload).toBe(processColor(lightTheme.colors.brandAccent));
+  const [axis] = result.container.queryAll((node) => node.type === 'RNSVGLinearGradient');
+  expect(line.props.stroke).toEqual({ type: 1, brushRef: axis.props.name });
+  // react-native-svg's processed form: 1 is user space, so a level stretch keeps its colour.
+  expect(axis.props).toMatchObject({ gradientUnits: 1, x1: 0, x2: 0 });
+  const columnCelsius = sampleSnapshot().hourly.map((hour) => hour.temperatureCelsius);
+  const [warmest, coldest] = [Math.max(...columnCelsius), Math.min(...columnCelsius)];
+  expect(axis.props.gradient).toEqual(temperatureStops(lightTheme.temperature.standard, warmest, coldest)
+    .flatMap(({ offset, color }) => [offset, Number(processColor(color)) | 0]));
+  expect(Number(axis.props.y1)).toBeLessThan(Number(axis.props.y2));
+  // The current hour's dot is filled with its own temperature's colour.
+  const [nowDot] = result.getAllByTestId('weather-hourly-series-dot', { includeHiddenElements: true });
+  expect(nowDot.props.fill).toEqual({
+    type: 0,
+    payload: processColor(temperatureColor(lightTheme.temperature.standard, columnCelsius[0])),
+  });
   // O14 rail A: each number rides above its own dot in `label`, so nothing is knocked out of
   // the line and a flat stretch no longer reads as dashes between numbers.
   const label = result.getAllByTestId('weather-hourly-temperature', { includeHiddenElements: true })[0];
@@ -1416,7 +1462,6 @@ test('one rail carries the current temperature, and only on today\'s row', async
   // The week runs 12 to 27, so Thursday's 12 to 19 starts at the cold end and covers the
   // first 47 per cent of it; every rail is positioned against that same range.
   expect(StyleSheet.flatten(fills[0].props.style)).toMatchObject({
-    backgroundColor: lightTheme.colors.brandAccent,
     left: '0%',
     width: `${(19 - 12) / (27 - 12) * 100}%`,
   });
@@ -1649,9 +1694,14 @@ test('the forecast draws in when its data first arrives, never on a cached open 
     const band = result.getAllByTestId('weather-hourly-band', { includeHiddenElements: true })[0];
     await fireEvent(band, 'layout', { nativeEvent: { layout: { x: 0, y: 42, width: 64, height: 64 } } });
   };
-  const fillTransforms = (result: Awaited<ReturnType<typeof render>>) => result
-    .getAllByTestId('weather-daily-rail-fill', { includeHiddenElements: true })
-    .map((fill) => StyleSheet.flatten(fill.props.style).transform);
+  // Each capsule draws, and uncovers, its colours at its own measured width.
+  const fillTransforms = async (result: Awaited<ReturnType<typeof render>>) => {
+    for (const capsule of result.getAllByTestId('weather-daily-rail-fill', { includeHiddenElements: true })) {
+      await fireEvent(capsule, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 80, height: 6 } } });
+    }
+    return result.getAllByTestId('weather-daily-rail-reveal', { includeHiddenElements: true })
+      .map((reveal) => StyleSheet.flatten(reveal.props.style).transform);
+  };
   const revealStyle = (result: Awaited<ReturnType<typeof render>>) => StyleSheet.flatten(
     result.getByTestId('weather-hourly-series-reveal', { includeHiddenElements: true }).props.style,
   );
@@ -1659,7 +1709,7 @@ test('the forecast draws in when its data first arrives, never on a cached open 
   // A cached open: the forecast is on screen from the first frame and does not draw.
   const cached = await render(ready('2026-07-30T09:00:00.000Z'));
   await layoutBand(cached);
-  expect(fillTransforms(cached).every((transform) => transform === undefined)).toBe(true);
+  expect((await fillTransforms(cached)).every((transform) => transform === undefined)).toBe(true);
   expect(revealStyle(cached).transform).toBeUndefined();
   await cached.unmount();
 
@@ -1668,8 +1718,8 @@ test('the forecast draws in when its data first arrives, never on a cached open 
   const arriving = await render(ready(null));
   await arriving.rerender(ready('2026-07-30T09:00:00.000Z'));
   await layoutBand(arriving);
-  expect(fillTransforms(arriving).every((transform) => (
-    JSON.stringify(transform) === JSON.stringify([{ scaleX: 0 }])
+  expect((await fillTransforms(arriving)).every((transform) => (
+    JSON.stringify(transform) === JSON.stringify([{ translateX: -80 }])
   ))).toBe(true);
   const reveal = revealStyle(arriving);
   expect(reveal.transform).toEqual([{ translateX: -Number(reveal.width) }]);

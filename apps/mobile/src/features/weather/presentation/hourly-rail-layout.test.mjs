@@ -109,3 +109,21 @@ test('larger text widens the column and grows the plot only up to its cap', () =
   // A smaller text size never narrows the column below the default.
   assert.equal(hourlyRailMetrics(0.8, { columnGap: 4, inset: 16 }).columnWidth, 52);
 });
+
+test('the layout names its temperature axis, so the line can be coloured along it', () => {
+  const layout = layoutHourlyRail([14, 9, 22, 17], metrics);
+
+  assert.equal(layout.minimumCelsius, 9);
+  assert.equal(layout.maximumCelsius, 22);
+  assert.equal(layout.yAtMinimum, bottom);
+  assert.equal(layout.yAtMaximum, top);
+});
+
+test('a flat series names one temperature at one height', () => {
+  const layout = layoutHourlyRail([12, 12, 12], metrics);
+
+  assert.equal(layout.minimumCelsius, 12);
+  assert.equal(layout.maximumCelsius, 12);
+  assert.equal(layout.yAtMinimum, centre);
+  assert.equal(layout.yAtMaximum, centre);
+});
