@@ -240,8 +240,8 @@ export function RecommendationApplicationProvider({
   // unasked day resolves to the profile dress style, as a dismissed question does.
   const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready' &&
     Boolean(profileState.profile.morningSheetEnabled);
-  const morningChoicePending = Boolean(dayQuestionOpen && !isEveningDressingDayKey(localDay.key));
-  const eveningChoicePending = Boolean(dayQuestionOpen && isEveningDressingDayKey(localDay.key));
+  const morningChoicePending = dayQuestionOpen && !isEveningDressingDayKey(localDay.key);
+  const eveningChoicePending = dayQuestionOpen && isEveningDressingDayKey(localDay.key);
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const reevaluateLocalDay = useCallback(() => {
     const next = deviceLocalDay();

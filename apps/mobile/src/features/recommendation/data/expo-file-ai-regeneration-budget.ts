@@ -13,12 +13,11 @@ const fileName = 'ai-regenerations.json';
 
 function storedCount(text: string, dayKey: string): number {
   try {
+    // Null, an array or a primitive fails the day check or throws on the read, and reads as zero.
     const parsed: unknown = JSON.parse(text);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return 0;
-    const record = parsed as Readonly<{ dayKey?: unknown; count?: unknown }>;
-    if (record.dayKey !== dayKey || typeof record.count !== 'number' ||
-        !Number.isSafeInteger(record.count) || record.count < 0) return 0;
-    return record.count;
+    const { dayKey: storedDay, count } = parsed as Readonly<{ dayKey?: unknown; count?: unknown }>;
+    return storedDay === dayKey && typeof count === 'number' && Number.isSafeInteger(count) && count >= 0
+      ? count : 0;
   } catch {
     return 0;
   }
