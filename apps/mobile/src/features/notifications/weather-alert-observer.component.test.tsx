@@ -331,6 +331,7 @@ function cancellableScheduler() {
     upsertScheduled: async () => undefined,
     deletePending: async () => undefined,
     listFiredIds: async () => new Set(),
+    listPending: async () => [],
     pruneBefore: async () => undefined,
   };
   return {

@@ -105,8 +105,45 @@ function alertCopy(
     : { title: copy.riseTitle, body: copy.riseBody({ time, temperature }) };
 }
 
+/** Every enabled kind's plan for the snapshot, each with its copy in the input's unit. */
+function plannedNotifications(
+  input: RescheduleInput,
+  snapshot: WeatherSnapshot,
+  now: string,
+  deliveredIds: ReadonlySet<string>,
+): readonly Readonly<{ plan: WeatherAlertPlan | MorningBriefingPlan; title: string; body: string }>[] {
+  const plans = input.weatherAlertsEnabled
+    ? planWeatherAlerts({
+      snapshot,
+      now,
+      quietHours: deviceQuietHours(getDeviceTimeZone() || 'UTC'),
+      deliveredAlertIds: deliveredIds,
+      leadTimeMinutes: input.leadTimeMinutes,
+    })
+    : [];
+  const briefing = input.morningBriefingEnabled
+    ? planMorningBriefing({ snapshot, now, deliveredIds })
+    : null;
+  return [
+    ...plans.map((plan) => ({
+      plan,
+      ...alertCopy(plan, snapshot.timeZone, input.language, input.hour12, input.temperatureUnit),
+    })),
+    ...(briefing ? [{
+      plan: briefing,
+      ...briefingCopy(briefing, snapshot.timeZone, input.language, input.hour12, input.temperatureUnit),
+    }] : []),
+  ];
+}
+
 export class WeatherAlertScheduler implements WeatherAlertScheduling {
   private queuedInput: RescheduleInput | null = null;
+  /**
+   * The unit the pending notifications were written in, as far as this process knows. Every
+   * unit change runs a reschedule, so the first run's unit is the one the stored preference
+   * last wrote them in.
+   */
+  private writtenUnit: TemperatureUnit | null = null;
   private running: Promise<void> | null = null;
   private readonly gateway: NotificationGateway;
   private readonly repository: WeatherAlertDeliveryRepository
@@ -165,8 +202,15 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
         if (!await this.gateway.cancelScheduledWeatherAlerts(kind)) return;
         await (await this.repository).deletePending(input.localProfileId, now, kind);
       }
+      // Without a snapshot nothing can be rewritten, so the old unit stays on record for the
+      // next stale run that has one.
+      if (snapshot && this.writtenUnit !== input.temperatureUnit) {
+        if (this.writtenUnit !== null) await this.rewritePending(input, snapshot, now);
+        this.writtenUnit = input.temperatureUnit;
+      }
       return;
     }
+    this.writtenUnit = input.temperatureUnit;
     // A failed cancellation leaves superseded alerts pending, so re-planning over it would
     // let them fire beside the new ones. Abort and leave the schedule and ledger as they are.
     if (!await this.gateway.cancelScheduledWeatherAlerts()) return;
@@ -175,54 +219,51 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     if (!snapshot) return;
 
     const deliveredAlertIds = await repository.listFiredIds(input.localProfileId, now);
-    const timeZone = getDeviceTimeZone() || 'UTC';
-    const plans = input.weatherAlertsEnabled
-      ? planWeatherAlerts({
-        snapshot,
-        now,
-        quietHours: deviceQuietHours(timeZone),
-        deliveredAlertIds,
-        leadTimeMinutes: input.leadTimeMinutes,
-      })
-      : [];
-    const briefing = input.morningBriefingEnabled
-      ? planMorningBriefing({ snapshot, now, deliveredIds: deliveredAlertIds })
-      : null;
 
     // The ledger records what the OS accepted, not what was intended: a row for a
     // notification that was never scheduled would suppress the identity for the rest of
     // the day.
     const scheduled: WeatherAlertDeliveryRecord[] = [];
-    const schedule = async (
-      plan: WeatherAlertPlan | MorningBriefingPlan,
-      copy: Readonly<{ title: string; body: string }>,
-    ) => {
+    for (const { plan, title, body } of plannedNotifications(input, snapshot, now, deliveredAlertIds)) {
       const accepted = await this.gateway.scheduleWeatherAlert({
         identifier: plan.id,
         fireAt: plan.fireAt,
-        title: copy.title,
-        body: copy.body,
+        title,
+        body,
       });
-      if (!accepted) return;
+      if (!accepted) continue;
       scheduled.push({
         id: plan.id,
         localProfileId: input.localProfileId,
         fireAt: plan.fireAt,
         createdAt: now,
       });
-    };
-
-    for (const plan of plans) {
-      await schedule(plan, alertCopy(plan, snapshot.timeZone, input.language, input.hour12, input.temperatureUnit));
     }
-    if (briefing) await schedule(briefing, briefingCopy(
-      briefing, snapshot.timeZone, input.language, input.hour12, input.temperatureUnit,
-    ));
 
     await repository.upsertScheduled(scheduled);
     await repository.pruneBefore(
       input.localProfileId,
       new Date(Date.parse(now) - deliveryRetentionMilliseconds).toISOString(),
     );
+  }
+
+  /**
+   * A stale snapshot cannot plan, but the notifications already pending were planned from it,
+   * so their text is written again in the new unit under the same identifier and fire time.
+   * Nothing is added or dropped; a pending notification the snapshot no longer reproduces keeps
+   * its text.
+   */
+  private async rewritePending(input: RescheduleInput, snapshot: WeatherSnapshot, now: string) {
+    const repository = await this.repository;
+    const pending = new Map((await repository.listPending(input.localProfileId, now))
+      .map(({ id, fireAt }) => [id, fireAt]));
+    if (pending.size === 0) return;
+    const deliveredIds = await repository.listFiredIds(input.localProfileId, now);
+    for (const { plan, title, body } of plannedNotifications(input, snapshot, now, deliveredIds)) {
+      const fireAt = pending.get(plan.id);
+      if (fireAt !== undefined) {
+        await this.gateway.scheduleWeatherAlert({ identifier: plan.id, fireAt, title, body });
+      }
+    }
   }
 }
