@@ -49,11 +49,6 @@ export function provideMemberAccess(access: MemberAccess): () => void {
   };
 }
 
-/** `selectIsMember` at the moment of a call, for the re-ask allowance; false without accounts. */
-export function isMemberNow(): boolean {
-  return live !== null && selectIsMember(live.port.getSnapshot());
-}
-
 /**
  * A signed-in member's access token for the Worker's member allowance, sent only as a bearer
  * header; null when signed out, without accounts or when it cannot be read, so no request ever

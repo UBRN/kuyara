@@ -227,20 +227,6 @@ test('a member\'s re-ask carries the access token as a bearer header, and nothin
   for (const init of sent) assert.doesNotMatch(init.body, /member-access-token/);
 });
 
-test('a member token that cannot be read sends the re-ask without one', async () => {
-  let headers;
-  const client = new WorkerAiClient({
-    baseUrl: 'https://worker.example',
-    memberAccessToken: async () => { throw new Error('No session.'); },
-    fetch: async (_input, init) => {
-      headers = init.headers;
-      return new Response(JSON.stringify({ data: responseData }), { status: 200 });
-    },
-  });
-  await client.recommend(request, { reask: true });
-  assert.equal('authorization' in headers, false);
-});
-
 test('a request that never reached the Worker and one the timeout aborted are told apart', async (t) => {
   const offline = new WorkerAiClient({ baseUrl: 'https://worker.example', fetch: async () => { throw new TypeError('Network request failed'); } });
   await assert.rejects(offline.recommend(request), (error) => error instanceof WorkerAiClientError && error.kind === 'network' && error.timedOut === false);

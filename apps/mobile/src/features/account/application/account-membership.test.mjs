@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import { accountScenarios, createInMemoryAccountScreens } from './account-screens.ts';
 import {
-  isMemberNow,
   memberAccessToken,
   provideMemberAccess,
   selectIsMember,
@@ -37,8 +36,7 @@ test('the component hook is the selector read through the account screens port',
   assert.equal(typeof useIsMember, 'function');
 });
 
-test('without a live session no one is a member and no token exists', async () => {
-  assert.equal(isMemberNow(), false);
+test('without a live session no token exists', async () => {
   assert.equal(await memberAccessToken(), null);
 });
 
@@ -47,11 +45,9 @@ test('the live session answers membership, and gives its token only while signed
   let reads = 0;
   const stop = provideMemberAccess({ port, accessToken: async () => { reads += 1; return 'access-token'; } });
   t.after(stop);
-  assert.equal(isMemberNow(), false);
   assert.equal(await memberAccessToken(), null);
   assert.equal(reads, 0);
   await port.signIn('apple');
-  assert.equal(isMemberNow(), true);
   assert.equal(await memberAccessToken(), 'access-token');
   await port.signOut();
   assert.equal(await memberAccessToken(), null);
@@ -60,9 +56,11 @@ test('the live session answers membership, and gives its token only while signed
 
 test('a token that cannot be read is none, and a stopped session no longer answers', async () => {
   const port = createInMemoryAccountScreens(accountScenarios.upToDate);
-  const stop = provideMemberAccess({ port, accessToken: async () => { throw new Error('No session.'); } });
-  assert.equal(isMemberNow(), true);
+  let token = async () => { throw new Error('No session.'); };
+  const stop = provideMemberAccess({ port, accessToken: () => token() });
   assert.equal(await memberAccessToken(), null);
+  token = async () => 'access-token';
+  assert.equal(await memberAccessToken(), 'access-token');
   stop();
-  assert.equal(isMemberNow(), false);
+  assert.equal(await memberAccessToken(), null);
 });

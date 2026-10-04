@@ -21,9 +21,9 @@ type Dependencies = Readonly<{
   fetch?: Fetch;
   requestTimeoutMilliseconds?: number;
   /**
-   * A signed-in member's access token, null for everyone else. Only a re-ask sends it, as a
-   * bearer header, so the Worker counts the member's allowance (ADR 0041 section 13); the
-   * request body is unchanged.
+   * A signed-in member's access token, null for everyone else; it answers null rather than
+   * throw. Only a re-ask sends it, as a bearer header, so the Worker counts the member's
+   * allowance (ADR 0041 section 13); the request body is unchanged.
    */
   memberAccessToken?: () => Promise<string | null>;
 }>;
@@ -70,14 +70,9 @@ export class WorkerAiClient {
     this.memberAccessToken = dependencies.memberAccessToken ?? (async () => null);
   }
 
-  /** The bearer header of a member's re-ask; none when there is no token or it cannot be read. */
+  /** The bearer header of a member's re-ask; none without a token. */
   private async memberAuthorization(): Promise<Readonly<Record<string, string>>> {
-    let token: string | null;
-    try {
-      token = await this.memberAccessToken();
-    } catch {
-      token = null;
-    }
+    const token = await this.memberAccessToken();
     return token ? { authorization: `Bearer ${token}` } : {};
   }
 
