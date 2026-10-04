@@ -27,7 +27,9 @@ function ReadyPrivacySettingsRoute() {
         identifier={consent.getIdentifier()}
         onGrant={() => consent.grant('settings_privacy')}
         onOpenPrivacyPolicy={() => {
-          if (privacyPolicyUrl) void Linking.openURL(privacyPolicyUrl);
+          if (privacyPolicyUrl) void Linking.openURL(privacyPolicyUrl).catch(() => {
+            // A link the system cannot open leaves the screen as it was; nothing is lost.
+          });
         }}
         onWithdraw={consent.withdraw}
         privacyPolicyUrl={privacyPolicyUrl}

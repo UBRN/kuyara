@@ -516,6 +516,23 @@ test('mobile production code has no bare global fetch call', () => {
   assert.deepEqual(found, [], 'take `fetch` as a parameter and call that');
 });
 
+// A link the system cannot open rejects; every `Linking.openURL` handles that rejection, so it
+// never surfaces as an unhandled promise.
+test('every Linking.openURL call handles its rejection', () => {
+  const call = /Linking\.openURL\((?:[^()]|\([^()]*\))*\)/g;
+  const unhandled = [];
+  for (const relativePath of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    for (const match of text.matchAll(call)) {
+      if (!/^\s*\.catch\(/.test(text.slice(match.index + match[0].length))) {
+        unhandled.push(`${repoRelativeRoot}/${relativePath}:${text.slice(0, match.index).split('\n').length}`);
+      }
+    }
+  }
+
+  assert.deepEqual(unhandled, [], 'end the call with a .catch whose one comment line says why nothing more is shown');
+});
+
 // A stack push always appends, so a raw `router.push` behind a tap opens the same screen twice
 // on a quick double tap. Tap handlers push through `useSinglePush` (components/ui); the only
 // raw push left opens the consent sheet from a hook, never from a tap. The list only shrinks.
