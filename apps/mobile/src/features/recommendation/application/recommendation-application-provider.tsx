@@ -453,10 +453,13 @@ export function RecommendationApplicationProvider({
   }, [evaluateApprovedTriggersForInput, input, state.status]);
 
   // The generation input as of this moment, re-read from the live weather and profile rather
-  // than from the render that bound the handler. `null` when there is nothing to compose for.
+  // than from the render that bound the handler. `null` when there is nothing to compose for,
+  // and when the dressing day has flipped since that render: its answer, departure and pending
+  // question are not read yet, so the render that reads them generates instead.
   const currentInput = useCallback(() => {
     const currentDay = deviceLocalDay();
     setLocalDay((previous) => previous.key === currentDay.key ? previous : currentDay);
+    if (currentDay.key !== localDay.key) return null;
     const currentWeather = weatherApplication.getSnapshot?.() ?? weatherState;
     const clothingPreference = profileState.status === 'ready'
       ? profileState.profile.clothingPreference
@@ -479,8 +482,8 @@ export function RecommendationApplicationProvider({
       localDayKey: currentDay.key,
       locale: language,
     };
-  }, [activeDeparture, choiceReady, departureReady, language, profileState, resolvedDressStyle,
-    resolvedStyles, weatherApplication, weatherState]);
+  }, [activeDeparture, choiceReady, departureReady, language, localDay.key, profileState,
+    resolvedDressStyle, resolvedStyles, weatherApplication, weatherState]);
 
   // Tomorrow's preview is chosen only after a foreground open of Today has asked for it, and the
   // ask belongs to the dressing day it was made in: an open in the afternoon does not carry into

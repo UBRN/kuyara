@@ -1926,6 +1926,83 @@ test('a warm process crossing 18:00 opens the evening question over a wait', asy
   }
 });
 
+// A return from the background across a key flip asks the new key's question before anything
+// is chosen, and its answer starts the one generation, with the new key's own Later departure
+// rather than the previous key's answer.
+test.each([
+  ['evening', '2026-09-24T17:59:00.000Z', '2026-09-24T18:00:00.000Z', '2026-09-24',
+    '2026-09-24:evening', '2026-09-24T19:30:00.000Z'],
+  ['morning', '2026-09-24T03:59:00.000Z', '2026-09-24T04:00:00.000Z', '2026-09-23:evening',
+    '2026-09-24', '2026-09-24T08:30:00.000Z'],
+])('a warm return across the %s flip asks first and generates once with the new key', async (
+  _question, before, after, previousKey, nextKey, departureAt,
+) => {
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date(before),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    dressStyle: 'formal', localDayKey: previousKey };
+  mockChoiceGet.mockImplementation(async (_profile: string, key: string) =>
+    key === previousKey ? {
+      id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+      dayKey: key, formality: 'formal', source: 'morning', styleAesthetics: null,
+      createdAt: before, updatedAt: before, deletedAt: null,
+    } : null);
+  mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
+    source: string) => ({
+    id: '1f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey: key, formality, source, styleAesthetics: null,
+    createdAt: after, updatedAt: after, deletedAt: null,
+  }));
+  mockDepartureGet.mockImplementation(async (_profile: string, key: string) =>
+    key === nextKey ? { id: 'departure-one', localProfileId: 'profile-one', dayKey: key,
+      departureAt, timeZone: 'Europe/Istanbul', createdAt: before, updatedAt: before,
+      deletedAt: null } : null);
+  const onChange: ((state: string) => void)[] = [];
+  const appState = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()}
+        profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen());
+    expect(refresh).not.toHaveBeenCalled();
+
+    jest.setSystemTime(new Date(after));
+    await act(async () => {
+      onChange.forEach((listener) => listener('background'));
+      onChange.forEach((listener) => listener('active'));
+    });
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    expect(refresh).not.toHaveBeenCalled();
+
+    await fireEvent.press(view.getByTestId('daily-formality-close'));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(mockChoiceUpsert).toHaveBeenCalledTimes(1);
+    expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', nextKey, 'smart', 'morning', undefined);
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+    expect(refresh.mock.calls[0][1]).toMatchObject({ localDayKey: nextKey, dressStyle: 'smart', departureAt });
+  } finally {
+    appState.mockRestore();
+    history.mockRestore();
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
 // N20: the first foreground open after 18:00 asks the evening question with nothing checked,
 // and closing it answers the evening with the profile's dress style (P6).
 test('the evening sheet arrives empty and its dismissal uses the profile dress style', async () => {
