@@ -198,6 +198,26 @@ test('snapshot and hourly data round-trip, remain location-bound, and retain act
   ]);
 });
 
+test('switching to a place with no snapshot yet keeps only the newest previous one', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const istanbul = getManualLocation('sample.istanbul');
+  const ankara = getManualLocation('sample.ankara');
+  const london = getManualLocation('sample.london');
+  await repository.setActiveLocation(profileId, istanbul);
+  await repository.saveSnapshot(profileId, provided(istanbul, '2026-07-30T10:00:00.000Z'));
+  await repository.setActiveLocation(profileId, ankara);
+  await repository.saveSnapshot(profileId, provided(ankara, '2026-07-30T11:00:00.000Z'));
+  await repository.setActiveLocation(profileId, london);
+
+  assert.equal(await repository.getSnapshot(profileId, istanbul.locationKey), null);
+  assert.equal((await repository.getSnapshot(profileId, ankara.locationKey)).locationKey, ankara.locationKey);
+  const snapshots = await database.getAllAsync('SELECT location_key FROM weather_snapshots');
+  assert.deepEqual(snapshots.map(({ location_key }) => location_key), [ankara.locationKey]);
+  const hourly = await database.getAllAsync('SELECT DISTINCT snapshot_id FROM weather_hourly_entries');
+  assert.equal(hourly.length, 1);
+});
+
 test('concurrent foreground and background results keep the newest fetched snapshot', async (t) => {
   const { database, repository: foreground } = await setup();
   t.after(() => database.close());

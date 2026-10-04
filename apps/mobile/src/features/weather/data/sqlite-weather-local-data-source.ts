@@ -145,6 +145,29 @@ async function readSnapshot(
   };
 }
 
+// Retention is the active location's snapshot plus the newest snapshot of any other place.
+// A new snapshot and a new active location both move that set, so both writes prune here.
+async function pruneSnapshots(transaction: SqliteExecutor, localProfileId: string): Promise<void> {
+  const activeKey = 'SELECT location_key FROM active_locations WHERE local_profile_id = ?';
+  const prunedSnapshotIds = `SELECT id FROM weather_snapshots
+     WHERE local_profile_id = ? AND id NOT IN (
+       SELECT id FROM weather_snapshots WHERE local_profile_id = ? AND location_key IS (${activeKey})
+       UNION ALL
+       SELECT id FROM (
+         SELECT id FROM weather_snapshots
+         WHERE local_profile_id = ? AND location_key IS NOT (${activeKey})
+         ORDER BY fetched_at DESC, id ASC
+         LIMIT 1
+       )
+     )`;
+  const parameters = Array.from({ length: 5 }, () => localProfileId);
+  await transaction.runAsync(
+    `DELETE FROM weather_hourly_entries WHERE snapshot_id IN (${prunedSnapshotIds})`,
+    parameters,
+  );
+  await transaction.runAsync(`DELETE FROM weather_snapshots WHERE id IN (${prunedSnapshotIds})`, parameters);
+}
+
 export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
   private readonly database: SqliteDatabase;
 
@@ -180,6 +203,7 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
           record.timeZone, record.deviceAccuracy, record.createdAt, record.updatedAt, record.displayName,
         ],
       );
+      await pruneSnapshots(transaction, record.localProfileId);
       result = await readLocation(transaction, record.localProfileId);
     });
     if (!result) throw new WeatherDataSourceError();
@@ -241,24 +265,7 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
           ],
         );
       }
-      const prunedSnapshotIds = `SELECT id FROM weather_snapshots
-         WHERE local_profile_id = ? AND id NOT IN (
-           SELECT snapshot.id FROM weather_snapshots AS snapshot
-           LEFT JOIN active_locations AS active
-             ON active.local_profile_id = snapshot.local_profile_id
-           WHERE snapshot.local_profile_id = ?
-           ORDER BY CASE WHEN snapshot.location_key = active.location_key THEN 0 ELSE 1 END,
-             snapshot.fetched_at DESC, snapshot.id ASC
-           LIMIT 2
-         )`;
-      await transaction.runAsync(
-        `DELETE FROM weather_hourly_entries WHERE snapshot_id IN (${prunedSnapshotIds})`,
-        [record.localProfileId, record.localProfileId],
-      );
-      await transaction.runAsync(
-        `DELETE FROM weather_snapshots WHERE id IN (${prunedSnapshotIds})`,
-        [record.localProfileId, record.localProfileId],
-      );
+      await pruneSnapshots(transaction, record.localProfileId);
       result = await readSnapshot(transaction, record.localProfileId, record.locationKey);
     });
     if (!result) throw new WeatherDataSourceError();
