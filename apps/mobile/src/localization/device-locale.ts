@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { AppState, I18nManager, NativeModules, Platform } from 'react-native';
 import { getLocales, useLocales } from 'expo-localization';
 
-import type { TemperatureUnitPreference, WindSpeedUnitPreference } from '@/domain/preferences';
+import type { WindSpeedUnitPreference } from '@/domain/preferences';
+import type { TemperatureUnit } from '@/domain/temperature-unit';
 import { type WindSpeedUnit, windSpeedUnitFor } from '@/domain/wind-speed';
 
 type AppleSettings = Record<string, unknown> | undefined;
-export type TemperatureUnit = 'celsius' | 'fahrenheit';
+export type { TemperatureUnit };
 
 function firstString(value: unknown): string | undefined {
   if (typeof value === 'string') {
@@ -124,14 +125,6 @@ export function resolveDeviceTemperatureUnit(
   return localeUnit === 'fahrenheit' || localeUnit === 'celsius'
     ? localeUnit
     : 'celsius';
-}
-
-// The stored choice wins; System is the device's own Temperature setting.
-export function resolveTemperatureUnit(
-  preference: TemperatureUnitPreference,
-  deviceUnit: TemperatureUnit,
-): TemperatureUnit {
-  return preference === 'system' ? deviceUnit : preference;
 }
 
 export function getDeviceTemperatureUnit(): TemperatureUnit {

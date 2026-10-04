@@ -164,6 +164,25 @@ test('the background task passes the current device temperature unit to scheduli
   assert.equal(harness.calls.at(-1).temperatureUnit, 'fahrenheit');
 });
 
+// The background task has no React tree, so it resolves the stored choice itself: a fixed
+// choice wins over the device, and System reads the device's Temperature setting.
+test('the background task schedules in the stored temperature choice over the device setting', async () => {
+  for (const [preference, device, expected] of [
+    ['system', 'fahrenheit', 'fahrenheit'],
+    ['system', 'celsius', 'celsius'],
+    ['celsius', 'fahrenheit', 'celsius'],
+    ['fahrenheit', 'celsius', 'fahrenheit'],
+    [undefined, 'fahrenheit', 'fahrenheit'],
+  ]) {
+    const harness = createHarness({
+      loadProfile: async () => ({ ...profile, temperatureUnitPreference: preference }),
+      getDeviceTemperatureUnit: () => device,
+    });
+    assert.equal(await runBackgroundWeatherAlertTask(harness.dependencies), 'success');
+    assert.equal(harness.calls.at(-1).temperatureUnit, expected, `${preference} on ${device}`);
+  }
+});
+
 test('a still-fresh cached snapshot reschedules without spending a provider request', async () => {
   const harness = createHarness({
     cached: { id: 'cached-id', localProfileId: profile.id, ...provided },

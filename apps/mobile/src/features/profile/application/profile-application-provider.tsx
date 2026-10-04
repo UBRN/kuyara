@@ -72,6 +72,10 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
         controller.updateLanguagePreference(preference),
       updateThemePreference: (preference) =>
         controller.updateThemePreference(preference),
+      updateTemperatureUnitPreference: (preference) =>
+        controller.updateTemperatureUnitPreference(preference),
+      updateWindSpeedUnitPreference: (preference) =>
+        controller.updateWindSpeedUnitPreference(preference),
       updateNotificationsOptIn,
       updateMorningBriefingOptIn,
       markWeatherAlertOfferShown,
@@ -94,10 +98,17 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
   const themePreference =
     state.status === 'ready' ? state.profile.themePreference : 'system';
   const easierToSee = state.status === 'ready' && state.profile.easierToSee === true;
+  const temperatureUnitPreference =
+    state.status === 'ready' ? state.profile.temperatureUnitPreference : undefined;
+  const windSpeedUnitPreference =
+    state.status === 'ready' ? state.profile.windSpeedUnitPreference : undefined;
 
   return (
     <ProfileApplicationContext value={value}>
-      <LocalizationProvider preference={languagePreference}>
+      <LocalizationProvider
+        preference={languagePreference}
+        temperatureUnitPreference={temperatureUnitPreference}
+        windSpeedUnitPreference={windSpeedUnitPreference}>
         <KuyaraThemeProvider easierToSee={easierToSee} preference={themePreference}>
           {children}
         </KuyaraThemeProvider>

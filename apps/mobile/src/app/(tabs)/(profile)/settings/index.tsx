@@ -30,6 +30,8 @@ export default function SettingsRoute() {
     updateLanguagePreference,
     updateDisplayName,
     updateThemePreference,
+    updateTemperatureUnitPreference,
+    updateWindSpeedUnitPreference,
   } = useProfileApplication();
   const { state: notificationState } = useNotificationApplication();
   const { analytics, firstUses } = useProductAnalytics();
@@ -83,6 +85,8 @@ export default function SettingsRoute() {
             });
           });
         }}
+        onTemperatureUnitChange={(value) => updateTemperatureUnitPreference?.(value) ?? Promise.resolve()}
+        onWindSpeedUnitChange={(value) => updateWindSpeedUnitPreference?.(value) ?? Promise.resolve()}
         onDressStyleChange={async (value) => {
           await updateDressStyle(value);
           analytics.capture('setting_changed', {

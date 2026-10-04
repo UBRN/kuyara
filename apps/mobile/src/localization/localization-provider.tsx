@@ -5,10 +5,10 @@ import type {
   TemperatureUnitPreference,
   WindSpeedUnitPreference,
 } from '@/domain/preferences';
+import { temperatureUnitFor } from '@/domain/temperature-unit';
 import {
   getDeviceHour12,
   getDeviceLocale,
-  resolveTemperatureUnit,
   useDeviceTemperatureUnit,
   useWindSpeedUnit,
 } from '@/localization/device-locale';
@@ -31,7 +31,7 @@ export function LocalizationProvider({
   temperatureUnitPreference = 'system',
   windSpeedUnitPreference = 'system',
 }: LocalizationProviderProps) {
-  const temperatureUnit = resolveTemperatureUnit(temperatureUnitPreference, useDeviceTemperatureUnit());
+  const temperatureUnit = temperatureUnitFor(temperatureUnitPreference, useDeviceTemperatureUnit());
   const windSpeedUnit = useWindSpeedUnit(windSpeedUnitPreference);
   // Read on every render, outside the memo: the unit hook re-renders this provider when the
   // app returns to the foreground, and the 12/24-hour switch is re-read on that same pass.

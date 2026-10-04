@@ -495,6 +495,16 @@ export type AppMessages = Readonly<{
       textSizeSmaller: string;
     }>;
     themeRow: string;
+    /** Unit choices in Appearance; the values are unit symbols, never assembled sentences. */
+    units: Readonly<{
+      temperatureRow: string;
+      windSpeedRow: string;
+      system: string;
+      celsius: string;
+      fahrenheit: string;
+      kmh: string;
+      mph: string;
+    }>;
     versionLine: (version: string, build?: string | null) => string;
     developmentBuild: string;
     supportRow: string;
@@ -1152,6 +1162,15 @@ const en = {
       textSizeSmaller: 'Smaller',
     },
     themeRow: 'Theme',
+    units: {
+      temperatureRow: 'Temperature',
+      windSpeedRow: 'Wind speed',
+      system: 'System',
+      celsius: '°C',
+      fahrenheit: '°F',
+      kmh: 'km/h',
+      mph: 'mph',
+    },
     versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
     developmentBuild: 'Development build',
     supportRow: 'Support',
@@ -2343,6 +2362,15 @@ const tr = {
       textSizeSmaller: 'Küçük',
     },
     themeRow: 'Tema',
+    units: {
+      temperatureRow: 'Sıcaklık',
+      windSpeedRow: 'Rüzgâr hızı',
+      system: 'Sistem',
+      celsius: '°C',
+      fahrenheit: '°F',
+      kmh: 'km/sa',
+      mph: 'mil/sa',
+    },
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     developmentBuild: 'Geliştirme derlemesi',
     supportRow: 'Destek',

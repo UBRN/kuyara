@@ -1,7 +1,7 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Linking, Share, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Linking, Share, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
@@ -9,7 +9,9 @@ import BirthDateSettingsRoute from '@/app/(tabs)/(profile)/settings/birth-date';
 import EasierToSeeSettingsRoute from '@/app/(tabs)/(profile)/settings/easier-to-see';
 import type {
   LanguagePreference,
+  TemperatureUnitPreference,
   ThemePreference,
+  WindSpeedUnitPreference,
 } from '@/domain/preferences';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
@@ -19,6 +21,7 @@ import type { DressStyle, Gender, StyleAesthetic } from '@/features/profile/doma
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
 import { messages } from '@/localization/messages';
+import { useLocalization } from '@/localization/use-messages';
 import { darkSemanticColors, lightSemanticColors, typography } from '@/theme/theme';
 
 jest.mock('expo-symbols', () => ({
@@ -82,6 +85,16 @@ jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
     updateThemePreference = async (themePreference: ThemePreference) => {
       if (mockUpdateFailure === 'appearance') throw new Error('save failed');
       mockProfile = { ...mockProfile, themePreference };
+      return mockProfile;
+    };
+
+    updateTemperatureUnitPreference = async (temperatureUnitPreference: TemperatureUnitPreference) => {
+      mockProfile = { ...mockProfile, temperatureUnitPreference };
+      return mockProfile;
+    };
+
+    updateWindSpeedUnitPreference = async (windSpeedUnitPreference: WindSpeedUnitPreference) => {
+      mockProfile = { ...mockProfile, windSpeedUnitPreference };
       return mockProfile;
     };
 
@@ -341,6 +354,66 @@ test('live preferences and support propagate localized behavior without remounti
     { schema_version: 3, feature_name: 'appearance_override' },
   ]);
   openURL.mockRestore();
+});
+
+// The unit choices sit in Appearance after Theme, start at System, store each choice on the
+// device profile, and reach every surface through the localization provider. No analytics.
+test('temperature and wind unit choices store and reach the units every screen reads', async () => {
+  mockProfile = createProfile();
+  const analytics = new RecordingProductAnalytics('granted');
+  function UnitProbe() {
+    const { temperatureUnit, windSpeedUnit } = useLocalization();
+    return <Text testID="unit-probe">{`${temperatureUnit} ${windSpeedUnit}`}</Text>;
+  }
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider analytics={analytics} firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+          <UnitProbe />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  const appearance = await result.findByTestId('settings-appearance-group');
+  const rowIds = within(appearance).getAllByTestId(/^settings-[a-z-]+-row$/).map((row) => row.props.testID);
+  expect(rowIds).toEqual([
+    'settings-language-row', 'settings-theme-row', 'settings-temperature-unit-row', 'settings-wind-speed-unit-row',
+  ]);
+  for (const row of ['temperature-unit', 'wind-speed-unit']) {
+    expect(result.getByTestId(`settings-${row}-row-tile`).props.modifiers).toContainEqual(
+      expect.objectContaining({ $type: 'background' }),
+    );
+  }
+  const picker = (row: string) => within(result.getByTestId(`settings-${row}-row`)).getByTestId('expo-ui-picker');
+  // The row reads "<label>, <value>"; the menu offers the choices in their stored order.
+  const optionLabels = (row: string) => [result.getByTestId(`settings-${row}-row`).props.accessibilityLabel,
+    ...picker(row).props.options.map((option: { label: string }) => option.label)];
+  expect(picker('temperature-unit').props.selection).toBe('system');
+  expect(picker('wind-speed-unit').props.selection).toBe('system');
+  expect(optionLabels('temperature-unit')).toEqual(['Temperature, System', 'System', '°C', '°F']);
+  expect(optionLabels('wind-speed-unit')).toEqual(['Wind speed, System', 'System', 'km/h', 'mph']);
+  expect(result.getByTestId('unit-probe')).toHaveTextContent('celsius kilometresPerHour');
+
+  await fireEvent(picker('temperature-unit'), 'selectionChange', 'fahrenheit');
+  await waitFor(() => expect(result.getByTestId('unit-probe')).toHaveTextContent('fahrenheit kilometresPerHour'));
+  expect(mockProfile.temperatureUnitPreference).toBe('fahrenheit');
+  await fireEvent(picker('wind-speed-unit'), 'selectionChange', 'mph');
+  await waitFor(() => expect(result.getByTestId('unit-probe')).toHaveTextContent('fahrenheit milesPerHour'));
+  expect(mockProfile.windSpeedUnitPreference).toBe('mph');
+  expect(picker('temperature-unit').props.selection).toBe('fahrenheit');
+  expect(picker('wind-speed-unit').props.selection).toBe('mph');
+
+  await fireEvent(picker('language'), 'selectionChange', 'tr');
+  await waitFor(() => expect(optionLabels('wind-speed-unit')).toEqual(['Rüzgâr hızı, mil/sa', 'Sistem', 'km/sa', 'mil/sa']));
+  expect(optionLabels('temperature-unit')).toEqual(['Sıcaklık, °F', 'Sistem', '°C', '°F']);
+  await fireEvent(picker('temperature-unit'), 'selectionChange', 'system');
+  await waitFor(() => expect(result.getByTestId('unit-probe')).toHaveTextContent('celsius milesPerHour'));
+  // Only the language change is captured; the unit choices emit nothing.
+  expect(analytics.captures.map((capture) => capture.properties)).toContainEqual(
+    { schema_version: 3, setting_name: 'language', new_value: 'tr' });
+  expect(JSON.stringify(analytics.captures)).not.toMatch(/unit|celsius|fahrenheit|kmh|mph/);
 });
 
 test('a quick double tap on a Settings row opens its screen once', async () => {

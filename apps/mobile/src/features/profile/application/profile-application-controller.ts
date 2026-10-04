@@ -1,6 +1,8 @@
 import type {
   LanguagePreference,
+  TemperatureUnitPreference,
   ThemePreference,
+  WindSpeedUnitPreference,
 } from '@/domain/preferences';
 import { TelemetryError } from '@/features/analytics/domain/performance-telemetry';
 import type { ProfileRepository } from '@/features/profile/data/profile-repository';
@@ -149,6 +151,14 @@ export class ProfileApplicationController {
 
   updateThemePreference(preference: ThemePreference): Promise<void> {
     return this.updateProfile((repository) => repository.updateThemePreference(preference));
+  }
+
+  updateTemperatureUnitPreference(preference: TemperatureUnitPreference): Promise<void> {
+    return this.updateProfile((repository) => repository.updateTemperatureUnitPreference(preference));
+  }
+
+  updateWindSpeedUnitPreference(preference: WindSpeedUnitPreference): Promise<void> {
+    return this.updateProfile((repository) => repository.updateWindSpeedUnitPreference(preference));
   }
 
   updateNotificationsOptIn(optIn: boolean): Promise<void> {
