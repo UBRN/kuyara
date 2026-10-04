@@ -66,6 +66,20 @@ test('posts a per-request structured output schema and returns parsed content ve
   assert.deepEqual(result, expected);
 });
 
+test('turns reasoning off, so a free reasoning model answers inside the attempt window', async () => {
+  let body;
+  const provider = new OpenRouterAiProvider({
+    apiKey: 'key',
+    model: 'provider/model:free',
+    fetch: async (_url, init) => {
+      body = JSON.parse(init.body);
+      return Response.json({ choices: [{ message: { content: '{}' } }] });
+    },
+  });
+  await provider.generateOutfits(request, new AbortController().signal);
+  assert.deepEqual(body.reasoning, { enabled: false });
+});
+
 test('rejects non-2xx responses without exposing secrets or provider response text', async () => {
   const apiKey = 'private-api-key';
   const responseText = 'private provider response';

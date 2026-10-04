@@ -233,9 +233,10 @@ test('live preferences and support propagate localized behavior without remounti
       .backgroundColor,
   ).toBe(lightSemanticColors.background);
 
-  const sections = result.getAllByTestId(/^(settings-(appearance|accessibility|notifications|profile|help|about)-group|expo-ui-section)$/);
+  const sections = result.getAllByTestId(/^(settings-(appearance|accessibility|units|notifications|profile|help|about)-group|expo-ui-section)$/);
   expect(sections.map((section) => section.props.testID)).toEqual([
-    'settings-appearance-group', 'settings-accessibility-group', 'settings-notifications-group', 'settings-profile-group',
+    'settings-appearance-group', 'settings-accessibility-group', 'settings-units-group', 'settings-notifications-group',
+    'settings-profile-group',
     'settings-help-group', 'settings-about-group', 'expo-ui-section',
   ]);
   expect(result.getAllByTestId('expo-ui-host')).toHaveLength(1);
@@ -376,11 +377,15 @@ test('temperature and wind unit choices store and reach the units every screen r
     </SafeAreaProvider>,
   );
 
+  // The two unit choices stand in their own Units group; Appearance keeps language and theme.
   const appearance = await result.findByTestId('settings-appearance-group');
-  const rowIds = within(appearance).getAllByTestId(/^settings-[a-z-]+-row$/).map((row) => row.props.testID);
-  expect(rowIds).toEqual([
-    'settings-language-row', 'settings-theme-row', 'settings-temperature-unit-row', 'settings-wind-speed-unit-row',
-  ]);
+  const rowsOf = (group: ReturnType<typeof result.getByTestId>) =>
+    within(group).getAllByTestId(/^settings-[a-z-]+-row$/).map((row) => row.props.testID);
+  expect(rowsOf(appearance)).toEqual(['settings-language-row', 'settings-theme-row']);
+  expect(rowsOf(result.getByTestId('settings-units-group')))
+    .toEqual(['settings-temperature-unit-row', 'settings-wind-speed-unit-row']);
+  expect(result.getByTestId('settings-units-group-heading')).toHaveTextContent('Units');
+  expect(messages.tr.settings.unitsHeading).toBe('Birimler');
   for (const row of ['temperature-unit', 'wind-speed-unit']) {
     expect(result.getByTestId(`settings-${row}-row-tile`).props.modifiers).toContainEqual(
       expect.objectContaining({ $type: 'background' }),

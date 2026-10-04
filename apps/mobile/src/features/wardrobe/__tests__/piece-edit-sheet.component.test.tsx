@@ -1,5 +1,5 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { AccessibilityInfo, View } from 'react-native';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 
 import {
   closetColorOptions,
@@ -477,7 +477,7 @@ test('choosing a photo holds Done without spinning it, as nothing is being saved
   expect(result.getByTestId('piece-edit-done')).toBeEnabled();
 });
 
-test('each error line carries the error glyph, as the Closet\'s error lines do', async () => {
+test('each error line carries the error glyph and the danger ink, as the Closet\'s and outfit detail\'s error lines do', async () => {
   const onSave = jest.fn(async () => { throw new Error('database failed'); });
   const result = await render(
     <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
@@ -494,6 +494,8 @@ test('each error line carries the error glyph, as the Closet\'s error lines do',
     const line = await result.findByTestId(testID);
     expect(within(line).getByTestId('symbol-exclamationmark.circle.fill', hidden))
       .toHaveProp('tintColor', lightTheme.colors.dangerInk);
+    expect(StyleSheet.flatten(result.getByTestId(testID.replace(/-line$/, '')).props.style).color)
+      .toBe(lightTheme.colors.dangerInk);
   }
 });
 

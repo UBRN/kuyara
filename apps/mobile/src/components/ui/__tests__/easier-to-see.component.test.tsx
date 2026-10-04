@@ -61,9 +61,15 @@ describe.each(['today', 'detail'] as const)('the %s board', (preset) => {
   test('draws every piece 1.3 times larger with a 2.8 pt outline while Easier to see is on', async () => {
     const offLayout = layoutGarmentBoard(pieces, 349, preset);
     const onLayout = layoutGarmentBoard(pieces, 349, preset, true);
+    // Every piece grows by one ratio: 1.3, unless the board would pass the stage's ceiling,
+    // where the whole composition is scaled down until it fits (the detail's larger caps).
+    const growth = onLayout.boxes[0].width / offLayout.boxes[0].width;
+    expect(growth).toBeCloseTo(preset === 'today' ? 1.3 : 1.219, 3);
     onLayout.boxes.forEach((box, index) => {
-      expect(box.width / offLayout.boxes[index].width).toBeCloseTo(1.3, 5);
-      expect(box.height / offLayout.boxes[index].height).toBeCloseTo(1.3, 5);
+      expect(box.width / offLayout.boxes[index].width).toBeCloseTo(growth, 5);
+      expect(box.height / offLayout.boxes[index].height).toBeCloseTo(growth, 5);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(onLayout.height + 1e-9);
     });
     expect(onLayout.height).toBeGreaterThan(offLayout.height);
 
@@ -74,7 +80,7 @@ describe.each(['today', 'detail'] as const)('the %s board', (preset) => {
     const on = await render(board, { wrapper: wrapper(true) });
     // A stroke is authored in points and divided by the drawing's own scale, so the ratio
     // of the drawn widths is the ratio of the outlines over the ratio of the scales.
-    expect(shirtOutlineWidth(on) / offWidth).toBeCloseTo((2.8 / 1.9) / 1.3, 5);
+    expect(shirtOutlineWidth(on) / offWidth).toBeCloseTo((2.8 / 1.9) / growth, 5);
     expect(on.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, preset, false, true));
   });
 });

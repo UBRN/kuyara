@@ -99,7 +99,7 @@ export function SettingsScreen({
   const { width } = useWindowDimensions();
   const copy = messages.preferences;
   const units = messages.settings.units;
-  const [saveErrorGroup, setSaveErrorGroup] = useState<'appearance' | 'profile' | null>(null);
+  const [saveErrorGroup, setSaveErrorGroup] = useState<'appearance' | 'units' | 'profile' | null>(null);
   const [nameEditorOpen, setNameEditorOpen] = useState(false);
   const [aestheticsOpen, setAestheticsOpen] = useState(false);
   const [aestheticDraft, setAestheticDraft] = useState<readonly StyleAesthetic[]>(profile.styleAesthetics ?? []);
@@ -136,7 +136,7 @@ export function SettingsScreen({
   };
 
   const savePreference = async (
-    group: 'appearance' | 'profile',
+    group: 'appearance' | 'units' | 'profile',
     save: () => Promise<void>,
   ) => {
     setSaveErrorGroup(null);
@@ -197,11 +197,32 @@ export function SettingsScreen({
           icon="theme"
           testID="settings-theme-row"
         />
+      </NativeListSection>
+
+      {/* O13: Accessibility sits directly under Appearance. */}
+      <NativeListSection
+        heading={messages.settings.accessibilityHeading}
+        testID="settings-accessibility-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="accessibility" size={size} />}
+          label={messages.settings.easierToSee.title}
+          onPress={onOpenEasierToSee}
+          testID="settings-easier-to-see-row"
+          value={profile.easierToSee === true
+            ? messages.settings.easierToSee.on
+            : messages.settings.easierToSee.off}
+        />
+      </NativeListSection>
+
+      <NativeListSection
+        footer={saveErrorGroup === 'units' ? messages.settings.saveError : undefined}
+        heading={messages.settings.unitsHeading}
+        testID="settings-units-group">
         <NativePickerRow
           disabled={isSaving}
           label={units.temperatureRow}
           onSelectionChange={(value) => savePreference(
-            'appearance',
+            'units',
             () => onTemperatureUnitChange(value),
           )}
           options={[
@@ -217,7 +238,7 @@ export function SettingsScreen({
           disabled={isSaving}
           label={units.windSpeedRow}
           onSelectionChange={(value) => savePreference(
-            'appearance',
+            'units',
             () => onWindSpeedUnitChange(value),
           )}
           options={[
@@ -228,21 +249,6 @@ export function SettingsScreen({
           selection={profile.windSpeedUnitPreference ?? 'system'}
           icon="wind"
           testID="settings-wind-speed-unit-row"
-        />
-      </NativeListSection>
-
-      {/* O13: Accessibility sits directly under Appearance. */}
-      <NativeListSection
-        heading={messages.settings.accessibilityHeading}
-        testID="settings-accessibility-group">
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="accessibility" size={size} />}
-          label={messages.settings.easierToSee.title}
-          onPress={onOpenEasierToSee}
-          testID="settings-easier-to-see-row"
-          value={profile.easierToSee === true
-            ? messages.settings.easierToSee.on
-            : messages.settings.easierToSee.off}
         />
       </NativeListSection>
 

@@ -78,7 +78,8 @@ share one shadow. A Closet tile, the type grid and a category glyph draw one sho
 One parameter, the **clearance**, decides how close the pieces lie: the clear space kept
 between neighbouring pieces, so that no piece covers any part of another.
 
-**Every board is the worn board, with no piece touching another**, so an outfit reads as one
+**Every board but Today's primary stage is the worn board, with no piece touching another**,
+so an outfit reads as one
 combination laid out flat, with every piece drawn whole. The body core is one column, the
 bottom's waist just under the top's hem; the footwear stands just under the core's lowest
 hem; the layers stack on a right rail, outer above mid, just clear of the core's side. The
@@ -86,15 +87,25 @@ pieces are drawn in the order the outfit is put on: top, bottom, one-piece, mid 
 layer, footwear. Because no piece overlaps another, a collar, a waist, a sleeve and a sole
 are always in view.
 
-The detail draws the same board at the scale Today's fitted stage reaches (the runway
-preset's 1.25), so a piece that leaves Today's stage for the detail keeps its size. No name
+**Today's primary stage is a flat lay**, the second layout family, on a cornerless band that
+reaches both screen edges. It is the worn board with the gaps closed: every piece keeps its
+ladder size and the pieces cross as on a table, stacked outer layer, mid layer, bottom, top,
+footwear. Each crossing closes only as far as two limits allow: the pieces in front of a piece
+cover at most 30% of its drawn box, and none covers a collar, a waist or a sleeve end, so a
+collar, a waist, a sleeve and a sole stay whole in this family too. One scale fits the flat lay
+to the band, the core's widest piece at most 168 points. The geometry is
+[`garment-board.md`](../design/garment-board.md) section 10.
+
+The detail draws the worn board at the runway preset's 1.25; a piece leaving Today's band for
+the detail travels from the flat lay to its place apart. No name
 is drawn on a board: the detail names its pieces in a row of buttons under the board
 ([ADR 0026](0026-the-recommendation-detail-surface.md) section 2).
 
 Every piece on every board casts a soft shadow on its plane: its own drawn shape, blurred
 and dropped down, in the plane's colour moved down in OKLCH lightness. It reads only the
-painting's alpha, so it follows any drawing that declares its drawn bounds, and it falls on
-the plane, never on another piece. The parameters are in
+painting's alpha, so it follows any drawing that declares its drawn bounds. On a worn board it
+falls on the plane, never on another piece; on Today's flat lay it also falls on the piece
+under it. The parameters are in
 [`garment-board.md`](../design/garment-board.md) section 9.
 
 ### 4. The stage's height is derived from the composition
@@ -103,9 +114,10 @@ A one-piece look and a five-piece look cannot fill the same box. A dress tall en
 span a two-anchor core would be drawn 0.55 of the stage width, which no width cap allows,
 so a fixed stage yields either a squashed one-piece or an empty band. The stage height is
 therefore insets plus the composition's envelope, clamped to 0.66 to 1.14 times the stage
-width. Today's primary stage fits the composition, trimmed to its drawn extent, with the
-runway preset and is the fitted composition plus 24 points, within the same clamp
-([`garment-board.md`](../design/garment-board.md) section 9).
+width; an envelope too tall for the ceiling is scaled down once, uniformly, to fit it.
+Today's primary stage fits its flat lay, trimmed to its drawn extent, to its band and is the
+fitted flat lay plus 52 points, within the same clamp
+([`garment-board.md`](../design/garment-board.md) section 10).
 
 This is accepted **for now, and is the rule's most reversible part**. It means Today's
 copy sits at a different vertical position depending on how many pieces the outfit has.
@@ -162,7 +174,8 @@ The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather j
 ## Consequences
 
 - **A slot list is now sufficient to draw a board.** Ten slot lists covering every shape
-  the composer can emit were generated and audited. Clipping 0 and overlap 0 on all ten;
+  the composer can emit were generated and audited. Clipping 0 and overlap 0 on all ten
+  worn boards (Today's flat lay keeps its own limits, garment-board.md section 10);
   anchor parity by drawn area 1.000 on all ten, against 1.654 for the same board sized by
   container width; weakest half 0.144 ink coverage, strongest 0.357.
 - **The ink-parity residual is the price of a style-invariant metric.** Within the

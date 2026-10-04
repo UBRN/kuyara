@@ -211,8 +211,9 @@ test('a new local day reads the allowance as zero and the next tap takes the AI 
   assert.equal(await budget.usedToday(today), 0);
 });
 
-// A confirmed re-ask can repeat an earlier selection.
-test('consecutive pool re-asks can repeat the same valid three', async () => {
+// A re-ask the AI does not decide leaves the shown three out while three others remain, so
+// the button never returns the same outfits; an AI re-ask may still repeat an earlier one.
+test('consecutive deterministic re-asks show other outfits', async () => {
   const input = inputFor();
   const budget = { reserve: async () => false };
   const { client, requests } = aiClient(input);
@@ -228,7 +229,8 @@ test('consecutive pool re-asks can repeat the same valid three', async () => {
     assert.equal(snapshot.recommendation.status, 'recommended');
     assert.equal(snapshot.recommendation.outfits.length, 3);
   }
-  assert.deepEqual(optionIds(second), optionIds(first));
+  assert.notDeepEqual(optionIds(second), optionIds(first));
+  for (const optionId of optionIds(second)) assert.ok(!optionIds(first).includes(optionId));
 });
 
 // Gate 4. This is the recorded behaviour of `docs/product-decisions.md`'s cache identity

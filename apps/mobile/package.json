@@ -77,7 +77,8 @@
     "test:theme": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs",
     "test:components": "TZ=UTC jest --runInBand",
     "typecheck": "tsc --noEmit",
-    "measure:ai-chain": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs ./scripts/measure-ai-chain.mjs"
+    "measure:ai-chain": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs ./scripts/measure-ai-chain.mjs",
+    "rank:free-ai-models": "node ./scripts/rank-free-ai-models.mjs"
   },
   "jest": {
     "preset": "jest-expo",

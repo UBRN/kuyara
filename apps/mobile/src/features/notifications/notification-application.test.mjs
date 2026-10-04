@@ -168,6 +168,10 @@ function createSchedulerHarness({ firedIds = new Set(), cancel, schedule, now = 
       events.push('list-fired');
       return firedIds;
     },
+    listPending: async (_localProfileId, at) => {
+      events.push('list-pending');
+      return upserted.flat().filter(({ fireAt }) => Date.parse(fireAt) > Date.parse(at));
+    },
     upsertScheduled: async (deliveries) => {
       events.push('upsert');
       upserted.push(deliveries);
@@ -645,6 +649,69 @@ test('a stale snapshot leaves the existing schedule and ledger untouched', async
   });
 
   assert.deepEqual(harness.events, []);
+});
+
+// A unit changed while the weather is stale rewrites the text of what is already pending
+// in the new unit; which notifications are pending, and when they fire, stays as planned.
+test('a unit change with stale weather rewrites the pending text with the same identifiers and times', async () => {
+  const harness = createSchedulerHarness();
+  await harness.scheduler.reschedule(enabledInput);
+  const planned = harness.scheduled.map(({ identifier, fireAt }) => ({ identifier, fireAt }));
+  harness.events.length = 0;
+  harness.scheduled.length = 0;
+
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    temperatureUnit: 'fahrenheit',
+    snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
+  });
+
+  assert.deepEqual(harness.events, [
+    'cancel:morning_briefing',
+    'delete-pending:morning_briefing',
+    'list-pending',
+    'list-fired',
+    'schedule:precipitation_onset:manual:sample.istanbul:2026-09-09:evening',
+    'schedule:temperature_swing:manual:sample.istanbul:2026-09-09:evening',
+  ]);
+  assert.deepEqual(harness.scheduled.map(({ identifier, fireAt }) => ({ identifier, fireAt })), planned);
+  assert.deepEqual(harness.scheduled.map(({ body }) => body), [
+    'Rain is expected around 18:00. Take something waterproof with you.',
+    'Around 18:00, it will feel like 44°F. Take a warmer layer with you.',
+  ]);
+});
+
+test('stale weather with the unit unchanged leaves the pending text alone', async () => {
+  const harness = createSchedulerHarness();
+  await harness.scheduler.reschedule(enabledInput);
+  harness.events.length = 0;
+
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
+  });
+
+  // The briefing is off, so only its own kind is cleared, exactly as before.
+  assert.deepEqual(harness.events, ['cancel:morning_briefing', 'delete-pending:morning_briefing']);
+});
+
+test('a unit change with stale weather rewrites only what is still pending and adds nothing', async () => {
+  const harness = createSchedulerHarness();
+  await harness.scheduler.reschedule(enabledInput);
+  // Only the rain alert is still in the ledger as pending.
+  harness.upserted.splice(0, harness.upserted.length,
+    harness.upserted.flat().filter(({ id }) => id.startsWith('precipitation_onset:')));
+  harness.events.length = 0;
+  harness.scheduled.length = 0;
+
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    temperatureUnit: 'fahrenheit',
+    snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
+  });
+
+  assert.deepEqual(harness.scheduled.map(({ identifier }) => identifier),
+    ['precipitation_onset:manual:sample.istanbul:2026-09-09:evening']);
 });
 
 test('opting out still cancels and clears pending rows from a stale snapshot', async () => {

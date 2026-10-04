@@ -133,3 +133,40 @@ test('the styles step fades in once it is opened; the first step stands still', 
   expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.normal, easing: expect.anything() });
   withTiming.mockRestore();
 });
+
+// The styles step also asks the day type: the three tiles, the one on screen checked, sit above
+// the styles under the re-ask sheet's question, so a Formal day with chosen styles is one answer.
+test.each([
+  ['morning', 'en'], ['evening', 'en'], ['morning', 'tr'],
+] as const)('the %s styles step in %s draws the three day types above the styles', async (period, language) => {
+  const onStylesDayType = jest.fn();
+  const onChoose = jest.fn();
+  const copy = messages[language].today.dailyStyle;
+  const view = await render(
+    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 },
+      insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
+      <KuyaraThemeContext.Provider value={lightTheme}>
+        <DailyFormalitySheet confirmLabel="Done" error={false} language={language} onChoose={onChoose}
+          onConfirmStyles={jest.fn()} onDismiss={jest.fn()} onPickStyles={jest.fn()}
+          onStylesDayType={onStylesDayType} period={period} step="styles" stylesDayType="smart"
+          usual="smart" visible />
+      </KuyaraThemeContext.Provider>
+    </SafeAreaProvider>,
+  );
+
+  expect(view.getByTestId('daily-formality-styles-day-type'))
+    .toHaveTextContent(period === 'evening' ? copy.questionEvening : copy.question);
+  const tiles = view.getAllByRole('radio');
+  expect(tiles.map((tile) => tile.props.accessibilityLabel)).toEqual([copy.casual, copy.smart, copy.formal]);
+  expect(tiles.map((tile) => tile.props.accessibilityState.selected)).toEqual([false, true, false]);
+  expect(view.getAllByTestId(/^daily-formality-(styles-day-type|day-type-choices|styles-note|styles-done)$/)
+    .map((node) => node.props.testID)).toEqual([
+    'daily-formality-styles-day-type', 'daily-formality-day-type-choices', 'daily-formality-styles-note',
+    'daily-formality-styles-done',
+  ]);
+
+  await fireEvent.press(view.getByTestId('daily-formality-day-type-formal'));
+  expect(onStylesDayType).toHaveBeenCalledWith('formal');
+  // A tile on this step only picks; Done writes.
+  expect(onChoose).not.toHaveBeenCalled();
+});

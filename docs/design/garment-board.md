@@ -102,9 +102,10 @@ draws the pair.
 The **clearance** is the clear space the rule keeps between neighbouring pieces, so that no
 piece covers any part of another.
 
-**Every board is the worn board** (Today, the detail, the alternates, History and the share
-card). The outfit is laid out flat in the order it is worn, so it reads as one combination,
-with every piece drawn whole:
+**Every board is the worn board** (the detail, Today's alternates, History and the share
+card), except Today's primary stage, which lays the same board out as a flat lay (section 10).
+The outfit is laid out flat in the order it is worn, so it reads as one combination, with
+every piece drawn whole:
 
 - the body core stands as one column on a left axis, the `bottom`'s waist standing 0.05 of
   the `primary_top`'s height under its hem;
@@ -130,7 +131,9 @@ The envelope is the taller of the two columns. The core column carries the footw
 envelope = max(coreHeight + footHeight × (1 + footClearance), railHeight)
 ```
 
-Both columns are centred in it. The core's internal step is the waist clearance and the two
+The envelope is centred in the stage. The core column is centred in the envelope; the layer
+column is aligned to its top, so the outermost layer starts level with the envelope's top
+edge. The core's internal step is the waist clearance and the two
 layers are separated by 0.10 metric.
 
 ## 5. Horizontal: placed by ink centroid
@@ -152,8 +155,11 @@ fixed stage produces either a squashed dress or an empty band.
 
 The stage height is therefore derived, insets plus the envelope, and clamped to
 **0.66 to 1.14** times the stage width. Across the ten evidence boards it takes values
-from 0.680 to 1.135. Today's primary stage replaces the insets with a fit to the stage and
-is the fitted composition plus its vertical margin, within the same clamp (section 9).
+from 0.680 to 1.135. Today's primary stage replaces the insets with a fit to its band and
+is the fitted flat lay plus its vertical margin, within the same clamp (section 10).
+An envelope taller than the clamp's ceiling allows, which only Easier to see's larger caps
+on the detail reach, is scaled down once, uniformly, until it fits, so no piece leaves the
+stage; every board without Easier to see is untouched by it.
 Today's copy below the stage moves with it.
 
 The two insets are the tint's own margin around the composition and are not board
@@ -259,7 +265,7 @@ instead of a path. The board degrades; it does not break.
 
 ## 9. Presets: Today and detail
 
-The parameters above are Today's. A second surface expresses a different density by
+The parameters above are Today's worn board (its alternates). A second surface expresses a different density by
 changing parameters, never by changing the algorithm, so both surfaces draw the same pieces
 in the same reading order, the core on the left and the layers on the right, for a given
 slot list. That is what lets a transition between them move the pieces rather than
@@ -267,49 +273,39 @@ cross-fade two pictures.
 
 The detail preset, approved by
 [ADR 0026](../adr/0026-the-recommendation-detail-surface.md), is the same worn board with
-every width cap × 1.25, the scale Today's fitted stage reaches on the reference boards, so a
-piece leaving Today's stage for the detail keeps its size. Its names stand under the board
-as buttons, never on it, and its pieces stand apart exactly as Today's do:
+every width cap × 1.25, the runway preset's largest scale. Its names stand under the board
+as buttons, never on it, and its pieces stand apart exactly as the worn board's do:
 
 | parameter | Today | detail |
 | --- | --- | --- |
-| board | worn, no piece touching | worn, no piece touching |
+| board | worn, no piece touching; primary stage: the flat lay (section 10) | worn, no piece touching |
 | core / solo / rail width cap | 0.235 / 0.300 / 0.170 | × 1.25: 0.294 / 0.375 / 0.2125 |
 | top / bottom inset | 0.045 / 0.055, alternates | 0.045 / 0.055 |
-| fit to the stage | primary stage: runway preset, side 28 pt, vertical 24 pt, scale cap 1.25 × width | none |
-| stage height | primary stage: fitted composition + 24 pt; alternates: insets + envelope; both 0.66 to 1.14 | insets + envelope, 0.66 to 1.14 |
+| fit to the stage | primary stage: the band, side 24 pt, vertical 52 pt, core at most 168 pt (section 10) | none |
+| stage height | primary stage: fitted flat lay + 52 pt; alternates: insets + envelope; both 0.66 to 1.14 | insets + envelope, 0.66 to 1.14 |
 | piece shadow | every board | every board |
 
 The insets are the same on both surfaces: neither the tinted stage nor the detail plate
 holds anything besides the board.
 
-**Today's primary stage.** The composition is trimmed to its drawn extent and scaled once,
-uniformly, with the runway preset: 28 points off each side, 24 points of vertical margin,
-and never more than 1.25 times the plain Today preset's size, centred on the extent. The
-stage is then exactly as tall as the fitted composition plus the 24 points, clamped to
-0.66 to 1.14 of its width. The cap binds on the reference boards, so their pieces are drawn
-a quarter larger than the plain preset draws them, and the height depends on the outfit
-and the width alone:
-the provenance badge, a wrapped title or a larger text size above the stage never moves
-it. On a 339-point stage the three reference boards measure 255.7 points (warm casual),
-316.2 (rainy smart) and 279.0 (cold formal). The ladder, the caps and the worn placement
-are unchanged; only the one scale is. The alternate tiles keep the plain preset with the
-insets above.
+**Today's primary stage** takes neither preset's placement: it is the flat lay on its band,
+section 10. The alternate tiles keep the plain preset with the insets above.
 
 **Piece shadow.** Every piece on every board casts one soft shadow on the plane it lies
 on: its own drawn shape, read from the painting's alpha, blurred and dropped down and
 slightly to the right, so it follows any drawing that declares its drawn bounds. In units
 of the board's scale (the stage width, or Today's fitted scale) it drops 0.0075 down and
-0.0025 right with a blur of standard deviation 0.0065; on Today's fitted 339-point stage
-that is about 3.2 points down and 2.8 points of blur. Its reach, the drop plus two
+0.0025 right with a blur of standard deviation 0.0065; on Today's band, its core 168 points
+wide, that is about 5.4 points down and 4.6 points of blur. Its reach, the drop plus two
 standard deviations, stays inside every board's lower margin. Its colour is the plane's own
 colour moved in OKLCH lightness only, by -0.13, with hue and chroma kept: no new colour.
 In the dark appearance every board stands on a light grey plate (the next paragraph), so it
 takes the same light step; the -0.10 dark step remains only for the first-generation
 runway's dark fields. Ink against the shadow at full strength clears 3:1 on every
 atmosphere stage and garment plane in both appearances (lowest 3.13, light
-`fallingNight`). Every shadow falls on the plate, never on another piece, so
-the pieces read as lying on one surface. Each shadow is drawn inside its piece's own
+`fallingNight`). On every worn board each shadow falls on the plate, never on another piece,
+so the pieces read as lying on one surface; on Today's flat lay a piece's shadow also falls on
+the piece it lies over, as on a table. Each shadow is drawn inside its piece's own
 layer, so it rises, travels, grows and pages with its piece in every motion. The ink
 outline, not the shadow, carries each piece's edge, and the shadow reads on every plate in
 both appearances. The runway's dressed pieces cast theirs once their colour has poured.
@@ -337,6 +333,62 @@ edge, not the lowest piece edge.
 Any change to the ladder or the caps in the table above has to be checked against both
 presets.
 
+## 10. Today's primary stage: the flat lay
+
+Today's primary stage is a cornerless band of the condition's tint that reaches both screen
+edges; in the dark appearance it is the condition's light grey plate, edge to edge. The board
+on it is a **flat lay**: the worn board of section 3, every piece at the worn board's size,
+with the gaps closed and the pieces crossing as they would on a table. Only this stage takes
+it. The detail, the alternates, History, the share card, onboarding and every other board
+keep the worn board, piece for piece. Opening the detail, the pieces travel from the flat lay
+to the worn board, apart.
+
+**Stacking**, back to front: `outer_layer`, `mid_layer`, `bottom`, `primary_top` or
+`one_piece`, `footwear`. The layers lie under the outfit, the top over the bottom's waist and
+the footwear over every hem. The board reads in the slot order of section 3.
+
+**The crossings.** Each starts from the worn board's place, where it touches nothing, and moves
+in a straight line toward where it ends:
+
+| crossing | where it ends |
+| --- | --- |
+| bottom, with a layer | its waist closed up under the top's hem |
+| bottom, with no layer | beside the top: its left edge 0.26 of its width under the top's right edge, its waist 0.52 of the top's height down |
+| layers | the outer layer (or a lone mid layer) 0.30 of its width under the top's right edge, its top 0.08 × core metric under the top's; the mid layer moves with it |
+| mid layer under outer | centred under the outer layer, its top 0.30 of its own height over that hem |
+| footwear | 0.30 of its width over the lowest hem's edge, standing 0.90 of its height above it: on the right, or on the bottom's left when the bottom lies beside the top |
+
+The crossings run in that order. Each is tried at whole twentieths from full to none and stops
+at the first that keeps both limits over every piece placed so far:
+
+- **Cover.** The pieces in front of a piece cover at most **0.30** of its drawn box.
+- **Structure points.** No piece in front covers a collar, a waist or a sleeve end, so a collar,
+  a waist, a sleeve and a sole stay whole where the outfit is read by them. The collar is the
+  top of the outline within 0.10 of the drawing's width from its centre; the waist is the same
+  point on a bottom, the top of its waistband; a sleeve ends at the outline's lowest point in
+  the outer 0.15 of the drawing's width on each side (a one-piece's within its upper half, so a
+  flared hem is not taken for a sleeve). The footwear lies in front of every piece, so a sole is
+  never covered.
+
+Drawn boxes stand in for the ink in both limits, so the ink is never covered more than they
+say. With no crossing a piece stands where the worn board puts it, so every outfit has a flat
+lay.
+
+**The band.** The flat lay is trimmed to its drawn extent and scaled once, uniformly: 24 points
+off each screen edge, 26 above and below, and the core's widest piece never wider than
+**168 points**, × 1.3 with Easier to see, whose caps grow the composition by the same ratio.
+The band is the fitted flat lay plus 52 points, clamped to 0.66 to 1.14 of its width, so a
+board too tall for the ceiling is drawn smaller and still fits. On a 393-point screen the
+README boards measure 391 points (warm casual), 441 (rainy smart), 435 (cold formal), 279 (hot
+casual), 298 (night out) and 448 (snow casual, at the ceiling); the 168-point core binds on all
+but the last. The piece shadow's reach stays inside the 26-point margin.
+
+**What was checked.** The six README boards, the ten evidence slot lists and a summer tee,
+shorts and sneakers, and every outfit the recommender composes across a sweep of temperatures,
+conditions, both catalogues and every day variant (120 outfits), with Easier to see off and on,
+on bands 375 to 440 points wide: the most covered piece 29.95% against the 30% limit, no
+structure point covered, nothing clipped, and every core within its cap.
+
 ## What was checked
 
 Ten slot lists, covering every shape the composer can emit, each rendered in both
@@ -344,7 +396,7 @@ appearances and audited geometrically.
 
 | check | result |
 | --- | --- |
-| overlap | 0 on all ten, in both presets |
+| overlap | 0 for every board except Today's primary, which has its own family and limits (section 10) |
 | clipping | 0 on all ten |
 | anchor parity, drawn-box area | 1.000 on all ten, against 1.654 for the same board sized by container width |
 | anchor parity, ink area | 1.00 to 1.42 within the silhouette set, against 1.403 for the container-sized board |
