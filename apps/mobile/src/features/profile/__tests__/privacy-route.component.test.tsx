@@ -42,10 +42,13 @@ const initialMetrics = {
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
 
-test('the Privacy route opens the published privacy policy URL', async () => {
+test.each([
+  ['en', 'https://ubrn.github.io/kuyara/privacy-policy?lang=en'],
+  ['tr', 'https://ubrn.github.io/kuyara/tr/privacy-policy?lang=tr'],
+] as const)('the Privacy route opens the %s privacy policy', async (language, url) => {
   const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   const result = await render(
-    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
+    <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <PrivacySettingsRoute />
@@ -56,8 +59,8 @@ test('the Privacy route opens the published privacy policy URL', async () => {
 
   fireEvent.press(result.getByTestId('settings-privacy-policy-row'));
 
-  expect(PRIVACY_POLICY_URL).toBe('https://ubrn.github.io/kuyara/privacy-policy');
+  expect(PRIVACY_POLICY_URL[language]).toBe(url);
   expect(openURL).toHaveBeenCalledTimes(1);
-  expect(openURL).toHaveBeenCalledWith(PRIVACY_POLICY_URL);
+  expect(openURL).toHaveBeenCalledWith(url);
   openURL.mockRestore();
 });

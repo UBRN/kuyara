@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as profile from './profile.ts';
 
@@ -35,5 +36,17 @@ test('either notification opt-in counts as wanting notifications', () => {
     [true, true, true],
   ]) {
     assert.equal(profile.wantsAnyNotification({ notificationsOptIn, morningBriefingOptIn }), expected);
+  }
+});
+
+test('a profile that never answered the day-question switch reads as on, in one place', () => {
+  assert.equal(profile.isMorningSheetEnabled({}), true);
+  assert.equal(profile.isMorningSheetEnabled({ morningSheetEnabled: true }), true);
+  assert.equal(profile.isMorningSheetEnabled({ morningSheetEnabled: false }), false);
+  const root = new URL('../..', import.meta.url);
+  for (const file of ['profile/presentation/settings-screen.tsx', 'recommendation/application/recommendation-application-provider.tsx']) {
+    const source = readFileSync(new URL(file, root), 'utf8');
+    assert.match(source, /isMorningSheetEnabled\(/, file);
+    assert.doesNotMatch(source, /morningSheetEnabled\s*\?\?|Boolean\([^)]*morningSheetEnabled/, file);
   }
 });

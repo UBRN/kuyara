@@ -455,6 +455,31 @@ test('a manual location is never re-acquired on foreground', async () => {
   assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, istanbul.locationKey);
 });
 
+test('foreground adopts a fresh snapshot the background task stored instead of fetching', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  let clock = '2026-07-30T10:00:00.000Z';
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:55:00.000Z')],
+    now: () => clock,
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+  });
+  await harness.controller.initialize();
+  await settle();
+  assert.equal(harness.calls.provider, 0);
+
+  clock = '2026-07-30T13:00:00.000Z';
+  const stored = snapshotFor(istanbul, '2026-07-30T12:55:00.000Z', 21);
+  harness.byKey.set(stored.locationKey, stored);
+
+  await harness.controller.onForeground();
+  await settle();
+
+  assert.equal(harness.calls.provider, 0);
+  assert.equal(harness.controller.getSnapshot().snapshot.fetchedAt, stored.fetchedAt);
+  assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
+});
+
 test('revalidateFreshness republishes freshness on focus and starts the stale refresh once', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const cached = snapshotFor(istanbul, '2026-07-30T09:45:00.000Z');

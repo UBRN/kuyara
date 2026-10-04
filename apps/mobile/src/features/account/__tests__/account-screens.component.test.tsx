@@ -98,7 +98,15 @@ describe('the sign-in page (frames 02, 17, 18, 19, 33)', () => {
     expect(screen.getByLabelText(en.signIn.continueWith.google)).toBeTruthy();
     expect(screen.queryByTestId('account-sign-in-status')).toBeNull();
     await fireEvent.press(screen.getByTestId('account-sign-in-privacy'));
-    expect(openURL).toHaveBeenCalledWith(PRIVACY_POLICY_URL);
+    expect(openURL).toHaveBeenCalledWith(PRIVACY_POLICY_URL.en);
+  });
+
+  test('the privacy link follows the app language', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />, 'tr');
+    await fireEvent.press(screen.getByTestId('account-sign-in-privacy'));
+    expect(openURL).toHaveBeenCalledWith(PRIVACY_POLICY_URL.tr);
+    expect(PRIVACY_POLICY_URL.tr).toBe('https://ubrn.github.io/kuyara/tr/privacy-policy?lang=tr');
   });
 
   test('the sheet shows only on the screen that opened it', async () => {

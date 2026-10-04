@@ -28,7 +28,7 @@ import { usePerformanceTelemetry } from '@/features/analytics/application/use-pe
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
-import { defaultDressStyle, orderStyleAesthetics } from '@/features/profile/domain/profile';
+import { defaultDressStyle, isMorningSheetEnabled, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
@@ -242,7 +242,7 @@ export function RecommendationApplicationProvider({
   // unasked day resolves to the profile dress style, as a dismissed question does.
   const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready' &&
     isDayQuestionOpen({
-      morningSheetEnabled: Boolean(profileState.profile.morningSheetEnabled),
+      morningSheetEnabled: isMorningSheetEnabled(profileState.profile),
       profileCreatedAt: profileState.profile.createdAt,
       dressingDayKey: localDay.key,
     });

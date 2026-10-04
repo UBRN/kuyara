@@ -236,6 +236,21 @@ export class WeatherApplicationController {
     const resolved: WeatherFreshness | null = freshness === null || freshness === 'invalid'
       ? null
       : describesActiveLocation ? freshness : 'stale';
+    // The background weather task stores snapshots too, so a stale view may already have a
+    // fresh stored successor: adopt it rather than fetching what the device already holds.
+    if (current.activeLocation && resolved !== 'fresh') {
+      const stored = await this.loadMatchingSnapshot(current.activeLocation).catch(() => null);
+      const latest = this.state;
+      if (
+        stored && latest.status === 'ready'
+        && latest.activeLocation?.locationKey === current.activeLocation.locationKey
+        && cachedWeatherFreshness(stored.fetchedAt, this.dependencies.now()) === 'fresh'
+        && (!latest.snapshot || stored.fetchedAt > latest.snapshot.fetchedAt)
+      ) {
+        this.setReady({ ...latest, snapshot: stored, freshness: 'fresh' });
+        return;
+      }
+    }
     // Publishing an identical state still hands every subscriber a new object, and the
     // provider turns that into a new context value: both tabs revalidate on each focus, so
     // every tab switch drew Today and Weather again (measured 2026-09-29).

@@ -413,6 +413,8 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
       clothingPreference: 'womens' as const,
+      // These tests exercise generation without the day question; the ones about it pass true.
+      morningSheetEnabled: false,
       ...profile,
     },
   };
