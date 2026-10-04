@@ -59,7 +59,7 @@ const input = {
 // save it. The outfits are the ones the deterministic composition produces for this input,
 // relabelled with the tier that would have picked them.
 function aiClientReturning(generationMode) {
-  const composed = recommendOutfits({ ...input, excludedOptionIds: [] });
+  const composed = recommendOutfits({ ...input, excludedOutfits: [] });
   if (composed.status !== 'recommended') throw new Error('the fixture composes no outfits');
   return {
     recommendRouted: async () => ({ ...composed, generationMode }),

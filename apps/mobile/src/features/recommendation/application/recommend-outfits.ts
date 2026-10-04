@@ -22,6 +22,7 @@ import {
 import {
   assignedOutfitGarments,
   composeOutfitOptions,
+  garmentIdSet,
   type OutfitCandidate,
   type OutfitCompositionFailure,
   type OutfitCompositionsResult,
@@ -47,7 +48,8 @@ export type OutfitRecommendationInput = Readonly<{
   dayVariant: number;
   /** Absent keeps the day-blind behaviour, where `weekend_relaxed` fits any casual outfit. */
   dayKind?: DayKind;
-  excludedOptionIds?: readonly string[];
+  /** Outfits already shown; any outfit wearing the same body garments is left out. */
+  excludedOutfits?: readonly OutfitCandidate[];
   recentWorn?: readonly WornOutfit[];
 }>;
 
@@ -187,13 +189,18 @@ export function outfitOptionId(outfit: OutfitCandidate): string {
     : `outfit:${hashCompositionKey(candidate, 0x811c9dc5)}${hashCompositionKey(candidate, 0x9e3779b9)}`;
 }
 
+/**
+ * Leaves out every outfit that wears the body garments of one already shown. The comparison
+ * reads the garments rather than the option id, because the id carries the day's accessories:
+ * yesterday's outfit under today's accessories is still yesterday's outfit.
+ */
 export function excludeOutfitOptions(
   outfits: readonly OutfitCandidate[],
-  excludedOptionIds: readonly string[] = [],
+  excludedOutfits: readonly OutfitCandidate[] = [],
 ): readonly OutfitCandidate[] {
-  if (excludedOptionIds.length === 0) return outfits;
-  const excluded = new Set(excludedOptionIds);
-  const filtered = outfits.filter((outfit) => !excluded.has(outfitOptionId(outfit)));
+  if (excludedOutfits.length === 0) return outfits;
+  const excluded = new Set(excludedOutfits.map(garmentIdSet));
+  const filtered = outfits.filter((outfit) => !excluded.has(garmentIdSet(outfit)));
   return filtered.length >= 3 ? Object.freeze(filtered) : outfits;
 }
 
@@ -323,7 +330,7 @@ export function recommendOutfits(
     input.recentWorn);
 
   const availableOutfits = composition.status === 'composed'
-    ? excludeOutfitOptions(composition.outfits, input.excludedOptionIds)
+    ? excludeOutfitOptions(composition.outfits, input.excludedOutfits)
     : [];
 
   return composition.status === 'failure'

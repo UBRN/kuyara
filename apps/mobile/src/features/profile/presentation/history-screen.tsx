@@ -27,6 +27,7 @@ import type { WeekSummary } from '@/features/recommendation/domain/outfit-histor
 import { localeTag } from '@/localization/locale-tag';
 import type { AppMessages } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
+import { useEasierToSee } from '@/theme/easier-to-see';
 import { radii, spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -184,6 +185,7 @@ export function HistoryScreen({
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { usesStackedLayout } = useTextScaling();
+  const easierToSee = useEasierToSee();
   const copy = messages.profile;
   const formats = useMemo(() => {
     const tag = localeTag(language);
@@ -335,8 +337,8 @@ export function HistoryScreen({
                       accessible
                       style={styles.latest}
                       testID={`history-entry-${look.key}`}>
-                      {stage(look, contentWidth,
-                        measureGarmentBoardHeight(historyBoard(look.entry, look.key).pieces, contentWidth, 'today'))}
+                      {stage(look, contentWidth, measureGarmentBoardHeight(
+                        historyBoard(look.entry, look.key).pieces, contentWidth, 'today', false, easierToSee))}
                       <View style={styles.text}>
                         {several ? null : <AppText variant="title">{fullDate}</AppText>}
                         <AppText colorRole="textSecondary">{title}</AppText>
@@ -351,7 +353,7 @@ export function HistoryScreen({
         }
         // Looks side by side share the taller stage, so their captions sit on one line.
         const height = Math.max(...row.looks.map(({ entry, key }) =>
-          measureGarmentBoardHeight(historyBoard(entry, key).pieces, tileWidth, 'today')));
+          measureGarmentBoardHeight(historyBoard(entry, key).pieces, tileWidth, 'today', false, easierToSee)));
         const tiles = row.looks.map((look, offset) => {
           const date = parseCalendarDate(look.entry.dayKey);
           const { style, title } = dayCopy(look.entry, messages);

@@ -53,6 +53,21 @@ test('the day variant is a deterministic seven-day ring', () => {
   assert.equal(localDayVariant(new Date(2026, 0, 1, 23, 59)), localDayVariant(new Date(2026, 0, 1, 0, 1)));
 });
 
+// 31 December of a common year is day 365, and 365 and 1 leave the same remainder by seven,
+// so New Year's Day used to offer the outfits of the day before.
+test('consecutive calendar dates always take different day variants', () => {
+  const repeats = [];
+  for (let date = new Date(2026, 0, 1, 12); date.getFullYear() <= 2030;
+    date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12)) {
+    const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12);
+    const variant = localDayVariant(date);
+    assert.ok(Number.isInteger(variant) && variant >= 0 && variant < 7);
+    if (variant === localDayVariant(next)) repeats.push(date.toDateString());
+  }
+
+  assert.deepEqual(repeats, []);
+});
+
 test('the morning after an evening is 08:00 on the date after its key, and a day key has none', () => {
   const morning = nextMorningAfterEvening('2026-12-31:evening');
   assert.equal(morning.getTime(), new Date(2027, 0, 1, 8).getTime());

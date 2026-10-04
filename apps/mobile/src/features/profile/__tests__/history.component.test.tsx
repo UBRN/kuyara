@@ -1,9 +1,10 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { processColor } from 'react-native';
+import { processColor, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { measureGarmentBoardHeight } from '@/components/ui';
 import { garmentRolesBySlot } from '@/components/ui/garment-board/garment-palette';
 import {
   RecommendationApplicationContext,
@@ -13,6 +14,7 @@ import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfi
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
+import { EasierToSeeContext } from '@/theme/easier-to-see';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
@@ -164,6 +166,22 @@ test('one worn day stands alone as the large latest day', async () => {
   const entry = await result.findByTestId('history-entry-2026-09-23');
   expect(within(entry).getByText('Wednesday 23 September')).toBeOnTheScreen();
   expect(result.queryAllByTestId(/^history-entry-\d/)).toHaveLength(1);
+});
+
+// O13: the stage is measured the way the board draws, so the enlarged board is not clipped.
+test.each([false, true])('the History stage measures its height with Easier to see %s', async (easierToSee) => {
+  const entry = record('2026-09-23', 'layered_warmth', 'casual');
+  const result = await render(
+    <Providers language="en" list={async () => [entry]}>
+      <EasierToSeeContext value={easierToSee}>
+        <HistoryRoute />
+      </EasierToSeeContext>
+    </Providers>,
+  );
+  await waitFor(() => expect(result.getByTestId('history-entry-board-2026-09-23')).toBeOnTheScreen());
+  const { height, width } = StyleSheet.flatten(result.getByTestId('history-entry-board-2026-09-23').props.style);
+  const { pieces } = historyBoard({ dayKey: entry.dayKey, outfit: entry.outfit, pieceColors: null });
+  expect(height).toBe(measureGarmentBoardHeight(pieces, width, 'today', false, easierToSee));
 });
 
 test('a year of History renders only what is near the screen', async () => {

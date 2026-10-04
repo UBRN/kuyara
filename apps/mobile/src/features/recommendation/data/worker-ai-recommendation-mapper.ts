@@ -233,7 +233,7 @@ export function createRecommendationContextWithPool(
   const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
     input.recentWorn);
   const availableOutfits = composition.status === 'composed'
-    ? excludeOutfitOptions(composition.outfits, input.excludedOptionIds)
+    ? excludeOutfitOptions(composition.outfits, input.excludedOutfits)
     : [];
   const parsed = recommendationContextSchema.safeParse({
     clothingPreference: input.clothingPreference,
