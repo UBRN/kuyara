@@ -209,9 +209,8 @@ export function createAiHandler({
   dailyCounter,
   dailyLimit,
   now = () => new Date(),
-  // Every provider that answers the 2 KB request does so within 5 s (Workers AI 2 to
-  // 4.5 s, OpenRouter 0.3 to 1.9 s, measured live); one that does not answer stalls
-  // indefinitely, so 7 s cuts it off and hands the turn to the next provider. Never raise
+  // Workers AI answered within 2 to 4.5 s when measured live; a provider that does not
+  // answer stalls indefinitely, so 7 s cuts it off and hands the turn to the next provider. Never raise
   // this toward the total deadline: one stall then eats the whole budget and the fallback
   // chain never runs.
   attemptTimeoutMs = 7_000,
