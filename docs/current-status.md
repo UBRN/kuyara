@@ -71,7 +71,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   the first foreground open of the evening key, ask whether the day is the profile's usual day
   type: one large "Yes, as usual" button answers in one tap, the other two day types are tiles
   with nothing checked that answer in one tap, and "Pick styles for today" opens the optional
-  styles step; closing either sheet answers it with the profile dress style. In the evening, once that outfit has settled, a foreground open of
+  step that picks the day type and the day's styles together; closing either sheet answers it with the profile dress style. In the evening, once that outfit has settled, a foreground open of
   Today selects tomorrow's outfit once per evening through the same chain (deterministic when the
   AI tiers fail) when the forecast covers tomorrow from 08:00 at the place, keeps it in an
   app-private JSON file, and shows it under the alternatives as "Tomorrow" with the day's
