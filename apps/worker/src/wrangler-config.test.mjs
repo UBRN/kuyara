@@ -55,7 +55,6 @@ test('production OPENROUTER_MODELS lists only measured models that pass the free
   // `openrouter/free` router that the allowlist also admits, must never enter the list.
   assert.deepEqual(models, [
     'qwen/qwen3.8-27b:free',
-    'dots-studio/dots-3-note-preview:free',
     'nvidia/nemotron-3-super-120b-a12b:free',
   ]);
   for (const model of models) assert.match(model, /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+:free$/);
