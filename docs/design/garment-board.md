@@ -340,8 +340,9 @@ edges; in the dark appearance it is the condition's light grey plate, edge to ed
 on it is a **flat lay**: the worn board of section 3, every piece at the worn board's size,
 with the gaps closed and the pieces crossing as they would on a table. Only this stage takes
 it. The detail, the alternates, History, the share card, onboarding and every other board
-keep the worn board, piece for piece. Opening the detail, the pieces travel from the flat lay
-to the worn board, apart.
+keep the worn board, piece for piece. Opening the detail, the pieces leave from exactly
+what the band drew, at the band's size, square and in the flat lay's stacking, and travel to the
+worn board, apart.
 
 **Stacking**, back to front: `outer_layer`, `mid_layer`, `bottom`, `primary_top` or
 `one_piece`, `footwear`. The layers lie under the outfit, the top over the bottom's waist and
@@ -370,8 +371,10 @@ at the first that keeps both limits over every piece placed so far:
   flared hem is not taken for a sleeve). The footwear lies in front of every piece, so a sole is
   never covered.
 
-Drawn boxes stand in for the ink in both limits, so the ink is never covered more than they
-say. With no crossing a piece stands where the worn board puts it, so every outfit has a flat
+Drawn boxes stand in for the ink in both limits. For the structure points that is exact: a
+point no box in front covers, no ink in front covers. The cover limit is measured on boxes
+only: at most 0.30 of a piece's drawn box lies under the boxes in front of it, and the share
+of its ink that ink in front actually hides may be more or less than that. With no crossing a piece stands where the worn board puts it, so every outfit has a flat
 lay.
 
 **The band.** The flat lay is trimmed to its drawn extent and scaled once, uniformly: 24 points

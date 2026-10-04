@@ -25,8 +25,9 @@ The board is [ADR 0025](0025-the-garment-board-composition-rule.md)'s `compose()
 unchanged, run with a detail preset. Same algorithm, same worn layout, same dressing order,
 the core on the left and the layers on the right, the footwear a pair at the core's foot.
 The detail preset only draws it larger, at the runway preset's 1.25. Pieces stand apart,
-none touching another; they travel in from Today's flat lay, the same composition with its
-gaps closed. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
+none touching another; they travel in from exactly what Today's band drew, its flat lay at
+the band's size, square and in the flat lay's stacking, the same composition with its gaps
+closed. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
 
 This is what makes the two screens share a composition rather than merely resemble each
 other, and it is what the entry transition animates. It also leaves room for garment rows below the board.
@@ -230,9 +231,10 @@ rather than a cross-fade between two pictures.
    The tint difference remains, because it carries meaning rather than motion.
 
 The push remains the platform's. Garment travel is an in-screen re-layout from the boxes
-Today's band draws (its flat lay) to the detail preset, not a shared-element transition,
-on the spatial role
-`theme.springs.spatial`. Each piece travels as a plain view with a native transform,
+Today's band draws (its flat lay at the band's width, centred on the detail board, stacked
+as the band stacks it until the pieces settle) to the detail preset, not a shared-element
+transition, on the arrival role `theme.springs.arrival`, the spring for garment pieces
+landing on a board. Each piece travels as a plain view with a native transform,
 because Reanimated cannot drive react-native-svg's `transform` or `fill` on the new
 architecture; the fill fades by draining a tinted copy of the artwork over the resting
 one. Simulator verification covers the animated sequence.

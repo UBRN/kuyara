@@ -17,6 +17,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { resolveGarmentArtwork } from '../garment-slot-glyph';
 import { fadeTo } from '../fade';
+import { flatLayStack } from './compose-flat-lay';
 import { drawnExtent, fitRunwayScale, placeOnRunway } from './compose-garment-board';
 import {
   composePieces,
@@ -320,9 +321,9 @@ export function GarmentRunwayBoard({
   const draftBox = (piece: ComposedPiece) =>
     placeOnRunway(draftLayout.result.boxes.get(piece)!, draftLayout.extent, draftScale, width, height);
   const chosenOrder = chosenLayout?.result.order ?? [];
-  // Every piece is timed in reading order and stacked in the dressing order, as Today's
-  // stage stacks it, so a later piece lies over an earlier one through the hand-off.
-  const chosenStack = chosenLayout?.result.stack ?? [];
+  // Every piece is timed in reading order and stacked as Today's flat lay stacks it, so no
+  // piece changes from front to back when the band takes the pieces over.
+  const chosenStack = flatLayStack.flatMap((slot) => chosenOrder.filter((piece) => piece.slot === slot));
   const shadow = pieceShadowOf(chosenScale, field, colorScheme);
   const chosenBox = (piece: ComposedPiece) =>
     placeOnRunway(chosenLayout!.result.boxes.get(piece)!, chosenLayout!.extent, chosenScale, width, height);
