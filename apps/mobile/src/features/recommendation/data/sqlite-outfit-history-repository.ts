@@ -193,10 +193,11 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
    * deleted look's photo name leaves it as it is.
    */
   async changeKey(profileId: string): Promise<string> {
+    // The ordered aggregate (SQLite 3.44 and later; expo-sqlite bundles a newer one) makes the
+    // key independent of the order rows are visited in.
     const row = await this.db.getFirstAsync<Readonly<{ key: string | null }>>(`SELECT
-      group_concat(id || '|' || updated_at || '|' || coalesce(deleted_at, ''), ',') AS key
-      FROM (SELECT id, updated_at, deleted_at FROM outfit_history WHERE local_profile_id = ? ORDER BY id)`,
-    [profileId]);
+      group_concat(id || '|' || updated_at || '|' || coalesce(deleted_at, ''), ',' ORDER BY id) AS key
+      FROM outfit_history WHERE local_profile_id = ?`, [profileId]);
     return row?.key ?? '';
   }
 

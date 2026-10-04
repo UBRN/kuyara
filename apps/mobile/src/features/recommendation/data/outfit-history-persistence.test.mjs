@@ -427,3 +427,19 @@ test('the change key moves when a look is added, edited or deleted by any writer
   await repo.cleanupPendingPhotos(profileId);
   assert.equal(await repo.changeKey(profileId), deleted);
 });
+
+test('the change key does not depend on the order rows are stored in', async (t) => {
+  const db = await setup(t);
+  const photos = { copyStaged: async () => '', discardStaged: async () => {}, deleteStored: async () => {}, resolveUri: () => null };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  const [a, b] = ['00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-00000000000b'];
+  const insert = (id) => db.runAsync(`INSERT INTO outfit_history (id, local_profile_id, day_key, outfit_json, worn_at,
+    created_at, updated_at) VALUES (?, ?, '2026-09-01', ?, ?, ?, ?)`, [id, profileId, JSON.stringify(first), now, now, now]);
+  await insert(b);
+  await insert(a);
+  const reversed = await repo.changeKey(profileId);
+  await db.runAsync('DELETE FROM outfit_history');
+  await insert(a);
+  await insert(b);
+  assert.equal(await repo.changeKey(profileId), reversed);
+});
