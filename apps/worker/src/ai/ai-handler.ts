@@ -272,6 +272,7 @@ export function createAiHandler({
             ? aiRecommendV2SuccessSchema.safeParse(payload)
             : aiRecommendV1SuccessSchema.safeParse(payload);
           if (parsed.success && validSelection(parsed.data.data.picks, requestResult.data, options)) {
+            console.info({ event: 'ai_cache_hit', route: url.pathname });
             return Response.json(parsed.data, { status: 200, headers: jsonHeaders });
           }
         }

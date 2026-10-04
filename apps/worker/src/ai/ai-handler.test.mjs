@@ -1863,3 +1863,26 @@ test('the re-ask flag never reaches the model prompt', () => {
   assert.deepEqual(buildMessages(flagged), buildMessages(aiRecommendV2RequestSchema.parse(body)));
   assert.equal(JSON.stringify(buildMessages(flagged)).includes('reask'), false);
 });
+
+test('a shared-cache hit logs one closed line with the route only', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  const { restore } = countingMemoryCache();
+  t.after(restore);
+  const handle = createAiHandler({ providers: [{
+    id: 'openrouter', model: 'router/free', async generateOutfits() { return validOutput(); },
+  }] });
+  const v2 = (fields) => request({ path: '/v2/ai/recommend', body: reaskBody(fields) });
+  await handle(v2());
+  infos.length = 0;
+  assert.equal((await handle(v2())).status, 200);
+  assert.deepEqual(infos, [{ event: 'ai_cache_hit', route: '/v2/ai/recommend' }]);
+  infos.length = 0;
+  await handle(request());
+  await handle(request());
+  assert.deepEqual(infos.filter(({ event }) => event === 'ai_cache_hit'),
+    [{ event: 'ai_cache_hit', route: '/v1/ai/recommend' }]);
+  infos.length = 0;
+  await handle(v2({ reask: true }));
+  assert.equal(infos.some(({ event }) => event === 'ai_cache_hit'), false);
+});
