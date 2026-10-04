@@ -4,8 +4,10 @@ import test from 'node:test';
 import { connectAccountLifecycle, localWriteDelayMs } from './account-lifecycle.ts';
 import { accountScenarios, createInMemoryAccountScreens } from './account-screens.ts';
 
-function harness({ snapshot = accountScenarios.upToDate, pending = true, dismissed = false, active = false } = {}) {
+function harness({ snapshot = accountScenarios.upToDate, pending = true, dismissed = false, active = false, network = async () => true } = {}) {
   const calls = [];
+  let networkChange = null;
+  const online = [];
   const screens = createInMemoryAccountScreens(snapshot, () => new Date('2026-10-04T08:00:00Z'));
   const manager = {
     ...screens,
@@ -13,7 +15,7 @@ function harness({ snapshot = accountScenarios.upToDate, pending = true, dismiss
     foreground: async () => { calls.push('foreground'); },
     localWrite: async () => { calls.push('localWrite'); },
     signOut: async () => { calls.push('signOut'); },
-    setOnline: () => {},
+    setOnline: (value) => { online.push(value); },
   };
   let appState = null;
   let write = null;
@@ -28,6 +30,10 @@ function harness({ snapshot = accountScenarios.upToDate, pending = true, dismiss
     hasPending: async (records) => { calls.push(['hasPending', records]); return pending; },
     autoRefresh: { start: () => calls.push('refresh:start'), stop: () => calls.push('refresh:stop') },
     card: { dismissed: async () => dismissed, dismiss: async () => { calls.push('card:stored'); } },
+    network: {
+      current: network,
+      onChange: (listener) => { networkChange = listener; return () => { networkChange = null; }; },
+    },
     schedule: (task, delay) => {
       const timer = { task, delay, cancelled: false };
       timers.push(timer);
@@ -38,7 +44,8 @@ function harness({ snapshot = accountScenarios.upToDate, pending = true, dismiss
     for (const timer of timers.splice(0)) if (!timer.cancelled) timer.task();
     await new Promise((resolve) => setImmediate(resolve));
   };
-  return { calls, manager, disconnect, flush, timers, appState: (state) => appState(state), write: () => write(), revoke: () => revoked?.() };
+  return { calls, online, manager, disconnect, flush, timers, appState: (state) => appState(state), write: () => write(), revoke: () => revoked?.(),
+    networkChange: (online) => networkChange?.(online), networkListening: () => networkChange !== null };
 }
 
 test('the session starts once at launch', async () => {
@@ -132,4 +139,29 @@ test('disconnecting stops the refresh and every listener', async () => {
   await flush();
   assert.equal(calls.includes('localWrite'), false);
   assert.equal(calls.at(-1), 'refresh:stop');
+});
+
+test('the connection read at connect and every change after it reach the session', async () => {
+  const { disconnect, networkChange, networkListening, online } = harness({ network: async () => false });
+  await new Promise((resolve) => setImmediate(resolve));
+  networkChange(true);
+  networkChange(false);
+  assert.deepEqual(online, [false, true, false]);
+  disconnect();
+  assert.equal(networkListening(), false);
+});
+
+test('a connection read that fails leaves the session as it is', async () => {
+  const { online } = harness({ network: async () => { throw new Error('No answer.'); } });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(online, []);
+});
+
+test('a change that arrives before the first read answers is not overwritten by that older read', async () => {
+  let answer;
+  const harnessed = harness({ network: () => new Promise((resolve) => { answer = resolve; }) });
+  harnessed.networkChange(false);
+  answer(true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(harnessed.online, [false]);
 });

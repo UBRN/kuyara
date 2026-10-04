@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Network from 'expo-network';
 import * as SecureStore from 'expo-secure-store';
 
 import type { SupabaseSettings } from '@/config/supabase-settings';
@@ -12,6 +13,7 @@ import {
 import { createAccountSessionSync } from '@/features/account/application/account-session-sync';
 import { createEncryptedSessionStorage } from '@/features/account/data/encrypted-session-storage';
 import { createExpoAppleSignIn, createNonceSource } from '@/features/account/data/expo-native-sign-in';
+import { createNetworkState, type AccountNetwork } from '@/features/account/data/network-state';
 import {
   createSqliteAccountRowsSource,
   type SqliteAccountRowsSource,
@@ -41,6 +43,7 @@ export type LiveAccountSession = Readonly<{
   source: SqliteAccountRowsSource;
   autoRefresh: Readonly<{ start: () => void; stop: () => void }>;
   onAppleRevoked: (listener: () => void) => () => void;
+  network: AccountNetwork;
 }>;
 
 export function createLiveAccountSession({ database, fetcher, localProfileId, settings, workerBaseUrl }: Readonly<{
@@ -101,6 +104,7 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
       start: () => void client.auth.startAutoRefresh(),
       stop: () => void client.auth.stopAutoRefresh(),
     },
+    network: createNetworkState(Network),
     onAppleRevoked(listener) {
       // Off iOS the module is a stub whose listener call returns nothing, despite its type.
       const subscription = AppleAuthentication.addRevokeListener(listener) as ReturnType<typeof AppleAuthentication.addRevokeListener> | undefined;

@@ -19,6 +19,11 @@ export type AccountLifecyclePorts = Readonly<{
   autoRefresh: Readonly<{ start: () => void; stop: () => void }>;
   /** The persisted sign-in card dismissal of the device account link. */
   card: Readonly<{ dismissed: () => Promise<boolean>; dismiss: () => Promise<void> }>;
+  /** Whether the device is online now, and each change after (ADR 0041 sections 5 and 7). */
+  network: Readonly<{
+    current: () => Promise<boolean>;
+    onChange: (listener: (online: boolean) => void) => () => void;
+  }>;
   schedule: (task: () => void, delayMs: number) => () => void;
 }>;
 
@@ -26,7 +31,8 @@ export type AccountLifecyclePorts = Readonly<{
  * Runs the account session for the app's lifetime (ADR 0041 sections 2, 4 and 9): it starts once,
  * syncs again in the foreground with the token refresh running only there, syncs shortly after a
  * local write that left a row waiting, never per keystroke, and ends an Apple session Apple reports
- * revoked the way signing out does. Returns the disconnect.
+ * revoked the way signing out does. It keeps the session's online state with the device's
+ * connection, so the offline lines show and deletion waits for a connection. Returns the disconnect.
  */
 export function connectAccountLifecycle(ports: AccountLifecyclePorts): () => void {
   const { autoRefresh, card, hasPending, manager, schedule } = ports;
@@ -66,6 +72,18 @@ export function connectAccountLifecycle(ports: AccountLifecyclePorts): () => voi
     // Unread: the card follows this launch's state alone.
   });
 
+  // A change that arrives first is newer than the launch read, which then changes nothing.
+  let networkChanged = false;
+  const unsubscribeNetwork = ports.network.onChange((online) => {
+    networkChanged = true;
+    manager.setOnline(online);
+  });
+  ports.network.current().then((online) => {
+    if (!networkChanged) manager.setOnline(online);
+  }, () => {
+    // Unread: the session keeps its state until the first change event.
+  });
+
   const unsubscribeWrites = ports.onDatabaseWrite(scheduleLocalWrite);
   const unsubscribeRevoked = ports.onAppleRevoked(() => {
     const { session } = manager.getSnapshot();
@@ -87,6 +105,7 @@ export function connectAccountLifecycle(ports: AccountLifecyclePorts): () => voi
   return () => {
     cancelLocalWrite?.();
     unsubscribeWrites();
+    unsubscribeNetwork();
     unsubscribeAppState();
     unsubscribeRevoked();
     unsubscribeCard();

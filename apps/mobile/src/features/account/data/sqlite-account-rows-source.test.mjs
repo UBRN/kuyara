@@ -306,6 +306,7 @@ test('a pending row this build cannot read is not waiting, so a write never star
     hasPending: source.hasPending,
     autoRefresh: { start: () => {}, stop: () => {} },
     card: { dismissed: async () => false, dismiss: async () => {} },
+    network: { current: async () => true, onChange: () => () => {} },
     schedule: (task) => { timers.push(task); return () => {}; },
   });
   t.after(disconnect);
