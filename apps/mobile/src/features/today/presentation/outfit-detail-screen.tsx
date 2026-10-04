@@ -23,6 +23,7 @@ import {
   Screen,
   haptics,
   swapRevealScroll,
+  useBandWidth,
   useGarmentRoles,
   type GarmentOutfitPalette,
   useTextScaling,
@@ -171,6 +172,7 @@ export function OutfitDetailScreen({
   const [contentWidth, setContentWidth] = useState(
     () => Math.max(0, Math.min(windowWidth, layout.maxContentWidth) - 2 * spacing.lg),
   );
+  const bandWidth = useBandWidth(contentWidth);
   // ADR 0026 section 3: the name buttons under the board, measured in the row, and the row's height.
   const [nameRects, setNameRects] = useState<Readonly<Partial<Record<OutfitSlot, NameRect>>>>({});
   const [nameRowHeight, setNameRowHeight] = useState<number | null>(null);
@@ -589,9 +591,9 @@ export function OutfitDetailScreen({
             candidates={candidates}
             captionRects={captionRects}
             entrance={{
-              // The pieces leave from where Today's fitted stage drew them (P2).
+              // The pieces leave from where Today's band drew them (P2).
               fromStageColor: stageColor,
-              fromStageRadius: 26,
+              fromWidth: bandWidth,
             }}
             focusedSlot={focusedSlot}
             hint={composeResult ? composeResult.line : boardHint}

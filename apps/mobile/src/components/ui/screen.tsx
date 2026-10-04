@@ -32,6 +32,12 @@ export function useScreenGutters() {
   return { left: left + spacing.lg, right: right + spacing.lg };
 }
 
+/** The width of a band that reaches both screen edges from content `contentWidth` wide. */
+export function useBandWidth(contentWidth: number) {
+  const { left, right } = useScreenGutters();
+  return contentWidth + left + right;
+}
+
 export function Screen({
   children,
   contentContainerStyle,

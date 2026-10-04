@@ -20,6 +20,7 @@ import { ExpoNotificationGateway } from '@/features/notifications/data/expo-noti
 import type { NotificationGateway } from '@/features/notifications/data/notification-gateway';
 import { WeatherAlertScheduler, type WeatherAlertScheduling } from '@/features/notifications/application/weather-alert-scheduler';
 import { loadWeatherAlertDeliveryRepository } from '@/features/notifications/application/weather-alert-delivery-repository-loader';
+import { loadWeatherRepository } from '@/features/weather/application/weather-repository-loader';
 
 type NotificationApplicationProviderProps = PropsWithChildren<{
   notificationsOptIn: boolean;
@@ -42,6 +43,8 @@ export function NotificationApplicationProvider(
       gateway,
       loadWeatherAlertDeliveryRepository(),
       systemNow,
+      async (localProfileId, locationKey) => (await loadWeatherRepository())
+        .getSnapshot(localProfileId, locationKey),
     ),
     [gateway],
   );

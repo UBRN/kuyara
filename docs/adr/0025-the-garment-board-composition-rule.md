@@ -97,7 +97,8 @@ to the band, the core's widest piece at most 168 points. The geometry is
 [`garment-board.md`](../design/garment-board.md) section 10.
 
 The detail draws the worn board at the runway preset's 1.25; a piece leaving Today's band for
-the detail travels from the flat lay to its place apart. No name
+the detail starts where the band drew it, at the band's size and in the flat lay's stacking,
+and travels to its place apart. No name
 is drawn on a board: the detail names its pieces in a row of buttons under the board
 ([ADR 0026](0026-the-recommendation-detail-surface.md) section 2).
 

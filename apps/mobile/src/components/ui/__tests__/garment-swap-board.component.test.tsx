@@ -5,7 +5,8 @@ import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import * as Reanimated from 'react-native-reanimated';
 
-import type { GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
+import { flatLayStack } from '@/components/ui/garment-board/compose-flat-lay';
+import { entranceStartBoxes, type GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
 import { haptics } from '@/components/ui/haptics';
 import type { GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
 import {
@@ -52,7 +53,7 @@ function boardProps(overrides: Partial<GarmentSwapBoardProps> = {}): GarmentSwap
       slotName: (slot) => slot,
       stripShown: 'Choices below',
     },
-    entrance: { fromStageColor: lightTheme.colors.background, fromStageRadius: 0 },
+    entrance: { fromStageColor: lightTheme.colors.background, fromWidth: 358 },
     ...overrides,
   };
 }
@@ -501,5 +502,62 @@ test('a layer taken off lifts and fades in place, and an added one is hung on fr
   } finally {
     timings.mockRestore();
     springs.mockRestore();
+  }
+});
+
+// ADR 0026 section 7: the detail's pieces leave from exactly what Today's band drew, the band's
+// own fit at its own width, square, and stacked as the band stacks them, so the first frame of
+// the entrance is the band's picture.
+test.each([393, 440])('the entrance starts from Today\'s band as drawn on a %i-point screen', async (screen) => {
+  const rainySmart: readonly GarmentBoardPiece[] = [
+    { slot: 'primary_top', garmentTypeId: 'shirt', category: 'top' },
+    { slot: 'bottom', garmentTypeId: 'trousers', category: 'bottom' },
+    { slot: 'mid_layer', garmentTypeId: 'sweater', category: 'top' },
+    { slot: 'outer_layer', garmentTypeId: 'rain_jacket', category: 'outerwear' },
+    { slot: 'footwear', garmentTypeId: 'ankle_boots', category: 'footwear' },
+  ];
+  // Today's band reaches both screen edges; the detail's board stands inside the gutters.
+  const width = screen - 2 * spacing.lg;
+  const held = jest.spyOn(Reanimated, 'withSpring').mockImplementation(((_to: number) => 0) as never);
+  try {
+    const result = await render(<GarmentSwapBoard {...boardProps({
+      width,
+      pieces: rainySmart,
+      candidates: {},
+      palette: { ...palette, pieces: rainySmart.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })) },
+      entrance: { fromStageColor: lightTheme.atmosphere.fallingDay, fromWidth: screen },
+    })} />, { wrapper: LightTheme });
+
+    const band = entranceStartBoxes(rainySmart, screen, 'today', true);
+    const drawings = result.getAllByTestId(/^garment-swap-board-drawing-/);
+    expect(drawings.map((node) => String(node.props.testID).split('-').at(-2)))
+      .toEqual(flatLayStack.filter((slot) => rainySmart.some((piece) => piece.slot === slot)));
+    for (const piece of rainySmart) {
+      const drawing = result.getByTestId(`garment-swap-board-drawing-${piece.slot}-${piece.garmentTypeId}`);
+      const [free] = drawing.children as (typeof drawing)[];
+      const [view] = free.children as (typeof drawing)[];
+      const style = StyleSheet.flatten(view.props.style);
+      const [{ translateX }, { translateY }, { scaleX }, { scaleY }] = style.transform;
+      const w = scaleX * style.width;
+      const h = scaleY * style.height;
+      const today = band.get(piece.slot)!;
+      expect({
+        x: translateX + style.width / 2 - w / 2,
+        y: translateY + style.height / 2 - h / 2,
+        w,
+        h,
+      }).toEqual({
+        x: expect.closeTo(today.x * screen - spacing.lg, 3),
+        y: expect.closeTo(today.y * screen, 3),
+        w: expect.closeTo(today.w * screen, 3),
+        h: expect.closeTo(today.h * screen, 3),
+      });
+    }
+    // The band is cornerless, and so is the tint the entrance fades from.
+    const [tint] = result.getByTestId('garment-swap-board-plate').children as (typeof drawings)[number][];
+    expect(StyleSheet.flatten(tint.props.style)).toMatchObject({ height: expect.any(Number) });
+    expect(StyleSheet.flatten(tint.props.style).borderRadius ?? 0).toBe(0);
+  } finally {
+    held.mockRestore();
   }
 });

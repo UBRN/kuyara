@@ -31,10 +31,10 @@ function isOneSentence(sentence: string): boolean {
 }
 
 // Turkish and English are both Latin script, so a letter from any other script is a model
-// slipping language mid-sentence; a comma, semicolon or colon before the end is a cut clause.
+// slipping language mid-sentence; a comma, semicolon or colon at the end, or before the final mark, is a cut clause.
 export const insightSentenceSchema = z.string().min(1).max(90).refine(
   (sentence) => sentence === sentence.trim() && isOneSentence(sentence)
-    && !/(?!\p{Script=Latin})\p{L}/u.test(sentence) && !/[,;:][.!?]$/u.test(sentence),
+    && !/(?!\p{Script=Latin})\p{L}/u.test(sentence) && !/[,;:][.!?]?$/u.test(sentence),
   'Insight must be one trimmed Latin-script sentence without a line break or a cut clause.',
 );
 

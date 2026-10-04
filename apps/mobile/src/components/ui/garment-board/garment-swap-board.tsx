@@ -37,6 +37,7 @@ import {
   type GarmentBoardPiece,
   type PieceShadow,
 } from './garment-board';
+import { flatLayStack } from './compose-flat-lay';
 import { garmentRolesBySlot, type GarmentOutfitPalette } from './garment-palette';
 import { GARMENT_OUTLINE } from './garment-painting';
 import { GarmentSwapStrip, type GarmentSwapStripLabels } from './garment-swap-strip';
@@ -139,8 +140,11 @@ export type GarmentSwapBoardProps = Readonly<{
   hint?: ReactNode;
   hintVisible?: boolean;
   labels: GarmentSwapBoardLabels;
-  /** The pieces leave from where Today's fitted stage drew them (ADR 0026 section 7). */
-  entrance: Readonly<{ fromStageColor: string; fromStageRadius: number }>;
+  /**
+   * The pieces leave from exactly where Today's band drew them (ADR 0026 section 7): the band
+   * is `fromWidth` wide, centred on this board, cornerless, in `fromStageColor`.
+   */
+  entrance: Readonly<{ fromStageColor: string; fromWidth: number }>;
   /** Law 7's moment: change it and the pieces settle once. */
   settle?: number;
   /** An enlargement asks its owner to bring the strip into view, in board points. */
@@ -176,6 +180,17 @@ const lerpBox = (a: Box, b: Box, t: number): Box => {
 };
 const inside = (box: Box, x: number, y: number) =>
   x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h;
+
+/**
+ * Where Today's band, `band` points wide and centred on this `width`-point board, drew each
+ * piece, by slot, in this board's width units.
+ */
+function bandBoxes(pieces: readonly GarmentBoardPiece[], band: number, width: number, large: boolean) {
+  const inset = (band - width) / 2;
+  return new Map([...entranceStartBoxes(pieces, band, 'today', true, large)].map(([slot, box]) => [slot, {
+    x: (box.x * band - inset) / width, y: (box.y * band) / width, w: (box.w * band) / width, h: (box.h * band) / width,
+  }]));
+}
 
 /** The composition in points; `fit` composes it that much narrower, centred in `width`. */
 function composeInPoints(pieces: readonly GarmentBoardPiece[], width: number, large: boolean, fit = 1): Composed {
@@ -585,7 +600,7 @@ export function GarmentSwapBoard({
     const tools: ReconcileTools = {
       values: valuesFor,
       compose: (next, nextFit) => composeInPoints(next, width, large, nextFit),
-      entranceBoxes: (next) => entranceStartBoxes(next, width, 'today', true, large),
+      entranceBoxes: (next) => bandBoxes(next, entrance.fromWidth, width, large),
     };
     setModel(reconcile(model, {
       signature, composed, pieces, palette, roles, rolesFor, width, focusedSlot, grow: activeGrow, pager, candidates,
@@ -1304,8 +1319,9 @@ export function GarmentSwapBoard({
     && (liveSlot === focusedSlot || !settled);
   // The pieces lie in the dressing order, so where two overlap the later lies over the earlier;
   // the enlarged slot is drawn over them all, so an overlapped piece comes fully into view.
+  // Until the entrance settles they lie as Today's flat lay stacks them, as they left the band.
   const drawOrder: Role[] = ['current', 'leaving', 'previous', 'next'];
-  const dressing = composed?.stack ?? [];
+  const dressing = settled ? composed?.stack ?? [] : flatLayStack;
   const sortedInstances = [...instances].sort((a, b) =>
     Number(a.slot === focusedSlot) - Number(b.slot === focusedSlot)
     || dressing.indexOf(a.slot) - dressing.indexOf(b.slot)
@@ -1336,7 +1352,7 @@ export function GarmentSwapBoard({
           {composed ? (
             <Animated.View
               pointerEvents="none"
-              style={[styles.tint, { borderRadius: entrance.fromStageRadius, height: composed.height }, tintStyle]}
+              style={[styles.tint, { height: composed.height }, tintStyle]}
             />
           ) : null}
           {sortedInstances.map((instance) => (
