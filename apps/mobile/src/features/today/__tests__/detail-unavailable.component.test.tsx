@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -23,7 +23,7 @@ jest.mock('expo-router', () => {
   };
 });
 
-function renderDetail(language: SupportedLanguage, state: TodayScreenState, suggestionId: string, onBack = jest.fn()) {
+function renderDetail(language: SupportedLanguage, state: TodayScreenState, suggestionId: string) {
   return render(
     <LocalizationContext value={{ language, messages: messages[language], hour12: false, temperatureUnit: 'celsius' }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
@@ -34,7 +34,6 @@ function renderDetail(language: SupportedLanguage, state: TodayScreenState, sugg
           <HeaderHeightContext value={undefined}>
             <OutfitDetailScreen
               language={language}
-              onBack={onBack}
               onEditPiece={jest.fn()}
               state={state}
               suggestionId={suggestionId}
@@ -47,30 +46,25 @@ function renderDetail(language: SupportedLanguage, state: TodayScreenState, sugg
   );
 }
 
+// O14: the way back is the system's back capsule in the bar; the page itself says what happened.
 describe.each(['en', 'tr'] as const)('%s outfit detail without an outfit', (language) => {
   const copy = messages[language].today;
 
-  test('an outfit the snapshot no longer offers says so and offers the way back to Today', async () => {
-    const onBack = jest.fn();
-    const result = await renderDetail(language, todayScreenState as TodayScreenState, 'gone', onBack);
+  test('an outfit the snapshot no longer offers says so in its title and body', async () => {
+    const result = await renderDetail(language, todayScreenState as TodayScreenState, 'gone');
     expect(result.getByRole('header', { name: copy.noOutfitTitle })).toBeOnTheScreen();
     expect(result.getByText(copy.noOutfitBody)).toBeOnTheScreen();
-    await fireEvent.press(result.getByRole('button', { name: copy.backToTodayAction }));
-    expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  test('a failed outfit reads its title and body, with the way back to Today', async () => {
-    const onBack = jest.fn();
-    const result = await renderDetail(language, { kind: 'unavailable' }, 'any', onBack);
+  test('a failed outfit reads its title and body', async () => {
+    const result = await renderDetail(language, { kind: 'unavailable' }, 'any');
     expect(result.getByRole('header', { name: copy.unavailableTitle })).toBeOnTheScreen();
     expect(result.getByText(copy.unavailableBody)).toBeOnTheScreen();
-    await fireEvent.press(result.getByRole('button', { name: copy.backToTodayAction }));
-    expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  test('while the outfit is still coming, the body reads and no way back is pressed on it', async () => {
+  test('while the outfit is still coming, its body reads under the title', async () => {
     const result = await renderDetail(language, { kind: 'loading' }, 'any');
+    expect(result.getByRole('header', { name: copy.loadingTitle })).toBeOnTheScreen();
     expect(result.getByText(copy.loadingBody)).toBeOnTheScreen();
-    expect(result.queryByRole('button', { name: copy.backToTodayAction })).toBeNull();
   });
 });

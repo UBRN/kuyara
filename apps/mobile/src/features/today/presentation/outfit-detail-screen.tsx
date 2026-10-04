@@ -105,8 +105,6 @@ type OutfitDetailScreenProps = Readonly<{
   wardrobeItems: readonly WardrobeItem[];
   /** O6: a piece row opens the piece's Closet sheet. */
   onEditPiece: (target: PieceSheetTarget) => void;
-  /** Without an outfit to show, the screen's own way back to Today. */
-  onBack?: () => void;
   worn?: OutfitWornState;
   wornBusy?: boolean;
   wornError?: string | null;
@@ -149,7 +147,6 @@ export function OutfitDetailScreen({
   suggestionId,
   wardrobeItems,
   onEditPiece,
-  onBack,
   worn = 'unknown',
   wornBusy = false,
   wornError = null,
@@ -413,13 +410,7 @@ export function OutfitDetailScreen({
         <AppText colorRole="textSecondary" style={styles.missingSuggestionBody} variant="body">
           {missingSuggestion ? copy.noOutfitBody : presentation.body}
         </AppText>
-        {/* An outfit still coming arrives here; only a dead end offers the way back. */}
-        {onBack && presentation.kind !== 'loading' ? (
-          <View style={styles.missingSuggestionAction}>
-            <Button label={copy.backToTodayAction} onPress={() => onBack()} testID="outfit-detail-back"
-              variant="tonal" />
-          </View>
-        ) : null}
+        {/* O14: the way back stays the system's back capsule in the bar, so no button here. */}
       </Screen>
     );
   }
@@ -764,10 +755,6 @@ export function OutfitDetailScreen({
 const styles = StyleSheet.create({
   missingSuggestionBody: {
     marginTop: spacing.sm,
-  },
-  missingSuggestionAction: {
-    alignItems: 'flex-start',
-    marginTop: spacing.md,
   },
   headingGroup: {
     marginTop: spacing.md,

@@ -343,7 +343,6 @@ export type TodayMessages = Readonly<{
   chooseLocationAction: string;
   noOutfitTitle: string;
   noOutfitBody: string;
-  backToTodayAction: string;
   weatherAccessibilityLabel: (values: {
     condition: string;
     // The three temperatures arrive already formatted, so the spoken number is the one
@@ -1976,7 +1975,6 @@ const en = {
     chooseLocationAction: 'Choose a location',
     noOutfitTitle: 'Outfit unavailable',
     noOutfitBody: 'No complete outfit can be recommended for these conditions.',
-    backToTodayAction: 'Back to Today',
     weatherAccessibilityLabel: ({
       condition,
       current,
@@ -3174,7 +3172,6 @@ const tr = {
     chooseLocationAction: 'Konum seç',
     noOutfitTitle: 'Kombin bulunamadı',
     noOutfitBody: 'Bu koşullar için eksiksiz bir kombin önerilemiyor.',
-    backToTodayAction: 'Bugün’e dön',
     weatherAccessibilityLabel: ({
       condition,
       current,
