@@ -355,12 +355,18 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     });
     const hidden = { includeHiddenElements: true };
     const stageColor = theme.atmosphere[presentation.atmosphere];
-    // P2: the stage is as tall as its fitted board, and every piece casts its shadow on it.
-    expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
-      .toMatchObject({
-        backgroundColor: stageColor, borderRadius: 26, width: 358,
-        height: measureGarmentBoardHeight(primary.boardPieces, 358, 'today', true),
-      });
+    // The stage is a cornerless band reaching both screen edges, past the page's gutters, as
+    // tall as its fitted flat lay; every piece casts its shadow on it.
+    const band = 358 + 2 * spacing.lg;
+    const stageStyle = StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style);
+    expect(stageStyle).toMatchObject({
+      backgroundColor: stageColor, width: band,
+      height: measureGarmentBoardHeight(primary.boardPieces, band, 'today', true),
+    });
+    expect(stageStyle.borderRadius ?? 0).toBe(0);
+    // The outfit's name keeps the page's gutter.
+    expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
+      .toMatchObject({ marginLeft: spacing.lg, marginRight: spacing.lg });
     expect(result.getByTestId(`today-primary-board-${primary.id}`, hidden)).toBeOnTheScreen();
     const shadows = result.getByTestId('today-stage', hidden)
       .queryAll((node) => String(node.type).includes('FeFlood'));
