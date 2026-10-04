@@ -69,8 +69,16 @@ export type TodayMessages = Readonly<{
     formal: string;
     /** The line under the dimmed outfit while a day-type change regenerates it. */
     updating: DayTypeMessages;
-    /** The one caption on the day onboarding finishes, over the preselected answer. */
-    firstDayNote: string;
+    /** The morning and evening sheets' question, naming the profile's usual day type. */
+    usualQuestion: DayTypeMessages;
+    usualQuestionEvening: DayTypeMessages;
+    /** The one large answer: the profile's usual day type. */
+    usualAction: string;
+    /** The line over the other two day types. */
+    differentQuestion: string;
+    differentQuestionEvening: string;
+    /** Opens the optional styles step. */
+    pickStyles: string;
     close: string;
     saveError: string;
     /** M18 step 2: the day's styles, for this dressing day only. */
@@ -1631,7 +1639,20 @@ const en = {
         smart: 'Updating for a Smart day…',
         formal: 'Updating for a Formal day…',
       },
-      firstDayNote: 'Your answer from setup is already selected. Tap it to confirm.',
+      usualQuestion: {
+        casual: 'A usual Casual day?',
+        smart: 'A usual Smart day?',
+        formal: 'A usual Formal day?',
+      },
+      usualQuestionEvening: {
+        casual: 'A usual Casual evening?',
+        smart: 'A usual Smart evening?',
+        formal: 'A usual Formal evening?',
+      },
+      usualAction: 'Yes, as usual',
+      differentQuestion: 'Or is today different?',
+      differentQuestionEvening: 'Or is this evening different?',
+      pickStyles: 'Pick styles for today',
       close: 'Close',
       saveError: 'Your choice could not be saved. Try again.',
       stylesQuestion: 'Any styles for today?',
@@ -2837,7 +2858,20 @@ const tr = {
         smart: 'Şık bir güne göre güncelleniyor…',
         formal: 'Resmî bir güne göre güncelleniyor…',
       },
-      firstDayNote: 'Kurulumda verdiğin cevap zaten seçili. Onaylamak için ona dokun.',
+      usualQuestion: {
+        casual: 'Her zamanki gibi Rahat bir gün mü?',
+        smart: 'Her zamanki gibi Şık bir gün mü?',
+        formal: 'Her zamanki gibi Resmî bir gün mü?',
+      },
+      usualQuestionEvening: {
+        casual: 'Her zamanki gibi Rahat bir akşam mı?',
+        smart: 'Her zamanki gibi Şık bir akşam mı?',
+        formal: 'Her zamanki gibi Resmî bir akşam mı?',
+      },
+      usualAction: 'Evet, her zamanki gibi',
+      differentQuestion: 'Yoksa bugün farklı mı?',
+      differentQuestionEvening: 'Yoksa bu akşam farklı mı?',
+      pickStyles: 'Bugün için stil seç',
       close: 'Kapat',
       saveError: 'Seçimin kaydedilemedi. Yeniden dene.',
       stylesQuestion: 'Bugün hangi stiller?',

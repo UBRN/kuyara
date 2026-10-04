@@ -97,13 +97,13 @@ export default function TodayRoute() {
   const [askError, setAskError] = useState(false);
   const [choosingWindow, setChoosingWindow] = useState<Readonly<{ start: string; end: string }> | null>(null);
   const [sheetError, setSheetError] = useState(false);
-  // M18 step 2: the day type chosen on step 1 and the styles on screen. Nothing is written
-  // until the sheet closes, so both answers land in one write and one generation.
+  // M18 step 2, opened by "Pick styles for today": the usual day type and the styles on screen.
+  // Nothing is written until the sheet closes, so both answers land in one write and one generation.
   const [stylesStep, setStylesStep] = useState<Readonly<{
-    style: DressStyle; initial: readonly StyleAesthetic[]; draft: readonly StyleAesthetic[];
+    initial: readonly StyleAesthetic[]; draft: readonly StyleAesthetic[];
   }> | null>(null);
   // The native sheet animates out after its target clears, so it keeps drawing the question
-  // it was showing (title, checked tile, step) until the next one opens.
+  // it was showing (its period and step) until the next one opens.
   const [shownSheet, setShownSheet] = useState({ target: sheetTarget, stylesStep });
   if (sheetTarget !== null &&
       (shownSheet.target !== sheetTarget || shownSheet.stylesStep !== stylesStep)) {
@@ -230,28 +230,29 @@ export default function TodayRoute() {
       .catch(() => setSheetError(true))
       .finally(() => { savingChoice.current = false; });
   };
-  const handleChoice = (style: DressStyle) => {
+  // One tap answers: the usual day type or another one, with the styles left as they are.
+  const handleChoice = (style: DressStyle) => { void answerSheet(style); };
+  const pickStyles = () => {
     if (!sheetTarget || savingChoice.current) return;
     const initial = resolvedStyleAesthetics ?? [];
-    setStylesStep({ style, initial, draft: initial });
+    setStylesStep({ initial, draft: initial });
   };
   const confirmStyles = () => {
     if (!stylesStep) return;
     const changed = styleAestheticsChanged(stylesStep.initial, stylesStep.draft);
-    void answerSheet(stylesStep.style, changed ? stylesStep.draft : undefined);
+    void answerSheet(profileDressStyle, changed ? stylesStep.draft : undefined);
   };
   // P6: closing the question answers it with the profile's own dress style, through the same
   // write an answer makes, so it starts no generation the answer would not. Closed on step 2,
-  // it answers with the day type already chosen and leaves the styles as they were.
+  // it answers with the same usual day type and leaves the styles as they were.
   const dismissChoice = () => {
     const target = openSheet.current;
     if (savingChoice.current || !target || !currentDressingDayKey) return;
-    const chosen = stylesStep;
     savingChoice.current = true;
     // A confirm that failed earlier in this opening must not follow a successful close into the next.
     setSheetError(false);
     setSheetTarget(null);
-    void (chooseFormality?.(currentDressingDayKey, chosen?.style ?? profileDressStyle, 'morning')
+    void (chooseFormality?.(currentDressingDayKey, profileDressStyle, 'morning')
       ?? Promise.resolve())
       .then(() => setStylesStep(null))
       .catch(() => { setSheetError(true); setSheetTarget(target); })
@@ -438,12 +439,8 @@ export default function TodayRoute() {
       state={state}
     />
     <DailyFormalitySheet visible={sheetTarget !== null} language={language}
-      question={shownSheet.target === 'evening'
-        ? getMessages(language).today.dailyStyle.questionEvening
-        : getMessages(language).today.dailyStyle.question}
-      selected={shownSheet.target === 'evening' ? null : resolvedDressStyle}
-      firstDay={shownSheet.target === 'morning' && firstDressingDay}
-      error={sheetError} onChoose={handleChoice} onDismiss={dismissChoice}
+      period={shownSheet.target === 'evening' ? 'evening' : 'morning'} usual={profileDressStyle}
+      error={sheetError} onChoose={handleChoice} onPickStyles={pickStyles} onDismiss={dismissChoice}
       step={shownStylesStep ? 'styles' : 'dayType'}
       styles={shownStylesStep ? (
         <StyleAestheticsOptions copy={getMessages(language).preferences}
