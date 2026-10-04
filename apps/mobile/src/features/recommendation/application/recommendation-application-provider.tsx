@@ -28,7 +28,7 @@ import { usePerformanceTelemetry } from '@/features/analytics/application/use-pe
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
-import { defaultDressStyle, orderStyleAesthetics, sameStyleAesthetics } from '@/features/profile/domain/profile';
+import { defaultDressStyle, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
@@ -86,6 +86,8 @@ function approvedSignals(input: RecommendationApplicationInput): RecommendationS
     localDayKey: input.localDayKey,
   };
 }
+
+type LocalDay = ReturnType<typeof deviceLocalDay>;
 
 function deviceLocalDay() {
   const date = new Date();
@@ -233,8 +235,8 @@ export function RecommendationApplicationProvider({
   const profileDefault = profileState.status === 'ready'
     ? profileState.profile.dressStyle ?? defaultDressStyle : defaultDressStyle;
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
-  const resolvedStyles = resolvedStyleAesthetics(dayChoice,
-    profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
+  const settingsStyles = profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? null : null;
+  const resolvedStyles = resolvedStyleAesthetics(dayChoice, settingsStyles ?? []);
   // The day setup finished on is answered by setup (a choice row written as it completes, or
   // the day itself for a profile an earlier build set up), so neither question is asked then. The one Settings switch turns off both questions; an
   // unasked day resolves to the profile dress style, as a dismissed question does.
@@ -389,16 +391,9 @@ export function RecommendationApplicationProvider({
         }
       : null;
 
-    // The morning question normally holds automatic generation over the last valid look.
-    // A persistent aesthetic edit made inside that sheet is already a profile-change
-    // trigger, so it may refresh that look while the day's formality stays unanswered.
-    if (morningChoicePending || eveningChoicePending) {
-      if (previous && !sameStyleAesthetics(previous.styleAesthetics, current.styleAesthetics)) {
-        await controller.refresh('dress-style-changed', generationInput);
-        return true;
-      }
-      return false;
-    }
+    // An unanswered day question holds automatic selection; its answer starts the one
+    // generation. The last look may carry another key's day-only styles, which are no change.
+    if (morningChoicePending || eveningChoicePending) return false;
 
     const trigger = recommendationRefreshTrigger(previous, current);
 
@@ -471,10 +466,18 @@ export function RecommendationApplicationProvider({
   // than from the render that bound the handler. `null` when there is nothing to compose for,
   // and when the dressing day has flipped since that render: its answer, departure and pending
   // question are not read yet, so the render that reads them generates instead.
-  const currentInput = useCallback(() => {
-    const currentDay = deviceLocalDay();
-    setLocalDay((previous) => previous.key === currentDay.key ? previous : currentDay);
-    if (currentDay.key !== localDay.key) return null;
+  // `answered` names a day whose answer the caller has just written itself: a re-ask confirmed
+  // after the 04:00 or 18:00 flip, before any render read the new key, regenerates for that key
+  // with the row it wrote.
+  const currentInput = useCallback((
+    answered?: Readonly<{ day: LocalDay; choice: DressingDayChoice | null }>,
+  ) => {
+    const currentDay = answered?.day ?? deviceLocalDay();
+    const renderedDay = currentDay.key === localDay.key;
+    if (!answered) {
+      setLocalDay((previous) => previous.key === currentDay.key ? previous : currentDay);
+      if (!renderedDay) return null;
+    }
     const currentWeather = weatherApplication.getSnapshot?.() ?? weatherState;
     const clothingPreference = profileState.status === 'ready'
       ? profileState.profile.clothingPreference
@@ -483,22 +486,23 @@ export function RecommendationApplicationProvider({
       currentWeather.status !== 'ready' ||
       !currentWeather.snapshot ||
       profileState.status !== 'ready' ||
-      !clothingPreference || !choiceReady || !departureReady
+      !clothingPreference || (renderedDay && (!choiceReady || !departureReady))
     ) return null;
+    const answer = answered?.choice ?? null;
     return {
       snapshot: currentWeather.snapshot,
       now: now(),
-      ...(activeDeparture ? { departureAt: activeDeparture.departureAt } : {}),
+      ...(renderedDay && activeDeparture ? { departureAt: activeDeparture.departureAt } : {}),
       clothingPreference,
-      dressStyle: resolvedDressStyle,
-      styleAesthetics: resolvedStyles,
+      dressStyle: renderedDay ? resolvedDressStyle : resolvedFormality(answer, profileDefault),
+      styleAesthetics: renderedDay ? resolvedStyles : resolvedStyleAesthetics(answer, settingsStyles ?? []),
       dayVariant: currentDay.variant,
       dayKind: currentDay.kind,
       localDayKey: currentDay.key,
       locale: language,
     };
-  }, [activeDeparture, choiceReady, departureReady, language, localDay.key, profileState,
-    resolvedDressStyle, resolvedStyles, weatherApplication, weatherState]);
+  }, [activeDeparture, choiceReady, departureReady, language, localDay.key, profileDefault, profileState,
+    resolvedDressStyle, resolvedStyles, settingsStyles, weatherApplication, weatherState]);
 
   // Tomorrow's preview is chosen only after a foreground open of Today has asked for it, and the
   // ask belongs to the dressing day it was made in: an open in the afternoon does not carry into
@@ -519,7 +523,6 @@ export function RecommendationApplicationProvider({
     if (!triggered) controller.clearLastFailure();
   }, [controller, currentInput, evaluateApprovedTriggersForInput]);
 
-  const settingsStyles = profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? null : null;
   const chooseFormality = useCallback(async (
     key: string, formality: DressStyle, source: DressingDayChoiceSource,
     styleAesthetics?: readonly StyleAesthetic[],
@@ -669,14 +672,17 @@ export function RecommendationApplicationProvider({
     answerSetupDay,
     outfitHistory,
     reask: async ({ formality, departureAt, timeZone }) => {
+      // Read at the confirmation: Today may have stayed in front across 04:00 or 18:00, and the
+      // re-ask then answers the key now in force.
+      const day = deviceLocalDay();
       const result = await reaskForDressingDay({ formality, departureAt, timeZone }, {
         localProfileId,
-        currentDayKey: localDay.key,
+        currentDayKey: day.key,
         resolvedDressStyle,
-        hasCurrentDayChoice: currentDayChoice?.status === 'row',
+        hasCurrentDayChoice: day.key === localDay.key && currentDayChoice?.status === 'row',
         choiceRepository: await loadChoiceRepository(),
         departureRepository: await loadDepartureRepository(),
-        currentInput,
+        currentInput: (choice) => currentInput({ day, choice }),
         refresh: (input) => controller.refresh('regenerate', input),
         now,
       });
@@ -685,10 +691,11 @@ export function RecommendationApplicationProvider({
       });
       reaskInFlight.current = settled;
       if (result.choice) {
-        setDayChoiceState({ profileId: localProfileId, key: localDay.key,
+        setDayChoiceState({ profileId: localProfileId, key: day.key,
           status: 'row', choice: result.choice });
       }
-      setDepartureState({ key: localDay.key, value: result.departure });
+      setDepartureState({ key: day.key, value: result.departure });
+      setLocalDay((previous) => previous.key === day.key ? previous : day);
       return { settled };
     },
     refresh: () => {

@@ -25,7 +25,8 @@ type ReaskDependencies = Readonly<{
   hasCurrentDayChoice: boolean;
   choiceRepository: Pick<DressingDayChoiceRepository, 'upsert'>;
   departureRepository: Pick<DressingDayDepartureRepository, 'upsert' | 'clear'>;
-  currentInput: () => RecommendationApplicationInput | null;
+  // Given the row this re-ask wrote, or null when it wrote none.
+  currentInput: (choice: DressingDayChoice | null) => RecommendationApplicationInput | null;
   refresh: (input: RecommendationApplicationInput) => Promise<unknown>;
   now: () => string;
 }>;
@@ -62,7 +63,7 @@ export async function reaskForDressingDay(
   }
 
   // The single recommendation row remains Today's until this departure day becomes current.
-  const generationInput = key === currentDayKey ? dependencies.currentInput() : null;
+  const generationInput = key === currentDayKey ? dependencies.currentInput(choice) : null;
   let refresh: Promise<unknown> = Promise.resolve(null);
   if (generationInput && key === currentDayKey) {
     const { departureAt: _previousDeparture, ...base } = generationInput;

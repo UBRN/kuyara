@@ -9,7 +9,7 @@ import {
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import { calendarDateParts } from '@/domain/calendar-date';
-import { dateTimeFormat, numberFormat, zonedClock, zonedDateKey } from '@/domain/intl-format';
+import { dateTimeFormat, numberFormat, zonedDateKey } from '@/domain/intl-format';
 import {
   departureIsAhead,
   quarterHourMs,
@@ -69,8 +69,8 @@ import {
 } from '@/localization/messages';
 import {
   dressingDayDateKey,
-  eveningHasStarted,
   isEveningDressingDayKey,
+  wardrobeDayWindow,
 } from '@/features/weather/domain/wardrobe-day';
 import type { TemperatureUnit } from '@/localization/device-locale';
 import { formatClockTime, formatLastUpdated } from '@/presentation/format-clock-time';
@@ -300,10 +300,10 @@ export function eveningLaterReadyLine(
   if (!departure || !isEveningDressingDayKey(departure.dayKey)) return null;
   const readyAt = Date.parse(departure.updatedAt);
   if (!Number.isFinite(readyAt) || readyAt > now || !departureIsAhead(departure, now)) return null;
-  const readyClock = zonedClock(readyAt, departure.timeZone);
-  const currentClock = zonedClock(now, departure.timeZone);
-  if (!eveningHasStarted(readyClock.hour) || !eveningHasStarted(currentClock.hour) ||
-      zonedDateKey(readyAt, departure.timeZone) !== zonedDateKey(now, departure.timeZone)) return null;
+  // Chosen in the evening, its small hours included, and shown until the departure, past midnight too.
+  const readyKey = wardrobeDayWindow(departure.updatedAt, departure.timeZone)?.key;
+  if (!readyKey || !isEveningDressingDayKey(readyKey) ||
+      readyKey !== wardrobeDayWindow(new Date(now).toISOString(), departure.timeZone)?.key) return null;
   return getMessages(language).today.laterReady({
     departure: formatDepartureTime(departure.departureAt, language, hour12, departure.timeZone),
     ready: formatDepartureTime(departure.updatedAt, language, hour12, departure.timeZone),

@@ -84,6 +84,22 @@ test('the evening Later note uses the saved choice times in both languages', () 
     updatedAt: '2026-08-13T14:00:00.000Z' }, now, 'en', false), null);
 });
 
+test('the evening Later note stays until a departure past midnight, and a small-hours Later gets one', () => {
+  const departure = {
+    dayKey: '2026-08-13:evening', timeZone: 'Europe/Istanbul',
+    departureAt: '2026-08-13T21:30:00.000Z',
+    createdAt: '2026-08-13T19:30:00.000Z',
+    updatedAt: '2026-08-13T19:30:00.000Z',
+  };
+  assert.equal(eveningLaterReadyLine(departure, Date.parse('2026-08-13T21:10:00.000Z'), 'en', false),
+    'Your 00:30 outfit is ready at 22:30');
+  assert.equal(eveningLaterReadyLine(departure, Date.parse('2026-08-13T21:30:00.000Z'), 'en', false), null);
+  const smallHours = { ...departure, departureAt: '2026-08-13T22:00:00.000Z',
+    createdAt: '2026-08-13T21:10:00.000Z', updatedAt: '2026-08-13T21:10:00.000Z' };
+  assert.equal(eveningLaterReadyLine(smallHours, Date.parse('2026-08-13T21:20:00.000Z'), 'en', false),
+    'Your 01:00 outfit is ready at 00:10');
+});
+
 function loadedPresentation(
   state = todayScreenState,
   language = 'en',
