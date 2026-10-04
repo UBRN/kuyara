@@ -235,9 +235,8 @@ export function RecommendationApplicationProvider({
   const profileDefault = profileState.status === 'ready'
     ? profileState.profile.dressStyle ?? defaultDressStyle : defaultDressStyle;
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
-  const resolvedStyles = resolvedStyleAesthetics(dayChoice,
-    profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
   const settingsStyles = profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? null : null;
+  const resolvedStyles = resolvedStyleAesthetics(dayChoice, settingsStyles ?? []);
   // The day setup finished on is answered by setup (a choice row written as it completes, or
   // the day itself for a profile an earlier build set up), so neither question is asked then. The one Settings switch turns off both questions; an
   // unasked day resolves to the profile dress style, as a dismissed question does.
