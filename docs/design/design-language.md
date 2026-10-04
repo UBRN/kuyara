@@ -60,9 +60,9 @@ A screen shows **at most three emphasis levels**, and **exactly one** hero.
   context](https://polaris.shopify.com/components/page-actions). Content encodings, the
   `condition.*` inks and the garment render fills, are not emphasis: they are bounded by
   their own per-surface rules and never enter this count. Quantitative data marks are the
-  same: the hourly card's temperature series and the daily outlook rows' temperature rails
-  draw one quantity in one hue, so they are one encoding rather than accent fills, however
-  many rows the viewport holds. The viewport under a presented
+  same: the hourly card's temperature series and the daily outlook rows' temperature
+  capsules draw one quantity on one scale, so they are one encoding rather than accent
+  fills, however many rows the viewport holds. The viewport under a presented
   sheet is the sheet; the scrim removes the page behind it from the accent count.
 - The hero must be what the user opened the screen to get. A heading is never the hero.
   **The hero is not always a type role.** [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
@@ -295,6 +295,33 @@ coordinates falls back to the old 06:00 to 20:00 window rather than to no answer
 
 A new condition code must join the pure resolver and its exhaustive test, and bring its own
 ink and its own shape with an iOS and an Android name, before it can render.
+
+### Temperature colour is content data
+
+The `temperature.standard` and `temperature.strong` ramps are a closed content encoding like
+`condition.*`: seven stops on one fixed Celsius scale, at -5, the freezing 5, 12, the chilly
+18, the hot 23, the very hot 28 and 35 degrees, the four middle boundaries being the ones the
+clothing rules already decide on (`weather-thresholds.ts`). Below -5 and above 35 the colour
+holds at the end. Between two stops the colour is interpolated in OKLCH, the hue taking the
+short way round. A temperature is looked up by its Celsius value alone, so 13 degrees is the
+same colour on every row and in both cards, and Fahrenheit changes only the numbers.
+
+They have exactly two consumers, the Weather screen's daily outlook, whose low-to-high
+capsules are an SVG gradient clipped to each day's own stretch of the scale with a stop at
+every whole degree, and its hourly rail, whose line is a vertical gradient on the plot's own
+temperature axis and whose dots take their hour's colour. They never colour text, a control,
+a border or chrome, and no consumer applies `withAlpha`, an opacity style or a glow; the
+gradient test fails on any other reader. The numbers beside every mark stay in the primary
+ink, and each row's and column's accessibility sentence states the same values, so colour is
+never the only signal.
+
+The standard ramp clears 3:1 against the white card and the `surfaceMuted` track in light
+and 4.5:1 against the dark card and track at every half degree; the strong ramp, drawn while
+higher contrast applies (the Easier to see switch or iOS Increase Contrast), clears 4.5:1 in
+light and 7:1 in dark. Today's dot on the daily rail is the primary ink ringed 2 points in
+the card's own fill, 10 points (12 with Easier to see) on a 6-point rail (8 with Easier to
+see). A capsule arrives with a clip reveal from its low end, never a horizontal scale, so its
+colours are not squeezed while it draws.
 
 ### Colour is never the signal
 
@@ -671,6 +698,10 @@ without reading the rest of this document.
 - For any status instance, confirm ink, glyph, and text are all three present, and that
   the ink's contrast against its own `surface` sits within ±0.8 of `brandAccent`'s (Law
   4).
+- Grep for readers of `theme.temperature`. Only the daily outlook and the hourly rail, never
+  through `withAlpha`, and never on text (Law 4).
+- Compare the daily capsules and the hourly line in °C and °F: the colours are identical and
+  only the numbers change (Law 4).
 - Confirm interactive component boundaries (chips, outline buttons) use `borderDefined`,
   not `borderSubtle` (Law 4).
 - Confirm any number that can change without a layout change (temperature, time, count,
