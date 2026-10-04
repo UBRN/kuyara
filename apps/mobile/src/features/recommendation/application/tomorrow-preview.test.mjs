@@ -65,7 +65,7 @@ function previewInput(overrides = {}) {
     dayKind: localDayKind(morning),
     localDayKey: tomorrowKey,
     locale: 'en',
-    excludedOptionIds: [],
+    excludedOutfits: [],
     ...overrides,
   };
 }
@@ -230,8 +230,8 @@ test('a failed stylist answer keeps the deterministic three, a failed save shows
   assert.equal(unsaved.getSnapshot(), null);
 });
 
-function morningContext(input = morningInput(), excludedOptionIds = []) {
-  return createRecommendationContextWithPool({ ...input, excludedOptionIds }, input.localDayKey).context;
+function morningContext(input = morningInput(), excludedOutfits = []) {
+  return createRecommendationContextWithPool({ ...input, excludedOutfits }, input.localDayKey).context;
 }
 
 test('the morning reuses the preview only while every input and requirement is unchanged', async () => {
@@ -278,7 +278,7 @@ test('one predicate decides whether a preview still answers the question, for To
 test('a pick the morning no longer offers, or a deterministic preview, asks again', async () => {
   const preview = await choosePreview();
   const location = 'manual:sample.istanbul';
-  const shown = preview.recommendation.outfits.map(({ optionId }) => optionId);
+  const shown = preview.recommendation.outfits;
   assert.equal(reusablePreviewRecommendation(preview, morningContext(morningInput(), shown), location), null);
   assert.equal(reusablePreviewRecommendation(
     { ...preview, recommendation: { ...preview.recommendation, generationMode: 'deterministic-fallback' } },

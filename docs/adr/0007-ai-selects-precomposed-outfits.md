@@ -125,7 +125,8 @@ cacheKey = hash( sorted requirement vector without reasonCodes,
 without changing the answer. They are excluded from the prompt for the same
 reason.
 
-`dayVariant` is the local day of year modulo 7, not a raw day seed. A raw seed
+`dayVariant` is the local date's day count from 31 December 2025 modulo 7, not
+a raw day seed; the count runs on across years, so the year boundary never repeats. A raw seed
 regenerates every bucket every day and ties quota consumption to daily bucket
 count. A seven-slot ring bounds each bucket to at most seven generations, after
 which it is a permanent cache hit. Consecutive days do not repeat, which is what
@@ -224,8 +225,9 @@ recommendation is never withheld.
 - Results of a Worker selection are shared across all users by construction,
   which ADR 0005 already accepted. An on-device selection is computed per device.
 - Outfits recur on a seven-day cycle for an unchanged weather bucket. Ordinary
-  generation excludes the persisted snapshot's three options when at least
-  three valid alternatives remain. A confirmed re-ask may show an option
+  generation excludes every option wearing the body garments of the persisted
+  snapshot's three, whatever accessories it carries, when at least three valid
+  alternatives remain. A confirmed re-ask may show an option
   selected earlier that day. A narrow pool still supplies three valid picks.
 
 ## Alternatives considered

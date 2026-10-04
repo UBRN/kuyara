@@ -26,6 +26,7 @@ import {
   recommendOutfits,
   type OutfitRecommendationInput,
   type OutfitRecommendationSuccess,
+  type RecommendedOutfit,
 } from '@/features/recommendation/application/recommend-outfits';
 import {
   RecommendationRepositoryError,
@@ -198,13 +199,18 @@ type Listener = () => void;
 export { localDayKey, localDayKind, localDayVariant } from '@/features/recommendation/domain/local-day';
 
 /**
- * The three options the persisted snapshot is showing, whatever day it was written on.
- * Ordinary generation excludes them when at least three alternatives remain. A confirmed
- * re-ask does not exclude them; its pool may repeat a selection shown earlier that day.
+ * The three outfits the persisted snapshot is showing, whatever day it was written on.
+ * Ordinary generation excludes their body garments when at least three alternatives remain.
+ * A confirmed re-ask does not exclude them; its pool may repeat a selection shown earlier that
+ * day.
  */
-function shownOptionIds(snapshot: RecommendationSnapshot | null): readonly string[] {
+function shownOutfits(snapshot: RecommendationSnapshot | null): readonly RecommendedOutfit[] {
   const outfits = snapshot?.recommendation.outfits;
-  return outfits?.length === 3 ? outfits.map(({ optionId }) => optionId) : [];
+  return outfits?.length === 3 ? outfits : [];
+}
+
+function shownOptionIds(snapshot: RecommendationSnapshot | null): readonly string[] {
+  return shownOutfits(snapshot).map(({ optionId }) => optionId);
 }
 
 function hasValidRecommendationForDay(
@@ -301,7 +307,7 @@ export class RecommendationApplicationController {
   private pool: readonly OutfitCandidate[] | null = null;
   private poolKey: string | null = null;
   private recentWorn: readonly WornOutfit[] = [];
-  private previousOptionIds: readonly string[] = [];
+  private previousOutfits: readonly RecommendedOutfit[] = [];
   private pendingSkip: Readonly<{
     key: string;
     context: RecommendationContext;
@@ -345,7 +351,7 @@ export class RecommendationApplicationController {
         // one the shown outfits were picked from until a generation replaces them.
         ({ poolOptionIds: this.poolOptionIds } = (this.dependencies.createContextWithPool ??
           createRecommendationContextWithPool)(
-          { ...poolInput, excludedOptionIds: [] }, input.localDayKey,
+          { ...poolInput, excludedOutfits: [] }, input.localDayKey,
         ));
         this.poolKey = key;
       }
@@ -393,8 +399,8 @@ export class RecommendationApplicationController {
     const snapshot = this.currentSnapshot();
     const generationInput = {
       ...input,
-      excludedOptionIds: trigger === 'regenerate' ? []
-        : snapshot ? shownOptionIds(snapshot) : this.previousOptionIds,
+      excludedOutfits: trigger === 'regenerate' ? []
+        : snapshot ? shownOutfits(snapshot) : this.previousOutfits,
     };
     const startedRefreshing = this.state.status === 'ready' && !this.state.isRefreshing;
     if (startedRefreshing) this.setRefreshing(true, generationInput);
@@ -499,7 +505,7 @@ export class RecommendationApplicationController {
         }
         snapshot = null;
         try {
-          this.previousOptionIds = shownOptionIds(
+          this.previousOutfits = shownOutfits(
             await this.repository.getSnapshot(this.localProfileId),
           );
         } catch {

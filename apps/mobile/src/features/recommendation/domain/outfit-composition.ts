@@ -1859,20 +1859,49 @@ function orderForOffer(
   );
 }
 
+/**
+ * Takes outfits in order while each is meaningfully different from every one already taken,
+ * the `reserved` ones counting as taken from the start. The result keeps the order given.
+ */
 function selectDiverseOutfits(
   outfits: readonly OutfitCandidate[],
   count: number,
+  reserved: readonly OutfitCandidate[] = [],
 ): readonly OutfitCandidate[] {
-  const selected: OutfitCandidate[] = [];
+  const selected = [...reserved];
   for (const outfit of outfits) {
-    if (selected.every((candidate) => meaningfullyDifferent(outfit, candidate))) {
-      selected.push(outfit);
-    }
     if (selected.length === count) {
       break;
     }
+    if (!selected.includes(outfit) &&
+      selected.every((candidate) => meaningfullyDifferent(outfit, candidate))) {
+      selected.push(outfit);
+    }
   }
-  return Object.freeze(selected);
+  return Object.freeze(outfits.filter((outfit) => selected.includes(outfit)));
+}
+
+/**
+ * The offered outfits, keeping the share every formality is promised. The diversity rule alone
+ * can drop a formality: a day's only formal outfit, a suit, is not meaningfully different from
+ * a smart look in the same shirt and trousers that the order offered first. A formality that
+ * composed something but reached none of the offer has its first outfit reserved, and the
+ * selection runs again around it, so the offer stays meaningfully different throughout. A day
+ * that loses no formality is offered exactly what the diversity rule takes.
+ */
+function selectOfferedOutfits(
+  outfits: readonly OutfitCandidate[],
+  count: number,
+): readonly OutfitCandidate[] {
+  const reserved: OutfitCandidate[] = [];
+  for (;;) {
+    const selected = selectDiverseOutfits(outfits, count, reserved);
+    const reserve = outfits.find((outfit) =>
+      !selected.some(({ formality }) => formality === outfit.formality) &&
+      reserved.every((candidate) => meaningfullyDifferent(outfit, candidate)));
+    if (!reserve) return selected;
+    reserved.push(reserve);
+  }
 }
 
 /** One arrangement a person put together on detail (Phase 7 manual mix), slot by slot. */
@@ -2039,7 +2068,7 @@ export function composeOutfitOptions(
   return Object.freeze({
     status: 'composed',
     outfits: excludeRecentlyWornOutfits(withAccessories(
-      selectDiverseOutfits(orderForOffer(result.outfits, startOffset), offeredOutfitLimit),
+      selectOfferedOutfits(orderForOffer(result.outfits, startOffset), offeredOutfitLimit),
       result.accessorySets,
     ), recentWorn),
   });
@@ -2089,7 +2118,11 @@ export function composeOutfitsAroundPins(
   throw new Error('A valid composition set is never empty.');
 }
 
-function garmentIdSet(outfit: OutfitCandidate): string {
+/**
+ * The body garments an outfit wears, as History reads a worn day: the same pieces are the same
+ * outfit whatever accessories the day attached to them.
+ */
+export function garmentIdSet(outfit: OutfitCandidate): string {
   return [...new Set(assignedOutfitGarments(outfit)
     .map((item) => item.garment.garmentTypeId))].sort().join('|');
 }
