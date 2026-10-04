@@ -2,7 +2,9 @@ import type { RefObject } from 'react';
 import { Link, type Href } from 'expo-router';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { AppText, Crossfade, GarmentBoard, measureGarmentBoardHeight, PressScale, useScreenGutters } from '@/components/ui';
+import {
+  AppText, Crossfade, GarmentBoard, measureGarmentBoardHeight, PressScale, useBandWidth, useScreenGutters,
+} from '@/components/ui';
 import { ArrivesAfterHandoff, Dimmed } from '@/features/today/presentation/today-motion';
 import type { LoadedOutfitPresentation } from '@/features/today/presentation/today-presentation';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
@@ -59,7 +61,7 @@ export function TodayOutfit({
   const theme = useKuyaraTheme();
   const easierToSee = useEasierToSee();
   const gutters = useScreenGutters();
-  const bandWidth = contentWidth + gutters.left + gutters.right;
+  const bandWidth = useBandWidth(contentWidth);
   const stageHeight = measureGarmentBoardHeight(primary.boardPieces, bandWidth, 'today', true, easierToSee);
 
   const primaryStage = (
