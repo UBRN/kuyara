@@ -161,7 +161,7 @@ function createHarness({
     now: currentTime,
     captureAnalyticsEvent,
   });
-  return { controller, calls, repository, byKey };
+  return { controller, calls, repository, byKey, deviceLocation };
 }
 
 async function settle() {
@@ -226,6 +226,29 @@ test('a failed searched-place save preserves the active location and last snapsh
   assert.deepEqual(harness.controller.getSnapshot().snapshot, snapshot);
   assert.equal(harness.controller.getSnapshot().locationFlow, 'selection-failed');
   assert.equal(harness.calls.provider, 0);
+});
+
+test('a failed location save restores only its own fields over a refresh that finished meanwhile', async () => {
+  const london = getManualLocation('sample.london');
+  const cached = snapshotFor(london, '2026-07-30T09:55:00.000Z');
+  const harness = createHarness({ active: london, snapshots: [cached] });
+  await harness.controller.initialize();
+  let rejectSave;
+  harness.repository.setActiveLocation = () => new Promise((_resolve, reject) => { rejectSave = reject; });
+
+  const refreshing = harness.controller.refresh();
+  const selecting = harness.controller.selectManualLocation('sample.istanbul');
+  await refreshing;
+  assert.equal(harness.controller.getSnapshot().isRefreshing, false);
+  rejectSave(new Error('storage failure'));
+  await selecting;
+
+  const state = harness.controller.getSnapshot();
+  assert.equal(state.isRefreshing, false);
+  assert.equal(state.snapshot.fetchedAt, '2026-07-30T10:00:00.000Z');
+  assert.equal(state.activeLocation.locationKey, london.locationKey);
+  assert.equal(state.isSelectingLocation, false);
+  assert.equal(state.locationFlow, 'selection-failed');
 });
 
 test('bootstrap with no active location never requests permission or weather', async () => {
@@ -438,6 +461,89 @@ test('foreground re-persists a different resolved locality name without invalida
   assert.equal(harness.controller.getSnapshot().activeLocation.displayName, 'Istanbul');
   assert.equal(harness.controller.getSnapshot().snapshot, cached);
   assert.equal(harness.calls.provider, 0);
+});
+
+test('a manual pick still saving when the foreground lookup lands wins over the moved device', async () => {
+  const harness = createHarness({
+    active: travelledFrom,
+    snapshots: [snapshotFor(travelledFrom, '2026-07-30T09:55:00.000Z')],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+  });
+  await harness.controller.initialize();
+  const moved = await harness.deviceLocation.getCurrentLocation();
+  let resolveLookup;
+  harness.deviceLocation.getCurrentLocation = () => new Promise((resolve) => { resolveLookup = resolve; });
+  // Writes queue as the device's exclusive transactions do; the first one, the manual pick,
+  // is held until the lookup has answered.
+  const write = harness.repository.setActiveLocation;
+  let releaseManual;
+  const manualHeld = new Promise((resolve) => { releaseManual = resolve; });
+  let tail = manualHeld;
+  harness.repository.setActiveLocation = (profile, location) => {
+    const result = tail.then(() => write(profile, location));
+    tail = result.catch(() => undefined);
+    return result;
+  };
+
+  const foreground = harness.controller.onForeground();
+  await settle();
+  const picking = harness.controller.selectManualLocation('sample.istanbul');
+  resolveLookup(moved);
+  await settle();
+  releaseManual();
+  await Promise.all([foreground, picking]);
+  await settle();
+
+  assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, 'manual:sample.istanbul');
+  assert.equal((await harness.repository.getActiveLocation()).locationKey, 'manual:sample.istanbul');
+});
+
+test('only a return from the background is a foreground event, so a permission alert looks up once', async () => {
+  const { AppState } = await import('react-native');
+  const { subscribeToForeground } = await import('./application/weather-application-provider.tsx');
+  const handlers = new Set();
+  const addEventListener = AppState.addEventListener;
+  AppState.addEventListener = (_event, handler) => {
+    handlers.add(handler);
+    return { remove: () => handlers.delete(handler) };
+  };
+  const change = (next) => handlers.forEach((handler) => handler(next));
+  try {
+    let foregrounds = 0;
+    const unsubscribe = subscribeToForeground(() => { foregrounds += 1; });
+    change('inactive');
+    change('active');
+    assert.equal(foregrounds, 0);
+    change('inactive');
+    change('background');
+    change('active');
+    assert.equal(foregrounds, 1);
+    unsubscribe();
+    assert.equal(handlers.size, 0);
+
+    const harness = createHarness({
+      active: travelledFrom,
+      snapshots: [snapshotFor(travelledFrom, '2026-07-30T09:55:00.000Z')],
+    });
+    let permission = { kind: 'undetermined' };
+    harness.deviceLocation.getPermissionState = async () => permission;
+    harness.deviceLocation.requestForegroundPermission = async () => {
+      // The system alert makes the app inactive and gives the screen back on an answer.
+      change('inactive');
+      permission = { kind: 'granted', accuracy: 'approximate' };
+      change('active');
+      return permission;
+    };
+    await harness.controller.initialize();
+    const stop = subscribeToForeground(() => void harness.controller.onForeground());
+    await harness.controller.beginDeviceLocationSelection();
+    await harness.controller.confirmDeviceLocationRequest();
+    await settle();
+    stop();
+    assert.equal(harness.calls.lookups, 1);
+  } finally {
+    AppState.addEventListener = addEventListener;
+  }
 });
 
 test('a manual location is never re-acquired on foreground', async () => {
@@ -1004,6 +1110,45 @@ test('weather_refreshed reports automatic_stale on foreground and location_chang
   await settle();
   assert.equal(captured.length, 1);
   assert.equal(captured[0].properties.trigger_method, 'location_changed');
+});
+
+test('weather_refreshed reports automatic_stale when a selection keeps the same place', async () => {
+  let clock = '2026-07-30T10:00:00.000Z';
+  const stayed = {
+    source: 'device', accuracy: 'approximate', locationKey: 'device:4101:2898',
+    displayName: 'Kadikoy', coordinates: { latitudeE2: 4101, longitudeE2: 2898 },
+    timeZone: 'Europe/Istanbul',
+  };
+  const captured = [];
+  const renamed = createHarness({
+    active: stayed,
+    snapshots: [snapshotFor(stayed, '2026-07-30T09:55:00.000Z')],
+    now: () => clock,
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+    locationResult: { kind: 'success', location: { ...stayed, displayName: 'Istanbul' } },
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await renamed.controller.initialize();
+  clock = '2026-07-30T10:40:00.000Z';
+  await renamed.controller.onForeground();
+  await settle();
+  assert.equal(renamed.controller.getSnapshot().activeLocation.displayName, 'Istanbul');
+  assert.deepEqual(captured.map(({ properties }) => properties.trigger_method), ['automatic_stale']);
+
+  captured.length = 0;
+  clock = '2026-07-30T10:00:00.000Z';
+  const istanbul = getManualLocation('sample.istanbul');
+  const repicked = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:55:00.000Z')],
+    now: () => clock,
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await repicked.controller.initialize();
+  clock = '2026-07-30T10:40:00.000Z';
+  await repicked.controller.selectManualLocation(istanbul.catalogId);
+  await settle();
+  assert.deepEqual(captured.map(({ properties }) => properties.trigger_method), ['automatic_stale']);
 });
 
 test('weather_refreshed reports failure_no_snapshot and failure_kept_last_known', async () => {

@@ -1,5 +1,5 @@
-import { AppState, type AppStateStatus } from 'react-native';
-import { type PropsWithChildren, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { AppState } from 'react-native';
+import { type PropsWithChildren, useEffect, useMemo, useSyncExternalStore } from 'react';
 
 import { WeatherApplicationController } from '@/features/weather/application/weather-application-controller';
 import {
@@ -48,6 +48,19 @@ function createPlaceSearch(): SearchPlaces {
   }
 }
 
+// A foreground event is a return from the background. The permission alert, Control Center
+// and Notification Center only make the app inactive, so closing them is not one.
+export function subscribeToForeground(onForeground: () => void): () => void {
+  let fromBackground = AppState.currentState === 'background';
+  const subscription = AppState.addEventListener('change', (next) => {
+    if (next === 'background') fromBackground = true;
+    if (next !== 'active' || !fromBackground) return;
+    fromBackground = false;
+    onForeground();
+  });
+  return () => subscription.remove();
+}
+
 export function WeatherApplicationProvider({
   children,
   localProfileId,
@@ -62,16 +75,10 @@ export function WeatherApplicationProvider({
     telemetry,
   }), [analytics, localProfileId, provider, telemetry]);
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
-  const appState = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
     void controller.initialize();
-    const subscription = AppState.addEventListener('change', (next) => {
-      const wasInactive = appState.current !== 'active';
-      appState.current = next;
-      if (wasInactive && next === 'active') void controller.onForeground();
-    });
-    return () => subscription.remove();
+    return subscribeToForeground(() => void controller.onForeground());
   }, [controller]);
 
   const value = useMemo<WeatherApplicationValue>(() => ({

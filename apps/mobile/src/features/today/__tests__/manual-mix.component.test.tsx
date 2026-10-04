@@ -361,9 +361,9 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
     expect(onEditPiece).toHaveBeenCalledWith(expect.objectContaining({ garmentTypeId: 't_shirt' }));
   });
 
-  // Phase 8's step 2 lights and makes live the first piece row, and VoiceOver's activation of
-  // the tour's stand-in opens the piece sheet exactly as a tap on the row does.
-  test('the tour registers the whole first piece row, and its activation opens the piece sheet', async () => {
+  // Phase 8's step 2 lights and makes live the first piece row's own press, and VoiceOver's
+  // activation of the tour's stand-in opens the piece sheet exactly as a tap on the row does.
+  test('the tour registers the first piece row without its Change, and its activation opens the piece sheet', async () => {
     const registry = new TourTargetRegistry();
     const onEditPiece = jest.fn();
     const result = await renderDetail(language, { onEditPiece }, registry);
@@ -375,8 +375,9 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
     expect(piece?.reveal).toEqual(expect.any(Function));
     expect(piece?.scrollBy).toEqual(expect.any(Function));
 
-    // The tour's wrapper holds the whole row, its Change included, and only the first row's
-    // wrapper reports its layout to the tour.
+    // The tour's wrapper holds the row's tile and words, over which a tap reaches the row's own
+    // press, and never its Change: step 2 leaves exactly one control live. Only the first
+    // row's wrapper reports its layout to the tour.
     type Element = typeof row;
     const wrapperOf = (element: Element) => {
       let node = element.parent;
@@ -384,13 +385,17 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
       if (!node) throw new Error('Expected the row inside a tour wrapper.');
       return node;
     };
-    const wrapper = wrapperOf(row);
-    expect(within(wrapper).getAllByTestId(/^outfit-detail-change-/)).toHaveLength(1);
-    expect(within(wrapper).queryByTestId(`outfit-detail-piece-${second.garmentTypeId}`)).toBeNull();
+    const textOf = (id: string) =>
+      result.getByTestId(`outfit-detail-piece-text-${id}`, { includeHiddenElements: true });
+    const wrapper = wrapperOf(textOf(first.garmentTypeId));
+    expect(within(wrapper).queryAllByTestId(/^outfit-detail-change-/)).toHaveLength(0);
+    expect(wrapper.props.pointerEvents).toBe('box-none');
+    expect(within(wrapper).queryByTestId(`outfit-detail-piece-text-${second.garmentTypeId}`,
+      { includeHiddenElements: true })).toBeNull();
     const reported: string[] = [];
     registry.subscribe((id) => reported.push(id));
     const layout = { nativeEvent: { layout: { x: 0, y: 0, width: 358, height: 80 } } };
-    await fireEvent(wrapperOf(result.getByTestId(`outfit-detail-piece-${second.garmentTypeId}`)), 'layout', layout);
+    await fireEvent(wrapperOf(textOf(second.garmentTypeId)), 'layout', layout);
     expect(reported).toEqual([]);
     await fireEvent(wrapper, 'layout', layout);
     expect(reported).toEqual(['piece']);

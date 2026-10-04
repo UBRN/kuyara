@@ -292,7 +292,8 @@ export class WeatherApplicationController {
     const previous = this.requireReady().activeLocation;
     if (previous?.source === 'device' && permission.kind === 'granted') {
       const result = await this.dependencies.deviceLocation.getCurrentLocation();
-      const active = this.requireReady().activeLocation;
+      const latest = this.requireReady();
+      const active = latest.activeLocation;
       const moved = result.kind === 'success'
         && (result.location.locationKey !== previous.locationKey
           || result.location.timeZone !== previous.timeZone);
@@ -301,9 +302,10 @@ export class WeatherApplicationController {
       const renamed = result.kind === 'success'
         && result.location.displayName != null
         && (result.location.displayName ?? null) !== (previous.displayName ?? null);
-      // A selection made while the lookup ran wins over the lookup it raced.
+      // A selection made while the lookup ran wins over the lookup it raced, including one
+      // still being saved when the lookup answers.
       const unchanged = active?.locationKey === previous.locationKey
-        && active.timeZone === previous.timeZone;
+        && active.timeZone === previous.timeZone && !latest.isSelectingLocation;
       if ((moved || renamed) && unchanged) {
         await this.selectLocation(result.location);
         return;
@@ -361,13 +363,14 @@ export class WeatherApplicationController {
   }
 
   private async selectLocation(location: ActiveLocation): Promise<void> {
-    const previous = this.requireReady();
-    this.setReady({ ...previous, isSelectingLocation: true, locationFlow: 'idle' });
+    this.setReady({ ...this.requireReady(), isSelectingLocation: true, locationFlow: 'idle' });
     let persisted: ActiveLocation;
     try {
       persisted = await this.requireRepository().setActiveLocation(this.localProfileId, location);
     } catch {
-      this.setReady({ ...previous, isSelectingLocation: false, locationFlow: 'selection-failed' });
+      // Only the fields this selection set are put back: a refresh or permission answer that
+      // landed while the save ran is newer than anything from before it.
+      this.setReady({ ...this.requireReady(), isSelectingLocation: false, locationFlow: 'selection-failed' });
       return;
     }
 
@@ -391,13 +394,19 @@ export class WeatherApplicationController {
       const ready = this.requireReady();
       const validLoadedFreshness = loadedFreshness === 'invalid' ? null : loadedFreshness;
       const validLoadedSnapshot = validLoadedFreshness ? loadedSnapshot : null;
+      const snapshot = validLoadedSnapshot ?? ready.snapshot;
       this.setReady({
         ...ready,
-        snapshot: validLoadedSnapshot ?? ready.snapshot,
+        snapshot,
         freshness: validLoadedSnapshot ? validLoadedFreshness : ready.freshness,
         isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
       });
-      if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted, 'location_changed');
+      // Taxonomy 5.4: only a changed place is `location_changed`. The same place picked again
+      // or renamed refreshes for the state of its cache, as a foreground refresh does.
+      const trigger: WeatherRefreshTrigger = locationChanged
+        ? 'location_changed'
+        : snapshot ? 'automatic_stale' : 'automatic_no_cache';
+      if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted, trigger);
     } catch {
       this.setReady({
         ...this.requireReady(), isSelectingLocation: false, refreshFailure: 'unavailable',
