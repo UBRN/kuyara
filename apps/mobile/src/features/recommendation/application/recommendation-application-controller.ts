@@ -618,7 +618,11 @@ export class RecommendationApplicationController {
       } catch (error) {
         aiFailure = recommendationFailureCategory(error);
         if (reserved && error instanceof WorkerAiClientError && error.kind === 'network') {
-          await this.dependencies.releaseAiReask?.(input.localDayKey).catch(() => undefined);
+          try {
+            await this.dependencies.releaseAiReask?.(input.localDayKey);
+          } catch {
+            // A refund that fails leaves the slot spent, which is the budget's safe side.
+          }
         }
       } finally {
         if (this.latestRequestKey === key) this.aiPending = false;
