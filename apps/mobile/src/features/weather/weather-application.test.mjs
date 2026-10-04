@@ -498,6 +498,54 @@ test('a manual pick still saving when the foreground lookup lands wins over the 
   assert.equal((await harness.repository.getActiveLocation()).locationKey, 'manual:sample.istanbul');
 });
 
+test('only a return from the background is a foreground event, so a permission alert looks up once', async () => {
+  const { AppState } = await import('react-native');
+  const { subscribeToForeground } = await import('./application/weather-application-provider.tsx');
+  const handlers = new Set();
+  const addEventListener = AppState.addEventListener;
+  AppState.addEventListener = (_event, handler) => {
+    handlers.add(handler);
+    return { remove: () => handlers.delete(handler) };
+  };
+  const change = (next) => handlers.forEach((handler) => handler(next));
+  try {
+    let foregrounds = 0;
+    const unsubscribe = subscribeToForeground(() => { foregrounds += 1; });
+    change('inactive');
+    change('active');
+    assert.equal(foregrounds, 0);
+    change('inactive');
+    change('background');
+    change('active');
+    assert.equal(foregrounds, 1);
+    unsubscribe();
+    assert.equal(handlers.size, 0);
+
+    const harness = createHarness({
+      active: travelledFrom,
+      snapshots: [snapshotFor(travelledFrom, '2026-07-30T09:55:00.000Z')],
+    });
+    let permission = { kind: 'undetermined' };
+    harness.deviceLocation.getPermissionState = async () => permission;
+    harness.deviceLocation.requestForegroundPermission = async () => {
+      // The system alert makes the app inactive and gives the screen back on an answer.
+      change('inactive');
+      permission = { kind: 'granted', accuracy: 'approximate' };
+      change('active');
+      return permission;
+    };
+    await harness.controller.initialize();
+    const stop = subscribeToForeground(() => void harness.controller.onForeground());
+    await harness.controller.beginDeviceLocationSelection();
+    await harness.controller.confirmDeviceLocationRequest();
+    await settle();
+    stop();
+    assert.equal(harness.calls.lookups, 1);
+  } finally {
+    AppState.addEventListener = addEventListener;
+  }
+});
+
 test('a manual location is never re-acquired on foreground', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const harness = createHarness({
