@@ -132,8 +132,10 @@ honest: pending text follows the current preferences, so when the temperature un
 language or the 12/24-hour clock setting changes while the snapshot is stale, the
 notifications still pending are written again from the newest stored snapshot (the one the
 background task may have planned them from), under the same identifier and fire time, and
-nothing is added or dropped. The change is recorded as written only after the rewrite was
-accepted, so a failed write is retried by the next run. The two kinds gate
+nothing is added or dropped. The first stale run after the app starts rewrites too, because
+a change made while the app was closed cannot be seen from the new process; a stored snapshot
+that cannot be read leaves the newest one in memory as the source. The change is recorded as
+written only after the rewrite was accepted, so a failed write is retried by the next run. The two kinds gate
 independently: the scheduler runs while either opt-in is on, and each kind is planned only
 under its own. Turning both off cancels every pending notification regardless of snapshot
 age.

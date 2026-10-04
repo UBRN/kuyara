@@ -150,8 +150,8 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
   private queuedInput: RescheduleInput | null = null;
   /**
    * What the pending notifications' text was written from, as far as this process knows: the
-   * unit, language and clock setting. Every change of one runs a reschedule, so the first
-   * run's key is the one the stored preferences last wrote them in. It is recorded only once
+   * unit, language and clock setting. It is null until this process has written, and then the
+   * pending text may come from an earlier process in other settings. It is recorded only once
    * the write succeeded.
    */
   private writtenTextKey: string | null = null;
@@ -218,9 +218,10 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
         await (await this.repository).deletePending(input.localProfileId, now, kind);
       }
       // Without a snapshot nothing can be rewritten, so the old key stays on record for the
-      // next stale run that has one.
+      // next stale run that has one. A process with no key yet (a relaunch after a device
+      // language or clock change) cannot tell whether the text is current, so it rewrites too.
       if (snapshot && this.writtenTextKey !== textKey(input)) {
-        if (this.writtenTextKey !== null && !await this.rewritePending(input, snapshot, now)) return;
+        if (!await this.rewritePending(input, snapshot, now)) return;
         this.writtenTextKey = textKey(input);
       }
       return;
@@ -281,7 +282,9 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     const pending = new Map((await repository.listPending(input.localProfileId, now))
       .map(({ id, fireAt }) => [id, fireAt]));
     if (pending.size === 0) return true;
-    const newest = await this.loadNewestSnapshot?.(input.localProfileId, snapshot.locationKey);
+    // A stored snapshot that cannot be read leaves the one in memory as the source.
+    const newest = await this.loadNewestSnapshot?.(input.localProfileId, snapshot.locationKey)
+      .catch(() => null);
     const source = newest && Date.parse(newest.fetchedAt) > Date.parse(snapshot.fetchedAt)
       ? newest
       : snapshot;

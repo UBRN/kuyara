@@ -651,7 +651,8 @@ test('a stale snapshot leaves the existing schedule and ledger untouched', async
     snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
   });
 
-  assert.deepEqual(harness.events, []);
+  // Nothing is pending, so the only thing a stale first run does is look.
+  assert.deepEqual(harness.events, ['list-pending']);
 });
 
 // A unit changed while the weather is stale rewrites the text of what is already pending
@@ -766,24 +767,46 @@ test('a rewrite uses the newest stored snapshot, not the older one in memory', a
   ]);
 });
 
-test('a rewrite stays unwritten when the stored snapshot cannot be read, and is retried', async () => {
-  let readable = false;
+test('a rewrite falls back to the snapshot in memory when the stored one cannot be read', async () => {
   const harness = createSchedulerHarness({
-    newestSnapshot: async () => {
-      if (!readable) throw new Error('read failed');
-      return null;
-    },
+    newestSnapshot: async () => { throw new Error('read failed'); },
   });
   await harness.scheduler.reschedule(enabledInput);
   harness.scheduled.length = 0;
   const stale = { ...enabledInput, temperatureUnit: 'fahrenheit', snapshot: staleSnapshot };
 
-  await assert.rejects(() => harness.scheduler.reschedule(stale));
-  assert.deepEqual(harness.scheduled, []);
-  readable = true;
   await harness.scheduler.reschedule(stale);
 
-  assert.equal(harness.scheduled.length, 2);
+  assert.deepEqual(harness.scheduled.map(({ body }) => body), [
+    'Rain is expected around 18:00. Take something waterproof with you.',
+    'Around 18:00, it will feel like 44°F. Take a warmer layer with you.',
+  ]);
+  // The write was accepted, so it counts as written.
+  harness.scheduled.length = 0;
+  await harness.scheduler.reschedule(stale);
+  assert.deepEqual(harness.scheduled, []);
+});
+
+// iOS relaunches the app after a device language or clock change, so the first run of a new
+// process has no key on record: its stale run still rewrites what an earlier process left pending.
+test('the first stale run of a process rewrites the pending text', async () => {
+  const earlier = createSchedulerHarness();
+  await earlier.scheduler.reschedule(enabledInput);
+  const planned = earlier.scheduled.map(({ identifier, fireAt }) => ({ identifier, fireAt }));
+  const harness = createSchedulerHarness();
+  harness.upserted.push(earlier.upserted.flat());
+
+  await harness.scheduler.reschedule({ ...enabledInput, language: 'tr', snapshot: staleSnapshot });
+
+  assert.deepEqual(harness.scheduled.map(({ identifier, fireAt }) => ({ identifier, fireAt })), planned);
+  assert.deepEqual(harness.scheduled.map(({ body }) => body), [
+    'Saat 18:00 civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.',
+    'Saat 18:00 civarında hissedilen sıcaklık 6°C olacak. Yanına daha sıcak tutan bir kat al.',
+  ]);
+  // The second stale run with the same text writes nothing.
+  harness.scheduled.length = 0;
+  await harness.scheduler.reschedule({ ...enabledInput, language: 'tr', snapshot: staleSnapshot });
+  assert.deepEqual(harness.scheduled, []);
 });
 
 test('stale weather with the unit unchanged leaves the pending text alone', async () => {
@@ -843,7 +866,7 @@ for (const [name, weatherAlertsEnabled, morningBriefingEnabled, kind] of [
     morningBriefingEnabled,
     snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
   });
-  assert.deepEqual(harness.events, [`cancel:${kind}`, `delete-pending:${kind}`]);
+  assert.deepEqual(harness.events, [`cancel:${kind}`, `delete-pending:${kind}`, 'list-pending']);
 });
 
 test('toggle, freshness and pending-kind matrix preserves only allowed stale schedules', async () => {
@@ -872,6 +895,7 @@ test('toggle, freshness and pending-kind matrix preserves only allowed stale sch
           }, {
             deletePending: async () => undefined,
             listFiredIds: async () => new Set(),
+            listPending: async () => [],
             upsertScheduled: async () => undefined,
             pruneBefore: async () => undefined,
           }, () => '2026-09-09T15:00:00.000Z');
