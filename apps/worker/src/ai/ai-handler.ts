@@ -221,7 +221,8 @@ export function createAiHandler({
   // transport) and sends 37 s in the header; with up to 8 s of on-device selection ahead of
   // it, the whole user-visible wait is at most 46 s.
   totalDeadlineMs = 36_000,
-  // Five attempts cover two Workers AI models plus three OpenRouter models.
+  // Five attempts bound the walk: the two Workers AI models plus room for up to three
+  // measured OpenRouter models (none is configured today).
   maxAttempts = 5,
 }: Dependencies): (request: Request, ctx: ExecutionContext) => Promise<Response> {
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {

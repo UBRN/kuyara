@@ -4,6 +4,9 @@
 //
 //   pnpm --filter @kuyara/mobile measure:ai-chain --base-url http://127.0.0.1:8788
 //
+// `--route v2` sends the installed app's own route, with an English locale, and counts a
+// reply only when the v2 response schema accepts it too; the default stays v1.
+//
 // There is deliberately no default base URL: the deployed Worker is only ever measured on
 // purpose. `--max-calls 0` builds and prints the fixture grid without sending anything.
 import { parseArgs } from 'node:util';
@@ -12,6 +15,8 @@ import {
   aiRecommendV1BudgetHeader,
   aiRecommendV1Path,
   aiRecommendV1SuccessSchema,
+  aiRecommendV2Path,
+  aiRecommendV2SuccessSchema,
 } from '@kuyara/contracts';
 
 import { mapWorkerAiRecommendation } from '@/features/recommendation/data/worker-ai-recommendation-mapper.ts';
@@ -35,6 +40,7 @@ function parseArguments() {
     options: {
       'base-url': { type: 'string' },
       'max-calls': { type: 'string', default: '10' },
+      route: { type: 'string', default: 'v1' },
     },
   });
   const maxCalls = Number(values['max-calls']);
@@ -44,19 +50,23 @@ function parseArguments() {
   if (!Number.isInteger(maxCalls) || maxCalls < 0 || maxCalls > hardCallCap) {
     throw new Error(`--max-calls must be an integer from 0 to ${hardCallCap}.`);
   }
-  return { baseUrl: values['base-url'], maxCalls };
+  if (values.route !== 'v1' && values.route !== 'v2') {
+    throw new Error('--route must be v1 or v2.');
+  }
+  return { baseUrl: values['base-url'], maxCalls, route: values.route };
 }
 
-async function measure({ baseUrl, request, name }) {
+async function measure({ baseUrl, request, name, route }) {
+  const isV2 = route === 'v2';
   const startedAt = Date.now();
   let status = null;
   let body = null;
   let transportError = null;
   try {
-    const response = await fetch(new URL(aiRecommendV1Path, baseUrl), {
+    const response = await fetch(new URL(isV2 ? aiRecommendV2Path : aiRecommendV1Path, baseUrl), {
       method: 'POST',
       headers: { 'content-type': 'application/json', [aiRecommendV1BudgetHeader]: '37000' },
-      body: JSON.stringify(request),
+      body: JSON.stringify(isV2 ? { ...request, locale: 'en' } : request),
     });
     status = response.status;
     body = await response.json().catch(() => null);
@@ -65,11 +75,12 @@ async function measure({ baseUrl, request, name }) {
   }
   const latencyMs = Date.now() - startedAt;
 
-  const schemaAccepts = status === 200 && aiRecommendV1SuccessSchema.safeParse(body).success;
+  const schemaAccepts = status === 200
+    && (isV2 ? aiRecommendV2SuccessSchema : aiRecommendV1SuccessSchema).safeParse(body).success;
   let gateAccepts = false;
   if (schemaAccepts) {
     try {
-      mapWorkerAiRecommendation(request, body.data);
+      mapWorkerAiRecommendation(request, body.data, 'ai-assisted', isV2 ? { locale: 'en' } : undefined);
       gateAccepts = true;
     } catch {
       // A reply the gate rejects is the measurement, not an error here.
@@ -81,6 +92,7 @@ async function measure({ baseUrl, request, name }) {
     latencyMs,
     schemaAccepts,
     gateAccepts,
+    insightSentence: isV2 && schemaAccepts && typeof body.data.insightSentence === 'string',
     errorCode: body?.error?.code ?? null,
     transportError,
   };
@@ -109,7 +121,7 @@ async function printOpenRouterQuota() {
 }
 
 async function main() {
-  const { baseUrl, maxCalls } = parseArguments();
+  const { baseUrl, maxCalls, route } = parseArguments();
   const fixtures = buildFixtures();
   console.log(`Built ${fixtures.length} requests; sending at most ${maxCalls} to ${baseUrl}.`);
   for (const { name, request } of fixtures) {
@@ -122,10 +134,10 @@ async function main() {
 
   const results = [];
   for (const fixture of fixtures.slice(0, maxCalls)) {
-    const result = await measure({ ...fixture, baseUrl });
+    const result = await measure({ ...fixture, baseUrl, route });
     results.push(result);
     console.log(
-      `[${results.length}/${maxCalls}] ${result.name} HTTP ${result.status ?? 'none'} ${result.latencyMs}ms schema=${result.schemaAccepts} gate=${result.gateAccepts}${result.errorCode ? ` error=${result.errorCode}` : ''}${result.transportError ? ` transport=${result.transportError}` : ''}`,
+      `[${results.length}/${maxCalls}] ${result.name} HTTP ${result.status ?? 'none'} ${result.latencyMs}ms schema=${result.schemaAccepts} gate=${result.gateAccepts}${route === 'v2' ? ` sentence=${result.insightSentence}` : ''}${result.errorCode ? ` error=${result.errorCode}` : ''}${result.transportError ? ` transport=${result.transportError}` : ''}`,
     );
   }
 

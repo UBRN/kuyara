@@ -29,7 +29,10 @@
     { "name": "FEEDBACK_RATE_LIMIT", "namespace_id": "1005", "simple": { "limit": 3, "period": 60 } }
   ],
   "vars": {
-    "OPENROUTER_MODELS": ["nex-agi/nex-n2.5-mini:free", "nvidia/nemotron-3-super-120b-a12b:free", "nex-agi/nex-n2.5-pro:free"],
+    // Empty until a free model passes the live measurement in docs/architecture.md ("AI
+    // handler and provider adapter contract"); a model that stalls or fails only spends the
+    // walk's time before the deterministic fallback.
+    "OPENROUTER_MODELS": [],
     "WORKERS_AI_MODELS": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/mistralai/mistral-small-3.1-24b-instruct"]
   },
   // The local end-to-end environment of docs/testing.md, "AI tiers in E2E": real weather and
