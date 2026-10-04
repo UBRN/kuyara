@@ -406,8 +406,8 @@ export const standardMotion = Object.freeze({
   stagger: 45,
   // The launch role: a cold launch dives into the symbol until one of its pieces fills the
   // screen. With the breath on `fast` and the curtain's fade on `normal`, the whole launch
-  // takes 600 ms; only the launch curtain consumes it.
-  launch: 280,
+  // takes 720 ms; only the launch curtain consumes it.
+  launch: 400,
   ambient: Object.freeze({
     calm: 1500,
     moderate: 1000,

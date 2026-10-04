@@ -403,12 +403,12 @@ copy has one structure on every surface, English "Last updated at {time}" and Tu
 ## Law 7: motion
 
 Durations are already tokenized (`immediate` 0, `fast` 120, `normal` 200, `deliberate`
-320, `launch` 280). The language adds which one to use:
+320, `launch` 400). The language adds which one to use:
 
 - `fast` 120, content entering, press feedback.
 - `normal` 200, a state change on something already on screen.
 - `deliberate` 320, reserved for a full-screen or sheet transition.
-- `launch` 280, the cold launch's dive into the symbol and nothing else.
+- `launch` 400, the cold launch's dive into the symbol and nothing else.
 
 **The cold launch** is the one motion that holds the first look at the app. Its first
 frame is the native splash's last; the symbol breathes in on `fast`, the view dives into

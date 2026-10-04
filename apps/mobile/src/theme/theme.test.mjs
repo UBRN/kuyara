@@ -119,9 +119,9 @@ test('one ease-out curve belongs to the motion theme in both appearances', () =>
   assert.equal(createKuyaraTheme('dark').motion.fadeCurve, standardMotion.fadeCurve);
 });
 
-test('the launch role keeps the whole launch to 600 ms', () => {
+test('the launch role keeps the whole launch to 720 ms', () => {
   // A breath on `fast`, the dive on `launch` and the curtain's fade on `normal`.
-  assert.equal(standardMotion.fast + standardMotion.launch + standardMotion.normal, 600);
+  assert.equal(standardMotion.fast + standardMotion.launch + standardMotion.normal, 720);
   assert.ok(standardMotion.launch > standardMotion.normal);
   assert.equal(createKuyaraTheme('dark').motion.launch, standardMotion.launch);
 });
