@@ -39,6 +39,16 @@ export interface WeatherAlertScheduling {
   reschedule(input: RescheduleInput): Promise<void>;
 }
 
+type NewestSnapshotLoader = (
+  localProfileId: string,
+  locationKey: string,
+) => Promise<WeatherSnapshot | null>;
+
+/** Everything a pending notification's text depends on besides its plan. */
+function textKey(input: RescheduleInput): string {
+  return `${input.temperatureUnit}|${input.language}|${input.hour12}`;
+}
+
 const deliveryRetentionMilliseconds = 3 * 24 * 60 * 60 * 1000;
 
 function briefingCopy(
@@ -139,25 +149,30 @@ function plannedNotifications(
 export class WeatherAlertScheduler implements WeatherAlertScheduling {
   private queuedInput: RescheduleInput | null = null;
   /**
-   * The unit the pending notifications were written in, as far as this process knows. Every
-   * unit change runs a reschedule, so the first run's unit is the one the stored preference
-   * last wrote them in.
+   * What the pending notifications' text was written from, as far as this process knows: the
+   * unit, language and clock setting. Every change of one runs a reschedule, so the first
+   * run's key is the one the stored preferences last wrote them in. It is recorded only once
+   * the write succeeded.
    */
-  private writtenUnit: TemperatureUnit | null = null;
+  private writtenTextKey: string | null = null;
   private running: Promise<void> | null = null;
   private readonly gateway: NotificationGateway;
   private readonly repository: WeatherAlertDeliveryRepository
     | Promise<WeatherAlertDeliveryRepository>;
   private readonly now: () => string;
+  /** The newest stored snapshot, which the background task may have planned from. */
+  private readonly loadNewestSnapshot: NewestSnapshotLoader | undefined;
 
   constructor(
     gateway: NotificationGateway,
     repository: WeatherAlertDeliveryRepository | Promise<WeatherAlertDeliveryRepository>,
     now: () => string,
+    loadNewestSnapshot?: NewestSnapshotLoader,
   ) {
     this.gateway = gateway;
     this.repository = repository;
     this.now = now;
+    this.loadNewestSnapshot = loadNewestSnapshot;
   }
 
   reschedule(input: RescheduleInput): Promise<void> {
@@ -202,21 +217,23 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
         if (!await this.gateway.cancelScheduledWeatherAlerts(kind)) return;
         await (await this.repository).deletePending(input.localProfileId, now, kind);
       }
-      // Without a snapshot nothing can be rewritten, so the old unit stays on record for the
+      // Without a snapshot nothing can be rewritten, so the old key stays on record for the
       // next stale run that has one.
-      if (snapshot && this.writtenUnit !== input.temperatureUnit) {
-        if (this.writtenUnit !== null) await this.rewritePending(input, snapshot, now);
-        this.writtenUnit = input.temperatureUnit;
+      if (snapshot && this.writtenTextKey !== textKey(input)) {
+        if (this.writtenTextKey !== null && !await this.rewritePending(input, snapshot, now)) return;
+        this.writtenTextKey = textKey(input);
       }
       return;
     }
-    this.writtenUnit = input.temperatureUnit;
     // A failed cancellation leaves superseded alerts pending, so re-planning over it would
     // let them fire beside the new ones. Abort and leave the schedule and ledger as they are.
     if (!await this.gateway.cancelScheduledWeatherAlerts()) return;
     const repository = await this.repository;
     await repository.deletePending(input.localProfileId, now);
-    if (!snapshot) return;
+    if (!snapshot) {
+      this.writtenTextKey = textKey(input);
+      return;
+    }
 
     const deliveredAlertIds = await repository.listFiredIds(input.localProfileId, now);
 
@@ -240,6 +257,7 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
       });
     }
 
+    this.writtenTextKey = textKey(input);
     await repository.upsertScheduled(scheduled);
     await repository.pruneBefore(
       input.localProfileId,
@@ -248,22 +266,34 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
   }
 
   /**
-   * A stale snapshot cannot plan, but the notifications already pending were planned from it,
-   * so their text is written again in the new unit under the same identifier and fire time.
+   * A stale snapshot cannot plan, but the notifications already pending were planned from the
+   * newest stored snapshot (the background task may have stored one after the foreground's), so
+   * their text is written again from that snapshot under the same identifier and fire time.
    * Nothing is added or dropped; a pending notification the snapshot no longer reproduces keeps
-   * its text.
+   * its text. Returns whether every rewrite was accepted.
    */
-  private async rewritePending(input: RescheduleInput, snapshot: WeatherSnapshot, now: string) {
+  private async rewritePending(
+    input: RescheduleInput,
+    snapshot: WeatherSnapshot,
+    now: string,
+  ): Promise<boolean> {
     const repository = await this.repository;
     const pending = new Map((await repository.listPending(input.localProfileId, now))
       .map(({ id, fireAt }) => [id, fireAt]));
-    if (pending.size === 0) return;
+    if (pending.size === 0) return true;
+    const newest = await this.loadNewestSnapshot?.(input.localProfileId, snapshot.locationKey);
+    const source = newest && Date.parse(newest.fetchedAt) > Date.parse(snapshot.fetchedAt)
+      ? newest
+      : snapshot;
     const deliveredIds = await repository.listFiredIds(input.localProfileId, now);
-    for (const { plan, title, body } of plannedNotifications(input, snapshot, now, deliveredIds)) {
+    let allAccepted = true;
+    for (const { plan, title, body } of plannedNotifications(input, source, now, deliveredIds)) {
       const fireAt = pending.get(plan.id);
-      if (fireAt !== undefined) {
-        await this.gateway.scheduleWeatherAlert({ identifier: plan.id, fireAt, title, body });
+      if (fireAt !== undefined
+        && !await this.gateway.scheduleWeatherAlert({ identifier: plan.id, fireAt, title, body })) {
+        allAccepted = false;
       }
     }
+    return allAccepted;
   }
 }
