@@ -396,6 +396,22 @@ test('unchanged pool inputs reuse the generation composition on repeated availab
   assert.equal(compositions, 2);
 });
 
+test('an availability check on different weather keeps the pool the shown outfits came from', async () => {
+  const cached = await persistedRecommendation();
+  const { controller } = createHarness({ cached });
+  await controller.initialize();
+  const restoredIds = controller.getSnapshot().pool.map(outfitOptionId);
+  assert.ok(restoredIds.length > 3);
+
+  controller.updatePoolAvailability({ ...input(30), now });
+
+  const warmIds = createRecommendationContextWithPool(
+    { ...input(30), now, excludedOptionIds: [] }, '2026-08-01',
+  ).pool.map(outfitOptionId);
+  assert.notDeepEqual(warmIds, restoredIds);
+  assert.deepEqual(controller.getSnapshot().pool.map(outfitOptionId), restoredIds);
+});
+
 // The rules and their boundaries are pinned in domain/local-day.test.mjs; this checks that the
 // controller still re-exports them and that the refresh trigger reads the same key.
 test('the controller re-exports the local day rules and the trigger follows their key', async () => {

@@ -341,18 +341,16 @@ export class RecommendationApplicationController {
       const poolInput = { ...input, recentWorn: input.recentWorn ?? this.recentWorn };
       const key = poolCompositionKeyForInput(poolInput);
       if (key !== this.poolKey || this.poolOptionIds === null) {
-        const { poolOptionIds, pool } = (this.dependencies.createContextWithPool ??
+        // Only the exhaustion check follows the current input. The published pool stays the
+        // one the shown outfits were picked from until a generation replaces them.
+        ({ poolOptionIds: this.poolOptionIds } = (this.dependencies.createContextWithPool ??
           createRecommendationContextWithPool)(
           { ...poolInput, excludedOptionIds: [] }, input.localDayKey,
-        );
-        this.poolOptionIds = poolOptionIds;
-        this.pool = pool ?? null;
+        ));
         this.poolKey = key;
       }
       const exhausted = recommendationPoolExhausted(this.poolOptionIds, this.state.snapshot);
-      if (exhausted !== this.state.exhausted || this.pool !== (this.state.pool ?? null)) {
-        this.setReady({ ...this.state, exhausted, pool: this.pool });
-      }
+      if (exhausted !== this.state.exhausted) this.setReady({ ...this.state, exhausted });
     } catch {
       // A failed derived availability check never discards the saved recommendation.
     }
