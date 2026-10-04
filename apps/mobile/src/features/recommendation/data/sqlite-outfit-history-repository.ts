@@ -187,21 +187,47 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
     return result;
   }
 
+  /**
+   * The deleted row keeps naming its photo until the file is gone, as a deleted Closet piece
+   * does, so a removal that fails now is retried by `cleanupPendingPhotos`.
+   */
   async softDelete(profileId: string, id: string): Promise<boolean> {
     const now = utcIsoTimestampSchema.parse(this.now());
-    let oldPhotoPath: string | null = null;
     let changed = false;
     await this.db.withExclusiveTransactionAsync(async (transaction) => {
       const old = await readLook(transaction, profileId, id);
       if (!old) return;
+      // An unmanaged name is never handed to a file delete, so it is not kept for one either.
       const updated = await transaction.runAsync(`UPDATE outfit_history SET
-        photo_path = NULL, deleted_at = ?, updated_at = ?, pending_sync = 1
+        photo_path = ?, deleted_at = ?, updated_at = ?, pending_sync = 1
         WHERE local_profile_id = ? AND id = ? AND deleted_at IS NULL`,
-      [now, now, profileId, id]);
+      [managedPhotoPath(old), now, now, profileId, id]);
       changed = updated.changes > 0;
-      if (changed) oldPhotoPath = managedPhotoPath(old);
     });
-    if (oldPhotoPath) await bestEffort(this.photos.deleteStored(oldPhotoPath));
+    if (changed) await this.cleanupPendingPhotos(profileId, id);
     return changed;
+  }
+
+  /**
+   * Removes each deleted look's photo that no live look names, then clears the name. Clearing
+   * it is device housekeeping, not an edit, so the record's time and sync flag stay as they are.
+   * A file that still cannot be removed keeps its name for the next cleanup.
+   */
+  async cleanupPendingPhotos(profileId: string, id?: string): Promise<void> {
+    const pending = await this.db.getAllAsync<Pick<Row, 'id' | 'photo_path'>>(`SELECT id, photo_path
+      FROM outfit_history AS pending
+      WHERE pending.local_profile_id = ? AND pending.deleted_at IS NOT NULL AND pending.photo_path IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM outfit_history AS active
+          WHERE active.deleted_at IS NULL AND active.photo_path = pending.photo_path)
+      ORDER BY pending.deleted_at ASC, pending.id ASC`, [profileId]);
+    for (const row of pending) {
+      if ((id && row.id !== id) || !row.photo_path || !isManagedHistoryPhotoPath(row.photo_path)) continue;
+      const path = row.photo_path;
+      const removed = await this.photos.deleteStored(path).then(() => true, () => false);
+      if (!removed) continue;
+      await bestEffort(this.db.runAsync(`UPDATE outfit_history SET photo_path = NULL
+        WHERE local_profile_id = ? AND id = ? AND deleted_at IS NOT NULL AND photo_path = ?`,
+      [profileId, row.id, path]));
+    }
   }
 }

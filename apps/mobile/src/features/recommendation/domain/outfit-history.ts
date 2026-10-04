@@ -135,7 +135,10 @@ export interface OutfitHistoryRepository {
    */
   log(localProfileId: string, dayKey: string, outfit: WornOutfit,
     photo: HistoryPhotoChange, pieceColors: WornPieceColors | null): Promise<OutfitHistoryRecord>;
+  /** A photo it could not remove stays named on the deleted row for `cleanupPendingPhotos`. */
   softDelete(localProfileId: string, id: string): Promise<boolean>;
+  /** Retries removing the photos of deleted looks, as the Closet does on opening. */
+  cleanupPendingPhotos(localProfileId: string): Promise<void>;
 }
 
 export type HistoryPhotoChange =
