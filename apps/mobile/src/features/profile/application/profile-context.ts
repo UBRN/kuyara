@@ -1,6 +1,11 @@
 import { createContext, use } from 'react';
 
-import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
+import type {
+  LanguagePreference,
+  TemperatureUnitPreference,
+  ThemePreference,
+  WindSpeedUnitPreference,
+} from '@/domain/preferences';
 import type { ProfileApplicationState } from '@/features/profile/application/profile-application-controller';
 import type {
   AnalyticsConsent,
@@ -23,6 +28,8 @@ export type ProfileApplicationValue = Readonly<{
   updateDisplayName: (displayName: string | null) => Promise<void>;
   updateLanguagePreference: (preference: LanguagePreference) => Promise<void>;
   updateThemePreference: (preference: ThemePreference) => Promise<void>;
+  updateTemperatureUnitPreference?: (preference: TemperatureUnitPreference) => Promise<void>;
+  updateWindSpeedUnitPreference?: (preference: WindSpeedUnitPreference) => Promise<void>;
   updateNotificationsOptIn: (optIn: boolean) => Promise<void>;
   updateMorningBriefingOptIn: (optIn: boolean) => Promise<void>;
   markWeatherAlertOfferShown: () => Promise<void>;

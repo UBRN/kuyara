@@ -18,3 +18,19 @@ export function isLanguagePreference(value: unknown): value is LanguagePreferenc
 export function isThemePreference(value: unknown): value is ThemePreference {
   return themePreferences.includes(value as ThemePreference);
 }
+
+// Device-only unit choices. System follows the device: its Temperature setting for temperature
+// and its Measurement System for wind speed.
+const temperatureUnitPreferences = ['system', 'celsius', 'fahrenheit'] as const;
+export type TemperatureUnitPreference = (typeof temperatureUnitPreferences)[number];
+
+const windSpeedUnitPreferences = ['system', 'kmh', 'mph'] as const;
+export type WindSpeedUnitPreference = (typeof windSpeedUnitPreferences)[number];
+
+export function isTemperatureUnitPreference(value: unknown): value is TemperatureUnitPreference {
+  return temperatureUnitPreferences.includes(value as TemperatureUnitPreference);
+}
+
+export function isWindSpeedUnitPreference(value: unknown): value is WindSpeedUnitPreference {
+  return windSpeedUnitPreferences.includes(value as WindSpeedUnitPreference);
+}

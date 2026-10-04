@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 26;
+export const latestDatabaseVersion = 27;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -687,6 +687,21 @@ const migrationV26: Migration = {
   },
 };
 
+// The temperature and wind unit choices, device-only display preferences beside the theme and
+// language. Both start at `system`, so every existing profile reads exactly the units it read
+// before: the device's Temperature setting and its Measurement System.
+const migrationV27: Migration = {
+  version: 27,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE local_profiles ADD COLUMN temperature_unit TEXT NOT NULL DEFAULT 'system'
+        CHECK (temperature_unit IN ('system', 'celsius', 'fahrenheit'));
+      ALTER TABLE local_profiles ADD COLUMN wind_speed_unit TEXT NOT NULL DEFAULT 'system'
+        CHECK (wind_speed_unit IN ('system', 'kmh', 'mph'));
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -714,6 +729,7 @@ const migrations = [
   migrationV24,
   migrationV25,
   migrationV26,
+  migrationV27,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

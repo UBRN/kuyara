@@ -17,7 +17,12 @@ import {
   Button,
 } from '@/components/ui';
 import { parseCalendarDate } from '@/domain/calendar-date';
-import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
+import type {
+  LanguagePreference,
+  TemperatureUnitPreference,
+  ThemePreference,
+  WindSpeedUnitPreference,
+} from '@/domain/preferences';
 import {
   defaultDressStyle,
   genderSchema,
@@ -38,6 +43,8 @@ export type SettingsScreenProps = Readonly<{
   isSaving: boolean;
   onLanguageChange: (value: LanguagePreference) => Promise<void>;
   onAppearanceChange: (value: ThemePreference) => Promise<void>;
+  onTemperatureUnitChange: (value: TemperatureUnitPreference) => Promise<void>;
+  onWindSpeedUnitChange: (value: WindSpeedUnitPreference) => Promise<void>;
   onOpenNotifications: () => void;
   onOpenEasierToSee: () => void;
   onOpenServiceProviders: () => void;
@@ -65,6 +72,8 @@ export function SettingsScreen({
   isSaving,
   notificationsOn,
   onAppearanceChange,
+  onTemperatureUnitChange,
+  onWindSpeedUnitChange,
   onDressStyleChange,
   onStyleAestheticsChange,
   onMorningSheetEnabledChange,
@@ -88,6 +97,7 @@ export function SettingsScreen({
   const { language, messages } = useLocalization();
   const { width } = useWindowDimensions();
   const copy = messages.preferences;
+  const units = messages.settings.units;
   const [saveErrorGroup, setSaveErrorGroup] = useState<'appearance' | 'profile' | null>(null);
   const [nameEditorOpen, setNameEditorOpen] = useState(false);
   const [aestheticsOpen, setAestheticsOpen] = useState(false);
@@ -185,6 +195,38 @@ export function SettingsScreen({
           selection={profile.themePreference}
           icon="theme"
           testID="settings-theme-row"
+        />
+        <NativePickerRow
+          disabled={isSaving}
+          label={units.temperatureRow}
+          onSelectionChange={(value) => savePreference(
+            'appearance',
+            () => onTemperatureUnitChange(value),
+          )}
+          options={[
+            { label: units.system, value: 'system' },
+            { label: units.celsius, value: 'celsius' },
+            { label: units.fahrenheit, value: 'fahrenheit' },
+          ]}
+          selection={profile.temperatureUnitPreference ?? 'system'}
+          icon="thermometerSwing"
+          testID="settings-temperature-unit-row"
+        />
+        <NativePickerRow
+          disabled={isSaving}
+          label={units.windSpeedRow}
+          onSelectionChange={(value) => savePreference(
+            'appearance',
+            () => onWindSpeedUnitChange(value),
+          )}
+          options={[
+            { label: units.system, value: 'system' },
+            { label: units.kmh, value: 'kmh' },
+            { label: units.mph, value: 'mph' },
+          ]}
+          selection={profile.windSpeedUnitPreference ?? 'system'}
+          icon="wind"
+          testID="settings-wind-speed-unit-row"
         />
       </NativeListSection>
 

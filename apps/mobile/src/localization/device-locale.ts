@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { AppState, I18nManager, NativeModules, Platform } from 'react-native';
 import { getLocales, useLocales } from 'expo-localization';
 
+import type { WindSpeedUnitPreference } from '@/domain/preferences';
+import type { TemperatureUnit } from '@/domain/temperature-unit';
 import { type WindSpeedUnit, windSpeedUnitFor } from '@/domain/wind-speed';
 
 type AppleSettings = Record<string, unknown> | undefined;
-export type TemperatureUnit = 'celsius' | 'fahrenheit';
+export type { TemperatureUnit };
 
 function firstString(value: unknown): string | undefined {
   if (typeof value === 'string') {
@@ -148,7 +150,8 @@ export function useDeviceTemperatureUnit(): TemperatureUnit {
   );
 }
 
-// The device's Measurement System setting; expo-localization re-reads it when the locale changes.
-export function useDeviceWindSpeedUnit(): WindSpeedUnit {
-  return windSpeedUnitFor(useLocales()[0]?.measurementSystem);
+// The stored choice, or under System the device's Measurement System setting, which
+// expo-localization re-reads when the locale changes.
+export function useWindSpeedUnit(preference: WindSpeedUnitPreference): WindSpeedUnit {
+  return windSpeedUnitFor(preference, useLocales()[0]?.measurementSystem);
 }

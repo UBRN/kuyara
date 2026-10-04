@@ -34,6 +34,6 @@ export function useLocalizationContext(): LocalizationValue & {
   return {
     ...localization,
     temperatureUnit: localization.temperatureUnit ?? 'celsius',
-    windSpeedUnit: localization.windSpeedUnit ?? windSpeedUnitFor(undefined),
+    windSpeedUnit: localization.windSpeedUnit ?? windSpeedUnitFor('system', undefined),
   };
 }

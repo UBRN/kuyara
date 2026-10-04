@@ -10,7 +10,9 @@ import { calendarDateKeySchema, formatCalendarDate } from '@/domain/calendar-dat
 import type {
   ClothingPreference,
   LanguagePreference,
+  TemperatureUnitPreference,
   ThemePreference,
+  WindSpeedUnitPreference,
 } from '@/domain/preferences';
 
 export type Profile = Readonly<{
@@ -30,6 +32,9 @@ export type Profile = Readonly<{
   swapHintShown?: boolean;
   languagePreference: LanguagePreference;
   themePreference: ThemePreference;
+  /** Device-only unit choices, read as System when absent; System follows the device's own settings. */
+  temperatureUnitPreference?: TemperatureUnitPreference;
+  windSpeedUnitPreference?: WindSpeedUnitPreference;
   onboardingCompleted: boolean;
   notificationsOptIn: boolean;
   /** ADR 0004: the contextual alert offer on Today was made, and is never made again. */

@@ -6,7 +6,9 @@ import type {
 } from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
+  TemperatureUnitPreference,
   ThemePreference,
+  WindSpeedUnitPreference,
 } from '@/domain/preferences';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
 
@@ -30,6 +32,8 @@ export interface ProfileLocalDataSource {
   updateDisplayName(displayName: string | null): Promise<LocalProfileRecord>;
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfileRecord>;
   updateThemePreference(preference: ThemePreference): Promise<LocalProfileRecord>;
+  updateTemperatureUnitPreference(preference: TemperatureUnitPreference): Promise<LocalProfileRecord>;
+  updateWindSpeedUnitPreference(preference: WindSpeedUnitPreference): Promise<LocalProfileRecord>;
   updateNotificationsOptIn(optIn: boolean): Promise<LocalProfileRecord>;
   updateMorningBriefingOptIn(optIn: boolean): Promise<LocalProfileRecord>;
   markWeatherAlertOfferShown(): Promise<LocalProfileRecord>;
