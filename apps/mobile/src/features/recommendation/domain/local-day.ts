@@ -27,7 +27,12 @@ export function localDayVariant(date: Date): number {
 // the device clock is in, so the small hours until 04:00 keep the evening's kind: Saturday 00:30
 // is still Friday evening, a weekday.
 export function localDayKind(date: Date): DayKind {
-  return dateKeyDayKind(dressingDayDateKey(localDayKey(date)));
+  return dressingDayKind(localDayKey(date));
+}
+
+/** The kind of a dressing-day key, an evening key taking the kind of the date it belongs to. */
+export function dressingDayKind(dressingDayKey: string): DayKind {
+  return dateKeyDayKind(dressingDayDateKey(dressingDayKey));
 }
 
 /**

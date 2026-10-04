@@ -8,7 +8,7 @@ import {
   type RecommendedOutfit,
 } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
-import { dateKeyDayKind } from '@/features/recommendation/domain/local-day';
+import { dressingDayKind } from '@/features/recommendation/domain/local-day';
 import type { OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
 import {
   activeLocationRecommendation,
@@ -71,7 +71,7 @@ export function moreIdeas(
   if (lastIdeas?.pool === pool && lastIdeas.snapshot === snapshot) return lastIdeas.ideas;
   const shown = new Set(snapshot.recommendation.outfits.map(({ optionId }) => optionId));
   const rest = pool.filter((outfit) => !shown.has(outfitOptionId(outfit)));
-  const dayKind = snapshot.localDayKey ? dateKeyDayKind(snapshot.localDayKey) : undefined;
+  const dayKind = snapshot.localDayKey ? dressingDayKind(snapshot.localDayKey) : undefined;
   const { requirements } = snapshot.recommendation;
   const ideas = rest.length === 0 ? [] : assignComposedArchetypes(
     orderByDressStyle(rest, { ...snapshot, dayKind }, requirements), requirements, dayKind);

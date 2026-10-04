@@ -129,6 +129,16 @@ test('no recovered pool, or a pool no larger than the outfits on screen, offers 
   assert.deepEqual(moreIdeas(onScreen, storedSnapshot), []);
 });
 
+test('ideas on an evening key take the kind of the dressing day the evening belongs to', () => {
+  // 2026-10-03 is a Saturday, so its evening is still the weekend.
+  const casual = { ...storedSnapshot, dressStyle: 'casual' };
+  const labels = (localDayKey) => moreIdeas(composedPool.outfits, { ...casual, localDayKey })
+    .map(({ archetypeId }) => archetypeId);
+  const saturday = labels('2026-10-03');
+  assert.ok(saturday.includes('weekend_relaxed'));
+  assert.deepEqual(labels('2026-10-03:evening'), saturday);
+});
+
 test('Today and detail both read the ideas from the state, and only for the active place', () => {
   const classifyWith = (pool, surface) => classifyTodayState({
     weather: weather({
