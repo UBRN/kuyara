@@ -60,6 +60,7 @@ const mockRouter = jest.requireMock('expo-router').router as {
 
 jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
   openKuyaraDatabase: async () => ({}),
+  subscribeDatabaseWrites: () => () => undefined,
 }));
 
 jest.mock('@/infrastructure/sqlite/migrations', () => ({
