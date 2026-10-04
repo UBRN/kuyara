@@ -15,14 +15,17 @@ import { AppText, DrawReveal, Icon, resolveCardFill, useTextScaling } from '@/co
 import type { Daypart } from '@/features/today/domain/atmosphere-state';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
+import { useVisibility } from '@/theme/easier-to-see';
 import { borderWidths, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { hourlyRailMetrics, layoutHourlyRail, type HourlyRailLayout } from './hourly-rail-layout';
+import { temperatureColor, temperatureStops } from './temperature-gradient';
 
 const FADE_WIDTH = 28;
 const DOT_RADIUS = 3;
 const NOW_DOT_RADIUS = 4.5;
+const SERIES_GRADIENT_ID = 'hourly-temperature';
 
 /** "Now" and the first hour of a new day read in the primary ink at weight 600. */
 export type HourlyTimeEmphasis = 'now' | 'newDay';
@@ -122,13 +125,24 @@ export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyR
   );
 }
 
-/** The accent temperature curve and one dot per hour; the first, the current hour, filled. */
+/**
+ * The temperature curve and one dot per hour; the first, the current hour, filled. The line
+ * is coloured on the fixed temperature scale the daily capsules use: a vertical gradient on
+ * the plot's own temperature axis, so every height is drawn in its own temperature's colour.
+ * Each dot is its hour's colour; the numbers above stay in the primary ink.
+ */
 function HourlySeries({ cardFill, columns, layout }: Readonly<{
   cardFill: string;
   columns: readonly HourlyRailColumn[];
   layout: HourlyRailLayout;
 }>) {
   const theme = useKuyaraTheme();
+  const { higherContrast } = useVisibility();
+  const ramp = theme.temperature[higherContrast ? 'strong' : 'standard'];
+  // From the warmest hour at the top of the axis to the coldest at its foot.
+  const stops = temperatureStops(ramp, layout.maximumCelsius, layout.minimumCelsius);
+  // A flat series has no axis to spread a gradient along: it is its one temperature's colour.
+  const flat = stops.length === 1;
   return (
     <Svg
       accessibilityElementsHidden
@@ -137,25 +151,43 @@ function HourlySeries({ cardFill, columns, layout }: Readonly<{
       pointerEvents="none"
       testID="weather-hourly-series"
       width={layout.contentWidth}>
+      {flat ? null : (
+        <Defs>
+          {/* In the plot's own space: a box-relative gradient has no height on a level line. */}
+          <LinearGradient
+            gradientUnits="userSpaceOnUse"
+            id={SERIES_GRADIENT_ID}
+            x1={0}
+            x2={0}
+            y1={layout.yAtMaximum}
+            y2={layout.yAtMinimum}>
+            {stops.map((stop) => <Stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />)}
+          </LinearGradient>
+        </Defs>
+      )}
       <Path
         d={layout.path}
         fill="none"
-        stroke={theme.colors.brandAccent}
+        stroke={flat ? stops[0].color : `url(#${SERIES_GRADIENT_ID})`}
         strokeLinecap="round"
         strokeWidth={2}
         testID="weather-hourly-series-line"
       />
-      {layout.points.map((point, index) => (
-        <Circle
-          cx={point.x}
-          cy={point.y}
-          fill={index === 0 ? theme.colors.brandAccent : cardFill}
-          key={columns[index].key}
-          r={index === 0 ? NOW_DOT_RADIUS : DOT_RADIUS}
-          stroke={theme.colors.brandAccent}
-          strokeWidth={2}
-        />
-      ))}
+      {layout.points.map((point, index) => {
+        const colour = temperatureColor(ramp, columns[index].temperatureCelsius);
+        return (
+          <Circle
+            cx={point.x}
+            cy={point.y}
+            fill={index === 0 ? colour : cardFill}
+            key={columns[index].key}
+            r={index === 0 ? NOW_DOT_RADIUS : DOT_RADIUS}
+            stroke={colour}
+            strokeWidth={2}
+            testID="weather-hourly-series-dot"
+          />
+        );
+      })}
     </Svg>
   );
 }

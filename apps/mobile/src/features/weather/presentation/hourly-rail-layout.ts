@@ -39,6 +39,11 @@ export type HourlyRailLayout = Readonly<{
   labelTops: readonly number[];
   /** An `Svg` `Path` `d` string, a smooth curve through every point; empty below two. */
   path: string;
+  /** The series' temperature axis: its coldest and warmest hour and the height each sits at. */
+  minimumCelsius: number;
+  maximumCelsius: number;
+  yAtMinimum: number;
+  yAtMaximum: number;
 }>;
 
 /** The space between a label and the plot under it. */
@@ -78,19 +83,24 @@ export function layoutHourlyRail(
   // A flat series has no range to map, so it sits on the plot's centre line rather than
   // collapsing onto one of the padded edges.
   const isFlat = maximum === minimum;
+  const yAt = (value: number) => (isFlat
+    ? (top + bottom) / 2
+    : bottom - ((value - minimum) / (maximum - minimum)) * (bottom - top));
   const points = temperatures.map((value, index) => ({
     x: inset + index * (columnWidth + columnGap) + columnWidth / 2,
-    y: isFlat
-      ? (top + bottom) / 2
-      : bottom - ((value - minimum) / (maximum - minimum)) * (bottom - top),
+    y: yAt(value),
   }));
 
   return {
     bandHeight: plotTop + plotHeight,
     contentWidth,
     labelTops: points.map(({ y }) => y - labelHeight - LABEL_LIFT),
+    maximumCelsius: maximum,
+    minimumCelsius: minimum,
     path: smoothPath(points),
     points,
+    yAtMaximum: yAt(maximum),
+    yAtMinimum: yAt(minimum),
   };
 }
 
