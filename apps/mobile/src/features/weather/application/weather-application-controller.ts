@@ -236,7 +236,7 @@ export class WeatherApplicationController {
         && cachedWeatherFreshness(stored.fetchedAt, this.dependencies.now()) === 'fresh'
         && (!latest.snapshot || stored.fetchedAt > latest.snapshot.fetchedAt)
       ) {
-        this.setReady({ ...latest, snapshot: stored, freshness: 'fresh' });
+        this.setReady({ ...latest, snapshot: stored, freshness: 'fresh', refreshFailure: null });
         return;
       }
     }

@@ -546,6 +546,28 @@ test('a permission answer given while a revalidation reads the store survives it
   assert.equal(harness.controller.getSnapshot().locationFlow, 'denied-requestable');
 });
 
+test('adopting a fresh stored snapshot clears the last refresh failure', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  let now = '2026-07-30T10:00:00.000Z';
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:00:00.000Z')],
+    now: () => now,
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } },
+  });
+  await harness.controller.initialize();
+  await settle();
+  assert.equal(harness.controller.getSnapshot().refreshFailure, 'offline');
+
+  now = '2026-07-30T10:10:00.000Z';
+  const stored = snapshotFor(istanbul, '2026-07-30T10:05:00.000Z', 21);
+  harness.byKey.set(stored.locationKey, stored);
+  await harness.controller.revalidateFreshness();
+
+  assert.equal(harness.controller.getSnapshot().snapshot.fetchedAt, stored.fetchedAt);
+  assert.equal(harness.controller.getSnapshot().refreshFailure, null);
+});
+
 test('revalidateFreshness republishes freshness on focus and starts the stale refresh once', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const cached = snapshotFor(istanbul, '2026-07-30T09:45:00.000Z');
