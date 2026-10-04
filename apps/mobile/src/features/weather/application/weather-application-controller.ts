@@ -361,13 +361,14 @@ export class WeatherApplicationController {
   }
 
   private async selectLocation(location: ActiveLocation): Promise<void> {
-    const previous = this.requireReady();
-    this.setReady({ ...previous, isSelectingLocation: true, locationFlow: 'idle' });
+    this.setReady({ ...this.requireReady(), isSelectingLocation: true, locationFlow: 'idle' });
     let persisted: ActiveLocation;
     try {
       persisted = await this.requireRepository().setActiveLocation(this.localProfileId, location);
     } catch {
-      this.setReady({ ...previous, isSelectingLocation: false, locationFlow: 'selection-failed' });
+      // Only the fields this selection set are put back: a refresh or permission answer that
+      // landed while the save ran is newer than anything from before it.
+      this.setReady({ ...this.requireReady(), isSelectingLocation: false, locationFlow: 'selection-failed' });
       return;
     }
 

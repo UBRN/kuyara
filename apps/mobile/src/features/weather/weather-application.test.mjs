@@ -228,6 +228,29 @@ test('a failed searched-place save preserves the active location and last snapsh
   assert.equal(harness.calls.provider, 0);
 });
 
+test('a failed location save restores only its own fields over a refresh that finished meanwhile', async () => {
+  const london = getManualLocation('sample.london');
+  const cached = snapshotFor(london, '2026-07-30T09:55:00.000Z');
+  const harness = createHarness({ active: london, snapshots: [cached] });
+  await harness.controller.initialize();
+  let rejectSave;
+  harness.repository.setActiveLocation = () => new Promise((_resolve, reject) => { rejectSave = reject; });
+
+  const refreshing = harness.controller.refresh();
+  const selecting = harness.controller.selectManualLocation('sample.istanbul');
+  await refreshing;
+  assert.equal(harness.controller.getSnapshot().isRefreshing, false);
+  rejectSave(new Error('storage failure'));
+  await selecting;
+
+  const state = harness.controller.getSnapshot();
+  assert.equal(state.isRefreshing, false);
+  assert.equal(state.snapshot.fetchedAt, '2026-07-30T10:00:00.000Z');
+  assert.equal(state.activeLocation.locationKey, london.locationKey);
+  assert.equal(state.isSelectingLocation, false);
+  assert.equal(state.locationFlow, 'selection-failed');
+});
+
 test('bootstrap with no active location never requests permission or weather', async () => {
   const { controller, calls } = createHarness();
   await controller.initialize();
