@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   dateKeyDayKind,
+  isDayQuestionOpen,
   localDayKey,
   localDayKind,
   localDayVariant,
@@ -114,4 +115,20 @@ test('a calendar date key has the kind of the weekday it names, in any zone', ()
   const kinds = ['2026-09-18', '2026-09-19', '2026-09-20', '2026-09-21', '2026-12-31', '2027-01-02']
     .map(dateKeyDayKind);
   assert.deepEqual(kinds, ['weekday', 'weekend', 'weekend', 'weekday', 'weekday', 'weekend']);
+});
+
+// A profile set up on build 18 and opened on build 19 the same day has no choice row for that
+// day, because only the newer setup writes one; the setup day still counts as answered.
+test('a day with no choice row stays unasked on the day the profile was set up, and is asked on any other', () => {
+  const setUpAt = new Date(2026, 9, 4, 9, 30).toISOString();
+  const open = (dressingDayKey, extra = {}) => isDayQuestionOpen({
+    morningSheetEnabled: true, profileCreatedAt: setUpAt, dressingDayKey, ...extra,
+  });
+  assert.equal(open('2026-10-04'), false);
+  assert.equal(open('2026-10-04:evening'), true);
+  assert.equal(open('2026-10-05'), true);
+  const setUpInTheEvening = new Date(2026, 9, 4, 20, 0).toISOString();
+  assert.equal(open('2026-10-04:evening', { profileCreatedAt: setUpInTheEvening }), false);
+  assert.equal(open('2026-10-05', { profileCreatedAt: setUpInTheEvening }), true);
+  assert.equal(open('2026-10-05', { morningSheetEnabled: false }), false);
 });
