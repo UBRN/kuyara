@@ -18,13 +18,16 @@ import {
 const variantEpoch = Date.UTC(2025, 11, 31);
 
 /**
- * The days since a fixed date modulo seven, which gives each weekday a different outfit
- * variant. The count runs on across the new year, so 31 December and 1 January differ too.
+ * The days since a fixed date modulo seven, which gives each dressing day a different outfit
+ * variant. The count runs on across the new year, so 31 December and 1 January differ too. It
+ * reads the date of the dressing day the clock is in, as the key does: the small hours until
+ * 04:00 keep the variant of the evening that began the day before, and a daytime date keeps the
+ * variant its calendar date gave it.
  */
 export function localDayVariant(date: Date): number {
+  const { year, month, day } = calendarDateParts(dressingDayDateKey(localDayKey(date)));
   const days = Math.round(
-    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - variantEpoch) /
-      (24 * 60 * 60 * 1000),
+    (Date.UTC(year, month - 1, day) - variantEpoch) / (24 * 60 * 60 * 1000),
   );
   return ((days % 7) + 7) % 7;
 }
