@@ -193,6 +193,7 @@ export function OnboardingScreen({
   );
   const [saveError, setSaveError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
   const [previewWidth, setPreviewWidth] = useState(0);
   const announcedStep = useRef(false);
   const headingRef = useRef<Text>(null);
@@ -291,14 +292,18 @@ export function OnboardingScreen({
   };
 
   const complete = async () => {
+    // A press while saving is not a missing answer; it is ignored. The ref also holds a second
+    // press in the same frame, before the spinner it starts is drawn.
+    if (savingRef.current) return;
     const preferences = onboardingPreferencesFromDraft(draft);
-    if (!preferences || isSaving) {
+    if (!preferences) {
       AccessibilityInfo.announceForAccessibility(
         draft.gender ? copy.dressStyleRequiredError : copy.genderRequiredError,
       );
       return;
     }
 
+    savingRef.current = true;
     setIsSaving(true);
     setSaveError(false);
     // A promise chain, not try/finally: React Compiler does not compile a component holding a
@@ -311,7 +316,10 @@ export function OnboardingScreen({
         setSaveError(true);
         AccessibilityInfo.announceForAccessibility(copy.saveError);
       })
-      .finally(() => setIsSaving(false));
+      .finally(() => {
+        savingRef.current = false;
+        setIsSaving(false);
+      });
   };
 
   // The rationale is part of the welcome step's content, not the pinned bar (O14), so the
@@ -345,7 +353,7 @@ export function OnboardingScreen({
           name={skyCondition.shape}
           size={20}
         />
-        <AppText tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle(
+        <AppText style={styles.previewTitleText} tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle(
           `${formatWholeTemperatureValue(sky.temperatureC, language, temperatureUnit)}°`,
           messages.weather.conditions[sky.condition],
         )}</AppText>
@@ -670,6 +678,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
+  // Beside the glyph a long condition wraps inside the plate, whose edge clips.
+  previewTitleText: { flexShrink: 1, minWidth: 0 },
   greeting: {
     gap: spacing.xs,
     padding: spacing.lg,
