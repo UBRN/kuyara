@@ -26,6 +26,7 @@ import {
   summarizeClosetCategories,
   type ClosetCategorySummary,
 } from '@/features/wardrobe/application/closet-categories';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
@@ -253,6 +254,12 @@ export function ProfileScreen({
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
 
+  // A failure already showing when Profile opens is not spoken; one that appears while it is
+  // up is, because VoiceOver ignores the body's live region.
+  useErrorAnnouncement(
+    state.status === 'loading' ? undefined : state.status === 'error' ? messages.wardrobe.loadErrorBody : null,
+    { skipInitial: true },
+  );
   const isReady = state.status === 'ready';
   const readyItems = isReady ? state.items : null;
   // Memoised on the record list itself, so the rack, which is memoised on its pieces,
@@ -374,7 +381,7 @@ export function ProfileScreen({
           <AppText accessibilityRole="header" style={styles.errorTitle} variant="bodyStrong">
             {messages.wardrobe.loadErrorTitle}
           </AppText>
-          <AppText colorRole="textSecondary" style={styles.errorBody}>
+          <AppText accessibilityLiveRegion="polite" colorRole="textSecondary" style={styles.errorBody}>
             {messages.wardrobe.loadErrorBody}
           </AppText>
           <Button

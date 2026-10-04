@@ -590,7 +590,7 @@ export function WardrobeListScreen({
           const label = wanted ? copy.wantedLabel : copy.ownedLabel;
           return (
             <View
-              accessibilityLabel={`${label}, ${row.count}`}
+              accessibilityLabel={copy.sectionAccessibilityLabel[row.entryState](row.count)}
               accessibilityRole="header"
               accessible
               style={[styles.sectionHeading, row.afterOwned && styles.sectionAfterOwned]}

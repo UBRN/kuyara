@@ -789,6 +789,8 @@ export type AppMessages = Readonly<{
     wornCount: (count: number) => string;
     ownedLabel: string;
     wantedLabel: string;
+    /** A Closet section heading spoken whole: its name and how many pieces it holds. */
+    sectionAccessibilityLabel: Readonly<Record<'owned' | 'wanted', (count: number) => string>>;
     // ADR 0029 section 2: new plural chip strings for the Closet's category filter. The
     // catalogue's singular attribute labels (`catalog.attribute.structural_category.*`)
     // stay for the type picker and the tile subline.
@@ -1455,6 +1457,10 @@ const en = {
     wornCount: (count: number) => (count === 1 ? 'Worn once' : `Worn ${count} times`),
     ownedLabel: englishOwnershipStateLabels.owned,
     wantedLabel: englishOwnershipStateLabels.wanted,
+    sectionAccessibilityLabel: {
+      owned: (count) => `Owned, ${count} ${count === 1 ? 'piece' : 'pieces'}`,
+      wanted: (count) => `Wanted, ${count} ${count === 1 ? 'piece' : 'pieces'}`,
+    },
     categoryFilterLabels: {
       top: 'Tops',
       bottom: 'Bottoms',
@@ -2650,6 +2656,10 @@ const tr = {
     // column at fontScale 3.118. The Profile screen already unified profile.wantedLabel;
     // this closes the same key here so the two screens cannot drift again.
     wantedLabel: 'İstekler',
+    sectionAccessibilityLabel: {
+      owned: (count) => `Sahip olduklarım, ${count} parça`,
+      wanted: (count) => `İstekler, ${count} parça`,
+    },
     categoryFilterLabels: {
       top: 'Üstler',
       bottom: 'Altlar',
