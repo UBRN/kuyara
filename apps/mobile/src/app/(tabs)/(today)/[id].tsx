@@ -34,6 +34,7 @@ import { classifyTodayState } from '@/features/today/application/today-state';
 import {
   closetSeedOffer,
   detailOutfit,
+  ideaDetail,
   outfitWornState,
   tomorrowDetailIsThisMorning,
   tomorrowDetailState,
@@ -105,8 +106,10 @@ export default function OutfitDetailRoute() {
   const openedSuggestionIdRef = useRef<string | null>(null);
   // The route is keyed by the outfit's stable option id, so a regeneration that finishes
   // while detail is open cannot swap another outfit under the user; an outfit the current
-  // snapshot no longer offers renders the unavailable state instead.
-  const { outfit, position } = detailOutfit(recommendation, suggestionId);
+  // snapshot no longer offers renders the unavailable state instead. An outfit from Today's
+  // "More ideas" opens alone, as kuyara composed it on the device, with no place among the three.
+  const { outfit, position } = detailOutfit(recommendation, suggestionId,
+    tomorrow ? null : recommendationState);
   // Phase 7: the reader's changes to this outfit live exactly as long as this route, so
   // leaving detail forgets them. The candidates keep the profile's gender
   // applicability the outfit was composed with.
@@ -270,7 +273,8 @@ export default function OutfitDetailRoute() {
     surface: 'detail',
     now: new Date(clock).toISOString(),
   });
-  const state = tomorrow ? tomorrowDetailState(weatherState, tomorrowPreview, new Date(clock).toISOString()) : todayState;
+  const state = tomorrow ? tomorrowDetailState(weatherState, tomorrowPreview, new Date(clock).toISOString())
+    : ideaDetail(todayState, suggestionId)?.state ?? todayState;
 
   const previewTitle = tomorrowDetailIsThisMorning(state, clock)
     ? messages.today.tomorrow.morningHeading : messages.today.tomorrow.heading;

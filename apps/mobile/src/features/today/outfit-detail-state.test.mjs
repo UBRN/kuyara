@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { todayActiveLocation, todayScreenState, todayWeatherSnapshot } from './__tests__/fixtures.ts';
+import { assignComposedArchetypes, composeOutfitPool, outfitOptionId } from '../recommendation/application/recommend-outfits.ts';
 import {
   closetSeedOffer,
   detailOutfit,
+  ideaDetail,
   outfitWornState,
   previewIsThisMorning,
   tomorrowDetailIsThisMorning,
@@ -102,4 +104,51 @@ test('the coming morning is "this morning" up to 03:59 and not from 04:00', () =
   assert.equal(morning('2026-08-14T04:00:00.000Z'), false);
   assert.equal(morning('2026-08-13T17:59:00.000Z'), false);
   assert.equal(morning('2026-08-13T18:00:00.000Z'), false);
+});
+
+test('an idea from "More ideas" opens as kuyara\'s on-device outfit, alone and without a place among the three', () => {
+  const pool = composeOutfitPool(recommendation.requirements, 'womens', 0);
+  const shown = new Set(outfits.map(({ optionId }) => optionId));
+  const ideas = assignComposedArchetypes(
+    pool.outfits.filter((outfit) => !shown.has(outfitOptionId(outfit))), recommendation.requirements);
+  const aiState = {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      moreIdeas: ideas,
+      recommendation: { ...recommendation, generationMode: 'ai-assisted', insightSentence: 'Rain later.', insightLocale: 'en' },
+    },
+  };
+  const idea = ideaDetail(aiState, ideas[1].optionId);
+  assert.equal(idea.outfit, ideas[1]);
+  const opened = idea.state.snapshot.recommendation;
+  assert.deepEqual(opened.outfits, [ideas[1]]);
+  assert.equal(opened.generationMode, 'deterministic-fallback');
+  assert.equal(opened.insightSentence, undefined);
+  assert.equal(opened.requirements, recommendation.requirements);
+  assert.equal(idea.state.snapshot.moreIdeas, undefined);
+  // A shown outfit, an unknown id and a state without ideas open no idea.
+  assert.equal(ideaDetail(aiState, outfits[0].optionId), null);
+  assert.equal(ideaDetail(aiState, 'outfit:unknown'), null);
+  assert.equal(ideaDetail(todayScreenState, ideas[1].optionId), null);
+  assert.equal(ideaDetail({ kind: 'loading' }, ideas[1].optionId), null);
+});
+
+test('a detail route finds an idea in the provider\'s composed pool, with no place among the three', () => {
+  const pool = composeOutfitPool(recommendation.requirements, 'womens', 0).outfits;
+  const shown = new Set(outfits.map(({ optionId }) => optionId));
+  const ideaId = outfitOptionId(pool.find((outfit) => !shown.has(outfitOptionId(outfit))));
+  const ready = {
+    status: 'ready', isRefreshing: false, lastFailure: null, phase: null, exhausted: false,
+    showFirstGenerationOverlay: false, pool,
+    snapshot: { dressStyle: 'smart', styleAesthetics: [], localDayKey: '2026-08-13', recommendation },
+  };
+  const found = detailOutfit(recommendation, ideaId, ready);
+  assert.equal(found.outfit.optionId, ideaId);
+  assert.equal(found.position, null);
+  assert.equal(detailOutfit(recommendation, outfits[1].optionId, ready).position, 2);
+  // Without the provider's state, or for a previous place, the pool offers nothing.
+  assert.equal(detailOutfit(recommendation, ideaId).outfit, null);
+  assert.equal(detailOutfit(null, ideaId, ready).outfit, null);
+  assert.equal(detailOutfit(recommendation, ideaId, { ...ready, pool: null }).outfit, null);
 });

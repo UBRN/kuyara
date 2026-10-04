@@ -34,6 +34,7 @@ import {
 } from '@/features/recommendation/data/recommendation-repository';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
+import type { OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
 import {
   deriveClothingRequirements,
   type ClothingRequirements,
@@ -128,6 +129,11 @@ export type RecommendationApplicationState =
       phase: RecommendationPhase | null;
       exhausted: boolean;
       showFirstGenerationOverlay: boolean;
+      /**
+       * The pool the shown outfits were picked from, as composed for them: Today's "More ideas"
+       * reads it and composes nothing. Absent or null when it could not be recovered.
+       */
+      pool?: readonly OutfitCandidate[] | null;
     }>;
 
 // The Worker client is the only error this feature can classify. Its kinds are
@@ -222,10 +228,10 @@ export function recommendationPoolExhausted(
 
 // A persisted recommendation carries the exact requirements and composition seed, so a
 // fresh controller can recover the full pool without a weather request or a new generation.
-function storedPoolOptionIds(
+function storedPool(
   snapshot: RecommendationSnapshot | null,
   recentWorn: readonly WornOutfit[],
-): readonly string[] | null {
+): readonly OutfitCandidate[] | null {
   if (
     !snapshot ||
     snapshot.dayVariant === null ||
@@ -238,9 +244,7 @@ function storedPoolOptionIds(
       snapshot.dayVariant,
       recentWorn,
     );
-    return composition.status === 'composed'
-      ? composition.outfits.map(outfitOptionId)
-      : null;
+    return composition.status === 'composed' ? composition.outfits : null;
   } catch {
     // Pool reconstruction is derived UI state and must not discard a valid saved outfit.
     return null;
@@ -294,6 +298,7 @@ export class RecommendationApplicationController {
   private readonly telemetry: PerformanceTelemetry | null;
   private readonly holdPhase: (milliseconds: number) => Promise<void>;
   private poolOptionIds: readonly string[] | null = null;
+  private pool: readonly OutfitCandidate[] | null = null;
   private poolKey: string | null = null;
   private recentWorn: readonly WornOutfit[] = [];
   private previousOptionIds: readonly string[] = [];
@@ -302,6 +307,7 @@ export class RecommendationApplicationController {
     context: RecommendationContext;
     input: RecommendationApplicationInput;
     poolOptionIds: readonly string[];
+    pool: readonly OutfitCandidate[] | null;
   }> | null = null;
   private skipPromise: Promise<RecommendationSnapshot | null> | null = null;
   private aiPending = false;
@@ -335,15 +341,18 @@ export class RecommendationApplicationController {
       const poolInput = { ...input, recentWorn: input.recentWorn ?? this.recentWorn };
       const key = poolCompositionKeyForInput(poolInput);
       if (key !== this.poolKey || this.poolOptionIds === null) {
-        const { poolOptionIds } = (this.dependencies.createContextWithPool ??
+        const { poolOptionIds, pool } = (this.dependencies.createContextWithPool ??
           createRecommendationContextWithPool)(
           { ...poolInput, excludedOptionIds: [] }, input.localDayKey,
         );
         this.poolOptionIds = poolOptionIds;
+        this.pool = pool ?? null;
         this.poolKey = key;
       }
       const exhausted = recommendationPoolExhausted(this.poolOptionIds, this.state.snapshot);
-      if (exhausted !== this.state.exhausted) this.setReady({ ...this.state, exhausted });
+      if (exhausted !== this.state.exhausted || this.pool !== (this.state.pool ?? null)) {
+        this.setReady({ ...this.state, exhausted, pool: this.pool });
+      }
     } catch {
       // A failed derived availability check never discards the saved recommendation.
     }
@@ -382,6 +391,7 @@ export class RecommendationApplicationController {
   ): Promise<RecommendationSnapshot | null> {
     let context: RecommendationContext;
     let poolOptionIds: readonly string[];
+    let pool: readonly OutfitCandidate[] | null;
     const snapshot = this.currentSnapshot();
     const generationInput = {
       ...input,
@@ -391,10 +401,12 @@ export class RecommendationApplicationController {
     const startedRefreshing = this.state.status === 'ready' && !this.state.isRefreshing;
     if (startedRefreshing) this.setRefreshing(true, generationInput);
     try {
-      ({ context, poolOptionIds } = (this.dependencies.createContextWithPool ??
+      let composed: readonly OutfitCandidate[] | undefined;
+      ({ context, poolOptionIds, pool: composed } = (this.dependencies.createContextWithPool ??
         createRecommendationContextWithPool)(
         generationInput, input.localDayKey,
       ));
+      pool = composed ?? null;
     } catch (error) {
       this.setLastFailure(recommendationFailureCategory(error));
       if (startedRefreshing) this.setRefreshing(false);
@@ -413,17 +425,17 @@ export class RecommendationApplicationController {
       // on again, so it must be latest for its own finish to end the refreshing state.
       if (this.latestRequestKey !== key) {
         this.latestRequestKey = key;
-        this.pendingSkip = { key, context, input: generationInput, poolOptionIds };
+        this.pendingSkip = { key, context, input: generationInput, poolOptionIds, pool };
         this.aiPending = request !== null;
       }
       return existing;
     }
 
     this.latestRequestKey = key;
-    this.pendingSkip = { key, context, input: generationInput, poolOptionIds };
+    this.pendingSkip = { key, context, input: generationInput, poolOptionIds, pool };
     this.aiPending = request !== null;
     this.setRefreshing(true, generationInput);
-    const refresh = this.refreshOnce(key, context, request, generationInput, trigger, poolOptionIds).finally(() => {
+    const refresh = this.refreshOnce(key, context, request, generationInput, trigger, poolOptionIds, pool).finally(() => {
       this.refreshes.delete(key);
       if (this.latestRequestKey === key) {
         this.pendingSkip = null;
@@ -456,12 +468,14 @@ export class RecommendationApplicationController {
         });
         if (this.latestRequestKey === pending.key) {
           this.poolOptionIds = pending.poolOptionIds;
+          this.pool = pending.pool;
           this.poolKey = poolCompositionKeyForInput(pending.input);
           this.setReady({
             status: 'ready', snapshot, isRefreshing: true, lastFailure: null,
             phase: 'preparing-outfits',
             exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
             showFirstGenerationOverlay: false,
+            pool: this.pool,
           });
         }
         return snapshot;
@@ -504,7 +518,8 @@ export class RecommendationApplicationController {
           lastFailure = recommendationFailureCategory(error);
         }
       }
-      this.poolOptionIds = lastFailure === null ? storedPoolOptionIds(snapshot, recentWorn) : null;
+      this.pool = lastFailure === null ? storedPool(snapshot, recentWorn) : null;
+      this.poolOptionIds = this.pool?.map(outfitOptionId) ?? null;
       this.poolKey = this.poolOptionIds && snapshot && snapshot.dayVariant !== null
         ? poolCompositionKey(snapshot.recommendation.requirements,
           snapshot.clothingPreference, snapshot.dayVariant, recentWorn)
@@ -517,6 +532,7 @@ export class RecommendationApplicationController {
         phase: null,
         exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
         showFirstGenerationOverlay: false,
+        pool: this.pool,
       });
     } catch (error) {
       this.setReady({
@@ -538,6 +554,7 @@ export class RecommendationApplicationController {
     input: RecommendationApplicationInput,
     trigger: RecommendationRefreshTrigger,
     poolOptionIds: readonly string[],
+    pool: readonly OutfitCandidate[] | null,
   ): Promise<RecommendationSnapshot | null> {
     // The deterministic fallback composes from the same catalog and effectively always
     // succeeds, so an AI failure alone is not a failure the user sees. It is still the
@@ -630,6 +647,7 @@ export class RecommendationApplicationController {
       );
       if (this.latestRequestKey === key) {
         this.poolOptionIds = poolOptionIds;
+        this.pool = pool;
         this.poolKey = poolCompositionKeyForInput(input);
         this.setReady({
           status: 'ready',
@@ -639,6 +657,7 @@ export class RecommendationApplicationController {
           phase: 'preparing-outfits',
           exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
           showFirstGenerationOverlay: false,
+          pool: this.pool,
         });
       }
       this.captureAnalyticsEvent('recommendation_regenerated', {

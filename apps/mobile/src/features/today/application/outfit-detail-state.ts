@@ -3,12 +3,14 @@ import type {
   OutfitRecommendationResult,
   RecommendedOutfit,
 } from '@/features/recommendation/application/recommend-outfits';
+import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 import {
   wornAlready,
   wornOutfitFrom,
   type WornOutfit,
 } from '@/features/recommendation/domain/outfit-history';
+import { moreIdeas } from '@/features/today/application/today-state';
 import { activeLocationRecommendation, todayFreshness, type TodayScreenState } from '@/features/today/model';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
 import { isBeforeDayStart } from '@/features/weather/domain/wardrobe-day';
@@ -92,18 +94,54 @@ export function tomorrowDetailState(
 }
 
 /**
- * The outfit a detail route is keyed by, and its 1-based place among the three. The key is
- * the outfit's stable option id, so a regeneration cannot swap another outfit under the
- * reader; an id the recommendation no longer offers finds nothing.
+ * The outfit a detail route is keyed by, and its 1-based place among the three, or one of
+ * Today's "More ideas" with no place. The key is the outfit's stable option id, so a
+ * regeneration cannot swap another outfit under the reader; an id the recommendation and its
+ * pool no longer offer finds nothing.
  */
 export function detailOutfit(
   recommendation: OutfitRecommendationResult | null,
   suggestionId: string | undefined,
+  /** The provider's state, whose composed pool holds Today's "More ideas"; null reads none. */
+  ideasFrom: RecommendationApplicationState | null = null,
 ): Readonly<{ outfit: RecommendedOutfit | null; position: 1 | 2 | 3 | null }> {
   const outfits = recommendation?.status === 'recommended' ? recommendation.outfits : [];
   const outfitIndex = outfits.findIndex(({ optionId }) => optionId === suggestionId);
   const outfit = outfits[outfitIndex] ?? null;
-  return { outfit, position: outfit ? ((outfitIndex + 1) as 1 | 2 | 3) : null };
+  if (outfit) return { outfit, position: (outfitIndex + 1) as 1 | 2 | 3 };
+  // An idea holds no place among the three. The recommendation is the active place's, so a
+  // previous place's pool offers nothing.
+  const idea = recommendation && ideasFrom?.status === 'ready' && ideasFrom.snapshot
+    ? moreIdeas(ideasFrom.pool, ideasFrom.snapshot).find(({ optionId }) => optionId === suggestionId)
+    : undefined;
+  return { outfit: idea ?? null, position: null };
+}
+
+/**
+ * An outfit opened from Today's "More ideas": the composed pool's outfit stands alone in the
+ * recommendation detail reads, as kuyara composed it on the device, so its source sentence and
+ * missing badge say so, and the weather line is the deterministic one. Null for any id that is
+ * not one of the state's ideas, including the outfits on screen.
+ */
+export function ideaDetail(
+  state: TodayScreenState,
+  suggestionId: string | undefined,
+): Readonly<{ outfit: RecommendedOutfit; state: TodayScreenState }> | null {
+  if (state.kind !== 'loaded' || state.snapshot.recommendation.status !== 'recommended') return null;
+  const outfit = state.snapshot.moreIdeas?.find(({ optionId }) => optionId === suggestionId);
+  if (!outfit) return null;
+  const { moreIdeas: _ideas, recommendation, ...snapshot } = state.snapshot;
+  const { insightSentence: _sentence, insightLocale: _locale, ...settled } = recommendation;
+  return {
+    outfit,
+    state: {
+      ...state,
+      snapshot: {
+        ...snapshot,
+        recommendation: { ...settled, generationMode: 'deterministic-fallback', outfits: [outfit] },
+      },
+    },
+  };
 }
 
 /** The worn record for an outfit, or none when it does not parse. */

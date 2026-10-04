@@ -220,7 +220,12 @@ export function createRecommendationContext(
 export function createRecommendationContextWithPool(
   input: OutfitRecommendationInput,
   localDayKey?: string,
-): Readonly<{ context: RecommendationContext; poolOptionIds: readonly string[] }> {
+): Readonly<{
+  context: RecommendationContext;
+  poolOptionIds: readonly string[];
+  /** The composed pool itself, in composition order; `poolOptionIds` are its ids. */
+  pool?: readonly OutfitCandidate[];
+}> {
   const departureAt = input.departureAt ?? input.now;
   const requirements = deriveClothingRequirements(input.snapshot, input.now, departureAt);
   const day = archetypeDayFromRequirements(requirements.requirements);
@@ -253,6 +258,7 @@ export function createRecommendationContextWithPool(
     poolOptionIds: composition.status === 'composed'
       ? composition.outfits.map(outfitOptionId)
       : [],
+    pool: composition.status === 'composed' ? composition.outfits : [],
   };
 }
 

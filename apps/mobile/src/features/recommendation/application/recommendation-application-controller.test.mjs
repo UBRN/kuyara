@@ -309,6 +309,19 @@ async function persistedRecommendation() {
   return controller.refresh('first-recommendation', input(16));
 }
 
+test('the ready state carries the composed pool, after a generation and again after a restart', async () => {
+  const first = createHarness();
+  await first.controller.initialize();
+  const snapshot = await first.controller.refresh('first-recommendation', input(16));
+  const pool = first.controller.getSnapshot().pool;
+  assert.ok(pool.length > 3);
+  assert.deepEqual(pool.map(outfitOptionId).sort(),
+    first.requests[0].options.map(({ optionId }) => optionId).sort());
+  const restored = createHarness({ cached: snapshot });
+  await restored.controller.initialize();
+  assert.deepEqual(restored.controller.getSnapshot().pool.map(outfitOptionId), pool.map(outfitOptionId));
+});
+
 test('first generation can save deterministic outfits while its AI request continues', async () => {
   let resolveAi;
   let request;

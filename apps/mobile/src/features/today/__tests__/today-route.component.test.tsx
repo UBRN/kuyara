@@ -25,6 +25,7 @@ import {
   useRecommendationApplication,
 } from '@/features/recommendation/application/recommendation-application-context';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
+import { composeOutfitPool, outfitOptionId } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import {
   RecommendationRepositoryError,
@@ -3433,6 +3434,44 @@ test('wore this today records each look of the day beside the earlier ones', asy
   expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
   expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
   alert.mockRestore();
+});
+
+// An outfit from Today's "More ideas" opens on the ordinary detail as kuyara's on-device outfit:
+// the pool the controller composed, never composed again, recorded as recommended, and with no
+// detail-opened event, which names a place among the three.
+test('an idea from the composed pool opens on detail as composed on the device and records as recommended', async () => {
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const pool = composeOutfitPool(todayRecommendation.requirements, 'womens', 0);
+  if (pool.status !== 'composed') throw new Error('fixture');
+  const shown = new Set(todayRecommendation.outfits.map(({ optionId }) => optionId));
+  const ideaId = outfitOptionId(pool.outfits.find((outfit) => !shown.has(outfitOptionId(outfit)))!);
+  mockParams = { id: ideaId };
+  const logged: WornOutfit[] = [];
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    day: jest.fn(async () => []),
+    log: jest.fn(async (_day: string, outfit: WornOutfit) => {
+      logged.push(outfit);
+      return { outfit } as never;
+    }),
+  };
+  const props = {
+    productAnalytics: createProductAnalytics(),
+    profile: profileValue(),
+    recommendation: recommendationReady({ pool: pool.outfits }),
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+    dressingDayKey: '2026-08-13:evening',
+    outfitHistory,
+  };
+  const result = await render(<Providers {...props}><OutfitDetailRoute /></Providers>);
+  expect(await result.findByText(messages.en.today.generationSourceDeterministic)).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.today.unavailableTitle)).toBeNull();
+  await waitFor(() => expect(outfitHistory.day).toHaveBeenCalled());
+  await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
+  expect(logged).toHaveLength(1);
+  expect(logged[0].source).toBe('recommended');
+  expect(props.productAnalytics.analytics.names()).not.toContain('outfit_detail_opened');
 });
 
 // Phase 7: a changed outfit is recorded only by "Wore this today", as a
