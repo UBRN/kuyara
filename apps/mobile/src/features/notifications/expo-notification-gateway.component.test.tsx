@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { ExpoNotificationGateway } from '@/features/notifications/data/expo-notification-gateway';
 
 const notifications = jest.requireMock('expo-notifications') as {
+  getPermissionsAsync: jest.Mock;
+  requestPermissionsAsync: jest.Mock;
   getAllScheduledNotificationsAsync: jest.Mock;
   cancelScheduledNotificationAsync: jest.Mock;
   scheduleNotificationAsync: jest.Mock;
