@@ -180,11 +180,14 @@ export function findDayInsight(input: Readonly<{
     // meets first, and naming the later one would answer a question nobody asked.
     const firstDryAfter = wetness.indexOf(false, firstWet);
     const form = precipitationForm(hours[firstWet].condition);
-    if (firstWet === 0 && firstDryAfter === -1) return { kind: 'wet_all_day', form, period };
+    // The forecast series starts at the next full hour, so a wet first hour only means "already
+    // falling" when the current condition is wet too; a dry now makes it the hour rain begins.
+    const fallingNow = firstWet === 0 && isWetMeasurement(snapshot.current);
+    if (fallingNow && firstDryAfter === -1) return { kind: 'wet_all_day', form, period };
     return {
       kind: 'wet_window',
       form,
-      fromHour: firstWet === 0 ? null : hours[firstWet].forecastAt,
+      fromHour: fallingNow ? null : hours[firstWet].forecastAt,
       untilHour: firstDryAfter === -1 ? null : hours[firstDryAfter].forecastAt,
     };
   }
