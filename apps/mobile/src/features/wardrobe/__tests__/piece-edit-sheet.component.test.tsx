@@ -26,7 +26,13 @@ import { TourTargetsContext } from '@/features/walkthrough/application/walkthrou
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui/modifiers', () =>
   jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
+// A symbol stands as a plain view carrying its name and ink, so a line's glyph can be read.
+jest.mock('expo-symbols', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual('react-native') as typeof import('react-native');
+  return { SymbolView: ({ name, tintColor }: { name: { ios: string }; tintColor?: string }) =>
+    React.createElement(View, { testID: `symbol-${name.ios}`, ...{ tintColor } }) };
+});
 jest.mock('@expo/ui/community/bottom-sheet', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const { View } = jest.requireActual('react-native') as typeof import('react-native');
@@ -425,4 +431,55 @@ test('a piece with no History shows no worn line', async () => {
     suggestedColorFamily: 'black', match: { kind: 'owned', item: yours },
   });
   expect(result.queryByTestId('piece-edit-worn')).toBeNull();
+});
+
+function renderPickingSheet(onSelectPhoto: () => Promise<null>) {
+  return render(
+    <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext value={lightTheme}>
+        <PieceEditSheet onDiscardStagedPhoto={jest.fn(async () => undefined)} onDismiss={jest.fn()}
+          onSave={jest.fn(async () => undefined)} onSelectPhoto={onSelectPhoto}
+          resolvePhotoUri={() => 'file:///wardrobe/jeans.jpg'} target={ownedTarget} />
+      </KuyaraThemeContext>
+    </LocalizationContext>,
+  );
+}
+
+test('choosing a photo holds Done without spinning it, as nothing is being saved yet', async () => {
+  let finish: (photo: null) => void = () => undefined;
+  const result = await renderPickingSheet(() => new Promise((resolve) => { finish = resolve; }));
+  await fireEvent.press(result.getByTestId('piece-edit-photo-select'));
+  const done = result.getByTestId('piece-edit-done');
+  expect(done).toBeDisabled();
+  expect(done.props.accessibilityState?.busy).toBe(false);
+  await act(async () => { finish(null); });
+  expect(result.getByTestId('piece-edit-done')).toBeEnabled();
+});
+
+test('each error line carries the error glyph, as the Closet\'s error lines do', async () => {
+  const onSave = jest.fn(async () => { throw new Error('database failed'); });
+  const result = await render(
+    <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext value={lightTheme}>
+        <PieceEditSheet onDiscardStagedPhoto={jest.fn(async () => undefined)} onDismiss={jest.fn()}
+          onSave={onSave} onSelectPhoto={jest.fn(async () => { throw new Error('picker failed'); })}
+          resolvePhotoUri={() => null} target={ownedTarget} />
+      </KuyaraThemeContext>
+    </LocalizationContext>,
+  );
+  await fireEvent.press(result.getByTestId('piece-edit-photo-select'));
+  await fireEvent.press(result.getByTestId('piece-edit-done'));
+  for (const testID of ['piece-edit-error-line', 'piece-edit-photo-error-line']) {
+    const line = await result.findByTestId(testID);
+    expect(within(line).getByTestId('symbol-exclamationmark.circle.fill', hidden))
+      .toHaveProp('tintColor', lightTheme.colors.dangerInk);
+  }
+});
+
+test('Remove photo clears an earlier photo error', async () => {
+  const result = await renderPickingSheet(jest.fn(async () => { throw new Error('picker failed'); }));
+  await fireEvent.press(result.getByTestId('piece-edit-photo-select'));
+  expect(await result.findByText(messages.en.wardrobe.photoError)).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('piece-edit-photo-remove'));
+  expect(result.queryByText(messages.en.wardrobe.photoError)).toBeNull();
 });
