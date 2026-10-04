@@ -4,6 +4,7 @@ import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { runwayDressingDuration } from '@/components/ui';
+import { flatLayStack } from '@/components/ui/garment-board/compose-flat-lay';
 import { garmentPaletteContrast as contrastRatio } from '@/components/ui/garment-board/garment-palette';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import { FirstGenerationRunway, type RunwayOutfit } from '@/features/today/presentation/first-generation-runway';
@@ -140,6 +141,39 @@ test('the answer dresses the chosen pieces, the extra drafts leave, then All set
   expect(result.getByTestId('first-generation-runway')).toBeOnTheScreen();
   await act(() => jest.advanceTimersByTime(1));
   expect(result.queryByTestId('first-generation-runway')).toBeNull();
+});
+
+// The dressed pieces fly to Today's flat lay and the band takes them over in its own
+// stacking, so no layer changes from front to back at the hand-off.
+test('the dressed pieces lie in the flat lay\'s stacking, as Today\'s band draws them', async () => {
+  const rainySmart: RunwayOutfit = {
+    id: 'rainy-smart',
+    pieces: [
+      { slot: 'primary_top', garmentTypeId: 'shirt', category: 'top' },
+      { slot: 'bottom', garmentTypeId: 'trousers', category: 'bottom' },
+      { slot: 'mid_layer', garmentTypeId: 'sweater', category: 'top' },
+      { slot: 'outer_layer', garmentTypeId: 'rain_jacket', category: 'outerwear' },
+      { slot: 'footwear', garmentTypeId: 'ankle_boots', category: 'footwear' },
+    ],
+    palette: {
+      optionId: 'rainy-smart', formality: 'smart', temperatureC: 9, condition: 'rain', isNight: false,
+      pieces: [
+        { slot: 'primary_top', garmentTypeId: 'shirt' },
+        { slot: 'bottom', garmentTypeId: 'trousers' },
+        { slot: 'mid_layer', garmentTypeId: 'sweater' },
+        { slot: 'outer_layer', garmentTypeId: 'rain_jacket' },
+        { slot: 'footwear', garmentTypeId: 'ankle_boots' },
+      ],
+    },
+  };
+  const result = await render(runway());
+  await laidOut(result);
+  await result.rerender(runway({ active: false, completed: true, phase: null, outfit: rainySmart }));
+  await act(() => jest.advanceTimersByTime(0));
+  const drawn = result.getAllByTestId(/^runway-dressed-/, hidden)
+    .map((node) => String(node.props.testID).replace('runway-dressed-', ''));
+  expect(drawn).toEqual(flatLayStack.filter((slot) => rainySmart.pieces.some((piece) => piece.slot === slot)));
+  expect(drawn).toEqual(['outer_layer', 'mid_layer', 'bottom', 'primary_top', 'footwear']);
 });
 
 // Law 7's full-screen transition: the layer fades on `deliberate` rather than cutting to
@@ -388,7 +422,9 @@ describe('the hand-off to Today', () => {
     // multiples of the stagger step.)
     const { stagger } = lightTheme.motion;
     const steps = [0, stagger, 2 * stagger];
-    expect(withDelay.mock.calls.map(([delay]) => delay).filter((delay) => steps.includes(delay))).toEqual(steps);
+    // The pieces are drawn in the flat lay's stacking, so the delays are read sorted.
+    expect(withDelay.mock.calls.map(([delay]) => delay).filter((delay) => steps.includes(delay))
+      .sort((a, b) => a - b)).toEqual(steps);
     expect(onHandedOff).not.toHaveBeenCalled();
 
     await act(() => { springs.forEach((land) => land(true)); jest.advanceTimersByTime(0); });
