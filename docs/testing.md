@@ -261,6 +261,12 @@ The **chain measurement** script sends the same grid the AI-selection suite uses
 pnpm --filter @kuyara/mobile measure:ai-chain --base-url http://127.0.0.1:8788 --max-calls 5
 ```
 
+The **free-model ranking** script lists the OpenRouter candidates for that measurement: the `:free` models with zero prompt and completion price whose parameters include `response_format` or `structured_outputs`, in the order of OpenRouter's documented `sort=top-weekly` (all users' tokens of the last week, so it measures volume rather than quality and moves weekly). It reads the public model list without a key and sends no completion request.
+
+```bash
+pnpm --filter @kuyara/mobile rank:free-ai-models
+```
+
 Two Maestro flows use these switches:
 
 - `.maestro/flows/today-standard-suggestions.yaml`: against the `e2e` Worker with the on-device switch off, Today settles on an outfit and shows no generation-mode badge, which is what the deterministic fallback looks like at rest. It is part of the default `pnpm e2e:ios` set and passes in about 45 seconds.

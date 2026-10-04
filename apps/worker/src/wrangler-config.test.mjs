@@ -50,10 +50,15 @@ test('production WORKERS_AI_MODELS stays inside the models the daily attempt lim
 test('production OPENROUTER_MODELS lists only measured models that pass the free-model allowlist', () => {
   const models = config.vars.OPENROUTER_MODELS;
   // A model joins only after a live measurement under `wrangler dev` shows it returning
-  // structured output the handler accepts inside the 7 s attempt window. On 2026-10-04 no
-  // free model with a structured-output endpoint did (docs/architecture.md), so the list is
-  // empty and the walk is the Workers AI models alone.
-  assert.deepEqual(models, []);
+  // structured output the handler accepts inside the 7 s attempt window (docs/architecture.md),
+  // most often accepted first, then fastest. Each is a `:free` slug: a paid model, or the
+  // `openrouter/free` router that the allowlist also admits, must never enter the list.
+  assert.deepEqual(models, [
+    'qwen/qwen3.8-27b:free',
+    'dots-studio/dots-3-note-preview:free',
+    'nvidia/nemotron-3-super-120b-a12b:free',
+  ]);
+  for (const model of models) assert.match(model, /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+:free$/);
   // `createAiProviders` drops a model the allowlist rejects, so a kept count equal to the
   // configured count means none was rejected.
   const providers = createAiProviders({ OPENROUTER_API_KEY: 'key', OPENROUTER_MODELS: models });
