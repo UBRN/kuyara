@@ -2,6 +2,7 @@ import type { ZodType } from 'zod';
 
 import {
   pendingUpload,
+  rowCount,
   type AccountRowsSourcePort,
   type LocalAccountRows,
 } from '@/features/account/application/account-sync';
@@ -56,8 +57,10 @@ import type {
 // writes only what sync owns: the synced columns, the clocks and the flag. Device-only columns
 // (photo paths, `local_profile_id`, birth date, consents and settings) are never written from
 // the account; a row new to this phone takes this phone's profile and no photo. Every write is
-// one transaction through the shared helper the repositories use, and none of them tells the
-// database write listeners: sync's own bookkeeping never schedules another sync pass.
+// one transaction through the shared helper the repositories use. Sync's bookkeeping (flags,
+// link, cursor) tells no database write listener. A pull or first link that lands account rows
+// tells them once, so the Closet, History and Profile read the phone again; the lifecycle starts
+// no pass for it, because a landed row is settled, not waiting.
 
 type Flag = Readonly<{ pending_sync: number }>;
 
@@ -356,8 +359,10 @@ async function saveLinkIn(db: SqliteExecutor, link: AccountLink): Promise<void> 
   [link.userId, link.lastUserId, link.recordsUserId, link.recordsConsentRecordedAt, link.cursor]);
 }
 
-/** Sync's own writes: kept from the database write listeners, so they never start another pass. */
+/** Sync's bookkeeping: kept from the database write listeners. */
 const quiet: SqliteTransactionOptions = { notifyWrites: false };
+/** Account rows landing on the phone: the screens read again. */
+const landing = (rows: AccountRows): SqliteTransactionOptions => ({ notifyWrites: rowCount(rows) > 0 });
 
 export type SqliteAccountRowsSource = AccountRowsSourcePort & Readonly<{
   /**
@@ -375,7 +380,8 @@ export type SqliteAccountRowsSource = AccountRowsSourcePort & Readonly<{
 export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteAccountRowsSource {
   const all = <Row>(table: string, columns: string, id: string) => database.getAllAsync<Row>(
     `SELECT ${columns}, pending_sync FROM ${table} WHERE local_profile_id = ? ORDER BY rowid`, [id]);
-  const write = (task: (transaction: SqliteExecutor) => Promise<void>) => database.withExclusiveTransactionAsync(task, quiet);
+  const write = (task: (transaction: SqliteExecutor) => Promise<void>, options = quiet) =>
+    database.withExclusiveTransactionAsync(task, options);
 
   async function read(): Promise<LocalAccountRows> {
     const profile = await database.getFirstAsync<ProfileRow>(`SELECT id, display_name, gender, dress_style,
@@ -413,7 +419,7 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
         await landAll(transaction, merge.writeToPhone, true);
         await setPending(transaction, merge.sendToAccount, 1, false);
         await saveLinkIn(transaction, link);
-      });
+      }, landing(merge.writeToPhone));
     },
     clearPendingIfUnchanged(returned) {
       return write((transaction) => setPending(transaction, returned, 0, true));
@@ -422,7 +428,7 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
       return write(async (transaction) => {
         await landAll(transaction, rows, false);
         await transaction.runAsync('UPDATE device_account_link SET last_pull_cursor = ? WHERE singleton_key = 1', [cursor]);
-      });
+      }, landing(rows));
     },
     async hasPending(records) {
       // A cheap check first: nothing flagged at all means nothing to read.

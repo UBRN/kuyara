@@ -6,6 +6,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
 import { ProfileApplicationController } from '@/features/profile/application/profile-application-controller';
 import {
   ProfileApplicationContext,
@@ -37,6 +38,8 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     void controller.initialize();
   }, [controller]);
+  // The account's name, gender, dress style and styles a sync pull lands show without a restart.
+  useEffect(() => followWritesWhileAccountsOpen(() => void controller.reload()), [controller]);
 
   const updateNotificationsOptIn = useCallback(
     (optIn: boolean) => controller.updateNotificationsOptIn(optIn),

@@ -425,3 +425,48 @@ test('controller retries repository initialization after an initial load failure
   assert.equal(controller.getSnapshot().status, 'ready');
   assert.equal(attempts, 2);
 });
+
+test('a reload after a database write shows what changed without a refresh indicator, and keeps an unchanged list as it is', async () => {
+  let items = [item];
+  const { repository } = createRepository({ async listActiveItems() { return items; } });
+  const controller = new WardrobeApplicationController(profileId, async () => repository);
+  await controller.initialize();
+  const before = controller.getSnapshot();
+  const shown = [];
+  controller.subscribe(() => shown.push(controller.getSnapshot()));
+
+  await controller.reload();
+  assert.equal(controller.getSnapshot(), before);
+  assert.deepEqual(shown, []);
+
+  const pulled = { ...item, name: 'Renamed on the other phone', updatedAt: '2026-07-31T10:00:00.000Z' };
+  items = [pulled];
+  await controller.reload();
+  assert.deepEqual(controller.getSnapshot(), { ...before, items: [pulled] });
+  assert.equal(shown.some((state) => state.isRefreshing), false);
+});
+
+test('a reload waits for a save in progress and then reads, so the save\'s list is never replaced by an older one', async () => {
+  const reads = [];
+  const { repository, resolveCreate } = createRepository({
+    async listActiveItems() { reads.push('list'); return [item]; },
+  });
+  const controller = new WardrobeApplicationController(profileId, async () => repository);
+  await controller.initialize();
+  const saving = controller.createItem({ name: 'Rain shell', garmentTypeId: 'rain_jacket' });
+  const reloading = controller.reload();
+  assert.deepEqual(reads, ['list']);
+  resolveCreate(item);
+  await saving;
+  await reloading;
+  assert.deepEqual(reads, ['list', 'list', 'list']);
+  assert.equal(controller.getSnapshot().isMutating, false);
+});
+
+test('a reload before the Closet has loaded reads nothing: the first load reads the phone anyway', async () => {
+  const { calls, repository } = createRepository();
+  const controller = new WardrobeApplicationController(profileId, async () => repository);
+  await controller.reload();
+  assert.equal(calls.list, 0);
+  assert.deepEqual(controller.getSnapshot(), { status: 'loading' });
+});

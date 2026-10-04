@@ -63,6 +63,8 @@ export class WardrobeApplicationController {
   // Bumped when a mutation starts and when it settles, so a refresh can tell that its
   // list read straddled a mutation and may hold pre-mutation data.
   private mutationEpoch = 0;
+  private reloadPromise: Promise<void> | null = null;
+  private reloadStale = false;
   private readonly listeners = new Set<Listener>();
   private readonly localProfileId: string;
   private readonly loadRepository: () => Promise<WardrobeRepository>;
@@ -110,6 +112,29 @@ export class WardrobeApplicationController {
       this.refreshPromise = null;
     });
     return this.refreshPromise;
+  }
+
+  /**
+   * Reads the Closet again after a write this controller did not make, such as a sync pull
+   * landing another phone's pieces (ADR 0041 section 4). It shows no refresh indicator, keeps
+   * the shown state when nothing changed, waits for a save in progress so that save's own read
+   * stands, and removes the photo of a piece deleted elsewhere. A request during a reload gets
+   * one more read after it. Before the first load it reads nothing: that load reads the phone.
+   */
+  reload(): Promise<void> {
+    if (this.reloadPromise) {
+      this.reloadStale = true;
+      return this.reloadPromise;
+    }
+    this.reloadPromise = (async () => {
+      do {
+        this.reloadStale = false;
+        await this.reloadOnce();
+      } while (this.reloadStale);
+    })().finally(() => {
+      this.reloadPromise = null;
+    });
+    return this.reloadPromise;
   }
 
   async getItem(id: string): Promise<WardrobeItem | null> {
@@ -211,6 +236,33 @@ export class WardrobeApplicationController {
     } catch {
       this.setState({ status: 'error' });
     }
+  }
+
+  private async reloadOnce(): Promise<void> {
+    if (this.state.status !== 'ready' || !this.repository) return;
+    try {
+      await this.mutationPromise;
+    } catch {
+      // The save reports its own failure; the reload only reads after it.
+    }
+    const repository = this.repository;
+    const epoch = this.mutationEpoch;
+    let items: readonly WardrobeItem[];
+    try {
+      items = await repository.listActiveItems(this.localProfileId);
+    } catch {
+      // The shown list stays; the next write, focus or retry reads again.
+      return;
+    }
+    if (epoch !== this.mutationEpoch) {
+      // A save started meanwhile: read again after it, never over its result.
+      this.reloadStale = true;
+      return;
+    }
+    if (this.state.status === 'ready' && JSON.stringify(items) !== JSON.stringify(this.state.items)) {
+      this.setState({ ...this.state, items });
+    }
+    await this.cleanupPendingPhotos(repository);
   }
 
   private async refreshOnce(): Promise<void> {

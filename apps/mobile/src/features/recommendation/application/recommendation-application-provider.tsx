@@ -39,7 +39,9 @@ import {
   departureIsAhead,
   type DressingDayDeparture,
 } from '@/features/recommendation/domain/dressing-day-departure';
+import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
+import { createHistoryWriteWatch } from '@/features/recommendation/application/history-write-watch';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import {
   TomorrowPreviewController,
@@ -616,6 +618,12 @@ export function RecommendationApplicationProvider({
       return record;
     },
   }), [historyRevision, localProfileId]);
+  // Looks a sync pull lands or deletes read again, and a deleted look's photo is removed.
+  useEffect(() => followWritesWhileAccountsOpen(createHistoryWriteWatch({
+    changeKey: async () => (await loadHistoryRepository()).changeKey(localProfileId),
+    cleanupPendingPhotos: async () => (await loadHistoryRepository()).cleanupPendingPhotos(localProfileId),
+    changed: () => setHistoryRevision((revision) => revision + 1),
+  })), [localProfileId]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,

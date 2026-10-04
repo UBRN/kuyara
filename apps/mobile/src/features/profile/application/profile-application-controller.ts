@@ -70,6 +70,8 @@ export class ProfileApplicationController {
   private repository: ProfileRepository | null = null;
   private initializationPromise: Promise<void> | null = null;
   private updatePromise: Promise<void> | null = null;
+  private reloadPromise: Promise<void> | null = null;
+  private reloadStale = false;
   private readonly listeners = new Set<Listener>();
   private readonly loadRepository: () => Promise<ProfileRepository>;
   private readonly reportError: (error: TelemetryError) => void;
@@ -109,6 +111,29 @@ export class ProfileApplicationController {
     this.repository = null;
     this.setState({ status: 'loading' });
     return this.initialize();
+  }
+
+  /**
+   * Reads the profile again after a write this controller did not make, such as a sync pull
+   * landing the account's display name, gender, dress style or style aesthetics (ADR 0041
+   * section 4). An unchanged profile keeps the shown state, so nothing downstream re-renders;
+   * an update in progress finishes first, so its result stands. A request during a reload gets
+   * one more read after it. Before the profile has loaded it reads nothing.
+   */
+  reload(): Promise<void> {
+    if (this.reloadPromise) {
+      this.reloadStale = true;
+      return this.reloadPromise;
+    }
+    this.reloadPromise = (async () => {
+      do {
+        this.reloadStale = false;
+        await this.reloadOnce();
+      } while (this.reloadStale);
+    })().finally(() => {
+      this.reloadPromise = null;
+    });
+    return this.reloadPromise;
   }
 
   completeOnboarding(preferences: OnboardingPreferences): Promise<void> {
@@ -217,6 +242,31 @@ export class ProfileApplicationController {
         new TelemetryError('profile.bootstrap_failed', { stage: reason, error_name: name }),
       );
       this.setState({ status: 'error', report });
+    }
+  }
+
+  private async reloadOnce(): Promise<void> {
+    if (this.state.status !== 'ready' || !this.repository) return;
+    try {
+      await this.updatePromise;
+    } catch {
+      // The update reports its own failure; the reload only reads after it.
+    }
+    const repository = this.repository;
+    let profile: LocalProfile;
+    try {
+      profile = applicationProfile(await repository.getOrCreateProfile());
+    } catch {
+      // The shown profile stays; the next write reads again.
+      return;
+    }
+    if (this.updatePromise) {
+      // An update started meanwhile: read again after it, never over its result.
+      this.reloadStale = true;
+      return;
+    }
+    if (this.state.status === 'ready' && JSON.stringify(profile) !== JSON.stringify(this.state.profile)) {
+      this.setState({ ...this.state, profile });
     }
   }
 

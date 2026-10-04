@@ -5,6 +5,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
 import { WardrobeApplicationController } from '@/features/wardrobe/application/wardrobe-application-controller';
 import { LocalWardrobePhotoManager } from '@/features/wardrobe/application/wardrobe-photo-manager';
 import {
@@ -67,6 +68,8 @@ export function WardrobeApplicationProvider({
   useEffect(() => {
     void controller.initialize();
   }, [controller]);
+  // Pieces a sync pull lands, edits and deletions from another phone, show without a restart.
+  useEffect(() => followWritesWhileAccountsOpen(() => void controller.reload()), [controller]);
 
   const operations = useMemo<Omit<WardrobeApplicationValue, 'state'>>(
     () => ({

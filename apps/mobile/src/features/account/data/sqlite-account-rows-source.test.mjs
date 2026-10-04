@@ -317,8 +317,8 @@ test('a pending row this build cannot read is not waiting, so a write never star
   assert.equal(passes, 0);
 });
 
-test('none of sync\'s own writes tells the database write listeners', async (t) => {
-  const { database } = await setup(t);
+/** The source over a database that records which writes tell the database write listeners. */
+function loudness(database) {
   const loud = [];
   const spy = new Proxy(database, {
     get(target, name) {
@@ -335,15 +335,99 @@ test('none of sync\'s own writes tells the database write listeners', async (t) 
       return typeof value === 'function' ? value.bind(target) : value;
     },
   });
-  const source = createSqliteAccountRowsSource(spy);
+  return { loud, source: createSqliteAccountRowsSource(spy) };
+}
+
+test('sync\'s bookkeeping, and a pull or first link that lands nothing, tells no database write listener', async (t) => {
+  const { database } = await setup(t);
+  const { loud, source } = loudness(database);
   const rows = { ...none, wardrobeItems: [mine(wardrobeItem(1))] };
-  await source.writePulled(rows, '2026-10-01T00:00:00.000001Z');
-  await source.applyFirstLink(mergeAtFirstLink(none, rows, { syncConsent: true, now: stamp(10) }), unlinked, none);
+  await source.writePulled(none, '2026-10-01T00:00:00.000001Z');
+  await source.applyFirstLink(mergeAtFirstLink(rows, none, { syncConsent: true, now: stamp(10) }), unlinked, rows);
   await source.clearPendingIfUnchanged(rows);
   await source.saveLink(unlinked);
   await source.dismissCard();
   await source.resetAfterDeletion();
   assert.deepEqual(loud, []);
+});
+
+test('a pull or first link that lands account rows tells the listeners once, so Closet, History and Profile read again', async (t) => {
+  const { database } = await setup(t);
+  const { loud, source } = loudness(database);
+  const rows = { ...none, wardrobeItems: [mine(wardrobeItem(1))] };
+  await source.writePulled(rows, '2026-10-01T00:00:00.000001Z');
+  assert.deepEqual(loud, ['transaction']);
+  await source.applyFirstLink(mergeAtFirstLink(none, { ...none, outfitHistory: [mine(historyDay(2, '2026-09-10'))] },
+    { syncConsent: true, now: stamp(10) }), unlinked, none);
+  assert.deepEqual(loud, ['transaction', 'transaction']);
+});
+
+test('the lifecycle starts no pass for a landed pull: a pulled row is settled, not waiting', async (t) => {
+  const { database } = await setup(t);
+  const listeners = new Set();
+  const notifying = new Proxy(database, {
+    get(target, name) {
+      if (name === 'withExclusiveTransactionAsync') {
+        return async (task, options) => {
+          await target.withExclusiveTransactionAsync(task, options);
+          if (options?.notifyWrites !== false) listeners.forEach((listener) => listener());
+        };
+      }
+      const value = target[name];
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  const source = createSqliteAccountRowsSource(notifying);
+  let passes = 0;
+  const timers = [];
+  const screens = createInMemoryAccountScreens(accountScenarios.upToDate);
+  const disconnect = connectAccountLifecycle({
+    manager: { ...screens, start: async () => {}, foreground: async () => {}, localWrite: async () => { passes += 1; }, setOnline: () => {} },
+    onAppStateChange: () => () => {},
+    isActive: () => false,
+    onDatabaseWrite: (listener) => { listeners.add(listener); return () => listeners.delete(listener); },
+    onAppleRevoked: () => () => {},
+    hasPending: source.hasPending,
+    autoRefresh: { start: () => {}, stop: () => {} },
+    card: { dismissed: async () => false, dismiss: async () => {} },
+    network: { current: async () => true, onChange: () => () => {} },
+    schedule: (task) => { timers.push(task); return () => {}; },
+  });
+  t.after(disconnect);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))], outfitHistory: [mine(historyDay(2, '2026-09-10'))] },
+    '2026-10-01T00:00:00.000001Z');
+  assert.equal(timers.length, 1);
+  await timers.shift()();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(passes, 0);
+});
+
+test('a pulled deletion keeps naming the phone\'s photo, so the Closet and History photo cleanups remove the file', async (t) => {
+  const { database, source } = await setup(t);
+  const wardrobePhoto = `kuyara/wardrobe/photos/${uuid(7)}.jpg`;
+  const historyPhoto = `kuyara/history/photos/${uuid(8)}.jpg`;
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))], outfitHistory: [mine(historyDay(2, '2026-09-10'))] }, null);
+  await database.runAsync('UPDATE wardrobe_items SET photo_relative_path = ? WHERE id = ?', [wardrobePhoto, uuid(1)]);
+  await database.runAsync('UPDATE outfit_history SET photo_path = ? WHERE id = ?', [historyPhoto, uuid(2)]);
+
+  // Another phone deleted both; the account's markers carry no content and no photo.
+  await source.writePulled({
+    ...none,
+    wardrobeItems: [mine(wardrobeItem(1, { deletedAt: stamp(5), updatedAt: stamp(5), photoRelativePath: null }))],
+    outfitHistory: [mine(historyDay(2, '2026-09-10', { deletedAt: stamp(5), updatedAt: stamp(5), photoPath: null }))],
+  }, '2026-10-01T00:00:00.000001Z');
+
+  const { SqliteWardrobeLocalDataSource } = await import('../../wardrobe/data/sqlite-wardrobe-local-data-source.ts');
+  const pendingPieces = await new SqliteWardrobeLocalDataSource(database).listPendingPhotoCleanup(profileId);
+  assert.deepEqual(pendingPieces.map(({ id, photoRelativePath }) => [id, photoRelativePath]), [[uuid(1), wardrobePhoto]]);
+
+  const { SqliteOutfitHistoryRepository } = await import('../../recommendation/data/sqlite-outfit-history-repository.ts');
+  const deleted = [];
+  const photos = { deleteStored: async (path) => { deleted.push(path); }, copyStaged: async () => '', discardStaged: async () => {} };
+  const history = new SqliteOutfitHistoryRepository(database, () => uuid(9), () => stamp(9), photos);
+  await history.cleanupPendingPhotos(profileId);
+  assert.deepEqual(deleted, [historyPhoto]);
+  assert.deepEqual((await database.getAllAsync('SELECT photo_path FROM outfit_history')).map((row) => row.photo_path), [null]);
 });
 
 test('a first link uploads only what the merge sends and settles a deletion older than the marker window', async (t) => {
