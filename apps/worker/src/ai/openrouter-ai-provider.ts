@@ -58,6 +58,10 @@ export class OpenRouterAiProvider implements AiProvider {
             },
           },
           provider: { require_parameters: true },
+          // Free reasoning models otherwise think past the 7 s attempt; one whose reasoning is
+          // mandatory refuses this with a 400 and stays off the list.
+          // https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+          reasoning: { enabled: false },
         }),
       },
     );
