@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react';
+import { Fragment, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
@@ -173,6 +173,7 @@ function DetailRow({
   textTestID,
   control,
   testID,
+  wrapBody,
 }: Readonly<{
   press: Readonly<{
     label: string;
@@ -193,6 +194,8 @@ function DetailRow({
   textTestID?: string;
   control: ReactNode;
   testID: string;
+  /** Wraps the tile and words alone, never the trailing control; the wrapper takes the body's place. */
+  wrapBody?: (body: ReactNode) => ReactNode;
 }>) {
   const theme = useKuyaraTheme();
   const easierToSeeOn = useEasierToSee();
@@ -238,7 +241,7 @@ function DetailRow({
         />
       ) : null}
       <View pointerEvents="box-none" style={stacksButtonPair ? styles.rowStack : styles.rowLine}>
-        {body}
+        {wrapBody ? wrapBody(body) : body}
         {control ? (
           <View pointerEvents="box-none" style={stacksButtonPair ? styles.changeStacked : undefined}>{control}</View>
         ) : null}
@@ -463,16 +466,7 @@ export function OutfitDetailPieceRows({
       </View>
     );
     return (
-      // Phase 8: the first piece row is the tour's step 2 control. The wrapper adds a
-      // plain view around the whole row, so the tour lights the row, and nothing else.
-      <TourTarget
-        activate={() => onEditPiece(target)}
-        id={index === 0 ? 'piece' : null}
-        key={slot}
-        label={rowLabel}
-        name={piece.item}
-        reveal={revealFirstPiece}
-        scrollBy={scrollBy}>
+      <Fragment key={slot}>
         {/* O6: the row is the one control that opens the piece's Closet sheet; the Change
             control beside it is its own element. The fade follows the piece. */}
         <FadeOnChange animate={everChanged} key={piece.garmentTypeId}>
@@ -502,6 +496,22 @@ export function OutfitDetailPieceRows({
             separated={index > 0}
             testID={`outfit-detail-row-${slot}`}
             text={text}
+            // Phase 8: the first piece row is the tour's step 2 control. The wrapper holds the
+            // tile and words, a tap on which reaches the row's own press, and never the Change
+            // beside them, so the step leaves exactly one control live.
+            wrapBody={(body) => (
+              <TourTarget
+                activate={() => onEditPiece(target)}
+                id={index === 0 ? 'piece' : null}
+                label={rowLabel}
+                name={piece.item}
+                pointerEvents="box-none"
+                reveal={revealFirstPiece}
+                scrollBy={scrollBy}
+                style={styles.rowBodySlot}>
+                {body}
+              </TourTarget>
+            )}
             tile={(
               <PlateView color={theme.colors.garmentTile} style={styles.rowTile}>
                 <GarmentTileArtwork
@@ -521,7 +531,7 @@ export function OutfitDetailPieceRows({
             )}
           />
         </FadeOnChange>
-      </TourTarget>
+      </Fragment>
     );
   };
 
@@ -560,6 +570,11 @@ const styles = StyleSheet.create({
   },
   rowStack: {
     gap: spacing.xs,
+  },
+  // The tour's wrapper takes the body's place in the row and lays the body out across itself.
+  rowBodySlot: {
+    flex: 1,
+    flexDirection: 'row',
   },
   rowBody: {
     alignItems: 'center',

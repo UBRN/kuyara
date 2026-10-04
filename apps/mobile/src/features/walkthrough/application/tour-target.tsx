@@ -57,6 +57,8 @@ type TourTargetProps = Readonly<{
   style?: StyleProp<ViewStyle>;
   /** The wrapper's own layout, for a screen that scrolls the control into view. */
   onLayout?: (event: LayoutChangeEvent) => void;
+  /** `box-none` for content drawn over its control: a tap on it then reaches the control beneath. */
+  pointerEvents?: 'box-none';
 }>;
 
 /**
@@ -65,7 +67,7 @@ type TourTargetProps = Readonly<{
  * provider it registers nothing.
  */
 export function TourTarget({
-  activate, children, id, label, name, onLayout, reveal, scrollBy, style,
+  activate, children, id, label, name, onLayout, pointerEvents, reveal, scrollBy, style,
 }: TourTargetProps) {
   const registry = use(TourTargetsContext);
   const sheet = use(TourSheetContext);
@@ -106,6 +108,7 @@ export function TourTarget({
         onLayout?.(event);
         registry.notifyLayout(id);
       } : onLayout}
+      pointerEvents={pointerEvents}
       ref={view}
       style={style}>
       {children}
