@@ -54,6 +54,28 @@ export function localDayKey(date: Date): string {
   });
 }
 
+/**
+ * Whether a dressing day is the one the profile was set up on. Setup has just asked how the
+ * user dresses, so that day counts as answered even when no choice row was written for it
+ * (a profile set up by an earlier build writes none).
+ */
+function isSetupDressingDay(profileCreatedAt: string, dressingDayKey: string): boolean {
+  return localDayKey(new Date(profileCreatedAt)) === dressingDayKey;
+}
+
+/**
+ * Whether the day question is asked for a dressing day that has no recorded choice: the
+ * Settings switch is on and the day is not the one setup finished on.
+ */
+export function isDayQuestionOpen(input: Readonly<{
+  morningSheetEnabled: boolean;
+  profileCreatedAt: string;
+  dressingDayKey: string;
+}>): boolean {
+  return input.morningSheetEnabled &&
+    !isSetupDressingDay(input.profileCreatedAt, input.dressingDayKey);
+}
+
 /** The hour tomorrow's preview is chosen for, on the place's clock: a typical time to leave. */
 const previewDepartureHour = 8;
 

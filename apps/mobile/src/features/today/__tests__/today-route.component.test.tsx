@@ -3828,12 +3828,23 @@ test('the day setup finished on asks no day question and dresses for the setup a
     expect(mockChoiceUpsert).not.toHaveBeenCalled();
     await setUpToday.unmount();
 
-    // A dressing day setup did not finish on asks, however recently the profile was created.
+    // A profile set up today by a build that wrote no choice row still counts as answered.
     refresh.mockClear();
     mockChoiceGet.mockResolvedValue(null);
-    const otherDay = await render(
+    const withoutRow = await render(
       <Providers {...props} profile={profileValue({
         morningSheetEnabled: true, dressStyle: 'formal', createdAt: '2026-09-24T06:00:00.000Z',
+      })}><TodayRoute /></Providers>,
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(withoutRow.queryByTestId('daily-formality-sheet')).toBeNull();
+    await withoutRow.unmount();
+
+    // A dressing day setup did not finish on asks.
+    refresh.mockClear();
+    const otherDay = await render(
+      <Providers {...props} profile={profileValue({
+        morningSheetEnabled: true, dressStyle: 'formal', createdAt: '2026-09-23T06:00:00.000Z',
       })}><TodayRoute /></Providers>,
     );
     expect(await otherDay.findByTestId('daily-formality-sheet')).toBeOnTheScreen();

@@ -53,7 +53,7 @@ import {
   createRecommendationContextWithPool,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
-import { nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
+import { isDayQuestionOpen, nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
@@ -235,11 +235,15 @@ export function RecommendationApplicationProvider({
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
   const resolvedStyles = resolvedStyleAesthetics(dayChoice,
     profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
-  // The day setup finished on is answered by setup (a choice row written as it completes), so
-  // neither question is asked then. The one Settings switch turns off both questions; an
+  // The day setup finished on is answered by setup (a choice row written as it completes, or
+  // the day itself for a profile an earlier build set up), so neither question is asked then. The one Settings switch turns off both questions; an
   // unasked day resolves to the profile dress style, as a dismissed question does.
   const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready' &&
-    Boolean(profileState.profile.morningSheetEnabled);
+    isDayQuestionOpen({
+      morningSheetEnabled: Boolean(profileState.profile.morningSheetEnabled),
+      profileCreatedAt: profileState.profile.createdAt,
+      dressingDayKey: localDay.key,
+    });
   const morningChoicePending = dayQuestionOpen && !isEveningDressingDayKey(localDay.key);
   const eveningChoicePending = dayQuestionOpen && isEveningDressingDayKey(localDay.key);
   const appState = useRef<AppStateStatus>(AppState.currentState);
