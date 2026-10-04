@@ -224,26 +224,15 @@ export class WeatherApplicationController {
   // change.
   revalidateFreshness = async (): Promise<void> => {
     if (this.state.status !== 'ready') return;
-    const current = this.state;
-    const freshness = current.snapshot
-      ? cachedWeatherFreshness(current.snapshot.fetchedAt, this.dependencies.now())
-      : null;
-    const snapshot = freshness === 'invalid' ? null : current.snapshot;
-    // A snapshot retained from a previous location is the last valid result, never a
-    // current reading of the active one: its own timestamp may still be inside the
-    // window, so freshness alone would short-circuit the new location's first refresh.
-    const describesActiveLocation = activeLocationSnapshot(snapshot, current.activeLocation) !== null;
-    const resolved: WeatherFreshness | null = freshness === null || freshness === 'invalid'
-      ? null
-      : describesActiveLocation ? freshness : 'stale';
+    const before = this.state;
     // The background weather task stores snapshots too, so a stale view may already have a
     // fresh stored successor: adopt it rather than fetching what the device already holds.
-    if (current.activeLocation && resolved !== 'fresh') {
-      const stored = await this.loadMatchingSnapshot(current.activeLocation).catch(() => null);
+    if (before.activeLocation && this.revalidated(before).freshness !== 'fresh') {
+      const stored = await this.loadMatchingSnapshot(before.activeLocation).catch(() => null);
       const latest = this.state;
       if (
         stored && latest.status === 'ready'
-        && latest.activeLocation?.locationKey === current.activeLocation.locationKey
+        && latest.activeLocation?.locationKey === before.activeLocation.locationKey
         && cachedWeatherFreshness(stored.fetchedAt, this.dependencies.now()) === 'fresh'
         && (!latest.snapshot || stored.fetchedAt > latest.snapshot.fetchedAt)
       ) {
@@ -251,18 +240,41 @@ export class WeatherApplicationController {
         return;
       }
     }
+    // Everything below starts from the state as it is after the read: another revalidation,
+    // a refresh or a permission answer may have moved it in the meantime.
+    if (this.state.status !== 'ready') return;
+    const current = this.state;
+    const { snapshot, freshness } = this.revalidated(current);
     // Publishing an identical state still hands every subscriber a new object, and the
     // provider turns that into a new context value: both tabs revalidate on each focus, so
     // every tab switch drew Today and Weather again (measured 2026-09-29).
-    if (snapshot !== current.snapshot || resolved !== current.freshness) {
-      this.setReady({ ...current, snapshot, freshness: resolved });
+    if (snapshot !== current.snapshot || freshness !== current.freshness) {
+      this.setReady({ ...current, snapshot, freshness });
     }
-    if (!current.activeLocation || (snapshot && resolved === 'fresh')) return;
+    if (!current.activeLocation || (snapshot && freshness === 'fresh')) return;
     await this.refreshLocation(
       current.activeLocation,
       snapshot ? 'automatic_stale' : 'automatic_no_cache',
     );
   };
+
+  private revalidated(state: WeatherReadyState): Readonly<{
+    snapshot: WeatherSnapshot | null;
+    freshness: WeatherFreshness | null;
+  }> {
+    const cached = state.snapshot
+      ? cachedWeatherFreshness(state.snapshot.fetchedAt, this.dependencies.now())
+      : null;
+    const snapshot = cached === 'invalid' ? null : state.snapshot;
+    // A snapshot retained from a previous location is the last valid result, never a
+    // current reading of the active one: its own timestamp may still be inside the
+    // window, so freshness alone would short-circuit the new location's first refresh.
+    const describesActiveLocation = activeLocationSnapshot(snapshot, state.activeLocation) !== null;
+    const freshness: WeatherFreshness | null = cached === null || cached === 'invalid'
+      ? null
+      : describesActiveLocation ? cached : 'stale';
+    return { snapshot, freshness };
+  }
 
   async onForeground(): Promise<void> {
     if (this.state.status !== 'ready') return;

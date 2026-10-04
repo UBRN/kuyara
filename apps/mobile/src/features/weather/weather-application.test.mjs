@@ -480,6 +480,72 @@ test('foreground adopts a fresh snapshot the background task stored instead of f
   assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
 });
 
+// Holds every stored-snapshot read until the test releases it, oldest first.
+function deferSnapshotReads(repository) {
+  const pending = [];
+  const read = repository.getSnapshot.bind(repository);
+  repository.getSnapshot = (...args) => new Promise((resolve, reject) => {
+    pending.push(() => read(...args).then(resolve, reject));
+  });
+  return async () => {
+    pending.shift()();
+    await settle();
+  };
+}
+
+test('a revalidation finishing its stored read late never clears a refresh another one started', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  let now = '2026-07-30T10:00:00.000Z';
+  let resolveFetch;
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:45:00.000Z')],
+    now: () => now,
+    provider: { fetchSnapshot: (location) => new Promise((resolve) => {
+      resolveFetch = () => resolve(providedFor(location, now, 18));
+    }) },
+  });
+  await harness.controller.initialize();
+  const releaseRead = deferSnapshotReads(harness.repository);
+
+  now = '2026-07-30T10:16:00.000Z';
+  const first = harness.controller.revalidateFreshness();
+  const second = harness.controller.revalidateFreshness();
+  await releaseRead();
+  assert.equal(harness.controller.getSnapshot().isRefreshing, true);
+  await releaseRead();
+  assert.equal(harness.controller.getSnapshot().isRefreshing, true);
+  assert.equal(harness.calls.provider, 1);
+
+  resolveFetch();
+  await Promise.all([first, second]);
+  assert.equal(harness.controller.getSnapshot().isRefreshing, false);
+  assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
+});
+
+test('a permission answer given while a revalidation reads the store survives it', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  let now = '2026-07-30T10:00:00.000Z';
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:45:00.000Z')],
+    now: () => now,
+    requestedPermission: { kind: 'denied', canRequestAgain: true },
+  });
+  await harness.controller.initialize();
+  const releaseRead = deferSnapshotReads(harness.repository);
+
+  now = '2026-07-30T10:16:00.000Z';
+  const revalidation = harness.controller.revalidateFreshness();
+  await harness.controller.confirmDeviceLocationRequest();
+  assert.equal(harness.controller.getSnapshot().permission.kind, 'denied');
+  await releaseRead();
+  await revalidation;
+
+  assert.equal(harness.controller.getSnapshot().permission.kind, 'denied');
+  assert.equal(harness.controller.getSnapshot().locationFlow, 'denied-requestable');
+});
+
 test('revalidateFreshness republishes freshness on focus and starts the stale refresh once', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const cached = snapshotFor(istanbul, '2026-07-30T09:45:00.000Z');
