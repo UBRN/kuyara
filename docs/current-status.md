@@ -144,8 +144,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   spring where garment pieces land on a board, and an ambient tempo taken from the
   condition's intensity.
 - **Builds:** iOS is the first release target. EAS production credentials and an App Store
-  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 15 (`0.1.20260926`)
-  is on the App Store and has received one production EAS Update (see Release State below);
+  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 18 (`0.1.20261003`)
+  is on the App Store, and build 15 received one production EAS Update (see Release State below);
   the `production` profile points at the deployed Worker, and the development client
   builds locally ([Development build on the physical
   iPhone](testing.md#development-build-on-the-physical-iphone)). The version scheme and
