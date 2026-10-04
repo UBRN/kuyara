@@ -461,3 +461,15 @@ test('the routed client rejects only after the Worker has rejected', async () =>
   assert.deepEqual(workerReached, [['checking-on-device', 'asking-stylist']]);
   assert.deepEqual(phases, ['checking-on-device', 'asking-stylist']);
 });
+
+test('a re-ask reaches the Worker marked as one and an ordinary request does not', async () => {
+  const unavailable = () => fakeModule({
+    getAvailability: async () => ({ status: 'unavailable', reason: 'device_not_eligible' }),
+  });
+  const worker = fakeWorker();
+
+  await routed(unavailable(), worker).recommendRouted(request);
+  await routed(unavailable(), worker).recommendRouted(request, { reask: true });
+
+  assert.deepEqual(worker.calls, [workerWait, { ...workerWait, reask: true }]);
+});

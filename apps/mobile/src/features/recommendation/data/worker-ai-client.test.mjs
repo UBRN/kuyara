@@ -185,3 +185,20 @@ test('waits the default 38 s budget before aborting a slow Worker attempt', asyn
   assert.equal(aborted, true);
   assert.ok(error instanceof WorkerAiClientError && error.kind === 'network');
 });
+
+test('sends the re-ask flag only when the caller marks an approved re-ask', async () => {
+  const bodies = [];
+  const client = new WorkerAiClient({
+    baseUrl: 'https://worker.example',
+    fetch: async (_input, init) => {
+      bodies.push(JSON.parse(init.body));
+      return Response.json({ data: responseData });
+    },
+  });
+  await client.recommend(request);
+  await client.recommend(request, { locale: 'tr' });
+  await client.recommend(request, { reask: true });
+  assert.equal('reask' in bodies[0], false);
+  assert.equal('reask' in bodies[1], false);
+  assert.deepEqual(bodies[2], { ...request, locale: 'en', reask: true });
+});

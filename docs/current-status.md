@@ -33,7 +33,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 - **Recommendations:** The deterministic layer composes at most 24 valid outfits from the
   bundled catalog (version 6); the AI tier selects three and labels each with an
   archetype, on-device Apple Foundation Models where the device reports them available and
-  otherwise the Worker's chain, Workers AI then OpenRouter; mobile validates, persists and
+  otherwise the Worker's chain (the Workers AI models; the OpenRouter list is empty until a
+  free model passes the live measurement); mobile validates, persists and
   falls back to a device-local deterministic generator. The refresh waits for a stylist answer: the
   on-device tier gets 8 seconds, the Worker request then gets 38 seconds, and the Worker
   bounds its whole AI walk at 36 seconds (five attempts of 7 seconds plus one second),

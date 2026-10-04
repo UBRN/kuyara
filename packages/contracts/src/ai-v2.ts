@@ -18,6 +18,10 @@ export const styleAestheticsSchema = z.array(styleAestheticSchema).max(styleAest
 export const aiRecommendV2RequestSchema = aiRecommendV1RequestSchema.safeExtend({
   locale: z.enum(['tr', 'en']),
   styleAesthetics: styleAestheticsSchema.optional(),
+  // Present only on a confirmed "Ask the stylist again": the Worker then neither reads nor
+  // writes its shared cache. Absent, as every installed binary sends it, nothing changes.
+  // It never reaches the model input or the shared cache key.
+  reask: z.literal(true).optional(),
 });
 
 // A decimal point between digits is a measurement, not a sentence terminator.

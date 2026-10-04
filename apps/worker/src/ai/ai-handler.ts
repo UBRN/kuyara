@@ -154,6 +154,19 @@ function validSelection(
   ));
 }
 
+/**
+ * The re-ask flag only switches the shared cache off. It is split off once, right after the
+ * parse, so the cache key, the selection gate and every provider see the request without it
+ * and the model input never carries it.
+ */
+function splitReask(
+  request: AiRecommendV1Request | AiRecommendV2Request,
+): Readonly<{ reask: boolean; aiRequest: AiRecommendV1Request | AiRecommendV2Request }> {
+  if (!('reask' in request)) return { reask: false, aiRequest: request };
+  const { reask, ...aiRequest } = request;
+  return { reask: reask === true, aiRequest };
+}
+
 async function buildCacheRequest(
   request: AiRecommendV1Request | AiRecommendV2Request,
   route: string,
@@ -209,11 +222,10 @@ export function createAiHandler({
   dailyCounter,
   dailyLimit,
   now = () => new Date(),
-  // Every provider that answers the 2 KB request does so within 5 s (Workers AI 2 to
-  // 4.5 s, OpenRouter 0.3 to 1.9 s, measured live); one that does not answer stalls
-  // indefinitely, so 7 s cuts it off and hands the turn to the next provider. Never raise
-  // this toward the total deadline: one stall then eats the whole budget and the fallback
-  // chain never runs.
+  // Workers AI answered within 2 to 4.5 s when measured live; a provider that does not
+  // answer stalls indefinitely, so 7 s cuts it off and hands the turn to the next provider.
+  // Never raise this toward the total deadline: one stall then eats the whole budget and the
+  // fallback chain never runs.
   attemptTimeoutMs = 7_000,
   // 36 s = 5 × 7 s plus one second for the rate limiter, the body parse and the cache
   // lookup, so the refresh takes as long as it needs and the deterministic fallback only
@@ -221,7 +233,8 @@ export function createAiHandler({
   // transport) and sends 37 s in the header; with up to 8 s of on-device selection ahead of
   // it, the whole user-visible wait is at most 46 s.
   totalDeadlineMs = 36_000,
-  // Five attempts cover two Workers AI models plus three OpenRouter models.
+  // Five attempts bound the walk: the two Workers AI models plus room for up to three
+  // measured OpenRouter models (none is configured today).
   maxAttempts = 5,
 }: Dependencies): (request: Request, ctx: ExecutionContext) => Promise<Response> {
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
@@ -252,22 +265,27 @@ export function createAiHandler({
       ? aiRecommendV2RequestSchema.safeParse(body)
       : aiRecommendV1RequestSchema.safeParse(body);
     if (!requestResult.success) return errorResponse(400, 'invalid_request');
+    const { reask, aiRequest } = splitReask(requestResult.data);
 
     const options = new Map(
-      requestResult.data.options.map((option) => [option.optionId, option]),
+      aiRequest.options.map((option) => [option.optionId, option]),
     );
-    const cache = defaultCache();
+    // A confirmed re-ask asks for a different trio than the one the cache holds for this
+    // request, so it neither reads nor writes the shared cache. The burst limiter above and
+    // the daily counter below count it exactly like a first generation.
+    const cache = reask ? undefined : defaultCache();
     let cacheRequest: Request | undefined;
     if (cache) {
       try {
-        cacheRequest = await buildCacheRequest(requestResult.data, url.pathname);
+        cacheRequest = await buildCacheRequest(aiRequest, url.pathname);
         const cached = await cache.match(cacheRequest);
         if (cached) {
           const payload: unknown = await cached.json();
           const parsed = isV2
             ? aiRecommendV2SuccessSchema.safeParse(payload)
             : aiRecommendV1SuccessSchema.safeParse(payload);
-          if (parsed.success && validSelection(parsed.data.data.picks, requestResult.data, options)) {
+          if (parsed.success && validSelection(parsed.data.data.picks, aiRequest, options)) {
+            console.info({ event: 'ai_cache_hit', route: url.pathname });
             return Response.json(parsed.data, { status: 200, headers: jsonHeaders });
           }
         }
@@ -319,7 +337,7 @@ export function createAiHandler({
       try {
         const output = await raceWithTimeout(
           controller,
-          () => provider.generateOutfits(requestResult.data, controller.signal),
+          () => provider.generateOutfits(aiRequest, controller.signal),
           attemptWindowMs,
         );
         if (controller.signal.aborted) {
@@ -344,7 +362,7 @@ export function createAiHandler({
           logProviderFailure(provider, 'picks_not_distinct');
           continue;
         }
-        if (!validSelection(result.data.data.picks, requestResult.data, options)) {
+        if (!validSelection(result.data.data.picks, aiRequest, options)) {
           logProviderFailure(provider, 'archetype_precondition');
           continue;
         }
