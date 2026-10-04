@@ -126,20 +126,17 @@ export function detailOutfit(
 export function ideaDetail(
   state: TodayScreenState,
   suggestionId: string | undefined,
-): Readonly<{ outfit: RecommendedOutfit; state: TodayScreenState }> | null {
+): TodayScreenState | null {
   if (state.kind !== 'loaded' || state.snapshot.recommendation.status !== 'recommended') return null;
   const outfit = state.snapshot.moreIdeas?.find(({ optionId }) => optionId === suggestionId);
   if (!outfit) return null;
   const { moreIdeas: _ideas, recommendation, ...snapshot } = state.snapshot;
   const { insightSentence: _sentence, insightLocale: _locale, ...settled } = recommendation;
   return {
-    outfit,
-    state: {
-      ...state,
-      snapshot: {
-        ...snapshot,
-        recommendation: { ...settled, generationMode: 'deterministic-fallback', outfits: [outfit] },
-      },
+    ...state,
+    snapshot: {
+      ...snapshot,
+      recommendation: { ...settled, generationMode: 'deterministic-fallback', outfits: [outfit] },
     },
   };
 }

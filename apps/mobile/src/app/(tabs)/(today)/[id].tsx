@@ -274,7 +274,7 @@ export default function OutfitDetailRoute() {
     now: new Date(clock).toISOString(),
   });
   const state = tomorrow ? tomorrowDetailState(weatherState, tomorrowPreview, new Date(clock).toISOString())
-    : ideaDetail(todayState, suggestionId)?.state ?? todayState;
+    : ideaDetail(todayState, suggestionId) ?? todayState;
 
   const previewTitle = tomorrowDetailIsThisMorning(state, clock)
     ? messages.today.tomorrow.morningHeading : messages.today.tomorrow.heading;

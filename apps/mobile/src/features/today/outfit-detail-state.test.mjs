@@ -120,13 +120,12 @@ test('an idea from "More ideas" opens as kuyara\'s on-device outfit, alone and w
     },
   };
   const idea = ideaDetail(aiState, ideas[1].optionId);
-  assert.equal(idea.outfit, ideas[1]);
-  const opened = idea.state.snapshot.recommendation;
+  const opened = idea.snapshot.recommendation;
   assert.deepEqual(opened.outfits, [ideas[1]]);
   assert.equal(opened.generationMode, 'deterministic-fallback');
   assert.equal(opened.insightSentence, undefined);
   assert.equal(opened.requirements, recommendation.requirements);
-  assert.equal(idea.state.snapshot.moreIdeas, undefined);
+  assert.equal(idea.snapshot.moreIdeas, undefined);
   // A shown outfit, an unknown id and a state without ideas open no idea.
   assert.equal(ideaDetail(aiState, outfits[0].optionId), null);
   assert.equal(ideaDetail(aiState, 'outfit:unknown'), null);
