@@ -36,13 +36,22 @@ export type WorkerAiClientFailureKind =
 
 export class WorkerAiClientError extends Error {
   readonly kind: WorkerAiClientFailureKind;
+  /**
+   * A `network` failure the phone's own timeout aborted: the Worker may still have answered and
+   * counted the request. False for one that never reached it (offline, refused).
+   */
+  readonly timedOut: boolean;
 
-  constructor(kind: WorkerAiClientFailureKind) {
+  constructor(kind: WorkerAiClientFailureKind, { timedOut = false }: Readonly<{ timedOut?: boolean }> = {}) {
     super('The AI recommendation request could not be completed.');
     this.name = 'WorkerAiClientError';
     this.kind = kind;
+    this.timedOut = timedOut;
   }
 }
+
+/** Whether a fetch failure is the abort `fetchJsonWithTimeout` raises at its deadline. */
+const isAbort = (cause: unknown) => cause instanceof Error && cause.name === 'AbortError';
 
 export class WorkerAiClient {
   private readonly baseUrl: string;
@@ -110,7 +119,7 @@ export class WorkerAiClient {
       },
       requestTimeoutMilliseconds,
       {
-        network: () => new WorkerAiClientError('network'),
+        network: (cause) => new WorkerAiClientError('network', { timedOut: isAbort(cause) }),
         invalidJson: () => new WorkerAiClientError('invalid-response'),
       },
     );
