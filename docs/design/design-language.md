@@ -113,7 +113,9 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
   plane either: it is the plane the garment composition sits on, and it carries no card,
   no secondary copy, and no bordered control. [ADR 0018](../adr/0018-the-atmospheric-condition-band.md)
   defines the stage's closed state set, derivations, contrast floors and flat rendering.
-  Do not add a separate full-width atmosphere strip. A presented sheet is the chrome
+  On Today the stage is a cornerless band reaching both screen edges, the board's own
+  ground, so it is the stage and not a strip. Do not add a separate full-width atmosphere
+  strip. A presented sheet is the chrome
   plane: its fill is the ground of what it contains, and the page under its scrim is not
   counted.
 - A plane change must coincide with a **change of information**. A plane is never

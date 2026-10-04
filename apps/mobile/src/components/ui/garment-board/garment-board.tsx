@@ -35,12 +35,12 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { PRESENCE_TEXT_AFTER } from '../presence';
 import { fadeTo } from '../fade';
+import { composeFlatLay, fitTodayStage, flatLayPreset } from './compose-flat-lay';
 import {
   composeGarmentBoard,
   detailPreset,
   drawnExtent,
   easierToSeeRule,
-  fitTodayStage,
   footwearPairDrawing,
   garmentShadowOf,
   garmentShadowRule,
@@ -101,7 +101,7 @@ function LeavingLayer({ children, onLeft }: Readonly<{ children: ReactNode; onLe
  * One rising piece, with its shadow, on its own native view: Reanimated cannot move a group
  * inside one SVG on the new architecture. The pieces leave in the board's reading order, each
  * one `motion.stagger` after the piece before it (ADR 0020), while the views stack in the
- * dressing order, so a later piece lies over an earlier one from its first frame. The travel
+ * board's stacking order, so a later piece lies over an earlier one from its first frame. The travel
  * rides the arrival role, the fade is effects motion on `motion.fast`. It starts once, when
  * `held` is false.
  */
@@ -211,30 +211,38 @@ type GarmentBoardProps = Readonly<{
   testID?: string;
 }>;
 
-export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Preset, large = false) {
+const withSilhouettes = (pieces: readonly GarmentBoardPiece[]) => pieces.map((piece) => ({
+  ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+}));
+
+function ruleOf(preset: Preset, large: boolean) {
   const rule = preset === 'today' ? todayPreset : detailPreset;
-  return composeGarmentBoard(pieces.map((piece) => ({
-    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
-  })), large
-    ? easierToSeeRule(rule, easierToSeeValues.boardScale, easierToSeeValues.boardSideMinimum)
-    : rule);
+  return large ? easierToSeeRule(rule, easierToSeeValues.boardScale, easierToSeeValues.boardSideMinimum) : rule;
+}
+
+export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Preset, large = false) {
+  return composeGarmentBoard(withSilhouettes(pieces), ruleOf(preset, large));
 }
 
 /**
  * Every piece's drawn box in points, the stage height and the board's unit (the points one
- * composition unit is drawn at), with or without Today's fit.
+ * composition unit is drawn at): the worn board, or with `fit` Today's flat lay fitted to its
+ * band.
  */
 function placePieces(pieces: readonly GarmentBoardPiece[], width: number, preset: Preset, fit: boolean, large = false) {
-  const result = composePieces(pieces, preset, large);
   if (!fit) {
+    const result = composePieces(pieces, preset, large);
     const placed = new Map(result.order.map((piece) => {
       const box = result.boxes.get(piece)!;
       return [piece, { x: box.x * width, y: box.y * width, w: box.w * width, h: box.h * width }];
     }));
     return { result, placed, height: width * result.stageHeight, unit: width };
   }
+  const result = composeFlatLay(withSilhouettes(pieces), ruleOf(preset, large));
   const extent = drawnExtent(result.boxes.values());
-  const { scale, height } = fitTodayStage(extent, width);
+  const coreWidth = Math.max(...result.core.map((piece) => result.boxes.get(piece)!.w));
+  const coreCap = flatLayPreset.coreWidth * (large ? easierToSeeValues.boardScale : 1);
+  const { scale, height } = fitTodayStage(extent, width, coreWidth, coreCap);
   const placed = new Map(result.order.map((piece) => [
     piece, placeOnRunway(result.boxes.get(piece)!, extent, scale, width, height),
   ]));
@@ -698,8 +706,9 @@ export function GarmentBoard({
     testID,
   };
 
-  // Every board draws its pieces in the dressing order, so where two overlap the later one
-  // lies over the earlier and casts its shadow on it.
+  // Every board draws its pieces in its stacking order (the dressing order, or the flat lay's
+  // on Today's band), so where two overlap the later one lies over the earlier and casts its
+  // shadow on it.
   const reading = new Map(result.order.map((piece, index) => [piece, index]));
 
   if (!entrance && rise) {

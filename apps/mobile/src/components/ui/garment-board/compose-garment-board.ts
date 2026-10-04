@@ -196,8 +196,7 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
 // and do not move; only the one scale does.
 export const runwayPreset = { side: 28, vertical: 24, maxScale: 1.25 } as const;
 
-// The detail draws the same worn board at the scale Today's fitted stage reaches, so a piece
-// leaving Today's stage for the detail keeps its size.
+// The detail draws the same worn board at the runway preset's largest scale.
 export const detailPreset = easierToSeeRule(todayPreset, runwayPreset.maxScale, todayPreset.sideMin);
 
 export type DrawnExtent = Readonly<{ x: number; y: number; w: number; h: number }>;
@@ -240,18 +239,6 @@ export function placeOnRunway(
     w: box.w * scale,
     h: box.h * scale,
   };
-}
-
-// Today's primary stage (O17 and P2) takes the runway fit: the composition
-// is trimmed to its drawn extent and scaled once, uniformly, with the runway preset. The
-// stage is then only as tall as the fitted composition plus the preset's vertical margin,
-// within ADR 0025's clamp, so it depends on the outfit and the width alone and nothing
-// above it (a badge, a wrapped title) moves it. The alternates keep the plain Today preset.
-export function fitTodayStage(extent: DrawnExtent, width: number) {
-  const max = todayPreset.stageMax * width;
-  const scale = fitRunwayScale([extent], width, max);
-  const height = Math.min(max, Math.max(todayPreset.stageMin * width, extent.h * scale + runwayPreset.vertical));
-  return { scale, height };
 }
 
 // The soft shadow each piece casts on the plane it lies on, on every board: the piece's own
