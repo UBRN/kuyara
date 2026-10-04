@@ -1,5 +1,5 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
-import { Dimensions, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { PlaceSearchV1Data } from '@kuyara/contracts';
@@ -535,6 +535,44 @@ test('the onboarding weather sample follows Fahrenheit', async () => {
   expect(result.getByText(messages.en.onboarding.welcomePreviewTitle('57°', messages.en.weather.conditions.cloudy), {
     includeHiddenElements: true,
   })).toBeOnTheScreen();
+});
+
+// At the largest standard text size a long condition wraps the preview title; beside its glyph
+// it shrinks to the plate's width instead of being cut at the clipped edge.
+test('the preview title wraps beside its glyph inside the plate', async () => {
+  const { result } = await renderOnboarding(null, null);
+  const title = result.getByText(
+    messages.en.onboarding.welcomePreviewTitle('14°', messages.en.weather.conditions.cloudy),
+    { includeHiddenElements: true },
+  );
+  expect(StyleSheet.flatten(title.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
+});
+
+// The handler a press reaches, read from the rendered tree, so two presses can land in one
+// frame, before the spinner the first one starts has been drawn.
+function pressHandlerOf(element: { unstable_fiber?: unknown }) {
+  type Fiber = { memoizedProps?: { onPress?: unknown }; return: Fiber | null } | null;
+  let fiber = element.unstable_fiber as Fiber;
+  while (fiber && typeof fiber.memoizedProps?.onPress !== 'function') fiber = fiber.return;
+  return fiber!.memoizedProps!.onPress as () => void;
+}
+
+test('Finish pressed twice in one frame saves once and announces no missing answer', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+  const onComplete = jest.fn(() => new Promise<undefined>(() => undefined));
+  const { result } = await renderOnboarding('woman', null, 'casual', onComplete);
+  await pressUntilStep(result, 6);
+  announce.mockClear();
+
+  const press = pressHandlerOf(result.getByTestId('onboarding-complete'));
+  await act(async () => {
+    press();
+    press();
+  });
+  expect(onComplete).toHaveBeenCalledTimes(1);
+  expect(announce).not.toHaveBeenCalledWith(messages.en.onboarding.dressStyleRequiredError);
+  expect(announce).not.toHaveBeenCalledWith(messages.en.onboarding.genderRequiredError);
+  announce.mockRestore();
 });
 
 // O14: every step shows what it changes, from shipped drawings only.

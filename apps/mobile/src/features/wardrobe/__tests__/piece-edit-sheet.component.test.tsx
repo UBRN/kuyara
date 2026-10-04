@@ -369,6 +369,27 @@ test('a stored photo that cannot be decoded leaves no blank block, and Remove st
   expect(result.getByTestId('piece-edit-photo-remove')).toBeOnTheScreen();
 });
 
+// The record names a photo whose file is gone: the hero falls back to the drawing, and the
+// record's path is still removable, as it is in the Closet form.
+test('a stored photo whose file is missing still offers Change and Remove', async () => {
+  const onSave = jest.fn(async () => undefined);
+  const result = await render(
+    <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext value={lightTheme}>
+        <PieceEditSheet onDiscardStagedPhoto={jest.fn(async () => undefined)} onDismiss={jest.fn()}
+          onSave={onSave} onSelectPhoto={jest.fn(async () => null)}
+          resolvePhotoUri={() => null} target={ownedTarget} />
+      </KuyaraThemeContext>
+    </LocalizationContext>,
+  );
+  expect(result.queryByTestId('piece-edit-photo-preview')).toBeNull();
+  expect(result.getByTestId('piece-edit-photo-select')).toHaveTextContent(messages.en.wardrobe.changePhotoAction);
+  await fireEvent.press(result.getByTestId('piece-edit-photo-remove'));
+  expect(result.queryByTestId('piece-edit-photo-remove')).toBeNull();
+  await fireEvent.press(result.getByTestId('piece-edit-done'));
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ photoChange: { kind: 'remove' } }));
+});
+
 test('a failed save is spoken to VoiceOver', async () => {
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
   announce.mockClear();
