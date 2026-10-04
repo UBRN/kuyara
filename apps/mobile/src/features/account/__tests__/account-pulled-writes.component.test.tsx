@@ -1,3 +1,6 @@
+import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
+
+// jest.mock calls are hoisted above this import, so the module reads the mocks.
 const mockWriteListeners = new Set<() => void>();
 let mockAccountsOpen = false;
 
@@ -10,8 +13,6 @@ jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
     return () => mockWriteListeners.delete(listener);
   },
 }));
-
-import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
 
 const write = () => mockWriteListeners.forEach((listener) => listener());
 
