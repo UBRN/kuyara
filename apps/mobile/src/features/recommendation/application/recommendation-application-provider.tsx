@@ -580,7 +580,7 @@ export function RecommendationApplicationProvider({
       localDayKey: tomorrowKey,
       locale: language,
       // What the morning will exclude too, unless today's outfit changes before then.
-      excludedOptionIds: settledRecommendation.outfits.map(({ optionId }) => optionId),
+      excludedOutfits: settledRecommendation.outfits,
     });
   }, [eveningChoicePending, input, language, localDay.key, previewController, previewWanted,
     profileDefault, settledRecommendation, tomorrowKey, tomorrowMorning, tomorrowStyles]);

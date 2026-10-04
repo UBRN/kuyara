@@ -20,6 +20,7 @@ import {
   mapWorkerAiRecommendation,
 } from '../data/worker-ai-recommendation-mapper.ts';
 import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
+import { accessoryOutfitSlots, garmentIdSet } from '../domain/outfit-composition.ts';
 
 const profileId = 'profile-one';
 const now = '2026-08-01T20:00:00.000Z';
@@ -184,15 +185,18 @@ function garmentSet(garments) {
   return [...new Set(garments.map((garment) => garment.garmentTypeId))].sort().join('|');
 }
 
+const accessorySlots = new Set(accessoryOutfitSlots);
+
 function fourOptionContext(input, localDayKey) {
   const { context } = createRecommendationContextWithPool(
-    { ...input, recentWorn: [], excludedOptionIds: [] }, localDayKey);
+    { ...input, recentWorn: [], excludedOutfits: [] }, localDayKey);
   const narrow = context.options.slice(0, 4);
   const worn = new Set((input.recentWorn ?? []).map(({ garments }) =>
     [...new Set(Object.values(garments).filter(Boolean))].sort().join('|')));
   const pool = narrow.filter((option) => !worn.has(garmentSet(option.garments)));
-  const excluded = new Set(input.excludedOptionIds ?? []);
-  const remaining = pool.filter((option) => !excluded.has(option.optionId));
+  const excluded = new Set((input.excludedOutfits ?? []).map(garmentIdSet));
+  const remaining = pool.filter((option) => !excluded.has(
+    garmentSet(option.garments.filter(({ slot }) => !accessorySlots.has(slot)))));
   return {
     context: { ...context, options: remaining.length >= 3 ? remaining : pool },
     poolOptionIds: pool.map((option) => option.optionId),
@@ -406,7 +410,7 @@ test('an availability check on different weather keeps the pool the shown outfit
   controller.updatePoolAvailability({ ...input(30), now });
 
   const warmIds = createRecommendationContextWithPool(
-    { ...input(30), now, excludedOptionIds: [] }, '2026-08-01',
+    { ...input(30), now, excludedOutfits: [] }, '2026-08-01',
   ).pool.map(outfitOptionId);
   assert.notDeepEqual(warmIds, restoredIds);
   assert.deepEqual(controller.getSnapshot().pool.map(outfitOptionId), restoredIds);

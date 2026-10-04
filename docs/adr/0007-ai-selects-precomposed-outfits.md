@@ -224,8 +224,9 @@ recommendation is never withheld.
 - Results of a Worker selection are shared across all users by construction,
   which ADR 0005 already accepted. An on-device selection is computed per device.
 - Outfits recur on a seven-day cycle for an unchanged weather bucket. Ordinary
-  generation excludes the persisted snapshot's three options when at least
-  three valid alternatives remain. A confirmed re-ask may show an option
+  generation excludes every option wearing the body garments of the persisted
+  snapshot's three, whatever accessories it carries, when at least three valid
+  alternatives remain. A confirmed re-ask may show an option
   selected earlier that day. A narrow pool still supplies three valid picks.
 
 ## Alternatives considered

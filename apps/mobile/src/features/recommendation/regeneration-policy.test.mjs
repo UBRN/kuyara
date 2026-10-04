@@ -94,7 +94,7 @@ function inputFor(snapshot = todayWeatherSnapshot, localDayKey = today) {
 // These are the three the deterministic composition produces for the same input, relabelled
 // with the tier that would have picked them.
 function aiClient(input) {
-  const composed = recommendOutfits({ ...input, excludedOptionIds: [] });
+  const composed = recommendOutfits({ ...input, excludedOutfits: [] });
   if (composed.status !== 'recommended') throw new Error('the fixture composes no outfits');
   const requests = [];
   return {
@@ -240,9 +240,12 @@ test('a four-option pool drops the exclusion and repeats the same three', () => 
   const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant);
   assert.equal(composition.status, 'composed');
   const narrowPool = composition.outfits.slice(0, 4);
-  const first = narrowPool.slice(0, 3).map(outfitOptionId);
+  const first = narrowPool.slice(0, 3);
 
-  assert.deepEqual(excludeOutfitOptions(narrowPool, first).slice(0, 3).map(outfitOptionId), first);
+  assert.deepEqual(
+    excludeOutfitOptions(narrowPool, first).slice(0, 3).map(outfitOptionId),
+    first.map(outfitOptionId),
+  );
 });
 
 // Gate 5's first half.

@@ -2089,7 +2089,11 @@ export function composeOutfitsAroundPins(
   throw new Error('A valid composition set is never empty.');
 }
 
-function garmentIdSet(outfit: OutfitCandidate): string {
+/**
+ * The body garments an outfit wears, as History reads a worn day: the same pieces are the same
+ * outfit whatever accessories the day attached to them.
+ */
+export function garmentIdSet(outfit: OutfitCandidate): string {
   return [...new Set(assignedOutfitGarments(outfit)
     .map((item) => item.garment.garmentTypeId))].sort().join('|');
 }

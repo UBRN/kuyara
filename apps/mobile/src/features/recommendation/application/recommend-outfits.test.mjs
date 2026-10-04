@@ -4,6 +4,7 @@ import test from 'node:test';
 import { archetypeDayFromRequirements, outfitArchetypeIds } from '@kuyara/contracts';
 
 import { messages } from '@/localization/messages';
+import { assignedOutfitGarments } from '@/features/recommendation/domain/outfit-composition';
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import {
   composeOutfitPool,
@@ -600,16 +601,28 @@ test('recommendations are deterministic across repeated calls with the same inpu
   assert.deepEqual(first, repeated);
 });
 
+// The body garments History reads an outfit by: an outfit that changes only its accessories
+// is the same outfit to the person wearing it.
+function bodyGarments(outfit) {
+  return [...new Set(assignedOutfitGarments(outfit).map(({ garment }) => garment.garmentTypeId))]
+    .sort().join('|');
+}
+
+function narrowPool() {
+  const weather = snapshot({ current: { temperatureCelsius: 32, apparentTemperatureCelsius: 32 } });
+  const composition = composeOutfitPool(deriveClothingRequirements(weather, observedAt), 'mens', 0);
+  assert.equal(composition.status, 'composed');
+  return composition.outfits;
+}
+
 test('exclusions apply only when at least three options remain', () => {
-  const outfits = ['one', 'two', 'three', 'four', 'five'].map((compositionKey) => ({
-    compositionKey,
-  }));
+  const outfits = narrowPool().slice(0, 5);
 
   assert.deepEqual(
-    excludeOutfitOptions(outfits, ['one', 'two']).map(({ compositionKey }) => compositionKey),
-    ['three', 'four', 'five'],
+    excludeOutfitOptions(outfits, outfits.slice(0, 2)).map(outfitOptionId),
+    outfits.slice(2).map(outfitOptionId),
   );
-  assert.equal(excludeOutfitOptions(outfits, ['one', 'two', 'three']), outfits);
+  assert.equal(excludeOutfitOptions(outfits, outfits.slice(0, 3)), outfits);
 });
 
 test('deterministic selection never returns an excluded option', () => {
@@ -624,7 +637,7 @@ test('deterministic selection never returns an excluded option', () => {
   assert.equal(previous.status, 'recommended');
   const excludedOptionIds = previous.outfits.map(({ optionId }) => optionId);
 
-  const next = recommendOutfits({ ...shared, excludedOptionIds });
+  const next = recommendOutfits({ ...shared, excludedOutfits: previous.outfits });
 
   assert.equal(next.status, 'recommended');
   assert.equal(next.outfits.length, 3);
@@ -635,14 +648,66 @@ test('deterministic selection never returns an excluded option', () => {
 });
 
 test('a narrow pool keeps the three shown options rather than running out', () => {
-  const weather = snapshot({ current: { temperatureCelsius: 32, apparentTemperatureCelsius: 32 } });
-  const requirements = deriveClothingRequirements(weather, observedAt);
-  const composition = composeOutfitPool(requirements, 'mens', 0);
-  assert.equal(composition.status, 'composed');
-  const narrowPool = composition.outfits.slice(0, 4);
-  const shownIds = narrowPool.slice(0, 3).map((outfit) => outfitOptionId(outfit));
+  const narrow = narrowPool().slice(0, 4);
 
-  assert.deepEqual(excludeOutfitOptions(narrowPool, shownIds), narrowPool);
+  assert.deepEqual(excludeOutfitOptions(narrow, narrow.slice(0, 3)), narrow);
+});
+
+function dayWeather(temperatureCelsius, condition, precipitationProbability) {
+  return snapshot({
+    current: {
+      temperatureCelsius,
+      apparentTemperatureCelsius: temperatureCelsius,
+      condition,
+      precipitationProbability,
+      windSpeedMetersPerSecond: 2,
+      humidity: 0.6,
+    },
+    maximumTemperatureCelsius: temperatureCelsius,
+  });
+}
+
+// The day's accessories are part of an option's id, so yesterday's shirt, trousers and blazer
+// came back today under a new id once the colder day's beanie, scarf and gloves were gone.
+test('the next day never repeats yesterday\'s body garments when only the accessories change', () => {
+  // A reduced grid of the day pairs that repeated: a mild day composes for hundreds of
+  // milliseconds, so the suite keeps the cells that caught every kind of repeat.
+  const dayPairs = [
+    [[10, 'clear', 0], [13, 'clear', 0]],
+    [[13, 'clear', 0], [10, 'clear', 0]],
+    [[15, 'cloudy', 0.4], [15, 'clear', 0]],
+  ];
+  const dressStyles = ['casual', 'smart', 'formal'];
+  const repeats = [];
+  for (const clothingPreference of ['womens', 'mens']) {
+    for (const [yesterday, today] of dayPairs) {
+      for (const dayVariant of [3]) {
+        // Each day's three styles share one composed pool, so they run together.
+        const shared = (dressStyle) =>
+          ({ now: observedAt, clothingPreference, dressStyle, dayKind: 'weekday' });
+        const previous = dressStyles.map((dressStyle) => recommendOutfits({
+          ...shared(dressStyle), snapshot: dayWeather(...yesterday), dayVariant,
+        }));
+        dressStyles.forEach((dressStyle, index) => {
+          const next = recommendOutfits({
+            ...shared(dressStyle),
+            snapshot: dayWeather(...today),
+            dayVariant: dayVariant + 1,
+            excludedOutfits: previous[index].outfits,
+          });
+          const worn = new Set(previous[index].outfits.map(bodyGarments));
+          for (const outfit of next.outfits) {
+            if (worn.has(bodyGarments(outfit))) {
+              repeats.push(`${clothingPreference} ${dressStyle} ${yesterday} -> ${today} ` +
+                `variant ${dayVariant}: ${bodyGarments(outfit)}`);
+            }
+          }
+        });
+      }
+    }
+  }
+
+  assert.deepEqual(repeats, []);
 });
 
 // A day with no thermal requirement once offered no layered arrangement at all, so the three
