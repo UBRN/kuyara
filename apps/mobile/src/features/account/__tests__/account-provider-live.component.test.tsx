@@ -8,18 +8,28 @@ jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({ subscribeData
 
 function liveSession() {
   let revoked: (() => void) | null = null;
+  let networkChange: ((online: boolean) => void) | null = null;
   const screens = createInMemoryAccountScreens(accountScenarios.upToDate);
-  const manager = { ...screens, start: jest.fn(async () => undefined), foreground: jest.fn(async () => undefined), signOut: jest.fn(async () => undefined) };
+  const manager = { ...screens, start: jest.fn(async () => undefined), foreground: jest.fn(async () => undefined), signOut: jest.fn(async () => undefined),
+    setOnline: jest.fn() };
   const live = {
     manager,
     source: { hasPending: async () => false, cardDismissed: async () => false, dismissCard: async () => undefined },
     autoRefresh: { start: jest.fn(), stop: jest.fn() },
+    network: {
+      current: async () => true,
+      onChange: (listener: (online: boolean) => void) => {
+        networkChange = listener;
+        return () => { networkChange = null; };
+      },
+    },
     onAppleRevoked: (listener: () => void) => {
       revoked = listener;
       return () => { revoked = null; };
     },
   };
-  return { live: live as unknown as LiveAccountSession, manager, revoke: () => revoked?.(), listening: () => revoked !== null };
+  return { live: live as unknown as LiveAccountSession, manager, revoke: () => revoked?.(), listening: () => revoked !== null,
+    goOffline: () => networkChange?.(false) };
 }
 
 describe('the live account session in the app', () => {
@@ -31,5 +41,13 @@ describe('the live account session in the app', () => {
     expect(manager.signOut).toHaveBeenCalledTimes(1);
     disconnect();
     expect(listening()).toBe(false);
+  });
+
+  test('the device losing its connection reaches the session, so the offline lines show', () => {
+    const { goOffline, live, manager } = liveSession();
+    const disconnect = connectAccountLifecycle(liveLifecyclePorts(live));
+    goOffline();
+    expect(manager.setOnline).toHaveBeenCalledWith(false);
+    disconnect();
   });
 });

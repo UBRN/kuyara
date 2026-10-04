@@ -202,3 +202,44 @@ test('sends the re-ask flag only when the caller marks an approved re-ask', asyn
   assert.equal('reask' in bodies[1], false);
   assert.deepEqual(bodies[2], { ...request, locale: 'en', reask: true });
 });
+
+test('a member\'s re-ask carries the access token as a bearer header, and nothing else ever does', async () => {
+  const sent = [];
+  let token = 'member-access-token';
+  const client = new WorkerAiClient({
+    baseUrl: 'https://worker.example',
+    memberAccessToken: async () => token,
+    fetch: async (_input, init) => {
+      sent.push(init);
+      return new Response(JSON.stringify({ data: responseData }), { status: 200 });
+    },
+  });
+
+  await client.recommend(request);
+  await client.recommend(request, { reask: true });
+  token = null;
+  await client.recommend(request, { reask: true });
+
+  assert.equal('authorization' in sent[0].headers, false);
+  assert.equal(sent[1].headers.authorization, 'Bearer member-access-token');
+  assert.equal('authorization' in sent[2].headers, false);
+  // The token never enters the body: the request shape is the shipped one.
+  for (const init of sent) assert.doesNotMatch(init.body, /member-access-token/);
+});
+
+test('a request that never reached the Worker and one the timeout aborted are told apart', async (t) => {
+  const offline = new WorkerAiClient({ baseUrl: 'https://worker.example', fetch: async () => { throw new TypeError('Network request failed'); } });
+  await assert.rejects(offline.recommend(request), (error) => error instanceof WorkerAiClientError && error.kind === 'network' && error.timedOut === false);
+
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const hanging = new WorkerAiClient({
+    baseUrl: 'https://worker.example',
+    requestTimeoutMilliseconds: 5_000,
+    fetch: (_input, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(Object.assign(new Error('Aborted'), { name: 'AbortError' })));
+    }),
+  });
+  const pending = hanging.recommend(request);
+  t.mock.timers.tick(5_000);
+  await assert.rejects(pending, (error) => error instanceof WorkerAiClientError && error.kind === 'network' && error.timedOut === true);
+});

@@ -39,7 +39,11 @@ import {
   departureIsAhead,
   type DressingDayDeparture,
 } from '@/features/recommendation/domain/dressing-day-departure';
+import { memberAccessToken } from '@/features/account/application/account-membership';
+import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
+import { createHistoryWriteWatch } from '@/features/recommendation/application/history-write-watch';
+import { createMemberReask } from '@/features/recommendation/application/member-reask';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import {
   TomorrowPreviewController,
@@ -98,10 +102,11 @@ function deviceLocalDay() {
   };
 }
 
-function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
+function createWorkerClient(memberAccessToken: () => Promise<string | null>): Pick<WorkerAiClient, 'recommend'> {
   try {
     return new WorkerAiClient({
       baseUrl: resolveAppWorkerBaseUrl(),
+      memberAccessToken,
     });
   } catch (error) {
     if (!(error instanceof WorkerBaseUrlConfigurationError)) throw error;
@@ -116,10 +121,10 @@ function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
 // it is null on Android and on any build without the native surface, and the routed client
 // then reads the on-device tier as unavailable and goes straight to the Worker with the
 // whole budget.
-function createRecommendationClient(): RoutedAiClient {
+function createRecommendationClient(memberAccessToken: () => Promise<string | null>): RoutedAiClient {
   return new RoutedAiClient({
     onDevice: new OnDeviceAiClient({ module: onDeviceAiModule }),
-    worker: createWorkerClient(),
+    worker: createWorkerClient(memberAccessToken),
   });
 }
 
@@ -254,7 +259,14 @@ export function RecommendationApplicationProvider({
     setLocalDay((current) => current.key === next.key ? current : next);
     if (choiceReadFailed.current) setChoiceReadAttempt((current) => current + 1);
   }, []);
-  const client = useMemo(() => createRecommendationClient(), []);
+  // Re-asks reserve a daily slot before the controller enters the AI chain; a member's ten apply
+  // only to a re-ask whose token was read, and its request carries that token.
+  const budget = useMemo(() => new ExpoFileAiRegenerationBudget(), []);
+  const memberReask = useMemo(() => createMemberReask({
+    readToken: memberAccessToken,
+    reserve: (dayKey, dailyLimit) => budget.reserve(dayKey, dailyLimit),
+  }), [budget]);
+  const client = useMemo(() => createRecommendationClient(memberReask.token), [memberReask]);
   const [onDeviceAvailability, setOnDeviceAvailability] =
     useState<OnDeviceAiAvailability | null>(null);
   // A stable box rather than a `useRef`, because `react-hooks/refs` rejects reading
@@ -265,8 +277,6 @@ export function RecommendationApplicationProvider({
   const [latestOnDeviceAvailability] = useState<{ value: OnDeviceAiAvailability | null }>(
     () => ({ value: null }),
   );
-  // Re-asks reserve a daily slot before the controller enters the AI chain.
-  const budget = useMemo(() => new ExpoFileAiRegenerationBudget(), []);
   const previewStore = useMemo(createPreviewStore, []);
   const loadRecentWorn = useCallback(async () =>
     (await (await loadHistoryRepository()).lastSeven(localProfileId)).map((record) => record.outfit),
@@ -280,11 +290,12 @@ export function RecommendationApplicationProvider({
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
       telemetry,
       getOnDeviceAvailability: () => latestOnDeviceAvailability.value,
-      // Five regenerations per dressing day: the evening and its small hours count against the
-      // date the evening began on, so 18:00 does not hand out a second five.
-      reserveAiReask: (dayKey) => budget.reserve(dressingDayDateKey(dayKey)),
+      // Five regenerations per dressing day, ten for a signed-in member: the evening and its small
+      // hours count against the date the evening began on, so 18:00 does not hand out a second five.
+      reserveAiReask: (dayKey) => memberReask.reserve(dressingDayDateKey(dayKey)),
+      releaseAiReask: (dayKey) => budget.release(dressingDayDateKey(dayKey)),
     }),
-    [analytics, budget, client, latestOnDeviceAvailability, loadRecentWorn, localProfileId, previewStore,
+    [analytics, budget, client, memberReask, latestOnDeviceAvailability, loadRecentWorn, localProfileId, previewStore,
       telemetry],
   );
   const controllerState = useSyncExternalStore(
@@ -616,6 +627,12 @@ export function RecommendationApplicationProvider({
       return record;
     },
   }), [historyRevision, localProfileId]);
+  // Looks a sync pull lands or deletes read again, and a deleted look's photo is removed.
+  useEffect(() => followWritesWhileAccountsOpen(createHistoryWriteWatch({
+    changeKey: async () => (await loadHistoryRepository()).changeKey(localProfileId),
+    cleanupPendingPhotos: async () => (await loadHistoryRepository()).cleanupPendingPhotos(localProfileId),
+    changed: () => setHistoryRevision((revision) => revision + 1),
+  })), [localProfileId]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,

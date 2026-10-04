@@ -111,10 +111,96 @@ test('a cancelled Apple sheet is no sign-in and no error; a missing token is a p
   await assert.rejects(tokenless.signIn('apple'), (error) => error instanceof AccountProviderError && error.code === 'failed');
 });
 
-test('Google fails the way a provider failure does until its library arrives', async () => {
+test('without the Google library or its client configuration, Google fails closed the way a provider failure does', async () => {
   const { auth } = await signedIn();
   for (const call of [() => auth.signIn('google'), () => auth.addProvider('google')]) {
     await assert.rejects(call(), (error) => error instanceof AccountProviderError && error.code === 'unavailable');
+  }
+});
+
+/** A Google ID token for `sub`; the adapter reads only its subject, never its signature. */
+const googleToken = (sub = 'google-sub') => `${base64url({ alg: 'RS256' })}.${base64url({ sub, aud: 'web-client' })}.c2ln`;
+
+function google(over = {}) {
+  const calls = [];
+  return { calls, idToken: async (hashed) => { calls.push(hashed); return { idToken: googleToken() }; }, ...over };
+}
+
+function googleAuth(answer, googleFake = google()) {
+  const fake = fakeAuth(answer);
+  const auth = createSupabaseAccountAuth({ client: fake.client, apple: apple(), google: googleFake, nonce,
+    storedSession: fake.storedSession, removeStoredSession: fake.removeStoredSession });
+  return { ...fake, auth, google: googleFake };
+}
+
+test('Sign in with Google sends the hashed nonce to Google and the raw nonce with the ID token to Supabase', async () => {
+  const { auth, google: googleFake, requests } = googleAuth(() => ({ body: tokenResponse({ providers: ['google'], primary: 'google' }) }));
+  assert.deepEqual(await auth.signIn('google'),
+    { userId, provider: 'google', email: 'q7@privaterelay.appleid.com', providers: ['google'] });
+  assert.deepEqual(googleFake.calls, ['hashed-nonce']);
+  assert.equal(requests[0].grant, 'id_token');
+  assert.deepEqual({ provider: requests[0].body.provider, id_token: requests[0].body.id_token, nonce: requests[0].body.nonce },
+    { provider: 'google', id_token: googleToken(), nonce: 'raw-nonce' });
+});
+
+test('a cancelled Google sheet is no sign-in and no error; a Google failure is a provider failure', async () => {
+  const cancelled = googleAuth(() => assert.fail('no request'), google({ idToken: async () => null }));
+  assert.equal(await cancelled.auth.signIn('google'), null);
+  await assert.rejects(cancelled.auth.addProvider('google'), (error) => error instanceof AccountProviderError && error.code === 'cancelled');
+  const failing = googleAuth(() => assert.fail('no request'), google({ idToken: async () => { throw new Error('GIDSignIn -4'); } }));
+  await assert.rejects(failing.auth.signIn('google'), (error) => error instanceof AccountProviderError && error.code === 'failed');
+});
+
+test('adding Google links the identity with its ID token and nonce, and an identity owned elsewhere is the identity-taken case', async () => {
+  let taken = false;
+  const linked = tokenResponse({ providers: ['apple', 'google'], primary: 'apple', n: 2 });
+  const { auth, requests } = googleAuth((request) => {
+    if (request.body?.link_identity) {
+      return taken ? { status: 422, body: { code: 422, error_code: 'identity_already_exists', msg: 'taken' } } : { body: linked };
+    }
+    return { body: tokenResponse() };
+  });
+  await auth.signIn('apple');
+  assert.deepEqual((await auth.addProvider('google')).providers, ['apple', 'google']);
+  const link = requests.find(({ body }) => body?.link_identity);
+  assert.deepEqual({ provider: link.body.provider, id_token: link.body.id_token, nonce: link.body.nonce },
+    { provider: 'google', id_token: googleToken(), nonce: 'raw-nonce' });
+  taken = true;
+  await assert.rejects(auth.addProvider('google'), (error) => error instanceof AccountProviderError && error.code === 'identityTaken');
+});
+
+test('deleting a Google account re-authenticates with Google, sends no Apple code, and a cancel stops it before any token', async () => {
+  const session = (n) => tokenResponse({ providers: ['google'], primary: 'google', n });
+  const { auth, google: googleFake, requests } = googleAuth((request) => ({ body: session(request.grant === 'refresh_token' ? 7 : 1) }));
+  await auth.signIn('google');
+  const credentials = await auth.reauthorizeDeletion();
+  assert.deepEqual(credentials, { accessToken: jwt(7) });
+  assert.equal(googleFake.calls.length, 2);
+  assert.equal(requests.at(-1).grant, 'refresh_token');
+
+  let cancel = false;
+  const cancelling = googleAuth(() => ({ body: session(1) }), google({ idToken: async () => (cancel ? null : { idToken: googleToken() }) }));
+  await cancelling.auth.signIn('google');
+  cancel = true;
+  const before = cancelling.requests.length;
+  assert.equal(await cancelling.auth.reauthorizeDeletion(), null);
+  assert.equal(cancelling.requests.length, before);
+});
+
+test('deletion does not start when Google confirms with a different Google account than the signed-in one', async () => {
+  let sub = 'google-sub';
+  const fake = googleAuth(() => ({ body: tokenResponse({ providers: ['google'], primary: 'google' }) }),
+    google({ idToken: async () => ({ idToken: googleToken(sub) }) }));
+  await fake.auth.signIn('google');
+  sub = 'someone-else';
+  const before = fake.requests.length;
+  await assert.rejects(fake.auth.reauthorizeDeletion(), (error) => error instanceof AccountProviderError && error.code === 'failed');
+  assert.equal(fake.requests.length, before);
+  for (const idToken of ['not-a-jwt', `${base64url({})}.${base64url({ aud: 'x' })}.c2ln`]) {
+    const malformed = googleAuth(() => ({ body: tokenResponse({ providers: ['google'], primary: 'google' }) }),
+      google({ idToken: async () => ({ idToken }) }));
+    await malformed.auth.signIn('google');
+    await assert.rejects(malformed.auth.reauthorizeDeletion(), (error) => error instanceof AccountProviderError && error.code === 'failed');
   }
 });
 

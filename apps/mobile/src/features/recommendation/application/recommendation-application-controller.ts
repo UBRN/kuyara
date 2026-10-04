@@ -185,8 +185,9 @@ type Dependencies = Readonly<{
   holdPhase?: (milliseconds: number) => Promise<void>;
   // A failed reservation takes the deterministic path; an AI failure keeps its slot spent.
   reserveAiReask?: (dayKey: string) => Promise<boolean>;
-  // Gives back a slot reserved for a re-ask whose request never got a response (offline,
-  // refused or timed out), so a re-ask that never reached the AI is not charged for it.
+  // Gives back a slot reserved for a re-ask whose request never reached the Worker (offline or
+  // refused), so it is not charged for it. A timed-out request keeps its slot: the Worker may
+  // have answered and counted it.
   releaseAiReask?: (dayKey: string) => Promise<void>;
   // The evening's preview of this dressing day, if one was chosen. An approved trigger reuses
   // its selection instead of asking again when `reusablePreviewRecommendation` allows it.
@@ -617,7 +618,7 @@ export class RecommendationApplicationController {
         this.setPhase(key, 'preparing-outfits');
       } catch (error) {
         aiFailure = recommendationFailureCategory(error);
-        if (reserved && error instanceof WorkerAiClientError && error.kind === 'network') {
+        if (reserved && error instanceof WorkerAiClientError && error.kind === 'network' && !error.timedOut) {
           try {
             await this.dependencies.releaseAiReask?.(input.localDayKey);
           } catch {

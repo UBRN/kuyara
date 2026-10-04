@@ -959,3 +959,17 @@ test('stagePhoto rejects a source that is missing or outside the private cache',
   );
   assert.equal(nativeFiles.has(outside), true, 'the outside file is left alone');
 });
+
+test('a deletion another phone made, landed by a sync pull, leaves the open Closet and removes the piece\'s photo', async () => {
+  const events = [];
+  const { controller, repo } = await readyController(events);
+  assert.equal(controller.getSnapshot().items.length, 1);
+  // The pull wrote the deletion marker outside the controller; the row keeps naming the photo.
+  await repo.softDeleteItem();
+  events.length = 0;
+
+  await controller.reload();
+
+  assert.deepEqual(controller.getSnapshot().items, []);
+  assert.deepEqual(events, ['delete-old', 'clear-pending']);
+});
