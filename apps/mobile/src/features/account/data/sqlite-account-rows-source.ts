@@ -1,4 +1,4 @@
-import type { ZodType } from 'zod';
+import { z, type ZodType } from 'zod';
 
 import {
   pendingUpload,
@@ -9,7 +9,8 @@ import {
 import { unlinked, type AccountLink } from '@/features/account/domain/account-link';
 import type { MergeResult } from '@/features/account/domain/account-merge';
 import type { AccountProfile, AccountRows, SyncedProfile } from '@/features/account/domain/account-rows';
-import type { LocalSyncRow } from '@/features/account/domain/sync-rules';
+import { canonicalServerInstant } from '@/features/account/domain/server-instant';
+import { pullCursorAt, type LocalSyncRow, type PullCursor } from '@/features/account/domain/sync-rules';
 import {
   breathabilitySchema,
   colorFamilySchema,
@@ -203,12 +204,39 @@ function historyOf(row: HistoryRow): OutfitHistoryRecord {
   };
 }
 
+const storedPosition = z.string().nullable();
+const storedCursorSchema = z.object({
+  profile: storedPosition,
+  wardrobeItems: storedPosition,
+  dressingDayChoices: storedPosition,
+  dressingDayDepartures: storedPosition,
+  outfitHistory: storedPosition,
+});
+
+/**
+ * `last_pull_cursor` holds each table's position as a JSON object. A value without the object
+ * is the one position an older build stored for every table, and reads as that position for
+ * each; an unreadable value reads as none, so the next pull reads every row again and lands it
+ * idempotently.
+ */
+function cursorOf(stored: string | null): PullCursor {
+  if (stored === null) return pullCursorAt(null);
+  if (!stored.startsWith('{')) return pullCursorAt(canonicalServerInstant(stored));
+  try {
+    return storedCursorSchema.parse(JSON.parse(stored));
+  } catch {
+    return pullCursorAt(null);
+  }
+}
+
+const storedCursor = (cursor: PullCursor): string => JSON.stringify(cursor);
+
 const linkOf = (row: LinkRow | null): AccountLink => (row === null ? unlinked : {
   userId: row.linked_user_id,
   lastUserId: row.last_linked_user_id,
   recordsUserId: row.records_user_id,
   recordsConsentRecordedAt: row.records_consent_recorded_at,
-  cursor: row.last_pull_cursor,
+  cursor: cursorOf(row.last_pull_cursor),
 });
 
 const noRecords = { wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] } as const;
@@ -359,7 +387,7 @@ async function setPending(db: SqliteExecutor, rows: AccountRows, pending: 0 | 1,
 async function saveLinkIn(db: SqliteExecutor, link: AccountLink): Promise<void> {
   await db.runAsync(`UPDATE device_account_link SET linked_user_id = ?, last_linked_user_id = ?,
     records_user_id = ?, records_consent_recorded_at = ?, last_pull_cursor = ? WHERE singleton_key = 1`,
-  [link.userId, link.lastUserId, link.recordsUserId, link.recordsConsentRecordedAt, link.cursor]);
+  [link.userId, link.lastUserId, link.recordsUserId, link.recordsConsentRecordedAt, storedCursor(link.cursor)]);
 }
 
 /** Sync's bookkeeping: kept from the database write listeners. */
@@ -432,7 +460,7 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
     writePulled(rows, cursor) {
       return write(async (transaction) => {
         await landAll(transaction, rows);
-        await transaction.runAsync('UPDATE device_account_link SET last_pull_cursor = ? WHERE singleton_key = 1', [cursor]);
+        await transaction.runAsync('UPDATE device_account_link SET last_pull_cursor = ? WHERE singleton_key = 1', [storedCursor(cursor)]);
       }, landing(rows));
     },
     async hasPending(records) {

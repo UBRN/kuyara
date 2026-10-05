@@ -1,3 +1,5 @@
+import { pullCursorAt, type PullCursor } from '@/features/account/domain/sync-rules';
+
 // The device's account link (ADR 0041 sections 3, 6 and 7): the signed-in user, the last user
 // this phone was linked to (kept after sign-out), the account this phone's Closet and History
 // joined under the sync consent with the consent record they joined under, and the last pull
@@ -16,11 +18,11 @@ export type AccountLink = Readonly<{
    * account's copies, and given again since, so the records join again with a first link.
    */
   recordsConsentRecordedAt: string | null;
-  cursor: string | null;
+  cursor: PullCursor;
 }>;
 
 export const unlinked: AccountLink = {
-  userId: null, lastUserId: null, recordsUserId: null, recordsConsentRecordedAt: null, cursor: null,
+  userId: null, lastUserId: null, recordsUserId: null, recordsConsentRecordedAt: null, cursor: pullCursorAt(null),
 };
 
 /** Signing out keeps everything on the phone, including the flags, the last user and the cursor. */
@@ -64,7 +66,7 @@ export function linkAfterFirstLink(
   link: AccountLink,
   userId: string,
   syncConsent: boolean,
-  cursor: string | null,
+  cursor: PullCursor,
   givenAt: string | null,
 ): AccountLink {
   return {

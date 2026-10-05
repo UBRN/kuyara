@@ -5,12 +5,14 @@ import {
   applyPulledByDay,
   applyPulledById,
   applyPulledProfile,
+  accountTables,
   nextCursor,
   pendingRows,
+  pullCursorAt,
 } from './sync-rules.ts';
 import { canonicalServerInstant } from './server-instant.ts';
 import {
-  dayChoice, historyDay, stamp, syncedProfile, uuid, wardrobeItem,
+  dayChoice, emptyRows as empty, historyDay, stamp, syncedProfile, uuid, wardrobeItem,
 } from '../__tests__/account-fixtures.mjs';
 
 const at = (minute) => canonicalServerInstant(`2026-09-30T10:${String(minute).padStart(2, '0')}:00+00:00`);
@@ -80,13 +82,22 @@ test('a pulled day the phone does not hold is written, its deletion marker dropp
   assert.deepEqual(write.map((row) => row.dayKey), ['2026-09-10']);
 });
 
-test('the cursor is the latest arrival ever seen, refused rows included, and never moves back', () => {
-  assert.equal(nextCursor(null, []), null);
-  assert.equal(nextCursor(at(4), []), at(4));
-  assert.equal(nextCursor(null, [{ serverUpdatedAt: at(2) }, { serverUpdatedAt: at(9) }, { serverUpdatedAt: null }]), at(9));
-  assert.equal(nextCursor(at(9), [{ serverUpdatedAt: at(2) }]), at(9));
+test('each table\'s cursor is the latest arrival ever seen there, refused rows included, and never moves back', () => {
+  const none = pullCursorAt(null);
+  assert.deepEqual(nextCursor(none, []), none);
+  assert.deepEqual(nextCursor(pullCursorAt(at(4)), []), pullCursorAt(at(4)));
+  const closet = (serverUpdatedAt) => ({ table: 'wardrobeItems', serverUpdatedAt });
+  assert.deepEqual(nextCursor(none, [closet(at(2)), closet(at(9)), closet(null)]), { ...none, wardrobeItems: at(9) });
+  assert.deepEqual(nextCursor(pullCursorAt(at(9)), [closet(at(2))]), pullCursorAt(at(9)));
   const micro = canonicalServerInstant('2026-09-30T10:09:00.000001Z');
-  assert.equal(nextCursor(at(9), [{ serverUpdatedAt: micro }]), micro);
+  assert.deepEqual(nextCursor(pullCursorAt(at(9)), [closet(micro)]), { ...pullCursorAt(at(9)), wardrobeItems: micro });
+});
+
+test('a late arrival in one table never moves another table\'s position', () => {
+  const next = nextCursor(pullCursorAt(at(1)), [{ table: 'outfitHistory', serverUpdatedAt: at(9) }, { table: 'profile', serverUpdatedAt: at(3) }]);
+  assert.deepEqual(next, { profile: at(3), wardrobeItems: at(1), dressingDayChoices: at(1), dressingDayDepartures: at(1), outfitHistory: at(9) });
+  // Every table the pull reads has a position.
+  assert.deepEqual([...accountTables].sort(), Object.keys(empty()).sort());
 });
 
 test('the pulled profile is written unless the phone\'s own edit is waiting', () => {

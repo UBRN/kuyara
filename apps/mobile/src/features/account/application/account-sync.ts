@@ -17,6 +17,8 @@ import {
   nextCursor,
   pendingRows,
   type LocalSyncRow,
+  type PullArrival,
+  type PullCursor,
   type PulledSyncRow,
 } from '@/features/account/domain/sync-rules';
 import type { DressingDayChoice } from '@/features/recommendation/domain/dressing-day-choice';
@@ -38,8 +40,8 @@ export type PulledAccountRows = Readonly<{
   dressingDayChoices: readonly PulledSyncRow<AccountRow<DressingDayChoice>>[];
   dressingDayDepartures: readonly PulledSyncRow<AccountRow<DressingDayDeparture>>[];
   outfitHistory: readonly PulledSyncRow<AccountRow<OutfitHistoryRecord>>[];
-  /** Includes arrivals rejected by the remote parser, so an unknown row never stalls the cursor. */
-  arrivals: readonly Readonly<{ serverUpdatedAt: string | null }>[];
+  /** Includes arrivals rejected by the remote parser, so an unknown row never stalls its table's cursor. */
+  arrivals: readonly PullArrival[];
 }>;
 
 export type AccountRowsSourcePort = Readonly<{
@@ -63,23 +65,23 @@ export type AccountRowsSourcePort = Readonly<{
    * One transaction rechecks pending, lands only settled rows without setting pending, and
    * advances the cursor. A profile without dress style and style aesthetics leaves the phone's.
    */
-  writePulled: (rows: AccountRows, cursor: string | null) => Promise<void>;
+  writePulled: (rows: AccountRows, cursor: PullCursor) => Promise<void>;
 }>;
 
 export type AccountRemotePort = Readonly<{
   /**
-   * Returns validated domain rows, deletion markers among them, and the last server arrival,
-   * including refused rows.
+   * Returns validated domain rows, deletion markers among them, and each table's last server
+   * arrival, including refused rows.
    */
-  pullSnapshot: (userId: string, syncConsent: boolean) => Promise<Readonly<{ rows: RemoteAccountRows; cursor: string | null }>>;
+  pullSnapshot: (userId: string, syncConsent: boolean) => Promise<Readonly<{ rows: RemoteAccountRows; cursor: PullCursor }>>;
   /**
    * Map to remote DTOs without device fields; upsert by user and UUID (choices and departures by
    * user and day key) and return acknowledged versions. A profile without dress style and style
    * aesthetics sends neither column, so the account's copy keeps what it has.
    */
   upload: (userId: string, rows: AccountRows) => Promise<AccountRows>;
-  /** Parses each remote row once, retaining every arrival in `arrivals`. */
-  pull: (userId: string, cursor: string | null, syncConsent: boolean) => Promise<PulledAccountRows>;
+  /** Reads each table from its own position; parses each remote row once, retaining every arrival in `arrivals`. */
+  pull: (userId: string, cursor: PullCursor, syncConsent: boolean) => Promise<PulledAccountRows>;
 }>;
 
 const values = (local: LocalAccountRows): AccountRows => ({

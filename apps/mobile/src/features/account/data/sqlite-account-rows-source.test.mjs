@@ -7,11 +7,13 @@ import { accountScenarios, createInMemoryAccountScreens } from '../application/a
 import { createAccountSyncFlow } from '../application/account-sync.ts';
 import { mergeAtFirstLink } from '../domain/account-merge.ts';
 import { unlinked } from '../domain/account-link.ts';
+import { pullCursorAt } from '../domain/sync-rules.ts';
 import { migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
 import { dayChoice, departure, historyDay, stamp, syncedProfile, uuid, wardrobeItem } from '../__tests__/account-fixtures.mjs';
 
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
+const noCursor = pullCursorAt(null);
 const none = { profile: null, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] };
 const mine = (row) => ({ ...row, localProfileId: profileId });
 
@@ -37,7 +39,7 @@ test('read returns every row of the five tables, soft-deleted ones too, with its
     dressingDayChoices: [mine(dayChoice(3, '2026-09-10'))],
     dressingDayDepartures: [mine(departure(4, '2026-09-10'))],
     outfitHistory: [mine(historyDay(5, '2026-09-10', { photoPath: null }))],
-  }, null);
+  }, noCursor);
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1 WHERE id = ?', [uuid(2)]);
   const rows = await source.read();
   assert.deepEqual(rows.profile, { row: { displayName: 'Phone', gender: 'woman', dressStyle: 'casual',
@@ -54,7 +56,7 @@ test('read returns every row of the five tables, soft-deleted ones too, with its
 // until it is edited, so the account is never sent a colour it would refuse.
 test('a wardrobe row whose colour columns disagree is left out of what the account reads', async (t) => {
   const { database, source } = await setup(t);
-  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2))] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2))] }, noCursor);
   await database.runAsync(`UPDATE wardrobe_items SET color_family = 'black' WHERE id = ?`, [uuid(2)]);
 
   const rows = await source.read();
@@ -64,7 +66,7 @@ test('a wardrobe row whose colour columns disagree is left out of what the accou
 
 test('a pull lands settled rows only, under this phone\'s profile, never touching photos or pending rows', async (t) => {
   const { database, source } = await setup(t);
-  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2))] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2))] }, noCursor);
   await database.runAsync(`UPDATE wardrobe_items SET photo_relative_path = 'kuyara/wardrobe/photos/mine.jpg' WHERE id = ?`, [uuid(1)]);
   await database.runAsync(`UPDATE wardrobe_items SET name = 'Edited here', pending_sync = 1 WHERE id = ?`, [uuid(2)]);
 
@@ -72,7 +74,7 @@ test('a pull lands settled rows only, under this phone\'s profile, never touchin
     { ...wardrobeItem(1, { name: 'From the account', localProfileId: 'another-phone', photoRelativePath: 'theirs.jpg' }) },
     wardrobeItem(2, { name: 'Lost race' }),
     wardrobeItem(3, { localProfileId: 'another-phone', photoRelativePath: 'theirs.jpg' }),
-  ] }, '2026-10-01T00:00:00.000001Z');
+  ] }, pullCursorAt('2026-10-01T00:00:00.000001Z'));
 
   const rows = await database.getAllAsync('SELECT id, name, local_profile_id, photo_relative_path, pending_sync FROM wardrobe_items ORDER BY id');
   assert.deepEqual(rows.map((row) => ({ ...row })), [
@@ -80,23 +82,23 @@ test('a pull lands settled rows only, under this phone\'s profile, never touchin
     { id: uuid(2), name: 'Edited here', local_profile_id: profileId, photo_relative_path: null, pending_sync: 1 },
     { id: uuid(3), name: 'Linen shirt', local_profile_id: profileId, photo_relative_path: null, pending_sync: 0 },
   ]);
-  assert.equal((await source.link()).cursor, '2026-10-01T00:00:00.000001Z');
+  assert.deepEqual((await source.link()).cursor, pullCursorAt('2026-10-01T00:00:00.000001Z'));
 });
 
 test('a pulled day-keyed row overwrites the phone\'s day and the phone adopts the account\'s id', async (t) => {
   const { database, source } = await setup(t);
-  await source.writePulled({ ...none, dressingDayChoices: [mine(dayChoice(1, '2026-09-10', { formality: 'casual' }))] }, null);
-  await source.writePulled({ ...none, dressingDayChoices: [mine(dayChoice(9, '2026-09-10', { formality: 'formal' }))] }, null);
+  await source.writePulled({ ...none, dressingDayChoices: [mine(dayChoice(1, '2026-09-10', { formality: 'casual' }))] }, noCursor);
+  await source.writePulled({ ...none, dressingDayChoices: [mine(dayChoice(9, '2026-09-10', { formality: 'formal' }))] }, noCursor);
   const rows = await database.getAllAsync('SELECT id, day_key, formality FROM dressing_day_choices');
   assert.deepEqual(rows.map((row) => ({ ...row })), [{ id: uuid(9), day_key: '2026-09-10', formality: 'formal' }]);
 });
 
 test('a landed deletion keeps the phone\'s own content and photo, so the Closet cleanup removes the photo', async (t) => {
   const { database, source } = await setup(t);
-  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))] }, noCursor);
   await database.runAsync(`UPDATE wardrobe_items SET photo_relative_path = 'kuyara/wardrobe/photos/a.jpg' WHERE id = ?`, [uuid(1)]);
   const [{ row: own }] = (await source.read()).wardrobeItems;
-  await source.writePulled({ ...none, wardrobeItems: [{ ...own, updatedAt: stamp(8), deletedAt: stamp(8) }] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [{ ...own, updatedAt: stamp(8), deletedAt: stamp(8) }] }, noCursor);
   const row = await database.getFirstAsync('SELECT name, deleted_at, photo_relative_path, pending_sync FROM wardrobe_items');
   assert.deepEqual({ ...row }, { name: 'Linen shirt', deleted_at: stamp(8), photo_relative_path: 'kuyara/wardrobe/photos/a.jpg', pending_sync: 0 });
 });
@@ -104,24 +106,24 @@ test('a landed deletion keeps the phone\'s own content and photo, so the Closet 
 test('a pulled profile writes the synced fields only, never clears gender or dress style, and waits for a pending edit', async (t) => {
   const { database, source } = await setup(t);
   const select = 'SELECT display_name, gender, dress_style, style_aesthetics, birth_date, language_preference FROM local_profiles';
-  await source.writePulled({ ...none, profile: { displayName: 'Account', gender: 'man', createdAt: stamp(0), updatedAt: stamp(5) } }, null);
+  await source.writePulled({ ...none, profile: { displayName: 'Account', gender: 'man', createdAt: stamp(0), updatedAt: stamp(5) } }, noCursor);
   assert.deepEqual({ ...await database.getFirstAsync(select) }, {
     display_name: 'Account', gender: 'man', dress_style: 'casual', style_aesthetics: '["minimal"]',
     birth_date: '1990-05-06', language_preference: 'tr',
   });
-  await source.writePulled({ ...none, profile: syncedProfile({ gender: null, dressStyle: null, styleAesthetics: ['sporty', 'classic'] }) }, null);
+  await source.writePulled({ ...none, profile: syncedProfile({ gender: null, dressStyle: null, styleAesthetics: ['sporty', 'classic'] }) }, noCursor);
   assert.deepEqual({ ...await database.getFirstAsync(select) }, {
     display_name: 'Ada', gender: 'man', dress_style: 'casual', style_aesthetics: '["classic","sporty"]',
     birth_date: '1990-05-06', language_preference: 'tr',
   });
   await database.runAsync(`UPDATE local_profiles SET display_name = 'Mine', pending_sync = 1`);
-  await source.writePulled({ ...none, profile: syncedProfile() }, null);
+  await source.writePulled({ ...none, profile: syncedProfile() }, noCursor);
   assert.equal((await database.getFirstAsync(select)).display_name, 'Mine');
 });
 
 test('a first link writes the account\'s winners over the pending rows it read, marks what goes, and saves the link in one transaction', async (t) => {
   const { database, source } = await setup(t);
-  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1, { name: 'Phone copy' })), mine(wardrobeItem(2))] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1, { name: 'Phone copy' })), mine(wardrobeItem(2))] }, noCursor);
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
   const local = await source.read();
   const values = (rows) => ({ ...none, profile: rows.profile?.row ?? null, wardrobeItems: rows.wardrobeItems.map(({ row }) => row) });
@@ -129,7 +131,7 @@ test('a first link writes the account\'s winners over the pending rows it read, 
     ...none, profile: syncedProfile({ displayName: 'Account' }), wardrobeItems: [wardrobeItem(1, { name: 'Account copy' })],
   }, { syncConsent: true, now: stamp(10) });
   const link = { userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a',
-    recordsConsentRecordedAt: '2026-09-30T00:00:00.000001Z', cursor: '2026-10-01T00:00:00.000000Z' };
+    recordsConsentRecordedAt: '2026-09-30T00:00:00.000001Z', cursor: pullCursorAt('2026-10-01T00:00:00.000000Z') };
   await source.applyFirstLink(merge, link, values(local));
   const rows = await database.getAllAsync('SELECT id, name, pending_sync FROM wardrobe_items ORDER BY id');
   assert.deepEqual(rows.map((row) => ({ ...row })), [
@@ -146,7 +148,7 @@ test('a first link leaves the flag of a row written after the merge read it, and
   await source.writePulled({ ...none,
     wardrobeItems: [mine(wardrobeItem(1, { deletedAt: old, updatedAt: old })), mine(wardrobeItem(2)), mine(wardrobeItem(4))],
     dressingDayChoices: [mine(dayChoice(3, '2026-09-10'))],
-  }, null);
+  }, noCursor);
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
   await database.runAsync('UPDATE dressing_day_choices SET pending_sync = 1');
   const read = await source.read();
@@ -167,7 +169,7 @@ test('a first link leaves the flag of a row written after the merge read it, and
 
 test('a first link keeps an edit made while the account downloads: the row stays the phone\'s and waits to upload', async (t) => {
   const { database, source } = await setup(t);
-  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1, { name: 'Phone copy' })), mine(wardrobeItem(2))] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1, { name: 'Phone copy' })), mine(wardrobeItem(2))] }, noCursor);
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
   await database.runAsync('UPDATE local_profiles SET pending_sync = 1');
   const uploads = [];
@@ -178,7 +180,7 @@ test('a first link keeps an edit made while the account downloads: the row stays
         ['Edited during the link', stamp(9), uuid(1)]);
       await database.runAsync('UPDATE local_profiles SET display_name = ?, updated_at = ?, pending_sync = 1', ['Edited', stamp(9)]);
       return { rows: { ...none, profile: syncedProfile({ displayName: 'Account' }),
-        wardrobeItems: [wardrobeItem(1, { name: 'Account copy' }), wardrobeItem(2, { name: 'Account two' })] }, cursor: null };
+        wardrobeItems: [wardrobeItem(1, { name: 'Account copy' }), wardrobeItem(2, { name: 'Account two' })] }, cursor: noCursor };
     },
     upload: async (_user, sent) => { uploads.push(sent); return sent; },
     pull: async () => ({ ...none, arrivals: [] }),
@@ -233,10 +235,10 @@ test('a first link that fails part way leaves the phone and the link as they wer
 
 test('a pulled row that fails to write for any reason but a constraint fails the pull and keeps the cursor', async (t) => {
   const { database } = await setup(t);
-  await createSqliteAccountRowsSource(database).saveLink({ ...unlinked, userId: 'user-a', lastUserId: 'user-a', cursor: 'cursor-1' });
+  await createSqliteAccountRowsSource(database).saveLink({ ...unlinked, userId: 'user-a', lastUserId: 'user-a', cursor: pullCursorAt('2026-10-01T00:00:00.000001Z') });
   const source = createSqliteAccountRowsSource(failingWrites(database, (sql) => sql.includes('wardrobe_items')));
-  await assert.rejects(source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))] }, 'cursor-2'), /disk full/);
-  assert.equal((await source.link()).cursor, 'cursor-1');
+  await assert.rejects(source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))] }, pullCursorAt('2026-10-02T00:00:00.000001Z')), /disk full/);
+  assert.deepEqual((await source.link()).cursor, pullCursorAt('2026-10-01T00:00:00.000001Z'));
   assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items')).n, 0);
 });
 
@@ -244,10 +246,10 @@ test('a pulled row this build\'s constraints refuse is skipped, the rest land an
   const { database, source } = await setup(t);
   await source.writePulled({ ...none, wardrobeItems: [
     mine(wardrobeItem(1)), mine(wardrobeItem(2, { colorFamily: 'not-a-family' })), mine(wardrobeItem(3)),
-  ] }, 'cursor-2');
+  ] }, pullCursorAt('2026-10-02T00:00:00.000001Z'));
   const ids = await database.getAllAsync('SELECT id FROM wardrobe_items ORDER BY id');
   assert.deepEqual(ids.map(({ id }) => id), [uuid(1), uuid(3)]);
-  assert.equal((await source.link()).cursor, 'cursor-2');
+  assert.deepEqual((await source.link()).cursor, pullCursorAt('2026-10-02T00:00:00.000001Z'));
 });
 
 test('an acknowledged upload clears a flag only while the row still holds the version sent', async (t) => {
@@ -255,7 +257,7 @@ test('an acknowledged upload clears a flag only while the row still holds the ve
   await source.writePulled({ ...none,
     wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2))],
     dressingDayChoices: [mine(dayChoice(3, '2026-09-10'))],
-  }, null);
+  }, noCursor);
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
   await database.runAsync('UPDATE dressing_day_choices SET pending_sync = 1');
   await database.runAsync('UPDATE local_profiles SET pending_sync = 1');
@@ -278,10 +280,10 @@ test('an acknowledged upload clears a flag only while the row still holds the ve
 test('the link keeps all five values, and deletion clears it and every flag but keeps the card dismissal', async (t) => {
   const { database, source } = await setup(t);
   const link = { userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-b',
-    recordsConsentRecordedAt: '2026-09-30T00:00:00.000001Z', cursor: '2026-10-01T00:00:00.000000Z' };
+    recordsConsentRecordedAt: '2026-09-30T00:00:00.000001Z', cursor: pullCursorAt('2026-10-01T00:00:00.000000Z') };
   await source.saveLink(link);
   assert.deepEqual(await source.link(), link);
-  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))] }, noCursor);
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
   await database.runAsync('UPDATE local_profiles SET pending_sync = 1');
   await source.dismissCard();
@@ -293,9 +295,24 @@ test('the link keeps all five values, and deletion clears it and every flag but 
   assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items')).n, 1);
 });
 
+test('each table keeps its own pull position, and a single position an older build stored reads as every table\'s', async (t) => {
+  const { database, source } = await setup(t);
+  const old = '2026-10-01T00:00:00.000001Z';
+  await database.runAsync('UPDATE device_account_link SET linked_user_id = ?, last_pull_cursor = ? WHERE singleton_key = 1', ['user-a', old]);
+  assert.deepEqual(await source.link(), { ...unlinked, userId: 'user-a', cursor: pullCursorAt(old) });
+
+  const next = { ...pullCursorAt(old), outfitHistory: '2026-10-02T00:00:00.000002Z', profile: null };
+  await source.writePulled(none, next);
+  assert.deepEqual((await source.link()).cursor, next);
+
+  // A value this build cannot read is no position: the next pull reads every row again.
+  await database.runAsync(`UPDATE device_account_link SET last_pull_cursor = '{"wardrobeItems":1}' WHERE singleton_key = 1`);
+  assert.deepEqual((await source.link()).cursor, noCursor);
+});
+
 test('without the consent only the profile counts as waiting', async (t) => {
   const { database, source } = await setup(t);
-  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))] }, noCursor);
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
   assert.equal(await source.hasPending(false), false);
   assert.equal(await source.hasPending(true), true);
@@ -303,7 +320,7 @@ test('without the consent only the profile counts as waiting', async (t) => {
 
 test('no row the sync writes carries a device-only column from the account', async (t) => {
   const { database, source } = await setup(t);
-  await source.writePulled({ ...none, outfitHistory: [historyDay(1, '2026-09-10', { localProfileId: 'x', photoPath: 'history/theirs.jpg' })] }, null);
+  await source.writePulled({ ...none, outfitHistory: [historyDay(1, '2026-09-10', { localProfileId: 'x', photoPath: 'history/theirs.jpg' })] }, noCursor);
   const row = await database.getFirstAsync('SELECT local_profile_id, photo_path, pending_sync FROM outfit_history');
   assert.deepEqual({ ...row }, { local_profile_id: profileId, photo_path: null, pending_sync: 0 });
 });
@@ -327,7 +344,7 @@ test('on a build 17 database upgraded to the latest schema the source reads the 
   assert.deepEqual(rows.wardrobeItems.map(({ row, pendingSync }) => [row.id, row.category, pendingSync]), [[uuid(1), 'top', false]]);
   assert.equal(rows.profile.row.dressStyle, 'smart');
   const link = { userId: null, lastUserId: 'user-a', recordsUserId: 'user-a',
-    recordsConsentRecordedAt: '2026-09-30T00:00:00.000001Z', cursor: '2026-10-01T00:00:00.000000Z' };
+    recordsConsentRecordedAt: '2026-09-30T00:00:00.000001Z', cursor: pullCursorAt('2026-10-01T00:00:00.000000Z') };
   await source.saveLink(link);
   assert.deepEqual(await source.link(), link);
 });
@@ -389,7 +406,7 @@ test('sync\'s bookkeeping, and a pull or first link that lands nothing, tells no
   const { database } = await setup(t);
   const { loud, source } = loudness(database);
   const rows = { ...none, wardrobeItems: [mine(wardrobeItem(1))] };
-  await source.writePulled(none, '2026-10-01T00:00:00.000001Z');
+  await source.writePulled(none, pullCursorAt('2026-10-01T00:00:00.000001Z'));
   await source.applyFirstLink(mergeAtFirstLink(rows, none, { syncConsent: true, now: stamp(10) }), unlinked, rows);
   await source.clearPendingIfUnchanged(rows);
   await source.saveLink(unlinked);
@@ -402,7 +419,7 @@ test('a pull or first link that lands account rows tells the listeners once, so 
   const { database } = await setup(t);
   const { loud, source } = loudness(database);
   const rows = { ...none, wardrobeItems: [mine(wardrobeItem(1))] };
-  await source.writePulled(rows, '2026-10-01T00:00:00.000001Z');
+  await source.writePulled(rows, pullCursorAt('2026-10-01T00:00:00.000001Z'));
   assert.deepEqual(loud, ['transaction']);
   await source.applyFirstLink(mergeAtFirstLink(none, { ...none, outfitHistory: [mine(historyDay(2, '2026-09-10'))] },
     { syncConsent: true, now: stamp(10) }), unlinked, none);
@@ -453,7 +470,7 @@ test('a pulled deletion keeps naming the phone\'s photo, so the Closet and Histo
   const { database, source } = await setup(t);
   const wardrobePhoto = `kuyara/wardrobe/photos/${uuid(7)}.jpg`;
   const historyPhoto = `kuyara/history/photos/${uuid(8)}.jpg`;
-  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))], outfitHistory: [mine(historyDay(2, '2026-09-10'))] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1))], outfitHistory: [mine(historyDay(2, '2026-09-10'))] }, noCursor);
   await database.runAsync('UPDATE wardrobe_items SET photo_relative_path = ? WHERE id = ?', [wardrobePhoto, uuid(1)]);
   await database.runAsync('UPDATE outfit_history SET photo_path = ? WHERE id = ?', [historyPhoto, uuid(2)]);
 
@@ -462,7 +479,7 @@ test('a pulled deletion keeps naming the phone\'s photo, so the Closet and Histo
     ...none,
     wardrobeItems: [mine(wardrobeItem(1, { deletedAt: stamp(5), updatedAt: stamp(5), photoRelativePath: null }))],
     outfitHistory: [mine(historyDay(2, '2026-09-10', { deletedAt: stamp(5), updatedAt: stamp(5), photoPath: null }))],
-  }, '2026-10-01T00:00:00.000001Z');
+  }, pullCursorAt('2026-10-01T00:00:00.000001Z'));
 
   const { SqliteWardrobeLocalDataSource } = await import('../../wardrobe/data/sqlite-wardrobe-local-data-source.ts');
   const pendingPieces = await new SqliteWardrobeLocalDataSource(database).listPendingPhotoCleanup(profileId);
@@ -481,12 +498,12 @@ test('a first link uploads only what the merge sends and settles a deletion olde
   const { database, source } = await setup(t);
   const now = '2026-10-04T12:00:00.000Z';
   const old = '2026-08-20T12:00:00.000Z';
-  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2, { deletedAt: old, updatedAt: old }))] }, null);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2, { deletedAt: old, updatedAt: old }))] }, noCursor);
   // Both were changed on this phone before it had an account, so both wait.
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
   const uploads = [];
   const remote = {
-    pullSnapshot: async () => ({ rows: none, cursor: null }),
+    pullSnapshot: async () => ({ rows: none, cursor: noCursor }),
     upload: async (_user, sent) => { uploads.push(sent); return sent; },
     pull: async () => ({ ...none, arrivals: [] }),
   };
