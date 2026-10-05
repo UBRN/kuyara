@@ -13,6 +13,7 @@ import {
 
 import type { ExecutionContext } from '../router.ts';
 import { selectionFailure } from './ai-selection.ts';
+import { completeInsightSentenceSchema } from './insight-sentence.ts';
 
 export function defaultCache(): Cache | undefined {
   return (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
@@ -27,8 +28,11 @@ export function defaultCache(): Cache | undefined {
  * `cold_shield` and `wind_guard` when the day's requirements do not call for them.
  */
 const AI_GATE_VERSION = 3;
-// Bump whenever prompt text, provider schema order, or model-visible input changes.
-const AI_PROMPT_VERSION = 2;
+// One prompt version per route, because only v2 carries the sentence instruction. Bump a
+// route's version whenever its prompt text, provider schema order or model-visible input
+// changes. The insight sentence check needs no bump: a cached sentence that fails the
+// current check is dropped on read.
+const AI_PROMPT_VERSIONS = { v1: 2, v2: 3 } as const;
 
 /**
  * The shared-cache key of a request. Its bytes are a contract with the entries already
@@ -66,7 +70,7 @@ export async function buildCacheRequest(
     `cold:${day.cold}`,
     `windy:${day.windy}`,
     `gate:${AI_GATE_VERSION}`,
-    `prompt:${AI_PROMPT_VERSION}`,
+    `prompt:${route === aiRecommendV2Path ? AI_PROMPT_VERSIONS.v2 : AI_PROMPT_VERSIONS.v1}`,
     // The route and v2-only fields keep the two response versions separate.
     ...(route === aiRecommendV2Path && 'locale' in request
       ? [route, request.locale,
@@ -110,7 +114,22 @@ export async function readCachedAnswer(
     console.warn({ event: 'ai_cache_entry_rejected', route, reason });
     return undefined;
   }
-  return parsed.data;
+  return withoutIncompleteSentence(parsed.data);
+}
+
+/**
+ * An entry written under an older sentence check keeps its picks and loses only a sentence
+ * the current check refuses, as a fresh answer would (ADR 0039).
+ */
+function withoutIncompleteSentence(
+  answer: AiRecommendV1Success | AiRecommendV2Success,
+): AiRecommendV1Success | AiRecommendV2Success {
+  if (!('insightSentence' in answer.data)
+    || completeInsightSentenceSchema.safeParse(answer.data.insightSentence).success) {
+    return answer;
+  }
+  const { insightSentence: _refused, ...data } = answer.data;
+  return { data };
 }
 
 /**
