@@ -24,7 +24,8 @@ import {
   type WardrobeApplicationValue,
 } from '@/features/wardrobe/application/wardrobe-application-context';
 import { nearestFamilyForHex } from '@/features/wardrobe/domain/closet-color-options';
-import { WARDROBE_NAME_MAX_LENGTH, type WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import { WARDROBE_NAME_MAX_LENGTH } from '@/features/wardrobe/domain/wardrobe-name';
 import {
   WardrobeCameraAccessError,
   type WardrobePhotoSource,

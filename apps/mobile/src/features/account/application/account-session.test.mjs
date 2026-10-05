@@ -351,7 +351,47 @@ test('at launch, an authorized, transferred or unreadable Apple credential chang
   }
 });
 
-test('the credential check runs only for an Apple session and only at launch', async () => {
+test('at every foreground, a revoked or missing Apple credential ends the session the way launch does', async () => {
+  for (const state of ['revoked', 'notFound']) {
+    let answer = 'authorized';
+    const { manager, calls } = setup({ current: identity, auth: { appleCredentialState: async () => answer } });
+    await manager.start();
+    assert.equal(manager.getSnapshot().session.kind, 'signedIn');
+    calls.length = 0;
+    answer = state;
+    await manager.foreground();
+    assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+    // The refresh comes first; the one pass that follows uploads, then the session ends, with no restore pass before it.
+    assert.deepEqual(calls, [['refresh'], ['sync', 'user-a'], ['signOut']]);
+  }
+});
+
+test('at a foreground, an authorized, transferred or unreadable Apple credential keeps the session', async () => {
+  for (const check of [async () => 'authorized', async () => 'transferred', async () => { throw new Error('offline'); }]) {
+    const { manager, calls } = setup({ current: identity, auth: { appleCredentialState: check } });
+    await manager.start();
+    await manager.foreground();
+    assert.equal(manager.getSnapshot().session.kind, 'signedIn');
+    assert.equal(calls.some(([name]) => name === 'signOut'), false);
+  }
+});
+
+test('a foreground whose refresh cannot answer never asks Apple', async () => {
+  let checks = 0;
+  let reachable = true;
+  const { manager } = setup({ current: identity, auth: {
+    refreshSession: async () => { if (!reachable) throw new Error('offline'); return { ...identity }; },
+    appleCredentialState: async () => { checks += 1; return reachable ? 'authorized' : 'revoked'; },
+  } });
+  await manager.start();
+  const atLaunch = checks;
+  reachable = false;
+  await manager.foreground();
+  assert.equal(checks, atLaunch);
+  assert.equal(manager.getSnapshot().session.kind, 'signedIn');
+});
+
+test('a Google session never asks Apple, at launch or at a foreground', async () => {
   let checks = 0;
   const { manager } = setup({
     current: { ...identity, provider: 'google' },
@@ -361,6 +401,83 @@ test('the credential check runs only for an Apple session and only at launch', a
   await manager.foreground();
   assert.equal(checks, 0);
   assert.equal(manager.getSnapshot().session.kind, 'signedIn');
+});
+
+test('a foreground that finds the Apple credential revoked while a pass runs ends the session after that pass', async () => {
+  const gate = held();
+  let passes = 0;
+  const { manager, calls } = setup({ current: identity, sync: { run: async (userId) => {
+    passes += 1;
+    calls.push(['sync', userId]);
+    if (passes === 1) await gate.promise;
+    return { pendingChanges: 0, closetPieces: 0, historyDays: 0, syncConsent: 'given', firstLink: null };
+  } }, auth: { appleCredentialState: async () => (passes > 0 ? 'revoked' : 'authorized') } });
+  const started = manager.start();
+  await settle();
+  const foregrounded = manager.foreground();
+  await settle();
+  gate.resolve();
+  await started;
+  await foregrounded;
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+  assert.equal(calls.filter(([name]) => name === 'signOut').length, 1);
+});
+
+test('a sign-out while a foreground waits for the refresh leaves the session signed out, ended once', async () => {
+  const gate = held();
+  let refreshes = 0;
+  const { manager, calls } = setup({ current: identity, auth: { refreshSession: async () => {
+    refreshes += 1;
+    await gate.promise;
+    return { ...identity };
+  } } });
+  await manager.start();
+  calls.length = 0;
+  const foregrounded = manager.foreground();
+  await settle();
+  assert.equal(refreshes, 1);
+  await manager.signOut();
+  const afterSignOut = manager.getSnapshot();
+  gate.resolve();
+  await foregrounded;
+  assert.deepEqual(manager.getSnapshot(), afterSignOut);
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+  assert.deepEqual(calls, [['sync', 'user-a'], ['signOut']]);
+});
+
+test('a sign-out while a foreground waits for Apple leaves the session signed out, ended once, even when Apple says revoked', async () => {
+  const gate = held();
+  let asked = false;
+  const { manager, calls } = setup({ current: identity, auth: { appleCredentialState: async () => {
+    if (!asked) { asked = true; return 'authorized'; }
+    await gate.promise;
+    return 'revoked';
+  } } });
+  await manager.start();
+  calls.length = 0;
+  const foregrounded = manager.foreground();
+  await settle();
+  await manager.signOut();
+  const afterSignOut = manager.getSnapshot();
+  gate.resolve();
+  await foregrounded;
+  assert.deepEqual(manager.getSnapshot(), afterSignOut);
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+  assert.deepEqual(calls, [['refresh'], ['sync', 'user-a'], ['signOut']]);
+});
+
+test('a sign-out while a foreground waits for a definitive end of the session is not repeated', async () => {
+  const gate = held();
+  const { manager, calls } = setup({ current: identity, auth: { refreshSession: async () => { await gate.promise; return null; } } });
+  await manager.start();
+  calls.length = 0;
+  const foregrounded = manager.foreground();
+  await settle();
+  await manager.signOut();
+  gate.resolve();
+  await foregrounded;
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+  assert.equal(calls.filter(([name]) => name === 'signOut').length, 1);
 });
 
 const counts = (piecesAdded, historyDaysAdded, piecesReceived, historyDaysReceived) =>

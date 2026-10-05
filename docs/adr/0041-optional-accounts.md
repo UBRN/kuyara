@@ -46,7 +46,7 @@ The Worker gains three secrets: `SUPABASE_SECRET_KEY`, `APPLE_SIGN_IN_PRIVATE_KE
 
 An access token already issued to a deleted user stays valid until it expires (one hour by default). Its rows are gone, so it reads nothing, and the app deletes its local session after deletion.
 
-Apple's server-to-server notification endpoint stays empty in the first account release, as Supabase's documentation advises. At every launch the app asks Apple for the credential state of a signed-in Apple identity (`getCredentialState`); when Apple reports it revoked or not found, the app ends the session the way signing out does (section 6). While the app runs on iOS it also observes Apple's credential-revoked notification and ends a signed-in Apple session the same way. iOS does not reliably deliver that notification to a suspended app, so a revocation made while kuyara is in the background can wait for the next launch.
+Apple's server-to-server notification endpoint stays empty in the first account release, as Supabase's documentation advises. At every launch and every return to the foreground the app asks Apple for the credential state of a signed-in Apple identity (`getCredentialState`); when Apple reports it revoked or not found, the app ends the session the way signing out does (section 6). A check that fails or cannot reach Apple changes nothing, and a session from another provider never asks. While the app runs on iOS it also observes Apple's credential-revoked notification and ends a signed-in Apple session the same way.
 
 ### 3. Moving device data into the account
 

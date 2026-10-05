@@ -39,11 +39,11 @@ import {
   colorChoiceFamily,
   type ClosetColorChoice,
 } from '@/features/wardrobe/domain/closet-color-options';
-import {
-  WARDROBE_NAME_MAX_LENGTH,
-  type WardrobeEntryState,
-  type WardrobeItem,
+import type {
+  WardrobeEntryState,
+  WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
+import { WARDROBE_NAME_MAX_LENGTH } from '@/features/wardrobe/domain/wardrobe-name';
 import {
   classifyWardrobePhotoProblem,
   type WardrobePhotoProblem,

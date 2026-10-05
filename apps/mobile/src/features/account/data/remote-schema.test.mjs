@@ -8,8 +8,10 @@ import { dressStyleSchema, outfitArchetypeIds } from '@kuyara/contracts';
 import { garmentSwatchIds } from '@/features/catalog/domain/garment-swatch';
 import { garmentTypeIds } from '@/features/catalog/domain/garment-taxonomy';
 import { outfitSlots } from '@/features/recommendation/domain/outfit-composition';
-import { WARDROBE_NAME_MAX_LENGTH } from '@/features/wardrobe/domain/wardrobe-item';
+import { WARDROBE_NAME_MAX_LENGTH, shortenWardrobeName } from '@/features/wardrobe/domain/wardrobe-name';
 
+import { wardrobeItem } from '../__tests__/account-fixtures.mjs';
+import { toRemoteWardrobeItem } from './account-remote-mappers.ts';
 import {
   remoteDressingDayChoiceMarkerSchema,
   remoteDressingDayDepartureMarkerSchema,
@@ -268,6 +270,21 @@ test('the History and Closet bounds hold the largest value the app writes', () =
   assert.ok(outfitBound <= 3 * printed(outfit).length && colorsBound <= 3 * printed(colors).length);
   assert.ok(WARDROBE_NAME_MAX_LENGTH * 4 <= boundOf('wardrobe_items', 'name'));
   assert.ok(boundOf('wardrobe_items', 'name') <= 1000 && boundOf('wardrobe_items', 'color') <= 1000);
+});
+
+test('a Closet name that migration 29 shortened fits the account bound and the upload mapper sends it whole', () => {
+  const bytes = (text) => new TextEncoder().encode(text).length;
+  const bound = boundOf('wardrobe_items', 'name');
+  // Three UTF-8 bytes per UTF-16 unit is the most any name the phone keeps can cost.
+  const widest = shortenWardrobeName('\u{20ac}'.repeat(1000));
+  assert.equal(widest.length, WARDROBE_NAME_MAX_LENGTH);
+  assert.equal(bytes(widest), 3 * WARDROBE_NAME_MAX_LENGTH);
+  assert.ok(bytes(widest) <= bound, `${bytes(widest)} > ${bound}`);
+  for (const name of [widest, shortenWardrobeName('\u{1f600}'.repeat(1000)), shortenWardrobeName('x'.repeat(1000))]) {
+    assert.ok(bytes(name) <= bound);
+    // The mapper puts no length rule of its own on the name: what migration 29 leaves is what is sent.
+    assert.equal(toRemoteWardrobeItem(wardrobeItem(1, { name }), '00000000-0000-4000-8000-000000000900').name, name);
+  }
 });
 
 test('past 400 consent answers only one withdrawal of a still given consent lands, so withdrawal works and the table stays bounded', () => {

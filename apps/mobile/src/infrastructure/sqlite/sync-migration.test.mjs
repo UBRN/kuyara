@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
+import { shortenWardrobeName } from '@/features/wardrobe/domain/wardrobe-name';
+
 import { latestDatabaseVersion, migrateDatabase } from './migrations.ts';
 import { NodeSqliteDatabase } from '../../../test/node-sqlite-database.mjs';
 
@@ -19,13 +21,16 @@ const now = '2026-10-02T10:00:00.000Z';
 // later) keeps the flags it was left with, and every Closet or History edit made on those
 // builds is still marked. Migration 27 gives every existing profile both unit choices at System
 // and a database that already holds them keeps the choices; migration 28 gives the device
-// account link a NULL records account and consent arrival.
+// account link a NULL records account and consent arrival; migration 29 shortens the live Closet
+// names over 200 units by the domain rule.
 const upgraded = (table, row, versionBefore = 24) => ({
   ...row,
   ...(syncedTables.includes(table) && versionBefore < 25 ? { pending_sync: 0 } : {}),
   ...(table === 'local_profiles' && versionBefore < 27
     ? { temperature_unit: 'system', wind_speed_unit: 'system' } : {}),
   ...(table === 'device_account_link' ? { records_user_id: null, records_consent_recorded_at: null } : {}),
+  ...(table === 'wardrobe_items' && versionBefore < 29 && row.deleted_at === null && typeof row.name === 'string'
+    ? { name: shortenWardrobeName(row.name) } : {}),
 });
 
 async function rows(database, table) {
@@ -37,7 +42,7 @@ test('fresh schema has five checked pending flags and one device account link', 
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await migrateDatabase(database);
-  assert.equal(latestDatabaseVersion, 28);
+  assert.equal(latestDatabaseVersion, 29);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   for (const table of syncedTables) {
     const column = (await database.getAllAsync(`PRAGMA table_info(${table})`))

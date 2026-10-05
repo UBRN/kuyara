@@ -2,7 +2,7 @@ import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText, Button, GlassButton, ProviderSignInButton, TextButton } from '@/components/ui';
 import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
-import type { AccountProvider } from '@/features/account/application/account-screens';
+import { accountProviders } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { AccountIntroPager } from '@/features/account/presentation/account-intro-pager';
 import { ACCOUNT_TERMS_URL } from '@/features/account/domain/account-terms';
@@ -10,8 +10,6 @@ import { StatusLine, type StatusLineTone } from '@/features/account/presentation
 import { PRIVACY_POLICY_URL } from '@/features/analytics/domain/privacy-policy';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
-
-const providers: readonly AccountProvider[] = ['apple', 'google'];
 
 function open(url: string) {
   void Linking.openURL(url).catch(() => {
@@ -50,7 +48,7 @@ export function AccountSignInPage({ initialPage }: Readonly<{ initialPage?: Acco
       <View style={[styles.inset, styles.foot]}>
         {status ? <StatusLine testID="account-sign-in-status" text={status.text} tone={status.tone} /> : null}
         <View style={styles.buttons}>
-          {providers.map((provider) => (
+          {accountProviders.map((provider) => (
             <ProviderSignInButton
               disabled={pending !== null && pending !== provider}
               key={provider}

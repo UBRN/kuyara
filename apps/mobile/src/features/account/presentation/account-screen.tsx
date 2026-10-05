@@ -2,7 +2,7 @@ import { Alert, StyleSheet, View } from 'react-native';
 
 import { AppText, Icon, ListRowTile, NativeList, NativeListContentRow, NativeListRow, NativeListSection } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
-import type { AccountProvider } from '@/features/account/application/account-screens';
+import { accountProviders } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { AccountConsentSheet } from '@/features/account/presentation/account-consent';
 import { showIdentityTakenAlert } from '@/features/account/presentation/account-identity-taken-alert';
@@ -12,8 +12,6 @@ import { useLocalization } from '@/localization/use-messages';
 import { formatClockTime } from '@/presentation/format-clock-time';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
-
-const allProviders: readonly AccountProvider[] = ['apple', 'google'];
 
 /**
  * Frames 07, 08, 09, 10, 21, 22, 34 and 35: the Account screen, a native grouped list
@@ -122,7 +120,7 @@ export function AccountScreen({ onOpenDelete }: Readonly<{ onOpenDelete: () => v
         )}
 
         <NativeListSection footer={copy.account.methodsFooter} heading={copy.account.methodsHeading} testID="account-methods-group">
-          {allProviders.map((provider) => (session.providers.includes(provider) ? (
+          {accountProviders.map((provider) => (session.providers.includes(provider) ? (
             <NativeListRow
               glyph={({ color, size }) => <Icon color={color} name={provider === 'apple' ? 'appleLogo' : 'personCircle'} size={size} />}
               key={provider}

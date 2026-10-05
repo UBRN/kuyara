@@ -259,6 +259,23 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
     resultHost = null;
     update({ session: { kind: 'signedOut', notice: 'signedOut' }, cardDismissed: true, consent: noConsentPrompt });
   };
+  /**
+   * ADR 0041 section 2, at launch and at every foreground: an Apple ID that revoked kuyara, or no
+   * longer exists, ends the session the way signing out does. A check that fails changes nothing,
+   * and no other provider asks Apple. Answers whether the caller must stop: the session was
+   * ended, or `current` says the account changed while Apple was asked.
+   */
+  const endIfAppleRevoked = async (session: AuthSession, current: () => boolean = () => true): Promise<boolean> => {
+    if (session.provider !== 'apple') return false;
+    let state: AppleCredentialState | null = null;
+    try { state = await auth.appleCredentialState(); } catch { /* Offline or Apple unreachable. */ }
+    if (!current()) return true;
+    if (state !== 'revoked' && state !== 'notFound') return false;
+    identity = session;
+    update({ session: showIdentity(session) });
+    await endSession();
+    return true;
+  };
   const finishSignIn = async (provider: AccountProvider) => {
     const session = identity;
     if (!session) return;
@@ -445,23 +462,16 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
         sessionUnread = true;
         return;
       }
-      if (session?.provider === 'apple') {
-        // ADR 0041 section 2: an Apple ID that revoked kuyara, or no longer exists, ends the
-        // session at launch the way signing out does. A check that fails changes nothing.
-        let state: AppleCredentialState | null = null;
-        try { state = await auth.appleCredentialState(); } catch { /* Offline or Apple unreachable. */ }
-        if (state === 'revoked' || state === 'notFound') {
-          identity = session;
-          update({ session: showIdentity(session) });
-          await endSession();
-          return;
-        }
-      }
+      if (session && await endIfAppleRevoked(session)) return;
       await restore(session);
     },
     async foreground() {
       if (sessionUnread) { await manager.start(); return; }
-      if (!identity) return;
+      const before = identity;
+      if (!before) return;
+      // A sign-out, a deletion or the revocation observer may end the session while a call is
+      // awaited: nothing after that call brings the old session back.
+      const unchanged = () => identity === before;
       let session: AuthSession | null;
       try {
         session = await auth.refreshSession();
@@ -469,7 +479,14 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
         // Unknown, not ended: the session stays as it is until the auth service can answer.
         return;
       }
-      if (session !== null) { await restore(session); return; }
+      if (!unchanged()) return;
+      if (session !== null) {
+        // After the refresh, so a revoked account uploads with a fresh token, and before
+        // `restore`, so it does not run a sync pass that ending it then repeats.
+        if (await endIfAppleRevoked(session, unchanged)) return;
+        await restore(session);
+        return;
+      }
       // The auth service said the session is gone: it ends the way signing out does.
       try { await auth.signOut(); } catch { /* The screen still leaves the ended session. */ }
       await restore(null);

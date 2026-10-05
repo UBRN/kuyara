@@ -1,3 +1,7 @@
+import {
+  WARDROBE_NAME_MAX_LENGTH,
+  shortenWardrobeName,
+} from '@/features/wardrobe/domain/wardrobe-name';
 import type {
   SqliteDatabase,
   SqliteExecutor,
@@ -10,7 +14,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 28;
+export const latestDatabaseVersion = 29;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -717,6 +721,31 @@ const migrationV28: Migration = {
   },
 };
 
+// Builds before the Closet form's 200-unit limit stored names of any length, and the account
+// holds a name of at most 800 bytes: one longer name makes the account refuse the whole upload
+// batch. Every live name over the limit is shortened here, by the same rule the domain owns, and
+// only the name changes: no row is added or removed, a deleted row (which uploads as a marker
+// without its name) is left as it is, and neither `updated_at` nor `pending_sync` moves.
+// A phone that has not joined an account sends every row at its first link, and a link whose
+// upload failed left its rows flagged, so the shorter name reaches the account either way. The
+// query keeps to rows whose UTF-8 size already exceeds the limit, which every name over 200
+// UTF-16 units does.
+const migrationV29: Migration = {
+  version: 29,
+  async migrate(database) {
+    const rows = await database.getAllAsync<Readonly<{ id: string; name: string }>>(
+      "SELECT id, name FROM wardrobe_items WHERE deleted_at IS NULL AND typeof(name) = 'text' AND length(CAST(name AS BLOB)) > ?",
+      [WARDROBE_NAME_MAX_LENGTH],
+    );
+    for (const { id, name } of rows) {
+      const shortened = shortenWardrobeName(name);
+      if (shortened !== name) {
+        await database.runAsync('UPDATE wardrobe_items SET name = ? WHERE id = ?', [shortened, id]);
+      }
+    }
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -746,6 +775,7 @@ const migrations = [
   migrationV26,
   migrationV27,
   migrationV28,
+  migrationV29,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

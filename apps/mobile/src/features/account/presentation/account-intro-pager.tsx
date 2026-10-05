@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { AppText, IconButton } from '@/components/ui';
+import { inForeground } from '@/components/ui/use-screen-visible';
 import {
   ACCOUNT_INTRO_PAGE_DWELL_MS,
   accountIntroPageIds,
@@ -37,11 +38,6 @@ function useScreenReaderRunning() {
     };
   }, []);
   return running;
-}
-
-// The same foreground test as the screen visibility hooks, for the first value and every change.
-function inForeground(state: string) {
-  return state !== 'background' && state !== 'inactive';
 }
 
 function useAppInForeground() {

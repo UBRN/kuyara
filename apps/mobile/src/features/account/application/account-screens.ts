@@ -16,7 +16,9 @@ import { systemDate } from '@/infrastructure/system-clock';
 // is the one state machine behind them; over ports that answer at once it drives the component
 // tests and the development scenarios below.
 
-export type AccountProvider = 'apple' | 'google';
+/** The sign-in methods, in the order the screens list them. */
+export const accountProviders = ['apple', 'google'] as const;
+export type AccountProvider = (typeof accountProviders)[number];
 
 export type AccountSync =
   | Readonly<{ kind: 'upToDate' }>

@@ -3,6 +3,9 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { normalizeOptionalWardrobeText } from '@/features/wardrobe/domain/wardrobe-item';
+import { WARDROBE_NAME_MAX_LENGTH } from '@/features/wardrobe/domain/wardrobe-name';
+
 import { latestDatabaseVersion, migrateDatabase } from './migrations.ts';
 import { NodeSqliteDatabase } from '../../../test/node-sqlite-database.mjs';
 
@@ -94,7 +97,7 @@ test('an empty database applies all migrations in order with the final schema', 
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 28);
+  assert.equal(latestDatabaseVersion, 29);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -1284,7 +1287,7 @@ test('version 15 adds the briefing opt-in without disturbing a version 14 instal
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 28);
+  assert.equal(latestDatabaseVersion, 29);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
     profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults })),
@@ -1509,7 +1512,7 @@ test('version 16 adds the daily outlook column without disturbing a version 15 i
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 28);
+  assert.equal(latestDatabaseVersion, 29);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM weather_snapshots')).map((row) => ({ ...row })),
     snapshotsBefore.map((row) => ({ ...row, daily_json: null })),
@@ -2047,7 +2050,7 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
     await migrateDatabase(database);
     await migrateDatabase(fresh);
 
-    assert.equal(latestDatabaseVersion, 28);
+    assert.equal(latestDatabaseVersion, 29);
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
       ...before,
@@ -2241,7 +2244,7 @@ test('build-17-schema-23.sql upgrades with every row intact and worn days uncolo
   await migrateDatabase(database);
   await migrateDatabase(fresh);
 
-  assert.equal(latestDatabaseVersion, 28);
+  assert.equal(latestDatabaseVersion, 29);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   const after = await tableRows(database);
   assert.deepEqual(Object.keys(after), [...Object.keys(before), 'device_account_link'].sort());
@@ -2760,7 +2763,7 @@ test('version 28 keeps a used device account link and adds the records account a
   }
   await migrateDatabase(database);
   await migrateDatabase(fresh);
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 28);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual(await tableRows(database), withRecordsUserId(before));
   assert.deepEqual(before.device_account_link.map(({ linked_user_id: linked }) => linked), ['user-a']);
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
@@ -2771,4 +2774,159 @@ test('version 28 keeps a used device account link and adds the records account a
       { type: 'TEXT', notnull: 0, dflt_value: null }, name);
   }
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
+});
+
+// Migration 29: Closet names over 200 UTF-16 units, which builds before the form's limit stored,
+// are shortened on the phone so the account's 800-byte name bound never drops an upload batch.
+// Only live rows' names move; every other column and every row stays.
+const emojiFamily = '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}';
+// These literal results freeze with the release of migration 29: a different rule needs a new migration.
+const longClosetNames = [
+  // [id, name, expected name after migration, deleted_at, pending_sync]
+  ['long-ascii', 'x'.repeat(250), 'x'.repeat(200), null, 0],
+  ['long-pair', `${'p'.repeat(199)}\u{1f600}${'tail'.repeat(10)}`, 'p'.repeat(199), null, 1],
+  ['long-zwj', `${'z'.repeat(198)}${emojiFamily}${'tail'.repeat(10)}`, 'z'.repeat(198), null, 0],
+  ['long-combining', `${'c'.repeat(199)}e\u{301}${'tail'.repeat(10)}`, 'c'.repeat(199), null, 1],
+  ['long-flag', `${'f'.repeat(198)}\u{1f1f9}\u{1f1f7}${'tail'.repeat(10)}`, 'f'.repeat(198), null, 0],
+  ['long-spaces', `${'s'.repeat(190)}${' '.repeat(30)}${'tail'.repeat(10)}`, 's'.repeat(190), null, 0],
+  // 150 code points but 300 UTF-16 units: SQLite's own length() would not see it as long.
+  ['long-emoji', '\u{1f600}'.repeat(150), '\u{1f600}'.repeat(100), null, 0],
+  ['exact-200', 'e'.repeat(200), 'e'.repeat(200), null, 1],
+  // 200 units but 400 UTF-8 bytes: the byte query selects it and the rule leaves it as it is.
+  ['accent-200', '\u{e9}'.repeat(200), '\u{e9}'.repeat(200), null, 0],
+  ['short-name', 'Rain coat', 'Rain coat', null, 0],
+  ['null-name', null, null, null, 0],
+  // A deleted row uploads as a marker without its name and keeps whatever it held.
+  ['long-deleted', 'd'.repeat(300), 'd'.repeat(300), deletedTimestamp, 1],
+];
+
+async function addLongClosetNames(database) {
+  for (const [id, name, , deletedAt, pending] of longClosetNames) {
+    await database.runAsync(`INSERT INTO wardrobe_items
+      (id, local_profile_id, name, category, color_family, photo_relative_path, created_at, updated_at,
+       deleted_at, entry_state, garment_type_id, color_option_id, color_custom_hex, pending_sync)
+      VALUES (?, 'stable-profile-id', ?, 'top', 'red', NULL, ?, ?, ?, 'owned', 't_shirt', NULL, '#AA3344', ?)`,
+    [id, name, timestamp, timestamp, deletedAt, pending]);
+  }
+}
+
+/** The rows with the one thing migration 29 changes, the live long names, replaced by their expectation. */
+function withShortenedClosetNames(rows) {
+  const expected = new Map(longClosetNames.map(([id, , name]) => [id, name]));
+  return { ...rows, wardrobe_items: rows.wardrobe_items.map((row) => (
+    expected.has(row.id) ? { ...row, name: expected.get(row.id) } : row)) };
+}
+
+/** Runs the chain until migration 29, which fails (before any change when `afterUpdates` is 0, else right after that many name updates). */
+function failingInVersion29(database, message, afterUpdates = 0) {
+  let updates = 0;
+  return {
+    execAsync: database.execAsync.bind(database),
+    getFirstAsync: database.getFirstAsync.bind(database),
+    withExclusiveTransactionAsync: (task) => database.withExclusiveTransactionAsync((transaction) => task({
+      execAsync: transaction.execAsync.bind(transaction),
+      runAsync: async (sql, params) => {
+        const result = await transaction.runAsync(sql, params);
+        if (sql.startsWith('UPDATE wardrobe_items SET name')) {
+          updates += 1;
+          if (afterUpdates > 0 && updates >= afterUpdates) throw new Error(message);
+        }
+        return result;
+      },
+      getFirstAsync: transaction.getFirstAsync.bind(transaction),
+      getAllAsync: async (sql, params) => {
+        if (afterUpdates === 0 && sql.includes('FROM wardrobe_items WHERE deleted_at IS NULL')) throw new Error(message);
+        return transaction.getAllAsync(sql, params);
+      },
+    })),
+  };
+}
+
+function assertShortenedClosetNames(rows) {
+  const byId = new Map(rows.wardrobe_items.map((row) => [row.id, row]));
+  assert.equal(rows.wardrobe_items.length >= longClosetNames.length, true);
+  for (const [id, , expected, deletedAt] of longClosetNames) {
+    const { name } = byId.get(id);
+    assert.equal(name, expected, id);
+    if (deletedAt === null && name !== null) {
+      // The domain takes it as it is, and the form's own limit (UTF-16 units) holds it.
+      assert.equal(normalizeOptionalWardrobeText(name), name, id);
+      assert.ok(name.length <= WARDROBE_NAME_MAX_LENGTH, id);
+      assert.ok(name.isWellFormed(), id);
+    }
+  }
+}
+
+test('version 29 shortens live Closet names over 200 units from the frozen build 19 schema 27 and changes nothing else', async (t) => {
+  const database = new NodeSqliteDatabase();
+  const fresh = new NodeSqliteDatabase();
+  t.after(() => { database.close(); fresh.close(); });
+  await fillBuildEighteen(database, 'build-19-schema-27.sql',
+    ", easier_to_see = 1, temperature_unit = 'fahrenheit', wind_speed_unit = 'mph'");
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 27);
+  await addLongClosetNames(database);
+  const before = await tableRows(database);
+  assert.ok(before.wardrobe_items.some(({ name }) => name !== null && name.length > WARDROBE_NAME_MAX_LENGTH));
+  // The byte query selects the accented 200-unit name; the rule must leave it byte for byte.
+  assert.equal((await database.getFirstAsync("SELECT COUNT(*) AS n FROM wardrobe_items WHERE id = 'accent-200' AND length(CAST(name AS BLOB)) > 200")).n, 1);
+  const orphansBefore = (await database.getAllAsync('PRAGMA foreign_key_check')).length;
+
+  await migrateDatabase(database);
+  await migrateDatabase(fresh);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  const after = await tableRows(database);
+  // Every row survives; the long names are shortened, and every other column of every row,
+  // the pending flags and the deleted row included, is exactly what the phone stored.
+  assert.deepEqual(after, withShortenedClosetNames(withRecordsUserId(before)));
+  assertShortenedClosetNames(after);
+  assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
+  assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, orphansBefore);
+  assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
+
+  // Re-entry through a second caller changes nothing.
+  await migrateDatabase(new NodeSqliteDatabase(database.database));
+  assert.deepEqual(await tableRows(database), after);
+});
+
+test('version 29 upgrades a version 28 database the same way', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await fillBuildEighteen(database, 'build-19-schema-27.sql');
+  await assert.rejects(() => migrateDatabase(failingInVersion29(database, 'stop at 28')),
+    /Migration to version 29 failed: stop at 28/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 28);
+  await addLongClosetNames(database);
+  const before = await tableRows(database);
+
+  await migrateDatabase(database);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 29);
+  const after = await tableRows(database);
+  assert.deepEqual(after, withShortenedClosetNames(before));
+  assertShortenedClosetNames(after);
+  assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
+});
+
+test('a failed version 29 migration rolls back and leaves version 28 with every row and name untouched', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await fillBuildEighteen(database, 'build-19-schema-27.sql');
+  await assert.rejects(() => migrateDatabase(failingInVersion29(database, 'stop at 28')),
+    /Migration to version 29 failed: stop at 28/);
+  await addLongClosetNames(database);
+  const before = await tableRows(database);
+  const schemaBefore = await sqliteSchema(database);
+
+  // The failure comes after the second name was already rewritten inside the transaction.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await assert.rejects(() => migrateDatabase(failingInVersion29(database, 'v29 failed', 2)),
+      /Migration to version 29 failed: v29 failed/);
+    assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 28);
+    assert.deepEqual(await sqliteSchema(database), schemaBefore);
+    assert.deepEqual(await tableRows(database), before);
+  }
+  await migrateDatabase(database);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 29);
+  assert.deepEqual(await tableRows(database), withShortenedClosetNames(before));
 });

@@ -2,7 +2,8 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
-function inForeground(state: string) {
+/** Whether an `AppState` value means the app is on screen. */
+export function inForeground(state: string) {
   return state !== 'background' && state !== 'inactive';
 }
 
