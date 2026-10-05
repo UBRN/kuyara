@@ -21,9 +21,9 @@ const knownBailouts = new Map([
   // A `finally` clause on the consent surfaces.
   ['features/analytics/presentation/analytics-consent-screen.tsx', 1],
   ['features/profile/presentation/privacy-settings-screen.tsx', 1],
-  // Naming the trailing evaluation from inside itself is the hoisting the compiler rejects,
-  // and compiling it would memoize `activeDeparture`'s `Date.now()` read, which is an impure
-  // read in render (react-hooks/purity) and needs a clock state, a timing change.
+  // Compiling it would memoize `activeDeparture`'s `Date.now()` read, which is an impure
+  // read in render (react-hooks/purity) and needs a clock state, a timing change; the provider
+  // opts out with 'use no memo'.
   ['features/recommendation/application/recommendation-application-provider.tsx', 1],
   // An arrow function the compiler cannot reorder.
   ['features/wardrobe/presentation/wardrobe-item-form-screen.tsx', 1],

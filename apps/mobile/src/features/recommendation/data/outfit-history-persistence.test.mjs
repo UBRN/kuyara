@@ -109,6 +109,30 @@ test('history skips corrupt rows while preserving seven valid reads and recommen
   assert.equal(recommendation.outfits.length, 3);
 });
 
+test('the seven latest looks read only as many rows as they need, and skip a corrupt row among them', async (t) => {
+  const db = await setup(t);
+  const photos = { copyStaged: async () => { throw new Error('unexpected photo copy'); },
+    discardStaged: async () => {}, deleteStored: async () => {}, resolveUri: () => null };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  for (let day = 1; day <= 30; day++) {
+    await repo.log(profileId, `2026-09-${String(day).padStart(2, '0')}`, first, { kind: 'keep' }, null);
+  }
+  await db.runAsync(`UPDATE outfit_history SET outfit_json = ? WHERE day_key = ?`,
+    ['{"garments":"invalid"}', '2026-09-28']);
+  let rowsRead = 0;
+  const readRows = db.getAllAsync.bind(db);
+  db.getAllAsync = async (...args) => {
+    const rows = await readRows(...args);
+    rowsRead += rows.length;
+    return rows;
+  };
+
+  const seven = await repo.lastSeven(profileId);
+
+  assert.deepEqual(seven.map(({ dayKey }) => dayKey.slice(-2)), ['30', '29', '27', '26', '25', '24', '23']);
+  assert.ok(rowsRead <= 14, `read ${rowsRead} rows for seven looks`);
+});
+
 test('history list reads preserve database errors', async () => {
   const unreadable = { getAllAsync: async () => { throw new Error('database unreadable'); } };
   const repo = new SqliteOutfitHistoryRepository(unreadable, randomUUID, () => now, {});

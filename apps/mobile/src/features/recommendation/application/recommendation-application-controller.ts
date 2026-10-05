@@ -36,10 +36,8 @@ import {
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
-import {
-  deriveClothingRequirements,
-  type ClothingRequirements,
-} from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { poolCompositionKey } from '@/features/recommendation/application/pool-composition-key';
 import { reusablePreviewRecommendation } from '@/features/recommendation/application/tomorrow-preview';
 import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
@@ -192,7 +190,23 @@ type Dependencies = Readonly<{
   // The evening's preview of this dressing day, if one was chosen. An approved trigger reuses
   // its selection instead of asking again when `reusablePreviewRecommendation` allows it.
   loadPreview?: (dayKey: string) => Promise<RecommendationSnapshot | null>;
+  // The deterministic composition. Optional so tests can make it throw.
+  composeFallback?: typeof recommendOutfits;
 }>;
+
+// One refresh request and the state only it owns: whether its AI answer is still awaited and
+// the deterministic three a skip saved for it. A skip belongs to the request it was made on, so
+// a later request never mistakes it for its own.
+type PendingRefresh = {
+  readonly key: string;
+  readonly context: RecommendationContext;
+  readonly input: RecommendationApplicationInput;
+  readonly trigger: RecommendationRefreshTrigger;
+  readonly poolOptionIds: readonly string[];
+  readonly pool: readonly OutfitCandidate[] | null;
+  aiPending: boolean;
+  skip: Promise<RecommendationSnapshot | null> | null;
+};
 
 // Long enough to be read, short enough that the deterministic three still feel immediate;
 // the AI phases have their own natural durations and need no hold.
@@ -261,31 +275,6 @@ function storedPool(
   }
 }
 
-function canonicalizePoolKeyValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalizePoolKeyValue);
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value)
-        .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
-        .map(([key, nested]) => [key, canonicalizePoolKeyValue(nested)]),
-    );
-  }
-  return value;
-}
-
-function poolCompositionKey(
-  requirements: ClothingRequirements,
-  clothingPreference: RecommendationApplicationInput['clothingPreference'],
-  dayVariant: number,
-  recentWorn: readonly WornOutfit[] = [],
-): string {
-  return JSON.stringify(canonicalizePoolKeyValue([
-    garmentCatalogVersion, requirements, clothingPreference, dayVariant,
-    recentWorn.slice(0, 7).map(({ garments }) =>
-      Object.values(garments).filter((id) => id !== undefined).sort()),
-  ]));
-}
-
 function poolCompositionKeyForInput(input: RecommendationApplicationInput): string {
   return poolCompositionKey(
     deriveClothingRequirements(input.snapshot, input.now, input.departureAt ?? input.now),
@@ -299,7 +288,10 @@ export class RecommendationApplicationController {
   private state: RecommendationApplicationState = { status: 'loading' };
   private repository: RecommendationRepository | null = null;
   private initializationPromise: Promise<void> | null = null;
-  private readonly refreshes = new Map<string, Promise<RecommendationSnapshot | null>>();
+  private readonly refreshes = new Map<string, Readonly<{
+    pending: PendingRefresh;
+    promise: Promise<RecommendationSnapshot | null>;
+  }>>();
   private latestRequestKey: string | null = null;
   private readonly listeners = new Set<Listener>();
   private readonly localProfileId: string;
@@ -307,22 +299,12 @@ export class RecommendationApplicationController {
   private readonly captureAnalyticsEvent: CaptureAnalyticsEvent;
   private readonly telemetry: PerformanceTelemetry | null;
   private readonly holdPhase: (milliseconds: number) => Promise<void>;
+  private readonly composeFallback: typeof recommendOutfits;
   private poolOptionIds: readonly string[] | null = null;
   private pool: readonly OutfitCandidate[] | null = null;
   private poolKey: string | null = null;
   private recentWorn: readonly WornOutfit[] = [];
   private previousOutfits: readonly RecommendedOutfit[] = [];
-  private pendingSkip: Readonly<{
-    key: string;
-    context: RecommendationContext;
-    input: RecommendationApplicationInput;
-    trigger: RecommendationRefreshTrigger;
-    poolOptionIds: readonly string[];
-    pool: readonly OutfitCandidate[] | null;
-  }> | null = null;
-  private skipPromise: Promise<RecommendationSnapshot | null> | null = null;
-  private aiPending = false;
-
   constructor(localProfileId: string, dependencies: Dependencies) {
     this.localProfileId = localProfileId;
     this.dependencies = dependencies;
@@ -330,6 +312,7 @@ export class RecommendationApplicationController {
     this.telemetry = dependencies.telemetry ?? null;
     this.holdPhase = dependencies.holdPhase
       ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    this.composeFallback = dependencies.composeFallback ?? recommendOutfits;
   }
 
   getSnapshot = (): RecommendationApplicationState => this.state;
@@ -432,29 +415,22 @@ export class RecommendationApplicationController {
     if (existing) {
       // The joined request may have been superseded meanwhile. It is the one the caller waits
       // on again, so it must be latest for its own finish to end the refreshing state.
-      if (this.latestRequestKey !== key) {
-        this.latestRequestKey = key;
-        this.pendingSkip = { key, context, input: generationInput, trigger, poolOptionIds, pool };
-        this.aiPending = request !== null;
-      }
-      return existing;
+      this.latestRequestKey = key;
+      return existing.promise;
     }
 
+    const pending: PendingRefresh = {
+      key, context, input: generationInput, trigger, poolOptionIds, pool,
+      aiPending: request !== null, skip: null,
+    };
     this.latestRequestKey = key;
-    this.pendingSkip = { key, context, input: generationInput, trigger, poolOptionIds, pool };
-    this.aiPending = request !== null;
     this.setRefreshing(true, generationInput);
-    const refresh = this.refreshOnce(key, context, request, generationInput, trigger, poolOptionIds, pool).finally(() => {
+    const promise = this.refreshOnce(pending, request).finally(() => {
       this.refreshes.delete(key);
-      if (this.latestRequestKey === key) {
-        this.pendingSkip = null;
-        this.skipPromise = null;
-        this.aiPending = false;
-        this.setRefreshing(false);
-      }
+      if (this.latestRequestKey === key) this.setRefreshing(false);
     });
-    this.refreshes.set(key, refresh);
-    return refresh;
+    this.refreshes.set(key, { pending, promise });
+    return promise;
   }
 
   /**
@@ -474,41 +450,49 @@ export class RecommendationApplicationController {
 
   /** Show the deterministic three now, without cancelling or starting an AI request. */
   skipWait(): Promise<RecommendationSnapshot | null> {
-    const pending = this.pendingSkip;
-    if (!pending || !this.aiPending || this.skipPromise) {
-      return this.skipPromise ?? Promise.resolve(this.currentSnapshot());
+    const pending = this.latestRefresh();
+    if (!pending || !pending.aiPending || pending.skip) {
+      return pending?.skip ?? Promise.resolve(this.currentSnapshot());
     }
-    this.skipPromise = (async () => {
-      const fallback = recommendOutfits(this.fallbackInput(pending.input, pending.trigger));
+    pending.skip = this.saveSkippedFallback(pending);
+    return pending.skip;
+  }
+
+  private latestRefresh(): PendingRefresh | null {
+    return this.latestRequestKey === null
+      ? null
+      : this.refreshes.get(this.latestRequestKey)?.pending ?? null;
+  }
+
+  private async saveSkippedFallback(pending: PendingRefresh): Promise<RecommendationSnapshot | null> {
+    try {
+      const fallback = this.composeFallback(this.fallbackInput(pending.input, pending.trigger));
       if (fallback.status !== 'recommended' || this.latestRequestKey !== pending.key) {
         return this.currentSnapshot();
       }
-      try {
-        const snapshot = await this.requireRepository().saveSnapshot(this.localProfileId, {
-          weatherSnapshotId: pending.input.snapshot.id,
-          locationKey: pending.input.snapshot.locationKey,
-          context: pending.context,
-          recommendation: fallback,
+      const snapshot = await this.requireRepository().saveSnapshot(this.localProfileId, {
+        weatherSnapshotId: pending.input.snapshot.id,
+        locationKey: pending.input.snapshot.locationKey,
+        context: pending.context,
+        recommendation: fallback,
+      });
+      if (this.latestRequestKey === pending.key) {
+        this.poolOptionIds = pending.poolOptionIds;
+        this.pool = pending.pool;
+        this.poolKey = poolCompositionKeyForInput(pending.input);
+        this.setReady({
+          status: 'ready', snapshot, isRefreshing: true, lastFailure: null,
+          phase: 'preparing-outfits',
+          exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
+          showFirstGenerationOverlay: false,
+          pool: this.pool,
         });
-        if (this.latestRequestKey === pending.key) {
-          this.poolOptionIds = pending.poolOptionIds;
-          this.pool = pending.pool;
-          this.poolKey = poolCompositionKeyForInput(pending.input);
-          this.setReady({
-            status: 'ready', snapshot, isRefreshing: true, lastFailure: null,
-            phase: 'preparing-outfits',
-            exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
-            showFirstGenerationOverlay: false,
-            pool: this.pool,
-          });
-        }
-        return snapshot;
-      } catch (error) {
-        this.setLastFailure(recommendationFailureCategory(error));
-        return this.currentSnapshot();
       }
-    })();
-    return this.skipPromise;
+      return snapshot;
+    } catch (error) {
+      this.setLastFailure(recommendationFailureCategory(error));
+      return this.currentSnapshot();
+    }
   }
 
   private async initializeOnce(localDayKey?: string): Promise<void> {
@@ -572,14 +556,10 @@ export class RecommendationApplicationController {
   }
 
   private async refreshOnce(
-    key: string,
-    context: RecommendationContext,
+    pending: PendingRefresh,
     request: AiRecommendV1Request | null,
-    input: RecommendationApplicationInput,
-    trigger: RecommendationRefreshTrigger,
-    poolOptionIds: readonly string[],
-    pool: readonly OutfitCandidate[] | null,
   ): Promise<RecommendationSnapshot | null> {
+    const { key, context, input, trigger, poolOptionIds, pool } = pending;
     // The deterministic fallback composes from the same catalog and effectively always
     // succeeds, so an AI failure alone is not a failure the user sees. It is still the
     // root cause when something after it leaves the state without a snapshot, so it is
@@ -595,14 +575,14 @@ export class RecommendationApplicationController {
       } catch {
         request = null;
       }
-      if (!request && this.latestRequestKey === key) this.aiPending = false;
+      if (!request) pending.aiPending = false;
     }
     if (request && trigger !== 'regenerate' && this.dependencies.loadPreview) {
       const preview = await this.dependencies.loadPreview(input.localDayKey).catch(() => null);
       recommendation = reusablePreviewRecommendation(preview, context, input.snapshot.locationKey);
       if (recommendation) {
         request = null;
-        if (this.latestRequestKey === key) this.aiPending = false;
+        pending.aiPending = false;
         this.setPhase(key, 'preparing-outfits');
       }
     }
@@ -626,11 +606,11 @@ export class RecommendationApplicationController {
           }
         }
       } finally {
-        if (this.latestRequestKey === key) this.aiPending = false;
+        pending.aiPending = false;
       }
     }
-    if (this.latestRequestKey === key && this.skipPromise) await this.skipPromise;
-    if (!recommendation && this.skipPromise
+    if (pending.skip) await pending.skip;
+    if (!recommendation && pending.skip
       && hasValidRecommendationForDay(this.currentSnapshot(), input.localDayKey)) {
       this.captureAnalyticsEvent('recommendation_regenerated', {
         schema_version: ANALYTICS_SCHEMA_VERSION,
@@ -646,7 +626,7 @@ export class RecommendationApplicationController {
       this.setPhase(key, 'using-standard');
       try {
         await this.holdPhase(usingStandardPhaseMilliseconds);
-        const fallback = recommendOutfits(this.fallbackInput(input, trigger));
+        const fallback = this.composeFallback(this.fallbackInput(input, trigger));
         if (fallback.status !== 'recommended') {
           this.setLastFailure(aiFailure ?? 'unknown');
           this.captureRegenerated(trigger, this.currentSnapshot() !== null);

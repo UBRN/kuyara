@@ -1,5 +1,5 @@
 import type { ClothingPreference } from '@/domain/preferences';
-import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
+import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
   evaluateGarmentEligibility,
@@ -45,7 +45,7 @@ export function accessoryCandidates(
   requirements: ClothingRequirements,
   preference: ClothingPreference,
 ): Readonly<Record<AccessoryOutfitSlot, readonly AccessoryCandidate[]>> {
-  const types = listGarmentTypesForPreference(preference).map(({ typeId }) => typeId);
+  const types = listSelectableGarmentTypes(preference).map(({ typeId }) => typeId);
   const offered = offeredAccessoriesBySlot(types.map((typeId) =>
     evaluateGarmentEligibility(requirements, projectCatalogEffectiveGarment(typeId, preference))));
   return Object.freeze(Object.fromEntries(accessoryOutfitSlots.map((slot) => {

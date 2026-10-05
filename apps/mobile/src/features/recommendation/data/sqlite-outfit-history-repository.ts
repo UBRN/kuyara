@@ -76,6 +76,9 @@ function validRows(rows: readonly Row[]): OutfitHistoryRecord[] {
   return records;
 }
 
+// How many of the newest looks the recommendation reads to avoid repeating them.
+const recentLookCount = 7;
+
 const live = `FROM outfit_history WHERE local_profile_id = ? AND deleted_at IS NULL`;
 
 async function readDay(db: SqliteExecutor, profileId: string, dayKey: string): Promise<OutfitHistoryRecord[]> {
@@ -119,9 +122,15 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
   }
 
   async lastSeven(profileId: string): Promise<readonly OutfitHistoryRecord[]> {
-    const rows = await this.db.getAllAsync<Row>(`SELECT ${columns} ${live}
-      ORDER BY day_key DESC, worn_at DESC`, [profileId]);
-    return validRows(rows).slice(0, 7);
+    // Newest first, a page at a time: a corrupt row is skipped and the next page fills its place.
+    const records: OutfitHistoryRecord[] = [];
+    for (let offset = 0; records.length < recentLookCount; offset += recentLookCount) {
+      const rows = await this.db.getAllAsync<Row>(`SELECT ${columns} ${live}
+        ORDER BY day_key DESC, worn_at DESC, id LIMIT ? OFFSET ?`, [profileId, recentLookCount, offset]);
+      records.push(...validRows(rows));
+      if (rows.length < recentLookCount) break;
+    }
+    return records.slice(0, recentLookCount);
   }
 
   async log(profileId: string, dayKey: string, outfit: WornOutfit,

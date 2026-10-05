@@ -13,7 +13,8 @@ import {
 
 import type { ClothingPreference, SupportedLanguage } from '@/domain/preferences';
 import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
-import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
+import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
+import { poolCompositionKey } from '@/features/recommendation/application/pool-composition-key';
 import {
   evaluateGarmentEligibility,
   projectCatalogEffectiveGarment,
@@ -204,12 +205,12 @@ export function excludeOutfitOptions(
   return filtered.length >= 3 ? Object.freeze(filtered) : outfits;
 }
 
-/** Every catalog garment of the profile's applicability, evaluated against the day: what the composer reads. */
+/** Every selectable catalog garment of the profile's applicability, evaluated against the day: what the composer reads. */
 export function eligibilityCandidates(
   requirements: ClothingRequirements,
   clothingPreference: ClothingPreference,
 ): readonly GarmentEligibilityResult[] {
-  return listGarmentTypesForPreference(clothingPreference).map((type) =>
+  return listSelectableGarmentTypes(clothingPreference).map((type) =>
     evaluateGarmentEligibility(
       requirements,
       projectCatalogEffectiveGarment(type.typeId, clothingPreference),
@@ -225,7 +226,7 @@ export function composeOutfitPool(
   dayVariant: number,
   recentWorn: readonly WornOutfit[] = [],
 ): OutfitCompositionsResult {
-  const key = JSON.stringify([requirements, clothingPreference, dayVariant, recentWorn]);
+  const key = poolCompositionKey(requirements, clothingPreference, dayVariant, recentWorn);
   if (lastComposedPool?.key === key) return lastComposedPool.result;
   const result = composeOutfitOptions(
     requirements,

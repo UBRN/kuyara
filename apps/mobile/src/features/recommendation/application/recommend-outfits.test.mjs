@@ -32,6 +32,23 @@ test('the same derived pool is reused when fallback follows context creation', (
   ), first);
 });
 
+// A pool read back from storage lists the same requirements with their properties in the
+// schema's order, not the order the derivation writes them in, and it is the same pool.
+function withReversedKeys(value) {
+  if (Array.isArray(value)) return value.map(withReversedKeys);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).reverse().map(([key, nested]) => [key, withReversedKeys(nested)]));
+  }
+  return value;
+}
+
+test('requirements that list the same properties in another order share the composed pool', () => {
+  const derived = deriveClothingRequirements(snapshot(), observedAt);
+  const stored = withReversedKeys(derived);
+  assert.notEqual(JSON.stringify(stored), JSON.stringify(derived));
+  assert.strictEqual(composeOutfitPool(stored, 'womens', 0), composeOutfitPool(derived, 'womens', 0));
+});
+
 const observedAt = '2026-08-01T18:00:00.000Z';
 const futureAt = '2026-08-01T19:00:00.000Z';
 
