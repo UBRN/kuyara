@@ -3,8 +3,8 @@
 // clause anywhere in its body, or a suppressed hooks lint rule. A skipped component re-renders its entire subtree whenever it
 // renders: TodayRoute did, and Today drew on every navigation commit (measured 2026-09-29).
 // Jest does not run the compiler, so a render count cannot see that; this test compiles every
-// production .tsx file with the compiler's own logger and fails on any bail-out that the
-// list below does not name.
+// production .ts and .tsx file (hooks live in .ts files) with the compiler's own logger and
+// fails on any bail-out that the list below does not name.
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -25,6 +25,14 @@ const knownBailouts = new Map([
   // read in render (react-hooks/purity) and needs a clock state, a timing change; the provider
   // opts out with 'use no memo'.
   ['features/recommendation/application/recommendation-application-provider.tsx', 1],
+  // Hooks. A conditional inside a try/catch.
+  ['features/recommendation/application/use-ai-probe.ts', 1],
+  // A logical expression the compiler cannot reorder.
+  ['features/recommendation/application/use-manual-mix.ts', 1],
+  // A suppressed hooks lint rule.
+  ['features/analytics/application/use-interaction-events.ts', 1],
+  // A `??=` assignment.
+  ['features/analytics/application/use-analytics-consent.ts', 1],
 ]);
 
 // The screens on the Today and Weather tabs and the outfit detail must also compile at least
@@ -67,7 +75,7 @@ const knownPruned = new Map([
 
 const files = readdirSync(sourceRoot, { recursive: true })
   .map((file) => file.split(path.sep).join('/'))
-  .filter((file) => file.endsWith('.tsx') && !file.endsWith('.test.tsx') && !file.includes('__tests__/'))
+  .filter((file) => /\.tsx?$/.test(file) && !/\.(test|d)\.tsx?$/.test(file) && !file.includes('__tests__/'))
   .sort();
 
 const report = JSON.parse(execFileSync(
@@ -98,7 +106,7 @@ for (const [file, pruned] of knownPruned) {
 test('the bail-out list and the hot path name production files that exist', () => {
   for (const file of [...knownBailouts.keys(), ...hotPath, ...knownPruned.keys()]) {
     assert.ok(existsSync(path.join(sourceRoot, file)), `${file} no longer exists`);
-    assert.ok(files.includes(file), `${file} is not a production .tsx file`);
+    assert.ok(files.includes(file), `${file} is not a production source file`);
   }
   for (const [file, count] of knownBailouts) {
     assert.ok(count > 0, `${file} is listed with no bail-outs`);

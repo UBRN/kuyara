@@ -71,13 +71,12 @@ test('a time zone is valid when Intl names it', () => {
 });
 
 // Shrink-only: these files still build a formatter per call, each for a device-zone clock,
-// a rare path or a one-off value. A new render path goes through intl-format.ts instead.
+// a rare path or a one-off value. A new render path goes through intl-format.ts instead. The
+// counts are exact, so a file that drops a construction must lower its entry here.
 const allowedConstructions = new Map([
   ['domain/intl-format.ts', 3],
-  ['features/profile/presentation/service-providers-screen.tsx', 1],
   ['features/profile/presentation/settings-screen.tsx', 1],
-  ['features/today/presentation/today-presentation.ts', 3],
-  ['features/weather/presentation/weather-screen.tsx', 1],
+  ['features/today/presentation/today-presentation.ts', 2],
   ['localization/device-locale.ts', 1],
 ]);
 
@@ -91,9 +90,7 @@ test('formatter construction outside intl-format.ts only shrinks', () => {
     const count = readFileSync(path, 'utf8').match(/new Intl\.(?:DateTimeFormat|NumberFormat)\(/gu)?.length ?? 0;
     if (count > 0) found.set(relative(root, path), count);
   }
-  for (const [file, count] of found) {
-    assert.ok(count <= (allowedConstructions.get(file) ?? 0), `${file} builds ${count} formatters per call`);
-  }
+  assert.deepEqual(found, allowedConstructions);
 });
 
 test('a zone date key is the date the zone clock reads, across the date line and year end', () => {
