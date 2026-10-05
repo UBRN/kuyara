@@ -49,11 +49,12 @@ export type AccountRowsSourcePort = Readonly<{
   saveLink: (link: AccountLink) => Promise<void>;
   /**
    * One transaction writes winners, marks rows to send pending and saves `link`, cursor included.
-   * Under the consent (`merge.syncConsent`) the record rows of `local`, the rows the merge read,
-   * that it does not send are settled: their pending flags clear while the row still holds the
-   * identity and `updatedAt` read, so a deletion older than the marker window never uploads
-   * later and a row written during the pull keeps its flag. A
-   * profile that lacks dress style and style aesthetics writes only the fields it carries.
+   * The rows of `local`, the rows the merge read (the profile, and the records under the consent,
+   * `merge.syncConsent`), are settled: their pending flags clear while the row still holds the
+   * identity and `updatedAt` read, so a deletion older than the marker window never uploads later.
+   * A row written during the pull keeps its flag and its content: no winner lands over it, and it
+   * uploads with the next pass. A profile that lacks dress style and style aesthetics writes only
+   * the fields it carries.
    */
   applyFirstLink: (merge: MergeResult, link: AccountLink, local: AccountRows) => Promise<void>;
   /** Compare identity and updatedAt again inside the write transaction before clearing. */

@@ -211,6 +211,8 @@ const linkOf = (row: LinkRow | null): AccountLink => (row === null ? unlinked : 
   cursor: row.last_pull_cursor,
 });
 
+const noRecords = { wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] } as const;
+
 const syncedTables = ['wardrobe_items', 'dressing_day_choices', 'dressing_day_departures', 'outfit_history'] as const;
 
 /**
@@ -267,17 +269,17 @@ const whereValues = (byDay: boolean, profileId: string, row: Keyed) =>
   (byDay ? [profileId, row.dayKey ?? ''] : [row.id]);
 
 /**
- * Lands one account row as a settled row (pending cleared). A pending row is left alone unless
- * `overPending` (the first link, where the account's copy wins). A day-keyed row adopts the
- * account's id. A row the phone cannot store (a constraint this build enforces) is skipped, so
- * one row never stalls every later pass; any other write failure throws.
+ * Lands one account row as a settled row (pending cleared). A pending row is left alone: it waits
+ * to upload, and its later arrival wins on the account. A day-keyed row adopts the account's id.
+ * A row the phone cannot store (a constraint this build enforces) is skipped, so one row never
+ * stalls every later pass; any other write failure throws.
  */
 async function land<Item extends Keyed>(
-  db: SqliteExecutor, write: TableWrite<Item>, profileId: string, row: Item, overPending: boolean,
+  db: SqliteExecutor, write: TableWrite<Item>, profileId: string, row: Item,
 ): Promise<void> {
   const own = await db.getFirstAsync<Flag>(
     `SELECT pending_sync FROM ${write.table} WHERE ${where(write.byDay)}`, whereValues(write.byDay, profileId, row));
-  if (own?.pending_sync === 1 && !overPending) return;
+  if (own?.pending_sync === 1) return;
   const content = write.values(row);
   try {
     if (own !== null) {
@@ -305,11 +307,11 @@ async function land<Item extends Keyed>(
  * as a value, never clearing the phone's, because product logic needs both; style aesthetics
  * and dress style only when the profile carries them (the consent).
  */
-async function landProfile(db: SqliteExecutor, profile: AccountProfile, overPending: boolean): Promise<void> {
+async function landProfile(db: SqliteExecutor, profile: AccountProfile): Promise<void> {
   const consent = profile.dressStyle !== undefined && profile.styleAesthetics !== undefined;
   await db.runAsync(`UPDATE local_profiles SET display_name = ?, gender = COALESCE(?, gender)
     ${consent ? ', dress_style = COALESCE(?, dress_style), style_aesthetics = ?' : ''}, pending_sync = 0
-    WHERE singleton_key = 1 ${overPending ? '' : 'AND pending_sync = 0'}`,
+    WHERE singleton_key = 1 AND pending_sync = 0`,
   [profile.displayName, profile.gender,
     ...(consent ? [profile.dressStyle ?? null, JSON.stringify(orderStyleAesthetics(profile.styleAesthetics ?? []))] : [])]);
 }
@@ -320,16 +322,17 @@ async function profileIdOf(db: SqliteExecutor): Promise<string> {
   return row.id;
 }
 
-async function landAll(db: SqliteExecutor, rows: AccountRows, overPending: boolean): Promise<void> {
-  if (rows.profile !== null) await landProfile(db, rows.profile, overPending);
+/** Lands every row of `rows` that is not waiting to upload. */
+async function landAll(db: SqliteExecutor, rows: AccountRows): Promise<void> {
+  if (rows.profile !== null) await landProfile(db, rows.profile);
   const hasRecords = rows.wardrobeItems.length + rows.dressingDayChoices.length
     + rows.dressingDayDepartures.length + rows.outfitHistory.length > 0;
   if (!hasRecords) return;
   const profileId = await profileIdOf(db);
-  for (const item of rows.wardrobeItems) await land(db, wardrobeWrite, profileId, item, overPending);
-  for (const choice of rows.dressingDayChoices) await land(db, choiceWrite, profileId, choice, overPending);
-  for (const departure of rows.dressingDayDepartures) await land(db, departureWrite, profileId, departure, overPending);
-  for (const record of rows.outfitHistory) await land(db, historyWrite, profileId, record, overPending);
+  for (const item of rows.wardrobeItems) await land(db, wardrobeWrite, profileId, item);
+  for (const choice of rows.dressingDayChoices) await land(db, choiceWrite, profileId, choice);
+  for (const departure of rows.dressingDayDepartures) await land(db, departureWrite, profileId, departure);
+  for (const record of rows.outfitHistory) await land(db, historyWrite, profileId, record);
 }
 
 /** Marks or clears the flag of each row of `rows` by its identity; `updatedAt` when `matchVersion`. */
@@ -413,10 +416,12 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
     saveLink: (link) => write((transaction) => saveLinkIn(transaction, link)),
     applyFirstLink(merge: MergeResult, link: AccountLink, local: AccountRows) {
       return write(async (transaction) => {
-        // Under the consent the merge settles every record it read: what it does not send never
-        // uploads. A row written since the read (another identity or `updatedAt`) keeps its flag.
-        if (merge.syncConsent) await setPending(transaction, { ...local, profile: null }, 0, true);
-        await landAll(transaction, merge.writeToPhone, true);
+        // The merge settles the profile it read and, under the consent, every record it read: the
+        // account's copy lands over it, and what it does not send never uploads. A row written
+        // since the read (another identity or `updatedAt`) keeps its flag, so the account's copy
+        // does not land over it and the edit uploads with the next pass.
+        await setPending(transaction, merge.syncConsent ? local : { ...noRecords, profile: local.profile }, 0, true);
+        await landAll(transaction, merge.writeToPhone);
         await setPending(transaction, merge.sendToAccount, 1, false);
         await saveLinkIn(transaction, link);
       }, landing(merge.writeToPhone));
@@ -426,7 +431,7 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
     },
     writePulled(rows, cursor) {
       return write(async (transaction) => {
-        await landAll(transaction, rows, false);
+        await landAll(transaction, rows);
         await transaction.runAsync('UPDATE device_account_link SET last_pull_cursor = ? WHERE singleton_key = 1', [cursor]);
       }, landing(rows));
     },

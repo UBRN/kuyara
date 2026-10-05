@@ -119,7 +119,7 @@ test('a pulled profile writes the synced fields only, never clears gender or dre
   assert.equal((await database.getFirstAsync(select)).display_name, 'Mine');
 });
 
-test('a first link writes the account\'s winners over pending rows, marks what goes, and saves the link in one transaction', async (t) => {
+test('a first link writes the account\'s winners over the pending rows it read, marks what goes, and saves the link in one transaction', async (t) => {
   const { database, source } = await setup(t);
   await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1, { name: 'Phone copy' })), mine(wardrobeItem(2))] }, null);
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
@@ -163,6 +163,40 @@ test('a first link leaves the flag of a row written after the merge read it, and
     { id: uuid(1), pending_sync: 0 }, { id: uuid(2), pending_sync: 1 }, { id: uuid(4), pending_sync: 1 }, { id: uuid(7), pending_sync: 1 },
   ]);
   assert.deepEqual(await flag(database, 'dressing_day_choices'), [1]);
+});
+
+test('a first link keeps an edit made while the account downloads: the row stays the phone\'s and waits to upload', async (t) => {
+  const { database, source } = await setup(t);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1, { name: 'Phone copy' })), mine(wardrobeItem(2))] }, null);
+  await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
+  await database.runAsync('UPDATE local_profiles SET pending_sync = 1');
+  const uploads = [];
+  const remote = {
+    async pullSnapshot() {
+      // The person renames a piece and themselves while the account downloads.
+      await database.runAsync('UPDATE wardrobe_items SET name = ?, updated_at = ?, pending_sync = 1 WHERE id = ?',
+        ['Edited during the link', stamp(9), uuid(1)]);
+      await database.runAsync('UPDATE local_profiles SET display_name = ?, updated_at = ?, pending_sync = 1', ['Edited', stamp(9)]);
+      return { rows: { ...none, profile: syncedProfile({ displayName: 'Account' }),
+        wardrobeItems: [wardrobeItem(1, { name: 'Account copy' }), wardrobeItem(2, { name: 'Account two' })] }, cursor: null };
+    },
+    upload: async (_user, sent) => { uploads.push(sent); return sent; },
+    pull: async () => ({ ...none, arrivals: [] }),
+  };
+
+  await createAccountSyncFlow(source, remote, () => stamp(10)).firstLink('user-a', true);
+
+  const rows = await database.getAllAsync('SELECT id, name, pending_sync FROM wardrobe_items ORDER BY id');
+  assert.deepEqual(rows.map((row) => ({ ...row })), [
+    { id: uuid(1), name: 'Edited during the link', pending_sync: 1 },
+    { id: uuid(2), name: 'Account two', pending_sync: 0 },
+  ]);
+  const profile = await database.getFirstAsync('SELECT display_name, pending_sync FROM local_profiles');
+  assert.deepEqual({ ...profile }, { display_name: 'Edited', pending_sync: 1 });
+  // The edits go with the next pass, so their later arrival wins on the account.
+  const waiting = await source.read();
+  assert.equal(await source.hasPending(true), true);
+  assert.deepEqual(waiting.wardrobeItems.filter(({ pendingSync }) => pendingSync).map(({ row }) => row.name), ['Edited during the link']);
 });
 
 /** The database with every transaction `runAsync` whose SQL `fails` matches rejecting as a full disk would. */
