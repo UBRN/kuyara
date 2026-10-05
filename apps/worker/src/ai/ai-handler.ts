@@ -210,7 +210,7 @@ export function createAiHandler({
     for (const [attemptIndex, provider] of providers.slice(0, maxAttempts).entries()) {
       if (provider.id === 'workers-ai') {
         if (workersAiPoolSpent) continue;
-        // An attempt is counted only when there is time left to make it.
+        // An attempt is not counted once no time is left to make it.
         if (nextAttemptWindowMs() === undefined) break;
         if (dailyCounter && dailyLimit !== undefined) {
           const dateKey = dailyCounterKey('ai:workers-ai', now());
