@@ -448,11 +448,43 @@ test('mapper rejects both choice columns and known choices with conflicting fami
     ...record, colorCustomHex: '#FFFFFF',
   }), WardrobeItemMappingError);
   assert.throws(() => mapWardrobeItemRecord({
-    ...record, colorFamily: 'black',
-  }), WardrobeItemMappingError);
-  assert.throws(() => mapWardrobeItemRecord({
     ...record, colorOptionId: null, colorCustomHex: '#abcdef',
   }), WardrobeItemMappingError);
+});
+
+test('a stored family the palette no longer agrees with drops the choice and keeps the family', async (t) => {
+  const { dataSource, repository } = await createRepository(t);
+  const option = await repository.createItem({
+    localProfileId: profileId, garmentTypeId: 't_shirt',
+    colorChoice: { kind: 'option', id: 'white' },
+  });
+  const record = await dataSource.getActiveItem(profileId, option.id);
+
+  const mapped = mapWardrobeItemRecord({ ...record, colorFamily: 'black' });
+
+  assert.equal(mapped.colorChoice, null);
+  assert.equal(mapped.colorFamily, 'black');
+});
+
+test('one piece whose custom colour disagrees with its family does not blank the Closet', async (t) => {
+  const { database, repository } = await createRepository(t);
+  const first = await repository.createItem({ localProfileId: profileId, garmentTypeId: 't_shirt' });
+  const custom = await repository.createItem({
+    localProfileId: profileId, garmentTypeId: 't_shirt',
+    colorChoice: { kind: 'custom', hex: '#FF0000' },
+  });
+  const last = await repository.createItem({ localProfileId: profileId, garmentTypeId: 't_shirt' });
+  // The palette changed under the row: the stored family no longer matches the custom hex.
+  await database.runAsync(
+    'UPDATE wardrobe_items SET color_family = ? WHERE id = ?', ['blue', custom.id],
+  );
+
+  const items = await repository.listActiveItems(profileId);
+
+  assert.deepEqual(items.map((item) => item.id).sort(), [first.id, custom.id, last.id].sort());
+  const listed = items.find((item) => item.id === custom.id);
+  assert.equal(listed.colorChoice, null);
+  assert.equal(listed.colorFamily, 'blue');
 });
 
 test('taxonomy fields round-trip and update distinguishes omission from clearing an override', async (t) => {

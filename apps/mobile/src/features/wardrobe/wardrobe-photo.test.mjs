@@ -20,13 +20,35 @@ import {
 
 const nativeImageCalls = [];
 const nativeFiles = new Set();
+const nativeDirectories = new Set();
+const nativeModified = new Map();
 let nativeCopyFailure = null;
 let nativeDeleteFailure = null;
 let nativeSaveFailure = null;
 
 globalThis.__kuyaraWardrobePhotoNativeMocks = {
   Directory: class {
-    create() {}
+    constructor(...parts) {
+      this.uri = nativeFileUri(parts);
+    }
+
+    get exists() {
+      return nativeDirectories.has(this.uri);
+    }
+
+    create() {
+      nativeDirectories.add(this.uri);
+    }
+
+    list() {
+      const { Directory, File } = globalThis.__kuyaraWardrobePhotoNativeMocks;
+      const prefix = `${this.uri}/`;
+      const isChild = (uri) => uri.startsWith(prefix) && !uri.slice(prefix.length).includes('/');
+      return [
+        ...[...nativeDirectories].filter(isChild).map((uri) => new Directory(uri)),
+        ...[...nativeFiles].filter(isChild).map((uri) => new File(uri)),
+      ];
+    }
   },
   File: class {
     constructor(...parts) {
@@ -37,13 +59,26 @@ globalThis.__kuyaraWardrobePhotoNativeMocks = {
       return nativeFiles.has(this.uri);
     }
 
+    get name() {
+      return this.uri.slice(this.uri.lastIndexOf('/') + 1);
+    }
+
+    get lastModified() {
+      // Like the real module on a failed read, a file without a recorded time answers undefined.
+      return nativeModified.get(this.uri);
+    }
+
     async copy(destination) {
       nativeFiles.add(destination.uri);
       if (nativeCopyFailure) throw nativeCopyFailure;
     }
 
     delete() {
-      if (nativeDeleteFailure) throw nativeDeleteFailure;
+      // An error fails every delete; a function picks the files that fail.
+      const failure = typeof nativeDeleteFailure === 'function'
+        ? nativeDeleteFailure(this.uri)
+        : nativeDeleteFailure;
+      if (failure) throw failure;
       nativeFiles.delete(this.uri);
     }
   },
@@ -171,6 +206,8 @@ const restrictedPermission = Object.freeze({
   granted: false, status: 'denied', canAskAgain: false, expires: 'never',
 });
 
+// The launch sweep reads the clock only when a photo manager is present.
+const testClock = () => new Date('2026-07-30T12:00:00.000Z');
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const itemId = '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const stagedPhoto = Object.freeze({
@@ -428,6 +465,8 @@ test('photo manager stops before storage and repository when processing rejects'
     profileId,
     async () => repository(repositoryEvents, { current: null }),
     processorFailure,
+    undefined,
+    testClock,
   );
   await processorController.initialize();
   await assert.rejects(() => processorController.preparePhoto(), /processor failed/);
@@ -515,6 +554,8 @@ test('failed private copy removes its partial destination before repository writ
     profileId,
     async () => repository(repositoryEvents, { current: null }),
     manager,
+    undefined,
+    testClock,
   );
   await controller.initialize();
 
@@ -605,6 +646,8 @@ function photoManager(events, options = {}) {
         throw new Error('cleanup failed');
       }
     },
+    async listManagedPhotos() { return []; },
+    async discardStaleStagedPhotos() {},
     resolvePhotoUri(path) { return path ? `file:///documents/${path}` : null; },
   };
 }
@@ -618,6 +661,7 @@ function repository(events, options = {}) {
         ? [{ id: current.id, photoRelativePath: current.photoRelativePath }]
         : [];
     },
+    async listPhotoPathsInUse() { return current?.photoRelativePath ? [current.photoRelativePath] : []; },
     async clearPendingPhotoCleanup(_localProfileId, id, photoRelativePath) {
       events.push('clear-pending');
       if (options.failPendingClear) throw new Error('clear pending failed');
@@ -663,6 +707,7 @@ async function readyController(events, repositoryOptions = {}, managerOptions = 
     async () => repo,
     photoManager(events, managerOptions),
     () => { cleanupReports += 1; },
+    testClock,
   );
   await controller.initialize();
   return { controller, repo, cleanupReports: () => cleanupReports };
@@ -815,6 +860,8 @@ test('initialization retries a pending deletion and clears the tombstone path', 
     profileId,
     async () => repo,
     photoManager(events),
+    undefined,
+    testClock,
   );
 
   await controller.initialize();
@@ -845,6 +892,7 @@ test('a still-failing retry stays pending without blocking or failing initializa
     async () => repo,
     retryingManager,
     () => { cleanupReports += 1; },
+    testClock,
   );
 
   await controller.initialize();
@@ -875,6 +923,8 @@ test('pending cleanup never sends unmanaged or live-referenced paths to storage'
       profileId,
       async () => repo,
       photoManager(events),
+      undefined,
+      testClock,
     );
 
     await controller.initialize();
@@ -926,6 +976,17 @@ test('deleteStoredPhoto removes a managed file, tolerates a missing one and skip
   assert.equal(nativeFiles.has(traversal), true);
 });
 
+test('deleteStoredPhoto removes the file the normalized path names, not the raw padded string', async (t) => {
+  t.after(() => nativeFiles.clear());
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  nativeFiles.clear();
+  nativeFiles.add(`file:///documents/${newPath}`);
+
+  await storage.deleteStoredPhoto(` ${newPath} `);
+
+  assert.equal(nativeFiles.has(`file:///documents/${newPath}`), false);
+});
+
 test('commitStagedPhoto copies a staged file to a managed path and rejects a missing staged file', async (t) => {
   t.after(() => nativeFiles.clear());
   const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
@@ -941,6 +1002,125 @@ test('commitStagedPhoto copies a staged file to a managed path and rejects a mis
   assert.equal(stored.relativePath, newPath);
   assert.equal(stored.previewUri, `file:///documents/${newPath}`);
   assert.equal(nativeFiles.has(`file:///documents/${newPath}`), true);
+});
+
+function resetNativeFiles(t) {
+  nativeFiles.clear();
+  nativeDirectories.clear();
+  nativeModified.clear();
+  t.after(() => {
+    nativeFiles.clear();
+    nativeDirectories.clear();
+    nativeModified.clear();
+    nativeCopyFailure = null;
+    nativeDeleteFailure = null;
+  });
+}
+
+test('listManagedPhotos lists only the managed photo files with their modification time', async (t) => {
+  resetNativeFiles(t);
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  assert.deepEqual(await storage.listManagedPhotos(), [], 'no directory yet');
+
+  const directory = 'file:///documents/kuyara/wardrobe/photos';
+  nativeDirectories.add(directory);
+  const withTime = `kuyara/wardrobe/photos/${'118f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.jpg`;
+  const undated = `kuyara/wardrobe/photos/${'318f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.jpg`;
+  nativeFiles.add(`file:///documents/${withTime}`);
+  nativeModified.set(`file:///documents/${withTime}`, 1_700_000_000_000);
+  nativeFiles.add(`file:///documents/${undated}`);
+  const zeroTime = `kuyara/wardrobe/photos/${'718f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.jpg`;
+  nativeFiles.add(`file:///documents/${zeroTime}`);
+  nativeModified.set(`file:///documents/${zeroTime}`, 0);
+  const nanTime = `kuyara/wardrobe/photos/${'818f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.jpg`;
+  nativeFiles.add(`file:///documents/${nanTime}`);
+  nativeModified.set(`file:///documents/${nanTime}`, Number.NaN);
+  // Never listed: a name that is not a UUID v4, another extension, a directory with a managed name.
+  nativeFiles.add(`${directory}/legacy.jpg`);
+  nativeFiles.add(`${directory}/${'118f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.png`);
+  nativeFiles.add(`${directory}/not-a-uuid-118f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg`);
+  nativeDirectories.add(`${directory}/${'518f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.jpg`);
+  // Another feature's directory next to it is never read.
+  nativeFiles.add(`file:///documents/kuyara/history/photos/${'618f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.jpg`);
+
+  const listed = await storage.listManagedPhotos();
+
+  assert.deepEqual(
+    [...listed].sort((left, right) => left.relativePath.localeCompare(right.relativePath)),
+    [
+      { relativePath: withTime, modifiedAtMs: 1_700_000_000_000 },
+      { relativePath: undated, modifiedAtMs: null },
+      { relativePath: zeroTime, modifiedAtMs: null },
+      { relativePath: nanTime, modifiedAtMs: null },
+    ].sort((left, right) => left.relativePath.localeCompare(right.relativePath)),
+  );
+});
+
+test('a partial copy whose cleanup also failed stays listed, so the launch sweep can find it', async (t) => {
+  resetNativeFiles(t);
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  nativeFiles.add(`file:///cache/kuyara/wardrobe/staging/${stagedPhoto.id}.jpg`);
+  nativeCopyFailure = new Error('copy failed');
+  nativeDeleteFailure = new Error('delete failed');
+  nativeModified.set(`file:///documents/${newPath}`, 1_700_000_000_000);
+
+  await assert.rejects(
+    () => storage.commitStagedPhoto(stagedPhoto),
+    (error) => error === nativeCopyFailure,
+  );
+
+  assert.deepEqual(await storage.listManagedPhotos(), [
+    { relativePath: newPath, modifiedAtMs: 1_700_000_000_000 },
+  ]);
+});
+
+test('discardStaleStagedPhotos removes only the staged files last modified before the cutoff', async (t) => {
+  resetNativeFiles(t);
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  const staging = 'file:///cache/kuyara/wardrobe/staging';
+  await storage.discardStaleStagedPhotos(1000);
+
+  nativeDirectories.add(staging);
+  const files = { old: `${staging}/old.jpg`, atCutoff: `${staging}/at-cutoff.jpg`, young: `${staging}/young.jpg`, undated: `${staging}/undated.jpg` };
+  for (const uri of Object.values(files)) nativeFiles.add(uri);
+  nativeModified.set(files.old, 999);
+  nativeModified.set(files.atCutoff, 1000);
+  nativeModified.set(files.young, 5000);
+  // A time that is not a positive finite number is no time at all: Android answers 0 on an I/O error.
+  for (const [name, time] of [['zero', 0], ['negative', -5], ['nan', Number.NaN]]) {
+    files[name] = `${staging}/${name}.jpg`;
+    nativeFiles.add(files[name]);
+    nativeModified.set(files[name], time);
+  }
+  nativeDirectories.add(`${staging}/folder.jpg`);
+  // Never reached: the document photos and a cache file outside the staging directory.
+  nativeFiles.add(`file:///documents/${newPath}`);
+  nativeFiles.add('file:///cache/other.jpg');
+
+  await storage.discardStaleStagedPhotos(1000);
+
+  assert.equal(nativeFiles.has(files.old), false);
+  for (const uri of [files.atCutoff, files.young, files.undated, files.zero, files.negative, files.nan, `file:///documents/${newPath}`, 'file:///cache/other.jpg']) {
+    assert.equal(nativeFiles.has(uri), true, uri);
+  }
+  assert.equal(nativeDirectories.has(`${staging}/folder.jpg`), true);
+});
+
+test('discardStaleStagedPhotos keeps going past a file it cannot delete and then reports the failure', async (t) => {
+  resetNativeFiles(t);
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  const staging = 'file:///cache/kuyara/wardrobe/staging';
+  nativeDirectories.add(staging);
+  for (const name of ['a', 'b']) {
+    nativeFiles.add(`${staging}/${name}.jpg`);
+    nativeModified.set(`${staging}/${name}.jpg`, 1);
+  }
+  const failure = new Error('delete failed');
+  nativeDeleteFailure = (uri) => (uri.endsWith('/a.jpg') ? failure : null);
+
+  await assert.rejects(() => storage.discardStaleStagedPhotos(1000), (error) => error === failure);
+
+  assert.deepEqual([...nativeFiles], [`${staging}/a.jpg`], 'the other file was still removed');
 });
 
 test('stagePhoto rejects a source that is missing or outside the private cache', async (t) => {

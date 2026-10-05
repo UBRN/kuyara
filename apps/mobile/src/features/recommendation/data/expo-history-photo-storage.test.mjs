@@ -8,6 +8,7 @@ import { fileUri as nativeUri } from '../../../../test/file-uri.mjs';
 const nativeFiles = new Set();
 const createdDirectories = [];
 let nativeCopyFailure = null;
+let nativeDeleteFailure = null;
 
 globalThis.__kuyaraHistoryPhotoNativeMocks = {
   Directory: class {
@@ -21,7 +22,10 @@ globalThis.__kuyaraHistoryPhotoNativeMocks = {
       nativeFiles.add(destination.uri);
       if (nativeCopyFailure) throw nativeCopyFailure;
     }
-    delete() { nativeFiles.delete(this.uri); }
+    delete() {
+      if (nativeDeleteFailure) throw nativeDeleteFailure;
+      nativeFiles.delete(this.uri);
+    }
   },
   Paths: { cache: { uri: 'file:///cache' }, document: { uri: 'file:///documents' } },
 };
@@ -52,7 +56,8 @@ function reset(t) {
   nativeFiles.clear();
   createdDirectories.length = 0;
   nativeCopyFailure = null;
-  t.after(() => { nativeFiles.clear(); nativeCopyFailure = null; });
+  nativeDeleteFailure = null;
+  t.after(() => { nativeFiles.clear(); nativeCopyFailure = null; nativeDeleteFailure = null; });
 }
 
 test('copyStaged copies a staged file to the managed history path', async (t) => {
@@ -105,6 +110,15 @@ test('a failing copy leaves no partial destination behind and rethrows the copy 
   await assert.rejects(() => storage.copyStaged(stagedUri), (error) => error === nativeCopyFailure);
   assert.equal(nativeFiles.has(storedUri), false);
   assert.equal(nativeFiles.has(stagedUri), true);
+});
+
+test('a failing copy whose partial file cannot be removed still rethrows the copy error', async (t) => {
+  reset(t);
+  nativeFiles.add(stagedUri);
+  nativeCopyFailure = new Error('copy failed');
+  nativeDeleteFailure = new Error('delete failed');
+  const storage = new ExpoHistoryPhotoStorage(() => photoId);
+  await assert.rejects(() => storage.copyStaged(stagedUri), (error) => error === nativeCopyFailure);
 });
 
 test('deleteStored removes a managed file, tolerates a missing one and never touches an unmanaged path', async (t) => {

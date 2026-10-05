@@ -49,6 +49,19 @@ test('read returns every row of the five tables, soft-deleted ones too, with its
   assert.deepEqual(rows.outfitHistory.map(({ row }) => row), [mine(historyDay(5, '2026-09-10', { photoPath: null }))]);
 });
 
+// The Closet shows a piece whose colour choice disagrees with its family (the phone drops the
+// choice), but the account reads that row strictly: it stays on the phone and out of the push
+// until it is edited, so the account is never sent a colour it would refuse.
+test('a wardrobe row whose colour columns disagree is left out of what the account reads', async (t) => {
+  const { database, source } = await setup(t);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2))] }, null);
+  await database.runAsync(`UPDATE wardrobe_items SET color_family = 'black' WHERE id = ?`, [uuid(2)]);
+
+  const rows = await source.read();
+
+  assert.deepEqual(rows.wardrobeItems.map(({ row }) => row.id), [uuid(1)]);
+});
+
 test('a pull lands settled rows only, under this phone\'s profile, never touching photos or pending rows', async (t) => {
   const { database, source } = await setup(t);
   await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2))] }, null);

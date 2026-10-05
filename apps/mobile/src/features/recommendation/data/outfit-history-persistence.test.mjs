@@ -276,6 +276,25 @@ test('history file cleanup that rejects never fails a write that already committ
   assert.deepEqual(await repo.list(profileId), []);
 });
 
+test('a delete that committed is reported as done even when the photo cleanup query then rejects', async (t) => {
+  const db = await setup(t);
+  const photos = {
+    copyStaged: async () => `kuyara/history/photos/${randomUUID()}.jpg`,
+    discardStaged: async () => {},
+    deleteStored: async () => {},
+    resolveUri: () => null,
+  };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  const look = await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' }, null);
+  // Only the cleanup reads through getAllAsync, and it runs after the delete has committed.
+  db.getAllAsync = async () => { throw new Error('database is locked'); };
+
+  assert.equal(await repo.softDelete(profileId, look.id), true);
+
+  const row = await db.getFirstAsync('SELECT deleted_at FROM outfit_history WHERE id = ?', [look.id]);
+  assert.notEqual(row.deleted_at, null);
+});
+
 test('a deleted look whose photo could not be removed has it removed by a later cleanup', async (t) => {
   const db = await setup(t);
   const deleted = [];

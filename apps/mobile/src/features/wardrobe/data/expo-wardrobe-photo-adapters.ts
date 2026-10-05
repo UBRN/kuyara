@@ -23,6 +23,10 @@ import {
   normalizeWardrobePhotoRelativePath,
 } from '@/features/wardrobe/domain/wardrobe-item';
 import {
+  isKnownFileTime,
+  type ManagedWardrobePhotoFile,
+} from '@/features/wardrobe/domain/wardrobe-photo-sweep';
+import {
   calculateWardrobePhotoResize,
   WardrobeCameraAccessError,
   wardrobePhotoPolicy,
@@ -213,13 +217,63 @@ export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
   }
 
   async deleteStoredPhoto(relativePath: string): Promise<void> {
-    if (!isManagedWardrobePhotoRelativePath(relativePath)) {
+    // The managed check reads the trimmed form, so the file it approved is the one deleted.
+    const normalized = isManagedWardrobePhotoRelativePath(relativePath)
+      ? normalizeWardrobePhotoRelativePath(relativePath)
+      : null;
+    if (!normalized) {
       return;
     }
 
-    const stored = new File(Paths.document, ...relativePath.split('/'));
+    const stored = new File(Paths.document, ...normalized.split('/'));
     if (stored.exists) {
       stored.delete();
+    }
+  }
+
+  async listManagedPhotos(): Promise<readonly ManagedWardrobePhotoFile[]> {
+    const directory = new Directory(Paths.document, ...managedWardrobePhotoDirectorySegments);
+    if (!directory.exists) {
+      return [];
+    }
+
+    const photos: ManagedWardrobePhotoFile[] = [];
+    for (const entry of directory.list()) {
+      const relativePath = [...managedWardrobePhotoDirectorySegments, entry.name].join('/');
+      if (entry instanceof File && isManagedWardrobePhotoRelativePath(relativePath)) {
+        photos.push({
+          relativePath,
+          modifiedAtMs: isKnownFileTime(entry.lastModified) ? entry.lastModified : null,
+        });
+      }
+    }
+    return photos;
+  }
+
+  async discardStaleStagedPhotos(modifiedBeforeMs: number): Promise<void> {
+    const directory = new Directory(Paths.cache, ...stagingDirectorySegments);
+    if (!directory.exists) {
+      return;
+    }
+
+    let firstFailure: unknown = null;
+    for (const entry of directory.list()) {
+      if (
+        !(entry instanceof File) ||
+        !isKnownFileTime(entry.lastModified) ||
+        entry.lastModified >= modifiedBeforeMs
+      ) {
+        continue;
+      }
+      try {
+        entry.delete();
+      } catch (error) {
+        // One stuck file must not keep the others; the sweep reports the first failure.
+        firstFailure ??= error;
+      }
+    }
+    if (firstFailure !== null) {
+      throw firstFailure;
     }
   }
 

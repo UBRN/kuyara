@@ -129,15 +129,11 @@ export function colorChoiceFamily(choice: ClosetColorChoice): ColorFamily {
 }
 
 /**
- * The stored colour columns as one choice. A fixed option this build does not know reads as no
- * choice, so an older build still shows the piece; columns that contradict each other, or a
- * hex or family that does not match its choice, throw.
+ * The choice the stored colour columns name, before any family comparison. A fixed option this
+ * build does not know reads as no choice, so an older build still shows the piece; columns that
+ * contradict each other, or a custom hex that is not in its canonical form, throw.
  */
-export function closetColorChoiceFromColumns(
-  optionId: unknown,
-  customHex: unknown,
-  colorFamily: ColorFamily | null,
-): ClosetColorChoice | null {
+function choiceFromColumns(optionId: unknown, customHex: unknown): ClosetColorChoice | null {
   if ((optionId !== null && typeof optionId !== 'string') ||
       (customHex !== null && typeof customHex !== 'string') ||
       (optionId !== null && customHex !== null)) {
@@ -148,9 +144,38 @@ export function closetColorChoiceFromColumns(
     : typeof customHex === 'string'
       ? { kind: 'custom', hex: normalizeCustomColorHex(customHex) }
       : null;
-  if ((customHex !== null && choice?.kind === 'custom' && customHex !== choice.hex) ||
-      (choice !== null && colorFamily !== colorChoiceFamily(choice))) {
+  if (customHex !== null && choice?.kind === 'custom' && customHex !== choice.hex) {
     throw new Error('Invalid Closet colour columns.');
   }
   return choice;
+}
+
+/**
+ * The stored colour columns as one choice, for a row from outside this phone (a pulled or pushed
+ * account row): a hex or family that does not match its choice throws, so the row is refused.
+ */
+export function closetColorChoiceFromColumns(
+  optionId: unknown,
+  customHex: unknown,
+  colorFamily: ColorFamily | null,
+): ClosetColorChoice | null {
+  const choice = choiceFromColumns(optionId, customHex);
+  if (choice !== null && colorFamily !== colorChoiceFamily(choice)) {
+    throw new Error('Invalid Closet colour columns.');
+  }
+  return choice;
+}
+
+/**
+ * The stored colour columns as one choice, for a row on this phone. The stored family is
+ * authoritative: a choice whose family the current palette no longer agrees with reads as no
+ * choice, so one such piece never fails the read of the whole Closet.
+ */
+export function storedClosetColorChoice(
+  optionId: unknown,
+  customHex: unknown,
+  colorFamily: ColorFamily | null,
+): ClosetColorChoice | null {
+  const choice = choiceFromColumns(optionId, customHex);
+  return choice !== null && colorFamily === colorChoiceFamily(choice) ? choice : null;
 }

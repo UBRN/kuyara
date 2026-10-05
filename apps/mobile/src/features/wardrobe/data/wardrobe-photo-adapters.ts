@@ -1,4 +1,5 @@
 import type { WardrobePhotoDimensions } from '@/features/wardrobe/domain/wardrobe-photo';
+import type { ManagedWardrobePhotoFile } from '@/features/wardrobe/domain/wardrobe-photo-sweep';
 
 export type PickedWardrobePhoto = WardrobePhotoDimensions &
   Readonly<{
@@ -36,5 +37,9 @@ export interface WardrobePhotoStorage {
   commitStagedPhoto(photo: StagedWardrobePhoto): Promise<StoredWardrobePhoto>;
   discardStagedPhoto(photo: StagedWardrobePhoto): Promise<void>;
   deleteStoredPhoto(relativePath: string): Promise<void>;
+  /** Every managed photo file with its modification time; none when the directory does not exist. */
+  listManagedPhotos(): Promise<readonly ManagedWardrobePhotoFile[]>;
+  /** Removes the staged photo files last modified before the given time (milliseconds since the epoch). */
+  discardStaleStagedPhotos(modifiedBeforeMs: number): Promise<void>;
   resolvePhotoUri(relativePath: string): string | null;
 }
