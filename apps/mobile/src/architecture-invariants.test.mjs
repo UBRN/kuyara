@@ -458,6 +458,16 @@ test('the zoned wall clock and the locale tag each have one owner', () => {
   assert.deepEqual(found, [], 'read a zone\'s clock with zonedClock and a language\'s tag with localeTag');
 });
 
+// Intl formatters are built only by the cached helpers in domain/intl-format.ts, and the device
+// locale is read once in localization/device-locale.ts. A call site building its own formatter
+// pays the ICU construction cost on every render and can disagree with the others on order.
+test('an Intl formatter is constructed only by intl-format and device-locale', () => {
+  const owners = ['domain/intl-format.ts', 'localization/device-locale.ts'];
+  const hits = sourceFiles().filter((file) =>
+    !owners.includes(file) && /\bnew Intl\./.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'build formatters with dateTimeFormat or numberFormat from domain/intl-format');
+});
+
 // Reanimated's `runOnJS` is deprecated: a worklet hands work to the React Native runtime
 // through `scheduleOnRN` from react-native-worklets, as `Crossfade` does.
 test('mobile production code never calls the deprecated runOnJS', () => {

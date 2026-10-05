@@ -16,7 +16,8 @@ import {
   NativeSheet,
   Button,
 } from '@/components/ui';
-import { parseCalendarDate } from '@/domain/calendar-date';
+import { calendarDateUtcMidnight } from '@/domain/calendar-date';
+import { dateTimeFormat } from '@/domain/intl-format';
 import type {
   LanguagePreference,
   TemperatureUnitPreference,
@@ -149,8 +150,8 @@ export function SettingsScreen({
 
   const birthDateValue = profile.birthDate === null
     ? messages.onboarding.birthDateNotSet
-    : new Intl.DateTimeFormat(localeTag(language), { dateStyle: 'long' })
-      .format(parseCalendarDate(profile.birthDate));
+    : dateTimeFormat(localeTag(language), { dateStyle: 'long', timeZone: 'UTC' })
+      .format(calendarDateUtcMidnight(profile.birthDate));
   const notificationValue = notificationsOn
     ? messages.notifications.statusOn
     : messages.notifications.statusOff;
