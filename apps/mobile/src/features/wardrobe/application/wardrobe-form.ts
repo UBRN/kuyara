@@ -196,6 +196,15 @@ export function selectWardrobeGarmentType(
   };
 }
 
+/**
+ * The colour a new piece starts on once its type is chosen (O10): the type's natural colour,
+ * the first of its usual colour families, or none for a type without one. The caller passes
+ * the families the garment renderer lists for the type; a colour the person picked is kept.
+ */
+export function startingColorFamily(usualColorFamilies: readonly ColorFamily[]): ColorFamily | null {
+  return usualColorFamilies[0] ?? null;
+}
+
 export function listSupportedWardrobeOverrides(
   garmentTypeId: GarmentTypeId | null,
 ): readonly WardrobeOverrideDefinition[] {

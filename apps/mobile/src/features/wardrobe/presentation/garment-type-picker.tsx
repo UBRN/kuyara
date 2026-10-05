@@ -26,6 +26,7 @@ import {
   type GarmentTypeId,
   type StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
+import { startingColorFamily } from '@/features/wardrobe/application/wardrobe-form';
 import { GarmentTypeTile } from '@/features/wardrobe/presentation/garment-type-tile';
 import { WardrobeCategoryChip } from '@/features/wardrobe/presentation/wardrobe-category-chip';
 import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
@@ -273,7 +274,7 @@ export function GarmentTypePicker({
         testID="wardrobe-type-grid">
         {visibleTypes.map((garmentType) => (
           <GarmentTypeTile
-            colorFamily={garmentUsualColorFamilies(garmentType.typeId)[0] ?? null}
+            colorFamily={startingColorFamily(garmentUsualColorFamilies(garmentType.typeId))}
             disabled={disabled}
             garmentType={garmentType}
             key={garmentType.typeId}

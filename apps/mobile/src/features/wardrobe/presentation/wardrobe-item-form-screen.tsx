@@ -26,6 +26,7 @@ import {
   mapWardrobeCreateValues,
   mapWardrobeUpdateValues,
   selectWardrobeGarmentType,
+  startingColorFamily,
   validateWardrobeForm,
   wardrobeFormValuesEqual,
   type WardrobeFormValues,
@@ -336,7 +337,7 @@ export function WardrobeItemFormScreen({
         const next = selectWardrobeGarmentType(current, typeId);
         return colorChosenRef.current
           ? next
-          : { ...next, colorFamily: garmentUsualColorFamilies(typeId)[0] ?? null };
+          : { ...next, colorFamily: startingColorFamily(garmentUsualColorFamilies(typeId)) };
       });
       setValidationError(false);
     };
