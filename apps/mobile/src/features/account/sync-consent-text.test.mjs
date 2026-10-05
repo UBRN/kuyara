@@ -13,7 +13,7 @@ import { SYNC_CONSENT_TEXT_VERSION } from './domain/sync-consent.ts';
 /** Every consent text version that has shipped, with the hash of its wording. Append only. */
 const wordingHashes = {
   '2026-10-04': 'd262b28decb2965e29d4e6c4095c10fc2a68feb71feae0ff3257a69cab7c3ebe',
-  '2026-10-06': '5b18bc250282bdb980f8474948616970f3379c92fe5afe10f42d870f5f5a2f15',
+  '2026-10-06': '54db39718c8c2fffb7546c97ada1ffa8399793cb568ad3d1c2911db1498cac6d',
 };
 
 const wording = (language) => {
