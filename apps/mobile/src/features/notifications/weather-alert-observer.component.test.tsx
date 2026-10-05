@@ -94,13 +94,14 @@ function weatherApplication(
   refreshFailure: FailureCategory | null,
   status: 'loading' | 'ready' | 'error',
   activeLocationKey: string,
+  activeTimeZone: string,
 ): WeatherApplicationValue {
   return {
     state: status !== 'ready' ? { status } : {
       status: 'ready', activeLocation: {
         source: 'manual', catalogId: 'sample.istanbul', displayName: 'Istanbul',
         locationKey: activeLocationKey, coordinates: { latitudeE2: 4101, longitudeE2: 2897 },
-        timeZone: 'Europe/Istanbul',
+        timeZone: activeTimeZone,
       } satisfies ActiveLocation, snapshot: weatherSnapshot, freshness,
       permission: { kind: 'undetermined' }, locationFlow: 'idle',
       isSelectingLocation: false, isRefreshing: false, refreshFailure,
@@ -142,6 +143,7 @@ function Providers({
   refreshFailure = null,
   weatherStatus = 'ready',
   activeLocationKey = 'manual:sample.istanbul',
+  activeTimeZone = 'Europe/Istanbul',
 }: Readonly<{
   scheduler: WeatherAlertScheduling;
   weatherSnapshot: WeatherSnapshot | null;
@@ -155,6 +157,7 @@ function Providers({
   refreshFailure?: FailureCategory | null;
   weatherStatus?: 'loading' | 'ready' | 'error';
   activeLocationKey?: string;
+  activeTimeZone?: string;
 }>) {
   return (
     <ProfileApplicationContext.Provider value={profileApplication(notificationsOptIn, morningBriefingOptIn)}>
@@ -162,7 +165,7 @@ function Providers({
         <NotificationApplicationContext.Provider value={notificationApplication(scheduler, permission)}>
           <WeatherApplicationContext.Provider
             value={weatherApplication(
-              weatherSnapshot, freshness, refreshFailure, weatherStatus, activeLocationKey,
+              weatherSnapshot, freshness, refreshFailure, weatherStatus, activeLocationKey, activeTimeZone,
             )}
           >
             <WeatherAlertObserver />
@@ -214,6 +217,28 @@ test('switching location cancels old alerts while the previous snapshot remains'
 
   await waitFor(() => expect(harness.cancelScheduledWeatherAlerts).toHaveBeenCalledTimes(2));
   expect(harness.scheduleWeatherAlert).toHaveBeenCalledTimes(scheduledBeforeSwitch);
+});
+
+test('a time-zone-only move cancels the old zone\'s alerts while its snapshot remains', async () => {
+  const harness = cancellableScheduler();
+  const oldSnapshot = snapshot('snapshot-old');
+  const result = await render(
+    <Providers scheduler={harness.scheduler} weatherSnapshot={oldSnapshot} />,
+  );
+  await waitFor(() => expect(harness.cancelScheduledWeatherAlerts).toHaveBeenCalledTimes(1));
+  const scheduledBeforeMove = harness.scheduleWeatherAlert.mock.calls.length;
+
+  result.rerender(
+    <Providers
+      scheduler={harness.scheduler}
+      weatherSnapshot={oldSnapshot}
+      activeTimeZone="Europe/London"
+      freshness="stale"
+    />,
+  );
+
+  await waitFor(() => expect(harness.cancelScheduledWeatherAlerts).toHaveBeenCalledTimes(2));
+  expect(harness.scheduleWeatherAlert).toHaveBeenCalledTimes(scheduledBeforeMove);
 });
 
 // The clock setting decides how the crossing reads in the notification body, so a change
