@@ -16,10 +16,8 @@ import {
 
 import { raceWithTimeout } from '../attempt-timeout.ts';
 import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
-import {
-  checkRateLimit, isJsonRequest, rateLimitedHeaders, readJsonBody, type RateLimiter,
-} from '../json-request.ts';
-import { createErrorResponse, jsonHeaders } from '../json-response.ts';
+import { rateLimitedHeaders, readRouteRequest, type RateLimiter } from '../json-request.ts';
+import { createErrorResponse, jsonHeaders, refusalResponse } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
 import { buildCacheRequest, defaultCache, readCachedAnswer, writeCachedAnswer } from './ai-cache.ts';
 import { attemptFailureReason, type AiAttemptFailureReason, type AiProvider } from './ai-provider.ts';
@@ -157,28 +155,14 @@ export function createAiHandler({
     const url = new URL(request.url);
     const isV2 = url.pathname === aiRecommendV2Path;
     if (!isV2 && url.pathname !== aiRecommendV1Path) return errorResponse(404, 'not_found');
-    if (request.method !== 'POST') {
-      return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
-    }
-    const limit = await checkRateLimit(rateLimiter, request, {
-      keyPrefix: 'recommend',
-      route: url.pathname,
-      limiter: 'ai_recommend_burst',
+    const outcome = await readRouteRequest(request, {
+      limiter: rateLimiter,
+      scope: { keyPrefix: 'recommend', route: url.pathname, limiter: 'ai_recommend_burst' },
+      schema: isV2 ? aiRecommendV2RequestSchema : aiRecommendV1RequestSchema,
+      maxBytes: aiRecommendRequestMaxBytes,
     });
-    // A failing binding answers in the route's own closed code.
-    if (limit === 'unavailable') return errorResponse(503, 'ai_unavailable');
-    if (limit === 'limited') {
-      console.warn({ event: 'rate_limited', route: url.pathname, limiter: 'ai_recommend_burst' });
-      return errorResponse(429, 'rate_limited', rateLimitedHeaders);
-    }
-    if (!isJsonRequest(request)) return errorResponse(400, 'invalid_request');
-
-    const body = await readJsonBody(request.body, aiRecommendRequestMaxBytes);
-    const requestResult = isV2
-      ? aiRecommendV2RequestSchema.safeParse(body)
-      : aiRecommendV1RequestSchema.safeParse(body);
-    if (!requestResult.success) return errorResponse(400, 'invalid_request');
-    const { reask, aiRequest } = splitReask(requestResult.data);
+    if (outcome.kind !== 'ok') return refusalResponse(errorResponse, outcome.kind, 'ai_unavailable');
+    const { reask, aiRequest } = splitReask(outcome.data);
     // Only a re-ask can be a member request. It is counted before the cache and the provider
     // walk, so a refused one spends nothing; the Workers AI total below still applies to
     // members. The same closed answer as the burst limiter: installed binaries handle it.
