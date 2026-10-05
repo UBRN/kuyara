@@ -31,7 +31,13 @@ export function useForegroundClock(tickIntervalMs?: number, rereadWhen?: unknown
     const timer = setInterval(tickClock, tickIntervalMs);
     return () => clearInterval(timer);
   }, [readClock, tickClock, tickIntervalMs]));
-  useEffect(() => { readClock(); }, [readClock, rereadWhen]);
+  // Adjusting state while rendering, guarded by the changed value, re-reads the clock in the
+  // same pass instead of drawing once with the old hour and again after an effect.
+  const [rereadSeen, setRereadSeen] = useState(rereadWhen);
+  if (rereadSeen !== rereadWhen) {
+    setRereadSeen(rereadWhen);
+    readClock();
+  }
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
       if (next === 'active') readClock();
