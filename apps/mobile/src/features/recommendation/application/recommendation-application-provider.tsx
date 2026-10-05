@@ -18,7 +18,6 @@ import {
   localDayVariant,
   recommendationRefreshTrigger,
   type RecommendationApplicationInput,
-  type RecommendationSignals,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import {
   RecommendationApplicationContext,
@@ -26,7 +25,6 @@ import {
 } from '@/features/recommendation/application/recommendation-application-context';
 import { usePerformanceTelemetry } from '@/features/analytics/application/use-performance-telemetry';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
-import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { defaultDressStyle, isMorningSheetEnabled, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
@@ -41,6 +39,11 @@ import {
 } from '@/features/recommendation/domain/dressing-day-departure';
 import { memberAccessToken } from '@/features/account/application/account-membership';
 import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
+import { createApprovedTriggerCoalescer } from '@/features/recommendation/application/approved-trigger-coalescer';
+import {
+  signalsOfInput,
+  signalsOfSnapshot,
+} from '@/features/recommendation/application/recommendation-signals';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
 import { createHistoryWriteWatch } from '@/features/recommendation/application/history-write-watch';
 import { createMemberReask } from '@/features/recommendation/application/member-reask';
@@ -78,18 +81,6 @@ import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-data
 import { newUuid } from '@/infrastructure/new-uuid';
 import { systemNow as now } from '@/infrastructure/system-clock';
 import { useLocalization } from '@/localization/use-messages';
-
-function approvedSignals(input: RecommendationApplicationInput): RecommendationSignals {
-  return {
-    weatherSnapshotId: input.snapshot.id,
-    locationKey: input.snapshot.locationKey,
-    clothingPreference: input.clothingPreference,
-    dressStyle: input.dressStyle ?? defaultDressStyle,
-    styleAesthetics: input.styleAesthetics,
-    catalogVersion: garmentCatalogVersion,
-    localDayKey: input.localDayKey,
-  };
-}
 
 type LocalDay = ReturnType<typeof deviceLocalDay>;
 
@@ -360,12 +351,7 @@ export function RecommendationApplicationProvider({
     return () => subscription?.remove();
   }, [reevaluateLocalDay]);
 
-  const approvedTriggerInFlight = useRef<{
-    input: RecommendationApplicationInput;
-    promise: Promise<boolean>;
-  } | null>(null);
-  const trailingApprovedInput = useRef<RecommendationApplicationInput | null>(null);
-  const trailingApprovedPromise = useRef<Promise<boolean> | null>(null);
+  const submitApprovedTriggers = useMemo(createApprovedTriggerCoalescer, []);
   const foregroundEvaluationRequested = useRef(false);
   const lastExpiryAttempt = useRef<string | null>(null);
   // A confirmed re-ask changes the answers the approved triggers read. Evaluating them while
@@ -388,19 +374,9 @@ export function RecommendationApplicationProvider({
     if (pendingReask) await pendingReask;
     const liveState = controller.getSnapshot();
     if (liveState.status !== 'ready') return false;
-    const current = approvedSignals(generationInput);
+    const current = signalsOfInput(generationInput);
     const persistedSnapshot = liveState.snapshot;
-    const previous: RecommendationSignals | null = persistedSnapshot
-      ? {
-          weatherSnapshotId: persistedSnapshot.weatherSnapshotId,
-          locationKey: persistedSnapshot.locationKey,
-          clothingPreference: persistedSnapshot.clothingPreference,
-          dressStyle: persistedSnapshot.dressStyle,
-          styleAesthetics: persistedSnapshot.styleAesthetics,
-          catalogVersion: persistedSnapshot.catalogVersion,
-          localDayKey: persistedSnapshot.localDayKey,
-        }
-      : null;
+    const previous = persistedSnapshot ? signalsOfSnapshot(persistedSnapshot) : null;
 
     // An unanswered day question holds automatic selection; its answer starts the one
     // generation. The last look may carry another key's day-only styles, which are no change.
@@ -427,46 +403,10 @@ export function RecommendationApplicationProvider({
     return false;
   }, [awaitsWeatherRefresh, controller, eveningChoicePending, morningChoicePending]);
 
-  const evaluateApprovedTriggersForInput = useCallback(function evaluateApprovedTriggersForInput(
+  const evaluateApprovedTriggersForInput = useCallback((
     generationInput: RecommendationApplicationInput,
-  ): Promise<boolean> {
-    const inFlight = approvedTriggerInFlight.current;
-    if (inFlight) {
-      // The weather/forecast hour may change `now` without changing an approved trigger.
-      if (!recommendationRefreshTrigger(
-        approvedSignals(inFlight.input), approvedSignals(generationInput),
-      )) return inFlight.promise;
-      if (trailingApprovedPromise.current) {
-        trailingApprovedInput.current = generationInput;
-        return trailingApprovedPromise.current;
-      }
-
-      // Keep only the latest changed input. When the first request settles, evaluate it
-      // against the controller's live persisted state, not the state from this render.
-      trailingApprovedInput.current = generationInput;
-      const runLatest = () => {
-        const latest = trailingApprovedInput.current;
-        trailingApprovedInput.current = null;
-        trailingApprovedPromise.current = null;
-        if (!latest || !recommendationRefreshTrigger(
-          approvedSignals(inFlight.input), approvedSignals(latest),
-        )) return inFlight.promise;
-        return evaluateApprovedTriggersForInput(latest);
-      };
-      const trailing = inFlight.promise.then(runLatest, runLatest);
-      trailingApprovedPromise.current = trailing;
-      return trailing;
-    }
-    const evaluation = evaluateApprovedTriggersOnce(generationInput);
-    approvedTriggerInFlight.current = { input: generationInput, promise: evaluation };
-    const clear = () => {
-      if (approvedTriggerInFlight.current?.promise === evaluation) {
-        approvedTriggerInFlight.current = null;
-      }
-    };
-    void evaluation.then(clear, clear);
-    return evaluation;
-  }, [evaluateApprovedTriggersOnce]);
+  ): Promise<boolean> => submitApprovedTriggers(generationInput, evaluateApprovedTriggersOnce),
+  [evaluateApprovedTriggersOnce, submitApprovedTriggers]);
 
   useEffect(() => {
     if (state.status !== 'ready' || !input) return;
