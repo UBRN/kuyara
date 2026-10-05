@@ -1756,6 +1756,45 @@ test('the forecast draws in when its data first arrives, never on a cached open 
   withSpring.mockRestore();
 });
 
+// Drawing in belongs to the arrival alone. Once the forecast is on screen, a later refresh
+// that brings a new day leaves the new row at rest, as it would on a screen opened from the
+// cache: what drew in before does not decide what draws in later.
+test('after the forecast has drawn in, a new day from a refresh arrives at rest', async () => {
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
+  const istanbul = getManualLocation('sample.istanbul')!;
+  const nextDay = {
+    dateKey: '2026-08-04', condition: 'cloudy' as const,
+    minimumTemperatureCelsius: 16, maximumTemperatureCelsius: 23,
+    precipitationProbability: 0.3, precipitationMillimetres: null,
+  };
+  const ready = (fetchedAt: string | null, daily = sampleDaily) => (
+    <Providers language="en" value={createValue({
+      ...baseState,
+      activeLocation: istanbul,
+      snapshot: fetchedAt === null ? null : { ...sampleSnapshot(), fetchedAt, daily },
+      freshness: fetchedAt === null ? null : 'fresh',
+    })}><WeatherScreen /></Providers>
+  );
+  const drawSprings = () => withSpring.mock.calls.filter(([, config]) => config === lightTheme.springs.spatial).length;
+  const layOut = async (result: Awaited<ReturnType<typeof render>>) => {
+    for (const capsule of result.getAllByTestId('weather-daily-rail-fill', { includeHiddenElements: true })) {
+      await fireEvent(capsule, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 80, height: 6 } } });
+    }
+  };
+
+  const result = await render(ready(null));
+  await result.rerender(ready('2026-07-30T09:00:00.000Z'));
+  await layOut(result);
+  expect(drawSprings()).toBeGreaterThan(0);
+
+  withSpring.mockClear();
+  await result.rerender(ready('2026-07-31T09:00:00.000Z', [...sampleDaily.slice(1), nextDay]));
+  await layOut(result);
+  expect(result.getByLabelText(/Tuesday|4 August/)).toBeOnTheScreen();
+  expect(drawSprings()).toBe(0);
+  withSpring.mockRestore();
+});
+
 // Law 7: the freshness line and the "Last updated" caption change in place with a crossfade
 // rather than a snap. The leaving words are out of the reading order, so the new line is the
 // only one a screen reader meets and the only one carrying the live region.

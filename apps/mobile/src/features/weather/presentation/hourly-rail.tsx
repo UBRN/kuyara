@@ -53,6 +53,9 @@ export type HourlyRailProps = Readonly<{
 
 export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyRailProps) {
   const theme = useKuyaraTheme();
+  // Read once, on mount, as the series' own reveal reads it: the reveal mounts only after the
+  // band is measured, a render or more after the forecast arrived.
+  const [drawsIn] = useState(drawIn);
   const { width: windowWidth } = useWindowDimensions();
   const { fontScale } = useTextScaling();
   // The plot band's offset inside a column depends on the scaled line boxes above it, so
@@ -96,7 +99,7 @@ export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyR
             // The series draws from the first hour across the hours in view; the
             // temperatures above it are drawn from the start.
             <DrawReveal
-              play={drawIn}
+              play={drawsIn}
               span={Math.min(layout.contentWidth, windowWidth)}
               style={[styles.series, { top: bandTop }]}
               testID="weather-hourly-series-reveal"
