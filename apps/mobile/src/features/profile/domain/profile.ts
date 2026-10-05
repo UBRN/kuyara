@@ -105,11 +105,14 @@ export function wantsAnyNotification(
   return profile.notificationsOptIn || profile.morningBriefingOptIn;
 }
 
+export const displayNameMinLength = 2;
+export const displayNameMaxLength = 30;
+
 export function normalizeDisplayName(value: string | null): string | null {
   const name = value?.trim() ?? '';
   if (name === '') return null;
   if (displayNameIssue(name)) {
-    throw new Error('The display name must have 2 to 30 characters.');
+    throw new Error(`The display name must have ${displayNameMinLength} to ${displayNameMaxLength} characters.`);
   }
   return name;
 }
@@ -117,8 +120,8 @@ export function normalizeDisplayName(value: string | null): string | null {
 export function displayNameIssue(value: string): 'short' | 'long' | null {
   const length = Array.from(value.trim()).length;
   if (length === 0) return null;
-  if (length < 2) return 'short';
-  if (length > 30) return 'long';
+  if (length < displayNameMinLength) return 'short';
+  if (length > displayNameMaxLength) return 'long';
   return null;
 }
 

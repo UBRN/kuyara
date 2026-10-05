@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { displayNameMinLength } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
@@ -78,7 +79,7 @@ test('Settings Done still clears an emptied name, while invalid values disable D
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(null));
   await fireEvent.changeText(screen.getByTestId('name-edit-input'), 'A');
   expect(screen.getByTestId('name-sheet-done')).toBeDisabled();
-  expect(screen.getByTestId('name-edit-input-error')).toHaveTextContent(messages.en.onboarding.nameShortError);
+  expect(screen.getByTestId('name-edit-input-error')).toHaveTextContent(messages.en.onboarding.nameShortError(displayNameMinLength));
 });
 
 test('a failed edit leaves the saved name active and shows localized feedback', async () => {

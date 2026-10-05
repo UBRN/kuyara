@@ -19,7 +19,7 @@ export type ClosetFixedOption = Readonly<{
   family: ColorFamily;
 }>;
 
-export const closetSolidSwatches: readonly ClosetSolidSwatch[] = [
+export const closetSolidSwatches = [
   { id: 'white', kind: 'solid', hex: '#F4F3EE', family: 'white' },
   { id: 'ecru', kind: 'solid', hex: '#E8DEC8', family: 'beige' },
   { id: 'stone', kind: 'solid', hex: '#D0C3A8', family: 'beige' },
@@ -53,9 +53,9 @@ export const closetSolidSwatches: readonly ClosetSolidSwatch[] = [
   { id: 'dusty_rose', kind: 'solid', hex: '#CD9597', family: 'pink' },
   { id: 'lavender', kind: 'solid', hex: '#B7A6CF', family: 'purple' },
   { id: 'plum', kind: 'solid', hex: '#5B3A5E', family: 'purple' },
-];
+] as const satisfies readonly ClosetSolidSwatch[];
 
-export const closetColorOptions: readonly ClosetFixedOption[] = [
+export const closetColorOptions = [
   { id: 'white_and_black', kind: 'two-color', hexes: ['#F4F3EE', '#25272B'], family: 'white' },
   { id: 'white_and_blue', kind: 'two-color', hexes: ['#F4F3EE', '#2F5BA6'], family: 'white' },
   { id: 'navy_and_camel', kind: 'two-color', hexes: ['#26334F', '#B7854D'], family: 'blue' },
@@ -70,7 +70,11 @@ export const closetColorOptions: readonly ClosetFixedOption[] = [
   { id: 'polka_dots', kind: 'pattern', hexes: ['#26334F', '#F4F3EE'], family: 'blue' },
   { id: 'floral', kind: 'pattern', hexes: ['#E5C1BD', '#C13C31', '#C7982F', '#93A88C'], family: 'pink' },
   { id: 'leopard', kind: 'pattern', hexes: ['#C8AE86', '#4E3526', '#B7854D'], family: 'beige' },
-];
+] as const satisfies readonly ClosetFixedOption[];
+
+/** The stored ID of one palette option: a solid swatch or a two-colour or pattern option. */
+export type ClosetColorOptionId =
+  (typeof closetSolidSwatches | typeof closetColorOptions)[number]['id'];
 
 const allOptions: readonly (ClosetSolidSwatch | ClosetFixedOption)[] = [
   ...closetSolidSwatches, ...closetColorOptions,
@@ -78,6 +82,11 @@ const allOptions: readonly (ClosetSolidSwatch | ClosetFixedOption)[] = [
 
 export function findClosetColorOption(id: string): ClosetSolidSwatch | ClosetFixedOption | null {
   return allOptions.find((option) => option.id === id) ?? null;
+}
+
+/** Narrows a stored string to a palette option ID this build knows. */
+export function isClosetColorOptionId(id: string): id is ClosetColorOptionId {
+  return findClosetColorOption(id) !== null;
 }
 
 export function normalizeCustomColorHex(value: string): string {

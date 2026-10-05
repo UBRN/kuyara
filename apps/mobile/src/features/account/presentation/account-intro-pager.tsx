@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   AppState,
@@ -15,6 +15,7 @@ import { AppText, IconButton } from '@/components/ui';
 import { inForeground } from '@/components/ui/use-screen-visible';
 import {
   ACCOUNT_INTRO_PAGE_DWELL_MS,
+  accountIntroLimits,
   accountIntroPageIds,
   type AccountIntroPageId,
 } from '@/features/account/application/account-intro-pages';
@@ -61,6 +62,7 @@ function useAppInForeground() {
  */
 export function AccountIntroPager({ initialPage }: Readonly<{ initialPage?: AccountIntroPageId }>) {
   const copy = useMessages().account.signIn;
+  const pages = useMemo(() => copy.pages(accountIntroLimits), [copy]);
   const theme = useKuyaraTheme();
   const scroll = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
@@ -93,8 +95,8 @@ export function AccountIntroPager({ initialPage }: Readonly<{ initialPage?: Acco
   useEffect(() => {
     if (announced.current === page) return;
     announced.current = page;
-    AccessibilityInfo.announceForAccessibility(copy.pages[accountIntroPageIds[page]].title);
-  }, [copy.pages, page]);
+    AccessibilityInfo.announceForAccessibility(pages[accountIntroPageIds[page]].title);
+  }, [pages, page]);
 
   const onLayout = (event: LayoutChangeEvent) => {
     const next = event.nativeEvent.layout.width;
@@ -135,7 +137,7 @@ export function AccountIntroPager({ initialPage }: Readonly<{ initialPage?: Acco
           testID="account-intro-pages">
           {accountIntroPageIds.map((id, index) => {
             const Scene = accountIntroScenes[id];
-            const { title, body } = copy.pages[id];
+            const { title, body } = pages[id];
             const active = index === page && width > 0;
             return (
               <View

@@ -12,8 +12,13 @@ import type {
   WeatherConditionCode as LiveWeatherConditionCode,
 } from '@/features/weather/domain/weather';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
-import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
+import type {
+  AccountIntroLimits,
+  AccountIntroPageId,
+} from '@/features/account/application/account-intro-pages';
 import type { WindSpeedUnit } from '@/domain/wind-speed';
+import { capitalizedNumberWord, numberWord } from '@/localization/number-words';
+import type { ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import {
   catalogMessages,
   type CatalogMessages,
@@ -267,16 +272,17 @@ export type TodayMessages = Readonly<{
     /** Spoken after a non-member's row: what a tap opens. */
     membersHint: string;
     title: string;
-    subtitle: string;
+    /** Takes the piece limit, `composePieceLimit`. */
+    subtitle: (limit: number) => string;
     fromOutfit: string;
     yourPieces: string;
     chooseAnother: string;
     back: string;
-    /** Spoken on a piece that cannot be ticked while three are chosen. */
-    limitHint: string;
+    /** Spoken on a piece that cannot be ticked while the limit is chosen. */
+    limitHint: (limit: number) => string;
     colorLabel: Readonly<Record<SwappableSlot, string>>;
     build: string;
-    chosenCount: (count: number) => string;
+    chosenCount: (count: number, limit: number) => string;
     /** The result's subtitle under the title. */
     builtFrom: string;
     /** Compose never asks AI, so its source sentence has one form. */
@@ -451,8 +457,9 @@ export type AppMessages = Readonly<{
     nameTitle: string;
     nameBody: string;
     namePlaceholder: string;
-    nameShortError: string;
-    nameLongError: string;
+    /** Take the display name's shortest and longest length from `profile.ts`. */
+    nameShortError: (minimum: number) => string;
+    nameLongError: (maximum: number) => string;
     nameNotNow: string;
     welcomeTitle: string;
     welcomeBody: string;
@@ -871,7 +878,7 @@ export type AppMessages = Readonly<{
     moreColorsLabel: string;
     // The 47 palette options by their stored ID (`closet-color-options.ts`): 33 solids,
     // then 14 two-colour and pattern options.
-    colorOptionNames: Readonly<Record<string, string>>;
+    colorOptionNames: Readonly<Record<ClosetColorOptionId, string>>;
     colorUnspecified: string;
     saveAction: string;
     // O10: the Closet names the piece it has just saved, with Undo.
@@ -923,7 +930,7 @@ export type AccountMessages = Readonly<{
     close: string;
     title: string;
     /** One page per benefit, in the order `accountIntroPageIds` lists them. */
-    pages: Readonly<Record<AccountIntroPageId, Readonly<{ title: string; body: string }>>>;
+    pages: (limits: AccountIntroLimits) => Readonly<Record<AccountIntroPageId, Readonly<{ title: string; body: string }>>>;
     /** A page dot's spoken name: "Page 2 of 5". */
     pagePosition: (page: number, total: number) => string;
     /** The control that stops or starts the pages moving on by themselves, named by its action. */
@@ -1137,8 +1144,8 @@ const en = {
     nameTitle: 'What should we call you?',
     nameBody: 'Optional. You can add or change your name later in Settings.',
     namePlaceholder: 'Your name',
-    nameShortError: 'Enter at least 2 characters, or choose Not now.',
-    nameLongError: 'Use 30 characters or fewer.',
+    nameShortError: (minimum) => `Enter at least ${minimum} characters, or choose Not now.`,
+    nameLongError: (maximum) => `Use ${maximum} characters or fewer.`,
     nameNotNow: 'Not now',
     welcomeTitle: 'Welcome to kuyara',
     welcomeBody: 'A calm way to make daily clothing choices with the weather in mind.',
@@ -1901,12 +1908,14 @@ const en = {
       membersChip: 'Members',
       membersHint: 'Opens Complete your profile.',
       title: 'What do you want to wear today?',
-      subtitle: 'Choose up to three pieces. kuyara completes the rest for today’s weather.',
+      subtitle: (limit) =>
+        `Choose up to ${numberWord(limit, 'en')} pieces. kuyara completes the rest for today’s weather.`,
       fromOutfit: 'From this outfit',
       yourPieces: 'Your pieces',
       chooseAnother: 'Choose another piece',
       back: 'Back',
-      limitHint: 'Three pieces are chosen. Let one go to choose this one.',
+      limitHint: (limit) =>
+        `${capitalizedNumberWord(limit, 'en')} pieces are chosen. Let one go to choose this one.`,
       colorLabel: {
         primary_top: 'Color of the top',
         bottom: 'Color of the bottom',
@@ -1916,7 +1925,7 @@ const en = {
         footwear: 'Color of the footwear',
       },
       build: 'Build the outfit',
-      chosenCount: (count) => `${count} / 3 pieces chosen`,
+      chosenCount: (count, limit) => `${count} / ${limit} pieces chosen`,
       builtFrom: 'Built from the pieces you chose',
       source: 'You chose the pieces. kuyara put the rest together on your device.',
       position: (position, total) => `${position} / ${total}`,
@@ -2161,7 +2170,7 @@ const en = {
     signIn: {
       close: 'Close',
       title: 'Complete your profile',
-      pages: {
+      pages: ({ askAgainRegular, askAgainMember, composePieces }) => ({
         closet: {
           title: 'Your Closet comes back',
           body: 'On a new phone or after a reinstall, sign in and every piece you added is there.',
@@ -2172,7 +2181,7 @@ const en = {
         },
         askAgain: {
           title: 'More stylist asks',
-          body: 'With an account, you can ask the stylist again up to 10 times a day instead of 5.',
+          body: `With an account, you can ask the stylist again up to ${askAgainMember} times a day instead of ${askAgainRegular}.`,
         },
         devices: {
           title: 'Same Closet on two phones',
@@ -2184,9 +2193,9 @@ const en = {
         },
         compose: {
           title: 'Build from the pieces you choose',
-          body: 'Signed in, you choose up to three pieces and kuyara builds the outfit around them.',
+          body: `Signed in, you choose up to ${numberWord(composePieces, 'en')} pieces and kuyara builds the outfit around them.`,
         },
-      },
+      }),
       pagePosition: (page: number, total: number) => `Page ${page} of ${total}`,
       pausePages: 'Pause pages',
       playPages: 'Play pages',
@@ -2407,8 +2416,8 @@ const tr = {
     nameTitle: 'Sana nasıl hitap edelim?',
     nameBody: 'İsteğe bağlı. Adını daha sonra Ayarlar’dan ekleyebilir veya değiştirebilirsin.',
     namePlaceholder: 'Adın',
-    nameShortError: 'En az 2 karakter yaz veya Şimdi değil seçeneğini kullan.',
-    nameLongError: 'En fazla 30 karakter kullan.',
+    nameShortError: (minimum) => `En az ${minimum} karakter yaz veya Şimdi değil seçeneğini kullan.`,
+    nameLongError: (maximum) => `En fazla ${maximum} karakter kullan.`,
     nameNotNow: 'Şimdi değil',
     welcomeTitle: 'kuyara’ya hoş geldin',
     welcomeBody: 'Hava durumuna göre her gün ne giyeceğine sakince karar vermenin yolu.',
@@ -3170,12 +3179,14 @@ const tr = {
       membersChip: 'Üyelere',
       membersHint: 'Profilini tamamla sayfasını açar.',
       title: 'Bugün ne giymek istiyorsun?',
-      subtitle: 'En çok üç parça seç. Kalanını kuyara bugünkü havaya göre tamamlar.',
+      subtitle: (limit) =>
+        `En çok ${numberWord(limit, 'tr')} parça seç. Kalanını kuyara bugünkü havaya göre tamamlar.`,
       fromOutfit: 'Bu kombinden',
       yourPieces: 'Seçtiğin parçalar',
       chooseAnother: 'Başka bir parça seç',
       back: 'Geri',
-      limitHint: 'Üç parça seçili. Bunu seçmek için birini bırak.',
+      limitHint: (limit) =>
+        `${capitalizedNumberWord(limit, 'tr')} parça seçili. Bunu seçmek için birini bırak.`,
       colorLabel: {
         primary_top: 'Üstün rengi',
         bottom: 'Altın rengi',
@@ -3185,7 +3196,7 @@ const tr = {
         footwear: 'Ayakkabının rengi',
       },
       build: 'Kombini kur',
-      chosenCount: (count) => `${count} / 3 parça seçildi`,
+      chosenCount: (count, limit) => `${count} / ${limit} parça seçildi`,
       builtFrom: 'Seçtiğin parçalarla kuruldu',
       source: 'Parçaları sen seçtin. Kalanını kuyara cihazında hazırladı.',
       position: (position, total) => `${position} / ${total}`,
@@ -3433,7 +3444,7 @@ const tr = {
     signIn: {
       close: 'Kapat',
       title: 'Profilini tamamla',
-      pages: {
+      pages: ({ askAgainRegular, askAgainMember, composePieces }) => ({
         closet: {
           title: 'Gardırobun geri gelir',
           body: 'Yeni telefonda ya da yeniden yükledikten sonra giriş yap, eklediğin her parça yerinde.',
@@ -3444,7 +3455,7 @@ const tr = {
         },
         askAgain: {
           title: 'Daha çok stilist hakkı',
-          body: 'Hesabınla stiliste günde 5 yerine 10 kez tekrar sorabilirsin.',
+          body: `Hesabınla stiliste günde ${askAgainRegular} yerine ${askAgainMember} kez tekrar sorabilirsin.`,
         },
         devices: {
           title: 'İki telefonda aynı Gardırop',
@@ -3456,9 +3467,9 @@ const tr = {
         },
         compose: {
           title: 'Seçtiğin parçalarla kombin',
-          body: 'Giriş yaptığında en çok üç parça seçersin, kuyara kombini onların çevresinde kurar.',
+          body: `Giriş yaptığında en çok ${numberWord(composePieces, 'tr')} parça seçersin, kuyara kombini onların çevresinde kurar.`,
         },
-      },
+      }),
       pagePosition: (page: number, total: number) => `Sayfa ${page} / ${total}`,
       pausePages: 'Sayfaları duraklat',
       playPages: 'Sayfaları oynat',

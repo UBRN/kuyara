@@ -929,14 +929,17 @@ test('the stage label reads temperature, condition, pieces and archetype in both
 // The suite runs in UTC, so these instants are the device's wall clock.
 test('the top-row date names the dressing day, not the calendar day, before 04:00', () => {
   const at = (iso, language = 'en') => loadedPresentation(todayScreenState, language, false, Date.parse(iso)).date;
-  const thursday = formatDressingDate('2026-09-24', 'en');
 
-  assert.match(thursday, /^Thu 24 Sep/);
-  assert.equal(at('2026-09-25T02:30:00.000Z'), thursday);
-  assert.equal(at('2026-09-25T02:30:00.000Z', 'tr'), formatDressingDate('2026-09-24', 'tr'));
-  assert.equal(at('2026-09-25T04:30:00.000Z'), formatDressingDate('2026-09-25', 'en'));
-  assert.match(at('2026-09-25T04:30:00.000Z'), /^Fri 25 Sep/);
-  assert.equal(at('2026-09-24T19:00:00.000Z'), thursday);
+  // Newer ICU abbreviates September to "Sept" in British English, older to "Sep".
+  assert.match(at('2026-09-25T02:30:00.000Z'), /^Thu 24 Sept?$/);
+  assert.equal(at('2026-09-25T02:30:00.000Z', 'tr'), '24 Eyl Per');
+  assert.match(at('2026-09-25T04:30:00.000Z'), /^Fri 25 Sept?$/);
+  assert.match(at('2026-09-24T19:00:00.000Z'), /^Thu 24 Sept?$/);
+});
+
+test('the dressing date reads in each language\'s own order: English weekday first, Turkish day first', () => {
+  assert.equal(formatDressingDate('2026-10-06', 'en'), 'Tue 6 Oct');
+  assert.equal(formatDressingDate('2026-10-06', 'tr'), '6 Eki Sal');
 });
 
 // Phase 7: a changed outfit is the reader's. Its title and "changed from"

@@ -31,6 +31,7 @@ import {
   type TodayCopy,
 } from '@/features/today/presentation/outfit-detail-entries';
 import { FadeOnChange } from '@/features/today/presentation/outfit-detail-fades';
+import { isClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import {
   wardrobeEntryStateSchema,
   type WardrobeEntryState,
@@ -351,8 +352,10 @@ export function OutfitDetailPieceRows({
   const colorName = (family: ColorFamily | null) => family
     ? messages.catalog[`catalog.color_family.${family}`] : messages.wardrobe.colorUnspecified;
   // O8: the user's own piece is named by its palette option when it has one, else by family.
-  const ownColorName = (item: WardrobeItem) => (item.colorChoice?.kind === 'option'
-    ? messages.wardrobe.colorOptionNames[item.colorChoice.id] : undefined) ?? colorName(item.colorFamily);
+  const ownColorName = (item: WardrobeItem) => (
+    item.colorChoice?.kind === 'option' && isClosetColorOptionId(item.colorChoice.id)
+      ? messages.wardrobe.colorOptionNames[item.colorChoice.id]
+      : colorName(item.colorFamily));
   const swatchFill = (family: ColorFamily) => {
     const fill = colorFamilyFills[theme.colorScheme][family];
     return typeof fill === 'string' ? fill : fill[0];

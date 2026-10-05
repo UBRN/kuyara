@@ -8,7 +8,7 @@ import {
   localDayKind,
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
-import { calendarDateParts } from '@/domain/calendar-date';
+import { calendarDateUtcMidnight } from '@/domain/calendar-date';
 import { dateTimeFormat, numberFormat, zonedDateKey } from '@/domain/intl-format';
 import {
   departureIsAhead,
@@ -707,14 +707,17 @@ export function createTomorrowPreviewPresentation(
   };
 }
 
-/** A dressing-day key's calendar date as Today's top row shows it. */
+/**
+ * A dressing-day key's calendar date as Today's top row shows it, in the language's own order
+ * ("Tue 6 Oct", "6 Eki Sal"). The calendar date is read in UTC, never as an instant in a place.
+ */
 export function formatDressingDate(dayKey: string, language: SupportedLanguage): string {
-  const { year, month, day } = calendarDateParts(dressingDayDateKey(dayKey));
-  const date = new Date(year, month - 1, day, 12);
-  return [
-    new Intl.DateTimeFormat(localeTag(language), { weekday: 'short' }).format(date),
-    new Intl.DateTimeFormat(localeTag(language), { day: 'numeric', month: 'short' }).format(date),
-  ].join(' ');
+  return dateTimeFormat(localeTag(language), {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(calendarDateUtcMidnight(dressingDayDateKey(dayKey)));
 }
 
 function createLoadedPresentation(

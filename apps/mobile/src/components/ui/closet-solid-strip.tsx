@@ -2,16 +2,16 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ColorSwatch } from '@/components/ui/color-swatch';
-import { closetSolidSwatches } from '@/features/wardrobe/domain/closet-color-options';
+import { closetSolidSwatches, type ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import { layout, spacing } from '@/theme/theme';
 
 export type ClosetSolidStripProps = Readonly<{
   /** The chosen solid's Closet id, or null for the outfit's own colour. */
-  selectedId: string | null;
+  selectedId: ClosetColorOptionId | null;
   /** A tap on another solid chooses it; a tap on the chosen one gives it back (null). */
-  onSelect: (id: string | null) => void;
+  onSelect: (id: ClosetColorOptionId | null) => void;
   /** Each solid's spoken name, from the Closet palette's names. */
-  colorName: (id: string) => string;
+  colorName: (id: ClosetColorOptionId) => string;
   /** The group's spoken name, a whole phrase for its piece's slot. */
   label: string;
   testID: string;
