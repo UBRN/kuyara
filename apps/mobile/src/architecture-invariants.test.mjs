@@ -1571,3 +1571,11 @@ test('a body is flattened into its pieces only in outfit-model', () => {
     file !== owner && /primaryTop,\s*[\w.?]*bottom\s*\]/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits, [], 'call corePieces or piecesInSlotOrder from outfit-model');
 });
+
+// The 44-point touch target has one owner, `layout.minimumTouchTarget` in the theme; feature
+// styles read it rather than restating the number.
+test('feature styles take the touch target from layout.minimumTouchTarget', () => {
+  const hits = sourceFiles(path.join(sourceRoot, 'features'))
+    .filter((file) => /\b(?:minHeight|minWidth):\s*44\b/.test(readFileSync(path.join(sourceRoot, 'features', file), 'utf8')));
+  assert.deepEqual(hits, [], 'use layout.minimumTouchTarget');
+});

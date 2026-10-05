@@ -16,7 +16,7 @@ import type {
   LoadedOutfitPresentation,
   TomorrowPreviewPresentation,
 } from '@/features/today/presentation/today-presentation';
-import { radii, spacing } from '@/theme/theme';
+import { layout, radii, spacing } from '@/theme/theme';
 import { easierToSee as easierToSeeValues, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
 import { OnPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   alternateStage: { borderRadius: radii.imageTile, justifyContent: 'center', overflow: 'hidden' },
   tomorrowTarget: { marginTop: spacing.md },
   // Law 2: the strip's own inset is the container inset; it is never under the 44-point target.
-  tomorrowStrip: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 44,
+  tomorrowStrip: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: layout.minimumTouchTarget,
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   tomorrowText: { flex: 1, flexShrink: 1 },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
