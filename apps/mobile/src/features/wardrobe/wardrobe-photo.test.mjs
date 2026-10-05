@@ -64,7 +64,8 @@ globalThis.__kuyaraWardrobePhotoNativeMocks = {
     }
 
     get lastModified() {
-      return nativeModified.get(this.uri) ?? null;
+      // Like the real module on a failed read, a file without a recorded time answers undefined.
+      return nativeModified.get(this.uri);
     }
 
     async copy(destination) {
@@ -205,6 +206,8 @@ const restrictedPermission = Object.freeze({
   granted: false, status: 'denied', canAskAgain: false, expires: 'never',
 });
 
+// The launch sweep reads the clock only when a photo manager is present.
+const testClock = () => new Date('2026-07-30T12:00:00.000Z');
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const itemId = '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const stagedPhoto = Object.freeze({
@@ -462,6 +465,8 @@ test('photo manager stops before storage and repository when processing rejects'
     profileId,
     async () => repository(repositoryEvents, { current: null }),
     processorFailure,
+    undefined,
+    testClock,
   );
   await processorController.initialize();
   await assert.rejects(() => processorController.preparePhoto(), /processor failed/);
@@ -549,6 +554,8 @@ test('failed private copy removes its partial destination before repository writ
     profileId,
     async () => repository(repositoryEvents, { current: null }),
     manager,
+    undefined,
+    testClock,
   );
   await controller.initialize();
 
@@ -700,6 +707,7 @@ async function readyController(events, repositoryOptions = {}, managerOptions = 
     async () => repo,
     photoManager(events, managerOptions),
     () => { cleanupReports += 1; },
+    testClock,
   );
   await controller.initialize();
   return { controller, repo, cleanupReports: () => cleanupReports };
@@ -852,6 +860,8 @@ test('initialization retries a pending deletion and clears the tombstone path', 
     profileId,
     async () => repo,
     photoManager(events),
+    undefined,
+    testClock,
   );
 
   await controller.initialize();
@@ -882,6 +892,7 @@ test('a still-failing retry stays pending without blocking or failing initializa
     async () => repo,
     retryingManager,
     () => { cleanupReports += 1; },
+    testClock,
   );
 
   await controller.initialize();
@@ -912,6 +923,8 @@ test('pending cleanup never sends unmanaged or live-referenced paths to storage'
       profileId,
       async () => repo,
       photoManager(events),
+      undefined,
+      testClock,
     );
 
     await controller.initialize();
@@ -1016,6 +1029,12 @@ test('listManagedPhotos lists only the managed photo files with their modificati
   nativeFiles.add(`file:///documents/${withTime}`);
   nativeModified.set(`file:///documents/${withTime}`, 1_700_000_000_000);
   nativeFiles.add(`file:///documents/${undated}`);
+  const zeroTime = `kuyara/wardrobe/photos/${'718f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.jpg`;
+  nativeFiles.add(`file:///documents/${zeroTime}`);
+  nativeModified.set(`file:///documents/${zeroTime}`, 0);
+  const nanTime = `kuyara/wardrobe/photos/${'818f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.jpg`;
+  nativeFiles.add(`file:///documents/${nanTime}`);
+  nativeModified.set(`file:///documents/${nanTime}`, Number.NaN);
   // Never listed: a name that is not a UUID v4, another extension, a directory with a managed name.
   nativeFiles.add(`${directory}/legacy.jpg`);
   nativeFiles.add(`${directory}/${'118f0f4d-1d45-4ae7-a8f1-796e8297d3b4'}.png`);
@@ -1031,7 +1050,9 @@ test('listManagedPhotos lists only the managed photo files with their modificati
     [
       { relativePath: withTime, modifiedAtMs: 1_700_000_000_000 },
       { relativePath: undated, modifiedAtMs: null },
-    ],
+      { relativePath: zeroTime, modifiedAtMs: null },
+      { relativePath: nanTime, modifiedAtMs: null },
+    ].sort((left, right) => left.relativePath.localeCompare(right.relativePath)),
   );
 });
 
@@ -1065,6 +1086,12 @@ test('discardStaleStagedPhotos removes only the staged files last modified befor
   nativeModified.set(files.old, 999);
   nativeModified.set(files.atCutoff, 1000);
   nativeModified.set(files.young, 5000);
+  // A time that is not a positive finite number is no time at all: Android answers 0 on an I/O error.
+  for (const [name, time] of [['zero', 0], ['negative', -5], ['nan', Number.NaN]]) {
+    files[name] = `${staging}/${name}.jpg`;
+    nativeFiles.add(files[name]);
+    nativeModified.set(files[name], time);
+  }
   nativeDirectories.add(`${staging}/folder.jpg`);
   // Never reached: the document photos and a cache file outside the staging directory.
   nativeFiles.add(`file:///documents/${newPath}`);
@@ -1073,7 +1100,7 @@ test('discardStaleStagedPhotos removes only the staged files last modified befor
   await storage.discardStaleStagedPhotos(1000);
 
   assert.equal(nativeFiles.has(files.old), false);
-  for (const uri of [files.atCutoff, files.young, files.undated, `file:///documents/${newPath}`, 'file:///cache/other.jpg']) {
+  for (const uri of [files.atCutoff, files.young, files.undated, files.zero, files.negative, files.nan, `file:///documents/${newPath}`, 'file:///cache/other.jpg']) {
     assert.equal(nativeFiles.has(uri), true, uri);
   }
   assert.equal(nativeDirectories.has(`${staging}/folder.jpg`), true);

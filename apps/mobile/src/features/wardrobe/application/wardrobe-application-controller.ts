@@ -27,7 +27,6 @@ import {
   staleStagedWardrobePhotoMinimumAgeMs,
 } from '@/features/wardrobe/domain/wardrobe-photo-sweep';
 import { coalescedRun } from '@/domain/coalesced-run';
-import { systemDate } from '@/infrastructure/system-clock';
 
 export type WardrobeApplicationState =
   | Readonly<{ status: 'loading' }>
@@ -88,7 +87,7 @@ export class WardrobeApplicationController {
     loadRepository: () => Promise<WardrobeRepository>,
     photoManager: WardrobePhotoManager = unavailableWardrobePhotoManager,
     reportPhotoCleanupError: () => void = () => undefined,
-    now: () => Date = systemDate,
+    now: () => Date,
   ) {
     this.localProfileId = localProfileId;
     this.loadRepository = loadRepository;

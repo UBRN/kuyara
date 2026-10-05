@@ -167,6 +167,15 @@ test('the orphan rule keeps named, young and undated files and lists only the ol
   assert.equal(staleStagedWardrobePhotoMinimumAgeMs, hour);
 });
 
+test('a file whose time is not a positive finite number is never an orphan', () => {
+  const now = Date.parse(startedAt);
+  const files = [0, undefined, Number.NaN, -1, Number.POSITIVE_INFINITY].map((modifiedAtMs, index) => ({
+    relativePath: photoPath(index + 1), modifiedAtMs,
+  }));
+
+  assert.deepEqual(orphanedWardrobePhotoPaths(files, [], now), []);
+});
+
 test('a photo left by a remove whose old file could not be deleted is removed on the next launch', async (t) => {
   const world = await createWorld(t);
   const first = await world.launch();

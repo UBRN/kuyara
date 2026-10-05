@@ -22,7 +22,10 @@ import {
 import {
   normalizeWardrobePhotoRelativePath,
 } from '@/features/wardrobe/domain/wardrobe-item';
-import type { ManagedWardrobePhotoFile } from '@/features/wardrobe/domain/wardrobe-photo-sweep';
+import {
+  isKnownFileTime,
+  type ManagedWardrobePhotoFile,
+} from '@/features/wardrobe/domain/wardrobe-photo-sweep';
 import {
   calculateWardrobePhotoResize,
   WardrobeCameraAccessError,
@@ -238,7 +241,10 @@ export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
     for (const entry of directory.list()) {
       const relativePath = [...managedWardrobePhotoDirectorySegments, entry.name].join('/');
       if (entry instanceof File && isManagedWardrobePhotoRelativePath(relativePath)) {
-        photos.push({ relativePath, modifiedAtMs: entry.lastModified });
+        photos.push({
+          relativePath,
+          modifiedAtMs: isKnownFileTime(entry.lastModified) ? entry.lastModified : null,
+        });
       }
     }
     return photos;
@@ -252,7 +258,11 @@ export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
 
     let firstFailure: unknown = null;
     for (const entry of directory.list()) {
-      if (!(entry instanceof File) || entry.lastModified === null || entry.lastModified >= modifiedBeforeMs) {
+      if (
+        !(entry instanceof File) ||
+        !isKnownFileTime(entry.lastModified) ||
+        entry.lastModified >= modifiedBeforeMs
+      ) {
         continue;
       }
       try {
