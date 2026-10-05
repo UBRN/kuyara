@@ -994,6 +994,32 @@ async function prePromptCacheUrl(body) {
   return `https://kuyara.internal/v1/ai/recommend/${hash}`;
 }
 
+// The bytes of the shared-cache key are a contract with the thirty day entries already
+// stored: moving the code that builds it must not move a single byte, or every entry misses.
+// Update these literals only together with a deliberate AI_GATE_VERSION or prompt version bump.
+test('the shared-cache key for a known request is pinned byte for byte', async () => {
+  const previous = globalThis.caches;
+  const urls = [];
+  globalThis.caches = { default: {
+    async match(cacheRequest) { urls.push(cacheRequest.url); return undefined; },
+    async put() {},
+  } };
+  try {
+    const handle = createAiHandler({ providers: [{ generateOutfits: async () => validOutput() }] });
+    await handle(request());
+    await handle(request({ path: '/v2/ai/recommend', body: JSON.stringify({
+      ...validRequestBody(), locale: 'tr', styleAesthetics: ['classic', 'minimal'],
+    }) }));
+    assert.deepEqual(urls, [
+      'https://kuyara.internal/v1/ai/recommend/5469f10e88e5c93202b8220bfd62b7927cdc098608f3a1e5f8519c9449bb3d65',
+      'https://kuyara.internal/v2/ai/recommend/39d1e58664fd81fd052363b0b94c620c8ec4dc58891264b5f31c3660f7854b49',
+    ]);
+  } finally {
+    if (previous === undefined) delete globalThis.caches;
+    else globalThis.caches = previous;
+  }
+});
+
 test('an old prompt cache bucket misses and refills under the new prompt key', async () => {
   const restore = installMemoryCache();
   try {
