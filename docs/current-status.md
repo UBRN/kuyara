@@ -173,7 +173,7 @@ no shipped binary calls the route or sends a member token. The remote schema is
 size guard, the per-account lock between uploads and a consent withdrawal, one index fewer) followed on 4 October 2026, again with no security advisor finding; an in-memory Postgres run
 applies both files in order and checks their access rules, caps, bounds, guard and lock. Evidence is automated
 tests, an in-memory Postgres run of the schema and one Simulator pass; Sign in with Apple, revocation and live
-sync have no device evidence. Before accounts open: the KVKK transfer contract, the Google library and client ids, App Privacy in App Store Connect,
+sync have no device evidence. Before accounts open: the Google library and client ids, App Privacy in App Store Connect,
 device evidence, and the account terms pages with the account versions of the privacy policy and support pages (`docs/account-terms.md` and `docs/tr/account-terms.md`, which the app links), which are written and publish just before submission. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).

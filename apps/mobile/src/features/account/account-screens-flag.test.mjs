@@ -1,5 +1,5 @@
-// The account screens ship switched off (ADR 0041 section 5): accounts stay closed until the
-// transfer contract is signed. One constant owns the switch; this test fails while it is on,
+// The account screens ship switched off (ADR 0041 section 5) until the release that opens
+// accounts. One constant owns the switch; this test fails while it is on,
 // and proves that every production file reaching an account screen goes through it.
 
 import assert from 'node:assert/strict';
