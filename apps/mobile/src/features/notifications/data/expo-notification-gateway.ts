@@ -6,6 +6,7 @@ import type {
   NotificationKind,
   NotificationPermissionState,
 } from '@/features/notifications/data/notification-gateway';
+import { morningBriefingIdPrefix } from '@/features/notifications/domain/morning-briefing';
 import { getDeviceLocale } from '@/localization/device-locale';
 import { getMessages } from '@/localization/messages';
 
@@ -13,7 +14,7 @@ import { getMessages } from '@/localization/messages';
 // previous build scheduled. The morning briefing lives inside the same namespace, one
 // segment deeper, and that segment is how a tapped response names its kind.
 const weatherAlertIdentifierPrefix = 'weather-alert:';
-const morningBriefingIdentifierPrefix = `${weatherAlertIdentifierPrefix}morning_briefing:`;
+const morningBriefingIdentifierPrefix = `${weatherAlertIdentifierPrefix}${morningBriefingIdPrefix}`;
 const weatherAlertChannelId = 'weather-alerts';
 
 function notificationKind(identifier: string): NotificationKind {

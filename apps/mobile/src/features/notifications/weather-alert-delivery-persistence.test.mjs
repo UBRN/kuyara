@@ -4,6 +4,7 @@ import test from 'node:test';
 import { LocalWeatherAlertDeliveryRepository } from './data/weather-alert-delivery-repository.ts';
 import { SqliteWeatherAlertDeliveryLocalDataSource } from './data/sqlite-weather-alert-delivery-local-data-source.ts';
 import { WeatherAlertScheduler } from './application/weather-alert-scheduler.ts';
+import { morningBriefingId } from './domain/morning-briefing.ts';
 import { migrateDatabase } from '../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../test/node-sqlite-database.mjs';
 
@@ -93,6 +94,21 @@ test('scheduled alert deliveries upsert, retain fired rows, delete pending rows,
       .map((row) => ({ ...row })),
     [],
   );
+});
+
+test('a ledger row for a real briefing id is a briefing, whatever follows the prefix', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const briefingId = morningBriefingId('2026-09-10');
+  await repository.upsertScheduled([
+    { id: briefingId, localProfileId: profileId, fireAt: '2026-09-10T07:00:00.000Z', createdAt },
+    { id: 'precipitation_onset:location:day', localProfileId: profileId,
+      fireAt: '2026-09-10T08:00:00.000Z', createdAt },
+  ]);
+  await repository.deletePending(profileId, '2026-09-09T09:00:00.000Z', 'weather_alert');
+  assert.deepEqual((await database.getAllAsync(
+    'SELECT id FROM weather_alert_deliveries ORDER BY id',
+  )).map(({ id }) => id), [briefingId]);
 });
 
 test('deleting one pending kind preserves the other kind and fired rows', async (t) => {
