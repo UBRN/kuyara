@@ -298,8 +298,63 @@ test('a JWKS request that ignores the abort never holds later callers', async ()
   assert.ok(Date.now() - startedAt < 1000, 'neither waited past its own deadline');
   assert.equal(calls.length, 1);
   clock += timeoutMs;
+  await assertRejects(verify(token), 'unavailable');
+  assert.equal(calls.length, 1, 'a dropped read counts as a failed attempt: the cooldown applies');
+  clock += 60_000;
   assert.deepEqual(await verify(token), verified);
-  assert.equal(calls.length, 2, 'the abandoned load is replaced by a new one');
+  assert.equal(calls.length, 2, 'after the cooldown the dropped read is replaced by a new one');
+});
+
+test('forged key ids never start more than one JWKS read per cooldown, even when reads hang', async () => {
+  const { jwk, sign } = await fixture();
+  let clock = nowSeconds * 1000;
+  let calls = 0;
+  let hang = false;
+  const verify = createSupabaseTokenVerifier({
+    supabaseUrl, timeoutMs, now: () => new Date(clock), jwksCooldownMs: 60_000,
+    fetch: () => {
+      calls += 1;
+      return hang ? new Promise(() => {}) : Promise.resolve(Response.json({ keys: [jwk('k1')] }));
+    },
+  });
+  await verify(await sign({ alg: 'ES256', kid: 'k1' }, claims()));
+  clock += 61_000;
+  hang = true;
+  const forged = (n) => sign({ alg: 'ES256', kid: `forged-${n}` }, claims());
+  await assertRejects(verify(await forged(0)), 'unavailable');
+  assert.equal(calls, 2);
+  for (let n = 1; n <= 10; n += 1) {
+    clock += timeoutMs;
+    await assertRejects(verify(await forged(n)), 'unauthorized');
+  }
+  assert.equal(calls, 2, 'a dropped read does not reopen the cooldown');
+  clock += 60_000;
+  await assertRejects(verify(await forged(11)), 'unavailable');
+  assert.equal(calls, 3);
+});
+
+test('a read that settles late never overwrites a newer key set', async () => {
+  const first = await fixture();
+  const second = await fixture();
+  let clock = nowSeconds * 1000;
+  let releaseLate;
+  let calls = 0;
+  const verify = createSupabaseTokenVerifier({
+    supabaseUrl, timeoutMs, now: () => new Date(clock),
+    fetch: () => {
+      calls += 1;
+      if (calls === 1) return new Promise((resolve) => { releaseLate = () => resolve(Response.json({ keys: [first.jwk('k1')] })); });
+      return Promise.resolve(Response.json({ keys: [second.jwk('k2')] }));
+    },
+  });
+  const oldToken = await first.sign({ alg: 'ES256', kid: 'k1' }, claims());
+  const newToken = await second.sign({ alg: 'ES256', kid: 'k2' }, claims());
+  await assertRejects(verify(oldToken), 'unavailable');
+  clock += 60_000;
+  assert.deepEqual(await verify(newToken), verified);
+  releaseLate();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.deepEqual(await verify(newToken), verified);
 });
 
 test('a key set older than its maximum age never verifies, even while the JWKS is down', async () => {

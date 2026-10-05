@@ -59,7 +59,8 @@ function decodeJson(segment: string): unknown {
 
 /**
  * Stateless Supabase access-token check: ES256 signature against the project's JWKS, then
- * `exp`, `nbf`, `iss` (`<project>/auth/v1`) and `aud`. The user id is the token's `sub`.
+ * `exp`, `nbf`, `iss` (`<project>/auth/v1`), `aud` and `role` (both `authenticated`). The user
+ * id is the token's `sub`.
  * The key set is cached per isolate; an unknown key id refetches it at most once per
  * cooldown, so forged key ids cannot make this route an amplifier against Supabase.
  */
@@ -103,6 +104,8 @@ export function createSupabaseTokenVerifier(dependencies: Dependencies): Supabas
         continue;
       }
     }
+    // A read that was dropped and settles late must not replace a newer key set.
+    if (startedAt < loadedAt) return;
     keys = next;
     loadedAt = startedAt;
   }
@@ -126,9 +129,8 @@ export function createSupabaseTokenVerifier(dependencies: Dependencies): Supabas
     const at = dependencies.now().getTime();
     if (inflight !== undefined && at - inflight.startedAt >= timeoutMs) {
       // The read outlived its own deadline: its request was cancelled, or its fetch ignored the
-      // abort. Nothing will settle it, so it is dropped and a new read may start at once.
+      // abort. Nothing will settle it, so it is dropped as a failed attempt: the cooldown applies.
       inflight = undefined;
-      attemptedAt = -Infinity;
     }
     // The set verifies only inside its maximum age since the last successful read, so a key
     // Supabase revoked stops verifying even while Supabase is down.
@@ -137,15 +139,14 @@ export function createSupabaseTokenVerifier(dependencies: Dependencies): Supabas
     if (cached !== undefined && !unknownAndDue) return cached.get(kid);
     // The set is too old and the last read failed inside the cooldown: Supabase is down, so
     // callers fail at once instead of each waiting out a fresh read.
-    if (cached === undefined && inflight === undefined && at - attemptedAt < cooldownMs) throw new AccountError('unavailable');
+    if (cached === undefined && inflight === undefined && at - attemptedAt < cooldownMs) {
+      throw new AccountError('unavailable');
+    }
     // Started before the race, so the read's own deadline is the earlier of the two timers.
     const { promise } = inflight ?? startLoad();
     try {
       await raceWithTimeout(new AbortController(), () => promise, timeoutMs);
     } catch {
-      // A failed read of a set still inside its maximum age leaves that set in place.
-      const key = cached?.get(kid);
-      if (key !== undefined) return key;
       throw new AccountError('unavailable');
     }
     return keys?.get(kid);
