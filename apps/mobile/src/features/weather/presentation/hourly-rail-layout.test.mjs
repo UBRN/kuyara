@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { HOURLY_LABEL_GAP, hourlyRailMetrics, layoutHourlyRail } from './hourly-rail-layout.ts';
+import { formatClockTime } from '../../../presentation/format-clock-time.ts';
 
 const metrics = {
   columnGap: 4,
@@ -108,6 +109,26 @@ test('larger text widens the column and grows the plot only up to its cap', () =
   assert.equal(large.plotHeight, 50);
   // A smaller text size never narrows the column below the default.
   assert.equal(hourlyRailMetrics(0.8, { columnGap: 4, inset: 16 }).columnWidth, 52);
+});
+
+// A 12-hour time is the rail's widest label ("10:00 PM", "ÖÖ 10:00"). A `caption` glyph is
+// about 7 points at the default size; at a 7.5-point budget per glyph the column holds the
+// longest time on one line at the default and the largest standard text size, so no time
+// wraps and drops its column's band below the curve.
+test('a 12-hour clock widens the column to hold its longest time on one line', () => {
+  const glyphBudget = 7.5;
+  for (const language of ['en', 'tr']) {
+    const labels = Array.from({ length: 24 }, (_, hour) => (
+      formatClockTime(Date.UTC(2026, 0, 1, hour), language, true, 'UTC')));
+    const longest = Math.max(...labels.map((label) => [...label].length));
+    assert.equal(longest, 8, labels.join(', '));
+    for (const fontScale of [1, 1.353]) {
+      const { columnWidth } = hourlyRailMetrics(fontScale, { columnGap: 4, inset: 16, timeLabelLength: longest });
+      assert.ok(columnWidth >= longest * glyphBudget * fontScale, `${language} at ${fontScale}: ${columnWidth}`);
+    }
+  }
+  // A 24-hour time ("22:00") fits the 52-point column as before.
+  assert.equal(hourlyRailMetrics(1, { columnGap: 4, inset: 16, timeLabelLength: 5 }).columnWidth, 52);
 });
 
 test('the layout names its temperature axis, so the line can be coloured along it', () => {

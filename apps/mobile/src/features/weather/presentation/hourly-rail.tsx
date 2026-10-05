@@ -81,7 +81,11 @@ export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyR
   useEffect(scrollToNow, [currentHour, scrollToNow]);
 
   const cardFill = resolveCardFill(theme);
-  const metrics = hourlyRailMetrics(fontScale, { columnGap: spacing.xs, inset: spacing.lg });
+  const metrics = hourlyRailMetrics(fontScale, {
+    columnGap: spacing.xs,
+    inset: spacing.lg,
+    timeLabelLength: Math.max(0, ...columns.map(({ time }) => [...time].length)),
+  });
   const layout = layoutHourlyRail(columns.map((column) => column.temperatureCelsius), metrics);
 
   return (
@@ -219,8 +223,13 @@ function HourlyColumn({ bandHeight, column, labelTop, onBandLayout, width }: Rea
           testID="weather-hourly-day-divider"
         />
       ) : null}
+      {/* One line: a wrapped time would push this column's band below the curve. The column
+          is sized to hold the longest time; the shrink only guards a wider face. */}
       <AppText
+        adjustsFontSizeToFit
         colorRole={emphasised ? 'textPrimary' : 'textSecondary'}
+        minimumFontScale={0.85}
+        numberOfLines={1}
         style={emphasised ? styles.emphasisedTime : undefined}
         tabularNumbers
         variant="caption">
