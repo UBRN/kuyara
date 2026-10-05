@@ -1096,6 +1096,28 @@ test('the hourly rail drops the hours that have ended', async () => {
 
 });
 
+test('a refresh that settles on an open screen drops the hours that ended while it waited', async () => {
+  const istanbul = getManualLocation('sample.istanbul')!;
+  const ready = (snapshot: ReturnType<typeof sampleSnapshot>, isRefreshing: boolean) => createValue({
+    ...baseState, activeLocation: istanbul, snapshot, freshness: 'fresh', isRefreshing,
+  });
+  const hidden = { includeHiddenElements: true };
+  const result = await render(
+    <Providers language="en" value={ready(sampleSnapshot(), true)}><WeatherScreen /></Providers>,
+  );
+  expect(result.getAllByTestId('weather-hourly-band', hidden)).toHaveLength(2);
+
+  // The tab stayed focused across the hour boundary and the pull finishes afterwards.
+  clock.mockReturnValue(Date.parse('2026-07-30T10:30:00.000Z'));
+  const refreshed = { ...sampleSnapshot(), fetchedAt: '2026-07-30T10:30:00.000Z' };
+  await result.rerender(
+    <Providers language="en" value={ready(refreshed, false)}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.getAllByTestId('weather-hourly-band', hidden)).toHaveLength(1);
+  expect(result.queryByLabelText('12:00. 16.0 degrees Celsius. Rain. 50% chance of precipitation.')).toBeNull();
+});
+
 test('a dry hour drops the chance from the rail but never from its label', async () => {
   const snapshot = sampleSnapshot();
   snapshot.hourly[1] = { ...snapshot.hourly[1], precipitationProbability: 0 };
