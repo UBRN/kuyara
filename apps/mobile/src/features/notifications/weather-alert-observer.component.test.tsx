@@ -223,13 +223,14 @@ test('a time-zone-only move cancels the old zone\'s alerts while its snapshot re
   const harness = cancellableScheduler();
   const oldSnapshot = snapshot('snapshot-old');
   const result = await render(
-    <Providers scheduler={harness.scheduler} weatherSnapshot={oldSnapshot} />,
+    <Providers morningBriefingOptIn scheduler={harness.scheduler} weatherSnapshot={oldSnapshot} />,
   );
   await waitFor(() => expect(harness.cancelScheduledWeatherAlerts).toHaveBeenCalledTimes(1));
   const scheduledBeforeMove = harness.scheduleWeatherAlert.mock.calls.length;
 
   result.rerender(
     <Providers
+      morningBriefingOptIn
       scheduler={harness.scheduler}
       weatherSnapshot={oldSnapshot}
       activeTimeZone="Europe/London"
