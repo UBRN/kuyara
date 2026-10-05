@@ -1,5 +1,5 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { AccessibilityInfo, Alert, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Alert, Dimensions, StyleSheet, View } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -10,7 +10,7 @@ import type { RecommendationPhase } from '@/features/recommendation/application/
 import { FirstGenerationRunway, type RunwayOutfit } from '@/features/today/presentation/first-generation-runway';
 import { runwayField } from '@/features/today/presentation/runway-palette';
 import { messages } from '@/localization/messages';
-import { darkTheme, lightTheme, type KuyaraTheme } from '@/theme/theme';
+import { darkTheme, lightTheme, typography, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-router', () => {
@@ -246,6 +246,30 @@ test('rotates the insight, the phase and the one tip every two seconds', async (
   await act(() => jest.runAllTicks());
   expect(result.getByTestId('first-generation-line')).toHaveTextContent(copy.tip);
   expect(result.getByTestId('first-generation-line').props.accessibilityLiveRegion).toBe('polite');
+});
+
+// The rotating line's slot holds two lines at the text size in use, so a rotation from a
+// one-line tip to a two-line insight never grows the text group and rescales the board.
+// The test renderer lays out no text, so the slot's reserved room is what is measured.
+test('at the largest standard text size the line keeps two lines of room through a rotation', async () => {
+  const originalWindow = Dimensions.get('window');
+  Dimensions.set({ window: { ...originalWindow, fontScale: 1.353 } });
+  try {
+    const insight = 'Rain keeps on until 14:00, so a coat with a hood stays on all day.';
+    const result = await render(runway({ weather: { ...props.weather, insight } }));
+    await laidOut(result);
+    const slot = () => StyleSheet.flatten(result.getByTestId('first-generation-line').props.style);
+    const stageHeight = () => StyleSheet.flatten(result.getByTestId('first-generation-stage').props.style).height;
+    const before = { slot: slot().minHeight, stage: stageHeight() };
+    expect(before.slot).toBeGreaterThanOrEqual(2 * typography.body.lineHeight * 1.353);
+
+    await act(() => jest.advanceTimersByTime(2_000));
+    await act(() => jest.runAllTicks());
+    expect(result.getByTestId('first-generation-line')).toHaveTextContent(messages.en.today.phase['asking-stylist']);
+    expect({ slot: slot().minHeight, stage: stageHeight() }).toEqual(before);
+  } finally {
+    Dimensions.set({ window: originalWindow });
+  }
 });
 
 // Law 7: the rotating line and "All set" crossfade instead of snapping; the spoken line is
