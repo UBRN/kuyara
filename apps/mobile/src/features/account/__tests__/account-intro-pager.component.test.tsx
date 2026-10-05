@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
   ACCOUNT_INTRO_PAGE_DWELL_MS,
+  accountIntroLimits,
   accountIntroPageIds,
   type AccountIntroPageId,
 } from '@/features/account/application/account-intro-pages';
@@ -24,6 +25,7 @@ jest.mock('@expo/ui/community/bottom-sheet', () => ({
 }));
 
 const en = messages.en.account.signIn;
+const enPages = en.pages(accountIntroLimits);
 
 async function renderPager(language: SupportedLanguage = 'en', initialPage?: AccountIntroPageId): Promise<RenderResult> {
   const screen = await render(
@@ -72,7 +74,7 @@ describe('the sign-in benefit pages', () => {
     const screen = await renderPager();
     expect(accountIntroPageIds).toHaveLength(6);
     for (const id of accountIntroPageIds) {
-      const { title, body } = en.pages[id];
+      const { title, body } = enPages[id];
       expect(screen.getByTestId(`account-intro-page-${id}`).props.accessibilityLabel).toBe(`${title}. ${body}`);
     }
     expect(position(screen)).toBe(en.pagePosition(1, 6));
@@ -84,10 +86,10 @@ describe('the sign-in benefit pages', () => {
     const screen = await renderPager();
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
     expect(position(screen)).toBe(en.pagePosition(2, 6));
-    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenLastCalledWith(en.pages.history.title);
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenLastCalledWith(enPages.history.title);
     for (let step = 0; step < 6; step += 1) await wait(ACCOUNT_INTRO_PAGE_DWELL_MS);
     expect(position(screen)).toBe(en.pagePosition(6, 6));
-    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenLastCalledWith(en.pages.compose.title);
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenLastCalledWith(enPages.compose.title);
   });
 
   test('a touch hands them over: they stop moving for the rest of the visit', async () => {
@@ -137,7 +139,7 @@ describe('the sign-in benefit pages', () => {
     const screen = await renderPager('en', 'compose');
     expect(position(screen)).toBe(en.pagePosition(6, 6));
     expect(screen.getByTestId('account-intro-page-compose').props.accessibilityLabel)
-      .toBe(`${en.pages.compose.title}. ${en.pages.compose.body}`);
+      .toBe(`${enPages.compose.title}. ${enPages.compose.body}`);
     await wait(ACCOUNT_INTRO_PAGE_DWELL_MS * 2);
     expect(position(screen)).toBe(en.pagePosition(6, 6));
     expect(control(screen).props.accessibilityLabel).toBe(en.playPages);
@@ -191,7 +193,7 @@ describe('the sign-in benefit pages', () => {
 
   test('speak Turkish', async () => {
     const screen = await renderPager('tr');
-    expect(screen.getByText(messages.tr.account.signIn.pages.closet.title)).toBeTruthy();
+    expect(screen.getByText(messages.tr.account.signIn.pages(accountIntroLimits).closet.title)).toBeTruthy();
     expect(position(screen)).toBe(messages.tr.account.signIn.pagePosition(1, 6));
     expect(control(screen).props.accessibilityLabel).toBe(messages.tr.account.signIn.pausePages);
   });

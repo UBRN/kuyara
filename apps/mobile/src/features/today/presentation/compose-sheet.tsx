@@ -15,6 +15,7 @@ import {
   type GarmentOutfitPalette,
 } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import { composePieceLimit } from '@/features/recommendation/application/compose-around-pieces';
 import {
   canChooseComposePiece,
   isComposePieceChosen,
@@ -100,7 +101,7 @@ function ComposePieces({
     return (
       <View key={`${piece.slot}-${piece.garmentTypeId}`}>
         <CheckRow
-          accessibilityHint={available ? undefined : copy.limitHint}
+          accessibilityHint={available ? undefined : copy.limitHint(composePieceLimit)}
           checked={choice !== undefined}
           label={pieceName(piece.garmentTypeId)}
           leading={(
@@ -137,7 +138,7 @@ function ComposePieces({
       <View style={styles.head}>
         <GlassButton kind="close" label={messages.today.dailyStyle.close} onPress={onDismiss} testID="compose-close" />
         <AppText accessibilityRole="header" variant="title">{copy.title}</AppText>
-        <AppText colorRole="textSecondary" variant="body">{copy.subtitle}</AppText>
+        <AppText colorRole="textSecondary" variant="body">{copy.subtitle(composePieceLimit)}</AppText>
       </View>
       <View style={styles.section}>
         <AppText accessibilityRole="header" variant="bodyStrong">{copy.fromOutfit}</AppText>
@@ -173,7 +174,7 @@ function ComposePieces({
           tabularNumbers
           testID="compose-count"
           variant="caption">
-          {copy.chosenCount(selection.length)}
+          {copy.chosenCount(selection.length, composePieceLimit)}
         </AppText>
       </View>
     </ScrollView>
@@ -200,7 +201,7 @@ function ComposeCatalogPage({
               const available = canChooseComposePiece(selection, piece);
               return (
                 <CheckRow
-                  accessibilityHint={available ? undefined : copy.limitHint}
+                  accessibilityHint={available ? undefined : copy.limitHint(composePieceLimit)}
                   checked={isComposePieceChosen(selection, piece)}
                   key={garmentTypeId}
                   label={pieceName(garmentTypeId)}

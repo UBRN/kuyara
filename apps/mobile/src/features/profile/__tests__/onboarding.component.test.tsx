@@ -4,6 +4,7 @@ import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { PlaceSearchV1Data } from '@kuyara/contracts';
 
+import { displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
@@ -268,10 +269,10 @@ test('optional name step validates 2 to 30 characters and offers Not now', async
   expect(result.getByTestId('onboarding-continue').props.accessibilityState.disabled).toBe(true);
 
   await fireEvent.changeText(result.getByTestId('onboarding-name'), 'A');
-  expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameShortError);
+  expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameShortError(displayNameMinLength));
   expect(result.getByTestId('onboarding-continue').props.accessibilityState.disabled).toBe(true);
   await fireEvent.changeText(result.getByTestId('onboarding-name'), 'a'.repeat(31));
-  expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameLongError);
+  expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameLongError(displayNameMaxLength));
   await fireEvent.changeText(result.getByTestId('onboarding-name'), '  Utku  ');
   expect(result.queryByTestId('onboarding-name-error')).toBeNull();
   await fireEvent.press(result.getByTestId('onboarding-continue'));
