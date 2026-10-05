@@ -269,6 +269,8 @@ function createScenarioAccountScreens(
       withdraw: async () => {},
     },
     sync: {
+      // A scenario frame stands for a phone already linked to its account.
+      hasLinked: async () => true,
       run: async () => {
         const syncConsent = answer();
         const records = syncConsent === 'given';

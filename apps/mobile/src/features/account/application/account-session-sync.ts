@@ -12,7 +12,7 @@ import {
   type FirstLinkOutcome,
   type LocalAccountRows,
 } from '@/features/account/application/account-sync';
-import { linkAtPass, syncPassFor } from '@/features/account/domain/account-link';
+import { hasLinkedTo, linkAtPass, syncPassFor } from '@/features/account/domain/account-link';
 import { isLiveRow, liveHistoryDays } from '@/features/account/domain/account-merge';
 import {
   givenConsentRecordedAt,
@@ -48,6 +48,7 @@ export function createAccountSessionSync({ consent, now, remote, source }: Reado
 }>): AccountSessionSyncPort {
   const flow = createAccountSyncFlow(source, remote, now);
   return {
+    hasLinked: async (userId) => hasLinkedTo(await source.link(), userId),
     async run(userId) {
       const records = await consent.records(userId);
       const state = syncConsentState(records);

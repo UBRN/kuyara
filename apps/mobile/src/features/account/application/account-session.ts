@@ -106,6 +106,8 @@ export type AccountSyncSummary = Readonly<{
 }>;
 
 export type AccountSessionSyncPort = Readonly<{
+  /** Whether a first link of this phone with the account has finished (`hasLinkedTo`). */
+  hasLinked: (userId: string) => Promise<boolean>;
   run: (userId: string) => Promise<AccountSyncSummary>;
 }>;
 
@@ -229,6 +231,24 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
     });
     return trailing;
   };
+  /**
+   * ADR 0041 section 5, for a session the app restores: the account holds no consent answer (or
+   * it cannot be read) and this phone has never linked to it, so the app was closed over the
+   * question after sign-in. The question comes back, on the sheet open or else the app-wide one,
+   * and as at sign-in no pass runs until it is answered. Answers whether it asks.
+   */
+  const askConsentAgain = async (session: AuthSession): Promise<boolean> => {
+    if (awaitingConsent !== null) return false;
+    // A link that cannot be read asks nothing: the pass then fails on the same read.
+    if (await sync.hasLinked(session.userId).catch(() => true)) return false;
+    const syncConsent = await readConsent(session.userId);
+    if (!isCurrent(session)) return true;
+    if (syncConsent === 'given' || syncConsent === 'withdrawn') return false;
+    awaitingConsent = session.provider;
+    updateSession({ syncConsent });
+    update({ sheet: snapshot.sheet ?? 'app', signIn: { kind: 'idle' }, result: null, consent: { prompt: 'signIn', status: 'idle' } });
+    return true;
+  };
   const restore = async (session: AuthSession | null) => {
     const previous = identity;
     identity = session;
@@ -241,6 +261,7 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
     update({ session: shown && previous?.userId === session.userId
       ? { ...shown, provider: session.provider, email: session.email, providers: session.providers }
       : showIdentity(session) });
+    if (await askConsentAgain(session)) return;
     await runSync();
   };
   /**

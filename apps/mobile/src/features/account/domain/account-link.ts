@@ -29,6 +29,12 @@ export function signOut(link: AccountLink): AccountLink {
 }
 
 /**
+ * Whether this phone has linked to the account `userId`: a first link with it has finished, now
+ * or before a sign-out. Until then nothing of this phone has reached that account.
+ */
+export const hasLinkedTo = (link: AccountLink, userId: string) => link.lastUserId === userId;
+
+/**
  * Which pass a sync runs for the signed-in `userId`. An account other than the one this phone
  * was last linked to always takes a first link (section 6), with the consent or without it, so
  * the pull starts from that account's own cursor. With the consent, the last linked account also
@@ -46,7 +52,7 @@ export function syncPassFor(
   syncConsent: boolean,
   withdrawnAt: string | null,
 ): 'first-link' | 'sync' {
-  if (link.lastUserId !== userId) return 'first-link';
+  if (!hasLinkedTo(link, userId)) return 'first-link';
   if (!syncConsent) return 'sync';
   const joinedAt = link.recordsConsentRecordedAt;
   const joined = link.recordsUserId === userId && joinedAt !== null && (withdrawnAt === null || withdrawnAt <= joinedAt);

@@ -26,6 +26,8 @@ function setup(over = {}) {
   };
   const consentState = () => (records.at(-1)?.answer ?? 'none');
   const sync = {
+    // A phone that has run a pass with the account before; a launch test of a phone new to it says so.
+    hasLinked: async () => true,
     run: async (userId) => {
       calls.push(['sync', userId]);
       const records = consentState() === 'given';
@@ -251,6 +253,41 @@ test('while the consent question is open nothing syncs, and a foreground keeps t
   assert.deepEqual(manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
   await manager.answerConsent(false);
   assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+});
+
+test('a launch after the app closed over the consent question asks it again app-wide before any pass', async () => {
+  const { manager, calls } = setup({ current: identity, records: [], sync: { hasLinked: async () => false } });
+  await manager.start();
+  const snapshot = manager.getSnapshot();
+  assert.equal(snapshot.session.kind, 'signedIn');
+  assert.equal(snapshot.session.syncConsent, 'none');
+  assert.equal(snapshot.sheet, 'app');
+  assert.deepEqual(snapshot.consent, { prompt: 'signIn', status: 'idle' });
+  await manager.foreground();
+  await manager.localWrite();
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+  await manager.answerConsent(true);
+  assert.deepEqual(calls.filter(([name]) => name === 'give' || name === 'sync').map(([name]) => name), ['give', 'sync']);
+  assert.equal(manager.getSnapshot().sheet, 'app');
+  assert.equal(manager.getSnapshot().result.added, 'records');
+});
+
+test('a launch whose consent answer cannot be read, on a phone new to the account, asks before any pass', async () => {
+  const { manager, calls } = setup({ current: identity, sync: { hasLinked: async () => false },
+    consent: { records: async () => { throw new Error('offline'); } } });
+  await manager.start();
+  assert.deepEqual(manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+});
+
+test('a launch asks nothing when the account holds an answer or this phone has linked to it before', async () => {
+  for (const [records, linked] of [[[given], false], [[], true]]) {
+    const { manager, calls } = setup({ current: identity, records, sync: { hasLinked: async () => linked } });
+    await manager.start();
+    assert.equal(manager.getSnapshot().consent.prompt, null);
+    assert.equal(manager.getSnapshot().sheet, null);
+    assert.deepEqual(calls.at(-1), ['sync', 'user-a']);
+  }
 });
 
 test('a foreground for the same account keeps its consent answer and counts on screen while it syncs', async () => {
