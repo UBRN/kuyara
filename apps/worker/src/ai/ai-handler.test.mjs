@@ -243,6 +243,32 @@ test('invalid or absent v2 prose does not fail valid picks', async () => {
   }
 });
 
+// The sentences that reached Today on 6 October 2026 passed the shared schema. The Worker's
+// stricter check drops them, so every installed build shows its deterministic line instead.
+test('v2 drops a fragment or a cut sentence and keeps the picks', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  for (const [sentence, locale] of [
+    ['Kadınlar giydiler.', 'tr'],
+    ['Kadınlar giyiniyorlar', 'tr'],
+    ['Kadınlar giyiniyor.', 'tr'],
+    ['Choose a light jacket over a knit, or a shirt with jeans and', 'en'],
+  ]) {
+    infos.length = 0;
+    const handler = createAiHandler({ providers: [{
+      id: 'openrouter', model: 'stub',
+      generateOutfits: async () => ({ data: { ...validOutput().data, insightSentence: sentence } }),
+    }] });
+    const response = await handler(request({ path: '/v2/ai/recommend', body: JSON.stringify({
+      ...validRequestBody(), locale,
+    }) }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), validOutput(), sentence);
+    assert.deepEqual(infos.filter(({ event }) => event === 'ai_insight_sentence')
+      .map(({ outcome }) => outcome), ['invalid'], sentence);
+  }
+});
+
 test('v2 logs only a coarse insight outcome after valid picks', async (t) => {
   const infos = [];
   t.mock.method(console, 'info', (entry) => infos.push(entry));

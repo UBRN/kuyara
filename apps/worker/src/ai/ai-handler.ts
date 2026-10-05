@@ -7,7 +7,6 @@ import {
   aiRecommendV2Path,
   aiRecommendV2RequestSchema,
   aiRecommendV2SuccessSchema,
-  insightSentenceSchema,
   aiV1ErrorSchema,
   type AiRecommendV1Request,
   type AiRecommendV2Request,
@@ -20,6 +19,7 @@ import { rateLimitedHeaders, readRouteRequest, type RateLimiter } from '../json-
 import { createErrorResponse, jsonHeaders, refusalResponse } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
 import { buildCacheRequest, defaultCache, readCachedAnswer, writeCachedAnswer } from './ai-cache.ts';
+import { completeInsightSentenceSchema } from './insight-sentence.ts';
 import { attemptFailureReason, type AiAttemptFailureReason, type AiProvider } from './ai-provider.ts';
 import { selectionFailure } from './ai-selection.ts';
 import type { MemberAllowance } from './member-allowance.ts';
@@ -289,7 +289,7 @@ export function createAiHandler({
         ? output.data.insightSentence : undefined;
       // Parsed as the model wrote it: invalid prose is dropped, never repaired (ADR 0039).
       const sentence = typeof rawSentence === 'string' ? rawSentence : undefined;
-      const acceptedSentence = insightSentenceSchema.safeParse(sentence);
+      const acceptedSentence = completeInsightSentenceSchema.safeParse(sentence);
       const responseBody = isV2
         ? aiRecommendV2SuccessSchema.parse({ data: {
             picks: result.data.data.picks,
