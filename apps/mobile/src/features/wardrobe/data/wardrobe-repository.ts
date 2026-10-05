@@ -57,6 +57,7 @@ type WardrobeRepositoryDependencies = Readonly<{
 type WardrobePhotoCleanupDataSource = WardrobeLocalDataSource &
   Readonly<{
     listPendingPhotoCleanup(localProfileId: string): Promise<WardrobeItemRecord[]>;
+    listPhotoPathsInUse(): Promise<string[]>;
     clearPendingPhotoCleanup(
       localProfileId: string,
       id: string,
@@ -104,6 +105,11 @@ export interface WardrobeRepository {
   listPendingPhotoCleanup(
     localProfileId: string,
   ): Promise<PendingWardrobePhotoCleanup[]>;
+  /**
+   * Every photo path any row names, as stored: deleted rows, other profiles' rows and rows
+   * this build cannot read included. Only the file sweep reads it, to know what to keep.
+   */
+  listPhotoPathsInUse(): Promise<string[]>;
   clearPendingPhotoCleanup(
     localProfileId: string,
     id: string,
@@ -465,6 +471,10 @@ export class LocalWardrobeRepository implements WardrobeRepository {
         return { id: item.id, photoRelativePath: item.photoRelativePath };
       });
     });
+  }
+
+  listPhotoPathsInUse(): Promise<string[]> {
+    return this.execute(() => this.dataSource.listPhotoPathsInUse());
   }
 
   clearPendingPhotoCleanup(

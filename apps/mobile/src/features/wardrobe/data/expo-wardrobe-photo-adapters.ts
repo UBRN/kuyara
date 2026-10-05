@@ -22,6 +22,7 @@ import {
 import {
   normalizeWardrobePhotoRelativePath,
 } from '@/features/wardrobe/domain/wardrobe-item';
+import type { ManagedWardrobePhotoFile } from '@/features/wardrobe/domain/wardrobe-photo-sweep';
 import {
   calculateWardrobePhotoResize,
   WardrobeCameraAccessError,
@@ -224,6 +225,45 @@ export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
     const stored = new File(Paths.document, ...normalized.split('/'));
     if (stored.exists) {
       stored.delete();
+    }
+  }
+
+  async listManagedPhotos(): Promise<readonly ManagedWardrobePhotoFile[]> {
+    const directory = new Directory(Paths.document, ...managedWardrobePhotoDirectorySegments);
+    if (!directory.exists) {
+      return [];
+    }
+
+    const photos: ManagedWardrobePhotoFile[] = [];
+    for (const entry of directory.list()) {
+      const relativePath = [...managedWardrobePhotoDirectorySegments, entry.name].join('/');
+      if (entry instanceof File && isManagedWardrobePhotoRelativePath(relativePath)) {
+        photos.push({ relativePath, modifiedAtMs: entry.lastModified });
+      }
+    }
+    return photos;
+  }
+
+  async discardStaleStagedPhotos(modifiedBeforeMs: number): Promise<void> {
+    const directory = new Directory(Paths.cache, ...stagingDirectorySegments);
+    if (!directory.exists) {
+      return;
+    }
+
+    let firstFailure: unknown = null;
+    for (const entry of directory.list()) {
+      if (!(entry instanceof File) || entry.lastModified === null || entry.lastModified >= modifiedBeforeMs) {
+        continue;
+      }
+      try {
+        entry.delete();
+      } catch (error) {
+        // One stuck file must not keep the others; the sweep reports the first failure.
+        firstFailure ??= error;
+      }
+    }
+    if (firstFailure !== null) {
+      throw firstFailure;
     }
   }
 

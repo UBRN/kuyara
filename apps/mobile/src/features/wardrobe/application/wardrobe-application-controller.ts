@@ -22,7 +22,12 @@ import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-phot
 import { isManagedWardrobePhotoRelativePath } from '@/features/wardrobe/domain/wardrobe-photo-path';
 import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
 import { WardrobeRepositoryError } from '@/features/wardrobe/domain/wardrobe-repository-error';
+import {
+  orphanedWardrobePhotoPaths,
+  staleStagedWardrobePhotoMinimumAgeMs,
+} from '@/features/wardrobe/domain/wardrobe-photo-sweep';
 import { coalescedRun } from '@/domain/coalesced-run';
+import { systemDate } from '@/infrastructure/system-clock';
 
 export type WardrobeApplicationState =
   | Readonly<{ status: 'loading' }>
@@ -61,6 +66,8 @@ export class WardrobeApplicationController {
   private initializationPromise: Promise<void> | null = null;
   private refreshPromise: Promise<void> | null = null;
   private mutationPromise: Promise<unknown> | null = null;
+  // Set while the launch photo sweep reads and deletes files; a save waits for it.
+  private sweepPromise: Promise<void> | null = null;
   // Bumped when a mutation starts and when it settles, so a refresh can tell that its
   // list read straddled a mutation and may hold pre-mutation data.
   private mutationEpoch = 0;
@@ -74,17 +81,20 @@ export class WardrobeApplicationController {
   private readonly loadRepository: () => Promise<WardrobeRepository>;
   private readonly photoManager: WardrobePhotoManager;
   private readonly reportPhotoCleanupError: () => void;
+  private readonly now: () => Date;
 
   constructor(
     localProfileId: string,
     loadRepository: () => Promise<WardrobeRepository>,
     photoManager: WardrobePhotoManager = unavailableWardrobePhotoManager,
     reportPhotoCleanupError: () => void = () => undefined,
+    now: () => Date = systemDate,
   ) {
     this.localProfileId = localProfileId;
     this.loadRepository = loadRepository;
     this.photoManager = photoManager;
     this.reportPhotoCleanupError = reportPhotoCleanupError;
+    this.now = now;
   }
 
   getSnapshot = (): WardrobeApplicationState => this.state;
@@ -224,10 +234,35 @@ export class WardrobeApplicationController {
         isMutating: false,
         refreshFailure: null,
       });
-      void this.cleanupPendingPhotos(this.repository);
+      void this.cleanupPhotosOnLaunch(this.repository);
     } catch {
       this.setState({ status: 'error' });
     }
+  }
+
+  /**
+   * The launch housekeeping for photo files, in the background: retry the deletions still
+   * pending, then sweep the files nothing names. The sweep starts only when no save is in
+   * progress, and from then on a save waits for it, so a photo copied for a save that has not
+   * written its row yet is never mistaken for a leftover.
+   */
+  private async cleanupPhotosOnLaunch(repository: WardrobeRepository): Promise<void> {
+    if (this.photoManager === unavailableWardrobePhotoManager) {
+      return;
+    }
+
+    await this.cleanupPendingPhotos(repository);
+    while (this.mutationPromise) {
+      try {
+        await this.mutationPromise;
+      } catch {
+        // The save reports its own failure; the sweep only waits for it to end.
+      }
+    }
+    // No await between the check above and this line: no save can start in between.
+    this.sweepPromise = this.sweepPhotoFiles(repository).finally(() => {
+      this.sweepPromise = null;
+    });
   }
 
   /** Answers true when a save started during the read, so the reload reads once more after it. */
@@ -454,6 +489,53 @@ export class WardrobeApplicationController {
     return requestedItemWasCleared;
   }
 
+  /**
+   * Removes the managed photo files no row names, and the staged photos nobody will commit.
+   * It lists the directory first and reads the named paths after, so a photo that a save
+   * wrote between the two reads is named by then. Every failure is dropped into one report at
+   * the end: the sweep is housekeeping and runs again on the next launch.
+   */
+  private async sweepPhotoFiles(repository: WardrobeRepository): Promise<void> {
+    const nowMs = this.now().getTime();
+    let swept = true;
+    try {
+      swept = await this.deleteOrphanedPhotos(repository, nowMs);
+    } catch {
+      swept = false;
+    }
+    try {
+      await this.photoManager.discardStaleStagedPhotos(
+        nowMs - staleStagedWardrobePhotoMinimumAgeMs,
+      );
+    } catch {
+      swept = false;
+    }
+
+    if (!swept) {
+      this.reportCleanupError();
+    }
+  }
+
+  /** Deletes each orphaned file it can; answers whether every one of them was deleted. */
+  private async deleteOrphanedPhotos(
+    repository: WardrobeRepository,
+    nowMs: number,
+  ): Promise<boolean> {
+    const files = await this.photoManager.listManagedPhotos();
+    const namedPaths = await repository.listPhotoPathsInUse();
+
+    let everyFileDeleted = true;
+    for (const relativePath of orphanedWardrobePhotoPaths(files, namedPaths, nowMs)) {
+      try {
+        await this.photoManager.deleteStoredPhoto(relativePath);
+      } catch {
+        everyFileDeleted = false;
+      }
+    }
+
+    return everyFileDeleted;
+  }
+
   private async cleanupPhoto(operation: () => Promise<void>): Promise<boolean> {
     try {
       await operation();
@@ -493,6 +575,8 @@ export class WardrobeApplicationController {
     const mutation = (async () => {
       let item: Result;
       try {
+        // The launch sweep deletes files by what the rows name, so no save runs beside it.
+        if (this.sweepPromise) await this.sweepPromise;
         item = await operation(repository);
       } catch (error) {
         if (readyState) {

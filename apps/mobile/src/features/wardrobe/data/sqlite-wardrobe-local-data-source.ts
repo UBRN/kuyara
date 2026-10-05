@@ -262,6 +262,20 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
     return rows.map(mapRow);
   }
 
+  async listPhotoPathsInUse(): Promise<string[]> {
+    // Raw: no profile or deletion filter and no mapping, so every row's file is protected,
+    // including a row this build cannot read.
+    const rows = await this.database.getAllAsync<Readonly<{ photo_relative_path: string }>>(
+      `
+        SELECT DISTINCT photo_relative_path
+        FROM wardrobe_items
+        WHERE photo_relative_path IS NOT NULL
+      `,
+    );
+
+    return rows.map((row) => row.photo_relative_path);
+  }
+
   async clearPendingPhotoCleanup(
     localProfileId: string,
     id: string,

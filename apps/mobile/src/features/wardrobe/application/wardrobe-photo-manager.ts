@@ -6,6 +6,7 @@ import type {
   WardrobePhotoStorage,
 } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
+import type { ManagedWardrobePhotoFile } from '@/features/wardrobe/domain/wardrobe-photo-sweep';
 
 export type WardrobePhotoChange =
   | Readonly<{ kind: 'unchanged' }>
@@ -21,6 +22,8 @@ export interface WardrobePhotoManager {
   commitStagedPhoto(photo: StagedWardrobePhoto): Promise<StoredWardrobePhoto>;
   discardStagedPhoto(photo: StagedWardrobePhoto): Promise<void>;
   deleteStoredPhoto(relativePath: string): Promise<void>;
+  listManagedPhotos(): Promise<readonly ManagedWardrobePhotoFile[]>;
+  discardStaleStagedPhotos(modifiedBeforeMs: number): Promise<void>;
   resolvePhotoUri(relativePath: string | null): string | null;
 }
 
@@ -66,6 +69,14 @@ export class LocalWardrobePhotoManager implements WardrobePhotoManager {
     return this.storage.deleteStoredPhoto(relativePath);
   }
 
+  listManagedPhotos(): Promise<readonly ManagedWardrobePhotoFile[]> {
+    return this.storage.listManagedPhotos();
+  }
+
+  discardStaleStagedPhotos(modifiedBeforeMs: number): Promise<void> {
+    return this.storage.discardStaleStagedPhotos(modifiedBeforeMs);
+  }
+
   resolvePhotoUri(relativePath: string | null): string | null {
     return relativePath ? this.storage.resolvePhotoUri(relativePath) : null;
   }
@@ -80,6 +91,10 @@ export const unavailableWardrobePhotoManager: WardrobePhotoManager = Object.free
   },
   async discardStagedPhoto() {},
   async deleteStoredPhoto() {},
+  async listManagedPhotos() {
+    return [];
+  },
+  async discardStaleStagedPhotos() {},
   resolvePhotoUri() {
     return null;
   },
