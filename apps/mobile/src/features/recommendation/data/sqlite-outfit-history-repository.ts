@@ -218,7 +218,8 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
       [managedPhotoPath(old), now, now, profileId, id]);
       changed = updated.changes > 0;
     });
-    if (changed) await this.cleanupPendingPhotos(profileId, id);
+    // The delete has committed; a cleanup that cannot even list the pending photos retries next time.
+    if (changed) await bestEffort(this.cleanupPendingPhotos(profileId, id));
     return changed;
   }
 
