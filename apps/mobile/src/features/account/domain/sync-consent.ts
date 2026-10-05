@@ -6,7 +6,7 @@
  * The version of the consent text the sheet shows. `sync-consent-text.test.mjs` pins a hash of
  * both languages' text to it, so a changed word cannot ship under an old version.
  */
-export const SYNC_CONSENT_TEXT_VERSION = '2026-10-04';
+export const SYNC_CONSENT_TEXT_VERSION = '2026-10-06';
 
 export type SyncConsentAnswer = 'given' | 'withdrawn';
 
