@@ -42,8 +42,11 @@ function setup(over = {}) {
     ...over.consent,
   };
   const deletion = { deleteAccount: async (request) => { calls.push(['delete', request]); return { kind: 'deleted', appleUnrevoked: false }; }, ...over.deletion };
-  const manager = createAccountSessionManager({ auth, sync, deletion, consent, now: () => new Date('2026-10-03T01:00:00Z') });
-  return { manager, calls };
+  // The device-local marker of a consent question left open; the fake keeps it in `question.open`.
+  const question = over.question ?? { open: false };
+  const consentQuestion = { wasOpen: async () => question.open, setOpen: async (open) => { question.open = open; } };
+  const manager = createAccountSessionManager({ auth, sync, deletion, consent, consentQuestion, now: () => new Date('2026-10-03T01:00:00Z') });
+  return { manager, calls, question };
 }
 
 /** A promise the test settles by hand, to hold a port call open. */
@@ -256,7 +259,7 @@ test('while the consent question is open nothing syncs, and a foreground keeps t
 });
 
 test('a launch after the app closed over the consent question asks it again app-wide before any pass', async () => {
-  const { manager, calls } = setup({ current: identity, records: [], sync: { hasLinked: async () => false } });
+  const { manager, calls, question } = setup({ current: identity, records: [], sync: { hasLinked: async () => false }, question: { open: true } });
   await manager.start();
   const snapshot = manager.getSnapshot();
   assert.equal(snapshot.session.kind, 'signedIn');
@@ -270,24 +273,104 @@ test('a launch after the app closed over the consent question asks it again app-
   assert.deepEqual(calls.filter(([name]) => name === 'give' || name === 'sync').map(([name]) => name), ['give', 'sync']);
   assert.equal(manager.getSnapshot().sheet, 'app');
   assert.equal(manager.getSnapshot().result.added, 'records');
+  assert.equal(question.open, false);
 });
 
 test('a launch whose consent answer cannot be read, on a phone new to the account, asks before any pass', async () => {
-  const { manager, calls } = setup({ current: identity, sync: { hasLinked: async () => false },
+  const { manager, calls } = setup({ current: identity, sync: { hasLinked: async () => false }, question: { open: true },
     consent: { records: async () => { throw new Error('offline'); } } });
   await manager.start();
   assert.deepEqual(manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
   assert.equal(calls.some(([name]) => name === 'sync'), false);
 });
 
-test('a launch asks nothing when the account holds an answer or this phone has linked to it before', async () => {
-  for (const [records, linked] of [[[given], false], [[], true]]) {
-    const { manager, calls } = setup({ current: identity, records, sync: { hasLinked: async () => linked } });
+test('a launch asks nothing when no question was left open, the account holds an answer or this phone has linked to it', async () => {
+  for (const [records, linked, open] of [[[], false, false], [[given], false, true], [[], true, true]]) {
+    const { manager, calls, question } = setup({ current: identity, records, sync: { hasLinked: async () => linked }, question: { open } });
     await manager.start();
     assert.equal(manager.getSnapshot().consent.prompt, null);
     assert.equal(manager.getSnapshot().sheet, null);
     assert.deepEqual(calls.at(-1), ['sync', 'user-a']);
+    // A marker the account or the link has settled is cleared.
+    assert.equal(question.open, false);
   }
+});
+
+test('while a restored session checks for a question left open, a local write runs no pass', async () => {
+  const read = held();
+  const { manager, calls } = setup({ current: identity, sync: { hasLinked: async () => false }, question: { open: true },
+    consent: { records: async () => read.promise } });
+  const starting = manager.start();
+  await settle();
+  // The consent read is slow; a write lands meanwhile.
+  await manager.localWrite();
+  manager.syncNow();
+  await settle();
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+  read.resolve([]);
+  await starting;
+  assert.deepEqual(manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+});
+
+test('while a restored session checks for a question left open, a pass waits, and runs once the question is not asked', async () => {
+  const read = held();
+  const { manager, calls } = setup({ current: identity, sync: { hasLinked: async () => false }, question: { open: true },
+    consent: { records: async () => read.promise } });
+  const starting = manager.start();
+  await settle();
+  await manager.localWrite();
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+  read.resolve([given]);
+  await starting;
+  assert.equal(manager.getSnapshot().consent.prompt, null);
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+});
+
+test('the sign-in question is marked open on this phone until it is answered either way', async () => {
+  for (const answer of [true, false]) {
+    const { manager, question } = setup({ records: [] });
+    manager.openSignIn('profile');
+    await manager.signIn('apple');
+    assert.equal(question.open, true);
+    await manager.answerConsent(answer);
+    assert.equal(question.open, false);
+  }
+  const { manager, question } = setup({ records: [] });
+  manager.openSignIn('profile');
+  await manager.signIn('apple');
+  manager.closeSheet();
+  await settle();
+  assert.equal(question.open, false);
+});
+
+test('a declined question is not asked again at a foreground, online or offline, while the first link has not run', async () => {
+  for (const online of [true, false]) {
+    const { manager, calls } = setup({ records: [], sync: { hasLinked: async () => false,
+      run: async (userId) => { calls.push(['sync', userId]); throw new Error('offline'); } } });
+    manager.openSignIn('profile');
+    await manager.signIn('apple');
+    manager.setOnline(online);
+    await manager.answerConsent(false);
+    manager.closeSheet();
+    await manager.foreground();
+    assert.equal(manager.getSnapshot().consent.prompt, null);
+    assert.equal(manager.getSnapshot().sheet, null);
+  }
+});
+
+test('a question open when the app was killed is asked at the next launch', async () => {
+  const question = { open: false };
+  const first = setup({ records: [], question });
+  first.manager.openSignIn('profile');
+  await first.manager.signIn('apple');
+  assert.equal(question.open, true);
+  // The app is killed here; the next launch restores the stored session.
+  const next = setup({ current: identity, records: [], sync: { hasLinked: async () => false }, question });
+  await next.manager.start();
+  assert.deepEqual(next.manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
+  assert.equal(next.manager.getSnapshot().sheet, 'app');
+  assert.equal(next.calls.some(([name]) => name === 'sync'), false);
 });
 
 test('a foreground for the same account keeps its consent answer and counts on screen while it syncs', async () => {

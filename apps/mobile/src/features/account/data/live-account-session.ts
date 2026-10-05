@@ -56,6 +56,9 @@ const googleModule: GoogleOneTapModule | null = null;
  */
 const accountRequestTimeoutMs = 15_000;
 
+/** The device-local mark of a consent question left open (`ConsentQuestionPort`). */
+const consentQuestionKey = 'kuyara.account.consent-question-open';
+
 /** A token read that may refresh never holds a re-ask longer than this; the re-ask goes without it. */
 const accessTokenWaitMs = 3000;
 
@@ -117,6 +120,10 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
   const manager = createAccountSessionManager({
     auth,
     consent,
+    consentQuestion: {
+      wasOpen: async () => (await deviceKeyValueStore.get(consentQuestionKey)) === 'open',
+      setOpen: (open) => (open ? deviceKeyValueStore.set(consentQuestionKey, 'open') : deviceKeyValueStore.remove(consentQuestionKey)),
+    },
     now: systemDate,
     sync: createAccountSessionSync({
       source, consent, now: systemNow, remote: createSupabaseAccountRemote(client, localProfileId),

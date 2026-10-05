@@ -111,6 +111,15 @@ export type AccountSessionSyncPort = Readonly<{
   run: (userId: string) => Promise<AccountSyncSummary>;
 }>;
 
+/**
+ * A device-local mark that the consent question after sign-in is open, kept until it is answered
+ * either way, so a launch can tell that the app was closed over it (ADR 0041 section 5).
+ */
+export type ConsentQuestionPort = Readonly<{
+  wasOpen: () => Promise<boolean>;
+  setOpen: (open: boolean) => Promise<void>;
+}>;
+
 export type AccountSessionManager = AccountScreensPort & Readonly<{
   start: () => Promise<void>;
   foreground: () => Promise<void>;
@@ -147,11 +156,14 @@ export function signInResult(
   return { kind: 'merged', counts, profileFrom };
 }
 
-export function createAccountSessionManager({ auth, consent, deletion, now, scenarioUserId, sync }: Readonly<{
+export function createAccountSessionManager({
+  auth, consent, consentQuestion, deletion, now, scenarioUserId, sync,
+}: Readonly<{
   auth: AccountAuthPort;
   sync: AccountSessionSyncPort;
   deletion: AccountDeletionPort;
   consent: SyncConsentPort;
+  consentQuestion: ConsentQuestionPort;
   now: () => Date;
   /**
    * Development scenarios only: the account a loaded signed-in frame stands for, so every action
@@ -172,6 +184,8 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
    * whatever asks for one.
    */
   let awaitingConsent: AccountProvider | null = null;
+  /** Restored sessions still checking for a question left open: no pass runs meanwhile. */
+  let consentChecks = 0;
   /** The sheet that was closed over the consent question; it comes back with the result. */
   let resultHost: AccountSheetHost | null = null;
   /** The last launch could not read the stored session; the next foreground tries again. */
@@ -202,7 +216,7 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
   const pass = async (): Promise<AccountSyncSummary | null> => {
     const session = identity;
     // Nothing uploads before the consent question after sign-in is settled.
-    if (!session || !snapshot.online || awaitingConsent !== null || !signedIn()) return null;
+    if (!session || !snapshot.online || awaitingConsent !== null || consentChecks > 0 || !signedIn()) return null;
     updateSession({ sync: { kind: 'syncing' } });
     try {
       const summary = await sync.run(session.userId);
@@ -231,23 +245,45 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
     });
     return trailing;
   };
+  const markQuestion = async (open: boolean) => {
+    try {
+      await consentQuestion.setOpen(open);
+    } catch {
+      // A mark that cannot be written changes nothing else; at worst a launch asks once more or not.
+    }
+  };
   /**
-   * ADR 0041 section 5, for a session the app restores: the account holds no consent answer (or
-   * it cannot be read) and this phone has never linked to it, so the app was closed over the
-   * question after sign-in. The question comes back, on the sheet open or else the app-wide one,
-   * and as at sign-in no pass runs until it is answered. Answers whether it asks.
+   * ADR 0041 section 5, for a session the app restores: the app was closed while the consent
+   * question after sign-in was open (its mark is still set), the account still holds no answer
+   * (or it cannot be read) and this phone has not linked to it. The question comes back, on the
+   * sheet open or else the app-wide one, and as at sign-in no pass runs until it is answered.
+   * No pass runs while this is checked either. A mark the account or the link has settled since
+   * is cleared. Answers whether it asks.
    */
   const askConsentAgain = async (session: AuthSession): Promise<boolean> => {
     if (awaitingConsent !== null) return false;
-    // A link that cannot be read asks nothing: the pass then fails on the same read.
-    if (await sync.hasLinked(session.userId).catch(() => true)) return false;
-    const syncConsent = await readConsent(session.userId);
-    if (!isCurrent(session)) return true;
-    if (syncConsent === 'given' || syncConsent === 'withdrawn') return false;
-    awaitingConsent = session.provider;
-    updateSession({ syncConsent });
-    update({ sheet: snapshot.sheet ?? 'app', signIn: { kind: 'idle' }, result: null, consent: { prompt: 'signIn', status: 'idle' } });
-    return true;
+    consentChecks += 1;
+    try {
+      if (!await consentQuestion.wasOpen().catch(() => false)) return false;
+      let linked: boolean;
+      try {
+        linked = await sync.hasLinked(session.userId);
+      } catch {
+        return false; // The pass then fails on the same read.
+      }
+      const syncConsent = linked ? null : await readConsent(session.userId);
+      if (!isCurrent(session)) return true;
+      if (linked || syncConsent === 'given' || syncConsent === 'withdrawn') {
+        await markQuestion(false);
+        return false;
+      }
+      awaitingConsent = session.provider;
+      updateSession({ syncConsent });
+      update({ sheet: snapshot.sheet ?? 'app', signIn: { kind: 'idle' }, result: null, consent: { prompt: 'signIn', status: 'idle' } });
+      return true;
+    } finally {
+      consentChecks -= 1;
+    }
   };
   const restore = async (session: AuthSession | null) => {
     const previous = identity;
@@ -278,6 +314,7 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
     identity = null;
     awaitingConsent = null;
     resultHost = null;
+    await markQuestion(false);
     update({ session: { kind: 'signedOut', notice: 'signedOut' }, cardDismissed: true, consent: noConsentPrompt });
   };
   /**
@@ -367,6 +404,9 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
         // Without an answer, or with one that could not be read, the question is asked, and the
         // first link waits for the sheet. A withdrawn account is not asked again here.
         if ((syncConsent === 'none' || syncConsent === null) && snapshot.sheet !== null) {
+          // Marked before it shows, so an answer always clears a mark already written.
+          await markQuestion(true);
+          if (!isCurrent(session)) return;
           update({ consent: { prompt: 'signIn', status: 'idle' } });
           return;
         }
@@ -399,6 +439,7 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
         if (!isCurrent(session)) return;
         updateSession({ syncConsent: 'given' });
       }
+      if (prompt === 'signIn') await markQuestion(false);
       update({ consent: noConsentPrompt });
       if (prompt === 'signIn' && awaitingConsent !== null) {
         const provider = awaitingConsent;
@@ -453,6 +494,7 @@ export function createAccountSessionManager({ auth, consent, deletion, now, scen
         const result = await deletion.deleteAccount(credentials);
         if (result.kind === 'failed') { update({ deletion: 'failed' }); return; }
         identity = null;
+        await markQuestion(false);
         // Section 7: the person may have gone anywhere meanwhile, so the result shows app-wide.
         update({ deletion: 'idle', session: { kind: 'signedOut', notice: 'deleted' }, cardDismissed: true,
           sheet: 'app', consent: noConsentPrompt,
