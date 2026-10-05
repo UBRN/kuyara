@@ -36,10 +36,8 @@ import {
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
-import {
-  deriveClothingRequirements,
-  type ClothingRequirements,
-} from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { poolCompositionKey } from '@/features/recommendation/application/pool-composition-key';
 import { reusablePreviewRecommendation } from '@/features/recommendation/application/tomorrow-preview';
 import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
@@ -275,31 +273,6 @@ function storedPool(
     // Pool reconstruction is derived UI state and must not discard a valid saved outfit.
     return null;
   }
-}
-
-function canonicalizePoolKeyValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalizePoolKeyValue);
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value)
-        .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
-        .map(([key, nested]) => [key, canonicalizePoolKeyValue(nested)]),
-    );
-  }
-  return value;
-}
-
-function poolCompositionKey(
-  requirements: ClothingRequirements,
-  clothingPreference: RecommendationApplicationInput['clothingPreference'],
-  dayVariant: number,
-  recentWorn: readonly WornOutfit[] = [],
-): string {
-  return JSON.stringify(canonicalizePoolKeyValue([
-    garmentCatalogVersion, requirements, clothingPreference, dayVariant,
-    recentWorn.slice(0, 7).map(({ garments }) =>
-      Object.values(garments).filter((id) => id !== undefined).sort()),
-  ]));
 }
 
 function poolCompositionKeyForInput(input: RecommendationApplicationInput): string {
