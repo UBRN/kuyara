@@ -341,6 +341,23 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .toBeNull();
     expect(result.queryByTestId('today-sky', hidden)).toBeNull();
   });
+  // A long condition ("Parçalı bulutlu" at the largest standard text size) is wider than what
+  // is left beside the temperature and the symbol: it wraps onto its own lines beside them
+  // rather than running past the screen's edge.
+  test('a long condition wraps inside the title instead of overflowing it', async () => {
+    const presentation = loadedPresentation(language);
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={todayScreenState} />,
+      lightTheme, language,
+    ));
+    const title = result.getByTestId('today-title');
+    const condition = within(title).getByText(presentation.titleParts.afterSymbol);
+    expect(StyleSheet.flatten(condition.props.style)).toMatchObject({ flexShrink: 1 });
+    expect(condition.props.numberOfLines).toBeUndefined();
+    expect(StyleSheet.flatten(within(title).getByTestId('today-title-values').props.style))
+      .toMatchObject({ flexShrink: 1 });
+  });
   test.each([lightTheme, darkTheme])('renders the title, stage, quiet provenance and two equal alternates', async (theme) => {
     const presentation = loadedPresentation(language);
     const primary = presentation.suggestions[0];
