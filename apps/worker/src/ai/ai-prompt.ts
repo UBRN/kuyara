@@ -68,7 +68,7 @@ const systemContent = [
 
 export function buildMessages(request: AiRecommendV1Request | AiRecommendV2Request) {
   const v2Instruction = 'locale' in request
-    ? `insightSentence: ${request.locale === 'tr' ? 'Turkish' : 'English'} only; one natural sentence with a verb about the chosen outfits, <=90 chars. Weather only from true flags: wet=rain possible/likely (never raining now); frozen=snow/sleet; cold=cold day; windy=wind. No sun/clear/heat/other weather; all false=no weather claim. No numbers/times/degrees/brands/models/AI/URLs/emoji.`
+    ? `insightSentence: ${request.locale === 'tr' ? 'Turkish' : 'English'} only; one 5-10 word sentence to the wearer (you) about the chosen outfits, ending in a period. Weather only from true flags: wet=rain possible/likely (never raining now); frozen=snow/sleet; cold=cold day; windy=wind. No sun/clear/heat/other weather; all false=no weather claim. No numbers/degrees/brands/models/AI/URLs/emoji.`
     : null;
   const projection = aiModelInputFromRequest(request);
   return [

@@ -60,7 +60,7 @@ type Dependencies = Readonly<{
  *   of output: 14.3 + 52.4 = 66.7, rounded up to 67 Neurons; `PROBE_DAILY_LIMIT` (30)
  *   calls reserve 2,010.
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
- *   produce over the v2 recommendation grid is 17,586 characters (messages plus response
+ *   produce over the v2 recommendation grid is 17,598 characters (messages plus response
  *   schema, 24 options), rounded to 4,400 tokens at four characters per token. The budget test in
  *   ai-handler.test.mjs measures that prompt and derives the
  *   limit below from it, so the constant and the prompt stay in step.

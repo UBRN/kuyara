@@ -33,9 +33,14 @@ test('v2 alone asks for one locale-specific insight with closed day flags', () =
       { frozen: false, wet: false, cold: false, windy: false });
     assert.equal(JSON.parse(v1[1].content).day, undefined);
     assert.ok(v2[0].content.includes(`insightSentence: ${language} only`));
-    assert.match(v2[0].content, /no numbers\/times\/degrees/i);
+    assert.match(v2[0].content, /no numbers\/degrees/i);
     assert.match(v2[0].content, /chosen outfits/i);
-    assert.match(v2[0].content, /verb/i);
+    // The Worker drops a sentence under four words or without a closing mark, so the prompt
+    // asks for more words than that, a closing period, and the wearer as the subject rather
+    // than the catalog audience the input names.
+    assert.match(v2[0].content, /5-10 word sentence/);
+    assert.match(v2[0].content, /to the wearer \(you\)/);
+    assert.match(v2[0].content, /ending in a period/);
     assert.match(v2[0].content, /no weather claim/i);
     assert.match(v2[0].content, /wet=rain possible\/likely/i);
     assert.match(v2[0].content, /frozen=snow\/sleet/i);

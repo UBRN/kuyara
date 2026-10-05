@@ -27,8 +27,10 @@ export function defaultCache(): Cache | undefined {
  * `cold_shield` and `wind_guard` when the day's requirements do not call for them.
  */
 const AI_GATE_VERSION = 3;
-// Bump whenever prompt text, provider schema order, or model-visible input changes.
-const AI_PROMPT_VERSION = 2;
+// Bump whenever prompt text, provider schema order, model-visible input, or the insight
+// sentence check the Worker applies before sending changes, so no entry serves prose the
+// current prompt and check would not produce.
+const AI_PROMPT_VERSION = 3;
 
 /**
  * The shared-cache key of a request. Its bytes are a contract with the entries already

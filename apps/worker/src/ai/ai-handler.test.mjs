@@ -1037,8 +1037,8 @@ test('the shared-cache key for a known request is pinned byte for byte', async (
       ...validRequestBody(), locale: 'tr', styleAesthetics: ['classic', 'minimal'],
     }) }));
     assert.deepEqual(urls, [
-      'https://kuyara.internal/v1/ai/recommend/5469f10e88e5c93202b8220bfd62b7927cdc098608f3a1e5f8519c9449bb3d65',
-      'https://kuyara.internal/v2/ai/recommend/39d1e58664fd81fd052363b0b94c620c8ec4dc58891264b5f31c3660f7854b49',
+      'https://kuyara.internal/v1/ai/recommend/f558676158bea3d4698b1479b0e84cdcd8c13c68177e0400f45aed75e22ee6a2',
+      'https://kuyara.internal/v2/ai/recommend/458bf234105cd71f710e860c6a9c7ea43f25765a9b32dac89d5787fdbfd1c5b0',
     ]);
   } finally {
     if (previous === undefined) delete globalThis.caches;
@@ -1747,7 +1747,7 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
   // lists of a weekday, and it sends the day's requirements, so the three weather archetypes
   // leave the lists of the days that contradict them: the largest prompt is shorter than
   // either the day-blind or the day-kind-only one.
-  assert.equal(promptCharacters, 17_586);
+  assert.equal(promptCharacters, 17_598);
   const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
   assert.equal(inputTokens, 4_400);
   const attemptNeurons = Math.ceil(
