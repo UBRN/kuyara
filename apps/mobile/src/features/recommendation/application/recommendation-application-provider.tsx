@@ -170,6 +170,10 @@ export function RecommendationApplicationProvider({
   children,
   localProfileId,
 }: PropsWithChildren<{ localProfileId: string }>) {
+  // The clock is read on every render below (`activeDeparture`): a departure that has passed
+  // stops shaping the day at the next render. React Compiler would memoize that read, and
+  // reading it from a clock state instead is a timing change, so the provider opts out.
+  'use no memo';
   const { state: profileState } = useProfileApplication();
   const { language } = useLocalization();
   const weatherApplication = useWeatherApplication();
@@ -191,6 +195,7 @@ export function RecommendationApplicationProvider({
   }, [localDay.key, localProfileId]);
   const departureReady = departureState?.key === localDay.key;
   const activeDeparture = departureState?.key === localDay.key &&
+    // eslint-disable-next-line react-hooks/purity -- read on every render on purpose, see 'use no memo'
     departureState.value && departureIsAhead(departureState.value, Date.now())
     ? departureState.value : null;
   const choiceReadFailed = useRef(false);
@@ -268,7 +273,7 @@ export function RecommendationApplicationProvider({
   const [latestOnDeviceAvailability] = useState<{ value: OnDeviceAiAvailability | null }>(
     () => ({ value: null }),
   );
-  const previewStore = useMemo(createPreviewStore, []);
+  const previewStore = useMemo(() => createPreviewStore(), []);
   const loadRecentWorn = useCallback(async () =>
     (await (await loadHistoryRepository()).lastSeven(localProfileId)).map((record) => record.outfit),
   [localProfileId]);
@@ -351,7 +356,7 @@ export function RecommendationApplicationProvider({
     return () => subscription?.remove();
   }, [reevaluateLocalDay]);
 
-  const submitApprovedTriggers = useMemo(createApprovedTriggerCoalescer, []);
+  const submitApprovedTriggers = useMemo(() => createApprovedTriggerCoalescer(), []);
   const foregroundEvaluationRequested = useRef(false);
   const lastExpiryAttempt = useRef<string | null>(null);
   // A confirmed re-ask changes the answers the approved triggers read. Evaluating them while
