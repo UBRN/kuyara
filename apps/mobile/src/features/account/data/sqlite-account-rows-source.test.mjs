@@ -208,6 +208,31 @@ test('a first link keeps an edit made while the account downloads: the row stays
   assert.deepEqual(waiting.wardrobeItems.filter(({ pendingSync }) => pendingSync).map(({ row }) => row.name), ['Edited during the link']);
 });
 
+test('a pass with nothing to upload keeps an edit made while it pulls, though it read the phone before the edit', async (t) => {
+  const { database, source } = await setup(t);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1, { name: 'Before' }))], dressingDayChoices: [] }, noCursor);
+  const remote = {
+    upload: async () => assert.fail('nothing waits'),
+    async pull() {
+      // The person renames the piece and picks today's formality while the pull runs.
+      await database.runAsync('UPDATE wardrobe_items SET name = ?, updated_at = ?, pending_sync = 1 WHERE id = ?', ['Edited', stamp(9), uuid(1)]);
+      await database.runAsync(`INSERT INTO dressing_day_choices (id, local_profile_id, day_key, formality, source, created_at,
+        updated_at, pending_sync) VALUES (?, ?, '2026-09-10', 'formal', 'chip', ?, ?, 1)`, [uuid(5), profileId, stamp(9), stamp(9)]);
+      return { ...none, arrivals: [],
+        wardrobeItems: [{ row: wardrobeItem(1, { name: 'From another phone' }), serverUpdatedAt: '2026-10-01T00:00:00.000001Z' }],
+        dressingDayChoices: [{ row: dayChoice(6, '2026-09-10', { formality: 'casual' }), serverUpdatedAt: '2026-10-01T00:00:00.000001Z' }] };
+    },
+    pullSnapshot: async () => assert.fail('snapshot'),
+  };
+
+  await createAccountSyncFlow(source, remote, () => stamp(10)).sync('user-a', true);
+
+  const piece = await database.getFirstAsync('SELECT name, pending_sync FROM wardrobe_items');
+  assert.deepEqual({ ...piece }, { name: 'Edited', pending_sync: 1 });
+  const day = await database.getFirstAsync('SELECT id, formality, pending_sync FROM dressing_day_choices');
+  assert.deepEqual({ ...day }, { id: uuid(5), formality: 'formal', pending_sync: 1 });
+});
+
 /** The database with every transaction `runAsync` whose SQL `fails` matches rejecting as a full disk would. */
 function failingWrites(database, fails) {
   return new Proxy(database, {

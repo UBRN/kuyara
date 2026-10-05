@@ -146,12 +146,22 @@ export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: Acc
       await upload(userId, merge.sendToAccount);
       return { counts: merge.counts, profileFrom: merge.profileFrom };
     },
-    async sync(userId: string, syncConsent: boolean): Promise<void> {
-      await upload(userId, pendingUpload(await source.read(), syncConsent));
+    /**
+     * Uploads what waits, then pulls and lands what arrived. Answers the phone's rows after the
+     * pass, read again only when the pass changed them: a row written meanwhile starts a pass of
+     * its own.
+     */
+    async sync(userId: string, syncConsent: boolean): Promise<LocalAccountRows> {
+      const before = await source.read();
+      const sent = pendingUpload(before, syncConsent);
+      await upload(userId, sent);
       const { cursor } = await source.link();
       const pulled = await remote.pull(userId, cursor, syncConsent);
-      const local = await source.read();
-      await source.writePulled({
+      // An upload clears flags, so the pull lands against a fresh read. Without one the rows read
+      // before still serve: a row written during the pull is pending, and the landing rechecks
+      // every row's flag inside its transaction and leaves a pending row alone.
+      const local = sent === null ? before : await source.read();
+      const landing: AccountRows = {
         profile: applyPulledProfile(
           local.profile ?? { pendingSync: false },
           pulled.profile && profileWithinConsent(pulled.profile, syncConsent),
@@ -164,7 +174,9 @@ export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: Acc
           landedPulls(pulled.dressingDayDepartures, local.dressingDayDepartures, 'day')) : [],
         outfitHistory: syncConsent ? applyPulledById(local.outfitHistory,
           landedPulls(pulled.outfitHistory, local.outfitHistory, 'id')) : [],
-      }, nextCursor(cursor, pulled.arrivals));
+      };
+      await source.writePulled(landing, nextCursor(cursor, pulled.arrivals));
+      return hasRows(landing) ? source.read() : local;
     },
   };
 }

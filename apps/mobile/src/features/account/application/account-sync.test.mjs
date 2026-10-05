@@ -276,3 +276,32 @@ test('at a first link an account marker deletes the phone\'s copy and is never s
   assert.deepEqual(merged.writeToPhone.wardrobeItems, [{ ...own, updatedAt: '2026-10-01T00:00:00.000Z', deletedAt: '2026-10-01T00:00:00.000Z' }]);
   assert.deepEqual(merged.sendToAccount.wardrobeItems, []);
 });
+
+test('a pass reads the phone once when nothing waits and nothing lands, and again only after an upload or a landing', async () => {
+  let reads = 0;
+  const own = wardrobeItem(1);
+  const source = (pending) => ({
+    read: async () => { reads += 1; return local({ ...empty(), wardrobeItems: [own] }, pending); },
+    link: async () => ({ userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: pullCursorAt(null) }),
+    clearPendingIfUnchanged: async () => {},
+    writePulled: async () => {},
+    applyFirstLink: async () => assert.fail('first link'),
+  });
+  const remote = (pulledRows) => ({
+    upload: async (_id, rows) => rows,
+    pull: async () => ({ ...empty(), wardrobeItems: pulledRows, arrivals: [] }),
+    pullSnapshot: async () => assert.fail('snapshot'),
+  });
+  const run = async (pending, pulledRows) => {
+    reads = 0;
+    const after = await createAccountSyncFlow(source(pending), remote(pulledRows), () => '2026-10-03T00:00:00Z').sync('user-a', true);
+    assert.deepEqual(after.wardrobeItems.map(({ row }) => row.id), [own.id]);
+    return reads;
+  };
+  const arriving = [{ row: wardrobeItem(2), serverUpdatedAt: '2026-10-01T00:00:00.000000Z' }];
+  assert.equal(await run(false, []), 1);
+  assert.equal(await run(true, []), 2);
+  assert.equal(await run(false, arriving), 2);
+  assert.equal(await run(true, arriving), 3);
+});
+

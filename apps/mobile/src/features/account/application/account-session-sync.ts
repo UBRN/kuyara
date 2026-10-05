@@ -57,10 +57,10 @@ export function createAccountSessionSync({ consent, now, remote, source }: Reado
       const stored = await source.link();
       const link = linkAtPass(stored, userId, syncConsent);
       if (link !== stored) await source.saveLink(link);
-      let firstLink: FirstLinkOutcome | null = null;
-      const pass = syncPassFor(link, userId, syncConsent, latestWithdrawnRecordedAt(records));
-      if (pass === 'first-link') firstLink = await flow.firstLink(userId, syncConsent, givenAt);
-      else await flow.sync(userId, syncConsent);
+      if (syncPassFor(link, userId, syncConsent, latestWithdrawnRecordedAt(records)) === 'sync') {
+        return summaryOf(await flow.sync(userId, syncConsent), state, null);
+      }
+      const firstLink = await flow.firstLink(userId, syncConsent, givenAt);
       return summaryOf(await source.read(), state, firstLink);
     },
   };
