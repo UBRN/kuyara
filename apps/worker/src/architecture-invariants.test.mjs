@@ -155,8 +155,9 @@ test('only json-request.ts declares the rate limiter type and reads a stream by 
   assert.deepEqual(hits, [], 'import RateLimiter and readTextWithLimit from json-request.ts');
 });
 
-// The runtime's fetch is bound in one place, and a per-attempt deadline race is run in one place.
-test('only default-fetch.ts reads globalThis.fetch and only attempt-timeout.ts races a deadline', () => {
+// The runtime's fetch is bound in one place, and every deadline (a race or an abort timer) is
+// run in one place.
+test('only default-fetch.ts reads globalThis.fetch and only attempt-timeout.ts runs a deadline', () => {
   const hits = [];
   for (const relativePath of sourceFiles()) {
     const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
@@ -166,9 +167,12 @@ test('only default-fetch.ts reads globalThis.fetch and only attempt-timeout.ts r
     if (relativePath !== 'attempt-timeout.ts' && /Promise\.race\(/.test(text)) {
       hits.push(`${relativePath}: Promise.race`);
     }
+    if (relativePath !== 'attempt-timeout.ts' && /\bsetTimeout\(/.test(text)) {
+      hits.push(`${relativePath}: setTimeout`);
+    }
   }
 
-  assert.deepEqual(hits, [], 'use defaultFetch() and raceWithTimeout()');
+  assert.deepEqual(hits, [], 'use defaultFetch(), raceWithTimeout() and withDeadline()');
 });
 
 // The AI handler reads time only through its injected clock.
@@ -227,4 +231,19 @@ test('client request bodies are read only through the bounded reader', () => {
 
   assert.deepEqual(unbounded, [], 'read the body with readJsonBody and a byte limit');
   assert.deepEqual(readers.sort(), ['json-request.ts']);
+});
+
+// A route reads its request through `readRouteRequest` (or `admitRequest` and
+// `readRequestBody` when it must check something between them); a hand-written copy of the
+// content type check or the bounded read is how the routes' preambles drifted apart.
+test('the content type check and the bounded JSON read live only in json-request.ts', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'json-request.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\b(?:isJsonRequest|readJsonBody)\(/.test(line)) hits.push(`${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'use readRouteRequest or readRequestBody from json-request.ts');
 });

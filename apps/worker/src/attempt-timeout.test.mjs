@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { AttemptTimeoutError, raceWithTimeout } from './attempt-timeout.ts';
+import { AttemptTimeoutError, raceWithTimeout, withDeadline } from './attempt-timeout.ts';
 
 test('an attempt that answers in time returns its value and leaves the signal alone', async () => {
   const controller = new AbortController();
@@ -33,4 +33,35 @@ test('the timer is cleared once the race settles', async (t) => {
   await raceWithTimeout(controller, async () => 'ok', 1000);
   t.mock.timers.tick(5000);
   assert.equal(controller.signal.aborted, false);
+});
+
+test('withDeadline hands the work a signal and returns its value', async () => {
+  let received;
+  const value = await withDeadline(1000, async (signal) => {
+    received = signal;
+    return 'ok';
+  });
+  assert.equal(value, 'ok');
+  assert.equal(received.aborted, false);
+});
+
+test('withDeadline aborts the signal at the deadline and leaves the work to fail on it', async () => {
+  const outcome = await withDeadline(5, (signal) => new Promise((resolve) => {
+    signal.addEventListener('abort', () => resolve('aborted'), { once: true });
+  }));
+  assert.equal(outcome, 'aborted');
+});
+
+test('withDeadline rethrows the work\'s own error and clears its timer', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let received;
+  await assert.rejects(
+    withDeadline(1000, async (signal) => {
+      received = signal;
+      throw new RangeError('own');
+    }),
+    RangeError,
+  );
+  t.mock.timers.tick(5000);
+  assert.equal(received.aborted, false);
 });

@@ -155,6 +155,37 @@ test('keeps the ordered 36-hour window across local midnight', () => {
   ), true);
 });
 
+// Only the hours the snapshot serves are read, so a condition code outside the window, which
+// a provider may add without notice, cannot fail a response whose served hours are fine.
+test('an unknown condition on an hour beyond the served window cannot fail the response', () => {
+  const fixture = rawFixture();
+  fixture.hourly = Array.from({ length: 48 }, (_, index) => ({
+    dt: unixSeconds(new Date(
+      Date.parse('2026-08-29T07:00:00.000Z') + index * 60 * 60 * 1000,
+    ).toISOString()),
+    temp: 20,
+    feels_like: 20,
+    humidity: 50,
+    uvi: 0,
+    wind_speed: 2,
+    pop: 0.1,
+    weather: [{ id: index === 45 ? 999 : 800 }],
+  }));
+
+  const snapshot = mapOpenWeatherResponse(
+    openWeatherResponseSchema.parse(fixture),
+    location,
+    fetchedAt,
+  );
+  assert.equal(snapshot.hourly.length, 37);
+
+  fixture.hourly[3].weather = [{ id: 999 }];
+  assert.throws(
+    () => mapOpenWeatherResponse(openWeatherResponseSchema.parse(fixture), location, fetchedAt),
+    (error) => error instanceof WeatherProviderError && error.kind === 'invalid_response',
+  );
+});
+
 test('maps the daily block from the observed local day', () => {
   const snapshot = mapOpenWeatherResponse(
     openWeatherResponseSchema.parse(rawFixture()),

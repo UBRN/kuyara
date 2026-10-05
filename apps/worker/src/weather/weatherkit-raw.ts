@@ -5,7 +5,6 @@ import { isoTimestamp, localDateKey } from './raw-time.ts';
 import {
   assembleProviderSnapshot,
   type ProviderDayInput,
-  type ProviderHour,
   type ProviderHourInput,
 } from './provider-snapshot.ts';
 import type { ProviderLocation, ProviderWeatherSnapshot } from './weather-provider.ts';
@@ -110,19 +109,23 @@ export function mapWeatherKitCondition(conditionCode: string): WeatherConditionC
   return condition;
 }
 
+// The values, including the condition code, are read only for the hours the snapshot serves.
 function mapHours(raw: WeatherKitResponse['forecastHourly']['hours']): ProviderHourInput[] {
   return raw.map((entry) => {
-    const hour: ProviderHour = {
-      temperatureCelsius: entry.temperature,
-      apparentTemperatureCelsius: entry.temperatureApparent,
-      condition: mapWeatherKitCondition(entry.conditionCode),
-      precipitationProbability: entry.precipitationChance,
-      windSpeedMetersPerSecond: entry.windSpeed / 3.6,
-      humidity: entry.humidity,
-      uvIndex: entry.uvIndex,
-      forecastAt: isoTimestamp(entry.forecastStart),
+    const forecastAt = isoTimestamp(entry.forecastStart);
+    return {
+      forecastAt,
+      read: () => ({
+        temperatureCelsius: entry.temperature,
+        apparentTemperatureCelsius: entry.temperatureApparent,
+        condition: mapWeatherKitCondition(entry.conditionCode),
+        precipitationProbability: entry.precipitationChance,
+        windSpeedMetersPerSecond: entry.windSpeed / 3.6,
+        humidity: entry.humidity,
+        uvIndex: entry.uvIndex,
+        forecastAt,
+      }),
     };
-    return { forecastAt: hour.forecastAt, read: () => hour };
   });
 }
 

@@ -1,6 +1,6 @@
 /**
- * The one owner of how a Worker route reads a request: content type, client IP, rate limit and
- * body, and the body never unbounded.
+ * The one owner of how a Worker route reads a request: method, client IP, rate limit, content
+ * type and body, and the body never unbounded. A route maps the outcome to its own codes.
  */
 
 export type RateLimiter = Readonly<{
@@ -85,4 +85,73 @@ export async function readJsonBody(
     // `undefined`, and the caller says invalid_request.
     return undefined;
   }
+}
+
+type RouteScope = Readonly<{ keyPrefix: string; route: string; limiter: string }>;
+
+export type RouteAdmission = 'allowed' | 'method_not_allowed' | 'rate_limited' | 'limiter_unavailable';
+
+/**
+ * Whether a request may be read at all: a POST that the caller's per-IP budget admits. A
+ * limited request is logged with the route and limiter names only; the route answers it.
+ */
+export async function admitRequest(
+  request: Request,
+  limiter: RateLimiter | undefined,
+  scope: RouteScope,
+): Promise<RouteAdmission> {
+  if (request.method !== 'POST') return 'method_not_allowed';
+  const outcome = await checkRateLimit(limiter, request, scope);
+  if (outcome === 'unavailable') return 'limiter_unavailable';
+  if (outcome === 'limited') {
+    console.warn({ event: 'rate_limited', route: scope.route, limiter: scope.limiter });
+    return 'rate_limited';
+  }
+  return 'allowed';
+}
+
+type RequestSchema<T> = Readonly<{
+  safeParse(input: unknown): { success: true; data: T } | { success: false };
+}>;
+
+/** Why a request was refused before its route ran. */
+export type RouteRefusal = Exclude<RouteAdmission, 'allowed'> | 'invalid_request';
+
+export type RequestBodyOutcome<T> =
+  | Readonly<{ kind: 'ok'; data: T }>
+  | Readonly<{ kind: 'invalid_request' }>;
+
+/**
+ * A JSON body within `maxBytes` that the route's strict schema accepts. Anything else, a
+ * wrong content type, an oversized or undecodable body, or a failing parse, is one
+ * `invalid_request`. The body is parsed here once; the route never sees unvalidated input.
+ */
+export async function readRequestBody<T>(
+  request: Request,
+  options: Readonly<{ schema: RequestSchema<T>; maxBytes: number; fatal?: boolean }>,
+): Promise<RequestBodyOutcome<T>> {
+  if (!isJsonRequest(request)) return { kind: 'invalid_request' };
+  const body = await readJsonBody(request.body, options.maxBytes, { fatal: options.fatal });
+  const parsed = options.schema.safeParse(body);
+  return parsed.success ? { kind: 'ok', data: parsed.data } : { kind: 'invalid_request' };
+}
+
+export type RouteRequestOutcome<T> =
+  | Readonly<{ kind: 'ok'; data: T }>
+  | Readonly<{ kind: RouteRefusal }>;
+
+/** `admitRequest`, then `readRequestBody`: the whole preamble of a route without its own checks. */
+export async function readRouteRequest<T>(
+  request: Request,
+  options: Readonly<{
+    limiter: RateLimiter | undefined;
+    scope: RouteScope;
+    schema: RequestSchema<T>;
+    maxBytes: number;
+    fatal?: boolean;
+  }>,
+): Promise<RouteRequestOutcome<T>> {
+  const admission = await admitRequest(request, options.limiter, options.scope);
+  if (admission !== 'allowed') return { kind: admission };
+  return readRequestBody(request, options);
 }

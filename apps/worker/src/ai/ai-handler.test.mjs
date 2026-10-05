@@ -191,7 +191,7 @@ test('returns a contract-valid pick response using supplied option ids', async (
 test('v2 emits only valid optional prose and v1 remains shape-frozen', async () => {
   const handler = createAiHandler({ providers: [{
     generateOutfits: async () => ({ data: {
-      ...validOutput().data, insightSentence: ' A clear day suits this outfit. ',
+      ...validOutput().data, insightSentence: 'A clear day suits this outfit.',
     } }),
   }] });
   const v1 = await handler(request());
@@ -203,6 +203,28 @@ test('v2 emits only valid optional prose and v1 remains shape-frozen', async () 
     ...validOutput().data, insightSentence: 'A clear day suits this outfit.',
   } });
   await assertError(await handler(request({ path: '/v2/ai/recommend' })), 400, 'invalid_request');
+});
+
+// ADR 0039: invalid prose is dropped, never repaired. Trimming the sentence first would turn
+// an invalid one into an accepted one.
+test('v2 drops a sentence with surrounding whitespace or a line break instead of trimming it', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  for (const sentence of [' A clear day suits this outfit. ', 'A clear day suits this outfit.\n',
+    '\nA clear day suits this outfit.']) {
+    infos.length = 0;
+    const handler = createAiHandler({ providers: [{
+      id: 'openrouter', model: 'stub',
+      generateOutfits: async () => ({ data: { ...validOutput().data, insightSentence: sentence } }),
+    }] });
+    const response = await handler(request({ path: '/v2/ai/recommend', body: JSON.stringify({
+      ...validRequestBody(), locale: 'en',
+    }) }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), validOutput());
+    assert.deepEqual(infos.filter(({ event }) => event === 'ai_insight_sentence')
+      .map(({ outcome }) => outcome), ['invalid']);
+  }
 });
 
 test('invalid or absent v2 prose does not fail valid picks', async () => {
@@ -972,6 +994,32 @@ async function prePromptCacheUrl(body) {
   return `https://kuyara.internal/v1/ai/recommend/${hash}`;
 }
 
+// The bytes of the shared-cache key are a contract with the thirty day entries already
+// stored: moving the code that builds it must not move a single byte, or every entry misses.
+// Update these literals only together with a deliberate AI_GATE_VERSION or prompt version bump.
+test('the shared-cache key for a known request is pinned byte for byte', async () => {
+  const previous = globalThis.caches;
+  const urls = [];
+  globalThis.caches = { default: {
+    async match(cacheRequest) { urls.push(cacheRequest.url); return undefined; },
+    async put() {},
+  } };
+  try {
+    const handle = createAiHandler({ providers: [{ generateOutfits: async () => validOutput() }] });
+    await handle(request());
+    await handle(request({ path: '/v2/ai/recommend', body: JSON.stringify({
+      ...validRequestBody(), locale: 'tr', styleAesthetics: ['classic', 'minimal'],
+    }) }));
+    assert.deepEqual(urls, [
+      'https://kuyara.internal/v1/ai/recommend/5469f10e88e5c93202b8220bfd62b7927cdc098608f3a1e5f8519c9449bb3d65',
+      'https://kuyara.internal/v2/ai/recommend/39d1e58664fd81fd052363b0b94c620c8ec4dc58891264b5f31c3660f7854b49',
+    ]);
+  } finally {
+    if (previous === undefined) delete globalThis.caches;
+    else globalThis.caches = previous;
+  }
+});
+
 test('an old prompt cache bucket misses and refills under the new prompt key', async () => {
   const restore = installMemoryCache();
   try {
@@ -1482,6 +1530,103 @@ test('lets all five providers take their turn inside the default deadline', asyn
   assert.equal(response.status, 503);
 });
 
+// Only the provider call decides a provider_error. A throw while handing the cache write to
+// the runtime comes after a valid answer and must never discard it or start another attempt.
+test('a shared-cache write that throws does not discard a valid answer', async (t) => {
+  const restore = installMemoryCache();
+  t.after(restore);
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const calls = [];
+  const response = await createAiHandlerWithContext({
+    providers: [openRouter('router/first', calls), openRouter('router/second', calls)],
+  })(request(), { waitUntil() { throw new Error('runtime refused the write'); } });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), validOutput());
+  assert.deepEqual(calls, ['router/first']);
+  assert.equal(JSON.stringify(warnings).includes('provider_error'), false);
+});
+
+// One gate judges a model reply and a cached one, and each rejection says why. The request
+// has an indistinct pair (same-1, same-2) next to the distinct smart and formal options.
+function gateRequestBody() {
+  const body = validRequestBody();
+  body.options = [
+    separatesOption('same-1', 'casual', 't_shirt', 'trousers', 'sneakers', { breathabilityHigh: true }),
+    separatesOption('same-2', 'casual', 't_shirt', 'trousers', 'closed_shoes', { breathabilityHigh: true }),
+    ...body.options.slice(1),
+  ];
+  return body;
+}
+
+const gateGoodOutput = () => ({ data: { picks: [
+  { optionId: 'same-1', archetypeId: 'weekend_relaxed' },
+  { optionId: 'option-smart', archetypeId: 'smart_casual' },
+  { optionId: 'option-formal', archetypeId: 'office_ready' },
+] } });
+
+const gateRejections = [
+  ['unknown_option', () => ({ data: { picks: [
+    { optionId: 'ghost', archetypeId: 'weekend_relaxed' },
+    { optionId: 'option-smart', archetypeId: 'smart_casual' },
+    { optionId: 'option-formal', archetypeId: 'office_ready' },
+  ] } })],
+  ['picks_not_distinct', () => ({ data: { picks: [
+    { optionId: 'same-1', archetypeId: 'weekend_relaxed' },
+    { optionId: 'same-2', archetypeId: 'light_and_airy' },
+    { optionId: 'option-formal', archetypeId: 'office_ready' },
+  ] } })],
+  ['archetype_precondition', () => ({ data: { picks: [
+    { optionId: 'same-1', archetypeId: 'rain_ready' },
+    { optionId: 'option-smart', archetypeId: 'smart_casual' },
+    { optionId: 'option-formal', archetypeId: 'office_ready' },
+  ] } })],
+];
+
+test('a model reply the gate rejects is logged with its own reason and the walk goes on', async (t) => {
+  for (const [reason, rejected] of gateRejections) {
+    const warnings = [];
+    t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+    const calls = [];
+    const response = await createAiHandler({ providers: [
+      openRouter('router/first', calls, rejected),
+      openRouter('router/second', calls, gateGoodOutput),
+    ] })(request({ body: JSON.stringify(gateRequestBody()) }));
+    assert.equal(response.status, 200, reason);
+    assert.deepEqual(calls, ['router/first', 'router/second'], reason);
+    assert.deepEqual(warnings, [{
+      event: 'ai_provider_attempt_failed', model: 'router/first', reason,
+    }]);
+  }
+});
+
+test('a cached answer the gate rejects is a miss, logged with its own reason, and regenerates', async (t) => {
+  for (const [reason, rejected] of gateRejections) {
+    const warnings = [];
+    t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+    const previous = globalThis.caches;
+    globalThis.caches = { default: {
+      async match() { return Response.json(rejected()); },
+      async put() {},
+    } };
+    try {
+      const calls = [];
+      const response = await createAiHandler({
+        providers: [openRouter('router/first', calls, gateGoodOutput)],
+      })(request({ body: JSON.stringify(gateRequestBody()) }));
+      assert.equal(response.status, 200, reason);
+      assert.deepEqual(await response.json(), gateGoodOutput(), reason);
+      assert.deepEqual(calls, ['router/first'], reason);
+      assert.deepEqual(warnings, [{
+        event: 'ai_cache_entry_rejected', route: '/v1/ai/recommend', reason,
+      }]);
+    } finally {
+      if (previous === undefined) delete globalThis.caches;
+      else globalThis.caches = previous;
+    }
+  }
+});
+
 test('a successful answer hands the shared-cache write to waitUntil instead of awaiting it', async () => {
   const previous = globalThis.caches;
   let putResolve;
@@ -1646,6 +1791,35 @@ test('OpenRouter attempts never increment the Workers AI counter', async () => {
   })(request());
   assert.equal(response.status, 200);
   assert.deepEqual(calls, ['router/first', 'router/second']);
+  assert.deepEqual(counter.keys, []);
+});
+
+// The counter is a paid-spend ledger: an increment that can only end in "no time left" would
+// count an attempt that never ran, so the deadline is checked before the increment.
+test('a Workers AI provider reached after the deadline is not counted', async () => {
+  let clock = Date.parse('2026-09-15T10:00:00.000Z');
+  const calls = [];
+  const counter = dailyCounter([1]);
+  const slowFailure = {
+    ...openRouter('router/first', calls),
+    async generateOutfits() {
+      calls.push('router/first');
+      clock += 1_000;
+      throw new Error('down');
+    },
+  };
+  const response = await createAiHandler({
+    providers: [slowFailure, workersAi('@cf/second', calls)],
+    dailyCounter: counter,
+    dailyLimit: LIMIT,
+    now: () => new Date(clock),
+  })(request({ headers: {
+    'content-type': 'application/json',
+    'x-kuyara-ai-budget-ms': '5000',
+  } }));
+  // 4 s of the 5 s budget are left, less than the 5 s a useful attempt needs.
+  await assertError(response, 503, 'ai_unavailable');
+  assert.deepEqual(calls, ['router/first']);
   assert.deepEqual(counter.keys, []);
 });
 

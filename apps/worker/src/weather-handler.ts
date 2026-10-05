@@ -6,10 +6,8 @@ import {
   type WeatherV1ErrorCode,
 } from '@kuyara/contracts';
 
-import {
-  checkRateLimit, isJsonRequest, rateLimitedHeaders, readJsonBody, type RateLimiter,
-} from './json-request.ts';
-import { createErrorResponse, jsonHeaders } from './json-response.ts';
+import { readRouteRequest, type RateLimiter } from './json-request.ts';
+import { createErrorResponse, jsonHeaders, refusalResponse } from './json-response.ts';
 
 import {
   InvalidProviderWeatherError,
@@ -17,7 +15,6 @@ import {
   mapProviderWeatherToApiV2,
 } from './weather/provider-weather-mapper.ts';
 import type { WeatherProvider } from './weather/weather-provider.ts';
-import { WeatherProviderError } from './weather/weather-provider-error.ts';
 
 type Dependencies = Readonly<{
   provider: WeatherProvider;
@@ -52,33 +49,18 @@ export function createWeatherHandler(
     const url = new URL(request.url);
     const mapResponse = responseMapper(url.pathname);
     if (mapResponse === undefined) return errorResponse(404, 'not_found');
-    if (request.method !== 'POST') {
-      return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
-    }
-    const limit = await checkRateLimit(dependencies.rateLimiter, request, {
-      keyPrefix: 'weather',
-      route: url.pathname,
-      limiter: 'weather_burst',
+    const outcome = await readRouteRequest(request, {
+      limiter: dependencies.rateLimiter,
+      scope: { keyPrefix: 'weather', route: url.pathname, limiter: 'weather_burst' },
+      schema: weatherV1RequestSchema,
+      maxBytes: weatherRequestMaxBytes,
     });
-    // A failing binding answers in the route's own closed code.
-    if (limit === 'unavailable') return errorResponse(503, 'weather_unavailable');
-    if (limit === 'limited') {
-      console.warn({ event: 'rate_limited', route: url.pathname, limiter: 'weather_burst' });
-      return errorResponse(429, 'rate_limited', rateLimitedHeaders);
-    }
-    if (!isJsonRequest(request)) return errorResponse(400, 'invalid_request');
-
-    const body = await readJsonBody(request.body, weatherRequestMaxBytes);
-    const requestResult = weatherV1RequestSchema.safeParse(body);
-    if (!requestResult.success) return errorResponse(400, 'invalid_request');
+    if (outcome.kind !== 'ok') return refusalResponse(errorResponse, outcome.kind, 'weather_unavailable');
 
     let providerSnapshot;
     try {
-      providerSnapshot = await dependencies.provider.fetchWeather(requestResult.data);
-    } catch (error) {
-      if (error instanceof WeatherProviderError) {
-        return errorResponse(503, 'weather_unavailable');
-      }
+      providerSnapshot = await dependencies.provider.fetchWeather(outcome.data);
+    } catch {
       return errorResponse(503, 'weather_unavailable');
     }
 
