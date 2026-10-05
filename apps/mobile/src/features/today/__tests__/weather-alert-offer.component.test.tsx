@@ -15,7 +15,7 @@ import {
   WeatherApplicationContext,
   type WeatherApplicationValue,
 } from '@/features/weather/application/weather-application-context';
-import type { WeatherSnapshot } from '@/features/weather/domain/weather';
+import type { ManualLocationId, WeatherSnapshot } from '@/features/weather/domain/weather';
 
 jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -58,6 +58,7 @@ function profileApplication(
   weatherAlertOfferShown: boolean,
   markWeatherAlertOfferShown: () => Promise<void>,
   updateMorningBriefingOptIn: (optIn: boolean) => Promise<void> = jest.fn(async () => undefined),
+  optedIn: Readonly<{ notifications?: boolean; morningBriefing?: boolean }> = {},
 ): ProfileApplicationValue {
   const profile = {
     id: 'profile-one',
@@ -69,9 +70,9 @@ function profileApplication(
     languagePreference: 'system',
     themePreference: 'system',
     onboardingCompleted: true,
-    notificationsOptIn: false,
+    notificationsOptIn: optedIn.notifications ?? false,
     weatherAlertOfferShown,
-    morningBriefingOptIn: false,
+    morningBriefingOptIn: optedIn.morningBriefing ?? false,
     analyticsConsent: 'undecided',
     createdAt: fetchedAt,
     updatedAt: fetchedAt,
@@ -95,7 +96,9 @@ function profileApplication(
   };
 }
 
-function weatherApplication(): WeatherApplicationValue {
+function weatherApplication(
+  placeOverrides: Readonly<{ catalogId: ManualLocationId; locationKey: string }> | null = null,
+): WeatherApplicationValue {
   return {
     state: {
       status: 'ready',
@@ -106,6 +109,7 @@ function weatherApplication(): WeatherApplicationValue {
         locationKey: 'manual:sample.istanbul',
         coordinates: { latitudeE2: 4101, longitudeE2: 2898 },
         timeZone: 'UTC',
+        ...placeOverrides,
       },
       snapshot: offerSnapshot,
       freshness: 'fresh',
@@ -141,8 +145,9 @@ function notificationApplication(
 function wrapper(values: Readonly<{
   notification: () => NotificationApplicationValue;
   profile: () => ProfileApplicationValue;
+  weather?: WeatherApplicationValue;
 }>) {
-  const weather = weatherApplication();
+  const weather = values.weather ?? weatherApplication();
   return function Providers({ children }: PropsWithChildren) {
     return (
       <ProfileApplicationContext value={values.profile()}>
@@ -182,6 +187,38 @@ test('re-evaluates the offer when the focused clock crosses the freshness bounda
   await act(async () => {
     jest.advanceTimersByTime(21 * 60_000);
   });
+
+  expect(hook.result.current.offer).toEqual({ kind: 'none' });
+  await hook.unmount();
+});
+
+test.each([
+  ['alerts', { notifications: true }],
+  ['the morning briefing', { morningBriefing: true }],
+] as const)('no offer is made to a person who already turned on %s in Settings', async (_kind, optedIn) => {
+  const providers = wrapper({
+    notification: () => notificationApplication(
+      jest.fn(async () => ({ outcome: 'enabled' } as const)),
+    ),
+    profile: () => profileApplication(
+      false, jest.fn(async () => undefined), jest.fn(async () => undefined), optedIn,
+    ),
+  });
+  const hook = await renderHook(() => useWeatherAlertOffer(), { wrapper: providers });
+
+  expect(hook.result.current.offer).toEqual({ kind: 'none' });
+  await hook.unmount();
+});
+
+test('the snapshot kept from the previous place never makes the offer for the new one', async () => {
+  const providers = wrapper({
+    notification: () => notificationApplication(
+      jest.fn(async () => ({ outcome: 'enabled' } as const)),
+    ),
+    profile: () => profileApplication(false, jest.fn(async () => undefined)),
+    weather: weatherApplication({ locationKey: 'manual:sample.ankara', catalogId: 'sample.ankara' }),
+  });
+  const hook = await renderHook(() => useWeatherAlertOffer(), { wrapper: providers });
 
   expect(hook.result.current.offer).toEqual({ kind: 'none' });
   await hook.unmount();

@@ -9,6 +9,7 @@ import {
 } from '@/features/notifications/domain/weather-alert-offer';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 
 const OFFER_CLOCK_TICK_MS = 60_000;
@@ -38,10 +39,13 @@ export function useWeatherAlertOffer(): WeatherAlertOfferApplication {
   const profile = profileApplication.state.status === 'ready'
     ? profileApplication.state.profile
     : null;
+  // Only the active place's snapshot can make the offer: one kept from the previous place
+  // says nothing about the weather a notification would have been about.
   const snapshot = weatherApplication.state.status === 'ready'
-    ? weatherApplication.state.snapshot
+    ? activeLocationSnapshot(weatherApplication.state.snapshot, weatherApplication.state.activeLocation)
     : null;
-  const optedIn = profile?.notificationsOptIn ?? false;
+  // Turning on either kind in Settings is an answer to the offer's question already.
+  const optedIn = (profile?.notificationsOptIn ?? false) || (profile?.morningBriefingOptIn ?? false);
   // No profile means no durable answer to read, so nothing is offered until it loads.
   const alreadyOffered = profile?.weatherAlertOfferShown ?? true;
 
