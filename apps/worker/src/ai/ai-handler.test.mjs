@@ -1103,6 +1103,37 @@ test('shared cache read and write failures fall through without failing generati
   }
 });
 
+// A host where the Cache API silently does nothing (a lookup that never finds, a write that
+// stores nothing) must change cost only: every repeat of one request walks the providers and
+// spends a counted Workers AI attempt again, and each answer is still the validated trio.
+test('a Cache API that stores nothing costs one counted attempt per repeated request', async () => {
+  const previous = globalThis.caches;
+  globalThis.caches = { default: {
+    async match() { return undefined; },
+    async put() {},
+  } };
+  try {
+    const calls = [];
+    const counter = dailyCounter([1, 2, 3]);
+    const handle = createAiHandler({
+      providers: [workersAi('@cf/first', calls)],
+      dailyCounter: counter,
+      dailyLimit: LIMIT,
+      now: fixedNow,
+    });
+    for (let repeat = 0; repeat < 3; repeat += 1) {
+      const response = await handle(request());
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), validOutput());
+    }
+    assert.deepEqual(calls, ['@cf/first', '@cf/first', '@cf/first']);
+    assert.equal(counter.keys.length, 3);
+  } finally {
+    if (previous === undefined) delete globalThis.caches;
+    else globalThis.caches = previous;
+  }
+});
+
 test('collapses exhausted providers to one exact sanitized unavailable error', async () => {
   const handler = createAiHandler({ providers: [{
     async generateOutfits() {
