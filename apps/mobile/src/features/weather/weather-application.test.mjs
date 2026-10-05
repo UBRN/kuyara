@@ -770,7 +770,7 @@ test('reselecting the active location preserves its snapshot when the cache read
   assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
 });
 
-test('changing location keeps the previous location snapshot when the cache read fails', async () => {
+test('changing location keeps the previous location snapshot while its fetch runs after a cache read failure', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const london = getManualLocation('sample.london');
   const harness = createHarness({
@@ -784,7 +784,8 @@ test('changing location keeps the previous location snapshot when the cache read
   assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, london.locationKey);
   assert.equal(harness.controller.getSnapshot().snapshot.locationKey, istanbul.locationKey);
   assert.equal(harness.controller.getSnapshot().freshness, 'stale');
-  assert.equal(harness.controller.getSnapshot().refreshFailure, 'unavailable');
+  assert.equal(harness.controller.getSnapshot().refreshFailure, null);
+  assert.equal(harness.controller.getSnapshot().isRefreshing, true);
 });
 
 test('a revalidation while the new location loads keeps the retained snapshot stale', async () => {
@@ -843,14 +844,15 @@ test('manual refresh bypasses freshness and an old request cannot replace a newl
   assert.equal(harness.byKey.get(istanbul.locationKey).current.temperatureCelsius, 20);
 });
 
-test('a committed location remains active when its follow-up cache read fails', async () => {
+test('a committed location remains active and fetches when its follow-up cache read fails', async () => {
   const london = getManualLocation('sample.london');
   const harness = createHarness({ snapshotReadFailureFor: london.locationKey });
   await harness.controller.initialize();
   await harness.controller.selectManualLocation('sample.london');
   assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, london.locationKey);
   assert.equal(harness.controller.getSnapshot().snapshot, null);
-  assert.equal(harness.controller.getSnapshot().refreshFailure, 'unavailable');
+  assert.equal(harness.controller.getSnapshot().refreshFailure, null);
+  assert.equal(harness.controller.getSnapshot().isRefreshing, true);
   assert.equal(harness.controller.getSnapshot().locationFlow, 'idle');
 });
 
@@ -1223,4 +1225,73 @@ test('native config requests only localized foreground location with reduced acc
   ]) assert.ok(app.android.blockedPermissions.includes(permission));
   assert.ok(JSON.parse(englishSource).ios.NSLocationWhenInUseUsageDescription);
   assert.ok(JSON.parse(turkishSource).ios.NSLocationWhenInUseUsageDescription);
+});
+
+test('a time-zone-only move of the device location does not keep the old zone snapshot as fresh', async () => {
+  const london = { ...travelledFrom, timeZone: 'Europe/London' };
+  const sameCoordinatesInIstanbul = { ...london, timeZone: 'Europe/Istanbul' };
+  const harness = createHarness({
+    active: london,
+    snapshots: [snapshotFor(london, '2026-07-30T09:55:00.000Z')],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+    locationResult: { kind: 'success', location: sameCoordinatesInIstanbul },
+  });
+  await harness.controller.initialize();
+  await harness.controller.onForeground();
+  await settle();
+
+  const state = harness.controller.getSnapshot();
+  assert.equal(state.activeLocation.timeZone, 'Europe/Istanbul');
+  assert.equal(state.snapshot.timeZone, 'Europe/Istanbul');
+  assert.equal(harness.calls.provider, 1);
+});
+
+test('a refresh request joining a refresh already running keeps the refreshing state', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  let releaseFetch;
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:00:00.000Z')],
+    provider: {
+      fetchSnapshot: (location) => new Promise((resolve) => {
+        releaseFetch = () => resolve(providedFor(location, '2026-07-30T10:00:00.000Z'));
+      }),
+    },
+  });
+  await harness.controller.initialize();
+  assert.equal(harness.controller.getSnapshot().isRefreshing, true);
+
+  await harness.controller.selectManualLocation('sample.istanbul');
+  const pull = harness.controller.refresh();
+  await settle();
+  assert.equal(harness.controller.getSnapshot().isRefreshing, true);
+
+  releaseFetch();
+  await pull;
+  assert.equal(harness.controller.getSnapshot().isRefreshing, false);
+});
+
+test('a snapshot read failure while selecting a place is treated as no cache and fetches the new place', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const london = getManualLocation('sample.london');
+  const fetched = [];
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:55:00.000Z')],
+    snapshotReadFailureFor: london.locationKey,
+    provider: {
+      fetchSnapshot: async (location) => {
+        fetched.push(location.locationKey);
+        return providedFor(location, '2026-07-30T10:00:00.000Z');
+      },
+    },
+  });
+  await harness.controller.initialize();
+
+  await harness.controller.selectManualLocation('sample.london');
+  await settle();
+
+  assert.deepEqual(fetched, [london.locationKey]);
+  assert.equal(harness.controller.getSnapshot().snapshot.locationKey, london.locationKey);
+  assert.equal(harness.controller.getSnapshot().refreshFailure, null);
 });
