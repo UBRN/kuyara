@@ -59,10 +59,10 @@ const hotPath = new Set([
   'components/ui/garment-board/garment-swap-board.tsx',
 ]);
 
-// On the outfit detail path, the values a compiled component still computes on every render
-// because the compiler dropped their memo block: file -> component -> how many. A value
-// derived before a hook call and handed to an unknown function after it keeps its block open
-// across the hook, and the compiler drops the block; everything built from it then changes
+// On the outfit detail path, Today and the Closet list, the values a compiled component still
+// computes on every render because the compiler dropped their memo block: file -> component ->
+// how many. A value derived before a hook call and handed to an unknown function after it
+// keeps its block open across the hook, and the compiler drops the block; everything built from it then changes
 // identity on every render, and the board below it draws again (measured 2026-09-29). The
 // list only shrinks, and a count that no longer matches fails in both directions.
 const knownPruned = new Map([
@@ -71,6 +71,8 @@ const knownPruned = new Map([
   ['features/today/presentation/outfit-detail-screen.tsx', {}],
   ['components/ui/garment-board/garment-swap-board.tsx', { GarmentSwapBoard: 27 }],
   ['components/ui/garment-board/garment-painting.tsx', {}],
+  ['features/today/presentation/today-screen.tsx', {}],
+  ['features/wardrobe/presentation/wardrobe-list-screen.tsx', {}],
 ]);
 
 const files = readdirSync(sourceRoot, { recursive: true })
@@ -98,7 +100,7 @@ for (const file of files) {
 }
 
 for (const [file, pruned] of knownPruned) {
-  test(`React Compiler memoizes every value it can on the detail path in ${file}`, () => {
+  test(`React Compiler memoizes every value it can in ${file}`, () => {
     assert.deepEqual(report[path.join(sourceRoot, file)].pruned, pruned);
   });
 }

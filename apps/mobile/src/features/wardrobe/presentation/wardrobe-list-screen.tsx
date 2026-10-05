@@ -197,6 +197,10 @@ function TileSlot({ children, entranceIndex, waiting }: Readonly<{
     : <Entrance index={mountedIndex} waiting={waiting}>{children}</Entrance>;
 }
 
+// Shared rather than a fresh `[]` per render: React Compiler treats a fresh array as mutable,
+// and everything derived from it would be recomputed on every render.
+const NO_ITEMS: readonly WardrobeItem[] = [];
+
 export function WardrobeListScreen({
   categories = structuralCategories,
   initialCategory,
@@ -256,14 +260,12 @@ export function WardrobeListScreen({
     setIsPulling(false);
   }
   const numColumns = usesTwoColumnGrid || easierToSee ? 2 : 3;
-  const geometry = resolveGridGeometry(windowWidth - insets.left - insets.right, numColumns);
-  const items = state.status === 'ready' ? state.items : [];
+  const items = state.status === 'ready' ? state.items : NO_ITEMS;
   const category =
     selectedCategory && categories.includes(selectedCategory)
       ? selectedCategory
       : resolveDefaultClosetCategory(items, revealWanted, categories);
   const rows = state.status === 'ready' ? buildCategoryRows(items, category, numColumns) : [];
-  const summaries = summarizeClosetCategories(items);
   const wantedRowIndex = rows.findIndex(
     (row) => row.kind === 'section' && row.entryState === 'wanted',
   );
@@ -322,11 +324,10 @@ export function WardrobeListScreen({
 
   // O10: the piece the add flow saved is named above the grid, with Undo, while it is on
   // this page. Undo removes it like Delete does; the row leaves with the piece.
-  const savedItem = arrivingItemId
-    ? items.find((item) => item.id === arrivingItemId && item.category === category) ?? null
-    : null;
+  const showsSavedItem = arrivingItemId !== null
+    && items.some((item) => item.id === arrivingItemId && item.category === category);
   // VoiceOver ignores the alert role on these lines, so iOS also speaks them.
-  useErrorAnnouncement(savedItem && undoStatus === 'failed' ? copy.deleteError : null);
+  useErrorAnnouncement(showsSavedItem && undoStatus === 'failed' ? copy.deleteError : null);
   // A failure already persisted when the screen opened was spoken when it happened, also when
   // the screen opened while loading and the failure arrived with the list.
   useErrorAnnouncement(
@@ -334,6 +335,14 @@ export function WardrobeListScreen({
       : state.status === 'ready' && state.refreshFailure !== null ? copy.loadErrorBody : null,
     { skipInitial: true },
   );
+
+  // Derived after the last hook, so React Compiler can memoize them: a value built before a
+  // hook and used after it is recomputed on every render.
+  const geometry = resolveGridGeometry(windowWidth - insets.left - insets.right, numColumns);
+  const summaries = summarizeClosetCategories(items);
+  const savedItem = showsSavedItem
+    ? items.find((item) => item.id === arrivingItemId && item.category === category) ?? null
+    : null;
 
   if (state.status === 'loading') {
     return (
