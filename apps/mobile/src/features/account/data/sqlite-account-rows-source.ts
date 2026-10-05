@@ -5,6 +5,8 @@ import {
   rowCount,
   type AccountRowsSourcePort,
   type LocalAccountRows,
+  type StoredRowVersion,
+  type UnreadablePendingRows,
 } from '@/features/account/application/account-sync';
 import { unlinked, type AccountLink } from '@/features/account/domain/account-link';
 import type { MergeResult } from '@/features/account/domain/account-merge';
@@ -113,12 +115,22 @@ const clocks = (row: Readonly<{ created_at: string; updated_at: string; deleted_
   deletedAt: nullable(utcIsoTimestampSchema, row.deleted_at),
 });
 
-/** A stored row this build cannot read stays on the phone and out of sync, as the screens skip it. */
-function readable<Row extends Flag, Item>(rows: readonly Row[], map: (row: Row) => Item): LocalSyncRow<Item>[] {
+type StoredVersion = Flag & Readonly<{ id: string; day_key?: string; updated_at: string }>;
+
+/**
+ * A stored row this build cannot read stays on the phone and out of sync, as the screens skip it;
+ * a pending one is noted in `unreadablePending` by its identity and version.
+ */
+function readable<Row extends StoredVersion, Item>(
+  rows: readonly Row[], map: (row: Row) => Item, unreadablePending: StoredRowVersion[] = [],
+): LocalSyncRow<Item>[] {
   return rows.flatMap((row) => {
     try {
       return [{ row: map(row), pendingSync: row.pending_sync === 1 }];
     } catch {
+      if (row.pending_sync === 1) {
+        unreadablePending.push({ id: row.id, ...(row.day_key === undefined ? {} : { dayKey: row.day_key }), updatedAt: row.updated_at });
+      }
       return [];
     }
   });
@@ -299,7 +311,7 @@ const historyWrite: TableWrite<OutfitHistoryRecord> = {
 type Keyed = Readonly<{ id: string; dayKey?: string; createdAt: string; updatedAt: string; deletedAt: string | null }>;
 
 const where = (byDay: boolean) => (byDay ? 'local_profile_id = ? AND day_key = ?' : 'id = ?');
-const whereValues = (byDay: boolean, profileId: string, row: Keyed) =>
+const whereValues = (byDay: boolean, profileId: string, row: StoredRowVersion) =>
   (byDay ? [profileId, row.dayKey ?? ''] : [row.id]);
 
 /**
@@ -358,7 +370,10 @@ function profileIdReader(database: SqliteExecutor): () => Promise<string> {
   return () => (id ??= profileIdOf(database));
 }
 
-const recordTables = (rows: AccountRows): readonly (readonly [TableWrite<never>, readonly Keyed[]])[] => [
+/** The rows whose pending flags a write sets or clears: their identities and versions. */
+type FlaggedRows = UnreadablePendingRows & Readonly<{ profile: Readonly<{ updatedAt: string }> | null }>;
+
+const recordTables = (rows: FlaggedRows): readonly (readonly [TableWrite<never>, readonly StoredRowVersion[]])[] => [
   [wardrobeWrite, rows.wardrobeItems], [choiceWrite, rows.dressingDayChoices],
   [departureWrite, rows.dressingDayDepartures], [historyWrite, rows.outfitHistory],
 ];
@@ -378,7 +393,7 @@ function landWrites(rows: AccountRows, profileId: () => Promise<string>): RowWri
 }
 
 /** Marking or clearing the flag of each row of `rows` by its identity; `updatedAt` too when `matchVersion`. */
-function flagWrites(rows: AccountRows, profileId: () => Promise<string>, pending: 0 | 1, matchVersion: boolean): RowWrite[] {
+function flagWrites(rows: FlaggedRows, profileId: () => Promise<string>, pending: 0 | 1, matchVersion: boolean): RowWrite[] {
   const version = matchVersion ? ' AND updated_at = ?' : '';
   const { profile } = rows;
   return [
@@ -391,6 +406,25 @@ function flagWrites(rows: AccountRows, profileId: () => Promise<string>, pending
         [pending, ...whereValues(write.byDay, await profileId(), row), ...(matchVersion ? [row.updatedAt] : [])]);
     })),
   ];
+}
+
+/**
+ * The unreadable pending rows the account's copy replaces at a first link: those it writes a row
+ * of the same identity for (by id, or by day in the day-keyed tables).
+ */
+function replacedByAccount(unreadable: UnreadablePendingRows, written: AccountRows): FlaggedRows {
+  const replaced = (rows: readonly StoredRowVersion[], writtenRows: readonly StoredRowVersion[], byDay: boolean) => {
+    const identity = (row: StoredRowVersion) => (byDay ? row.dayKey : row.id);
+    const writtenIdentities = new Set(writtenRows.map(identity));
+    return rows.filter((row) => writtenIdentities.has(identity(row)));
+  };
+  return {
+    profile: null,
+    wardrobeItems: replaced(unreadable.wardrobeItems, written.wardrobeItems, false),
+    dressingDayChoices: replaced(unreadable.dressingDayChoices, written.dressingDayChoices, true),
+    dressingDayDepartures: replaced(unreadable.dressingDayDepartures, written.dressingDayDepartures, true),
+    outfitHistory: replaced(unreadable.outfitHistory, written.outfitHistory, false),
+  };
 }
 
 async function saveLinkIn(db: SqliteExecutor, link: AccountLink): Promise<void> {
@@ -453,22 +487,28 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
   async function read(): Promise<LocalAccountRows> {
     const profile = await database.getFirstAsync<ProfileRow>(`SELECT id, display_name, gender, dress_style,
       style_aesthetics, created_at, updated_at, pending_sync FROM local_profiles WHERE singleton_key = 1`);
-    if (profile === null) {
-      return { profile: null, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] };
-    }
+    if (profile === null) return { profile: null, ...noRecords, unreadablePending: noRecords };
+    const unreadablePending = {
+      wardrobeItems: [] as StoredRowVersion[], dressingDayChoices: [] as StoredRowVersion[],
+      dressingDayDepartures: [] as StoredRowVersion[], outfitHistory: [] as StoredRowVersion[],
+    };
     return {
+      unreadablePending,
       profile: readable([profile], profileOf)[0] ?? null,
       wardrobeItems: readable(await all<WardrobeRow>('wardrobe_items', `id, local_profile_id, name, category,
         entry_state, garment_type_id, color, color_family, color_option_id, color_custom_hex,
         thermal_level_override, water_protection_override, wind_protection_override, breathability_override,
         arm_coverage_override, leg_coverage_override, traction_suitability_override, photo_relative_path,
-        created_at, updated_at, deleted_at`, profile.id), wardrobeItemOf),
+        created_at, updated_at, deleted_at`, profile.id), wardrobeItemOf, unreadablePending.wardrobeItems),
       dressingDayChoices: readable(await all<ChoiceRow>('dressing_day_choices', `id, local_profile_id, day_key,
-        formality, source, style_aesthetics, created_at, updated_at, deleted_at`, profile.id), choiceOf),
+        formality, source, style_aesthetics, created_at, updated_at, deleted_at`, profile.id), choiceOf,
+        unreadablePending.dressingDayChoices),
       dressingDayDepartures: readable(await all<DepartureRow>('dressing_day_departures', `id, local_profile_id,
-        day_key, departure_at, time_zone, created_at, updated_at, deleted_at`, profile.id), departureOf),
+        day_key, departure_at, time_zone, created_at, updated_at, deleted_at`, profile.id), departureOf,
+        unreadablePending.dressingDayDepartures),
       outfitHistory: readable(await all<HistoryRow>('outfit_history', `id, local_profile_id, day_key, outfit_json,
-        piece_colors_json, photo_path, worn_at, created_at, updated_at, deleted_at`, profile.id), historyOf),
+        piece_colors_json, photo_path, worn_at, created_at, updated_at, deleted_at`, profile.id), historyOf,
+        unreadablePending.outfitHistory),
     };
   }
 
@@ -478,15 +518,17 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
       return linkOf(await database.getFirstAsync<LinkRow>('SELECT * FROM device_account_link WHERE singleton_key = 1'));
     },
     saveLink: (link) => write((transaction) => saveLinkIn(transaction, link)),
-    applyFirstLink(merge: MergeResult, link: AccountLink, local: AccountRows) {
+    applyFirstLink(merge: MergeResult, link: AccountLink, local: AccountRows, unreadablePending = noRecords) {
       const profileId = profileIdReader(database);
       // The merge settles the profile it read and, under the consent, every record it read: the
       // account's copy lands over it, and what it does not send never uploads. A row written
       // since the read (another identity or `updatedAt`) keeps its flag, so the account's copy
-      // does not land over it and the edit uploads with the next pass. The link is saved last, so
+      // does not land over it and the edit uploads with the next pass. A pending row this build
+      // cannot read settles too when the account's copy replaces it. The link is saved last, so
       // a first link that stops part way runs again whole.
       return writeInBatches([
         ...flagWrites(merge.syncConsent ? local : { ...noRecords, profile: local.profile }, profileId, 0, true),
+        ...(merge.syncConsent ? flagWrites(replacedByAccount(unreadablePending, merge.writeToPhone), profileId, 0, true) : []),
         ...landWrites(merge.writeToPhone, profileId),
         ...flagWrites(merge.sendToAccount, profileId, 1, false),
       ], (transaction) => saveLinkIn(transaction, link), landing(merge.writeToPhone));

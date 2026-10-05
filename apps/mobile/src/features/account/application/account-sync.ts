@@ -26,12 +26,24 @@ import type { DressingDayDeparture } from '@/features/recommendation/domain/dres
 import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 
+/** A stored row's identity (its id, and its day in the day-keyed tables) and its `updatedAt`. */
+export type StoredRowVersion = Readonly<{ id: string; dayKey?: string; updatedAt: string }>;
+
+/** Pending record rows this build cannot read: no pass can upload them. */
+export type UnreadablePendingRows = Readonly<{
+  wardrobeItems: readonly StoredRowVersion[];
+  dressingDayChoices: readonly StoredRowVersion[];
+  dressingDayDepartures: readonly StoredRowVersion[];
+  outfitHistory: readonly StoredRowVersion[];
+}>;
+
 export type LocalAccountRows = Readonly<{
   profile: LocalSyncRow<SyncedProfile> | null;
   wardrobeItems: readonly LocalSyncRow<WardrobeItem>[];
   dressingDayChoices: readonly LocalSyncRow<DressingDayChoice>[];
   dressingDayDepartures: readonly LocalSyncRow<DressingDayDeparture>[];
   outfitHistory: readonly LocalSyncRow<OutfitHistoryRecord>[];
+  unreadablePending: UnreadablePendingRows;
 }>;
 
 export type PulledAccountRows = Readonly<{
@@ -57,10 +69,14 @@ export type AccountRowsSourcePort = Readonly<{
    * `merge.syncConsent`), are settled: their pending flags clear while the row still holds the
    * identity and `updatedAt` read, so a deletion older than the marker window never uploads later.
    * A row written during the pull keeps its flag and its content: no winner lands over it, and it
-   * uploads with the next pass. A profile that lacks dress style and style aesthetics writes only
-   * the fields it carries.
+   * uploads with the next pass. A pending row of `unreadablePending` (this build cannot read it,
+   * so no pass can upload it) settles as well while it holds the version read, when the account
+   * writes a row of its identity, so the account's readable copy replaces it. A profile that
+   * lacks dress style and style aesthetics writes only the fields it carries.
    */
-  applyFirstLink: (merge: MergeResult, link: AccountLink, local: AccountRows) => Promise<void>;
+  applyFirstLink: (
+    merge: MergeResult, link: AccountLink, local: AccountRows, unreadablePending: UnreadablePendingRows,
+  ) => Promise<void>;
   /** Compare identity and updatedAt again inside the write transaction before clearing. */
   clearPendingIfUnchanged: (returned: AccountRows) => Promise<void>;
   /**
@@ -142,10 +158,12 @@ export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: Acc
     /** `givenAt`: the arrival of the `given` record the records join under, kept in the link. */
     async firstLink(userId: string, syncConsent: boolean, givenAt: string | null = null): Promise<FirstLinkOutcome> {
       const link = await source.link();
-      const local = values(await source.read());
+      const stored = await source.read();
+      const local = values(stored);
       const account = await remote.pullSnapshot(userId, syncConsent);
       const merge = mergeAtFirstLink(local, landRemoteRows(account.rows, local), { syncConsent, now: now() });
-      await source.applyFirstLink(merge, linkAfterFirstLink(link, userId, syncConsent, account.cursor, givenAt), local);
+      await source.applyFirstLink(merge, linkAfterFirstLink(link, userId, syncConsent, account.cursor, givenAt), local,
+        stored.unreadablePending);
       // Only what the merge chose: a deletion older than the marker window never goes.
       await upload(userId, merge.sendToAccount);
       return { counts: merge.counts, profileFrom: merge.profileFrom };

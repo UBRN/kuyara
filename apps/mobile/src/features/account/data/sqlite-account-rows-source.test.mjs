@@ -64,6 +64,27 @@ test('a wardrobe row whose colour columns disagree is left out of what the accou
   assert.deepEqual(rows.wardrobeItems.map(({ row }) => row.id), [uuid(1)]);
 });
 
+test('a first link replaces a pending row this build cannot read with the account\'s copy, and keeps one the account lacks waiting', async (t) => {
+  const { database, source } = await setup(t);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2)), mine(wardrobeItem(3))] }, noCursor);
+  // Pieces 2 and 3 were edited into colour columns that disagree, which the account reads strictly.
+  await database.runAsync(`UPDATE wardrobe_items SET color_family = 'black', pending_sync = 1 WHERE id IN (?, ?)`, [uuid(2), uuid(3)]);
+  const remote = {
+    pullSnapshot: async () => ({ rows: { ...none, wardrobeItems: [wardrobeItem(2, { name: 'Account copy' })] }, cursor: noCursor }),
+    upload: async (_user, sent) => sent,
+    pull: async () => ({ ...none, arrivals: [] }),
+  };
+
+  await createAccountSyncFlow(source, remote, () => stamp(10)).firstLink('user-a', true);
+
+  const rows = await database.getAllAsync('SELECT id, name, color_family, pending_sync FROM wardrobe_items ORDER BY id');
+  assert.deepEqual(rows.map((row) => ({ ...row })), [
+    { id: uuid(1), name: 'Linen shirt', color_family: wardrobeItem(1).colorFamily, pending_sync: 0 },
+    { id: uuid(2), name: 'Account copy', color_family: wardrobeItem(2).colorFamily, pending_sync: 0 },
+    { id: uuid(3), name: 'Linen shirt', color_family: 'black', pending_sync: 1 },
+  ]);
+});
+
 test('a pull lands settled rows only, under this phone\'s profile, never touching photos or pending rows', async (t) => {
   const { database, source } = await setup(t);
   await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2))] }, noCursor);
