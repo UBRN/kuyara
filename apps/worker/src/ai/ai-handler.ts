@@ -60,24 +60,25 @@ type Dependencies = Readonly<{
  *   of output: 14.3 + 52.4 = 66.7, rounded up to 67 Neurons; `PROBE_DAILY_LIMIT` (30)
  *   calls reserve 2,010.
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
- *   produce over the v2 recommendation grid is 17,598 characters (messages plus response
- *   schema, 24 options), rounded to 4,400 tokens at four characters per token. The budget test in
+ *   produce over the v2 recommendation grid, on a weekday, a weekend or no day kind and in
+ *   either locale, is 18,091 characters (messages plus response schema, 24 options, on a
+ *   weekend), rounded to 4,600 tokens at four characters per token. The budget test in
  *   ai-handler.test.mjs measures that prompt and derives the
  *   limit below from it, so the constant and the prompt stay in step.
  * - Output per attempt: `recommendationMaxTokens` in workers-ai-provider.ts caps the reply
  *   at 192 tokens, so a runaway or prose reply cannot cost more than a valid one's ceiling.
- * - Worst attempt: llama at 4,400 in and 192 out is 117.3 + 39.3 = 156.7, rounded up to 157
- *   Neurons; mistral at the same sizes is 140.3 + 9.7 = 150.0, so llama is the worst case
+ * - Worst attempt: llama at 4,600 in and 192 out is 122.7 + 39.3 = 162.0, rounded up to 162
+ *   Neurons; mistral at the same sizes is 146.6 + 9.7 = 156.3, so llama is the worst case
  *   and the limit holds for either model.
- * - Limit: floor((10,000 - 2,010) / 157) = floor(50.9) = 50 attempts.
+ * - Limit: floor((10,000 - 2,010) / 162) = floor(49.3) = 49 attempts.
  *
- * 50 x 157 + 2,010 = 9,860 < 10,000. The token figures are characters over four; the
+ * 49 x 162 + 2,010 = 9,948 < 10,000. The token figures are characters over four; the
  * provider's `ai_provider_usage` log carries the binding's own `prompt_tokens` and
  * `completion_tokens` per successful call and is the measured check on that assumption.
  * OpenRouter attempts spend no Neurons and are not counted.
  */
 export const WORKERS_AI_DAILY_ATTEMPT_LIMIT = Math.floor(
-  (10_000 - PROBE_DAILY_LIMIT * 67) / 157,
+  (10_000 - PROBE_DAILY_LIMIT * 67) / 162,
 );
 
 // The phone transmits its own budget (37 s: its 38 s wait minus transport); this ceiling is

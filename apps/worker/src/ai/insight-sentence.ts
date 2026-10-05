@@ -8,18 +8,18 @@ import { insightSentenceSchema } from '@kuyara/contracts';
 const minimumWords = 4;
 
 /**
- * Words that cannot end a sentence in English or Turkish: conjunctions, articles and
- * prepositions or postpositions that leave the clause open.
+ * Words that can never end an English or Turkish sentence: articles, conjunctions and the
+ * few prepositions that cannot close a clause. Words that can, such as "on", "in", "with",
+ * "için" or "gibi" ("a coat to throw on", "istediğin gibi"), stay off the list.
  */
 const openClauseWords = new Set([
-  'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'from', 'in', 'into', 'nor', 'of', 'on',
-  'or', 'than', 'the', 'to', 'with', 'without', 'your',
-  'ama', 'ancak', 'fakat', 'gibi', 'hem', 'ile', 'için', 'ki', 've', 'veya', 'ya',
+  'a', 'an', 'and', 'as', 'at', 'but', 'from', 'into', 'nor', 'of', 'or', 'than', 'the', 'your',
+  'ama', 'ancak', 'fakat', 'hem', 'ile', 'ki', 've', 'veya', 'ya',
 ]);
 
 function isComplete(sentence: string): boolean {
-  // The provider schema caps the string at 90 characters, so a model that runs long is cut
-  // mid-clause, and the cut text has no closing mark.
+  // The provider schema caps the string at 90 characters, so a sentence that runs long can
+  // arrive cut mid-clause, without its closing mark.
   const closing = /^(.*\S)\s*[.!?]$/su.exec(sentence);
   if (!closing) return false;
   const words = closing[1]!.split(/\s+/u);

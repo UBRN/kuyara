@@ -14,6 +14,10 @@ test('accepts a complete sentence of four or more words in either language', () 
     'Yağmura karşı su geçirmez ceketini al.',
     'Rüzgara karşı kat kat giyin!',
     'Is a light jacket enough for you?',
+    'Grab a warm coat to throw on.',
+    'Easy layers you can move in.',
+    'Bu kombin serin bir akşam için.',
+    'Kombinler tam istediğin gibi.',
   ]) {
     assert.equal(accepts(sentence), true, sentence);
   }
@@ -47,9 +51,9 @@ test('rejects a sentence whose last word leaves the clause open, in either langu
   for (const sentence of [
     'Choose a light jacket or a shirt with jeans and.',
     'A warm coat keeps you covered from the.',
-    'Pick a scarf to go with.',
+    'Pick a scarf to go with your.',
     'Hafif bir ceket ve rahat bir pantolon ve.',
-    'Yağmurlu bir gün için.',
+    'Yağmurlu bir gün için ceket ama.',
     'Bu ceket rüzgara karşı bir şemsiye ile.',
   ]) {
     assert.equal(accepts(sentence), false, sentence);

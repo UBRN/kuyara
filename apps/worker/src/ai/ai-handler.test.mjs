@@ -22,6 +22,7 @@ import {
   paddedBody,
 } from '../__tests__/largest-valid-requests.mjs';
 import { AccountError } from '../account/account-error.ts';
+import { buildCacheRequest } from './ai-cache.ts';
 import { AiProviderError } from './ai-provider.ts';
 import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 import { MEMBER_REASK_DAILY_LIMIT, createMemberAllowance } from './member-allowance.ts';
@@ -295,6 +296,32 @@ test('v2 logs only a coarse insight outcome after valid picks', async (t) => {
     assert.deepEqual(infos.filter(({ event }) => event === 'ai_insight_sentence'), [{
       event: 'ai_insight_sentence', outcome, provider: 'openrouter', model: 'stub',
     }]);
+  }
+});
+
+// A cached answer meets the sentence check of the Worker that reads it, so a stricter check
+// needs no cache version: an entry whose sentence fails it still serves its picks, without
+// the sentence, and spends no attempt.
+test('a cached v2 answer whose sentence fails the current check serves its picks alone', async () => {
+  const restore = installMemoryCache();
+  try {
+    const body = { ...validRequestBody(), locale: 'tr' };
+    const cacheRequest = await buildCacheRequest(body, '/v2/ai/recommend');
+    await globalThis.caches.default.put(cacheRequest, Response.json({ data: {
+      ...validOutput().data, insightSentence: 'Kadınlar giydiler.',
+    } }));
+    let providerCalls = 0;
+    const handler = createAiHandler({ providers: [{
+      async generateOutfits() { providerCalls += 1; return validOutput(); },
+    }] });
+    const response = await handler(request({
+      path: '/v2/ai/recommend', body: JSON.stringify(body),
+    }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), validOutput());
+    assert.equal(providerCalls, 0);
+  } finally {
+    restore();
   }
 });
 
@@ -1037,7 +1064,7 @@ test('the shared-cache key for a known request is pinned byte for byte', async (
       ...validRequestBody(), locale: 'tr', styleAesthetics: ['classic', 'minimal'],
     }) }));
     assert.deepEqual(urls, [
-      'https://kuyara.internal/v1/ai/recommend/f558676158bea3d4698b1479b0e84cdcd8c13c68177e0400f45aed75e22ee6a2',
+      'https://kuyara.internal/v1/ai/recommend/5469f10e88e5c93202b8220bfd62b7927cdc098608f3a1e5f8519c9449bb3d65',
       'https://kuyara.internal/v2/ai/recommend/458bf234105cd71f710e860c6a9c7ea43f25765a9b32dac89d5787fdbfd1c5b0',
     ]);
   } finally {
@@ -1737,19 +1764,24 @@ function openRouter(model, calls, answer = validOutput) {
 test('the daily attempt budget covers the largest prompt in the shared grid', async () => {
   await import('../../../mobile/test/node-typescript-resolver.mjs');
   const { gridRequestCells } = await import('../../../mobile/test/recommendation-grid.mjs');
+  // The grid models a weekday caller, but the app also sends weekends and the request admits
+  // no day kind at all, and the sentence instruction names the locale: every combination is
+  // measured. A weekend is the largest, because `weekend_relaxed` stays in the eligible lists.
   const promptCharacters = Math.max(...gridRequestCells()
     .filter(({ request: body }) => body !== null)
-    .map(({ request: body }) =>
-      JSON.stringify(buildMessages({ ...body, locale: 'en' })).length
-      + JSON.stringify(buildPickJsonSchema(body.options, true)).length));
+    .flatMap(({ request: { dayKind: _gridDayKind, ...body } }) =>
+      [{ dayKind: 'weekday' }, { dayKind: 'weekend' }, {}].flatMap((day) =>
+        ['en', 'tr'].map((locale) => {
+          const v2Body = { ...body, ...day, locale };
+          return JSON.stringify(buildMessages(v2Body)).length
+            + JSON.stringify(buildPickJsonSchema(v2Body.options, true)).length;
+        }))));
 
-  // The grid sends a dayKind, as the app does, so `weekend_relaxed` leaves the eligible
-  // lists of a weekday, and it sends the day's requirements, so the three weather archetypes
-  // leave the lists of the days that contradict them: the largest prompt is shorter than
-  // either the day-blind or the day-kind-only one.
-  assert.equal(promptCharacters, 17_598);
+  // The grid sends the day's requirements, so the three weather archetypes leave the lists
+  // of the days that contradict them.
+  assert.equal(promptCharacters, 18_091);
   const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
-  assert.equal(inputTokens, 4_400);
+  assert.equal(inputTokens, 4_600);
   const attemptNeurons = Math.ceil(
     (inputTokens * 26_668 + 192 * 204_805) / 1_000_000,
   );
@@ -1757,9 +1789,9 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
     (10_000 - PROBE_DAILY_LIMIT * 67) / attemptNeurons,
   );
   // The constant is derived from this same prompt, so the two must agree exactly: the
-  // comment above `WORKERS_AI_DAILY_ATTEMPT_LIMIT` carries the 4,400-token, 157-Neuron
+  // comment above `WORKERS_AI_DAILY_ATTEMPT_LIMIT` carries the 4,600-token, 162-Neuron
   // worst case this test measures. A prompt that grows past the token step raises the
-  // Neuron cost, and the constant follows it only through a spend decision with
+  // Neuron cost and lowers the limit; raising the limit is a spend decision with
   // its own review.
   assert.equal(WORKERS_AI_DAILY_ATTEMPT_LIMIT, derivedLimit);
 });

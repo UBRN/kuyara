@@ -155,7 +155,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 
 - A signed-in member gets 10 "Ask the stylist again" requests per UTC day; everyone else keeps 5 per install per local day, the device allowance that exists today. The Worker counts members' requests on the UTC day, because no request carries the person's local day; the device counter is not trusted for members.
 - The member allowance is enforced from the first account release, when accounts open; until then every install keeps 5. The Worker identifies the member from the verified Supabase access token as in section 2 (user ID from `sub`), sent only in the `Authorization: Bearer` header, so no request or response shape of a shipped route changes. The user ID keys the counter and is never logged, sent to analytics or placed in an AI request; the [AI input boundary](../product-decisions.md#approved-ai-input-privacy-boundary) is unchanged.
-- The Worker's daily Workers AI total stays at 50 for everyone together. The member allowance never raises it, and no paid model joins the chain for members. When the total is spent, recommendations fall back to the on-device deterministic choice, for members too.
+- The Worker's daily Workers AI total is 49 attempts for everyone together. The member allowance never raises it, and no paid model joins the chain for members. When the total is spent, recommendations fall back to the on-device deterministic choice, for members too.
 
 ## Red lines
 

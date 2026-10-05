@@ -39,7 +39,10 @@ test('v2 alone asks for one locale-specific insight with closed day flags', () =
     // asks for more words than that, a closing period, and the wearer as the subject rather
     // than the catalog audience the input names.
     assert.match(v2[0].content, /5-10 word sentence/);
-    assert.match(v2[0].content, /to the wearer \(you\)/);
+    // The provider schema caps the string at 90 characters, so the prompt states it too.
+    assert.match(v2[0].content, /<=90 chars/);
+    // The app's Turkish copy speaks to the reader informally.
+    assert.match(v2[0].content, locale === 'tr' ? /to the wearer \(sen\)/ : /to the wearer \(you\)/);
     assert.match(v2[0].content, /ending in a period/);
     assert.match(v2[0].content, /no weather claim/i);
     assert.match(v2[0].content, /wet=rain possible\/likely/i);
