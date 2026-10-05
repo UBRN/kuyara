@@ -367,6 +367,7 @@ function cancellableScheduler() {
       gateway,
       repository,
       () => '2026-09-09T08:00:00.000Z',
+      () => 'UTC',
     ),
   };
 }

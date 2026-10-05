@@ -1,4 +1,3 @@
-import { getDeviceTimeZone } from '@/domain/intl-format';
 import type {
   NotificationGateway,
   NotificationKind,
@@ -121,12 +120,13 @@ function plannedNotifications(
   snapshot: WeatherSnapshot,
   now: string,
   deliveredIds: ReadonlySet<string>,
+  deviceTimeZone: string,
 ): readonly Readonly<{ plan: WeatherAlertPlan | MorningBriefingPlan; title: string; body: string }>[] {
   const plans = input.weatherAlertsEnabled
     ? planWeatherAlerts({
       snapshot,
       now,
-      quietHours: deviceQuietHours(getDeviceTimeZone() || 'UTC'),
+      quietHours: deviceQuietHours(deviceTimeZone || 'UTC'),
       deliveredAlertIds: deliveredIds,
       leadTimeMinutes: input.leadTimeMinutes,
     })
@@ -160,6 +160,8 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
   private readonly repository: WeatherAlertDeliveryRepository
     | Promise<WeatherAlertDeliveryRepository>;
   private readonly now: () => string;
+  /** The zone the device's clock keeps, read at each run so a traveller is not held to the old one. */
+  private readonly deviceTimeZone: () => string;
   /** The newest stored snapshot, which the background task may have planned from. */
   private readonly loadNewestSnapshot: NewestSnapshotLoader | undefined;
 
@@ -167,11 +169,13 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     gateway: NotificationGateway,
     repository: WeatherAlertDeliveryRepository | Promise<WeatherAlertDeliveryRepository>,
     now: () => string,
+    deviceTimeZone: () => string,
     loadNewestSnapshot?: NewestSnapshotLoader,
   ) {
     this.gateway = gateway;
     this.repository = repository;
     this.now = now;
+    this.deviceTimeZone = deviceTimeZone;
     this.loadNewestSnapshot = loadNewestSnapshot;
   }
 
@@ -242,7 +246,7 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     // notification that was never scheduled would suppress the identity for the rest of
     // the day.
     const scheduled: WeatherAlertDeliveryRecord[] = [];
-    for (const { plan, title, body } of plannedNotifications(input, snapshot, now, deliveredAlertIds)) {
+    for (const { plan, title, body } of plannedNotifications(input, snapshot, now, deliveredAlertIds, this.deviceTimeZone())) {
       const accepted = await this.gateway.scheduleWeatherAlert({
         identifier: plan.id,
         fireAt: plan.fireAt,
@@ -290,7 +294,7 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
       : snapshot;
     const deliveredIds = await repository.listFiredIds(input.localProfileId, now);
     let allAccepted = true;
-    for (const { plan, title, body } of plannedNotifications(input, source, now, deliveredIds)) {
+    for (const { plan, title, body } of plannedNotifications(input, source, now, deliveredIds, this.deviceTimeZone())) {
       const fireAt = pending.get(plan.id);
       if (fireAt !== undefined
         && !await this.gateway.scheduleWeatherAlert({ identifier: plan.id, fireAt, title, body })) {

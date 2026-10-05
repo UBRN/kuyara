@@ -180,6 +180,7 @@ test('cancelled pending identity can be scheduled again after its former fire ti
     },
     repository,
     () => now,
+    () => 'UTC',
   );
   // 15:00Z is 18:00 in Istanbul, so the identity carries the evening window's own key.
   const alertId = 'precipitation_onset:manual:sample.istanbul:2026-09-09:evening';

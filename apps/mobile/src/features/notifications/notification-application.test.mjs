@@ -189,6 +189,7 @@ function createSchedulerHarness({
       gateway,
       repository,
       () => now,
+      () => 'UTC',
       newestSnapshot,
     ),
   };
@@ -898,7 +899,7 @@ test('toggle, freshness and pending-kind matrix preserves only allowed stale sch
             listPending: async () => [],
             upsertScheduled: async () => undefined,
             pruneBefore: async () => undefined,
-          }, () => '2026-09-09T15:00:00.000Z');
+          }, () => '2026-09-09T15:00:00.000Z', () => 'UTC');
           const enabled = toggle === 'off-to-on';
           await scheduler.reschedule({
             ...enabledInput,
@@ -963,7 +964,7 @@ test('an opt-out queued behind a failing run still runs, and the caller still se
     listFiredIds: async () => new Set(),
     upsertScheduled: async () => undefined,
     pruneBefore: async () => undefined,
-  }, () => '2026-09-09T15:00:00.000Z');
+  }, () => '2026-09-09T15:00:00.000Z', () => 'UTC');
 
   const first = scheduler.reschedule(enabledInput);
   const optOut = scheduler.reschedule({
