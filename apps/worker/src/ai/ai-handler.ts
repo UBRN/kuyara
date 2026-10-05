@@ -390,7 +390,8 @@ export function createAiHandler({
           && 'data' in output && output.data && typeof output.data === 'object'
           && 'insightSentence' in output.data
           ? output.data.insightSentence : undefined;
-        const sentence = typeof rawSentence === 'string' ? rawSentence.trim() : undefined;
+        // Parsed as the model wrote it: invalid prose is dropped, never repaired (ADR 0039).
+        const sentence = typeof rawSentence === 'string' ? rawSentence : undefined;
         const acceptedSentence = insightSentenceSchema.safeParse(sentence);
         const responseBody = isV2
           ? aiRecommendV2SuccessSchema.parse({ data: {

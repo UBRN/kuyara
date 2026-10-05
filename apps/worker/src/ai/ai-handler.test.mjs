@@ -191,7 +191,7 @@ test('returns a contract-valid pick response using supplied option ids', async (
 test('v2 emits only valid optional prose and v1 remains shape-frozen', async () => {
   const handler = createAiHandler({ providers: [{
     generateOutfits: async () => ({ data: {
-      ...validOutput().data, insightSentence: ' A clear day suits this outfit. ',
+      ...validOutput().data, insightSentence: 'A clear day suits this outfit.',
     } }),
   }] });
   const v1 = await handler(request());
@@ -203,6 +203,28 @@ test('v2 emits only valid optional prose and v1 remains shape-frozen', async () 
     ...validOutput().data, insightSentence: 'A clear day suits this outfit.',
   } });
   await assertError(await handler(request({ path: '/v2/ai/recommend' })), 400, 'invalid_request');
+});
+
+// ADR 0039: invalid prose is dropped, never repaired. Trimming the sentence first would turn
+// an invalid one into an accepted one.
+test('v2 drops a sentence with surrounding whitespace or a line break instead of trimming it', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  for (const sentence of [' A clear day suits this outfit. ', 'A clear day suits this outfit.\n',
+    '\nA clear day suits this outfit.']) {
+    infos.length = 0;
+    const handler = createAiHandler({ providers: [{
+      id: 'openrouter', model: 'stub',
+      generateOutfits: async () => ({ data: { ...validOutput().data, insightSentence: sentence } }),
+    }] });
+    const response = await handler(request({ path: '/v2/ai/recommend', body: JSON.stringify({
+      ...validRequestBody(), locale: 'en',
+    }) }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), validOutput());
+    assert.deepEqual(infos.filter(({ event }) => event === 'ai_insight_sentence')
+      .map(({ outcome }) => outcome), ['invalid']);
+  }
 });
 
 test('invalid or absent v2 prose does not fail valid picks', async () => {
