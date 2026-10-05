@@ -222,6 +222,27 @@ async function buildCacheRequest(
   return new Request(`https://kuyara.internal${route}/${hash}`);
 }
 
+/**
+ * The write outlives the response instead of delaying it. Shared cache failures, whether the
+ * write rejects or the runtime refuses it, must never fail a validated response.
+ */
+function storeInSharedCache(
+  cache: Cache,
+  cacheRequest: Request,
+  response: Response,
+  ctx: ExecutionContext,
+): void {
+  try {
+    const cached = response.clone();
+    cached.headers.set('Cache-Control', 'public, max-age=2592000');
+    ctx.waitUntil(cache.put(cacheRequest, cached).catch(() => {
+      // Best effort: a failed shared-cache write only costs a later cache miss.
+    }));
+  } catch {
+    // Best effort as above.
+  }
+}
+
 export function createAiHandler({
   providers,
   rateLimiter,
@@ -355,78 +376,13 @@ export function createAiHandler({
       const attemptWindowMs = nextAttemptWindowMs();
       if (attemptWindowMs === undefined) break;
       const controller = new AbortController();
+      let output: unknown;
       try {
-        const output = await raceWithTimeout(
+        output = await raceWithTimeout(
           controller,
           () => provider.generateOutfits(aiRequest, controller.signal),
           attemptWindowMs,
         );
-        if (controller.signal.aborted) {
-          logProviderFailure(provider, 'timeout');
-          continue;
-        }
-
-        // The optional prose never participates in the pick gate. A malformed sentence
-        // is dropped alone after the same v1 pick validation and deterministic checks.
-        const result = aiRecommendV1SuccessSchema.safeParse(output);
-        if (!result.success) {
-          logProviderFailure(provider, 'invalid_output');
-          continue;
-        }
-
-        const pickedOptions = result.data.data.picks.map(({ optionId }) => options.get(optionId));
-        if (!pickedOptions.every((option): option is AiOption => option !== undefined)) {
-          logProviderFailure(provider, 'unknown_option');
-          continue;
-        }
-        if (!picksAreMeaningfullyDifferent(pickedOptions)) {
-          logProviderFailure(provider, 'picks_not_distinct');
-          continue;
-        }
-        if (!validSelection(result.data.data.picks, aiRequest, options)) {
-          logProviderFailure(provider, 'archetype_precondition');
-          continue;
-        }
-
-        console.info({
-          event: 'ai_provider_attempt_succeeded',
-          model: provider.model,
-          attempt: attemptIndex + 1,
-        });
-        const rawSentence = isV2 && output && typeof output === 'object'
-          && 'data' in output && output.data && typeof output.data === 'object'
-          && 'insightSentence' in output.data
-          ? output.data.insightSentence : undefined;
-        // Parsed as the model wrote it: invalid prose is dropped, never repaired (ADR 0039).
-        const sentence = typeof rawSentence === 'string' ? rawSentence : undefined;
-        const acceptedSentence = insightSentenceSchema.safeParse(sentence);
-        const responseBody = isV2
-          ? aiRecommendV2SuccessSchema.parse({ data: {
-              picks: result.data.data.picks,
-              ...(acceptedSentence.success ? { insightSentence: acceptedSentence.data } : {}),
-            } })
-          : result.data;
-        if (isV2) {
-          const outcome = sentence === undefined ? 'absent'
-            : acceptedSentence.success ? 'accepted' : 'invalid';
-          console.info({
-            event: 'ai_insight_sentence',
-            outcome,
-            provider: provider.id,
-            model: provider.model,
-          });
-        }
-        const response = Response.json(responseBody, { status: 200, headers: jsonHeaders });
-        if (cache && cacheRequest) {
-          // The write outlives the response instead of delaying it. Shared cache failures
-          // must not fail a validated response, so the promise handed over never rejects.
-          const cached = response.clone();
-          cached.headers.set('Cache-Control', 'public, max-age=2592000');
-          ctx.waitUntil(cache.put(cacheRequest, cached).catch(() => {
-            // Best effort: a failed shared-cache write only costs a later cache miss.
-          }));
-        }
-        return response;
       } catch (error) {
         const reason = attemptFailureReason(error, controller.signal);
         logProviderFailure(provider, reason);
@@ -438,7 +394,66 @@ export function createAiHandler({
           console.warn({ event: 'ai_workers_ai_quota_exhausted', model: provider.model });
           workersAiPoolSpent = true;
         }
+        continue;
       }
+      if (controller.signal.aborted) {
+        logProviderFailure(provider, 'timeout');
+        continue;
+      }
+
+      // The optional prose never participates in the pick gate. A malformed sentence
+      // is dropped alone after the same v1 pick validation and deterministic checks.
+      const result = aiRecommendV1SuccessSchema.safeParse(output);
+      if (!result.success) {
+        logProviderFailure(provider, 'invalid_output');
+        continue;
+      }
+
+      const pickedOptions = result.data.data.picks.map(({ optionId }) => options.get(optionId));
+      if (!pickedOptions.every((option): option is AiOption => option !== undefined)) {
+        logProviderFailure(provider, 'unknown_option');
+        continue;
+      }
+      if (!picksAreMeaningfullyDifferent(pickedOptions)) {
+        logProviderFailure(provider, 'picks_not_distinct');
+        continue;
+      }
+      if (!validSelection(result.data.data.picks, aiRequest, options)) {
+        logProviderFailure(provider, 'archetype_precondition');
+        continue;
+      }
+
+      console.info({
+        event: 'ai_provider_attempt_succeeded',
+        model: provider.model,
+        attempt: attemptIndex + 1,
+      });
+      const rawSentence = isV2 && output && typeof output === 'object'
+        && 'data' in output && output.data && typeof output.data === 'object'
+        && 'insightSentence' in output.data
+        ? output.data.insightSentence : undefined;
+      // Parsed as the model wrote it: invalid prose is dropped, never repaired (ADR 0039).
+      const sentence = typeof rawSentence === 'string' ? rawSentence : undefined;
+      const acceptedSentence = insightSentenceSchema.safeParse(sentence);
+      const responseBody = isV2
+        ? aiRecommendV2SuccessSchema.parse({ data: {
+            picks: result.data.data.picks,
+            ...(acceptedSentence.success ? { insightSentence: acceptedSentence.data } : {}),
+          } })
+        : result.data;
+      if (isV2) {
+        const outcome = sentence === undefined ? 'absent'
+          : acceptedSentence.success ? 'accepted' : 'invalid';
+        console.info({
+          event: 'ai_insight_sentence',
+          outcome,
+          provider: provider.id,
+          model: provider.model,
+        });
+      }
+      const response = Response.json(responseBody, { status: 200, headers: jsonHeaders });
+      if (cache && cacheRequest) storeInSharedCache(cache, cacheRequest, response, ctx);
+      return response;
     }
     return errorResponse(503, 'ai_unavailable');
   };

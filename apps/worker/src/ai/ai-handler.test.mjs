@@ -1504,6 +1504,23 @@ test('lets all five providers take their turn inside the default deadline', asyn
   assert.equal(response.status, 503);
 });
 
+// Only the provider call decides a provider_error. A throw while handing the cache write to
+// the runtime comes after a valid answer and must never discard it or start another attempt.
+test('a shared-cache write that throws does not discard a valid answer', async (t) => {
+  const restore = installMemoryCache();
+  t.after(restore);
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const calls = [];
+  const response = await createAiHandlerWithContext({
+    providers: [openRouter('router/first', calls), openRouter('router/second', calls)],
+  })(request(), { waitUntil() { throw new Error('runtime refused the write'); } });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), validOutput());
+  assert.deepEqual(calls, ['router/first']);
+  assert.equal(JSON.stringify(warnings).includes('provider_error'), false);
+});
+
 test('a successful answer hands the shared-cache write to waitUntil instead of awaiting it', async () => {
   const previous = globalThis.caches;
   let putResolve;
