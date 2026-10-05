@@ -30,7 +30,7 @@ güncellenir, kombin değişmez. Yapay zeka kullanılamadığında yerleşik yö
 seçer.
 
 **kuyara neden konumumu istiyor?**
-Yalnızca "Konumumu kullan" seçeneğini seçersen. Konum sadece bulunduğun yerin hava
+Yalnızca "Mevcut konumumu kullan" seçeneğini seçersen. Konum sadece bulunduğun yerin hava
 durumunu almak için kullanılır; bunun yerine şehir yazabilir ve izni hiç vermeyebilirsin.
 kuyara konumunu yaklaşık bir kilometreye yuvarlayarak kendi hava durumu sunucusuna
 gönderir, kesin koordinatları asla saklamaz ve konumu analitiğe hiç katmaz. Yaklaşık konum

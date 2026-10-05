@@ -62,7 +62,7 @@ Sorting is newest first within each ownership section. No sort control is added.
 ### 2. Chrome and categories
 
 - Native large title, "Closet" / "Gardırop", native back to Profile, and a plus bar
-  button that opens the visual "Add a piece" form with owned/wanted visuals, garment-type selection and photo-library import; in-app camera capture ships in build 16. No kuyara-drawn bar-button primitive is added.
+  button that opens the visual "Add a piece" form with owned/wanted visuals, garment-type selection and photo-library import and in-app camera capture. No kuyara-drawn bar-button primitive is added.
 - The horizontal category tabs use catalogue order (tops, bottoms, one-piece, outerwear,
   shoes, accessories), every applicable one, and show counts derived from active items. One
   catalogue-domain list (`listStructuralCategoriesForPreference`) says which categories a

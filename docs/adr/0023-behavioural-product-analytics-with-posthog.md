@@ -15,12 +15,12 @@ Apple privacy obligations are decided in
 
 The MVP was scoped without behavioural analytics, alongside accounts and sync, to keep
 the first release small. That was the right call for scope and the wrong call for
-learning: the application is on TestFlight, the interface is being redesigned for the
-second time, and every judgement about what users value has so far come from intuition.
+learning: without behavioural measurement, every judgement about what users value comes
+from intuition.
 There is no measurement of activation, of where onboarding is abandoned, or of whether
 anyone opens outfit detail at all.
 
-The no-analytics rule was revoked on 2026-09-04, with two goals at once:
+Analytics has two goals at once:
 improve the product on evidence, and learn product analytics in practice. Both point at
 broad behavioural coverage rather than a handful of counters.
 
@@ -28,8 +28,8 @@ Three constraints already in this repository bound that. Provider usage runs on 
 maintainer-funded budget with hard limits and no pay-as-you-go overage, so event volume
 is a cost, not a free variable. The AI input privacy boundary is a closed list, and it
 exists because a previous decision found it too easy to leak wardrobe and location data
-into an outbound payload. And App Store submission already has unmet privacy
-prerequisites recorded as known issues.
+into an outbound payload. And App Store submission requires a privacy policy and
+data-collection answers that describe analytics accurately.
 
 ## Decision
 
@@ -38,13 +38,13 @@ prerequisites recorded as known issues.
 Analytics is part of the shipping product and is planned early enough that the behaviour
 of kuyara's first real users is measurable.
 
-**Sequenced before the first public App Store release** (decided 2026-09-04). This makes
+**Sequenced before the first public App Store release.** This makes
 the privacy policy URL, the App Store Connect data-collection questionnaire, and the
 consent question below hard prerequisites of submission rather than follow-up work.
 
 ### 2. PostHog is the product analytics provider
 
-PostHog is chosen for product analytics. It is not installed by this ADR.
+PostHog is chosen for product analytics.
 
 ### 3. The objective is coverage, not volume
 
@@ -187,7 +187,7 @@ unverified. This decision authorizes no SDK installation, recording or productio
   Its `before_send` filters event properties and exceptions; it does not mask native
   screenshots. `withdraw()` clears the JavaScript event queue and rotates identity.
   Neither that code nor its tests prove native replay queue deletion. The installed
-  `posthog-react-native` is 4.68.4; the optional native replay plugin is absent.
+  `posthog-react-native` is 4.78.4; the optional native replay plugin is absent.
 - **React Native replay is screenshot capture on both platforms**, not the native SDKs'
   optional wireframe mode ([mobile recording modes](https://posthog.com/docs/session-replay/mobile)).
   Screenshots are a new outbound data surface; the exception-report allowance in ADR 0035

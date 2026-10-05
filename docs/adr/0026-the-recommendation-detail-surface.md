@@ -211,7 +211,7 @@ composed with the largest satisfiable subset and the rest are swapped into the b
 under the same unusual note. The result lives like a manual change: it is never a snapshot,
 never replaces Today and records as `manual` through "Wore this today". **Risk accepted:**
 making the row members only, for a feature that needs no identity, may draw App Review
-guideline 5.1.1(v); the risk is accepted.
+guideline 5.1.1(v).
 
 A new record starts on the colour family the outfit draws the piece in, without sending Closet data to AI.
 

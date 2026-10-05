@@ -99,8 +99,8 @@ The durable cost is explicit:
   skipped, and there is no destructive fallback.
 - The generation-mode union, its type guard and its total analytics property map gain the
   third member, so a missing branch is a type error rather than a silent default.
-- The analytics taxonomy gains the property value `on_device_ai` and the analytics schema
-  version moves to 2.
+- The analytics taxonomy carries the property value `on_device_ai`, and the analytics schema
+  version is bumped whenever the taxonomy changes.
 
 Provider and model identity stay out of the durable model, the analytics payload, Today and
 the recommendation detail. The Settings Service providers screen is the one interface that may name
@@ -239,7 +239,7 @@ Analytics gains the coarse mode value from section 3 and nothing else.
   environment and the Node suites cannot exercise. The routed client is tested against a
   fake native module; the real module is verified on a host that can run the model.
 - Android behaviour is unchanged in every respect.
-- A user on an ineligible device sees the "AI-assisted" badge exactly as before and loses
+- A user on an ineligible device sees the "Chosen with AI" badge exactly as before and loses
   nothing.
 
 ## Verification boundary

@@ -37,12 +37,12 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | Accessibility and wave 2 | Easier to see switch (O13); cards, rows, back, name, weather and onboarding (O14) | O14 shipped in build 15; O13 implemented for build 16 with migration 21, device replay and Simulator evidence |
 | Sheet close button | The glass close button on the name, day-type (both steps), ask-again and piece-edit sheets draws a clipped glyph instead of an xmark on device and Simulator; the fix gives it an explicit `xmark` image and circle shape like the confirm button, keeps `role="close"`, and adds a close-button check to the Simulator walkthrough | Shipped to build 15 installs by the production EAS Update from commit `7b5b4f8` ([procedure](testing.md#javascript-only-fix-for-the-live-version)) |
 | Build 15 | Completed build 15 milestones, including A and B | On the App Store (`READY_FOR_SALE`) |
-| Build 16 | Phase 5 colour and camera work; O13 Easier to see; Phase 7 manual mix; Phase 8 walkthrough; consent and analytics copy, and the Worker free-model guard | Submitted for App Review on 28 September 2026 (version 0.1.20260928) |
+| Build 16 | Phase 5 colour and camera work; O13 Easier to see; Phase 7 manual mix; Phase 8 walkthrough; consent and analytics copy, and the Worker free-model guard | On the App Store (`READY_FOR_SALE`) (version 0.1.20260928) |
 | Build 17 | Illustrated garments, shareable outfit card, History diary and the account screens behind a switch that is off (schema 23) | Approved (version 0.1.20261002) |
-| Build 18 | Schema 25, built from `cdead67e` | On the App Store (`READY_FOR_SALE`), phased release started 3 October 2026 (version 0.1.20261003) |
-| Build 19 | Settings unit choices (schema 27), morning and evening question switch, re-ask past the shared cache, recommendation timing and UI fixes | Submitted for App Review on 4 October 2026 (version 0.1.20261005) |
+| Build 18 | Schema 25, built from `cdead67e` | Was on the App Store until build 19 replaced it (version 0.1.20261003) |
+| Build 19 | Settings unit choices (schema 27), morning and evening question switch, re-ask past the shared cache, recommendation timing and UI fixes | On the App Store (`READY_FOR_SALE`), phased release started 5 October 2026 (version 0.1.20261005) |
 | Build 20 | The release shown to friends and family: everything on main since build 19 (schema 29), Phase 9 accounts with Apple and Google sign-in, Phase 10, the fixes from the final review below, then Phase 11. Accounts are never switched on by an update | Planned |
-| pnpm 12 | pnpm 12.6.0 replaces 11.18.0 in `packageManager` and both `eas.json` profiles. The lockfile keeps every resolved package and now opens with pnpm's own version record; `pnpm-workspace.yaml` needed no change. `pnpm check`, the component suite, Expo Doctor and a local Simulator build pass with it. It never rides an `eas update`, because the `appVersion` runtime policy lets an update reach installs without a native check | On main; first ships in build 16, never via an update |
+| pnpm 12 | pnpm 12.6.0 is the `packageManager` in `package.json` and both `eas.json` profiles. The lockfile opens with pnpm's own version record; `pnpm-workspace.yaml` needed no change. `pnpm check`, the component suite, Expo Doctor and a local Simulator build pass with it. It never rides an `eas update`, because the `appVersion` runtime policy lets an update reach installs without a native check | On main; first ships in build 16, never via an update |
 
 Release evidence:
 
@@ -54,13 +54,13 @@ See [release state and known gaps](current-status.md#release-state).
 
 ## Build 20: the friends-and-family release
 
-A read-only review of main at `e5e7f5b0` (recommendation and weather, the device database and migrations, every screen state, launch, consent and notifications, the Worker and contracts) found no defect that blocks the release. Migrations from every shipped schema to 28 pass, nothing account-related loads or calls the network while the switch is off, and the analytics, telemetry, `@expo/ui` and on-device AI import greps hold. The order below is release work first, then fixes, then evidence.
+The review of main (recommendation and weather, the device database and migrations, every screen state, launch, consent and notifications, the Worker and contracts) found no defect that blocks the release. Migrations from every shipped schema to 29 pass, nothing account-related loads or calls the network while the switch is off, and the analytics, telemetry, `@expo/ui` and on-device AI import greps hold. The order below is release work first, then fixes, then evidence.
 
 Release blockers:
 
 1. The version string. Main still says `0.1.20261005`, build 19's version, while `expo-apple-authentication`, `expo-secure-store`, the Sign in with Apple entitlement and migration 28 arrived after it; one version string never carries two native builds, so build 20 takes a new date stamp.
 2. Signing. Build 20 is the first binary with the Sign in with Apple entitlement: the App ID needs the capability and the provisioning profile must be regenerated before `eas build --local`; the built IPA's entitlements are checked with `codesign`.
-3. Migration 28 evidence: the replay test now accepts schemas 19 to 27, migration 28 is under the released-migration hash lock and a frozen build 19 fixture upgrades without row loss; what remains is a replay of a database copied from a real build 19 install.
+3. Migrations 28 and 29 evidence: the replay test accepts every schema from 19 to the one before the latest, migration 28 is under the released-migration hash lock and a frozen build 19 fixture upgrades without row loss through migration 29; what remains is a replay of a database copied from a real build 19 install.
 4. The independent review of the diff since build 19 (migration 28 and the native configuration).
 
 Landed on main for build 20, each with tests: the day insight no longer says rain is easing before it starts; a re-ask the AI does not decide shows other outfits, and a re-ask that never reached the Worker gives its allowance back; a failed notification-permission read no longer cancels alerts; a stored piece keeps its type choosable on a `mens` profile; the Weather offline notice and the onboarding preview title wrap inside their cards; the Closet form keeps Name above the keyboard; the day variant follows the dressing day; a day window whose local midnight is skipped ends at the next valid instant; the insight-sentence filter matches whole words; the piece sheet offers Remove for a missing photo file; Delete shows disabled while a photo is prepared; the untyped photo label is one sentence; a repeated Finish tap during onboarding's save is ignored without an announcement; an unknown `kuyara://` path opens Today. A Simulator pass on a fresh native build confirmed the temperature scale, the Closet keyboard, the unknown link and that no account UI shows with the switch off.
@@ -129,7 +129,7 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | I4 | Sending coarse profile metadata to Worker AI remains deferred | [roadmap](roadmap.md), [ADR 0041](adr/0041-optional-accounts.md), Turkish vault note |
 | J1 | This roadmap and its Turkish vault twin carry the plan | [status](current-status.md) |
 | J2 | New localized copy uses whole sentences | [product](product-decisions.md) |
-| J3 | Nine phases follow approved mockups and milestones | [roadmap](roadmap.md) |
+| J3 | Twelve phases follow approved mockups and milestones | [roadmap](roadmap.md) |
 | J4 | ADR decisions state current truth and rejected approaches as red lines | Project documentation rule |
 
 ## Lessons index

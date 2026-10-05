@@ -146,8 +146,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   spring where garment pieces land on a board, and an ambient tempo taken from the
   condition's intensity.
 - **Builds:** iOS is the first release target. EAS production credentials and an App Store
-  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 18 (`0.1.20261003`)
-  is on the App Store, and build 15 received one production EAS Update (see Release State below);
+  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 19 (`0.1.20261005`)
+  is on the App Store, and builds 15 and 19 each have a production EAS Update (see Release State below);
   the `production` profile points at the deployed Worker, and the development client
   builds locally ([Development build on the physical
   iPhone](testing.md#development-build-on-the-physical-iphone)). The version scheme and
@@ -190,7 +190,7 @@ The approved phase order, active work and remaining open items are in [the roadm
 - **Build 16:** Version `0.1.20260928`, build 16, built locally from commit `aeb2fd0`, is `READY_FOR_SALE`. It includes schema version 22, the expanded Closet palette and camera path, Easier to see, the coach-mark tour, manual mix, and the revised consent and analytics boundary.
 - **Build 17:** Version `0.1.20261002`, build 17, built locally from commit `b7e0514`, was submitted for App Review on 2 October 2026 with `AFTER_APPROVAL` release and phased release configured, and was approved. It adds schema version 23, the illustrated garment drawings, the worn-order garment board with per-piece shadows, the shareable outfit card (`react-native-view-shot`, a native module, so this JavaScript cannot ship as an update to build 16), the evening tomorrow preview, the whole-day morning briefing, Closet matches and wear counts, the History diary, and the account screens behind a switch that is off. Its changes have Simulator and Maestro evidence only; Android has not been built.
 - **Build 18:** Version `0.1.20261003`, build 18, schema version 25, built locally from commit `cdead67e`, was approved and is `READY_FOR_SALE`; its phased release started on 3 October 2026.
-- **Build 19:** Version `0.1.20261005`, build 19, built locally from commit `adad5517`, was uploaded (`VALID`) and submitted for App Review on 4 October 2026 with `AFTER_APPROVAL` release and phased release configured. It carries schema version 27 (migration 27 adds the temperature and wind unit choices), the Settings unit choices, the morning and evening question switch, the re-ask that skips the Worker's shared cache, the recommendation timing fixes and small UI fixes. It is the first native build with `@posthog/cli` 0.18.9.
+- **Build 19:** Version `0.1.20261005`, build 19, built locally from commit `adad5517`, was approved and is `READY_FOR_SALE`; its phased release started on 5 October 2026. It carries schema version 27 (migration 27 adds the temperature and wind unit choices), the Settings unit choices, the morning and evening question switch, the re-ask that skips the Worker's shared cache, the recommendation timing fixes and small UI fixes. It is the first native build with `@posthog/cli` 0.18.9.
 - **Compatibility:** Builds 8 and 9 were released before commit `f0ab923` and carry strict `/v1` response schemas. Keep `/v1` response shapes frozen while either binary remains installed; changed shapes use a new route.
 
 ## Known Issues and Manual Verification Gaps
