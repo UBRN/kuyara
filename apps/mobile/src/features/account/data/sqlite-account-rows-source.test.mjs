@@ -121,6 +121,13 @@ test('a pulled profile writes the synced fields only, never clears gender or dre
   assert.equal((await database.getFirstAsync(select)).display_name, 'Mine');
 });
 
+test('a pulled profile without a display name clears the phone\'s, and one without a gender keeps the phone\'s', async (t) => {
+  const { database, source } = await setup(t);
+  await source.writePulled({ ...none, profile: { displayName: null, gender: null, createdAt: stamp(0), updatedAt: stamp(5) } }, noCursor);
+  const row = await database.getFirstAsync('SELECT display_name, gender, dress_style, style_aesthetics, pending_sync FROM local_profiles');
+  assert.deepEqual({ ...row }, { display_name: null, gender: 'woman', dress_style: 'casual', style_aesthetics: '["minimal"]', pending_sync: 0 });
+});
+
 test('a first link writes the account\'s winners over the pending rows it read, marks what goes, and saves the link in one transaction', async (t) => {
   const { database, source } = await setup(t);
   await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1, { name: 'Phone copy' })), mine(wardrobeItem(2))] }, noCursor);

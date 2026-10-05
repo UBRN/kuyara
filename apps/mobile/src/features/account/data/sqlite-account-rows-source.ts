@@ -8,7 +8,12 @@ import {
 } from '@/features/account/application/account-sync';
 import { unlinked, type AccountLink } from '@/features/account/domain/account-link';
 import type { MergeResult } from '@/features/account/domain/account-merge';
-import type { AccountProfile, AccountRows, SyncedProfile } from '@/features/account/domain/account-rows';
+import {
+  profileFieldsToLand,
+  type AccountProfile,
+  type AccountRows,
+  type SyncedProfile,
+} from '@/features/account/domain/account-rows';
 import { canonicalServerInstant } from '@/features/account/domain/server-instant';
 import { pullCursorAt, type LocalSyncRow, type PullCursor } from '@/features/account/domain/sync-rules';
 import {
@@ -330,18 +335,17 @@ async function land<Item extends Keyed>(
   }
 }
 
-/**
- * The account's profile fields on the phone. Display name always; gender and dress style only
- * as a value, never clearing the phone's, because product logic needs both; style aesthetics
- * and dress style only when the profile carries them (the consent).
- */
+/** The account's profile fields on the phone, as `profileFieldsToLand` decides, unless an edit waits. */
 async function landProfile(db: SqliteExecutor, profile: AccountProfile): Promise<void> {
-  const consent = profile.dressStyle !== undefined && profile.styleAesthetics !== undefined;
-  await db.runAsync(`UPDATE local_profiles SET display_name = ?, gender = COALESCE(?, gender)
-    ${consent ? ', dress_style = COALESCE(?, dress_style), style_aesthetics = ?' : ''}, pending_sync = 0
-    WHERE singleton_key = 1 AND pending_sync = 0`,
-  [profile.displayName, profile.gender,
-    ...(consent ? [profile.dressStyle ?? null, JSON.stringify(orderStyleAesthetics(profile.styleAesthetics ?? []))] : [])]);
+  const fields = profileFieldsToLand(profile);
+  const columns: (readonly [string, SqliteBindValue])[] = [['display_name', fields.displayName]];
+  if (fields.gender !== undefined) columns.push(['gender', fields.gender]);
+  if (fields.dressStyle !== undefined) columns.push(['dress_style', fields.dressStyle]);
+  if (fields.styleAesthetics !== undefined) {
+    columns.push(['style_aesthetics', JSON.stringify(orderStyleAesthetics(fields.styleAesthetics))]);
+  }
+  await db.runAsync(`UPDATE local_profiles SET ${columns.map(([column]) => `${column} = ?`).join(', ')}, pending_sync = 0
+    WHERE singleton_key = 1 AND pending_sync = 0`, columns.map(([, value]) => value));
 }
 
 async function profileIdOf(db: SqliteExecutor): Promise<string> {

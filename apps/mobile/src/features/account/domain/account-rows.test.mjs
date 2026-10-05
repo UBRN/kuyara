@@ -24,3 +24,18 @@ test('a day-keyed marker lands on the phone\'s row of that day and the phone ado
   ]);
   assert.deepEqual(landDeletionMarkers([marker], [dayChoice(1, '2026-09-11')], 'day'), []);
 });
+
+test('a profile lands its display name as the account holds it, gender and dress style only as a value, the consent fields only with the consent', async () => {
+  const { profileFieldsToLand, profileWithinConsent } = await import('./account-rows.ts');
+  const { syncedProfile } = await import('../__tests__/account-fixtures.mjs');
+  // A name cleared on another phone clears here; a missing gender or dress style never clears the
+  // phone's, because product logic needs both.
+  assert.deepEqual(profileFieldsToLand(syncedProfile({ displayName: null, gender: null, dressStyle: null, styleAesthetics: [] })),
+    { displayName: null, styleAesthetics: [] });
+  assert.deepEqual(profileFieldsToLand(syncedProfile()),
+    { displayName: 'Ada', gender: 'woman', dressStyle: 'smart', styleAesthetics: ['classic', 'minimal'] });
+  // Without the consent neither consent field crosses, whatever the account holds.
+  assert.deepEqual(profileFieldsToLand(profileWithinConsent(syncedProfile(), false)), { displayName: 'Ada', gender: 'woman' });
+  assert.deepEqual(profileFieldsToLand(profileWithinConsent(syncedProfile(), true)),
+    { displayName: 'Ada', gender: 'woman', dressStyle: 'smart', styleAesthetics: ['classic', 'minimal'] });
+});
