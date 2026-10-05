@@ -356,7 +356,7 @@ export function RecommendationApplicationProvider({
     return () => subscription?.remove();
   }, [reevaluateLocalDay]);
 
-  const submitApprovedTriggers = useMemo(() => createApprovedTriggerCoalescer(), []);
+  const approvedTriggers = useMemo(() => createApprovedTriggerCoalescer(), []);
   const foregroundEvaluationRequested = useRef(false);
   const lastExpiryAttempt = useRef<string | null>(null);
   // A confirmed re-ask changes the answers the approved triggers read. Evaluating them while
@@ -410,13 +410,13 @@ export function RecommendationApplicationProvider({
 
   const evaluateApprovedTriggersForInput = useCallback((
     generationInput: RecommendationApplicationInput,
-  ): Promise<boolean> => submitApprovedTriggers(generationInput, evaluateApprovedTriggersOnce),
-  [evaluateApprovedTriggersOnce, submitApprovedTriggers]);
+  ): Promise<boolean> => approvedTriggers.request(generationInput, evaluateApprovedTriggersOnce),
+  [approvedTriggers, evaluateApprovedTriggersOnce]);
 
   useEffect(() => {
     if (state.status !== 'ready' || !input) return;
-    void evaluateApprovedTriggersForInput(input);
-  }, [evaluateApprovedTriggersForInput, input, state.status]);
+    void approvedTriggers.followRender(input, evaluateApprovedTriggersOnce);
+  }, [approvedTriggers, evaluateApprovedTriggersOnce, input, state.status]);
 
   // The generation input as of this moment, re-read from the live weather and profile rather
   // than from the render that bound the handler. `null` when there is nothing to compose for,

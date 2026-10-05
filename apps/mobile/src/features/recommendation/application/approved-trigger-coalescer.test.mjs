@@ -36,7 +36,7 @@ function gatedEvaluator() {
 }
 
 test('an input that changes no approved signal joins the evaluation in flight', async () => {
-  const submit = createApprovedTriggerCoalescer();
+  const submit = createApprovedTriggerCoalescer().followRender;
   const { evaluate, ran, release } = gatedEvaluator();
   const first = submit(inputFor(['classic']), evaluate);
   const joined = submit(inputFor(['classic'], '2026-08-01T21:00:00.000Z'), evaluate);
@@ -46,7 +46,7 @@ test('an input that changes no approved signal joins the evaluation in flight', 
 });
 
 test('while one evaluation runs, only the latest changed input runs after it', async () => {
-  const submit = createApprovedTriggerCoalescer();
+  const submit = createApprovedTriggerCoalescer().followRender;
   const { evaluate, ran, release } = gatedEvaluator();
   submit(inputFor(['classic']), evaluate);
   submit(inputFor(['classic', 'sporty']), evaluate);
@@ -57,7 +57,7 @@ test('while one evaluation runs, only the latest changed input runs after it', a
 });
 
 test('settings that change back to the evaluation in flight leave nothing to run after it', async () => {
-  const submit = createApprovedTriggerCoalescer();
+  const submit = createApprovedTriggerCoalescer().followRender;
   const { evaluate, ran, release } = gatedEvaluator();
   submit(inputFor(['classic']), evaluate);
   const queued = submit(inputFor(['classic', 'sporty']), evaluate);
@@ -67,8 +67,19 @@ test('settings that change back to the evaluation in flight leave nothing to run
   assert.equal(await queued, true);
 });
 
+test('a caller\'s own read of the old input does not withdraw what a render queued', async () => {
+  const { followRender, request } = createApprovedTriggerCoalescer();
+  const { evaluate, ran, release } = gatedEvaluator();
+  followRender(inputFor(['classic']), evaluate);
+  followRender(inputFor(['classic', 'sporty']), evaluate);
+  request(inputFor(['classic']), evaluate);
+  await release();
+  await release();
+  assert.deepEqual(ran, ['classic', 'classic+sporty']);
+});
+
 test('a change made after settings changed back is still evaluated once', async () => {
-  const submit = createApprovedTriggerCoalescer();
+  const submit = createApprovedTriggerCoalescer().followRender;
   const { evaluate, ran, release } = gatedEvaluator();
   submit(inputFor(['classic']), evaluate);
   submit(inputFor(['classic', 'sporty']), evaluate);
@@ -80,7 +91,7 @@ test('a change made after settings changed back is still evaluated once', async 
 });
 
 test('a failed evaluation still lets the queued input run', async () => {
-  const submit = createApprovedTriggerCoalescer();
+  const submit = createApprovedTriggerCoalescer().followRender;
   const ran = [];
   let failFirst;
   const first = submit(inputFor(['classic']), () => new Promise((_, reject) => { failFirst = reject; }));
