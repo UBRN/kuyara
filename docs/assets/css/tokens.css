@@ -9,7 +9,8 @@
 :root {
   color-scheme: light dark;
 
-  /* Locked brand hexes. Reference only, and the stage blends (ADR 0018). */
+  /* Locked brand hexes. Reference only. The garment plates, their shadows and the
+     particle inks are generated from the app's theme into plates.css. */
   --ku-brand-deep-atmosphere: #142F3B;
   --ku-brand-calm-current: #27606A;
   --ku-brand-quiet-sky: #9FC9D5;
@@ -21,7 +22,6 @@
   --ku-background: #F4F6F5;
   --ku-surface: #FFFFFF;
   --ku-surface-muted: #E7EEED;
-  --ku-stage: #D7DCDD;
   --ku-text-primary: #142F3B;
   --ku-text-secondary: #2F4650;
   --ku-brand-accent: #27606A;
@@ -31,14 +31,6 @@
   --ku-border-defined: #5C7A83;
   --ku-focus-ring: #27606A;
 
-  /* Atmosphere states, light only. All seven collapse to the neutral stage in
-     dark by decision (ADR 0018 section 3), so dark never animates a tint. */
-  --ku-stage-clear-day: #CBE1E5;
-  --ku-stage-veiled-day: #C2D1D3;
-  --ku-stage-falling-day: #98C3CF;
-  --ku-stage-clear-night: #8FB8C4;
-  --ku-stage-veiled-night: #A4AFB3;
-  --ku-stage-falling-night: #7DA4B0;
 
   /* Space. Each step has exactly one job (design-language.md Law 2). */
   --ku-space-xs: 4px;   /* a label to its value */
@@ -80,7 +72,6 @@
     --ku-background: #0D191E;
     --ku-surface: #142F3B;
     --ku-surface-muted: #183039;
-    --ku-stage: #122A35;
     --ku-text-primary: #EFF4F3;
     --ku-text-secondary: #B0C0C5;
     --ku-brand-accent: #9FC9D5;
@@ -89,12 +80,6 @@
     --ku-border-subtle: #26393F;
     --ku-border-defined: #5E899A;
     --ku-focus-ring: #9FC9D5;
-    --ku-stage-clear-day: var(--ku-stage);
-    --ku-stage-veiled-day: var(--ku-stage);
-    --ku-stage-falling-day: var(--ku-stage);
-    --ku-stage-clear-night: var(--ku-stage);
-    --ku-stage-veiled-night: var(--ku-stage);
-    --ku-stage-falling-night: var(--ku-stage);
   }
 }
 
@@ -103,7 +88,6 @@
   --ku-background: #0D191E;
   --ku-surface: #142F3B;
   --ku-surface-muted: #183039;
-  --ku-stage: #122A35;
   --ku-text-primary: #EFF4F3;
   --ku-text-secondary: #B0C0C5;
   --ku-brand-accent: #9FC9D5;
@@ -112,12 +96,6 @@
   --ku-border-subtle: #26393F;
   --ku-border-defined: #5E899A;
   --ku-focus-ring: #9FC9D5;
-  --ku-stage-clear-day: var(--ku-stage);
-  --ku-stage-veiled-day: var(--ku-stage);
-  --ku-stage-falling-day: var(--ku-stage);
-  --ku-stage-clear-night: var(--ku-stage);
-  --ku-stage-veiled-night: var(--ku-stage);
-  --ku-stage-falling-night: var(--ku-stage);
 }
 
 /* An explicit light choice. The values are already on :root, so the only thing

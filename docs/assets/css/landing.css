@@ -1,440 +1,432 @@
 /*
- * kuyara landing page.
- *
- * Every colour, space, radius and type role comes from tokens.css. Nothing here
- * authors a new value. Two structural rules from docs/design/design-language.md
- * decide the shape of this file:
- *
- *   Law 1  hierarchy is carried by type and space and only confirmed by surface.
- *          There are no cards-with-shadows here; a plane is a plane.
- *   Law 7  the finished, un-animated page is the page. Scroll motion is an
- *          enhancement layered on top of a document that is already complete,
- *          which is what an engine without scroll-driven animations gets.
- *
- * ADR 0018 binds the stage: the condition tint colours the bounded plane the
- * garments sit on, never a full-width strip, and only primary text or icons may
- * sit on it. In the dark appearance all seven states resolve to the neutral
- * stage, so dark deliberately carries the story through the garments alone.
+ * The landing page. The garment plates are the subject: every board on it is the app's
+ * own worn board (ADR 0025), generated into docs/assets/data and docs/_includes/generated
+ * by apps/mobile/scripts/site-boards.mjs. Type and space carry the rest of the hierarchy.
+ * The page animates whatever the operating system prefers (product-decisions.md); there
+ * is no reduced-motion branch.
  */
 
-/* --------------------------------------------------------------- foundation */
+/* -------------------------------------------------------------------- bands */
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+/* A band is a screen for Law 2: the 2xl step is its trailing space on both edges, doubled
+   from 720 CSS pixels up (visual-identity.md, Web presence). */
+.ku-band { padding-block: var(--ku-space-2xl); }
+
+@media (min-width: 720px) {
+  .ku-band { padding-block: calc(2 * var(--ku-space-2xl)); }
 }
 
-body.ku-landing {
+.ku-band__head {
+  display: grid;
+  gap: var(--ku-space-md);
+  max-width: 36em;
+  margin-bottom: var(--ku-space-md);
+}
+
+.ku-band__head h2,
+.ku-band__head p { margin: 0; }
+
+.ku-title-large,
+.ku-display { text-wrap: balance; }
+
+/* Controls that only work with script stay out of the page until script has run. */
+:root:not(.ku-js) .ku-needs-js { display: none; }
+
+/* ------------------------------------------------------------------- plates */
+
+/*
+ * A plate is the board's own stage: the condition's tint in light, its light grey plate in
+ * dark (plates.css). Its height is the board's, which follows the composition.
+ */
+.ku-plate {
+  --plate: var(--ku-plate-neutral);
+  --plate-shadow: var(--ku-plate-shadow-neutral);
+  position: relative;
+  display: grid;
+  background-color: var(--plate);
+  border-radius: var(--ku-radius-sheet);
+  isolation: isolate;
+  transition: background-color var(--ku-motion-deliberate) linear;
+}
+
+.ku-plate[data-atmosphere="clearDay"] { --plate: var(--ku-plate-clear-day); --plate-shadow: var(--ku-plate-shadow-clear-day); }
+.ku-plate[data-atmosphere="veiledDay"] { --plate: var(--ku-plate-veiled-day); --plate-shadow: var(--ku-plate-shadow-veiled-day); }
+.ku-plate[data-atmosphere="fallingDay"] { --plate: var(--ku-plate-falling-day); --plate-shadow: var(--ku-plate-shadow-falling-day); }
+.ku-plate[data-atmosphere="clearNight"] { --plate: var(--ku-plate-clear-night); --plate-shadow: var(--ku-plate-shadow-clear-night); }
+
+.ku-plate > * { grid-area: 1 / 1; }
+
+.ku-particles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* One board: a box in board units (400 wide), each piece its own layer so it can move. */
+.ku-board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 400 / var(--h, 300);
+  container-type: inline-size;
+  z-index: 1;
+}
+
+.ku-piece {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  /* The piece shadow of garment-board.md section 9: 0.0025 right, 0.0075 down, blur 0.0065
+     standard deviation, in units of the board's width. */
+  filter: drop-shadow(0.25cqw 0.75cqw 1.3cqw var(--plate-shadow));
+}
+
+.ku-art-dark { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ku-art-light { display: none; }
+  :root:not([data-theme="light"]) .ku-art-dark { display: inline; }
+}
+
+:root[data-theme="dark"] .ku-art-light { display: none; }
+:root[data-theme="dark"] .ku-art-dark { display: inline; }
+
+/* --------------------------------------------------------------------- hero */
+
+.ku-hero { padding-block: var(--ku-space-xl) var(--ku-space-2xl); }
+
+.ku-hero__grid {
+  display: grid;
+  gap: var(--ku-space-xl);
+  grid-template-areas: "intro" "stage" "panel";
+}
+
+.ku-hero__intro { grid-area: intro; display: grid; gap: var(--ku-space-md); }
+.ku-hero__intro h1,
+.ku-hero__intro p { margin: 0; }
+.ku-hero__line { max-width: 30em; color: var(--ku-text-secondary); }
+
+.ku-hero__stage { grid-area: stage; display: grid; gap: var(--ku-space-md); align-content: start; }
+.ku-hero__panel { grid-area: panel; display: grid; gap: var(--ku-space-md); align-content: start; }
+
+/* The readout stands above the plate, as Today's title does: the plate holds only the board. */
+.ku-readout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ku-space-xs) var(--ku-space-md);
+  min-height: 41px;
+}
+
+.ku-readout p { margin: 0; }
+
+.ku-temp {
+  display: inline-flex;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.ku-temp__digit { display: inline-block; }
+
+.ku-readout__words { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--ku-space-md); }
+
+.ku-hero .ku-plate { touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+.ku-hero .ku-plate.is-dragging { cursor: grabbing; }
+
+.ku-touches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ku-space-sm) var(--ku-space-md);
+  min-height: 56px;
   margin: 0;
-  background: var(--ku-background);
-  color: var(--ku-text-primary);
-  font-family: var(--ku-font-sans);
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
 }
 
-.ku-landing :is(p, h1, h2, ul, ol) {
+.ku-touches[hidden] { display: none; }
+
+.ku-touches__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ku-space-sm);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.ku-landing a {
-  color: var(--ku-brand-accent);
-  text-underline-offset: 3px;
-}
-
-.ku-landing :focus-visible {
-  outline: var(--ku-border-width-strong) solid var(--ku-focus-ring);
-  outline-offset: 3px;
-}
-
-.ku-shell {
-  width: 100%;
-  max-width: var(--ku-max-content-width);
-  margin-inline: auto;
-  padding-inline: var(--ku-space-lg);
-}
-
-/* A band is the landing-page equivalent of a screen, not of a section inside
-   one, so it is separated by trailing space rather than by the section step. */
-.ku-band {
-  padding-block: var(--ku-space-2xl);
-}
-
-.ku-band__head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ku-space-md);
-  margin-bottom: var(--ku-space-xl);
-}
-
-.ku-measure {
-  max-width: 34em;
-  color: var(--ku-text-secondary);
-}
-
-/* ------------------------------------------------------------------- header
-   The switcher markup is _includes/lang-switcher.html and all of its styling
-   lives in _includes/lang-head.html, already written against these same tokens.
-   Only its trailing space belongs to the page that places it. */
-
-.ku-header .lang-switcher {
-  margin-bottom: 0;
-  padding-block: var(--ku-space-sm);
-}
-
-/* ---------------------------------------------------------------------- hero */
-
-.ku-hero {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ku-space-md);
-  padding-top: var(--ku-space-lg);
-}
-
-.ku-symbol {
-  width: 56px;
-  height: 56px;
-  fill: var(--ku-brand-accent);
-}
-
-.ku-hero__name {
-  /* The lowercase spelling is part of the identity and never title-cased. */
-  text-transform: lowercase;
-}
-
-.ku-hero__line {
-  max-width: 30em;
-  color: var(--ku-text-secondary);
-}
-
-.ku-hero__board {
-  margin-top: var(--ku-space-xl);
-}
-
-/* --------------------------------------------------------------- the stage
-   A bounded plane with the garments on it. Not a full-bleed band: ADR 0021
-   section 3 refuses a separate full-width atmosphere strip, and the caption
-   therefore sits below the plane rather than on it. */
-
-.ku-stage {
-  --ku-board-max: 420px;
-  --ku-board-fill: var(--ku-stage);
-  --ku-board-ink: var(--ku-text-primary);
+.ku-touch {
   display: grid;
   place-items: center;
-  /* The plane is only as wide as the composition it carries plus its container
-     inset, so the garments never float in an empty field. */
-  max-width: calc(var(--ku-board-max) + var(--ku-space-lg) * 2);
-  padding: var(--ku-space-lg);
-  background: var(--ku-stage);
-  border-radius: var(--ku-radius-sheet);
+  width: 56px;
+  height: 56px;
+  background-color: var(--ku-garment-tile);
+  border-radius: var(--ku-radius-control);
 }
 
-/* The 1.9 stroke is a proportion of the 64-unit drawing, not a CSS pixel value,
-   so the rendered scale is what sets how heavy the drawn edge reads. Capping the
-   board's width keeps that edge at the weight the silhouettes were authored for. */
-.ku-stage .board {
-  display: block;
+.ku-touch svg { width: 40px; height: 40px; overflow: visible; }
+
+.ku-hero__note { margin: 0; color: var(--ku-text-secondary); }
+
+/* ----------------------------------------------------------------- controls */
+
+.ku-field { display: grid; gap: var(--ku-space-sm); margin: 0; padding: 0; border: 0; min-width: 0; }
+.ku-field__row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--ku-space-xs) var(--ku-space-sm); }
+.ku-field__label { margin: 0; padding: 0; }
+
+/* The temperature control is a native range, restyled, so the keyboard and screen readers
+   get the platform's own slider. */
+.ku-range {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
-  max-width: var(--ku-board-max);
-  height: auto;
+  height: var(--ku-touch-target);
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
 }
 
-.ku-stage--clear {
-  --ku-board-fill: var(--ku-stage-clear-day);
-  background: var(--ku-stage-clear-day);
+.ku-range::-webkit-slider-runnable-track {
+  height: 8px;
+  background-color: var(--ku-surface-muted);
+  border: var(--ku-border-width-subtle) solid var(--ku-border-defined);
+  border-radius: var(--ku-radius-pill);
 }
 
-.ku-stage--veiled {
-  --ku-board-fill: var(--ku-stage-veiled-day);
-  background: var(--ku-stage-veiled-day);
+.ku-range::-moz-range-track {
+  height: 8px;
+  background-color: var(--ku-surface-muted);
+  border: var(--ku-border-width-subtle) solid var(--ku-border-defined);
+  border-radius: var(--ku-radius-pill);
 }
 
-.ku-stage--falling {
-  --ku-board-fill: var(--ku-stage-falling-day);
-  background: var(--ku-stage-falling-day);
+.ku-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -11px;
+  background-color: var(--ku-primary-fill);
+  border: 3px solid var(--ku-background);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--ku-border-defined);
 }
 
-.ku-state {
+.ku-range::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  background-color: var(--ku-primary-fill);
+  border: 3px solid var(--ku-background);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--ku-border-defined);
+}
+
+.ku-range:focus-visible { outline: none; }
+.ku-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--ku-focus-ring); }
+.ku-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--ku-focus-ring); }
+
+.ku-ticks { display: flex; justify-content: space-between; color: var(--ku-text-secondary); font-variant-numeric: tabular-nums; }
+
+.ku-chips { display: flex; flex-wrap: wrap; gap: var(--ku-space-sm); }
+
+.ku-chip {
+  min-height: var(--ku-touch-target);
+  min-width: var(--ku-touch-target);
+  padding: 0 var(--ku-space-lg);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--ku-text-primary);
+  background-color: var(--ku-surface);
+  border: var(--ku-border-width-subtle) solid var(--ku-border-defined);
+  border-radius: var(--ku-radius-pill);
+  cursor: pointer;
+  transition: background-color var(--ku-motion-normal) linear, color var(--ku-motion-normal) linear;
+}
+
+.ku-chip:hover { background-color: var(--ku-surface-muted); }
+
+.ku-chip[aria-checked="true"] {
+  color: var(--ku-text-on-fill);
+  background-color: var(--ku-primary-fill);
+  border-color: var(--ku-primary-fill);
+}
+
+.ku-day {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ku-space-sm) var(--ku-space-md);
+}
+
+.ku-play__icon { display: inline-flex; }
+.ku-play__icon[hidden] { display: none; }
+
+.ku-day__clock { margin: 0; color: var(--ku-text-secondary); font-variant-numeric: tabular-nums; }
+
+.ku-badge { display: inline-flex; align-self: start; padding: 13px 0; }
+.ku-badge img { display: block; height: 50px; width: auto; }
+
+.ku-hero__cta { display: grid; gap: var(--ku-space-xs); justify-items: start; }
+.ku-hero__cta p { margin: 0; color: var(--ku-text-secondary); }
+
+@media (min-width: 960px) {
+  .ku-hero { padding-block: calc(2 * var(--ku-space-2xl)); }
+  .ku-hero__grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "intro stage" "panel stage";
+    gap: var(--ku-space-2xl) calc(2 * var(--ku-space-2xl));
+  }
+  .ku-hero__stage { position: sticky; top: var(--ku-space-xl); }
+}
+
+/* -------------------------------------------------------------------- story */
+
+.ku-story__grid {
+  display: grid;
   gap: var(--ku-space-md);
 }
 
-.ku-state + .ku-state {
-  margin-top: var(--ku-space-xl);
+/* On a phone the plate pins to the top of the screen while the day's moments scroll under
+   it; the board is fitted to the pinned height, the plate keeps the width. */
+.ku-story__stage {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-block: var(--ku-space-sm);
+  background-color: var(--ku-background);
 }
 
-/* -------------------------------------------------------------- how it works */
+.ku-story .ku-plate {
+  --story-h: 40svh;
+  height: var(--story-h);
+  place-items: center;
+  overflow: hidden;
+}
+
+.ku-story .ku-board {
+  width: min(100%, calc((var(--story-h) - 16px) * 400 / var(--h, 300)));
+  opacity: 0;
+  transition: opacity var(--ku-motion-normal) linear;
+}
+
+.ku-story .ku-board.is-active { opacity: 1; }
+
+.ku-story__steps { margin: 0; padding: 0; list-style: none; }
+
+.ku-story__step {
+  display: grid;
+  align-content: center;
+  gap: var(--ku-space-sm);
+  min-height: 52svh;
+  padding-block: var(--ku-space-md);
+}
+
+.ku-story__step p { margin: 0; max-width: 28em; }
+
+.ku-story__meta { color: var(--ku-text-secondary); font-variant-numeric: tabular-nums; }
+
+.ku-story__step .ku-body { color: var(--ku-text-secondary); }
+
+.ku-story__step:not(.is-active) .ku-title { color: var(--ku-text-secondary); }
+
+@media (min-width: 960px) {
+  .ku-story__grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: calc(2 * var(--ku-space-2xl));
+    align-items: start;
+  }
+  .ku-story__stage {
+    top: 10svh;
+    padding: 0;
+    background: none;
+  }
+  .ku-story .ku-plate { --story-h: 80svh; }
+  .ku-story__step { min-height: 80svh; }
+}
+
+/* ---------------------------------------------------------------- the rules */
 
 .ku-steps {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: var(--ku-space-md);
-  max-width: 36em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .ku-step {
-  display: flex;
-  gap: var(--ku-space-md);
-  align-items: baseline;
-}
-
-.ku-step__index {
-  flex: none;
-  min-width: 1.5em;
-  color: var(--ku-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ------------------------------------------------------------ the alternates */
-
-.ku-alts {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 2.5ch minmax(0, 1fr);
   gap: var(--ku-space-md);
-}
-
-.ku-alts .ku-stage {
-  padding: var(--ku-space-md);
-}
-
-/* ----------------------------------------------------------------- the lines */
-
-.ku-lines {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ku-space-sm);
   max-width: 34em;
 }
 
-.ku-lines li {
-  padding-left: var(--ku-space-lg);
-  border-left: var(--ku-border-width-strong) solid var(--ku-border-defined);
-}
+.ku-step__index { color: var(--ku-brand-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
 
-/* -------------------------------------------------------------------- the CTA
-   Apple's marketing guidelines: minimum badge height 40px, minimum clear space
-   one quarter of the rendered height (13px at 50px), one badge per layout, and
-   the badge is never modified, angled or animated. Nothing below scales or
-   transitions it. The left clear space is the shell's own 16px inset. */
-
-.ku-cta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ku-space-md);
-  align-items: flex-start;
-}
-
-.ku-badge {
-  display: inline-block;
-  margin: 13px 13px 13px 0;
-}
-
-.ku-badge img {
-  display: block;
-  height: 50px;
-  width: auto;
-}
-
-.ku-cta__soon {
-  color: var(--ku-text-secondary);
-}
-
-/* ------------------------------------------------------------------- footer */
-
-.ku-footer {
-  padding-block: var(--ku-space-2xl);
-  border-top: var(--ku-border-width-subtle) solid var(--ku-border-subtle);
-}
-
-.ku-footer__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--ku-space-xl);
-  margin-bottom: var(--ku-space-md);
-}
-
-.ku-footer__links a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--ku-touch-target);
-}
-
-.ku-footer__legal {
-  max-width: 44em;
-  color: var(--ku-text-secondary);
-}
-
-.ku-footer__legal + .ku-footer__legal {
-  margin-top: var(--ku-space-sm);
-}
-
-/* --------------------------------------------------------------- wide screens
-   The measure stays at maxContentWidth 800. Only the alternates row and the
-   hero gain a second axis, because those are pictures and not prose. */
-
-@media (min-width: 720px) {
-  .ku-band {
-    padding-block: calc(var(--ku-space-2xl) * 2);
-  }
-
-  .ku-alts {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-/* ------------------------------------------------------- the enhancement layer
-   Gated once, on capability alone. `@supports` keeps an engine without
-   scroll-driven animations on the finished page; that is the only fallback
-   path. The page animates for every reader, whatever the operating system's
-   motion preference says.
-   Transform and opacity only, so the work stays on the compositor thread. */
-
-@supports (animation-timeline: view()) {
-  /* The timeline is named on the track, which never moves. The pinned child
-     reads it by ancestor lookup, the only lookup direction that exists. */
-  .ku-track {
-    view-timeline-name: --ku-stage-scene;
-    view-timeline-axis: block;
-    min-height: 300vh;
-  }
-
-  .ku-pin {
-    position: sticky;
-    top: 0;
+@media (min-width: 960px) {
+  .ku-rules {
     display: grid;
-    min-height: 100svh;
-    align-content: center;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: calc(2 * var(--ku-space-2xl));
+    align-items: start;
   }
+}
 
-  /* Stacked in one grid cell. Only the tinted plane cross-dissolves; the
-     captions cut, because two texts blended at 50 percent is unreadable and
-     reads as a rendering fault rather than a transition. The three boards sit
-     on the same three slot centres, so a dissolve swaps a garment in place. */
-  .ku-pin > .ku-state {
-    grid-area: 1 / 1;
-    margin-top: 0;
-    padding-block: var(--ku-space-md);
-  }
+/* ----------------------------------------------------------- the alternates */
 
-  /* `contain` is exactly the window in which a track taller than the viewport
-     covers the scrollport, which is exactly the window in which the stage is
-     pinned: progress 0 pins, progress 1 unpins. The first plane never
-     animates, so there is always one opaque layer underneath. */
-  .ku-state--veiled .ku-stage,
-  .ku-state--falling .ku-stage {
-    animation: ku-cross linear both;
-    animation-timeline: --ku-stage-scene; /* must follow the shorthand */
-  }
+.ku-alts {
+  display: grid;
+  gap: var(--ku-space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 
-  .ku-state--veiled .ku-stage {
-    animation-range: contain 26% contain 36%;
-  }
+.ku-alt { display: grid; gap: var(--ku-space-sm); align-content: start; }
+.ku-alt p { margin: 0; }
+.ku-alt .ku-plate { border-radius: var(--ku-radius-card); }
 
-  .ku-state--falling .ku-stage {
-    animation-range: contain 60% contain 70%;
-  }
+@media (min-width: 640px) {
+  .ku-alts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 
-  @keyframes ku-cross {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
+/* ------------------------------------------------------- privacy and price */
 
-  /* The two cuts land at 31% and 65%, the midpoint of each dissolve, so only
-     one caption is ever painted. `step-end` holds each keyframe's value for
-     the whole interval, and `both` holds the end values outside the range. */
-  .ku-state__caption {
-    animation-timing-function: step-end;
-    animation-fill-mode: both;
-    animation-timeline: --ku-stage-scene;
-  }
+.ku-lines {
+  display: grid;
+  gap: var(--ku-space-md);
+  max-width: 40em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 
-  .ku-state--clear .ku-state__caption {
-    animation-name: ku-cut-out;
-    animation-range: contain 30% contain 31%;
-  }
 
-  .ku-state--veiled .ku-state__caption {
-    animation-name: ku-cut-mid;
-    animation-range: contain 0% contain 65%; /* 47.69% of 65% is the 31% cut */
-  }
+.ku-cta { display: grid; gap: var(--ku-space-md); justify-items: start; }
+.ku-cta h2,
+.ku-cta p { margin: 0; }
+.ku-cta__soon { color: var(--ku-text-secondary); }
 
-  .ku-state--falling .ku-state__caption {
-    animation-name: ku-cut-in;
-    animation-range: contain 64% contain 65%;
-  }
-
-  @keyframes ku-cut-out {
-    from {
-      opacity: 1;
-    }
-    to {
-      opacity: 0;
-    }
-  }
-
-  @keyframes ku-cut-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes ku-cut-mid {
-    0% {
-      opacity: 0;
-    }
-    47.69% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 0;
-    }
-  }
-
-  /* Content arrives in reading order (Law 7). Nothing translates under a hero
-     value and nothing loops, so no ambient motion sits behind large type. */
+/* Content arrives in reading order as it scrolls in. Capability is the only gate. */
+@supports (animation-timeline: view()) {
   .ku-rise {
     animation: ku-rise linear both;
     animation-timeline: view();
-    animation-range: entry 10% entry 70%;
-  }
-
-  @keyframes ku-rise {
-    from {
-      opacity: 0;
-      transform: translateY(2vh);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
+    animation-range: entry 10% entry 60%;
   }
 }
 
-/* --------------------------------------------- the Firefox reveal, JS-applied
-   landing.js adds `ku-js-reveal` only where the CSS path is absent, so these
-   rules never hide content on a page whose script did not run. */
-
-.ku-js-reveal .ku-rise {
-  opacity: 0;
-  transform: translateY(2vh);
-  transition:
-    opacity var(--ku-motion-deliberate) linear,
-    transform var(--ku-motion-deliberate) linear;
+@keyframes ku-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
 }
 
-.ku-js-reveal .ku-rise.ku-is-in {
-  opacity: 1;
-  transform: none;
-}
+.ku-js-reveal .ku-rise { opacity: 0; transform: translateY(16px); transition: opacity var(--ku-motion-deliberate) linear, transform var(--ku-motion-deliberate) ease-out; }
+.ku-js-reveal .ku-rise.ku-is-in { opacity: 1; transform: none; }

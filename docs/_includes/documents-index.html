@@ -1,0 +1,32 @@
+{%- comment -%}
+The Documents index: the technical documents published from docs/, grouped, then every
+decision record in number order. Each page's front matter supplies the words; the decision
+records are listed from the site's own pages, so a new record appears without an edit here.
+{%- endcomment -%}
+<!-- draft copy -->
+<h1>{{ page.heading }}</h1>
+<p class="ku-docs__lede">{{ page.lede }}</p>
+{% for group in page.groups %}
+<section class="ku-docs__group" aria-labelledby="ku-docs-{{ forloop.index }}">
+  <h2 id="ku-docs-{{ forloop.index }}">{{ group.title }}</h2>
+  <ul class="ku-docs__list" role="list">
+    {%- for item in group.items %}
+    <li><a href="{{ item.url | relative_url }}"><span class="ku-docs__title">{{ item.title }}</span><span class="ku-docs__about">{{ item.about }}</span></a></li>
+    {%- endfor %}
+  </ul>
+</section>
+{% endfor %}
+{%- assign adrs = site.pages | where_exp: "p", "p.dir == '/adr/'" | sort: "name" -%}
+<section class="ku-docs__group" aria-labelledby="ku-docs-adr">
+  <h2 id="ku-docs-adr">{{ page.adr_title }}</h2>
+  <p class="ku-docs__lede">{{ page.adr_lede }}</p>
+  <ul class="ku-docs__list ku-docs__list--adr" role="list">
+    {%- for adr in adrs %}
+    {%- assign label = adr.title | default: adr.name -%}
+    {%- assign parts = label | split: ": " -%}
+    {%- assign number = parts[0] | remove: "ADR " -%}
+    {%- assign rest = label | remove_first: parts[0] | remove_first: ": " %}
+    <li><a href="{{ adr.url | relative_url }}"><span class="ku-docs__number">{{ number }}</span><span class="ku-docs__title">{{ rest }}</span></a></li>
+    {%- endfor %}
+  </ul>
+</section>

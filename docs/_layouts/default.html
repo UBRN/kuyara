@@ -2,29 +2,25 @@
 <html lang="{{ page.lang | default: site.lang | default: "en-US" }}">
   <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
 {% seo %}
     {% include theme-head.html %}
-    <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
     {% include head-custom.html %}
     {% include lang-head.html %}
+    <link rel="stylesheet" href="{{ "/assets/css/site.css?v=" | append: site.github.build_revision | relative_url }}">
+    <script defer src="{{ "/assets/js/doc.js?v=" | append: site.github.build_revision | relative_url }}"></script>
   </head>
-  <body>
-    <div class="container-lg px-3 my-5 markdown-body">
-      <div class="ku-controls">
-        {% include theme-switcher.html %}
-        {% include lang-switcher.html %}
-      </div>
-
-      {% if site.title and site.title != page.title %}
-      <h1><a href="{{ "/" | absolute_url }}">{{ site.title }}</a></h1>
-      {% endif %}
-
-      {{ content }}
-    </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/anchor-js/4.1.0/anchor.min.js" integrity="sha256-lZaRhKri35AyJSypXXs4o6OPFTbTmUoltBbDCbdzegg=" crossorigin="anonymous"></script>
-    <script>anchors.add();</script>
+  <body class="ku-page">
+    {% include site-header.html %}
+    <main id="ku-main" class="ku-shell ku-doc">
+      {%- unless page.ref -%}
+      {%- assign ui = site.data.ui.en -%}
+      <a class="ku-doc__back" href="{{ ui.documents_url | relative_url }}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg>{{ ui.documents }}</a>
+      {%- endunless %}
+      <article class="ku-prose">
+        {{ content }}
+      </article>
+    </main>
+    {% include site-footer.html %}
   </body>
 </html>

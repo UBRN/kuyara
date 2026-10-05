@@ -10,12 +10,17 @@ hero_line: >-
   one calm decision instead of a dozen small ones.
 
 stage_title: When the sky changes, the clothes change
-stage_caption_clear: >-
+story_morning: >-
   A clear, mild day. Light layers, and nothing you will be carrying by noon.
-stage_caption_veiled: >-
-  Cloud moves in and the temperature drops. One more layer, same morning.
-stage_caption_falling: >-
+# draft copy
+story_midday: >-
+  Cloud moves in and the air cools. Warmer pieces, and finishing touches for the
+  cold.
+story_afternoon: >-
   Rain by the afternoon. An outer layer that sheds it, shoes that do not mind.
+# draft copy
+story_evening: >-
+  After sunset the air turns cold. A warm layer for the way home.
 
 works_title: How it decides
 works_weather: >-
@@ -55,16 +60,17 @@ badge_alt: Download on the App Store
 badge_width: 150
 play_line: "Google Play: coming soon"
 
-footer_nav_label: More
-privacy_link: Privacy policy
-privacy_url: /privacy-policy
-support_link: Support
-support_url: /support
-source_link: Source code on GitHub
-legal_licence: >-
-  kuyara is source-available under the PolyForm Noncommercial License 1.0.0.
-legal_apple: >-
-  Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and
-  other countries. App Store is a service mark of Apple Inc. Google Play is a
-  trademark of Google LLC.
+# draft copy: the hero's controls, the sample note, the sample day and the evening moment
+temperature_label: Temperature
+drag_hint: Or drag the outfit sideways
+sky_label: Sky
+catalogue_label: Catalogue
+play_label: Play the sample day
+sample_note: >-
+  Sample weather, dressed by the app's own rules and drawings.
+script_copy:
+  play: Play the sample day
+  pause: Pause the sample day
+  clock: Sample day
+  degrees: degrees Celsius
 ---

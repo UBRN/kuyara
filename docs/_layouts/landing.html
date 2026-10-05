@@ -5,67 +5,137 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="apple-itunes-app" content="app-id=6806664440">
     <title>{{ page.title | escape }}</title>
-
 {% seo title=false %}
+    <script>document.documentElement.classList.add("ku-js");</script>
     {% include theme-head.html %}
     {% include head-custom.html %}
     {% include lang-head.html %}
+    <link rel="stylesheet" href="{{ "/assets/css/plates.css?v=" | append: site.github.build_revision | relative_url }}">
+    <link rel="stylesheet" href="{{ "/assets/css/site.css?v=" | append: site.github.build_revision | relative_url }}">
     <link rel="stylesheet" href="{{ "/assets/css/landing.css?v=" | append: site.github.build_revision | relative_url }}">
+    <script defer src="{{ "/assets/data/boards.js?v=" | append: site.github.build_revision | relative_url }}"></script>
     <script defer src="{{ "/assets/js/landing.js?v=" | append: site.github.build_revision | relative_url }}"></script>
   </head>
+  {%- assign lang = page.lang | default: "en" -%}
+  {%- assign boards = site.data.site_boards -%}
+  {%- assign opening = boards.initial -%}
   <body class="ku-landing">
-    <header class="ku-header">
-      <div class="ku-shell ku-controls">
-        {% include theme-switcher.html %}
-        {% include lang-switcher.html %}
-      </div>
-    </header>
+    {% include site-header.html %}
 
-    <main>
-      <section class="ku-band ku-hero-band" aria-labelledby="ku-name">
-        <div class="ku-shell ku-hero">
-          <!-- Balanced Horizon V2, copied unmodified from
-               apps/mobile/assets/brand/kuyara-symbol-master.svg. The three path
-               d strings are never edited; only the fill is taken from a token. -->
-          <svg class="ku-symbol" viewBox="0 0 1024 1024" aria-hidden="true" focusable="false">
-            <path d="M250 500 C370 512 462 474 552 430 C623 395 686 384 750 391 C767 393 777 376 767 359 L720 281 C707 260 684 248 659 248 L406 248 C380 248 358 260 342 281 L230 449 C216 470 225 498 250 500 Z"/>
-            <path d="M390 560 C501 526 583 488 655 466 C716 447 772 448 810 460 C827 465 836 484 828 501 L786 590 C776 613 755 629 734 626 C628 606 520 598 413 608 C393 610 377 590 382 572 C384 566 387 562 390 560 Z"/>
-            <path d="M257 684 C408 674 560 678 714 696 C734 698 744 714 735 730 L686 786 C670 804 648 812 621 812 L386 812 C366 812 347 805 332 792 L259 729 C244 716 242 701 251 689 C253 686 255 684 257 684 Z"/>
-          </svg>
-          <h1 class="ku-display ku-hero__name" id="ku-name">kuyara</h1>
-          <p class="ku-body ku-hero__line">{{ page.hero_line }}</p>
-          <div class="ku-stage ku-hero__board"><svg class="board" viewBox="0 6 160 53" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g transform="translate(0.4595 0)"><path d="M19.8 45.6 Q32 46.4 44.2 45.6 L44.0 49.8 Q32 50.6 20.0 49.8 Z M46.9 41.2 Q49.9 41.8 52.6 40.8 L52.9 45.0 Q50.0 45.9 47.1 45.4 Z M17.1 41.2 Q14.1 41.8 11.4 40.8 L11.1 45.0 Q14.0 45.9 16.9 45.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M15.0 18.8 Q19.6 16.8 24.4 15.6 Q32 14.8 39.6 15.6 Q44.4 16.8 49.0 18.8 Q51.8 20.4 52.6 24.6 Q53.6 32.4 52.8 41.4 Q50.0 42.6 46.8 41.8 Q46.6 34 44.8 27.4 Q46.0 38.6 44.6 46.8 Q32 47.6 19.4 46.8 Q18.0 38.6 19.2 27.4 Q17.4 34 17.2 41.8 Q14.0 42.6 11.2 41.4 Q10.4 32.4 11.4 24.6 Q12.2 20.4 15.0 18.8 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M23.4 17.4 Q23.0 14.6 24.2 12.2 Q32 10.4 39.8 12.2 Q41.0 14.6 40.6 17.4 Q36.6 16.6 32.6 18.8 L31.4 18.8 Q27.4 16.6 23.4 17.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(48.12 0)"><path d="M21.5 15 L42.5 15 Q43.6 22 43.4 31 Q43.1 43 42.8 53.4 Q38.8 54.3 34.8 53.6 Q33.8 39.5 32.4 26 L31.6 26 Q30.2 39.5 29.2 53.6 Q25.2 54.3 21.2 53.4 Q20.9 43 20.6 31 Q20.4 22 21.5 15 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(90.76 0)"><path d="M19.6 16.2 L19.8 11.8 Q21.2 11 22.6 11.8 L22.9 16.2 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M20.4 44.8 Q18.6 41 19 36 Q19.6 31 20.4 27 Q21 22 20.4 17 L20 14.6 Q26.8 13.6 33.6 14.4 Q32.8 20 33 25.6 Q33.2 30.2 35.6 33.2 Q39.4 35.8 45 37 Q50.4 38.2 53 40.2 Q55 42 54.4 44.8 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M18.8 43.8 L51 43.6 Q54.6 43.6 55 44.6 Q55 45.8 53.4 46.2 Q48.6 47.2 41 47.4 L33 47.4 Q30.2 47.2 28.6 46.4 L27.9 48.6 L20.4 48.6 Q19.1 48.4 19 47.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g></svg></div>
+    <main id="ku-main">
+      <!--
+        The hero. The visitor changes the temperature, the sky and the catalogue, and the
+        app's own board re-dresses: every board comes from the app's outfit rules and colour
+        drawings, generated by apps/mobile/scripts/site-boards.mjs. The first board is
+        printed here as plain SVG, so the page reads right before any script runs.
+      -->
+      <section class="ku-hero" aria-labelledby="ku-name">
+        <div class="ku-shell ku-hero__grid">
+          <div class="ku-hero__intro">
+            <h1 class="ku-display" id="ku-name">kuyara</h1>
+            <p class="ku-body ku-hero__line">{{ page.hero_line }}</p>
+          </div>
+
+          <div class="ku-hero__stage">
+            <div class="ku-readout">
+              <span class="ku-title-large ku-temp" id="ku-temp">{{ opening.t }}°</span>
+              <span class="ku-readout__words">
+                <span class="ku-title" id="ku-condition">{{ opening.condition[lang] }}</span>
+                <span class="ku-body ku-secondary" id="ku-archetype">{{ opening.archetype[lang] }}</span>
+              </span>
+            </div>
+            <div class="ku-plate" id="ku-hero-plate" data-atmosphere="{{ opening.atmosphere }}">
+              <canvas class="ku-particles" aria-hidden="true"></canvas>
+              {% include generated/board-hero-{{ lang }}.html %}
+            </div>
+            <div class="ku-touches" id="ku-touches" hidden>
+              <span class="ku-label" id="ku-touches-label">{{ opening.touches[lang] }}</span>
+              <ul class="ku-touches__list" aria-labelledby="ku-touches-label"></ul>
+            </div>
+            <!-- draft copy -->
+            <p class="ku-caption ku-hero__note">{{ page.sample_note }}</p>
+            <p class="ku-visually-hidden" aria-live="polite" id="ku-live"></p>
+          </div>
+
+          <div class="ku-hero__panel">
+            <!-- draft copy -->
+            <div class="ku-field ku-needs-js">
+              <div class="ku-field__row">
+                <label class="ku-label" for="ku-range">{{ page.temperature_label }}</label>
+                <span class="ku-caption ku-secondary">{{ page.drag_hint }}</span>
+              </div>
+              <input class="ku-range" id="ku-range" type="range" min="{{ opening.range[0] }}" max="{{ opening.range[1] }}" step="2" value="{{ opening.t }}">
+              <div class="ku-ticks ku-caption" aria-hidden="true"><span id="ku-range-min">{{ opening.range[0] }}°</span><span id="ku-range-max">{{ opening.range[1] }}°</span></div>
+            </div>
+            <div class="ku-field ku-needs-js">
+              <span class="ku-label ku-field__label" id="ku-sky-label">{{ page.sky_label }}</span>
+              <div class="ku-chips" role="radiogroup" aria-labelledby="ku-sky-label" id="ku-skies">
+                {%- for sky in opening.skies[lang] %}
+                <button class="ku-chip" type="button" role="radio" data-value="{{ sky[0] }}" aria-checked="{% if sky[0] == opening.sky %}true{% else %}false{% endif %}" tabindex="{% if sky[0] == opening.sky %}0{% else %}-1{% endif %}">{{ sky[1] }}</button>
+                {%- endfor %}
+              </div>
+            </div>
+            <div class="ku-field ku-needs-js">
+              <span class="ku-label ku-field__label" id="ku-pref-label">{{ page.catalogue_label }}</span>
+              <div class="ku-chips" role="radiogroup" aria-labelledby="ku-pref-label" id="ku-prefs">
+                {%- for pref in opening.preferences[lang] %}
+                <button class="ku-chip" type="button" role="radio" data-value="{{ pref[0] }}" aria-checked="{% if forloop.first %}true{% else %}false{% endif %}" tabindex="{% if forloop.first %}0{% else %}-1{% endif %}">{{ pref[1] }}</button>
+                {%- endfor %}
+              </div>
+            </div>
+            <div class="ku-day ku-needs-js">
+              <button class="ku-button" type="button" id="ku-play">
+                <span class="ku-play__icon ku-play__pause" hidden><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.5" y="3" width="3" height="10" rx="1" fill="currentColor"/><rect x="9.5" y="3" width="3" height="10" rx="1" fill="currentColor"/></svg></span>
+                <span class="ku-play__icon ku-play__play"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5Z" fill="currentColor"/></svg></span>
+                <span id="ku-play-label">{{ page.play_label }}</span>
+              </button>
+              <p class="ku-caption ku-day__clock" id="ku-clock"></p>
+            </div>
+            <div class="ku-hero__cta">
+              <!-- Apple's badge artwork, unmodified, under Apple's App Store Marketing Artwork
+                   License Agreement: 50px tall, with a quarter of its height kept clear. -->
+              <a class="ku-badge" href="https://apps.apple.com/app/id6806664440">
+                <img src="{{ page.badge_file | relative_url }}" alt="{{ page.badge_alt }}" width="{{ page.badge_width }}" height="50">
+              </a>
+              <p class="ku-caption">{{ page.cta_line }}</p>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section class="ku-band" aria-labelledby="ku-stage-title">
+      <!-- The day in four moments. The plate pins while the moments scroll past it. -->
+      <section class="ku-band ku-story" aria-labelledby="ku-story-title">
         <div class="ku-shell ku-band__head ku-rise">
-          <h2 class="ku-title-large" id="ku-stage-title">{{ page.stage_title }}</h2>
+          <h2 class="ku-title-large" id="ku-story-title">{{ page.stage_title }}</h2>
         </div>
-        <div class="ku-track">
-          <div class="ku-shell ku-pin">
-            <div class="ku-state ku-state--clear">
-              <div class="ku-stage ku-stage--clear"><svg class="board" viewBox="0 6 160 53" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g transform="translate(0.46 0)"><path d="M25 14.4 Q32 12.6 39 14.4 C42 15.6 45.5 16.4 48 17.6 Q50.6 18.8 52 21.4 L54.6 27.6 Q51 29.8 46.6 30.8 Q45.6 28.6 44.2 26.4 Q43.4 38 44.2 49.6 Q32 51.6 19.8 49.6 Q20.6 38 19.8 26.4 Q18.4 28.6 17.4 30.8 Q13 29.8 9.4 27.6 L12 21.4 Q13.4 18.8 16 17.6 C18.5 16.4 22 15.6 25 14.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(48.12 0)"><path d="M21.2 15 L42.8 15 Q44 24 44.4 40.6 Q39.6 41.6 34.6 41.4 Q33.8 33 32.4 26.6 L31.6 26.6 Q30.2 33 29.4 41.4 Q24.4 41.6 19.6 40.6 Q20 24 21.2 15 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(94.955 0)"><path d="M23.6 31.24 Q23.2 27.34 24.8 25.75 Q26.8 24.41 28.4 26.12 L31.2 31.24 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M10.8 42.96 Q9.8 35.64 11.2 30.76 Q12.2 27.58 15 27.34 Q19 27.58 21.6 29.54 Q23.6 31 25.4 29.78 L27.6 28.56 Q31.4 31.98 36.4 34.17 Q44 36.61 49.8 37.83 Q54.4 39.05 54.8 42.71 L54.8 43.2 L10.8 43.2 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M9.8 42.4 L50.4 42.4 Q54.8 42.4 55.6 43.2 Q56.4 45.4 54.2 46.6 Q52.4 47.6 49.4 47.6 L13 47.6 Q9.6 47.4 9.6 44.8 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g></svg></div>
-              <p class="ku-body ku-measure ku-state__caption">{{ page.stage_caption_clear }}</p>
-            </div>
-            <div class="ku-state ku-state--veiled">
-              <div class="ku-stage ku-stage--veiled"><svg class="board" viewBox="0 6 160 53" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g transform="translate(0.46 0)"><path d="M14.9 20.1 Q16.1 18.7 18.1 17.9 L24.5 15 Q32 13.5 39.5 15 L45.9 17.9 Q47.9 18.7 49.1 20.1 Q52 25.6 52.8 43 Q53.2 44.8 52.8 46.6 Q49.8 47.2 46.8 47.2 Q46.4 45.4 46.5 43.6 Q45.6 35 44 27 Q43.6 38 44 49 Q44.6 51 44.2 53 Q32 53.8 19.8 53 Q19.4 51 20 49 Q20.4 38 20 27 Q18.4 35 17.5 43.6 Q17.6 45.4 17.2 47.2 Q14.2 47.2 11.2 46.6 Q10.8 44.8 11.2 43 Q12 25.6 14.9 20.1 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(48.12 0)"><path d="M21.2 15 L42.8 15 Q43.9 22 43.7 31 Q43.3 43 42.9 53.4 Q38.9 54.3 34.9 53.6 Q33.9 39 32.4 25.6 L31.6 25.6 Q30.1 39 29.1 53.6 Q25.1 54.3 21.1 53.4 Q20.7 43 20.3 31 Q20.1 22 21.2 15 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(94.955 0)"><path d="M23.6 31.24 Q23.2 27.34 24.8 25.75 Q26.8 24.41 28.4 26.12 L31.2 31.24 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M10.8 42.96 Q9.8 35.64 11.2 30.76 Q12.2 27.58 15 27.34 Q19 27.58 21.6 29.54 Q23.6 31 25.4 29.78 L27.6 28.56 Q31.4 31.98 36.4 34.17 Q44 36.61 49.8 37.83 Q54.4 39.05 54.8 42.71 L54.8 43.2 L10.8 43.2 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M9.8 42.4 L50.4 42.4 Q54.8 42.4 55.6 43.2 Q56.4 45.4 54.2 46.6 Q52.4 47.6 49.4 47.6 L13 47.6 Q9.6 47.4 9.6 44.8 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g></svg></div>
-              <p class="ku-body ku-measure ku-state__caption">{{ page.stage_caption_veiled }}</p>
-            </div>
-            <div class="ku-state ku-state--falling">
-              <div class="ku-stage ku-stage--falling"><svg class="board" viewBox="0 6 160 53" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g transform="translate(0.46 0)"><path d="M24.6 18.4 Q32 17.4 39.4 18.4 L47.2 21.2 Q49.2 22 50 23.6 Q52.6 29.6 53.6 45 L53.8 47.8 Q50.8 48.6 47.8 48.4 L47.6 45.4 Q46.6 36.6 45 29.8 Q44.6 40.6 45.2 51 Q32 52.6 18.8 51 Q19.4 40.6 19 29.8 Q17.4 36.6 16.4 45.4 L16.2 48.4 Q13.2 48.6 10.2 47.8 L10.4 45 Q11.4 29.6 14 23.6 Q14.8 22 16.8 21.2 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M22.4 21.8 Q20.8 14.6 24.4 10.6 Q27.8 8.2 32 6.8 Q36.2 8.2 39.6 10.6 Q43.2 14.6 41.6 21.8 Q37 25.6 32 26.2 Q27 25.6 22.4 21.8 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M25.8 20.4 Q25.4 13.6 32 13 Q38.6 13.6 38.2 20.4 Q35.4 23.4 32 24 Q28.6 23.4 25.8 20.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M25 18.6 Q23.4 11 32 9.6 Q40.6 11 39 18.6 Q38.8 15.6 37.4 14.6 Q32 12.4 26.6 14.6 Q25.2 15.6 25 18.6 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(48.12 0)"><path d="M21.2 15 L42.8 15 Q43.9 22 43.7 31 Q43.3 43 42.9 53.4 Q38.9 54.3 34.9 53.6 Q33.9 39 32.4 25.6 L31.6 25.6 Q30.1 39 29.1 53.6 Q25.1 54.3 21.1 53.4 Q20.7 43 20.3 31 Q20.1 22 21.2 15 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(90.76 0)"><path d="M19.6 16.2 L19.8 11.8 Q21.2 11 22.6 11.8 L22.9 16.2 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M20.4 44.8 Q18.6 41 19 36 Q19.6 31 20.4 27 Q21 22 20.4 17 L20 14.6 Q26.8 13.6 33.6 14.4 Q32.8 20 33 25.6 Q33.2 30.2 35.6 33.2 Q39.4 35.8 45 37 Q50.4 38.2 53 40.2 Q55 42 54.4 44.8 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M18.8 43.8 L51 43.6 Q54.6 43.6 55 44.6 Q55 45.8 53.4 46.2 Q48.6 47.2 41 47.4 L33 47.4 Q30.2 47.2 28.6 46.4 L27.9 48.6 L20.4 48.6 Q19.1 48.4 19 47.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g></svg></div>
-              <p class="ku-body ku-measure ku-state__caption">{{ page.stage_caption_falling }}</p>
+        <div class="ku-shell ku-story__grid">
+          <div class="ku-story__stage">
+            <div class="ku-plate" id="ku-story-plate" data-atmosphere="{{ boards.story[0].atmosphere }}">
+              <canvas class="ku-particles" aria-hidden="true"></canvas>
+              {%- for moment in boards.story %}
+              {% include generated/board-story-{{ forloop.index }}-{{ lang }}.html %}
+              {%- endfor %}
             </div>
           </div>
+          <ol class="ku-story__steps">
+            {%- for moment in boards.story %}
+            {%- assign caption_key = "story_" | append: moment.id -%}
+            <li class="ku-story__step{% if forloop.first %} is-active{% endif %}" data-moment="{{ forloop.index0 }}">
+              <p class="ku-label ku-story__meta"><time>{{ moment.hour }}</time> · {{ moment.t }}° · {{ moment.condition[lang] }}</p>
+              <p class="ku-title" data-archetype>{{ moment.archetype[lang] }}</p>
+              <p class="ku-body">{{ page[caption_key] }}</p>
+            </li>
+            {%- endfor %}
+          </ol>
         </div>
       </section>
 
       <section class="ku-band" aria-labelledby="ku-works-title">
-        <div class="ku-shell ku-rise">
-          <div class="ku-band__head">
+        <div class="ku-shell ku-rules">
+          <div class="ku-band__head ku-rise">
             <h2 class="ku-title-large" id="ku-works-title">{{ page.works_title }}</h2>
           </div>
-          <ol class="ku-steps" role="list">
+          <ol class="ku-steps ku-rise" role="list">
             <li class="ku-step"><span class="ku-body ku-step__index" aria-hidden="true">1</span><span class="ku-body">{{ page.works_weather }}</span></li>
             <li class="ku-step"><span class="ku-body ku-step__index" aria-hidden="true">2</span><span class="ku-body">{{ page.works_rules }}</span></li>
             <li class="ku-step"><span class="ku-body ku-step__index" aria-hidden="true">3</span><span class="ku-body">{{ page.works_catalogue }}</span></li>
@@ -74,17 +144,23 @@
         </div>
       </section>
 
+      <!-- The options for the hero's weather, side by side and unranked. -->
       <section class="ku-band" aria-labelledby="ku-alts-title">
-        <div class="ku-shell ku-rise">
-          <div class="ku-band__head">
+        <div class="ku-shell">
+          <div class="ku-band__head ku-rise">
             <h2 class="ku-title-large" id="ku-alts-title">{{ page.alts_title }}</h2>
-            <p class="ku-body ku-measure">{{ page.alts_body }}</p>
+            <p class="ku-body ku-secondary">{{ page.alts_body }}</p>
           </div>
-          <div class="ku-alts">
-            <div class="ku-stage"><svg class="board" viewBox="0 6 160 53" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g transform="translate(0.46 0)"><path d="M15.4 19.6 Q16.6 18.2 18.6 17.4 L25.5 14.4 L29.2 12.9 L34.8 12.9 L38.5 14.4 L45.4 17.4 Q47.4 18.2 48.6 19.6 Q51.6 25 52.6 44.6 Q49.8 45.5 46.9 45.6 Q45.8 35.8 44.2 27 Q43.8 39 44 51.6 Q38 53.6 32 52.4 Q26 53.6 20 51.6 Q20.2 39 19.8 27 Q18.2 35.8 17.1 45.6 Q14.2 45.5 11.4 44.6 Q12.4 25 15.4 19.6 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M29.2 12.9 Q26.2 13.8 25.3 14.6 L26.8 21.6 L32 19 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M34.8 12.9 Q37.8 13.8 38.7 14.6 L37.2 21.6 L32 19 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(48.12 0)"><path d="M21.5 15 L42.5 15 Q43.6 22 43.4 31 Q43.1 43 42.8 53.4 Q38.8 54.3 34.8 53.6 Q33.8 39.5 32.4 26 L31.6 26 Q30.2 39.5 29.2 53.6 Q25.2 54.3 21.2 53.4 Q20.9 43 20.6 31 Q20.4 22 21.5 15 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(94.46 0)"><path d="M13.2 43.73 Q12 37.79 13.2 32.93 Q14 30.77 16.4 30.5 Q20.4 30.77 23.6 32.39 Q25.4 30.5 27.6 29.96 Q30 29.69 31.4 30.5 Q38 33.47 45.6 36.44 Q51.2 38.33 52.6 41.57 Q53.2 43.46 52.4 44 L13.6 44 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M12.6 43.2 L51.4 43.2 Q53.8 43.4 53.8 44.4 Q53.6 45.6 51.6 45.6 L24.6 45.6 Q23.2 45.4 22.4 45.6 L21.8 47.6 L13.4 47.6 Q12.6 45.6 12.6 43.2 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g></svg></div>
-            <div class="ku-stage"><svg class="board" viewBox="0 6 160 53" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g transform="translate(0.46 0)"><path d="M32 16.4 L25.2 16.6 Q20.6 17.6 17.6 18.8 Q15.2 19.8 14.5 22 Q12.4 31 11.5 43.2 L11.9 43.6 L12 47.5 Q14.8 48.1 17.6 47.7 L17.6 43.6 L18 43.3 Q18.9 35.4 20.2 28.6 Q19.7 40 20.1 50 L20.7 50.4 L20.7 54.1 Q26 54.6 32 54.6 Q38 54.6 43.3 54.1 L43.3 50.4 L43.9 50 Q44.3 40 43.8 28.6 Q45.1 35.4 46 43.3 L46.4 43.6 L46.4 47.7 Q49.2 48.1 52 47.5 L52.1 43.6 L52.5 43.2 Q51.6 31 49.5 22 Q48.8 19.8 46.4 18.8 Q43.4 17.6 38.8 16.6 L32 16.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M32 36.4 L27.8 36.4 Q27.2 36.4 26.9 36.9 L24.5 41.6 Q24.2 42.2 24.2 42.9 L24.2 50.3 L32 50.5 L39.8 50.3 L39.8 42.9 Q39.8 42.2 39.5 41.6 L37.1 36.9 Q36.8 36.4 36.2 36.4 L32 36.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M32 7 Q25.2 7.2 23 11.6 Q21.5 15.2 22.3 18.6 Q22.9 20.8 25.4 21.8 Q28.8 23.4 32 25.4 Q35.2 23.4 38.6 21.8 Q41.1 20.8 41.7 18.6 Q42.5 15.2 41 11.6 Q38.8 7.2 32 7 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M32 10.6 Q27.2 10.8 26.4 14.8 Q26 18.6 28.4 21 Q30.2 22.6 32 23.6 Q33.8 22.6 35.6 21 Q38 18.6 37.6 14.8 Q36.8 10.8 32 10.6 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M27 22.4 Q26.4 27.4 27.1 32.6 L27.9 32.6 Q27.3 27.4 27.7 22.4 Z M37 22.4 Q37.6 27.4 37 31 L36.2 31 Q36.8 27.4 36.3 22.4 Z M26.75 32.3 L28.25 32.3 L28.15 34.9 L26.85 34.9 Z M35.85 30.7 L37.35 30.7 L37.25 33.3 L35.95 33.3 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(48.12 0)"><path d="M21.2 15 L42.8 15 Q43.9 22 43.7 31 Q43.3 43 42.9 53.4 Q38.9 54.3 34.9 53.6 Q33.9 39 32.4 25.6 L31.6 25.6 Q30.1 39 29.1 53.6 Q25.1 54.3 21.1 53.4 Q20.7 43 20.3 31 Q20.1 22 21.2 15 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(94.955 0)"><path d="M23.6 31.24 Q23.2 27.34 24.8 25.75 Q26.8 24.41 28.4 26.12 L31.2 31.24 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M10.8 42.96 Q9.8 35.64 11.2 30.76 Q12.2 27.58 15 27.34 Q19 27.58 21.6 29.54 Q23.6 31 25.4 29.78 L27.6 28.56 Q31.4 31.98 36.4 34.17 Q44 36.61 49.8 37.83 Q54.4 39.05 54.8 42.71 L54.8 43.2 L10.8 43.2 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M9.8 42.4 L50.4 42.4 Q54.8 42.4 55.6 43.2 Q56.4 45.4 54.2 46.6 Q52.4 47.6 49.4 47.6 L13 47.6 Q9.6 47.4 9.6 44.8 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g></svg></div>
-            <div class="ku-stage"><svg class="board" viewBox="0 6 160 53" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g transform="translate(0.46 0)"><path d="M14.9 20.1 Q16.1 18.7 18.1 17.9 L24.5 15 Q32 13.5 39.5 15 L45.9 17.9 Q47.9 18.7 49.1 20.1 Q52 25.6 52.8 43 Q53.2 44.8 52.8 46.6 Q49.8 47.2 46.8 47.2 Q46.4 45.4 46.5 43.6 Q45.6 35 44 27 Q43.6 38 44 49 Q44.6 51 44.2 53 Q32 53.8 19.8 53 Q19.4 51 20 49 Q20.4 38 20 27 Q18.4 35 17.5 43.6 Q17.6 45.4 17.2 47.2 Q14.2 47.2 11.2 46.6 Q10.8 44.8 11.2 43 Q12 25.6 14.9 20.1 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(48.12 0)"><path d="M26.6 12.4 Q32 11.4 37.4 12.4 Q41 13.2 43.6 14.6 C45.8 15.2 47.2 16.6 47.9 18.8 L48.8 22.8 Q46.2 24.2 43.4 23.9 Q42.5 23.2 42.2 21.8 C42 25.6 40.6 28.4 40.1 30.6 C41.4 38 45.4 47 47.6 54.2 Q45.4 56.4 42.8 55 Q40.2 57 37.4 55.6 Q34.8 57.4 32 55.8 Q29.2 57.4 26.6 55.6 Q23.8 57 21.2 55 Q18.6 56.4 16.4 54.2 C18.6 47 22.6 38 23.9 30.6 C23.4 28.4 22 25.6 21.8 21.8 Q21.5 23.2 20.6 23.9 Q17.8 24.2 15.2 22.8 L16.1 18.8 C16.8 16.6 18.2 15.2 20.4 14.6 Q23 13.2 26.6 12.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="translate(90.76 0)"><path d="M19.6 16.2 L19.8 11.8 Q21.2 11 22.6 11.8 L22.9 16.2 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M20.4 44.8 Q18.6 41 19 36 Q19.6 31 20.4 27 Q21 22 20.4 17 L20 14.6 Q26.8 13.6 33.6 14.4 Q32.8 20 33 25.6 Q33.2 30.2 35.6 33.2 Q39.4 35.8 45 37 Q50.4 38.2 53 40.2 Q55 42 54.4 44.8 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M18.8 43.8 L51 43.6 Q54.6 43.6 55 44.6 Q55 45.8 53.4 46.2 Q48.6 47.2 41 47.4 L33 47.4 Q30.2 47.2 28.6 46.4 L27.9 48.6 L20.4 48.6 Q19.1 48.4 19 47.4 Z" fill="var(--ku-board-fill)" stroke="var(--ku-board-ink)" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></g></svg></div>
-          </div>
+          <ul class="ku-alts" id="ku-alts" role="list">
+            {%- for name in opening.options[lang] %}
+            <li class="ku-alt ku-rise">
+              <p class="ku-title">{{ name }}</p>
+              <div class="ku-plate" data-atmosphere="{{ opening.atmosphere }}">
+                {% include generated/board-option-{{ forloop.index }}-{{ lang }}.html %}
+              </div>
+            </li>
+            {%- endfor %}
+          </ul>
         </div>
       </section>
 
@@ -104,12 +180,7 @@
       <section class="ku-band" aria-labelledby="ku-cta-title">
         <div class="ku-shell ku-rise ku-cta">
           <h2 class="ku-title-large" id="ku-cta-title">{{ page.cta_title }}</h2>
-          <p class="ku-body ku-measure">{{ page.cta_line }}</p>
-          <!-- Apple's badge artwork, downloaded unmodified from the App Store
-               Marketing Tools toolbox and governed by Apple's App Store Marketing
-               Artwork License Agreement, not by this repository's licence. One
-               badge per layout, 50px tall against a 40px minimum, with 13px of
-               clear space (one quarter of the height) kept empty around it. -->
+          <p class="ku-body ku-secondary">{{ page.cta_line }}</p>
           <a class="ku-badge" href="https://apps.apple.com/app/id6806664440">
             <img src="{{ page.badge_file | relative_url }}" alt="{{ page.badge_alt }}" width="{{ page.badge_width }}" height="50">
           </a>
@@ -118,16 +189,8 @@
       </section>
     </main>
 
-    <footer class="ku-footer">
-      <div class="ku-shell">
-        <nav class="ku-footer__links" aria-label="{{ page.footer_nav_label }}">
-          <a class="ku-body" href="{{ page.privacy_url | relative_url }}">{{ page.privacy_link }}</a>
-          <a class="ku-body" href="{{ page.support_url | relative_url }}">{{ page.support_link }}</a>
-          <a class="ku-body" href="https://github.com/UBRN/kuyara">{{ page.source_link }}</a>
-        </nav>
-        <p class="ku-caption ku-footer__legal">{{ page.legal_licence }}</p>
-        <p class="ku-caption ku-footer__legal">{{ page.legal_apple }}</p>
-      </div>
-    </footer>
+    {% include site-footer.html %}
+
+    <script type="application/json" id="ku-copy">{{ page.script_copy | jsonify }}</script>
   </body>
 </html>

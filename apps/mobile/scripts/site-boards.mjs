@@ -284,7 +284,6 @@ function localizedNames() {
       skies: Object.fromEntries(Object.entries(SKIES).map(([sky, { code }]) => [sky, app.weather.conditions[code]])),
       preferences: { womens: app.preferences.genderWoman, mens: app.preferences.genderMan },
       touches: app.today.finishingTouchesHeading,
-      alternatives: app.today.otherOptionsHeading,
     }];
   }));
 }
@@ -422,13 +421,11 @@ export function generateSiteBoards() {
       t: INITIAL.t,
       sky: INITIAL.sky,
       atmosphere: data.skies[INITIAL.sky].atmosphere,
-      ink: SKIES[INITIAL.sky].ink,
       range: SKIES[INITIAL.sky].range,
       condition: byLanguage((names) => names.skies[INITIAL.sky]),
       archetype: byLanguage((names) => names.archetypes[opening.archetypes[0]]),
       options: byLanguage((names) => opening.archetypes.map((id) => names.archetypes[id])),
       touches: byLanguage((names) => names.touches),
-      alternatives: byLanguage((names) => names.alternatives),
       skies: byLanguage((names) => names.skies),
       preferences: byLanguage((names) => names.preferences),
     },

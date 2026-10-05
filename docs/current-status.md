@@ -296,32 +296,29 @@ The approved phase order, active work and remaining open items are in [the roadm
   site follows the system scheme; a Turkish-language browser is redirected from `/` to
   `/tr/` on first visit by the language-memory script.
 - **Landing page limits.** The landing `<title>` is the bare name in both languages (the
-  Primer pages keep "Page | kuyara"); a descriptive browser title would be new bilingual
+  other pages keep "Page | kuyara"); a descriptive browser title would be new bilingual
   copy. The Smart App Banner meta matches Apple's documented format and App Store id,
   but whether it renders can only be shown in Safari on a physical iPhone or iPad on
-  iOS 26 with the App Store; the Simulator never shows it. Firefox 155 takes the
-  finished page through the `@supports` gate and the IntersectionObserver reveal at
-  1280 and 400 px in both languages; keyboard operation of the controls in Firefox is
-  unverified. The garment outlines are copied from `silhouettes.ts` and drawn flat;
-  `landing-boards.test.mjs` in the mobile suite fails when the copy and the vocabulary
-  disagree. The 2.6:1 stage row and the `2xl` band padding are web-only choices recorded
+  iOS 26 with the App Store; the Simulator never shows it. The landing's boards are
+  generated from the app's outfit rules, composition rule and colour drawings by
+  `apps/mobile/scripts/site-boards.mjs` and committed; `site-boards.test.mjs` in the
+  mobile suite fails when the committed files and the generator disagree, so a catalogue,
+  rule, drawing or theme change needs a regeneration. The rebuilt landing was checked in
+  headless Chrome at 1440 and 375 px in both appearances; Firefox, Safari and keyboard
+  operation in them are unverified. The `2xl` band padding is a web-only choice recorded
   under "Web presence" in `docs/design/visual-identity.md`, together with the favicon and
   Open Graph compositions. The favicon, apple-touch-icon and Open Graph image are served
   from `docs/` and wired through `<link>` tags and a `defaults` image key; a client that
   ignores them and fetches the origin root `https://ubrn.github.io/favicon.ico` still
   gets the user site's 404, which this repository cannot serve.
-- **Dark theme limits on the Primer pages.** Dark code uses a three-tone palette from the
-  semantic text tokens (primary, the accent for literals, secondary for comments and
-  output); names that Rouge's light palette distinguishes stay primary because no fourth
-  token reaches 4.5:1, and diff and error backplates are transparent because no token
-  names a red or a green. `.markdown-body img` sits on the page ground in dark, as
-  GitHub renders it. The theme control's styles precede Primer's stylesheet by design:
-  every rule is class-scoped and the shipped Primer 0.6.0 reaches those elements only
-  through element selectors, so specificity settles each conflict. The theme cross-fade
-  sets a colour-only `transition` with `!important` on every element for 400 ms, and
-  both it and the indicator use `linear` because the tokens carry durations and no
-  easing; an easing token derived from the app's Reanimated default is proposed, not
-  decided.
+- **Reading pages.** The privacy, support and documentation pages share the landing's
+  header and footer and draw their Markdown with `docs/assets/css/site.css`; the Primer
+  theme stays in `_config.yml`, but its stylesheet is no longer linked. Code blocks are
+  drawn in the primary ink on the muted surface, without syntax colours. The theme
+  cross-fade sets a colour-only `transition` with `!important` on every element for
+  400 ms, and both it and the indicator use `linear` because the tokens carry durations
+  and no easing; an easing token derived from the app's Reanimated default is proposed,
+  not decided.
 - **A local Jekyll build differs from Pages only in `<head>`.** Pages builds with
   `github-pages` 232 (Jekyll 3.10.0, jekyll-seo-tag 2.8.0, Ruby 3.3.4); the maintainer's
   Ruby 4 resolves only 223 (Jekyll 3.9.0, jekyll-seo-tag 2.7.1), so a local build lacks

@@ -10,13 +10,18 @@ hero_line: >-
   küçük karar yerine tek bir sakin karara dönüşür.
 
 stage_title: Gökyüzü değişince kıyafet de değişir
-stage_caption_clear: >-
+story_morning: >-
   Açık ve ılıman bir gün. İnce katmanlar, öğlene kalmadan elde taşınacak bir şey yok.
-stage_caption_veiled: >-
-  Bulutlar geliyor, sıcaklık düşüyor. Bir katman daha, aynı sabah.
-stage_caption_falling: >-
+# draft copy
+story_midday: >-
+  Bulutlar geliyor, hava serinliyor. Daha sıcak parçalar ve soğuk için son
+  dokunuşlar.
+story_afternoon: >-
   Öğleden sonra yağmur var. Suyu geçirmeyen bir dış katman, ıslanmayı umursamayan
   ayakkabılar.
+# draft copy
+story_evening: >-
+  Güneş batınca hava soğuyor. Eve dönüş için sıcak bir katman.
 
 works_title: Nasıl karar veriyor
 works_weather: >-
@@ -56,16 +61,17 @@ badge_alt: App Store'dan İndirin
 badge_width: 189
 play_line: "Google Play: yakında"
 
-footer_nav_label: Diğer
-privacy_link: Gizlilik politikası
-privacy_url: /tr/privacy-policy
-support_link: Destek
-support_url: /tr/support
-source_link: GitHub'da kaynak kodu
-legal_licence: >-
-  kuyara'nın kaynak kodu PolyForm Noncommercial License 1.0.0 ile erişilebilir.
-legal_apple: >-
-  Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and
-  other countries. App Store is a service mark of Apple Inc. Google Play is a
-  trademark of Google LLC.
+# draft copy: the hero's controls, the sample note, the sample day and the evening moment
+temperature_label: Sıcaklık
+drag_hint: Ya da kombini yana sürükle
+sky_label: Gökyüzü
+catalogue_label: Katalog
+play_label: Örnek günü oynat
+sample_note: >-
+  Örnek bir hava; kombini uygulamanın kendi kuralları ve çizimleri giydiriyor.
+script_copy:
+  play: Örnek günü oynat
+  pause: Örnek günü durdur
+  clock: Örnek gün
+  degrees: santigrat derece
 ---

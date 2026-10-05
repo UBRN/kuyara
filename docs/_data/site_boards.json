@@ -3,7 +3,6 @@
     "t": 14,
     "sky": "cloudy",
     "atmosphere": "veiledDay",
-    "ink": "cloudy",
     "range": [
       -6,
       34
@@ -31,10 +30,6 @@
     "touches": {
       "en": "Finishing touches",
       "tr": "Son dokunuşlar"
-    },
-    "alternatives": {
-      "en": "Alternative outfits",
-      "tr": "Alternatif kombinler"
     },
     "skies": {
       "en": {
