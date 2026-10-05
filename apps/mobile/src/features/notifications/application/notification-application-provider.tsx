@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { getDeviceTimeZone } from '@/domain/intl-format';
 import { systemNow } from '@/infrastructure/system-clock';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { NotificationApplicationController } from '@/features/notifications/application/notification-application-controller';
@@ -43,6 +44,7 @@ export function NotificationApplicationProvider(
       gateway,
       loadWeatherAlertDeliveryRepository(),
       systemNow,
+      getDeviceTimeZone,
       async (localProfileId, locationKey) => (await loadWeatherRepository())
         .getSnapshot(localProfileId, locationKey),
     ),

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   morningBriefingId,
+  morningBriefingIdPrefix,
   morningBriefingLocalHour,
   planMorningBriefing,
 } from './morning-briefing.ts';
@@ -60,6 +61,12 @@ function plan(overrides = {}) {
     ...overrides,
   });
 }
+
+test('a briefing id is its prefix and the local date, the one prefix every layer reads', () => {
+  assert.equal(morningBriefingIdPrefix, 'morning_briefing:');
+  assert.equal(morningBriefingId('2026-09-10'), 'morning_briefing:2026-09-10');
+  assert.ok(plan().id.startsWith(morningBriefingIdPrefix));
+});
 
 test('tomorrow is projected from the briefing hour through the last covered hour', () => {
   assert.deepEqual(plan(), {

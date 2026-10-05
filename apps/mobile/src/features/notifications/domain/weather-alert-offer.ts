@@ -23,6 +23,7 @@ export type WeatherAlertOffer =
 const noOffer: WeatherAlertOffer = Object.freeze({ kind: 'none' });
 
 export function weatherAlertOfferState(input: Readonly<{
+  /** Either notification kind is already on. */
   optedIn: boolean;
   /** The durable profile flag: the offer was accepted or dismissed once already. */
   alreadyOffered: boolean;

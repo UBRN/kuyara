@@ -1,6 +1,10 @@
 import { registerHooks } from 'node:module';
 import { extname } from 'node:path';
 
+// The unit tests read dates in the device zone, so every run is pinned to one zone: UTC,
+// unless the caller sets TZ explicitly to check another.
+process.env.TZ ??= 'UTC';
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
     const isRelative = specifier.startsWith('./') || specifier.startsWith('../');

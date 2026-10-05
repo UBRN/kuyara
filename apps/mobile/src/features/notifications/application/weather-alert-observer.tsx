@@ -24,8 +24,7 @@ export function WeatherAlertObserver() {
   const snapshot = weather
     ? activeLocationSnapshot(weather.snapshot, weather.activeLocation)
     : null;
-  const locationMismatch = weather?.snapshot != null
-    && weather.snapshot.locationKey !== weather.activeLocation?.locationKey;
+  const locationMismatch = weather?.snapshot != null && snapshot === null;
   const snapshotId = snapshot?.id;
   const permission = notificationApplication.state.permission;
   const notificationsOptIn = profile?.notificationsOptIn ?? false;
@@ -79,6 +78,7 @@ export function WeatherAlertObserver() {
     localDate,
     localProfileId,
     weather?.activeLocation?.locationKey,
+    weather?.activeLocation?.timeZone,
     morningBriefingOptIn,
     notificationApplication.weatherAlertScheduler,
     notificationsOptIn,

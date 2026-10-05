@@ -5,6 +5,7 @@ import { WeatherAlertScheduler } from '@/features/notifications/application/weat
 import { loadWeatherAlertDeliveryRepository } from '@/features/notifications/application/weather-alert-delivery-repository-loader';
 import { runBackgroundWeatherAlertTask } from '@/features/notifications/data/background-weather-alert-task';
 import { ExpoNotificationGateway } from '@/features/notifications/data/expo-notification-gateway';
+import { getDeviceTimeZone } from '@/domain/intl-format';
 import { loadProfileRepository } from '@/features/profile/application/profile-repository-loader';
 import { createWeatherProvider } from '@/features/weather/application/weather-application-provider';
 import { loadWeatherRepository } from '@/features/weather/application/weather-repository-loader';
@@ -30,6 +31,7 @@ TaskManager.defineTask(backgroundWeatherAlertTaskName, async ({ error }) => {
         gateway,
         loadWeatherAlertDeliveryRepository(),
         now,
+        getDeviceTimeZone,
       ).reschedule(input),
       getDeviceLocale,
       getDeviceHour12,

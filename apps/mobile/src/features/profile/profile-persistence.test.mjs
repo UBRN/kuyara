@@ -1044,3 +1044,16 @@ test('a reload before the profile has loaded reads nothing', async () => {
   await controller.reload();
   assert.equal(reads, 0);
 });
+
+test('a reload after a direct database write shows the stored profile, not the one read at start', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const controller = new ProfileApplicationController(async () => new LocalProfileRepository(dataSource));
+  await controller.initialize();
+  assert.equal(controller.getSnapshot().profile.displayName, null);
+
+  // The write a sync pull makes: it reaches the row without going through this controller.
+  await database.runAsync("UPDATE local_profiles SET display_name = 'From the account'");
+  await controller.reload();
+
+  assert.equal(controller.getSnapshot().profile.displayName, 'From the account');
+});

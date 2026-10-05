@@ -33,7 +33,8 @@ import { useWeatherInteractionEvents } from '@/features/analytics/application/us
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { locationCaptionKey } from '@/features/weather/domain/location-caption';
-import type { ActiveLocation } from '@/features/weather/domain/weather';
+import { manualRefreshOutcome } from '@/features/weather/domain/manual-refresh-outcome';
+import { isSameWeatherLocation, type ActiveLocation } from '@/features/weather/domain/weather';
 import { findWeatherOutlook, type WeatherOutlook } from '@/features/weather/domain/weather-outlook';
 import {
   DailyOutlook,
@@ -151,9 +152,10 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   // (a first fetch, or a new place loading): a cached open and a refresh leave them still.
   // The cold `loading` status is the cache being read, so it does not count as empty.
   const [awaitingForecast, setAwaitingForecast] = useState(false);
-  // The rail's clock: read once, then again whenever the tab regains focus, so a screen
-  // left open across an hour boundary drops the ended hour on return without a timer.
-  const now = useForegroundClock();
+  // The rail's clock: read once, then again whenever the tab regains focus or a refresh
+  // settles, so a screen left open across an hour boundary drops the ended hour without a
+  // timer.
+  const now = useForegroundClock(undefined, state.status === 'ready' && state.isRefreshing);
   // The same return re-evaluates freshness, which otherwise only moves on init,
   // foreground, selection and refresh, and leaves a screen left open labelled "Fresh".
   useFocusEffect(useCallback(() => { void revalidateFreshness(); }, [revalidateFreshness]));
@@ -231,14 +233,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
     const wasFailing = state.refreshFailure !== null;
     return application.refresh().then(() => {
       const after = application.getSnapshot?.() ?? application.state;
-      const outcome = after.status !== 'ready'
-        ? 'failure_no_snapshot' as const
-        : after.refreshFailure === null
-          ? 'success' as const
-          : after.snapshot
-            ? 'failure_kept_last_known' as const
-            : 'failure_no_snapshot' as const;
-      weatherEvents.refreshFinished(wasFailing, outcome);
+      weatherEvents.refreshFinished(wasFailing, manualRefreshOutcome(after));
     });
   };
 
@@ -250,9 +245,10 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const locationCaption = captionKey ? copy[captionKey] : null;
   // After a location switch the controller keeps the previous place's snapshot as the last
   // valid result until the new place loads. It carries no name of its own, so its conditions
-  // are held back rather than shown under the new place's label.
-  const snapshot = state.snapshot !== null
-    && state.snapshot.locationKey === state.activeLocation?.locationKey
+  // are held back rather than shown under the new place's label. This is `activeLocationSnapshot`
+  // written inline: through the call the React Compiler builds the snapshot inside the screen's
+  // widest memo block, and weather-screen-memo.test.mjs guards the hourly rail against that.
+  const snapshot = state.snapshot !== null && isSameWeatherLocation(state.snapshot, state.activeLocation)
     ? state.snapshot
     : null;
   if (snapshot === null && !awaitingForecast) setAwaitingForecast(true);

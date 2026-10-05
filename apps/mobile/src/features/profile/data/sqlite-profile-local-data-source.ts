@@ -116,7 +116,7 @@ async function readProfile(database: SqliteExecutor): Promise<LocalProfileRecord
 }
 
 export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
-  private initializationPromise: Promise<LocalProfileRecord> | null = null;
+  private inFlightRead: Promise<LocalProfileRecord> | null = null;
   private readonly database: SqliteDatabase;
   private readonly dependencies: LocalProfileDependencies;
 
@@ -128,15 +128,15 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
     this.dependencies = dependencies;
   }
 
+  /**
+   * Concurrent calls share one read, and the first of them creates the row. Nothing is kept
+   * once it settles, so a write made outside this object shows on the next call.
+   */
   getOrCreateProfile(): Promise<LocalProfileRecord> {
-    if (!this.initializationPromise) {
-      this.initializationPromise = this.createProfileIfMissing().catch((error) => {
-        this.initializationPromise = null;
-        throw error;
-      });
-    }
-
-    return this.initializationPromise;
+    this.inFlightRead ??= this.createProfileIfMissing().finally(() => {
+      this.inFlightRead = null;
+    });
+    return this.inFlightRead;
   }
 
   private async createProfileIfMissing(): Promise<LocalProfileRecord> {
@@ -404,7 +404,6 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
       throw new ProfileDataSourceError('missing-profile');
     }
 
-    this.initializationPromise = Promise.resolve(profile);
     return profile;
   }
 }

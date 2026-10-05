@@ -224,6 +224,19 @@ export function isWeatherConditionCode(value: string): value is WeatherCondition
 }
 
 /**
+ * A place is its location key together with its time zone: the same coordinates in another
+ * zone are another place, because the hourly rail, the dressing day and the cache window are
+ * all read in the zone. Everything that asks "is this the active place" compares this.
+ */
+export function isSameWeatherLocation(
+  first: Pick<ActiveLocation, 'locationKey' | 'timeZone'>,
+  second: Pick<ActiveLocation, 'locationKey' | 'timeZone'> | null | undefined,
+): boolean {
+  return second != null
+    && first.locationKey === second.locationKey && first.timeZone === second.timeZone;
+}
+
+/**
  * The snapshot only when it belongs to the active place. After a place switch the previous
  * place's snapshot stays the last valid result until the new one loads, and it carries no
  * name of its own, so nothing place-dependent may render it under the new place's label.
@@ -232,5 +245,5 @@ export function activeLocationSnapshot(
   snapshot: WeatherSnapshot | null,
   activeLocation: ActiveLocation | null,
 ): WeatherSnapshot | null {
-  return snapshot !== null && snapshot.locationKey === activeLocation?.locationKey ? snapshot : null;
+  return snapshot !== null && isSameWeatherLocation(snapshot, activeLocation) ? snapshot : null;
 }

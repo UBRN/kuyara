@@ -1,6 +1,7 @@
 import type { WeatherAlertDeliveryLocalDataSource } from '@/features/notifications/data/weather-alert-delivery-local-data-source';
 import type { WeatherAlertDeliveryRecord } from '@/features/notifications/data/weather-alert-delivery-record';
 import type { NotificationKind } from '@/features/notifications/data/notification-gateway';
+import { morningBriefingIdPrefix } from '@/features/notifications/domain/morning-briefing';
 import type { SqliteDatabase } from '@/infrastructure/sqlite/sqlite-database';
 
 type WeatherAlertDeliveryRow = Readonly<{
@@ -74,8 +75,11 @@ implements WeatherAlertDeliveryLocalDataSource {
     await this.database.runAsync(
       `DELETE FROM weather_alert_deliveries
        WHERE local_profile_id = ? AND fire_at > ?
-         AND (? IS NULL OR (substr(id, 1, 17) = 'morning_briefing:') = ?)`,
-      [localProfileId, now, kind ?? null, kind === 'morning_briefing' ? 1 : 0],
+         AND (? IS NULL OR (substr(id, 1, ?) = ?) = ?)`,
+      [
+        localProfileId, now, kind ?? null,
+        morningBriefingIdPrefix.length, morningBriefingIdPrefix, kind === 'morning_briefing' ? 1 : 0,
+      ],
     );
   }
 
