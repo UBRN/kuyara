@@ -23,6 +23,7 @@ import {
   type ComposeSelection,
   type ComposeSlot,
 } from '@/features/today/application/compose-selection';
+import type { ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import { useMessages } from '@/localization/use-messages';
 import { layout, spacing } from '@/theme/theme';
 
@@ -37,7 +38,7 @@ type ComposeSheetProps = Readonly<{
   palette: GarmentOutfitPalette;
   selection: ComposeSelection;
   onToggle: (piece: ComposePiece) => void;
-  onColor: (slot: ComposeSlot, colorId: string | null) => void;
+  onColor: (slot: ComposeSlot, colorId: ClosetColorOptionId | null) => void;
   onBuild: () => void;
   busy: boolean;
 }>;
@@ -75,7 +76,7 @@ function useCompose() {
   const messages = useMessages();
   const copy = messages.today.compose;
   const pieceName = (id: ComposePiece['garmentTypeId']) => messages.catalog[`catalog.garment_type.${id}.name`];
-  const colorName = (id: string) => messages.wardrobe.colorOptionNames[id] ?? id;
+  const colorName = (id: ClosetColorOptionId) => messages.wardrobe.colorOptionNames[id];
   return { messages, copy, pieceName, colorName };
 }
 

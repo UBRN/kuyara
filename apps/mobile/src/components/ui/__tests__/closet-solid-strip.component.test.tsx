@@ -1,13 +1,13 @@
 import { fireEvent, render, within } from '@testing-library/react-native';
 
 import { ClosetSolidStrip } from '@/components/ui/closet-solid-strip';
-import { closetSolidSwatches } from '@/features/wardrobe/domain/closet-color-options';
+import { closetSolidSwatches, type ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 const names = (id: string) => `name of ${id}`;
 
-async function renderStrip(selectedId: string | null, onSelect = jest.fn()) {
+async function renderStrip(selectedId: ClosetColorOptionId | null, onSelect = jest.fn()) {
   const result = await render(
     <KuyaraThemeContext.Provider value={lightTheme}>
       <ClosetSolidStrip colorName={names} label="Colour of the top" onSelect={onSelect} selectedId={selectedId}

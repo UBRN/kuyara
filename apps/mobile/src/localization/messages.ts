@@ -14,6 +14,7 @@ import type {
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
 import type { WindSpeedUnit } from '@/domain/wind-speed';
+import type { ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import {
   catalogMessages,
   type CatalogMessages,
@@ -871,7 +872,7 @@ export type AppMessages = Readonly<{
     moreColorsLabel: string;
     // The 47 palette options by their stored ID (`closet-color-options.ts`): 33 solids,
     // then 14 two-colour and pattern options.
-    colorOptionNames: Readonly<Record<string, string>>;
+    colorOptionNames: Readonly<Record<ClosetColorOptionId, string>>;
     colorUnspecified: string;
     saveAction: string;
     // O10: the Closet names the piece it has just saved, with Undo.
