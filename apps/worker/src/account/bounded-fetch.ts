@@ -1,3 +1,4 @@
+import { withDeadline } from '../attempt-timeout.ts';
 import type { FetchLike } from '../default-fetch.ts';
 import { readTextWithLimit } from '../json-request.ts';
 import { AccountError } from './account-error.ts';
@@ -17,27 +18,25 @@ export async function boundedFetch(
   init: RequestInit,
   timeoutMs: number,
 ): Promise<Readonly<{ status: number; json: unknown }>> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    // 'manual', not 'error': workerd rejects 'error' before any network call.
-    const response = await fetchImpl(url, { ...init, redirect: 'manual', signal: controller.signal });
-    const text = await readTextWithLimit(response.body, maxBodyBytes);
-    // An oversized answer is not one this call knows how to read: fail closed.
-    if (text === undefined) throw new AccountError('unavailable');
-    let json: unknown;
-    if (text.length > 0) {
-      try {
-        json = JSON.parse(text);
-      } catch {
-        // A body that is not JSON is reported as no JSON; the status still tells the story.
-        json = undefined;
+    return await withDeadline(timeoutMs, async (signal) => {
+      // 'manual', not 'error': workerd rejects 'error' before any network call.
+      const response = await fetchImpl(url, { ...init, redirect: 'manual', signal });
+      const text = await readTextWithLimit(response.body, maxBodyBytes);
+      // An oversized answer is not one this call knows how to read: fail closed.
+      if (text === undefined) throw new AccountError('unavailable');
+      let json: unknown;
+      if (text.length > 0) {
+        try {
+          json = JSON.parse(text);
+        } catch {
+          // A body that is not JSON is reported as no JSON; the status still tells the story.
+          json = undefined;
+        }
       }
-    }
-    return { status: response.status, json };
+      return { status: response.status, json };
+    });
   } catch {
     throw new AccountError('unavailable');
-  } finally {
-    clearTimeout(timer);
   }
 }

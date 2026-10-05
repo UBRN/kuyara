@@ -8,6 +8,7 @@ import {
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { withDeadline } from '../attempt-timeout.ts';
 import { defaultFetch, type FetchLike } from '../default-fetch.ts';
 
 const rawPlaceSchema = z.object({
@@ -65,65 +66,65 @@ export class OpenMeteoPlaceProvider {
   }
 
   async search(request: PlaceSearchV1Request): Promise<PlaceSearchV1Data> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      const valid = await this.fetchPlaces(request, request.query, controller.signal);
-      // The typed answer stays first and in upstream order; a spelling retry only appends ids it
-      // did not contain, under the same deadline. A retry that fails (timeout, upstream error,
-      // unreadable body) is a lost top-up, not a lost answer: what the typed query returned stands.
-      if (valid.length < request.limit) {
-        for (const spelling of dotlessSpellings(request.query)) {
-          let extra: RawPlace[];
-          try {
-            extra = await this.fetchPlaces(request, spelling, controller.signal);
-          } catch {
-            break;
-          }
-          const seen = new Set(valid.map((place) => place.id));
-          for (const place of extra) {
-            if (valid.length >= request.limit) break;
-            if (!seen.has(place.id)) valid.push(place);
-          }
-          if (valid.length >= request.limit) break;
-        }
-      }
-      // Rows the user could not tell apart (same name, same province and country) carry the
-      // district too; every other row keeps the short region it always had.
-      // The contract bounds `region`; when the full label would exceed it, the district and then
-      // the province are left out in turn (each part is at most 200 characters, so the last
-      // candidate always fits).
-      const regionOf = (place: RawPlace, withDistrict: boolean) => {
-        const parts = (...candidates: (string | undefined)[]) =>
-          [...new Set(candidates.filter(Boolean))].join(', ');
-        const country = place.country ?? place.country_code;
-        const district = withDistrict && place.admin2 !== place.name ? place.admin2 : undefined;
-        return [
-          parts(district, place.admin1, country),
-          parts(place.admin1, country),
-          parts(place.admin1),
-          parts(country),
-        ].find((region) => region.length > 0 && region.length <= placeSearchRegionMaxLength) ?? '';
-      };
-      const labelCounts = new Map<string, number>();
-      for (const place of valid) {
-        const label = `${place.name}\u0000${regionOf(place, false)}`;
-        labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
-      }
-      const places = valid.map((place) => ({
-        id: `place.${place.id}`,
-        displayName: place.name,
-        region: regionOf(place, (labelCounts.get(`${place.name}\u0000${regionOf(place, false)}`) ?? 0) > 1),
-        latitudeE2: Math.round(place.latitude * 100) || 0,
-        longitudeE2: Math.round(place.longitude * 100) || 0,
-        timeZone: place.timezone ?? null,
-      }));
-      return { places, attribution: ['open-meteo', 'geonames'] };
+      return await withDeadline(this.timeoutMs, (signal) => this.searchWithin(request, signal));
     } catch {
       throw new PlaceSearchProviderError();
-    } finally {
-      clearTimeout(timeout);
     }
+  }
+
+  private async searchWithin(request: PlaceSearchV1Request, signal: AbortSignal): Promise<PlaceSearchV1Data> {
+    const valid = await this.fetchPlaces(request, request.query, signal);
+    // The typed answer stays first and in upstream order; a spelling retry only appends ids it
+    // did not contain, under the same deadline. A retry that fails (timeout, upstream error,
+    // unreadable body) is a lost top-up, not a lost answer: what the typed query returned stands.
+    if (valid.length < request.limit) {
+      for (const spelling of dotlessSpellings(request.query)) {
+        let extra: RawPlace[];
+        try {
+          extra = await this.fetchPlaces(request, spelling, signal);
+        } catch {
+          break;
+        }
+        const seen = new Set(valid.map((place) => place.id));
+        for (const place of extra) {
+          if (valid.length >= request.limit) break;
+          if (!seen.has(place.id)) valid.push(place);
+        }
+        if (valid.length >= request.limit) break;
+      }
+    }
+    // Rows the user could not tell apart (same name, same province and country) carry the
+    // district too; every other row keeps the short region it always had.
+    // The contract bounds `region`; when the full label would exceed it, the district and then
+    // the province are left out in turn (each part is at most 200 characters, so the last
+    // candidate always fits).
+    const regionOf = (place: RawPlace, withDistrict: boolean) => {
+      const parts = (...candidates: (string | undefined)[]) =>
+        [...new Set(candidates.filter(Boolean))].join(', ');
+      const country = place.country ?? place.country_code;
+      const district = withDistrict && place.admin2 !== place.name ? place.admin2 : undefined;
+      return [
+        parts(district, place.admin1, country),
+        parts(place.admin1, country),
+        parts(place.admin1),
+        parts(country),
+      ].find((region) => region.length > 0 && region.length <= placeSearchRegionMaxLength) ?? '';
+    };
+    const labelCounts = new Map<string, number>();
+    for (const place of valid) {
+      const label = `${place.name}\u0000${regionOf(place, false)}`;
+      labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+    }
+    const places = valid.map((place) => ({
+      id: `place.${place.id}`,
+      displayName: place.name,
+      region: regionOf(place, (labelCounts.get(`${place.name}\u0000${regionOf(place, false)}`) ?? 0) > 1),
+      latitudeE2: Math.round(place.latitude * 100) || 0,
+      longitudeE2: Math.round(place.longitude * 100) || 0,
+      timeZone: place.timezone ?? null,
+    }));
+    return { places, attribution: ['open-meteo', 'geonames'] };
   }
 
   private async fetchPlaces(request: PlaceSearchV1Request, name: string, signal: AbortSignal): Promise<RawPlace[]> {

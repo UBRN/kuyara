@@ -155,8 +155,9 @@ test('only json-request.ts declares the rate limiter type and reads a stream by 
   assert.deepEqual(hits, [], 'import RateLimiter and readTextWithLimit from json-request.ts');
 });
 
-// The runtime's fetch is bound in one place, and a per-attempt deadline race is run in one place.
-test('only default-fetch.ts reads globalThis.fetch and only attempt-timeout.ts races a deadline', () => {
+// The runtime's fetch is bound in one place, and every deadline (a race or an abort timer) is
+// run in one place.
+test('only default-fetch.ts reads globalThis.fetch and only attempt-timeout.ts runs a deadline', () => {
   const hits = [];
   for (const relativePath of sourceFiles()) {
     const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
@@ -166,9 +167,12 @@ test('only default-fetch.ts reads globalThis.fetch and only attempt-timeout.ts r
     if (relativePath !== 'attempt-timeout.ts' && /Promise\.race\(/.test(text)) {
       hits.push(`${relativePath}: Promise.race`);
     }
+    if (relativePath !== 'attempt-timeout.ts' && /\bsetTimeout\(/.test(text)) {
+      hits.push(`${relativePath}: setTimeout`);
+    }
   }
 
-  assert.deepEqual(hits, [], 'use defaultFetch() and raceWithTimeout()');
+  assert.deepEqual(hits, [], 'use defaultFetch(), raceWithTimeout() and withDeadline()');
 });
 
 // The AI handler reads time only through its injected clock.
