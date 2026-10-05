@@ -35,3 +35,11 @@ export function percentage(value: number, language: SupportedLanguage): string {
     style: 'percent',
   }).format(value);
 }
+
+/**
+ * Whether a chance is worth showing: one that `percentage` would write as "0%" says nothing a
+ * dry hour or day does not, so it is left out like a zero. Both round half away from zero.
+ */
+export function showsChance(value: number): boolean {
+  return Math.round(value * 100) > 0;
+}

@@ -21,6 +21,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { hourlyRailMetrics, layoutHourlyRail, type HourlyRailLayout } from './hourly-rail-layout';
 import { temperatureColor, temperatureStops } from './temperature-gradient';
+import { showsChance } from './weather-format';
 
 const FADE_WIDTH = 28;
 const DOT_RADIUS = 3;
@@ -260,7 +261,7 @@ function HourlyColumn({ bandHeight, column, labelTop, onBandLayout, width }: Rea
           dot and label stay on one grid. The column's own accessibility label states the
           chance either way. */}
       <View style={styles.chance}>
-        {column.precipitationProbability > 0 ? (
+        {showsChance(column.precipitationProbability) ? (
           <>
             <Icon
               color={theme.colors.iconSecondary}
