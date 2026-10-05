@@ -69,8 +69,9 @@ Every third-party action in every workflow is pinned to a full commit SHA with i
 tag in a trailing comment, so Dependabot's `github-actions` ecosystem bumps both together.
 
 `.github/workflows/deploy-worker.yml` is the only workflow that can deploy the Worker, and
-it starts only from a manual `workflow_dispatch` that picks the `production` or `e2e`
-Wrangler environment; nothing deploys on push and one deploy runs at a time. It installs
+it starts only from a manual `workflow_dispatch` and deploys the top-level (production)
+Wrangler configuration; the local-only `e2e` environment is never deployed, nothing deploys on
+push and one deploy runs at a time. It installs
 from the lockfile, typechecks and tests the Worker, bundles it with a dry-run
 `wrangler deploy`, then deploys through the GitHub `production` environment. That
 environment needs the secret `CLOUDFLARE_API_TOKEN` and the variable
@@ -151,7 +152,7 @@ pnpm --filter @kuyara/worker test
 
 The focused coverage includes strict normalized-coordinate and IANA-time-zone requests, weather invariants, stable error shapes, route/method handling, and privacy-safe responses. Real-provider suites cover WeatherKit, Open-Meteo, and OpenWeather raw validation, unit/condition mapping, eligible ordered fallback, bounded timeouts, attribution, rate limiting, and the best-effort OpenWeather daily cap; the deterministic provider remains an injected test double. WeatherKit's suite also covers the raw-response condition-code mapping, asserting all 34 codes resolve in both Apple's PascalCase REST spelling and the camelCase Swift `WeatherCondition` case names. Local Wrangler smoke testing covers the actual development runtime.
 
-The AI v1 contract suite covers strict privacy-safe request fields, candidate and payload bounds, exactly three structurally complete outfits, and health, readiness, probe, rate-limit, and stable error schemas. Worker coverage verifies ordered provider fallback, bounded attempts and timeouts, structural and closed-candidate-set validation, sanitized exhaustion, active-probe method handling and caching, per-IP limits, and the KV daily cap. Composition tests require Workers AI before OpenRouter and exclude the deterministic stub from production.
+The AI v1 contract suite covers strict privacy-safe request fields, candidate and payload bounds, exactly three structurally complete outfits, and health, readiness, probe, rate-limit, and stable error schemas. Worker coverage verifies ordered provider fallback, bounded attempts and timeouts, structural and closed-candidate-set validation, sanitized exhaustion, active-probe method handling and caching, per-IP limits, and the Durable Object daily counters. Composition tests require Workers AI before OpenRouter and exclude the deterministic stub from production.
 
 ## Mobile unit and boundary tests
 
@@ -247,7 +248,7 @@ Maestro reads `.maestro/config.yaml` and executes the local flows tagged for the
 
 The AI chain is three tiers (on-device, Worker, deterministic fallback), and an automated run has to be able to pick one deliberately. Two switches do that; neither adds a branch to production code.
 
-The **no-AI Worker** is the named `e2e` environment in `apps/worker/wrangler.jsonc`. It serves real weather and real place search with both provider model lists empty, so `/v1/ai/recommend` answers `503 ai_unavailable` at once and the app falls to the deterministic three. Wrangler does not inherit bindings into a named environment, so that environment repeats the AI, KV and rate-limit bindings; the empty model lists are the only difference from the deployed configuration. Run it on the port the mobile default expects:
+The **no-AI Worker** is the named `e2e` environment in `apps/worker/wrangler.jsonc`. It serves real weather and real place search with both provider model lists empty, so `/v1/ai/recommend` answers `503 ai_unavailable` at once and the app falls to the deterministic three. Wrangler does not inherit bindings into a named environment, so that environment repeats the AI, Durable Object and rate-limit bindings; the empty model lists are the only difference from the deployed configuration. Run it on the port the mobile default expects:
 
 ```bash
 pnpm --filter @kuyara/worker exec wrangler dev --env e2e --port 8788
