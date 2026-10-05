@@ -1,0 +1,126 @@
+{
+  "initial": {
+    "t": 14,
+    "sky": "cloudy",
+    "atmosphere": "veiledDay",
+    "ink": "cloudy",
+    "range": [
+      -6,
+      34
+    ],
+    "condition": {
+      "en": "Cloudy",
+      "tr": "Bulutlu"
+    },
+    "archetype": {
+      "en": "On the Move",
+      "tr": "Hareketli Gün"
+    },
+    "options": {
+      "en": [
+        "On the Move",
+        "In-Between",
+        "Easy Everyday"
+      ],
+      "tr": [
+        "Hareketli Gün",
+        "Değişken Hava",
+        "Günlük Rahat"
+      ]
+    },
+    "touches": {
+      "en": "Finishing touches",
+      "tr": "Son dokunuşlar"
+    },
+    "alternatives": {
+      "en": "Alternative outfits",
+      "tr": "Alternatif kombinler"
+    },
+    "skies": {
+      "en": {
+        "clear": "Clear",
+        "cloudy": "Cloudy",
+        "rain": "Rain",
+        "snow": "Snow"
+      },
+      "tr": {
+        "clear": "Açık",
+        "cloudy": "Bulutlu",
+        "rain": "Yağmurlu",
+        "snow": "Karlı"
+      }
+    },
+    "preferences": {
+      "en": {
+        "womens": "Woman",
+        "mens": "Man"
+      },
+      "tr": {
+        "womens": "Kadın",
+        "mens": "Erkek"
+      }
+    }
+  },
+  "story": [
+    {
+      "id": "morning",
+      "hour": "08:00",
+      "t": 18,
+      "ink": "clearDay",
+      "atmosphere": "clearDay",
+      "condition": {
+        "en": "Clear",
+        "tr": "Açık"
+      },
+      "archetype": {
+        "en": "Light and Airy",
+        "tr": "Hafif ve Ferah"
+      }
+    },
+    {
+      "id": "midday",
+      "hour": "12:00",
+      "t": 10,
+      "ink": "cloudy",
+      "atmosphere": "veiledDay",
+      "condition": {
+        "en": "Cloudy",
+        "tr": "Bulutlu"
+      },
+      "archetype": {
+        "en": "On the Move",
+        "tr": "Hareketli Gün"
+      }
+    },
+    {
+      "id": "afternoon",
+      "hour": "16:00",
+      "t": 12,
+      "ink": "rain",
+      "atmosphere": "fallingDay",
+      "condition": {
+        "en": "Rain",
+        "tr": "Yağmurlu"
+      },
+      "archetype": {
+        "en": "Rain Ready",
+        "tr": "Yağmura Hazır"
+      }
+    },
+    {
+      "id": "evening",
+      "hour": "21:00",
+      "t": 4,
+      "ink": "clearNight",
+      "atmosphere": "clearNight",
+      "condition": {
+        "en": "Clear",
+        "tr": "Açık"
+      },
+      "archetype": {
+        "en": "Cold Shield",
+        "tr": "Soğuğa Karşı"
+      }
+    }
+  ]
+}
