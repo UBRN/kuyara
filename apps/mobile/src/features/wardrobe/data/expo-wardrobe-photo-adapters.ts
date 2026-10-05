@@ -213,11 +213,15 @@ export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
   }
 
   async deleteStoredPhoto(relativePath: string): Promise<void> {
-    if (!isManagedWardrobePhotoRelativePath(relativePath)) {
+    // The managed check reads the trimmed form, so the file it approved is the one deleted.
+    const normalized = isManagedWardrobePhotoRelativePath(relativePath)
+      ? normalizeWardrobePhotoRelativePath(relativePath)
+      : null;
+    if (!normalized) {
       return;
     }
 
-    const stored = new File(Paths.document, ...relativePath.split('/'));
+    const stored = new File(Paths.document, ...normalized.split('/'));
     if (stored.exists) {
       stored.delete();
     }

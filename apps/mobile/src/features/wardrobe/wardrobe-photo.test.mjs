@@ -926,6 +926,17 @@ test('deleteStoredPhoto removes a managed file, tolerates a missing one and skip
   assert.equal(nativeFiles.has(traversal), true);
 });
 
+test('deleteStoredPhoto removes the file the normalized path names, not the raw padded string', async (t) => {
+  t.after(() => nativeFiles.clear());
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  nativeFiles.clear();
+  nativeFiles.add(`file:///documents/${newPath}`);
+
+  await storage.deleteStoredPhoto(` ${newPath} `);
+
+  assert.equal(nativeFiles.has(`file:///documents/${newPath}`), false);
+});
+
 test('commitStagedPhoto copies a staged file to a managed path and rejects a missing staged file', async (t) => {
   t.after(() => nativeFiles.clear());
   const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
