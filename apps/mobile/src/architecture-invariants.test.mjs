@@ -1517,3 +1517,45 @@ test('presentation reads the wall clock only through useForegroundClock', () => 
     && /useState\(\(\) => Date\.now\(\)\)|useMemo\(\(\) => new Date\(\)/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits, [], 'read the clock with useForegroundClock');
 });
+
+// An outfit's slots, and which garment can fill each, are written once, in
+// recommendation/domain/outfit-slots.ts: `bodyOutfitSlots` lists the six body slots and
+// `slotAccepts` decides membership from a garment's structure and layer roles. Nothing slices
+// the slot list by position or lists the body slots again; the listed files still spell them
+// out and the list only shrinks.
+const bodySlotListAllowlist = [
+  // The board's dressing order is a drawing rule (ADR 0025) that happens to match slot order.
+  'components/ui/garment-board/compose-garment-board.ts',
+  'features/recommendation/domain/manual-mix.ts',
+];
+
+test('the body slots and slot membership have one owner in outfit-slots', () => {
+  const owner = 'features/recommendation/domain/outfit-slots.ts';
+  const listsBodySlots = [];
+  const slices = [];
+  const readsLayerRoles = [];
+  for (const file of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, file), 'utf8');
+    if (file !== owner && /\[\s*'primary_top',\s*'bottom',/.test(text)) listsBodySlots.push(file);
+    if (/\boutfitSlots\.slice\(/.test(text)) slices.push(file);
+    if (/supportedLayerRoles\.includes\(/.test(text)) readsLayerRoles.push(file);
+  }
+
+  assert.deepEqual(slices, [], 'iterate bodyOutfitSlots or accessoryOutfitSlots from outfit-slots');
+  assert.deepEqual(listsBodySlots.filter((file) => !bodySlotListAllowlist.includes(file)), [],
+    'import bodyOutfitSlots from outfit-slots');
+  assert.deepEqual(bodySlotListAllowlist.filter((file) => !listsBodySlots.includes(file)), [],
+    'remove these entries so the list only shrinks');
+  // Eligibility reads a layer role for applicability; every slot decision goes through slotAccepts.
+  assert.deepEqual(readsLayerRoles, ['features/recommendation/domain/garment-eligibility.ts'],
+    'decide a slot with slotAccepts from outfit-slots');
+});
+
+// A body is flattened into its pieces only by `corePieces` (and `piecesInSlotOrder` built on it)
+// in recommendation/domain/outfit-model.ts.
+test('a body is flattened into its pieces only in outfit-model', () => {
+  const owner = 'features/recommendation/domain/outfit-model.ts';
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && /primaryTop,\s*[\w.?]*bottom\s*\]/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'call corePieces or piecesInSlotOrder from outfit-model');
+});
