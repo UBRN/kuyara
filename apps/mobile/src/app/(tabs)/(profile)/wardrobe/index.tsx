@@ -29,7 +29,13 @@ export default function WardrobeRoute() {
   const categories = useVisibleClosetCategories();
   // A category the profile does not offer and holds nothing in falls back to the first shown.
   const initialCategory = resolveVisibleCategory(categories, parseStructuralCategoryParam(category));
-  const savedItemId = isWardrobeRouteId(added) ? added : null;
+  const addedItemId = isWardrobeRouteId(added) ? added : null;
+  // The last tile the add flow saved. A later edit or delete pops back here with params of
+  // its own and no `added`, which must not read as a new arrival.
+  const [savedItemId, setSavedItemId] = useState(addedItemId);
+  if (addedItemId !== null && addedItemId !== savedItemId) {
+    setSavedItemId(addedItemId);
+  }
   const messages = useMessages();
   // One guard for the plus button, the list's add action and the tiles: whichever is
   // pressed first opens its screen, and a quick second press anywhere opens nothing.
@@ -72,7 +78,8 @@ export default function WardrobeRoute() {
       />
       {/* A finished add pops back to this screen and swaps its params rather than opening a
           second Closet, so the list mounts afresh for each saved tile, as a newly opened
-          Closet would: that tile alone arrives and its confirmation shows. */}
+          Closet would: that tile alone arrives and its confirmation shows. An edit or
+          delete returns to the list as it was. */}
       <WardrobeListRoute
         categories={categories}
         initialCategory={initialCategory}
