@@ -22,13 +22,17 @@ import {
 import {
   bodyClothingRequirements,
   requirementKey,
+  type ArmCoverageRequirement,
   type BodyClothingRequirement,
   type BodyClothingRequirements,
+  type BreathabilityRequirement,
   type ClothingRequirement,
   type ClothingRequirementReasonCode,
   type ClothingRequirements,
   type ExtremityCoverRequirement,
+  type LegCoverageRequirement,
   type ThermalRequirement,
+  type WaterProtectionRequirement,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import { uniqueInRankOrder } from '@/features/recommendation/domain/rank-order';
 
@@ -253,13 +257,6 @@ type BodyCore =
       onePiece: EligibleGarmentResult;
     }>;
 
-type DraftComposition = Readonly<{
-  body: BodyCore;
-  midLayer: EligibleGarmentResult | null;
-  outerLayer: EligibleGarmentResult | null;
-  footwear: EligibleGarmentResult;
-}>;
-
 const thermalStrength: Readonly<Record<ThermalLevel, number>> = Object.freeze({
   none: 0,
   light: 1,
@@ -420,77 +417,128 @@ function findEvaluation(
   ) ?? null;
 }
 
-/**
- * Everything a draft wears above the shoes, shared by the drafts that differ only in them.
- * `aggregateProperties`, `candidateKeys`, `compositionKey` and every requirement evaluation
- * ask for this list, and the enumeration pairs one body, mid and outer with every eligible
- * shoe, so `collectValidOutfits` builds it once per body-and-layers triple and hands the
- * same frozen list to each of that triple's drafts.
- */
-const bodyResultsByDraft = new WeakMap<
-  DraftComposition,
-  readonly EligibleGarmentResult[]
->();
+/** One body core with its layers: a triple the enumeration pairs with every shoe. */
+type BodyPieces = Readonly<{
+  body: BodyCore;
+  midLayer: EligibleGarmentResult | null;
+  outerLayer: EligibleGarmentResult | null;
+  /** The body pieces, then the mid and the outer layer. */
+  results: readonly EligibleGarmentResult[];
+  candidateKeys: ReadonlySet<string>;
+  /** Whether one candidate fills two of the triple's slots, which no outfit may do. */
+  repeatsCandidate: boolean;
+  /** The least and most formal piece, -1 for a piece that has no formality. */
+  formalityRange: Readonly<{ lowest: number; highest: number }>;
+}>;
 
-function bodySideResults(
+function bodyPiecesOf(
   body: BodyCore,
   midLayer: EligibleGarmentResult | null,
   outerLayer: EligibleGarmentResult | null,
-): readonly EligibleGarmentResult[] {
-  const core = body.kind === 'separates'
-    ? [body.primaryTop, body.bottom]
-    : [body.onePiece];
-
-  return Object.freeze([
-    ...core,
+): BodyPieces {
+  const results = Object.freeze([
+    ...(body.kind === 'separates' ? [body.primaryTop, body.bottom] : [body.onePiece]),
     ...(midLayer ? [midLayer] : []),
     ...(outerLayer ? [outerLayer] : []),
   ]);
+  const candidateKeys = new Set(results.map(({ candidateKey }) => candidateKey));
+  const ranks = results.map(formalityRankOf);
+  return Object.freeze({
+    body,
+    midLayer,
+    outerLayer,
+    results,
+    candidateKeys,
+    repeatsCandidate: candidateKeys.size !== results.length,
+    formalityRange: Object.freeze({ lowest: Math.min(...ranks), highest: Math.max(...ranks) }),
+  });
 }
 
-function bodyResults(draft: DraftComposition): readonly EligibleGarmentResult[] {
-  const cached = bodyResultsByDraft.get(draft);
-  if (cached) {
-    return cached;
-  }
+/**
+ * Everything a draft wears above the shoes and what the day makes of it, read once per triple
+ * and shared by every shoe the triple is paired with, since none of it depends on the shoe.
+ * `evaluations` holds the requirements the body side answers on its own, in the day's order,
+ * with null where the shoe decides; `penalties` the penalties it earns on its own.
+ */
+type BodySide = BodyPieces & Readonly<{
+  /** `results` without the outer layer. */
+  coreAndMid: readonly EligibleGarmentResult[];
+  sortedCandidateKeys: readonly string[];
+  bodyStrength: number;
+  ladderStrength: number;
+  breathability: Readonly<{ body: Breathability | null; coreAndMid: Breathability | null }>;
+  armCoverage: Coverage | null;
+  legCoverage: Coverage | null;
+  /** The pieces that carry any warmth, which the thermal evaluation names. */
+  thermalCandidateKeys: readonly string[];
+  /** The least formal piece that has a formality, -1 when none has. */
+  leastFormalRank: number;
+  /** Each slot's eligibility score in slot order, -1 for an empty layer. */
+  slotScores: readonly number[];
+  /** The composition key up to the shoe. */
+  compositionKeyPrefix: string;
+  /** The body core and the layers, the keys the offer groups and spreads drafts by. */
+  bodyCoreKey: string;
+  layerKey: string;
+  evaluations: readonly (OutfitRequirementEvaluation | null)[];
+  penalties: BodySidePenalties;
+}>;
 
-  const results = bodySideResults(draft.body, draft.midLayer, draft.outerLayer);
-  bodyResultsByDraft.set(draft, results);
-  return results;
-}
+type BodySideReadings = Omit<BodySide, 'evaluations' | 'penalties'>;
 
-// Only the breathability branch names the body's candidate keys, so the sorted list is cut
-// lazily and once per triple, not for every requirement of every draft.
-const bodyKeysByResults = new WeakMap<
-  readonly EligibleGarmentResult[],
-  readonly string[]
->();
-
-function bodyCandidateKeys(draft: DraftComposition): readonly string[] {
-  const results = bodyResults(draft);
-  const cached = bodyKeysByResults.get(results);
-  if (cached) {
-    return cached;
-  }
-
-  const keys = Object.freeze(
-    results.map(({ candidateKey }) => candidateKey).sort(compareStrings),
-  );
-  bodyKeysByResults.set(results, keys);
-  return keys;
-}
-
-function coreAndMidResults(
-  draft: DraftComposition,
-): readonly EligibleGarmentResult[] {
-  const core = draft.body.kind === 'separates'
-    ? [draft.body.primaryTop, draft.body.bottom]
-    : [draft.body.onePiece];
-
-  return Object.freeze([
-    ...core,
-    ...(draft.midLayer ? [draft.midLayer] : []),
-  ]);
+function bodySideOf(
+  pieces: BodyPieces,
+  requirements: BodyClothingRequirements,
+): BodySide {
+  const { body, midLayer, outerLayer, results } = pieces;
+  const core = body.kind === 'separates'
+    ? [body.primaryTop, body.bottom]
+    : [body.onePiece];
+  const coreAndMid = Object.freeze([...core, ...(midLayer ? [midLayer] : [])]);
+  const formalityRanks = results.map(formalityRankOf).filter((rank) => rank >= 0);
+  const readings: BodySideReadings = {
+    ...pieces,
+    coreAndMid,
+    sortedCandidateKeys: Object.freeze(results.map(({ candidateKey }) => candidateKey).sort(compareStrings)),
+    bodyStrength: results.reduce((sum, result) => sum + thermalStrengthOf(result), 0),
+    ladderStrength: thermalLadderStrength(core[0]!, midLayer, outerLayer),
+    breathability: Object.freeze({
+      body: minimumBreathability(results),
+      coreAndMid: minimumBreathability(coreAndMid),
+    }),
+    armCoverage: maximumCoverage(results.map(({ garment }) => garment.properties.armCoverage)),
+    legCoverage: maximumCoverage(results.map(({ garment }) => garment.properties.legCoverage)),
+    thermalCandidateKeys: Object.freeze(
+      results
+        .filter(({ garment }) =>
+          garment.properties.thermalLevel !== null &&
+          garment.properties.thermalLevel !== 'none')
+        .map(({ candidateKey }) => candidateKey)
+        .sort(compareStrings),
+    ),
+    leastFormalRank: formalityRanks.length === 0 ? -1 : Math.min(...formalityRanks),
+    slotScores: Object.freeze([
+      ...core.map(({ score }) => score),
+      midLayer?.score ?? -1,
+      outerLayer?.score ?? -1,
+    ]),
+    compositionKeyPrefix: [
+      body.kind,
+      ...core.map(({ candidateKey }) => candidateKey),
+      midLayer?.candidateKey ?? '-',
+      outerLayer?.candidateKey ?? '-',
+    ].join('|'),
+    bodyCoreKey: [body.kind, ...core.map(({ garment }) => garment.candidateKey)].join('|'),
+    layerKey: `${midLayer?.garment.candidateKey ?? '-'}` +
+      `|${outerLayer?.garment.candidateKey ?? '-'}`,
+  };
+  const evaluations = Object.freeze(requirements.requirements.map((requirement) =>
+    readsFootwear(requirement) ? null : evaluateBodyRequirement(requirement, readings, requirements)));
+  return Object.freeze({
+    ...readings,
+    evaluations,
+    penalties: bodySidePenalties(requirements, readings, evaluations),
+  });
 }
 
 function minimumBreathability(
@@ -554,50 +602,41 @@ function thermalStrengthOf(result: EligibleGarmentResult | null): number {
  * 2026-09-17 answered -5 C without a coat in all 1512 of its outfits and gave the same
  * answer at -10 C as at +3 C (A2/B1 and A2/B2).
  */
-function thermalLadderStrength(draft: DraftComposition): number {
-  const core = draft.body.kind === 'separates'
-    ? draft.body.primaryTop
-    : draft.body.onePiece;
+function thermalLadderStrength(
+  core: EligibleGarmentResult,
+  midLayer: EligibleGarmentResult | null,
+  outerLayer: EligibleGarmentResult | null,
+): number {
   return thermalStrengthOf(core) +
-    thermalStrengthOf(draft.midLayer) +
-    thermalStrengthOf(draft.outerLayer);
+    thermalStrengthOf(midLayer) +
+    thermalStrengthOf(outerLayer);
 }
 
 function aggregateProperties(
-  draft: DraftComposition,
+  side: BodySideReadings,
+  footwear: EligibleGarmentResult,
 ): OutfitAggregateProperties {
-  const body = bodyResults(draft);
-  const coreAndMid = coreAndMidResults(draft);
-  const bodyStrength = body.reduce(
-    (sum, result) => sum + thermalStrengthOf(result),
-    0,
-  );
-
   return Object.freeze({
     thermal: Object.freeze({
-      bodyStrength,
-      effectiveBodyLevel: effectiveThermalLevel(bodyStrength),
-      footwear: draft.footwear.garment.properties.thermalLevel,
+      bodyStrength: side.bodyStrength,
+      effectiveBodyLevel: effectiveThermalLevel(side.bodyStrength),
+      footwear: footwear.garment.properties.thermalLevel,
     }),
     breathability: Object.freeze({
-      body: minimumBreathability(body),
-      coreAndMid: minimumBreathability(coreAndMid),
-      footwear: draft.footwear.garment.properties.breathability,
+      body: side.breathability.body,
+      coreAndMid: side.breathability.coreAndMid,
+      footwear: footwear.garment.properties.breathability,
     }),
-    armCoverage: maximumCoverage(
-      body.map(({ garment }) => garment.properties.armCoverage),
-    ),
-    legCoverage: maximumCoverage(
-      body.map(({ garment }) => garment.properties.legCoverage),
-    ),
+    armCoverage: side.armCoverage,
+    legCoverage: side.legCoverage,
     bodyWaterProtection:
-      draft.outerLayer?.garment.properties.waterProtection ?? null,
+      side.outerLayer?.garment.properties.waterProtection ?? null,
     footwearWaterProtection:
-      draft.footwear.garment.properties.waterProtection,
+      footwear.garment.properties.waterProtection,
     windProtection:
-      draft.outerLayer?.garment.properties.windProtection ?? null,
+      side.outerLayer?.garment.properties.windProtection ?? null,
     tractionSuitability:
-      draft.footwear.garment.properties.tractionSuitability,
+      footwear.garment.properties.tractionSuitability,
   });
 }
 
@@ -645,13 +684,9 @@ function evaluationStatus(
 }
 
 function mandatoryProtectiveOuter(
-  draft: DraftComposition,
+  outerLayer: EligibleGarmentResult,
   requirements: BodyClothingRequirements,
 ): boolean {
-  if (!draft.outerLayer) {
-    return false;
-  }
-
   return requirements.requirements.some((requirement) => {
     const targetsOuter =
       (requirement.kind === 'water_protection' &&
@@ -659,162 +694,25 @@ function mandatoryProtectiveOuter(
       requirement.kind === 'wind_protection';
     return targetsOuter &&
       requirement.priority === 'mandatory' &&
-      findEvaluation(draft.outerLayer, requirement)?.status === 'met';
+      findEvaluation(outerLayer, requirement)?.status === 'met';
   });
 }
 
-function evaluateRequirement(
+/** Whether the shoe decides a requirement: the day's warmth reaches the feet, and the feet's own water and grip. */
+function readsFootwear(requirement: BodyClothingRequirement): boolean {
+  return requirement.kind === 'thermal' ||
+    requirement.kind === 'traction' ||
+    (requirement.kind === 'water_protection' && requirement.target === 'feet');
+}
+
+function outfitEvaluation(
   requirement: BodyClothingRequirement,
-  draft: DraftComposition,
-  aggregates: OutfitAggregateProperties,
-  requirements: BodyClothingRequirements,
+  status: OutfitRequirementEvaluation['status'],
+  contribution: number,
+  observedContribution: number,
+  suppliedByCandidateKeys: readonly string[],
+  tradeoffCandidateKeys: readonly string[] = Object.freeze([]),
 ): OutfitRequirementEvaluation {
-  const body = bodyResults(draft);
-  let contribution = 0;
-  let observedContribution = 0;
-  let missing = false;
-  let status: OutfitRequirementEvaluation['status'];
-  let suppliedByCandidateKeys: readonly string[] = Object.freeze([]);
-  let tradeoffCandidateKeys: readonly string[] = Object.freeze([]);
-
-  switch (requirement.kind) {
-    case 'thermal': {
-      const required = thermalStrength[requirement.minimum];
-      contribution = Math.min(
-        percentage(thermalLadderStrength(draft), required),
-        shellPercentage(requirement.minimum, draft.outerLayer),
-        footwearThermalPercentage(required, aggregates.thermal.footwear),
-      );
-      observedContribution = contribution;
-      suppliedByCandidateKeys = Object.freeze(
-        body
-          .filter(({ garment }) =>
-            garment.properties.thermalLevel !== null &&
-            garment.properties.thermalLevel !== 'none')
-          .map(({ candidateKey }) => candidateKey)
-          .sort(compareStrings),
-      );
-      break;
-    }
-    case 'breathability': {
-      const required = breathabilityStrength[requirement.minimum];
-      const allowLightModerate = requirement.priority === 'mandatory' &&
-        requirement.minimum === 'high';
-      const bodyValue = allowLightModerate
-        ? minimumBreathability(body, true)
-        : aggregates.breathability.body;
-      const coreValue = allowLightModerate
-        ? minimumBreathability(coreAndMidResults(draft), true)
-        : aggregates.breathability.coreAndMid;
-      observedContribution = bodyValue === null
-        ? 0
-        : percentage(breathabilityStrength[bodyValue], required);
-      contribution = observedContribution;
-      missing = bodyValue === null;
-      suppliedByCandidateKeys = bodyCandidateKeys(draft);
-
-      if (
-        requirement.priority === 'mandatory' &&
-        observedContribution < 100 &&
-        coreValue !== null &&
-        breathabilityStrength[coreValue] >= required &&
-        mandatoryProtectiveOuter(draft, requirements)
-      ) {
-        contribution = 100;
-        status = 'tradeoff';
-        tradeoffCandidateKeys = Object.freeze([
-          draft.outerLayer!.candidateKey,
-        ]);
-        return Object.freeze({
-          requirement: cloneRequirement(requirement),
-          status,
-          contribution,
-          observedContribution,
-          suppliedByCandidateKeys,
-          tradeoffCandidateKeys,
-          reasonCodes: Object.freeze([...requirement.reasonCodes]),
-        });
-      }
-      break;
-    }
-    case 'arm_coverage': {
-      const actual = aggregates.armCoverage;
-      contribution = actual === null
-        ? 0
-        : percentage(
-            coverageStrength[actual],
-            coverageStrength[requirement.minimum],
-          );
-      observedContribution = contribution;
-      missing = actual === null;
-      suppliedByCandidateKeys = Object.freeze(
-        body
-          .filter(({ garment }) => garment.properties.armCoverage !== null)
-          .map(({ candidateKey }) => candidateKey)
-          .sort(compareStrings),
-      );
-      break;
-    }
-    case 'leg_coverage': {
-      const actual = aggregates.legCoverage;
-      contribution = actual === null
-        ? 0
-        : percentage(
-            coverageStrength[actual],
-            coverageStrength[requirement.minimum],
-          );
-      observedContribution = contribution;
-      missing = actual === null;
-      suppliedByCandidateKeys = Object.freeze(
-        body
-          .filter(({ garment }) => garment.properties.legCoverage !== null)
-          .map(({ candidateKey }) => candidateKey)
-          .sort(compareStrings),
-      );
-      break;
-    }
-    case 'water_protection': {
-      const supplier = requirement.target === 'body'
-        ? draft.outerLayer
-        : draft.footwear;
-      const evaluation = findEvaluation(supplier, requirement);
-      contribution = evaluation?.contribution ?? 0;
-      observedContribution = contribution;
-      missing = !evaluation ||
-        evaluation.status === 'missing' ||
-        evaluation.status === 'not_applicable';
-      suppliedByCandidateKeys = supplier && !missing
-        ? Object.freeze([supplier.candidateKey])
-        : Object.freeze([]);
-      break;
-    }
-    case 'wind_protection': {
-      const evaluation = findEvaluation(draft.outerLayer, requirement);
-      contribution = evaluation?.contribution ?? 0;
-      observedContribution = contribution;
-      missing = !evaluation ||
-        evaluation.status === 'missing' ||
-        evaluation.status === 'not_applicable';
-      suppliedByCandidateKeys = draft.outerLayer && !missing
-        ? Object.freeze([draft.outerLayer.candidateKey])
-        : Object.freeze([]);
-      break;
-    }
-    case 'traction': {
-      const evaluation = findEvaluation(draft.footwear, requirement);
-      contribution = evaluation?.contribution ?? 0;
-      observedContribution = contribution;
-      missing = !evaluation ||
-        evaluation.status === 'missing' ||
-        evaluation.status === 'not_applicable';
-      suppliedByCandidateKeys = !missing
-        ? Object.freeze([draft.footwear.candidateKey])
-        : Object.freeze([]);
-      break;
-    }
-  }
-
-  status = evaluationStatus(contribution, missing);
   const copy = copyOf(requirement);
   return Object.freeze({
     requirement: copy.requirement,
@@ -827,14 +725,174 @@ function evaluateRequirement(
   });
 }
 
+/**
+ * A requirement one garment answers on its own, read from that garment's own evaluation: the
+ * outer layer for the body's water and the wind, the shoe for the feet's water and grip.
+ */
+function suppliedEvaluation(
+  requirement: BodyClothingRequirement,
+  supplier: EligibleGarmentResult | null,
+): OutfitRequirementEvaluation {
+  const evaluation = findEvaluation(supplier, requirement);
+  const contribution = evaluation?.contribution ?? 0;
+  const missing = !evaluation ||
+    evaluation.status === 'missing' ||
+    evaluation.status === 'not_applicable';
+  return outfitEvaluation(
+    requirement,
+    evaluationStatus(contribution, missing),
+    contribution,
+    contribution,
+    Object.freeze(supplier && !missing ? [supplier.candidateKey] : []),
+  );
+}
+
+function coverageEvaluation(
+  requirement: ArmCoverageRequirement | LegCoverageRequirement,
+  side: BodySideReadings,
+): OutfitRequirementEvaluation {
+  const coverageOf = ({ garment }: EligibleGarmentResult) =>
+    requirement.kind === 'arm_coverage'
+      ? garment.properties.armCoverage
+      : garment.properties.legCoverage;
+  const actual = requirement.kind === 'arm_coverage' ? side.armCoverage : side.legCoverage;
+  const contribution = actual === null
+    ? 0
+    : percentage(coverageStrength[actual], coverageStrength[requirement.minimum]);
+  return outfitEvaluation(
+    requirement,
+    evaluationStatus(contribution, actual === null),
+    contribution,
+    contribution,
+    Object.freeze(
+      side.results
+        .filter((result) => coverageOf(result) !== null)
+        .map(({ candidateKey }) => candidateKey)
+        .sort(compareStrings),
+    ),
+  );
+}
+
+function breathabilityEvaluation(
+  requirement: BreathabilityRequirement,
+  side: BodySideReadings,
+  requirements: BodyClothingRequirements,
+): OutfitRequirementEvaluation {
+  const required = breathabilityStrength[requirement.minimum];
+  const allowLightModerate = requirement.priority === 'mandatory' &&
+    requirement.minimum === 'high';
+  const bodyValue = allowLightModerate
+    ? minimumBreathability(side.results, true)
+    : side.breathability.body;
+  const coreValue = allowLightModerate
+    ? minimumBreathability(side.coreAndMid, true)
+    : side.breathability.coreAndMid;
+  const observedContribution = bodyValue === null
+    ? 0
+    : percentage(breathabilityStrength[bodyValue], required);
+
+  if (
+    requirement.priority === 'mandatory' &&
+    observedContribution < 100 &&
+    coreValue !== null &&
+    breathabilityStrength[coreValue] >= required &&
+    side.outerLayer &&
+    mandatoryProtectiveOuter(side.outerLayer, requirements)
+  ) {
+    return outfitEvaluation(
+      requirement,
+      'tradeoff',
+      100,
+      observedContribution,
+      side.sortedCandidateKeys,
+      Object.freeze([side.outerLayer.candidateKey]),
+    );
+  }
+
+  return outfitEvaluation(
+    requirement,
+    evaluationStatus(observedContribution, bodyValue === null),
+    observedContribution,
+    observedContribution,
+    side.sortedCandidateKeys,
+  );
+}
+
+function thermalEvaluation(
+  requirement: ThermalRequirement,
+  side: BodySideReadings,
+  footwear: EligibleGarmentResult,
+): OutfitRequirementEvaluation {
+  const required = thermalStrength[requirement.minimum];
+  const contribution = Math.min(
+    percentage(side.ladderStrength, required),
+    shellPercentage(requirement.minimum, side.outerLayer),
+    footwearThermalPercentage(required, footwear.garment.properties.thermalLevel),
+  );
+  return outfitEvaluation(
+    requirement,
+    evaluationStatus(contribution, false),
+    contribution,
+    contribution,
+    side.thermalCandidateKeys,
+  );
+}
+
+/** A requirement the body side answers whatever the shoe: see `readsFootwear`. */
+function evaluateBodyRequirement(
+  requirement: BodyClothingRequirement,
+  side: BodySideReadings,
+  requirements: BodyClothingRequirements,
+): OutfitRequirementEvaluation {
+  switch (requirement.kind) {
+    case 'breathability':
+      return breathabilityEvaluation(requirement, side, requirements);
+    case 'arm_coverage':
+    case 'leg_coverage':
+      return coverageEvaluation(requirement, side);
+    case 'water_protection':
+    case 'wind_protection':
+      return suppliedEvaluation(requirement, side.outerLayer);
+    default:
+      throw new Error(`The shoe decides the ${requirement.kind} requirement.`);
+  }
+}
+
+/** A requirement the shoe decides: see `readsFootwear`. */
+function evaluateFootwearRequirement(
+  requirement: BodyClothingRequirement,
+  side: BodySideReadings,
+  footwear: EligibleGarmentResult,
+): OutfitRequirementEvaluation {
+  switch (requirement.kind) {
+    case 'thermal':
+      return thermalEvaluation(requirement, side, footwear);
+    case 'water_protection':
+    case 'traction':
+      return suppliedEvaluation(requirement, footwear);
+    default:
+      throw new Error(`The body side decides the ${requirement.kind} requirement.`);
+  }
+}
+
+/** Every requirement of the day against one draft, in the day's order. */
+function draftEvaluations(
+  side: BodySide,
+  footwear: EligibleGarmentResult,
+  requirements: BodyClothingRequirements,
+): readonly OutfitRequirementEvaluation[] {
+  return Object.freeze(requirements.requirements.map((requirement, index) =>
+    side.evaluations[index] ?? evaluateFootwearRequirement(requirement, side, footwear)));
+}
+
 function thermalOverProtectionPenalty(
   requirements: BodyClothingRequirements,
-  draft: DraftComposition,
-  bodyStrength: number,
+  side: BodySideReadings,
 ): number {
   const requirement = requirements.requirements.find(
     (candidate) => candidate.kind === 'thermal',
   );
+  const bodyStrength = side.bodyStrength;
 
   if (!requirement) {
     return bodyStrength <= 1 ? 0 : bodyStrength === 2 ? 10 : 20;
@@ -847,7 +905,7 @@ function thermalOverProtectionPenalty(
   // finished behind the same outfit without one (A2/K2). The bottom is named by no rung, so
   // it keeps the one layer legs are dressed in whatever the day, and thermal legwear on top
   // of that is charged at every rung.
-  const ladder = thermalLadderStrength(draft);
+  const ladder = side.ladderStrength;
   const stack = requirement.minimum === 'high'
     ? 0
     : Math.max(ladder - thermalStrength[requirement.minimum], 0);
@@ -856,47 +914,42 @@ function thermalOverProtectionPenalty(
 }
 
 /**
- * Water protection the day never asked for costs a little, on every day. The penalty used to
- * apply only once the day was warm enough to ask for breathability, so a 12 °C dry day, which
- * asks for neither, offered three outfits in rain jackets.
+ * Water protection the day never asked for costs a little, on every day, for the body's outer
+ * layer and for the shoe alike. The penalty used to apply only once the day was warm enough
+ * to ask for breathability, so a 12 °C dry day, which asks for neither, offered three outfits
+ * in rain jackets.
  */
 function unnecessaryWaterProtectionPenalty(
   requirements: BodyClothingRequirements,
-  aggregates: OutfitAggregateProperties,
+  target: WaterProtectionRequirement['target'],
+  supplier: EligibleGarmentResult | null,
 ): number {
-  const hasBodyWater = requirements.requirements.some(
+  const asked = requirements.requirements.some(
     (requirement) =>
-      requirement.kind === 'water_protection' && requirement.target === 'body',
+      requirement.kind === 'water_protection' && requirement.target === target,
   );
-  const hasFeetWater = requirements.requirements.some(
-    (requirement) =>
-      requirement.kind === 'water_protection' && requirement.target === 'feet',
-  );
-  const penaltyFor = (value: WaterProtection | null): number =>
-    value === 'waterproof' ? 10 : value === 'water_resistant' ? 5 : 0;
-
-  return (hasBodyWater ? 0 : penaltyFor(aggregates.bodyWaterProtection)) +
-    (hasFeetWater ? 0 : penaltyFor(aggregates.footwearWaterProtection));
+  const value = supplier?.garment.properties.waterProtection ?? null;
+  return asked ? 0 : value === 'waterproof' ? 10 : value === 'water_resistant' ? 5 : 0;
 }
 
 function breathabilityTradeoffPenalty(
   requirements: BodyClothingRequirements,
-  draft: DraftComposition,
-  evaluations: readonly OutfitRequirementEvaluation[],
+  outerLayer: EligibleGarmentResult | null,
+  evaluations: readonly (OutfitRequirementEvaluation | null)[],
 ): number {
   const tradeoff = evaluations.find(
     (evaluation) =>
-      evaluation.requirement.kind === 'breathability' &&
+      evaluation?.requirement.kind === 'breathability' &&
       evaluation.status === 'tradeoff',
   );
-  if (!tradeoff || !draft.outerLayer) {
+  if (!tradeoff || !outerLayer) {
     return 0;
   }
 
   const requirement = requirements.requirements.find(
     (candidate) => candidate.kind === 'breathability',
   );
-  const actual = draft.outerLayer.garment.properties.breathability;
+  const actual = outerLayer.garment.properties.breathability;
   if (!requirement) {
     return 0;
   }
@@ -904,6 +957,89 @@ function breathabilityTradeoffPenalty(
   const deficit = breathabilityStrength[requirement.minimum] -
     (actual === null ? 0 : breathabilityStrength[actual]);
   return Math.min(Math.max(deficit, 0) * 10, 20);
+}
+
+/** The penalties a body side earns whatever the shoe; the shoe adds only its own water protection. */
+type BodySidePenalties = Readonly<{
+  thermalOverProtection: number;
+  bodyWaterProtection: number;
+  breathabilityProtectionTradeoff: number;
+}>;
+
+function bodySidePenalties(
+  requirements: BodyClothingRequirements,
+  side: BodySideReadings,
+  evaluations: readonly (OutfitRequirementEvaluation | null)[],
+): BodySidePenalties {
+  return Object.freeze({
+    thermalOverProtection: thermalOverProtectionPenalty(requirements, side),
+    bodyWaterProtection: unnecessaryWaterProtectionPenalty(requirements, 'body', side.outerLayer),
+    breathabilityProtectionTradeoff: breathabilityTradeoffPenalty(
+      requirements,
+      side.outerLayer,
+      evaluations,
+    ),
+  });
+}
+
+type DraftScore = Readonly<{
+  score: number;
+  scoreBeforePenalties: number;
+  penaltyPoints: number;
+  penaltyBreakdown: OutfitPenaltyBreakdown;
+}>;
+
+/** Mandatory requirements weigh twice; the penalties come off the weighted mean, at most 30. */
+function scoreDraft(
+  side: BodySide,
+  footwear: EligibleGarmentResult,
+  evaluations: readonly OutfitRequirementEvaluation[],
+  requirements: BodyClothingRequirements,
+): DraftScore {
+  const weightOf = (evaluation: OutfitRequirementEvaluation) =>
+    evaluation.requirement.priority === 'mandatory' ? 2 : 1;
+  const weightedTotal = evaluations.reduce(
+    (sum, evaluation) => sum + evaluation.contribution * weightOf(evaluation),
+    0,
+  );
+  const totalWeight = evaluations.reduce((sum, evaluation) => sum + weightOf(evaluation), 0);
+  const scoreBeforePenalties = totalWeight === 0
+    ? 50
+    : Math.round(weightedTotal / totalWeight);
+  const penaltyBreakdown = Object.freeze({
+    thermalOverProtection: side.penalties.thermalOverProtection,
+    unnecessaryWaterProtection: side.penalties.bodyWaterProtection +
+      unnecessaryWaterProtectionPenalty(requirements, 'feet', footwear),
+    breathabilityProtectionTradeoff: side.penalties.breathabilityProtectionTradeoff,
+  });
+  const penaltyPoints = Math.min(
+    penaltyBreakdown.thermalOverProtection +
+      penaltyBreakdown.unnecessaryWaterProtection +
+      penaltyBreakdown.breathabilityProtectionTradeoff,
+    30,
+  );
+  return Object.freeze({
+    score: Math.max(scoreBeforePenalties - penaltyPoints, 0),
+    scoreBeforePenalties,
+    penaltyPoints,
+    penaltyBreakdown,
+  });
+}
+
+function penaltyReasonCodes(
+  penalties: OutfitPenaltyBreakdown,
+): readonly OutfitCompositionReasonCode[] {
+  const reasons: OutfitCompositionReasonCode[] = [];
+  if (penalties.breathabilityProtectionTradeoff > 0) {
+    reasons.push('breathability_protection_tradeoff');
+  }
+  if (penalties.thermalOverProtection > 0) {
+    reasons.push('thermal_over_protection');
+  }
+  if (penalties.unnecessaryWaterProtection > 0) {
+    reasons.push('unnecessary_water_protection');
+  }
+  return uniqueInRankOrder(reasons, reasonOrder);
 }
 
 function primaryRole(
@@ -920,40 +1056,21 @@ function primaryRole(
   return 'base';
 }
 
-function compositionKey(draft: DraftComposition): string {
-  const mid = draft.midLayer?.candidateKey ?? '-';
-  const outer = draft.outerLayer?.candidateKey ?? '-';
-  const foot = draft.footwear.candidateKey;
-
-  return draft.body.kind === 'separates'
-    ? [
-        'separates',
-        draft.body.primaryTop.candidateKey,
-        draft.body.bottom.candidateKey,
-        mid,
-        outer,
-        foot,
-      ].join('|')
-    : [
-        'one_piece',
-        draft.body.onePiece.candidateKey,
-        mid,
-        outer,
-        foot,
-      ].join('|');
+function compositionKeyOf(side: BodySideReadings, footwear: EligibleGarmentResult): string {
+  return `${side.compositionKeyPrefix}|${footwear.candidateKey}`;
 }
 
-function candidateKeys(draft: DraftComposition): readonly string[] {
-  return Object.freeze(
-    bodyResults(draft)
-      .map(({ candidateKey }) => candidateKey)
-      .concat(draft.footwear.candidateKey)
-      .sort(compareStrings),
-  );
-}
+type WornPiece = Readonly<{ garment: Readonly<{ garmentTypeId: string }> }>;
 
 export function isFormalSuit(
-  outfit: Pick<OutfitCandidate, 'body' | 'midLayer' | 'outerLayer' | 'footwear'>,
+  outfit: Readonly<{
+    body:
+      | Readonly<{ kind: 'separates'; primaryTop: WornPiece; bottom: WornPiece }>
+      | Readonly<{ kind: 'one_piece'; onePiece: WornPiece }>;
+    midLayer: WornPiece | null;
+    outerLayer: WornPiece | null;
+    footwear: WornPiece;
+  }>,
 ): boolean {
   return outfit.body.kind === 'separates' &&
     outfit.body.primaryTop.garment.garmentTypeId === 'shirt' &&
@@ -963,190 +1080,124 @@ export function isFormalSuit(
     outfit.footwear.garment.garmentTypeId === 'closed_shoes';
 }
 
-function evaluateDraft(
-  draft: DraftComposition,
-  requirements: BodyClothingRequirements,
-  skipInvalid: true,
-): OutfitCandidate | null;
-function evaluateDraft(
-  draft: DraftComposition,
-  requirements: BodyClothingRequirements,
-  skipInvalid?: false,
-): OutfitCandidate;
-function evaluateDraft(
-  draft: DraftComposition,
-  requirements: BodyClothingRequirements,
-  skipInvalid = false,
-): OutfitCandidate | null {
-  const aggregates = aggregateProperties(draft);
-  const requirementEvaluations = Object.freeze(
-    requirements.requirements.map((requirement) =>
-      evaluateRequirement(requirement, draft, aggregates, requirements),
-    ),
-  );
-  if (skipInvalid && !requirementsMet(requirementEvaluations)) {
-    return null;
-  }
-  const weightedTotal = requirementEvaluations.reduce(
-    (sum, evaluation) =>
-      sum + evaluation.contribution *
-        (evaluation.requirement.priority === 'mandatory' ? 2 : 1),
-    0,
-  );
-  const totalWeight = requirementEvaluations.reduce(
-    (sum, evaluation) =>
-      sum + (evaluation.requirement.priority === 'mandatory' ? 2 : 1),
-    0,
-  );
-  const scoreBeforePenalties = totalWeight === 0
-    ? 50
-    : Math.round(weightedTotal / totalWeight);
-  const thermalOverProtection = thermalOverProtectionPenalty(
-    requirements,
-    draft,
-    aggregates.thermal.bodyStrength,
-  );
-  const unnecessaryWaterProtection = unnecessaryWaterProtectionPenalty(
-    requirements,
-    aggregates,
-  );
-  const breathabilityProtectionTradeoff = breathabilityTradeoffPenalty(
-    requirements,
-    draft,
-    requirementEvaluations,
-  );
-  const penaltyBreakdown = Object.freeze({
-    thermalOverProtection,
-    unnecessaryWaterProtection,
-    breathabilityProtectionTradeoff,
-  });
-  const penaltyPoints = Math.min(
-    thermalOverProtection +
-      unnecessaryWaterProtection +
-      breathabilityProtectionTradeoff,
-    30,
-  );
-  const reasons: OutfitCompositionReasonCode[] = [];
-  if (breathabilityProtectionTradeoff > 0) {
-    reasons.push('breathability_protection_tradeoff');
-  }
-  if (thermalOverProtection > 0) {
-    reasons.push('thermal_over_protection');
-  }
-  if (unnecessaryWaterProtection > 0) {
-    reasons.push('unnecessary_water_protection');
-  }
-
-  const midLayer = draft.midLayer
-    ? assignedGarment(draft.midLayer, 'mid_layer', 'mid')
-    : null;
-  const outerLayer = draft.outerLayer
-    ? assignedGarment(draft.outerLayer, 'outer_layer', 'outer')
-    : null;
-  const body: OutfitBody = draft.body.kind === 'separates'
-    ? Object.freeze({
-        kind: 'separates',
-        primaryTop: assignedGarment(
-          draft.body.primaryTop,
-          'primary_top',
-          primaryRole(draft.body.primaryTop, draft.midLayer !== null),
-        ),
-        bottom: assignedGarment(draft.body.bottom, 'bottom', 'standalone'),
-      })
-    : Object.freeze({
-        kind: 'one_piece',
-        onePiece: assignedGarment(
-          draft.body.onePiece,
-          'one_piece',
-          'standalone',
-        ),
-      });
-  const footwear = assignedGarment(draft.footwear, 'footwear', null);
-  const formalities = [
-    ...(body.kind === 'separates'
-      ? [body.primaryTop, body.bottom]
-      : [body.onePiece]),
-    midLayer,
-    outerLayer,
-    footwear,
-  ].flatMap((assigned) => {
-    const formality = assigned && getGarmentType(assigned.garment.garmentTypeId)?.formality;
-    return formality ? [formality] : [];
-  });
-  const formality = isFormalSuit({ body, midLayer, outerLayer, footwear })
-    ? 'formal'
-    : formalities.reduce<Formality>((leastFormal, candidate) =>
-      formalityOrder.indexOf(candidate) < formalityOrder.indexOf(leastFormal)
-        ? candidate
-        : leastFormal,
-    formalities[0] ?? 'casual');
-
-  return Object.freeze({
-    body,
-    midLayer,
-    outerLayer,
-    footwear,
-    accessories: noAccessories,
-    aggregates,
-    requirementEvaluations,
-    score: Math.max(scoreBeforePenalties - penaltyPoints, 0),
-    scoreBeforePenalties,
-    penaltyPoints,
-    penaltyBreakdown,
-    reasonCodes: uniqueInRankOrder(reasons, reasonOrder),
-    candidateKeys: candidateKeys(draft),
-    compositionKey: compositionKey(draft),
-    formality,
-  });
-}
-
 function formalityRankOf(result: EligibleGarmentResult): number {
   const formality = getGarmentType(result.garment.garmentTypeId)?.formality;
   return formality ? formalityOrder.indexOf(formality) : -1;
 }
 
-function requirementsMet(evaluations: readonly OutfitRequirementEvaluation[]): boolean {
-  return evaluations.every(
-    ({ requirement, status }) =>
-      requirement.priority === 'optional' ||
-      status === 'met' ||
-      status === 'tradeoff',
-  );
+/** A formal suit reads formal; anything else reads as its least formal piece, casual when none says. */
+function draftFormality(side: BodySide, footwear: EligibleGarmentResult): Formality {
+  if (isFormalSuit({ body: side.body, midLayer: side.midLayer, outerLayer: side.outerLayer, footwear })) {
+    return 'formal';
+  }
+  const ranks = [side.leastFormalRank, formalityRankOf(footwear)].filter((rank) => rank >= 0);
+  return ranks.length === 0 ? 'casual' : formalityOrder[Math.min(...ranks)]!;
 }
 
-function optionalLayerCount(candidate: OutfitCandidate): number {
-  return Number(candidate.midLayer !== null) + Number(candidate.outerLayer !== null);
+/** A draft whose pieces sit more than one formality apart, or carry none, is never composed. */
+function formalitySpreadFits(lowest: number, highest: number): boolean {
+  return lowest >= 0 && highest - lowest <= 1;
 }
 
-function slotScoreVector(candidate: OutfitCandidate): readonly number[] {
-  const optionalScore = (value: AssignedOutfitGarment | null): number =>
-    value?.eligibilityScore ?? -1;
-
-  return candidate.body.kind === 'separates'
-    ? Object.freeze([
-        candidate.body.primaryTop.eligibilityScore,
-        candidate.body.bottom.eligibilityScore,
-        optionalScore(candidate.midLayer),
-        optionalScore(candidate.outerLayer),
-        candidate.footwear.eligibilityScore,
-      ])
-    : Object.freeze([
-        candidate.body.onePiece.eligibilityScore,
-        optionalScore(candidate.midLayer),
-        optionalScore(candidate.outerLayer),
-        candidate.footwear.eligibilityScore,
-      ]);
+function meetsRequirement({ requirement, status }: OutfitRequirementEvaluation): boolean {
+  return requirement.priority === 'optional' ||
+    status === 'met' ||
+    status === 'tradeoff';
 }
 
 /**
- * The comparator's own inputs, read once per outfit instead of once per comparison. A mild
- * day composes tens of thousands of valid outfits, so the sort asks for these hundreds of
- * thousands of times; `slotScoreVector` allocated and froze an array on every one of them.
+ * A draft judged against the day: its evaluations, score, formality and key. The order and the
+ * offer read only these, so a composed outfit is built from one only once it is shown.
  */
-type OutfitSortKey = {
-  readonly outfit: OutfitCandidate;
+type JudgedDraft = Readonly<{
+  side: BodySide;
+  footwear: EligibleGarmentResult;
+  evaluations: readonly OutfitRequirementEvaluation[];
+  score: DraftScore;
+  formality: Formality;
+  compositionKey: string;
+}>;
+
+function judgeDraft(
+  side: BodySide,
+  footwear: EligibleGarmentResult,
+  requirements: BodyClothingRequirements,
+  evaluations = draftEvaluations(side, footwear, requirements),
+): JudgedDraft {
+  return Object.freeze({
+    side,
+    footwear,
+    evaluations,
+    score: scoreDraft(side, footwear, evaluations, requirements),
+    formality: draftFormality(side, footwear),
+    compositionKey: compositionKeyOf(side, footwear),
+  });
+}
+
+/** The outfit a judged draft stands for, with runtime roles assigned and no accessories yet. */
+function outfitOf(judged: JudgedDraft): OutfitCandidate {
+  const { side, footwear, score } = judged;
+  const midLayer = side.midLayer
+    ? assignedGarment(side.midLayer, 'mid_layer', 'mid')
+    : null;
+  const outerLayer = side.outerLayer
+    ? assignedGarment(side.outerLayer, 'outer_layer', 'outer')
+    : null;
+  const body: OutfitBody = side.body.kind === 'separates'
+    ? Object.freeze({
+        kind: 'separates',
+        primaryTop: assignedGarment(
+          side.body.primaryTop,
+          'primary_top',
+          primaryRole(side.body.primaryTop, side.midLayer !== null),
+        ),
+        bottom: assignedGarment(side.body.bottom, 'bottom', 'standalone'),
+      })
+    : Object.freeze({
+        kind: 'one_piece',
+        onePiece: assignedGarment(
+          side.body.onePiece,
+          'one_piece',
+          'standalone',
+        ),
+      });
+
+  return Object.freeze({
+    body,
+    midLayer,
+    outerLayer,
+    footwear: assignedGarment(footwear, 'footwear', null),
+    accessories: noAccessories,
+    aggregates: aggregateProperties(side, footwear),
+    requirementEvaluations: judged.evaluations,
+    score: score.score,
+    scoreBeforePenalties: score.scoreBeforePenalties,
+    penaltyPoints: score.penaltyPoints,
+    penaltyBreakdown: score.penaltyBreakdown,
+    reasonCodes: penaltyReasonCodes(score.penaltyBreakdown),
+    candidateKeys: Object.freeze(
+      side.results
+        .map(({ candidateKey }) => candidateKey)
+        .concat(footwear.candidateKey)
+        .sort(compareStrings),
+    ),
+    compositionKey: judged.compositionKey,
+    formality: judged.formality,
+  });
+}
+
+function optionalLayerCount(draft: JudgedDraft): number {
+  return Number(draft.side.midLayer !== null) + Number(draft.side.outerLayer !== null);
+}
+
+/**
+ * The comparator's own inputs, read once per draft instead of once per comparison. A mild
+ * day composes tens of thousands of valid drafts, so the sort asks for these hundreds of
+ * thousands of times.
+ */
+type DraftSortKey = {
+  readonly draft: JudgedDraft;
   readonly layers: number;
-  readonly slotScores: readonly number[];
   digest?: number;
 };
 
@@ -1162,20 +1213,23 @@ function compositionKeyDigest(key: string): number {
   return hash >>> 0;
 }
 
-function outfitSortKey(outfit: OutfitCandidate): OutfitSortKey {
-  return {
-    outfit,
-    layers: optionalLayerCount(outfit),
-    slotScores: slotScoreVector(outfit),
-  };
+/** Each slot's eligibility score in slot order, the shoe last, compared only between drafts of one body kind. */
+function compareSlotScores(left: JudgedDraft, right: JudgedDraft): number {
+  for (let index = 0; index < left.side.slotScores.length; index += 1) {
+    const groupOrder = right.side.slotScores[index]! - left.side.slotScores[index]!;
+    if (groupOrder !== 0) {
+      return groupOrder;
+    }
+  }
+  return right.footwear.score - left.footwear.score;
 }
 
-function compareOutfitSortKeys(left: OutfitSortKey, right: OutfitSortKey): number {
-  const scoreOrder = right.outfit.score - left.outfit.score;
+function compareDraftSortKeys(left: DraftSortKey, right: DraftSortKey): number {
+  const scoreOrder = right.draft.score.score - left.draft.score.score;
   if (scoreOrder !== 0) {
     return scoreOrder;
   }
-  const penaltyOrder = left.outfit.penaltyPoints - right.outfit.penaltyPoints;
+  const penaltyOrder = left.draft.score.penaltyPoints - right.draft.score.penaltyPoints;
   if (penaltyOrder !== 0) {
     return penaltyOrder;
   }
@@ -1184,12 +1238,10 @@ function compareOutfitSortKeys(left: OutfitSortKey, right: OutfitSortKey): numbe
     return layerOrder;
   }
 
-  if (left.outfit.body.kind === right.outfit.body.kind) {
-    for (let index = 0; index < left.slotScores.length; index += 1) {
-      const groupOrder = right.slotScores[index]! - left.slotScores[index]!;
-      if (groupOrder !== 0) {
-        return groupOrder;
-      }
+  if (left.draft.side.body.kind === right.draft.side.body.kind) {
+    const slotOrder = compareSlotScores(left.draft, right.draft);
+    if (slotOrder !== 0) {
+      return slotOrder;
     }
   }
 
@@ -1199,26 +1251,18 @@ function compareOutfitSortKeys(left: OutfitSortKey, right: OutfitSortKey): numbe
   // and sneakers reached 6 of the 1512 shown outfits the grid measures. The digest keeps the
   // order deterministic and total while taking the garment's name out of it, and the key
   // itself settles the rare collision so the comparator stays a strict weak ordering.
-  const digestOrder = (left.digest ??= compositionKeyDigest(left.outfit.compositionKey)) -
-    (right.digest ??= compositionKeyDigest(right.outfit.compositionKey));
+  const digestOrder = (left.digest ??= compositionKeyDigest(left.draft.compositionKey)) -
+    (right.digest ??= compositionKeyDigest(right.draft.compositionKey));
   return digestOrder !== 0
     ? digestOrder
-    : compareStrings(left.outfit.compositionKey, right.outfit.compositionKey);
+    : compareStrings(left.draft.compositionKey, right.draft.compositionKey);
 }
 
-function sortedOutfits(outfits: readonly OutfitCandidate[]): OutfitCandidate[] {
-  return outfits
-    .map(outfitSortKey)
-    .sort(compareOutfitSortKeys)
-    .map(({ outfit }) => outfit);
-}
-
-function hasDuplicateCandidate(draft: DraftComposition): boolean {
-  const keys = [
-    ...bodyResults(draft).map(({ candidateKey }) => candidateKey),
-    draft.footwear.candidateKey,
-  ];
-  return new Set(keys).size !== keys.length;
+function sortedDrafts(drafts: readonly JudgedDraft[]): readonly JudgedDraft[] {
+  return drafts
+    .map((draft) => ({ draft, layers: optionalLayerCount(draft) }))
+    .sort(compareDraftSortKeys)
+    .map(({ draft }) => draft);
 }
 
 function failureCodeForRequirement(
@@ -1246,7 +1290,7 @@ function failureCodeForRequirement(
 
 function bestEvidence(
   requirements: readonly BodyClothingRequirement[],
-  candidates: readonly OutfitCandidate[],
+  candidates: readonly Pick<OutfitCandidate, 'requirementEvaluations' | 'compositionKey'>[],
 ): readonly OutfitRequirementBestEvidence[] {
   return Object.freeze(requirements.map((requirement) => {
     let bestContribution = 0;
@@ -1458,23 +1502,29 @@ function withAccessories(
   });
 }
 
-type ComposedDrafts =
-  | OutfitCompositionFailure
-  | Readonly<{
-      status: 'composed';
-      outfits: readonly OutfitCandidate[];
-      accessorySets: ReadonlyMap<Formality, OutfitAccessories>;
-    }>;
+/** The day's eligible candidates by the slots they can fill, best first, once the day can dress a body and feet at all. */
+type ComposerDay = Readonly<{
+  status: 'ready';
+  requirements: BodyClothingRequirements;
+  mandatoryRequirements: readonly BodyClothingRequirement[];
+  consideredCandidateKeys: readonly string[];
+  eligible: readonly EligibleGarmentResult[];
+  bodyCores: readonly BodyCore[];
+  midLayers: readonly EligibleGarmentResult[];
+  outerLayers: readonly EligibleGarmentResult[];
+  footwear: readonly EligibleGarmentResult[];
+}>;
 
 /**
- * Every valid composition of the six body slots, sorted best first, or the shared failure,
- * with the day's accessory answer beside it but not yet attached. It assigns runtime roles
- * but does not mutate garment data or re-evaluate garment-level requirement applicability.
+ * Reads the day the composer arranges: its body requirements and its eligible candidates by
+ * slot, or the failure no arrangement gets past (a conflicting key, no body, no shoe). It
+ * assigns no roles and does not mutate garment data or re-evaluate garment-level requirement
+ * applicability.
  */
-function composeValidOutfits(
+function readComposerDay(
   allRequirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
-): ComposedDrafts {
+): ComposerDay | OutfitCompositionFailure {
   // The extremity requirements are left out here on purpose: no top, bottom, layer or shoe
   // covers a head, so counting them would lower every outfit's score by the same amount and
   // say nothing. They decide the accessories attached at the end instead.
@@ -1572,71 +1622,95 @@ function composeValidOutfits(
     );
   }
 
-  const evaluated: OutfitCandidate[] = [];
-  const invalidDrafts: DraftComposition[] = [];
-  // Scored only when nothing composes, so the failure evidence covers every draft.
-  const mixedFormality: DraftComposition[] = [];
-  const midOptions: readonly (EligibleGarmentResult | null)[] = [
-    null,
-    ...midLayers,
-  ];
-  const outerOptions: readonly (EligibleGarmentResult | null)[] = [
-    null,
-    ...outerLayers,
-  ];
-  const rankedFootwear = footwear.map((candidate) => ({
-    candidate,
-    rank: formalityRankOf(candidate),
-  }));
+  return Object.freeze({
+    status: 'ready',
+    requirements,
+    mandatoryRequirements,
+    consideredCandidateKeys,
+    eligible,
+    bodyCores,
+    midLayers,
+    outerLayers,
+    footwear,
+  });
+}
 
-  for (const body of bodyCores) {
+/** Every body-and-layers triple the enumeration pairs with the shoes, in enumeration order. */
+function* bodyTriples(day: ComposerDay): Generator<BodyPieces> {
+  const midOptions = [null, ...day.midLayers];
+  const outerOptions = [null, ...day.outerLayers];
+  for (const body of day.bodyCores) {
     for (const midLayer of midOptions) {
       for (const outerLayer of outerOptions) {
-        const bodySide = bodySideResults(body, midLayer, outerLayer);
-        const bodyRanks = bodySide.map(formalityRankOf);
-        const lowest = Math.min(...bodyRanks);
-        const highest = Math.max(...bodyRanks);
-        const bodyConsistent = lowest >= 0 && highest - lowest <= 1;
-        for (const { candidate: footwearCandidate, rank: footwearRank } of rankedFootwear) {
-          const draft = Object.freeze({
-            body,
-            midLayer,
-            outerLayer,
-            footwear: footwearCandidate,
-          });
-          bodyResultsByDraft.set(draft, bodySide);
-          if (hasDuplicateCandidate(draft)) {
-            continue;
-          }
-          if (bodyConsistent && footwearRank >= 0 &&
-            Math.max(highest, footwearRank) - Math.min(lowest, footwearRank) <= 1) {
-            const outfit = evaluateDraft(draft, requirements, true);
-            if (outfit) {
-              evaluated.push(outfit);
-            } else {
-              invalidDrafts.push(draft);
-            }
-          } else {
-            mixedFormality.push(draft);
-          }
-        }
+        yield bodyPiecesOf(body, midLayer, outerLayer);
+      }
+    }
+  }
+}
+
+/**
+ * Every valid draft of the day, best first. A draft is valid when it wears no candidate twice,
+ * keeps its formalities within one step and meets every mandatory requirement, so a triple
+ * whose body side already repeats a candidate, mixes formalities or misses a mandatory
+ * requirement is dropped before any shoe is tried. Only the valid drafts are scored, and none
+ * becomes an outfit here.
+ *
+ * The drafts are judged in enumeration order and that order is kept into the sort: the
+ * comparator settles ties between a separates and a one-piece draft by digest while it settles
+ * ties within one body kind by slot scores, which is not transitive across the two, so the
+ * sorted order depends on the order it is given.
+ */
+function validDrafts(day: ComposerDay): readonly JudgedDraft[] {
+  const footwear = day.footwear.map((candidate) => ({ candidate, rank: formalityRankOf(candidate) }));
+  const valid: JudgedDraft[] = [];
+  for (const pieces of bodyTriples(day)) {
+    const { lowest, highest } = pieces.formalityRange;
+    if (pieces.repeatsCandidate || !formalitySpreadFits(lowest, highest)) {
+      continue;
+    }
+    const side = bodySideOf(pieces, day.requirements);
+    if (!side.evaluations.every((evaluation) => evaluation === null || meetsRequirement(evaluation))) {
+      continue;
+    }
+    for (const { candidate, rank } of footwear) {
+      if (
+        side.candidateKeys.has(candidate.candidateKey) ||
+        !formalitySpreadFits(Math.min(lowest, rank), Math.max(highest, rank))
+      ) {
+        continue;
+      }
+      const evaluations = draftEvaluations(side, candidate, day.requirements);
+      if (evaluations.every(meetsRequirement)) {
+        valid.push(judgeDraft(side, candidate, day.requirements, evaluations));
+      }
+    }
+  }
+  return sortedDrafts(valid);
+}
+
+/**
+ * The failure of a day that composes nothing. Its evidence reads every draft that wears no
+ * candidate twice, mixed formalities included, so it says how close the day came.
+ */
+function noValidCompositionFailure(day: ComposerDay): OutfitCompositionFailure {
+  const { requirements, mandatoryRequirements } = day;
+  const drafts: Pick<OutfitCandidate, 'requirementEvaluations' | 'compositionKey'>[] = [];
+  for (const pieces of bodyTriples(day)) {
+    if (pieces.repeatsCandidate) {
+      continue;
+    }
+    const side = bodySideOf(pieces, requirements);
+    for (const footwear of day.footwear) {
+      if (!side.candidateKeys.has(footwear.candidateKey)) {
+        drafts.push({
+          requirementEvaluations: draftEvaluations(side, footwear, requirements),
+          compositionKey: compositionKeyOf(side, footwear),
+        });
       }
     }
   }
 
-  const valid = sortedOutfits(evaluated);
-  if (valid.length > 0) {
-    return Object.freeze({
-      status: 'composed',
-      outfits: Object.freeze(valid),
-      accessorySets: accessorySetsByFormality(eligible),
-    });
-  }
-
-  const evidence = bestEvidence(mandatoryRequirements, [
-    ...invalidDrafts.map((draft) => evaluateDraft(draft, requirements)),
-    ...mixedFormality.map((draft) => evaluateDraft(draft, requirements)),
-  ]);
+  const evidence = bestEvidence(mandatoryRequirements, drafts);
   const unmet = mandatoryRequirements.filter((requirement) => {
     const best = evidence.find(
       ({ requirement: candidate }) =>
@@ -1656,7 +1730,7 @@ function composeValidOutfits(
   );
   if (
     mandatoryOuter.length > 0 &&
-    !outerLayers.some((candidate) =>
+    !day.outerLayers.some((candidate) =>
       mandatoryOuter.every(
         (requirement) => findEvaluation(candidate, requirement)?.status === 'met',
       ))
@@ -1669,38 +1743,43 @@ function composeValidOutfits(
     missingSlots,
     unmet,
     evidence,
-    consideredCandidateKeys,
+    day.consideredCandidateKeys,
   );
 }
 
 function hasDifferentBodyCore(
-  left: OutfitCandidate,
-  right: OutfitCandidate,
+  left: JudgedDraft,
+  right: JudgedDraft,
 ): boolean {
-  if (left.body.kind !== right.body.kind) {
+  const leftBody = left.side.body;
+  const rightBody = right.side.body;
+  if (leftBody.kind !== rightBody.kind) {
     return true;
   }
-  if (left.body.kind === 'one_piece' && right.body.kind === 'one_piece') {
-    return left.body.onePiece.garment.candidateKey !==
-      right.body.onePiece.garment.candidateKey;
+  if (leftBody.kind === 'one_piece' && rightBody.kind === 'one_piece') {
+    return leftBody.onePiece.garment.candidateKey !==
+      rightBody.onePiece.garment.candidateKey;
   }
-  if (left.body.kind === 'separates' && right.body.kind === 'separates') {
-    return left.body.primaryTop.garment.candidateKey !==
-        right.body.primaryTop.garment.candidateKey ||
-      left.body.bottom.garment.candidateKey !==
-        right.body.bottom.garment.candidateKey;
+  if (leftBody.kind === 'separates' && rightBody.kind === 'separates') {
+    return leftBody.primaryTop.garment.candidateKey !==
+        rightBody.primaryTop.garment.candidateKey ||
+      leftBody.bottom.garment.candidateKey !==
+        rightBody.bottom.garment.candidateKey;
   }
   return false;
 }
 
+function wearsCandidate(draft: JudgedDraft, key: string): boolean {
+  return draft.side.candidateKeys.has(key) || draft.footwear.candidateKey === key;
+}
+
 function hasTwoCandidateKeysAbsentFrom(
-  left: OutfitCandidate,
-  right: OutfitCandidate,
+  left: JudgedDraft,
+  right: JudgedDraft,
 ): boolean {
-  const rightKeys = new Set(right.candidateKeys);
   let absent = 0;
-  for (const key of left.candidateKeys) {
-    if (!rightKeys.has(key) && (absent += 1) >= 2) {
+  for (const key of [...left.side.candidateKeys, left.footwear.candidateKey]) {
+    if (!wearsCandidate(right, key) && (absent += 1) >= 2) {
       return true;
     }
   }
@@ -1708,19 +1787,12 @@ function hasTwoCandidateKeysAbsentFrom(
 }
 
 function meaningfullyDifferent(
-  left: OutfitCandidate,
-  right: OutfitCandidate,
+  left: JudgedDraft,
+  right: JudgedDraft,
 ): boolean {
   return hasDifferentBodyCore(left, right) ||
     hasTwoCandidateKeysAbsentFrom(left, right) ||
     hasTwoCandidateKeysAbsentFrom(right, left);
-}
-
-function bodyCoreKey(outfit: OutfitCandidate): string {
-  return outfit.body.kind === 'one_piece'
-    ? `one_piece|${outfit.body.onePiece.garment.candidateKey}`
-    : `separates|${outfit.body.primaryTop.garment.candidateKey}` +
-      `|${outfit.body.bottom.garment.candidateKey}`;
 }
 
 function rotated<Value>(
@@ -1773,12 +1845,6 @@ function groupedInOrder<Value>(
   return [...groups.values()];
 }
 
-/** The layers an arrangement wears, so two body cores can be told to lead with different ones. */
-function layerKey(outfit: OutfitCandidate): string {
-  return `${outfit.midLayer?.garment.candidateKey ?? '-'}` +
-    `|${outfit.outerLayer?.garment.candidateKey ?? '-'}`;
-}
-
 /**
  * Every second body core leads with its best layered arrangement. A group that composed none
  * is left alone, and the rest of a group keeps its order.
@@ -1792,23 +1858,23 @@ function layerKey(outfit: OutfitCandidate): string {
  * in variety, so the day's own judgement of the layer still decides what is offered.
  */
 function layeredHeadOnAlternateGroups(
-  groups: readonly (readonly OutfitCandidate[])[],
-): readonly (readonly OutfitCandidate[])[] {
+  groups: readonly (readonly JudgedDraft[])[],
+): readonly (readonly JudgedDraft[])[] {
   const led = new Set<string>();
   return groups.map((group, index) => {
     const best = group.findIndex((outfit) => optionalLayerCount(outfit) > 0);
     if (best < 0) return group;
     if (index % 2 === 0) {
-      if (best === 0) led.add(layerKey(group[0]!));
+      if (best === 0) led.add(group[0]!.side.layerKey);
       return group;
     }
 
     const unseen = group.findIndex((outfit) =>
       optionalLayerCount(outfit) > 0 &&
-      outfit.score === group[best]!.score &&
-      !led.has(layerKey(outfit)));
+      outfit.score.score === group[best]!.score.score &&
+      !led.has(outfit.side.layerKey));
     const head = unseen >= 0 ? unseen : best;
-    led.add(layerKey(group[head]!));
+    led.add(group[head]!.side.layerKey);
     return head === 0
       ? group
       : [group[head]!, ...group.slice(0, head), ...group.slice(head + 1)];
@@ -1839,9 +1905,9 @@ function layeredHeadOnAlternateGroups(
  * cardigan comes forward where a parka does not.
  */
 function orderForOffer(
-  outfits: readonly OutfitCandidate[],
+  outfits: readonly JudgedDraft[],
   startOffset: number,
-): readonly OutfitCandidate[] {
+): readonly JudgedDraft[] {
   return interleaved(
     formalityOrder.map((formality) =>
       interleaved(
@@ -1851,7 +1917,7 @@ function orderForOffer(
               outfits.filter((outfit) => outfit.formality === formality),
               startOffset,
             ),
-            bodyCoreKey,
+            ({ side }) => side.bodyCoreKey,
           ),
         ),
       ),
@@ -1864,10 +1930,10 @@ function orderForOffer(
  * the `reserved` ones counting as taken from the start. The result keeps the order given.
  */
 function selectDiverseOutfits(
-  outfits: readonly OutfitCandidate[],
+  outfits: readonly JudgedDraft[],
   count: number,
-  reserved: readonly OutfitCandidate[] = [],
-): readonly OutfitCandidate[] {
+  reserved: readonly JudgedDraft[] = [],
+): readonly JudgedDraft[] {
   const selected = [...reserved];
   for (const outfit of outfits) {
     if (selected.length === count) {
@@ -1890,10 +1956,10 @@ function selectDiverseOutfits(
  * that loses no formality is offered exactly what the diversity rule takes.
  */
 function selectOfferedOutfits(
-  outfits: readonly OutfitCandidate[],
+  outfits: readonly JudgedDraft[],
   count: number,
-): readonly OutfitCandidate[] {
-  const reserved: OutfitCandidate[] = [];
+): readonly JudgedDraft[] {
+  const reserved: JudgedDraft[] = [];
   for (;;) {
     const selected = selectDiverseOutfits(outfits, count, reserved);
     const reserve = outfits.find((outfit) =>
@@ -1958,20 +2024,20 @@ export function evaluateArrangement(
     arrangement.outerLayer,
     arrangement.footwear,
   ].filter((result) => result !== null);
-  const draft: DraftComposition = Object.freeze({
-    body: arrangement.body.kind === 'separates'
+  const bodyRequirements = bodyClothingRequirements(requirements);
+  const side = bodySideOf(bodyPiecesOf(
+    arrangement.body.kind === 'separates'
       ? Object.freeze({ kind: 'separates', primaryTop: asEligibleDraftPart(arrangement.body.primaryTop),
         bottom: asEligibleDraftPart(arrangement.body.bottom) })
       : Object.freeze({ kind: 'one_piece', onePiece: asEligibleDraftPart(arrangement.body.onePiece) }),
-    midLayer: arrangement.midLayer ? asEligibleDraftPart(arrangement.midLayer) : null,
-    outerLayer: arrangement.outerLayer ? asEligibleDraftPart(arrangement.outerLayer) : null,
-    footwear: asEligibleDraftPart(arrangement.footwear),
-  });
-  const outfit = evaluateDraft(draft, bodyClothingRequirements(requirements));
+    arrangement.midLayer ? asEligibleDraftPart(arrangement.midLayer) : null,
+    arrangement.outerLayer ? asEligibleDraftPart(arrangement.outerLayer) : null,
+  ), bodyRequirements);
+  const outfit = outfitOf(judgeDraft(side, asEligibleDraftPart(arrangement.footwear), bodyRequirements));
   return Object.freeze({
     outfit,
     suitable: results.every(({ status }) => status === 'eligible') &&
-      requirementsMet(outfit.requirementEvaluations),
+      outfit.requirementEvaluations.every(meetsRequirement),
   });
 }
 
@@ -1984,15 +2050,16 @@ export function collectValidOutfits(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
 ): OutfitCompositionsResult {
-  const result = composeValidOutfits(requirements, candidates);
-  return result.status === 'failure'
-    ? result
-    : Object.freeze({
-        status: 'composed',
-        outfits: Object.freeze(
-          withAccessories(result.outfits, result.accessorySets),
-        ),
-      });
+  const day = readComposerDay(requirements, candidates);
+  if (day.status === 'failure') return day;
+  const valid = validDrafts(day);
+  if (valid.length === 0) return noValidCompositionFailure(day);
+  return Object.freeze({
+    status: 'composed',
+    outfits: Object.freeze(
+      withAccessories(valid.map(outfitOf), accessorySetsByFormality(day.eligible)),
+    ),
+  });
 }
 
 /**
@@ -2033,23 +2100,48 @@ export function outfitWearsPins(outfit: OutfitCandidate, pins: readonly OutfitPi
   return pins.every(({ slot, garmentTypeId }) => pinnedGarmentId(outfit, slot) === garmentTypeId);
 }
 
+/** Whether a slot wears what every pin naming that slot names; an empty slot wears no pin. */
+function slotWearsPins(
+  slot: OutfitPin['slot'],
+  result: EligibleGarmentResult | null,
+  pins: readonly OutfitPin[],
+): boolean {
+  return pins.every((pin) => pin.slot !== slot || pin.garmentTypeId === result?.garment.garmentTypeId);
+}
+
+function bodyCoreWearsPins(body: BodyCore, pins: readonly OutfitPin[]): boolean {
+  return body.kind === 'separates'
+    ? slotWearsPins('primary_top', body.primaryTop, pins) &&
+      slotWearsPins('bottom', body.bottom, pins) &&
+      slotWearsPins('one_piece', null, pins)
+    : slotWearsPins('one_piece', body.onePiece, pins) &&
+      slotWearsPins('primary_top', null, pins) &&
+      slotWearsPins('bottom', null, pins);
+}
+
+/** Whether a draft wears every pin in the slot the pin names. */
+function draftWearsPins({ side, footwear }: JudgedDraft, pins: readonly OutfitPin[]): boolean {
+  return bodyCoreWearsPins(side.body, pins) &&
+    slotWearsPins('mid_layer', side.midLayer, pins) &&
+    slotWearsPins('outer_layer', side.outerLayer, pins) &&
+    slotWearsPins('footwear', footwear, pins);
+}
+
 /**
- * The offer around pins. The pin is a predicate on the full valid set, taken before the
- * order, the diversity rule and the accessories, because the 24 Today offers hold the pin in
- * none of their outfits more often than not. The reader's own pieces always show, so the
- * recently worn exclusion does not apply, and the three picks are the most that can differ.
+ * The offer around pins. The pin is a predicate on every valid draft, taken after the sort and
+ * before the order, the diversity rule and the accessories, because the 24 Today offers hold
+ * the pin in none of their outfits more often than not. The reader's own pieces always show,
+ * so the recently worn exclusion does not apply, and the three picks are the most that can
+ * differ.
  */
 function offerAroundPins(
-  result: Extract<ComposedDrafts, { status: 'composed' }>,
+  day: ComposerDay,
+  pinned: readonly JudgedDraft[],
   startOffset: number,
-  pins: readonly OutfitPin[],
 ): readonly OutfitCandidate[] {
   return withAccessories(
-    selectDiverseOutfits(
-      orderForOffer(result.outfits.filter((outfit) => outfitWearsPins(outfit, pins)), startOffset),
-      composedOutfitLimit,
-    ),
-    result.accessorySets,
+    selectDiverseOutfits(orderForOffer(pinned, startOffset), composedOutfitLimit).map(outfitOf),
+    accessorySetsByFormality(day.eligible),
   );
 }
 
@@ -2059,17 +2151,19 @@ export function composeOutfitOptions(
   startOffset: number,
   recentWorn: readonly WornOutfit[] = [],
 ): OutfitCompositionsResult {
-  const result = composeValidOutfits(requirements, candidates);
-  if (result.status === 'failure') return result;
-  // Accessories are attached to the offered outfits and to nothing else. The order above
-  // them reads score, formality, body core and candidate keys, none of which an accessory
-  // touches, so a cold day pays for 24 attachments rather than for its tens of thousands
-  // of valid arrangements.
+  const day = readComposerDay(requirements, candidates);
+  if (day.status === 'failure') return day;
+  const valid = validDrafts(day);
+  if (valid.length === 0) return noValidCompositionFailure(day);
+  // Only the offered drafts become outfits, and only they take accessories. The order and the
+  // diversity rule read score, formality, body core and candidate keys, none of which an
+  // accessory touches, so a mild day builds 24 outfits rather than its tens of thousands of
+  // valid arrangements.
   return Object.freeze({
     status: 'composed',
     outfits: excludeRecentlyWornOutfits(withAccessories(
-      selectOfferedOutfits(orderForOffer(result.outfits, startOffset), offeredOutfitLimit),
-      result.accessorySets,
+      selectOfferedOutfits(orderForOffer(valid, startOffset), offeredOutfitLimit).map(outfitOf),
+      accessorySetsByFormality(day.eligible),
     ), recentWorn),
   });
 }
@@ -2092,9 +2186,10 @@ function pinSubsets(pins: readonly OutfitPin[]): readonly (readonly OutfitPin[])
 
 /**
  * Compose around the pins, keeping as many as any valid outfit can wear together. The valid
- * set is built once; the subsets are only filters over it. Whatever pins fit no valid outfit
- * are reported back for the caller to put into the best pick, which the weather then calls
- * unusual, exactly as a manual change does.
+ * drafts are judged and sorted once; the subsets are only filters over them, and only the
+ * three picks become outfits. Whatever pins fit no valid outfit are reported back for the
+ * caller to put into the best pick, which the weather then calls unusual, exactly as a manual
+ * change does.
  */
 export function composeOutfitsAroundPins(
   requirements: ClothingRequirements,
@@ -2102,19 +2197,21 @@ export function composeOutfitsAroundPins(
   startOffset: number,
   pins: readonly OutfitPin[],
 ): OutfitCompositionFailure | OutfitsAroundPins {
-  const result = composeValidOutfits(requirements, candidates);
-  if (result.status === 'failure') return result;
+  const day = readComposerDay(requirements, candidates);
+  if (day.status === 'failure') return day;
+  const valid = validDrafts(day);
+  if (valid.length === 0) return noValidCompositionFailure(day);
   for (const subset of pinSubsets(pins)) {
-    const outfits = offerAroundPins(result, startOffset, subset);
-    if (outfits.length === 0) continue;
+    const pinned = valid.filter((draft) => draftWearsPins(draft, subset));
+    if (pinned.length === 0) continue;
     return Object.freeze({
       status: 'composed',
-      outfits: Object.freeze(outfits),
+      outfits: Object.freeze(offerAroundPins(day, pinned, startOffset)),
       satisfiedPins: Object.freeze(subset),
       unsatisfiedPins: Object.freeze(pins.filter((pin) => !subset.includes(pin))),
     });
   }
-  // Only an empty valid set reaches here, and that is the failure above.
+  // The empty subset wears every valid draft, and there is at least one.
   throw new Error('A valid composition set is never empty.');
 }
 
