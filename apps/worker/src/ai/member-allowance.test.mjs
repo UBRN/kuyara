@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { AccountError } from '../account/account-error.ts';
+import { createSupabaseTokenVerifier } from '../account/supabase-token-verifier.ts';
 import { MEMBER_REASK_DAILY_LIMIT, createMemberAllowance } from './member-allowance.ts';
 
 const userId = '3f2b8c1e-5d4a-4c1b-9a7e-0d6f1b2c3d4e';
@@ -123,4 +124,21 @@ test('the user id keys the counter only and appears in no log line', async (t) =
   assert.deepEqual(namespace.names, Array(MEMBER_REASK_DAILY_LIMIT + 1).fill(`ai:member:${userId}`));
   assert.ok(namespace.keys.every((key) => key === 'ai:member:2026-09-15'), 'the stored key holds no user id');
   assert.equal(lines.some((line) => line.includes(userId) || line.includes('ai:member')), false);
+});
+
+test('a JWKS read that never settles leaves the re-ask within, after the verifier deadline', async () => {
+  const verifier = createSupabaseTokenVerifier({
+    supabaseUrl: 'https://project.supabase.co',
+    now: () => day,
+    timeoutMs: 20,
+    fetch: () => new Promise(() => {}),
+  });
+  const { allowance, namespace } = setup({ verifier });
+  // Shaped like an ES256 token with a key id, so the verifier reaches for the key set.
+  const segment = (value) => Buffer.from(value).toString('base64url');
+  const token = `${segment('{"alg":"ES256","kid":"k1"}')}.${segment('{}')}.${segment('x'.repeat(64))}`;
+  const startedAt = Date.now();
+  assert.equal(await allowance(withToken(token), day), 'within');
+  assert.ok(Date.now() - startedAt < 1000);
+  assert.deepEqual(namespace.names, []);
 });

@@ -498,7 +498,7 @@ test('the composed account route revokes with Apple before it deletes, over a fa
   const supabaseKey = await generateEs256Key();
   const sign = createEs256Signer(supabaseKey.bare);
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', sub: userId, exp: nowSeconds + 600 };
+  const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', role: 'authenticated', sub: userId, exp: nowSeconds + 600 };
   const token = await sign({ alg: 'ES256', kid: 'k1' }, claims);
   const idToken = `x.${base64UrlEncode(new TextEncoder().encode(JSON.stringify({
     iss: 'https://appleid.apple.com', aud: 'com.ubrn.kuyara', sub: 'apple-subject',
@@ -566,7 +566,7 @@ test('the composed account route deletes an Apple account unrevoked when no code
   const supabaseKey = await generateEs256Key();
   const sign = createEs256Signer(supabaseKey.bare);
   const token = await sign({ alg: 'ES256', kid: 'k1' }, {
-    iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', sub: userId, exp: Math.floor(Date.now() / 1000) + 600,
+    iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', role: 'authenticated', sub: userId, exp: Math.floor(Date.now() / 1000) + 600,
   });
   const seen = [];
   t.mock.method(globalThis, 'fetch', async (input, init) => {
@@ -639,7 +639,7 @@ async function memberFixture(t) {
   const supabaseKey = await generateEs256Key();
   const sign = createEs256Signer(supabaseKey.bare);
   const claims = {
-    iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', sub: memberId,
+    iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', role: 'authenticated', sub: memberId,
     exp: Math.floor(Date.now() / 1000) + 600,
   };
   const token = await sign({ alg: 'ES256', kid: 'k1' }, claims);
