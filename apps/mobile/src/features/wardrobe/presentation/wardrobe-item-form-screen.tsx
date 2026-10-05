@@ -167,6 +167,14 @@ function CameraNotice({ message, testID }: Readonly<{ message: string; testID: s
   );
 }
 
+// The handlers a caller may leave out. They live at module level because React Compiler
+// cannot reorder an arrow function written as a parameter default and skips the whole screen.
+const doNothing = () => undefined;
+const discardNothing = async () => undefined;
+const photoSelectionUnavailable = async (): Promise<StagedWardrobePhoto | null> => {
+  throw new Error('Photo selection is unavailable.');
+};
+
 export function WardrobeItemFormScreen({
   clothingPreference = null,
   confirmation = showWardrobeConfirmation,
@@ -175,14 +183,12 @@ export function WardrobeItemFormScreen({
   isBusy,
   item,
   mode,
-  onCancel = () => undefined,
+  onCancel = doNothing,
   onCreate,
   onDelete,
-  onDiscardStagedPhoto = async () => undefined,
+  onDiscardStagedPhoto = discardNothing,
   onDirtyChange,
-  onSelectPhoto = async () => {
-    throw new Error('Photo selection is unavailable.');
-  },
+  onSelectPhoto = photoSelectionUnavailable,
   onUpdate,
   photoPreviewUri = null,
 }: WardrobeItemFormScreenProps) {

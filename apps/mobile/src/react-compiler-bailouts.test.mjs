@@ -25,8 +25,6 @@ const knownBailouts = new Map([
   // read in render (react-hooks/purity) and needs a clock state, a timing change; the provider
   // opts out with 'use no memo'.
   ['features/recommendation/application/recommendation-application-provider.tsx', 1],
-  // An arrow function the compiler cannot reorder.
-  ['features/wardrobe/presentation/wardrobe-item-form-screen.tsx', 1],
 ]);
 
 // The screens on the Today and Weather tabs and the outfit detail must also compile at least
