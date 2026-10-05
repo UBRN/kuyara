@@ -203,8 +203,9 @@ calls weather and AI providers. This is a live request, not a record of you:
   The server receives no location, Closet contents, outfit history, photos, display name,
   birth date, or identifier for your device in this request. If you are signed in, an "Ask
   the stylist again" request also carries your account's sign-in token so the server can count
-  your daily member allowance. The server uses the account identifier only for that count; it
-  is not logged and never reaches the AI provider.
+  your daily member allowance. The sign-in token also contains your account's email address and,
+  for Google, the name and picture Google sent. The server reads only the account identifier
+  from it, for that count, and logs none of it; none of it reaches the AI provider.
 - **On the device.** Your profile, including an optional display name, Closet entries and
   photos, worn outfit history, daily formality and style aesthetics choices, Later departure
   plans, cached weather, and weather alert schedules are stored in the app's private storage
@@ -245,9 +246,11 @@ applications is shared on request by email.
 - **Security records.** The account service records the time, IP address and the client
   information the app sends with the request when you sign in, refresh your session or sign
   out. The record of an open session holds the same IP address and client information.
-- **Member counter.** kuyara's server uses your account identifier to count members' daily
-  "Ask the stylist again" requests and to carry out account deletion. The identifier is not
-  logged and never reaches the AI provider.
+- **Member counter.** kuyara's server reads your account identifier from your sign-in token to
+  count members' daily "Ask the stylist again" requests and to carry out account deletion. The
+  token also contains your account's email address and, for Google, the name and picture Google
+  sent; the server reads none of that and logs none of it, and none of it reaches the AI
+  provider.
 - **Sync consent record.** Each answer you give to the sync consent (given or withdrawn), the
   version of the text shown and the time.
 - **Request correspondence.** Emails you send us and our replies.
@@ -279,8 +282,10 @@ sign in with Apple or Google and while you use the app. Request correspondence a
   Sub-processor list:
   [supabase.com/legal/customer-resources/subprocessor-list](https://supabase.com/legal/customer-resources/subprocessor-list).
 - **Cloudflare, Inc. (USA).** kuyara's server runs on Cloudflare. As a processor on kuyara's
-  behalf, Cloudflare processes your account identifier only for the member counter and account
-  deletion; the server does not log it. Cloudflare's servers are in many countries.
+  behalf, Cloudflare processes the sign-in token your phone sends, which contains your account
+  identifier, your account's email address and, for Google, the name and picture Google sent.
+  The server reads only the account identifier from it, for the member counter and account
+  deletion, and logs none of it. Cloudflare's servers are in many countries.
 - **Apple and Google.** They provide the account you sign in with and work under their own
   privacy policies. When you delete an account created with Apple, kuyara sends Apple the
   revocation of your sign-in permission.
@@ -289,7 +294,7 @@ sign in with Apple or Google and while you use the app. Request correspondence a
 **Transfer abroad.** Your account data is held outside Türkiye, in Germany, and may be accessed
 from the USA. This transfer relies on Supabase's Data Processing Addendum and the standard
 contractual clauses it contains. If you live in the EU, any access from outside the EU relies
-on the same clauses. Because your account identifier is also processed by kuyara's server, it
+on the same clauses. Because your sign-in token is also processed by kuyara's server, it
 may be transferred to Cloudflare servers outside Türkiye; this transfer relies on Cloudflare's
 data processing agreement.
 
@@ -297,9 +302,10 @@ data processing agreement.
 
 - Account details and profile: until you delete your account.
 - Records synced with consent: until you withdraw consent or delete your account. If you delete
-  a record in the app, the content of its copy in the account is deleted right away. So that the
-  deletion reaches your other phones, only the record's identifier, day and deletion time stay
-  in the account; these are also deleted when you withdraw consent or delete your account.
+  a record in the app, the content of its copy in the account is deleted when your phone next
+  syncs. So that the deletion reaches your other phones, only the record's identifier, its day
+  where it has one, and its creation, change and deletion times stay in the account; these are
+  also deleted when you withdraw consent or delete your account.
 - Manual backups: the account service makes no automatic backups. The developer backs up the
   database by hand, encrypted, with the key kept separately, and deletes each backup within
   30 days. Deleted data, including a deleted account, stays in these backups for up

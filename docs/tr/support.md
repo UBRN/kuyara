@@ -55,9 +55,9 @@ kullanamadığı ayrı bir kimlik taşır.
 Hayır. Hava ve kombin önerileri hesap olmadan da çalışır; Gardırop ve Geçmiş de öyle. Hesap
 ücretsiz ve isteğe bağlıdır: Profil'den ya da Ayarlar > Hesap'tan Apple veya Google ile oturum
 açarsın. Hesap, kayıtlarını yeni bir telefona ya da yeniden kurulan uygulamaya getirir; üyeler
-ayrıca "Bir parçayla kombin kur" özelliğini kullanabilir ve stiliste günde 5 yerine 10 kez
-tekrar sorabilir. Ayrıntılar [hesap koşullarında](account-terms) ve
-[gizlilik politikasının Hesaplar bölümünde](privacy-policy#hesaplar).
+ayrıca "Bir parçayla kombin kur" özelliğini kullanabilir ve stiliste UTC'ye göre günde 10 kez
+tekrar sorabilir; diğer herkesin hakkı yerel güne göre günde 5'tir. Ayrıntılar
+[hesap koşullarında](account-terms) ve [gizlilik politikasının Hesaplar bölümünde](privacy-policy#hesaplar).
 
 **Oturumu kapatınca ne olur?**
 Gardırobun ve Geçmişin kuyara'da kalır; kuyara hesapsız çalışmaya devam eder. Bağlantı varsa

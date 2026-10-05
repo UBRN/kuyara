@@ -18,7 +18,8 @@ personal data is processed.
 You create an account by signing in with Apple or Google. The account brings your records to a
 new phone or a reinstalled app and keeps them in step across your phones. Apart from your
 display name and gender, you choose which records go to the account. Members can also use "Build
-from a piece" and ask the stylist again 10 times a day instead of 5.
+from a piece" and ask the stylist again 10 times per UTC day, where everyone else has 5 per day
+on their own device's local day.
 
 ## 2. Optional and free
 
@@ -41,8 +42,8 @@ Use your account only for yourself. Do not:
 
 kuyara may suspend or close an account that breaks these rules. Unless there is a serious risk,
 it first writes to your account's email address with the reason and gives you a chance to
-respond. Even if your account is closed, you can ask for a copy of your records and keep using
-kuyara without an account.
+respond. Before an account is closed, you can ask for a copy of your records, and you can keep
+using kuyara without an account.
 
 ## 5. Your sign-in account
 

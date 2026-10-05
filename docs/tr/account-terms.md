@@ -18,7 +18,8 @@ License Agreement) düzenler. Kişisel verilerinin nasıl işlendiğini
 Hesabı Apple ya da Google ile oturum açarak kurarsın. Hesap, kayıtlarını yeni bir telefona ya da
 yeniden kurulan uygulamaya getirir ve telefonların arasında eşitler. Görünen adın ve cinsiyetin
 dışında hangi kayıtların hesaba gideceğini sen seçersin. Üyeler ayrıca "Bir parçayla kombin kur"
-özelliğini kullanabilir ve stiliste günde 5 yerine 10 kez tekrar sorabilir.
+özelliğini kullanabilir ve stiliste UTC'ye göre günde 10 kez tekrar sorabilir; diğer herkesin
+hakkı cihazının yerel gününe göre günde 5'tir.
 
 ## 2. İsteğe bağlı ve ücretsiz
 
@@ -43,8 +44,8 @@ Hesabını yalnız kendin için kullan. Şunları yapma:
 
 Bu kurallara uymayan bir hesabı kuyara askıya alabilir ya da kapatabilir. Ciddi bir tehlike
 yoksa önce hesabındaki e-posta adresine nedenini yazar ve sana yanıt verme fırsatı tanır.
-Hesabın kapatılsa da kayıtlarının bir kopyasını isteyebilir ve kuyara'yı hesapsız kullanmaya
-devam edebilirsin.
+Hesap kapatılmadan önce kayıtlarının bir kopyasını isteyebilirsin ve kuyara'yı hesapsız
+kullanmaya devam edebilirsin.
 
 ## 5. Oturum açtığın hesap
 

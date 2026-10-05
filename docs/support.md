@@ -51,7 +51,8 @@ deletion requests.
 No. Weather and outfit suggestions work without an account, and so do the Closet and History.
 An account is free and optional: you sign in with Apple or Google from Profile or from Settings
 > Account. It brings your records to a new phone or a reinstalled app, and members can also use
-"Build from a piece" and ask the stylist again 10 times a day instead of 5. The
+"Build from a piece" and ask the stylist again 10 times per UTC day, where everyone else has 5 per
+local day. The
 [account terms](account-terms) and the [Accounts section of the privacy policy](privacy-policy#accounts)
 explain the rest.
 

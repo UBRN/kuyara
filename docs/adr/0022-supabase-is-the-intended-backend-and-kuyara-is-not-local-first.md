@@ -63,7 +63,7 @@ narrowed: Supabase is the chosen one.
 
 ### 3. Postgres becomes authoritative for account-backed data; SQLite stays the device store
 
-Once accounts land, Supabase Postgres is the record of truth for account-backed user
+For a signed-in member, Supabase Postgres is the record of truth for account-backed user
 data. Expo SQLite remains the store the application reads and writes first, so the app keeps working
 offline and keeps rendering instantly, and it reconciles against the remote afterwards.
 
@@ -94,7 +94,7 @@ the current schema and boundaries, and must be preserved:
   earns its place with is continuity: the Closet and History are the things a user actually
   loses today when they change phones, so the account carries them across devices. It also
   earns a place by one feature: composing around chosen pieces on outfit detail is members
-  only, hidden until accounts open ([ADR 0041](0041-optional-accounts.md) section 5).
+  only ([ADR 0041](0041-optional-accounts.md) section 5).
 
 [ADR 0041](0041-optional-accounts.md) defines what the account carries, how device rows
 move into it, and how sign-out and deletion behave.

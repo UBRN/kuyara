@@ -208,8 +208,10 @@ istektir, senin hakkında tutulan bir kayıt değildir:
   zeka sağlayıcısına gönderilmez. Sunucu bu istekte konumunu, Gardırop içeriğini, giyilen
   kombin geçmişini, fotoğraflarını, görünen adını, doğum tarihini veya cihazına ait bir
   kimliği almaz. Oturum açmışsan "Stiliste tekrar sor" isteği, günlük üye hakkını
-  sayabilmesi için hesabının oturum anahtarını da taşır. Sunucu hesap kimliğini yalnız bu
-  sayım için kullanır; kimlik loglanmaz ve yapay zeka sağlayıcısına gitmez.
+  sayabilmesi için hesabının oturum anahtarını da taşır. Oturum anahtarı hesabının e-posta
+  adresini ve Google ile girdiysen Google'ın gönderdiği adı ve fotoğrafı da içerir. Sunucu
+  bundan yalnız hesap kimliğini, bu sayım için okur ve hiçbirini loglamaz; hiçbiri yapay zeka
+  sağlayıcısına gitmez.
 - **Cihazda.** Profilin (varsa görünen adın dahil), Gardırop kayıtların ve fotoğrafların,
   giyilen kombin geçmişin, günlük resmiyet düzeyi ve stil özelliği seçimlerin, Sonra için
   planladığın çıkış saatleri, önbelleğe alınmış hava durumu ve hava uyarısı planları
@@ -251,8 +253,9 @@ adresini e-postayla istediğinde paylaşırız.
   işlemlerinin zamanını, IP adresini ve uygulamanın istekle gönderdiği istemci bilgisini
   kaydeder. Açık bir oturumun kaydı da aynı IP adresini ve istemci bilgisini tutar.
 - **Üye sayacı.** kuyara'nın sunucusu, üyelerin günlük "Stiliste tekrar sor" hakkını saymak ve
-  hesap silmeyi yapmak için hesap kimliğini kullanır. Kimlik loglanmaz ve yapay zeka
-  sağlayıcısına gitmez.
+  hesap silmeyi yapmak için hesap kimliğini oturum anahtarından okur. Anahtar hesabının
+  e-posta adresini ve Google ile girdiysen Google'ın gönderdiği adı ve fotoğrafı da içerir;
+  sunucu bunları okumaz ve loglamaz, hiçbiri yapay zeka sağlayıcısına gitmez.
 - **Eşitleme izni kaydı.** Eşitleme iznine verdiğin her cevap (verildi ya da geri çekildi),
   gösterilen metnin sürümü ve zamanı.
 - **Başvuru yazışmaları.** Bize yazdığın e-postalar ve yanıtlarımız.
@@ -285,8 +288,10 @@ yazışmaları e-postayla gelir.
   listesi:
   [supabase.com/legal/customer-resources/subprocessor-list](https://supabase.com/legal/customer-resources/subprocessor-list).
 - **Cloudflare, Inc. (ABD).** kuyara'nın sunucusu Cloudflare'da çalışır. Cloudflare, kuyara
-  adına veri işleyen olarak, hesap kimliğini yalnız üye sayacı ve hesap silme için işler;
-  sunucu kimliği loglamaz. Cloudflare'ın sunucuları birçok ülkededir.
+  adına veri işleyen olarak, telefonunun gönderdiği oturum anahtarını işler; anahtar hesap
+  kimliğini, hesabının e-posta adresini ve Google ile girdiysen Google'ın gönderdiği adı ve
+  fotoğrafı içerir. Sunucu bundan yalnız hesap kimliğini, üye sayacı ve hesap silme için okur
+  ve hiçbirini loglamaz. Cloudflare'ın sunucuları birçok ülkededir.
 - **Apple ve Google.** Oturum açtığın hesabın sağlayıcılarıdır ve kendi gizlilik
   politikalarına göre çalışır. Apple ile açılmış bir hesabı sildiğinde kuyara, Apple'a oturum
   izninin iptalini iletir.
@@ -295,16 +300,17 @@ yazışmaları e-postayla gelir.
 **Yurt dışına aktarım.** Hesap verilerin Türkiye dışında, Almanya'da tutulur ve ABD'den
 erişilebilir. Bu aktarım Supabase'in Veri İşleme Eki'ne (Data Processing Addendum) ve içerdiği
 standart sözleşme maddelerine dayanır. AB'de yaşıyorsan, AB dışına olası erişim de aynı
-maddelere dayanır. Hesap kimliğin kuyara'nın sunucusunda da işlendiği için Cloudflare'ın Türkiye
+maddelere dayanır. Oturum anahtarın kuyara'nın sunucusunda da işlendiği için Cloudflare'ın Türkiye
 dışındaki sunucularına aktarılabilir; bu aktarım Cloudflare'ın veri işleme sözleşmesine dayanır.
 
 **Ne kadar saklanır.**
 
 - Hesap bilgileri ve profil: hesabını silene kadar.
 - Eşitleme izniyle gelen kayıtlar: izni geri çekene ya da hesabını silene kadar. Bir kaydı
-  uygulamada silersen hesaptaki kopyasının içeriği de hemen silinir. Silmenin öbür
-  telefonlarına da ulaşabilmesi için hesapta yalnız kaydın kimliği, günü ve silinme zamanı
-  kalır; izni geri çektiğinde ya da hesabını sildiğinde bunlar da silinir.
+  uygulamada silersen hesaptaki kopyasının içeriği telefonun bir sonraki eşitlemesinde silinir.
+  Silmenin öbür telefonlarına da ulaşabilmesi için hesapta yalnız kaydın kimliği, varsa günü
+  ve oluşturulma, değişme ve silinme zamanları kalır; izni geri çektiğinde ya da hesabını
+  sildiğinde bunlar da silinir.
 - Elle alınan yedekler: hesap hizmetinin otomatik yedeği yoktur. Geliştirici veritabanını elle
   ve şifreli olarak, anahtarını ayrı tutarak yedekler ve her yedeği en geç 30 gün
   sonra siler. Silinen veriler, silinen bir hesap da dahil, bu yedeklerde en çok
