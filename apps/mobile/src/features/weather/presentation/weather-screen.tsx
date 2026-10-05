@@ -34,7 +34,7 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { locationCaptionKey } from '@/features/weather/domain/location-caption';
 import { manualRefreshOutcome } from '@/features/weather/domain/manual-refresh-outcome';
-import { activeLocationSnapshot, type ActiveLocation } from '@/features/weather/domain/weather';
+import { isSameWeatherLocation, type ActiveLocation } from '@/features/weather/domain/weather';
 import { findWeatherOutlook, type WeatherOutlook } from '@/features/weather/domain/weather-outlook';
 import {
   DailyOutlook,
@@ -245,8 +245,12 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const locationCaption = captionKey ? copy[captionKey] : null;
   // After a location switch the controller keeps the previous place's snapshot as the last
   // valid result until the new place loads. It carries no name of its own, so its conditions
-  // are held back rather than shown under the new place's label.
-  const snapshot = activeLocationSnapshot(state.snapshot, state.activeLocation);
+  // are held back rather than shown under the new place's label. This is `activeLocationSnapshot`
+  // written inline: through the call the React Compiler builds the snapshot inside the screen's
+  // widest memo block, and weather-screen-memo.test.mjs guards the hourly rail against that.
+  const snapshot = state.snapshot !== null && isSameWeatherLocation(state.snapshot, state.activeLocation)
+    ? state.snapshot
+    : null;
   if (snapshot === null && !awaitingForecast) setAwaitingForecast(true);
   // One reading of the daypart colours the stage and draws the glyph on it, so each condition
   // ink is only ever measured against the planes its own daypart can put behind it.

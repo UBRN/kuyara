@@ -161,6 +161,8 @@ The mobile workspace uses Node's built-in test runner with Node's TypeScript str
 pnpm --filter @kuyara/mobile test
 ```
 
+The Node test loader pins the device time zone to UTC unless `TZ` is set, so a run reads the same on every machine; `TZ=Asia/Tokyo pnpm --filter @kuyara/mobile test` checks another zone.
+
 React Native component tests use Jest, `jest-expo`, React Native Testing Library 14, and the React 19-compatible `test-renderer` package. They remain separate from the Node suites and run with:
 
 ```bash
