@@ -269,3 +269,140 @@ test('during an outage with no key set loaded, calls inside the cooldown fail wi
   assert.deepEqual(await verify(token), verified);
   assert.equal(calls, 3);
 });
+
+test('a token whose role is not authenticated is unauthorized', async () => {
+  const { jwk, sign } = await fixture();
+  const verify = createSupabaseTokenVerifier({ supabaseUrl, timeoutMs, now, fetch: jwksFetch(() => [jwk('k1')]) });
+  for (const role of ['service_role', 'anon', 'supabase_admin', '', undefined, 7]) {
+    await assertRejects(verify(await sign({ alg: 'ES256', kid: 'k1' }, claims({ role }))), 'unauthorized');
+  }
+});
+
+test('a JWKS request that ignores the abort never holds later callers', async () => {
+  const { jwk, sign } = await fixture();
+  let clock = nowSeconds * 1000;
+  const calls = [];
+  const verify = createSupabaseTokenVerifier({
+    supabaseUrl, timeoutMs, now: () => new Date(clock),
+    // The first request never settles and never listens to its signal, as a request cancelled
+    // by the runtime would; every later one answers.
+    fetch: (url, init) => {
+      calls.push(String(url));
+      return calls.length === 1 ? new Promise(() => {}) : Promise.resolve(Response.json({ keys: [jwk('k1')] }));
+    },
+  });
+  const token = await sign({ alg: 'ES256', kid: 'k1' }, claims());
+  const startedAt = Date.now();
+  // The caller that started the load and a caller that joined it both give up at their own deadline.
+  await Promise.all([assertRejects(verify(token), 'unavailable'), assertRejects(verify(token), 'unavailable')]);
+  assert.ok(Date.now() - startedAt < 1000, 'neither waited past its own deadline');
+  assert.equal(calls.length, 1);
+  clock += timeoutMs;
+  await assertRejects(verify(token), 'unavailable');
+  assert.equal(calls.length, 1, 'a dropped read counts as a failed attempt: the cooldown applies');
+  clock += 60_000;
+  assert.deepEqual(await verify(token), verified);
+  assert.equal(calls.length, 2, 'after the cooldown the dropped read is replaced by a new one');
+});
+
+test('forged key ids never start more than one JWKS read per cooldown, even when reads hang', async () => {
+  const { jwk, sign } = await fixture();
+  let clock = nowSeconds * 1000;
+  let calls = 0;
+  let hang = false;
+  const verify = createSupabaseTokenVerifier({
+    supabaseUrl, timeoutMs, now: () => new Date(clock), jwksCooldownMs: 60_000,
+    fetch: () => {
+      calls += 1;
+      return hang ? new Promise(() => {}) : Promise.resolve(Response.json({ keys: [jwk('k1')] }));
+    },
+  });
+  await verify(await sign({ alg: 'ES256', kid: 'k1' }, claims()));
+  clock += 61_000;
+  hang = true;
+  const forged = (n) => sign({ alg: 'ES256', kid: `forged-${n}` }, claims());
+  await assertRejects(verify(await forged(0)), 'unavailable');
+  assert.equal(calls, 2);
+  for (let n = 1; n <= 10; n += 1) {
+    clock += timeoutMs;
+    await assertRejects(verify(await forged(n)), 'unauthorized');
+  }
+  assert.equal(calls, 2, 'a dropped read does not reopen the cooldown');
+  clock += 60_000;
+  await assertRejects(verify(await forged(11)), 'unavailable');
+  assert.equal(calls, 3);
+});
+
+test('a read that settles late never overwrites a newer key set', async () => {
+  const first = await fixture();
+  const second = await fixture();
+  let clock = nowSeconds * 1000;
+  let releaseLate;
+  let calls = 0;
+  const verify = createSupabaseTokenVerifier({
+    supabaseUrl, timeoutMs, now: () => new Date(clock),
+    fetch: () => {
+      calls += 1;
+      if (calls === 1) return new Promise((resolve) => { releaseLate = () => resolve(Response.json({ keys: [first.jwk('k1')] })); });
+      return Promise.resolve(Response.json({ keys: [second.jwk('k2')] }));
+    },
+  });
+  const oldToken = await first.sign({ alg: 'ES256', kid: 'k1' }, claims());
+  const newToken = await second.sign({ alg: 'ES256', kid: 'k2' }, claims());
+  await assertRejects(verify(oldToken), 'unavailable');
+  clock += 60_000;
+  assert.deepEqual(await verify(newToken), verified);
+  releaseLate();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.deepEqual(await verify(newToken), verified);
+});
+
+test('a key set older than its maximum age never verifies, even while the JWKS is down', async () => {
+  const { jwk, sign } = await fixture();
+  let clock = nowSeconds * 1000;
+  let up = true;
+  const calls = [];
+  const verify = createSupabaseTokenVerifier({
+    supabaseUrl, timeoutMs, now: () => new Date(clock),
+    fetch: async (url) => {
+      calls.push(String(url));
+      return up ? Response.json({ keys: [jwk('k1')] }) : new Response('x', { status: 503 });
+    },
+  });
+  const token = await sign({ alg: 'ES256', kid: 'k1' }, claims({ exp: nowSeconds + 7200 }));
+  assert.deepEqual(await verify(token), verified);
+  up = false;
+  clock += 599_000;
+  assert.deepEqual(await verify(token), verified);
+  assert.equal(calls.length, 1, 'inside its maximum age the set is not read again');
+  clock += 1000;
+  await assertRejects(verify(token), 'unavailable');
+  assert.equal(calls.length, 2);
+  clock += 30_000;
+  await assertRejects(verify(token), 'unavailable');
+  assert.equal(calls.length, 2, 'a failed read is not repeated inside the cooldown');
+  clock += 30_000;
+  await assertRejects(verify(token), 'unavailable');
+  assert.equal(calls.length, 3);
+  clock += 600_000;
+  await assertRejects(verify(token), 'unavailable');
+  up = true;
+  clock += 60_000;
+  assert.deepEqual(await verify(token), verified);
+});
+
+test('an unknown key id whose refetch fails inside the maximum age is unavailable and keeps the set', async () => {
+  const { jwk, sign } = await fixture();
+  let clock = nowSeconds * 1000;
+  let up = true;
+  const verify = createSupabaseTokenVerifier({
+    supabaseUrl, timeoutMs, now: () => new Date(clock),
+    fetch: async () => (up ? Response.json({ keys: [jwk('k1')] }) : new Response('x', { status: 503 })),
+  });
+  const known = await sign({ alg: 'ES256', kid: 'k1' }, claims({ exp: nowSeconds + 7200 }));
+  assert.deepEqual(await verify(known), verified);
+  up = false;
+  clock += 120_000;
+  await assertRejects(verify(await sign({ alg: 'ES256', kid: 'k2' }, claims())), 'unavailable');
+  assert.deepEqual(await verify(known), verified);
+});
