@@ -3,7 +3,7 @@
 Status: Accepted (2026-09-04)
 
 Implementation: the account feature specified by [ADR 0041](0041-optional-accounts.md)
-is built and switched off behind `ACCOUNT_SCREENS_ENABLED`; the Supabase project and its
+is live behind `ACCOUNT_SCREENS_ENABLED`; the Supabase project and its
 remote schema exist. This ADR changes how the product describes itself and what the
 current schemas must preserve. It authorizes no Supabase dependency, table, client,
 adapter, or sync code by itself; ADR 0041 specifies the optional accounts, sync and
@@ -40,7 +40,8 @@ For the MVP, all of the following remain true and unchanged:
 
 - Expo SQLite is the durable device-side database for user-created data.
 - No user account is required.
-- No sync engine exists.
+- Sync runs only for a signed-in member, as ADR 0041 specifies; without an account
+  nothing syncs.
 - All user data the current product needs may live on the device.
 - The Cloudflare Worker stays the boundary for WeatherKit, AI, and provider secrets, and
   owns the versioned mobile API. Supabase does not displace it.

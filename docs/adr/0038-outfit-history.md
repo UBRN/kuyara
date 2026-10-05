@@ -26,4 +26,4 @@ Recording a worn look emits no new analytics event. History rows, garment and ou
 
 ## Consequences
 
-Device backup includes mirror photos before accounts exist; later account photo backup requires its own sync and consent design. A day's record grows by the looks the reader marks; nothing is overwritten. History supports repeat avoidance without changing the catalog-only recommendation boundary. A future account can link the row through `localProfileId` without an outbox or sync engine now.
+Device backup includes mirror photos; photos do not go to an account, and a later photo backup requires its own sync and consent design. A day's record grows by the looks the reader marks; nothing is overwritten. History supports repeat avoidance without changing the catalog-only recommendation boundary. With an account and its sync consent, History rows sync to the account without the photo, as [ADR 0041](0041-optional-accounts.md) section 3 specifies.

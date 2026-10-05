@@ -39,7 +39,7 @@ alts_body: >-
 
 privacy_title: Ücretsiz, reklamsız, sessiz
 privacy_account: >-
-  Bu sürüm hesap açmadan çalışıyor. Kaydolman gereken bir şey yok.
+  Hesap isteğe bağlı ve ücretsiz. Hava ve kombin önerileri hesap olmadan da çalışıyor.
 privacy_consent: >-
   Kullanım analitiği ve performans tanılamaları uygulamada yaptığın seçime bağlıdır;
   gizlilik politikasında anlatılan nadir teknik kayıtlar bunun istisnasıdır. Açılış

@@ -37,6 +37,9 @@ Top to bottom, the populated screen is:
 
 1. A native large title, "Profile" / "Profil", with the Settings gear as the bar button.
    That is the only chrome. Settings is not a row.
+   While the person is signed out and has not closed it, a dismissible "Complete your
+   profile" / "Profilini tamamla" card sits under the title and opens sign-in
+   ([ADR 0041](0041-optional-accounts.md) section 5); it is absent once signed in or closed.
 2. A **Closet heading row**: the word at `title` 22, the total count trailing at `body`
    17 in `textSecondary` with tabular figures, then a chevron. The whole row opens the
    list. It is a heading, not a list row, and does not take the anatomy in section 2.
@@ -83,7 +86,7 @@ bare rack, then a `dangerInk` glyph at 20, a `bodyStrong` title, a `body` line a
 tonal "Try again" button. The Wanted row is hidden while nothing exists in either state.
 The History row sits in the group under Closet.
 
-There are no cards. The planes are ground and chrome plus the illustrated Closet stage. Emphasis levels
+There are no cards except the account card. The planes are ground and chrome plus the illustrated Closet stage. Emphasis levels
 are three: the rack; `title` and `bodyStrong`; `body` and `caption`. No `display`, no
 `eyebrow`, no motion, no haptic.
 

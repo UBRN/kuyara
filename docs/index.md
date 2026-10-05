@@ -38,7 +38,7 @@ alts_body: >-
 
 privacy_title: Free, ad-free, quiet
 privacy_account: >-
-  This release works without an account. There is nothing to sign up for.
+  An account is optional and free. Weather and outfit suggestions work without one.
 privacy_consent: >-
   Usage analytics and performance diagnostics follow the choice you make in the app,
   apart from rare technical records described in the privacy policy. A launch count

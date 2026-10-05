@@ -29,7 +29,8 @@ explicit that this is not a finding that no privacy work is required. What Apple
 of App Privacy disclosure, consent, retention, deletion and revocation was left to be
 verified against current official documentation.
 
-kuyara ships without sign-in, carries no advertising and no in-app purchase, and the
+kuyara offers an optional account ([ADR 0041](0041-optional-accounts.md)), carries no
+advertising and no in-app purchase, and the
 analytics payload exclusion list in ADR 0023 already forbids exact coordinates, photos,
 free-form text, AI
 prompts, raw provider data, complete rows, credentials and any persistent device
@@ -67,7 +68,8 @@ Against Apple's category list on that page, kuyara's current collection maps as 
 | Identifiers: Device ID or User ID | Yes, from milestone 10 | Two independent random per-install identifiers, PostHog's and Observe's `expo.eas_client.id`, each an "other device-level ID". They are never joined to each other or to `localProfileId`, and both are declared linked to the user because profile-derived properties ride on the analytics one; see section 5 and section 7. |
 | Location: Coarse Location | No | PostHog derives `$geoip_city_name` and related properties from the request IP on its servers. Apple's Coarse Location definition covers any location "with lower resolution than a latitude and longitude with three or more decimal places". IP discard and the separately disabled GeoIP transformation keep this category out; see section 5. |
 | Precise Location | No | Coordinates never enter an analytics payload under ADR 0023. Section 7 records why the app-wide answer is also no. |
-| Health, Sensitive Info, Contacts, User Content, Photos | No | Nothing in the taxonomy touches them. Gender and dress style are stored profile values, not sensitive-info categories in Apple's list; section 5 governs linkage. |
+| Contact Info: Email Address, Name; Identifiers: User ID; User Content: Other User Content | Yes, from the optional account | Linked to the user, for App Functionality, not used for tracking. [ADR 0041](0041-optional-accounts.md) section 10 states what each type covers; no analytics payload carries them. |
+| Health, Sensitive Info, Contacts, Photos | No | Nothing in the taxonomy or the account touches them; photos do not go to the account. Gender and dress style are stored profile values, not sensitive-info categories in Apple's list; section 5 governs linkage. |
 
 The App Privacy Details page also requires the developer to declare, per category, whether
 data is "linked to the user" and whether it is "used to track you". Tracking is settled in
@@ -218,7 +220,7 @@ This is a deliberate exception to the consent-before-collection rule above, and 
 one. The controls that remain are disclosure in the privacy policy and the App Privacy
 declaration: the user cannot withdraw from either request inside the app, the Settings control
 does not claim to cover them, and deleting the app removes the identifier. `expo-insights` is
-installed because a free app with no sign-in and no store-independent install signal has no
+installed because a free app with no store-independent install signal has no
 other way to see aggregate install and launch counts per store version. Red line: if App
 Review objects to the ungated launch event, the only lever is removing `expo-insights`, and
 that is the fallback.
@@ -246,18 +248,19 @@ are "easily accessible", accessible controls cannot be
 hard to reach or unlabeled, and a reviewer who cannot find the control in two taps has
 grounds to reject. Two taps from Settings, a clear label, no dark pattern.
 
-### 4. Deletion and revocation before accounts exist
+### 4. Account deletion and analytics revocation
 
-Apple's account-deletion requirement does not apply. The support page states it applies to
+Apple's account-deletion requirement applies, because kuyara supports account creation. The
+support page states it applies to
 apps that "support account creation", and Guideline 5.1.1 (v) conditions it on the same:
 "If your app supports account creation, you must also offer account deletion within the
 app" (<https://developer.apple.com/support/offering-account-deletion-in-your-app/>, read
-2026-09-09). The first release ships without sign-in. This changes when
-[ADR 0022](0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md)'s
-accounts arrive: account deletion will then have to delete analytics data associated with
-the account too, since Apple expects "all data associated with their account" to go.
+2026-09-09). The app offers account deletion as
+[ADR 0041](0041-optional-accounts.md) section 7 specifies. Apple expects "all data
+associated with their account" to go; analytics is never linked to the account (section 5
+and ADR 0041 section 12), so PostHog holds no data associated with the account.
 
-What Apple does require today is the 5.1.1 (i) policy text: how a user can revoke consent
+For analytics, Apple requires the 5.1.1 (i) policy text: how a user can revoke consent
 "and/or request deletion". Revocation is the Settings control in section 3. For deletion
 the decision is:
 
@@ -295,7 +298,7 @@ The SDK creates one unconditionally: a random `uuidv7()` per install, stored in 
 storage, with no hardware or vendor identifier behind it. That is acceptable under the
 ADR 0023 exclusion list, which forbids a fingerprint of the physical device, not a random
 per-install value. No additional identity is designed. `identify()`, `alias()`, `group()`
-and `setPersonProperties()` are not called in the first release, and the core
+and `setPersonProperties()` are never called, and the core
 `personProfiles` option keeps its `identified_only` default, so events stay anonymous
 events with no person profile; PostHog documents that "for identified events we create a
 person profile for the user, whereas for anonymous events we do not"
@@ -410,8 +413,8 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
    the same answers are entered in App Store Connect.
 3. Apple's three pages cited in sections 1 to 3 are re-read on the submission date, and
    any changed obligations are reflected in the current decision and supporting documents.
-4. If accounts ship before or with analytics, account deletion also deletes analytics data
-   for that account, per the account-deletion page.
+4. Analytics is never linked to an account, so account deletion has no analytics data to
+   delete for the account (ADR 0041 section 12).
 
 ### 7. Current privacy decisions
 
@@ -606,9 +609,8 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   Expo also aggregates it into the App usage view, which is an analytics use; no manifest
   consequence follows either way, because the Device ID row already carries both purposes. The
   `Expo-Fatal-Error` header is covered by the existing Crash Data row under
-  `ios.privacyManifests`, which carries both purposes. `apps/mobile/app.json` is therefore
-  unchanged, and the App Store Connect questionnaire needs no new answer before the next
-  submission.
+  `ios.privacyManifests`, which carries both purposes. The two requests therefore add no
+  row to `apps/mobile/app.json` and no answer to the App Store Connect questionnaire.
 
 ## Consequences
 
@@ -617,12 +619,15 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 - ATT remains not applicable under Apple's cited definition.
 - The App Store questionnaire answer set is known in advance: Product Interaction and
   Other Usage Data for analytics, Performance Data, Other Diagnostic Data, Crash Data and
-  Device ID for the EAS Observe integration, no Location, no tracking, and linked to the user.
+  Device ID for the EAS Observe integration, Email Address, Name, User ID and Other User
+  Content for the optional account, no Photos, no Location, no tracking, and linked to the
+  user.
   The two Expo launch-time requests add no category: they fall inside the Product
   Interaction, Device ID and App Functionality answers already filed.
-- Apple's account-deletion rule does not apply to the first release, but the privacy
-  policy still has to describe revocation and a deletion request path, and the accounts
-  milestone inherits an analytics-deletion obligation.
+- Apple's account-deletion rule applies because kuyara supports account creation, and the
+  app offers deletion ([ADR 0041](0041-optional-accounts.md) section 7). The privacy policy
+  still has to describe revocation and a deletion request path for analytics, which is
+  never linked to the account.
 - The analytics identity question from ADR 0023 is closed: the SDK's random per-install
   identifier is the only one, no person profile is created, and withdrawal rotates it.
 
@@ -631,7 +636,7 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 - Implementation beyond the milestone acceptance conditions in section 6.
 - Any broader legal conclusion under GDPR, KVKK, or other statute.
 - Session replay and Grafana, which remain unimplemented and keep their ADR 0023 status.
-- Account deletion design, which belongs with accounts.
+- Account deletion design, which is in [ADR 0041](0041-optional-accounts.md).
 
 ## Sources
 

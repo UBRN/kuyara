@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-30)
 
-Implementation: the account feature is built and switched off behind `ACCOUNT_SCREENS_ENABLED`: the live Supabase and Sign in with Apple adapters, the encrypted session store, the SQLite row source, the sync consent sheet and records, the Apple credential check at launch and the revocation notification while the app runs, the Worker deletion route and the keep-alive Cron Trigger exist and are tested against fakes. The remote schema is `supabase/migrations/20261004120000_accounts.sql`, applied to the project, followed by `supabase/migrations/20261005090000_account_hardening.sql`, both applied to the project. The Worker deletion route, the keep-alive Cron Trigger and the member re-ask count are deployed. Google sign-in waits for its library licence. The shipped app has no sign-in or cross-device sync.
+Implementation: the account feature is live behind `ACCOUNT_SCREENS_ENABLED`, which the release that opens accounts sets on: the live Supabase and Sign in with Apple adapters, Google sign-in, the encrypted session store, the SQLite row source, the sync consent sheet and records, the Apple credential check at launch and the revocation notification while the app runs, the Worker deletion route and the keep-alive Cron Trigger exist and are tested against fakes. The remote schema is `supabase/migrations/20261004120000_accounts.sql`, applied to the project, followed by `supabase/migrations/20261005090000_account_hardening.sql`, both applied to the project. The Worker deletion route, the keep-alive Cron Trigger and the member re-ask count are deployed. Google sign-in fails closed until its licensed library and its client ids are installed.
 
 ## Context
 
