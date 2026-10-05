@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { createAccountSessionManager } from './account-session.ts';
 import { createAccountDeletionClient } from './account-delete.ts';
+import { fetchWithTimeout } from '../../../infrastructure/network/fetch-json-with-timeout.ts';
 
 const identity = { userId: 'user-a', provider: 'apple', email: 'ada@example.com', providers: ['apple'], accessToken: 'token' };
 
@@ -660,6 +661,27 @@ test('a sign-out during a pass uploads after it, then ends the session', async (
   assert.deepEqual(calls, [['sync', 'user-a']]);
   first.resolve();
   await Promise.all([starting, signingOut]);
+  assert.deepEqual(calls, [['sync', 'user-a'], ['sync', 'user-a'], ['signOut']]);
+});
+
+test('a pass whose request never answers ends at the request deadline, so sign-out still ends the session', async () => {
+  // The live client sends every account request through this deadline.
+  const silentServer = (_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener('abort', () => reject(init.signal.reason));
+  });
+  const request = fetchWithTimeout(silentServer, 30);
+  const { manager, calls } = setup({ current: identity, sync: { run: async (userId) => {
+    calls.push(['sync', userId]);
+    await request('https://project.supabase.co/rest/v1/wardrobe_items', { method: 'POST' });
+    return { pendingChanges: 0, closetPieces: 0, historyDays: 0, syncConsent: 'given', firstLink: null };
+  } } });
+  const starting = manager.start();
+  await settle();
+  const started = Date.now();
+  await manager.signOut();
+  await starting;
+  assert.ok(Date.now() - started < 1000);
+  assert.equal(manager.getSnapshot().session.kind, 'signedOut');
   assert.deepEqual(calls, [['sync', 'user-a'], ['sync', 'user-a'], ['signOut']]);
 });
 

@@ -28,7 +28,7 @@ import { createSupabaseAccountRemote, createSupabaseSyncConsent } from '@/featur
 import { createWorkerAccountDeletion } from '@/features/account/data/worker-account-deletion';
 import { signOut as linkAfterSignOut } from '@/features/account/domain/account-link';
 import { deviceCrypto } from '@/infrastructure/device-crypto';
-import type { Fetch } from '@/infrastructure/network/fetch-json-with-timeout';
+import { fetchWithTimeout } from '@/infrastructure/network/fetch-json-with-timeout';
 import { deviceKeyValueStore } from '@/infrastructure/sqlite/key-value-store';
 import type { SqliteDatabase } from '@/infrastructure/sqlite/sqlite-database';
 import { systemDate, systemNow } from '@/infrastructure/system-clock';
@@ -47,6 +47,14 @@ const sessionStorageKey = 'kuyara.account.session';
  * build, so Google sign-in fails closed (ADR 0041 section 1).
  */
 const googleModule: GoogleOneTapModule | null = null;
+
+/**
+ * Every Supabase request, auth included, is aborted after this long. Passes run one at a time and
+ * sign-out waits for the running one, so a request that never answered would hold every later
+ * sync and the sign-out; a request is one statement under the `authenticated` role's 8-second
+ * limit, so this leaves the network room.
+ */
+const accountRequestTimeoutMs = 15_000;
 
 /** A token read that may refresh never holds a re-ask longer than this; the re-ask goes without it. */
 const accessTokenWaitMs = 3000;
@@ -72,7 +80,7 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
   localProfileId: string;
   settings: SupabaseSettings;
   workerBaseUrl: string;
-  fetcher: Fetch;
+  fetcher: typeof fetch;
 }>): LiveAccountSession {
   const storage = createEncryptedSessionStorage({
     keys: {
@@ -86,6 +94,7 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
   // in the background too; `connectAccountLifecycle` runs it in the foreground only (ADR 0041 section 9).
   const client = createClient(settings.url, settings.publishableKey, {
     auth: { storage, storageKey: sessionStorageKey, autoRefreshToken: false, persistSession: true, detectSessionInUrl: false },
+    global: { fetch: fetchWithTimeout(fetcher, accountRequestTimeoutMs) },
   });
   const source = createSqliteAccountRowsSource(database);
   const supabaseAuth = createSupabaseAccountAuth({

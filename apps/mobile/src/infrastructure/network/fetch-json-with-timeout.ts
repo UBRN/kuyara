@@ -43,3 +43,28 @@ export async function fetchJsonWithTimeout(
     clearTimeout(timeout);
   }
 }
+
+/**
+ * `send` with a deadline, for a client library that sends and parses its own requests (the
+ * Supabase client) and so cannot go through `fetchJsonWithTimeout`: each request is
+ * aborted `timeoutMilliseconds` after it starts unless it has answered by then, so a request that
+ * never answers cannot hold its caller for good. React Native's fetch answers once the whole body
+ * has arrived, so there the deadline covers the body too. An abort signal of the caller's own
+ * still aborts the request.
+ */
+export function fetchWithTimeout(send: typeof fetch, timeoutMilliseconds: number): typeof fetch {
+  return async (input, init) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMilliseconds);
+    const callerSignal = init?.signal ?? null;
+    const abortWithCaller = () => controller.abort();
+    if (callerSignal?.aborted) controller.abort();
+    callerSignal?.addEventListener('abort', abortWithCaller);
+    try {
+      return await send(input, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+      callerSignal?.removeEventListener('abort', abortWithCaller);
+    }
+  };
+}

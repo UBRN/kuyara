@@ -75,6 +75,23 @@ beforeEach(() => {
   mockSavedLinks.length = 0;
 });
 
+test('every account request has a deadline, so a server that never answers cannot hold a sync or a sign-out', async () => {
+  jest.useFakeTimers();
+  const silent = jest.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+  }));
+  try {
+    compose();
+    const { global } = jest.mocked(createClient).mock.calls[0][2] as { global: { fetch: typeof fetch } };
+    const request = global.fetch('https://project.supabase.co/rest/v1/wardrobe_items', { method: 'POST' });
+    jest.advanceTimersByTime(15_000);
+    await expect(request).rejects.toThrow('aborted');
+  } finally {
+    silent.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
 test('the client never refreshes tokens by itself: the lifecycle runs the refresh in the foreground only', () => {
   const live = compose();
   expect(clientOptions().auth.autoRefreshToken).toBe(false);
