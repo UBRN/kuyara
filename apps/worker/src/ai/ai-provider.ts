@@ -29,6 +29,24 @@ export class AiProviderError extends Error {
 }
 
 /**
+ * Every reason a provider attempt can fail, as the closed vocabulary the handlers log. The
+ * recommend handler uses all of them; the probe logs the subset it can reach, and
+ * `attemptFailureReason` the subset a thrown error maps to.
+ */
+export const aiAttemptFailureReasons = [
+  'timeout',
+  'provider_error',
+  'quota_exceeded',
+  'rate_limited',
+  'invalid_output',
+  'unknown_option',
+  'picks_not_distinct',
+  'archetype_precondition',
+] as const;
+
+export type AiAttemptFailureReason = (typeof aiAttemptFailureReasons)[number];
+
+/**
  * Why one provider attempt threw, as the closed vocabulary the handlers log. A spent quota
  * and an upstream 429 are named, never folded into `provider_error`. Only the attempt's own
  * timer aborts its signal, so an aborted signal reads as a timeout whichever rejection won.
@@ -36,7 +54,7 @@ export class AiProviderError extends Error {
 export function attemptFailureReason(
   error: unknown,
   signal?: AbortSignal,
-): 'timeout' | AiProviderErrorKind | 'provider_error' {
+): Extract<AiAttemptFailureReason, 'timeout' | 'provider_error' | AiProviderErrorKind> {
   if (signal?.aborted || error instanceof AttemptTimeoutError) return 'timeout';
   if (error instanceof AiProviderError) return error.kind;
   return 'provider_error';

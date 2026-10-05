@@ -1547,6 +1547,86 @@ test('a shared-cache write that throws does not discard a valid answer', async (
   assert.equal(JSON.stringify(warnings).includes('provider_error'), false);
 });
 
+// One gate judges a model reply and a cached one, and each rejection says why. The request
+// has an indistinct pair (same-1, same-2) next to the distinct smart and formal options.
+function gateRequestBody() {
+  const body = validRequestBody();
+  body.options = [
+    separatesOption('same-1', 'casual', 't_shirt', 'trousers', 'sneakers', { breathabilityHigh: true }),
+    separatesOption('same-2', 'casual', 't_shirt', 'trousers', 'closed_shoes', { breathabilityHigh: true }),
+    ...body.options.slice(1),
+  ];
+  return body;
+}
+
+const gateGoodOutput = () => ({ data: { picks: [
+  { optionId: 'same-1', archetypeId: 'weekend_relaxed' },
+  { optionId: 'option-smart', archetypeId: 'smart_casual' },
+  { optionId: 'option-formal', archetypeId: 'office_ready' },
+] } });
+
+const gateRejections = [
+  ['unknown_option', () => ({ data: { picks: [
+    { optionId: 'ghost', archetypeId: 'weekend_relaxed' },
+    { optionId: 'option-smart', archetypeId: 'smart_casual' },
+    { optionId: 'option-formal', archetypeId: 'office_ready' },
+  ] } })],
+  ['picks_not_distinct', () => ({ data: { picks: [
+    { optionId: 'same-1', archetypeId: 'weekend_relaxed' },
+    { optionId: 'same-2', archetypeId: 'light_and_airy' },
+    { optionId: 'option-formal', archetypeId: 'office_ready' },
+  ] } })],
+  ['archetype_precondition', () => ({ data: { picks: [
+    { optionId: 'same-1', archetypeId: 'rain_ready' },
+    { optionId: 'option-smart', archetypeId: 'smart_casual' },
+    { optionId: 'option-formal', archetypeId: 'office_ready' },
+  ] } })],
+];
+
+test('a model reply the gate rejects is logged with its own reason and the walk goes on', async (t) => {
+  for (const [reason, rejected] of gateRejections) {
+    const warnings = [];
+    t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+    const calls = [];
+    const response = await createAiHandler({ providers: [
+      openRouter('router/first', calls, rejected),
+      openRouter('router/second', calls, gateGoodOutput),
+    ] })(request({ body: JSON.stringify(gateRequestBody()) }));
+    assert.equal(response.status, 200, reason);
+    assert.deepEqual(calls, ['router/first', 'router/second'], reason);
+    assert.deepEqual(warnings, [{
+      event: 'ai_provider_attempt_failed', model: 'router/first', reason,
+    }]);
+  }
+});
+
+test('a cached answer the gate rejects is a miss, logged with its own reason, and regenerates', async (t) => {
+  for (const [reason, rejected] of gateRejections) {
+    const warnings = [];
+    t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+    const previous = globalThis.caches;
+    globalThis.caches = { default: {
+      async match() { return Response.json(rejected()); },
+      async put() {},
+    } };
+    try {
+      const calls = [];
+      const response = await createAiHandler({
+        providers: [openRouter('router/first', calls, gateGoodOutput)],
+      })(request({ body: JSON.stringify(gateRequestBody()) }));
+      assert.equal(response.status, 200, reason);
+      assert.deepEqual(await response.json(), gateGoodOutput(), reason);
+      assert.deepEqual(calls, ['router/first'], reason);
+      assert.deepEqual(warnings, [{
+        event: 'ai_cache_entry_rejected', route: '/v1/ai/recommend', reason,
+      }]);
+    } finally {
+      if (previous === undefined) delete globalThis.caches;
+      else globalThis.caches = previous;
+    }
+  }
+});
+
 test('a successful answer hands the shared-cache write to waitUntil instead of awaiting it', async () => {
   const previous = globalThis.caches;
   let putResolve;
