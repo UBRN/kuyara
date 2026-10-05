@@ -62,8 +62,9 @@ import type {
 // sections 3 and 4). It reads every row, soft-deleted ones included, with its pending flag, and
 // writes only what sync owns: the synced columns, the clocks and the flag. Device-only columns
 // (photo paths, `local_profile_id`, birth date, consents and settings) are never written from
-// the account; a row new to this phone takes this phone's profile and no photo. Every write is
-// one transaction through the shared helper the repositories use. Sync's bookkeeping (flags,
+// the account; a row new to this phone takes this phone's profile and no photo. Every write goes
+// through the shared transaction helper the repositories use, a large one in transactions of a
+// few hundred rows (`writeInBatches`). Sync's bookkeeping (flags,
 // link, cursor) tells no database write listener. A pull or first link that lands account rows
 // tells them once, so the Closet, History and Profile read the phone again; the lifecycle starts
 // no pass for it, because a landed row is settled, not waiting.
@@ -302,31 +303,25 @@ const whereValues = (byDay: boolean, profileId: string, row: Keyed) =>
   (byDay ? [profileId, row.dayKey ?? ''] : [row.id]);
 
 /**
- * Lands one account row as a settled row (pending cleared). A pending row is left alone: it waits
- * to upload, and its later arrival wins on the account. A day-keyed row adopts the account's id.
- * A row the phone cannot store (a constraint this build enforces) is skipped, so one row never
- * stalls every later pass; any other write failure throws.
+ * Lands one account row as a settled row (pending cleared), in one statement: inserted when the
+ * phone lacks it, else written over the phone's copy unless that copy is pending, which waits to
+ * upload and whose later arrival wins on the account. A day-keyed row is found by its day and
+ * adopts the account's id. A row the phone cannot store (a constraint this build enforces) is
+ * skipped, so one row never stalls every later pass; any other write failure throws.
  */
 async function land<Item extends Keyed>(
   db: SqliteExecutor, write: TableWrite<Item>, profileId: string, row: Item,
 ): Promise<void> {
-  const own = await db.getFirstAsync<Flag>(
-    `SELECT pending_sync FROM ${write.table} WHERE ${where(write.byDay)}`, whereValues(write.byDay, profileId, row));
-  if (own?.pending_sync === 1) return;
-  const content = write.values(row);
+  const columns = ['id', 'local_profile_id', ...(write.byDay ? ['day_key'] : []), ...write.columns,
+    'created_at', 'updated_at', 'deleted_at', 'pending_sync'];
+  const overwritten = [...write.columns, 'id', 'created_at', 'updated_at', 'deleted_at', 'pending_sync'];
   try {
-    if (own !== null) {
-      const assignments = [...write.columns, 'id', 'created_at', 'updated_at', 'deleted_at']
-        .map((column) => `${column} = ?`).join(', ');
-      await db.runAsync(`UPDATE ${write.table} SET ${assignments}, pending_sync = 0 WHERE ${where(write.byDay)}`,
-        [...content, row.id, row.createdAt, row.updatedAt, row.deletedAt, ...whereValues(write.byDay, profileId, row)]);
-    } else {
-      const columns = ['id', 'local_profile_id', ...(write.byDay ? ['day_key'] : []), ...write.columns,
-        'created_at', 'updated_at', 'deleted_at', 'pending_sync'];
-      await db.runAsync(`INSERT INTO ${write.table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
-        [row.id, profileId, ...(write.byDay ? [row.dayKey ?? ''] : []), ...content,
-          row.createdAt, row.updatedAt, row.deletedAt, 0]);
-    }
+    await db.runAsync(`INSERT INTO ${write.table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})
+      ON CONFLICT (${write.byDay ? 'local_profile_id, day_key' : 'id'}) DO UPDATE
+      SET ${overwritten.map((column) => `${column} = excluded.${column}`).join(', ')}
+      WHERE ${write.table}.pending_sync = 0`,
+    [row.id, profileId, ...(write.byDay ? [row.dayKey ?? ''] : []), ...write.values(row),
+      row.createdAt, row.updatedAt, row.deletedAt, 0]);
   } catch (error) {
     // Only a constraint failure is skipped: the phone keeps what it had, and the next first link
     // can bring the row again. Any other failure (a full disk, an I/O error) fails the whole pass,
@@ -354,38 +349,48 @@ async function profileIdOf(db: SqliteExecutor): Promise<string> {
   return row.id;
 }
 
-/** Lands every row of `rows` that is not waiting to upload. */
-async function landAll(db: SqliteExecutor, rows: AccountRows): Promise<void> {
-  if (rows.profile !== null) await landProfile(db, rows.profile);
-  const hasRecords = rows.wardrobeItems.length + rows.dressingDayChoices.length
-    + rows.dressingDayDepartures.length + rows.outfitHistory.length > 0;
-  if (!hasRecords) return;
-  const profileId = await profileIdOf(db);
-  for (const item of rows.wardrobeItems) await land(db, wardrobeWrite, profileId, item);
-  for (const choice of rows.dressingDayChoices) await land(db, choiceWrite, profileId, choice);
-  for (const departure of rows.dressingDayDepartures) await land(db, departureWrite, profileId, departure);
-  for (const record of rows.outfitHistory) await land(db, historyWrite, profileId, record);
+/** One row's write inside a batched write (`writeInBatches`). */
+type RowWrite = (db: SqliteExecutor) => Promise<void>;
+
+/** This phone's profile id, read at most once and only when a record row needs it. */
+function profileIdReader(database: SqliteExecutor): () => Promise<string> {
+  let id: Promise<string> | null = null;
+  return () => (id ??= profileIdOf(database));
 }
 
-/** Marks or clears the flag of each row of `rows` by its identity; `updatedAt` when `matchVersion`. */
-async function setPending(db: SqliteExecutor, rows: AccountRows, pending: 0 | 1, matchVersion: boolean): Promise<void> {
-  const version = matchVersion ? ' AND updated_at = ?' : '';
-  if (rows.profile !== null) {
-    await db.runAsync(`UPDATE local_profiles SET pending_sync = ? WHERE singleton_key = 1${version}`,
-      [pending, ...(matchVersion ? [rows.profile.updatedAt] : [])]);
-  }
-  const tables: readonly (readonly [TableWrite<never>, readonly Keyed[]])[] = [
-    [wardrobeWrite, rows.wardrobeItems], [choiceWrite, rows.dressingDayChoices],
-    [departureWrite, rows.dressingDayDepartures], [historyWrite, rows.outfitHistory],
+const recordTables = (rows: AccountRows): readonly (readonly [TableWrite<never>, readonly Keyed[]])[] => [
+  [wardrobeWrite, rows.wardrobeItems], [choiceWrite, rows.dressingDayChoices],
+  [departureWrite, rows.dressingDayDepartures], [historyWrite, rows.outfitHistory],
+];
+
+/** Landing every row of `rows` that is not waiting to upload, one write per row. */
+function landWrites(rows: AccountRows, profileId: () => Promise<string>): RowWrite[] {
+  const { profile } = rows;
+  const landEach = <Item extends Keyed>(write: TableWrite<Item>, items: readonly Item[]) =>
+    items.map((row) => async (db: SqliteExecutor) => land(db, write, await profileId(), row));
+  return [
+    ...(profile === null ? [] : [(db: SqliteExecutor) => landProfile(db, profile)]),
+    ...landEach(wardrobeWrite, rows.wardrobeItems),
+    ...landEach(choiceWrite, rows.dressingDayChoices),
+    ...landEach(departureWrite, rows.dressingDayDepartures),
+    ...landEach(historyWrite, rows.outfitHistory),
   ];
-  if (tables.every(([, items]) => items.length === 0)) return;
-  const profileId = await profileIdOf(db);
-  for (const [write, items] of tables) {
-    for (const row of items) {
+}
+
+/** Marking or clearing the flag of each row of `rows` by its identity; `updatedAt` too when `matchVersion`. */
+function flagWrites(rows: AccountRows, profileId: () => Promise<string>, pending: 0 | 1, matchVersion: boolean): RowWrite[] {
+  const version = matchVersion ? ' AND updated_at = ?' : '';
+  const { profile } = rows;
+  return [
+    ...(profile === null ? [] : [async (db: SqliteExecutor) => {
+      await db.runAsync(`UPDATE local_profiles SET pending_sync = ? WHERE singleton_key = 1${version}`,
+        [pending, ...(matchVersion ? [profile.updatedAt] : [])]);
+    }]),
+    ...recordTables(rows).flatMap(([write, items]) => items.map((row) => async (db: SqliteExecutor) => {
       await db.runAsync(`UPDATE ${write.table} SET pending_sync = ? WHERE ${where(write.byDay)}${version}`,
-        [pending, ...whereValues(write.byDay, profileId, row), ...(matchVersion ? [row.updatedAt] : [])]);
-    }
-  }
+        [pending, ...whereValues(write.byDay, await profileId(), row), ...(matchVersion ? [row.updatedAt] : [])]);
+    })),
+  ];
 }
 
 async function saveLinkIn(db: SqliteExecutor, link: AccountLink): Promise<void> {
@@ -393,6 +398,13 @@ async function saveLinkIn(db: SqliteExecutor, link: AccountLink): Promise<void> 
     records_user_id = ?, records_consent_recorded_at = ?, last_pull_cursor = ? WHERE singleton_key = 1`,
   [link.userId, link.lastUserId, link.recordsUserId, link.recordsConsentRecordedAt, storedCursor(link.cursor)]);
 }
+
+/**
+ * Rows written per transaction. Each statement crosses to the native side, and a transaction holds
+ * the write lock every other write of the app waits for, at most the database's 5-second busy
+ * wait; a few hundred rows stay well inside it, where an account of thousands would not.
+ */
+const rowsPerTransaction = 250;
 
 /** Sync's bookkeeping: kept from the database write listeners. */
 const quiet: SqliteTransactionOptions = { notifyWrites: false };
@@ -417,6 +429,26 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
     `SELECT ${columns}, pending_sync FROM ${table} WHERE local_profile_id = ? ORDER BY rowid`, [id]);
   const write = (task: (transaction: SqliteExecutor) => Promise<void>, options = quiet) =>
     database.withExclusiveTransactionAsync(task, options);
+  /**
+   * `rows` in transactions of `rowsPerTransaction`, then `finish` in the last one, which alone
+   * tells the listeners as `options` says. A failure part way keeps what earlier transactions
+   * wrote and skips `finish`, so the link or cursor `finish` saves stays where it was and the pass
+   * runs again: every row write lands, settles or flags the same way twice.
+   */
+  async function writeInBatches(rows: readonly RowWrite[], finish: RowWrite, options: SqliteTransactionOptions) {
+    const batches: (readonly RowWrite[])[] = [];
+    for (let start = 0; start < rows.length; start += rowsPerTransaction) {
+      batches.push(rows.slice(start, start + rowsPerTransaction));
+    }
+    const last = batches.pop() ?? [];
+    for (const batch of batches) {
+      await write(async (transaction) => { for (const row of batch) await row(transaction); });
+    }
+    await write(async (transaction) => {
+      for (const row of last) await row(transaction);
+      await finish(transaction);
+    }, options);
+  }
 
   async function read(): Promise<LocalAccountRows> {
     const profile = await database.getFirstAsync<ProfileRow>(`SELECT id, display_name, gender, dress_style,
@@ -447,23 +479,23 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
     },
     saveLink: (link) => write((transaction) => saveLinkIn(transaction, link)),
     applyFirstLink(merge: MergeResult, link: AccountLink, local: AccountRows) {
-      return write(async (transaction) => {
-        // The merge settles the profile it read and, under the consent, every record it read: the
-        // account's copy lands over it, and what it does not send never uploads. A row written
-        // since the read (another identity or `updatedAt`) keeps its flag, so the account's copy
-        // does not land over it and the edit uploads with the next pass.
-        await setPending(transaction, merge.syncConsent ? local : { ...noRecords, profile: local.profile }, 0, true);
-        await landAll(transaction, merge.writeToPhone);
-        await setPending(transaction, merge.sendToAccount, 1, false);
-        await saveLinkIn(transaction, link);
-      }, landing(merge.writeToPhone));
+      const profileId = profileIdReader(database);
+      // The merge settles the profile it read and, under the consent, every record it read: the
+      // account's copy lands over it, and what it does not send never uploads. A row written
+      // since the read (another identity or `updatedAt`) keeps its flag, so the account's copy
+      // does not land over it and the edit uploads with the next pass. The link is saved last, so
+      // a first link that stops part way runs again whole.
+      return writeInBatches([
+        ...flagWrites(merge.syncConsent ? local : { ...noRecords, profile: local.profile }, profileId, 0, true),
+        ...landWrites(merge.writeToPhone, profileId),
+        ...flagWrites(merge.sendToAccount, profileId, 1, false),
+      ], (transaction) => saveLinkIn(transaction, link), landing(merge.writeToPhone));
     },
     clearPendingIfUnchanged(returned) {
-      return write((transaction) => setPending(transaction, returned, 0, true));
+      return writeInBatches(flagWrites(returned, profileIdReader(database), 0, true), async () => {}, quiet);
     },
     writePulled(rows, cursor) {
-      return write(async (transaction) => {
-        await landAll(transaction, rows);
+      return writeInBatches(landWrites(rows, profileIdReader(database)), async (transaction) => {
         await transaction.runAsync('UPDATE device_account_link SET last_pull_cursor = ? WHERE singleton_key = 1', [storedCursor(cursor)]);
       }, landing(rows));
     },

@@ -253,7 +253,7 @@ function failingWrites(database, fails) {
   });
 }
 
-test('a first link that fails part way leaves the phone and the link as they were', async (t) => {
+test('a first link that fits one transaction and fails part way leaves the phone and the link as they were', async (t) => {
   const { database } = await setup(t);
   const failing = failingWrites(database, (sql) => sql.includes('device_account_link'));
   const source = createSqliteAccountRowsSource(failing);
@@ -263,6 +263,43 @@ test('a first link that fails part way leaves the phone and the link as they wer
   assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items')).n, 0);
   assert.equal((await database.getFirstAsync('SELECT display_name FROM local_profiles')).display_name, 'Phone');
   assert.deepEqual(await source.link(), unlinked);
+});
+
+test('a large landing holds the write lock a few hundred rows at a time, and one that stops part way runs again whole', async (t) => {
+  const { database } = await setup(t);
+  const transactions = [];
+  const counting = new Proxy(database, {
+    get(target, name) {
+      if (name === 'withExclusiveTransactionAsync') {
+        return (task, options) => target.withExclusiveTransactionAsync((transaction) => {
+          const statements = { n: 0 };
+          transactions.push(statements);
+          const count = (method) => (...args) => { statements.n += 1; return transaction[method](...args); };
+          return task({ execAsync: transaction.execAsync.bind(transaction),
+            runAsync: count('runAsync'), getFirstAsync: count('getFirstAsync'), getAllAsync: count('getAllAsync') });
+        }, options);
+      }
+      const value = target[name];
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  const pieces = Array.from({ length: 600 }, (_, index) => wardrobeItem(index + 1));
+  const merge = mergeAtFirstLink(none, { ...none, wardrobeItems: pieces }, { syncConsent: true, now: stamp(10) });
+  const link = { ...unlinked, userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: pullCursorAt('2026-10-01T00:00:00.000001Z') };
+
+  // The link write fails: the batches before it stay, the link does not.
+  await assert.rejects(createSqliteAccountRowsSource(failingWrites(counting, (sql) => sql.includes('device_account_link')))
+    .applyFirstLink(merge, link, none), /disk full/);
+  assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items')).n, 500);
+  assert.deepEqual(await createSqliteAccountRowsSource(database).link(), unlinked);
+
+  transactions.length = 0;
+  const source = createSqliteAccountRowsSource(counting);
+  await source.applyFirstLink(merge, link, none);
+  assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items WHERE pending_sync = 0')).n, 600);
+  assert.deepEqual(await source.link(), link);
+  assert.ok(transactions.length > 1);
+  assert.ok(transactions.every(({ n }) => n <= 260), transactions.map(({ n }) => n).join());
 });
 
 test('a pulled row that fails to write for any reason but a constraint fails the pull and keeps the cursor', async (t) => {

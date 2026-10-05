@@ -50,7 +50,9 @@ export type AccountRowsSourcePort = Readonly<{
   link: () => Promise<AccountLink>;
   saveLink: (link: AccountLink) => Promise<void>;
   /**
-   * One transaction writes winners, marks rows to send pending and saves `link`, cursor included.
+   * Writes winners, marks rows to send pending and saves `link`, cursor included, last, in
+   * transactions of a few hundred rows; one that stops part way leaves `link` unsaved, so the
+   * first link runs again and lands the same way.
    * The rows of `local`, the rows the merge read (the profile, and the records under the consent,
    * `merge.syncConsent`), are settled: their pending flags clear while the row still holds the
    * identity and `updatedAt` read, so a deletion older than the marker window never uploads later.
@@ -62,8 +64,10 @@ export type AccountRowsSourcePort = Readonly<{
   /** Compare identity and updatedAt again inside the write transaction before clearing. */
   clearPendingIfUnchanged: (returned: AccountRows) => Promise<void>;
   /**
-   * One transaction rechecks pending, lands only settled rows without setting pending, and
-   * advances the cursor. A profile without dress style and style aesthetics leaves the phone's.
+   * Rechecks pending, lands only settled rows without setting pending, and advances the cursor
+   * last, in transactions of a few hundred rows; one that stops part way keeps the cursor, so the
+   * rows are pulled and land again. A profile without dress style and style aesthetics leaves the
+   * phone's.
    */
   writePulled: (rows: AccountRows, cursor: PullCursor) => Promise<void>;
 }>;
