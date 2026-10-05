@@ -359,9 +359,11 @@ function TodayScreenContent({
   });
 
   if (presentation.kind !== 'loaded' && stageLaidOut) setStageLaidOut(false);
-  // A loading or error interlude unmounts the leaving board, so it can never report that it
-  // has left; kept, it would drop in again when the outfit returns.
+  // A loading or error interlude unmounts the stage and the leaving board, so neither is on
+  // screen when the outfit returns: the leaving board can never report that it has left, and
+  // the outfit the stage held is gone, so nothing drops away above the next one.
   if (presentation.kind !== 'loaded' && leavingOutfit) setLeavingOutfit(null);
+  if (presentation.kind !== 'loaded' && stageOutfit) setStageOutfit(null);
 
   if (presentation.kind === 'loading') {
     return (

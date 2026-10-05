@@ -1487,6 +1487,26 @@ describe('the leaving board on a re-ask', () => {
     },
   );
 
+  // The interlude unmounted the board, so the outfit before it is not on screen to drop away:
+  // a new outfit after it rises on its own, with no leaving board above it.
+  test.each(['loading', 'unavailable'] as const)(
+    'a new outfit after a %s interlude drops nothing away',
+    async (kind) => {
+      const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation((toValue) => toValue);
+      try {
+        const result = await render(screen(todayScreenState));
+        await result.rerender(providers(
+          <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+            onAskAgain={jest.fn()} state={{ kind }} />,
+        ));
+        await result.rerender(screen(withPrimary('after-interlude')));
+        expect(result.queryByTestId('today-leaving-board', hidden)).toBeNull();
+      } finally {
+        withTiming.mockRestore();
+      }
+    },
+  );
+
   // B arrives while A is still leaving, so B was never drawn: it must not appear at full
   // opacity only to drop away again. A keeps leaving and C rises after it.
   test('an outfit replaced before it was drawn never becomes the leaving board', async () => {
