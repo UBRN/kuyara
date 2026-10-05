@@ -387,4 +387,16 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     expect(result.queryByTestId('outfit-detail-board-strip')).toBeNull();
     expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
   });
+
+  // The route keeps the back swipe off only while a piece is enlarged, so an outfit that is
+  // no longer there must hand the swipe back, or the screen could not be left by a swipe.
+  test('an outfit that disappears while a piece is enlarged ends the focus', async () => {
+    const onBoardFocusChange = jest.fn();
+    const result = await renderDetail(language, todayScreenState, { onBoardFocusChange });
+    await activate(result, 'outer_layer');
+    expect(onBoardFocusChange).toHaveBeenLastCalledWith(true);
+    await result.rerender(tree(language, todayScreenState, { onBoardFocusChange, suggestionId: 'no-longer-offered' }));
+    expect(result.getByText(copy.noOutfitTitle)).toBeOnTheScreen();
+    expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
+  });
 });
