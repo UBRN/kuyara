@@ -1517,3 +1517,15 @@ test('presentation reads the wall clock only through useForegroundClock', () => 
     && /useState\(\(\) => Date\.now\(\)\)|useMemo\(\(\) => new Date\(\)/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits, [], 'read the clock with useForegroundClock');
 });
+
+// A deprecated garment type stays readable on saved items but is never offered, so production
+// code lists the catalog only through `listSelectableGarmentTypes`, which drops it. The
+// unfiltered `listGarmentTypesForPreference` is the catalog's own building block; tests may
+// read it as the full list.
+test('production code lists garment types only through listSelectableGarmentTypes', () => {
+  const owner = 'features/catalog/domain/garment-catalog.ts';
+  const hits = sourceFiles().filter((relativePath) =>
+    relativePath !== owner &&
+    /\blistGarmentTypesForPreference\(/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(hits, [], 'call listSelectableGarmentTypes from @/features/catalog/domain/garment-catalog');
+});

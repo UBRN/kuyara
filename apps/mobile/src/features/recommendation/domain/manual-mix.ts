@@ -1,5 +1,5 @@
 import type { ClothingPreference } from '@/domain/preferences';
-import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
+import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
   evaluateGarmentEligibility,
@@ -144,7 +144,7 @@ export function slotCandidates(
   const base = outfitGarments(outfit);
   const current = base[slot];
   if (current === undefined && !isRemovable(slot)) return Object.freeze([]);
-  const types = listGarmentTypesForPreference(preference)
+  const types = listSelectableGarmentTypes(preference)
     .map(({ typeId }) => typeId)
     .filter((typeId) => garmentFitsSlot(slot, typeId));
   return rankSlot(base, slot, current === undefined || types.includes(current) ? types : [current, ...types],
@@ -321,7 +321,7 @@ export function pinPieces<Outfit extends OutfitCandidate>(
   }
   const bestFor = (slot: SwappableSlot): GarmentTypeId => {
     const taken = new Set(swappableSlots.filter((other) => other !== slot).map((other) => garments[other]));
-    const ids = listGarmentTypesForPreference(preference).map(({ typeId }) => typeId)
+    const ids = listSelectableGarmentTypes(preference).map(({ typeId }) => typeId)
       .filter((typeId) => garmentFitsSlot(slot, typeId) && !taken.has(typeId));
     const [best] = rankSlot(garments, slot, ids, requirements, preference);
     if (!best) throw new Error(`No catalog piece is left for the ${slot} slot.`);
