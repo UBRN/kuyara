@@ -74,10 +74,6 @@ export function applyPulledProfile(
 /** A table a pull reads, named as in `AccountRows`. */
 export type AccountTable = keyof AccountRows;
 
-export const accountTables = [
-  'profile', 'wardrobeItems', 'dressingDayChoices', 'dressingDayDepartures', 'outfitHistory',
-] as const satisfies readonly AccountTable[];
-
 /**
  * The pull cursor: for each table, the latest arrival seen there, null before any. A pull reads
  * the tables side by side and a long one can take seconds longer than a short one, so each table

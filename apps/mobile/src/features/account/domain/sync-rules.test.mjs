@@ -5,7 +5,6 @@ import {
   applyPulledByDay,
   applyPulledById,
   applyPulledProfile,
-  accountTables,
   nextCursor,
   pendingRows,
   pullCursorAt,
@@ -97,7 +96,7 @@ test('a late arrival in one table never moves another table\'s position', () => 
   const next = nextCursor(pullCursorAt(at(1)), [{ table: 'outfitHistory', serverUpdatedAt: at(9) }, { table: 'profile', serverUpdatedAt: at(3) }]);
   assert.deepEqual(next, { profile: at(3), wardrobeItems: at(1), dressingDayChoices: at(1), dressingDayDepartures: at(1), outfitHistory: at(9) });
   // Every table the pull reads has a position.
-  assert.deepEqual([...accountTables].sort(), Object.keys(empty()).sort());
+  assert.deepEqual(Object.keys(pullCursorAt(null)).sort(), Object.keys(empty()).sort());
 });
 
 test('the pulled profile is written unless the phone\'s own edit is waiting', () => {
