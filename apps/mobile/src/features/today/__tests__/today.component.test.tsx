@@ -382,7 +382,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(presentation.title).toContain(language === 'en' ? 'Today · 20.0°' : 'Bugün · 20,0°');
     // M7: the date sits in the top row, opposite the place.
     expect(result.getByTestId('today-date'))
-      .toHaveTextContent(language === 'en' ? 'Thu 13 Aug' : 'Per 13 Ağu');
+      .toHaveTextContent(language === 'en' ? 'Thu 13 Aug' : '13 Ağu Per');
     expect(within(result.getByTestId('today-top-row')).getByText('Istanbul')).toBeOnTheScreen();
     expect(result.queryByTestId('today-rationale')).not.toBeOnTheScreen();
     for (const reason of primary.reasons) {
