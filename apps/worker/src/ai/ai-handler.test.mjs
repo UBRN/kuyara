@@ -1671,6 +1671,35 @@ test('OpenRouter attempts never increment the Workers AI counter', async () => {
   assert.deepEqual(counter.keys, []);
 });
 
+// The counter is a paid-spend ledger: an increment that can only end in "no time left" would
+// count an attempt that never ran, so the deadline is checked before the increment.
+test('a Workers AI provider reached after the deadline is not counted', async () => {
+  let clock = Date.parse('2026-09-15T10:00:00.000Z');
+  const calls = [];
+  const counter = dailyCounter([1]);
+  const slowFailure = {
+    ...openRouter('router/first', calls),
+    async generateOutfits() {
+      calls.push('router/first');
+      clock += 1_000;
+      throw new Error('down');
+    },
+  };
+  const response = await createAiHandler({
+    providers: [slowFailure, workersAi('@cf/second', calls)],
+    dailyCounter: counter,
+    dailyLimit: LIMIT,
+    now: () => new Date(clock),
+  })(request({ headers: {
+    'content-type': 'application/json',
+    'x-kuyara-ai-budget-ms': '5000',
+  } }));
+  // 4 s of the 5 s budget are left, less than the 5 s a useful attempt needs.
+  await assertError(response, 503, 'ai_unavailable');
+  assert.deepEqual(calls, ['router/first']);
+  assert.deepEqual(counter.keys, []);
+});
+
 test('a shared-cache hit never increments the counter', async () => {
   const restore = installMemoryCache();
   try {

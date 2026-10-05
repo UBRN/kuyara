@@ -317,9 +317,17 @@ export function createAiHandler({
     // logged once per request, and a skipped provider consumes none of the deadline.
     let workersAiPoolSpent = false;
     let counterLogged = false;
+    // The time one more attempt may take, or `undefined` once less than a useful attempt
+    // is left (the walk then ends).
+    const nextAttemptWindowMs = (): number | undefined => {
+      const windowMs = Math.min(attemptTimeoutMs, deadline - now().getTime());
+      return windowMs < Math.min(attemptTimeoutMs, minimumUsefulAttemptMs) ? undefined : windowMs;
+    };
     for (const [attemptIndex, provider] of providers.slice(0, maxAttempts).entries()) {
       if (provider.id === 'workers-ai') {
         if (workersAiPoolSpent) continue;
+        // An attempt is counted only when there is time left to make it.
+        if (nextAttemptWindowMs() === undefined) break;
         if (dailyCounter && dailyLimit !== undefined) {
           const dateKey = dailyCounterKey('ai:workers-ai', now());
           let count: number;
@@ -344,9 +352,8 @@ export function createAiHandler({
           }
         }
       }
-      const remainingMs = deadline - now().getTime();
-      const attemptWindowMs = Math.min(attemptTimeoutMs, remainingMs);
-      if (attemptWindowMs < Math.min(attemptTimeoutMs, minimumUsefulAttemptMs)) break;
+      const attemptWindowMs = nextAttemptWindowMs();
+      if (attemptWindowMs === undefined) break;
       const controller = new AbortController();
       try {
         const output = await raceWithTimeout(
