@@ -40,6 +40,7 @@ import {
   firstOutfitAwaitsWeatherRefresh,
 } from '@/features/recommendation/application/approved-trigger-evaluation';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
+import { generationInput } from '@/features/recommendation/application/generation-input';
 import { createOutfitHistoryAccess } from '@/features/recommendation/application/outfit-history-access';
 import { createMemberReask } from '@/features/recommendation/application/member-reask';
 import { createDressingDayRollover, dayInForce } from '@/features/recommendation/application/dressing-day-rollover';
@@ -286,31 +287,18 @@ export function RecommendationApplicationProvider({
     controllerState.snapshot.localDayKey !== localDay.key
     ? { ...controllerState, snapshot: null } as const
     : controllerState, [controllerState, localDay.key]);
-  const input = useMemo(() => {
-    const clothingPreference = profileState.status === 'ready'
-      ? profileState.profile.clothingPreference
-      : null;
-    if (
-      weatherState.status !== 'ready' ||
-      !weatherState.snapshot ||
-      !clothingPreference || !choiceReady || !departureReady
-    ) return null;
-    return {
-      snapshot: weatherState.snapshot,
-      // The requirement engine reads the local day and the hours left in it from here, not
-      // from the snapshot's observation time. It is re-read whenever the day, the profile
-      // or the weather changes, which is every moment a recommendation is generated.
-      now: now(),
-      ...(activeDeparture ? { departureAt: activeDeparture.departureAt } : {}),
-      clothingPreference,
-      dressStyle: resolvedDressStyle,
-      styleAesthetics: resolvedStyles,
-      dayVariant: localDay.variant,
-      dayKind: localDay.kind,
-      localDayKey: localDay.key,
-      locale: language,
-    };
-  }, [activeDeparture, choiceReady, departureReady, language, localDay, profileState,
+  // The clock is re-read whenever the day, the profile or the weather changes, which is every
+  // moment a recommendation is generated.
+  const input = useMemo(() => choiceReady && departureReady ? generationInput({
+    weather: weatherState,
+    clothingPreference: profileState.status === 'ready' ? profileState.profile.clothingPreference : null,
+    day: localDay,
+    departureAt: activeDeparture?.departureAt ?? null,
+    dressStyle: resolvedDressStyle,
+    styleAesthetics: resolvedStyles,
+    locale: language,
+    now,
+  }) : null, [activeDeparture, choiceReady, departureReady, language, localDay, profileState,
     resolvedDressStyle, resolvedStyles, weatherState]);
   useEffect(() => {
     void controller.initialize(localDay.key);
@@ -366,29 +354,18 @@ export function RecommendationApplicationProvider({
       setLocalDay((previous) => dayInForce(previous, currentDay));
       if (!renderedDay) return null;
     }
-    const currentWeather = weatherApplication.getSnapshot?.() ?? weatherState;
-    const clothingPreference = profileState.status === 'ready'
-      ? profileState.profile.clothingPreference
-      : null;
-    if (
-      currentWeather.status !== 'ready' ||
-      !currentWeather.snapshot ||
-      profileState.status !== 'ready' ||
-      !clothingPreference || (renderedDay && (!choiceReady || !departureReady))
-    ) return null;
+    if (renderedDay && (!choiceReady || !departureReady)) return null;
     const answer = answered?.choice ?? null;
-    return {
-      snapshot: currentWeather.snapshot,
-      now: now(),
-      ...(renderedDay && activeDeparture ? { departureAt: activeDeparture.departureAt } : {}),
-      clothingPreference,
+    return generationInput({
+      weather: weatherApplication.getSnapshot?.() ?? weatherState,
+      clothingPreference: profileState.status === 'ready' ? profileState.profile.clothingPreference : null,
+      day: currentDay,
+      departureAt: renderedDay ? activeDeparture?.departureAt ?? null : null,
       dressStyle: renderedDay ? resolvedDressStyle : resolvedFormality(answer, profileDefault),
       styleAesthetics: renderedDay ? resolvedStyles : resolvedStyleAesthetics(answer, settingsStyles ?? []),
-      dayVariant: currentDay.variant,
-      dayKind: currentDay.kind,
-      localDayKey: currentDay.key,
       locale: language,
-    };
+      now,
+    });
   }, [activeDeparture, choiceReady, departureReady, language, localDay.key, profileDefault, profileState,
     resolvedDressStyle, resolvedStyles, settingsStyles, weatherApplication, weatherState]);
 
