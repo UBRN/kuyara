@@ -20,7 +20,7 @@ export default function WardrobeRoute() {
   // switches tabs, so the plus button below starts the add flow on the category in view.
   // `filter=wanted` brings the Wanted section into view (Profile's Wanted row, a saved
   // wanted piece). `added` names the item the add flow has just saved, so only that tile
-  // arrives on the way back.
+  // arrives and its confirmation shows on the way back.
   const { added, category, filter } = useLocalSearchParams<{
     added?: string;
     category?: string;
@@ -30,11 +30,12 @@ export default function WardrobeRoute() {
   // A category the profile does not offer and holds nothing in falls back to the first shown.
   const initialCategory = resolveVisibleCategory(categories, parseStructuralCategoryParam(category));
   const addedItemId = isWardrobeRouteId(added) ? added : null;
-  // The last tile the add flow saved. A later edit or delete pops back here with params of
-  // its own and no `added`, which must not read as a new arrival.
-  const [savedItemId, setSavedItemId] = useState(addedItemId);
-  if (addedItemId !== null && addedItemId !== savedItemId) {
-    setSavedItemId(addedItemId);
+  // The last tile the add flow saved keys the list. A later edit or delete pops back here
+  // with params of its own and no `added`: that is not a new arrival, so the list stays
+  // mounted, but the add is no longer news, so its confirmation ends.
+  const [lastAddedItemId, setLastAddedItemId] = useState(addedItemId);
+  if (addedItemId !== null && addedItemId !== lastAddedItemId) {
+    setLastAddedItemId(addedItemId);
   }
   const messages = useMessages();
   // One guard for the plus button, the list's add action and the tiles: whichever is
@@ -79,14 +80,14 @@ export default function WardrobeRoute() {
       {/* A finished add pops back to this screen and swaps its params rather than opening a
           second Closet, so the list mounts afresh for each saved tile, as a newly opened
           Closet would: that tile alone arrives and its confirmation shows. An edit or
-          delete returns to the list as it was. */}
+          delete returns to the list as it was, without that confirmation. */}
       <WardrobeListRoute
         categories={categories}
         initialCategory={initialCategory}
         onCategoryInView={setViewedCategory}
-        key={savedItemId ?? ''}
+        key={lastAddedItemId ?? ''}
         revealWanted={parseWardrobeEntryStateParam(filter) === 'wanted'}
-        savedItemId={savedItemId}
+        savedItemId={addedItemId}
         singleTap={tap}
         transitionLanded={transitionLanded}
       />
