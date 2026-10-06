@@ -1110,12 +1110,7 @@ const todayRouteDomainImports = Object.freeze({
     '@/features/weather/domain/wardrobe-day',
     '@/features/weather/domain/weather',
   ],
-  'app/(tabs)/(today)/[id].tsx': [
-    '@/features/analytics/domain/analytics-events',
-    '@/features/analytics/domain/analytics-mappers',
-    '@/features/recommendation/domain/outfit-history',
-    '@/features/wardrobe/domain/wardrobe-item',
-  ],
+  'app/(tabs)/(today)/[id].tsx': [],
 });
 
 test('the Today routes reach no data layer and only the listed domain modules', () => {
