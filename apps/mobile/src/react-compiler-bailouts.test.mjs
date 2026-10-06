@@ -57,6 +57,7 @@ const hotPath = new Set([
   'features/today/presentation/outfit-detail-why.tsx',
   'features/today/presentation/outfit-detail-worn.tsx',
   'garment-art/garment-swap-board.tsx',
+  'garment-art/swap-piece-view.tsx',
 ]);
 
 // On the outfit detail path, Today and the Closet list, the values a compiled component still
@@ -70,6 +71,7 @@ const knownPruned = new Map([
   ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 4 }],
   ['features/today/presentation/outfit-detail-screen.tsx', {}],
   ['garment-art/garment-swap-board.tsx', { GarmentSwapBoard: 27 }],
+  ['garment-art/swap-piece-view.tsx', {}],
   ['garment-art/garment-painting.tsx', {}],
   ['features/today/presentation/today-screen.tsx', {}],
   // Today's routes and the hooks they read: a hook result's property read before another hook,

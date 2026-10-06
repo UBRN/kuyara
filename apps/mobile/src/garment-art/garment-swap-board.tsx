@@ -3,7 +3,6 @@ import { AccessibilityInfo, findNodeHandle, StyleSheet, View } from 'react-nativ
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
-  defineAnimation,
   Extrapolation,
   interpolate,
   interpolateColor,
@@ -14,7 +13,6 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
-  type AnimationObject,
   type SharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -33,20 +31,16 @@ import {
   composePieces,
   entranceStartBoxes,
   measureGarmentBoardHeight,
-  PieceArtwork,
   pieceShadowOf,
   useGarmentCandidateRoles,
   type GarmentBoardPiece,
-  type PieceShadow,
 } from './garment-board';
 import { flatLayStack } from './compose-flat-lay';
 import { garmentRolesBySlot, type GarmentOutfitPalette } from './garment-palette';
 import { GARMENT_OUTLINE } from './garment-painting';
 import { GarmentSwapStrip, type GarmentSwapStripLabels } from './garment-swap-strip';
-import { pacedClock, pacedTick, type PacedClock } from './paced-clock';
 import {
   SWAP_EDGE_GUARD,
-  SWAP_HANDOFF_AFTER,
   SWAP_HINT_PEEK,
   SWAP_STEP_BACK,
   SWAP_TOUCH_SLOP,
@@ -72,6 +66,8 @@ import {
   type Composer,
   type Enlargement,
 } from './swap-layout';
+import { DRESS_LIFT, paced, SETTLE_TRAVEL, valuesFor } from './swap-motion';
+import { SwapPieceView } from './swap-piece-view';
 import {
   drawingKey,
   emptyModel,
@@ -80,10 +76,8 @@ import {
   sameBox,
   type Box,
   type GarmentSwapCandidate,
-  type Instance,
   type Intent,
   type Model,
-  type PieceStart,
   type PieceValues,
   type ReconcileTools,
   type Role,
@@ -91,11 +85,6 @@ import {
 
 export type { GarmentSwapCandidate } from './swap-reconcile';
 
-// Law 7's completion moment, as in `GarmentBoard`.
-const SETTLE_TRAVEL = spacing.xs;
-// Law 7's dressing: a piece taken off rises one `lg` step as it fades on `fast`, and a piece
-// put on is hung from that height onto its place on the arrival spring.
-const DRESS_LIFT = spacing.lg;
 
 type Panel = Readonly<{ slot: OutfitSlot; held: number }>;
 type Panels = Readonly<{ focus: OutfitSlot | null; current: Panel | null; leaving: Panel | null }>;
@@ -170,154 +159,6 @@ export type GarmentSwapBoardProps = Readonly<{
   onTakeOff?: (slot: OutfitSlot) => void;
   testID?: string;
 }>;
-
-type PacedAnimation = AnimationObject<number> & { clock: PacedClock };
-
-/** `animation` on a `pacedClock`: a frame that reaches the screen late moves it by one frame. */
-function paced(animation: number): number {
-  'worklet';
-  return defineAnimation<PacedAnimation, AnimationObject<number>>(animation, () => {
-    'worklet';
-    const inner = (typeof animation === 'function'
-      ? (animation as () => AnimationObject<number>)() : animation) as unknown as AnimationObject<number>;
-    return {
-      isHigherOrder: true,
-      clock: pacedClock(0),
-      current: inner.current,
-      previousAnimation: null,
-      onStart: (self: PacedAnimation, value: number, now: number, previous: AnimationObject<number> | null) => {
-        self.clock = pacedClock(now);
-        self.current = value;
-        inner.onStart(inner, value, now, previous);
-      },
-      onFrame: (self: PacedAnimation, now: number) => {
-        self.clock = pacedTick(self.clock, now);
-        const finished = inner.onFrame(inner, self.clock.time);
-        self.current = inner.current;
-        return finished;
-      },
-      callback: (finished?: boolean) => inner.callback?.(finished),
-    };
-  }) as unknown as number;
-}
-
-function valuesFor(start: PieceStart): PieceValues {
-  return {
-    from: makeMutable<Box>(start.from), to: makeMutable<Box>(start.box), p: makeMutable(start.p),
-    dx: makeMutable(start.dx), dy: makeMutable(0), op: makeMutable(start.op), sc: makeMutable(start.sc),
-    drain: makeMutable(0),
-    hand: makeMutable(start.hand), handFrom: makeMutable(1), handTo: makeMutable(Number.NaN),
-  };
-}
-
-function PieceView({
-  instance, ink, outline, shadow, settleTravel, stageWidth, stageLimit, clip, onBigDone, testID,
-}: Readonly<{
-  instance: Instance;
-  ink: string;
-  outline?: number;
-  shadow: PieceShadow;
-  settleTravel: SharedValue<number>;
-  stageWidth: number;
-  stageLimit: SharedValue<number>;
-  /** The paging window this piece is clipped to, in stage points, or null. */
-  clip: Box | null;
-  onBigDone: (key: string) => void;
-  testID: string;
-}>) {
-  const theme = useKuyaraTheme();
-  const fadeEase = useMemo(() => fadeEasing(theme.motion), [theme.motion]);
-  const { base, values, big, key } = instance;
-  const { from, to, p, dx, dy, op, sc, drain, hand, handFrom, handTo } = values;
-  const fast = theme.motion.fast;
-  const pieceStyle = useAnimatedStyle(() => {
-    const box = lerpBox(from.get(), to.get(), p.get());
-    const scale = sc.get();
-    const w = box.w * scale;
-    const h = box.h * scale;
-    let centreX = box.x + box.w / 2;
-    let centreY = box.y + box.h / 2;
-    if (scale > 1) {
-      // Grown about its centre, then shifted just enough to stay on the held stage.
-      centreX = Math.min(Math.max(centreX - w / 2, 0), stageWidth - w) + w / 2;
-      centreY = Math.min(Math.max(centreY - h / 2, 0), stageLimit.get() - h) + h / 2;
-    }
-    // The view stands at the stage's origin and the transform alone places it, so a re-layout
-    // that only moves the piece changes nothing React draws: no frame shows the new place
-    // before the motion that travels there.
-    return {
-      opacity: op.get(),
-      transform: [
-        { translateX: centreX + dx.get() - base.w / 2 },
-        { translateY: centreY - base.h / 2 + SETTLE_TRAVEL * settleTravel.get() + dy.get() },
-        { scaleX: w / base.w },
-        { scaleY: h / base.h },
-      ],
-    };
-  }, [base.h, base.w, stageWidth]);
-  const drainStyle = useAnimatedStyle(() => ({ opacity: drain.get() }));
-  // The resting drawing hides once the big one is fully over it, so no two outlines show.
-  const restStyle = useAnimatedStyle(() => ({ opacity: big !== null && hand.get() >= 1 ? 0 : 1 }), [big]);
-  const bigStyle = useAnimatedStyle(() => ({ opacity: hand.get() }));
-  // A shrinking piece hands back to its resting drawing once its scale is a quarter of the way.
-  useAnimatedReaction(() => sc.get(), (scale) => {
-    const target = handTo.get();
-    if (Number.isNaN(target)) return;
-    const start = handFrom.get();
-    if (start === target || (scale - start) / (target - start) >= SWAP_HANDOFF_AFTER) {
-      handTo.set(Number.NaN);
-      hand.set(withTiming(0, { duration: fast, easing: fadeEase }, (finished) => {
-        if (finished) scheduleOnRN(onBigDone, key);
-      }));
-    }
-  }, [fadeEase, fast, key, onBigDone]);
-
-  return (
-    <View
-      pointerEvents="none"
-      style={clip ? [styles.clip, { height: clip.h, left: clip.x, top: clip.y, width: clip.w }] : styles.free}
-      testID={testID}>
-      <View style={clip ? [styles.free, { left: -clip.x, top: -clip.y }] : styles.free}>
-        <Animated.View style={[styles.piece, styles.origin, { height: base.h, width: base.w }, pieceStyle]}>
-          <Animated.View style={[StyleSheet.absoluteFill, restStyle]}>
-            <PieceArtwork height={base.h} ink={ink} outline={outline} piece={instance.piece} roles={instance.roles}
-              shadow={shadow} width={base.w} />
-            {instance.drainRoles ? (
-              // The ADR 0026 section 7 technique: the old colours drain off over the new. The
-              // shadow under them is the resting drawing's, so it does not darken twice.
-              <Animated.View style={[StyleSheet.absoluteFill, drainStyle]}>
-                <PieceArtwork height={base.h} ink={ink} outline={outline} piece={instance.piece}
-                  roles={instance.drainRoles} width={base.w} />
-              </Animated.View>
-            ) : null}
-          </Animated.View>
-          {big !== null ? (
-            // Drawn once at the grow size and mapped back by a static 1 / G, so the enlarged
-            // piece shows a crisp 1.9-point outline instead of an upscaled one.
-            <Animated.View
-              style={[styles.piece, {
-                height: base.h * big,
-                left: (base.w - base.w * big) / 2,
-                top: (base.h - base.h * big) / 2,
-                transform: [{ scale: 1 / big }],
-                width: base.w * big,
-              }, bigStyle]}
-              testID={`${testID}-big`}>
-              <PieceArtwork height={base.h * big} ink={ink} outline={outline} piece={instance.piece}
-                roles={instance.roles} shadow={{
-                  ...shadow,
-                  dx: shadow.dx * big,
-                  dy: shadow.dy * big,
-                  blur: shadow.blur * big,
-                  margin: shadow.margin * big,
-                }} width={base.w * big} />
-            </Animated.View>
-          ) : null}
-        </Animated.View>
-      </View>
-    </View>
-  );
-}
 
 /**
  * Phase 7b's directly editable detail board (vault phase-7b final-spec): tap a piece and it
@@ -1251,7 +1092,7 @@ export function GarmentSwapBoard({
             />
           ) : null}
           {sortedInstances.map((instance) => (
-            <PieceView
+            <SwapPieceView
               // A leaving piece stays in the window it slid in; the rest of the slot, the current one's.
               clip={instance.role === 'leaving' && instance.window ? instance.window
                 : pager && instance.slot === focusedSlot ? pager.window : null}
@@ -1392,32 +1233,12 @@ const styles = StyleSheet.create({
   block: {
     position: 'relative',
   },
-  clip: {
-    overflow: 'hidden',
-    position: 'absolute',
-  },
-  // Spans its parent: React Native reuses a closed screen's native view for a new one and skips
-  // writing a zero-size frame at the origin, so a zero-size wrapper keeps its earlier position.
-  free: {
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
   hint: {
     left: 0,
     position: 'absolute',
   },
   panel: {
     left: 0,
-    position: 'absolute',
-  },
-  origin: {
-    left: 0,
-    top: 0,
-  },
-  piece: {
     position: 'absolute',
   },
   stage: {
