@@ -765,6 +765,20 @@ export function formalitySpreadFits(lowest: number, highest: number): boolean {
   return lowest >= 0 && highest - lowest <= 1;
 }
 
+/**
+ * Whether a mid layer goes over the primary top in the right order. It is worn over a top that
+ * can be worn underneath, unless it is jacket-like itself (an overshirt or a hoodie over a
+ * sweater), and a top that can be worn underneath is never pulled over another top.
+ */
+export function layeringOrderFits(
+  primaryTop: EligibleGarmentResult,
+  midLayer: EligibleGarmentResult,
+): boolean {
+  const topRoles = primaryTop.garment.properties.supportedLayerRoles;
+  const midRoles = midLayer.garment.properties.supportedLayerRoles;
+  return !midRoles.includes('base') && (topRoles.includes('base') || midRoles.includes('outer'));
+}
+
 export function meetsRequirement({ requirement, status }: OutfitRequirementEvaluation): boolean {
   return requirement.priority === 'optional' ||
     status === 'met' ||

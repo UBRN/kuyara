@@ -412,7 +412,7 @@ test('rebuilds an offered option with its mid layer instead of the simpler arran
   const signatures = [
     'primary_top:turtleneck:base bottom:long_skirt:standalone mid_layer:cardigan:mid' +
       ' outer_layer:coat:outer footwear:ankle_boots:null',
-    'primary_top:overshirt:standalone bottom:jeans:standalone mid_layer:sweater:mid' +
+    'primary_top:fleece:standalone bottom:jeans:standalone mid_layer:hoodie:mid' +
       ' outer_layer:insulated_jacket:outer footwear:ankle_boots:null',
   ];
 

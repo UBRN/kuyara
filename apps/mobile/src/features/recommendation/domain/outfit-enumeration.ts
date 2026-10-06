@@ -12,6 +12,7 @@ import {
   formalityRankOf,
   formalitySpreadFits,
   judgeDraft,
+  layeringOrderFits,
   meetsRequirement,
   optionalLayerCount,
   type BodyCore,
@@ -323,12 +324,19 @@ export function readComposerDay(
   });
 }
 
-/** Every body-and-layers triple the enumeration pairs with the shoes, in enumeration order. */
+/**
+ * Every body-and-layers triple the enumeration pairs with the shoes, in enumeration order. A
+ * mid layer that does not go over the primary top in order is never paired, so the drafts and
+ * the failure evidence read the same triples.
+ */
 function* bodyTriples(day: ComposerDay): Generator<BodyPieces> {
   const midOptions = [null, ...day.midLayers];
   const outerOptions = [null, ...day.outerLayers];
   for (const body of day.bodyCores) {
     for (const midLayer of midOptions) {
+      if (midLayer !== null && body.kind === 'separates' && !layeringOrderFits(body.primaryTop, midLayer)) {
+        continue;
+      }
       for (const outerLayer of outerOptions) {
         yield bodyPiecesOf(body, midLayer, outerLayer);
       }
