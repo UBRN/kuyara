@@ -280,7 +280,7 @@ The approved phase order, active work and remaining open items are in [the roadm
   the closed error kind, `ai_provider_attempt_failed` with the model and a closed reason),
   so read `wrangler tail` and confirm `origin.sourceId` in a live response after any
   provider change. The composition order (WeatherKit, Open-Meteo, OpenWeather) is
-  asserted offline in `apps/worker/src/index.test.mjs`; a composed adapter that fails
+  asserted offline in `apps/worker/src/index.test.ts`; a composed adapter that fails
   live is still visible only there.
 - **The segmented control is untinted on iOS:** the installed `@expo/ui`
   community control reads `tintColor` only on Android, and composing its SwiftUI `Picker`

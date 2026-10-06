@@ -22,6 +22,7 @@ pnpm check
 Run focused repository checks with `pnpm run lint`, `pnpm run typecheck`, or `pnpm test`. Lint covers
 all three packages: the mobile app through its own Expo config, and `apps/worker/src` and
 `packages/contracts/src` through the workspace root `eslint.config.js`, which reuses the same rule set.
+The Worker and contracts tests are `*.test.ts` files that their packages' `typecheck` covers with the sources.
 The mobile typecheck depends on the git-ignored `expo-env.d.ts` and `.expo/types/router.d.ts`, which
 `expo start` writes; on a fresh checkout with no dev server run, generate them first with
 `pnpm --filter @kuyara/mobile exec expo customize tsconfig.json`, which is what CI does. The mobile Jest
@@ -62,7 +63,7 @@ commits on every push to `main` and every pull request, and over the whole histo
 dispatched by hand. It reads `.gitleaks.toml`, the same configuration the local pre-commit
 hook uses, so a commit made with `--no-verify` or without gitleaks installed is still
 scanned. That configuration extends the default rules and allowlists two known false
-positives: the PEM header lines in `apps/worker/src/weather/weatherkit-token.test.mjs`,
+positives: the PEM header lines in `apps/worker/src/weather/weatherkit-token.test.ts`,
 which belong to a throwaway P-256 key the test generates at runtime, and the PostHog
 `phc_` project token, a public write-only client key that ships inside the app bundle.
 Every third-party action in every workflow is pinned to a full commit SHA with its release
