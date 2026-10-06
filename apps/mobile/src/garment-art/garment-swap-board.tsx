@@ -36,7 +36,6 @@ import {
   PieceArtwork,
   pieceShadowOf,
   useGarmentCandidateRoles,
-  type ComposedPiece,
   type GarmentBoardPiece,
   type PieceShadow,
 } from './garment-board';
@@ -53,37 +52,37 @@ import {
   SWAP_TOUCH_SLOP,
   swapCommitDirection,
   swapDragOffset,
-  swapDragZone,
   swapEntryBox,
   swapExitOffset,
-  swapGrownBox,
-  swapGrowScale,
-  swapHeldStage,
   swapHitSlot,
   swapMarkerPosition,
   swapScaledBox,
-  swapStageFit,
-  swapStride,
   swapStripLayout,
   swapTouchBox,
-  swapWindow,
 } from './swap-gesture';
+import {
+  bandBoxesOnBoard,
+  enlargementFor,
+  enlargementHolds,
+  insideBox,
+  lerpBox,
+  neighbourBoxes,
+  pagerFor,
+  placeComposition,
+  type Composer,
+  type Enlargement,
+} from './swap-layout';
 import {
   drawingKey,
   emptyModel,
   neighbourIn,
   reconcile,
   sameBox,
-  withGarment,
   type Box,
-  type Candidates,
-  type Composed,
   type GarmentSwapCandidate,
-  type Grow,
   type Instance,
   type Intent,
   type Model,
-  type Pager,
   type PieceStart,
   type PieceValues,
   type ReconcileTools,
@@ -98,8 +97,6 @@ const SETTLE_TRAVEL = spacing.xs;
 // put on is hung from that height onto its place on the arrival spring.
 const DRESS_LIFT = spacing.lg;
 
-/** A grow with the strip height and the visible height it was fitted to. */
-type Enlargement = Grow & Readonly<{ panel: number; visible: number }>;
 type Panel = Readonly<{ slot: OutfitSlot; held: number }>;
 type Panels = Readonly<{ focus: OutfitSlot | null; current: Panel | null; leaving: Panel | null }>;
 
@@ -173,127 +170,6 @@ export type GarmentSwapBoardProps = Readonly<{
   onTakeOff?: (slot: OutfitSlot) => void;
   testID?: string;
 }>;
-
-const lerp = (a: number, b: number, t: number) => {
-  'worklet';
-  return a + (b - a) * t;
-};
-const lerpBox = (a: Box, b: Box, t: number): Box => {
-  'worklet';
-  return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), w: lerp(a.w, b.w, t), h: lerp(a.h, b.h, t) };
-};
-const inside = (box: Box, x: number, y: number) =>
-  x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h;
-
-/**
- * Where Today's band, `band` points wide and centred on this `width`-point board, drew each
- * piece, by slot, in this board's width units.
- */
-function bandBoxes(pieces: readonly GarmentBoardPiece[], band: number, width: number, large: boolean) {
-  const inset = (band - width) / 2;
-  return new Map([...entranceStartBoxes(pieces, band, 'today', true, large)].map(([slot, box]) => [slot, {
-    x: (box.x * band - inset) / width, y: (box.y * band) / width, w: (box.w * band) / width, h: (box.h * band) / width,
-  }]));
-}
-
-/** The composition in points; `fit` composes it that much narrower, centred in `width`. */
-function composeInPoints(pieces: readonly GarmentBoardPiece[], width: number, large: boolean, fit = 1): Composed {
-  const result = composePieces(pieces, 'detail', large);
-  const size = width * fit;
-  const left = (width - size) / 2;
-  const bySlot = new Map<OutfitSlot, Readonly<{ piece: ComposedPiece; box: Box }>>();
-  for (const piece of result.order) {
-    const box = result.boxes.get(piece)!;
-    bySlot.set(piece.slot, { piece, box: { x: left + box.x * size, y: box.y * size, w: box.w * size, h: box.h * size } });
-  }
-  return {
-    bySlot,
-    order: result.order.map(({ slot }) => slot),
-    stack: result.stack.map(({ slot }) => slot),
-    height: result.stageHeight * size,
-  };
-}
-
-/**
- * One enlargement's grow scale and held stage: every candidate of the slot composed with the
- * rest of the outfit (final-spec section 4).
- */
-function growFor(
-  pieces: readonly GarmentBoardPiece[],
-  slot: OutfitSlot,
-  order: readonly GarmentSwapCandidate[],
-  width: number,
-  large: boolean,
-  current: Composed,
-  fit: number,
-): Grow {
-  const layouts = order.map((candidate) => {
-    const composed = composeInPoints(withGarment(pieces, slot, candidate), width, large, fit);
-    return {
-      box: composed.bySlot.get(slot)!.box,
-      others: composed.order.filter((other) => other !== slot).map((other) => composed.bySlot.get(other)!.box),
-      stageWidth: width,
-      stageHeight: composed.height,
-    };
-  });
-  const own = {
-    box: current.bySlot.get(slot)!.box,
-    others: current.order.filter((other) => other !== slot).map((other) => current.bySlot.get(other)!.box),
-    stageWidth: width,
-    stageHeight: current.height,
-  };
-  const all = [own, ...layouts];
-  const scale = swapGrowScale(all);
-  return { slot, width, large, fit, scale, held: swapHeldStage(all, scale) };
-}
-
-/** Where the slot's two neighbours stand before a drag: each centred on the slot's piece. */
-function neighbourBoxes(
-  pieces: readonly GarmentBoardPiece[],
-  composed: Composed,
-  slot: OutfitSlot,
-  garmentTypeId: GarmentTypeId | undefined,
-  candidates: Candidates,
-  width: number,
-  large: boolean,
-  fit: number,
-): Readonly<Record<1 | -1, Box | null>> {
-  const current = composed.bySlot.get(slot)?.box;
-  const boxOf = (direction: 1 | -1) => {
-    const neighbour = current && garmentTypeId ? neighbourIn(candidates, slot, garmentTypeId, direction) : null;
-    if (!current || !neighbour) return null;
-    return swapEntryBox(current, composeInPoints(withGarment(pieces, slot, neighbour), width, large, fit).bySlot.get(slot)!.box);
-  };
-  return { [1]: boxOf(1), [-1]: boxOf(-1) };
-}
-
-function pagerFor(
-  composed: Composed,
-  slot: OutfitSlot,
-  grow: Grow,
-  width: number,
-  neighbours: Readonly<Record<1 | -1, Box | null>>,
-  outline: number,
-): Pager | null {
-  const own = composed.bySlot.get(slot);
-  if (!own) return null;
-  const grown = swapGrownBox(own.box, grow.scale, width, grow.held);
-  const steppedBack = composed.order.filter((other) => other !== slot)
-    .map((other) => swapScaledBox(composed.bySlot.get(other)!.box, SWAP_STEP_BACK));
-  const window = swapWindow(grown, steppedBack, width, grow.held, outline);
-  // Each side's step keeps that side's neighbour, grown and outlined, wholly behind the window's edge.
-  const incoming = (direction: 1 | -1) => {
-    const box = neighbours[direction];
-    return box ? swapGrownBox(box, grow.scale, width, grow.held) : grown;
-  };
-  return {
-    grown,
-    window,
-    strideNext: swapStride(window, incoming(1), 1, outline),
-    stridePrevious: swapStride(window, incoming(-1), -1, outline),
-    zone: swapDragZone(grown, grow.held),
-  };
-}
 
 type PacedAnimation = AnimationObject<number> & { clock: PacedClock };
 
@@ -495,7 +371,9 @@ export function GarmentSwapBoard({
   const pieces = useStableValue(piecesProp);
   const candidates = useStableValue(candidatesProp);
   const captionRects = useStableValue(captionRectsProp);
-  const rest = useMemo(() => (width > 0 ? composeInPoints(pieces, width, large) : null), [large, pieces, width]);
+  const compose: Composer = (next, nextFit) => placeComposition(composePieces(next, 'detail', large), width, nextFit);
+  const rest = useMemo(() => (width > 0 ? placeComposition(composePieces(pieces, 'detail', large), width) : null),
+    [large, pieces, width]);
   const rolesFor = useMemo(() => (input: GarmentOutfitPalette) => garmentRolesBySlot({
     ...input,
     appearance: theme.colorScheme,
@@ -524,29 +402,27 @@ export function GarmentSwapBoard({
   let enlargement: Enlargement | null = null;
   if (focusedSlot && rest && rest.bySlot.has(focusedSlot)) {
     const panel = panelHeightOf(focusedSlot);
-    const fresh = grow && grow.slot === focusedSlot && grow.width === width && grow.large === large
-      && grow.panel === panel && grow.visible === visibleHeight;
-    if (fresh) enlargement = grow;
-    else {
-      const order = stripCandidates(focusedSlot);
-      const full = growFor(pieces, focusedSlot, order, width, large, rest, 1);
-      const fullHeld = Math.max(full.held, rest.height, panels.focus !== null && grow ? grow.held / grow.fit : 0);
-      const fit = swapStageFit(fullHeld, panel, visibleHeight);
-      const fitted = fit < 1
-        ? growFor(pieces, focusedSlot, order, width, large, composeInPoints(pieces, width, large, fit), fit) : full;
-      enlargement = { ...fitted, held: fullHeld * fit, panel, visible: visibleHeight };
+    if (grow && enlargementHolds(grow, { slot: focusedSlot, width, large, panel, visible: visibleHeight })) {
+      enlargement = grow;
+    } else {
+      enlargement = enlargementFor({
+        pieces, slot: focusedSlot, order: stripCandidates(focusedSlot), rest, width, large, panel,
+        visible: visibleHeight, keptHeld: panels.focus !== null && grow ? grow.held / grow.fit : 0,
+      }, compose);
       setGrow(enlargement);
     }
   }
   const fit = enlargement?.fit ?? 1;
-  const composed = useMemo(() => (width > 0 && fit < 1 ? composeInPoints(pieces, width, large, fit) : rest),
+  const composed = useMemo(() => (width > 0 && fit < 1
+    ? placeComposition(composePieces(pieces, 'detail', large), width, fit) : rest),
     [fit, large, pieces, rest, width]);
   const activeGrow = enlargement && composed
     ? { ...enlargement, held: Math.max(enlargement.held, composed.height) } : null;
   const pager = focusedSlot && composed && activeGrow
-    ? pagerFor(composed, focusedSlot, activeGrow, width,
-      neighbourBoxes(pieces, composed, focusedSlot,
-        composed.bySlot.get(focusedSlot)?.piece.garmentTypeId, candidates, width, large, fit), drawnOutline)
+    ? pagerFor(composed, focusedSlot, activeGrow, width, neighbourBoxes({
+      pieces, composed, slot: focusedSlot, garmentTypeId: composed.bySlot.get(focusedSlot)?.piece.garmentTypeId,
+      candidates, fit,
+    }, compose), drawnOutline)
     : null;
 
   // The strip follows the enlargement: it arrives with it, swaps when it moves, and stays
@@ -606,10 +482,10 @@ export function GarmentSwapBoard({
   if (composed && signature && signature !== model.signature) {
     const tools: ReconcileTools = {
       values: valuesFor,
-      compose: (next, nextFit) => composeInPoints(next, width, large, nextFit),
+      compose,
       entranceBoxes: (next) => (entrance.fromWidth === null
         ? entranceStartBoxes(next, width, 'today', true, large)
-        : bandBoxes(next, entrance.fromWidth, width, large)),
+        : bandBoxesOnBoard(entranceStartBoxes(next, entrance.fromWidth, 'today', true, large), entrance.fromWidth, width)),
     };
     setModel(reconcile(model, {
       signature, composed, pieces, palette, roles, rolesFor, width, focusedSlot, grow: activeGrow, pager, candidates,
@@ -1154,7 +1030,7 @@ export function GarmentSwapBoard({
     const minimum = layout.minimumTouchTarget;
     if (focusedSlot && pager) {
       // The large piece or empty stage settles; a stepped-back piece takes the enlargement.
-      if (inside(swapTouchBox(pager.grown, minimum), x, y)) {
+      if (insideBox(swapTouchBox(pager.grown, minimum), x, y)) {
         settleToPiece();
         return;
       }
