@@ -75,8 +75,6 @@ test('a time zone is valid when Intl names it', () => {
 // counts are exact, so a file that drops a construction must lower its entry here.
 const allowedConstructions = new Map([
   ['domain/intl-format.ts', 3],
-  ['features/profile/presentation/settings-screen.tsx', 1],
-  ['features/today/presentation/today-presentation.ts', 2],
   ['localization/device-locale.ts', 1],
 ]);
 
