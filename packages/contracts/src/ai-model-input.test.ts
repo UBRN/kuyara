@@ -7,13 +7,26 @@ import {
   meetsArchetypePrecondition,
   picksAreMeaningfullyDifferent,
 } from './ai-model-input.ts';
-import { aiRecommendV1RequestSchema, outfitArchetypeIds } from './ai-v1.ts';
+import {
+  aiRecommendV1RequestSchema,
+  outfitArchetypeIds,
+  type AiOption,
+  type AiRecommendV1Request,
+  type ClothingRequirement,
+  type DressStyle,
+} from './ai-v1.ts';
 
-function garment(slot, garmentTypeId, layerRole = 'standalone') {
+type OptionGarment = AiOption['garments'][number];
+
+function garment(
+  slot: OptionGarment['slot'],
+  garmentTypeId: OptionGarment['garmentTypeId'],
+  layerRole: OptionGarment['layerRole'] = 'standalone',
+): OptionGarment {
   return { slot, layerRole, garmentTypeId };
 }
 
-const traits = {
+const traits: AiOption['traits'] = {
   hasMidLayer: false,
   hasOuterLayer: false,
   outerThermalHigh: false,
@@ -23,7 +36,11 @@ const traits = {
   breathabilityHigh: true,
 };
 
-function option(optionId, garments, formality = 'casual') {
+function option(
+  optionId: string,
+  garments: OptionGarment[],
+  formality: AiOption['formality'] = 'casual',
+): AiOption {
   return { optionId, formality, garments, traits };
 }
 
@@ -50,7 +67,7 @@ const fixtureRequest = Object.freeze({
       garment('footwear', 'ankle_boots', null),
     ]),
   ],
-});
+} satisfies AiRecommendV1Request);
 
 // The model input is a serialized payload, so field order is part of the behaviour.
 // eligibleArchetypeIds is the one addition to the Worker's original inline assembly:
@@ -167,8 +184,11 @@ test('the three weather archetypes are withheld on a day that contradicts them',
       tractionEnhanced: true,
     },
   };
-  const requirementsFor = (kind, minimum, reasonCodes) =>
-    [{ kind, minimum, priority: 'mandatory', reasonCodes }];
+  const requirementsFor = (
+    kind: ClothingRequirement['kind'],
+    minimum: ClothingRequirement['minimum'],
+    reasonCodes: ClothingRequirement['reasonCodes'],
+  ) => [{ kind, minimum, priority: 'mandatory', reasonCodes }] as ClothingRequirement[];
   const days = {
     dry: archetypeDayFromRequirements([]),
     rain: archetypeDayFromRequirements(
@@ -217,7 +237,7 @@ test('cold_shield and wind_guard require both garment protection and the matchin
   ]);
   assert.deepEqual(calm, { frozen: false, wet: false, cold: false, windy: false });
   assert.deepEqual(coldWindy, { frozen: false, wet: false, cold: true, windy: true });
-  for (const archetypeId of ['cold_shield', 'wind_guard']) {
+  for (const archetypeId of ['cold_shield', 'wind_guard'] as const) {
     assert.equal(meetsArchetypePrecondition(archetypeId, protectedOption, undefined, calm), false);
     assert.equal(meetsArchetypePrecondition(archetypeId, protectedOption, undefined, coldWindy), true);
     assert.equal(meetsArchetypePrecondition(archetypeId, protectedOption), true);
@@ -241,7 +261,7 @@ function parsedFixtureOption() {
 test('office_ready admits smart only for callers that send a day kind', () => {
   const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
   const smart = parsed.options[0];
-  const formal = { ...smart, formality: 'formal' };
+  const formal: AiOption = { ...smart, formality: 'formal' };
 
   assert.equal(meetsArchetypePrecondition('office_ready', smart), false);
   assert.equal(meetsArchetypePrecondition('office_ready', smart, 'weekday'), true);
@@ -293,11 +313,12 @@ test('options follow each dress style best-first while ties retain their incomin
     option('formal-a', [], 'formal'), option('smart-b', [], 'smart'),
     option('casual-b', [], 'casual'), option('formal-b', [], 'formal'),
   ];
-  for (const [dressStyle, expected] of [
+  const expectedOrders: [DressStyle, string[]][] = [
     ['casual', ['casual-a', 'casual-b', 'smart-a', 'smart-b', 'formal-a', 'formal-b']],
     ['smart', ['smart-a', 'smart-b', 'casual-a', 'casual-b', 'formal-a', 'formal-b']],
     ['formal', ['formal-a', 'formal-b', 'smart-a', 'smart-b', 'casual-a', 'casual-b']],
-  ]) {
+  ];
+  for (const [dressStyle, expected] of expectedOrders) {
     const projected = aiModelInputFromRequest({ ...fixtureRequest, dressStyle, options });
     assert.deepEqual(projected.options.map(({ optionId }) => optionId), expected);
     assert.deepEqual(options.map(({ optionId }) => optionId),
@@ -305,7 +326,11 @@ test('options follow each dress style best-first while ties retain their incomin
   }
 });
 
-const topAndBottom = (top, bottom, extra = []) => option('x', [
+const topAndBottom = (
+  top: OptionGarment['garmentTypeId'],
+  bottom: OptionGarment['garmentTypeId'],
+  extra: OptionGarment[] = [],
+) => option('x', [
   garment('primary_top', top),
   garment('bottom', bottom),
   garment('footwear', 'sneakers', null),

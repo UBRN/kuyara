@@ -8,7 +8,8 @@ import {
   weatherV2SuccessSchema,
 } from './weather-v2.ts';
 
-function validSuccess() {
+// The tests below corrupt this payload field by field, so its type stays loose on purpose.
+function validSuccess(): { data: Record<string, any> } {
   const measurements = {
     temperatureCelsius: 16,
     apparentTemperatureCelsius: 15,

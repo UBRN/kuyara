@@ -48,7 +48,7 @@ import * as weatherV1 from './weather-v1.ts';
 import * as weatherV2 from './weather-v2.ts';
 import * as aiV2 from './ai-v2.ts';
 
-const headModules = { 'weather-v1': weatherV1, 'ai-v1': aiV1, 'place-search-v1': placeSearchV1 };
+const headModules: Record<string, object> = { 'weather-v1': weatherV1, 'ai-v1': aiV1, 'place-search-v1': placeSearchV1 };
 const shipped = JSON.parse(readFileSync(fixturePath, 'utf8'));
 const shippedV2 = JSON.parse(readFileSync(v2FixturePath, 'utf8'));
 
@@ -60,13 +60,13 @@ test('the fixture covers exactly the response schemas the Worker sends', () => {
 });
 
 test('current v2 response shapes match the build 15 readers', async () => {
-  const modules = { 'weather-v2': weatherV2, 'ai-v2': aiV2 };
-  const head = await renderShapes((file) => modules[file], v2ResponseSchemaNames);
+  const modules: Record<string, object> = { 'weather-v2': weatherV2, 'ai-v2': aiV2 };
+  const head = await renderShapes((file: string) => modules[file], v2ResponseSchemaNames);
   assert.deepEqual(head, shippedV2);
 });
 
 test('every HEAD response schema has the shape build 8 accepts', async () => {
-  const head = await renderShapes((file) => headModules[file]);
+  const head = await renderShapes((file: string) => headModules[file]);
   for (const [key, shape] of Object.entries(shipped)) {
     assert.deepEqual(head[key], shape, `${key} changed shape against build 8`);
   }

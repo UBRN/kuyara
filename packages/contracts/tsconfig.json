@@ -1,12 +1,14 @@
 {
   "compilerOptions": {
     "allowImportingTsExtensions": true,
+    "allowJs": true,
     "declaration": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "noEmit": true,
     "strict": true,
-    "target": "ES2024"
+    "target": "ES2024",
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "scripts/**/*.mjs"]
 }

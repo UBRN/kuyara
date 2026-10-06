@@ -197,11 +197,11 @@ test('spellings of one time zone that differ only in letter case share one cache
   const real = Intl.DateTimeFormat;
   let built = 0;
   Intl.DateTimeFormat = class extends real {
-    constructor(...args) {
+    constructor(...args: ConstructorParameters<typeof real>) {
       super(...args);
       built += 1;
     }
-  };
+  } as typeof Intl.DateTimeFormat;
   try {
     const keys = ['Pacific/Chatham', 'pacific/chatham', 'PACIFIC/CHATHAM'].map((zone) => (
       weatherLocalDateKey('2026-08-01T12:00:00.000Z', zone)
