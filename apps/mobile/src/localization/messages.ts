@@ -396,10 +396,12 @@ export type TodayMessages = Readonly<{
 
 export type PreferenceMessages = Readonly<{
   stylePreferencesTitle: string;
-  stylePreferencesBody: string;
+  /** Takes the style limit, `styleAestheticsLimit`. */
+  stylePreferencesBody: (limit: number) => string;
   stylePreferencesNone: string;
   stylePreferencesDone: string;
-  stylePreferencesLimit: string;
+  /** Takes the style limit, `styleAestheticsLimit`. */
+  stylePreferencesLimit: (limit: number) => string;
   styleAestheticMinimal: string;
   styleAestheticClassic: string;
   styleAestheticSporty: string;
@@ -473,7 +475,8 @@ export type AppMessages = Readonly<{
     dressStyleBody: string;
     dressStyleRequiredError: string;
     stylePreferencesTitle: string;
-    stylePreferencesBody: string;
+    /** Takes the style limit, `styleAestheticsLimit`. */
+    stylePreferencesBody: (limit: number) => string;
     ageTitle: string;
     birthDateTitle: string;
     birthDateBody: string;
@@ -1159,7 +1162,8 @@ const en = {
     dressStyleBody: 'Choose the look you wear most days. Suggestions lean that way first and exclude nothing. You can change it later in Settings.',
     dressStyleRequiredError: 'Choose how you usually dress to continue.',
     stylePreferencesTitle: 'Which styles feel like you?',
-    stylePreferencesBody: 'Optional. Choose up to three styles. They shape the order of suggestions, without excluding outfits.',
+    stylePreferencesBody: (limit) =>
+      `Optional. Choose up to ${numberWord(limit, 'en')} styles. They shape the order of suggestions, without excluding outfits.`,
     ageTitle: 'Your age',
     birthDateTitle: 'Your birth date',
     birthDateBody: 'Optional. It helps us understand who uses kuyara.',
@@ -1174,10 +1178,10 @@ const en = {
   },
   preferences: {
     stylePreferencesTitle: 'Style preferences',
-    stylePreferencesBody: 'Choose up to three styles.',
+    stylePreferencesBody: (limit) => `Choose up to ${numberWord(limit, 'en')} styles.`,
     stylePreferencesNone: 'None selected',
     stylePreferencesDone: 'Done',
-    stylePreferencesLimit: 'You can choose up to three styles.',
+    stylePreferencesLimit: (limit) => `You can choose up to ${numberWord(limit, 'en')} styles.`,
     styleAestheticMinimal: 'Minimal',
     styleAestheticClassic: 'Classic',
     styleAestheticSporty: 'Sporty',
@@ -2431,7 +2435,8 @@ const tr = {
     dressStyleBody: 'Çoğu gün giydiğin görünümü seç. Öneriler önce bu stile göre sıralanır, hiçbir kombin dışarıda kalmaz. Daha sonra Ayarlar’dan değiştirebilirsin.',
     dressStyleRequiredError: 'Devam etmek için giyim stilini seç.',
     stylePreferencesTitle: 'Hangi stiller sana yakın?',
-    stylePreferencesBody: 'İsteğe bağlı. En fazla üç stil seç. Bu seçimler kombinleri elemeden öneri sırasını etkiler.',
+    stylePreferencesBody: (limit) =>
+      `İsteğe bağlı. En fazla ${numberWord(limit, 'tr')} stil seç. Bu seçimler kombinleri elemeden öneri sırasını etkiler.`,
     ageTitle: 'Yaşın',
     birthDateTitle: 'Doğum tarihin',
     birthDateBody: 'İsteğe bağlı. kuyara’yı kimlerin kullandığını anlamamıza yardımcı olur.',
@@ -2446,10 +2451,10 @@ const tr = {
   },
   preferences: {
     stylePreferencesTitle: 'Stil tercihleri',
-    stylePreferencesBody: 'En fazla üç stil seç.',
+    stylePreferencesBody: (limit) => `En fazla ${numberWord(limit, 'tr')} stil seç.`,
     stylePreferencesNone: 'Seçim yok',
     stylePreferencesDone: 'Bitti',
-    stylePreferencesLimit: 'En fazla üç stil seçebilirsin.',
+    stylePreferencesLimit: (limit) => `En fazla ${numberWord(limit, 'tr')} stil seçebilirsin.`,
     styleAestheticMinimal: 'Minimal',
     styleAestheticClassic: 'Klasik',
     styleAestheticSporty: 'Sportif',

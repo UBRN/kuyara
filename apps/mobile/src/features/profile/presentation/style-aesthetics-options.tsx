@@ -59,7 +59,7 @@ export function StyleAestheticsOptions({
           </Pressable>
         );
       })}
-      {atLimit ? <AppText variant="caption">{copy.stylePreferencesLimit}</AppText> : null}
+      {atLimit ? <AppText variant="caption">{copy.stylePreferencesLimit(styleAestheticsLimit)}</AppText> : null}
     </View>
   );
 }
