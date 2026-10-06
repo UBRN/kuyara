@@ -75,14 +75,15 @@ Anchors 1.00, `outer_layer` 0.95, `mid_layer` 0.90, as weights on the shared sca
 drawn a notch under its own size, so the core stays the anchor while a coat over a shirt draws
 at least as wide as the shirt: a jacket is never drawn smaller than what it is worn over. The
 layers' widest piece is capped at 0.26 of the stage, which a layer reaches only over a narrow
-top. **Footwear is sized on width**, at 0.42 of the core's drawn width, because shoe drawings
-fill their viewBox far more than a garment does, and shoe aspect ratios span 2.86 for a sneaker
-to 0.94 for an ankle boot. A shoe is recognised by the length of its profile; the pair stands
-about 0.47 of the top's drawn width, as a pair of shoes beside a folded shirt does.
+top. **Footwear stands on the shared scale at 0.36 of its drawn size**, because a shoe drawing is
+authored at 44/13 of its length on the garment grid, so the painting's fixed modelling reads on
+it. Read from the shoe's own drawing, never from the top's sleeves, a pair of low shoes stands
+0.71 of a woman's top's body wide and 0.74 of a man's, as a pair of shoes beside a folded shirt
+does, and a boot, as long as a shoe, stands at most 0.48 of the top's height.
 
 **A board draws its footwear as a pair**, the way a flat lay shows shoes: the near shoe
 whole, the far one behind it, 0.30 of a shoe's length toward the toe and raised so the pair
-stands exactly one shoe tall, each shoe 0.86 of the single shoe the width rule sizes, with
+stands exactly one shoe tall, each shoe 0.86 of the single shoe the shared scale sizes, with
 the near heel 0.04 of a shoe behind the single shoe's. The pair is about 1.12 single shoes
 wide and one tall, so its footprint stays near one shoe's. The composer reads the pair's
 drawn bounds, so its centroid, side margins, drawn extent and stage see the pair; both shoes

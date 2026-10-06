@@ -13,6 +13,7 @@ import {
   type GarmentBoardPiece,
 } from '@/garment-art/garment-board';
 import { haptics } from '@/components/ui/haptics';
+import { GarmentCutProvider } from '@/garment-art/garment-cut';
 import type { GarmentOutfitPalette } from '@/garment-art/garment-palette';
 import {
   GarmentSwapBoard,
@@ -319,15 +320,15 @@ test('a change that moves pieces hides the captions in the commit that renames t
 // after a far strip tile). A move lives only in the transform, so React draws nothing new for
 // it; a piece drawn at a new size gets a fresh view, whose first frame starts where it stands.
 test('a re-layout draws no frame of a piece at its new place before it travels there', async () => {
-  const look = (top: 'turtleneck' | 'sweater'): readonly GarmentBoardPiece[] => [
+  type Top = 'sleeveless_top' | 'sweater' | 'hoodie';
+  const look = (top: Top): readonly GarmentBoardPiece[] => [
     { slot: 'primary_top', garmentTypeId: top, category: 'top' },
-    { slot: 'outer_layer', garmentTypeId: 'parka', category: 'outerwear' },
     { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
     { slot: 'footwear', garmentTypeId: 'weather_boots', category: 'footwear' },
   ];
-  const tops: readonly GarmentSwapCandidate[] = (['sleeveless_top', 'sweater', 'turtleneck'] as const)
+  const tops: readonly GarmentSwapCandidate[] = (['sleeveless_top', 'sweater', 'turtleneck', 'hoodie'] as const)
     .map((garmentTypeId) => ({ garmentTypeId, category: 'top', suitable: true }));
-  const props = (top: 'turtleneck' | 'sweater') => {
+  const props = (top: Top) => {
     const next = look(top);
     return boardProps({
       candidates: { primary_top: tops },
@@ -335,7 +336,11 @@ test('a re-layout draws no frame of a piece at its new place before it travels t
       palette: { ...palette, pieces: next.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })) },
     });
   };
-  const result = await render(<GarmentSwapBoard {...props('turtleneck')} />, { wrapper: LightTheme });
+  // The men's cut, where the sweater and the hoodie are drawn equally wide.
+  const MensCut = ({ children }: PropsWithChildren) => (
+    <GarmentCutProvider cut="mens"><LightTheme>{children}</LightTheme></GarmentCutProvider>
+  );
+  const result = await render(<GarmentSwapBoard {...props('sleeveless_top')} />, { wrapper: MensCut });
   const drawing = (id: string) => result.getByTestId(`garment-swap-board-drawing-${id}`);
   const frameOf = (view: ReturnType<typeof drawing>) => {
     const [free] = view.children as ReturnType<typeof drawing>[];
@@ -344,20 +349,22 @@ test('a re-layout draws no frame of a piece at its new place before it travels t
     return { left, top, width, height };
   };
   const jeans = drawing('bottom-jeans');
+
+  await result.rerender(<GarmentSwapBoard {...props('sweater')} />);
+  // The jeans are drawn at the sweater's scale: a fresh view at the new size.
+  expect(frameOf(drawing('bottom-jeans')).height).not.toBe(frameOf(jeans).height);
+  expect(drawing('bottom-jeans')).not.toBe(jeans);
+
   const boots = drawing('footwear-weather_boots');
   const bootsFrame = frameOf(boots);
   expect(bootsFrame).toMatchObject({ left: 0, top: 0 });
-
-  await result.rerender(<GarmentSwapBoard {...props('sweater')} />);
-  // The boots, sized on the core's width, only move: the same view, the same frame to a
-  // hundredth of a point; their transform carries the travel.
+  await result.rerender(<GarmentSwapBoard {...props('hoodie')} />);
+  // A hoodie as wide as the sweater keeps the shared scale, so the boots only move: the same
+  // view, the same frame to a hundredth of a point; their transform carries the travel.
   expect(drawing('footwear-weather_boots')).toBe(boots);
   expect(frameOf(drawing('footwear-weather_boots'))).toEqual({
     left: 0, top: 0, width: expect.closeTo(bootsFrame.width, 2), height: expect.closeTo(bootsFrame.height, 2),
   });
-  // The jeans are drawn at the sweater's scale: a fresh view at the new size.
-  expect(frameOf(drawing('bottom-jeans')).height).not.toBe(frameOf(jeans).height);
-  expect(drawing('bottom-jeans')).not.toBe(jeans);
 });
 
 // Law 8: half a step toward a candidate is a threshold under the finger, so each crossing

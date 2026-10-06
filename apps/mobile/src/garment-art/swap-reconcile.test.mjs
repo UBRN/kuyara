@@ -14,9 +14,11 @@ const values = (start) => ({
   sc: mutable(start.sc), dy: mutable(0), drain: mutable(0), hand: mutable(start.hand), handFrom: mutable(1),
   handTo: mutable(Number.NaN),
 });
+// The cut the composer draws in; a scenario that needs the men's drawings sets it.
+let cut = 'womens';
 const compose = (pieces, fit = 1) => {
   const result = composeGarmentBoard(pieces.map((piece) => ({
-    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
+    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, cut),
   })), detailPreset);
   const size = WIDTH * fit;
   const left = (WIDTH - size) / 2;
@@ -190,18 +192,19 @@ test('a piece drawn at a new size gets a fresh view; one that only moves keeps i
   }
   assert.ok(moved > 0, `moved ${moved}`);
 
-  // The recorded far tile: a turtleneck changed for a sleeveless top lays the jeans out larger;
-  // changed for a sweater, every piece on the core's scale is redrawn and the boots only move.
-  const look = (top) => [
+  // The recorded far tile: a turtleneck changed for a sleeveless top lays the jeans out larger.
+  // In the men's cut, without the parka, a sweater changed for a hoodie as wide keeps the shared
+  // scale: the other pieces only move.
+  const look = (top, layered = true) => [
     { slot: 'primary_top', garmentTypeId: top, category: 'top' },
-    { slot: 'outer_layer', garmentTypeId: 'parka', category: 'outerwear' },
+    ...(layered ? [{ slot: 'outer_layer', garmentTypeId: 'parka', category: 'outerwear' }] : []),
     { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
     { slot: 'footwear', garmentTypeId: 'weather_boots', category: 'footwear' },
   ];
-  const tops = { primary_top: ['sleeveless_top', 'sweater', 'turtleneck']
+  const tops = { primary_top: ['sleeveless_top', 'sweater', 'turtleneck', 'hoodie']
     .map((garmentTypeId) => ({ garmentTypeId, category: 'top', suitable: true })) };
-  const layout = (current, top) => {
-    const pieces = look(top);
+  const layout = (current, top, layered = true) => {
+    const pieces = look(top, layered);
     const palette = paletteOf(pieces);
     step += 1;
     return reconcile(current, {
@@ -215,14 +218,17 @@ test('a piece drawn at a new size gets a fresh view; one that only moves keeps i
   assert.notEqual(jeans(sleeveless).base.h, jeans(turtleneck).base.h);
   assert.notEqual(drawingKey(jeans(sleeveless)), drawingKey(jeans(turtleneck)));
   assert.equal(jeans(sleeveless).values, jeans(turtleneck).values);
-  // The boots, sized on the core's width, only move; their size, recomputed through other
-  // arithmetic, differs only in noise. The parka stands on the core's scale and is redrawn.
-  const sweater = layout(turtleneck, 'sweater');
-  const boots = (current) => current.instances.find(({ slot }) => slot === 'footwear');
-  assert.notEqual(boots(sweater).base.y, boots(turtleneck).base.y);
-  assert.equal(drawingKey(boots(sweater)), drawingKey(boots(turtleneck)));
-  const parka = (current) => current.instances.find(({ slot }) => slot === 'outer_layer');
-  assert.notEqual(drawingKey(parka(sweater)), drawingKey(parka(turtleneck)));
+  // The boots only move; their size, recomputed through other arithmetic, differs only in noise.
+  cut = 'mens';
+  try {
+    const sweater = layout(emptyModel, 'sweater', false);
+    const hoodie = layout(sweater, 'hoodie', false);
+    const boots = (current) => current.instances.find(({ slot }) => slot === 'footwear');
+    assert.notEqual(boots(hoodie).base.y, boots(sweater).base.y);
+    assert.equal(drawingKey(boots(hoodie)), drawingKey(boots(sweater)));
+  } finally {
+    cut = 'womens';
+  }
 });
 
 test('a leaving piece chosen again fades back in rather than showing at once', () => {

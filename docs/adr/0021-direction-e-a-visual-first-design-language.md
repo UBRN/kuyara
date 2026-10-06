@@ -59,7 +59,8 @@ not coordinates:
 
 - The primary upper piece and the bottom generally form the two visual anchors, drawn at one
   shared scale so each keeps its real proportion to the other. Outerwear and footwear are
-  supporting: a layer a notch under its own size beside the core, the footwear sized on width. Accessories, when the contract
+  supporting: a layer a notch under its own size beside the core, a pair of shoes about 0.7 of
+  the top's body wide. Accessories, when the contract
   eventually carries them, are small accents.
 - Scale communicates visual prominence, not physical size. A shoe does not occupy half
   the board because a shoe is large.

@@ -18,6 +18,8 @@ import {
   runwayPreset,
   todayPreset,
 } from './compose-garment-board.ts';
+import { getGarmentType } from '../features/catalog/domain/garment-catalog.ts';
+import { garmentTypeIds } from '../features/catalog/domain/garment-taxonomy.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
 
 // Geometric audit; ink parity needs raster coverage, which vector assets do not carry.
@@ -233,6 +235,30 @@ for (const [name, slots] of evidence) {
   });
 }
 
+// ADR 0025 section 2: footwear stands on the shared scale, so a pair of low shoes reads about 0.7
+// of the top's body wide whatever the top's sleeves do (the grid's body: 22 units for a woman's
+// top, 24 for a man's), and a boot, as long as a shoe, never stands half as tall as the top.
+const lowShoes = ['sneakers', 'closed_shoes', 'loafers', 'sandals', 'ballet_flats'];
+const boots = ['ankle_boots', 'weather_boots', 'rain_boots'];
+const gridBody = { womens: 22, mens: 24 };
+const catalogueOf = (cut, category) => garmentTypeIds.filter((id) => getGarmentType(id).structuralCategory === category
+  && getGarmentType(id).apparelPreferenceApplicability.includes(cut));
+for (const cut of ['womens', 'mens']) {
+  test(`footwear, ${cut}: a low pair is at least 0.70 of the top's body and a boot stays under half the top`, () => {
+    for (const top of catalogueOf(cut, 'top')) {
+      for (const shoe of catalogueOf(cut, 'footwear')) {
+        const slots = [['primary_top', top], ['bottom', 'trousers'], ['footwear', shoe]];
+        const result = composeGarmentBoard(slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], cut) })));
+        const [topPiece, topBox] = [...result.boxes].find(([piece]) => piece.slot === 'primary_top');
+        const pair = boxOfSlot(result, 'footwear');
+        const unit = topBox.w / topPiece.bounds.width;
+        if (lowShoes.includes(shoe)) assert.ok(pair.w >= 0.70 * gridBody[cut] * unit, `${cut} ${top} ${shoe}: ${pair.w / (gridBody[cut] * unit)}`);
+        if (boots.includes(shoe)) assert.ok(pair.h < 0.5 * topBox.h, `${cut} ${top} ${shoe}: ${pair.h / topBox.h}`);
+      }
+    }
+  });
+}
+
 // The runway preset (O17, P6): one uniform scale, the ladder untouched.
 for (const [name, slots] of evidence) {
   test(`runway: ${name} fits its drawn extent to the free area without changing the ladder`, () => {
@@ -322,7 +348,7 @@ test('the boards without Easier to see keep their exact layouts', () => {
         result.order.map((piece) => [piece.slot, result.boxes.get(piece)])];
     }));
   const digest = createHash('sha256').update(JSON.stringify(layouts)).digest('hex');
-  assert.equal(digest, '2b0c66e4ce2f6b173a6dd618c5c13d4d99af399773d547f40173e3f827c64d4e');
+  assert.equal(digest, '571f6174ff423f59fb9a481d982b4b197b1562dda4dfb13c436676eb377287bb');
 });
 
 // Only Today's primary stage takes the flat lay. Every other board, the plain and Easier to see
@@ -343,5 +369,5 @@ test('every board but Today\'s primary stage keeps its exact layout', () => {
       result.order.map((piece) => placeOnRunway(result.boxes.get(piece), extent, scale, 339, 516))];
   }));
   const digest = createHash('sha256').update(JSON.stringify(layouts)).digest('hex');
-  assert.equal(digest, 'a992beeacb9a784a5a2590c9b7a85d191db8b5183c6e2c1acdf53f7a57b399bf');
+  assert.equal(digest, '917a182fcdfe74cfd0cb761732d59f387d3d0b307deea335d9b040703f3b9071');
 });

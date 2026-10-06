@@ -14,7 +14,10 @@ export const garmentBoardDressingOrder: readonly OutfitSlot[] = [
 // stage, the detail, the alternates, History and the share card.
 export const todayPreset = {
   weight: { anchor: 1, outer_layer: 0.95, mid_layer: 0.90 },
-  footWidth: 0.42,
+  // A shoe drawing is authored at 44/13 of its length on the garment grid, so the painting's
+  // fixed modelling reads on it; at this share of the shared scale a pair of low shoes stands
+  // about 0.7 of the top's body wide whatever the top's sleeves do (ADR 0025 section 2).
+  footScale: 0.36,
   coreCap: 0.235,
   soloCap: 0.300,
   railCap: 0.260,
@@ -118,8 +121,8 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   let coreW = Math.max(...cb.map((box) => box.w));
 
   let rb = rail.map((piece) => boxOf(piece, rule.weight[piece.slot === 'outer_layer' ? 'outer_layer' : 'mid_layer']));
-  // Footwear is sized on width, not on the shared scale, and shares the layers' rail cap.
-  let bf = { w: rule.footWidth * coreW, h: rule.footWidth * coreW * foot.bounds.height / foot.bounds.width };
+  // Footwear stands on the shared scale at its own share, and shares the layers' rail cap.
+  let bf = boxOf(foot, rule.footScale);
   const railScale = Math.min(1, rule.railCap / Math.max(...rb.concat(bf).map((box) => box.w)));
   rb = rb.map((box) => ({ w: box.w * railScale, h: box.h * railScale }));
   bf = { w: bf.w * railScale, h: bf.h * railScale };

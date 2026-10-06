@@ -83,14 +83,15 @@ shirt draws at least as wide as the shirt (1.07 to 1.11 of it on the cut drawing
 jacket over a sweater 1.00, a puffer over a turtleneck 1.01 to 1.10). The layers and the
 footwear share one rail cap, 0.26 of the stage, which a layer reaches only over a narrow top.
 
-**Footwear is the exception and is sized on width**, at 0.42 of the core's drawn width.
-A shoe drawing fills its viewBox far more than a garment does, and shoe aspect ratios span 2.86
-for a sneaker to 0.94 for an ankle boot, so the shared scale would draw a sneaker as wide as the
-shirt beside it. A shoe is recognised by the length of its profile, so width is what the rule
-holds constant: the pair stands about 0.47 of the top's drawn width, as a pair of shoes beside a
-folded shirt does.
+**Footwear stands on the shared scale at 0.36 of its drawn size.** A shoe drawing is authored at
+44/13 of its length on the garment grid (section 8), so the painting's fixed modelling reads on
+it; at 0.36 a pair of low shoes stands 0.71 of a woman's top's body wide (the grid's 22 units)
+and 0.74 of a man's (24), as a pair of shoes beside a folded shirt does. The size is read from
+the shoe's own drawing, never from the top's drawn width, so a top whose sleeves hang at its
+sides does not shrink the shoes, and a boot, as long as a shoe, stands at most 0.48 of the
+top's height.
 
-**A board draws its footwear as a pair**, the way a flat lay shows shoes. The width rule
+**A board draws its footwear as a pair**, the way a flat lay shows shoes. The shared scale
 sizes the single shoe; the pair is drawn in that shoe's box:
 
 - each shoe is **0.86** of the single shoe;
@@ -164,7 +165,7 @@ fixed stage produces either a squashed dress or an empty band.
 
 The stage height is therefore derived, insets plus the envelope, and clamped to
 **0.66 to 1.14** times the stage width. Across the ten evidence boards it takes values
-from 0.660 to 0.813 on Today's worn board and 0.661 to 0.991 on the detail. Today's primary
+from 0.660 to 0.821 on Today's worn board and 0.660 to 1.002 on the detail. Today's primary
 stage replaces the insets with a fit to its band and is the fitted flat lay plus its vertical
 margin, within the same clamp (section 10).
 An envelope taller than the clamp's ceiling allows, or wider than the side minimum allows, is
@@ -196,7 +197,7 @@ Every value, in stage-width units unless marked otherwise.
 | name | value | what it does |
 | --- | --- | --- |
 | anchor / outer / mid weight | 1.00 / 0.95 / 0.90 | the ladder, × the shared scale (section 1) |
-| footwear width | 0.42 | × the core's drawn width |
+| footwear scale | 0.36 | × the shared scale, on the shoe's own drawn size (section 2) |
 | core width cap | 0.235 | two-anchor core |
 | solo width cap | 0.300 | a lone `one_piece` |
 | rail width cap | 0.260 | the widest of the layers and the footwear; they share one scale |
@@ -262,8 +263,8 @@ right, and a wider last on a flat, chunky sole; a woman's is shaped at the waist
 the shoulder, shorter, with a softer collar or open neckline, a curved shirttail hem, slimmer
 sleeves and a placket lapping to the viewer's left, a higher rise and a narrower waist over the
 hip, and a slimmer last with an almond toe and a small block heel. Footwear is authored at the
-shoes' own size (one shoe 44 units long for a man, 38.9 for a woman); a board sizes the pair
-by the footwear width rule, never by that size.
+shoes' own size, 44/13 of their grid length (one shoe 44 units long for a man, 38.9 for a
+woman); a board draws the pair at 0.36 of that size on the shared scale (section 2).
 
 Fifteen earlier drawings draw no catalogue type any more and stay only because the public
 site's landing boards copy their outlines (`landing-boards.test.mjs`): `g-tee`, `g-shirt`,
@@ -443,7 +444,8 @@ appearances and audited geometrically.
 
 Six everyday outfits in each cut, measured as drawn boxes against the top's: trousers and jeans
 1.30 to 1.59 of its height, a knee skirt 0.76, shorts 0.47 (women's) and 0.63 (men's); a bottom
-0.53 to 0.88 of the top's drawn width, which includes its sleeves; the pair of shoes about 0.47.
+0.53 to 0.88 of the top's drawn width, which includes its sleeves; a pair of low shoes 0.71
+(women's) and 0.74 (men's) of the top's body, a boot at most 0.48 of the top's height.
 
 ## What this does not decide
 
