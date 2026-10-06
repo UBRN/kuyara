@@ -172,7 +172,7 @@ no shipped binary calls the route or sends a member token. The remote schema is
 `supabase/migrations/20261005090000_account_hardening.sql` (tighter bounds and per-account caps, the 400 MB database
 size guard, the per-account lock between uploads and a consent withdrawal, one index fewer) followed on 4 October 2026, again with no security advisor finding; an in-memory Postgres run
 applies both files in order and checks their access rules, caps, bounds, guard and lock.
-`supabase/migrations/20261006120000_account_cap_locks.sql` makes each cap check hold the account's lock alone before it counts, so parallel uploads cannot pass a cap together; it is written and not yet applied, and has no Postgres run. Evidence is automated
+`supabase/migrations/20261006120000_account_cap_locks.sql` makes each cap check hold the account's lock alone before it counts, so parallel uploads cannot pass a cap together; it is applied to the project, and the two-session race itself has no Postgres run. Evidence is automated
 tests, an in-memory Postgres run of the schema and one Simulator pass; Sign in with Apple, revocation and live
 sync have no device evidence. Before accounts open: the Google library and client ids, App Privacy in App Store Connect,
 device evidence, and the account terms pages with the account versions of the privacy policy and support pages (`docs/account-terms.md` and `docs/tr/account-terms.md`, which the app links), which are written and publish just before submission. The project is
