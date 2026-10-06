@@ -299,12 +299,15 @@ The approved phase order, active work and remaining open items are in [the roadm
   other pages keep "Page | kuyara"); a descriptive browser title would be new bilingual
   copy. The Smart App Banner meta matches Apple's documented format and App Store id,
   but whether it renders can only be shown in Safari on a physical iPhone or iPad on
-  iOS 26 with the App Store; the Simulator never shows it. The landing's boards are
-  generated from the app's outfit rules, composition rule and colour drawings by
-  `apps/mobile/scripts/site-boards.mjs` and committed; `site-boards.test.mjs` in the
-  mobile suite fails when the committed files and the generator disagree, so a catalogue,
-  rule, drawing or theme change needs a regeneration. The rebuilt landing was checked in
-  headless Chrome at 1440 and 375 px in both appearances; Firefox, Safari and keyboard
+  iOS 26 with the App Store; the Simulator never shows it. The landing's ten
+  boards (five weather scenes, a women's and a men's board each) are listed in
+  `apps/mobile/scripts/site-boards.mjs`, checked there against the app's outfit rules and
+  drawn with its flat lay and colour drawings, then committed; `site-boards.test.mjs` in
+  the mobile suite fails when the committed files and the generator disagree, so a
+  catalogue, rule, drawing or theme change needs a regeneration. Until the app carries the
+  masculine and feminine drawings, both catalogues share one drawing per garment type, so
+  the scenes tell them apart by the garments chosen. The rebuilt landing was checked in
+  headless Chrome at 1280 and 375 px in both appearances; Firefox, Safari and keyboard
   operation in them are unverified. The `2xl` band padding is a web-only choice recorded
   under "Web presence" in `docs/design/visual-identity.md`, together with the favicon and
   Open Graph compositions. The favicon, apple-touch-icon and Open Graph image are served

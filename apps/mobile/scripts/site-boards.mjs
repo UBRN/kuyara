@@ -1,84 +1,105 @@
 // The public site's garment boards, generated from the app's own code. GitHub Pages runs
-// Jekyll and nothing else, so the boards are computed here and committed: the outfit rules
-// (recommendOutfits, the deterministic path every install has), the board composition rule
-// (ADR 0025), the colour drawings and their palette, and the plates of the theme.
+// Jekyll and nothing else, so the boards are computed here and committed: one women's and one
+// men's board for each weather scene, each a valid outfit of the app's rules for that scene's
+// weather, laid out by the board composition rule (ADR 0025) in the colour drawings and their
+// palette, on the plates of the theme.
 //
 // Run from the repository root:
 //   node --experimental-strip-types --import ./apps/mobile/test/node-typescript-resolver.mjs \
 //     apps/mobile/scripts/site-boards.mjs
 // and commit what it writes. site-boards.test.mjs fails when the committed files drift from
 // what this produces.
-import { writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+//
+// Two options preview drawings and a board scale the app does not carry yet. Their output is
+// for looking at, not for committing, because the test regenerates with the app's own:
+//   --set <module>   a drawing set: `silhouettes` (or `proposedSilhouettes`) and `typeMap` (or
+//                    `proposedTypeMap`) as { womens: { typeId: id }, mens: { typeId: id } }; a
+//                    type the set leaves out keeps the app's drawing
+//   --shared-scale   the body core at one per-unit scale: the bottom is drawn at the top's scale,
+//                    its waist where it was, and the footwear rises by what the bottom gave up
+import { readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { recommendOutfits } from '@/features/recommendation/application/recommend-outfits';
+import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import {
-  accessoryOutfitSlots,
   assignedOutfitGarments,
+  collectValidOutfits,
+  garmentIdSet,
 } from '@/features/recommendation/domain/outfit-composition';
+import { eligibilityCandidates, outfitOptionId } from '@/features/recommendation/application/recommend-outfits';
 import { resolveAtmosphereState } from '@/features/today/domain/atmosphere-state';
 import { catalogMessages } from '@/features/catalog/localization/catalog-messages';
-import { recommendationMessages } from '@/features/recommendation/localization/recommendation-messages';
 import { messages } from '@/localization/messages';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
 import { garmentSilhouetteIds } from '@/components/ui/garment-board/garment-silhouette-map';
 import {
-  composeGarmentBoard,
-  detailPreset,
+  drawnExtent,
   footwearPairDrawing,
+  garmentShadowOf,
+  garmentBoardDressingOrder,
   garmentShadowRule,
   todayPreset,
 } from '@/components/ui/garment-board/compose-garment-board';
+import { composeFlatLay } from '@/components/ui/garment-board/compose-flat-lay';
 import { garmentLevelOfDetail, paintGarment } from '@/components/ui/garment-board/garment-paint';
 import { resolveGarmentPalette } from '@/components/ui/garment-board/garment-palette';
 import { darkTheme, lightTheme, plateTheme } from '@/theme/theme';
 import { shiftOklchLightness } from '@/theme/color-oklch';
 
-/** Board units: one stage is this many units wide, whatever width the page draws it at. */
+/** Board units: a composed stage is this many units wide. */
 export const STAGE_UNITS = 400;
+export const PREFERENCES = ['womens', 'mens'];
 const APPEARANCES = ['light', 'dark'];
-const PREFERENCES = ['womens', 'mens'];
 const THEMES = { light: lightTheme, dark: darkTheme };
+const LANGUAGES = ['en', 'tr'];
 
 /**
- * The sky choices the hero offers, each a real condition code. The plate is the app's own
- * atmosphere state for that condition by day; the particles take the condition's ink.
+ * The page's weather scenes, warm to cold, and what each catalogue wears in them. Every outfit
+ * has to be one the app's rules compose for that weather, or the generator stops. `particles`
+ * is the plate's moving weather and `ink` the condition colour it is drawn in.
  */
-export const SKIES = Object.freeze({
-  clear: { code: 'clear', ink: 'clearDay', range: [-6, 34] },
-  cloudy: { code: 'cloudy', ink: 'cloudy', range: [-6, 34] },
-  rain: { code: 'rain', ink: 'rain', range: [0, 34] },
-  snow: { code: 'snow', ink: 'snow', range: [-6, 2] },
-});
-export const TEMPERATURE_STEP = 2;
-
-/**
- * The sample day the scroll story walks through, one board per moment. The evening moment is
- * after sunset, so its plate is the night plane and its palette the evening one.
- */
-export const STORY = Object.freeze([
-  { id: 'morning', hour: '08:00', sky: 'clear', code: 'clear', ink: 'clearDay', t: 18, night: false },
-  { id: 'midday', hour: '12:00', sky: 'cloudy', code: 'cloudy', ink: 'cloudy', t: 10, night: false },
-  { id: 'afternoon', hour: '16:00', sky: 'rain', code: 'rain', ink: 'rain', t: 12, night: false },
-  { id: 'evening', hour: '21:00', sky: 'clear', code: 'clear', ink: 'clearNight', t: 4, night: true },
+export const SCENES = Object.freeze([
+  {
+    id: 'hot', temperatureC: 31, condition: 'clear', particles: 'motes', ink: 'clearDay',
+    womens: ['sleeveless_top', 'skirt', 'sandals'],
+    mens: ['t_shirt', 'shorts', 'sandals'],
+  },
+  {
+    id: 'mild', temperatureC: 17, condition: 'partly_cloudy', particles: 'wisps', ink: 'cloudy',
+    womens: ['blouse', 'jeans', 'light_jacket', 'ballet_flats'],
+    mens: ['long_sleeve_t_shirt', 'jeans', 'light_jacket', 'sneakers'],
+  },
+  {
+    id: 'rain', temperatureC: 11, condition: 'rain', particles: 'rain', ink: 'rain',
+    womens: ['cardigan', 'jeans', 'rain_jacket', 'rain_boots'],
+    mens: ['sweater', 'jeans', 'rain_jacket', 'rain_boots'],
+  },
+  {
+    id: 'wind', temperatureC: 7, condition: 'cloudy', windMetersPerSecond: 10, particles: 'wind', ink: 'cloudy',
+    womens: ['sweater', 'trousers', 'coat', 'ankle_boots'],
+    mens: ['turtleneck', 'jeans', 'insulated_jacket', 'ankle_boots'],
+  },
+  {
+    id: 'snow', temperatureC: -3, condition: 'snow', particles: 'snow', ink: 'snow',
+    womens: ['turtleneck', 'leggings', 'parka', 'weather_boots'],
+    mens: ['sweater', 'jeans', 'parka', 'weather_boots'],
+  },
 ]);
-
-/** The hero's opening state: what a visitor sees before touching anything. */
-export const INITIAL = Object.freeze({ pref: 'womens', sky: 'cloudy', t: 14 });
 
 const NOW = '2026-10-05T07:00:00.000Z';
 const num = (value) => Math.round(value * 100) / 100;
 
-function snapshot(temperatureC, code) {
-  const wet = code === 'rain' || code === 'snow';
+function snapshot({ temperatureC, condition, windMetersPerSecond = 3 }) {
+  const wet = condition === 'rain' || condition === 'snow';
   const measurements = {
     temperatureCelsius: temperatureC,
     apparentTemperatureCelsius: temperatureC,
-    condition: code,
-    precipitationProbability: wet ? 0.85 : code === 'cloudy' ? 0.15 : 0,
-    windSpeedMetersPerSecond: 3,
+    condition,
+    precipitationProbability: wet ? 0.85 : condition === 'clear' ? 0 : 0.15,
+    windSpeedMetersPerSecond: windMetersPerSecond,
     humidity: wet ? 0.9 : 0.55,
-    uvIndex: code === 'clear' && temperatureC > 18 ? 7 : 2,
+    uvIndex: condition === 'clear' && temperatureC > 18 ? 7 : 2,
   };
   return {
     id: 'site-sample',
@@ -97,19 +118,16 @@ function snapshot(temperatureC, code) {
   };
 }
 
-function recommend(temperatureC, code, preference) {
-  const result = recommendOutfits({
-    snapshot: snapshot(temperatureC, code),
-    now: NOW,
-    clothingPreference: preference,
-    dressStyle: 'casual',
-    dayVariant: 0,
-    dayKind: 'weekday',
-  });
-  if (result.status !== 'recommended' || result.outfits.length === 0) {
-    throw new Error(`No outfit for ${preference} at ${temperatureC} C, ${code}.`);
-  }
-  return result.outfits;
+/** The scene's outfit as the app's rules compose it, or an error naming what does not fit. */
+function validOutfit(scene, preference) {
+  const requirements = deriveClothingRequirements(snapshot(scene), NOW);
+  const result = collectValidOutfits(requirements, eligibilityCandidates(requirements, preference));
+  const wanted = [...new Set(scene[preference])].sort().join('|');
+  const outfit = result.status === 'composed'
+    ? result.outfits.find((candidate) => garmentIdSet(candidate) === wanted)
+    : undefined;
+  if (!outfit) throw new Error(`${scene.id} ${preference}: ${scene[preference].join(' + ')} is not a valid outfit for that weather.`);
+  return outfit;
 }
 
 // ---------------------------------------------------------------------------- painting
@@ -131,162 +149,108 @@ function serialize(node) {
   return children ? `<${tag}${attrs}>${children}</${tag}>` : `<${tag}${attrs}/>`;
 }
 
-function hash(text) {
-  let value = 0x811c9dc5;
-  for (let index = 0; index < text.length; index += 1) {
-    value = Math.imul(value ^ text.charCodeAt(index), 0x01000193) >>> 0;
+/** One piece in its own drawing units; footwear as the board's pair. */
+function paintPiece(silhouette, roles, ink, scale, pair, uid) {
+  if (!pair) {
+    return serialize(paintGarment({ silhouette, roles, ink, scale, lod: garmentLevelOfDetail(64 * scale), uid }));
   }
-  return value.toString(36);
-}
-
-/**
- * Each drawing is painted once per colour and stroke scale and shared by every board that
- * draws it. Clip path and gradient ids carry the `KU_` marker, which the page rewrites per
- * placed copy so two copies never share an id.
- */
-function createArtBook() {
-  const art = {};
-  const paint = (silhouetteId, roles, ink, scale, pair) => {
-    const quantized = Math.max(0.5, Math.round(scale * 2) / 2);
-    const key = `a${hash(JSON.stringify([silhouetteId, roles, ink, quantized, pair]))}`;
-    if (art[key] === undefined) {
-      const silhouette = silhouettes[silhouetteId];
-      if (pair) {
-        const drawing = footwearPairDrawing(silhouette.bounds);
-        art[key] = drawing.shoes.map(({ dx, dy }, index) =>
-          `<g transform="translate(${num(dx)} ${num(dy)}) scale(${drawing.scale})">${serialize(paintGarment({
-            silhouette, roles, ink, scale: quantized * drawing.scale, lod: 'full', uid: `KU_${key}${index}`,
-          }))}</g>`).join('');
-      } else {
-        art[key] = serialize(paintGarment({
-          silhouette, roles, ink, scale: quantized, lod: garmentLevelOfDetail(64 * quantized), uid: `KU_${key}`,
-        }));
-      }
-    }
-    return key;
-  };
-  return { art, paint };
+  const drawing = footwearPairDrawing(silhouette.bounds);
+  return drawing.shoes.map(({ dx, dy }, index) =>
+    `<g transform="translate(${num(dx)} ${num(dy)}) scale(${drawing.scale})">${serialize(paintGarment({
+      silhouette, roles, ink, scale: scale * drawing.scale, lod: 'full', uid: `${uid}s${index}`,
+    }))}</g>`).join('');
 }
 
 // ------------------------------------------------------------------------------ boards
 
-const BOARD_SLOTS = new Set(['primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear']);
-const ACCESSORY_SIZE = 40;
-
-function paletteOf(outfit, temperatureC, code, night) {
-  return {
-    optionId: outfit.optionId,
-    formality: outfit.formality,
-    temperatureC,
-    condition: code,
-    isNight: night,
-    pieces: [
-      ...assignedOutfitGarments(outfit).map(({ slot, garment }) => ({ slot, garmentTypeId: garment.garmentTypeId })),
-      ...accessoryOutfitSlots.flatMap((slot) => {
-        const accessory = outfit.accessories[slot];
-        return accessory ? [{ slot, garmentTypeId: accessory.garment.garmentTypeId }] : [];
-      }),
-    ],
+/** The app's drawings, or a set that replaces some of them per catalogue. */
+function drawingSet(set) {
+  const library = { ...silhouettes, ...(set?.silhouettes ?? {}) };
+  return (typeId, preference) => {
+    const id = set?.typeMap?.[preference]?.[typeId] ?? garmentSilhouetteIds[typeId];
+    if (id === undefined || library[id] === undefined) throw new Error(`No drawing for ${typeId}.`);
+    return { id, silhouette: library[id] };
   };
 }
 
 /**
- * One board in both appearances. Inside a plate everything takes the light roles
- * (`plateTheme`), so the dark board paints on the dark plate with the light ink, exactly as
- * the app's `useGarmentRoles` does.
+ * Correction A, for a preview: the bottom at the top's per-unit scale, hanging from its waist,
+ * and the pair still standing over its hem. Nothing moves once the composer does this itself.
  */
-function boardOf(book, outfit, { temperatureC, code, night, atmosphere, preset }) {
-  const palette = paletteOf(outfit, temperatureC, code, night);
-  const rolesByAppearance = Object.fromEntries(APPEARANCES.map((appearance) => {
+function shareCoreScale(composition) {
+  const [top, bottom] = composition.core;
+  if (!bottom) return;
+  const box = composition.boxes.get(bottom);
+  const k = composition.boxes.get(top).w / top.bounds.width;
+  const w = bottom.bounds.width * k;
+  const h = bottom.bounds.height * k;
+  if (h >= box.h) return;
+  const inset = (box.w - w) / 2;
+  for (const [piece, placed] of composition.boxes) {
+    if (piece.slot !== 'footwear') continue;
+    placed.y -= box.h - h;
+    placed.x += placed.x + placed.w / 2 < box.x + box.w / 2 ? inset : -inset;
+  }
+  composition.boxes.set(bottom, { x: box.x + inset, y: box.y, w, h });
+}
+
+/**
+ * One board, both appearances. Inside a plate everything takes the light roles
+ * (`plateTheme`), so the dark board paints on the dark plate with the light ink, exactly as
+ * the app's `useGarmentRoles` does. Lengths are board units: a stage is STAGE_UNITS wide.
+ */
+function boardOf(scene, preference, drawingOf, sharedScale) {
+  const outfit = validOutfit(scene, preference);
+  const atmosphere = resolveAtmosphereState(scene.condition, 'day');
+  const pieces = assignedOutfitGarments(outfit).map(({ slot, garment }) => {
+    const { id, silhouette } = drawingOf(garment.garmentTypeId, preference);
+    return { slot, garmentTypeId: garment.garmentTypeId, silhouetteId: id, silhouette, bounds: silhouette.bounds, groups: silhouette.groups };
+  });
+  const palette = {
+    optionId: outfitOptionId(outfit),
+    formality: outfit.formality,
+    temperatureC: scene.temperatureC,
+    condition: scene.condition,
+    isNight: false,
+    pieces: pieces.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })),
+  };
+  const colours = Object.fromEntries(APPEARANCES.map((appearance) => {
     const plane = THEMES[appearance].atmosphere[atmosphere];
-    const tile = THEMES[appearance].colors.garmentTile;
     const plate = plateTheme(THEMES[appearance], plane);
     const resolved = resolveGarmentPalette({
-      ...palette,
-      appearance: plate.colorScheme,
-      stageColor: plane,
-      accessoryStageColor: plateTheme(THEMES[appearance], tile).colors.background,
-      inkColor: plate.colors.textPrimary,
+      ...palette, appearance: plate.colorScheme, stageColor: plane, inkColor: plate.colors.textPrimary,
     });
     return [appearance, { ink: plate.colors.textPrimary, bySlot: new Map(resolved.map((entry) => [entry.piece.slot, entry])) }];
   }));
 
-  const pieces = palette.pieces.filter((piece) => BOARD_SLOTS.has(piece.slot)).map((piece) => {
-    const silhouetteId = garmentSilhouetteIds[piece.garmentTypeId];
-    if (silhouetteId === undefined) throw new Error(`No drawing for ${piece.garmentTypeId}.`);
-    return { ...piece, silhouetteId, bounds: silhouettes[silhouetteId].bounds };
-  });
-  const composition = composeGarmentBoard(pieces, preset);
+  const composition = composeFlatLay(pieces, todayPreset);
+  if (sharedScale) shareCoreScale(composition);
   const W = STAGE_UNITS;
-  const drawn = composition.stack.map((piece) => {
+  const drawn = composition.stack.map((piece, index) => {
     const box = composition.boxes.get(piece);
     const placed = { x: box.x * W, y: box.y * W, w: box.w * W, h: box.h * W };
     const scale = placed.w / piece.bounds.width;
-    const art = APPEARANCES.map((appearance) => {
-      const { ink, bySlot } = rolesByAppearance[appearance];
-      return book.paint(piece.silhouetteId, bySlot.get(piece.slot).roles, ink, scale, Boolean(piece.single));
-    });
-    const light = rolesByAppearance.light.bySlot.get(piece.slot);
+    const paint = (appearance, uid) => {
+      const { ink, bySlot } = colours[appearance];
+      return paintPiece(piece.silhouette, bySlot.get(piece.slot).roles, ink, scale, Boolean(piece.single), uid);
+    };
+    const uid = `${scene.id}${preference[0]}${index}`;
+    const light = paint('light', uid);
     return {
       slot: piece.slot,
       type: piece.garmentTypeId,
-      family: light.colorFamily,
-      art: art[0] === art[1] ? [art[0]] : art,
-      // translate x, translate y, scale: the drawing's own units into board units.
+      drawing: piece.silhouetteId,
+      family: colours.light.bySlot.get(piece.slot).colorFamily,
+      // The dark plate's colours only when they differ from the light plate's.
+      art: paint('dark', uid) === light ? [light] : [light, paint('dark', `${uid}d`)],
       t: [num(placed.x - piece.bounds.x * scale), num(placed.y - piece.bounds.y * scale), num(scale)],
       box: [num(placed.x), num(placed.y), num(placed.w), num(placed.h)],
     };
   });
-  const touches = palette.pieces.filter((piece) => !BOARD_SLOTS.has(piece.slot)).map((piece) => {
-    const silhouetteId = garmentSilhouetteIds[piece.garmentTypeId];
-    const { bounds } = silhouettes[silhouetteId];
-    const scale = ACCESSORY_SIZE / Math.max(bounds.width, bounds.height);
-    const art = APPEARANCES.map((appearance) => {
-      const { ink, bySlot } = rolesByAppearance[appearance];
-      return book.paint(silhouetteId, bySlot.get(piece.slot).roles, ink, scale, false);
-    });
-    return {
-      slot: piece.slot,
-      type: piece.garmentTypeId,
-      family: rolesByAppearance.light.bySlot.get(piece.slot).colorFamily,
-      art: art[0] === art[1] ? [art[0]] : art,
-      t: [num(-bounds.x * scale + (ACCESSORY_SIZE - bounds.width * scale) / 2),
-        num(-bounds.y * scale + (ACCESSORY_SIZE - bounds.height * scale) / 2), num(scale)],
-    };
-  });
-  return { h: num(composition.stageHeight * W), pieces: drawn, touches };
+  return { atmosphere, pieces: drawn };
 }
 
 // -------------------------------------------------------------------------- the output
-
-function temperatures([low, high]) {
-  const list = [];
-  for (let value = low; value <= high; value += TEMPERATURE_STEP) list.push(value);
-  return list;
-}
-
-function localizedNames() {
-  return Object.fromEntries(['en', 'tr'].map((language) => {
-    const catalog = catalogMessages[language];
-    const names = {};
-    const families = {};
-    for (const [key, value] of Object.entries(catalog)) {
-      let match = /^catalog\.garment_type\.([a-z_]+)\.name$/.exec(key);
-      if (match) names[match[1]] = value;
-      match = /^catalog\.color_family\.([a-z_]+)$/.exec(key);
-      if (match) families[match[1]] = value;
-    }
-    const app = messages[language];
-    return [language, {
-      names,
-      families,
-      archetypes: recommendationMessages[language].archetypes,
-      skies: Object.fromEntries(Object.entries(SKIES).map(([sky, { code }]) => [sky, app.weather.conditions[code]])),
-      preferences: { womens: app.preferences.genderWoman, mens: app.preferences.genderMan },
-      touches: app.today.finishingTouchesHeading,
-    }];
-  }));
-}
 
 /** The plate, shadow and particle colours, both appearances, as CSS custom properties. */
 function plateCss() {
@@ -334,129 +298,118 @@ function plateCss() {
   ].join('\n');
 }
 
-/** One board as static SVG for a Jekyll include, so the first paint needs no script. */
-function staticBoard(board, art, id, label) {
-  const W = STAGE_UNITS;
-  const layer = (piece, index) => {
-    const markup = (key) => art[key].replace(/KU_/g, `${id}${index}_`);
-    const [light, dark = light] = piece.art;
-    const body = light === dark ? markup(light)
-      : `<g class="ku-art-light">${markup(light)}</g><g class="ku-art-dark">${markup(dark)}</g>`;
-    return `<svg class="ku-piece" viewBox="0 0 ${W} ${board.h}" data-slot="${piece.slot}" aria-hidden="true" focusable="false" style="z-index:${index + 1}"><g transform="translate(${piece.t[0]} ${piece.t[1]}) scale(${piece.t[2]})">${body}</g></svg>`;
-  };
-  return `<div class="ku-board" data-board="${id}" role="img" aria-label="${label}" style="--h:${board.h}">${board.pieces.map(layer).join('')}</div>\n`;
+/** Every plate on the page has one shape, a portrait tile, whatever its outfit. */
+const TILE_ASPECT = 4 / 5;
+
+/**
+ * Both boards of a scene share one frame: the larger of their drawn extents, with room for the
+ * piece shadow, widened or deepened to the tile's shape, each board centred in it. So the two
+ * draw at one scale, side by side.
+ */
+function sceneFrame(boards) {
+  const extents = boards.map((board) => drawnExtent(board.pieces.map(({ box: [x, y, w, h] }) => ({ x, y, w, h }))));
+  const margin = garmentShadowOf(STAGE_UNITS).margin + 0.04 * STAGE_UNITS;
+  let w = Math.max(...extents.map((extent) => extent.w)) + 2 * margin;
+  let h = Math.max(...extents.map((extent) => extent.h)) + 2 * margin;
+  if (w / h < TILE_ASPECT) w = h * TILE_ASPECT; else h = w / TILE_ASPECT;
+  return extents.map((extent) => [num(extent.x - (w - extent.w) / 2), num(extent.y - (h - extent.h) / 2), num(w), num(h)]);
 }
 
-function outfitLabel(names, archetypeId, board) {
-  const list = board.pieces.concat(board.touches)
-    .map((piece) => `${names.names[piece.type]} (${names.families[piece.family].toLocaleLowerCase()})`).join(', ');
-  return `${names.archetypes[archetypeId]}: ${list}`;
+/** A board's pieces in the order they are put on: how the page names them and lands them. */
+const dressed = (board) => [...board.pieces]
+  .sort((a, b) => garmentBoardDressingOrder.indexOf(a.slot) - garmentBoardDressingOrder.indexOf(b.slot));
+
+/**
+ * One board as static SVG for a Jekyll include. The page passes its accessible name, so one
+ * file serves both languages. The pieces are drawn back to front and each lands on its own
+ * when its scene arrives, `--i` being its place in the dressing order.
+ */
+function staticBoard(board, viewBox) {
+  const k = num(STAGE_UNITS / viewBox[2]);
+  const order = dressed(board);
+  const layer = (piece) => {
+    const [light, dark] = piece.art;
+    const body = dark === undefined ? light
+      : `<g class="ku-art-light">${light}</g><g class="ku-art-dark">${dark}</g>`;
+    return `<g class="ku-piece" data-slot="${piece.slot}" style="--i:${order.indexOf(piece)}"><g transform="translate(${piece.t[0]} ${piece.t[1]}) scale(${piece.t[2]})">${body}</g></g>`;
+  };
+  return `<svg class="ku-board" viewBox="${viewBox.join(' ')}" role="img" aria-label="{{ include.label | escape }}" style="--k:${k}">${board.pieces.map(layer).join('')}</svg>\n`;
 }
 
-export function generateSiteBoards() {
-  const book = createArtBook();
-  const states = {};
-  for (const preference of PREFERENCES) {
-    for (const [sky, { code, range }] of Object.entries(SKIES)) {
-      const atmosphere = resolveAtmosphereState(code, 'day');
-      for (const temperatureC of temperatures(range)) {
-        const outfits = recommend(temperatureC, code, preference);
-        const context = { temperatureC, code, night: false, atmosphere };
-        states[`${preference}|${sky}|${temperatureC}`] = {
-          archetypes: outfits.map((outfit) => outfit.archetypeId),
-          hero: boardOf(book, outfits[0], { ...context, preset: detailPreset }),
-          options: outfits.map((outfit) => boardOf(book, outfit, { ...context, preset: todayPreset })),
-        };
-      }
-    }
-  }
-  const story = Object.fromEntries(PREFERENCES.map((preference) => [preference, STORY.map((moment) => {
-    const outfits = recommend(moment.t, moment.code, preference);
-    const atmosphere = resolveAtmosphereState(moment.code, moment.night ? 'night' : 'day');
-    return {
-      id: moment.id,
-      archetype: outfits[0].archetypeId,
-      atmosphere,
-      board: boardOf(book, outfits[0], {
-        temperatureC: moment.t, code: moment.code, night: moment.night, atmosphere, preset: detailPreset,
-      }),
-    };
-  })]));
-
-  const i18n = localizedNames();
-  const data = {
-    units: STAGE_UNITS,
-    initial: INITIAL,
-    skies: Object.fromEntries(Object.entries(SKIES).map(([sky, { code, ink, range }]) => [sky, {
-      atmosphere: resolveAtmosphereState(code, 'day'), ink, range,
-    }])),
-    step: TEMPERATURE_STEP,
-    story: STORY.map(({ id, hour, sky, t, ink }) => ({ id, hour, sky, t, ink })),
-    states,
-    storyBoards: story,
-    art: book.art,
-    i18n,
+function localized(language) {
+  const catalog = catalogMessages[language];
+  return {
+    name: (type) => catalog[`catalog.garment_type.${type}.name`],
+    family: (family) => catalog[`catalog.color_family.${family}`],
+    condition: (code) => messages[language].weather.conditions[code],
   };
+}
 
-  const includes = {};
-  const opening = states[`${INITIAL.pref}|${INITIAL.sky}|${INITIAL.t}`];
-  for (const language of ['en', 'tr']) {
-    includes[`board-hero-${language}.html`] = staticBoard(opening.hero, book.art, 'h',
-      outfitLabel(i18n[language], opening.archetypes[0], opening.hero));
-    opening.options.forEach((board, index) => {
-      includes[`board-option-${index + 1}-${language}.html`] = staticBoard(board, book.art, `o${index + 1}`,
-        outfitLabel(i18n[language], opening.archetypes[index], board));
-    });
-    story[INITIAL.pref].forEach((moment, index) => {
-      includes[`board-story-${index + 1}-${language}.html`] = staticBoard(moment.board, book.art, `s${index + 1}`,
-        outfitLabel(i18n[language], moment.archetype, moment.board));
-    });
-  }
+const signed = (t) => `${t < 0 ? '−' : ''}${Math.abs(t)}°`;
 
-  // What Jekyll prints around the static boards, so the first paint reads right without
-  // script: the opening readout and the story's moments, for the opening catalogue.
-  const byLanguage = (pick) => Object.fromEntries(['en', 'tr'].map((language) => [language, pick(i18n[language])]));
+export function generateSiteBoards({ set, sharedScale = false } = {}) {
+  const drawingOf = drawingSet(set);
+  const words = Object.fromEntries(LANGUAGES.map((language) => [language, localized(language)]));
+  const byLanguage = (pick) => Object.fromEntries(LANGUAGES.map((language) => [language, pick(words[language], language)]));
+
+  const scenes = SCENES.map((scene) => {
+    const boards = PREFERENCES.map((preference) => boardOf(scene, preference, drawingOf, sharedScale));
+    return { scene, boards, frames: sceneFrame(boards) };
+  });
+
   const pageData = {
-    initial: {
-      t: INITIAL.t,
-      sky: INITIAL.sky,
-      atmosphere: data.skies[INITIAL.sky].atmosphere,
-      range: SKIES[INITIAL.sky].range,
-      condition: byLanguage((names) => names.skies[INITIAL.sky]),
-      archetype: byLanguage((names) => names.archetypes[opening.archetypes[0]]),
-      options: byLanguage((names) => opening.archetypes.map((id) => names.archetypes[id])),
-      touches: byLanguage((names) => names.touches),
-      skies: byLanguage((names) => names.skies),
-      preferences: byLanguage((names) => names.preferences),
-    },
-    story: STORY.map((moment, index) => ({
-      id: moment.id,
-      hour: moment.hour,
-      t: moment.t,
-      ink: moment.ink,
-      atmosphere: story[INITIAL.pref][index].atmosphere,
-      condition: byLanguage((names) => names.skies[moment.sky]),
-      archetype: byLanguage((names) => names.archetypes[story[INITIAL.pref][index].archetype]),
+    scenes: scenes.map(({ scene, boards }) => ({
+      id: scene.id,
+      temperature: signed(scene.temperatureC),
+      atmosphere: boards[0].atmosphere,
+      particles: scene.particles,
+      ink: scene.ink,
+      condition: byLanguage((names) => names.condition(scene.condition)),
+      looks: PREFERENCES.map((preference, index) => ({
+        preference,
+        pieces: byLanguage((names) => dressed(boards[index]).map((piece) => names.name(piece.type))),
+        label: byLanguage((names, language) => dressed(boards[index])
+          .map((piece) => `${names.name(piece.type)} (${names.family(piece.family).toLocaleLowerCase(language)})`).join(', ')),
+      })),
     })),
   };
 
   const files = {
     'docs/_data/site_boards.json': `${JSON.stringify(pageData, null, 2)}\n`,
-    'docs/assets/data/boards.js':
-      '/* Generated by apps/mobile/scripts/site-boards.mjs from the app\'s outfit rules, board composition rule and drawings. Do not edit. */\n'
-      + `window.KU_BOARDS=${JSON.stringify(data)};\n`,
     'docs/assets/css/plates.css': plateCss(),
   };
-  for (const [name, content] of Object.entries(includes)) {
-    files[`docs/_includes/generated/${name}`] =
-      `<!-- Generated by apps/mobile/scripts/site-boards.mjs. Do not edit. -->\n${content}`;
+  for (const { scene, boards, frames } of scenes) {
+    boards.forEach((board, index) => {
+      files[`docs/_includes/generated/scene-${scene.id}-${PREFERENCES[index]}.html`] =
+        `<!-- Generated by apps/mobile/scripts/site-boards.mjs. Do not edit. -->\n${staticBoard(board, frames[index])}`;
+    });
   }
-  return { data, files };
+  return { scenes: scenes.map(({ scene, boards }) => ({ id: scene.id, boards })), files };
+}
+
+export const GENERATED_INCLUDES = 'docs/_includes/generated/';
+
+async function loadSet(path) {
+  const module = await import(pathToFileURL(resolve(path)).href);
+  return {
+    silhouettes: module.silhouettes ?? module.proposedSilhouettes,
+    typeMap: module.typeMap ?? module.proposedTypeMap,
+  };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const args = process.argv.slice(2);
+  const setPath = args.includes('--set') ? args[args.indexOf('--set') + 1] : undefined;
   const root = new URL('../../../', import.meta.url);
-  const { files } = generateSiteBoards();
+  const { files } = generateSiteBoards({
+    set: setPath ? await loadSet(setPath) : undefined,
+    sharedScale: args.includes('--shared-scale'),
+  });
+  // The generated includes are this script's alone: anything it no longer writes goes.
+  const includes = new URL(GENERATED_INCLUDES, root);
+  for (const name of readdirSync(includes)) {
+    if (!(`${GENERATED_INCLUDES}${name}` in files)) rmSync(new URL(name, includes));
+  }
   for (const [path, content] of Object.entries(files)) {
     writeFileSync(new URL(path, root), content);
     console.log(`${path} ${content.length} bytes`);

@@ -9,20 +9,6 @@ hero_line: >-
   kuyara günün hava durumunu okur ve ne giyeceğini önüne koyar; giyinmek bir sürü
   küçük karar yerine tek bir sakin karara dönüşür.
 
-stage_title: Gökyüzü değişince kıyafet de değişir
-story_morning: >-
-  Açık ve ılıman bir gün. İnce katmanlar, öğlene kalmadan elde taşınacak bir şey yok.
-# draft copy
-story_midday: >-
-  Bulutlar geliyor, hava serinliyor. Daha sıcak parçalar ve soğuk için son
-  dokunuşlar.
-story_afternoon: >-
-  Öğleden sonra yağmur var. Suyu geçirmeyen bir dış katman, ıslanmayı umursamayan
-  ayakkabılar.
-# draft copy
-story_evening: >-
-  Güneş batınca hava soğuyor. Eve dönüş için sıcak bir katman.
-
 works_title: Nasıl karar veriyor
 works_weather: >-
   Önce hava durumu geliyor: sıcaklık, rüzgâr, yağış ve günün nasıl ilerleyeceği.
@@ -36,11 +22,6 @@ works_assist: >-
   Küçük bir yapay zeka adımı, aralarından birbirinden gerçekten farklı olanları
   seçiyor. Yeni bir iPhone'da bu adım cihazda çalışıyor. Çalışamadığında aynı
   kurallar onsuz seçiyor.
-
-alts_title: Farklı, ama sıralı değil
-alts_body: >-
-  Her seçenek aynı hava koşullarını karşılıyor, yani hiçbiri "doğru cevap" değil.
-  Canın hangisini giymek istiyorsa onu seç.
 
 privacy_title: Ücretsiz, reklamsız, sessiz
 privacy_account: >-
@@ -61,17 +42,28 @@ badge_alt: App Store'dan İndirin
 badge_width: 189
 play_line: "Google Play: yakında"
 
-# draft copy: the hero's controls, the sample note, the sample day and the evening moment
-temperature_label: Sıcaklık
-drag_hint: Ya da kombini yana sürükle
-sky_label: Gökyüzü
-catalogue_label: Katalog
-play_label: Örnek günü oynat
+# draft copy: the weather scenes, the catalogue labels and the Documents link
+scenes_title: Beş farklı hava
 sample_note: >-
-  Örnek bir hava; kombini uygulamanın kendi kuralları ve çizimleri giydiriyor.
-script_copy:
-  play: Örnek günü oynat
-  pause: Örnek günü durdur
-  clock: Örnek gün
-  degrees: santigrat derece
+  Örnek havalar, uygulamanın kendi kuralları ve çizimleriyle giydirildi.
+looks:
+  womens: Kadın
+  mens: Erkek
+scenes:
+  hot:
+    name: Sıcak güneş
+    line: Hafif ve rahat; yanında taşıyacak fazladan bir şey yok.
+  mild:
+    name: Ilık ve bulutlu
+    line: Güneş saklandığında işe yarayan ince bir katman.
+  rain:
+    name: Yağmur
+    line: Suyu geçirmeyen bir ceket, su birikintisine aldırmayan botlar.
+  wind:
+    name: Soğuk rüzgâr
+    line: Rüzgârı içeri almayan, sıcak ve kapalı bir katman.
+  snow:
+    name: Kar
+    line: Örgünün üstüne en sıcak katman, kaymaz tabanlı botlarla.
+documents_link: Belgeleri aç
 ---

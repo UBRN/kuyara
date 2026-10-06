@@ -9,19 +9,6 @@ hero_line: >-
   kuyara reads the day's weather and lays out what to wear, so getting dressed is
   one calm decision instead of a dozen small ones.
 
-stage_title: When the sky changes, the clothes change
-story_morning: >-
-  A clear, mild day. Light layers, and nothing you will be carrying by noon.
-# draft copy
-story_midday: >-
-  Cloud moves in and the air cools. Warmer pieces, and finishing touches for the
-  cold.
-story_afternoon: >-
-  Rain by the afternoon. An outer layer that sheds it, shoes that do not mind.
-# draft copy
-story_evening: >-
-  After sunset the air turns cold. A warm layer for the way home.
-
 works_title: How it decides
 works_weather: >-
   The weather comes first: temperature, wind, rain, and how the day is going to move.
@@ -35,11 +22,6 @@ works_assist: >-
   A small AI step picks a few that are meaningfully different from each other. On a
   recent iPhone it runs on the device. If it is unavailable, the same rules choose
   without it.
-
-alts_title: Different, not ranked
-alts_body: >-
-  Every option meets the same weather requirements, so none of them is the right
-  answer. Pick the one you feel like wearing.
 
 privacy_title: Free, ad-free, quiet
 privacy_account: >-
@@ -60,17 +42,28 @@ badge_alt: Download on the App Store
 badge_width: 150
 play_line: "Google Play: coming soon"
 
-# draft copy: the hero's controls, the sample note, the sample day and the evening moment
-temperature_label: Temperature
-drag_hint: Or drag the outfit sideways
-sky_label: Sky
-catalogue_label: Catalogue
-play_label: Play the sample day
+# draft copy: the weather scenes, the catalogue labels and the Documents link
+scenes_title: Five kinds of weather
 sample_note: >-
   Sample weather, dressed by the app's own rules and drawings.
-script_copy:
-  play: Play the sample day
-  pause: Pause the sample day
-  clock: Sample day
-  degrees: degrees Celsius
+looks:
+  womens: Women
+  mens: Men
+scenes:
+  hot:
+    name: Hot sun
+    line: Light and loose, with nothing extra to carry.
+  mild:
+    name: Mild and cloudy
+    line: One light layer for when the sun slips away.
+  rain:
+    name: Rain
+    line: A jacket that sheds water, and boots that shrug off puddles.
+  wind:
+    name: Cold wind
+    line: A warm, closed layer that keeps the wind out.
+  snow:
+    name: Snow
+    line: The warmest layer over knitwear, on boots with grip.
+documents_link: Open the documents
 ---
