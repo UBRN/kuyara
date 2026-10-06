@@ -6,7 +6,6 @@ import Animated, {
   interpolate,
   interpolateColor,
   makeMutable,
-  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -23,8 +22,7 @@ import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { haptics } from '@/components/ui/haptics';
-import { fadeEasing, fadeTo } from '@/components/ui/fade';
-import { PRESENCE_TEXT_AFTER } from '@/components/ui/presence';
+import { fadeEasing } from '@/components/ui/fade';
 import {
   measureGarmentBoardHeight,
   pieceShadowOf,
@@ -51,6 +49,7 @@ import {
 import { insideBox } from './swap-layout';
 import { DRESS_LIFT } from './swap-motion';
 import { SwapPieceView } from './swap-piece-view';
+import { useSwapBlock } from './use-swap-block';
 import { useSwapMotion } from './use-swap-motion';
 import { useSwapPager } from './use-swap-pager';
 import {
@@ -193,14 +192,13 @@ export function GarmentSwapBoard({
     pieces, palette, width, large, focusedSlot, candidates, entrance, settle,
     compose, composed, fit, activeGrow, pager,
   });
+  const {
+    heldStage, hintMounted, measureHint, stripLive, blockStyle, hintStyle, panelStyle, leavingPanelStyle,
+  } = useSwapBlock({
+    focusedSlot, hintVisible, restHeight, settled, activeGrow, pager, panels, setPanels, panelHeightOf, onReveal,
+  });
 
-  const [hintHeight, setHintHeight] = useState(0);
-  const [hintMounted, setHintMounted] = useState(hintVisible);
-  if (hintVisible && !hintMounted) setHintMounted(true);
-  // The strip takes touches and VoiceOver's focus only once it is fading in: while its space
-  // opens its tiles are not drawn yet, so they are not there to press or read.
-  const [liveSlot, setLiveSlot] = useState<OutfitSlot | null>(focusedSlot);
-  if (focusedSlot === null && liveSlot !== null) setLiveSlot(null);
+
 
   const dragBase = useSharedValue(0);
   const dragPast = useSharedValue(false);
@@ -215,14 +213,6 @@ export function GarmentSwapBoard({
   const [steppedFrom] = useState(() => makeMutable<string | null>(null));
   const markerX = useSharedValue(0);
   const markerY = useSharedValue(0);
-  const block = useSharedValue(0);
-  const blockFrom = useSharedValue(0);
-  const blockTo = useSharedValue(0);
-  const panelOpacity = useSharedValue(0);
-  const leavingPanelOpacity = useSharedValue(0);
-  const hintOpacity = useSharedValue(hintVisible ? 1 : 0);
-  const panelPending = useSharedValue(0);
-  const hintPending = useSharedValue(0);
 
   const { instances } = model;
   const focused = focusedSlot
@@ -263,168 +253,6 @@ export function GarmentSwapBoard({
     }
   }, [currentId, currentTile, focusedSlot, markerX, markerY, spatial]);
 
-  // One height for the stage and what stands under it: the hint at rest, the strip while a
-  // piece is enlarged. Text enters once its space is 90 per cent open and leaves before it closes.
-  const heldStage = panels.current?.held ?? activeGrow?.held ?? restHeight;
-  const blockTarget = focusedSlot && activeGrow
-    ? activeGrow.held + spacing.md + panelHeightOf(focusedSlot)
-    : restHeight + (hintVisible ? hintHeight : 0);
-  const latest = useRef({ focus: focusedSlot, target: blockTarget, hint: hintVisible });
-  const markPanelLive = () => setLiveSlot(latest.current.focus);
-  const flushPending = () => {
-    'worklet';
-    if (panelPending.get() === 1) {
-      panelPending.set(0);
-      panelOpacity.set(withTiming(1, { duration: fast, easing: fadeEase }));
-      scheduleOnRN(markPanelLive);
-    }
-    if (hintPending.get() === 1) {
-      hintPending.set(0);
-      hintOpacity.set(withTiming(1, { duration: fast, easing: fadeEase }));
-    }
-  };
-  useAnimatedReaction(() => block.get(), (height) => {
-    const start = blockFrom.get();
-    const end = blockTo.get();
-    if (Math.abs(end - start) < 0.5 || (height - start) / (end - start) >= PRESENCE_TEXT_AFTER) flushPending();
-  });
-  const blockToken = useRef(0);
-  // After a settle the strip leaves the tree once the block has closed over it.
-  const closingPanel = useRef(false);
-  const clearPanel = () => {
-    closingPanel.current = false;
-    setPanels((current) => (current.focus === null ? { ...current, current: null, leaving: null } : current));
-  };
-  const blockLanded = (token: number) => {
-    if (token !== blockToken.current) return;
-    flushPending();
-    if (closingPanel.current) clearPanel();
-  };
-  const startBlock = (target: number) => {
-    const start = block.get();
-    blockFrom.set(start);
-    blockTo.set(target);
-    blockToken.current += 1;
-    const token = blockToken.current;
-    if (Math.abs(target - start) < 0.5) {
-      block.set(target);
-      flushPending();
-      return;
-    }
-    block.set(withSpring(target, spatial, (finished) => {
-      if (finished) scheduleOnRN(blockLanded, token);
-    }));
-  };
-  const afterPanelOut = () => {
-    if (latest.current.focus !== null) return;
-    if (latest.current.hint) hintPending.set(1);
-    else setHintMounted(false);
-    closingPanel.current = true;
-    startBlock(latest.current.target);
-    if (Math.abs(block.get() - latest.current.target) < 0.5) clearPanel();
-  };
-  const afterLeavingPanelOut = () => {
-    setPanels((current) => (current.leaving ? { ...current, leaving: null } : current));
-  };
-  const afterShorterSwap = () => {
-    afterLeavingPanelOut();
-    if (latest.current.focus === null) return;
-    startBlock(latest.current.target);
-    panelOpacity.set(fadeTo(1, normal, theme.motion));
-    markPanelLive();
-  };
-  const afterHintOut = () => {
-    if (latest.current.hint) return;
-    setHintMounted(false);
-    if (latest.current.focus === null) startBlock(latest.current.target);
-  };
-  const reveal = (slot: OutfitSlot) => {
-    if (!pager || !activeGrow) return;
-    onReveal?.({ pieceTop: pager.grown.y, panelBottom: activeGrow.held + spacing.md + panelHeightOf(slot) });
-  };
-
-  const blockSeen = useRef<Readonly<{ focus: OutfitSlot | null; hint: boolean; target: number; panel: number }> | null>(null);
-  const panelHeight = focusedSlot ? panelHeightOf(focusedSlot) : 0;
-  useLayoutEffect(() => {
-    const seen = blockSeen.current;
-    latest.current = { focus: focusedSlot, target: blockTarget, hint: hintVisible };
-    blockSeen.current = { focus: focusedSlot, hint: hintVisible, target: blockTarget, panel: panelHeight };
-    if (!seen || !settled) {
-      // Before the pieces have arrived nothing under the board animates.
-      blockToken.current += 1;
-      block.set(blockTarget);
-      blockFrom.set(blockTarget);
-      blockTo.set(blockTarget);
-      hintOpacity.set(hintVisible && focusedSlot === null ? 1 : 0);
-      panelOpacity.set(focusedSlot ? 1 : 0);
-      return;
-    }
-    if (focusedSlot !== seen.focus) {
-      if (seen.focus === null && focusedSlot) {
-        // Enlarge: the block opens in the tap frame, the hint's words leave at once and the
-        // strip fades in once 90 per cent of its space is open.
-        panelOpacity.set(0);
-        panelPending.set(1);
-        hintPending.set(0);
-        hintOpacity.set(fadeTo(0, fast, theme.motion));
-        startBlock(blockTarget);
-        reveal(focusedSlot);
-      } else if (focusedSlot === null) {
-        // Settle: the strip fades out first, then the block closes in one spring.
-        panelPending.set(0);
-        panelOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
-          'worklet';
-          if (finished) scheduleOnRN(afterPanelOut);
-        }));
-      } else {
-        // The enlargement moves: the old strip leaves on `fast`; the new one arrives at once
-        // on `normal` when it is as tall, after the block opens when taller, and after the
-        // old one has gone and the block has closed when shorter.
-        leavingPanelOpacity.set(1);
-        panelOpacity.set(0);
-        if (Math.abs(panelHeight - seen.panel) < 0.5) {
-          leavingPanelOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
-            'worklet';
-            if (finished) scheduleOnRN(afterLeavingPanelOut);
-          }));
-          panelOpacity.set(fadeTo(1, normal, theme.motion));
-          markPanelLive();
-          startBlock(blockTarget);
-        } else if (panelHeight > seen.panel) {
-          leavingPanelOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
-            'worklet';
-            if (finished) scheduleOnRN(afterLeavingPanelOut);
-          }));
-          panelPending.set(1);
-          startBlock(blockTarget);
-          reveal(focusedSlot);
-        } else {
-          panelPending.set(0);
-          leavingPanelOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
-            'worklet';
-            if (finished) scheduleOnRN(afterShorterSwap);
-          }));
-        }
-      }
-      return;
-    }
-    if (focusedSlot === null && hintVisible !== seen.hint) {
-      if (!hintVisible) {
-        // A change: the hint's words leave before its space closes.
-        hintPending.set(0);
-        hintOpacity.set(fadeTo(0, fast, theme.motion, (finished) => {
-          'worklet';
-          if (finished) scheduleOnRN(afterHintOut);
-        }));
-      } else {
-        // Back to kuyara's pick: the space opens, the words follow at 90 per cent.
-        hintPending.set(1);
-        startBlock(blockTarget);
-      }
-      return;
-    }
-    if (Math.abs(blockTarget - seen.target) >= 0.5 && !(focusedSlot === null && panels.current)) startBlock(blockTarget);
-  });
 
   // The swipe hint: one `springs.spatial` duration after the first enlargement, once its growth
   // has landed, the piece and its neighbour move one `SWAP_HINT_PEEK` the way a swipe to that
@@ -691,7 +519,6 @@ export function GarmentSwapBoard({
     });
   const gesture = Gesture.Exclusive(pan, tap);
 
-  const blockStyle = useAnimatedStyle(() => ({ height: block.get() }));
   // From the band the tint first stands the band's height and settles to the board's as it fades
   // to the page ground; from the fitted stage it has the board's height and the stage's corners.
   const boardHeight = composed?.height ?? 0;
@@ -710,13 +537,7 @@ export function GarmentSwapBoard({
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: overlayShown ? withTiming(1, { duration: normal, easing: fadeEase }) : 0,
   }), [fadeEase, normal, overlayShown]);
-  const hintStyle = useAnimatedStyle(() => ({ opacity: hintOpacity.get() }));
-  const panelStyle = useAnimatedStyle(() => ({ opacity: panelOpacity.get() }));
-  const leavingPanelStyle = useAnimatedStyle(() => ({ opacity: leavingPanelOpacity.get() }));
 
-  // Before the pieces have arrived the strip is drawn at once, so it is live at once.
-  const stripLive = panels.current !== null && focusedSlot === panels.current.slot
-    && (liveSlot === focusedSlot || !settled);
   // The pieces lie in the dressing order, so where two overlap the later lies over the earlier;
   // the enlarged slot is drawn over them all, so an overlapped piece comes fully into view.
   // Leaving the band they lie as Today's flat lay stacks them until they rest.
@@ -834,9 +655,7 @@ export function GarmentSwapBoard({
         <Animated.View
           accessibilityElementsHidden={!hintVisible || focusedSlot !== null}
           importantForAccessibility={!hintVisible || focusedSlot !== null ? 'no-hide-descendants' : 'auto'}
-          onLayout={({ nativeEvent }) => {
-            if (nativeEvent.layout.height !== hintHeight) setHintHeight(nativeEvent.layout.height);
-          }}
+          onLayout={({ nativeEvent }) => measureHint(nativeEvent.layout.height)}
           // A line with a control (a composed result's "Show another") takes touches while it shows.
           pointerEvents={hintVisible && focusedSlot === null ? 'box-none' : 'none'}
           style={[styles.hint, { top: restHeight, width }, hintStyle]}>
