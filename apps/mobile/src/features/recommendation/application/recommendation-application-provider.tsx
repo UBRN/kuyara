@@ -1,11 +1,10 @@
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 import {
   type PropsWithChildren,
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
@@ -43,6 +42,7 @@ import {
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
 import { createHistoryWriteWatch } from '@/features/recommendation/application/history-write-watch';
 import { createMemberReask } from '@/features/recommendation/application/member-reask';
+import { createDressingDayRollover, dayInForce } from '@/features/recommendation/application/dressing-day-rollover';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import {
   TomorrowPreviewController,
@@ -183,6 +183,12 @@ export function RecommendationApplicationProvider({
   const [departureState, setDepartureState] = useState<{
     key: string; value: DressingDayDeparture | null;
   } | null>(null);
+  const dayRollover = useMemo(() => createDressingDayRollover({
+    initialAppState: AppState.currentState,
+    readDay: deviceLocalDay,
+    adoptDay: (day) => setLocalDay((current) => dayInForce(current, day)),
+    retryChoiceRead: () => setChoiceReadAttempt((attempt) => attempt + 1),
+  }), []);
   useEffect(() => {
     let live = true;
     void loadDepartureRepository().then((repository) => repository.get(localProfileId, localDay.key))
@@ -195,21 +201,20 @@ export function RecommendationApplicationProvider({
     // eslint-disable-next-line react-hooks/purity -- read on every render on purpose, see 'use no memo'
     departureState.value && departureIsAhead(departureState.value, Date.now())
     ? departureState.value : null;
-  const choiceReadFailed = useRef(false);
   useEffect(() => {
     let live = true;
-    choiceReadFailed.current = false;
+    dayRollover.choiceReadFailed(false);
     void loadChoiceRepository().then((repository) => repository.get(localProfileId, localDay.key))
       .then((choice) => {
         if (!live) return;
-        choiceReadFailed.current = false;
+        dayRollover.choiceReadFailed(false);
         setDayChoiceState(choice
           ? { profileId: localProfileId, key: localDay.key, status: 'row', choice }
           : { profileId: localProfileId, key: localDay.key, status: 'none' });
       })
       .catch(() => {
         if (!live) return;
-        choiceReadFailed.current = true;
+        dayRollover.choiceReadFailed(true);
         setDayChoiceState((previous) => ({
           profileId: localProfileId,
           key: localDay.key,
@@ -222,7 +227,7 @@ export function RecommendationApplicationProvider({
         }));
       });
     return () => { live = false; };
-  }, [choiceReadAttempt, localDay.key, localProfileId]);
+  }, [choiceReadAttempt, dayRollover, localDay.key, localProfileId]);
   const currentDayChoice = dayChoiceState?.profileId === localProfileId &&
     dayChoiceState.key === localDay.key ? dayChoiceState : null;
   const choiceReady = currentDayChoice?.status === 'row' || currentDayChoice?.status === 'none';
@@ -246,12 +251,7 @@ export function RecommendationApplicationProvider({
     });
   const morningChoicePending = dayQuestionOpen && !isEveningDressingDayKey(localDay.key);
   const eveningChoicePending = dayQuestionOpen && isEveningDressingDayKey(localDay.key);
-  const appState = useRef<AppStateStatus>(AppState.currentState);
-  const reevaluateLocalDay = useCallback(() => {
-    const next = deviceLocalDay();
-    setLocalDay((current) => current.key === next.key ? current : next);
-    if (choiceReadFailed.current) setChoiceReadAttempt((current) => current + 1);
-  }, []);
+  const reevaluateLocalDay = dayRollover.reevaluate;
   // Re-asks reserve a daily slot before the controller enters the AI chain; a member's ten apply
   // only to a re-ask whose token was read, and its request carries that token.
   const budget = useMemo(() => new ExpoFileAiRegenerationBudget(), []);
@@ -345,13 +345,9 @@ export function RecommendationApplicationProvider({
   }, [client, latestOnDeviceAvailability]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (next) => {
-      const wasInactive = appState.current !== 'active';
-      appState.current = next;
-      if (wasInactive && next === 'active') reevaluateLocalDay();
-    });
+    const subscription = AppState.addEventListener('change', dayRollover.appStateChanged);
     return () => subscription?.remove();
-  }, [reevaluateLocalDay]);
+  }, [dayRollover]);
 
   const approvedTriggers = useMemo(() => createApprovedTriggerEvaluation(), []);
   const awaitsWeatherRefresh = useCallback((dayKey: string) => firstOutfitAwaitsWeatherRefresh(
@@ -381,7 +377,7 @@ export function RecommendationApplicationProvider({
     const currentDay = answered?.day ?? deviceLocalDay();
     const renderedDay = currentDay.key === localDay.key;
     if (!answered) {
-      setLocalDay((previous) => previous.key === currentDay.key ? previous : currentDay);
+      setLocalDay((previous) => dayInForce(previous, currentDay));
       if (!renderedDay) return null;
     }
     const currentWeather = weatherApplication.getSnapshot?.() ?? weatherState;
@@ -583,7 +579,7 @@ export function RecommendationApplicationProvider({
           status: 'row', choice: result.choice });
       }
       setDepartureState({ key: day.key, value: result.departure });
-      setLocalDay((previous) => previous.key === day.key ? previous : day);
+      setLocalDay((previous) => dayInForce(previous, day));
       return { settled };
     },
     refresh: () => {
