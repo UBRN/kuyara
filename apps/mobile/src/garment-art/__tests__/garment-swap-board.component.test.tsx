@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { useEffect, type PropsWithChildren } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import * as Reanimated from 'react-native-reanimated';
@@ -663,4 +663,132 @@ test('an entrance without a band leaves from the fitted stage', async () => {
   } finally {
     held.mockRestore();
   }
+});
+
+// The board's contract with its owner: what each touch and each screen-reader action asks for.
+const restBoxOf = (slot: 'one_piece' | 'footwear') => {
+  const composed = composePieces(pieces, 'detail');
+  const piece = composed.order.find((candidate) => candidate.slot === slot)!;
+  const box = composed.boxes.get(piece)!;
+  return { x: (box.x + box.w / 2) * 358, y: (box.y + box.h / 2) * 358 };
+};
+
+test('a tap on a piece enlarges it, a tap on the enlarged piece settles it, and a tap on another moves it', async () => {
+  const onFocusChange = jest.fn();
+  const result = await render(<GarmentSwapBoard {...boardProps({ onFocusChange })} />, { wrapper: LightTheme });
+  const shoes = restBoxOf('footwear');
+  await act(async () => tap(shoes.x, shoes.y));
+  expect(onFocusChange).toHaveBeenLastCalledWith('footwear');
+
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onFocusChange, focusedSlot: 'footwear' })} />);
+  const dress = restBoxOf('one_piece');
+  await act(async () => tap(dress.x, dress.y));
+  expect(onFocusChange).toHaveBeenLastCalledWith('one_piece');
+
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onFocusChange, focusedSlot: 'footwear' })} />);
+  const grown = result.getByTestId('garment-swap-board-piece-footwear');
+  const { left, top, width, height } = StyleSheet.flatten(grown.props.style);
+  await act(async () => tap(left + width / 2, top + height / 2));
+  expect(onFocusChange).toHaveBeenLastCalledWith(null);
+  expect(onFocusChange).toHaveBeenCalledTimes(3);
+});
+
+test('enlarging a piece asks its owner once to bring the strip into view, under the grown piece', async () => {
+  const onReveal = jest.fn();
+  const result = await render(<GarmentSwapBoard {...boardProps({ onReveal })} />, { wrapper: LightTheme });
+  expect(onReveal).not.toHaveBeenCalled();
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onReveal, focusedSlot: 'footwear' })} />);
+  expect(onReveal).toHaveBeenCalledTimes(1);
+  const [{ pieceTop, panelBottom }] = onReveal.mock.calls[0];
+  const strip = StyleSheet.flatten(result.getByTestId('garment-swap-board-strip').parent!.props.style);
+  expect(pieceTop).toBeGreaterThanOrEqual(0);
+  expect(panelBottom).toBeGreaterThan(strip.top);
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onReveal, focusedSlot: 'footwear' })} />);
+  expect(onReveal).toHaveBeenCalledTimes(1);
+});
+
+test('a strip tile asks for its candidate spoken, its own tile asks nothing, and Done settles', async () => {
+  const onStep = jest.fn();
+  const onFocusChange = jest.fn();
+  const result = await render(<GarmentSwapBoard {...boardProps({ onStep, onFocusChange })} />, { wrapper: LightTheme });
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onStep, onFocusChange, focusedSlot: 'footwear' })} />);
+  await fireEvent.press(result.getByTestId('garment-swap-board-strip-tile-sandals'));
+  expect(onStep).not.toHaveBeenCalled();
+  await fireEvent.press(result.getByTestId('garment-swap-board-strip-tile-sneakers'));
+  expect(onStep).toHaveBeenLastCalledWith('footwear', 'sneakers', true);
+  await fireEvent.press(result.getByTestId('garment-swap-board-strip-done'));
+  expect(onFocusChange).toHaveBeenLastCalledWith(null);
+});
+
+test('a piece\'s adjustable actions step it unspoken, and activate enlarges it with one announcement', async () => {
+  const onStep = jest.fn();
+  const onFocusChange = jest.fn();
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  try {
+    const result = await render(<GarmentSwapBoard {...boardProps({ onStep, onFocusChange })} />,
+      { wrapper: LightTheme });
+    const piece = () => result.getByTestId('garment-swap-board-piece-footwear');
+    expect(piece().props.accessibilityValue).toEqual({ text: 'sandals, 2 of 3' });
+    expect(piece().props.accessibilityState).toEqual({ expanded: false });
+    await act(async () => piece().props.onAccessibilityAction({ nativeEvent: { actionName: 'increment' } }));
+    expect(onStep).toHaveBeenLastCalledWith('footwear', 'closed_shoes', false);
+    await act(async () => piece().props.onAccessibilityAction({ nativeEvent: { actionName: 'decrement' } }));
+    expect(onStep).toHaveBeenLastCalledWith('footwear', 'sneakers', false);
+    await act(async () => piece().props.onAccessibilityAction({ nativeEvent: { actionName: 'activate' } }));
+    expect(onFocusChange).toHaveBeenLastCalledWith('footwear');
+    expect(announce.mock.calls).toEqual([['Choices below']]);
+
+    await result.rerender(<GarmentSwapBoard {...boardProps({ onStep, onFocusChange, focusedSlot: 'footwear' })} />);
+    expect(piece().props.accessibilityState).toEqual({ expanded: true });
+    await act(async () => piece().props.onAccessibilityAction({ nativeEvent: { actionName: 'activate' } }));
+    expect(onFocusChange).toHaveBeenLastCalledWith(null);
+    expect(announce).toHaveBeenCalledTimes(1);
+  } finally {
+    announce.mockRestore();
+  }
+});
+
+// Presence: the line under the board at rest gives way to the strip while a piece is enlarged,
+// leaves the tree once its words have faded, and comes back when the owner shows it again.
+test('the line under the board gives way to the strip and returns after a settle', async () => {
+  const props = (focusedSlot: 'footwear' | null, hintVisible = true) => boardProps({
+    focusedSlot, hint: <Text>Your pick</Text>, hintVisible,
+  });
+  const result = await render(<GarmentSwapBoard {...props(null)} />, { wrapper: LightTheme });
+  const line = () => result.queryByText('Your pick', { includeHiddenElements: true });
+  const lineHidden = () => {
+    let node = line()?.parent ?? null;
+    while (node && node.props.accessibilityElementsHidden === undefined) node = node.parent;
+    return node?.props.accessibilityElementsHidden;
+  };
+  expect(line()).toBeOnTheScreen();
+  expect(result.queryByTestId('garment-swap-board-strip')).toBeNull();
+
+  await result.rerender(<GarmentSwapBoard {...props('footwear')} />);
+  expect(result.getByTestId('garment-swap-board-strip')).toBeOnTheScreen();
+  expect(lineHidden()).toBe(true);
+
+  await result.rerender(<GarmentSwapBoard {...props(null)} />);
+  expect(result.queryByTestId('garment-swap-board-strip')).toBeNull();
+  expect(lineHidden()).toBe(false);
+
+  await result.rerender(<GarmentSwapBoard {...props(null, false)} />);
+  expect(line()).toBeNull();
+  await result.rerender(<GarmentSwapBoard {...props(null, true)} />);
+  expect(line()).toBeOnTheScreen();
+});
+
+// The line stands under the resting plate, and the strip one `md` step under the held stage.
+test('the line stands under the resting plate and the strip under the held stage', async () => {
+  const board = (focusedSlot: 'footwear' | null) => (
+    <GarmentSwapBoard {...boardProps({ hint: <Text>Your pick</Text>, hintVisible: true, focusedSlot })} />
+  );
+  const result = await render(board(null), { wrapper: LightTheme });
+  let line = result.getByText('Your pick', { includeHiddenElements: true }).parent;
+  while (line && StyleSheet.flatten(line.props.style)?.top === undefined) line = line.parent;
+  expect(StyleSheet.flatten(line!.props.style).top).toBe(400);
+  await result.rerender(board('footwear'));
+  const held = StyleSheet.flatten(result.getByTestId('garment-swap-board-plate').props.style).height;
+  const strip = StyleSheet.flatten(result.getByTestId('garment-swap-board-strip').parent!.props.style);
+  expect(strip.top).toBe(held + spacing.md);
 });
