@@ -53,8 +53,8 @@ import {
 } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics-options';
-import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
-import { resolveConditionStyle } from '@/features/today/domain/condition-style';
+import { resolveAtmosphereState, resolveDaypart } from '@/features/weather/domain/atmosphere-state';
+import { resolveConditionStyle } from '@/features/weather/domain/condition-style';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import {
   activeLocationSnapshot,

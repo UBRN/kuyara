@@ -53,7 +53,7 @@ import {
   resolveAtmosphereState,
   resolveDaypart,
   type Daypart,
-} from '@/features/today/domain/atmosphere-state';
+} from '@/features/weather/domain/atmosphere-state';
 import { todayRainOutlookProbability } from '@/features/today/domain/today-rain-outlook';
 import {
   findDayInsight,

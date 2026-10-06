@@ -8,7 +8,7 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
-import type { ConditionStyle } from '@/features/today/domain/condition-style';
+import type { ConditionStyle } from '@/features/weather/domain/condition-style';
 import { useWhileVisible } from '@/components/ui/use-screen-visible';
 
 // ADR 0020's closed vocabulary for the condition symbol, on Today and on Weather alike: the

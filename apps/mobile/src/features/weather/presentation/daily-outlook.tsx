@@ -4,7 +4,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { AppText, DrawReveal, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
-import { resolveConditionStyle } from '@/features/today/domain/condition-style';
+import { resolveConditionStyle } from '@/features/weather/domain/condition-style';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
 import { useEasierToSee, useVisibility } from '@/theme/easier-to-see';
 import { layout, radii, spacing } from '@/theme/theme';
