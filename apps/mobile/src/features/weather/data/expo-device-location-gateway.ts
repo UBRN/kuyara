@@ -6,7 +6,7 @@ import type {
   DeviceLocationGateway,
   DeviceLocationResult,
   LocationPermissionState,
-} from '@/features/weather/data/device-location-gateway';
+} from '@/features/weather/domain/device-location-gateway';
 import {
   deviceLocationDisplayName,
   deviceLocationKey,

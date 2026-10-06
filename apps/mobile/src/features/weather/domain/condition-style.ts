@@ -1,4 +1,4 @@
-import type { Daypart } from '@/features/today/domain/atmosphere-state';
+import type { Daypart } from './atmosphere-state';
 import {
   isWeatherConditionCode,
   type WeatherConditionCode,

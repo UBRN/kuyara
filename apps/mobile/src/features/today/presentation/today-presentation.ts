@@ -17,7 +17,7 @@ import {
 } from '@/features/recommendation/domain/dressing-day-departure';
 import { dateKeyDayKind } from '@/features/recommendation/domain/local-day';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 import type { ManualDetail } from '@/features/today/application/composed-detail';
 import { previewIsThisMorning, tomorrowForecastDay } from '@/features/today/application/outfit-detail-state';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
@@ -53,7 +53,7 @@ import {
   resolveAtmosphereState,
   resolveDaypart,
   type Daypart,
-} from '@/features/today/domain/atmosphere-state';
+} from '@/features/weather/domain/atmosphere-state';
 import { todayRainOutlookProbability } from '@/features/today/domain/today-rain-outlook';
 import {
   findDayInsight,

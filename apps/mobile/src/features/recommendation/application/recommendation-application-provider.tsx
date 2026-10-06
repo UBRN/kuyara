@@ -67,10 +67,8 @@ import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-his
 import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
 import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
-import {
-  WorkerAiClient,
-  WorkerAiClientError,
-} from '@/features/recommendation/data/worker-ai-client';
+import { WorkerAiClient } from '@/features/recommendation/data/worker-ai-client';
+import { WorkerAiClientError } from '@/features/recommendation/domain/worker-ai-client-error';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';

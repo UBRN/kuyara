@@ -1,5 +1,5 @@
-import type { Daypart } from '@/features/today/domain/atmosphere-state';
-import { resolveConditionStyle } from '@/features/today/domain/condition-style';
+import type { Daypart } from '@/features/weather/domain/atmosphere-state';
+import { resolveConditionStyle } from '@/features/weather/domain/condition-style';
 import { isWeatherConditionCode, type WeatherConditionCode } from '@/features/weather/domain/weather';
 import type { KuyaraTheme, RunwayField } from '@/theme/theme';
 

@@ -14,14 +14,14 @@ import type { CaptureAnalyticsEvent } from '@/features/analytics/domain/product-
 import type {
   DeviceLocationGateway,
   LocationPermissionState,
-} from '@/features/weather/data/device-location-gateway';
+} from '@/features/weather/domain/device-location-gateway';
+import type { WeatherProvider } from '@/features/weather/domain/weather-provider';
+import { getManualLocation } from '@/features/weather/domain/manual-location-catalog';
+import { WeatherProviderError } from '@/features/weather/domain/weather-provider-error';
 import {
   WeatherRepositoryError,
   type WeatherRepository,
-} from '@/features/weather/data/weather-repository';
-import type { WeatherProvider } from '@/features/weather/data/weather-provider';
-import { getManualLocation } from '@/features/weather/domain/manual-location-catalog';
-import { WeatherProviderError } from '@/features/weather/domain/weather-provider-error';
+} from '@/features/weather/domain/weather-repository';
 import {
   acceptProvidedSnapshot,
   activeLocationSnapshot,

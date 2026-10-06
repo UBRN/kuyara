@@ -1,6 +1,6 @@
 import type { WeatherV2Data } from '@kuyara/contracts';
 
-import type { ProvidedWeatherSnapshot } from '@/features/weather/data/weather-provider';
+import type { ProvidedWeatherSnapshot } from '@/features/weather/domain/weather-provider';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 
 export class WorkerWeatherMappingError extends Error {

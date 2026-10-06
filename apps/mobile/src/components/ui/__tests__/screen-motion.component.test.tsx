@@ -4,7 +4,7 @@ import * as Reanimated from 'react-native-reanimated';
 
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import { useConditionSymbolMotion } from '@/components/ui/use-condition-symbol-motion';
-import { resolveConditionStyle } from '@/features/today/domain/condition-style';
+import { resolveConditionStyle } from '@/features/weather/domain/condition-style';
 import { RunwayParticles } from '@/features/today/presentation/runway-particles';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';

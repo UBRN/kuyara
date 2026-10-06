@@ -4,7 +4,7 @@ import type {
   RecommendationApplicationInput,
   RecommendationSignals,
 } from '@/features/recommendation/application/recommendation-application-controller';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 
 /** The approved-trigger signals a generation input would produce a recommendation for. */
 export function signalsOfInput(input: RecommendationApplicationInput): RecommendationSignals {

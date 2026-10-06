@@ -12,7 +12,7 @@ import {
   outfitOptionId,
   recommendOutfits,
 } from './application/recommend-outfits.ts';
-import { WorkerAiClientError } from './data/worker-ai-client.ts';
+import { WorkerAiClientError } from './domain/worker-ai-client-error.ts';
 import {
   aiRequestFromContext,
   createRecommendationContext,

@@ -32,14 +32,14 @@ import {
   RecommendationRepositoryError,
   type RecommendationRepository,
   type RecommendationSnapshot,
-} from '@/features/recommendation/data/recommendation-repository';
+} from '@/features/recommendation/application/recommendation-repository';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import { poolCompositionKey } from '@/features/recommendation/application/pool-composition-key';
 import { reusablePreviewRecommendation } from '@/features/recommendation/application/tomorrow-preview';
-import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
+import { WorkerAiClientError } from '@/features/recommendation/domain/worker-ai-client-error';
 import {
   aiRequestFromContext,
   createRecommendationContextWithPool,

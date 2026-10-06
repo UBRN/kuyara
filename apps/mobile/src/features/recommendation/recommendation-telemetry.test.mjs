@@ -7,7 +7,7 @@ import test from 'node:test';
 import { recommendationGeneratedAttributeKeys } from '../analytics/domain/performance-telemetry-events.ts';
 import { RecommendationApplicationController } from './application/recommendation-application-controller.ts';
 import { recommendOutfits } from './application/recommend-outfits.ts';
-import { WorkerAiClientError } from './data/worker-ai-client.ts';
+import { WorkerAiClientError } from './domain/worker-ai-client-error.ts';
 import { todayWeatherSnapshot } from '../today/__tests__/fixtures.ts';
 
 const profileId = 'profile-one';

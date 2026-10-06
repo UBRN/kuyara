@@ -2,8 +2,8 @@ import type { WeatherAlertScheduling } from '@/features/notifications/applicatio
 import { weatherAlertBackgroundLeadTimeMinutes } from '@/features/notifications/domain/weather-alerts';
 import type { NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
 import { wantsAnyNotification, type Profile } from '@/features/profile/domain/profile';
-import type { WeatherProvider } from '@/features/weather/data/weather-provider';
-import type { WeatherRepository } from '@/features/weather/data/weather-repository';
+import type { WeatherProvider } from '@/features/weather/domain/weather-provider';
+import type { WeatherRepository } from '@/features/weather/domain/weather-repository';
 import { acceptProvidedSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
 import { resolveLanguagePreference } from '@/localization/language-preference';
 import { type TemperatureUnit, temperatureUnitFor } from '@/domain/temperature-unit';

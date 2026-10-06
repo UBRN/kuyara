@@ -12,8 +12,8 @@ import {
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { AppText, DrawReveal, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
-import type { Daypart } from '@/features/today/domain/atmosphere-state';
-import { resolveConditionStyle } from '@/features/today/domain/condition-style';
+import type { Daypart } from '@/features/weather/domain/atmosphere-state';
+import { resolveConditionStyle } from '@/features/weather/domain/condition-style';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
 import { useVisibility } from '@/theme/easier-to-see';
 import { borderWidths, spacing } from '@/theme/theme';

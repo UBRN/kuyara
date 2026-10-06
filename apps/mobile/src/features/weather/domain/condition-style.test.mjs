@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
+import { resolveDaypart } from '@/features/weather/domain/atmosphere-state';
 import { weatherConditionCodes } from '@/features/weather/domain/weather';
 import { resolveConditionStyle } from './condition-style.ts';
 

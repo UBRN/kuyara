@@ -46,7 +46,7 @@ import { uvLevelOf } from '@/features/weather/presentation/uv-level';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
 import { dateKeyWeekday, percentage, showsChance } from '@/features/weather/presentation/weather-format';
 import { WeatherErrorState, WeatherLoadingState } from '@/features/weather/presentation/weather-states';
-import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
+import { resolveAtmosphereState, resolveDaypart } from '@/features/weather/domain/atmosphere-state';
 import { numberFormat } from '@/domain/intl-format';
 import { wholeWindSpeed } from '@/domain/wind-speed';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';

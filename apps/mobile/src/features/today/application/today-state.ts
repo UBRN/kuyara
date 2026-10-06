@@ -7,7 +7,7 @@ import {
   outfitOptionId,
   type RecommendedOutfit,
 } from '@/features/recommendation/application/recommend-outfits';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 import { dressingDayKind } from '@/features/recommendation/domain/local-day';
 import type { OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
 import {
