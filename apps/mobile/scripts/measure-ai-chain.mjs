@@ -19,7 +19,7 @@ import {
   aiRecommendV2SuccessSchema,
 } from '@kuyara/contracts';
 
-import { mapWorkerAiRecommendation } from '@/features/recommendation/data/worker-ai-recommendation-mapper.ts';
+import { mapWorkerAiRecommendation } from '@/features/recommendation/application/ai-recommendation-mapping.ts';
 
 import { gridRequestCells } from '../test/recommendation-grid.mjs';
 

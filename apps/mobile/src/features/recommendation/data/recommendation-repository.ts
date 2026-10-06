@@ -12,12 +12,12 @@ import type {
   RecommendationLocalDataSource,
   RecommendationSnapshotRecord,
 } from '@/features/recommendation/data/recommendation-local-data-source';
+import type { RecommendationContext } from '@/features/recommendation/application/recommendation-context';
 import {
   mapStoredRecommendation,
   parseRecommendationContext,
   toStoredRecommendationOutfits,
-  type RecommendationContext,
-} from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+} from '@/features/recommendation/data/stored-recommendation-mapper';
 import { isUtcIsoTimestamp, isUuidV4 } from '@/domain/record-identity';
 import { defaultDressStyle } from '@/features/profile/domain/profile';
 

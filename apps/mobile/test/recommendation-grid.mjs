@@ -15,7 +15,7 @@ import {
   aiRequestFromContext,
   createRecommendationContext,
   createRecommendationContextWithPool,
-} from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+} from '@/features/recommendation/application/recommendation-context';
 
 const gridNow = '2026-09-14T12:00:00.000Z';
 const gridLocalDayKey = '2026-09-14';

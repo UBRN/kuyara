@@ -24,13 +24,16 @@ import {
   outfitArchetypeIds,
 } from './ai-v1.ts';
 
+// The builders below return loosely typed payloads on purpose: the tests corrupt them field by field.
+type Fixture = Record<string, any>;
+
 const reasonCodes = ['temperature_low'];
 
-function garment(slot, garmentTypeId, layerRole = 'standalone') {
+function garment(slot: string, garmentTypeId: string, layerRole: string | null = 'standalone'): Fixture {
   return { slot, layerRole, garmentTypeId };
 }
 
-function option(optionId = 'option-1', overrides = {}) {
+function option(optionId = 'option-1', overrides: Fixture = {}): Fixture {
   return {
     optionId,
     formality: 'casual',
@@ -52,7 +55,7 @@ function option(optionId = 'option-1', overrides = {}) {
   };
 }
 
-function validRequest() {
+function validRequest(): Fixture {
   return {
     clothingPreference: 'womens',
     catalogVersion: 3,
@@ -67,7 +70,7 @@ function validRequest() {
   };
 }
 
-function validSuccess() {
+function validSuccess(): Fixture {
   return {
     data: {
       picks: [

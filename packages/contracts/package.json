@@ -8,13 +8,14 @@
   },
   "types": "./src/index.ts",
   "scripts": {
-    "test": "node --experimental-strip-types --test --test-concurrency=4 \"src/**/*.test.mjs\"",
+    "test": "node --experimental-strip-types --test --test-concurrency=4 \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@types/node": "^24.19.1",
     "typescript": "~6.0.3"
   }
 }

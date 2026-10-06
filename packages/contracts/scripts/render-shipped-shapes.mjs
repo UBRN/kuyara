@@ -1,6 +1,6 @@
 // Renders response shapes from a recorded shipped commit as JSON Schema with
 // every `additionalProperties` removed. v1 is frozen against build 8, v2 against build 15.
-// src/shipped-shape.test.mjs projects HEAD's schemas the same way and asserts equality.
+// src/shipped-shape.test.ts projects HEAD's schemas the same way and asserts equality.
 //
 // Regenerate (for example after a Zod upgrade changes toJSONSchema output), from the repo root:
 //
@@ -79,10 +79,15 @@ export function projectResponseShape(_key, schema) {
   return normalise(z.toJSONSchema(schema, { unrepresentable: 'any' }));
 }
 
+/**
+ * @param {(file: string) => unknown} modulesByFile
+ * @param {Record<string, string[]>} [schemaNames]
+ */
 export async function renderShapes(modulesByFile, schemaNames = responseSchemaNames) {
+  /** @type {Record<string, unknown>} */
   const shapes = {};
   for (const [file, names] of Object.entries(schemaNames)) {
-    const module = await modulesByFile(file);
+    const module = /** @type {Record<string, any>} */ (await modulesByFile(file));
     for (const name of names) {
       const key = `${file}:${name}`;
       if (!(name in module)) throw new Error(`${key} is not exported`);

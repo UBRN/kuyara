@@ -1,68 +1,10 @@
 import assert from 'node:assert/strict';
-import { registerHooks } from 'node:module';
 import test from 'node:test';
-import { fileUri } from '../../../../test/file-uri.mjs';
+import { installFakeExpoFileSystem } from '../../../../test/fakes/expo-file-system.mjs';
 
 // Mock the device file to verify the once-a-day claim and the kept record.
-const files = new Map();
-let readFailure = false;
-let writeFailure = false;
-
-function throwOnRead() {
-  if (readFailure) throw new Error('read failed');
-}
-
-function throwOnWrite() {
-  if (writeFailure) throw new Error('write failed');
-}
-
-globalThis.__kuyaraPreviewFileMocks = {
-  Directory: class {
-    constructor(...parts) {
-      this.uri = fileUri(parts);
-    }
-
-    create() {
-      throwOnWrite();
-    }
-  },
-  File: class {
-    constructor(...parts) {
-      this.uri = fileUri(parts);
-    }
-
-    get exists() {
-      throwOnRead();
-      return files.has(this.uri);
-    }
-
-    async text() {
-      throwOnRead();
-      return files.get(this.uri);
-    }
-
-    write(value) {
-      throwOnWrite();
-      files.set(this.uri, value);
-    }
-  },
-  Paths: { document: { uri: 'file:///documents' } },
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === 'expo-file-system') {
-      return {
-        shortCircuit: true,
-        url: `data:text/javascript,${encodeURIComponent(`
-          const mocks = globalThis.__kuyaraPreviewFileMocks;
-          export const { Directory, File, Paths } = mocks;
-        `)}`,
-      };
-    }
-    return nextResolve(specifier, context);
-  },
-});
+const fileSystem = installFakeExpoFileSystem();
+const { files } = fileSystem;
 
 const { ExpoFileRecommendationPreviewDataSource } = await import(
   './expo-file-recommendation-preview-data-source.ts'
@@ -83,8 +25,8 @@ const record = {
 
 test.beforeEach(() => {
   files.clear();
-  readFailure = false;
-  writeFailure = false;
+  fileSystem.readFailure = false;
+  fileSystem.writeFailure = false;
 });
 
 test('a day is claimed once per profile, across instances and concurrent claims', async () => {
@@ -112,10 +54,10 @@ test('a malformed file holds no claim; an unreadable or unwritable one denies it
     assert.equal(await source.claim('profile-one', '2026-10-02'), true, stored);
   }
   files.clear();
-  readFailure = true;
+  fileSystem.readFailure = true;
   assert.equal(await source.claim('profile-one', '2026-10-02'), false);
-  readFailure = false;
-  writeFailure = true;
+  fileSystem.readFailure = false;
+  fileSystem.writeFailure = true;
   assert.equal(await source.claim('profile-one', '2026-10-02'), false);
   assert.equal(files.has(previewPath), false);
 });

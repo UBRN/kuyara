@@ -14,7 +14,7 @@ import { SqliteDressingDayChoiceRepository } from './sqlite-dressing-day-choice-
 import { SqliteDressingDayDepartureRepository } from './sqlite-dressing-day-departure-repository.ts';
 import {
   createRecommendationContext,
-} from './worker-ai-recommendation-mapper.ts';
+} from '../application/recommendation-context.ts';
 import { recommendOutfits } from '../application/recommend-outfits.ts';
 import { latestDatabaseVersion, migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';

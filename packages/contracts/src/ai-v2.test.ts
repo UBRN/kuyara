@@ -10,7 +10,7 @@ import {
 } from './ai-v2.ts';
 import { aiRecommendV1RequestSchema } from './ai-v1.ts';
 
-const option = (optionId) => ({
+const option = (optionId: string) => ({
   optionId,
   formality: 'casual',
   garments: [

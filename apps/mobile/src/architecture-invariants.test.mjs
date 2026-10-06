@@ -620,7 +620,7 @@ test('UUID v4 and UTC ISO validators are defined only in domain/record-identity.
 // else spells the UUID v4 pattern or builds an id or timestamp schema from `z.uuid()` or
 // `z.iso.datetime()`. The one allowed exception is the Worker's own coverage window, which is a
 // response field and not a stored clock; the allowlist only shrinks.
-const isoDatetimeAllowlist = { 'features/recommendation/data/worker-ai-recommendation-mapper.ts': 2 };
+const isoDatetimeAllowlist = { 'features/recommendation/application/recommendation-context.ts': 2 };
 
 test('row id and timestamp schemas are built only in domain/record-identity.ts', () => {
   const copies = [];
@@ -739,7 +739,6 @@ test('mobile source has no web target branch or *.web.* file', () => {
 // pre-existing import; the list only shrinks and a stale entry fails.
 const sameFeatureApplicationDataAllowlist = [
   ['features/analytics/application/use-screen-interactive.ts', 'features/analytics/data/observe-performance-telemetry'],
-  ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/worker-ai-recommendation-mapper'],
 ].map(([importer, module]) => `${importer} -> ${module}`);
 
 test('an application module imports its own feature data as a value only in a provider or loader', () => {
@@ -775,7 +774,7 @@ test('an application module imports its own feature data as a value only in a pr
   assert.deepEqual(stale, [], `remove these entries so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
   assert.equal(
     sameFeatureApplicationDataAllowlist.length,
-    2,
+    1,
     'the same-feature allowlist only shrinks: lower this count when an entry goes',
   );
 });
@@ -1461,13 +1460,15 @@ test('a managed photo path pattern is written only in domain/managed-photo-path.
 });
 
 // Test helpers with one owner under apps/mobile/test: the font-scale setter, the stand-in file
-// uri and the source tree walk are imported, never written again in a test file.
-test('the font scale setter, file uri builder and source walk are defined only under test/', () => {
+// uri, the stand-in `expo-file-system` and the source tree walk are imported, never written
+// again in a test file.
+test('the font scale setter, file uri builder, file system fake and source walk are defined only under test/', () => {
   const copies = [];
   const definitions = [
     [/function mockFontScale\b/, 'test/font-scale.ts'],
     [/function (?:fileUri|nativeUri|nativeFileUri)\(parts\)/, 'test/file-uri.mjs'],
     [/function sourceFiles\b/, 'test/source-files.mjs'],
+    [/specifier === 'expo-file-system'|'expo-file-system':\s*`/, 'test/fakes/expo-file-system.mjs'],
   ];
   for (const relativePath of sourceFiles(sourceRoot, { includeTests: true })) {
     if (relativePath === 'architecture-invariants.test.mjs') continue;

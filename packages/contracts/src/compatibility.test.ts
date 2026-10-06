@@ -17,6 +17,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+import type { ZodType } from 'zod';
+
 import {
   aiProbeV1SuccessSchema,
   aiReadyV1SuccessSchema,
@@ -58,6 +60,11 @@ test('current Worker parsers accept requests sent by installed builds 8, 9, 14 a
 // --- Golden payloads (build 0.1.20260913, build 8, commit 0317a55) -----------------------
 //
 // Literals on purpose: a fixture read from git would drift with the file it was read from.
+//
+// The builders return loosely typed payloads: the tests add, retype and delete fields to
+// prove what a reader accepts, so a narrower type would only get in their way.
+type Fixture = Record<string, any>;
+type FixturePath = readonly (string | number)[];
 
 const measurements = () => ({
   temperatureCelsius: 16.4,
@@ -69,7 +76,7 @@ const measurements = () => ({
   uvIndex: 3,
 });
 
-export const build8WeatherSuccess = () => ({
+export const build8WeatherSuccess = (): Fixture => ({
   data: {
     timeZone: 'Europe/Istanbul',
     fetchedAt: '2026-09-13T09:30:00.000Z',
@@ -85,9 +92,9 @@ export const build8WeatherSuccess = () => ({
   },
 });
 
-export const build8WeatherError = () => ({ error: { code: 'weather_unavailable' } });
+export const build8WeatherError = (): Fixture => ({ error: { code: 'weather_unavailable' } });
 
-export const build8AiRecommendSuccess = () => ({
+export const build8AiRecommendSuccess = (): Fixture => ({
   data: {
     picks: [
       { optionId: 'opt-01', archetypeId: 'everyday_easy' },
@@ -97,9 +104,9 @@ export const build8AiRecommendSuccess = () => ({
   },
 });
 
-export const build8AiError = () => ({ error: { code: 'ai_unavailable' } });
+export const build8AiError = (): Fixture => ({ error: { code: 'ai_unavailable' } });
 
-export const build8AiProbeSuccess = () => ({
+export const build8AiProbeSuccess = (): Fixture => ({
   data: {
     status: 'ok',
     checkedAt: '2026-09-13T09:30:00.000Z',
@@ -107,11 +114,11 @@ export const build8AiProbeSuccess = () => ({
   },
 });
 
-export const build8HealthSuccess = () => ({ data: { status: 'ok' } });
+export const build8HealthSuccess = (): Fixture => ({ data: { status: 'ok' } });
 
-export const build8AiReadySuccess = () => ({ data: { status: 'ready' } });
+export const build8AiReadySuccess = (): Fixture => ({ data: { status: 'ready' } });
 
-export const build8PlaceSearchSuccess = () => ({
+export const build8PlaceSearchSuccess = (): Fixture => ({
   data: {
     places: [
       {
@@ -135,10 +142,10 @@ export const build8PlaceSearchSuccess = () => ({
   },
 });
 
-export const build8PlaceSearchError = () => ({ error: { code: 'places_unavailable' } });
+export const build8PlaceSearchError = (): Fixture => ({ error: { code: 'places_unavailable' } });
 
 /** Every golden, named for the proof script in the scratchpad and for the tests below. */
-export const build8Goldens = [
+export const build8Goldens: { name: string; schemaName: string; payload: () => Fixture }[] = [
   { name: 'weather success', schemaName: 'weatherV1SuccessSchema', payload: build8WeatherSuccess },
   { name: 'weather error', schemaName: 'weatherV1ErrorSchema', payload: build8WeatherError },
   {
@@ -162,7 +169,7 @@ export const build8Goldens = [
   },
 ];
 
-const schemasByName = {
+const schemasByName: Record<string, ZodType<Fixture>> = {
   weatherV1SuccessSchema,
   weatherV1ErrorSchema,
   aiRecommendV1SuccessSchema,
@@ -186,7 +193,7 @@ test('today’s schemas still parse the payloads build 8 expected', () => {
 const unknownKey = 'futureField';
 
 /** Returns a copy of `payload` with `futureField` added at `path`. */
-function withUnknownFieldAt(payload, path) {
+function withUnknownFieldAt(payload: Fixture, path: FixturePath): Fixture {
   const clone = structuredClone(payload);
   let target = clone;
   for (const step of path) target = target[step];
@@ -194,7 +201,7 @@ function withUnknownFieldAt(payload, path) {
   return clone;
 }
 
-function valueAt(value, path) {
+function valueAt(value: Fixture, path: FixturePath): Fixture {
   let target = value;
   for (const step of path) target = target[step];
   return target;
@@ -205,7 +212,7 @@ function valueAt(value, path) {
  * Newer mobile readers strip an added field at any of these levels. This does not
  * authorize the Worker to emit one while a strict reader still uses /v1.
  */
-const responseLevels = [
+const responseLevels: [string, string, () => Fixture, FixturePath][] = [
   ['weatherV1SuccessSchema root', 'weatherV1SuccessSchema', build8WeatherSuccess, []],
   ['weatherV1SuccessSchema data', 'weatherV1SuccessSchema', build8WeatherSuccess, ['data']],
   [
@@ -349,13 +356,13 @@ test('a missing or numeric error.code still rejects the error payload', () => {
 
 // --- Request schemas stay strict ----------------------------------------------------------
 
-const validWeatherRequest = () => ({
+const validWeatherRequest = (): Fixture => ({
   latitudeE2: 4101,
   longitudeE2: 2897,
   timeZone: 'Europe/Istanbul',
 });
 
-const validAiRecommendRequest = () => ({
+const validAiRecommendRequest = (): Fixture => ({
   clothingPreference: 'womens',
   dressStyle: 'smart',
   catalogVersion: 1,
@@ -385,9 +392,9 @@ const validAiRecommendRequest = () => ({
   ],
 });
 
-const validPlaceSearchRequest = () => ({ query: 'istanbul', limit: 5, language: 'tr' });
+const validPlaceSearchRequest = (): Fixture => ({ query: 'istanbul', limit: 5, language: 'tr' });
 
-const requestSchemas = [
+const requestSchemas: [string, ZodType<Fixture>, () => Fixture][] = [
   ['weatherV1RequestSchema', weatherV1RequestSchema, validWeatherRequest],
   ['aiRecommendV1RequestSchema', aiRecommendV1RequestSchema, validAiRecommendRequest],
   ['placeSearchV1RequestSchema', placeSearchV1RequestSchema, validPlaceSearchRequest],

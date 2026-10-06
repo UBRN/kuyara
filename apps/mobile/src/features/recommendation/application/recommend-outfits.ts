@@ -68,6 +68,14 @@ export type RecommendedOutfit = OutfitCandidate & Readonly<{
   archetypeId: OutfitArchetypeId;
 }>;
 
+/** An outfit given the label it is offered under. */
+export function recommendedOutfit(
+  outfit: OutfitCandidate,
+  archetypeId: OutfitArchetypeId,
+): RecommendedOutfit {
+  return Object.freeze({ ...outfit, optionId: outfitOptionId(outfit), archetypeId });
+}
+
 export type OutfitRecommendationUnavailable = Readonly<{
   status: 'unavailable';
   requirements: ClothingRequirements;
@@ -269,11 +277,7 @@ export function assignFallbackArchetypes(
     const archetypeId = firstUnusedArchetype(outfit, order, used, dayKind, day);
     if (!archetypeId) continue;
     used.add(archetypeId);
-    selected.push(Object.freeze({
-      ...outfit,
-      optionId: outfitOptionId(outfit),
-      archetypeId,
-    }));
+    selected.push(recommendedOutfit(outfit, archetypeId));
     if (selected.length === count) break;
   }
   if (selected.length < count) throw new Error('Distinct fallback archetypes are unavailable.');
@@ -297,7 +301,7 @@ export function assignComposedArchetypes(
   return Object.freeze(outfits.map((outfit) => {
     const archetypeId = firstUnusedArchetype(outfit, order, used, dayKind, day) ?? 'everyday_easy';
     used.add(archetypeId);
-    return Object.freeze({ ...outfit, optionId: outfitOptionId(outfit), archetypeId });
+    return recommendedOutfit(outfit, archetypeId);
   }));
 }
 

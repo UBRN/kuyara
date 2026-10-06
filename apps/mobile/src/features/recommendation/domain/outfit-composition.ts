@@ -48,6 +48,7 @@ export {
   garmentIdSet,
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
+  outfitGarments,
   outfitWearsPins,
   type AssignedOutfitGarment,
   type OutfitAccessories,

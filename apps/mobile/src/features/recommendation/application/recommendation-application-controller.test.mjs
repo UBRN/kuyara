@@ -15,10 +15,8 @@ import {
 import { WorkerAiClientError } from '../domain/worker-ai-client-error.ts';
 import { RecommendationRepositoryError } from './recommendation-repository.ts';
 import { assignFallbackArchetypes, composeOutfitPool, outfitOptionId } from './recommend-outfits.ts';
-import {
-  createRecommendationContextWithPool,
-  mapWorkerAiRecommendation,
-} from '../data/worker-ai-recommendation-mapper.ts';
+import { mapWorkerAiRecommendation } from './ai-recommendation-mapping.ts';
+import { createRecommendationContextWithPool } from './recommendation-context.ts';
 import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
 import { accessoryOutfitSlots, garmentIdSet } from '../domain/outfit-composition.ts';
 

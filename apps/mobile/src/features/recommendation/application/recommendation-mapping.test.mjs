@@ -7,16 +7,18 @@ import {
   picksAreMeaningfullyDifferent,
 } from '@kuyara/contracts';
 
+import { mapWorkerAiRecommendation } from './ai-recommendation-mapping.ts';
+import { recommendOutfits } from './recommend-outfits.ts';
 import {
   aiRequestFromContext,
   createRecommendationContext,
+} from './recommendation-context.ts';
+import { WorkerAiRecommendationMappingError } from './recommendation-mapping-error.ts';
+import {
   mapStoredRecommendation,
-  mapWorkerAiRecommendation,
   parseRecommendationContext,
   toStoredRecommendationOutfits,
-  WorkerAiRecommendationMappingError,
-} from './worker-ai-recommendation-mapper.ts';
-import { recommendOutfits } from '../application/recommend-outfits.ts';
+} from '../data/stored-recommendation-mapper.ts';
 import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
 
 const observedAt = '2026-08-01T18:00:00.000Z';

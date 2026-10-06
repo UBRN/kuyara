@@ -10,7 +10,7 @@ import type { OutfitRecommendationSuccess } from '@/features/recommendation/appl
 import type { AiGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
-import { mapWorkerAiRecommendation } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+import { mapWorkerAiRecommendation } from '@/features/recommendation/application/ai-recommendation-mapping';
 
 // The Worker tier always gets its whole wait, whatever the on-device tier spent first: the
 // Worker's own deadline is 36 s (5 attempts of 7 s plus 1 s) and 2 s covers HTTP transport.
