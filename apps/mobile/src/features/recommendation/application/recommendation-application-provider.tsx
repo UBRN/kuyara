@@ -78,7 +78,7 @@ import { WorkerAiClientError } from '@/features/recommendation/domain/worker-ai-
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import { dressingDayDateKey, isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
+import { isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-database';
@@ -244,7 +244,8 @@ export function RecommendationApplicationProvider({
   const budget = useMemo(() => new ExpoFileAiRegenerationBudget(), []);
   const memberReask = useMemo(() => createMemberReask({
     readToken: memberAccessToken,
-    reserve: (dayKey, dailyLimit) => budget.reserve(dayKey, dailyLimit),
+    reserve: (dateKey, dailyLimit) => budget.reserve(dateKey, dailyLimit),
+    release: (dateKey) => budget.release(dateKey),
   }), [budget]);
   const client = useMemo(() => createRecommendationClient(memberReask.token), [memberReask]);
   const [onDeviceAvailability, setOnDeviceAvailability] =
@@ -270,12 +271,10 @@ export function RecommendationApplicationProvider({
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
       telemetry,
       getOnDeviceAvailability: () => latestOnDeviceAvailability.value,
-      // Five regenerations per dressing day, ten for a signed-in member: the evening and its small
-      // hours count against the date the evening began on, so 18:00 does not hand out a second five.
-      reserveAiReask: (dayKey) => memberReask.reserve(dressingDayDateKey(dayKey)),
-      releaseAiReask: (dayKey) => budget.release(dressingDayDateKey(dayKey)),
+      reserveAiReask: (dayKey) => memberReask.reserve(dayKey),
+      releaseAiReask: (dayKey) => memberReask.release(dayKey),
     }),
-    [analytics, budget, client, memberReask, latestOnDeviceAvailability, loadRecentWorn, localProfileId, previewStore,
+    [analytics, client, memberReask, latestOnDeviceAvailability, loadRecentWorn, localProfileId, previewStore,
       telemetry],
   );
   const controllerState = useSyncExternalStore(
