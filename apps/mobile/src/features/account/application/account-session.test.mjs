@@ -4,6 +4,7 @@ import test from 'node:test';
 import { createAccountSessionManager } from './account-session.ts';
 import { createAccountDeletionClient } from './account-delete.ts';
 import { fetchWithTimeout } from '../../../infrastructure/network/fetch-json-with-timeout.ts';
+import { SYNC_CONSENT_TEXT_VERSION } from '../domain/sync-consent.ts';
 
 const identity = { userId: 'user-a', provider: 'apple', email: 'ada@example.com', providers: ['apple'], accessToken: 'token' };
 
@@ -165,7 +166,7 @@ test('closing the sign-in sheet cancels its pending result', async () => {
   assert.deepEqual(calls, [['signOut']]);
 });
 
-const answerAt = { textVersion: '2026-10-04', answeredAt: '2026-10-03T01:00:00.000Z' };
+const answerAt = { textVersion: SYNC_CONSENT_TEXT_VERSION, answeredAt: '2026-10-03T01:00:00.000Z' };
 
 test('without an answer the consent sheet opens after sign-in and nothing syncs until it closes', async () => {
   const { manager, calls } = setup({ records: [] });
