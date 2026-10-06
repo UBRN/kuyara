@@ -67,11 +67,25 @@ const hotPath = new Set([
 // list only shrinks, and a count that no longer matches fails in both directions.
 const knownPruned = new Map([
   // The recommendation and the open outfit, read from provider state whose identity holds.
-  ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 7 }],
+  ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 4 }],
   ['features/today/presentation/outfit-detail-screen.tsx', {}],
   ['garment-art/garment-swap-board.tsx', { GarmentSwapBoard: 27 }],
   ['garment-art/garment-painting.tsx', {}],
   ['features/today/presentation/today-screen.tsx', {}],
+  // Today's routes and the hooks they read: a hook result's property read before another hook,
+  // or the Today state inside an object literal handed to a hook, would drop these blocks.
+  ['app/(tabs)/(today)/index.tsx', {}],
+  ['features/today/application/use-ask-again-sheet.ts', {}],
+  ['features/today/application/use-closet-seed.ts', {}],
+  ['features/today/application/use-day-question-sheet.ts', {}],
+  ['features/today/application/use-day-worn-looks.ts', {}],
+  ['features/today/application/use-name-prompt.ts', {}],
+  ['features/today/application/use-outfit-detail-opened-report.ts', {}],
+  ['features/today/application/use-today-alert-offer.ts', {}],
+  ['features/today/application/use-today-focus.ts', {}],
+  ['features/today/application/use-today-pull-refresh.ts', {}],
+  ['features/today/application/use-today-reports.ts', {}],
+  ['features/wardrobe/application/use-piece-sheet.ts', {}],
   ['features/wardrobe/presentation/wardrobe-list-screen.tsx', {}],
 ]);
 

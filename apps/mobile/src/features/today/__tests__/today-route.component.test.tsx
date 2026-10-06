@@ -1223,6 +1223,58 @@ test('closing the sheet on step 2 answers the usual day type and leaves the styl
   expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'smart', 'morning');
 });
 
+// N4: Done on an untouched styles step writes the day type alone, so the day keeps following
+// the Settings styles.
+test('the morning sheet step 2 with the styles untouched writes only the day type', async () => {
+  const chooseFormality = jest.fn(async () => undefined);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      resolvedStyleAesthetics={['classic']}
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-pick-styles'));
+  await fireEvent.press(view.getByTestId('daily-formality-day-type-casual'));
+  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'casual', 'morning', undefined);
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+});
+
+// The native sheet reports its own programmatic close as a dismissal. The close that follows an
+// answer, and a pan-down while the answer is still saving, must not write a second answer.
+test('a close reported after an answer, or while it saves, writes no second answer', async () => {
+  let finish!: () => void;
+  const chooseFormality = jest.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-formal'));
+  const close = mockOpenSheetClosers.at(-1);
+  expect(close).toBeDefined();
+  await act(async () => { close!(); });
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(view.getByTestId('daily-formality-sheet')).toBeOnTheScreen();
+
+  await act(async () => { finish(); });
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+  await act(async () => { close!(); });
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'formal', 'morning', undefined);
+});
+
 // f25: the first dressing day greets with a welcome; its question, when asked, offers the setup
 // answer as the usual one and checks nothing.
 test('the first dressing day offers the setup answer as the usual one', async () => {
@@ -1598,6 +1650,52 @@ test('Ask the stylist again closed by a pan-down while busy reopens on the error
   await act(async () => { fail(); });
   await waitFor(() => expect(view.getByTestId('ask-again-sheet')).toBeOnTheScreen());
   expect(view.getByTestId('ask-again-error')).toBeOnTheScreen();
+});
+
+// The error line belongs to the opening it happened in: the next opening starts clean.
+test('Ask the stylist again reopens without the error of an earlier failed write', async () => {
+  const reask = jest.fn(async (): Promise<{ settled: Promise<void> }> => { throw new Error('write failed'); });
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady reask={reask}
+      wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  await fireEvent.press(view.getByTestId('today-ask-again'));
+  await fireEvent.press(view.getByTestId('ask-again-confirm'));
+  expect(await view.findByTestId('ask-again-error')).toBeOnTheScreen();
+  expect(view.getByTestId('ask-again-sheet')).toBeOnTheScreen();
+
+  await fireEvent.press(view.getByTestId('ask-again-close'));
+  expect(view.queryByTestId('ask-again-sheet')).toBeNull();
+  await fireEvent.press(view.getByTestId('today-ask-again'));
+  expect(view.getByTestId('ask-again-sheet')).toBeOnTheScreen();
+  expect(view.queryByTestId('ask-again-error')).toBeNull();
+});
+
+// A confirmed re-ask says what it is choosing for until the new outfit has settled.
+test('a confirmed re-ask shows its choosing line until the regeneration settles', async () => {
+  let finish!: () => void;
+  const settled = new Promise<void>((resolve) => { finish = resolve; });
+  const reask = jest.fn(async () => ({ settled }));
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady reask={reask}
+      wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(view.queryByTestId('today-choosing-caption')).toBeNull();
+  await fireEvent.press(view.getByTestId('today-ask-again'));
+  await fireEvent.press(view.getByTestId('ask-again-confirm'));
+  await waitFor(() => expect(view.queryByTestId('ask-again-sheet')).toBeNull());
+  expect(view.getByTestId('today-choosing-caption')).toBeOnTheScreen();
+
+  await act(async () => { finish(); await settled; });
+  await waitFor(() => expect(view.queryByTestId('today-choosing-caption')).toBeNull());
 });
 
 // Tour finding: a confirmed Later departure that is still ahead reopens the sheet on Later
@@ -2416,6 +2514,34 @@ test('a sheet answered on step 2 keeps the styles step while it animates out', a
   expect(closing).not.toHaveLength(0);
   expect(closing.map(({ step, styles }) => ({ step, hasStyles: styles != null })))
     .toEqual(closing.map(() => ({ step: 'styles', hasStyles: true })));
+});
+
+// Phase 8: Today tells the tour what claims the screen. An open day question is an overlay and
+// a day-question claim; once answered, neither is.
+test('Today reports an open day question to the tour as an overlay until it is answered', async () => {
+  const reportToday = jest.fn();
+  const view = await render(
+    <WalkthroughContext value={{
+      active: false, restart: () => undefined, reportToday, reportReturningToday: () => undefined,
+      reportPopCancelled: () => undefined,
+    }}>
+      <Providers productAnalytics={createProductAnalytics()}
+        profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+        recommendation={recommendationReady()} resolvedDressStyle="smart"
+        dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+        chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>
+    </WalkthroughContext>,
+  );
+  await view.findByTestId('daily-formality-sheet');
+  expect(reportToday).toHaveBeenLastCalledWith(
+    { settled: false, overlayOpen: true, dayQuestion: true, namePrompt: false });
+
+  await fireEvent.press(view.getByTestId('daily-formality-usual'));
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+  expect(reportToday).toHaveBeenLastCalledWith(
+    expect.objectContaining({ overlayOpen: false, namePrompt: false }));
 });
 
 // S3: after a place switch the previous place's snapshot is the last valid result, but it is
@@ -4008,6 +4134,68 @@ test('an empty Closet takes the outfit\'s pieces with the one ownership asked, o
   );
   await waitFor(() => expect(view.queryByTestId('outfit-detail-closet-seed-button')).toBeNull());
   expect(view.getByText(copy.added(inputs.length))).toBeOnTheScreen();
+});
+
+test('a failed closet seed shows its failure line, and the same choice can try again', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const seedEmptyCloset = jest.fn<Promise<readonly WardrobeItem[]>, unknown[]>()
+    .mockRejectedValueOnce(new Error('write failed'))
+    .mockResolvedValue([]);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()} recommendation={recommendationReady()}
+      wardrobe={wardrobeValue({ seedEmptyCloset })} weather={weatherValue()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(view.getByTestId('outfit-detail-closet-seed-button'));
+  await fireEvent.press(view.getByTestId('outfit-detail-closet-seed-wanted'));
+  expect(await view.findByText(messages.en.today.closetSeed.failed)).toBeOnTheScreen();
+  await fireEvent.press(view.getByTestId('outfit-detail-closet-seed-wanted'));
+  expect(seedEmptyCloset).toHaveBeenCalledTimes(2);
+  await waitFor(() => expect(view.queryByText(messages.en.today.closetSeed.failed)).toBeNull());
+});
+
+test('a failed wore-this save shows its error, and the next press records the look and clears it', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    day: jest.fn(async () => []),
+    log: jest.fn<Promise<never>, [string, WornOutfit, unknown]>()
+      .mockRejectedValueOnce(new Error('write failed'))
+      .mockImplementation(async (_day, outfit) => ({ outfit }) as never),
+  };
+  const result = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()} recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()} weather={weatherValue()} dressingDayKey="2026-08-13" outfitHistory={outfitHistory}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
+  expect(await result.findByText(messages.en.today.wornSaveError)).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+  expect(outfitHistory.log).toHaveBeenCalledTimes(2);
+  expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
+  await waitFor(() => expect(result.queryByTestId('outfit-detail-worn-error')).toBeNull());
+});
+
+test('closing the piece sheet writes nothing to the Closet', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const wardrobe = wardrobeValue();
+  const result = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()} recommendation={recommendationReady()}
+      wardrobe={wardrobe} weather={weatherValue()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId(`outfit-detail-piece-${firstDetailGarmentTypeId}`));
+  expect(result.getByTestId('piece-edit-sheet')).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('piece-edit-close'));
+  await waitFor(() => expect(result.queryByTestId('piece-edit-sheet')).toBeNull());
+  expect(wardrobe.createItem).not.toHaveBeenCalled();
+  expect(wardrobe.updateItem).not.toHaveBeenCalled();
 });
 
 test('a Closet that holds anything gets no offer to add the outfit', async () => {
