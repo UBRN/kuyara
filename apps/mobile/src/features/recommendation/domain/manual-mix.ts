@@ -133,13 +133,30 @@ export function slotCandidates(
   preference: ClothingPreference,
 ): readonly SlotCandidate[] {
   const base = outfitGarments(outfit);
-  const current = base[slot];
-  if (current === undefined && !isRemovable(slot)) return Object.freeze([]);
+  if (base[slot] === undefined && !isRemovable(slot)) return Object.freeze([]);
+  if (!wearsOnlyOfferedPiecesBeside(base, slot, preference)) return Object.freeze([]);
   const types = listSelectableGarmentTypes(preference)
     .map(({ typeId }) => typeId)
     .filter((typeId) => garmentFitsSlot(slot, typeId));
-  return rankSlot(base, slot, current === undefined || types.includes(current) ? types : [current, ...types],
-    requirements, preference);
+  return rankSlot(base, slot, types, requirements, preference);
+}
+
+/**
+ * Whether every piece worn outside one slot is still one the catalog offers. A piece it no
+ * longer offers (a deprecated type, or one outside the profile's gender) cannot be judged, so
+ * the slots beside it list nothing until it is replaced; the slot it sits in is ranked
+ * without it, since its candidates replace it.
+ */
+function wearsOnlyOfferedPiecesBeside(
+  garments: Readonly<Garments>,
+  slot: SwappableSlot,
+  preference: ClothingPreference,
+): boolean {
+  return swappableSlots.every((other) => {
+    const id = garments[other];
+    return other === slot || id === undefined ||
+      projectCatalogEffectiveGarment(id, preference).status === 'ready';
+  });
 }
 
 /**
