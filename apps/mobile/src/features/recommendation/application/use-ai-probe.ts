@@ -2,18 +2,19 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
+import { createAiProbeClient } from '@/features/recommendation/application/ai-probe-client-loader';
 import {
   mapProbeError,
   mapProbeResult,
   startAiProbe,
+  type AiProbeClient,
   type AiProbeUiState,
 } from '@/features/recommendation/application/ai-probe-state';
-import { WorkerAiProbeClient } from '@/features/recommendation/data/worker-ai-probe-client';
 
 export type { AiProbeUiState } from '@/features/recommendation/application/ai-probe-state';
 
 type Dependencies = Readonly<{
-  client?: Pick<WorkerAiProbeClient, 'probe'>;
+  client?: AiProbeClient;
   baseUrl?: string;
 }>;
 
@@ -33,7 +34,7 @@ export function useAiProbe(dependencies?: Dependencies): Readonly<{
     }
   }, [dependencies?.baseUrl]);
   const client = useMemo(
-    () => dependencies?.client ?? (baseUrl ? new WorkerAiProbeClient({ baseUrl }) : null),
+    () => dependencies?.client ?? (baseUrl ? createAiProbeClient(baseUrl) : null),
     [baseUrl, dependencies?.client],
   );
   const [state, setState] = useState<AiProbeUiState>({ kind: 'idle' });

@@ -8,7 +8,8 @@ import {
 
 import { getManualLocation } from './domain/manual-location-catalog.ts';
 import { mapWorkerWeatherToProvidedSnapshot } from './data/worker-weather-mapper.ts';
-import { LocalWeatherRepository, WeatherRepositoryError } from './data/weather-repository.ts';
+import { LocalWeatherRepository } from './data/weather-repository.ts';
+import { WeatherRepositoryError } from './domain/weather-repository.ts';
 import { SqliteWeatherLocalDataSource } from './data/sqlite-weather-local-data-source.ts';
 import {
   deviceLocationDisplayName,

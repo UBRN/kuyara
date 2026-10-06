@@ -15,7 +15,7 @@ import type { NotificationOptInOutcome } from '@/features/notifications/applicat
 import type { TodayScreenState } from '@/features/today/model';
 import { dressingDayDateKey } from '@/features/weather/domain/wardrobe-day';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 
 export { manualRefreshOutcome } from '@/features/weather/domain/manual-refresh-outcome';
 

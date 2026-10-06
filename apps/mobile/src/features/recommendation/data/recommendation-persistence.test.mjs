@@ -7,10 +7,8 @@ import {
 import { reaskForDressingDay } from '../application/reask-for-dressing-day.ts';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 
-import {
-  LocalRecommendationRepository,
-  RecommendationRepositoryError,
-} from './recommendation-repository.ts';
+import { RecommendationRepositoryError } from '../application/recommendation-repository.ts';
+import { LocalRecommendationRepository } from './recommendation-repository.ts';
 import { SqliteRecommendationLocalDataSource } from './sqlite-recommendation-local-data-source.ts';
 import { SqliteDressingDayChoiceRepository } from './sqlite-dressing-day-choice-repository.ts';
 import { SqliteDressingDayDepartureRepository } from './sqlite-dressing-day-departure-repository.ts';

@@ -5,7 +5,7 @@ import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
 } from '@/features/recommendation/application/recommendation-application-context';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 import { todayScreenState, todayWeatherSnapshot } from '@/features/today/__tests__/fixtures';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import {

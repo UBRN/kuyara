@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  WorkerAiClient,
-  WorkerAiClientError,
-} from './worker-ai-client.ts';
+import { WorkerAiClientError } from '../domain/worker-ai-client-error.ts';
+import { WorkerAiClient } from './worker-ai-client.ts';
 
 const request = {
   clothingPreference: 'womens',

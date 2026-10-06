@@ -6,7 +6,7 @@ import type {
 import type {
   ProvidedWeatherSnapshot,
   WeatherProvider,
-} from '@/features/weather/data/weather-provider';
+} from '@/features/weather/domain/weather-provider';
 
 type FakeScenario = 'success' | 'delayed-success' | 'failure';
 type FakeDependencies = Readonly<{

@@ -739,11 +739,7 @@ test('mobile source has no web target branch or *.web.* file', () => {
 // pre-existing import; the list only shrinks and a stale entry fails.
 const sameFeatureApplicationDataAllowlist = [
   ['features/analytics/application/use-screen-interactive.ts', 'features/analytics/data/observe-performance-telemetry'],
-  ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/recommendation-repository'],
-  ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/worker-ai-client'],
   ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/worker-ai-recommendation-mapper'],
-  ['features/recommendation/application/use-ai-probe.ts', 'features/recommendation/data/worker-ai-probe-client'],
-  ['features/weather/application/weather-application-controller.ts', 'features/weather/data/weather-repository'],
 ].map(([importer, module]) => `${importer} -> ${module}`);
 
 test('an application module imports its own feature data as a value only in a provider or loader', () => {
@@ -779,7 +775,7 @@ test('an application module imports its own feature data as a value only in a pr
   assert.deepEqual(stale, [], `remove these entries so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
   assert.equal(
     sameFeatureApplicationDataAllowlist.length,
-    6,
+    2,
     'the same-feature allowlist only shrinks: lower this count when an entry goes',
   );
 });

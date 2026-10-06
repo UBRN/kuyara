@@ -12,7 +12,7 @@ import {
   type ComposeAroundPieces,
 } from '@/features/recommendation/application/use-compose-around-pieces';
 import { useManualMix, type ManualMix } from '@/features/recommendation/application/use-manual-mix';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 import { localDayKind } from '@/features/recommendation/domain/local-day';
 import { outfitGarments, swappableSlots, type SwappableSlot } from '@/features/recommendation/domain/manual-mix';
 import type {

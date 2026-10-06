@@ -12,8 +12,8 @@ import {
   recommendationPoolExhausted,
   usingStandardPhaseMilliseconds,
 } from './recommendation-application-controller.ts';
-import { WorkerAiClientError } from '../data/worker-ai-client.ts';
-import { RecommendationRepositoryError } from '../data/recommendation-repository.ts';
+import { WorkerAiClientError } from '../domain/worker-ai-client-error.ts';
+import { RecommendationRepositoryError } from './recommendation-repository.ts';
 import { assignFallbackArchetypes, composeOutfitPool, outfitOptionId } from './recommend-outfits.ts';
 import {
   createRecommendationContextWithPool,

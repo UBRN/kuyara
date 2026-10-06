@@ -4,7 +4,7 @@ import type {
   RecommendedOutfit,
 } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 import {
   wornAlready,
   wornOutfitFrom,

@@ -30,7 +30,7 @@ import type { RecommendationApplicationState } from '@/features/recommendation/a
 import {
   RecommendationRepositoryError,
   type RecommendationSnapshot,
-} from '@/features/recommendation/data/recommendation-repository';
+} from '@/features/recommendation/application/recommendation-repository';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
 import * as tomorrowPreview from '@/features/recommendation/application/tomorrow-preview';

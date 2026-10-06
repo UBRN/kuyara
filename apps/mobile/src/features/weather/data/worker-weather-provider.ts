@@ -11,7 +11,7 @@ import { mapWorkerWeatherToProvidedSnapshot } from '@/features/weather/data/work
 import type {
   ProvidedWeatherSnapshot,
   WeatherProvider,
-} from '@/features/weather/data/weather-provider';
+} from '@/features/weather/domain/weather-provider';
 import {
   WeatherProviderError,
   type WeatherProviderFailureKind,
