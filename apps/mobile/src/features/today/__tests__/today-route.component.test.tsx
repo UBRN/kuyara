@@ -1099,6 +1099,84 @@ test('a changed preference during regeneration runs once more with the latest in
   }
 });
 
+// Ended coverage reselects once at the next foreground open of Today, and not again for the
+// same coverage end; a coverage window still running reselects nothing.
+async function renderLiveTodayWithCoverage(coverageEnd: string) {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = {
+    ...saved.snapshot,
+    catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-24',
+    coverageEnd,
+  };
+  const onChange: ((state: string) => void)[] = [];
+  const subscription = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(async () => mockRecommendationSnapshot);
+  const pool = jest.spyOn(RecommendationApplicationController.prototype, 'updatePoolAvailability');
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={saved} liveRecommendationProvider
+      wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  await waitFor(() => expect(pool).toHaveBeenCalled());
+  const returnToForeground = async () => {
+    await act(async () => {
+      onChange.forEach((listener) => listener('background'));
+      onChange.forEach((listener) => listener('active'));
+    });
+    await act(async () => { await Promise.resolve(); });
+  };
+  const restore = () => {
+    view.unmount();
+    subscription.mockRestore();
+    refresh.mockRestore();
+    pool.mockRestore();
+  };
+  return { refresh, returnToForeground, restore };
+}
+
+test('ended coverage reselects once at the next foreground open of Today', async () => {
+  jest.useFakeTimers({
+    now: new Date('2026-09-24T12:00:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  const live = await renderLiveTodayWithCoverage('2026-09-24T10:00:00.000Z');
+  try {
+    await live.returnToForeground();
+    await waitFor(() => expect(live.refresh).toHaveBeenCalledTimes(1));
+    expect(live.refresh.mock.calls[0][0]).toBe('explicit');
+    expect(live.refresh.mock.calls[0][1].now).toBe('2026-09-24T12:00:00.000Z');
+
+    await live.returnToForeground();
+    expect(live.refresh).toHaveBeenCalledTimes(1);
+  } finally {
+    live.restore();
+    jest.useRealTimers();
+  }
+});
+
+test('coverage still running reselects nothing at a foreground open of Today', async () => {
+  jest.useFakeTimers({
+    now: new Date('2026-09-24T12:00:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  const live = await renderLiveTodayWithCoverage('2026-09-24T16:00:00.000Z');
+  try {
+    await live.returnToForeground();
+    expect(live.refresh).not.toHaveBeenCalled();
+  } finally {
+    live.restore();
+    jest.useRealTimers();
+  }
+});
+
 // The one-tap question: it names the profile's usual day type, one large
 // button answers it, the other two day types sit below with nothing checked and answer in one
 // tap too. Either answer writes the day type alone, so the Settings styles keep applying (N4).
