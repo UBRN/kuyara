@@ -112,13 +112,45 @@ export function landRemoteRows(remote: RemoteAccountRows, local: AccountRows): A
 }
 
 /**
+ * The consent fields `profile` carries, both or neither: a profile carries them only under the
+ * sync consent (`profileWithinConsent`). The one presence check for both directions.
+ */
+export function consentFieldsOf(profile: AccountProfile): Pick<SyncedProfile, ConsentProfileFields> | null {
+  const { dressStyle, styleAesthetics } = profile;
+  return dressStyle !== undefined && styleAesthetics !== undefined ? { dressStyle, styleAesthetics } : null;
+}
+
+/**
  * The profile fields that cross to or from the account: display name and gender always, dress
  * style and style aesthetics only under the sync consent. The one owner of that rule; it copies
  * field by field, so no device-only field (birth date, consents, settings) ever crosses with it.
  */
 export function profileWithinConsent(profile: AccountProfile, syncConsent: boolean): AccountProfile {
-  const { createdAt, displayName, dressStyle, gender, styleAesthetics, updatedAt } = profile;
-  return syncConsent && dressStyle !== undefined && styleAesthetics !== undefined
-    ? { displayName, gender, dressStyle, styleAesthetics, createdAt, updatedAt }
-    : { displayName, gender, createdAt, updatedAt };
+  const { createdAt, displayName, gender, updatedAt } = profile;
+  const consentFields = syncConsent ? consentFieldsOf(profile) : null;
+  return { displayName, gender, ...consentFields, createdAt, updatedAt };
+}
+
+/** The phone's profile fields an account profile writes; a field left out keeps the phone's value. */
+export type LandedProfileFields = Readonly<{
+  displayName: string | null;
+  gender?: Gender;
+  dressStyle?: DressStyle;
+  styleAesthetics?: readonly StyleAesthetic[];
+}>;
+
+/**
+ * What an account profile, pulled or merged, writes on the phone. The display name always, as
+ * the account holds it, so a name cleared on another phone clears here too. Gender and dress
+ * style only as a value, never clearing the phone's, because product logic needs both. Dress
+ * style and style aesthetics only when the profile carries the consent fields.
+ */
+export function profileFieldsToLand(profile: AccountProfile): LandedProfileFields {
+  const consentFields = consentFieldsOf(profile);
+  return {
+    displayName: profile.displayName,
+    ...(profile.gender === null ? {} : { gender: profile.gender }),
+    ...(consentFields !== null && consentFields.dressStyle !== null ? { dressStyle: consentFields.dressStyle } : {}),
+    ...(consentFields === null ? {} : { styleAesthetics: consentFields.styleAesthetics }),
+  };
 }

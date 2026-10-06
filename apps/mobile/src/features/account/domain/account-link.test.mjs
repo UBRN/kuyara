@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   linkAfterFirstLink, linkAtPass, signOut, syncPassFor, unlinked,
 } from './account-link.ts';
+import { pullCursorAt } from './sync-rules.ts';
 
 const cursor = '2026-09-30T10:00:00.000000Z';
 const givenAt = '2026-09-29T08:00:00.000001Z';
@@ -11,7 +12,7 @@ const withdrawnAt = '2026-09-29T09:00:00.000001Z';
 const givenAgainAt = '2026-10-02T08:00:00.000001Z';
 
 test('a fresh phone is unlinked, with no last account, no joined records and no cursor', () => {
-  assert.deepEqual(unlinked, { userId: null, lastUserId: null, recordsUserId: null, recordsConsentRecordedAt: null, cursor: null });
+  assert.deepEqual(unlinked, { userId: null, lastUserId: null, recordsUserId: null, recordsConsentRecordedAt: null, cursor: pullCursorAt(null) });
 });
 
 const joined = { userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', recordsConsentRecordedAt: givenAt, cursor };

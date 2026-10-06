@@ -22,7 +22,14 @@ import {
 import { serverInstant } from '@/features/account/data/account-remote-records';
 import type { AccountRows } from '@/features/account/domain/account-rows';
 import { serverInstantSecondsBefore } from '@/features/account/domain/server-instant';
-import { nextCursor, type PulledSyncRow } from '@/features/account/domain/sync-rules';
+import {
+  nextCursor,
+  pullCursorAt,
+  type AccountTable,
+  type PullArrival,
+  type PullCursor,
+  type PulledSyncRow,
+} from '@/features/account/domain/sync-rules';
 import type { SyncConsentAnswer } from '@/features/account/domain/sync-consent';
 import { offsetIsoInstantSchema } from '@/domain/record-identity';
 
@@ -126,31 +133,42 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
     return parsed(z.array(z.unknown()), dataOf(await query));
   }
 
-  async function pullFrom(userId: string, from: string | null, syncConsent: boolean): Promise<PulledAccountRows> {
-    const arrivals: { serverUpdatedAt: string | null }[] = [];
-    function accepted<Row>(raws: readonly unknown[], map: (raw: unknown) => RemoteRowResult<Row>): PulledSyncRow<Row>[] {
+  /**
+   * Every table from its own position in `cursor`, moved back by the overlap; every row when the
+   * table has none.
+   */
+  async function pullFrom(userId: string, cursor: PullCursor, syncConsent: boolean): Promise<PulledAccountRows> {
+    const arrivals: PullArrival[] = [];
+    function accepted<Row>(
+      table: AccountTable, raws: readonly unknown[], map: (raw: unknown) => RemoteRowResult<Row>,
+    ): PulledSyncRow<Row>[] {
       const rows: PulledSyncRow<Row>[] = [];
       for (const raw of raws) {
         const result = map(raw);
-        arrivals.push({ serverUpdatedAt: result.serverUpdatedAt });
+        arrivals.push({ table, serverUpdatedAt: result.serverUpdatedAt });
         if (result.kind === 'accepted') rows.push({ row: result.row, serverUpdatedAt: result.serverUpdatedAt });
       }
       return rows;
     }
-    const records = async (table: RecordTable) => (syncConsent ? readTable(table, userId, from) : []);
+    const from = (table: AccountTable) => {
+      const position = cursor[table];
+      return position === null ? null : serverInstantSecondsBefore(position, pullOverlapSeconds);
+    };
+    const records = async (table: RecordTable, key: AccountTable) => (syncConsent ? readTable(table, userId, from(key)) : []);
     const [profiles, wardrobeItems, dressingDayChoices, dressingDayDepartures, outfitHistory] = await Promise.all([
-      readProfile(userId, from),
-      records('wardrobe_items'),
-      records('dressing_day_choices'),
-      records('dressing_day_departures'),
-      records('outfit_history'),
+      readProfile(userId, from('profile')),
+      records('wardrobe_items', 'wardrobeItems'),
+      records('dressing_day_choices', 'dressingDayChoices'),
+      records('dressing_day_departures', 'dressingDayDepartures'),
+      records('outfit_history', 'outfitHistory'),
     ]);
     return {
-      profile: accepted(profiles, fromRemoteProfile).at(-1)?.row ?? null,
-      wardrobeItems: accepted(wardrobeItems, (raw) => fromRemoteWardrobeItem(raw, localProfileId)),
-      dressingDayChoices: accepted(dressingDayChoices, (raw) => fromRemoteDressingDayChoice(raw, localProfileId)),
-      dressingDayDepartures: accepted(dressingDayDepartures, (raw) => fromRemoteDressingDayDeparture(raw, localProfileId)),
-      outfitHistory: accepted(outfitHistory, (raw) => fromRemoteOutfitHistory(raw, localProfileId)),
+      profile: accepted('profile', profiles, fromRemoteProfile).at(-1)?.row ?? null,
+      wardrobeItems: accepted('wardrobeItems', wardrobeItems, (raw) => fromRemoteWardrobeItem(raw, localProfileId)),
+      dressingDayChoices: accepted('dressingDayChoices', dressingDayChoices, (raw) => fromRemoteDressingDayChoice(raw, localProfileId)),
+      dressingDayDepartures: accepted('dressingDayDepartures', dressingDayDepartures,
+        (raw) => fromRemoteDressingDayDeparture(raw, localProfileId)),
+      outfitHistory: accepted('outfitHistory', outfitHistory, (raw) => fromRemoteOutfitHistory(raw, localProfileId)),
       arrivals,
     };
   }
@@ -182,7 +200,7 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
 
   return {
     async pullSnapshot(userId, syncConsent) {
-      const pulled = await pullFrom(userId, null, syncConsent);
+      const pulled = await pullFrom(userId, pullCursorAt(null), syncConsent);
       const rows = <Row>(entries: readonly PulledSyncRow<Row>[]) => entries.map(({ row }) => row);
       return {
         rows: {
@@ -192,13 +210,10 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
           dressingDayDepartures: rows(pulled.dressingDayDepartures),
           outfitHistory: rows(pulled.outfitHistory),
         },
-        cursor: nextCursor(null, pulled.arrivals),
+        cursor: nextCursor(pullCursorAt(null), pulled.arrivals),
       };
     },
-    pull(userId, cursor, syncConsent) {
-      const from = cursor === null ? null : serverInstantSecondsBefore(cursor, pullOverlapSeconds);
-      return pullFrom(userId, from, syncConsent);
-    },
+    pull: pullFrom,
     async upload(userId, rows): Promise<AccountRows> {
       let profile: AccountRows['profile'] = null;
       if (rows.profile !== null) {

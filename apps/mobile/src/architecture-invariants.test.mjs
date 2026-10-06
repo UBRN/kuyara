@@ -678,8 +678,9 @@ test('the device database is opened and migrated only through openMigratedDataba
 });
 
 // A mobile data-layer network call has one way to time out and parse a body:
-// `fetchJsonWithTimeout`. Each caller keeps its own timeout value and error mapping and does not
-// hand-roll an `AbortController` or read `response.json()` itself.
+// `fetchJsonWithTimeout`, or `fetchWithTimeout` for a client library that sends and parses its own
+// requests (the Supabase client). Each caller keeps its own timeout value and error mapping and
+// does not hand-roll an `AbortController` or read `response.json()` itself.
 test('a network call times out and parses its JSON only through fetchJsonWithTimeout', () => {
   const copies = [];
   for (const relativePath of sourceFiles()) {

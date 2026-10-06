@@ -1,15 +1,23 @@
-import type { ZodType } from 'zod';
+import { z, type ZodType } from 'zod';
 
 import {
   pendingUpload,
   rowCount,
   type AccountRowsSourcePort,
   type LocalAccountRows,
+  type StoredRowVersion,
+  type UnreadablePendingRows,
 } from '@/features/account/application/account-sync';
 import { unlinked, type AccountLink } from '@/features/account/domain/account-link';
 import type { MergeResult } from '@/features/account/domain/account-merge';
-import type { AccountProfile, AccountRows, SyncedProfile } from '@/features/account/domain/account-rows';
-import type { LocalSyncRow } from '@/features/account/domain/sync-rules';
+import {
+  profileFieldsToLand,
+  type AccountProfile,
+  type AccountRows,
+  type SyncedProfile,
+} from '@/features/account/domain/account-rows';
+import { canonicalServerInstant } from '@/features/account/domain/server-instant';
+import { pullCursorAt, type LocalSyncRow, type PullCursor } from '@/features/account/domain/sync-rules';
 import {
   breathabilitySchema,
   colorFamilySchema,
@@ -56,8 +64,9 @@ import type {
 // sections 3 and 4). It reads every row, soft-deleted ones included, with its pending flag, and
 // writes only what sync owns: the synced columns, the clocks and the flag. Device-only columns
 // (photo paths, `local_profile_id`, birth date, consents and settings) are never written from
-// the account; a row new to this phone takes this phone's profile and no photo. Every write is
-// one transaction through the shared helper the repositories use. Sync's bookkeeping (flags,
+// the account; a row new to this phone takes this phone's profile and no photo. Every write goes
+// through the shared transaction helper the repositories use, a large one in transactions of a
+// few hundred rows (`writeInBatches`). Sync's bookkeeping (flags,
 // link, cursor) tells no database write listener. A pull or first link that lands account rows
 // tells them once, so the Closet, History and Profile read the phone again; the lifecycle starts
 // no pass for it, because a landed row is settled, not waiting.
@@ -106,12 +115,22 @@ const clocks = (row: Readonly<{ created_at: string; updated_at: string; deleted_
   deletedAt: nullable(utcIsoTimestampSchema, row.deleted_at),
 });
 
-/** A stored row this build cannot read stays on the phone and out of sync, as the screens skip it. */
-function readable<Row extends Flag, Item>(rows: readonly Row[], map: (row: Row) => Item): LocalSyncRow<Item>[] {
+type StoredVersion = Flag & Readonly<{ id: string; day_key?: string; updated_at: string }>;
+
+/**
+ * A stored row this build cannot read stays on the phone and out of sync, as the screens skip it;
+ * a pending one is noted in `unreadablePending` by its identity and version.
+ */
+function readable<Row extends StoredVersion, Item>(
+  rows: readonly Row[], map: (row: Row) => Item, unreadablePending: StoredRowVersion[] = [],
+): LocalSyncRow<Item>[] {
   return rows.flatMap((row) => {
     try {
       return [{ row: map(row), pendingSync: row.pending_sync === 1 }];
     } catch {
+      if (row.pending_sync === 1) {
+        unreadablePending.push({ id: row.id, ...(row.day_key === undefined ? {} : { dayKey: row.day_key }), updatedAt: row.updated_at });
+      }
       return [];
     }
   });
@@ -203,13 +222,42 @@ function historyOf(row: HistoryRow): OutfitHistoryRecord {
   };
 }
 
+const storedPosition = z.string().nullable();
+const storedCursorSchema = z.object({
+  profile: storedPosition,
+  wardrobeItems: storedPosition,
+  dressingDayChoices: storedPosition,
+  dressingDayDepartures: storedPosition,
+  outfitHistory: storedPosition,
+});
+
+/**
+ * `last_pull_cursor` holds each table's position as a JSON object. A value without the object
+ * is the one position an older build stored for every table, and reads as that position for
+ * each; an unreadable value reads as none, so the next pull reads every row again and lands it
+ * idempotently.
+ */
+function cursorOf(stored: string | null): PullCursor {
+  if (stored === null) return pullCursorAt(null);
+  if (!stored.startsWith('{')) return pullCursorAt(canonicalServerInstant(stored));
+  try {
+    return storedCursorSchema.parse(JSON.parse(stored));
+  } catch {
+    return pullCursorAt(null);
+  }
+}
+
+const storedCursor = (cursor: PullCursor): string => JSON.stringify(cursor);
+
 const linkOf = (row: LinkRow | null): AccountLink => (row === null ? unlinked : {
   userId: row.linked_user_id,
   lastUserId: row.last_linked_user_id,
   recordsUserId: row.records_user_id,
   recordsConsentRecordedAt: row.records_consent_recorded_at,
-  cursor: row.last_pull_cursor,
+  cursor: cursorOf(row.last_pull_cursor),
 });
+
+const noRecords = { wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] } as const;
 
 const syncedTables = ['wardrobe_items', 'dressing_day_choices', 'dressing_day_departures', 'outfit_history'] as const;
 
@@ -263,35 +311,29 @@ const historyWrite: TableWrite<OutfitHistoryRecord> = {
 type Keyed = Readonly<{ id: string; dayKey?: string; createdAt: string; updatedAt: string; deletedAt: string | null }>;
 
 const where = (byDay: boolean) => (byDay ? 'local_profile_id = ? AND day_key = ?' : 'id = ?');
-const whereValues = (byDay: boolean, profileId: string, row: Keyed) =>
+const whereValues = (byDay: boolean, profileId: string, row: StoredRowVersion) =>
   (byDay ? [profileId, row.dayKey ?? ''] : [row.id]);
 
 /**
- * Lands one account row as a settled row (pending cleared). A pending row is left alone unless
- * `overPending` (the first link, where the account's copy wins). A day-keyed row adopts the
- * account's id. A row the phone cannot store (a constraint this build enforces) is skipped, so
- * one row never stalls every later pass; any other write failure throws.
+ * Lands one account row as a settled row (pending cleared), in one statement: inserted when the
+ * phone lacks it, else written over the phone's copy unless that copy is pending, which waits to
+ * upload and whose later arrival wins on the account. A day-keyed row is found by its day and
+ * adopts the account's id. A row the phone cannot store (a constraint this build enforces) is
+ * skipped, so one row never stalls every later pass; any other write failure throws.
  */
 async function land<Item extends Keyed>(
-  db: SqliteExecutor, write: TableWrite<Item>, profileId: string, row: Item, overPending: boolean,
+  db: SqliteExecutor, write: TableWrite<Item>, profileId: string, row: Item,
 ): Promise<void> {
-  const own = await db.getFirstAsync<Flag>(
-    `SELECT pending_sync FROM ${write.table} WHERE ${where(write.byDay)}`, whereValues(write.byDay, profileId, row));
-  if (own?.pending_sync === 1 && !overPending) return;
-  const content = write.values(row);
+  const columns = ['id', 'local_profile_id', ...(write.byDay ? ['day_key'] : []), ...write.columns,
+    'created_at', 'updated_at', 'deleted_at', 'pending_sync'];
+  const overwritten = [...write.columns, 'id', 'created_at', 'updated_at', 'deleted_at', 'pending_sync'];
   try {
-    if (own !== null) {
-      const assignments = [...write.columns, 'id', 'created_at', 'updated_at', 'deleted_at']
-        .map((column) => `${column} = ?`).join(', ');
-      await db.runAsync(`UPDATE ${write.table} SET ${assignments}, pending_sync = 0 WHERE ${where(write.byDay)}`,
-        [...content, row.id, row.createdAt, row.updatedAt, row.deletedAt, ...whereValues(write.byDay, profileId, row)]);
-    } else {
-      const columns = ['id', 'local_profile_id', ...(write.byDay ? ['day_key'] : []), ...write.columns,
-        'created_at', 'updated_at', 'deleted_at', 'pending_sync'];
-      await db.runAsync(`INSERT INTO ${write.table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
-        [row.id, profileId, ...(write.byDay ? [row.dayKey ?? ''] : []), ...content,
-          row.createdAt, row.updatedAt, row.deletedAt, 0]);
-    }
+    await db.runAsync(`INSERT INTO ${write.table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})
+      ON CONFLICT (${write.byDay ? 'local_profile_id, day_key' : 'id'}) DO UPDATE
+      SET ${overwritten.map((column) => `${column} = excluded.${column}`).join(', ')}
+      WHERE ${write.table}.pending_sync = 0`,
+    [row.id, profileId, ...(write.byDay ? [row.dayKey ?? ''] : []), ...write.values(row),
+      row.createdAt, row.updatedAt, row.deletedAt, 0]);
   } catch (error) {
     // Only a constraint failure is skipped: the phone keeps what it had, and the next first link
     // can bring the row again. Any other failure (a full disk, an I/O error) fails the whole pass,
@@ -300,18 +342,17 @@ async function land<Item extends Keyed>(
   }
 }
 
-/**
- * The account's profile fields on the phone. Display name always; gender and dress style only
- * as a value, never clearing the phone's, because product logic needs both; style aesthetics
- * and dress style only when the profile carries them (the consent).
- */
-async function landProfile(db: SqliteExecutor, profile: AccountProfile, overPending: boolean): Promise<void> {
-  const consent = profile.dressStyle !== undefined && profile.styleAesthetics !== undefined;
-  await db.runAsync(`UPDATE local_profiles SET display_name = ?, gender = COALESCE(?, gender)
-    ${consent ? ', dress_style = COALESCE(?, dress_style), style_aesthetics = ?' : ''}, pending_sync = 0
-    WHERE singleton_key = 1 ${overPending ? '' : 'AND pending_sync = 0'}`,
-  [profile.displayName, profile.gender,
-    ...(consent ? [profile.dressStyle ?? null, JSON.stringify(orderStyleAesthetics(profile.styleAesthetics ?? []))] : [])]);
+/** The account's profile fields on the phone, as `profileFieldsToLand` decides, unless an edit waits. */
+async function landProfile(db: SqliteExecutor, profile: AccountProfile): Promise<void> {
+  const fields = profileFieldsToLand(profile);
+  const columns: (readonly [string, SqliteBindValue])[] = [['display_name', fields.displayName]];
+  if (fields.gender !== undefined) columns.push(['gender', fields.gender]);
+  if (fields.dressStyle !== undefined) columns.push(['dress_style', fields.dressStyle]);
+  if (fields.styleAesthetics !== undefined) {
+    columns.push(['style_aesthetics', JSON.stringify(orderStyleAesthetics(fields.styleAesthetics))]);
+  }
+  await db.runAsync(`UPDATE local_profiles SET ${columns.map(([column]) => `${column} = ?`).join(', ')}, pending_sync = 0
+    WHERE singleton_key = 1 AND pending_sync = 0`, columns.map(([, value]) => value));
 }
 
 async function profileIdOf(db: SqliteExecutor): Promise<string> {
@@ -320,44 +361,84 @@ async function profileIdOf(db: SqliteExecutor): Promise<string> {
   return row.id;
 }
 
-async function landAll(db: SqliteExecutor, rows: AccountRows, overPending: boolean): Promise<void> {
-  if (rows.profile !== null) await landProfile(db, rows.profile, overPending);
-  const hasRecords = rows.wardrobeItems.length + rows.dressingDayChoices.length
-    + rows.dressingDayDepartures.length + rows.outfitHistory.length > 0;
-  if (!hasRecords) return;
-  const profileId = await profileIdOf(db);
-  for (const item of rows.wardrobeItems) await land(db, wardrobeWrite, profileId, item, overPending);
-  for (const choice of rows.dressingDayChoices) await land(db, choiceWrite, profileId, choice, overPending);
-  for (const departure of rows.dressingDayDepartures) await land(db, departureWrite, profileId, departure, overPending);
-  for (const record of rows.outfitHistory) await land(db, historyWrite, profileId, record, overPending);
+/** One row's write inside a batched write (`writeInBatches`). */
+type RowWrite = (db: SqliteExecutor) => Promise<void>;
+
+/** This phone's profile id, read at most once and only when a record row needs it. */
+function profileIdReader(database: SqliteExecutor): () => Promise<string> {
+  let id: Promise<string> | null = null;
+  return () => (id ??= profileIdOf(database));
 }
 
-/** Marks or clears the flag of each row of `rows` by its identity; `updatedAt` when `matchVersion`. */
-async function setPending(db: SqliteExecutor, rows: AccountRows, pending: 0 | 1, matchVersion: boolean): Promise<void> {
-  const version = matchVersion ? ' AND updated_at = ?' : '';
-  if (rows.profile !== null) {
-    await db.runAsync(`UPDATE local_profiles SET pending_sync = ? WHERE singleton_key = 1${version}`,
-      [pending, ...(matchVersion ? [rows.profile.updatedAt] : [])]);
-  }
-  const tables: readonly (readonly [TableWrite<never>, readonly Keyed[]])[] = [
-    [wardrobeWrite, rows.wardrobeItems], [choiceWrite, rows.dressingDayChoices],
-    [departureWrite, rows.dressingDayDepartures], [historyWrite, rows.outfitHistory],
+/** The rows whose pending flags a write sets or clears: their identities and versions. */
+type FlaggedRows = UnreadablePendingRows & Readonly<{ profile: Readonly<{ updatedAt: string }> | null }>;
+
+const recordTables = (rows: FlaggedRows): readonly (readonly [TableWrite<never>, readonly StoredRowVersion[]])[] => [
+  [wardrobeWrite, rows.wardrobeItems], [choiceWrite, rows.dressingDayChoices],
+  [departureWrite, rows.dressingDayDepartures], [historyWrite, rows.outfitHistory],
+];
+
+/** Landing every row of `rows` that is not waiting to upload, one write per row. */
+function landWrites(rows: AccountRows, profileId: () => Promise<string>): RowWrite[] {
+  const { profile } = rows;
+  const landEach = <Item extends Keyed>(write: TableWrite<Item>, items: readonly Item[]) =>
+    items.map((row) => async (db: SqliteExecutor) => land(db, write, await profileId(), row));
+  return [
+    ...(profile === null ? [] : [(db: SqliteExecutor) => landProfile(db, profile)]),
+    ...landEach(wardrobeWrite, rows.wardrobeItems),
+    ...landEach(choiceWrite, rows.dressingDayChoices),
+    ...landEach(departureWrite, rows.dressingDayDepartures),
+    ...landEach(historyWrite, rows.outfitHistory),
   ];
-  if (tables.every(([, items]) => items.length === 0)) return;
-  const profileId = await profileIdOf(db);
-  for (const [write, items] of tables) {
-    for (const row of items) {
+}
+
+/** Marking or clearing the flag of each row of `rows` by its identity; `updatedAt` too when `matchVersion`. */
+function flagWrites(rows: FlaggedRows, profileId: () => Promise<string>, pending: 0 | 1, matchVersion: boolean): RowWrite[] {
+  const version = matchVersion ? ' AND updated_at = ?' : '';
+  const { profile } = rows;
+  return [
+    ...(profile === null ? [] : [async (db: SqliteExecutor) => {
+      await db.runAsync(`UPDATE local_profiles SET pending_sync = ? WHERE singleton_key = 1${version}`,
+        [pending, ...(matchVersion ? [profile.updatedAt] : [])]);
+    }]),
+    ...recordTables(rows).flatMap(([write, items]) => items.map((row) => async (db: SqliteExecutor) => {
       await db.runAsync(`UPDATE ${write.table} SET pending_sync = ? WHERE ${where(write.byDay)}${version}`,
-        [pending, ...whereValues(write.byDay, profileId, row), ...(matchVersion ? [row.updatedAt] : [])]);
-    }
-  }
+        [pending, ...whereValues(write.byDay, await profileId(), row), ...(matchVersion ? [row.updatedAt] : [])]);
+    })),
+  ];
+}
+
+/**
+ * The unreadable pending rows the account's copy replaces at a first link: those it writes a row
+ * of the same identity for (by id, or by day in the day-keyed tables).
+ */
+function replacedByAccount(unreadable: UnreadablePendingRows, written: AccountRows): FlaggedRows {
+  const replaced = (rows: readonly StoredRowVersion[], writtenRows: readonly StoredRowVersion[], byDay: boolean) => {
+    const identity = (row: StoredRowVersion) => (byDay ? row.dayKey : row.id);
+    const writtenIdentities = new Set(writtenRows.map(identity));
+    return rows.filter((row) => writtenIdentities.has(identity(row)));
+  };
+  return {
+    profile: null,
+    wardrobeItems: replaced(unreadable.wardrobeItems, written.wardrobeItems, false),
+    dressingDayChoices: replaced(unreadable.dressingDayChoices, written.dressingDayChoices, true),
+    dressingDayDepartures: replaced(unreadable.dressingDayDepartures, written.dressingDayDepartures, true),
+    outfitHistory: replaced(unreadable.outfitHistory, written.outfitHistory, false),
+  };
 }
 
 async function saveLinkIn(db: SqliteExecutor, link: AccountLink): Promise<void> {
   await db.runAsync(`UPDATE device_account_link SET linked_user_id = ?, last_linked_user_id = ?,
     records_user_id = ?, records_consent_recorded_at = ?, last_pull_cursor = ? WHERE singleton_key = 1`,
-  [link.userId, link.lastUserId, link.recordsUserId, link.recordsConsentRecordedAt, link.cursor]);
+  [link.userId, link.lastUserId, link.recordsUserId, link.recordsConsentRecordedAt, storedCursor(link.cursor)]);
 }
+
+/**
+ * Rows written per transaction. Each statement crosses to the native side, and a transaction holds
+ * the write lock every other write of the app waits for, at most the database's 5-second busy
+ * wait; a few hundred rows stay well inside it, where an account of thousands would not.
+ */
+const rowsPerTransaction = 250;
 
 /** Sync's bookkeeping: kept from the database write listeners. */
 const quiet: SqliteTransactionOptions = { notifyWrites: false };
@@ -382,26 +463,52 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
     `SELECT ${columns}, pending_sync FROM ${table} WHERE local_profile_id = ? ORDER BY rowid`, [id]);
   const write = (task: (transaction: SqliteExecutor) => Promise<void>, options = quiet) =>
     database.withExclusiveTransactionAsync(task, options);
+  /**
+   * `rows` in transactions of `rowsPerTransaction`, then `finish` in the last one, which alone
+   * tells the listeners as `options` says. A failure part way keeps what earlier transactions
+   * wrote and skips `finish`, so the link or cursor `finish` saves stays where it was and the pass
+   * runs again: every row write lands, settles or flags the same way twice.
+   */
+  async function writeInBatches(rows: readonly RowWrite[], finish: RowWrite, options: SqliteTransactionOptions) {
+    const batches: (readonly RowWrite[])[] = [];
+    for (let start = 0; start < rows.length; start += rowsPerTransaction) {
+      batches.push(rows.slice(start, start + rowsPerTransaction));
+    }
+    const last = batches.pop() ?? [];
+    for (const batch of batches) {
+      await write(async (transaction) => { for (const row of batch) await row(transaction); });
+    }
+    await write(async (transaction) => {
+      for (const row of last) await row(transaction);
+      await finish(transaction);
+    }, options);
+  }
 
   async function read(): Promise<LocalAccountRows> {
     const profile = await database.getFirstAsync<ProfileRow>(`SELECT id, display_name, gender, dress_style,
       style_aesthetics, created_at, updated_at, pending_sync FROM local_profiles WHERE singleton_key = 1`);
-    if (profile === null) {
-      return { profile: null, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] };
-    }
+    if (profile === null) return { profile: null, ...noRecords, unreadablePending: noRecords };
+    const unreadablePending = {
+      wardrobeItems: [] as StoredRowVersion[], dressingDayChoices: [] as StoredRowVersion[],
+      dressingDayDepartures: [] as StoredRowVersion[], outfitHistory: [] as StoredRowVersion[],
+    };
     return {
+      unreadablePending,
       profile: readable([profile], profileOf)[0] ?? null,
       wardrobeItems: readable(await all<WardrobeRow>('wardrobe_items', `id, local_profile_id, name, category,
         entry_state, garment_type_id, color, color_family, color_option_id, color_custom_hex,
         thermal_level_override, water_protection_override, wind_protection_override, breathability_override,
         arm_coverage_override, leg_coverage_override, traction_suitability_override, photo_relative_path,
-        created_at, updated_at, deleted_at`, profile.id), wardrobeItemOf),
+        created_at, updated_at, deleted_at`, profile.id), wardrobeItemOf, unreadablePending.wardrobeItems),
       dressingDayChoices: readable(await all<ChoiceRow>('dressing_day_choices', `id, local_profile_id, day_key,
-        formality, source, style_aesthetics, created_at, updated_at, deleted_at`, profile.id), choiceOf),
+        formality, source, style_aesthetics, created_at, updated_at, deleted_at`, profile.id), choiceOf,
+        unreadablePending.dressingDayChoices),
       dressingDayDepartures: readable(await all<DepartureRow>('dressing_day_departures', `id, local_profile_id,
-        day_key, departure_at, time_zone, created_at, updated_at, deleted_at`, profile.id), departureOf),
+        day_key, departure_at, time_zone, created_at, updated_at, deleted_at`, profile.id), departureOf,
+        unreadablePending.dressingDayDepartures),
       outfitHistory: readable(await all<HistoryRow>('outfit_history', `id, local_profile_id, day_key, outfit_json,
-        piece_colors_json, photo_path, worn_at, created_at, updated_at, deleted_at`, profile.id), historyOf),
+        piece_colors_json, photo_path, worn_at, created_at, updated_at, deleted_at`, profile.id), historyOf,
+        unreadablePending.outfitHistory),
     };
   }
 
@@ -411,23 +518,27 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
       return linkOf(await database.getFirstAsync<LinkRow>('SELECT * FROM device_account_link WHERE singleton_key = 1'));
     },
     saveLink: (link) => write((transaction) => saveLinkIn(transaction, link)),
-    applyFirstLink(merge: MergeResult, link: AccountLink, local: AccountRows) {
-      return write(async (transaction) => {
-        // Under the consent the merge settles every record it read: what it does not send never
-        // uploads. A row written since the read (another identity or `updatedAt`) keeps its flag.
-        if (merge.syncConsent) await setPending(transaction, { ...local, profile: null }, 0, true);
-        await landAll(transaction, merge.writeToPhone, true);
-        await setPending(transaction, merge.sendToAccount, 1, false);
-        await saveLinkIn(transaction, link);
-      }, landing(merge.writeToPhone));
+    applyFirstLink(merge: MergeResult, link: AccountLink, local: AccountRows, unreadablePending = noRecords) {
+      const profileId = profileIdReader(database);
+      // The merge settles the profile it read and, under the consent, every record it read: the
+      // account's copy lands over it, and what it does not send never uploads. A row written
+      // since the read (another identity or `updatedAt`) keeps its flag, so the account's copy
+      // does not land over it and the edit uploads with the next pass. A pending row this build
+      // cannot read settles too when the account's copy replaces it. The link is saved last, so
+      // a first link that stops part way runs again whole.
+      return writeInBatches([
+        ...flagWrites(merge.syncConsent ? local : { ...noRecords, profile: local.profile }, profileId, 0, true),
+        ...(merge.syncConsent ? flagWrites(replacedByAccount(unreadablePending, merge.writeToPhone), profileId, 0, true) : []),
+        ...landWrites(merge.writeToPhone, profileId),
+        ...flagWrites(merge.sendToAccount, profileId, 1, false),
+      ], (transaction) => saveLinkIn(transaction, link), landing(merge.writeToPhone));
     },
     clearPendingIfUnchanged(returned) {
-      return write((transaction) => setPending(transaction, returned, 0, true));
+      return writeInBatches(flagWrites(returned, profileIdReader(database), 0, true), async () => {}, quiet);
     },
     writePulled(rows, cursor) {
-      return write(async (transaction) => {
-        await landAll(transaction, rows, false);
-        await transaction.runAsync('UPDATE device_account_link SET last_pull_cursor = ? WHERE singleton_key = 1', [cursor]);
+      return writeInBatches(landWrites(rows, profileIdReader(database)), async (transaction) => {
+        await transaction.runAsync('UPDATE device_account_link SET last_pull_cursor = ? WHERE singleton_key = 1', [storedCursor(cursor)]);
       }, landing(rows));
     },
     async hasPending(records) {

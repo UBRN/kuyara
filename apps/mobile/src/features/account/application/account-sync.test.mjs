@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { createAccountSyncFlow } from './account-sync.ts';
 import { unlinked } from '../domain/account-link.ts';
+import { pullCursorAt } from '../domain/sync-rules.ts';
 import { emptyRows as empty, historyDay, syncedProfile, wardrobeItem } from '../__tests__/account-fixtures.mjs';
 const local = (rows = empty(), pending = false) => ({
   profile: rows.profile === null ? null : { row: rows.profile, pendingSync: pending },
@@ -77,7 +78,7 @@ test('ongoing sync uploads pending rows, clears only matched versions, then land
   const arriving = historyDay(2, '2026-09-10', { photoPath: null });
   const source = {
     read: async () => local({ ...empty(), wardrobeItems: [own] }, true),
-    link: async () => ({ userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: '2026-09-30T00:00:00.000000Z' }),
+    link: async () => ({ userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: pullCursorAt('2026-09-30T00:00:00.000000Z') }),
     clearPendingIfUnchanged: async (rows) => calls.push(['clear', rows]),
     writePulled: async (rows, cursor) => calls.push(['write', rows, cursor]),
     applyFirstLink: async () => assert.fail('first link'),
@@ -87,7 +88,7 @@ test('ongoing sync uploads pending rows, clears only matched versions, then land
     pull: async () => ({
       ...empty(), outfitHistory: [{ row: arriving, serverUpdatedAt: '2026-10-01T00:00:00.000000Z' }],
       wardrobeItems: [{ row: wardrobeItem(1, { name: 'There' }), serverUpdatedAt: '2026-10-01T00:00:00.000000Z' }],
-      arrivals: [{ serverUpdatedAt: '2026-10-02T00:00:00.000000Z' }],
+      arrivals: [{ table: 'outfitHistory', serverUpdatedAt: '2026-10-02T00:00:00.000000Z' }],
     }),
     pullSnapshot: async () => assert.fail('snapshot'),
   };
@@ -95,7 +96,7 @@ test('ongoing sync uploads pending rows, clears only matched versions, then land
   assert.deepEqual(calls.map(([name]) => name), ['upload', 'clear', 'write']);
   assert.deepEqual(calls[2][1].wardrobeItems, []);
   assert.deepEqual(calls[2][1].outfitHistory, [arriving]);
-  assert.equal(calls[2][2], '2026-10-02T00:00:00.000000Z');
+  assert.deepEqual(calls[2][2], { ...pullCursorAt('2026-09-30T00:00:00.000000Z'), outfitHistory: '2026-10-02T00:00:00.000000Z' });
 });
 
 test('failed upload skips pull and keeps pending flags', async () => {
@@ -199,7 +200,7 @@ test('a pulled deletion marker soft-deletes the phone\'s settled row, skips a pe
       { row: wardrobeItem(1), pendingSync: false },
       { row: wardrobeItem(2, { name: 'Edited here' }), pendingSync: true },
     ] }),
-    link: async () => ({ userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: null }),
+    link: async () => ({ userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: pullCursorAt(null) }),
     clearPendingIfUnchanged: async () => {},
     writePulled: async (rows, cursor) => writes.push([rows, cursor]),
     applyFirstLink: async () => assert.fail('first link'),
@@ -209,7 +210,7 @@ test('a pulled deletion marker soft-deletes the phone\'s settled row, skips a pe
     pull: async () => ({
       ...empty(),
       wardrobeItems: [1, 2, 3].map((n) => ({ row: marker(n), serverUpdatedAt: '2026-10-01T00:00:00.000001Z' })),
-      arrivals: [{ serverUpdatedAt: '2026-10-01T00:00:00.000001Z' }],
+      arrivals: [{ table: 'wardrobeItems', serverUpdatedAt: '2026-10-01T00:00:00.000001Z' }],
     }),
     pullSnapshot: async () => assert.fail('snapshot'),
   };
@@ -217,7 +218,7 @@ test('a pulled deletion marker soft-deletes the phone\'s settled row, skips a pe
   assert.deepEqual(writes[0][0].wardrobeItems, [
     wardrobeItem(1, { updatedAt: '2026-10-01T00:00:00.000Z', deletedAt: '2026-10-01T00:00:00.000Z' }),
   ]);
-  assert.equal(writes[0][1], '2026-10-01T00:00:00.000001Z');
+  assert.deepEqual(writes[0][1], { ...pullCursorAt(null), wardrobeItems: '2026-10-01T00:00:00.000001Z' });
 });
 
 test('a pull mixing markers and whole rows lands each with its own arrival, the latest per row winning', async () => {
@@ -227,7 +228,7 @@ test('a pull mixing markers and whole rows lands each with its own arrival, the 
   const writes = [];
   const source = {
     read: async () => local({ ...empty(), wardrobeItems: [wardrobeItem(1), wardrobeItem(2)] }),
-    link: async () => ({ userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: null }),
+    link: async () => ({ userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: pullCursorAt(null) }),
     clearPendingIfUnchanged: async () => {},
     writePulled: async (rows) => writes.push(rows),
     applyFirstLink: async () => assert.fail('first link'),
@@ -275,3 +276,32 @@ test('at a first link an account marker deletes the phone\'s copy and is never s
   assert.deepEqual(merged.writeToPhone.wardrobeItems, [{ ...own, updatedAt: '2026-10-01T00:00:00.000Z', deletedAt: '2026-10-01T00:00:00.000Z' }]);
   assert.deepEqual(merged.sendToAccount.wardrobeItems, []);
 });
+
+test('a pass reads the phone once when nothing waits and nothing lands, and again only after an upload or a landing', async () => {
+  let reads = 0;
+  const own = wardrobeItem(1);
+  const source = (pending) => ({
+    read: async () => { reads += 1; return local({ ...empty(), wardrobeItems: [own] }, pending); },
+    link: async () => ({ userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: pullCursorAt(null) }),
+    clearPendingIfUnchanged: async () => {},
+    writePulled: async () => {},
+    applyFirstLink: async () => assert.fail('first link'),
+  });
+  const remote = (pulledRows) => ({
+    upload: async (_id, rows) => rows,
+    pull: async () => ({ ...empty(), wardrobeItems: pulledRows, arrivals: [] }),
+    pullSnapshot: async () => assert.fail('snapshot'),
+  });
+  const run = async (pending, pulledRows) => {
+    reads = 0;
+    const after = await createAccountSyncFlow(source(pending), remote(pulledRows), () => '2026-10-03T00:00:00Z').sync('user-a', true);
+    assert.deepEqual(after.wardrobeItems.map(({ row }) => row.id), [own.id]);
+    return reads;
+  };
+  const arriving = [{ row: wardrobeItem(2), serverUpdatedAt: '2026-10-01T00:00:00.000000Z' }];
+  assert.equal(await run(false, []), 1);
+  assert.equal(await run(true, []), 2);
+  assert.equal(await run(false, arriving), 2);
+  assert.equal(await run(true, arriving), 3);
+});
+

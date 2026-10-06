@@ -386,3 +386,28 @@ test('each record table keeps its cursor index, and the profile, found by its ke
   }
   assert.equal(schema.indexes.has('profiles_user_server_updated_at'), false);
 });
+
+test('every cap check holds its account\'s lock alone before it counts, so parallel uploads cannot pass a cap together', () => {
+  // A count sees committed rows and its own transaction's, never another upload's uncommitted
+  // rows, so two uploads that each fit the cap could both commit past it. Each check first takes
+  // a transaction advisory lock of the account and table alone: the second upload waits for the
+  // first to commit and then counts its rows too.
+  const caps = {
+    enforce_user_row_cap: "hashtextextended('kuyara.row_cap:' || tg_table_name || ':' || auth.uid()::text, 0)",
+    enforce_consent_record_cap: "hashtextextended('kuyara.consent_records:' || auth.uid()::text, 0)",
+  };
+  for (const [name, key] of Object.entries(caps)) {
+    const body = finalFunction(name);
+    const lock = body.indexOf(`perform pg_advisory_xact_lock(${key});`);
+    assert.ok(lock > 0, name);
+    assert.ok(lock < body.indexOf('select count(*)'), name);
+    assert.doesNotMatch(body, /pg_advisory_xact_lock_shared/u, name);
+  }
+  const userCap = finalFunction('enforce_user_row_cap');
+  assert.ok(userCap.indexOf('pg_advisory_xact_lock(') < userCap.indexOf('pg_database_size'));
+  // Every capped table checks through one of the two functions.
+  for (const table of recordTables) {
+    assert.match(schema.triggers.get(`${table}.${table}_row_cap`) ?? '', /execute function public\.enforce_user_row_cap\('\d+'\)$/u, table);
+  }
+  assert.match(schema.triggers.get('sync_consent_records.sync_consent_records_row_cap') ?? '', /execute function public\.enforce_consent_record_cap\(\)$/u);
+});

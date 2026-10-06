@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { fetchJsonWithTimeout } from './fetch-json-with-timeout.ts';
+import { fetchJsonWithTimeout, fetchWithTimeout } from './fetch-json-with-timeout.ts';
 
 const failures = {
   network: (cause) => ({ kind: 'network', cause }),
@@ -73,4 +73,33 @@ test('the deadline also covers reading the body', async () => {
     fetchJsonWithTimeout(fetch, 'u', {}, 5, failures),
     (thrown) => thrown.kind === 'invalid-json',
   );
+});
+
+/** A server that never answers: the request settles only when it is aborted. */
+const silent = (_url, init) => new Promise((_resolve, reject) => {
+  init.signal.addEventListener('abort', () => reject(init.signal.reason));
+});
+
+test('a request that gets no answer is aborted at the deadline', async () => {
+  const send = fetchWithTimeout(silent, 20);
+  const started = Date.now();
+  await assert.rejects(send('https://example.test/x', { method: 'GET' }), { name: 'AbortError' });
+  assert.ok(Date.now() - started < 1000);
+});
+
+test('an answer before the deadline passes through with the request unchanged', async () => {
+  let seen;
+  const send = fetchWithTimeout(async (url, init) => { seen = { url, init }; return new Response('{}', { status: 201 }); }, 1000);
+  const response = await send('https://example.test/x', { method: 'POST', body: '{}', headers: { a: 'b' } });
+  assert.equal(response.status, 201);
+  assert.equal(seen.url, 'https://example.test/x');
+  assert.deepEqual([seen.init.method, seen.init.body, seen.init.headers], ['POST', '{}', { a: 'b' }]);
+  assert.equal(seen.init.signal.aborted, false);
+});
+
+test('the caller\'s own abort still aborts the request', async () => {
+  const caller = new AbortController();
+  const sending = fetchWithTimeout(silent, 10_000)('https://example.test/x', { signal: caller.signal });
+  caller.abort();
+  await assert.rejects(sending, { name: 'AbortError' });
 });
