@@ -3,17 +3,15 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   AppText,
-  GarmentCandidateTile,
   GlassButton,
   Icon,
   NativeSheet,
   PressScale,
   SegmentedControl,
-  useGarmentCandidateRoles,
-  type GarmentOutfitPalette,
   type SegmentedControlOption,
   useTextScaling,
 } from '@/components/ui';
+import { GarmentCandidateTile, useGarmentCandidateRoles, type GarmentOutfitPalette } from '@/garment-art';
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { TodayCopy } from '@/features/today/presentation/outfit-detail-entries';

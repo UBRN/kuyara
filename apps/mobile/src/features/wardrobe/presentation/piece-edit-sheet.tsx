@@ -4,7 +4,6 @@ import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import {
   AppText,
   Button,
-  GarmentTileArtwork,
   GlassButton,
   haptics,
   Icon,
@@ -12,6 +11,7 @@ import {
   Surface,
   useTextScaling,
 } from '@/components/ui';
+import { GarmentTileArtwork } from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type {
   ColorFamily,

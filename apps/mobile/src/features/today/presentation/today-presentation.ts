@@ -1,6 +1,6 @@
 import type { DayKind } from '@kuyara/contracts';
 
-import type { GarmentOutfitPalette } from '@/components/ui';
+import type { GarmentOutfitPalette } from '@/garment-art';
 
 import {
   archetypeLabel,

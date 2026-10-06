@@ -6,15 +6,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import {
-  AppText,
-  Button,
-  fadeTo,
-  GarmentDrawing,
-  garmentUsualColorFamilies,
-  PressScale,
-  useTextScaling,
-} from '@/components/ui';
+import { AppText, Button, fadeTo, PressScale, useTextScaling } from '@/components/ui';
+import { GarmentDrawing, garmentUsualColorFamilies } from '@/garment-art';
 import type { ClothingPreference } from '@/domain/preferences';
 import {
   getGarmentType,

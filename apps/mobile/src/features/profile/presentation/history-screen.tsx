@@ -2,17 +2,13 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { FlatList, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText, Button, Entrance, Screen, useTextScaling } from '@/components/ui';
 import {
-  AppText,
-  Button,
-  Entrance,
   GarmentBoard,
   measureGarmentBoardHeight,
-  Screen,
-  useTextScaling,
   type GarmentBoardPiece,
   type GarmentOutfitPalette,
-} from '@/components/ui';
+} from '@/garment-art';
 import { EmptyStateArt } from '@/components/ui/empty-state-art';
 import { calendarDateUtcMidnight } from '@/domain/calendar-date';
 import { dateTimeFormat } from '@/domain/intl-format';

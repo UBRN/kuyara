@@ -5,8 +5,8 @@ import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WardrobeRoute from '@/app/(tabs)/(profile)/wardrobe/index';
-import { garmentSilhouetteIds } from '@/components/ui/garment-board/garment-silhouette-map';
-import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+import { garmentSilhouetteIds } from '@/garment-art/garment-silhouette-map';
+import { silhouettes } from '@/garment-art/silhouettes';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';

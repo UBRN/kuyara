@@ -15,8 +15,8 @@ import type { MotionTokens } from '@/theme/theme';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-import { resolveGarmentArtwork } from '../garment-slot-glyph';
-import { fadeTo } from '../fade';
+import { resolveGarmentArtwork } from './garment-slot-glyph';
+import { fadeTo } from '@/components/ui/fade';
 import { flatLayStack } from './compose-flat-lay';
 import { drawnExtent, fitRunwayScale, placeOnRunway } from './compose-garment-board';
 import {

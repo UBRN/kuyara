@@ -15,19 +15,21 @@ import {
   AppText,
   Button,
   Crossfade,
-  GarmentSwapBoard,
   Icon,
-  keepGarmentColors,
-  layoutGarmentBoard,
   Presence,
   Screen,
   haptics,
-  swapRevealScroll,
   useBandWidth,
-  useGarmentRoles,
-  type GarmentOutfitPalette,
   useTextScaling,
 } from '@/components/ui';
+import {
+  GarmentSwapBoard,
+  keepGarmentColors,
+  layoutGarmentBoard,
+  swapRevealScroll,
+  useGarmentRoles,
+  type GarmentOutfitPalette,
+} from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';

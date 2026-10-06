@@ -1,19 +1,13 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { AppText, Button, CheckRow, GlassButton, Icon, ListRow, NativeSheet } from '@/components/ui';
 import {
-  AppText,
-  Button,
-  CheckRow,
   ClosetSolidStrip,
   GarmentCandidateTile,
-  GlassButton,
-  Icon,
-  ListRow,
-  NativeSheet,
   useGarmentRoles,
   type GarmentOutfitPalette,
-} from '@/components/ui';
+} from '@/garment-art';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { composePieceLimit } from '@/features/recommendation/application/compose-around-pieces';
 import {

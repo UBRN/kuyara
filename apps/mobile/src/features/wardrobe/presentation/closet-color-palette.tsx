@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, ColorSwatch, NativeColorWell } from '@/components/ui';
+import { AppText, NativeColorWell } from '@/components/ui';
+import { ColorSwatch, ColorWellFace } from '@/garment-art';
 import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
 import {
   closetColorOptions,
@@ -96,8 +97,9 @@ export function ClosetColorPalette({
             }}
             selected={customHex !== null}
             testID="wardrobe-color-custom"
-            value={customHex}
-          />
+            value={customHex}>
+            <ColorWellFace hex={customHex} testID="wardrobe-color-custom" />
+          </NativeColorWell>
         </View>
       </View>
       <AppText accessibilityRole="header" colorRole="textSecondary" nativeID="wardrobe-color-pattern-heading"

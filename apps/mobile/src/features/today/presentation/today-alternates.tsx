@@ -1,16 +1,8 @@
 import { Link } from 'expo-router';
 import { FlatList, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import {
-  AppText,
-  Entrance,
-  GarmentBoard,
-  Icon,
-  measureGarmentBoardHeight,
-  PressScale,
-  Surface,
-  useTextScaling,
-} from '@/components/ui';
+import { AppText, Entrance, Icon, PressScale, Surface, useTextScaling } from '@/components/ui';
+import { GarmentBoard, measureGarmentBoardHeight } from '@/garment-art';
 import type { OutfitDetailLink } from '@/features/today/presentation/today-outfit';
 import type {
   LoadedOutfitPresentation,

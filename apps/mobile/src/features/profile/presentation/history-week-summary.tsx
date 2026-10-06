@@ -1,14 +1,8 @@
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import {
-  AppText,
-  GarmentDrawing,
-  Icon,
-  useGarmentRoles,
-  type GarmentOutfitPalette,
-  type IconName,
-} from '@/components/ui';
+import { AppText, Icon, type IconName } from '@/components/ui';
+import { GarmentDrawing, useGarmentRoles, type GarmentOutfitPalette } from '@/garment-art';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { historyDrawingSky } from '@/features/profile/presentation/history-drawing-sky';
 import type { DressedFor, WeekSummary } from '@/features/recommendation/domain/outfit-history-week';

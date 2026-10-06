@@ -2,17 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, StyleSheet, TextInput, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
-import {
-  AppText,
-  Button,
-  garmentUsualColorFamilies,
-  haptics,
-  Icon,
-  Presence,
-  Screen,
-  Surface,
-  useTextScaling,
-} from '@/components/ui';
+import { AppText, Button, haptics, Icon, Presence, Screen, Surface, useTextScaling } from '@/components/ui';
+import { garmentUsualColorFamilies } from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { ClothingPreference } from '@/domain/preferences';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';

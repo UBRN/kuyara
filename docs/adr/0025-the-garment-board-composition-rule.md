@@ -3,7 +3,7 @@
 Status: Accepted (2026-09-04)
 
 Implementation: the rule and both parameter presets live in
-`apps/mobile/src/components/ui/garment-board/`; Today and recommendation detail render
+`apps/mobile/src/garment-art/`; Today and recommendation detail render
 their respective presets. The rule's parameters, reference implementation and rendered
 evidence are described in
 [`design/garment-board.md`](../design/garment-board.md); this ADR records the decision

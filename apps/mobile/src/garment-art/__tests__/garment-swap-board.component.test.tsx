@@ -5,20 +5,20 @@ import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import * as Reanimated from 'react-native-reanimated';
 
-import { flatLayStack } from '@/components/ui/garment-board/compose-flat-lay';
+import { flatLayStack } from '@/garment-art/compose-flat-lay';
 import {
   composePieces,
   entranceStartBoxes,
   measureGarmentBoardHeight,
   type GarmentBoardPiece,
-} from '@/components/ui/garment-board/garment-board';
+} from '@/garment-art/garment-board';
 import { haptics } from '@/components/ui/haptics';
-import type { GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
+import type { GarmentOutfitPalette } from '@/garment-art/garment-palette';
 import {
   GarmentSwapBoard,
   type GarmentSwapBoardProps,
   type GarmentSwapCandidate,
-} from '@/components/ui/garment-board/garment-swap-board';
+} from '@/garment-art/garment-swap-board';
 import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 

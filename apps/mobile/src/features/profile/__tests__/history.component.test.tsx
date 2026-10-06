@@ -4,8 +4,8 @@ import { processColor, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { measureGarmentBoardHeight } from '@/components/ui';
-import { garmentRolesBySlot } from '@/components/ui/garment-board/garment-palette';
+import { measureGarmentBoardHeight } from '@/garment-art';
+import { garmentRolesBySlot } from '@/garment-art/garment-palette';
 import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,

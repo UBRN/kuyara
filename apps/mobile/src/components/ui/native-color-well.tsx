@@ -1,6 +1,6 @@
+import type { ReactNode } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { ClosetColorDisc, ColorWellMark } from '@/components/ui/garment-board/closet-color-art';
 import { isSrgbHex } from '@/domain/srgb-color';
 import { borderWidths, interaction, layout } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -24,14 +24,14 @@ export type NativeColorWellProps = Readonly<{
   disabled?: boolean;
   /** The chosen custom colour as `#RRGGBB`, or `null` while none is. */
   value: string | null;
+  /** The drawn well, centred over the native picker: the empty ring or the chosen colour's disc. */
+  children: ReactNode;
   /** Receives an uppercase `#RRGGBB`; anything else the picker reports is dropped. */
   onChange: (hex: string) => void;
   testID: string;
 }>;
 
 const SIZE = layout.minimumTouchTarget;
-// Drawn at the swatch discs' size (color-swatch.tsx).
-const DISC_SIZE = 36;
 // SwiftUI draws its well at 28 points whatever the frame (measured on the Simulator, O8), and
 // only the well takes touches. Scaled up, it covers the whole 44-point slot, so the slot is
 // the touch target; the host clips it to that square.
@@ -46,14 +46,15 @@ const NATIVE_WELL_OPACITY = 0.02;
  * HIG Color wells: the last swatch of the Closet palette (O8), which opens the system colour
  * picker (SwiftUI's `ColorPicker`). It is one radio in the palette's set: the React Native
  * wrapper carries the name, the selected state and the value, and the native control is
- * hidden from assistive technology; VoiceOver's activation taps through to it. Empty, it is
- * the multicolour ring with a plus; chosen, the custom colour's disc with the same ring and
- * check as the other swatches. A colour that is no longer chosen is not kept. Android has no
- * equivalent control in this build, so no well is drawn there.
+ * hidden from assistive technology; VoiceOver's activation taps through to it. The caller
+ * draws its face: empty, the multicolour ring with a plus; chosen, the custom colour's disc
+ * with the same ring and check as the other swatches. A colour that is no longer chosen is
+ * not kept. Android has no equivalent control in this build, so no well is drawn there.
  */
 export function NativeColorWell({
   accessibilityLabel,
   accessibilityValue,
+  children,
   disabled = false,
   onChange,
   selected,
@@ -94,12 +95,7 @@ export function NativeColorWell({
         />
       </swiftUI.Host>
       <View pointerEvents="none" style={styles.overlay}>
-        {chosen ? (
-          <ClosetColorDisc choice={{ kind: 'custom', hex: chosen }} selected size={DISC_SIZE}
-            testID={`${testID}-disc`} />
-        ) : (
-          <ColorWellMark size={DISC_SIZE} testID={`${testID}-mark`} />
-        )}
+        {children}
       </View>
       <View
         pointerEvents="none"

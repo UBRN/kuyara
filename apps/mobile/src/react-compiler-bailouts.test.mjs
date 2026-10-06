@@ -56,7 +56,7 @@ const hotPath = new Set([
   'features/today/presentation/outfit-detail-recap.tsx',
   'features/today/presentation/outfit-detail-why.tsx',
   'features/today/presentation/outfit-detail-worn.tsx',
-  'components/ui/garment-board/garment-swap-board.tsx',
+  'garment-art/garment-swap-board.tsx',
 ]);
 
 // On the outfit detail path, Today and the Closet list, the values a compiled component still
@@ -69,8 +69,8 @@ const knownPruned = new Map([
   // The recommendation and the open outfit, read from provider state whose identity holds.
   ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 7 }],
   ['features/today/presentation/outfit-detail-screen.tsx', {}],
-  ['components/ui/garment-board/garment-swap-board.tsx', { GarmentSwapBoard: 27 }],
-  ['components/ui/garment-board/garment-painting.tsx', {}],
+  ['garment-art/garment-swap-board.tsx', { GarmentSwapBoard: 27 }],
+  ['garment-art/garment-painting.tsx', {}],
   ['features/today/presentation/today-screen.tsx', {}],
   ['features/wardrobe/presentation/wardrobe-list-screen.tsx', {}],
 ]);

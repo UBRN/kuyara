@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { ClosetColorDisc } from '@/components/ui/garment-board/closet-color-art';
+import { ClosetColorDisc, ColorWellMark } from './closet-color-art';
 import { PressScale } from '@/components/ui/press-scale';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import { borderWidths, interaction, layout } from '@/theme/theme';
@@ -54,6 +54,16 @@ export function ColorSwatch({
       <ClosetColorDisc choice={choice} selected={selected} size={DISC_SIZE} testID={`${testID}-disc`} />
     </PressScale>
   );
+}
+
+/**
+ * The face of the Closet palette's colour well, drawn at a swatch disc's size: the chosen
+ * custom colour as a checked disc, or the empty multicolour ring with a plus.
+ */
+export function ColorWellFace({ hex, testID }: Readonly<{ hex: string | null; testID: string }>) {
+  return hex === null
+    ? <ColorWellMark size={DISC_SIZE} testID={`${testID}-mark`} />
+    : <ClosetColorDisc choice={{ kind: 'custom', hex }} selected size={DISC_SIZE} testID={`${testID}-disc`} />;
 }
 
 const styles = StyleSheet.create({

@@ -1,4 +1,4 @@
-import type { GarmentOutfitPalette } from '@/components/ui';
+import type { GarmentOutfitPalette } from '@/garment-art';
 
 /**
  * The sky History draws a worn piece under: a mild, cloudy day, so a piece whose day kept no

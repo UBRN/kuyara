@@ -16,7 +16,7 @@ import {
 import { previewIsThisMorning, tomorrowForecastDay } from './application/outfit-detail-state.ts';
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
-import { composeGarmentBoard } from '../../components/ui/garment-board/compose-garment-board.ts';
+import { composeGarmentBoard } from '../../garment-art/compose-garment-board.ts';
 
 const weatherReasons = [
   'Strong wind requires wind protection.',

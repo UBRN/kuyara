@@ -1,7 +1,8 @@
 import type { Ref, RefObject } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Entrance, GarmentTileArtwork, Icon, type useGarmentRoles, useTextScaling } from '@/components/ui';
+import { AppText, Button, Entrance, Icon, useTextScaling } from '@/components/ui';
+import { GarmentTileArtwork, type useGarmentRoles } from '@/garment-art';
 import type { AccessoryOutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { DetailPresentation, DetailSuggestion, TodayCopy } from '@/features/today/presentation/outfit-detail-entries';
 import { FadeOnChange } from '@/features/today/presentation/outfit-detail-fades';

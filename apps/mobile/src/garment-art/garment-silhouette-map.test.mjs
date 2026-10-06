@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getGarmentType } from '../../../features/catalog/domain/garment-catalog.ts';
-import { garmentTypeIds, structuralCategories } from '../../../features/catalog/domain/garment-taxonomy.ts';
+import { getGarmentType } from '../features/catalog/domain/garment-catalog.ts';
+import { garmentTypeIds, structuralCategories } from '../features/catalog/domain/garment-taxonomy.ts';
 import { categoryGlyphIds, garmentSilhouetteIds, resolveGarmentSilhouette } from './garment-silhouette-map.ts';
 import { resolveGarmentPalette } from './garment-palette.ts';
 import { silhouettes } from './silhouettes.ts';

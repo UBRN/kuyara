@@ -10,17 +10,15 @@ import {
   Crossfade,
   FadeIn,
   fadeTo,
-  GarmentRunwayBoard,
   Icon,
   ProgressFill,
-  runwayDressingDuration,
   Screen,
   ShrinkingPlate,
   type PlateRect,
   type ShrinkingPlateProps,
-  type RunwayBoardOutfit,
   useTextScaling,
 } from '@/components/ui';
+import { GarmentRunwayBoard, runwayDressingDuration, type RunwayBoardOutfit } from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import { SKELETON_PIECES } from '@/features/today/presentation/garment-board-skeleton';

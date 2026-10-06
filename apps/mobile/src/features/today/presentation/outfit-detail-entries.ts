@@ -1,4 +1,4 @@
-import { garmentColorFamiliesBySlot, type GarmentOutfitPalette } from '@/components/ui';
+import { garmentColorFamiliesBySlot, type GarmentOutfitPalette } from '@/garment-art';
 import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
 import type { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { matchPieceOwnership } from '@/features/wardrobe/domain/garment-type-ownership';

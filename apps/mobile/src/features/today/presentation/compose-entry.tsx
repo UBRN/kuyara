@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Icon, ListRow, ListRowGroup, type GarmentOutfitPalette } from '@/components/ui';
+import { AppText, Button, Icon, ListRow, ListRowGroup } from '@/components/ui';
+import { type GarmentOutfitPalette } from '@/garment-art';
 import type { ComposePin } from '@/features/recommendation/application/compose-around-pieces';
 import {
   colorComposeChoice,

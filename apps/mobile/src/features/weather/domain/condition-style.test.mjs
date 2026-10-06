@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { resolveDaypart } from '@/features/weather/domain/atmosphere-state';
 import { weatherConditionCodes } from '@/features/weather/domain/weather';
-import { resolveConditionStyle } from './condition-style.ts';
+import { conditionSymbolMotion, resolveConditionStyle } from './condition-style.ts';
 
 const expected = {
   clear: {
@@ -143,4 +143,29 @@ test('the fixed window still answers when there are no coordinates to read', () 
 test('an unreadable instant or time zone resolves to no daypart at all', () => {
   assert.equal(resolveDaypart('not-an-instant', 'Europe/Istanbul', istanbul), null);
   assert.equal(resolveDaypart('2026-09-18T12:00:00Z', 'Mars/Olympus', istanbul), null);
+});
+
+// ADR 0020's closed vocabulary for the condition symbol: the sun turns, clouds drift, what
+// comes down falls, a night sky and an unknown condition hold still.
+test('every condition and daypart maps to one symbol motion', () => {
+  const motionOf = (condition, daypart) => conditionSymbolMotion(resolveConditionStyle(condition, daypart));
+
+  assert.equal(motionOf('clear', 'day'), 'turn');
+  assert.equal(motionOf('mostly_clear', 'day'), 'turn');
+  assert.equal(motionOf('clear', 'night'), 'still');
+  assert.equal(motionOf('mostly_clear', 'night'), 'still');
+  assert.equal(motionOf('partly_cloudy', 'day'), 'drift');
+  assert.equal(motionOf('partly_cloudy', 'night'), 'drift');
+  assert.equal(motionOf('cloudy', 'day'), 'drift');
+  assert.equal(motionOf('fog', 'day'), 'drift');
+  for (const condition of ['drizzle', 'rain', 'heavy_rain', 'sleet', 'snow', 'thunderstorm']) {
+    assert.equal(motionOf(condition, 'day'), 'fall', condition);
+  }
+  assert.equal(motionOf('rain', null), 'still', 'an unknown daypart draws the neutral, still symbol');
+  assert.equal(motionOf('not-a-condition', 'day'), 'still');
+  for (const condition of weatherConditionCodes) {
+    for (const daypart of ['day', 'night']) {
+      assert.ok(['turn', 'drift', 'fall', 'still'].includes(motionOf(condition, daypart)), `${condition} ${daypart}`);
+    }
+  }
 });

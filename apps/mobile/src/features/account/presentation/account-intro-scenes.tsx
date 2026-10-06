@@ -1,20 +1,17 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { Crossfade, Entrance, Icon, RollingText } from '@/components/ui';
 import {
   ClosetRack,
-  Crossfade,
-  Entrance,
   GarmentDrawing,
   GarmentPreviewBoard,
-  Icon,
   measureGarmentBoardHeight,
   RACK_ASPECT,
-  RollingText,
   type GarmentBoardPiece,
   type GarmentOutfitPalette,
   type RackPiece,
-} from '@/components/ui';
+} from '@/garment-art';
 import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
 import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
 import { useEasierToSee } from '@/theme/easier-to-see';

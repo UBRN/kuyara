@@ -3,7 +3,8 @@ import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
-import { AppText, Button, ChoiceTile, ChoiceTileGrid, FadeIn, GlassButton, NativeSheet } from '@/components/ui';
+import { AppText, Button, FadeIn, GlassButton, NativeSheet } from '@/components/ui';
+import { ChoiceTile, ChoiceTileGrid } from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { spacing } from '@/theme/theme';

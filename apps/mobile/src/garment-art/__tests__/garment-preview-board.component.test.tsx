@@ -2,8 +2,8 @@ import { act, isHiddenFromAccessibility, render } from '@testing-library/react-n
 import type { PropsWithChildren } from 'react';
 import * as Reanimated from 'react-native-reanimated';
 
-import { GarmentPreviewBoard, type GarmentBoardPiece } from '@/components/ui';
-import { PREVIEW_SLIDE } from '@/components/ui/garment-preview-board';
+import { GarmentPreviewBoard, type GarmentBoardPiece } from '@/garment-art';
+import { PREVIEW_SLIDE } from '@/garment-art/garment-preview-board';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 

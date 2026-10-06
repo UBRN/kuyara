@@ -8,7 +8,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { AppText, DrawGrow, GarmentTileArtwork, Icon, type IconName, type useGarmentRoles } from '@/components/ui';
+import { AppText, DrawGrow, Icon, type IconName } from '@/components/ui';
+import { GarmentTileArtwork, type useGarmentRoles } from '@/garment-art';
 import type { WeatherCause } from '@/features/recommendation/domain/weather-causes';
 import {
   type DetailSuggestion,

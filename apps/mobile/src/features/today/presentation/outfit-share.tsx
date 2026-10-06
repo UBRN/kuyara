@@ -3,13 +3,8 @@ import { useRef, useState, type Ref } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import {
-  AppText,
-  GarmentBoard,
-  Icon,
-  measureGarmentBoardHeight,
-  type GarmentOutfitPalette,
-} from '@/components/ui';
+import { AppText, Icon } from '@/components/ui';
+import { GarmentBoard, measureGarmentBoardHeight, type GarmentOutfitPalette } from '@/garment-art';
 import { brandSymbolPaths, brandSymbolViewBox } from '@/components/ui/brand-symbol';
 import { shareSnapshot } from '@/components/ui/share-snapshot';
 import { IOS_STORE_URL } from '@/config/store-links';

@@ -26,9 +26,9 @@ import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier
 import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-import { haptics } from '../haptics';
-import { fadeEasing, fadeTo } from '../fade';
-import { PRESENCE_TEXT_AFTER } from '../presence';
+import { haptics } from '@/components/ui/haptics';
+import { fadeEasing, fadeTo } from '@/components/ui/fade';
+import { PRESENCE_TEXT_AFTER } from '@/components/ui/presence';
 import {
   composePieces,
   entranceStartBoxes,

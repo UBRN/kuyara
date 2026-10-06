@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { garmentSwatches } from '../../../components/ui/garment-board/garment-palette.ts';
+import { garmentSwatches } from '../../../garment-art/garment-palette.ts';
 import { garmentSwatchIds } from '../../catalog/domain/garment-swatch.ts';
 import { boardSwatchForClosetSolid } from './closet-board-swatch.ts';
 import { closetColorOptions, closetSolidSwatches } from './closet-color-options.ts';

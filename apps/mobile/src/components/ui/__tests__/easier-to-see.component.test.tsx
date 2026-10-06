@@ -8,9 +8,9 @@ import {
   layoutGarmentBoard,
   measureGarmentBoardHeight,
   type GarmentBoardPiece,
-} from '@/components/ui/garment-board/garment-board';
-import type { GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
-import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+} from '@/garment-art/garment-board';
+import type { GarmentOutfitPalette } from '@/garment-art/garment-palette';
+import { silhouettes } from '@/garment-art/silhouettes';
 import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/ui/icon';
 import { ListRow } from '@/components/ui/list-row';

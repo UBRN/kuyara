@@ -164,19 +164,19 @@ const rules = [
   {
     name: 'the garment fill tables and the accent resolver stay behind the board renderer',
     matches: (specifier) =>
-      modulePathMatcher('garment-board/garment-render-fills')(specifier)
-      || modulePathMatcher('garment-board/garment-palette')(specifier)
-      || modulePathMatcher('garment-board/color-family-fill')(specifier),
+      modulePathMatcher('garment-art/garment-render-fills')(specifier)
+      || modulePathMatcher('garment-art/garment-palette')(specifier)
+      || modulePathMatcher('garment-art/color-family-fill')(specifier),
     forbiddenDirectories: null,
-    allowedDirectories: ['components/ui/garment-board/', 'components/ui/index.ts'],
+    allowedDirectories: ['garment-art/'],
     ruleText:
       'docs/design/design-system.md, "Implemented and deferred": the colour-family fills are '
       + '"approved content colour for the rack and grid only (ADR 0028 section 6 and ADR 0029 '
       + 'section 5), not semantic theme roles", and the Phase 6 swatch library is content colour '
       + 'too. The resolvers that turn an outfit and a plane into fills are the board renderer\'s '
-      + 'own business: they stay under components/ui/garment-board/, and a '
+      + 'own business: they stay under garment-art/, and a '
       + 'feature that needs an approved content colour takes `colorFamilyFills` from the '
-      + '`components/ui` barrel instead of reaching into the module.',
+      + '`garment-art` barrel instead of reaching into the module.',
   },
 ];
 
@@ -311,6 +311,75 @@ test('a feature reaches another feature only through its domain or application l
     crossFeatureInternalImportAllowlist.length,
     0,
     'the cross-feature allowlist only shrinks: fix the import instead of listing it, and lower this count when an entry goes',
+  );
+});
+
+/** The `src`-relative module a specifier names when it stays inside `src`, else null. */
+function resolvedSourcePath(relativePath, specifier) {
+  if (specifier.startsWith('@/')) return specifier.slice(2);
+  if (specifier.startsWith('.')) return path.posix.normalize(path.posix.join(path.posix.dirname(relativePath), specifier));
+  return null;
+}
+
+// `components/ui` is the leaf primitive layer: a feature builds on it, never the reverse. Art
+// that draws feature vocabulary (garments, colours, outfits) lives in `garment-art/`, which
+// reaches the other features only through their domain layer, below. The allowlist only
+// shrinks: a stale entry fails the test.
+const componentsFeatureImportAllowlist = [
+].map(([importer, module]) => `${importer} -> ${module}`);
+
+test('components imports no feature module', () => {
+  const seen = new Set();
+  const violations = [];
+
+  for (const relativePath of sourceFiles()) {
+    if (!relativePath.startsWith('components/')) continue;
+
+    for (const { specifier, line } of specifiersIn(relativePath)) {
+      const target = resolvedSourcePath(relativePath, specifier);
+      if (target === null || !target.startsWith('features/')) continue;
+
+      const key = `${relativePath} -> ${target}`;
+      if (componentsFeatureImportAllowlist.includes(key)) {
+        seen.add(key);
+        continue;
+      }
+      violations.push(`${repoRelativeRoot}/${relativePath}:${line} imports '${specifier}'`);
+    }
+  }
+
+  assert.deepEqual(
+    violations,
+    [],
+    'Production code under components/ is a leaf: it imports no features/* module. A control that '
+    + 'needs a feature\'s value takes it as a plain prop or a child; art that draws feature '
+    + 'vocabulary belongs in garment-art/.\n\n'
+    + `These imports break that rule:\n${violations.map((v) => `  - ${v}`).join('\n')}`,
+  );
+  const stale = componentsFeatureImportAllowlist.filter((key) => !seen.has(key));
+  assert.deepEqual(stale, [], `These allowlist entries no longer match an import; remove them so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
+  assert.equal(componentsFeatureImportAllowlist.length, 0, 'the allowlist only shrinks: fix the import instead of listing it');
+});
+
+test('garment-art reaches a feature only through its domain layer', () => {
+  const violations = [];
+
+  for (const relativePath of sourceFiles()) {
+    if (!relativePath.startsWith('garment-art/')) continue;
+
+    for (const { specifier, line } of specifiersIn(relativePath)) {
+      const target = resolvedSourcePath(relativePath, specifier);
+      if (target === null || !target.startsWith('features/') || /^features\/[^/]+\/domain\//.test(target)) continue;
+      violations.push(`${repoRelativeRoot}/${relativePath}:${line} imports '${specifier}'`);
+    }
+  }
+
+  assert.deepEqual(
+    violations,
+    [],
+    'The garment art draws feature vocabulary (garment types, slots, colours, conditions) and may '
+    + 'name it through a feature\'s domain layer only; a feature hands it everything else as props.\n\n'
+    + `These imports break that rule:\n${violations.map((v) => `  - ${v}`).join('\n')}`,
   );
 });
 
@@ -1557,7 +1626,7 @@ test('production code lists garment types only through listSelectableGarmentType
 // out and the list only shrinks.
 const bodySlotListAllowlist = [
   // The board's dressing order is a drawing rule (ADR 0025) that happens to match slot order.
-  'components/ui/garment-board/compose-garment-board.ts',
+  'garment-art/compose-garment-board.ts',
 ];
 
 test('the body slots and slot membership have one owner in outfit-slots', () => {

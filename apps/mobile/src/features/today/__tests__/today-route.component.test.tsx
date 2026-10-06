@@ -40,7 +40,7 @@ import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features
 import { WalkthroughContext } from '@/features/walkthrough/application/walkthrough-context';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
-import { garmentColorFamiliesBySlot } from '@/components/ui';
+import { garmentColorFamiliesBySlot } from '@/garment-art';
 import { useClosetWearCounts } from '@/features/wardrobe/application/use-closet-wear-counts';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
 import { closetColorOptions, closetSolidSwatches } from '@/features/wardrobe/domain/closet-color-options';

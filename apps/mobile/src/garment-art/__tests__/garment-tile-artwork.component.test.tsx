@@ -1,10 +1,10 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import { processColor } from 'react-native';
 
-import { ClosetColorDisc } from '@/components/ui/garment-board/closet-color-art';
-import { garmentFillForAppearance, garmentFillRoles, legalizeGarmentFill } from '@/components/ui/garment-board/garment-palette';
-import { GarmentTileArtwork } from '@/components/ui/garment-board/garment-tile-artwork';
-import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+import { ClosetColorDisc } from '@/garment-art/closet-color-art';
+import { garmentFillForAppearance, garmentFillRoles, legalizeGarmentFill } from '@/garment-art/garment-palette';
+import { GarmentTileArtwork } from '@/garment-art/garment-tile-artwork';
+import { silhouettes } from '@/garment-art/silhouettes';
 import { blend } from '@/theme/color-blend';
 import { darkTheme, lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';

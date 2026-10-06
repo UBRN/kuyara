@@ -3,7 +3,8 @@
 Status: **accepted**, 2026-09-04, by
 [ADR 0025](../adr/0025-the-garment-board-composition-rule.md). That ADR records the
 decision, its alternatives and its consequences; this file is the specification, and is
-where the parameters and the silhouette set live.
+where the parameters and the silhouette set live. The renderer, the silhouettes and the
+palette resolvers live in `apps/mobile/src/garment-art/`.
 
 [ADR 0026](../adr/0026-the-recommendation-detail-surface.md) adds a second parameter set
 to it, in section 9, without changing the rule.

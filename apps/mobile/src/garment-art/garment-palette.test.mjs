@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { colorFamilies, garmentTypeIds } from '../../../features/catalog/domain/garment-taxonomy.ts';
-import { weatherConditionCodes } from '../../../features/weather/domain/weather.ts';
-import { shiftOklchLightness } from '../../../theme/color-oklch.ts';
-import { darkTheme, lightTheme, plateTheme } from '../../../theme/theme.ts';
+import { colorFamilies, garmentTypeIds } from '../features/catalog/domain/garment-taxonomy.ts';
+import { weatherConditionCodes } from '../features/weather/domain/weather.ts';
+import { shiftOklchLightness } from '../theme/color-oklch.ts';
+import { darkTheme, lightTheme, plateTheme } from '../theme/theme.ts';
 import { garmentShadowRule } from './compose-garment-board.ts';
 import {
   garmentColorFamiliesBySlot, garmentFillForAppearance, garmentPaletteContrast, garmentPaletteMood, garmentPaletteRoutes,
@@ -241,7 +241,7 @@ test('a changed piece leaves the untouched pieces in their colours', async () =>
 // in, whatever the original day's weather, and the stored ids are exactly the swatch library.
 test('a worn day redrawn from its recorded swatches keeps every piece in the colour it was seen in', async () => {
   const { garmentSwatchesBySlot } = await import('./garment-palette.ts');
-  const { garmentSwatchIds } = await import('../../../features/catalog/domain/garment-swatch.ts');
+  const { garmentSwatchIds } = await import('../features/catalog/domain/garment-swatch.ts');
   assert.deepEqual([...garmentSwatchIds].sort(), Object.keys(garmentSwatches).sort());
   for (const [name, optionId, temperatureC, condition, isNight, formality, pieces] of boards) {
     const seen = { optionId, temperatureC, condition, isNight, formality,

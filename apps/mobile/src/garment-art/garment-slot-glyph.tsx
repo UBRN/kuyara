@@ -16,21 +16,21 @@ type GarmentSlotGlyphProps = Readonly<{
 // glyphs; the large class is the 72 point idiom-pure export for the rail and grid tiles,
 // where the small PNG would be scaled three times and blur.
 const garmentArtwork: Readonly<Record<StructuralCategory, ImageSourcePropType>> = {
-  accessory: require('../../../assets/icons/garment/accessory.png'),
-  bottom: require('../../../assets/icons/garment/bottom.png'),
-  footwear: require('../../../assets/icons/garment/footwear.png'),
-  one_piece: require('../../../assets/icons/garment/one_piece.png'),
-  outerwear: require('../../../assets/icons/garment/outerwear.png'),
-  top: require('../../../assets/icons/garment/top.png'),
+  accessory: require('../../assets/icons/garment/accessory.png'),
+  bottom: require('../../assets/icons/garment/bottom.png'),
+  footwear: require('../../assets/icons/garment/footwear.png'),
+  one_piece: require('../../assets/icons/garment/one_piece.png'),
+  outerwear: require('../../assets/icons/garment/outerwear.png'),
+  top: require('../../assets/icons/garment/top.png'),
 };
 
 const garmentArtworkLarge: Readonly<Record<StructuralCategory, ImageSourcePropType>> = {
-  accessory: require('../../../assets/icons/garment/large/accessory.png'),
-  bottom: require('../../../assets/icons/garment/large/bottom.png'),
-  footwear: require('../../../assets/icons/garment/large/footwear.png'),
-  one_piece: require('../../../assets/icons/garment/large/one_piece.png'),
-  outerwear: require('../../../assets/icons/garment/large/outerwear.png'),
-  top: require('../../../assets/icons/garment/large/top.png'),
+  accessory: require('../../assets/icons/garment/large/accessory.png'),
+  bottom: require('../../assets/icons/garment/large/bottom.png'),
+  footwear: require('../../assets/icons/garment/large/footwear.png'),
+  one_piece: require('../../assets/icons/garment/large/one_piece.png'),
+  outerwear: require('../../assets/icons/garment/large/outerwear.png'),
+  top: require('../../assets/icons/garment/large/top.png'),
 };
 
 // Above this display size the small class has been scaled past its 24 point export.

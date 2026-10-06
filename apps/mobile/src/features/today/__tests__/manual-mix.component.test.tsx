@@ -6,8 +6,8 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { layoutGarmentBoard } from '@/components/ui';
-import { GARMENT_OUTLINE } from '@/components/ui/garment-board/garment-painting';
+import { layoutGarmentBoard } from '@/garment-art';
+import { GARMENT_OUTLINE } from '@/garment-art/garment-painting';
 import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
 import { slotCandidates, swappableSlots } from '@/features/recommendation/domain/manual-mix';
 import { todayScreenState } from '@/features/today/__tests__/fixtures';

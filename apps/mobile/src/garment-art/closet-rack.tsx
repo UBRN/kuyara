@@ -5,7 +5,7 @@ import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-na
 import { borderWidths, interaction, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-import { AppText } from '../app-text';
+import { AppText } from '@/components/ui/app-text';
 import {
   layoutClosetRack,
   RACK_HEIGHT,

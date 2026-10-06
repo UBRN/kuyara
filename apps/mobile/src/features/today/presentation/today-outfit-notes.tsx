@@ -1,7 +1,8 @@
 import type { DressStyle } from '@kuyara/contracts';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Crossfade, GarmentDrawing, Icon, useGarmentRoles, useTextScaling } from '@/components/ui';
+import { AppText, Crossfade, Icon, useTextScaling } from '@/components/ui';
+import { GarmentDrawing, useGarmentRoles } from '@/garment-art';
 import type { TodayCopy } from '@/features/today/presentation/outfit-detail-entries';
 import { ArrivesAfterHandoff, Dimmed, PhaseMark } from '@/features/today/presentation/today-motion';
 import type {

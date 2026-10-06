@@ -33,8 +33,8 @@ import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier
 import { plateTheme, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-import { PRESENCE_TEXT_AFTER } from '../presence';
-import { fadeTo } from '../fade';
+import { PRESENCE_TEXT_AFTER } from '@/components/ui/presence';
+import { fadeTo } from '@/components/ui/fade';
 import { composeFlatLay, fitTodayStage, flatLayPreset } from './compose-flat-lay';
 import {
   composeGarmentBoard,

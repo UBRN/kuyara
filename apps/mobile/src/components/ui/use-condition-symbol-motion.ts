@@ -8,30 +8,12 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
-import type { ConditionStyle } from '@/features/weather/domain/condition-style';
 import { useWhileVisible } from '@/components/ui/use-screen-visible';
 
-// ADR 0020's closed vocabulary for the condition symbol, on Today and on Weather alike: the
-// sun turns, clouds drift, what comes down falls. A night sky and an unknown condition hold
-// still.
-type SymbolMotion = 'turn' | 'drift' | 'fall' | 'still';
-
-const motionByShape: Readonly<Record<ConditionStyle['shape'], SymbolMotion>> = {
-  conditionClear: 'turn',
-  conditionMostlyClear: 'turn',
-  conditionClearNight: 'still',
-  conditionMostlyClearNight: 'still',
-  conditionPartlyCloudy: 'drift',
-  conditionPartlyCloudyNight: 'drift',
-  conditionCloudy: 'drift',
-  conditionFog: 'drift',
-  conditionDrizzle: 'fall',
-  conditionRain: 'fall',
-  conditionHeavyRain: 'fall',
-  conditionSleet: 'fall',
-  conditionSnow: 'fall',
-  conditionThunderstorm: 'fall',
-};
+// ADR 0020's closed vocabulary for the condition symbol: the sun turns, clouds drift, what
+// comes down falls, and a symbol that holds still draws no motion. The feature owns which
+// condition wears which.
+export type SymbolMotion = 'turn' | 'drift' | 'fall' | 'still';
 
 // The sun's eight rays repeat every 45 degrees, so one leg turns it by 45 and the restart is
 // invisible; a drift or a fall travels about a point and a half and comes back.
@@ -43,8 +25,7 @@ const FALL_TRAVEL = 1.5;
  * The animated style of a condition symbol. Each leg of its loop is `legMs`, the ambient
  * step the condition's intensity selects, so its tempo follows the weather.
  */
-export function useConditionSymbolMotion(conditionStyle: ConditionStyle, legMs: number) {
-  const motion = conditionStyle.ink === 'neutral' ? 'still' : motionByShape[conditionStyle.shape];
+export function useConditionSymbolMotion(motion: SymbolMotion, legMs: number) {
   const progress = useSharedValue(0);
 
   useWhileVisible(useCallback(() => {

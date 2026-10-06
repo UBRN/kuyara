@@ -15,19 +15,21 @@ import {
   AppText,
   Button,
   ButtonPair,
-  ChoiceTile,
-  type ChoiceTileDrawing,
-  ChoiceTileGrid,
   Entrance,
-  type GarmentBoardPiece,
-  GarmentPreviewBoard,
-  type GarmentOutfitPalette,
-  measureGarmentBoardHeight,
   Icon,
   NativeDatePicker,
   ProgressFill,
   Screen,
 } from '@/components/ui';
+import {
+  ChoiceTile,
+  type ChoiceTileDrawing,
+  ChoiceTileGrid,
+  type GarmentBoardPiece,
+  GarmentPreviewBoard,
+  type GarmentOutfitPalette,
+  measureGarmentBoardHeight,
+} from '@/garment-art';
 import { useOnboardingEvents } from '@/features/analytics/application/use-interaction-events';
 import {
   createOnboardingDraft,

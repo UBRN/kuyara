@@ -9,7 +9,7 @@ import {
 import { plateTheme, type ThemeColorScheme } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-import { Icon } from '../icon';
+import { Icon } from '@/components/ui/icon';
 import { garmentFillForAppearance, garmentPaletteContrast } from './garment-palette';
 
 // A Closet piece's own colour as art: one of the 33 palette solids, a custom colour from the

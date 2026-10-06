@@ -9,16 +9,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  AppText,
-  Button,
-  Entrance,
-  GarmentDrawing,
-  GarmentTileArtwork,
-  Icon,
-  Surface,
-  useTextScaling,
-} from '@/components/ui';
+import { AppText, Button, Entrance, Icon, Surface, useTextScaling } from '@/components/ui';
+import { GarmentDrawing, GarmentTileArtwork } from '@/garment-art';
 import { EmptyStateArt } from '@/components/ui/empty-state-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';

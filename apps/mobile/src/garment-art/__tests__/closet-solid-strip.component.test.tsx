@@ -1,6 +1,6 @@
 import { fireEvent, render, within } from '@testing-library/react-native';
 
-import { ClosetSolidStrip } from '@/components/ui/closet-solid-strip';
+import { ClosetSolidStrip } from '@/garment-art/closet-solid-strip';
 import { closetSolidSwatches, type ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
