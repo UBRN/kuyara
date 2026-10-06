@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
@@ -13,7 +13,7 @@ import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import { useStableValue } from '@/hooks/use-stable-value';
 import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier-to-see';
-import { layout, spacing } from '@/theme/theme';
+import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { fadeEasing } from '@/components/ui/fade';
@@ -27,7 +27,7 @@ import { flatLayStack } from './compose-flat-lay';
 import type { GarmentOutfitPalette } from './garment-palette';
 import { GARMENT_OUTLINE } from './garment-painting';
 import { GarmentSwapStrip, type GarmentSwapStripLabels } from './garment-swap-strip';
-import { SWAP_STEP_BACK, swapScaledBox, swapTouchBox } from './swap-gesture';
+import { SwapPieceTarget } from './swap-piece-target';
 import { SwapPieceView } from './swap-piece-view';
 import { drawingKey, type Box, type GarmentSwapCandidate, type Role } from './swap-reconcile';
 import { useSwapBlock } from './use-swap-block';
@@ -274,44 +274,22 @@ export function GarmentSwapBoard({
           {pieces.map(({ slot }) => {
             const garmentTypeId = model.garments[slot];
             if (!garmentTypeId || !composed?.bySlot.has(slot)) return null;
-            const composedBox = composed.bySlot.get(slot)!.box;
-            const shownBox = focusedSlot === slot && pager ? pager.grown
-              : focusedSlot ? swapScaledBox(composedBox, SWAP_STEP_BACK) : composedBox;
-            const box = swapTouchBox(shownBox, layout.minimumTouchTarget);
-            const order = candidates[slot] ?? [];
-            const position = order.findIndex((c) => c.garmentTypeId === garmentTypeId) + 1;
-            const value = labels.pieceValue(labels.pieceName(garmentTypeId), position, order.length);
-            const state = labels.pieceState?.(garmentTypeId) ?? null;
-            const takeOff = takeOffLabel(slot);
             return (
-              // VoiceOver's focus is the focus: every piece is adjustable without enlarging it.
-              <View
-                accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' },
-                  ...(takeOff ? [{ name: 'takeOff', label: takeOff }] : [])]}
-                accessibilityLabel={labels.slotName(slot)}
-                accessibilityRole="adjustable"
-                // The enlarged piece reads as expanded: its strip is open under the board.
-                accessibilityState={{ expanded: focusedSlot === slot }}
-                accessibilityValue={{ text: state ? `${value}, ${state}` : value }}
-                accessible
+              <SwapPieceTarget
+                composedBox={composed.bySlot.get(slot)!.box}
+                focusedSlot={focusedSlot}
+                garmentTypeId={garmentTypeId}
+                grownBox={pager?.grown ?? null}
                 key={`piece-${slot}`}
-                onAccessibilityAction={({ nativeEvent }) => {
-                  if (nativeEvent.actionName === 'increment') stepSlot(slot, 1);
-                  else if (nativeEvent.actionName === 'decrement') stepSlot(slot, -1);
-                  else if (nativeEvent.actionName === 'takeOff') onTakeOff?.(slot);
-                  else if (nativeEvent.actionName === 'activate') {
-                    // Focus stays on the piece; one short sentence says the strip is below.
-                    if (slot !== focusedSlot) AccessibilityInfo.announceForAccessibility(labels.stripShown);
-                    onFocusChange(slot === focusedSlot ? null : slot);
-                  }
-                }}
-                onAccessibilityEscape={settleToPiece}
-                pointerEvents="none"
-                ref={(node) => {
-                  if (node) pieceTargets.current.set(slot, node);
-                  else pieceTargets.current.delete(slot);
-                }}
-                style={[styles.target, { height: box.h, left: box.x, top: box.y, width: box.w }]}
+                labels={labels}
+                onEscape={settleToPiece}
+                onFocusChange={onFocusChange}
+                onStep={stepSlot}
+                onTakeOff={onTakeOff}
+                order={candidates[slot] ?? []}
+                slot={slot}
+                takeOffLabel={takeOffLabel(slot)}
+                targets={pieceTargets}
                 testID={`${boardTestID}-piece-${slot}`}
               />
             );
@@ -391,9 +369,6 @@ const styles = StyleSheet.create({
   },
   stage: {
     position: 'relative',
-  },
-  target: {
-    position: 'absolute',
   },
   tint: {
     left: 0,

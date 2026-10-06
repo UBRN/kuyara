@@ -57,6 +57,7 @@ const hotPath = new Set([
   'features/today/presentation/outfit-detail-why.tsx',
   'features/today/presentation/outfit-detail-worn.tsx',
   'garment-art/garment-swap-board.tsx',
+  'garment-art/swap-piece-target.tsx',
   'garment-art/swap-piece-view.tsx',
   'garment-art/use-swap-block.ts',
   'garment-art/use-swap-gesture.ts',
@@ -76,6 +77,7 @@ const knownPruned = new Map([
   ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 4 }],
   ['features/today/presentation/outfit-detail-screen.tsx', {}],
   ['garment-art/garment-swap-board.tsx', {}],
+  ['garment-art/swap-piece-target.tsx', {}],
   ['garment-art/swap-piece-view.tsx', {}],
   ['garment-art/use-swap-block.ts', {}],
   // The strip tiles the drag and the marker read are derived between the gesture's hooks.
