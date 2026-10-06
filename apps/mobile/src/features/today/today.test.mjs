@@ -79,7 +79,7 @@ test('the evening Later note uses the saved choice times in both languages', () 
   assert.equal(eveningLaterReadyLine(departure, now, 'en', false),
     'Your 19:00 outfit is ready at 18:00');
   assert.equal(eveningLaterReadyLine(departure, now, 'tr', false),
-    'Saat 19:00 kombinin, saat 18:00 itibarıyla hazır');
+    '19:00 için kombinin saat 18:00 itibarıyla hazır');
   assert.equal(eveningLaterReadyLine({ ...departure,
     updatedAt: '2026-08-13T14:00:00.000Z' }, now, 'en', false), null);
 });
