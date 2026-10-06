@@ -28,7 +28,6 @@ import { haptics } from '@/components/ui/haptics';
 import { fadeEasing, fadeTo } from '@/components/ui/fade';
 import { PRESENCE_TEXT_AFTER } from '@/components/ui/presence';
 import {
-  composePieces,
   entranceStartBoxes,
   measureGarmentBoardHeight,
   pieceShadowOf,
@@ -51,23 +50,12 @@ import {
   swapHitSlot,
   swapMarkerPosition,
   swapScaledBox,
-  swapStripLayout,
   swapTouchBox,
 } from './swap-gesture';
-import {
-  bandBoxesOnBoard,
-  enlargementFor,
-  enlargementHolds,
-  insideBox,
-  lerpBox,
-  neighbourBoxes,
-  pagerFor,
-  placeComposition,
-  type Composer,
-  type Enlargement,
-} from './swap-layout';
+import { bandBoxesOnBoard, insideBox, lerpBox } from './swap-layout';
 import { DRESS_LIFT, paced, SETTLE_TRAVEL, valuesFor } from './swap-motion';
 import { SwapPieceView } from './swap-piece-view';
+import { useSwapPager } from './use-swap-pager';
 import {
   drawingKey,
   emptyModel,
@@ -85,9 +73,6 @@ import {
 
 export type { GarmentSwapCandidate } from './swap-reconcile';
 
-
-type Panel = Readonly<{ slot: OutfitSlot; held: number }>;
-type Panels = Readonly<{ focus: OutfitSlot | null; current: Panel | null; leaving: Panel | null }>;
 
 export type GarmentSwapBoardLabels = GarmentSwapStripLabels & Readonly<{
   slotName: (slot: OutfitSlot) => string;
@@ -212,9 +197,6 @@ export function GarmentSwapBoard({
   const pieces = useStableValue(piecesProp);
   const candidates = useStableValue(candidatesProp);
   const captionRects = useStableValue(captionRectsProp);
-  const compose: Composer = (next, nextFit) => placeComposition(composePieces(next, 'detail', large), width, nextFit);
-  const rest = useMemo(() => (width > 0 ? placeComposition(composePieces(pieces, 'detail', large), width) : null),
-    [large, pieces, width]);
   const rolesFor = useMemo(() => (input: GarmentOutfitPalette) => garmentRolesBySlot({
     ...input,
     appearance: theme.colorScheme,
@@ -224,59 +206,11 @@ export function GarmentSwapBoard({
   }), [colors.background, colors.textPrimary, theme.colorScheme]);
   const roles = useMemo(() => rolesFor(palette), [palette, rolesFor]);
 
-  // The strip's header before it has measured itself: Done's height.
-  const headerMinimum = large ? easierToSeeValues.primaryActionHeight : layout.minimumTouchTarget;
-  const [headerHeight, setHeaderHeight] = useState<number>(headerMinimum);
-  // The strip: its candidates, tiles and the marker's tile.
-  const stripCandidates = (slot: OutfitSlot) => candidates[slot] ?? [];
-  const stripOf = (slot: OutfitSlot) => {
-    const order = stripCandidates(slot);
-    return swapStripLayout(order.length, order.filter(({ suitable }) => suitable).length, width);
-  };
-  const panelHeightOf = (slot: OutfitSlot) => headerHeight + spacing.sm + stripOf(slot).height;
-
-  // One enlargement's grow scale and held stage; the stage never shrinks while the
-  // enlargement moves between slots. Where the stage and the strip would not fit the visible
-  // height, the whole board composes just narrow enough while the piece is enlarged.
-  const [panels, setPanels] = useState<Panels>({ focus: null, current: null, leaving: null });
-  const [grow, setGrow] = useState<Enlargement | null>(null);
-  let enlargement: Enlargement | null = null;
-  if (focusedSlot && rest && rest.bySlot.has(focusedSlot)) {
-    const panel = panelHeightOf(focusedSlot);
-    if (grow && enlargementHolds(grow, { slot: focusedSlot, width, large, panel, visible: visibleHeight })) {
-      enlargement = grow;
-    } else {
-      enlargement = enlargementFor({
-        pieces, slot: focusedSlot, order: stripCandidates(focusedSlot), rest, width, large, panel,
-        visible: visibleHeight, keptHeld: panels.focus !== null && grow ? grow.held / grow.fit : 0,
-      }, compose);
-      setGrow(enlargement);
-    }
-  }
-  const fit = enlargement?.fit ?? 1;
-  const composed = useMemo(() => (width > 0 && fit < 1
-    ? placeComposition(composePieces(pieces, 'detail', large), width, fit) : rest),
-    [fit, large, pieces, rest, width]);
-  const activeGrow = enlargement && composed
-    ? { ...enlargement, held: Math.max(enlargement.held, composed.height) } : null;
-  const pager = focusedSlot && composed && activeGrow
-    ? pagerFor(composed, focusedSlot, activeGrow, width, neighbourBoxes({
-      pieces, composed, slot: focusedSlot, garmentTypeId: composed.bySlot.get(focusedSlot)?.piece.garmentTypeId,
-      candidates, fit,
-    }, compose), drawnOutline)
-    : null;
-
-  // The strip follows the enlargement: it arrives with it, swaps when it moves, and stays
-  // while it fades out after a settle. A drag the change cancelled names no piece any more.
-  const [previewId, setPreviewId] = useState<GarmentTypeId | null>(null);
-  if (panels.focus !== focusedSlot) {
-    if (previewId !== null) setPreviewId(null);
-    setPanels({
-      focus: focusedSlot,
-      current: focusedSlot && activeGrow ? { slot: focusedSlot, held: activeGrow.held } : panels.current,
-      leaving: focusedSlot && panels.focus ? panels.current : null,
-    });
-  }
+  const {
+    compose, composed, fit, activeGrow, pager,
+    panels, setPanels, previewId, setPreviewId,
+    stripCandidates, stripOf, panelHeightOf, measureHeader,
+  } = useSwapPager({ pieces, candidates, width, large, focusedSlot, visibleHeight, outline: drawnOutline });
 
   const [model, setModel] = useState<Model>(emptyModel);
   const [lastSettle, setLastSettle] = useState(settle);
@@ -1212,9 +1146,7 @@ export function GarmentSwapBoard({
             marker={focusedSlot === panels.current.slot ? { x: markerX, y: markerY } : null}
             onChoose={chooseTile}
             onDone={settleToPiece}
-            onHeaderLayout={(height) => {
-              if (Math.abs(height - headerHeight) >= 0.5) setHeaderHeight(Math.max(headerMinimum, height));
-            }}
+            onHeaderLayout={measureHeader}
             previewId={focusedSlot === panels.current.slot ? previewId : null}
             roles={panelRoles}
             takeOff={takeOffFor(panels.current.slot)}
