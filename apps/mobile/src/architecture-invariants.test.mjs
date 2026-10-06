@@ -1264,6 +1264,18 @@ test('a calendar-date key is never turned into an instant by string concatenatio
   assert.deepEqual(hits, [], 'read the date with calendarDateUtcMidnight from @/domain/calendar-date');
 });
 
+// History reads each day key as UTC midnight and formats it in UTC. A formatter without an
+// explicit zone is never cached (domain/intl-format.ts), so a screen of day labels would build
+// a new one on every render.
+test('the History screen formats its day keys in UTC through calendarDateUtcMidnight', () => {
+  const source = readFileSync(path.join(sourceRoot, 'features/profile/presentation/history-screen.tsx'), 'utf8');
+  const formatterCalls = source.match(/dateTimeFormat\([^)]*\)/g) ?? [];
+
+  assert.ok(formatterCalls.length > 0);
+  assert.deepEqual(formatterCalls.filter((call) => !call.includes("timeZone: 'UTC'")), []);
+  assert.equal(source.includes('parseCalendarDate('), false, 'read a day key with calendarDateUtcMidnight');
+});
+
 // A `YYYY-MM-DD` key is checked by `calendarDateKeySchema` (domain/calendar-date.ts) and a
 // dressing-day key by `dressingDayKeySchema` (weather/domain/wardrobe-day.ts). The weather
 // repository's own looser shape check stays because persisted rows may hold dates the schema
