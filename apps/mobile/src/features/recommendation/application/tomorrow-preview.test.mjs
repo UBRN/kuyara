@@ -9,11 +9,11 @@ import {
   reusablePreviewRecommendation,
 } from './tomorrow-preview.ts';
 import { RecommendationApplicationController } from './recommendation-application-controller.ts';
+import { mapWorkerAiRecommendation } from './ai-recommendation-mapping.ts';
 import {
   aiRequestFromContext,
   createRecommendationContextWithPool,
-  mapWorkerAiRecommendation,
-} from '../data/worker-ai-recommendation-mapper.ts';
+} from './recommendation-context.ts';
 import { getDeviceTimeZone } from '../../../domain/intl-format.ts';
 import { localDayKey, localDayKind, localDayVariant, nextMorningAfterEvening } from '../domain/local-day.ts';
 

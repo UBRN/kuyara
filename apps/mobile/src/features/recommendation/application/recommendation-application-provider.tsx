@@ -58,7 +58,7 @@ import {
 import {
   aiRequestFromContext,
   createRecommendationContextWithPool,
-} from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+} from '@/features/recommendation/application/recommendation-context';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
 import { isDayQuestionOpen, nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';

@@ -16,7 +16,7 @@ import { WorkerAiClientError } from './domain/worker-ai-client-error.ts';
 import {
   aiRequestFromContext,
   createRecommendationContext,
-} from './data/worker-ai-recommendation-mapper.ts';
+} from './application/recommendation-context.ts';
 import { regenerationPolicy } from './domain/regeneration-policy.ts';
 import { deriveClothingRequirements } from './domain/weather-to-clothing-requirements.ts';
 import { todayWeatherSnapshot } from '../today/__tests__/fixtures.ts';

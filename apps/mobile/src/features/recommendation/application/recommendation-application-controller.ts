@@ -44,7 +44,7 @@ import {
   aiRequestFromContext,
   createRecommendationContextWithPool,
   type RecommendationContext,
-} from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+} from '@/features/recommendation/application/recommendation-context';
 
 // Today reads the archetype label, and a feature reaches this one only through its application layer.
 export { archetypeLabel } from '@/features/recommendation/localization/recommendation-messages';

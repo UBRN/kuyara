@@ -14,10 +14,11 @@ import type {
   EligibleGarmentResult,
   GarmentRequirementEvaluation,
 } from '@/features/recommendation/domain/garment-eligibility';
-import type {
-  AccessoryOutfitSlot,
-  BodyOutfitSlot,
-  OutfitSlot,
+import {
+  accessoryOutfitSlots,
+  type AccessoryOutfitSlot,
+  type BodyOutfitSlot,
+  type OutfitSlot,
 } from '@/features/recommendation/domain/outfit-slots';
 import type {
   BodyClothingRequirement,
@@ -175,6 +176,20 @@ export function assignedOutfitGarments(
   outfit: OutfitCandidate,
 ): readonly AssignedOutfitGarment[] {
   return piecesInSlotOrder(outfit.body, outfit.midLayer, outfit.outerLayer, outfit.footwear);
+}
+
+/**
+ * Everything the outfit carries: the six body slots, then the accessories in the same slot
+ * order every time, because a stored or offered outfit is compared against this list verbatim.
+ */
+export function outfitGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
+  return [
+    ...assignedOutfitGarments(outfit),
+    ...accessoryOutfitSlots.flatMap((slot) => {
+      const accessory = outfit.accessories[slot];
+      return accessory ? [accessory] : [];
+    }),
+  ];
 }
 
 /** The piece an arrangement wears in one body slot, or null when it leaves the slot empty. */

@@ -2,7 +2,7 @@ import type { DressStyle, StyleAesthetic, WeatherConditionCode } from '@kuyara/c
 
 import type { ClothingPreference } from '@/domain/preferences';
 import type { OutfitRecommendationSuccess } from '@/features/recommendation/application/recommend-outfits';
-import type { RecommendationContext } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+import type { RecommendationContext } from '@/features/recommendation/application/recommendation-context';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 
 /** The persisted recommendation the application reads and writes; `LocalRecommendationRepository` implements it. */
