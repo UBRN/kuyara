@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { ColorSwatch } from '@/components/ui/color-swatch';
+import { ColorSwatch } from './color-swatch';
 import { closetSolidSwatches, type ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import { layout, spacing } from '@/theme/theme';
 

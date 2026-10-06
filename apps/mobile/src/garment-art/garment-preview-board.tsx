@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { fadeTo } from './fade';
+import { fadeTo } from '@/components/ui/fade';
 
 import {
   composePieces,
@@ -16,8 +16,8 @@ import {
   useGarmentRoles,
   type ComposedPiece,
   type GarmentBoardPiece,
-} from './garment-board/garment-board';
-import type { GarmentOutfitPalette } from './index';
+} from './garment-board';
+import type { GarmentOutfitPalette } from './garment-palette';
 import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';

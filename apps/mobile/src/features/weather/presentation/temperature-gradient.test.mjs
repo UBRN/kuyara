@@ -3,7 +3,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
 
 import { resolveCardFill } from '../../../components/ui/primitive-contracts.ts';
-import { garmentPaletteContrast as contrastRatio } from '../../../components/ui/garment-board/garment-palette.ts';
+import { garmentPaletteContrast as contrastRatio } from '../../../garment-art/garment-palette.ts';
 import { toOklch } from '../../../theme/color-oklch.ts';
 import { brandColors, darkTheme, lightTheme } from '../../../theme/theme.ts';
 import { temperatureScaleStopsCelsius } from '../domain/temperature-scale.ts';

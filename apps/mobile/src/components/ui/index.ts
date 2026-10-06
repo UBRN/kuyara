@@ -2,7 +2,6 @@ export { AppText, type AppTextProps } from './app-text';
 export { Button, useButtonBox, type ButtonProps } from './button';
 export { ButtonPair, type ButtonPairProps } from './button-pair';
 export { CheckRow, type CheckRowProps } from './check-row';
-export { ChoiceTile, ChoiceTileGrid, type ChoiceTileDrawing, type ChoiceTileProps } from './choice-tile';
 export {
   CoachMarkArrival,
   CoachMarkLayer,
@@ -10,13 +9,10 @@ export {
   type CoachMarkLayerProps,
   type CoachMarkRect,
 } from './coach-mark-layer';
-export { ClosetSolidStrip, type ClosetSolidStripProps } from './closet-solid-strip';
-export { ColorSwatch } from './color-swatch';
 export { Crossfade, type CrossfadeProps } from './crossfade';
 export { DrawGrow, DrawReveal, type DrawGrowProps, type DrawRevealProps } from './draw-in';
 export { Entrance, type EntranceProps } from './entrance';
 export { FadeIn, fadeEasing, fadeTo } from './fade';
-export { GarmentSlotGlyph, GarmentSlotTile } from './garment-slot-glyph';
 export { GlassButton, type GlassButtonProps } from './glass-button';
 export { Icon, iconNames, type IconName } from './icon';
 export { IconButton, type IconButtonProps } from './icon-button';
@@ -72,47 +68,6 @@ export type { ButtonVariant, PillTone, SurfaceVariant } from './primitive-contra
 export { haptics, useRefreshOutcomeHaptics } from './haptics';
 export { useTextScaling, type TextScaling } from './use-text-scaling';
 export { useTransitionLanded } from './use-transition-landed';
-
-export {
-  GarmentBoard,
-  garmentBoardDressingOrder,
-  layoutGarmentBoard,
-  measureGarmentBoardHeight,
-  useGarmentCandidateRoles,
-  useGarmentRoles,
-  type GarmentBoardLayout,
-  type GarmentBoardLayoutBox,
-  type GarmentBoardPiece,
-} from './garment-board/garment-board';
-
-export {
-  GarmentSwapBoard,
-  type GarmentSwapBoardLabels,
-  type GarmentSwapBoardProps,
-  type GarmentSwapCandidate,
-} from './garment-board/garment-swap-board';
-export { swapRevealScroll } from './garment-board/swap-gesture';
-
-export { GarmentCandidateTile, GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
-export { ClosetColorDisc } from './garment-board/closet-color-art';
-export { ClosetRack, RACK_ASPECT, type ClosetRackProps, type RackPiece } from './garment-board/closet-rack';
-export {
-  GarmentRunwayBoard,
-  runwayDressingDuration,
-  type RunwayBoardOutfit,
-} from './garment-board/garment-runway-board';
-export { GarmentPreviewBoard, type GarmentPreviewBoardProps } from './garment-preview-board';
 export { RollingText, type RollingTextProps } from './rolling-text';
 export { ScrollDepth, type ScrollDepthProps } from './scroll-depth';
-export {
-  garmentColorFamiliesBySlot,
-  garmentSwatchesBySlot,
-  garmentUsualColorFamilies,
-  keepGarmentColors,
-  type GarmentOutfitPalette,
-} from './garment-board/garment-palette';
-
-// ADR 0028 section 6 and ADR 0029 section 5: approved content colour for the Profile
-// rack, the Closet grid, and the form's colour-family swatches. Never a theme role.
-export { colorFamilyFills } from './garment-board/color-family-fill';
 export { ProviderSignInButton, type ProviderSignInButtonProps } from './provider-sign-in-button';

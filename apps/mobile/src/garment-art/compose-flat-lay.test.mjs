@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { recommendOutfits } from '../../../features/recommendation/application/recommend-outfits.ts';
-import { outfitGarments } from '../../../features/recommendation/domain/manual-mix.ts';
-import { getGarmentType } from '../../../features/catalog/domain/garment-catalog.ts';
+import { recommendOutfits } from '../features/recommendation/application/recommend-outfits.ts';
+import { outfitGarments } from '../features/recommendation/domain/manual-mix.ts';
+import { getGarmentType } from '../features/catalog/domain/garment-catalog.ts';
 import {
   composeGarmentBoard,
   drawnExtent,

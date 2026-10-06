@@ -2,7 +2,7 @@ import { Children, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
-import { GarmentDrawing } from '@/components/ui/garment-board/garment-tile-artwork';
+import { GarmentDrawing } from './garment-tile-artwork';
 import { Icon } from '@/components/ui/icon';
 import { PressScale } from '@/components/ui/press-scale';
 import { useTextScaling } from '@/components/ui/use-text-scaling';

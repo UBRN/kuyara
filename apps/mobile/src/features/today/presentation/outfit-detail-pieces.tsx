@@ -1,19 +1,14 @@
 import { Fragment, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { AppText, Button, Icon, Presence, PressScale, useTextScaling } from '@/components/ui';
 import {
-  AppText,
-  Button,
   ClosetColorDisc,
   colorFamilyFills,
   GarmentSlotGlyph,
   GarmentTileArtwork,
-  Icon,
-  Presence,
-  PressScale,
   type useGarmentRoles,
-  useTextScaling,
-} from '@/components/ui';
+} from '@/garment-art';
 import { FADED_OPACITY } from '@/components/ui/empty-state-art';
 import type { ColorFamily, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import {

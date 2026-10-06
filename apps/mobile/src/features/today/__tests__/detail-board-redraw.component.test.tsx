@@ -2,7 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import type { GarmentPainting as GarmentPaintingType } from '@/components/ui/garment-board/garment-painting';
+import type { GarmentPainting as GarmentPaintingType } from '@/garment-art/garment-painting';
 import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
 import { todayScreenState } from '@/features/today/__tests__/fixtures';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
@@ -27,10 +27,10 @@ jest.mock('expo-router', () => {
 // Every drawing that actually paints, past its memo: a board piece's drawing carries its slot,
 // a tile's (the strip's and the piece rows') only its silhouette.
 const mockPainted: string[] = [];
-jest.mock('@/components/ui/garment-board/garment-painting', () => {
+jest.mock('@/garment-art/garment-painting', () => {
   const React = jest.requireActual('react') as typeof import('react');
-  const actual = jest.requireActual('@/components/ui/garment-board/garment-painting') as
-    typeof import('@/components/ui/garment-board/garment-painting');
+  const actual = jest.requireActual('@/garment-art/garment-painting') as
+    typeof import('@/garment-art/garment-painting');
   const inner = (actual.GarmentPainting as unknown as { type: (props: object) => React.ReactNode }).type;
   return {
     ...actual,

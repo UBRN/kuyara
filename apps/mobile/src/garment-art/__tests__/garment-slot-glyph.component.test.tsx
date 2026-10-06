@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react-native';
-import { GarmentSlotGlyph } from '@/components/ui/garment-slot-glyph';
+import { GarmentSlotGlyph } from '@/garment-art/garment-slot-glyph';
 
 // ADR 0025 consequences (2026-09-07): two raster classes of the same drawings. The small
 // 24 point export serves the 20 to 28 point glyphs; the large 72 point export serves the

@@ -71,3 +71,31 @@ export function resolveConditionStyle(
   const night = daypart === 'night' ? nightStyleByCondition[condition] : undefined;
   return night ?? dayStyleByCondition[condition];
 }
+
+/**
+ * ADR 0020's closed vocabulary for the condition symbol, on Today and on Weather alike: the
+ * sun turns, clouds drift, what comes down falls. A night sky and an unknown condition hold
+ * still.
+ */
+export type ConditionSymbolMotion = 'turn' | 'drift' | 'fall' | 'still';
+
+const motionByShape: Readonly<Record<ConditionGlyphShape, ConditionSymbolMotion>> = {
+  conditionClear: 'turn',
+  conditionMostlyClear: 'turn',
+  conditionClearNight: 'still',
+  conditionMostlyClearNight: 'still',
+  conditionPartlyCloudy: 'drift',
+  conditionPartlyCloudyNight: 'drift',
+  conditionCloudy: 'drift',
+  conditionFog: 'drift',
+  conditionDrizzle: 'fall',
+  conditionRain: 'fall',
+  conditionHeavyRain: 'fall',
+  conditionSleet: 'fall',
+  conditionSnow: 'fall',
+  conditionThunderstorm: 'fall',
+};
+
+export function conditionSymbolMotion(conditionStyle: ConditionStyle): ConditionSymbolMotion {
+  return conditionStyle.ink === 'neutral' ? 'still' : motionByShape[conditionStyle.shape];
+}

@@ -9,7 +9,7 @@ import { layout, radii } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-import { GarmentSlotGlyph } from '../garment-slot-glyph';
+import { GarmentSlotGlyph } from './garment-slot-glyph';
 import { closetColorPaint, closetPaintBase, ClosetPatternDef } from './closet-color-art';
 import { GARMENT_OUTLINE, garmentLevelOfDetail, GarmentPainting, WANTED_OUTLINE_DASH } from './garment-painting';
 import { garmentFillRoles, legalizeGarmentFill, type GarmentRoles } from './garment-palette';

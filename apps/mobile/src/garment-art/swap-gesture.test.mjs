@@ -27,13 +27,13 @@ import {
 } from './swap-gesture.ts';
 import { easierToSeeRule, composeGarmentBoard, detailPreset, todayPreset } from './compose-garment-board.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
-import { recommendOutfits } from '../../../features/recommendation/application/recommend-outfits.ts';
-import { getGarmentType } from '../../../features/catalog/domain/garment-catalog.ts';
+import { recommendOutfits } from '../features/recommendation/application/recommend-outfits.ts';
+import { getGarmentType } from '../features/catalog/domain/garment-catalog.ts';
 import {
   availableCandidates,
   outfitGarments,
   slotCandidates,
-} from '../../../features/recommendation/domain/manual-mix.ts';
+} from '../features/recommendation/domain/manual-mix.ts';
 
 // Phase 7b's board swap, vault phase-7b final-spec sections 4, 5 and 10: the geometry and
 // thresholds a device run then feels.

@@ -8,7 +8,7 @@ import {
   garmentPaletteContrast as contrastRatio,
   legalizeGarmentFill,
   resolveGarmentPalette,
-} from '../../../components/ui/garment-board/garment-palette.ts';
+} from '../../../garment-art/garment-palette.ts';
 import { runwayField, runwayParticleInks, runwayParticleKind } from './runway-palette.ts';
 
 const fields = ['clear', 'cloudy', 'rain', 'snow'];

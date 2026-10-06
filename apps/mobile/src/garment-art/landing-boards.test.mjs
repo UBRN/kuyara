@@ -9,7 +9,7 @@ import { silhouettes } from './silhouettes.ts';
 // Nothing generates them, so this suite is what notices when the vocabulary changes under the
 // copy. Each `<g>` is identified by its ordered outline list, which is unique per silhouette,
 // so the HTML needs no garment marker.
-const landingUrl = new URL('../../../../../../docs/_layouts/landing.html', import.meta.url);
+const landingUrl = new URL('../../../../docs/_layouts/landing.html', import.meta.url);
 const regenerate = 'regenerate the board in docs/_layouts/landing.html from silhouettes.ts';
 
 // docs/design/garment-board.md section 8: stroke 1.9, round joins and caps; every outline

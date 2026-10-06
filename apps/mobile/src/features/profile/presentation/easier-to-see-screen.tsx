@@ -3,17 +3,15 @@ import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import {
   AppText,
-  GarmentBoard,
   Icon,
   NativeList,
   NativeListContentRow,
   NativeListRow,
   NativeListSection,
   useTextScaling,
-  type GarmentBoardPiece,
-  type GarmentOutfitPalette,
   type IconName,
 } from '@/components/ui';
+import { GarmentBoard, type GarmentBoardPiece, type GarmentOutfitPalette } from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useMessages } from '@/localization/use-messages';
 import { EasierToSeeContext, useEasierToSee, useSystemVisibility } from '@/theme/easier-to-see';

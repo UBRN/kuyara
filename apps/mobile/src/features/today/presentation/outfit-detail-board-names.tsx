@@ -1,7 +1,8 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Entrance, garmentBoardDressingOrder, Icon, useTextScaling } from '@/components/ui';
+import { AppText, Entrance, Icon, useTextScaling } from '@/components/ui';
+import { garmentBoardDressingOrder } from '@/garment-art';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import type { DetailSuggestion, PieceEntry } from '@/features/today/presentation/outfit-detail-entries';
 import { pieceOwnershipMarkers } from '@/features/today/presentation/piece-ownership-marker';

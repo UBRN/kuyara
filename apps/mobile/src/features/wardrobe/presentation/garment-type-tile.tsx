@@ -1,12 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
-import {
-  AppText,
-  GarmentTileArtwork,
-  Icon,
-  PressScale,
-  useTextScaling,
-} from '@/components/ui';
+import { AppText, Icon, PressScale, useTextScaling } from '@/components/ui';
+import { GarmentTileArtwork } from '@/garment-art';
 import type { ColorFamily, GarmentType } from '@/features/catalog/domain/garment-taxonomy';
 import { borderWidths, interaction, plateTheme, radii, spacing } from '@/theme/theme';
 import { PlateView } from '@/theme/plate-theme';

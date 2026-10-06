@@ -3,9 +3,9 @@ import { AccessibilityInfo, Alert, Dimensions, StyleSheet, View } from 'react-na
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { runwayDressingDuration } from '@/components/ui';
-import { flatLayStack } from '@/components/ui/garment-board/compose-flat-lay';
-import { garmentPaletteContrast as contrastRatio } from '@/components/ui/garment-board/garment-palette';
+import { runwayDressingDuration } from '@/garment-art';
+import { flatLayStack } from '@/garment-art/compose-flat-lay';
+import { garmentPaletteContrast as contrastRatio } from '@/garment-art/garment-palette';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import { FirstGenerationRunway, type RunwayOutfit } from '@/features/today/presentation/first-generation-runway';
 import { runwayField } from '@/features/today/presentation/runway-palette';

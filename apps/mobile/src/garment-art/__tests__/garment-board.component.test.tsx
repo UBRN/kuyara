@@ -3,23 +3,23 @@ import type { PropsWithChildren } from 'react';
 import { processColor, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
-import { composeFlatLay, fitTodayStage, flatLayPreset } from '@/components/ui/garment-board/compose-flat-lay';
+import { composeFlatLay, fitTodayStage, flatLayPreset } from '@/garment-art/compose-flat-lay';
 import {
   composeGarmentBoard,
   drawnExtent,
   garmentShadowRule,
   placeOnRunway,
   todayPreset,
-} from '@/components/ui/garment-board/compose-garment-board';
+} from '@/garment-art/compose-garment-board';
 import {
   entranceStartBoxes,
   GarmentBoard,
   measureGarmentBoardHeight,
   type GarmentBoardPiece,
-} from '@/components/ui/garment-board/garment-board';
-import { garmentRolesBySlot, type GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
-import { resolveGarmentSilhouette } from '@/components/ui/garment-board/garment-silhouette-map';
-import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+} from '@/garment-art/garment-board';
+import { garmentRolesBySlot, type GarmentOutfitPalette } from '@/garment-art/garment-palette';
+import { resolveGarmentSilhouette } from '@/garment-art/garment-silhouette-map';
+import { silhouettes } from '@/garment-art/silhouettes';
 import { shiftOklchLightness } from '@/theme/color-oklch';
 import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';

@@ -11,7 +11,7 @@ import test from 'node:test';
 const compiled = execFileSync(
   process.execPath,
   [
-    path.join(import.meta.dirname, '../../../../test/react-compiler-output.cjs'),
+    path.join(import.meta.dirname, '../../test/react-compiler-output.cjs'),
     path.join(import.meta.dirname, 'garment-board.tsx'),
   ],
   { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },

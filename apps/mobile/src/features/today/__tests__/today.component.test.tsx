@@ -4,9 +4,9 @@ import { AccessibilityInfo, AppState, Dimensions, Platform, processColor, Scroll
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { garmentRolesBySlot } from '@/components/ui/garment-board/garment-palette';
-import { garmentSilhouetteIds } from '@/components/ui/garment-board/garment-silhouette-map';
-import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+import { garmentRolesBySlot } from '@/garment-art/garment-palette';
+import { garmentSilhouetteIds } from '@/garment-art/garment-silhouette-map';
+import { silhouettes } from '@/garment-art/silhouettes';
 import { failureCategories } from '@/domain/failure-category';
 import {
   accessoryFreeTodayScreenState,
@@ -51,8 +51,8 @@ import { EasierToSeeContext, SystemVisibilityContext } from '@/theme/easier-to-s
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
 import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
-import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
-import { garmentShadowRule } from '@/components/ui/garment-board/compose-garment-board';
+import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/garment-art';
+import { garmentShadowRule } from '@/garment-art/compose-garment-board';
 import { shiftOklchLightness } from '@/theme/color-oklch';
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
@@ -71,11 +71,11 @@ jest.mock('expo-symbols', () => ({
 // render, so the rise cannot be read from the wrapper's style either. This probe records
 // one line per board mount and renders the real board with its own props untouched.
 const mockBoardMounts: string[] = [];
-jest.mock('@/components/ui/garment-board/garment-board', () => {
+jest.mock('@/garment-art/garment-board', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const actual = jest.requireActual(
-    '@/components/ui/garment-board/garment-board',
-  ) as typeof import('@/components/ui/garment-board/garment-board');
+    '@/garment-art/garment-board',
+  ) as typeof import('@/garment-art/garment-board');
 
   return {
     ...actual,

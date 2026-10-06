@@ -1,5 +1,5 @@
 import { act, render } from '@testing-library/react-native';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { COLOR_WELL_TOUCH_SCALE, NativeColorWell } from '@/components/ui/native-color-well';
 import { layout, lightTheme } from '@/theme/theme';
@@ -16,7 +16,9 @@ function well(props: Partial<React.ComponentProps<typeof NativeColorWell>> = {})
   return (
     <KuyaraThemeContext.Provider value={lightTheme}>
       <NativeColorWell accessibilityLabel="More colors" onChange={jest.fn()} selected={false}
-        testID="well" value={null} {...props} />
+        testID="well" value={null} {...props}>
+        <View testID="well-face" />
+      </NativeColorWell>
     </KuyaraThemeContext.Provider>
   );
 }
@@ -24,9 +26,9 @@ function well(props: Partial<React.ComponentProps<typeof NativeColorWell>> = {})
 const modifier = (node: { props: Record<string, unknown> }, type: string) =>
   (node.props.modifiers as Record<string, unknown>[]).find((entry) => entry.$type === type);
 
-// O8 follow-up 1: the whole 44-point slot takes the touch, and the well is drawn at the
-// swatch discs' 36 points, centred.
-test('the well is a 44-point target drawn at the discs’ size', async () => {
+// O8 follow-up 1: the whole 44-point slot takes the touch, and the caller's drawing sits
+// centred over it.
+test('the well is a 44-point target with its face centred over the native picker', async () => {
   const result = await render(well());
   expect(StyleSheet.flatten(result.getByTestId('well').props.style)).toMatchObject({
     height: layout.minimumTouchTarget, width: layout.minimumTouchTarget,
@@ -35,7 +37,7 @@ test('the well is a 44-point target drawn at the discs’ size', async () => {
   // SwiftUI's 28-point well, scaled to cover the slot.
   expect(28 * (modifier(picker, 'scaleEffect')!.scale as number)).toBeGreaterThanOrEqual(layout.minimumTouchTarget);
   expect(COLOR_WELL_TOUCH_SCALE * 28).toBeGreaterThanOrEqual(layout.minimumTouchTarget);
-  expect(StyleSheet.flatten(result.getByTestId('well-mark', hidden).props.style)).toMatchObject({ height: 36, width: 36 });
+  expect(result.getByTestId('well-face', hidden)).toBeOnTheScreen();
 });
 
 // O8 follow-up 4: one radio in the palette's set with one name; the native control is not a
@@ -51,9 +53,9 @@ test('the well is one named radio, and the native picker is hidden from assistiv
   expect(result.queryAllByRole('button')).toHaveLength(0);
 });
 
-// O8 follow-up 2 and 3: a chosen custom colour draws its disc with the swatches' ring and
-// check; once another option is chosen the well is empty again and keeps no old colour.
-test('a chosen custom colour is checked, and the well empties when it is no longer the choice', async () => {
+// O8 follow-up 2 and 3: a chosen custom colour is the picker's selection with the swatches'
+// ring; once another option is chosen the well is empty again and keeps no old colour.
+test('a chosen custom colour is selected, and the well empties when it is no longer the choice', async () => {
   const onChange = jest.fn();
   const result = await render(well({ onChange }));
   const picker = result.getByTestId('well-picker', hidden);
@@ -66,17 +68,12 @@ test('a chosen custom colour is checked, and the well empties when it is no long
   await result.rerender(well({ onChange, selected: true, value: '#3C8D2F', accessibilityValue: 'Green' }));
   expect(result.getByRole('radio', { name: 'More colors' }).props.accessibilityState.selected).toBe(true);
   expect(result.getByRole('radio', { name: 'More colors' })).toHaveAccessibilityValue({ text: 'Green' });
-  expect(result.getByTestId('well-disc-check', hidden)).toBeOnTheScreen();
-  expect(result.queryByTestId('well-mark', hidden)).toBeNull();
   expect(result.getByTestId('well-picker', hidden)).toHaveProp('selection', '#3C8D2F');
   // Law 1: selection is the accent ring, never a fill.
   expect(StyleSheet.flatten(result.getByTestId('well-ring', hidden).props.style))
     .toMatchObject({ borderColor: lightTheme.colors.brandAccent });
 
   await result.rerender(well({ onChange, selected: false, value: null }));
-  expect(result.getByTestId('well-mark', hidden)).toBeOnTheScreen();
-  expect(result.queryByTestId('well-disc', hidden)).toBeNull();
-  expect(result.queryByTestId('well-disc-check', hidden)).toBeNull();
   expect(result.getByTestId('well-picker', hidden)).toHaveProp('selection', null);
   expect(result.getByRole('radio', { name: 'More colors' }).props.accessibilityValue).toBeUndefined();
   expect(StyleSheet.flatten(result.getByTestId('well-ring', hidden).props.style))

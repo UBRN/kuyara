@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { AccessibilityInfo, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import type { GarmentOutfitPalette } from '@/components/ui';
+import type { GarmentOutfitPalette } from '@/garment-art';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import { composePieceLimit } from '@/features/recommendation/application/compose-around-pieces';
 import { composeCatalog, type ComposePiece } from '@/features/today/application/compose-selection';

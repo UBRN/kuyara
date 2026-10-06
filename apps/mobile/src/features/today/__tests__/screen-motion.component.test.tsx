@@ -4,7 +4,6 @@ import * as Reanimated from 'react-native-reanimated';
 
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import { useConditionSymbolMotion } from '@/components/ui/use-condition-symbol-motion';
-import { resolveConditionStyle } from '@/features/weather/domain/condition-style';
 import { RunwayParticles } from '@/features/today/presentation/runway-particles';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
@@ -28,7 +27,7 @@ jest.mock('expo-router', () => {
 });
 
 function ConditionSample() {
-  useConditionSymbolMotion(resolveConditionStyle('rain', 'day'), lightTheme.motion.ambient.intense);
+  useConditionSymbolMotion('fall', lightTheme.motion.ambient.intense);
   return <View />;
 }
 

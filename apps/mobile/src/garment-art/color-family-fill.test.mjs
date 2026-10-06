@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { colorFamilies } from '../../../features/catalog/domain/garment-taxonomy.ts';
-import { blend } from '../../../theme/color-blend.ts';
+import { colorFamilies } from '../features/catalog/domain/garment-taxonomy.ts';
+import { blend } from '../theme/color-blend.ts';
 import {
   darkSemanticColors,
   darkTheme,
   lightSemanticColors,
   lightTheme,
   plateTheme,
-} from '../../../theme/theme.ts';
+} from '../theme/theme.ts';
 import { colorFamilyFills } from './color-family-fill.ts';
 import { NEUTRAL_GARMENT_FILL, resolveGarmentTileFill } from './garment-render-fills.ts';
 
