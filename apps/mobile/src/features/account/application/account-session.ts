@@ -405,9 +405,15 @@ export function createAccountSessionManager({
         // first link waits for the sheet. A withdrawn account is not asked again here.
         if ((syncConsent === 'none' || syncConsent === null) && snapshot.sheet !== null) {
           // Marked before it shows, so an answer always clears a mark already written.
+          const host = snapshot.sheet;
           await markQuestion(true);
           if (!isCurrent(session)) return;
           update({ consent: { prompt: 'signIn', status: 'idle' } });
+          if (request !== signInRequest || snapshot.sheet === null) {
+            // The sheet closed while the mark was written: as closing over the question, it declines.
+            resultHost = host;
+            await manager.answerConsent(false);
+          }
           return;
         }
         awaitingConsent = null;
@@ -552,6 +558,8 @@ export function createAccountSessionManager({
       }
       // The auth service said the session is gone: it ends the way signing out does.
       try { await auth.signOut(); } catch { /* The screen still leaves the ended session. */ }
+      awaitingConsent = null;
+      await markQuestion(false);
       await restore(null);
     },
     async localWrite() { await runSync(); },

@@ -44,7 +44,7 @@ function setup(over = {}) {
   const deletion = { deleteAccount: async (request) => { calls.push(['delete', request]); return { kind: 'deleted', appleUnrevoked: false }; }, ...over.deletion };
   // The device-local marker of a consent question left open; the fake keeps it in `question.open`.
   const question = over.question ?? { open: false };
-  const consentQuestion = { wasOpen: async () => question.open, setOpen: async (open) => { question.open = open; } };
+  const consentQuestion = over.consentQuestion ?? { wasOpen: async () => question.open, setOpen: async (open) => { question.open = open; } };
   const manager = createAccountSessionManager({ auth, sync, deletion, consent, consentQuestion, now: () => new Date('2026-10-03T01:00:00Z') });
   return { manager, calls, question };
 }
@@ -341,6 +341,39 @@ test('the sign-in question is marked open on this phone until it is answered eit
   await manager.signIn('apple');
   manager.closeSheet();
   await settle();
+  assert.equal(question.open, false);
+});
+
+test('a sheet closed while the question is being marked declines it, so nothing stays stuck', async () => {
+  const question = { open: false };
+  // A mark that takes 50 ms to write; the sheet closes 20 ms into the sign-in.
+  const consentQuestion = { wasOpen: async () => question.open,
+    setOpen: (open) => new Promise((resolve) => setTimeout(() => { question.open = open; resolve(); }, 50)) };
+  const { manager, calls } = setup({ records: [], question, consentQuestion });
+  manager.openSignIn('profile');
+  const signingIn = manager.signIn('apple');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  manager.closeSheet();
+  await signingIn;
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const snapshot = manager.getSnapshot();
+  assert.equal(snapshot.consent.prompt, null);
+  assert.equal(question.open, false);
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+  assert.equal(snapshot.sheet, 'profile');
+  assert.equal(snapshot.result.added, 'profile');
+  manager.syncNow();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(calls.filter(([name]) => name === 'sync').length, 2);
+});
+
+test('a foreground that finds the session gone clears a question left open', async () => {
+  const { manager, question } = setup({ records: [], auth: { refreshSession: async () => null } });
+  manager.openSignIn('profile');
+  await manager.signIn('apple');
+  assert.equal(question.open, true);
+  await manager.foreground();
+  assert.equal(manager.getSnapshot().session.kind, 'signedOut');
   assert.equal(question.open, false);
 });
 
