@@ -1099,6 +1099,143 @@ test('a changed preference during regeneration runs once more with the latest in
   }
 });
 
+// Ended coverage reselects once at the next foreground open of Today, and not again for the
+// same coverage end; a coverage window still running reselects nothing.
+async function renderLiveTodayWithCoverage(coverageEnd: string) {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = {
+    ...saved.snapshot,
+    catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-24',
+    coverageEnd,
+  };
+  const onChange: ((state: string) => void)[] = [];
+  const subscription = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(async () => mockRecommendationSnapshot);
+  const pool = jest.spyOn(RecommendationApplicationController.prototype, 'updatePoolAvailability');
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={saved} liveRecommendationProvider
+      wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  await waitFor(() => expect(pool).toHaveBeenCalled());
+  const returnToForeground = async () => {
+    await act(async () => {
+      onChange.forEach((listener) => listener('background'));
+      onChange.forEach((listener) => listener('active'));
+    });
+    await act(async () => { await Promise.resolve(); });
+  };
+  const restore = () => {
+    view.unmount();
+    subscription.mockRestore();
+    refresh.mockRestore();
+    pool.mockRestore();
+  };
+  return { refresh, returnToForeground, restore };
+}
+
+test('ended coverage reselects once at the next foreground open of Today', async () => {
+  jest.useFakeTimers({
+    now: new Date('2026-09-24T12:00:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  const live = await renderLiveTodayWithCoverage('2026-09-24T10:00:00.000Z');
+  try {
+    await live.returnToForeground();
+    await waitFor(() => expect(live.refresh).toHaveBeenCalledTimes(1));
+    expect(live.refresh.mock.calls[0][0]).toBe('explicit');
+    expect(live.refresh.mock.calls[0][1].now).toBe('2026-09-24T12:00:00.000Z');
+
+    await live.returnToForeground();
+    expect(live.refresh).toHaveBeenCalledTimes(1);
+  } finally {
+    live.restore();
+    jest.useRealTimers();
+  }
+});
+
+test('coverage still running reselects nothing at a foreground open of Today', async () => {
+  jest.useFakeTimers({
+    now: new Date('2026-09-24T12:00:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  const live = await renderLiveTodayWithCoverage('2026-09-24T16:00:00.000Z');
+  try {
+    await live.returnToForeground();
+    expect(live.refresh).not.toHaveBeenCalled();
+  } finally {
+    live.restore();
+    jest.useRealTimers();
+  }
+});
+
+// The provider reads the dressing day again when the app returns to the foreground, and a
+// day-choice read that failed is read again then, even within the same dressing day.
+test('a return to the foreground moves the provider to the dressing day now in force', async () => {
+  mockChoiceGet.mockRejectedValueOnce(new Error('choice read failed'));
+  const onChange: ((state: string) => void)[] = [];
+  const subscription = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  function Probe() {
+    const application = useRecommendationApplication();
+    return (
+      <>
+        <Text testID="probe-day">{application.dressingDayKey}</Text>
+        <Text testID="probe-choice-failed">{String(application.dressingDayChoiceFailed)}</Text>
+      </>
+    );
+  }
+  const changeAppState = async (next: string) => {
+    await act(async () => { onChange.forEach((listener) => listener(next)); });
+  };
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={recommendationReady()} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <Probe />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('probe-choice-failed')).toHaveTextContent('true'));
+    expect(mockChoiceGet).toHaveBeenCalledTimes(1);
+
+    await changeAppState('inactive');
+    await changeAppState('background');
+    expect(mockChoiceGet).toHaveBeenCalledTimes(1);
+    await changeAppState('active');
+    await waitFor(() => expect(view.getByTestId('probe-choice-failed')).toHaveTextContent('false'));
+    expect(mockChoiceGet).toHaveBeenCalledTimes(2);
+    expect(mockChoiceGet).toHaveBeenLastCalledWith('profile-one', '2026-09-24');
+
+    mockLocalDayKey = '2026-09-24:evening';
+    await changeAppState('background');
+    expect(view.getByTestId('probe-day')).toHaveTextContent('2026-09-24');
+    await changeAppState('active');
+    await waitFor(() => expect(view.getByTestId('probe-day')).toHaveTextContent('2026-09-24:evening'));
+    await waitFor(() => expect(mockChoiceGet).toHaveBeenLastCalledWith('profile-one', '2026-09-24:evening'));
+    expect(mockChoiceGet).toHaveBeenCalledTimes(3);
+    expect(mockDepartureGet).toHaveBeenLastCalledWith('profile-one', '2026-09-24:evening');
+
+    // A change that stays in the foreground is no return to it.
+    mockLocalDayKey = '2026-09-25';
+    await changeAppState('active');
+    expect(view.getByTestId('probe-day')).toHaveTextContent('2026-09-24:evening');
+    view.unmount();
+  } finally {
+    subscription.mockRestore();
+  }
+});
+
 // The one-tap question: it names the profile's usual day type, one large
 // button answers it, the other two day types sit below with nothing checked and answer in one
 // tap too. Either answer writes the day type alone, so the Settings styles keep applying (N4).
