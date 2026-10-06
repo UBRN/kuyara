@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
-import { registerHooks } from 'node:module';
+import { mockNativeModules } from '../../../test/fakes/mock-native-modules.mjs';
 
 // The mocked native module reads its behaviour from this global, so each test scripts the fix.
 globalThis.__locationMock = {};
 
-const nativeModuleMocks = new Map([
-  ['expo-location', `
+mockNativeModules({
+  'expo-location': `
     export const Accuracy = { Low: 1 };
     export const PermissionStatus = { UNDETERMINED: 'undetermined' };
     const m = () => globalThis.__locationMock;
@@ -16,20 +16,10 @@ const nativeModuleMocks = new Map([
     });
     export const getCurrentPositionAsync = (...args) => m().getCurrentPositionAsync(...args);
     export const reverseGeocodeAsync = async () => [{ city: 'Kadıköy', timezone: 'Europe/Istanbul' }];
-  `],
-  ['react-native', `
+  `,
+  'react-native': `
     export const Linking = { openSettings() { return Promise.resolve(); } };
-  `],
-]);
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const source = nativeModuleMocks.get(specifier);
-    if (source) {
-      return { shortCircuit: true, url: `data:text/javascript,${encodeURIComponent(source)}` };
-    }
-    return nextResolve(specifier, context);
-  },
+  `,
 });
 
 const { ExpoDeviceLocationGateway } = await import('./data/expo-device-location-gateway.ts');

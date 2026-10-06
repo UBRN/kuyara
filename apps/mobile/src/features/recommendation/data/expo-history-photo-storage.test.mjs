@@ -1,49 +1,10 @@
 import assert from 'node:assert/strict';
-import { registerHooks } from 'node:module';
 import test from 'node:test';
-import { fileUri as nativeUri } from '../../../../test/file-uri.mjs';
+import { installFakeExpoFileSystem } from '../../../../test/fakes/expo-file-system.mjs';
 
-// The real file adapter behind history photos, run against a stand-in for expo-file-system
-// (the same registerHooks pattern as the wardrobe photo tests).
-const nativeFiles = new Set();
-const createdDirectories = [];
-let nativeCopyFailure = null;
-let nativeDeleteFailure = null;
-
-globalThis.__kuyaraHistoryPhotoNativeMocks = {
-  Directory: class {
-    constructor(...parts) { this.uri = `${nativeUri(parts)}/`; }
-    create() { createdDirectories.push(this.uri); }
-  },
-  File: class {
-    constructor(...parts) { this.uri = nativeUri(parts); }
-    get exists() { return nativeFiles.has(this.uri); }
-    async copy(destination) {
-      nativeFiles.add(destination.uri);
-      if (nativeCopyFailure) throw nativeCopyFailure;
-    }
-    delete() {
-      if (nativeDeleteFailure) throw nativeDeleteFailure;
-      nativeFiles.delete(this.uri);
-    }
-  },
-  Paths: { cache: { uri: 'file:///cache' }, document: { uri: 'file:///documents' } },
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === 'expo-file-system') {
-      return {
-        shortCircuit: true,
-        url: `data:text/javascript,${encodeURIComponent(`
-          const mocks = globalThis.__kuyaraHistoryPhotoNativeMocks;
-          export const { Directory, File, Paths } = mocks;
-        `)}`,
-      };
-    }
-    return nextResolve(specifier, context);
-  },
-});
+// The real file adapter behind history photos, run against a stand-in for expo-file-system.
+const fileSystem = installFakeExpoFileSystem();
+const { files: nativeFiles, createdDirectories } = fileSystem;
 
 const { ExpoHistoryPhotoStorage } = await import('./expo-history-photo-storage.ts');
 
@@ -55,14 +16,14 @@ const storedUri = `file:///documents/${storedPath}`;
 function reset(t) {
   nativeFiles.clear();
   createdDirectories.length = 0;
-  nativeCopyFailure = null;
-  nativeDeleteFailure = null;
-  t.after(() => { nativeFiles.clear(); nativeCopyFailure = null; nativeDeleteFailure = null; });
+  fileSystem.copyFailure = null;
+  fileSystem.deleteFailure = null;
+  t.after(() => { nativeFiles.clear(); fileSystem.copyFailure = null; fileSystem.deleteFailure = null; });
 }
 
 test('copyStaged copies a staged file to the managed history path', async (t) => {
   reset(t);
-  nativeFiles.add(stagedUri);
+  nativeFiles.set(stagedUri, '');
   const storage = new ExpoHistoryPhotoStorage(() => photoId.toUpperCase());
   assert.equal(await storage.copyStaged(stagedUri), storedPath);
   assert.equal(nativeFiles.has(storedUri), true);
@@ -77,7 +38,7 @@ test('copyStaged and discardStaged accept only an existing file inside the stagi
     'file:///cache/kuyara/wardrobe/staging-evil/a.jpg',
     'file:///documents/kuyara/history/photos/a.jpg',
   ];
-  for (const uri of outside) nativeFiles.add(uri);
+  for (const uri of outside) nativeFiles.set(uri, '');
   for (const uri of [...outside, stagedUri]) {
     // `stagedUri` itself is missing here, so a staged path that does not exist is refused too.
     await assert.rejects(() => storage.copyStaged(uri), /Invalid staged history photo/, uri);
@@ -89,36 +50,36 @@ test('copyStaged and discardStaged accept only an existing file inside the stagi
 
 test('discardStaged deletes the staged file', async (t) => {
   reset(t);
-  nativeFiles.add(stagedUri);
+  nativeFiles.set(stagedUri, '');
   await new ExpoHistoryPhotoStorage(() => photoId).discardStaged(stagedUri);
   assert.equal(nativeFiles.has(stagedUri), false);
 });
 
 test('copyStaged rejects an identifier that is not a UUID v4 and copies nothing', async (t) => {
   reset(t);
-  nativeFiles.add(stagedUri);
+  nativeFiles.set(stagedUri, '');
   const storage = new ExpoHistoryPhotoStorage(() => '../../evil');
   await assert.rejects(() => storage.copyStaged(stagedUri), /Invalid history photo identifier/);
-  assert.deepEqual([...nativeFiles], [stagedUri]);
+  assert.deepEqual([...nativeFiles.keys()], [stagedUri]);
 });
 
 test('a failing copy leaves no partial destination behind and rethrows the copy error', async (t) => {
   reset(t);
-  nativeFiles.add(stagedUri);
-  nativeCopyFailure = new Error('copy failed');
+  nativeFiles.set(stagedUri, '');
+  fileSystem.copyFailure = new Error('copy failed');
   const storage = new ExpoHistoryPhotoStorage(() => photoId);
-  await assert.rejects(() => storage.copyStaged(stagedUri), (error) => error === nativeCopyFailure);
+  await assert.rejects(() => storage.copyStaged(stagedUri), (error) => error === fileSystem.copyFailure);
   assert.equal(nativeFiles.has(storedUri), false);
   assert.equal(nativeFiles.has(stagedUri), true);
 });
 
 test('a failing copy whose partial file cannot be removed still rethrows the copy error', async (t) => {
   reset(t);
-  nativeFiles.add(stagedUri);
-  nativeCopyFailure = new Error('copy failed');
-  nativeDeleteFailure = new Error('delete failed');
+  nativeFiles.set(stagedUri, '');
+  fileSystem.copyFailure = new Error('copy failed');
+  fileSystem.deleteFailure = new Error('delete failed');
   const storage = new ExpoHistoryPhotoStorage(() => photoId);
-  await assert.rejects(() => storage.copyStaged(stagedUri), (error) => error === nativeCopyFailure);
+  await assert.rejects(() => storage.copyStaged(stagedUri), (error) => error === fileSystem.copyFailure);
 });
 
 test('deleteStored removes a managed file, tolerates a missing one and never touches an unmanaged path', async (t) => {
@@ -126,9 +87,9 @@ test('deleteStored removes a managed file, tolerates a missing one and never tou
   const storage = new ExpoHistoryPhotoStorage(() => photoId);
   const legacy = 'file:///documents/wardrobe/photos/legacy.jpg';
   const traversal = 'file:///documents/../x.jpg';
-  nativeFiles.add(legacy);
-  nativeFiles.add(traversal);
-  nativeFiles.add(storedUri);
+  nativeFiles.set(legacy, '');
+  nativeFiles.set(traversal, '');
+  nativeFiles.set(storedUri, '');
 
   await storage.deleteStored(storedPath);
   assert.equal(nativeFiles.has(storedUri), false);
@@ -144,9 +105,9 @@ test('resolveUri answers the file uri only for an existing managed photo and nev
   const storage = new ExpoHistoryPhotoStorage(() => photoId);
   assert.equal(storage.resolveUri(null), null);
   assert.equal(storage.resolveUri(storedPath), null, 'a missing file is no photo');
-  nativeFiles.add(storedUri);
+  nativeFiles.set(storedUri, '');
   assert.equal(storage.resolveUri(storedPath), storedUri);
-  nativeFiles.add('file:///documents/wardrobe/photos/legacy.jpg');
+  nativeFiles.set('file:///documents/wardrobe/photos/legacy.jpg', '');
   assert.equal(storage.resolveUri('wardrobe/photos/legacy.jpg'), null, 'an unmanaged path is no photo');
   assert.equal(storage.resolveUri('../x.jpg'), null);
 });

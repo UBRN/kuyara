@@ -1460,13 +1460,15 @@ test('a managed photo path pattern is written only in domain/managed-photo-path.
 });
 
 // Test helpers with one owner under apps/mobile/test: the font-scale setter, the stand-in file
-// uri and the source tree walk are imported, never written again in a test file.
-test('the font scale setter, file uri builder and source walk are defined only under test/', () => {
+// uri, the stand-in `expo-file-system` and the source tree walk are imported, never written
+// again in a test file.
+test('the font scale setter, file uri builder, file system fake and source walk are defined only under test/', () => {
   const copies = [];
   const definitions = [
     [/function mockFontScale\b/, 'test/font-scale.ts'],
     [/function (?:fileUri|nativeUri|nativeFileUri)\(parts\)/, 'test/file-uri.mjs'],
     [/function sourceFiles\b/, 'test/source-files.mjs'],
+    [/specifier === 'expo-file-system'|'expo-file-system':\s*`/, 'test/fakes/expo-file-system.mjs'],
   ];
   for (const relativePath of sourceFiles(sourceRoot, { includeTests: true })) {
     if (relativePath === 'architecture-invariants.test.mjs') continue;

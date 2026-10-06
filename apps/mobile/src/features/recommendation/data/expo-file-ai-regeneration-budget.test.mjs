@@ -1,68 +1,10 @@
 import assert from 'node:assert/strict';
-import { registerHooks } from 'node:module';
 import test from 'node:test';
-import { fileUri } from '../../../../test/file-uri.mjs';
+import { installFakeExpoFileSystem } from '../../../../test/fakes/expo-file-system.mjs';
 
 // Mock the device file to verify durable, serialized reservations.
-const files = new Map();
-let readFailure = false;
-let writeFailure = false;
-
-function throwOnRead() {
-  if (readFailure) throw new Error('read failed');
-}
-
-function throwOnWrite() {
-  if (writeFailure) throw new Error('write failed');
-}
-
-globalThis.__kuyaraRegenerationBudgetFileMocks = {
-  Directory: class {
-    constructor(...parts) {
-      this.uri = fileUri(parts);
-    }
-
-    create() {
-      throwOnWrite();
-    }
-  },
-  File: class {
-    constructor(...parts) {
-      this.uri = fileUri(parts);
-    }
-
-    get exists() {
-      throwOnRead();
-      return files.has(this.uri);
-    }
-
-    async text() {
-      throwOnRead();
-      return files.get(this.uri);
-    }
-
-    write(value) {
-      throwOnWrite();
-      files.set(this.uri, value);
-    }
-  },
-  Paths: { document: { uri: 'file:///documents' } },
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === 'expo-file-system') {
-      return {
-        shortCircuit: true,
-        url: `data:text/javascript,${encodeURIComponent(`
-          const mocks = globalThis.__kuyaraRegenerationBudgetFileMocks;
-          export const { Directory, File, Paths } = mocks;
-        `)}`,
-      };
-    }
-    return nextResolve(specifier, context);
-  },
-});
+const fileSystem = installFakeExpoFileSystem();
+const { files } = fileSystem;
 
 const { ExpoFileAiRegenerationBudget } = await import(
   './expo-file-ai-regeneration-budget.ts'
@@ -72,8 +14,8 @@ const budgetPath = 'file:///documents/kuyara/recommendation/ai-regenerations.jso
 
 test.beforeEach(() => {
   files.clear();
-  readFailure = false;
-  writeFailure = false;
+  fileSystem.readFailure = false;
+  fileSystem.writeFailure = false;
 });
 
 test('six concurrent reservations across instances allow exactly five', async () => {
@@ -111,15 +53,15 @@ test('corrupt content starts a fresh count that is rewritten, and still caps the
 test('unreadable and unwritable stores deny a reservation', async () => {
   const budget = new ExpoFileAiRegenerationBudget();
   files.set(budgetPath, JSON.stringify({ dayKey: '2026-09-18', count: 1 }));
-  readFailure = true;
+  fileSystem.readFailure = true;
   assert.equal(await budget.reserve('2026-09-18'), false);
-  readFailure = false;
+  fileSystem.readFailure = false;
   assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 1 }));
   files.clear();
-  readFailure = true;
+  fileSystem.readFailure = true;
   assert.equal(await budget.reserve('2026-09-18'), false);
-  readFailure = false;
-  writeFailure = true;
+  fileSystem.readFailure = false;
+  fileSystem.writeFailure = true;
   assert.equal(await budget.reserve('2026-09-18'), false);
   assert.equal(files.has(budgetPath), false);
 });
@@ -127,9 +69,9 @@ test('unreadable and unwritable stores deny a reservation', async () => {
 test('a failed write does not falsely consume or grant a slot', async () => {
   const budget = new ExpoFileAiRegenerationBudget();
   files.set(budgetPath, JSON.stringify({ dayKey: '2026-09-18', count: 4 }));
-  writeFailure = true;
+  fileSystem.writeFailure = true;
   assert.equal(await budget.reserve('2026-09-18'), false);
-  writeFailure = false;
+  fileSystem.writeFailure = false;
   assert.equal(await budget.reserve('2026-09-18'), true);
   assert.equal(await budget.reserve('2026-09-18'), false);
 });
@@ -161,12 +103,12 @@ test('a release runs in turn with reservations, and a store it cannot use change
   assert.equal(reserved, true);
   assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 5 }));
 
-  writeFailure = true;
+  fileSystem.writeFailure = true;
   await budget.release('2026-09-18');
-  writeFailure = false;
-  readFailure = true;
+  fileSystem.writeFailure = false;
+  fileSystem.readFailure = true;
   await budget.release('2026-09-18');
-  readFailure = false;
+  fileSystem.readFailure = false;
   assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 5 }));
 });
 
