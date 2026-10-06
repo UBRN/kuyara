@@ -43,6 +43,14 @@ import { refreshAfterPull } from '@/features/recommendation/application/pull-ref
 import { createOutfitHistoryAccess } from '@/features/recommendation/application/outfit-history-access';
 import { createMemberReask } from '@/features/recommendation/application/member-reask';
 import { createDressingDayRollover, dayInForce } from '@/features/recommendation/application/dressing-day-rollover';
+import {
+  answeredChoice,
+  currentDayChoiceRead,
+  dayChoiceRead,
+  failedDayChoiceRead,
+  writtenDayChoice,
+  type DayChoiceRead,
+} from '@/features/recommendation/application/dressing-day-choice-read';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import {
   TomorrowPreviewController,
@@ -156,12 +164,6 @@ async function loadHistoryRepository() {
     new ExpoHistoryPhotoStorage(newUuid));
 }
 
-type DayChoiceReadState = Readonly<{ profileId: string; key: string }> & (
-  | Readonly<{ status: 'unknown'; previousChoice: DressingDayChoice | null }>
-  | Readonly<{ status: 'none' }>
-  | Readonly<{ status: 'row'; choice: DressingDayChoice }>
-);
-
 export function RecommendationApplicationProvider({
   children,
   localProfileId,
@@ -177,7 +179,7 @@ export function RecommendationApplicationProvider({
   const { analytics } = useProductAnalytics();
   const telemetry = usePerformanceTelemetry();
   const [localDay, setLocalDay] = useState(deviceLocalDay);
-  const [dayChoiceState, setDayChoiceState] = useState<DayChoiceReadState | null>(null);
+  const [dayChoiceState, setDayChoiceState] = useState<DayChoiceRead | null>(null);
   const [choiceReadAttempt, setChoiceReadAttempt] = useState(0);
   const [departureState, setDepartureState] = useState<{
     key: string; value: DressingDayDeparture | null;
@@ -207,33 +209,19 @@ export function RecommendationApplicationProvider({
       .then((choice) => {
         if (!live) return;
         dayRollover.choiceReadFailed(false);
-        setDayChoiceState(choice
-          ? { profileId: localProfileId, key: localDay.key, status: 'row', choice }
-          : { profileId: localProfileId, key: localDay.key, status: 'none' });
+        setDayChoiceState(dayChoiceRead(localProfileId, localDay.key, choice));
       })
       .catch(() => {
         if (!live) return;
         dayRollover.choiceReadFailed(true);
-        setDayChoiceState((previous) => ({
-          profileId: localProfileId,
-          key: localDay.key,
-          status: 'unknown',
-          previousChoice: previous?.profileId === localProfileId && previous.key === localDay.key
-            ? previous.status === 'row'
-              ? previous.choice
-              : previous.status === 'unknown' ? previous.previousChoice : null
-            : null,
-        }));
+        setDayChoiceState((previous) => failedDayChoiceRead(previous, localProfileId, localDay.key));
       });
     return () => { live = false; };
   }, [choiceReadAttempt, dayRollover, localDay.key, localProfileId]);
-  const currentDayChoice = dayChoiceState?.profileId === localProfileId &&
-    dayChoiceState.key === localDay.key ? dayChoiceState : null;
+  const currentDayChoice = currentDayChoiceRead(dayChoiceState, localProfileId, localDay.key);
   const choiceReady = currentDayChoice?.status === 'row' || currentDayChoice?.status === 'none';
   const choiceFailed = currentDayChoice?.status === 'unknown';
-  const dayChoice = currentDayChoice?.status === 'row'
-    ? currentDayChoice.choice
-    : currentDayChoice?.status === 'unknown' ? currentDayChoice.previousChoice : null;
+  const dayChoice = answeredChoice(currentDayChoice);
   const profileDefault = profileState.status === 'ready'
     ? profileState.profile.dressStyle ?? defaultDressStyle : defaultDressStyle;
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
@@ -424,7 +412,7 @@ export function RecommendationApplicationProvider({
     const repository = await loadChoiceRepository();
     const choice = await repository.upsert(localProfileId, key, formality, source, styleAesthetics);
     if (key !== localDay.key) return;
-    setDayChoiceState({ profileId: localProfileId, key, status: 'row', choice });
+    setDayChoiceState(writtenDayChoice(localProfileId, key, choice));
     // Both answers ride one generation, with the styles the next render resolves too, so
     // the approved triggers see nothing new and join this request instead of adding one.
     const generationInput = currentInput();
@@ -437,7 +425,7 @@ export function RecommendationApplicationProvider({
   const answerSetupDay = useCallback(async (formality: DressStyle) => {
     const key = deviceLocalDay().key;
     const choice = await (await loadChoiceRepository()).upsert(localProfileId, key, formality, 'morning');
-    if (key === localDay.key) setDayChoiceState({ profileId: localProfileId, key, status: 'row', choice });
+    if (key === localDay.key) setDayChoiceState(writtenDayChoice(localProfileId, key, choice));
   }, [localDay.key, localProfileId]);
 
   // The evening preview of tomorrow: one selection per dressing day, through the same chain, once
@@ -562,8 +550,7 @@ export function RecommendationApplicationProvider({
       });
       const settled = approvedTriggers.trackReask(result.settled);
       if (result.choice) {
-        setDayChoiceState({ profileId: localProfileId, key: day.key,
-          status: 'row', choice: result.choice });
+        setDayChoiceState(writtenDayChoice(localProfileId, day.key, result.choice));
       }
       setDepartureState({ key: day.key, value: result.departure });
       setLocalDay((previous) => dayInForce(previous, day));
