@@ -5,8 +5,8 @@ import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WardrobeRoute from '@/app/(tabs)/(profile)/wardrobe/index';
-import { garmentSilhouetteIds } from '@/components/ui/garment-board/garment-silhouette-map';
-import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+import { garmentSilhouetteIds } from '@/garment-art/garment-silhouette-map';
+import { silhouettes } from '@/garment-art/silhouettes';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
@@ -43,10 +43,6 @@ import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { darkTheme, lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
-
-jest.mock('expo-symbols', () => ({
-  SymbolView: () => null,
-}));
 
 // The type sheet presents native views, which do not mount under Jest (ADR 0019). The
 // mock keeps the `index` contract the `NativeSheet` primitive drives: below zero the
@@ -688,7 +684,7 @@ test('a piece added from Bottoms draws dashed jeans before a type is chosen', as
     </TestProviders>,
   );
   const outlineOf = (typeId: 'jeans' | 't_shirt') =>
-    silhouettes[garmentSilhouetteIds[typeId]!].groups[0].outline;
+    silhouettes[garmentSilhouetteIds.womens[typeId]!].groups[0].outline;
   const drawsOutline = (testID: string, outline: string) =>
     result.getAllByTestId(testID, { includeHiddenElements: true }).some((element) =>
       element.queryAll((node) => node.props.d === outline).length > 0);

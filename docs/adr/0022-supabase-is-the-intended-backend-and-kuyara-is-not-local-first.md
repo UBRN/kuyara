@@ -2,11 +2,12 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: not started. This ADR changes how the product describes itself and what
-the current schemas must preserve. It authorizes no Supabase dependency, table, client,
-adapter, or sync code by itself; [ADR 0041](0041-optional-accounts.md) specifies the
-optional accounts, sync and account deletion that build on it. See
-[Out of scope](#out-of-scope).
+Implementation: the account feature specified by [ADR 0041](0041-optional-accounts.md)
+is built and switched off behind `ACCOUNT_SCREENS_ENABLED`; the Supabase project and its
+remote schema exist. This ADR changes how the product describes itself and what the
+current schemas must preserve. It authorizes no Supabase dependency, table, client,
+adapter, or sync code by itself; ADR 0041 specifies the optional accounts, sync and
+account deletion that build on it. See [Out of scope](#out-of-scope).
 
 ## Context
 
@@ -61,9 +62,8 @@ narrowed: Supabase is the chosen one.
 
 ### 3. Postgres becomes authoritative for account-backed data; SQLite stays the device store
 
-Decided 2026-09-04, in answer to the question this ADR exists to close. Once accounts
-land, Supabase Postgres is the record of truth for account-backed user data. Expo SQLite
-remains the store the application reads and writes first, so the app keeps working
+Once accounts land, Supabase Postgres is the record of truth for account-backed user
+data. Expo SQLite remains the store the application reads and writes first, so the app keeps working
 offline and keeps rendering instantly, and it reconciles against the remote afterwards.
 
 SQLite is not removed and is not reduced to a throwaway cache: it is the device's working

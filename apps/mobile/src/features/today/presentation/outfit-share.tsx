@@ -3,13 +3,8 @@ import { useRef, useState, type Ref } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import {
-  AppText,
-  GarmentBoard,
-  Icon,
-  measureGarmentBoardHeight,
-  type GarmentOutfitPalette,
-} from '@/components/ui';
+import { AppText, Icon } from '@/components/ui';
+import { GarmentBoard, type GarmentOutfitPalette, measureGarmentBoardHeight, useGarmentCut } from '@/garment-art';
 import { brandSymbolPaths, brandSymbolViewBox } from '@/components/ui/brand-symbol';
 import { shareSnapshot } from '@/components/ui/share-snapshot';
 import { IOS_STORE_URL } from '@/config/store-links';
@@ -93,6 +88,7 @@ export function OutfitShareCard({
   const theme = useKuyaraTheme();
   const { messages } = useLocalization();
   const easierToSee = useEasierToSee();
+  const cut = useGarmentCut();
   const stageColor = theme.atmosphere[presentation.atmosphere];
 
   return (
@@ -107,7 +103,7 @@ export function OutfitShareCard({
         <PlateView
           color={stageColor}
           style={[styles.stage, {
-            height: measureGarmentBoardHeight(suggestion.boardPieces, BOARD_WIDTH, 'detail', false, easierToSee),
+            height: measureGarmentBoardHeight(suggestion.boardPieces, BOARD_WIDTH, 'detail', cut, false, easierToSee),
           }]}>
           <GarmentBoard
             accessibilityLabel={suggestion.boardAccessibilityLabel}

@@ -2,19 +2,16 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { FlatList, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText, Button, Entrance, Screen, useTextScaling } from '@/components/ui';
 import {
-  AppText,
-  Button,
-  Entrance,
   GarmentBoard,
-  measureGarmentBoardHeight,
-  Screen,
-  useTextScaling,
   type GarmentBoardPiece,
   type GarmentOutfitPalette,
-} from '@/components/ui';
+  measureGarmentBoardHeight,
+  useGarmentCut,
+} from '@/garment-art';
 import { EmptyStateArt } from '@/components/ui/empty-state-art';
-import { parseCalendarDate } from '@/domain/calendar-date';
+import { calendarDateUtcMidnight } from '@/domain/calendar-date';
 import { dateTimeFormat } from '@/domain/intl-format';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { historyDrawingSky } from '@/features/profile/presentation/history-drawing-sky';
@@ -135,7 +132,7 @@ function historyRows(
     if (dayMonth !== month) {
       flush();
       month = dayMonth;
-      rows.push({ kind: 'month', key: `month-${dayMonth}`, label: monthLabel(parseCalendarDate(dayKey)) });
+      rows.push({ kind: 'month', key: `month-${dayMonth}`, label: monthLabel(calendarDateUtcMidnight(dayKey)) });
     }
     const looks = dayLooks.map((entry, look) => ({ key: look === 0 ? dayKey : `${dayKey}-${look + 1}`, entry }));
     if (index === 0) {
@@ -186,13 +183,16 @@ export function HistoryScreen({
   const { width: windowWidth } = useWindowDimensions();
   const { usesStackedLayout } = useTextScaling();
   const easierToSee = useEasierToSee();
+  const cut = useGarmentCut();
   const copy = messages.profile;
   const formats = useMemo(() => {
+    // A day key is a calendar date in no zone, so it is read as UTC midnight and formatted in UTC;
+    // the explicit zone is also what lets the formatters come from the cache.
     const tag = localeTag(language);
     return {
-      full: dateTimeFormat(tag, { weekday: 'long', day: 'numeric', month: 'long' }),
-      short: dateTimeFormat(tag, { weekday: 'short', day: 'numeric' }),
-      month: dateTimeFormat(tag, { month: 'long', year: 'numeric' }),
+      full: dateTimeFormat(tag, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }),
+      short: dateTimeFormat(tag, { weekday: 'short', day: 'numeric', timeZone: 'UTC' }),
+      month: dateTimeFormat(tag, { month: 'long', year: 'numeric', timeZone: 'UTC' }),
     };
   }, [language]);
   const columns = usesStackedLayout ? 1 : 2;
@@ -316,7 +316,7 @@ export function HistoryScreen({
           );
         }
         if (row.kind === 'latest') {
-          const fullDate = formats.full.format(parseCalendarDate(row.dayKey));
+          const fullDate = formats.full.format(calendarDateUtcMidnight(row.dayKey));
           const several = row.looks.length > 1;
           return (
             <View style={styles.latestDay}>
@@ -338,7 +338,7 @@ export function HistoryScreen({
                       style={styles.latest}
                       testID={`history-entry-${look.key}`}>
                       {stage(look, contentWidth, measureGarmentBoardHeight(
-                        historyBoard(look.entry, look.key).pieces, contentWidth, 'today', false, easierToSee))}
+                        historyBoard(look.entry, look.key).pieces, contentWidth, 'today', cut, false, easierToSee))}
                       <View style={styles.text}>
                         {several ? null : <AppText variant="title">{fullDate}</AppText>}
                         <AppText colorRole="textSecondary">{title}</AppText>
@@ -353,9 +353,9 @@ export function HistoryScreen({
         }
         // Looks side by side share the taller stage, so their captions sit on one line.
         const height = Math.max(...row.looks.map(({ entry, key }) =>
-          measureGarmentBoardHeight(historyBoard(entry, key).pieces, tileWidth, 'today', false, easierToSee)));
+          measureGarmentBoardHeight(historyBoard(entry, key).pieces, tileWidth, 'today', cut, false, easierToSee)));
         const tiles = row.looks.map((look, offset) => {
-          const date = parseCalendarDate(look.entry.dayKey);
+          const date = calendarDateUtcMidnight(look.entry.dayKey);
           const { style, title } = dayCopy(look.entry, messages);
           return (
             <Arrival index={arrivalIndex(look.entry.id, rowIndex, offset + Number(row.kind === 'day'))}
@@ -384,7 +384,7 @@ export function HistoryScreen({
             <Arrival index={arrivalIndex(null, rowIndex, 0)} waiting={!transitionLanded}>
               <AppText accessibilityRole="header" tabularNumbers testID={`history-day-${row.dayKey}`}
                 variant="label">
-                {formats.short.format(parseCalendarDate(row.dayKey))}
+                {formats.short.format(calendarDateUtcMidnight(row.dayKey))}
               </AppText>
             </Arrival>
             <View style={[styles.days, styles.wrap]}>{tiles}</View>

@@ -9,8 +9,8 @@ import {
 import type {
   RecommendationSnapshot,
   RecommendationSnapshotInput,
-} from '@/features/recommendation/data/recommendation-repository';
-import type { RecommendationContext } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+} from '@/features/recommendation/application/recommendation-repository';
+import type { RecommendationContext } from '@/features/recommendation/application/recommendation-context';
 import { forecastBoundedCoverage, outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';

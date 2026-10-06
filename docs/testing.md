@@ -22,6 +22,7 @@ pnpm check
 Run focused repository checks with `pnpm run lint`, `pnpm run typecheck`, or `pnpm test`. Lint covers
 all three packages: the mobile app through its own Expo config, and `apps/worker/src` and
 `packages/contracts/src` through the workspace root `eslint.config.js`, which reuses the same rule set.
+The Worker and contracts tests are `*.test.ts` files that their packages' `typecheck` covers with the sources.
 The mobile typecheck depends on the git-ignored `expo-env.d.ts` and `.expo/types/router.d.ts`, which
 `expo start` writes; on a fresh checkout with no dev server run, generate them first with
 `pnpm --filter @kuyara/mobile exec expo customize tsconfig.json`, which is what CI does. The mobile Jest
@@ -62,15 +63,16 @@ commits on every push to `main` and every pull request, and over the whole histo
 dispatched by hand. It reads `.gitleaks.toml`, the same configuration the local pre-commit
 hook uses, so a commit made with `--no-verify` or without gitleaks installed is still
 scanned. That configuration extends the default rules and allowlists two known false
-positives: the PEM header lines in `apps/worker/src/weather/weatherkit-token.test.mjs`,
+positives: the PEM header lines in `apps/worker/src/weather/weatherkit-token.test.ts`,
 which belong to a throwaway P-256 key the test generates at runtime, and the PostHog
 `phc_` project token, a public write-only client key that ships inside the app bundle.
 Every third-party action in every workflow is pinned to a full commit SHA with its release
 tag in a trailing comment, so Dependabot's `github-actions` ecosystem bumps both together.
 
 `.github/workflows/deploy-worker.yml` is the only workflow that can deploy the Worker, and
-it starts only from a manual `workflow_dispatch` that picks the `production` or `e2e`
-Wrangler environment; nothing deploys on push and one deploy runs at a time. It installs
+it starts only from a manual `workflow_dispatch` and deploys the top-level (production)
+Wrangler configuration; the local-only `e2e` environment is never deployed, nothing deploys on
+push and one deploy runs at a time. It installs
 from the lockfile, typechecks and tests the Worker, bundles it with a dry-run
 `wrangler deploy`, then deploys through the GitHub `production` environment. That
 environment needs the secret `CLOUDFLARE_API_TOKEN` and the variable
@@ -151,7 +153,7 @@ pnpm --filter @kuyara/worker test
 
 The focused coverage includes strict normalized-coordinate and IANA-time-zone requests, weather invariants, stable error shapes, route/method handling, and privacy-safe responses. Real-provider suites cover WeatherKit, Open-Meteo, and OpenWeather raw validation, unit/condition mapping, eligible ordered fallback, bounded timeouts, attribution, rate limiting, and the best-effort OpenWeather daily cap; the deterministic provider remains an injected test double. WeatherKit's suite also covers the raw-response condition-code mapping, asserting all 34 codes resolve in both Apple's PascalCase REST spelling and the camelCase Swift `WeatherCondition` case names. Local Wrangler smoke testing covers the actual development runtime.
 
-The AI v1 contract suite covers strict privacy-safe request fields, candidate and payload bounds, exactly three structurally complete outfits, and health, readiness, probe, rate-limit, and stable error schemas. Worker coverage verifies ordered provider fallback, bounded attempts and timeouts, structural and closed-candidate-set validation, sanitized exhaustion, active-probe method handling and caching, per-IP limits, and the KV daily cap. Composition tests require Workers AI before OpenRouter and exclude the deterministic stub from production.
+The AI v1 contract suite covers strict privacy-safe request fields, candidate and payload bounds, exactly three structurally complete outfits, and health, readiness, probe, rate-limit, and stable error schemas. Worker coverage verifies ordered provider fallback, bounded attempts and timeouts, structural and closed-candidate-set validation, sanitized exhaustion, active-probe method handling and caching, per-IP limits, and the Durable Object daily counters. Composition tests require Workers AI before OpenRouter and exclude the deterministic stub from production.
 
 ## Mobile unit and boundary tests
 
@@ -161,13 +163,15 @@ The mobile workspace uses Node's built-in test runner with Node's TypeScript str
 pnpm --filter @kuyara/mobile test
 ```
 
+The Node test loader pins the device time zone to UTC unless `TZ` is set, so a run reads the same on every machine; `TZ=Asia/Tokyo pnpm --filter @kuyara/mobile test` checks another zone.
+
 React Native component tests use Jest, `jest-expo`, React Native Testing Library 14, and the React 19-compatible `test-renderer` package. They remain separate from the Node suites and run with:
 
 ```bash
 pnpm --filter @kuyara/mobile test:components
 ```
 
-The component suite covers the production tab bar and stack anchors, Profile navigation and onboarding, Closet list and form routes, localized Weather and Today states, recommendation and AI status surfaces, notification Settings, consent controls, and shared native-control wrappers. Expo Router 57's `renderRouter` helper assumes an older synchronous renderer, so tests exercise production controls and navigation intents directly while mocking native navigation state. Device-level transitions, gestures, notification delivery, and platform visuals remain Simulator or device verification concerns; manual accessibility scope is reserved for direct accessibility changes, the dedicated accessibility milestone, or a user request.
+The component suite covers the production tab bar and stack anchors, Profile navigation and onboarding, Closet list and form routes, localized Weather and Today states, recommendation and AI status surfaces, notification Settings, consent controls, and shared native-control wrappers. Expo Router 57's `renderRouter` helper assumes an older synchronous renderer, so tests exercise production controls and navigation intents directly while mocking native navigation state. The Jest setup (`apps/mobile/test/jest-setup.ts`) mocks `expo-symbols` and `@expo/ui` for every suite; a test that asserts on its own double declares its own `jest.mock` for that module. Device-level transitions, gestures, notification delivery, and platform visuals remain Simulator or device verification concerns; manual accessibility scope is reserved for direct accessibility changes, the dedicated accessibility milestone, or a user request.
 
 Run the focused local-profile persistence suite with:
 
@@ -247,7 +251,7 @@ Maestro reads `.maestro/config.yaml` and executes the local flows tagged for the
 
 The AI chain is three tiers (on-device, Worker, deterministic fallback), and an automated run has to be able to pick one deliberately. Two switches do that; neither adds a branch to production code.
 
-The **no-AI Worker** is the named `e2e` environment in `apps/worker/wrangler.jsonc`. It serves real weather and real place search with both provider model lists empty, so `/v1/ai/recommend` answers `503 ai_unavailable` at once and the app falls to the deterministic three. Wrangler does not inherit bindings into a named environment, so that environment repeats the AI, KV and rate-limit bindings; the empty model lists are the only difference from the deployed configuration. Run it on the port the mobile default expects:
+The **no-AI Worker** is the named `e2e` environment in `apps/worker/wrangler.jsonc`. It serves real weather and real place search with both provider model lists empty, so `/v1/ai/recommend` answers `503 ai_unavailable` at once and the app falls to the deterministic three. Wrangler does not inherit bindings into a named environment, so that environment repeats the AI, Durable Object and rate-limit bindings; the empty model lists are the only difference from the deployed configuration. Run it on the port the mobile default expects:
 
 ```bash
 pnpm --filter @kuyara/worker exec wrangler dev --env e2e --port 8788

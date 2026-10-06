@@ -13,7 +13,8 @@ import {
 
 import type { ClothingPreference, SupportedLanguage } from '@/domain/preferences';
 import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
-import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
+import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
+import { poolCompositionKey } from '@/features/recommendation/application/pool-composition-key';
 import {
   evaluateGarmentEligibility,
   projectCatalogEffectiveGarment,
@@ -66,6 +67,14 @@ export type RecommendedOutfit = OutfitCandidate & Readonly<{
   optionId: string;
   archetypeId: OutfitArchetypeId;
 }>;
+
+/** An outfit given the label it is offered under. */
+export function recommendedOutfit(
+  outfit: OutfitCandidate,
+  archetypeId: OutfitArchetypeId,
+): RecommendedOutfit {
+  return Object.freeze({ ...outfit, optionId: outfitOptionId(outfit), archetypeId });
+}
 
 export type OutfitRecommendationUnavailable = Readonly<{
   status: 'unavailable';
@@ -204,12 +213,12 @@ export function excludeOutfitOptions(
   return filtered.length >= 3 ? Object.freeze(filtered) : outfits;
 }
 
-/** Every catalog garment of the profile's applicability, evaluated against the day: what the composer reads. */
+/** Every selectable catalog garment of the profile's applicability, evaluated against the day: what the composer reads. */
 export function eligibilityCandidates(
   requirements: ClothingRequirements,
   clothingPreference: ClothingPreference,
 ): readonly GarmentEligibilityResult[] {
-  return listGarmentTypesForPreference(clothingPreference).map((type) =>
+  return listSelectableGarmentTypes(clothingPreference).map((type) =>
     evaluateGarmentEligibility(
       requirements,
       projectCatalogEffectiveGarment(type.typeId, clothingPreference),
@@ -225,7 +234,7 @@ export function composeOutfitPool(
   dayVariant: number,
   recentWorn: readonly WornOutfit[] = [],
 ): OutfitCompositionsResult {
-  const key = JSON.stringify([requirements, clothingPreference, dayVariant, recentWorn]);
+  const key = poolCompositionKey(requirements, clothingPreference, dayVariant, recentWorn);
   if (lastComposedPool?.key === key) return lastComposedPool.result;
   const result = composeOutfitOptions(
     requirements,
@@ -268,11 +277,7 @@ export function assignFallbackArchetypes(
     const archetypeId = firstUnusedArchetype(outfit, order, used, dayKind, day);
     if (!archetypeId) continue;
     used.add(archetypeId);
-    selected.push(Object.freeze({
-      ...outfit,
-      optionId: outfitOptionId(outfit),
-      archetypeId,
-    }));
+    selected.push(recommendedOutfit(outfit, archetypeId));
     if (selected.length === count) break;
   }
   if (selected.length < count) throw new Error('Distinct fallback archetypes are unavailable.');
@@ -296,7 +301,7 @@ export function assignComposedArchetypes(
   return Object.freeze(outfits.map((outfit) => {
     const archetypeId = firstUnusedArchetype(outfit, order, used, dayKind, day) ?? 'everyday_easy';
     used.add(archetypeId);
-    return Object.freeze({ ...outfit, optionId: outfitOptionId(outfit), archetypeId });
+    return recommendedOutfit(outfit, archetypeId);
   }));
 }
 

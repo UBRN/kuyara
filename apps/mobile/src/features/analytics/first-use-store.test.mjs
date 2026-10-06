@@ -1,62 +1,11 @@
 import assert from 'node:assert/strict';
-import { registerHooks } from 'node:module';
 import test from 'node:test';
 
 import { FirstUseTracker } from './application/first-use-tracker.ts';
 import { InMemoryFirstUseStore } from './data/in-memory-first-use-store.ts';
-import { fileUri } from '../../../test/file-uri.mjs';
+import { installFakeExpoFileSystem } from '../../../test/fakes/expo-file-system.mjs';
 
-const files = new Map();
-const createdDirectories = [];
-
-globalThis.__kuyaraFirstUseFileMocks = {
-  Directory: class {
-    constructor(...parts) {
-      this.uri = fileUri(parts);
-    }
-
-    create(options) {
-      createdDirectories.push([this.uri, options]);
-    }
-  },
-  File: class {
-    constructor(...parts) {
-      this.uri = fileUri(parts);
-    }
-
-    get exists() {
-      return files.has(this.uri);
-    }
-
-    async text() {
-      return files.get(this.uri);
-    }
-
-    write(value) {
-      files.set(this.uri, value);
-    }
-
-    delete() {
-      files.delete(this.uri);
-    }
-  },
-  Paths: { document: { uri: 'file:///documents' } },
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === 'expo-file-system') {
-      return {
-        shortCircuit: true,
-        url: `data:text/javascript,${encodeURIComponent(`
-          const mocks = globalThis.__kuyaraFirstUseFileMocks;
-          export const { Directory, File, Paths } = mocks;
-        `)}`,
-      };
-    }
-    return nextResolve(specifier, context);
-  },
-});
+const { files, createdDirectories } = installFakeExpoFileSystem();
 
 const { ExpoFileFirstUseStore } = await import(
   './data/expo-file-first-use-store.ts'

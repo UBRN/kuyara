@@ -1,7 +1,7 @@
 import type { ZodType } from 'zod';
 
 import type { WardrobeItemRecord } from '@/features/wardrobe/data/wardrobe-item-record';
-import { closetColorChoiceFromColumns } from '@/features/wardrobe/domain/closet-color-options';
+import { storedClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import {
   breathabilitySchema,
   colorFamilySchema,
@@ -82,7 +82,7 @@ export function mapWardrobeItemRecord(record: WardrobeItemRecord): WardrobeItem 
     const entryState = mapEnum(record.entryState, wardrobeEntryStateSchema);
     const garmentTypeId = garmentTypeIdFromColumn(record.garmentTypeId);
     const colorFamily = mapNullableEnum(record.colorFamily, colorFamilySchema);
-    const colorChoice = closetColorChoiceFromColumns(
+    const colorChoice = storedClosetColorChoice(
       record.colorOptionId ?? null,
       record.colorCustomHex ?? null,
       colorFamily,

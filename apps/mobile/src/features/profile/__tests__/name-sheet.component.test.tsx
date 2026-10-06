@@ -2,17 +2,13 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { displayNameMinLength } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 const mockSheetSnapPoints = jest.fn();
 jest.mock('@expo/ui/community/bottom-sheet', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -78,7 +74,7 @@ test('Settings Done still clears an emptied name, while invalid values disable D
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(null));
   await fireEvent.changeText(screen.getByTestId('name-edit-input'), 'A');
   expect(screen.getByTestId('name-sheet-done')).toBeDisabled();
-  expect(screen.getByTestId('name-edit-input-error')).toHaveTextContent(messages.en.onboarding.nameShortError);
+  expect(screen.getByTestId('name-edit-input-error')).toHaveTextContent(messages.en.onboarding.nameShortError(displayNameMinLength));
 });
 
 test('a failed edit leaves the saved name active and shows localized feedback', async () => {

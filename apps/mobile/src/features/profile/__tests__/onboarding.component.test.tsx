@@ -2,8 +2,9 @@ import { act, fireEvent, render, waitFor, within } from '@testing-library/react-
 import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import type { PlaceSearchV1Data } from '@kuyara/contracts';
+import { styleAestheticsLimit, type PlaceSearchV1Data } from '@kuyara/contracts';
 
+import { displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
@@ -27,12 +28,6 @@ import { mockFontScale } from '../../../../test/font-scale';
 const nativeLocale = { en: 'en_GB', tr: 'tr_TR' } as const;
 
 jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@/components/ui/native-text-field', () => {
   const { TextInput } = jest.requireActual('react-native');
   return {
@@ -268,10 +263,10 @@ test('optional name step validates 2 to 30 characters and offers Not now', async
   expect(result.getByTestId('onboarding-continue').props.accessibilityState.disabled).toBe(true);
 
   await fireEvent.changeText(result.getByTestId('onboarding-name'), 'A');
-  expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameShortError);
+  expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameShortError(displayNameMinLength));
   expect(result.getByTestId('onboarding-continue').props.accessibilityState.disabled).toBe(true);
   await fireEvent.changeText(result.getByTestId('onboarding-name'), 'a'.repeat(31));
-  expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameLongError);
+  expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameLongError(displayNameMaxLength));
   await fireEvent.changeText(result.getByTestId('onboarding-name'), '  Utku  ');
   expect(result.queryByTestId('onboarding-name-error')).toBeNull();
   await fireEvent.press(result.getByTestId('onboarding-continue'));
@@ -620,5 +615,5 @@ test('each step draws what it changes: a Today preview, a greeting and garment t
     .toMatchObject({ checked: true });
   expect(result.getByTestId('onboarding-style-option-relaxed').props.accessibilityState)
     .toMatchObject({ checked: false, disabled: true });
-  expect(result.getByText(messages.en.preferences.stylePreferencesLimit)).toBeOnTheScreen();
+  expect(result.getByText(messages.en.preferences.stylePreferencesLimit(styleAestheticsLimit))).toBeOnTheScreen();
 });

@@ -5,20 +5,6 @@ name: Deploy Worker
 # full commit SHA with its release tag in the trailing comment.
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: >-
-          Wrangler environment. "production" is the top-level configuration of
-          apps/worker/wrangler.jsonc (the kuyara-worker Worker). "e2e" is the local
-          end-to-end environment of docs/testing.md; deploying it creates a separate
-          kuyara-worker-e2e Worker on the same account and is not part of any
-          documented flow.
-        type: choice
-        required: true
-        default: production
-        options:
-          - production
-          - e2e
 
 # One deploy at a time; a second run waits instead of cancelling the first.
 concurrency:
@@ -34,9 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # The GitHub environment holds CLOUDFLARE_API_TOKEN (secret) and
-    # CLOUDFLARE_ACCOUNT_ID (variable) and carries any protection rules. Both
-    # Wrangler environments deploy through this one GitHub environment on purpose:
-    # the token and the approval gate are the same either way.
+    # CLOUDFLARE_ACCOUNT_ID (variable) and carries any protection rules.
     environment: production
     steps:
       - name: Check out the repository
@@ -66,8 +50,7 @@ jobs:
         run: pnpm --filter @kuyara/contracts test
 
       # `wrangler deploy --dry-run` against the top-level configuration: the bundle
-      # must build before anything reaches Cloudflare. The same source bundles for
-      # both Wrangler environments, so one dry run gates both.
+      # must build before anything reaches Cloudflare.
       - name: Bundle the Worker
         run: pnpm --filter @kuyara/worker bundle
 
@@ -77,7 +60,7 @@ jobs:
       # workingDirectory and the pnpm lockfile lives at the repository root.
       # The action splits `command` itself (no shell), so `--env=""` reaches wrangler
       # as `--env=` exactly like the package scripts and selects the top-level
-      # configuration; a named environment is passed through as `--env=<name>`.
+      # configuration. The `e2e` environment is local-only and never deployed (ADR 0003).
       - name: Deploy with Wrangler
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
@@ -85,4 +68,4 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/worker
           packageManager: pnpm
-          command: deploy --env="${{ inputs.environment != 'production' && inputs.environment || '' }}"
+          command: deploy --env=""

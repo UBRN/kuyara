@@ -1,3 +1,5 @@
+import { rateLimitedHeaders, type RouteRefusal } from './json-request.ts';
+
 /** The one owner of the Worker's JSON response headers and of the `{ error: { code } }` envelope. */
 export const jsonHeaders = {
   'Cache-Control': 'no-store',
@@ -19,4 +21,27 @@ export function createErrorResponse<Code extends string>(schema: ErrorEnvelopeSc
     status,
     headers: { ...jsonHeaders, ...extraHeaders },
   });
+}
+
+type RefusalCode = 'method_not_allowed' | 'rate_limited' | 'invalid_request';
+
+/**
+ * The answer to a request refused before its route ran: the same status and headers on every
+ * route, in the route's own codes. `unavailable` is the code that route gives a failing limiter.
+ */
+export function refusalResponse<Unavailable extends string>(
+  respond: (
+    status: number,
+    code: RefusalCode | Unavailable,
+    extraHeaders?: Readonly<Record<string, string>>,
+  ) => Response,
+  refusal: RouteRefusal,
+  unavailable: Unavailable,
+): Response {
+  switch (refusal) {
+    case 'method_not_allowed': return respond(405, 'method_not_allowed', { Allow: 'POST' });
+    case 'rate_limited': return respond(429, 'rate_limited', rateLimitedHeaders);
+    case 'limiter_unavailable': return respond(503, unavailable);
+    case 'invalid_request': return respond(400, 'invalid_request');
+  }
 }

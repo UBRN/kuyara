@@ -1,4 +1,4 @@
-import { dressStyles } from '@kuyara/contracts';
+import { dressStyles, styleAestheticsLimit } from '@kuyara/contracts';
 import Constants from 'expo-constants';
 import { useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -16,7 +16,8 @@ import {
   NativeSheet,
   Button,
 } from '@/components/ui';
-import { parseCalendarDate } from '@/domain/calendar-date';
+import { calendarDateUtcMidnight } from '@/domain/calendar-date';
+import { dateTimeFormat } from '@/domain/intl-format';
 import type {
   LanguagePreference,
   TemperatureUnitPreference,
@@ -149,8 +150,8 @@ export function SettingsScreen({
 
   const birthDateValue = profile.birthDate === null
     ? messages.onboarding.birthDateNotSet
-    : new Intl.DateTimeFormat(localeTag(language), { dateStyle: 'long' })
-      .format(parseCalendarDate(profile.birthDate));
+    : dateTimeFormat(localeTag(language), { dateStyle: 'long', timeZone: 'UTC' })
+      .format(calendarDateUtcMidnight(profile.birthDate));
   const notificationValue = notificationsOn
     ? messages.notifications.statusOn
     : messages.notifications.statusOff;
@@ -422,7 +423,7 @@ export function SettingsScreen({
     <NativeSheet visible={aestheticsOpen} onDismiss={() => setAestheticsOpen(false)} testID="settings-style-preferences-sheet">
       <ScrollView contentContainerStyle={styles.sheetContent}>
         <AppText accessibilityRole="header" variant="titleLarge">{copy.stylePreferencesTitle}</AppText>
-        <AppText>{copy.stylePreferencesBody}</AppText>
+        <AppText>{copy.stylePreferencesBody(styleAestheticsLimit)}</AppText>
         <StyleAestheticsOptions copy={copy} disabled={aestheticsSaving} selected={aestheticDraft}
           onChange={setAestheticDraft} testID="settings-style-option" />
         {aestheticsError ? (

@@ -1,7 +1,8 @@
 import { Link, type Href } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, GarmentTileArtwork, Icon, PressScale, useTextScaling } from '@/components/ui';
+import { AppText, Icon, PressScale, useTextScaling } from '@/components/ui';
+import { GarmentTileArtwork } from '@/garment-art';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { AppMessages } from '@/localization/messages';

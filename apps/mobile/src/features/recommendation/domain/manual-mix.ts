@@ -1,5 +1,5 @@
 import type { ClothingPreference } from '@/domain/preferences';
-import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
+import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
   evaluateGarmentEligibility,
@@ -14,6 +14,7 @@ import {
 } from '@/features/recommendation/domain/manual-accessories';
 import {
   accessoryOutfitSlots as accessoryOutfitSlotOrder,
+  assignedOutfitGarments,
   evaluateArrangement,
   garmentFitsSlot,
   onePieceExcludes,
@@ -21,6 +22,10 @@ import {
   type OutfitCandidate,
   type OutfitPin,
 } from '@/features/recommendation/domain/outfit-composition';
+import {
+  bodyOutfitSlots,
+  type BodyOutfitSlot,
+} from '@/features/recommendation/domain/outfit-slots';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
 /**
@@ -31,16 +36,9 @@ import type { ClothingRequirements } from '@/features/recommendation/domain/weat
  * supplies a candidate, and nothing here is stored: only "Wore this today" records the
  * result, as a `manual` worn outfit.
  */
-export const swappableSlots = Object.freeze([
-  'primary_top',
-  'bottom',
-  'one_piece',
-  'mid_layer',
-  'outer_layer',
-  'footwear',
-] as const);
+export const swappableSlots = bodyOutfitSlots;
 
-export type SwappableSlot = (typeof swappableSlots)[number];
+export type SwappableSlot = BodyOutfitSlot;
 
 /** The two slots a person may leave empty. Every other drawn piece is part of a complete outfit. */
 export const removableSlots = Object.freeze(['mid_layer', 'outer_layer'] as const);
@@ -63,16 +61,9 @@ type Garments = Partial<Record<SwappableSlot, GarmentTypeId>>;
 
 /** The drawn pieces of an outfit by slot: the slots a person can change. */
 export function outfitGarments(outfit: OutfitCandidate): Readonly<Garments> {
-  const garments: Garments = outfit.body.kind === 'separates'
-    ? {
-        primary_top: outfit.body.primaryTop.garment.garmentTypeId,
-        bottom: outfit.body.bottom.garment.garmentTypeId,
-      }
-    : { one_piece: outfit.body.onePiece.garment.garmentTypeId };
-  if (outfit.midLayer) garments.mid_layer = outfit.midLayer.garment.garmentTypeId;
-  if (outfit.outerLayer) garments.outer_layer = outfit.outerLayer.garment.garmentTypeId;
-  garments.footwear = outfit.footwear.garment.garmentTypeId;
-  return Object.freeze(garments);
+  return Object.freeze(Object.fromEntries(
+    assignedOutfitGarments(outfit).map(({ slot, garment }) => [slot, garment.garmentTypeId]),
+  ) as Garments);
 }
 
 /**
@@ -142,13 +133,30 @@ export function slotCandidates(
   preference: ClothingPreference,
 ): readonly SlotCandidate[] {
   const base = outfitGarments(outfit);
-  const current = base[slot];
-  if (current === undefined && !isRemovable(slot)) return Object.freeze([]);
-  const types = listGarmentTypesForPreference(preference)
+  if (base[slot] === undefined && !isRemovable(slot)) return Object.freeze([]);
+  if (!wearsOnlyOfferedPiecesBeside(base, slot, preference)) return Object.freeze([]);
+  const types = listSelectableGarmentTypes(preference)
     .map(({ typeId }) => typeId)
     .filter((typeId) => garmentFitsSlot(slot, typeId));
-  return rankSlot(base, slot, current === undefined || types.includes(current) ? types : [current, ...types],
-    requirements, preference);
+  return rankSlot(base, slot, types, requirements, preference);
+}
+
+/**
+ * Whether every piece worn outside one slot is still one the catalog offers. A piece it no
+ * longer offers (a deprecated type, or one outside the profile's gender) cannot be judged, so
+ * the slots beside it list nothing until it is replaced; the slot it sits in is ranked
+ * without it, since its candidates replace it.
+ */
+function wearsOnlyOfferedPiecesBeside(
+  garments: Readonly<Garments>,
+  slot: SwappableSlot,
+  preference: ClothingPreference,
+): boolean {
+  return swappableSlots.every((other) => {
+    const id = garments[other];
+    return other === slot || id === undefined ||
+      projectCatalogEffectiveGarment(id, preference).status === 'ready';
+  });
 }
 
 /**
@@ -321,7 +329,7 @@ export function pinPieces<Outfit extends OutfitCandidate>(
   }
   const bestFor = (slot: SwappableSlot): GarmentTypeId => {
     const taken = new Set(swappableSlots.filter((other) => other !== slot).map((other) => garments[other]));
-    const ids = listGarmentTypesForPreference(preference).map(({ typeId }) => typeId)
+    const ids = listSelectableGarmentTypes(preference).map(({ typeId }) => typeId)
       .filter((typeId) => garmentFitsSlot(slot, typeId) && !taken.has(typeId));
     const [best] = rankSlot(garments, slot, ids, requirements, preference);
     if (!best) throw new Error(`No catalog piece is left for the ${slot} slot.`);

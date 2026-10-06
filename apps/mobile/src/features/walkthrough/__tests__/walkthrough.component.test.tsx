@@ -37,12 +37,7 @@ import { messages, type SupportedLanguage } from '@/localization/messages';
 import { darkTheme, lightTheme, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/community/bottom-sheet', () => ({ BottomSheet: () => null }));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: { expoConfig: { version: '1.0.0' }, platform: { ios: { buildNumber: '16' } } },

@@ -1,6 +1,6 @@
 import { weatherLocalDateKey } from '@kuyara/contracts';
 
-import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
+import { resolveDaypart } from '@/features/weather/domain/atmosphere-state';
 import type { HourlyWeather, NormalizedCoordinates, WeatherSnapshot } from '@/features/weather/domain/weather';
 import type { TemperatureUnit } from '@/localization/device-locale';
 import type { AppMessages, SupportedLanguage } from '@/localization/messages';

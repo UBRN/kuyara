@@ -17,11 +17,12 @@ import {
   type RemoteProfileUpload,
   type RemoteWardrobeItemUpload,
 } from '@/features/account/data/account-remote-records';
-import type {
-  AccountProfile,
-  AccountRow,
-  DeletionMarker,
-  SyncedProfile,
+import {
+  consentFieldsOf,
+  type AccountProfile,
+  type AccountRow,
+  type DeletionMarker,
+  type SyncedProfile,
 } from '@/features/account/domain/account-rows';
 import { canonicalServerInstant } from '@/features/account/domain/server-instant';
 import { orderStyleAesthetics, sortedStyleAesthetics, normalizeDisplayName } from '@/features/profile/domain/profile';
@@ -106,16 +107,19 @@ function deletionMarkerUpload(
 }
 
 /**
- * Dress style and style aesthetics go only when the profile carries them (the sync consent);
- * otherwise neither column is sent, so the account's copy keeps what it holds.
+ * Dress style and style aesthetics go only when the profile carries them (`consentFieldsOf`, the
+ * sync consent); otherwise neither column is sent, so the account's copy keeps what it holds.
  */
 export function toRemoteProfile(profile: AccountProfile, userId: string): RemoteProfileUpload {
+  const consentFields = consentFieldsOf(profile);
   return {
     user_id: userId,
     display_name: profile.displayName,
     gender: profile.gender,
-    ...(profile.dressStyle === undefined ? {} : { dress_style: profile.dressStyle }),
-    ...(profile.styleAesthetics === undefined ? {} : { style_aesthetics: sortedStyleAesthetics(profile.styleAesthetics) }),
+    ...(consentFields === null ? {} : {
+      dress_style: consentFields.dressStyle,
+      style_aesthetics: sortedStyleAesthetics(consentFields.styleAesthetics),
+    }),
     created_at: profile.createdAt,
     updated_at: profile.updatedAt,
     deleted_at: null,

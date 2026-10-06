@@ -1,20 +1,15 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { AppText, Button, CheckRow, GlassButton, Icon, ListRow, NativeSheet } from '@/components/ui';
 import {
-  AppText,
-  Button,
-  CheckRow,
   ClosetSolidStrip,
   GarmentCandidateTile,
-  GlassButton,
-  Icon,
-  ListRow,
-  NativeSheet,
   useGarmentRoles,
   type GarmentOutfitPalette,
-} from '@/components/ui';
+} from '@/garment-art';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import { composePieceLimit } from '@/features/recommendation/application/compose-around-pieces';
 import {
   canChooseComposePiece,
   isComposePieceChosen,
@@ -23,6 +18,7 @@ import {
   type ComposeSelection,
   type ComposeSlot,
 } from '@/features/today/application/compose-selection';
+import type { ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import { useMessages } from '@/localization/use-messages';
 import { layout, spacing } from '@/theme/theme';
 
@@ -37,7 +33,7 @@ type ComposeSheetProps = Readonly<{
   palette: GarmentOutfitPalette;
   selection: ComposeSelection;
   onToggle: (piece: ComposePiece) => void;
-  onColor: (slot: ComposeSlot, colorId: string | null) => void;
+  onColor: (slot: ComposeSlot, colorId: ClosetColorOptionId | null) => void;
   onBuild: () => void;
   busy: boolean;
 }>;
@@ -75,7 +71,7 @@ function useCompose() {
   const messages = useMessages();
   const copy = messages.today.compose;
   const pieceName = (id: ComposePiece['garmentTypeId']) => messages.catalog[`catalog.garment_type.${id}.name`];
-  const colorName = (id: string) => messages.wardrobe.colorOptionNames[id] ?? id;
+  const colorName = (id: ClosetColorOptionId) => messages.wardrobe.colorOptionNames[id];
   return { messages, copy, pieceName, colorName };
 }
 
@@ -99,7 +95,7 @@ function ComposePieces({
     return (
       <View key={`${piece.slot}-${piece.garmentTypeId}`}>
         <CheckRow
-          accessibilityHint={available ? undefined : copy.limitHint}
+          accessibilityHint={available ? undefined : copy.limitHint(composePieceLimit)}
           checked={choice !== undefined}
           label={pieceName(piece.garmentTypeId)}
           leading={(
@@ -136,7 +132,7 @@ function ComposePieces({
       <View style={styles.head}>
         <GlassButton kind="close" label={messages.today.dailyStyle.close} onPress={onDismiss} testID="compose-close" />
         <AppText accessibilityRole="header" variant="title">{copy.title}</AppText>
-        <AppText colorRole="textSecondary" variant="body">{copy.subtitle}</AppText>
+        <AppText colorRole="textSecondary" variant="body">{copy.subtitle(composePieceLimit)}</AppText>
       </View>
       <View style={styles.section}>
         <AppText accessibilityRole="header" variant="bodyStrong">{copy.fromOutfit}</AppText>
@@ -172,7 +168,7 @@ function ComposePieces({
           tabularNumbers
           testID="compose-count"
           variant="caption">
-          {copy.chosenCount(selection.length)}
+          {copy.chosenCount(selection.length, composePieceLimit)}
         </AppText>
       </View>
     </ScrollView>
@@ -199,7 +195,7 @@ function ComposeCatalogPage({
               const available = canChooseComposePiece(selection, piece);
               return (
                 <CheckRow
-                  accessibilityHint={available ? undefined : copy.limitHint}
+                  accessibilityHint={available ? undefined : copy.limitHint(composePieceLimit)}
                   checked={isComposePieceChosen(selection, piece)}
                   key={garmentTypeId}
                   label={pieceName(garmentTypeId)}

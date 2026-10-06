@@ -23,15 +23,26 @@
     <main id="ku-main">
       <section class="ku-hero" aria-labelledby="ku-name">
         <div class="ku-shell ku-hero__inner">
-          <h1 class="ku-display" id="ku-name">kuyara</h1>
-          <p class="ku-body ku-hero__line">{{ page.hero_line }}</p>
-          <div class="ku-hero__cta">
-            <!-- Apple's badge artwork, unmodified, under Apple's App Store Marketing Artwork
-                 License Agreement: 50px tall, with a quarter of its height kept clear. -->
-            <a class="ku-badge" href="https://apps.apple.com/app/id6806664440">
-              <img src="{{ page.badge_file | relative_url }}" alt="{{ page.badge_alt }}" width="{{ page.badge_width }}" height="50">
-            </a>
-            <p class="ku-caption">{{ page.cta_line }}</p>
+          <div class="ku-hero__words">
+            <h1 class="ku-display" id="ku-name">kuyara</h1>
+            <p class="ku-body ku-hero__line">{{ page.hero_line }}</p>
+            <div class="ku-hero__cta">
+              <!-- Apple's badge artwork, unmodified, under Apple's App Store Marketing Artwork
+                   License Agreement: 50px tall, with a quarter of its height kept clear. -->
+              <a class="ku-badge" href="https://apps.apple.com/app/id6806664440">
+                <img src="{{ page.badge_file | relative_url }}" alt="{{ page.badge_alt }}" width="{{ page.badge_width }}" height="50">
+              </a>
+              <p class="ku-caption">{{ page.cta_line }}</p>
+            </div>
+          </div>
+          <!-- On a wide screen one look stands beside the words; a phone meets the first scene instead. -->
+          {%- assign hero = site.data.site_boards.hero %}
+          {%- assign hero_label = hero.label[lang] %}
+          <div class="ku-hero__art" data-particles="clouds" data-ink="cloudy">
+            <div class="ku-plate" data-atmosphere="{{ hero.atmosphere }}">
+              <canvas class="ku-particles" aria-hidden="true"></canvas>
+              {% include generated/hero.html label=hero_label %}
+            </div>
           </div>
         </div>
       </section>

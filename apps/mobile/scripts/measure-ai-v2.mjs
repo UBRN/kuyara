@@ -31,7 +31,7 @@ import {
 } from '@kuyara/contracts';
 
 import { recommendOutfits } from '@/features/recommendation/application/recommend-outfits.ts';
-import { mapWorkerAiRecommendation } from '@/features/recommendation/data/worker-ai-recommendation-mapper.ts';
+import { mapWorkerAiRecommendation } from '@/features/recommendation/application/ai-recommendation-mapping.ts';
 import { validateInsightSentence } from '@/features/recommendation/domain/insight-sentence.ts';
 
 import { gridRecommendationInput, gridRequestCells } from '../test/recommendation-grid.mjs';

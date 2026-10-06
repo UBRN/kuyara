@@ -1,69 +1,25 @@
-import type { DressStyle, StyleAesthetic, WeatherConditionCode } from '@kuyara/contracts';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 
 import type { OutfitRecommendationSuccess } from '@/features/recommendation/application/recommend-outfits';
 import {
-  isRecommendationGenerationMode,
-  type RecommendationGenerationMode,
-} from '@/features/recommendation/domain/generation-mode';
+  RecommendationRepositoryError,
+  type RecommendationRepository,
+  type RecommendationSnapshot,
+  type RecommendationSnapshotInput,
+} from '@/features/recommendation/application/recommendation-repository';
+import { isRecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type {
   RecommendationLocalDataSource,
   RecommendationSnapshotRecord,
 } from '@/features/recommendation/data/recommendation-local-data-source';
+import type { RecommendationContext } from '@/features/recommendation/application/recommendation-context';
 import {
   mapStoredRecommendation,
   parseRecommendationContext,
   toStoredRecommendationOutfits,
-  type RecommendationContext,
-} from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+} from '@/features/recommendation/data/stored-recommendation-mapper';
 import { isUtcIsoTimestamp, isUuidV4 } from '@/domain/record-identity';
-import type { ClothingPreference } from '@/domain/preferences';
 import { defaultDressStyle } from '@/features/profile/domain/profile';
-
-export type RecommendationSnapshot = Readonly<{
-  id: string;
-  localProfileId: string;
-  weatherSnapshotId: string;
-  locationKey: string;
-  clothingPreference: ClothingPreference;
-  dressStyle: DressStyle;
-  styleAesthetics?: readonly StyleAesthetic[];
-  catalogVersion: number | null;
-  dayVariant: number | null;
-  localDayKey: string | null;
-  paletteWeather?: Readonly<{ temperatureC: number; condition: WeatherConditionCode }>;
-  coverageStart?: string;
-  coverageEnd?: string;
-  generationMode: RecommendationGenerationMode;
-  recommendation: OutfitRecommendationSuccess;
-  createdAt: string;
-  updatedAt: string;
-}>;
-
-export type RecommendationSnapshotInput = Readonly<{
-  weatherSnapshotId: string;
-  locationKey: string;
-  context: RecommendationContext;
-  recommendation: OutfitRecommendationSuccess;
-}>;
-
-export interface RecommendationRepository {
-  getSnapshot(localProfileId: string, localDayKey?: string): Promise<RecommendationSnapshot | null>;
-  saveSnapshot(
-    localProfileId: string,
-    input: RecommendationSnapshotInput,
-  ): Promise<RecommendationSnapshot>;
-}
-
-export class RecommendationRepositoryError extends Error {
-  readonly code: 'invalid-input' | 'invalid-data' | 'unavailable';
-
-  constructor(code: 'invalid-input' | 'invalid-data' | 'unavailable') {
-    super('The local recommendation operation could not be completed.');
-    this.name = 'RecommendationRepositoryError';
-    this.code = code;
-  }
-}
 
 type Dependencies = Readonly<{ createId: () => string; now: () => string }>;
 

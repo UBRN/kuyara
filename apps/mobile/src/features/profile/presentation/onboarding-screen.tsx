@@ -15,19 +15,24 @@ import {
   AppText,
   Button,
   ButtonPair,
-  ChoiceTile,
-  type ChoiceTileDrawing,
-  ChoiceTileGrid,
   Entrance,
-  type GarmentBoardPiece,
-  GarmentPreviewBoard,
-  type GarmentOutfitPalette,
-  measureGarmentBoardHeight,
   Icon,
   NativeDatePicker,
   ProgressFill,
   Screen,
 } from '@/components/ui';
+import {
+  ChoiceTile,
+  type ChoiceTileDrawing,
+  ChoiceTileGrid,
+  type GarmentBoardPiece,
+  GarmentCutProvider,
+  GarmentPreviewBoard,
+  type GarmentOutfitPalette,
+  measureGarmentBoardHeight,
+  useGarmentCut,
+} from '@/garment-art';
+import type { ClothingPreference } from '@/domain/preferences';
 import { useOnboardingEvents } from '@/features/analytics/application/use-interaction-events';
 import {
   createOnboardingDraft,
@@ -46,6 +51,7 @@ import type {
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
 import {
+  catalogPreferenceByGender,
   displayNameIssue,
   genderSchema,
   minimumBirthDate,
@@ -53,8 +59,8 @@ import {
 } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics-options';
-import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
-import { resolveConditionStyle } from '@/features/today/domain/condition-style';
+import { resolveAtmosphereState, resolveDaypart } from '@/features/weather/domain/atmosphere-state';
+import { resolveConditionStyle } from '@/features/weather/domain/condition-style';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import {
   activeLocationSnapshot,
@@ -123,12 +129,15 @@ const previewPalette = (
   isNight: sky.daypart === 'night',
   formality,
 });
-const stagePieces = (choices: typeof choicePreviewPieces) => [
-  welcomePreviewPieces,
-  ...Object.values(choices).flatMap((byStyle) => Object.values(byStyle)),
+// Each outfit with the cut it is drawn in: a gender's outfits in that gender's catalog cut.
+type CutOutfit = readonly [readonly GarmentBoardPiece[], ClothingPreference];
+const stagePieces = (choices: typeof choicePreviewPieces, welcomeCut: ClothingPreference): readonly CutOutfit[] => [
+  [welcomePreviewPieces, welcomeCut],
+  ...genderSchema.options.flatMap((gender) => Object.values(choices[gender])
+    .map((pieces): CutOutfit => [pieces, catalogPreferenceByGender[gender]])),
 ];
-const stageHeight = (outfits: readonly (readonly GarmentBoardPiece[])[], width: number, large: boolean) => (
-  Math.max(...outfits.map((pieces) => measureGarmentBoardHeight(pieces, width, 'today', false, large))));
+const stageHeight = (outfits: readonly CutOutfit[], width: number, large: boolean) => (
+  Math.max(...outfits.map(([pieces, cut]) => measureGarmentBoardHeight(pieces, width, 'today', cut, false, large))));
 // Each answer hints at the catalog it chooses, three pieces from it.
 const genderHints: Readonly<Record<Gender, readonly ChoiceTileDrawing[]>> = {
   woman: [
@@ -233,6 +242,7 @@ export function OnboardingScreen({
   const ruledOutfits = weatherOutfits !== null && weatherOutfits.snapshot === placeWeather
     ? weatherOutfits.outfits : null;
   const choicePieces = ruledOutfits ?? choicePreviewPieces;
+  const profileCut = useGarmentCut();
   const skyStage = theme.atmosphere[resolveAtmosphereState(sky.condition, sky.daypart)];
   const skyCondition = resolveConditionStyle(sky.condition, sky.daypart);
   const step = onboardingSteps[draft.step];
@@ -254,7 +264,7 @@ export function OnboardingScreen({
     about: copy.nameBody,
     gender: copy.genderBody,
     dress_style: copy.dressStyleBody,
-    styles: copy.stylePreferencesBody,
+    styles: copy.stylePreferencesBody(styleAestheticsLimit),
   }[step];
 
   useEffect(() => {
@@ -334,10 +344,13 @@ export function OnboardingScreen({
   // One stage from the welcome to the dress style step, as tall as its tallest outfit, so a
   // swap never moves what is under it.
   const previewHeight = stageHeight(
-    step === 'welcome' ? [welcomePreviewPieces] : stagePieces(choicePieces), previewWidth, largeBoard);
-  const previewPieces = step !== 'welcome' && draft.gender
-    ? choicePieces[draft.gender][draft.dressStyle ?? 'casual']
+    step === 'welcome' ? [[welcomePreviewPieces, profileCut]] : stagePieces(choicePieces, profileCut), previewWidth, largeBoard);
+  const previewGender = step !== 'welcome' ? draft.gender : null;
+  const previewPieces = previewGender
+    ? choicePieces[previewGender][draft.dressStyle ?? 'casual']
     : welcomePreviewPieces;
+  // The preview is drawn in the cut of the gender being chosen; until one is, the profile's.
+  const previewCut = previewGender ? catalogPreferenceByGender[previewGender] : profileCut;
   const choiceStep = step === 'gender' || step === 'dress_style';
   const previewStage = (
     <PlateView
@@ -359,14 +372,16 @@ export function OnboardingScreen({
         )}</AppText>
       </View>
       {previewWidth > 0 ? (
-        <GarmentPreviewBoard
-          height={previewHeight}
-          palette={previewPalette(previewPieces, draft.dressStyle ?? 'casual', sky)}
-          pieces={previewPieces}
-          stageColor={skyStage}
-          testID="onboarding-welcome-board"
-          width={previewWidth}
-        />
+        <GarmentCutProvider cut={previewCut}>
+          <GarmentPreviewBoard
+            height={previewHeight}
+            palette={previewPalette(previewPieces, draft.dressStyle ?? 'casual', sky)}
+            pieces={previewPieces}
+            stageColor={skyStage}
+            testID="onboarding-welcome-board"
+            width={previewWidth}
+          />
+        </GarmentCutProvider>
       ) : null}
     </PlateView>
   );
@@ -476,15 +491,17 @@ export function OnboardingScreen({
         <View style={styles.section} accessibilityLabel={preferenceCopy.genderTitle}>
           <ChoiceTileGrid accessibilityRole="radiogroup" columns={2}>
             {genderSchema.options.map((gender) => (
-              <ChoiceTile
-                drawings={genderHints[gender]}
-                key={gender}
-                label={gender === 'woman' ? preferenceCopy.genderWoman : preferenceCopy.genderMan}
-                onPress={() => dispatch({ type: 'select-gender', value: gender })}
-                role="radio"
-                selected={draft.gender === gender}
-                testID={`onboarding-gender-${gender}`}
-              />
+              // Each answer draws its hints in the cut it chooses.
+              <GarmentCutProvider cut={catalogPreferenceByGender[gender]} key={gender}>
+                <ChoiceTile
+                  drawings={genderHints[gender]}
+                  label={gender === 'woman' ? preferenceCopy.genderWoman : preferenceCopy.genderMan}
+                  onPress={() => dispatch({ type: 'select-gender', value: gender })}
+                  role="radio"
+                  selected={draft.gender === gender}
+                  testID={`onboarding-gender-${gender}`}
+                />
+              </GarmentCutProvider>
             ))}
           </ChoiceTileGrid>
           {draft.hasValidationError ? (
@@ -553,7 +570,7 @@ export function OnboardingScreen({
             })}
           </ChoiceTileGrid>
           {draft.styleAesthetics.length >= styleAestheticsLimit ? (
-            <AppText variant="caption">{preferenceCopy.stylePreferencesLimit}</AppText>
+            <AppText variant="caption">{preferenceCopy.stylePreferencesLimit(styleAestheticsLimit)}</AppText>
           ) : null}
         </View>
       ) : null}

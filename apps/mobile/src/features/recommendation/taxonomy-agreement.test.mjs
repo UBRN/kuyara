@@ -3,8 +3,8 @@
 // separate, so nothing here merges or dedupes them. What was missing is
 // the assertion that the two copies still agree.
 //
-// The cost of silent drift is concrete. `data/worker-ai-recommendation-mapper.ts` (around
-// line 95) builds `z.enum(garmentTypeIds)` from the *contract* tuple and validates candidates
+// The cost of silent drift is concrete. `application/recommendation-context.ts` (around
+// line 40) builds `z.enum(garmentTypeIds)` from the *contract* tuple and validates candidates
 // produced by the mobile catalog with it. A garment type added to the mobile taxonomy but not
 // to the contract type-checks and lints clean, passes CI, and then fails runtime validation on
 // a real device: the user sees "Standard suggestions" instead of an AI-selected outfit.

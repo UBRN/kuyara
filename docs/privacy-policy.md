@@ -146,9 +146,10 @@ a new one, unless a device backup restores the old value.
 
 ## Turning analytics and diagnostics off
 
-Open Settings, then Privacy, and switch off "Share usage and diagnostics". Sending usage
-analytics and performance or diagnostic records stops immediately in the same session.
-Queued records are discarded. The Expo package may keep writing error records locally, but
+Open Settings, then Privacy, and switch off "Share usage and diagnostics". At that moment
+the app sends the records already waiting to go, with a note that sharing was turned off,
+one last time; after that it sends no usage analytics and no performance or diagnostic
+records, and anything still queued is discarded. The Expo package may keep writing error records locally, but
 none are sent to Observe while sharing is off; the rare delivery limits above apply if you
 turn sharing back on. The app also discards the analytics identifier, so events collected
 before that moment cannot be linked to anything collected later. Turning sharing back on

@@ -4,9 +4,9 @@ import { AccessibilityInfo, AppState, Dimensions, Platform, processColor, Scroll
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { garmentRolesBySlot } from '@/components/ui/garment-board/garment-palette';
-import { garmentSilhouetteIds } from '@/components/ui/garment-board/garment-silhouette-map';
-import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+import { garmentRolesBySlot } from '@/garment-art/garment-palette';
+import { garmentSilhouetteIds } from '@/garment-art/garment-silhouette-map';
+import { silhouettes } from '@/garment-art/silhouettes';
 import { failureCategories } from '@/domain/failure-category';
 import {
   accessoryFreeTodayScreenState,
@@ -51,8 +51,8 @@ import { EasierToSeeContext, SystemVisibilityContext } from '@/theme/easier-to-s
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
 import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
-import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
-import { garmentShadowRule } from '@/components/ui/garment-board/compose-garment-board';
+import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/garment-art';
+import { garmentShadowRule } from '@/garment-art/compose-garment-board';
 import { shiftOklchLightness } from '@/theme/color-oklch';
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
@@ -71,11 +71,11 @@ jest.mock('expo-symbols', () => ({
 // render, so the rise cannot be read from the wrapper's style either. This probe records
 // one line per board mount and renders the real board with its own props untouched.
 const mockBoardMounts: string[] = [];
-jest.mock('@/components/ui/garment-board/garment-board', () => {
+jest.mock('@/garment-art/garment-board', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const actual = jest.requireActual(
-    '@/components/ui/garment-board/garment-board',
-  ) as typeof import('@/components/ui/garment-board/garment-board');
+    '@/garment-art/garment-board',
+  ) as typeof import('@/garment-art/garment-board');
 
   return {
     ...actual,
@@ -341,6 +341,23 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .toBeNull();
     expect(result.queryByTestId('today-sky', hidden)).toBeNull();
   });
+  // A long condition ("Parçalı bulutlu" at the largest standard text size) is wider than what
+  // is left beside the temperature and the symbol: it wraps onto its own lines beside them
+  // rather than running past the screen's edge.
+  test('a long condition wraps inside the title instead of overflowing it', async () => {
+    const presentation = loadedPresentation(language);
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={todayScreenState} />,
+      lightTheme, language,
+    ));
+    const title = result.getByTestId('today-title');
+    const condition = within(title).getByText(presentation.titleParts.afterSymbol);
+    expect(StyleSheet.flatten(condition.props.style)).toMatchObject({ flexShrink: 1 });
+    expect(condition.props.numberOfLines).toBeUndefined();
+    expect(StyleSheet.flatten(within(title).getByTestId('today-title-values').props.style))
+      .toMatchObject({ flexShrink: 1 });
+  });
   test.each([lightTheme, darkTheme])('renders the title, stage, quiet provenance and two equal alternates', async (theme) => {
     const presentation = loadedPresentation(language);
     const primary = presentation.suggestions[0];
@@ -361,7 +378,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     const stageStyle = StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style);
     expect(stageStyle).toMatchObject({
       backgroundColor: stageColor, width: band,
-      height: measureGarmentBoardHeight(primary.boardPieces, band, 'today', true),
+      height: measureGarmentBoardHeight(primary.boardPieces, band, 'today', 'womens', true),
     });
     expect(stageStyle.borderRadius ?? 0).toBe(0);
     // The outfit's name keeps the page's gutter.
@@ -382,7 +399,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(presentation.title).toContain(language === 'en' ? 'Today · 20.0°' : 'Bugün · 20,0°');
     // M7: the date sits in the top row, opposite the place.
     expect(result.getByTestId('today-date'))
-      .toHaveTextContent(language === 'en' ? 'Thu 13 Aug' : 'Per 13 Ağu');
+      .toHaveTextContent(language === 'en' ? 'Thu 13 Aug' : '13 Ağu Per');
     expect(within(result.getByTestId('today-top-row')).getByText('Istanbul')).toBeOnTheScreen();
     expect(result.queryByTestId('today-rationale')).not.toBeOnTheScreen();
     for (const reason of primary.reasons) {
@@ -424,7 +441,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     const tallestStage = Math.max(
       ...presentation.suggestions
         .slice(1)
-        .map((suggestion) => measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today')),
+        .map((suggestion) => measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', 'womens')),
     );
     expect(tallestStage).toBeGreaterThan(0);
     for (const suggestion of presentation.suggestions.slice(1)) {
@@ -899,7 +916,7 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, trade
   const plate = result.getByTestId('outfit-detail-board-plate');
   expect(StyleSheet.flatten(plate.props.style)).toMatchObject({ width: 358 });
   // The plate is the board and the measured row of names under it.
-  const boardHeight = layoutGarmentBoard(suggestion.boardPieces, 358, 'detail').height;
+  const boardHeight = layoutGarmentBoard(suggestion.boardPieces, 358, 'detail', 'womens').height;
   await fireEvent(result.getByTestId('outfit-detail-names', hidden), 'layout',
     { nativeEvent: { layout: { width: 358, height: 96, x: 0, y: boardHeight + 8 } } });
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
@@ -1480,6 +1497,26 @@ describe('the leaving board on a re-ask', () => {
             onAskAgain={jest.fn()} state={interlude} />,
         ));
         await result.rerender(screen(withPrimary('renewed-outfit')));
+        expect(result.queryByTestId('today-leaving-board', hidden)).toBeNull();
+      } finally {
+        withTiming.mockRestore();
+      }
+    },
+  );
+
+  // The interlude unmounted the board, so the outfit before it is not on screen to drop away:
+  // a new outfit after it rises on its own, with no leaving board above it.
+  test.each(['loading', 'unavailable'] as const)(
+    'a new outfit after a %s interlude drops nothing away',
+    async (kind) => {
+      const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation((toValue) => toValue);
+      try {
+        const result = await render(screen(todayScreenState));
+        await result.rerender(providers(
+          <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+            onAskAgain={jest.fn()} state={{ kind }} />,
+        ));
+        await result.rerender(screen(withPrimary('after-interlude')));
         expect(result.queryByTestId('today-leaving-board', hidden)).toBeNull();
       } finally {
         withTiming.mockRestore();
@@ -2270,7 +2307,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail names at any text size', 
     const nameId = /^outfit-detail-name-[a-z_]+$/;
     const { pieces, boardPieces } = loadedPresentation(language).suggestions[0];
     const hidden = { includeHiddenElements: true };
-    const board = layoutGarmentBoard(boardPieces, 358, 'detail');
+    const board = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens');
     for (const scale of [1, 3]) {
       const result = await detail(scale);
       expect(result.getAllByTestId(nameId, hidden)).toHaveLength(pieces.length);
@@ -2495,10 +2532,10 @@ describe('finishing touches', () => {
       { includeHiddenElements: true },
     );
     expect(drawing.props.height).toBe(16);
-    const { bounds } = silhouettes[garmentSilhouetteIds[accessories[0].garmentTypeId]!];
+    const { bounds } = silhouettes[garmentSilhouetteIds.womens[accessories[0].garmentTypeId]!];
     const scale = 16 / (Math.max(bounds.width, bounds.height) + 3);
     const [edge] = drawing.queryAll((node) => typeof node.props.d === 'string'
-      && node.props.d === silhouettes[garmentSilhouetteIds[accessories[0].garmentTypeId]!].groups[0].outline
+      && node.props.d === silhouettes[garmentSilhouetteIds.womens[accessories[0].garmentTypeId]!].groups[0].outline
       && node.props.strokeWidth != null && node.props.strokeOpacity == null);
     expect(edge.props.strokeWidth * scale).toBeCloseTo(1.9 * 16 / 28);
   });

@@ -47,8 +47,11 @@ export type MorningBriefingPlan = Readonly<{
   content: MorningBriefingContent;
 }>;
 
+/** What every briefing id starts with: the ledger and the notification gateway tell the kinds apart by it. */
+export const morningBriefingIdPrefix = 'morning_briefing:';
+
 export function morningBriefingId(localDate: string): string {
-  return `morning_briefing:${localDate}`;
+  return `${morningBriefingIdPrefix}${localDate}`;
 }
 
 function nextLocalDate(localDate: string): string {

@@ -1,22 +1,14 @@
 import { Link } from 'expo-router';
 import { FlatList, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import {
-  AppText,
-  Entrance,
-  GarmentBoard,
-  Icon,
-  measureGarmentBoardHeight,
-  PressScale,
-  Surface,
-  useTextScaling,
-} from '@/components/ui';
+import { AppText, Entrance, Icon, PressScale, Surface, useTextScaling } from '@/components/ui';
+import { GarmentBoard, measureGarmentBoardHeight, useGarmentCut } from '@/garment-art';
 import type { OutfitDetailLink } from '@/features/today/presentation/today-outfit';
 import type {
   LoadedOutfitPresentation,
   TomorrowPreviewPresentation,
 } from '@/features/today/presentation/today-presentation';
-import { radii, spacing } from '@/theme/theme';
+import { layout, radii, spacing } from '@/theme/theme';
 import { easierToSee as easierToSeeValues, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
 import { OnPlate } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -37,6 +29,7 @@ export function TodayAlternates({
 }>) {
   const theme = useKuyaraTheme();
   const easierToSee = useEasierToSee();
+  const cut = useGarmentCut();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
   const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
@@ -53,7 +46,7 @@ export function TodayAlternates({
   const alternateStageHeight = Math.max(
     0,
     ...alternates.map((suggestion) =>
-      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', false, easierToSee),
+      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', cut, false, easierToSee),
     ),
   );
 
@@ -184,9 +177,10 @@ export function MoreIdeas({
 }>) {
   const theme = useKuyaraTheme();
   const easierToSee = useEasierToSee();
+  const cut = useGarmentCut();
   // The tiles share the tallest stage, so every name sits on one baseline.
   const stageHeight = Math.max(0, ...ideas.map((idea) =>
-    measureGarmentBoardHeight(idea.boardPieces, IDEA_WIDTH, 'today', false, easierToSee)));
+    measureGarmentBoardHeight(idea.boardPieces, IDEA_WIDTH, 'today', cut, false, easierToSee)));
   return (
     <View style={styles.alternates}>
       <View
@@ -225,6 +219,7 @@ export function MoreIdeas({
 export function TomorrowStrip({ onPress, tomorrow }: Readonly<{ onPress: () => void; tomorrow: TomorrowPreviewPresentation }>) {
   const theme = useKuyaraTheme();
   const easierToSee = useEasierToSee();
+  const cut = useGarmentCut();
   const strongEdge = useStrongEdge();
   const { controlScale } = useTextScaling();
   return (
@@ -242,7 +237,7 @@ export function TomorrowStrip({ onPress, tomorrow }: Readonly<{ onPress: () => v
           importantForAccessibility="no-hide-descendants"
           style={[styles.alternateStage, {
             backgroundColor: theme.colors.garmentGround,
-            height: measureGarmentBoardHeight(tomorrow.boardPieces, TOMORROW_BOARD_WIDTH, 'today', false, easierToSee),
+            height: measureGarmentBoardHeight(tomorrow.boardPieces, TOMORROW_BOARD_WIDTH, 'today', cut, false, easierToSee),
             width: TOMORROW_BOARD_WIDTH,
           }]}>
           {/* The same garment plate the alternates stand on, so dark mode draws it alike. */}
@@ -295,7 +290,7 @@ const styles = StyleSheet.create({
   alternateStage: { borderRadius: radii.imageTile, justifyContent: 'center', overflow: 'hidden' },
   tomorrowTarget: { marginTop: spacing.md },
   // Law 2: the strip's own inset is the container inset; it is never under the 44-point target.
-  tomorrowStrip: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 44,
+  tomorrowStrip: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: layout.minimumTouchTarget,
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   tomorrowText: { flex: 1, flexShrink: 1 },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },

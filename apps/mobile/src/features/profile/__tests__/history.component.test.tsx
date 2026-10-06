@@ -4,8 +4,8 @@ import { processColor, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { measureGarmentBoardHeight } from '@/components/ui';
-import { garmentRolesBySlot } from '@/components/ui/garment-board/garment-palette';
+import { measureGarmentBoardHeight } from '@/garment-art';
+import { garmentRolesBySlot } from '@/garment-art/garment-palette';
 import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
@@ -17,7 +17,6 @@ import { lightTheme } from '@/theme/theme';
 import { EasierToSeeContext } from '@/theme/easier-to-see';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 const mockHistoryFocus = { refocus: undefined as (() => void) | undefined };
 const mockNavigate = jest.fn();
 jest.mock('expo-router', () => {
@@ -181,7 +180,7 @@ test.each([false, true])('the History stage measures its height with Easier to s
   await waitFor(() => expect(result.getByTestId('history-entry-board-2026-09-23')).toBeOnTheScreen());
   const { height, width } = StyleSheet.flatten(result.getByTestId('history-entry-board-2026-09-23').props.style);
   const { pieces } = historyBoard({ dayKey: entry.dayKey, outfit: entry.outfit, pieceColors: null });
-  expect(height).toBe(measureGarmentBoardHeight(pieces, width, 'today', false, easierToSee));
+  expect(height).toBe(measureGarmentBoardHeight(pieces, width, 'today', 'womens', false, easierToSee));
 });
 
 test('a year of History renders only what is near the screen', async () => {

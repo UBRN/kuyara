@@ -11,11 +11,12 @@ import {
   createSupabaseSyncConsent,
   pullOverlapSeconds,
 } from './supabase-account-remote.ts';
-import { toRemoteWardrobeItem } from './account-remote-mappers.ts';
+import { toRemoteOutfitHistory, toRemoteWardrobeItem } from './account-remote-mappers.ts';
 import { createAccountSyncFlow } from '../application/account-sync.ts';
 import { createAccountSessionSync } from '../application/account-session-sync.ts';
 import { createSqliteAccountRowsSource } from './sqlite-account-rows-source.ts';
 import { signOut } from '../domain/account-link.ts';
+import { pullCursorAt } from '../domain/sync-rules.ts';
 import { migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
 import {
@@ -62,7 +63,7 @@ const remoteItem = (n, over = {}) => ({
 test('a pull starts the overlap window before the cursor and asks only for the caller\'s rows in arrival order', async () => {
   const { client, requests } = fakeClient();
   const remote = createSupabaseAccountRemote(client, phoneProfileId);
-  await remote.pull(userId, '2026-10-01T00:00:10.123456Z', true);
+  await remote.pull(userId, pullCursorAt('2026-10-01T00:00:10.123456Z'), true);
   assert.equal(pullOverlapSeconds, 10);
   assert.deepEqual(requests.map(({ path }) => path).sort(),
     ['dressing_day_choices', 'dressing_day_departures', 'outfit_history', 'profiles', 'wardrobe_items']);
@@ -77,7 +78,7 @@ test('a pull starts the overlap window before the cursor and asks only for the c
 
 test('without the sync consent a pull asks for the profile only, and the first pull has no lower bound', async () => {
   const { client, requests } = fakeClient();
-  await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, null, false);
+  await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, pullCursorAt(null), false);
   assert.deepEqual(requests.map(({ path }) => path), ['profiles']);
   assert.equal(requests[0].query.get('server_updated_at'), null);
 });
@@ -89,7 +90,7 @@ test('a long table is read in pages keyed on arrival and id, so rows sharing a s
     if (path !== 'wardrobe_items') return [];
     return query.get('or') === null ? all.slice(0, 500) : all.slice(500);
   });
-  const pulled = await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, null, true);
+  const pulled = await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, pullCursorAt(null), true);
   assert.equal(pulled.wardrobeItems.length, 501);
   const second = requests.filter(({ path }) => path === 'wardrobe_items')[1];
   assert.equal(second.query.get('or'),
@@ -111,13 +112,13 @@ test('a deletion marker arrives without content, lands as a marker, and unknown 
     outfit_history: [marker('outfit_history', { id: uuid(14), day_key: '2026-09-10', outfit_json: null })],
   };
   const { client } = fakeClient(({ path }) => answers[path] ?? []);
-  const pulled = await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, null, true);
+  const pulled = await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, pullCursorAt(null), true);
   const deletion = { kind: 'deletionMarker', createdAt: stamp(0), updatedAt: stamp(5), deletedAt: stamp(5) };
   assert.deepEqual(pulled.wardrobeItems.map(({ row }) => row), [{ ...deletion, id: uuid(10) }]);
   assert.deepEqual(pulled.dressingDayChoices.map(({ row }) => row), [{ ...deletion, id: uuid(12), dayKey: '2026-09-10' }]);
   assert.deepEqual(pulled.dressingDayDepartures.map(({ row }) => row), [{ ...deletion, id: uuid(13), dayKey: '2026-09-10' }]);
   assert.deepEqual(pulled.outfitHistory.map(({ row }) => row), [{ ...deletion, id: uuid(14), dayKey: '2026-09-10' }]);
-  assert.ok(pulled.arrivals.some(({ serverUpdatedAt }) => serverUpdatedAt === '2026-10-03T00:00:00.000003Z'));
+  assert.ok(pulled.arrivals.some(({ table, serverUpdatedAt }) => table === 'wardrobeItems' && serverUpdatedAt === '2026-10-03T00:00:00.000003Z'));
 });
 
 test('a marker that still names content of an unknown kind is refused, not read as a deletion', async () => {
@@ -125,7 +126,7 @@ test('a marker that still names content of an unknown kind is refused, not read 
     id: uuid(10), created_at: pg(stamp(0)), updated_at: pg(stamp(5)), deleted_at: pg(stamp(5)),
     category: 'cape', server_updated_at: '2026-10-02T00:00:00+00:00',
   }] : []));
-  const pulled = await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, null, true);
+  const pulled = await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, pullCursorAt(null), true);
   assert.deepEqual(pulled.wardrobeItems, []);
   assert.equal(pulled.arrivals.length, 1);
 });
@@ -138,7 +139,7 @@ test('a row read again inside the overlap lands again and the cursor never moves
   const source = {
     read: async () => ({ profile: null, wardrobeItems: [{ row: wardrobeItem(1), pendingSync: false }],
       dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] }),
-    link: async () => ({ userId, lastUserId: userId, recordsUserId: userId, recordsConsentRecordedAt: null, cursor }),
+    link: async () => ({ userId, lastUserId: userId, recordsUserId: userId, recordsConsentRecordedAt: null, cursor: pullCursorAt(cursor) }),
     clearPendingIfUnchanged: async () => assert.fail('nothing pending'),
     writePulled: async (rows, next) => writes.push([rows, next]),
     applyFirstLink: async () => assert.fail('first link'),
@@ -150,8 +151,49 @@ test('a row read again inside the overlap lands again and the cursor never moves
   assert.equal(writes.length, 2);
   for (const [rows, next] of writes) {
     assert.deepEqual(rows.wardrobeItems.map(({ name }) => name), ['Late commit']);
-    assert.equal(next, cursor);
+    assert.deepEqual(next, pullCursorAt(cursor));
   }
+});
+
+test('two phones: a slow table never moves a fast one past a row the other phone committed meanwhile', async () => {
+  // Phone A pulls. The Closet answers first, with nothing new; phone B's Closet upload, stamped
+  // 00:00:45 when its transaction began, commits right after; the History, read side by side,
+  // answers with a look from 00:01:00. A shared position would start the next Closet read at
+  // 00:00:50 and miss phone B's piece for good.
+  const fromB = remoteItem(1, { name: 'From phone B', server_updated_at: '2026-10-01T00:00:45.000000+00:00' });
+  const look = { ...toRemoteOutfitHistory(historyDay(2, '2026-09-10'), userId),
+    created_at: pg(stamp(0)), updated_at: pg(stamp(1)), server_updated_at: '2026-10-01T00:01:00.000000+00:00' };
+  const since = (rows, query) => rows.filter((row) =>
+    row.server_updated_at.replace('+00:00', 'Z') >= (query.get('server_updated_at')?.replace('gte.', '') ?? ''));
+  let committedByB = false;
+  const { client } = fakeClient(({ path, query }) => {
+    if (path === 'wardrobe_items') {
+      const rows = committedByB ? [fromB] : [];
+      committedByB = true;
+      return since(rows, query);
+    }
+    return path === 'outfit_history' ? since([look], query) : [];
+  });
+  let link = { userId, lastUserId: userId, recordsUserId: userId, recordsConsentRecordedAt: null,
+    cursor: pullCursorAt('2026-10-01T00:00:00.000000Z') };
+  const landed = [];
+  const source = {
+    read: async () => ({ profile: null, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] }),
+    link: async () => link,
+    clearPendingIfUnchanged: async () => assert.fail('nothing pending'),
+    writePulled: async (rows, cursor) => {
+      landed.push(...rows.wardrobeItems.map(({ name }) => name));
+      link = { ...link, cursor };
+    },
+    applyFirstLink: async () => assert.fail('first link'),
+    saveLink: async () => {},
+  };
+  const flow = createAccountSyncFlow(source, createSupabaseAccountRemote(client, phoneProfileId), () => stamp(10));
+  await flow.sync(userId, true);
+  assert.equal(link.cursor.outfitHistory, '2026-10-01T00:01:00.000000Z');
+  assert.equal(link.cursor.wardrobeItems, '2026-10-01T00:00:00.000000Z');
+  await flow.sync(userId, true);
+  assert.deepEqual(landed, ['From phone B']);
 });
 
 test('an upload upserts by user and UUID, by user and day for choices and departures, by user for the profile, and returns only matched versions', async () => {
@@ -221,7 +263,7 @@ test('no upload body carries a device-only value: the profile id, a photo path o
 test('a Supabase error becomes a closed failure that names nothing of the request', async () => {
   const secret = 'row 00000000-0000-4000-8000-000000000900 token eyJ';
   const { client } = fakeClient(() => new Response(JSON.stringify({ code: '42501', message: secret }), { status: 403 }));
-  const error = await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, null, false).catch((caught) => caught);
+  const error = await createSupabaseAccountRemote(client, phoneProfileId).pull(userId, pullCursorAt(null), false).catch((caught) => caught);
   assert.ok(error instanceof AccountRemoteError);
   assert.equal(error.code, 'request');
   assert.equal(`${error.message} ${error.stack}`.includes(secret), false);
@@ -230,7 +272,7 @@ test('a Supabase error becomes a closed failure that names nothing of the reques
 
 test('an answer that does not parse is a closed failure too', async () => {
   const { client } = fakeClient(() => ({ not: 'a list' }));
-  await assert.rejects(createSupabaseAccountRemote(client, phoneProfileId).pull(userId, null, false),
+  await assert.rejects(createSupabaseAccountRemote(client, phoneProfileId).pull(userId, pullCursorAt(null), false),
     (error) => error instanceof AccountRemoteError && error.code === 'response');
 });
 
@@ -363,7 +405,7 @@ test('a row the account refuses for its size fails the pass as a closed failure 
   const source = {
     read: async () => ({ profile: null, wardrobeItems: [{ row: wardrobeItem(1, { name: 'x'.repeat(3000) }), pendingSync: true }],
       dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] }),
-    link: async () => ({ userId, lastUserId: userId, recordsUserId: userId, recordsConsentRecordedAt: null, cursor: null }),
+    link: async () => ({ userId, lastUserId: userId, recordsUserId: userId, recordsConsentRecordedAt: null, cursor: pullCursorAt(null) }),
     clearPendingIfUnchanged: async () => assert.fail('nothing was acknowledged'),
     writePulled: async () => assert.fail('a failed upload skips the pull'),
     applyFirstLink: async () => assert.fail('first link'),

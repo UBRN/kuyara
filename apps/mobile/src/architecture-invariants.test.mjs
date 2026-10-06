@@ -164,19 +164,19 @@ const rules = [
   {
     name: 'the garment fill tables and the accent resolver stay behind the board renderer',
     matches: (specifier) =>
-      modulePathMatcher('garment-board/garment-render-fills')(specifier)
-      || modulePathMatcher('garment-board/garment-palette')(specifier)
-      || modulePathMatcher('garment-board/color-family-fill')(specifier),
+      modulePathMatcher('garment-art/garment-render-fills')(specifier)
+      || modulePathMatcher('garment-art/garment-palette')(specifier)
+      || modulePathMatcher('garment-art/color-family-fill')(specifier),
     forbiddenDirectories: null,
-    allowedDirectories: ['components/ui/garment-board/', 'components/ui/index.ts'],
+    allowedDirectories: ['garment-art/'],
     ruleText:
       'docs/design/design-system.md, "Implemented and deferred": the colour-family fills are '
       + '"approved content colour for the rack and grid only (ADR 0028 section 6 and ADR 0029 '
       + 'section 5), not semantic theme roles", and the Phase 6 swatch library is content colour '
       + 'too. The resolvers that turn an outfit and a plane into fills are the board renderer\'s '
-      + 'own business: they stay under components/ui/garment-board/, and a '
+      + 'own business: they stay under garment-art/, and a '
       + 'feature that needs an approved content colour takes `colorFamilyFills` from the '
-      + '`components/ui` barrel instead of reaching into the module.',
+      + '`garment-art` barrel instead of reaching into the module.',
   },
 ];
 
@@ -311,6 +311,75 @@ test('a feature reaches another feature only through its domain or application l
     crossFeatureInternalImportAllowlist.length,
     0,
     'the cross-feature allowlist only shrinks: fix the import instead of listing it, and lower this count when an entry goes',
+  );
+});
+
+/** The `src`-relative module a specifier names when it stays inside `src`, else null. */
+function resolvedSourcePath(relativePath, specifier) {
+  if (specifier.startsWith('@/')) return specifier.slice(2);
+  if (specifier.startsWith('.')) return path.posix.normalize(path.posix.join(path.posix.dirname(relativePath), specifier));
+  return null;
+}
+
+// `components/ui` is the leaf primitive layer: a feature builds on it, never the reverse. Art
+// that draws feature vocabulary (garments, colours, outfits) lives in `garment-art/`, which
+// reaches the other features only through their domain layer, below. The allowlist only
+// shrinks: a stale entry fails the test.
+const componentsFeatureImportAllowlist = [
+].map(([importer, module]) => `${importer} -> ${module}`);
+
+test('components imports no feature module', () => {
+  const seen = new Set();
+  const violations = [];
+
+  for (const relativePath of sourceFiles()) {
+    if (!relativePath.startsWith('components/')) continue;
+
+    for (const { specifier, line } of specifiersIn(relativePath)) {
+      const target = resolvedSourcePath(relativePath, specifier);
+      if (target === null || !target.startsWith('features/')) continue;
+
+      const key = `${relativePath} -> ${target}`;
+      if (componentsFeatureImportAllowlist.includes(key)) {
+        seen.add(key);
+        continue;
+      }
+      violations.push(`${repoRelativeRoot}/${relativePath}:${line} imports '${specifier}'`);
+    }
+  }
+
+  assert.deepEqual(
+    violations,
+    [],
+    'Production code under components/ is a leaf: it imports no features/* module. A control that '
+    + 'needs a feature\'s value takes it as a plain prop or a child; art that draws feature '
+    + 'vocabulary belongs in garment-art/.\n\n'
+    + `These imports break that rule:\n${violations.map((v) => `  - ${v}`).join('\n')}`,
+  );
+  const stale = componentsFeatureImportAllowlist.filter((key) => !seen.has(key));
+  assert.deepEqual(stale, [], `These allowlist entries no longer match an import; remove them so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
+  assert.equal(componentsFeatureImportAllowlist.length, 0, 'the allowlist only shrinks: fix the import instead of listing it');
+});
+
+test('garment-art reaches a feature only through its domain layer', () => {
+  const violations = [];
+
+  for (const relativePath of sourceFiles()) {
+    if (!relativePath.startsWith('garment-art/')) continue;
+
+    for (const { specifier, line } of specifiersIn(relativePath)) {
+      const target = resolvedSourcePath(relativePath, specifier);
+      if (target === null || !target.startsWith('features/') || /^features\/[^/]+\/domain\//.test(target)) continue;
+      violations.push(`${repoRelativeRoot}/${relativePath}:${line} imports '${specifier}'`);
+    }
+  }
+
+  assert.deepEqual(
+    violations,
+    [],
+    'The garment art draws feature vocabulary (garment types, slots, colours, conditions) and may '
+    + 'name it through a feature\'s domain layer only; a feature hands it everything else as props.\n\n'
+    + `These imports break that rule:\n${violations.map((v) => `  - ${v}`).join('\n')}`,
   );
 });
 
@@ -456,6 +525,16 @@ test('the zoned wall clock and the locale tag each have one owner', () => {
   }
 
   assert.deepEqual(found, [], 'read a zone\'s clock with zonedClock and a language\'s tag with localeTag');
+});
+
+// Intl formatters are built only by the cached helpers in domain/intl-format.ts, and the device
+// locale is read once in localization/device-locale.ts. A call site building its own formatter
+// pays the ICU construction cost on every render and can disagree with the others on order.
+test('an Intl formatter is constructed only by intl-format and device-locale', () => {
+  const owners = ['domain/intl-format.ts', 'localization/device-locale.ts'];
+  const hits = sourceFiles().filter((file) =>
+    !owners.includes(file) && /\bnew Intl\./.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'build formatters with dateTimeFormat or numberFormat from domain/intl-format');
 });
 
 // Reanimated's `runOnJS` is deprecated: a worklet hands work to the React Native runtime
@@ -610,7 +689,7 @@ test('UUID v4 and UTC ISO validators are defined only in domain/record-identity.
 // else spells the UUID v4 pattern or builds an id or timestamp schema from `z.uuid()` or
 // `z.iso.datetime()`. The one allowed exception is the Worker's own coverage window, which is a
 // response field and not a stored clock; the allowlist only shrinks.
-const isoDatetimeAllowlist = { 'features/recommendation/data/worker-ai-recommendation-mapper.ts': 2 };
+const isoDatetimeAllowlist = { 'features/recommendation/application/recommendation-context.ts': 2 };
 
 test('row id and timestamp schemas are built only in domain/record-identity.ts', () => {
   const copies = [];
@@ -668,8 +747,9 @@ test('the device database is opened and migrated only through openMigratedDataba
 });
 
 // A mobile data-layer network call has one way to time out and parse a body:
-// `fetchJsonWithTimeout`. Each caller keeps its own timeout value and error mapping and does not
-// hand-roll an `AbortController` or read `response.json()` itself.
+// `fetchJsonWithTimeout`, or `fetchWithTimeout` for a client library that sends and parses its own
+// requests (the Supabase client). Each caller keeps its own timeout value and error mapping and
+// does not hand-roll an `AbortController` or read `response.json()` itself.
 test('a network call times out and parses its JSON only through fetchJsonWithTimeout', () => {
   const copies = [];
   for (const relativePath of sourceFiles()) {
@@ -728,11 +808,6 @@ test('mobile source has no web target branch or *.web.* file', () => {
 // pre-existing import; the list only shrinks and a stale entry fails.
 const sameFeatureApplicationDataAllowlist = [
   ['features/analytics/application/use-screen-interactive.ts', 'features/analytics/data/observe-performance-telemetry'],
-  ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/recommendation-repository'],
-  ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/worker-ai-client'],
-  ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/worker-ai-recommendation-mapper'],
-  ['features/recommendation/application/use-ai-probe.ts', 'features/recommendation/data/worker-ai-probe-client'],
-  ['features/weather/application/weather-application-controller.ts', 'features/weather/data/weather-repository'],
 ].map(([importer, module]) => `${importer} -> ${module}`);
 
 test('an application module imports its own feature data as a value only in a provider or loader', () => {
@@ -768,7 +843,7 @@ test('an application module imports its own feature data as a value only in a pr
   assert.deepEqual(stale, [], `remove these entries so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
   assert.equal(
     sameFeatureApplicationDataAllowlist.length,
-    6,
+    1,
     'the same-feature allowlist only shrinks: lower this count when an entry goes',
   );
 });
@@ -999,7 +1074,9 @@ test('every message key has a production reader or a counted computed read', () 
     getCompilationSettings: () => options, getDefaultLibFileName: ts.getDefaultLibFilePath,
     fileExists: ts.sys.fileExists, readFile: ts.sys.readFile, readDirectory: ts.sys.readDirectory,
   });
-  const file = path.join(sourceRoot, 'localization/messages.ts');
+  // The two language files and the entry point only fill the shape; they are not readers of it.
+  const messagesDirectory = path.join(sourceRoot, 'localization/messages');
+  const file = path.join(sourceRoot, 'localization/messages/types.ts');
   const unread = {};
   const visit = (node, trail) => {
     if (ts.isParameter(node)) return;
@@ -1007,7 +1084,7 @@ test('every message key has a production reader or a counted computed read', () 
     if (ts.isPropertySignature(node)) {
       trail = [...trail, node.name.getText()];
       const reads = (service.findReferences(file, node.name.getStart()) ?? []).flatMap(({ references }) => references)
-        .filter(({ fileName }) => fileName !== file && !/\.test\.|__tests__/.test(fileName));
+        .filter(({ fileName }) => !fileName.startsWith(messagesDirectory) && !/\.test\.|__tests__/.test(fileName));
       if (reads.length === 0 && !node.type?.members) {
         const parent = trail.slice(0, -1).join('.');
         (unread[parent] ??= []).push(trail.at(-1));
@@ -1101,18 +1178,10 @@ test('a screen that reads its scroll offset hands the scroll ref to every Screen
 // the list only shrinks: a rule a route needs moves into the application layer instead.
 const todayRouteDomainImports = Object.freeze({
   'app/(tabs)/(today)/index.tsx': [
-    '@/features/analytics/domain/analytics-events',
-    '@/features/analytics/domain/analytics-mappers',
-    '@/features/recommendation/domain/outfit-coverage',
     '@/features/weather/domain/wardrobe-day',
     '@/features/weather/domain/weather',
   ],
-  'app/(tabs)/(today)/[id].tsx': [
-    '@/features/analytics/domain/analytics-events',
-    '@/features/analytics/domain/analytics-mappers',
-    '@/features/recommendation/domain/outfit-history',
-    '@/features/wardrobe/domain/wardrobe-item',
-  ],
+  'app/(tabs)/(today)/[id].tsx': [],
 });
 
 test('the Today routes reach no data layer and only the listed domain modules', () => {
@@ -1251,6 +1320,18 @@ test('a calendar-date key is never turned into an instant by string concatenatio
   }
 
   assert.deepEqual(hits, [], 'read the date with calendarDateUtcMidnight from @/domain/calendar-date');
+});
+
+// History reads each day key as UTC midnight and formats it in UTC. A formatter without an
+// explicit zone is never cached (domain/intl-format.ts), so a screen of day labels would build
+// a new one on every render.
+test('the History screen formats its day keys in UTC through calendarDateUtcMidnight', () => {
+  const source = readFileSync(path.join(sourceRoot, 'features/profile/presentation/history-screen.tsx'), 'utf8');
+  const formatterCalls = source.match(/dateTimeFormat\([^)]*\)/g) ?? [];
+
+  assert.ok(formatterCalls.length > 0);
+  assert.deepEqual(formatterCalls.filter((call) => !call.includes("timeZone: 'UTC'")), []);
+  assert.equal(source.includes('parseCalendarDate('), false, 'read a day key with calendarDateUtcMidnight');
 });
 
 // A `YYYY-MM-DD` key is checked by `calendarDateKeySchema` (domain/calendar-date.ts) and a
@@ -1442,13 +1523,15 @@ test('a managed photo path pattern is written only in domain/managed-photo-path.
 });
 
 // Test helpers with one owner under apps/mobile/test: the font-scale setter, the stand-in file
-// uri and the source tree walk are imported, never written again in a test file.
-test('the font scale setter, file uri builder and source walk are defined only under test/', () => {
+// uri, the stand-in `expo-file-system` and the source tree walk are imported, never written
+// again in a test file.
+test('the font scale setter, file uri builder, file system fake and source walk are defined only under test/', () => {
   const copies = [];
   const definitions = [
     [/function mockFontScale\b/, 'test/font-scale.ts'],
     [/function (?:fileUri|nativeUri|nativeFileUri)\(parts\)/, 'test/file-uri.mjs'],
     [/function sourceFiles\b/, 'test/source-files.mjs'],
+    [/specifier === 'expo-file-system'|'expo-file-system':\s*`/, 'test/fakes/expo-file-system.mjs'],
   ];
   for (const relativePath of sourceFiles(sourceRoot, { includeTests: true })) {
     if (relativePath === 'architecture-invariants.test.mjs') continue;
@@ -1516,4 +1599,65 @@ test('presentation reads the wall clock only through useForegroundClock', () => 
     file !== owner
     && /useState\(\(\) => Date\.now\(\)\)|useMemo\(\(\) => new Date\(\)/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
   assert.deepEqual(hits, [], 'read the clock with useForegroundClock');
+});
+
+// A deprecated garment type stays readable on saved items but is never offered, so production
+// code lists the catalog only through `listSelectableGarmentTypes`, which drops it. The
+// unfiltered `listGarmentTypesForPreference` is the catalog's own building block; tests may
+// read it as the full list.
+test('production code lists garment types only through listSelectableGarmentTypes', () => {
+  const owner = 'features/catalog/domain/garment-catalog.ts';
+  const hits = sourceFiles().filter((relativePath) =>
+    relativePath !== owner &&
+    /\blistGarmentTypesForPreference\(/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+  assert.deepEqual(hits, [], 'call listSelectableGarmentTypes from @/features/catalog/domain/garment-catalog');
+});
+
+// An outfit's slots, and which garment can fill each, are written once, in
+// recommendation/domain/outfit-slots.ts: `bodyOutfitSlots` lists the six body slots and
+// `slotAccepts` decides membership from a garment's structure and layer roles. Nothing slices
+// the slot list by position or lists the body slots again; the listed files still spell them
+// out and the list only shrinks.
+const bodySlotListAllowlist = [
+  // The board's dressing order is a drawing rule (ADR 0025) that happens to match slot order.
+  'garment-art/compose-garment-board.ts',
+];
+
+test('the body slots and slot membership have one owner in outfit-slots', () => {
+  const owner = 'features/recommendation/domain/outfit-slots.ts';
+  const listsBodySlots = [];
+  const slices = [];
+  const readsLayerRoles = [];
+  for (const file of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, file), 'utf8');
+    if (file !== owner && /\[\s*'primary_top',\s*'bottom',/.test(text)) listsBodySlots.push(file);
+    if (/\boutfitSlots\.slice\(/.test(text)) slices.push(file);
+    if (/supportedLayerRoles\.includes\(/.test(text)) readsLayerRoles.push(file);
+  }
+
+  assert.deepEqual(slices, [], 'iterate bodyOutfitSlots or accessoryOutfitSlots from outfit-slots');
+  assert.deepEqual(listsBodySlots.filter((file) => !bodySlotListAllowlist.includes(file)), [],
+    'import bodyOutfitSlots from outfit-slots');
+  assert.deepEqual(bodySlotListAllowlist.filter((file) => !listsBodySlots.includes(file)), [],
+    'remove these entries so the list only shrinks');
+  // Eligibility reads a layer role for applicability; every slot decision goes through slotAccepts.
+  assert.deepEqual(readsLayerRoles, ['features/recommendation/domain/garment-eligibility.ts'],
+    'decide a slot with slotAccepts from outfit-slots');
+});
+
+// A body is flattened into its pieces only by `corePieces` (and `piecesInSlotOrder` built on it)
+// in recommendation/domain/outfit-model.ts.
+test('a body is flattened into its pieces only in outfit-model', () => {
+  const owner = 'features/recommendation/domain/outfit-model.ts';
+  const hits = sourceFiles().filter((file) =>
+    file !== owner && /primaryTop,\s*[\w.?]*bottom\s*\]/.test(readFileSync(path.join(sourceRoot, file), 'utf8')));
+  assert.deepEqual(hits, [], 'call corePieces or piecesInSlotOrder from outfit-model');
+});
+
+// The 44-point touch target has one owner, `layout.minimumTouchTarget` in the theme; feature
+// styles read it rather than restating the number.
+test('feature styles take the touch target from layout.minimumTouchTarget', () => {
+  const hits = sourceFiles(path.join(sourceRoot, 'features'))
+    .filter((file) => /\b(?:minHeight|minWidth):\s*44\b/.test(readFileSync(path.join(sourceRoot, 'features', file), 'utf8')));
+  assert.deepEqual(hits, [], 'use layout.minimumTouchTarget');
 });

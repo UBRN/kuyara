@@ -5,7 +5,7 @@ import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
 } from '@/features/recommendation/application/recommendation-application-context';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 import { todayScreenState, todayWeatherSnapshot } from '@/features/today/__tests__/fixtures';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import {
@@ -18,10 +18,6 @@ import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('expo-router', () => ({
   useFocusEffect: () => undefined,
   useRouter: () => ({ push: jest.fn() }),

@@ -7,9 +7,8 @@ for foreground behavior and background-task registration safety. Actual backgrou
 execution remains unverified because the Simulator cannot run it; a physical-device check
 is optional when that specific behavior must be verified (see Known Issues).
 For phase 3, `expo-background-task` and its required peer `expo-task-manager` are pinned
-`~57.0.16` (checked against the npm registry 2026-09-09), aligned with the installed
-`expo@~57.0.9` (SDK 57), and follow the existing `~57.0.x` Expo package pattern. The first
-wraps `BGTaskScheduler` on iOS and `WorkManager` on Android through a small JS surface;
+`~57.0.21`, aligned with the installed `expo@~57.0.26` (SDK 57), and follow the existing
+`~57.0.x` Expo package pattern. The first wraps `BGTaskScheduler` on iOS and `WorkManager` on Android through a small JS surface;
 the second is its standard Expo peer. Both are maintained by the Expo core team,
 MIT-licensed, add no new network path, and require no permission beyond the config
 plugin's `Info.plist` and manifest entries. No existing dependency covers this, and a
@@ -52,8 +51,8 @@ midnight before 18:00 local, and from now to 04:00 the next morning once the eve
 begun, with an open between midnight and 04:00 still belonging to that evening. The window
 comes from `wardrobeDayWindow` in the weather domain, the one place the boundary exists,
 and the clothing requirement engine, the Weather meaning line and Today's rain outlook read
-the same function. An overnight crossing is therefore announceable from the evening before,
-which a calendar day made impossible. The alert's identity follows the dressing day of its
+the same function. An overnight crossing is therefore announceable from the evening before.
+The alert's identity follows the dressing day of its
 crossing, not of `now`: a crossing after 18:00 planned at midday already carries the evening
 identity, so the replan after 18:00 finds it announced.
 
@@ -80,9 +79,8 @@ dressing-day window. It adds no wind or humidity alert and no Yr wind bands; see
 
 An alert's identity is `<ruleId>:<locationKey>:<windowKey>`, where `windowKey` is the bare
 local date for the day period and that date plus `:evening` for the evening window, in the
-snapshot's time zone. The asymmetry is deliberate: a day-period identity is byte-identical
-to every identity already in the ledger, so nothing re-fires on the first launch after the
-dressing day was introduced, and the evening gets a namespace no calendar day can reach.
+snapshot's time zone. The asymmetry is deliberate: a day-period identity is the bare local
+date, and the evening gets a namespace no calendar day can reach.
 Each identity fires at most once. Rescheduling cancels every pending kuyara alert and
 re-plans from the fresh snapshot, so a pending alert may move or disappear as the forecast
 changes; an identity that has already fired is handed to the planner as delivered and is
@@ -106,9 +104,8 @@ quiet hours moves to the end of quiet hours when that still leaves at least 30 m
 before the crossing; otherwise the alert is dropped for that window. No control exists for
 quiet hours.
 
-The second group ADR 0030's Notifications surface left room for underneath is now the
-morning briefing's own opt-in ([ADR 0004](0004-notifications-in-the-mvp.md)), added
-without moving the alert group. The briefing fires at the hour quiet hours end, so it can
+The Settings Notifications surface has a second group underneath the alert group: the
+morning briefing's own opt-in ([ADR 0004](0004-notifications-in-the-mvp.md)). The briefing fires at the hour quiet hours end, so it can
 never fall inside them and no adjustment applies to it. Its hour is read in the snapshot's
 time zone while quiet hours are read in the device's, so the two can disagree while the
 person is travelling; that is a known and accepted limit, not a case the planner corrects. A quiet-hours control, if one is

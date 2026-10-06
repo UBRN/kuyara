@@ -18,10 +18,6 @@ import { PrimaryTabs } from '@/navigation/primary-tabs';
 import { lightTheme, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({
-  SymbolView: () => null,
-}));
-
 // ADR 0019: `@expo/ui` renders native views that do not mount under Jest, so the
 // Closet's segmented control is tested against a mocked module here too, exactly as
 // `expo-router/unstable-native-tabs` is mocked below.

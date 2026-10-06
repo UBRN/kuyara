@@ -1,4 +1,4 @@
-import type { AccountProfile } from '@/features/account/domain/account-rows';
+import type { AccountProfile, AccountRows } from '@/features/account/domain/account-rows';
 
 // The ongoing sync rules of ADR 0041 section 4. The phone holds one flag per row, `pendingSync`,
 // set by every local write; the server stamps each row on arrival, and that stamp (never a
@@ -71,14 +71,31 @@ export function applyPulledProfile(
   return local.pendingSync ? null : pulled;
 }
 
-/** The pull cursor: the latest arrival seen, refused rows included, and never earlier than before. */
-export function nextCursor(
-  previous: string | null,
-  pulled: readonly Readonly<{ serverUpdatedAt: string | null }>[],
-): string | null {
-  return pulled.reduce<string | null>(
-    (latest, { serverUpdatedAt }) =>
-      serverUpdatedAt !== null && (latest === null || serverUpdatedAt > latest) ? serverUpdatedAt : latest,
-    previous,
-  );
+/** A table a pull reads, named as in `AccountRows`. */
+export type AccountTable = keyof AccountRows;
+
+/**
+ * The pull cursor: for each table, the latest arrival seen there, null before any. A pull reads
+ * the tables side by side and a long one can take seconds longer than a short one, so each table
+ * keeps its own position: a late arrival in one table never moves another past a row that
+ * committed there after it was read.
+ */
+export type PullCursor = Readonly<Record<AccountTable, string | null>>;
+
+/** Every table at one position: none yet (null), or the single position an older build stored. */
+export function pullCursorAt(position: string | null): PullCursor {
+  return { profile: position, wardrobeItems: position, dressingDayChoices: position, dressingDayDepartures: position, outfitHistory: position };
+}
+
+/** An arrival a pull saw in `table`, refused rows included, so an unknown row never stalls its table. */
+export type PullArrival = Readonly<{ table: AccountTable; serverUpdatedAt: string | null }>;
+
+/** The pull cursor after `arrivals`: per table the latest arrival seen, never earlier than before. */
+export function nextCursor(previous: PullCursor, arrivals: readonly PullArrival[]): PullCursor {
+  const next = { ...previous };
+  for (const { table, serverUpdatedAt } of arrivals) {
+    const latest = next[table];
+    if (serverUpdatedAt !== null && (latest === null || serverUpdatedAt > latest)) next[table] = serverUpdatedAt;
+  }
+  return next;
 }

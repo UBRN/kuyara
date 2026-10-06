@@ -109,6 +109,30 @@ test('history skips corrupt rows while preserving seven valid reads and recommen
   assert.equal(recommendation.outfits.length, 3);
 });
 
+test('the seven latest looks read only as many rows as they need, and skip a corrupt row among them', async (t) => {
+  const db = await setup(t);
+  const photos = { copyStaged: async () => { throw new Error('unexpected photo copy'); },
+    discardStaged: async () => {}, deleteStored: async () => {}, resolveUri: () => null };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  for (let day = 1; day <= 30; day++) {
+    await repo.log(profileId, `2026-09-${String(day).padStart(2, '0')}`, first, { kind: 'keep' }, null);
+  }
+  await db.runAsync(`UPDATE outfit_history SET outfit_json = ? WHERE day_key = ?`,
+    ['{"garments":"invalid"}', '2026-09-28']);
+  let rowsRead = 0;
+  const readRows = db.getAllAsync.bind(db);
+  db.getAllAsync = async (...args) => {
+    const rows = await readRows(...args);
+    rowsRead += rows.length;
+    return rows;
+  };
+
+  const seven = await repo.lastSeven(profileId);
+
+  assert.deepEqual(seven.map(({ dayKey }) => dayKey.slice(-2)), ['30', '29', '27', '26', '25', '24', '23']);
+  assert.ok(rowsRead <= 14, `read ${rowsRead} rows for seven looks`);
+});
+
 test('history list reads preserve database errors', async () => {
   const unreadable = { getAllAsync: async () => { throw new Error('database unreadable'); } };
   const repo = new SqliteOutfitHistoryRepository(unreadable, randomUUID, () => now, {});
@@ -274,6 +298,25 @@ test('history file cleanup that rejects never fails a write that already committ
   assert.match(row.photo_path, /^kuyara\/history\/photos\//);
   assert.notEqual(row.deleted_at, null);
   assert.deepEqual(await repo.list(profileId), []);
+});
+
+test('a delete that committed is reported as done even when the photo cleanup query then rejects', async (t) => {
+  const db = await setup(t);
+  const photos = {
+    copyStaged: async () => `kuyara/history/photos/${randomUUID()}.jpg`,
+    discardStaged: async () => {},
+    deleteStored: async () => {},
+    resolveUri: () => null,
+  };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  const look = await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' }, null);
+  // Only the cleanup reads through getAllAsync, and it runs after the delete has committed.
+  db.getAllAsync = async () => { throw new Error('database is locked'); };
+
+  assert.equal(await repo.softDelete(profileId, look.id), true);
+
+  const row = await db.getFirstAsync('SELECT deleted_at FROM outfit_history WHERE id = ?', [look.id]);
+  assert.notEqual(row.deleted_at, null);
 });
 
 test('a deleted look whose photo could not be removed has it removed by a later cleanup', async (t) => {

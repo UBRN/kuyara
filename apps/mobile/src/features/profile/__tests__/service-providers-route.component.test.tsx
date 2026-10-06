@@ -13,11 +13,6 @@ import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@/features/weather/data/apple-weather-mark', () => ({
   appleWeatherMarkUrl: jest.fn(async () => 'https://weatherkit.apple.com/mark.png'),
 }));
@@ -43,9 +38,16 @@ const initialMetrics = {
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
 
-async function renderRoute(analytics: RecordingProductAnalytics, sourceId?: string) {
+const istanbul = { locationKey: 'istanbul', timeZone: 'Europe/Istanbul' };
+const ankara = { locationKey: 'ankara', timeZone: 'Europe/Istanbul' };
+
+async function renderRoute(
+  analytics: RecordingProductAnalytics,
+  sourceId?: string,
+  activeLocation: typeof istanbul = istanbul,
+) {
   const weather = sourceId ? {
-    state: { status: 'ready', snapshot: { origin: { sourceId } } },
+    state: { status: 'ready', activeLocation, snapshot: { ...istanbul, origin: { sourceId } } },
   } as unknown as WeatherApplicationValue : null;
   return render(
     <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
@@ -83,6 +85,15 @@ test.each([
 test('does not invent an attribution for an unknown snapshot source', async () => {
   mockCheck = jest.fn(async () => null);
   const result = await renderRoute(new RecordingProductAnalytics(), 'sample');
+  expect(result.getByText(messages.en.settings.weatherNoSnapshot)).toBeOnTheScreen();
+  expect(result.queryByRole('link')).toBeNull();
+});
+
+// After a place switch the previous place's snapshot stays until the new one loads; its
+// provider is not the one the new place's forecast will come from.
+test('credits no provider while the snapshot shown belongs to the previous place', async () => {
+  mockCheck = jest.fn(async () => null);
+  const result = await renderRoute(new RecordingProductAnalytics(), 'open-meteo', ankara);
   expect(result.getByText(messages.en.settings.weatherNoSnapshot)).toBeOnTheScreen();
   expect(result.queryByRole('link')).toBeNull();
 });

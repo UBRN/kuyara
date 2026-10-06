@@ -1,19 +1,14 @@
 import { Fragment, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { AppText, Button, Icon, Presence, PressScale, useTextScaling } from '@/components/ui';
 import {
-  AppText,
-  Button,
   ClosetColorDisc,
   colorFamilyFills,
   GarmentSlotGlyph,
   GarmentTileArtwork,
-  Icon,
-  Presence,
-  PressScale,
   type useGarmentRoles,
-  useTextScaling,
-} from '@/components/ui';
+} from '@/garment-art';
 import { FADED_OPACITY } from '@/components/ui/empty-state-art';
 import type { ColorFamily, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import {
@@ -31,6 +26,7 @@ import {
   type TodayCopy,
 } from '@/features/today/presentation/outfit-detail-entries';
 import { FadeOnChange } from '@/features/today/presentation/outfit-detail-fades';
+import { isClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 import {
   wardrobeEntryStateSchema,
   type WardrobeEntryState,
@@ -351,8 +347,10 @@ export function OutfitDetailPieceRows({
   const colorName = (family: ColorFamily | null) => family
     ? messages.catalog[`catalog.color_family.${family}`] : messages.wardrobe.colorUnspecified;
   // O8: the user's own piece is named by its palette option when it has one, else by family.
-  const ownColorName = (item: WardrobeItem) => (item.colorChoice?.kind === 'option'
-    ? messages.wardrobe.colorOptionNames[item.colorChoice.id] : undefined) ?? colorName(item.colorFamily);
+  const ownColorName = (item: WardrobeItem) => (
+    item.colorChoice?.kind === 'option' && isClosetColorOptionId(item.colorChoice.id)
+      ? messages.wardrobe.colorOptionNames[item.colorChoice.id]
+      : colorName(item.colorFamily));
   const swatchFill = (family: ColorFamily) => {
     const fill = colorFamilyFills[theme.colorScheme][family];
     return typeof fill === 'string' ? fill : fill[0];

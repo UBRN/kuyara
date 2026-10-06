@@ -9,16 +9,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  AppText,
-  Button,
-  Entrance,
-  GarmentDrawing,
-  GarmentTileArtwork,
-  Icon,
-  Surface,
-  useTextScaling,
-} from '@/components/ui';
+import { AppText, Button, Entrance, Icon, Surface, useTextScaling } from '@/components/ui';
+import { GarmentDrawing, GarmentTileArtwork } from '@/garment-art';
 import { EmptyStateArt } from '@/components/ui/empty-state-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
@@ -74,7 +66,10 @@ type WardrobeListScreenProps = Readonly<{
   initialCategory?: StructuralCategory;
   /** Bring the Wanted section into view, for Profile's Wanted row and a saved wanted piece. */
   revealWanted?: boolean;
-  /** The item the add flow has just saved, so only that tile arrives. */
+  /**
+   * The item the add flow has just saved, so only that tile arrives and the confirmation
+   * names it; the confirmation ends when this clears.
+   */
   savedItemId?: string | null;
   onAdd: (category: StructuralCategory) => void;
   /** The edit form a tile opens; the route owns the path. */
@@ -197,6 +192,10 @@ function TileSlot({ children, entranceIndex, waiting }: Readonly<{
     : <Entrance index={mountedIndex} waiting={waiting}>{children}</Entrance>;
 }
 
+// Shared rather than a fresh `[]` per render: React Compiler treats a fresh array as mutable,
+// and everything derived from it would be recomputed on every render.
+const NO_ITEMS: readonly WardrobeItem[] = [];
+
 export function WardrobeListScreen({
   categories = structuralCategories,
   initialCategory,
@@ -256,14 +255,12 @@ export function WardrobeListScreen({
     setIsPulling(false);
   }
   const numColumns = usesTwoColumnGrid || easierToSee ? 2 : 3;
-  const geometry = resolveGridGeometry(windowWidth - insets.left - insets.right, numColumns);
-  const items = state.status === 'ready' ? state.items : [];
+  const items = state.status === 'ready' ? state.items : NO_ITEMS;
   const category =
     selectedCategory && categories.includes(selectedCategory)
       ? selectedCategory
       : resolveDefaultClosetCategory(items, revealWanted, categories);
   const rows = state.status === 'ready' ? buildCategoryRows(items, category, numColumns) : [];
-  const summaries = summarizeClosetCategories(items);
   const wantedRowIndex = rows.findIndex(
     (row) => row.kind === 'section' && row.entryState === 'wanted',
   );
@@ -321,12 +318,13 @@ export function WardrobeListScreen({
   const staticTopInset = { paddingTop: insets.top + spacing.lg };
 
   // O10: the piece the add flow saved is named above the grid, with Undo, while it is on
-  // this page. Undo removes it like Delete does; the row leaves with the piece.
-  const savedItem = arrivingItemId
-    ? items.find((item) => item.id === arrivingItemId && item.category === category) ?? null
-    : null;
+  // this page and the route still names it. Undo removes it like Delete does; the row
+  // leaves with the piece. An edit or delete that returns here no longer names it, so the
+  // confirmation ends with it, unlike the arrival above, which is read once at the mount.
+  const showsSavedItem = savedItemId !== null
+    && items.some((item) => item.id === savedItemId && item.category === category);
   // VoiceOver ignores the alert role on these lines, so iOS also speaks them.
-  useErrorAnnouncement(savedItem && undoStatus === 'failed' ? copy.deleteError : null);
+  useErrorAnnouncement(showsSavedItem && undoStatus === 'failed' ? copy.deleteError : null);
   // A failure already persisted when the screen opened was spoken when it happened, also when
   // the screen opened while loading and the failure arrived with the list.
   useErrorAnnouncement(
@@ -334,6 +332,14 @@ export function WardrobeListScreen({
       : state.status === 'ready' && state.refreshFailure !== null ? copy.loadErrorBody : null,
     { skipInitial: true },
   );
+
+  // Derived after the last hook, so React Compiler can memoize them: a value built before a
+  // hook and used after it is recomputed on every render.
+  const geometry = resolveGridGeometry(windowWidth - insets.left - insets.right, numColumns);
+  const summaries = summarizeClosetCategories(items);
+  const savedItem = showsSavedItem
+    ? items.find((item) => item.id === savedItemId && item.category === category) ?? null
+    : null;
 
   if (state.status === 'loading') {
     return (

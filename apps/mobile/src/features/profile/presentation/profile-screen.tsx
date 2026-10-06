@@ -5,18 +5,15 @@ import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimat
 import {
   AppText,
   Button,
-  ClosetRack,
   Entrance,
-  GarmentDrawing,
-  GarmentSlotGlyph,
   Icon,
   ListRow,
   ListRowGroup,
   PressScale,
   Screen,
   useTextScaling,
-  type RackPiece,
 } from '@/components/ui';
+import { ClosetRack, GarmentDrawing, GarmentSlotGlyph, type RackPiece } from '@/garment-art';
 import {
   structuralCategories,
   type StructuralCategory,

@@ -10,16 +10,15 @@ import {
   Crossfade,
   FadeIn,
   fadeTo,
-  GarmentRunwayBoard,
   Icon,
   ProgressFill,
-  runwayDressingDuration,
   Screen,
   ShrinkingPlate,
   type PlateRect,
   type ShrinkingPlateProps,
-  type RunwayBoardOutfit,
+  useTextScaling,
 } from '@/components/ui';
+import { GarmentRunwayBoard, runwayDressingDuration, type RunwayBoardOutfit } from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import { SKELETON_PIECES } from '@/features/today/presentation/garment-board-skeleton';
@@ -33,7 +32,7 @@ import type { runwayWeather } from '@/features/today/presentation/today-presenta
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { blend } from '@/theme/color-blend';
 import { OnPlate } from '@/theme/plate-theme';
-import { layout, plateTheme, radii, spacing, type KuyaraTheme } from '@/theme/theme';
+import { layout, plateTheme, radii, spacing, typography, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext, useKuyaraTheme } from '@/theme/theme-context';
 
 const ROTATION_MS = 2_000;
@@ -73,6 +72,12 @@ const onField = (theme: KuyaraTheme): KuyaraTheme =>
   ({ ...theme, colors: { ...theme.colors, brandAccent: theme.colors.textPrimary } });
 
 type Size = Readonly<{ width: number; height: number }>;
+/**
+ * Two body lines at the text size in use: the room the rotating line and "All set" hold, so
+ * a rotation to a longer sentence never grows the text group and rescales the board.
+ */
+const lineSlotHeight = (fontScale: number): number => Math.ceil(2 * typography.body.lineHeight * fontScale);
+
 const sizeOf = ({ nativeEvent }: LayoutChangeEvent): Size => ({
   width: nativeEvent.layout.width,
   height: nativeEvent.layout.height,
@@ -195,6 +200,7 @@ export function FirstGenerationRunway({
   onHandedOff?: () => void;
 }>) {
   const theme = useKuyaraTheme();
+  const { fontScale } = useTextScaling();
   const copy = getMessages(language).today;
   const [visible, setVisible] = useState(active);
   // The layer stays mounted while it fades out, and leaves the tree once the fade has ended.
@@ -460,7 +466,7 @@ export function FirstGenerationRunway({
                     accessible
                     accessibilityLabel={copy.loading.allSet}
                     accessibilityLiveRegion="polite"
-                    style={[styles.success, { backgroundColor: theme.colors.successContainer }]}
+                    style={[styles.success, { backgroundColor: theme.colors.successContainer, minHeight: lineSlotHeight(fontScale) }]}
                     testID="first-generation-success">
                     <Icon color={theme.colors.successInk} name="statusRunning" size={20} />
                     <AppText colorRole="successInk" variant="bodyStrong">{copy.loading.allSet}</AppText>
@@ -471,7 +477,7 @@ export function FirstGenerationRunway({
                     accessibilityLabel={answered ? copy.loading.chosen : phaseSentence}
                     accessibilityLiveRegion="polite"
                     accessibilityRole="text"
-                    style={styles.line}
+                    style={[styles.line, { minHeight: lineSlotHeight(fontScale) }]}
                     testID="first-generation-line">
                     <Crossfade contentKey={line}>
                       <AppText>{line}</AppText>
@@ -529,10 +535,10 @@ const styles = StyleSheet.create({
   plate: { bottom: 0, borderRadius: radii.stage, left: 0, overflow: 'hidden', position: 'absolute', right: 0, top: 0 },
   textBlock: { paddingTop: spacing.md },
   progressTrack: { borderRadius: radii.pill, height: PROGRESS_HEIGHT },
-  // Two lines' worth of room, so a rotation to a longer sentence never moves the skip.
-  line: { marginTop: spacing.md, minHeight: 50 },
+  // Its height is two lines' worth of room (`lineSlotHeight`), so the skip never moves.
+  line: { marginTop: spacing.md },
   skipSlot: { marginTop: spacing.xs, minHeight: layout.minimumTouchTarget },
   skip: { alignSelf: 'flex-start' },
   success: { alignItems: 'center', borderRadius: radii.control, flexDirection: 'row', gap: spacing.sm,
-    marginTop: spacing.md, minHeight: 50, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+    marginTop: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
 });

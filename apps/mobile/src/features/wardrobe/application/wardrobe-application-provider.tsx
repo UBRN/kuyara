@@ -21,7 +21,7 @@ import {
 } from '@/features/wardrobe/data/expo-wardrobe-photo-adapters';
 import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-database';
 import { newUuid } from '@/infrastructure/new-uuid';
-import { systemNow } from '@/infrastructure/system-clock';
+import { systemDate, systemNow } from '@/infrastructure/system-clock';
 
 async function loadWardrobeRepository() {
   const database = await openMigratedDatabase();
@@ -56,6 +56,7 @@ export function WardrobeApplicationProvider({
         loadWardrobeRepository,
         wardrobePhotoManager,
         () => console.warn('Wardrobe photo cleanup could not be completed.'),
+        systemDate,
       ),
     [localProfileId],
   );

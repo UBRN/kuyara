@@ -14,18 +14,19 @@ import type { CaptureAnalyticsEvent } from '@/features/analytics/domain/product-
 import type {
   DeviceLocationGateway,
   LocationPermissionState,
-} from '@/features/weather/data/device-location-gateway';
+} from '@/features/weather/domain/device-location-gateway';
+import type { WeatherProvider } from '@/features/weather/domain/weather-provider';
+import { getManualLocation } from '@/features/weather/domain/manual-location-catalog';
+import { WeatherProviderError } from '@/features/weather/domain/weather-provider-error';
 import {
   WeatherRepositoryError,
   type WeatherRepository,
-} from '@/features/weather/data/weather-repository';
-import type { WeatherProvider } from '@/features/weather/data/weather-provider';
-import { getManualLocation } from '@/features/weather/domain/manual-location-catalog';
-import { WeatherProviderError } from '@/features/weather/domain/weather-provider-error';
+} from '@/features/weather/domain/weather-repository';
 import {
   acceptProvidedSnapshot,
   activeLocationSnapshot,
   isManualLocationId,
+  isSameWeatherLocation,
   manualLocationKey,
   normalizeCoordinates,
   weatherFreshness,
@@ -91,6 +92,10 @@ function cachedWeatherFreshness(fetchedAt: string, now: string): WeatherFreshnes
   // fetched response still goes through the stricter provider timestamp check.
   return freshness === 'invalid' && Number.isFinite(Date.parse(fetchedAt)) &&
     Number.isFinite(Date.parse(now)) ? 'stale' : freshness;
+}
+
+function refreshKey(location: ActiveLocation): string {
+  return `${location.locationKey}|${location.timeZone}`;
 }
 
 export class WeatherApplicationController {
@@ -232,7 +237,7 @@ export class WeatherApplicationController {
       const latest = this.state;
       if (
         stored && latest.status === 'ready'
-        && latest.activeLocation?.locationKey === before.activeLocation.locationKey
+        && isSameWeatherLocation(before.activeLocation, latest.activeLocation)
         && cachedWeatherFreshness(stored.fetchedAt, this.dependencies.now()) === 'fresh'
         && (!latest.snapshot || stored.fetchedAt > latest.snapshot.fetchedAt)
       ) {
@@ -386,54 +391,50 @@ export class WeatherApplicationController {
       isRefreshing: false, refreshFailure: null,
     });
 
-    try {
-      const loadedSnapshot = await this.loadMatchingSnapshot(persisted);
-      const loadedFreshness = loadedSnapshot
-        ? cachedWeatherFreshness(loadedSnapshot.fetchedAt, this.dependencies.now())
-        : null;
-      const ready = this.requireReady();
-      const validLoadedFreshness = loadedFreshness === 'invalid' ? null : loadedFreshness;
-      const validLoadedSnapshot = validLoadedFreshness ? loadedSnapshot : null;
-      const snapshot = validLoadedSnapshot ?? ready.snapshot;
-      this.setReady({
-        ...ready,
-        snapshot,
-        freshness: validLoadedSnapshot ? validLoadedFreshness : ready.freshness,
-        isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
-      });
-      // Taxonomy 5.4: only a changed place is `location_changed`. The same place picked again
-      // or renamed refreshes for the state of its cache, as a foreground refresh does.
-      const trigger: WeatherRefreshTrigger = locationChanged
-        ? 'location_changed'
-        : snapshot ? 'automatic_stale' : 'automatic_no_cache';
-      if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted, trigger);
-    } catch {
-      this.setReady({
-        ...this.requireReady(), isSelectingLocation: false, refreshFailure: 'unavailable',
-      });
-    }
+    // A cache that cannot be read is no cache: the new place still gets its fetch.
+    const loadedSnapshot = await this.loadMatchingSnapshot(persisted).catch(() => null);
+    const loadedFreshness = loadedSnapshot
+      ? cachedWeatherFreshness(loadedSnapshot.fetchedAt, this.dependencies.now())
+      : null;
+    const ready = this.requireReady();
+    const validLoadedFreshness = loadedFreshness === 'invalid' ? null : loadedFreshness;
+    const validLoadedSnapshot = validLoadedFreshness ? loadedSnapshot : null;
+    const snapshot = validLoadedSnapshot ?? ready.snapshot;
+    this.setReady({
+      ...ready,
+      snapshot,
+      freshness: validLoadedSnapshot ? validLoadedFreshness : ready.freshness,
+      isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
+    });
+    // Taxonomy 5.4: only a changed place is `location_changed`. The same place picked again
+    // or renamed refreshes for the state of its cache, as a foreground refresh does.
+    const trigger: WeatherRefreshTrigger = locationChanged
+      ? 'location_changed'
+      : snapshot ? 'automatic_stale' : 'automatic_no_cache';
+    if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted, trigger);
   }
 
   private refreshLocation(location: ActiveLocation, trigger: WeatherRefreshTrigger): Promise<void> {
-    const existing = this.refreshes.get(location.locationKey);
-    if (existing) return existing;
-    if (this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey) {
+    // Joining a running refresh still shows it: a selection or revalidation may have
+    // switched the indicator off while the request it belongs to is in flight.
+    if (this.isActive(location) && this.state.status === 'ready' && !this.state.isRefreshing) {
       this.setReady({ ...this.state, isRefreshing: true });
     }
-    const promise = this.refreshOnce(location, trigger).finally(() => this.refreshes.delete(location.locationKey));
-    this.refreshes.set(location.locationKey, promise);
+    const key = refreshKey(location);
+    const existing = this.refreshes.get(key);
+    if (existing) return existing;
+    const promise = this.refreshOnce(location, trigger).finally(() => this.refreshes.delete(key));
+    this.refreshes.set(key, promise);
     return promise;
   }
 
   private async refreshOnce(location: ActiveLocation, trigger: WeatherRefreshTrigger): Promise<void> {
-    const isCurrent = () =>
-      this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey;
     const startedAt = Date.now();
     try {
       const provided = acceptProvidedSnapshot(
         location, await this.dependencies.provider.fetchSnapshot(location), this.dependencies.now());
       const snapshot = await this.requireRepository().saveSnapshot(this.localProfileId, provided);
-      if (isCurrent() && this.state.status === 'ready') {
+      if (this.isActive(location) && this.state.status === 'ready') {
         const freshness = weatherFreshness(snapshot.fetchedAt, this.dependencies.now());
         this.setReady({
           ...this.state, snapshot,
@@ -458,7 +459,7 @@ export class WeatherApplicationController {
         }),
       );
     } catch (error) {
-      if (isCurrent() && this.state.status === 'ready') {
+      if (this.isActive(location) && this.state.status === 'ready') {
         this.setReady({
           ...this.state,
           isRefreshing: false,
@@ -493,11 +494,15 @@ export class WeatherApplicationController {
   private async loadMatchingSnapshot(location: ActiveLocation): Promise<WeatherSnapshot | null> {
     try {
       const snapshot = await this.requireRepository().getSnapshot(this.localProfileId, location.locationKey);
-      return snapshot?.locationKey === location.locationKey ? snapshot : null;
+      return snapshot && isSameWeatherLocation(snapshot, location) ? snapshot : null;
     } catch (error) {
       if (error instanceof WeatherRepositoryError && error.code === 'invalid-data') return null;
       throw error;
     }
+  }
+
+  private isActive(location: ActiveLocation): boolean {
+    return this.state.status === 'ready' && isSameWeatherLocation(location, this.state.activeLocation);
   }
 
   private requireRepository(): WeatherRepository {

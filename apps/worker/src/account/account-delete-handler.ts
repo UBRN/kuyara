@@ -8,10 +8,8 @@ import {
 } from '@kuyara/contracts';
 
 import type { AppleTokenRevoker } from './apple-token-revoker.ts';
-import {
-  checkRateLimit, isJsonRequest, rateLimitedHeaders, readJsonBody, type RateLimiter,
-} from '../json-request.ts';
-import { createErrorResponse, jsonHeaders } from '../json-response.ts';
+import { admitRequest, readRequestBody, type RateLimiter } from '../json-request.ts';
+import { createErrorResponse, jsonHeaders, refusalResponse } from '../json-response.ts';
 import { AccountError } from './account-error.ts';
 import { bearerToken } from './bearer-token.ts';
 import type { SupabaseAdmin } from './supabase-admin.ts';
@@ -55,26 +53,21 @@ function failure(stage: Stage, thrown: unknown): Response {
 export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimiter }: Dependencies) {
   return async (request: Request): Promise<Response> => {
     if (new URL(request.url).pathname !== accountDeleteV1Path) return error('not_found');
-    if (request.method !== 'POST') return error('method_not_allowed', { Allow: 'POST' });
-    const limit = await checkRateLimit(rateLimiter, request, {
+    // A limiter outage fails closed.
+    const admission = await admitRequest(request, rateLimiter, {
       keyPrefix: 'account-delete',
       route: accountDeleteV1Path,
       limiter: 'account_delete_burst',
     });
-    // A limiter outage fails closed.
-    if (limit === 'unavailable') return error('unavailable');
-    if (limit === 'limited') {
-      console.warn({ event: 'rate_limited', route: accountDeleteV1Path, limiter: 'account_delete_burst' });
-      return error('rate_limited', rateLimitedHeaders);
-    }
+    if (admission !== 'allowed') return refusalResponse(errorResponse, admission, 'unavailable');
     const accessToken = bearerToken(request);
     if (accessToken === undefined) return error('unauthorized');
-    if (!isJsonRequest(request)) return error('invalid_request');
-    // This body is unauthenticated: readJsonBody bounds it while reading. Too large is invalid_request.
-    const body = await readJsonBody(request.body, maxRequestBodyBytes);
-    if (body === undefined) return error('invalid_request');
-    const parsed = accountDeleteV1RequestSchema.safeParse(body);
-    if (!parsed.success) return error('invalid_request');
+    // This body is unauthenticated: it is bounded while reading, and too large is invalid_request.
+    const outcome = await readRequestBody(request, {
+      schema: accountDeleteV1RequestSchema,
+      maxBytes: maxRequestBodyBytes,
+    });
+    if (outcome.kind !== 'ok') return error('invalid_request');
 
     let userId: string;
     let hasAppleIdentity: boolean;
@@ -104,7 +97,7 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
       // unreachable or the revoke call failing does, and that throws.
       let unrevokedReason: 'no_code' | 'refused' | undefined;
       if (account.appleSubject !== null) {
-        const authorizationCode = parsed.data.appleAuthorizationCode;
+        const authorizationCode = outcome.data.appleAuthorizationCode;
         if (authorizationCode === undefined) {
           unrevokedReason = 'no_code';
         } else {

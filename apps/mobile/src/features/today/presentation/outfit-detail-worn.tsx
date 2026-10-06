@@ -1,13 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
-import {
-  AppText,
-  Button,
-  garmentSwatchesBySlot,
-  type GarmentOutfitPalette,
-  Icon,
-  useButtonBox,
-} from '@/components/ui';
+import { AppText, Button, Icon, useButtonBox } from '@/components/ui';
+import { garmentSwatchesBySlot, type GarmentOutfitPalette } from '@/garment-art';
 import type { WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import type { TodayCopy } from '@/features/today/presentation/outfit-detail-entries';
 import { FadeOnChange, FadeOut } from '@/features/today/presentation/outfit-detail-fades';

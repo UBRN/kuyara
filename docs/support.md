@@ -28,7 +28,7 @@ confirm "Ask the stylist again." A weather refresh updates the insight, not the 
 is unavailable, the built-in fallback still picks three outfits.
 
 **Why does kuyara ask for my location?**
-Only if you choose "Use my location". Location is used solely to fetch the weather for
+Only if you choose "Use my current location". Location is used solely to fetch the weather for
 where you are; you can type a city instead and never grant the permission. kuyara sends
 your location rounded to about one kilometre to its own weather server, never stores exact
 coordinates, and never includes location in analytics. Approximate location is enough.

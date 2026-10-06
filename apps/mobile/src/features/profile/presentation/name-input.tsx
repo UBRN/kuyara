@@ -1,7 +1,7 @@
 import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText, Icon } from '@/components/ui';
-import { displayNameIssue } from '@/features/profile/domain/profile';
+import { displayNameIssue, displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
 import { useMessages } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -58,7 +58,9 @@ export function NameInput({ autoFocus = false, value, onChangeText, testID, onCl
           accessibilityLiveRegion="polite"
           colorRole="textSecondary"
           testID={`${testID}-error`}>
-          {issue === 'short' ? copy.nameShortError : copy.nameLongError}
+          {issue === 'short'
+            ? copy.nameShortError(displayNameMinLength)
+            : copy.nameLongError(displayNameMaxLength)}
         </AppText>
       ) : null}
     </View>

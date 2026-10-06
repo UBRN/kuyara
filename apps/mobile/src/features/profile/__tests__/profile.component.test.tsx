@@ -19,10 +19,6 @@ import { darkTheme, lightTheme, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { mockFontScale } from '../../../../test/font-scale';
 
-jest.mock('expo-symbols', () => ({
-  SymbolView: () => null,
-}));
-
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },

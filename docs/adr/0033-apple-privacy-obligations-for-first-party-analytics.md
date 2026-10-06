@@ -116,7 +116,7 @@ required", which is a stronger case than kuyara's, since kuyara does not read th
 identifier either.
 
 Consequences: no ATT prompt, `NSPrivacyTracking` stays `false` in
-`apps/mobile/ios/kuyara/PrivacyInfo.xcprivacy`, no `NSPrivacyTrackingDomains`, and every
+`ios.privacyManifests` of `apps/mobile/app.json`, no `NSPrivacyTrackingDomains`, and every
 collected data type is declared with tracking `false`. This decision is revisited only if
 a future SDK, advertising or attribution integration is proposed, which none of the
 recorded product decisions contemplates.
@@ -383,9 +383,9 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
    that id is replaced after each consent cycle or reinstall. Observe has no
    equivalent filter. Consent is the recorded lawful basis, and kuyara signed
    the DPA on 2026-09-11.
-7. `apps/mobile/ios/kuyara/PrivacyInfo.xcprivacy` declares Product Interaction and Other
+7. `ios.privacyManifests` in `apps/mobile/app.json` declares Product Interaction and Other
    Usage Data with linked `true`,
-   tracking `false`, purpose Analytics, and `NSPrivacyTracking` absent or `false`; the
+   tracking `false`, purpose Analytics, and `NSPrivacyTracking` `false`; the
    Xcode privacy report from an archive is read once to confirm the aggregation.
 8. PostHog Error Tracking is enabled behind the analytics consent boundary. Its
    Diagnostics disclosure follows the implemented exception-field allowlist and

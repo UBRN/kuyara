@@ -33,7 +33,8 @@ import { useWeatherInteractionEvents } from '@/features/analytics/application/us
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { locationCaptionKey } from '@/features/weather/domain/location-caption';
-import type { ActiveLocation } from '@/features/weather/domain/weather';
+import { manualRefreshOutcome } from '@/features/weather/domain/manual-refresh-outcome';
+import { isSameWeatherLocation, type ActiveLocation, type WeatherSnapshot } from '@/features/weather/domain/weather';
 import { findWeatherOutlook, type WeatherOutlook } from '@/features/weather/domain/weather-outlook';
 import {
   DailyOutlook,
@@ -43,9 +44,9 @@ import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { hourlyRailColumns } from '@/features/weather/presentation/hourly-rail-columns';
 import { uvLevelOf } from '@/features/weather/presentation/uv-level';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
-import { dateKeyWeekday, percentage } from '@/features/weather/presentation/weather-format';
+import { dateKeyWeekday, percentage, showsChance } from '@/features/weather/presentation/weather-format';
 import { WeatherErrorState, WeatherLoadingState } from '@/features/weather/presentation/weather-states';
-import { resolveAtmosphereState, resolveDaypart } from '@/features/today/domain/atmosphere-state';
+import { resolveAtmosphereState, resolveDaypart } from '@/features/weather/domain/atmosphere-state';
 import { numberFormat } from '@/domain/intl-format';
 import { wholeWindSpeed } from '@/domain/wind-speed';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
@@ -151,9 +152,12 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   // (a first fetch, or a new place loading): a cached open and a refresh leave them still.
   // The cold `loading` status is the cache being read, so it does not count as empty.
   const [awaitingForecast, setAwaitingForecast] = useState(false);
-  // The rail's clock: read once, then again whenever the tab regains focus, so a screen
-  // left open across an hour boundary drops the ended hour on return without a timer.
-  const now = useForegroundClock();
+  // The forecast the screen last showed, so a newer one can be told from an arrival.
+  const [shownSnapshot, setShownSnapshot] = useState<WeatherSnapshot | null>(null);
+  // The rail's clock: read once, then again whenever the tab regains focus or a refresh
+  // settles, so a screen left open across an hour boundary drops the ended hour without a
+  // timer.
+  const now = useForegroundClock(undefined, state.status === 'ready' && state.isRefreshing);
   // The same return re-evaluates freshness, which otherwise only moves on init,
   // foreground, selection and refresh, and leaves a screen left open labelled "Fresh".
   useFocusEffect(useCallback(() => { void revalidateFreshness(); }, [revalidateFreshness]));
@@ -231,14 +235,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
     const wasFailing = state.refreshFailure !== null;
     return application.refresh().then(() => {
       const after = application.getSnapshot?.() ?? application.state;
-      const outcome = after.status !== 'ready'
-        ? 'failure_no_snapshot' as const
-        : after.refreshFailure === null
-          ? 'success' as const
-          : after.snapshot
-            ? 'failure_kept_last_known' as const
-            : 'failure_no_snapshot' as const;
-      weatherEvents.refreshFinished(wasFailing, outcome);
+      weatherEvents.refreshFinished(wasFailing, manualRefreshOutcome(after));
     });
   };
 
@@ -250,12 +247,19 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const locationCaption = captionKey ? copy[captionKey] : null;
   // After a location switch the controller keeps the previous place's snapshot as the last
   // valid result until the new place loads. It carries no name of its own, so its conditions
-  // are held back rather than shown under the new place's label.
-  const snapshot = state.snapshot !== null
-    && state.snapshot.locationKey === state.activeLocation?.locationKey
+  // are held back rather than shown under the new place's label. This is `activeLocationSnapshot`
+  // written inline: through the call the React Compiler builds the snapshot inside the screen's
+  // widest memo block, and weather-screen-memo.test.mjs guards the hourly rail against that.
+  const snapshot = state.snapshot !== null && isSameWeatherLocation(state.snapshot, state.activeLocation)
     ? state.snapshot
     : null;
   if (snapshot === null && !awaitingForecast) setAwaitingForecast(true);
+  if (snapshot !== shownSnapshot) {
+    setShownSnapshot(snapshot);
+    // A forecast that replaces one already on screen (a refresh, the next day's data) is not
+    // an arrival: what mounts with it rests, as on a screen opened from the cache.
+    if (snapshot !== null && shownSnapshot !== null && awaitingForecast) setAwaitingForecast(false);
+  }
   // One reading of the daypart colours the stage and draws the glyph on it, so each condition
   // ink is only ever measured against the planes its own daypart can put behind it.
   const currentDaypart = snapshot
@@ -341,7 +345,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
         minimumCelsius: day.minimumTemperatureCelsius,
         precipitation: amount !== null
           ? { line: copy.dailyPrecipitationValue(amount, chance), lines: copy.dailyPrecipitationStacked(amount, chance) }
-          : day.precipitationProbability > 0 ? { line: chance, lines: chance } : null,
+          : showsChance(day.precipitationProbability) ? { line: chance, lines: chance } : null,
         weekday: dateKeyWeekday(day.dateKey, language, 'short'),
       };
     });

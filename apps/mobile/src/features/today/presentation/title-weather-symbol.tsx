@@ -3,8 +3,8 @@ import Animated from 'react-native-reanimated';
 
 import { Icon } from '@/components/ui';
 import { useConditionSymbolMotion } from '@/components/ui/use-condition-symbol-motion';
-import type { Daypart } from '@/features/today/domain/atmosphere-state';
-import { resolveConditionStyle } from '@/features/today/domain/condition-style';
+import type { Daypart } from '@/features/weather/domain/atmosphere-state';
+import { conditionSymbolMotion, resolveConditionStyle } from '@/features/weather/domain/condition-style';
 import type { AmbientIntensity } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -28,7 +28,7 @@ export function TitleWeatherSymbol({
 }>) {
   const theme = useKuyaraTheme();
   const conditionStyle = resolveConditionStyle(condition, daypart);
-  const animatedStyle = useConditionSymbolMotion(conditionStyle, theme.motion.ambient[intensity]);
+  const animatedStyle = useConditionSymbolMotion(conditionSymbolMotion(conditionStyle), theme.motion.ambient[intensity]);
 
   return (
     <Animated.View

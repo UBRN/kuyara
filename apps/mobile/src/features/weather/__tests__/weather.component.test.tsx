@@ -1096,6 +1096,28 @@ test('the hourly rail drops the hours that have ended', async () => {
 
 });
 
+test('a refresh that settles on an open screen drops the hours that ended while it waited', async () => {
+  const istanbul = getManualLocation('sample.istanbul')!;
+  const ready = (snapshot: ReturnType<typeof sampleSnapshot>, isRefreshing: boolean) => createValue({
+    ...baseState, activeLocation: istanbul, snapshot, freshness: 'fresh', isRefreshing,
+  });
+  const hidden = { includeHiddenElements: true };
+  const result = await render(
+    <Providers language="en" value={ready(sampleSnapshot(), true)}><WeatherScreen /></Providers>,
+  );
+  expect(result.getAllByTestId('weather-hourly-band', hidden)).toHaveLength(2);
+
+  // The tab stayed focused across the hour boundary and the pull finishes afterwards.
+  clock.mockReturnValue(Date.parse('2026-07-30T10:30:00.000Z'));
+  const refreshed = { ...sampleSnapshot(), fetchedAt: '2026-07-30T10:30:00.000Z' };
+  await result.rerender(
+    <Providers language="en" value={ready(refreshed, false)}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.getAllByTestId('weather-hourly-band', hidden)).toHaveLength(1);
+  expect(result.queryByLabelText('12:00. 16.0 degrees Celsius. Rain. 50% chance of precipitation.')).toBeNull();
+});
+
 test('a dry hour drops the chance from the rail but never from its label', async () => {
   const snapshot = sampleSnapshot();
   snapshot.hourly[1] = { ...snapshot.hourly[1], precipitationProbability: 0 };
@@ -1112,6 +1134,24 @@ test('a dry hour drops the chance from the rail but never from its label', async
   expect(rail.getByText('50%')).toBeOnTheScreen();
   expect(rail.queryByText('0%')).toBeNull();
   expect(result.getByLabelText('13:00. 17.0 degrees Celsius. Cloudy. 0% chance of precipitation.')).toBeOnTheScreen();
+});
+
+// Under half a percent rounds to "0%", which says nothing a dry hour or day does not.
+test('a chance that rounds to zero is dropped from the rail and the outlook like a dry one', async () => {
+  const snapshot = { ...sampleSnapshot(), daily: sampleDaily.map((day, index) => (
+    index === 1 ? { ...day, precipitationProbability: 0.004 } : day)) };
+  snapshot.hourly[1] = { ...snapshot.hourly[1], precipitationProbability: 0.004 };
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot,
+    freshness: 'fresh',
+  });
+  clock.mockReturnValue(Date.parse('2026-07-30T09:10:00.000Z'));
+  const result = await render(<Providers language="en" value={value}><WeatherScreen /></Providers>);
+
+  expect(within(result.getByTestId('weather-hourly-rail')).queryByText('0%')).toBeNull();
+  expect(within(result.getByTestId('weather-daily-outlook')).queryByText('0%')).toBeNull();
 });
 
 test('the hourly card is not rendered once every hour of the snapshot\'s day has ended', async () => {
@@ -1731,6 +1771,45 @@ test('the forecast draws in when its data first arrives, never on a cached open 
   await arriving.rerender(ready('2026-07-30T09:20:00.000Z'));
   expect(withSpring).not.toHaveBeenCalled();
   expect(drawSprings).toBeGreaterThan(0);
+  withSpring.mockRestore();
+});
+
+// Drawing in belongs to the arrival alone. Once the forecast is on screen, a later refresh
+// that brings a new day leaves the new row at rest, as it would on a screen opened from the
+// cache: what drew in before does not decide what draws in later.
+test('after the forecast has drawn in, a new day from a refresh arrives at rest', async () => {
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
+  const istanbul = getManualLocation('sample.istanbul')!;
+  const nextDay = {
+    dateKey: '2026-08-04', condition: 'cloudy' as const,
+    minimumTemperatureCelsius: 16, maximumTemperatureCelsius: 23,
+    precipitationProbability: 0.3, precipitationMillimetres: null,
+  };
+  const ready = (fetchedAt: string | null, daily = sampleDaily) => (
+    <Providers language="en" value={createValue({
+      ...baseState,
+      activeLocation: istanbul,
+      snapshot: fetchedAt === null ? null : { ...sampleSnapshot(), fetchedAt, daily },
+      freshness: fetchedAt === null ? null : 'fresh',
+    })}><WeatherScreen /></Providers>
+  );
+  const drawSprings = () => withSpring.mock.calls.filter(([, config]) => config === lightTheme.springs.spatial).length;
+  const layOut = async (result: Awaited<ReturnType<typeof render>>) => {
+    for (const capsule of result.getAllByTestId('weather-daily-rail-fill', { includeHiddenElements: true })) {
+      await fireEvent(capsule, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 80, height: 6 } } });
+    }
+  };
+
+  const result = await render(ready(null));
+  await result.rerender(ready('2026-07-30T09:00:00.000Z'));
+  await layOut(result);
+  expect(drawSprings()).toBeGreaterThan(0);
+
+  withSpring.mockClear();
+  await result.rerender(ready('2026-07-31T09:00:00.000Z', [...sampleDaily.slice(1), nextDay]));
+  await layOut(result);
+  expect(result.getByLabelText(/Tuesday|4 August/)).toBeOnTheScreen();
+  expect(drawSprings()).toBe(0);
   withSpring.mockRestore();
 });
 

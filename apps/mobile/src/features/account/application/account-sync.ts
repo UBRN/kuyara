@@ -17,6 +17,8 @@ import {
   nextCursor,
   pendingRows,
   type LocalSyncRow,
+  type PullArrival,
+  type PullCursor,
   type PulledSyncRow,
 } from '@/features/account/domain/sync-rules';
 import type { DressingDayChoice } from '@/features/recommendation/domain/dressing-day-choice';
@@ -24,12 +26,24 @@ import type { DressingDayDeparture } from '@/features/recommendation/domain/dres
 import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 
+/** A stored row's identity (its id, and its day in the day-keyed tables) and its `updatedAt`. */
+export type StoredRowVersion = Readonly<{ id: string; dayKey?: string; updatedAt: string }>;
+
+/** Pending record rows this build cannot read: no pass can upload them. */
+export type UnreadablePendingRows = Readonly<{
+  wardrobeItems: readonly StoredRowVersion[];
+  dressingDayChoices: readonly StoredRowVersion[];
+  dressingDayDepartures: readonly StoredRowVersion[];
+  outfitHistory: readonly StoredRowVersion[];
+}>;
+
 export type LocalAccountRows = Readonly<{
   profile: LocalSyncRow<SyncedProfile> | null;
   wardrobeItems: readonly LocalSyncRow<WardrobeItem>[];
   dressingDayChoices: readonly LocalSyncRow<DressingDayChoice>[];
   dressingDayDepartures: readonly LocalSyncRow<DressingDayDeparture>[];
   outfitHistory: readonly LocalSyncRow<OutfitHistoryRecord>[];
+  unreadablePending: UnreadablePendingRows;
 }>;
 
 export type PulledAccountRows = Readonly<{
@@ -38,8 +52,8 @@ export type PulledAccountRows = Readonly<{
   dressingDayChoices: readonly PulledSyncRow<AccountRow<DressingDayChoice>>[];
   dressingDayDepartures: readonly PulledSyncRow<AccountRow<DressingDayDeparture>>[];
   outfitHistory: readonly PulledSyncRow<AccountRow<OutfitHistoryRecord>>[];
-  /** Includes arrivals rejected by the remote parser, so an unknown row never stalls the cursor. */
-  arrivals: readonly Readonly<{ serverUpdatedAt: string | null }>[];
+  /** Includes arrivals rejected by the remote parser, so an unknown row never stalls its table's cursor. */
+  arrivals: readonly PullArrival[];
 }>;
 
 export type AccountRowsSourcePort = Readonly<{
@@ -48,37 +62,46 @@ export type AccountRowsSourcePort = Readonly<{
   link: () => Promise<AccountLink>;
   saveLink: (link: AccountLink) => Promise<void>;
   /**
-   * One transaction writes winners, marks rows to send pending and saves `link`, cursor included.
-   * Under the consent (`merge.syncConsent`) the record rows of `local`, the rows the merge read,
-   * that it does not send are settled: their pending flags clear while the row still holds the
-   * identity and `updatedAt` read, so a deletion older than the marker window never uploads
-   * later and a row written during the pull keeps its flag. A
-   * profile that lacks dress style and style aesthetics writes only the fields it carries.
+   * Writes winners, marks rows to send pending and saves `link`, cursor included, last, in
+   * transactions of a few hundred rows; one that stops part way leaves `link` unsaved, so the
+   * first link runs again and lands the same way.
+   * The rows of `local`, the rows the merge read (the profile, and the records under the consent,
+   * `merge.syncConsent`), are settled: their pending flags clear while the row still holds the
+   * identity and `updatedAt` read, so a deletion older than the marker window never uploads later.
+   * A row written during the pull keeps its flag and its content: no winner lands over it, and it
+   * uploads with the next pass. A pending row of `unreadablePending` (this build cannot read it,
+   * so no pass can upload it) settles as well while it holds the version read, when the account
+   * writes a row of its identity, so the account's readable copy replaces it. A profile that
+   * lacks dress style and style aesthetics writes only the fields it carries.
    */
-  applyFirstLink: (merge: MergeResult, link: AccountLink, local: AccountRows) => Promise<void>;
+  applyFirstLink: (
+    merge: MergeResult, link: AccountLink, local: AccountRows, unreadablePending: UnreadablePendingRows,
+  ) => Promise<void>;
   /** Compare identity and updatedAt again inside the write transaction before clearing. */
   clearPendingIfUnchanged: (returned: AccountRows) => Promise<void>;
   /**
-   * One transaction rechecks pending, lands only settled rows without setting pending, and
-   * advances the cursor. A profile without dress style and style aesthetics leaves the phone's.
+   * Rechecks pending, lands only settled rows without setting pending, and advances the cursor
+   * last, in transactions of a few hundred rows; one that stops part way keeps the cursor, so the
+   * rows are pulled and land again. A profile without dress style and style aesthetics leaves the
+   * phone's.
    */
-  writePulled: (rows: AccountRows, cursor: string | null) => Promise<void>;
+  writePulled: (rows: AccountRows, cursor: PullCursor) => Promise<void>;
 }>;
 
 export type AccountRemotePort = Readonly<{
   /**
-   * Returns validated domain rows, deletion markers among them, and the last server arrival,
-   * including refused rows.
+   * Returns validated domain rows, deletion markers among them, and each table's last server
+   * arrival, including refused rows.
    */
-  pullSnapshot: (userId: string, syncConsent: boolean) => Promise<Readonly<{ rows: RemoteAccountRows; cursor: string | null }>>;
+  pullSnapshot: (userId: string, syncConsent: boolean) => Promise<Readonly<{ rows: RemoteAccountRows; cursor: PullCursor }>>;
   /**
    * Map to remote DTOs without device fields; upsert by user and UUID (choices and departures by
    * user and day key) and return acknowledged versions. A profile without dress style and style
    * aesthetics sends neither column, so the account's copy keeps what it has.
    */
   upload: (userId: string, rows: AccountRows) => Promise<AccountRows>;
-  /** Parses each remote row once, retaining every arrival in `arrivals`. */
-  pull: (userId: string, cursor: string | null, syncConsent: boolean) => Promise<PulledAccountRows>;
+  /** Reads each table from its own position; parses each remote row once, retaining every arrival in `arrivals`. */
+  pull: (userId: string, cursor: PullCursor, syncConsent: boolean) => Promise<PulledAccountRows>;
 }>;
 
 const values = (local: LocalAccountRows): AccountRows => ({
@@ -135,20 +158,32 @@ export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: Acc
     /** `givenAt`: the arrival of the `given` record the records join under, kept in the link. */
     async firstLink(userId: string, syncConsent: boolean, givenAt: string | null = null): Promise<FirstLinkOutcome> {
       const link = await source.link();
-      const local = values(await source.read());
+      const stored = await source.read();
+      const local = values(stored);
       const account = await remote.pullSnapshot(userId, syncConsent);
       const merge = mergeAtFirstLink(local, landRemoteRows(account.rows, local), { syncConsent, now: now() });
-      await source.applyFirstLink(merge, linkAfterFirstLink(link, userId, syncConsent, account.cursor, givenAt), local);
+      await source.applyFirstLink(merge, linkAfterFirstLink(link, userId, syncConsent, account.cursor, givenAt), local,
+        stored.unreadablePending);
       // Only what the merge chose: a deletion older than the marker window never goes.
       await upload(userId, merge.sendToAccount);
       return { counts: merge.counts, profileFrom: merge.profileFrom };
     },
-    async sync(userId: string, syncConsent: boolean): Promise<void> {
-      await upload(userId, pendingUpload(await source.read(), syncConsent));
+    /**
+     * Uploads what waits, then pulls and lands what arrived. Answers the phone's rows after the
+     * pass, read again only when the pass changed them: a row written meanwhile starts a pass of
+     * its own.
+     */
+    async sync(userId: string, syncConsent: boolean): Promise<LocalAccountRows> {
+      const before = await source.read();
+      const sent = pendingUpload(before, syncConsent);
+      await upload(userId, sent);
       const { cursor } = await source.link();
       const pulled = await remote.pull(userId, cursor, syncConsent);
-      const local = await source.read();
-      await source.writePulled({
+      // An upload clears flags, so the pull lands against a fresh read. Without one the rows read
+      // before still serve: a row written during the pull is pending, and the landing rechecks
+      // every row's flag inside its transaction and leaves a pending row alone.
+      const local = sent === null ? before : await source.read();
+      const landing: AccountRows = {
         profile: applyPulledProfile(
           local.profile ?? { pendingSync: false },
           pulled.profile && profileWithinConsent(pulled.profile, syncConsent),
@@ -161,7 +196,9 @@ export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: Acc
           landedPulls(pulled.dressingDayDepartures, local.dressingDayDepartures, 'day')) : [],
         outfitHistory: syncConsent ? applyPulledById(local.outfitHistory,
           landedPulls(pulled.outfitHistory, local.outfitHistory, 'id')) : [],
-      }, nextCursor(cursor, pulled.arrivals));
+      };
+      await source.writePulled(landing, nextCursor(cursor, pulled.arrivals));
+      return hasRows(landing) ? source.read() : local;
     },
   };
 }

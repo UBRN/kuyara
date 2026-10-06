@@ -152,8 +152,9 @@ oluşturur; ancak bir cihaz yedeği geri yüklenirse eski kimlik geri gelebilir.
 ## Analitiği ve tanılamayı kapatmak
 
 Ayarlar'ı, ardından Gizlilik'i aç ve "Kullanım ve tanılama verisi paylaş" seçeneğini kapat.
-Kullanım analitiği ile performans ve tanılama kayıtlarının gönderimi aynı oturumda hemen
-durur. Kuyruktaki kayıtlar atılır. Expo paketi hata kayıtlarını cihazında yazmaya devam
+O anda uygulama gönderilmeyi bekleyen kayıtları, paylaşımın kapatıldığını bildiren bir
+notla birlikte son bir kez gönderir; ardından ne kullanım analitiği ne de performans ve
+tanılama kaydı gönderir, hâlâ kuyrukta kalan kayıtlar atılır. Expo paketi hata kayıtlarını cihazında yazmaya devam
 edebilir, ancak paylaşım kapalıyken Observe'a gönderilmez; paylaşımı yeniden açarsan
 yukarıdaki nadir gönderim sınırları geçerlidir. Uygulama analitik kimliğini de siler;
 böylece o ana kadar toplanan olaylar sonrasında toplananlarla ilişkilendirilemez.

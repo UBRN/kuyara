@@ -1,8 +1,8 @@
 /*
  * The landing page's motion. The page reads completely without this file: every board is
  * printed as SVG. With it, each weather scene's pieces land when the scene scrolls in, and
- * the weather moves on the plates of the scene most in view: motes on a clear sky, wisps
- * under cloud, slanted rain, wind lines and swaying snow, in the condition's own ink, behind
+ * the weather moves on the plates of the scene most in view: motes on a clear sky, small
+ * clouds, slanted rain, wind lines and swaying snow, in the condition's own ink, behind
  * the pieces. One loop draws, and only while a scene is in view and the tab is showing.
  *
  * Every animation plays whatever the operating system prefers (product-decisions.md).
@@ -24,12 +24,12 @@
     document.querySelectorAll('.ku-rise').forEach(function (target) { revealer.observe(target); });
   }
 
-  var scenes = [].slice.call(document.querySelectorAll('.ku-scene'));
+  var scenes = [].slice.call(document.querySelectorAll('[data-particles]'));
   if (!scenes.length || !('IntersectionObserver' in window)) return;
   root.classList.add('ku-scenes-live');
 
   /* ------------------------------------------------------------- particles */
-  var COUNT = { motes: 8, wisps: 6, rain: 22, wind: 9, snow: 18 };
+  var COUNT = { motes: 8, clouds: 4, rain: 22, wind: 9, snow: 18 };
   function seeded(seed) { var s = seed; return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
 
   function Plate(plate, kind, seed) {
@@ -69,16 +69,22 @@
         x = q.x * w - 6 + 12 * v; y = q.y * h + 8 - 16 * v; d = 2.5 + q.s * 3.5;
         ctx.globalAlpha = 0.3 + 0.3 * v; ctx.beginPath(); ctx.arc(x, y, d / 2, 0, Math.PI * 2); ctx.fill();
       } else if (kind === 'wind') {
-        /* Long, thin, quick lines with a slight lift, faster than the clouds' wisps. */
+        /* Long, thin, quick lines with a slight lift, faster than the clouds. */
         v = (t / (1.1 + q.s * 0.9) + q.p) % 1;
         d = 0.18 * w + q.s * 0.22 * w; x = v * (w + d + 40) - d - 20; y = q.y * h;
         ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6;
         ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + d * 0.6, y - 4 * q.sway, x + d, y - 2); ctx.stroke();
       } else {
+        /* A small cloud: three soft puffs on a flat base, drifting slowly across the upper
+           plate, faint enough to read as sky rather than as a mark. */
         v = (t / (1.5 * (28 / 3 + q.s * 16 / 3)) + q.p) % 1;
-        d = 0.12 * w + q.s * 0.14 * w; x = v * (w + d + 40) - d - 20; y = q.y * h;
-        ctx.globalAlpha = 0.35; ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(x, y, d, 3, 1.5); else ctx.rect(x, y, d, 3);
+        d = 9 + q.s * 7; x = v * (w + 6 * d) - 3 * d; y = 0.08 * h + q.y * 0.55 * h;
+        ctx.globalAlpha = 0.18;
+        ctx.beginPath();
+        ctx.arc(x, y, d, Math.PI, 0);
+        ctx.arc(x + 1.25 * d, y - 0.45 * d, 1.3 * d, Math.PI, 0);
+        ctx.arc(x + 2.5 * d, y, d, Math.PI, 0);
+        ctx.closePath();
         ctx.fill();
       }
     });

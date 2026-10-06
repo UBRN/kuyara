@@ -16,10 +16,6 @@ import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@expo/ui/community/bottom-sheet', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const { View } = jest.requireActual('react-native') as typeof import('react-native');
@@ -385,6 +381,18 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     expect(result.getByTestId('outfit-detail-board-strip')).toBeOnTheScreen();
     await result.rerender(tree(language, todayScreenState, { composeResult: composeResult('composed#2'), onBoardFocusChange }));
     expect(result.queryByTestId('outfit-detail-board-strip')).toBeNull();
+    expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
+  });
+
+  // The route keeps the back swipe off only while a piece is enlarged, so an outfit that is
+  // no longer there must hand the swipe back, or the screen could not be left by a swipe.
+  test('an outfit that disappears while a piece is enlarged ends the focus', async () => {
+    const onBoardFocusChange = jest.fn();
+    const result = await renderDetail(language, todayScreenState, { onBoardFocusChange });
+    await activate(result, 'outer_layer');
+    expect(onBoardFocusChange).toHaveBeenLastCalledWith(true);
+    await result.rerender(tree(language, todayScreenState, { onBoardFocusChange, suggestionId: 'no-longer-offered' }));
+    expect(result.getByText(copy.noOutfitTitle)).toBeOnTheScreen();
     expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
   });
 });

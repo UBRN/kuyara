@@ -1,4 +1,11 @@
 {
+  "hero": {
+    "atmosphere": "veiledDay",
+    "label": {
+      "en": "Long-sleeve T-shirt (beige), Jeans (blue), Light jacket (orange), Sneakers (white)",
+      "tr": "Uzun kollu tişört (bej), Kot pantolon (mavi), Hafif ceket (turuncu), Spor ayakkabı (beyaz)"
+    }
+  },
   "scenes": [
     {
       "id": "hot",
@@ -15,19 +22,19 @@
           "preference": "womens",
           "pieces": {
             "en": [
-              "Sleeveless top",
+              "T-shirt",
               "Skirt",
               "Sandals"
             ],
             "tr": [
-              "Kolsuz üst",
+              "Tişört",
               "Etek",
               "Sandalet"
             ]
           },
           "label": {
-            "en": "Sleeveless top (blue), Skirt (brown), Sandals (brown)",
-            "tr": "Kolsuz üst (mavi), Etek (kahverengi), Sandalet (kahverengi)"
+            "en": "T-shirt (blue), Skirt (brown), Sandals (brown)",
+            "tr": "Tişört (mavi), Etek (kahverengi), Sandalet (kahverengi)"
           }
         },
         {
@@ -55,7 +62,7 @@
       "id": "mild",
       "temperature": "17°",
       "atmosphere": "veiledDay",
-      "particles": "wisps",
+      "particles": "clouds",
       "ink": "cloudy",
       "condition": {
         "en": "Partly cloudy",
@@ -66,21 +73,21 @@
           "preference": "womens",
           "pieces": {
             "en": [
-              "Blouse",
+              "Long-sleeve T-shirt",
               "Jeans",
               "Light jacket",
-              "Ballet flats"
+              "Sneakers"
             ],
             "tr": [
-              "Bluz",
+              "Uzun kollu tişört",
               "Kot pantolon",
               "Hafif ceket",
-              "Babet"
+              "Spor ayakkabı"
             ]
           },
           "label": {
-            "en": "Blouse (green), Jeans (blue), Light jacket (green), Ballet flats (brown)",
-            "tr": "Bluz (yeşil), Kot pantolon (mavi), Hafif ceket (yeşil), Babet (kahverengi)"
+            "en": "Long-sleeve T-shirt (beige), Jeans (blue), Light jacket (orange), Sneakers (white)",
+            "tr": "Uzun kollu tişört (bej), Kot pantolon (mavi), Hafif ceket (turuncu), Spor ayakkabı (beyaz)"
           }
         },
         {
@@ -121,21 +128,21 @@
           "preference": "womens",
           "pieces": {
             "en": [
-              "Cardigan",
-              "Jeans",
+              "Sweater",
+              "Long skirt",
               "Rain jacket",
               "Rain boots"
             ],
             "tr": [
-              "Hırka",
-              "Kot pantolon",
+              "Kazak",
+              "Uzun etek",
               "Yağmurluk",
               "Yağmur botu"
             ]
           },
           "label": {
-            "en": "Cardigan (blue), Jeans (blue), Rain jacket (yellow), Rain boots (black)",
-            "tr": "Hırka (mavi), Kot pantolon (mavi), Yağmurluk (sarı), Yağmur botu (siyah)"
+            "en": "Sweater (gray), Long skirt (black), Rain jacket (yellow), Rain boots (black)",
+            "tr": "Kazak (gri), Uzun etek (siyah), Yağmurluk (sarı), Yağmur botu (siyah)"
           }
         },
         {
@@ -155,8 +162,8 @@
             ]
           },
           "label": {
-            "en": "Sweater (gray), Jeans (blue), Rain jacket (yellow), Rain boots (black)",
-            "tr": "Kazak (gri), Kot pantolon (mavi), Yağmurluk (sarı), Yağmur botu (siyah)"
+            "en": "Sweater (gray), Jeans (blue), Rain jacket (blue), Rain boots (black)",
+            "tr": "Kazak (gri), Kot pantolon (mavi), Yağmurluk (mavi), Yağmur botu (siyah)"
           }
         }
       ]
@@ -176,21 +183,21 @@
           "preference": "womens",
           "pieces": {
             "en": [
-              "Sweater",
+              "Turtleneck",
               "Trousers",
               "Coat",
               "Ankle boots"
             ],
             "tr": [
-              "Kazak",
+              "Balıkçı yaka",
               "Pantolon",
               "Kaban",
               "Bilek botu"
             ]
           },
           "label": {
-            "en": "Sweater (red), Trousers (black), Coat (beige), Ankle boots (brown)",
-            "tr": "Kazak (kırmızı), Pantolon (siyah), Kaban (bej), Bilek botu (kahverengi)"
+            "en": "Turtleneck (red), Trousers (gray), Coat (brown), Ankle boots (brown)",
+            "tr": "Balıkçı yaka (kırmızı), Pantolon (gri), Kaban (kahverengi), Bilek botu (kahverengi)"
           }
         },
         {
@@ -210,8 +217,8 @@
             ]
           },
           "label": {
-            "en": "Turtleneck (red), Jeans (blue), Insulated jacket (beige), Ankle boots (brown)",
-            "tr": "Balıkçı yaka (kırmızı), Kot pantolon (mavi), Yalıtımlı mont (bej), Bilek botu (kahverengi)"
+            "en": "Turtleneck (brown), Jeans (blue), Insulated jacket (green), Ankle boots (black)",
+            "tr": "Balıkçı yaka (kahverengi), Kot pantolon (mavi), Yalıtımlı mont (yeşil), Bilek botu (siyah)"
           }
         }
       ]
@@ -231,21 +238,21 @@
           "preference": "womens",
           "pieces": {
             "en": [
-              "Turtleneck",
-              "Leggings",
+              "Sweater",
+              "Jeans",
               "Parka",
               "Winter boots"
             ],
             "tr": [
-              "Balıkçı yaka",
-              "Tayt",
+              "Kazak",
+              "Kot pantolon",
               "Parka",
               "Kışlık bot"
             ]
           },
           "label": {
-            "en": "Turtleneck (red), Leggings (blue), Parka (black), Winter boots (black)",
-            "tr": "Balıkçı yaka (kırmızı), Tayt (mavi), Parka (siyah), Kışlık bot (siyah)"
+            "en": "Sweater (yellow), Jeans (blue), Parka (blue), Winter boots (black)",
+            "tr": "Kazak (sarı), Kot pantolon (mavi), Parka (mavi), Kışlık bot (siyah)"
           }
         },
         {
@@ -265,8 +272,8 @@
             ]
           },
           "label": {
-            "en": "Sweater (red), Jeans (blue), Parka (blue), Winter boots (black)",
-            "tr": "Kazak (kırmızı), Kot pantolon (mavi), Parka (mavi), Kışlık bot (siyah)"
+            "en": "Sweater (red), Jeans (blue), Parka (black), Winter boots (brown)",
+            "tr": "Kazak (kırmızı), Kot pantolon (mavi), Parka (siyah), Kışlık bot (kahverengi)"
           }
         }
       ]

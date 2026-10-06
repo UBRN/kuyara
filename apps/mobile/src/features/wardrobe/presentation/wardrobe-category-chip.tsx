@@ -1,6 +1,7 @@
 import { Platform, StyleSheet, type AccessibilityRole, type LayoutChangeEvent } from 'react-native';
 
-import { AppText, GarmentSlotGlyph, PressScale } from '@/components/ui';
+import { AppText, PressScale } from '@/components/ui';
+import { GarmentSlotGlyph } from '@/garment-art';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { borderWidths, interaction, radii, spacing } from '@/theme/theme';
 import { easierToSee, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';

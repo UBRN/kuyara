@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 
-import { ChoiceTile } from '@/components/ui';
+import { ChoiceTile } from '@/garment-art';
 import { DarkPlate } from '@/theme/plate-theme';
 import { darkTheme, lightSemanticColors, lightTheme, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext, useKuyaraTheme } from '@/theme/theme-context';

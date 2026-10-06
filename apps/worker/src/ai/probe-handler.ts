@@ -13,7 +13,7 @@ import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
 import { checkRateLimit, rateLimitedHeaders, type RateLimiter } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 
-import { attemptFailureReason, type AiProvider } from './ai-provider.ts';
+import { attemptFailureReason, type AiAttemptFailureReason, type AiProvider } from './ai-provider.ts';
 
 const PROBE_CACHE_TTL_MS = 60_000;
 export const PROBE_DAILY_LIMIT = 30;
@@ -109,13 +109,10 @@ const probeOptions = new Map<string, AiRecommendV1Request['options'][number]>(
  * The probe's subset of the recommend handler's closed failure vocabulary: it validates
  * structure and the canned option set, never distinctness or archetype preconditions.
  */
-type ProbeFailureReason =
-  | 'timeout'
-  | 'provider_error'
-  | 'quota_exceeded'
-  | 'rate_limited'
-  | 'invalid_output'
-  | 'unknown_option';
+type ProbeFailureReason = Exclude<
+  AiAttemptFailureReason,
+  'picks_not_distinct' | 'archetype_precondition'
+>;
 
 /**
  * The response collapses every failure into `unavailable` by design, so this log is the

@@ -1,38 +1,26 @@
 // The public site's garment boards, generated from the app's own code. GitHub Pages runs
 // Jekyll and nothing else, so the boards are computed here and committed: one women's and one
 // men's board for each weather scene, each a valid outfit of the app's rules for that scene's
-// weather, laid out by the board composition rule (ADR 0025) in the colour drawings and their
-// palette, on the plates of the theme.
+// weather, laid out by the board composition rule (ADR 0025) in the colour drawings of that
+// catalogue's cut and their palette, on the plates of the theme.
 //
 // Run from the repository root:
 //   node --experimental-strip-types --import ./apps/mobile/test/node-typescript-resolver.mjs \
 //     apps/mobile/scripts/site-boards.mjs
 // and commit what it writes. site-boards.test.mjs fails when the committed files drift from
 // what this produces.
-//
-// Two options preview drawings and a board scale the app does not carry yet. Their output is
-// for looking at, not for committing, because the test regenerates with the app's own:
-//   --set <module>   a drawing set: `silhouettes` (or `proposedSilhouettes`) and `typeMap` (or
-//                    `proposedTypeMap`) as { womens: { typeId: id }, mens: { typeId: id } }; a
-//                    type the set leaves out keeps the app's drawing
-//   --shared-scale   the body core at one per-unit scale: the bottom is drawn at the top's scale,
-//                    its waist where it was, and the footwear rises by what the bottom gave up
 import { readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
-import {
-  assignedOutfitGarments,
-  collectValidOutfits,
-  garmentIdSet,
-} from '@/features/recommendation/domain/outfit-composition';
+import { collectValidOutfits } from '@/features/recommendation/domain/outfit-composition';
+import { assignedOutfitGarments, garmentIdSet } from '@/features/recommendation/domain/outfit-model';
 import { eligibilityCandidates, outfitOptionId } from '@/features/recommendation/application/recommend-outfits';
-import { resolveAtmosphereState } from '@/features/today/domain/atmosphere-state';
+import { resolveAtmosphereState } from '@/features/weather/domain/atmosphere-state';
 import { catalogMessages } from '@/features/catalog/localization/catalog-messages';
 import { messages } from '@/localization/messages';
-import { silhouettes } from '@/components/ui/garment-board/silhouettes';
-import { garmentSilhouetteIds } from '@/components/ui/garment-board/garment-silhouette-map';
+import { silhouettes } from '@/garment-art/silhouettes';
+import { garmentSilhouetteIdFor } from '@/garment-art/garment-silhouette-map';
 import {
   drawnExtent,
   footwearPairDrawing,
@@ -40,10 +28,10 @@ import {
   garmentBoardDressingOrder,
   garmentShadowRule,
   todayPreset,
-} from '@/components/ui/garment-board/compose-garment-board';
-import { composeFlatLay } from '@/components/ui/garment-board/compose-flat-lay';
-import { garmentLevelOfDetail, paintGarment } from '@/components/ui/garment-board/garment-paint';
-import { resolveGarmentPalette } from '@/components/ui/garment-board/garment-palette';
+} from '@/garment-art/compose-garment-board';
+import { composeFlatLay } from '@/garment-art/compose-flat-lay';
+import { garmentLevelOfDetail, paintGarment } from '@/garment-art/garment-paint';
+import { resolveGarmentPalette } from '@/garment-art/garment-palette';
 import { darkTheme, lightTheme, plateTheme } from '@/theme/theme';
 import { shiftOklchLightness } from '@/theme/color-oklch';
 
@@ -58,34 +46,50 @@ const LANGUAGES = ['en', 'tr'];
  * The page's weather scenes, warm to cold, and what each catalogue wears in them. Every outfit
  * has to be one the app's rules compose for that weather, or the generator stops. `particles`
  * is the plate's moving weather and `ink` the condition colour it is drawn in.
+ *
+ * The app's palette colours every board, and two boards side by side or one scene apart should
+ * not wear the same colours. `palette` is added to the outfit's option id, the seed the palette
+ * chooses colours from. Where the palette leaves a piece only one colour whatever the seed,
+ * `recorded` gives that piece a colour from its own colourway the way a Closet record does, and
+ * the palette colours the rest around it.
  */
 export const SCENES = Object.freeze([
   {
     id: 'hot', temperatureC: 31, condition: 'clear', particles: 'motes', ink: 'clearDay',
-    womens: ['sleeveless_top', 'skirt', 'sandals'],
+    womens: ['t_shirt', 'skirt', 'sandals'],
     mens: ['t_shirt', 'shorts', 'sandals'],
+    palette: { womens: 0, mens: 0 },
   },
   {
-    id: 'mild', temperatureC: 17, condition: 'partly_cloudy', particles: 'wisps', ink: 'cloudy',
-    womens: ['blouse', 'jeans', 'light_jacket', 'ballet_flats'],
+    id: 'mild', temperatureC: 17, condition: 'partly_cloudy', particles: 'clouds', ink: 'cloudy',
+    womens: ['long_sleeve_t_shirt', 'jeans', 'light_jacket', 'sneakers'],
     mens: ['long_sleeve_t_shirt', 'jeans', 'light_jacket', 'sneakers'],
+    palette: { womens: 1, mens: 0 },
+    recorded: { womens: { primary_top: 'ecru' } },
   },
   {
     id: 'rain', temperatureC: 11, condition: 'rain', particles: 'rain', ink: 'rain',
-    womens: ['cardigan', 'jeans', 'rain_jacket', 'rain_boots'],
+    womens: ['sweater', 'long_skirt', 'rain_jacket', 'rain_boots'],
     mens: ['sweater', 'jeans', 'rain_jacket', 'rain_boots'],
+    palette: { womens: 3, mens: 5 },
   },
   {
     id: 'wind', temperatureC: 7, condition: 'cloudy', windMetersPerSecond: 10, particles: 'wind', ink: 'cloudy',
-    womens: ['sweater', 'trousers', 'coat', 'ankle_boots'],
+    womens: ['turtleneck', 'trousers', 'coat', 'ankle_boots'],
     mens: ['turtleneck', 'jeans', 'insulated_jacket', 'ankle_boots'],
+    palette: { womens: 0, mens: 0 },
+    recorded: { mens: { primary_top: 'camel' } },
   },
   {
     id: 'snow', temperatureC: -3, condition: 'snow', particles: 'snow', ink: 'snow',
-    womens: ['turtleneck', 'leggings', 'parka', 'weather_boots'],
+    womens: ['sweater', 'jeans', 'parka', 'weather_boots'],
     mens: ['sweater', 'jeans', 'parka', 'weather_boots'],
+    palette: { womens: 13, mens: 5 },
   },
 ]);
+
+/** The board beside the hero on a wide screen: one scene's look, drawn again with its own ids. */
+export const HERO = Object.freeze({ scene: 'mild', preference: 'womens' });
 
 const NOW = '2026-10-05T07:00:00.000Z';
 const num = (value) => Math.round(value * 100) / 100;
@@ -163,35 +167,11 @@ function paintPiece(silhouette, roles, ink, scale, pair, uid) {
 
 // ------------------------------------------------------------------------------ boards
 
-/** The app's drawings, or a set that replaces some of them per catalogue. */
-function drawingSet(set) {
-  const library = { ...silhouettes, ...(set?.silhouettes ?? {}) };
-  return (typeId, preference) => {
-    const id = set?.typeMap?.[preference]?.[typeId] ?? garmentSilhouetteIds[typeId];
-    if (id === undefined || library[id] === undefined) throw new Error(`No drawing for ${typeId}.`);
-    return { id, silhouette: library[id] };
-  };
-}
-
-/**
- * Correction A, for a preview: the bottom at the top's per-unit scale, hanging from its waist,
- * and the pair still standing over its hem. Nothing moves once the composer does this itself.
- */
-function shareCoreScale(composition) {
-  const [top, bottom] = composition.core;
-  if (!bottom) return;
-  const box = composition.boxes.get(bottom);
-  const k = composition.boxes.get(top).w / top.bounds.width;
-  const w = bottom.bounds.width * k;
-  const h = bottom.bounds.height * k;
-  if (h >= box.h) return;
-  const inset = (box.w - w) / 2;
-  for (const [piece, placed] of composition.boxes) {
-    if (piece.slot !== 'footwear') continue;
-    placed.y -= box.h - h;
-    placed.x += placed.x + placed.w / 2 < box.x + box.w / 2 ? inset : -inset;
-  }
-  composition.boxes.set(bottom, { x: box.x + inset, y: box.y, w, h });
+/** A type's drawing in a catalogue's cut, as the app's boards draw it for that profile. */
+function drawingOf(typeId, preference) {
+  const id = garmentSilhouetteIdFor(typeId, preference);
+  if (id === undefined) throw new Error(`No drawing for ${typeId}.`);
+  return { id, silhouette: silhouettes[id] };
 }
 
 /**
@@ -199,7 +179,7 @@ function shareCoreScale(composition) {
  * (`plateTheme`), so the dark board paints on the dark plate with the light ink, exactly as
  * the app's `useGarmentRoles` does. Lengths are board units: a stage is STAGE_UNITS wide.
  */
-function boardOf(scene, preference, drawingOf, sharedScale) {
+function boardOf(scene, preference, idPrefix = scene.id) {
   const outfit = validOutfit(scene, preference);
   const atmosphere = resolveAtmosphereState(scene.condition, 'day');
   const pieces = assignedOutfitGarments(outfit).map(({ slot, garment }) => {
@@ -207,12 +187,15 @@ function boardOf(scene, preference, drawingOf, sharedScale) {
     return { slot, garmentTypeId: garment.garmentTypeId, silhouetteId: id, silhouette, bounds: silhouette.bounds, groups: silhouette.groups };
   });
   const palette = {
-    optionId: outfitOptionId(outfit),
+    optionId: scene.palette[preference] ? `${outfitOptionId(outfit)}:${scene.palette[preference]}` : outfitOptionId(outfit),
     formality: outfit.formality,
     temperatureC: scene.temperatureC,
     condition: scene.condition,
     isNight: false,
-    pieces: pieces.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })),
+    pieces: pieces.map(({ slot, garmentTypeId }) => {
+      const recordedSwatchId = scene.recorded?.[preference]?.[slot];
+      return recordedSwatchId === undefined ? { slot, garmentTypeId } : { slot, garmentTypeId, recordedSwatchId };
+    }),
   };
   const colours = Object.fromEntries(APPEARANCES.map((appearance) => {
     const plane = THEMES[appearance].atmosphere[atmosphere];
@@ -224,7 +207,6 @@ function boardOf(scene, preference, drawingOf, sharedScale) {
   }));
 
   const composition = composeFlatLay(pieces, todayPreset);
-  if (sharedScale) shareCoreScale(composition);
   const W = STAGE_UNITS;
   const drawn = composition.stack.map((piece, index) => {
     const box = composition.boxes.get(piece);
@@ -234,13 +216,14 @@ function boardOf(scene, preference, drawingOf, sharedScale) {
       const { ink, bySlot } = colours[appearance];
       return paintPiece(piece.silhouette, bySlot.get(piece.slot).roles, ink, scale, Boolean(piece.single), uid);
     };
-    const uid = `${scene.id}${preference[0]}${index}`;
+    const uid = `${idPrefix}${preference[0]}${index}`;
     const light = paint('light', uid);
     return {
       slot: piece.slot,
       type: piece.garmentTypeId,
       drawing: piece.silhouetteId,
       family: colours.light.bySlot.get(piece.slot).colorFamily,
+      swatch: colours.light.bySlot.get(piece.slot).swatchId,
       // The dark plate's colours only when they differ from the light plate's.
       art: paint('dark', uid) === light ? [light] : [light, paint('dark', `${uid}d`)],
       t: [num(placed.x - piece.bounds.x * scale), num(placed.y - piece.bounds.y * scale), num(scale)],
@@ -347,17 +330,22 @@ function localized(language) {
 
 const signed = (t) => `${t < 0 ? '−' : ''}${Math.abs(t)}°`;
 
-export function generateSiteBoards({ set, sharedScale = false } = {}) {
-  const drawingOf = drawingSet(set);
+export function generateSiteBoards() {
   const words = Object.fromEntries(LANGUAGES.map((language) => [language, localized(language)]));
   const byLanguage = (pick) => Object.fromEntries(LANGUAGES.map((language) => [language, pick(words[language], language)]));
 
   const scenes = SCENES.map((scene) => {
-    const boards = PREFERENCES.map((preference) => boardOf(scene, preference, drawingOf, sharedScale));
+    const boards = PREFERENCES.map((preference) => boardOf(scene, preference));
     return { scene, boards, frames: sceneFrame(boards) };
   });
 
+  const heroScene = SCENES.find((scene) => scene.id === HERO.scene);
+  const hero = boardOf(heroScene, HERO.preference, 'hero');
+  const labelOf = (board) => byLanguage((names, language) => dressed(board)
+    .map((piece) => `${names.name(piece.type)} (${names.family(piece.family).toLocaleLowerCase(language)})`).join(', '));
+
   const pageData = {
+    hero: { atmosphere: hero.atmosphere, label: labelOf(hero) },
     scenes: scenes.map(({ scene, boards }) => ({
       id: scene.id,
       temperature: signed(scene.temperatureC),
@@ -368,8 +356,7 @@ export function generateSiteBoards({ set, sharedScale = false } = {}) {
       looks: PREFERENCES.map((preference, index) => ({
         preference,
         pieces: byLanguage((names) => dressed(boards[index]).map((piece) => names.name(piece.type))),
-        label: byLanguage((names, language) => dressed(boards[index])
-          .map((piece) => `${names.name(piece.type)} (${names.family(piece.family).toLocaleLowerCase(language)})`).join(', ')),
+        label: labelOf(boards[index]),
       })),
     })),
   };
@@ -377,6 +364,8 @@ export function generateSiteBoards({ set, sharedScale = false } = {}) {
   const files = {
     'docs/_data/site_boards.json': `${JSON.stringify(pageData, null, 2)}\n`,
     'docs/assets/css/plates.css': plateCss(),
+    'docs/_includes/generated/hero.html':
+      `<!-- Generated by apps/mobile/scripts/site-boards.mjs. Do not edit. -->\n${staticBoard(hero, sceneFrame([hero])[0])}`,
   };
   for (const { scene, boards, frames } of scenes) {
     boards.forEach((board, index) => {
@@ -389,22 +378,9 @@ export function generateSiteBoards({ set, sharedScale = false } = {}) {
 
 export const GENERATED_INCLUDES = 'docs/_includes/generated/';
 
-async function loadSet(path) {
-  const module = await import(pathToFileURL(resolve(path)).href);
-  return {
-    silhouettes: module.silhouettes ?? module.proposedSilhouettes,
-    typeMap: module.typeMap ?? module.proposedTypeMap,
-  };
-}
-
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const args = process.argv.slice(2);
-  const setPath = args.includes('--set') ? args[args.indexOf('--set') + 1] : undefined;
   const root = new URL('../../../', import.meta.url);
-  const { files } = generateSiteBoards({
-    set: setPath ? await loadSet(setPath) : undefined,
-    sharedScale: args.includes('--shared-scale'),
-  });
+  const { files } = generateSiteBoards();
   // The generated includes are this script's alone: anything it no longer writes goes.
   const includes = new URL(GENERATED_INCLUDES, root);
   for (const name of readdirSync(includes)) {

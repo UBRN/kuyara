@@ -259,8 +259,10 @@ test('T2 the shown outfits are built from everyday garments often enough', () =>
 
   // Measured after G2 on the 84-cell grid: dry 53.3% of 648, rain 27.2% of 648,
   // snow 40.3% of 216, total 40.3% of 1512. After G1 they were 54.8, 30.6, 51.4 and 43.9.
+  // Layer order now keeps a sweatshirt off a fleece and a fleece off a cardigan, and snow's
+  // share had counted those stacks: dry 57.3, rain 27.8, snow 35.8 and total 41.6.
   assert.ok(shareOf(shown) >= 0.40, `total share fell to ${(100 * shareOf(shown)).toFixed(1)}%`);
-  for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.27], ['snow', 0.4]]) {
+  for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.27], ['snow', 0.35]]) {
     const share = shareOf(inClass(precipitationName));
     assert.ok(
       share >= floor,

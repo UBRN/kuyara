@@ -1,7 +1,7 @@
 import { createContext, use } from 'react';
 
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 import type { DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';

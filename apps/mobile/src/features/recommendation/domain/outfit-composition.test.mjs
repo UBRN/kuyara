@@ -49,7 +49,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    '2a40ff61c3d93f248d873238b3df4057677ce130f4c398d6c6025024e41cf81a',
+    '09cc27ce2e310d3ed456bac0d61365970fcc91139072bf0a195df25ee422882f',
   );
 });
 

@@ -284,6 +284,5 @@ precedent, plus a localized "Testing online AI…" line.
 
 ## Out of scope
 
-- Remote deployment and provisioning were separate operational work and were
-  completed later on 2026-08-29.
+- Remote deployment and provisioning are separate operational work.
 - Any change to the recommendation refresh/coalescing logic.

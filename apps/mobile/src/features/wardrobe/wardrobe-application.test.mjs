@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
 
@@ -12,12 +14,14 @@ import {
   mapWardrobeCreateValues,
   mapWardrobeUpdateValues,
   selectWardrobeGarmentType,
+  startingColorFamily,
   validateWardrobeForm,
   wardrobeFormValuesEqual,
 } from './application/wardrobe-form.ts';
 import { WardrobeApplicationController } from './application/wardrobe-application-controller.ts';
 import { WardrobeRepositoryError } from './domain/wardrobe-repository-error.ts';
 import { messages } from '../../localization/messages.ts';
+import { sourceFiles } from '../../../test/source-files.mjs';
 
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const itemId = '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
@@ -492,4 +496,25 @@ test('a refresh that started before a reload never replaces the reloaded list wi
   await refreshing;
   assert.deepEqual(controller.getSnapshot().items, [pulled]);
   assert.equal(controller.getSnapshot().isRefreshing, false);
+});
+
+// O10: a new piece starts on its type's natural colour, the first of the type's usual colour
+// families. The form and the type picker's tiles both ask this one rule.
+test('a new piece starts on the first of its type\'s usual colour families, or on none', () => {
+  assert.equal(startingColorFamily(['blue', 'black']), 'blue');
+  assert.equal(startingColorFamily([]), null);
+});
+
+test('the starting colour is read from the usual colour families only through startingColorFamily', () => {
+  const sourceRoot = path.resolve(import.meta.dirname, '../..');
+  const read = (file) => readFileSync(path.join(sourceRoot, file), 'utf8');
+  const files = sourceFiles(sourceRoot, { extensions: ['.ts', '.tsx'] });
+  assert.deepEqual(files.filter((file) => /garmentUsualColorFamilies\([^)]*\)\s*\[0\]/.test(read(file))), []);
+  assert.deepEqual(
+    files.filter((file) => /startingColorFamily\(garmentUsualColorFamilies\(/.test(read(file))).sort(),
+    [
+      'features/wardrobe/presentation/garment-type-picker.tsx',
+      'features/wardrobe/presentation/wardrobe-item-form-screen.tsx',
+    ],
+  );
 });

@@ -28,10 +28,6 @@ jest.mock('expo-router/build/global-state/routing', () => ({
   linkTo: (...args: unknown[]) => mockLinkTo(...args),
 }));
 
-jest.mock('expo-symbols', () => ({
-  SymbolView: () => null,
-}));
-
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
@@ -739,6 +735,30 @@ test('the saved piece is named with Undo and ringed, and Undo removes it or repo
     </TestProviders>,
   );
   expect(plain.queryByTestId('wardrobe-saved-confirmation')).not.toBeOnTheScreen();
+});
+
+// The confirmation belongs to the add it announces: an edit or delete that returns to the
+// same list ends it, while the list stays mounted and the piece stays in its grid.
+test('the saved confirmation ends when the route stops naming the add, without a remount', async () => {
+  const screen_ = (savedItemId: string | null) => (
+    <TestProviders>
+      <WardrobeListScreen
+        initialCategory="outerwear"
+        onAdd={() => undefined}
+        itemHref={() => '/'}
+        onRetry={() => undefined}
+        savedItemId={savedItemId}
+        state={readyState([ownedItem])}
+      />
+    </TestProviders>
+  );
+  const result = await render(screen_(ownedItem.id));
+  expect(result.getByTestId('wardrobe-saved-confirmation')).toBeOnTheScreen();
+
+  await result.rerender(screen_(null));
+  expect(result.queryByTestId('wardrobe-saved-confirmation')).not.toBeOnTheScreen();
+  const frame = StyleSheet.flatten(result.getByTestId(`wardrobe-item-${ownedItem.id}-frame`).props.style);
+  expect(frame.borderColor).not.toBe(lightTheme.colors.brandAccent);
 });
 
 test('a wanted piece is confirmed as added to the wanted pieces, in Turkish too', async () => {

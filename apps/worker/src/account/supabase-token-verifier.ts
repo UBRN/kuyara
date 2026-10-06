@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { raceWithTimeout } from '../attempt-timeout.ts';
 import { defaultFetch, type FetchLike } from '../default-fetch.ts';
 import { base64UrlDecode } from '../es256-jwt.ts';
 import { AccountError } from './account-error.ts';
@@ -29,6 +30,7 @@ const headerSchema = z.object({ alg: z.literal('ES256'), kid: z.string().min(1).
 const claimsSchema = z.object({
   iss: z.string(),
   aud: z.union([z.string(), z.array(z.string())]),
+  role: z.literal('authenticated'),
   sub: z.string().regex(userIdPattern),
   exp: z.number(),
   nbf: z.number().optional(),
@@ -57,7 +59,8 @@ function decodeJson(segment: string): unknown {
 
 /**
  * Stateless Supabase access-token check: ES256 signature against the project's JWKS, then
- * `exp`, `nbf`, `iss` (`<project>/auth/v1`) and `aud`. The user id is the token's `sub`.
+ * `exp`, `nbf`, `iss` (`<project>/auth/v1`), `aud` and `role` (both `authenticated`). The user
+ * id is the token's `sub`.
  * The key set is cached per isolate; an unknown key id refetches it at most once per
  * cooldown, so forged key ids cannot make this route an amplifier against Supabase.
  */
@@ -72,11 +75,13 @@ export function createSupabaseTokenVerifier(dependencies: Dependencies): Supabas
   const jwksUrl = `${issuer}/.well-known/jwks.json`;
 
   let keys: ReadonlyMap<string, CryptoKey> | undefined;
-  let lastFetchAt = 0;
-  let inflight: Promise<void> | undefined;
+  // When the key set was last read successfully, and when a read was last started. The first
+  // decides how long the set verifies, the second paces the reads.
+  let loadedAt = -Infinity;
+  let attemptedAt = -Infinity;
+  let inflight: Readonly<{ promise: Promise<void>; startedAt: number }> | undefined;
 
-  async function loadKeys(): Promise<void> {
-    lastFetchAt = dependencies.now().getTime();
+  async function loadKeys(startedAt: number): Promise<void> {
     const { status, json } = await boundedFetch(
       fetchImpl, jwksUrl, { method: 'GET', headers: { Accept: 'application/json' } }, timeoutMs,
     );
@@ -99,23 +104,50 @@ export function createSupabaseTokenVerifier(dependencies: Dependencies): Supabas
         continue;
       }
     }
+    // A read that was dropped and settles late must not replace a newer key set.
+    if (startedAt < loadedAt) return;
     keys = next;
+    loadedAt = startedAt;
+  }
+
+  // Concurrent callers share one read, and each waits for it only as long as its own deadline.
+  // A failed read is dropped when it settles, so a failure is never cached.
+  function startLoad(): NonNullable<typeof inflight> {
+    const startedAt = dependencies.now().getTime();
+    attemptedAt = startedAt;
+    const record = {
+      startedAt,
+      promise: loadKeys(startedAt).finally(() => {
+        if (inflight === record) inflight = undefined;
+      }),
+    };
+    inflight = record;
+    return record;
   }
 
   async function keyFor(kid: string): Promise<CryptoKey | undefined> {
     const at = dependencies.now().getTime();
-    // No key set was ever loaded and the last read failed inside the cooldown: Supabase is
-    // down, so callers fail at once instead of each waiting out a fresh fetch.
-    if (keys === undefined && inflight === undefined && lastFetchAt > 0 && at - lastFetchAt < cooldownMs) {
+    if (inflight !== undefined && at - inflight.startedAt >= timeoutMs) {
+      // The read outlived its own deadline: its request was cancelled, or its fetch ignored the
+      // abort. Nothing will settle it, so it is dropped as a failed attempt: the cooldown applies.
+      inflight = undefined;
+    }
+    // The set verifies only inside its maximum age since the last successful read, so a key
+    // Supabase revoked stops verifying even while Supabase is down.
+    const cached = keys !== undefined && at - loadedAt < maxAgeMs ? keys : undefined;
+    const unknownAndDue = cached !== undefined && !cached.has(kid) && at - attemptedAt >= cooldownMs;
+    if (cached !== undefined && !unknownAndDue) return cached.get(kid);
+    // The set is too old and the last read failed inside the cooldown: Supabase is down, so
+    // callers fail at once instead of each waiting out a fresh read.
+    if (cached === undefined && inflight === undefined && at - attemptedAt < cooldownMs) {
       throw new AccountError('unavailable');
     }
-    const stale = keys === undefined || at - lastFetchAt >= maxAgeMs;
-    const unknownAndDue = keys !== undefined && !keys.has(kid) && at - lastFetchAt >= cooldownMs;
-    if (stale || unknownAndDue) {
-      // Concurrent callers share one request; the promise is dropped when it settles, so a
-      // failure is never cached.
-      inflight ??= loadKeys().finally(() => { inflight = undefined; });
-      await inflight;
+    // Started before the race, so the read's own deadline is the earlier of the two timers.
+    const { promise } = inflight ?? startLoad();
+    try {
+      await raceWithTimeout(new AbortController(), () => promise, timeoutMs);
+    } catch {
+      throw new AccountError('unavailable');
     }
     return keys?.get(kid);
   }

@@ -1,13 +1,16 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, ColorSwatch, NativeColorWell } from '@/components/ui';
+import { AppText, NativeColorWell } from '@/components/ui';
+import { ColorSwatch, ColorWellFace } from '@/garment-art';
 import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
 import {
   closetColorOptions,
   closetSolidSwatches,
   colorChoiceFamily,
+  isClosetColorOptionId,
   normalizeCustomColorHex,
   type ClosetColorChoice,
+  type ClosetColorOptionId,
 } from '@/features/wardrobe/domain/closet-color-options';
 import type { AppMessages } from '@/localization/messages';
 import { useMessages } from '@/localization/use-messages';
@@ -25,8 +28,9 @@ export function closetColorName(
   choice: ClosetColorChoice | null | undefined,
   colorFamily: ColorFamily | null,
 ): string {
-  const optionName = choice?.kind === 'option' ? messages.wardrobe.colorOptionNames[choice.id] : undefined;
-  if (optionName) return optionName;
+  if (choice?.kind === 'option' && isClosetColorOptionId(choice.id)) {
+    return messages.wardrobe.colorOptionNames[choice.id];
+  }
   return colorFamily
     ? messages.catalog[`catalog.color_family.${colorFamily}`]
     : messages.wardrobe.colorUnspecified;
@@ -52,14 +56,14 @@ export function ClosetColorPalette({
   const copy = messages.wardrobe;
   const customHex = choice?.kind === 'custom' ? choice.hex : null;
 
-  const optionSwatch = (id: string) => {
+  const optionSwatch = (id: ClosetColorOptionId) => {
     const option: ClosetColorChoice = { kind: 'option', id };
     return (
       <View key={id} style={styles.cell}>
         <ColorSwatch
           choice={option}
           disabled={disabled}
-          label={copy.colorOptionNames[id] ?? id}
+          label={copy.colorOptionNames[id]}
           onPress={() => onChange(option)}
           selected={choice?.kind === 'option' && choice.id === id}
           testID={`wardrobe-color-${id}`}
@@ -93,8 +97,9 @@ export function ClosetColorPalette({
             }}
             selected={customHex !== null}
             testID="wardrobe-color-custom"
-            value={customHex}
-          />
+            value={customHex}>
+            <ColorWellFace hex={customHex} testID="wardrobe-color-custom" />
+          </NativeColorWell>
         </View>
       </View>
       <AppText accessibilityRole="header" colorRole="textSecondary" nativeID="wardrobe-color-pattern-heading"

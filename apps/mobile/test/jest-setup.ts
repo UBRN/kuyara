@@ -45,3 +45,13 @@ jest.mock('expo-router/build/link/preview/native', () => ({
   ...jest.requireActual('expo-router/build/link/preview/native'),
   LinkZoomTransitionSource: ({ children }: { children?: unknown }) => children,
 }));
+
+// Native-module stand-ins most component tests share. A test that asserts on its own double
+// declares its own `jest.mock` for the module, which replaces the one here.
+jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
+
+jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+jest.mock('@expo/ui/swift-ui', () =>
+  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+jest.mock('@expo/ui/swift-ui/modifiers', () =>
+  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));

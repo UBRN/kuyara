@@ -12,13 +12,11 @@ import {
   recommendationPoolExhausted,
   usingStandardPhaseMilliseconds,
 } from './recommendation-application-controller.ts';
-import { WorkerAiClientError } from '../data/worker-ai-client.ts';
-import { RecommendationRepositoryError } from '../data/recommendation-repository.ts';
+import { WorkerAiClientError } from '../domain/worker-ai-client-error.ts';
+import { RecommendationRepositoryError } from './recommendation-repository.ts';
 import { assignFallbackArchetypes, composeOutfitPool, outfitOptionId } from './recommend-outfits.ts';
-import {
-  createRecommendationContextWithPool,
-  mapWorkerAiRecommendation,
-} from '../data/worker-ai-recommendation-mapper.ts';
+import { mapWorkerAiRecommendation } from './ai-recommendation-mapping.ts';
+import { createRecommendationContextWithPool } from './recommendation-context.ts';
 import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
 import { accessoryOutfitSlots, garmentIdSet } from '../domain/outfit-composition.ts';
 
@@ -104,7 +102,7 @@ function input(temperatureCelsius = 30) {
 
 function createHarness({ cached = null, client, failSave = false, captureAnalyticsEvent, holdPhase,
   loadRecentWorn, createContextWithPool, reserveAiReask = async () => true,
-  releaseAiReask } = {}) {
+  releaseAiReask, composeFallback } = {}) {
   let stored = cached;
   const calls = { client: 0, saves: 0 };
   const requests = [];
@@ -159,6 +157,7 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
     holdPhase: holdPhase ?? (async () => undefined),
     reserveAiReask,
     releaseAiReask,
+    composeFallback,
   });
   return { controller, calls, repository, requests, getStored: () => stored };
 }
@@ -1243,4 +1242,77 @@ test('skipping the wait of a re-ask shows other outfits than the ones on screen'
   const skipped = await controller.skipWait();
 
   assert.deepEqual(bodyGarmentSets(skipped).filter((set) => shown.has(set)), []);
+});
+
+function inputAt(locationKey, weatherId, temperatureCelsius) {
+  const base = input(temperatureCelsius);
+  return { ...base, snapshot: { ...base.snapshot, id: weatherId, locationKey } };
+}
+
+test('a skip belongs to its own request: a place switch after Skip composes its own fallback', async () => {
+  let calls = 0;
+  const { controller, getStored } = createHarness({
+    client: { recommendRouted: () => {
+      calls += 1;
+      return calls === 1 ? new Promise(() => undefined) : networkDown();
+    } },
+  });
+  await controller.initialize();
+  void controller.refresh('first-recommendation', inputAt('manual:place-x', 'weather-x', 30));
+  const skipped = await controller.skipWait();
+  assert.equal(skipped.locationKey, 'manual:place-x');
+
+  const switched = await controller.refresh('active-location-changed',
+    inputAt('manual:place-y', 'weather-y', 10));
+
+  assert.equal(switched.locationKey, 'manual:place-y');
+  assert.equal(getStored().locationKey, 'manual:place-y');
+});
+
+test('a skip belongs to its own request: a re-ask whose AI fails after Skip shows other outfits', async () => {
+  let calls = 0;
+  const events = [];
+  const { controller } = createHarness({
+    client: { recommendRouted: () => {
+      calls += 1;
+      return calls === 1 ? new Promise(() => undefined) : Promise.reject(new WorkerAiClientError('service'));
+    } },
+    captureAnalyticsEvent: (_name, properties) => events.push(properties),
+  });
+  await controller.initialize();
+  void controller.refresh('first-recommendation', inputAt('manual:place-x', 'weather-x', 16));
+  const skipped = await controller.skipWait();
+  const shown = skipped.recommendation.outfits.map(({ optionId }) => optionId);
+
+  const reasked = await controller.refresh('regenerate',
+    { ...inputAt('manual:place-x', 'weather-x', 16), dressStyle: 'formal' });
+
+  const after = reasked.recommendation.outfits.map(({ optionId }) => optionId);
+  assert.notDeepEqual(after, shown);
+  assert.equal(events.at(-1).regeneration_source, 'ai');
+});
+
+test('a skip that cannot compose its fallback leaves the late AI answer to be saved', async () => {
+  let resolveAi;
+  const ai = new Promise((resolve) => { resolveAi = resolve; });
+  let request;
+  const { controller } = createHarness({
+    client: { recommendRouted: (nextRequest) => {
+      request = nextRequest;
+      return ai;
+    } },
+    composeFallback: () => { throw new Error('composition invariant'); },
+  });
+  await controller.initialize();
+  const pending = controller.refresh('first-recommendation', input());
+
+  const skipped = await controller.skipWait();
+  assert.equal(skipped, null);
+  assert.equal(controller.getSnapshot().lastFailure, 'unknown');
+
+  resolveAi(mapWorkerAiRecommendation(request, workerResponse(request), 'ai-assisted'));
+  const settled = await pending;
+  assert.equal(settled.generationMode, 'ai-assisted');
+  assert.equal(controller.getSnapshot().lastFailure, null);
+  assert.equal(controller.getSnapshot().isRefreshing, false);
 });

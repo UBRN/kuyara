@@ -1,13 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
-import {
-  AppText,
-  GarmentDrawing,
-  GarmentTileArtwork,
-  Icon,
-  PressScale,
-  useTextScaling,
-} from '@/components/ui';
+import { AppText, Icon, PressScale, useTextScaling } from '@/components/ui';
+import { GarmentDrawing, GarmentTileArtwork } from '@/garment-art';
 import type {
   ColorFamily,
   GarmentTypeId,

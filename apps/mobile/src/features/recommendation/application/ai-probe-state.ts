@@ -12,6 +12,11 @@ export type AiProbeUiState =
   | { kind: 'rate-limited' }
   | { kind: 'error' };
 
+/** What the hook needs from a status check: `WorkerAiProbeClient` is the production one. */
+export interface AiProbeClient {
+  probe(): Promise<AiProbeV1Success['data']>;
+}
+
 export function startAiProbe(
   state: AiProbeUiState,
   isSupported: boolean,

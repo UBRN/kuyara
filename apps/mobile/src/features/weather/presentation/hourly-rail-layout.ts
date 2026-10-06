@@ -17,6 +17,11 @@ const PLOT_GROWTH_CAP = 1.25;
 // `label`'s line box. Feature code may not name the typography metric here (the greppable
 // Law 5 check), so the label row reserves it by number.
 const TEMPERATURE_LABEL_HEIGHT = 20;
+// The time above each column is one `caption` line. A 12-hour time ("10:00 PM", "ÖÖ 10:00")
+// is eight glyphs, wider than the 52-point column, and a time that wraps pushes its column's
+// band below the curve. The column takes the longest time at this width per glyph, a little
+// over `caption`'s, so it holds on one line at every text size.
+const TIME_GLYPH_WIDTH = 7.5;
 
 export type HourlyRailMetrics = Readonly<{
   /** Every column is the same width, so the series can pass through their centres. */
@@ -54,14 +59,25 @@ const LABEL_LIFT = 6;
 // extremes, so no dot is clipped at the top or bottom of the band.
 const DOT_MARGIN = 6;
 
-/** The rail's column and plot sizes at the reader's text scale; the spacing comes from the theme. */
+/**
+ * The rail's column and plot sizes at the reader's text scale and for its longest time; the
+ * spacing comes from the theme.
+ */
 export function hourlyRailMetrics(
   fontScale: number,
-  { columnGap, inset }: Readonly<{ columnGap: number; inset: number }>,
+  { columnGap, inset, timeLabelLength = 0 }: Readonly<{
+    columnGap: number;
+    inset: number;
+    /** The glyph count of the longest time above a column. */
+    timeLabelLength?: number;
+  }>,
 ): HourlyRailMetrics {
   return {
     columnGap,
-    columnWidth: Math.round(COLUMN_WIDTH * Math.max(1, fontScale * COLUMN_GROWTH)),
+    columnWidth: Math.max(
+      Math.round(COLUMN_WIDTH * Math.max(1, fontScale * COLUMN_GROWTH)),
+      Math.ceil(timeLabelLength * TIME_GLYPH_WIDTH * fontScale),
+    ),
     inset,
     labelHeight: TEMPERATURE_LABEL_HEIGHT * fontScale,
     plotHeight: Math.round(PLOT_HEIGHT * Math.min(fontScale, PLOT_GROWTH_CAP)),

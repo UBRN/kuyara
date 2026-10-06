@@ -1,4 +1,4 @@
-import { use, useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { use, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 import type { DressStyle } from '@kuyara/contracts';
@@ -132,14 +132,6 @@ export function TodayScreen(props: TodayScreenProps) {
   const { hour12 } = useLocalization();
   const now = useForegroundClock();
   const recommendationState = application?.state.status === 'ready' ? application.state : null;
-  const snapshot = recommendationState?.snapshot;
-  const settled = settledFirstOutfit(snapshot, now);
-  // The runway draws neutral drafts while the wait runs and receives the chosen outfit
-  // once, when the answer is in (N2, O1); skipping makes the device's pick that answer.
-  const runwayOutfit = settled;
-  // S3: the runway reads the weather of the active place only, never a previous place's.
-  const placeSnapshot = weather.state.status === 'ready'
-    ? activeLocationSnapshot(weather.state.snapshot, weather.state.activeLocation) : null;
   const runwayActive = recommendationState?.showFirstGenerationOverlay ?? false;
   // The outfit's rise waits until the runway has left the screen, so the arrival is seen.
   const [runwayShown, setRunwayShown] = useState(false);
@@ -166,6 +158,16 @@ export function TodayScreen(props: TodayScreenProps) {
   const holdingWords = (runwayActive || runwayShown) && !skipped && !wordsReleased;
   // On a cold launch the outfit rises as the launch curtain lifts, so the arrival is seen.
   const launch = useLaunchReveal();
+  // Derived after the last hook, so React Compiler can memoize them: a value built before a
+  // hook and used after it is recomputed on every render.
+  const snapshot = recommendationState?.snapshot;
+  const settled = settledFirstOutfit(snapshot, now);
+  // The runway draws neutral drafts while the wait runs and receives the chosen outfit
+  // once, when the answer is in (N2, O1); skipping makes the device's pick that answer.
+  const runwayOutfit = settled;
+  // S3: the runway reads the weather of the active place only, never a previous place's.
+  const placeSnapshot = weather.state.status === 'ready'
+    ? activeLocationSnapshot(weather.state.snapshot, weather.state.activeLocation) : null;
 
   return (
     <View style={styles.root}>
@@ -244,8 +246,13 @@ function TodayScreenContent({
   const recommendationApplication = use(RecommendationApplicationContext);
   const weatherApplication = useWeatherApplication();
   const { hour12, temperatureUnit } = useLocalization();
-  const presentationState = todayPresentationState(state, weatherApplication.state);
-  const presentation = createTodayPresentation(presentationState, language, hour12, temperatureUnit, now);
+  // Memoized as one value, so React Compiler keeps everything derived from it across the
+  // hooks below rather than rebuilding it on every render.
+  const presentation = useMemo(
+    () => createTodayPresentation(
+      todayPresentationState(state, weatherApplication.state), language, hour12, temperatureUnit, now),
+    [hour12, language, now, state, temperatureUnit, weatherApplication.state],
+  );
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
@@ -359,9 +366,11 @@ function TodayScreenContent({
   });
 
   if (presentation.kind !== 'loaded' && stageLaidOut) setStageLaidOut(false);
-  // A loading or error interlude unmounts the leaving board, so it can never report that it
-  // has left; kept, it would drop in again when the outfit returns.
+  // A loading or error interlude unmounts the stage and the leaving board, so neither is on
+  // screen when the outfit returns: the leaving board can never report that it has left, and
+  // the outfit the stage held is gone, so nothing drops away above the next one.
   if (presentation.kind !== 'loaded' && leavingOutfit) setLeavingOutfit(null);
+  if (presentation.kind !== 'loaded' && stageOutfit) setStageOutfit(null);
 
   if (presentation.kind === 'loading') {
     return (
@@ -642,10 +651,10 @@ function WeatherAlertOfferRow({
   const { controlScale } = useTextScaling();
   // O13: while "Easier to see" is on the two actions stack, each with a 56-point target.
   const easierToSee = useEasierToSee();
-  const actionSize = easierToSee ? 'large' : 'small';
-  const copy = getMessages(language).notifications;
   const { hour12 } = useLocalization();
   const [isAnswering, setIsAnswering] = useState(false);
+  const actionSize = easierToSee ? 'large' : 'small';
+  const copy = getMessages(language).notifications;
   // A refused permission is explained with the Settings surface's own copy and its own way
   // out, rather than with a second wording of the same fact.
   const message = alertOfferMessage(

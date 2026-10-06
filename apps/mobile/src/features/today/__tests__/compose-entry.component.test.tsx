@@ -3,8 +3,9 @@ import type { ReactNode } from 'react';
 import { AccessibilityInfo, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import type { GarmentOutfitPalette } from '@/components/ui';
+import type { GarmentOutfitPalette } from '@/garment-art';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
+import { composePieceLimit } from '@/features/recommendation/application/compose-around-pieces';
 import { composeCatalog, type ComposePiece } from '@/features/today/application/compose-selection';
 import { ComposeEntry, ComposeResultLine } from '@/features/today/presentation/compose-entry';
 import { LocalizationContext } from '@/localization/localization-context';
@@ -95,7 +96,7 @@ describe('the members-only row under "Wore this today"', () => {
     expect(screen.queryByTestId('compose-sheet')).toBeNull();
     await openSheet(screen);
     expect(screen.getByText(en.title)).toBeTruthy();
-    expect(screen.getByText(en.subtitle)).toBeTruthy();
+    expect(screen.getByText(en.subtitle(composePieceLimit))).toBeTruthy();
     expect(onSignIn).not.toHaveBeenCalled();
   });
 
@@ -121,7 +122,7 @@ describe('"What do you want to wear today?"', () => {
     expect(rows.map((row) => row.props.accessibilityLabel)).toEqual(pieces.map(({ slot, garmentTypeId }) =>
       `${name(garmentTypeId)}, ${messages.en.today.slots[slot]}`));
     expect(rows.every((row) => row.props.accessibilityState.checked === false)).toBe(true);
-    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(0));
+    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(0, composePieceLimit));
     expect(screen.getByTestId('compose-build')).toBeDisabled();
     expect(screen.queryByTestId('compose-color-primary_top')).toBeNull();
   });
@@ -131,7 +132,7 @@ describe('"What do you want to wear today?"', () => {
     await openSheet(screen);
     await tick(screen, 'primary_top', 'shirt');
     expect(screen.getByTestId('compose-piece-primary_top-shirt').props.accessibilityState.checked).toBe(true);
-    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(1));
+    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(1, composePieceLimit));
     const strip = screen.getByTestId('compose-color-primary_top');
     expect(strip.props.accessibilityLabel).toBe(en.colorLabel.primary_top);
     expect(within(strip).getAllByRole('radio')).toHaveLength(33);
@@ -183,15 +184,15 @@ describe('"What do you want to wear today?"', () => {
     await tick(screen, 'primary_top', 'shirt');
     await tick(screen, 'bottom', 'trousers');
     await tick(screen, 'footwear', 'loafers');
-    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(3));
+    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(3, composePieceLimit));
     const jacket = screen.getByTestId('compose-piece-outer_layer-light_jacket');
     expect(jacket.props.accessibilityState).toEqual({ checked: false, disabled: true });
-    expect(jacket.props.accessibilityHint).toBe(en.limitHint);
+    expect(jacket.props.accessibilityHint).toBe(en.limitHint(composePieceLimit));
     await fireEvent.press(jacket);
-    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(3));
+    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(3, composePieceLimit));
     // A ticked piece can still be let go.
     await tick(screen, 'footwear', 'loafers');
-    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(2));
+    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(2, composePieceLimit));
   });
 
   test('"Choose another piece" lists the catalog by slot; a one-piece takes the top and the bottom\'s places', async () => {
@@ -211,7 +212,7 @@ describe('"What do you want to wear today?"', () => {
     expect(screen.getByTestId('compose-piece-one_piece-dress').props.accessibilityState.checked).toBe(true);
     expect(screen.getByTestId('compose-piece-primary_top-shirt').props.accessibilityState.checked).toBe(false);
     expect(screen.getByTestId('compose-piece-bottom-trousers').props.accessibilityState.checked).toBe(false);
-    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(1));
+    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(1, composePieceLimit));
   });
 
   test('the catalog page goes back without a choice', async () => {
@@ -239,7 +240,7 @@ describe('"What do you want to wear today?"', () => {
     expect(screen.queryByTestId('compose-sheet')).toBeNull();
     // The choice stays for the next visit to the sheet.
     await openSheet(screen);
-    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(2));
+    expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(2, composePieceLimit));
   });
 
   test('speaks Turkish', async () => {
@@ -247,10 +248,10 @@ describe('"What do you want to wear today?"', () => {
     expect(screen.getByText(tr.entry)).toBeTruthy();
     await openSheet(screen);
     expect(screen.getByText(tr.title)).toBeTruthy();
-    expect(screen.getByText(tr.subtitle)).toBeTruthy();
+    expect(screen.getByText(tr.subtitle(composePieceLimit))).toBeTruthy();
     expect(screen.getByText(tr.fromOutfit)).toBeTruthy();
     expect(screen.getByText(tr.chooseAnother)).toBeTruthy();
-    expect(screen.getByTestId('compose-count')).toHaveTextContent(tr.chosenCount(0));
+    expect(screen.getByTestId('compose-count')).toHaveTextContent(tr.chosenCount(0, composePieceLimit));
     expect(screen.getByLabelText(tr.build)).toBeTruthy();
   });
 });

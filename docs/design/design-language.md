@@ -358,11 +358,11 @@ App-owned buttons are capsules: prominent, tonal, plain or destructive tonal red
 
 `borderSubtle` is now for **decorative dividers inside a container**, where no
 component is being identified and 1.4.11 does not apply. Every boundary that identifies
-an interactive component moves to `borderDefined`. This closes a real current failure:
-an unselected Wardrobe filter chip and an outline button are identified only by a
-`#CCD2D4` border measuring **1.529:1** on the white card. That fails [WCAG
-1.4.11](https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html) today, in
-the shipped product and in the mockups.
+an interactive component moves to `borderDefined`. An unselected Closet filter chip and an
+outline button identified only by a `#CCD2D4` border would measure **1.529:1** on the white
+card, which fails [WCAG
+1.4.11](https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html); both therefore
+take `borderDefined`.
 
 Cards keep `borderSubtle` or no border at all. A card is a container of legible text,
 not a component identified by its boundary, so 1.4.11 does not require 3:1 there, and
@@ -644,29 +644,9 @@ The carve-out, and the test that decides which side a thing falls on:
 > product use" requirement stands unchanged.**
 
 A vocabulary that arrives one step behind the need cannot produce a coherent interface,
-which is what the icon system (waited for ADR 0008), shadows and the divider (waited
-for M6), and the status roles (waited until now) each demonstrated in turn.
-
-Note that the deferral rule's own stated condition for status roles, as it was worded
-before ADR 0010 landed, "deferred until the app has concrete informational, success,
-warning, and error presentation", **was already satisfied and nobody noticed.**
-[`design-system.md`](./design-system.md#primitive-and-semantic-colors) now records the
-resolution rather than the condition. Six such sites existed in the shipped app when
-this was written:
-
-1. `features/profile/presentation/ai-status-section.tsx:48-54,73-74`, info / ok /
-   checking / error
-2. `features/wardrobe/presentation/wardrobe-item-form-screen.tsx:444-450`, validation
-   error
-3. `features/weather/presentation/weather-screen.tsx:495-508`, stale data warning
-4. `features/today/presentation/outfit-detail-screen.tsx:62`, informational notice
-5. `features/today/presentation/outfit-suggestion-card.tsx:99`, informational notice
-6. `features/today/presentation/today-screen.tsx:170-178`, generation mode
-
-**All six render their icon in `theme.colors.iconSecondary`**, the same colour as a
-clock glyph next to a timestamp. A form validation error and a "last updated" stamp are
-today visually identical. That is the concrete product use the rule asked for, and the
-rule still did not fire, because nobody re-read the condition.
+so the icon system, shadows, the divider and the status roles are each defined as roles
+before any screen uses them. [`design-system.md`](./design-system.md#primitive-and-semantic-colors)
+records the status roles.
 
 ## How to check a screen
 

@@ -1,0 +1,415 @@
+{
+  "context": {
+    "clothingPreference": "womens",
+    "dressStyle": "casual",
+    "catalogVersion": 6,
+    "dayVariant": 0,
+    "localDayKey": "2026-10-07",
+    "paletteWeather": {
+      "temperatureC": 6,
+      "condition": "rain"
+    },
+    "requirements": [
+      {
+        "priority": "mandatory",
+        "reasonCodes": [
+          "temperature_low",
+          "apparent_temperature_low"
+        ],
+        "kind": "thermal",
+        "minimum": "high"
+      },
+      {
+        "priority": "mandatory",
+        "reasonCodes": [
+          "temperature_low",
+          "apparent_temperature_low"
+        ],
+        "kind": "arm_coverage",
+        "minimum": "full"
+      },
+      {
+        "priority": "mandatory",
+        "reasonCodes": [
+          "temperature_low",
+          "apparent_temperature_low"
+        ],
+        "kind": "leg_coverage",
+        "minimum": "full"
+      },
+      {
+        "priority": "optional",
+        "reasonCodes": [
+          "wind_elevated"
+        ],
+        "kind": "wind_protection",
+        "minimum": "wind_resistant"
+      },
+      {
+        "priority": "mandatory",
+        "reasonCodes": [
+          "precipitation_likely",
+          "condition_rain"
+        ],
+        "kind": "water_protection",
+        "minimum": "waterproof",
+        "target": "body"
+      },
+      {
+        "priority": "optional",
+        "reasonCodes": [
+          "condition_rain"
+        ],
+        "kind": "water_protection",
+        "minimum": "water_resistant",
+        "target": "feet"
+      },
+      {
+        "priority": "optional",
+        "reasonCodes": [
+          "temperature_low",
+          "apparent_temperature_low"
+        ],
+        "kind": "extremity_cover",
+        "minimum": "high",
+        "target": "head"
+      },
+      {
+        "priority": "optional",
+        "reasonCodes": [
+          "temperature_low",
+          "apparent_temperature_low"
+        ],
+        "kind": "extremity_cover",
+        "minimum": "high",
+        "target": "neck"
+      },
+      {
+        "priority": "optional",
+        "reasonCodes": [
+          "temperature_low",
+          "apparent_temperature_low"
+        ],
+        "kind": "extremity_cover",
+        "minimum": "high",
+        "target": "hands"
+      }
+    ],
+    "options": [
+      {
+        "optionId": "outfit:d1a333defda1f2ca",
+        "formality": "casual",
+        "garments": [
+          {
+            "slot": "primary_top",
+            "layerRole": "standalone",
+            "garmentTypeId": "fleece"
+          },
+          {
+            "slot": "bottom",
+            "layerRole": "standalone",
+            "garmentTypeId": "long_skirt"
+          },
+          {
+            "slot": "outer_layer",
+            "layerRole": "outer",
+            "garmentTypeId": "parka"
+          },
+          {
+            "slot": "footwear",
+            "layerRole": null,
+            "garmentTypeId": "weather_boots"
+          },
+          {
+            "slot": "head",
+            "layerRole": null,
+            "garmentTypeId": "balaclava"
+          },
+          {
+            "slot": "neck",
+            "layerRole": null,
+            "garmentTypeId": "neck_gaiter"
+          },
+          {
+            "slot": "hands",
+            "layerRole": null,
+            "garmentTypeId": "gloves"
+          },
+          {
+            "slot": "handheld",
+            "layerRole": null,
+            "garmentTypeId": "umbrella"
+          }
+        ],
+        "traits": {
+          "hasMidLayer": false,
+          "hasOuterLayer": true,
+          "outerThermalHigh": true,
+          "outerWaterProtective": true,
+          "windResistant": true,
+          "tractionEnhanced": true,
+          "breathabilityHigh": false
+        }
+      },
+      {
+        "optionId": "outfit:1282a98d44a313c1",
+        "formality": "casual",
+        "garments": [
+          {
+            "slot": "primary_top",
+            "layerRole": "standalone",
+            "garmentTypeId": "fleece"
+          },
+          {
+            "slot": "bottom",
+            "layerRole": "standalone",
+            "garmentTypeId": "jeans"
+          },
+          {
+            "slot": "mid_layer",
+            "layerRole": "mid",
+            "garmentTypeId": "sweatshirt"
+          },
+          {
+            "slot": "outer_layer",
+            "layerRole": "outer",
+            "garmentTypeId": "parka"
+          },
+          {
+            "slot": "footwear",
+            "layerRole": null,
+            "garmentTypeId": "weather_boots"
+          },
+          {
+            "slot": "head",
+            "layerRole": null,
+            "garmentTypeId": "balaclava"
+          },
+          {
+            "slot": "neck",
+            "layerRole": null,
+            "garmentTypeId": "neck_gaiter"
+          },
+          {
+            "slot": "hands",
+            "layerRole": null,
+            "garmentTypeId": "gloves"
+          },
+          {
+            "slot": "handheld",
+            "layerRole": null,
+            "garmentTypeId": "umbrella"
+          }
+        ],
+        "traits": {
+          "hasMidLayer": true,
+          "hasOuterLayer": true,
+          "outerThermalHigh": true,
+          "outerWaterProtective": true,
+          "windResistant": true,
+          "tractionEnhanced": true,
+          "breathabilityHigh": false
+        }
+      },
+      {
+        "optionId": "outfit:108b6d25d40ec851",
+        "formality": "casual",
+        "garments": [
+          {
+            "slot": "primary_top",
+            "layerRole": "standalone",
+            "garmentTypeId": "cardigan"
+          },
+          {
+            "slot": "bottom",
+            "layerRole": "standalone",
+            "garmentTypeId": "long_skirt"
+          },
+          {
+            "slot": "outer_layer",
+            "layerRole": "outer",
+            "garmentTypeId": "parka"
+          },
+          {
+            "slot": "footwear",
+            "layerRole": null,
+            "garmentTypeId": "weather_boots"
+          },
+          {
+            "slot": "head",
+            "layerRole": null,
+            "garmentTypeId": "balaclava"
+          },
+          {
+            "slot": "neck",
+            "layerRole": null,
+            "garmentTypeId": "neck_gaiter"
+          },
+          {
+            "slot": "hands",
+            "layerRole": null,
+            "garmentTypeId": "gloves"
+          },
+          {
+            "slot": "handheld",
+            "layerRole": null,
+            "garmentTypeId": "umbrella"
+          }
+        ],
+        "traits": {
+          "hasMidLayer": false,
+          "hasOuterLayer": true,
+          "outerThermalHigh": true,
+          "outerWaterProtective": true,
+          "windResistant": true,
+          "tractionEnhanced": true,
+          "breathabilityHigh": false
+        }
+      }
+    ],
+    "coverageStart": "2026-10-07T07:00:00.000Z",
+    "coverageEnd": "2026-10-07T19:00:00.000Z"
+  },
+  "outfits": [
+    {
+      "archetypeId": "rain_ready",
+      "garments": [
+        {
+          "slot": "primary_top",
+          "layerRole": "standalone",
+          "candidateKey": "catalog:fleece"
+        },
+        {
+          "slot": "bottom",
+          "layerRole": "standalone",
+          "candidateKey": "catalog:long_skirt"
+        },
+        {
+          "slot": "outer_layer",
+          "layerRole": "outer",
+          "candidateKey": "catalog:parka"
+        },
+        {
+          "slot": "footwear",
+          "layerRole": null,
+          "candidateKey": "catalog:weather_boots"
+        },
+        {
+          "slot": "head",
+          "layerRole": null,
+          "candidateKey": "catalog:balaclava"
+        },
+        {
+          "slot": "neck",
+          "layerRole": null,
+          "candidateKey": "catalog:neck_gaiter"
+        },
+        {
+          "slot": "hands",
+          "layerRole": null,
+          "candidateKey": "catalog:gloves"
+        },
+        {
+          "slot": "handheld",
+          "layerRole": null,
+          "candidateKey": "catalog:umbrella"
+        }
+      ]
+    },
+    {
+      "archetypeId": "cold_shield",
+      "garments": [
+        {
+          "slot": "primary_top",
+          "layerRole": "standalone",
+          "candidateKey": "catalog:fleece"
+        },
+        {
+          "slot": "bottom",
+          "layerRole": "standalone",
+          "candidateKey": "catalog:jeans"
+        },
+        {
+          "slot": "mid_layer",
+          "layerRole": "mid",
+          "candidateKey": "catalog:sweatshirt"
+        },
+        {
+          "slot": "outer_layer",
+          "layerRole": "outer",
+          "candidateKey": "catalog:parka"
+        },
+        {
+          "slot": "footwear",
+          "layerRole": null,
+          "candidateKey": "catalog:weather_boots"
+        },
+        {
+          "slot": "head",
+          "layerRole": null,
+          "candidateKey": "catalog:balaclava"
+        },
+        {
+          "slot": "neck",
+          "layerRole": null,
+          "candidateKey": "catalog:neck_gaiter"
+        },
+        {
+          "slot": "hands",
+          "layerRole": null,
+          "candidateKey": "catalog:gloves"
+        },
+        {
+          "slot": "handheld",
+          "layerRole": null,
+          "candidateKey": "catalog:umbrella"
+        }
+      ]
+    },
+    {
+      "archetypeId": "wind_guard",
+      "garments": [
+        {
+          "slot": "primary_top",
+          "layerRole": "standalone",
+          "candidateKey": "catalog:cardigan"
+        },
+        {
+          "slot": "bottom",
+          "layerRole": "standalone",
+          "candidateKey": "catalog:long_skirt"
+        },
+        {
+          "slot": "outer_layer",
+          "layerRole": "outer",
+          "candidateKey": "catalog:parka"
+        },
+        {
+          "slot": "footwear",
+          "layerRole": null,
+          "candidateKey": "catalog:weather_boots"
+        },
+        {
+          "slot": "head",
+          "layerRole": null,
+          "candidateKey": "catalog:balaclava"
+        },
+        {
+          "slot": "neck",
+          "layerRole": null,
+          "candidateKey": "catalog:neck_gaiter"
+        },
+        {
+          "slot": "hands",
+          "layerRole": null,
+          "candidateKey": "catalog:gloves"
+        },
+        {
+          "slot": "handheld",
+          "layerRole": null,
+          "candidateKey": "catalog:umbrella"
+        }
+      ]
+    }
+  ]
+}

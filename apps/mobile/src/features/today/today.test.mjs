@@ -16,7 +16,7 @@ import {
 import { previewIsThisMorning, tomorrowForecastDay } from './application/outfit-detail-state.ts';
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
-import { composeGarmentBoard } from '../../components/ui/garment-board/compose-garment-board.ts';
+import { composeGarmentBoard } from '../../garment-art/compose-garment-board.ts';
 
 const weatherReasons = [
   'Strong wind requires wind protection.',
@@ -79,7 +79,7 @@ test('the evening Later note uses the saved choice times in both languages', () 
   assert.equal(eveningLaterReadyLine(departure, now, 'en', false),
     'Your 19:00 outfit is ready at 18:00');
   assert.equal(eveningLaterReadyLine(departure, now, 'tr', false),
-    'Saat 19:00 kombinin, saat 18:00 itibarıyla hazır');
+    '19:00 için kombinin saat 18:00 itibarıyla hazır');
   assert.equal(eveningLaterReadyLine({ ...departure,
     updatedAt: '2026-08-13T14:00:00.000Z' }, now, 'en', false), null);
 });
@@ -929,14 +929,17 @@ test('the stage label reads temperature, condition, pieces and archetype in both
 // The suite runs in UTC, so these instants are the device's wall clock.
 test('the top-row date names the dressing day, not the calendar day, before 04:00', () => {
   const at = (iso, language = 'en') => loadedPresentation(todayScreenState, language, false, Date.parse(iso)).date;
-  const thursday = formatDressingDate('2026-09-24', 'en');
 
-  assert.match(thursday, /^Thu 24 Sep/);
-  assert.equal(at('2026-09-25T02:30:00.000Z'), thursday);
-  assert.equal(at('2026-09-25T02:30:00.000Z', 'tr'), formatDressingDate('2026-09-24', 'tr'));
-  assert.equal(at('2026-09-25T04:30:00.000Z'), formatDressingDate('2026-09-25', 'en'));
-  assert.match(at('2026-09-25T04:30:00.000Z'), /^Fri 25 Sep/);
-  assert.equal(at('2026-09-24T19:00:00.000Z'), thursday);
+  // Newer ICU abbreviates September to "Sept" in British English, older to "Sep".
+  assert.match(at('2026-09-25T02:30:00.000Z'), /^Thu 24 Sept?$/);
+  assert.equal(at('2026-09-25T02:30:00.000Z', 'tr'), '24 Eyl Per');
+  assert.match(at('2026-09-25T04:30:00.000Z'), /^Fri 25 Sept?$/);
+  assert.match(at('2026-09-24T19:00:00.000Z'), /^Thu 24 Sept?$/);
+});
+
+test('the dressing date reads in each language\'s own order: English weekday first, Turkish day first', () => {
+  assert.equal(formatDressingDate('2026-10-06', 'en'), 'Tue 6 Oct');
+  assert.equal(formatDressingDate('2026-10-06', 'tr'), '6 Eki Sal');
 });
 
 // Phase 7: a changed outfit is the reader's. Its title and "changed from"
@@ -1014,4 +1017,28 @@ test('a weather update that leaves the outfits alone hands each board the pieces
   assert.equal(warmer[0].boardPieces, before[0].boardPieces);
   assert.notEqual(warmer[0].palette, before[0].palette);
   assert.equal(warmer[0].palette.temperatureC, todayScreenState.snapshot.weather.current.temperatureCelsius + 9);
+});
+
+// The caption names the window's day only when the window starts on another calendar date
+// than now's, both read on the place's clock. A Crewe outfit chosen for 23:15 to 01:00 on
+// Monday 5 October, read from Istanbul (two hours ahead): before London's midnight the
+// window starts today; after it, the window started yesterday and the day is named.
+test('the coverage caption names the window day once the place clock has passed midnight', () => {
+  const hour = todayWeatherSnapshot.hourly[0];
+  const weather = { ...todayWeatherSnapshot, timeZone: 'Europe/London',
+    hourly: ['2026-10-05T22:00:00.000Z', '2026-10-05T23:00:00.000Z', '2026-10-06T00:00:00.000Z']
+      .map((forecastAt) => ({ ...hour, forecastAt })) };
+  const state = { ...todayScreenState, snapshot: { ...todayScreenState.snapshot, weather,
+    coverageStart: '2026-10-05T22:15:00.000Z', coverageEnd: '2026-10-06T00:00:00.000Z' } };
+  const caption = (now) => {
+    const presentation = createTodayPresentation(state, 'tr', false, 'celsius', Date.parse(now));
+    assert.equal(presentation.kind, 'loaded');
+    return presentation.coverageCaption;
+  };
+
+  // 01:54 in Istanbul is 23:54 in Crewe, still Monday there.
+  assert.equal(caption('2026-10-05T22:54:00.000Z'), '23:15 ile 01:00 arasındaki havaya göre seçildi.');
+  // 02:05 in Istanbul is 00:05 on Tuesday in Crewe.
+  assert.equal(caption('2026-10-05T23:05:00.000Z'),
+    '5 Ekim Pazartesi, 23:15 ile 01:00 arasındaki havaya göre seçildi.');
 });

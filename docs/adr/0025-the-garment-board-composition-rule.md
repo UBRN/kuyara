@@ -3,7 +3,7 @@
 Status: Accepted (2026-09-04)
 
 Implementation: the rule and both parameter presets live in
-`apps/mobile/src/components/ui/garment-board/`; Today and recommendation detail render
+`apps/mobile/src/garment-art/`; Today and recommendation detail render
 their respective presets. The rule's parameters, reference implementation and rendered
 evidence are described in
 [`design/garment-board.md`](../design/garment-board.md); this ADR records the decision
@@ -27,7 +27,8 @@ It recorded a second obstacle in the same list. Equal layout boxes do not produc
 perceived size, because silhouette paths fill different proportions of their viewBox:
 one fills 53% of its width and another 31%. Measured on the spike's own symbols, those
 are `g-long` at 0.531 and `g-trousers` at 0.312. The spike's two anchors were set to the
-same container width and did not read as a pair.
+same container width and did not read as a pair. A pair reads as one outfit when its
+drawings share one proportion grid and one scale, which section 1 decides.
 
 The recommendation composer emits five shapes of slot list, and no others: a body core
 that is either `primary_top` plus `bottom` or a lone `one_piece`, an optional
@@ -44,30 +45,45 @@ badges under the Today card instead.
 Adopt the composition rule specified in
 [`design/garment-board.md`](../design/garment-board.md). Its load-bearing choices:
 
-### 1. Artwork is sized by its own drawn bounds, never by its container
+### 1. Every piece is drawn at one shared scale, read from its own drawn bounds
 
 Every asset declares the extent of the mark itself: `getBBox()` for a silhouette, the
 alpha bounding box for the shipped category glyphs, the same measurement for any future
-illustration, catalogue image or Closet photograph. A piece's size is one number, the
-geometric mean of that box, and its width and height follow from the number and the
-artwork's own aspect ratio.
+illustration, catalogue image or Closet photograph. The board never reads a container.
+
+Every piece but the footwear is drawn at **one scale**, in stage width per drawing unit: the
+core's widest piece stands at its width cap and every other piece, the bottom and the layers
+included, takes the same scale. The top and the bottom therefore keep the proportion their
+drawings give them, as they lie on a table: a trouser or jean waist is narrower than the shirt
+above it, a knee skirt is shorter than trousers, shorts are short, and no bottom reads as a
+separate, larger object. The drawings carry the proportion, so every drawing is drawn on one
+proportion grid of the shared 64-unit viewBox, and artwork that replaces a drawing declares its
+bounds on that grid.
+
+Sizing each anchor to an equal drawn area is a red line: it drew every bottom 1.24 to 1.60 times
+larger per drawing unit than its top, so a jean waist stood a fifth wider than the shirt over it
+and the outfit no longer read as one.
 
 The metric is the **bounding box and not the ink**, deliberately. ADR 0021 §1 makes the
 silhouette a replaceable slot, and a line drawing replaced by a photograph gains roughly
 three times the ink at the same size. An ink-based metric would re-break every layout the
-first time the artwork improved. The cost is that the rule does not equalise perceived
-ink exactly; the residual is recorded in the consequences.
+first time the artwork improved.
 
 ### 2. A four-step ladder, with footwear as a stated exception
 
-Anchors 1.00, `outer_layer` 0.74, `mid_layer` 0.56, as multipliers on the core metric.
-**Footwear is sized on width**, at 0.58 of the core's drawn width, because shoe aspect
-ratios span 2.86 for a sneaker to 0.94 for an ankle boot and the metric flatters a wide
-flat shape. A shoe is recognised by the length of its profile.
+Anchors 1.00, `outer_layer` 0.95, `mid_layer` 0.90, as weights on the shared scale. A layer is
+drawn a notch under its own size, so the core stays the anchor while a coat over a shirt draws
+at least as wide as the shirt: a jacket is never drawn smaller than what it is worn over. The
+layers' widest piece is capped at 0.26 of the stage, which a layer reaches only over a narrow
+top. **Footwear stands on the shared scale at 0.36 of its drawn size**, because a shoe drawing is
+authored at 44/13 of its length on the garment grid, so the painting's fixed modelling reads on
+it. Read from the shoe's own drawing, never from the top's sleeves, a pair of low shoes stands
+0.71 of a woman's top's body wide and 0.74 of a man's, as a pair of shoes beside a folded shirt
+does, and a boot, as long as a shoe, stands at most 0.48 of the top's height.
 
 **A board draws its footwear as a pair**, the way a flat lay shows shoes: the near shoe
 whole, the far one behind it, 0.30 of a shoe's length toward the toe and raised so the pair
-stands exactly one shoe tall, each shoe 0.86 of the single shoe the width rule sizes, with
+stands exactly one shoe tall, each shoe 0.86 of the single shoe the shared scale sizes, with
 the near heel 0.04 of a shoe behind the single shoe's. The pair is about 1.12 single shoes
 wide and one tall, so its footprint stays near one shoe's. The composer reads the pair's
 drawn bounds, so its centroid, side margins, drawn extent and stage see the pair; both shoes
@@ -116,7 +132,8 @@ A one-piece look and a five-piece look cannot fill the same box. A dress tall en
 span a two-anchor core would be drawn 0.55 of the stage width, which no width cap allows,
 so a fixed stage yields either a squashed one-piece or an empty band. The stage height is
 therefore insets plus the composition's envelope, clamped to 0.66 to 1.14 times the stage
-width; an envelope too tall for the ceiling is scaled down once, uniformly, to fit it.
+width; an envelope too tall for the ceiling, or too wide for the side margins, is scaled down
+once, uniformly, to fit it.
 Today's primary stage fits its flat lay, trimmed to its drawn extent, to its band and is the
 fitted flat lay plus 52 points, within the same clamp
 ([`garment-board.md`](../design/garment-board.md) section 10).
@@ -136,22 +153,19 @@ stage width, clamped away from the edges. Placing by bounding box was tried and 
 on measurement: a two-piece dress-and-sandals board then put 4.8% of its ink in the right
 half, against 23.3% under centroid placement.
 
-### 6. The silhouette vocabulary covers the catalogue
+### 6. The silhouette vocabulary covers the catalogue, in each cut
 
-The outfit-eligible set includes `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`,
-`dress`, `jumpsuit` and `sandal` alongside the thirteen silhouettes established by the
-spike, and `parka`, `blazer`, `vest` and `flat` for the enlarged catalogue. With the eight
-Phase 6 drawings for `polo_shirt`, `turtleneck`, `blouse`, `bomber_jacket`,
-`leather_jacket`, `coat`, `loafers` and `rain_boots`, those thirty-four drawings cover all
-**41 outfit-eligible catalogue types**, with seven types sharing a drawing with another.
-`dress` and `jumpsuit` are required because a one-piece look cannot otherwise be drawn.
-
-`sandal` is the weakest of the nine and is explicitly accepted as redrawable during a
-later visual iteration rather than treated as a blocker.
+Every outfit-eligible catalogue type is drawn once for each cut it is worn in: 41 women's
+drawings and 33 men's, all 41 types for women and the 33 both catalogues carry for men, on one
+proportion grid. A piece is drawn in the cut of the profile's catalogue, never one drawing for
+both, and no drawing serves two types: the overshirt, sweatshirt, fleece, track pants, long
+skirt, knit dress and weather boot each have their own. A women's-only type keeps its women's
+drawing in the men's cut, so a piece recorded under the other gender is still drawn. `dress`
+and `jumpsuit` are required because a one-piece look cannot otherwise be drawn.
 
 Seven accessory silhouettes, `beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`, `gloves`
-and `umbrella`, serve the eight catalogue accessories (`neck_gaiter` shares `scarf`'s) and
-bring the implemented vocabulary to 41 drawings covering all 49 catalogue types. They are
+and `umbrella`, serve the eight catalogue accessories (`neck_gaiter` shares `scarf`'s) in
+both cuts, so 81 drawings cover all 49 catalogue types. They are
 drawn on the Closet and Profile surfaces, the recommendation detail (its finishing-touch rows
 and the "Add an accessory" picker, [ADR 0026](0026-the-recommendation-detail-surface.md)
 section 6) and Today badges. The garment board itself does not draw them, so taking an
@@ -171,20 +185,19 @@ with the six structural categories as its fallback tier. Both tiers use the silh
 idiom. The small raster class carries an optical stroke for 20-to-28-point use, while the
 large raster class uses the idiom-pure stroke above 32 points.
 
-The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather jacket, coat, loafer and rain boot drawings. Every drawing is a rich fashion illustration inside its single ink-edge outline, cut as the garment falls (rounded shoulders, tapering sleeves with a slight bend, curved hems, trouser legs with a slight break, skirts and dresses that flare into draped folds, notched lapels, hoods with depth, quilted baffles, shoes on a last with toe spring, a heel, a welt and a sole, and brims in perspective) and built with the construction each garment really has and modelled by one light from the upper left: a graded surface, a form that turns at every edge, the rim that catches the light, the shadow each overlying part casts, sewn seams, standing hardware, quilt valleys, the glint of leather, nylon and rubber, folds and the cloth's weave, every tone derived from the garment's own colour. Each drawing declares the drawn bounds of its outlines, which this rule reads and the modelling never crosses, and the four-step sizing ladder is retained. A runway board preset fits the composition to the free space while keeping that ladder and the worn placement.
+The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather jacket, coat, loafer and rain boot drawings. Every drawing is a rich fashion illustration inside its single ink-edge outline, cut as the garment falls (rounded shoulders, tapering sleeves with a slight bend, curved hems, trouser legs with a slight break, skirts and dresses that flare into draped folds, notched lapels, hoods with depth, quilted baffles, shoes on a last with toe spring, a heel, a welt and a sole, and brims in perspective) and built with the construction each garment really has and modelled by one light from the upper left: a graded surface, a form that turns at every edge, the rim that catches the light, the shadow each overlying part casts, sewn seams, standing hardware, quilt valleys, the glint of leather, nylon and rubber, folds and the cloth's weave, every tone derived from the garment's own colour. Each drawing declares the drawn bounds of its outlines, which this rule reads and the modelling never crosses, and the shared scale with its four-step ladder is retained. A runway board preset fits the composition to the free space while keeping that scale, that ladder and the worn placement.
 
 ## Consequences
 
 - **A slot list is now sufficient to draw a board.** Ten slot lists covering every shape
   the composer can emit were generated and audited. Clipping 0 and overlap 0 on all ten
-  worn boards (Today's flat lay keeps its own limits, garment-board.md section 10);
-  anchor parity by drawn area 1.000 on all ten, against 1.654 for the same board sized by
-  container width; weakest half 0.144 ink coverage, strongest 0.357.
-- **The ink-parity residual is the price of a style-invariant metric.** Within the
-  silhouette set the two anchors' ink differs by 1.00 to 1.42×, against 1.403× for the
-  container-sized board. The magnitude of the imbalance falls and its sign flips: the
-  rule leaves the bottom slightly inkier than the top where container sizing left the top
-  40% inkier than the bottom.
+  worn boards (Today's flat lay keeps its own limits, garment-board.md section 10), and
+  both anchors drawn at one scale on all ten.
+- **The anchors keep their real proportion, not equal weight.** On the cut drawings trousers
+  and jeans stand 1.30 to 1.59 of the top's height, a knee skirt 0.76, shorts 0.47 (women's)
+  and 0.63 (men's), and every bottom is narrower than the top over it. Because the core's
+  widest piece takes the cap, a narrow top (a women's tee, a tank) draws its whole outfit
+  larger, so a tall women's look reaches Today's band ceiling and is drawn smaller to fit.
 - **The six structural-category glyphs use the silhouette idiom.** Their 64-unit viewBox,
   1.9 stroke and round caps and joins put every glyph inside the silhouette set's ink
   range at 192 px; the worst pair among the six is 1.40× coverage and 1.37× box density.
@@ -206,8 +219,12 @@ The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather j
 
 ## Alternatives considered
 
+**Size each anchor to an equal drawn area.** Rejected: the bottom's drawing is narrower and
+taller than the top's, so equal area drew it 1.24 to 1.60 times larger per drawing unit than the
+top, and the bottom read as a separate, larger object instead of the bottom of that outfit.
+
 **Size by ink area instead of the bounding box.** It is the better proxy for perceived
-weight and would have driven the anchor ink residual toward 1.00. Rejected because it
+weight. Rejected because it
 couples the layout to the art style and breaks ADR 0021 §1's replaceability: the slot is
 meant to accept richer illustration, catalogue artwork or a user photograph without a
 redesign, and each of those changes the ink dramatically at identical size.

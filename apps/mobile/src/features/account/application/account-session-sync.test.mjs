@@ -129,3 +129,13 @@ test('a redundant given with no withdrawal after the joining one resumes and kee
   assert.equal(calls.some(([name]) => name === 'snapshot'), false);
   assert.deepEqual(calls.find(([name]) => name === 'pullFrom'), ['pullFrom', true]);
 });
+
+test('the phone has linked to an account once a first link with it finished, and stays so after sign-out', async () => {
+  const { sync } = setup();
+  assert.equal(await sync.hasLinked('user-a'), false);
+  await sync.run('user-a');
+  assert.equal(await sync.hasLinked('user-a'), true);
+  assert.equal(await sync.hasLinked('user-b'), false);
+  const signedOut = setup({ link: { ...unlinked, lastUserId: 'user-a', cursor: 'c1' } });
+  assert.equal(await signedOut.sync.hasLinked('user-a'), true);
+});

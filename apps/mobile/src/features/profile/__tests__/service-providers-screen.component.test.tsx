@@ -21,9 +21,6 @@ jest.mock('expo-symbols', () => ({
 }));
 
 jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 
 const checkedAt = '2026-08-29T12:34:00.000Z';
 // 18:05 UTC reads as "18:05" on a 24-hour device and "6:05 PM" on a 12-hour one.
@@ -209,7 +206,6 @@ describe.each(['en', 'tr'] as const)('%s Service providers screen', (language) =
     expect(overlay.props.accessibilityViewIsModal).toBe(true);
   });
 });
-
 
 test('shows the last recommendation generation mode', async () => {
   const { rendered } = screen('en', { lastGenerationMode: 'ai-assisted' });

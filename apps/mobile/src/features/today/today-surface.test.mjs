@@ -9,7 +9,6 @@ import {
   isFirstDressingDay,
   isGenerationRunning,
   isUpdatingOutfit,
-  manualRefreshOutcome,
   mayOpenDayQuestion,
   namePromptDue,
   pendingDayQuestion,
@@ -151,13 +150,6 @@ test('the outfit is settled only when nothing is about to replace or cover it', 
   ]) {
     assert.equal(todayOutfitSettled({ ...settled, ...unsettled }), false, JSON.stringify(Object.keys(unsettled)));
   }
-});
-
-test('a manual refresh reports what the weather kept', () => {
-  assert.equal(manualRefreshOutcome(readyWeather), 'success');
-  assert.equal(manualRefreshOutcome({ ...readyWeather, refreshFailure: 'offline' }), 'failure_kept_last_known');
-  assert.equal(manualRefreshOutcome({ ...readyWeather, refreshFailure: 'offline', snapshot: null }), 'failure_no_snapshot');
-  assert.equal(manualRefreshOutcome({ status: 'loading' }), 'failure_no_snapshot');
 });
 
 test('a retry succeeds only when both the weather and a recommendation stand', () => {

@@ -1,8 +1,8 @@
 import { Image } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
-import { layoutGarmentBoard } from '@/components/ui';
-import { resolveGarmentArtwork } from '@/components/ui/garment-slot-glyph';
+import { layoutGarmentBoard, useGarmentCut } from '@/garment-art';
+import { resolveGarmentArtwork } from '@/garment-art/garment-slot-glyph';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -29,7 +29,7 @@ export type GarmentBoardSkeletonProps = Readonly<{
 
 export function GarmentBoardSkeleton({ width, testID }: GarmentBoardSkeletonProps) {
   const theme = useKuyaraTheme();
-  const { boxes, height } = layoutGarmentBoard(SKELETON_PIECES, width, 'today');
+  const { boxes, height } = layoutGarmentBoard(SKELETON_PIECES, width, 'today', useGarmentCut());
   const pulse = useAmbientPulse();
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: pulse.get() * PLACEHOLDER_REST,

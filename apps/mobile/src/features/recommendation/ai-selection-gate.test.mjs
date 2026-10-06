@@ -18,13 +18,13 @@ import {
 } from '@kuyara/contracts';
 
 import { outfitMatchesArchetype, outfitOptionId } from './application/recommend-outfits.ts';
+import { mapWorkerAiRecommendation } from './application/ai-recommendation-mapping.ts';
+import { aiRequestFromContext } from './application/recommendation-context.ts';
+import { WorkerAiRecommendationMappingError } from './application/recommendation-mapping-error.ts';
 import {
-  aiRequestFromContext,
   mapStoredRecommendation,
-  mapWorkerAiRecommendation,
   toStoredRecommendationOutfits,
-  WorkerAiRecommendationMappingError,
-} from './data/worker-ai-recommendation-mapper.ts';
+} from './data/stored-recommendation-mapper.ts';
 import {
   aiRequestFor,
   gridOutfitCells,

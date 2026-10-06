@@ -19,10 +19,6 @@ import { PRIVACY_POLICY_URL } from '@/features/analytics/domain/privacy-policy';
 import { messages } from '@/localization/messages';
 import { layout } from '@/theme/theme';
 
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@expo/ui/community/bottom-sheet', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const { View } = jest.requireActual('react-native') as typeof import('react-native');

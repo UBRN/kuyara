@@ -8,9 +8,9 @@ import {
   layoutGarmentBoard,
   measureGarmentBoardHeight,
   type GarmentBoardPiece,
-} from '@/components/ui/garment-board/garment-board';
-import type { GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
-import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+} from '@/garment-art/garment-board';
+import type { GarmentOutfitPalette } from '@/garment-art/garment-palette';
+import { silhouettes } from '@/garment-art/silhouettes';
 import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/ui/icon';
 import { ListRow } from '@/components/ui/list-row';
@@ -19,7 +19,6 @@ import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { KuyaraThemeProvider } from '@/theme/theme-provider';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@/components/ui/haptics', () => ({ haptics: { impactLight: jest.fn() } }));
 
 // O13, ADR 0030 section 2: "Easier to see" enlarges the garment board by 1.3 with a 2.8 pt
@@ -49,7 +48,7 @@ type Rendered = Awaited<ReturnType<typeof render>>;
 
 /** The shirt's outline stroke width, in the drawing units the board paints it in. */
 function shirtOutlineWidth(result: Rendered): number {
-  const outline = silhouettes['g-shirt'].groups[0].outline;
+  const outline = silhouettes['g-shirt-f'].groups[0].outline;
   const [width] = result.container
     .queryAll((node) => node.props.d === outline && typeof node.props.strokeWidth === 'number'
       && node.props.strokeOpacity == null)
@@ -59,12 +58,12 @@ function shirtOutlineWidth(result: Rendered): number {
 
 describe.each(['today', 'detail'] as const)('the %s board', (preset) => {
   test('draws every piece 1.3 times larger with a 2.8 pt outline while Easier to see is on', async () => {
-    const offLayout = layoutGarmentBoard(pieces, 349, preset);
-    const onLayout = layoutGarmentBoard(pieces, 349, preset, true);
-    // Every piece grows by one ratio: 1.3, unless the board would pass the stage's ceiling,
-    // where the whole composition is scaled down until it fits (the detail's larger caps).
+    const offLayout = layoutGarmentBoard(pieces, 349, preset, 'womens');
+    const onLayout = layoutGarmentBoard(pieces, 349, preset, 'womens', true);
+    // Every piece grows by one ratio, 1.3: this look stays under the stage's ceiling on both
+    // presets (a taller one is scaled down until it fits, compose-garment-board.test).
     const growth = onLayout.boxes[0].width / offLayout.boxes[0].width;
-    expect(growth).toBeCloseTo(preset === 'today' ? 1.3 : 1.219, 3);
+    expect(growth).toBeCloseTo(1.3, 3);
     onLayout.boxes.forEach((box, index) => {
       expect(box.width / offLayout.boxes[index].width).toBeCloseTo(growth, 5);
       expect(box.height / offLayout.boxes[index].height).toBeCloseTo(growth, 5);
@@ -81,7 +80,7 @@ describe.each(['today', 'detail'] as const)('the %s board', (preset) => {
     // A stroke is authored in points and divided by the drawing's own scale, so the ratio
     // of the drawn widths is the ratio of the outlines over the ratio of the scales.
     expect(shirtOutlineWidth(on) / offWidth).toBeCloseTo((2.8 / 1.9) / growth, 5);
-    expect(on.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, preset, false, true));
+    expect(on.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, preset, 'womens', false, true));
   });
 });
 

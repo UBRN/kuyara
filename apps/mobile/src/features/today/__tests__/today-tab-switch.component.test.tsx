@@ -13,11 +13,6 @@ import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-
 // A tab switch is a blur followed by a focus, and the router tells the screen about both
 // without re-rendering it. This mock delivers exactly those two events, so a re-render that
 // follows is one the screen caused itself.
@@ -46,9 +41,9 @@ jest.mock('expo-router', () => {
 // The board is the loaded screen's heaviest child and takes fresh props whenever the screen
 // renders, so its render count is the screen's render count as far as a tab switch goes.
 let mockBoardRenders = 0;
-jest.mock('@/components/ui/garment-board/garment-board', () => {
-  const actual = jest.requireActual('@/components/ui/garment-board/garment-board') as
-    typeof import('@/components/ui/garment-board/garment-board');
+jest.mock('@/garment-art/garment-board', () => {
+  const actual = jest.requireActual('@/garment-art/garment-board') as
+    typeof import('@/garment-art/garment-board');
   return {
     ...actual,
     GarmentBoard: (props: Parameters<typeof actual.GarmentBoard>[0]) => {

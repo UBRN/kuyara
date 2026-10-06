@@ -1,14 +1,14 @@
 # Analytics event and property taxonomy
 
-Status: draft, revised 2026-09-09 after the second independent review. Implements
+Status: implemented; the code catalog matches this taxonomy. Implements
 milestone 8 ("Analytics, and what it makes a release prerequisite") from
 `docs/current-status.md`.
 
 This document is the reviewable artifact named by
 [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md), section 6: "the event
 and property schema is reviewed on its own before the PostHog integration is written."
-Nothing in this file installs an SDK, calls a provider, or emits an event. It is a design
-document only.
+This file is the contract the implemented `ProductAnalytics` boundary follows; the typed
+catalog is `apps/mobile/src/features/analytics/domain/analytics-events.ts`.
 
 Source of truth for the rules this taxonomy follows:
 
@@ -89,8 +89,9 @@ fresh install. A decline sends
 nothing at all, not even a "declined" event (see section 5.14). Nothing in this taxonomy
 overrides that gate.
 
-**Open, not decided here:** whether and how to link this anonymous identity to a future
-authenticated profile once accounts exist. See open question 1.
+**Accounts do not change the identity.** The anonymous identity is never linked to an
+account ([ADR 0041](adr/0041-optional-accounts.md) section 12); `identify()` stays uncalled
+and the Supabase user ID is never an analytics identifier.
 
 ## 3. Coarse age bucket and dress style: the only profile-derived properties, kept
 
@@ -161,9 +162,7 @@ surface became part of milestone 10 under ADR 0033.
 
 Every custom event sent through the `ProductAnalytics` boundary carries `schema_version`
 (integer). It is incremented when an existing event's properties change meaning or an
-allowed value set changes. Version 3 is the
-notification work: `setting_name` gained `morning_briefing_enabled` and `notification_opened`
-gained a required `kind`. The SDK-supplied app
+allowed value set changes. The current version is 3. The SDK-supplied app
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
@@ -255,17 +254,16 @@ to keep coverage of "every screen" proportionate in event count.
 | --- | --- | --- |
 | `screen_viewed` | A tracked screen gains focus. | `screen_name`: `onboarding`, `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `settings`, `settings_appearance`, `settings_language`, `settings_notifications`, `settings_gender`, `settings_dress_style`, `settings_birth_date`, `settings_ai_status`, `settings_privacy`, `analytics_consent_sheet` |
 
-The implemented values mirror routes that exist, except `settings_privacy`, which is the
-required milestone 10 Privacy surface and remains provisional until that route is added.
-`closet_item_detail` was removed from the first draft because there is no Closet detail
-screen: the grid's tile opens the edit form directly, so `closet_item_form` covers both the
+The implemented values mirror routes that exist, including `settings_privacy`, which is the
+Privacy surface under Settings. There is no `closet_item_detail` value because there is no
+Closet detail screen: the grid's tile opens the edit form directly, so
+`closet_item_form` covers both the
 new and edit routes. Adding a route means adding a value here, not inventing an ad hoc name
 at the call site.
 
 The `onboarding` screen value covers the whole onboarding flow. The consent surface is shown on
 Today after the first recommendation has rendered, so `screen_name` also carries
-`analytics_consent_sheet`; like `settings_privacy` it is provisional only in the sense that
-its route lands with milestone 10.
+`analytics_consent_sheet`; its route is `analytics-consent`.
 
 **Product questions answered.**
 
@@ -303,9 +301,9 @@ The mapping is total and stated here so it cannot drift:
 | `snow` | `sleet`, `snow` |
 | `storm` | `thunderstorm` |
 
-The first draft also listed `extreme` and `unknown`. Neither exists: no code maps to
-`extreme`, and a failed refresh carries no new condition at all, which is why the property
-is omitted for both failure results. A new condition code extends the contract and this
+There is no `extreme` or `unknown` category: a failed refresh carries no new condition,
+which is why the property is omitted for both failure results. A new condition code
+extends the contract and this
 table in the same change.
 
 **Product questions answered.**
@@ -399,7 +397,7 @@ Opening detail is an impression of interest. Logging a worn outfit emits no new 
 | `manual_refresh_triggered` | The user pulls to refresh, or taps a refresh control, on Today, Weather, or the Closet list. | `surface` (`today`\|`weather`\|`closet`), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`) | none, this action is user-paced |
 | `retry_after_failure_triggered` | The user retries after a shown failure state. | `surface` (`today`\|`weather`\|`closet`), `attempt_number` (`1`\|`2`\|`3`\|`4`\|`5+`), `result` (`success`\|`failure`) | See section 6 for the UI retry counter and cap. |
 
-`closet` was missing from the first draft's `surface` enum: the Closet grid has its own
+`closet` is a `surface` value because the Closet grid has its own
 pull to refresh (`features/wardrobe/presentation/wardrobe-list-screen.tsx`). It is also the
 one surface where the pull gesture and the failure-state retry button share a single
 handler (`onRetry`), so the two events must be distinguished at the call site by which
@@ -440,7 +438,7 @@ Closet refresh starts from an already loaded list and keeps that list on failure
 (`apps/mobile/src/features/wardrobe/application/wardrobe-form.ts:32-43`). The event reports
 **which categories changed, never any value**: `name` is free text and its content may
 never leave the device (section 4), and neither color nor override values are sent. Whether
-the `name` and `color_family` flags are worth carrying at all is open question 2.
+the `name` and `color_family` flags are worth carrying at all is decided in section 8: both are kept.
 
 `entry_point` is on `closet_item_updated` because ownership also changes outside the
 Closet: outfit detail's ownership control creates or updates a Closet entry directly, so an
@@ -465,11 +463,12 @@ Closet screen views are covered by `screen_viewed` (5.3), not a separate event.
 | `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`notifications_enabled`\|`morning_briefing_enabled`\|`dress_style`\|`gender`\|`birth_date`), `new_value` (present only for `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `notifications_enabled` and `morning_briefing_enabled`: boolean; `dress_style`: section 3; absent for `gender` and `birth_date`, since neither value is an allowed analytics property) |
 | `ai_probe_triggered` | The user triggers the AI status probe on Settings > Service providers. | `result` (`ok`\|`unavailable`\|`rate_limited`\|`error`) |
 
-`ai_probe_triggered` lost two properties the code cannot supply. `probe_type` is gone
-because there is exactly one user-triggerable probe: Service providers' single check
+`ai_probe_triggered` carries only `result`. There is no `probe_type` because there is
+exactly one user-triggerable probe: Service providers' single check
 action (`features/recommendation/application/use-ai-probe.ts`). Configuration readiness is
 not a probe, it is a local boolean computed from whether a Worker base URL is configured,
-and it fires no request and no event. `cached` is gone because the Worker's probe response
+and it fires no request and no event. There is no `cached` flag because the Worker's
+probe response
 body is `{ status, checkedAt }` (`apps/worker/src/ai/probe-handler.ts`); the cache is
 server-side and the client cannot tell a cached answer from a fresh one, so the flag could
 only ever have been guessed. `result` now carries the four states the UI actually reaches
@@ -507,23 +506,11 @@ own transition time. This preserves causal ordering even when transport batches 
 events. Once a pair is finalised by recovery, later failures for that pair in the same
 session do not emit or change its count.
 
-**`failure_category` needs a classification that does not exist yet.** No shared failure
-taxonomy exists in the app today. The only classification is `WeatherRefreshFailure`
-(`offline` | `unavailable` | `rate-limited`, in
-`features/weather/application/weather-application-controller.ts`), and the screens above it
-throw that detail away: Today and outfit detail collapse every failure, including a null
-snapshot and a null recommendation, into one `unavailable` screen state. Emitting the
-eight-value enum the first draft listed would mean inventing values no call site can
-produce.
-
-So `failure_category` is defined as the `snake_case` form of a shared domain failure
-classification whose first version is exactly the four values today's code can distinguish:
-`offline`, `unavailable`, `rate_limited`, `unknown`. **Introducing that classification, and
-mapping the weather, recommendation, and Closet failure paths onto it, is a prerequisite of
-milestone 10**, not part of the analytics integration itself; without it `error_shown` can
-only report `unknown` and answers nothing. Widening it (a timeout, a validation failure, a
-storage error) extends the domain type and this enum in the same change and bumps
-`schema_version`.
+**`failure_category` is the `snake_case` form of the shared domain `FailureCategory`**
+(`offline`, `unavailable`, `rate-limited`, `unknown`, in
+`apps/mobile/src/domain/failure-category.ts`), mapped by the weather, recommendation and
+Closet application layers. Widening it (a timeout, a validation failure, a storage error)
+extends the domain type and this enum in the same change and bumps `schema_version`.
 
 Never the provider name, model identity, raw error message, or stack trace, per the
 existing "sanitized errors" and "never expose provider names" rules.
@@ -694,17 +681,13 @@ order are: sample `screen_viewed`, then turn off lifecycle autocapture and keep 
 opened event. Neither breaks the onboarding funnel, the recommendation questions, or the
 failure analysis, which are the reasons this taxonomy exists.
 
-## 8. Open questions
+## 8. Decisions
 
-One question remains open. Everything else has been answered and the answers are in the
-sections above; the three decisions taken on 2026-09-09 are recorded below the list.
+No question remains open. Identity linking is decided by
+[ADR 0041](adr/0041-optional-accounts.md) section 12: PostHog is never linked to an account,
+`identify()` is never called, and analytics stays on its install identifier.
 
-1. **Identity linking at account creation.** Section 2 decides an anonymous identity is
-   needed now, but not whether or how to link it to an authenticated profile once accounts
-   exist. ADR 0033 section 7 settles the current App Privacy linkage; linking to a future
-   account is a separate question. ADR 0022's accounts are milestone 15 work, so this needs
-   a decision when Supabase Auth work starts, not before.
-Decided 2026-09-09:
+Decisions in force:
 
 - **`name` and `color_family` edit flags: kept.** Section 5.8 keeps both as category flags
   on `fields_changed`, values never sent.
@@ -724,8 +707,8 @@ Answered elsewhere, kept here as pointers:
 
 - **Consent behavior, revocation, and deletion.** Decided by ADR 0033 sections 3 and 4,
   placement decided above. See section 2 for the gate and section 5.14 for the events.
-- **`age_bucket` under 18.** Decided 2026-09-09: a distinct `under_18` bucket, section 3.
-- **The `error_shown` window, cap, and ordering.** Decided 2026-09-09: one event per
+- **`age_bucket` under 18.** Decided: a distinct `under_18` bucket, section 3.
+- **The `error_shown` window, cap, and ordering.** Decided: one event per
   `(surface, failure_category)` per session, `occurrence_count` capped at `5+`, and the
   buffered failure emitted before recovery or the background lifecycle event. Section 5.10.
 - **Session replay and Error Tracking.** Held by ADR 0023 sections 8 and 9 and by

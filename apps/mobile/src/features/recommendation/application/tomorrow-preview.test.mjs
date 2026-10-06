@@ -9,18 +9,20 @@ import {
   reusablePreviewRecommendation,
 } from './tomorrow-preview.ts';
 import { RecommendationApplicationController } from './recommendation-application-controller.ts';
+import { mapWorkerAiRecommendation } from './ai-recommendation-mapping.ts';
 import {
   aiRequestFromContext,
   createRecommendationContextWithPool,
-  mapWorkerAiRecommendation,
-} from '../data/worker-ai-recommendation-mapper.ts';
+} from './recommendation-context.ts';
+import { getDeviceTimeZone } from '../../../domain/intl-format.ts';
 import { localDayKey, localDayKind, localDayVariant, nextMorningAfterEvening } from '../domain/local-day.ts';
 
-// The place's zone is UTC, and the evening is 19:00 on the device's own clock, so the dressing
-// day key is the evening's under any device zone; the weather fixtures read in the place's zone.
+// The evening is 19:00 on the device's own clock and the place keeps the device's zone, so the
+// dressing day key and the weather window read the same hours under any device zone.
+const deviceZone = getDeviceTimeZone();
 const profileId = 'profile-one';
 const evening = new Date(2026, 9, 1, 19).toISOString();
-const morning = nextMorningAfterEvening(localDayKey(new Date(evening)), 'UTC', evening);
+const morning = nextMorningAfterEvening(localDayKey(new Date(evening)));
 const tomorrowKey = localDayKey(morning);
 
 function hour(at, temperatureCelsius, condition = 'clear') {
@@ -43,7 +45,7 @@ function weather({ id = 'weather-evening', observedAt = evening, hours = 36, tem
     id,
     localProfileId: profileId,
     locationKey,
-    timeZone: 'UTC',
+    timeZone: deviceZone,
     fetchedAt: observedAt,
     origin: { kind: 'sample', sourceId: 'preview-test' },
     current: hour({ observedAt }, temperature),

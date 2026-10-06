@@ -33,9 +33,9 @@
 
 .ku-hero { padding-block: var(--ku-space-xl) var(--ku-space-md); }
 
-.ku-hero__inner { display: grid; gap: var(--ku-space-md); justify-items: start; }
-.ku-hero__inner h1,
-.ku-hero__inner p { margin: 0; }
+.ku-hero__words { display: grid; gap: var(--ku-space-md); justify-items: start; }
+.ku-hero__words h1,
+.ku-hero__words p { margin: 0; }
 .ku-hero__line { max-width: 30em; color: var(--ku-text-secondary); }
 
 .ku-badge { display: inline-flex; align-self: start; padding: 13px 0; }
@@ -44,8 +44,18 @@
 .ku-hero__cta { display: grid; gap: var(--ku-space-xs); justify-items: start; }
 .ku-hero__cta p { margin: 0; color: var(--ku-text-secondary); }
 
+/* The hero's look shows from 960 pixels, beside the words. */
+.ku-hero__art { display: none; }
+
 @media (min-width: 960px) {
   .ku-hero { padding-block: calc(2 * var(--ku-space-2xl)) 0; }
+  .ku-hero__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: calc(2 * var(--ku-space-2xl));
+    align-items: center;
+  }
+  .ku-hero__art { display: block; width: 100%; max-width: 380px; justify-self: end; }
 }
 
 /* ------------------------------------------------------------------- scenes */
@@ -156,8 +166,8 @@
  * linear(). Without linear() or without the script the boards simply stand.
  */
 @supports (animation-timing-function: linear(0, 1)) {
-  .ku-scenes-live .ku-piece { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; }
-  .ku-scenes-live .ku-scene.is-in .ku-piece {
+  .ku-scenes-live [data-particles] .ku-piece { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; }
+  .ku-scenes-live [data-particles].is-in .ku-piece {
     opacity: 1;
     animation:
       ku-land 550ms linear(0, 0.047, 0.163, 0.312, 0.469, 0.619, 0.75, 0.857, 0.939, 0.998, 1.037, 1.058, 1.067, 1.067, 1.061, 1.052, 1.041, 1.031, 1.021, 1.013, 1.007, 1.002, 0.999, 0.997, 0.996, 0.995, 0.996, 0.996, 0.997, 0.998, 0.998, 0.999, 1) backwards,

@@ -3,7 +3,8 @@
 Status: **accepted**, 2026-09-04, by
 [ADR 0025](../adr/0025-the-garment-board-composition-rule.md). That ADR records the
 decision, its alternatives and its consequences; this file is the specification, and is
-where the parameters and the silhouette set live.
+where the parameters and the silhouette set live. The renderer, the silhouettes and the
+palette resolvers live in `apps/mobile/src/garment-art/`.
 
 [ADR 0026](../adr/0026-the-recommendation-detail-surface.md) adds a second parameter set
 to it, in section 9, without changing the rule.
@@ -33,11 +34,7 @@ covers all of them.
 **Units.** Every number below is a fraction of the stage's width. The stage's height is
 derived, not given.
 
-## 1. Size comes from the drawing's own bounds
-
-ADR 0021 recorded that the spike's anchors were set to the same box width and still
-did not read as a pair, because one path fills 53% of its viewBox and another 31%. That
-is `g-long` at 0.531 and `g-trousers` at 0.312, measured.
+## 1. One scale, read from the drawing's own bounds
 
 Every piece of artwork declares its **drawn bounds**: the extent of the mark itself, not
 its container. For an SVG silhouette that is `getBBox()`; for the shipped PNG glyphs it
@@ -45,43 +42,56 @@ is the alpha bounding box; for a future illustration, catalogue image or Closet
 photograph it is the same measurement of the same kind. The composition consumes only
 that box.
 
-A piece's size is one number, its **metric**:
+Every piece but the footwear is drawn at **one scale** `k`, in stage width per drawing unit.
+The core's widest piece stands at its width cap and every other piece takes the same scale:
 
 ```
-m = sqrt(drawnWidth × drawnHeight)
+k = cap / max(drawnWidth of the core's pieces)
+w = weight × k × drawnWidth
+h = weight × k × drawnHeight
 ```
 
-and its box follows from the metric and its own aspect:
+with the weight 1.00 for the core and the ladder's for a layer (section 2). The top and the
+bottom keep the proportion their drawings give them, as they lie on a table: a trouser or jean
+waist narrower than the shirt above it, a knee skirt shorter than trousers, shorts short. The
+**core metric**, the top's (or the one-piece's) drawn box as `sqrt(w × h)`, measures the gaps.
 
-```
-w = m × sqrt(drawnWidth / drawnHeight)
-h = m × sqrt(drawnHeight / drawnWidth)
-```
+So the drawings carry the proportion. Every drawing is drawn on one proportion grid of the
+shared 64-unit viewBox, and artwork that replaces a drawing declares its bounds on that grid.
+Sizing each anchor to an equal drawn area is a red line: it drew every bottom 1.24 to 1.60 times
+larger per drawing unit than its top, a jean waist a fifth wider than the shirt over it.
 
 **Why the bounding box and not the ink.** Ink area is the better proxy for perceived
 weight, and it is the wrong metric here. ADR 0021 §1 makes the silhouette a replaceable
 slot: the same slot may later hold a filled illustration or a photograph. A line drawing
 replaced by a solid photograph gains roughly three times the ink at the same size, so an
 ink-based metric would re-break every layout the first time the artwork improved. The
-bounding box is invariant to art style. The cost is stated in *What was checked*.
+bounding box is invariant to art style.
 
 ## 2. The ladder
 
-Slot weights, as multipliers on the core metric:
+Slot weights on the shared scale:
 
 | slot | weight |
 | --- | --- |
 | `primary_top`, `bottom`, `one_piece` | 1.00 |
-| `outer_layer` | 0.74 |
-| `mid_layer` | 0.56 |
+| `outer_layer` | 0.95 |
+| `mid_layer` | 0.90 |
 
-**Footwear is the exception and is sized on width**, at 0.58 of the core's drawn width.
-Shoe aspect ratios span 2.86 for a sneaker to 0.94 for an ankle boot, and the metric
-flatters a wide flat shape: under the metric a sandal would be drawn almost as wide as
-the dress beside it. A shoe is recognised by the length of its profile, so width is what
-the rule holds constant.
+A layer is drawn a notch under its own size, so the core stays the anchor while a coat over a
+shirt draws at least as wide as the shirt (1.07 to 1.11 of it on the cut drawings; a rain
+jacket over a sweater 1.00, a puffer over a turtleneck 1.01 to 1.10). The layers and the
+footwear share one rail cap, 0.26 of the stage, which a layer reaches only over a narrow top.
 
-**A board draws its footwear as a pair**, the way a flat lay shows shoes. The width rule
+**Footwear stands on the shared scale at 0.36 of its drawn size.** A shoe drawing is authored at
+44/13 of its length on the garment grid (section 8), so the painting's fixed modelling reads on
+it; at 0.36 a pair of low shoes stands 0.71 of a woman's top's body wide (the grid's 22 units)
+and 0.74 of a man's (24), as a pair of shoes beside a folded shirt does. The size is read from
+the shoe's own drawing, never from the top's drawn width, so a top whose sleeves hang at its
+sides does not shrink the shoes, and a boot, as long as a shoe, stands at most 0.48 of the
+top's height.
+
+**A board draws its footwear as a pair**, the way a flat lay shows shoes. The shared scale
 sizes the single shoe; the pair is drawn in that shoe's box:
 
 - each shoe is **0.86** of the single shoe;
@@ -155,11 +165,14 @@ fixed stage produces either a squashed dress or an empty band.
 
 The stage height is therefore derived, insets plus the envelope, and clamped to
 **0.66 to 1.14** times the stage width. Across the ten evidence boards it takes values
-from 0.680 to 1.135. Today's primary stage replaces the insets with a fit to its band and
-is the fitted flat lay plus its vertical margin, within the same clamp (section 10).
-An envelope taller than the clamp's ceiling allows, which only Easier to see's larger caps
-on the detail reach, is scaled down once, uniformly, until it fits, so no piece leaves the
-stage; every board without Easier to see is untouched by it.
+from 0.660 to 0.821 on Today's worn board and 0.660 to 1.002 on the detail. Today's primary
+stage replaces the insets with a fit to its band and is the fitted flat lay plus its vertical
+margin, within the same clamp (section 10).
+An envelope taller than the clamp's ceiling allows, or wider than the side minimum allows, is
+scaled down once, uniformly, until it fits, so no piece leaves the stage. Easier to see's larger
+caps reach it, and so do the detail's tallest layered looks without it. Across every combination of a core, no or any outer layer, no or a knit mid
+layer and three shoes in both cuts (14,058 boards on each of Today's and the detail's presets,
+with Easier to see off and on), no board clips and no two pieces touch.
 Today's copy below the stage moves with it.
 
 The two insets are the tint's own margin around the composition and are not board
@@ -183,11 +196,11 @@ Every value, in stage-width units unless marked otherwise.
 
 | name | value | what it does |
 | --- | --- | --- |
-| anchor / outer / mid weight | 1.00 / 0.74 / 0.56 | the ladder, × core metric |
-| footwear width | 0.58 | × the core's drawn width |
+| anchor / outer / mid weight | 1.00 / 0.95 / 0.90 | the ladder, × the shared scale (section 1) |
+| footwear scale | 0.36 | × the shared scale, on the shoe's own drawn size (section 2) |
 | core width cap | 0.235 | two-anchor core |
 | solo width cap | 0.300 | a lone `one_piece` |
-| rail width cap | 0.170 | the widest of the layers and the footwear; they share one scale |
+| rail width cap | 0.260 | the widest of the layers and the footwear; they share one scale |
 | footwear pair | 0.86 / 0.30 / 0.04 | each shoe × the single shoe / the far shoe toward the toe / the near heel back, × a shoe's length (section 2) |
 | clearance | 0.05 / 0.10 / 0.06 | the waist × the top's height / the rail × the narrowest core width / the footwear × its own height (section 3) |
 | rail gap | 0.10 | × core metric |
@@ -198,7 +211,10 @@ Every value, in stage-width units unless marked otherwise.
 
 ## 8. The silhouette set
 
-Thirty-four garment drawings, one 64×64 viewBox each, painted as rich fashion
+Every catalogue garment is drawn once for each cut it is worn in: 41 women's drawings (`-f`)
+and 33 men's (`-m`), one 64×64 viewBox each, on one proportion grid (a man's top 24 units wide
+and 34 long, a woman's 22 at the bust, 19 at the waist and 31 long; trousers 47 and 45 long),
+painted as rich fashion
 illustrations in the manner of an illustrated fashion catalogue: each drawing is a list of
 outlines filled with the piece's own palette colours and edged in one 1.9-point ink stroke,
 with shade planes, folds, highlights, seams, stitches and hardware clipped inside them
@@ -213,8 +229,8 @@ buckled cuff straps); a lined hood with a crown seam, eyelets and drawcords on t
 a fur ruff on the parka and a peaked brim on the rain jacket; baffles that bulge between
 quilt seams on the puffer and vest; rib collars, cuffs and hem bands on the bomber, polo and
 knits, with the turtleneck's folded roll neck; the biker jacket's diagonal zip, studded
-lapels and belt; the jumpsuit's placket and tie belt; the Chelsea boot's gusset and pull
-tab, the rain boot's lugged sole, the sandal's contoured cork footbed and buckled straps, the
+lapels and belt; the jumpsuit's placket and tie belt; the men's Chelsea boot's gusset and
+pull tab and the women's zipped, block-heeled ankle boot, the rain boot's lugged sole, the sandal's contoured cork footbed and buckled straps, the
 ballet flat's bow; a beanie's converging rib and folded cuff, a fedora's dented crown and
 band, a six-panel cap with its button and stitched peak, a balaclava's bound face opening,
 a draped scarf with its fringe, a pair of gloves with points and fourchettes, and an
@@ -235,21 +251,25 @@ on suiting, a cross-weave on straw. Every tone is the piece's own (its light, sh
 shade, highlight and glint, or its material's), and every translucent layer lies inside the
 drawing over its own opaque fill, so nothing behind the garment shows through and no light
 or shadow crosses the ink edge. A pattern or the multicolour family fill keeps its own paint
-and takes the same modelling over it. Each drawing stays within 100 vector elements at full
-detail (about 61 on average), so a Closet grid or a swap strip of many drawings stays
-light. The drawn bounds the rule reads are measured from the outlines, which the modelling
-never crosses. They cover all **41 outfit-eligible catalogue types**; seven
-types share a drawing with another (`overshirt` with `shirt`; `sweatshirt`, `fleece` with
-`sweater`; `long_skirt` with `skirt`; `track_pants` with `trousers`; `knit_dress` with
-`dress`; `weather_boots` with `ankle_boots`). `polo_shirt`, `turtleneck`, `blouse`,
-`bomber_jacket`, `leather_jacket`, `coat`, `loafers` and `rain_boots` have their own
-Phase 6 drawings.
+and takes the same modelling over it. Each drawing stays within 130 vector elements at full
+detail (about 64 on average; the women's trench, at 127, is the heaviest), so a Closet grid or a
+swap strip of many drawings stays light. The drawn bounds the rule reads are measured from the
+outlines, which the modelling never crosses. They cover all **41 outfit-eligible catalogue
+types** in each cut, and no drawing serves two types: the overshirt, sweatshirt, fleece, track
+pants, long skirt, knit dress and weather boot have their own. The cut is read from the
+garment, never from a body: a man's piece has straight side seams, a shoulder line wider than
+its hem, a longer straight hem, a larger collar and lapel and a placket lapping to the viewer's
+right, and a wider last on a flat, chunky sole; a woman's is shaped at the waist, narrower at
+the shoulder, shorter, with a softer collar or open neckline, a curved shirttail hem, slimmer
+sleeves and a placket lapping to the viewer's left, a higher rise and a narrower waist over the
+hip, and a slimmer last with an almond toe and a small block heel. Footwear is authored at the
+shoes' own size, 44/13 of their grid length (one shoe 44 units long for a man, 38.9 for a
+woman); a board draws the pair at 0.36 of that size on the shared scale (section 2).
 
-Thirteen entered with the Direction E spike. Nine entered with the MVP
-vocabulary: `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`, `dress`, `jumpsuit`,
-`sandal`. Without `dress` and `jumpsuit` a one-piece look cannot be drawn at all, which is
-why the set could not be left as it was. Four cover the enlarged catalogue: `parka`,
-`blazer`, `vest`, `flat`.
+Fifteen earlier drawings draw no catalogue type and nothing draws them; the public site draws
+its boards in the cut drawings: `g-tee`, `g-shirt`,
+`g-sweater`, `g-hoodie`, `g-cardigan`, `g-jacket`, `g-rain`, `g-trousers`, `g-jeans`,
+`g-shorts`, `g-dress`, `g-sneaker`, `g-boot`, `g-dressshoe` and `x-loafer`.
 
 The eight catalogue accessories (`beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`,
 `neck_gaiter`, `gloves`, `umbrella`) carry seven further drawings, `neck_gaiter` sharing
@@ -258,6 +278,16 @@ Today's finishing-touches caption. The garment board's fixed geometry does not d
 At that caption's 16 points each drawing is cropped to its own artwork and its stroke
 scales with it, 1.9 × size / 28 or about 1.1 points, because a fixed 1.9 would fill a
 16-point drawing solid.
+
+**Cut.** A piece is drawn in the cut of the profile's catalogue: the silhouette map holds one
+drawing per type for `womens` and one for `mens` (`garment-silhouette-map.ts`), and the board,
+every tile and the Closet rack read the profile's cut from one context mounted at the app's
+root. Onboarding draws its preview and each gender answer in the cut that answer chooses, and
+`womens`, its first answer, before one is chosen. A cut's own drawing is named `<base>-f` or
+`<base>-m` and is coloured from its base's colourway, so a type takes the same colours in both
+cuts. Every type both catalogues carry resolves to a women's and a men's drawing; a
+women's-only type keeps its women's drawing in the men's cut, so a piece recorded under the
+other gender is still drawn. The accessories keep one drawing in both cuts.
 
 **Fallback.** A garment with no silhouette falls back to its structural category and is
 composed by the identical rule, with its drawn bounds measured from the artwork's alpha
@@ -279,7 +309,7 @@ as buttons, never on it, and its pieces stand apart exactly as the worn board's 
 | parameter | Today | detail |
 | --- | --- | --- |
 | board | worn, no piece touching; primary stage: the flat lay (section 10) | worn, no piece touching |
-| core / solo / rail width cap | 0.235 / 0.300 / 0.170 | × 1.25: 0.294 / 0.375 / 0.2125 |
+| core / solo / rail width cap | 0.235 / 0.300 / 0.260 | × 1.25: 0.294 / 0.375 / 0.325 |
 | top / bottom inset | 0.045 / 0.055, alternates | 0.045 / 0.055 |
 | fit to the stage | primary stage: the band, side 24 pt, vertical 52 pt, core at most 168 pt (section 10) | none |
 | stage height | primary stage: fitted flat lay + 52 pt; alternates: insets + envelope; both 0.66 to 1.14 | insets + envelope, 0.66 to 1.14 |
@@ -360,15 +390,19 @@ in a straight line toward where it ends:
 | footwear | 0.30 of its width over the lowest hem's edge, standing 0.90 of its height above it: on the right, or on the bottom's left when the bottom lies beside the top |
 
 The crossings run in that order. Each is tried at whole twentieths from full to none and stops
-at the first that keeps both limits over every piece placed so far:
+at the first that keeps both limits over every piece placed so far. A crossing that stops at
+none leaves its pieces at the worn board's place, which a piece crossed before may cover; when
+the finished flat lay breaks a limit, the outfit is laid again with every crossing also keeping
+the limits over the pieces still at their worn place, so stopping at none touches nothing:
 
 - **Cover.** The pieces in front of a piece cover at most **0.30** of its drawn box.
 - **Structure points.** No piece in front covers a collar, a waist or a sleeve end, so a collar,
   a waist, a sleeve and a sole stay whole where the outfit is read by them. The collar is the
   top of the outline within 0.10 of the drawing's width from its centre; the waist is the same
   point on a bottom, the top of its waistband; a sleeve ends at the outline's lowest point in
-  the outer 0.15 of the drawing's width on each side (a one-piece's within its upper half, so a
-  flared hem is not taken for a sleeve). The footwear lies in front of every piece, so a sole is
+  the outer 0.10 of the drawing's width on each side (a one-piece's within its upper half, so a
+  flared hem is not taken for a sleeve; the narrow band keeps a short sleeve's end, not the
+  corner of a hem as wide as the shoulders). The footwear lies in front of every piece, so a sole is
   never covered.
 
 Drawn boxes stand in for the ink in both limits. For the structure points that is exact: a
@@ -382,15 +416,19 @@ off each screen edge, 26 above and below, and the core's widest piece never wide
 **168 points**, × 1.3 with Easier to see, whose caps grow the composition by the same ratio.
 The band is the fitted flat lay plus 52 points, clamped to 0.66 to 1.14 of its width, so a
 board too tall for the ceiling is drawn smaller and still fits. On a 393-point screen the
-README boards measure 391 points (warm casual), 441 (rainy smart), 435 (cold formal), 279 (hot
-casual), 298 (night out) and 448 (snow casual, at the ceiling); the 168-point core binds on all
-but the last. The piece shadow's reach stays inside the 26-point margin.
+README boards measure 448 points (warm casual, rainy smart, cold formal and snow casual, at the
+ceiling), 289 (hot casual) and 433 (night out); the 168-point core binds on hot casual and night
+out, and the ceiling draws the others' core at 140 to 167 points. The piece shadow's reach stays
+inside the 26-point margin.
 
 **What was checked.** The six README boards, the ten evidence slot lists and a summer tee,
 shorts and sneakers, and every outfit the recommender composes across a sweep of temperatures,
-conditions, both catalogues and every day variant (120 outfits), with Easier to see off and on,
-on bands 375 to 440 points wide: the most covered piece 29.95% against the 30% limit, no
-structure point covered, nothing clipped, and every core within its cap.
+conditions, both catalogues each in its own cut and every day variant (145 outfits), with Easier
+to see off and on, on bands 375 to 440 points wide: the most covered piece at the 30% limit (the
+composer holds it on drawn boxes; a sampled audit reads 30.5%), no structure point covered,
+nothing clipped, and every core within its cap. Every board's footwear lies over a hem and its
+layers reach under the core, except night out's blazer, which stays beside the jumpsuit: its left
+cuff is the drawing's left edge, which any tuck under the jumpsuit would cover.
 
 ## What was checked
 
@@ -401,14 +439,13 @@ appearances and audited geometrically.
 | --- | --- |
 | overlap | 0 for every board except Today's primary, which has its own family and limits (section 10) |
 | clipping | 0 on all ten |
-| anchor parity, drawn-box area | 1.000 on all ten, against 1.654 for the same board sized by container width |
-| anchor parity, ink area | 1.00 to 1.42 within the silhouette set, against 1.403 for the container-sized board |
-| weakest half, ink coverage | 0.144 (four pieces, one layer); strongest 0.357 |
+| core scale | both anchors at one scale per drawing unit on all ten |
 | fallback exercised | one board drawn entirely from the shipped category glyphs, one mixed |
 
-The ink-parity residual is the cost of choosing a style-invariant metric, named in §1.
-The rule leaves the bottom slightly inkier than the top where container sizing left the
-top 40% inkier than the bottom; the magnitude of the imbalance falls, the sign flips.
+Six everyday outfits in each cut, measured as drawn boxes against the top's: trousers and jeans
+1.30 to 1.59 of its height, a knee skirt 0.76, shorts 0.47 (women's) and 0.63 (men's); a bottom
+0.53 to 0.88 of the top's drawn width, which includes its sleeves; a pair of low shoes 0.71
+(women's) and 0.74 (men's) of the top's body, a boot at most 0.48 of the top's height.
 
 ## What this does not decide
 

@@ -1,4 +1,6 @@
 import type { AccountSheetHost } from '@/features/account/application/account-screens';
+import { composePieceLimit } from '@/features/recommendation/application/compose-around-pieces';
+import { regenerationPolicy } from '@/features/recommendation/domain/regeneration-policy';
 
 /**
  * The sign-in page's benefits (ADR 0041 section 5), one swipeable page each, in reading
@@ -8,6 +10,19 @@ import type { AccountSheetHost } from '@/features/account/application/account-sc
 export const accountIntroPageIds = ['closet', 'history', 'askAgain', 'devices', 'photos', 'compose'] as const;
 
 export type AccountIntroPageId = (typeof accountIntroPageIds)[number];
+
+/** The limits the benefit pages name, each read from the rule that owns it. */
+export type AccountIntroLimits = Readonly<{
+  askAgainRegular: number;
+  askAgainMember: number;
+  composePieces: number;
+}>;
+
+export const accountIntroLimits: AccountIntroLimits = {
+  askAgainRegular: regenerationPolicy.dailyAiRegenerations,
+  askAgainMember: regenerationPolicy.memberDailyAiRegenerations,
+  composePieces: composePieceLimit,
+};
 
 /**
  * The page the benefits open on: outfit detail's members-only row opens on the benefit it

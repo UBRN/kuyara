@@ -6,8 +6,8 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { layoutGarmentBoard } from '@/components/ui';
-import { GARMENT_OUTLINE } from '@/components/ui/garment-board/garment-painting';
+import { layoutGarmentBoard } from '@/garment-art';
+import { GARMENT_OUTLINE } from '@/garment-art/garment-painting';
 import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
 import { slotCandidates, swappableSlots } from '@/features/recommendation/domain/manual-mix';
 import { todayScreenState } from '@/features/today/__tests__/fixtures';
@@ -26,11 +26,6 @@ import {
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-// GlassButton draws the picker's close as a SwiftUI glass button.
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 // The platform sheet reports its dismissal after a programmatic close, as NativeSheet documents.
 jest.mock('@expo/ui/community/bottom-sheet', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -474,7 +469,7 @@ test('the names stand under the board as buttons in the wearing order, and a tap
   const onBoardFocusChange = jest.fn();
   const result = await renderDetail('en', { onBoardFocusChange });
   const { boardPieces } = archetype('en');
-  const board = layoutGarmentBoard(boardPieces, 358, 'detail');
+  const board = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens');
   const wearing = ['primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear'];
   const names = within(result.getByTestId('outfit-detail-names', hidden))
     .getAllByTestId(/^outfit-detail-name-[a-z_]+$/, hidden).map((node) => node.props.testID);
@@ -500,7 +495,7 @@ test('a tap on the bottom grows it, drawn over every other piece', async () => {
   const onBoardFocusChange = jest.fn();
   const result = await renderDetail('en', { onBoardFocusChange });
   const { boardPieces } = archetype('en');
-  const boxes = layoutGarmentBoard(boardPieces, 358, 'detail').boxes;
+  const boxes = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens').boxes;
   const top = boxes.find(({ slot }) => slot === 'primary_top')!;
   const bottom = boxes.find(({ slot }) => slot === 'bottom')!;
   // At rest the waist stands clear of the top's hem.
@@ -524,7 +519,7 @@ test('a tap enlarges a piece and a leftward flick changes it to the next candida
   const onBoardFocusChange = jest.fn();
   const result = await renderDetail('en', { onBoardFocusChange });
   const { boardPieces } = archetype('en');
-  const shoes = layoutGarmentBoard(boardPieces, 358, 'detail').boxes.find(({ slot }) => slot === 'footwear')!;
+  const shoes = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens').boxes.find(({ slot }) => slot === 'footwear')!;
   await act(async () => {
     fireGestureHandler(getByGestureTestId('outfit-detail-board-tap'), [
       { state: State.BEGAN, x: shoes.x + shoes.width / 2, y: shoes.y + shoes.height / 2 },
@@ -620,7 +615,7 @@ describe.each([false, true])('Easier to see %s', (large) => {
   test('the enlarged piece grows 1.6 to 2 times in the stage and only it gets a big drawing', async () => {
     const result = await renderDetail('en', {}, null, large);
     const { boardPieces } = archetype('en');
-    const boxes = layoutGarmentBoard(boardPieces, 358, 'detail', large).boxes;
+    const boxes = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens', large).boxes;
     // A settled piece hands its big drawing back once its shrink is a quarter done, which Jest's
     // Reanimated mock never animates; only pieces never enlarged are checked for none.
     const enlarged = new Set<string>();
@@ -994,7 +989,7 @@ test('every drawing wrapper on the board, with the strip open or closed, has a r
 // which already holds the tab bar. Where the fit binds, the strip ends exactly `spacing.md`
 // above the tab bar, so a fixed bar height guessed on either side shows as a gap or an overlap.
 test('a binding fit fills the measured band between the bars exactly', async () => {
-  const metrics = { width: 375, height: 812, top: 50, bottom: 83, header: 104 };
+  const metrics = { width: 375, height: 780, top: 50, bottom: 83, header: 104 };
   Dimensions.set({ window: { ...originalDimensions, width: metrics.width, height: metrics.height, fontScale: 1 } });
   const result = await render(detailTree('en', {}, null, true, undefined, 0, metrics));
   await fireEvent(result.getByTestId('outfit-detail-content'),

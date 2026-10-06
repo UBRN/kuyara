@@ -22,7 +22,11 @@ export class ExpoHistoryPhotoStorage implements HistoryPhotoStorage {
     try {
       await source.copy(stored);
     } catch (error) {
-      if (stored.exists) stored.delete();
+      try {
+        if (stored.exists) stored.delete();
+      } catch {
+        // The copy error rethrown below is the one that matters; a failed cleanup must not replace it.
+      }
       throw error;
     }
     return relativePath;

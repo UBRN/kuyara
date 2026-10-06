@@ -13,7 +13,7 @@ import { useProductAnalytics } from '@/features/analytics/application/use-produc
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { ExpoDeviceLocationGateway } from '@/features/weather/data/expo-device-location-gateway';
-import type { WeatherProvider } from '@/features/weather/data/weather-provider';
+import type { WeatherProvider } from '@/features/weather/domain/weather-provider';
 import { PlaceSearchError } from '@/features/weather/domain/place-search-error';
 import { WeatherProviderError } from '@/features/weather/domain/weather-provider-error';
 import { loadWeatherRepository } from '@/features/weather/application/weather-repository-loader';

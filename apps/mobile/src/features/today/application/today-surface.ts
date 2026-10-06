@@ -15,7 +15,9 @@ import type { NotificationOptInOutcome } from '@/features/notifications/applicat
 import type { TodayScreenState } from '@/features/today/model';
 import { dressingDayDateKey } from '@/features/weather/domain/wardrobe-day';
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
+
+export { manualRefreshOutcome } from '@/features/weather/domain/manual-refresh-outcome';
 
 type Profile = Extract<ProfileApplicationState, { status: 'ready' }>['profile'];
 
@@ -126,19 +128,6 @@ export function todayOutfitSettled(input: Readonly<{
     !input.runwayVisible && !input.pullRefreshing && !input.dayQuestionPending &&
     input.dressingDayChoiceReady !== false && input.updatingDayType === null &&
     input.choosingWindow === null;
-}
-
-/** Taxonomy 5.7's `result` of a manual refresh, read from the weather after it settled. */
-export function manualRefreshOutcome(
-  after: WeatherApplicationState,
-): 'success' | 'failure_kept_last_known' | 'failure_no_snapshot' {
-  return after.status !== 'ready'
-    ? 'failure_no_snapshot'
-    : after.refreshFailure === null
-      ? 'success'
-      : after.snapshot
-        ? 'failure_kept_last_known'
-        : 'failure_no_snapshot';
 }
 
 /** A retry from a failure succeeded only when both the weather and a recommendation stand. */

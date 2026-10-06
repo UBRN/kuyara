@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { registerHooks } from 'node:module';
 import test from 'node:test';
+
+import { mockNativeModules } from '../../../test/fakes/mock-native-modules.mjs';
 
 // `expo-sqlite` is replaced by a stub that records every native call, in order, on
 // `globalThis.__expoSqliteStub.log` as `[handleId, method, ...args]`. Handles number from 1
@@ -70,14 +71,7 @@ const stub = `
   }
 `;
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === 'expo-sqlite') {
-      return { shortCircuit: true, url: `data:text/javascript,${encodeURIComponent(stub)}` };
-    }
-    return nextResolve(specifier, context);
-  },
-});
+mockNativeModules({ 'expo-sqlite': stub });
 
 // The module under test memoizes the open promise at module level, so every test imports a
 // fresh copy through a cache-busting query on the module URL: a distinct URL is a distinct

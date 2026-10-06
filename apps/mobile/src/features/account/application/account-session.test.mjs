@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import { createAccountSessionManager } from './account-session.ts';
 import { createAccountDeletionClient } from './account-delete.ts';
+import { fetchWithTimeout } from '../../../infrastructure/network/fetch-json-with-timeout.ts';
+import { SYNC_CONSENT_TEXT_VERSION } from '../domain/sync-consent.ts';
 
 const identity = { userId: 'user-a', provider: 'apple', email: 'ada@example.com', providers: ['apple'], accessToken: 'token' };
 
@@ -25,6 +27,8 @@ function setup(over = {}) {
   };
   const consentState = () => (records.at(-1)?.answer ?? 'none');
   const sync = {
+    // A phone that has run a pass with the account before; a launch test of a phone new to it says so.
+    hasLinked: async () => true,
     run: async (userId) => {
       calls.push(['sync', userId]);
       const records = consentState() === 'given';
@@ -39,8 +43,11 @@ function setup(over = {}) {
     ...over.consent,
   };
   const deletion = { deleteAccount: async (request) => { calls.push(['delete', request]); return { kind: 'deleted', appleUnrevoked: false }; }, ...over.deletion };
-  const manager = createAccountSessionManager({ auth, sync, deletion, consent, now: () => new Date('2026-10-03T01:00:00Z') });
-  return { manager, calls };
+  // The device-local marker of a consent question left open; the fake keeps it in `question.open`.
+  const question = over.question ?? { open: false };
+  const consentQuestion = over.consentQuestion ?? { wasOpen: async () => question.open, setOpen: async (open) => { question.open = open; } };
+  const manager = createAccountSessionManager({ auth, sync, deletion, consent, consentQuestion, now: () => new Date('2026-10-03T01:00:00Z') });
+  return { manager, calls, question };
 }
 
 /** A promise the test settles by hand, to hold a port call open. */
@@ -159,7 +166,7 @@ test('closing the sign-in sheet cancels its pending result', async () => {
   assert.deepEqual(calls, [['signOut']]);
 });
 
-const answerAt = { textVersion: '2026-10-04', answeredAt: '2026-10-03T01:00:00.000Z' };
+const answerAt = { textVersion: SYNC_CONSENT_TEXT_VERSION, answeredAt: '2026-10-03T01:00:00.000Z' };
 
 test('without an answer the consent sheet opens after sign-in and nothing syncs until it closes', async () => {
   const { manager, calls } = setup({ records: [] });
@@ -250,6 +257,154 @@ test('while the consent question is open nothing syncs, and a foreground keeps t
   assert.deepEqual(manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
   await manager.answerConsent(false);
   assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+});
+
+test('a launch after the app closed over the consent question asks it again app-wide before any pass', async () => {
+  const { manager, calls, question } = setup({ current: identity, records: [], sync: { hasLinked: async () => false }, question: { open: true } });
+  await manager.start();
+  const snapshot = manager.getSnapshot();
+  assert.equal(snapshot.session.kind, 'signedIn');
+  assert.equal(snapshot.session.syncConsent, 'none');
+  assert.equal(snapshot.sheet, 'app');
+  assert.deepEqual(snapshot.consent, { prompt: 'signIn', status: 'idle' });
+  await manager.foreground();
+  await manager.localWrite();
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+  await manager.answerConsent(true);
+  assert.deepEqual(calls.filter(([name]) => name === 'give' || name === 'sync').map(([name]) => name), ['give', 'sync']);
+  assert.equal(manager.getSnapshot().sheet, 'app');
+  assert.equal(manager.getSnapshot().result.added, 'records');
+  assert.equal(question.open, false);
+});
+
+test('a launch whose consent answer cannot be read, on a phone new to the account, asks before any pass', async () => {
+  const { manager, calls } = setup({ current: identity, sync: { hasLinked: async () => false }, question: { open: true },
+    consent: { records: async () => { throw new Error('offline'); } } });
+  await manager.start();
+  assert.deepEqual(manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+});
+
+test('a launch asks nothing when no question was left open, the account holds an answer or this phone has linked to it', async () => {
+  for (const [records, linked, open] of [[[], false, false], [[given], false, true], [[], true, true]]) {
+    const { manager, calls, question } = setup({ current: identity, records, sync: { hasLinked: async () => linked }, question: { open } });
+    await manager.start();
+    assert.equal(manager.getSnapshot().consent.prompt, null);
+    assert.equal(manager.getSnapshot().sheet, null);
+    assert.deepEqual(calls.at(-1), ['sync', 'user-a']);
+    // A marker the account or the link has settled is cleared.
+    assert.equal(question.open, false);
+  }
+});
+
+test('while a restored session checks for a question left open, a local write runs no pass', async () => {
+  const read = held();
+  const { manager, calls } = setup({ current: identity, sync: { hasLinked: async () => false }, question: { open: true },
+    consent: { records: async () => read.promise } });
+  const starting = manager.start();
+  await settle();
+  // The consent read is slow; a write lands meanwhile.
+  await manager.localWrite();
+  manager.syncNow();
+  await settle();
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+  read.resolve([]);
+  await starting;
+  assert.deepEqual(manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+});
+
+test('while a restored session checks for a question left open, a pass waits, and runs once the question is not asked', async () => {
+  const read = held();
+  const { manager, calls } = setup({ current: identity, sync: { hasLinked: async () => false }, question: { open: true },
+    consent: { records: async () => read.promise } });
+  const starting = manager.start();
+  await settle();
+  await manager.localWrite();
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+  read.resolve([given]);
+  await starting;
+  assert.equal(manager.getSnapshot().consent.prompt, null);
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+});
+
+test('the sign-in question is marked open on this phone until it is answered either way', async () => {
+  for (const answer of [true, false]) {
+    const { manager, question } = setup({ records: [] });
+    manager.openSignIn('profile');
+    await manager.signIn('apple');
+    assert.equal(question.open, true);
+    await manager.answerConsent(answer);
+    assert.equal(question.open, false);
+  }
+  const { manager, question } = setup({ records: [] });
+  manager.openSignIn('profile');
+  await manager.signIn('apple');
+  manager.closeSheet();
+  await settle();
+  assert.equal(question.open, false);
+});
+
+test('a sheet closed while the question is being marked declines it, so nothing stays stuck', async () => {
+  const question = { open: false };
+  // A mark that takes 50 ms to write; the sheet closes 20 ms into the sign-in.
+  const consentQuestion = { wasOpen: async () => question.open,
+    setOpen: (open) => new Promise((resolve) => setTimeout(() => { question.open = open; resolve(); }, 50)) };
+  const { manager, calls } = setup({ records: [], question, consentQuestion });
+  manager.openSignIn('profile');
+  const signingIn = manager.signIn('apple');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  manager.closeSheet();
+  await signingIn;
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const snapshot = manager.getSnapshot();
+  assert.equal(snapshot.consent.prompt, null);
+  assert.equal(question.open, false);
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+  assert.equal(snapshot.sheet, 'profile');
+  assert.equal(snapshot.result.added, 'profile');
+  manager.syncNow();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(calls.filter(([name]) => name === 'sync').length, 2);
+});
+
+test('a foreground that finds the session gone clears a question left open', async () => {
+  const { manager, question } = setup({ records: [], auth: { refreshSession: async () => null } });
+  manager.openSignIn('profile');
+  await manager.signIn('apple');
+  assert.equal(question.open, true);
+  await manager.foreground();
+  assert.equal(manager.getSnapshot().session.kind, 'signedOut');
+  assert.equal(question.open, false);
+});
+
+test('a declined question is not asked again at a foreground, online or offline, while the first link has not run', async () => {
+  for (const online of [true, false]) {
+    const { manager, calls } = setup({ records: [], sync: { hasLinked: async () => false,
+      run: async (userId) => { calls.push(['sync', userId]); throw new Error('offline'); } } });
+    manager.openSignIn('profile');
+    await manager.signIn('apple');
+    manager.setOnline(online);
+    await manager.answerConsent(false);
+    manager.closeSheet();
+    await manager.foreground();
+    assert.equal(manager.getSnapshot().consent.prompt, null);
+    assert.equal(manager.getSnapshot().sheet, null);
+  }
+});
+
+test('a question open when the app was killed is asked at the next launch', async () => {
+  const question = { open: false };
+  const first = setup({ records: [], question });
+  first.manager.openSignIn('profile');
+  await first.manager.signIn('apple');
+  assert.equal(question.open, true);
+  // The app is killed here; the next launch restores the stored session.
+  const next = setup({ current: identity, records: [], sync: { hasLinked: async () => false }, question });
+  await next.manager.start();
+  assert.deepEqual(next.manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
+  assert.equal(next.manager.getSnapshot().sheet, 'app');
+  assert.equal(next.calls.some(([name]) => name === 'sync'), false);
 });
 
 test('a foreground for the same account keeps its consent answer and counts on screen while it syncs', async () => {
@@ -660,6 +815,27 @@ test('a sign-out during a pass uploads after it, then ends the session', async (
   assert.deepEqual(calls, [['sync', 'user-a']]);
   first.resolve();
   await Promise.all([starting, signingOut]);
+  assert.deepEqual(calls, [['sync', 'user-a'], ['sync', 'user-a'], ['signOut']]);
+});
+
+test('a pass whose request never answers ends at the request deadline, so sign-out still ends the session', async () => {
+  // The live client sends every account request through this deadline.
+  const silentServer = (_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener('abort', () => reject(init.signal.reason));
+  });
+  const request = fetchWithTimeout(silentServer, 30);
+  const { manager, calls } = setup({ current: identity, sync: { run: async (userId) => {
+    calls.push(['sync', userId]);
+    await request('https://project.supabase.co/rest/v1/wardrobe_items', { method: 'POST' });
+    return { pendingChanges: 0, closetPieces: 0, historyDays: 0, syncConsent: 'given', firstLink: null };
+  } } });
+  const starting = manager.start();
+  await settle();
+  const started = Date.now();
+  await manager.signOut();
+  await starting;
+  assert.ok(Date.now() - started < 1000);
+  assert.equal(manager.getSnapshot().session.kind, 'signedOut');
   assert.deepEqual(calls, [['sync', 'user-a'], ['sync', 'user-a'], ['signOut']]);
 });
 

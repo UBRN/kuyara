@@ -5,6 +5,7 @@ import { composePieceLimit, type ComposePin } from '@/features/recommendation/ap
 import { swappableSlots } from '@/features/recommendation/domain/manual-mix';
 import { garmentFitsSlot, onePieceExcludes, type OutfitPin } from '@/features/recommendation/domain/outfit-composition';
 import { boardSwatchForClosetSolid } from '@/features/wardrobe/domain/closet-board-swatch';
+import type { ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
 
 export type ComposeSlot = OutfitPin['slot'];
 
@@ -12,7 +13,7 @@ export type ComposeSlot = OutfitPin['slot'];
 export type ComposePiece = Readonly<{ slot: ComposeSlot; garmentTypeId: GarmentTypeId }>;
 
 /** A ticked piece and the Closet solid colour the reader gave it, if any. */
-export type ComposeChoice = ComposePiece & Readonly<{ colorId: string | null }>;
+export type ComposeChoice = ComposePiece & Readonly<{ colorId: ClosetColorOptionId | null }>;
 
 export type ComposeSelection = readonly ComposeChoice[];
 
@@ -54,7 +55,7 @@ export function toggleComposeChoice(selection: ComposeSelection, piece: ComposeP
 export function colorComposeChoice(
   selection: ComposeSelection,
   slot: ComposeSlot,
-  colorId: string | null,
+  colorId: ClosetColorOptionId | null,
 ): ComposeSelection {
   if (!selection.some((choice) => choice.slot === slot)) return selection;
   return selection.map((choice) => (choice.slot === slot ? { ...choice, colorId } : choice));

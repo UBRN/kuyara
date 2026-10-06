@@ -1,24 +1,19 @@
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 import {
   type PropsWithChildren,
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
 
 import {
   RecommendationApplicationController,
-  expiredCoverageNeedsSelection,
   localDayKey,
   localDayKind,
   localDayVariant,
-  recommendationRefreshTrigger,
-  type RecommendationApplicationInput,
-  type RecommendationSignals,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import {
   RecommendationApplicationContext,
@@ -26,7 +21,6 @@ import {
 } from '@/features/recommendation/application/recommendation-application-context';
 import { usePerformanceTelemetry } from '@/features/analytics/application/use-performance-telemetry';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
-import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { defaultDressStyle, isMorningSheetEnabled, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
@@ -41,55 +35,57 @@ import {
 } from '@/features/recommendation/domain/dressing-day-departure';
 import { memberAccessToken } from '@/features/account/application/account-membership';
 import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
+import {
+  createApprovedTriggerEvaluation,
+  firstOutfitAwaitsWeatherRefresh,
+} from '@/features/recommendation/application/approved-trigger-evaluation';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
-import { createHistoryWriteWatch } from '@/features/recommendation/application/history-write-watch';
+import { generationInput } from '@/features/recommendation/application/generation-input';
+import { createOutfitHistoryAccess } from '@/features/recommendation/application/outfit-history-access';
 import { createMemberReask } from '@/features/recommendation/application/member-reask';
+import { createDressingDayRollover, dayInForce } from '@/features/recommendation/application/dressing-day-rollover';
+import {
+  answeredChoice,
+  currentDayChoiceRead,
+  dayChoiceRead,
+  failedDayChoiceRead,
+  writtenDayChoice,
+  type DayChoiceRead,
+} from '@/features/recommendation/application/dressing-day-choice-read';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import {
   TomorrowPreviewController,
-  forecastCoversWindow,
-  previewAnswersQuestion,
   type TomorrowPreviewInput,
   type TomorrowPreviewStore,
 } from '@/features/recommendation/application/tomorrow-preview';
 import {
+  shownTomorrowPreview,
+  tomorrowOfEvening,
+  tomorrowPreviewRequest,
+} from '@/features/recommendation/application/tomorrow-preview-request';
+import {
   aiRequestFromContext,
   createRecommendationContextWithPool,
-} from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+} from '@/features/recommendation/application/recommendation-context';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
-import { isDayQuestionOpen, nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
+import { isDayQuestionOpen } from '@/features/recommendation/domain/local-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
-import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
 import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
-import {
-  WorkerAiClient,
-  WorkerAiClientError,
-} from '@/features/recommendation/data/worker-ai-client';
+import { WorkerAiClient } from '@/features/recommendation/data/worker-ai-client';
+import { WorkerAiClientError } from '@/features/recommendation/domain/worker-ai-client-error';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import { dressingDayDateKey, isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
+import { isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-database';
 import { newUuid } from '@/infrastructure/new-uuid';
 import { systemNow as now } from '@/infrastructure/system-clock';
 import { useLocalization } from '@/localization/use-messages';
-
-function approvedSignals(input: RecommendationApplicationInput): RecommendationSignals {
-  return {
-    weatherSnapshotId: input.snapshot.id,
-    locationKey: input.snapshot.locationKey,
-    clothingPreference: input.clothingPreference,
-    dressStyle: input.dressStyle ?? defaultDressStyle,
-    styleAesthetics: input.styleAesthetics,
-    catalogVersion: garmentCatalogVersion,
-    localDayKey: input.localDayKey,
-  };
-}
 
 type LocalDay = ReturnType<typeof deviceLocalDay>;
 
@@ -169,16 +165,14 @@ async function loadHistoryRepository() {
     new ExpoHistoryPhotoStorage(newUuid));
 }
 
-type DayChoiceReadState = Readonly<{ profileId: string; key: string }> & (
-  | Readonly<{ status: 'unknown'; previousChoice: DressingDayChoice | null }>
-  | Readonly<{ status: 'none' }>
-  | Readonly<{ status: 'row'; choice: DressingDayChoice }>
-);
-
 export function RecommendationApplicationProvider({
   children,
   localProfileId,
 }: PropsWithChildren<{ localProfileId: string }>) {
+  // The clock is read on every render below (`activeDeparture`): a departure that has passed
+  // stops shaping the day at the next render. React Compiler would memoize that read, and
+  // reading it from a clock state instead is a timing change, so the provider opts out.
+  'use no memo';
   const { state: profileState } = useProfileApplication();
   const { language } = useLocalization();
   const weatherApplication = useWeatherApplication();
@@ -186,11 +180,17 @@ export function RecommendationApplicationProvider({
   const { analytics } = useProductAnalytics();
   const telemetry = usePerformanceTelemetry();
   const [localDay, setLocalDay] = useState(deviceLocalDay);
-  const [dayChoiceState, setDayChoiceState] = useState<DayChoiceReadState | null>(null);
+  const [dayChoiceState, setDayChoiceState] = useState<DayChoiceRead | null>(null);
   const [choiceReadAttempt, setChoiceReadAttempt] = useState(0);
   const [departureState, setDepartureState] = useState<{
     key: string; value: DressingDayDeparture | null;
   } | null>(null);
+  const dayRollover = useMemo(() => createDressingDayRollover({
+    initialAppState: AppState.currentState,
+    readDay: deviceLocalDay,
+    adoptDay: (day) => setLocalDay((current) => dayInForce(current, day)),
+    retryChoiceRead: () => setChoiceReadAttempt((attempt) => attempt + 1),
+  }), []);
   useEffect(() => {
     let live = true;
     void loadDepartureRepository().then((repository) => repository.get(localProfileId, localDay.key))
@@ -200,43 +200,29 @@ export function RecommendationApplicationProvider({
   }, [localDay.key, localProfileId]);
   const departureReady = departureState?.key === localDay.key;
   const activeDeparture = departureState?.key === localDay.key &&
+    // eslint-disable-next-line react-hooks/purity -- read on every render on purpose, see 'use no memo'
     departureState.value && departureIsAhead(departureState.value, Date.now())
     ? departureState.value : null;
-  const choiceReadFailed = useRef(false);
   useEffect(() => {
     let live = true;
-    choiceReadFailed.current = false;
+    dayRollover.choiceReadFailed(false);
     void loadChoiceRepository().then((repository) => repository.get(localProfileId, localDay.key))
       .then((choice) => {
         if (!live) return;
-        choiceReadFailed.current = false;
-        setDayChoiceState(choice
-          ? { profileId: localProfileId, key: localDay.key, status: 'row', choice }
-          : { profileId: localProfileId, key: localDay.key, status: 'none' });
+        dayRollover.choiceReadFailed(false);
+        setDayChoiceState(dayChoiceRead(localProfileId, localDay.key, choice));
       })
       .catch(() => {
         if (!live) return;
-        choiceReadFailed.current = true;
-        setDayChoiceState((previous) => ({
-          profileId: localProfileId,
-          key: localDay.key,
-          status: 'unknown',
-          previousChoice: previous?.profileId === localProfileId && previous.key === localDay.key
-            ? previous.status === 'row'
-              ? previous.choice
-              : previous.status === 'unknown' ? previous.previousChoice : null
-            : null,
-        }));
+        dayRollover.choiceReadFailed(true);
+        setDayChoiceState((previous) => failedDayChoiceRead(previous, localProfileId, localDay.key));
       });
     return () => { live = false; };
-  }, [choiceReadAttempt, localDay.key, localProfileId]);
-  const currentDayChoice = dayChoiceState?.profileId === localProfileId &&
-    dayChoiceState.key === localDay.key ? dayChoiceState : null;
+  }, [choiceReadAttempt, dayRollover, localDay.key, localProfileId]);
+  const currentDayChoice = currentDayChoiceRead(dayChoiceState, localProfileId, localDay.key);
   const choiceReady = currentDayChoice?.status === 'row' || currentDayChoice?.status === 'none';
   const choiceFailed = currentDayChoice?.status === 'unknown';
-  const dayChoice = currentDayChoice?.status === 'row'
-    ? currentDayChoice.choice
-    : currentDayChoice?.status === 'unknown' ? currentDayChoice.previousChoice : null;
+  const dayChoice = answeredChoice(currentDayChoice);
   const profileDefault = profileState.status === 'ready'
     ? profileState.profile.dressStyle ?? defaultDressStyle : defaultDressStyle;
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
@@ -253,18 +239,14 @@ export function RecommendationApplicationProvider({
     });
   const morningChoicePending = dayQuestionOpen && !isEveningDressingDayKey(localDay.key);
   const eveningChoicePending = dayQuestionOpen && isEveningDressingDayKey(localDay.key);
-  const appState = useRef<AppStateStatus>(AppState.currentState);
-  const reevaluateLocalDay = useCallback(() => {
-    const next = deviceLocalDay();
-    setLocalDay((current) => current.key === next.key ? current : next);
-    if (choiceReadFailed.current) setChoiceReadAttempt((current) => current + 1);
-  }, []);
+  const reevaluateLocalDay = dayRollover.reevaluate;
   // Re-asks reserve a daily slot before the controller enters the AI chain; a member's ten apply
   // only to a re-ask whose token was read, and its request carries that token.
   const budget = useMemo(() => new ExpoFileAiRegenerationBudget(), []);
   const memberReask = useMemo(() => createMemberReask({
     readToken: memberAccessToken,
-    reserve: (dayKey, dailyLimit) => budget.reserve(dayKey, dailyLimit),
+    reserve: (dateKey, dailyLimit) => budget.reserve(dateKey, dailyLimit),
+    release: (dateKey) => budget.release(dateKey),
   }), [budget]);
   const client = useMemo(() => createRecommendationClient(memberReask.token), [memberReask]);
   const [onDeviceAvailability, setOnDeviceAvailability] =
@@ -277,7 +259,7 @@ export function RecommendationApplicationProvider({
   const [latestOnDeviceAvailability] = useState<{ value: OnDeviceAiAvailability | null }>(
     () => ({ value: null }),
   );
-  const previewStore = useMemo(createPreviewStore, []);
+  const previewStore = useMemo(() => createPreviewStore(), []);
   const loadRecentWorn = useCallback(async () =>
     (await (await loadHistoryRepository()).lastSeven(localProfileId)).map((record) => record.outfit),
   [localProfileId]);
@@ -290,12 +272,10 @@ export function RecommendationApplicationProvider({
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
       telemetry,
       getOnDeviceAvailability: () => latestOnDeviceAvailability.value,
-      // Five regenerations per dressing day, ten for a signed-in member: the evening and its small
-      // hours count against the date the evening began on, so 18:00 does not hand out a second five.
-      reserveAiReask: (dayKey) => memberReask.reserve(dressingDayDateKey(dayKey)),
-      releaseAiReask: (dayKey) => budget.release(dressingDayDateKey(dayKey)),
+      reserveAiReask: (dayKey) => memberReask.reserve(dayKey),
+      releaseAiReask: (dayKey) => memberReask.release(dayKey),
     }),
-    [analytics, budget, client, memberReask, latestOnDeviceAvailability, loadRecentWorn, localProfileId, previewStore,
+    [analytics, client, memberReask, latestOnDeviceAvailability, loadRecentWorn, localProfileId, previewStore,
       telemetry],
   );
   const controllerState = useSyncExternalStore(
@@ -307,31 +287,18 @@ export function RecommendationApplicationProvider({
     controllerState.snapshot.localDayKey !== localDay.key
     ? { ...controllerState, snapshot: null } as const
     : controllerState, [controllerState, localDay.key]);
-  const input = useMemo(() => {
-    const clothingPreference = profileState.status === 'ready'
-      ? profileState.profile.clothingPreference
-      : null;
-    if (
-      weatherState.status !== 'ready' ||
-      !weatherState.snapshot ||
-      !clothingPreference || !choiceReady || !departureReady
-    ) return null;
-    return {
-      snapshot: weatherState.snapshot,
-      // The requirement engine reads the local day and the hours left in it from here, not
-      // from the snapshot's observation time. It is re-read whenever the day, the profile
-      // or the weather changes, which is every moment a recommendation is generated.
-      now: now(),
-      ...(activeDeparture ? { departureAt: activeDeparture.departureAt } : {}),
-      clothingPreference,
-      dressStyle: resolvedDressStyle,
-      styleAesthetics: resolvedStyles,
-      dayVariant: localDay.variant,
-      dayKind: localDay.kind,
-      localDayKey: localDay.key,
-      locale: language,
-    };
-  }, [activeDeparture, choiceReady, departureReady, language, localDay, profileState,
+  // The clock is re-read whenever the day, the profile or the weather changes, which is every
+  // moment a recommendation is generated.
+  const input = useMemo(() => choiceReady && departureReady ? generationInput({
+    weather: weatherState,
+    clothingPreference: profileState.status === 'ready' ? profileState.profile.clothingPreference : null,
+    day: localDay,
+    departureAt: activeDeparture?.departureAt ?? null,
+    dressStyle: resolvedDressStyle,
+    styleAesthetics: resolvedStyles,
+    locale: language,
+    now,
+  }) : null, [activeDeparture, choiceReady, departureReady, language, localDay, profileState,
     resolvedDressStyle, resolvedStyles, weatherState]);
   useEffect(() => {
     void controller.initialize(localDay.key);
@@ -352,126 +319,24 @@ export function RecommendationApplicationProvider({
   }, [client, latestOnDeviceAvailability]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (next) => {
-      const wasInactive = appState.current !== 'active';
-      appState.current = next;
-      if (wasInactive && next === 'active') reevaluateLocalDay();
-    });
+    const subscription = AppState.addEventListener('change', dayRollover.appStateChanged);
     return () => subscription?.remove();
-  }, [reevaluateLocalDay]);
+  }, [dayRollover]);
 
-  const approvedTriggerInFlight = useRef<{
-    input: RecommendationApplicationInput;
-    promise: Promise<boolean>;
-  } | null>(null);
-  const trailingApprovedInput = useRef<RecommendationApplicationInput | null>(null);
-  const trailingApprovedPromise = useRef<Promise<boolean> | null>(null);
-  const foregroundEvaluationRequested = useRef(false);
-  const lastExpiryAttempt = useRef<string | null>(null);
-  // A confirmed re-ask changes the answers the approved triggers read. Evaluating them while
-  // it runs would see its own new day type as a change and start a second, unreserved
-  // generation, so evaluation waits for it and then reads the persisted result.
-  const reaskInFlight = useRef<Promise<unknown> | null>(null);
-  // A dressing day's first outfit waits for a weather refresh already in flight and is chosen
-  // from what it brings, or from the weather already here when it fails. Either way the refresh
-  // settles into a new weather state, whose input evaluates the approved triggers again.
-  const awaitsWeatherRefresh = useCallback((dayKey: string) => {
-    const liveWeather = weatherApplication.getSnapshot?.() ?? weatherState;
-    const liveState = controller.getSnapshot();
-    return liveWeather.status === 'ready' && liveWeather.isRefreshing &&
-      !(liveState.status === 'ready' && liveState.snapshot?.localDayKey === dayKey);
-  }, [controller, weatherApplication, weatherState]);
-  const evaluateApprovedTriggersOnce = useCallback(async (
-    generationInput: RecommendationApplicationInput,
-  ): Promise<boolean> => {
-    const pendingReask = reaskInFlight.current;
-    if (pendingReask) await pendingReask;
-    const liveState = controller.getSnapshot();
-    if (liveState.status !== 'ready') return false;
-    const current = approvedSignals(generationInput);
-    const persistedSnapshot = liveState.snapshot;
-    const previous: RecommendationSignals | null = persistedSnapshot
-      ? {
-          weatherSnapshotId: persistedSnapshot.weatherSnapshotId,
-          locationKey: persistedSnapshot.locationKey,
-          clothingPreference: persistedSnapshot.clothingPreference,
-          dressStyle: persistedSnapshot.dressStyle,
-          styleAesthetics: persistedSnapshot.styleAesthetics,
-          catalogVersion: persistedSnapshot.catalogVersion,
-          localDayKey: persistedSnapshot.localDayKey,
-        }
-      : null;
-
-    // An unanswered day question holds automatic selection; its answer starts the one
-    // generation. The last look may carry another key's day-only styles, which are no change.
-    if (morningChoicePending || eveningChoicePending) return false;
-
-    const trigger = recommendationRefreshTrigger(previous, current);
-
-    if (trigger) {
-      if (awaitsWeatherRefresh(generationInput.localDayKey)) return false;
-      foregroundEvaluationRequested.current = false;
-      await controller.refresh(trigger, generationInput);
-      return true;
-    }
-    const coverageEnd = persistedSnapshot?.coverageEnd;
-    if (coverageEnd && expiredCoverageNeedsSelection(persistedSnapshot, generationInput.now,
-      foregroundEvaluationRequested.current, lastExpiryAttempt.current)) {
-      foregroundEvaluationRequested.current = false;
-      lastExpiryAttempt.current = coverageEnd;
-      await controller.refresh('explicit', generationInput);
-      return true;
-    }
-    foregroundEvaluationRequested.current = false;
-    controller.updatePoolAvailability(generationInput);
-    return false;
-  }, [awaitsWeatherRefresh, controller, eveningChoicePending, morningChoicePending]);
-
-  const evaluateApprovedTriggersForInput = useCallback(function evaluateApprovedTriggersForInput(
-    generationInput: RecommendationApplicationInput,
-  ): Promise<boolean> {
-    const inFlight = approvedTriggerInFlight.current;
-    if (inFlight) {
-      // The weather/forecast hour may change `now` without changing an approved trigger.
-      if (!recommendationRefreshTrigger(
-        approvedSignals(inFlight.input), approvedSignals(generationInput),
-      )) return inFlight.promise;
-      if (trailingApprovedPromise.current) {
-        trailingApprovedInput.current = generationInput;
-        return trailingApprovedPromise.current;
-      }
-
-      // Keep only the latest changed input. When the first request settles, evaluate it
-      // against the controller's live persisted state, not the state from this render.
-      trailingApprovedInput.current = generationInput;
-      const runLatest = () => {
-        const latest = trailingApprovedInput.current;
-        trailingApprovedInput.current = null;
-        trailingApprovedPromise.current = null;
-        if (!latest || !recommendationRefreshTrigger(
-          approvedSignals(inFlight.input), approvedSignals(latest),
-        )) return inFlight.promise;
-        return evaluateApprovedTriggersForInput(latest);
-      };
-      const trailing = inFlight.promise.then(runLatest, runLatest);
-      trailingApprovedPromise.current = trailing;
-      return trailing;
-    }
-    const evaluation = evaluateApprovedTriggersOnce(generationInput);
-    approvedTriggerInFlight.current = { input: generationInput, promise: evaluation };
-    const clear = () => {
-      if (approvedTriggerInFlight.current?.promise === evaluation) {
-        approvedTriggerInFlight.current = null;
-      }
-    };
-    void evaluation.then(clear, clear);
-    return evaluation;
-  }, [evaluateApprovedTriggersOnce]);
+  const approvedTriggers = useMemo(() => createApprovedTriggerEvaluation(), []);
+  const awaitsWeatherRefresh = useCallback((dayKey: string) => firstOutfitAwaitsWeatherRefresh(
+    weatherApplication.getSnapshot?.() ?? weatherState, controller.getSnapshot(), dayKey,
+  ), [controller, weatherApplication, weatherState]);
+  const approvedTriggerReading = useMemo(() => ({
+    recommendation: controller,
+    dayQuestionPending: morningChoicePending || eveningChoicePending,
+    awaitsWeatherRefresh,
+  }), [awaitsWeatherRefresh, controller, eveningChoicePending, morningChoicePending]);
 
   useEffect(() => {
     if (state.status !== 'ready' || !input) return;
-    void evaluateApprovedTriggersForInput(input);
-  }, [evaluateApprovedTriggersForInput, input, state.status]);
+    void approvedTriggers.followRender(input, approvedTriggerReading);
+  }, [approvedTriggerReading, approvedTriggers, input, state.status]);
 
   // The generation input as of this moment, re-read from the live weather and profile rather
   // than from the render that bound the handler. `null` when there is nothing to compose for,
@@ -486,32 +351,21 @@ export function RecommendationApplicationProvider({
     const currentDay = answered?.day ?? deviceLocalDay();
     const renderedDay = currentDay.key === localDay.key;
     if (!answered) {
-      setLocalDay((previous) => previous.key === currentDay.key ? previous : currentDay);
+      setLocalDay((previous) => dayInForce(previous, currentDay));
       if (!renderedDay) return null;
     }
-    const currentWeather = weatherApplication.getSnapshot?.() ?? weatherState;
-    const clothingPreference = profileState.status === 'ready'
-      ? profileState.profile.clothingPreference
-      : null;
-    if (
-      currentWeather.status !== 'ready' ||
-      !currentWeather.snapshot ||
-      profileState.status !== 'ready' ||
-      !clothingPreference || (renderedDay && (!choiceReady || !departureReady))
-    ) return null;
+    if (renderedDay && (!choiceReady || !departureReady)) return null;
     const answer = answered?.choice ?? null;
-    return {
-      snapshot: currentWeather.snapshot,
-      now: now(),
-      ...(renderedDay && activeDeparture ? { departureAt: activeDeparture.departureAt } : {}),
-      clothingPreference,
+    return generationInput({
+      weather: weatherApplication.getSnapshot?.() ?? weatherState,
+      clothingPreference: profileState.status === 'ready' ? profileState.profile.clothingPreference : null,
+      day: currentDay,
+      departureAt: renderedDay ? activeDeparture?.departureAt ?? null : null,
       dressStyle: renderedDay ? resolvedDressStyle : resolvedFormality(answer, profileDefault),
       styleAesthetics: renderedDay ? resolvedStyles : resolvedStyleAesthetics(answer, settingsStyles ?? []),
-      dayVariant: currentDay.variant,
-      dayKind: currentDay.kind,
-      localDayKey: currentDay.key,
       locale: language,
-    };
+      now,
+    });
   }, [activeDeparture, choiceReady, departureReady, language, localDay.key, profileDefault, profileState,
     resolvedDressStyle, resolvedStyles, settingsStyles, weatherApplication, weatherState]);
 
@@ -524,15 +378,8 @@ export function RecommendationApplicationProvider({
     if (foreground) {
       setPreviewWantedKey(deviceLocalDay().key);
     }
-    const generationInput = currentInput();
-    if (!generationInput) return;
-    if (foreground) foregroundEvaluationRequested.current = true;
-    let triggered = await evaluateApprovedTriggersForInput(generationInput);
-    if (foreground && foregroundEvaluationRequested.current) {
-      triggered = await evaluateApprovedTriggersForInput(currentInput() ?? generationInput) || triggered;
-    }
-    if (!triggered) controller.clearLastFailure();
-  }, [controller, currentInput, evaluateApprovedTriggersForInput]);
+    await approvedTriggers.evaluate(currentInput, approvedTriggerReading, foreground);
+  }, [approvedTriggerReading, approvedTriggers, currentInput]);
 
   const chooseFormality = useCallback(async (
     key: string, formality: DressStyle, source: DressingDayChoiceSource,
@@ -541,7 +388,7 @@ export function RecommendationApplicationProvider({
     const repository = await loadChoiceRepository();
     const choice = await repository.upsert(localProfileId, key, formality, source, styleAesthetics);
     if (key !== localDay.key) return;
-    setDayChoiceState({ profileId: localProfileId, key, status: 'row', choice });
+    setDayChoiceState(writtenDayChoice(localProfileId, key, choice));
     // Both answers ride one generation, with the styles the next render resolves too, so
     // the approved triggers see nothing new and join this request instead of adding one.
     const generationInput = currentInput();
@@ -554,15 +401,12 @@ export function RecommendationApplicationProvider({
   const answerSetupDay = useCallback(async (formality: DressStyle) => {
     const key = deviceLocalDay().key;
     const choice = await (await loadChoiceRepository()).upsert(localProfileId, key, formality, 'morning');
-    if (key === localDay.key) setDayChoiceState({ profileId: localProfileId, key, status: 'row', choice });
+    if (key === localDay.key) setDayChoiceState(writtenDayChoice(localProfileId, key, choice));
   }, [localDay.key, localProfileId]);
 
   // The evening preview of tomorrow: one selection per dressing day, through the same chain, once
   // today's outfit has settled, and only when the forecast covers tomorrow's whole window.
-  const placeTimeZone = input?.snapshot.timeZone;
-  const tomorrowMorning = useMemo(() => placeTimeZone ? nextMorningAfterEvening(localDay.key) : null,
-    [placeTimeZone, localDay.key]);
-  const tomorrowKey = tomorrowMorning ? localDayKey(tomorrowMorning) : null;
+  const tomorrowKey = tomorrowOfEvening(localDay.key, input)?.key ?? null;
   const previewController = useMemo(() => new TomorrowPreviewController(localProfileId,
     { store: previewStore, client, loadRecentWorn, compose: composePreview }),
   [client, loadRecentWorn, localProfileId, previewStore]);
@@ -573,66 +417,43 @@ export function RecommendationApplicationProvider({
   }, [previewController, tomorrowKey]);
   const settledRecommendation = state.status === 'ready' && !state.isRefreshing &&
     state.snapshot?.recommendation.status === 'recommended' ? state.snapshot.recommendation : null;
-  const tomorrowStyles = useMemo(() => orderStyleAesthetics(settingsStyles ?? []), [settingsStyles]);
-  useEffect(() => {
-    if (!previewWanted || !tomorrowMorning || !tomorrowKey || !input || eveningChoicePending ||
-        !settledRecommendation) return;
-    const departureAt = previewDepartureAt(localDay.key, input.snapshot.timeZone);
-    if (!departureAt || !forecastCoversWindow(input.snapshot, departureAt)) return;
-    void previewController.ensure({
-      snapshot: input.snapshot,
-      now: now(),
-      departureAt,
-      clothingPreference: input.clothingPreference,
-      dressStyle: profileDefault,
-      styleAesthetics: tomorrowStyles,
-      dayVariant: localDayVariant(tomorrowMorning),
-      dayKind: localDayKind(tomorrowMorning),
-      localDayKey: tomorrowKey,
-      locale: language,
-      // What the morning will exclude too, unless today's outfit changes before then.
-      excludedOutfits: settledRecommendation.outfits,
-    });
-  }, [eveningChoicePending, input, language, localDay.key, previewController, previewWanted,
-    profileDefault, settledRecommendation, tomorrowKey, tomorrowMorning, tomorrowStyles]);
-  // Shown only while it still answers tomorrow's question: the same place, gender, dress style
-  // and styles. Otherwise it simply does not appear; the day's one selection is not spent again.
-  const tomorrowPreview = preview && tomorrowKey && input && previewAnswersQuestion(preview, {
-    localDayKey: tomorrowKey,
-    locationKey: input.snapshot.locationKey,
-    clothingPreference: input.clothingPreference,
+  const tomorrowQuestion = useMemo(() => ({
     dressStyle: profileDefault,
-    styleAesthetics: tomorrowStyles,
-  }) ? preview : null;
+    styleAesthetics: orderStyleAesthetics(settingsStyles ?? []),
+  }), [profileDefault, settingsStyles]);
+  useEffect(() => {
+    const request = tomorrowPreviewRequest({
+      dressingDayKey: localDay.key,
+      wanted: previewWanted,
+      eveningChoicePending,
+      today: input,
+      // What the morning will exclude too, unless today's outfit changes before then.
+      settledOutfits: settledRecommendation?.outfits ?? null,
+      question: tomorrowQuestion,
+      locale: language,
+      now,
+    });
+    if (request) void previewController.ensure(request);
+  }, [eveningChoicePending, input, language, localDay.key, previewController, previewWanted,
+    settledRecommendation, tomorrowQuestion]);
+  const tomorrowPreview = shownTomorrowPreview(preview, localDay.key, input, tomorrowQuestion);
 
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const historyAccess = useMemo(() => createOutfitHistoryAccess({
+    localProfileId,
+    loadRepository: loadHistoryRepository,
+    changed: () => setHistoryRevision((revision) => revision + 1),
+  }), [localProfileId]);
   // A new object after every recorded look, so whoever reads History through it (the Closet's
   // worn counts) reads it again instead of keeping the answer from before the write.
-  const [historyRevision, setHistoryRevision] = useState(0);
   const outfitHistory = useMemo(() => ({
     revision: historyRevision,
-    list: async () => {
-      const history = await loadHistoryRepository();
-      const records = await history.list(localProfileId);
-      // Opening History retries the photos of deleted looks that could not be removed, as
-      // opening the Closet does for its pieces.
-      void history.cleanupPendingPhotos(localProfileId).catch(() => {
-        // A photo still pending keeps its name on the deleted row for the next opening.
-      });
-      return records;
-    },
-    day: async (dayKey: string) => (await loadHistoryRepository()).day(localProfileId, dayKey),
-    log: async (dayKey: string, outfit: WornOutfit, pieceColors: WornPieceColors | null) => {
-      const record = await (await loadHistoryRepository()).log(localProfileId, dayKey, outfit, { kind: 'keep' }, pieceColors);
-      setHistoryRevision((revision) => revision + 1);
-      return record;
-    },
-  }), [historyRevision, localProfileId]);
+    list: historyAccess.list,
+    day: historyAccess.day,
+    log: historyAccess.log,
+  }), [historyAccess, historyRevision]);
   // Looks a sync pull lands or deletes read again, and a deleted look's photo is removed.
-  useEffect(() => followWritesWhileAccountsOpen(createHistoryWriteWatch({
-    changeKey: async () => (await loadHistoryRepository()).changeKey(localProfileId),
-    cleanupPendingPhotos: async () => (await loadHistoryRepository()).cleanupPendingPhotos(localProfileId),
-    changed: () => setHistoryRevision((revision) => revision + 1),
-  })), [localProfileId]);
+  useEffect(() => followWritesWhileAccountsOpen(historyAccess.writeWatch()), [historyAccess]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,
@@ -703,16 +524,12 @@ export function RecommendationApplicationProvider({
         refresh: (input) => controller.refresh('regenerate', input),
         now,
       });
-      const settled = result.settled.finally(() => {
-        if (reaskInFlight.current === settled) reaskInFlight.current = null;
-      });
-      reaskInFlight.current = settled;
+      const settled = approvedTriggers.trackReask(result.settled);
       if (result.choice) {
-        setDayChoiceState({ profileId: localProfileId, key: day.key,
-          status: 'row', choice: result.choice });
+        setDayChoiceState(writtenDayChoice(localProfileId, day.key, result.choice));
       }
       setDepartureState({ key: day.key, value: result.departure });
-      setLocalDay((previous) => previous.key === day.key ? previous : day);
+      setLocalDay((previous) => dayInForce(previous, day));
       return { settled };
     },
     refresh: () => {
@@ -728,6 +545,7 @@ export function RecommendationApplicationProvider({
     },
     reevaluateLocalDay,
   }), [
+    approvedTriggers,
     controller,
     currentInput,
     localProfileId,
