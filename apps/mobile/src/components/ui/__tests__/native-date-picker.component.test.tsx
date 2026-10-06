@@ -13,11 +13,6 @@ import { mockFontScale } from '../../../../test/font-scale';
 // the US month-first, Sunday-first picker.
 const nativeLocale = { en: 'en_GB', tr: 'tr_TR' } as const;
 
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-
 function TestProviders({ children }: PropsWithChildren) {
   return (
     <SafeAreaProvider

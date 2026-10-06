@@ -13,11 +13,6 @@ import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-
 // A tab switch is a blur followed by a focus, and the router tells the screen about both
 // without re-rendering it. This mock delivers exactly those two events, so a re-render that
 // follows is one the screen caused itself.

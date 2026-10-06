@@ -19,7 +19,6 @@ import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { KuyaraThemeProvider } from '@/theme/theme-provider';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@/components/ui/haptics', () => ({ haptics: { impactLight: jest.fn() } }));
 
 // O13, ADR 0030 section 2: "Easier to see" enlarges the garment board by 1.3 with a 2.8 pt

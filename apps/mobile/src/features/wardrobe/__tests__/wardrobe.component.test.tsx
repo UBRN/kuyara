@@ -44,10 +44,6 @@ import { messages, type SupportedLanguage } from '@/localization/messages';
 import { darkTheme, lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({
-  SymbolView: () => null,
-}));
-
 // The type sheet presents native views, which do not mount under Jest (ADR 0019). The
 // mock keeps the `index` contract the `NativeSheet` primitive drives: below zero the
 // sheet is dismissed and its content is unmounted.

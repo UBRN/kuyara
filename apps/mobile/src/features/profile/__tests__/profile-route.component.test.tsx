@@ -18,7 +18,6 @@ import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 const mockPush = jest.fn();
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react') as typeof import('react');

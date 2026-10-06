@@ -13,10 +13,6 @@ import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({
-  SymbolView: () => null,
-}));
-
 jest.mock('@/features/wardrobe/application/use-visible-closet-categories', () => ({
   useVisibleClosetCategories: () =>
     jest.requireActual('@/features/catalog/domain/garment-taxonomy').structuralCategories,

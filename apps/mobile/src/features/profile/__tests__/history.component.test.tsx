@@ -17,7 +17,6 @@ import { lightTheme } from '@/theme/theme';
 import { EasierToSeeContext } from '@/theme/easier-to-see';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 const mockHistoryFocus = { refocus: undefined as (() => void) | undefined };
 const mockNavigate = jest.fn();
 jest.mock('expo-router', () => {

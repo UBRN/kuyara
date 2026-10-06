@@ -11,10 +11,6 @@ import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
