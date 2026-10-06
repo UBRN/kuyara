@@ -59,6 +59,7 @@ const hotPath = new Set([
   'garment-art/garment-swap-board.tsx',
   'garment-art/swap-piece-target.tsx',
   'garment-art/swap-piece-view.tsx',
+  'garment-art/swap-stage-tint.tsx',
   'garment-art/use-swap-block.ts',
   'garment-art/use-swap-gesture.ts',
   'garment-art/use-swap-hint.ts',
@@ -79,6 +80,7 @@ const knownPruned = new Map([
   ['garment-art/garment-swap-board.tsx', {}],
   ['garment-art/swap-piece-target.tsx', {}],
   ['garment-art/swap-piece-view.tsx', {}],
+  ['garment-art/swap-stage-tint.tsx', {}],
   ['garment-art/use-swap-block.ts', {}],
   // The strip tiles the drag and the marker read are derived between the gesture's hooks.
   ['garment-art/use-swap-gesture.ts', { useSwapGesture: 7 }],

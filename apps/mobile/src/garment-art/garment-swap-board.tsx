@@ -1,13 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  Extrapolation,
-  interpolate,
-  interpolateColor,
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
@@ -29,6 +23,7 @@ import { GARMENT_OUTLINE } from './garment-painting';
 import { GarmentSwapStrip, type GarmentSwapStripLabels } from './garment-swap-strip';
 import { SwapPieceTarget } from './swap-piece-target';
 import { SwapPieceView } from './swap-piece-view';
+import { SwapStageTint } from './swap-stage-tint';
 import { drawingKey, type Box, type GarmentSwapCandidate, type Role } from './swap-reconcile';
 import { useSwapBlock } from './use-swap-block';
 import { pagedInstances, useSwapGesture } from './use-swap-gesture';
@@ -186,16 +181,6 @@ export function GarmentSwapBoard({
   const leavingRoles = useGarmentCandidateRoles(palette, leavingSlot,
     (leavingSlot ? stripCandidates(leavingSlot) : []).map(({ garmentTypeId }) => garmentTypeId));
 
-  // From the band the tint first stands the band's height and settles to the board's as it fades
-  // to the page ground; from the fitted stage it has the board's height and the stage's corners.
-  const boardHeight = composed?.height ?? 0;
-  const bandHeight = entrance.fromWidth === null ? null
-    : measureGarmentBoardHeight(pieces, entrance.fromWidth, 'today', true, large);
-  const tintStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(tint.get(), [0, 1], [entrance.fromStageColor, colors.background]),
-    height: bandHeight === null || arrived ? boardHeight
-      : interpolate(tint.get(), [0, 1], [bandHeight, boardHeight], Extrapolation.CLAMP),
-  }), [arrived, bandHeight, boardHeight, colors.background, entrance.fromStageColor]);
   // Captions and badges leave at once when a piece starts to move: the commit that hands the
   // board new pieces or a focus hides them, so none is drawn over a moving piece and none is
   // renamed before its piece changes. They return on `normal` once every piece rests, and stay
@@ -238,9 +223,15 @@ export function GarmentSwapBoard({
           style={[styles.stage, { height: stageHeight, width }]}
           testID={`${boardTestID}-plate`}>
           {composed ? (
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.tint, entrance.fromWidth === null && { borderRadius: theme.radii.stage }, tintStyle]}
+            <SwapStageTint
+              arrived={arrived}
+              bandHeight={entrance.fromWidth === null ? null
+                : measureGarmentBoardHeight(pieces, entrance.fromWidth, 'today', true, large)}
+              boardHeight={composed.height}
+              fromStageColor={entrance.fromStageColor}
+              radius={entrance.fromWidth === null ? theme.radii.stage : null}
+              tint={tint}
+              toColor={colors.background}
             />
           ) : null}
           {sortedInstances.map((instance) => (
@@ -369,11 +360,5 @@ const styles = StyleSheet.create({
   },
   stage: {
     position: 'relative',
-  },
-  tint: {
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
   },
 });
