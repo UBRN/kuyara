@@ -187,7 +187,7 @@ The localization provider resolves a saved `system | tr | en` preference through
 
 Today lives under `apps/mobile/src/features/today/`. Its screen model defines loaded, loading, and unavailable presentation states; a loaded snapshot carries the real `WeatherSnapshot`, the active location, its freshness, and the recommendation result, and holds no duplicated copy of the snapshot's own fields. A pure presentation mapper localizes the language-independent codes into English or Turkish before feature-specific React components render them with the shared primitives.
 
-The route composes existing application state and owns no data access:
+The route composes existing application state and owns no data access. Its flows are hooks in `features/today/application` that it reads and passes on as props: the day question with its styles step (`useDayQuestionSheet`) and "Ask the stylist again" (`useAskAgainSheet`), each driving a pure reducer in `today-sheets.ts`, the name prompt, the focus and foreground re-check, the pull refresh, the alert offer, and what Today reports to analytics, the consent gate and the tour (`useTodayReports`). The recommendation reaches the screen through this chain:
 
 ```text
 weather snapshot + clothing preference + catalog version + local day seed

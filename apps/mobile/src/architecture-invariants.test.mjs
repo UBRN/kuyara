@@ -1107,9 +1107,6 @@ test('a screen that reads its scroll offset hands the scroll ref to every Screen
 // the list only shrinks: a rule a route needs moves into the application layer instead.
 const todayRouteDomainImports = Object.freeze({
   'app/(tabs)/(today)/index.tsx': [
-    '@/features/analytics/domain/analytics-events',
-    '@/features/analytics/domain/analytics-mappers',
-    '@/features/recommendation/domain/outfit-coverage',
     '@/features/weather/domain/wardrobe-day',
     '@/features/weather/domain/weather',
   ],
