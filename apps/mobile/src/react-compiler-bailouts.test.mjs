@@ -58,6 +58,7 @@ const hotPath = new Set([
   'features/today/presentation/outfit-detail-worn.tsx',
   'garment-art/garment-swap-board.tsx',
   'garment-art/swap-piece-view.tsx',
+  'garment-art/use-swap-motion.ts',
   'garment-art/use-swap-pager.ts',
 ]);
 
@@ -71,8 +72,9 @@ const knownPruned = new Map([
   // The recommendation and the open outfit, read from provider state whose identity holds.
   ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 4 }],
   ['features/today/presentation/outfit-detail-screen.tsx', {}],
-  ['garment-art/garment-swap-board.tsx', { GarmentSwapBoard: 16 }],
+  ['garment-art/garment-swap-board.tsx', { GarmentSwapBoard: 15 }],
   ['garment-art/swap-piece-view.tsx', {}],
+  ['garment-art/use-swap-motion.ts', {}],
   ['garment-art/use-swap-pager.ts', {}],
   ['garment-art/garment-painting.tsx', {}],
   ['features/today/presentation/today-screen.tsx', {}],
