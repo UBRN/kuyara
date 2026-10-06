@@ -223,6 +223,8 @@ export type ComposerDay = Readonly<{
   midLayers: readonly EligibleGarmentResult[];
   outerLayers: readonly EligibleGarmentResult[];
   footwear: readonly EligibleGarmentResult[];
+  /** Whether a mid layer must go over the primary top in order: false only to rebuild a saved outfit. */
+  ordersLayers: boolean;
 }>;
 
 /**
@@ -234,6 +236,7 @@ export type ComposerDay = Readonly<{
 export function readComposerDay(
   allRequirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
+  ordersLayers: boolean,
 ): ComposerDay | OutfitCompositionFailure {
   // The extremity requirements are left out here on purpose: no top, bottom, layer or shoe
   // covers a head, so counting them would lower every outfit's score by the same amount and
@@ -321,6 +324,7 @@ export function readComposerDay(
     midLayers,
     outerLayers,
     footwear,
+    ordersLayers,
   });
 }
 
@@ -334,7 +338,10 @@ function* bodyTriples(day: ComposerDay): Generator<BodyPieces> {
   const outerOptions = [null, ...day.outerLayers];
   for (const body of day.bodyCores) {
     for (const midLayer of midOptions) {
-      if (midLayer !== null && body.kind === 'separates' && !layeringOrderFits(body.primaryTop, midLayer)) {
+      if (
+        day.ordersLayers && midLayer !== null && body.kind === 'separates' &&
+        !layeringOrderFits(body.primaryTop, midLayer)
+      ) {
         continue;
       }
       for (const outerLayer of outerOptions) {

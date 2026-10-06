@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   RecommendationApplicationController,
@@ -19,6 +20,8 @@ import { recommendOutfits } from '../application/recommend-outfits.ts';
 import { latestDatabaseVersion, migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
 import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
+import { applySwaps } from '../domain/manual-mix.ts';
+import { outfitGarments } from '../domain/outfit-composition.ts';
 
 const profileId = 'profile-recommendation-test';
 const recommendationId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
@@ -638,4 +641,46 @@ test('an on-device-ai snapshot round trips through the repository', async (t) =>
   assert.equal(read.generationMode, 'on-device-ai');
   assert.equal(read.recommendation.generationMode, 'on-device-ai');
   assert.deepEqual(read, saved);
+});
+
+// A cold rain trio as the engine composed and saved it before the layer order rule: its
+// second outfit wears a sweatshirt over a fleece, which new compositions no longer offer.
+// The row keeps only the trio's own options; the other 21 play no part in reading it.
+const savedBeforeLayerOrder = JSON.parse(readFileSync(
+  new URL('./stored-trio-before-layer-order.json', import.meta.url), 'utf8'));
+
+test('a trio saved before the layer order rule still loads, mixes and keeps its old layering', async (t) => {
+  const { database, dataSource, repository } = await setup();
+  t.after(() => database.close());
+  await dataSource.replaceSnapshot({
+    id: recommendationId,
+    localProfileId: profileId,
+    weatherSnapshotId: 'weather-cold-rain',
+    locationKey: 'manual:sample.istanbul',
+    generationMode: 'deterministic-fallback',
+    contextJson: JSON.stringify(savedBeforeLayerOrder.context),
+    outfitsJson: JSON.stringify(savedBeforeLayerOrder.outfits),
+    createdAt: firstTime,
+    updatedAt: firstTime,
+  });
+
+  const loaded = await repository.getSnapshot(profileId, '2026-10-07');
+  const pieces = loaded.recommendation.outfits.map((outfit) => outfitGarments(outfit)
+    .map(({ garment }) => garment.garmentTypeId).join('+'));
+  assert.deepEqual(pieces, [
+    'fleece+long_skirt+parka+weather_boots+balaclava+neck_gaiter+gloves+umbrella',
+    'fleece+jeans+sweatshirt+parka+weather_boots+balaclava+neck_gaiter+gloves+umbrella',
+    'cardigan+long_skirt+parka+weather_boots+balaclava+neck_gaiter+gloves+umbrella',
+  ]);
+  assert.deepEqual(
+    loaded.recommendation.outfits.map(({ optionId }) => optionId),
+    savedBeforeLayerOrder.context.options.map(({ optionId }) => optionId),
+  );
+
+  // Changing the shoes on the old outfit keeps its sweatshirt where it was worn.
+  const layered = loaded.recommendation.outfits[1];
+  const mixed = applySwaps(
+    layered, { footwear: 'rain_boots' }, loaded.recommendation.requirements, 'womens').outfit;
+  assert.equal(mixed.midLayer.garment.garmentTypeId, 'sweatshirt');
+  assert.equal(mixed.footwear.garment.garmentTypeId, 'rain_boots');
 });

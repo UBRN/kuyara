@@ -105,7 +105,9 @@ function storedOutfit(
       projectCatalogEffectiveGarment(typeId, context.clothingPreference),
     );
   });
-  const composition = collectValidOutfits(requirements, candidates);
+  // A saved outfit is read as it was composed: the layer order rule governs new compositions
+  // only, so a trio saved before it keeps rendering.
+  const composition = collectValidOutfits(requirements, candidates, { ordersLayers: false });
   const outfit = composition.status === 'composed'
     ? composition.outfits.find((candidate) => {
         const actual = outfitGarments(candidate).map(({ slot, layerRole, garment }) => ({
