@@ -20,7 +20,7 @@ const WIDTH = 358;
 const OUTLINE = 1.5;
 
 const composition = (pieces) => composeGarmentBoard(pieces.map((piece) => ({
-  ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+  ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
 })), detailPreset);
 const compose = (pieces, fit) => placeComposition(composition(pieces), WIDTH, fit);
 

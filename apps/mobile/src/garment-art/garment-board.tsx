@@ -25,6 +25,7 @@ import Svg, {
   G,
 } from 'react-native-svg';
 
+import type { ClothingPreference } from '@/domain/preferences';
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import { useStableEntries } from '@/hooks/use-stable-value';
@@ -54,6 +55,7 @@ import {
   type GarmentOutfitPalette,
   type GarmentRoles,
 } from './garment-palette';
+import { useGarmentCut } from './garment-cut';
 import { resolveGarmentSilhouette } from './garment-silhouette-map';
 
 export { composeGarmentBoard, garmentBoardDressingOrder } from './compose-garment-board';
@@ -211,8 +213,8 @@ type GarmentBoardProps = Readonly<{
   testID?: string;
 }>;
 
-const withSilhouettes = (pieces: readonly GarmentBoardPiece[]) => pieces.map((piece) => ({
-  ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+const withSilhouettes = (pieces: readonly GarmentBoardPiece[], cut: ClothingPreference) => pieces.map((piece) => ({
+  ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, cut),
 }));
 
 function ruleOf(preset: Preset, large: boolean) {
@@ -220,8 +222,9 @@ function ruleOf(preset: Preset, large: boolean) {
   return large ? easierToSeeRule(rule, easierToSeeValues.boardScale, easierToSeeValues.boardSideMinimum) : rule;
 }
 
-export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Preset, large = false) {
-  return composeGarmentBoard(withSilhouettes(pieces), ruleOf(preset, large));
+/** `cut` is the profile's: pass `useGarmentCut()`. */
+export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Preset, cut: ClothingPreference, large = false) {
+  return composeGarmentBoard(withSilhouettes(pieces, cut), ruleOf(preset, large));
 }
 
 /**
@@ -229,16 +232,23 @@ export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Pres
  * composition unit is drawn at): the worn board, or with `fit` Today's flat lay fitted to its
  * band.
  */
-function placePieces(pieces: readonly GarmentBoardPiece[], width: number, preset: Preset, fit: boolean, large = false) {
+function placePieces(
+  pieces: readonly GarmentBoardPiece[],
+  width: number,
+  preset: Preset,
+  cut: ClothingPreference,
+  fit: boolean,
+  large = false,
+) {
   if (!fit) {
-    const result = composePieces(pieces, preset, large);
+    const result = composePieces(pieces, preset, cut, large);
     const placed = new Map(result.order.map((piece) => {
       const box = result.boxes.get(piece)!;
       return [piece, { x: box.x * width, y: box.y * width, w: box.w * width, h: box.h * width }];
     }));
     return { result, placed, height: width * result.stageHeight, unit: width };
   }
-  const result = composeFlatLay(withSilhouettes(pieces), ruleOf(preset, large));
+  const result = composeFlatLay(withSilhouettes(pieces, cut), ruleOf(preset, large));
   const extent = drawnExtent(result.boxes.values());
   const coreWidth = Math.max(...result.core.map((piece) => result.boxes.get(piece)!.w));
   const coreCap = flatLayPreset.coreWidth * (large ? easierToSeeValues.boardScale : 1);
@@ -253,10 +263,12 @@ export function layoutGarmentBoard(
   pieces: readonly GarmentBoardPiece[],
   width: number,
   preset: Preset,
+  /** The profile's cut; pass `useGarmentCut()`. */
+  cut: ClothingPreference,
   /** O13: the "Easier to see" board; pass `useEasierToSee()`. */
   large = false,
 ): GarmentBoardLayout {
-  const { result, placed, height } = placePieces(pieces, width, preset, false, large);
+  const { result, placed, height } = placePieces(pieces, width, preset, cut, false, large);
 
   return {
     height,
@@ -572,13 +584,14 @@ export function entranceStartBoxes(
   pieces: readonly GarmentBoardPiece[],
   width: number,
   preset: Preset,
+  cut: ClothingPreference,
   fit: boolean,
   large = false,
 ): ReadonlyMap<OutfitSlot, DrawnBox> {
   // Before the first layout the width is 0 and there is nothing to fit to.
   const fitted = fit && width > 0;
   const unit = fitted ? width : 1;
-  const { result, placed } = placePieces(pieces, unit, preset, fitted, large);
+  const { result, placed } = placePieces(pieces, unit, preset, cut, fitted, large);
   return new Map(result.order.map((piece) => {
     const box = placed.get(piece)!;
     return [piece.slot, { x: box.x / unit, y: box.y / unit, w: box.w / unit, h: box.h / unit }];
@@ -589,11 +602,13 @@ export function measureGarmentBoardHeight(
   pieces: readonly GarmentBoardPiece[],
   width: number,
   preset: Preset,
+  /** The profile's cut; pass `useGarmentCut()`. */
+  cut: ClothingPreference,
   fit = false,
   /** O13: the "Easier to see" board; pass `useEasierToSee()`. */
   large = false,
 ) {
-  return placePieces(pieces, width, preset, fit, large).height;
+  return placePieces(pieces, width, preset, cut, fit, large).height;
 }
 
 export function GarmentBoard({
@@ -616,6 +631,7 @@ export function GarmentBoard({
   const theme = useKuyaraTheme();
   const { colors } = theme;
   const large = useEasierToSee();
+  const cut = useGarmentCut();
   const outline = large ? easierToSeeValues.boardOutline : undefined;
   const roles = useGarmentRoles(palette, stageColor);
   const progress = useSharedValue(0);
@@ -694,7 +710,7 @@ export function GarmentBoard({
   // Composed after the last hook: React Compiler cannot keep a value in a memo block across a
   // hook call, so a composition read above the hooks was redone, and every piece redrawn, on
   // each render even when the outfit and width were unchanged.
-  const { result, placed, height, unit } = placePieces(pieces, width, preset, fit && !entrance, large);
+  const { result, placed, height, unit } = placePieces(pieces, width, preset, cut, fit && !entrance, large);
   const shadow = pieceShadowOf(unit, stageColor ?? colors.background, theme.colorScheme);
 
   const accessibilityProps = {
@@ -754,7 +770,7 @@ export function GarmentBoard({
     return onLeft ? <LeavingLayer onLeft={onLeft}>{board}</LeavingLayer> : board;
   }
 
-  const fromBoxes = entranceStartBoxes(pieces, width, entrance.fromPreset, entrance.fromFit === true, large);
+  const fromBoxes = entranceStartBoxes(pieces, width, entrance.fromPreset, cut, entrance.fromFit === true, large);
 
   return (
     <Animated.View

@@ -684,7 +684,7 @@ test('a piece added from Bottoms draws dashed jeans before a type is chosen', as
     </TestProviders>,
   );
   const outlineOf = (typeId: 'jeans' | 't_shirt') =>
-    silhouettes[garmentSilhouetteIds[typeId]!].groups[0].outline;
+    silhouettes[garmentSilhouetteIds.womens[typeId]!].groups[0].outline;
   const drawsOutline = (testID: string, outline: string) =>
     result.getAllByTestId(testID, { includeHiddenElements: true }).some((element) =>
       element.queryAll((node) => node.props.d === outline).length > 0);

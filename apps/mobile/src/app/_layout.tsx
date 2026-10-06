@@ -53,6 +53,7 @@ import { WeatherApplicationProvider } from '@/features/weather/application/weath
 import { WardrobeApplicationProvider } from '@/features/wardrobe/application/wardrobe-application-provider';
 import { WalkthroughProvider } from '@/features/walkthrough/application/walkthrough-provider';
 import { isDeepLinkLaunch } from '@/features/walkthrough/domain/walkthrough-rules';
+import { defaultGarmentCut, GarmentCutProvider } from '@/garment-art';
 import { openKuyaraDatabaseSync } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -179,6 +180,8 @@ function ReadyApplicationShell({
           <WardrobeApplicationProvider localProfileId={profile.id}>
             <RecommendationApplicationProvider localProfileId={profile.id}>
               <ThemeProvider value={navigationTheme}>
+                {/* Every garment is drawn in the cut of the profile's catalog. */}
+                <GarmentCutProvider cut={profile.clothingPreference ?? defaultGarmentCut}>
                 <StatusBar style={theme.isDark ? 'light' : 'dark'} />
                 <AnalyticsConsentGate
                   onPresent={presentAnalyticsConsent}
@@ -218,6 +221,7 @@ function ReadyApplicationShell({
                   />
                 </Stack>
                 </WalkthroughProvider>
+                </GarmentCutProvider>
               </ThemeProvider>
             </RecommendationApplicationProvider>
           </WardrobeApplicationProvider>

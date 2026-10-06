@@ -469,7 +469,7 @@ test('the names stand under the board as buttons in the wearing order, and a tap
   const onBoardFocusChange = jest.fn();
   const result = await renderDetail('en', { onBoardFocusChange });
   const { boardPieces } = archetype('en');
-  const board = layoutGarmentBoard(boardPieces, 358, 'detail');
+  const board = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens');
   const wearing = ['primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear'];
   const names = within(result.getByTestId('outfit-detail-names', hidden))
     .getAllByTestId(/^outfit-detail-name-[a-z_]+$/, hidden).map((node) => node.props.testID);
@@ -495,7 +495,7 @@ test('a tap on the bottom grows it, drawn over every other piece', async () => {
   const onBoardFocusChange = jest.fn();
   const result = await renderDetail('en', { onBoardFocusChange });
   const { boardPieces } = archetype('en');
-  const boxes = layoutGarmentBoard(boardPieces, 358, 'detail').boxes;
+  const boxes = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens').boxes;
   const top = boxes.find(({ slot }) => slot === 'primary_top')!;
   const bottom = boxes.find(({ slot }) => slot === 'bottom')!;
   // At rest the waist stands clear of the top's hem.
@@ -519,7 +519,7 @@ test('a tap enlarges a piece and a leftward flick changes it to the next candida
   const onBoardFocusChange = jest.fn();
   const result = await renderDetail('en', { onBoardFocusChange });
   const { boardPieces } = archetype('en');
-  const shoes = layoutGarmentBoard(boardPieces, 358, 'detail').boxes.find(({ slot }) => slot === 'footwear')!;
+  const shoes = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens').boxes.find(({ slot }) => slot === 'footwear')!;
   await act(async () => {
     fireGestureHandler(getByGestureTestId('outfit-detail-board-tap'), [
       { state: State.BEGAN, x: shoes.x + shoes.width / 2, y: shoes.y + shoes.height / 2 },
@@ -615,7 +615,7 @@ describe.each([false, true])('Easier to see %s', (large) => {
   test('the enlarged piece grows 1.6 to 2 times in the stage and only it gets a big drawing', async () => {
     const result = await renderDetail('en', {}, null, large);
     const { boardPieces } = archetype('en');
-    const boxes = layoutGarmentBoard(boardPieces, 358, 'detail', large).boxes;
+    const boxes = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens', large).boxes;
     // A settled piece hands its big drawing back once its shrink is a quarter done, which Jest's
     // Reanimated mock never animates; only pieces never enlarged are checked for none.
     const enlarged = new Set<string>();

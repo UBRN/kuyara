@@ -2,6 +2,7 @@ export { ChoiceTile, ChoiceTileGrid, type ChoiceTileDrawing, type ChoiceTileProp
 export { ClosetSolidStrip, type ClosetSolidStripProps } from './closet-solid-strip';
 export { ColorSwatch, ColorWellFace } from './color-swatch';
 export { GarmentSlotGlyph, GarmentSlotTile } from './garment-slot-glyph';
+export { defaultGarmentCut, GarmentCutProvider, useGarmentCut } from './garment-cut';
 
 export {
   GarmentBoard,

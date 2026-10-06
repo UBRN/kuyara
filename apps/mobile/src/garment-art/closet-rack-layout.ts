@@ -1,3 +1,4 @@
+import type { ClothingPreference } from '@/domain/preferences';
 import type { ColorFamily, GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 
 import { categoryGlyphIds, resolveGarmentSilhouette } from './garment-silhouette-map';
@@ -23,8 +24,11 @@ export type RackPiece = Readonly<{
   addedAt: number;
 }>;
 
-/** A piece with the OKLCH lightness of its fill, 0 dark to 1 light, for the tidy colour run. */
-export type RackLayoutPiece = RackPiece & Readonly<{ lightness: number }>;
+/**
+ * A piece with the OKLCH lightness of its fill, 0 dark to 1 light, for the tidy colour run, and
+ * the drawing it hangs as (`rackSilhouette`, in the profile's cut).
+ */
+export type RackLayoutPiece = RackPiece & Readonly<{ lightness: number; silhouette: Silhouette }>;
 
 export type RackGarment = Readonly<{
   kind: 'garment';
@@ -101,9 +105,9 @@ const TAG_ROOM = 34;
 
 const f = (n: number) => Math.round(n * 100) / 100;
 
-export function rackSilhouette(piece: Pick<RackPiece, 'garmentTypeId' | 'category'>): Silhouette {
+export function rackSilhouette(piece: Pick<RackPiece, 'garmentTypeId' | 'category'>, cut: ClothingPreference): Silhouette {
   return piece.garmentTypeId
-    ? resolveGarmentSilhouette(piece.garmentTypeId, piece.category)
+    ? resolveGarmentSilhouette(piece.garmentTypeId, piece.category, cut)
     : silhouettes[categoryGlyphIds[piece.category]];
 }
 
@@ -124,7 +128,7 @@ function newestFirst(pieces: readonly RackLayoutPiece[]): RackLayoutPiece[] {
 
 /** One drawing in a box of `box` frame units, centred on `cx`, its drawn top (or bottom) at `y`. */
 function garment(piece: RackLayoutPiece, box: number, cx: number, y: number, fromBottom = false): RackGarment {
-  const silhouette = rackSilhouette(piece);
+  const { silhouette } = piece;
   const { bounds } = silhouette;
   const scale = box / 64;
   return {

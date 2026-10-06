@@ -5,9 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Entrance, Screen, useTextScaling } from '@/components/ui';
 import {
   GarmentBoard,
-  measureGarmentBoardHeight,
   type GarmentBoardPiece,
   type GarmentOutfitPalette,
+  measureGarmentBoardHeight,
+  useGarmentCut,
 } from '@/garment-art';
 import { EmptyStateArt } from '@/components/ui/empty-state-art';
 import { calendarDateUtcMidnight } from '@/domain/calendar-date';
@@ -182,6 +183,7 @@ export function HistoryScreen({
   const { width: windowWidth } = useWindowDimensions();
   const { usesStackedLayout } = useTextScaling();
   const easierToSee = useEasierToSee();
+  const cut = useGarmentCut();
   const copy = messages.profile;
   const formats = useMemo(() => {
     // A day key is a calendar date in no zone, so it is read as UTC midnight and formatted in UTC;
@@ -336,7 +338,7 @@ export function HistoryScreen({
                       style={styles.latest}
                       testID={`history-entry-${look.key}`}>
                       {stage(look, contentWidth, measureGarmentBoardHeight(
-                        historyBoard(look.entry, look.key).pieces, contentWidth, 'today', false, easierToSee))}
+                        historyBoard(look.entry, look.key).pieces, contentWidth, 'today', cut, false, easierToSee))}
                       <View style={styles.text}>
                         {several ? null : <AppText variant="title">{fullDate}</AppText>}
                         <AppText colorRole="textSecondary">{title}</AppText>
@@ -351,7 +353,7 @@ export function HistoryScreen({
         }
         // Looks side by side share the taller stage, so their captions sit on one line.
         const height = Math.max(...row.looks.map(({ entry, key }) =>
-          measureGarmentBoardHeight(historyBoard(entry, key).pieces, tileWidth, 'today', false, easierToSee)));
+          measureGarmentBoardHeight(historyBoard(entry, key).pieces, tileWidth, 'today', cut, false, easierToSee)));
         const tiles = row.looks.map((look, offset) => {
           const date = calendarDateUtcMidnight(look.entry.dayKey);
           const { style, title } = dayCopy(look.entry, messages);

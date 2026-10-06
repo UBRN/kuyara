@@ -7,6 +7,8 @@ import type { ThemeColorScheme } from '@/theme/theme';
 
 import { fromOklch, linearRgb, toOklch } from '@/theme/color-oklch';
 
+import { colorwayKeyOf } from './garment-silhouette-map';
+
 // Port of the approved Phase 6 palette.js. These hex values are garment content
 // and material colours only; callers must not use them for controls, text, or chrome.
 const lum = (h: string): number => { const c = linearRgb(h); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
@@ -189,9 +191,8 @@ function tones(main: string, second: string | null, hardware: string | null, dar
 }
 
 
-// Explicit catalog mapping keeps palette coverage independent of the current silhouette map.
-// Fleece, track pants, knit dress, long skirt and neck gaiter use a related approved
-// colourway while their dedicated drawing has not been defined by the mockup.
+// The colourway each type is coloured from, the same in both cuts: the base of the drawing the
+// type resolves to in either cut (`colorwayKeyOf`), so a type's colours never depend on the cut.
 const garmentColorwayIds = {
   sleeveless_top: 'g-tank', t_shirt: 'g-tee', long_sleeve_t_shirt: 'g-long',
   shirt: 'g-shirt', blouse: 'x-blouse', sweatshirt: 'g-sweater',
@@ -202,7 +203,7 @@ const garmentColorwayIds = {
   long_skirt: 'g-skirt', track_pants: 'g-trousers', dress: 'g-dress',
   jumpsuit: 'g-jumpsuit', knit_dress: 'g-dress', light_jacket: 'g-jacket',
   trench_coat: 'g-trench', rain_jacket: 'g-rain', insulated_jacket: 'g-puffer',
-  coat: 'g-trench', parka: 'g-parka', blazer: 'g-blazer',
+  coat: 'x-coat', parka: 'g-parka', blazer: 'g-blazer',
   puffer_vest: 'g-vest', bomber_jacket: 'x-bomber', leather_jacket: 'x-leather',
   sneakers: 'g-sneaker', closed_shoes: 'g-dressshoe', ankle_boots: 'g-boot',
   weather_boots: 'g-boot', sandals: 'g-sandal', loafers: 'x-loafer',
@@ -355,7 +356,8 @@ export function resolveGarmentPalette(input: GarmentPaletteInput): readonly Garm
  */
 export function garmentFillRoles(colorwayId: string, main: string, appearance: ThemeColorScheme): GarmentRoles {
   const dark = appearance === 'dark';
-  const colorway = colorwayId in COLORWAY ? COLORWAY[colorwayId as keyof typeof COLORWAY] : null;
+  const key = colorwayKeyOf(colorwayId);
+  const colorway = key in COLORWAY ? COLORWAY[key as keyof typeof COLORWAY] : null;
   const second = colorway?.a ?? null;
   const materialHex = second === null ? null : second in garmentSwatches
     ? garmentSwatches[second as GarmentSwatchId].hex : second;

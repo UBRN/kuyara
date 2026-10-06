@@ -8,6 +8,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import type { ClothingPreference } from '@/domain/preferences';
 import { fadeTo } from '@/components/ui/fade';
 
 import {
@@ -17,6 +18,7 @@ import {
   type ComposedPiece,
   type GarmentBoardPiece,
 } from './garment-board';
+import { useGarmentCut } from './garment-cut';
 import type { GarmentOutfitPalette } from './garment-palette';
 import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
@@ -50,10 +52,11 @@ function roleId(roles: GarmentRoles) {
 function place(
   pieces: readonly GarmentBoardPiece[],
   width: number,
+  cut: ClothingPreference,
   large: boolean,
   roles: ReadonlyMap<string, GarmentRoles>,
 ): readonly Placed[] {
-  const result = composePieces(pieces, 'today', large);
+  const result = composePieces(pieces, 'today', cut, large);
   return result.order.flatMap((piece) => {
     const box = result.boxes.get(piece)!;
     const pieceRoles = roles.get(piece.slot);
@@ -180,8 +183,9 @@ export function GarmentPreviewBoard({ pieces, palette, width, height, stageColor
   const { colors } = useKuyaraTheme();
   const large = useEasierToSee();
   const outline = large ? easierToSeeValues.boardOutline : undefined;
-  const placed = place(pieces, width, large, useGarmentRoles(palette, stageColor));
-  const signature = `${width}|${large}|${placed.map((entry) => entry.key).join(',')}`;
+  const cut = useGarmentCut();
+  const placed = place(pieces, width, cut, large, useGarmentRoles(palette, stageColor));
+  const signature = `${width}|${cut}|${large}|${placed.map((entry) => entry.key).join(',')}`;
 
   const [layers, setLayers] = useState<Layers>({ signature, current: placed, before: new Map(), leaving: [], changes: 0 });
   if (layers.signature !== signature) {

@@ -86,7 +86,7 @@ for (const [presetName, preset, min, max] of [
 ]) {
   for (const [name, slots] of evidence) {
     test(`${presetName}: ${name} preserves clearance, stage limits and anchor parity`, () => {
-      const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+      const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
       const result = composeGarmentBoard(pieces, preset);
       const measured = audit(result);
       // No piece touches another.
@@ -119,7 +119,7 @@ const readmeBoards = [
 for (const [presetName, preset] of [['today', todayPreset], ['detail', detailPreset]]) {
   for (const [name, slots] of readmeBoards) {
     test(`${presetName}: README board ${name} keeps its pieces apart and does not clip`, () => {
-      const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+      const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
       const measured = audit(composeGarmentBoard(pieces, preset));
       assert.equal(measured.overlap, 0, name);
       assert.equal(measured.clip, 0, name);
@@ -133,7 +133,7 @@ for (const [presetName, preset] of [['today', todayPreset], ['detail', detailPre
 const boxOfSlot = (result, slot) => [...result.boxes].find(([piece]) => piece.slot === slot)?.[1];
 for (const [name, slots] of evidence) {
   test(`today: ${name} is laid out as worn`, () => {
-    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
     const result = composeGarmentBoard(pieces, todayPreset);
     const box = (slot) => boxOfSlot(result, slot);
     const core = result.core.map((piece) => result.boxes.get(piece));
@@ -162,7 +162,7 @@ test('the Today and detail presets share the stage insets', () => {
 });
 
 test('layout does not mutate artwork or depend on the input ordering', () => {
-  const pieces = evidence[6][1].map(([slot, type]) => Object.freeze({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+  const pieces = evidence[6][1].map(([slot, type]) => Object.freeze({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
   const first = composeGarmentBoard(Object.freeze(pieces));
   const reversed = composeGarmentBoard([...pieces].reverse());
   assert.deepEqual(first, reversed);
@@ -172,7 +172,7 @@ test('layout does not mutate artwork or depend on the input ordering', () => {
 // every piece keeps its place relative to the others and only grows.
 for (const [name, slots] of evidence) {
   test(`detail: ${name} is the worn board at the runway's largest scale`, () => {
-    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
     const today = composeGarmentBoard(pieces, todayPreset);
     const detail = composeGarmentBoard(pieces, detailPreset);
     const origin = (result) => boxOfSlot(result, result.core[0].slot);
@@ -200,7 +200,7 @@ test('the footwear pair box keeps one shoe height and stays near one shoe wide',
 });
 
 test('both shoes of a pair land inside the pair bounds, the near one low at the heel, the far one high at the toe', () => {
-  const { bounds: single } = resolveGarmentSilhouette('ankle_boots', 'footwear');
+  const { bounds: single } = resolveGarmentSilhouette('ankle_boots', 'footwear', 'womens');
   const drawing = footwearPairDrawing(single);
   const { bounds } = drawing;
   const shoes = drawing.shoes.map(({ dx, dy }) => ({
@@ -219,7 +219,7 @@ test('both shoes of a pair land inside the pair bounds, the near one low at the 
 
 for (const [name, slots] of evidence) {
   test(`pair: ${name} feeds the pair's drawn bounds to the composer`, () => {
-    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
     const result = composeGarmentBoard(pieces, todayPreset);
     const [foot, box] = [...result.boxes].find(([piece]) => piece.slot === 'footwear');
     const shoe = pieces.find(({ slot }) => slot === 'footwear');
@@ -238,7 +238,7 @@ for (const [name, slots] of evidence) {
 // The runway preset (O17, P6): one uniform scale, the ladder untouched.
 for (const [name, slots] of evidence) {
   test(`runway: ${name} fits its drawn extent to the free area without changing the ladder`, () => {
-    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
     const result = composeGarmentBoard(pieces, todayPreset);
     const extent = drawnExtent(result.boxes.values());
     for (const [width, height] of [[339, 516], [339, 490], [343, 200], [300, 900]]) {
@@ -303,7 +303,7 @@ for (const [name, slots] of [
   ['sleeveless top, jeans, rain jacket, rain boots', [['primary_top', 'sleeveless_top'], ['bottom', 'jeans'], ['outer_layer', 'rain_jacket'], ['footwear', 'rain_boots']]],
 ]) {
   test(`Easier to see detail: ${name} keeps its pieces apart and does not clip`, () => {
-    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
     const result = composeGarmentBoard(pieces, largeDetail);
     const measured = audit(result);
     assert.equal(measured.overlap, 0, name);
@@ -318,7 +318,7 @@ for (const [name, slots] of [
 test('the boards without Easier to see keep their exact layouts', () => {
   const layouts = [['today', todayPreset], ['detail', detailPreset]].flatMap(([presetName, preset]) =>
     [...evidence, ...readmeBoards].map(([name, slots]) => {
-      const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+      const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
       const result = composeGarmentBoard(pieces, preset);
       return [presetName, name, result.stageHeight, result.metric,
         result.order.map((piece) => [piece.slot, result.boxes.get(piece)])];
@@ -336,7 +336,7 @@ test('every board but Today\'s primary stage keeps its exact layout', () => {
     ['today large', easierToSeeRule(todayPreset, 1.3, 0.05)], ['detail large', easierToSeeRule(detailPreset, 1.3, 0.05)],
   ];
   const layouts = presets.flatMap(([presetName, preset]) => [...evidence, ...readmeBoards].map(([name, slots]) => {
-    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
     const result = composeGarmentBoard(pieces, preset);
     const extent = drawnExtent(result.boxes.values());
     const scale = fitRunwayScale([extent], 339, 516);

@@ -378,7 +378,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     const stageStyle = StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style);
     expect(stageStyle).toMatchObject({
       backgroundColor: stageColor, width: band,
-      height: measureGarmentBoardHeight(primary.boardPieces, band, 'today', true),
+      height: measureGarmentBoardHeight(primary.boardPieces, band, 'today', 'womens', true),
     });
     expect(stageStyle.borderRadius ?? 0).toBe(0);
     // The outfit's name keeps the page's gutter.
@@ -441,7 +441,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     const tallestStage = Math.max(
       ...presentation.suggestions
         .slice(1)
-        .map((suggestion) => measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today')),
+        .map((suggestion) => measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', 'womens')),
     );
     expect(tallestStage).toBeGreaterThan(0);
     for (const suggestion of presentation.suggestions.slice(1)) {
@@ -916,7 +916,7 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, trade
   const plate = result.getByTestId('outfit-detail-board-plate');
   expect(StyleSheet.flatten(plate.props.style)).toMatchObject({ width: 358 });
   // The plate is the board and the measured row of names under it.
-  const boardHeight = layoutGarmentBoard(suggestion.boardPieces, 358, 'detail').height;
+  const boardHeight = layoutGarmentBoard(suggestion.boardPieces, 358, 'detail', 'womens').height;
   await fireEvent(result.getByTestId('outfit-detail-names', hidden), 'layout',
     { nativeEvent: { layout: { width: 358, height: 96, x: 0, y: boardHeight + 8 } } });
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
@@ -2307,7 +2307,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail names at any text size', 
     const nameId = /^outfit-detail-name-[a-z_]+$/;
     const { pieces, boardPieces } = loadedPresentation(language).suggestions[0];
     const hidden = { includeHiddenElements: true };
-    const board = layoutGarmentBoard(boardPieces, 358, 'detail');
+    const board = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens');
     for (const scale of [1, 3]) {
       const result = await detail(scale);
       expect(result.getAllByTestId(nameId, hidden)).toHaveLength(pieces.length);
@@ -2532,10 +2532,10 @@ describe('finishing touches', () => {
       { includeHiddenElements: true },
     );
     expect(drawing.props.height).toBe(16);
-    const { bounds } = silhouettes[garmentSilhouetteIds[accessories[0].garmentTypeId]!];
+    const { bounds } = silhouettes[garmentSilhouetteIds.womens[accessories[0].garmentTypeId]!];
     const scale = 16 / (Math.max(bounds.width, bounds.height) + 3);
     const [edge] = drawing.queryAll((node) => typeof node.props.d === 'string'
-      && node.props.d === silhouettes[garmentSilhouetteIds[accessories[0].garmentTypeId]!].groups[0].outline
+      && node.props.d === silhouettes[garmentSilhouetteIds.womens[accessories[0].garmentTypeId]!].groups[0].outline
       && node.props.strokeWidth != null && node.props.strokeOpacity == null);
     expect(edge.props.strokeWidth * scale).toBeCloseTo(1.9 * 16 / 28);
   });

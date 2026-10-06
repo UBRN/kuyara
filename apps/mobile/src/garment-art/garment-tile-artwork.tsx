@@ -14,7 +14,8 @@ import { closetColorPaint, closetPaintBase, ClosetPatternDef } from './closet-co
 import { GARMENT_OUTLINE, garmentLevelOfDetail, GarmentPainting, WANTED_OUTLINE_DASH } from './garment-painting';
 import { garmentFillRoles, legalizeGarmentFill, type GarmentRoles } from './garment-palette';
 import { resolveGarmentTileFill } from './garment-render-fills';
-import { garmentSilhouetteIds } from './garment-silhouette-map';
+import { useGarmentCut } from './garment-cut';
+import { garmentSilhouetteIdFor } from './garment-silhouette-map';
 import { silhouettes, type Silhouette } from './silhouettes';
 
 // A cropped drawing keeps this margin around its own artwork, in drawing units, so the
@@ -166,7 +167,8 @@ export function GarmentDrawing({
   testID: string;
 }>) {
   const { colors } = useKuyaraTheme();
-  const silhouetteId = garmentSilhouetteIds[garmentTypeId];
+  const cut = useGarmentCut();
+  const silhouetteId = garmentSilhouetteIdFor(garmentTypeId, cut);
 
   if (silhouetteId) {
     return (
@@ -217,7 +219,8 @@ export function GarmentTileArtwork({
 }>) {
   const { colors } = useKuyaraTheme();
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
-  const silhouetteId = garmentTypeId ? garmentSilhouetteIds[garmentTypeId] : undefined;
+  const cut = useGarmentCut();
+  const silhouetteId = garmentTypeId ? garmentSilhouetteIdFor(garmentTypeId, cut) : undefined;
 
   if (photoUri && photoUri !== unreadablePhotoUri) {
     return (

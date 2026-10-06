@@ -19,7 +19,7 @@ const categories = {
   primary_top: 'top', bottom: 'bottom', one_piece: 'one_piece',
   mid_layer: 'top', outer_layer: 'outerwear', footwear: 'footwear',
 };
-const piecesOf = (slots) => slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+const piecesOf = (slots) => slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
 
 // The six README boards and the ten evidence slot lists of garment-board.md.
 const boards = [
@@ -68,7 +68,7 @@ function recommendedOutfits() {
           for (const outfit of result.outfits) {
             const slots = Object.entries(outfitGarments(outfit));
             seen.set(slots.map((entry) => entry.join(':')).join(' '),
-              slots.map(([slot, id]) => ({ slot, ...resolveGarmentSilhouette(id, getGarmentType(id).structuralCategory) })));
+              slots.map(([slot, id]) => ({ slot, ...resolveGarmentSilhouette(id, getGarmentType(id).structuralCategory, 'womens') })));
           }
         }
       }
@@ -207,7 +207,7 @@ test('flat lay: the recommender sweep stays within the cover limit, keeps every 
 // A collar, a waist, a sleeve and a sole: where each drawing keeps them.
 test('structure points sit on the collar, the waistband and the sleeve ends', () => {
   const at = (slot, type) => {
-    const piece = { slot, ...resolveGarmentSilhouette(type, categories[slot]) };
+    const piece = { slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') };
     return Object.fromEntries(structurePoints(piece).map(({ kind, x, y }, index) => [`${kind}${index}`, [x, y]]));
   };
   const tee = at('primary_top', 't_shirt');
@@ -217,14 +217,14 @@ test('structure points sit on the collar, the waistband and the sleeve ends', ()
   assert.ok(tee.sleeve2[1] > 29 && tee.sleeve2[1] < 32 && tee.sleeve2[0] > 45, JSON.stringify(tee));
   // A long sleeve ends at its cuff, low on the drawing.
   const long = at('outer_layer', 'rain_jacket');
-  const { bounds } = resolveGarmentSilhouette('rain_jacket', 'outerwear');
+  const { bounds } = resolveGarmentSilhouette('rain_jacket', 'outerwear', 'womens');
   assert.ok(long.sleeve1[1] > bounds.y + 0.8 * bounds.height, JSON.stringify(long));
   // A bottom keeps its waistband, at the top centre.
-  const [waist] = structurePoints({ slot: 'bottom', ...resolveGarmentSilhouette('jeans', 'bottom') });
+  const [waist] = structurePoints({ slot: 'bottom', ...resolveGarmentSilhouette('jeans', 'bottom', 'womens') });
   assert.equal(waist.kind, 'waist');
   // A one-piece's sleeves sit in its upper half, never at a flared hem.
   const dress = at('one_piece', 'dress');
-  const dressBounds = resolveGarmentSilhouette('dress', 'one_piece').bounds;
+  const dressBounds = resolveGarmentSilhouette('dress', 'one_piece', 'womens').bounds;
   assert.ok(dress.sleeve1[1] < dressBounds.y + dressBounds.height / 2, JSON.stringify(dress));
   // Footwear stands in front of every piece, so its sole is never covered.
   assert.equal(flatLayStack.at(-1), 'footwear');

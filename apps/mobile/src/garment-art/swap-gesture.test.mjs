@@ -107,7 +107,7 @@ function threeRowEnlargements(column, large) {
   const rule = large ? easierToSeeRule(detailPreset, 1.3, 0.05) : detailPreset;
   const compose = (pieces) => {
     const result = composeGarmentBoard(pieces.map((piece) => ({
-      ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+      ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
     })), rule);
     const boxes = new Map(result.order.map((piece) => {
       const box = result.boxes.get(piece);
@@ -210,7 +210,7 @@ test('every candidate of a real outfit, grown, fits the held stage', () => {
   const column = 349;
   const compose = (pieces) => {
     const result = composeGarmentBoard(pieces.map((piece) => ({
-      ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+      ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
     })), detailPreset);
     const boxes = new Map(result.order.map((piece) => {
       const box = result.boxes.get(piece);
@@ -361,7 +361,7 @@ test('an enlarged board composes just narrow enough for the stage and the strip 
 test('a tap names the piece under it, the one drawn on top where two overlap, a name button its own piece', () => {
   const pieces = [['primary_top', 'sweatshirt', 'top'], ['bottom', 'jeans', 'bottom'],
     ['outer_layer', 'rain_jacket', 'outerwear'], ['footwear', 'ankle_boots', 'footwear']]
-    .map(([slot, type, category]) => ({ slot, ...resolveGarmentSilhouette(type, category) }));
+    .map(([slot, type, category]) => ({ slot, ...resolveGarmentSilhouette(type, category, 'womens') }));
   const width = 358;
   const result = composeGarmentBoard(pieces, detailPreset);
   const stack = result.stack.map((piece) => {
@@ -389,7 +389,7 @@ test('a tap names the piece under it, the one drawn on top where two overlap, a 
 test('Today and the detail stack their pieces in the same dressing order', () => {
   const pieces = [['primary_top', 'shirt', 'top'], ['bottom', 'trousers', 'bottom'], ['mid_layer', 'cardigan', 'top'],
     ['outer_layer', 'coat', 'outerwear'], ['footwear', 'closed_shoes', 'footwear']]
-    .map(([slot, type, category]) => ({ slot, ...resolveGarmentSilhouette(type, category) }));
+    .map(([slot, type, category]) => ({ slot, ...resolveGarmentSilhouette(type, category, 'womens') }));
   assert.deepEqual(composeGarmentBoard(pieces, detailPreset).stack.map(({ slot }) => slot),
     composeGarmentBoard(pieces, todayPreset).stack.map(({ slot }) => slot));
 });

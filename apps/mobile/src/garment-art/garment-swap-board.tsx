@@ -17,6 +17,7 @@ import {
   useGarmentCandidateRoles,
   type GarmentBoardPiece,
 } from './garment-board';
+import { useGarmentCut } from './garment-cut';
 import { flatLayStack } from './compose-flat-lay';
 import type { GarmentOutfitPalette } from './garment-palette';
 import { GARMENT_OUTLINE } from './garment-painting';
@@ -142,6 +143,7 @@ export function GarmentSwapBoard({
   const fadeEase = useMemo(() => fadeEasing(theme.motion), [theme.motion]);
   const { colors } = theme;
   const large = useEasierToSee();
+  const cut = useGarmentCut();
   const outline = large ? easierToSeeValues.boardOutline : undefined;
   const drawnOutline = outline ?? GARMENT_OUTLINE;
   const shadow = pieceShadowOf(width, colors.background, theme.colorScheme);
@@ -226,7 +228,7 @@ export function GarmentSwapBoard({
             <SwapStageTint
               arrived={arrived}
               bandHeight={entrance.fromWidth === null ? null
-                : measureGarmentBoardHeight(pieces, entrance.fromWidth, 'today', true, large)}
+                : measureGarmentBoardHeight(pieces, entrance.fromWidth, 'today', cut, true, large)}
               boardHeight={composed.height}
               fromStageColor={entrance.fromStageColor}
               radius={entrance.fromWidth === null ? theme.radii.stage : null}

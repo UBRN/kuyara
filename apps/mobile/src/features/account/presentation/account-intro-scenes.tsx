@@ -4,14 +4,16 @@ import { StyleSheet, View } from 'react-native';
 import { Crossfade, Entrance, Icon, RollingText } from '@/components/ui';
 import {
   ClosetRack,
+  type GarmentBoardPiece,
   GarmentDrawing,
+  type GarmentOutfitPalette,
   GarmentPreviewBoard,
   measureGarmentBoardHeight,
   RACK_ASPECT,
-  type GarmentBoardPiece,
-  type GarmentOutfitPalette,
   type RackPiece,
+  useGarmentCut,
 } from '@/garment-art';
+import type { ClothingPreference } from '@/domain/preferences';
 import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
 import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
 import { useEasierToSee } from '@/theme/easier-to-see';
@@ -60,8 +62,14 @@ const paletteOf = (id: string, pieces: readonly Piece[]): GarmentOutfitPalette =
 });
 
 /** The widest board of `pieces` that fits `room` high, at most `maxWidth` wide. */
-function fittedBoardWidth(pieces: readonly (readonly Piece[])[], maxWidth: number, room: number, large: boolean) {
-  const tallest = Math.max(...pieces.map((outfitPieces) => measureGarmentBoardHeight(outfitPieces, maxWidth, 'today', false, large)));
+function fittedBoardWidth(
+  pieces: readonly (readonly Piece[])[],
+  maxWidth: number,
+  room: number,
+  cut: ClothingPreference,
+  large: boolean,
+) {
+  const tallest = Math.max(...pieces.map((outfitPieces) => measureGarmentBoardHeight(outfitPieces, maxWidth, 'today', cut, false, large)));
   return tallest > room ? (maxWidth * room) / tallest : maxWidth;
 }
 
@@ -171,12 +179,13 @@ const MEMBER_ASKS = 10;
 function StylistScene({ active, width, height }: IntroSceneProps) {
   const theme = useKuyaraTheme();
   const large = useEasierToSee();
+  const cut = useGarmentCut();
   const asked = useBeats(active, theme.motion.ambient.moderate, MEMBER_ASKS - EVERYONE_ASKS);
   const count = EVERYONE_ASKS + asked;
   const counterHeight = theme.layout.minimumTouchTarget;
   const stageHeight = height - counterHeight - spacing.md;
-  const boardWidth = fittedBoardWidth(stylistOutfits, width - spacing.lg * 2, stageHeight - spacing.md * 2, large);
-  const tallest = Math.max(...stylistOutfits.map((pieces) => measureGarmentBoardHeight(pieces, boardWidth, 'today', false, large)));
+  const boardWidth = fittedBoardWidth(stylistOutfits, width - spacing.lg * 2, stageHeight - spacing.md * 2, cut, large);
+  const tallest = Math.max(...stylistOutfits.map((pieces) => measureGarmentBoardHeight(pieces, boardWidth, 'today', cut, false, large)));
   const pieces = stylistOutfits[asked % stylistOutfits.length];
   const stage = theme.atmosphere.veiledDay;
 
@@ -302,9 +311,10 @@ const builtPalette: GarmentOutfitPalette = {
 function ComposeScene({ active, width, height }: IntroSceneProps) {
   const theme = useKuyaraTheme();
   const large = useEasierToSee();
+  const cut = useGarmentCut();
   const built = useBeats(active, theme.motion.ambient.calm, 1) > 0;
-  const boardWidth = fittedBoardWidth([builtOutfit], width - spacing.lg * 2, height - spacing.md * 2, large);
-  const boardHeight = measureGarmentBoardHeight(builtOutfit, boardWidth, 'today', false, large);
+  const boardWidth = fittedBoardWidth([builtOutfit], width - spacing.lg * 2, height - spacing.md * 2, cut, large);
+  const boardHeight = measureGarmentBoardHeight(builtOutfit, boardWidth, 'today', cut, false, large);
   const tile = Math.min(height - spacing.xl, (width - spacing.md) / 2);
   const stage = theme.atmosphere.veiledDay;
   return (

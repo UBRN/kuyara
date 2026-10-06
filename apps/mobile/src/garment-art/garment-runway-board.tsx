@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import type { ClothingPreference } from '@/domain/preferences';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import type { MotionTokens } from '@/theme/theme';
@@ -29,6 +30,7 @@ import {
   type GarmentBoardPiece,
   type PieceShadow,
 } from './garment-board';
+import { useGarmentCut } from './garment-cut';
 import type { GarmentOutfitPalette, GarmentRoles } from './garment-palette';
 
 // A landing mark is the draft's own outline, faint, so the board shows where each piece
@@ -57,8 +59,8 @@ function dressStart(index: number, motion: MotionTokens): number {
   return motion.normal + index * POUR_STEP;
 }
 
-function layoutOf(pieces: readonly GarmentBoardPiece[]) {
-  const result = composePieces(pieces, 'today');
+function layoutOf(pieces: readonly GarmentBoardPiece[], cut: ClothingPreference) {
+  const result = composePieces(pieces, 'today', cut);
   return { result, extent: drawnExtent(result.boxes.values()) };
 }
 
@@ -310,8 +312,9 @@ export function GarmentRunwayBoard({
 }: GarmentRunwayBoardProps) {
   const { motion, colorScheme } = useKuyaraTheme();
   const large = useEasierToSee();
-  const draftLayout = layoutOf(drafts);
-  const chosenLayout = outfit ? layoutOf(outfit.pieces) : null;
+  const cut = useGarmentCut();
+  const draftLayout = layoutOf(drafts, cut);
+  const chosenLayout = outfit ? layoutOf(outfit.pieces, cut) : null;
   // The drafts keep one scale for the whole wait; the chosen outfit takes the same one
   // unless its own extent needs less, so a draft never jumps when the answer arrives.
   const draftScale = fitRunwayScale([draftLayout.extent], width, height);
@@ -332,7 +335,7 @@ export function GarmentRunwayBoard({
   const startedBeforeAnswer = (slot: OutfitSlot) => (draftIndex.get(slot) ?? Infinity) < placedCount;
   // Today's stage draws the same composition fitted to its own width, in stage-width units.
   const stageBoxes = handoff && outfit
-    ? entranceStartBoxes(outfit.pieces, handoff.width, 'today', true, large)
+    ? entranceStartBoxes(outfit.pieces, handoff.width, 'today', cut, true, large)
     : null;
   const pieceHandoff = (piece: ComposedPiece, index: number): PieceHandoff | undefined => {
     const target = stageBoxes?.get(piece.slot);

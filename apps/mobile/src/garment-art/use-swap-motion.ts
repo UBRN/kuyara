@@ -16,6 +16,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 import { fadeTo } from '@/components/ui/fade';
 import { PRESENCE_TEXT_AFTER } from '@/components/ui/presence';
 import { entranceStartBoxes, type GarmentBoardPiece } from './garment-board';
+import { useGarmentCut } from './garment-cut';
 import { garmentRolesBySlot, type GarmentOutfitPalette } from './garment-palette';
 import { swapEntryBox, swapExitOffset } from './swap-gesture';
 import { bandBoxesOnBoard, lerpBox, type Composer } from './swap-layout';
@@ -62,6 +63,7 @@ export function useSwapMotion({
   const spatial = theme.springs.spatial;
   const { fast, normal } = theme.motion;
   const { colors } = theme;
+  const cut = useGarmentCut();
   const rolesFor = useMemo(() => (input: GarmentOutfitPalette) => garmentRolesBySlot({
     ...input,
     appearance: theme.colorScheme,
@@ -85,7 +87,7 @@ export function useSwapMotion({
   // The pieces follow the owner's pieces, focus and layout; a change is derived here, while
   // rendering, and its motion starts once it has committed.
   const signature = composed
-    ? JSON.stringify([pieces, palette, width, large, focusedSlot, activeGrow?.scale ?? null, fit,
+    ? JSON.stringify([pieces, palette, width, cut, large, focusedSlot, activeGrow?.scale ?? null, fit,
       focusedSlot ? candidates[focusedSlot] ?? null : null, theme.colorScheme])
     : null;
   if (composed && signature && signature !== model.signature) {
@@ -93,8 +95,8 @@ export function useSwapMotion({
       values: valuesFor,
       compose,
       entranceBoxes: (next) => (entrance.fromWidth === null
-        ? entranceStartBoxes(next, width, 'today', true, large)
-        : bandBoxesOnBoard(entranceStartBoxes(next, entrance.fromWidth, 'today', true, large), entrance.fromWidth, width)),
+        ? entranceStartBoxes(next, width, 'today', cut, true, large)
+        : bandBoxesOnBoard(entranceStartBoxes(next, entrance.fromWidth, 'today', cut, true, large), entrance.fromWidth, width)),
     };
     setModel(reconcile(model, {
       signature, composed, pieces, palette, roles, rolesFor, width, focusedSlot, grow: activeGrow, pager, candidates,

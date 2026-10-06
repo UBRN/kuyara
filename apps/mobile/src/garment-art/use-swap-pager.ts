@@ -6,6 +6,7 @@ import { easierToSee as easierToSeeValues } from '@/theme/easier-to-see';
 import { layout, spacing } from '@/theme/theme';
 
 import { composePieces, type GarmentBoardPiece } from './garment-board';
+import { useGarmentCut } from './garment-cut';
 import { swapStripLayout } from './swap-gesture';
 import {
   enlargementFor,
@@ -39,9 +40,10 @@ export function useSwapPager({
   /** The outline drawn round each piece, which the paging window keeps inside it. */
   outline: number;
 }>) {
-  const compose: Composer = (next, nextFit) => placeComposition(composePieces(next, 'detail', large), width, nextFit);
-  const rest = useMemo(() => (width > 0 ? placeComposition(composePieces(pieces, 'detail', large), width) : null),
-    [large, pieces, width]);
+  const cut = useGarmentCut();
+  const compose: Composer = (next, nextFit) => placeComposition(composePieces(next, 'detail', cut, large), width, nextFit);
+  const rest = useMemo(() => (width > 0 ? placeComposition(composePieces(pieces, 'detail', cut, large), width) : null),
+    [cut, large, pieces, width]);
 
   // The strip's header before it has measured itself: Done's height.
   const headerMinimum = large ? easierToSeeValues.primaryActionHeight : layout.minimumTouchTarget;
@@ -77,8 +79,8 @@ export function useSwapPager({
   }
   const fit = enlargement?.fit ?? 1;
   const composed = useMemo(() => (width > 0 && fit < 1
-    ? placeComposition(composePieces(pieces, 'detail', large), width, fit) : rest),
-    [fit, large, pieces, rest, width]);
+    ? placeComposition(composePieces(pieces, 'detail', cut, large), width, fit) : rest),
+    [cut, fit, large, pieces, rest, width]);
   const activeGrow = enlargement && composed
     ? { ...enlargement, held: Math.max(enlargement.held, composed.height) } : null;
   const pager = focusedSlot && composed && activeGrow

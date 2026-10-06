@@ -2,7 +2,7 @@ import { Link } from 'expo-router';
 import { FlatList, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { AppText, Entrance, Icon, PressScale, Surface, useTextScaling } from '@/components/ui';
-import { GarmentBoard, measureGarmentBoardHeight } from '@/garment-art';
+import { GarmentBoard, measureGarmentBoardHeight, useGarmentCut } from '@/garment-art';
 import type { OutfitDetailLink } from '@/features/today/presentation/today-outfit';
 import type {
   LoadedOutfitPresentation,
@@ -29,6 +29,7 @@ export function TodayAlternates({
 }>) {
   const theme = useKuyaraTheme();
   const easierToSee = useEasierToSee();
+  const cut = useGarmentCut();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
   const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
@@ -45,7 +46,7 @@ export function TodayAlternates({
   const alternateStageHeight = Math.max(
     0,
     ...alternates.map((suggestion) =>
-      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', false, easierToSee),
+      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', cut, false, easierToSee),
     ),
   );
 
@@ -176,9 +177,10 @@ export function MoreIdeas({
 }>) {
   const theme = useKuyaraTheme();
   const easierToSee = useEasierToSee();
+  const cut = useGarmentCut();
   // The tiles share the tallest stage, so every name sits on one baseline.
   const stageHeight = Math.max(0, ...ideas.map((idea) =>
-    measureGarmentBoardHeight(idea.boardPieces, IDEA_WIDTH, 'today', false, easierToSee)));
+    measureGarmentBoardHeight(idea.boardPieces, IDEA_WIDTH, 'today', cut, false, easierToSee)));
   return (
     <View style={styles.alternates}>
       <View
@@ -217,6 +219,7 @@ export function MoreIdeas({
 export function TomorrowStrip({ onPress, tomorrow }: Readonly<{ onPress: () => void; tomorrow: TomorrowPreviewPresentation }>) {
   const theme = useKuyaraTheme();
   const easierToSee = useEasierToSee();
+  const cut = useGarmentCut();
   const strongEdge = useStrongEdge();
   const { controlScale } = useTextScaling();
   return (
@@ -234,7 +237,7 @@ export function TomorrowStrip({ onPress, tomorrow }: Readonly<{ onPress: () => v
           importantForAccessibility="no-hide-descendants"
           style={[styles.alternateStage, {
             backgroundColor: theme.colors.garmentGround,
-            height: measureGarmentBoardHeight(tomorrow.boardPieces, TOMORROW_BOARD_WIDTH, 'today', false, easierToSee),
+            height: measureGarmentBoardHeight(tomorrow.boardPieces, TOMORROW_BOARD_WIDTH, 'today', cut, false, easierToSee),
             width: TOMORROW_BOARD_WIDTH,
           }]}>
           {/* The same garment plate the alternates stand on, so dark mode draws it alike. */}

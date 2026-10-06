@@ -74,13 +74,13 @@ test('the board is one accessible image and its measured height matches its SVG'
   expect(result.getAllByRole('image')).toHaveLength(1);
   expect(board).toHaveProp('testID', 'board');
   expect(board).toHaveProp('width', 349);
-  expect(board).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'today'));
+  expect(board).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'today', 'womens'));
 });
 
 test('detail uses the same pieces with its own measured height', async () => {
   const result = await render(<GarmentBoard palette={palette} pieces={pieces} width={349} preset="detail" accessibilityLabel="Dress, sandals" />, { wrapper: LightTheme });
-  expect(result.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'detail'));
-  expect(measureGarmentBoardHeight(pieces, 349, 'detail')).not.toBe(measureGarmentBoardHeight(pieces, 349, 'today'));
+  expect(result.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'detail', 'womens'));
+  expect(measureGarmentBoardHeight(pieces, 349, 'detail', 'womens')).not.toBe(measureGarmentBoardHeight(pieces, 349, 'today', 'womens'));
   expect(dressFills(result)).toEqual([
     { type: 0, payload: processColor(rolesOn(lightTheme.colors.background).get('one_piece')!.main) },
   ]);
@@ -263,7 +263,7 @@ test('entrance keeps one accessible detail-height image and reports settle once'
 
   expect(result.getAllByRole('image')).toHaveLength(1);
   expect(StyleSheet.flatten(result.getByRole('image', { name: 'Dress, sandals' }).props.style))
-    .toMatchObject({ height: measureGarmentBoardHeight(pieces, 349, 'detail'), width: 349 });
+    .toMatchObject({ height: measureGarmentBoardHeight(pieces, 349, 'detail', 'womens'), width: 349 });
   expect(onSettled).toHaveBeenCalledTimes(1);
 });
 
@@ -305,7 +305,7 @@ test('a fitted board is as tall as its fitted pieces and every piece casts a sha
     { wrapper: LightTheme },
   );
   const image = fitted.getByRole('image');
-  expect(image).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'today', true));
+  expect(image).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'today', 'womens', true));
   const floods = fitted.container.queryAll((node) => String(node.type).includes('FeFlood'));
   expect(floods).toHaveLength(pieces.length);
   const shadow = shiftOklchLightness(lightTheme.atmosphere.clearDay, garmentShadowRule.step.light);
@@ -317,14 +317,14 @@ test('a fitted board is as tall as its fitted pieces and every piece casts a sha
 // lay, so nothing jumps by the fit's scale; without the fit they leave from the plain preset.
 test('an entrance from Today\'s band starts on the fitted flat lay boxes', () => {
   const resolved = pieces.map((piece) => ({
-    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
   }));
   const composed = composeGarmentBoard(resolved, todayPreset);
   const flat = composeFlatLay(resolved, todayPreset);
   const extent = drawnExtent(flat.boxes.values());
   const coreWidth = Math.max(...flat.core.map((piece) => flat.boxes.get(piece)!.w));
   const { scale, height } = fitTodayStage(extent, 349, coreWidth, flatLayPreset.coreWidth);
-  const start = entranceStartBoxes(pieces, 349, 'today', true);
+  const start = entranceStartBoxes(pieces, 349, 'today', 'womens', true);
   expect(start.size).toBe(pieces.length);
   for (const piece of flat.order) {
     const today = placeOnRunway(flat.boxes.get(piece)!, extent, scale, 349, height);
@@ -334,6 +334,6 @@ test('an entrance from Today\'s band starts on the fitted flat lay boxes', () =>
     expect(from.w * 349).toBeCloseTo(today.w, 9);
     expect(from.h * 349).toBeCloseTo(today.h, 9);
   }
-  const plain = entranceStartBoxes(pieces, 349, 'today', false);
+  const plain = entranceStartBoxes(pieces, 349, 'today', 'womens', false);
   for (const piece of composed.order) expect(plain.get(piece.slot)).toEqual(composed.boxes.get(piece));
 });

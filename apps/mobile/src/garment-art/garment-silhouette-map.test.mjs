@@ -1,26 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { clothingPreferences } from '../domain/preferences.ts';
 import { getGarmentType } from '../features/catalog/domain/garment-catalog.ts';
 import { garmentTypeIds, structuralCategories } from '../features/catalog/domain/garment-taxonomy.ts';
-import { categoryGlyphIds, garmentSilhouetteIds, resolveGarmentSilhouette } from './garment-silhouette-map.ts';
+import {
+  categoryGlyphIds,
+  colorwayKeyOf,
+  garmentSilhouetteIdFor,
+  garmentSilhouetteIds,
+  resolveGarmentSilhouette,
+} from './garment-silhouette-map.ts';
 import { resolveGarmentPalette } from './garment-palette.ts';
 import { silhouettes } from './silhouettes.ts';
 
-test('every outfit-eligible catalog type resolves to an existing silhouette', () => {
-  const eligible = garmentTypeIds.filter((id) => getGarmentType(id).structuralCategory !== 'accessory');
-  assert.equal(eligible.length, 41);
-  for (const id of eligible) {
-    assert.ok(garmentSilhouetteIds[id], id);
-    assert.ok(silhouettes[garmentSilhouetteIds[id]], id);
+const bodyTypes = garmentTypeIds.filter((id) => getGarmentType(id).structuralCategory !== 'accessory');
+const inBothCatalogs = (id) => getGarmentType(id).apparelPreferenceApplicability.length === clothingPreferences.length;
+
+test('every catalog type resolves to an existing silhouette in both cuts', () => {
+  assert.equal(bodyTypes.length, 41);
+  for (const cut of clothingPreferences) {
+    for (const id of garmentTypeIds) {
+      assert.ok(silhouettes[garmentSilhouetteIdFor(id, cut)], `${cut} ${id}`);
+      assert.equal(resolveGarmentSilhouette(id, getGarmentType(id).structuralCategory, cut),
+        silhouettes[garmentSilhouetteIds[cut][id]], `${cut} ${id}`);
+    }
   }
-  for (const id of Object.values(garmentSilhouetteIds)) assert.ok(silhouettes[id], id);
 });
 
 test('each structural category has a usable fallback glyph', () => {
-  for (const category of structuralCategories) {
-    assert.ok(silhouettes[categoryGlyphIds[category]], category);
-    assert.equal(resolveGarmentSilhouette('__future_type', category), silhouettes[categoryGlyphIds[category]]);
+  for (const cut of clothingPreferences) {
+    for (const category of structuralCategories) {
+      assert.ok(silhouettes[categoryGlyphIds[category]], category);
+      assert.equal(resolveGarmentSilhouette('__future_type', category, cut), silhouettes[categoryGlyphIds[category]]);
+    }
   }
 });
 
@@ -36,10 +49,11 @@ test('each accessory type resolves to its own silhouette instead of the category
     umbrella: 'g-umbrella',
   };
 
-  for (const [garmentTypeId, silhouetteId] of Object.entries(accessoryMappings)) {
-    assert.equal(garmentSilhouetteIds[garmentTypeId], silhouetteId);
-    assert.equal(resolveGarmentSilhouette(garmentTypeId, 'accessory'), silhouettes[silhouetteId]);
-    assert.notEqual(resolveGarmentSilhouette(garmentTypeId, 'accessory'), silhouettes['g-cat-accessory']);
+  for (const cut of clothingPreferences) {
+    for (const [garmentTypeId, silhouetteId] of Object.entries(accessoryMappings)) {
+      assert.equal(colorwayKeyOf(garmentSilhouetteIdFor(garmentTypeId, cut)), silhouetteId);
+      assert.notEqual(resolveGarmentSilhouette(garmentTypeId, 'accessory', cut), silhouettes['g-cat-accessory']);
+    }
   }
 });
 
@@ -49,23 +63,60 @@ test('the eight Phase 6 types draw their own silhouettes', () => {
     polo_shirt: 'x-polo', turtleneck: 'x-turtleneck', blouse: 'x-blouse', bomber_jacket: 'x-bomber',
     leather_jacket: 'x-leather', coat: 'x-coat', loafers: 'x-loafer', rain_boots: 'x-rainboot',
   };
-  for (const [garmentTypeId, silhouetteId] of Object.entries(additions)) {
-    assert.equal(garmentSilhouetteIds[garmentTypeId], silhouetteId);
-    assert.equal(silhouettes[silhouetteId].id, silhouetteId);
+  for (const cut of clothingPreferences) {
+    for (const [garmentTypeId, silhouetteId] of Object.entries(additions)) {
+      assert.equal(colorwayKeyOf(garmentSilhouetteIdFor(garmentTypeId, cut)), silhouetteId);
+    }
   }
 });
 
-// The drawing and the palette's colourway are the same id for every mapped type, so a piece
-// is coloured in the colours its own drawing comes in. The exceptions borrow a related
-// colourway (garment-palette.ts); `coat` keeps the trench's, which the README boards measured.
-test('every mapped type is coloured by the colourway of the drawing it resolves to', () => {
-  for (const [garmentTypeId, silhouetteId] of Object.entries(garmentSilhouetteIds)) {
+// A type takes one colourway in both cuts: the base of the drawing it resolves to, so a cut's
+// own drawing (`<base>-f`, `<base>-m`) is coloured from the same list as the other cut's.
+test('every type is coloured by the base colourway of the drawing it resolves to, in both cuts', () => {
+  for (const garmentTypeId of garmentTypeIds) {
     const [colours] = resolveGarmentPalette({
       optionId: 'map', pieces: [{ slot: 'primary_top', garmentTypeId }], temperatureC: 15,
       condition: 'clear', isNight: false, formality: 'casual', appearance: 'light',
       stageColor: '#F4F6F5', inkColor: '#142F3B',
     });
-    const shared = ['coat', 'fleece', 'sweatshirt', 'overshirt', 'long_skirt', 'track_pants', 'knit_dress', 'neck_gaiter'];
-    if (!shared.includes(garmentTypeId)) assert.equal(colours.colorwayId, silhouetteId, garmentTypeId);
+    for (const cut of clothingPreferences) {
+      assert.equal(colorwayKeyOf(garmentSilhouetteIdFor(garmentTypeId, cut)), colours.colorwayId, `${cut} ${garmentTypeId}`);
+    }
+  }
+});
+
+test('a cut drawing shares its base colourway; a base id keeps its own', () => {
+  assert.equal(colorwayKeyOf('g-shirt-f'), 'g-shirt');
+  assert.equal(colorwayKeyOf('x-loafer-m'), 'x-loafer');
+  assert.equal(colorwayKeyOf('g-shirt'), 'g-shirt');
+  assert.equal(colorwayKeyOf('g-cat-footwear'), 'g-cat-footwear');
+});
+
+// A women's-only type has one drawing, the women's, in both cuts, so a piece a profile keeps
+// after its gender changes is still drawn.
+test('a women\'s-only type draws the same drawing in both cuts', () => {
+  for (const id of garmentTypeIds.filter((type) => !inBothCatalogs(type))) {
+    assert.equal(garmentSilhouetteIdFor(id, 'mens'), garmentSilhouetteIdFor(id, 'womens'), id);
+  }
+});
+
+// A type both catalogs carry is drawn masculine for men and feminine
+// for women, never one drawing for both. These body types still share one drawing across the
+// cuts; remove each as its two cut drawings land. The list only shrinks, and once it is empty
+// every such type resolves to two different drawings.
+const stillSharedAcrossCuts = [
+  'sleeveless_top', 't_shirt', 'long_sleeve_t_shirt', 'shirt', 'sweatshirt', 'hoodie', 'sweater', 'cardigan',
+  'overshirt', 'fleece', 'turtleneck', 'polo_shirt', 'trousers', 'jeans', 'shorts', 'track_pants', 'light_jacket',
+  'trench_coat', 'rain_jacket', 'insulated_jacket', 'coat', 'parka', 'blazer', 'puffer_vest', 'bomber_jacket',
+  'leather_jacket', 'sneakers', 'closed_shoes', 'ankle_boots', 'weather_boots', 'sandals', 'loafers', 'rain_boots',
+];
+
+test('a body type both catalogs carry is drawn in two cuts, apart from the shrinking shared list', () => {
+  const shared = bodyTypes.filter((id) => inBothCatalogs(id)
+    && garmentSilhouetteIdFor(id, 'womens') === garmentSilhouetteIdFor(id, 'mens'));
+  assert.deepEqual(shared, stillSharedAcrossCuts);
+  for (const id of bodyTypes.filter(inBothCatalogs).filter((type) => !stillSharedAcrossCuts.includes(type))) {
+    assert.match(garmentSilhouetteIdFor(id, 'womens'), /-f$/, id);
+    assert.match(garmentSilhouetteIdFor(id, 'mens'), /-m$/, id);
   }
 });

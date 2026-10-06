@@ -30,7 +30,7 @@ const boards = [
     ['oxford','navy','charcoal','rainyellow','black','black']],
   ['cold formal', 'opt-0925-c1', 3, 'cloudy', false, 'formal',
     [['primary_top','shirt'],['bottom','trousers'],['mid_layer','blazer'],['outer_layer','coat'],['footwear','closed_shoes'],['neck','scarf'],['hands','gloves']],
-    ['white','navy','charcoal','stone','black','burgundy','chocolate']],
+    ['white','navy','charcoal','camel','black','burgundy','chocolate']],
   ['hot casual', 'opt-0925-d1', 30, 'clear', false, 'casual',
     [['one_piece','dress'],['footwear','sandals'],['head','brimmed_hat']],
     ['dustyrose','tan','camel']],

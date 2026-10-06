@@ -58,8 +58,8 @@ function shirtOutlineWidth(result: Rendered): number {
 
 describe.each(['today', 'detail'] as const)('the %s board', (preset) => {
   test('draws every piece 1.3 times larger with a 2.8 pt outline while Easier to see is on', async () => {
-    const offLayout = layoutGarmentBoard(pieces, 349, preset);
-    const onLayout = layoutGarmentBoard(pieces, 349, preset, true);
+    const offLayout = layoutGarmentBoard(pieces, 349, preset, 'womens');
+    const onLayout = layoutGarmentBoard(pieces, 349, preset, 'womens', true);
     // Every piece grows by one ratio: 1.3, unless the board would pass the stage's ceiling,
     // where the whole composition is scaled down until it fits (the detail's larger caps).
     const growth = onLayout.boxes[0].width / offLayout.boxes[0].width;
@@ -80,7 +80,7 @@ describe.each(['today', 'detail'] as const)('the %s board', (preset) => {
     // A stroke is authored in points and divided by the drawing's own scale, so the ratio
     // of the drawn widths is the ratio of the outlines over the ratio of the scales.
     expect(shirtOutlineWidth(on) / offWidth).toBeCloseTo((2.8 / 1.9) / growth, 5);
-    expect(on.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, preset, false, true));
+    expect(on.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, preset, 'womens', false, true));
   });
 });
 

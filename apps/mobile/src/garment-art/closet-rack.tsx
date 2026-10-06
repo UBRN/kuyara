@@ -17,6 +17,7 @@ import {
   type RackLayoutPiece,
   type RackPiece,
 } from './closet-rack-layout';
+import { useGarmentCut } from './garment-cut';
 import { garmentLevelOfDetail, GarmentPainting, WANTED_OUTLINE_DASH } from './garment-painting';
 import { garmentFillRoles, toGarmentOklch, type GarmentRoles } from './garment-palette';
 import { resolveGarmentTileFill } from './garment-render-fills';
@@ -57,6 +58,7 @@ export const ClosetRack = memo(function ClosetRack({
   testID,
 }: ClosetRackProps) {
   const { colors, colorScheme } = useKuyaraTheme();
+  const cut = useGarmentCut();
   const gradientId = `closet-rack-multicolor-${useId().replace(/[^A-Za-z0-9]/g, '')}`;
   const ink = colors.textPrimary;
 
@@ -69,14 +71,15 @@ export const ClosetRack = memo(function ClosetRack({
       const fill = resolveGarmentTileFill({ colorFamily: piece.colorFamily, plane: colors.background, colors, colorScheme });
       const main = typeof fill === 'string' ? fill : fill[0];
       if (typeof fill !== 'string') stops = fill;
+      const silhouette = rackSilhouette(piece, cut);
       byId.set(piece.id, {
-        roles: garmentFillRoles(rackSilhouette(piece).id, main, colorScheme),
+        roles: garmentFillRoles(silhouette.id, main, colorScheme),
         multicolor: typeof fill !== 'string',
       });
-      return { ...piece, lightness: toGarmentOklch(main).L };
+      return { ...piece, lightness: toGarmentOklch(main).L, silhouette };
     }) ?? null;
     return { layout: layoutClosetRack(withLightness), painted: byId, multicolorStops: stops };
-  }, [colorScheme, colors, pieces]);
+  }, [colorScheme, colors, cut, pieces]);
 
   const multicolorPaint = `url(#${gradientId})`;
   const structureFill = colors.surface;

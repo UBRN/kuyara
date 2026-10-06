@@ -16,7 +16,7 @@ const values = (start) => ({
 });
 const compose = (pieces, fit = 1) => {
   const result = composeGarmentBoard(pieces.map((piece) => ({
-    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
   })), detailPreset);
   const size = WIDTH * fit;
   const left = (WIDTH - size) / 2;

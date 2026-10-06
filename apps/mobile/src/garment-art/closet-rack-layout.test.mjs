@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   layoutClosetRack,
+  rackSilhouette,
   RACK_LOWER_RAIL_Y,
   RACK_WIDTH,
 } from './closet-rack-layout.ts';
@@ -17,7 +18,7 @@ const typeOf = { top: 't_shirt', bottom: 'jeans', one_piece: 'dress', outerwear:
 let serial = 0;
 function piece(category, overrides = {}) {
   serial += 1;
-  return {
+  const record = {
     id: `${category}-${serial}`,
     garmentTypeId: typeOf[category],
     category,
@@ -27,6 +28,7 @@ function piece(category, overrides = {}) {
     lightness: (serial % 10) / 10,
     ...overrides,
   };
+  return { ...record, silhouette: rackSilhouette(record, 'womens') };
 }
 const many = (category, count, overrides) => Array.from({ length: count }, () => piece(category, overrides));
 

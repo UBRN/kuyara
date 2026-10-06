@@ -180,7 +180,7 @@ test.each([false, true])('the History stage measures its height with Easier to s
   await waitFor(() => expect(result.getByTestId('history-entry-board-2026-09-23')).toBeOnTheScreen());
   const { height, width } = StyleSheet.flatten(result.getByTestId('history-entry-board-2026-09-23').props.style);
   const { pieces } = historyBoard({ dayKey: entry.dayKey, outfit: entry.outfit, pieceColors: null });
-  expect(height).toBe(measureGarmentBoardHeight(pieces, width, 'today', false, easierToSee));
+  expect(height).toBe(measureGarmentBoardHeight(pieces, width, 'today', 'womens', false, easierToSee));
 });
 
 test('a year of History renders only what is near the screen', async () => {

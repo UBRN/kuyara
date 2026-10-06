@@ -533,7 +533,7 @@ test.each([393, 440])('the entrance starts from Today\'s band as drawn on a %i-p
       entrance: { fromStageColor: lightTheme.atmosphere.fallingDay, fromWidth: screen },
     })} />, { wrapper: LightTheme });
 
-    const band = entranceStartBoxes(rainySmart, screen, 'today', true);
+    const band = entranceStartBoxes(rainySmart, screen, 'today', 'womens', true);
     const drawings = result.getAllByTestId(/^garment-swap-board-drawing-/);
     expect(drawings.map((node) => String(node.props.testID).split('-').at(-2)))
       .toEqual(flatLayStack.filter((slot) => rainySmart.some((piece) => piece.slot === slot)));
@@ -604,7 +604,7 @@ test.each([320, 393, 440])('a %i-point entrance keeps the band\'s stacking until
   try {
     const result = await render(<GarmentSwapBoard {...bandEntrance(screen)} />, { wrapper: LightTheme });
     const flat = flatLayStack.filter((slot) => topBottomShoes.some((piece) => piece.slot === slot));
-    const dressing = composePieces(topBottomShoes, 'detail').stack.map(({ slot }) => slot);
+    const dressing = composePieces(topBottomShoes, 'detail', 'womens').stack.map(({ slot }) => slot);
     expect(dressing).not.toEqual(flat);
     // Past nine tenths of the travel the captions may follow, but the stacking holds.
     expect(drawnSlots(result)).toEqual(flat);
@@ -618,8 +618,8 @@ test.each([320, 393, 440])('a %i-point entrance keeps the band\'s stacking until
 
 // The first frame is the band: its tint stands the band's height, then settles to the board's.
 test.each([320, 393])('a %i-point entrance\'s first tint stands the band\'s height', async (screen) => {
-  const band = measureGarmentBoardHeight(topBottomShoes, screen, 'today', true);
-  const detail = composePieces(topBottomShoes, 'detail').stageHeight * (screen - 2 * spacing.lg);
+  const band = measureGarmentBoardHeight(topBottomShoes, screen, 'today', 'womens', true);
+  const detail = composePieces(topBottomShoes, 'detail', 'womens').stageHeight * (screen - 2 * spacing.lg);
   const landings: ((finished: boolean) => void)[] = [];
   const springs = jest.spyOn(Reanimated, 'withSpring').mockImplementation(((to: number, _config: unknown,
     landed?: (finished: boolean) => void) => {
@@ -647,12 +647,12 @@ test('an entrance without a band leaves from the fitted stage', async () => {
   try {
     const result = await render(<GarmentSwapBoard {...bandEntrance(width + 2 * spacing.lg)}
       entrance={{ fromStageColor: lightTheme.atmosphere.fallingDay, fromWidth: null }} />, { wrapper: LightTheme });
-    expect(drawnSlots(result)).toEqual(composePieces(topBottomShoes, 'detail').stack.map(({ slot }) => slot));
+    expect(drawnSlots(result)).toEqual(composePieces(topBottomShoes, 'detail', 'womens').stack.map(({ slot }) => slot));
     expect(tintOf(result)).toMatchObject({
       borderRadius: lightTheme.radii.stage,
-      height: expect.closeTo(composePieces(topBottomShoes, 'detail').stageHeight * width, 3),
+      height: expect.closeTo(composePieces(topBottomShoes, 'detail', 'womens').stageHeight * width, 3),
     });
-    const fitted = entranceStartBoxes(topBottomShoes, width, 'today', true);
+    const fitted = entranceStartBoxes(topBottomShoes, width, 'today', 'womens', true);
     const drawing = result.getByTestId('garment-swap-board-drawing-footwear-closed_shoes');
     const [free] = drawing.children as (typeof drawing)[];
     const [view] = free.children as (typeof drawing)[];
@@ -667,7 +667,7 @@ test('an entrance without a band leaves from the fitted stage', async () => {
 
 // The board's contract with its owner: what each touch and each screen-reader action asks for.
 const restBoxOf = (slot: 'one_piece' | 'footwear') => {
-  const composed = composePieces(pieces, 'detail');
+  const composed = composePieces(pieces, 'detail', 'womens');
   const piece = composed.order.find((candidate) => candidate.slot === slot)!;
   const box = composed.boxes.get(piece)!;
   return { x: (box.x + box.w / 2) * 358, y: (box.y + box.h / 2) * 358 };

@@ -23,12 +23,13 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import {
+  type GarmentOutfitPalette,
   GarmentSwapBoard,
   keepGarmentColors,
   layoutGarmentBoard,
   swapRevealScroll,
+  useGarmentCut,
   useGarmentRoles,
-  type GarmentOutfitPalette,
 } from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
@@ -169,6 +170,7 @@ export function OutfitDetailScreen({
   const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
   const easierToSeeOn = useEasierToSee();
+  const cut = useGarmentCut();
   const { hour12, temperatureUnit } = useLocalization();
   // The column's width is seeded from the window, as `Screen` lays it out, so the board is
   // drawn on the first frame: a zoom from a Today alternative grows the finished screen
@@ -256,8 +258,8 @@ export function OutfitDetailScreen({
   // them on Today (O15).
   const pieceRoles = useGarmentRoles(palette, theme.colors.garmentGround);
   const boardLayout = useMemo(() => suggestion
-    ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail', easierToSeeOn)
-    : { height: 0, boxes: [] }, [contentWidth, easierToSeeOn, suggestion]);
+    ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail', cut, easierToSeeOn)
+    : { height: 0, boxes: [] }, [contentWidth, cut, easierToSeeOn, suggestion]);
   // The plate is the board and, under it, its row of name buttons (ADR 0026 section 3): no name is
   // drawn over a garment, so the worn board's pieces may overlap.
   const nameRowTop = boardLayout.height + spacing.sm;
