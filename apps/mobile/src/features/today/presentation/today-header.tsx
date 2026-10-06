@@ -66,7 +66,7 @@ export function TodayHeader({
             <AppText style={styles.titleText} tabularNumbers variant="title">
               {presentation.titleParts.lead}
             </AppText>
-            <View style={styles.titleValues}>
+            <View style={styles.titleValues} testID="today-title-values">
               <AppText style={styles.titleText} tabularNumbers variant="title">
                 {presentation.titleParts.beforeSymbol}
               </AppText>
@@ -76,7 +76,7 @@ export function TodayHeader({
                 intensity={ambientIntensity}
                 testID="today-title-symbol"
               />
-              <AppText style={styles.titleText} variant="title">
+              <AppText style={[styles.titleText, styles.condition]} variant="title">
                 {presentation.titleParts.afterSymbol}
               </AppText>
             </View>
@@ -94,6 +94,9 @@ const styles = StyleSheet.create({
   greeting: { marginBottom: spacing.xs },
   titleRow: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.sm },
   title: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexShrink: 1, flexWrap: 'wrap' },
-  titleValues: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  // The values shrink to the row's width and a long condition wraps beside the symbol, so at
+  // the largest standard text size the title never runs past the screen's edge.
+  titleValues: { alignItems: 'center', flexDirection: 'row', flexShrink: 1, gap: spacing.xs },
+  condition: { flexShrink: 1 },
   titleText: { fontWeight: '700' },
 });

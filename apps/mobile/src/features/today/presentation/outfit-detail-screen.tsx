@@ -239,6 +239,9 @@ export function OutfitDetailScreen({
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
       : undefined;
+  // An outfit that is no longer there ends any enlargement in the same render, so the route
+  // turns the back swipe on again on the screen that says it is gone.
+  if (!suggestion && focusedSlot !== null) setFocusedSlot(null);
   // O15 and Phase 7: the pieces kuyara still chose keep their colours after a
   // change; only a changed piece is coloured afresh. The suggestion is rebuilt on every
   // render, so the palette keeps one instance per content.

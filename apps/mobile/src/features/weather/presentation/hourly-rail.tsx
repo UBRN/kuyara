@@ -21,6 +21,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { hourlyRailMetrics, layoutHourlyRail, type HourlyRailLayout } from './hourly-rail-layout';
 import { temperatureColor, temperatureStops } from './temperature-gradient';
+import { showsChance } from './weather-format';
 
 const FADE_WIDTH = 28;
 const DOT_RADIUS = 3;
@@ -53,6 +54,9 @@ export type HourlyRailProps = Readonly<{
 
 export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyRailProps) {
   const theme = useKuyaraTheme();
+  // Read once, on mount, as the series' own reveal reads it: the reveal mounts only after the
+  // band is measured, a render or more after the forecast arrived.
+  const [drawsIn] = useState(drawIn);
   const { width: windowWidth } = useWindowDimensions();
   const { fontScale } = useTextScaling();
   // The plot band's offset inside a column depends on the scaled line boxes above it, so
@@ -78,7 +82,11 @@ export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyR
   useEffect(scrollToNow, [currentHour, scrollToNow]);
 
   const cardFill = resolveCardFill(theme);
-  const metrics = hourlyRailMetrics(fontScale, { columnGap: spacing.xs, inset: spacing.lg });
+  const metrics = hourlyRailMetrics(fontScale, {
+    columnGap: spacing.xs,
+    inset: spacing.lg,
+    timeLabelLength: Math.max(0, ...columns.map(({ time }) => [...time].length)),
+  });
   const layout = layoutHourlyRail(columns.map((column) => column.temperatureCelsius), metrics);
 
   return (
@@ -96,7 +104,7 @@ export function HourlyRail({ columns, drawIn = false, waiting = false }: HourlyR
             // The series draws from the first hour across the hours in view; the
             // temperatures above it are drawn from the start.
             <DrawReveal
-              play={drawIn}
+              play={drawsIn}
               span={Math.min(layout.contentWidth, windowWidth)}
               style={[styles.series, { top: bandTop }]}
               testID="weather-hourly-series-reveal"
@@ -216,8 +224,13 @@ function HourlyColumn({ bandHeight, column, labelTop, onBandLayout, width }: Rea
           testID="weather-hourly-day-divider"
         />
       ) : null}
+      {/* One line: a wrapped time would push this column's band below the curve. The column
+          is sized to hold the longest time; the shrink only guards a wider face. */}
       <AppText
+        adjustsFontSizeToFit
         colorRole={emphasised ? 'textPrimary' : 'textSecondary'}
+        minimumFontScale={0.85}
+        numberOfLines={1}
         style={emphasised ? styles.emphasisedTime : undefined}
         tabularNumbers
         variant="caption">
@@ -248,7 +261,7 @@ function HourlyColumn({ bandHeight, column, labelTop, onBandLayout, width }: Rea
           dot and label stay on one grid. The column's own accessibility label states the
           chance either way. */}
       <View style={styles.chance}>
-        {column.precipitationProbability > 0 ? (
+        {showsChance(column.precipitationProbability) ? (
           <>
             <Icon
               color={theme.colors.iconSecondary}
