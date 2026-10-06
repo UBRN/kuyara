@@ -40,7 +40,7 @@ import {
   firstOutfitAwaitsWeatherRefresh,
 } from '@/features/recommendation/application/approved-trigger-evaluation';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
-import { createHistoryWriteWatch } from '@/features/recommendation/application/history-write-watch';
+import { createOutfitHistoryAccess } from '@/features/recommendation/application/outfit-history-access';
 import { createMemberReask } from '@/features/recommendation/application/member-reask';
 import { createDressingDayRollover, dayInForce } from '@/features/recommendation/application/dressing-day-rollover';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
@@ -63,7 +63,6 @@ import { isDayQuestionOpen } from '@/features/recommendation/domain/local-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
-import type { WornOutfit, WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
 import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
 import { WorkerAiClient } from '@/features/recommendation/data/worker-ai-client';
@@ -475,34 +474,22 @@ export function RecommendationApplicationProvider({
     settledRecommendation, tomorrowQuestion]);
   const tomorrowPreview = shownTomorrowPreview(preview, localDay.key, input, tomorrowQuestion);
 
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const historyAccess = useMemo(() => createOutfitHistoryAccess({
+    localProfileId,
+    loadRepository: loadHistoryRepository,
+    changed: () => setHistoryRevision((revision) => revision + 1),
+  }), [localProfileId]);
   // A new object after every recorded look, so whoever reads History through it (the Closet's
   // worn counts) reads it again instead of keeping the answer from before the write.
-  const [historyRevision, setHistoryRevision] = useState(0);
   const outfitHistory = useMemo(() => ({
     revision: historyRevision,
-    list: async () => {
-      const history = await loadHistoryRepository();
-      const records = await history.list(localProfileId);
-      // Opening History retries the photos of deleted looks that could not be removed, as
-      // opening the Closet does for its pieces.
-      void history.cleanupPendingPhotos(localProfileId).catch(() => {
-        // A photo still pending keeps its name on the deleted row for the next opening.
-      });
-      return records;
-    },
-    day: async (dayKey: string) => (await loadHistoryRepository()).day(localProfileId, dayKey),
-    log: async (dayKey: string, outfit: WornOutfit, pieceColors: WornPieceColors | null) => {
-      const record = await (await loadHistoryRepository()).log(localProfileId, dayKey, outfit, { kind: 'keep' }, pieceColors);
-      setHistoryRevision((revision) => revision + 1);
-      return record;
-    },
-  }), [historyRevision, localProfileId]);
+    list: historyAccess.list,
+    day: historyAccess.day,
+    log: historyAccess.log,
+  }), [historyAccess, historyRevision]);
   // Looks a sync pull lands or deletes read again, and a deleted look's photo is removed.
-  useEffect(() => followWritesWhileAccountsOpen(createHistoryWriteWatch({
-    changeKey: async () => (await loadHistoryRepository()).changeKey(localProfileId),
-    cleanupPendingPhotos: async () => (await loadHistoryRepository()).cleanupPendingPhotos(localProfileId),
-    changed: () => setHistoryRevision((revision) => revision + 1),
-  })), [localProfileId]);
+  useEffect(() => followWritesWhileAccountsOpen(historyAccess.writeWatch()), [historyAccess]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,
