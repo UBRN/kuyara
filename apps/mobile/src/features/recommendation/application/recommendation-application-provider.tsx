@@ -46,17 +46,20 @@ import { createMemberReask } from '@/features/recommendation/application/member-
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import {
   TomorrowPreviewController,
-  forecastCoversWindow,
-  previewAnswersQuestion,
   type TomorrowPreviewInput,
   type TomorrowPreviewStore,
 } from '@/features/recommendation/application/tomorrow-preview';
+import {
+  shownTomorrowPreview,
+  tomorrowOfEvening,
+  tomorrowPreviewRequest,
+} from '@/features/recommendation/application/tomorrow-preview-request';
 import {
   aiRequestFromContext,
   createRecommendationContextWithPool,
 } from '@/features/recommendation/application/recommendation-context';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
-import { isDayQuestionOpen, nextMorningAfterEvening, previewDepartureAt } from '@/features/recommendation/domain/local-day';
+import { isDayQuestionOpen } from '@/features/recommendation/domain/local-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
@@ -444,10 +447,7 @@ export function RecommendationApplicationProvider({
 
   // The evening preview of tomorrow: one selection per dressing day, through the same chain, once
   // today's outfit has settled, and only when the forecast covers tomorrow's whole window.
-  const placeTimeZone = input?.snapshot.timeZone;
-  const tomorrowMorning = useMemo(() => placeTimeZone ? nextMorningAfterEvening(localDay.key) : null,
-    [placeTimeZone, localDay.key]);
-  const tomorrowKey = tomorrowMorning ? localDayKey(tomorrowMorning) : null;
+  const tomorrowKey = tomorrowOfEvening(localDay.key, input)?.key ?? null;
   const previewController = useMemo(() => new TomorrowPreviewController(localProfileId,
     { store: previewStore, client, loadRecentWorn, compose: composePreview }),
   [client, loadRecentWorn, localProfileId, previewStore]);
@@ -458,37 +458,26 @@ export function RecommendationApplicationProvider({
   }, [previewController, tomorrowKey]);
   const settledRecommendation = state.status === 'ready' && !state.isRefreshing &&
     state.snapshot?.recommendation.status === 'recommended' ? state.snapshot.recommendation : null;
-  const tomorrowStyles = useMemo(() => orderStyleAesthetics(settingsStyles ?? []), [settingsStyles]);
-  useEffect(() => {
-    if (!previewWanted || !tomorrowMorning || !tomorrowKey || !input || eveningChoicePending ||
-        !settledRecommendation) return;
-    const departureAt = previewDepartureAt(localDay.key, input.snapshot.timeZone);
-    if (!departureAt || !forecastCoversWindow(input.snapshot, departureAt)) return;
-    void previewController.ensure({
-      snapshot: input.snapshot,
-      now: now(),
-      departureAt,
-      clothingPreference: input.clothingPreference,
-      dressStyle: profileDefault,
-      styleAesthetics: tomorrowStyles,
-      dayVariant: localDayVariant(tomorrowMorning),
-      dayKind: localDayKind(tomorrowMorning),
-      localDayKey: tomorrowKey,
-      locale: language,
-      // What the morning will exclude too, unless today's outfit changes before then.
-      excludedOutfits: settledRecommendation.outfits,
-    });
-  }, [eveningChoicePending, input, language, localDay.key, previewController, previewWanted,
-    profileDefault, settledRecommendation, tomorrowKey, tomorrowMorning, tomorrowStyles]);
-  // Shown only while it still answers tomorrow's question: the same place, gender, dress style
-  // and styles. Otherwise it simply does not appear; the day's one selection is not spent again.
-  const tomorrowPreview = preview && tomorrowKey && input && previewAnswersQuestion(preview, {
-    localDayKey: tomorrowKey,
-    locationKey: input.snapshot.locationKey,
-    clothingPreference: input.clothingPreference,
+  const tomorrowQuestion = useMemo(() => ({
     dressStyle: profileDefault,
-    styleAesthetics: tomorrowStyles,
-  }) ? preview : null;
+    styleAesthetics: orderStyleAesthetics(settingsStyles ?? []),
+  }), [profileDefault, settingsStyles]);
+  useEffect(() => {
+    const request = tomorrowPreviewRequest({
+      dressingDayKey: localDay.key,
+      wanted: previewWanted,
+      eveningChoicePending,
+      today: input,
+      // What the morning will exclude too, unless today's outfit changes before then.
+      settledOutfits: settledRecommendation?.outfits ?? null,
+      question: tomorrowQuestion,
+      locale: language,
+      now,
+    });
+    if (request) void previewController.ensure(request);
+  }, [eveningChoicePending, input, language, localDay.key, previewController, previewWanted,
+    settledRecommendation, tomorrowQuestion]);
+  const tomorrowPreview = shownTomorrowPreview(preview, localDay.key, input, tomorrowQuestion);
 
   // A new object after every recorded look, so whoever reads History through it (the Closet's
   // worn counts) reads it again instead of keeping the answer from before the write.
