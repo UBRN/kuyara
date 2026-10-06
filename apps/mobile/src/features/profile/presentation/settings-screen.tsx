@@ -1,4 +1,4 @@
-import { dressStyles } from '@kuyara/contracts';
+import { dressStyles, styleAestheticsLimit } from '@kuyara/contracts';
 import Constants from 'expo-constants';
 import { useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -423,7 +423,7 @@ export function SettingsScreen({
     <NativeSheet visible={aestheticsOpen} onDismiss={() => setAestheticsOpen(false)} testID="settings-style-preferences-sheet">
       <ScrollView contentContainerStyle={styles.sheetContent}>
         <AppText accessibilityRole="header" variant="titleLarge">{copy.stylePreferencesTitle}</AppText>
-        <AppText>{copy.stylePreferencesBody}</AppText>
+        <AppText>{copy.stylePreferencesBody(styleAestheticsLimit)}</AppText>
         <StyleAestheticsOptions copy={copy} disabled={aestheticsSaving} selected={aestheticDraft}
           onChange={setAestheticDraft} testID="settings-style-option" />
         {aestheticsError ? (

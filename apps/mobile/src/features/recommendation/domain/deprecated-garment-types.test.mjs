@@ -20,13 +20,19 @@ const run = spawnSync(
 assert.equal(run.status, 0, run.stderr);
 const { deprecated, results } = JSON.parse(run.stdout.trim().split('\n').at(-1));
 
-test('the probe deprecates a footwear piece, the best bottom and an accessory', () => {
-  assert.equal(deprecated.length, 3);
+test('the probe deprecates a footwear piece, the best bottom, an accessory and a worn piece', () => {
+  assert.equal(deprecated.length, 4);
 });
 
-for (const name of ['recommendation', 'pool', 'footwear candidates', 'best remaining bottom', 'accessory candidates']) {
+for (const name of ['recommendation', 'pool', 'footwear candidates', 'best remaining bottom', 'accessory candidates', 'worn deprecated piece',
+  'slot beside a worn deprecated piece']) {
   test(`${name} never offers a deprecated type`, () => {
     assert.equal(results[name].thrown, undefined, results[name].thrown);
-    assert.deepEqual(results[name].offered.filter((typeId) => deprecated.includes(typeId)), []);
+    assert.deepEqual(results[name].offered.filter((typeId) => results[name].deprecated.includes(typeId)), []);
   });
 }
+
+test('a worn piece the catalog dropped is replaced from a ranked list and blocks the slots beside it', () => {
+  assert.ok(results['worn deprecated piece'].offered.length > 0);
+  assert.deepEqual(results['slot beside a worn deprecated piece'].offered, []);
+});

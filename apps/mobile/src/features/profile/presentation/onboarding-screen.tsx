@@ -254,7 +254,7 @@ export function OnboardingScreen({
     about: copy.nameBody,
     gender: copy.genderBody,
     dress_style: copy.dressStyleBody,
-    styles: copy.stylePreferencesBody,
+    styles: copy.stylePreferencesBody(styleAestheticsLimit),
   }[step];
 
   useEffect(() => {
@@ -553,7 +553,7 @@ export function OnboardingScreen({
             })}
           </ChoiceTileGrid>
           {draft.styleAesthetics.length >= styleAestheticsLimit ? (
-            <AppText variant="caption">{preferenceCopy.stylePreferencesLimit}</AppText>
+            <AppText variant="caption">{preferenceCopy.stylePreferencesLimit(styleAestheticsLimit)}</AppText>
           ) : null}
         </View>
       ) : null}

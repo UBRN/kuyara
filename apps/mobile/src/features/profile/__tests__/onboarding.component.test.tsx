@@ -2,7 +2,7 @@ import { act, fireEvent, render, waitFor, within } from '@testing-library/react-
 import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import type { PlaceSearchV1Data } from '@kuyara/contracts';
+import { styleAestheticsLimit, type PlaceSearchV1Data } from '@kuyara/contracts';
 
 import { displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
@@ -621,5 +621,5 @@ test('each step draws what it changes: a Today preview, a greeting and garment t
     .toMatchObject({ checked: true });
   expect(result.getByTestId('onboarding-style-option-relaxed').props.accessibilityState)
     .toMatchObject({ checked: false, disabled: true });
-  expect(result.getByText(messages.en.preferences.stylePreferencesLimit)).toBeOnTheScreen();
+  expect(result.getByText(messages.en.preferences.stylePreferencesLimit(styleAestheticsLimit))).toBeOnTheScreen();
 });

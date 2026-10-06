@@ -70,9 +70,9 @@ for (const typeId of [deprecatedFootwear, bottomPicked, accessoryOffered[0]]) de
 const results = {};
 function record(name, read) {
   try {
-    results[name] = { offered: read() };
+    results[name] = { offered: read(), deprecated: [...deprecatedIds] };
   } catch (error) {
-    results[name] = { thrown: String(error?.message ?? error) };
+    results[name] = { thrown: String(error?.message ?? error), deprecated: [...deprecatedIds] };
   }
 }
 record('recommendation', () => garmentsOf(recommended('mens', 16, 1).outfits));
@@ -83,5 +83,14 @@ record('best remaining bottom', () => Object.values(outfitGarments(
   pinPieces(dressed, pin, women.requirements, 'womens').outfit)));
 record('accessory candidates', () => Object.values(accessoryCandidates(women.requirements, 'womens'))
   .flat().map(({ garmentTypeId }) => garmentTypeId));
+
+// A piece the outfit is already wearing is deprecated afterwards: the picker still ranks the
+// slot's candidates without it, and the slots around it.
+deprecatedIds.add(wornFootwear);
+record('worn deprecated piece', () => slotCandidates(dressed, 'footwear', women.requirements, 'womens')
+  .map(({ garmentTypeId }) => garmentTypeId));
+const otherSlot = Object.keys(outfitGarments(dressed)).find((slot) => slot !== 'footwear');
+record('slot beside a worn deprecated piece', () => slotCandidates(dressed, otherSlot, women.requirements, 'womens')
+  .map(({ garmentTypeId }) => garmentTypeId));
 
 console.log(JSON.stringify({ deprecated: [...deprecatedIds], results }));
