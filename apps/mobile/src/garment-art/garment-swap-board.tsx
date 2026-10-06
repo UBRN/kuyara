@@ -1,18 +1,13 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, findNodeHandle, StyleSheet, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useMemo, type ReactNode } from 'react';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
   interpolate,
   interpolateColor,
-  makeMutable,
   useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
@@ -21,7 +16,6 @@ import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier
 import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-import { haptics } from '@/components/ui/haptics';
 import { fadeEasing } from '@/components/ui/fade';
 import {
   measureGarmentBoardHeight,
@@ -33,35 +27,16 @@ import { flatLayStack } from './compose-flat-lay';
 import type { GarmentOutfitPalette } from './garment-palette';
 import { GARMENT_OUTLINE } from './garment-painting';
 import { GarmentSwapStrip, type GarmentSwapStripLabels } from './garment-swap-strip';
-import {
-  SWAP_EDGE_GUARD,
-  SWAP_HINT_PEEK,
-  SWAP_STEP_BACK,
-  SWAP_TOUCH_SLOP,
-  swapCommitDirection,
-  swapDragOffset,
-  swapExitOffset,
-  swapHitSlot,
-  swapMarkerPosition,
-  swapScaledBox,
-  swapTouchBox,
-} from './swap-gesture';
-import { insideBox } from './swap-layout';
-import { DRESS_LIFT } from './swap-motion';
+import { SWAP_STEP_BACK, swapScaledBox, swapTouchBox } from './swap-gesture';
 import { SwapPieceView } from './swap-piece-view';
+import { drawingKey, type Box, type GarmentSwapCandidate, type Role } from './swap-reconcile';
 import { useSwapBlock } from './use-swap-block';
+import { pagedInstances, useSwapGesture } from './use-swap-gesture';
+import { useSwipeHint } from './use-swap-hint';
 import { useSwapMotion } from './use-swap-motion';
 import { useSwapPager } from './use-swap-pager';
-import {
-  drawingKey,
-  neighbourIn,
-  type Box,
-  type GarmentSwapCandidate,
-  type Role,
-} from './swap-reconcile';
 
 export type { GarmentSwapCandidate } from './swap-reconcile';
-
 
 export type GarmentSwapBoardLabels = GarmentSwapStripLabels & Readonly<{
   slotName: (slot: OutfitSlot) => string;
@@ -175,8 +150,7 @@ export function GarmentSwapBoard({
   const outline = large ? easierToSeeValues.boardOutline : undefined;
   const drawnOutline = outline ?? GARMENT_OUTLINE;
   const shadow = pieceShadowOf(width, colors.background, theme.colorScheme);
-  const spatial = theme.springs.spatial;
-  const { fast, normal } = theme.motion;
+  const { normal } = theme.motion;
   const boardTestID = testID ?? 'garment-swap-board';
 
   const pieces = useStableValue(piecesProp);
@@ -197,327 +171,20 @@ export function GarmentSwapBoard({
   } = useSwapBlock({
     focusedSlot, hintVisible, restHeight, settled, activeGrow, pager, panels, setPanels, panelHeightOf, onReveal,
   });
-
-
-
-  const dragBase = useSharedValue(0);
-  const dragPast = useSharedValue(false);
-  const dragShown = useSharedValue(0);
-  // The slot a drag started on: when the enlargement moves mid-drag, the rest of that drag is
-  // dropped rather than moving the newly enlarged piece from the old piece's offset.
-  const dragSlot = useSharedValue<OutfitSlot | null>(null);
-  // The piece a swipe has just stepped away from. Until the owner's new pieces render, the
-  // gesture's handlers still name it, so a touch then must neither drag it nor step again.
-  // Made once and held in state like each piece's values, so every render and both sets of
-  // handlers read the same value.
-  const [steppedFrom] = useState(() => makeMutable<string | null>(null));
-  const markerX = useSharedValue(0);
-  const markerY = useSharedValue(0);
-
   const { instances } = model;
-  const focused = focusedSlot
-    ? instances.find((instance) => instance.slot === focusedSlot && instance.role === 'current') : undefined;
-  const nextInstance = focused ? instances.find((instance) => instance.role === 'next') : undefined;
-  const previousInstance = focused ? instances.find((instance) => instance.role === 'previous') : undefined;
+  const paged = pagedInstances(instances, focusedSlot);
+  const hintGrabbed = useSwipeHint({ focusedSlot, swipeHint, settled, pager, paged, onSwipeHintShown });
+  const { gesture, markerX, markerY, settleToPiece, stepSlot, chooseTile, pieceTargets } = useSwapGesture({
+    boardTestID, focusedSlot, composed, pager, captionRects, candidates, model, setModel, setPreviewId,
+    removeLeaving, paged, stripOf, stripCandidates, hintGrabbed, onFocusChange, onStep,
+  });
 
-  const currentStrip = focusedSlot ? stripOf(focusedSlot) : null;
-  const tileOf = (garmentTypeId: GarmentTypeId | undefined) => {
-    if (!focusedSlot || !currentStrip || !garmentTypeId) return null;
-    const index = stripCandidates(focusedSlot).findIndex((candidate) => candidate.garmentTypeId === garmentTypeId);
-    return index < 0 ? null : currentStrip.tiles[index];
-  };
-  const currentId = focusedSlot ? model.garments[focusedSlot] : undefined;
-  const currentTile = tileOf(currentId);
   const panelSlot = panels.current?.slot ?? null;
   const panelRoles = useGarmentCandidateRoles(palette, panelSlot,
     (panelSlot ? stripCandidates(panelSlot) : []).map(({ garmentTypeId }) => garmentTypeId));
   const leavingSlot = panels.leaving?.slot ?? null;
   const leavingRoles = useGarmentCandidateRoles(palette, leavingSlot,
     (leavingSlot ? stripCandidates(leavingSlot) : []).map(({ garmentTypeId }) => garmentTypeId));
-
-  // The marker stands on the current tile when a strip arrives and springs to a new one after
-  // any committed change.
-  const markerSeen = useRef<Readonly<{ slot: OutfitSlot | null; id: GarmentTypeId | undefined }>>({
-    slot: null, id: undefined,
-  });
-  useLayoutEffect(() => {
-    const seen = markerSeen.current;
-    markerSeen.current = { slot: focusedSlot, id: currentId };
-    if (!currentTile) return;
-    if (seen.slot !== focusedSlot) {
-      markerX.set(currentTile.x);
-      markerY.set(currentTile.y);
-    } else if (seen.id !== currentId) {
-      markerX.set(withSpring(currentTile.x, spatial));
-      markerY.set(withSpring(currentTile.y, spatial));
-    }
-  }, [currentId, currentTile, focusedSlot, markerX, markerY, spatial]);
-
-
-  // The swipe hint: one `springs.spatial` duration after the first enlargement, once its growth
-  // has landed, the piece and its neighbour move one `SWAP_HINT_PEEK` the way a swipe to that
-  // neighbour would, on the spatial spring, and come back on it. The neighbour is opaque only
-  // while it is out, in the same window clip a drag uses, so it never covers a stepped-back
-  // piece. The owner hears that it played as the motion starts: a settle, a moved
-  // enlargement, a grab or leaving the screen during the wait cancels it unplayed and
-  // unrecorded. It moves nothing a screen reader is on, and a finger that grabs the piece
-  // mid-hint takes over its values.
-  const swipeHinted = useRef(false);
-  const hintFocus = useRef(focusedSlot);
-  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hintStart = useRef<() => void>(() => undefined);
-  const hintGrabbed = useSharedValue(false);
-  useEffect(() => () => {
-    if (hintTimer.current !== null) clearTimeout(hintTimer.current);
-  }, []);
-  useLayoutEffect(() => {
-    hintStart.current = () => {
-      hintTimer.current = null;
-      const neighbour = nextInstance ?? previousInstance;
-      const piece = focused?.values.dx;
-      if (!pager || !neighbour || !piece || hintGrabbed.get()) return;
-      swipeHinted.current = true;
-      const direction = nextInstance ? 1 : -1;
-      const rest = direction === 1 ? pager.strideNext : -pager.stridePrevious;
-      const peek = -direction * SWAP_HINT_PEEK;
-      const { dx, op } = neighbour.values;
-      op.set(1);
-      dx.set(withSequence(
-        withSpring(rest + peek, spatial),
-        withSpring(rest, spatial, (finished) => {
-          if (finished) op.set(0);
-        }),
-      ));
-      piece.set(withSequence(withSpring(peek, spatial), withSpring(0, spatial)));
-      onSwipeHintShown?.();
-    };
-    const was = hintFocus.current;
-    hintFocus.current = focusedSlot;
-    if (was === focusedSlot) return;
-    if (hintTimer.current !== null) {
-      clearTimeout(hintTimer.current);
-      hintTimer.current = null;
-    }
-    if (was !== null || focusedSlot === null || !swipeHint || swipeHinted.current || !settled) return;
-    hintGrabbed.set(false);
-    hintTimer.current = setTimeout(() => hintStart.current(), spatial.duration);
-  });
-
-  // A swiped step the owner has not applied is spent once another step is asked for, so a
-  // later tile or adjustable step to the same garment is never taken for the swipe.
-  const forgetGestureCommit = () => setModel((current) => (current.gestureCommit
-    ? { ...current, gestureCommit: null } : current));
-  const stepSlot = (slot: OutfitSlot, direction: 1 | -1) => {
-    const garmentTypeId = model.garments[slot];
-    const neighbour = garmentTypeId ? neighbourIn(candidates, slot, garmentTypeId, direction) : null;
-    if (!neighbour) return;
-    forgetGestureCommit();
-    onStep(slot, neighbour.garmentTypeId, false);
-  };
-  const chooseTile = (garmentTypeId: GarmentTypeId) => {
-    if (!focusedSlot || model.garments[focusedSlot] === garmentTypeId) return;
-    forgetGestureCommit();
-    onStep(focusedSlot, garmentTypeId, true);
-  };
-  // An owner that has not applied a swiped step by the time the enlargement ends or moves
-  // leaves nothing pending.
-  useEffect(() => {
-    steppedFrom.set(null);
-  }, [focusedSlot, steppedFrom]);
-  const commitFromGesture = (slot: OutfitSlot, garmentTypeId: GarmentTypeId) => {
-    setModel((current) => ({ ...current, gestureCommit: { slot, garmentTypeId } }));
-    setPreviewId(null);
-    onStep(slot, garmentTypeId, true);
-  };
-
-  // Done, VoiceOver's escape or a tap on the enlarged piece or the empty stage hands
-  // VoiceOver's focus back to the piece that opened the strip, whose element stays.
-  const pieceTargets = useRef(new Map<OutfitSlot, View>());
-  const [focusReturn, setFocusReturn] = useState<OutfitSlot | null>(null);
-  // The focus a tap last asked for. The owner's answer arrives a render later, and a quick
-  // second tap reaches handlers built before it, so a tap reads the request, not the prop.
-  const requestedFocus = useSharedValue<OutfitSlot | null>(focusedSlot);
-  useLayoutEffect(() => {
-    requestedFocus.set(focusedSlot);
-  }, [focusedSlot, requestedFocus]);
-  const requestFocus = (slot: OutfitSlot | null) => {
-    requestedFocus.set(slot);
-    onFocusChange(slot);
-  };
-  const settleToPiece = () => {
-    if (!focusedSlot) return;
-    setFocusReturn(focusedSlot);
-    requestFocus(null);
-  };
-  useEffect(() => {
-    if (focusedSlot !== null || focusReturn === null) return undefined;
-    const frame = requestAnimationFrame(() => {
-      setFocusReturn(null);
-      const node = findNodeHandle(pieceTargets.current.get(focusReturn) ?? null);
-      if (node) AccessibilityInfo.setAccessibilityFocus(node);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [focusReturn, focusedSlot]);
-  const handleTap = (x: number, y: number) => {
-    if (!composed) return;
-    const minimum = layout.minimumTouchTarget;
-    if (focusedSlot && pager) {
-      // The large piece or empty stage settles; a stepped-back piece takes the enlargement.
-      if (insideBox(swapTouchBox(pager.grown, minimum), x, y)) {
-        settleToPiece();
-        return;
-      }
-      const hit = swapHitSlot(composed.stack.filter((slot) => slot !== focusedSlot).map((slot) => ({
-        slot, box: swapScaledBox(composed.bySlot.get(slot)!.box, SWAP_STEP_BACK),
-      })), x, y, minimum);
-      if (hit) requestFocus(hit);
-      else settleToPiece();
-      return;
-    }
-    const hit = swapHitSlot(composed.stack.map((slot) => ({
-      slot, box: composed.bySlot.get(slot)!.box, button: captionRects[slot] ?? null,
-    })), x, y, minimum);
-    // A tap on the piece it just enlarged, before the enlargement has rendered, shrinks it.
-    requestFocus(hit !== null && hit === requestedFocus.get() ? null : hit);
-  };
-
-  const curDx = focused?.values.dx;
-  const curOp = focused?.values.op;
-  const curDy = focused?.values.dy;
-  // Handed to the UI runtime as a plain function, as the other callbacks the drag schedules.
-  const selectionTick = haptics.selection;
-  const curKey = focused?.key ?? null;
-  const nextDx = nextInstance?.values.dx;
-  const nextOp = nextInstance?.values.op;
-  const prevDx = previousInstance?.values.dx;
-  const prevOp = previousInstance?.values.op;
-  const nextId = nextInstance?.garmentTypeId ?? null;
-  const prevId = previousInstance?.garmentTypeId ?? null;
-  const nextTile = tileOf(nextId ?? undefined);
-  const prevTile = tileOf(prevId ?? undefined);
-  // Whether these handlers still name the piece a swipe stepped away from; handlers built
-  // after the step clear the mark.
-  const stepPending = () => {
-    'worklet';
-    const from = steppedFrom.get();
-    if (from === null) return false;
-    if (from === curKey) return true;
-    steppedFrom.set(null);
-    return false;
-  };
-  const pan = Gesture.Pan()
-    .withTestId(`${boardTestID}-pan`)
-    .enabled(Boolean(curDx && focusedSlot && pager))
-    .maxPointers(1)
-    .activeOffsetX([-SWAP_TOUCH_SLOP, SWAP_TOUCH_SLOP])
-    // 8 pt of vertical travel first hands the press to the page scroll (final-spec section 4).
-    .failOffsetY([-8, 8])
-    .onTouchesDown((event, manager) => {
-      const touch = event.allTouches[0];
-      // The drag starts only on the enlarged piece's zone, and never at the screen's left
-      // edge, where the system back swipe lives.
-      if (stepPending() || !touch || !pager || touch.absoluteX < SWAP_EDGE_GUARD || touch.x < pager.zone.x
-        || touch.x > pager.zone.x + pager.zone.w || touch.y < pager.zone.y
-        || touch.y > pager.zone.y + pager.zone.h) manager.fail();
-    })
-    .onStart(() => {
-      // A grab during the hint's wait takes the piece, and the hint does not play.
-      hintGrabbed.set(true);
-      // A drag that bails here leaves no slot behind for a later handler to read.
-      dragSlot.set(null);
-      if (!curDx || !focusedSlot || !pager || stepPending()) return;
-      // A grab mid-settle continues from where the eye last saw the piece.
-      dragSlot.set(focusedSlot);
-      dragBase.set(curDx.get());
-      curDx.set(curDx.get());
-      dragShown.set(curDx.get());
-      dragPast.set(false);
-      // Both neighbours are opaque while a finger holds the piece; the window clips them.
-      nextOp?.set(1);
-      prevOp?.set(1);
-    })
-    .onUpdate((event) => {
-      if (!curDx || !pager || stepPending() || dragSlot.get() !== focusedSlot) return;
-      // The handler counts the translation from where the drag activated, already past the
-      // slop, so the piece follows the finger from that point on.
-      const raw = dragBase.get() + event.translationX;
-      const direction = raw < 0 ? 1 : raw > 0 ? -1 : 0;
-      const stride = direction === -1 ? pager.stridePrevious : pager.strideNext;
-      const shown = swapDragOffset(raw, stride, prevDx !== undefined, nextDx !== undefined);
-      dragShown.set(shown);
-      curDx.set(shown);
-      nextDx?.set(shown + pager.strideNext);
-      prevDx?.set(shown - pager.stridePrevious);
-      const has = direction === 1 ? nextDx !== undefined : direction === -1 ? prevDx !== undefined : false;
-      if (currentTile) {
-        const target = direction === 1 ? nextTile : direction === -1 ? prevTile : null;
-        const marker = swapMarkerPosition(currentTile, has ? target : null, Math.abs(shown) / stride);
-        markerX.set(marker.x);
-        markerY.set(marker.y);
-      }
-      const past = has && Math.abs(shown) >= stride / 2;
-      if (past !== dragPast.get()) {
-        dragPast.set(past);
-        // Law 8: half a step toward a candidate is a threshold crossed under the finger.
-        if (past) scheduleOnRN(selectionTick);
-        scheduleOnRN(setPreviewId, past ? (direction === 1 ? nextId : prevId) : null);
-      }
-    })
-    .onEnd((event, success) => {
-      const slot = dragSlot.get();
-      dragSlot.set(null);
-      if (!curDx || !focusedSlot || !pager || stepPending() || slot !== focusedSlot) return;
-      const shown = dragShown.get();
-      const velocity = success ? event.velocityX : 0;
-      const stride = shown > 0 ? pager.stridePrevious : pager.strideNext;
-      const direction = success
-        ? swapCommitDirection(shown, velocity, stride, prevDx !== undefined, nextDx !== undefined) : 0;
-      const incomingId = direction === 1 ? nextId : direction === -1 ? prevId : null;
-      const incomingDx = direction === 1 ? nextDx : prevDx;
-      const incomingTile = direction === 1 ? nextTile : prevTile;
-      if (incomingId && incomingDx && direction !== 0) {
-        incomingDx.set(withSpring(0, { ...spatial, velocity }));
-        // The piece swiped away fades and lifts off from the release, as a paged-out piece
-        // does, instead of sliding out opaque until the owner has applied the step.
-        curOp?.set(withTiming(0, { duration: fast, easing: fadeEase }));
-        curDy?.set(withTiming(-DRESS_LIFT, { duration: fast }));
-        const key = curKey;
-        curDx.set(withSpring(swapExitOffset(direction, shown, stride), { ...spatial, velocity }, (finished) => {
-          if (finished && key) scheduleOnRN(removeLeaving, key);
-        }));
-        if (incomingTile) {
-          markerX.set(withSpring(incomingTile.x, spatial));
-          markerY.set(withSpring(incomingTile.y, spatial));
-        }
-        steppedFrom.set(key);
-        scheduleOnRN(commitFromGesture, focusedSlot, incomingId);
-      } else {
-        curDx.set(withSpring(0, { ...spatial, velocity }));
-        if (nextDx && nextOp) {
-          nextDx.set(withSpring(pager.strideNext, { ...spatial, velocity }, (finished) => {
-            if (finished) nextOp.set(0);
-          }));
-        }
-        if (prevDx && prevOp) {
-          prevDx.set(withSpring(-pager.stridePrevious, { ...spatial, velocity }, (finished) => {
-            if (finished) prevOp.set(0);
-          }));
-        }
-        if (currentTile) {
-          markerX.set(withSpring(currentTile.x, spatial));
-          markerY.set(withSpring(currentTile.y, spatial));
-        }
-        if (dragPast.get()) scheduleOnRN(setPreviewId, null);
-      }
-      dragShown.set(0);
-    });
-  const tap = Gesture.Tap()
-    .withTestId(`${boardTestID}-tap`)
-    .maxDistance(SWAP_TOUCH_SLOP)
-    .onEnd((event, success) => {
-      if (success) scheduleOnRN(handleTap, event.x, event.y);
-    });
-  const gesture = Gesture.Exclusive(pan, tap);
 
   // From the band the tint first stands the band's height and settles to the board's as it fades
   // to the page ground; from the fitted stage it has the board's height and the stage's corners.

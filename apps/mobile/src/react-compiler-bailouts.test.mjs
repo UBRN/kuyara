@@ -59,6 +59,8 @@ const hotPath = new Set([
   'garment-art/garment-swap-board.tsx',
   'garment-art/swap-piece-view.tsx',
   'garment-art/use-swap-block.ts',
+  'garment-art/use-swap-gesture.ts',
+  'garment-art/use-swap-hint.ts',
   'garment-art/use-swap-motion.ts',
   'garment-art/use-swap-pager.ts',
 ]);
@@ -73,9 +75,12 @@ const knownPruned = new Map([
   // The recommendation and the open outfit, read from provider state whose identity holds.
   ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 4 }],
   ['features/today/presentation/outfit-detail-screen.tsx', {}],
-  ['garment-art/garment-swap-board.tsx', { GarmentSwapBoard: 10 }],
+  ['garment-art/garment-swap-board.tsx', {}],
   ['garment-art/swap-piece-view.tsx', {}],
   ['garment-art/use-swap-block.ts', {}],
+  // The strip tiles the drag and the marker read are derived between the gesture's hooks.
+  ['garment-art/use-swap-gesture.ts', { useSwapGesture: 7 }],
+  ['garment-art/use-swap-hint.ts', {}],
   ['garment-art/use-swap-motion.ts', {}],
   ['garment-art/use-swap-pager.ts', {}],
   ['garment-art/garment-painting.tsx', {}],
