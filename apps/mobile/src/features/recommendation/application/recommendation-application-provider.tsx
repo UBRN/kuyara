@@ -12,12 +12,9 @@ import {
 
 import {
   RecommendationApplicationController,
-  expiredCoverageNeedsSelection,
   localDayKey,
   localDayKind,
   localDayVariant,
-  recommendationRefreshTrigger,
-  type RecommendationApplicationInput,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import {
   RecommendationApplicationContext,
@@ -39,11 +36,10 @@ import {
 } from '@/features/recommendation/domain/dressing-day-departure';
 import { memberAccessToken } from '@/features/account/application/account-membership';
 import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
-import { createApprovedTriggerCoalescer } from '@/features/recommendation/application/approved-trigger-coalescer';
 import {
-  signalsOfInput,
-  signalsOfSnapshot,
-} from '@/features/recommendation/application/recommendation-signals';
+  createApprovedTriggerEvaluation,
+  firstOutfitAwaitsWeatherRefresh,
+} from '@/features/recommendation/application/approved-trigger-evaluation';
 import { refreshAfterPull } from '@/features/recommendation/application/pull-refresh';
 import { createHistoryWriteWatch } from '@/features/recommendation/application/history-write-watch';
 import { createMemberReask } from '@/features/recommendation/application/member-reask';
@@ -354,67 +350,20 @@ export function RecommendationApplicationProvider({
     return () => subscription?.remove();
   }, [reevaluateLocalDay]);
 
-  const approvedTriggers = useMemo(() => createApprovedTriggerCoalescer(), []);
-  const foregroundEvaluationRequested = useRef(false);
-  const lastExpiryAttempt = useRef<string | null>(null);
-  // A confirmed re-ask changes the answers the approved triggers read. Evaluating them while
-  // it runs would see its own new day type as a change and start a second, unreserved
-  // generation, so evaluation waits for it and then reads the persisted result.
-  const reaskInFlight = useRef<Promise<unknown> | null>(null);
-  // A dressing day's first outfit waits for a weather refresh already in flight and is chosen
-  // from what it brings, or from the weather already here when it fails. Either way the refresh
-  // settles into a new weather state, whose input evaluates the approved triggers again.
-  const awaitsWeatherRefresh = useCallback((dayKey: string) => {
-    const liveWeather = weatherApplication.getSnapshot?.() ?? weatherState;
-    const liveState = controller.getSnapshot();
-    return liveWeather.status === 'ready' && liveWeather.isRefreshing &&
-      !(liveState.status === 'ready' && liveState.snapshot?.localDayKey === dayKey);
-  }, [controller, weatherApplication, weatherState]);
-  const evaluateApprovedTriggersOnce = useCallback(async (
-    generationInput: RecommendationApplicationInput,
-  ): Promise<boolean> => {
-    const pendingReask = reaskInFlight.current;
-    if (pendingReask) await pendingReask;
-    const liveState = controller.getSnapshot();
-    if (liveState.status !== 'ready') return false;
-    const current = signalsOfInput(generationInput);
-    const persistedSnapshot = liveState.snapshot;
-    const previous = persistedSnapshot ? signalsOfSnapshot(persistedSnapshot) : null;
-
-    // An unanswered day question holds automatic selection; its answer starts the one
-    // generation. The last look may carry another key's day-only styles, which are no change.
-    if (morningChoicePending || eveningChoicePending) return false;
-
-    const trigger = recommendationRefreshTrigger(previous, current);
-
-    if (trigger) {
-      if (awaitsWeatherRefresh(generationInput.localDayKey)) return false;
-      foregroundEvaluationRequested.current = false;
-      await controller.refresh(trigger, generationInput);
-      return true;
-    }
-    const coverageEnd = persistedSnapshot?.coverageEnd;
-    if (coverageEnd && expiredCoverageNeedsSelection(persistedSnapshot, generationInput.now,
-      foregroundEvaluationRequested.current, lastExpiryAttempt.current)) {
-      foregroundEvaluationRequested.current = false;
-      lastExpiryAttempt.current = coverageEnd;
-      await controller.refresh('explicit', generationInput);
-      return true;
-    }
-    foregroundEvaluationRequested.current = false;
-    controller.updatePoolAvailability(generationInput);
-    return false;
-  }, [awaitsWeatherRefresh, controller, eveningChoicePending, morningChoicePending]);
-
-  const evaluateApprovedTriggersForInput = useCallback((
-    generationInput: RecommendationApplicationInput,
-  ): Promise<boolean> => approvedTriggers.request(generationInput, evaluateApprovedTriggersOnce),
-  [approvedTriggers, evaluateApprovedTriggersOnce]);
+  const approvedTriggers = useMemo(() => createApprovedTriggerEvaluation(), []);
+  const awaitsWeatherRefresh = useCallback((dayKey: string) => firstOutfitAwaitsWeatherRefresh(
+    weatherApplication.getSnapshot?.() ?? weatherState, controller.getSnapshot(), dayKey,
+  ), [controller, weatherApplication, weatherState]);
+  const approvedTriggerReading = useMemo(() => ({
+    recommendation: controller,
+    dayQuestionPending: morningChoicePending || eveningChoicePending,
+    awaitsWeatherRefresh,
+  }), [awaitsWeatherRefresh, controller, eveningChoicePending, morningChoicePending]);
 
   useEffect(() => {
     if (state.status !== 'ready' || !input) return;
-    void approvedTriggers.followRender(input, evaluateApprovedTriggersOnce);
-  }, [approvedTriggers, evaluateApprovedTriggersOnce, input, state.status]);
+    void approvedTriggers.followRender(input, approvedTriggerReading);
+  }, [approvedTriggerReading, approvedTriggers, input, state.status]);
 
   // The generation input as of this moment, re-read from the live weather and profile rather
   // than from the render that bound the handler. `null` when there is nothing to compose for,
@@ -467,15 +416,8 @@ export function RecommendationApplicationProvider({
     if (foreground) {
       setPreviewWantedKey(deviceLocalDay().key);
     }
-    const generationInput = currentInput();
-    if (!generationInput) return;
-    if (foreground) foregroundEvaluationRequested.current = true;
-    let triggered = await evaluateApprovedTriggersForInput(generationInput);
-    if (foreground && foregroundEvaluationRequested.current) {
-      triggered = await evaluateApprovedTriggersForInput(currentInput() ?? generationInput) || triggered;
-    }
-    if (!triggered) controller.clearLastFailure();
-  }, [controller, currentInput, evaluateApprovedTriggersForInput]);
+    await approvedTriggers.evaluate(currentInput, approvedTriggerReading, foreground);
+  }, [approvedTriggerReading, approvedTriggers, currentInput]);
 
   const chooseFormality = useCallback(async (
     key: string, formality: DressStyle, source: DressingDayChoiceSource,
@@ -646,10 +588,7 @@ export function RecommendationApplicationProvider({
         refresh: (input) => controller.refresh('regenerate', input),
         now,
       });
-      const settled = result.settled.finally(() => {
-        if (reaskInFlight.current === settled) reaskInFlight.current = null;
-      });
-      reaskInFlight.current = settled;
+      const settled = approvedTriggers.trackReask(result.settled);
       if (result.choice) {
         setDayChoiceState({ profileId: localProfileId, key: day.key,
           status: 'row', choice: result.choice });
@@ -671,6 +610,7 @@ export function RecommendationApplicationProvider({
     },
     reevaluateLocalDay,
   }), [
+    approvedTriggers,
     controller,
     currentInput,
     localProfileId,
