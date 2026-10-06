@@ -1074,7 +1074,9 @@ test('every message key has a production reader or a counted computed read', () 
     getCompilationSettings: () => options, getDefaultLibFileName: ts.getDefaultLibFilePath,
     fileExists: ts.sys.fileExists, readFile: ts.sys.readFile, readDirectory: ts.sys.readDirectory,
   });
-  const file = path.join(sourceRoot, 'localization/messages.ts');
+  // The two language files and the entry point only fill the shape; they are not readers of it.
+  const messagesDirectory = path.join(sourceRoot, 'localization/messages');
+  const file = path.join(sourceRoot, 'localization/messages/types.ts');
   const unread = {};
   const visit = (node, trail) => {
     if (ts.isParameter(node)) return;
@@ -1082,7 +1084,7 @@ test('every message key has a production reader or a counted computed read', () 
     if (ts.isPropertySignature(node)) {
       trail = [...trail, node.name.getText()];
       const reads = (service.findReferences(file, node.name.getStart()) ?? []).flatMap(({ references }) => references)
-        .filter(({ fileName }) => fileName !== file && !/\.test\.|__tests__/.test(fileName));
+        .filter(({ fileName }) => !fileName.startsWith(messagesDirectory) && !/\.test\.|__tests__/.test(fileName));
       if (reads.length === 0 && !node.type?.members) {
         const parent = trail.slice(0, -1).join('.');
         (unread[parent] ??= []).push(trail.at(-1));
