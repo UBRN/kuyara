@@ -319,7 +319,7 @@ test('a change that moves pieces hides the captions in the commit that renames t
 // after a far strip tile). A move lives only in the transform, so React draws nothing new for
 // it; a piece drawn at a new size gets a fresh view, whose first frame starts where it stands.
 test('a re-layout draws no frame of a piece at its new place before it travels there', async () => {
-  const look = (top: 'turtleneck' | 'sleeveless_top'): readonly GarmentBoardPiece[] => [
+  const look = (top: 'turtleneck' | 'sweater'): readonly GarmentBoardPiece[] => [
     { slot: 'primary_top', garmentTypeId: top, category: 'top' },
     { slot: 'outer_layer', garmentTypeId: 'parka', category: 'outerwear' },
     { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
@@ -327,7 +327,7 @@ test('a re-layout draws no frame of a piece at its new place before it travels t
   ];
   const tops: readonly GarmentSwapCandidate[] = (['sleeveless_top', 'sweater', 'turtleneck'] as const)
     .map((garmentTypeId) => ({ garmentTypeId, category: 'top', suitable: true }));
-  const props = (top: 'turtleneck' | 'sleeveless_top') => {
+  const props = (top: 'turtleneck' | 'sweater') => {
     const next = look(top);
     return boardProps({
       candidates: { primary_top: tops },
@@ -344,18 +344,18 @@ test('a re-layout draws no frame of a piece at its new place before it travels t
     return { left, top, width, height };
   };
   const jeans = drawing('bottom-jeans');
-  const parka = drawing('outer_layer-parka');
-  const parkaFrame = frameOf(parka);
-  expect(parkaFrame).toMatchObject({ left: 0, top: 0 });
+  const boots = drawing('footwear-weather_boots');
+  const bootsFrame = frameOf(boots);
+  expect(bootsFrame).toMatchObject({ left: 0, top: 0 });
 
-  await result.rerender(<GarmentSwapBoard {...props('sleeveless_top')} />);
-  // The parka only moves: the same view, the same frame to a hundredth of a point; its
-  // transform carries the travel.
-  expect(drawing('outer_layer-parka')).toBe(parka);
-  expect(frameOf(drawing('outer_layer-parka'))).toEqual({
-    left: 0, top: 0, width: expect.closeTo(parkaFrame.width, 2), height: expect.closeTo(parkaFrame.height, 2),
+  await result.rerender(<GarmentSwapBoard {...props('sweater')} />);
+  // The boots, sized on the core's width, only move: the same view, the same frame to a
+  // hundredth of a point; their transform carries the travel.
+  expect(drawing('footwear-weather_boots')).toBe(boots);
+  expect(frameOf(drawing('footwear-weather_boots'))).toEqual({
+    left: 0, top: 0, width: expect.closeTo(bootsFrame.width, 2), height: expect.closeTo(bootsFrame.height, 2),
   });
-  // The jeans are drawn larger: a fresh view at the new size.
+  // The jeans are drawn at the sweater's scale: a fresh view at the new size.
   expect(frameOf(drawing('bottom-jeans')).height).not.toBe(frameOf(jeans).height);
   expect(drawing('bottom-jeans')).not.toBe(jeans);
 });

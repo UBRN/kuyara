@@ -13,11 +13,11 @@ export const garmentBoardDressingOrder: readonly OutfitSlot[] = [
 // ADR 0025's one board rule. Every composed board draws the outfit as it is worn: Today's
 // stage, the detail, the alternates, History and the share card.
 export const todayPreset = {
-  weight: { anchor: 1, outer_layer: 0.74, mid_layer: 0.56 },
-  footWidth: 0.58,
+  weight: { anchor: 1, outer_layer: 0.95, mid_layer: 0.90 },
+  footWidth: 0.42,
   coreCap: 0.235,
   soloCap: 0.300,
-  railCap: 0.170,
+  railCap: 0.260,
   railGap: 0.10,
   // The stage holds nothing but the board, so both insets are the tint's own edge. Neither
   // is board geometry: the ladder, the caps and the gaps above are ADR 0025's and do not move.
@@ -86,11 +86,6 @@ export type BoardPiece<Piece extends ArtworkPiece> = Piece & Readonly<{ single?:
 
 type DrawnBox = { x: number; y: number; w: number; h: number };
 
-const ratios = ({ bounds }: ArtworkPiece) => ({
-  w: Math.sqrt(bounds.width / bounds.height),
-  h: Math.sqrt(bounds.height / bounds.width),
-});
-
 // ADR 0025's composition rule. All lengths are fractions of the stage width.
 export function composeGarmentBoard<Piece extends ArtworkPiece>(
   pieces: readonly Piece[],
@@ -105,24 +100,26 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   const foot = by('footwear');
   if (!core.length || !foot) throw new Error('A garment board requires a body core and footwear.');
 
-  const metric = (core.length === 1 ? rule.soloCap : rule.coreCap) / Math.max(...core.map((piece) => ratios(piece).w));
-  const boxOf = (piece: Piece, size: number) => ({
-    w: size * ratios(piece).w, h: size * ratios(piece).h,
-  });
+  // One scale, in stage widths per drawing unit, draws every piece but the footwear, so a top,
+  // a bottom and a layer keep the proportions their drawings give them: the core's widest piece
+  // stands at its cap and every other piece at the same scale. The core metric, the top's drawn
+  // box's geometric mean, measures the gaps.
+  const unit = (core.length === 1 ? rule.soloCap : rule.coreCap) / Math.max(...core.map(({ bounds }) => bounds.width));
+  const metric = unit * Math.sqrt(core[0].bounds.width * core[0].bounds.height);
+  const boxOf = (piece: Piece, weight = 1) => ({ w: weight * unit * piece.bounds.width, h: weight * unit * piece.bounds.height });
   const boxes = new Map<BoardPiece<Piece>, DrawnBox>();
 
   // The outfit is laid out in the order it is worn. The core stands as one column, the
   // bottom under the top, the footwear under its hem and the layers beside it, each apart
   // from its neighbours by `clearance`, so no piece covers any part of another.
   const { clearance } = rule;
-  let cb = core.map((piece) => boxOf(piece, metric));
+  let cb = core.map((piece) => boxOf(piece));
   let coreGap = core.length > 1 ? clearance.waist * cb[0].h : 0;
   let coreW = Math.max(...cb.map((box) => box.w));
 
-  let rb = rail.map((piece) => boxOf(piece,
-    rule.weight[piece.slot === 'outer_layer' ? 'outer_layer' : 'mid_layer'] * metric));
-  // Footwear is sized on width, not on the ladder, and shares the layers' one scale.
-  let bf = { w: rule.footWidth * coreW, h: rule.footWidth * coreW * ratios(foot).h / ratios(foot).w };
+  let rb = rail.map((piece) => boxOf(piece, rule.weight[piece.slot === 'outer_layer' ? 'outer_layer' : 'mid_layer']));
+  // Footwear is sized on width, not on the shared scale, and shares the layers' rail cap.
+  let bf = { w: rule.footWidth * coreW, h: rule.footWidth * coreW * foot.bounds.height / foot.bounds.width };
   const railScale = Math.min(1, rule.railCap / Math.max(...rb.concat(bf).map((box) => box.w)));
   rb = rb.map((box) => ({ w: box.w * railScale, h: box.h * railScale }));
   bf = { w: bf.w * railScale, h: bf.h * railScale };
@@ -130,10 +127,15 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   let railH = rb.reduce((sum, box) => sum + box.h, 0) + railGap * (rb.length - 1);
   let coreH = cb.reduce((sum, box) => sum + box.h, 0) + coreGap * (cb.length - 1) + bf.h * (1 + clearance.foot);
 
-  // A composition taller than the stage's ceiling (Easier to see on the detail's larger caps)
-  // is scaled down once, uniformly, until it fits, the way Today's fitted stage scales its
-  // board: every size and every gap keeps its ratio to the others.
-  const fit = (rule.stageMax - rule.topInset - rule.botInset) / Math.max(coreH, railH);
+  // A composition taller than the stage's ceiling, or wider than its side margins allow (Easier
+  // to see on the detail's larger caps), is scaled down once, uniformly, until it fits, the way
+  // Today's fitted stage scales its board: every size and every gap keeps its ratio to the others.
+  const railW = rb.length
+    ? clearance.side * Math.min(...cb.map((box) => box.w)) + Math.max(...rb.map((box) => box.w)) : 0;
+  const fit = Math.min(
+    (rule.stageMax - rule.topInset - rule.botInset) / Math.max(coreH, railH),
+    (1 - 2 * rule.sideMin) / (coreW + railW),
+  );
   if (fit < 1) {
     const scaled = (box: { w: number; h: number }) => ({ w: box.w * fit, h: box.h * fit });
     cb = cb.map(scaled);

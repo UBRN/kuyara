@@ -80,7 +80,15 @@ test('the board is one accessible image and its measured height matches its SVG'
 test('detail uses the same pieces with its own measured height', async () => {
   const result = await render(<GarmentBoard palette={palette} pieces={pieces} width={349} preset="detail" accessibilityLabel="Dress, sandals" />, { wrapper: LightTheme });
   expect(result.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'detail', 'womens'));
-  expect(measureGarmentBoardHeight(pieces, 349, 'detail', 'womens')).not.toBe(measureGarmentBoardHeight(pieces, 349, 'today', 'womens'));
+  // A short look stands on both stages' floor; a layered one is taller on the detail's larger caps.
+  const layered: readonly GarmentBoardPiece[] = [
+    { slot: 'primary_top', garmentTypeId: 'sweater', category: 'top' },
+    { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
+    { slot: 'outer_layer', garmentTypeId: 'rain_jacket', category: 'outerwear' },
+    { slot: 'footwear', garmentTypeId: 'rain_boots', category: 'footwear' },
+  ];
+  expect(measureGarmentBoardHeight(layered, 349, 'detail', 'womens'))
+    .toBeGreaterThan(measureGarmentBoardHeight(layered, 349, 'today', 'womens'));
   expect(dressFills(result)).toEqual([
     { type: 0, payload: processColor(rolesOn(lightTheme.colors.background).get('one_piece')!.main) },
   ]);

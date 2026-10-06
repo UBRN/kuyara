@@ -53,11 +53,9 @@ function audit(result) {
   }
   const halves = [quadrants[0] + quadrants[2], quadrants[1] + quadrants[3],
     quadrants[0] + quadrants[1], quadrants[2] + quadrants[3]];
-  const areas = result.core.map((piece) => {
-    const box = result.boxes.get(piece);
-    return box.w * box.h;
-  });
-  const parity = Math.max(...areas) / Math.min(...areas);
+  // The core is drawn at one scale: every core piece's drawn units take the same stage width.
+  const scales = result.core.map((piece) => result.boxes.get(piece).w / piece.bounds.width);
+  const parity = Math.max(...scales) / Math.min(...scales);
   return { overlap, clip, parity, quadrants, halves, minHalf: Math.min(...halves) };
 }
 
@@ -85,7 +83,7 @@ for (const [presetName, preset, min, max] of [
   ['detail', detailPreset, 0.66, 1.14],
 ]) {
   for (const [name, slots] of evidence) {
-    test(`${presetName}: ${name} preserves clearance, stage limits and anchor parity`, () => {
+    test(`${presetName}: ${name} preserves clearance, stage limits and one core scale`, () => {
       const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot], 'womens') }));
       const result = composeGarmentBoard(pieces, preset);
       const measured = audit(result);
@@ -324,7 +322,7 @@ test('the boards without Easier to see keep their exact layouts', () => {
         result.order.map((piece) => [piece.slot, result.boxes.get(piece)])];
     }));
   const digest = createHash('sha256').update(JSON.stringify(layouts)).digest('hex');
-  assert.equal(digest, 'f1a25497359fd17e61aea14179b21d150715fd967db8c623e7291ca0670a8a4a');
+  assert.equal(digest, '0c3df71b5d7df4d496d6fb4c50c497a0893069d9edb9d1cea83e488578cb955a');
 });
 
 // Only Today's primary stage takes the flat lay. Every other board, the plain and Easier to see
@@ -345,5 +343,5 @@ test('every board but Today\'s primary stage keeps its exact layout', () => {
       result.order.map((piece) => placeOnRunway(result.boxes.get(piece), extent, scale, 339, 516))];
   }));
   const digest = createHash('sha256').update(JSON.stringify(layouts)).digest('hex');
-  assert.equal(digest, '80290a97829d090c473f8ac7e7bd0b0470f8816fc4e3242197757e386186b366');
+  assert.equal(digest, '23b4c9c9a40e166e3546f200d78e783fa2a2dbb5561a02046b508c2fbd2f27b8');
 });

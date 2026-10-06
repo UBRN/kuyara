@@ -67,8 +67,9 @@ function recommendedOutfits() {
           if (result.status !== 'recommended') continue;
           for (const outfit of result.outfits) {
             const slots = Object.entries(outfitGarments(outfit));
-            seen.set(slots.map((entry) => entry.join(':')).join(' '),
-              slots.map(([slot, id]) => ({ slot, ...resolveGarmentSilhouette(id, getGarmentType(id).structuralCategory, 'womens') })));
+            // Each catalogue's outfits in its own cut.
+            seen.set(`${clothingPreference} ${slots.map((entry) => entry.join(':')).join(' ')}`,
+              slots.map(([slot, id]) => ({ slot, ...resolveGarmentSilhouette(id, getGarmentType(id).structuralCategory, clothingPreference) })));
           }
         }
       }

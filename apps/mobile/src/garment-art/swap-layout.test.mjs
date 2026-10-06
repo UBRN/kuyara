@@ -40,7 +40,7 @@ test('a composition is placed in points, and a fit narrows it about the board\'s
   assert.deepEqual(full.order, units.order.map(({ slot }) => slot));
   assert.deepEqual(full.stack, units.stack.map(({ slot }) => slot));
   assert.equal(full.height, units.stageHeight * WIDTH);
-  assert.equal(narrow.height, units.stageHeight * WIDTH * 0.8);
+  assert.ok(Math.abs(narrow.height - units.stageHeight * WIDTH * 0.8) < 1e-9);
   for (const slot of full.order) {
     const a = full.bySlot.get(slot).box;
     const b = narrow.bySlot.get(slot).box;

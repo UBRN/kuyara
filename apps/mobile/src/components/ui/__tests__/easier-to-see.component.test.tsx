@@ -60,10 +60,10 @@ describe.each(['today', 'detail'] as const)('the %s board', (preset) => {
   test('draws every piece 1.3 times larger with a 2.8 pt outline while Easier to see is on', async () => {
     const offLayout = layoutGarmentBoard(pieces, 349, preset, 'womens');
     const onLayout = layoutGarmentBoard(pieces, 349, preset, 'womens', true);
-    // Every piece grows by one ratio: 1.3, unless the board would pass the stage's ceiling,
-    // where the whole composition is scaled down until it fits (the detail's larger caps).
+    // Every piece grows by one ratio, 1.3: this look stays under the stage's ceiling on both
+    // presets (a taller one is scaled down until it fits, compose-garment-board.test).
     const growth = onLayout.boxes[0].width / offLayout.boxes[0].width;
-    expect(growth).toBeCloseTo(preset === 'today' ? 1.3 : 1.219, 3);
+    expect(growth).toBeCloseTo(1.3, 3);
     onLayout.boxes.forEach((box, index) => {
       expect(box.width / offLayout.boxes[index].width).toBeCloseTo(growth, 5);
       expect(box.height / offLayout.boxes[index].height).toBeCloseTo(growth, 5);

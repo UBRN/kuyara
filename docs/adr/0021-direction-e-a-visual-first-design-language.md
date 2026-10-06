@@ -57,8 +57,9 @@ rationale, optionally open details.**
 The primary recommendation is a compact editorial garment board. Composition principles,
 not coordinates:
 
-- The primary upper piece and the bottom generally form the two visual anchors, at equal
-  size. Outerwear and footwear are supporting and smaller. Accessories, when the contract
+- The primary upper piece and the bottom generally form the two visual anchors, drawn at one
+  shared scale so each keeps its real proportion to the other. Outerwear and footwear are
+  supporting: a layer a notch under its own size beside the core, the footwear sized on width. Accessories, when the contract
   eventually carries them, are small accents.
 - Scale communicates visual prominence, not physical size. A shoe does not occupy half
   the board because a shoe is large.

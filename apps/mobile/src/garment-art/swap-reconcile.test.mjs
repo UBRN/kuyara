@@ -190,7 +190,8 @@ test('a piece drawn at a new size gets a fresh view; one that only moves keeps i
   }
   assert.ok(moved > 0, `moved ${moved}`);
 
-  // The recorded far tile: a turtleneck changed for a sleeveless top lays the jeans out larger.
+  // The recorded far tile: a turtleneck changed for a sleeveless top lays the jeans out larger;
+  // changed for a sweater, every piece on the core's scale is redrawn and the boots only move.
   const look = (top) => [
     { slot: 'primary_top', garmentTypeId: top, category: 'top' },
     { slot: 'outer_layer', garmentTypeId: 'parka', category: 'outerwear' },
@@ -214,9 +215,14 @@ test('a piece drawn at a new size gets a fresh view; one that only moves keeps i
   assert.notEqual(jeans(sleeveless).base.h, jeans(turtleneck).base.h);
   assert.notEqual(drawingKey(jeans(sleeveless)), drawingKey(jeans(turtleneck)));
   assert.equal(jeans(sleeveless).values, jeans(turtleneck).values);
-  // The parka only moves; its size, recomputed through other arithmetic, differs only in noise.
+  // The boots, sized on the core's width, only move; their size, recomputed through other
+  // arithmetic, differs only in noise. The parka stands on the core's scale and is redrawn.
+  const sweater = layout(turtleneck, 'sweater');
+  const boots = (current) => current.instances.find(({ slot }) => slot === 'footwear');
+  assert.notEqual(boots(sweater).base.y, boots(turtleneck).base.y);
+  assert.equal(drawingKey(boots(sweater)), drawingKey(boots(turtleneck)));
   const parka = (current) => current.instances.find(({ slot }) => slot === 'outer_layer');
-  assert.equal(drawingKey(parka(sleeveless)), drawingKey(parka(turtleneck)));
+  assert.notEqual(drawingKey(parka(sweater)), drawingKey(parka(turtleneck)));
 });
 
 test('a leaving piece chosen again fades back in rather than showing at once', () => {
