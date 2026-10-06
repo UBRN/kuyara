@@ -1549,7 +1549,6 @@ test('production code lists garment types only through listSelectableGarmentType
 const bodySlotListAllowlist = [
   // The board's dressing order is a drawing rule (ADR 0025) that happens to match slot order.
   'components/ui/garment-board/compose-garment-board.ts',
-  'features/recommendation/domain/manual-mix.ts',
 ];
 
 test('the body slots and slot membership have one owner in outfit-slots', () => {

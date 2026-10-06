@@ -14,6 +14,7 @@ import {
 } from '@/features/recommendation/domain/manual-accessories';
 import {
   accessoryOutfitSlots as accessoryOutfitSlotOrder,
+  assignedOutfitGarments,
   evaluateArrangement,
   garmentFitsSlot,
   onePieceExcludes,
@@ -21,6 +22,10 @@ import {
   type OutfitCandidate,
   type OutfitPin,
 } from '@/features/recommendation/domain/outfit-composition';
+import {
+  bodyOutfitSlots,
+  type BodyOutfitSlot,
+} from '@/features/recommendation/domain/outfit-slots';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
 /**
@@ -31,16 +36,9 @@ import type { ClothingRequirements } from '@/features/recommendation/domain/weat
  * supplies a candidate, and nothing here is stored: only "Wore this today" records the
  * result, as a `manual` worn outfit.
  */
-export const swappableSlots = Object.freeze([
-  'primary_top',
-  'bottom',
-  'one_piece',
-  'mid_layer',
-  'outer_layer',
-  'footwear',
-] as const);
+export const swappableSlots = bodyOutfitSlots;
 
-export type SwappableSlot = (typeof swappableSlots)[number];
+export type SwappableSlot = BodyOutfitSlot;
 
 /** The two slots a person may leave empty. Every other drawn piece is part of a complete outfit. */
 export const removableSlots = Object.freeze(['mid_layer', 'outer_layer'] as const);
@@ -63,16 +61,9 @@ type Garments = Partial<Record<SwappableSlot, GarmentTypeId>>;
 
 /** The drawn pieces of an outfit by slot: the slots a person can change. */
 export function outfitGarments(outfit: OutfitCandidate): Readonly<Garments> {
-  const garments: Garments = outfit.body.kind === 'separates'
-    ? {
-        primary_top: outfit.body.primaryTop.garment.garmentTypeId,
-        bottom: outfit.body.bottom.garment.garmentTypeId,
-      }
-    : { one_piece: outfit.body.onePiece.garment.garmentTypeId };
-  if (outfit.midLayer) garments.mid_layer = outfit.midLayer.garment.garmentTypeId;
-  if (outfit.outerLayer) garments.outer_layer = outfit.outerLayer.garment.garmentTypeId;
-  garments.footwear = outfit.footwear.garment.garmentTypeId;
-  return Object.freeze(garments);
+  return Object.freeze(Object.fromEntries(
+    assignedOutfitGarments(outfit).map(({ slot, garment }) => [slot, garment.garmentTypeId]),
+  ) as Garments);
 }
 
 /**

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { recommendOutfits } from '../application/recommend-outfits.ts';
@@ -282,4 +283,25 @@ test('"Wore this today" records what an edited outfit shows: layers off or added
   const added = wornOutfitFrom(applySwaps(bare.outfit, { mid_layer: first.garmentTypeId }, bare.requirements, 'mens').outfit, 'manual');
   assert.equal(wornOutfitSchema.safeParse(added).success, true);
   assert.equal(added.garments.mid_layer, first.garmentTypeId);
+});
+
+test('the drawn pieces of every recommended outfit stay byte-identical across weather, preference and day', () => {
+  const hash = createHash('sha256');
+  let onePieces = 0;
+  for (const preference of ['womens', 'mens']) {
+    for (const [temperature, condition, rain] of [[30, 'clear', 0], [16, 'cloudy', 0], [8, 'rain', 0.8], [-4, 'snow', 0.6]]) {
+      for (const dayVariant of [0, 1, 2, 3]) {
+        const snapshot = day(temperature, condition, rain);
+        const result = recommendOutfits({ snapshot, now: snapshot.current.observedAt, clothingPreference: preference, dayVariant });
+        assert.equal(result.status, 'recommended');
+        for (const outfit of result.outfits) {
+          const garments = outfitGarments(outfit);
+          if (garments.one_piece !== undefined) onePieces += 1;
+          hash.update(JSON.stringify({ preference, temperature, dayVariant, garments }));
+        }
+      }
+    }
+  }
+  assert.ok(onePieces > 0, 'the sample covers a one-piece outfit');
+  assert.equal(hash.digest('hex'), '8c9cf89c5dc454c51ae23ee7eee55425d6165c75b6075564ef24755c6a677a0c');
 });
