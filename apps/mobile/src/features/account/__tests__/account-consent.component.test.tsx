@@ -14,10 +14,6 @@ import { DeleteAccountScreen } from '@/features/account/presentation/delete-acco
 import { messages } from '@/localization/messages';
 import { borderWidths, layout, lightTheme, spacing, typography } from '@/theme/theme';
 
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 // The host keeps the sheet's detents, its swipe dismissal and its close callback as props, so a
 // test can read how the sheet is presented and close it the way a swipe does.
 jest.mock('@expo/ui/community/bottom-sheet', () => {

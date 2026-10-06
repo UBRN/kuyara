@@ -9,8 +9,6 @@ import { blend } from '@/theme/color-blend';
 import { darkTheme, lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-
 const props = {
   photoUri: null,
   garmentTypeId: 't_shirt' as const,

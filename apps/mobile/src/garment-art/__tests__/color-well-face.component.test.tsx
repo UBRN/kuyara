@@ -5,8 +5,6 @@ import { ColorWellFace } from '@/garment-art';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-
 const hidden = { includeHiddenElements: true };
 
 const face = (hex: string | null) => (

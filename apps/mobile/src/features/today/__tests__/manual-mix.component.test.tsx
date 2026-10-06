@@ -26,11 +26,6 @@ import {
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-// GlassButton draws the picker's close as a SwiftUI glass button.
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 // The platform sheet reports its dismissal after a programmatic close, as NativeSheet documents.
 jest.mock('@expo/ui/community/bottom-sheet', () => {
   const React = jest.requireActual('react') as typeof import('react');

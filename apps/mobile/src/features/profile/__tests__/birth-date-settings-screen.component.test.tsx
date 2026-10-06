@@ -13,12 +13,6 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 const nativeLocale = { en: 'en_GB', tr: 'tr_TR' } as const;
 
 jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },

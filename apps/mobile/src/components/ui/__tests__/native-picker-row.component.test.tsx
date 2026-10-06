@@ -15,12 +15,6 @@ const originalWindowDimensions = Dimensions.get('window');
 jest.mock('@/components/ui/haptics', () => ({
   haptics: { selection: () => mockSelectionHaptic() },
 }));
-jest.mock('@expo/ui', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 
 // The row resolves its SwiftUI module once, when it is first imported, so the Android branch
 // is only reachable by loading the row again in a registry whose Platform is Android. React and

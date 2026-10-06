@@ -5,11 +5,6 @@ import { COLOR_WELL_TOUCH_SCALE, NativeColorWell } from '@/components/ui/native-
 import { layout, lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-
 const hidden = { includeHiddenElements: true };
 
 function well(props: Partial<React.ComponentProps<typeof NativeColorWell>> = {}) {

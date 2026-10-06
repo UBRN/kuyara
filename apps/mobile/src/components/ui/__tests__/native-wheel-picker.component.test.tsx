@@ -15,11 +15,9 @@ jest.mock('@/components/ui/haptics', () => ({
 }));
 
 // `@expo/ui` renders native views that do not mount under Jest (ADR 0019). iOS draws the
-// SwiftUI picker, mocked by the shared passthrough; Android keeps the universal `Picker`,
-// mocked here with each item as a pressable so the props this wrapper passes stay readable.
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+// SwiftUI picker, mocked by the shared passthrough in the Jest setup; Android keeps the
+// universal `Picker`, mocked here with each item as a pressable so the props this wrapper
+// passes stay readable.
 jest.mock('@expo/ui', () => {
   // `require`, not `requireActual`: the Android registry below must get its own React Native.
   /* eslint-disable @typescript-eslint/no-require-imports -- Resolved per module registry. */

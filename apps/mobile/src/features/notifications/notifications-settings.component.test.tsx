@@ -15,14 +15,6 @@ import { ProfileApplicationProvider } from '@/features/profile/application/profi
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
 import { messages } from '@/localization/messages';
 
-jest.mock('expo-symbols', () => ({
-  SymbolView: () => null,
-}));
-
-jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-
 jest.mock('expo-router', () => {
   const router = { back: jest.fn(), navigate: jest.fn(), push: jest.fn() };
   return {

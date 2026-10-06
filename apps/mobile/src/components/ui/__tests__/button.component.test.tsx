@@ -8,7 +8,6 @@ import { haptics } from '@/components/ui/haptics';
 import { lightTheme, radii } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@/components/ui/haptics', () => ({ haptics: { impactLight: jest.fn() } }));
 
 const originalWindow = Dimensions.get('window');

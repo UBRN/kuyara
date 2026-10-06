@@ -23,9 +23,6 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
 import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
 
-jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
-jest.mock('@expo/ui/swift-ui/modifiers', () =>
-  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 // A symbol stands as a plain view carrying its name and ink, so a line's glyph can be read.
 jest.mock('expo-symbols', () => {
   const React = jest.requireActual('react') as typeof import('react');
