@@ -101,22 +101,18 @@ test('a women\'s-only type draws the same drawing in both cuts', () => {
 });
 
 // A type both catalogs carry is drawn masculine for men and feminine
-// for women, never one drawing for both. These body types still share one drawing across the
-// cuts; remove each as its two cut drawings land. The list only shrinks, and once it is empty
-// every such type resolves to two different drawings.
-const stillSharedAcrossCuts = [
-  'sleeveless_top', 't_shirt', 'long_sleeve_t_shirt', 'shirt', 'sweatshirt', 'hoodie', 'sweater', 'cardigan',
-  'overshirt', 'fleece', 'turtleneck', 'polo_shirt', 'trousers', 'jeans', 'shorts', 'track_pants', 'light_jacket',
-  'trench_coat', 'rain_jacket', 'insulated_jacket', 'coat', 'parka', 'blazer', 'puffer_vest', 'bomber_jacket',
-  'leather_jacket', 'sneakers', 'closed_shoes', 'ankle_boots', 'weather_boots', 'sandals', 'loafers', 'rain_boots',
-];
-
-test('a body type both catalogs carry is drawn in two cuts, apart from the shrinking shared list', () => {
-  const shared = bodyTypes.filter((id) => inBothCatalogs(id)
-    && garmentSilhouetteIdFor(id, 'womens') === garmentSilhouetteIdFor(id, 'mens'));
-  assert.deepEqual(shared, stillSharedAcrossCuts);
-  for (const id of bodyTypes.filter(inBothCatalogs).filter((type) => !stillSharedAcrossCuts.includes(type))) {
+// for women, never one drawing for both, and no drawing serves two types of one cut.
+test('a body type both catalogs carry resolves to a women\'s and a men\'s drawing', () => {
+  for (const id of bodyTypes.filter(inBothCatalogs)) {
     assert.match(garmentSilhouetteIdFor(id, 'womens'), /-f$/, id);
     assert.match(garmentSilhouetteIdFor(id, 'mens'), /-m$/, id);
+  }
+  for (const id of bodyTypes.filter((type) => !inBothCatalogs(type))) {
+    assert.match(garmentSilhouetteIdFor(id, 'womens'), /-f$/, id);
+  }
+  for (const cut of clothingPreferences) {
+    const drawn = bodyTypes.filter((id) => getGarmentType(id).apparelPreferenceApplicability.includes(cut))
+      .map((id) => garmentSilhouetteIdFor(id, cut));
+    assert.equal(new Set(drawn).size, drawn.length, cut);
   }
 });

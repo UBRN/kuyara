@@ -88,7 +88,7 @@ export type StructurePoint = Readonly<{ kind: 'collar' | 'waist' | 'sleeve'; x: 
 /**
  * Where a drawing keeps its collar, waist and sleeves, in its own units: the collar is the
  * top of the outline at the drawing's centre, the waist the top of a bottom's waistband, and
- * each sleeve ends at the lowest point of the outline in the outer 15% of the drawing's width
+ * each sleeve ends at the lowest point of the outline in the outer 10% of the drawing's width
  * (a one-piece's in its upper half, never its hem). Footwear stands in front of every piece,
  * so its sole is never covered.
  */
@@ -118,8 +118,8 @@ function findStructure(piece: FlatPiece): readonly StructurePoint[] {
   };
   return [
     { kind: 'collar', x: cx, y: cy },
-    sleeve((x) => x <= bounds.x + 0.15 * bounds.width),
-    sleeve((x) => x >= bounds.x + 0.85 * bounds.width),
+    sleeve((x) => x <= bounds.x + 0.10 * bounds.width),
+    sleeve((x) => x >= bounds.x + 0.90 * bounds.width),
   ];
 }
 
@@ -180,49 +180,59 @@ function withinLimits(entries: readonly (readonly [FlatPiece & { single?: unknow
  */
 export function composeFlatLay<Piece extends FlatPiece>(pieces: readonly Piece[], rule = todayPreset) {
   const worn = composeGarmentBoard(pieces, rule);
-  const entries = [...worn.boxes].map(([piece, box]) => [piece, { ...box }] as [BoardPiece<Piece>, Box]);
-  const find = (slot: OutfitSlot) => entries.find(([piece]) => piece.slot === slot);
   const top = worn.boxes.get(worn.core[0])!;
-  const placed = [find(worn.core[0].slot)!];
 
-  const cross = (slots: readonly OutfitSlot[], to: (box: Box) => readonly [number, number]) => {
-    const moving = entries.filter(([piece]) => slots.includes(piece.slot));
-    if (!moving.length) return;
-    const [dx, dy] = to(moving[0][1]);
-    const from = moving.map(([, box]) => ({ x: box.x, y: box.y }));
-    const others = placed.filter((entry) => !moving.includes(entry));
-    for (let step: number = flatLayPreset.steps; step >= 0; step--) {
-      const t = step / flatLayPreset.steps;
-      moving.forEach(([, box], index) => {
-        box.x = from[index].x + t * dx;
-        box.y = from[index].y + t * dy;
-      });
-      if (step === 0 || withinLimits([...others, ...moving])) break;
+  // Each crossing holds the limits against the pieces already crossed. A crossing that stops at
+  // none leaves its pieces where the worn board put them, which a piece crossed before may now
+  // cover; then the outfit is laid again with every crossing also holding the limits against the
+  // pieces still at their worn place, so stopping at none touches nothing it covers.
+  const layOut = (strict: boolean) => {
+    const entries = [...worn.boxes].map(([piece, box]) => [piece, { ...box }] as [BoardPiece<Piece>, Box]);
+    const find = (slot: OutfitSlot) => entries.find(([piece]) => piece.slot === slot);
+    const placed = [find(worn.core[0].slot)!];
+
+    const cross = (slots: readonly OutfitSlot[], to: (box: Box) => readonly [number, number]) => {
+      const moving = entries.filter(([piece]) => slots.includes(piece.slot));
+      if (!moving.length) return;
+      const [dx, dy] = to(moving[0][1]);
+      const from = moving.map(([, box]) => ({ x: box.x, y: box.y }));
+      const others = (strict ? entries : placed).filter((entry) => !moving.includes(entry));
+      for (let step: number = flatLayPreset.steps; step >= 0; step--) {
+        const t = step / flatLayPreset.steps;
+        moving.forEach(([, box], index) => {
+          box.x = from[index].x + t * dx;
+          box.y = from[index].y + t * dy;
+        });
+        if (step === 0 || withinLimits([...others, ...moving])) break;
+      }
+      placed.push(...moving.filter((entry) => !placed.includes(entry)));
+    };
+
+    const { bottom, rail, mid, foot } = flatLayPreset;
+    const outer = find('outer_layer')?.[1];
+    const layered = Boolean(outer ?? find('mid_layer'));
+    // The bottom closes up under the top; with no layer beside it, it lies beside the top, its
+    // waist clear of the top's hem.
+    cross(['bottom'], (box) => layered
+      ? [0, top.y + top.h - box.y]
+      : [top.x + top.w - bottom.overlap * box.w - box.x, top.y + bottom.drop * top.h - box.y]);
+    cross(['outer_layer', 'mid_layer'], (box) =>
+      [top.x + top.w - rail.tuck * box.w - box.x, top.y + rail.drop * worn.metric - box.y]);
+    if (outer) {
+      cross(['mid_layer'], (box) =>
+        [outer.x + (outer.w - box.w) / 2 - box.x, outer.y + outer.h - mid.tuck * box.h - box.y]);
     }
-    placed.push(...moving.filter((entry) => !placed.includes(entry)));
+    // The pair stands over the lowest hem: on its right, or on the bottom's left when the bottom
+    // lies beside the top.
+    const low = find('bottom')?.[1] ?? top;
+    cross(['footwear'], (box) => [
+      (layered || low === top ? low.x + low.w - foot.tuck * box.w : low.x - (1 - foot.tuck) * box.w) - box.x,
+      low.y + low.h - foot.rise * box.h - box.y,
+    ]);
+    return entries;
   };
-
-  const { bottom, rail, mid, foot } = flatLayPreset;
-  const outer = find('outer_layer')?.[1];
-  const layered = Boolean(outer ?? find('mid_layer'));
-  // The bottom closes up under the top; with no layer beside it, it lies beside the top, its
-  // waist clear of the top's hem.
-  cross(['bottom'], (box) => layered
-    ? [0, top.y + top.h - box.y]
-    : [top.x + top.w - bottom.overlap * box.w - box.x, top.y + bottom.drop * top.h - box.y]);
-  cross(['outer_layer', 'mid_layer'], (box) =>
-    [top.x + top.w - rail.tuck * box.w - box.x, top.y + rail.drop * worn.metric - box.y]);
-  if (outer) {
-    cross(['mid_layer'], (box) =>
-      [outer.x + (outer.w - box.w) / 2 - box.x, outer.y + outer.h - mid.tuck * box.h - box.y]);
-  }
-  // The pair stands over the lowest hem: on its right, or on the bottom's left when the bottom
-  // lies beside the top.
-  const low = find('bottom')?.[1] ?? top;
-  cross(['footwear'], (box) => [
-    (layered || low === top ? low.x + low.w - foot.tuck * box.w : low.x - (1 - foot.tuck) * box.w) - box.x,
-    low.y + low.h - foot.rise * box.h - box.y,
-  ]);
+  const free = layOut(false);
+  const entries = withinLimits(free) ? free : layOut(true);
 
   const boxes = new Map(entries);
   return {

@@ -24,7 +24,7 @@ const input = (overrides = {}) => ({
 const boards = [
   ['warm casual', 'opt-0925-a1', 22, 'clear', false, 'casual',
     [['primary_top','t_shirt'],['bottom','jeans'],['mid_layer','overshirt'],['footwear','sneakers'],['head','cap']],
-    ['white','midwash','terracotta','white','stone']],
+    ['white','midwash','rust','white','stone']],
   ['rainy smart', 'opt-0925-b1', 12, 'rain', false, 'smart',
     [['primary_top','shirt'],['bottom','trousers'],['mid_layer','sweater'],['outer_layer','rain_jacket'],['footwear','ankle_boots'],['handheld','umbrella']],
     ['oxford','navy','charcoal','rainyellow','black','black']],
@@ -77,7 +77,7 @@ test('six boards in both appearances match README legibility counts', (context) 
   }
   assert.deepEqual({ A: count.A, B: count.B, moved: count.moved,
     largestMove: Number(count.largestMove.toFixed(3)) },
-  { A: 36, B: 24, moved: 4, largestMove: 0.055 });
+  { A: 38, B: 22, moved: 4, largestMove: 0.055 });
   context.diagnostic(`60 pieces: A ${count.A}, B ${count.B}, moved ${count.moved}, max |dL| ${count.largestMove.toFixed(3)}`);
 });
 

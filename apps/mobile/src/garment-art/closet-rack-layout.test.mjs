@@ -7,6 +7,8 @@ import {
   RACK_LOWER_RAIL_Y,
   RACK_WIDTH,
 } from './closet-rack-layout.ts';
+import { getGarmentType } from '../features/catalog/domain/garment-catalog.ts';
+import { garmentTypeIds } from '../features/catalog/domain/garment-taxonomy.ts';
 
 // O9's fill rule, checked without a renderer: every piece is drawn once, the newest owned
 // pieces face out, wanted pieces hang last, a zone that overflows says so, and no zone runs
@@ -111,6 +113,22 @@ test('zones never touch: coats end above the lower rail and bottoms above the sh
   for (const mark of garments(layout)) {
     const limit = mark.piece.category === 'bottom' ? SHELF_Y : RACK_LOWER_RAIL_Y;
     assert.ok(bottomOf(mark) < limit, `${mark.piece.id} ends at ${bottomOf(mark)}, above ${limit}`);
+  }
+});
+
+// The long coats and the jumpsuit are the tallest drawings: every coat, one-piece and bottom of
+// both cuts keeps to its zone.
+test('every long drawing of both cuts keeps to its zone', () => {
+  const ofCategory = (category) => garmentTypeIds.filter((id) => getGarmentType(id).structuralCategory === category);
+  for (const cut of ['womens', 'mens']) {
+    for (const category of ['outerwear', 'one_piece', 'bottom']) {
+      for (const garmentTypeId of ofCategory(category)) {
+        const record = { ...piece(category, { garmentTypeId }) };
+        const layout = layoutClosetRack([{ ...record, silhouette: rackSilhouette(record, cut) }]);
+        const limit = category === 'bottom' ? SHELF_Y : RACK_LOWER_RAIL_Y;
+        for (const mark of garments(layout)) assert.ok(bottomOf(mark) < limit, `${cut} ${garmentTypeId} ends at ${bottomOf(mark)}`);
+      }
+    }
   }
 });
 

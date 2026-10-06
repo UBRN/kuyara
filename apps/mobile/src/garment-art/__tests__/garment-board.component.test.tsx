@@ -56,7 +56,7 @@ const insideClip = (node: { type: unknown; parent: unknown }): boolean => {
 
 // The first main-coloured group's outline, filled (its stroke-free copy; the edge and the clip
 // are separate).
-function fillsOf(result: Awaited<ReturnType<typeof render>>, silhouetteId: 'g-dress' | 'g-sandal') {
+function fillsOf(result: Awaited<ReturnType<typeof render>>, silhouetteId: 'g-dress-f' | 'g-sandal-f') {
   const group = silhouettes[silhouetteId].groups.find(({ fill }) => fill === 'main')!;
   return result.container
     .queryAll((node) => node.props.d === group.outline && node.props.strokeWidth == null
@@ -65,7 +65,7 @@ function fillsOf(result: Awaited<ReturnType<typeof render>>, silhouetteId: 'g-dr
 }
 
 function dressFills(result: Awaited<ReturnType<typeof render>>) {
-  return fillsOf(result, 'g-dress');
+  return fillsOf(result, 'g-dress-f');
 }
 
 test('the board is one accessible image and its measured height matches its SVG', async () => {
@@ -113,7 +113,7 @@ test('board fills come from the outfit palette on the plane the board stands on'
   expect(dressFills(staticResult)).toEqual([{ type: 0, payload: processColor(roles.get('one_piece')!.main) }]);
   // ADR 0025 section 2: a board draws its footwear as a pair, the one shoe twice in the same colours.
   const shoe = { type: 0, payload: processColor(roles.get('footwear')!.main) };
-  expect(fillsOf(staticResult, 'g-sandal')).toEqual([shoe, shoe]);
+  expect(fillsOf(staticResult, 'g-sandal-f')).toEqual([shoe, shoe]);
   expect(roles.get('one_piece')!.main).not.toBe(roles.get('footwear')!.main);
 
   const travellingResult = await render(
@@ -194,7 +194,7 @@ test('a rising board staggers its pieces in reading order and stacks them in the
   expect(delays).toEqual([2, 3, 1, 0, 4].flatMap((index) => [index * stagger, index * stagger]));
   const layers = result.getByRole('image').children.filter((child) => typeof child !== 'string');
   expect(layers).toHaveLength(layered.length);
-  const ids = ['g-rain', 'g-sweater', 'g-trousers', 'g-tee', 'g-boot'] as const;
+  const ids = ['g-rain-f', 'g-sweater-f', 'g-trousers-f', 'g-tee-f', 'g-boot-f'] as const;
   layers.forEach((layer, index) => {
     const [group] = silhouettes[ids[index]].groups;
     expect(layer.queryAll((node) => node.props.d === group.outline).length).toBeGreaterThan(0);

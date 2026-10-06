@@ -51,14 +51,18 @@ function drawnBounds(paths) {
   };
 }
 
-// ADR 0025's 33 drawings plus the eight Phase 6 additions: 41 garments, and six category glyphs.
-const additions = ['x-polo', 'x-turtleneck', 'x-blouse', 'x-bomber', 'x-leather', 'x-coat', 'x-loafer', 'x-rainboot'];
+// ADR 0025's vocabulary: every catalogue garment in each cut (41 women's, 33 men's), the seven
+// accessory drawings both cuts share, the six category glyphs, and the fifteen base drawings the
+// public site's landing boards copy.
+const accessories = ['g-beanie', 'g-hat', 'g-cap', 'g-balaclava', 'g-scarf', 'g-gloves', 'g-umbrella'];
 
-test('the vocabulary contains exactly 41 garments and six category glyphs', () => {
+test('the vocabulary holds 74 cut drawings, seven accessories, six glyphs and the site\'s fifteen', () => {
   const ids = Object.keys(silhouettes);
   assert.equal(ids.filter((id) => id.startsWith('g-cat-')).length, 6);
-  assert.equal(ids.filter((id) => !id.startsWith('g-cat-')).length, 41);
-  for (const id of additions) assert.ok(silhouettes[id], id);
+  assert.equal(ids.filter((id) => id.endsWith('-f')).length, 41);
+  assert.equal(ids.filter((id) => id.endsWith('-m')).length, 33);
+  for (const id of accessories) assert.ok(silhouettes[id], id);
+  assert.equal(ids.filter((id) => !id.startsWith('g-cat-') && !/-[fm]$/.test(id) && !accessories.includes(id)).length, 15);
 });
 
 test('every authored bound matches the drawn outlines without stroke', () => {

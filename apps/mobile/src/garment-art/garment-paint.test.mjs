@@ -12,10 +12,10 @@ const paint = (silhouette, extra = {}) => paintGarment({
 });
 
 // The Closet grid draws many tiles and the swap strip many thumbnails: every drawing keeps a
-// bounded element count, so the illustration never makes a scroll heavy. The modelled
-// drawings average about 61 elements (the flatter set averaged 31); the leather jacket, with
-// its diagonal zip, studded lapels, zipped pockets and belt, is the heaviest at 97.
-const NODE_BUDGET = 100;
+// bounded element count, so the illustration never makes a scroll heavy. The cut drawings
+// average about 64 elements; the women's trench, double-breasted with its belt, buckle, cuff
+// straps and storm flap, is the heaviest at 127.
+const NODE_BUDGET = 130;
 
 test('every drawing stays within its element budget, and a caption draws fewer', () => {
   for (const silhouette of Object.values(silhouettes)) {

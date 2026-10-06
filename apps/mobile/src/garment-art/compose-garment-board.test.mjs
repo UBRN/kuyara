@@ -322,7 +322,7 @@ test('the boards without Easier to see keep their exact layouts', () => {
         result.order.map((piece) => [piece.slot, result.boxes.get(piece)])];
     }));
   const digest = createHash('sha256').update(JSON.stringify(layouts)).digest('hex');
-  assert.equal(digest, '0c3df71b5d7df4d496d6fb4c50c497a0893069d9edb9d1cea83e488578cb955a');
+  assert.equal(digest, '2b0c66e4ce2f6b173a6dd618c5c13d4d99af399773d547f40173e3f827c64d4e');
 });
 
 // Only Today's primary stage takes the flat lay. Every other board, the plain and Easier to see
@@ -343,5 +343,5 @@ test('every board but Today\'s primary stage keeps its exact layout', () => {
       result.order.map((piece) => placeOnRunway(result.boxes.get(piece), extent, scale, 339, 516))];
   }));
   const digest = createHash('sha256').update(JSON.stringify(layouts)).digest('hex');
-  assert.equal(digest, '23b4c9c9a40e166e3546f200d78e783fa2a2dbb5561a02046b508c2fbd2f27b8');
+  assert.equal(digest, 'a992beeacb9a784a5a2590c9b7a85d191db8b5183c6e2c1acdf53f7a57b399bf');
 });

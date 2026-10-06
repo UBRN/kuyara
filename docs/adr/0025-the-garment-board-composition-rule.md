@@ -78,7 +78,7 @@ layers' widest piece is capped at 0.26 of the stage, which a layer reaches only 
 top. **Footwear is sized on width**, at 0.42 of the core's drawn width, because shoe drawings
 fill their viewBox far more than a garment does, and shoe aspect ratios span 2.86 for a sneaker
 to 0.94 for an ankle boot. A shoe is recognised by the length of its profile; the pair stands
-about 0.8 of the top's body wide, as a pair of shoes beside a folded shirt does.
+about 0.47 of the top's drawn width, as a pair of shoes beside a folded shirt does.
 
 **A board draws its footwear as a pair**, the way a flat lay shows shoes: the near shoe
 whole, the far one behind it, 0.30 of a shoe's length toward the toe and raised so the pair
@@ -152,22 +152,19 @@ stage width, clamped away from the edges. Placing by bounding box was tried and 
 on measurement: a two-piece dress-and-sandals board then put 4.8% of its ink in the right
 half, against 23.3% under centroid placement.
 
-### 6. The silhouette vocabulary covers the catalogue
+### 6. The silhouette vocabulary covers the catalogue, in each cut
 
-The outfit-eligible set includes `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`,
-`dress`, `jumpsuit` and `sandal` alongside the thirteen silhouettes established by the
-spike, and `parka`, `blazer`, `vest` and `flat` for the enlarged catalogue. With the eight
-Phase 6 drawings for `polo_shirt`, `turtleneck`, `blouse`, `bomber_jacket`,
-`leather_jacket`, `coat`, `loafers` and `rain_boots`, those thirty-four drawings cover all
-**41 outfit-eligible catalogue types**, with seven types sharing a drawing with another.
-`dress` and `jumpsuit` are required because a one-piece look cannot otherwise be drawn.
-
-`sandal` is the weakest of the nine and is explicitly accepted as redrawable during a
-later visual iteration rather than treated as a blocker.
+Every outfit-eligible catalogue type is drawn once for each cut it is worn in: 41 women's
+drawings and 33 men's, all 41 types for women and the 33 both catalogues carry for men, on one
+proportion grid. A piece is drawn in the cut of the profile's catalogue, never one drawing for
+both, and no drawing serves two types: the overshirt, sweatshirt, fleece, track pants, long
+skirt, knit dress and weather boot each have their own. A women's-only type keeps its women's
+drawing in the men's cut, so a piece recorded under the other gender is still drawn. `dress`
+and `jumpsuit` are required because a one-piece look cannot otherwise be drawn.
 
 Seven accessory silhouettes, `beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`, `gloves`
-and `umbrella`, serve the eight catalogue accessories (`neck_gaiter` shares `scarf`'s) and
-bring the implemented vocabulary to 41 drawings covering all 49 catalogue types. They are
+and `umbrella`, serve the eight catalogue accessories (`neck_gaiter` shares `scarf`'s) in
+both cuts, so 81 drawings cover all 49 catalogue types. They are
 drawn on the Closet and Profile surfaces, the recommendation detail (its finishing-touch rows
 and the "Add an accessory" picker, [ADR 0026](0026-the-recommendation-detail-surface.md)
 section 6) and Today badges. The garment board itself does not draw them, so taking an
@@ -195,12 +192,11 @@ The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather j
   the composer can emit were generated and audited. Clipping 0 and overlap 0 on all ten
   worn boards (Today's flat lay keeps its own limits, garment-board.md section 10), and
   both anchors drawn at one scale on all ten.
-- **The anchors keep their real proportion, not equal weight.** On the shipped drawings a
-  trouser or jean waist is 0.88 to 0.97 of the top's body width, a knee skirt's waist 0.70
-  with its hem 1.10, and the pair of shoes 0.81 to 0.88 of the top's body. A bottom drawn
-  stubbier than the garment (today's trousers and jeans, 0.97 to 1.05 of the top's height
-  where a real pair is about 1.4) reads short until it is redrawn on the proportion grid;
-  the rule no longer hides a drawing's proportion behind an equal area.
+- **The anchors keep their real proportion, not equal weight.** On the cut drawings trousers
+  and jeans stand 1.30 to 1.59 of the top's height, a knee skirt 0.76, shorts 0.47 (women's)
+  and 0.63 (men's), and every bottom is narrower than the top over it. Because the core's
+  widest piece takes the cap, a narrow top (a women's tee, a tank) draws its whole outfit
+  larger, so a tall women's look reaches Today's band ceiling and is drawn smaller to fit.
 - **The six structural-category glyphs use the silhouette idiom.** Their 64-unit viewBox,
   1.9 stroke and round caps and joins put every glyph inside the silhouette set's ink
   range at 192 px; the worst pair among the six is 1.40× coverage and 1.37× box density.

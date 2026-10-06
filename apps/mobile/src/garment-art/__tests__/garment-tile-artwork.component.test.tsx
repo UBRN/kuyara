@@ -31,7 +31,7 @@ const insideClip = (node: { type: unknown; parent: unknown }): boolean => {
   return false;
 };
 
-const teeOutline = silhouettes['g-tee'].groups[0].outline;
+const teeOutline = silhouettes['g-tee-f'].groups[0].outline;
 
 // Inspect authored vector props without importing the vector library outside its boundary:
 // the outline is filled once and stroked once (the ink edge, the one opaque stroke), and also
@@ -62,7 +62,7 @@ test.each([lightTheme, darkTheme])('null colour uses the page ground\u2019s neut
   });
   const [edge] = edges(result);
   expect(edge.props.stroke).toEqual({ type: 0, payload: processColor(theme.colors.textPrimary) });
-  const bounds = silhouettes['g-tee'].bounds;
+  const bounds = silhouettes['g-tee-f'].bounds;
   const scale = Math.min(136 * 0.6 / bounds.width, 170 * 0.61 / bounds.height);
   expect(edge.props.strokeWidth).toBeCloseTo(1.9 / scale);
   expect(edge.props.vectorEffect).toBeUndefined();
@@ -104,7 +104,7 @@ test.each([
   const [scale, skewY, skewX, scaleY, x, y] = group.props.matrix;
   expect(scaleY).toBeCloseTo(scale);
   expect([skewX, skewY]).toEqual([0, 0]);
-  const bounds = silhouettes['g-dress'].bounds;
+  const bounds = silhouettes['g-dress-f'].bounds;
   expect(scale).toBeCloseTo(Math.min(width * 0.6 / bounds.width, height * 0.61 / bounds.height));
   expect(x + (bounds.x + bounds.width / 2) * scale).toBeCloseTo(width / 2);
   expect(y + (bounds.y + bounds.height / 2) * scale).toBeCloseTo(height / 2);
@@ -131,7 +131,7 @@ test('an unreadable legacy-entry photo falls to the category glyph, and a replac
 test('a drawing below 32 points drops tone lines and stitches, and keeps its construction', async () => {
   const dashed = (result: Awaited<ReturnType<typeof render>>) =>
     result.container.queryAll((node) => node.props.strokeDasharray != null && node.props.d != null);
-  const construction = 'M25 14.4 Q32 20.6 39 14.4';
+  const construction = 'M26.2 14.6 Q26.6 21.8 32 21.8 Q37.4 21.8 37.8 14.6';
   const draw = (width: number, height: number) => (
     <KuyaraThemeContext.Provider value={lightTheme}>
       <GarmentTileArtwork {...props} width={width} height={height} />
@@ -232,7 +232,7 @@ test.each([32, 56, 156])('navy and camel divides the garment at %s points', asyn
         height={size} width={size} />
     </KuyaraThemeContext.Provider>,
   );
-  const bounds = silhouettes['g-tee'].bounds;
+  const bounds = silhouettes['g-tee-f'].bounds;
   const scale = Math.min(size * 0.6 / bounds.width, size * 0.61 / bounds.height);
   const svg = result.getByTestId('silhouette', hidden);
   const [vx, vy, vw, vh] = String(svg.props.vbWidth != null
@@ -284,7 +284,7 @@ function iosFrame(width: number, height: number) {
       kept.set(depth, matrix);
       at = concat(at, matrix);
     });
-    const bounds = silhouettes['g-tee'].bounds;
+    const bounds = silhouettes['g-tee-f'].bounds;
     return { x: at[0] * bounds.x + at[4], y: at[3] * bounds.y + at[5], width: at[0] * bounds.width, height: at[3] * bounds.height };
   };
 }
@@ -301,7 +301,7 @@ test.each([
   const frame = iosFrame(width, height);
   const result = await render(draw('mid_wash_denim'));
   const solid = frame(result);
-  const bounds = silhouettes['g-tee'].bounds;
+  const bounds = silhouettes['g-tee-f'].bounds;
   const scale = Math.min(width * 0.6 / bounds.width, height * 0.61 / bounds.height);
   expect(solid.width).toBeCloseTo(bounds.width * scale);
   expect(solid.x + solid.width / 2).toBeCloseTo(width / 2);

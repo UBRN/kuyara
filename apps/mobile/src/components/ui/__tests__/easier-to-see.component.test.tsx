@@ -48,7 +48,7 @@ type Rendered = Awaited<ReturnType<typeof render>>;
 
 /** The shirt's outline stroke width, in the drawing units the board paints it in. */
 function shirtOutlineWidth(result: Rendered): number {
-  const outline = silhouettes['g-shirt'].groups[0].outline;
+  const outline = silhouettes['g-shirt-f'].groups[0].outline;
   const [width] = result.container
     .queryAll((node) => node.props.d === outline && typeof node.props.strokeWidth === 'number'
       && node.props.strokeOpacity == null)

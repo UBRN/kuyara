@@ -989,7 +989,7 @@ test('every drawing wrapper on the board, with the strip open or closed, has a r
 // which already holds the tab bar. Where the fit binds, the strip ends exactly `spacing.md`
 // above the tab bar, so a fixed bar height guessed on either side shows as a gap or an overlap.
 test('a binding fit fills the measured band between the bars exactly', async () => {
-  const metrics = { width: 375, height: 812, top: 50, bottom: 83, header: 104 };
+  const metrics = { width: 375, height: 780, top: 50, bottom: 83, header: 104 };
   Dimensions.set({ window: { ...originalDimensions, width: metrics.width, height: metrics.height, fontScale: 1 } });
   const result = await render(detailTree('en', {}, null, true, undefined, 0, metrics));
   await fireEvent(result.getByTestId('outfit-detail-content'),

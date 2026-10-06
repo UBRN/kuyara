@@ -4,23 +4,12 @@ import type { PropsWithChildren } from 'react';
 import { ClosetRack } from '@/garment-art/closet-rack';
 import { GarmentBoard, type GarmentBoardPiece } from '@/garment-art/garment-board';
 import { GarmentCutProvider } from '@/garment-art/garment-cut';
-import { garmentSilhouetteIds } from '@/garment-art/garment-silhouette-map';
 import { GarmentDrawing } from '@/garment-art/garment-tile-artwork';
 import { silhouettes, type SilhouetteId } from '@/garment-art/silhouettes';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-// Every reader draws a piece in the cut its provider names. Until the cut drawings land both
-// cuts share one drawing, so this file gives the men's cut a stand-in for the tee.
-const mens = garmentSilhouetteIds.mens as Record<string, SilhouetteId>;
-const shipped = mens.t_shirt;
-beforeAll(() => {
-  mens.t_shirt = 'g-long';
-});
-afterAll(() => {
-  mens.t_shirt = shipped;
-});
-
+// Every reader draws a piece in the cut its provider names: the women's tee or the men's.
 function Wrapper({ cut, children }: PropsWithChildren<{ cut?: 'womens' | 'mens' }>) {
   const themed = <KuyaraThemeContext.Provider value={lightTheme}>{children}</KuyaraThemeContext.Provider>;
   return cut ? <GarmentCutProvider cut={cut}>{themed}</GarmentCutProvider> : themed;
@@ -49,9 +38,9 @@ test.each([
   ['the rack', <ClosetRack key="rack" pieces={rackPieces} />],
 ])('%s draws a piece in the cut its provider names, women\'s without one', async (_, element) => {
   const womens = await render(element, { wrapper: ({ children }) => <Wrapper>{children}</Wrapper> });
-  expect(draws(womens, 'g-tee')).toBe(true);
-  expect(draws(womens, 'g-long')).toBe(false);
+  expect(draws(womens, 'g-tee-f')).toBe(true);
+  expect(draws(womens, 'g-tee-m')).toBe(false);
   const men = await render(element, { wrapper: ({ children }) => <Wrapper cut="mens">{children}</Wrapper> });
-  expect(draws(men, 'g-long')).toBe(true);
-  expect(draws(men, 'g-tee')).toBe(false);
+  expect(draws(men, 'g-tee-m')).toBe(true);
+  expect(draws(men, 'g-tee-f')).toBe(false);
 });

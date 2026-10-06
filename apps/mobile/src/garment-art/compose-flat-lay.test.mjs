@@ -147,7 +147,9 @@ for (const [presetName, preset, large] of presets) {
 }
 
 // The family lays the pieces over each other: on every board the footwear stands over a hem,
-// and the layers reach under the core.
+// and the layers reach under the core. Night out's blazer stays beside the jumpsuit: its left
+// cuff is the drawing's left edge, which any tuck under the jumpsuit would cover.
+const layersApart = ['night out'];
 for (const [name, slots] of boards) {
   test(`flat lay: ${name} crosses its pieces where the worn board keeps them apart`, () => {
     const result = composeFlatLay(piecesOf(slots));
@@ -156,7 +158,7 @@ for (const [name, slots] of boards) {
     const lowest = box('bottom') ?? core[0];
     assert.ok(overlaps(box('footwear'), lowest), `${name}: footwear`);
     const layer = box('outer_layer') ?? box('mid_layer');
-    if (layer) assert.ok(overlaps(layer, core[0]), `${name}: layers`);
+    if (layer) assert.equal(overlaps(layer, core[0]), !layersApart.includes(name), `${name}: layers`);
   });
 }
 
@@ -212,10 +214,11 @@ test('structure points sit on the collar, the waistband and the sleeve ends', ()
     return Object.fromEntries(structurePoints(piece).map(({ kind, x, y }, index) => [`${kind}${index}`, [x, y]]));
   };
   const tee = at('primary_top', 't_shirt');
-  // The tee's neckline at its top centre, its short sleeves ending under the shoulders.
+  // The tee's neckline at its top centre, its short sleeves ending under the shoulders, not at
+  // the corners of its hem.
   assert.ok(Math.abs(tee.collar0[0] - 32) < 3.5 && tee.collar0[1] < 15, JSON.stringify(tee));
-  assert.ok(tee.sleeve1[1] > 29 && tee.sleeve1[1] < 32 && tee.sleeve1[0] < 19, JSON.stringify(tee));
-  assert.ok(tee.sleeve2[1] > 29 && tee.sleeve2[1] < 32 && tee.sleeve2[0] > 45, JSON.stringify(tee));
+  assert.ok(tee.sleeve1[1] > 22 && tee.sleeve1[1] < 28 && tee.sleeve1[0] < 22, JSON.stringify(tee));
+  assert.ok(tee.sleeve2[1] > 22 && tee.sleeve2[1] < 28 && tee.sleeve2[0] > 42, JSON.stringify(tee));
   // A long sleeve ends at its cuff, low on the drawing.
   const long = at('outer_layer', 'rain_jacket');
   const { bounds } = resolveGarmentSilhouette('rain_jacket', 'outerwear', 'womens');
@@ -234,7 +237,7 @@ test('structure points sit on the collar, the waistband and the sleeve ends', ()
 // The stage: one shared scale, the core never wider than 168 points (x 1.3 with Easier to see),
 // the band's own margins, and ADR 0025's height clamp.
 test('Today\'s stage fits the flat lay with the core capped at 168 points', () => {
-  const result = composeFlatLay(piecesOf(boards[1][1]));
+  const result = composeFlatLay(piecesOf(boards[7][1]));
   const stage = fitted(result, 393, false);
   assert.ok(Math.abs(stage.coreWidth - 168) < 1e-9, String(stage.coreWidth));
   const large = fitted(composeFlatLay(piecesOf(boards[3][1]), easierToSeeRule(todayPreset, 1.3, 0.05)), 393, true);
