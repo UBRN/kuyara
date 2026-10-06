@@ -27,7 +27,7 @@ corrections; both are shell foundation, and every screen is drawn inside them.
 ### 1. Three tabs, the labels the product already ships
 
 Today, Weather and Profile, from `navigation.today`, `navigation.weather` and
-`navigation.profile` in `apps/mobile/src/localization/messages.ts`. Turkish is Bugün,
+`navigation.profile` in `apps/mobile/src/localization/messages/en.ts` and `tr.ts`. Turkish is Bugün,
 Hava, Profil.
 
 Within the Today tab, the top row places location opposite the localized date.

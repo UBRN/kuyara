@@ -15,7 +15,7 @@
  * its own day by at most six more days.
  *
  * Nothing here imports `cloudflare:workers`: the Node test runner cannot resolve that
- * scheme and `index.test.mjs` imports `index.ts`, which re-exports this class for wrangler.
+ * scheme and `index.test.ts` imports `index.ts`, which re-exports this class for wrangler.
  * The runtime shapes below are the structural subset the counter uses, so a Map-backed fake
  * satisfies them in tests.
  */

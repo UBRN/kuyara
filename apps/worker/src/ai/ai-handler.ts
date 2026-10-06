@@ -63,7 +63,7 @@ type Dependencies = Readonly<{
  *   produce over the v2 recommendation grid, on a weekday, a weekend or no day kind and in
  *   either locale, is 18,091 characters (messages plus response schema, 24 options, on a
  *   weekend), rounded to 4,600 tokens at four characters per token. The budget test in
- *   ai-handler.test.mjs measures that prompt and derives the
+ *   ai-handler.test.ts measures that prompt and derives the
  *   limit below from it, so the constant and the prompt stay in step.
  * - Output per attempt: `recommendationMaxTokens` in workers-ai-provider.ts caps the reply
  *   at 192 tokens, so a runaway or prose reply cannot cost more than a valid one's ceiling.

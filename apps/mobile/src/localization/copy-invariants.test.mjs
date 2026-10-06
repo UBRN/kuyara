@@ -2,19 +2,25 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-// Copy rules every user-visible string follows, checked on the string literals of the three
-// localization sources and on the values of the two native permission files (`native/en.json`
-// and `native/tr.json`, the iOS permission prompts). The scan reads the source, not the
-// evaluated objects, so a template function's text is checked too and no placeholder argument
-// has to be invented.
+// Copy rules every user-visible string follows, checked on the string literals of the
+// localization sources (the app's two language files, `messages/en.ts` and `messages/tr.ts`, and
+// the catalog and recommendation message files) and on the values of the two native permission
+// files (`native/en.json` and `native/tr.json`, the iOS permission prompts). The scan reads the
+// source, not the evaluated objects, so a template function's text is checked too and no
+// placeholder argument has to be invented.
 //
 // The consent screens' words are fixed and stay exactly as they are, including their
 // straight apostrophes and lowercase "gardırop" (`analytics.consentTitle`, `consentBody` and
 // `consentSettingsBody`). So is the lawyer-approved sync consent wording
 // (`account.consent.syncConsentSubtitle`, `syncConsentBox` and `syncConsentText`), which
 // `sync-consent-text.test.mjs` pins to its text version. They are the only exemptions.
-const SOURCES = [
-  new URL('./messages.ts', import.meta.url),
+const APP_MESSAGES = {
+  en: new URL('./messages/en.ts', import.meta.url),
+  tr: new URL('./messages/tr.ts', import.meta.url),
+};
+
+// Each of these holds both languages, one `const en` and one `const tr` block.
+const SHARED_SOURCES = [
   new URL('../features/catalog/localization/catalog-messages.ts', import.meta.url),
   new URL('../features/recommendation/localization/recommendation-messages.ts', import.meta.url),
 ];
@@ -94,7 +100,7 @@ function literals(source) {
 /** The literals of one language's block: from its `const <language> =` to the next top-level `const`. */
 function languageLiterals(url, language) {
   const source = readFileSync(url, 'utf8');
-  const start = source.search(new RegExp(`^const ${language}\\b`, 'm'));
+  const start = source.search(new RegExp(`^(?:export )?const ${language}\\b`, 'm'));
   assert.ok(start >= 0, `${url.pathname} has no "const ${language}" block`);
   const rest = source.slice(start + 1);
   const end = rest.search(/^(const|export) /m);
@@ -118,7 +124,7 @@ function nativeLiterals(language) {
 
 function offenders(language, pattern) {
   const hits = [];
-  for (const url of SOURCES) {
+  for (const url of [APP_MESSAGES[language], ...SHARED_SOURCES]) {
     for (const { key, text, line } of languageLiterals(url, language)) {
       if (pattern.test(text)) hits.push(`${url.pathname.split('/').pop()}:${line} ${key}: ${text}`);
     }
@@ -130,8 +136,8 @@ function offenders(language, pattern) {
 }
 
 test('the scanner sees the strings it is meant to police', () => {
-  const english = languageLiterals(SOURCES[0], 'en');
-  const turkish = languageLiterals(SOURCES[0], 'tr');
+  const english = languageLiterals(APP_MESSAGES.en, 'en');
+  const turkish = languageLiterals(APP_MESSAGES.tr, 'tr');
   assert.ok(english.some(({ text }) => text === 'Morning summary'));
   assert.ok(turkish.some(({ text }) => text === 'Sabah özeti'));
   assert.ok(turkish.some(({ text }) => text === 'Apple Intelligence ile seçildi'));
@@ -151,7 +157,7 @@ test('no user-visible string in either language holds a straight apostrophe', ()
 test('Turkish copy says "yapay zeka", never "AI" or "zekâ"', () => {
   assert.deepEqual(offenders('tr', /\bAI\b/), []);
   assert.deepEqual(offenders('tr', /zekâ/i), []);
-  assert.ok(languageLiterals(SOURCES[0], 'tr').some(({ text }) => text === 'Yapay zeka ile seçildi'));
+  assert.ok(languageLiterals(APP_MESSAGES.tr, 'tr').some(({ text }) => text === 'Yapay zeka ile seçildi'));
 });
 
 test('Turkish copy writes "Gardırop" with a capital in every form', () => {
