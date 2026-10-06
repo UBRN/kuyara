@@ -1018,3 +1018,27 @@ test('a weather update that leaves the outfits alone hands each board the pieces
   assert.notEqual(warmer[0].palette, before[0].palette);
   assert.equal(warmer[0].palette.temperatureC, todayScreenState.snapshot.weather.current.temperatureCelsius + 9);
 });
+
+// The caption names the window's day only when the window starts on another calendar date
+// than now's, both read on the place's clock. A Crewe outfit chosen for 23:15 to 01:00 on
+// Monday 5 October, read from Istanbul (two hours ahead): before London's midnight the
+// window starts today; after it, the window started yesterday and the day is named.
+test('the coverage caption names the window day once the place clock has passed midnight', () => {
+  const hour = todayWeatherSnapshot.hourly[0];
+  const weather = { ...todayWeatherSnapshot, timeZone: 'Europe/London',
+    hourly: ['2026-10-05T22:00:00.000Z', '2026-10-05T23:00:00.000Z', '2026-10-06T00:00:00.000Z']
+      .map((forecastAt) => ({ ...hour, forecastAt })) };
+  const state = { ...todayScreenState, snapshot: { ...todayScreenState.snapshot, weather,
+    coverageStart: '2026-10-05T22:15:00.000Z', coverageEnd: '2026-10-06T00:00:00.000Z' } };
+  const caption = (now) => {
+    const presentation = createTodayPresentation(state, 'tr', false, 'celsius', Date.parse(now));
+    assert.equal(presentation.kind, 'loaded');
+    return presentation.coverageCaption;
+  };
+
+  // 01:54 in Istanbul is 23:54 in Crewe, still Monday there.
+  assert.equal(caption('2026-10-05T22:54:00.000Z'), '23:15 ile 01:00 arasındaki havaya göre seçildi.');
+  // 02:05 in Istanbul is 00:05 on Tuesday in Crewe.
+  assert.equal(caption('2026-10-05T23:05:00.000Z'),
+    '5 Ekim Pazartesi, 23:15 ile 01:00 arasındaki havaya göre seçildi.');
+});

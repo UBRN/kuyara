@@ -74,7 +74,10 @@ type WardrobeListScreenProps = Readonly<{
   initialCategory?: StructuralCategory;
   /** Bring the Wanted section into view, for Profile's Wanted row and a saved wanted piece. */
   revealWanted?: boolean;
-  /** The item the add flow has just saved, so only that tile arrives. */
+  /**
+   * The item the add flow has just saved, so only that tile arrives and the confirmation
+   * names it; the confirmation ends when this clears.
+   */
   savedItemId?: string | null;
   onAdd: (category: StructuralCategory) => void;
   /** The edit form a tile opens; the route owns the path. */
@@ -323,9 +326,11 @@ export function WardrobeListScreen({
   const staticTopInset = { paddingTop: insets.top + spacing.lg };
 
   // O10: the piece the add flow saved is named above the grid, with Undo, while it is on
-  // this page. Undo removes it like Delete does; the row leaves with the piece.
-  const showsSavedItem = arrivingItemId !== null
-    && items.some((item) => item.id === arrivingItemId && item.category === category);
+  // this page and the route still names it. Undo removes it like Delete does; the row
+  // leaves with the piece. An edit or delete that returns here no longer names it, so the
+  // confirmation ends with it, unlike the arrival above, which is read once at the mount.
+  const showsSavedItem = savedItemId !== null
+    && items.some((item) => item.id === savedItemId && item.category === category);
   // VoiceOver ignores the alert role on these lines, so iOS also speaks them.
   useErrorAnnouncement(showsSavedItem && undoStatus === 'failed' ? copy.deleteError : null);
   // A failure already persisted when the screen opened was spoken when it happened, also when
@@ -341,7 +346,7 @@ export function WardrobeListScreen({
   const geometry = resolveGridGeometry(windowWidth - insets.left - insets.right, numColumns);
   const summaries = summarizeClosetCategories(items);
   const savedItem = showsSavedItem
-    ? items.find((item) => item.id === arrivingItemId && item.category === category) ?? null
+    ? items.find((item) => item.id === savedItemId && item.category === category) ?? null
     : null;
 
   if (state.status === 'loading') {

@@ -168,7 +168,7 @@ it('a dirty form confirms Cancel, and a finished save leaves without asking', as
   expect(screen.getByText('Profile root')).toBeOnTheScreen();
 });
 
-it('an edit after an add returns to the same Closet list rather than a fresh one', async () => {
+it('an edit after an add returns to the same Closet list, and the add is no longer news', async () => {
   await renderRouter(
     {
       '(tabs)/_layout': () => <Tabs />,
@@ -188,8 +188,13 @@ it('an edit after an add returns to the same Closet list rather than a fresh one
   expect(screen.getByText(`Closet list ${savedId}`)).toBeOnTheScreen();
   const mountsAfterAdd = mockListMounts;
 
-  await act(() => router.push(`/wardrobe/${savedId}`));
+  // A tab switch only swaps the category, so the add is still the one announced.
+  await act(() => router.setParams({ category: 'bottom' }));
+  expect(screen.getByText(`Closet list ${savedId}`)).toBeOnTheScreen();
+
+  // Editing another piece returns to the same list, and its Undo no longer belongs there.
+  await act(() => router.push('/wardrobe/another-piece'));
   await fireEvent.press(screen.getByRole('button', { name: 'Update' }));
-  expect(screen.getByText(/^Closet list/)).toBeOnTheScreen();
+  expect(screen.getByText('Closet list -')).toBeOnTheScreen();
   expect(mockListMounts).toBe(mountsAfterAdd);
 });
