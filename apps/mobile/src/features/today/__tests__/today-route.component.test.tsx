@@ -4136,6 +4136,68 @@ test('an empty Closet takes the outfit\'s pieces with the one ownership asked, o
   expect(view.getByText(copy.added(inputs.length))).toBeOnTheScreen();
 });
 
+test('a failed closet seed shows its failure line, and the same choice can try again', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const seedEmptyCloset = jest.fn<Promise<readonly WardrobeItem[]>, unknown[]>()
+    .mockRejectedValueOnce(new Error('write failed'))
+    .mockResolvedValue([]);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()} recommendation={recommendationReady()}
+      wardrobe={wardrobeValue({ seedEmptyCloset })} weather={weatherValue()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(view.getByTestId('outfit-detail-closet-seed-button'));
+  await fireEvent.press(view.getByTestId('outfit-detail-closet-seed-wanted'));
+  expect(await view.findByText(messages.en.today.closetSeed.failed)).toBeOnTheScreen();
+  await fireEvent.press(view.getByTestId('outfit-detail-closet-seed-wanted'));
+  expect(seedEmptyCloset).toHaveBeenCalledTimes(2);
+  await waitFor(() => expect(view.queryByText(messages.en.today.closetSeed.failed)).toBeNull());
+});
+
+test('a failed wore-this save shows its error, and the next press records the look and clears it', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    day: jest.fn(async () => []),
+    log: jest.fn<Promise<never>, [string, WornOutfit, unknown]>()
+      .mockRejectedValueOnce(new Error('write failed'))
+      .mockImplementation(async (_day, outfit) => ({ outfit }) as never),
+  };
+  const result = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()} recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()} weather={weatherValue()} dressingDayKey="2026-08-13" outfitHistory={outfitHistory}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
+  expect(await result.findByText(messages.en.today.wornSaveError)).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+  expect(outfitHistory.log).toHaveBeenCalledTimes(2);
+  expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
+  await waitFor(() => expect(result.queryByTestId('outfit-detail-worn-error')).toBeNull());
+});
+
+test('closing the piece sheet writes nothing to the Closet', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const wardrobe = wardrobeValue();
+  const result = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()} recommendation={recommendationReady()}
+      wardrobe={wardrobe} weather={weatherValue()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId(`outfit-detail-piece-${firstDetailGarmentTypeId}`));
+  expect(result.getByTestId('piece-edit-sheet')).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('piece-edit-close'));
+  await waitFor(() => expect(result.queryByTestId('piece-edit-sheet')).toBeNull());
+  expect(wardrobe.createItem).not.toHaveBeenCalled();
+  expect(wardrobe.updateItem).not.toHaveBeenCalled();
+});
+
 test('a Closet that holds anything gets no offer to add the outfit', async () => {
   mockParams = { id: todayOutfitId(1) };
   const view = await render(
