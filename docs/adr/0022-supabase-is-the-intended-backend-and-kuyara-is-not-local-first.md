@@ -3,7 +3,7 @@
 Status: Accepted (2026-09-04)
 
 Implementation: the account feature specified by [ADR 0041](0041-optional-accounts.md)
-is live behind `ACCOUNT_SCREENS_ENABLED`; the Supabase project and its
+is open from build 20 with `ACCOUNT_SCREENS_ENABLED` on; the Supabase project and its
 remote schema exist. This ADR changes how the product describes itself and what the
 current schemas must preserve. It authorizes no Supabase dependency, table, client,
 adapter, or sync code by itself; ADR 0041 specifies the optional accounts, sync and

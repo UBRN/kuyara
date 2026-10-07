@@ -1,6 +1,6 @@
-// The account screens ship switched off (ADR 0041 section 5) until the release that opens
-// accounts. One constant owns the switch; this test fails while it is on,
-// and proves that every production file reaching an account screen goes through it.
+// The account screens ship switched on from build 20 (ADR 0041 section 5). One constant owns the
+// switch; this test locks it on and proves that every production file reaching an account screen
+// goes through it.
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -16,9 +16,9 @@ const sourceFiles = () => listSourceFiles(sourceRoot, { extensions: ['.ts', '.ts
 
 const read = (file) => readFileSync(path.join(sourceRoot, file), 'utf8');
 
-test('the account screens are switched off', () => {
-  assert.equal(ACCOUNT_SCREENS_ENABLED, false);
-  assert.match(read('features/account/application/account-screens-flag.ts'), /ACCOUNT_SCREENS_ENABLED: boolean = false;/);
+test('the account screens are switched on', () => {
+  assert.equal(ACCOUNT_SCREENS_ENABLED, true);
+  assert.match(read('features/account/application/account-screens-flag.ts'), /ACCOUNT_SCREENS_ENABLED: boolean = true;/);
 });
 
 test('only the six composition files reach the account screens, each behind the switch', () => {
