@@ -47,8 +47,9 @@ const signIn = (web, token) => createGoogleSignIn({ browser: web, crypto, send: 
 
 test('the sign-in page asks Google for the iOS client with PKCE, the hashed nonce and the three scopes', async () => {
   const web = browser((state) => success(`code=the-code&state=${state}`));
-  const token = tokenEndpoint(200, { id_token: 'google-id-token', access_token: 'never-read' });
-  assert.deepEqual(await signIn(web, token).idToken('hashed-nonce'), { idToken: 'google-id-token' });
+  const token = tokenEndpoint(200, { id_token: 'google-id-token', access_token: 'google-access-token', scope: 'openid email profile' });
+  // The access token goes on to Supabase for the ID token's `at_hash`; nothing else of the answer is read.
+  assert.deepEqual(await signIn(web, token).idToken('hashed-nonce'), { idToken: 'google-id-token', accessToken: 'google-access-token' });
 
   const [{ url, redirect }] = web.opened;
   assert.equal(`${url.origin}${url.pathname}`, 'https://accounts.google.com/o/oauth2/v2/auth');
@@ -71,7 +72,7 @@ test('the sign-in page asks Google for the iOS client with PKCE, the hashed nonc
 });
 
 test('the code is exchanged with Google for the ID token without a client secret', async () => {
-  const token = tokenEndpoint(200, { id_token: 'google-id-token' });
+  const token = tokenEndpoint(200, { id_token: 'google-id-token', access_token: 'google-access-token' });
   await signIn(browser((state) => success(`code=the-code&state=${state}`)), token).idToken('h');
   const [{ url, init }] = token.requests;
   assert.equal(url, 'https://oauth2.googleapis.com/token');
@@ -106,8 +107,9 @@ test('a foreign state, a missing code or another error fails without asking Goog
   }
 });
 
-test('a refused exchange or an answer without an ID token fails with a closed message', async () => {
-  for (const [status, body] of [[400, { error: 'invalid_grant', error_description: 'secret detail' }], [200, { access_token: 'x' }], [200, { id_token: '' }]]) {
+test('a refused exchange or an answer without an ID token or an access token fails with a closed message', async () => {
+  for (const [status, body] of [[400, { error: 'invalid_grant', error_description: 'secret detail' }], [200, { access_token: 'x' }],
+    [200, { id_token: '', access_token: 'x' }], [200, { id_token: 'google-id-token' }]]) {
     const web = browser((state) => success(`code=the-code&state=${state}`));
     await assert.rejects(signIn(web, tokenEndpoint(status, body)).idToken('h'), /^Error: Google sign-in failed\.$/);
   }

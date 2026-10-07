@@ -2,6 +2,7 @@ import {
   profileWithinConsent,
   type AccountProfile,
   type AccountRows,
+  type RefusedAccountRows,
 } from '@/features/account/domain/account-rows';
 import { firstUploadRows } from '@/features/account/domain/first-upload';
 import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
@@ -145,12 +146,13 @@ function mergeProfile(
  * (ADR 0041 sections 4 and 6). Every live row goes, so changes the previous account had not
  * synced yet join the new one. Pure: the caller reads both sides,
  * writes `writeToPhone`, uploads `sendToAccount` and shows `counts`. Without the sync consent
- * only the profile's display name and gender are settled (`mergeProfile`).
+ * only the profile's display name and gender are settled (`mergeProfile`). A phone row whose
+ * account copy this build refused (`refused`) is not sent: the account's copy wins over it too.
  */
 export function mergeAtFirstLink(
   local: AccountRows,
   remote: AccountRows,
-  options: Readonly<{ syncConsent: boolean; now: string }>,
+  options: Readonly<{ syncConsent: boolean; now: string; refused?: RefusedAccountRows }>,
 ): MergeResult {
   const profile = mergeProfile(local.profile, remote.profile, options.syncConsent);
   if (!options.syncConsent) {
@@ -164,10 +166,17 @@ export function mergeAtFirstLink(
     };
   }
   const candidates = firstUploadRows(local, options.now);
-  const closet = mergeById(candidates.wardrobeItems, local.wardrobeItems, remote.wardrobeItems);
-  const choices = mergeByDay(candidates.dressingDayChoices, local.dressingDayChoices, remote.dressingDayChoices);
-  const departures = mergeByDay(candidates.dressingDayDepartures, local.dressingDayDepartures, remote.dressingDayDepartures);
-  const history = mergeHistory(candidates.outfitHistory, local.outfitHistory, remote.outfitHistory);
+  const { refused } = options;
+  const notRefused = <Item>(rows: readonly Item[], keys: readonly string[] = [], key: (row: Item) => string) =>
+    rows.filter((row) => !keys.includes(key(row)));
+  const closet = mergeById(notRefused(candidates.wardrobeItems, refused?.wardrobeItems, (row) => row.id),
+    local.wardrobeItems, remote.wardrobeItems);
+  const choices = mergeByDay(notRefused(candidates.dressingDayChoices, refused?.dressingDayChoices, (row) => row.dayKey),
+    local.dressingDayChoices, remote.dressingDayChoices);
+  const departures = mergeByDay(notRefused(candidates.dressingDayDepartures, refused?.dressingDayDepartures, (row) => row.dayKey),
+    local.dressingDayDepartures, remote.dressingDayDepartures);
+  const history = mergeHistory(notRefused(candidates.outfitHistory, refused?.outfitHistory, (row) => row.id),
+    local.outfitHistory, remote.outfitHistory);
   return {
     writeToPhone: {
       profile: profile.write,

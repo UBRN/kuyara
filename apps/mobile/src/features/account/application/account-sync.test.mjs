@@ -34,7 +34,7 @@ test('first link pulls and merges before uploading, then records the cursor', as
   };
   const remote = {
     pullSnapshot: async () => { calls.push(['pullSnapshot']); return { rows: account, cursor: '2026-10-01T00:00:00.000000Z' }; },
-    upload: async (_id, sent) => { calls.push(['upload', sent]); return sent; },
+    upload: async (_id, sent, confirm) => { calls.push(['upload', sent]); await confirm(sent); },
     pull: async () => ({ ...empty(), arrivals: [] }),
   };
   const flow = createAccountSyncFlow(source, remote, () => '2026-10-03T00:00:00Z');
@@ -61,7 +61,7 @@ test('a different account receives the changes the previous account had not sync
   };
   const remote = {
     pullSnapshot: async (userId) => { assert.equal(userId, 'user-b'); return { rows: empty(), cursor: null }; },
-    upload: async (userId, sent) => { uploads.push([userId, sent]); return sent; },
+    upload: async (userId, sent, confirm) => { uploads.push([userId, sent]); await confirm(sent); },
     pull: async () => assert.fail('pull'),
   };
   const { counts } = await createAccountSyncFlow(source, remote, () => '2026-10-03T00:00:00Z').firstLink('user-b', true);
@@ -84,7 +84,7 @@ test('ongoing sync uploads pending rows, clears only matched versions, then land
     applyFirstLink: async () => assert.fail('first link'),
   };
   const remote = {
-    upload: async (_id, rows) => { calls.push(['upload', rows]); return rows; },
+    upload: async (_id, rows, confirm) => { calls.push(['upload', rows]); await confirm(rows); },
     pull: async () => ({
       ...empty(), outfitHistory: [{ row: arriving, serverUpdatedAt: '2026-10-01T00:00:00.000000Z' }],
       wardrobeItems: [{ row: wardrobeItem(1, { name: 'There' }), serverUpdatedAt: '2026-10-01T00:00:00.000000Z' }],
@@ -118,7 +118,7 @@ test('without sync consent the flow sends only profile fields', async () => {
     applyFirstLink: async () => {},
   };
   const remote = {
-    upload: async (_id, rows) => { sent.push(rows); return rows; },
+    upload: async (_id, rows, confirm) => { sent.push(rows); await confirm(rows); },
     pull: async () => ({ ...empty(), arrivals: [] }),
     pullSnapshot: async () => assert.fail('snapshot'),
   };
@@ -152,7 +152,7 @@ function flowWith({ phone, account = empty(), pulled = { ...empty(), arrivals: [
   };
   const remote = {
     pullSnapshot: async () => ({ rows: account, cursor: null }),
-    upload: async (_id, rows) => { calls.uploads.push(rows); return rows; },
+    upload: async (_id, rows, confirm) => { calls.uploads.push(rows); await confirm(rows); },
     pull: async () => pulled,
   };
   return { flow: createAccountSyncFlow(source, remote, () => '2026-10-03T00:00:00Z'), calls };
@@ -180,7 +180,7 @@ test('without consent a pull never writes dress style or style aesthetics to the
     clearPendingIfUnchanged: async () => {},
     writePulled: async (rows) => { writes.push(rows); },
   };
-  const remote = { upload: async (_id, rows) => rows, pull: async () => ({ ...empty(), profile: accountProfile, arrivals: [] }) };
+  const remote = { upload: async (_id, rows, confirm) => confirm(rows), pull: async () => ({ ...empty(), profile: accountProfile, arrivals: [] }) };
   await createAccountSyncFlow(source, remote, () => '2026-10-03T00:00:00Z').sync('user-a', false);
   assert.deepEqual(writes[0].profile, {
     displayName: 'Account', gender: 'woman', createdAt: accountProfile.createdAt, updatedAt: accountProfile.updatedAt,
@@ -206,7 +206,7 @@ test('a pulled deletion marker soft-deletes the phone\'s settled row, skips a pe
     applyFirstLink: async () => assert.fail('first link'),
   };
   const remote = {
-    upload: async (_id, rows) => rows,
+    upload: async (_id, rows, confirm) => confirm(rows),
     pull: async () => ({
       ...empty(),
       wardrobeItems: [1, 2, 3].map((n) => ({ row: marker(n), serverUpdatedAt: '2026-10-01T00:00:00.000001Z' })),
@@ -234,7 +234,7 @@ test('a pull mixing markers and whole rows lands each with its own arrival, the 
     applyFirstLink: async () => assert.fail('first link'),
   };
   const remote = {
-    upload: async (_id, rows) => rows,
+    upload: async (_id, rows, confirm) => confirm(rows),
     pull: async () => ({
       ...empty(),
       wardrobeItems: [
@@ -269,12 +269,53 @@ test('at a first link an account marker deletes the phone\'s copy and is never s
   const remote = {
     pullSnapshot: async () => ({ rows: { ...empty(), wardrobeItems: [{ kind: 'deletionMarker', id: own.id,
       createdAt: own.createdAt, updatedAt: '2026-10-01T00:00:00.000Z', deletedAt: '2026-10-01T00:00:00.000Z' }] }, cursor: null }),
-    upload: async (_id, rows) => rows,
+    upload: async (_id, rows, confirm) => confirm(rows),
     pull: async () => assert.fail('pull'),
   };
   await createAccountSyncFlow(source, remote, () => '2026-10-03T00:00:00Z').firstLink('user-a', true);
   assert.deepEqual(merged.writeToPhone.wardrobeItems, [{ ...own, updatedAt: '2026-10-01T00:00:00.000Z', deletedAt: '2026-10-01T00:00:00.000Z' }]);
   assert.deepEqual(merged.sendToAccount.wardrobeItems, []);
+});
+
+test('at a first link a row the account holds but this build cannot read is never sent over', async () => {
+  let merged = null;
+  const own = wardrobeItem(1);
+  const source = {
+    read: async () => local({ ...empty(), wardrobeItems: [own, wardrobeItem(2)] }, true),
+    link: async () => unlinked,
+    applyFirstLink: async (merge) => { merged = merge; },
+    clearPendingIfUnchanged: async () => {},
+    writePulled: async () => assert.fail('write'),
+  };
+  const refused = { wardrobeItems: [own.id], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] };
+  const remote = {
+    pullSnapshot: async () => ({ rows: empty(), cursor: null, refused }),
+    upload: async (_id, rows, confirm) => confirm(rows),
+    pull: async () => assert.fail('pull'),
+  };
+  const { counts } = await createAccountSyncFlow(source, remote, () => '2026-10-03T00:00:00Z').firstLink('user-a', true);
+  assert.deepEqual(merged.sendToAccount.wardrobeItems.map(({ id }) => id), [wardrobeItem(2).id]);
+  assert.deepEqual(merged.writeToPhone.wardrobeItems, []);
+  assert.equal(counts.piecesAdded, 1);
+});
+
+test('a pass that fails on a later batch still clears the pending flags the account already confirmed', async () => {
+  const cleared = [];
+  const own = wardrobeItem(1);
+  const source = {
+    read: async () => local({ ...empty(), wardrobeItems: [own], outfitHistory: [historyDay(2, '2026-09-10')] }, true),
+    link: async () => unlinked,
+    clearPendingIfUnchanged: async (rows) => { cleared.push(rows); },
+    writePulled: async () => assert.fail('write'),
+    applyFirstLink: async () => assert.fail('first link'),
+  };
+  const remote = {
+    upload: async (_id, rows, confirm) => { await confirm({ ...empty(), wardrobeItems: rows.wardrobeItems }); throw new Error('offline'); },
+    pull: async () => assert.fail('pull'),
+    pullSnapshot: async () => assert.fail('snapshot'),
+  };
+  await assert.rejects(createAccountSyncFlow(source, remote, () => '2026-10-03T00:00:00Z').sync('user-a', true), /offline/);
+  assert.deepEqual(cleared, [{ ...empty(), wardrobeItems: [own] }]);
 });
 
 test('a pass reads the phone once when nothing waits and nothing lands, and again only after an upload or a landing', async () => {
@@ -288,7 +329,7 @@ test('a pass reads the phone once when nothing waits and nothing lands, and agai
     applyFirstLink: async () => assert.fail('first link'),
   });
   const remote = (pulledRows) => ({
-    upload: async (_id, rows) => rows,
+    upload: async (_id, rows, confirm) => confirm(rows),
     pull: async () => ({ ...empty(), wardrobeItems: pulledRows, arrivals: [] }),
     pullSnapshot: async () => assert.fail('snapshot'),
   });

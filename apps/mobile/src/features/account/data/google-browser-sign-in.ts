@@ -40,8 +40,11 @@ const tokenEndpoint = 'https://oauth2.googleapis.com/token';
 const scope = 'openid email profile';
 const tokenTimeoutMs = 15_000;
 
-/** Only the ID token: the name and picture Google supplies are never read (ADR 0041 section 1). */
-const tokenResponse = z.object({ id_token: z.string().min(1) });
+/**
+ * The ID token, and the access token Supabase checks the ID token's `at_hash` against; the name
+ * and picture Google supplies are never read (ADR 0041 section 1).
+ */
+const tokenResponse = z.object({ id_token: z.string().min(1), access_token: z.string().min(1) });
 
 const failed = () => new Error('Google sign-in failed.');
 
@@ -98,7 +101,7 @@ export function createGoogleSignIn({ browser, crypto, send }: Readonly<{
       }, tokenTimeoutMs, { network: failed, invalidJson: failed });
       const parsed = tokenResponse.safeParse(body);
       if (!response.ok || !parsed.success) throw failed();
-      return { idToken: parsed.data.id_token };
+      return { idToken: parsed.data.id_token, accessToken: parsed.data.access_token };
     },
   };
 }

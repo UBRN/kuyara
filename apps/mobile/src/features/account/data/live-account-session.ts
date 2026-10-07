@@ -49,6 +49,8 @@ const accountRequestTimeoutMs = 15_000;
 
 /** The device-local mark of a consent question left open (`ConsentQuestionPort`). */
 const consentQuestionKey = 'kuyara.account.consent-question-open';
+/** The account this phone holds an Apple credential for (`AppleCredentialMarkPort`). */
+const appleCredentialUserKey = 'kuyara.account.apple-credential-user';
 
 /** A token read that may refresh never holds a re-ask longer than this; the re-ask goes without it. */
 const accessTokenWaitMs = 3000;
@@ -114,6 +116,10 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
     consentQuestion: {
       wasOpen: async () => (await deviceKeyValueStore.get(consentQuestionKey)) === 'open',
       setOpen: (open) => (open ? deviceKeyValueStore.set(consentQuestionKey, 'open') : deviceKeyValueStore.remove(consentQuestionKey)),
+    },
+    appleMark: {
+      userId: () => deviceKeyValueStore.get(appleCredentialUserKey),
+      set: (userId) => (userId === null ? deviceKeyValueStore.remove(appleCredentialUserKey) : deviceKeyValueStore.set(appleCredentialUserKey, userId)),
     },
     now: systemDate,
     sync: createAccountSessionSync({

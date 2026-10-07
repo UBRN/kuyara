@@ -46,8 +46,11 @@ function setup(over = {}) {
   // The device-local marker of a consent question left open; the fake keeps it in `question.open`.
   const question = over.question ?? { open: false };
   const consentQuestion = over.consentQuestion ?? { wasOpen: async () => question.open, setOpen: async (open) => { question.open = open; } };
-  const manager = createAccountSessionManager({ auth, sync, deletion, consent, consentQuestion, now: () => new Date('2026-10-03T01:00:00Z') });
-  return { manager, calls, question };
+  // The device-local mark of the account this phone holds an Apple credential for; the fake keeps it in `apple.userId`.
+  const apple = { userId: over.appleUser ?? null };
+  const appleMark = { userId: async () => apple.userId, set: async (userId) => { apple.userId = userId; } };
+  const manager = createAccountSessionManager({ auth, sync, deletion, consent, consentQuestion, appleMark, now: () => new Date('2026-10-03T01:00:00Z') });
+  return { manager, calls, question, apple };
 }
 
 /** A promise the test settles by hand, to hold a port call open. */
@@ -490,7 +493,7 @@ test('an unrevoked Apple deletion reaches the result sheet, which shows app-wide
 
 test('at launch, a revoked or missing Apple credential ends the session the way sign-out does', async () => {
   for (const state of ['revoked', 'notFound']) {
-    const { manager, calls } = setup({ current: identity, auth: { appleCredentialState: async () => state } });
+    const { manager, calls } = setup({ current: identity, appleUser: 'user-a', auth: { appleCredentialState: async () => state } });
     await manager.start();
     assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
     assert.deepEqual(calls, [['sync', 'user-a'], ['signOut']]);
@@ -499,7 +502,7 @@ test('at launch, a revoked or missing Apple credential ends the session the way 
 
 test('at launch, an authorized, transferred or unreadable Apple credential changes nothing', async () => {
   for (const check of [async () => 'authorized', async () => 'transferred', async () => { throw new Error('offline'); }]) {
-    const { manager, calls } = setup({ current: identity, auth: { appleCredentialState: check } });
+    const { manager, calls } = setup({ current: identity, appleUser: 'user-a', auth: { appleCredentialState: check } });
     await manager.start();
     assert.equal(manager.getSnapshot().session.kind, 'signedIn');
     assert.equal(calls.some(([name]) => name === 'signOut'), false);
@@ -509,7 +512,7 @@ test('at launch, an authorized, transferred or unreadable Apple credential chang
 test('at every foreground, a revoked or missing Apple credential ends the session the way launch does', async () => {
   for (const state of ['revoked', 'notFound']) {
     let answer = 'authorized';
-    const { manager, calls } = setup({ current: identity, auth: { appleCredentialState: async () => answer } });
+    const { manager, calls } = setup({ current: identity, appleUser: 'user-a', auth: { appleCredentialState: async () => answer } });
     await manager.start();
     assert.equal(manager.getSnapshot().session.kind, 'signedIn');
     calls.length = 0;
@@ -523,7 +526,7 @@ test('at every foreground, a revoked or missing Apple credential ends the sessio
 
 test('at a foreground, an authorized, transferred or unreadable Apple credential keeps the session', async () => {
   for (const check of [async () => 'authorized', async () => 'transferred', async () => { throw new Error('offline'); }]) {
-    const { manager, calls } = setup({ current: identity, auth: { appleCredentialState: check } });
+    const { manager, calls } = setup({ current: identity, appleUser: 'user-a', auth: { appleCredentialState: check } });
     await manager.start();
     await manager.foreground();
     assert.equal(manager.getSnapshot().session.kind, 'signedIn');
@@ -534,7 +537,7 @@ test('at a foreground, an authorized, transferred or unreadable Apple credential
 test('a foreground whose refresh cannot answer never asks Apple', async () => {
   let checks = 0;
   let reachable = true;
-  const { manager } = setup({ current: identity, auth: {
+  const { manager } = setup({ current: identity, appleUser: 'user-a', auth: {
     refreshSession: async () => { if (!reachable) throw new Error('offline'); return { ...identity }; },
     appleCredentialState: async () => { checks += 1; return reachable ? 'authorized' : 'revoked'; },
   } });
@@ -546,22 +549,78 @@ test('a foreground whose refresh cannot answer never asks Apple', async () => {
   assert.equal(manager.getSnapshot().session.kind, 'signedIn');
 });
 
-test('a Google session never asks Apple, at launch or at a foreground', async () => {
-  let checks = 0;
-  const { manager } = setup({
-    current: { ...identity, provider: 'google' },
-    auth: { appleCredentialState: async () => { checks += 1; return 'revoked'; } },
-  });
-  await manager.start();
+test('a session whose Apple credential this phone does not hold never asks Apple, whatever the account was created with', async () => {
+  // Created with Apple, signed in here with Google: this phone's Apple ID may be another person's.
+  for (const current of [identity, { ...identity, provider: 'google', providers: ['apple', 'google'] }]) {
+    let checks = 0;
+    const { manager } = setup({ current, auth: { appleCredentialState: async () => { checks += 1; return 'revoked'; } } });
+    await manager.start();
+    await manager.foreground();
+    await manager.appleRevoked();
+    assert.equal(checks, 0);
+    assert.equal(manager.getSnapshot().session.kind, 'signedIn');
+  }
+});
+
+test('an account created with Google that signs in with Apple here is asked about, and its end clears the mark', async () => {
+  const createdWithGoogle = { ...identity, provider: 'google', providers: ['apple', 'google'] };
+  let state = 'authorized';
+  const { manager, apple } = setup({ auth: {
+    signIn: async () => createdWithGoogle,
+    refreshSession: async () => ({ ...createdWithGoogle }),
+    appleCredentialState: async () => state,
+  } });
+  manager.openSignIn('profile');
+  await manager.signIn('apple');
+  assert.equal(apple.userId, 'user-a');
   await manager.foreground();
-  assert.equal(checks, 0);
   assert.equal(manager.getSnapshot().session.kind, 'signedIn');
+  state = 'revoked';
+  await manager.foreground();
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+  assert.equal(apple.userId, null);
+});
+
+test('adding Apple marks the credential for that account; a Google sign-in does not, and sign-out clears it', async () => {
+  const signingIn = setup();
+  signingIn.manager.openSignIn('profile');
+  await signingIn.manager.signIn('google');
+  assert.equal(signingIn.manager.getSnapshot().session.kind, 'signedIn');
+  assert.equal(signingIn.apple.userId, null);
+  const { manager, apple } = setup({ current: { ...identity, provider: 'google', providers: ['google'] } });
+  await manager.start();
+  assert.equal(await manager.addProvider('apple'), 'linked');
+  assert.equal(apple.userId, 'user-a');
+  await manager.signOut();
+  assert.equal(apple.userId, null);
+});
+
+test('a session the server ended and a deletion both clear the Apple mark', async () => {
+  const ended = setup({ current: identity, appleUser: 'user-a', auth: { refreshSession: async () => null } });
+  await ended.manager.start();
+  await ended.manager.foreground();
+  assert.equal(ended.apple.userId, null);
+  const deleted = setup({ current: identity, appleUser: 'user-a' });
+  await deleted.manager.start();
+  await deleted.manager.deleteAccount();
+  assert.equal(deleted.apple.userId, null);
+});
+
+test('Apple\'s revocation notice ends the session only when this phone holds the Apple credential of that account', async () => {
+  const held = setup({ current: identity, appleUser: 'user-a' });
+  await held.manager.start();
+  await held.manager.appleRevoked();
+  assert.deepEqual(held.manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+  const other = setup({ current: identity, appleUser: 'user-other' });
+  await other.manager.start();
+  await other.manager.appleRevoked();
+  assert.equal(other.manager.getSnapshot().session.kind, 'signedIn');
 });
 
 test('a foreground that finds the Apple credential revoked while a pass runs ends the session after that pass', async () => {
   const gate = held();
   let passes = 0;
-  const { manager, calls } = setup({ current: identity, sync: { run: async (userId) => {
+  const { manager, calls } = setup({ current: identity, appleUser: 'user-a', sync: { run: async (userId) => {
     passes += 1;
     calls.push(['sync', userId]);
     if (passes === 1) await gate.promise;
@@ -603,7 +662,7 @@ test('a sign-out while a foreground waits for the refresh leaves the session sig
 test('a sign-out while a foreground waits for Apple leaves the session signed out, ended once, even when Apple says revoked', async () => {
   const gate = held();
   let asked = false;
-  const { manager, calls } = setup({ current: identity, auth: { appleCredentialState: async () => {
+  const { manager, calls } = setup({ current: identity, appleUser: 'user-a', auth: { appleCredentialState: async () => {
     if (!asked) { asked = true; return 'authorized'; }
     await gate.promise;
     return 'revoked';
@@ -909,10 +968,129 @@ test('a sign-out whose stored session cannot be removed still ends the session',
   await manager.start();
   await manager.signOut();
   assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
-  const revoked = setup({ current: identity, auth: {
+  const revoked = setup({ current: identity, appleUser: 'user-a', auth: {
     appleCredentialState: async () => 'revoked',
     signOut: async () => { throw new Error('database is locked'); },
   } });
   await revoked.manager.start();
   assert.deepEqual(revoked.manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+});
+
+test('closing the sheet while the consent answer is saved settles the question either way, and sync goes on', async () => {
+  for (const saved of [true, false]) {
+    const give = held();
+    let accountAnswer = 'none';
+    const { manager, calls, question } = setup({ records: [],
+      consent: { give: async () => { await give.promise; accountAnswer = 'given'; } },
+      sync: { run: async (userId) => {
+        calls.push(['sync', userId]);
+        return { pendingChanges: 0, closetPieces: 0, historyDays: 0, syncConsent: accountAnswer, firstLink: null };
+      } } });
+    manager.openSignIn('profile');
+    await manager.signIn('apple');
+    const answering = manager.answerConsent(true);
+    manager.closeSheet();
+    if (saved) give.resolve(); else give.reject(new Error('offline'));
+    await answering;
+    await settle();
+    const snapshot = manager.getSnapshot();
+    // A save that failed after the sheet closed takes the close as the decline it is.
+    assert.deepEqual(snapshot.consent, { prompt: null, status: 'idle' }, String(saved));
+    assert.equal(snapshot.sheet, 'profile');
+    assert.equal(snapshot.result.added, saved ? 'records' : 'profile');
+    assert.equal(snapshot.session.syncConsent, saved ? 'given' : 'none');
+    assert.equal(question.open, false);
+    const passes = calls.filter(([name]) => name === 'sync').length;
+    assert.equal(passes, 1);
+    manager.syncNow();
+    await settle();
+    assert.equal(calls.filter(([name]) => name === 'sync').length, passes + 1);
+  }
+});
+
+test('a launch offline shows the session without a pass, and coming back online runs one', async () => {
+  const { manager, calls } = setup({ current: identity });
+  manager.setOnline(false);
+  await manager.start();
+  assert.equal(calls.some(([name]) => name === 'sync'), false);
+  manager.setOnline(true);
+  await settle();
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+  assert.deepEqual(manager.getSnapshot().session.sync, { kind: 'upToDate' });
+  // Online again while already online, or signed out, runs nothing.
+  manager.setOnline(true);
+  await settle();
+  assert.equal(calls.filter(([name]) => name === 'sync').length, 1);
+  const signedOut = setup();
+  signedOut.manager.setOnline(false);
+  signedOut.manager.setOnline(true);
+  await settle();
+  assert.deepEqual(signedOut.calls, []);
+});
+
+test('a session the server ended while the consent question is open closes the question with it', async () => {
+  const { manager, question } = setup({ records: [], auth: { refreshSession: async () => null } });
+  manager.openSignIn('profile');
+  await manager.signIn('apple');
+  assert.deepEqual(manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
+  await manager.foreground();
+  const snapshot = manager.getSnapshot();
+  assert.deepEqual(snapshot.session, { kind: 'signedOut', notice: null });
+  assert.deepEqual(snapshot.consent, { prompt: null, status: 'idle' });
+  assert.equal(snapshot.sheet, null);
+  assert.equal(question.open, false);
+});
+
+test('a second tap while a sign-in runs starts no second provider flow and keeps the first sign-in', async () => {
+  const exchange = held();
+  let flows = 0;
+  const { manager, calls } = setup({ auth: { signIn: async () => { flows += 1; return exchange.promise; } } });
+  manager.openSignIn('profile');
+  const first = manager.signIn('apple');
+  const second = manager.signIn('google');
+  exchange.resolve(identity);
+  await Promise.all([first, second]);
+  assert.equal(flows, 1);
+  assert.equal(calls.some(([name]) => name === 'signOut'), false);
+  assert.equal(manager.getSnapshot().session.kind, 'signedIn');
+  assert.equal(manager.getSnapshot().result.kind, 'signedIn');
+});
+
+test('a deletion waits for the running pass before the reset, and no pass starts while it runs', async () => {
+  const gate = held();
+  let passes = 0;
+  const { manager, calls } = setup({ current: identity, sync: { run: async (userId) => {
+    passes += 1;
+    calls.push(['sync', userId]);
+    if (passes === 1) await gate.promise;
+    return { pendingChanges: 0, closetPieces: 0, historyDays: 0, syncConsent: 'given', firstLink: null };
+  } } });
+  const starting = manager.start();
+  await settle();
+  const deleting = manager.deleteAccount();
+  await settle();
+  // The re-authorization sheet made the app inactive, then active again.
+  const asked = [manager.foreground(), manager.localWrite()];
+  manager.syncNow();
+  await settle();
+  assert.equal(calls.some(([name]) => name === 'delete'), false);
+  gate.resolve();
+  await Promise.all([starting, deleting, ...asked]);
+  assert.deepEqual(calls.filter(([name]) => name === 'sync' || name === 'delete').map(([name]) => name), ['sync', 'delete']);
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'deleted' });
+});
+
+test('a sign-out the Apple revocation starts during a deletion waits for it and leaves the reset alone', async () => {
+  const reauthorized = held();
+  const { manager, calls } = setup({ current: identity, appleUser: 'user-a', auth: { reauthorizeDeletion: async () => reauthorized.promise } });
+  await manager.start();
+  calls.length = 0;
+  const deleting = manager.deleteAccount();
+  const revoking = manager.appleRevoked();
+  await settle();
+  assert.deepEqual(calls, []);
+  reauthorized.resolve({ accessToken: 'fresh', appleAuthorizationCode: 'code' });
+  await Promise.all([deleting, revoking]);
+  assert.deepEqual(calls.map(([name]) => name), ['delete']);
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'deleted' });
 });

@@ -11,7 +11,7 @@ import {
   createSupabaseSyncConsent,
   pullOverlapSeconds,
 } from './supabase-account-remote.ts';
-import { toRemoteOutfitHistory, toRemoteWardrobeItem } from './account-remote-mappers.ts';
+import { toRemoteDressingDayChoice, toRemoteOutfitHistory, toRemoteWardrobeItem } from './account-remote-mappers.ts';
 import { createAccountSyncFlow } from '../application/account-sync.ts';
 import { createAccountSessionSync } from '../application/account-session-sync.ts';
 import { createSqliteAccountRowsSource } from './sqlite-account-rows-source.ts';
@@ -20,7 +20,7 @@ import { pullCursorAt } from '../domain/sync-rules.ts';
 import { migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
 import {
-  dayChoice, departure, historyDay, phoneProfileId, stamp, syncedProfile, uuid, wardrobeItem,
+  dayChoice, departure, emptyRows, historyDay, phoneProfileId, stamp, syncedProfile, uuid, wardrobeItem,
 } from '../__tests__/account-fixtures.mjs';
 
 const userId = uuid(900);
@@ -52,6 +52,18 @@ function fakeClient(answer = () => []) {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
   return { client, requests };
+}
+
+/** Uploads `rows` and answers every acknowledgement the upload confirmed, batch by batch, as one set of rows. */
+async function confirmedUpload(remote, rows) {
+  const confirmed = emptyRows();
+  await remote.upload(userId, rows, async (batch) => {
+    confirmed.profile = batch.profile ?? confirmed.profile;
+    for (const table of ['wardrobeItems', 'dressingDayChoices', 'dressingDayDepartures', 'outfitHistory']) {
+      confirmed[table] = [...confirmed[table], ...batch[table]];
+    }
+  });
+  return confirmed;
 }
 
 const remoteItem = (n, over = {}) => ({
@@ -210,7 +222,7 @@ test('an upload upserts by user and UUID, by user and day for choices and depart
     if (path === 'wardrobe_items') return body.map((row) => ({ id: row.id, updated_at: row.id === uuid(2) ? pg(stamp(9)) : pg(row.updated_at) }));
     return body.map((row) => ({ id: row.id, day_key: row.day_key, updated_at: pg(row.updated_at) }));
   });
-  const acknowledged = await createSupabaseAccountRemote(client, phoneProfileId).upload(userId, sent);
+  const acknowledged = await confirmedUpload(createSupabaseAccountRemote(client, phoneProfileId), sent);
   assert.deepEqual(acknowledged, { ...sent, wardrobeItems: [sent.wardrobeItems[0]] });
 
   const byPath = Object.fromEntries(requests.map((request) => [request.path, request]));
@@ -239,7 +251,7 @@ test('more than 200 rows of a table upload in batches of 200, each matched again
   const { client, requests } = fakeClient(({ body }) => body.map((row) => ({
     id: row.id, updated_at: rewritten.has(row.id) ? pg(stamp(9)) : pg(row.updated_at),
   })));
-  const acknowledged = await createSupabaseAccountRemote(client, phoneProfileId).upload(userId, {
+  const acknowledged = await confirmedUpload(createSupabaseAccountRemote(client, phoneProfileId), {
     profile: null, wardrobeItems: items, dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [],
   });
   const batches = requests.filter(({ path }) => path === 'wardrobe_items');
@@ -248,9 +260,41 @@ test('more than 200 rows of a table upload in batches of 200, each matched again
   assert.deepEqual(acknowledged.wardrobeItems, items.filter(({ id }) => !rewritten.has(id)));
 });
 
+test('each batch the account confirms is handed on before the next goes, so a later failure keeps what committed', async () => {
+  const items = Array.from({ length: 201 }, (_, index) => wardrobeItem(index + 1));
+  const { client } = fakeClient(({ path, body }) => (path === 'outfit_history'
+    ? new Response(JSON.stringify({ code: '57014', message: 'canceling statement' }), { status: 500 })
+    : body.map((row) => ({ id: row.id, updated_at: pg(row.updated_at) }))));
+  const confirmed = [];
+  const upload = createSupabaseAccountRemote(client, phoneProfileId).upload(userId, {
+    profile: null, wardrobeItems: items, dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [historyDay(300, '2026-09-10')],
+  }, async (batch) => { confirmed.push(batch); });
+  await assert.rejects(upload, (error) => error instanceof AccountRemoteError);
+  assert.deepEqual(confirmed, [
+    { ...emptyRows(), wardrobeItems: items.slice(0, 200) },
+    { ...emptyRows(), wardrobeItems: items.slice(200) },
+  ]);
+});
+
+test('a first-link snapshot names the rows this build refused, the Closet and History by id and the days by day', async () => {
+  const answers = {
+    wardrobe_items: [remoteItem(11, { category: 'cape' }), remoteItem(12)],
+    dressing_day_choices: [{ ...toRemoteDressingDayChoice(dayChoice(13, '2026-09-12'), userId), formality: 'black-tie',
+      created_at: pg(stamp(0)), updated_at: pg(stamp(1)), server_updated_at: '2026-10-01T00:00:00.000001+00:00' }],
+    outfit_history: [{ ...toRemoteOutfitHistory(historyDay(14, '2026-09-13'), userId), outfit_json: { unknown: true },
+      created_at: pg(stamp(0)), updated_at: pg(stamp(1)), server_updated_at: '2026-10-01T00:00:00.000001+00:00' }],
+  };
+  const { client } = fakeClient(({ path }) => answers[path] ?? []);
+  const snapshot = await createSupabaseAccountRemote(client, phoneProfileId).pullSnapshot(userId, true);
+  assert.deepEqual(snapshot.rows.wardrobeItems.map(({ id }) => id), [uuid(12)]);
+  assert.deepEqual(snapshot.refused, {
+    wardrobeItems: [uuid(11)], dressingDayChoices: ['2026-09-12'], dressingDayDepartures: [], outfitHistory: [uuid(14)],
+  });
+});
+
 test('no upload body carries a device-only value: the profile id, a photo path or the pending flag', async () => {
   const { client, requests } = fakeClient(({ body }) => (Array.isArray(body) ? [] : []));
-  await createSupabaseAccountRemote(client, phoneProfileId).upload(userId, {
+  await confirmedUpload(createSupabaseAccountRemote(client, phoneProfileId), {
     profile: syncedProfile(), wardrobeItems: [wardrobeItem(1)], dressingDayChoices: [], dressingDayDepartures: [],
     outfitHistory: [historyDay(2, '2026-09-10')],
   });

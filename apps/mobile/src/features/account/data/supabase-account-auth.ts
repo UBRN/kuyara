@@ -1,6 +1,7 @@
 import {
   isAuthRetryableFetchError,
   type Session,
+  type SignInWithIdTokenCredentials,
   type SupabaseClient,
 } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -23,9 +24,12 @@ export type AppleSignIn = Readonly<{
   credentialState: (appleUserId: string) => Promise<AppleCredentialState>;
 }>;
 
-/** Native Sign in with Google with the SHA-256 of the raw nonce; `null` is the person cancelling. */
+/**
+ * Sign in with Google with the SHA-256 of the raw nonce; `null` is the person cancelling. The
+ * access token from the same exchange lets Supabase check the ID token's `at_hash`.
+ */
 export type GoogleSignIn = Readonly<{
-  idToken: (hashedNonce: string) => Promise<Readonly<{ idToken: string }> | null>;
+  idToken: (hashedNonce: string) => Promise<Readonly<{ idToken: string; accessToken: string }> | null>;
 }>;
 
 /** A fresh nonce: the raw value goes to Supabase, its SHA-256 (hex) to Apple or Google. */
@@ -102,6 +106,9 @@ function storedUserOf(json: string | null): UserSession | null {
   }
 }
 
+/** A provider's ID token with the raw nonce, and Google's access token from the same exchange. */
+type IdTokenCredential = Readonly<{ token: string; rawNonce: string; accessToken?: string }>;
+
 const sessionOrFail = (session: Session | null): AuthSession => {
   const mapped = session === null ? null : authSessionOf(session);
   if (mapped === null) throw new AccountProviderError('failed');
@@ -111,7 +118,7 @@ const sessionOrFail = (session: Session | null): AuthSession => {
 export function createSupabaseAccountAuth({ apple, client, google = null, nonce, removeStoredSession, storedSession: readStored }: Readonly<{
   client: SupabaseClient;
   apple: AppleSignIn;
-  /** Null until the Google library and its client settings are in the build: Google then fails closed. */
+  /** Null until the Google iOS client id is in the build: Google then fails closed. */
   google?: GoogleSignIn | null;
   nonce: NonceSource;
   /** The auth client's stored session as text, read without the network. */
@@ -137,7 +144,7 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
   }
 
   /** An Apple ID token for the raw nonce, or null when the person cancels. */
-  async function appleIdToken(): Promise<Readonly<{ token: string; rawNonce: string }> | null> {
+  async function appleIdToken(): Promise<IdTokenCredential | null> {
     const { hashed, raw } = await nonce();
     let credential: Readonly<{ identityToken: string | null }> | null;
     try {
@@ -151,23 +158,26 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
   }
 
   /**
-   * A Google ID token for the raw nonce, or null when the person cancels. Without the library or
-   * its settings in this build it fails the way a provider failure does (ADR 0041 section 1).
+   * A Google ID token and its access token for the raw nonce, or null when the person cancels.
+   * Without the client id in this build it fails the way a provider failure does (ADR 0041 section 1).
    */
-  async function googleIdToken(): Promise<Readonly<{ token: string; rawNonce: string }> | null> {
+  async function googleIdToken(): Promise<IdTokenCredential | null> {
     if (google === null) throw new AccountProviderError('unavailable');
     const { hashed, raw } = await nonce();
-    let credential: Readonly<{ idToken: string }> | null;
+    let credential: Awaited<ReturnType<GoogleSignIn['idToken']>>;
     try {
       credential = await google.idToken(hashed);
     } catch {
       throw new AccountProviderError('failed');
     }
-    return credential === null ? null : { token: credential.idToken, rawNonce: raw };
+    return credential === null ? null : { token: credential.idToken, rawNonce: raw, accessToken: credential.accessToken };
   }
 
   /** The ID token of `provider` for the raw nonce, or null when the person cancels. */
   const idToken = (provider: AccountProvider) => (provider === 'apple' ? appleIdToken() : googleIdToken());
+  /** What `signInWithIdToken` and `linkIdentity` take for a credential. */
+  const tokenRequest = (provider: AccountProvider, credential: IdTokenCredential): SignInWithIdTokenCredentials =>
+    ({ provider, token: credential.token, nonce: credential.rawNonce, access_token: credential.accessToken });
 
   async function storedSession(): Promise<Session | null> {
     const { data, error } = await auth.getSession();
@@ -180,7 +190,7 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
     async signIn(provider) {
       const credential = await idToken(provider);
       if (credential === null) return null;
-      const { data, error } = await auth.signInWithIdToken({ provider, token: credential.token, nonce: credential.rawNonce });
+      const { data, error } = await auth.signInWithIdToken(tokenRequest(provider, credential));
       if (error) throw new AccountProviderError('failed');
       return sessionOrFail(data.session);
     },
@@ -197,7 +207,7 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
     async addProvider(provider) {
       const credential = await idToken(provider);
       if (credential === null) throw new AccountProviderError('cancelled');
-      const { data, error } = await auth.linkIdentity({ provider, token: credential.token, nonce: credential.rawNonce });
+      const { data, error } = await auth.linkIdentity(tokenRequest(provider, credential));
       if (error) throw new AccountProviderError(error.code === 'identity_already_exists' ? 'identityTaken' : 'failed');
       return sessionOrFail(data.session);
     },
@@ -223,10 +233,12 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
         const subject = idTokenSubject(google.token);
         if (subject === null || subject !== providerUserIdOf(session, 'google')) throw new AccountProviderError('failed');
       }
-      const { data, error } = await auth.refreshSession();
-      if (error || data.session === null) throw new AccountProviderError('failed');
+      // A fresh token when the refresh answers. When it cannot, the token stored before it goes:
+      // after a deletion whose answer was lost the refresh token no longer exists, and the Worker
+      // decides, answering an account that is already gone as deleted (ADR 0041 section 2).
+      const { data } = await auth.refreshSession().catch(() => ({ data: { session: null } }));
       return {
-        accessToken: data.session.access_token,
+        accessToken: data.session?.access_token ?? session.access_token,
         ...(appleAuthorizationCode === null ? {} : { appleAuthorizationCode }),
       };
     },

@@ -28,7 +28,7 @@ function setup({ records = [], link = unlinked, pending = true } = {}) {
   };
   const remote = {
     pullSnapshot: async (_id, syncConsent) => { calls.push(['snapshot', syncConsent]); return { rows: empty(), cursor: 'c1' }; },
-    upload: async (_id, sent) => { calls.push(['upload', sent]); return sent; },
+    upload: async (_id, sent, confirm) => { calls.push(['upload', sent]); await confirm(sent); },
     pull: async (_id, _cursor, syncConsent) => { calls.push(['pullFrom', syncConsent]); return { ...empty(), arrivals: [] }; },
   };
   const consent = { records: async () => records, give: async () => {}, withdraw: async () => {} };

@@ -111,7 +111,7 @@ test('a cancelled Apple sheet is no sign-in and no error; a missing token is a p
   await assert.rejects(tokenless.signIn('apple'), (error) => error instanceof AccountProviderError && error.code === 'failed');
 });
 
-test('without the Google library or its client configuration, Google fails closed the way a provider failure does', async () => {
+test('without the Google client id in the build, Google fails closed the way a provider failure does', async () => {
   const { auth } = await signedIn();
   for (const call of [() => auth.signIn('google'), () => auth.addProvider('google')]) {
     await assert.rejects(call(), (error) => error instanceof AccountProviderError && error.code === 'unavailable');
@@ -123,7 +123,7 @@ const googleToken = (sub = 'google-sub') => `${base64url({ alg: 'RS256' })}.${ba
 
 function google(over = {}) {
   const calls = [];
-  return { calls, idToken: async (hashed) => { calls.push(hashed); return { idToken: googleToken() }; }, ...over };
+  return { calls, idToken: async (hashed) => { calls.push(hashed); return { idToken: googleToken(), accessToken: 'google-access-token' }; }, ...over };
 }
 
 function googleAuth(answer, googleFake = google()) {
@@ -133,21 +133,23 @@ function googleAuth(answer, googleFake = google()) {
   return { ...fake, auth, google: googleFake };
 }
 
-test('Sign in with Google sends the hashed nonce to Google and the raw nonce with the ID token to Supabase', async () => {
+test('Sign in with Google sends the hashed nonce to Google and the raw nonce, the ID token and Google\'s access token to Supabase', async () => {
   const { auth, google: googleFake, requests } = googleAuth(() => ({ body: tokenResponse({ providers: ['google'], primary: 'google' }) }));
   assert.deepEqual(await auth.signIn('google'),
     { userId, provider: 'google', email: 'q7@privaterelay.appleid.com', providers: ['google'] });
   assert.deepEqual(googleFake.calls, ['hashed-nonce']);
   assert.equal(requests[0].grant, 'id_token');
-  assert.deepEqual({ provider: requests[0].body.provider, id_token: requests[0].body.id_token, nonce: requests[0].body.nonce },
-    { provider: 'google', id_token: googleToken(), nonce: 'raw-nonce' });
+  // The access token lets Supabase check the ID token's `at_hash`.
+  const { access_token: accessToken, id_token: idToken, nonce: sentNonce, provider } = requests[0].body;
+  assert.deepEqual({ provider, idToken, sentNonce, accessToken },
+    { provider: 'google', idToken: googleToken(), sentNonce: 'raw-nonce', accessToken: 'google-access-token' });
 });
 
 test('a cancelled Google sheet is no sign-in and no error; a Google failure is a provider failure', async () => {
   const cancelled = googleAuth(() => assert.fail('no request'), google({ idToken: async () => null }));
   assert.equal(await cancelled.auth.signIn('google'), null);
   await assert.rejects(cancelled.auth.addProvider('google'), (error) => error instanceof AccountProviderError && error.code === 'cancelled');
-  const failing = googleAuth(() => assert.fail('no request'), google({ idToken: async () => { throw new Error('GIDSignIn -4'); } }));
+  const failing = googleAuth(() => assert.fail('no request'), google({ idToken: async () => { throw new Error('Google sign-in failed.'); } }));
   await assert.rejects(failing.auth.signIn('google'), (error) => error instanceof AccountProviderError && error.code === 'failed');
 });
 
@@ -163,8 +165,8 @@ test('adding Google links the identity with its ID token and nonce, and an ident
   await auth.signIn('apple');
   assert.deepEqual((await auth.addProvider('google')).providers, ['apple', 'google']);
   const link = requests.find(({ body }) => body?.link_identity);
-  assert.deepEqual({ provider: link.body.provider, id_token: link.body.id_token, nonce: link.body.nonce },
-    { provider: 'google', id_token: googleToken(), nonce: 'raw-nonce' });
+  assert.deepEqual({ provider: link.body.provider, id_token: link.body.id_token, nonce: link.body.nonce, access_token: link.body.access_token },
+    { provider: 'google', id_token: googleToken(), nonce: 'raw-nonce', access_token: 'google-access-token' });
   taken = true;
   await assert.rejects(auth.addProvider('google'), (error) => error instanceof AccountProviderError && error.code === 'identityTaken');
 });
@@ -179,7 +181,8 @@ test('deleting a Google account re-authenticates with Google, sends no Apple cod
   assert.equal(requests.at(-1).grant, 'refresh_token');
 
   let cancel = false;
-  const cancelling = googleAuth(() => ({ body: session(1) }), google({ idToken: async () => (cancel ? null : { idToken: googleToken() }) }));
+  const cancelling = googleAuth(() => ({ body: session(1) }),
+    google({ idToken: async () => (cancel ? null : { idToken: googleToken(), accessToken: 'google-access-token' }) }));
   await cancelling.auth.signIn('google');
   cancel = true;
   const before = cancelling.requests.length;
@@ -190,7 +193,7 @@ test('deleting a Google account re-authenticates with Google, sends no Apple cod
 test('deletion does not start when Google confirms with a different Google account than the signed-in one', async () => {
   let sub = 'google-sub';
   const fake = googleAuth(() => ({ body: tokenResponse({ providers: ['google'], primary: 'google' }) }),
-    google({ idToken: async () => ({ idToken: googleToken(sub) }) }));
+    google({ idToken: async () => ({ idToken: googleToken(sub), accessToken: 'google-access-token' }) }));
   await fake.auth.signIn('google');
   sub = 'someone-else';
   const before = fake.requests.length;
@@ -198,7 +201,7 @@ test('deletion does not start when Google confirms with a different Google accou
   assert.equal(fake.requests.length, before);
   for (const idToken of ['not-a-jwt', `${base64url({})}.${base64url({ aud: 'x' })}.c2ln`]) {
     const malformed = googleAuth(() => ({ body: tokenResponse({ providers: ['google'], primary: 'google' }) }),
-      google({ idToken: async () => ({ idToken }) }));
+      google({ idToken: async () => ({ idToken, accessToken: 'google-access-token' }) }));
     await malformed.auth.signIn('google');
     await assert.rejects(malformed.auth.reauthorizeDeletion(), (error) => error instanceof AccountProviderError && error.code === 'failed');
   }
@@ -296,6 +299,17 @@ test('deletion re-authorizes with Apple for a code and a fresh access token; a c
   const before = cancelled.requests.length;
   assert.equal(await cancelled.auth.reauthorizeDeletion(), null);
   assert.equal(cancelled.requests.length, before);
+});
+
+test('a retry after the account was deleted with a lost answer still reaches the Worker with the stored access token', async () => {
+  // The Worker deleted the user, so the refresh token is gone; the Worker answers an already-deleted account.
+  for (const refused of [
+    { status: 400, body: { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token' } },
+    { status: 403, body: { code: 403, error_code: 'user_not_found', msg: 'User not found' } },
+  ]) {
+    const { auth } = await signedIn((request) => (request.grant === 'refresh_token' ? refused : { body: tokenResponse({ n: 1 }) }));
+    assert.deepEqual(await auth.reauthorizeDeletion(), { accessToken: jwt(1), appleAuthorizationCode: 'apple-code' });
+  }
 });
 
 test('when Apple gives no code for another reason, deletion still gets the access token without one', async () => {

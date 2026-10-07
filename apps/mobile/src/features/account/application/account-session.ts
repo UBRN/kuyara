@@ -120,11 +120,23 @@ export type ConsentQuestionPort = Readonly<{
   setOpen: (open: boolean) => Promise<void>;
 }>;
 
+/**
+ * A device-local mark of the account this phone holds an Apple credential for: it signed in with
+ * Apple, or added Apple, for that user. Apple's credential state and its revocation notice apply
+ * to that account alone (ADR 0041 section 2).
+ */
+export type AppleCredentialMarkPort = Readonly<{
+  userId: () => Promise<string | null>;
+  set: (userId: string | null) => Promise<void>;
+}>;
+
 export type AccountSessionManager = AccountScreensPort & Readonly<{
   start: () => Promise<void>;
   foreground: () => Promise<void>;
   localWrite: () => Promise<void>;
   setOnline: (online: boolean) => void;
+  /** Apple reported kuyara's Sign in with Apple revoked while the app runs. */
+  appleRevoked: () => Promise<void>;
 }>;
 
 /**
@@ -157,13 +169,14 @@ export function signInResult(
 }
 
 export function createAccountSessionManager({
-  auth, consent, consentQuestion, deletion, now, scenarioUserId, sync,
+  appleMark, auth, consent, consentQuestion, deletion, now, scenarioUserId, sync,
 }: Readonly<{
   auth: AccountAuthPort;
   sync: AccountSessionSyncPort;
   deletion: AccountDeletionPort;
   consent: SyncConsentPort;
   consentQuestion: ConsentQuestionPort;
+  appleMark: AppleCredentialMarkPort;
   now: () => Date;
   /**
    * Development scenarios only: the account a loaded signed-in frame stands for, so every action
@@ -193,6 +206,8 @@ export function createAccountSessionManager({
   /** The pass in flight, and the one pass that follows it for every request made meanwhile. */
   let running: Promise<AccountSyncSummary | null> | null = null;
   let trailing: Promise<AccountSyncSummary | null> | null = null;
+  /** The deletion in flight: no pass starts meanwhile, and a session end waits for it. */
+  let deleting: Promise<void> | null = null;
   const listeners = new Set<() => void>();
   const set = (next: AccountScreensSnapshot) => {
     snapshot = next;
@@ -216,7 +231,10 @@ export function createAccountSessionManager({
   const pass = async (): Promise<AccountSyncSummary | null> => {
     const session = identity;
     // Nothing uploads before the consent question after sign-in is settled.
-    if (!session || !snapshot.online || awaitingConsent !== null || consentChecks > 0 || !signedIn()) return null;
+    // Nor while the account is deleted: a late pass would rewrite the link the deletion resets.
+    if (!session || !snapshot.online || awaitingConsent !== null || consentChecks > 0 || !signedIn() || deleting !== null) {
+      return null;
+    }
     updateSession({ sync: { kind: 'syncing' } });
     try {
       const summary = await sync.run(session.userId);
@@ -245,12 +263,37 @@ export function createAccountSessionManager({
     });
     return trailing;
   };
+  /** Settles once no pass runs or follows: each that starts meanwhile is awaited too. */
+  const passesSettled = async () => {
+    while (running !== null) await running;
+  };
   const markQuestion = async (open: boolean) => {
     try {
       await consentQuestion.setOpen(open);
     } catch {
       // A mark that cannot be written changes nothing else; at worst a launch asks once more or not.
     }
+  };
+  const markApple = async (userId: string | null) => {
+    try {
+      await appleMark.set(userId);
+    } catch {
+      // Unwritten: at worst Apple is asked about a session it has no say in, or not asked once.
+    }
+  };
+  const holdsApple = async (session: AuthSession) => (await appleMark.userId().catch(() => null)) === session.userId;
+  /**
+   * What every end of a session on this phone clears: the session, a sign-in waiting for its
+   * consent question and the question with its sheet, the question's mark and the Apple mark.
+   */
+  const forgetSession = async () => {
+    identity = null;
+    awaitingConsent = null;
+    resultHost = null;
+    await markQuestion(false);
+    await markApple(null);
+    const asking = snapshot.consent.prompt === 'signIn';
+    update({ consent: noConsentPrompt, signIn: { kind: 'idle' }, ...(asking ? { sheet: null, result: null } : {}) });
   };
   /**
    * ADR 0041 section 5, for a session the app restores: the app was closed while the consent
@@ -305,26 +348,27 @@ export function createAccountSessionManager({
    * It never fails: ending a session always leaves the phone signed out.
    */
   const endSession = async () => {
+    // A deletion settles first, so its reset is never written over; a deleted account has ended.
+    await deleting;
+    if (identity === null) return;
     if (snapshot.online) await runSync();
     try {
       await auth.signOut();
     } catch {
       // The screens end the session anyway; the next launch reads what the storage kept.
     }
-    identity = null;
-    awaitingConsent = null;
-    resultHost = null;
-    await markQuestion(false);
-    update({ session: { kind: 'signedOut', notice: 'signedOut' }, cardDismissed: true, consent: noConsentPrompt });
+    await forgetSession();
+    update({ session: { kind: 'signedOut', notice: 'signedOut' }, cardDismissed: true });
   };
   /**
    * ADR 0041 section 2, at launch and at every foreground: an Apple ID that revoked kuyara, or no
-   * longer exists, ends the session the way signing out does. A check that fails changes nothing,
-   * and no other provider asks Apple. Answers whether the caller must stop: the session was
-   * ended, or `current` says the account changed while Apple was asked.
+   * longer exists, ends the session the way signing out does. Only a session whose Apple
+   * credential this phone holds asks Apple, and a check that fails changes nothing. Answers
+   * whether the caller must stop: the session was ended, or `current` says the account changed
+   * while Apple was asked.
    */
   const endIfAppleRevoked = async (session: AuthSession, current: () => boolean = () => true): Promise<boolean> => {
-    if (session.provider !== 'apple') return false;
+    if (!await holdsApple(session)) return !current();
     let state: AppleCredentialState | null = null;
     try { state = await auth.appleCredentialState(); } catch { /* Offline or Apple unreachable. */ }
     if (!current()) return true;
@@ -368,6 +412,8 @@ export function createAccountSessionManager({
       if (declining) void manager.answerConsent(false);
     },
     async signIn(provider) {
+      // A second tap while one runs would start a second provider flow and drop the first.
+      if (snapshot.signIn.kind === 'pending') return;
       if (!snapshot.online) { update({ signIn: { kind: 'failed', provider } }); return; }
       const request = ++signInRequest;
       update({ signIn: { kind: 'pending', provider } });
@@ -398,6 +444,7 @@ export function createAccountSessionManager({
         identity = session;
         awaitingConsent = provider;
         update({ session: showIdentity(session) });
+        if (provider === 'apple') await markApple(session.userId);
         const syncConsent = await readConsent(session.userId);
         if (!isCurrent(session)) return;
         updateSession({ syncConsent });
@@ -434,16 +481,24 @@ export function createAccountSessionManager({
       const { prompt, status } = snapshot.consent;
       const session = identity;
       if (prompt === null || status === 'saving' || !session) return;
+      let saved = false;
       if (given) {
         update({ consent: { prompt, status: 'saving' } });
         try {
           await consent.give(session.userId, answer());
+          saved = true;
         } catch {
-          if (isCurrent(session)) update({ consent: { prompt, status: 'failed' } });
-          return;
+          if (!isCurrent(session)) return;
+          // The sheet closed over the question while the answer was saved: closing declines
+          // (section 5), so a save that failed continues as the decline instead of waiting on a
+          // question no one sees.
+          if (prompt !== 'signIn' || snapshot.sheet !== null) {
+            update({ consent: { prompt, status: 'failed' } });
+            return;
+          }
         }
         if (!isCurrent(session)) return;
-        updateSession({ syncConsent: 'given' });
+        if (saved) updateSession({ syncConsent: 'given' });
       }
       if (prompt === 'signIn') await markQuestion(false);
       update({ consent: noConsentPrompt });
@@ -451,7 +506,7 @@ export function createAccountSessionManager({
         const provider = awaitingConsent;
         awaitingConsent = null;
         await finishSignIn(provider);
-      } else if (given) {
+      } else if (saved) {
         await runSync();
       }
     },
@@ -480,6 +535,7 @@ export function createAccountSessionManager({
       try {
         identity = await auth.addProvider(provider);
         updateSession({ providers: identity.providers });
+        if (provider === 'apple') await markApple(identity.userId);
         return 'linked';
       } catch (error) {
         // ADR 0041 section 1: an identity another account owns gets the system alert; any other
@@ -494,18 +550,22 @@ export function createAccountSessionManager({
       if (!identity || !snapshot.online || snapshot.deletion === 'deleting') return;
       const provider = identity.provider;
       update({ deletion: 'deleting' });
-      try {
-        const credentials = await auth.reauthorizeDeletion();
-        if (credentials === null) { update({ deletion: 'idle' }); return; }
-        const result = await deletion.deleteAccount(credentials);
-        if (result.kind === 'failed') { update({ deletion: 'failed' }); return; }
-        identity = null;
-        await markQuestion(false);
-        // Section 7: the person may have gone anywhere meanwhile, so the result shows app-wide.
-        update({ deletion: 'idle', session: { kind: 'signedOut', notice: 'deleted' }, cardDismissed: true,
-          sheet: 'app', consent: noConsentPrompt,
-          result: { kind: 'deleted', provider, appleUnrevoked: result.appleUnrevoked } });
-      } catch { update({ deletion: 'failed' }); }
+      const run = async () => {
+        try {
+          const credentials = await auth.reauthorizeDeletion();
+          if (credentials === null) { update({ deletion: 'idle' }); return; }
+          // A pass that started before the deletion finishes before the phone's link is reset.
+          await passesSettled();
+          const result = await deletion.deleteAccount(credentials);
+          if (result.kind === 'failed') { update({ deletion: 'failed' }); return; }
+          await forgetSession();
+          // Section 7: the person may have gone anywhere meanwhile, so the result shows app-wide.
+          update({ deletion: 'idle', session: { kind: 'signedOut', notice: 'deleted' }, cardDismissed: true,
+            sheet: 'app', result: { kind: 'deleted', provider, appleUnrevoked: result.appleUnrevoked } });
+        } catch { update({ deletion: 'failed' }); }
+      };
+      deleting = run().finally(() => { deleting = null; });
+      await deleting;
     },
     clearNotice: () => {
       if (snapshot.session.kind === 'signedOut' && snapshot.session.notice !== null)
@@ -558,12 +618,20 @@ export function createAccountSessionManager({
       }
       // The auth service said the session is gone: it ends the way signing out does.
       try { await auth.signOut(); } catch { /* The screen still leaves the ended session. */ }
-      awaitingConsent = null;
-      await markQuestion(false);
+      await forgetSession();
       await restore(null);
     },
     async localWrite() { await runSync(); },
-    setOnline: (online) => update({ online }),
+    setOnline: (online) => {
+      const reconnected = online && !snapshot.online;
+      update({ online });
+      // Offline, a pass does not run; the one the session waited for runs once the connection is back.
+      if (reconnected && identity !== null) void runSync();
+    },
+    async appleRevoked() {
+      const session = identity;
+      if (session && await holdsApple(session) && isCurrent(session)) await endSession();
+    },
   };
   return manager;
 }

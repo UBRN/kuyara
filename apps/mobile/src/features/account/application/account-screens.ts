@@ -286,6 +286,8 @@ function createScenarioAccountScreens(
     deletion: { deleteAccount: async () => ({ kind: 'deleted', appleUnrevoked: false }) },
     // A scenario frame is never a launch after the app closed over the question.
     consentQuestion: { wasOpen: async () => false, setOpen: async () => {} },
+    // A scenario's Apple credential is always authorized, so no mark is kept.
+    appleMark: { userId: async () => null, set: async () => {} },
     now,
     scenarioUserId,
   });

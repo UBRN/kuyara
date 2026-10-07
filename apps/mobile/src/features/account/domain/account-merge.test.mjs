@@ -187,3 +187,22 @@ test('an account profile without a dress style takes the phone\'s style instead 
   assert.deepEqual(result.sendToAccount.profile, { ...phone, displayName: 'Account', gender: 'man' });
   assert.equal(result.profileFrom, 'accountNameAndGender');
 });
+
+test('a row the account holds that this build cannot read is never sent over it, by id or by day', () => {
+  const local = {
+    wardrobeItems: [wardrobeItem(1), wardrobeItem(2)],
+    dressingDayChoices: [dayChoice(3, '2026-09-10'), dayChoice(4, '2026-09-11')],
+    dressingDayDepartures: [departure(5, '2026-09-10')],
+    outfitHistory: [historyDay(6, '2026-09-10'), historyDay(7, '2026-09-12')],
+  };
+  const refused = {
+    wardrobeItems: [uuid(1)], dressingDayChoices: ['2026-09-10'], dressingDayDepartures: ['2026-09-10'], outfitHistory: [uuid(6)],
+  };
+  const result = mergeAtFirstLink({ ...empty, ...local }, empty, { syncConsent: true, now, refused });
+  assert.deepEqual(ids(result.sendToAccount.wardrobeItems), [uuid(2)]);
+  assert.deepEqual(ids(result.sendToAccount.dressingDayChoices), [uuid(4)]);
+  assert.deepEqual(result.sendToAccount.dressingDayDepartures, []);
+  assert.deepEqual(ids(result.sendToAccount.outfitHistory), [uuid(7)]);
+  assert.deepEqual(result.writeToPhone, empty);
+  assert.deepEqual(result.counts, { piecesAdded: 1, historyDaysAdded: 1, piecesReceived: 0, historyDaysReceived: 0 });
+});

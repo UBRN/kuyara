@@ -15,6 +15,7 @@ function harness({ snapshot = accountScenarios.upToDate, pending = true, dismiss
     foreground: async () => { calls.push('foreground'); },
     localWrite: async () => { calls.push('localWrite'); },
     signOut: async () => { calls.push('signOut'); },
+    appleRevoked: async () => { calls.push('appleRevoked'); },
     setOnline: (value) => { online.push(value); },
   };
   let appState = null;
@@ -104,17 +105,13 @@ test('signed out, a write starts nothing; during a pass it asks the manager once
   assert.equal(syncing.timers.length, 0);
 });
 
-test('Apple revoking kuyara ends an Apple session the way signing out does, and nothing else', async () => {
-  const apple = harness();
-  apple.revoke();
-  assert.deepEqual(apple.calls.filter((call) => call === 'signOut'), ['signOut']);
+test('Apple revoking kuyara goes to the manager, which knows whether this phone holds that Apple credential', async () => {
+  // The account's creation provider decides nothing: an account created with Google may hold Apple here.
   const google = harness();
   google.manager.load({ ...accountScenarios.upToDate,
-    session: { ...accountScenarios.upToDate.session, provider: 'google', providers: ['google'] } });
+    session: { ...accountScenarios.upToDate.session, provider: 'google', providers: ['apple', 'google'] } });
   google.revoke();
-  const signedOut = harness({ snapshot: accountScenarios.signedOut });
-  signedOut.revoke();
-  assert.equal([...google.calls, ...signedOut.calls].includes('signOut'), false);
+  assert.deepEqual(google.calls.filter((call) => call === 'appleRevoked' || call === 'signOut'), ['appleRevoked']);
 });
 
 test('the card dismissal is stored once and restored at launch', async () => {
@@ -134,7 +131,7 @@ test('disconnecting stops the refresh and every listener', async () => {
   write();
   disconnect();
   revoke();
-  assert.equal(calls.includes('signOut'), false);
+  assert.equal(calls.includes('appleRevoked'), false);
   assert.equal(timers.every(({ cancelled }) => cancelled), true);
   await flush();
   assert.equal(calls.includes('localWrite'), false);

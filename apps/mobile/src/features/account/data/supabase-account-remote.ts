@@ -20,7 +20,7 @@ import {
   type RemoteRowResult,
 } from '@/features/account/data/account-remote-mappers';
 import { serverInstant } from '@/features/account/data/account-remote-records';
-import type { AccountRows } from '@/features/account/domain/account-rows';
+import type { AccountRows, RefusedAccountRows } from '@/features/account/domain/account-rows';
 import { serverInstantSecondsBefore } from '@/features/account/domain/server-instant';
 import {
   nextCursor,
@@ -68,6 +68,8 @@ type RecordTable = 'wardrobe_items' | 'dressing_day_choices' | 'dressing_day_dep
 const ackSchema = z.object({ id: z.string(), day_key: z.string().optional(), updated_at: offsetIsoInstantSchema });
 const profileAckSchema = z.object({ updated_at: offsetIsoInstantSchema });
 const pageRowSchema = z.object({ id: z.string(), server_updated_at: z.string() });
+/** The identity a refused row still names, when it names one. */
+const refusedKeySchema = z.object({ id: z.string(), day_key: z.string().optional() });
 const consentRecordsSchema = z.array(z.object({
   text_version: z.string(),
   answer: z.enum(['given', 'withdrawn'] as const satisfies readonly SyncConsentAnswer[]),
@@ -92,6 +94,11 @@ const sameInstant = (left: string, right: string) => Date.parse(left) === Date.p
 
 /** PostgREST reads `.`, `,`, `:` and parentheses as syntax inside `or`, so a value is quoted. */
 const quoted = (value: string) => `"${value.replaceAll('"', '')}"`;
+
+/** `patch` over no rows at all: one confirmed batch of one table. */
+const only = (patch: Partial<AccountRows>): AccountRows => ({
+  profile: null, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [], ...patch,
+});
 
 function chunks<Item>(items: readonly Item[]): Item[][] {
   const out: Item[][] = [];
@@ -135,10 +142,14 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
 
   /**
    * Every table from its own position in `cursor`, moved back by the overlap; every row when the
-   * table has none.
+   * table has none. `refused` names the record rows the parsers refused, by id or by day.
    */
-  async function pullFrom(userId: string, cursor: PullCursor, syncConsent: boolean): Promise<PulledAccountRows> {
+  async function pullFrom(
+    userId: string, cursor: PullCursor, syncConsent: boolean,
+  ): Promise<PulledAccountRows & Readonly<{ refused: RefusedAccountRows }>> {
     const arrivals: PullArrival[] = [];
+    const refused = { wardrobeItems: [] as string[], dressingDayChoices: [] as string[],
+      dressingDayDepartures: [] as string[], outfitHistory: [] as string[] };
     function accepted<Row>(
       table: AccountTable, raws: readonly unknown[], map: (raw: unknown) => RemoteRowResult<Row>,
     ): PulledSyncRow<Row>[] {
@@ -147,6 +158,12 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
         const result = map(raw);
         arrivals.push({ table, serverUpdatedAt: result.serverUpdatedAt });
         if (result.kind === 'accepted') rows.push({ row: result.row, serverUpdatedAt: result.serverUpdatedAt });
+        else if (table !== 'profile') {
+          const key = refusedKeySchema.safeParse(raw);
+          const byDay = table === 'dressingDayChoices' || table === 'dressingDayDepartures';
+          const identity = key.success ? (byDay ? key.data.day_key : key.data.id) : undefined;
+          if (identity !== undefined) refused[table].push(identity);
+        }
       }
       return rows;
     }
@@ -170,32 +187,33 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
         (raw) => fromRemoteDressingDayDeparture(raw, localProfileId)),
       outfitHistory: accepted('outfitHistory', outfitHistory, (raw) => fromRemoteOutfitHistory(raw, localProfileId)),
       arrivals,
+      refused,
     };
   }
 
   /**
-   * Upserts `rows` and returns those the account acknowledged at the version sent: the same
-   * identity (the day for day-keyed tables) and the same `updated_at`. A row is keyed within its
-   * user, so the same UUID uploads to a second account without touching the first one's copy.
+   * Upserts `rows` in batches and hands each batch's rows the account acknowledged at the version
+   * sent (the same identity, the day for day-keyed tables, and the same `updated_at`) to
+   * `confirm` before the next batch goes. A row is keyed within its user, so the same UUID
+   * uploads to a second account without touching the first one's copy.
    */
   async function upsert<Row extends Readonly<{ id: string; updatedAt: string; dayKey?: string }>>(
     table: RecordTable,
     rows: readonly Row[],
     toRemote: (row: Row) => object,
     byDay: boolean,
-  ): Promise<Row[]> {
-    const acknowledged: Row[] = [];
+    confirm: (acknowledged: Row[]) => Promise<void>,
+  ): Promise<void> {
     for (const batch of chunks(rows)) {
       const acks = parsed(z.array(ackSchema), dataOf(await client.from(table)
         .upsert(batch.map(toRemote), { onConflict: byDay ? 'user_id,day_key' : 'user_id,id' })
         .select(byDay ? 'id, day_key, updated_at' : 'id, updated_at')));
       const ackAt = new Map(acks.map((ack) => [byDay ? ack.day_key : ack.id, ack.updated_at]));
-      for (const row of batch) {
+      await confirm(batch.filter((row) => {
         const at = ackAt.get(byDay ? row.dayKey : row.id);
-        if (at !== undefined && sameInstant(at, row.updatedAt)) acknowledged.push(row);
-      }
+        return at !== undefined && sameInstant(at, row.updatedAt);
+      }));
     }
-    return acknowledged;
   }
 
   return {
@@ -211,26 +229,26 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
           outfitHistory: rows(pulled.outfitHistory),
         },
         cursor: nextCursor(pullCursorAt(null), pulled.arrivals),
+        refused: pulled.refused,
       };
     },
     pull: pullFrom,
-    async upload(userId, rows): Promise<AccountRows> {
-      let profile: AccountRows['profile'] = null;
-      if (rows.profile !== null) {
+    async upload(userId, rows, confirm) {
+      const { profile } = rows;
+      if (profile !== null) {
         const ack = parsed(z.array(profileAckSchema), dataOf(await client.from('profiles')
-          .upsert(toRemoteProfile(rows.profile, userId), { onConflict: 'user_id' })
+          .upsert(toRemoteProfile(profile, userId), { onConflict: 'user_id' })
           .select('updated_at')));
-        if (ack.some(({ updated_at: at }) => sameInstant(at, rows.profile?.updatedAt ?? ''))) profile = rows.profile;
+        if (ack.some(({ updated_at: at }) => sameInstant(at, profile.updatedAt))) await confirm(only({ profile }));
       }
-      return {
-        profile,
-        wardrobeItems: await upsert('wardrobe_items', rows.wardrobeItems, (row) => toRemoteWardrobeItem(row, userId), false),
-        dressingDayChoices: await upsert('dressing_day_choices', rows.dressingDayChoices,
-          (row) => toRemoteDressingDayChoice(row, userId), true),
-        dressingDayDepartures: await upsert('dressing_day_departures', rows.dressingDayDepartures,
-          (row) => toRemoteDressingDayDeparture(row, userId), true),
-        outfitHistory: await upsert('outfit_history', rows.outfitHistory, (row) => toRemoteOutfitHistory(row, userId), false),
-      };
+      await upsert('wardrobe_items', rows.wardrobeItems, (row) => toRemoteWardrobeItem(row, userId), false,
+        (wardrobeItems) => confirm(only({ wardrobeItems })));
+      await upsert('dressing_day_choices', rows.dressingDayChoices, (row) => toRemoteDressingDayChoice(row, userId), true,
+        (dressingDayChoices) => confirm(only({ dressingDayChoices })));
+      await upsert('dressing_day_departures', rows.dressingDayDepartures, (row) => toRemoteDressingDayDeparture(row, userId), true,
+        (dressingDayDepartures) => confirm(only({ dressingDayDepartures })));
+      await upsert('outfit_history', rows.outfitHistory, (row) => toRemoteOutfitHistory(row, userId), false,
+        (outfitHistory) => confirm(only({ outfitHistory })));
     },
   };
 }

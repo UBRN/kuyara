@@ -71,7 +71,7 @@ test('a first link replaces a pending row this build cannot read with the accoun
   await database.runAsync(`UPDATE wardrobe_items SET color_family = 'black', pending_sync = 1 WHERE id IN (?, ?)`, [uuid(2), uuid(3)]);
   const remote = {
     pullSnapshot: async () => ({ rows: { ...none, wardrobeItems: [wardrobeItem(2, { name: 'Account copy' })] }, cursor: noCursor }),
-    upload: async (_user, sent) => sent,
+    upload: async (_user, sent, confirm) => confirm(sent),
     pull: async () => ({ ...none, arrivals: [] }),
   };
 
@@ -210,7 +210,7 @@ test('a first link keeps an edit made while the account downloads: the row stays
       return { rows: { ...none, profile: syncedProfile({ displayName: 'Account' }),
         wardrobeItems: [wardrobeItem(1, { name: 'Account copy' }), wardrobeItem(2, { name: 'Account two' })] }, cursor: noCursor };
     },
-    upload: async (_user, sent) => { uploads.push(sent); return sent; },
+    upload: async (_user, sent, confirm) => { uploads.push(sent); await confirm(sent); },
     pull: async () => ({ ...none, arrivals: [] }),
   };
 
@@ -594,7 +594,7 @@ test('a first link uploads only what the merge sends and settles a deletion olde
   const uploads = [];
   const remote = {
     pullSnapshot: async () => ({ rows: none, cursor: noCursor }),
-    upload: async (_user, sent) => { uploads.push(sent); return sent; },
+    upload: async (_user, sent, confirm) => { uploads.push(sent); await confirm(sent); },
     pull: async () => ({ ...none, arrivals: [] }),
   };
   const flow = createAccountSyncFlow(source, remote, () => now);

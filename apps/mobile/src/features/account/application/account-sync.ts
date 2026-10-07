@@ -7,6 +7,7 @@ import {
   type AccountProfile,
   type AccountRow,
   type AccountRows,
+  type RefusedAccountRows,
   type RemoteAccountRows,
   type SyncedProfile,
 } from '@/features/account/domain/account-rows';
@@ -90,16 +91,19 @@ export type AccountRowsSourcePort = Readonly<{
 
 export type AccountRemotePort = Readonly<{
   /**
-   * Returns validated domain rows, deletion markers among them, and each table's last server
-   * arrival, including refused rows.
+   * Returns validated domain rows, deletion markers among them, each table's last server arrival,
+   * including refused rows, and the identities of the record rows it refused.
    */
-  pullSnapshot: (userId: string, syncConsent: boolean) => Promise<Readonly<{ rows: RemoteAccountRows; cursor: PullCursor }>>;
+  pullSnapshot: (userId: string, syncConsent: boolean) => Promise<Readonly<{
+    rows: RemoteAccountRows; cursor: PullCursor; refused: RefusedAccountRows;
+  }>>;
   /**
    * Map to remote DTOs without device fields; upsert by user and UUID (choices and departures by
-   * user and day key) and return acknowledged versions. A profile without dress style and style
-   * aesthetics sends neither column, so the account's copy keeps what it has.
+   * user and day key) in batches, and hand each batch's acknowledged versions to `confirm` before
+   * the next batch goes, so a batch that fails later keeps what committed. A profile without
+   * dress style and style aesthetics sends neither column, so the account's copy keeps what it has.
    */
-  upload: (userId: string, rows: AccountRows) => Promise<AccountRows>;
+  upload: (userId: string, rows: AccountRows, confirm: (acknowledged: AccountRows) => Promise<void>) => Promise<void>;
   /** Reads each table from its own position; parses each remote row once, retaining every arrival in `arrivals`. */
   pull: (userId: string, cursor: PullCursor, syncConsent: boolean) => Promise<PulledAccountRows>;
 }>;
@@ -152,7 +156,7 @@ export type FirstLinkOutcome = Pick<MergeResult, 'counts' | 'profileFrom'>;
 
 export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: AccountRemotePort, now: () => string) {
   const upload = async (userId: string, rows: AccountRows | null) => {
-    if (rows !== null && hasRows(rows)) await source.clearPendingIfUnchanged(await remote.upload(userId, rows));
+    if (rows !== null && hasRows(rows)) await remote.upload(userId, rows, source.clearPendingIfUnchanged);
   };
   return {
     /** `givenAt`: the arrival of the `given` record the records join under, kept in the link. */
@@ -161,7 +165,7 @@ export function createAccountSyncFlow(source: AccountRowsSourcePort, remote: Acc
       const stored = await source.read();
       const local = values(stored);
       const account = await remote.pullSnapshot(userId, syncConsent);
-      const merge = mergeAtFirstLink(local, landRemoteRows(account.rows, local), { syncConsent, now: now() });
+      const merge = mergeAtFirstLink(local, landRemoteRows(account.rows, local), { syncConsent, now: now(), refused: account.refused });
       await source.applyFirstLink(merge, linkAfterFirstLink(link, userId, syncConsent, account.cursor, givenAt), local,
         stored.unreadablePending);
       // Only what the merge chose: a deletion older than the marker window never goes.

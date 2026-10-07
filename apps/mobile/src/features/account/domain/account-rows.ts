@@ -61,6 +61,18 @@ export type RemoteAccountRows = Readonly<{
   outfitHistory: readonly AccountRow<OutfitHistoryRecord>[];
 }>;
 
+/**
+ * The rows the account holds that this build could not read (a newer version wrote them): the
+ * Closet and History by id, daily choices and departures by day. None lands on the phone, and a
+ * first link sends nothing over them, so the account's copy wins (ADR 0041 sections 3 and 4).
+ */
+export type RefusedAccountRows = Readonly<{
+  wardrobeItems: readonly string[];
+  dressingDayChoices: readonly string[];
+  dressingDayDepartures: readonly string[];
+  outfitHistory: readonly string[];
+}>;
+
 export function isDeletionMarker(row: object): row is DeletionMarker {
   return 'kind' in row && row.kind === 'deletionMarker';
 }

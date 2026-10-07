@@ -30,8 +30,8 @@ export type AccountLifecyclePorts = Readonly<{
 /**
  * Runs the account session for the app's lifetime (ADR 0041 sections 2, 4 and 9): it starts once,
  * syncs again in the foreground with the token refresh running only there, syncs shortly after a
- * local write that left a row waiting, never per keystroke, and ends an Apple session Apple reports
- * revoked the way signing out does. It keeps the session's online state with the device's
+ * local write that left a row waiting, never per keystroke, and hands Apple's revocation notice to
+ * the manager, which ends a session whose Apple credential this phone holds the way signing out does. It keeps the session's online state with the device's
  * connection, so the offline lines show and deletion waits for a connection. Returns the disconnect.
  */
 export function connectAccountLifecycle(ports: AccountLifecyclePorts): () => void {
@@ -85,11 +85,8 @@ export function connectAccountLifecycle(ports: AccountLifecyclePorts): () => voi
   });
 
   const unsubscribeWrites = ports.onDatabaseWrite(scheduleLocalWrite);
-  const unsubscribeRevoked = ports.onAppleRevoked(() => {
-    const { session } = manager.getSnapshot();
-    if (session.kind !== 'signedIn' || session.provider !== 'apple') return;
-    manager.signOut();
-  });
+  // The manager ends the session only when this phone holds the Apple credential of the account.
+  const unsubscribeRevoked = ports.onAppleRevoked(() => { void manager.appleRevoked(); });
   // Connecting in the foreground is the common case, and no change event follows it.
   if (ports.isActive()) autoRefresh.start();
   const unsubscribeAppState = ports.onAppStateChange((state) => {
