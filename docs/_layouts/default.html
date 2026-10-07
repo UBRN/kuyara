@@ -13,10 +13,6 @@
   <body class="ku-page">
     {% include site-header.html %}
     <main id="ku-main" class="ku-shell ku-doc">
-      {%- unless page.ref -%}
-      {%- assign ui = site.data.ui.en -%}
-      <a class="ku-doc__back" href="{{ ui.documents_url | relative_url }}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg>{{ ui.documents }}</a>
-      {%- endunless %}
       <article class="ku-prose">
         {{ content }}
       </article>
