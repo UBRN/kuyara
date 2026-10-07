@@ -533,8 +533,10 @@ export function createSqliteAccountRowsSource(database: SqliteDatabase): SqliteA
         ...flagWrites(merge.sendToAccount, profileId, 1, false),
       ], (transaction) => saveLinkIn(transaction, link), landing(merge.writeToPhone));
     },
-    clearPendingIfUnchanged(returned) {
-      return writeInBatches(flagWrites(returned, profileIdReader(database), 0, true), async () => {}, quiet);
+    async clearPendingIfUnchanged(returned) {
+      // A batch the account confirmed nothing of has nothing to clear.
+      if (rowCount(returned) === 0) return;
+      await writeInBatches(flagWrites(returned, profileIdReader(database), 0, true), async () => {}, quiet);
     },
     writePulled(rows, cursor) {
       return writeInBatches(landWrites(rows, profileIdReader(database)), async (transaction) => {

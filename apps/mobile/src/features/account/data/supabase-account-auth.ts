@@ -94,13 +94,13 @@ function idTokenSubject(token: string): string | null {
   }
 }
 
-/** The session the auth client stored, read without the network: its user, or null. */
-function storedUserOf(json: string | null): UserSession | null {
+/** The session the auth client stored, read without the network: its user and access token, or null. */
+function storedSessionOf(json: string | null): (UserSession & Readonly<{ access_token: string }>) | null {
   if (json === null) return null;
   try {
     const stored: unknown = JSON.parse(json);
-    const user = z.object({ user: sessionUserSchema }).safeParse(stored);
-    return user.success ? user.data : null;
+    const parsed = z.object({ user: sessionUserSchema, access_token: z.string().min(1) }).safeParse(stored);
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -138,7 +138,7 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
     const { data, error } = await auth.getSession();
     if (!error) return data.session === null ? null : authSessionOf(data.session);
     if (!isAuthRetryableFetchError(error)) return null;
-    const stored = storedUserOf(await readStored());
+    const stored = storedSessionOf(await readStored());
     if (stored === null) throw new AccountProviderError('unavailable');
     return authSessionOf(stored);
   }
@@ -212,10 +212,13 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
       return sessionOrFail(data.session);
     },
     async reauthorizeDeletion() {
-      const session = await storedSession();
+      // Read from storage, not through the client: with an expired access token the client
+      // refreshes first, and a refused refresh would leave no token to send.
+      const session = storedSessionOf(await readStored());
       if (session === null) throw new AccountProviderError('failed');
       let appleAuthorizationCode: string | null = null;
-      if (providersOf(session).includes('apple')) {
+      const provider: AccountProvider = providersOf(session).includes('apple') ? 'apple' : 'google';
+      if (provider === 'apple') {
         let answer: Readonly<{ authorizationCode: string | null }> | null;
         try {
           answer = await apple.reauthorize();
@@ -238,6 +241,7 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
       // decides, answering an account that is already gone as deleted (ADR 0041 section 2).
       const { data } = await auth.refreshSession().catch(() => ({ data: { session: null } }));
       return {
+        provider,
         accessToken: data.session?.access_token ?? session.access_token,
         ...(appleAuthorizationCode === null ? {} : { appleAuthorizationCode }),
       };

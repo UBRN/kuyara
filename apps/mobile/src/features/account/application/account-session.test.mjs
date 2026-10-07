@@ -21,7 +21,7 @@ function setup(over = {}) {
     // The auth service hands out a new object on every refresh.
     refreshSession: async () => { calls.push(['refresh']); return current && { ...current }; },
     addProvider: async (provider) => { calls.push(['addProvider', provider]); current = { ...current, providers: [...current.providers, provider] }; return current; },
-    reauthorizeDeletion: async () => ({ accessToken: 'fresh', appleAuthorizationCode: 'code' }),
+    reauthorizeDeletion: async () => ({ provider: 'apple', accessToken: 'fresh', appleAuthorizationCode: 'code' }),
     appleCredentialState: async () => 'authorized',
     ...over.auth,
   };
@@ -1101,8 +1101,64 @@ test('a sign-out the Apple revocation starts during a deletion waits for it and 
   const revoking = manager.appleRevoked();
   await settle();
   assert.deepEqual(calls, []);
-  reauthorized.resolve({ accessToken: 'fresh', appleAuthorizationCode: 'code' });
+  reauthorized.resolve({ provider: 'apple', accessToken: 'fresh', appleAuthorizationCode: 'code' });
   await Promise.all([deleting, revoking]);
   assert.deepEqual(calls.map(([name]) => name), ['delete']);
   assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'deleted' });
+});
+
+test('a session the server ends during a deletion waits for it, and ends only when the deletion failed', async () => {
+  for (const outcome of ['deleted', 'failed']) {
+    const reauthorized = held();
+    const { manager, calls } = setup({
+      current: identity,
+      auth: { refreshSession: async () => null, reauthorizeDeletion: async () => reauthorized.promise },
+      deletion: { deleteAccount: async () => (outcome === 'deleted' ? { kind: 'deleted', appleUnrevoked: false } : { kind: 'failed', code: 'unavailable' }) },
+    });
+    await manager.start();
+    calls.length = 0;
+    const deleting = manager.deleteAccount();
+    // The re-authorization sheet made the app inactive, then active again.
+    const foreground = manager.foreground();
+    await settle();
+    assert.equal(manager.getSnapshot().session.kind, 'signedIn', outcome);
+    assert.deepEqual(calls, [], outcome);
+    reauthorized.resolve({ provider: 'apple', accessToken: 'fresh', appleAuthorizationCode: 'code' });
+    await Promise.all([deleting, foreground]);
+    assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: outcome === 'deleted' ? 'deleted' : null }, outcome);
+    assert.equal(calls.some(([name]) => name === 'signOut'), outcome === 'failed', outcome);
+  }
+});
+
+test('the deletion result names the provider that confirmed it, not the one the account was created with', async () => {
+  const googleCreated = { ...identity, provider: 'google', providers: ['apple', 'google'] };
+  const { manager, calls } = setup({
+    current: googleCreated,
+    auth: { reauthorizeDeletion: async () => ({ provider: 'apple', accessToken: 'fresh', appleAuthorizationCode: 'code' }) },
+  });
+  await manager.start();
+  await manager.deleteAccount();
+  assert.deepEqual(manager.getSnapshot().result, { kind: 'deleted', provider: 'apple', appleUnrevoked: false });
+  assert.deepEqual(calls.find(([name]) => name === 'delete'), ['delete', { accessToken: 'fresh', appleAuthorizationCode: 'code' }]);
+});
+
+test('until a pass completes on this phone the session names no last sync, and a failed pass names none either', async () => {
+  const gate = held();
+  let fail = false;
+  const { manager } = setup({ current: identity, sync: { run: async () => {
+    await gate.promise;
+    if (fail) throw new Error('offline');
+    return { pendingChanges: 0, closetPieces: 0, historyDays: 0, syncConsent: 'given', firstLink: null };
+  } } });
+  fail = true;
+  const starting = manager.start();
+  await settle();
+  assert.equal(manager.getSnapshot().session.lastSyncedAt, null);
+  gate.resolve();
+  await starting;
+  assert.equal(manager.getSnapshot().session.sync.kind, 'failed');
+  assert.equal(manager.getSnapshot().session.lastSyncedAt, null);
+  fail = false;
+  await manager.foreground();
+  assert.equal(manager.getSnapshot().session.lastSyncedAt, '2026-10-03T01:00:00.000Z');
 });

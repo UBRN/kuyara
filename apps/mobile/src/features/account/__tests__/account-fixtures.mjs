@@ -5,6 +5,11 @@ export const emptyRows = () => ({
   profile: null, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [],
 });
 
+/** A first-link snapshot in which this build refused nothing. */
+export const noneRefused = Object.freeze({
+  profile: false, wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [],
+});
+
 export const phoneProfileId = 'phone-profile-sentinel';
 
 export const uuid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;

@@ -34,7 +34,7 @@ export function AccountScreen({ onOpenDelete }: Readonly<{ onOpenDelete: () => v
   if (session.kind !== 'signedIn') return null;
   const recordsOn = session.syncConsent === 'given';
 
-  const sync = describeSync(session, snapshot.online, copy, formatClockTime(session.lastSyncedAt, language, hour12));
+  const sync = describeSync(session, snapshot.online, copy, session.lastSyncedAt && formatClockTime(session.lastSyncedAt, language, hour12));
   const signOutBody = recordsOn ? copy.signOutAlert.body : copy.signOutAlert.bodyWithoutRecords;
   const confirmSignOut = () => Alert.alert(copy.signOutAlert.title, signOutBody, [
     { style: 'cancel', text: copy.signOutAlert.cancel },

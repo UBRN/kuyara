@@ -972,10 +972,11 @@ export type AccountMessages = Readonly<{
     syncingCount: (pending: number) => string;
     syncNow: string;
     retry: string;
-    upToDateFooter: (time: string) => string;
-    offlineFooter: (pending: number, time: string) => string;
-    syncingFooter: (pending: number, time: string) => string;
-    failedFooter: (pending: number, time: string) => string;
+    /** `time` is null until a sync has completed on this phone: no footer names a last sync then. */
+    upToDateFooter: (time: string | null) => string;
+    offlineFooter: (pending: number, time: string | null) => string;
+    syncingFooter: (pending: number, time: string | null) => string | undefined;
+    failedFooter: (pending: number, time: string | null) => string;
   }>;
   account: Readonly<{
     title: string;
