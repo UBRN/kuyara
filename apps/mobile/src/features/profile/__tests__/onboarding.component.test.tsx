@@ -4,7 +4,11 @@ import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { styleAestheticsLimit, type PlaceSearchV1Data } from '@kuyara/contracts';
 
+import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
+import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
+import { garmentSilhouetteIds } from '@/garment-art/garment-silhouette-map';
+import { silhouettes, type SilhouetteId } from '@/garment-art/silhouettes';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
@@ -616,4 +620,54 @@ test('each step draws what it changes: a Today preview, a greeting and garment t
   expect(result.getByTestId('onboarding-style-option-relaxed').props.accessibilityState)
     .toMatchObject({ checked: false, disabled: true });
   expect(result.getByText(messages.en.preferences.stylePreferencesLimit(styleAestheticsLimit))).toBeOnTheScreen();
+});
+
+// Before a gender is chosen the preview is one unisex outfit: types both catalogs carry, in the
+// men's straight cut; a chosen gender then draws its own cut, and so do the later steps' tiles.
+test('the preview draws a unisex outfit until a gender is chosen, then that gender\'s cut', async () => {
+  mockFontScale(1);
+  const { result } = await renderOnboarding(null, null);
+  const hidden = { includeHiddenElements: true };
+  const outlineIds = new Map<string, SilhouetteId>(Object.entries(silhouettes)
+    .map(([id, drawing]) => [drawing.groups[0].outline, id as SilhouetteId]));
+  const drawnIds = (testID: string) => new Set(result.getByTestId(testID, hidden)
+    .queryAll((node) => outlineIds.has(node.props.d))
+    .map((node) => outlineIds.get(node.props.d)!));
+  const typeOf = (id: SilhouetteId) => (Object.entries(garmentSilhouetteIds.mens) as [GarmentTypeId, SilhouetteId][])
+    .find(([, drawing]) => drawing === id)?.[0];
+  const mensTypes = new Set(listGarmentTypesForPreference('mens').map(({ typeId }) => typeId));
+  const bothCatalogs = new Set(listGarmentTypesForPreference('womens').map(({ typeId }) => typeId)
+    .filter((typeId) => mensTypes.has(typeId)));
+  const expectUnisex = () => {
+    const drawn = [...drawnIds('onboarding-welcome-board')];
+    expect(drawn).toHaveLength(4);
+    for (const id of drawn) {
+      expect(id).toMatch(/-m$/);
+      expect(bothCatalogs.has(typeOf(id)!)).toBe(true);
+    }
+  };
+
+  await fireEvent(result.getByTestId('onboarding-welcome-preview', hidden), 'layout',
+    { nativeEvent: { layout: { x: 0, y: 0, width: 361, height: 300 } } });
+  expectUnisex();
+
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
+  await fireEvent(result.getByTestId('onboarding-welcome-preview', hidden), 'layout',
+    { nativeEvent: { layout: { x: 0, y: 0, width: 361, height: 300 } } });
+  expectUnisex();
+
+  await fireEvent.press(result.getByTestId('onboarding-gender-woman'));
+  const women = [...drawnIds('onboarding-welcome-board')];
+  expect(women.length).toBeGreaterThan(0);
+  expect(women.every((id) => id.endsWith('-f'))).toBe(true);
+
+  await fireEvent.press(result.getByTestId('onboarding-gender-man'));
+  const men = [...drawnIds('onboarding-welcome-board')];
+  expect(men.length).toBeGreaterThan(0);
+  expect(men.every((id) => id.endsWith('-m'))).toBe(true);
+
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  expect(drawnIds('onboarding-dress-style-smart')).toEqual(new Set(['g-shirt-m']));
 });

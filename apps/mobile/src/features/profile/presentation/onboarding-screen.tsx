@@ -30,9 +30,9 @@ import {
   GarmentPreviewBoard,
   type GarmentOutfitPalette,
   measureGarmentBoardHeight,
-  useGarmentCut,
 } from '@/garment-art';
 import type { ClothingPreference } from '@/domain/preferences';
+import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import { useOnboardingEvents } from '@/features/analytics/application/use-interaction-events';
 import {
   createOnboardingDraft,
@@ -78,12 +78,19 @@ import { borderWidths, plateTheme, radii, spacing } from '@/theme/theme';
 // O14 onboarding visuals: each step shows what it changes, drawn only from shipped
 // silhouettes on the approved stages; no mascot, avatar or body, no new colour.
 // The preview draws a fixed sample sky until the location step has found the place's weather.
-const welcomePreviewPieces = [
+// Until a gender is chosen the preview is one unisex outfit: types both catalogs carry, in
+// fixed neutral colours, drawn in the men's straight cut, the block unisex clothing is cut on
+// (the women's cut draws a fitted waist and a curved hip).
+const unisexPreviewPieces = [
   { slot: 'outer_layer', garmentTypeId: 'light_jacket', category: 'outerwear' },
   { slot: 'primary_top', garmentTypeId: 't_shirt', category: 'top' },
   { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
   { slot: 'footwear', garmentTypeId: 'sneakers', category: 'footwear' },
 ] as const;
+const unisexPreviewSwatches: Readonly<Partial<Record<GarmentBoardPiece['slot'], GarmentSwatchId>>> = {
+  outer_layer: 'navy', primary_top: 'white', bottom: 'midwash', footwear: 'white',
+};
+const unisexPreviewCut: ClothingPreference = 'mens';
 // From the gender step on, the same board answers each choice: a gender and a dress style
 // swap the pieces they change (Law 7), so the first minute already shows what a choice does.
 // Once the place's weather is known, the outfits are the ones the device's rules choose for it;
@@ -121,9 +128,10 @@ const previewPalette = (
   pieces: readonly GarmentBoardPiece[],
   formality: DressStyle,
   sky: PreviewSky,
+  swatches: Readonly<Partial<Record<GarmentBoardPiece['slot'], GarmentSwatchId>>> = {},
 ): GarmentOutfitPalette => ({
   optionId: 'onboarding-welcome-preview',
-  pieces: pieces.map(({ garmentTypeId, slot }) => ({ garmentTypeId, slot })),
+  pieces: pieces.map(({ garmentTypeId, slot }) => ({ garmentTypeId, slot, recordedSwatchId: swatches[slot] })),
   temperatureC: sky.temperatureC,
   condition: sky.condition,
   isNight: sky.daypart === 'night',
@@ -131,8 +139,8 @@ const previewPalette = (
 });
 // Each outfit with the cut it is drawn in: a gender's outfits in that gender's catalog cut.
 type CutOutfit = readonly [readonly GarmentBoardPiece[], ClothingPreference];
-const stagePieces = (choices: typeof choicePreviewPieces, welcomeCut: ClothingPreference): readonly CutOutfit[] => [
-  [welcomePreviewPieces, welcomeCut],
+const stagePieces = (choices: typeof choicePreviewPieces): readonly CutOutfit[] => [
+  [unisexPreviewPieces, unisexPreviewCut],
   ...genderSchema.options.flatMap((gender) => Object.values(choices[gender])
     .map((pieces): CutOutfit => [pieces, catalogPreferenceByGender[gender]])),
 ];
@@ -242,7 +250,6 @@ export function OnboardingScreen({
   const ruledOutfits = weatherOutfits !== null && weatherOutfits.snapshot === placeWeather
     ? weatherOutfits.outfits : null;
   const choicePieces = ruledOutfits ?? choicePreviewPieces;
-  const profileCut = useGarmentCut();
   const skyStage = theme.atmosphere[resolveAtmosphereState(sky.condition, sky.daypart)];
   const skyCondition = resolveConditionStyle(sky.condition, sky.daypart);
   const step = onboardingSteps[draft.step];
@@ -344,13 +351,15 @@ export function OnboardingScreen({
   // One stage from the welcome to the dress style step, as tall as its tallest outfit, so a
   // swap never moves what is under it.
   const previewHeight = stageHeight(
-    step === 'welcome' ? [[welcomePreviewPieces, profileCut]] : stagePieces(choicePieces, profileCut), previewWidth, largeBoard);
+    step === 'welcome' ? [[unisexPreviewPieces, unisexPreviewCut]] : stagePieces(choicePieces), previewWidth, largeBoard);
   const previewGender = step !== 'welcome' ? draft.gender : null;
   const previewPieces = previewGender
     ? choicePieces[previewGender][draft.dressStyle ?? 'casual']
-    : welcomePreviewPieces;
-  // The preview is drawn in the cut of the gender being chosen; until one is, the profile's.
-  const previewCut = previewGender ? catalogPreferenceByGender[previewGender] : profileCut;
+    : unisexPreviewPieces;
+  // The preview is drawn in the cut of the gender being chosen; until one is, the unisex cut.
+  const previewCut = previewGender ? catalogPreferenceByGender[previewGender] : unisexPreviewCut;
+  // The later steps' tiles are drawn in the chosen gender's cut too.
+  const answerCut = draft.gender ? catalogPreferenceByGender[draft.gender] : unisexPreviewCut;
   const choiceStep = step === 'gender' || step === 'dress_style';
   const previewStage = (
     <PlateView
@@ -375,7 +384,8 @@ export function OnboardingScreen({
         <GarmentCutProvider cut={previewCut}>
           <GarmentPreviewBoard
             height={previewHeight}
-            palette={previewPalette(previewPieces, draft.dressStyle ?? 'casual', sky)}
+            palette={previewPalette(previewPieces, draft.dressStyle ?? 'casual', sky,
+              previewGender ? undefined : unisexPreviewSwatches)}
             pieces={previewPieces}
             stageColor={skyStage}
             testID="onboarding-welcome-board"
@@ -414,6 +424,7 @@ export function OnboardingScreen({
   );
 
   return (
+    <GarmentCutProvider cut={answerCut}>
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -667,6 +678,7 @@ export function OnboardingScreen({
         />
       </SafeAreaView>
     </KeyboardAvoidingView>
+    </GarmentCutProvider>
   );
 }
 

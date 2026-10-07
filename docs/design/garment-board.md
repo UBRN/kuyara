@@ -282,8 +282,12 @@ scales with it, 1.9 × size / 28 or about 1.1 points, because a fixed 1.9 would 
 **Cut.** A piece is drawn in the cut of the profile's catalogue: the silhouette map holds one
 drawing per type for `womens` and one for `mens` (`garment-silhouette-map.ts`), and the board,
 every tile and the Closet rack read the profile's cut from one context mounted at the app's
-root. Onboarding draws its preview and each gender answer in the cut that answer chooses, and
-`womens`, its first answer, before one is chosen. A cut's own drawing is named `<base>-f` or
+root. Onboarding draws each gender answer, and its preview and later tiles once a gender is
+chosen, in that answer's cut. Before one is chosen the preview is one unisex outfit, a light
+jacket, a tee, jeans and sneakers (types both catalogues carry) in fixed neutrals (navy,
+white, mid-wash, white), drawn in the men's straight cut, the block unisex clothing is cut on;
+the women's cut draws a fitted waist and a curved hip. Outside onboarding a profile without a
+catalogue reads `womens`. A cut's own drawing is named `<base>-f` or
 `<base>-m` and is coloured from its base's colourway, so a type takes the same colours in both
 cuts. Every type both catalogues carry resolves to a women's and a men's drawing; a
 women's-only type keeps its women's drawing in the men's cut, so a piece recorded under the

@@ -3,8 +3,8 @@ import { createContext, use, type ReactNode } from 'react';
 import type { ClothingPreference } from '@/domain/preferences';
 
 /**
- * The cut a profile's garments are drawn in before it has one: onboarding before the gender
- * step. Women's is the first gender the onboarding offers.
+ * The cut a profile's garments are drawn in while it has no catalogue. Onboarding sets its
+ * own cut (a unisex preview, then the chosen gender's), so nothing it draws reads this.
  */
 export const defaultGarmentCut: ClothingPreference = 'womens';
 
