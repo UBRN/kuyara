@@ -163,9 +163,9 @@ skirt, knit dress and weather boot each have their own. A women's-only type keep
 drawing in the men's cut, so a piece recorded under the other gender is still drawn. `dress`
 and `jumpsuit` are required because a one-piece look cannot otherwise be drawn.
 
-Seven accessory silhouettes, `beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`, `gloves`
-and `umbrella`, serve the eight catalogue accessories (`neck_gaiter` shares `scarf`'s) in
-both cuts, so 81 drawings cover all 49 catalogue types. They are
+The eight catalogue accessories, `beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`,
+`neck_gaiter`, `gloves` and `umbrella`, are drawn the same way: a women's and a men's drawing
+each, and no drawing serves two of them, so 90 drawings cover all 49 catalogue types. They are
 drawn on the Closet and Profile surfaces, the recommendation detail (its finishing-touch rows
 and the "Add an accessory" picker, [ADR 0026](0026-the-recommendation-detail-surface.md)
 section 6) and Today badges. The garment board itself does not draw them, so taking an

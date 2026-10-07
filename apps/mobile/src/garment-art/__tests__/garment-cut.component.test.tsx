@@ -4,7 +4,7 @@ import type { PropsWithChildren } from 'react';
 import { ClosetRack } from '@/garment-art/closet-rack';
 import { GarmentBoard, type GarmentBoardPiece } from '@/garment-art/garment-board';
 import { GarmentCutProvider } from '@/garment-art/garment-cut';
-import { GarmentDrawing } from '@/garment-art/garment-tile-artwork';
+import { GarmentCandidateTile, GarmentDrawing, GarmentTileArtwork } from '@/garment-art/garment-tile-artwork';
 import { silhouettes, type SilhouetteId } from '@/garment-art/silhouettes';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
@@ -43,4 +43,25 @@ test.each([
   const men = await render(element, { wrapper: ({ children }) => <Wrapper cut="mens">{children}</Wrapper> });
   expect(draws(men, 'g-tee-m')).toBe(true);
   expect(draws(men, 'g-tee-f')).toBe(false);
+});
+
+// An accessory is drawn in the cut too, wherever it appears: the finishing-touches caption,
+// the detail's rows, the add-accessory picker and the rack's hooks.
+const scarfOnHook = [{
+  id: 'scarf', garmentTypeId: 'scarf' as const, category: 'accessory' as const, colorFamily: null, wanted: false, addedAt: 1,
+}];
+
+test.each([
+  ['the caption', <GarmentDrawing category="accessory" garmentTypeId="scarf" key="caption" size={16} testID="caption" />],
+  ['a detail row', <GarmentTileArtwork category="accessory" colorFamily={null} garmentTypeId="scarf" glyphSize={16} height={28} key="row"
+    photoTestID="photo" photoUri={null} placeholderTestID="placeholder" silhouetteTestID="silhouette" width={28} />],
+  ['the picker', <GarmentCandidateTile category="accessory" garmentTypeId="scarf" key="picker" testIDPrefix="picker" />],
+  ['the rack', <ClosetRack key="rack" pieces={scarfOnHook} />],
+])('%s draws an accessory in the cut its provider names', async (_, element) => {
+  const womens = await render(element, { wrapper: ({ children }) => <Wrapper cut="womens">{children}</Wrapper> });
+  expect(draws(womens, 'g-scarf-f')).toBe(true);
+  expect(draws(womens, 'g-scarf-m')).toBe(false);
+  const men = await render(element, { wrapper: ({ children }) => <Wrapper cut="mens">{children}</Wrapper> });
+  expect(draws(men, 'g-scarf-m')).toBe(true);
+  expect(draws(men, 'g-scarf-f')).toBe(false);
 });

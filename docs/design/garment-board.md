@@ -231,10 +231,10 @@ quilt seams on the puffer and vest; rib collars, cuffs and hem bands on the bomb
 knits, with the turtleneck's folded roll neck; the biker jacket's diagonal zip, studded
 lapels and belt; the jumpsuit's placket and tie belt; the men's Chelsea boot's gusset and
 pull tab and the women's zipped, block-heeled ankle boot, the rain boot's lugged sole, the sandal's contoured cork footbed and buckled straps, the
-ballet flat's bow; a beanie's converging rib and folded cuff, a fedora's dented crown and
-band, a six-panel cap with its button and stitched peak, a balaclava's bound face opening,
-a draped scarf with its fringe, a pair of gloves with points and fourchettes, and an
-umbrella whose canopy sags between its rib tips above a wooden crook. The six category
+ballet flat's bow; a beanie's rib and folded cuff, a hat's crown and band, a cap's panels
+and peak, a balaclava's bound face opening, a scarf's ends, a pair of gloves with points and
+fourchettes, and an umbrella whose canopy sags between its rib tips above a wooden handle.
+The six category
 glyphs share the same cut in a single colour and one or two construction lines. One light from the upper left
 models every piece. Each plain surface is graded by a single gradient from a soft light
 through the piece's colour to its deepest shade, with a soft bloom of the piece's own light
@@ -252,7 +252,7 @@ shade, highlight and glint, or its material's), and every translucent layer lies
 drawing over its own opaque fill, so nothing behind the garment shows through and no light
 or shadow crosses the ink edge. A pattern or the multicolour family fill keeps its own paint
 and takes the same modelling over it. Each drawing stays within 130 vector elements at full
-detail (about 64 on average; the women's trench, at 127, is the heaviest), so a Closet grid or a
+detail (about 66 on average; the women's trench, at 127, is the heaviest), so a Closet grid or a
 swap strip of many drawings stays light. The drawn bounds the rule reads are measured from the
 outlines, which the modelling never crosses. They cover all **41 outfit-eligible catalogue
 types** in each cut, and no drawing serves two types: the overshirt, sweatshirt, fleece, track
@@ -272,12 +272,28 @@ its boards in the cut drawings: `g-tee`, `g-shirt`,
 `g-shorts`, `g-dress`, `g-sneaker`, `g-boot`, `g-dressshoe` and `x-loafer`.
 
 The eight catalogue accessories (`beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`,
-`neck_gaiter`, `gloves`, `umbrella`) carry seven further drawings, `neck_gaiter` sharing
-`scarf`'s. They appear on the Closet and Profile surfaces, the recommendation detail and
-Today's finishing-touches caption. The garment board's fixed geometry does not draw them.
-At that caption's 16 points each drawing is cropped to its own artwork and its stroke
-scales with it, 1.9 × size / 28 or about 1.1 points, because a fixed 1.9 would fill a
-16-point drawing solid.
+`neck_gaiter`, `gloves`, `umbrella`) are drawn once for each cut too, eight women's and
+eight men's drawings, and no drawing serves two of them. They appear on the Closet and
+Profile surfaces, the recommendation detail and Today's finishing-touches caption. The
+garment board's fixed geometry does not draw them, so they are fitted to a box instead of
+the proportion grid and keep the 25 to 47 unit extent the painter's edge band, rim and cast
+shadow are weighed for. Below 32 points the painter drops their tone lines, stitches,
+hardware, highlights and weave, so each cut's cue lives in the outline and in the fills the
+caption keeps: a women's slouchy cable beanie with a pompom against a men's fitted watch cap
+with a deep cuff and woven label; a wide soft sun hat with a bow against a fedora with a
+pinched crown and snap brim; a low, rounded cap with an arched opening at the back for tied
+hair and a downcurved brim against a structured six-panel cap with a long flat peak; a round
+knit hood with a large oval opening and a ruffled cowl against a snug ribbed balaclava with
+a squared window and a straight neck; a long, soft, fringed wrap scarf with one wide end
+over the shoulder against a narrow, squared rib-knit scarf; a slouchy flared knit cowl
+against a straight fleece tube with a drawcord and cord lock; slim leather gloves with long
+tapering fingers and flared gauntlet cuffs against broad gloves with square fingers and
+short rib cuffs; a compact, deeply domed umbrella on a crook against a wide, shallow golf
+canopy with a vented top and a straight grip. Each pair is coloured from one list, its
+base's (`neck_gaiter` from its own `g-neckgaiter`).
+At that caption's 16 points each drawing is cropped to its own artwork and its stroke scales
+with it, 1.9 × size / 28 or about 1.1 points, because a fixed 1.9 would fill a 16-point
+drawing solid.
 
 **Cut.** A piece is drawn in the cut of the profile's catalogue: the silhouette map holds one
 drawing per type for `womens` and one for `mens` (`garment-silhouette-map.ts`), and the board,
@@ -289,9 +305,9 @@ white, mid-wash, white), drawn in the men's straight cut, the block unisex cloth
 the women's cut draws a fitted waist and a curved hip. Outside onboarding a profile without a
 catalogue reads `womens`. A cut's own drawing is named `<base>-f` or
 `<base>-m` and is coloured from its base's colourway, so a type takes the same colours in both
-cuts. Every type both catalogues carry resolves to a women's and a men's drawing; a
-women's-only type keeps its women's drawing in the men's cut, so a piece recorded under the
-other gender is still drawn. The accessories keep one drawing in both cuts.
+cuts. Every type both catalogues carry, garment or accessory, resolves to a women's and a
+men's drawing; a women's-only type keeps its women's drawing in the men's cut, so a piece
+recorded under the other gender is still drawn.
 
 **Fallback.** A garment with no silhouette falls back to its structural category and is
 composed by the identical rule, with its drawn bounds measured from the artwork's alpha
@@ -471,8 +487,7 @@ Six everyday outfits in each cut, measured as drawn boxes against the top's: tro
 2. **Six structural categories cannot separate `primary_top` from `mid_layer`.** Both
    fall back to `top`, so an all-fallback board draws the same shape twice at two sizes.
 3. **The nine new silhouettes need approval**, and the `sandal` is the weakest of them.
-   (Approved with the rest of the twenty-two by ADR 0025's acceptance on 2026-09-04;
-   only the five accessory drawings remain unapproved.)
+   (Approved with the rest of the twenty-two by ADR 0025's acceptance on 2026-09-04.)
 4. **The Balanced Horizon geometry is still unrepresented on Today.** ADR 0021 records
    this as an open problem with two attempts already spent. This rule does not address
    it and deliberately leaves no room for a mark inside the stage.

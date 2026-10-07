@@ -3,12 +3,6 @@ import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domai
 
 import { silhouettes, type SilhouetteId } from './silhouettes';
 
-// The accessories keep one drawing in both cuts.
-const accessoryDrawings = {
-  beanie: 'g-beanie', brimmed_hat: 'g-hat', cap: 'g-cap', balaclava: 'g-balaclava',
-  scarf: 'g-scarf', neck_gaiter: 'g-scarf', gloves: 'g-gloves', umbrella: 'g-umbrella',
-} as const satisfies Partial<Record<GarmentTypeId, SilhouetteId>>;
-
 const womensDrawings = {
   t_shirt: 'g-tee-f', long_sleeve_t_shirt: 'g-long-f', sleeveless_top: 'g-tank-f', shirt: 'g-shirt-f',
   overshirt: 'g-overshirt-f', polo_shirt: 'x-polo-f', blouse: 'x-blouse-f', sweater: 'g-sweater-f',
@@ -20,7 +14,9 @@ const womensDrawings = {
   parka: 'g-parka-f', blazer: 'g-blazer-f', puffer_vest: 'g-vest-f', bomber_jacket: 'x-bomber-f',
   leather_jacket: 'x-leather-f', sneakers: 'g-sneaker-f', closed_shoes: 'g-dressshoe-f', ankle_boots: 'g-boot-f',
   weather_boots: 'g-weatherboot-f', sandals: 'g-sandal-f', loafers: 'x-loafer-f', rain_boots: 'x-rainboot-f',
-  ballet_flats: 'g-flat-f',
+  ballet_flats: 'g-flat-f', beanie: 'g-beanie-f', brimmed_hat: 'g-hat-f', cap: 'g-cap-f',
+  balaclava: 'g-balaclava-f', scarf: 'g-scarf-f', neck_gaiter: 'g-neckgaiter-f', gloves: 'g-gloves-f',
+  umbrella: 'g-umbrella-f',
 } as const satisfies Partial<Record<GarmentTypeId, SilhouetteId>>;
 
 const mensDrawings = {
@@ -32,18 +28,20 @@ const mensDrawings = {
   coat: 'x-coat-m', parka: 'g-parka-m', blazer: 'g-blazer-m', puffer_vest: 'g-vest-m', bomber_jacket: 'x-bomber-m',
   leather_jacket: 'x-leather-m', sneakers: 'g-sneaker-m', closed_shoes: 'g-dressshoe-m', ankle_boots: 'g-boot-m',
   weather_boots: 'g-weatherboot-m', sandals: 'g-sandal-m', loafers: 'x-loafer-m', rain_boots: 'x-rainboot-m',
+  beanie: 'g-beanie-m', brimmed_hat: 'g-hat-m', cap: 'g-cap-m', balaclava: 'g-balaclava-m',
+  scarf: 'g-scarf-m', neck_gaiter: 'g-neckgaiter-m', gloves: 'g-gloves-m', umbrella: 'g-umbrella-m',
 } as const satisfies Partial<Record<GarmentTypeId, SilhouetteId>>;
 
 /**
  * The drawing of every catalog type in each cut: a piece is drawn in the cut of the profile's
- * catalog, so a women's shirt and a men's shirt are two drawings. A cut's own drawing of a
- * type is `<base>-f` or `<base>-m` and shares its base's colourway (`colorwayKeyOf`). A
- * women's-only type keeps its women's drawing in the men's cut, so a piece recorded under the
- * other gender is still drawn.
+ * catalog, so a women's shirt and a men's shirt, or a women's and a men's scarf, are two
+ * drawings. A cut's own drawing of a type is `<base>-f` or `<base>-m` and shares its base's
+ * colourway (`colorwayKeyOf`). A women's-only type keeps its women's drawing in the men's cut,
+ * so a piece recorded under the other gender is still drawn.
  */
 export const garmentSilhouetteIds: Readonly<Record<ClothingPreference, Readonly<Record<GarmentTypeId, SilhouetteId>>>> = {
-  womens: { ...womensDrawings, ...accessoryDrawings },
-  mens: { ...womensDrawings, ...mensDrawings, ...accessoryDrawings },
+  womens: womensDrawings,
+  mens: { ...womensDrawings, ...mensDrawings },
 };
 
 export const categoryGlyphIds = {

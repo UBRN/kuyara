@@ -115,6 +115,7 @@ const COLORWAY = {
   'g-longskirt': CW(['camel', 'olive', 'black', 'navy', 'sage', 'dustyrose', 'rust', 'burgundy']),
   'g-knitdress': CW(['camel', 'charcoal', 'black', 'ecru', 'burgundy', 'forest', 'heather']),
   'g-weatherboot': CW(['tan', 'chocolate', 'olive', 'black'], MATERIAL.soleBlack, MATERIAL.silver),
+  'g-neckgaiter': CW(['charcoal', 'black', 'navy', 'heather', 'olive', 'forest', 'burgundy', 'ecru'], null, MATERIAL.silver),
 };
 
 const MOOD = {
@@ -217,7 +218,7 @@ const garmentColorwayIds = {
   weather_boots: 'g-weatherboot', sandals: 'g-sandal', loafers: 'x-loafer',
   ballet_flats: 'g-flat', rain_boots: 'x-rainboot', beanie: 'g-beanie',
   brimmed_hat: 'g-hat', cap: 'g-cap', balaclava: 'g-balaclava',
-  scarf: 'g-scarf', neck_gaiter: 'g-scarf', gloves: 'g-gloves',
+  scarf: 'g-scarf', neck_gaiter: 'g-neckgaiter', gloves: 'g-gloves',
   umbrella: 'g-umbrella',
 } as const satisfies Record<GarmentTypeId, keyof typeof COLORWAY>;
 

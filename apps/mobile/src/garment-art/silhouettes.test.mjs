@@ -51,18 +51,15 @@ function drawnBounds(paths) {
   };
 }
 
-// ADR 0025's vocabulary: every catalogue garment in each cut (41 women's, 33 men's), the seven
-// accessory drawings both cuts share, the six category glyphs, and fifteen base drawings that
-// nothing draws any more.
-const accessories = ['g-beanie', 'g-hat', 'g-cap', 'g-balaclava', 'g-scarf', 'g-gloves', 'g-umbrella'];
-
-test('the vocabulary holds 74 cut drawings, seven accessories, six glyphs and fifteen unused base drawings', () => {
+// ADR 0025's vocabulary: every catalogue type in each cut, accessories included (49 women's,
+// 41 men's), the six category glyphs, and fifteen base drawings that nothing draws any more.
+// No drawing is shared by both cuts.
+test('the vocabulary holds 90 cut drawings, six glyphs and fifteen unused base drawings', () => {
   const ids = Object.keys(silhouettes);
   assert.equal(ids.filter((id) => id.startsWith('g-cat-')).length, 6);
-  assert.equal(ids.filter((id) => id.endsWith('-f')).length, 41);
-  assert.equal(ids.filter((id) => id.endsWith('-m')).length, 33);
-  for (const id of accessories) assert.ok(silhouettes[id], id);
-  assert.equal(ids.filter((id) => !id.startsWith('g-cat-') && !/-[fm]$/.test(id) && !accessories.includes(id)).length, 15);
+  assert.equal(ids.filter((id) => id.endsWith('-f')).length, 49);
+  assert.equal(ids.filter((id) => id.endsWith('-m')).length, 41);
+  assert.equal(ids.filter((id) => !id.startsWith('g-cat-') && !/-[fm]$/.test(id)).length, 15);
 });
 
 test('every authored bound matches the drawn outlines without stroke', () => {

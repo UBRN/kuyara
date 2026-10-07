@@ -44,7 +44,7 @@ test('each accessory type resolves to its own silhouette instead of the category
     cap: 'g-cap',
     balaclava: 'g-balaclava',
     scarf: 'g-scarf',
-    neck_gaiter: 'g-scarf',
+    neck_gaiter: 'g-neckgaiter',
     gloves: 'g-gloves',
     umbrella: 'g-umbrella',
   };
@@ -100,18 +100,19 @@ test('a women\'s-only type draws the same drawing in both cuts', () => {
   }
 });
 
-// A type both catalogs carry is drawn masculine for men and feminine
-// for women, never one drawing for both, and no drawing serves two types of one cut.
-test('a body type both catalogs carry resolves to a women\'s and a men\'s drawing', () => {
-  for (const id of bodyTypes.filter(inBothCatalogs)) {
+// A type both catalogs carry, garment or accessory, is drawn masculine for men and feminine for
+// women, never one drawing for both, and no drawing serves two types of one cut.
+test('a type both catalogs carry resolves to a women\'s and a men\'s drawing', () => {
+  assert.equal(garmentTypeIds.length - bodyTypes.length, 8);
+  for (const id of garmentTypeIds.filter(inBothCatalogs)) {
     assert.match(garmentSilhouetteIdFor(id, 'womens'), /-f$/, id);
     assert.match(garmentSilhouetteIdFor(id, 'mens'), /-m$/, id);
   }
-  for (const id of bodyTypes.filter((type) => !inBothCatalogs(type))) {
+  for (const id of garmentTypeIds.filter((type) => !inBothCatalogs(type))) {
     assert.match(garmentSilhouetteIdFor(id, 'womens'), /-f$/, id);
   }
   for (const cut of clothingPreferences) {
-    const drawn = bodyTypes.filter((id) => getGarmentType(id).apparelPreferenceApplicability.includes(cut))
+    const drawn = garmentTypeIds.filter((id) => getGarmentType(id).apparelPreferenceApplicability.includes(cut))
       .map((id) => garmentSilhouetteIdFor(id, cut));
     assert.equal(new Set(drawn).size, drawn.length, cut);
   }

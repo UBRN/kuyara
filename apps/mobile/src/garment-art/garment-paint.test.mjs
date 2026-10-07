@@ -13,7 +13,7 @@ const paint = (silhouette, extra = {}) => paintGarment({
 
 // The Closet grid draws many tiles and the swap strip many thumbnails: every drawing keeps a
 // bounded element count, so the illustration never makes a scroll heavy. The cut drawings
-// average about 64 elements; the women's trench, double-breasted with its belt, buckle, cuff
+// average about 66 elements; the women's trench, double-breasted with its belt, buckle, cuff
 // straps and storm flap, is the heaviest at 127.
 const NODE_BUDGET = 130;
 
