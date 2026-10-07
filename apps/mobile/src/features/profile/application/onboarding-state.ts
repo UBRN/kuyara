@@ -11,7 +11,6 @@ import type {
  * one step.
  */
 export const onboardingSteps = ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles'] as const;
-export type OnboardingStepId = (typeof onboardingSteps)[number];
 export type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5;
 const lastStep = (onboardingSteps.length - 1) as OnboardingStep;
 

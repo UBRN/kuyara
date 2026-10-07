@@ -33,7 +33,6 @@ import {
 } from '@/garment-art';
 import type { ClothingPreference } from '@/domain/preferences';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
-import { useOnboardingEvents } from '@/features/analytics/application/use-interaction-events';
 import {
   createOnboardingDraft,
   onboardingPreferencesFromDraft,
@@ -255,7 +254,6 @@ export function OnboardingScreen({
   const step = onboardingSteps[draft.step];
   const hasValidName = Boolean(draft.displayName?.trim())
     && !displayNameIssue(draft.displayName ?? '');
-  const onboardingEvents = useOnboardingEvents();
 
   const stepTitle = {
     welcome: copy.welcomeTitle,
@@ -302,9 +300,6 @@ export function OnboardingScreen({
     if (dressStyleMissing) {
       AccessibilityInfo.announceForAccessibility(copy.dressStyleRequiredError);
     }
-    // Taxonomy 5.2: only a step the user actually advances past is reported; a step the
-    // reducer blocks for a missing required value stays silent.
-    if (!genderMissing && !dressStyleMissing) onboardingEvents.stepAdvanced(draft, activeLocationSource);
     dispatch({ type: 'continue' });
   };
 
@@ -325,10 +320,7 @@ export function OnboardingScreen({
     setSaveError(false);
     // A promise chain, not try/finally: React Compiler does not compile a component holding a
     // `finally` clause, and the whole onboarding tree then re-rendered on every step.
-    await (async () => {
-      await onComplete(preferences);
-      onboardingEvents.completed(preferences, activeLocationSource);
-    })()
+    await onComplete(preferences)
       .catch(() => {
         setSaveError(true);
         AccessibilityInfo.announceForAccessibility(copy.saveError);
@@ -637,7 +629,6 @@ export function OnboardingScreen({
                 label={copy.nameNotNow}
                 onPress={() => {
                   dispatch({ type: 'set-display-name', value: null });
-                  onboardingEvents.stepAdvanced(draft, activeLocationSource);
                   dispatch({ type: 'continue' });
                 }}
                 testID="onboarding-name-skip"

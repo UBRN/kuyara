@@ -1,4 +1,5 @@
 import type { DressStyle } from '@kuyara/contracts';
+import { useCallback } from 'react';
 
 import type { ClothingPreference } from '@/domain/preferences';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
@@ -52,7 +53,9 @@ export function composeInputFor(
  * The outfit detail shows and edits: kuyara's pick, or a result composed around chosen pieces
  * once there is one, on the day `composeInputFor` reads from `snapshot` (null composes
  * nothing). Each showing keeps its own edits, so an edit never crosses between the pick and a
- * composed option, even one built from the same pieces with the same id.
+ * composed option, even one built from the same pieces with the same id. `onPieceChanged`
+ * hears each change to one piece, told whether a composed result is showing; `onComposed`
+ * hears each settled compose attempt with the pieces chosen and the outfits built.
  */
 export function useDetailMix(
   pick: RecommendedOutfit | null,
@@ -61,11 +64,20 @@ export function useDetailMix(
   snapshot: Parameters<typeof composeInputFor>[0],
   resolvedDressStyle: DressStyle | null,
   now: number,
+  reports: Readonly<{
+    onPieceChanged?: (slot: OutfitSlot, composed: boolean) => void;
+    onComposed?: (pieceCount: number, optionCount: number) => void;
+  }> = {},
 ): Readonly<{ composed: ComposeAroundPieces; manualMix: ManualMix<RecommendedOutfit> | null }> {
-  const composed = useComposeAroundPieces(composeInputFor(snapshot, requirements, resolvedDressStyle, now));
+  const composed = useComposeAroundPieces(
+    composeInputFor(snapshot, requirements, resolvedDressStyle, now), reports.onComposed);
   const option = composed.current;
+  const { onPieceChanged } = reports;
+  const composedShowing = option !== null;
+  const pieceChanged = useCallback((slot: OutfitSlot) => onPieceChanged?.(slot, composedShowing),
+    [composedShowing, onPieceChanged]);
   const manualMix = useManualMix(option?.outfit ?? pick, requirements, preference, option?.unusual ?? false,
-    option ? composed.key : undefined);
+    option ? composed.key : undefined, pieceChanged);
   return { composed, manualMix };
 }
 

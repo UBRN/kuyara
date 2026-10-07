@@ -35,7 +35,7 @@ test('recovery emits the buffered error_shown before error_recovered', () => {
     'error_recovered',
   ]);
   assert.deepEqual(captures[0].properties, {
-    schema_version: 3,
+    schema_version: 4,
     surface: 'today',
     failure_category: 'offline',
     occurrence_count: 2,

@@ -7,16 +7,22 @@ import { weatherConditionCodes } from '@/features/weather/domain/weather';
 import {
   ageBucketProperty,
   aiProbeResultProperty,
+  composedPieceCount,
+  composeResultProperty,
   conditionCategory,
   countBucket,
+  dayStyleChoiceSourceProperty,
   dressStyleProperty,
   failureCategoryProperty,
   generationModeProperty,
   locationChangedMethodProperty,
-  onboardingLocationMethodProperty,
+  outfitSlotProperty,
   triggerReasonProperty,
+  wornSourceProperty,
 } from './domain/analytics-mappers.ts';
 import { recommendationGenerationModes } from '../recommendation/domain/generation-mode.ts';
+import { dressingDayChoiceSourceSchema } from '../recommendation/domain/dressing-day-choice.ts';
+import { outfitSlots } from '../recommendation/domain/outfit-slots.ts';
 
 test('every failure category maps to a snake_case property', () => {
   assert.deepEqual(
@@ -81,15 +87,38 @@ test('counts bucket into one through four and 5+', () => {
   ]);
 });
 
-test('every active location source maps to both event vocabularies', () => {
+test('every active location source maps to the event vocabulary', () => {
   assert.deepEqual(
     ['device', 'manual'].map(locationChangedMethodProperty),
     ['device', 'manual_selection'],
   );
+});
+
+// Taxonomy 5.6: the ten domain slots, body then accessory, each map to their own id.
+test('every outfit slot maps to a closed slot id', () => {
+  assert.deepEqual(outfitSlots.map(outfitSlotProperty), [
+    'primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear',
+    'head', 'neck', 'hands', 'handheld',
+  ]);
+});
+
+test('a composed result is composed whatever the stored source, otherwise manual reads edited', () => {
+  assert.equal(wornSourceProperty('recommended', false), 'recommended');
+  assert.equal(wornSourceProperty('manual', false), 'edited');
+  assert.equal(wornSourceProperty('manual', true), 'composed');
+  assert.equal(wornSourceProperty('recommended', true), 'composed');
+});
+
+test('every day style choice source maps to itself', () => {
   assert.deepEqual(
-    ['device', 'manual', null].map(onboardingLocationMethodProperty),
-    ['device', 'manual', 'skipped'],
+    dressingDayChoiceSourceSchema.options.map(dayStyleChoiceSourceProperty),
+    ['morning', 'chip', 'plan', 'random'],
   );
+});
+
+test('chosen pieces bucket into one, two and three or more; no outfit built is no match', () => {
+  assert.deepEqual([1, 2, 3, 4].map(composedPieceCount), [1, 2, '3+', '3+']);
+  assert.deepEqual([0, 1, 3].map(composeResultProperty), ['no_match', 'composed', 'composed']);
 });
 
 test('every completed AI probe state maps to the event vocabulary', () => {

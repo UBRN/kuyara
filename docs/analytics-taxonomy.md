@@ -84,8 +84,8 @@ Constraints on that identity, all of them settled by ADR 0033 section 5 unless n
 **Consent gate.** No event defined in section 5 is recorded or leaves the device before
 consent is granted; the SDK client does not exist before then. While the answer is
 `undecided`, captures are dropped rather than stored or queued, and recording starts at
-acceptance. The onboarding funnel before the consent surface is not measurable for a
-fresh install. A decline sends
+acceptance. Onboarding runs before the consent question, so it is not measured here (section
+5.2). A decline sends
 nothing at all, not even a "declined" event (see section 5.14). Nothing in this taxonomy
 overrides that gate.
 
@@ -116,12 +116,12 @@ and would hide the one segment where a product or legal question could arise. Bo
 are still derived at emit time only; no bucket is stored, and the date and year never leave
 the device.
 
-**Attachment rule.** The two properties are attached to exactly four events: `onboarding_completed`, `recommendation_viewed`,
+**Attachment rule.** The two properties are attached to exactly three events: `recommendation_viewed`,
 `outfit_detail_opened`, and `closet_item_created`. No other event in section 5 carries
-either property. Two places carry a dress-style value for a different reason and are not
-segmentation: the `dress_style` step of `onboarding_step_completed`, and
-`setting_changed`'s `new_value` when `setting_name` is `dress_style`. Both report the value
-being chosen.
+either property. Three places carry a dress-style value for a different reason and are not
+segmentation: `setting_changed`'s `new_value` when `setting_name` is `dress_style`,
+`day_style_changed`, and `outfit_worn_logged`. The first two report the value being chosen;
+the last reports the worn outfit's own formality. None of them carries `age_bucket`.
 
 `gender` is intentionally never an analytics property.
 
@@ -162,11 +162,11 @@ surface became part of milestone 10 under ADR 0033.
 
 Every custom event sent through the `ProductAnalytics` boundary carries `schema_version`
 (integer). It is incremented when an existing event's properties change meaning or an
-allowed value set changes. The current version is 3. The SDK-supplied app
+allowed value set changes. The current version is 4. The SDK-supplied app
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
-**Count.** This document defines **twenty-four custom events**.
+**Count.** This document defines **twenty-six custom events**.
 
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
 form of a kebab-case domain type. `generation_mode` is `on_device_ai` / `ai_assisted` / `deterministic_fallback`
@@ -219,37 +219,18 @@ or added here through review, never accepted implicitly.
 **Product questions answered.** Lifecycle autocapture answers "how often and how long is the
 app used?"
 
-### 5.2 Onboarding progress and abandonment
+### 5.2 Onboarding
 
-The funnel has five reported steps: welcome, gender, dress style, birth date (optional),
-location (optional). On screen they run welcome, location, the name and birth date step,
-gender, dress style and the unreported style preferences step, which completes onboarding
-(ADR 0031 section 5, `onboardingSteps` in `features/profile/application/onboarding-state.ts`).
-Each reported step keeps its own `step_index` whatever its place on screen; the name and
-birth date step reports `birth_date`, and the location step reports when the user leaves it
-forward. Abandonment is read from
-PostHog funnels between `onboarding_started` and `onboarding_completed`, not from a
-dedicated abandonment event, since there is no reliable trigger for "the user will never
-come back."
+Onboarding runs before the consent question: the consent surface is shown on Today from the
+second session, after the first recommendation (ADR 0033 sections 3 and 6). PostHog therefore
+carries no onboarding events, and none is defined here. Downloads, first sessions and
+retention before consent are read from App Store Connect App Analytics; PostHog measures from
+consent onward.
 
-| Event | Trigger | Properties | Sampling / aggregation |
-| --- | --- | --- | --- |
-| `onboarding_started` | The welcome step is shown. | none | n/a |
-| `onboarding_step_completed` | The user advances past a step. | `step_name` (`welcome`\|`gender`\|`dress_style`\|`birth_date`\|`location`), `step_index` (1-5), `skipped` (boolean, only meaningful for `birth_date`/`location`), `dress_style` (only on the `dress_style` step, section 3) | none |
-| `onboarding_completed` | The last step finishes and the app enters the main tabs. | `dress_style` and `age_bucket` (section 3), `location_method` (`device`\|`manual`\|`skipped`) | none |
-
-`gender` is intentionally absent from every onboarding event (section 3/4).
-
-The five-value onboarding step enum is final: the consent surface is shown on Today after
-the first recommendation has rendered, so onboarding keeps the steps ADR 0031 records and no
-consent step is added.
-
-**Product questions answered.**
-
-- `onboarding_started`: how many people begin onboarding at all, relative to installs?
-- `onboarding_step_completed`: where in onboarding do people stop?
-- `onboarding_completed`: what share of started onboardings finish, and with which dress
-  style, age bucket, and location method?
+Nothing emitted by an onboarding screen is sent, and the code emits nothing from it: the
+onboarding screen records no `screen_viewed`, and a place chosen during onboarding records
+neither `location_changed` nor the first use of `location_override`. The day type answered
+at the end of setup is written like any other, without a `day_style_changed` (section 5.5).
 
 ### 5.3 Screen and navigation usage
 
@@ -258,7 +239,7 @@ to keep coverage of "every screen" proportionate in event count.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `screen_viewed` | A tracked screen gains focus. | `screen_name`: `onboarding`, `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `settings`, `settings_appearance`, `settings_language`, `settings_notifications`, `settings_gender`, `settings_dress_style`, `settings_birth_date`, `settings_ai_status`, `settings_privacy`, `analytics_consent_sheet` |
+| `screen_viewed` | A tracked screen gains focus. | `screen_name`: `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `settings`, `settings_appearance`, `settings_language`, `settings_notifications`, `settings_gender`, `settings_dress_style`, `settings_birth_date`, `settings_ai_status`, `settings_privacy`, `analytics_consent_sheet` |
 
 The implemented values mirror routes that exist, including `settings_privacy`, which is the
 Privacy surface under Settings. There is no `closet_item_detail` value because there is no
@@ -267,9 +248,9 @@ Closet detail screen: the grid's tile opens the edit form directly, so
 new and edit routes. Adding a route means adding a value here, not inventing an ad hoc name
 at the call site.
 
-The `onboarding` screen value covers the whole onboarding flow. The consent surface is shown on
-Today after the first recommendation has rendered, so `screen_name` also carries
-`analytics_consent_sheet`; its route is `analytics-consent`.
+The consent surface is shown on Today after the first recommendation has rendered, so
+`screen_name` carries `analytics_consent_sheet`; its route is `analytics-consent`. Onboarding
+has no value (section 5.2).
 
 **Product questions answered.**
 
@@ -280,7 +261,7 @@ Today after the first recommendation has rendered, so `screen_name` also carries
 | Event | Trigger | Properties |
 | --- | --- | --- |
 | `weather_refreshed` | A weather fetch attempt completes. | `trigger_method` (`manual`\|`automatic_no_cache`\|`automatic_stale`\|`location_changed`), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `condition_category` (present only when `result` is `success`) |
-| `location_changed` | The active location changes, in onboarding or in Settings/Weather. | `method` (`device`\|`manual_selection`), `change_context` (`onboarding`\|`weather_tab`) |
+| `location_changed` | The active location changes on the Weather tab. | `method` (`device`\|`manual_selection`), `change_context` (`weather_tab`) |
 
 The trigger enum exhausts the controller's fetch paths. An explicit `refresh()` is
 `manual`; startup or foreground refresh with no matching snapshot is
@@ -317,7 +298,7 @@ table in the same change.
 - `weather_refreshed`: how often do refreshes succeed versus fail, and under which
   conditions?
 - `location_changed`: how do people set their location, and how often does it change after
-  onboarding?
+  setup?
 
 ### 5.5 Recommendation impressions and interactions
 
@@ -325,6 +306,7 @@ table in the same change.
 | --- | --- | --- |
 | `recommendation_viewed` | Today gains focus while a recommendation is visible, once per focus appearance. | `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (`3`), `dress_style` and `age_bucket` (section 3) |
 | `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (seven emitted values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`), `regeneration_source` (`ai`\|`pool`, present only when `result` is `success` and `trigger_reason` is `regenerate`) |
+| `day_style_changed` | A formality is written for a dressing day: the day question's answer or its dismissal, or a confirmed re-ask whose formality differs from the one in force. | `dress_style` (`casual`\|`smart`\|`formal`, the formality written; section 3), `choice_source` (`morning`\|`chip`\|`plan`\|`random`) |
 
 `recommendation_viewed` is an impression, not a render counter. Rerenders while Today
 remains focused do not emit it again. When cache states overlap, `refreshing` takes
@@ -371,11 +353,18 @@ The recommendation provider's `refresh` callback is the remaining production sou
 `explicit_request`; a later caller of that callback would also emit it. Confirmed re-asks
 use `regenerate` instead.
 
-Manual edits on outfit detail emit no event and carry no property: taking a layer off,
-adding a layer or an accessory, taking an accessory off, swapping a piece and composing
-around chosen pieces are not generation triggers, produce no `trigger_reason` value, and
-the members-only compose row and its sign-in sheet add neither an event nor a property.
-A composed result that is worn records through "Wore this today", which emits no event.
+`day_style_changed` is emitted once for each row written to the day's formality store, not
+per render. `choice_source` is the stored `DressingDayChoiceSource` mapped one to one: the
+day question and its dismissal write `morning`, a confirmed re-ask writes `chip`, and `plan`
+and `random` are declared values no screen writes yet. A re-ask that confirms the formality
+already in force writes nothing and emits nothing. The styles chosen beside the day type are
+never reported. The answer onboarding writes at the end of setup is not reported, because it
+runs before the consent question (section 5.2).
+
+Manual edits on outfit detail are not generation triggers and produce no `trigger_reason`
+value; the members-only compose row and its sign-in sheet add neither an event nor a
+property. The edits and the compose they lead to are reported as the outfit events of
+section 5.6.
 
 **Product questions answered.**
 
@@ -383,18 +372,55 @@ A composed result that is worn records through "Wore this today", which emits no
   recommendation, and does that differ by dress style or age bucket?
 - `recommendation_regenerated`: which trigger actually drives regeneration, and how often
   does it fail?
+- `day_style_changed`: which formality do people choose for the day, and through which
+  control?
 
 ### 5.6 Outfit selection
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
 | `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `dress_style` and `age_bucket` (section 3) |
-Opening detail is an impression of interest. Logging a worn outfit emits no new event.
+| `outfit_worn_logged` | The user confirms "Wore this today" on outfit detail and the History write succeeds. | `worn_source` (`recommended`\|`edited`\|`composed`), `archetype` (as above), `dress_style` (the worn outfit's own formality), `generation_mode` (as above, omitted for a composed result and for an idea that is not one of the three) |
+| `outfit_piece_changed` | The reader changes one piece of an outfit on detail. | `slot` (`primary_top`\|`bottom`\|`one_piece`\|`mid_layer`\|`outer_layer`\|`footwear`\|`head`\|`neck`\|`hands`\|`handheld`), `outfit_position` (`1`\|`2`\|`3`, omitted for a composed result and for an idea) |
+| `outfit_composed` | The reader asks kuyara to build an outfit around chosen pieces and the attempt settles. | `piece_count` (`1`\|`2`\|`3+`), `result` (`composed`\|`no_match`) |
+| `tomorrow_preview_opened` | The user opens tomorrow's previewed outfit from the evening strip on Today. | `generation_mode` (as above) |
+
+Opening detail is an impression of interest.
+
+`worn_source` is mapped once from the worn record and the showing: a composed result is
+`composed`, an outfit the reader changed from kuyara's pick is `edited` (the stored source
+`manual`), and kuyara's pick as recommended is `recommended`. The event is emitted after the
+write succeeds, once per confirmation; a look the day already holds offers no confirmation,
+and no screen undoes a worn look, so nothing else is reported. `dress_style` is the worn
+outfit's formality and `archetype` the pick's, kept by a composed or edited outfit.
+
+`outfit_piece_changed` is emitted once for each change to one slot: a swap (by tap, swipe,
+arrows or the picker), a mid or outer layer added or taken off, an accessory added or taken
+off. A choice that changes nothing, "back to kuyara's pick" and giving back every finishing
+touch at once report nothing. It carries the slot and never the garment, its colour or its
+name. The outfit's place is omitted when the showing is a composed result, which has none, and
+for an idea from Today's More ideas. Tomorrow's preview is read-only for the day and reports
+nothing.
+
+`outfit_composed` is emitted when a compose attempt settles, with the number of chosen
+pieces (three at most, so `3+` is exactly three) and whether any outfit was built. `result`
+is `composed` when at least one outfit came back and `no_match` otherwise, an unavailable
+day included. Stepping to another option and "back to kuyara's pick" report nothing.
+
+`tomorrow_preview_opened` is emitted once per focus of tomorrow's detail, when the strip's
+outfit is showing. Tomorrow's detail still records no `screen_viewed` and no
+`outfit_detail_opened`.
 
 **Product questions answered.**
 
 - `outfit_detail_opened`: which outfit position and archetype do people open, and does that
   vary by generation mode, dress style, or age bucket?
+- `outfit_worn_logged`: how often is a look worn, from which source, and which archetype and
+  formality do people wear?
+- `outfit_piece_changed`: which slots do people change, and for which outfit position?
+- `outfit_composed`: how many pieces do people build around, and how often does it find
+  nothing?
+- `tomorrow_preview_opened`: is the evening preview opened?
 
 ### 5.7 Refresh and retry behaviour
 
@@ -490,7 +516,7 @@ case visible instead of collapsing it into a generic failure.
 
 | Event | Trigger | Properties | Sampling / aggregation |
 | --- | --- | --- | --- |
-| `error_shown` | A user-facing failure state renders on a surface, for the first time in this session for that `(surface, failure_category)` pair. | `surface` (`today`\|`weather`\|`recommendation`\|`closet`\|`settings`\|`onboarding`), `failure_category` (below), `occurrence_count` (`1`\|`2`\|`3`\|`4`\|`5+`, see the emission rule) | One event per `(surface, failure_category)` per session; see the rule below. |
+| `error_shown` | A user-facing failure state renders on a surface, for the first time in this session for that `(surface, failure_category)` pair. | `surface` (`today`\|`weather`\|`recommendation`\|`closet`\|`settings`), `failure_category` (below), `occurrence_count` (`1`\|`2`\|`3`\|`4`\|`5+`, see the emission rule) | One event per `(surface, failure_category)` per session; see the rule below. |
 | `error_recovered` | A success lands on a surface that emitted `error_shown` earlier in the same session. | `surface` (same enum), `failure_category` (the pair that recovered) | Once per `(surface, failure_category)` per session; a second failure and recovery in the same session does not emit again. |
 
 **Emission rule.** Do not put a `recovered` flag on `error_shown`: a captured event is
@@ -671,20 +697,19 @@ checked most days), sees two or three screens per open, and edits the Closet occ
 | `recommendation_regenerated` | about 25 |
 | `recommendation_viewed` | about 20 |
 | `outfit_detail_opened` | about 10 |
-| Everything else (manual refresh, retries, Closet, Settings, errors, notification responses, first use, consent, onboarding amortised over the install's life) | about 25 |
-| **Total** | **about 220, call it 220 to 320 with error and retry variance** |
+| Day style and outfit events (`day_style_changed`, `outfit_worn_logged`, `outfit_piece_changed`, `outfit_composed`, `tomorrow_preview_opened`) | about 45 |
+| Everything else (manual refresh, retries, Closet, Settings, errors, notification responses, first use, consent) | about 25 |
+| **Total** | **about 265, call it 265 to 365 with error and retry variance** |
 
-Removing the unobservable scheduling event does not materially change the rounded estimate
-because it was part of the aggregate "Everything else" row. So the monthly active user
-ceiling is roughly the plan's monthly event allowance divided by
-320. Verify the current allowance, its overage behaviour, and whether a free plan drops
+So the monthly active user ceiling is roughly the plan's monthly event allowance divided by
+365. Verify the current allowance, its overage behaviour, and whether a free plan drops
 events or bills for them, from PostHog's own pricing page at implementation time; the first
 release's expected audience is orders of magnitude below any plausible ceiling, which is
 why no sampling is applied up front.
 
 Two sources are half of the total. If the ceiling is ever approached, the levers in
 order are: sample `screen_viewed`, then turn off lifecycle autocapture and keep only the
-opened event. Neither breaks the onboarding funnel, the recommendation questions, or the
+opened event. Neither breaks the recommendation and outfit questions, or the
 failure analysis, which are the reasons this taxonomy exists.
 
 ## 8. Decisions
@@ -698,7 +723,7 @@ Decisions in force:
 - **`name` and `color_family` edit flags: kept.** Section 5.8 keeps both as category flags
   on `fields_changed`, values never sent.
 - **Profile-derived properties: kept, identifier declared linked.** `dress_style` and
-  `age_bucket` stay on the four events section 3 names, and the install identifier is
+  `age_bucket` stay on the three events section 3 names, and the install identifier is
   declared "linked to the user" in the App Privacy questionnaire; ADR 0033 section 5
   carries the same linkage rule.
 - **Consent surface: the Today sheet after value is visible.** The sheet is shown once on

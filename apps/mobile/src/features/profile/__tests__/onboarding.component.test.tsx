@@ -25,8 +25,6 @@ import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { mockFontScale } from '../../../../test/font-scale';
 
-// `useScreenViewed` (via `ProductAnalyticsProvider`) needs `expo-router`'s focus effect;
-// this suite exercises step and completion analytics, not focus-driven screen views.
 // The native identifiers of the one English convention (en-GB) and of Turkish; a bare `en` draws
 // the US month-first, Sunday-first picker.
 const nativeLocale = { en: 'en_GB', tr: 'tr_TR' } as const;
@@ -178,9 +176,8 @@ async function pressUntilStep(result: Awaited<ReturnType<typeof renderOnboarding
 
 test('gender and dress style are required and a null birth date completes honestly', async () => {
   const { analytics, onComplete, result } = await renderOnboarding(null, null);
-  expect(analytics.captures).toEqual([
-    { name: 'onboarding_started', properties: { schema_version: 3 }, options: undefined },
-  ]);
+  // Onboarding runs before the consent question, so it reports nothing.
+  expect(analytics.captures).toEqual([]);
 
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-2')).toBeOnTheScreen();
@@ -202,8 +199,6 @@ test('gender and dress style are required and a null birth date completes honest
   expect(result.getByTestId('onboarding-gender-error')).toHaveTextContent(
     messages.en.onboarding.genderRequiredError,
   );
-  // A blocked "continue" (no gender chosen yet) reports nothing.
-  expect(analytics.captures).toHaveLength(4);
   await fireEvent.press(result.getByTestId('onboarding-gender-woman'));
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-5')).toBeOnTheScreen();
@@ -224,36 +219,7 @@ test('gender and dress style are required and a null birth date completes honest
     birthDate: null,
   }));
 
-  // Each taxonomy step keeps its own number, whatever its place on screen.
-  expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 3 },
-    { schema_version: 3, step_name: 'welcome', step_index: 1, skipped: false },
-    { schema_version: 3, step_name: 'location', step_index: 5, skipped: true },
-    { schema_version: 3, step_name: 'birth_date', step_index: 4, skipped: true },
-    { schema_version: 3, step_name: 'gender', step_index: 2, skipped: false },
-    {
-      schema_version: 3,
-      step_name: 'dress_style',
-      step_index: 3,
-      skipped: false,
-      dress_style: 'formal',
-    },
-    {
-      schema_version: 3,
-      dress_style: 'formal',
-      age_bucket: 'unknown',
-      location_method: 'skipped',
-    },
-  ]);
-  expect(analytics.names()).toEqual([
-    'onboarding_started',
-    'onboarding_step_completed',
-    'onboarding_step_completed',
-    'onboarding_step_completed',
-    'onboarding_step_completed',
-    'onboarding_step_completed',
-    'onboarding_completed',
-  ]);
+  expect(analytics.captures).toEqual([]);
 });
 
 test('optional name step validates 2 to 30 characters and offers Not now', async () => {
@@ -281,7 +247,7 @@ test('optional name step validates 2 to 30 characters and offers Not now', async
 });
 
 test('Not now skips only the name and keeps the birth date chosen on the same step', async () => {
-  const { analytics, onComplete, result } = await renderOnboarding('woman', null, 'smart');
+  const { onComplete, result } = await renderOnboarding('woman', null, 'smart');
   await pressUntilStep(result, 3);
   await fireEvent(result.getByTestId('onboarding-birth-date'), 'dateChange', new Date(1994, 2, 14, 12));
   await fireEvent.changeText(result.getByTestId('onboarding-name'), 'A');
@@ -293,8 +259,6 @@ test('Not now skips only the name and keeps the birth date chosen on the same st
     displayName: null,
     birthDate: '1994-03-14',
   })));
-  expect(analytics.captures.find((capture) => 'step_name' in capture.properties && capture.properties.step_name === 'birth_date')?.properties)
-    .toMatchObject({ step_index: 4, skipped: false });
 });
 
 test('a new step\'s body and panel arrive while the title and progress stay still', async () => {
@@ -421,9 +385,8 @@ test('a chosen location turns the quiet location action into Continue and is rep
     name: messages.en.onboarding.completeAction,
   }));
   await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
-  expect(analytics.captures.find((capture) => 'step_name' in capture.properties && capture.properties.step_name === 'location')?.properties)
-    .toMatchObject({ step_index: 5, skipped: false });
-  expect(analytics.captures.at(-1)?.properties).toMatchObject({ location_method: 'manual' });
+  // The place chosen in onboarding is not reported either: `location_changed` starts at Weather.
+  expect(analytics.captures).toEqual([]);
 });
 
 test('once the place is known, the choice previews draw its weather instead of the sample', async () => {

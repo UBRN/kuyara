@@ -90,3 +90,71 @@ test('the result stays while the day is the same in value, and goes when the day
   await hook.rerender({ day: { ...requirements, reasonCodes: [] } });
   expect(hook.result.current.composed.current).toBeNull();
 });
+
+// The reports (taxonomy 5.6): one hearing per change to one slot, told whether a composed
+// result is showing; a reset, a choice that changes nothing and a compose with no context say
+// nothing, and every settled compose attempt is heard with its pieces and outfits built.
+describe('detail reports', () => {
+  async function renderReported() {
+    const onPieceChanged = jest.fn();
+    const onComposed = jest.fn();
+    const hook = await renderHook(() => useDetailMix(pick, requirements, 'womens', snapshot, null, now,
+      { onPieceChanged, onComposed }));
+    return { hook, onPieceChanged, onComposed };
+  }
+
+  test('a swap is heard once with its slot, a reset and an unchanged choice are not', async () => {
+    const { hook, onPieceChanged } = await renderReported();
+    const current = () => hook.result.current.manualMix!;
+    const garments = outfitGarments(current().outfit);
+    const [slot, other] = (Object.keys(current().candidates) as SwappableSlot[]).flatMap((one) =>
+      (current().candidates[one] ?? [])
+        .filter(({ garmentTypeId }) => garments[one] !== undefined && garmentTypeId !== garments[one])
+        .map(({ garmentTypeId }) => [one, garmentTypeId] as const))[0];
+
+    await act(async () => current().choose(slot, garments[slot]!));
+    expect(onPieceChanged).not.toHaveBeenCalled();
+    await act(async () => current().choose(slot, other));
+    expect(onPieceChanged).toHaveBeenCalledTimes(1);
+    expect(onPieceChanged).toHaveBeenLastCalledWith(slot, false);
+    await act(async () => current().reset());
+    expect(onPieceChanged).toHaveBeenCalledTimes(1);
+  });
+
+  test('taking a layer or an accessory off and adding one are each heard; a put-back is not', async () => {
+    const { hook, onPieceChanged } = await renderReported();
+    const current = () => hook.result.current.manualMix!;
+    const slot = (Object.keys(current().accessoryCandidates) as (keyof ReturnType<typeof current>['accessoryCandidates'])[])
+      .find((one) => current().freeAccessorySlots.includes(one))!;
+    const garmentTypeId = current().accessoryCandidates[slot][0].garmentTypeId;
+    await act(async () => current().addAccessory(slot, garmentTypeId));
+    expect(onPieceChanged).toHaveBeenLastCalledWith(slot, false);
+    await act(async () => current().removeAccessory(slot));
+    expect(onPieceChanged).toHaveBeenCalledTimes(2);
+    await act(async () => current().putBackAccessories());
+    expect(onPieceChanged).toHaveBeenCalledTimes(2);
+  });
+
+  test('a change to a composed result says so', async () => {
+    const { hook, onPieceChanged } = await renderReported();
+    await act(async () => hook.result.current.composed.compose(pins));
+    const { candidates, outfit } = hook.result.current.manualMix!;
+    const garments = outfitGarments(outfit);
+    const [slot, other] = (Object.keys(candidates) as SwappableSlot[]).flatMap((one) => (candidates[one] ?? [])
+      .filter(({ garmentTypeId }) => garments[one] !== undefined && garmentTypeId !== garments[one])
+      .map(({ garmentTypeId }) => [one, garmentTypeId] as const))[0];
+    await act(async () => hook.result.current.manualMix!.choose(slot, other));
+    expect(onPieceChanged).toHaveBeenLastCalledWith(slot, true);
+  });
+
+  test('every settled compose is heard with the pieces chosen and the outfits built', async () => {
+    const { hook, onComposed } = await renderReported();
+    await act(async () => hook.result.current.composed.compose(pins));
+    expect(onComposed).toHaveBeenCalledTimes(1);
+    expect(onComposed).toHaveBeenLastCalledWith(pins.length, hook.result.current.composed.options.length);
+    expect(hook.result.current.composed.options.length).toBeGreaterThan(0);
+    await act(async () => hook.result.current.composed.showAnother());
+    await act(async () => hook.result.current.composed.clear());
+    expect(onComposed).toHaveBeenCalledTimes(1);
+  });
+});

@@ -8,17 +8,26 @@ import {
 } from './domain/analytics-events.ts';
 
 // docs/analytics-taxonomy.md section 5.0.
-test('the catalog defines the twenty-four custom events, once each', () => {
-  assert.equal(analyticsEventNames.length, 24);
-  assert.equal(new Set(analyticsEventNames).size, 24);
+test('the catalog defines the twenty-six custom events, once each', () => {
+  assert.equal(analyticsEventNames.length, 26);
+  assert.equal(new Set(analyticsEventNames).size, 26);
   assert.deepEqual(
     [...analyticsEventNames].sort(),
     Object.keys(analyticsEventPropertyKeys).sort(),
   );
 });
 
+// Onboarding runs before the consent question, so nothing it could emit is ever sent.
+test('no event or property exists only before consent', () => {
+  const keys = new Set(Object.values(analyticsEventPropertyKeys).flat());
+  for (const name of analyticsEventNames) assert.ok(!name.startsWith('onboarding_'), name);
+  for (const key of ['step_name', 'step_index', 'skipped', 'location_method']) {
+    assert.ok(!keys.has(key), `${key} is only emittable during onboarding`);
+  }
+});
+
 test('every event carries schema_version', () => {
-  assert.equal(ANALYTICS_SCHEMA_VERSION, 3);
+  assert.equal(ANALYTICS_SCHEMA_VERSION, 4);
   for (const name of analyticsEventNames) {
     assert.ok(
       analyticsEventPropertyKeys[name].includes('schema_version'),

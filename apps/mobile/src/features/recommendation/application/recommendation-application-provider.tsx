@@ -21,6 +21,8 @@ import {
 } from '@/features/recommendation/application/recommendation-application-context';
 import { usePerformanceTelemetry } from '@/features/analytics/application/use-performance-telemetry';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
+import { dayStyleChoiceSourceProperty } from '@/features/analytics/domain/analytics-mappers';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { defaultDressStyle, isMorningSheetEnabled, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
@@ -69,7 +71,7 @@ import {
 } from '@/features/recommendation/application/recommendation-context';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
 import { isDayQuestionOpen } from '@/features/recommendation/domain/local-day';
-import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
+import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceRepository, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
 import { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
@@ -381,11 +383,26 @@ export function RecommendationApplicationProvider({
     await approvedTriggers.evaluate(currentInput, approvedTriggerReading, foreground);
   }, [approvedTriggerReading, approvedTriggers, currentInput]);
 
+  // Taxonomy 5.5: one `day_style_changed` for each formality written for a dressing day. The
+  // setup answer onboarding writes is not reported: it runs before the consent question.
+  const writtenChoices = useCallback((repository: DressingDayChoiceRepository):
+  Pick<DressingDayChoiceRepository, 'upsert'> => ({
+    upsert: async (...written) => {
+      const choice = await repository.upsert(...written);
+      analytics.capture('day_style_changed', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        dress_style: choice.formality,
+        choice_source: dayStyleChoiceSourceProperty(choice.source),
+      });
+      return choice;
+    },
+  }), [analytics]);
+
   const chooseFormality = useCallback(async (
     key: string, formality: DressStyle, source: DressingDayChoiceSource,
     styleAesthetics?: readonly StyleAesthetic[],
   ) => {
-    const repository = await loadChoiceRepository();
+    const repository = writtenChoices(await loadChoiceRepository());
     const choice = await repository.upsert(localProfileId, key, formality, source, styleAesthetics);
     if (key !== localDay.key) return;
     setDayChoiceState(writtenDayChoice(localProfileId, key, choice));
@@ -396,7 +413,8 @@ export function RecommendationApplicationProvider({
       ...generationInput, dressStyle: formality,
       styleAesthetics: resolvedStyleAesthetics(choice, settingsStyles ?? []),
     });
-  }, [awaitsWeatherRefresh, controller, currentInput, localDay.key, localProfileId, settingsStyles]);
+  }, [awaitsWeatherRefresh, controller, currentInput, localDay.key, localProfileId, settingsStyles,
+    writtenChoices]);
 
   const answerSetupDay = useCallback(async (formality: DressStyle) => {
     const key = deviceLocalDay().key;
@@ -518,7 +536,7 @@ export function RecommendationApplicationProvider({
         currentDayKey: day.key,
         resolvedDressStyle,
         hasCurrentDayChoice: day.key === localDay.key && currentDayChoice?.status === 'row',
-        choiceRepository: await loadChoiceRepository(),
+        choiceRepository: writtenChoices(await loadChoiceRepository()),
         departureRepository: await loadDepartureRepository(),
         currentInput: (choice) => currentInput({ day, choice }),
         refresh: (input) => controller.refresh('regenerate', input),
@@ -552,6 +570,7 @@ export function RecommendationApplicationProvider({
     evaluateApprovedTriggers,
     chooseFormality,
     answerSetupDay,
+    writtenChoices,
     choiceReady,
     choiceFailed,
     currentDayChoice,

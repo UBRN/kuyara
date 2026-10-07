@@ -2,7 +2,6 @@ import { Redirect } from 'expo-router';
 import type { DressStyle } from '@kuyara/contracts';
 import type { ComponentProps } from 'react';
 
-import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import type { OnboardingPreferences } from '@/features/profile/domain/profile';
@@ -52,7 +51,6 @@ async function finishSetup(
 type ReadyOnboardingProps = Omit<ComponentProps<typeof OnboardingScreen>, 'locationStep'>;
 
 function ReadyOnboarding(props: ReadyOnboardingProps) {
-  useScreenViewed('onboarding');
   return (
     <OnboardingScreen
       {...props}

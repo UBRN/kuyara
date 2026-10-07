@@ -553,7 +553,7 @@ test('a failed withdrawal write keeps capture closed and retry only writes and c
   expect(analytics.flushCount).toBe(1);
   expect(analytics.isWithdrawalInProgress()).toBe(true);
 
-  analytics.capture('notification_opened', { schema_version: 3, kind: 'weather_alert' });
+  analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
   expect(analytics.names()).toEqual(['analytics_consent_withdrawn']);
   await expect(controls.grant('settings_privacy')).rejects.toThrow('pending analytics withdrawal');
   expect(operations).toEqual(['telemetry:false', 'persist:withdrawn']);

@@ -158,12 +158,12 @@ test('selecting a searched place that changes the location captures location_cha
 
   expect(analytics.captures.filter((c) => c.name === 'location_changed')).toEqual([{
     name: 'location_changed',
-    properties: { schema_version: 3, method: 'manual_selection', change_context: 'weather_tab' },
+    properties: { schema_version: 4, method: 'manual_selection', change_context: 'weather_tab' },
     options: undefined,
   }]);
   expect(analytics.captures.filter((c) => c.name === 'feature_used_first_time')).toEqual([{
     name: 'feature_used_first_time',
-    properties: { schema_version: 3, feature_name: 'location_override' },
+    properties: { schema_version: 4, feature_name: 'location_override' },
     options: undefined,
   }]);
 
@@ -197,7 +197,7 @@ test('selecting the device location does not report feature_used_first_time for 
 
   expect(analytics.captures.filter((c) => c.name === 'location_changed')).toEqual([{
     name: 'location_changed',
-    properties: { schema_version: 3, method: 'device', change_context: 'weather_tab' },
+    properties: { schema_version: 4, method: 'device', change_context: 'weather_tab' },
     options: undefined,
   }]);
   expect(analytics.captures.some((c) => c.name === 'feature_used_first_time')).toBe(false);
@@ -371,8 +371,8 @@ test('the device location closes the picker once found, and stays for a rational
 });
 
 // Onboarding hosts the same controls in its own flow, which moves on by its own buttons.
-test('the onboarding place step never navigates when a place is chosen', async () => {
-  const { weather, search, Providers } = harness();
+test('the onboarding place step never navigates when a place is chosen, and reports nothing', async () => {
+  const { weather, search, analytics, Providers } = harness();
   search.selectPlaceSearchResult.mockImplementation(async () => {
     weather.state = { ...readyState(weather.state), activeLocation: istanbul };
   });
@@ -384,6 +384,8 @@ test('the onboarding place step never navigates when a place is chosen', async (
   expect(search.selectPlaceSearchResult).toHaveBeenCalledTimes(1);
   expect(mockRouter.back).not.toHaveBeenCalled();
   expect(mockRouter.replace).not.toHaveBeenCalled();
+  // Onboarding runs before the consent question: `location_changed` starts at Weather.
+  expect(analytics.captures).toEqual([]);
 });
 
 // Law 7: a new search status crossfades in over the old rather than snapping, and the results

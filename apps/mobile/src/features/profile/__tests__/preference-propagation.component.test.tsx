@@ -343,10 +343,10 @@ test('live preferences and support propagate localized behavior without remounti
     'feature_used_first_time',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 3, setting_name: 'language', new_value: 'tr' },
-    { schema_version: 3, feature_name: 'language_override' },
-    { schema_version: 3, setting_name: 'appearance_theme', new_value: 'dark' },
-    { schema_version: 3, feature_name: 'appearance_override' },
+    { schema_version: 4, setting_name: 'language', new_value: 'tr' },
+    { schema_version: 4, feature_name: 'language_override' },
+    { schema_version: 4, setting_name: 'appearance_theme', new_value: 'dark' },
+    { schema_version: 4, feature_name: 'appearance_override' },
   ]);
   openURL.mockRestore();
 });
@@ -411,7 +411,7 @@ test('temperature and wind unit choices store and reach the units every screen r
   await waitFor(() => expect(result.getByTestId('unit-probe')).toHaveTextContent('celsius milesPerHour'));
   // Only the language change is captured; the unit choices emit nothing.
   expect(analytics.captures.map((capture) => capture.properties)).toContainEqual(
-    { schema_version: 3, setting_name: 'language', new_value: 'tr' });
+    { schema_version: 4, setting_name: 'language', new_value: 'tr' });
   expect(JSON.stringify(analytics.captures)).not.toMatch(/unit|celsius|fahrenheit|kmh|mph/);
 });
 
@@ -502,9 +502,9 @@ test('personal preferences keep their order and birth date can be cleared to nul
     'setting_changed',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 3, setting_name: 'gender' },
-    { schema_version: 3, setting_name: 'dress_style', new_value: 'formal' },
-    { schema_version: 3, setting_name: 'birth_date' },
+    { schema_version: 4, setting_name: 'gender' },
+    { schema_version: 4, setting_name: 'dress_style', new_value: 'formal' },
+    { schema_version: 4, setting_name: 'birth_date' },
   ]);
 });
 

@@ -11,9 +11,14 @@ import { outfitWornState } from '@/features/today/application/outfit-detail-stat
 /**
  * ADR 0038: the dressing day's worn looks, read once per day, so outfit detail knows whether
  * the look on screen is already among them, and "Wore this today" records it. Tomorrow's
- * preview is read-only for the day's worn record.
+ * preview is read-only for the day's worn record. `onLogged` hears the look once the write
+ * has succeeded.
  */
-export function useDayWornLooks(look: WornOutfit | null, tomorrow: boolean) {
+export function useDayWornLooks(
+  look: WornOutfit | null,
+  tomorrow: boolean,
+  onLogged?: (look: WornOutfit) => void,
+) {
   const { dressingDayKey, outfitHistory } = useRecommendationApplication();
   const [dayLooks, setDayLooks] = useState<{ key: string; looks: readonly WornOutfit[] } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,10 +42,13 @@ export function useDayWornLooks(look: WornOutfit | null, tomorrow: boolean) {
     setBusy(true);
     setFailed(false);
     void outfitHistory.log(dayKey, look, pieceColors)
-      .then((record) => setDayLooks((day) => ({
-        key: dayKey,
-        looks: [...(day?.key === dayKey ? day.looks : []), record.outfit],
-      })))
+      .then((record) => {
+        setDayLooks((day) => ({
+          key: dayKey,
+          looks: [...(day?.key === dayKey ? day.looks : []), record.outfit],
+        }));
+        onLogged?.(record.outfit);
+      })
       .catch(() => setFailed(true))
       .finally(() => setBusy(false));
   };

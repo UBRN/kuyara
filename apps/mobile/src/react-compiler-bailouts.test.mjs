@@ -29,8 +29,6 @@ const knownBailouts = new Map([
   ['features/recommendation/application/use-ai-probe.ts', 1],
   // A logical expression the compiler cannot reorder.
   ['features/recommendation/application/use-manual-mix.ts', 1],
-  // A suppressed hooks lint rule.
-  ['features/analytics/application/use-interaction-events.ts', 1],
   // A `??=` assignment.
   ['features/analytics/application/use-analytics-consent.ts', 1],
 ]);

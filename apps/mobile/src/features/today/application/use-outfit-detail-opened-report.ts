@@ -17,7 +17,8 @@ import type {
 /**
  * Taxonomy's `outfit_detail_opened`, once per suggestion opening. Recomputed recommendation or
  * profile values update the pending payload but cannot emit the same suggestion a second time
- * while detail stays focused. Tomorrow's preview records no analytics.
+ * while detail stays focused. Tomorrow's preview reports its own opening instead
+ * (`useTomorrowPreviewOpenedReport`), never this event.
  */
 export function useOutfitDetailOpenedReport(input: Readonly<{
   focused: boolean;

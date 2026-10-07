@@ -82,11 +82,15 @@ providers.
 ### 5. Intended coverage areas
 
 The taxonomy is designed before it is written, and reviewed as its own artefact. It
-should reach: app lifecycle and session usage; onboarding progress and abandonment;
-screen and navigation usage; weather interactions; recommendation impressions and
+should reach, from consent onward: app lifecycle and session usage; screen and
+navigation usage; weather interactions; recommendation impressions and
 interactions; outfit selection; refresh and retry behaviour; Closet adoption and its
 create/update/delete actions; Settings usage; failure and recovery behaviour; feature
 adoption; and account conversion once accounts exist.
+
+Onboarding runs before the consent question, so PostHog carries no onboarding events:
+downloads, first sessions and retention before consent are read from App Store Connect App
+Analytics.
 
 Properties are structured, language-independent, and low-cardinality wherever possible.
 

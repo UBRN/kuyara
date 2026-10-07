@@ -31,6 +31,7 @@ import {
   accessoryOutfitSlots,
   type AccessoryOutfitSlot,
   type OutfitCandidate,
+  type OutfitSlot,
 } from '@/features/recommendation/domain/outfit-composition';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
@@ -91,6 +92,8 @@ export type ManualMix<Outfit extends OutfitCandidate> = Readonly<{
  * every change. `baseUnusual` is the verdict of an outfit that is unusual before any edit.
  * The edits belong to `editKey`, the outfit's option id unless the caller names the showing
  * itself: a composed option can share kuyara's pick's id, and its edits must never cross.
+ * `onPieceChanged` hears each change to one slot (a swap, a layer or accessory added or taken
+ * off), never a reset, a put-back of every finishing touch, or a choice that changes nothing.
  */
 export function useManualMix<Outfit extends OutfitCandidate & Readonly<{ optionId: string }>>(
   outfit: Outfit | null,
@@ -98,6 +101,7 @@ export function useManualMix<Outfit extends OutfitCandidate & Readonly<{ optionI
   preference: ClothingPreference | null,
   baseUnusual = false,
   editKey: string | null = outfit?.optionId ?? null,
+  onPieceChanged?: (slot: OutfitSlot) => void,
 ): ManualMix<Outfit> | null {
   const [state, setState] = useState<EditState>(NO_EDITS);
   // A different outfit, or another showing of one, starts from its own pick; edits never carry over.
@@ -126,10 +130,14 @@ export function useManualMix<Outfit extends OutfitCandidate & Readonly<{ optionI
       edits: change(outfit, previous.key === editKey ? previous.edits : NO_MANUAL_EDITS),
     }));
   }, [editKey, outfit]);
-  const choose = useCallback((slot: SwappableSlot, garmentTypeId: GarmentTypeId) =>
-    edit((base, current) => withPiece(base, current, slot, garmentTypeId)), [edit]);
-  const removeLayer = useCallback((slot: RemovableSlot) =>
-    edit((base, current) => withLayerOff(base, current, slot)), [edit]);
+  const choose = useCallback((slot: SwappableSlot, garmentTypeId: GarmentTypeId) => {
+    edit((base, current) => withPiece(base, current, slot, garmentTypeId));
+    if (manual && outfitGarments(manual.outfit)[slot] !== garmentTypeId) onPieceChanged?.(slot);
+  }, [edit, manual, onPieceChanged]);
+  const removeLayer = useCallback((slot: RemovableSlot) => {
+    edit((base, current) => withLayerOff(base, current, slot));
+    if (manual && outfitGarments(manual.outfit)[slot] !== undefined) onPieceChanged?.(slot);
+  }, [edit, manual, onPieceChanged]);
   const addLayer = useCallback((slot: RemovableSlot, garmentTypeId: GarmentTypeId) => {
     if (manual && outfitGarments(manual.outfit)[slot] === undefined) choose(slot, garmentTypeId);
   }, [choose, manual]);
@@ -142,15 +150,18 @@ export function useManualMix<Outfit extends OutfitCandidate & Readonly<{ optionI
     choose(slot, next);
     return true;
   }, [candidates, choose, manual]);
-  const removeAccessory = useCallback((slot: AccessoryOutfitSlot) =>
-    edit((base, current) => withAccessoryOff(base, current, slot)), [edit]);
+  const removeAccessory = useCallback((slot: AccessoryOutfitSlot) => {
+    edit((base, current) => withAccessoryOff(base, current, slot));
+    if (manual && manual.outfit.accessories[slot] !== null) onPieceChanged?.(slot);
+  }, [edit, manual, onPieceChanged]);
   const putBackAccessories = useCallback(() =>
     edit((base, current) => withAccessoriesPutBack(base, current)), [edit]);
   const addAccessory = useCallback((slot: AccessoryOutfitSlot, garmentTypeId: GarmentTypeId) => {
     if (manual && manual.outfit.accessories[slot] === null) {
       edit((base, current) => withAccessory(base, current, slot, garmentTypeId));
+      onPieceChanged?.(slot);
     }
-  }, [edit, manual]);
+  }, [edit, manual, onPieceChanged]);
   const reset = useCallback(() => setState(NO_EDITS), []);
 
   return useMemo(() => (manual && accessories ? {

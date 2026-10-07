@@ -321,7 +321,7 @@ test('captures made while the answer is undecided are dropped, and accept record
   const analytics = new RecordingProductAnalytics('undecided');
   analytics.capture(
     'screen_viewed',
-    { schema_version: 3, screen_name: 'onboarding' },
+    { schema_version: 4, screen_name: 'today' },
     { timestamp: '2026-09-10T08:00:00.000Z' },
   );
   expect(analytics.captures).toEqual([]);
@@ -334,7 +334,7 @@ test('captures made while the answer is undecided are dropped, and accept record
   await waitFor(() => expect(result.persisted).toEqual(['granted']));
   expect(analytics.names()).toEqual(['analytics_consent_granted']);
   expect(analytics.captures[0].properties).toEqual({
-    schema_version: 3,
+    schema_version: 4,
     surface: 'today_sheet',
   });
   expect(mockRouter.back).toHaveBeenCalledTimes(1);
@@ -342,7 +342,7 @@ test('captures made while the answer is undecided are dropped, and accept record
 
 test('decline persists without sending anything', async () => {
   const analytics = new RecordingProductAnalytics('undecided');
-  analytics.capture('notification_opened', { schema_version: 3, kind: 'weather_alert' });
+  analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
   const result = await renderRoute(analytics);
 
   await act(async () => {

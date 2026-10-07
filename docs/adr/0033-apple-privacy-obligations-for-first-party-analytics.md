@@ -355,7 +355,8 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
    application-installed event during initialisation. While the answer is `undecided`,
    captures are dropped rather than recorded or queued, and acceptance starts recording
    from that moment. The onboarding funnel before the consent surface is therefore not
-   measurable, which is accepted.
+   measured in PostHog, which is accepted: downloads, first sessions and retention before
+   consent come from App Store Connect App Analytics.
    The stored answer values are `undecided`, `granted` and `withdrawn`, the last covering
    both a declined sheet and a later withdrawal.
 2. A consent surface exists, with one question and Turkish and English copy from

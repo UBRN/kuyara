@@ -34,7 +34,8 @@ dışında bu veriler gönderilmez ve uygulama aynı şekilde çalışır. Ayrı
 Kabul edersen kuyara şunları toplar:
 
 - **Ürün etkileşimi.** Hangi ekranların açıldığı, yenileme gibi dokunuşlar, önerinin
-  yüklenip yüklenmediği ve Gardırobun nasıl kullanıldığı.
+  yüklenip yüklenmediği, hangi kombini giydiğin, bir kombinde hangi parçayı değiştirdiğin ve
+  Gardırobun nasıl kullanıldığı.
 - **Diğer kullanım verisi.** Önerinin yapay zekadan mı yoksa yerleşik yedek yöntemden mi
   geldiği gibi kaba ürün durumu, giyim stili ayarın ve kaba bir yaş aralığı (doğum tarihin
   asla).

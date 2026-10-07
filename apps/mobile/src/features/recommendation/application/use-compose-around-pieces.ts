@@ -43,9 +43,13 @@ export type ComposeAroundPieces = Readonly<{
  * Compose around chosen pieces for one open detail. The result is transient screen state, as
  * the manual mix is: it never replaces Today's snapshot, is never saved, and leaving detail
  * forgets it. `context` is the day Today was built for; without it nothing can be composed.
- * A day that composes nothing leaves no result, so detail keeps kuyara's pick.
+ * A day that composes nothing leaves no result, so detail keeps kuyara's pick. `onSettled`
+ * hears every attempt with the pieces chosen and the outfits built, none included.
  */
-export function useComposeAroundPieces(context: ComposeAroundInput | null): ComposeAroundPieces {
+export function useComposeAroundPieces(
+  context: ComposeAroundInput | null,
+  onSettled?: (pieceCount: number, optionCount: number) => void,
+): ComposeAroundPieces {
   const [state, setState] = useState<State>(NOTHING_COMPOSED);
   const requirements = context?.requirements ?? null;
   const clothingPreference = context?.clothingPreference;
@@ -62,12 +66,13 @@ export function useComposeAroundPieces(context: ComposeAroundInput | null): Comp
     if (requirements === null || clothingPreference === undefined || dayVariant === undefined) return;
     const result = composeAroundPieces(
       { requirements, clothingPreference, dayVariant, dressStyle, styleAesthetics, dayKind }, pins);
+    const options = result.status === 'composed' ? result.options : [];
     setState(({ showing }) => ({
-      composed: result.status === 'composed' && result.options.length > 0
-        ? { day, options: result.options, index: 0 } : null,
+      composed: options.length > 0 ? { day, options, index: 0 } : null,
       showing: showing + 1,
     }));
-  }, [clothingPreference, day, dayKind, dayVariant, dressStyle, requirements, styleAesthetics]);
+    onSettled?.(pins.length, options.length);
+  }, [clothingPreference, day, dayKind, dayVariant, dressStyle, onSettled, requirements, styleAesthetics]);
   const showAnother = useCallback(() => setState((previous) => (previous.composed === null ? previous : {
     composed: { ...previous.composed, index: (previous.composed.index + 1) % previous.composed.options.length },
     showing: previous.showing + 1,

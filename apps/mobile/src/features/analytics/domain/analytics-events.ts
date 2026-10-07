@@ -1,4 +1,4 @@
-// The typed catalog of the twenty-four custom events in `docs/analytics-taxonomy.md`
+// The typed catalog of the twenty-six custom events in `docs/analytics-taxonomy.md`
 // section 5. Every enum here is closed: a new value is added to the taxonomy first, in the
 // same change that adds it to the code it is derived from, and it bumps the schema version.
 // Nothing in this module talks to a provider; it is the contract the `ProductAnalytics`
@@ -11,13 +11,13 @@ import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-ite
 
 // Taxonomy 5.0: incremented only when an existing event's properties change meaning or an
 // allowed value set changes, never when a new event is added.
-export const ANALYTICS_SCHEMA_VERSION = 3;
+export const ANALYTICS_SCHEMA_VERSION = 4;
 
 type AnalyticsEventBase = Readonly<{
   schema_version: typeof ANALYTICS_SCHEMA_VERSION;
 }>;
 
-// Taxonomy 3: the only two profile-derived properties, on four events and nowhere else.
+// Taxonomy 3: the only two profile-derived properties, on three events and nowhere else.
 export const ageBuckets = [
   'under_18',
   '18_24',
@@ -87,13 +87,31 @@ export type ErrorSurface =
   | 'weather'
   | 'recommendation'
   | 'closet'
-  | 'settings'
-  | 'onboarding';
+  | 'settings';
+
+// Taxonomy 5.6: where the worn outfit came from, and the closed slot ids of its pieces.
+export type WornSourceProperty = 'recommended' | 'edited' | 'composed';
+export type OutfitSlotProperty =
+  | 'primary_top'
+  | 'bottom'
+  | 'one_piece'
+  | 'mid_layer'
+  | 'outer_layer'
+  | 'footwear'
+  | 'head'
+  | 'neck'
+  | 'hands'
+  | 'handheld';
+
+// Taxonomy 5.6: the pieces the reader chose to build around, three or more collapsed.
+export type ComposedPieceCount = 1 | 2 | '3+';
+
+// Taxonomy 5.5: how the day's formality was chosen.
+export type DayStyleChoiceSourceProperty = 'morning' | 'chip' | 'plan' | 'random';
 
 export type RefreshSurface = 'today' | 'weather' | 'closet';
 
 export type ScreenName =
-  | 'onboarding'
   | 'today'
   | 'outfit_detail'
   | 'weather'
@@ -111,13 +129,6 @@ export type ScreenName =
   | 'settings_ai_status'
   | 'settings_privacy'
   | 'analytics_consent_sheet';
-
-export type OnboardingStepName =
-  | 'welcome'
-  | 'gender'
-  | 'dress_style'
-  | 'birth_date'
-  | 'location';
 
 export type FeatureName =
   | 'closet'
@@ -147,18 +158,6 @@ type ClosetEntryPoint = 'closet_list' | 'outfit_detail';
 
 // The event catalog. Each member is the complete property payload for one event name.
 export type AnalyticsEventCatalog = {
-  onboarding_started: AnalyticsEventBase;
-  onboarding_step_completed: AnalyticsEventBase &
-    Readonly<{
-      step_name: OnboardingStepName;
-      step_index: 1 | 2 | 3 | 4 | 5;
-      skipped: boolean;
-      // Taxonomy 3: the value being chosen on the dress style step, not segmentation.
-      dress_style?: DressStyle;
-    }>;
-  onboarding_completed: AnalyticsEventBase &
-    ProfileSegmentation &
-    Readonly<{ location_method: 'device' | 'manual' | 'skipped' }>;
   screen_viewed: AnalyticsEventBase & Readonly<{ screen_name: ScreenName }>;
   // Taxonomy 5.4: `condition_category` exists only on a successful refresh.
   weather_refreshed: AnalyticsEventBase &
@@ -176,7 +175,7 @@ export type AnalyticsEventCatalog = {
   location_changed: AnalyticsEventBase &
     Readonly<{
       method: 'device' | 'manual_selection';
-      change_context: 'onboarding' | 'weather_tab';
+      change_context: 'weather_tab';
     }>;
   recommendation_viewed: AnalyticsEventBase &
     ProfileSegmentation &
@@ -207,6 +206,30 @@ export type AnalyticsEventCatalog = {
       archetype: OutfitArchetypeId;
       generation_mode: GenerationModeProperty;
     }>;
+  // Taxonomy 5.6: the reader confirmed "Wore this today" and the History write succeeded.
+  // `dress_style` is the worn outfit's own formality, not segmentation; `generation_mode` is
+  // omitted for a composed result and for an idea that is not one of the three.
+  outfit_worn_logged: AnalyticsEventBase &
+    Readonly<{
+      worn_source: WornSourceProperty;
+      archetype: OutfitArchetypeId;
+      dress_style: DressStyle;
+      generation_mode?: GenerationModeProperty;
+    }>;
+  // Taxonomy 5.6: one piece changed on outfit detail; `outfit_position` is omitted for a
+  // composed result and for an idea, which have no place among the three.
+  outfit_piece_changed: AnalyticsEventBase &
+    Readonly<{ slot: OutfitSlotProperty; outfit_position?: 1 | 2 | 3 }>;
+  // Taxonomy 5.6: a compose around chosen pieces settled.
+  outfit_composed: AnalyticsEventBase &
+    Readonly<{ piece_count: ComposedPieceCount; result: 'composed' | 'no_match' }>;
+  // Taxonomy 5.5: a new formality was written for the dressing day. `dress_style` is the
+  // value chosen, not segmentation.
+  day_style_changed: AnalyticsEventBase &
+    Readonly<{ dress_style: DressStyle; choice_source: DayStyleChoiceSourceProperty }>;
+  // Taxonomy 5.6: tomorrow's preview was opened from Today.
+  tomorrow_preview_opened: AnalyticsEventBase &
+    Readonly<{ generation_mode?: GenerationModeProperty }>;
   // Taxonomy 5.7: Closet refresh starts from a loaded list, so it has no no-snapshot form.
   manual_refresh_triggered: AnalyticsEventBase &
     (
@@ -286,15 +309,17 @@ export type AnalyticsEventProperties<Name extends AnalyticsEventName> =
 // the guard test compares it against the property-key catalog, which the compiler forces to
 // carry every event.
 export const analyticsEventNames = [
-  'onboarding_started',
-  'onboarding_step_completed',
-  'onboarding_completed',
   'screen_viewed',
   'weather_refreshed',
   'location_changed',
   'recommendation_viewed',
   'recommendation_regenerated',
   'outfit_detail_opened',
+  'outfit_worn_logged',
+  'outfit_piece_changed',
+  'outfit_composed',
+  'day_style_changed',
+  'tomorrow_preview_opened',
   'manual_refresh_triggered',
   'retry_after_failure_triggered',
   'closet_item_created',
@@ -319,20 +344,6 @@ type PropertyKeyOf<Payload> = Payload extends unknown ? keyof Payload : never;
 // The runtime projection of the catalog's property keys, for the privacy guard test in
 // `analytics-events.test.mjs`. Types do not survive to runtime; this list does.
 export const analyticsEventPropertyKeys = {
-  onboarding_started: ['schema_version'],
-  onboarding_step_completed: [
-    'schema_version',
-    'step_name',
-    'step_index',
-    'skipped',
-    'dress_style',
-  ],
-  onboarding_completed: [
-    'schema_version',
-    'dress_style',
-    'age_bucket',
-    'location_method',
-  ],
   screen_viewed: ['schema_version', 'screen_name'],
   weather_refreshed: [
     'schema_version',
@@ -364,6 +375,17 @@ export const analyticsEventPropertyKeys = {
     'archetype',
     'generation_mode',
   ],
+  outfit_worn_logged: [
+    'schema_version',
+    'worn_source',
+    'archetype',
+    'dress_style',
+    'generation_mode',
+  ],
+  outfit_piece_changed: ['schema_version', 'slot', 'outfit_position'],
+  outfit_composed: ['schema_version', 'piece_count', 'result'],
+  day_style_changed: ['schema_version', 'dress_style', 'choice_source'],
+  tomorrow_preview_opened: ['schema_version', 'generation_mode'],
   manual_refresh_triggered: ['schema_version', 'surface', 'result'],
   retry_after_failure_triggered: [
     'schema_version',

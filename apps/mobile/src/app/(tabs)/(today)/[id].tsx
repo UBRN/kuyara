@@ -33,6 +33,11 @@ import {
 import { useClosetSeed } from '@/features/today/application/use-closet-seed';
 import { useDayWornLooks } from '@/features/today/application/use-day-worn-looks';
 import { useOutfitDetailOpenedReport } from '@/features/today/application/use-outfit-detail-opened-report';
+import {
+  useOutfitEditReports,
+  useOutfitWornLoggedReport,
+} from '@/features/today/application/use-outfit-detail-reports';
+import { useTomorrowPreviewOpenedReport } from '@/features/today/application/use-tomorrow-preview-opened-report';
 import { usePieceSheet } from '@/features/wardrobe/application/use-piece-sheet';
 import { activeLocationRecommendation } from '@/features/today/model';
 import { ComposeEntry, ComposeResultLine } from '@/features/today/presentation/compose-entry';
@@ -63,7 +68,8 @@ export default function OutfitDetailRoute() {
   // Detail judges weather freshness itself; the clock moves on focus and on return to the
   // foreground, which is also when detail revalidates the weather.
   const clock = useForegroundClock();
-  // Tomorrow's preview records no analytics, its screen view included.
+  // Tomorrow's preview records no screen view and none of the reader's work on it; only its
+  // opening is reported.
   useScreenViewed('outfit_detail', !tomorrow);
   const suggestionId = Array.isArray(id) ? id[0] : id;
   const activeLocation = weatherState.status === 'ready' ? weatherState.activeLocation : null;
@@ -90,9 +96,10 @@ export default function OutfitDetailRoute() {
   const requirements = recommendation?.status === 'recommended' ? recommendation.requirements : null;
   // Compose around chosen pieces (members only, today only): its result is shown, edited and
   // recorded through the same manual mix, as the reader's outfit from the start.
+  const editReports = useOutfitEditReports({ tomorrow, position });
   const { composed, manualMix } = useDetailMix(outfit, requirements, preference,
     tomorrow || recommendationState.status !== 'ready' ? null : recommendationState.snapshot,
-    resolvedDressStyle, clock);
+    resolvedDressStyle, clock, editReports);
   const option = composed.current;
   // Any edit makes the outfit the reader's, a finishing touch alone included, and so does a
   // composed result; each records as `manual` (ADR 0038).
@@ -117,7 +124,9 @@ export default function OutfitDetailRoute() {
   }, [reevaluateLocalDay, revalidateWeatherFreshness]));
 
   useOutfitDetailOpenedReport({ focused: isFocused, tomorrow, suggestionId, position, outfit, recommendation });
-  const dayWorn = useDayWornLooks(thisWorn, tomorrow);
+  useTomorrowPreviewOpenedReport({ focused: isFocused, tomorrow, outfit, recommendation });
+  const reportWornLogged = useOutfitWornLoggedReport({ composed: composedView !== null, position, recommendation });
+  const dayWorn = useDayWornLooks(thisWorn, tomorrow, reportWornLogged);
   const closetSeed = useClosetSeed((count) => {
     if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(messages.today.closetSeed.added(count));
   });

@@ -154,7 +154,7 @@ test('real SDK: failed cleanup, restart, and re-grant never transmit old event o
     expect(restarted.isCleanupPending()).toBe(false);
     consent = 'granted';
     await restarted.optIn('settings_privacy');
-    restarted.capture('notification_opened', { schema_version: 3, kind: 'weather_alert' });
+    restarted.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
     await restarted.flush();
 
     const outgoing = (await Promise.all(transport.requests.map(requestText))).join('\n');
@@ -186,8 +186,8 @@ test('real SDK: withdrawal event flushes once while granted, then stored withdra
       storage: durable.storage, readConsent: () => consent,
     });
     await analytics.whenReady();
-    analytics.capture('notification_opened', { schema_version: 3, kind: 'weather_alert' });
-    analytics.capture('analytics_consent_withdrawn', { schema_version: 3 });
+    analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
+    analytics.capture('analytics_consent_withdrawn', { schema_version: 4 });
     await analytics.flush();
     const beforeWithdrawal = (await Promise.all(transport.requests.map(requestText))).join('\n');
     expect(beforeWithdrawal.match(/analytics_consent_withdrawn/g)).toHaveLength(1);
@@ -195,7 +195,7 @@ test('real SDK: withdrawal event flushes once while granted, then stored withdra
     consent = 'withdrawn';
     analytics.markCleanupPending();
     await analytics.withdraw();
-    analytics.capture('notification_opened', { schema_version: 3, kind: 'weather_alert' });
+    analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
     await analytics.flush();
 
     expect(transport.requests).toHaveLength(requestsBeforeWithdrawal);
@@ -257,7 +257,7 @@ test('real SDK: failed final flush and consent write cannot send on a later back
     transport.succeed();
     await sdk.flush().catch(() => undefined);
     expect(transport.requests).toHaveLength(requestsAfterFinalAttempt);
-    analytics.capture('notification_opened', { schema_version: 3, kind: 'weather_alert' });
+    analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
     await analytics.flush();
     expect(transport.requests).toHaveLength(requestsAfterFinalAttempt);
   } finally {

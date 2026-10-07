@@ -52,16 +52,13 @@ export function LocationSelectionControls({
   const { state } = application;
   const { searchPlaces, selectPlaceSearchResult } = usePlaceSearchApplication();
   const weatherEvents = useWeatherInteractionEvents();
-  const changeContext = testIDPrefix === 'onboarding' ? 'onboarding' : 'weather_tab';
   // Taxonomy 5.4: `location_changed` fires only when the active location's identity
   // actually changed. `getSnapshot()` reads the controller's committed state directly, so
-  // the "after" read here is never a stale, pre-await render.
+  // the "after" read here is never a stale, pre-await render. Onboarding runs before the
+  // consent question, so it reports nothing.
   const reportLocationSelection = (before: typeof application.state) => {
-    weatherEvents.locationSelectionFinished(
-      before,
-      application.getSnapshot?.() ?? application.state,
-      changeContext,
-    );
+    if (testIDPrefix === 'onboarding') return;
+    weatherEvents.locationSelectionFinished(before, application.getSnapshot?.() ?? application.state);
   };
   // A pick is done only when it is the active location and nothing is left to answer: a
   // permission rationale, a denial or a failed lookup keeps the picker open with its card.
@@ -261,8 +258,9 @@ export function LocationSelectionControls({
                         ));
                         // A manual pick overrides the device location regardless of
                         // whether it ends up the same place, so first use gates on the
-                        // action, not on `location_changed` firing.
-                        weatherEvents.manualLocationSelected();
+                        // action, not on `location_changed` firing. Onboarding runs before
+                        // the consent question, so it must not use up the first use either.
+                        if (testIDPrefix !== 'onboarding') weatherEvents.manualLocationSelected();
                       }
                 }
                 selected={

@@ -11,15 +11,22 @@ import type { RecommendationRefreshTrigger } from '@/features/recommendation/app
 import type { AiProbeUiState } from '@/features/recommendation/application/ai-probe-state';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { FailureCategory } from '@/domain/failure-category';
+import type { DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
+import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
+import type { OutfitSlot } from '@/features/recommendation/domain/outfit-slots';
 
 import type {
   AgeBucket,
   AnalyticsEventProperties,
   ConditionCategory,
   CountBucket,
+  ComposedPieceCount,
+  DayStyleChoiceSourceProperty,
   FailureCategoryProperty,
   GenerationModeProperty,
+  OutfitSlotProperty,
   TriggerReasonProperty,
+  WornSourceProperty,
 } from '@/features/analytics/domain/analytics-events';
 
 const failureCategoryProperties = {
@@ -45,6 +52,31 @@ const triggerReasonProperties = {
   regenerate: 'regenerate',
 } as const satisfies Record<RecommendationRefreshTrigger, TriggerReasonProperty>;
 
+const outfitSlotProperties = {
+  primary_top: 'primary_top',
+  bottom: 'bottom',
+  one_piece: 'one_piece',
+  mid_layer: 'mid_layer',
+  outer_layer: 'outer_layer',
+  footwear: 'footwear',
+  head: 'head',
+  neck: 'neck',
+  hands: 'hands',
+  handheld: 'handheld',
+} as const satisfies Record<OutfitSlot, OutfitSlotProperty>;
+
+const wornSourceProperties = {
+  recommended: 'recommended',
+  manual: 'edited',
+} as const satisfies Record<WornOutfit['source'], WornSourceProperty>;
+
+const dayStyleChoiceSourceProperties = {
+  morning: 'morning',
+  chip: 'chip',
+  plan: 'plan',
+  random: 'random',
+} as const satisfies Record<DressingDayChoiceSource, DayStyleChoiceSourceProperty>;
+
 // Taxonomy 5.4: the bucketing of the provider-neutral condition vocabulary, never a raw
 // provider condition string.
 const conditionCategories = {
@@ -64,8 +96,6 @@ const conditionCategories = {
 type ActiveLocationSource = ActiveLocation['source'];
 type LocationChangedMethod =
   AnalyticsEventProperties<'location_changed'>['method'];
-type OnboardingLocationMethod =
-  AnalyticsEventProperties<'onboarding_completed'>['location_method'];
 type AiProbeResult = AnalyticsEventProperties<'ai_probe_triggered'>['result'];
 type CompletedAiProbeKind = Exclude<AiProbeUiState['kind'], 'idle' | 'checking'>;
 
@@ -73,11 +103,6 @@ const locationChangedMethods = {
   device: 'device',
   manual: 'manual_selection',
 } as const satisfies Record<ActiveLocationSource, LocationChangedMethod>;
-
-const onboardingLocationMethods = {
-  device: 'device',
-  manual: 'manual',
-} as const satisfies Record<ActiveLocationSource, OnboardingLocationMethod>;
 
 const aiProbeResults = {
   ok: 'ok',
@@ -104,6 +129,38 @@ export function triggerReasonProperty(
   return triggerReasonProperties[trigger];
 }
 
+export function outfitSlotProperty(slot: OutfitSlot): OutfitSlotProperty {
+  return outfitSlotProperties[slot];
+}
+
+// Taxonomy 5.6: a composed result is the reader's own outfit from the start, so it wins over
+// the stored source; otherwise a record the reader changed is `edited`.
+export function wornSourceProperty(
+  source: WornOutfit['source'],
+  composed: boolean,
+): WornSourceProperty {
+  return composed ? 'composed' : wornSourceProperties[source];
+}
+
+export function dayStyleChoiceSourceProperty(
+  source: DressingDayChoiceSource,
+): DayStyleChoiceSourceProperty {
+  return dayStyleChoiceSourceProperties[source];
+}
+
+// Taxonomy 5.6: one, two, or three (the most a compose takes) as `3+`.
+export function composedPieceCount(count: number): ComposedPieceCount {
+  return count >= 3 ? '3+' : count === 2 ? 2 : 1;
+}
+
+// Taxonomy 5.6: an attempt that built at least one outfit is `composed`; every other
+// settled attempt, an empty result included, is `no_match`.
+export function composeResultProperty(
+  optionCount: number,
+): AnalyticsEventProperties<'outfit_composed'>['result'] {
+  return optionCount > 0 ? 'composed' : 'no_match';
+}
+
 export function conditionCategory(code: WeatherConditionCode): ConditionCategory {
   return conditionCategories[code];
 }
@@ -117,12 +174,6 @@ export function locationChangedMethodProperty(
   source: ActiveLocationSource,
 ): LocationChangedMethod {
   return locationChangedMethods[source];
-}
-
-export function onboardingLocationMethodProperty(
-  source: ActiveLocationSource | null,
-): OnboardingLocationMethod {
-  return source === null ? 'skipped' : onboardingLocationMethods[source];
 }
 
 export function aiProbeResultProperty(
