@@ -38,6 +38,13 @@
 .ku-hero__words p { margin: 0; }
 .ku-hero__line { max-width: 30em; color: var(--ku-text-secondary); }
 
+/* The name, set as the header sets it, above the headline where the header hides it. */
+.ku-hero__name { display: none; font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: -0.2px; }
+
+@media (max-width: 559px) {
+  .ku-hero__name { display: block; }
+}
+
 .ku-badge { display: inline-flex; align-self: start; padding: 13px 0; }
 .ku-badge img { display: block; height: 50px; width: auto; }
 

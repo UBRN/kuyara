@@ -6,46 +6,33 @@ ref: support
 
 # kuyara destek
 
-kuyara ücretsiz ve reklamsız bir hava durumu ve kıyafet önerisi uygulamasıdır. Açık
-biçimde geliştirilir; kaynak kodu [github.com/UBRN/kuyara](https://github.com/UBRN/kuyara)
-adresinde.
+Burada olmana sevindik. Bir şey yolunda gitmiyorsa ya da bir fikrin varsa bize yaz.
 
 ## İletişim
 
-- **Hata bildirimi ve özellik isteği:**
-  [github.com/UBRN/kuyara/issues](https://github.com/UBRN/kuyara/issues) adresinde bir
-  kayıt aç. Lütfen kayda kişisel veri yazma.
-- **Gizlilik soruları ve silme talepleri:** sorumluya e-posta gönder:
-  [quint.inboard_9t@icloud.com](mailto:quint.inboard_9t@icloud.com). Neleri eklemen
+- **Soru, görüş ve sorunlar:**
+  [quint.inboard_9t@icloud.com](mailto:quint.inboard_9t@icloud.com) adresine e-posta gönder.
+  Ne olduğunu ve hangi iPhone'u kullandığını yaz; gerekmeyen kişisel bilgileri ekleme.
+- **Gizlilik soruları ve silme talepleri:** aynı adrese e-posta gönder. Neleri eklemen
   gerektiği [gizlilik politikasında](privacy-policy) yazıyor.
 
 ## Sık sorulan sorular
 
 **Kombinlerim neden değişti?**
-Sabah ve 18.00'den sonraki akşam sorusunda günün resmiyet düzeyini ve en fazla üç stil
-özelliğini seçebilirsin. Öneriler yeni günün yanıtı kaydedilince, konumun ya da kayıtlı giyim
-tercihlerin değişince, tahmin kapsama süresi bitip Bugün'ü yeniden açınca veya "Stiliste
-tekrar sor"u onaylayınca yenilenebilir. Hava durumu yenilenince yalnızca hava içgörüsü
-güncellenir, kombin değişmez. Yapay zeka kullanılamadığında yerleşik yöntem yine üç kombin
-seçer.
+kuyara sabah ve akşam ne kadar şık giyinmek istediğini sorar ve en fazla üç stil tercihi
+seçmene izin verir. Kombinlerin her yeni günün yanıtıyla, yerin ya da giyim tercihlerin
+değişince ve stiliste yeniden sorduğunda yenilenir. Hava durumu güncellenince günün notu
+değişir, kombin değişmez.
 
 **kuyara neden konumumu istiyor?**
 Yalnızca "Mevcut konumumu kullan" seçeneğini seçersen. Konum sadece bulunduğun yerin hava
 durumunu almak için kullanılır; bunun yerine şehir yazabilir ve izni hiç vermeyebilirsin.
-kuyara konumunu yaklaşık bir kilometreye yuvarlayarak kendi hava durumu sunucusuna
-gönderir, kesin koordinatları asla saklamaz ve konumu analitiğe hiç katmaz. Yaklaşık konum
-yeterlidir.
+Konumun telefonundan çıkmadan önce yuvarlanır, kesin koordinatlar asla saklanmaz ve konum
+analitiğe hiç girmez. Yaklaşık konum yeterlidir.
 
 **Verilerimi nasıl silerim?**
-Uygulamayı silmek cihazındaki yerel verileri kaldırır. Kopyalar, yedekleme ayarlarına göre
-cihaz yedeğinde kalabilir. Kullanım analitiği ile performans veya çökme tanılamaları
-uygulamada yaptığın seçime bağlıdır; bunun tek istisnası
-[gizlilik politikasında](privacy-policy#performans-ve-tanılama) açıklanan nadir teknik
-kayıtlardır. Expo ise onaydan
-bağımsız olarak her açılışta kurulum kimliği taşıyan açılış sayımı ve güncelleme kontrolü
-istekleri alır; ayrıntılar [gizlilik politikasında](privacy-policy#expo-açılış-istekleri).
-Ayarlar > Gizlilik'te paylaşım açıkken gösterilen analitik kimliğini kopyalayıp sorumluya
-e-posta göndererek geçmiş olaylarının silinmesini isteyebilirsin. Paylaşımı kapatmak
-analitik ve tanılama gönderimini durdurur ve bu kimliği cihazdan siler; geçmiş olaylar
-silinene veya süreleri dolana kadar kalır. Tanılama ve Expo istekleri kuyara'nın silme talebinde
-kullanamadığı ayrı bir kimlik taşır.
+Uygulamayı silmek o cihazdaki verilerini kaldırır; yedekleme ayarlarına göre cihaz yedeğinde
+bir kopya kalabilir. Geçmiş kullanım verilerinin silinmesini istemek için paylaşım açıkken
+Ayarlar > Gizlilik'te gösterilen kimliği kopyalayıp bize e-posta ile gönder. Paylaşımı
+kapattığında o andan sonra gönderim durur. Neyin paylaşıldığını ve ne kadar saklandığını
+[gizlilik politikası](privacy-policy) anlatır.
