@@ -102,7 +102,7 @@
    this hook owes is the appearance the browser paints its own furniture in;
    the dark block above declines to apply to it. The website has no
    reduced-motion branch: it animates whatever the operating system prefers, as
-   decision recorded in product-decisions.md. */
+   recorded in product-decisions.md. */
 :root[data-theme="light"] {
   color-scheme: light;
 }

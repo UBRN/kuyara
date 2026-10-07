@@ -317,7 +317,7 @@ test('History arrives in reading order and a new day or look arrives alone', asy
   withDelay.mockRestore();
 });
 
-// Migration 24 and decision D (option 1): a day recorded with its colours is drawn in the
+// Migration 24: a day recorded with its colours is drawn in the
 // swatches it was seen in; a day recorded before has none and keeps the fixed scheme.
 test('a day recorded with its colours is drawn in them, an older day in the fixed scheme', async () => {
   const insideClip = (node: { parent: unknown }): boolean => {

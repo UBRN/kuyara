@@ -28,9 +28,8 @@ endpoint doing upstream work for anonymous callers. The Worker then had no KV,
 Durable Object, rate limiter, or cache layer; every response used
 `Cache-Control: no-store`.
 
-Rate limiting is added now, in Milestone 4,
-covering both AI endpoints, and to record the decision in this ADR plus the
-existing docs.
+Rate limiting is added now, in Milestone 4, covering both AI endpoints, and
+the decision is recorded in this ADR and the existing docs.
 
 ## Pricing basis (current estimate, do not freeze)
 
@@ -279,8 +278,8 @@ precedent, plus a localized "Testing online AI…" line.
   small canned `AiRecommendV1Request` reuses the exact success validation.
 - **Full-screen modal for the loading state.** Rejected: new route, back/cancel
   navigation state, larger scope for no product gain over an inline overlay.
-- **Native `ActivityIndicator` for the loading state.** Rejected
-  in favor of a custom animated indicator.
+- **Native `ActivityIndicator` for the loading state.** Rejected in favor
+  of a custom animated indicator.
 
 ## Out of scope
 

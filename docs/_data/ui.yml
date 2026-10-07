@@ -1,6 +1,6 @@
 # The words the site's header and footer carry on every page, by language. Page copy lives
-# in each page's front matter. Strings marked draft are new with the site rebuild and wait
-# for approval; the rest are the live site's approved copy.
+# in each page's front matter. Strings marked draft are new with the site rebuild; the
+# rest are the live site's copy.
 en:
   home_label: kuyara home
   skip: Skip to content # draft copy

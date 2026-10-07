@@ -714,7 +714,7 @@ without reading the rest of this document.
 
 ## Relationship to the mockups
 
-The mockups were treated as the target for this milestone. Reading them
+The mockups were the target for this milestone. Reading them
 as a *system* rather than borrowing pieces produced the finding that **they do not
 contain one**:
 

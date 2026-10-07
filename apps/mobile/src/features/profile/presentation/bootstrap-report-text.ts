@@ -1,6 +1,6 @@
 import type { BootstrapReport } from '@/features/profile/application/profile-application-controller';
 
-// Deliberately not localized: the maintainer reads this, the user only confirms it in the
+// Deliberately not localized: the developer reads this, the user only confirms it in the
 // share sheet. Every field is either a build constant, a device model, or the failure
 // classification; none of it identifies the device or the person.
 type BootstrapReportEnvironment = Readonly<{

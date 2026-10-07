@@ -146,7 +146,7 @@ and is not settled here.
 ### 6. The colour-family fill is approved
 
 Filling a garment-type silhouette with the piece's colour family, a muted tint tuned per
-appearance, is approved by the sheet approval. It is content colour, not an interface
+appearance, is approved with the target sheets. It is content colour, not an interface
 token, and it applies to the Profile rack and the Closet grid and to the garment board as
 the source of its hue anchors. Its
 per-family fill table doubles as the mapper that the shipped list lacks, where a stored

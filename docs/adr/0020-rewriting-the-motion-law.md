@@ -27,8 +27,7 @@ behaviour of the hero, the outfit, not the navigation layer and not a cast of ch
 
 ## Decision
 
-Law 7 permits continuous or repeating motion under this conditional rule, in the
-terms below:
+Law 7 permits continuous or repeating motion under this conditional rule:
 
 > Continuous or repeating motion is not prohibited. Motion may be used where it
 > supports the weather atmosphere, state, hierarchy, feedback, or product character.

@@ -12,8 +12,8 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 //
 // The installed 57.0.18 type surface was checked before writing this (`node_modules/@expo/ui/build`):
 // the universal `Picker`'s `appearance` prop is `'wheel' | 'menu'` only, with no segmented
-// style, so this builds on `@expo/ui/community/segmented-control` instead, per its
-// own fallback rule. Two verified limits of that component, read from its source rather than
+// style, so this builds on `@expo/ui/community/segmented-control` instead, per the documented
+// fallback rule. Two verified limits of that component, read from its source rather than
 // guessed:
 // - `tintColor` is applied only on Android (`SegmentedButton.colors.activeContainerColor`);
 //   the iOS implementation never reads it. Composing the same SwiftUI `Picker` with

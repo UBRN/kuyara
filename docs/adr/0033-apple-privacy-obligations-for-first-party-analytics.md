@@ -4,7 +4,7 @@ Status: Accepted (2026-09-09)
 
 Implementation: the milestone 10 consent sheet, Settings Privacy surface, fail-closed
 adapter, and PostHog project configuration are complete. Milestone 11 items 1 and 2 are
-complete, consent is the recorded lawful basis, and kuyara signed PostHog's DPA on
+complete, consent is the recorded lawful basis, and PostHog's DPA was signed on
 2026-09-11. No PostHog analytics is recorded or queued before consent. EAS Observe
 performance and diagnostic telemetry is bound to the same consent answer; its disclosure rows are in
 section 7. Two Expo launch-time requests sit outside that consent answer; section 3 states the
@@ -224,10 +224,10 @@ Review objects to the ungated launch event, the only lever is removing `expo-ins
 that is the fallback.
 
 **GDPR, KVKK and similar statutes are legal questions, not Apple rules.** Consent is the
-recorded lawful basis for kuyara's analytics, and kuyara signed
-PostHog's self-serve DPA on 2026-09-11. PostHog hosts an EU region in Frankfurt
-(<https://posthog.com/docs/privacy>, read 2026-09-09). Accepted: the GDPR
-and KVKK reading without counsel review. This ADR records the product decision and Apple's
+recorded lawful basis for kuyara's analytics, and PostHog's self-serve DPA was signed on
+2026-09-11. PostHog hosts an EU region in Frankfurt
+(<https://posthog.com/docs/privacy>, read 2026-09-09). The GDPR and KVKK reading
+is accepted without counsel review. This ADR records the product decision and Apple's
 requirements, not a broader legal conclusion.
 
 PostHog's own terms impose no user-facing prompt; its documentation says "It's your
@@ -381,8 +381,8 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
    months (section 4). "Filter out internal and test users" excludes Simulator traffic by
    `$is_emulator` and the development install's current id shown under Settings > Privacy;
    that id is replaced after each consent cycle or reinstall. Observe has no
-   equivalent filter. Consent is the recorded lawful basis, and kuyara signed
-   the DPA on 2026-09-11.
+   equivalent filter. Consent is the recorded lawful basis, and the DPA was signed on
+   2026-09-11.
 7. `ios.privacyManifests` in `apps/mobile/app.json` declares Product Interaction and Other
    Usage Data with linked `true`,
    tracking `false`, purpose Analytics, and `NSPrivacyTracking` `false`; the
@@ -416,11 +416,11 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 ### 7. Current privacy decisions
 
 - **Linkage.** The install identifier is declared linked to the user because
-  profile-derived properties ride on it. Accepted: the GDPR and KVKK
-  reading without counsel review.
+  profile-derived properties ride on it. The GDPR and KVKK reading is accepted
+  without counsel review.
 - **Lawful basis and DPA.** Consent is the recorded lawful basis. The Today consent sheet
-  and Settings withdrawal control stay in place. kuyara generated and signed
-  PostHog's self-serve DPA through PandaDoc on 2026-09-11; the countersigned copy is kept
+  and Settings withdrawal control stay in place. PostHog's self-serve DPA was generated
+  and signed through PandaDoc on 2026-09-11; the countersigned copy is kept
   outside the repository.
 - **Deletion of anonymous events.** PostHog's persons API cannot delete events by
   `distinct_id` when no person profile exists. Its single and bulk delete endpoints resolve

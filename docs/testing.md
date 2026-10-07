@@ -334,9 +334,8 @@ asc builds upload --app 6806664440 --ipa "<IPA_PATH_OUTSIDE_REPO>" --wait
 
 The local build uses EAS signing credentials and remote build-number assignment without
 spending EAS Free cloud build quota. After the required checks, independent review and
-Simulator verification pass, complete the App Store Connect record and submit under the
-standing [iOS release authorization](product-decisions.md#apple-developer-program), without
-a TestFlight confirmation. The cloud-build red line is in
+Simulator verification pass, complete the App Store Connect record and submit along the
+[iOS release path](product-decisions.md#apple-developer-program). The cloud-build red line is in
 [Approved release versioning and update path](product-decisions.md#approved-release-versioning-and-update-path).
 
 ### TestFlight pass on the phone
@@ -344,8 +343,8 @@ a TestFlight confirmation. The cloud-build red line is in
 The iOS Simulator is the default release verification environment. Require a physical
 check only when a specific changed behavior cannot be verified there and that evidence is
 necessary to accept the release.
-A routine release does not require a separate phone tour or a connected phone. Record a TestFlight update reported with no apparent issues
-as that evidence; do not request the same confirmation again. Migration changes still
+A routine release does not require a separate phone tour or a connected phone. A TestFlight
+update reported with no apparent issues counts as that evidence. Migration changes still
 require an upgrade test from the last released version and a realistic device-database replay.
 
 When an in-place phone upgrade is checked, TestFlight and the store app share

@@ -80,7 +80,7 @@ both wrong and unenforceable.
   anything, better supported: the project is noncommercially licensed as well as
   noncommercially operated. The "re-check if the product ever monetizes" caveat stands
   unchanged.
-- The source stays public. The existing rule that design mockups and session notes live
+- The source stays public. The existing rule that design mockups and working notes live
   outside the repository is
   unrelated to licensing and is unaffected.
 - No dependency licence obligation changes. The project's own licence does not alter what

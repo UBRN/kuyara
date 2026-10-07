@@ -97,11 +97,10 @@ This narrows but upholds ADR 0008's conclusion.
 
 ## Alternatives considered
 
-- **Stay at 16.4.** Nothing in the product
-  required raising it, and it costs users. Rejected:
-  the costs above are accepted.
+- **Stay at 16.4.** Nothing in the product required raising it, and it costs
+  users. Rejected: the costs above are accepted.
 - **Raise to 18.0.** Buys `hanger`, `jacket`, and `coat`, with roughly 6 to
-  7% of the base excluded, and still no `bottom` symbol. Rejected by the
+  7% of the base excluded, and still no `bottom` symbol. Rejected.
 
 26.0 is chosen with these costs known. The reason: it removes
 every OS-version conditional branch, which is the decisive gain for a

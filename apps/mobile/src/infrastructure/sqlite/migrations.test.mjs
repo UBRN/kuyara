@@ -840,7 +840,7 @@ test('version 8 rolls back a failed rebuild and preserves weather and recommenda
 });
 
 test('version 8 ignores orphaned hourly rows left by a snapshot deleted with foreign keys off', async (t) => {
-  // The maintainer's device carried 234 such rows at version 7 and TestFlight build 3 could not start.
+  // A real device carried 234 such rows at version 7 and TestFlight build 3 could not start.
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createVersionSevenDatabase(database);

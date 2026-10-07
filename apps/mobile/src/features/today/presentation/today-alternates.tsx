@@ -32,8 +32,8 @@ export function TodayAlternates({
   const cut = useGarmentCut();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
   const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
-  // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
-  //: while Easier to see is on, each alternate is a full-width row
+  // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13:
+  // while Easier to see is on, each alternate is a full-width row
   // with its drawing at the left, so a name is never cut and the list scrolls one way.
   const alternateWidth = easierToSee
     ? ALTERNATE_ROW_BOARD_WIDTH

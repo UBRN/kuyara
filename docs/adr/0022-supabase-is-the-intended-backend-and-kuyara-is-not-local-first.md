@@ -13,9 +13,8 @@ account deletion that build on it. See [Out of scope](#out-of-scope).
 
 The local-first framing was written to defend a real and still-correct engineering rule:
 nothing in the MVP may assume a server, and no refresh failure may discard local data. As
-a product identity, however, that framing is wrong. The intent, stated on
-2026-09-04, is that shipping the first release without sign-in is a scope decision, not a
-philosophy. The product is expected to grow accounts, cross-device persistence, and
+a product identity, however, that framing is wrong. Shipping the first release without
+sign-in is a scope decision, not a philosophy. The product is expected to grow accounts, cross-device persistence, and
 synchronized files, with Supabase rather than Firebase as the intended backend.
 
 Leaving the wording alone has a concrete cost. A future contributor reading "must not replace

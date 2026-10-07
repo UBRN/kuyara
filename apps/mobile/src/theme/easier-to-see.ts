@@ -36,7 +36,7 @@ export function useSystemVisibility(): SystemVisibility {
 }
 
 /**
- * Kuyara follows iOS Bold Text and Increase Contrast even with the switch
+ * kuyara follows iOS Bold Text and Increase Contrast even with the switch
  * off. Heavier text follows Bold Text or the switch; higher contrast follows Increase
  * Contrast or the switch. The larger board and targets follow the switch alone.
  */

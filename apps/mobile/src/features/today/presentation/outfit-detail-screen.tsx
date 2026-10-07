@@ -581,7 +581,7 @@ export function OutfitDetailScreen({
         }}
         testID="outfit-detail-content">
 
-        {/* ADR 0021: three equal options, so the title carries no emphasis pill. Phase 7,
+        {/* ADR 0021: three equal options, so the title carries no emphasis pill. Phase 7:
             after a change the title is the reader's and says where it came from.
             The title changes in place at once; "Changed from" opens once no piece is enlarged. */}
         <View style={styles.headingGroup} testID="outfit-detail-heading-group">

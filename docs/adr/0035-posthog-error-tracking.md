@@ -29,8 +29,8 @@ decided at implementation time. [ADR 0033](0033-apple-privacy-obligations-for-fi
 section 6 item 8 made that conditional: Error Tracking was outside milestone 10, and its
 Diagnostics categories and privacy-manifest purpose had to change with the implementation.
 
-The gap is real and was measured. When the build 3 start-up failure shipped, the maintainer
-found it only by installing the TestFlight build personally. The coarse `error_shown` and
+The gap is real and was measured. When the build 3 start-up failure shipped, it was
+found only by installing the TestFlight build by hand. The coarse `error_shown` and
 `error_recovered` pair covers six handled-error surfaces, none of them the bootstrap screen;
 consent-gated PostHog Error Tracking now adds uncaught JavaScript exceptions and unhandled
 rejections with `exceptionSteps` and session replay still off. A

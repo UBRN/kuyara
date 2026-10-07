@@ -72,7 +72,7 @@ distinguishes its unavailable branch; only the wording is decided here.
 
 ### 4. Recommendations already assume every garment is available
 
-Recorded here because it was asked for as though it were new.
+Recorded here because it reads as new but is not.
 [ADR 0005](0005-catalog-only-recommendation-candidates.md) already removed the
 Wardrobe from the candidate set: outfits are composed from the bundled catalog,
 not from what the user owns. Granting location therefore already produces

@@ -1111,12 +1111,25 @@ const processTracePattern = new RegExp([
 ].map((parts) => parts.join('')).join('|'), 'i');
 // The planning unit of the work process is a capitalized word; the ordinary lowercase word stays.
 const processTermPattern = new RegExp(['\\bGo', 'als?\\b'].join(''));
+// Decisions read as product facts, never as who decided, asked or approved them, or who must.
+// "Owner" alone stays: code has owners of rules and components, and rows have owners.
+const decisionNarrativePattern = new RegExp([
+  ['\\bowner(?:\'s)? (?:decid', 'e[sd]?|ask(?:s|ed)?|approv(?:e[sd]?|al)|answers? \\d|decisions?|variant|option \\d|chose|liked|gives the)\\b'],
+  ['\\bowner-appr', 'oved\\b'], ['\\bcomes? to the ow', 'ner\\b'], ['\\bsettled with the ow', 'ner\\b'],
+  ['\\bresearch ad', 'vice\\b'], ['\\bagainst the resea', 'rch\\b'],
+  ['\\bmaintainer(?:\'s)? (?:decid', 'e[sd]?|decision|ask(?:s|ed)?|accepts|chose|named|intent, stated)\\b'],
+  ['\\brejected by the (?:owner|maint', 'ainer|operator)\\b'], ['\\bthe operator ch', 'ose\\b'],
+  ['\\bper the br', 'ief\\b'], ['\\bagents (?:may|only|mu', 'st)\\b'],
+].map((parts) => parts.join('')).join('|'), 'i');
+// A task line addressed to a person: "Owner: ..." as a line or list item. Case matters, since
+// code writes `owner:` as an object key.
+const personTaskPattern = new RegExp(['^\\s*(?:\\d+\\.\\s+|[-*]\\s+)?(?:Own', 'er|Maint', 'ainer):'].join(''));
 const processTraceAllowlist = new Set([
   'apps/mobile/src/features/recommendation/domain/insight-sentence.ts',
   'apps/mobile/src/features/recommendation/domain/insight-sentence.test.mjs',
 ]);
 
-test('tracked text files name no coding tool and no work-process term', () => {
+test('tracked text files name no coding tool, no work-process term and no decision narrative', () => {
   const repoRoot = path.join(sourceRoot, '..', '..', '..');
   const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 })
     .toString('utf8').split('\0').filter(Boolean);
@@ -1131,7 +1144,8 @@ test('tracked text files name no coding tool and no work-process term', () => {
     }
     if (buffer.includes(0)) continue; // binary
     buffer.toString('utf8').split('\n').forEach((line, index) => {
-      if (processTracePattern.test(line) || processTermPattern.test(line)) hits.push(`${relative}:${index + 1}`);
+      if (processTracePattern.test(line) || processTermPattern.test(line)
+        || decisionNarrativePattern.test(line) || personTaskPattern.test(line)) hits.push(`${relative}:${index + 1}`);
     });
   }
   assert.deepEqual(hits, [], `remove the tool or process wording at: ${hits.join(', ')}`);
