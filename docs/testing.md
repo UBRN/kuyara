@@ -382,7 +382,9 @@ version with the same fix is already in review, because that version is a differ
 Before publishing, the EAS `production` environment must contain
 `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` as a project-scoped plain-text variable, with the same
 value as `build.production.env` in `apps/mobile/eas.json`, alongside
-`EXPO_PUBLIC_POSTHOG_API_KEY` and `EXPO_PUBLIC_POSTHOG_HOST`. Set it for this one-time setup:
+`EXPO_PUBLIC_POSTHOG_API_KEY`, `EXPO_PUBLIC_POSTHOG_HOST`, `EXPO_PUBLIC_SUPABASE_URL`,
+`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` (the Google value
+also matches `build.production.env`). Set it for this one-time setup:
 
 ```bash
 eas env:set production --name EXPO_PUBLIC_KUYARA_WORKER_BASE_URL --value "https://kuyara-worker.ubarin08.workers.dev" --type string --visibility plaintext --scope project --non-interactive
@@ -400,7 +402,7 @@ grep 'latestDatabaseVersion =' src/infrastructure/sqlite/migrations.ts
 ```
 
 From `apps/mobile`, with a clean committed tree and green checks, export for iOS using the EAS
-production variables, disable local `.env` loading, and stop unless both production origins are
+production variables, disable local `.env` loading, and stop unless the production origins are
 present in that export. The checks search the Hermes bytecode as text and do not print
 variable values:
 
@@ -419,6 +421,13 @@ if grep -rqaF "$EXPO_PUBLIC_POSTHOG_HOST" dist; then
   echo "PASS: PostHog host is in dist"
 else
   echo "FAIL: PostHog host is missing from dist" >&2
+  exit 1
+fi
+test -n "$EXPO_PUBLIC_SUPABASE_URL"
+if grep -rqaF "$EXPO_PUBLIC_SUPABASE_URL" dist; then
+  echo "PASS: Supabase origin is in dist"
+else
+  echo "FAIL: Supabase origin is missing from dist" >&2
   exit 1
 fi'
 ```
