@@ -3,13 +3,13 @@ import test from 'node:test';
 
 import { mergeAtFirstLink } from './account-merge.ts';
 import {
-  dayChoice, departure, emptyRows, historyDay, stamp, syncedProfile, uuid, wardrobeItem,
+  dayChoice, departure, emptyRows, historyDay, noneRefused, stamp, syncedProfile, uuid, wardrobeItem,
 } from '../__tests__/account-fixtures.mjs';
 
 const now = '2026-10-01T12:00:00.000Z';
 const empty = emptyRows();
 const merge = (local, remote, syncConsent = true) => mergeAtFirstLink(
-  { ...empty, ...local }, { ...empty, ...remote }, { syncConsent, now },
+  { ...empty, ...local }, { ...empty, ...remote }, { syncConsent, now, refused: noneRefused },
 );
 const ids = (rows) => rows.map((row) => row.id);
 
@@ -196,7 +196,7 @@ test('a row the account holds that this build cannot read is never sent over it,
     outfitHistory: [historyDay(6, '2026-09-10'), historyDay(7, '2026-09-12')],
   };
   const refused = {
-    wardrobeItems: [uuid(1)], dressingDayChoices: ['2026-09-10'], dressingDayDepartures: ['2026-09-10'], outfitHistory: [uuid(6)],
+    profile: false, wardrobeItems: [uuid(1)], dressingDayChoices: ['2026-09-10'], dressingDayDepartures: ['2026-09-10'], outfitHistory: [uuid(6)],
   };
   const result = mergeAtFirstLink({ ...empty, ...local }, empty, { syncConsent: true, now, refused });
   assert.deepEqual(ids(result.sendToAccount.wardrobeItems), [uuid(2)]);
@@ -205,4 +205,14 @@ test('a row the account holds that this build cannot read is never sent over it,
   assert.deepEqual(ids(result.sendToAccount.outfitHistory), [uuid(7)]);
   assert.deepEqual(result.writeToPhone, empty);
   assert.deepEqual(result.counts, { piecesAdded: 1, historyDaysAdded: 1, piecesReceived: 0, historyDaysReceived: 0 });
+});
+
+test('a profile the account holds that this build cannot read is never written over by the phone\'s', () => {
+  for (const syncConsent of [true, false]) {
+    const result = mergeAtFirstLink({ ...empty, profile: syncedProfile() }, empty,
+      { syncConsent, now, refused: { ...noneRefused, profile: true } });
+    assert.equal(result.sendToAccount.profile, null, `consent ${syncConsent}`);
+    assert.equal(result.writeToPhone.profile, null, `consent ${syncConsent}`);
+    assert.equal(result.profileFrom, 'phone', `consent ${syncConsent}`);
+  }
 });

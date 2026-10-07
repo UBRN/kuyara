@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createAccountSessionSync } from './account-session-sync.ts';
-import { emptyRows as empty, syncedProfile, wardrobeItem, historyDay } from '../__tests__/account-fixtures.mjs';
+import { emptyRows as empty, noneRefused, syncedProfile, wardrobeItem, historyDay } from '../__tests__/account-fixtures.mjs';
 const given = { answer: 'given', textVersion: '2026-10-04', answeredAt: '2026-10-04T10:00:00Z', recordedAt: '2026-10-04T10:00:01.000001Z' };
 const withdrawn = { ...given, answer: 'withdrawn', recordedAt: '2026-10-04T11:00:01.000001Z' };
 const givenAgain = { ...given, recordedAt: '2026-10-04T12:00:01.000001Z' };
@@ -27,7 +27,7 @@ function setup({ records = [], link = unlinked, pending = true } = {}) {
     writePulled: async () => { calls.push(['pull']); },
   };
   const remote = {
-    pullSnapshot: async (_id, syncConsent) => { calls.push(['snapshot', syncConsent]); return { rows: empty(), cursor: 'c1' }; },
+    pullSnapshot: async (_id, syncConsent) => { calls.push(['snapshot', syncConsent]); return { rows: empty(), cursor: 'c1', refused: noneRefused }; },
     upload: async (_id, sent, confirm) => { calls.push(['upload', sent]); await confirm(sent); },
     pull: async (_id, _cursor, syncConsent) => { calls.push(['pullFrom', syncConsent]); return { ...empty(), arrivals: [] }; },
   };

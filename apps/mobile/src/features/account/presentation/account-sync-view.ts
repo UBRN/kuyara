@@ -11,7 +11,7 @@ export type SyncView = Readonly<{
   label: string;
   /** The count beside the status: waiting or syncing. */
   value?: string;
-  footer: string;
+  footer?: string;
   /** The Settings row's line under "Signed in with Apple". */
   settingsLine: string;
   /** "Sync now" turns into "Try again" after a failure; it is inactive while nothing can run. */
@@ -19,7 +19,7 @@ export type SyncView = Readonly<{
 }>;
 
 /** One owner for what the Account screen and the Settings row say about sync (frames 06-08, 21, 22, 34-36). */
-export function describeSync(session: SignedIn, online: boolean, copy: AccountMessages, time: string): SyncView {
+export function describeSync(session: SignedIn, online: boolean, copy: AccountMessages, time: string | null): SyncView {
   const sync = copy.sync;
   const pending = session.pendingChanges;
   const waiting = pending > 0 ? sync.waiting(pending) : undefined;

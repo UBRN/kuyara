@@ -288,8 +288,22 @@ test('a first-link snapshot names the rows this build refused, the Closet and Hi
   const snapshot = await createSupabaseAccountRemote(client, phoneProfileId).pullSnapshot(userId, true);
   assert.deepEqual(snapshot.rows.wardrobeItems.map(({ id }) => id), [uuid(12)]);
   assert.deepEqual(snapshot.refused, {
-    wardrobeItems: [uuid(11)], dressingDayChoices: ['2026-09-12'], dressingDayDepartures: [], outfitHistory: [uuid(14)],
+    profile: false, wardrobeItems: [uuid(11)], dressingDayChoices: ['2026-09-12'], dressingDayDepartures: [], outfitHistory: [uuid(14)],
   });
+});
+
+test('a first-link snapshot says when this build refused the account\'s profile; an ongoing pull names nothing refused', async () => {
+  const profile = { display_name: 'Account', gender: 'nonbinary-from-a-newer-build', dress_style: 'casual', style_aesthetics: [],
+    created_at: pg(stamp(0)), updated_at: pg(stamp(1)), server_updated_at: '2026-10-01T00:00:00.000001+00:00' };
+  const answers = { profiles: [profile], wardrobe_items: [remoteItem(11, { category: 'cape' })] };
+  const { client } = fakeClient(({ path }) => answers[path] ?? []);
+  const remote = createSupabaseAccountRemote(client, phoneProfileId);
+  const snapshot = await remote.pullSnapshot(userId, true);
+  assert.equal(snapshot.rows.profile, null);
+  assert.equal(snapshot.refused.profile, true);
+  const pulled = await remote.pull(userId, pullCursorAt(null), true);
+  assert.equal('refused' in pulled, false);
+  assert.equal(pulled.arrivals.length, 2);
 });
 
 test('no upload body carries a device-only value: the profile id, a photo path or the pending flag', async () => {

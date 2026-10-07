@@ -176,7 +176,7 @@ test('deleting a Google account re-authenticates with Google, sends no Apple cod
   const { auth, google: googleFake, requests } = googleAuth((request) => ({ body: session(request.grant === 'refresh_token' ? 7 : 1) }));
   await auth.signIn('google');
   const credentials = await auth.reauthorizeDeletion();
-  assert.deepEqual(credentials, { accessToken: jwt(7) });
+  assert.deepEqual(credentials, { provider: 'google', accessToken: jwt(7) });
   assert.equal(googleFake.calls.length, 2);
   assert.equal(requests.at(-1).grant, 'refresh_token');
 
@@ -294,6 +294,9 @@ test('deletion re-authorizes with Apple for a code and a fresh access token; a c
   assert.equal(credentials.appleAuthorizationCode, 'apple-code');
   assert.equal(credentials.accessToken, jwt(7));
   assert.equal(requests.at(-1).grant, 'refresh_token');
+  // An account created with Google that added Apple confirms with Apple, and says so.
+  const added = await signedIn(() => ({ body: tokenResponse({ providers: ['apple', 'google'], primary: 'google' }) }));
+  assert.equal((await added.auth.reauthorizeDeletion()).provider, 'apple');
 
   const cancelled = await signedIn(undefined, { reauthorize: async () => null });
   const before = cancelled.requests.length;
@@ -308,8 +311,19 @@ test('a retry after the account was deleted with a lost answer still reaches the
     { status: 403, body: { code: 403, error_code: 'user_not_found', msg: 'User not found' } },
   ]) {
     const { auth } = await signedIn((request) => (request.grant === 'refresh_token' ? refused : { body: tokenResponse({ n: 1 }) }));
-    assert.deepEqual(await auth.reauthorizeDeletion(), { accessToken: jwt(1), appleAuthorizationCode: 'apple-code' });
+    assert.deepEqual(await auth.reauthorizeDeletion(), { provider: 'apple', accessToken: jwt(1), appleAuthorizationCode: 'apple-code' });
   }
+});
+
+test('a retry with an expired stored access token still reaches the Worker with that token', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+  // The client's own read refreshes an expired token first and answers no session when that is refused.
+  const expired = () => ({ body: { ...tokenResponse({ n: 1 }), expires_in: 1, expires_at: Math.floor(Date.now() / 1000) - 60 } });
+  const refused = { status: 400, body: { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token' } };
+  const fake = fakeAuth((request) => (request.grant === 'refresh_token' ? refused : expired()));
+  const auth = createSupabaseAccountAuth({ client: fake.client, apple: apple(), nonce, storedSession: fake.storedSession, removeStoredSession: fake.removeStoredSession });
+  await settled(t, auth.signIn('apple'));
+  assert.deepEqual(await settled(t, auth.reauthorizeDeletion()), { provider: 'apple', accessToken: jwt(1), appleAuthorizationCode: 'apple-code' });
 });
 
 test('when Apple gives no code for another reason, deletion still gets the access token without one', async () => {

@@ -37,7 +37,8 @@ export type AccountSession =
     pendingChanges: number;
     closetPieces: number;
     historyDays: number;
-    lastSyncedAt: string;
+    /** When a pass last completed on this phone in this run; null until one has. */
+    lastSyncedAt: string | null;
     /** The account's sync consent; null until a read of it has succeeded. */
     syncConsent: SyncConsentState | null;
   }>;
@@ -257,7 +258,7 @@ function createScenarioAccountScreens(
         if (session === null) throw new AccountProviderError('failed');
         return { ...session, providers: [...session.providers, provider] };
       },
-      reauthorizeDeletion: async () => ({ accessToken: scenarioUserId }),
+      reauthorizeDeletion: async () => ({ provider: shown()?.provider ?? 'apple', accessToken: scenarioUserId }),
       appleCredentialState: async () => 'authorized',
     },
     consent: {
