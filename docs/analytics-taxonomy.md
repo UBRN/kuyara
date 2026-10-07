@@ -545,9 +545,10 @@ PostHog from the earliest occurrence of the underlying event per identity.
 
 ### 5.12 Account conversion
 
-Not defined. The first release has no accounts ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md)). No event name is
-reserved here; designing this area now would be speculative infrastructure ahead of the
-feature it measures. Revisit this section when Supabase Auth work is scheduled.
+Not defined. Accounts ([ADR 0041](adr/0041-optional-accounts.md)) add no analytics event
+and no property: analytics is never linked to the account, `identify()` is never called,
+and neither `localProfileId` nor the Supabase user ID becomes an analytics identifier
+(ADR 0041 section 12).
 
 ### 5.13 Notifications
 

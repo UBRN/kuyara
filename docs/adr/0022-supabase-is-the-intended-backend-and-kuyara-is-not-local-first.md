@@ -3,7 +3,7 @@
 Status: Accepted (2026-09-04)
 
 Implementation: the account feature specified by [ADR 0041](0041-optional-accounts.md)
-is built and switched off behind `ACCOUNT_SCREENS_ENABLED`; the Supabase project and its
+is open from build 20 with `ACCOUNT_SCREENS_ENABLED` on; the Supabase project and its
 remote schema exist. This ADR changes how the product describes itself and what the
 current schemas must preserve. It authorizes no Supabase dependency, table, client,
 adapter, or sync code by itself; ADR 0041 specifies the optional accounts, sync and
@@ -39,7 +39,8 @@ For the MVP, all of the following remain true and unchanged:
 
 - Expo SQLite is the durable device-side database for user-created data.
 - No user account is required.
-- No sync engine exists.
+- Sync runs only for a signed-in member, as ADR 0041 specifies; without an account
+  nothing syncs.
 - All user data the current product needs may live on the device.
 - The Cloudflare Worker stays the boundary for WeatherKit, AI, and provider secrets, and
   owns the versioned mobile API. Supabase does not displace it.
@@ -61,7 +62,7 @@ narrowed: Supabase is the chosen one.
 
 ### 3. Postgres becomes authoritative for account-backed data; SQLite stays the device store
 
-Once accounts land, Supabase Postgres is the record of truth for account-backed user
+For a signed-in member, Supabase Postgres is the record of truth for account-backed user
 data. Expo SQLite remains the store the application reads and writes first, so the app keeps working
 offline and keeps rendering instantly, and it reconciles against the remote afterwards.
 
@@ -92,7 +93,7 @@ the current schema and boundaries, and must be preserved:
   earns its place with is continuity: the Closet and History are the things a user actually
   loses today when they change phones, so the account carries them across devices. It also
   earns a place by one feature: composing around chosen pieces on outfit detail is members
-  only, hidden until accounts open ([ADR 0041](0041-optional-accounts.md) section 5).
+  only ([ADR 0041](0041-optional-accounts.md) section 5).
 
 [ADR 0041](0041-optional-accounts.md) defines what the account carries, how device rows
 move into it, and how sign-out and deletion behave.

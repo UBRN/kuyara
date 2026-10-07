@@ -62,8 +62,8 @@ afterEach(() => {
 });
 
 describe('the sign-in benefit pages', () => {
-  test('stay behind the account screens switch', () => {
-    expect(ACCOUNT_SCREENS_ENABLED).toBe(false);
+  test('are reachable because the account screens switch is on', () => {
+    expect(ACCOUNT_SCREENS_ENABLED).toBe(true);
   });
 
   test('show six pages, each one spoken element with its title and sentence, starting at the leftmost', async () => {

@@ -462,6 +462,8 @@ expo prebuild --platform ios
 
 On a phone, the development client replaces the store build in place and keeps its data.
 
+Local development builds read `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` of the development Supabase project from `apps/mobile/.env` (the variable names are in `apps/mobile/.env.example`; the publishable key is never committed). Production builds take the production values from the EAS `production` environment, and the OTA export already disables local `.env` loading. Account deletion cannot be exercised on a development build, because the Worker is not connected to the development project.
+
 The `development` profile sets no Worker URL, so `apps/mobile/src/config/worker-base-url.ts`
 falls back to `http://127.0.0.1:8788`, which on a phone is the phone. To reach a Worker running
 on the Mac, set `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` in `apps/mobile/.env` to the Mac's LAN
