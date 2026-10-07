@@ -53,8 +53,11 @@ export type AccountAuthPort = Readonly<{
   signOut: () => Promise<void>;
   refreshSession: () => Promise<AuthSession | null>;
   addProvider: (provider: AccountProvider) => Promise<AuthSession>;
-  /** The provider that confirmed the deletion, with the credentials the Worker takes; null is a cancel. */
-  reauthorizeDeletion: () => Promise<Readonly<{
+  /**
+   * The provider that confirmed the deletion, with the credentials the Worker takes; null is a
+   * cancel. Apple confirms only when this phone holds the account's Apple credential.
+   */
+  reauthorizeDeletion: (holdsAppleCredential: boolean) => Promise<Readonly<{
     provider: AccountProvider; accessToken: string; appleAuthorizationCode?: string;
   }> | null>;
   /** Apple's credential state for the session's Apple identity; throws when Apple cannot answer. */
@@ -553,9 +556,10 @@ export function createAccountSessionManager({
     async deleteAccount() {
       if (!identity || !snapshot.online || snapshot.deletion === 'deleting') return;
       update({ deletion: 'deleting' });
+      const account = identity;
       const run = async () => {
         try {
-          const confirmed = await auth.reauthorizeDeletion();
+          const confirmed = await auth.reauthorizeDeletion(await holdsApple(account));
           if (confirmed === null) { update({ deletion: 'idle' }); return; }
           const { provider, ...credentials } = confirmed;
           // A pass that started before the deletion finishes before the phone's link is reset.

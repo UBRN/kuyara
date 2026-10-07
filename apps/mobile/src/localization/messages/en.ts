@@ -1280,7 +1280,7 @@ export const en = {
     },
     withdrawAlert: {
       title: 'Stop syncing your records?',
-      body: 'Sync stops on every phone signed in to your account. Your account’s copies of your Closet, History, style preferences, daily choices and departure records are deleted. The records on this phone stay.',
+      body: 'Sync stops on every phone signed in to your account. Your account’s copies of your Closet, History, style preferences, daily choices and departure records are deleted. Your Closet and History stay in kuyara.',
       cancel: 'Cancel',
       confirm: 'Stop syncing',
     },

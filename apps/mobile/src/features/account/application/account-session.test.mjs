@@ -1142,6 +1142,16 @@ test('the deletion result names the provider that confirmed it, not the one the 
   assert.deepEqual(calls.find(([name]) => name === 'delete'), ['delete', { accessToken: 'fresh', appleAuthorizationCode: 'code' }]);
 });
 
+test('deletion tells the auth port whether this phone holds the account\'s Apple credential', async () => {
+  for (const [appleUser, expected] of [['user-a', true], ['user-b', false], [null, false]]) {
+    const asked = [];
+    const { manager } = setup({ current: identity, appleUser, auth: { reauthorizeDeletion: async (holds) => { asked.push(holds); return null; } } });
+    await manager.start();
+    await manager.deleteAccount();
+    assert.deepEqual(asked, [expected], String(appleUser));
+  }
+});
+
 test('until a pass completes on this phone the session names no last sync, and a failed pass names none either', async () => {
   const gate = held();
   let fail = false;

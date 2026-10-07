@@ -1274,7 +1274,7 @@ export const tr = {
     },
     withdrawAlert: {
       title: 'Kayıtların eşitlenmesi durdurulsun mu?',
-      body: 'Hesabınla oturum açılmış bütün telefonlarda eşitleme durur. Gardırobunun, Geçmişinin, stil tercihlerinin, günlük seçimlerinin ve çıkış kayıtlarının hesabındaki kopyaları silinir. Bu telefondaki kayıtların olduğu gibi kalır.',
+      body: 'Hesabınla oturum açılmış bütün telefonlarda eşitleme durur. Gardırobunun, Geçmişinin, stil tercihlerinin, günlük seçimlerinin ve çıkış kayıtlarının hesabındaki kopyaları silinir. Gardırobun ve Geçmişin kuyara’da kalır.',
       cancel: 'Vazgeç',
       confirm: 'Eşitlemeyi durdur',
     },

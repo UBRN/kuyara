@@ -45,6 +45,7 @@ function keepsClustersWhole(text: string, index: number): boolean {
  * is returned unchanged; a longer one is cut at the last place `keepsClustersWhole` accepts, and
  * its trailing whitespace dropped. A cluster longer than the limit by itself cannot
  * stay whole, so that name is cut at the last whole character instead of emptied.
+ * Migration 29 calls this function: a change to its behaviour needs a new migration.
  */
 export function shortenWardrobeName(name: string): string {
   if (name.length <= WARDROBE_NAME_MAX_LENGTH) return name;
