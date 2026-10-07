@@ -1,6 +1,18 @@
 theme: jekyll-theme-primer
-description: A source-available weather and outfit recommendation app for iOS and Android.
+description: Each morning, kuyara turns your weather into an outfit made for you. For iPhone, and all yours.
 lang: en-US
+# The site publishes the landing, the privacy policy and support, in both languages. The
+# project's own documents stay in the repository and off the site.
+exclude:
+  - adr/
+  - design/
+  - analytics-taxonomy.md
+  - architecture.md
+  - clothing-taxonomy.md
+  - current-status.md
+  - product-decisions.md
+  - roadmap.md
+  - testing.md
 languages:
   en: English
   tr: Türkçe

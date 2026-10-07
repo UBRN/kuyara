@@ -4,7 +4,6 @@
  */
 (function () {
   'use strict';
-  if (document.querySelector('.ku-docs__group')) return;
   var label = document.documentElement.lang.indexOf('tr') === 0 ? 'Bu bölüme bağlantı' : 'Link to this section';
   document.querySelectorAll('.ku-prose h2[id], .ku-prose h3[id], .ku-prose h4[id]').forEach(function (heading) {
     var link = document.createElement('a');

@@ -186,50 +186,12 @@
   to { opacity: 1; }
 }
 
-/* ---------------------------------------------------------------- the rules */
-
-.ku-steps {
-  display: grid;
-  gap: var(--ku-space-md);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ku-step {
-  display: grid;
-  grid-template-columns: 2.5ch minmax(0, 1fr);
-  gap: var(--ku-space-md);
-  max-width: 34em;
-}
-
-.ku-step__index { color: var(--ku-brand-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
-
-@media (min-width: 960px) {
-  .ku-rules {
-    display: grid;
-    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-    gap: calc(2 * var(--ku-space-2xl));
-    align-items: start;
-  }
-}
-
-/* ------------------------------------------------------- privacy and price */
-
-.ku-lines {
-  display: grid;
-  gap: var(--ku-space-md);
-  max-width: 40em;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
+/* ------------------------------------------------------------- the closing band */
 
 .ku-cta { display: grid; gap: var(--ku-space-md); justify-items: start; }
 .ku-cta h2,
 .ku-cta p { margin: 0; }
 .ku-cta__soon { color: var(--ku-text-secondary); }
-.ku-docs-band__lede { max-width: 36em; }
 
 /* Content arrives in reading order as it scrolls in. Capability is the only gate. */
 @supports (animation-timeline: view()) {
