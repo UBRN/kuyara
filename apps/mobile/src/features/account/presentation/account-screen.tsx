@@ -169,5 +169,5 @@ export function AccountScreen({ onOpenDelete }: Readonly<{ onOpenDelete: () => v
 
 const styles = StyleSheet.create({
   identity: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
-  identityText: { flex: 1, minWidth: 0 },
+  identityText: { flexShrink: 1, minWidth: 0 },
 });
