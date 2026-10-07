@@ -171,6 +171,17 @@ test('anon is granted nothing, and no policy reads user metadata', () => {
   }
 });
 
+test('objects created later in public start with no access for anon, authenticated or public', () => {
+  for (const kind of ['tables', 'sequences', 'functions']) {
+    assert.match(
+      code,
+      new RegExp(`alter default privileges for role postgres in schema public\\s+revoke all on ${kind} from [^;]*\\banon, authenticated;`, 'u'),
+      kind,
+    );
+  }
+  assert.match(code, /revoke all on functions from public, anon, authenticated;/u);
+});
+
 test('consent records are select and insert only: no update or delete policy or grant', () => {
   const policies = (code.match(/create policy \w+ on public\.sync_consent_records\n\s+for (\w+)/gu) ?? [])
     .map((policy) => policy.split(/\s+/u).at(-1));
