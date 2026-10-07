@@ -179,15 +179,21 @@ error rather than a passed-through string.
 ### 5.1 App lifecycle and session usage
 
 Covered by PostHog's React Native SDK lifecycle autocapture (`captureAppLifecycleEvents`),
-not a custom event: it already emits application-installed, -opened, -backgrounded, and
--updated events with app version, OS version, and build metadata as properties, all
-provider-added and already structured and low-cardinality. Adding a hand-rolled duplicate
+not a custom event: it emits `Application Installed`, `Application Updated`,
+`Application Opened`, `Application Became Active` and `Application Backgrounded` with app
+version, OS version, and build metadata as properties, all provider-added and already
+structured and low-cardinality. `Application Opened` marks a cold start;
+`Application Became Active` marks every return to the foreground, including the first one
+after a cold start, so foreground use is counted from it. Adding a hand-rolled duplicate
 would raise event volume for no new coverage. Session boundaries and session length are
 PostHog's own session properties, not a custom event.
 
 | Event | Trigger | Properties | Notes |
 | --- | --- | --- | --- |
-| *(provider default: application opened/backgrounded/updated/installed)* | app process lifecycle transitions | SDK-supplied: app version, OS version, build number | No custom code needed; verify at implementation time that the SDK default payload contains nothing on the exclusion list. |
+| `Application Installed`, `Application Updated` | first launch of an install, first launch after a version change | SDK-supplied: app version, build number, previous version and build on update | Provider default; the payload passes the section 5.1 allowlist like every other event. |
+| `Application Opened` | cold start | SDK-supplied: app version, OS version, build number; the launch URL is dropped | Provider default. |
+| `Application Became Active` | the app returns to the foreground | none beyond the allowlisted SDK keys | Provider default. |
+| `Application Backgrounded` | the app leaves the foreground | none beyond the allowlisted SDK keys | Provider default. |
 
 The backgrounded event is also the flush point for the aggregation rules in section 6.
 
@@ -659,24 +665,24 @@ checked most days), sees two or three screens per open, and edits the Closet occ
 
 | Source | Events per month per active user |
 | --- | --- |
-| Lifecycle autocapture (opened, backgrounded, updated) | about 40 |
+| Lifecycle autocapture (opened, became active, backgrounded, updated) | about 60 |
 | `screen_viewed` | about 50 |
 | `weather_refreshed` | about 30 |
 | `recommendation_regenerated` | about 25 |
 | `recommendation_viewed` | about 20 |
 | `outfit_detail_opened` | about 10 |
 | Everything else (manual refresh, retries, Closet, Settings, errors, notification responses, first use, consent, onboarding amortised over the install's life) | about 25 |
-| **Total** | **about 200, call it 200 to 300 with error and retry variance** |
+| **Total** | **about 220, call it 220 to 320 with error and retry variance** |
 
 Removing the unobservable scheduling event does not materially change the rounded estimate
 because it was part of the aggregate "Everything else" row. So the monthly active user
 ceiling is roughly the plan's monthly event allowance divided by
-300. Verify the current allowance, its overage behaviour, and whether a free plan drops
+320. Verify the current allowance, its overage behaviour, and whether a free plan drops
 events or bills for them, from PostHog's own pricing page at implementation time; the first
 release's expected audience is orders of magnitude below any plausible ceiling, which is
 why no sampling is applied up front.
 
-Two sources are 45 percent of the total. If the ceiling is ever approached, the levers in
+Two sources are half of the total. If the ceiling is ever approached, the levers in
 order are: sample `screen_viewed`, then turn off lifecycle autocapture and keep only the
 opened event. Neither breaks the onboarding funnel, the recommendation questions, or the
 failure analysis, which are the reasons this taxonomy exists.
