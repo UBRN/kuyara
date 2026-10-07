@@ -194,6 +194,24 @@ test('final withdrawal event keeps concurrent and later feature and SDK captures
   assert.deepEqual(client.captures.map(({ name }) => name), ['analytics_consent_withdrawn']);
 });
 
+test('a throwing provider capture never reaches the caller, and the final withdrawal event still closes capture', async () => {
+  const client = new FakeClient();
+  let beforeSend;
+  const analytics = createPostHogProductAnalytics(options('granted'), (hook) => {
+    beforeSend = hook;
+    return client;
+  });
+  await analytics.whenReady();
+  client.fail('capture');
+
+  assert.doesNotThrow(() => analytics.capture('notification_opened', { schema_version: 4 }));
+  assert.equal(analytics.isWithdrawalInProgress(), false);
+
+  assert.doesNotThrow(() => analytics.capture('analytics_consent_withdrawn', { schema_version: 4 }));
+  assert.equal(analytics.isWithdrawalInProgress(), true);
+  assert.equal(beforeSend({ event: 'Application Opened', properties: {} }), null);
+});
+
 test('stored withdrawal sends no further event, clears the device id, and re-consent has a fresh identifier', async () => {
   const clients = [];
   const beforeSendHooks = [];

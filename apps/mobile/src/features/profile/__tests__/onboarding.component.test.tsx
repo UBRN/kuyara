@@ -150,7 +150,7 @@ async function renderOnboarding(
                     initialGender={initialGender}
                     onComplete={onComplete}
                     locationStep={({ header, testID }) => (
-                      <LocationSelectionControls header={header} testID={testID} testIDPrefix="onboarding" />
+                      <LocationSelectionControls header={header} reportsSelection={false} testID={testID} testIDPrefix="onboarding" />
                     )}
                   />
                 </PlaceSearchApplicationContext>

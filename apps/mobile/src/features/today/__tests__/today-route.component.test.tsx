@@ -2533,6 +2533,37 @@ test('a morning answer given while the weather refreshes waits for that weather'
   }
 });
 
+test('a morning answer whose choice write fails reports no day style change', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-23' };
+  mockChoiceUpsert.mockRejectedValue(new Error('write failed'));
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  const productAnalytics = createProductAnalytics();
+  try {
+    const view = await render(
+      <Providers productAnalytics={productAnalytics}
+        profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal' })}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    await fireEvent.press(view.getByTestId('daily-formality-close'));
+    await waitFor(() => expect(mockChoiceUpsert).toHaveBeenCalledTimes(1));
+    await act(async () => { await Promise.resolve(); });
+    expect(capturesOf(productAnalytics, 'day_style_changed')).toEqual([]);
+  } finally {
+    history.mockRestore();
+    refresh.mockRestore();
+  }
+});
+
 // The Settings switch turns off both questions: with it off, the evening is dressed for the
 // profile dress style without a sheet, and the morning answer does not carry over.
 test('with the day questions off, 18:00 opens no sheet and dresses the evening for the profile style', async () => {
@@ -4337,8 +4368,9 @@ test('a failed wore-this save shows its error, and the next press records the lo
       .mockRejectedValueOnce(new Error('write failed'))
       .mockImplementation(async (_day, outfit) => ({ outfit }) as never),
   };
+  const productAnalytics = createProductAnalytics();
   const result = await render(
-    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()} recommendation={recommendationReady()}
+    <Providers productAnalytics={productAnalytics} profile={profileValue()} recommendation={recommendationReady()}
       wardrobe={wardrobeValue()} weather={weatherValue()} dressingDayKey="2026-08-13" outfitHistory={outfitHistory}>
       <OutfitDetailRoute />
     </Providers>,
@@ -4346,10 +4378,43 @@ test('a failed wore-this save shows its error, and the next press records the lo
 
   await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
   expect(await result.findByText(messages.en.today.wornSaveError)).toBeOnTheScreen();
+  // The failed write reports nothing.
+  expect(capturesOf(productAnalytics, 'outfit_worn_logged')).toEqual([]);
   await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
   expect(outfitHistory.log).toHaveBeenCalledTimes(2);
   expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
   await waitFor(() => expect(result.queryByTestId('outfit-detail-worn-error')).toBeNull());
+  expect(capturesOf(productAnalytics, 'outfit_worn_logged')).toHaveLength(1);
+});
+
+test('two presses of wore-this before the screen updates write and report the look once', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  let finish!: () => void;
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    day: jest.fn(async () => []),
+    log: jest.fn<Promise<never>, [string, WornOutfit, unknown]>(async (_day, outfit) => {
+      await new Promise<void>((resolve) => { finish = resolve; });
+      return { outfit } as never;
+    }),
+  };
+  const productAnalytics = createProductAnalytics();
+  const result = await render(
+    <Providers productAnalytics={productAnalytics} profile={profileValue()} recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()} weather={weatherValue()} dressingDayKey="2026-08-13" outfitHistory={outfitHistory}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  const button = await result.findByTestId('outfit-detail-wore-this');
+  await act(async () => {
+    fireEvent.press(button);
+    fireEvent.press(button);
+  });
+  await act(async () => { finish(); });
+  expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
+  expect(outfitHistory.log).toHaveBeenCalledTimes(1);
+  expect(capturesOf(productAnalytics, 'outfit_worn_logged')).toHaveLength(1);
 });
 
 test('closing the piece sheet writes nothing to the Closet', async () => {

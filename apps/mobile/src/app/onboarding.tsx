@@ -55,7 +55,7 @@ function ReadyOnboarding(props: ReadyOnboardingProps) {
     <OnboardingScreen
       {...props}
       locationStep={({ header, testID }) => (
-        <LocationSelectionControls header={header} testID={testID} testIDPrefix="onboarding" />
+        <LocationSelectionControls header={header} reportsSelection={false} testID={testID} testIDPrefix="onboarding" />
       )}
     />
   );

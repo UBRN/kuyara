@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import {
-  composedPieceCount,
   composeResultProperty,
   generationModeProperty,
   outfitSlotProperty,
@@ -33,14 +32,16 @@ export function useOutfitEditReports(input: Readonly<{
       ...(position && !composed ? { outfit_position: position } : {}),
     });
   }, [analytics, position, tomorrow]);
+  // Tomorrow's detail composes nothing: its mix has no snapshot to compose from. A compose
+  // takes one to three pieces; an attempt with none is no compose.
   const onComposed = useCallback((pieceCount: number, optionCount: number) => {
-    if (tomorrow || pieceCount === 0) return;
+    if (pieceCount !== 1 && pieceCount !== 2 && pieceCount !== 3) return;
     analytics.capture('outfit_composed', {
       schema_version: ANALYTICS_SCHEMA_VERSION,
-      piece_count: composedPieceCount(pieceCount),
+      piece_count: pieceCount,
       result: composeResultProperty(optionCount),
     });
-  }, [analytics, tomorrow]);
+  }, [analytics]);
   return { onPieceChanged, onComposed };
 }
 

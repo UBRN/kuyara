@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import {
@@ -23,6 +23,8 @@ export function useDayWornLooks(
   const [dayLooks, setDayLooks] = useState<{ key: string; looks: readonly WornOutfit[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // A second press before React re-renders must not write or report again.
+  const writing = useRef(false);
   const dayKey = dressingDayKey ? historyDayKey(dressingDayKey) : null;
   useEffect(() => {
     if (!dayKey || !outfitHistory) return;
@@ -38,7 +40,8 @@ export function useDayWornLooks(
   // same look to one record. The colours are the ones the detail board drew, so History draws
   // the look as it was seen.
   const wearThis = (pieceColors: WornPieceColors) => {
-    if (!dayKey || !look || !outfitHistory || busy) return;
+    if (!dayKey || !look || !outfitHistory || writing.current) return;
+    writing.current = true;
     setBusy(true);
     setFailed(false);
     void outfitHistory.log(dayKey, look, pieceColors)
@@ -50,7 +53,10 @@ export function useDayWornLooks(
         onLogged?.(record.outfit);
       })
       .catch(() => setFailed(true))
-      .finally(() => setBusy(false));
+      .finally(() => {
+        writing.current = false;
+        setBusy(false);
+      });
   };
 
   const today = dayLooks?.key === dayKey ? dayLooks : null;

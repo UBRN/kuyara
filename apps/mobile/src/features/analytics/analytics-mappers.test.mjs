@@ -7,7 +7,6 @@ import { weatherConditionCodes } from '@/features/weather/domain/weather';
 import {
   ageBucketProperty,
   aiProbeResultProperty,
-  composedPieceCount,
   composeResultProperty,
   conditionCategory,
   countBucket,
@@ -116,8 +115,7 @@ test('every day style choice source maps to itself', () => {
   );
 });
 
-test('chosen pieces bucket into one, two and three or more; no outfit built is no match', () => {
-  assert.deepEqual([1, 2, 3, 4].map(composedPieceCount), [1, 2, '3+', '3+']);
+test('an attempt that built an outfit is composed; no outfit built is no match', () => {
   assert.deepEqual([0, 1, 3].map(composeResultProperty), ['no_match', 'composed', 'composed']);
 });
 

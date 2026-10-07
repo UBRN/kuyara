@@ -104,7 +104,7 @@ export type OutfitSlotProperty =
   | 'handheld';
 
 // Taxonomy 5.6: the pieces the reader chose to build around, three or more collapsed.
-export type ComposedPieceCount = 1 | 2 | '3+';
+export type ComposedPieceCount = 1 | 2 | 3;
 
 // Taxonomy 5.5: how the day's formality was chosen.
 export type DayStyleChoiceSourceProperty = 'morning' | 'chip' | 'plan' | 'random';

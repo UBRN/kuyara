@@ -446,6 +446,8 @@ class PostHogProductAnalytics implements ProductAnalytics {
     if (!this.consented || this.withdrawing || this.readConsent() !== 'granted') return;
     try {
       this.captureProviderEvent(name, properties, options);
+    } catch {
+      // A provider failure never breaks the product action that reported the event.
     } finally {
       if (name === 'analytics_consent_withdrawn') {
         // The event is queued synchronously. Suppress feature and SDK autocapture

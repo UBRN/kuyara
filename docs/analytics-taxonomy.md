@@ -183,10 +183,12 @@ not a custom event: it emits `Application Installed`, `Application Updated`,
 `Application Opened`, `Application Became Active` and `Application Backgrounded` with app
 version, OS version, and build metadata as properties, all provider-added and already
 structured and low-cardinality. `Application Opened` marks a cold start;
-`Application Became Active` marks every return to the foreground, including the first one
-after a cold start, so foreground use is counted from it. Adding a hand-rolled duplicate
-would raise event volume for no new coverage. Session boundaries and session length are
-PostHog's own session properties, not a custom event.
+`Application Became Active` marks a return to the foreground after that start, because the
+SDK registers its app-state listener only after `Application Opened` is captured, inside a
+client that exists only once consent is given. Foreground use is `Application Opened` plus
+`Application Became Active`. Adding a hand-rolled duplicate would raise event volume for
+no new coverage. Session boundaries and session length are PostHog's own session properties,
+not a custom event.
 
 | Event | Trigger | Properties | Notes |
 | --- | --- | --- | --- |
@@ -306,7 +308,7 @@ table in the same change.
 | --- | --- | --- |
 | `recommendation_viewed` | Today gains focus while a recommendation is visible, once per focus appearance. | `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (`3`), `dress_style` and `age_bucket` (section 3) |
 | `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (seven emitted values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`), `regeneration_source` (`ai`\|`pool`, present only when `result` is `success` and `trigger_reason` is `regenerate`) |
-| `day_style_changed` | A formality is written for a dressing day: the day question's answer or its dismissal, or a confirmed re-ask whose formality differs from the one in force. | `dress_style` (`casual`\|`smart`\|`formal`, the formality written; section 3), `choice_source` (`morning`\|`chip`\|`plan`\|`random`) |
+| `day_style_changed` | A formality is written for a dressing day: the day question's answer or its dismissal, or a confirmed re-ask that writes one (below). | `dress_style` (`casual`\|`smart`\|`formal`, the formality written; section 3), `choice_source` (`morning`\|`chip`\|`plan`\|`random`) |
 
 `recommendation_viewed` is an impression, not a render counter. Rerenders while Today
 remains focused do not emit it again. When cache states overlap, `refreshing` takes
@@ -356,9 +358,11 @@ use `regenerate` instead.
 `day_style_changed` is emitted once for each row written to the day's formality store, not
 per render. `choice_source` is the stored `DressingDayChoiceSource` mapped one to one: the
 day question and its dismissal write `morning`, a confirmed re-ask writes `chip`, and `plan`
-and `random` are declared values no screen writes yet. A re-ask that confirms the formality
-already in force writes nothing and emits nothing. The styles chosen beside the day type are
-never reported. The answer onboarding writes at the end of setup is not reported, because it
+and `random` are declared values no screen writes yet. A confirmed re-ask writes, and so
+reports, when its formality differs from the one in force, when the day has no written
+choice yet, or when its departure falls on another dressing day; a re-ask that only
+confirms an already written choice for the current day writes nothing and reports nothing.
+The styles chosen beside the day type are never reported. The answer onboarding writes at the end of setup is not reported, because it
 runs before the consent question (section 5.2).
 
 Manual edits on outfit detail are not generation triggers and produce no `trigger_reason`
@@ -382,7 +386,7 @@ section 5.6.
 | `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `dress_style` and `age_bucket` (section 3) |
 | `outfit_worn_logged` | The user confirms "Wore this today" on outfit detail and the History write succeeds. | `worn_source` (`recommended`\|`edited`\|`composed`), `archetype` (as above), `dress_style` (the worn outfit's own formality), `generation_mode` (as above, omitted for a composed result and for an idea that is not one of the three) |
 | `outfit_piece_changed` | The reader changes one piece of an outfit on detail. | `slot` (`primary_top`\|`bottom`\|`one_piece`\|`mid_layer`\|`outer_layer`\|`footwear`\|`head`\|`neck`\|`hands`\|`handheld`), `outfit_position` (`1`\|`2`\|`3`, omitted for a composed result and for an idea) |
-| `outfit_composed` | The reader asks kuyara to build an outfit around chosen pieces and the attempt settles. | `piece_count` (`1`\|`2`\|`3+`), `result` (`composed`\|`no_match`) |
+| `outfit_composed` | The reader asks kuyara to build an outfit around chosen pieces and the attempt settles. | `piece_count` (`1`\|`2`\|`3`), `result` (`composed`\|`no_match`) |
 | `tomorrow_preview_opened` | The user opens tomorrow's previewed outfit from the evening strip on Today. | `generation_mode` (as above) |
 
 Opening detail is an impression of interest.
@@ -392,7 +396,8 @@ Opening detail is an impression of interest.
 `manual`), and kuyara's pick as recommended is `recommended`. The event is emitted after the
 write succeeds, once per confirmation; a look the day already holds offers no confirmation,
 and no screen undoes a worn look, so nothing else is reported. `dress_style` is the worn
-outfit's formality and `archetype` the pick's, kept by a composed or edited outfit.
+outfit's formality. `archetype` is kuyara's pick's for an edited outfit and the compose's
+own for a composed one.
 
 `outfit_piece_changed` is emitted once for each change to one slot: a swap (by tap, swipe,
 arrows or the picker), a mid or outer layer added or taken off, an accessory added or taken
@@ -403,7 +408,7 @@ for an idea from Today's More ideas. Tomorrow's preview is read-only for the day
 nothing.
 
 `outfit_composed` is emitted when a compose attempt settles, with the number of chosen
-pieces (three at most, so `3+` is exactly three) and whether any outfit was built. `result`
+pieces (one to three, the most a compose takes) and whether any outfit was built. `result`
 is `composed` when at least one outfit came back and `no_match` otherwise, an unavailable
 day included. Stepping to another option and "back to kuyara's pick" report nothing.
 
@@ -707,8 +712,8 @@ events or bills for them, from PostHog's own pricing page at implementation time
 release's expected audience is orders of magnitude below any plausible ceiling, which is
 why no sampling is applied up front.
 
-Two sources are half of the total. If the ceiling is ever approached, the levers in
-order are: sample `screen_viewed`, then turn off lifecycle autocapture and keep only the
+Two sources, lifecycle autocapture and `screen_viewed`, are about 40 percent of the total.
+If the ceiling is ever approached, the levers in order are: sample `screen_viewed`, then turn off lifecycle autocapture and keep only the
 opened event. Neither breaks the recommendation and outfit questions, or the
 failure analysis, which are the reasons this taxonomy exists.
 

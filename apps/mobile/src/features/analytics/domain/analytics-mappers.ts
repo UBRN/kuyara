@@ -20,7 +20,6 @@ import type {
   AnalyticsEventProperties,
   ConditionCategory,
   CountBucket,
-  ComposedPieceCount,
   DayStyleChoiceSourceProperty,
   FailureCategoryProperty,
   GenerationModeProperty,
@@ -146,11 +145,6 @@ export function dayStyleChoiceSourceProperty(
   source: DressingDayChoiceSource,
 ): DayStyleChoiceSourceProperty {
   return dayStyleChoiceSourceProperties[source];
-}
-
-// Taxonomy 5.6: one, two, or three (the most a compose takes) as `3+`.
-export function composedPieceCount(count: number): ComposedPieceCount {
-  return count >= 3 ? '3+' : count === 2 ? 2 : 1;
 }
 
 // Taxonomy 5.6: an attempt that built at least one outfit is `composed`; every other

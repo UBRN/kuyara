@@ -37,6 +37,11 @@ type LocationSelectionControlsProps = Readonly<{
   header?: ReactNode;
   /** Called once a pick has become the active location, so a picker screen can close. */
   onLocationSelected?: () => void;
+  /**
+   * Whether a pick is reported to analytics. Onboarding runs before the consent question, so
+   * it turns this off.
+   */
+  reportsSelection?: boolean;
   testID: string;
   testIDPrefix: 'onboarding' | 'weather';
 }>;
@@ -44,6 +49,7 @@ type LocationSelectionControlsProps = Readonly<{
 export function LocationSelectionControls({
   header,
   onLocationSelected,
+  reportsSelection = true,
   testID,
   testIDPrefix,
 }: LocationSelectionControlsProps) {
@@ -55,9 +61,9 @@ export function LocationSelectionControls({
   // Taxonomy 5.4: `location_changed` fires only when the active location's identity
   // actually changed. `getSnapshot()` reads the controller's committed state directly, so
   // the "after" read here is never a stale, pre-await render. Onboarding runs before the
-  // consent question, so it reports nothing.
+  // consent question, so it reports nothing (`reportsSelection` off).
   const reportLocationSelection = (before: typeof application.state) => {
-    if (testIDPrefix === 'onboarding') return;
+    if (!reportsSelection) return;
     weatherEvents.locationSelectionFinished(before, application.getSnapshot?.() ?? application.state);
   };
   // A pick is done only when it is the active location and nothing is left to answer: a
@@ -260,7 +266,7 @@ export function LocationSelectionControls({
                         // whether it ends up the same place, so first use gates on the
                         // action, not on `location_changed` firing. Onboarding runs before
                         // the consent question, so it must not use up the first use either.
-                        if (testIDPrefix !== 'onboarding') weatherEvents.manualLocationSelected();
+                        if (reportsSelection) weatherEvents.manualLocationSelected();
                       }
                 }
                 selected={

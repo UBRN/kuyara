@@ -377,7 +377,7 @@ test('the onboarding place step never navigates when a place is chosen, and repo
     weather.state = { ...readyState(weather.state), activeLocation: istanbul };
   });
   const result = await render(
-    <Providers><LocationSelectionControls testID="controls" testIDPrefix="onboarding" /></Providers>,
+    <Providers><LocationSelectionControls reportsSelection={false} testID="controls" testIDPrefix="onboarding" /></Providers>,
   );
   await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista'); await debounce();
   await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
