@@ -595,6 +595,18 @@ test('adding Apple marks the credential for that account; a Google sign-in does 
   assert.equal(apple.userId, null);
 });
 
+test('a Google sign-in replaces an Apple mark left from an earlier session, so Apple is not asked', async () => {
+  // The earlier Apple session ended while the app was closed; this launch found no session to forget.
+  let checks = 0;
+  const { manager, apple } = setup({ appleUser: 'user-a', auth: { appleCredentialState: async () => { checks += 1; return 'notFound'; } } });
+  manager.openSignIn('profile');
+  await manager.signIn('google');
+  assert.equal(apple.userId, null);
+  await manager.foreground();
+  assert.equal(checks, 0);
+  assert.equal(manager.getSnapshot().session.kind, 'signedIn');
+});
+
 test('a session the server ended and a deletion both clear the Apple mark', async () => {
   const ended = setup({ current: identity, appleUser: 'user-a', auth: { refreshSession: async () => null } });
   await ended.manager.start();

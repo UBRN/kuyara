@@ -444,7 +444,8 @@ export function createAccountSessionManager({
         identity = session;
         awaitingConsent = provider;
         update({ session: showIdentity(session) });
-        if (provider === 'apple') await markApple(session.userId);
+        // Every sign-in rewrites the mark, so one left by an earlier session never outlives it.
+        await markApple(provider === 'apple' ? session.userId : null);
         const syncConsent = await readConsent(session.userId);
         if (!isCurrent(session)) return;
         updateSession({ syncConsent });
