@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Network from 'expo-network';
 import * as SecureStore from 'expo-secure-store';
+import * as WebBrowser from 'expo-web-browser';
 
 import type { SupabaseSettings } from '@/config/supabase-settings';
 import { createAccountDeletionClient } from '@/features/account/application/account-delete';
@@ -13,11 +14,7 @@ import {
 import { createAccountSessionSync } from '@/features/account/application/account-session-sync';
 import { createEncryptedSessionStorage } from '@/features/account/data/encrypted-session-storage';
 import { createExpoAppleSignIn, createNonceSource } from '@/features/account/data/expo-native-sign-in';
-import {
-  createGoogleSignIn,
-  resolveGoogleSignInSettings,
-  type GoogleOneTapModule,
-} from '@/features/account/data/google-native-sign-in';
+import { createGoogleSignIn, resolveGoogleSignInSettings } from '@/features/account/data/google-browser-sign-in';
 import { createNetworkState, type AccountNetwork } from '@/features/account/data/network-state';
 import {
   createSqliteAccountRowsSource,
@@ -43,12 +40,6 @@ const keychain = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVIC
 /** The name the auth client stores its session under, so an offline launch can read it too. */
 const sessionStorageKey = 'kuyara.account.session';
 /**
- * Google's native sign-in library (`GoogleOneTapSignIn` of its Universal edition) is not in this
- * build, so Google sign-in fails closed (ADR 0041 section 1).
- */
-const googleModule: GoogleOneTapModule | null = null;
-
-/**
  * Every Supabase request, auth included, is aborted after this long. Passes run one at a time and
  * sign-out waits for the running one, so a request that never answered would hold every later
  * sync and the sign-out; a request is one statement under the `authenticated` role's 8-second
@@ -72,10 +63,10 @@ export type LiveAccountSession = Readonly<{
   accessToken: () => Promise<string | null>;
 }>;
 
-/** Google sign-in when both its library and its client settings are in the build, else null. */
-function googleSignIn() {
+/** Google sign-in when its client id is in the build, else null (ADR 0041 section 1). */
+function googleSignIn(send: typeof fetch) {
   const settings = resolveGoogleSignInSettings();
-  return googleModule !== null && settings !== null ? createGoogleSignIn(googleModule, settings) : null;
+  return settings === null ? null : createGoogleSignIn({ browser: WebBrowser, crypto: deviceCrypto, send }, settings);
 }
 
 export function createLiveAccountSession({ database, fetcher, localProfileId, settings, workerBaseUrl }: Readonly<{
@@ -103,7 +94,7 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
   const supabaseAuth = createSupabaseAccountAuth({
     client,
     apple: createExpoAppleSignIn(AppleAuthentication),
-    google: googleSignIn(),
+    google: googleSignIn(fetcher),
     nonce: createNonceSource(deviceCrypto),
     storedSession: () => storage.getItem(sessionStorageKey),
     removeStoredSession: () => storage.removeItem(sessionStorageKey),

@@ -151,12 +151,12 @@ const rules = [
     name: 'the account SDK packages are imported only under features/account/data/',
     matches: (specifier) => [
       '@supabase/supabase-js', 'expo-apple-authentication',
-      '@react-native-google-signin/google-signin', 'expo-secure-store',
+      'expo-web-browser', 'expo-secure-store',
     ].some((packageName) => packageMatcher(packageName)(specifier)),
     forbiddenDirectories: null,
     allowedDirectories: ['features/account/data/'],
     ruleText:
-      'The Supabase client library, native Apple and Google sign-in and the secure key store '
+      'The Supabase client library, Apple sign-in, the browser session of Google sign-in and the secure key store '
       + 'are imported only from the account feature\'s data layer; UI and domain code never '
       + 'import them (ADR 0041 sections 9 and 12). Reach them through the account feature\'s '
       + 'application layer.',
