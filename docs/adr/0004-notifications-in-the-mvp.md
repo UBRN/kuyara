@@ -10,14 +10,16 @@ Behavioural analytics is governed by
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md), and the backend direction
 is governed by
 [ADR 0022](0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md). The
-argument against server push rests on the first release shipping without sign-in and
-without a server-owned per-user store. N3 remains deferred and still needs its own ADR.
+argument against server push rests on notifications needing no server-owned store of
+device tokens and locations; optional accounts ([ADR 0041](0041-optional-accounts.md))
+sync account records, never device tokens or locations, and do not change that. N3 remains deferred and still
+needs its own ADR.
 
 ## Context
 
 The product should warn a user about upcoming weather that changes what they
 need to wear, for example rain starting in the afternoon or a sharp temperature
-swing. The first release still ships without sign-in or cross-device sync.
+swing. Accounts are optional, and weather alerts do not depend on them.
 
 "Reliable even when the app has not been opened for days" points at remote push:
 the Worker would hold a per-device push token, a stored location, alert
@@ -25,9 +27,9 @@ thresholds, and a schedule, and a cron trigger would fetch each device's
 forecast and send a push. That path forces three departures from recorded
 decisions:
 
-- **A server-owned per-user store.** Expo SQLite is the device-side database and
-  the MVP forbids an outbox, sync engine, or server revision system. There is no
-  account. A subscription table would be the first server-owned user record.
+- **A server-owned per-user store.** Expo SQLite is the device-side working store,
+  and optional accounts sync account records only. A push subscription table
+  would be a server-owned per-device record that the account sync does not cover.
 - **Coordinates persisted server-side.** The weather API was designed so the
   Worker stores no coordinates; mobile sends rounded coordinates per request.
   Server-side forecast evaluation requires persisting a location per device,
