@@ -175,8 +175,8 @@
       "particles": "wind",
       "ink": "cloudy",
       "condition": {
-        "en": "Cloudy",
-        "tr": "Bulutlu"
+        "en": "Windy",
+        "tr": "Rüzgârlı"
       },
       "looks": [
         {

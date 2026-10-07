@@ -45,7 +45,8 @@ const LANGUAGES = ['en', 'tr'];
 /**
  * The page's weather scenes, warm to cold, and what each catalogue wears in them. Every outfit
  * has to be one the app's rules compose for that weather, or the generator stops. `particles`
- * is the plate's moving weather and `ink` the condition colour it is drawn in.
+ * is the plate's moving weather and `ink` the condition colour it is drawn in. `label`, where
+ * given, replaces the condition's name beside the temperature; the weather itself is unchanged.
  *
  * The app's palette colours every board, and two boards side by side or one scene apart should
  * not wear the same colours. `palette` is added to the outfit's option id, the seed the palette
@@ -75,6 +76,8 @@ export const SCENES = Object.freeze([
   },
   {
     id: 'wind', temperatureC: 7, condition: 'cloudy', windMetersPerSecond: 10, particles: 'wind', ink: 'cloudy',
+    // The app names no windy condition, so the page labels this scene itself.
+    label: { en: 'Windy', tr: 'Rüzgârlı' },
     womens: ['turtleneck', 'trousers', 'coat', 'ankle_boots'],
     mens: ['turtleneck', 'jeans', 'insulated_jacket', 'ankle_boots'],
     palette: { womens: 0, mens: 0 },
@@ -352,7 +355,7 @@ export function generateSiteBoards() {
       atmosphere: boards[0].atmosphere,
       particles: scene.particles,
       ink: scene.ink,
-      condition: byLanguage((names) => names.condition(scene.condition)),
+      condition: byLanguage((names, language) => scene.label?.[language] ?? names.condition(scene.condition)),
       looks: PREFERENCES.map((preference, index) => ({
         preference,
         pieces: byLanguage((names) => dressed(boards[index]).map((piece) => names.name(piece.type))),
