@@ -52,11 +52,11 @@ function drawnBounds(paths) {
 }
 
 // ADR 0025's vocabulary: every catalogue garment in each cut (41 women's, 33 men's), the seven
-// accessory drawings both cuts share, the six category glyphs, and the fifteen base drawings the
-// public site's landing boards copy.
+// accessory drawings both cuts share, the six category glyphs, and fifteen base drawings that
+// nothing draws any more.
 const accessories = ['g-beanie', 'g-hat', 'g-cap', 'g-balaclava', 'g-scarf', 'g-gloves', 'g-umbrella'];
 
-test('the vocabulary holds 74 cut drawings, seven accessories, six glyphs and the site\'s fifteen', () => {
+test('the vocabulary holds 74 cut drawings, seven accessories, six glyphs and fifteen unused base drawings', () => {
   const ids = Object.keys(silhouettes);
   assert.equal(ids.filter((id) => id.startsWith('g-cat-')).length, 6);
   assert.equal(ids.filter((id) => id.endsWith('-f')).length, 41);

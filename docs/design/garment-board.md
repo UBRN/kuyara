@@ -266,8 +266,8 @@ hip, and a slimmer last with an almond toe and a small block heel. Footwear is a
 shoes' own size, 44/13 of their grid length (one shoe 44 units long for a man, 38.9 for a
 woman); a board draws the pair at 0.36 of that size on the shared scale (section 2).
 
-Fifteen earlier drawings draw no catalogue type any more and stay only because the public
-site's landing boards copy their outlines (`landing-boards.test.mjs`): `g-tee`, `g-shirt`,
+Fifteen earlier drawings draw no catalogue type and nothing draws them; the public site draws
+its boards in the cut drawings: `g-tee`, `g-shirt`,
 `g-sweater`, `g-hoodie`, `g-cardigan`, `g-jacket`, `g-rain`, `g-trousers`, `g-jeans`,
 `g-shorts`, `g-dress`, `g-sneaker`, `g-boot`, `g-dressshoe` and `x-loafer`.
 

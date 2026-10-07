@@ -1,0 +1,282 @@
+{
+  "hero": {
+    "atmosphere": "veiledDay",
+    "label": {
+      "en": "Long-sleeve T-shirt (beige), Jeans (blue), Light jacket (orange), Sneakers (white)",
+      "tr": "Uzun kollu tişört (bej), Kot pantolon (mavi), Hafif ceket (turuncu), Spor ayakkabı (beyaz)"
+    }
+  },
+  "scenes": [
+    {
+      "id": "hot",
+      "temperature": "31°",
+      "atmosphere": "clearDay",
+      "particles": "motes",
+      "ink": "clearDay",
+      "condition": {
+        "en": "Clear",
+        "tr": "Açık"
+      },
+      "looks": [
+        {
+          "preference": "womens",
+          "pieces": {
+            "en": [
+              "T-shirt",
+              "Skirt",
+              "Sandals"
+            ],
+            "tr": [
+              "Tişört",
+              "Etek",
+              "Sandalet"
+            ]
+          },
+          "label": {
+            "en": "T-shirt (blue), Skirt (brown), Sandals (brown)",
+            "tr": "Tişört (mavi), Etek (kahverengi), Sandalet (kahverengi)"
+          }
+        },
+        {
+          "preference": "mens",
+          "pieces": {
+            "en": [
+              "T-shirt",
+              "Shorts",
+              "Sandals"
+            ],
+            "tr": [
+              "Tişört",
+              "Şort",
+              "Sandalet"
+            ]
+          },
+          "label": {
+            "en": "T-shirt (green), Shorts (beige), Sandals (brown)",
+            "tr": "Tişört (yeşil), Şort (bej), Sandalet (kahverengi)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mild",
+      "temperature": "17°",
+      "atmosphere": "veiledDay",
+      "particles": "clouds",
+      "ink": "cloudy",
+      "condition": {
+        "en": "Partly cloudy",
+        "tr": "Parçalı bulutlu"
+      },
+      "looks": [
+        {
+          "preference": "womens",
+          "pieces": {
+            "en": [
+              "Long-sleeve T-shirt",
+              "Jeans",
+              "Light jacket",
+              "Sneakers"
+            ],
+            "tr": [
+              "Uzun kollu tişört",
+              "Kot pantolon",
+              "Hafif ceket",
+              "Spor ayakkabı"
+            ]
+          },
+          "label": {
+            "en": "Long-sleeve T-shirt (beige), Jeans (blue), Light jacket (orange), Sneakers (white)",
+            "tr": "Uzun kollu tişört (bej), Kot pantolon (mavi), Hafif ceket (turuncu), Spor ayakkabı (beyaz)"
+          }
+        },
+        {
+          "preference": "mens",
+          "pieces": {
+            "en": [
+              "Long-sleeve T-shirt",
+              "Jeans",
+              "Light jacket",
+              "Sneakers"
+            ],
+            "tr": [
+              "Uzun kollu tişört",
+              "Kot pantolon",
+              "Hafif ceket",
+              "Spor ayakkabı"
+            ]
+          },
+          "label": {
+            "en": "Long-sleeve T-shirt (orange), Jeans (blue), Light jacket (beige), Sneakers (white)",
+            "tr": "Uzun kollu tişört (turuncu), Kot pantolon (mavi), Hafif ceket (bej), Spor ayakkabı (beyaz)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rain",
+      "temperature": "11°",
+      "atmosphere": "fallingDay",
+      "particles": "rain",
+      "ink": "rain",
+      "condition": {
+        "en": "Rain",
+        "tr": "Yağmurlu"
+      },
+      "looks": [
+        {
+          "preference": "womens",
+          "pieces": {
+            "en": [
+              "Sweater",
+              "Long skirt",
+              "Rain jacket",
+              "Rain boots"
+            ],
+            "tr": [
+              "Kazak",
+              "Uzun etek",
+              "Yağmurluk",
+              "Yağmur botu"
+            ]
+          },
+          "label": {
+            "en": "Sweater (gray), Long skirt (black), Rain jacket (yellow), Rain boots (black)",
+            "tr": "Kazak (gri), Uzun etek (siyah), Yağmurluk (sarı), Yağmur botu (siyah)"
+          }
+        },
+        {
+          "preference": "mens",
+          "pieces": {
+            "en": [
+              "Sweater",
+              "Jeans",
+              "Rain jacket",
+              "Rain boots"
+            ],
+            "tr": [
+              "Kazak",
+              "Kot pantolon",
+              "Yağmurluk",
+              "Yağmur botu"
+            ]
+          },
+          "label": {
+            "en": "Sweater (gray), Jeans (blue), Rain jacket (blue), Rain boots (black)",
+            "tr": "Kazak (gri), Kot pantolon (mavi), Yağmurluk (mavi), Yağmur botu (siyah)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "wind",
+      "temperature": "7°",
+      "atmosphere": "veiledDay",
+      "particles": "wind",
+      "ink": "cloudy",
+      "condition": {
+        "en": "Windy",
+        "tr": "Rüzgârlı"
+      },
+      "looks": [
+        {
+          "preference": "womens",
+          "pieces": {
+            "en": [
+              "Turtleneck",
+              "Trousers",
+              "Coat",
+              "Ankle boots"
+            ],
+            "tr": [
+              "Balıkçı yaka",
+              "Pantolon",
+              "Kaban",
+              "Bilek botu"
+            ]
+          },
+          "label": {
+            "en": "Turtleneck (red), Trousers (gray), Coat (brown), Ankle boots (brown)",
+            "tr": "Balıkçı yaka (kırmızı), Pantolon (gri), Kaban (kahverengi), Bilek botu (kahverengi)"
+          }
+        },
+        {
+          "preference": "mens",
+          "pieces": {
+            "en": [
+              "Turtleneck",
+              "Jeans",
+              "Insulated jacket",
+              "Ankle boots"
+            ],
+            "tr": [
+              "Balıkçı yaka",
+              "Kot pantolon",
+              "Yalıtımlı mont",
+              "Bilek botu"
+            ]
+          },
+          "label": {
+            "en": "Turtleneck (brown), Jeans (blue), Insulated jacket (green), Ankle boots (black)",
+            "tr": "Balıkçı yaka (kahverengi), Kot pantolon (mavi), Yalıtımlı mont (yeşil), Bilek botu (siyah)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "snow",
+      "temperature": "−3°",
+      "atmosphere": "fallingDay",
+      "particles": "snow",
+      "ink": "snow",
+      "condition": {
+        "en": "Snow",
+        "tr": "Karlı"
+      },
+      "looks": [
+        {
+          "preference": "womens",
+          "pieces": {
+            "en": [
+              "Sweater",
+              "Jeans",
+              "Parka",
+              "Winter boots"
+            ],
+            "tr": [
+              "Kazak",
+              "Kot pantolon",
+              "Parka",
+              "Kışlık bot"
+            ]
+          },
+          "label": {
+            "en": "Sweater (yellow), Jeans (blue), Parka (blue), Winter boots (black)",
+            "tr": "Kazak (sarı), Kot pantolon (mavi), Parka (mavi), Kışlık bot (siyah)"
+          }
+        },
+        {
+          "preference": "mens",
+          "pieces": {
+            "en": [
+              "Sweater",
+              "Jeans",
+              "Parka",
+              "Winter boots"
+            ],
+            "tr": [
+              "Kazak",
+              "Kot pantolon",
+              "Parka",
+              "Kışlık bot"
+            ]
+          },
+          "label": {
+            "en": "Sweater (red), Jeans (blue), Parka (black), Winter boots (brown)",
+            "tr": "Kazak (kırmızı), Kot pantolon (mavi), Parka (siyah), Kışlık bot (kahverengi)"
+          }
+        }
+      ]
+    }
+  ]
+}

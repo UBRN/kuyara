@@ -163,7 +163,7 @@ in `apps/mobile/src/features/account/`: Sign in with Apple through Supabase Auth
 session store (Keychain key, `expo-sqlite/kv-store`), the SQLite row source, consent-gated sync with the
 server-arrival conflict rule, the post-sign-in sync consent sheet and its records, the Account screen's consent
 and withdrawal, the Apple credential check at launch and the revocation notification while the app runs, and deletion through the Worker, whose result shows on an app-wide sheet. With the switch on and
-no valid Supabase settings the screens fail closed. Sign in with Google is built through Google's native library with a nonce and fails closed until that library, which waits for its licence, and the two Google client ids are in the build; deleting a Google account needs a confirmation from that same Google account. The session follows the device's connection through `expo-network` (unknown counts as online), a sync pull that lands rows reloads the Closet, History and Profile and removes a pulled deletion's photo, a signed-in member's re-ask carries the member's token and allows ten a day only when that token was read, and the privacy manifest declares the account's email, name, user id and records, linked and never tracking. Migration 28
+no valid Supabase settings the screens fail closed. Sign in with Google is built on Google's sign-in page in the system browser session with PKCE and a nonce (ADR 0041 section 1) and fails closed until the Google iOS client id is in the build; deleting a Google account needs a confirmation from that same Google account. The session follows the device's connection through `expo-network` (unknown counts as online), a sync pull that lands rows reloads the Closet, History and Profile and removes a pulled deletion's photo, a signed-in member's re-ask carries the member's token and allows ten a day only when that token was read, and the privacy manifest declares the account's email, name, user id and records, linked and never tracking. Migration 28
 adds the device link's joined-account columns. The Worker code carries the deletion route (deleting an Apple
 account without a usable code answers `deleted_apple_unrevoked`), its rate limit, the keep-alive Cron
 Trigger, every six hours, and the count of a signed-in member's "Ask the stylist again" requests (ten per UTC day per member, refused with the existing `rate_limited` answer). That code is deployed with the Apple and Supabase secrets, so the deletion route is live and the keep-alive Cron Trigger is scheduled;
@@ -297,32 +297,33 @@ The approved phase order, active work and remaining open items are in [the roadm
   site follows the system scheme; a Turkish-language browser is redirected from `/` to
   `/tr/` on first visit by the language-memory script.
 - **Landing page limits.** The landing `<title>` is the bare name in both languages (the
-  Primer pages keep "Page | kuyara"); a descriptive browser title would be new bilingual
+  other pages keep "Page | kuyara"); a descriptive browser title would be new bilingual
   copy. The Smart App Banner meta matches Apple's documented format and App Store id,
   but whether it renders can only be shown in Safari on a physical iPhone or iPad on
-  iOS 26 with the App Store; the Simulator never shows it. Firefox 155 takes the
-  finished page through the `@supports` gate and the IntersectionObserver reveal at
-  1280 and 400 px in both languages; keyboard operation of the controls in Firefox is
-  unverified. The garment outlines are copied from `silhouettes.ts` and drawn flat;
-  `landing-boards.test.mjs` in the mobile suite fails when the copy and the vocabulary
-  disagree. The 2.6:1 stage row and the `2xl` band padding are web-only choices recorded
+  iOS 26 with the App Store; the Simulator never shows it. The landing's ten
+  boards (five weather scenes, a women's and a men's board each) are listed in
+  `apps/mobile/scripts/site-boards.mjs`, checked there against the app's outfit rules and
+  drawn with its flat lay and colour drawings, then committed; `site-boards.test.mjs` in
+  the mobile suite fails when the committed files and the generator disagree, so a
+  catalogue, rule, drawing or theme change needs a regeneration. Each board is drawn in its
+  catalogue's cut, and each picks its colours through the app's palette with its own seed,
+  or a Closet-style recorded colour on the one piece the palette would otherwise colour
+  alike, so neighbouring boards differ. The rebuilt landing was checked in
+  headless Chrome at 1280 and 375 px in both appearances; Firefox, Safari and keyboard
+  operation in them are unverified. The `2xl` band padding is a web-only choice recorded
   under "Web presence" in `docs/design/visual-identity.md`, together with the favicon and
   Open Graph compositions. The favicon, apple-touch-icon and Open Graph image are served
   from `docs/` and wired through `<link>` tags and a `defaults` image key; a client that
   ignores them and fetches the origin root `https://ubrn.github.io/favicon.ico` still
   gets the user site's 404, which this repository cannot serve.
-- **Dark theme limits on the Primer pages.** Dark code uses a three-tone palette from the
-  semantic text tokens (primary, the accent for literals, secondary for comments and
-  output); names that Rouge's light palette distinguishes stay primary because no fourth
-  token reaches 4.5:1, and diff and error backplates are transparent because no token
-  names a red or a green. `.markdown-body img` sits on the page ground in dark, as
-  GitHub renders it. The theme control's styles precede Primer's stylesheet by design:
-  every rule is class-scoped and the shipped Primer 0.6.0 reaches those elements only
-  through element selectors, so specificity settles each conflict. The theme cross-fade
-  sets a colour-only `transition` with `!important` on every element for 400 ms, and
-  both it and the indicator use `linear` because the tokens carry durations and no
-  easing; an easing token derived from the app's Reanimated default is proposed, not
-  decided.
+- **Reading pages.** The privacy, support and documentation pages share the landing's
+  header and footer and draw their Markdown with `docs/assets/css/site.css`; the Primer
+  theme stays in `_config.yml`, but its stylesheet is no longer linked. Code blocks are
+  drawn in the primary ink on the muted surface, without syntax colours. The theme
+  cross-fade sets a colour-only `transition` with `!important` on every element for
+  400 ms, and both it and the indicator use `linear` because the tokens carry durations
+  and no easing; an easing token derived from the app's Reanimated default is proposed,
+  not decided.
 - **A local Jekyll build differs from Pages only in `<head>`.** Pages builds with
   `github-pages` 232 (Jekyll 3.10.0, jekyll-seo-tag 2.8.0, Ruby 3.3.4); the maintainer's
   Ruby 4 resolves only 223 (Jekyll 3.9.0, jekyll-seo-tag 2.7.1), so a local build lacks

@@ -1,0 +1,37 @@
+# The words the site's header and footer carry on every page, by language. Page copy lives
+# in each page's front matter. Strings marked draft are new with the site rebuild and wait
+# for approval; the rest are the live site's approved copy.
+en:
+  home_label: kuyara home
+  skip: Skip to content # draft copy
+  nav_label: Site
+  documents: Documents # draft copy
+  footer_nav_label: More
+  privacy: Privacy policy
+  privacy_url: /privacy-policy
+  support: Support
+  support_url: /support
+  documents_url: /documents
+  source: Source code on GitHub
+  licence: kuyara is source-available under the PolyForm Noncommercial License 1.0.0.
+  apple: >-
+    Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and
+    other countries. App Store is a service mark of Apple Inc. Google Play is a
+    trademark of Google LLC.
+tr:
+  home_label: kuyara ana sayfa
+  skip: İçeriğe geç # draft copy
+  nav_label: Site
+  documents: Belgeler # draft copy
+  footer_nav_label: Diğer
+  privacy: Gizlilik politikası
+  privacy_url: /tr/privacy-policy
+  support: Destek
+  support_url: /tr/support
+  documents_url: /tr/documents
+  source: GitHub'da kaynak kodu
+  licence: kuyara'nın kaynak kodu PolyForm Noncommercial License 1.0.0 ile erişilebilir.
+  apple: >-
+    Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and
+    other countries. App Store is a service mark of Apple Inc. Google Play is a
+    trademark of Google LLC.

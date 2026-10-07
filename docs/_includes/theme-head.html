@@ -3,10 +3,8 @@ Everything the appearance selector needs in <head>: the stored choice applied to
 <html> before the page paints, and the control's styling. Self-contained, so any
 layout can include it, and it belongs ahead of every stylesheet link so the
 attribute is set before the first style computation and no page paints in the
-wrong appearance. Sitting ahead of the theme stylesheet costs nothing: every
-rule below is class-scoped, and the shipped Primer (jekyll-theme-primer 0.6.0)
-reaches these elements only through element selectors or `.markdown-body`
-descendants, so each conflict is settled by specificity, never by source order.
+wrong appearance. Every rule below is class-scoped, so the site's stylesheets
+that follow it settle any conflict by specificity, never by source order.
 The styling is written against the kuyara tokens in
 assets/css/tokens.css rather than theme utility classes, so it reads correctly
 in all three appearances and on a layout that does not load the theme CSS.
@@ -15,7 +13,7 @@ Two attributes, one choice. `data-theme-choice` is always present once the
 script has run and carries `system`, `light` or `dark`; the control and its
 sliding indicator read it. `data-theme` carries `light` or `dark` only when the
 choice overrides the operating system, which is the hook tokens.css and
-style.scss key their forced palettes off.
+plates.css key their forced palettes off.
 
 The website animates always and does not consult the operating system's Reduce
 Motion setting, as recorded in product-decisions.md. There is

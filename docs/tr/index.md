@@ -9,15 +9,6 @@ hero_line: >-
   kuyara günün hava durumunu okur ve ne giyeceğini önüne koyar; giyinmek bir sürü
   küçük karar yerine tek bir sakin karara dönüşür.
 
-stage_title: Gökyüzü değişince kıyafet de değişir
-stage_caption_clear: >-
-  Açık ve ılıman bir gün. İnce katmanlar, öğlene kalmadan elde taşınacak bir şey yok.
-stage_caption_veiled: >-
-  Bulutlar geliyor, sıcaklık düşüyor. Bir katman daha, aynı sabah.
-stage_caption_falling: >-
-  Öğleden sonra yağmur var. Suyu geçirmeyen bir dış katman, ıslanmayı umursamayan
-  ayakkabılar.
-
 works_title: Nasıl karar veriyor
 works_weather: >-
   Önce hava durumu geliyor: sıcaklık, rüzgâr, yağış ve günün nasıl ilerleyeceği.
@@ -31,11 +22,6 @@ works_assist: >-
   Küçük bir yapay zeka adımı, aralarından birbirinden gerçekten farklı olanları
   seçiyor. Yeni bir iPhone'da bu adım cihazda çalışıyor. Çalışamadığında aynı
   kurallar onsuz seçiyor.
-
-alts_title: Farklı, ama sıralı değil
-alts_body: >-
-  Her seçenek aynı hava koşullarını karşılıyor, yani hiçbiri "doğru cevap" değil.
-  Canın hangisini giymek istiyorsa onu seç.
 
 privacy_title: Ücretsiz, reklamsız, sessiz
 privacy_account: >-
@@ -56,16 +42,28 @@ badge_alt: App Store'dan İndirin
 badge_width: 189
 play_line: "Google Play: yakında"
 
-footer_nav_label: Diğer
-privacy_link: Gizlilik politikası
-privacy_url: /tr/privacy-policy
-support_link: Destek
-support_url: /tr/support
-source_link: GitHub'da kaynak kodu
-legal_licence: >-
-  kuyara'nın kaynak kodu PolyForm Noncommercial License 1.0.0 ile erişilebilir.
-legal_apple: >-
-  Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and
-  other countries. App Store is a service mark of Apple Inc. Google Play is a
-  trademark of Google LLC.
+# draft copy: the weather scenes, the catalogue labels and the Documents link
+scenes_title: Beş farklı hava
+sample_note: >-
+  Örnek havalar, uygulamanın kendi kuralları ve çizimleriyle giydirildi.
+looks:
+  womens: Kadın
+  mens: Erkek
+scenes:
+  hot:
+    name: Sıcak güneş
+    line: Hafif ve rahat; yanında taşıyacak fazladan bir şey yok.
+  mild:
+    name: Ilık ve bulutlu
+    line: Güneş saklandığında işe yarayan ince bir katman.
+  rain:
+    name: Yağmur
+    line: Suyu geçirmeyen bir ceket, su birikintisine aldırmayan botlar.
+  wind:
+    name: Soğuk rüzgâr
+    line: Rüzgârı içeri almayan, sıcak ve kapalı bir katman.
+  snow:
+    name: Kar
+    line: Örgünün üstüne en sıcak katman, kaymaz tabanlı botlarla.
+documents_link: Belgeleri aç
 ---

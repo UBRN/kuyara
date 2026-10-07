@@ -1,0 +1,24 @@
+{%- comment -%}
+The header every page shares: the symbol and name home, the Documents link, the
+appearance selector and the language menu. Balanced Horizon V2 is copied unmodified from
+apps/mobile/assets/brand/kuyara-symbol-master.svg; only its fill comes from a token.
+{%- endcomment -%}
+{%- assign ui_lang = page.lang | default: "en" | slice: 0, 2 -%}
+{%- assign ui = site.data.ui[ui_lang] | default: site.data.ui.en -%}
+{%- if ui_lang == "tr" -%}{%- assign home = "/tr/" -%}{%- else -%}{%- assign home = "/" -%}{%- endif -%}
+<a class="ku-skip" href="#ku-main">{{ ui.skip }}</a>
+<header class="ku-header">
+  <div class="ku-shell ku-header__row">
+    <a class="ku-brand" href="{{ home | relative_url }}" aria-label="{{ ui.home_label }}">
+      {% include brand-symbol.html %}
+      <span class="ku-brand__name" aria-hidden="true">kuyara</span>
+    </a>
+    <nav class="ku-header__nav" aria-label="{{ ui.nav_label }}">
+      <a href="{{ ui.documents_url | relative_url }}"{% if page.ref == "documents" %} aria-current="page"{% endif %}>{{ ui.documents }}</a>
+    </nav>
+    <div class="ku-controls">
+      {% include theme-switcher.html %}
+      {% include lang-switcher.html %}
+    </div>
+  </div>
+</header>

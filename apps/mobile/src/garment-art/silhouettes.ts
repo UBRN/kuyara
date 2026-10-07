@@ -1,10 +1,9 @@
 // ADR 0025's vocabulary as rich fashion illustrations, all on one 64 x 64 viewBox: 74 cut
 // drawings (41 women's `-f`, 33 men's `-m`), seven accessories shared by both cuts, the six
-// category glyphs, and fifteen base drawings that draw no catalogue type but whose outlines the
-// public site's landing boards copy (landing-boards.test.mjs). A drawing
-// is a list of groups painted in order. Each group's `outline` is filled with one colour role
-// and stroked with the ink edge; its `parts` are clipped to that outline, so light, folds and
-// seams never spill past the edge. `garment-paint.ts` paints them, lights them and owns the
+// category glyphs, and fifteen base drawings that draw no catalogue type and that nothing draws
+// any more. A drawing is a list of groups painted in order. Each group's `outline` is filled
+// with one colour role and stroked with the ink edge; its `parts` are clipped to that outline,
+// so light, folds and seams never spill past the edge. `garment-paint.ts` paints them, lights them and owns the
 // level-of-detail rule.
 //
 // Part kinds: `fs` shade, `fl` light, `fk` dark trim, `fa` material, `fas` material shade,
