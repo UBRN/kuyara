@@ -432,7 +432,7 @@ Feature code emits named domain events; the boundary owns the taxonomy, enforces
 
 **Phase 3 call sites.** Routes, application hooks and application providers emit the taxonomy's events; presentation components emit intent. `screen_viewed` uses `useScreenViewed` in every tracked route. Weather interaction events use `use-interaction-events` at the application boundary, outfit detail and day-style events come from application hooks and the recommendation provider, and onboarding emits nothing; Settings events use thin route files. `weather_refreshed` and `recommendation_regenerated` come from the two controllers through an injected capture function with a no-op default, `error_shown` and `error_recovered` from the providers and routes that already observe a `FailureCategory`, and the Closet events from the wardrobe routes with a pure `fields_changed` helper. `age_bucket` and `dress_style` are derived at emit time by `ageBucketProperty` and `dressStyleProperty` in `analytics-mappers.ts` and are never stored. No feature file imports the SDK; the guard test in `apps/mobile/src/architecture-invariants.test.mjs` enforces the boundary.
 
-For the daily-style and history decisions, the closed `dress_style` analytics value is the day's resolved formality, aesthetics are not measured, and logging a worn outfit emits no new analytics event. Display name remains forbidden free text.
+For the daily-style and history decisions, the closed `dress_style` analytics value is the day's resolved formality, aesthetics are not measured, and logging a worn outfit emits `outfit_worn_logged` with closed values only. Display name remains forbidden free text.
 
 ### The observability boundary
 

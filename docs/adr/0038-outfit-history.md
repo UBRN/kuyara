@@ -14,7 +14,7 @@ Migration 19 creates `outfit_history`: `id TEXT` is a client UUID v4 primary key
 
 Before AI selection, composition reads the seven most recently worn valid history rows and excludes candidate outfits whose garment-id set equals a worn set. An invalid row is skipped in History and repeat avoidance; valid rows remain available, and an unreadable database still produces a read error. Seven is a domain constant. If fewer than three candidates remain, it relaxes exclusion oldest first until three are available. History rows never enter the AI request, Worker, analytics or telemetry; the AI input boundary stays unchanged.
 
-Recording a worn look emits no new analytics event. History rows, garment and outfit identities, and mirror photos never enter analytics.
+Recording a worn look emits `outfit_worn_logged` with closed values only ([taxonomy](../analytics-taxonomy.md) section 5.6). History rows, garment and outfit identities, and mirror photos never enter analytics.
 
 ## Red lines
 
