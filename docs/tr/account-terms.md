@@ -6,7 +6,7 @@ ref: account-terms
 
 # kuyara hesap koşulları
 
-Yürürlük tarihi: [yürürlük tarihi].
+Yürürlük tarihi: 8 Ekim 2026.
 
 Bu koşullar, kuyara'yı sunan ubrn ile senin aranda, kuyara'daki isteğe bağlı hesabı düzenler.
 Uygulamanın kullanımını Apple'ın standart lisans sözleşmesi (Licensed Application End User
@@ -17,7 +17,7 @@ License Agreement) düzenler. Kişisel verilerinin nasıl işlendiğini
 
 Hesabı Apple ya da Google ile oturum açarak kurarsın. Hesap, kayıtlarını yeni bir telefona ya da
 yeniden kurulan uygulamaya getirir ve telefonların arasında eşitler. Görünen adın ve cinsiyetin
-dışında hangi kayıtların hesaba gideceğini sen seçersin. Üyeler ayrıca "Bir parçayla kombin kur"
+her zaman hesaba gider; diğer kayıtlarının da gidip gitmeyeceğini sen seçersin. Üyeler ayrıca "Bir parçayla kombin kur"
 özelliğini kullanabilir ve stiliste UTC'ye göre günde 10 kez tekrar sorabilir; diğer herkesin
 hakkı cihazının yerel gününe göre günde 5'tir.
 
@@ -64,8 +64,9 @@ Hesaplar kapanınca hesaptaki veriler silinir.
 ## 7. Hesabı silmek
 
 Hesabını istediğin zaman Ayarlar > Hesap'tan silebilirsin. Silme, hesaptaki her şeyi siler ve
-geri alınamaz. Apple ile açılmış bir hesapta kuyara, Apple'a verdiğin oturum iznini de mümkünse
-geri çeker. Hesabın silindikten sonra kuyara'yı hesapsız kullanmaya devam edersin.
+geri alınamaz. Bir şey silinmeden önce sen olduğunu Apple ya da Google ile
+onaylarsın. Hesabın Apple ile Giriş Yap kullanıyorsa kuyara, Apple'a verdiğin oturum iznini de
+mümkünse geri çeker. Hesabın silindikten sonra kuyara'yı hesapsız kullanmaya devam edersin.
 
 ## 8. Sorumluluk
 

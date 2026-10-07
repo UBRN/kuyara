@@ -6,7 +6,7 @@ ref: privacy-policy
 
 # kuyara gizlilik politikası
 
-Yürürlük tarihi: [yürürlük tarihi].
+Yürürlük tarihi: 8 Ekim 2026.
 
 kuyara, iOS ve Android için bir hava durumu ve kıyafet önerisi uygulamasıdır. Bu metin
 uygulamanın cihazından hangi verileri gönderdiğini, neden gönderdiğini ve bu konuda ne
@@ -294,8 +294,8 @@ yazışmaları e-postayla gelir.
   fotoğrafı içerir. Sunucu bundan yalnız hesap kimliğini, üye sayacı ve hesap silme için okur
   ve hiçbirini loglamaz. Cloudflare'ın sunucuları birçok ülkededir.
 - **Apple ve Google.** Oturum açtığın hesabın sağlayıcılarıdır ve kendi gizlilik
-  politikalarına göre çalışır. Apple ile açılmış bir hesabı sildiğinde kuyara, Apple'a oturum
-  izninin iptalini iletir.
+  politikalarına göre çalışır. Apple ile Giriş Yap kullanan bir hesabı sildiğinde kuyara, oturum
+  izninin iptalini Apple'dan ister.
 - **Yetkili kamu kurumları.** Yalnız kanun gerektirdiğinde.
 
 **Yurt dışına aktarım.** Hesap verilerin Türkiye dışında, Almanya'da tutulur ve ABD'den
@@ -331,8 +331,9 @@ dışındaki sunucularına aktarılabilir; bu aktarım Cloudflare'ın veri işle
 
 **Hesabı ve izni yönetmek.** Görünen adını ve cinsiyetini Profil'den değiştirebilirsin.
 Eşitleme iznini Ayarlar > Hesap'tan verebilir ya da geri çekebilirsin. Geri çektiğinde bu
-kayıtların hesaptaki kopyaları silinir. Hesabını Ayarlar > Hesap'tan silebilirsin. Silme
-hesaptaki her şeyi siler. Apple ile açılmış bir hesapta kuyara, Apple izin verdiği ölçüde
+kayıtların hesaptaki kopyaları silinir. Hesabını Ayarlar > Hesap'tan silebilirsin. Sen
+olduğunu Apple ya da Google ile onayladıktan sonra silme hesaptaki her şeyi siler. Hesabın
+Apple ile Giriş Yap kullanıyorsa kuyara, Apple izin verdiği ölçüde
 Apple ile giriş bağlantını koparır; koparamazsa uygulama, kuyara'yı iPhone'unda Ayarlar >
 adın > Apple ile Giriş Yap bölümünden kaldırmanı söyler.
 

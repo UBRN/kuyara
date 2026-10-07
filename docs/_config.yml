@@ -1,7 +1,7 @@
 theme: jekyll-theme-primer
 description: Each morning, kuyara turns your weather into an outfit made for you. For iPhone, and all yours.
 lang: en-US
-# The site publishes the landing, the privacy policy and support, in both languages. The
+# The site publishes the landing, the privacy policy, support and the account terms, in both languages. The
 # project's own documents stay in the repository and off the site.
 exclude:
   - adr/

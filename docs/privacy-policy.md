@@ -6,7 +6,7 @@ ref: privacy-policy
 
 # kuyara privacy policy
 
-Effective date: [effective date].
+Effective date: 8 October 2026.
 
 kuyara is a weather and outfit recommendation app for iOS and Android. This policy
 describes what data the app sends off your device, why, and what you can do about it.
@@ -223,7 +223,7 @@ calls weather and AI providers. This is a live request, not a record of you:
 ## Accounts
 
 An account in kuyara is optional. If you do not sign in, this section does not apply to you.
-This section is the notice required by Article 10 of Turkey's Personal Data Protection Law
+This section is the notice required by Article 10 of Türkiye's Personal Data Protection Law
 No. 6698 (KVKK) and Article 13 of the EU General Data Protection Regulation (GDPR). You do not
 need to approve it.
 
@@ -288,8 +288,8 @@ sign in with Apple or Google and while you use the app. Request correspondence a
   The server reads only the account identifier from it, for the member counter and account
   deletion, and logs none of it. Cloudflare's servers are in many countries.
 - **Apple and Google.** They provide the account you sign in with and work under their own
-  privacy policies. When you delete an account created with Apple, kuyara sends Apple the
-  revocation of your sign-in permission.
+  privacy policies. When you delete an account that uses Sign in with Apple, kuyara asks
+  Apple to revoke your sign-in permission.
 - **Public authorities.** Only when the law requires it.
 
 **Transfer abroad.** Your account data is held outside Türkiye, in Germany, and may be accessed
@@ -326,9 +326,9 @@ data processing agreement.
 
 **Managing your account and consent.** You can change your display name and gender in Profile.
 You can give or withdraw the sync consent in Settings > Account; withdrawing deletes the
-account's copies of those records. You can delete your account in Settings > Account; deletion
-removes everything in it. For an account created with Apple, kuyara revokes your Sign in with
-Apple permission where Apple allows it; when it cannot, the app tells you to remove kuyara
+account's copies of those records. You can delete your account in Settings > Account; after you
+confirm with Apple or Google that it is you, deletion removes everything in it. If your account
+uses Sign in with Apple, kuyara revokes your Sign in with Apple permission where Apple allows it; when it cannot, the app tells you to remove kuyara
 under Settings > your name > Sign in with Apple on your iPhone.
 
 **Your rights.** Under KVKK Article 11 you can ask to learn whether your data is processed and,

@@ -6,7 +6,7 @@ ref: account-terms
 
 # kuyara account terms
 
-Effective date: [effective date].
+Effective date: 8 October 2026.
 
 These terms are between you and ubrn, who offers kuyara, and cover the optional account in
 kuyara. Use of the app itself is governed by Apple's standard licence agreement (the Licensed
@@ -16,8 +16,8 @@ personal data is processed.
 ## 1. What the account is
 
 You create an account by signing in with Apple or Google. The account brings your records to a
-new phone or a reinstalled app and keeps them in step across your phones. Apart from your
-display name and gender, you choose which records go to the account. Members can also use "Build
+new phone or a reinstalled app and keeps them in step across your phones. Your display
+name and gender always go to the account; you choose whether your other records go too. Members can also use "Build
 from a piece" and ask the stylist again 10 times per UTC day, where everyone else has 5 per day
 on their own device's local day.
 
@@ -62,8 +62,9 @@ account. When accounts close, the data in them is deleted.
 ## 7. Deleting your account
 
 You can delete your account at any time in Settings > Account. Deletion removes everything in
-the account and cannot be undone. For an account created with Apple, kuyara also revokes the
-sign-in permission you gave Apple, where possible. After deletion you can keep using kuyara
+the account and cannot be undone. You confirm with Apple or Google that it is you before
+anything is deleted. If your account uses Sign in with Apple, kuyara also revokes the sign-in
+permission you gave Apple, where possible. After deletion you can keep using kuyara
 without an account.
 
 ## 8. Liability
