@@ -178,7 +178,7 @@ test('cancelled pending identity can be scheduled again after its former fire ti
         return true;
       },
     },
-    repository,
+    async () => repository,
     () => now,
     () => 'UTC',
   );

@@ -42,7 +42,7 @@ export function NotificationApplicationProvider(
   const defaultWeatherAlertScheduler = useMemo(
     () => new WeatherAlertScheduler(
       gateway,
-      loadWeatherAlertDeliveryRepository(),
+      loadWeatherAlertDeliveryRepository,
       systemNow,
       getDeviceTimeZone,
       async (localProfileId, locationKey) => (await loadWeatherRepository())

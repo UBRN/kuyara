@@ -29,7 +29,7 @@ TaskManager.defineTask(backgroundWeatherAlertTaskName, async ({ error }) => {
       getNotificationPermission: () => gateway.getPermissionState(),
       reschedule: (input) => new WeatherAlertScheduler(
         gateway,
-        loadWeatherAlertDeliveryRepository(),
+        loadWeatherAlertDeliveryRepository,
         now,
         getDeviceTimeZone,
       ).reschedule(input),

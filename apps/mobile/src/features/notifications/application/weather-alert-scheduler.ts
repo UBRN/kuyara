@@ -157,8 +157,8 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
   private writtenTextKey: string | null = null;
   private running: Promise<void> | null = null;
   private readonly gateway: NotificationGateway;
-  private readonly repository: WeatherAlertDeliveryRepository
-    | Promise<WeatherAlertDeliveryRepository>;
+  /** Called at each run, so a failed open is retried by the next run instead of being kept. */
+  private readonly loadRepository: () => Promise<WeatherAlertDeliveryRepository>;
   private readonly now: () => string;
   /** The zone the device's clock keeps, read at each run so a traveller is not held to the old one. */
   private readonly deviceTimeZone: () => string;
@@ -167,13 +167,13 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
 
   constructor(
     gateway: NotificationGateway,
-    repository: WeatherAlertDeliveryRepository | Promise<WeatherAlertDeliveryRepository>,
+    loadRepository: () => Promise<WeatherAlertDeliveryRepository>,
     now: () => string,
     deviceTimeZone: () => string,
     loadNewestSnapshot?: NewestSnapshotLoader,
   ) {
     this.gateway = gateway;
-    this.repository = repository;
+    this.loadRepository = loadRepository;
     this.now = now;
     this.deviceTimeZone = deviceTimeZone;
     this.loadNewestSnapshot = loadNewestSnapshot;
@@ -207,6 +207,11 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
   }
 
   private async run(input: RescheduleInput): Promise<void> {
+    // Opened at each run, so a failed open is retried by the next one. Switching off cancels
+    // even when the open fails; a re-plan opens first, so a failed open leaves the pending
+    // alerts alone.
+    let opened: WeatherAlertDeliveryRepository | undefined;
+    const open = async () => (opened ??= await this.loadRepository());
     const now = this.now();
     const anyKindEnabled = input.weatherAlertsEnabled || input.morningBriefingEnabled;
     const snapshot = anyKindEnabled ? input.snapshot : null;
@@ -219,21 +224,22 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
       ] as const satisfies readonly (readonly [boolean, NotificationKind])[]) {
         if (enabled) continue;
         if (!await this.gateway.cancelScheduledWeatherAlerts(kind)) return;
-        await (await this.repository).deletePending(input.localProfileId, now, kind);
+        await (await open()).deletePending(input.localProfileId, now, kind);
       }
       // Without a snapshot nothing can be rewritten, so the old key stays on record for the
       // next stale run that has one. A process with no key yet (a relaunch after a device
       // language or clock change) cannot tell whether the text is current, so it rewrites too.
       if (snapshot && this.writtenTextKey !== textKey(input)) {
-        if (!await this.rewritePending(input, snapshot, now)) return;
+        if (!await this.rewritePending(await open(), input, snapshot, now)) return;
         this.writtenTextKey = textKey(input);
       }
       return;
     }
     // A failed cancellation leaves superseded alerts pending, so re-planning over it would
     // let them fire beside the new ones. Abort and leave the schedule and ledger as they are.
+    if (anyKindEnabled) await open();
     if (!await this.gateway.cancelScheduledWeatherAlerts()) return;
-    const repository = await this.repository;
+    const repository = await open();
     await repository.deletePending(input.localProfileId, now);
     if (!snapshot) {
       this.writtenTextKey = textKey(input);
@@ -278,11 +284,11 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
    * its text. Returns whether every rewrite was accepted.
    */
   private async rewritePending(
+    repository: WeatherAlertDeliveryRepository,
     input: RescheduleInput,
     snapshot: WeatherSnapshot,
     now: string,
   ): Promise<boolean> {
-    const repository = await this.repository;
     const pending = new Map((await repository.listPending(input.localProfileId, now))
       .map(({ id, fireAt }) => [id, fireAt]));
     if (pending.size === 0) return true;

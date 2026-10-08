@@ -365,7 +365,7 @@ function cancellableScheduler() {
     scheduleWeatherAlert,
     scheduler: new WeatherAlertScheduler(
       gateway,
-      repository,
+      async () => repository,
       () => '2026-09-09T08:00:00.000Z',
       () => 'UTC',
     ),

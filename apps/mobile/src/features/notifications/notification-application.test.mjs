@@ -143,7 +143,9 @@ function weatherSnapshot(id = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4') {
 
 function createSchedulerHarness({
   firedIds = new Set(), cancel, schedule, now = '2026-09-09T15:00:00.000Z', newestSnapshot,
+  failedLoads = 0,
 } = {}) {
+  let loads = 0;
   const events = [];
   const scheduled = [];
   const upserted = [];
@@ -185,9 +187,14 @@ function createSchedulerHarness({
   };
   return {
     events, scheduled, upserted, deletedPending, pruned,
+    loads: () => loads,
     scheduler: new WeatherAlertScheduler(
       gateway,
-      repository,
+      async () => {
+        loads += 1;
+        if (loads <= failedLoads) throw new Error('sqlite busy');
+        return repository;
+      },
       () => now,
       () => 'UTC',
       newestSnapshot,
@@ -636,6 +643,7 @@ test('a concurrent reschedule waits for the active run and then runs once', asyn
     morningBriefingEnabled: false,
     language: 'tr',
   });
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(cancelCount, 1);
   releaseFirstCancel();
   await Promise.all([first, second]);
@@ -893,13 +901,13 @@ test('toggle, freshness and pending-kind matrix preserves only allowed stale sch
               return true;
             },
             scheduleWeatherAlert: async () => false,
-          }, {
+          }, async () => ({
             deletePending: async () => undefined,
             listFiredIds: async () => new Set(),
             listPending: async () => [],
             upsertScheduled: async () => undefined,
             pruneBefore: async () => undefined,
-          }, () => '2026-09-09T15:00:00.000Z', () => 'UTC');
+          }), () => '2026-09-09T15:00:00.000Z', () => 'UTC');
           const enabled = toggle === 'off-to-on';
           await scheduler.reschedule({
             ...enabledInput,
@@ -954,7 +962,7 @@ test('an opt-out queued behind a failing run still runs, and the caller still se
       return true;
     },
     scheduleWeatherAlert: async () => true,
-  }, {
+  }, async () => ({
     deletePending: async () => {
       if (!failed) {
         failed = true;
@@ -964,7 +972,7 @@ test('an opt-out queued behind a failing run still runs, and the caller still se
     listFiredIds: async () => new Set(),
     upsertScheduled: async () => undefined,
     pruneBefore: async () => undefined,
-  }, () => '2026-09-09T15:00:00.000Z', () => 'UTC');
+  }), () => '2026-09-09T15:00:00.000Z', () => 'UTC');
 
   const first = scheduler.reschedule(enabledInput);
   const optOut = scheduler.reschedule({
@@ -977,4 +985,35 @@ test('an opt-out queued behind a failing run still runs, and the caller still se
   assert.equal(results[0].status, 'rejected');
   assert.equal(results[1].status, 'rejected');
   assert.deepEqual(cancelled, ['all', 'all']);
+});
+
+test('a failed repository open fails that reschedule, and the next one opens it again and schedules', async () => {
+  const harness = createSchedulerHarness({ failedLoads: 1 });
+
+  await assert.rejects(harness.scheduler.reschedule(enabledInput), /sqlite busy/);
+  await harness.scheduler.reschedule(enabledInput);
+
+  assert.equal(harness.loads(), 2);
+  assert.ok(harness.events.includes('upsert'));
+  assert.ok(harness.events.some((event) => event.startsWith('schedule:')));
+});
+
+test('a failed repository open cancels nothing', async () => {
+  const harness = createSchedulerHarness({ failedLoads: 1 });
+
+  await assert.rejects(harness.scheduler.reschedule(enabledInput), /sqlite busy/);
+
+  assert.deepEqual(harness.events, []);
+});
+
+test('switching every kind off cancels even when the repository open fails', async () => {
+  const harness = createSchedulerHarness({ failedLoads: 1 });
+
+  await assert.rejects(harness.scheduler.reschedule({
+    ...enabledInput,
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: false,
+  }), /sqlite busy/);
+
+  assert.deepEqual(harness.events, ['cancel']);
 });
