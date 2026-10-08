@@ -1,5 +1,5 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
-import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Dimensions, Keyboard, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { styleAestheticsLimit, type PlaceSearchV1Data } from '@kuyara/contracts';
@@ -373,6 +373,44 @@ test('device selection starts the shared flow and permanent denial keeps Setting
   }));
   expect(deniedWeather.openApplicationSettings).toHaveBeenCalledTimes(1);
   expect(denied.result.getByTestId('onboarding-location-skip')).toBeOnTheScreen();
+});
+
+// While a city is typed the results need the room above the keyboard: the denial card and the
+// footer step aside, so the list lands below the field instead of on it, and both return with
+// the keyboard's dismissal.
+test('the denial card and the footer step aside while a city is typed', async () => {
+  const handlers = new Map<string, (() => void)[]>();
+  const addListener = jest.spyOn(Keyboard, 'addListener').mockImplementation(((event: string, handler: () => void) => {
+    handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+    return { remove: jest.fn() };
+  }) as unknown as typeof Keyboard.addListener);
+  const emit = (event: string) => act(async () => { handlers.get(event)?.forEach((handler) => handler()); });
+  const deniedWeather = createWeatherApplication({
+    status: 'ready',
+    activeLocation: null,
+    snapshot: null,
+    freshness: null,
+    permission: { kind: 'denied', canRequestAgain: false },
+    locationFlow: 'denied-permanent',
+    isSelectingLocation: false,
+    isRefreshing: false,
+    refreshFailure: null,
+  });
+  const { result } = await renderOnboarding('woman', null, 'smart', undefined, deniedWeather);
+  await pressUntilStep(result, 2);
+  const deniedBody = messages.en.weather.placePermanentDeniedBody;
+  expect(result.getByText(deniedBody)).toBeOnTheScreen();
+
+  await emit('keyboardWillShow');
+  expect(result.queryByText(deniedBody)).toBeNull();
+  expect(result.queryByTestId('onboarding-actions')).toBeNull();
+  expect(result.getByTestId('onboarding-place-search')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-place-results')).toBeOnTheScreen();
+
+  await emit('keyboardWillHide');
+  expect(result.getByText(deniedBody)).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-actions')).toBeOnTheScreen();
+  addListener.mockRestore();
 });
 
 const istanbul = {

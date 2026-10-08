@@ -2,6 +2,7 @@ import { dressStyles, styleAesthetics, styleAestheticsLimit } from '@kuyara/cont
 import {
   AccessibilityInfo,
   findNodeHandle,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -9,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -21,6 +23,7 @@ import {
   ProgressFill,
   Screen,
 } from '@/components/ui';
+import { useKeyboardVisible } from '@/components/ui/use-keyboard-visible';
 import {
   ChoiceTile,
   type ChoiceTileDrawing,
@@ -252,6 +255,26 @@ export function OnboardingScreen({
   const skyStage = theme.atmosphere[resolveAtmosphereState(sky.condition, sky.daypart)];
   const skyCondition = resolveConditionStyle(sky.condition, sky.daypart);
   const step = onboardingSteps[draft.step];
+  const keyboardVisible = useKeyboardVisible();
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollOffset(scrollRef);
+  const nameFieldRef = useRef<View>(null);
+  const footerRef = useRef<View>(null);
+  // The keyboard shortens the page from below, and at large text sizes that leaves the name
+  // field under the pinned footer. Once the keyboard is up the page scrolls by the least that
+  // shows the whole field above the footer.
+  useEffect(() => {
+    if (step !== 'about') return undefined;
+    const shown = Keyboard.addListener('keyboardDidShow', () => {
+      nameFieldRef.current?.measureInWindow((_x, fieldTop, _width, fieldHeight) => {
+        footerRef.current?.measureInWindow((_footerX, footerTop) => {
+          const hidden = fieldTop + fieldHeight + spacing.md - footerTop;
+          if (hidden > 0) scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + hidden });
+        });
+      });
+    });
+    return () => shown.remove();
+  }, [scrollOffset, scrollRef, step]);
   const hasValidName = Boolean(draft.displayName?.trim())
     && !displayNameIssue(draft.displayName ?? '');
 
@@ -427,6 +450,7 @@ export function OnboardingScreen({
       ) : (
         <Screen
           contentContainerStyle={styles.content}
+          ref={scrollRef}
           testID={`onboarding-step-${draft.step + 1}`}>
           {heading}
 
@@ -458,11 +482,13 @@ export function OnboardingScreen({
             </AppText>
             <AppText colorRole="textSecondary" variant="caption">{copy.nameGreetingCaption}</AppText>
           </PlateView>
-          <NameInput
-            onChangeText={(value) => dispatch({ type: 'set-display-name', value })}
-            testID="onboarding-name"
-            value={draft.displayName ?? ''}
-          />
+          <View ref={nameFieldRef}>
+            <NameInput
+              onChangeText={(value) => dispatch({ type: 'set-display-name', value })}
+              testID="onboarding-name"
+              value={draft.displayName ?? ''}
+            />
+          </View>
           <View style={styles.age}>
             <AppText accessibilityRole="header" variant="bodyStrong">{copy.ageTitle}</AppText>
             <AppText colorRole="textSecondary" variant="caption">{copy.birthDateBody}</AppText>
@@ -593,8 +619,12 @@ export function OnboardingScreen({
         </Screen>
       )}
 
+      {/* While a city is being typed the results need the room above the keyboard; the footer
+          returns when the keyboard goes. */}
+      {step === 'location' && keyboardVisible ? null : (
       <SafeAreaView
         edges={['bottom']}
+        ref={footerRef}
         testID="onboarding-actions"
         style={[
           styles.pinnedAction,
@@ -668,6 +698,7 @@ export function OnboardingScreen({
           testID="onboarding-actions-row"
         />
       </SafeAreaView>
+      )}
     </KeyboardAvoidingView>
     </GarmentCutProvider>
   );

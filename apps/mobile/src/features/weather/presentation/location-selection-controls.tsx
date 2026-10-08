@@ -85,7 +85,8 @@ export function LocationSelectionControls({
   const theme = useKuyaraTheme();
   const [query, setQuery] = useState('');
   // With the keyboard up the results are the point of the screen: the onboarding heading, its
-  // progress bar and its long body step aside so the list keeps room above the keyboard.
+  // progress bar and its long body step aside, and so does a permission or failure card, so
+  // the field and the list keep room above the keyboard instead of the list landing on them.
   const keyboardVisible = useKeyboardVisible();
   const shownHeader = keyboardVisible ? null : header;
   const controller = useMemo(() => new PlaceSearchController(searchPlaces), [searchPlaces]);
@@ -201,7 +202,7 @@ export function LocationSelectionControls({
             </View>
           </Presence>
         </View>
-        {flowMessage ? (
+        {flowMessage && !keyboardVisible ? (
           <Surface accessibilityLiveRegion="polite" style={styles.card} variant="muted">
             <AppText>{flowMessage}</AppText>
             {state.locationFlow === 'denied-permanent' ? (
