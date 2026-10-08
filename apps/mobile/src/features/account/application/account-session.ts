@@ -9,13 +9,18 @@ import type {
   WelcomeAdded,
 } from '@/features/account/application/account-screens';
 import type { AccountDeletionPort } from '@/features/account/application/account-delete';
-import type { FirstLinkOutcome } from '@/features/account/application/account-sync';
+import {
+  createAccountAnalytics,
+  type AccountSyncTrigger,
+} from '@/features/account/application/account-analytics';
+import { accountSyncFailureCode, type FirstLinkOutcome } from '@/features/account/application/account-sync';
 import {
   SYNC_CONSENT_TEXT_VERSION,
   syncConsentState,
   type SyncConsentRecord,
   type SyncConsentState,
 } from '@/features/account/domain/sync-consent';
+import type { CaptureAnalyticsEvent } from '@/features/analytics/domain/product-analytics';
 
 export const noConsentPrompt: ConsentStatus = { prompt: null, status: 'idle' };
 
@@ -169,7 +174,7 @@ export function signInResult(
 }
 
 export function createAccountSessionManager({
-  appleMark, auth, consent, consentQuestion, deletion, now, scenarioUserId, sync,
+  appleMark, auth, capture, consent, consentQuestion, deletion, now, scenarioUserId, sync,
 }: Readonly<{
   auth: AccountAuthPort;
   sync: AccountSessionSyncPort;
@@ -179,11 +184,17 @@ export function createAccountSessionManager({
   appleMark: AppleCredentialMarkPort;
   now: () => Date;
   /**
+   * The analytics boundary's capture (taxonomy 5.12); without it the manager reports nothing.
+   * PostHog is never linked to the account, so no event carries who signed in.
+   */
+  capture?: CaptureAnalyticsEvent;
+  /**
    * Development scenarios only: the account a loaded signed-in frame stands for, so every action
    * continues from that frame. Without it `load` replaces only what the screens show.
    */
   scenarioUserId?: string;
 }>): AccountSessionManager {
+  const analytics = createAccountAnalytics(capture);
   let snapshot: AccountScreensSnapshot = signedOut;
   let identity: AuthSession | null = null;
   let signInRequest = 0;
@@ -228,7 +239,7 @@ export function createAccountSessionManager({
     syncConsent: null,
   });
   /** One pass; answers its summary, or null when it did not run or failed. */
-  const pass = async (): Promise<AccountSyncSummary | null> => {
+  const pass = async (trigger: AccountSyncTrigger): Promise<AccountSyncSummary | null> => {
     const session = identity;
     // Nothing uploads before the consent question after sign-in is settled.
     // Nor while the account is deleted: a late pass would rewrite the link the deletion resets.
@@ -241,9 +252,13 @@ export function createAccountSessionManager({
       if (!isCurrent(session)) return null;
       const { firstLink: _firstLink, ...counts } = summary;
       updateSession({ ...counts, sync: { kind: 'upToDate' }, lastSyncedAt: now().toISOString() });
+      analytics.syncFinished(trigger, { result: 'success' });
       return summary;
-    } catch {
-      if (isCurrent(session)) updateSession({ sync: { kind: 'failed' } });
+    } catch (error) {
+      if (isCurrent(session)) {
+        updateSession({ sync: { kind: 'failed' } });
+        analytics.syncFinished(trigger, { result: 'failed', failure: accountSyncFailureCode(error) });
+      }
       return null;
     }
   };
@@ -252,14 +267,14 @@ export function createAccountSessionManager({
    * consent answer, a foreground, "Sync now", a local write and sign-out never overlap, and each
    * caller awaits a pass that read the phone after its own change.
    */
-  const runSync = (): Promise<AccountSyncSummary | null> => {
+  const runSync = (trigger: AccountSyncTrigger): Promise<AccountSyncSummary | null> => {
     if (running === null) {
-      running = pass().finally(() => { running = null; });
+      running = pass(trigger).finally(() => { running = null; });
       return running;
     }
     trailing ??= running.then(() => {
       trailing = null;
-      return runSync();
+      return runSync(trigger);
     });
     return trailing;
   };
@@ -341,7 +356,7 @@ export function createAccountSessionManager({
       ? { ...shown, provider: session.provider, email: session.email, providers: session.providers }
       : showIdentity(session) });
     if (await askConsentAgain(session)) return;
-    await runSync();
+    await runSync('foreground');
   };
   /**
    * Section 6: pending changes upload first when there is a connection; the phone keeps everything.
@@ -351,7 +366,7 @@ export function createAccountSessionManager({
     // A deletion settles first, so its reset is never written over; a deleted account has ended.
     await deleting;
     if (identity === null) return;
-    if (snapshot.online) await runSync();
+    if (snapshot.online) await runSync('signOut');
     try {
       await auth.signOut();
     } catch {
@@ -381,7 +396,7 @@ export function createAccountSessionManager({
   const finishSignIn = async (provider: AccountProvider) => {
     const session = identity;
     if (!session) return;
-    const summary = await runSync();
+    const summary = await runSync('signIn');
     const host = resultHost;
     resultHost = null;
     if (!isCurrent(session) || !signedIn()) return;
@@ -414,8 +429,14 @@ export function createAccountSessionManager({
     async signIn(provider) {
       // A second tap while one runs would start a second provider flow and drop the first.
       if (snapshot.signIn.kind === 'pending') return;
-      if (!snapshot.online) { update({ signIn: { kind: 'failed', provider } }); return; }
+      if (!snapshot.online) {
+        update({ signIn: { kind: 'failed', provider } });
+        analytics.signInFinished(provider, { result: 'failed', failure: 'offline' });
+        return;
+      }
       const request = ++signInRequest;
+      /** The sign-in's own outcome is reported once; a later step that throws is no sign-in failure. */
+      let reported = false;
       update({ signIn: { kind: 'pending', provider } });
       exchanging = request;
       try {
@@ -437,6 +458,7 @@ export function createAccountSessionManager({
         if (session === null) {
           await dropOrphan();
           update({ signIn: { kind: 'cancelled' } });
+          analytics.signInFinished(provider, { result: 'cancelled' });
           return;
         }
         // This exchange stored its own session over any abandoned one.
@@ -444,6 +466,8 @@ export function createAccountSessionManager({
         identity = session;
         awaitingConsent = provider;
         update({ session: showIdentity(session) });
+        reported = true;
+        analytics.signInFinished(provider, { result: 'success' });
         // Every sign-in rewrites the mark, so one left by an earlier session never outlives it.
         await markApple(provider === 'apple' ? session.userId : null);
         const syncConsent = await readConsent(session.userId);
@@ -466,10 +490,15 @@ export function createAccountSessionManager({
         }
         awaitingConsent = null;
         await finishSignIn(provider);
-      } catch {
+      } catch (error) {
         if (request === signInRequest) {
           await dropOrphan();
           update({ signIn: { kind: 'failed', provider } });
+          if (!reported) {
+            analytics.signInFinished(provider, {
+              result: 'failed', failure: error instanceof AccountProviderError ? error.code : 'failed',
+            });
+          }
         }
       }
     },
@@ -508,7 +537,7 @@ export function createAccountSessionManager({
         awaitingConsent = null;
         await finishSignIn(provider);
       } else if (saved) {
-        await runSync();
+        await runSync('consentAnswered');
       }
     },
     closeConsent: () => {
@@ -528,9 +557,9 @@ export function createAccountSessionManager({
       if (!isCurrent(session)) return;
       update({ consent: noConsentPrompt });
       updateSession({ syncConsent: 'withdrawn', closetPieces: 0, historyDays: 0 });
-      await runSync();
+      await runSync('consentAnswered');
     },
-    syncNow: () => { void runSync(); },
+    syncNow: () => { void runSync('manual'); },
     async addProvider(provider) {
       if (!identity || identity.providers.includes(provider)) return 'unchanged';
       try {
@@ -545,7 +574,9 @@ export function createAccountSessionManager({
       }
     },
     async signOut() {
-      if (identity) await endSession();
+      if (!identity) return;
+      analytics.signedOut();
+      await endSession();
     },
     async deleteAccount() {
       if (!identity || !snapshot.online || snapshot.deletion === 'deleting') return;
@@ -554,16 +585,28 @@ export function createAccountSessionManager({
       const run = async () => {
         try {
           const credentials = await auth.reauthorizeDeletion();
-          if (credentials === null) { update({ deletion: 'idle' }); return; }
+          if (credentials === null) {
+            update({ deletion: 'idle' });
+            analytics.deleted({ result: 'cancelled' });
+            return;
+          }
           // A pass that started before the deletion finishes before the phone's link is reset.
           await passesSettled();
           const result = await deletion.deleteAccount(credentials);
-          if (result.kind === 'failed') { update({ deletion: 'failed' }); return; }
+          if (result.kind === 'failed') {
+            update({ deletion: 'failed' });
+            analytics.deleted({ result: 'failed', failure: result.code });
+            return;
+          }
           await forgetSession();
           // Section 7: the person may have gone anywhere meanwhile, so the result shows app-wide.
           update({ deletion: 'idle', session: { kind: 'signedOut', notice: 'deleted' }, cardDismissed: true,
             sheet: 'app', result: { kind: 'deleted', provider, appleUnrevoked: result.appleUnrevoked } });
-        } catch { update({ deletion: 'failed' }); }
+          analytics.deleted({ result: 'success' });
+        } catch {
+          update({ deletion: 'failed' });
+          analytics.deleted({ result: 'failed', failure: 'unknown' });
+        }
       };
       deleting = run().finally(() => { deleting = null; });
       await deleting;
@@ -622,12 +665,12 @@ export function createAccountSessionManager({
       await forgetSession();
       await restore(null);
     },
-    async localWrite() { await runSync(); },
+    async localWrite() { await runSync('localWrite'); },
     setOnline: (online) => {
       const reconnected = online && !snapshot.online;
       update({ online });
       // Offline, a pass does not run; the one the session waited for runs once the connection is back.
-      if (reconnected && identity !== null) void runSync();
+      if (reconnected && identity !== null) void runSync('reconnected');
     },
     async appleRevoked() {
       const session = identity;

@@ -174,7 +174,7 @@ allowed value set changes. The current version is 4. The SDK-supplied app
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
-**Count.** This document defines **twenty-six custom events**.
+**Count.** This document defines **thirty custom events**.
 
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
 form of a kebab-case domain type. `generation_mode` is `on_device_ai` / `ai_assisted` / `deterministic_fallback`
@@ -229,7 +229,7 @@ version-dependent default outside this list is disabled
 or added here through review, never accepted implicitly.
 
 **Event names and per-event keys.** The adapter sends only an event whose name is one of the
-twenty-six custom events of this section, the five lifecycle events above, or `$exception`;
+thirty custom events of this section, the five lifecycle events above, or `$exception`;
 every other SDK event is dropped. A custom event keeps only its own property keys from this
 taxonomy plus the allowlisted SDK keys, so a key listed for one event, `dress_style` for
 instance, never rides another. A lifecycle event keeps only the allowlisted SDK keys.
@@ -599,9 +599,49 @@ PostHog from the earliest occurrence of the underlying event per identity.
 
 ### 5.12 Account conversion
 
-Not defined. The first release has no accounts ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md)). No event name is
-reserved here; designing this area now would be speculative infrastructure ahead of the
-feature it measures. Revisit this section when Supabase Auth work is scheduled.
+Optional accounts ([ADR 0041](adr/0041-optional-accounts.md)) are measured by what happened,
+never by who it happened to. PostHog stays on its install identifier: `identify()` is never
+called, and no account id, email, name, provider subject, token, timestamp or row count is an
+event property ([ADR 0041](adr/0041-optional-accounts.md) section 12).
+
+| Event | Trigger | Properties | Sampling / aggregation |
+| --- | --- | --- | --- |
+| `account_sign_in_finished` | A sign-in settles: the account session is adopted, the person cancels the provider sheet, or the exchange fails. A request the person closed or replaced reports nothing. | `provider` (`apple`\|`google`), `result` (`success`\|`cancelled`\|`failed`), `failure_category` (`offline`\|`unavailable`\|`failed`, present only when `result` is `failed`) | none, user-paced |
+| `account_sync_finished` | A sync pass that ran settles. A pass that did not run (offline, waiting for the consent answer, an account being deleted) is not an outcome and reports nothing. | `trigger` (`sign_in`\|`consent_answered`\|`foreground`\|`local_write`\|`reconnected`\|`manual`\|`sign_out`), `result` (`success`\|`failed`), `failure_category` (`request`\|`response`\|`other`, present only when `result` is `failed`) | once per `(trigger, result, failure_category)` per process, see section 6 |
+| `account_deleted` | An account deletion settles: it completes, the person cancels the re-authorization, or it fails. | `result` (`success`\|`cancelled`\|`failed`), `failure_category` (`invalid_request`\|`not_found`\|`method_not_allowed`\|`unauthorized`\|`rate_limited`\|`unavailable`\|`internal_error`\|`unknown`, present only when `result` is `failed`) | none, user-paced |
+| `account_signed_out` | The person ends the session with the sign-out control. | none | none, user-paced |
+
+`failure_category` takes a different closed vocabulary on each event, all of them existing
+account failure types mapped by total functions in `analytics-mappers.ts`:
+
+- Sign-in: `unavailable` is the provider code for a method this build cannot use (for
+  example Google without its client id in the build), `offline` is the manager's own refusal
+  while there is no connection, and `failed` is everything else. The person cancelling the
+  provider sheet is `result: cancelled`, never a failure.
+- Sync: the data layer's `AccountRemoteError` code (`request`, `response`), or `other` for
+  anything else, such as a local database error. No message, row or count is read.
+- Deletion: the Worker's closed error code list from `@kuyara/contracts`, plus `unknown` for
+  a failure that carried none.
+
+`account_signed_out` is emitted only for the explicit control. A session that ends because
+Apple revoked the credential, or because the auth service reports the session gone, is not
+an explicit sign-out and reports nothing. After a deletion the analytics consent is
+unchanged (it never syncs, ADR 0041), so `account_deleted` goes out when consent is granted
+and is dropped otherwise, like every other event.
+
+These events add no data category. `provider` and the outcome words are Product Interaction;
+`trigger` and `failure_category` are Other Usage Data. No User ID enters analytics: the
+App Privacy answers in ADR 0033 section 1 do not change.
+
+**Product questions answered.**
+
+- `account_sign_in_finished`: how many people who start a sign-in finish it, with which
+  provider, and why do the others fail?
+- `account_sync_finished`: does sync work, from which trigger does it fail, and is the
+  failure the network or the app?
+- `account_deleted`: do deletions complete, and when they fail, is it the Worker or the
+  re-authorization?
+- `account_signed_out`: how often do people leave an account on purpose?
 
 ### 5.13 Notifications
 
@@ -693,6 +733,11 @@ normal usage. The exceptions requiring an explicit rule:
   the same `1` through `5+` buckets (section 5.10). Repeats never reach the network.
 - `error_recovered`: once per `(surface, failure_category)` per session, so a flapping
   network cannot produce an alternating stream.
+- `account_sync_finished`: passes run on every foreground and after every local write, so
+  one event is sent per `(trigger, result, failure_category)` per process. A repeat of the
+  same outcome adds volume and no information; a failure after successes is a new key and is
+  reported. The bound is the seven triggers times at most four outcomes, in practice a
+  handful per signed-in session.
 - `screen_viewed`: fires on focus, so a tab-switching session can produce a dozen. It is
   left unsampled because it is the backbone of navigation analysis, and it is the first
   lever named in section 7 if volume ever becomes a constraint.
@@ -721,10 +766,11 @@ checked most days), sees two or three screens per open, and edits the Closet occ
 | `outfit_detail_opened` | about 10 |
 | Day style and outfit events (`day_style_changed`, `outfit_worn_logged`, `outfit_piece_changed`, `outfit_composed`, `tomorrow_preview_opened`) | about 45 |
 | Everything else (manual refresh, retries, Closet, Settings, errors, notification responses, first use, consent) | about 25 |
-| **Total** | **about 265, call it 265 to 365 with error and retry variance** |
+| Account events, a signed-in user only (`account_sync_finished` about 5, sign-in, deletion and sign-out about 1 together) | about 6 |
+| **Total** | **about 270, call it 270 to 370 with error and retry variance** |
 
 So the monthly active user ceiling is roughly the plan's monthly event allowance divided by
-365. Verify the current allowance, its overage behaviour, and whether a free plan drops
+370. Verify the current allowance, its overage behaviour, and whether a free plan drops
 events or bills for them, from PostHog's own pricing page at implementation time; the first
 release's expected audience is orders of magnitude below any plausible ceiling, which is
 why no sampling is applied up front.

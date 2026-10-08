@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { accountDeleteV1ErrorCodes } from '@kuyara/contracts';
+
 import { failureCategories } from '@/domain/failure-category';
 import { weatherConditionCodes } from '@/features/weather/domain/weather';
 
 import {
+  accountDeletionFailureProperty,
+  accountSignInFailureProperty,
+  accountSyncFailureProperty,
+  accountSyncTriggerProperty,
   ageBucketProperty,
   aiProbeResultProperty,
   composeResultProperty,
@@ -167,4 +173,30 @@ test('a leap day birthday buckets correctly on and around itself', () => {
     ageBucketProperty('2008-02-29', new Date(2026, 2, 1)),
     '18_24', // turned 18 yesterday, in a non-leap year
   );
+});
+
+// Taxonomy 5.12: each account mapper is total over the closed vocabulary the account layer
+// already has, so a new code is a build error and never a raw string on an event.
+test('every provider error code maps to a sign-in failure category', () => {
+  assert.deepEqual(
+    ['cancelled', 'unavailable', 'identityTaken', 'failed'].map(accountSignInFailureProperty),
+    ['failed', 'unavailable', 'failed', 'failed'],
+  );
+});
+
+test('every sync failure code maps to itself', () => {
+  assert.deepEqual(['request', 'response', 'other'].map(accountSyncFailureProperty), ['request', 'response', 'other']);
+});
+
+test('every sync trigger maps to a snake_case trigger', () => {
+  assert.deepEqual(
+    ['signIn', 'consentAnswered', 'foreground', 'localWrite', 'reconnected', 'manual', 'signOut']
+      .map(accountSyncTriggerProperty),
+    ['sign_in', 'consent_answered', 'foreground', 'local_write', 'reconnected', 'manual', 'sign_out'],
+  );
+});
+
+test('every account deletion code, the Worker contract list and unknown, maps to itself', () => {
+  const codes = [...accountDeleteV1ErrorCodes, 'unknown'];
+  assert.deepEqual(codes.map(accountDeletionFailureProperty), codes);
 });

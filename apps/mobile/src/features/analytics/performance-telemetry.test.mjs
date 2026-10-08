@@ -6,6 +6,8 @@ import {
   telemetryDispatchingEnabled,
 } from './domain/performance-telemetry.ts';
 import {
+  firstRecommendationShownAttributeKeys,
+  firstRecommendationShownAttributes,
   recommendationGeneratedAttributeKeys,
   recommendationGeneratedAttributes,
   telemetryFailureKind,
@@ -162,5 +164,30 @@ test('weather.refreshed carries the attribution source only when one answered', 
 
   for (const key of [...Object.keys(success), ...Object.keys(failure)]) {
     assert.ok(declared.has(key), `undeclared attribute key: ${key}`);
+  }
+});
+
+test('recommendation.first_shown carries a whole-millisecond duration and two closed words', () => {
+  const declared = new Set(firstRecommendationShownAttributeKeys);
+  const shown = [
+    firstRecommendationShownAttributes({ durationMs: 1834.6, generationMode: 'on-device-ai', cacheState: 'fresh' }),
+    firstRecommendationShownAttributes({ durationMs: 400, generationMode: 'ai-assisted', cacheState: 'stale_shown' }),
+    firstRecommendationShownAttributes({ durationMs: 91, generationMode: 'deterministic-fallback', cacheState: 'refreshing' }),
+  ];
+  assert.deepEqual(shown[0], { duration_ms: 1835, generation_mode: 'on_device_ai', cache_state: 'fresh' });
+  assert.deepEqual(shown[1], { duration_ms: 400, generation_mode: 'ai_assisted', cache_state: 'stale_shown' });
+  assert.deepEqual(shown[2], { duration_ms: 91, generation_mode: 'deterministic_fallback', cache_state: 'refreshing' });
+  for (const attributes of shown) {
+    for (const key of Object.keys(attributes)) assert.ok(declared.has(key), `undeclared attribute key: ${key}`);
+  }
+  assert.deepEqual([...declared].sort(), Object.keys(shown[0]).sort());
+});
+
+test('recommendation.first_shown never reports a negative or non-finite duration', () => {
+  for (const durationMs of [-3, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.equal(
+      firstRecommendationShownAttributes({ durationMs, generationMode: 'ai-assisted', cacheState: 'fresh' }).duration_ms,
+      0,
+    );
   }
 });

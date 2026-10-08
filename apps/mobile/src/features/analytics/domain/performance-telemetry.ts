@@ -12,6 +12,7 @@ export type TelemetryAttributes = Readonly<Record<string, TelemetryAttributeValu
 
 export const performanceTelemetryEventNames = [
   'recommendation.generated',
+  'recommendation.first_shown',
   'weather.refreshed',
 ] as const;
 

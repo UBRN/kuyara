@@ -89,6 +89,27 @@ export type AccountRowsSourcePort = Readonly<{
   writePulled: (rows: AccountRows, cursor: PullCursor) => Promise<void>;
 }>;
 
+/**
+ * A closed failure of an account request: the request failed or its answer did not parse. It
+ * carries no Supabase message, row, token or identifier.
+ */
+export class AccountRemoteError extends Error {
+  readonly code: 'request' | 'response';
+
+  constructor(code: 'request' | 'response') {
+    super(code === 'request' ? 'The account request failed.' : 'The account answer was not readable.');
+    this.name = 'AccountRemoteError';
+    this.code = code;
+  }
+}
+
+/** How a sync pass failed, closed: an account request, an unreadable answer, or anything else. */
+export type AccountSyncFailureCode = AccountRemoteError['code'] | 'other';
+
+export function accountSyncFailureCode(error: unknown): AccountSyncFailureCode {
+  return error instanceof AccountRemoteError ? error.code : 'other';
+}
+
 export type AccountRemotePort = Readonly<{
   /**
    * Returns validated domain rows, deletion markers among them, each table's last server arrival,

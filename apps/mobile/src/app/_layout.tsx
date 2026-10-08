@@ -26,6 +26,7 @@ import {
 } from '@/features/analytics/application/analytics-consent-trigger';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { PerformanceTelemetryContext } from '@/features/analytics/application/use-performance-telemetry';
+import { ProcessClockContext } from '@/features/analytics/application/use-process-clock';
 import { analyticsConsentState } from '@/features/analytics/domain/analytics-consent-state';
 import { readAnalyticsConsentSync } from '@/features/analytics/data/analytics-consent-sync-source';
 import { createProductAnalytics } from '@/features/analytics/data/create-product-analytics';
@@ -35,6 +36,7 @@ import {
   observePerformanceTelemetry,
   withObserveRoot,
 } from '@/features/analytics/data/observe-performance-telemetry';
+import { processClock } from '@/features/analytics/data/process-clock';
 import { telemetryDispatchingEnabled } from '@/features/analytics/domain/performance-telemetry';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { NotificationApplicationContext } from '@/features/notifications/application/notification-context';
@@ -57,6 +59,10 @@ import { isDeepLinkLaunch } from '@/features/walkthrough/domain/walkthrough-rule
 import { defaultGarmentCut, GarmentCutProvider } from '@/garment-art';
 import { openKuyaraDatabaseSync } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+// The one start mark every "since launch" duration is measured from, taken here once, ahead of
+// the Observe configuration and the first render (`recommendation.first_shown` reads it).
+processClock.mark();
 
 // Module scope, before the first render: Observe's expo-router integration has to be
 // enabled before any screen mounts, and the same call decides whether anything is
@@ -304,9 +310,11 @@ function RootLayout() {
       <LaunchCurtain cold={cold} onFirstFrame={SplashScreen.hide} readiness={launch}>
         <LaunchScreenReadyContext value={reportTodayDrawn}>
           <PerformanceTelemetryContext value={observePerformanceTelemetry}>
-            <ProfileApplicationProvider>
-              <ThemedApplicationShell onLaunchFailed={reportFailed} onLaunchReady={reportReady} />
-            </ProfileApplicationProvider>
+            <ProcessClockContext value={processClock}>
+              <ProfileApplicationProvider>
+                <ThemedApplicationShell onLaunchFailed={reportFailed} onLaunchReady={reportReady} />
+              </ProfileApplicationProvider>
+            </ProcessClockContext>
           </PerformanceTelemetryContext>
         </LaunchScreenReadyContext>
       </LaunchCurtain>

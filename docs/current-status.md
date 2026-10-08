@@ -111,7 +111,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   sent, is never shown again, and on acceptance turns both kinds on and opens the
   Notifications surface. Pending notifications survive a cold launch and the tap that
   launched the app is delivered. No server, no push.
-- **Analytics:** the `ProductAnalytics` boundary, typed twenty-six-event catalog,
+- **Analytics:** the `ProductAnalytics` boundary, typed thirty-event catalog,
   error-episode and retry trackers, consent-gated PostHog adapter, Today consent
   sheet and Settings Privacy surface are implemented. Consent is profile-owned in schema
   version 12; absent configuration uses the no-op adapter (a logging adapter in
@@ -119,14 +119,17 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   exits, and withdrawal clears the SDK's persisted queue and holds the opt-out through the
   reset. The taxonomy's feature call sites are in place, so every
   approved event is emittable except `error_shown` on the `settings` surface, which has
-  no failure classification to observe yet. Onboarding runs before the consent question
+  no failure classification to observe yet. The account events (`account_sign_in_finished`,
+  `account_sync_finished`, `account_deleted`, `account_signed_out`) report outcomes with closed
+  values and never link PostHog to an account. Onboarding runs before the consent question
   and reports nothing; downloads, first sessions and retention before consent come from App
   Store Connect App Analytics. EAS Observe runs
   alongside it as separate observability instrumentation: its own
   `PerformanceTelemetry` port and single `expo-observe` adapter, launch-time configuration
   bound to the same consent answer through a synchronous read of
-  `local_profiles.analytics_consent`, per-screen readiness marks, and the two events
-  `recommendation.generated` and `weather.refreshed`. Dispatch and the dashboard are
+  `local_profiles.analytics_consent`, per-screen readiness marks, and the three events
+  `recommendation.generated`, `recommendation.first_shown` (once per process, with the time
+  since the process start mark) and `weather.refreshed` (with its duration). Dispatch and the dashboard are
   verified against build 8: Observe reports its launch metrics (see Release State). See
   [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md) and
   [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md). PostHog

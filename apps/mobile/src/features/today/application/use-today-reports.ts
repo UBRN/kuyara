@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
+import { useFirstRecommendationReport } from '@/features/analytics/application/first-recommendation-report';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import {
@@ -46,6 +47,7 @@ export function useTodayReports(state: TodayScreenState, input: Readonly<{
   const { state: profileState } = useProfileApplication();
   const { analytics } = useProductAnalytics();
   const { markRecommendationShown } = useAnalyticsConsentTrigger();
+  const reportFirstRecommendation = useFirstRecommendationReport();
   const walkthrough = useWalkthrough();
   const dayQuestionPending = morningChoicePending || eveningChoicePending;
 
@@ -79,6 +81,18 @@ export function useTodayReports(state: TodayScreenState, input: Readonly<{
     markRecommendationShown();
   }, [dayQuestionPending, dressingDayChoiceReady, focused, markRecommendationShown, namePromptShown,
     recommendationShown]);
+
+  // Observe's first-shown time: the recommendation is on the focused Today and settled by the
+  // app's own work. A sheet that waits for the person (the day question, the name prompt) is
+  // their time, not the app's, so it does not hold this back.
+  useEffect(() => {
+    if (!focused || dressingDayChoiceReady === false) return;
+    if (state.kind !== 'loaded' || state.snapshot.recommendation.status !== 'recommended') return;
+    reportFirstRecommendation({
+      generationMode: state.snapshot.recommendation.generationMode,
+      cacheState: recommendationCacheState(state),
+    });
+  }, [dressingDayChoiceReady, focused, reportFirstRecommendation, state]);
 
   // Read right before the effect that reports it: derived before an earlier hook, it would keep
   // React Compiler from memoizing it.

@@ -24,6 +24,7 @@ import { createSupabaseAccountAuth } from '@/features/account/data/supabase-acco
 import { createSupabaseAccountRemote, createSupabaseSyncConsent } from '@/features/account/data/supabase-account-remote';
 import { createWorkerAccountDeletion } from '@/features/account/data/worker-account-deletion';
 import { signOut as linkAfterSignOut } from '@/features/account/domain/account-link';
+import type { CaptureAnalyticsEvent } from '@/features/analytics/domain/product-analytics';
 import { deviceCrypto } from '@/infrastructure/device-crypto';
 import { fetchWithTimeout } from '@/infrastructure/network/fetch-json-with-timeout';
 import { deviceKeyValueStore } from '@/infrastructure/sqlite/key-value-store';
@@ -71,12 +72,14 @@ function googleSignIn(send: typeof fetch) {
   return settings === null ? null : createGoogleSignIn({ browser: WebBrowser, crypto: deviceCrypto, send }, settings);
 }
 
-export function createLiveAccountSession({ database, fetcher, localProfileId, settings, workerBaseUrl }: Readonly<{
+export function createLiveAccountSession({ capture, database, fetcher, localProfileId, settings, workerBaseUrl }: Readonly<{
   database: SqliteDatabase;
   localProfileId: string;
   settings: SupabaseSettings;
   workerBaseUrl: string;
   fetcher: typeof fetch;
+  /** The analytics boundary's capture, handed to the session manager (taxonomy 5.12). */
+  capture?: CaptureAnalyticsEvent;
 }>): LiveAccountSession {
   const storage = createEncryptedSessionStorage({
     keys: {
@@ -112,6 +115,7 @@ export function createLiveAccountSession({ database, fetcher, localProfileId, se
   const consent = createSupabaseSyncConsent(client);
   const manager = createAccountSessionManager({
     auth,
+    capture,
     consent,
     consentQuestion: {
       wasOpen: async () => (await deviceKeyValueStore.get(consentQuestionKey)) === 'open',

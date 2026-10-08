@@ -5,7 +5,11 @@ import type {
   SyncConsentAnswerInput,
   SyncConsentPort,
 } from '@/features/account/application/account-session';
-import type { AccountRemotePort, PulledAccountRows } from '@/features/account/application/account-sync';
+import {
+  AccountRemoteError,
+  type AccountRemotePort,
+  type PulledAccountRows,
+} from '@/features/account/application/account-sync';
 import {
   fromRemoteDressingDayChoice,
   fromRemoteDressingDayDeparture,
@@ -32,20 +36,6 @@ import {
 } from '@/features/account/domain/sync-rules';
 import type { SyncConsentAnswer } from '@/features/account/domain/sync-consent';
 import { offsetIsoInstantSchema } from '@/domain/record-identity';
-
-/**
- * A closed failure of an account request: the request failed or its answer did not parse. It
- * carries no Supabase message, row, token or identifier.
- */
-export class AccountRemoteError extends Error {
-  readonly code: 'request' | 'response';
-
-  constructor(code: 'request' | 'response') {
-    super(code === 'request' ? 'The account request failed.' : 'The account answer was not readable.');
-    this.name = 'AccountRemoteError';
-    this.code = code;
-  }
-}
 
 /**
  * How far before the cursor each pull starts again. `server_updated_at` is `now()`, the start

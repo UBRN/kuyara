@@ -34,8 +34,9 @@ dışında bu veriler gönderilmez ve uygulama aynı şekilde çalışır. Ayrı
 Kabul edersen kuyara şunları toplar:
 
 - **Ürün etkileşimi.** Hangi ekranların açıldığı, yenileme gibi dokunuşlar, önerinin
-  yüklenip yüklenmediği, hangi kombini giydiğin, bir kombinde hangi parçayı değiştirdiğin ve
-  Gardırobun nasıl kullanıldığı.
+  yüklenip yüklenmediği, hangi kombini giydiğin, bir kombinde hangi parçayı değiştirdiğin,
+  Gardırobun nasıl kullanıldığı ve bir hesapla giriş yapmanın, eşitlemenin ya da hesabı
+  silmenin işe yarayıp yaramadığı (kim olduğun asla).
 - **Diğer kullanım verisi.** Önerinin yapay zekadan mı yoksa yerleşik yedek yöntemden mi
   geldiği gibi kaba ürün durumu, giyim stili ayarın ve kaba bir yaş aralığı (doğum tarihin
   asla).
@@ -72,8 +73,8 @@ Kabul edersen kuyara şunları gönderir:
 
 - **Performans süreleri.** Uygulamanın açılış ve ekranlar arası geçiş süreleri, ilk
   görüntülemeye ve etkileşime hazır hale gelmeye kadar geçen süreler dahil.
-- **Uygulama tarafından tanımlanan olaylar.** Bir önerinin oluşturulması veya hava
-  durumunun yenilenmesi. Bu olaylar yalnızca kapalı kategori değerlerini ve tam sayı milisaniye
+- **Uygulama tarafından tanımlanan olaylar.** Bir önerinin oluşturulması, uygulama
+  açıldıktan sonra ilk önerinin gösterilmesi veya hava durumunun yenilenmesi. Bu olaylar yalnızca kapalı kategori değerlerini ve tam sayı milisaniye
   cinsinden süreleri içerir.
 - **Ele alınmış hatalar.** kuyara'nın kendisinin bildirdiği hatalar kısa bir hata kodu, kaba
   nitelikler ve uygulamanın kendi kodunun yığın izini içerir. Asıl hatanın mesajı hiçbir

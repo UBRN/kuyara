@@ -11,11 +11,19 @@ import type { RecommendationRefreshTrigger } from '@/features/recommendation/app
 import type { AiProbeUiState } from '@/features/recommendation/application/ai-probe-state';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { FailureCategory } from '@/domain/failure-category';
+import type { AccountDeletionCode } from '@/features/account/application/account-delete';
+import type { AccountProviderError } from '@/features/account/application/account-session';
+import type { AccountSyncFailureCode } from '@/features/account/application/account-sync';
+import type { AccountSyncTrigger } from '@/features/account/application/account-analytics';
 import type { DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-slots';
 
 import type {
+  AccountDeletionFailureProperty,
+  AccountSignInFailureProperty,
+  AccountSyncFailureProperty,
+  AccountSyncTriggerProperty,
   AgeBucket,
   AnalyticsEventProperties,
   ConditionCategory,
@@ -110,6 +118,42 @@ const aiProbeResults = {
   error: 'error',
 } as const satisfies Record<CompletedAiProbeKind, AiProbeResult>;
 
+// Taxonomy 5.12. A cancel is reported by a null session and is a result of its own; the code
+// is never thrown on the sign-in path, so a stray one reads as `failed`.
+const accountSignInFailureProperties = {
+  cancelled: 'failed',
+  unavailable: 'unavailable',
+  identityTaken: 'failed',
+  failed: 'failed',
+} as const satisfies Record<AccountProviderError['code'], AccountSignInFailureProperty>;
+
+const accountSyncFailureProperties = {
+  request: 'request',
+  response: 'response',
+  other: 'other',
+} as const satisfies Record<AccountSyncFailureCode, AccountSyncFailureProperty>;
+
+const accountSyncTriggerProperties = {
+  signIn: 'sign_in',
+  consentAnswered: 'consent_answered',
+  foreground: 'foreground',
+  localWrite: 'local_write',
+  reconnected: 'reconnected',
+  manual: 'manual',
+  signOut: 'sign_out',
+} as const satisfies Record<AccountSyncTrigger, AccountSyncTriggerProperty>;
+
+const accountDeletionFailureProperties = {
+  invalid_request: 'invalid_request',
+  not_found: 'not_found',
+  method_not_allowed: 'method_not_allowed',
+  unauthorized: 'unauthorized',
+  rate_limited: 'rate_limited',
+  unavailable: 'unavailable',
+  internal_error: 'internal_error',
+  unknown: 'unknown',
+} as const satisfies Record<AccountDeletionCode, AccountDeletionFailureProperty>;
+
 export function failureCategoryProperty(
   category: FailureCategory,
 ): FailureCategoryProperty {
@@ -153,6 +197,30 @@ export function composeResultProperty(
   optionCount: number,
 ): AnalyticsEventProperties<'outfit_composed'>['result'] {
   return optionCount > 0 ? 'composed' : 'no_match';
+}
+
+export function accountSignInFailureProperty(
+  code: AccountProviderError['code'],
+): AccountSignInFailureProperty {
+  return accountSignInFailureProperties[code];
+}
+
+export function accountSyncFailureProperty(
+  code: AccountSyncFailureCode,
+): AccountSyncFailureProperty {
+  return accountSyncFailureProperties[code];
+}
+
+export function accountSyncTriggerProperty(
+  trigger: AccountSyncTrigger,
+): AccountSyncTriggerProperty {
+  return accountSyncTriggerProperties[trigger];
+}
+
+export function accountDeletionFailureProperty(
+  code: AccountDeletionCode,
+): AccountDeletionFailureProperty {
+  return accountDeletionFailureProperties[code];
 }
 
 export function conditionCategory(code: WeatherConditionCode): ConditionCategory {

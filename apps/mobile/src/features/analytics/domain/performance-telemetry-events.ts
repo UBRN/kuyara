@@ -1,4 +1,4 @@
-// The two Observe events this app defines, and the only place their attribute keys and
+// The three Observe events this app defines, and the only place their attribute keys and
 // values are decided. Every value is a closed enum or an integer; nothing here is free text,
 // a provider name, a model identity, a prompt, a coordinate, a place name, a wardrobe value
 // or an identifier (ADR 0034's red line and the taxonomy's exclusion checklist).
@@ -35,6 +35,14 @@ export const recommendationGeneratedAttributeKeys = [
   'option_count',
   'outcome',
   'tier_attempted',
+] as const;
+
+// `recommendation.first_shown` carries exactly these keys: how long after the process started
+// the first recommendation was on screen, and the two closed words that say what it was.
+export const firstRecommendationShownAttributeKeys = [
+  'cache_state',
+  'duration_ms',
+  'generation_mode',
 ] as const;
 
 export const weatherRefreshedAttributeKeys = [
@@ -98,6 +106,26 @@ export function recommendationGeneratedAttributes(
       resolved && resolved.tier !== 'deterministic' ? 'success' : 'fallback',
     option_count: Math.max(Math.trunc(input.optionCount), 0),
     ...(input.failure ? { failure_kind: telemetryFailureKind(input.failure) } : {}),
+  };
+}
+
+// Today's own words for how current the recommendation on screen is.
+type TelemetryRecommendationCacheState = 'fresh' | 'stale_shown' | 'refreshing';
+
+export type FirstRecommendationShownInput = Readonly<{
+  // Whole-process milliseconds from the single start mark to the moment Today showed it.
+  durationMs: number;
+  generationMode: RecommendationGenerationMode;
+  cacheState: TelemetryRecommendationCacheState;
+}>;
+
+export function firstRecommendationShownAttributes(
+  input: FirstRecommendationShownInput,
+): TelemetryAttributes {
+  return {
+    duration_ms: durationAttribute(input.durationMs),
+    generation_mode: generationModeAttributes[input.generationMode].mode,
+    cache_state: input.cacheState,
   };
 }
 

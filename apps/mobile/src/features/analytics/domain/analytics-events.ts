@@ -1,4 +1,4 @@
-// The typed catalog of the twenty-six custom events in `docs/analytics-taxonomy.md`
+// The typed catalog of the thirty custom events in `docs/analytics-taxonomy.md`
 // section 5. Every enum here is closed: a new value is added to the taxonomy first, in the
 // same change that adds it to the code it is derived from, and it bumps the schema version.
 // Nothing in this module talks to a provider; it is the contract the `ProductAnalytics`
@@ -112,6 +112,37 @@ export type ComposedPieceCount = 1 | 2 | 3;
 
 // Taxonomy 5.5: how the day's formality was chosen.
 export type DayStyleChoiceSourceProperty = 'morning' | 'chip' | 'plan' | 'random';
+
+// Taxonomy 5.12: the account events. Every value is a closed word; the provider is the sign-in
+// method, never an account, an email or a provider subject.
+export type AccountProviderProperty = 'apple' | 'google';
+
+// How a sign-in failed: no connection, the method cannot be used in this build, or anything else.
+export type AccountSignInFailureProperty = 'offline' | 'unavailable' | 'failed';
+
+// What started a sync pass.
+export type AccountSyncTriggerProperty =
+  | 'sign_in'
+  | 'consent_answered'
+  | 'foreground'
+  | 'local_write'
+  | 'reconnected'
+  | 'manual'
+  | 'sign_out';
+
+// How a sync pass failed: the request, the answer that could not be read, or anything else.
+export type AccountSyncFailureProperty = 'request' | 'response' | 'other';
+
+// The Worker's closed deletion error codes, plus `unknown` for a failure that carried none.
+export type AccountDeletionFailureProperty =
+  | 'invalid_request'
+  | 'not_found'
+  | 'method_not_allowed'
+  | 'unauthorized'
+  | 'rate_limited'
+  | 'unavailable'
+  | 'internal_error'
+  | 'unknown';
 
 export type RefreshSurface = 'today' | 'weather' | 'closet';
 
@@ -304,6 +335,29 @@ export type AnalyticsEventCatalog = {
   analytics_consent_granted: AnalyticsEventBase &
     Readonly<{ surface: 'today_sheet' | 'settings_privacy' }>;
   analytics_consent_withdrawn: AnalyticsEventBase;
+  // Taxonomy 5.12: a sign-in settled. A cancel by the person is a result, not a failure, and
+  // `failure_category` exists only on `failed`.
+  account_sign_in_finished: AnalyticsEventBase &
+    Readonly<{ provider: AccountProviderProperty }> &
+    (
+      | Readonly<{ result: 'success' | 'cancelled' }>
+      | Readonly<{ result: 'failed'; failure_category: AccountSignInFailureProperty }>
+    );
+  // Taxonomy 5.12: a sync pass settled. Never a row count, an id or a timestamp.
+  account_sync_finished: AnalyticsEventBase &
+    Readonly<{ trigger: AccountSyncTriggerProperty }> &
+    (
+      | Readonly<{ result: 'success' }>
+      | Readonly<{ result: 'failed'; failure_category: AccountSyncFailureProperty }>
+    );
+  // Taxonomy 5.12: an account deletion settled.
+  account_deleted: AnalyticsEventBase &
+    (
+      | Readonly<{ result: 'success' | 'cancelled' }>
+      | Readonly<{ result: 'failed'; failure_category: AccountDeletionFailureProperty }>
+    );
+  // Taxonomy 5.12: the person ended the session on purpose. It names nothing else.
+  account_signed_out: AnalyticsEventBase;
 };
 
 export type AnalyticsEventName = keyof AnalyticsEventCatalog;
@@ -352,6 +406,10 @@ export const analyticsEventNames = [
   'weather_alert_offer_resolved',
   'analytics_consent_granted',
   'analytics_consent_withdrawn',
+  'account_sign_in_finished',
+  'account_sync_finished',
+  'account_deleted',
+  'account_signed_out',
 ] as const satisfies readonly AnalyticsEventName[];
 
 // Keys of a union member are the union's keys, so the optional and variant properties are
@@ -445,6 +503,15 @@ export const analyticsEventPropertyKeys = {
   weather_alert_offer_resolved: ['schema_version', 'outcome', 'kind'],
   analytics_consent_granted: ['schema_version', 'surface'],
   analytics_consent_withdrawn: ['schema_version'],
+  account_sign_in_finished: [
+    'schema_version',
+    'provider',
+    'result',
+    'failure_category',
+  ],
+  account_sync_finished: ['schema_version', 'trigger', 'result', 'failure_category'],
+  account_deleted: ['schema_version', 'result', 'failure_category'],
+  account_signed_out: ['schema_version'],
 } as const satisfies {
   [Name in AnalyticsEventName]: readonly PropertyKeyOf<
     AnalyticsEventProperties<Name>

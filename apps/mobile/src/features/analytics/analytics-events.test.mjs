@@ -8,9 +8,9 @@ import {
 } from './domain/analytics-events.ts';
 
 // docs/analytics-taxonomy.md section 5.0.
-test('the catalog defines the twenty-six custom events, once each', () => {
-  assert.equal(analyticsEventNames.length, 26);
-  assert.equal(new Set(analyticsEventNames).size, 26);
+test('the catalog defines the thirty custom events, once each', () => {
+  assert.equal(analyticsEventNames.length, 30);
+  assert.equal(new Set(analyticsEventNames).size, 30);
   assert.deepEqual(
     [...analyticsEventNames].sort(),
     Object.keys(analyticsEventPropertyKeys).sort(),

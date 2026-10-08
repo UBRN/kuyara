@@ -301,7 +301,7 @@ limits and no automatic top-up:
 Both systems stay, with ownership divided by what each can actually see:
 
 - **EAS Observe owns the native layer and performance.** MetricKit crash diagnostics on physical
-  devices, launch and navigation timing, the two user-defined events, and kuyara's own
+  devices, launch and navigation timing, the three user-defined events, and kuyara's own
   `TelemetryError` reports with a closed code. Only the native subscriber sees a process that died.
 - **PostHog owns the JavaScript layer.** Uncaught exceptions and unhandled rejections, grouped into
   issues, with source-mapped traces and the product events that preceded them on the same install.

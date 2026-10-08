@@ -6,13 +6,12 @@ import test from 'node:test';
 import { createClient } from '@supabase/supabase-js';
 
 import {
-  AccountRemoteError,
   createSupabaseAccountRemote,
   createSupabaseSyncConsent,
   pullOverlapSeconds,
 } from './supabase-account-remote.ts';
 import { toRemoteDressingDayChoice, toRemoteOutfitHistory, toRemoteWardrobeItem } from './account-remote-mappers.ts';
-import { createAccountSyncFlow } from '../application/account-sync.ts';
+import { AccountRemoteError, createAccountSyncFlow } from '../application/account-sync.ts';
 import { createAccountSessionSync } from '../application/account-session-sync.ts';
 import { createSqliteAccountRowsSource } from './sqlite-account-rows-source.ts';
 import { signOut } from '../domain/account-link.ts';

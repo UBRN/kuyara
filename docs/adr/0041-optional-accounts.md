@@ -150,6 +150,7 @@ Apple's server-to-server notification endpoint stays empty in the first account 
 - From the first remote migration: row-level security on every synced table; one policy per operation with `user_id = (select auth.uid())`, plus `with check` on insert; explicit grants to the `authenticated` role and none to `anon`; no `raw_user_meta_data` in any policy condition; the new publishable and secret key types.
 - The app contains only the project address and the publishable key. The Supabase client library is imported only from the account feature's data layer; UI and domain code never import it.
 - PostHog is never linked to the account: `identify()` is never called, and analytics stays on its install identifier. Neither `localProfileId` nor the Supabase user ID becomes an analytics identifier.
+- Account analytics report outcomes only, as closed values under [taxonomy 5.12](../analytics-taxonomy.md): the sign-in provider and result, the sync trigger and result, the deletion result, a failure category and an explicit sign-out. They carry no account id, email, name, provider subject, token, timestamp or row count, and they follow the analytics consent like every other event.
 
 ### 13. Member AI allowance
 
