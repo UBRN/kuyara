@@ -18,11 +18,12 @@ import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
 import { rateLimitedHeaders, readRouteRequest, type RateLimiter } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders, refusalResponse } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
-import { buildCacheRequest, defaultCache, readCachedAnswer, writeCachedAnswer } from './ai-cache.ts';
+import { buildCacheRequest, readCachedAnswer } from './ai-cache.ts';
 import { completeInsightSentenceSchema } from './insight-sentence.ts';
 import { attemptFailureReason, type AiAttemptFailureReason, type AiProvider } from './ai-provider.ts';
 import { selectionFailure } from './ai-selection.ts';
 import type { MemberAllowance } from './member-allowance.ts';
+import { defaultCache, writeCachedAnswer } from '../shared-cache.ts';
 import { aiAttemptOutcome, noUsageMetrics, type UsageMetrics } from '../usage-metrics.ts';
 import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
 
@@ -85,6 +86,9 @@ type Dependencies = Readonly<{
 export const WORKERS_AI_DAILY_ATTEMPT_LIMIT = Math.floor(
   (10_000 - PROBE_DAILY_LIMIT * 67) / 162,
 );
+
+// Thirty days: the answers are a pure function of the request, retired by the gate version.
+const aiCacheMaxAgeSeconds = 2_592_000;
 
 // The phone transmits its own budget (37 s: its 38 s wait minus transport); this ceiling is
 // the configured deadline's, so a wrong or hostile header can never extend the walk.
@@ -323,7 +327,7 @@ export function createAiHandler({
         });
       }
       const response = Response.json(responseBody, { status: 200, headers: jsonHeaders });
-      if (cache && cacheRequest) writeCachedAnswer(cache, cacheRequest, response, ctx);
+      if (cache && cacheRequest) writeCachedAnswer(cache, cacheRequest, response, ctx, aiCacheMaxAgeSeconds);
       return response;
     }
     return errorResponse(503, 'ai_unavailable');

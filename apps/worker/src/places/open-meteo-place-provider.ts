@@ -49,6 +49,12 @@ export function dotlessSpellings(query: string): string[] {
   return spellings.slice(0, maxSpellingRetries);
 }
 
+/**
+ * A search answer. `degraded` marks one whose spelling top-up failed: it is a valid answer for
+ * this request but not worth keeping, so the handler reads it before the contract strips it.
+ */
+export type PlaceSearchAnswer = PlaceSearchV1Data & { degraded?: true };
+
 export class PlaceSearchProviderError extends Error {
   constructor() {
     super('Place search is unavailable.');
@@ -65,7 +71,7 @@ export class OpenMeteoPlaceProvider {
     this.timeoutMs = dependencies.timeoutMs ?? 4000;
   }
 
-  async search(request: PlaceSearchV1Request): Promise<PlaceSearchV1Data> {
+  async search(request: PlaceSearchV1Request): Promise<PlaceSearchAnswer> {
     try {
       return await withDeadline(this.timeoutMs, (signal) => this.searchWithin(request, signal));
     } catch {
@@ -73,17 +79,19 @@ export class OpenMeteoPlaceProvider {
     }
   }
 
-  private async searchWithin(request: PlaceSearchV1Request, signal: AbortSignal): Promise<PlaceSearchV1Data> {
+  private async searchWithin(request: PlaceSearchV1Request, signal: AbortSignal): Promise<PlaceSearchAnswer> {
     const valid = await this.fetchPlaces(request, request.query, signal);
     // The typed answer stays first and in upstream order; a spelling retry only appends ids it
     // did not contain, under the same deadline. A retry that fails (timeout, upstream error,
     // unreadable body) is a lost top-up, not a lost answer: what the typed query returned stands.
+    let degraded = false;
     if (valid.length < request.limit) {
       for (const spelling of dotlessSpellings(request.query)) {
         let extra: RawPlace[];
         try {
           extra = await this.fetchPlaces(request, spelling, signal);
         } catch {
+          degraded = true;
           break;
         }
         const seen = new Set(valid.map((place) => place.id));
@@ -124,7 +132,7 @@ export class OpenMeteoPlaceProvider {
       longitudeE2: Math.round(place.longitude * 100) || 0,
       timeZone: place.timezone ?? null,
     }));
-    return { places, attribution: ['open-meteo', 'geonames'] };
+    return { places, attribution: ['open-meteo', 'geonames'], ...(degraded ? { degraded: true as const } : {}) };
   }
 
   private async fetchPlaces(request: PlaceSearchV1Request, name: string, signal: AbortSignal): Promise<RawPlace[]> {

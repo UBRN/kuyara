@@ -11,13 +11,8 @@ import {
   type AiRecommendV2Success,
 } from '@kuyara/contracts';
 
-import type { ExecutionContext } from '../router.ts';
 import { selectionFailure } from './ai-selection.ts';
 import { completeInsightSentenceSchema } from './insight-sentence.ts';
-
-export function defaultCache(): Cache | undefined {
-  return (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
-}
 
 /**
  * The version of the selection gate whose answers may be served from the shared cache.
@@ -130,25 +125,4 @@ function withoutIncompleteSentence(
   }
   const { insightSentence: _refused, ...data } = answer.data;
   return { data };
-}
-
-/**
- * The write outlives the response instead of delaying it. Shared cache failures, whether the
- * write rejects or the runtime refuses it, must never fail a validated response.
- */
-export function writeCachedAnswer(
-  cache: Cache,
-  cacheRequest: Request,
-  response: Response,
-  ctx: ExecutionContext,
-): void {
-  try {
-    const cached = response.clone();
-    cached.headers.set('Cache-Control', 'public, max-age=2592000');
-    ctx.waitUntil(cache.put(cacheRequest, cached).catch(() => {
-      // Best effort: a failed shared-cache write only costs a later cache miss.
-    }));
-  } catch {
-    // Best effort as above.
-  }
 }
