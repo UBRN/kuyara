@@ -222,6 +222,26 @@ test('gender and dress style are required and a null birth date completes honest
   expect(analytics.captures).toEqual([]);
 });
 
+test('a double tap on Continue, Not now or Back moves one step, so the location offer is never skipped', async () => {
+  const { result } = await renderOnboarding(null, null);
+  const twice = async (testID: string) => {
+    await act(async () => {
+      fireEvent.press(result.getByTestId(testID));
+      fireEvent.press(result.getByTestId(testID));
+    });
+  };
+
+  await twice('onboarding-continue');
+  expect(result.getByTestId('onboarding-step-2')).toBeOnTheScreen();
+  await twice('onboarding-back');
+  expect(result.getByTestId('onboarding-step-1')).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  expect(result.getByTestId('onboarding-step-3')).toBeOnTheScreen();
+  await twice('onboarding-name-skip');
+  expect(result.getByTestId('onboarding-step-4')).toBeOnTheScreen();
+});
+
 test('optional name step validates 2 to 30 characters and offers Not now', async () => {
   const { result } = await renderOnboarding(null, null);
   await fireEvent.press(result.getByTestId('onboarding-continue'));

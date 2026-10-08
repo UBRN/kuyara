@@ -24,9 +24,13 @@ export type OnboardingDraft = Readonly<{
   hasValidationError: boolean;
 }>;
 
+/**
+ * `continue` and `back` carry the step they were pressed on: a second tap that lands after the
+ * first has already moved on belongs to a step that is gone, and is ignored.
+ */
 export type OnboardingAction =
-  | Readonly<{ type: 'continue' }>
-  | Readonly<{ type: 'back' }>
+  | Readonly<{ type: 'continue'; from: OnboardingStep }>
+  | Readonly<{ type: 'back'; from: OnboardingStep }>
   | Readonly<{ type: 'select-gender'; value: Gender }>
   | Readonly<{ type: 'select-dress-style'; value: DressStyle }>
   | Readonly<{ type: 'select-style-aesthetics'; value: readonly StyleAesthetic[] }>
@@ -53,6 +57,10 @@ export function reduceOnboardingDraft(
   state: OnboardingDraft,
   action: OnboardingAction,
 ): OnboardingDraft {
+  if ((action.type === 'continue' || action.type === 'back') && action.from !== state.step) {
+    return state;
+  }
+
   switch (action.type) {
     case 'continue':
       if (onboardingSteps[state.step] === 'gender' && !state.gender) {

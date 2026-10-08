@@ -300,7 +300,7 @@ export function OnboardingScreen({
     if (dressStyleMissing) {
       AccessibilityInfo.announceForAccessibility(copy.dressStyleRequiredError);
     }
-    dispatch({ type: 'continue' });
+    dispatch({ type: 'continue', from: draft.step });
   };
 
   const complete = async () => {
@@ -629,7 +629,7 @@ export function OnboardingScreen({
                 label={copy.nameNotNow}
                 onPress={() => {
                   dispatch({ type: 'set-display-name', value: null });
-                  dispatch({ type: 'continue' });
+                  dispatch({ type: 'continue', from: draft.step });
                 }}
                 testID="onboarding-name-skip"
                 variant="plain"
@@ -658,7 +658,7 @@ export function OnboardingScreen({
               label={messages.common.back}
               onPress={() => {
                 setSaveError(false);
-                dispatch({ type: 'back' });
+                dispatch({ type: 'back', from: draft.step });
               }}
               size="large"
               testID="onboarding-back"

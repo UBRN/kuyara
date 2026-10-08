@@ -32,31 +32,42 @@ test('onboarding asks the location after welcome, then the optional name and age
   });
 
   assert.deepEqual(onboardingSteps, ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles']);
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 1);
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 2);
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 3);
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 3);
   assert.equal(draft.hasValidationError, true);
   assert.equal(onboardingPreferencesFromDraft(draft), null);
 
   draft = reduceOnboardingDraft(draft, { type: 'select-gender', value: 'woman' });
   assert.equal(draft.hasValidationError, false);
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 4);
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 4);
   assert.equal(draft.hasValidationError, true);
   draft = reduceOnboardingDraft(draft, { type: 'select-dress-style', value: 'smart' });
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 5);
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 5);
-  draft = reduceOnboardingDraft(draft, { type: 'back' });
+  draft = reduceOnboardingDraft(draft, { type: 'back', from: draft.step });
   assert.equal(draft.step, 4);
+});
+
+test('onboarding ignores a continue or back that was pressed on a step it has already left', () => {
+  const start = createOnboardingDraft({ gender: null, dressStyle: null, birthDate: null });
+  let draft = reduceOnboardingDraft(start, { type: 'continue', from: 0 });
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: 0 });
+  assert.equal(draft.step, 1);
+
+  draft = reduceOnboardingDraft(draft, { type: 'back', from: 1 });
+  draft = reduceOnboardingDraft(draft, { type: 'back', from: 1 });
+  assert.equal(draft.step, 0);
 });
 
 test('onboarding keeps personal choices independent and reviewable', () => {
@@ -76,7 +87,7 @@ test('onboarding keeps personal choices independent and reviewable', () => {
     styleAesthetics: [],
     birthDate: '1994-03-14',
   });
-  draft = reduceOnboardingDraft({ ...draft, step: 5 }, { type: 'back' });
+  draft = reduceOnboardingDraft({ ...draft, step: 5 }, { type: 'back', from: 5 });
   assert.equal(draft.step, 4);
   assert.equal(draft.gender, 'man');
   draft = reduceOnboardingDraft(draft, { type: 'select-birth-date', value: null });
