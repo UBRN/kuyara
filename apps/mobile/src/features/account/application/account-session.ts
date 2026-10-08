@@ -227,6 +227,17 @@ export function createAccountSessionManager({
   let trailingTrigger: AccountSyncTrigger = 'foreground';
   /** The deletion in flight: no pass starts meanwhile, and a session end waits for it. */
   let deleting: Promise<void> | null = null;
+  /**
+   * A deletion that sent Apple's code and failed: the Worker may have revoked Apple's token before
+   * it failed. Kept for this process only, so Apple's revocation can finish it (ADR 0041 section 2).
+   */
+  let unfinishedAppleDeletion: Readonly<{ userId: string; accessToken: string }> | null = null;
+  /** Holds `work` as the deletion in flight until it settles, unless a later one replaced it. */
+  const hold = (work: Promise<void>): Promise<void> => {
+    const own: Promise<void> = work.finally(() => { if (deleting === own) deleting = null; });
+    deleting = own;
+    return own;
+  };
   const listeners = new Set<() => void>();
   const set = (next: AccountScreensSnapshot) => {
     snapshot = next;
@@ -313,11 +324,12 @@ export function createAccountSessionManager({
   const forgetSession = async () => {
     identity = null;
     awaitingConsent = null;
+    unfinishedAppleDeletion = null;
     resultHost = null;
     await markQuestion(false);
     await markApple(null);
     const asking = snapshot.consent.prompt === 'signIn';
-    update({ consent: noConsentPrompt, signIn: { kind: 'idle' }, ...(asking ? { sheet: null, result: null } : {}) });
+    update({ consent: noConsentPrompt, signIn: { kind: 'idle' }, deletion: 'idle', ...(asking ? { sheet: null, result: null } : {}) });
   };
   /**
    * ADR 0041 section 5, for a session the app restores: the app was closed while the consent
@@ -384,6 +396,40 @@ export function createAccountSessionManager({
     await forgetSession();
     update({ session: { kind: 'signedOut', notice: 'signedOut' }, cardDismissed: true });
   };
+  /** The account is gone: the phone forgets it and the result shows app-wide (section 7). */
+  const showDeleted = async (provider: AccountProvider, appleUnrevoked: boolean) => {
+    await forgetSession();
+    update({ deletion: 'idle', session: { kind: 'signedOut', notice: 'deleted' }, cardDismissed: true,
+      sheet: 'app', result: { kind: 'deleted', provider, appleUnrevoked } });
+    analytics.deleted({ result: 'success' });
+  };
+  /**
+   * Apple revoked kuyara after a deletion that sent Apple's code failed: the revocation may be that
+   * deletion's own. Ending the session would leave the account behind, so the Worker is asked once
+   * more with the same access token and no code. Answers whether the account is now deleted.
+   */
+  const finishUnrevokedDeletion = async (session: AuthSession): Promise<boolean> => {
+    const unfinished = unfinishedAppleDeletion;
+    unfinishedAppleDeletion = null;
+    if (unfinished === null || unfinished.userId !== session.userId || identity?.userId !== session.userId) return false;
+    update({ deletion: 'deleting' });
+    await passesSettled();
+    const result = await deletion.deleteAccount({ accessToken: unfinished.accessToken }).catch(() => null);
+    // Not deleted: the state stays `deleting` until the session ends and forgets it.
+    if (result?.kind !== 'deleted') return false;
+    await showDeleted('apple', result.appleUnrevoked);
+    return true;
+  };
+  /** Apple revoked kuyara: an unfinished deletion completes, otherwise the session ends. */
+  const endRevokedSession = async (session: AuthSession) => {
+    await deleting;
+    let deleted = false;
+    if (unfinishedAppleDeletion !== null) {
+      // Held like any deletion: no pass and no other deletion starts while it runs.
+      await hold(finishUnrevokedDeletion(session).then((done) => { deleted = done; }, () => undefined));
+    }
+    if (!deleted) await endSession();
+  };
   /**
    * ADR 0041 section 2, at launch and at every foreground: an Apple ID that revoked kuyara, or no
    * longer exists, ends the session the way signing out does. Only a session whose Apple
@@ -399,7 +445,7 @@ export function createAccountSessionManager({
     if (state !== 'revoked' && state !== 'notFound') return false;
     identity = session;
     update({ session: showIdentity(session) });
-    await endSession();
+    await endRevokedSession(session);
     return true;
   };
   const finishSignIn = async (provider: AccountProvider) => {
@@ -588,7 +634,9 @@ export function createAccountSessionManager({
       await endSession();
     },
     async deleteAccount() {
-      if (!identity || !snapshot.online || snapshot.deletion === 'deleting') return;
+      if (!identity || !snapshot.online || snapshot.deletion === 'deleting' || deleting !== null) return;
+      // A new attempt replaces an unfinished one, also when the person cancels it.
+      unfinishedAppleDeletion = null;
       update({ deletion: 'deleting' });
       const account = identity;
       const run = async () => {
@@ -604,22 +652,19 @@ export function createAccountSessionManager({
           await passesSettled();
           const result = await deletion.deleteAccount(credentials);
           if (result.kind === 'failed') {
+            unfinishedAppleDeletion = credentials.appleAuthorizationCode === undefined
+              ? null : { userId: account.userId, accessToken: credentials.accessToken };
             update({ deletion: 'failed' });
             analytics.deleted({ result: 'failed', failure: result.code });
             return;
           }
-          await forgetSession();
-          // Section 7: the person may have gone anywhere meanwhile, so the result shows app-wide.
-          update({ deletion: 'idle', session: { kind: 'signedOut', notice: 'deleted' }, cardDismissed: true,
-            sheet: 'app', result: { kind: 'deleted', provider, appleUnrevoked: result.appleUnrevoked } });
-          analytics.deleted({ result: 'success' });
+          await showDeleted(provider, result.appleUnrevoked);
         } catch {
           update({ deletion: 'failed' });
           analytics.deleted({ result: 'failed', failure: 'unknown' });
         }
       };
-      deleting = run().finally(() => { deleting = null; });
-      await deleting;
+      await hold(run());
     },
     clearNotice: () => {
       if (snapshot.session.kind === 'signedOut' && snapshot.session.notice !== null)
@@ -688,7 +733,7 @@ export function createAccountSessionManager({
     },
     async appleRevoked() {
       const session = identity;
-      if (session && await holdsApple(session) && isCurrent(session)) await endSession();
+      if (session && await holdsApple(session) && isCurrent(session)) await endRevokedSession(session);
     },
   };
   return manager;

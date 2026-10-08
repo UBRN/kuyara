@@ -38,8 +38,26 @@ test('maps a known error and an unknown response to stable failures without clea
 });
 
 test('transport failure does not clear device data', async () => {
-  const client = createAccountDeletionClient({ request: async () => { throw new Error('secret'); }, cleanup: async () => assert.fail('cleanup') });
+  let attempts = 0;
+  const client = createAccountDeletionClient({ request: async () => { attempts += 1; throw new Error('secret'); }, cleanup: async () => assert.fail('cleanup') });
   assert.deepEqual(await client.deleteAccount({ accessToken: 'token' }), { kind: 'failed', code: 'unavailable' });
+  assert.equal(attempts, 2);
+});
+
+test('a lost answer is asked once more, so an account the Worker already deleted reads as deleted', async () => {
+  const sent = [];
+  let cleanup = 0;
+  const client = createAccountDeletionClient({
+    request: async (body, accessToken) => {
+      sent.push([body, accessToken]);
+      if (sent.length === 1) throw new Error('account_delete_unreachable');
+      return { status: 200, body: { data: { status: 'deleted_apple_unrevoked' } } };
+    },
+    cleanup: async () => { cleanup += 1; },
+  });
+  assert.deepEqual(await client.deleteAccount({ accessToken: 'token', appleAuthorizationCode: 'code' }), { kind: 'deleted', appleUnrevoked: true });
+  assert.deepEqual(sent, [[{ appleAuthorizationCode: 'code' }, 'token'], [{ appleAuthorizationCode: 'code' }, 'token']]);
+  assert.equal(cleanup, 1);
 });
 
 test('invalid local request is rejected before the network call', async () => {

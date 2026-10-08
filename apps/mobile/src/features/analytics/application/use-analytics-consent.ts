@@ -56,9 +56,10 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       // The identity is about to be severed. Keep its identifier on the device so a deletion
       // request can still name it; failing to keep it never blocks the withdrawal.
       try {
-        withdrawnIdentifiers.clear();
         const identifier = analytics.getIdentifier();
+        // Keeping replaces an earlier one, also one an earlier grant could not delete.
         if (identifier) withdrawnIdentifiers.keep(identifier);
+        else withdrawnIdentifiers.clear();
       } catch { /* The copy is a convenience; withdrawal continues. */ }
 
       // Native dispatch must stop before the final event. A failed disable leaves
@@ -105,8 +106,9 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       errorEpisodes.reset();
       retries.reset();
       await firstUses.clear();
-      // A new identifier starts, so the earlier one is no longer the one to quote.
-      withdrawnIdentifiers.clear();
+      // A new identifier starts, so the earlier one is no longer the one to quote. A file that
+      // cannot be deleted never blocks the grant; the next withdrawal replaces it.
+      try { withdrawnIdentifiers.clear(); } catch { /* The grant continues. */ }
       // Observe recorded the unanswered period without sending it. The discard moves its stored
       // rows past the send cursor, and it runs before the answer is stored: if the app is killed
       // right after the write, the next launch reads `granted` and enables delivery.

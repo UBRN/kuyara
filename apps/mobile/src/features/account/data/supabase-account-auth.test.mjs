@@ -6,6 +6,7 @@ import test from 'node:test';
 import { AuthRetryableFetchError, createClient } from '@supabase/supabase-js';
 
 import { appleUserIdOf, authSessionOf, createSupabaseAccountAuth } from './supabase-account-auth.ts';
+import { keepSessionOnServiceFailure } from './refresh-failure-fetch.ts';
 import { createExpoAppleSignIn, createNonceSource } from './expo-native-sign-in.ts';
 import { AccountProviderError } from '../application/account-session.ts';
 
@@ -38,7 +39,7 @@ function tokenResponse({ providers = ['apple'], primary = 'apple', n = 1 } = {})
 const storageKey = 'kuyara.account.session';
 
 /** A Supabase client over an in-memory store whose auth requests reach `answer`. */
-function fakeAuth(answer) {
+function fakeAuth(answer, wrap = (send) => send) {
   const requests = [];
   const store = new Map();
   const fetch = async (input, init = {}) => {
@@ -47,12 +48,15 @@ function fakeAuth(answer) {
       body: init.body === undefined ? undefined : JSON.parse(init.body) };
     requests.push(request);
     const reply = await answer(request);
+    if (reply.html !== undefined) {
+      return new Response(reply.html, { status: reply.status, headers: { 'Content-Type': 'text/html' } });
+    }
     return new Response(JSON.stringify(reply.body ?? {}), {
       status: reply.status ?? 200, headers: { 'Content-Type': 'application/json' },
     });
   };
   const client = createClient('https://project.supabase.co', 'sb_publishable_test', {
-    global: { fetch },
+    global: { fetch: wrap(fetch) },
     auth: {
       autoRefreshToken: false, persistSession: true, detectSessionInUrl: false, storageKey,
       storage: {
@@ -291,6 +295,25 @@ test('offline or a failing server never ends the session; a refused refresh toke
     await settled(t, auth.signIn('apple'));
     const expected = mode === 'refused' ? null : userId;
     assert.equal((await settled(t, auth.currentSession()))?.userId ?? null, expected, `${mode}: launch`);
+    assert.equal((await settled(t, auth.refreshSession()))?.userId ?? null, expected, `${mode}: foreground`);
+    assert.equal(fake.store.has(storageKey), mode !== 'refused', `${mode}: the stored session`);
+  }
+});
+
+test('a paused project, a rate limit or a page from something in between never ends the session', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+  const expired = () => ({ body: { ...tokenResponse(), expires_in: 1, expires_at: Math.floor(Date.now() / 1000) - 60 } });
+  const replies = {
+    paused: () => ({ status: 540, body: { message: 'Project paused' } }),
+    limited: () => ({ status: 429, body: { code: 429, error_code: 'over_request_rate_limit', msg: 'Too many requests' } }),
+    page: () => ({ status: 403, html: '<html>Blocked</html>' }),
+    refused: () => ({ status: 400, body: { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token' } }),
+  };
+  for (const [mode, reply] of Object.entries(replies)) {
+    const fake = fakeAuth((request) => (request.grant === 'refresh_token' ? reply() : expired()), keepSessionOnServiceFailure);
+    const auth = createSupabaseAccountAuth({ client: fake.client, apple: apple(), nonce, storedSession: fake.storedSession, removeStoredSession: fake.removeStoredSession });
+    await settled(t, auth.signIn('apple'));
+    const expected = mode === 'refused' ? null : userId;
     assert.equal((await settled(t, auth.refreshSession()))?.userId ?? null, expected, `${mode}: foreground`);
     assert.equal(fake.store.has(storageKey), mode !== 'refused', `${mode}: the stored session`);
   }

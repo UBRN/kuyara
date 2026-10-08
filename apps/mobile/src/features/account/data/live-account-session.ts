@@ -16,6 +16,7 @@ import { createEncryptedSessionStorage } from '@/features/account/data/encrypted
 import { createExpoAppleSignIn, createNonceSource } from '@/features/account/data/expo-native-sign-in';
 import { createGoogleSignIn, resolveGoogleSignInSettings } from '@/features/account/data/google-browser-sign-in';
 import { createNetworkState, type AccountNetwork } from '@/features/account/data/network-state';
+import { keepSessionOnServiceFailure } from '@/features/account/data/refresh-failure-fetch';
 import {
   createSqliteAccountRowsSource,
   type SqliteAccountRowsSource,
@@ -93,7 +94,7 @@ export function createLiveAccountSession({ capture, database, fetcher, localProf
   // in the background too; `connectAccountLifecycle` runs it in the foreground only (ADR 0041 section 9).
   const client = createClient(settings.url, settings.publishableKey, {
     auth: { storage, storageKey: sessionStorageKey, autoRefreshToken: false, persistSession: true, detectSessionInUrl: false },
-    global: { fetch: fetchWithTimeout(fetcher, accountRequestTimeoutMs) },
+    global: { fetch: keepSessionOnServiceFailure(fetchWithTimeout(fetcher, accountRequestTimeoutMs)) },
   });
   const source = createSqliteAccountRowsSource(database);
   const supabaseAuth = createSupabaseAccountAuth({

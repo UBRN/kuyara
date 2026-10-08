@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -19,14 +19,20 @@ jest.mock('@/features/analytics/application/use-screen-viewed', () => ({
 }));
 
 let mockRemoveWithdrawnIdentifier: () => void = () => undefined;
+// The grant stores the answer and starts the identifier without re-rendering the route itself.
+let mockConsent: 'withdrawn' | 'granted' = 'withdrawn';
+let mockIdentifier: string | null = null;
 
 jest.mock('@/features/analytics/application/use-analytics-consent', () => ({
   useAnalyticsConsent: () => ({
-    consent: 'withdrawn',
-    getIdentifier: () => null,
+    consent: mockConsent,
+    getIdentifier: () => mockIdentifier,
     getWithdrawnIdentifier: () => 'kept-identifier',
     removeWithdrawnIdentifier: () => mockRemoveWithdrawnIdentifier(),
-    grant: jest.fn(async () => undefined),
+    grant: jest.fn(async () => {
+      mockConsent = 'granted';
+      mockIdentifier = 'new-identifier';
+    }),
     withdraw: jest.fn(async () => undefined),
     decline: jest.fn(async () => undefined),
   }),
@@ -35,6 +41,11 @@ jest.mock('@/features/analytics/application/use-analytics-consent', () => ({
 jest.mock('@/features/profile/application/profile-context', () => ({
   useProfileApplication: () => ({ state: { status: 'ready' } }),
 }));
+
+afterEach(() => {
+  mockConsent = 'withdrawn';
+  mockIdentifier = null;
+});
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -94,4 +105,23 @@ describe('removing the kept identifier', () => {
     await fireEvent.press(result.getByTestId('settings-privacy-remove-identifier-row'));
     expect(result.getByTestId('settings-privacy-withdrawn-identifier')).toHaveTextContent('kept-identifier');
   });
+});
+
+test('turning sharing on shows the new identifier without reopening the screen', async () => {
+  const result = await render(
+    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext.Provider value={lightTheme}>
+        <SafeAreaProvider initialMetrics={initialMetrics}>
+          <PrivacySettingsRoute />
+        </SafeAreaProvider>
+      </KuyaraThemeContext.Provider>
+    </LocalizationContext.Provider>,
+  );
+  expect(result.queryByTestId('settings-privacy-identifier')).toBeNull();
+
+  await act(async () => {
+    fireEvent(result.getByTestId('settings-privacy-toggle-row-toggle'), 'valueChange', true);
+  });
+
+  await waitFor(() => expect(result.getByTestId('settings-privacy-identifier')).toHaveTextContent('new-identifier'));
 });

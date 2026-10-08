@@ -629,6 +629,101 @@ test('Apple\'s revocation notice ends the session only when this phone holds the
   assert.equal(other.manager.getSnapshot().session.kind, 'signedIn');
 });
 
+test('Apple revoked during a deletion the Worker could not finish: the deletion is asked once more without a code', async () => {
+  const requests = [];
+  const answers = [{ kind: 'failed', code: 'unavailable' }, { kind: 'deleted', appleUnrevoked: true }];
+  const { manager, calls } = setup({ current: identity, appleUser: 'user-a', deletion: {
+    deleteAccount: async (request) => { requests.push(request); return answers.shift(); },
+  } });
+  await manager.start();
+  await manager.deleteAccount();
+  assert.equal(manager.getSnapshot().deletion, 'failed');
+
+  await manager.appleRevoked();
+
+  assert.deepEqual(requests, [{ accessToken: 'fresh', appleAuthorizationCode: 'code' }, { accessToken: 'fresh' }]);
+  const snapshot = manager.getSnapshot();
+  assert.deepEqual(snapshot.session, { kind: 'signedOut', notice: 'deleted' });
+  assert.deepEqual(snapshot.result, { kind: 'deleted', provider: 'apple', appleUnrevoked: true });
+  assert.equal(snapshot.deletion, 'idle');
+  assert.equal(calls.some(([name]) => name === 'signOut'), false);
+});
+
+test('when the repeated deletion also fails, Apple\'s revocation ends the session as before', async () => {
+  const { manager } = setup({ current: identity, appleUser: 'user-a', deletion: {
+    deleteAccount: async () => ({ kind: 'failed', code: 'unavailable' }),
+  } });
+  await manager.start();
+  await manager.deleteAccount();
+  await manager.appleRevoked();
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+});
+
+test('a failed Apple deletion is forgotten when the session ends, so a later revocation deletes nothing', async () => {
+  const requests = [];
+  const { manager } = setup({ current: identity, appleUser: 'user-a',
+    deletion: { deleteAccount: async (request) => { requests.push(request); return { kind: 'failed', code: 'unavailable' }; } } });
+  await manager.start();
+  await manager.deleteAccount();
+  await manager.signOut();
+  await manager.signIn('apple');
+  assert.equal(manager.getSnapshot().session.kind, 'signedIn');
+  await manager.appleRevoked();
+  assert.equal(requests.length, 1);
+});
+
+test('a later attempt the person cancels replaces a failed Apple deletion, so a revocation deletes nothing', async () => {
+  const requests = [];
+  const confirmations = [{ provider: 'apple', accessToken: 'fresh', appleAuthorizationCode: 'code' }, null];
+  const { manager } = setup({ current: identity, appleUser: 'user-a',
+    auth: { reauthorizeDeletion: async () => confirmations.shift() },
+    deletion: { deleteAccount: async (request) => { requests.push(request); return { kind: 'failed', code: 'unavailable' }; } } });
+  await manager.start();
+  await manager.deleteAccount();
+  await manager.deleteAccount();
+  await manager.appleRevoked();
+  assert.equal(requests.length, 1);
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+});
+
+test('while a revocation finishes a deletion, the delete action waits and starts no second one', async () => {
+  const requests = [];
+  const second = held();
+  const answers = [async () => ({ kind: 'failed', code: 'unavailable' }), () => second.promise];
+  const { manager } = setup({ current: identity, appleUser: 'user-a',
+    deletion: { deleteAccount: async (request) => { requests.push(request); return answers.shift()(); } } });
+  await manager.start();
+  await manager.deleteAccount();
+  const revoked = manager.appleRevoked();
+  await settle();
+  assert.equal(manager.getSnapshot().deletion, 'deleting');
+  await manager.deleteAccount();
+  second.resolve({ kind: 'deleted', appleUnrevoked: true });
+  await revoked;
+  assert.equal(requests.length, 2);
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'deleted' });
+});
+
+test('a failed deletion does not follow the person into the next session', async () => {
+  const { manager } = setup({ current: identity, deletion: { deleteAccount: async () => ({ kind: 'failed', code: 'unavailable' }) } });
+  await manager.start();
+  await manager.deleteAccount();
+  await manager.signOut();
+  assert.equal(manager.getSnapshot().deletion, 'idle');
+});
+
+test('a deletion that failed without an Apple code is not repeated when Apple revokes', async () => {
+  const requests = [];
+  const { manager } = setup({ current: identity, appleUser: 'user-a',
+    auth: { reauthorizeDeletion: async () => ({ provider: 'google', accessToken: 'fresh' }) },
+    deletion: { deleteAccount: async (request) => { requests.push(request); return { kind: 'failed', code: 'unavailable' }; } } });
+  await manager.start();
+  await manager.deleteAccount();
+  await manager.appleRevoked();
+  assert.equal(requests.length, 1);
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+});
+
 test('a foreground that finds the Apple credential revoked while a pass runs ends the session after that pass', async () => {
   const gate = held();
   let passes = 0;

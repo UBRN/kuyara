@@ -287,7 +287,8 @@ the decision is:
   and cloud backups include, outside the profile row and never read by analytics or sent
   anywhere by kuyara, so Privacy still shows it after sharing is turned off, until
   the person removes it or turns sharing back on (which clears it before a new identifier
-  starts).
+  starts; a file that cannot be deleted then never blocks the grant and is replaced at the
+  next withdrawal).
   The outcome is not guaranteed because the persons API cannot delete events by identifier
   when no person profile exists; section 7 records the finding.
 - **Retention is stated, not left to the vendor's default.** PostHog Cloud keeps data one

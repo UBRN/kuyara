@@ -155,6 +155,23 @@ test('a store that cannot keep the identifier never blocks withdrawal', async ()
   expect(boundary.controls.getWithdrawnIdentifier()).toBeNull();
 });
 
+test('a kept identifier that cannot be deleted never blocks a new grant', async () => {
+  const analytics = new RecordingProductAnalytics('withdrawn');
+  const store = new InMemoryWithdrawnIdentifierStore('kept-identifier');
+  jest.spyOn(store, 'clear').mockImplementation(() => { throw new Error('file locked'); });
+  const boundary = await renderConsentBoundary(
+    analytics, new InMemoryFirstUseStore(), 'withdrawn', undefined, undefined, store,
+  );
+
+  await act(async () => boundary.controls.grant('settings_privacy'));
+
+  expect(boundary.controls.consent).toBe('granted');
+  expect(analytics.optInCount).toBe(1);
+  const current = boundary.controls.getIdentifier();
+  await act(async () => boundary.controls.withdraw());
+  expect(boundary.controls.getWithdrawnIdentifier()).toBe(current);
+});
+
 test('granting consent again does not capture or opt in a second time', async () => {
   const analytics = new RecordingProductAnalytics('granted');
   const boundary = await renderConsentBoundary(analytics, new InMemoryFirstUseStore(), 'granted');

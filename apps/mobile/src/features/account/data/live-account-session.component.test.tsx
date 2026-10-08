@@ -92,6 +92,20 @@ test('every account request has a deadline, so a server that never answers canno
   }
 });
 
+test('a refresh the auth service could not answer reaches the client as unavailable, so the session stays', async () => {
+  const paused = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', {
+    status: 540, headers: { 'Content-Type': 'application/json' },
+  }));
+  try {
+    compose();
+    const { global } = jest.mocked(createClient).mock.calls[0][2] as { global: { fetch: typeof fetch } };
+    const response = await global.fetch('https://project.supabase.co/auth/v1/token?grant_type=refresh_token', { method: 'POST' });
+    expect(response.status).toBe(503);
+  } finally {
+    paused.mockRestore();
+  }
+});
+
 test('the client never refreshes tokens by itself: the lifecycle runs the refresh in the foreground only', () => {
   const live = compose();
   expect(clientOptions().auth.autoRefreshToken).toBe(false);

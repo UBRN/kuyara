@@ -33,15 +33,15 @@ test('deletion posts to the Worker route with the token in the header only, then
   assert.deepEqual(calls.slice(1), [['reset'], ['session']]);
 });
 
-test('a failure keeps the link, the flags and the session', async () => {
-  for (const reply of [
-    () => json(503, { error: { code: 'unavailable' } }),
-    () => new Response('<html>', { status: 502 }),
-    () => { throw new TypeError('Network request failed'); },
+test('a failure keeps the link, the flags and the session; only a lost or unreadable answer is asked again', async () => {
+  for (const [reply, fetches] of [
+    [() => json(503, { error: { code: 'unavailable' } }), 1],
+    [() => new Response('<html>', { status: 502 }), 2],
+    [() => { throw new TypeError('Network request failed'); }, 2],
   ]) {
     const { calls, client } = deletion(reply);
     assert.equal((await client.deleteAccount({ accessToken: 'eyJ.token' })).kind, 'failed');
-    assert.deepEqual(calls.map(([name]) => name), ['fetch']);
+    assert.deepEqual(calls.map(([name]) => name), Array(fetches).fill('fetch'));
   }
 });
 

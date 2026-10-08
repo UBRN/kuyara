@@ -36,7 +36,13 @@ export function createAccountDeletionClient(port: AccountDeletionNetworkPort): A
       try {
         response = await port.request(request.data, input.accessToken);
       } catch {
-        return { kind: 'failed', code: 'unavailable' };
+        // A lost answer is not a refusal: the Worker may have deleted the account. It answers a
+        // repeat for an account already gone as deleted, so the request is sent once more.
+        try {
+          response = await port.request(request.data, input.accessToken);
+        } catch {
+          return { kind: 'failed', code: 'unavailable' };
+        }
       }
       if (response.status >= 200 && response.status < 300) {
         const success = accountDeleteV1SuccessSchema.safeParse(response.body);

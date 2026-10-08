@@ -23,6 +23,9 @@ function ReadyPrivacySettingsRoute() {
   if (withdrawn.answer !== consent.consent) {
     setWithdrawn({ answer: consent.consent, identifier: consent.getWithdrawnIdentifier() });
   }
+  // The stored answer can re-render this route before the new identifier exists, so the
+  // identifier is read again once the grant has finished.
+  const [, refreshIdentifier] = useState(0);
 
   return (
     <>
@@ -44,7 +47,10 @@ function ReadyPrivacySettingsRoute() {
             // A file that cannot be deleted stays, and so does the row that shows it.
           }
         }}
-        onGrant={() => consent.grant('settings_privacy')}
+        onGrant={async () => {
+          await consent.grant('settings_privacy');
+          refreshIdentifier((revision) => revision + 1);
+        }}
         onOpenPrivacyPolicy={() => {
           if (privacyPolicyUrl) void Linking.openURL(privacyPolicyUrl).catch(() => {
             // A link the system cannot open leaves the screen as it was; nothing is lost.
