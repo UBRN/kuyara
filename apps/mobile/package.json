@@ -76,7 +76,7 @@
     "test:weather": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test --test-concurrency=4 src/infrastructure/sqlite/migrations.test.mjs src/features/weather/weather-persistence.test.mjs src/features/weather/weather-application.test.mjs src/features/weather/worker-weather-provider.test.mjs",
     "test:theme": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test --test-concurrency=4 src/theme/theme.test.mjs",
     "test:components": "TZ=UTC jest --runInBand",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "expo customize tsconfig.json && tsc --noEmit",
     "measure:ai-chain": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs ./scripts/measure-ai-chain.mjs",
     "rank:free-ai-models": "node ./scripts/rank-free-ai-models.mjs"
   },
