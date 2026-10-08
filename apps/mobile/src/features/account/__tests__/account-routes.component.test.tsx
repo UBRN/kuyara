@@ -1,5 +1,6 @@
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import type { ComponentType, PropsWithChildren } from 'react';
+import { router } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LocalizationContext } from '@/localization/localization-context';
@@ -20,9 +21,16 @@ jest.mock('@/features/profile/application/profile-context', () => ({
   useProfileApplication: () => ({ state: { status: 'ready', profile: {} } }),
 }));
 jest.mock('@/features/profile/application/profile-route-gate', () => ({ resolveProfileHomeRoute: () => 'today' }));
+// Whether the mounted route is the focused screen; a test flips it and re-renders to move focus.
+let mockFocused = true;
 jest.mock('expo-router', () => {
   const { Text: MockText } = jest.requireActual('react-native') as typeof import('react-native');
+  const { useEffect } = jest.requireActual('react') as typeof import('react');
   return {
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      const focused = mockFocused;
+      useEffect(() => (focused ? callback() : undefined), [callback, focused]);
+    },
     Redirect: ({ href }: { href: string }) => <MockText testID="redirect">{href}</MockText>,
     Stack: { Screen: () => null },
     router: { dismissTo: jest.fn() },
@@ -38,16 +46,20 @@ jest.mock('@/features/account/application/account-screens-flag', () => ({
   },
 }));
 
-function renderRoute(Route: ComponentType) {
-  return render(
+function inProviders(Route: ComponentType) {
+  return (
     <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
       <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <Route />
         </KuyaraThemeContext.Provider>
       </LocalizationContext.Provider>
-    </SafeAreaProvider>,
+    </SafeAreaProvider>
   );
+}
+
+function renderRoute(Route: ComponentType) {
+  return render(inProviders(Route));
 }
 
 const routes = [
@@ -57,6 +69,8 @@ const routes = [
 
 afterEach(() => {
   mockEnabled = false;
+  mockFocused = true;
+  jest.mocked(router.dismissTo).mockClear();
 });
 
 test.each(routes)('while the switch is off, the %s route sends a link back to Settings', async (_name, load) => {
@@ -79,6 +93,38 @@ test('with the switch on, the routes draw their screens', async () => {
     expect(screen.queryByTestId('account-screen') ?? screen.queryByTestId('delete-account-screen')).toBeTruthy();
     await screen.unmount();
   }
+});
+
+describe('the Account route after the account ends', () => {
+  async function renderSignedInAccount() {
+    mockEnabled = true;
+    const { AccountScreensContext } = jest.requireActual('@/features/account/application/account-screens-context');
+    const { accountScenarios, createInMemoryAccountScreens } = jest.requireActual('@/features/account/application/account-screens');
+    const Route = routes[0][1]();
+    const port = createInMemoryAccountScreens(accountScenarios.upToDate);
+    const tree = () => <AccountScreensContext.Provider value={port}><Route /></AccountScreensContext.Provider>;
+    const screen = await renderRoute(tree);
+    return { port, screen, tree };
+  }
+
+  test('while focused, the route returns to Settings once the person is signed out', async () => {
+    const { port } = await renderSignedInAccount();
+    expect(router.dismissTo).not.toHaveBeenCalled();
+    await act(async () => { await port.signOut(); });
+    expect(router.dismissTo).toHaveBeenCalledTimes(1);
+    expect(router.dismissTo).toHaveBeenCalledWith('/settings');
+  });
+
+  test('while another tab is focused, the route leaves navigation alone and returns when focus comes back', async () => {
+    mockFocused = false;
+    const { port, screen, tree } = await renderSignedInAccount();
+    await act(async () => { await port.signOut(); });
+    expect(router.dismissTo).not.toHaveBeenCalled();
+    mockFocused = true;
+    await screen.rerender(inProviders(tree));
+    expect(router.dismissTo).toHaveBeenCalledTimes(1);
+    expect(router.dismissTo).toHaveBeenCalledWith('/settings');
+  });
 });
 
 describe('the tab layout', () => {

@@ -1,5 +1,5 @@
-import { Redirect, Stack, router } from 'expo-router';
-import { useEffect } from 'react';
+import { Redirect, Stack, router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 
 import { useSinglePush } from '@/components/ui/use-single-push';
 import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
@@ -20,10 +20,12 @@ function AccountRouteContent() {
   const signedOut = snapshot.session.kind === 'signedOut';
 
   // Sign-out and deletion leave the ended account's screens for Settings, where the one-time line
-  // follows; the deletion result itself shows on the app-wide sheet the tab layout hosts.
-  useEffect(() => {
+  // follows; the deletion result itself shows on the app-wide sheet the tab layout hosts. This
+  // screen stays mounted behind other tabs, so the return waits for focus rather than pulling a
+  // person on Today or Weather into Settings.
+  useFocusEffect(useCallback(() => {
     if (signedOut) router.dismissTo('/settings');
-  }, [signedOut]);
+  }, [signedOut]));
 
   return (
     <>
