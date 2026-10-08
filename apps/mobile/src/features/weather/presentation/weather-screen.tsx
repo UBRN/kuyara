@@ -286,10 +286,11 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const outlookLine = snapshot && outlook
     ? outlookSentence(outlook, copy, snapshot.timeZone, language, hour12, temperatureUnit)
     : null;
+  // Each separator is tied to the part after it, so a wrapped line never ends on a "·".
   const feelsLikeLine = snapshot
     ? `${copy.feelsLike(
       formatTemperature(snapshot.current.apparentTemperatureCelsius, language, temperatureUnit),
-    )} · ${copy.range(
+    )} ·\u00a0${copy.range(
       formatTemperature(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
       formatTemperature(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
     )}`

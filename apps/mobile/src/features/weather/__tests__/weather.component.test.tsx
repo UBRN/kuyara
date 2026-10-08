@@ -349,6 +349,11 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(within(currentCard).getByText(language === 'en'
       ? 'Feels like 15.0° · Low 12.0° · High 19.0°'
       : 'Hissedilen 15,0° · En düşük 12,0° · En yüksek 19,0°')).toBeOnTheScreen();
+    // Every separator is tied to the part after it, so a wrapped line never ends on a "·":
+    // a line can break before a separator but never after it.
+    const feelsLikeText = within(currentCard).getByText(/^(Feels like|Hissedilen)/).props.children as string;
+    expect(feelsLikeText).not.toMatch(/· /);
+    expect(feelsLikeText.match(/ ·\u00a0/g)).toHaveLength(2);
     // The current conditions stand on Today's weather-coloured stage, not on a raised card.
     const stageStyle = StyleSheet.flatten(currentCard.props.style);
     expect(stageStyle.borderRadius).toBe(radii.stage);

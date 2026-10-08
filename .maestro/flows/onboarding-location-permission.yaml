@@ -71,7 +71,7 @@ tags:
     id: onboarding-step-2
 - tapOn:
     id: onboarding-location-device
-- assertVisible: "Location access can no longer be requested here. Open system settings or search for a city."
+- assertVisible: "Location access is off for kuyara. Turn it on in system settings or search for a city."
 - tapOn:
     id: onboarding-place-search
 - inputText: "Reykjavik"

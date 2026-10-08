@@ -14,7 +14,9 @@ test('weather lines keep every temperature on the line of its label', () => {
       copy.weather.range('9,2°', '10,8°'),
     ];
     for (const line of lines) {
-      for (const segment of line.split(' · ')) {
+      // A separator is tied to the part after it, so a wrapped line never ends on a "·".
+      assert.ok(!line.includes('· '), `${language}: "${line}" can leave a separator at a line end`);
+      for (const segment of line.split(' ·\u00a0')) {
         const number = segment.search(/\d/);
         if (number < 0) continue;
         const before = segment.slice(0, number).replace(/[-\u2212]$/, '');
