@@ -37,8 +37,9 @@ Source: <https://developers.cloudflare.com/workers-ai/platform/pricing/>. The
 figures below are the current estimate and are recalculated from that page
 during implementation, never treated as fixed.
 
-Provider chain: Cloudflare Workers AI binding (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`,
-then `@cf/mistralai/mistral-small-3.1-24b-instruct`) → three OpenRouter `:free` models →
+Provider chain: Haiku (`claude-haiku-5-5`) behind its own daily attempt cap → Cloudflare
+Workers AI binding (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`, then
+`@cf/mistralai/mistral-small-3.1-24b-instruct`) → the configured OpenRouter `:free` models →
 device-local deterministic generator.
 
 - **Cloudflare Workers AI, Workers Free plan:** 10,000 Neurons/day, shared
@@ -105,8 +106,9 @@ Handler order:
    the day still runs. A counter that cannot be reached -> `503 ai_unavailable`,
    logged as `ai_daily_counter_unavailable`, no provider call and no cached
    result.
-6. Otherwise call **only the first provider** in the chain (Workers AI when
-   configured), a single attempt, `attemptTimeoutMs` default **20,000 ms** (the
+6. Otherwise call **only the first provider the response can name** (Workers AI when
+   configured; the Haiku provider is never reported, because `providerId` is a closed
+   enum installed binaries read), a single attempt, `attemptTimeoutMs` default **20,000 ms** (the
    probe's own budget; the recommend handler runs each attempt under 7,000 ms
    inside its 36-second deadline), with an `AbortController` + timeout. The request body is a
    fixed minimal valid `AiRecommendV1Request` (1 requirement, 3 options)

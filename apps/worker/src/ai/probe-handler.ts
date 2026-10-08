@@ -13,7 +13,12 @@ import { dailyCounterKey, type DailyCounterPort } from '../daily-counter.ts';
 import { checkRateLimit, rateLimitedHeaders, type RateLimiter } from '../json-request.ts';
 import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 
-import { attemptFailureReason, type AiAttemptFailureReason, type AiProvider } from './ai-provider.ts';
+import {
+  attemptFailureReason,
+  type AiAttemptFailureReason,
+  type AiChainProviderId,
+  type AiProvider,
+} from './ai-provider.ts';
 
 const PROBE_CACHE_TTL_MS = 60_000;
 export const PROBE_DAILY_LIMIT = 30;
@@ -159,7 +164,13 @@ export function createProbeHandler({
     }
 
     let status: 'ok' | 'unavailable' = 'unavailable';
-    const answering = providers[0];
+    // The first provider the response can name: installed binaries parse `providerId` against
+    // a closed enum, so a Worker-internal provider never answers. The chain puts Workers AI
+    // first among those, which is what the probe's reserve in the Neuron budget assumes.
+    const answering = providers.find(
+      (provider): provider is AiProvider & { id: Exclude<AiChainProviderId, 'haiku'> } =>
+        provider.id !== 'haiku',
+    );
     if (answering) {
       // The increment is the gate, and it happens before the attempt: the count it returns
       // decides whether the provider is called at all, so concurrent probes cannot slip

@@ -581,6 +581,20 @@ test('adding a missing account secret recomposes the memoised worker', async (t)
   assert.equal((await worker.fetch(noAuthorization(), boundEnv, fakeContext())).status, 401);
 });
 
+test('removing the Haiku key or emptying its model list recomposes the memoised worker', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const ready = async (configuration: Env) => (await (await worker.fetch(
+    new Request('https://worker.test/v1/ai/ready'), configuration, fakeContext(),
+  )).json()).data.status;
+  // Haiku is the only configured provider here, so readiness follows it alone.
+  const withHaiku: Env = { ...boundEnv, HAIKU_API_KEY: 'key', HAIKU_MODELS: ['claude-haiku-5-5'] };
+  const { HAIKU_API_KEY: _omitted, ...withoutKey } = withHaiku;
+  assert.equal(await ready(withHaiku), 'ready');
+  assert.equal(await ready(withoutKey), 'not_configured');
+  assert.equal(await ready(withHaiku), 'ready');
+  assert.equal(await ready({ ...withHaiku, HAIKU_MODELS: [] }), 'not_configured');
+});
+
 // The composed route over a fake network, for an Apple account whose code cannot revoke
 // anything: it is deleted without a revoke call and answers deleted_apple_unrevoked.
 test('the composed account route deletes an Apple account unrevoked when no code or a refused code arrives', async (t) => {

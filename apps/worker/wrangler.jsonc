@@ -41,6 +41,10 @@
   // SUPABASE_URL and APPLE_TEAM_ID are public identifiers, not secrets (ADR 0041, section 2);
   // the Supabase secret key and the Apple signing key are Worker secrets and never appear here.
   "vars": {
+    // The paid head of the walk, paid from a monthly API credit and capped per day by
+    // HAIKU_DAILY_ATTEMPT_LIMIT, which is priced for exactly these models. It runs only
+    // once the HAIKU_API_KEY secret exists.
+    "HAIKU_MODELS": ["claude-haiku-5-5"],
     // Only free models that passed the live measurement in docs/architecture.md ("AI handler
     // and provider adapter contract"), most often accepted first, then fastest; a model that
     // stalls or fails only spends the walk's time before the deterministic fallback.
@@ -52,7 +56,7 @@
   // The local end-to-end environment of docs/testing.md, "AI tiers in E2E": real weather and
   // real place search, no AI provider at all, so /v1/ai/recommend answers 503 ai_unavailable
   // at once and the app lands on the deterministic three. `createAiProviders` builds a
-  // provider per configured model, so two empty lists are the whole switch and the Worker
+  // provider per configured model, so three empty lists are the whole switch and the Worker
   // needs no test-only branch. Wrangler does not inherit bindings into a named environment,
   // so the AI, Durable Object and rate-limit bindings are declared again here, and without
   // them the quota-spending routes would answer 503 (see `buildRouter`). The rate-limit
@@ -81,6 +85,7 @@
       // add its binding there (with the real id) before opening the mobile feature flag.
       "d1_databases": [{ "binding": "FEEDBACK_DB", "database_name": "kuyara-feedback-e2e", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }],
       "vars": {
+        "HAIKU_MODELS": [],
         "OPENROUTER_MODELS": [],
         "WORKERS_AI_MODELS": []
       }

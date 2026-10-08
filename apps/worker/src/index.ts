@@ -24,6 +24,14 @@ import { OpenMeteoPlaceProvider } from './places/open-meteo-place-provider.ts';
 import { createPlaceSearchHandler } from './places/place-search-handler.ts';
 import { WORKERS_AI_DAILY_ATTEMPT_LIMIT, createAiHandler } from './ai/ai-handler.ts';
 import type { AiProvider } from './ai/ai-provider.ts';
+import {
+  HAIKU_DAILY_ATTEMPT_LIMIT,
+  HaikuAiProvider,
+  haikuModels,
+  haikuPromptCharacterLimit,
+  haikuPromptCharacters,
+} from './ai/haiku-ai-provider.ts';
+import { createDailyCappedAiProvider } from './ai/daily-capped-ai-provider.ts';
 import { OpenRouterAiProvider } from './ai/openrouter-ai-provider.ts';
 import { createMemberAllowance } from './ai/member-allowance.ts';
 import { createProbeHandler } from './ai/probe-handler.ts';
@@ -55,13 +63,15 @@ import { WeatherKitWeatherProvider } from './weather/weatherkit-weather-provider
 export { DailyCounter } from './daily-counter.ts';
 
 export type Env = Readonly<{
+  HAIKU_API_KEY?: string;
+  HAIKU_MODELS?: readonly string[];
   OPENROUTER_API_KEY?: string;
   OPENROUTER_MODELS?: readonly string[];
   WORKERS_AI_MODELS?: readonly string[];
   AI?: WorkersAiBinding;
-  // One Durable Object per counter name: the AI probe, the Workers AI attempt budget, the
-  // two capped weather providers and each signed-in member's re-ask count each get their
-  // own object (see daily-counter.ts).
+  // One Durable Object per counter name: the AI probe, the Haiku and Workers AI attempt
+  // budgets, the two capped weather providers and each signed-in member's re-ask count each
+  // get their own object (see daily-counter.ts).
   DAILY_COUNTERS?: DailyCounterNamespace;
   AI_PROBE_RATE_LIMIT?: RateLimiter;
   AI_RECOMMEND_RATE_LIMIT?: RateLimiter;
@@ -108,6 +118,32 @@ export function createAiProviders(env: Env): AiProvider[] {
   const openRouterModels = Array.isArray(env.OPENROUTER_MODELS)
     ? env.OPENROUTER_MODELS
     : [];
+  const haikuConfiguredModels = Array.isArray(env.HAIKU_MODELS)
+    ? env.HAIKU_MODELS
+    : [];
+  // The paid provider leads the walk and exists only behind its daily cap, so without the
+  // counter binding it is left out rather than run uncounted.
+  if (
+    typeof env.HAIKU_API_KEY === 'string'
+    && env.HAIKU_API_KEY.length > 0
+    && env.DAILY_COUNTERS
+  ) {
+    const haikuCounterName = 'ai:haiku';
+    for (const model of haikuConfiguredModels) {
+      const priced = haikuModels.find((candidate) => candidate === model);
+      if (!priced) {
+        console.warn({ event: 'haiku_model_rejected' });
+        continue;
+      }
+      providers.push(createDailyCappedAiProvider({
+        provider: new HaikuAiProvider({ apiKey: env.HAIKU_API_KEY, model: priced }),
+        counter: createDurableDailyCounter(env.DAILY_COUNTERS, haikuCounterName),
+        counterName: haikuCounterName,
+        dailyLimit: HAIKU_DAILY_ATTEMPT_LIMIT,
+        admits: (request) => haikuPromptCharacters(request) <= haikuPromptCharacterLimit,
+      }));
+    }
+  }
   if (env.AI) {
     for (const model of workersAiModels) {
       providers.push(new WorkersAiProvider({ ai: env.AI, model }));
@@ -292,6 +328,8 @@ export function buildRouter(env: Env): Handler {
  */
 function compositionKey(env: Env): string {
   return JSON.stringify([
+    env.HAIKU_API_KEY,
+    env.HAIKU_MODELS,
     env.OPENROUTER_API_KEY,
     env.OPENROUTER_MODELS,
     env.WORKERS_AI_MODELS,

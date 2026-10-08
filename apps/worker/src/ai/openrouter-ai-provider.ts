@@ -4,6 +4,7 @@ import { defaultFetch, type FetchLike } from '../default-fetch.ts';
 import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 import {
   AiProviderError,
+  parseModelJson,
   type AiGenerateOptions,
   type AiProvider,
 } from './ai-provider.ts';
@@ -78,10 +79,6 @@ export class OpenRouterAiProvider implements AiProvider {
     } | null;
     const content = body?.choices?.[0]?.message?.content;
     if (typeof content !== 'string') throw new Error('OpenRouter response invalid.');
-    try {
-      return JSON.parse(content);
-    } catch {
-      throw new Error('OpenRouter response invalid.');
-    }
+    return parseModelJson(content, 'OpenRouter response invalid.');
   }
 }

@@ -427,3 +427,21 @@ test('a failing rate-limit binding answers a stable ai_unavailable, not a thrown
   await assertJson(response, 503, { error: { code: 'ai_unavailable' } });
   assert.equal(providerCalls, 0);
 });
+
+test('the probe skips the Worker-internal provider and reports the first one the response can name', async () => {
+  const called: string[] = [];
+  const answer = (id: AiProvider['id'], model: string): AiProvider => ({
+    id,
+    model,
+    async generateOutfits() {
+      called.push(model);
+      return validOutput();
+    },
+  });
+  const { deps } = dependencies({
+    providers: [answer('haiku', 'claude-haiku-5-5'), answer('workers-ai', '@cf/first')],
+  });
+  const body = aiProbeV1SuccessSchema.parse(await (await createProbeHandler(deps)(request())).json());
+  assert.deepEqual(called, ['@cf/first']);
+  assert.deepEqual(body.data.assistant, { providerId: 'workers-ai', model: '@cf/first' });
+});
