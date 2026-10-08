@@ -715,6 +715,8 @@ export type AppMessages = Readonly<{
     cancel: string;
     lookupFailedBody: string;
     selectionFailedBody: string;
+    lookupFailedNoLocationBody: string;
+    selectionFailedNoLocationBody: string;
     openSettings: string;
     sampleDisclosure: string;
     hourlyHeading: string;

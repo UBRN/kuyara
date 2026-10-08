@@ -126,12 +126,14 @@ export function LocationSelectionControls({
 
   // The cards under the main button carry live regions for Android; VoiceOver ignores them,
   // so the outcome of the button is spoken here, once each time a message appears.
+  // The previous-location sentence is only true once a location is active.
+  const hasActiveLocation = state.status === 'ready' && state.activeLocation !== null;
   const flowMessages: Partial<Record<LocationFlow, string>> = {
     'denied-requestable': copy.placeDeniedBody,
     'denied-permanent': copy.placePermanentDeniedBody,
     'services-unavailable': copy.placeServicesUnavailableBody,
-    'lookup-failed': copy.lookupFailedBody,
-    'selection-failed': copy.selectionFailedBody,
+    'lookup-failed': hasActiveLocation ? copy.lookupFailedBody : copy.lookupFailedNoLocationBody,
+    'selection-failed': hasActiveLocation ? copy.selectionFailedBody : copy.selectionFailedNoLocationBody,
   };
   const locationFlow = state.status === 'ready' ? state.locationFlow : 'idle';
   const flowMessage = flowMessages[locationFlow];

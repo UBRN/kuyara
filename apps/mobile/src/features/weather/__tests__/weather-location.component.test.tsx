@@ -244,8 +244,8 @@ test.each([
   ['denied-requestable', (copy: typeof messages.en.weather) => copy.placeDeniedBody],
   ['denied-permanent', (copy: typeof messages.en.weather) => copy.placePermanentDeniedBody],
   ['services-unavailable', (copy: typeof messages.en.weather) => copy.placeServicesUnavailableBody],
-  ['lookup-failed', (copy: typeof messages.en.weather) => copy.lookupFailedBody],
-  ['selection-failed', (copy: typeof messages.en.weather) => copy.selectionFailedBody],
+  ['lookup-failed', (copy: typeof messages.en.weather) => copy.lookupFailedNoLocationBody],
+  ['selection-failed', (copy: typeof messages.en.weather) => copy.selectionFailedNoLocationBody],
   ['rationale', (copy: typeof messages.en.weather) => `${copy.locationRationaleTitle} ${copy.locationRationaleBody}`],
 ] as const)('the %s location message is announced on iOS', async (locationFlow, expected) => {
   const { weather, Providers } = harness();
@@ -254,6 +254,34 @@ test.each([
   await render(<Providers><WeatherLocationScreen /></Providers>);
   expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
   expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(expected(messages.en.weather));
+});
+
+// Before any location exists there is no previous one to promise; once one is active the card says so.
+test.each([
+  ['lookup-failed', 'lookupFailedBody', 'lookupFailedNoLocationBody'],
+  ['selection-failed', 'selectionFailedBody', 'selectionFailedNoLocationBody'],
+] as const)('the %s card mentions a previous location only when one is active', async (locationFlow, withLocation, withoutLocation) => {
+  for (const language of ['en', 'tr'] as const) {
+    const copy = messages[language].weather;
+    expect(copy[withoutLocation]).not.toMatch(/previous|önceki/i);
+
+    const bare = harness(language);
+    bare.weather.state = { ...readyState(bare.weather.state), activeLocation: null, locationFlow };
+    const fresh = await render(<bare.Providers><WeatherLocationScreen /></bare.Providers>);
+    expect(fresh.queryByText(copy[withLocation])).toBeNull();
+    await fresh.unmount();
+
+    const active = harness(language);
+    const selected = readyState(active.weather.state);
+    active.weather.state = {
+      ...selected,
+      activeLocation: { source: 'manual', catalogId: 'place.745044', displayName: 'Istanbul', locationKey: 'manual:place.745044', coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul' },
+      locationFlow,
+    } as WeatherApplicationValue['state'];
+    const shown = await render(<active.Providers><WeatherLocationScreen /></active.Providers>);
+    expect(shown.getByText(copy[withLocation])).toBeOnTheScreen();
+    await shown.unmount();
+  }
 });
 
 // Law 7: the rationale opens and closes in place under its button rather than snapping.

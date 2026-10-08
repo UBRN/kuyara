@@ -302,6 +302,8 @@ export const tr = {
     cancel: 'Şimdi değil',
     lookupFailedBody: 'Konumun bulunamadı. Önceki konumun değiştirilmedi.',
     selectionFailedBody: 'Bu konum kaydedilemedi. Önceki konumun etkin kalıyor.',
+    lookupFailedNoLocationBody: 'Konumun bulunamadı. Bunun yerine bir şehir ara.',
+    selectionFailedNoLocationBody: 'Bu konum kaydedilemedi. Bunun yerine bir şehir ara.',
     openSettings: 'Sistem ayarlarını aç',
     sampleDisclosure: 'Örnek hava durumu verisi, canlı değildir.',
     hourlyHeading: 'Önümüzdeki saatler',

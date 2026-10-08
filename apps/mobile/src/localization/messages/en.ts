@@ -311,6 +311,8 @@ export const en = {
     cancel: 'Not now',
     lookupFailedBody: 'Your location could not be found. Your previous location is unchanged.',
     selectionFailedBody: 'That location could not be saved. Your previous location is still active.',
+    lookupFailedNoLocationBody: 'Your location could not be found. Search for a city instead.',
+    selectionFailedNoLocationBody: 'That location could not be saved. Search for a city instead.',
     openSettings: 'Open system settings',
     sampleDisclosure: 'Sample weather data, not live weather.',
     hourlyHeading: 'Coming hours',
