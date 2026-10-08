@@ -304,9 +304,12 @@ The approved phase order, active work and remaining open items are in [the roadm
   `docs/design/visual-identity.md`. With JavaScript off the selector is absent and the
   site follows the system scheme; a Turkish-language browser is redirected from `/` to
   `/tr/` on first visit by the language-memory script.
-- **Landing page limits.** The landing `<title>` is the bare name in both languages (the
-  other pages keep "Page | kuyara"); a descriptive browser title would be new bilingual
-  copy. The Smart App Banner meta matches Apple's documented format and App Store id,
+- **Landing page limits.** The landing `<title>` carries the search phrase in each
+  language ("kuyara: What to Wear Today, Dressed for the Weather" and "kuyara: Ne Giysem?
+  Hava Durumuna Göre Kombin"; the other pages keep "Page | kuyara"), the landing adds
+  `MobileApplication` structured data, and `jekyll-sitemap` publishes `sitemap.xml`. The
+  `robots.txt` beside it is not read by crawlers, which look only at the origin root that
+  the user site owns, so the sitemap reaches Google through Search Console. The Smart App Banner meta matches Apple's documented format and App Store id,
   but whether it renders can only be shown in Safari on a physical iPhone or iPad on
   iOS 26 with the App Store; the Simulator never shows it. The landing's ten
   boards (five weather scenes, a women's and a men's board each) are listed in

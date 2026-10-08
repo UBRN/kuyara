@@ -6,6 +6,21 @@
     <meta name="apple-itunes-app" content="app-id=6806664440">
     <title>{{ page.title | escape }}</title>
 {% seo title=false %}
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "MobileApplication",
+        "name": "kuyara",
+        "url": {{ page.url | absolute_url | jsonify }},
+        "description": {{ page.description | jsonify }},
+        "image": {{ "/assets/img/og-image.png" | absolute_url | jsonify }},
+        "operatingSystem": "iOS 26.0 or later",
+        "applicationCategory": "LifestyleApplication",
+        "inLanguage": ["en", "tr"],
+        "installUrl": "https://apps.apple.com/app/id6806664440",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
     <script>document.documentElement.classList.add("ku-js");</script>
     {% include theme-head.html %}
     {% include head-custom.html %}

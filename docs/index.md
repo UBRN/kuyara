@@ -1,9 +1,9 @@
 ---
-title: "kuyara: dressed for your day"
+title: "kuyara: What to Wear Today, Dressed for the Weather"
 lang: en
 ref: home
 layout: landing
-description: Each morning, kuyara turns your weather into an outfit made for you. For iPhone, and all yours.
+description: What to wear today? Each morning, kuyara turns your weather into an outfit made for you. For iPhone, and all yours.
 
 hero_title: Dressed for your day.
 hero_line: Every morning, an outfit made for you and the weather ahead.

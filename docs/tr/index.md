@@ -1,9 +1,9 @@
 ---
-title: "kuyara: bugün ne giyeceğin hazır"
+title: "kuyara: Ne Giysem? Hava Durumuna Göre Kombin"
 lang: tr
 ref: home
 layout: landing
-description: kuyara her sabah havaya göre sana özel bir kombin hazırlar. iPhone için, tamamen senin.
+description: Bugün ne giysem? kuyara her sabah hava durumuna göre sana özel bir kombin hazırlar. iPhone için, tamamen senin.
 
 hero_title: Bugün ne giyeceğin hazır.
 hero_line: Her sabah, sana ve günün havasına göre bir kombin seni bekliyor.

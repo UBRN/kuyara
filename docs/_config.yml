@@ -1,6 +1,8 @@
 theme: jekyll-theme-primer
-description: Each morning, kuyara turns your weather into an outfit made for you. For iPhone, and all yours.
+description: What to wear today? Each morning, kuyara turns your weather into an outfit made for you. For iPhone, and all yours.
 lang: en-US
+plugins:
+  - jekyll-sitemap
 # The site publishes the landing, the privacy policy, support and the account terms, in both languages. The
 # project's own documents stay in the repository and off the site.
 exclude:
