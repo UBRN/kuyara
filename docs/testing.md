@@ -430,12 +430,12 @@ grep 'latestDatabaseVersion =' src/infrastructure/sqlite/migrations.ts
 
 From `apps/mobile`, with a clean committed tree and green checks, export for iOS using the EAS
 production variables, disable local `.env` loading, and stop unless the production origins are
-present in that export. The checks search the Hermes bytecode as text and do not print
+present in that export. `--clear` rebuilds without Metro's cache, which otherwise can keep an `EXPO_PUBLIC_*` value from an earlier export. The checks search the Hermes bytecode as text and do not print
 variable values:
 
 ```bash
 eas env:exec --non-interactive production 'set -eu
-EXPO_NO_DOTENV=1 ./node_modules/.bin/expo export --platform ios --output-dir dist --dump-sourcemap --dump-assetmap
+EXPO_NO_DOTENV=1 ./node_modules/.bin/expo export --clear --platform ios --output-dir dist --dump-sourcemap --dump-assetmap
 test -n "$EXPO_PUBLIC_KUYARA_WORKER_BASE_URL"
 if grep -rqaF "$EXPO_PUBLIC_KUYARA_WORKER_BASE_URL" dist; then
   echo "PASS: Worker origin is in dist"
