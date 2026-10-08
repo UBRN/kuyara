@@ -20,8 +20,9 @@ export function useAskAgainSheet(timeZone: string | null) {
     dispatch({ type: 'confirmSaving' });
     await (async () => {
       const { settled } = await reask({ formality, departureAt, timeZone });
-      dispatch({ type: 'confirmSaved', choosingWindow: outfitCoverage(departureAt ?? systemNow(), timeZone) });
-      void settled.finally(() => dispatch({ type: 'choosingSettled' }));
+      const choosingWindow = outfitCoverage(departureAt ?? systemNow(), timeZone);
+      dispatch({ type: 'confirmSaved', choosingWindow });
+      void settled.finally(() => dispatch({ type: 'choosingSettled', choosingWindow }));
     })().catch(() => dispatch({ type: 'confirmFailed', at: Date.now() }));
   };
 

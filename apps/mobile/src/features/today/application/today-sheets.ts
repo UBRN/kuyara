@@ -113,7 +113,8 @@ export type AskAgainSheetEvent =
   | Readonly<{ type: 'confirmSaving' }>
   | Readonly<{ type: 'confirmSaved'; choosingWindow: OutfitCoverage | null }>
   | Readonly<{ type: 'confirmFailed'; at: number }>
-  | Readonly<{ type: 'choosingSettled' }>;
+  // Carries the window of the confirmation that settled: a newer confirmation's window stays.
+  | Readonly<{ type: 'choosingSettled'; choosingWindow: OutfitCoverage | null }>;
 
 export const closedAskAgainSheet: AskAgainSheetState = {
   openedAt: null,
@@ -137,6 +138,6 @@ export function askAgainSheetReducer(state: AskAgainSheetState, event: AskAgainS
     case 'confirmFailed':
       return { ...state, busy: false, error: true, openedAt: state.openedAt ?? event.at };
     case 'choosingSettled':
-      return { ...state, choosingWindow: null };
+      return state.choosingWindow === event.choosingWindow ? { ...state, choosingWindow: null } : state;
   }
 }

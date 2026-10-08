@@ -93,7 +93,18 @@ test('a confirmed re-ask closes the sheet and holds its choosing window until th
   assert.equal(saving.busy, true);
   const saved = askAgainSheetReducer(saving, { type: 'confirmSaved', choosingWindow: window });
   assert.deepEqual(saved, { openedAt: null, busy: false, error: false, choosingWindow: window });
-  assert.equal(askAgainSheetReducer(saved, { type: 'choosingSettled' }).choosingWindow, null);
+  assert.equal(askAgainSheetReducer(saved, { type: 'choosingSettled', choosingWindow: window }).choosingWindow, null);
+});
+
+test('a re-ask that settles after a newer one was confirmed leaves the newer choosing window', () => {
+  const first = { start: '2026-08-13T12:00:00.000Z', end: '2026-08-13T17:00:00.000Z' };
+  const second = { start: '2026-08-13T12:00:00.000Z', end: '2026-08-13T17:00:00.000Z' };
+  const confirmed = (state, choosingWindow) =>
+    askAgainSheetReducer(askAgainSheetReducer(state, { type: 'confirmSaving' }), { type: 'confirmSaved', choosingWindow });
+  const both = confirmed(confirmed(closedAskAgainSheet, first), second);
+  const afterFirst = askAgainSheetReducer(both, { type: 'choosingSettled', choosingWindow: first });
+  assert.equal(afterFirst.choosingWindow, second);
+  assert.equal(askAgainSheetReducer(afterFirst, { type: 'choosingSettled', choosingWindow: second }).choosingWindow, null);
 });
 
 test('a failed re-ask keeps the opening clock, or reopens a sheet closed meanwhile on the failure clock', () => {
