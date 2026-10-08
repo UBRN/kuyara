@@ -60,7 +60,8 @@ function decodeJson(segment: string): unknown {
 /**
  * Stateless Supabase access-token check: ES256 signature against the project's JWKS, then
  * `exp`, `nbf`, `iss` (`<project>/auth/v1`), `aud` and `role` (both `authenticated`). The user
- * id is the token's `sub`.
+ * id is the token's `sub`. A signed-out session's token still passes until it expires, so account
+ * deletion also asks Supabase Auth (`SupabaseAdmin.confirmSession`).
  * The key set is cached per isolate; an unknown key id refetches it at most once per
  * cooldown, so forged key ids cannot make this route an amplifier against Supabase.
  */

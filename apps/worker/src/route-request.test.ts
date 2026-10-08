@@ -22,6 +22,7 @@ const unusedDependencies = {
   verifier: async () => { throw new Error('not reached'); },
   admin: {
     getAccount: async () => { throw new Error('not reached'); },
+    confirmSession: async () => { throw new Error('not reached'); },
     deleteUser: async () => { throw new Error('not reached'); },
   },
   revoker: async () => { throw new Error('not reached'); },

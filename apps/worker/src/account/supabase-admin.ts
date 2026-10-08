@@ -13,6 +13,11 @@ export type SupabaseAccount = Readonly<{
 export type SupabaseAdmin = Readonly<{
   /** The account's identities, or null when the user no longer exists. */
   getAccount(userId: string): Promise<SupabaseAccount | null>;
+  /**
+   * Resolves while the access token's session is alive. A verified token outlives a sign-out
+   * until it expires; Supabase Auth refusing it (the session or user is gone) is `unauthorized`.
+   */
+  confirmSession(accessToken: string, userId: string): Promise<void>;
   /** Hard-deletes the user; one that is already gone counts as deleted. */
   deleteUser(userId: string): Promise<void>;
 }>;
@@ -25,6 +30,17 @@ type Dependencies = Readonly<{
   timeoutMs: number;
 }>;
 
+/**
+ * Supabase Auth's 403 answers to `GET /auth/v1/user` for a token it no longer honours: the
+ * session or user row is gone, the session timed out, the user is banned, or the token is bad.
+ * Any other failure is an outage, never a refusal.
+ */
+const refusedSessionCodes: ReadonlySet<string> = new Set([
+  'session_not_found', 'session_expired', 'user_not_found', 'user_banned', 'bad_jwt',
+]);
+const authErrorSchema = z.object({ error_code: z.string() });
+const sessionUserSchema = z.object({ id: z.string() });
+
 const userSchema = z.object({
   id: z.string(),
   identities: z.array(z.object({
@@ -35,9 +51,10 @@ const userSchema = z.object({
 });
 
 /**
- * The two Supabase Auth admin calls account deletion needs, over plain `fetch`. The secret
- * key travels only in the `apikey` header: Supabase's gateway accepts it there for both the
- * legacy and the new key types. Bodies, keys and addresses never enter an error.
+ * The Supabase Auth calls account deletion needs, over plain `fetch`: two admin calls and the
+ * session check. The secret key travels only in the `apikey` header: Supabase's gateway accepts
+ * it there for both the legacy and the new key types, and passes a user's JWT in
+ * `Authorization` through unchanged. Bodies, keys, tokens and addresses never enter an error.
  */
 export function createSupabaseAdmin(dependencies: Dependencies): SupabaseAdmin {
   const fetchImpl = dependencies.fetch ?? defaultFetch();
@@ -67,6 +84,16 @@ export function createSupabaseAdmin(dependencies: Dependencies): SupabaseAdmin {
         : undefined;
       if (subject === undefined) throw new AccountError('unavailable');
       return { appleSubject: subject };
+    },
+
+    async confirmSession(accessToken, userId) {
+      const { status, json } = await boundedFetch(fetchImpl, `${dependencies.supabaseUrl}/auth/v1/user`, {
+        method: 'GET',
+        headers: { ...headers, Authorization: `Bearer ${accessToken}` },
+      }, timeoutMs);
+      if (status === 200 && sessionUserSchema.safeParse(json).data?.id === userId) return;
+      const refusal = status === 403 ? authErrorSchema.safeParse(json).data?.error_code : undefined;
+      throw new AccountError(refusal !== undefined && refusedSessionCodes.has(refusal) ? 'unauthorized' : 'unavailable');
     },
 
     async deleteUser(userId) {

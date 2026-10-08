@@ -537,6 +537,11 @@ test('the composed account route revokes with Apple before it deletes, over a fa
       assert.equal(init?.headers.apikey, 'sb_secret_placeholder');
       return Response.json({ id: userId, identities: [{ provider: 'apple', provider_id: 'apple-subject' }] });
     }
+    if (url.endsWith('/auth/v1/user')) {
+      assert.equal(init?.headers.apikey, 'sb_secret_placeholder');
+      assert.equal(init?.headers.Authorization, `Bearer ${token}`);
+      return Response.json({ id: userId });
+    }
     if (url.endsWith('/admin/users/' + userId)) return new Response('{}', { status: 200 });
     if (url.endsWith('/auth/token')) return Response.json({ refresh_token: 'refresh-sentinel', id_token: idToken });
     if (url.endsWith('/auth/revoke')) return new Response('', { status: 200 });
@@ -553,6 +558,7 @@ test('the composed account route revokes with Apple before it deletes, over a fa
   assert.deepEqual(seen, [
     ['GET', 'https://project.supabase.co/auth/v1/.well-known/jwks.json'],
     ['GET', `https://project.supabase.co/auth/v1/admin/users/${userId}`],
+    ['GET', 'https://project.supabase.co/auth/v1/user'],
     ['POST', 'https://appleid.apple.com/auth/token'],
     ['POST', 'https://appleid.apple.com/auth/revoke'],
     ['DELETE', `https://project.supabase.co/auth/v1/admin/users/${userId}`],
@@ -566,6 +572,54 @@ test('the composed account route revokes with Apple before it deletes, over a fa
   assert.equal(denied.status, 401);
   assert.deepEqual(await denied.json(), { error: { code: 'unauthorized' } });
   assert.deepEqual(seen, []);
+});
+
+// A signed-out session's token still verifies until it expires; Supabase Auth says the session
+// is gone, so the composed route deletes nothing, and an Auth outage fails closed the same way.
+test('the composed account route refuses a token whose session has ended, and fails closed when Auth is down', async (t) => {
+  const warnings: LogEntry[] = [];
+  t.mock.method(console, 'warn', (entry: LogEntry) => warnings.push(entry));
+  const userId = '3f2b8c1e-5d4a-4c1b-9a7e-0d6f1b2c3d4e';
+  const appleKey = await generateEs256Key();
+  const supabaseKey = await generateEs256Key();
+  const sign = createEs256Signer(supabaseKey.bare);
+  const token = await sign({ alg: 'ES256', kid: 'k1' }, {
+    iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', role: 'authenticated', sub: userId,
+    exp: Math.floor(Date.now() / 1000) + 600,
+  });
+  let session: 'ended' | 'down' = 'ended';
+  const seen: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (input: UpstreamInput, init?: UpstreamInit) => {
+    const url = String(input);
+    seen.push(`${init?.method ?? 'GET'} ${new URL(url).pathname}`);
+    if (url.endsWith('/.well-known/jwks.json')) return Response.json({ keys: [{ ...supabaseKey.publicJwk, kid: 'k1' }] });
+    if (url.endsWith(`/admin/users/${userId}`) && init?.method === 'GET') {
+      return Response.json({ id: userId, identities: [{ provider: 'apple', provider_id: 'apple-subject' }] });
+    }
+    if (url.endsWith('/auth/v1/user')) {
+      if (session === 'down') throw new Error(`private ${token}`);
+      return Response.json({ code: 403, error_code: 'session_not_found', msg: 'private detail' }, { status: 403 });
+    }
+    throw new Error('unexpected upstream call');
+  });
+  const route = buildRouter({ ...boundEnv, APPLE_SIGN_IN_PRIVATE_KEY: appleKey.pem });
+
+  const ended = await route(accountDeleteRequest(token, { appleAuthorizationCode: 'code-sentinel' }), fakeContext());
+  assert.equal(ended.status, 401);
+  assert.deepEqual(await ended.json(), { error: { code: 'unauthorized' } });
+  session = 'down';
+  const down = await route(accountDeleteRequest(token, { appleAuthorizationCode: 'code-sentinel' }), fakeContext());
+  assert.equal(down.status, 503);
+  assert.deepEqual(await down.json(), { error: { code: 'unavailable' } });
+  // Neither reached Apple or the delete.
+  assert.deepEqual(seen, [
+    'GET /auth/v1/.well-known/jwks.json', `GET /auth/v1/admin/users/${userId}`, 'GET /auth/v1/user',
+    `GET /auth/v1/admin/users/${userId}`, 'GET /auth/v1/user',
+  ]);
+  assert.deepEqual(warnings, [
+    { event: 'account_delete_failed', stage: 'session', code: 'unauthorized' },
+    { event: 'account_delete_failed', stage: 'session', code: 'unavailable' },
+  ]);
 });
 
 test('adding a missing account secret recomposes the memoised worker', async (t) => {
@@ -615,6 +669,7 @@ test('the composed account route deletes an Apple account unrevoked when no code
     if (url.endsWith(`/admin/users/${userId}`) && init?.method === 'GET') {
       return Response.json({ id: userId, identities: [{ provider: 'apple', provider_id: 'apple-subject' }] });
     }
+    if (url.endsWith('/auth/v1/user')) return Response.json({ id: userId });
     if (url.endsWith(`/admin/users/${userId}`)) return new Response('{}', { status: 200 });
     if (url.endsWith('/auth/token')) return Response.json({ error: 'invalid_grant' }, { status: 400 });
     throw new Error('unexpected upstream call');
@@ -625,7 +680,7 @@ test('the composed account route deletes an Apple account unrevoked when no code
   assert.equal(noCode.status, 200);
   assert.deepEqual(await noCode.json(), { data: { status: 'deleted_apple_unrevoked' } });
   assert.deepEqual(seen.map(([method, url]) => `${method} ${new URL(url).pathname}`), [
-    'GET /auth/v1/.well-known/jwks.json', `GET /auth/v1/admin/users/${userId}`, `DELETE /auth/v1/admin/users/${userId}`,
+    'GET /auth/v1/.well-known/jwks.json', `GET /auth/v1/admin/users/${userId}`, 'GET /auth/v1/user', `DELETE /auth/v1/admin/users/${userId}`,
   ]);
 
   seen.length = 0;
@@ -633,7 +688,7 @@ test('the composed account route deletes an Apple account unrevoked when no code
   assert.equal(refused.status, 200);
   assert.deepEqual(await refused.json(), { data: { status: 'deleted_apple_unrevoked' } });
   assert.deepEqual(seen.map(([method, url]) => `${method} ${new URL(url).pathname}`), [
-    `GET /auth/v1/admin/users/${userId}`, 'POST /auth/token', `DELETE /auth/v1/admin/users/${userId}`,
+    `GET /auth/v1/admin/users/${userId}`, 'GET /auth/v1/user', 'POST /auth/token', `DELETE /auth/v1/admin/users/${userId}`,
   ]);
 });
 

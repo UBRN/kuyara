@@ -1,6 +1,7 @@
 /**
  * The budget of each upstream call on the account deletion route. The route makes at most five
- * in a row (the JWKS, the account lookup, Apple's token and revoke calls, the delete), so
+ * in a row (the JWKS, the account lookup with the session check beside it, Apple's token and
+ * revoke calls, the delete), so
  * 5 x 3 s = 15 s stays under the phone's 20 s wait (`deletionTimeoutMs` in the mobile
  * `worker-account-deletion.ts`) with room for signing and the phone's network.
  *

@@ -115,3 +115,58 @@ test('an id that is not a UUID never reaches the URL', async () => {
   await assertUnavailable(admin.deleteUser(`${userId}/x`));
   assert.equal(calls.length, 0);
 });
+
+const accessToken = 'user.access.sentinel';
+
+async function assertUnauthorized(promise: Promise<unknown>) {
+  await assert.rejects(promise, (error) => {
+    assert.ok(error instanceof AccountError);
+    assert.equal(error.code, 'unauthorized');
+    assert.equal(error.message.includes(accessToken), false);
+    assert.equal(error.message.includes('private'), false);
+    return true;
+  });
+}
+
+test('confirmSession asks Supabase Auth for the token\'s user, with the token as bearer and the key as apikey', async () => {
+  const { calls, admin } = setup(() => Response.json(userBody([])));
+  await admin.confirmSession(accessToken, userId);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `${supabaseUrl}/auth/v1/user`);
+  assert.equal(calls[0].init.method, 'GET');
+  assert.equal(calls[0].init.headers.apikey, secretKey);
+  assert.equal(calls[0].init.headers.Authorization, `Bearer ${accessToken}`);
+  assert.equal(calls[0].init.redirect, 'manual');
+  assert.ok(calls[0].init.signal);
+});
+
+test('a session Supabase Auth says has ended is unauthorized', async () => {
+  for (const errorCode of ['session_not_found', 'session_expired', 'user_not_found', 'user_banned', 'bad_jwt']) {
+    const { admin } = setup(() => Response.json({ code: 403, error_code: errorCode, msg: 'private' }, { status: 403 }));
+    await assertUnauthorized(admin.confirmSession(accessToken, userId));
+  }
+});
+
+test('any other confirmSession answer, an outage or a hung call is unavailable', async () => {
+  const bodies = [
+    Response.json({ ...userBody([]), id: '00000000-0000-4000-8000-000000000000' }),
+    Response.json({ nothing: true }),
+    new Response('not json'),
+    Response.json({ code: 403, error_code: 'not_admin', msg: 'private' }, { status: 403 }),
+    Response.json({ code: 401, error_code: 'session_not_found', msg: 'private' }, { status: 401 }),
+    Response.json({ message: 'Invalid API key', hint: 'private' }, { status: 401 }),
+    Response.json({ code: 500, error_code: 'unexpected_failure', msg: 'private' }, { status: 500 }),
+    Response.json({ code: 429, error_code: 'over_request_rate_limit', msg: 'private' }, { status: 429 }),
+    new Response('private', { status: 503 }),
+  ];
+  for (const body of bodies) {
+    await assertUnavailable(setup(() => body.clone()).admin.confirmSession(accessToken, userId));
+  }
+  await assertUnavailable(setup(() => { throw new Error('private network detail'); }).admin.confirmSession(accessToken, userId));
+  let aborted = false;
+  const hung = setup(({ init }) => new Promise<Response>((_, reject) => {
+    init.signal?.addEventListener('abort', () => { aborted = true; reject(new Error('private')); });
+  }));
+  await assertUnavailable(hung.admin.confirmSession(accessToken, userId));
+  assert.equal(aborted, true);
+});

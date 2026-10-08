@@ -24,20 +24,27 @@ type RequestOptions = {
   raw?: string;
 };
 
-function setup(overrides: Partial<Dependencies> = {}) {
+// An admin override replaces only the calls it names; the session check defaults to a live session.
+type Overrides = Partial<Omit<Dependencies, 'admin'>> & { admin?: Partial<Dependencies['admin']> };
+
+function setup({ admin, ...overrides }: Overrides = {}) {
   const events: RecordedEvent[] = [];
   const deps: Dependencies = {
     rateLimiter: { limit: async ({ key }) => { events.push(['limit', key]); return { success: true }; } },
     verifier: async (accessToken) => { events.push(['verify', accessToken]); return { userId, hasAppleIdentity: false }; },
     admin: {
       getAccount: async (id) => { events.push(['getAccount', id]); return { appleSubject: null }; },
+      confirmSession: async (accessToken, id) => { events.push(['session', [accessToken, id]]); },
       deleteUser: async (id) => { events.push(['deleteUser', id]); },
+      ...admin,
     },
     revoker: async (input) => { events.push(['revoke', input]); return 'revoked'; },
     ...overrides,
   };
   return { events, handle: createAccountDeleteHandler(deps) };
 }
+
+const ended = async () => { throw new AccountError('unauthorized'); };
 
 const request = ({ body = {}, headers = {}, method = 'POST', path = '/v1/account/delete', raw }: RequestOptions = {}) => new Request(`https://worker.test${path}`, {
   method,
@@ -54,21 +61,70 @@ async function expectError(response: Response, status: number, errorCode: Accoun
 }
 const names = (events: RecordedEvent[]) => events.map(([name]) => name);
 
-test('an account without Apple is verified, looked up and deleted, and no code is exchanged', async () => {
+test('an account without Apple is verified, looked up, its session confirmed and deleted, and no code is exchanged', async () => {
   const { events, handle } = setup();
   const response = await handle(request());
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.deepEqual(accountDeleteV1SuccessSchema.parse(await response.json()), { data: { status: 'deleted' } });
   assert.deepEqual(events, [
-    ['limit', 'account-delete:192.0.2.1'], ['verify', token], ['getAccount', userId], ['deleteUser', userId],
+    ['limit', 'account-delete:192.0.2.1'], ['verify', token], ['getAccount', userId], ['session', [token, userId]],
+    ['deleteUser', userId],
   ]);
 });
 
-const appleAdmin = (events: RecordedEvent[]): Dependencies['admin'] => ({
-  getAccount: async (id) => { events.push(['getAccount', id]); return { appleSubject: subject }; },
-  deleteUser: async (id) => { events.push(['deleteUser', id]); },
+test('a token whose session has ended deletes nothing and answers the invalid-token shape', async (t) => {
+  const warnings: unknown[] = [];
+  t.mock.method(console, 'warn', (entry: unknown) => warnings.push(entry));
+  for (const admin of [{ confirmSession: ended }, { ...appleAdmin([]), confirmSession: ended }]) {
+    const { events, handle } = setup({ admin });
+    await expectError(await handle(request({ body: { appleAuthorizationCode: code } })), 401, 'unauthorized');
+    assert.equal(names(events).includes('revoke'), false);
+    assert.equal(names(events).includes('deleteUser'), false);
+  }
+  assert.deepEqual(warnings, [
+    { event: 'account_delete_failed', stage: 'session', code: 'unauthorized' },
+    { event: 'account_delete_failed', stage: 'session', code: 'unauthorized' },
+  ]);
 });
+
+test('Supabase Auth failing or timing out on the session check fails closed: unavailable, nothing revoked or deleted', async () => {
+  const outages = [
+    async () => { throw new AccountError('unavailable'); },
+    async () => { throw new Error(`private ${token}`); },
+  ];
+  const expected: [number, AccountDeleteV1ErrorCode][] = [[503, 'unavailable'], [500, 'internal_error']];
+  for (const [index, confirmSession] of outages.entries()) {
+    const { events, handle } = setup({ admin: { ...appleAdmin([]), confirmSession } });
+    const response = await handle(request({ body: { appleAuthorizationCode: code } }));
+    await expectError(response, ...expected[index]);
+    assert.equal(names(events).includes('revoke'), false);
+    assert.equal(names(events).includes('deleteUser'), false);
+  }
+});
+
+test('the session check runs alongside the lookup, so the route keeps its five upstream calls in a row', async () => {
+  const started: string[] = [];
+  let releaseLookup!: () => void;
+  const { handle } = setup({
+    admin: {
+      getAccount: () => new Promise((resolve) => { started.push('getAccount'); releaseLookup = () => resolve({ appleSubject: null }); }),
+      confirmSession: async () => { started.push('session'); },
+    },
+  });
+  const pending = handle(request());
+  for (let turn = 0; turn < 50 && started.length < 2; turn += 1) await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(started, ['getAccount', 'session'], 'both started before the lookup answered');
+  releaseLookup();
+  assert.equal((await pending).status, 200);
+});
+
+function appleAdmin(events: RecordedEvent[]): Partial<Dependencies['admin']> {
+  return {
+    getAccount: async (id) => { events.push(['getAccount', id]); return { appleSubject: subject }; },
+    deleteUser: async (id) => { events.push(['deleteUser', id]); },
+  };
+}
 
 test('an Apple account revokes with its own subject before it deletes', async (t) => {
   const infos: unknown[] = [];
@@ -157,9 +213,9 @@ test('a failed delete answers unavailable', async () => {
   await expectError(await handle(request()), 503, 'unavailable');
 });
 
-test('an account that is already gone is deleted without revoking or deleting again', async () => {
+test('an account that is already gone is deleted without revoking or deleting again, though its session went with it', async () => {
   const { events, handle } = setup({
-    admin: { getAccount: async () => null, deleteUser: async () => { events.push(['deleteUser']); } },
+    admin: { getAccount: async () => null, confirmSession: ended, deleteUser: async () => { events.push(['deleteUser']); } },
   });
   const response = await handle(request({ body: { appleAuthorizationCode: code } }));
   assert.equal(response.status, 200);
@@ -173,7 +229,7 @@ test('an already gone account whose token names Apple answers deleted_apple_unre
   const events: RecordedEvent[] = [];
   const { handle } = setup({
     verifier: async () => ({ userId, hasAppleIdentity: true }),
-    admin: { getAccount: async () => null, deleteUser: async () => { events.push(['deleteUser']); } },
+    admin: { getAccount: async () => null, confirmSession: ended, deleteUser: async () => { events.push(['deleteUser']); } },
     revoker: async () => { events.push(['revoke']); return 'revoked'; },
   });
   const response = await handle(request({ body: { appleAuthorizationCode: code } }));
@@ -193,6 +249,7 @@ test('token failures map to closed codes', async () => {
     const { events, handle } = setup({ verifier: async () => { throw thrown; } });
     await expectError(await handle(request()), status, errorCode);
     assert.equal(names(events).includes('getAccount'), false);
+    assert.equal(names(events).includes('session'), false);
   }
 });
 

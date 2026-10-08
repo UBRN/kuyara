@@ -25,7 +25,7 @@ type Dependencies = Readonly<{
 // The body is `{}` or one code of at most 1024 characters; anything past this is refused unread.
 const maxRequestBodyBytes = 4096;
 
-type Stage = 'verify' | 'lookup' | 'apple' | 'delete';
+type Stage = 'verify' | 'lookup' | 'session' | 'apple' | 'delete';
 
 const statuses: Readonly<Record<AccountDeleteV1ErrorCode, number>> = {
   invalid_request: 400,
@@ -76,12 +76,13 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
     } catch (thrown) {
       return failure('verify', thrown);
     }
-    let account: Awaited<ReturnType<SupabaseAdmin['getAccount']>>;
-    try {
-      account = await admin.getAccount(userId);
-    } catch (thrown) {
-      return failure('lookup', thrown);
-    }
+    // The session check runs alongside the lookup, so the route keeps five upstream calls in a row.
+    const [lookup, session] = await Promise.allSettled([
+      admin.getAccount(userId),
+      admin.confirmSession(accessToken, userId),
+    ]);
+    if (lookup.status === 'rejected') return failure('lookup', lookup.reason);
+    const account = lookup.value;
     let status: AccountDeleteV1Status = 'deleted';
     // A valid token for a user that no longer exists is a repeated request: already deleted.
     // Whether the earlier attempt revoked Apple's token is unknown, so an account whose token
@@ -91,6 +92,10 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
       console.info({ event: 'account_delete_apple_unrevoked', reason: 'already_deleted' });
     }
     if (account !== null) {
+      // A token verifies until it expires, also after its session was signed out; only a live
+      // session deletes. A repeat for an account already gone is answered above without it,
+      // because the deleted account's sessions went with it.
+      if (session.status === 'rejected') return failure('session', session.reason);
       // Revocation comes first: a delete that succeeds while revocation fails would leave
       // Apple's requirement unmet with no way to get the token again. A missing, refused or
       // foreign code never blocks the delete (ADR 0041, section 2); only Apple being
