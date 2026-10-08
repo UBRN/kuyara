@@ -837,6 +837,27 @@ test('an unusable input is an unknown failure without touching the AI client', a
   assert.equal(calls.client, 0);
 });
 
+test('a context the AI request cannot be built from ends refreshing and still gets the standard outfits', async () => {
+  const { controller, calls } = createHarness({
+    createContextWithPool: (...args) => {
+      const composed = createRecommendationContextWithPool(...args);
+      return {
+        ...composed,
+        context: { ...composed.context, options: composed.context.options.map((option) => ({ ...option, optionId: '' })) },
+      };
+    },
+  });
+  await controller.initialize();
+
+  await controller.refresh('explicit', input(16));
+
+  const state = controller.getSnapshot();
+  assert.equal(state.isRefreshing, false);
+  assert.equal(calls.client, 0);
+  assert.equal(state.lastFailure, null);
+  assert.equal(state.snapshot?.generationMode, 'deterministic-fallback');
+});
+
 test('a repository load failure leaves the ready state carrying an unknown failure', async () => {
   const controller = new RecommendationApplicationController(profileId, {
     loadRepository: async () => { throw new Error('database unavailable'); },

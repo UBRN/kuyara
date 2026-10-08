@@ -404,7 +404,14 @@ export class RecommendationApplicationController {
       if (startedRefreshing) this.setRefreshing(false);
       return Promise.resolve(this.currentSnapshot());
     }
-    const request = aiRequestFromContext(context);
+    // A context the AI request cannot be built from is an AI failure, not a reason to leave
+    // the refreshing state set: the standard composition still answers, as for any AI failure.
+    let request: AiRecommendV1Request | null;
+    try {
+      request = aiRequestFromContext(context);
+    } catch {
+      request = null;
+    }
     const key = JSON.stringify({
       weatherSnapshotId: input.snapshot.id,
       locationKey: input.snapshot.locationKey,
