@@ -23,9 +23,9 @@ Run focused repository checks with `pnpm run lint`, `pnpm run typecheck`, or `pn
 all three packages: the mobile app through its own Expo config, and `apps/worker/src` and
 `packages/contracts/src` through the workspace root `eslint.config.js`, which reuses the same rule set.
 The Worker and contracts tests are `*.test.ts` files that their packages' `typecheck` covers with the sources.
-The mobile typecheck depends on the git-ignored `expo-env.d.ts` and `.expo/types/router.d.ts`, which
-`expo start` writes; on a fresh checkout with no dev server run, generate them first with
-`pnpm --filter @kuyara/mobile exec expo customize tsconfig.json`, which is what CI does. The mobile Jest
+The mobile typecheck depends on the git-ignored `expo-env.d.ts` and `.expo/types/router.d.ts`, so its
+`typecheck` script first runs `expo customize tsconfig.json`, which writes both without a dev server and
+leaves `tsconfig.json` unchanged; a fresh checkout or worktree needs no setup step. The mobile Jest
 component suite is separate from `pnpm check`:
 
 ```bash

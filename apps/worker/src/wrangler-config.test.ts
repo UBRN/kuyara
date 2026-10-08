@@ -56,10 +56,7 @@ test('production OPENROUTER_MODELS lists only measured models that pass the free
   // structured output the handler accepts inside the 7 s attempt window (docs/architecture.md),
   // most often accepted first, then fastest. Each is a `:free` slug: a paid model, or the
   // `openrouter/free` router that the allowlist also admits, must never enter the list.
-  assert.deepEqual(models, [
-    'qwen/qwen3.8-27b:free',
-    'nvidia/nemotron-3-super-120b-a12b:free',
-  ]);
+  assert.deepEqual(models, ['nvidia/nemotron-3-super-120b-a12b:free']);
   for (const model of models) assert.match(model, /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+:free$/);
   // `createAiProviders` drops a model the allowlist rejects, so a kept count equal to the
   // configured count means none was rejected.

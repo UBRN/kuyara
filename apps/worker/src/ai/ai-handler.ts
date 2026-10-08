@@ -146,7 +146,7 @@ export function createAiHandler({
   // it, the whole user-visible wait is at most 46 s.
   totalDeadlineMs = 36_000,
   // Five attempts bound the walk: the two Workers AI models plus room for up to three
-  // measured OpenRouter models (none is configured today).
+  // measured OpenRouter models from `OPENROUTER_MODELS`.
   maxAttempts = 5,
 }: Dependencies): (request: Request, ctx: ExecutionContext) => Promise<Response> {
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
