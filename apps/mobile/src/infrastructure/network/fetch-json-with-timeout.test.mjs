@@ -64,7 +64,7 @@ test('the deadline aborts a request that never answers, as a network failure', a
 test('the deadline also covers reading the body', async () => {
   const fetch = (_url, init) => Promise.resolve({
     ok: true,
-    json: () => new Promise((_resolve, reject) => {
+    text: () => new Promise((_resolve, reject) => {
       init.signal.addEventListener('abort', () => reject(new Error('aborted')));
     }),
   });
@@ -73,6 +73,14 @@ test('the deadline also covers reading the body', async () => {
     fetchJsonWithTimeout(fetch, 'u', {}, 5, failures),
     (thrown) => thrown.kind === 'invalid-json',
   );
+});
+
+test('the deadline ends a body read that never settles, even after an abort', async () => {
+  // On the device an aborted body read never settles, so the abort alone cannot end it.
+  const stalled = async () => ({ ok: true, status: 200, json: () => new Promise(() => {}), text: () => new Promise(() => {}) });
+  const started = Date.now();
+  await assert.rejects(fetchJsonWithTimeout(stalled, 'u', {}, 20, failures), (thrown) => thrown.kind === 'invalid-json');
+  assert.ok(Date.now() - started < 1000);
 });
 
 /** A server that never answers: the request settles only when it is aborted. */

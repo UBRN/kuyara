@@ -10,9 +10,10 @@ export type FetchJsonFailures = Readonly<{
 
 /**
  * The one request-with-a-deadline every mobile data-layer network call goes through: it aborts
- * the request after `timeoutMilliseconds`, which also covers reading the body, and parses the
- * body as JSON once. It leaves the status and the body's shape to the caller, which maps each
- * failure to its own error kind. The body is untrusted until the caller's schema has read it.
+ * the request after `timeoutMilliseconds`, which also ends a body read still pending then, and
+ * parses the body as JSON once. It leaves the status and the body's shape to the caller, which
+ * maps each failure to its own error kind. The body is untrusted until the caller's schema has
+ * read it.
  */
 export async function fetchJsonWithTimeout(
   send: Fetch,
@@ -31,14 +32,12 @@ export async function fetchJsonWithTimeout(
       throw failures.network(cause);
     }
 
-    let body: unknown;
     try {
-      body = await response.json();
+      const body: unknown = JSON.parse(await textUntilAborted(response, controller.signal));
+      return { response, body };
     } catch {
       throw failures.invalidJson();
     }
-
-    return { response, body };
   } finally {
     clearTimeout(timeout);
   }

@@ -16,7 +16,7 @@ test('reads the attribution through the injected fetch and reuses it per languag
   const calls = [];
   const fetchAttribution = async (url, init) => {
     calls.push({ url, init });
-    return { ok: true, json: async () => ({ ...logos, extra: 'ignored' }) };
+    return { ok: true, text: async () => JSON.stringify({ ...logos, extra: 'ignored' }) };
   };
 
   assert.equal(
@@ -53,7 +53,7 @@ test('a failed attribution fetch is not cached: the next read fetches again', as
   const fetchAttribution = async () => {
     calls += 1;
     if (calls === 1) throw new Error('offline');
-    return { ok: true, json: async () => logos };
+    return { ok: true, text: async () => JSON.stringify(logos) };
   };
 
   await assert.rejects(appleWeatherMarkUrl('tr', false, 1, fetchAttribution), /offline/);

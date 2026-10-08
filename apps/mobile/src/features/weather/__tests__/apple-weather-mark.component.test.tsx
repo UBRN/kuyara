@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 test('validates and reuses the public attribution response per language', async () => {
-  const fetchMock = jest.fn(async (_url: string) => ({ ok: true, json: async () => ({ ...logos, extra: 'ignored' }) }));
+  const fetchMock = jest.fn(async (_url: string) => ({ ok: true, text: async () => JSON.stringify({ ...logos, extra: 'ignored' }) }));
   globalThis.fetch = fetchMock as unknown as typeof fetch;
 
   expect(await appleWeatherMarkUrl('en', false, 2.6))
@@ -30,7 +30,7 @@ test('validates and reuses the public attribution response per language', async 
 test('rejects a partial or untrusted mark response', async () => {
   globalThis.fetch = jest.fn(async () => ({
     ok: true,
-    json: async () => ({ ...logos, 'logoDark@2x': '//unexpected.example/mark.png' }),
+    text: async () => JSON.stringify({ ...logos, 'logoDark@2x': '//unexpected.example/mark.png' }),
   })) as unknown as typeof fetch;
   await expect(appleWeatherMarkUrl('tr', true, 2)).rejects.toThrow();
 });
