@@ -90,8 +90,8 @@ calls on the rejection paths.
 Handler order:
 
 1. Method gate: non-`POST` -> `405 method_not_allowed`, `Allow: POST`.
-2. Per-IP burst limit (`rateLimiter.limit({ key })`, `key` = `probe:` plus
-   `request.headers.get('cf-connecting-ip') ?? 'unknown'`). Denied ->
+2. Per-IP burst limit (`rateLimiter.limit({ key })`, `key` = `probe:` plus the
+   client address as architecture describes it, or `unknown`). Denied ->
    `429 rate_limited`, `Retry-After: 60`. No provider call.
 3. Cache check: the module-scope body with a 60-second TTL
    measured against `now()`. Fresh -> return the cached body, no provider call,

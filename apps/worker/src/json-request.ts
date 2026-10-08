@@ -19,6 +19,22 @@ function clientIp(request: Request): string {
   return request.headers.get('cf-connecting-ip') ?? 'unknown';
 }
 
+/**
+ * Who a per-IP budget belongs to. An IPv6 caller usually holds a whole /64 and could rotate
+ * through it, so it is keyed by that prefix; IPv4, an IPv4-mapped address and `unknown` stay
+ * as they are.
+ */
+function rateLimitKeyOf(ip: string): string {
+  const lower = ip.toLowerCase();
+  // IPv4 written inside IPv6 (mapped or NAT64) is one IPv4 caller, not a /64.
+  if (!lower.includes(':') || lower.includes('.') || lower.startsWith('::ffff:') || lower.startsWith('64:ff9b:')) return ip;
+  const [head, tail] = lower.split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail === undefined || tail === '' ? [] : tail.split(':');
+  const groups = tail === undefined ? left : [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill('0'), ...right];
+  return `${groups.slice(0, 4).map((group) => group.replace(/^0+(?=.)/, '')).join(':')}::/64`;
+}
+
 export type RateLimitOutcome = 'allowed' | 'limited' | 'unavailable';
 
 /**
@@ -33,7 +49,7 @@ export async function checkRateLimit(
 ): Promise<RateLimitOutcome> {
   if (limiter === undefined) return 'allowed';
   try {
-    const { success } = await limiter.limit({ key: `${scope.keyPrefix}:${clientIp(request)}` });
+    const { success } = await limiter.limit({ key: `${scope.keyPrefix}:${rateLimitKeyOf(clientIp(request))}` });
     return success ? 'allowed' : 'limited';
   } catch {
     console.warn({ event: 'rate_limiter_error', route: scope.route, limiter: scope.limiter });
