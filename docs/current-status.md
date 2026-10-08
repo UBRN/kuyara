@@ -309,7 +309,9 @@ The approved phase order, active work and remaining open items are in [the roadm
   Hava Durumuna Göre Kombin"; the other pages keep "Page | kuyara"), the landing adds
   `MobileApplication` structured data, and `jekyll-sitemap` publishes `sitemap.xml`. The
   `robots.txt` beside it is not read by crawlers, which look only at the origin root that
-  the user site owns, so the sitemap reaches Google through Search Console. The Smart App Banner meta matches Apple's documented format and App Store id,
+  the user site owns, so the sitemap reaches Google through Search Console, where the site
+  is verified by the `google-site-verification` meta in the landing layout; removing that
+  meta drops the verification. The Smart App Banner meta matches Apple's documented format and App Store id,
   but whether it renders can only be shown in Safari on a physical iPhone or iPad on
   iOS 26 with the App Store; the Simulator never shows it. The landing's ten
   boards (five weather scenes, a women's and a men's board each) are listed in
