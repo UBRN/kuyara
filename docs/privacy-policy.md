@@ -349,8 +349,9 @@ portability, and you can withdraw consent at any time. kuyara makes no automated
 you from your account data.
 
 **How to apply.** Write to [quint.inboard_9t@icloud.com](mailto:quint.inboard_9t@icloud.com)
-from the email address of your account. If you write from another address, we send an email to
-your account's address to confirm it is you; replying is enough. If you chose Hide My Email with
+from the email address of your account. We answer a request only at the email address stored on
+your account, never at a different sender address. If you write from another address, we send
+an email to your account's address to confirm it is you; replying from there is enough. If you chose Hide My Email with
 Apple, that email reaches you through Apple's relay. You can also apply in writing by post; we
 share the postal address on request by email. A written application must include your name,
 surname and signature, your Turkish ID number if you are a Turkish citizen or otherwise your
@@ -358,7 +359,8 @@ nationality and passport or ID number, an address for notices, and your request 
 the Procedures and Principles of Application to the Data Controller). We answer free of charge
 within 30 days (under the GDPR within one month, which can be extended by two months for
 complex requests, with notice). If you ask for a copy of your data, we send it as a
-machine-readable JSON file, encrypted, and send the password in a separate message.
+machine-readable JSON file, encrypted, to the address stored on your account, and send the
+password in a separate message after you confirm from that address.
 
 **Complaints.** If your request is refused, you find the answer insufficient, or you get no
 answer within 30 days, you can complain to the Turkish Personal Data Protection Board within 30

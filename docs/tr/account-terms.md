@@ -39,7 +39,10 @@ Hesabını yalnız kendin için kullan. Şunları yapma:
 - başkasının Apple ya da Google hesabıyla oturum açmak,
 - kuyara'nın sunucusuna otomatik araçlarla istek yağdırmak ya da günlük sınırları aşmaya
   çalışmak,
-- hizmetin güvenliğini izinsiz sınamak ya da bozmaya çalışmak,
+- hizmete saldırmak ya da güvenliğini izinsiz sınamak (bir güvenlik sorunu bulup iyi niyetle
+  bildirmek istersen
+  [güvenlik politikası](https://github.com/UBRN/kuyara/blob/main/SECURITY.md) nasıl yapacağını
+  anlatır),
 - hizmeti yasaya aykırı bir amaçla kullanmak.
 
 Bu kurallara uymayan bir hesabı kuyara askıya alabilir ya da kapatabilir. Ciddi bir tehlike

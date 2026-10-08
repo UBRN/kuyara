@@ -62,5 +62,6 @@ dokunmanı söyler. Silme için bağlantı gerekir. Kullanım verileri hiçbir z
 bağlanmaz; bu yüzden hesabı silmek Ayarlar > Gizlilik'teki paylaşım seçimini değiştirmez.
 
 **Hesap verilerimin kopyasını nasıl alırım?**
-Hesabındaki e-posta adresinden bize e-posta gönder. 30 gün içinde makinece okunabilir,
-şifreli bir JSON dosyası alırsın; şifre ayrı bir iletiyle gelir.
+Hesabındaki e-posta adresinden bize e-posta gönder. Yalnız hesabında kayıtlı adreste yanıt
+veririz. 30 gün içinde o adrese makinece okunabilir, şifreli bir JSON dosyası gelir; o adresten
+doğruladıktan sonra şifre ayrı bir iletiyle gelir.

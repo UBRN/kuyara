@@ -63,5 +63,6 @@ choose kuyara and tap Delete. Deletion needs a connection. Usage data is never l
 account, so deleting the account does not change your sharing choice under Settings > Privacy.
 
 **How do I get a copy of my account data?**
-Email us from your account's email address. Within 30 days you receive a machine-readable JSON
-file, encrypted, with the password in a separate message.
+Email us from your account's email address. We answer only at the address stored on your
+account. Within 30 days that address receives a machine-readable JSON file, encrypted, and
+once you confirm from it, the password follows in a separate message.

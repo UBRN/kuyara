@@ -355,16 +355,18 @@ istediğin zaman geri çekebilirsin. kuyara hesap verilerinle hakkında sonuç d
 karar vermez.
 
 **Nasıl başvurulur.** [quint.inboard_9t@icloud.com](mailto:quint.inboard_9t@icloud.com)
-adresine, hesabındaki e-posta adresinden yaz. Başka bir adresten yazarsan kimliğini doğrulamak
-için hesabındaki adrese bir e-posta göndeririz; yanıtlaman yeterli. Apple ile "E-postamı
+adresine, hesabındaki e-posta adresinden yaz. Başvuruyu yalnız hesabında kayıtlı e-posta
+adresinde yanıtlarız, gönderenin başka bir adresinde asla. Başka bir adresten yazarsan
+kimliğini doğrulamak için hesabındaki adrese bir e-posta göndeririz; o adresten yanıtlaman
+yeterli. Apple ile "E-postamı
 Gizle"yi seçtiysen bu e-posta sana Apple'ın yönlendirmesiyle ulaşır. Başvurunu yazılı olarak
 posta yoluyla da gönderebilirsin; posta adresini e-postayla istediğinde paylaşırız. Yazılı
 başvuruda adın, soyadın ve imzan, T.C. vatandaşıysan T.C. kimlik numaran, değilsen uyruğun ve
 pasaport ya da kimlik numaran, tebligat için adresin ve talebin yer almalı (Veri Sorumlusuna
 Başvuru Usul ve Esasları Hakkında Tebliğ). Başvurunu en geç 30 gün içinde ücretsiz yanıtlarız
 (GDPR için en geç bir ay; karmaşık başvurularda haber vererek iki ay uzayabilir). Verilerinin
-kopyasını istersen makinece okunabilir bir JSON dosyası olarak şifreli göndeririz; şifreyi ayrı
-bir iletiyle iletiriz.
+kopyasını istersen makinece okunabilir bir JSON dosyası olarak şifreli, hesabında kayıtlı adrese göndeririz; sen o
+adresten doğruladıktan sonra şifreyi ayrı bir iletiyle iletiriz.
 
 **Şikâyet.** Başvurun reddedilirse, yanıtı yetersiz bulursan ya da 30 gün içinde yanıt
 alamazsan, yanıtı öğrendiğin tarihten itibaren 30 gün içinde ve her durumda başvuru tarihinden

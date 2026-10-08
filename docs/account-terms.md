@@ -37,7 +37,9 @@ Use your account only for yourself. Do not:
 
 - sign in with someone else's Apple or Google account,
 - flood kuyara's server with automated requests or try to get around the daily limits,
-- test or attack the service's security without permission,
+- attack the service or test its security without permission (if you find a security problem
+  and want to report it in good faith, the
+  [security policy](https://github.com/UBRN/kuyara/blob/main/SECURITY.md) explains how),
 - use the service for anything unlawful.
 
 kuyara may suspend or close an account that breaks these rules. Unless there is a serious risk,
