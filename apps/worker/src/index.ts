@@ -335,35 +335,17 @@ export function buildRouter(env: Env): Handler {
  * added, until the isolate recycled. Comparing a few strings per request is far cheaper
  * than what the memo saves.
  */
-function compositionKey(env: Env): string {
-  return JSON.stringify([
-    env.HAIKU_API_KEY,
-    env.HAIKU_MODELS,
-    env.OPENROUTER_API_KEY,
-    env.OPENROUTER_MODELS,
-    env.WORKERS_AI_MODELS,
-    env.OPENWEATHER_API_KEY,
-    env.WEATHERKIT_TEAM_ID,
-    env.WEATHERKIT_SERVICE_ID,
-    env.WEATHERKIT_KEY_ID,
-    env.WEATHERKIT_PRIVATE_KEY,
-    env.SUPABASE_URL,
-    env.APPLE_TEAM_ID,
-    env.SUPABASE_SECRET_KEY,
-    env.APPLE_SIGN_IN_PRIVATE_KEY,
-    env.APPLE_SIGN_IN_KEY_ID,
-    // Binding presence decides which routes go offline and which providers are composed.
-    Boolean(env.AI),
-    Boolean(env.DAILY_COUNTERS),
-    Boolean(env.AI_PROBE_RATE_LIMIT),
-    Boolean(env.AI_RECOMMEND_RATE_LIMIT),
-    Boolean(env.WEATHER_RATE_LIMIT),
-    Boolean(env.PLACE_SEARCH_RATE_LIMIT),
-    Boolean(env.ACCOUNT_DELETE_RATE_LIMIT),
-    Boolean(env.FEEDBACK_DB),
-    Boolean(env.FEEDBACK_RATE_LIMIT),
-    Boolean(env.USAGE_EVENTS),
-  ]);
+export function compositionKey(env: Env): string {
+  // Every variable and secret by value and every binding by presence, so a setting added to
+  // `Env` later cannot be left out of the key.
+  return JSON.stringify(
+    Object.keys(env)
+      .sort()
+      .map((name) => {
+        const value: unknown = env[name as keyof Env];
+        return [name, typeof value === 'string' || Array.isArray(value) ? value : Boolean(value)];
+      }),
+  );
 }
 
 let composed: { key: string; router: Handler } | undefined;

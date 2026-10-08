@@ -8,7 +8,7 @@ import { DailyCounter, type DailyCounterNamespace } from './daily-counter.ts';
 import { createEs256Signer, base64UrlEncode } from './es256-jwt.ts';
 import { accountUpstreamTimeoutMs } from './account/upstream-timeout.ts';
 import * as entryModule from './index.ts';
-import worker, { buildRouter, type Env } from './index.ts';
+import worker, { buildRouter, compositionKey, type Env } from './index.ts';
 
 type LogEntry = { event?: string; route?: string; binding?: string };
 type FakeCounters = DailyCounterNamespace<{ name: string }>;
@@ -743,6 +743,16 @@ test('the scheduled handler makes the keep-alive request from the parsed Supabas
     await worker.scheduled({}, { ...boundEnv, ...unusable });
   }
   assert.deepEqual(calls, []);
+});
+
+test('changing any one setting changes the composition key, so a rotated value never stays memoized', () => {
+  const full: Env = { ...env, HAIKU_API_KEY: 'haiku', HAIKU_MODELS: ['m'], OPENROUTER_API_KEY: 'or', OPENROUTER_MODELS: ['m'], OPENWEATHER_API_KEY: 'ow' };
+  const base = compositionKey(full);
+  for (const [name, value] of Object.entries(full)) {
+    const changed = typeof value === 'string' ? `${value}-rotated` : Array.isArray(value) ? [...value, 'added'] : undefined;
+    assert.notEqual(compositionKey({ ...full, [name]: changed }), base, name);
+  }
+  assert.equal(compositionKey({ ...full }), base);
 });
 
 test('every named export of the entry module is a function or class, as workerd requires', () => {
