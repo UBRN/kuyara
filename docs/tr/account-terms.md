@@ -1,5 +1,6 @@
 ---
-title: kuyara hesap koşulları
+title: Hesap koşulları
+description: İsteğe bağlı kuyara hesabının koşulları.
 lang: tr
 ref: account-terms
 ---

@@ -1,5 +1,6 @@
 ---
-title: kuyara privacy policy
+title: Privacy policy
+description: How kuyara handles your data.
 lang: en
 ref: privacy-policy
 ---

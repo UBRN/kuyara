@@ -1,5 +1,6 @@
 ---
-title: kuyara gizlilik politikası
+title: Gizlilik politikası
+description: kuyara verilerini nasıl işler.
 lang: tr
 ref: privacy-policy
 ---

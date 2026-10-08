@@ -1,5 +1,6 @@
 ---
-title: kuyara destek
+title: Destek
+description: kuyara hakkında sorular, geri bildirim ve yanıtlar.
 lang: tr
 ref: support
 ---

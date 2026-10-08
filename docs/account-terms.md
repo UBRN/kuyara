@@ -1,5 +1,6 @@
 ---
-title: kuyara account terms
+title: Account terms
+description: The terms for the optional kuyara account.
 lang: en
 ref: account-terms
 ---

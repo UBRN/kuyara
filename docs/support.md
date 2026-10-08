@@ -1,5 +1,6 @@
 ---
-title: kuyara support
+title: Support
+description: Questions, feedback and answers about kuyara.
 lang: en
 ref: support
 ---

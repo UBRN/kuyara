@@ -1,26 +1,31 @@
 # The words the site's header and footer carry on every page, by language. Page copy lives
-# in each page's front matter. Strings marked draft are new with the site rebuild; the
-# rest are the live site's copy.
+# in each page's front matter.
 en:
   home_label: kuyara home
-  skip: Skip to content # draft copy
+  skip: Skip to content
   footer_nav_label: More
   privacy: Privacy policy
   privacy_url: /privacy-policy
   support: Support
   support_url: /support
+  account_terms: Account terms
+  account_terms_url: /account-terms
+  language_label: Language
   apple: >-
     Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and
     other countries. App Store is a service mark of Apple Inc. Google Play is a
     trademark of Google LLC.
 tr:
   home_label: kuyara ana sayfa
-  skip: İçeriğe geç # draft copy
+  skip: İçeriğe geç
   footer_nav_label: Diğer
   privacy: Gizlilik politikası
   privacy_url: /tr/privacy-policy
   support: Destek
   support_url: /tr/support
+  account_terms: Hesap koşulları
+  account_terms_url: /tr/account-terms
+  language_label: Dil
   apple: >-
     Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and
     other countries. App Store is a service mark of Apple Inc. Google Play is a
