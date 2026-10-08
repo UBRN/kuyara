@@ -253,7 +253,7 @@ The English and Turkish labels below are localization copy, not identity. They m
 | `footwear` | `ballet_flats` | Ballet flats | Babet |
 | `footwear` | `rain_boots` | Rain boots | Yağmur botu |
 | `accessory` | `beanie` | Beanie | Bere |
-| `accessory` | `brimmed_hat` | Brimmed hat | Kenarlı şapka |
+| `accessory` | `brimmed_hat` | Brimmed hat | Geniş kenarlı şapka |
 | `accessory` | `cap` | Cap | Kep |
 | `accessory` | `balaclava` | Balaclava | Kar maskesi |
 | `accessory` | `scarf` | Scarf | Atkı |

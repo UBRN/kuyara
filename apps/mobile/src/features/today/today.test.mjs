@@ -647,7 +647,7 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.equal(english.header.isStale, true);
   // 06:05 UTC, the device clock, where the location's zone would read 09:05.
   assert.match(english.header.freshness, /06:05.*out of date/i);
-  assert.match(turkish.header.freshness, /06:05.*Güncelliğini yitirmiş olabilir/);
+  assert.match(turkish.header.freshness, /06:05.*Biraz eskimiş olabilir/);
   assert.deepEqual(
     turkish.suggestions.map(({ title }) => title),
     ['Yağmura Hazır', 'Rüzgâra Karşı', 'Keyifli Gün'],

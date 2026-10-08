@@ -150,7 +150,7 @@ const tr = {
   'catalog.garment_type.ballet_flats.name': 'Babet',
   'catalog.garment_type.rain_boots.name': 'Yağmur botu',
   'catalog.garment_type.beanie.name': 'Bere',
-  'catalog.garment_type.brimmed_hat.name': 'Kenarlı şapka',
+  'catalog.garment_type.brimmed_hat.name': 'Geniş kenarlı şapka',
   'catalog.garment_type.cap.name': 'Kep',
   'catalog.garment_type.balaclava.name': 'Kar maskesi',
   'catalog.garment_type.scarf.name': 'Atkı',
