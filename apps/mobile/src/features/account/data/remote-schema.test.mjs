@@ -264,26 +264,30 @@ test('each record table caps the rows one user holds, and a signed-in insert is 
 
 test('past half the guard only accounts under a small allowance grow, so a few full accounts cannot stop every member', () => {
   const body = finalFunction('enforce_user_row_cap');
-  const mib = 1024 * 1024;
   const hard = Number(/if database_bytes > (\d+) \* 1024 \* 1024 then\n\s+raise exception 'database size guard reached'/u.exec(body)?.[1]);
   const soft = Number(/if database_bytes > (\d+) \* 1024 \* 1024 then\n\s+select coalesce\(sum\(row_bytes\), 0\) into account_bytes from \(/u.exec(body)?.[1]);
-  const allowance = /if account_bytes > (\d+ \* )?1024 \* 1024 then\n\s+raise exception 'database size guard reached' using errcode = '53100';/u.exec(body);
-  assert.ok(allowance, 'the allowance refuses with the guard\'s own error, which installed apps already treat as a failed request');
-  const allowanceBytes = Number(allowance[1]?.replace(' * ', '') ?? 1) * mib;
-  assert.equal(hard, 400);
-  assert.ok(soft > 0 && soft <= hard / 2, `${soft}`);
+  // The allowance refuses with the guard's own error, which installed apps already treat as a failed request.
+  assert.match(body, /if account_bytes > 1024 \* 1024 then\n\s+raise exception 'database size guard reached' using errcode = '53100';/u);
+  // A higher step or allowance lets fewer accounts fill the space between the two steps.
+  assert.ok(hard === 400 && soft > 0 && soft <= hard / 2, `${soft}`);
   assert.ok(body.indexOf(`> ${hard} * 1024 * 1024`) < body.indexOf(`> ${soft} * 1024 * 1024`));
-  // The account's rows in every record table count, the upload's own rows included.
-  for (const table of recordTables) {
-    assert.match(body, new RegExp(`select pg_column_size\\(r\\.\\*\\)(?: as row_bytes)? from public\\.${table} r where r\\.user_id = auth\\.uid\\(\\)`, 'u'), table);
+  // Every row of the account in every record table counts, the statement's own rows included:
+  // `union all`, since `union` would fold rows of equal size into one.
+  const measured = /select coalesce\(sum\(row_bytes\), 0\) into account_bytes from \(\n([\s\S]*?)\n\s+\) account_rows;/u.exec(body)?.[1] ?? '';
+  const parts = measured.split('\n').map((line) => line.trim());
+  assert.equal(parts.length, recordTables.length, measured);
+  assert.ok(parts.slice(1).every((line) => line.startsWith('union all select pg_column_size(r.*) from ')), measured);
+  assert.ok(parts[0].startsWith('select pg_column_size(r.*) as row_bytes from '), measured);
+  assert.deepEqual(parts.map((line) => / from public\.(\w+) r where r\.user_id = auth\.uid\(\)$/u.exec(line)?.[1]).sort(), [...recordTables].sort());
+});
+
+test('updates on the record tables are judged by the same cap and size guard as inserts', () => {
+  // Rows inserted small could otherwise be rewritten large past either step; an upsert fires both.
+  const caps = { wardrobe_items: 2000, outfit_history: 7300, dressing_day_choices: 7300, dressing_day_departures: 7300 };
+  for (const [table, cap] of Object.entries(caps)) {
+    assert.equal(schema.triggers.get(`${table}.${table}_row_cap_update`), `create trigger ${table}_row_cap_update\n`
+      + `  after update on public.${table}\n  for each statement execute function public.enforce_user_row_cap('${cap}')`, table);
   }
-  // Measured on copies of the tables: an account under the allowance costs at most 2.44 bytes of
-  // disk per row byte (deletion markers, whose indexes outweigh their rows) plus its 401 consent
-  // answers (192 KiB). The space between the two steps must hold at least 75 such accounts, and
-  // the app's own largest rows (0.73 MB a year) must fit the allowance for a year.
-  const accountDisk = 2.44 * allowanceBytes + 192 * 1024;
-  assert.ok((hard - soft) * mib >= 75 * accountDisk, `${((hard - soft) * mib) / accountDisk} accounts`);
-  assert.ok(allowanceBytes >= 733_000, `${allowanceBytes}`);
 });
 
 test('the History and Closet bounds hold the largest value the app writes', () => {

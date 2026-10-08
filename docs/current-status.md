@@ -183,12 +183,12 @@ size guard, the per-account lock between uploads and a consent withdrawal, one i
 applies both files in order and checks their access rules, caps, bounds, guard and lock.
 `supabase/migrations/20261006120000_account_cap_locks.sql` makes each cap check hold the account's lock alone before it counts, so parallel uploads cannot pass a cap together; it is applied to the project, and the two-session race itself has no Postgres run.
 `supabase/migrations/20261008120000_account_size_fair_share.sql` adds the size guard's 200 MB step (past it an account
-holding more than 1 MB of rows cannot upload) and holds one cap lock per account across the record tables. On the
-development project a rolled-back run filled one account to every cap and pushed the database past 200 MB and 400 MB:
-past 200 MB twenty accounts over 1 MB were refused while ordinary and fresh accounts uploaded, past 400 MB every
-upload was refused, and deletes and withdrawals worked throughout; a two-session run showed two parallel uploads of one
-account to different tables, which together passed 1 MB, refused at the second. It is not yet applied to the live
-project. Evidence is automated
+holding more than 1 MB of rows cannot insert or update), judges updates as well as inserts, and holds one cap lock per
+account across the record tables. It is applied to the development project, where rolled-back runs showed: one account
+stopped at each of its four row caps; past 200 MB, accounts holding more than 1 MB refused on insert, upsert and update,
+while accounts under 1 MB inserted, upserted and soft-deleted; past 400 MB, every insert, upsert and update refused;
+hard deletes and consent withdrawal working past both steps; and two parallel uploads of one account to different
+tables, which together pass 1 MB, refused at the second. It is not yet applied to the live project. Evidence is automated
 tests, an in-memory Postgres run of the schema and one Simulator pass. App Privacy in App Store Connect declares the email address, name, user ID and other user content, linked to the person, for app functionality, matching the privacy manifest; sign-in, sync, deletion and revocation ran on a physical iPhone. The account terms pages (`docs/account-terms.md` and `docs/tr/account-terms.md`, which the app links) are published with the account versions of the privacy policy and support pages. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
