@@ -14,6 +14,8 @@ import {
   localDayKey,
   localDayKind,
   localDayVariant,
+  type RecommendationApplicationInput,
+  type RecommendationRefreshTrigger,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import {
   RecommendationApplicationContext,
@@ -38,6 +40,7 @@ import {
 import { memberAccessToken } from '@/features/account/application/account-membership';
 import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
 import {
+  approvedTriggerAwaitsWeatherRefresh,
   createApprovedTriggerEvaluation,
   firstOutfitAwaitsWeatherRefresh,
 } from '@/features/recommendation/application/approved-trigger-evaluation';
@@ -329,11 +332,16 @@ export function RecommendationApplicationProvider({
   const awaitsWeatherRefresh = useCallback((dayKey: string) => firstOutfitAwaitsWeatherRefresh(
     weatherApplication.getSnapshot?.() ?? weatherState, controller.getSnapshot(), dayKey,
   ), [controller, weatherApplication, weatherState]);
+  const triggerAwaitsWeatherRefresh = useCallback((
+    triggerInput: RecommendationApplicationInput, trigger: RecommendationRefreshTrigger,
+  ) => approvedTriggerAwaitsWeatherRefresh(
+    weatherApplication.getSnapshot?.() ?? weatherState, controller.getSnapshot(), triggerInput, trigger,
+  ), [controller, weatherApplication, weatherState]);
   const approvedTriggerReading = useMemo(() => ({
     recommendation: controller,
     dayQuestionPending: morningChoicePending || eveningChoicePending,
-    awaitsWeatherRefresh,
-  }), [awaitsWeatherRefresh, controller, eveningChoicePending, morningChoicePending]);
+    awaitsWeatherRefresh: triggerAwaitsWeatherRefresh,
+  }), [controller, eveningChoicePending, morningChoicePending, triggerAwaitsWeatherRefresh]);
 
   useEffect(() => {
     if (state.status !== 'ready' || !input) return;

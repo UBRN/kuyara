@@ -5,6 +5,7 @@ import {
   type RecommendationApplicationController,
   type RecommendationApplicationInput,
   type RecommendationApplicationState,
+  type RecommendationRefreshTrigger,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import {
   signalsOfInput,
@@ -19,8 +20,8 @@ export type ApprovedTriggerReading = Readonly<{
   recommendation: Recommendation;
   /** An unanswered morning or evening question holds automatic selection. */
   dayQuestionPending: boolean;
-  /** Whether the dressing day's first outfit waits for a weather refresh in flight. */
-  awaitsWeatherRefresh: (dayKey: string) => boolean;
+  /** Whether the generation this trigger starts waits for a weather refresh in flight. */
+  awaitsWeatherRefresh: (input: RecommendationApplicationInput, trigger: RecommendationRefreshTrigger) => boolean;
 }>;
 
 /**
@@ -35,6 +36,26 @@ export function firstOutfitAwaitsWeatherRefresh(
 ): boolean {
   return weather.status === 'ready' && Boolean(weather.isRefreshing) &&
     !(recommendation.status === 'ready' && recommendation.snapshot?.localDayKey === dayKey);
+}
+
+/**
+ * Besides the day's first outfit, a place change waits while the weather of the place it
+ * moved to is refreshing, so a stored snapshot of that place is not chosen from when newer
+ * weather is on its way. A failed refresh settles too, and the stored snapshot is used then.
+ */
+export function approvedTriggerAwaitsWeatherRefresh(
+  weather: Readonly<{
+    status: string;
+    isRefreshing?: boolean;
+    activeLocation?: Readonly<{ locationKey: string }> | null;
+  }>,
+  recommendation: RecommendationApplicationState,
+  input: Readonly<{ localDayKey: string; snapshot: Readonly<{ locationKey: string }> }>,
+  trigger: RecommendationRefreshTrigger,
+): boolean {
+  if (firstOutfitAwaitsWeatherRefresh(weather, recommendation, input.localDayKey)) return true;
+  return trigger === 'active-location-changed' && weather.status === 'ready' &&
+    Boolean(weather.isRefreshing) && weather.activeLocation?.locationKey === input.snapshot.locationKey;
 }
 
 export type ApprovedTriggerEvaluation = Readonly<{
@@ -89,7 +110,7 @@ export function createApprovedTriggerEvaluation(): ApprovedTriggerEvaluation {
     const trigger = recommendationRefreshTrigger(previous, current);
 
     if (trigger) {
-      if (awaitsWeatherRefresh(input.localDayKey)) return false;
+      if (awaitsWeatherRefresh(input, trigger)) return false;
       foregroundRequested = false;
       await recommendation.refresh(trigger, input);
       return true;

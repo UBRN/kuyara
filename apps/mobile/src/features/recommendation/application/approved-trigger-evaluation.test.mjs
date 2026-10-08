@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  approvedTriggerAwaitsWeatherRefresh,
   createApprovedTriggerEvaluation,
   firstOutfitAwaitsWeatherRefresh,
 } from './approved-trigger-evaluation.ts';
@@ -41,7 +42,7 @@ function recordingRecommendation(snapshot) {
     calls,
     recommendation: {
       getSnapshot: () => ({ status: 'ready', snapshot }),
-      refresh: async (trigger, input) => { calls.push(['refresh', trigger, input.now]); return null; },
+      refresh: async (trigger, input) => { calls.push(['refresh', trigger, input.now, input.snapshot.id]); return null; },
       updatePoolAvailability: () => { calls.push(['pool']); },
       clearLastFailure: () => { calls.push(['clear']); },
     },
@@ -55,13 +56,13 @@ function readingFor(recommendation, overrides = {}) {
 test('a changed approved signal refreshes with its trigger', async () => {
   const { calls, recommendation } = recordingRecommendation(persistedFor({ dressStyle: 'casual' }));
   await createApprovedTriggerEvaluation().evaluate(() => inputFor(), readingFor(recommendation), false);
-  assert.deepEqual(calls, [['refresh', 'dress-style-changed', '2026-08-01T12:00:00.000Z']]);
+  assert.deepEqual(calls, [['refresh', 'dress-style-changed', '2026-08-01T12:00:00.000Z', 'weather-one']]);
 });
 
 test('no persisted recommendation asks for the first one', async () => {
   const { calls, recommendation } = recordingRecommendation(null);
   await createApprovedTriggerEvaluation().evaluate(() => inputFor(), readingFor(recommendation), false);
-  assert.deepEqual(calls, [['refresh', 'first-recommendation', '2026-08-01T12:00:00.000Z']]);
+  assert.deepEqual(calls, [['refresh', 'first-recommendation', '2026-08-01T12:00:00.000Z', 'weather-one']]);
 });
 
 test('an unanswered day question holds every trigger', async () => {
@@ -75,9 +76,9 @@ test('a first outfit waiting for a weather refresh in flight starts nothing yet'
   const { calls, recommendation } = recordingRecommendation(null);
   const waitedFor = [];
   await createApprovedTriggerEvaluation().evaluate(() => inputFor(), readingFor(recommendation, {
-    awaitsWeatherRefresh: (key) => { waitedFor.push(key); return true; },
+    awaitsWeatherRefresh: (input, trigger) => { waitedFor.push([input.localDayKey, trigger]); return true; },
   }), false);
-  assert.deepEqual(waitedFor, [dayKey]);
+  assert.deepEqual(waitedFor, [[dayKey, 'first-recommendation']]);
   assert.deepEqual(calls, [['clear']]);
 });
 
@@ -115,7 +116,7 @@ test('ended coverage reselects once on a foreground evaluation, never on a backg
   assert.deepEqual(calls.splice(0), [['pool'], ['clear']]);
 
   await evaluation.evaluate(() => inputFor(), reading, true);
-  assert.deepEqual(calls.splice(0), [['refresh', 'explicit', '2026-08-01T12:00:00.000Z']]);
+  assert.deepEqual(calls.splice(0), [['refresh', 'explicit', '2026-08-01T12:00:00.000Z', 'weather-one']]);
 
   await evaluation.evaluate(() => inputFor(), reading, true);
   assert.deepEqual(calls.splice(0), [['pool'], ['clear']]);
@@ -188,4 +189,59 @@ test('the first outfit waits for weather only while a refresh is in flight and t
   assert.equal(firstOutfitAwaitsWeatherRefresh(refreshing, ready(dayKey), dayKey), false);
   assert.equal(firstOutfitAwaitsWeatherRefresh(settled, ready('2026-07-31'), dayKey), false);
   assert.equal(firstOutfitAwaitsWeatherRefresh({ status: 'loading' }, ready('2026-07-31'), dayKey), false);
+});
+
+test('a place change waits for weather only while the new place is refreshing', () => {
+  const placeB = 'manual:sample.ankara';
+  const refreshing = (locationKey) => ({ status: 'ready', isRefreshing: true, activeLocation: { locationKey } });
+  const today = { status: 'ready', snapshot: { localDayKey: dayKey } };
+  const placeInput = { localDayKey: dayKey, snapshot: { locationKey: placeB } };
+  assert.equal(approvedTriggerAwaitsWeatherRefresh(refreshing(placeB), today, placeInput,
+    'active-location-changed'), true);
+  assert.equal(approvedTriggerAwaitsWeatherRefresh(refreshing('manual:sample.izmir'), today, placeInput,
+    'active-location-changed'), false);
+  assert.equal(approvedTriggerAwaitsWeatherRefresh({ ...refreshing(placeB), isRefreshing: false }, today,
+    placeInput, 'active-location-changed'), false);
+  assert.equal(approvedTriggerAwaitsWeatherRefresh(refreshing(placeB), today, placeInput,
+    'dress-style-changed'), false);
+  assert.equal(approvedTriggerAwaitsWeatherRefresh(refreshing(placeB), { status: 'ready', snapshot: null },
+    placeInput, 'first-recommendation'), true);
+});
+
+test('a place change generates from the weather its refresh brings', async () => {
+  const placeB = 'manual:sample.ankara';
+  const { calls, recommendation } = recordingRecommendation(persistedFor());
+  const evaluation = createApprovedTriggerEvaluation();
+  let weather = { status: 'ready', isRefreshing: true, activeLocation: { locationKey: placeB } };
+  const reading = readingFor(recommendation, {
+    awaitsWeatherRefresh: (input, trigger) => approvedTriggerAwaitsWeatherRefresh(
+      weather, recommendation.getSnapshot(), input, trigger),
+  });
+  const placeInput = (id) => inputFor({ snapshot: { id, locationKey: placeB } });
+
+  await evaluation.followRender(placeInput('b-stale'), reading);
+  assert.deepEqual(calls, []);
+
+  weather = { ...weather, isRefreshing: false };
+  await evaluation.followRender(placeInput('b-fresh'), reading);
+  assert.deepEqual(calls, [['refresh', 'active-location-changed', '2026-08-01T12:00:00.000Z', 'b-fresh']]);
+});
+
+test('a place change whose weather refresh fails generates from the stored weather', async () => {
+  const placeB = 'manual:sample.ankara';
+  const { calls, recommendation } = recordingRecommendation(persistedFor());
+  const evaluation = createApprovedTriggerEvaluation();
+  let weather = { status: 'ready', isRefreshing: true, activeLocation: { locationKey: placeB } };
+  const reading = readingFor(recommendation, {
+    awaitsWeatherRefresh: (input, trigger) => approvedTriggerAwaitsWeatherRefresh(
+      weather, recommendation.getSnapshot(), input, trigger),
+  });
+  const stale = inputFor({ snapshot: { id: 'b-stale', locationKey: placeB } });
+
+  await evaluation.followRender(stale, reading);
+  assert.deepEqual(calls, []);
+
+  weather = { ...weather, isRefreshing: false, refreshFailure: 'unavailable' };
+  await evaluation.followRender({ ...stale }, reading);
+  assert.deepEqual(calls, [['refresh', 'active-location-changed', '2026-08-01T12:00:00.000Z', 'b-stale']]);
 });
