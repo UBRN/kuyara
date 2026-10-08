@@ -199,7 +199,7 @@ test('JSON.parse sites that do not feed a schema are a frozen, shrink-only list'
   const allowed = new Map([
     ['account/bounded-fetch.ts', 1],
     ['account/supabase-token-verifier.ts', 1],
-    ['ai/openrouter-ai-provider.ts', 1],
+    ['ai/ai-provider.ts', 1],
     ['json-request.ts', 1],
   ]);
   const found = new Map();
@@ -245,4 +245,15 @@ test('the content type check and the bounded JSON read live only in json-request
   }
 
   assert.deepEqual(hits, [], 'use readRouteRequest or readRequestBody from json-request.ts');
+});
+
+// The paid provider is priced per attempt, so it exists only behind its daily cap: the one
+// construction sits in the composition, inside `createDailyCappedAiProvider`.
+test('the Haiku adapter is built only inside its daily cap', () => {
+  const sites = sourceFiles().flatMap((relativePath) => readFileSync(path.join(sourceRoot, relativePath), 'utf8')
+    .split('\n')
+    .flatMap((line, index, lines) => (/new HaikuAiProvider\(/.test(line)
+      ? [`${relativePath}: ${/createDailyCappedAiProvider\(/.test(lines[index - 1] ?? '') ? 'capped' : 'uncapped'}`]
+      : [])));
+  assert.deepEqual(sites, ['index.ts: capped']);
 });

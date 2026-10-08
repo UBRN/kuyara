@@ -55,13 +55,13 @@ type Dependencies = Readonly<{
  * - Rates: `@cf/meta/llama-3.3-70b-instruct-fp8-fast` 26,668 Neurons per 1M input tokens
  *   and 204,805 per 1M output tokens; `@cf/mistralai/mistral-small-3.1-24b-instruct`
  *   31,876 in and 50,488 out.
- * - Probe reserve: the probe always calls the first provider (llama) with a 2,144-character
- *   prompt, about 536 tokens at four characters per token, and `PROBE_MAX_TOKENS` (256)
+ * - Probe reserve: the probe always calls the first Workers AI provider (llama) with a
+ *   2,144-character prompt, about 536 tokens at four characters per token, and `PROBE_MAX_TOKENS` (256)
  *   of output: 14.3 + 52.4 = 66.7, rounded up to 67 Neurons; `PROBE_DAILY_LIMIT` (30)
  *   calls reserve 2,010.
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
  *   produce over the v2 recommendation grid, on a weekday, a weekend or no day kind and in
- *   either locale, is 18,091 characters (messages plus response schema, 24 options, on a
+ *   either locale, is 18,014 characters (messages plus response schema, 24 options, on a
  *   weekend), rounded to 4,600 tokens at four characters per token. The budget test in
  *   ai-handler.test.ts measures that prompt and derives the
  *   limit below from it, so the constant and the prompt stay in step.
@@ -145,8 +145,8 @@ export function createAiHandler({
   // transport) and sends 37 s in the header; with up to 8 s of on-device selection ahead of
   // it, the whole user-visible wait is at most 46 s.
   totalDeadlineMs = 36_000,
-  // Five attempts bound the walk: the two Workers AI models plus room for up to three
-  // measured OpenRouter models from `OPENROUTER_MODELS`.
+  // Five attempts bound the walk: the Haiku model, the two Workers AI models and room
+  // for up to two measured OpenRouter models from `OPENROUTER_MODELS`.
   maxAttempts = 5,
 }: Dependencies): (request: Request, ctx: ExecutionContext) => Promise<Response> {
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {

@@ -1124,6 +1124,13 @@ const decisionNarrativePattern = new RegExp([
 // A task line addressed to a person: "Owner: ..." as a line or list item. Case matters, since
 // code writes `owner:` as an object key.
 const personTaskPattern = new RegExp(['^\\s*(?:\\d+\\.\\s+|[-*]\\s+)?(?:Own', 'er|Maint', 'ainer):'].join(''));
+// The product's own AI provider is reached through these exact API identifiers (the model id,
+// the API host, the three documentation pages cited and the version header). They name the app's AI feature, not a
+// coding tool, so they are removed from a line before the check; the vendor name in prose is not.
+const productAiIdentifierPattern = new RegExp([
+  ['\\bcl', 'aude-haiku-[0-9-]+'], ['\\bapi\\.anth', 'ropic\\.com\\b'], ['\\banth', 'ropic-version\\b'],
+  ['\\bplatform\\.cl', 'aude\\.com/docs/en/(?:about-cl', 'aude/pricing|build-with-cl', 'aude/structured-outputs|api/errors)\\b'],
+].map((parts) => parts.join('')).join('|'), 'gi');
 const processTraceAllowlist = new Set([
   'apps/mobile/src/features/recommendation/domain/insight-sentence.ts',
   'apps/mobile/src/features/recommendation/domain/insight-sentence.test.mjs',
@@ -1144,7 +1151,7 @@ test('tracked text files name no coding tool, no work-process term and no decisi
     }
     if (buffer.includes(0)) continue; // binary
     buffer.toString('utf8').split('\n').forEach((line, index) => {
-      if (processTracePattern.test(line) || processTermPattern.test(line)
+      if (processTracePattern.test(line.replace(productAiIdentifierPattern, '')) || processTermPattern.test(line)
         || decisionNarrativePattern.test(line) || personTaskPattern.test(line)) hits.push(`${relative}:${index + 1}`);
     });
   }

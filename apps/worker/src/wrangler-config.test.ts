@@ -1,7 +1,7 @@
 // The spend guards no code can enforce at runtime live in wrangler.jsonc: production
 // WORKERS_AI_MODELS must stay inside the two models whose Neuron rates
 // WORKERS_AI_DAILY_ATTEMPT_LIMIT was derived from (llama-3.3-70b as the worst case), and the
-// e2e environment must keep both model lists empty so a local end-to-end run never reaches
+// e2e environment must keep every model list empty so a local end-to-end run never reaches
 // a real AI provider or burns the shared quota. Reads only a repo file, offline.
 
 import assert from 'node:assert/strict';
@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test, { mock } from 'node:test';
 
+import { haikuModels } from './ai/haiku-ai-provider.ts';
 import { createAiProviders } from './index.ts';
 
 mock.method(console, 'warn', () => {});
@@ -64,7 +65,14 @@ test('production OPENROUTER_MODELS lists only measured models that pass the free
   assert.equal(providers.length, models.length);
 });
 
+test('production HAIKU_MODELS stays inside the models the daily attempt limit was priced with', () => {
+  // HAIKU_DAILY_ATTEMPT_LIMIT is derived from one model's price; `createAiProviders` also
+  // drops any other model, but the configuration must not depend on that.
+  assert.deepEqual(config.vars.HAIKU_MODELS, [...haikuModels]);
+});
+
 test('the e2e environment configures no AI provider model at all', () => {
+  assert.deepEqual(config.env.e2e.vars.HAIKU_MODELS, []);
   assert.deepEqual(config.env.e2e.vars.WORKERS_AI_MODELS, []);
   assert.deepEqual(config.env.e2e.vars.OPENROUTER_MODELS, []);
 });

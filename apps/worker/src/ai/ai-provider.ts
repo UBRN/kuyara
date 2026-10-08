@@ -66,13 +66,48 @@ export type AiGenerateOptions = Readonly<{
   maxTokens?: number;
 }>;
 
+/**
+ * Every provider the recommend walk can hold. `haiku` is Worker-internal: the probe
+ * reports only an `AiProviderId`, because a new member of that response enum breaks every
+ * installed binary, so it never answers the probe.
+ */
+export type AiChainProviderId = AiProviderId | 'haiku';
+
 export interface AiProvider {
-  /** Controlled, non-secret identifier reported by the probe (ADR 0034 section 5). */
-  readonly id: AiProviderId;
+  /** Controlled, non-secret identifier; the probe reports it when it is an `AiProviderId`. */
+  readonly id: AiChainProviderId;
   readonly model: string;
   generateOutfits(
     request: AiRecommendV1Request | AiRecommendV2Request,
     signal: AbortSignal,
     options?: AiGenerateOptions,
   ): Promise<unknown>;
+}
+
+/**
+ * The model's reply text as JSON, for the adapters whose API returns it as a string. The
+ * handler's response schema and selection gate validate what this returns; a reply that is
+ * not JSON throws `invalidMessage`, never the text itself.
+ */
+export function parseModelJson(text: string, invalidMessage: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(invalidMessage);
+  }
+}
+
+/**
+ * One adapter-reported token count per successful call: the measured check on the
+ * characters-per-token estimate behind each daily attempt limit. Two integers and the model;
+ * nothing is persisted and no text leaves the Worker.
+ */
+export function logProviderUsage(model: string, inputTokens: unknown, outputTokens: unknown): void {
+  if (!Number.isFinite(inputTokens) || !Number.isFinite(outputTokens)) return;
+  console.info({
+    event: 'ai_provider_usage',
+    model,
+    promptTokens: Math.trunc(inputTokens as number),
+    completionTokens: Math.trunc(outputTokens as number),
+  });
 }

@@ -3,6 +3,7 @@ import type { AiRecommendV1Request } from '@kuyara/contracts';
 import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 import {
   AiProviderError,
+  logProviderUsage,
   type AiGenerateOptions,
   type AiProvider,
 } from './ai-provider.ts';
@@ -117,19 +118,11 @@ export class WorkersAiProvider implements AiProvider {
 
 /**
  * The binding's synchronous output documents a `usage` object with `prompt_tokens` and
- * `completion_tokens`. Logged as two integers, they are the measured check on the
- * characters-over-four estimate behind WORKERS_AI_DAILY_ATTEMPT_LIMIT. Nothing is
- * persisted, no text leaves the Worker, and a missing or malformed object logs nothing.
+ * `completion_tokens`; a missing or malformed object logs nothing.
  */
 function logUsage(model: string, usage: unknown): void {
   if (typeof usage !== 'object' || usage === null) return;
   const { prompt_tokens: promptTokens, completion_tokens: completionTokens } =
     usage as { prompt_tokens?: unknown; completion_tokens?: unknown };
-  if (!Number.isFinite(promptTokens) || !Number.isFinite(completionTokens)) return;
-  console.info({
-    event: 'ai_provider_usage',
-    model,
-    promptTokens: Math.trunc(promptTokens as number),
-    completionTokens: Math.trunc(completionTokens as number),
-  });
+  logProviderUsage(model, promptTokens, completionTokens);
 }

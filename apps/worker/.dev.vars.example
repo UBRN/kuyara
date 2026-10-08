@@ -1,5 +1,6 @@
 # Local secrets for `wrangler dev`. Copy to `.dev.vars` (git-ignored) and fill in.
 # Production values are Cloudflare Worker secrets and never enter the repository.
+HAIKU_API_KEY=
 OPENROUTER_API_KEY=
 OPENWEATHER_API_KEY=
 WEATHERKIT_TEAM_ID=

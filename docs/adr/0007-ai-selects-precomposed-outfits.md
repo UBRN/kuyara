@@ -25,10 +25,12 @@ requirement, scores the rest, and `selectDiverseOutfits` picks three that differ
 by body core or by at least two garments. It is fully deterministic and runs on
 device.
 
-The remaining constraint is model size. The Worker chain is Cloudflare Workers AI
+The remaining constraint is model size. The Worker chain is Haiku, paid from a
+capped monthly credit, then Cloudflare Workers AI
 (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`, then
-`@cf/mistralai/mistral-small-3.1-24b-instruct`) followed by free OpenRouter models,
-all small and free-tier, with a Workers AI free quota of 10,000 neurons per day.
+`@cf/mistralai/mistral-small-3.1-24b-instruct`) followed by free OpenRouter models;
+every tier behind Haiku is small and free-tier, with a Workers AI free quota of 10,000
+neurons per day, and each must work alone when the tiers ahead of it are spent.
 The raw-garment request under consideration carried up to 125 candidates at a
 measured worst case of 65,498 bytes and asked the model to compose, which is the
 part a small model fails at. The on-device model ahead of that chain is small

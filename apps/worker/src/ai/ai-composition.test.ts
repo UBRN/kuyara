@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import type { AiRecommendV2Request } from '@kuyara/contracts';
+
+import { largestAiRecommendV2Request } from '../__tests__/largest-valid-requests.ts';
 import { createAiProviders } from '../index.ts';
+import { haikuPromptCharacterLimit, haikuPromptCharacters } from './haiku-ai-provider.ts';
 import { DeterministicStubAiProvider } from './__tests__/stub-ai-provider.ts';
 import { OpenRouterAiProvider } from './openrouter-ai-provider.ts';
 import { WorkersAiProvider } from './workers-ai-provider.ts';
@@ -86,4 +90,79 @@ test('the free-model router is an allowed OpenRouter configuration', () => {
     OPENROUTER_MODELS: ['openrouter/free'],
   });
   assert.deepEqual(providers.map((provider) => provider.model), ['openrouter/free']);
+});
+
+// Composition never calls the counter; a namespace is all the cap needs to be built.
+const counters = {
+  idFromName: (name: string) => name,
+  get: () => ({ fetch: async () => Response.json({ count: 1 }) }),
+};
+
+test('composes the capped Haiku model ahead of Workers AI and OpenRouter', () => {
+  const providers = createAiProviders({
+    HAIKU_API_KEY: 'key',
+    HAIKU_MODELS: ['claude-haiku-5-5'],
+    DAILY_COUNTERS: counters,
+    OPENROUTER_API_KEY: 'key',
+    OPENROUTER_MODELS: ['model/one:free'],
+    AI: ai,
+    WORKERS_AI_MODELS: ['@cf/model-one'],
+  });
+  assert.deepEqual(
+    providers.map(({ id, model }) => [id, model]),
+    [
+      ['haiku', 'claude-haiku-5-5'],
+      ['workers-ai', '@cf/model-one'],
+      ['openrouter', 'model/one:free'],
+    ],
+  );
+});
+
+test('composes no Haiku provider without its key, its model list or the counter binding', () => {
+  for (const env of [
+    { HAIKU_MODELS: ['claude-haiku-5-5'], DAILY_COUNTERS: counters },
+    { HAIKU_API_KEY: '', HAIKU_MODELS: ['claude-haiku-5-5'], DAILY_COUNTERS: counters },
+    { HAIKU_API_KEY: 'key', DAILY_COUNTERS: counters },
+    { HAIKU_API_KEY: 'key', HAIKU_MODELS: [], DAILY_COUNTERS: counters },
+    { HAIKU_API_KEY: 'key', HAIKU_MODELS: ['claude-haiku-5-5'] },
+  ]) {
+    assert.deepEqual(createAiProviders(env), []);
+  }
+});
+
+test('rejects a Haiku model the daily limit was not priced for without logging it', (t) => {
+  const warnings: unknown[] = [];
+  t.mock.method(console, 'warn', (warning: unknown) => warnings.push(warning));
+  const providers = createAiProviders({
+    HAIKU_API_KEY: 'secret',
+    HAIKU_MODELS: ['claude-haiku-4-5', 'claude-haiku-5-5'],
+    DAILY_COUNTERS: counters,
+  });
+  assert.deepEqual(providers.map((provider) => provider.model), ['claude-haiku-5-5']);
+  assert.deepEqual(warnings, [{ event: 'haiku_model_rejected' }]);
+});
+
+test('the composed Haiku provider refuses a prompt over its priced size before counting or sending it', async (t) => {
+  const counted: string[] = [];
+  const sent: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    sent.push(String(url));
+    return Response.json({});
+  });
+  const [haiku] = createAiProviders({
+    HAIKU_API_KEY: 'key',
+    HAIKU_MODELS: ['claude-haiku-5-5'],
+    DAILY_COUNTERS: {
+      idFromName: (name: string) => name,
+      get: () => ({ fetch: async (url: string) => {
+        counted.push(String(url));
+        return Response.json({ count: 1 });
+      } }),
+    },
+  });
+  const largest = largestAiRecommendV2Request() as AiRecommendV2Request;
+  assert.ok(haikuPromptCharacters(largest) > haikuPromptCharacterLimit);
+  await assert.rejects(haiku.generateOutfits(largest, new AbortController().signal));
+  assert.deepEqual(counted, []);
+  assert.deepEqual(sent, []);
 });
