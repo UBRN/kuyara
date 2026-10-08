@@ -188,7 +188,8 @@ account across the record tables. It is applied to the development project, wher
 stopped at each of its four row caps; past 200 MB, accounts holding more than 1 MB refused on insert, upsert and update,
 while accounts under 1 MB inserted, upserted and soft-deleted; past 400 MB, every insert, upsert and update refused;
 hard deletes and consent withdrawal working past both steps; and two parallel uploads of one account to different
-tables, which together pass 1 MB, refused at the second. It is not yet applied to the live project. Evidence is automated
+tables, which together pass 1 MB, refused at the second. It is applied to the live project, where the function carries both steps
+and the account lock, the four record tables have their update triggers, and the security advisor reports nothing new. Evidence is automated
 tests, an in-memory Postgres run of the schema and one Simulator pass. App Privacy in App Store Connect declares the email address, name, user ID and other user content, linked to the person, for app functionality, matching the privacy manifest; sign-in, sync, deletion and revocation ran on a physical iPhone. The account terms pages (`docs/account-terms.md` and `docs/tr/account-terms.md`, which the app links) are published with the account versions of the privacy policy and support pages. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
