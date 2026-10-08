@@ -4,6 +4,12 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-07-29",
   "workers_dev": true,
+  // The app calls the custom domain, where a zone rate limiting rule (more than 20 requests in
+  // 10 seconds from one address blocks it for 10 seconds) drops a flooding client before the
+  // Worker runs, which holds one address under a sustained flood to about 86,000 requests a
+  // day, below the Workers Free 100,000. workers.dev has no such rule and stays on while
+  // installed binaries embed it.
+  "routes": [{ "pattern": "api.youbrn.com", "custom_domain": true }],
   "preview_urls": false,
   // head_sampling_rate: 1 logs every request. E11 leaves the rate open pending measurement
   // of the rate-limit log lines a sibling change is adding; 1 is also the documented
@@ -67,6 +73,8 @@
   "env": {
     "e2e": {
       "triggers": { "crons": [] },
+      // `routes` is inherited; the e2e Worker never claims the production domain.
+      "routes": [],
       "ai": { "binding": "AI" },
       "durable_objects": {
         "bindings": [{ "name": "DAILY_COUNTERS", "class_name": "DailyCounter" }]

@@ -23,7 +23,7 @@
       "pnpm": "12.6.0",
       "env": {
         "EAS_USE_CACHE": "1",
-        "EXPO_PUBLIC_KUYARA_WORKER_BASE_URL": "https://kuyara-worker.ubarin08.workers.dev",
+        "EXPO_PUBLIC_KUYARA_WORKER_BASE_URL": "https://api.youbrn.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "217035369390-h10kdhh45ipp4nadqq47rof005kknkfh.apps.googleusercontent.com"
       },
       "channel": "production"

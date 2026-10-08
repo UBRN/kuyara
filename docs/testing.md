@@ -414,7 +414,7 @@ value as `build.production.env` in `apps/mobile/eas.json`, alongside
 also matches `build.production.env`). Set it for this one-time setup:
 
 ```bash
-eas env:set production --name EXPO_PUBLIC_KUYARA_WORKER_BASE_URL --value "https://kuyara-worker.ubarin08.workers.dev" --type string --visibility plaintext --scope project --non-interactive
+eas env:set production --name EXPO_PUBLIC_KUYARA_WORKER_BASE_URL --value "https://api.youbrn.com" --type string --visibility plaintext --scope project --non-interactive
 ```
 
 Never publish an update from a tree whose `latestDatabaseVersion` is higher than the live
