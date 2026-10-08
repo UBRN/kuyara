@@ -23,6 +23,7 @@ function setup(over = {}) {
     addProvider: async (provider) => { calls.push(['addProvider', provider]); current = { ...current, providers: [...current.providers, provider] }; return current; },
     reauthorizeDeletion: async () => ({ provider: 'apple', accessToken: 'fresh', appleAuthorizationCode: 'code' }),
     appleCredentialState: async () => 'authorized',
+    hasAccessToken: async () => true,
     ...over.auth,
   };
   const consentState = () => (records.at(-1)?.answer ?? 'none');
@@ -1113,6 +1114,132 @@ test('closing the sheet while the consent answer is saved settles the question e
     await settle();
     assert.equal(calls.filter(([name]) => name === 'sync').length, passes + 1);
   }
+});
+
+test('a pass with no access token yet waits for the token refresh instead of failing without one', async () => {
+  // Offline, the foreground refresh failed and the auth client keeps that failure for a while, so
+  // right after the connection returns it holds no access token (ADR 0041 section 4).
+  let token = true;
+  const { manager, calls } = setup({ current: identity, auth: { hasAccessToken: async () => token } });
+  await manager.start();
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+  manager.setOnline(false);
+  token = false;
+  manager.setOnline(true);
+  await settle();
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+  assert.deepEqual(manager.getSnapshot().session.sync, { kind: 'upToDate' });
+  token = true;
+  manager.tokenRefreshed();
+  await settle();
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a'], ['sync', 'user-a']]);
+  assert.deepEqual(manager.getSnapshot().session.sync, { kind: 'upToDate' });
+  // A refresh with no pass waiting runs nothing.
+  manager.tokenRefreshed();
+  await settle();
+  assert.equal(calls.filter(([name]) => name === 'sync').length, 2);
+});
+
+test('"Sync now" with no access token shows the failure, and the token refresh still runs it', async () => {
+  let token = true;
+  const { manager, calls } = setup({ current: identity, auth: { hasAccessToken: async () => token } });
+  await manager.start();
+  token = false;
+  manager.syncNow();
+  await settle();
+  assert.equal(calls.filter(([name]) => name === 'sync').length, 1);
+  assert.deepEqual(manager.getSnapshot().session.sync, { kind: 'failed' });
+  token = true;
+  manager.tokenRefreshed();
+  await settle();
+  assert.equal(calls.filter(([name]) => name === 'sync').length, 2);
+  assert.deepEqual(manager.getSnapshot().session.sync, { kind: 'upToDate' });
+});
+
+test('a pass waiting for a token is forgotten when the session ends, so a later refresh runs nothing', async () => {
+  let token = true;
+  let hold = null;
+  const { manager, calls } = setup({ current: identity, auth: { hasAccessToken: async () => token }, sync: { run: async (userId) => {
+    calls.push(['sync', userId]);
+    await hold?.promise;
+    return { pendingChanges: 0, closetPieces: 2, historyDays: 3, syncConsent: 'given', firstLink: null };
+  } } });
+  await manager.start();
+  token = false;
+  await manager.localWrite();
+  await manager.signOut();
+  assert.equal(manager.getSnapshot().session.kind, 'signedOut');
+  token = true;
+  manager.tokenRefreshed();
+  await settle();
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+  // Nor for the next session: a refresh during its first pass queues no pass of the ended one.
+  hold = held();
+  const signingIn = manager.signIn('apple');
+  await settle();
+  manager.tokenRefreshed();
+  hold.resolve();
+  await signingIn;
+  await settle();
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a'], ['sync', 'user-a']]);
+});
+
+test('"Sync now" shows it is syncing while a due token refresh is awaited', async () => {
+  let token = null;
+  const { manager } = setup({ current: identity, auth: { hasAccessToken: async () => (token ? token.promise : true) } });
+  await manager.start();
+  token = held();
+  manager.syncNow();
+  await settle();
+  assert.deepEqual(manager.getSnapshot().session.sync, { kind: 'syncing' });
+  token.resolve(true);
+  await settle();
+  assert.deepEqual(manager.getSnapshot().session.sync, { kind: 'upToDate' });
+});
+
+test('a token refresh that lands during the token read or the foreground refresh adds no pass', async () => {
+  let token = false;
+  let manager;
+  const setupResult = setup({ current: identity, auth: {
+    hasAccessToken: async () => {
+      // The refresh this read brings about announces itself before the read answers.
+      if (token) manager.tokenRefreshed();
+      return token;
+    },
+    refreshSession: async () => {
+      if (token) manager.tokenRefreshed();
+      return { ...identity };
+    },
+  } });
+  manager = setupResult.manager;
+  const passes = () => setupResult.calls.filter(([name]) => name === 'sync').length;
+  await manager.start();
+  assert.equal(passes(), 0);
+  token = true;
+  await manager.localWrite();
+  await settle();
+  assert.equal(passes(), 1);
+  token = false;
+  await manager.localWrite();
+  token = true;
+  await manager.foreground();
+  await settle();
+  assert.equal(passes(), 2);
+});
+
+test('a deletion that starts while a pass reads its token keeps that pass from running', async () => {
+  const token = held();
+  let reads = 0;
+  const { manager, calls } = setup({ current: identity, auth: { hasAccessToken: async () => (++reads === 1 ? true : token.promise) } });
+  await manager.start();
+  const writing = manager.localWrite();
+  await settle();
+  const deleting = manager.deleteAccount();
+  await settle();
+  token.resolve(true);
+  await Promise.all([writing, deleting]);
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
+  assert.equal(manager.getSnapshot().session.kind, 'signedOut');
 });
 
 test('a launch offline shows the session without a pass, and coming back online runs one', async () => {

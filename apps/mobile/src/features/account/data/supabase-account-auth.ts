@@ -204,6 +204,8 @@ export function createSupabaseAccountAuth({ apple, client, google = null, nonce,
       }
     },
     refreshSession: readSession,
+    // The token the client sends with every request; without one it would send the publishable key.
+    hasAccessToken: () => auth.getSession().then(({ data }) => data.session !== null, () => false),
     async addProvider(provider) {
       const credential = await idToken(provider);
       if (credential === null) throw new AccountProviderError('cancelled');

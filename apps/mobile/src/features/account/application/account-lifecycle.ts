@@ -15,6 +15,8 @@ export type AccountLifecyclePorts = Readonly<{
   hasPending: (records: boolean) => Promise<boolean>;
   /** Fires when the person revokes kuyara's Sign in with Apple while the app runs (ADR 0041 section 2). */
   onAppleRevoked: (listener: () => void) => () => void;
+  /** Fires after the auth client refreshed the session's access token. */
+  onTokenRefreshed: (listener: () => void) => () => void;
   /** The session's token refresh, which runs only in the foreground (ADR 0041 section 9). */
   autoRefresh: Readonly<{ start: () => void; stop: () => void }>;
   /** The persisted sign-in card dismissal of the device account link. */
@@ -87,6 +89,8 @@ export function connectAccountLifecycle(ports: AccountLifecyclePorts): () => voi
   const unsubscribeWrites = ports.onDatabaseWrite(scheduleLocalWrite);
   // The manager ends the session only when this phone holds the Apple credential of the account.
   const unsubscribeRevoked = ports.onAppleRevoked(() => { void manager.appleRevoked(); });
+  // A pass that found no access token runs once the refresh brings one.
+  const unsubscribeRefreshed = ports.onTokenRefreshed(() => manager.tokenRefreshed());
   // Connecting in the foreground is the common case, and no change event follows it.
   if (ports.isActive()) autoRefresh.start();
   const unsubscribeAppState = ports.onAppStateChange((state) => {
@@ -105,6 +109,7 @@ export function connectAccountLifecycle(ports: AccountLifecyclePorts): () => voi
     unsubscribeNetwork();
     unsubscribeAppState();
     unsubscribeRevoked();
+    unsubscribeRefreshed();
     unsubscribeCard();
     autoRefresh.stop();
   };

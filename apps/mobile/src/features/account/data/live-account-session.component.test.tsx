@@ -7,6 +7,7 @@ import type { AccountLink } from '@/features/account/domain/account-link';
 import type { SqliteDatabase } from '@/infrastructure/sqlite/sqlite-database';
 
 const mockRemoveRevokeListener = jest.fn();
+const mockUnsubscribeAuth = jest.fn();
 jest.mock('expo-apple-authentication', () => ({
   AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
   AppleAuthenticationCredentialState: { REVOKED: 0, AUTHORIZED: 1, NOT_FOUND: 2, TRANSFERRED: 3 },
@@ -27,6 +28,7 @@ const mockAuth = {
   signOut: jest.fn(async () => ({ error: null })),
   startAutoRefresh: jest.fn(),
   stopAutoRefresh: jest.fn(),
+  onAuthStateChange: jest.fn((_listener: (event: string) => void) => ({ data: { subscription: { unsubscribe: mockUnsubscribeAuth } } })),
 };
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => ({ auth: mockAuth })),
@@ -134,6 +136,19 @@ test('signing out clears the linked user and keeps the last one', async () => {
   await manager.signOut();
   expect(mockAuth.signOut).toHaveBeenCalledWith({ scope: 'local' });
   expect(mockSavedLinks.at(-1)).toMatchObject({ userId: null, lastUserId: 'user-a', cursor: 'cursor-1' });
+});
+
+test('a token refresh is observed through the auth client, other auth events are not, and the listener is removed again', () => {
+  const listener = jest.fn();
+  const remove = compose().onTokenRefreshed(listener);
+  const authEvent = mockAuth.onAuthStateChange.mock.calls[0][0];
+  authEvent('SIGNED_IN');
+  authEvent('INITIAL_SESSION');
+  expect(listener).not.toHaveBeenCalled();
+  authEvent('TOKEN_REFRESHED');
+  expect(listener).toHaveBeenCalledTimes(1);
+  remove();
+  expect(mockUnsubscribeAuth).toHaveBeenCalledTimes(1);
 });
 
 test('Apple revocation is observed through the native listener, and removed again', () => {

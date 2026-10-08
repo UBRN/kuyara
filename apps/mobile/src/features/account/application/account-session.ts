@@ -13,7 +13,11 @@ import {
   createAccountAnalytics,
   type AccountSyncTrigger,
 } from '@/features/account/application/account-analytics';
-import { accountSyncFailureCode, type FirstLinkOutcome } from '@/features/account/application/account-sync';
+import {
+  accountSyncFailureCode,
+  type AccountSyncFailureCode,
+  type FirstLinkOutcome,
+} from '@/features/account/application/account-sync';
 import {
   SYNC_CONSENT_TEXT_VERSION,
   syncConsentState,
@@ -67,6 +71,12 @@ export type AccountAuthPort = Readonly<{
   }> | null>;
   /** Apple's credential state for the session's Apple identity; throws when Apple cannot answer. */
   appleCredentialState: () => Promise<AppleCredentialState>;
+  /**
+   * Whether the session holds a usable access token, refreshed first when it is due. False while
+   * a due refresh has not been answered, such as just after the connection returns, when the auth
+   * client still holds the refresh it failed offline. Never throws.
+   */
+  hasAccessToken: () => Promise<boolean>;
 }>;
 
 /**
@@ -148,6 +158,8 @@ export type AccountSessionManager = AccountScreensPort & Readonly<{
   setOnline: (online: boolean) => void;
   /** Apple reported kuyara's Sign in with Apple revoked while the app runs. */
   appleRevoked: () => Promise<void>;
+  /** The auth client refreshed the session's access token. */
+  tokenRefreshed: () => void;
 }>;
 
 /**
@@ -225,6 +237,8 @@ export function createAccountSessionManager({
   let trailing: Promise<AccountSyncSummary | null> | null = null;
   /** What the queued trailing pass reports as its trigger: the latest caller that joined it. */
   let trailingTrigger: AccountSyncTrigger = 'foreground';
+  /** A pass that found no access token; it runs after the next token refresh, or at the foreground. */
+  let waitingForToken: AccountSyncTrigger | null = null;
   /** The deletion in flight: no pass starts meanwhile, and a session end waits for it. */
   let deleting: Promise<void> | null = null;
   /**
@@ -257,12 +271,35 @@ export function createAccountSessionManager({
     sync: { kind: 'syncing' }, pendingChanges: 0, closetPieces: 0, historyDays: 0, lastSyncedAt: null,
     syncConsent: null,
   });
+  /** The Account screen shows the failed pass; it reports once, under its trigger. */
+  const showFailed = (trigger: AccountSyncTrigger, failure: AccountSyncFailureCode) => {
+    updateSession({ sync: { kind: 'failed' } });
+    analytics.syncFinished(trigger, { result: 'failed', failure });
+  };
   /** One pass; answers its summary, or null when it did not run or failed. */
   const pass = async (trigger: AccountSyncTrigger): Promise<AccountSyncSummary | null> => {
     const session = identity;
     // Nothing uploads before the consent question after sign-in is settled.
     // Nor while the account is deleted: a late pass would rewrite the link the deletion resets.
     if (!session || !snapshot.online || awaitingConsent !== null || consentChecks > 0 || !signedIn() || deleting !== null) {
+      return null;
+    }
+    // "Sync now" shows it is working while a due token refresh is awaited.
+    const shown = signedIn()?.sync;
+    if (trigger === 'manual') updateSession({ sync: { kind: 'syncing' } });
+    // Cleared before the read, so the refresh the read itself brings about reruns nothing.
+    waitingForToken = null;
+    const hasToken = await auth.hasAccessToken();
+    // The session may have ended, or its deletion started, while the token was read.
+    if (!isCurrent(session) || deleting !== null) {
+      if (trigger === 'manual' && shown && isCurrent(session)) updateSession({ sync: shown });
+      return null;
+    }
+    // Without a token the requests would go out as nobody and fail: the pass waits for the token
+    // instead (ADR 0041 section 4). Only "Sync now" says it failed, so the tap is never silent.
+    if (!hasToken) {
+      waitingForToken = trigger;
+      if (trigger === 'manual') showFailed(trigger, 'request');
       return null;
     }
     updateSession({ sync: { kind: 'syncing' } });
@@ -274,10 +311,7 @@ export function createAccountSessionManager({
       analytics.syncFinished(trigger, { result: 'success' });
       return summary;
     } catch (error) {
-      if (isCurrent(session)) {
-        updateSession({ sync: { kind: 'failed' } });
-        analytics.syncFinished(trigger, { result: 'failed', failure: accountSyncFailureCode(error) });
-      }
+      if (isCurrent(session)) showFailed(trigger, accountSyncFailureCode(error));
       return null;
     }
   };
@@ -318,11 +352,13 @@ export function createAccountSessionManager({
   };
   const holdsApple = async (session: AuthSession) => (await appleMark.userId().catch(() => null)) === session.userId;
   /**
-   * What every end of a session on this phone clears: the session, a sign-in waiting for its
-   * consent question and the question with its sheet, the question's mark and the Apple mark.
+   * What every end of a session on this phone clears: the session, a pass waiting for a token, a
+   * sign-in waiting for its consent question and the question with its sheet, the question's
+   * mark and the Apple mark.
    */
   const forgetSession = async () => {
     identity = null;
+    waitingForToken = null;
     awaitingConsent = null;
     unfinishedAppleDeletion = null;
     resultHost = null;
@@ -701,6 +737,8 @@ export function createAccountSessionManager({
       // awaited: nothing after that call brings the old session back.
       const unchanged = () => identity === before;
       let session: AuthSession | null;
+      // The restored session runs its pass anyway, so a refresh announced meanwhile reruns nothing.
+      waitingForToken = null;
       try {
         session = await auth.refreshSession();
       } catch {
@@ -730,6 +768,9 @@ export function createAccountSessionManager({
       update({ online });
       // Offline, a pass does not run; the one the session waited for runs once the connection is back.
       if (reconnected && identity !== null) void runSync('reconnected');
+    },
+    tokenRefreshed: () => {
+      if (waitingForToken !== null) void runSync(waitingForToken);
     },
     async appleRevoked() {
       const session = identity;

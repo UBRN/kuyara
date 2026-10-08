@@ -260,6 +260,7 @@ function createScenarioAccountScreens(
       },
       reauthorizeDeletion: async () => ({ provider: shown()?.provider ?? 'apple', accessToken: scenarioUserId }),
       appleCredentialState: async () => 'authorized',
+      hasAccessToken: async () => true,
     },
     consent: {
       records: async () => {

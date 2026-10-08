@@ -20,6 +20,7 @@ function setup(over = {}) {
     addProvider: async () => current,
     reauthorizeDeletion: async () => ({ accessToken: 'fresh' }),
     appleCredentialState: async () => 'authorized',
+    hasAccessToken: async () => true,
     ...over.auth,
   };
   const sync = {
@@ -101,6 +102,20 @@ test('sync outcomes carry their trigger and, on failure, a closed category', asy
     { schema_version, trigger: 'local_write', result: 'success' },
     { schema_version, trigger: 'local_write', result: 'failed', failure_category: 'request' },
     { schema_version, trigger: 'foreground', result: 'failed', failure_category: 'other' },
+  ]);
+});
+
+test('"Sync now" with no access token reports a failed request; an automatic pass waiting for the token reports nothing', async () => {
+  let token = true;
+  const { manager, events } = setup({ current: identity, auth: { hasAccessToken: async () => token } });
+  await manager.start();
+  token = false;
+  await manager.localWrite();
+  manager.syncNow();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(named(events, 'account_sync_finished'), [
+    { schema_version, trigger: 'foreground', result: 'success' },
+    { schema_version, trigger: 'manual', result: 'failed', failure_category: 'request' },
   ]);
 });
 

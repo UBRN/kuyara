@@ -293,33 +293,38 @@ export class WeatherApplicationController {
       locationFlow: permission.kind === 'granted' ? 'idle' : current.locationFlow,
     });
 
-    // A traveller's device location is only ever read when they pick it, so the city under
-    // "Current location" survives the flight. One bounded re-acquisition per foreground
-    // event corrects it; a failed lookup is silent, since the user asked for nothing here.
+    // A stale snapshot's refresh starts at once: re-acquiring the device location below can
+    // take its whole fix and geocode wait, and the place it finds usually has not changed.
     const previous = this.requireReady().activeLocation;
+    const revalidation = this.revalidateFreshness();
     if (previous?.source === 'device' && permission.kind === 'granted') {
-      const result = await this.dependencies.deviceLocation.getCurrentLocation();
-      const latest = this.requireReady();
-      const active = latest.activeLocation;
-      const moved = result.kind === 'success'
-        && (result.location.locationKey !== previous.locationKey
-          || result.location.timeZone !== previous.timeZone);
-      // The same coordinates can still resolve a name the stored location does not carry, either
-      // because it was stored before the name existed or because that geocode came back empty.
-      const renamed = result.kind === 'success'
-        && result.location.displayName != null
-        && (result.location.displayName ?? null) !== (previous.displayName ?? null);
-      // A selection made while the lookup ran wins over the lookup it raced, including one
-      // still being saved when the lookup answers.
-      const unchanged = active?.locationKey === previous.locationKey
-        && active.timeZone === previous.timeZone && !latest.isSelectingLocation;
-      if ((moved || renamed) && unchanged) {
-        await this.selectLocation(result.location);
-        return;
-      }
+      await Promise.all([revalidation, this.reacquireDeviceLocation(previous)]);
+      return;
     }
+    await revalidation;
+  }
 
-    await this.revalidateFreshness();
+  // A traveller's device location is only ever read when they pick it, so the city under
+  // "Current location" survives the flight. One bounded re-acquisition per foreground event
+  // corrects it, and the selection refreshes the new place itself; a failed lookup is silent,
+  // since the user asked for nothing here.
+  private async reacquireDeviceLocation(previous: ActiveLocation): Promise<void> {
+    const result = await this.dependencies.deviceLocation.getCurrentLocation();
+    const latest = this.requireReady();
+    const active = latest.activeLocation;
+    const moved = result.kind === 'success'
+      && (result.location.locationKey !== previous.locationKey
+        || result.location.timeZone !== previous.timeZone);
+    // The same coordinates can still resolve a name the stored location does not carry, either
+    // because it was stored before the name existed or because that geocode came back empty.
+    const renamed = result.kind === 'success'
+      && result.location.displayName != null
+      && (result.location.displayName ?? null) !== (previous.displayName ?? null);
+    // A selection made while the lookup ran wins over the lookup it raced, including one
+    // still being saved when the lookup answers.
+    const unchanged = active?.locationKey === previous.locationKey
+      && active.timeZone === previous.timeZone && !latest.isSelectingLocation;
+    if (result.kind === 'success' && (moved || renamed) && unchanged) await this.selectLocation(result.location);
   }
 
   private async initializeOnce(): Promise<void> {
@@ -394,11 +399,14 @@ export class WeatherApplicationController {
     });
 
     // A cache that cannot be read is no cache: the new place still gets its fetch.
-    const loadedSnapshot = await this.loadMatchingSnapshot(persisted).catch(() => null);
+    const stored = await this.loadMatchingSnapshot(persisted).catch(() => null);
+    const ready = this.requireReady();
+    // A refresh of this place that landed while the cache was read is newer than the read.
+    const landed = activeLocationSnapshot(ready.snapshot, persisted);
+    const loadedSnapshot = landed && (!stored || landed.fetchedAt > stored.fetchedAt) ? landed : stored;
     const loadedFreshness = loadedSnapshot
       ? cachedWeatherFreshness(loadedSnapshot.fetchedAt, this.dependencies.now())
       : null;
-    const ready = this.requireReady();
     const validLoadedFreshness = loadedFreshness === 'invalid' ? null : loadedFreshness;
     const validLoadedSnapshot = validLoadedFreshness ? loadedSnapshot : null;
     const snapshot = validLoadedSnapshot ?? ready.snapshot;

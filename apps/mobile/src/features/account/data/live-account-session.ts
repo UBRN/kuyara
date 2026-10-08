@@ -62,6 +62,8 @@ export type LiveAccountSession = Readonly<{
   source: SqliteAccountRowsSource;
   autoRefresh: Readonly<{ start: () => void; stop: () => void }>;
   onAppleRevoked: (listener: () => void) => () => void;
+  /** Fires after the auth client refreshed the session's access token; returns the unsubscribe. */
+  onTokenRefreshed: (listener: () => void) => () => void;
   network: AccountNetwork;
   /** The session's access token for the member AI allowance, null when there is none. */
   accessToken: () => Promise<string | null>;
@@ -154,6 +156,10 @@ export function createLiveAccountSession({ capture, database, fetcher, localProf
       } finally {
         clearTimeout(timer);
       }
+    },
+    onTokenRefreshed(listener) {
+      const { data } = client.auth.onAuthStateChange((event) => { if (event === 'TOKEN_REFRESHED') listener(); });
+      return () => data.subscription.unsubscribe();
     },
     onAppleRevoked(listener) {
       // Off iOS the module is a stub whose listener call returns nothing, despite its type.

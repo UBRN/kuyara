@@ -16,7 +16,7 @@ import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-data
 
 /**
  * The app's lifetime ports for the live session: its manager, the app state, the database
- * writes, the connection and Apple's revocation.
+ * writes, the connection, the token refresh and Apple's revocation.
  */
 export function liveLifecyclePorts(live: LiveAccountSession): AccountLifecyclePorts {
   return {
@@ -29,6 +29,7 @@ export function liveLifecyclePorts(live: LiveAccountSession): AccountLifecyclePo
     onDatabaseWrite: subscribeDatabaseWrites,
     hasPending: live.source.hasPending,
     onAppleRevoked: live.onAppleRevoked,
+    onTokenRefreshed: live.onTokenRefreshed,
     network: live.network,
     autoRefresh: live.autoRefresh,
     card: { dismissed: live.source.cardDismissed, dismiss: live.source.dismissCard },

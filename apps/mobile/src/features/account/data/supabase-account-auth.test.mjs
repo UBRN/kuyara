@@ -45,7 +45,8 @@ function fakeAuth(answer, wrap = (send) => send) {
   const fetch = async (input, init = {}) => {
     const url = new URL(typeof input === 'string' ? input : input.url);
     const request = { path: url.pathname, grant: url.searchParams.get('grant_type'),
-      body: init.body === undefined ? undefined : JSON.parse(init.body) };
+      body: init.body === undefined ? undefined : JSON.parse(init.body),
+      authorization: new Headers(init.headers).get('Authorization') };
     requests.push(request);
     const reply = await answer(request);
     if (reply.html !== undefined) {
@@ -317,6 +318,33 @@ test('a paused project, a rate limit or a page from something in between never e
     assert.equal((await settled(t, auth.refreshSession()))?.userId ?? null, expected, `${mode}: foreground`);
     assert.equal(fake.store.has(storageKey), mode !== 'refused', `${mode}: the stored session`);
   }
+});
+
+test('right after a refresh failed offline the session holds no access token, until the auth service answers', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+  let reachable = false;
+  const expired = () => ({ body: { ...tokenResponse(), expires_in: 1, expires_at: Math.floor(Date.now() / 1000) - 60 } });
+  const fake = fakeAuth((request) => {
+    if (request.grant === 'refresh_token') {
+      if (!reachable) throw new TypeError('Network request failed');
+      return { body: tokenResponse({ n: 2 }) };
+    }
+    return request.path.startsWith('/rest/') ? { body: [] } : expired();
+  });
+  const auth = createSupabaseAccountAuth({ client: fake.client, apple: apple(), nonce, storedSession: fake.storedSession, removeStoredSession: fake.removeStoredSession });
+  await settled(t, auth.signIn('apple'));
+  // The foreground offline: the refresh fails and the stored session stands.
+  assert.equal((await settled(t, auth.refreshSession()))?.userId, userId);
+  reachable = true;
+  // The auth client keeps that failure for a while, so a request now would go out as nobody.
+  await settled(t, fake.client.from('wardrobe_items').select('id'));
+  assert.equal(fake.requests.at(-1).authorization, 'Bearer sb_publishable_test');
+  assert.equal(await settled(t, auth.hasAccessToken()), false);
+  t.mock.timers.tick(61_000);
+  assert.equal(await settled(t, auth.hasAccessToken()), true);
+  await settled(t, fake.client.from('wardrobe_items').select('id'));
+  assert.equal(fake.requests.at(-1).authorization, `Bearer ${JSON.parse(fake.store.get(storageKey)).access_token}`);
+  assert.notEqual(fake.requests.at(-1).authorization, 'Bearer sb_publishable_test');
 });
 
 test('when even the stored session cannot be read offline, the read throws instead of answering signed out', async () => {

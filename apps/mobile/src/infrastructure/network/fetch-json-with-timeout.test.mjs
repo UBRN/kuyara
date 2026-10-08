@@ -103,3 +103,42 @@ test('the caller\'s own abort still aborts the request', async () => {
   caller.abort();
   await assert.rejects(sending, { name: 'AbortError' });
 });
+
+test('the deadline also covers reading the body of a response whose headers arrived', async () => {
+  // A streaming fetch answers at the headers; on the device an aborted body read never settles.
+  const stalledBody = async () => ({
+    status: 200,
+    statusText: 'OK',
+    headers: new Headers({ 'content-type': 'application/json' }),
+    text: () => new Promise(() => {}),
+  });
+  const started = Date.now();
+  await assert.rejects(fetchWithTimeout(stalledBody, 20)('https://example.test/x', {}), { name: 'AbortError' });
+  assert.ok(Date.now() - started < 1000);
+});
+
+test('the caller\'s own abort also ends a body read that never settles', async () => {
+  const caller = new AbortController();
+  const stalledBody = async () => ({ status: 200, statusText: 'OK', headers: new Headers(), text: () => new Promise(() => {}) });
+  const sending = fetchWithTimeout(stalledBody, 10_000)('https://example.test/x', { signal: caller.signal });
+  await new Promise((resolve) => setImmediate(resolve));
+  caller.abort();
+  await assert.rejects(sending, { name: 'AbortError' });
+});
+
+test('the answer keeps its status, status text, headers and body once read', async () => {
+  const send = fetchWithTimeout(async () => new Response('{"name":"Gardırop"}', {
+    status: 409, statusText: 'Conflict', headers: { 'content-type': 'application/json', 'x-a': 'b' },
+  }), 1000);
+  const response = await send('https://example.test/x', {});
+  assert.deepEqual([response.status, response.statusText, response.ok], [409, 'Conflict', false]);
+  assert.equal(response.headers.get('content-type'), 'application/json');
+  assert.equal(response.headers.get('x-a'), 'b');
+  assert.deepEqual(await response.json(), { name: 'Gardırop' });
+});
+
+test('an answer without a body, such as 204, passes through', async () => {
+  const response = await fetchWithTimeout(async () => new Response(null, { status: 204 }), 1000)('https://example.test/x', {});
+  assert.equal(response.status, 204);
+  assert.equal(await response.text(), '');
+});

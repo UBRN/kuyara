@@ -8,10 +8,11 @@ jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({ subscribeData
 
 function liveSession() {
   let revoked: (() => void) | null = null;
+  let refreshed: (() => void) | null = null;
   let networkChange: ((online: boolean) => void) | null = null;
   const screens = createInMemoryAccountScreens(accountScenarios.upToDate);
   const manager = { ...screens, start: jest.fn(async () => undefined), foreground: jest.fn(async () => undefined), signOut: jest.fn(async () => undefined),
-    appleRevoked: jest.fn(async () => undefined), setOnline: jest.fn() };
+    appleRevoked: jest.fn(async () => undefined), setOnline: jest.fn(), tokenRefreshed: jest.fn() };
   const live = {
     manager,
     source: { hasPending: async () => false, cardDismissed: async () => false, dismissCard: async () => undefined },
@@ -27,9 +28,13 @@ function liveSession() {
       revoked = listener;
       return () => { revoked = null; };
     },
+    onTokenRefreshed: (listener: () => void) => {
+      refreshed = listener;
+      return () => { refreshed = null; };
+    },
   };
   return { live: live as unknown as LiveAccountSession, manager, revoke: () => revoked?.(), listening: () => revoked !== null,
-    goOffline: () => networkChange?.(false) };
+    goOffline: () => networkChange?.(false), refreshToken: () => refreshed?.() };
 }
 
 describe('the live account session in the app', () => {
@@ -41,6 +46,14 @@ describe('the live account session in the app', () => {
     expect(manager.appleRevoked).toHaveBeenCalledTimes(1);
     disconnect();
     expect(listening()).toBe(false);
+  });
+
+  test('a token refresh reaches the session, so a pass that waited for a token runs', () => {
+    const { live, manager, refreshToken } = liveSession();
+    const disconnect = connectAccountLifecycle(liveLifecyclePorts(live));
+    refreshToken();
+    expect(manager.tokenRefreshed).toHaveBeenCalledTimes(1);
+    disconnect();
   });
 
   test('the device losing its connection reaches the session, so the offline lines show', () => {

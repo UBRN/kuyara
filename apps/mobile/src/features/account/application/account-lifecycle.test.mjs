@@ -16,11 +16,13 @@ function harness({ snapshot = accountScenarios.upToDate, pending = true, dismiss
     localWrite: async () => { calls.push('localWrite'); },
     signOut: async () => { calls.push('signOut'); },
     appleRevoked: async () => { calls.push('appleRevoked'); },
+    tokenRefreshed: () => { calls.push('tokenRefreshed'); },
     setOnline: (value) => { online.push(value); },
   };
   let appState = null;
   let write = null;
   let revoked = null;
+  let refreshed = null;
   const timers = [];
   const disconnect = connectAccountLifecycle({
     manager,
@@ -28,6 +30,7 @@ function harness({ snapshot = accountScenarios.upToDate, pending = true, dismiss
     isActive: () => active,
     onDatabaseWrite: (listener) => { write = listener; return () => { write = null; }; },
     onAppleRevoked: (listener) => { revoked = listener; return () => { revoked = null; }; },
+    onTokenRefreshed: (listener) => { refreshed = listener; return () => { refreshed = null; }; },
     hasPending: async (records) => { calls.push(['hasPending', records]); return pending; },
     autoRefresh: { start: () => calls.push('refresh:start'), stop: () => calls.push('refresh:stop') },
     card: { dismissed: async () => dismissed, dismiss: async () => { calls.push('card:stored'); } },
@@ -46,6 +49,7 @@ function harness({ snapshot = accountScenarios.upToDate, pending = true, dismiss
     await new Promise((resolve) => setImmediate(resolve));
   };
   return { calls, online, manager, disconnect, flush, timers, appState: (state) => appState(state), write: () => write(), revoke: () => revoked?.(),
+    refreshToken: () => refreshed?.(), refreshListening: () => refreshed !== null,
     networkChange: (online) => networkChange?.(online), networkListening: () => networkChange !== null };
 }
 
@@ -161,4 +165,12 @@ test('a change that arrives before the first read answers is not overwritten by 
   answer(true);
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(harnessed.online, [false]);
+});
+
+test('a token refresh reaches the manager, which runs a pass that waited for a token, until disconnect', () => {
+  const { calls, disconnect, refreshListening, refreshToken } = harness();
+  refreshToken();
+  assert.deepEqual(calls.filter((call) => call === 'tokenRefreshed'), ['tokenRefreshed']);
+  disconnect();
+  assert.equal(refreshListening(), false);
 });

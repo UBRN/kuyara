@@ -546,6 +546,119 @@ test('only a return from the background is a foreground event, so a permission a
   }
 });
 
+/** A provider whose fetches each wait until the test answers them, oldest first. */
+function heldProvider() {
+  const pending = [];
+  return {
+    pending,
+    fetchSnapshot: (location) => new Promise((resolve, reject) => { pending.push({ location, resolve, reject }); }),
+  };
+}
+
+test('a stale foreground refresh starts at once, without waiting for the device location fix', async () => {
+  let clock = '2026-07-30T10:00:00.000Z';
+  const stayed = {
+    source: 'device', accuracy: 'approximate', locationKey: 'device:4101:2898',
+    coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul',
+  };
+  const provider = heldProvider();
+  const harness = createHarness({
+    active: stayed, snapshots: [snapshotFor(stayed, '2026-07-30T09:55:00.000Z')], now: () => clock,
+    permissionState: { kind: 'granted', accuracy: 'approximate' }, provider,
+  });
+  await harness.controller.initialize();
+  clock = '2026-07-30T13:00:00.000Z';
+  let answerLookup;
+  harness.deviceLocation.getCurrentLocation = () => new Promise((resolve) => { answerLookup = resolve; });
+
+  const foreground = harness.controller.onForeground();
+  await settle();
+
+  assert.equal(provider.pending.length, 1);
+  assert.equal(harness.controller.getSnapshot().isRefreshing, true);
+  answerLookup({ kind: 'success', location: stayed });
+  provider.pending[0].resolve(providedFor(stayed, clock, 21));
+  await foreground;
+  await settle();
+
+  assert.equal(harness.calls.provider, 1);
+  assert.equal(harness.controller.getSnapshot().snapshot.fetchedAt, clock);
+  assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
+});
+
+test('a move found after the stale refresh started shows the new place, and the old place\'s late answer does not replace it', async () => {
+  let clock = '2026-07-30T10:00:00.000Z';
+  const provider = heldProvider();
+  const harness = createHarness({
+    active: travelledFrom, snapshots: [snapshotFor(travelledFrom, '2026-07-30T09:55:00.000Z')], now: () => clock,
+    permissionState: { kind: 'granted', accuracy: 'approximate' }, provider,
+  });
+  await harness.controller.initialize();
+  clock = '2026-07-30T13:00:00.000Z';
+  const moved = await harness.deviceLocation.getCurrentLocation();
+  let answerLookup;
+  harness.deviceLocation.getCurrentLocation = () => new Promise((resolve) => { answerLookup = resolve; });
+
+  const foreground = harness.controller.onForeground();
+  await settle();
+  assert.deepEqual(provider.pending.map(({ location }) => location.locationKey), [travelledFrom.locationKey]);
+  answerLookup(moved);
+  await settle();
+
+  assert.deepEqual(provider.pending.map(({ location }) => location.locationKey), [travelledFrom.locationKey, 'device:4101:2898']);
+  provider.pending[1].resolve(providedFor(provider.pending[1].location, clock, 25));
+  await settle();
+  provider.pending[0].resolve(providedFor(travelledFrom, clock, 12));
+  await foreground;
+  await settle();
+
+  const state = harness.controller.getSnapshot();
+  assert.equal(state.activeLocation.locationKey, 'device:4101:2898');
+  assert.equal(state.snapshot.locationKey, 'device:4101:2898');
+  assert.equal(state.snapshot.current.temperatureCelsius, 25);
+  assert.equal(state.freshness, 'fresh');
+});
+
+test('a renamed place whose refresh lands while the selection reads its cache keeps the newer weather and fetches once', async () => {
+  let clock = '2026-07-30T10:00:00.000Z';
+  const stayed = {
+    source: 'device', accuracy: 'approximate', locationKey: 'device:4101:2898', displayName: 'Kadikoy',
+    coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul',
+  };
+  const provider = heldProvider();
+  const harness = createHarness({
+    active: stayed, snapshots: [snapshotFor(stayed, '2026-07-30T09:55:00.000Z')], now: () => clock,
+    permissionState: { kind: 'granted', accuracy: 'approximate' }, provider,
+    locationResult: { kind: 'success', location: { ...stayed, displayName: 'Istanbul' } },
+  });
+  await harness.controller.initialize();
+  clock = '2026-07-30T13:00:00.000Z';
+  // The selection's read returns what the store held when it started, after the refresh saved.
+  const read = harness.repository.getSnapshot.bind(harness.repository);
+  let releaseRead = null;
+  harness.repository.getSnapshot = async (...args) => {
+    const held = await read(...args);
+    if (harness.controller.getSnapshot().activeLocation.displayName !== 'Istanbul') return held;
+    await new Promise((resolve) => { releaseRead = resolve; });
+    return held;
+  };
+
+  const foreground = harness.controller.onForeground();
+  await settle();
+  assert.equal(provider.pending.length, 1);
+  provider.pending[0].resolve(providedFor(stayed, clock, 21));
+  await settle();
+  releaseRead?.();
+  await foreground;
+  await settle();
+
+  const state = harness.controller.getSnapshot();
+  assert.equal(state.activeLocation.displayName, 'Istanbul');
+  assert.equal(state.snapshot.fetchedAt, clock);
+  assert.equal(state.freshness, 'fresh');
+  assert.equal(harness.calls.provider, 1);
+});
+
 test('a manual location is never re-acquired on foreground', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const harness = createHarness({

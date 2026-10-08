@@ -46,11 +46,12 @@ export async function fetchJsonWithTimeout(
 
 /**
  * `send` with a deadline, for a client library that sends and parses its own requests (the
- * Supabase client) and so cannot go through `fetchJsonWithTimeout`: each request is
- * aborted `timeoutMilliseconds` after it starts unless it has answered by then, so a request that
- * never answers cannot hold its caller for good. React Native's fetch answers once the whole body
- * has arrived, so there the deadline covers the body too. An abort signal of the caller's own
- * still aborts the request.
+ * Supabase client) and so cannot go through `fetchJsonWithTimeout`: each request is aborted
+ * `timeoutMilliseconds` after it starts unless its whole body has arrived by then, so a request
+ * that never answers, or whose body stalls after the headers, cannot hold its caller for good.
+ * Expo's fetch answers at the headers, so the body is read here, inside the deadline, and handed
+ * back as a new response with the same status, status text and headers; the client reads text
+ * and JSON only. An abort signal of the caller's own still aborts the request.
  */
 export function fetchWithTimeout(send: typeof fetch, timeoutMilliseconds: number): typeof fetch {
   return async (input, init) => {
@@ -61,10 +62,31 @@ export function fetchWithTimeout(send: typeof fetch, timeoutMilliseconds: number
     if (callerSignal?.aborted) controller.abort();
     callerSignal?.addEventListener('abort', abortWithCaller);
     try {
-      return await send(input, { ...init, signal: controller.signal });
+      const response = await send(input, { ...init, signal: controller.signal });
+      const body = await textUntilAborted(response, controller.signal);
+      // An empty body goes back as none, which a 204 requires.
+      return new Response(body === '' ? null : body, {
+        status: response.status, statusText: response.statusText, headers: response.headers,
+      });
     } finally {
       clearTimeout(timeout);
       callerSignal?.removeEventListener('abort', abortWithCaller);
     }
   };
+}
+
+/**
+ * The body as text, or an `AbortError` once `signal` aborts: on the device, Expo's fetch never
+ * settles a body read whose request was aborted, so the abort alone cannot end it.
+ */
+function textUntilAborted(response: Response, signal: AbortSignal): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new DOMException('The request timed out.', 'AbortError'));
+    if (signal.aborted) {
+      abort();
+      return;
+    }
+    signal.addEventListener('abort', abort, { once: true });
+    response.text().then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+  });
 }
