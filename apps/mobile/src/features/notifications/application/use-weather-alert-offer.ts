@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { getDeviceTimeZone } from '@/domain/intl-format';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
@@ -23,6 +23,11 @@ export type WeatherAlertOfferApplication = Readonly<{
   acceptOffer: () => Promise<NotificationOptInOutcome>;
   /** Closes the offer without opting in. It is never made again. */
   dismissOffer: () => Promise<void>;
+  /**
+   * True once a refused accept was finished because the permission was later granted in
+   * system Settings: both kinds are on, so the refusal's explanation no longer applies.
+   */
+  finishedInSettings: boolean;
 }>;
 
 /**
@@ -60,6 +65,8 @@ export function useWeatherAlertOffer(): WeatherAlertOfferApplication {
     [alreadyOffered, now, optedIn, snapshot],
   );
 
+  const awaitingSettings = useRef(false);
+  const [finishedInSettings, setFinishedInSettings] = useState(false);
   // Already stable, and already exactly what dismissing the offer does.
   const {
     markWeatherAlertOfferShown: dismissOffer,
@@ -73,8 +80,29 @@ export function useWeatherAlertOffer(): WeatherAlertOfferApplication {
     // ADR 0004: accepting turns both kinds on, whichever of them the offer named. The
     // permission is already granted here, so the briefing only needs its stored answer.
     if (result.outcome === 'enabled') await updateMorningBriefingOptIn(true);
+    if (result.outcome === 'blocked') awaitingSettings.current = true;
     return result;
   }, [dismissOffer, notificationApplication, updateMorningBriefingOptIn]);
 
-  return { offer, acceptOffer, dismissOffer };
+  // A refused accept stored no opt-in. If the person then grants the permission in system
+  // Settings, the provider re-reads it on return and this finishes the accept exactly as an
+  // immediate grant would have: the same two opt-ins, which the alert observer then plans.
+  const granted = notificationApplication.state.permission.kind === 'granted';
+  const finishAccept = useEffectEvent(async () => {
+    try {
+      const result = await notificationApplication.setOptIn(true);
+      if (result.outcome !== 'enabled') return;
+      await updateMorningBriefingOptIn(true);
+      setFinishedInSettings(true);
+    } catch {
+      // The opt-in stays one tap away in Settings, so a failed write is not retried here.
+    }
+  });
+  useEffect(() => {
+    if (!awaitingSettings.current || !granted) return;
+    awaitingSettings.current = false;
+    void finishAccept();
+  }, [granted]);
+
+  return { offer, acceptOffer, dismissOffer, finishedInSettings };
 }

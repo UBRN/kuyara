@@ -1,5 +1,15 @@
-import { act, renderHook } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
+import { AppState } from 'react-native';
+
+import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
+import type {
+  NotificationGateway,
+  NotificationPermissionState,
+} from '@/features/notifications/data/notification-gateway';
 
 import {
   NotificationApplicationContext,
@@ -17,9 +27,14 @@ import {
 } from '@/features/weather/application/weather-application-context';
 import type { ManualLocationId, WeatherSnapshot } from '@/features/weather/domain/weather';
 
+jest.mock('@/features/notifications/data/expo-notification-gateway', () => ({
+  ExpoNotificationGateway: class {},
+}));
+
 jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
+    router: { navigate: jest.fn() },
     useFocusEffect: (callback: () => void | (() => void)) =>
       React.useEffect(callback, [callback]),
   };
@@ -300,4 +315,76 @@ test('accepting the offer opts into the briefing too, and a refusal opts into ne
 
   expect(refusedBriefing).not.toHaveBeenCalled();
   await blocked.unmount();
+});
+
+// The OS prompt was refused, then the person turned notifications on in iOS Settings and came
+// back: the provider re-reads the permission when the app turns active, and the hook finishes
+// the accept as if the grant had been immediate.
+test('a permission granted in Settings after a refused accept finishes the accept', async () => {
+  const appStateListeners: ((state: string) => void)[] = [];
+  const addEventListener = jest.spyOn(AppState, 'addEventListener').mockImplementation(
+    ((_type: string, listener: (state: string) => void) => {
+      appStateListeners.push(listener);
+      return { remove: () => undefined };
+    }) as unknown as typeof AppState.addEventListener,
+  );
+  let permission: NotificationPermissionState = { kind: 'undetermined' };
+  const gateway: NotificationGateway = {
+    getPermissionState: async () => permission,
+    requestPermission: async () => (permission = { kind: 'denied', canRequestAgain: false }),
+    openApplicationSettings: jest.fn(async () => undefined),
+    cancelScheduledWeatherAlerts: async () => true,
+    scheduleWeatherAlert: async () => true,
+    subscribeToResponses: () => () => undefined,
+  };
+  const persistOptIn = jest.fn(async () => undefined);
+  const updateMorningBriefingOptIn = jest.fn(async () => undefined);
+  const profile = profileApplication(
+    false, jest.fn(async () => undefined), updateMorningBriefingOptIn,
+  );
+  const weather = weatherApplication();
+  function Providers({ children }: PropsWithChildren) {
+    return (
+      <ProfileApplicationContext value={profile}>
+        <ProductAnalyticsProvider analytics={new RecordingProductAnalytics()} firstUseStore={new InMemoryFirstUseStore()}>
+          <NotificationApplicationProvider gateway={gateway} notificationsOptIn={false} persistOptIn={persistOptIn}>
+            <WeatherApplicationContext value={weather}>{children}</WeatherApplicationContext>
+          </NotificationApplicationProvider>
+        </ProductAnalyticsProvider>
+      </ProfileApplicationContext>
+    );
+  }
+  const hook = await renderHook(() => useWeatherAlertOffer(), { wrapper: Providers });
+
+  await act(async () => {
+    await hook.result.current.acceptOffer();
+  });
+  expect(hook.result.current.finishedInSettings).toBe(false);
+  expect(persistOptIn).not.toHaveBeenCalled();
+  expect(updateMorningBriefingOptIn).not.toHaveBeenCalled();
+
+  // Still denied when the app comes back: nothing changes.
+  await act(async () => {
+    appStateListeners.forEach((listener) => listener('active'));
+  });
+  expect(hook.result.current.finishedInSettings).toBe(false);
+  expect(persistOptIn).not.toHaveBeenCalled();
+
+  permission = { kind: 'granted' };
+  await act(async () => {
+    appStateListeners.forEach((listener) => listener('active'));
+  });
+
+  await waitFor(() => expect(hook.result.current.finishedInSettings).toBe(true));
+  expect(persistOptIn.mock.calls).toEqual([[true]]);
+  expect(updateMorningBriefingOptIn.mock.calls).toEqual([[true]]);
+
+  // A later foreground does not write again.
+  await act(async () => {
+    appStateListeners.forEach((listener) => listener('active'));
+  });
+  expect(persistOptIn).toHaveBeenCalledTimes(1);
+  expect(updateMorningBriefingOptIn).toHaveBeenCalledTimes(1);
+  addEventListener.mockRestore();
+  await hook.unmount();
 });

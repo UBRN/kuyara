@@ -2851,6 +2851,24 @@ describe('the contextual weather-alert offer', () => {
     await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
     expect(result.queryByTestId('today-alert-offer')).toBeNull();
   });
+
+  test('a refused offer disappears once the accept is finished from system Settings', async () => {
+    const offer = offerProps({
+      onAccept: jest.fn(async () => ({ outcome: 'blocked' as const, canRequestAgain: false })),
+    });
+    const screen = (finished: boolean) => providers(
+      <TodayScreen alertOffer={offer} alertOfferFinished={finished} language="en"
+      onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} onAskAgain={jest.fn()} state={todayScreenState} />,
+    );
+    const result = await render(screen(false));
+
+    await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
+    expect(result.getByTestId('today-alert-offer-message'))
+      .toHaveTextContent(messages.en.notifications.permissionDeniedHint);
+
+    await result.rerender(screen(true));
+    expect(result.queryByTestId('today-alert-offer')).toBeNull();
+  });
 });
 
 // Every host test id in render order, to assert where an element sits on the page.

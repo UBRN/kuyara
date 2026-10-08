@@ -5,18 +5,19 @@ import { useWeatherAlertOffer } from '@/features/notifications/application/use-w
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 
 /**
- * ADR 0004: the one contextual offer, decided, with its actions, or null when Today shows none.
+ * ADR 0004: the one contextual offer, decided, with its actions, or null when Today shows none,
+ * and whether a refused accept was finished by a later grant in system Settings.
  * The reason, the durable flag and the opt-in flow live behind `useWeatherAlertOffer`, which
  * persists and emits nothing; this hook reports the same events the Settings Notifications
  * route reports for the same opt-in, plus taxonomy 5.13's `weather_alert_offer_resolved` for
  * how the offer itself was answered.
  */
 export function useTodayAlertOffer(openNotificationSettings: () => void) {
-  const { acceptOffer, dismissOffer, offer } = useWeatherAlertOffer();
+  const { acceptOffer, dismissOffer, finishedInSettings, offer } = useWeatherAlertOffer();
   const { openApplicationSettings } = useNotificationApplication();
   const { state: profileState } = useProfileApplication();
   const { analytics, firstUses } = useProductAnalytics();
-  if (offer.kind !== 'offer') return null;
+  if (offer.kind !== 'offer') return { alertOffer: null, alertOfferFinished: finishedInSettings };
 
   const accept = async () => {
     // Read before the accept runs: it turns the briefing on, and taxonomy 5.9 only records a
@@ -78,9 +79,12 @@ export function useTodayAlertOffer(openNotificationSettings: () => void) {
   };
 
   return {
-    ruleId: offer.ruleId,
-    onAccept: accept,
-    onDismiss: dismiss,
-    onOpenSystemSettings: () => void openApplicationSettings(),
+    alertOffer: {
+      ruleId: offer.ruleId,
+      onAccept: accept,
+      onDismiss: dismiss,
+      onOpenSystemSettings: () => void openApplicationSettings(),
+    },
+    alertOfferFinished: finishedInSettings,
   };
 }

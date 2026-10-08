@@ -50,7 +50,7 @@ export default function TodayRoute() {
   const { state: weatherState } = useWeatherApplication();
   const { state: profileState } = useProfileApplication();
   const namePrompt = useNamePrompt();
-  const alertOffer = useTodayAlertOffer(() => push('/settings/notifications'));
+  const { alertOffer, alertOfferFinished } = useTodayAlertOffer(() => push('/settings/notifications'));
   const pullRefresh = useTodayPullRefresh();
   const [runwayVisible, setRunwayVisible] = useState(false);
   // Nothing opens over the launch curtain: the name prompt and the day question wait for it.
@@ -108,6 +108,7 @@ export default function TodayRoute() {
     <>
     <TodayScreen
       alertOffer={alertOffer}
+      alertOfferFinished={alertOfferFinished}
       language={language}
       displayName={profile?.displayName ?? null}
       isRefreshing={pullRefresh.refreshing}

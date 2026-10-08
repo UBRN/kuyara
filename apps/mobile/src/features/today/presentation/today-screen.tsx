@@ -103,6 +103,8 @@ type TodayScreenProps = Readonly<{
   displayName?: string | null;
   isRefreshing?: boolean;
   alertOffer?: TodayAlertOffer | null;
+  /** The refused offer's permission was granted in system Settings and the accept finished. */
+  alertOfferFinished?: boolean;
   onOpenOutfitDetail: (id: string) => void;
   /**
    * The route's link to an outfit's detail. With it each alternative opens as a link, and on
@@ -222,6 +224,7 @@ function TodayScreenContent({
   displayName = null,
   isRefreshing = false,
   alertOffer = null,
+  alertOfferFinished = false,
   onOpenOutfitDetail,
   outfitDetailLink,
   onOpenTomorrowDetail,
@@ -268,7 +271,9 @@ function TodayScreenContent({
   // through the prop. Accepting spends it whatever the OS answers, so a refusal arrives after
   // the prop is already gone, and the refused offer is kept to explain itself.
   const [offerAnswered, setOfferAnswered] = useState(false);
-  const [blockedOffer, setBlockedOffer] = useState<TodayAlertOffer | null>(null);
+  const [refusedOffer, setRefusedOffer] = useState<TodayAlertOffer | null>(null);
+  // Finished from system Settings: the refusal no longer applies, and the offer stays answered.
+  const blockedOffer = alertOfferFinished ? null : refusedOffer;
   // The badge row closes in place when a new outfit carries no source, so while it closes it
   // keeps drawing the source it last showed.
   const [shownGenerationMode, setShownGenerationMode] = useState<GenerationMode | null>(null);
@@ -281,7 +286,7 @@ function TodayScreenContent({
   // Held until the hero stage has laid out once, so the first outfit's rise starts after the
   // screen has been drawn rather than being spent while the loaded screen is still mounting.
   const [stageLaidOut, setStageLaidOut] = useState(false);
-  const offerToRender = alertOfferToRender(blockedOffer, offerAnswered, alertOffer);
+  const offerToRender = alertOfferToRender(blockedOffer, offerAnswered || alertOfferFinished, alertOffer);
   // The row leaves in place, so while it closes it keeps drawing the offer it last showed.
   const [shownOffer, setShownOffer] = useState<Readonly<{ offer: TodayAlertOffer; blocked: boolean }> | null>(null);
   if (offerToRender && (shownOffer?.offer !== offerToRender || shownOffer.blocked !== (blockedOffer !== null))) {
@@ -295,7 +300,7 @@ function TodayScreenContent({
     if (!alertOffer) return;
     try {
       const result = await alertOffer.onAccept();
-      if (alertOfferAfterAccept(result) === 'blocked') setBlockedOffer(alertOffer);
+      if (alertOfferAfterAccept(result) === 'blocked') setRefusedOffer(alertOffer);
       else setOfferAnswered(true);
     } catch {
       // The durable flag did not commit, so the once-only offer must remain answerable.
@@ -304,7 +309,7 @@ function TodayScreenContent({
   const dismissOffer = async () => {
     if (blockedOffer) {
       setOfferAnswered(true);
-      setBlockedOffer(null);
+      setRefusedOffer(null);
       return;
     }
     if (!alertOffer) return;
