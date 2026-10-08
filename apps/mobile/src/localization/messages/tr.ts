@@ -836,6 +836,19 @@ export const tr = {
     wornAction: 'Bugün bunu giydim',
     wornToday: 'Bugün giyildi',
     wornSaveError: 'Bugünkü kombin kaydedilemedi. Yeniden dene.',
+    rating: {
+      question: 'Bu kombini beğendin mi?',
+      thanks: 'Teşekkürler, not ettik.',
+      like: 'Beğendim',
+      dislike: 'Beğenmedim',
+      reasonsHeading: 'Ne uymadı? İsteğe bağlı.',
+      reasons: {
+        'too-warm': 'Hava için kalın',
+        'too-light': 'Hava için ince',
+        'not-my-style': 'Tarzım değil',
+        'not-for-today': 'Bugünkü planıma uymuyor',
+      },
+    },
     slots: {
       primary_top: 'Üst',
       bottom: 'Alt',

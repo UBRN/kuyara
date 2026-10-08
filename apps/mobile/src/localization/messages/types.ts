@@ -4,6 +4,7 @@ import type {
   OutfitSlot,
 } from '@/features/recommendation/domain/outfit-composition';
 import type { RemovableSlot, SwappableSlot } from '@/features/recommendation/domain/manual-mix';
+import type { OutfitRatingReason } from '@/features/today/domain/outfit-rating';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { ClothingRequirementReasonCode } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type { WeatherCause } from '@/features/recommendation/domain/weather-causes';
@@ -294,6 +295,18 @@ export type TodayMessages = Readonly<{
   wornAction: string;
   wornToday: string;
   wornSaveError: string;
+  /**
+   * The like and dislike under it, shown only while sharing is on. The question is the row's
+   * name and gives way to the thanks once a verdict is chosen; a dislike offers the reasons.
+   */
+  rating: Readonly<{
+    question: string;
+    thanks: string;
+    like: string;
+    dislike: string;
+    reasonsHeading: string;
+    reasons: Readonly<Record<OutfitRatingReason, string>>;
+  }>;
   slots: Readonly<Record<OutfitSlot, string>>;
   requirementNames: Readonly<Record<TodayRequirementName, string>>;
   requirementRow: (values: { requirement: string; garments: readonly string[] }) => string;

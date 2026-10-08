@@ -33,6 +33,7 @@ import {
 import { useClosetSeed } from '@/features/today/application/use-closet-seed';
 import { useDayWornLooks } from '@/features/today/application/use-day-worn-looks';
 import { useOutfitDetailOpenedReport } from '@/features/today/application/use-outfit-detail-opened-report';
+import { useOutfitRating } from '@/features/today/application/use-outfit-rating';
 import {
   useOutfitEditReports,
   useOutfitWornLoggedReport,
@@ -126,6 +127,9 @@ export default function OutfitDetailRoute() {
   useOutfitDetailOpenedReport({ focused: isFocused, tomorrow, suggestionId, position, outfit, recommendation });
   useTomorrowPreviewOpenedReport({ focused: isFocused, tomorrow, outfit, recommendation });
   const reportWornLogged = useOutfitWornLoggedReport({ composed: composedView !== null, position, recommendation });
+  const rating = useOutfitRating({
+    tomorrow, position, outfit, recommendation, changed: composedView !== null || (manualMix?.edited ?? false),
+  });
   const dayWorn = useDayWornLooks(thisWorn, tomorrow, reportWornLogged);
   const closetSeed = useClosetSeed((count) => {
     if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(messages.today.closetSeed.added(count));
@@ -203,6 +207,7 @@ export default function OutfitDetailRoute() {
         } : null}
         manualMix={shownMix}
         pinnedSlots={composedView?.pinnedSlots}
+        rating={rating}
         onBoardFocusChange={setBoardFocused}
         onEditPiece={pieceSheet.open}
         onSwipeHintShown={() => {

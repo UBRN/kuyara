@@ -17,6 +17,16 @@ export type AnalyticsConsentControls = Readonly<{
   decline: () => Promise<void>;
 }>;
 
+/**
+ * Whether sharing is on right now: false while the question is unanswered, after a decline or
+ * a withdrawal, and while the profile is still loading. A surface that exists only to be
+ * shared reads this, so it is never shown when nothing it records could leave the device.
+ */
+export function useAnalyticsConsentGranted(): boolean {
+  const { state } = useProfileApplication();
+  return state.status === 'ready' && state.profile.analyticsConsent === 'granted';
+}
+
 export function useAnalyticsConsent(): AnalyticsConsentControls {
   const { analytics, errorEpisodes, firstUses, retries, withdrawnIdentifiers } = useProductAnalytics();
   const telemetry = usePerformanceTelemetry();

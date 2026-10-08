@@ -21,6 +21,7 @@ import {
   failureCategoryProperty,
   generationModeProperty,
   locationChangedMethodProperty,
+  outfitRatingReasonProperty,
   outfitSlotProperty,
   triggerReasonProperty,
   wornSourceProperty,
@@ -28,6 +29,7 @@ import {
 import { recommendationGenerationModes } from '../recommendation/domain/generation-mode.ts';
 import { dressingDayChoiceSourceSchema } from '../recommendation/domain/dressing-day-choice.ts';
 import { outfitSlots } from '../recommendation/domain/outfit-slots.ts';
+import { outfitRatingReasons } from '../today/domain/outfit-rating.ts';
 
 test('every failure category maps to a snake_case property', () => {
   assert.deepEqual(
@@ -105,6 +107,12 @@ test('every outfit slot maps to a closed slot id', () => {
     'primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear',
     'head', 'neck', 'hands', 'handheld',
   ]);
+});
+
+// Taxonomy 5.6: each reason a dislike can give maps to its own closed id.
+test('every outfit rating reason maps to a closed reason id', () => {
+  assert.deepEqual(outfitRatingReasons.map(outfitRatingReasonProperty),
+    ['too_warm', 'too_light', 'not_my_style', 'not_for_today']);
 });
 
 test('a composed result is composed whatever the stored source, otherwise manual reads edited', () => {

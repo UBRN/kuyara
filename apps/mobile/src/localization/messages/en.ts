@@ -845,6 +845,19 @@ export const en = {
     wornAction: 'Wore this today',
     wornToday: 'Worn today',
     wornSaveError: 'Today’s look could not be saved. Try again.',
+    rating: {
+      question: 'Do you like this outfit?',
+      thanks: 'Thanks, noted.',
+      like: 'I like it',
+      dislike: 'I don’t like it',
+      reasonsHeading: 'What didn’t work? Optional.',
+      reasons: {
+        'too-warm': 'Too warm for the weather',
+        'too-light': 'Too light for the weather',
+        'not-my-style': 'Not my style',
+        'not-for-today': 'Doesn’t suit my day',
+      },
+    },
     slots: {
       primary_top: 'Top',
       bottom: 'Bottom',

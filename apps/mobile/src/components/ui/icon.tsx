@@ -53,6 +53,11 @@ export const iconNames = Object.freeze({
   circle: { ios: 'circle', android: 'radio_button_unchecked', web: 'radio_button_unchecked' },
   heart: { ios: 'heart', android: 'favorite', web: 'favorite' },
   heartFilled: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
+  // Outfit detail's like and dislike: outline at rest, filled when chosen (Law 6).
+  thumbsUp: { ios: 'hand.thumbsup', android: 'thumb_up_off_alt', web: 'thumb_up_off_alt' },
+  thumbsUpFilled: { ios: 'hand.thumbsup.fill', android: 'thumb_up', web: 'thumb_up' },
+  thumbsDown: { ios: 'hand.thumbsdown', android: 'thumb_down_off_alt', web: 'thumb_down_off_alt' },
+  thumbsDownFilled: { ios: 'hand.thumbsdown.fill', android: 'thumb_down', web: 'thumb_down' },
   // O6, O7: the owned piece is a hanger; a worn day is a calendar with a check.
   hanger: { ios: 'hanger', android: 'checkroom', web: 'checkroom' },
   calendarCheck: { ios: 'calendar.badge.checkmark', android: 'event_available', web: 'event_available' },

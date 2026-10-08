@@ -605,6 +605,8 @@ import { RecommendationApplicationController } from '@/features/recommendation/a
 import TodayRoute from '@/app/(tabs)/(today)/index';
 // eslint-disable-next-line import/first
 import OutfitDetailRoute from '@/app/(tabs)/(today)/[id]';
+// eslint-disable-next-line import/first
+import { forgetOutfitRatings } from '@/features/today/application/use-outfit-rating';
 
 beforeEach(() => {
   mockAccountsOpen = false;
@@ -4689,6 +4691,18 @@ describe('compose around chosen pieces on detail', () => {
     expect(screen.queryByTestId('compose-result-position')).toBeNull();
   });
 
+  test('a composed result has no like or dislike, and back to kuyara\'s pick asks again', async () => {
+    mockAccountsOpen = true;
+    const { result } = renderDetail('upToDate');
+    const screen = await result;
+    expect(await screen.findByRole('button', { name: copy.rating.like })).toBeOnTheScreen();
+    await composeSkirt(screen);
+    expect(await screen.findByTestId('compose-result-position')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: copy.rating.like })).toBeNull();
+    await fireEvent.press(screen.getByTestId('outfit-detail-reset-button'));
+    expect(screen.getByRole('button', { name: copy.rating.like })).toBeOnTheScreen();
+  });
+
   test('a day that composes nothing leaves the outfit as it was', async () => {
     mockAccountsOpen = true;
     const spy = jest.spyOn(composeModule, 'composeAroundPieces').mockReturnValue({ status: 'unavailable' });
@@ -4734,4 +4748,183 @@ test.each(['primary', 'tomorrow', 'idea'] as const)('the %s opening starts its e
   const [tint] = plate.children as (typeof plate)[];
   expect(StyleSheet.flatten(tint.props.style).borderRadius ?? 0)
     .toBe(opening === 'primary' ? 0 : lightTheme.radii.stage);
+});
+
+// Like and dislike on detail (taxonomy 5.6): only while sharing is on, only for one of the three
+// as kuyara picked it, remembered by dressing day and outfit for the app process.
+describe('like and dislike on detail', () => {
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const copy = messages.en.today.rating;
+  const generationMode = todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback';
+  const rated = (position: 1 | 2 | 3) => ({
+    schema_version: 4,
+    outfit_position: position,
+    archetype: todayRecommendation.outfits[position - 1].archetypeId,
+    generation_mode: generationMode,
+  });
+  beforeEach(() => forgetOutfitRatings());
+
+  function detailProps(overrides: Partial<{ profile: ReturnType<typeof profileValue>; dressingDayKey: string }> = {}) {
+    return {
+      productAnalytics: createProductAnalytics(),
+      profile: profileValue(),
+      recommendation: recommendationReady(),
+      wardrobe: wardrobeValue(),
+      weather: weatherValue(),
+      dressingDayKey: '2026-08-13',
+      ...overrides,
+    };
+  }
+  async function openDetail(position: 1 | 2 | 3, props = detailProps()) {
+    mockParams = { id: todayOutfitId(position) };
+    const result = await render(<Providers {...props}><OutfitDetailRoute /></Providers>);
+    expect(await result.findByTestId('outfit-detail-screen')).toBeOnTheScreen();
+    return result;
+  }
+  const like = (result: Awaited<ReturnType<typeof render>>) => result.queryByRole('button', { name: copy.like });
+  const dislike = (result: Awaited<ReturnType<typeof render>>) => result.queryByRole('button', { name: copy.dislike });
+  const reason = (result: Awaited<ReturnType<typeof render>>, name: string) => result.getByRole('button', { name });
+  const selected = (element: { props: { accessibilityState?: { selected?: boolean } } } | null) =>
+    element?.props.accessibilityState?.selected;
+
+  test.each(['undecided', 'withdrawn'] as const)('there is no row while sharing is %s', async (analyticsConsent) => {
+    const result = await openDetail(1, detailProps({ profile: profileValue({ analyticsConsent }) }));
+    expect(like(result)).toBeNull();
+    expect(dislike(result)).toBeNull();
+    expect(result.queryByText(copy.question)).toBeNull();
+  });
+
+  test.each([1, 2, 3] as const)('outfit %i of the three asks under its worn action', async (position) => {
+    const result = await openDetail(position);
+    expect(result.getByText(copy.question)).toBeOnTheScreen();
+    expect(selected(like(result))).toBe(false);
+    expect(selected(dislike(result))).toBe(false);
+    // Nothing is offered before a dislike, and opening reports nothing.
+    expect(result.queryByRole('button', { name: copy.reasons['too-warm'] })).toBeNull();
+    expect(result.queryByText(copy.reasonsHeading)).toBeNull();
+  });
+
+  test('tomorrow\'s preview has no row', async () => {
+    const saved = recommendationReady();
+    if (saved.status !== 'ready' || !saved.snapshot) throw new Error('fixture');
+    const weather = weatherValue({ snapshot: { ...todayScreenState.snapshot.weather, daily: [{
+      dateKey: '2026-08-14', condition: 'rain', minimumTemperatureCelsius: 7.2,
+      maximumTemperatureCelsius: 9.6, precipitationProbability: 0.8, precipitationMillimetres: 4,
+    }] } });
+    mockParams = { id: todayOutfitId(1), day: 'tomorrow' };
+    const tomorrow = await render(
+      <Providers {...detailProps()} tomorrowPreview={{ ...saved.snapshot, id: 'preview-one', localDayKey: '2026-08-14' }}
+        weather={weather}>
+        <OutfitDetailRoute />
+      </Providers>,
+    );
+    expect(await tomorrow.findByTestId('outfit-detail-weather-recap')).toBeOnTheScreen();
+    expect(like(tomorrow)).toBeNull();
+  });
+
+  test('an idea from the pool has no row', async () => {
+    const pool = composeOutfitPool(todayRecommendation.requirements, 'womens', 0);
+    if (pool.status !== 'composed') throw new Error('fixture');
+    const shown = new Set(todayRecommendation.outfits.map(({ optionId }) => optionId));
+    mockParams = { id: outfitOptionId(pool.outfits.find((outfit) => !shown.has(outfitOptionId(outfit)))!) };
+    const idea = await render(
+      <Providers {...detailProps()} recommendation={recommendationReady({ pool: pool.outfits })}><OutfitDetailRoute /></Providers>,
+    );
+    expect(await idea.findByText(messages.en.today.generationSourceDeterministic)).toBeOnTheScreen();
+    expect(like(idea)).toBeNull();
+  });
+
+  test('a like is set, switched to a dislike and cleared; only setting reports', async () => {
+    const props = detailProps();
+    const result = await openDetail(2, props);
+    await fireEvent.press(like(result)!);
+    expect(selected(like(result))).toBe(true);
+    expect(selected(dislike(result))).toBe(false);
+    expect(result.getByText(copy.thanks)).toBeOnTheScreen();
+    expect(result.queryByText(copy.question)).toBeNull();
+    expect(result.queryByRole('button', { name: copy.reasons['too-warm'] })).toBeNull();
+
+    await fireEvent.press(dislike(result)!);
+    expect(selected(like(result))).toBe(false);
+    expect(selected(dislike(result))).toBe(true);
+    expect(result.getByText(copy.thanks)).toBeOnTheScreen();
+
+    await fireEvent.press(dislike(result)!);
+    expect(selected(dislike(result))).toBe(false);
+    expect(result.getByText(copy.question)).toBeOnTheScreen();
+    expect(capturesOf(props.productAnalytics, 'outfit_rated')).toEqual([
+      { ...rated(2), verdict: 'like' },
+      { ...rated(2), verdict: 'dislike' },
+    ]);
+    expect(capturesOf(props.productAnalytics, 'outfit_rating_reason_given')).toEqual([]);
+  });
+
+  test('a dislike offers four reasons; one is set, switched and cleared, and only setting reports', async () => {
+    const props = detailProps();
+    const result = await openDetail(1, props);
+    await fireEvent.press(dislike(result)!);
+    expect(result.getByText(copy.reasonsHeading)).toBeOnTheScreen();
+    for (const name of Object.values(copy.reasons)) expect(selected(reason(result, name))).toBe(false);
+
+    await fireEvent.press(reason(result, copy.reasons['too-warm']));
+    expect(selected(reason(result, copy.reasons['too-warm']))).toBe(true);
+    await fireEvent.press(reason(result, copy.reasons['not-for-today']));
+    expect(selected(reason(result, copy.reasons['too-warm']))).toBe(false);
+    expect(selected(reason(result, copy.reasons['not-for-today']))).toBe(true);
+    await fireEvent.press(reason(result, copy.reasons['not-for-today']));
+    expect(selected(reason(result, copy.reasons['not-for-today']))).toBe(false);
+    // The dislike stays chosen without a reason.
+    expect(selected(dislike(result))).toBe(true);
+    expect(capturesOf(props.productAnalytics, 'outfit_rated')).toEqual([{ ...rated(1), verdict: 'dislike' }]);
+    expect(capturesOf(props.productAnalytics, 'outfit_rating_reason_given')).toEqual([
+      { ...rated(1), reason: 'too_warm' },
+      { ...rated(1), reason: 'not_for_today' },
+    ]);
+
+    // A like takes the reasons away.
+    await fireEvent.press(like(result)!);
+    expect(result.queryByRole('button', { name: copy.reasons['too-warm'] })).toBeNull();
+  });
+
+  test('a changed piece hides the row, and back to kuyara\'s pick shows the earlier choice', async () => {
+    const props = detailProps();
+    const result = await openDetail(1, props);
+    await fireEvent.press(like(result)!);
+    await fireEvent(result.getByTestId('outfit-detail-content'), 'layout',
+      { nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } } });
+    const piece = () => result.getByTestId('outfit-detail-board-piece-footwear');
+    await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    expect(result.getByRole('header', { name: messages.en.today.manualMix.title })).toBeOnTheScreen();
+    expect(like(result)).toBeNull();
+
+    await fireEvent.press(result.getByTestId('outfit-detail-reset-button'));
+    expect(selected(like(result))).toBe(true);
+    expect(result.getByText(copy.thanks)).toBeOnTheScreen();
+    expect(capturesOf(props.productAnalytics, 'outfit_rated')).toHaveLength(1);
+  });
+
+  test('the choice is kept for the dressing day and outfit when detail opens again', async () => {
+    const props = detailProps();
+    const result = await openDetail(3, props);
+    await fireEvent.press(dislike(result)!);
+    await fireEvent.press(reason(result, copy.reasons['not-my-style']));
+    await result.rerender(<Providers {...props}><Text>Today</Text></Providers>);
+    await result.rerender(<Providers {...props}><OutfitDetailRoute /></Providers>);
+    expect(selected(dislike(result))).toBe(true);
+    expect(selected(reason(result, copy.reasons['not-my-style']))).toBe(true);
+    // Showing it again reports nothing.
+    expect(capturesOf(props.productAnalytics, 'outfit_rated')).toHaveLength(1);
+
+    // Another outfit and another dressing day ask afresh.
+    mockParams = { id: todayOutfitId(2) };
+    await result.rerender(<Providers {...props}><OutfitDetailRoute /></Providers>);
+    expect(selected(dislike(result))).toBe(false);
+    mockParams = { id: todayOutfitId(3) };
+    await result.rerender(<Providers {...props} dressingDayKey="2026-08-14"><OutfitDetailRoute /></Providers>);
+    expect(selected(dislike(result))).toBe(false);
+    await result.rerender(<Providers {...props}><OutfitDetailRoute /></Providers>);
+    expect(selected(dislike(result))).toBe(true);
+  });
 });

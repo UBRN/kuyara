@@ -1,4 +1,4 @@
-// The typed catalog of the thirty custom events in `docs/analytics-taxonomy.md`
+// The typed catalog of the thirty-two custom events in `docs/analytics-taxonomy.md`
 // section 5. Every enum here is closed: a new value is added to the taxonomy first, in the
 // same change that adds it to the code it is derived from, and it bumps the schema version.
 // Nothing in this module talks to a provider; it is the contract the `ProductAnalytics`
@@ -109,6 +109,17 @@ export type OutfitSlotProperty =
 
 // Taxonomy 5.6: the pieces the reader chose to build around, three or more collapsed.
 export type ComposedPieceCount = 1 | 2 | 3;
+
+// Taxonomy 5.6: the reader's verdict on one of the three, and what did not work about a dislike.
+export type OutfitVerdictProperty = 'like' | 'dislike';
+export type OutfitRatingReasonProperty = 'too_warm' | 'too_light' | 'not_my_style' | 'not_for_today';
+
+// The one of the three a rating is about: its place, kuyara's archetype and the day's mode.
+type RatedOutfit = Readonly<{
+  outfit_position: 1 | 2 | 3;
+  archetype: OutfitArchetypeId;
+  generation_mode: GenerationModeProperty;
+}>;
 
 // Taxonomy 5.5: how the day's formality was chosen.
 export type DayStyleChoiceSourceProperty = 'morning' | 'chip' | 'plan' | 'random';
@@ -254,6 +265,11 @@ export type AnalyticsEventCatalog = {
   // Taxonomy 5.6: a compose around chosen pieces settled.
   outfit_composed: AnalyticsEventBase &
     Readonly<{ piece_count: ComposedPieceCount; result: 'composed' | 'no_match' }>;
+  // Taxonomy 5.6: a verdict set or switched on one of the three; clearing it sends nothing.
+  outfit_rated: AnalyticsEventBase & RatedOutfit & Readonly<{ verdict: OutfitVerdictProperty }>;
+  // Taxonomy 5.6: a reason set or switched beside a dislike; clearing it sends nothing.
+  outfit_rating_reason_given: AnalyticsEventBase & RatedOutfit &
+    Readonly<{ reason: OutfitRatingReasonProperty }>;
   // Taxonomy 5.5: a new formality was written for the dressing day. `dress_style` is the
   // value chosen, not segmentation.
   day_style_changed: AnalyticsEventBase &
@@ -389,6 +405,8 @@ export const analyticsEventNames = [
   'outfit_worn_logged',
   'outfit_piece_changed',
   'outfit_composed',
+  'outfit_rated',
+  'outfit_rating_reason_given',
   'day_style_changed',
   'tomorrow_preview_opened',
   'manual_refresh_triggered',
@@ -459,6 +477,8 @@ export const analyticsEventPropertyKeys = {
   ],
   outfit_piece_changed: ['schema_version', 'slot', 'outfit_position'],
   outfit_composed: ['schema_version', 'piece_count', 'result'],
+  outfit_rated: ['schema_version', 'verdict', 'outfit_position', 'archetype', 'generation_mode'],
+  outfit_rating_reason_given: ['schema_version', 'reason', 'outfit_position', 'archetype', 'generation_mode'],
   day_style_changed: ['schema_version', 'dress_style', 'choice_source'],
   tomorrow_preview_opened: ['schema_version', 'generation_mode'],
   manual_refresh_triggered: ['schema_version', 'surface', 'result'],

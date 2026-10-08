@@ -76,6 +76,8 @@ import {
   type PiecePickerTarget,
 } from '@/features/today/presentation/piece-picker-sheet';
 import { manualDetailOf, type ComposedDetail } from '@/features/today/application/composed-detail';
+import type { OutfitRatingControl } from '@/features/today/application/use-outfit-rating';
+import { OutfitDetailRating } from '@/features/today/presentation/outfit-detail-rating';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
@@ -145,6 +147,8 @@ type OutfitDetailScreenProps = Readonly<{
   }> | null;
   /** Opened from Today's primary board, so the pieces leave from the band that drew them. */
   fromBand?: boolean;
+  /** Like and dislike under "Wore this today"; null while the outfit has none. */
+  rating?: OutfitRatingControl | null;
 }>;
 
 export function OutfitDetailScreen({
@@ -166,6 +170,7 @@ export function OutfitDetailScreen({
   composeEntry = null,
   composeResult = null,
   fromBand = false,
+  rating = null,
 }: OutfitDetailScreenProps) {
   const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
@@ -321,6 +326,9 @@ export function OutfitDetailScreen({
     setWornSwap({ current: wornShown, previous: wornSwap.current, previousBusy: wornBusy, changes: wornSwap.changes + 1 });
   }
   const clearWornPrevious = useCallback(() => setWornSwap((value) => ({ ...value, previous: null })), []);
+  // The rating row keeps its last choice drawn while it closes after a change to a piece.
+  const [shownRating, setShownRating] = useState(rating);
+  if (rating && rating !== shownRating) setShownRating(rating);
   const unusual = changed && (manualMix?.unusual ?? false);
   const wasUnusual = useRef(unusual);
   // A board tile or swipe waits here until the change it asked for has rendered.
@@ -669,6 +677,9 @@ export function OutfitDetailScreen({
           <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.wornError} variant="caption">
             {wornError ?? shownWornError}
           </AppText>
+        </Presence>
+        <Presence testID="outfit-detail-rating-presence" visible={rating !== null}>
+          {shownRating ? <OutfitDetailRating control={rating ?? shownRating} copy={copy} /> : null}
         </Presence>
         {composeEntry?.(palette)}
         <Presence testID="outfit-detail-reset" visible={changed}>

@@ -174,7 +174,7 @@ allowed value set changes. The current version is 4. The SDK-supplied app
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
-**Count.** This document defines **thirty custom events**.
+**Count.** This document defines **thirty-two custom events**.
 
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
 form of a kebab-case domain type. `generation_mode` is `on_device_ai` / `ai_assisted` / `deterministic_fallback`
@@ -229,7 +229,7 @@ version-dependent default outside this list is disabled
 or added here through review, never accepted implicitly.
 
 **Event names and per-event keys.** The adapter sends only an event whose name is one of the
-thirty custom events of this section, the five lifecycle events above, or `$exception`;
+thirty-two custom events of this section, the five lifecycle events above, or `$exception`;
 every other SDK event is dropped. A custom event keeps only its own property keys from this
 taxonomy plus the allowlisted SDK keys, so a key listed for one event, `dress_style` for
 instance, never rides another. A lifecycle event keeps only the allowlisted SDK keys.
@@ -404,6 +404,8 @@ section 5.6.
 | `outfit_worn_logged` | The user confirms "Wore this today" on outfit detail and the History write succeeds. | `worn_source` (`recommended`\|`edited`\|`composed`), `archetype` (as above), `dress_style` (the worn outfit's own formality), `generation_mode` (as above, omitted for a composed result and for an idea that is not one of the three) |
 | `outfit_piece_changed` | The reader changes one piece of an outfit on detail. | `slot` (`primary_top`\|`bottom`\|`one_piece`\|`mid_layer`\|`outer_layer`\|`footwear`\|`head`\|`neck`\|`hands`\|`handheld`), `outfit_position` (`1`\|`2`\|`3`, omitted for a composed result and for an idea) |
 | `outfit_composed` | The reader asks kuyara to build an outfit around chosen pieces and the attempt settles. | `piece_count` (`1`\|`2`\|`3`), `result` (`composed`\|`no_match`) |
+| `outfit_rated` | The reader sets or switches like or dislike on one of the three outfits on detail. | `verdict` (`like`\|`dislike`), `outfit_position` (`1`\|`2`\|`3`), `archetype` (as above), `generation_mode` (as above) |
+| `outfit_rating_reason_given` | The reader sets or switches what did not work about a disliked outfit. | `reason` (`too_warm`\|`too_light`\|`not_my_style`\|`not_for_today`), `outfit_position`, `archetype` and `generation_mode` (as on `outfit_rated`) |
 | `tomorrow_preview_opened` | The user opens tomorrow's previewed outfit from the evening strip on Today. | `generation_mode` (as above) |
 
 Opening detail is an impression of interest.
@@ -429,6 +431,16 @@ pieces (one to three, the most a compose takes) and whether any outfit was built
 is `composed` when at least one outfit came back and `no_match` otherwise, an unavailable
 day included. Stepping to another option and "back to kuyara's pick" report nothing.
 
+`outfit_rated` and `outfit_rating_reason_given` come from the row under "Wore this today",
+which is drawn only while sharing is on and only for one of the three outfits as kuyara picked
+it: tomorrow's preview, an idea, a composed result and an outfit the reader changed have none,
+and going back to kuyara's pick shows the earlier choice again. Each is emitted when a verdict
+or a reason is set or switched; tapping the chosen one again clears it and reports nothing, and
+a choice shown again on a later opening reports nothing. The choice is kept by dressing day and
+outfit only while the app runs. The reason is one of four closed words, offered only beside a
+dislike and optional; the row takes no free text. `generation_mode` is the day's
+recommendation's.
+
 `tomorrow_preview_opened` is emitted once per focus of tomorrow's detail, when the strip's
 outfit is showing. Tomorrow's detail still records no `screen_viewed` and no
 `outfit_detail_opened`.
@@ -442,6 +454,8 @@ outfit is showing. Tomorrow's detail still records no `screen_viewed` and no
 - `outfit_piece_changed`: which slots do people change, and for which outfit position?
 - `outfit_composed`: how many pieces do people build around, and how often does it find
   nothing?
+- `outfit_rated` and `outfit_rating_reason_given`: which positions and archetypes are liked or
+  disliked, under which generation mode, and what most often does not work?
 - `tomorrow_preview_opened`: is the evening preview opened?
 
 ### 5.7 Refresh and retry behaviour
@@ -766,12 +780,13 @@ checked most days), sees two or three screens per open, and edits the Closet occ
 | `recommendation_viewed` | about 20 |
 | `outfit_detail_opened` | about 10 |
 | Day style and outfit events (`day_style_changed`, `outfit_worn_logged`, `outfit_piece_changed`, `outfit_composed`, `tomorrow_preview_opened`) | about 45 |
+| Outfit ratings (`outfit_rated`, `outfit_rating_reason_given`) | about 5 |
 | Everything else (manual refresh, retries, Closet, Settings, errors, notification responses, first use, consent) | about 25 |
 | Account events, a signed-in user only (`account_sync_finished` about 5, sign-in, deletion and sign-out about 1 together) | about 6 |
-| **Total** | **about 270, call it 270 to 370 with error and retry variance** |
+| **Total** | **about 275, call it 275 to 375 with error and retry variance** |
 
 So the monthly active user ceiling is roughly the plan's monthly event allowance divided by
-370. Verify the current allowance, its overage behaviour, and whether a free plan drops
+375. Verify the current allowance, its overage behaviour, and whether a free plan drops
 events or bills for them, from PostHog's own pricing page at implementation time; the first
 release's expected audience is orders of magnitude below any plausible ceiling, which is
 why no sampling is applied up front.

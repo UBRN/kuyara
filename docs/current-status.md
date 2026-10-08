@@ -111,7 +111,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   sent, is never shown again, and on acceptance turns both kinds on and opens the
   Notifications surface. Pending notifications survive a cold launch and the tap that
   launched the app is delivered. No server, no push.
-- **Analytics:** the `ProductAnalytics` boundary, typed thirty-event catalog,
+- **Analytics:** the `ProductAnalytics` boundary, typed thirty-two-event catalog,
   error-episode and retry trackers, consent-gated PostHog adapter, Today consent
   sheet and Settings Privacy surface are implemented. Consent is profile-owned in schema
   version 12; absent configuration uses the no-op adapter (a logging adapter in
@@ -121,7 +121,11 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   approved event is emittable except `error_shown` on the `settings` surface, which has
   no failure classification to observe yet. The account events (`account_sign_in_finished`,
   `account_sync_finished`, `account_deleted`, `account_signed_out`) report outcomes with closed
-  values and never link PostHog to an account. Onboarding runs before the consent question
+  values and never link PostHog to an account. On main for the build after 20, outfit detail
+  asks "Do you like this outfit?" under "Wore this today" while sharing is on, for the three
+  recommended outfits as kuyara picked them: two thumbs, and four optional reasons after a
+  dislike, reported as `outfit_rated` and `outfit_rating_reason_given` and kept only while the
+  app runs. Onboarding runs before the consent question
   and reports nothing; downloads, first sessions and retention before consent come from App
   Store Connect App Analytics. EAS Observe runs
   alongside it as separate observability instrumentation: its own

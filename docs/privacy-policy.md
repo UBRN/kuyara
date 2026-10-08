@@ -36,9 +36,9 @@ cases below, and the app works exactly the same. The separate Expo launch reques
 run. If you accept, kuyara collects:
 
 - **Product interaction.** Which screens open, taps such as refresh, whether a
-  recommendation loaded, which look you wear, which piece of an outfit you change, how
-  the Closet is used, and whether signing in, syncing or deleting an account worked (never
-  who you are).
+  recommendation loaded, whether you like a suggestion, which look you wear, which piece of
+  an outfit you change, how the Closet is used, and whether signing in, syncing or deleting
+  an account worked (never who you are).
 - **Other usage data.** Coarse product state such as whether a recommendation came from
   AI or the built-in fallback, your dress style setting, and a coarse age range (never
   your birth date).

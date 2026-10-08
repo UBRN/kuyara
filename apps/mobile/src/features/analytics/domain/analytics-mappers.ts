@@ -18,6 +18,7 @@ import type { AccountSyncTrigger } from '@/features/account/application/account-
 import type { DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-slots';
+import type { OutfitRatingReason } from '@/features/today/domain/outfit-rating';
 
 import type {
   AccountDeletionFailureProperty,
@@ -31,6 +32,7 @@ import type {
   DayStyleChoiceSourceProperty,
   FailureCategoryProperty,
   GenerationModeProperty,
+  OutfitRatingReasonProperty,
   OutfitSlotProperty,
   TriggerReasonProperty,
   WornSourceProperty,
@@ -71,6 +73,13 @@ const outfitSlotProperties = {
   hands: 'hands',
   handheld: 'handheld',
 } as const satisfies Record<OutfitSlot, OutfitSlotProperty>;
+
+const outfitRatingReasonProperties = {
+  'too-warm': 'too_warm',
+  'too-light': 'too_light',
+  'not-my-style': 'not_my_style',
+  'not-for-today': 'not_for_today',
+} as const satisfies Record<OutfitRatingReason, OutfitRatingReasonProperty>;
 
 const wornSourceProperties = {
   recommended: 'recommended',
@@ -174,6 +183,10 @@ export function triggerReasonProperty(
 
 export function outfitSlotProperty(slot: OutfitSlot): OutfitSlotProperty {
   return outfitSlotProperties[slot];
+}
+
+export function outfitRatingReasonProperty(reason: OutfitRatingReason): OutfitRatingReasonProperty {
+  return outfitRatingReasonProperties[reason];
 }
 
 // Taxonomy 5.6: a composed result is the reader's own outfit from the start, so it wins over
