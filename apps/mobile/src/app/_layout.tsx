@@ -30,7 +30,9 @@ import { ProcessClockContext } from '@/features/analytics/application/use-proces
 import { analyticsConsentState } from '@/features/analytics/domain/analytics-consent-state';
 import { readAnalyticsConsentSync } from '@/features/analytics/data/analytics-consent-sync-source';
 import { createProductAnalytics } from '@/features/analytics/data/create-product-analytics';
+import { createLaunchSession, useLaunchSessionIndex } from '@/features/analytics/application/launch-session';
 import { countLaunchedSession } from '@/features/analytics/data/expo-file-session-counter';
+import { launchVisibility } from '@/features/analytics/data/launch-visibility';
 import {
   configureObserveTelemetry,
   observePerformanceTelemetry,
@@ -75,9 +77,13 @@ configureObserveTelemetry({
   dispatchingEnabled: telemetryDispatchingEnabled(analyticsConsentState.current()),
 });
 
-// A session is one app process, so the launch is counted here, once, before the first render.
+// A session is one app process the person has seen. A foreground launch is counted here, once,
+// before the first render; one iOS started in the background for the weather-alert task is
+// counted when it is first opened, and never if nobody opens it.
 // ADR 0033 section 6: the consent sheet is asked for from the second session onwards.
-const sessionIndex = countLaunchedSession();
+const launchSession = createLaunchSession(launchVisibility, countLaunchedSession);
+// The analytics client is built only then too: the SDK captures an app open as it is built.
+const launchSeen = new Promise<void>((resolve) => launchVisibility.onSeen(resolve));
 
 // A process plays its launch once: a root that mounts again in the same process (a scene
 // reconnecting) is not a cold launch.
@@ -153,9 +159,10 @@ function ReadyApplicationShell({
   const [analytics] = useState(() => {
     // The loaded profile is the stored answer: it also covers a launch read that failed.
     analyticsConsentState.set(profile.analyticsConsent);
-    return createProductAnalytics(__DEV__, profile.analyticsConsent);
+    return createProductAnalytics(__DEV__, profile.analyticsConsent, launchSeen);
   });
   const pathname = usePathname();
+  const sessionIndex = useLaunchSessionIndex(launchSession);
   const { recommendationShown, beginConsentPresentation } = useAnalyticsConsentTrigger();
   const presentAnalyticsConsent = useCallback(() => {
     const presentation = beginConsentPresentation();

@@ -132,6 +132,35 @@ test('a granted profile reconciles silently and exposes the provider identifier'
   assert.equal(analytics.getSessionId(), 'session-1');
 });
 
+// The SDK captures `Application Opened` as it is constructed. A background launch nobody sees
+// is no session, so it builds no client and sends nothing until the person opens the app.
+test('a granted profile builds no client until the launch is seen', async () => {
+  const client = new FakeClient();
+  let createCount = 0;
+  let markSeen;
+  const analytics = createPostHogProductAnalytics({
+    ...options('granted'),
+    launchSeen: new Promise((resolve) => { markSeen = resolve; }),
+  }, () => {
+    createCount += 1;
+    return client;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
+  await analytics.flush();
+  assert.equal(createCount, 0);
+  assert.equal(analytics.isApplied(), false);
+  assert.equal(analytics.getIdentifier(), null);
+
+  markSeen();
+  await analytics.whenReady();
+  assert.equal(createCount, 1);
+  assert.deepEqual(client.operations, ['optIn']);
+  assert.deepEqual(client.captures, []);
+  assert.equal(analytics.isApplied(), true);
+});
+
 test('failed granted startup reconciliation stays unapplied and blocks later autocapture', async () => {
   const client = new FakeClient();
   client.fail('ready');

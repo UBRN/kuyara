@@ -371,11 +371,17 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
 2. A consent surface exists, with one question and Turkish and English copy from
    localization keys. It is shown once on Today, from the second app session onwards,
    after the first recommendation of that session has rendered. The first session is never
-   interrupted by it. A session is one app process, counted on the device outside the
-   analytics identity, so nothing about the launch is sent, and the only device-side record
-   is a launch count that never leaves the device while the answer is `undecided`. Accept is
-   the primary action; decline is a same-size secondary action directly
-   beneath it. Decline stays one tap and is never hidden, reduced, faded, coloured as a
+   interrupted by it. A session is one app process the person has seen, counted on the
+   device outside the analytics identity, so nothing about the launch is sent, and the only
+   device-side record is a launch count that never leaves the device while the answer is
+   `undecided`. iOS also starts the app in the background for the weather-alert task and,
+   under the scene life cycle, renders its interface off screen; such a launch is counted
+   when it is first brought to the foreground and never if nobody opens it. Until then it
+   builds no PostHog client, so it sends no app open or other event. A process whose first
+   launch metric is taken before anyone opens it marks no screen interactive and sends no
+   `recommendation.first_shown` for the rest of its life, because both would time a launch
+   nobody saw. Accept is the primary action; decline is a same-size secondary action
+   directly beneath it. Decline stays one tap and is never hidden, reduced, faded, coloured as a
    warning or delayed. Declining changes nothing else in the product.
 3. A Settings row reads the current consent state, withdraws it, and on withdrawal calls
    `optOut()`, `reset()`, and clears the persisted `DeviceId`; a test asserts a fresh
@@ -491,9 +497,11 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   at most once per app process, when the focused Today first shows a recommendation, and its
   `duration_ms` is the whole milliseconds from one monotonic start mark taken at module scope
   in the root layout. A process that starts before consent is answered sends none, since the
-  app records nothing of its own before the answer. The package itself attaches, from
-  its own source (`ios/OpenTelemetry.swift`, `toOTMetadata`): a persistent per-installation
-  UUID (`expo.eas_client.id`, from `EASClientID.uuid()` in `expo-eas-client`, stored in
+  app records nothing of its own before the answer, and neither does a process iOS
+  started in the background whose first launch metric came before anyone opened it
+  (section 6). The package itself attaches, from its own source (`ios/OpenTelemetry.swift`,
+  `toOTMetadata`): a persistent per-installation UUID (`expo.eas_client.id`, from
+  `EASClientID.uuid()` in `expo-eas-client`, stored in
   `UserDefaults.standard` under `expo.eas-client-id`), OS name and version, device model
   name and identifier, language tag, app identifier, version, build number, update id,
   channel and runtime version, and the host of the slowest network request in the launch

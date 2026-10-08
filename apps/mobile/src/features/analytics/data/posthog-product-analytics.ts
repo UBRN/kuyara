@@ -55,6 +55,10 @@ export type PostHogProductAnalyticsOptions = Readonly<{
   storage?: SyncStringStorage;
   readConsent?: () => AnalyticsConsent;
   disableTelemetryOnStartup?: () => void;
+  // Settles when the person first sees the app. The SDK captures `Application Opened` as it
+  // is constructed, so a granted client waits for it: a background launch nobody opens
+  // builds none and sends nothing (domain/launch-visibility.ts).
+  launchSeen?: Promise<void>;
 }>;
 
 export type SyncStringStorage = Readonly<{
@@ -432,12 +436,14 @@ class PostHogProductAnalytics implements ProductAnalytics {
       return;
     }
 
-    const client = this.getOrCreateClient();
-    const reconciliation = client.ready().then(async () => {
+    const reconcile = async () => {
+      const client = this.getOrCreateClient();
+      await client.ready();
       if (this.readConsent() !== 'granted') return;
       await client.optIn();
       this.consented = this.readConsent() === 'granted';
-    });
+    };
+    const reconciliation = options.launchSeen ? options.launchSeen.then(reconcile) : reconcile();
     // The persisted profile remains authoritative. A provider persistence failure must not
     // crash app startup, and the local gate still prevents capture when consent is absent.
     this.reconciliation = reconciliation.catch(() => {

@@ -10,7 +10,7 @@ export type AnalyticsConsentGateEligibility = Readonly<{
   onboardingCompleted: boolean;
   pathname: string;
   recommendationShown: boolean;
-  sessionIndex: number;
+  sessionIndex: number | null;
 }>;
 
 export function isAnalyticsConsentGateEligible({

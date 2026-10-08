@@ -12,14 +12,21 @@ function readings(...values) {
 }
 
 test('the clock measures from the first mark and ignores a later one', () => {
-  const clock = createProcessClock(readings(100, 450));
+  const clock = createProcessClock(readings(100, 450), () => true);
   clock.mark();
   clock.mark();
   assert.equal(clock.elapsedMs(), 350);
 });
 
 test('a clock that was never marked has no elapsed time', () => {
-  assert.equal(createProcessClock(readings(5)).elapsedMs(), null);
+  assert.equal(createProcessClock(readings(5), () => true).elapsedMs(), null);
+});
+
+// A background launch nobody saw has no "since launch" (domain/launch-visibility.ts).
+test('a clock for a launch that is not timed measures nothing', () => {
+  const clock = createProcessClock(readings(100, 450), () => false);
+  clock.mark();
+  assert.equal(clock.elapsedMs(), null);
 });
 
 function recorder() {

@@ -1,6 +1,7 @@
-// A session is one app process. The count advances once per launch and is durable, so the
-// consent question can be asked from the second session onwards: the first session belongs
-// to the first recommendation and is never interrupted by the sheet. See ADR 0033 section 6.
+// A session is one app process the person has seen (`launch-visibility.ts`). The count advances
+// once per such launch and is durable, so the consent question can be asked from the second
+// session onwards: the first session belongs to the first recommendation and is never
+// interrupted by the sheet. See ADR 0033 section 6.
 const firstAskingSession = 2;
 
 /**
@@ -12,6 +13,7 @@ export function nextSessionIndex(recordedCount: string | null): number {
   return (Number.isInteger(parsed) && parsed > 0 ? parsed : 0) + 1;
 }
 
-export function sessionMayAskForConsent(sessionIndex: number): boolean {
-  return sessionIndex >= firstAskingSession;
+/** A launch nobody has seen yet (`null`) is no session and never asks. */
+export function sessionMayAskForConsent(sessionIndex: number | null): boolean {
+  return sessionIndex !== null && sessionIndex >= firstAskingSession;
 }

@@ -67,6 +67,7 @@ export function createUnavailableProductAnalytics(
 export function createProductAnalytics(
   isDevelopment: boolean,
   consent: AnalyticsConsent,
+  launchSeen?: Promise<void>,
 ): ProductAnalytics {
   const configuration = resolveProductAnalyticsConfiguration({
     apiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
@@ -84,5 +85,6 @@ export function createProductAnalytics(
     consent,
     readConsent: analyticsConsentState.current,
     disableTelemetryOnStartup,
+    launchSeen,
   });
 }

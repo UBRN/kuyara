@@ -29,6 +29,7 @@ import type {
 } from '@/features/analytics/domain/performance-telemetry';
 import { telemetryFilteredRouteParams } from '@/features/analytics/domain/telemetry-route-params';
 import { analyticsConsentState } from '@/features/analytics/domain/analytics-consent-state';
+import { launchVisibility } from '@/features/analytics/data/launch-visibility';
 import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
 type ObserveApi = typeof import('expo-observe');
@@ -164,7 +165,9 @@ function useObserveMarkInteractive(): MarkInteractive {
   const { markInteractive } = observe!.useObserve();
   return useCallback(
     (params: TelemetryAttributes) => {
-      if (!canEmit()) return;
+      // Native TTI runs from the launch to the first mark of the process, so a launch nobody
+      // saw is never marked, before or after it is opened (domain/launch-visibility.ts).
+      if (!launchVisibility.isTimed() || !canEmit()) return;
       try {
         void markInteractive({ params: { ...params } });
       } catch {

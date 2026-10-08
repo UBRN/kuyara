@@ -247,6 +247,38 @@ test('a tapped notification response is reported as notification_opened and open
   expect(mockRouter.navigate).toHaveBeenCalledWith('/');
 });
 
+// A tap can bring a process iOS started in the background to the foreground; its analytics
+// client is built only then, so the event waits for it rather than being dropped.
+test('a tap that opens the app reports notification_opened once analytics is ready', async () => {
+  mockProfile = createProfile();
+  const { gateway } = createGateway('undetermined');
+  let respond: ((kind: NotificationKind) => void) | null = null;
+  const respondingGateway = {
+    ...gateway,
+    subscribeToResponses: (listener: (kind: NotificationKind) => void) => {
+      respond = listener;
+      return () => undefined;
+    },
+  };
+  const analytics = new RecordingProductAnalytics();
+  let ready: () => void = () => undefined;
+  analytics.whenReady = () => new Promise<void>((resolve) => { ready = resolve; });
+  const result = await renderSettings(respondingGateway, analytics);
+  await result.findByTestId('settings-notifications-row');
+
+  await act(async () => {
+    respond?.('weather_alert');
+  });
+  expect(analytics.captures.some((capture) => capture.name === 'notification_opened')).toBe(false);
+  expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+
+  await act(async () => {
+    ready();
+  });
+  const opened = analytics.captures.filter((capture) => capture.name === 'notification_opened');
+  expect(opened.map((capture) => capture.properties)).toEqual([{ schema_version: 4, kind: 'weather_alert' }]);
+});
+
 test('the morning briefing is its own row and reports the same events the alert row does', async () => {
   mockProfile = { ...createProfile(), analyticsConsent: 'granted' };
   const { gateway } = createGateway('undetermined');

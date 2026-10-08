@@ -594,7 +594,7 @@ async function renderProvider({
   facts?: WalkthroughTodayFacts;
   launchDone?: boolean;
   openedNotifications?: number;
-  sessionIndex?: number;
+  sessionIndex?: number | null;
   value?: LocalProfile;
 }> = {}) {
   const markWalkthroughSeen = jest.fn(async () => undefined);
@@ -704,6 +704,14 @@ test('the consent sheet claims only a launch it will ask in', async () => {
   const { result } = await renderProvider({ value: profile({ analyticsConsent: 'undecided' }), sessionIndex: 1 });
   await waitOpen(result);
   expect(bubble(result).counter).toBe('Step 1 of 9');
+});
+
+// iOS can start the app in the background and render Today off screen; that launch has no
+// session index until it is opened, and the tour waits for it.
+test('the tour never opens in a launch nobody has seen yet', async () => {
+  const { result } = await renderProvider({ sessionIndex: null });
+  await waitOpen(result);
+  expect(result.queryByTestId('walkthrough-skip')).toBeNull();
 });
 
 test('a new user gets the tour in the onboarding session once the first outfit arrives', async () => {

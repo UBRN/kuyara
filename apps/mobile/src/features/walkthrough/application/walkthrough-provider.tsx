@@ -66,7 +66,7 @@ const sameFacts = (a: WalkthroughTodayFacts | null, b: WalkthroughTodayFacts) =>
 export function WalkthroughProvider({
   children,
   sessionIndex,
-}: PropsWithChildren<{ sessionIndex: number }>) {
+}: PropsWithChildren<{ sessionIndex: number | null }>) {
   const { state: profileState, markWalkthroughSeen } = useProfileApplication();
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const openedNotifications = use(NotificationApplicationContext)?.openedNotifications ?? 0;
@@ -144,9 +144,10 @@ export function WalkthroughProvider({
     if (id === 'sheet-close') controller.observeSheet(registry.has('sheet-close'));
   }), [controller, registry]);
 
-  // The tour never opens over the launch curtain.
+  // The tour never opens over the launch curtain, nor in a launch nobody has seen yet (no
+  // session index), where the consent sheet could not claim the launch before it.
   const launch = useLaunchReveal();
-  const opening = profile && launch.done ? walkthroughOpening({
+  const opening = profile && launch.done && sessionIndex !== null ? walkthroughOpening({
     running,
     due: isWalkthroughDue(profile.walkthroughVersion),
     autoOpenedThisLaunch: openedThisLaunch,

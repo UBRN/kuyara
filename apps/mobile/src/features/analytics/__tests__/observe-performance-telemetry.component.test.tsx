@@ -14,6 +14,7 @@ import {
   useObserveInteractiveMark,
   withObserveRoot,
 } from '@/features/analytics/data/observe-performance-telemetry';
+import { createLaunchVisibility } from '@/features/analytics/domain/launch-visibility';
 import { TelemetryError } from '@/features/analytics/domain/performance-telemetry';
 import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
@@ -36,6 +37,25 @@ jest.mock('expo-observe', () => {
     useObserve: () => ({ markInteractive: Observe.markInteractive }),
   };
 });
+
+// The process's launch visibility, swapped per test; every test starts with a foreground launch.
+type Visibility = import('@/features/analytics/domain/launch-visibility').LaunchVisibility;
+let mockVisibility: Visibility;
+jest.mock('@/features/analytics/data/launch-visibility', () => ({
+  get launchVisibility() { return mockVisibility; },
+}));
+
+function launchStartingIn(initial: string) {
+  let change: (state: string) => void = () => undefined;
+  mockVisibility = createLaunchVisibility({
+    initial,
+    onChange: (listener) => {
+      change = listener;
+      return () => undefined;
+    },
+  });
+  return { change: (state: string) => change(state) };
+}
 
 const mockObserve = (
   jest.requireMock('expo-observe') as {
@@ -63,6 +83,7 @@ function expectNothingRecorded() {
 beforeEach(() => {
   jest.clearAllMocks();
   storedConsent = 'undecided';
+  launchStartingIn('active');
 });
 
 describe('the Observe adapter and consent', () => {
@@ -225,5 +246,39 @@ describe('the Observe adapter outside a real build', () => {
     expect(mockObserve.markInteractive).toHaveBeenCalledWith({
       params: { state: 'loaded' },
     });
+  });
+});
+
+// iOS starts kuyara in the background for the weather-alert task and renders the UI off
+// screen. Observe times the interactive mark from the native launch, so that launch is never
+// marked: not off screen, and not after the person opens it, when the mark would count the
+// whole wait since the unseen start.
+describe('the interactive mark and an unseen launch', () => {
+  function Marking({ label }: Readonly<{ label: string }>) {
+    const markInteractive = useObserveInteractiveMark();
+    markInteractive({ state: 'loaded' });
+    return <Text>{label}</Text>;
+  }
+
+  it('marks nothing for a launch that started in the background, even once it is opened', async () => {
+    storedConsent = 'granted';
+    configureObserveTelemetry({ dispatchingEnabled: true, readConsent });
+    const appState = launchStartingIn('background');
+
+    await render(<Marking label="off screen" />);
+    appState.change('active');
+    await render(<Marking label="opened" />);
+
+    expect(mockObserve.markInteractive).not.toHaveBeenCalled();
+  });
+
+  it('marks a background start that was opened before its first mark', async () => {
+    storedConsent = 'granted';
+    configureObserveTelemetry({ dispatchingEnabled: true, readConsent });
+    launchStartingIn('background').change('active');
+
+    await render(<Marking label="opened" />);
+
+    expect(mockObserve.markInteractive).toHaveBeenCalledTimes(1);
   });
 });

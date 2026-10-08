@@ -10,12 +10,16 @@ export type ProcessClock = Readonly<{
   elapsedMs: () => number | null;
 }>;
 
-export function createProcessClock(read: () => number): ProcessClock {
+/**
+ * `isTimed` says whether the launch can be timed at all: a background launch nobody saw has
+ * no "since launch" (`launch-visibility.ts`), so it measures nothing.
+ */
+export function createProcessClock(read: () => number, isTimed: () => boolean): ProcessClock {
   let startedAt: number | null = null;
   return {
     mark() {
       startedAt ??= read();
     },
-    elapsedMs: () => (startedAt === null ? null : read() - startedAt),
+    elapsedMs: () => (startedAt === null || !isTimed() ? null : read() - startedAt),
   };
 }

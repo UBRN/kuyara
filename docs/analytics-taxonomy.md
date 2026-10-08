@@ -190,7 +190,9 @@ Covered by PostHog's React Native SDK lifecycle autocapture (`captureAppLifecycl
 not a custom event: it emits `Application Installed`, `Application Updated`,
 `Application Opened`, `Application Became Active` and `Application Backgrounded` with app
 version, OS version, and build metadata as properties, all provider-added and already
-structured and low-cardinality. `Application Opened` marks a cold start;
+structured and low-cardinality. `Application Opened` marks a cold start the person sees: a
+launch iOS starts in the background for the weather-alert task builds no client until it is
+first brought to the foreground, so it captures `Application Opened` then, or nothing;
 `Application Became Active` marks a return to the foreground after that start, because the
 SDK registers its app-state listener only after `Application Opened` is captured, inside a
 client that exists only once consent is given. Foreground use is `Application Opened` plus
@@ -201,7 +203,7 @@ not a custom event.
 | Event | Trigger | Properties | Notes |
 | --- | --- | --- | --- |
 | `Application Installed`, `Application Updated` | first launch of an install, first launch after a version change | SDK-supplied: app version and build number; the previous version and build on update are dropped | Provider default; the payload passes the section 5.1 allowlist like every other event. |
-| `Application Opened` | cold start | SDK-supplied: app version, OS version, build number; the launch URL is dropped | Provider default. |
+| `Application Opened` | cold start, or the first foreground of a process iOS started in the background | SDK-supplied: app version, OS version, build number; the launch URL is dropped | Provider default. |
 | `Application Became Active` | the app returns to the foreground | none beyond the allowlisted SDK keys | Provider default. |
 | `Application Backgrounded` | the app leaves the foreground | none beyond the allowlisted SDK keys | Provider default. |
 

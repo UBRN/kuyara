@@ -70,11 +70,12 @@ export function NotificationApplicationProvider(
   useEffect(
     () => gateway.subscribeToResponses((kind) => {
       // Taxonomy 5.13: a tapped local notification, named by kind only, with no rule,
-      // time or content attached.
-      analytics.capture('notification_opened', {
+      // time or content attached. The tap can open a process iOS started in the background,
+      // whose analytics client is built only as it opens, so the event waits for it.
+      void analytics.whenReady().then(() => analytics.capture('notification_opened', {
         schema_version: ANALYTICS_SCHEMA_VERSION,
         kind,
-      });
+      }));
       setOpenedNotifications((count) => count + 1);
       router.navigate('/');
     }),
