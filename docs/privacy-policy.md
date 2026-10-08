@@ -40,8 +40,8 @@ run. If you accept, kuyara collects:
   an outfit you change, how the Closet is used, and whether signing in, syncing or deleting
   an account worked (never who you are).
 - **Other usage data.** Coarse product state such as whether a recommendation came from
-  AI or the built-in fallback, your dress style setting, and a coarse age range (never
-  your birth date).
+  AI or the built-in fallback, your dress style setting, the formality of a day or of a
+  look you wear, and a coarse age range (never your birth date).
 - **An analytics identifier.** A random identifier created on your device when analytics
   is enabled. It links your events to each other so that funnels and feature use can be
   understood. It is not the advertising identifier, is not derived from any hardware

@@ -41,8 +41,8 @@ Kabul edersen kuyara şunları toplar:
   kombinde hangi parçayı değiştirdiğin, Gardırobun nasıl kullanıldığı ve bir hesapla giriş
   yapmanın, eşitlemenin ya da hesabı silmenin işe yarayıp yaramadığı (kim olduğun asla).
 - **Diğer kullanım verisi.** Önerinin yapay zekadan mı yoksa yerleşik yedek yöntemden mi
-  geldiği gibi kaba ürün durumu, giyim stili ayarın ve kaba bir yaş aralığı (doğum tarihin
-  asla).
+  geldiği gibi kaba ürün durumu, giyim stili ayarın, bir günün ya da giydiğin kombinin
+  resmiyet düzeyi ve kaba bir yaş aralığı (doğum tarihin asla).
 - **Bir analitik kimliği.** Analitik açıldığında cihazında oluşturulan rastgele bir
   kimlik. Olayları birbirine bağlar; böylece akışlar ve özellik kullanımı anlaşılabilir.
   Reklam kimliği değildir, hiçbir donanım kimliğinden türetilmez ve profiline,

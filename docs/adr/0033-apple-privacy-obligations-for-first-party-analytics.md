@@ -318,7 +318,7 @@ but not to a real-world identity, an account or a `localProfileId`, and kuyara c
 never attempt re-linking. PostHog's own iOS SDK manifest declares Product Interaction and
 Other Usage Data as not linked and not tracking
 (<https://github.com/PostHog/posthog-ios/blob/main/PostHog/Resources/PrivacyInfo.xcprivacy>,
-read 2026-09-09). The taxonomy keeps `dress_style` and a coarse `age_bucket` on four
+read 2026-09-09). The taxonomy keeps `dress_style` and a coarse `age_bucket` on three
 analytics events, which combines the identifier with profile data. The questionnaire
 therefore declares the collected categories **linked to the user**. The other constraints
 stand: no link to an account, no `localProfileId`, no identifier from another system,
