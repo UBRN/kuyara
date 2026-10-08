@@ -178,8 +178,13 @@ type GridModule = {
 };
 const gridResolverSpecifier = '../../../mobile/test/node-typescript-resolver.mjs';
 const gridSpecifier = '../../../mobile/test/recommendation-grid.mjs';
+type ContextModule = {
+  createRecommendationContext(input: unknown, localDayKey: string): unknown;
+  aiRequestFromContext(context: unknown): AiRecommendV1Request | null;
+};
+const contextSpecifier = '../../../mobile/src/features/recommendation/application/recommendation-context.ts';
 
-test('the priced prompt size covers every grid prompt and the limit derives from it', async () => {
+test('the priced prompt size covers the largest prompt the app builds and the limit derives from it', async () => {
   await import(gridResolverSpecifier);
   const { gridRequestCells } = (await import(gridSpecifier)) as GridModule;
   // The grid models a weekday caller, but the app also sends weekends and no day kind at all,
@@ -190,8 +195,39 @@ test('the priced prompt size covers every grid prompt and the limit derives from
       [{ dayKind: 'weekday' as const }, { dayKind: 'weekend' as const }, {}].flatMap((day) =>
         (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...body, ...day, locale })))));
   assert.equal(promptCharacters, 18_014);
+
+  // The grid has no cold front, and the longest prompts the app builds come from one: a weekend
+  // (day variants 3 and 4, which the app always pairs with a weekend day kind) that is warm
+  // enough for light clothing in the morning and turns to wind and drizzle near freezing
+  // feel by the afternoon, so both ends of the wardrobe stay eligible.
+  const { createRecommendationContext, aiRequestFromContext } = (await import(contextSpecifier)) as ContextModule;
+  const now = '2026-09-19T09:00:00.000Z';
+  const weather = (temperatureCelsius: number, apparentTemperatureCelsius: number, condition: string,
+    precipitationProbability: number, windSpeedMetersPerSecond: number) => ({
+    temperatureCelsius, apparentTemperatureCelsius, condition, precipitationProbability, windSpeedMetersPerSecond,
+    humidity: 0.8, uvIndex: 0,
+  });
+  const hour = (at: string, ...values: Parameters<typeof weather>) => ({ forecastAt: `2026-09-19T${at}:00:00.000Z`, ...weather(...values) });
+  const coldFront = {
+    id: 'weather-cold-front', localProfileId: 'profile', locationKey: 'manual:sample', timeZone: 'UTC', fetchedAt: now,
+    origin: { kind: 'sample', sourceId: 'haiku-size' }, current: { observedAt: now, ...weather(20, 22, 'cloudy', 0.2, 3) },
+    minimumTemperatureCelsius: 7, maximumTemperatureCelsius: 21,
+    hourly: [
+      hour('10', 21, 23, 'cloudy', 0.2, 3), hour('11', 21, 23, 'cloudy', 0.3, 4), hour('12', 17, 16, 'cloudy', 0.4, 6),
+      hour('13', 12, 9, 'drizzle', 0.5, 8), hour('14', 9, 4, 'drizzle', 0.5, 8), hour('15', 8, 3, 'drizzle', 0.5, 7),
+      hour('16', 8, 4, 'drizzle', 0.4, 6),
+    ],
+  };
+  const largestBuilt = Math.max(...(['womens', 'mens'] as const).flatMap((clothingPreference) => [3, 4].flatMap((dayVariant) => {
+    const request = aiRequestFromContext(createRecommendationContext({
+      snapshot: coldFront, now, clothingPreference, dressStyle: 'casual', dayVariant, dayKind: 'weekend', localDayKey: '2026-09-19',
+    }, '2026-09-19'));
+    assert.ok(request);
+    return (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...request, locale }));
+  })));
+  assert.equal(largestBuilt, 18_485);
   // Rounded up, never so far that the price stops describing the prompt.
-  assert.ok(promptCharacters <= haikuPromptCharacterLimit && haikuPromptCharacterLimit - promptCharacters < 200);
+  assert.ok(largestBuilt <= haikuPromptCharacterLimit && haikuPromptCharacterLimit - largestBuilt < 200);
 
   // One token per character is the ceiling because the prompt is ASCII, even for the largest
   // request the contract admits.
@@ -200,7 +236,7 @@ test('the priced prompt size covers every grid prompt and the limit derives from
   // Micro-USD at 0.10 per 1M input tokens and 0.50 per 1M output tokens, 256 output tokens,
   // in tenths so the arithmetic stays in integers.
   const attemptMicroUsd = Math.ceil((haikuPromptCharacterLimit * 1 + 256 * 5) / 10);
-  assert.equal(attemptMicroUsd, 1_948);
+  assert.equal(attemptMicroUsd, 1_988);
   assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, Math.floor(200_000_000 / 31 / attemptMicroUsd));
   assert.ok(HAIKU_DAILY_ATTEMPT_LIMIT * attemptMicroUsd * 31 <= 200_000_000);
 });

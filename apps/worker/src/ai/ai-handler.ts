@@ -65,9 +65,11 @@ type Dependencies = Readonly<{
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
  *   produce over the v2 recommendation grid, on a weekday, a weekend or no day kind and in
  *   either locale, is 18,014 characters (messages plus response schema, 24 options, on a
- *   weekend), rounded to 4,600 tokens at four characters per token. The budget test in
- *   ai-handler.test.ts measures that prompt and derives the
- *   limit below from it, so the constant and the prompt stay in step.
+ *   weekend), rounded to 4,600 tokens at four characters per token. A weekend cold front
+ *   builds the longest real prompt, 18,485 characters (haiku-ai-provider.test.ts): about 4,622
+ *   tokens and 163 Neurons, and 49 x 163 + 2,010 = 9,997 still fits the pool. The budget test
+ *   in ai-handler.test.ts measures the grid prompt and derives the limit below from it, so the
+ *   constant and the prompt stay in step.
  * - Output per attempt: `recommendationMaxTokens` in workers-ai-provider.ts caps the reply
  *   at 192 tokens, so a runaway or prose reply cannot cost more than a valid one's ceiling.
  * - Worst attempt: llama at 4,600 in and 192 out is 122.7 + 39.3 = 162.0, rounded up to 162
