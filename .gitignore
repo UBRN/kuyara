@@ -38,3 +38,6 @@ apps/worker/**/*.pfx
 # Expo tooling started from the repo root (eas-cli and similar) writes a stub {"expo":{}} here;
 # the real config is apps/mobile/app.json.
 /app.json
+
+# Supabase CLI working files
+supabase/.temp/

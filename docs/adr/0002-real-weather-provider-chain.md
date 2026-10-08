@@ -138,7 +138,7 @@ plus Worker overhead must fit inside that budget.
 ### 5. Rate limiting on `POST /v1/weather`
 
 A Cloudflare rate-limit binding `WEATHER_RATE_LIMIT` (namespace 1003) allows
-**20 requests per 60 seconds per IP**, keyed `weather:${cf-connecting-ip}`.
+**20 requests per 60 seconds per IP**, keyed `weather:` plus the client address (see architecture).
 Exceeding it returns 429 with `{ "error": { "code": "rate_limited" } }` and
 `Retry-After: 60`. Without the binding, the composed weather route returns 503;
 the handler can still receive an injected limiter in unit tests.

@@ -53,6 +53,33 @@ test('the limiter key is the prefix and the client IP, or unknown without one', 
   assert.deepEqual(keys, ['weather:192.0.2.1', 'weather:unknown']);
 });
 
+test('an IPv6 caller is limited by its /64, so rotating addresses inside one subscriber block does not help', async () => {
+  const keys: string[] = [];
+  const limiter = { limit: async ({ key }: { key: string }) => { keys.push(key); return { success: true }; } };
+  for (const ip of [
+    '2001:db8:85a3:12::8a2e:370:7334',
+    '2001:0DB8:85A3:0012:ffff:ffff:ffff:1',
+    '2001:db8:85a3:13::1',
+    '2001:db8::1',
+    '::1',
+    '::ffff:192.0.2.1',
+    '::ffff:c000:201',
+    '64:ff9b::c000:201',
+  ]) {
+    await checkRateLimit(limiter, requestFrom({ 'cf-connecting-ip': ip }), scope);
+  }
+  assert.deepEqual(keys, [
+    'weather:2001:db8:85a3:12::/64',
+    'weather:2001:db8:85a3:12::/64',
+    'weather:2001:db8:85a3:13::/64',
+    'weather:2001:db8:0:0::/64',
+    'weather:0:0:0:0::/64',
+    'weather:::ffff:192.0.2.1',
+    'weather:::ffff:c000:201',
+    'weather:64:ff9b::c000:201',
+  ]);
+});
+
 test('a denied limiter is limited and logs nothing itself', async (t) => {
   const warnings: unknown[] = [];
   t.mock.method(console, 'warn', (entry: unknown) => warnings.push(entry));
