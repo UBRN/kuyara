@@ -93,12 +93,18 @@ export function connectAccountLifecycle(ports: AccountLifecyclePorts): () => voi
   const unsubscribeRefreshed = ports.onTokenRefreshed(() => manager.tokenRefreshed());
   // Connecting in the foreground is the common case, and no change event follows it.
   if (ports.isActive()) autoRefresh.start();
+  // Control Center, Notification Center and system alerts only make the app inactive, so closing
+  // them is no return to the foreground and runs no sync.
+  let fromBackground = !ports.isActive();
   const unsubscribeAppState = ports.onAppStateChange((state) => {
     if (state !== 'active') {
+      if (state === 'background') fromBackground = true;
       autoRefresh.stop();
       return;
     }
     autoRefresh.start();
+    if (!fromBackground) return;
+    fromBackground = false;
     void manager.foreground();
   });
   void manager.start();

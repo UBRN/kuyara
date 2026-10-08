@@ -75,6 +75,19 @@ test('the foreground syncs and runs the token refresh; the background stops it',
     ['refresh:stop', 'refresh:start', 'foreground']);
 });
 
+test('returning to active without passing through the background runs no sync, only the token refresh', () => {
+  const { appState, calls } = harness({ active: true });
+  const after = (index) => calls.slice(index).filter((call) => typeof call === 'string' && call !== 'start');
+  appState('inactive');
+  appState('active');
+  assert.deepEqual(after(0), ['refresh:start', 'refresh:stop', 'refresh:start']);
+  const mark = calls.length;
+  appState('inactive');
+  appState('background');
+  appState('active');
+  assert.deepEqual(after(mark), ['refresh:stop', 'refresh:stop', 'refresh:start', 'foreground']);
+});
+
 test('a burst of local writes is one sync, after the delay, only while a row waits', async () => {
   const { calls, flush, timers, write } = harness();
   write(); write(); write();
