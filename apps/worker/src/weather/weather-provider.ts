@@ -41,5 +41,7 @@ export type ProviderWeatherSnapshot = Readonly<{
 }>;
 
 export interface WeatherProvider {
+  /** The source the usage dataset labels this provider's attempts with; absent on test doubles. */
+  readonly id?: WeatherSourceId;
   fetchWeather(location: ProviderLocation, signal?: AbortSignal): Promise<ProviderWeatherSnapshot>;
 }

@@ -12,6 +12,7 @@ import type {
 const baseUrl = 'https://api.open-meteo.com/v1/forecast';
 
 export class OpenMeteoWeatherProvider implements WeatherProvider {
+  readonly id = 'open-meteo' as const;
   readonly #fetch: FetchLike | undefined;
   readonly #now: () => Date;
 

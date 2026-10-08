@@ -21,6 +21,11 @@
   // key shape `observability.logs.invocation_logs`, supported by the repo's wrangler config schema).
   "observability": { "enabled": true, "head_sampling_rate": 1, "logs": { "enabled": true, "invocation_logs": false } },
   "ai": { "binding": "AI" },
+  // Closed event counters (docs/architecture.md, "Usage counters"): shared AI cache hits and
+  // misses, provider attempt outcomes and the Workers AI budget, kept past the three days of
+  // Workers Logs. Top level only: Wrangler does not inherit analytics_engine_datasets into
+  // the e2e environment, so a local end-to-end run writes no production data.
+  "analytics_engine_datasets": [{ "binding": "USAGE_EVENTS", "dataset": "kuyara_usage" }],
   // One Durable Object per daily counter name (AI probe, AI recommend budget, the two
   // capped weather providers); SQLite-backed is the Workers Free option. Migrations are
   // top-level and apply to every environment.

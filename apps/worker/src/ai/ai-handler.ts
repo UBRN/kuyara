@@ -23,6 +23,7 @@ import { completeInsightSentenceSchema } from './insight-sentence.ts';
 import { attemptFailureReason, type AiAttemptFailureReason, type AiProvider } from './ai-provider.ts';
 import { selectionFailure } from './ai-selection.ts';
 import type { MemberAllowance } from './member-allowance.ts';
+import { aiAttemptOutcome, noUsageMetrics, type UsageMetrics } from '../usage-metrics.ts';
 import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
 
 type Dependencies = Readonly<{
@@ -39,6 +40,8 @@ type Dependencies = Readonly<{
    * settings are missing: every request is then handled as a non-member's.
    */
   memberAllowance?: MemberAllowance;
+  /** Counts cache hits and misses, attempt outcomes and the Workers AI budget; no-op when absent. */
+  usage?: UsageMetrics;
   now?: () => Date;
   attemptTimeoutMs?: number;
   totalDeadlineMs?: number;
@@ -110,8 +113,13 @@ const errorResponse = createErrorResponse<AiV1ErrorCode>(aiV1ErrorSchema);
  */
 export const aiRecommendRequestMaxBytes = 65_536;
 
-function logProviderFailure(provider: AiProvider, reason: AiAttemptFailureReason): void {
+function logProviderFailure(
+  provider: AiProvider,
+  reason: AiAttemptFailureReason,
+  usage: UsageMetrics,
+): void {
   console.warn({ event: 'ai_provider_attempt_failed', model: provider.model, reason });
+  usage({ event: 'ai_attempt', provider: provider.id, outcome: aiAttemptOutcome(reason) });
 }
 
 /**
@@ -133,6 +141,7 @@ export function createAiHandler({
   dailyCounter,
   dailyLimit,
   memberAllowance,
+  usage = noUsageMetrics,
   now = () => new Date(),
   // Workers AI answered within 2 to 4.5 s when measured live; a provider that does not
   // answer stalls indefinitely, so 7 s cuts it off and hands the turn to the next provider.
@@ -186,8 +195,10 @@ export function createAiHandler({
         const cached = await readCachedAnswer(cache, cacheRequest, url.pathname, aiRequest, options);
         if (cached) {
           console.info({ event: 'ai_cache_hit', route: url.pathname });
+          usage({ event: 'ai_cache', route: isV2 ? 'v2' : 'v1', outcome: 'hit' });
           return Response.json(cached, { status: 200, headers: jsonHeaders });
         }
+        usage({ event: 'ai_cache', route: isV2 ? 'v2' : 'v1', outcome: 'miss' });
       } catch {
         // Shared cache failures fall through to normal generation.
       }
@@ -232,6 +243,7 @@ export function createAiHandler({
               count,
               limit: dailyLimit,
             });
+            usage({ event: 'daily_budget', counter: 'workers-ai', outcome: 'exhausted' });
             workersAiPoolSpent = true;
             continue;
           }
@@ -249,7 +261,7 @@ export function createAiHandler({
         );
       } catch (error) {
         const reason = attemptFailureReason(error, controller.signal);
-        logProviderFailure(provider, reason);
+        logProviderFailure(provider, reason, usage);
         // Every Workers AI model draws on the one account-level Neuron pool, so once it is
         // spent the remaining Workers AI attempts can only fail the same way and are
         // skipped; the walk goes on with OpenRouter. An OpenRouter quota refusal is per
@@ -261,7 +273,7 @@ export function createAiHandler({
         continue;
       }
       if (controller.signal.aborted) {
-        logProviderFailure(provider, 'timeout');
+        logProviderFailure(provider, 'timeout', usage);
         continue;
       }
 
@@ -269,13 +281,13 @@ export function createAiHandler({
       // is dropped alone after the same v1 pick validation and deterministic checks.
       const result = aiRecommendV1SuccessSchema.safeParse(output);
       if (!result.success) {
-        logProviderFailure(provider, 'invalid_output');
+        logProviderFailure(provider, 'invalid_output', usage);
         continue;
       }
 
       const rejection = selectionFailure(result.data.data.picks, aiRequest, options);
       if (rejection) {
-        logProviderFailure(provider, rejection);
+        logProviderFailure(provider, rejection, usage);
         continue;
       }
 
@@ -284,6 +296,7 @@ export function createAiHandler({
         model: provider.model,
         attempt: attemptIndex + 1,
       });
+      usage({ event: 'ai_attempt', provider: provider.id, outcome: 'ok' });
       const rawSentence = isV2 && output && typeof output === 'object'
         && 'data' in output && output.data && typeof output.data === 'object'
         && 'insightSentence' in output.data

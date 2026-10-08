@@ -468,6 +468,42 @@ test('the composed recommend route stops calling Workers AI once ai:workers-ai r
   assert.equal(runs, 1, 'past the daily limit Workers AI must not be called again');
 });
 
+test('the composed Worker writes closed usage points to the bound dataset and runs without it', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse(`${recommendDate}T10:00:00.000Z`) });
+  t.mock.method(console, 'info', () => {});
+  const { WORKERS_AI_DAILY_ATTEMPT_LIMIT } = await import('./ai/ai-handler.ts');
+  const points: unknown[] = [];
+  const counters = fakeDailyCounters();
+  const environment: Env = {
+    ...boundEnv,
+    DAILY_COUNTERS: counters,
+    WORKERS_AI_MODELS: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast'],
+    AI: { async run() { return { response: recommendAnswer }; } },
+    USAGE_EVENTS: { writeDataPoint(point) { points.push(point); } },
+  };
+  await incrementCounter(counters, 'ai:workers-ai', `ai:workers-ai:${recommendDate}`, WORKERS_AI_DAILY_ATTEMPT_LIMIT - 1);
+  const route = buildRouter(environment);
+  assert.equal((await route(validRecommendRequest(), fakeContext())).status, 200);
+  await assertOffline(await route(validRecommendRequest(), fakeContext()), 'ai_unavailable');
+  assert.deepEqual(points, [
+    { indexes: ['ai_attempt'], blobs: ['workers-ai', 'ok'], doubles: [1] },
+    { indexes: ['daily_budget'], blobs: ['workers-ai', 'exhausted'], doubles: [1] },
+  ]);
+
+  // The same composition with no binding answers the same and writes nothing anywhere.
+  const bare = buildRouter({ ...environment, USAGE_EVENTS: undefined, DAILY_COUNTERS: fakeDailyCounters() });
+  assert.equal((await bare(validRecommendRequest(), fakeContext())).status, 200);
+  assert.equal(points.length, 2);
+
+  // A binding that throws changes no response.
+  const throwing = buildRouter({
+    ...environment,
+    DAILY_COUNTERS: fakeDailyCounters(),
+    USAGE_EVENTS: { writeDataPoint() { throw new Error('analytics unavailable'); } },
+  });
+  assert.equal((await throwing(validRecommendRequest(), fakeContext())).status, 200);
+});
+
 // Account deletion is composed from six settings. Missing any one takes only its route
 // offline with the route's own code, and the log line names the missing piece.
 test('a missing account setting takes only the account route offline', async (t) => {

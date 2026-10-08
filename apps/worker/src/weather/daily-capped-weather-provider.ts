@@ -16,6 +16,7 @@ export function createDailyCappedWeatherProvider(dependencies: Readonly<{
   now?: () => Date;
 }>): WeatherProvider {
   return {
+    id: dependencies.provider.id,
     async fetchWeather(location, signal) {
       const key = dailyCounterKey(
         `weather:${dependencies.sourceSlug}`,

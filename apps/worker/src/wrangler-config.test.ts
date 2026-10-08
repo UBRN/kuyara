@@ -129,3 +129,10 @@ test('automatic invocation logs are off, so request headers never reach Workers 
     logs: { enabled: true, invocation_logs: false },
   });
 });
+
+test('usage counters are bound at the top level only, so e2e writes no production data', () => {
+  assert.deepEqual(config.analytics_engine_datasets, [{ binding: 'USAGE_EVENTS', dataset: 'kuyara_usage' }]);
+  // Wrangler does not inherit this binding into a named environment; declaring one there
+  // would need its own dataset name.
+  assert.equal(config.env.e2e.analytics_engine_datasets, undefined);
+});

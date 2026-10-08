@@ -11,6 +11,7 @@ import type { WeatherKitTokenProvider } from './weatherkit-token.ts';
 const baseUrl = 'https://weatherkit.apple.com/api/v1/weather';
 
 export class WeatherKitWeatherProvider implements WeatherProvider {
+  readonly id = 'weatherkit' as const;
   readonly #token: WeatherKitTokenProvider;
   readonly #fetch: FetchLike | undefined;
   readonly #now: () => Date;

@@ -14,6 +14,7 @@ import {
   weatherMaxAttempts,
 } from './weather-provider-chain.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
+import { createUsageMetrics } from '../usage-metrics.ts';
 import { WeatherKitWeatherProvider } from './weatherkit-weather-provider.ts';
 
 // Keep expected failed-attempt reports out of the test output while checking them below.
@@ -371,4 +372,42 @@ test('the composed WeatherKit and OpenWeather providers stop calling upstream at
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test('counts each attempt per provider with a closed outcome', async () => {
+  const points: unknown[] = [];
+  const usage = createUsageMetrics({ writeDataPoint(point) { points.push(point); } });
+  const chain = createWeatherProviderChain({
+    usage,
+    providers: [
+      { id: 'weatherkit', fetchWeather: async () => { throw new WeatherProviderError('quota'); } },
+      { id: 'open-meteo', fetchWeather: async () => { throw new WeatherProviderError('invalid_response'); } },
+      { id: 'openweather', fetchWeather: async () => snapshot },
+    ],
+  });
+  assert.strictEqual(await chain.fetchWeather(location), snapshot);
+  assert.deepEqual(points, [
+    { indexes: ['weather_attempt'], blobs: ['weatherkit', 'quota'], doubles: [1] },
+    { indexes: ['weather_attempt'], blobs: ['open-meteo', 'invalid'], doubles: [1] },
+    { indexes: ['weather_attempt'], blobs: ['openweather', 'ok'], doubles: [1] },
+  ]);
+});
+
+test('counts nothing for a provider without an id, and a throwing dataset changes nothing', async () => {
+  const points: unknown[] = [];
+  const unlabeled = createWeatherProviderChain({
+    usage: createUsageMetrics({ writeDataPoint(point) { points.push(point); } }),
+    providers: [{ fetchWeather: async () => snapshot }],
+  });
+  assert.strictEqual(await unlabeled.fetchWeather(location), snapshot);
+  assert.deepEqual(points, []);
+
+  const throwing = createWeatherProviderChain({
+    usage: createUsageMetrics({ writeDataPoint() { throw new Error('analytics unavailable'); } }),
+    providers: [
+      { id: 'weatherkit', fetchWeather: async () => { throw new WeatherProviderError('timeout'); } },
+      { id: 'open-meteo', fetchWeather: async () => snapshot },
+    ],
+  });
+  assert.strictEqual(await throwing.fetchWeather(location), snapshot);
 });

@@ -1,3 +1,4 @@
+import { noUsageMetrics, weatherAttemptOutcome, type UsageMetrics } from '../usage-metrics.ts';
 import { AttemptTimeoutError, raceWithTimeout } from '../attempt-timeout.ts';
 import type { WeatherProvider } from './weather-provider.ts';
 import {
@@ -15,9 +16,12 @@ export function createWeatherProviderChain(dependencies: Readonly<{
   providers: readonly WeatherProvider[];
   maxAttempts?: number;
   attemptTimeoutMs?: number;
+  /** Counts each attempt's outcome per provider; no-op when absent. */
+  usage?: UsageMetrics;
 }>): WeatherProvider {
   return {
     async fetchWeather(location, signal) {
+      const usage = dependencies.usage ?? noUsageMetrics;
       if (signal?.aborted) throw new WeatherProviderError('timeout');
 
       let lastEligibleError: unknown;
@@ -29,11 +33,13 @@ export function createWeatherProviderChain(dependencies: Readonly<{
 
         const controller = new AbortController();
         try {
-          return await raceWithTimeout(
+          const snapshot = await raceWithTimeout(
             controller,
             () => provider.fetchWeather(location, controller.signal),
             dependencies.attemptTimeoutMs ?? weatherAttemptTimeoutMs,
           );
+          if (provider.id) usage({ event: 'weather_attempt', provider: provider.id, outcome: 'ok' });
+          return snapshot;
         } catch (thrown) {
           const error = thrown instanceof AttemptTimeoutError
             ? new WeatherProviderError('timeout')
@@ -47,6 +53,9 @@ export function createWeatherProviderChain(dependencies: Readonly<{
             attempt: attemptIndex + 1,
             kind: error.kind,
           });
+          if (provider.id) {
+            usage({ event: 'weather_attempt', provider: provider.id, outcome: weatherAttemptOutcome(error.kind) });
+          }
           if (!isFallbackEligible(error)) throw error;
           lastEligibleError = error;
         }

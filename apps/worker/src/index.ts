@@ -39,6 +39,7 @@ import {
   WorkersAiProvider,
   type WorkersAiBinding,
 } from './ai/workers-ai-provider.ts';
+import { createUsageMetrics, type AnalyticsEngineDataset } from './usage-metrics.ts';
 import { createDurableDailyCounter, type DailyCounterNamespace } from './daily-counter.ts';
 import type { RateLimiter } from './json-request.ts';
 import { createRouter, type ExecutionContext, type Handler } from './router.ts';
@@ -93,6 +94,9 @@ export type Env = Readonly<{
   ACCOUNT_DELETE_RATE_LIMIT?: RateLimiter;
   FEEDBACK_DB?: FeedbackDatabase;
   FEEDBACK_RATE_LIMIT?: RateLimiter;
+  // Analytics Engine dataset of closed event counters (docs/architecture.md, "Usage counters").
+  // Absent in tests, `wrangler dev` and the e2e environment, where counting is a no-op.
+  USAGE_EVENTS?: AnalyticsEngineDataset;
 }>;
 
 /**
@@ -262,9 +266,10 @@ function buildSupabaseTokenVerifier(env: Env): SupabaseTokenVerifier | undefined
 export function buildRouter(env: Env): Handler {
   const providers = createAiProviders(env);
   const verifier = buildSupabaseTokenVerifier(env);
+  const usage = createUsageMetrics(env.USAGE_EVENTS);
   const weatherHandler = env.WEATHER_RATE_LIMIT
     ? createWeatherHandler({
-      provider: createWeatherProviderChain({ providers: createWeatherProviders(env) }),
+      provider: createWeatherProviderChain({ providers: createWeatherProviders(env), usage }),
       rateLimiter: env.WEATHER_RATE_LIMIT,
     })
     : offlineRoute(weatherV1Path, 'WEATHER_RATE_LIMIT', weatherUnavailable);
@@ -285,6 +290,7 @@ export function buildRouter(env: Env): Handler {
         rateLimiter: env.AI_RECOMMEND_RATE_LIMIT,
         dailyCounter: createDurableDailyCounter(env.DAILY_COUNTERS, 'ai:workers-ai'),
         dailyLimit: WORKERS_AI_DAILY_ATTEMPT_LIMIT,
+        usage,
         memberAllowance: verifier
           ? createMemberAllowance({ verifier, namespace: env.DAILY_COUNTERS })
           : undefined,
@@ -356,6 +362,7 @@ function compositionKey(env: Env): string {
     Boolean(env.ACCOUNT_DELETE_RATE_LIMIT),
     Boolean(env.FEEDBACK_DB),
     Boolean(env.FEEDBACK_RATE_LIMIT),
+    Boolean(env.USAGE_EVENTS),
   ]);
 }
 

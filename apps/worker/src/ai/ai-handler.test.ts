@@ -31,6 +31,7 @@ import { MEMBER_REASK_DAILY_LIMIT, createMemberAllowance } from './member-allowa
 import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
 import type { SupabaseTokenVerifier } from '../account/supabase-token-verifier.ts';
 import type { DailyCounterNamespace } from '../daily-counter.ts';
+import { createUsageMetrics } from '../usage-metrics.ts';
 
 // The handler reports every provider attempt; keep that out of the test output.
 mock.method(console, 'warn', () => {});
@@ -2443,4 +2444,112 @@ test('burst-limited re-asks leave the whole member allowance intact', async () =
     assert.equal((await handle(memberReask())).status, 200, `re-ask ${count}`);
   }
   await assertError(await handle(memberReask()), 429, 'rate_limited');
+});
+
+type UsagePoint = { indexes?: readonly string[]; blobs?: readonly string[]; doubles?: readonly number[] };
+
+function usageRecorder() {
+  const points: UsagePoint[] = [];
+  const usage = createUsageMetrics({ writeDataPoint(point: UsagePoint) { points.push(point); } });
+  return { points, usage };
+}
+
+const point = (event: string, subject: string, outcome: string) => (
+  { indexes: [event], blobs: [subject, outcome], doubles: [1] }
+);
+
+test('counts a shared cache miss, then a hit, and each attempt outcome by provider', async () => {
+  const restore = installMemoryCache();
+  try {
+    const { points, usage } = usageRecorder();
+    const handler = createAiHandler({
+      usage,
+      providers: [
+        { id: 'haiku', model: 'a', generateOutfits: async () => { throw new AiProviderError('quota_exceeded'); } },
+        { id: 'workers-ai', model: 'b', generateOutfits: async () => { throw new Error('private failure'); } },
+        { id: 'openrouter', model: 'c', generateOutfits: async () => ({ data: { picks: [] } }) },
+        { id: 'workers-ai', model: 'd', generateOutfits: async () => validOutput() },
+      ],
+    });
+    assert.equal((await handler(request())).status, 200);
+    assert.equal((await handler(request())).status, 200);
+    assert.deepEqual(points, [
+      point('ai_cache', 'v1', 'miss'),
+      point('ai_attempt', 'haiku', 'quota'),
+      point('ai_attempt', 'workers-ai', 'upstream'),
+      point('ai_attempt', 'openrouter', 'invalid'),
+      point('ai_attempt', 'workers-ai', 'ok'),
+      point('ai_cache', 'v1', 'hit'),
+    ]);
+  } finally { restore(); }
+});
+
+test('counts a timed-out attempt and the exhausted Workers AI budget', async () => {
+  const { points, usage } = usageRecorder();
+  const counts = [1, 2];
+  const handler = createAiHandler({
+    usage,
+    attemptTimeoutMs: 5,
+    totalDeadlineMs: 6_000,
+    dailyLimit: 1,
+    dailyCounter: { increment: async () => counts.shift() ?? 99 },
+    providers: [
+      {
+        id: 'haiku',
+        model: 'a',
+        generateOutfits: (_request, signal) => new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new Error('aborted')));
+        }),
+      },
+      { id: 'workers-ai', model: 'b', generateOutfits: async () => validOutput() },
+      { id: 'workers-ai', model: 'c', generateOutfits: async () => validOutput() },
+    ],
+  });
+  assert.equal((await handler(request())).status, 200);
+  assert.deepEqual(points, [
+    point('ai_attempt', 'haiku', 'timeout'),
+    point('ai_attempt', 'workers-ai', 'ok'),
+  ]);
+
+  const exhausted = usageRecorder();
+  const spent = createAiHandler({
+    usage: exhausted.usage,
+    dailyLimit: 1,
+    dailyCounter: { increment: async () => 2 },
+    providers: [{ id: 'workers-ai', model: 'b', generateOutfits: async () => validOutput() }],
+  });
+  await assertError(await spent(request()), 503, 'ai_unavailable');
+  assert.deepEqual(exhausted.points, [point('daily_budget', 'workers-ai', 'exhausted')]);
+});
+
+test('a re-ask neither reads nor counts the shared cache', async () => {
+  const restore = installMemoryCache();
+  try {
+    const { points, usage } = usageRecorder();
+    const handler = createAiHandler({
+      usage,
+      providers: [{ id: 'workers-ai', model: 'b', generateOutfits: async () => validOutput() }],
+    });
+    const body = JSON.stringify({ ...validRequestBody(), locale: 'en', reask: true });
+    assert.equal((await handler(request({ path: '/v2/ai/recommend', body }))).status, 200);
+    assert.deepEqual(points, [point('ai_attempt', 'workers-ai', 'ok')]);
+  } finally { restore(); }
+});
+
+test('a dataset that throws, or no dataset at all, leaves the response unchanged', async () => {
+  const restore = installMemoryCache();
+  try {
+    const providers = [{ id: 'workers-ai' as const, model: 'b', generateOutfits: async () => validOutput() }];
+    const throwing = createAiHandler({
+      providers,
+      usage: createUsageMetrics({ writeDataPoint() { throw new Error('analytics unavailable'); } }),
+    });
+    const missing = createAiHandler({ providers, usage: createUsageMetrics(undefined) });
+    const withoutUsage = createAiHandler({ providers });
+    const expected = await (await withoutUsage(request())).json();
+    // The first call generates, the second is a cache hit: both paths write points.
+    assert.deepEqual(await (await throwing(request())).json(), expected);
+    assert.deepEqual(await (await throwing(request())).json(), expected);
+    assert.deepEqual(await (await missing(request())).json(), expected);
+  } finally { restore(); }
 });

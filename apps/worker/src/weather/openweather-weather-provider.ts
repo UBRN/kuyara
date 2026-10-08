@@ -10,6 +10,7 @@ import type {
 const baseUrl = 'https://api.openweathermap.org/data/3.0/onecall';
 
 export class OpenWeatherWeatherProvider implements WeatherProvider {
+  readonly id = 'openweather' as const;
   readonly #apiKey: string;
   readonly #fetch: FetchLike | undefined;
   readonly #now: () => Date;
