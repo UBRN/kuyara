@@ -45,6 +45,15 @@ export function resolvedFormality(
   return choice?.formality ?? profileDefault;
 }
 
+/**
+ * A day answer the person gave as "as usual" (or left by closing the question), which only
+ * repeated the profile style it was written under, so it follows the profile when that changes.
+ * A re-ask, or a style other than the profile's, is a deliberate choice and stays.
+ */
+export function repeatsProfileStyle(choice: DressingDayChoice, profileStyle: DressStyle): boolean {
+  return choice.source === 'morning' && choice.formality === profileStyle;
+}
+
 export function parseDressingDayChoice(value: unknown): DressingDayChoice {
   return z.strictObject({
     id: uuidV4Schema,

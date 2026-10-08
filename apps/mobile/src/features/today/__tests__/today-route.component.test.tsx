@@ -921,6 +921,64 @@ test('the provider keeps the profile dress style apart from the day answer', asy
   await waitFor(() => expect(view.getByTestId('dress-styles')).toHaveTextContent('formal/casual'));
 });
 
+describe('a changed profile dress style', () => {
+  function DressStyles() {
+    const { resolvedDressStyle, profileDressStyle } = useRecommendationApplication();
+    return <Text testID="dress-styles">{`${resolvedDressStyle}/${profileDressStyle}`}</Text>;
+  }
+  const row = (formality: string, source: string) => ({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey: '2026-09-24', formality, source, styleAesthetics: null,
+    createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z',
+    deletedAt: null,
+  });
+  async function changeProfileStyle(stored: ReturnType<typeof row>) {
+    mockChoiceGet.mockImplementation(async () => stored);
+    mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
+      source: string) => ({ ...row(formality, source), dayKey: key }));
+    const props = {
+      productAnalytics: createProductAnalytics(), recommendation: recommendationReady(),
+      liveRecommendationProvider: true, wardrobe: wardrobeValue(), weather: weatherValue(),
+    };
+    const view = await render(
+      <Providers {...props} profile={profileValue({ dressStyle: 'smart' })}><DressStyles /></Providers>,
+    );
+    await waitFor(() => expect(mockChoiceGet).toHaveBeenCalled());
+    await act(async () => {
+      view.rerender(<Providers {...props} profile={profileValue({ dressStyle: 'formal' })}>
+        <DressStyles />
+      </Providers>);
+    });
+    return view;
+  }
+
+  test('moves the day answer that only repeated the old style', async () => {
+    const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+      .mockImplementation(async () => null);
+    try {
+      const view = await changeProfileStyle(row('smart', 'morning'));
+
+      await waitFor(() => expect(view.getByTestId('dress-styles')).toHaveTextContent('formal/formal'));
+      expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', '2026-09-24', 'formal', 'morning', null);
+      await waitFor(() => expect(refresh.mock.calls.at(-1)?.[1].dressStyle).toBe('formal'));
+      expect(refresh.mock.calls.filter(([, input]) => input.dressStyle === 'formal')).toHaveLength(1);
+    } finally {
+      refresh.mockRestore();
+    }
+  });
+
+  test('leaves a day answer that picked another style or came from a re-ask', async () => {
+    const other = await changeProfileStyle(row('casual', 'morning'));
+    await waitFor(() => expect(other.getByTestId('dress-styles')).toHaveTextContent('casual/formal'));
+    expect(mockChoiceUpsert).not.toHaveBeenCalled();
+    await other.unmount();
+
+    const reask = await changeProfileStyle(row('smart', 'chip'));
+    await waitFor(() => expect(reask.getByTestId('dress-styles')).toHaveTextContent('smart/formal'));
+    expect(mockChoiceUpsert).not.toHaveBeenCalled();
+  });
+});
+
 test('a rejected day-choice read leaves the morning sheet closed and writes no choice', async () => {
   function ChoiceReadStatus() {
     const { dressingDayChoiceFailed } = useRecommendationApplication();

@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
@@ -74,7 +75,7 @@ import {
 } from '@/features/recommendation/application/recommendation-context';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
 import { isDayQuestionOpen } from '@/features/recommendation/domain/local-day';
-import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceRepository, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
+import { repeatsProfileStyle, resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceRepository, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
 import { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
@@ -231,6 +232,23 @@ export function RecommendationApplicationProvider({
   const profileDefault = profileState.status === 'ready'
     ? profileState.profile.dressStyle ?? defaultDressStyle : defaultDressStyle;
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
+  // A profile style change moves the day answer that only repeated the old style, so the one
+  // generation the changed style triggers is not held back by a stale row.
+  const lastProfileStyle = useRef<DressStyle | null>(null);
+  useEffect(() => {
+    if (profileState.status !== 'ready') return;
+    const next = profileState.profile.dressStyle ?? defaultDressStyle;
+    const previous = lastProfileStyle.current;
+    lastProfileStyle.current = next;
+    if (!previous || previous === next || !dayChoice || !repeatsProfileStyle(dayChoice, previous)) return;
+    const key = localDay.key;
+    void loadChoiceRepository()
+      .then((repository) => repository.upsert(localProfileId, key, next, dayChoice.source, dayChoice.styleAesthetics))
+      .then((choice) => setDayChoiceState(writtenDayChoice(localProfileId, key, choice)))
+      .catch(() => {
+        // The day keeps the style it was answered with, as it did before the profile changed.
+      });
+  }, [dayChoice, localDay.key, localProfileId, profileState]);
   const settingsStyles = profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? null : null;
   const resolvedStyles = resolvedStyleAesthetics(dayChoice, settingsStyles ?? []);
   // The day setup finished on is answered by setup (a choice row written as it completes, or
