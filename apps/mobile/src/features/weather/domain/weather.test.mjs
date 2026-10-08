@@ -55,6 +55,14 @@ test('the last device snapshot stays shown for the next device cell, never for a
   assert.equal(showsSnapshotForLocation(retained, { ...device, timeZone: 'Europe/London' }), false);
   assert.equal(showsSnapshotForLocation(retained, { ...device, source: 'manual', locationKey: 'manual:sample.ankara' }), false);
   assert.equal(showsSnapshotForLocation(provided(), device), false);
+  assert.equal(showsSnapshotForLocation(provided({ locationKey: 'device:4101:2903' }), device), true);
+  assert.equal(showsSnapshotForLocation(provided({ locationKey: 'device:4101:2904' }), device), true);
+  assert.equal(showsSnapshotForLocation(provided({ locationKey: 'device:4101:2905' }), device), false);
+  assert.equal(showsSnapshotForLocation(provided({ locationKey: 'device:4101:2904' }), { ...device, locationKey: 'device:4096:2899' }), true);
+  assert.equal(showsSnapshotForLocation(provided({ locationKey: 'device:4201:2899' }), device), false);
+  assert.equal(showsSnapshotForLocation(provided({ locationKey: 'device:4101:2999' }), device), false);
+  assert.equal(showsSnapshotForLocation(provided({ locationKey: 'device:abc:2898' }), device), false);
+  assert.equal(showsSnapshotForLocation(retained, { ...device, locationKey: 'device:oops' }), false);
   assert.equal(showsSnapshotForLocation(retained, null), false);
 });
 

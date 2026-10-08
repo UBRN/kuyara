@@ -165,10 +165,16 @@ export function deviceLocationDisplayName(
   return parsed.success ? parsed.data : null;
 }
 
-const deviceLocationKeyPrefix = 'device:';
+const deviceLocationKeyPattern = /^device:(-?\d+):(-?\d+)$/u;
 
 export function deviceLocationKey(coordinates: NormalizedCoordinates): string {
-  return `${deviceLocationKeyPrefix}${coordinates.latitudeE2}:${coordinates.longitudeE2}`;
+  return `device:${coordinates.latitudeE2}:${coordinates.longitudeE2}`;
+}
+
+/** The cell of a `deviceLocationKey`, or null for any other key. */
+export function parseDeviceLocationKey(key: string): NormalizedCoordinates | null {
+  const match = deviceLocationKeyPattern.exec(key);
+  return match ? { latitudeE2: Number(match[1]), longitudeE2: Number(match[2]) } : null;
 }
 
 export function manualLocationKey(catalogId: ManualLocationId): string {
@@ -250,19 +256,26 @@ export function activeLocationSnapshot(
   return snapshot !== null && isSameWeatherLocation(snapshot, activeLocation) ? snapshot : null;
 }
 
+/** The farthest a retained device snapshot may lie from the device's cell: 0.05 degrees. */
+const keptDeviceCellDistanceE2 = 5;
+
 /**
  * Whether the weather screen may draw `snapshot` for `activeLocation`: the active place's own
- * snapshot, or the last valid one while the device location moved into the next 0.01 degree
- * cell and the new cell's weather has not landed. Both ends are the device's own position
- * then, so the data stays the best known reading, shown stale. A manual place never borrows
- * another place's data, because it would be shown under that place's name.
+ * snapshot, or the last valid one while the device location moved into a neighbouring cell
+ * (within 0.05 degrees on each axis, in the same zone) and that cell's weather has not
+ * landed. Both ends are the device's own position then, so the data stays the best known
+ * reading, shown stale. A manual place never borrows another place's data, because it would
+ * be shown under that place's name, and a far device cell is another city.
  */
 export function showsSnapshotForLocation(
   snapshot: Pick<WeatherSnapshot, 'locationKey' | 'timeZone'>,
   activeLocation: ActiveLocation | null,
 ): boolean {
-  return isSameWeatherLocation(snapshot, activeLocation)
-    || (activeLocation?.source === 'device'
-      && snapshot.locationKey.startsWith(deviceLocationKeyPrefix)
-      && snapshot.timeZone === activeLocation.timeZone);
+  if (isSameWeatherLocation(snapshot, activeLocation)) return true;
+  if (activeLocation?.source !== 'device' || snapshot.timeZone !== activeLocation.timeZone) return false;
+  const kept = parseDeviceLocationKey(snapshot.locationKey);
+  const active = parseDeviceLocationKey(activeLocation.locationKey);
+  return kept !== null && active !== null
+    && Math.abs(kept.latitudeE2 - active.latitudeE2) <= keptDeviceCellDistanceE2
+    && Math.abs(kept.longitudeE2 - active.longitudeE2) <= keptDeviceCellDistanceE2;
 }
