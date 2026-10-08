@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 
+import { sdkLifecycleEventNames } from './domain/analytics-events.ts';
+
 // The SDK's lifecycle autocapture sends events the app never names in code. Each one the
 // installed SDK can emit has to be reviewed and named in docs/analytics-taxonomy.md
 // section 5.1, so an SDK upgrade that adds a lifecycle event fails here until reviewed.
@@ -33,4 +35,8 @@ test('every lifecycle event the installed SDK emits is named in taxonomy section
   const section = taxonomySection('5.1 App lifecycle and session usage');
   const missing = sdkLifecycleEvents().filter((name) => !section.includes(`\`${name}\``));
   assert.deepEqual(missing, []);
+});
+
+test('the adapter allowlist is exactly the set of lifecycle events the installed SDK emits', () => {
+  assert.deepEqual([...sdkLifecycleEventNames].sort(), sdkLifecycleEvents());
 });

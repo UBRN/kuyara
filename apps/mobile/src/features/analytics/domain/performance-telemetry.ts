@@ -53,6 +53,12 @@ export interface PerformanceTelemetry {
   // the native side persists, so re-applying it with a new value takes effect immediately
   // rather than at the next launch.
   setDispatching(enabled: boolean): Promise<void>;
+
+  // Marks everything recorded so far as already handled without sending it. Observe records
+  // before consent and only delivery is gated, so a grant discards the unanswered period
+  // first: once the answer is stored, a restart can no longer deliver rows from before it.
+  // It does nothing unless delivery is currently disabled.
+  discardPending(): Promise<void>;
   isApplied(): boolean;
 }
 

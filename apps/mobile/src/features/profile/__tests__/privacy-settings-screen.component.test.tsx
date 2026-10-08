@@ -34,7 +34,9 @@ async function renderScreen(
   const props = {
     consent,
     identifier: consent === 'granted' ? 'identifier-1' : null,
+    withdrawnIdentifier: null,
     privacyPolicyUrl: null,
+    onRemoveWithdrawnIdentifier: jest.fn(),
     onGrant: jest.fn(async () => undefined),
     onWithdraw: jest.fn(async () => undefined),
     onOpenPrivacyPolicy: jest.fn(),
@@ -50,6 +52,7 @@ async function renderScreen(
   };
   const telemetry = {
     logEvent: () => undefined, reportError: () => undefined,
+    discardPending: async () => undefined,
     setDispatching: async () => undefined,
     isApplied: () => readiness.telemetryApplied ?? true,
   };
@@ -105,6 +108,28 @@ test('the disabled consent state can grant from Privacy', async () => {
 
   await waitFor(() => expect(result.onGrant).toHaveBeenCalledTimes(1));
   expect(result.onWithdraw).not.toHaveBeenCalled();
+});
+
+test('after withdrawal the kept identifier is shown to quote and can be removed', async () => {
+  const result = await renderScreen('withdrawn', { withdrawnIdentifier: 'kept-identifier-1' });
+
+  expect(result.rendered.queryByTestId('settings-privacy-identifier-group')).toBeNull();
+  const kept = result.rendered.getByTestId('settings-privacy-withdrawn-identifier');
+  expect(kept.props.selectable).toBe(true);
+  expect(kept).toHaveTextContent('kept-identifier-1');
+  expect(result.rendered.getByText(messages.en.analytics.withdrawnIdentifierFooter)).toBeOnTheScreen();
+
+  await act(async () => {
+    fireEvent.press(result.rendered.getByTestId('settings-privacy-remove-identifier-row'));
+  });
+  expect(result.onRemoveWithdrawnIdentifier).toHaveBeenCalledTimes(1);
+});
+
+test('the kept identifier is hidden while sharing is on and when none is kept', async () => {
+  const granted = await renderScreen('granted', { withdrawnIdentifier: 'kept-identifier-1' });
+  expect(granted.rendered.queryByTestId('settings-privacy-withdrawn-identifier-group')).toBeNull();
+  const none = await renderScreen('withdrawn');
+  expect(none.rendered.queryByTestId('settings-privacy-withdrawn-identifier-group')).toBeNull();
 });
 
 test('a failed consent change returns the controlled toggle to the profile value', async () => {
@@ -254,6 +279,7 @@ test('a successful grant finishes Observe delivery setup before Privacy shows th
   let grantResolved = false;
   const telemetry = {
     logEvent: () => undefined, reportError: () => undefined,
+    discardPending: async () => undefined,
     setDispatching: async (enabled: boolean) => {
       if (enabled) await dispatch;
       telemetryApplied = enabled;
@@ -272,6 +298,8 @@ test('a successful grant finishes Observe delivery setup before Privacy shows th
     return <PrivacySettingsScreen
       consent={consent.consent}
       identifier={consent.getIdentifier()}
+      withdrawnIdentifier={consent.getWithdrawnIdentifier()}
+      onRemoveWithdrawnIdentifier={consent.removeWithdrawnIdentifier}
       privacyPolicyUrl={null}
       onGrant={async () => { await consent.grant('settings_privacy'); grantResolved = true; }}
       onWithdraw={consent.withdraw}

@@ -280,6 +280,10 @@ the decision is:
   infrastructure with no other caller and is not approved here. The privacy policy instead
   allows a request to be sent to the maintainer by email, and the Settings screen lets the
   user see and copy their analytics identifier so a request about their data can name it.
+  At withdrawal the app keeps that identifier in a device-only file, outside the profile row
+  and never read by analytics, so Privacy still shows it after sharing is turned off, until
+  the person removes it or turns sharing back on (which clears it before a new identifier
+  starts).
   The outcome is not guaranteed because the persons API cannot delete events by identifier
   when no person profile exists; section 7 records the finding.
 - **Retention is stated, not left to the vendor's default.** PostHog Cloud keeps data one
@@ -371,7 +375,7 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
 3. A Settings row reads the current consent state, withdraws it, and on withdrawal calls
    `optOut()`, `reset()`, and clears the persisted `DeviceId`; a test asserts a fresh
    identifier after re-consent. The row also exposes the current analytics identifier for
-   a deletion request.
+   a deletion request, and after withdrawal the device-only copy of the last one (section 4).
 4. A privacy policy link is reachable from Settings.
 5. `identify()`, `alias()`, `group()` and `setPersonProperties()` have no caller;
    `personProfiles` stays `identified_only`. A grep-style check guards this like the
@@ -380,7 +384,7 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
    IP data" is on, the GeoIP transformation is disabled (the IP toggle alone is not enough;
    see section 5), session replay is off (ADR 0023 section 9), and event retention is twelve
    months (section 4). "Filter out internal and test users" excludes Simulator traffic by
-   `$is_emulator` and the development install's current id shown under Settings > Privacy;
+   `$is_emulator` (a boolean the event adapter admits) and the development install's current id shown under Settings > Privacy;
    that id is replaced after each consent cycle or reinstall. Observe has no
    equivalent filter. Consent is the recorded lawful basis, and the DPA was signed on
    2026-09-11.

@@ -78,13 +78,21 @@ Constraints on that identity, all of them settled by ADR 0033 section 5 unless n
   clearing it is what makes the severance real. That is a milestone 10 acceptance check in
   ADR 0033 section 6, not an optional refinement, and it means a later re-consent starts a
   new identity that cannot be joined to the old one.
+- **The last identifier stays on the phone, not in analytics.** At withdrawal the app keeps
+  the identifier it is about to sever in a small device-only file, outside the profile row
+  and never read by analytics, so Privacy can still show it to quote in a deletion request.
+  Turning sharing on again clears it before the new identity starts, and the person can
+  remove it at any time.
 - Resetting analytics data must not touch `localProfileId` or any application data, and
   clearing application data must not be required to reset analytics identity.
 
 **Consent gate.** No event defined in section 5 is recorded or leaves the device before
 consent is granted; the SDK client does not exist before then. While the answer is
 `undecided`, captures are dropped rather than stored or queued, and recording starts at
-acceptance. Onboarding runs before the consent question, so it is not measured here (section
+acceptance. Every gate (capture, before-send, transport, flush, identifier reads and the
+Observe emit check) reads one in-memory consent value, read from the stored answer once at
+launch and updated the moment the profile write that changes it has committed, so withdrawal
+closes them all at once and a failed write leaves the previous value. Onboarding runs before the consent question, so it is not measured here (section
 5.2). A decline sends
 nothing at all, not even a "declined" event (see section 5.14). Nothing in this taxonomy
 overrides that gate.
@@ -192,7 +200,7 @@ not a custom event.
 
 | Event | Trigger | Properties | Notes |
 | --- | --- | --- | --- |
-| `Application Installed`, `Application Updated` | first launch of an install, first launch after a version change | SDK-supplied: app version, build number, previous version and build on update | Provider default; the payload passes the section 5.1 allowlist like every other event. |
+| `Application Installed`, `Application Updated` | first launch of an install, first launch after a version change | SDK-supplied: app version and build number; the previous version and build on update are dropped | Provider default; the payload passes the section 5.1 allowlist like every other event. |
 | `Application Opened` | cold start | SDK-supplied: app version, OS version, build number; the launch URL is dropped | Provider default. |
 | `Application Became Active` | the app returns to the foreground | none beyond the allowlisted SDK keys | Provider default. |
 | `Application Backgrounded` | the app leaves the foreground | none beyond the allowlisted SDK keys | Provider default. |
@@ -208,15 +216,23 @@ IP-derived geo property are disabled. Advertising
 identifiers, vendor identifiers, hardware identifiers, person-profile enrichment, and any
 property on the exclusion checklist remain disabled. The event adapter admits only
 `$device_id`, `$session_id`, `$app_version`, `$app_build`, `$os_name`, `$os_version`,
-`$device_name`, `$device_type`, `$locale`, `$lib`, `$lib_version`,
+`$device_name`, `$device_type`, `$locale`, `$is_emulator`, `$lib`, `$lib_version`,
 `$geoip_disable` and `$process_person_profile`. The two library keys identify the SDK for
-ingestion and error tracking without identifying a person. `$geoip_disable` prevents
+ingestion and error tracking without identifying a person. `$is_emulator` is a boolean that
+separates Simulator and emulator traffic from real devices; it describes the build target,
+not the person. `$geoip_disable` prevents
 location enrichment; `$process_person_profile` preserves the SDK's `false` control on
 anonymous captures so PostHog does not create a person profile. The adapter drops every
-other SDK property, including app namespace, device manufacturer, emulator status, feature
+other SDK property, including app namespace, device manufacturer, feature
 flags and URLs. Exception events separately admit the closed fields in ADR 0035. A
 version-dependent default outside this list is disabled
 or added here through review, never accepted implicitly.
+
+**Event names and per-event keys.** The adapter sends only an event whose name is one of the
+twenty-six custom events of this section, the five lifecycle events above, or `$exception`;
+every other SDK event is dropped. A custom event keeps only its own property keys from this
+taxonomy plus the allowlisted SDK keys, so a key listed for one event, `dress_style` for
+instance, never rides another. A lifecycle event keeps only the allowlisted SDK keys.
 
 **Product questions answered.** Lifecycle autocapture answers "how often and how long is the
 app used?"
@@ -241,7 +257,7 @@ to keep coverage of "every screen" proportionate in event count.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `screen_viewed` | A tracked screen gains focus. | `screen_name`: `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `settings`, `settings_appearance`, `settings_language`, `settings_notifications`, `settings_gender`, `settings_dress_style`, `settings_birth_date`, `settings_ai_status`, `settings_privacy`, `analytics_consent_sheet` |
+| `screen_viewed` | A tracked screen gains focus. | `screen_name`: `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `settings`, `settings_notifications`, `settings_birth_date`, `settings_ai_status`, `settings_privacy`, `analytics_consent_sheet` |
 
 The implemented values mirror routes that exist, including `settings_privacy`, which is the
 Privacy surface under Settings. There is no `closet_item_detail` value because there is no
@@ -272,9 +288,11 @@ The trigger enum exhausts the controller's fetch paths. An explicit `refresh()` 
 `location_changed`. A location-triggered fetch takes precedence over the cache-state
 labels. These paths are visible in
 `apps/mobile/src/features/weather/application/weather-application-controller.ts:173-175,193-195,205-215,239-269`.
-On failure, `failure_kept_last_known` means a prior snapshot remains renderable and
-`failure_no_snapshot` means none exists; the controller preserves the current snapshot on
-failure at lines 306-319.
+On failure, `failure_kept_last_known` means a prior snapshot of the place being refreshed
+remains renderable and `failure_no_snapshot` means none exists. A snapshot the screen keeps
+from a previously active place does not count: while a newly chosen place has not loaded
+once, a failed fetch is `failure_no_snapshot` and the next refresh is `automatic_no_cache`,
+even though the screen still shows the earlier place's weather.
 
 `condition_category` is a bucket over the provider-neutral model's closed eleven-code
 condition vocabulary (`weatherConditionCodes` in `packages/contracts/src/weather-v1.ts`,
@@ -344,8 +362,7 @@ seven values:
 
 The domain trigger list includes first generation and explicit user requests. A weather-only
 refresh updates the live weather and derived insight lines without regenerating outfits.
-`stale_weather_refresh` remains a declared event property value for compatibility, but it
-stops being emitted because the stale-weather trigger was removed from the mapper.
+The stale-weather trigger no longer exists, so no `stale_weather_refresh` value is defined.
 
 Today's pull to refresh produces `explicit_request` only when it retries recommendation
 generation with no valid outfit displayed. With a saved valid outfit, the pull refreshes
@@ -497,7 +514,7 @@ Closet screen views are covered by `screen_viewed` (5.3), not a separate event.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`notifications_enabled`\|`morning_briefing_enabled`\|`dress_style`\|`gender`\|`birth_date`), `new_value` (present only for `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `notifications_enabled` and `morning_briefing_enabled`: boolean; `dress_style`: section 3; absent for `gender` and `birth_date`, since neither value is an allowed analytics property) |
+| `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`temperature_unit`\|`wind_speed_unit`\|`notifications_enabled`\|`morning_briefing_enabled`\|`morning_sheet_enabled`\|`dress_style`\|`gender`\|`birth_date`\|`style_aesthetics`\|`display_name`), `new_value` (present only where the value is closed: `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `temperature_unit`: `system`\|`celsius`\|`fahrenheit`; `wind_speed_unit`: `system`\|`kmh`\|`mph`; `notifications_enabled`, `morning_briefing_enabled` and `morning_sheet_enabled`: boolean; `dress_style`: section 3; absent for `gender`, `birth_date`, `style_aesthetics` and `display_name`, since none of those values is an allowed analytics property) |
 | `ai_probe_triggered` | The user triggers the AI status probe on Settings > Service providers. | `result` (`ok`\|`unavailable`\|`rate_limited`\|`error`) |
 
 `ai_probe_triggered` carries only `result`. There is no `probe_type` because there is

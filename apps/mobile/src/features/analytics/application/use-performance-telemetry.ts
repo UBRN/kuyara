@@ -11,6 +11,7 @@ export const PerformanceTelemetryContext = createContext<PerformanceTelemetry>({
   logEvent: () => undefined,
   reportError: () => undefined,
   setDispatching: async () => undefined,
+  discardPending: async () => undefined,
   isApplied: () => true,
 });
 

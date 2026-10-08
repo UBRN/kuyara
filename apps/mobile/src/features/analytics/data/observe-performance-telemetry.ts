@@ -28,9 +28,8 @@ import type {
   TelemetryError,
 } from '@/features/analytics/domain/performance-telemetry';
 import { telemetryFilteredRouteParams } from '@/features/analytics/domain/telemetry-route-params';
-import { readAnalyticsConsentSync } from '@/features/analytics/data/analytics-consent-sync-source';
+import { analyticsConsentState } from '@/features/analytics/domain/analytics-consent-state';
 import type { AnalyticsConsent } from '@/features/profile/domain/profile';
-import { openKuyaraDatabaseSync } from '@/infrastructure/sqlite/expo-sqlite-database';
 
 type ObserveApi = typeof import('expo-observe');
 
@@ -55,8 +54,7 @@ type ObserveConfiguration = Readonly<{
 
 let applied: ObserveConfiguration | null = null;
 let dispatchChange = 0;
-let readStoredConsent: () => AnalyticsConsent = () =>
-  readAnalyticsConsentSync(openKuyaraDatabaseSync);
+let readStoredConsent: () => AnalyticsConsent = analyticsConsentState.current;
 
 function apply(configuration: ObserveConfiguration): void {
   try {
@@ -126,6 +124,12 @@ export const observePerformanceTelemetry: PerformanceTelemetry = {
     } catch {
       // As above: this is called from a catch block.
     }
+  },
+  discardPending() {
+    // While delivery is disabled the native dispatch advances the cursor past the stored
+    // rows instead of sending them. While it is enabled that call would deliver them.
+    if (applied?.dispatchingEnabled !== false) return Promise.resolve();
+    return observe?.Observe.dispatchEvents() ?? Promise.resolve();
   },
   setDispatching(enabled: boolean) {
     const change = ++dispatchChange;

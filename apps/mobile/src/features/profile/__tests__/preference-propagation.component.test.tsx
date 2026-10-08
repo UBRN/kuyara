@@ -117,6 +117,11 @@ jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
       return mockProfile;
     };
 
+    updateDisplayName = async (displayName: string | null) => {
+      mockProfile = { ...mockProfile, displayName };
+      return mockProfile;
+    };
+
     updateMorningSheetEnabled = async (enabled: boolean) => {
       mockProfile = { ...mockProfile, morningSheetEnabled: enabled ? 1 : 0 };
       return mockProfile;
@@ -312,7 +317,9 @@ test('live preferences and support propagate localized behavior without remounti
   });
   expect(result.getByText(messages.en.preferences.languageEnglish)).toBeOnTheScreen();
   await fireEvent(within(result.getByTestId('settings-language-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'en');
-  expect(analytics.captures).toEqual([]);
+  // Choosing the language already in force changes nothing and reports nothing; only the
+  // style and morning-question changes above have been captured.
+  expect(analytics.names()).toEqual(['setting_changed', 'setting_changed']);
 
   await fireEvent(within(result.getByTestId('settings-language-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'tr');
   await waitFor(() => {
@@ -338,11 +345,15 @@ test('live preferences and support propagate localized behavior without remounti
 
   await waitFor(() => expect(analytics.names()).toEqual([
     'setting_changed',
+    'setting_changed',
+    'setting_changed',
     'feature_used_first_time',
     'setting_changed',
     'feature_used_first_time',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
+    { schema_version: 4, setting_name: 'style_aesthetics' },
+    { schema_version: 4, setting_name: 'morning_sheet_enabled', new_value: false },
     { schema_version: 4, setting_name: 'language', new_value: 'tr' },
     { schema_version: 4, feature_name: 'language_override' },
     { schema_version: 4, setting_name: 'appearance_theme', new_value: 'dark' },
@@ -352,7 +363,8 @@ test('live preferences and support propagate localized behavior without remounti
 });
 
 // The unit choices sit in Appearance after Theme, start at System, store each choice on the
-// device profile, and reach every surface through the localization provider. No analytics.
+// device profile, and reach every surface through the localization provider. Each choice
+// reports `setting_changed` with its closed value.
 test('temperature and wind unit choices store and reach the units every screen reads', async () => {
   mockProfile = createProfile();
   const analytics = new RecordingProductAnalytics('granted');
@@ -409,10 +421,47 @@ test('temperature and wind unit choices store and reach the units every screen r
   expect(optionLabels('temperature-unit')).toEqual(['Sıcaklık, °F', 'Sistem', '°C', '°F']);
   await fireEvent(picker('temperature-unit'), 'selectionChange', 'system');
   await waitFor(() => expect(result.getByTestId('unit-probe')).toHaveTextContent('celsius milesPerHour'));
-  // Only the language change is captured; the unit choices emit nothing.
-  expect(analytics.captures.map((capture) => capture.properties)).toContainEqual(
-    { schema_version: 4, setting_name: 'language', new_value: 'tr' });
-  expect(JSON.stringify(analytics.captures)).not.toMatch(/unit|celsius|fahrenheit|kmh|mph/);
+  expect(analytics.captures.map((capture) => capture.properties)).toEqual([
+    { schema_version: 4, setting_name: 'temperature_unit', new_value: 'fahrenheit' },
+    { schema_version: 4, setting_name: 'wind_speed_unit', new_value: 'mph' },
+    { schema_version: 4, setting_name: 'language', new_value: 'tr' },
+    { schema_version: 4, setting_name: 'temperature_unit', new_value: 'system' },
+  ]);
+});
+
+test('morning sheet, style and name changes report setting_changed and never the style or name', async () => {
+  mockProfile = createProfile();
+  const analytics = new RecordingProductAnalytics('granted');
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider analytics={analytics} firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  await fireEvent(await result.findByTestId('settings-morning-question-row-toggle'), 'valueChange', false);
+  await waitFor(() => expect(mockProfile.morningSheetEnabled).toBe(0));
+
+  await fireEvent.press(result.getByTestId('settings-style-preferences-row'));
+  await fireEvent.press(result.getByTestId('settings-style-option-classic'));
+  await fireEvent.press(result.getByTestId('settings-style-done'));
+  await waitFor(() => expect(mockProfile.styleAesthetics).toBe('["classic"]'));
+
+  await fireEvent.press(result.getByTestId('settings-name-row'));
+  await fireEvent.changeText(await result.findByTestId('name-edit-input'), 'Deniz');
+  await fireEvent.press(result.getByTestId('name-sheet-done'));
+  await waitFor(() => expect(mockProfile.displayName).toBe('Deniz'));
+
+  await waitFor(() => expect(analytics.captures).toHaveLength(3));
+  expect(analytics.captures.map((capture) => capture.properties)).toEqual([
+    { schema_version: 4, setting_name: 'morning_sheet_enabled', new_value: false },
+    { schema_version: 4, setting_name: 'style_aesthetics' },
+    { schema_version: 4, setting_name: 'display_name' },
+  ]);
+  expect(JSON.stringify(analytics.captures)).not.toMatch(/classic|Deniz/);
 });
 
 test('a quick double tap on a Settings row opens its screen once', async () => {

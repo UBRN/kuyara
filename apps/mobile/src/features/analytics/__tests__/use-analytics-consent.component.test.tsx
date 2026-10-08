@@ -17,6 +17,7 @@ import type { PerformanceTelemetry } from '@/features/analytics/domain/performan
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { InMemoryWithdrawnIdentifierStore } from '@/features/analytics/data/in-memory-withdrawn-identifier-store';
 import {
   ProfileApplicationContext,
   type ProfileApplicationValue,
@@ -51,6 +52,7 @@ async function renderConsentBoundary(
   initialConsent: 'undecided' | 'granted' | 'withdrawn' = 'undecided',
   telemetry?: PerformanceTelemetry,
   onUpdate?: (consent: 'undecided' | 'granted' | 'withdrawn') => void,
+  withdrawnIdentifierStore = new InMemoryWithdrawnIdentifierStore(),
 ) {
   let controls!: AnalyticsConsentControls;
   let trackers!: ProductAnalyticsValue;
@@ -77,10 +79,14 @@ async function renderConsentBoundary(
         <PerformanceTelemetryContext value={telemetry ?? {
           logEvent: () => undefined,
           reportError: () => undefined,
+          discardPending: async () => undefined,
           setDispatching: async () => undefined,
           isApplied: () => true,
         }}>
-          <ProductAnalyticsProvider analytics={analytics} firstUseStore={firstUseStore}>
+          <ProductAnalyticsProvider
+            analytics={analytics}
+            firstUseStore={firstUseStore}
+            withdrawnIdentifierStore={withdrawnIdentifierStore}>
             <Child />
           </ProductAnalyticsProvider>
         </PerformanceTelemetryContext>
@@ -98,7 +104,7 @@ async function renderConsentBoundary(
     listeners.forEach((listener) => listener('active'));
     listeners.forEach((listener) => listener('background'));
   };
-  return { get controls() { return controls; }, get trackers() { return trackers; }, background, firstUseStore };
+  return { get controls() { return controls; }, get trackers() { return trackers; }, background, firstUseStore, withdrawnIdentifierStore };
 }
 
 test('a failure from before the consent answer is not replayed after acceptance', async () => {
@@ -110,6 +116,43 @@ test('a failure from before the consent answer is not replayed after acceptance'
   boundary.background();
 
   expect(analytics.names()).toEqual(['analytics_consent_granted']);
+});
+
+test('withdrawal keeps the identifier on the device, and a new grant or removal clears it', async () => {
+  const analytics = new RecordingProductAnalytics('granted');
+  const store = new InMemoryWithdrawnIdentifierStore('stale-identifier');
+  const boundary = await renderConsentBoundary(
+    analytics, new InMemoryFirstUseStore(), 'granted', undefined, undefined, store,
+  );
+  const identifier = boundary.controls.getIdentifier();
+  expect(identifier).toMatch(/^recording-distinct-id-/);
+
+  await act(async () => boundary.controls.withdraw());
+  expect(boundary.controls.getIdentifier()).toBeNull();
+  expect(boundary.controls.getWithdrawnIdentifier()).toBe(identifier);
+  expect(store.read()).toBe(identifier);
+
+  await act(async () => boundary.controls.grant('settings_privacy'));
+  expect(boundary.controls.getWithdrawnIdentifier()).toBeNull();
+
+  await act(async () => boundary.controls.withdraw());
+  expect(boundary.controls.getWithdrawnIdentifier()).not.toBeNull();
+  boundary.controls.removeWithdrawnIdentifier();
+  expect(boundary.controls.getWithdrawnIdentifier()).toBeNull();
+});
+
+test('a store that cannot keep the identifier never blocks withdrawal', async () => {
+  const analytics = new RecordingProductAnalytics('granted');
+  const store = new InMemoryWithdrawnIdentifierStore();
+  jest.spyOn(store, 'keep').mockImplementation(() => { throw new Error('disk full'); });
+  const boundary = await renderConsentBoundary(
+    analytics, new InMemoryFirstUseStore(), 'granted', undefined, undefined, store,
+  );
+
+  await act(async () => boundary.controls.withdraw());
+
+  expect(boundary.controls.consent).toBe('withdrawn');
+  expect(boundary.controls.getWithdrawnIdentifier()).toBeNull();
 });
 
 test('granting consent again does not capture or opt in a second time', async () => {
@@ -147,6 +190,7 @@ test.each([
   const boundary = await renderConsentBoundary(analytics, firstUseStore, 'granted', {
     logEvent: () => undefined,
     reportError: () => undefined,
+    discardPending: async () => undefined,
     setDispatching: dispatch,
     isApplied: () => false,
   }, updateConsent);
@@ -253,6 +297,7 @@ test('grant, withdrawal, and decline use the required operation order', async ()
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
+        discardPending: async () => { operations.push('telemetry:discard'); },
         setDispatching: async (enabled) => { operations.push(`telemetry:${enabled}`); },
         isApplied: () => true,
       }}>
@@ -276,6 +321,7 @@ test('grant, withdrawal, and decline use the required operation order', async ()
     'resetErrors',
     'resetRetries',
     'clearFirstUses',
+    'telemetry:discard',
     'persist:granted',
     'optIn:today_sheet',
     'telemetry:true',
@@ -313,6 +359,7 @@ test('rejected Observe dispatch rolls back a saved grant and rejects visibly', a
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
+        discardPending: async () => undefined,
         setDispatching: async (enabled) => {
           operations.push(`telemetry:${enabled}`);
           if (enabled) throw new Error('Observe dispatch failed');
@@ -331,6 +378,37 @@ test('rejected Observe dispatch rolls back a saved grant and rejects visibly', a
     'persist:granted', 'telemetry:true', 'telemetry:false', 'persist:withdrawn',
   ]);
   expect(analytics.withdrawCount).toBe(1);
+});
+
+test('a failed discard of the unanswered period stores nothing and enables nothing', async () => {
+  const operations: string[] = [];
+  const analytics = new RecordingProductAnalytics('undecided');
+  let controls!: AnalyticsConsentControls;
+  const application = {
+    state: { status: 'ready' as const, profile, isSaving: false },
+    updateAnalyticsConsent: async (consent: string) => { operations.push(`persist:${consent}`); },
+  } as ProfileApplicationValue;
+
+  await render(
+    <ProfileApplicationContext value={application}>
+      <PerformanceTelemetryContext value={{
+        logEvent: () => undefined, reportError: () => undefined,
+        discardPending: async () => {
+          operations.push('discard');
+          throw new Error('Observe discard failed');
+        },
+        setDispatching: async (enabled) => { operations.push(`telemetry:${enabled}`); },
+        isApplied: () => false,
+      }}>
+        <ProductAnalyticsProvider analytics={analytics}>
+          <Harness onReady={(value) => { controls = value; }} />
+        </ProductAnalyticsProvider>
+      </PerformanceTelemetryContext>
+    </ProfileApplicationContext>,
+  );
+
+  await expect(controls.grant('settings_privacy')).rejects.toThrow('Observe discard failed');
+  expect(operations).toEqual(['discard']);
 });
 
 test('a failed grant persistence never opts the provider in', async () => {
@@ -536,6 +614,7 @@ test('a failed withdrawal write keeps capture closed and retry only writes and c
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
+        discardPending: async () => undefined,
         setDispatching: async (enabled) => { operations.push(`telemetry:${enabled}`); },
         isApplied: () => true,
       }}>
@@ -588,6 +667,7 @@ test('failed native telemetry disable emits nothing and a successful retry emits
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
+        discardPending: async () => undefined,
         setDispatching: async () => {
           operations.push('disable');
           if (failDisable) throw new Error('native configure failed');
@@ -633,6 +713,7 @@ test('failed final-event capture and flush still disable and persist withdrawal 
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
+        discardPending: async () => undefined,
         setDispatching: async (enabled) => { operations.push(`telemetry:${enabled}`); },
         isApplied: () => true,
       }}>
@@ -671,6 +752,7 @@ test('failed provider opt-in rolls back a saved grant and leaves a retry path', 
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
+        discardPending: async () => undefined,
         setDispatching: async (enabled) => { operations.push(`telemetry:${enabled}`); },
         isApplied: () => true,
       }}>

@@ -21,6 +21,7 @@ function recordingTelemetry() {
     telemetry: {
       logEvent: (name, attributes) => events.push({ name, attributes }),
       reportError: (error) => errors.push(error),
+      discardPending: async () => undefined,
       setDispatching: async () => undefined,
     },
   };

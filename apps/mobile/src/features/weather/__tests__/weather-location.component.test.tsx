@@ -10,6 +10,7 @@ import { RetryCounter } from '@/features/analytics/application/retry-counter';
 import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { InMemoryWithdrawnIdentifierStore } from '@/features/analytics/data/in-memory-withdrawn-identifier-store';
 import { PlaceSearchApplicationContext, WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
 import { PlaceSearchError } from '@/features/weather/domain/place-search-error';
 import type { ManualLocationId } from '@/features/weather/domain/weather';
@@ -63,6 +64,7 @@ function harness(language: SupportedLanguage = 'en') {
     ),
     firstUses: new FirstUseTracker(new InMemoryFirstUseStore(), () => true),
     retries: new RetryCounter(),
+    withdrawnIdentifiers: new InMemoryWithdrawnIdentifierStore(),
   };
   function Providers({ children }: PropsWithChildren) {
     return (

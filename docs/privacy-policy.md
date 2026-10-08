@@ -152,9 +152,11 @@ the app sends the records already waiting to go, with a note that sharing was tu
 one last time; after that it sends no usage analytics and no performance or diagnostic
 records, and anything still queued is discarded. The Expo package may keep writing error records locally, but
 none are sent to Observe while sharing is off; the rare delivery limits above apply if you
-turn sharing back on. The app also discards the analytics identifier, so events collected
+turn sharing back on. The app also stops using the analytics identifier, so events collected
 before that moment cannot be linked to anything collected later. Turning sharing back on
-creates a new analytics identifier.
+creates a new analytics identifier. So that you can still ask for deletion, the old
+identifier stays on your phone and is shown under Privacy until you remove it or turn
+sharing back on; it is never sent anywhere.
 The diagnostics identifier stays on your device and still accompanies the separate Expo
 Insights launch count and Expo Updates check described above. Those requests are outside
 this switch and continue either way.
@@ -166,7 +168,7 @@ means the processor cannot always delete them by identifier. If you want your ev
 deleted:
 
 1. Copy your analytics identifier from Settings under Privacy (it is shown while sharing
-   is on).
+   is on, and after you turn sharing off until you remove it or turn sharing back on).
 2. Email the maintainer at the address in the Contact section below with that identifier.
 
 kuyara will forward the request to PostHog and tell you what happened, but cannot

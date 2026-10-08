@@ -7,12 +7,14 @@ import type { ErrorEpisodeTracker } from '@/features/analytics/application/error
 import type { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
 import type { RetryCounter } from '@/features/analytics/application/retry-counter';
 import type { ProductAnalytics } from '@/features/analytics/domain/product-analytics';
+import type { WithdrawnIdentifierStore } from '@/features/analytics/domain/withdrawn-identifier-store';
 
 export type ProductAnalyticsValue = Readonly<{
   analytics: ProductAnalytics;
   errorEpisodes: ErrorEpisodeTracker;
   firstUses: FirstUseTracker;
   retries: RetryCounter;
+  withdrawnIdentifiers: WithdrawnIdentifierStore;
 }>;
 
 export const ProductAnalyticsContext =

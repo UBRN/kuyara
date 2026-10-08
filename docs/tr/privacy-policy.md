@@ -157,10 +157,12 @@ O anda uygulama gönderilmeyi bekleyen kayıtları, paylaşımın kapatıldığ�
 notla birlikte son bir kez gönderir; ardından ne kullanım analitiği ne de performans ve
 tanılama kaydı gönderir, hâlâ kuyrukta kalan kayıtlar atılır. Expo paketi hata kayıtlarını cihazında yazmaya devam
 edebilir, ancak paylaşım kapalıyken Observe'a gönderilmez; paylaşımı yeniden açarsan
-yukarıdaki nadir gönderim sınırları geçerlidir. Uygulama analitik kimliğini de siler;
-böylece o ana kadar toplanan olaylar sonrasında toplananlarla ilişkilendirilemez.
+yukarıdaki nadir gönderim sınırları geçerlidir. Uygulama analitik kimliğini de kullanmayı
+bırakır; böylece o ana kadar toplanan olaylar sonrasında toplananlarla ilişkilendirilemez.
 Paylaşımı yeniden açmak yeni bir analitik
-kimliği oluşturur. Tanılama kimliği cihazında kalır ve yukarıda anlatılan ayrı Expo
+kimliği oluşturur. Silinmesini yine de isteyebilmen için eski kimlik telefonunda kalır ve
+sen kaldırana ya da paylaşımı yeniden açana kadar Gizlilik bölümünde görünür; hiçbir yere
+gönderilmez. Tanılama kimliği cihazında kalır ve yukarıda anlatılan ayrı Expo
 Insights açılış sayımı ile Expo Updates güncelleme kontrolüne eşlik etmeye devam eder.
 Bu istekler anahtarın kapsamında değildir ve her durumda sürer.
 
@@ -170,8 +172,8 @@ Analitik olayları bir kullanıcı profili olmadan saklanır. Bu onları anonim 
 işleyicinin onları her zaman kimlikle silemeyeceği anlamına da gelir. Olaylarının
 silinmesini istersen:
 
-1. Ayarlar'daki Gizlilik bölümünden analitik kimliğini kopyala (paylaşım açıkken
-   görünür).
+1. Ayarlar'daki Gizlilik bölümünden analitik kimliğini kopyala (paylaşım açıkken ve
+   paylaşımı kapattıktan sonra, sen kaldırana ya da paylaşımı yeniden açana kadar görünür).
 2. Aşağıdaki İletişim bölümündeki adrese bu kimlikle birlikte e-posta gönder.
 
 kuyara talebi PostHog'a iletir ve sonucu sana bildirir; ancak profilsiz olayların erken

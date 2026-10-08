@@ -9,13 +9,16 @@ import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 export type AnalyticsConsentControls = Readonly<{
   consent: AnalyticsConsent;
   getIdentifier: () => string | null;
+  // The identifier kept on this device after sharing was turned off, for a deletion request.
+  getWithdrawnIdentifier: () => string | null;
+  removeWithdrawnIdentifier: () => void;
   grant: (surface: AnalyticsConsentSurface) => Promise<void>;
   withdraw: () => Promise<void>;
   decline: () => Promise<void>;
 }>;
 
 export function useAnalyticsConsent(): AnalyticsConsentControls {
-  const { analytics, errorEpisodes, firstUses, retries } = useProductAnalytics();
+  const { analytics, errorEpisodes, firstUses, retries, withdrawnIdentifiers } = useProductAnalytics();
   const telemetry = usePerformanceTelemetry();
   const { state, updateAnalyticsConsent } = useProfileApplication();
 
@@ -40,6 +43,14 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
 
   const withdrawGranted = async (): Promise<void> => {
     if (!analytics.isWithdrawalInProgress()) {
+      // The identity is about to be severed. Keep its identifier on the device so a deletion
+      // request can still name it; failing to keep it never blocks the withdrawal.
+      try {
+        withdrawnIdentifiers.clear();
+        const identifier = analytics.getIdentifier();
+        if (identifier) withdrawnIdentifiers.keep(identifier);
+      } catch { /* The copy is a convenience; withdrawal continues. */ }
+
       // Native dispatch must stop before the final event. A failed disable leaves
       // the grant active and emits nothing, so the whole sequence can be retried.
       await telemetry.setDispatching(false);
@@ -63,6 +74,8 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
   return {
     consent: state.profile.analyticsConsent,
     getIdentifier: () => analytics.getIdentifier(),
+    getWithdrawnIdentifier: () => withdrawnIdentifiers.read(),
+    removeWithdrawnIdentifier: () => withdrawnIdentifiers.clear(),
     grant: async (surface) => {
       if (state.profile.analyticsConsent === 'granted' && analytics.isWithdrawalInProgress()) {
         throw new Error('Complete the pending analytics withdrawal before granting again');
@@ -82,6 +95,12 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       errorEpisodes.reset();
       retries.reset();
       await firstUses.clear();
+      // A new identifier starts, so the earlier one is no longer the one to quote.
+      withdrawnIdentifiers.clear();
+      // Observe recorded the unanswered period without sending it. Discard that before the
+      // answer is stored: if the app is killed right after the write, the next launch reads
+      // `granted` and enables delivery, and nothing recorded before the answer may be left.
+      await telemetry.discardPending();
       await updateAnalyticsConsent('granted');
       try {
         await analytics.optIn(surface);

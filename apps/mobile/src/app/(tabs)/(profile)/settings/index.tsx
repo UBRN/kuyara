@@ -85,8 +85,22 @@ export default function SettingsRoute() {
             });
           });
         }}
-        onTemperatureUnitChange={(value) => updateTemperatureUnitPreference?.(value) ?? Promise.resolve()}
-        onWindSpeedUnitChange={(value) => updateWindSpeedUnitPreference?.(value) ?? Promise.resolve()}
+        onTemperatureUnitChange={async (value) => {
+          await updateTemperatureUnitPreference?.(value);
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'temperature_unit',
+            new_value: value,
+          });
+        }}
+        onWindSpeedUnitChange={async (value) => {
+          await updateWindSpeedUnitPreference?.(value);
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'wind_speed_unit',
+            new_value: value,
+          });
+        }}
         onDressStyleChange={async (value) => {
           await updateDressStyle(value);
           analytics.capture('setting_changed', {
@@ -95,8 +109,22 @@ export default function SettingsRoute() {
             new_value: value,
           });
         }}
-        onStyleAestheticsChange={(values) => updateStyleAesthetics?.(values) ?? Promise.resolve()}
-        onMorningSheetEnabledChange={(enabled) => updateMorningSheetEnabled?.(enabled) ?? Promise.resolve()}
+        onStyleAestheticsChange={async (values) => {
+          await updateStyleAesthetics?.(values);
+          // The chosen styles are a personal preference, so only the fact of a change is sent.
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'style_aesthetics',
+          });
+        }}
+        onMorningSheetEnabledChange={async (enabled) => {
+          await updateMorningSheetEnabled?.(enabled);
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'morning_sheet_enabled',
+            new_value: enabled,
+          });
+        }}
         onGenderChange={async (value) => {
           await updateGender(value);
           analytics.capture('setting_changed', {
@@ -121,7 +149,14 @@ export default function SettingsRoute() {
         }}
         onOpenServiceProviders={() => push('/settings/service-providers')}
         onOpenBirthDate={() => push('/settings/birth-date')}
-        onNameChange={updateDisplayName}
+        onNameChange={async (name) => {
+          await updateDisplayName(name);
+          // The name is free text, so only the fact of a change is sent.
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'display_name',
+          });
+        }}
         onOpenNotifications={() => push('/settings/notifications')}
         onOpenEasierToSee={() => push('/settings/easier-to-see')}
         onOpenPrivacy={() => push('/settings/privacy')}

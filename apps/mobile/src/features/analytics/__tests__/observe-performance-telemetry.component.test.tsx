@@ -122,6 +122,18 @@ describe('the Observe adapter and consent', () => {
     );
   });
 
+  it('discards the unanswered period only while delivery is disabled', async () => {
+    configureObserveTelemetry({ dispatchingEnabled: false, readConsent });
+    await observePerformanceTelemetry.discardPending();
+    expect(mockObserve.dispatchEvents).toHaveBeenCalledTimes(1);
+
+    storedConsent = 'granted';
+    await observePerformanceTelemetry.setDispatching(true);
+    mockObserve.dispatchEvents.mockClear();
+    await observePerformanceTelemetry.discardPending();
+    expect(mockObserve.dispatchEvents).not.toHaveBeenCalled();
+  });
+
   it('does not enable delivery if consent is withdrawn during the cursor flush', async () => {
     configureObserveTelemetry({ dispatchingEnabled: false, readConsent });
     let finishDispatch!: () => void;

@@ -13,6 +13,8 @@ import type {
   ProductAnalytics,
 } from '@/features/analytics/domain/product-analytics';
 import type { FirstUseStore } from '@/features/analytics/domain/first-use-store';
+import type { WithdrawnIdentifierStore } from '@/features/analytics/domain/withdrawn-identifier-store';
+import { ExpoFileWithdrawnIdentifierStore } from '@/features/analytics/data/expo-file-withdrawn-identifier-store';
 import { ExpoFileFirstUseStore } from '@/features/analytics/data/expo-file-first-use-store';
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
 import { ProfileApplicationContext } from '@/features/profile/application/profile-context';
@@ -22,12 +24,14 @@ import { systemNow as now } from '@/infrastructure/system-clock';
 type ProductAnalyticsProviderProps = PropsWithChildren<{
   analytics?: ProductAnalytics;
   firstUseStore?: FirstUseStore;
+  withdrawnIdentifierStore?: WithdrawnIdentifierStore;
 }>;
 
 export function ProductAnalyticsProvider({
   children,
   analytics = noopProductAnalytics,
   firstUseStore,
+  withdrawnIdentifierStore,
 }: ProductAnalyticsProviderProps) {
   const profileApplication = use(ProfileApplicationContext);
   const consent: AnalyticsConsent | null = profileApplication?.state.status === 'ready'
@@ -35,6 +39,10 @@ export function ProductAnalyticsProvider({
   const resolvedFirstUseStore = useMemo(
     () => firstUseStore ?? new ExpoFileFirstUseStore(),
     [firstUseStore],
+  );
+  const resolvedWithdrawnIdentifierStore = useMemo(
+    () => withdrawnIdentifierStore ?? new ExpoFileWithdrawnIdentifierStore(),
+    [withdrawnIdentifierStore],
   );
   const trackers = useMemo(() => {
     const capture: CaptureAnalyticsEvent = (name, properties, options) =>
@@ -52,8 +60,9 @@ export function ProductAnalyticsProvider({
       errorEpisodes: trackers.errorEpisodes,
       firstUses: trackers.firstUses,
       retries: trackers.retries,
+      withdrawnIdentifiers: resolvedWithdrawnIdentifierStore,
     }),
-    [analytics, trackers],
+    [analytics, trackers, resolvedWithdrawnIdentifierStore],
   );
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const sessionId = useRef<string | null>(null);

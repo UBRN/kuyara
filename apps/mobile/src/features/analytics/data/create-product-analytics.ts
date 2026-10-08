@@ -2,6 +2,7 @@
 // selects local event logging for Simulator evidence; production stays on the no-op port, so
 // missing configuration can never send anything (ADR 0033 section 3).
 import { resolveProductAnalyticsConfiguration } from '@/config/product-analytics-config';
+import { analyticsConsentState } from '@/features/analytics/domain/analytics-consent-state';
 import { DevelopmentLoggingProductAnalytics } from '@/features/analytics/data/development-logging-product-analytics';
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
 import {
@@ -14,15 +15,6 @@ import {
 } from '@/features/analytics/data/posthog-product-analytics';
 import type { ProductAnalytics } from '@/features/analytics/domain/product-analytics';
 import type { AnalyticsConsent } from '@/features/profile/domain/profile';
-
-function readStoredConsent(): AnalyticsConsent {
-  // Keep native SQLite and Observe out of the Node-only development logger path.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { readAnalyticsConsentSync } = require('./analytics-consent-sync-source') as typeof import('./analytics-consent-sync-source');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { openKuyaraDatabaseSync } = require('../../../infrastructure/sqlite/expo-sqlite-database') as typeof import('../../../infrastructure/sqlite/expo-sqlite-database');
-  return readAnalyticsConsentSync(openKuyaraDatabaseSync);
-}
 
 function disableTelemetryOnStartup(): void {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -90,7 +82,7 @@ export function createProductAnalytics(
     apiKey: configuration.apiKey,
     host: configuration.host,
     consent,
-    readConsent: readStoredConsent,
+    readConsent: analyticsConsentState.current,
     disableTelemetryOnStartup,
   });
 }

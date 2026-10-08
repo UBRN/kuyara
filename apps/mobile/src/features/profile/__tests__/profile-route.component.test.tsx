@@ -8,6 +8,7 @@ import { FirstUseTracker } from '@/features/analytics/application/first-use-trac
 import { RetryCounter } from '@/features/analytics/application/retry-counter';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { InMemoryWithdrawnIdentifierStore } from '@/features/analytics/data/in-memory-withdrawn-identifier-store';
 import { ProfileApplicationContext, type ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import {
   WardrobeApplicationContext,
@@ -93,6 +94,7 @@ function Providers({
           ),
           firstUses: new FirstUseTracker(new InMemoryFirstUseStore(), () => true),
           retries: new RetryCounter(),
+          withdrawnIdentifiers: new InMemoryWithdrawnIdentifierStore(),
         }}>
           <ProfileApplicationContext value={profileValue(displayName, men)}>
             <WardrobeApplicationContext value={wardrobeValue}>

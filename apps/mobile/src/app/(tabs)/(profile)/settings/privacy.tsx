@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { useState } from 'react';
 import { Linking } from 'react-native';
 
 import { useAnalyticsConsent } from '@/features/analytics/application/use-analytics-consent';
@@ -13,6 +14,7 @@ function ReadyPrivacySettingsRoute() {
   const consent = useAnalyticsConsent();
   const privacyPolicyUrl: string | null = PRIVACY_POLICY_URL[language];
   useScreenViewed('settings_privacy');
+  const [, refreshWithdrawnIdentifier] = useState(0);
 
   return (
     <>
@@ -25,6 +27,11 @@ function ReadyPrivacySettingsRoute() {
       <PrivacySettingsScreen
         consent={consent.consent}
         identifier={consent.getIdentifier()}
+        withdrawnIdentifier={consent.consent === 'granted' ? null : consent.getWithdrawnIdentifier()}
+        onRemoveWithdrawnIdentifier={() => {
+          consent.removeWithdrawnIdentifier();
+          refreshWithdrawnIdentifier((revision) => revision + 1);
+        }}
         onGrant={() => consent.grant('settings_privacy')}
         onOpenPrivacyPolicy={() => {
           if (privacyPolicyUrl) void Linking.openURL(privacyPolicyUrl).catch(() => {

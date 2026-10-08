@@ -257,9 +257,11 @@ export class WeatherApplicationController {
       this.setReady({ ...current, snapshot, freshness });
     }
     if (!current.activeLocation || (snapshot && freshness === 'fresh')) return;
+    // Taxonomy 5.4: a snapshot kept from another place is not a cache for this one.
     await this.refreshLocation(
       current.activeLocation,
-      snapshot ? 'automatic_stale' : 'automatic_no_cache',
+      activeLocationSnapshot(snapshot, current.activeLocation)
+        ? 'automatic_stale' : 'automatic_no_cache',
     );
   };
 
@@ -473,7 +475,7 @@ export class WeatherApplicationController {
       this.captureAnalyticsEvent('weather_refreshed', {
         schema_version: ANALYTICS_SCHEMA_VERSION,
         trigger_method: trigger,
-        result: this.hasRenderableSnapshot() ? 'failure_kept_last_known' : 'failure_no_snapshot',
+        result: this.holdsSnapshotFor(location) ? 'failure_kept_last_known' : 'failure_no_snapshot',
       });
       // No `source` on a failure: nothing answered, so there is no attribution to report.
       this.telemetry?.logEvent(
@@ -487,8 +489,11 @@ export class WeatherApplicationController {
     }
   }
 
-  private hasRenderableSnapshot(): boolean {
-    return this.state.status === 'ready' && this.state.snapshot !== null;
+  // For analytics only: the screen may keep another place's snapshot visible, but that is no
+  // last known result for the place being refreshed (taxonomy 5.4).
+  private holdsSnapshotFor(location: ActiveLocation): boolean {
+    return this.state.status === 'ready'
+      && activeLocationSnapshot(this.state.snapshot, location) !== null;
   }
 
   private async loadMatchingSnapshot(location: ActiveLocation): Promise<WeatherSnapshot | null> {

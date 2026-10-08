@@ -10,6 +10,7 @@ import { RetryCounter } from '@/features/analytics/application/retry-counter';
 import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { InMemoryWithdrawnIdentifierStore } from '@/features/analytics/data/in-memory-withdrawn-identifier-store';
 import {
   WeatherApplicationController,
   type WeatherReadyState,
@@ -135,6 +136,7 @@ function productAnalytics() {
     ),
     firstUses: new FirstUseTracker(new InMemoryFirstUseStore(), () => true),
     retries: new RetryCounter(),
+    withdrawnIdentifiers: new InMemoryWithdrawnIdentifierStore(),
   };
 }
 

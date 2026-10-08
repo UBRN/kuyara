@@ -586,6 +586,8 @@ export type AppMessages = Readonly<{
     retryWithdraw: string;
     identifierLabel: string;
     identifierFooter: string;
+    withdrawnIdentifierFooter: string;
+    removeIdentifier: string;
     privacyPolicyLabel: string;
   }>;
   profile: Readonly<{

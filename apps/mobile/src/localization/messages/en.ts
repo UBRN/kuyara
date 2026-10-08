@@ -193,7 +193,7 @@ export const en = {
     declineAction: 'Not now',
     privacyTitle: 'Privacy',
     shareUsageData: 'Share usage and diagnostics',
-    toggleFooter: 'Sharing usage, error and performance data helps improve kuyara. Turning this off stops the sharing controlled here and discards this device’s analytics identifier. A launch count and update check still run, as the privacy policy explains.',
+    toggleFooter: 'Sharing usage, error and performance data helps improve kuyara. Turning this off stops the sharing controlled here and ends this device’s analytics identity. A launch count and update check still run, as the privacy policy explains.',
     withdrawFailed: 'Sharing could not be turned off completely. Try again.',
     withdrawIncomplete: 'Your choice to stop sharing was saved, but cleanup did not finish. Try again.',
     grantFailed: 'Sharing could not be turned on. Try again.',
@@ -202,6 +202,8 @@ export const en = {
     retryWithdraw: 'Retry turning off',
     identifierLabel: 'Analytics identifier',
     identifierFooter: 'You can quote this identifier in a request about your data.',
+    withdrawnIdentifierFooter: 'Sharing is off and this identifier is no longer used. It stays only on this phone, so you can quote it when you ask for the data collected under it to be deleted.',
+    removeIdentifier: 'Remove identifier from this phone',
     privacyPolicyLabel: 'Privacy policy',
   },
   profile: {

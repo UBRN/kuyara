@@ -1184,6 +1184,36 @@ test('weather_refreshed reports failure_no_snapshot and failure_kept_last_known'
   }]);
 });
 
+test('a snapshot kept from another place is no cache for analytics when the new place fails to load', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const london = getManualLocation('sample.london');
+  const captured = [];
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:55:00.000Z')],
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } },
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await harness.controller.initialize();
+  await settle();
+  assert.deepEqual(captured, []);
+
+  await harness.controller.selectManualLocation(london.catalogId);
+  await settle();
+  // The screen still holds Istanbul's weather, but London has no last known result.
+  assert.notEqual(harness.controller.getSnapshot().snapshot, null);
+  assert.deepEqual(captured.map(({ properties }) => [properties.trigger_method, properties.result]), [
+    ['location_changed', 'failure_no_snapshot'],
+  ]);
+
+  captured.length = 0;
+  await harness.controller.revalidateFreshness();
+  await settle();
+  assert.deepEqual(captured.map(({ properties }) => [properties.trigger_method, properties.result]), [
+    ['automatic_no_cache', 'failure_no_snapshot'],
+  ]);
+});
+
 test('Expo and raw coordinate details remain isolated to the device adapter', async () => {
   const [adapter, controller, screen, repository] = await Promise.all([
     readFile(new URL('./data/expo-device-location-gateway.ts', import.meta.url), 'utf8'),

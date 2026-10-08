@@ -9,6 +9,7 @@ import type {
 import {
   ANALYTICS_SCHEMA_VERSION,
   analyticsEventPropertyKeys,
+  sdkLifecycleEventNames,
 } from '@/features/analytics/domain/analytics-events';
 import type {
   AnalyticsEventName,
@@ -108,9 +109,12 @@ export function forceOptedOutStorage(storage: SyncStringStorage): void {
   }
 }
 
-const allowedCustomPropertyKeys = new Set<string>(
-  Object.values(analyticsEventPropertyKeys).flat(),
+// Taxonomy 5.0 and 5.1: an event name outside the catalog, the five lifecycle events and
+// `$exception` never leaves the device, and a catalog event keeps only its own reviewed keys.
+const customPropertyKeysByEvent = new Map<string, ReadonlySet<string>>(
+  Object.entries(analyticsEventPropertyKeys).map(([name, keys]) => [name, new Set<string>(keys)]),
 );
+const lifecycleEventNames = new Set<string>(sdkLifecycleEventNames);
 // docs/analytics-taxonomy.md section 5.1 is the SDK-default allowlist. New SDK keys
 // are dropped until that list is reviewed, even when they start with `$`.
 const allowedSystemPropertyKeys = new Set([
@@ -123,6 +127,7 @@ const allowedSystemPropertyKeys = new Set([
   '$device_name',
   '$device_type',
   '$locale',
+  '$is_emulator',
   '$geoip_disable',
   '$process_person_profile',
   '$lib',
@@ -130,14 +135,18 @@ const allowedSystemPropertyKeys = new Set([
 ]);
 
 export function sanitizePostHogEvent(event: BeforeSendEvent): BeforeSendEvent {
-  if (!event?.properties) return event;
+  if (!event) return event;
+
+  const customKeys = customPropertyKeysByEvent.get(event.event);
+  const isException = event.event === '$exception';
+  if (!customKeys && !lifecycleEventNames.has(event.event) && !isException) return null;
+  if (!event.properties) return event;
 
   const properties = Object.fromEntries(
     Object.entries(event.properties).filter(([key]) => {
-      if (allowedCustomPropertyKeys.has(key)) return true;
+      if (customKeys?.has(key)) return true;
       if (allowedSystemPropertyKeys.has(key)) return true;
-      return event.event === '$exception'
-        && (key === '$exception_level' || key === '$exception_list');
+      return isException && (key === '$exception_level' || key === '$exception_list');
     }),
   );
 

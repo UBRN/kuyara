@@ -5,7 +5,12 @@
 // port is generic over.
 import type { DressStyle, OutfitArchetypeId } from '@kuyara/contracts';
 
-import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
+import type {
+  LanguagePreference,
+  TemperatureUnitPreference,
+  ThemePreference,
+  WindSpeedUnitPreference,
+} from '@/domain/preferences';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
 
@@ -57,10 +62,9 @@ export type GenerationModeProperty =
   | 'ai_assisted'
   | 'deterministic_fallback';
 
-// Taxonomy 5.5: seven emitted trigger mappings; the retired stale value stays in the union.
+// Taxonomy 5.5: the seven trigger mappings.
 export type TriggerReasonProperty =
   | 'first_recommendation'
-  | 'stale_weather_refresh'
   | 'location_changed'
   | 'clothing_preference_changed'
   | 'dress_style_changed'
@@ -120,11 +124,7 @@ export type ScreenName =
   | 'closet_list'
   | 'closet_item_form'
   | 'settings'
-  | 'settings_appearance'
-  | 'settings_language'
   | 'settings_notifications'
-  | 'settings_gender'
-  | 'settings_dress_style'
   | 'settings_birth_date'
   | 'settings_ai_status'
   | 'settings_privacy'
@@ -261,7 +261,8 @@ export type AnalyticsEventCatalog = {
     }>;
   closet_item_deleted: AnalyticsEventBase &
     Readonly<{ state: WardrobeEntryState; had_photo: boolean }>;
-  // Taxonomy 5.9: gender and birth date carry no value, since neither is an allowed property.
+  // Taxonomy 5.9: gender, birth date, style aesthetics and the display name carry no value,
+  // since none of them is an allowed property.
   setting_changed: AnalyticsEventBase &
     (
       | Readonly<{ setting_name: 'appearance_theme'; new_value: ThemePreference }>
@@ -269,7 +270,12 @@ export type AnalyticsEventCatalog = {
       | Readonly<{ setting_name: 'notifications_enabled'; new_value: boolean }>
       | Readonly<{ setting_name: 'morning_briefing_enabled'; new_value: boolean }>
       | Readonly<{ setting_name: 'dress_style'; new_value: DressStyle }>
-      | Readonly<{ setting_name: 'gender' | 'birth_date' }>
+      | Readonly<{ setting_name: 'temperature_unit'; new_value: TemperatureUnitPreference }>
+      | Readonly<{ setting_name: 'wind_speed_unit'; new_value: WindSpeedUnitPreference }>
+      | Readonly<{ setting_name: 'morning_sheet_enabled'; new_value: boolean }>
+      | Readonly<{
+          setting_name: 'gender' | 'birth_date' | 'style_aesthetics' | 'display_name';
+        }>
     );
   ai_probe_triggered: AnalyticsEventBase &
     Readonly<{ result: 'ok' | 'unavailable' | 'rate_limited' | 'error' }>;
@@ -301,6 +307,17 @@ export type AnalyticsEventCatalog = {
 };
 
 export type AnalyticsEventName = keyof AnalyticsEventCatalog;
+
+// Taxonomy 5.1: the five events the provider SDK captures on its own. They are the only
+// non-catalog event names the adapter lets through (besides the consent-gated `$exception`
+// path), and `sdk-lifecycle-events.test.mjs` compares this list with the installed SDK.
+export const sdkLifecycleEventNames = [
+  'Application Installed',
+  'Application Updated',
+  'Application Opened',
+  'Application Became Active',
+  'Application Backgrounded',
+] as const;
 
 export type AnalyticsEventProperties<Name extends AnalyticsEventName> =
   AnalyticsEventCatalog[Name];

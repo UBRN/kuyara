@@ -1,3 +1,4 @@
+import { analyticsConsentState } from '@/features/analytics/domain/analytics-consent-state';
 import type {
   AnalyticsConsent,
   DressStyle,
@@ -370,8 +371,8 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
     );
   }
 
-  updateAnalyticsConsent(consent: AnalyticsConsent): Promise<LocalProfileRecord> {
-    return this.updateProfile(
+  async updateAnalyticsConsent(consent: AnalyticsConsent): Promise<LocalProfileRecord> {
+    const record = await this.updateProfile(
       `
         UPDATE local_profiles
         SET analytics_consent = ?, updated_at = ?
@@ -379,6 +380,10 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
       `,
       [consent],
     );
+    // The transaction has committed, so the in-memory gate follows the stored answer in
+    // the same tick. A failed write throws above and leaves the previous value.
+    analyticsConsentState.set(consent);
+    return record;
   }
 
   private async updateProfile(

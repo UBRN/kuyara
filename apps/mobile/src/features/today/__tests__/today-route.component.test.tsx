@@ -11,6 +11,7 @@ import { AnalyticsConsentTriggerContext } from '@/features/analytics/application
 import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { InMemoryWithdrawnIdentifierStore } from '@/features/analytics/data/in-memory-withdrawn-identifier-store';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import {
   NotificationApplicationContext,
@@ -469,6 +470,7 @@ function createProductAnalytics() {
     ),
     firstUses: new FirstUseTracker(new InMemoryFirstUseStore(), () => true),
     retries: new RetryCounter(),
+    withdrawnIdentifiers: new InMemoryWithdrawnIdentifierStore(),
   };
 }
 

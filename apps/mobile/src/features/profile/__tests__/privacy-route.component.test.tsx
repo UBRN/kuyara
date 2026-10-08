@@ -22,6 +22,8 @@ jest.mock('@/features/analytics/application/use-analytics-consent', () => ({
   useAnalyticsConsent: () => ({
     consent: 'withdrawn',
     getIdentifier: () => null,
+    getWithdrawnIdentifier: () => null,
+    removeWithdrawnIdentifier: () => undefined,
     grant: jest.fn(async () => undefined),
     withdraw: jest.fn(async () => undefined),
     decline: jest.fn(async () => undefined),

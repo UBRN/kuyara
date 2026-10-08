@@ -184,7 +184,7 @@ export const tr = {
     declineAction: 'Şimdi değil',
     privacyTitle: 'Gizlilik',
     shareUsageData: 'Kullanım ve tanılama verisi paylaş',
-    toggleFooter: 'Kullanım, hata ve performans verilerini paylaşmak kuyara’yı geliştirmeye yardımcı olur. Kapatmak bu anahtarın yönettiği paylaşımı durdurur ve bu cihazın analitik kimliğini siler. Gizlilik politikasında anlatılan açılış sayımı ve güncelleme kontrolü yine de çalışır.',
+    toggleFooter: 'Kullanım, hata ve performans verilerini paylaşmak kuyara’yı geliştirmeye yardımcı olur. Kapatmak bu anahtarın yönettiği paylaşımı durdurur ve bu cihazın analitik kimliğini sonlandırır. Gizlilik politikasında anlatılan açılış sayımı ve güncelleme kontrolü yine de çalışır.',
     withdrawFailed: 'Paylaşım tamamen kapatılamadı. Yeniden dene.',
     withdrawIncomplete: 'Paylaşımı kapatma seçimin kaydedildi, ancak temizleme tamamlanamadı. Yeniden dene.',
     grantFailed: 'Paylaşım açılamadı. Yeniden dene.',
@@ -193,6 +193,8 @@ export const tr = {
     retryWithdraw: 'Kapatmayı yeniden dene',
     identifierLabel: 'Analitik kimliği',
     identifierFooter: 'Verilerinle ilgili bir talepte bu kimliği belirtebilirsin.',
+    withdrawnIdentifierFooter: 'Paylaşım kapalı ve bu kimlik artık kullanılmıyor. Yalnızca bu telefonda durur; bu kimlikle toplanan verilerin silinmesini istediğinde belirtebilirsin.',
+    removeIdentifier: 'Kimliği bu telefondan kaldır',
     privacyPolicyLabel: 'Gizlilik politikası',
   },
   profile: {

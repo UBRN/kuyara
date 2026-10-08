@@ -11,10 +11,13 @@ import { spacing } from '@/theme/theme';
 export type PrivacySettingsScreenProps = Readonly<{
   consent: AnalyticsConsent;
   identifier: string | null;
+  // The last identifier, kept on this phone after sharing was turned off.
+  withdrawnIdentifier: string | null;
   privacyPolicyUrl: string | null;
   onGrant: () => Promise<void>;
   onWithdraw: () => Promise<void>;
   onOpenPrivacyPolicy: () => void;
+  onRemoveWithdrawnIdentifier: () => void;
 }>;
 
 export function PrivacySettingsScreen({
@@ -22,8 +25,10 @@ export function PrivacySettingsScreen({
   identifier,
   onGrant,
   onOpenPrivacyPolicy,
+  onRemoveWithdrawnIdentifier,
   onWithdraw,
   privacyPolicyUrl,
+  withdrawnIdentifier,
 }: PrivacySettingsScreenProps) {
   const messages = useMessages();
   const analytics = use(ProductAnalyticsContext)?.analytics;
@@ -128,6 +133,35 @@ export function PrivacySettingsScreen({
           <NativeListRow
             label={messages.analytics.identifierLabel}
             testID="settings-privacy-identifier-row"
+          />
+        </NativeListSection>
+      ) : null}
+
+      {!isGranted && withdrawnIdentifier ? (
+        <NativeListSection
+          footer={
+            <View style={styles.identifierFooter}>
+              <AppText
+                colorRole="textSecondary"
+                selectable
+                testID="settings-privacy-withdrawn-identifier"
+                variant="code">
+                {withdrawnIdentifier}
+              </AppText>
+              <AppText colorRole="textSecondary" variant="caption">
+                {messages.analytics.withdrawnIdentifierFooter}
+              </AppText>
+            </View>
+          }
+          testID="settings-privacy-withdrawn-identifier-group">
+          <NativeListRow
+            label={messages.analytics.identifierLabel}
+            testID="settings-privacy-withdrawn-identifier-row"
+          />
+          <NativeListRow
+            label={messages.analytics.removeIdentifier}
+            onPress={onRemoveWithdrawnIdentifier}
+            testID="settings-privacy-remove-identifier-row"
           />
         </NativeListSection>
       ) : null}

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { analyticsEventNames, sdkLifecycleEventNames } from '../domain/analytics-events.ts';
 import {
+  createPostHogBeforeSend,
   createPostHogProductAnalytics,
   sanitizePostHogEvent,
 } from './posthog-product-analytics.ts';
@@ -342,6 +344,8 @@ test('the before-send filter removes lifecycle URLs, timezone and non-allowliste
       profileNote: 'private profile note',
       previous_version: '1.0.0',
       schema_version: 4,
+      dress_style: 'formal',
+      '$is_emulator': true,
       '$lib': 'posthog-react-native',
       '$lib_version': '4.68.4',
       '$lib_custom': 'unreviewed SDK extension',
@@ -372,9 +376,9 @@ test('the before-send filter removes lifecycle URLs, timezone and non-allowliste
   assert.deepEqual(sanitizePostHogEvent(original), {
     event: 'Application Opened',
     properties: {
-      schema_version: 4,
       '$lib': 'posthog-react-native',
       '$lib_version': '4.68.4',
+      '$is_emulator': true,
       '$process_person_profile': false,
       '$session_id': 'random-session',
       '$device_id': 'random-install',
@@ -389,4 +393,57 @@ test('the before-send filter removes lifecycle URLs, timezone and non-allowliste
     },
   });
   assert.equal(original.properties.url, 'kuyara://profile/private-path');
+});
+
+test('the before-send filter drops every event name outside the catalog, the lifecycle list and $exception', () => {
+  for (const event of ['$autocapture', '$screen', '$feature_flag_called', '$identify',
+    'Application Crashed', 'unreviewed_event']) {
+    assert.equal(
+      sanitizePostHogEvent({ event, properties: { '$device_id': 'random-install' } }),
+      null,
+      event,
+    );
+  }
+  assert.equal(sanitizePostHogEvent({ event: 'unreviewed_event' }), null);
+  for (const event of sdkLifecycleEventNames) {
+    assert.deepEqual(
+      sanitizePostHogEvent({ event, properties: { '$device_id': 'random-install' } }),
+      { event, properties: { '$device_id': 'random-install' } },
+    );
+  }
+  for (const event of analyticsEventNames) {
+    assert.notEqual(sanitizePostHogEvent({ event, properties: {} }), null, event);
+  }
+});
+
+test('a catalog event keeps only its own reviewed keys and the lifecycle events keep none', () => {
+  const properties = {
+    schema_version: 4,
+    screen_name: 'today',
+    dress_style: 'formal',
+    age_bucket: '25_34',
+    new_value: 'celsius',
+    '$device_id': 'random-install',
+  };
+  assert.deepEqual(sanitizePostHogEvent({ event: 'screen_viewed', properties }), {
+    event: 'screen_viewed',
+    properties: { schema_version: 4, screen_name: 'today', '$device_id': 'random-install' },
+  });
+  assert.deepEqual(sanitizePostHogEvent({ event: 'recommendation_viewed', properties }), {
+    event: 'recommendation_viewed',
+    properties: {
+      schema_version: 4, dress_style: 'formal', age_bucket: '25_34', '$device_id': 'random-install',
+    },
+  });
+  assert.deepEqual(sanitizePostHogEvent({ event: 'Application Became Active', properties }), {
+    event: 'Application Became Active',
+    properties: { '$device_id': 'random-install' },
+  });
+});
+
+test('the before-send controller drops an unknown event name and an SDK event outside the list', () => {
+  const { beforeSend } = createPostHogBeforeSend();
+  assert.equal(beforeSend({ event: '$autocapture', properties: {} }), null);
+  assert.equal(beforeSend({ event: '$feature_flag_called', properties: {} }), null);
+  assert.notEqual(beforeSend({ event: 'screen_viewed', properties: { schema_version: 4 } }), null);
 });

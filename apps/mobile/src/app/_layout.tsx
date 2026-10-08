@@ -26,6 +26,7 @@ import {
 } from '@/features/analytics/application/analytics-consent-trigger';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { PerformanceTelemetryContext } from '@/features/analytics/application/use-performance-telemetry';
+import { analyticsConsentState } from '@/features/analytics/domain/analytics-consent-state';
 import { readAnalyticsConsentSync } from '@/features/analytics/data/analytics-consent-sync-source';
 import { createProductAnalytics } from '@/features/analytics/data/create-product-analytics';
 import { countLaunchedSession } from '@/features/analytics/data/expo-file-session-counter';
@@ -59,13 +60,13 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Module scope, before the first render: Observe's expo-router integration has to be
 // enabled before any screen mounts, and the same call decides whether anything is
-// dispatched. The consent answer is therefore read synchronously from SQLite here. A
-// consent change inside the session re-applies the configuration through the port
-// (`setDispatching`), so withdrawal takes effect immediately rather than at the next launch.
+// dispatched. The consent answer is therefore read synchronously from SQLite here, once, and
+// held in memory for every gate. A consent change inside the session is stored by the profile
+// repository and re-applies the configuration through the port (`setDispatching`), so
+// withdrawal takes effect immediately rather than at the next launch.
+analyticsConsentState.set(readAnalyticsConsentSync(openKuyaraDatabaseSync));
 configureObserveTelemetry({
-  dispatchingEnabled: telemetryDispatchingEnabled(
-    readAnalyticsConsentSync(openKuyaraDatabaseSync),
-  ),
+  dispatchingEnabled: telemetryDispatchingEnabled(analyticsConsentState.current()),
 });
 
 // A session is one app process, so the launch is counted here, once, before the first render.
@@ -143,8 +144,11 @@ function ReadyApplicationShell({
       ? registerBackgroundWeatherAlertTask()
       : unregisterBackgroundWeatherAlertTask());
   }, [wantsBackgroundRefresh]);
-  const [analytics] = useState(() =>
-    createProductAnalytics(__DEV__, profile.analyticsConsent));
+  const [analytics] = useState(() => {
+    // The loaded profile is the stored answer: it also covers a launch read that failed.
+    analyticsConsentState.set(profile.analyticsConsent);
+    return createProductAnalytics(__DEV__, profile.analyticsConsent);
+  });
   const pathname = usePathname();
   const { recommendationShown, beginConsentPresentation } = useAnalyticsConsentTrigger();
   const presentAnalyticsConsent = useCallback(() => {
