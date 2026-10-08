@@ -3,6 +3,9 @@ import { recommendationMessages } from '@/features/recommendation/localization/r
 import { capitalizedNumberWord, numberWord } from '@/localization/number-words';
 import type { AppMessages } from '@/localization/messages/types';
 
+/** The closing sentence naming the last sync, none before a sync has completed on this phone. */
+const trLastSynced = (time: string | null) => (time === null ? '' : ` Son eşitleme ${time}.`);
+
 export const tr = {
   temperatureUnitNames: { celsius: 'santigrat derece', fahrenheit: 'fahrenhayt derece' },
   catalog: catalogMessages.tr,
@@ -1135,16 +1138,16 @@ export const tr = {
       syncingCount: (pending: number) => `${pending} eşitleniyor`,
       syncNow: 'Şimdi eşitle',
       retry: 'Yeniden dene',
-      upToDateFooter: (time: string) => `Son eşitleme ${time}. Doğum tarihin hesabına eklenmez.`,
-      offlineFooter: (pending: number, time: string) => (pending > 0
-        ? `Bekleyen ${pending} değişikliğin var. Bağlantı gelince eşitlenir. Son eşitleme ${time}.`
-        : `Bağlantı gelince eşitlenir. Son eşitleme ${time}.`),
-      syncingFooter: (pending: number, time: string) => (pending > 0
-        ? `${pending} değişiklik eşitleniyor. Son eşitleme ${time}.`
-        : `Son eşitleme ${time}.`),
-      failedFooter: (pending: number, time: string) => (pending > 0
-        ? `kuyara hesabına ulaşamadı. ${pending} değişikliğin korunur ve bir sonraki denemede eşitlenir. Son eşitleme ${time}.`
-        : `kuyara hesabına ulaşamadı. Son eşitleme ${time}.`),
+      upToDateFooter: (time: string | null) => `${time === null ? '' : `Son eşitleme ${time}. `}Doğum tarihin hesabına eklenmez.`,
+      offlineFooter: (pending: number, time: string | null) => (pending > 0
+        ? `Bekleyen ${pending} değişikliğin var. Bağlantı gelince eşitlenir.${trLastSynced(time)}`
+        : `Bağlantı gelince eşitlenir.${trLastSynced(time)}`),
+      syncingFooter: (pending: number, time: string | null) => (pending > 0
+        ? `${pending} değişiklik eşitleniyor.${trLastSynced(time)}`
+        : time === null ? undefined : `Son eşitleme ${time}.`),
+      failedFooter: (pending: number, time: string | null) => (pending > 0
+        ? `kuyara hesabına ulaşamadı. ${pending} değişikliğin korunur ve bir sonraki denemede eşitlenir.${trLastSynced(time)}`
+        : `kuyara hesabına ulaşamadı.${trLastSynced(time)}`),
     },
     account: {
       title: 'Hesap',
@@ -1273,7 +1276,7 @@ export const tr = {
     },
     withdrawAlert: {
       title: 'Kayıtların eşitlenmesi durdurulsun mu?',
-      body: 'Hesabınla oturum açılmış bütün telefonlarda eşitleme durur. Gardırobunun, Geçmişinin, stil tercihlerinin, günlük seçimlerinin ve çıkış kayıtlarının hesabındaki kopyaları silinir. Bu telefondaki kayıtların olduğu gibi kalır.',
+      body: 'Hesabınla oturum açılmış bütün telefonlarda eşitleme durur. Gardırobunun, Geçmişinin, stil tercihlerinin, günlük seçimlerinin ve çıkış kayıtlarının hesabındaki kopyaları silinir. Gardırobun ve Geçmişin kuyara’da kalır.',
       cancel: 'Vazgeç',
       confirm: 'Eşitlemeyi durdur',
     },

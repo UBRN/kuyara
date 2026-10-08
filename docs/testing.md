@@ -332,6 +332,32 @@ eas build --platform ios --profile production --local --output "<IPA_PATH_OUTSID
 asc builds upload --app 6806664440 --ipa "<IPA_PATH_OUTSIDE_REPO>" --wait
 ```
 
+Before the upload, check the built IPA. The script unzips it into a fresh directory, searches
+the Hermes bundle (`main.jsbundle`) as text for the live Supabase origin and the publishable
+key prefix, requires the development project reference to be absent, and requires the Sign in
+with Apple entitlement in the signed app. It prints no variable values:
+
+```bash
+IPA="<IPA_PATH_OUTSIDE_REPO>"
+set -u
+WORK="$(mktemp -d)"
+unzip -q "$IPA" -d "$WORK"
+APP="$(ls -d "$WORK"/Payload/*.app)"
+BUNDLE="$APP/main.jsbundle"
+fail=0
+check() { # check "<label>" <command...>
+  label="$1"; shift
+  if "$@"; then echo "PASS: $label"; else echo "FAIL: $label" >&2; fail=1; fi
+}
+absent() { ! "$@"; }
+check "live Supabase origin is in the bundle" grep -qaF "bkeojzuvuzilytfmpgdu.supabase.co" "$BUNDLE"
+check "publishable key prefix is in the bundle" grep -qaF "sb_publishable_" "$BUNDLE"
+check "development project reference is absent" absent grep -qaF "ghfanmvihuynytloqglb" "$BUNDLE"
+check "Sign in with Apple entitlement is signed in" sh -c 'codesign -d --entitlements :- "$1" 2>/dev/null | grep -qaF "com.apple.developer.applesignin"' _ "$APP"
+rm -rf "$WORK"
+exit "$fail"
+```
+
 The local build uses EAS signing credentials and remote build-number assignment without
 spending EAS Free cloud build quota. After the required checks, independent review and
 Simulator verification pass, complete the App Store Connect record and submit along the
@@ -461,6 +487,8 @@ expo prebuild --platform ios
 ```
 
 On a phone, the development client replaces the store build in place and keeps its data.
+
+Local development builds read `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` of the development Supabase project from `apps/mobile/.env` (the variable names are in `apps/mobile/.env.example`; the publishable key is never committed). Production builds take the production values from the EAS `production` environment, and the OTA export already disables local `.env` loading. Account deletion cannot be exercised on a development build, because the Worker is not connected to the development project.
 
 The `development` profile sets no Worker URL, so `apps/mobile/src/config/worker-base-url.ts`
 falls back to `http://127.0.0.1:8788`, which on a phone is the phone. To reach a Worker running

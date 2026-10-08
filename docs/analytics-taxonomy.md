@@ -602,7 +602,8 @@ PostHog from the earliest occurrence of the underlying event per identity.
 Optional accounts ([ADR 0041](adr/0041-optional-accounts.md)) are measured by what happened,
 never by who it happened to. PostHog stays on its install identifier: `identify()` is never
 called, and no account id, email, name, provider subject, token, timestamp or row count is an
-event property ([ADR 0041](adr/0041-optional-accounts.md) section 12).
+event property, and neither `localProfileId` nor the Supabase user ID becomes an analytics
+identifier ([ADR 0041](adr/0041-optional-accounts.md) section 12).
 
 | Event | Trigger | Properties | Sampling / aggregation |
 | --- | --- | --- | --- |

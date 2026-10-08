@@ -21,7 +21,8 @@ export type MergeCounts = Readonly<{
 /**
  * Where the phone's profile came from at a link: all four fields from the account, its name and
  * gender only (no consent, or the account held no dress style), or nothing (the account held no
- * profile, so the phone's went to it). The result sheets pick their sentence by it.
+ * profile, so the phone's went to it, or this build cannot read the account's, so each keeps its
+ * own). The result sheets pick their sentence by it.
  */
 export type ProfileSource = 'account' | 'accountNameAndGender' | 'phone';
 
@@ -127,7 +128,9 @@ function mergeProfile(
   local: AccountProfile | null,
   remote: AccountProfile | null,
   syncConsent: boolean,
+  refused: boolean,
 ): Readonly<{ write: AccountProfile | null; send: AccountProfile | null; from: ProfileSource }> {
+  if (refused) return { write: null, send: null, from: 'phone' };
   if (remote === null) return { write: null, send: local && profileWithinConsent(local, syncConsent), from: 'phone' };
   const phoneStyleGoes = syncConsent && remote.dressStyle == null && local?.dressStyle != null;
   if (!phoneStyleGoes) {
@@ -152,9 +155,10 @@ function mergeProfile(
 export function mergeAtFirstLink(
   local: AccountRows,
   remote: AccountRows,
-  options: Readonly<{ syncConsent: boolean; now: string; refused?: RefusedAccountRows }>,
+  options: Readonly<{ syncConsent: boolean; now: string; refused: RefusedAccountRows }>,
 ): MergeResult {
-  const profile = mergeProfile(local.profile, remote.profile, options.syncConsent);
+  const { refused } = options;
+  const profile = mergeProfile(local.profile, remote.profile, options.syncConsent, refused.profile);
   if (!options.syncConsent) {
     const none = { wardrobeItems: [], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] };
     return {
@@ -166,16 +170,15 @@ export function mergeAtFirstLink(
     };
   }
   const candidates = firstUploadRows(local, options.now);
-  const { refused } = options;
-  const notRefused = <Item>(rows: readonly Item[], keys: readonly string[] = [], key: (row: Item) => string) =>
+  const notRefused = <Item>(rows: readonly Item[], keys: readonly string[], key: (row: Item) => string) =>
     rows.filter((row) => !keys.includes(key(row)));
-  const closet = mergeById(notRefused(candidates.wardrobeItems, refused?.wardrobeItems, (row) => row.id),
+  const closet = mergeById(notRefused(candidates.wardrobeItems, refused.wardrobeItems, (row) => row.id),
     local.wardrobeItems, remote.wardrobeItems);
-  const choices = mergeByDay(notRefused(candidates.dressingDayChoices, refused?.dressingDayChoices, (row) => row.dayKey),
+  const choices = mergeByDay(notRefused(candidates.dressingDayChoices, refused.dressingDayChoices, (row) => row.dayKey),
     local.dressingDayChoices, remote.dressingDayChoices);
-  const departures = mergeByDay(notRefused(candidates.dressingDayDepartures, refused?.dressingDayDepartures, (row) => row.dayKey),
+  const departures = mergeByDay(notRefused(candidates.dressingDayDepartures, refused.dressingDayDepartures, (row) => row.dayKey),
     local.dressingDayDepartures, remote.dressingDayDepartures);
-  const history = mergeHistory(notRefused(candidates.outfitHistory, refused?.outfitHistory, (row) => row.id),
+  const history = mergeHistory(notRefused(candidates.outfitHistory, refused.outfitHistory, (row) => row.id),
     local.outfitHistory, remote.outfitHistory);
   return {
     writeToPhone: {

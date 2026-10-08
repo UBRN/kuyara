@@ -20,6 +20,8 @@ import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 const mockPush = jest.fn();
+// These tests cover screens other than the account screens, so they stay independent of the account switch.
+jest.mock('@/features/account/application/account-screens-flag', () => ({ ACCOUNT_SCREENS_ENABLED: false }));
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react') as typeof import('react');
   return {

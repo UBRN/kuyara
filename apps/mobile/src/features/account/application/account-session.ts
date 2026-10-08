@@ -58,7 +58,13 @@ export type AccountAuthPort = Readonly<{
   signOut: () => Promise<void>;
   refreshSession: () => Promise<AuthSession | null>;
   addProvider: (provider: AccountProvider) => Promise<AuthSession>;
-  reauthorizeDeletion: () => Promise<Readonly<{ accessToken: string; appleAuthorizationCode?: string }> | null>;
+  /**
+   * The provider that confirmed the deletion, with the credentials the Worker takes; null is a
+   * cancel. Apple confirms only when this phone holds the account's Apple credential.
+   */
+  reauthorizeDeletion: (holdsAppleCredential: boolean) => Promise<Readonly<{
+    provider: AccountProvider; accessToken: string; appleAuthorizationCode?: string;
+  }> | null>;
   /** Apple's credential state for the session's Apple identity; throws when Apple cannot answer. */
   appleCredentialState: () => Promise<AppleCredentialState>;
 }>;
@@ -235,7 +241,7 @@ export function createAccountSessionManager({
   const answer = () => ({ textVersion: SYNC_CONSENT_TEXT_VERSION, answeredAt: now().toISOString() });
   const showIdentity = (session: AuthSession): AccountSession => ({
     kind: 'signedIn', provider: session.provider, email: session.email, providers: session.providers,
-    sync: { kind: 'syncing' }, pendingChanges: 0, closetPieces: 0, historyDays: 0, lastSyncedAt: now().toISOString(),
+    sync: { kind: 'syncing' }, pendingChanges: 0, closetPieces: 0, historyDays: 0, lastSyncedAt: null,
     syncConsent: null,
   });
   /** One pass; answers its summary, or null when it did not run or failed. */
@@ -580,16 +586,17 @@ export function createAccountSessionManager({
     },
     async deleteAccount() {
       if (!identity || !snapshot.online || snapshot.deletion === 'deleting') return;
-      const provider = identity.provider;
       update({ deletion: 'deleting' });
+      const account = identity;
       const run = async () => {
         try {
-          const credentials = await auth.reauthorizeDeletion();
-          if (credentials === null) {
+          const confirmed = await auth.reauthorizeDeletion(await holdsApple(account));
+          if (confirmed === null) {
             update({ deletion: 'idle' });
             analytics.deleted({ result: 'cancelled' });
             return;
           }
+          const { provider, ...credentials } = confirmed;
           // A pass that started before the deletion finishes before the phone's link is reset.
           await passesSettled();
           const result = await deletion.deleteAccount(credentials);
@@ -660,6 +667,10 @@ export function createAccountSessionManager({
         await restore(session);
         return;
       }
+      // A deletion running meanwhile settles first: it ends the session itself, or it failed and
+      // the session the auth service said is gone ends here.
+      await deleting;
+      if (!unchanged()) return;
       // The auth service said the session is gone: it ends the way signing out does.
       try { await auth.signOut(); } catch { /* The screen still leaves the ended session. */ }
       await forgetSession();

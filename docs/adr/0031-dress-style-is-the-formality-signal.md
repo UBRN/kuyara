@@ -33,7 +33,7 @@ most a bounded demographic bucket.
 
 `dressStyle` remains required as one of `casual`, `smart` or `formal`, the profile's persistent default formality. Onboarding asks after gender, and Settings > Profile can change it. A null stored value reads as `smart` for migration compatibility. Copy asks how the user usually dresses and explains that suggestions lean that way first and exclude nothing.
 
-The profile also stores up to three `styleAesthetics` chosen from `minimal`, `classic`, `sporty`, `streetwear`, `relaxed`. They reorder already-valid options as a soft tie-break and never exclude. The optional `displayName` is 2 to 30 characters, asked after welcome with "Not now" and editable in Settings. It remains device-only and outside AI, analytics, telemetry and providers; [ADR 0036](0036-display-name-and-one-time-prompt-gate.md) owns its one-time prompt.
+The profile also stores up to three `styleAesthetics` chosen from `minimal`, `classic`, `sporty`, `streetwear`, `relaxed`. They reorder already-valid options as a soft tie-break and never exclude. The optional `displayName` is 2 to 30 characters, asked after welcome with "Not now" and editable in Settings. It stays outside AI, analytics, telemetry and weather providers, and reaches the network only as a synced profile field of a signed-in account ([ADR 0041](0041-optional-accounts.md) section 3); [ADR 0036](0036-display-name-and-one-time-prompt-gate.md) owns its one-time prompt.
 
 ### 2. Dress style selects the formality order
 
@@ -69,8 +69,9 @@ reads it.
 Approved analytics may derive `age_bucket` only at emit time. Its values are `under_18`,
 `18_24`, `25_34`, `35_44`, `45_54`, `55_64`, `65_plus`, and `unknown` when the date is
 null. The attachment rules live in [`analytics-taxonomy.md`](../analytics-taxonomy.md).
-The date, the year, and the user's gender never appear in analytics, logs, AI requests,
-or other network payloads. No bucket is stored. Do not derive an age band anywhere else.
+The date and the year never appear in analytics, logs, AI requests or other network
+payloads. The user's gender never appears in analytics, logs or AI requests; it reaches the
+network only as a synced profile field of a signed-in account ([ADR 0041](0041-optional-accounts.md) section 3). No bucket is stored. Do not derive an age band anywhere else.
 
 ### 5. Onboarding and Settings
 

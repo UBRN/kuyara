@@ -28,7 +28,7 @@ export function AccountSettingsSection({ onOpenAccount }: Readonly<{ onOpenAccou
   useEffect(() => port.clearNotice, [port]);
 
   if (session.kind === 'signedIn') {
-    const sync = describeSync(session, snapshot.online, copy, formatClockTime(session.lastSyncedAt, language, hour12));
+    const sync = describeSync(session, snapshot.online, copy, session.lastSyncedAt && formatClockTime(session.lastSyncedAt, language, hour12));
     return (
       <NativeListSection heading={copy.settings.group} testID="settings-account-group">
         <NativeListRow

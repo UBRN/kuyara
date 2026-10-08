@@ -238,17 +238,17 @@ describe('the Account screen records group (ADR 0041 section 10)', () => {
     }
   });
 
-  test('the withdrawal confirmation names every phone, the deleted copies and this phone\'s records, and no place', () => {
+  test('the withdrawal confirmation names every phone, the deleted copies and what stays, and no device-only promise', () => {
     for (const body of [en.withdrawAlert.body, tr.withdrawAlert.body]) {
       expect(body).not.toMatch(/server|sunucu|cloud|bulut|Supabase|Frankfurt|USA|ABD/i);
       // Whole sentences: each ends with a full stop and the next starts with a capital.
       expect(body.split(/(?<=\.) /u).every((sentence) => /^\p{Lu}.*\.$/u.test(sentence))).toBe(true);
     }
     expect(en.withdrawAlert.body).toBe('Sync stops on every phone signed in to your account. Your account’s copies of your '
-      + 'Closet, History, style preferences, daily choices and departure records are deleted. The records on this phone stay.');
+      + 'Closet, History, style preferences, daily choices and departure records are deleted. Your Closet and History stay in kuyara.');
     expect(tr.withdrawAlert.body).toBe('Hesabınla oturum açılmış bütün telefonlarda eşitleme durur. Gardırobunun, Geçmişinin, '
       + 'stil tercihlerinin, günlük seçimlerinin ve çıkış kayıtlarının hesabındaki kopyaları silinir. '
-      + 'Bu telefondaki kayıtların olduğu gibi kalır.');
+      + 'Gardırobun ve Geçmişin kuyara’da kalır.');
   });
 
   test('without the consent it offers the same sheet, which Continue unticked closes with nothing changed', async () => {

@@ -10,7 +10,7 @@ import { unlinked } from '../domain/account-link.ts';
 import { pullCursorAt } from '../domain/sync-rules.ts';
 import { migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
-import { dayChoice, departure, historyDay, stamp, syncedProfile, uuid, wardrobeItem } from '../__tests__/account-fixtures.mjs';
+import { dayChoice, departure, historyDay, noneRefused, stamp, syncedProfile, uuid, wardrobeItem } from '../__tests__/account-fixtures.mjs';
 
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const noCursor = pullCursorAt(null);
@@ -70,7 +70,7 @@ test('a first link replaces a pending row this build cannot read with the accoun
   // Pieces 2 and 3 were edited into colour columns that disagree, which the account reads strictly.
   await database.runAsync(`UPDATE wardrobe_items SET color_family = 'black', pending_sync = 1 WHERE id IN (?, ?)`, [uuid(2), uuid(3)]);
   const remote = {
-    pullSnapshot: async () => ({ rows: { ...none, wardrobeItems: [wardrobeItem(2, { name: 'Account copy' })] }, cursor: noCursor }),
+    pullSnapshot: async () => ({ rows: { ...none, wardrobeItems: [wardrobeItem(2, { name: 'Account copy' })] }, cursor: noCursor, refused: noneRefused }),
     upload: async (_user, sent, confirm) => confirm(sent),
     pull: async () => ({ ...none, arrivals: [] }),
   };
@@ -157,7 +157,7 @@ test('a first link writes the account\'s winners over the pending rows it read, 
   const values = (rows) => ({ ...none, profile: rows.profile?.row ?? null, wardrobeItems: rows.wardrobeItems.map(({ row }) => row) });
   const merge = mergeAtFirstLink(values(local), {
     ...none, profile: syncedProfile({ displayName: 'Account' }), wardrobeItems: [wardrobeItem(1, { name: 'Account copy' })],
-  }, { syncConsent: true, now: stamp(10) });
+  }, { syncConsent: true, now: stamp(10), refused: noneRefused });
   const link = { userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a',
     recordsConsentRecordedAt: '2026-09-30T00:00:00.000001Z', cursor: pullCursorAt('2026-10-01T00:00:00.000000Z') };
   await source.applyFirstLink(merge, link, values(local));
@@ -181,7 +181,7 @@ test('a first link leaves the flag of a row written after the merge read it, and
   await database.runAsync('UPDATE dressing_day_choices SET pending_sync = 1');
   const read = await source.read();
   const input = { ...none, wardrobeItems: read.wardrobeItems.map(({ row }) => row), dressingDayChoices: read.dressingDayChoices.map(({ row }) => row) };
-  const merge = mergeAtFirstLink(input, none, { syncConsent: true, now: '2026-10-04T12:00:00.000Z' });
+  const merge = mergeAtFirstLink(input, none, { syncConsent: true, now: '2026-10-04T12:00:00.000Z', refused: noneRefused });
   assert.deepEqual(merge.sendToAccount.wardrobeItems.map((row) => row.id), [uuid(2), uuid(4)]);
   // The pull was running: an edit of item 4, a day choice rewritten and a new item land after the read.
   await database.runAsync('UPDATE wardrobe_items SET name = ?, updated_at = ? WHERE id = ?', ['Edited', stamp(9), uuid(4)]);
@@ -208,7 +208,8 @@ test('a first link keeps an edit made while the account downloads: the row stays
         ['Edited during the link', stamp(9), uuid(1)]);
       await database.runAsync('UPDATE local_profiles SET display_name = ?, updated_at = ?, pending_sync = 1', ['Edited', stamp(9)]);
       return { rows: { ...none, profile: syncedProfile({ displayName: 'Account' }),
-        wardrobeItems: [wardrobeItem(1, { name: 'Account copy' }), wardrobeItem(2, { name: 'Account two' })] }, cursor: noCursor };
+        wardrobeItems: [wardrobeItem(1, { name: 'Account copy' }), wardrobeItem(2, { name: 'Account two' })] }, cursor: noCursor,
+        refused: noneRefused };
     },
     upload: async (_user, sent, confirm) => { uploads.push(sent); await confirm(sent); },
     pull: async () => ({ ...none, arrivals: [] }),
@@ -279,7 +280,7 @@ test('a first link that fits one transaction and fails part way leaves the phone
   const failing = failingWrites(database, (sql) => sql.includes('device_account_link'));
   const source = createSqliteAccountRowsSource(failing);
   const merge = mergeAtFirstLink(none, { ...none, profile: syncedProfile({ displayName: 'Account' }), wardrobeItems: [wardrobeItem(1)] },
-    { syncConsent: true, now: stamp(10) });
+    { syncConsent: true, now: stamp(10), refused: noneRefused });
   await assert.rejects(source.applyFirstLink(merge, { ...unlinked, userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a' }, none));
   assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items')).n, 0);
   assert.equal((await database.getFirstAsync('SELECT display_name FROM local_profiles')).display_name, 'Phone');
@@ -305,7 +306,7 @@ test('a large landing holds the write lock a few hundred rows at a time, and one
     },
   });
   const pieces = Array.from({ length: 600 }, (_, index) => wardrobeItem(index + 1));
-  const merge = mergeAtFirstLink(none, { ...none, wardrobeItems: pieces }, { syncConsent: true, now: stamp(10) });
+  const merge = mergeAtFirstLink(none, { ...none, wardrobeItems: pieces }, { syncConsent: true, now: stamp(10), refused: noneRefused });
   const link = { ...unlinked, userId: 'user-a', lastUserId: 'user-a', recordsUserId: 'user-a', cursor: pullCursorAt('2026-10-01T00:00:00.000001Z') };
 
   // The link write fails: the batches before it stay, the link does not.
@@ -497,7 +498,7 @@ test('sync\'s bookkeeping, and a pull or first link that lands nothing, tells no
   const { loud, source } = loudness(database);
   const rows = { ...none, wardrobeItems: [mine(wardrobeItem(1))] };
   await source.writePulled(none, pullCursorAt('2026-10-01T00:00:00.000001Z'));
-  await source.applyFirstLink(mergeAtFirstLink(rows, none, { syncConsent: true, now: stamp(10) }), unlinked, rows);
+  await source.applyFirstLink(mergeAtFirstLink(rows, none, { syncConsent: true, now: stamp(10), refused: noneRefused }), unlinked, rows);
   await source.clearPendingIfUnchanged(rows);
   await source.saveLink(unlinked);
   await source.dismissCard();
@@ -512,7 +513,7 @@ test('a pull or first link that lands account rows tells the listeners once, so 
   await source.writePulled(rows, pullCursorAt('2026-10-01T00:00:00.000001Z'));
   assert.deepEqual(loud, ['transaction']);
   await source.applyFirstLink(mergeAtFirstLink(none, { ...none, outfitHistory: [mine(historyDay(2, '2026-09-10'))] },
-    { syncConsent: true, now: stamp(10) }), unlinked, none);
+    { syncConsent: true, now: stamp(10), refused: noneRefused }), unlinked, none);
   assert.deepEqual(loud, ['transaction', 'transaction']);
 });
 
@@ -593,7 +594,7 @@ test('a first link uploads only what the merge sends and settles a deletion olde
   await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
   const uploads = [];
   const remote = {
-    pullSnapshot: async () => ({ rows: none, cursor: noCursor }),
+    pullSnapshot: async () => ({ rows: none, cursor: noCursor, refused: noneRefused }),
     upload: async (_user, sent, confirm) => { uploads.push(sent); await confirm(sent); },
     pull: async () => ({ ...none, arrivals: [] }),
   };
@@ -604,4 +605,39 @@ test('a first link uploads only what the merge sends and settles a deletion olde
   assert.equal(await source.hasPending(true), false);
   await flow.sync('user-a', true);
   assert.equal(uploads.length, 1);
+});
+
+test('a row and a profile this build refused at the first link are not sent then, nor by any later pass', async (t) => {
+  const { database, source } = await setup(t);
+  await source.writePulled({ ...none, wardrobeItems: [mine(wardrobeItem(1)), mine(wardrobeItem(2))] }, noCursor);
+  // Changed on this phone before it had an account, so all three wait.
+  await database.runAsync('UPDATE wardrobe_items SET pending_sync = 1');
+  await database.runAsync('UPDATE local_profiles SET pending_sync = 1');
+  const uploads = [];
+  const remote = {
+    pullSnapshot: async () => ({ rows: none, cursor: noCursor, refused: { ...noneRefused, profile: true, wardrobeItems: [uuid(1)] } }),
+    upload: async (_user, sent, confirm) => { uploads.push(sent); await confirm(sent); },
+    pull: async () => ({ ...none, arrivals: [] }),
+  };
+  const flow = createAccountSyncFlow(source, remote, () => stamp(10));
+  await flow.firstLink('user-a', true, '2026-10-04T11:00:00.000001Z');
+  assert.deepEqual(uploads.map((sent) => [sent.profile, sent.wardrobeItems.map(({ id }) => id)]), [[null, [uuid(2)]]]);
+  assert.equal(await source.hasPending(true), false);
+  await flow.sync('user-a', true);
+  await flow.sync('user-a', true);
+  assert.equal(uploads.length, 1);
+});
+
+test('an upload batch the account confirmed nothing of opens no transaction', async (t) => {
+  const { database } = await setup(t);
+  let transactions = 0;
+  const counting = new Proxy(database, {
+    get(target, name) {
+      if (name === 'withExclusiveTransactionAsync') return (...args) => { transactions += 1; return target.withExclusiveTransactionAsync(...args); };
+      const value = target[name];
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  await createSqliteAccountRowsSource(counting).clearPendingIfUnchanged(none);
+  assert.equal(transactions, 0);
 });

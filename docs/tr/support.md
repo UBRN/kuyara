@@ -13,7 +13,8 @@ Burada olmana sevindik. Bir şey yolunda gitmiyorsa ya da bir fikrin varsa bize 
 - **Soru, görüş ve sorunlar:**
   [quint.inboard_9t@icloud.com](mailto:quint.inboard_9t@icloud.com) adresine e-posta gönder.
   Ne olduğunu ve hangi iPhone'u kullandığını yaz; gerekmeyen kişisel bilgileri ekleme.
-- **Gizlilik soruları ve silme talepleri:** aynı adrese e-posta gönder. Neleri eklemen
+- **Gizlilik soruları, silme talepleri ve hesap verilerinin kopyası:** aynı adrese e-posta
+  gönder. Neleri eklemen
   gerektiği [gizlilik politikasında](privacy-policy) yazıyor.
 
 ## Sık sorulan sorular
@@ -32,7 +33,34 @@ analitiğe hiç girmez. Yaklaşık konum yeterlidir.
 
 **Verilerimi nasıl silerim?**
 Uygulamayı silmek o cihazdaki verilerini kaldırır; yedekleme ayarlarına göre cihaz yedeğinde
-bir kopya kalabilir. Geçmiş kullanım verilerinin silinmesini istemek için paylaşım açıkken
+bir kopya kalabilir. Uygulamayı silmek hesabını silmez; aşağıdaki "Hesabımı nasıl silerim?"
+sorusuna bak. Geçmiş kullanım verilerinin silinmesini istemek için paylaşım açıkken
 Ayarlar > Gizlilik'te gösterilen kimliği kopyalayıp bize e-posta ile gönder. Paylaşımı
 kapattığında o andan sonra gönderim durur. Neyin paylaşıldığını ve ne kadar saklandığını
 [gizlilik politikası](privacy-policy) anlatır.
+
+**Hesap açmam gerekiyor mu?**
+Hayır. Hava ve kombin önerileri hesap olmadan da çalışır; Gardırop ve Geçmiş de öyle. Hesap
+ücretsiz ve isteğe bağlıdır: Profil'den ya da Ayarlar > Hesap'tan Apple veya Google ile oturum
+açarsın. Kayıtlarının eşitlenmesini kabul edersen hesap onları yeni bir telefona ya da yeniden
+kurulan uygulamaya getirir. Üyeler ayrıca "Bir parçayla kombin kur" özelliğini kullanabilir ve stiliste günde 10 kez tekrar
+sorabilir, diğer herkesin hakkı günde 5'tir. Üyelerin günü UTC saatine göre, diğer herkesin
+günü telefonun saatine göre işler. Ayrıntılar [hesap koşullarında](account-terms) ve
+[gizlilik politikasının Hesaplar bölümünde](privacy-policy#hesaplar).
+
+**Oturumu kapatınca ne olur?**
+Gardırobun ve Geçmişin kuyara'da kalır; kuyara hesapsız çalışmaya devam eder. Bağlantı varsa
+eşitlenmeyi bekleyen değişiklikler önce gönderilir; aynı hesapla yeniden oturum açınca kalanlar
+gönderilir.
+
+**Hesabımı nasıl silerim?**
+Ayarlar > Hesap'ı aç ve Hesabı sil'i seç. Sistem onayından sonra kuyara, sen olduğunu Apple'a
+ya da Google'a doğrulatır ve hesaptaki her şeyi siler. Telefonda gördüklerin kuyara'da kalır.
+Hesabın Apple ile Giriş Yap kullanıyorsa kuyara bu bağlantıyı Apple kimliğinden de koparır;
+koparamazsa Ayarlar > adın > Apple ile Giriş Yap bölümünü açıp kuyara'yı seçmeni ve Sil'e
+dokunmanı söyler. Silme için bağlantı gerekir. Kullanım verileri hiçbir zaman hesabına
+bağlanmaz; bu yüzden hesabı silmek Ayarlar > Gizlilik'teki paylaşım seçimini değiştirmez.
+
+**Hesap verilerimin kopyasını nasıl alırım?**
+Hesabındaki e-posta adresinden bize e-posta gönder. 30 gün içinde makinece okunabilir,
+şifreli bir JSON dosyası alırsın; şifre ayrı bir iletiyle gelir.

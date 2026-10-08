@@ -6,6 +6,7 @@ import {
   accountScenarios,
   createInMemoryAccountScreens,
   type AccountScenarioName,
+  type AccountSession,
   type AccountScreensPort,
 } from '@/features/account/application/account-screens';
 import { renderWith } from '@/features/account/__tests__/render-account-screen';
@@ -305,13 +306,26 @@ describe('the Account screen (frames 07-10, 21, 22, 34, 35)', () => {
 
   test.each([
     ['offline', en.sync.offline, '3 waiting', en.sync.offlineFooter(3, '06:12')],
-    ['syncing', en.sync.syncing, '3 syncing', en.sync.syncingFooter(3, '06:12')],
+    ['syncing', en.sync.syncing, '3 syncing', en.sync.syncingFooter(3, '06:12')!],
     ['syncFailed', en.sync.failed, '3 waiting', en.sync.failedFooter(3, '06:12')],
   ] as const)('%s: status, count and footer', async (scenario, label, value, footer) => {
     const screen = await renderWith(portFor(scenario), <AccountScreen onOpenDelete={jest.fn()} />);
     expect(screen.getByText(label)).toBeTruthy();
     expect(screen.getByText(value)).toBeTruthy();
     expect(screen.getByText(footer)).toBeTruthy();
+  });
+
+  test('before a pass has completed on this phone, no footer names a last sync', async () => {
+    const before = (sync: 'syncing' | 'failed') => createInMemoryAccountScreens({ ...accountScenarios.upToDate,
+      session: { ...accountScenarios.upToDate.session, sync: { kind: sync }, pendingChanges: 0, lastSyncedAt: null } as AccountSession },
+    () => new Date('2026-10-02T07:05:00.000Z'));
+    const syncing = await renderWith(before('syncing'), <AccountScreen onOpenDelete={jest.fn()} />);
+    expect(syncing.getByText(en.sync.syncing)).toBeTruthy();
+    expect(syncing.queryByText(/Last synced/)).toBeNull();
+    await syncing.unmount();
+    const failed = await renderWith(before('failed'), <AccountScreen onOpenDelete={jest.fn()} />);
+    expect(failed.getByText(en.sync.failedFooter(0, null))).toBeTruthy();
+    expect(failed.queryByText(/Last synced/)).toBeNull();
   });
 
   test('offline, Sync now waits; after a failure it turns into Try again and syncs', async () => {

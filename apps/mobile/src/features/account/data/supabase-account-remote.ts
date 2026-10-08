@@ -24,7 +24,7 @@ import {
   type RemoteRowResult,
 } from '@/features/account/data/account-remote-mappers';
 import { serverInstant } from '@/features/account/data/account-remote-records';
-import type { AccountRows, RefusedAccountRows } from '@/features/account/domain/account-rows';
+import type { AccountRows } from '@/features/account/domain/account-rows';
 import { serverInstantSecondsBefore } from '@/features/account/domain/server-instant';
 import {
   nextCursor,
@@ -132,14 +132,13 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
 
   /**
    * Every table from its own position in `cursor`, moved back by the overlap; every row when the
-   * table has none. `refused` names the record rows the parsers refused, by id or by day.
+   * table has none. Each row the parsers refuse goes to `onRefused` when the caller asks.
    */
   async function pullFrom(
     userId: string, cursor: PullCursor, syncConsent: boolean,
-  ): Promise<PulledAccountRows & Readonly<{ refused: RefusedAccountRows }>> {
+    onRefused?: (table: AccountTable, raw: unknown) => void,
+  ): Promise<PulledAccountRows> {
     const arrivals: PullArrival[] = [];
-    const refused = { wardrobeItems: [] as string[], dressingDayChoices: [] as string[],
-      dressingDayDepartures: [] as string[], outfitHistory: [] as string[] };
     function accepted<Row>(
       table: AccountTable, raws: readonly unknown[], map: (raw: unknown) => RemoteRowResult<Row>,
     ): PulledSyncRow<Row>[] {
@@ -148,12 +147,7 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
         const result = map(raw);
         arrivals.push({ table, serverUpdatedAt: result.serverUpdatedAt });
         if (result.kind === 'accepted') rows.push({ row: result.row, serverUpdatedAt: result.serverUpdatedAt });
-        else if (table !== 'profile') {
-          const key = refusedKeySchema.safeParse(raw);
-          const byDay = table === 'dressingDayChoices' || table === 'dressingDayDepartures';
-          const identity = key.success ? (byDay ? key.data.day_key : key.data.id) : undefined;
-          if (identity !== undefined) refused[table].push(identity);
-        }
+        else onRefused?.(table, raw);
       }
       return rows;
     }
@@ -177,7 +171,6 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
         (raw) => fromRemoteDressingDayDeparture(raw, localProfileId)),
       outfitHistory: accepted('outfitHistory', outfitHistory, (raw) => fromRemoteOutfitHistory(raw, localProfileId)),
       arrivals,
-      refused,
     };
   }
 
@@ -208,7 +201,17 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
 
   return {
     async pullSnapshot(userId, syncConsent) {
-      const pulled = await pullFrom(userId, pullCursorAt(null), syncConsent);
+      // What the parsers refused, so a first link sends nothing over it: the profile, the Closet
+      // and History by id and the days by day.
+      const refused = { profile: false, wardrobeItems: [] as string[], dressingDayChoices: [] as string[],
+        dressingDayDepartures: [] as string[], outfitHistory: [] as string[] };
+      const pulled = await pullFrom(userId, pullCursorAt(null), syncConsent, (table, raw) => {
+        if (table === 'profile') { refused.profile = true; return; }
+        const key = refusedKeySchema.safeParse(raw);
+        const byDay = table === 'dressingDayChoices' || table === 'dressingDayDepartures';
+        const identity = key.success ? (byDay ? key.data.day_key : key.data.id) : undefined;
+        if (identity !== undefined) refused[table].push(identity);
+      });
       const rows = <Row>(entries: readonly PulledSyncRow<Row>[]) => entries.map(({ row }) => row);
       return {
         rows: {
@@ -219,10 +222,10 @@ export function createSupabaseAccountRemote(client: SupabaseClient, localProfile
           outfitHistory: rows(pulled.outfitHistory),
         },
         cursor: nextCursor(pullCursorAt(null), pulled.arrivals),
-        refused: pulled.refused,
+        refused,
       };
     },
-    pull: pullFrom,
+    pull: (userId, cursor, syncConsent) => pullFrom(userId, cursor, syncConsent),
     async upload(userId, rows, confirm) {
       const { profile } = rows;
       if (profile !== null) {

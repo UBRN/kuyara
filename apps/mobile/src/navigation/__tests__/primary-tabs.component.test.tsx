@@ -83,6 +83,8 @@ jest.mock('expo-router/unstable-native-tabs', () => {
   return { NativeTabs: MockNativeTabs };
 });
 
+// These tests cover screens other than the account screens, so they stay independent of the account switch.
+jest.mock('@/features/account/application/account-screens-flag', () => ({ ACCOUNT_SCREENS_ENABLED: false }));
 jest.mock('expo-router', () => {
   const { Text: MockText } = jest.requireActual('react-native');
   const actualReact = jest.requireActual('react');

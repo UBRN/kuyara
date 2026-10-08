@@ -11,6 +11,8 @@ const englishOwnershipStateLabels = Object.freeze({
 const enPieces = (count: number) => (count === 1 ? '1 piece' : `${count} pieces`);
 const enDays = (count: number) => (count === 1 ? '1 day' : `${count} days`);
 const enChanges = (count: number) => (count === 1 ? '1 change' : `${count} changes`);
+/** The closing sentence naming the last sync, none before a sync has completed on this phone. */
+const enLastSynced = (time: string | null) => (time === null ? '' : ` Last synced at ${time}.`);
 
 export const en = {
   temperatureUnitNames: { celsius: 'degrees Celsius', fahrenheit: 'degrees Fahrenheit' },
@@ -1142,16 +1144,16 @@ export const en = {
       syncingCount: (pending: number) => `${pending} syncing`,
       syncNow: 'Sync now',
       retry: 'Try again',
-      upToDateFooter: (time: string) => `Last synced at ${time}. Your birth date is not added to your account.`,
-      offlineFooter: (pending: number, time: string) => (pending > 0
-        ? `You have ${enChanges(pending)} waiting. ${pending === 1 ? 'It syncs' : 'They sync'} when you are back online. Last synced at ${time}.`
-        : `kuyara syncs when you are back online. Last synced at ${time}.`),
-      syncingFooter: (pending: number, time: string) => (pending > 0
-        ? `Syncing ${enChanges(pending)}. Last synced at ${time}.`
-        : `Last synced at ${time}.`),
-      failedFooter: (pending: number, time: string) => (pending > 0
-        ? `kuyara could not reach your account. Your ${enChanges(pending)} ${pending === 1 ? 'is kept and syncs' : 'are kept and sync'} on the next try. Last synced at ${time}.`
-        : `kuyara could not reach your account. Last synced at ${time}.`),
+      upToDateFooter: (time: string | null) => `${time === null ? '' : `Last synced at ${time}. `}Your birth date is not added to your account.`,
+      offlineFooter: (pending: number, time: string | null) => (pending > 0
+        ? `You have ${enChanges(pending)} waiting. ${pending === 1 ? 'It syncs' : 'They sync'} when you are back online.${enLastSynced(time)}`
+        : `kuyara syncs when you are back online.${enLastSynced(time)}`),
+      syncingFooter: (pending: number, time: string | null) => (pending > 0
+        ? `Syncing ${enChanges(pending)}.${enLastSynced(time)}`
+        : time === null ? undefined : `Last synced at ${time}.`),
+      failedFooter: (pending: number, time: string | null) => (pending > 0
+        ? `kuyara could not reach your account. Your ${enChanges(pending)} ${pending === 1 ? 'is kept and syncs' : 'are kept and sync'} on the next try.${enLastSynced(time)}`
+        : `kuyara could not reach your account.${enLastSynced(time)}`),
     },
     account: {
       title: 'Account',
@@ -1280,7 +1282,7 @@ export const en = {
     },
     withdrawAlert: {
       title: 'Stop syncing your records?',
-      body: 'Sync stops on every phone signed in to your account. Your account’s copies of your Closet, History, style preferences, daily choices and departure records are deleted. The records on this phone stay.',
+      body: 'Sync stops on every phone signed in to your account. Your account’s copies of your Closet, History, style preferences, daily choices and departure records are deleted. Your Closet and History stay in kuyara.',
       cancel: 'Cancel',
       confirm: 'Stop syncing',
     },

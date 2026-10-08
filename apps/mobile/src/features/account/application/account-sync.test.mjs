@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createAccountSyncFlow } from './account-sync.ts';
 import { unlinked } from '../domain/account-link.ts';
 import { pullCursorAt } from '../domain/sync-rules.ts';
-import { emptyRows as empty, historyDay, syncedProfile, wardrobeItem } from '../__tests__/account-fixtures.mjs';
+import { emptyRows as empty, historyDay, noneRefused, syncedProfile, wardrobeItem } from '../__tests__/account-fixtures.mjs';
 const local = (rows = empty(), pending = false) => ({
   profile: rows.profile === null ? null : { row: rows.profile, pendingSync: pending },
   wardrobeItems: rows.wardrobeItems.map((row) => ({ row, pendingSync: pending })),
@@ -33,7 +33,7 @@ test('first link pulls and merges before uploading, then records the cursor', as
     writePulled: async (write, cursor) => calls.push(['write', write, cursor]),
   };
   const remote = {
-    pullSnapshot: async () => { calls.push(['pullSnapshot']); return { rows: account, cursor: '2026-10-01T00:00:00.000000Z' }; },
+    pullSnapshot: async () => { calls.push(['pullSnapshot']); return { rows: account, cursor: '2026-10-01T00:00:00.000000Z', refused: noneRefused }; },
     upload: async (_id, sent, confirm) => { calls.push(['upload', sent]); await confirm(sent); },
     pull: async () => ({ ...empty(), arrivals: [] }),
   };
@@ -60,7 +60,7 @@ test('a different account receives the changes the previous account had not sync
     writePulled: async () => assert.fail('write'),
   };
   const remote = {
-    pullSnapshot: async (userId) => { assert.equal(userId, 'user-b'); return { rows: empty(), cursor: null }; },
+    pullSnapshot: async (userId) => { assert.equal(userId, 'user-b'); return { rows: empty(), cursor: null, refused: noneRefused }; },
     upload: async (userId, sent, confirm) => { uploads.push([userId, sent]); await confirm(sent); },
     pull: async () => assert.fail('pull'),
   };
@@ -151,7 +151,7 @@ function flowWith({ phone, account = empty(), pulled = { ...empty(), arrivals: [
     writePulled: async (rows, cursor) => { calls.writes.push([rows, cursor]); },
   };
   const remote = {
-    pullSnapshot: async () => ({ rows: account, cursor: null }),
+    pullSnapshot: async () => ({ rows: account, cursor: null, refused: noneRefused }),
     upload: async (_id, rows, confirm) => { calls.uploads.push(rows); await confirm(rows); },
     pull: async () => pulled,
   };
@@ -268,7 +268,7 @@ test('at a first link an account marker deletes the phone\'s copy and is never s
   };
   const remote = {
     pullSnapshot: async () => ({ rows: { ...empty(), wardrobeItems: [{ kind: 'deletionMarker', id: own.id,
-      createdAt: own.createdAt, updatedAt: '2026-10-01T00:00:00.000Z', deletedAt: '2026-10-01T00:00:00.000Z' }] }, cursor: null }),
+      createdAt: own.createdAt, updatedAt: '2026-10-01T00:00:00.000Z', deletedAt: '2026-10-01T00:00:00.000Z' }] }, cursor: null, refused: noneRefused }),
     upload: async (_id, rows, confirm) => confirm(rows),
     pull: async () => assert.fail('pull'),
   };
@@ -287,7 +287,7 @@ test('at a first link a row the account holds but this build cannot read is neve
     clearPendingIfUnchanged: async () => {},
     writePulled: async () => assert.fail('write'),
   };
-  const refused = { wardrobeItems: [own.id], dressingDayChoices: [], dressingDayDepartures: [], outfitHistory: [] };
+  const refused = { ...noneRefused, wardrobeItems: [own.id] };
   const remote = {
     pullSnapshot: async () => ({ rows: empty(), cursor: null, refused }),
     upload: async (_id, rows, confirm) => confirm(rows),

@@ -35,10 +35,11 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 2. **Accessibility:** one "Easier to see" / "Görme kolaylığı" value row (On or Off) opening its pushed surface (section 5).
 3. **Units** / **Birimler:** Temperature (System, °C, °F) and Wind speed (System, km/h, mph), each a value row opening the native picker.
 4. **Notifications:** the notification preference and its pushed surface.
-5. **Profile:** display name, gender, dress style, style aesthetics, the Morning and evening question switch and birth date. Birth date carries no helper footer. This foundation permits an Account group above Profile when optional accounts arrive.
-6. **Help:** Support, Share kuyara, Rate kuyara and, when the tour is available, "Get to know kuyara step by step" / "kuyara’yı adım adım tanı".
-7. **About:** Service providers, Privacy and License.
-8. The centred version and build footer.
+5. **Account:** the optional account row and its pushed Account screen ([ADR 0041](0041-optional-accounts.md) section 5), always present, directly above Profile.
+6. **Profile:** display name, gender, dress style, style aesthetics, the Morning and evening question switch and birth date. Birth date carries no helper footer.
+7. **Help:** Support, Share kuyara, Rate kuyara and, when the tour is available, "Get to know kuyara step by step" / "kuyara’yı adım adım tanı".
+8. **About:** Service providers, Privacy and License.
+9. The centred version and build footer.
 
 Native inset groups and ADR 0028's row anatomy stay. Inside native cells the system owns typography and colour, apart from the Easier to see text changes (section 5); the app-owned `kuyara` footer uses the display role and Deep Atmosphere in light or Quiet Sky in dark. It fits on one line at the largest accessibility text size. The name is not a custom wordmark.
 
@@ -58,7 +59,7 @@ rows.
 
 Section headings are kuyara's: sentence case, `bodyStrong` 17, `textSecondary`, drawn
 outside the native group with 12 below before the group and 24 between groups. SwiftUI's
-uppercase header never appears. Each of the seven root groups carries its sentence-case heading.
+uppercase header never appears. Each of the eight root groups carries its sentence-case heading.
 
 ### 4. The version line
 

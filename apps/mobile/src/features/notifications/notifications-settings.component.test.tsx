@@ -15,6 +15,8 @@ import { ProfileApplicationProvider } from '@/features/profile/application/profi
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
 import { messages } from '@/localization/messages';
 
+// These tests cover screens other than the account screens, so they stay independent of the account switch.
+jest.mock('@/features/account/application/account-screens-flag', () => ({ ACCOUNT_SCREENS_ENABLED: false }));
 jest.mock('expo-router', () => {
   const router = { back: jest.fn(), navigate: jest.fn(), push: jest.fn() };
   return {

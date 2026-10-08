@@ -36,6 +36,8 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { version: '1.0.0' }, platform: { ios: { buildNumber: '5' } } },
 }));
 
+// These tests cover screens other than the account screens, so they stay independent of the account switch.
+jest.mock('@/features/account/application/account-screens-flag', () => ({ ACCOUNT_SCREENS_ENABLED: false }));
 jest.mock('expo-router', () => {
   const router = { back: jest.fn(), push: jest.fn() };
   return {

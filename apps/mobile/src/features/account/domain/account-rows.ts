@@ -62,11 +62,13 @@ export type RemoteAccountRows = Readonly<{
 }>;
 
 /**
- * The rows the account holds that this build could not read (a newer version wrote them): the
- * Closet and History by id, daily choices and departures by day. None lands on the phone, and a
- * first link sends nothing over them, so the account's copy wins (ADR 0041 sections 3 and 4).
+ * The rows the account holds that this build could not read (a newer version wrote them): its
+ * profile, the Closet and History by id, daily choices and departures by day. None lands on the
+ * phone, and a first link sends nothing over them, so the account's copy wins (ADR 0041 sections
+ * 3 and 4).
  */
 export type RefusedAccountRows = Readonly<{
+  profile: boolean;
   wardrobeItems: readonly string[];
   dressingDayChoices: readonly string[];
   dressingDayDepartures: readonly string[];

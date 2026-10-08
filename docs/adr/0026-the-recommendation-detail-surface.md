@@ -193,7 +193,7 @@ an accessory the day does not ask for never makes the outfit unusual, because ac
 count. The board still draws none of them (ADR 0025).
 
 Composing around chosen pieces answers "What do you want to wear today?" without changing the
-engine's selection. A row under "Wore this today", for a signed-in member once accounts open
+engine's selection. A row under "Wore this today", for a signed-in member
 (ADR 0041 section 5), opens a sheet over the outfit's pieces and "Choose another piece", which
 turns the sheet to the catalog by slot and back (a sweater is listed as a top and as a mid
 layer). The reader ticks at most three, one for each slot; a later tick replaces the piece it

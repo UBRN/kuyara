@@ -114,8 +114,8 @@ category, recommendation generation mode, selected outfit position, cache or fal
 state, feature entry point, success or failure category, screen name, feature usage
 state.
 
-**`localProfileId` is not an analytics identifier.** It exists to link device rows to a
-future authenticated profile, and reusing it because it is already there would fuse
+**`localProfileId` is not an analytics identifier.** It exists to link device rows to the
+authenticated profile, and reusing it because it is already there would fuse
 application persistence identity with analytics identity permanently. If an anonymous
 analytics identity is needed, it is designed for analytics specifically, and the relevant
 Apple and privacy constraints are verified before it is implemented.

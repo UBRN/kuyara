@@ -175,8 +175,8 @@ test('deleting a Google account re-authenticates with Google, sends no Apple cod
   const session = (n) => tokenResponse({ providers: ['google'], primary: 'google', n });
   const { auth, google: googleFake, requests } = googleAuth((request) => ({ body: session(request.grant === 'refresh_token' ? 7 : 1) }));
   await auth.signIn('google');
-  const credentials = await auth.reauthorizeDeletion();
-  assert.deepEqual(credentials, { accessToken: jwt(7) });
+  const credentials = await auth.reauthorizeDeletion(false);
+  assert.deepEqual(credentials, { provider: 'google', accessToken: jwt(7) });
   assert.equal(googleFake.calls.length, 2);
   assert.equal(requests.at(-1).grant, 'refresh_token');
 
@@ -186,8 +186,25 @@ test('deleting a Google account re-authenticates with Google, sends no Apple cod
   await cancelling.auth.signIn('google');
   cancel = true;
   const before = cancelling.requests.length;
-  assert.equal(await cancelling.auth.reauthorizeDeletion(), null);
+  assert.equal(await cancelling.auth.reauthorizeDeletion(false), null);
   assert.equal(cancelling.requests.length, before);
+});
+
+test('deletion confirms with Apple only when this phone holds the Apple credential, else with Google', async () => {
+  const both = () => ({ body: tokenResponse({ providers: ['apple', 'google'], primary: 'apple' }) });
+  // Created with Apple, signed in here with Google on a phone whose Apple ID is not the account's.
+  const withoutCredential = googleAuth(both);
+  await withoutCredential.auth.signIn('google');
+  const credentials = await withoutCredential.auth.reauthorizeDeletion(false);
+  assert.equal(credentials.provider, 'google');
+  assert.equal('appleAuthorizationCode' in credentials, false);
+  assert.equal(withoutCredential.google.calls.length, 2);
+  const holding = googleAuth(both);
+  await holding.auth.signIn('google');
+  assert.equal((await holding.auth.reauthorizeDeletion(true)).provider, 'apple');
+  // An account with no Google identity can only confirm with Apple.
+  const appleOnly = await signedIn();
+  assert.equal((await appleOnly.auth.reauthorizeDeletion(false)).provider, 'apple');
 });
 
 test('deletion does not start when Google confirms with a different Google account than the signed-in one', async () => {
@@ -197,13 +214,13 @@ test('deletion does not start when Google confirms with a different Google accou
   await fake.auth.signIn('google');
   sub = 'someone-else';
   const before = fake.requests.length;
-  await assert.rejects(fake.auth.reauthorizeDeletion(), (error) => error instanceof AccountProviderError && error.code === 'failed');
+  await assert.rejects(fake.auth.reauthorizeDeletion(false), (error) => error instanceof AccountProviderError && error.code === 'failed');
   assert.equal(fake.requests.length, before);
   for (const idToken of ['not-a-jwt', `${base64url({})}.${base64url({ aud: 'x' })}.c2ln`]) {
     const malformed = googleAuth(() => ({ body: tokenResponse({ providers: ['google'], primary: 'google' }) }),
       google({ idToken: async () => ({ idToken, accessToken: 'google-access-token' }) }));
     await malformed.auth.signIn('google');
-    await assert.rejects(malformed.auth.reauthorizeDeletion(), (error) => error instanceof AccountProviderError && error.code === 'failed');
+    await assert.rejects(malformed.auth.reauthorizeDeletion(false), (error) => error instanceof AccountProviderError && error.code === 'failed');
   }
 });
 
@@ -290,14 +307,17 @@ test('when even the stored session cannot be read offline, the read throws inste
 
 test('deletion re-authorizes with Apple for a code and a fresh access token; a cancel stops it before any token', async () => {
   const { auth, requests } = await signedIn((request) => ({ body: tokenResponse({ n: request.grant === 'refresh_token' ? 7 : 1 }) }));
-  const credentials = await auth.reauthorizeDeletion();
+  const credentials = await auth.reauthorizeDeletion(true);
   assert.equal(credentials.appleAuthorizationCode, 'apple-code');
   assert.equal(credentials.accessToken, jwt(7));
   assert.equal(requests.at(-1).grant, 'refresh_token');
+  // An account created with Google that added Apple confirms with Apple, and says so.
+  const added = await signedIn(() => ({ body: tokenResponse({ providers: ['apple', 'google'], primary: 'google' }) }));
+  assert.equal((await added.auth.reauthorizeDeletion(true)).provider, 'apple');
 
   const cancelled = await signedIn(undefined, { reauthorize: async () => null });
   const before = cancelled.requests.length;
-  assert.equal(await cancelled.auth.reauthorizeDeletion(), null);
+  assert.equal(await cancelled.auth.reauthorizeDeletion(true), null);
   assert.equal(cancelled.requests.length, before);
 });
 
@@ -308,14 +328,28 @@ test('a retry after the account was deleted with a lost answer still reaches the
     { status: 403, body: { code: 403, error_code: 'user_not_found', msg: 'User not found' } },
   ]) {
     const { auth } = await signedIn((request) => (request.grant === 'refresh_token' ? refused : { body: tokenResponse({ n: 1 }) }));
-    assert.deepEqual(await auth.reauthorizeDeletion(), { accessToken: jwt(1), appleAuthorizationCode: 'apple-code' });
+    assert.deepEqual(await auth.reauthorizeDeletion(true), { provider: 'apple', accessToken: jwt(1), appleAuthorizationCode: 'apple-code' });
   }
+});
+
+test('a retry with an expired stored access token still reaches the Worker with that token', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+  // The client's own read refreshes an expired token first and answers no session when that is refused.
+  const expired = () => ({ body: { ...tokenResponse({ n: 1 }), expires_in: 1, expires_at: Math.floor(Date.now() / 1000) - 60 } });
+  const refused = { status: 400, body: { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token' } };
+  const fake = fakeAuth((request) => (request.grant === 'refresh_token' ? refused : expired()));
+  const auth = createSupabaseAccountAuth({ client: fake.client, apple: apple(), nonce, storedSession: fake.storedSession, removeStoredSession: fake.removeStoredSession });
+  await settled(t, auth.signIn('apple'));
+  const { accessToken, ...rest } = await settled(t, auth.reauthorizeDeletion(true));
+  assert.deepEqual(rest, { provider: 'apple', appleAuthorizationCode: 'apple-code' });
+  // The stored token (issue 1), whatever second the mocked clock stands in when it is compared.
+  assert.equal(JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString()).n, 1);
 });
 
 test('when Apple gives no code for another reason, deletion still gets the access token without one', async () => {
   for (const reauthorize of [async () => { throw new Error('ASAuthorizationError 1000'); }, async () => ({ authorizationCode: null })]) {
     const { auth } = await signedIn(undefined, { reauthorize });
-    const credentials = await auth.reauthorizeDeletion();
+    const credentials = await auth.reauthorizeDeletion(true);
     assert.equal(typeof credentials.accessToken, 'string');
     assert.equal('appleAuthorizationCode' in credentials, false);
   }

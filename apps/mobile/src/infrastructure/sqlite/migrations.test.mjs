@@ -2717,9 +2717,10 @@ const releasedMigrationHashes = {
   26: '91802149fcd4f7c3',
   27: '516b4d6f4eddaeb4',
   28: '9c0af0743970463f',
+  29: '48511f831aebe085',
 };
 
-test('the hash lock freezes every migration through 28, and later versions may be appended', async () => {
+test('the hash lock freezes every migration through 29, and later versions may be appended', async () => {
   const source = await readFile(new URL('./migrations.ts', import.meta.url), 'utf8');
   const blocks = Array.from(source.matchAll(/^const migrationV(\d+): Migration = \{\n[\s\S]*?^\};$/gm));
   const hashes = Object.fromEntries(blocks.map(([block, version]) => [version, createHash('sha256')
