@@ -41,7 +41,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | Build 17 | Illustrated garments, shareable outfit card, History diary and the account screens behind a switch that is off (schema 23) | Approved (version 0.1.20261002) |
 | Build 18 | Schema 25, built from `cdead67e` | Was on the App Store until build 19 replaced it (version 0.1.20261003) |
 | Build 19 | Settings unit choices (schema 27), morning and evening question switch, re-ask past the shared cache, recommendation timing and UI fixes | On the App Store (`READY_FOR_SALE`), phased release started 5 October 2026 (version 0.1.20261005) |
-| Build 20 | The release shown to friends and family: everything on main since build 19 (schema 29), Phase 9 accounts with Apple and Google sign-in, Phase 10, the fixes from the final review below, then Phase 11. Accounts are never switched on by an update | Planned |
+| Build 20 | The release shown to friends and family: everything on main since build 19 (schema 29), Phase 9 accounts with Apple and Google sign-in, Phase 10, the fixes from the final review below, then Phase 11. Accounts are never switched on by an update | Submitted for App Review (version 0.1.20261008) |
 | pnpm 12 | pnpm 12.6.0 is the `packageManager` in `package.json` and both `eas.json` profiles. The lockfile opens with pnpm's own version record; `pnpm-workspace.yaml` needed no change. `pnpm check`, the component suite, Expo Doctor and a local Simulator build pass with it. It never rides an `eas update`, because the `appVersion` runtime policy lets an update reach installs without a native check | On main; first ships in build 16, never via an update |
 
 Release evidence:
