@@ -69,14 +69,15 @@ which belong to a throwaway P-256 key the test generates at runtime, and the Pos
 Every third-party action in every workflow is pinned to a full commit SHA with its release
 tag in a trailing comment, so Dependabot's `github-actions` ecosystem bumps both together.
 
-`.github/workflows/deploy-worker.yml` is the only workflow that can deploy the Worker, and
-it starts only from a manual `workflow_dispatch` and deploys the top-level (production)
-Wrangler configuration; the local-only `e2e` environment is never deployed, nothing deploys on
-push and one deploy runs at a time. It installs
-from the lockfile, typechecks and tests the Worker, bundles it with a dry-run
-`wrangler deploy`, then deploys through the GitHub `production` environment. That
-environment needs the secret `CLOUDFLARE_API_TOKEN` and the variable
-`CLOUDFLARE_ACCOUNT_ID`; neither exists yet, so the workflow has never run.
+No workflow deploys the Worker. It is deployed from the maintainer's machine, from the
+repository root, once `pnpm --filter @kuyara/worker typecheck`,
+`pnpm --filter @kuyara/worker test`, `pnpm --filter @kuyara/contracts test` and the bundle
+below pass. `--env=""` selects the top-level (production) Wrangler configuration; the
+local-only `e2e` environment is never deployed:
+
+```bash
+pnpm --filter @kuyara/worker exec wrangler deploy --env=""
+```
 
 Verify the Worker bundle without deployment:
 
