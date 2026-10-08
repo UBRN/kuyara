@@ -257,9 +257,33 @@ test('each record table caps the rows one user holds, and a signed-in insert is 
   }
   const body = finalFunction('enforce_user_row_cap');
   // Supabase's Free plan turns the database read-only past 500 MB.
-  assert.match(body, /if auth\.uid\(\) is not null and pg_database_size\(current_database\(\)\) > 400 \* 1024 \* 1024 then\s+raise exception 'database size guard reached'/u);
+  assert.match(body, /\$\$\ndeclare\n[\s\S]*?\nbegin\n {2}if auth\.uid\(\) is not null then\n[\s\S]*?\n {4}database_bytes := pg_database_size\(current_database\(\)\);\n {4}if database_bytes > 400 \* 1024 \* 1024 then\n\s+raise exception 'database size guard reached' using errcode = '53100';/u);
   assert.ok(body.indexOf('pg_database_size') < body.indexOf('select count(*)'));
   assert.match(body, /raise exception 'row cap reached' using errcode = '54000';/u);
+});
+
+test('past half the guard only accounts under a small allowance grow, so a few full accounts cannot stop every member', () => {
+  const body = finalFunction('enforce_user_row_cap');
+  const mib = 1024 * 1024;
+  const hard = Number(/if database_bytes > (\d+) \* 1024 \* 1024 then\n\s+raise exception 'database size guard reached'/u.exec(body)?.[1]);
+  const soft = Number(/if database_bytes > (\d+) \* 1024 \* 1024 then\n\s+select coalesce\(sum\(row_bytes\), 0\) into account_bytes from \(/u.exec(body)?.[1]);
+  const allowance = /if account_bytes > (\d+ \* )?1024 \* 1024 then\n\s+raise exception 'database size guard reached' using errcode = '53100';/u.exec(body);
+  assert.ok(allowance, 'the allowance refuses with the guard\'s own error, which installed apps already treat as a failed request');
+  const allowanceBytes = Number(allowance[1]?.replace(' * ', '') ?? 1) * mib;
+  assert.equal(hard, 400);
+  assert.ok(soft > 0 && soft <= hard / 2, `${soft}`);
+  assert.ok(body.indexOf(`> ${hard} * 1024 * 1024`) < body.indexOf(`> ${soft} * 1024 * 1024`));
+  // The account's rows in every record table count, the upload's own rows included.
+  for (const table of recordTables) {
+    assert.match(body, new RegExp(`select pg_column_size\\(r\\.\\*\\)(?: as row_bytes)? from public\\.${table} r where r\\.user_id = auth\\.uid\\(\\)`, 'u'), table);
+  }
+  // Measured on copies of the tables: an account under the allowance costs at most 2.44 bytes of
+  // disk per row byte (deletion markers, whose indexes outweigh their rows) plus its 401 consent
+  // answers (192 KiB). The space between the two steps must hold at least 75 such accounts, and
+  // the app's own largest rows (0.73 MB a year) must fit the allowance for a year.
+  const accountDisk = 2.44 * allowanceBytes + 192 * 1024;
+  assert.ok((hard - soft) * mib >= 75 * accountDisk, `${((hard - soft) * mib) / accountDisk} accounts`);
+  assert.ok(allowanceBytes >= 733_000, `${allowanceBytes}`);
 });
 
 test('the History and Closet bounds hold the largest value the app writes', () => {
@@ -401,10 +425,11 @@ test('each record table keeps its cursor index, and the profile, found by its ke
 test('every cap check holds its account\'s lock alone before it counts, so parallel uploads cannot pass a cap together', () => {
   // A count sees committed rows and its own transaction's, never another upload's uncommitted
   // rows, so two uploads that each fit the cap could both commit past it. Each check first takes
-  // a transaction advisory lock of the account and table alone: the second upload waits for the
-  // first to commit and then counts its rows too.
+  // a transaction advisory lock of the account alone: the second upload waits for the first to
+  // commit and then counts its rows too. The record tables share one lock per account, so uploads
+  // to different tables also measure the account's size one after the other.
   const caps = {
-    enforce_user_row_cap: "hashtextextended('kuyara.row_cap:' || tg_table_name || ':' || auth.uid()::text, 0)",
+    enforce_user_row_cap: "hashtextextended('kuyara.row_cap:' || auth.uid()::text, 0)",
     enforce_consent_record_cap: "hashtextextended('kuyara.consent_records:' || auth.uid()::text, 0)",
   };
   for (const [name, key] of Object.entries(caps)) {
