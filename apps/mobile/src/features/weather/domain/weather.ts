@@ -165,8 +165,10 @@ export function deviceLocationDisplayName(
   return parsed.success ? parsed.data : null;
 }
 
+const deviceLocationKeyPrefix = 'device:';
+
 export function deviceLocationKey(coordinates: NormalizedCoordinates): string {
-  return `device:${coordinates.latitudeE2}:${coordinates.longitudeE2}`;
+  return `${deviceLocationKeyPrefix}${coordinates.latitudeE2}:${coordinates.longitudeE2}`;
 }
 
 export function manualLocationKey(catalogId: ManualLocationId): string {
@@ -246,4 +248,21 @@ export function activeLocationSnapshot(
   activeLocation: ActiveLocation | null,
 ): WeatherSnapshot | null {
   return snapshot !== null && isSameWeatherLocation(snapshot, activeLocation) ? snapshot : null;
+}
+
+/**
+ * Whether the weather screen may draw `snapshot` for `activeLocation`: the active place's own
+ * snapshot, or the last valid one while the device location moved into the next 0.01 degree
+ * cell and the new cell's weather has not landed. Both ends are the device's own position
+ * then, so the data stays the best known reading, shown stale. A manual place never borrows
+ * another place's data, because it would be shown under that place's name.
+ */
+export function showsSnapshotForLocation(
+  snapshot: Pick<WeatherSnapshot, 'locationKey' | 'timeZone'>,
+  activeLocation: ActiveLocation | null,
+): boolean {
+  return isSameWeatherLocation(snapshot, activeLocation)
+    || (activeLocation?.source === 'device'
+      && snapshot.locationKey.startsWith(deviceLocationKeyPrefix)
+      && snapshot.timeZone === activeLocation.timeZone);
 }

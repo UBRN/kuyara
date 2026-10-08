@@ -653,6 +653,35 @@ test.each(['en', 'tr'] as const)(
   },
 );
 
+test.each(['en', 'tr'] as const)(
+  '%s a device re-fix into the next cell keeps the last forecast with the offline notice',
+  async (language) => {
+    const copy = messages[language].weather;
+    const istanbul = getManualLocation('sample.istanbul')!;
+    const deviceAt = (locationKey: string) => ({
+      source: 'device' as const, accuracy: 'approximate' as const,
+      coordinates: istanbul.coordinates, locationKey, timeZone: istanbul.timeZone,
+    });
+    const retained = { ...sampleSnapshot(), locationKey: 'device:4101:2898' };
+    const value = createValue({
+      ...baseState,
+      permission: { kind: 'granted', accuracy: 'approximate' },
+      activeLocation: deviceAt('device:4101:2899'),
+      snapshot: retained,
+      freshness: 'stale',
+      refreshFailure: 'offline',
+    });
+    const result = await render(
+      <Providers language={language} value={value}><WeatherScreen /></Providers>,
+    );
+
+    expect(result.getByTestId('weather-current-card')).toBeOnTheScreen();
+    expect(result.getAllByText(copy.conditions.rain).length).toBeGreaterThan(0);
+    expect(within(result.getByTestId('weather-stale-notice')).getByText(copy.offlineNotice)).toBeOnTheScreen();
+    expect(result.queryByText(copy.offlineBody)).toBeNull();
+  },
+);
+
 test('the freshness line announces only while it is not fresh', async () => {
   const fresh = createValue({
     ...baseState,

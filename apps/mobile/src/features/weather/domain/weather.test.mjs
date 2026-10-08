@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { acceptProvidedSnapshot, activeLocationSnapshot, isNormalizedCoordinates, normalizeCoordinates } from './weather.ts';
+import { acceptProvidedSnapshot, activeLocationSnapshot, isNormalizedCoordinates, normalizeCoordinates, showsSnapshotForLocation } from './weather.ts';
 
 const location = { locationKey: 'manual:sample.istanbul', timeZone: 'Europe/Istanbul' };
 const now = '2026-10-04T10:00:00.000Z';
@@ -46,6 +46,16 @@ test('a snapshot belongs to the active place only by its location key', () => {
   assert.equal(activeLocationSnapshot(snapshot, { ...location, locationKey: 'manual:sample.ankara' }), null);
   assert.equal(activeLocationSnapshot(snapshot, null), null);
   assert.equal(activeLocationSnapshot(null, location), null);
+});
+
+test('the last device snapshot stays shown for the next device cell, never for a manual place', () => {
+  const device = { source: 'device', locationKey: 'device:4101:2899', timeZone: 'Europe/Istanbul' };
+  const retained = provided({ locationKey: 'device:4101:2898' });
+  assert.equal(showsSnapshotForLocation(retained, device), true);
+  assert.equal(showsSnapshotForLocation(retained, { ...device, timeZone: 'Europe/London' }), false);
+  assert.equal(showsSnapshotForLocation(retained, { ...device, source: 'manual', locationKey: 'manual:sample.ankara' }), false);
+  assert.equal(showsSnapshotForLocation(provided(), device), false);
+  assert.equal(showsSnapshotForLocation(retained, null), false);
 });
 
 test('coordinates are whole hundredths of a degree inside the globe', () => {
