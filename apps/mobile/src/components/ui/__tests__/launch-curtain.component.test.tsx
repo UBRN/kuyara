@@ -246,14 +246,18 @@ test('a failed launch fades the layer away at once and the app is never left beh
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });
 
-test('a mount that is not the cold launch, a return from the background included, plays nothing', async () => {
+test('a mount that is not the cold launch, a return from the background included, plays nothing and hands over once', async () => {
   const onFirstFrame = jest.fn();
   await render(curtain('pending', onFirstFrame, false));
 
   expect(probe()).toBe('revealing done');
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+  // A scene reconnecting in the same process shows the native splash again, so the first
+  // frame still hands over, or the launch image would cover the app for good.
+  await nextFrame();
+  expect(onFirstFrame).toHaveBeenCalledTimes(1);
   await advance(LAUNCH_READY_CEILING_MS);
-  expect(onFirstFrame).not.toHaveBeenCalled();
+  expect(onFirstFrame).toHaveBeenCalledTimes(1);
 });
 
 test('outside a launch, what waits for it is never held', async () => {

@@ -161,6 +161,14 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
   }, []);
   const gone = useCallback(() => setReveal(revealed), []);
 
+  // A mount that is not the cold launch draws no layer, but a scene reconnecting in the same
+  // process shows the native splash again, so its first frame hands over all the same.
+  useEffect(() => {
+    if (cold) return undefined;
+    const frame = requestAnimationFrame(() => onFirstFrame());
+    return () => cancelAnimationFrame(frame);
+  }, [cold, onFirstFrame]);
+
   const reported = useRef(false);
   const reportDrawn = () => {
     if (reported.current) return;
