@@ -35,7 +35,7 @@ import {
   slotCandidates,
 } from '../features/recommendation/domain/manual-mix.ts';
 
-// Phase 7b's board swap, vault phase-7b final-spec sections 4, 5 and 10: the geometry and
+// Phase 7b's board swap: the geometry and
 // thresholds a device run then feels.
 
 const apart = (a, b, gap) =>
@@ -83,7 +83,7 @@ test('the reveal scrolls the least that shows the strip, and never the enlarged 
   assert.equal(swapRevealScroll({ pieceTop: 0, panelBottom: 598 }, 40, visible), 0);
 });
 
-// Final-spec sections 3 and 7 on a 375-point phone: the enlarged piece's top, the held stage,
+// On a 375-point phone: the enlarged piece's top, the held stage,
 // the strip's header and three rows of six, from real women's outfits on cold days (the
 // 13-candidate top). The visible area is the window less the status bar, the 44-point
 // navigation bar, the home indicator and the 49-point tab bar the detail screen assumes; the

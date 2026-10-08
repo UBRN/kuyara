@@ -47,7 +47,7 @@ function renderSheet(
 }
 
 test('the editor is a content-sized sheet: Cancel and Done in its bar, the field focused', async () => {
-  const screen = await renderSheet('edit', 'Utku');
+  const screen = await renderSheet('edit', 'Deniz');
 
   expect(mockSheetSnapPoints).toHaveBeenLastCalledWith(undefined);
   expect(screen.getByRole('header', { name: messages.en.profile.nameLabel })).toBeOnTheScreen();
@@ -58,7 +58,7 @@ test('the editor is a content-sized sheet: Cancel and Done in its bar, the field
 
 test('Remove name is an action that saves no name, shown only when a name exists', async () => {
   const onSave = jest.fn(async () => undefined);
-  const screen = await renderSheet('edit', 'Utku', onSave);
+  const screen = await renderSheet('edit', 'Deniz', onSave);
   await fireEvent.press(screen.getByTestId('name-sheet-remove'));
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(null));
 
@@ -68,7 +68,7 @@ test('Remove name is an action that saves no name, shown only when a name exists
 
 test('Settings Done still clears an emptied name, while invalid values disable Done', async () => {
   const onSave = jest.fn(async () => undefined);
-  const screen = await renderSheet('edit', 'Utku', onSave);
+  const screen = await renderSheet('edit', 'Deniz', onSave);
   await fireEvent.press(screen.getByTestId('name-edit-input-clear'));
   await fireEvent.press(screen.getByTestId('name-sheet-done'));
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(null));
@@ -79,7 +79,7 @@ test('Settings Done still clears an emptied name, while invalid values disable D
 
 test('a failed edit leaves the saved name active and shows localized feedback', async () => {
   const onSave = jest.fn(async () => { throw new Error('database failed'); });
-  const screen = await renderSheet('edit', 'Utku', onSave);
+  const screen = await renderSheet('edit', 'Deniz', onSave);
   await fireEvent.changeText(screen.getByTestId('name-edit-input'), 'Deniz');
   await fireEvent.press(screen.getByTestId('name-sheet-done'));
   await waitFor(() => expect(screen.getByTestId('name-save-error')).toHaveTextContent(
@@ -104,7 +104,7 @@ test('a failed save is spoken to VoiceOver, where the alert role and live region
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
   announce.mockClear();
   const onSave = jest.fn(async () => { throw new Error('database failed'); });
-  const screen = await renderSheet('edit', 'Utku', onSave);
+  const screen = await renderSheet('edit', 'Deniz', onSave);
   expect(announce).not.toHaveBeenCalled();
   await fireEvent.changeText(screen.getByTestId('name-edit-input'), 'Deniz');
   await fireEvent.press(screen.getByTestId('name-sheet-done'));

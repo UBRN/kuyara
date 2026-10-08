@@ -116,12 +116,12 @@ function Providers({
 
 test('Profile shows a personalized Closet heading without a location row', async () => {
   const result = await render(
-    <Providers displayName="Utku">
+    <Providers displayName="Deniz">
       <ProfileRoute />
     </Providers>,
   );
 
-  expect(result.getByText('Utku’s Closet')).toBeOnTheScreen();
+  expect(result.getByText('Deniz’s Closet')).toBeOnTheScreen();
   expect(result.queryByTestId('profile-location-row')).toBeNull();
 });
 

@@ -1,6 +1,6 @@
 import { borderWidths, layout, spacing } from '@/theme/theme';
 
-// Phase 7b's board swap (vault phase-7b final-spec sections 4 and 5). These are the gesture's
+// Phase 7b's board swap. These are the gesture's
 // own constants and geometry: every duration and spring the swap moves on is the theme's, by role.
 
 /** The tapped piece grows to twice its composed size where the board holds it ... */
@@ -312,7 +312,7 @@ export function swapStageFit(held: number, panelHeight: number, visibleHeight: n
 }
 
 /**
- * How far the page scrolls when a piece is enlarged (final-spec section 3): the least that
+ * How far the page scrolls when a piece is enlarged: the least that
  * shows the strip's bottom `spacing.md` above the visible bottom, never so far that the
  * enlarged piece's top comes within `spacing.md` of the visible top, and nothing when the
  * strip already shows.

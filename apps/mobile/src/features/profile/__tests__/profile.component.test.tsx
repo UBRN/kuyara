@@ -335,7 +335,7 @@ test('the Turkish empty Closet wraps its text within the window at fontScale 3.1
   mockFontScale(3.1);
   const result = await render(
     <TestProviders items={[]} language="tr">
-      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Deniz" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
 
@@ -353,7 +353,7 @@ test('the Turkish empty Closet wraps its text within the window at fontScale 3.1
   expect(result.getByTestId('profile-closet-heading-title-row')).toBeOnTheScreen();
 
   const textNodes = [
-    result.getByText(messages.tr.profile.wardrobeTitleNamed('Utku')),
+    result.getByText(messages.tr.profile.wardrobeTitleNamed('Deniz')),
     result.getByTestId('profile-closet-heading-count'),
     result.getByText(messages.tr.profile.wardrobeEmpty),
     result.getByText(messages.tr.profile.addPieceAction, { includeHiddenElements: true }),
@@ -435,24 +435,24 @@ test('Profile removes the location row and its History row opens History', async
 test('the Closet heading uses the name while the rest of Profile stays the same', async () => {
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Deniz" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
-  expect(result.getByText('Utku’s Closet')).toBeOnTheScreen();
+  expect(result.getByText('Deniz’s Closet')).toBeOnTheScreen();
   expect(result.getByTestId('profile-closet-heading').props.accessibilityLabel)
-    .toBe('Utku’s Closet, 1 piece.');
+    .toBe('Deniz’s Closet, 1 piece.');
 });
 
 test('Turkish keeps the name unchanged in the Closet heading at large text size', async () => {
   mockFontScale(3.12);
   const result = await render(
     <TestProviders items={[baseItem]} language="tr">
-      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onAddPiece={() => undefined} onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Deniz" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
-  expect(result.getByText('Gardırop · Utku')).toBeOnTheScreen();
+  expect(result.getByText('Gardırop · Deniz')).toBeOnTheScreen();
   expect(result.getByTestId('profile-closet-heading').props.accessibilityLabel)
-    .toBe('Gardırop · Utku, 1 parça.');
+    .toBe('Gardırop · Deniz, 1 parça.');
 });
 
 test('a loading Closet shows the bare rack and the six cells without counts, spoken as loading', async () => {

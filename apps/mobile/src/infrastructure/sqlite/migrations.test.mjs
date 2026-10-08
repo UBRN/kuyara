@@ -1614,11 +1614,11 @@ test('version 17 adds the optional name and prompt gate to a filled version 16 p
   );
   assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
 
-  await database.runAsync(`UPDATE local_profiles SET display_name = 'Utku', name_prompt_version = 1`);
+  await database.runAsync(`UPDATE local_profiles SET display_name = 'Deniz', name_prompt_version = 1`);
   await migrateDatabase(new NodeSqliteDatabase(database.database));
   assert.deepEqual({ ...await database.getFirstAsync(
     'SELECT display_name, name_prompt_version FROM local_profiles',
-  ) }, { display_name: 'Utku', name_prompt_version: 1 });
+  ) }, { display_name: 'Deniz', name_prompt_version: 1 });
 });
 
 test('version 18 keeps a filled version 17 profile and adds daily choices', async (t) => {
@@ -1642,7 +1642,7 @@ test('version 18 keeps a filled version 17 profile and adds daily choices', asyn
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 17);
   await insertProfile(database);
   await database.runAsync(`UPDATE local_profiles SET gender = 'woman', dress_style = 'smart',
-    display_name = 'Utku', name_prompt_version = 1, onboarding_completed = 1`);
+    display_name = 'Deniz', name_prompt_version = 1, onboarding_completed = 1`);
   await database.execAsync(`
     INSERT INTO active_locations (
       local_profile_id, location_key, source, manual_catalog_id, latitude_e2,
@@ -1866,7 +1866,7 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, version);
     await insertProfile(database);
     await database.runAsync(`UPDATE local_profiles SET gender = 'man', dress_style = 'formal',
-      display_name = 'Utku', name_prompt_version = 1, onboarding_completed = 1,
+      display_name = 'Deniz', name_prompt_version = 1, onboarding_completed = 1,
       theme_preference = 'dark', language_preference = 'tr', morning_sheet_enabled = 0,
       style_aesthetics = '["classic"]'`);
     const before = { ...await database.getFirstAsync('SELECT * FROM local_profiles') };

@@ -1131,12 +1131,18 @@ const productAiIdentifierPattern = new RegExp([
   ['\\bcl', 'aude-haiku-[0-9-]+'], ['\\bapi\\.anth', 'ropic\\.com\\b'], ['\\banth', 'ropic-version\\b'],
   ['\\bplatform\\.cl', 'aude\\.com/docs/en/(?:about-cl', 'aude/pricing|build-with-cl', 'aude/structured-outputs|api/errors)\\b'],
 ].map((parts) => parts.join('')).join('|'), 'gi');
+// Private notes stores, the private design-spec label and the maintainer's personal handle and
+// first name stay out of tracked text; the legal pages and licence notice name the controller.
+const privateIdentityPattern = new RegExp([
+  ['\\bva', 'ult\\b'], ['final', '-spec'], ['ubar', 'in'], ['ut', 'ku'],
+].map((parts) => parts.join('')).join('|'), 'i');
+const privateIdentityAllowlist = new Set(['LICENSE', 'docs/privacy-policy.md', 'docs/tr/privacy-policy.md']);
 const processTraceAllowlist = new Set([
   'apps/mobile/src/features/recommendation/domain/insight-sentence.ts',
   'apps/mobile/src/features/recommendation/domain/insight-sentence.test.mjs',
 ]);
 
-test('tracked text files name no coding tool, no work-process term and no decision narrative', () => {
+test('tracked text files name no coding tool, no work-process term, no decision narrative and no private identity', () => {
   const repoRoot = path.join(sourceRoot, '..', '..', '..');
   const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 })
     .toString('utf8').split('\0').filter(Boolean);
@@ -1152,7 +1158,8 @@ test('tracked text files name no coding tool, no work-process term and no decisi
     if (buffer.includes(0)) continue; // binary
     buffer.toString('utf8').split('\n').forEach((line, index) => {
       if (processTracePattern.test(line.replace(productAiIdentifierPattern, '')) || processTermPattern.test(line)
-        || decisionNarrativePattern.test(line) || personTaskPattern.test(line)) hits.push(`${relative}:${index + 1}`);
+        || decisionNarrativePattern.test(line) || personTaskPattern.test(line)
+        || (!privateIdentityAllowlist.has(relative) && privateIdentityPattern.test(line))) hits.push(`${relative}:${index + 1}`);
     });
   }
   assert.deepEqual(hits, [], `remove the tool or process wording at: ${hits.join(', ')}`);

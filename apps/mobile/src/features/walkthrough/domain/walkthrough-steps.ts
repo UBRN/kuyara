@@ -1,6 +1,5 @@
 /**
- * Phase 8's coach-mark tour: nine steps over the person's real screens (the design
- * prototype, `walkthrough/coach-tour/README.md`). Each step lights one area of a real screen;
+ * Phase 8's coach-mark tour: nine steps over the person's real screens. Each step lights one area of a real screen;
  * a `tap` or `back` step also leaves one real control live, and the tour advances when it
  * observes that control's own navigation land. A `look` step leaves nothing live and carries
  * Continue, or Done on the last step. The tour never presses anything and never writes

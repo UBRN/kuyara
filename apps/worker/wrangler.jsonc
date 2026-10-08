@@ -11,8 +11,7 @@
   // installed binaries embed it.
   "routes": [{ "pattern": "api.youbrn.com", "custom_domain": true }],
   "preview_urls": false,
-  // head_sampling_rate: 1 logs every request. E11 leaves the rate open pending measurement
-  // of the rate-limit log lines a sibling change is adding; 1 is also the documented
+  // head_sampling_rate: 1 logs every request. 1 is the documented
   // Cloudflare default (https://developers.cloudflare.com/workers/observability/logs/workers-logs/,
   // checked 2026-09-15), so it is set explicitly rather than left implicit.
   // invocation_logs false stops Cloudflare's automatic per-request capture (request metadata

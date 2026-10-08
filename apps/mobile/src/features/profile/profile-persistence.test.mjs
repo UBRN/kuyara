@@ -955,15 +955,15 @@ test('name and one-time prompt gate round trip independently of personal prefere
   assert.equal(initial.displayName, null);
   assert.equal(initial.namePromptVersion, 0);
 
-  await repository.updateDisplayName('  Utku  ');
+  await repository.updateDisplayName('  Deniz  ');
   const relaunched = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
     createId: () => 'unused', now: () => updatedAt,
   }));
-  assert.equal((await relaunched.getOrCreateProfile()).displayName, 'Utku');
+  assert.equal((await relaunched.getOrCreateProfile()).displayName, 'Deniz');
   assert.equal((await relaunched.getOrCreateProfile()).namePromptVersion, 1);
   assert.deepEqual({ ...await database.getFirstAsync(
     'SELECT display_name, name_prompt_version FROM local_profiles',
-  ) }, { display_name: 'Utku', name_prompt_version: 1 });
+  ) }, { display_name: 'Deniz', name_prompt_version: 1 });
 
   await repository.updateDisplayName('   ');
   assert.equal((await repository.getOrCreateProfile()).displayName, null);

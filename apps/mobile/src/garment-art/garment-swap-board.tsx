@@ -106,7 +106,7 @@ export type GarmentSwapBoardProps = Readonly<{
 }>;
 
 /**
- * Phase 7b's directly editable detail board (vault phase-7b final-spec): tap a piece and it
+ * Phase 7b's directly editable detail board: tap a piece and it
  * grows in place while the others step back; swipe it, or tap a tile in the strip under the
  * stage, to change it while it is large. Every committed set is laid out again by ADR 0025's
  * `compose()`; the enlarged slot pages opaque inside its window, other pieces glide to their

@@ -16,7 +16,7 @@ test('birth dates validate calendar dates, static years and the moving future bo
 test('optional names trim whitespace and accept only 2 to 30 characters', () => {
   assert.equal(profile.normalizeDisplayName(null), null);
   assert.equal(profile.normalizeDisplayName('  '), null);
-  assert.equal(profile.normalizeDisplayName('  Utku  '), 'Utku');
+  assert.equal(profile.normalizeDisplayName('  Deniz  '), 'Deniz');
   assert.equal(profile.normalizeDisplayName('a'.repeat(30)), 'a'.repeat(30));
   assert.equal(profile.displayNameIssue('A'), 'short');
   assert.equal(profile.displayNameIssue('a'.repeat(31)), 'long');

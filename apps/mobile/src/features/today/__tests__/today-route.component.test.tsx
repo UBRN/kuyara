@@ -767,12 +767,12 @@ test('Today releases its name prompt when saving the dismissal gate fails', asyn
 test('Today greets a named profile without opening the name sheet', async () => {
   const screen = await render(
     <Providers productAnalytics={createProductAnalytics()}
-      profile={profileValue({ displayName: 'Utku', namePromptVersion: 1 })}
+      profile={profileValue({ displayName: 'Deniz', namePromptVersion: 1 })}
       recommendation={recommendationReady()} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
   );
-  expect(screen.getByTestId('today-greeting')).toHaveTextContent('Welcome back, Utku');
+  expect(screen.getByTestId('today-greeting')).toHaveTextContent('Welcome back, Deniz');
   expect(screen.queryByText(messages.en.onboarding.nameTitle)).toBeNull();
 });
 
@@ -1427,7 +1427,7 @@ test('a close reported after an answer, or while it saves, writes no second answ
 test('the first dressing day offers the setup answer as the usual one', async () => {
   const view = await render(
     <Providers productAnalytics={createProductAnalytics()}
-      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal', displayName: 'Utku' })}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal', displayName: 'Deniz' })}
       recommendation={recommendationReady()} resolvedDressStyle="formal"
       dressingDayKey="2026-09-24" dressingDayChoiceReady morningChoicePending
       chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
@@ -1439,7 +1439,7 @@ test('the first dressing day offers the setup answer as the usual one', async ()
   expect(view.getAllByRole('radio').map((tile) => tile.props.accessibilityState.selected))
     .toEqual([false, false]);
   // f25: the first day's greeting is a welcome, not a welcome back.
-  expect(view.getByTestId('today-greeting')).toHaveTextContent('Welcome, Utku');
+  expect(view.getByTestId('today-greeting')).toHaveTextContent('Welcome, Deniz');
 });
 
 // M16: a first recommendation held for the morning answer is a wait, and the sheet opens over

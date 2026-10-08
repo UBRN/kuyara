@@ -369,7 +369,7 @@ test('the before-send filter removes lifecycle URLs, timezone and non-allowliste
     event: 'Application Opened',
     properties: {
       url: 'kuyara://profile/private-path',
-      displayName: 'Utku',
+      displayName: 'Deniz',
       profileNote: 'private profile note',
       previous_version: '1.0.0',
       schema_version: 4,

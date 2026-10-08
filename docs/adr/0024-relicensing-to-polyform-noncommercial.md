@@ -25,8 +25,7 @@ covers the wording as well as the licence file.
 
 Ownership was checked before deciding, because relicensing a project with outside
 contributors raises a rights question this ADR could not resolve on its own. All 114
-commits are authored by the maintainer under two identities, a personal address and the
-GitHub noreply address for the same account; no commit carries a `Co-authored-by`
+commits are authored by the maintainer; no commit carries a `Co-authored-by`
 or `Signed-off-by` trailer, and the single merged pull request came from a branch in the
 maintainer's own repository. There is no third-party contribution and therefore no
 contributor-rights ambiguity.

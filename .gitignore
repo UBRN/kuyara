@@ -26,6 +26,26 @@ apps/worker/**/*.key
 apps/worker/**/*.p12
 apps/worker/**/*.pfx
 
+# Signing material and local credentials
+credentials.json
+credentials/
+*.p12
+*.mobileprovision
+*.pem
+
+# iOS build output
+*.ipa
+*.xcarchive
+*.dSYM/
+
+# Local databases pulled from a device
+*.db
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db-wal
+*.db-shm
+
 # Local environment files
 .env
 .env.*

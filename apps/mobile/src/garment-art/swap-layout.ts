@@ -83,7 +83,7 @@ export function bandBoxesOnBoard(bandBoxes: ReadonlyMap<OutfitSlot, DrawnBox>, b
 
 /**
  * One enlargement's grow scale and held stage: every candidate of the slot composed with the
- * rest of the outfit (final-spec section 4).
+ * rest of the outfit.
  */
 export function growFor(
   enlarged: Readonly<{

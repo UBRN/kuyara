@@ -62,7 +62,7 @@ function HeaderWords({ from, children }: Readonly<{ from: number; children: Reac
 }
 
 /**
- * Phase 7b's candidate strip under the enlarged piece (vault phase-7b final-spec): a header
+ * Phase 7b's candidate strip under the enlarged piece: a header
  * naming the piece and its place with Done (and Take off for a layer), then the slot's catalog pieces in the picker's
  * order as a grid of 44-point tiles, the current one marked. It lives outside the board's
  * gesture: a tile, Done or a gap between tiles never reaches the board. A pressed tile names

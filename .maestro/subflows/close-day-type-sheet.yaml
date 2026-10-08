@@ -7,7 +7,7 @@ name: Close the day-type sheet when Today without a location offers it
 # `today-no-location`, and a sheet offered before that stays up: it hides Today and the tab bar
 # from the accessibility tree Maestro reads. Which one wins depends on timing, so wait for
 # whichever appears first, give a sheet that is still animating in a moment to arrive, and
-# close it. Closing answers the question with the profile's own dress style (P6), so the sheet
+# close it. Closing answers the question with the profile's own dress style, so the sheet
 # is not offered again that day.
 - extendedWaitUntil:
     visible:

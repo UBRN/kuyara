@@ -324,12 +324,12 @@ test('AI request excludes display name and every free-text profile field', () =>
   assert.ok(context);
   const request = aiRequestFromContext({
     ...context,
-    displayName: 'Utku',
+    displayName: 'Deniz',
     profileNote: 'private profile note',
   });
   assert.ok(request);
   const serialized = JSON.stringify(request);
-  for (const excluded of ['displayName', 'profileNote', 'Utku', 'private profile note']) {
+  for (const excluded of ['displayName', 'profileNote', 'Deniz', 'private profile note']) {
     assert.equal(serialized.includes(excluded), false);
   }
 });

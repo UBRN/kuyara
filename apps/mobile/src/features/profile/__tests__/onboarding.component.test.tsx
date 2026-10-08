@@ -237,7 +237,7 @@ test('optional name step validates 2 to 30 characters and offers Not now', async
   expect(result.getByTestId('onboarding-continue').props.accessibilityState.disabled).toBe(true);
   await fireEvent.changeText(result.getByTestId('onboarding-name'), 'a'.repeat(31));
   expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameLongError(displayNameMaxLength));
-  await fireEvent.changeText(result.getByTestId('onboarding-name'), '  Utku  ');
+  await fireEvent.changeText(result.getByTestId('onboarding-name'), '  Deniz  ');
   expect(result.queryByTestId('onboarding-name-error')).toBeNull();
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-4')).toBeOnTheScreen();

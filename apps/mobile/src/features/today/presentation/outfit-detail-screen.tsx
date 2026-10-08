@@ -375,7 +375,7 @@ export function OutfitDetailScreen({
 
   const pieceName = (garmentTypeId: GarmentTypeId) => messages.catalog[`catalog.garment_type.${garmentTypeId}.name`];
 
-  // One announcement per change, never two that cut each other off (final-spec section 8):
+  // One announcement per change, never two that cut each other off:
   // a board tile or swipe names the new piece and its place, and says in the same
   // announcement when the change made the outfit unusual; any other change that makes it
   // unusual says only that. Android keeps the note's live region for the note.

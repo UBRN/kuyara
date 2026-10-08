@@ -608,7 +608,7 @@ test('each changeable slot has its own whole change sentence in English and Turk
   }
 });
 
-// Final-spec sections 4, 6 and 8: the enlarged piece is drawn a second time at its grow size
+// The enlarged piece is drawn a second time at its grow size
 // (never scaled up from its resting drawing), grows between 1.6 and 2 times inside the
 // stage, and the strip fits the column, with Easier to see (board caps x 1.3) as without it.
 describe.each([false, true])('Easier to see %s', (large) => {

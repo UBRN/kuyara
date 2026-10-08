@@ -233,7 +233,7 @@ export function useSwapGesture({
     .enabled(Boolean(curDx && focusedSlot && pager))
     .maxPointers(1)
     .activeOffsetX([-SWAP_TOUCH_SLOP, SWAP_TOUCH_SLOP])
-    // 8 pt of vertical travel first hands the press to the page scroll (final-spec section 4).
+    // 8 pt of vertical travel first hands the press to the page scroll.
     .failOffsetY([-8, 8])
     .onTouchesDown((event, manager) => {
       const touch = event.allTouches[0];

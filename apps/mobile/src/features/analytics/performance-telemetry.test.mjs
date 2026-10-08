@@ -61,15 +61,15 @@ test('recommendation.generated produces only declared keys, in every branch', ()
 test('telemetry builders exclude display name and free-text profile fields', () => {
   const attributes = recommendationGeneratedAttributes({
     generationMode: 'ai-assisted', onDeviceAvailability: null, durationMs: 12,
-    optionCount: 3, failure: null, displayName: 'Utku', profileNote: 'private profile note',
+    optionCount: 3, failure: null, displayName: 'Deniz', profileNote: 'private profile note',
   });
   const weather = weatherRefreshedAttributes({
     durationMs: 12, outcome: 'success', source: null,
-    displayName: 'Utku', profileNote: 'private profile note',
+    displayName: 'Deniz', profileNote: 'private profile note',
   });
   for (const output of [attributes, weather]) {
     const serialized = JSON.stringify(output);
-    for (const excluded of ['displayName', 'profileNote', 'Utku', 'private profile note']) {
+    for (const excluded of ['displayName', 'profileNote', 'Deniz', 'private profile note']) {
       assert.equal(serialized.includes(excluded), false);
     }
   }

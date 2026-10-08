@@ -15,7 +15,7 @@ itself: *"A composition rule has to be written that this ADR does not contain. E
 board in the spike is hand-placed per outfit. A rule that takes a slot list and
 produces a placement, for two-piece, one-piece and five-piece looks, is unbuilt."*
 
-Evidence lives in the Obsidian vault, not here: ten generated boards in light and
+Evidence is kept outside this repository: ten generated boards in light and
 dark, a specimen of every drawing, a before/after on the sizing metric, and the audit
 table.
 
