@@ -761,6 +761,8 @@ export function createAccountSessionManager({
       try { await auth.signOut(); } catch { /* The screen still leaves the ended session. */ }
       await forgetSession();
       await restore(null);
+      // The same notice a sign-out leaves, so Settings explains why the account is gone.
+      update({ session: { kind: 'signedOut', notice: 'signedOut' }, cardDismissed: true });
     },
     async localWrite() { await runSync('localWrite'); },
     setOnline: (online) => {

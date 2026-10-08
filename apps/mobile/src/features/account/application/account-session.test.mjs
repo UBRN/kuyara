@@ -74,12 +74,13 @@ test('sign-in owns the screen state; an answer given on another phone skips the 
   assert.equal(manager.getSnapshot().consent.prompt, null);
 });
 
-test('a definitive end of the session at foreground signs out without deleting phone data', async () => {
+test('a definitive end of the session at foreground signs out without deleting phone data and says so in Settings', async () => {
   const { manager, calls } = setup({ current: identity, auth: { refreshSession: async () => null } });
   await manager.start();
   assert.equal(manager.getSnapshot().session.kind, 'signedIn');
   await manager.foreground();
-  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: null });
+  assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: 'signedOut' });
+  assert.equal(manager.getSnapshot().cardDismissed, true);
   assert.deepEqual(calls, [['sync', 'user-a'], ['signOut']]);
 });
 
@@ -1269,7 +1270,7 @@ test('a session the server ended while the consent question is open closes the q
   assert.deepEqual(manager.getSnapshot().consent, { prompt: 'signIn', status: 'idle' });
   await manager.foreground();
   const snapshot = manager.getSnapshot();
-  assert.deepEqual(snapshot.session, { kind: 'signedOut', notice: null });
+  assert.deepEqual(snapshot.session, { kind: 'signedOut', notice: 'signedOut' });
   assert.deepEqual(snapshot.consent, { prompt: null, status: 'idle' });
   assert.equal(snapshot.sheet, null);
   assert.equal(question.open, false);
@@ -1347,7 +1348,7 @@ test('a session the server ends during a deletion waits for it, and ends only wh
     assert.deepEqual(calls, [], outcome);
     reauthorized.resolve({ provider: 'apple', accessToken: 'fresh', appleAuthorizationCode: 'code' });
     await Promise.all([deleting, foreground]);
-    assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: outcome === 'deleted' ? 'deleted' : null }, outcome);
+    assert.deepEqual(manager.getSnapshot().session, { kind: 'signedOut', notice: outcome === 'deleted' ? 'deleted' : 'signedOut' }, outcome);
     assert.equal(calls.some(([name]) => name === 'signOut'), outcome === 'failed', outcome);
   }
 });
