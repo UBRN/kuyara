@@ -15,3 +15,8 @@ paths = ['''^apps/worker/src/weather/weatherkit-token\.test\.ts$''']
 description = "A PostHog project token (phc_) is a public, write-only client key by design; it ships inside the app bundle."
 targetRules = ["generic-api-key"]
 regexes = ['''^phc_[A-Za-z0-9]+$''']
+
+[[allowlists]]
+description = "A Supabase publishable key (sb_publishable_) is a public client key by design; it ships inside the app bundle. Secret keys (sb_secret_) stay flagged."
+targetRules = ["generic-api-key"]
+regexes = ['''^sb_publishable_[A-Za-z0-9_-]+$''']

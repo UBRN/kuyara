@@ -44,7 +44,8 @@
   // `triggers` is inherited by named environments, so e2e switches it off below; `wrangler dev`
   // never runs a Cron Trigger on its own.
   "triggers": { "crons": ["17 */6 * * *"] },
-  // SUPABASE_URL and APPLE_TEAM_ID are public identifiers, not secrets (ADR 0041, section 2);
+  // SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY (the client key the app ships) and APPLE_TEAM_ID are
+  // public identifiers, not secrets (ADR 0041, section 2);
   // the Supabase secret key and the Apple signing key are Worker secrets and never appear here.
   "vars": {
     // The paid head of the walk, paid from a monthly API credit and capped per day by
@@ -57,6 +58,7 @@
     "OPENROUTER_MODELS": ["nvidia/nemotron-3-super-120b-a12b:free"],
     "WORKERS_AI_MODELS": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/mistralai/mistral-small-3.1-24b-instruct"],
     "SUPABASE_URL": "https://bkeojzuvuzilytfmpgdu.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_BPpStNdaemZy2O1V2XdDww_ZFGfSHsc",
     "APPLE_TEAM_ID": "BZL4XU3J5H"
   },
   // The local end-to-end environment of docs/testing.md, "AI tiers in E2E": real weather and

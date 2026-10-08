@@ -34,7 +34,7 @@ function setup({ admin, ...overrides }: Overrides = {}) {
     verifier: async (accessToken) => { events.push(['verify', accessToken]); return { userId, hasAppleIdentity: false }; },
     admin: {
       getAccount: async (id) => { events.push(['getAccount', id]); return { appleSubject: null }; },
-      confirmSession: async (accessToken, id) => { events.push(['session', [accessToken, id]]); },
+      confirmSession: async (accessToken, id) => { events.push(['session', [accessToken, id]]); return 'alive'; },
       deleteUser: async (id) => { events.push(['deleteUser', id]); },
       ...admin,
     },
@@ -88,6 +88,26 @@ test('a token whose session has ended deletes nothing and answers the invalid-to
   ]);
 });
 
+test('a user Auth no longer finds at the session check is answered as already deleted, with nothing revoked or deleted', async (t) => {
+  const infos: unknown[] = [];
+  t.mock.method(console, 'info', (entry: unknown) => infos.push(entry));
+  const gone = async () => 'user_gone' as const;
+  const plain = setup({ admin: { confirmSession: gone } });
+  const response = await plain.handle(request());
+  assert.equal(response.status, 200);
+  assert.deepEqual(accountDeleteV1SuccessSchema.parse(await response.json()), { data: { status: 'deleted' } });
+  assert.deepEqual(names(plain.events), ['limit', 'verify', 'getAccount']);
+  const apple = setup({
+    verifier: async () => ({ userId, hasAppleIdentity: true }),
+    admin: { ...appleAdmin([]), confirmSession: gone, deleteUser: async () => { throw new Error('not reached'); } },
+    revoker: async () => { throw new Error('not reached'); },
+  });
+  const appleResponse = await apple.handle(request({ body: { appleAuthorizationCode: code } }));
+  assert.equal(appleResponse.status, 200);
+  assert.deepEqual(await appleResponse.json(), { data: { status: 'deleted_apple_unrevoked' } });
+  assert.deepEqual(infos, [{ event: 'account_delete_apple_unrevoked', reason: 'already_deleted' }]);
+});
+
 test('Supabase Auth failing or timing out on the session check fails closed: unavailable, nothing revoked or deleted', async () => {
   const outages = [
     async () => { throw new AccountError('unavailable'); },
@@ -109,7 +129,7 @@ test('the session check runs alongside the lookup, so the route keeps its five u
   const { handle } = setup({
     admin: {
       getAccount: () => new Promise((resolve) => { started.push('getAccount'); releaseLookup = () => resolve({ appleSubject: null }); }),
-      confirmSession: async () => { started.push('session'); },
+      confirmSession: async () => { started.push('session'); return 'alive'; },
     },
   });
   const pending = handle(request());

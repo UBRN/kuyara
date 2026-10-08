@@ -10,14 +10,17 @@ export type SupabaseAccount = Readonly<{
   appleSubject: string | null;
 }>;
 
+export type SessionState = 'alive' | 'user_gone';
+
 export type SupabaseAdmin = Readonly<{
   /** The account's identities, or null when the user no longer exists. */
   getAccount(userId: string): Promise<SupabaseAccount | null>;
   /**
-   * Resolves while the access token's session is alive. A verified token outlives a sign-out
-   * until it expires; Supabase Auth refusing it (the session or user is gone) is `unauthorized`.
+   * `alive` while the access token's session is, and `user_gone` when Supabase Auth no longer
+   * finds its user. A verified token outlives a sign-out until it expires; Auth refusing it
+   * for any other reason (the session is gone, the user banned, the token bad) is `unauthorized`.
    */
-  confirmSession(accessToken: string, userId: string): Promise<void>;
+  confirmSession(accessToken: string, userId: string): Promise<SessionState>;
   /** Hard-deletes the user; one that is already gone counts as deleted. */
   deleteUser(userId: string): Promise<void>;
 }>;
@@ -25,19 +28,20 @@ export type SupabaseAdmin = Readonly<{
 type Dependencies = Readonly<{
   // The https origin from `supabaseBaseUrl`, used as is.
   supabaseUrl: string;
+  // The public client key the app ships; the session check is a client request.
+  publishableKey: string;
+  // The admin calls only.
   secretKey: string;
   fetch?: FetchLike;
   timeoutMs: number;
 }>;
 
 /**
- * Supabase Auth's 403 answers to `GET /auth/v1/user` for a token it no longer honours: the
- * session or user row is gone, the session timed out, the user is banned, or the token is bad.
- * Any other failure is an outage, never a refusal.
+ * Supabase Auth's 403 answers to `GET /auth/v1/user` for a token it no longer honours (its
+ * `requireAuthentication` middleware): the session row is gone, the user is banned, or the
+ * token is bad. `user_not_found` is the user itself gone. Any other failure is an outage.
  */
-const refusedSessionCodes: ReadonlySet<string> = new Set([
-  'session_not_found', 'session_expired', 'user_not_found', 'user_banned', 'bad_jwt',
-]);
+const refusedSessionCodes: ReadonlySet<string> = new Set(['session_not_found', 'user_banned', 'bad_jwt']);
 const authErrorSchema = z.object({ error_code: z.string() });
 const sessionUserSchema = z.object({ id: z.string() });
 
@@ -52,9 +56,11 @@ const userSchema = z.object({
 
 /**
  * The Supabase Auth calls account deletion needs, over plain `fetch`: two admin calls and the
- * session check. The secret key travels only in the `apikey` header: Supabase's gateway accepts
- * it there for both the legacy and the new key types, and passes a user's JWT in
- * `Authorization` through unchanged. Bodies, keys, tokens and addresses never enter an error.
+ * session check. Every key travels only in the `apikey` header. The admin calls send the secret
+ * key, which Supabase's gateway accepts there for both the legacy and the new key types; the
+ * session check sends the publishable key with the user's JWT as the bearer, as the app's own
+ * client does, so Auth reads the request as that user's. Bodies, keys, tokens and addresses
+ * never enter an error.
  */
 export function createSupabaseAdmin(dependencies: Dependencies): SupabaseAdmin {
   const fetchImpl = dependencies.fetch ?? defaultFetch();
@@ -89,10 +95,11 @@ export function createSupabaseAdmin(dependencies: Dependencies): SupabaseAdmin {
     async confirmSession(accessToken, userId) {
       const { status, json } = await boundedFetch(fetchImpl, `${dependencies.supabaseUrl}/auth/v1/user`, {
         method: 'GET',
-        headers: { ...headers, Authorization: `Bearer ${accessToken}` },
+        headers: { apikey: dependencies.publishableKey, Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
       }, timeoutMs);
-      if (status === 200 && sessionUserSchema.safeParse(json).data?.id === userId) return;
+      if (status === 200 && sessionUserSchema.safeParse(json).data?.id === userId) return 'alive';
       const refusal = status === 403 ? authErrorSchema.safeParse(json).data?.error_code : undefined;
+      if (refusal === 'user_not_found') return 'user_gone';
       throw new AccountError(refusal !== undefined && refusedSessionCodes.has(refusal) ? 'unauthorized' : 'unavailable');
     },
 

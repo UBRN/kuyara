@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from './supabase-admin.ts';
 
 const supabaseUrl = 'https://project.supabase.co';
 const secretKey = 'sb_secret_sentinel_value';
+const publishableKey = 'sb_publishable_sentinel_value';
 const userId = '3f2b8c1e-5d4a-4c1b-9a7e-0d6f1b2c3d4e';
 
 // The adapter always sends a plain header record and a string body; RequestInit types them wider.
@@ -15,7 +16,7 @@ type AdminHandler = (call: AdminCall) => Response | Promise<Response>;
 function setup(handler: AdminHandler) {
   const calls: AdminCall[] = [];
   const admin = createSupabaseAdmin({
-    supabaseUrl, secretKey, timeoutMs: 20,
+    supabaseUrl, publishableKey, secretKey, timeoutMs: 20,
     fetch: async (url, init) => {
       const call: AdminCall = { url: String(url), init: init as AdminCall['init'] };
       calls.push(call);
@@ -128,23 +129,29 @@ async function assertUnauthorized(promise: Promise<unknown>) {
   });
 }
 
-test('confirmSession asks Supabase Auth for the token\'s user, with the token as bearer and the key as apikey', async () => {
+test('confirmSession asks Supabase Auth for the token\'s user as a client: the token as bearer, the publishable key as apikey', async () => {
   const { calls, admin } = setup(() => Response.json(userBody([])));
-  await admin.confirmSession(accessToken, userId);
+  assert.equal(await admin.confirmSession(accessToken, userId), 'alive');
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, `${supabaseUrl}/auth/v1/user`);
   assert.equal(calls[0].init.method, 'GET');
-  assert.equal(calls[0].init.headers.apikey, secretKey);
+  assert.equal(calls[0].init.headers.apikey, publishableKey);
+  assert.equal(JSON.stringify(calls[0].init.headers).includes(secretKey), false, 'the secret key stays with the admin calls');
   assert.equal(calls[0].init.headers.Authorization, `Bearer ${accessToken}`);
   assert.equal(calls[0].init.redirect, 'manual');
   assert.ok(calls[0].init.signal);
 });
 
 test('a session Supabase Auth says has ended is unauthorized', async () => {
-  for (const errorCode of ['session_not_found', 'session_expired', 'user_not_found', 'user_banned', 'bad_jwt']) {
+  for (const errorCode of ['session_not_found', 'user_banned', 'bad_jwt']) {
     const { admin } = setup(() => Response.json({ code: 403, error_code: errorCode, msg: 'private' }, { status: 403 }));
     await assertUnauthorized(admin.confirmSession(accessToken, userId));
   }
+});
+
+test('a user Supabase Auth no longer finds is gone, not refused', async () => {
+  const { admin } = setup(() => Response.json({ code: 403, error_code: 'user_not_found', msg: 'private' }, { status: 403 }));
+  assert.equal(await admin.confirmSession(accessToken, userId), 'user_gone');
 });
 
 test('any other confirmSession answer, an outage or a hung call is unavailable', async () => {
@@ -153,6 +160,8 @@ test('any other confirmSession answer, an outage or a hung call is unavailable',
     Response.json({ nothing: true }),
     new Response('not json'),
     Response.json({ code: 403, error_code: 'not_admin', msg: 'private' }, { status: 403 }),
+    Response.json({ code: 403, error_code: 'session_expired', msg: 'private' }, { status: 403 }),
+    Response.json({ code: 404, error_code: 'user_not_found', msg: 'private' }, { status: 404 }),
     Response.json({ code: 401, error_code: 'session_not_found', msg: 'private' }, { status: 401 }),
     Response.json({ message: 'Invalid API key', hint: 'private' }, { status: 401 }),
     Response.json({ code: 500, error_code: 'unexpected_failure', msg: 'private' }, { status: 500 }),

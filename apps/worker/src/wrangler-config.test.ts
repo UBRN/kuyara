@@ -112,8 +112,11 @@ test('the keep-alive cron runs four times a day in production only, and its publ
   assert.deepEqual(config.env.e2e.triggers, { crons: [] });
   assert.equal(config.vars.SUPABASE_URL, 'https://bkeojzuvuzilytfmpgdu.supabase.co');
   assert.equal(config.vars.APPLE_TEAM_ID, 'BZL4XU3J5H');
+  // The public client key the app ships, never a secret key.
+  assert.match(config.vars.SUPABASE_PUBLISHABLE_KEY, /^sb_publishable_[A-Za-z0-9_-]+$/u);
   // e2e declares no vars of its own for them, and no secret appears anywhere in the file.
   assert.equal(config.env.e2e.vars.SUPABASE_URL, undefined);
+  assert.equal(config.env.e2e.vars.SUPABASE_PUBLISHABLE_KEY, undefined);
   assert.equal(config.env.e2e.vars.APPLE_TEAM_ID, undefined);
   const text = readFileSync(path.join(import.meta.dirname, '..', 'wrangler.jsonc'), 'utf8');
   assert.equal(/SUPABASE_SECRET_KEY|APPLE_SIGN_IN_PRIVATE_KEY|sb_secret_/u.test(text), false);

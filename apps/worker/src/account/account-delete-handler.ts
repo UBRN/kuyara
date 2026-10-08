@@ -82,7 +82,14 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
       admin.confirmSession(accessToken, userId),
     ]);
     if (lookup.status === 'rejected') return failure('lookup', lookup.reason);
-    const account = lookup.value;
+    let account = lookup.value;
+    if (account !== null) {
+      // A token verifies until it expires, also after its session was signed out; only a live
+      // session deletes. An account already gone skips the check, because its sessions went
+      // with it, and one Auth no longer finds by the time it is asked is gone the same way.
+      if (session.status === 'rejected') return failure('session', session.reason);
+      if (session.value === 'user_gone') account = null;
+    }
     let status: AccountDeleteV1Status = 'deleted';
     // A valid token for a user that no longer exists is a repeated request: already deleted.
     // Whether the earlier attempt revoked Apple's token is unknown, so an account whose token
@@ -92,10 +99,6 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
       console.info({ event: 'account_delete_apple_unrevoked', reason: 'already_deleted' });
     }
     if (account !== null) {
-      // A token verifies until it expires, also after its session was signed out; only a live
-      // session deletes. A repeat for an account already gone is answered above without it,
-      // because the deleted account's sessions went with it.
-      if (session.status === 'rejected') return failure('session', session.reason);
       // Revocation comes first: a delete that succeeds while revocation fails would leave
       // Apple's requirement unmet with no way to get the token again. A missing, refused or
       // foreign code never blocks the delete (ADR 0041, section 2); only Apple being

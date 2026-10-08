@@ -82,9 +82,10 @@ export type Env = Readonly<{
   WEATHERKIT_PRIVATE_KEY?: string;
   WEATHER_RATE_LIMIT?: RateLimiter;
   PLACE_SEARCH_RATE_LIMIT?: RateLimiter;
-  // Account deletion: two plain variables, three secrets and one limiter. Missing any one
+  // Account deletion: three plain variables, three secrets and one limiter. Missing any one
   // takes the route offline (see `buildAccountDeleteHandler`).
   SUPABASE_URL?: string;
+  SUPABASE_PUBLISHABLE_KEY?: string;
   APPLE_TEAM_ID?: string;
   SUPABASE_SECRET_KEY?: string;
   APPLE_SIGN_IN_PRIVATE_KEY?: string;
@@ -214,7 +215,7 @@ export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
 }
 
 /**
- * Account deletion needs its limiter and five settings. It never runs half-configured: the
+ * Account deletion needs its limiter and six settings. It never runs half-configured: the
  * first missing one, named in the log line, takes only this route offline with 503
  * `unavailable`, and nothing is called upstream. The project address must be https because
  * the token issuer and every admin call are built from it.
@@ -223,6 +224,7 @@ function buildAccountDeleteHandler(env: Env, verifier: SupabaseTokenVerifier | u
   const {
     ACCOUNT_DELETE_RATE_LIMIT: rateLimiter,
     APPLE_TEAM_ID: teamId,
+    SUPABASE_PUBLISHABLE_KEY: publishableKey,
     SUPABASE_SECRET_KEY: secretKey,
     APPLE_SIGN_IN_PRIVATE_KEY: privateKeyPem,
     APPLE_SIGN_IN_KEY_ID: keyId,
@@ -232,12 +234,13 @@ function buildAccountDeleteHandler(env: Env, verifier: SupabaseTokenVerifier | u
   const supabaseUrl = supabaseBaseUrl(env.SUPABASE_URL);
   if (!supabaseUrl || !verifier) return offline('SUPABASE_URL');
   if (!teamId) return offline('APPLE_TEAM_ID');
+  if (!publishableKey) return offline('SUPABASE_PUBLISHABLE_KEY');
   if (!secretKey) return offline('SUPABASE_SECRET_KEY');
   if (!privateKeyPem) return offline('APPLE_SIGN_IN_PRIVATE_KEY');
   if (!keyId) return offline('APPLE_SIGN_IN_KEY_ID');
   return createAccountDeleteHandler({
     verifier,
-    admin: createSupabaseAdmin({ supabaseUrl, secretKey, timeoutMs: accountUpstreamTimeoutMs }),
+    admin: createSupabaseAdmin({ supabaseUrl, publishableKey, secretKey, timeoutMs: accountUpstreamTimeoutMs }),
     revoker: createAppleTokenRevoker({
       teamId, keyId, privateKeyPem, now: () => new Date(), timeoutMs: accountUpstreamTimeoutMs,
     }),

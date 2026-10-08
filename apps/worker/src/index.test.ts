@@ -90,6 +90,7 @@ const boundEnv: Env = {
   ACCOUNT_DELETE_RATE_LIMIT: openLimiter,
   SUPABASE_URL: 'https://project.supabase.co',
   APPLE_TEAM_ID: 'TEAM123456',
+  SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_placeholder',
   SUPABASE_SECRET_KEY: 'sb_secret_placeholder',
   APPLE_SIGN_IN_PRIVATE_KEY: 'placeholder',
   APPLE_SIGN_IN_KEY_ID: 'KEY1234567',
@@ -475,7 +476,7 @@ test('a missing account setting takes only the account route offline', async (t)
   let calls = 0;
   t.mock.method(globalThis, 'fetch', async () => { calls += 1; throw new Error('network disabled in tests'); });
   for (const name of [
-    'ACCOUNT_DELETE_RATE_LIMIT', 'SUPABASE_URL', 'APPLE_TEAM_ID',
+    'ACCOUNT_DELETE_RATE_LIMIT', 'SUPABASE_URL', 'APPLE_TEAM_ID', 'SUPABASE_PUBLISHABLE_KEY',
     'SUPABASE_SECRET_KEY', 'APPLE_SIGN_IN_PRIVATE_KEY', 'APPLE_SIGN_IN_KEY_ID',
   ]) {
     const route = buildRouter({ ...boundEnv, [name]: undefined });
@@ -492,7 +493,7 @@ test('a missing account setting takes only the account route offline', async (t)
   );
   assert.equal(calls, 0);
   assert.deepEqual(warnings.map(({ binding }) => binding), [
-    'ACCOUNT_DELETE_RATE_LIMIT', 'SUPABASE_URL', 'APPLE_TEAM_ID',
+    'ACCOUNT_DELETE_RATE_LIMIT', 'SUPABASE_URL', 'APPLE_TEAM_ID', 'SUPABASE_PUBLISHABLE_KEY',
     'SUPABASE_SECRET_KEY', 'APPLE_SIGN_IN_PRIVATE_KEY', 'APPLE_SIGN_IN_KEY_ID', 'SUPABASE_URL', 'SUPABASE_URL',
   ]);
   for (const warning of warnings) {
@@ -538,7 +539,7 @@ test('the composed account route revokes with Apple before it deletes, over a fa
       return Response.json({ id: userId, identities: [{ provider: 'apple', provider_id: 'apple-subject' }] });
     }
     if (url.endsWith('/auth/v1/user')) {
-      assert.equal(init?.headers.apikey, 'sb_secret_placeholder');
+      assert.equal(init?.headers.apikey, 'sb_publishable_placeholder');
       assert.equal(init?.headers.Authorization, `Bearer ${token}`);
       return Response.json({ id: userId });
     }
