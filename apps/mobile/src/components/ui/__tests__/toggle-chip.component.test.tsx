@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { SymbolView } from 'expo-symbols';
 import { StyleSheet } from 'react-native';
 
@@ -14,33 +14,7 @@ const fill = (element: Readonly<{ props: Readonly<Record<string, unknown>> }>) =
 
 afterEach(() => jest.mocked(SymbolView).mockClear());
 
-test('the round toggle is a labelled 44-point outlined button whose glyph fills when selected', async () => {
-  const onPress = jest.fn();
-  const view = (selected: boolean) => (
-    <KuyaraThemeContext value={lightTheme}>
-      <ToggleChip accessibilityLabel="I like it" icon="thumbsUp" onPress={onPress} selected={selected}
-        selectedIcon="thumbsUpFilled" testID="toggle" />
-    </KuyaraThemeContext>
-  );
-  const result = await render(view(false));
-  const toggle = result.getByRole('button', { name: 'I like it' });
-  expect(toggle.props.accessibilityState).toEqual({ selected: false });
-  expect(fill(toggle)).toMatchObject({
-    width: 44, height: 44, backgroundColor: 'transparent', borderColor: lightTheme.colors.borderDefined,
-  });
-  expect(symbols().at(-1)).toBe(iconNames.thumbsUp);
-  await fireEvent.press(toggle);
-  expect(onPress).toHaveBeenCalledTimes(1);
-
-  await result.rerender(view(true));
-  const chosen = result.getByRole('button', { name: 'I like it' });
-  expect(chosen.props.accessibilityState).toEqual({ selected: true });
-  // The neutral interactive surface, never the accent.
-  expect(fill(chosen)).toMatchObject({ backgroundColor: lightTheme.colors.surfaceInteractive });
-  expect(symbols().at(-1)).toBe(iconNames.thumbsUpFilled);
-});
-
-test('the labelled toggle is named by its label, at least 44 points tall, with a check only when selected', async () => {
+test('the toggle is named by its label, at least 44 points tall, with a check only when selected', async () => {
   const view = (selected: boolean) => (
     <KuyaraThemeContext value={lightTheme}>
       <ToggleChip label="Not my style" onPress={jest.fn()} selected={selected} />

@@ -111,6 +111,9 @@ export default function SettingsRoute() {
         }}
         onStyleAestheticsChange={async (values) => {
           await updateStyleAesthetics?.(values);
+          // Saving the same set again is no change, whatever order the person picked it in.
+          const current = state.profile.styleAesthetics ?? [];
+          if (values.length === current.length && values.every((value) => current.includes(value))) return;
           // The chosen styles are a personal preference, so only the fact of a change is sent.
           analytics.capture('setting_changed', {
             schema_version: ANALYTICS_SCHEMA_VERSION,
@@ -151,6 +154,7 @@ export default function SettingsRoute() {
         onOpenBirthDate={() => push('/settings/birth-date')}
         onNameChange={async (name) => {
           await updateDisplayName(name);
+          if (name === state.profile.displayName) return;
           // The name is free text, so only the fact of a change is sent.
           analytics.capture('setting_changed', {
             schema_version: ANALYTICS_SCHEMA_VERSION,

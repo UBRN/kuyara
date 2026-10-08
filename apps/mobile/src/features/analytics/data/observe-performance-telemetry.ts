@@ -128,6 +128,8 @@ export const observePerformanceTelemetry: PerformanceTelemetry = {
   discardPending() {
     // While delivery is disabled the native dispatch advances the cursor past the stored
     // rows instead of sending them. While it is enabled that call would deliver them.
+    // Limit: the native dispatch checks an in-memory retry wait first, so while Observe waits
+    // to retry a failed send this moves nothing, and JavaScript cannot clear that wait.
     if (applied?.dispatchingEnabled !== false) return Promise.resolve();
     return observe?.Observe.dispatchEvents() ?? Promise.resolve();
   },

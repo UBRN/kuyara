@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Crossfade, Presence, ToggleChip, type IconName } from '@/components/ui';
+import { AppText, Crossfade, IconButton, Presence, ToggleChip, type IconName } from '@/components/ui';
 import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import type { OutfitRatingControl } from '@/features/today/application/use-outfit-rating';
 import { outfitRatingReasons, type OutfitVerdict } from '@/features/today/domain/outfit-rating';
@@ -21,7 +21,7 @@ export function OutfitDetailRating({ control, copy }: Readonly<{
   // VoiceOver ignores the live region, so iOS hears the changed line spoken once.
   useStatusAnnouncement(line);
   const verdictButton = (verdict: OutfitVerdict, label: string, icon: IconName, selectedIcon: IconName) => (
-    <ToggleChip
+    <IconButton
       accessibilityLabel={label}
       icon={icon}
       onPress={() => rate({ kind: 'verdict', verdict })}

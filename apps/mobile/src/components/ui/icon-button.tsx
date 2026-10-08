@@ -9,6 +9,7 @@ import {
   resolveInteractiveAccessibilityState,
 } from '@/components/ui/primitive-contracts';
 import { borderWidths, layout, radii } from '@/theme/theme';
+import { useStrongEdge } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 const GLYPH_SIZE = 20;
@@ -22,11 +23,19 @@ export type IconButtonProps = Omit<
   disabled?: boolean;
   /** Drawn on a sheet, where the dark appearance lifts the tonal fill. */
   raised?: boolean;
-};
+} & (
+  /** A toggle: the outlined button keeps one choice on or off, with `selectedIcon` when on. */
+  | Readonly<{ selected: boolean; selectedIcon: IconName }>
+  | Readonly<{ selected?: undefined; selectedIcon?: undefined }>
+);
 
 /**
  * O5's rare icon-only action inside content: a 44-point circle on the tonal fill with a
  * 20-point glyph in the primary ink. Bar buttons and sheet close are `GlassButton`.
+ *
+ * With `selected` it is a toggle instead: the `borderDefined` edge on a transparent fill at
+ * rest, the filled glyph and the neutral `surfaceInteractive` fill when selected, never the
+ * accent, and the selected trait says the same. A toggle fires no haptic (Law 8).
  */
 export function IconButton({
   accessibilityLabel,
@@ -37,10 +46,14 @@ export function IconButton({
   onFocus,
   onPress,
   raised = false,
+  selected,
+  selectedIcon,
   ...rest
 }: IconButtonProps) {
   const theme = useKuyaraTheme();
+  const strongEdge = useStrongEdge();
   const [isFocused, setIsFocused] = useState(false);
+  const toggle = selected !== undefined;
   const pressHandler = createPressHandler(onPress, disabled);
 
   return (
@@ -50,7 +63,7 @@ export function IconButton({
       accessibilityState={resolveInteractiveAccessibilityState(
         disabled,
         false,
-        accessibilityState,
+        toggle ? { ...accessibilityState, selected } : accessibilityState,
       )}
       disabled={disabled}
       onBlur={(event) => {
@@ -64,19 +77,27 @@ export function IconButton({
       onPress={pressHandler}
       style={({ pressed }) => [
         styles.button,
-        {
-          backgroundColor: resolveButtonColors(theme, 'tonal', {
-            disabled,
-            pressed: pressed && !disabled,
-            raised,
-          }).backgroundColor,
-        },
+        toggle
+          ? {
+              backgroundColor: pressed && !disabled
+                ? theme.colors.surfaceInteractivePressed
+                : selected ? theme.colors.surfaceInteractive : 'transparent',
+              borderColor: strongEdge?.borderColor ?? theme.colors.borderDefined,
+              borderWidth: strongEdge?.borderWidth ?? borderWidths.subtle,
+            }
+          : {
+              backgroundColor: resolveButtonColors(theme, 'tonal', {
+                disabled,
+                pressed: pressed && !disabled,
+                raised,
+              }).backgroundColor,
+            },
         isFocused && { outlineColor: theme.colors.focusRing },
       ]}
       {...rest}>
       <Icon
         color={disabled ? theme.colors.borderDefined : theme.colors.iconPrimary}
-        name={icon}
+        name={selected ? selectedIcon : icon}
         size={GLYPH_SIZE}
       />
     </PressScale>

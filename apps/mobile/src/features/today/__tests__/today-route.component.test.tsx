@@ -4859,6 +4859,18 @@ describe('like and dislike on detail', () => {
     expect(capturesOf(props.productAnalytics, 'outfit_rating_reason_given')).toEqual([]);
   });
 
+  test('two taps before a re-render count once each: like then like clears and reports one', async () => {
+    const props = detailProps();
+    const result = await openDetail(2, props);
+    const button = like(result)!;
+    await act(async () => {
+      fireEvent.press(button);
+      fireEvent.press(button);
+    });
+    expect(selected(like(result))).toBe(false);
+    expect(capturesOf(props.productAnalytics, 'outfit_rated')).toEqual([{ ...rated(2), verdict: 'like' }]);
+  });
+
   test('a dislike offers four reasons; one is set, switched and cleared, and only setting reports', async () => {
     const props = detailProps();
     const result = await openDetail(1, props);

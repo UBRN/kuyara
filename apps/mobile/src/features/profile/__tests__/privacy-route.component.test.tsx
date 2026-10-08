@@ -18,12 +18,14 @@ jest.mock('@/features/analytics/application/use-screen-viewed', () => ({
   useScreenViewed: () => undefined,
 }));
 
+let mockRemoveWithdrawnIdentifier: () => void = () => undefined;
+
 jest.mock('@/features/analytics/application/use-analytics-consent', () => ({
   useAnalyticsConsent: () => ({
     consent: 'withdrawn',
     getIdentifier: () => null,
-    getWithdrawnIdentifier: () => null,
-    removeWithdrawnIdentifier: () => undefined,
+    getWithdrawnIdentifier: () => 'kept-identifier',
+    removeWithdrawnIdentifier: () => mockRemoveWithdrawnIdentifier(),
     grant: jest.fn(async () => undefined),
     withdraw: jest.fn(async () => undefined),
     decline: jest.fn(async () => undefined),
@@ -60,4 +62,36 @@ test.each([
   expect(openURL).toHaveBeenCalledTimes(1);
   expect(openURL).toHaveBeenCalledWith(url);
   openURL.mockRestore();
+});
+
+describe('removing the kept identifier', () => {
+  async function renderRoute() {
+    return render(
+      <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
+        <KuyaraThemeContext.Provider value={lightTheme}>
+          <SafeAreaProvider initialMetrics={initialMetrics}>
+            <PrivacySettingsRoute />
+          </SafeAreaProvider>
+        </KuyaraThemeContext.Provider>
+      </LocalizationContext.Provider>,
+    );
+  }
+
+  afterEach(() => {
+    mockRemoveWithdrawnIdentifier = () => undefined;
+  });
+
+  test('a removed identifier leaves the screen', async () => {
+    const result = await renderRoute();
+    expect(result.getByTestId('settings-privacy-withdrawn-identifier')).toHaveTextContent('kept-identifier');
+    await fireEvent.press(result.getByTestId('settings-privacy-remove-identifier-row'));
+    expect(result.queryByTestId('settings-privacy-withdrawn-identifier-group')).toBeNull();
+  });
+
+  test('a file that cannot be deleted keeps the row and breaks nothing', async () => {
+    mockRemoveWithdrawnIdentifier = () => { throw new Error('delete failed'); };
+    const result = await renderRoute();
+    await fireEvent.press(result.getByTestId('settings-privacy-remove-identifier-row'));
+    expect(result.getByTestId('settings-privacy-withdrawn-identifier')).toHaveTextContent('kept-identifier');
+  });
 });

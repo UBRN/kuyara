@@ -45,6 +45,11 @@ describe('useFirstRecommendationReport', () => {
     // The same root renders Today again: nothing more is reported.
     await screen.rerender(tree);
     expect(logEvent).toHaveBeenCalledTimes(1);
+
+    // Today unmounts and a new instance mounts under the same root: still one event.
+    await screen.unmount();
+    await render(tree);
+    expect(logEvent).toHaveBeenCalledTimes(1);
   });
 
   test('without a root clock it measures nothing', async () => {

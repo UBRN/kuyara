@@ -196,7 +196,7 @@ export const tr = {
     retryWithdraw: 'Kapatmayı yeniden dene',
     identifierLabel: 'Analitik kimliği',
     identifierFooter: 'Verilerinle ilgili bir talepte bu kimliği belirtebilirsin.',
-    withdrawnIdentifierFooter: 'Paylaşım kapalı ve bu kimlik artık kullanılmıyor. Yalnızca bu telefonda durur; bu kimlikle toplanan verilerin silinmesini istediğinde belirtebilirsin.',
+    withdrawnIdentifierFooter: 'Paylaşım kapalı ve bu kimlik artık kullanılmıyor. Bu cihazda ve yedeklerinde durur; kuyara onu hiçbir yere göndermez. Bu kimlikle toplanan verilerin silinmesini istediğinde belirtebilirsin.',
     removeIdentifier: 'Kimliği bu telefondan kaldır',
     privacyPolicyLabel: 'Gizlilik politikası',
   },

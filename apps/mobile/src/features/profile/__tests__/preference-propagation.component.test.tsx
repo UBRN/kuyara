@@ -466,6 +466,40 @@ test('morning sheet, style and name changes report setting_changed and never the
   expect(JSON.stringify(analytics.captures)).not.toMatch(/classic|Deniz/);
 });
 
+test('saving the same styles or the same name again reports nothing', async () => {
+  mockProfile = { ...createProfile(), displayName: 'Deniz', styleAesthetics: '["classic","minimal"]' };
+  const analytics = new RecordingProductAnalytics('granted');
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider analytics={analytics} firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  // Off and on again lands on the same two styles in the other order.
+  await fireEvent.press(await result.findByTestId('settings-style-preferences-row'));
+  await fireEvent.press(result.getByTestId('settings-style-option-classic'));
+  await fireEvent.press(result.getByTestId('settings-style-option-classic'));
+  await fireEvent.press(result.getByTestId('settings-style-done'));
+  await waitFor(() => expect(result.queryByTestId('settings-style-done')).toBeNull());
+
+  await fireEvent.press(result.getByTestId('settings-name-row'));
+  await fireEvent.changeText(await result.findByTestId('name-edit-input'), 'Deniz');
+  await fireEvent.press(result.getByTestId('name-sheet-done'));
+  await waitFor(() => expect(result.queryByTestId('name-sheet-done')).toBeNull());
+  expect(analytics.captures).toEqual([]);
+
+  // A different set does report.
+  await fireEvent.press(result.getByTestId('settings-style-preferences-row'));
+  await fireEvent.press(result.getByTestId('settings-style-option-sporty'));
+  await fireEvent.press(result.getByTestId('settings-style-done'));
+  await waitFor(() => expect(analytics.captures).toHaveLength(1));
+  expect(analytics.captures[0].properties).toEqual({ schema_version: 4, setting_name: 'style_aesthetics' });
+});
+
 test('a quick double tap on a Settings row opens its screen once', async () => {
   const result = await render(
     <SafeAreaProvider initialMetrics={initialMetrics}>

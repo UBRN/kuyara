@@ -2,8 +2,9 @@
 // recommendation, with the time since the process start mark. It is not `markInteractive`:
 // that marks the first draw of Today in any state, a loading one included, so it cannot say
 // when a recommendation was actually there to read.
-import { useCallback, use, useMemo } from 'react';
+import { useCallback, use } from 'react';
 
+import type { ProcessClock } from '@/features/analytics/domain/process-clock';
 import type { PerformanceTelemetry } from '@/features/analytics/domain/performance-telemetry';
 import {
   firstRecommendationShownAttributes,
@@ -35,10 +36,21 @@ export function createFirstRecommendationReport(clock: Readonly<{ elapsedMs: () 
   };
 }
 
+// One reporter per process clock, held outside any component, so the once-per-process rule
+// survives every Today mount, unmount and shell remount.
+const reporters = new WeakMap<object, ReturnType<typeof createFirstRecommendationReport>>();
+
+function reporterFor(clock: Pick<ProcessClock, 'elapsedMs'>) {
+  let report = reporters.get(clock);
+  if (!report) {
+    report = createFirstRecommendationReport(clock);
+    reporters.set(clock, report);
+  }
+  return report;
+}
+
 export function useFirstRecommendationReport(): (shown: ShownRecommendation) => void {
   const telemetry = usePerformanceTelemetry();
-  const clock = use(ProcessClockContext);
-  // One reporter per root, so the once-per-process rule survives every Today mount.
-  const report = useMemo(() => createFirstRecommendationReport(clock), [clock]);
+  const report = reporterFor(use(ProcessClockContext));
   return useCallback((shown) => report(telemetry, shown), [report, telemetry]);
 }

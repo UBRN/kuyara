@@ -223,6 +223,8 @@ export function createAccountSessionManager({
   /** The pass in flight, and the one pass that follows it for every request made meanwhile. */
   let running: Promise<AccountSyncSummary | null> | null = null;
   let trailing: Promise<AccountSyncSummary | null> | null = null;
+  /** What the queued trailing pass reports as its trigger: the latest caller that joined it. */
+  let trailingTrigger: AccountSyncTrigger = 'foreground';
   /** The deletion in flight: no pass starts meanwhile, and a session end waits for it. */
   let deleting: Promise<void> | null = null;
   const listeners = new Set<() => void>();
@@ -278,9 +280,10 @@ export function createAccountSessionManager({
       running = pass(trigger).finally(() => { running = null; });
       return running;
     }
+    trailingTrigger = trigger;
     trailing ??= running.then(() => {
       trailing = null;
-      return runSync(trigger);
+      return runSync(trailingTrigger);
     });
     return trailing;
   };

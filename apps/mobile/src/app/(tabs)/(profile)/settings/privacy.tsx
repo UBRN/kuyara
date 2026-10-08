@@ -14,7 +14,15 @@ function ReadyPrivacySettingsRoute() {
   const consent = useAnalyticsConsent();
   const privacyPolicyUrl: string | null = PRIVACY_POLICY_URL[language];
   useScreenViewed('settings_privacy');
-  const [, refreshWithdrawnIdentifier] = useState(0);
+  // The kept identifier, read again whenever the answer changes: withdrawing keeps one,
+  // granting clears it. Removing it only shows as gone once the file is gone.
+  const [withdrawn, setWithdrawn] = useState({
+    answer: consent.consent,
+    identifier: consent.getWithdrawnIdentifier(),
+  });
+  if (withdrawn.answer !== consent.consent) {
+    setWithdrawn({ answer: consent.consent, identifier: consent.getWithdrawnIdentifier() });
+  }
 
   return (
     <>
@@ -27,10 +35,14 @@ function ReadyPrivacySettingsRoute() {
       <PrivacySettingsScreen
         consent={consent.consent}
         identifier={consent.getIdentifier()}
-        withdrawnIdentifier={consent.consent === 'granted' ? null : consent.getWithdrawnIdentifier()}
+        withdrawnIdentifier={withdrawn.identifier}
         onRemoveWithdrawnIdentifier={() => {
-          consent.removeWithdrawnIdentifier();
-          refreshWithdrawnIdentifier((revision) => revision + 1);
+          try {
+            consent.removeWithdrawnIdentifier();
+            setWithdrawn((current) => ({ ...current, identifier: null }));
+          } catch {
+            // A file that cannot be deleted stays, and so does the row that shows it.
+          }
         }}
         onGrant={() => consent.grant('settings_privacy')}
         onOpenPrivacyPolicy={() => {

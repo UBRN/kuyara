@@ -283,8 +283,9 @@ the decision is:
   infrastructure with no other caller and is not approved here. The privacy policy instead
   allows a request to be sent to the maintainer by email, and the Settings screen lets the
   user see and copy their analytics identifier so a request about their data can name it.
-  At withdrawal the app keeps that identifier in a device-only file, outside the profile row
-  and never read by analytics, so Privacy still shows it after sharing is turned off, until
+  At withdrawal the app keeps that identifier in a file in its document folder, which device
+  and cloud backups include, outside the profile row and never read by analytics or sent
+  anywhere by kuyara, so Privacy still shows it after sharing is turned off, until
   the person removes it or turns sharing back on (which clears it before a new identifier
   starts).
   The outcome is not guaranteed because the persons API cannot delete events by identifier
@@ -556,10 +557,11 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   delivery. This closes same-session replay of rows already recorded before the grant.
   Three native limits remain: dispatch defaults to enabled before JavaScript configures it;
   a MetricKit crash row from an earlier launch can arrive after the grant and cross the
-  cursor then; and the in-process retry gate that follows a failed send returns before the
-  disabled dispatch advances a cursor, so rows written while sharing was withdrawn can be
-  sent after a re-grant inside that backoff window. `dispatchEvents()` resolves in every
-  case, so JavaScript cannot tell. The package offers no iOS clearing API: `clearStoredEntries` is an
+  cursor then; and the in-memory wait that follows a failed send is checked before the disabled
+  dispatch advances a cursor, so after a withdrawal and a re-grant in the same process while
+  Observe is waiting to retry a failed send, rows written while sharing was off can be sent
+  when the wait ends. The adapter's discard cannot clear that wait, and `dispatchEvents()`
+  resolves in every case, so JavaScript cannot tell. The package offers no iOS clearing API: `clearStoredEntries` is an
   empty no-op there (`expo-app-metrics/ios/AppMetricsModule.swift`). These are upstream
   gaps alongside the missing privacy manifests.
 

@@ -164,9 +164,9 @@ edebilir, ancak paylaşım kapalıyken Observe'a gönderilmez; paylaşımı yeni
 yukarıdaki nadir gönderim sınırları geçerlidir. Uygulama analitik kimliğini de kullanmayı
 bırakır; böylece o ana kadar toplanan olaylar sonrasında toplananlarla ilişkilendirilemez.
 Paylaşımı yeniden açmak yeni bir analitik
-kimliği oluşturur. Silinmesini yine de isteyebilmen için eski kimlik telefonunda kalır ve
-sen kaldırana ya da paylaşımı yeniden açana kadar Gizlilik bölümünde görünür; hiçbir yere
-gönderilmez. Tanılama kimliği cihazında kalır ve yukarıda anlatılan ayrı Expo
+kimliği oluşturur. Silinmesini yine de isteyebilmen için eski kimlik telefonunda ve
+yedeklerinde kalır, sen kaldırana ya da paylaşımı yeniden açana kadar Gizlilik bölümünde
+görünür; kuyara onu hiçbir yere göndermez. Tanılama kimliği cihazında kalır ve yukarıda anlatılan ayrı Expo
 Insights açılış sayımı ile Expo Updates güncelleme kontrolüne eşlik etmeye devam eder.
 Bu istekler anahtarın kapsamında değildir ve her durumda sürer.
 

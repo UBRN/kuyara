@@ -160,8 +160,8 @@ none are sent to Observe while sharing is off; the rare delivery limits above ap
 turn sharing back on. The app also stops using the analytics identifier, so events collected
 before that moment cannot be linked to anything collected later. Turning sharing back on
 creates a new analytics identifier. So that you can still ask for deletion, the old
-identifier stays on your phone and is shown under Privacy until you remove it or turn
-sharing back on; it is never sent anywhere.
+identifier stays on your phone and in its backups, and is shown under Privacy until you
+remove it or turn sharing back on; kuyara never sends it anywhere.
 The diagnostics identifier stays on your device and still accompanies the separate Expo
 Insights launch count and Expo Updates check described above. Those requests are outside
 this switch and continue either way.

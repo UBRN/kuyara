@@ -107,9 +107,12 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       await firstUses.clear();
       // A new identifier starts, so the earlier one is no longer the one to quote.
       withdrawnIdentifiers.clear();
-      // Observe recorded the unanswered period without sending it. Discard that before the
-      // answer is stored: if the app is killed right after the write, the next launch reads
-      // `granted` and enables delivery, and nothing recorded before the answer may be left.
+      // Observe recorded the unanswered period without sending it. The discard moves its stored
+      // rows past the send cursor, and it runs before the answer is stored: if the app is killed
+      // right after the write, the next launch reads `granted` and enables delivery.
+      // Limit: the native dispatch checks an in-memory retry wait before it moves the cursor, so
+      // after a failed send, a withdrawal and a re-grant in this same process while Observe
+      // waits to retry, this does nothing and those rows are sent when the wait ends.
       await telemetry.discardPending();
       await updateAnalyticsConsent('granted');
       try {

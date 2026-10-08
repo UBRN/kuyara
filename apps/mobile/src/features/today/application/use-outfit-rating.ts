@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useAnalyticsConsentGranted } from '@/features/analytics/application/use-analytics-consent';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
@@ -52,26 +52,31 @@ export function useOutfitRating(input: Readonly<{
   const [shown, setShown] = useState(() => ({ key, rating: key ? ratings.get(key) ?? null : null }));
   if (shown.key !== key) setShown({ key, rating: key ? ratings.get(key) ?? null : null });
 
-  if (!granted || tomorrow || changed || !position || !outfit || !key
-    || recommendation?.status !== 'recommended') return null;
-  const rated = {
-    schema_version: ANALYTICS_SCHEMA_VERSION,
-    outfit_position: position,
-    archetype: outfit.archetypeId,
-    generation_mode: generationModeProperty(recommendation.generationMode),
-  } as const;
-  return {
-    rating: shown.rating,
-    rate: (tap) => {
-      const { rating, set } = rateOutfit(shown.rating, tap);
-      if (rating) ratings.set(key, rating);
-      else ratings.delete(key);
-      setShown({ key, rating });
-      if (set?.kind === 'verdict') {
-        analytics.capture('outfit_rated', { ...rated, verdict: set.verdict });
-      } else if (set) {
-        analytics.capture('outfit_rating_reason_given', { ...rated, reason: outfitRatingReasonProperty(set.reason) });
-      }
-    },
-  };
+  // One control per choice, so a parent render that changes nothing hands Outfit detail the
+  // same object and it has nothing to keep in step.
+  return useMemo(() => {
+    if (!granted || tomorrow || changed || !position || !outfit || !key
+      || recommendation?.status !== 'recommended') return null;
+    const rated = {
+      schema_version: ANALYTICS_SCHEMA_VERSION,
+      outfit_position: position,
+      archetype: outfit.archetypeId,
+      generation_mode: generationModeProperty(recommendation.generationMode),
+    } as const;
+    return {
+      rating: shown.rating,
+      rate: (tap: OutfitRatingTap) => {
+        // The module map is current at once; the render state lags a tap that has not re-rendered.
+        const { rating, set } = rateOutfit(ratings.get(key) ?? null, tap);
+        if (rating) ratings.set(key, rating);
+        else ratings.delete(key);
+        setShown({ key, rating });
+        if (set?.kind === 'verdict') {
+          analytics.capture('outfit_rated', { ...rated, verdict: set.verdict });
+        } else if (set) {
+          analytics.capture('outfit_rating_reason_given', { ...rated, reason: outfitRatingReasonProperty(set.reason) });
+        }
+      },
+    };
+  }, [analytics, changed, granted, key, outfit, position, recommendation, shown.rating, tomorrow]);
 }

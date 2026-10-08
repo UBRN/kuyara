@@ -204,7 +204,7 @@ export const en = {
     retryWithdraw: 'Retry turning off',
     identifierLabel: 'Analytics identifier',
     identifierFooter: 'You can quote this identifier in a request about your data.',
-    withdrawnIdentifierFooter: 'Sharing is off and this identifier is no longer used. It stays only on this phone, so you can quote it when you ask for the data collected under it to be deleted.',
+    withdrawnIdentifierFooter: 'Sharing is off and this identifier is no longer used. It stays on this device and its backups, and kuyara never sends it anywhere, so you can quote it when you ask for the data collected under it to be deleted.',
     removeIdentifier: 'Remove identifier from this phone',
     privacyPolicyLabel: 'Privacy policy',
   },

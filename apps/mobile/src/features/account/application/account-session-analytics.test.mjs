@@ -113,6 +113,29 @@ test('the same trigger and outcome is reported once per process, a changed outco
   assert.deepEqual(named(events, 'account_sync_finished').map((properties) => properties.trigger), ['foreground', 'local_write']);
 });
 
+test('a sign-in that joins a queued local-write pass gives that pass its own trigger', async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  let calls = 0;
+  const { manager, events } = setup({
+    current: identity,
+    sync: { run: async () => {
+      calls += 1;
+      if (calls === 1) await gate;
+      return { pendingChanges: 0, closetPieces: 0, historyDays: 0, syncConsent: 'given', firstLink: null };
+    } },
+  });
+  const started = manager.start();
+  while (calls === 0) await new Promise((resolve) => setImmediate(resolve));
+  const queued = manager.localWrite();
+  manager.openSignIn('profile');
+  const signedIn = manager.signIn('google');
+  await new Promise((resolve) => setImmediate(resolve));
+  release();
+  await Promise.all([started, queued, signedIn]);
+  assert.deepEqual(named(events, 'account_sync_finished').map((properties) => properties.trigger), ['foreground', 'sign_in']);
+});
+
 test('a pass that does not run reports nothing', async () => {
   const { manager, events } = setup({ current: identity });
   await manager.start();
