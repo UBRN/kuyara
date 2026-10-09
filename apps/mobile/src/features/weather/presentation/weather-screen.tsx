@@ -222,6 +222,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
           body={copy.loadErrorBody}
           onRetry={() => void application.retry()}
           retryLabel={copy.retry}
+          shown={shown}
           title={copy.loadErrorTitle}
         />
       </Screen>
@@ -619,6 +620,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
           body={failureCopy.body}
           onRetry={() => void handleRefresh()}
           retryLabel={copy.retry}
+          shown={shown}
           title={failureCopy.title}
         />
       ) : state.activeLocation ? (

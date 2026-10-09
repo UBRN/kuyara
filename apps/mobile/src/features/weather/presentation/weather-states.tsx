@@ -34,11 +34,19 @@ export function WeatherErrorState({
   body,
   onRetry,
   retryLabel,
+  shown = true,
   title,
-}: Readonly<{ body: string; onRetry: () => void; retryLabel: string; title: string }>) {
+}: Readonly<{
+  body: string;
+  onRetry: () => void;
+  retryLabel: string;
+  /** False while the tab is mounted but not shown: the failure is spoken once it is. */
+  shown?: boolean;
+  title: string;
+}>) {
   const theme = useKuyaraTheme();
   // VoiceOver ignores the live region on the line, so iOS also speaks the failure.
-  useErrorAnnouncement(`${title}. ${body}`);
+  useErrorAnnouncement(shown ? `${title}. ${body}` : null);
   return (
     <View style={styles.error} testID="weather-load-error">
       <Icon color={theme.colors.dangerInk} name="error" size={20} />

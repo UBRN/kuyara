@@ -1925,6 +1925,25 @@ test('a failed load is spoken on iOS, title and line together', async () => {
   announce.mockRestore();
 });
 
+// The tab mounts at launch while Today is showing: its failure is spoken when the tab is
+// first shown, never over the screen the person is on.
+test('a failed load on the hidden tab is spoken only once the tab is shown', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const copy = messages.en.weather;
+  const screen = (shown: boolean) => (
+    <Providers language="en" value={createValue({ status: 'error' } as WeatherApplicationValue['state'])}>
+      <WeatherScreen shown={shown} />
+    </Providers>
+  );
+  const result = await render(screen(false));
+  expect(announce).not.toHaveBeenCalled();
+  await result.rerender(screen(true));
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenCalledWith(`${copy.loadErrorTitle}. ${copy.loadErrorBody}`);
+  announce.mockRestore();
+});
+
 test('a cacheless refresh failure offers its own retry in the same anatomy', async () => {
   const value = createValue({
     ...baseState,
