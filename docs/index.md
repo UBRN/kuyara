@@ -8,6 +8,7 @@ description: What to wear today? Every morning, kuyara has an outfit for the wea
 hero_title: Dressed for your day.
 hero_line: What to wear today? Every morning, an outfit for the weather ahead, made just for you.
 yours_line: All yours, every morning.
+dress_hint: Keep scrolling. The colder it gets, the warmer you are dressed.
 
 scenes_title: An outfit for every kind of weather
 looks:

@@ -113,7 +113,7 @@ img, svg { max-width: 100%; }
 .ku-header .ku-controls { margin-bottom: 0; margin-inline-start: auto; }
 .ku-header .lang-switcher { margin-bottom: 0; }
 
-/* A phone keeps the symbol, the appearance selector and the language menu on one row. */
+/* A phone keeps the symbol, the appearance button and the language menu on one row. */
 @media (max-width: 559px) {
   .ku-brand__name { display: none; }
 }

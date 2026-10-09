@@ -8,6 +8,7 @@ description: Bugün ne giysem? kuyara her sabah hava durumuna göre kombin hazı
 hero_title: Bugün ne giyeceğin hazır.
 hero_line: Ne giysem diye düşünme. Her sabah, hava durumuna göre sana özel bir kombin seni bekliyor.
 yours_line: Tamamen senin, her sabah.
+dress_hint: Kaydırmaya devam et. Hava soğudukça kombinin seni sarar.
 
 scenes_title: Her havaya göre bir kombin
 looks:

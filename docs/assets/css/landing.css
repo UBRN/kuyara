@@ -31,9 +31,7 @@
 
 /* --------------------------------------------------------------------- hero */
 
-.ku-hero { padding-block: var(--ku-space-xl) var(--ku-space-md); }
-
-.ku-hero__words { display: grid; gap: var(--ku-space-md); justify-items: start; }
+.ku-hero__words { display: grid; gap: var(--ku-space-md); justify-items: start; align-content: start; }
 .ku-hero__words h1,
 .ku-hero__words p { margin: 0; }
 .ku-hero__line { max-width: 30em; color: var(--ku-text-secondary); }
@@ -41,28 +39,157 @@
 /* The name, set as the header sets it, above the headline where the header hides it. */
 .ku-hero__name { display: none; font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: -0.2px; }
 
-@media (max-width: 559px) {
-  .ku-hero__name { display: block; }
-}
-
 .ku-badge { display: inline-flex; align-self: start; padding: 13px 0; }
 .ku-badge img { display: block; height: 50px; width: auto; }
 
 .ku-hero__cta { display: grid; gap: var(--ku-space-xs); justify-items: start; }
 .ku-hero__cta p { margin: 0; color: var(--ku-text-secondary); }
 
-/* The hero's look shows from 960 pixels, beside the words. */
-.ku-hero__art { display: none; }
+/*
+ * The dressing stage. Without the script it is a plain first screen: the words, then the
+ * first scene's board. With it (.ku-dress-live) the section grows one step of scroll per
+ * scene and the stage stays pinned while the boards change under it.
+ */
+.ku-dress { --ku-dress-step: 62svh; }
+.ku-dress__stage { padding-block: var(--ku-space-lg) var(--ku-space-xl); }
 
+.ku-hero__inner { display: grid; gap: var(--ku-space-xl); }
+
+.ku-dress__art {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: var(--ku-space-sm);
+  justify-items: center;
+  min-height: 0;
+}
+
+.ku-dress__plate {
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 4 / 5;
+  transition: background-color var(--ku-motion-deliberate) linear;
+}
+
+/* The five boards share one cell; only the current one shows. */
+.ku-dress__look {
+  position: relative;
+  z-index: 1;
+  grid-area: 1 / 1;
+  display: grid;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--ku-motion-normal) linear, visibility 0s linear var(--ku-motion-normal);
+}
+
+.ku-dress__look.is-current { opacity: 1; visibility: visible; transition-delay: 0s; }
+
+/* The weather above the plate: the temperature, then the scene and its sky. */
+.ku-dress__weathers { display: grid; width: 100%; max-width: 360px; }
+
+.ku-dress__weather {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--ku-space-sm);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity var(--ku-motion-normal) linear, transform var(--ku-motion-deliberate) ease-out;
+}
+
+.ku-dress__weather.is-current { opacity: 1; transform: none; }
+
+.ku-dress__temp { font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: -0.6px; }
+.ku-dress__sky { font-size: 15px; line-height: 20px; font-weight: 600; color: var(--ku-text-secondary); }
+
+.ku-dress__hint { margin: 0; max-width: 360px; text-align: center; color: var(--ku-text-secondary); }
+
+/* How far the stage has dressed, as a thin rule under the plate. */
+.ku-dress__progress {
+  display: none;
+  width: 100%;
+  max-width: 120px;
+  height: 3px;
+  overflow: hidden;
+  background-color: var(--ku-border-subtle);
+  border-radius: var(--ku-radius-pill);
+}
+
+.ku-dress__progress span {
+  display: block;
+  height: 100%;
+  background-color: var(--ku-brand-accent);
+  border-radius: inherit;
+  transform: scaleX(var(--ku-dress-progress, 0));
+  transform-origin: left center;
+}
+
+.ku-dress-live .ku-dress { height: calc(100svh - 60px + 4.4 * var(--ku-dress-step)); }
+.ku-dress-live .ku-dress__progress { display: block; }
+
+/* The stage pins just below where the header row ends (its 44 pixel controls and 8 pixel
+   padding each side), so the first screen and the pinned stage are one and the same. */
+.ku-dress-live .ku-dress__stage {
+  position: sticky;
+  top: 60px;
+  height: calc(100svh - 60px);
+  padding-block: var(--ku-space-lg);
+  overflow: hidden;
+}
+
+.ku-dress-live .ku-hero__inner {
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--ku-space-md);
+}
+
+.ku-dress-live .ku-dress__plate { width: auto; height: 100%; max-width: 100%; max-height: 620px; }
+
+/* A piece is put on when the scroll reaches it, on the app's arrival spring (550 ms,
+   damping ratio 0.65, theme.ts) sampled into linear(), and taken off when the scroll goes
+   back. Without linear() it eases out. */
+.ku-dress-live .ku-dress .ku-piece {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transform: translateY(-6%) scale(0.9);
+  transition: opacity var(--ku-motion-normal) linear, transform 550ms ease-out;
+}
+
+@supports (animation-timing-function: linear(0, 1)) {
+  .ku-dress-live .ku-dress .ku-piece {
+    transition-timing-function: linear, linear(0, 0.047, 0.163, 0.312, 0.469, 0.619, 0.75, 0.857, 0.939, 0.998, 1.037, 1.058, 1.067, 1.067, 1.061, 1.052, 1.041, 1.031, 1.021, 1.013, 1.007, 1.002, 0.999, 0.997, 0.996, 0.995, 0.996, 0.996, 0.997, 0.998, 0.998, 0.999, 1);
+  }
+}
+
+.ku-dress-live .ku-dress .ku-piece.is-on { opacity: 1; transform: none; }
+
+/* A phone: the name above a headline set one step smaller, the badge beside its line,
+   so the words, the badge and the plate share the first screen. */
+@media (max-width: 559px) {
+  .ku-hero__name { display: block; }
+  .ku-dress .ku-display { font-size: 34px; line-height: 41px; letter-spacing: -0.6px; }
+  .ku-dress .ku-hero__words { gap: var(--ku-space-sm); }
+  .ku-dress .ku-hero__cta { display: flex; align-items: center; gap: var(--ku-space-md); }
+}
+
+/* From 960 pixels the words stand beside the plate. */
 @media (min-width: 960px) {
-  .ku-hero { padding-block: calc(2 * var(--ku-space-2xl)) 0; }
+  .ku-dress { --ku-dress-step: 70svh; }
+  .ku-dress__stage { padding-block: calc(2 * var(--ku-space-2xl)) 0; }
   .ku-hero__inner {
-    display: grid;
-    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
     gap: calc(2 * var(--ku-space-2xl));
     align-items: center;
   }
-  .ku-hero__art { display: block; width: 100%; max-width: 380px; justify-self: end; }
+  .ku-dress__plate,
+  .ku-dress__weathers,
+  .ku-dress__hint { max-width: 440px; }
+  .ku-dress-live .ku-dress__stage { padding-block: var(--ku-space-2xl); }
+  .ku-dress-live .ku-hero__inner { grid-template-rows: minmax(0, 1fr); }
+  .ku-dress-live .ku-dress__art { height: 100%; grid-template-rows: auto minmax(0, 620px) auto auto; align-content: center; }
 }
 
 /* ------------------------------------------------------------------- scenes */
@@ -88,7 +215,7 @@
     padding-block: var(--ku-space-2xl);
   }
   /* Two tiles of about a phone's width each, so a scene fits one laptop screen. */
-  .ku-looks { width: 100%; max-width: 620px; justify-self: end; }
+  .ku-looks { width: 100%; max-width: 680px; justify-self: end; }
 }
 
 /* A women's and a men's board side by side, the way a shop shows both. */
@@ -173,8 +300,8 @@
  * linear(). Without linear() or without the script the boards simply stand.
  */
 @supports (animation-timing-function: linear(0, 1)) {
-  .ku-scenes-live [data-particles] .ku-piece { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; }
-  .ku-scenes-live [data-particles].is-in .ku-piece {
+  .ku-scenes-live .ku-scene .ku-piece { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; }
+  .ku-scenes-live .ku-scene.is-in .ku-piece {
     opacity: 1;
     animation:
       ku-land 550ms linear(0, 0.047, 0.163, 0.312, 0.469, 0.619, 0.75, 0.857, 0.939, 0.998, 1.037, 1.058, 1.067, 1.067, 1.061, 1.052, 1.041, 1.031, 1.021, 1.013, 1.007, 1.002, 0.999, 0.997, 0.996, 0.995, 0.996, 0.996, 0.997, 0.998, 0.998, 0.999, 1) backwards,

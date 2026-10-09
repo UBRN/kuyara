@@ -36,29 +36,55 @@
     {% include site-header.html %}
 
     <main id="ku-main">
-      <section class="ku-hero" aria-labelledby="ku-hero-title">
-        <div class="ku-shell ku-hero__inner">
-          <div class="ku-hero__words">
-            {%- comment -%} A phone's header shows only the symbol, so the name stands above the headline there. {%- endcomment %}
-            <p class="ku-hero__name">kuyara</p>
-            <h1 class="ku-display" id="ku-hero-title">{{ page.hero_title }}</h1>
-            <p class="ku-body ku-hero__line">{{ page.hero_line }}</p>
-            <div class="ku-hero__cta">
-              {%- comment -%} Apple's badge artwork, unmodified, under Apple's App Store Marketing
-              Artwork License Agreement: 50px tall, with a quarter of its height kept clear. {%- endcomment %}
-              <a class="ku-badge" href="https://apps.apple.com/app/id6806664440">
-                <img src="{{ page.badge_file | relative_url }}" alt="{{ page.badge_alt }}" width="{{ page.badge_width }}" height="50">
-              </a>
-              <p class="ku-caption">{{ page.yours_line }}</p>
+      {%- comment -%}
+        The first screen dresses as it scrolls: one plate walks the five weather scenes from
+        sun to snow, and each scene's women's board lands piece by piece in the order it is
+        put on, while the temperature and the sky change with it. The boards are the scenes'
+        own generated boards, their drawing ids prefixed so they stay unique on the page.
+        Without the script the first board simply stands beside the words.
+      {%- endcomment %}
+      <section class="ku-hero ku-dress" aria-labelledby="ku-hero-title">
+        <div class="ku-dress__stage">
+          <div class="ku-shell ku-hero__inner">
+            <div class="ku-hero__words">
+              {%- comment -%} A phone's header shows only the symbol, so the name stands above the headline there. {%- endcomment %}
+              <p class="ku-hero__name">kuyara</p>
+              <h1 class="ku-display" id="ku-hero-title">{{ page.hero_title }}</h1>
+              <p class="ku-body ku-hero__line">{{ page.hero_line }}</p>
+              <div class="ku-hero__cta">
+                {%- comment -%} Apple's badge artwork, unmodified, under Apple's App Store Marketing
+                Artwork License Agreement: 50px tall, with a quarter of its height kept clear. {%- endcomment %}
+                <a class="ku-badge" href="https://apps.apple.com/app/id6806664440">
+                  <img src="{{ page.badge_file | relative_url }}" alt="{{ page.badge_alt }}" width="{{ page.badge_width }}" height="50">
+                </a>
+                <p class="ku-caption">{{ page.yours_line }}</p>
+              </div>
             </div>
-          </div>
-          {%- comment -%} On a wide screen one look stands beside the words; a phone meets the first scene instead. {%- endcomment %}
-          {%- assign hero = site.data.site_boards.hero %}
-          {%- assign hero_label = hero.label[lang] %}
-          <div class="ku-hero__art" data-particles="clouds" data-ink="cloudy">
-            <div class="ku-plate" data-atmosphere="{{ hero.atmosphere }}">
-              <canvas class="ku-particles" aria-hidden="true"></canvas>
-              {% include generated/hero.html label=hero_label %}
+            {%- assign first = site.data.site_boards.scenes | first %}
+            <div class="ku-dress__art" data-particles="{{ first.particles }}" data-ink="{{ first.ink }}">
+              <div class="ku-dress__weathers" aria-hidden="true">
+                {%- for scene in site.data.site_boards.scenes %}
+                <p class="ku-dress__weather{% if forloop.first %} is-current{% endif %}">
+                  <span class="ku-dress__temp">{{ scene.temperature }}</span>
+                  <span class="ku-dress__sky">{{ page.scenes[scene.id].name }} · {{ scene.condition[lang] }}</span>
+                </p>
+                {%- endfor %}
+              </div>
+              <div class="ku-plate ku-dress__plate" data-atmosphere="{{ first.atmosphere }}">
+                <canvas class="ku-particles" aria-hidden="true"></canvas>
+                {%- for scene in site.data.site_boards.scenes %}
+                {%- assign look = scene.looks | where: "preference", "womens" | first %}
+                {%- assign look_label = look.label[lang] %}
+                {%- assign id_to = 'id="d' | append: forloop.index0 | append: "-" %}
+                {%- assign url_to = "url(#d" | append: forloop.index0 | append: "-" %}
+                {%- capture board %}{% include generated/scene-{{ scene.id }}-womens.html label=look_label %}{% endcapture %}
+                <div class="ku-dress__look{% if forloop.first %} is-current{% endif %}" data-particles-kind="{{ scene.particles }}" data-ink="{{ scene.ink }}" data-atmosphere="{{ scene.atmosphere }}"{% unless forloop.first %} aria-hidden="true"{% endunless %}>
+                  {{ board | replace: 'id="', id_to | replace: "url(#", url_to }}
+                </div>
+                {%- endfor %}
+              </div>
+              <span class="ku-dress__progress" aria-hidden="true"><span></span></span>
+              <p class="ku-caption ku-dress__hint">{{ page.dress_hint }}</p>
             </div>
           </div>
         </div>
