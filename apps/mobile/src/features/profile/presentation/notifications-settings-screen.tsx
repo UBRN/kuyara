@@ -59,6 +59,14 @@ export function NotificationsSettingsScreen({
   // notifications the footer stops claiming they are turned off in system settings.
   const showsDeniedHint = permission.kind === 'denied'
     || (blocked && permission.kind !== 'granted');
+  // The switch snapping back after a refusal says nothing either. A screen that opens on the
+  // hint stays quiet, and a save error in the same footer is the line spoken instead.
+  useErrorAnnouncement(
+    showsDeniedHint && failedToggle !== 'notifications'
+      ? messages.notifications.permissionDeniedHint
+      : null,
+    { skipInitial: true },
+  );
 
   return (
     <NativeList testID="settings-notifications-screen">
