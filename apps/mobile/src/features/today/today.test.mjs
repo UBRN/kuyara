@@ -17,6 +17,8 @@ import { previewIsThisMorning, tomorrowForecastDay } from './application/outfit-
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
 import { composeGarmentBoard } from '../../garment-art/compose-garment-board.ts';
+import { getDeviceTimeZone } from '../../domain/intl-format.ts';
+import { formatClockTime, formatLastUpdated } from '../../presentation/format-clock-time.ts';
 
 const weatherReasons = [
   'Strong wind requires wind protection.',
@@ -24,8 +26,11 @@ const weatherReasons = [
   'Drizzle calls for light water protection.',
   'Rain requires water protection.',
 ];
-// `pnpm --filter @kuyara/mobile test` pins the device zone to UTC; the fixture location is
-// Europe/Istanbul, so a label in UTC is the proof it followed the device and not the city.
+// `pnpm --filter @kuyara/mobile test` pins the device zone to UTC unless TZ names another;
+// the fixture location is Europe/Istanbul. A freshness label is expected in the device zone,
+// read through the formatter with that zone named, so the run holds in any zone and under
+// the pin a label in UTC is the proof it followed the device and not the city.
+const deviceZone = getDeviceTimeZone();
 const fixtureNow = Date.parse('2026-08-13T06:30:00.000Z');
 
 test('tomorrow weather follows the preview departure on the place clock', () => {
@@ -232,7 +237,10 @@ test('loaded presentation derives the atmosphere from the device clock, not fetc
   );
   assert.equal(night.atmosphere, 'fallingNight');
   // 12:00 UTC is 15:00 in the location's zone; the label reports the device's.
-  assert.match(night.header.freshness, /12:00/);
+  assert.ok(
+    night.header.freshness.includes(formatClockTime('2026-08-13T12:00:00.000Z', 'en', false, deviceZone)),
+    night.header.freshness,
+  );
 });
 
 test('loaded presentation gives visible and accessible weather the same rain outlook', () => {
@@ -645,9 +653,10 @@ test('stale freshness and outfit copy localize in both languages', () => {
   const turkish = loadedPresentation(staleState, 'tr');
 
   assert.equal(english.header.isStale, true);
-  // 06:05 UTC, the device clock, where the location's zone would read 09:05.
-  assert.match(english.header.freshness, /06:05.*out of date/i);
-  assert.match(turkish.header.freshness, /06:05.*Biraz eskimiş olabilir/);
+  // 06:05 UTC on the device clock, where the location's zone would read 09:05.
+  const fetched = formatClockTime(staleState.snapshot.weather.fetchedAt, 'en', false, deviceZone);
+  assert.match(english.header.freshness, new RegExp(`${fetched}.*out of date`, 'i'));
+  assert.match(turkish.header.freshness, new RegExp(`${fetched}.*Biraz eskimiş olabilir`));
   assert.deepEqual(
     turkish.suggestions.map(({ title }) => title),
     ['Yağmura Hazır', 'Rüzgâra Karşı', 'Keyifli Gün'],
@@ -833,15 +842,26 @@ test('the freshness line carries the short date once the snapshot is not from th
   const failed = { ...todayScreenState, isRefreshing: false, refreshFailed: true };
   const sameDay = loadedPresentation(failed, 'en', false, fixtureNow);
   assert.doesNotMatch(sameDay.header.freshness, /2026|\//);
+  const { fetchedAt } = todayScreenState.snapshot.weather;
   for (const days of [1, 3]) {
-    const later = loadedPresentation(failed, 'en', false, fixtureNow + days * 24 * 3_600_000);
-    assert.match(later.header.freshness, /^Couldn’t refresh · Showing last update from 13\/08\/2026, 06:05$/);
+    const now = fixtureNow + days * 24 * 3_600_000;
+    const later = loadedPresentation(failed, 'en', false, now);
+    // 13/08/2026, 06:05 under the UTC pin; the short date and time of the device zone otherwise.
+    assert.equal(
+      later.header.freshness,
+      `Couldn’t refresh · Showing last update from ${formatLastUpdated(fetchedAt, 'en', false, now)}`,
+    );
+    assert.match(later.header.freshness, /2026/);
   }
   const turkish = loadedPresentation(
     { ...todayScreenState, isRefreshing: false, refreshFailed: false },
     'tr', false, fixtureNow + 24 * 3_600_000,
   );
-  assert.match(turkish.header.freshness, /13\.08\.2026 06:05/);
+  assert.ok(
+    turkish.header.freshness.includes(formatLastUpdated(fetchedAt, 'tr', false, fixtureNow + 24 * 3_600_000)),
+    turkish.header.freshness,
+  );
+  assert.match(turkish.header.freshness, /2026/);
 });
 
 // The wait can now run to the length of the whole AI chain, so the freshness line says what
@@ -928,13 +948,16 @@ test('the stage label reads temperature, condition, pieces and archetype in both
 // M15: Today's top-row date follows the 04:00 dressing day.
 // The suite runs in UTC, so these instants are the device's wall clock.
 test('the top-row date names the dressing day, not the calendar day, before 04:00', () => {
-  const at = (iso, language = 'en') => loadedPresentation(todayScreenState, language, false, Date.parse(iso)).date;
+  // The dressing day turns on the device clock, so the instants are built from its wall clock
+  // and the test reads the same in any zone.
+  const at = (day, hour, minute, language = 'en') =>
+    loadedPresentation(todayScreenState, language, false, new Date(2026, 8, day, hour, minute).getTime()).date;
 
   // Newer ICU abbreviates September to "Sept" in British English, older to "Sep".
-  assert.match(at('2026-09-25T02:30:00.000Z'), /^Thu 24 Sept?$/);
-  assert.equal(at('2026-09-25T02:30:00.000Z', 'tr'), '24 Eyl Per');
-  assert.match(at('2026-09-25T04:30:00.000Z'), /^Fri 25 Sept?$/);
-  assert.match(at('2026-09-24T19:00:00.000Z'), /^Thu 24 Sept?$/);
+  assert.match(at(25, 2, 30), /^Thu 24 Sept?$/);
+  assert.equal(at(25, 2, 30, 'tr'), '24 Eyl Per');
+  assert.match(at(25, 4, 30), /^Fri 25 Sept?$/);
+  assert.match(at(24, 19, 0), /^Thu 24 Sept?$/);
 });
 
 test('the dressing date reads in each language\'s own order: English weekday first, Turkish day first', () => {

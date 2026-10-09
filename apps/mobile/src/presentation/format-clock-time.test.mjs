@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { getDeviceTimeZone } from '../domain/intl-format.ts';
 import { formatClockTime, formatLastUpdated, formatWallClockTime } from './format-clock-time.ts';
+
+// The test loader pins the device zone to UTC unless TZ names another; the assertions below
+// hold in any zone, and the ones that spell a time out are kept to the pinned zone.
+const deviceZone = getDeviceTimeZone();
 
 test('a fixed wall-clock time follows the device 12 or 24-hour setting, in both languages', () => {
   const quietStart = { hour: 22, minute: 0 };
@@ -30,19 +35,39 @@ test('a clock time follows the language, the 12 or 24-hour setting and the zone 
 });
 
 test('a clock time without a zone is read in the device zone', () => {
-  assert.equal(formatClockTime('2026-10-04T16:05:00.000Z', 'en', false), '16:05');
-  assert.equal(formatClockTime('2026-10-04T16:05:00.000Z', 'tr', true), 'ÖS 4:05');
+  const instant = '2026-10-04T16:05:00.000Z';
+
+  // Whatever zone the process runs in, the zoneless reading is that zone's.
+  assert.equal(formatClockTime(instant, 'en', false), formatClockTime(instant, 'en', false, deviceZone));
+  assert.equal(formatClockTime(instant, 'tr', true), formatClockTime(instant, 'tr', true, deviceZone));
+  if (deviceZone === 'UTC') {
+    assert.equal(formatClockTime(instant, 'en', false), '16:05');
+    assert.equal(formatClockTime(instant, 'tr', true), 'ÖS 4:05');
+  }
 });
 
 test('last updated is the time on the current local day and the short date and time otherwise', () => {
-  const now = Date.parse('2026-10-04T18:00:00Z');
-  const today = '2026-10-04T16:05:00.000Z';
-  const earlier = '2026-10-02T16:05:00.000Z';
+  // A quarter of an hour that no zone's midnight falls into, so `today` and `now` share a
+  // local day everywhere; two days earlier is another local day everywhere.
+  const now = Date.parse('2026-10-04T13:20:00Z');
+  const today = '2026-10-04T13:05:00.000Z';
+  const earlier = '2026-10-02T13:05:00.000Z';
 
-  assert.equal(formatLastUpdated(today, 'en', false, now), '16:05');
-  assert.equal(formatLastUpdated(today, 'en', true, now), '4:05 pm');
-  assert.equal(formatLastUpdated(today, 'tr', true, now), 'ÖS 4:05');
-  assert.equal(formatLastUpdated(earlier, 'en', false, now), '02/10/2026, 16:05');
-  assert.equal(formatLastUpdated(earlier, 'en', true, now), '02/10/2026, 04:05 pm');
-  assert.equal(formatLastUpdated(earlier, 'tr', false, now), '2.10.2026 16:05');
+  assert.equal(formatLastUpdated(today, 'en', false, now), formatClockTime(today, 'en', false, deviceZone));
+  assert.equal(formatLastUpdated(today, 'en', true, now), formatClockTime(today, 'en', true, deviceZone));
+  assert.equal(formatLastUpdated(today, 'tr', true, now), formatClockTime(today, 'tr', true, deviceZone));
+  for (const [language, hour12] of [['en', false], ['en', true], ['tr', false]]) {
+    const dated = formatLastUpdated(earlier, language, hour12, now);
+    assert.notEqual(dated, formatClockTime(earlier, language, hour12, deviceZone));
+    assert.ok(dated.includes('2026'), dated);
+    assert.ok(dated.endsWith(formatClockTime(earlier, language, hour12, deviceZone)), dated);
+  }
+  if (deviceZone === 'UTC') {
+    assert.equal(formatLastUpdated(today, 'en', false, now), '13:05');
+    assert.equal(formatLastUpdated(today, 'en', true, now), '1:05 pm');
+    assert.equal(formatLastUpdated(today, 'tr', true, now), 'ÖS 1:05');
+    assert.equal(formatLastUpdated(earlier, 'en', false, now), '02/10/2026, 13:05');
+    assert.equal(formatLastUpdated(earlier, 'en', true, now), '02/10/2026, 01:05 pm');
+    assert.equal(formatLastUpdated(earlier, 'tr', false, now), '2.10.2026 13:05');
+  }
 });
