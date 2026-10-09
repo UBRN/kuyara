@@ -32,4 +32,7 @@ badge_file: /assets/img/badges/app-store-badge-en.svg
 badge_alt: Download on the App Store
 badge_width: 150
 play_line: "Google Play: coming soon"
+rate_lead: Enjoying kuyara?
+rate_link: A few words on the App Store would make our day.
+inapp_line: "If it doesn’t open, tap ••• at the top right and choose Open in browser."
 ---
