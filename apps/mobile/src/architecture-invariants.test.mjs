@@ -106,7 +106,7 @@ const rules = [
     allowedDirectories: ['features/recommendation/data/'],
     ruleText:
       'The local Foundation Models Expo module has exactly one '
-      + 'importer. `rg \"modules/kuyara-on-device-ai\" apps/mobile/src` must return only files under '
+      + 'importer. `rg \"modules/kuyara-on-device-ai\" apps/mobile/src --glob \'!*.test.*\'` must return only files under '
       + '`apps/mobile/src/features/recommendation/data/` (ADR 0034). Feature code never imports the '
       + 'native module; it goes through the recommendation data adapter.',
   },
