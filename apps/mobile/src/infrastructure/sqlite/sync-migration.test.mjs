@@ -22,12 +22,14 @@ const now = '2026-10-02T10:00:00.000Z';
 // builds is still marked. Migration 27 gives every existing profile both unit choices at System
 // and a database that already holds them keeps the choices; migration 28 gives the device
 // account link a NULL records account and consent arrival; migration 29 shortens the live Closet
-// names over 200 units by the domain rule.
+// names over 200 units by the domain rule; migration 30 gives every existing profile the rating
+// request gate at 0.
 const upgraded = (table, row, versionBefore = 24) => ({
   ...row,
   ...(syncedTables.includes(table) && versionBefore < 25 ? { pending_sync: 0 } : {}),
   ...(table === 'local_profiles' && versionBefore < 27
     ? { temperature_unit: 'system', wind_speed_unit: 'system' } : {}),
+  ...(table === 'local_profiles' && versionBefore < 30 ? { review_request_version: 0 } : {}),
   ...(table === 'device_account_link' ? { records_user_id: null, records_consent_recorded_at: null } : {}),
   ...(table === 'wardrobe_items' && versionBefore < 29 && row.deleted_at === null && typeof row.name === 'string'
     ? { name: shortenWardrobeName(row.name) } : {}),
@@ -42,7 +44,7 @@ test('fresh schema has five checked pending flags and one device account link', 
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await migrateDatabase(database);
-  assert.equal(latestDatabaseVersion, 29);
+  assert.equal(latestDatabaseVersion, 30);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   for (const table of syncedTables) {
     const column = (await database.getAllAsync(`PRAGMA table_info(${table})`))

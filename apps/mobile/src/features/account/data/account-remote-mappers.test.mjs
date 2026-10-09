@@ -30,6 +30,7 @@ const deviceOnly = {
     'onboarding_completed', 'notifications_opt_in', 'analytics_consent',
     'weather_alert_offer_shown', 'morning_briefing_opt_in', 'name_prompt_version',
     'morning_sheet_enabled', 'easier_to_see', 'walkthrough_version', 'swap_hint_shown',
+    'review_request_version',
     'pending_sync', 'temperature_unit', 'wind_speed_unit',
   ],
   wardrobe_items: ['local_profile_id', 'photo_relative_path', 'pending_sync'],

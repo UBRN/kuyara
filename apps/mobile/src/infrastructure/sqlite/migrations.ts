@@ -14,7 +14,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 29;
+export const latestDatabaseVersion = 30;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -746,6 +746,18 @@ const migrationV29: Migration = {
   },
 };
 
+// ADR 0036: the App Store rating request's own gate. Every existing profile starts at 0, below
+// the request's code version, so the system prompt may be requested once; the request stores
+// the code version whether or not the system showed it.
+const migrationV30: Migration = {
+  version: 30,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE local_profiles ADD COLUMN review_request_version INTEGER NOT NULL DEFAULT 0;
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -776,6 +788,7 @@ const migrations = [
   migrationV27,
   migrationV28,
   migrationV29,
+  migrationV30,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

@@ -37,6 +37,8 @@ export type ProfileApplicationValue = Readonly<{
   markWalkthroughSeen?: () => Promise<void>;
   /** Stores that the outfit detail's swipe hint has played; it never plays again. */
   markSwapHintShown?: () => Promise<void>;
+  /** Stores the rating request's code version; the system prompt is never requested again for it. */
+  markReviewRequested?: () => Promise<void>;
   updateAnalyticsConsent: (consent: AnalyticsConsent) => Promise<void>;
 }>;
 

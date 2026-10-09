@@ -13,7 +13,8 @@ entry on [`design-system.md`](../design/design-system.md)'s deferred list.
 ## Context
 
 `@expo/ui@~57.0.8` supplies the native control layer through wrappers in
-`components/ui`. `expo-glass-effect@~57.0.1` remains unused.
+`components/ui`. `expo-glass-effect` is not a direct dependency; it arrives only
+through `expo-router`.
 
 Without the native control boundary, the primitive layer stops at `Surface`; it has no
 reason to duplicate `Row`, `ListSection`, `Field`, `Segmented`, or `Sheet`. The measured
@@ -92,12 +93,12 @@ three React Native `ActivityIndicator`s are the platform's own `ProgressBar`, no
 `@expo/ui`'s Expressive `LoadingIndicator`; neither changes without an Android runtime
 to look at.
 
-### 4. expo-glass-effect stays unused
+### 4. expo-glass-effect stays out
 
 [ADR 0012](0012-adopting-expo-router-native-tabs.md) rejected hand-built glass and
 that is unchanged. Liquid Glass remains something the OS draws on navigation and
-control layers. The dependency is not removed in this ADR, but nothing may import it
-without a new decision.
+control layers. The package is not a direct dependency, and importing it needs a new
+decision.
 
 ### App-owned button roles
 
@@ -164,7 +165,7 @@ precisely the deferred list, and deleting it would mean hand-writing them.
 
 ## Out of scope
 
-- `expo-glass-effect`, which stays unused and unimported.
+- `expo-glass-effect`, which is not a direct dependency and is never imported.
 - The `Icon` primitive and `GarmentSlotGlyph`, which
   [ADR 0008](0008-expanding-the-visual-vocabulary-for-m6-1.md) governs and this does
   not touch.

@@ -194,6 +194,10 @@ export class ProfileApplicationController {
     return this.updateProfile((repository) => repository.markSwapHintShown());
   }
 
+  markReviewRequested(): Promise<void> {
+    return this.updateProfile((repository) => repository.markReviewRequested());
+  }
+
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<void> {
     return this.updateProfile((repository) => repository.updateAnalyticsConsent(consent));
   }

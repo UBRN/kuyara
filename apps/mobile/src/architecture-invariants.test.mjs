@@ -122,6 +122,16 @@ const rules = [
       + 'product analytics: route the call through the adapter under features/analytics/data/.',
   },
   {
+    name: 'expo-store-review has a single adapter',
+    matches: packageMatcher('expo-store-review'),
+    forbiddenDirectories: null,
+    allowedDirectories: ['features/feedback/data/store-review.ts'],
+    ruleText:
+      'The system rating prompt is reached only through `features/feedback/data/store-review.ts`; '
+      + '`rg "expo-store-review" apps/mobile/src --glob \'!*.test.*\'` must return only that file. '
+      + 'App Store Review Guideline 5.6.1 allows no custom rating prompt, so nothing else asks for one.',
+  },
+  {
     name: 'posthog-react-native has a single ProductAnalytics adapter',
     matches: packageMatcher('posthog-react-native'),
     forbiddenDirectories: null,

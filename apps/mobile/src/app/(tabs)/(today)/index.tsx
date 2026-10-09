@@ -5,6 +5,7 @@ import { useSingleTap } from '@/components/ui/use-single-push';
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import { useReviewRequestOnReturn } from '@/features/feedback/application/use-review-request';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
@@ -99,6 +100,9 @@ export default function TodayRoute() {
     overlayOpen: dayQuestion.visible || askAgain.openedAt !== null || namePrompt.due,
     dayQuestionOpen: dayQuestion.visible,
   });
+  // The notification offer is a card in Today's page, not something over it, so it does not hold
+  // the rating request back.
+  useReviewRequestOnReturn(focused, dayQuestion.visible || askAgain.openedAt !== null || namePrompt.due);
 
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const currentDressingDayKey = dressingDayKey ?? null;

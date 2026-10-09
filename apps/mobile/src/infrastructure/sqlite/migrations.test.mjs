@@ -13,6 +13,11 @@ const timestamp = '2026-07-30T10:00:00.000Z';
 const deletedTimestamp = '2026-07-30T11:00:00.000Z';
 // Migration 27: every existing profile reads both units as System.
 const unitDefaults = { temperature_unit: 'system', wind_speed_unit: 'system' };
+// Version 30's rating request gate, which every upgraded profile reads as 0.
+const reviewGateDefault = { review_request_version: 0 };
+const withReviewGate = (rows) => ({
+  ...rows, local_profiles: rows.local_profiles.map((row) => ({ ...row, ...reviewGateDefault })),
+});
 
 async function createReleasedVersionOneDatabase(database) {
   await database.execAsync(`
@@ -97,7 +102,7 @@ test('an empty database applies all migrations in order with the final schema', 
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 29);
+  assert.equal(latestDatabaseVersion, 30);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -129,6 +134,7 @@ test('an empty database applies all migrations in order with the final schema', 
       'pending_sync',
       'temperature_unit',
       'wind_speed_unit',
+      'review_request_version',
     ],
   );
   assert.match(profileTable.sql, /weather_alert_offer_shown IN \(0, 1\)/);
@@ -765,7 +771,7 @@ for (const [preference, gender, deletedAt] of [['womens', 'woman', null], ['mens
       style_aesthetics: '[]',
       morning_sheet_enabled: 1,
       easier_to_see: 0,
-      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
     });
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM wardrobe_items') }, {
       ...item, color_option_id: null, color_custom_hex: null, pending_sync: 0,
@@ -937,7 +943,7 @@ for (const [id, name] of [['sample.istanbul', 'Istanbul'], ['sample.ankara', 'An
       style_aesthetics: '[]',
       morning_sheet_enabled: 1,
       easier_to_see: 0,
-      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
       })),
     );
     assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
@@ -1030,7 +1036,7 @@ test('version 10 resets onboarding once and preserves the profile plus cached da
     style_aesthetics: '[]',
     morning_sheet_enabled: 1,
     easier_to_see: 0,
-    walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+    walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
   });
   for (const dressStyle of ['casual', 'smart', 'formal', null]) {
     await database.runAsync('UPDATE local_profiles SET dress_style = ?', [dressStyle]);
@@ -1137,7 +1143,7 @@ test('version 11 adds the weather alert ledger without changing existing rows', 
       style_aesthetics: '[]',
       morning_sheet_enabled: 1,
       easier_to_see: 0,
-      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
     })),
   );
   assert.deepEqual((await database.getAllAsync('SELECT * FROM wardrobe_items')).map((row) => ({
@@ -1214,7 +1220,7 @@ test('version 12 defaults an existing profile row to undecided analytics consent
       style_aesthetics: '[]',
       morning_sheet_enabled: 1,
       easier_to_see: 0,
-      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+      walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
     })),
   );
   for (const consent of ['undecided', 'granted', 'withdrawn']) {
@@ -1287,10 +1293,10 @@ test('version 15 adds the briefing opt-in without disturbing a version 14 instal
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 29);
+  assert.equal(latestDatabaseVersion, 30);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
-    profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults })),
+    profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault })),
   );
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM weather_alert_deliveries')).map((row) => ({ ...row })),
@@ -1512,7 +1518,7 @@ test('version 16 adds the daily outlook column without disturbing a version 15 i
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 29);
+  assert.equal(latestDatabaseVersion, 30);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM weather_snapshots')).map((row) => ({ ...row })),
     snapshotsBefore.map((row) => ({ ...row, daily_json: null })),
@@ -1606,7 +1612,7 @@ test('version 17 adds the optional name and prompt gate to a filled version 16 p
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
-    profileBefore.map((row) => ({ ...row, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults })),
+    profileBefore.map((row) => ({ ...row, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault })),
   );
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM wardrobe_items')).map((row) => ({ ...row })),
@@ -1696,7 +1702,7 @@ test('version 18 keeps a filled version 17 profile and adds daily choices', asyn
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-    ...before, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+    ...before, style_aesthetics: '[]', morning_sheet_enabled: 1, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
   });
   const dependentRowsAfter = Object.fromEntries(await Promise.all(dependentTables.map(async (table) => [
     table,
@@ -1877,7 +1883,7 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
 
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-      ...before, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+      ...before, easier_to_see: 0, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
     });
     const schema = async (db) => (await db.getAllAsync(
       "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -1953,7 +1959,7 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
 
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-      ...before, ...(version < 21 ? { easier_to_see: 0 } : {}), walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+      ...before, ...(version < 21 ? { easier_to_see: 0 } : {}), walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
     });
     assert.deepEqual(await dependents(), dependentsBefore.map((rows, index) => (index === 0
       ? rows.map((row) => ({ ...row, ...(version < 20 ? { color_option_id: null, color_custom_hex: null } : {}), pending_sync: 0 }))
@@ -2013,7 +2019,7 @@ test('a failed version 22 migration rolls back and leaves version 21 intact', as
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-    ...before, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+    ...before, walkthrough_version: 0, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
   });
 });
 
@@ -2050,12 +2056,12 @@ for (const [fixture, version] of [['build-15-schema-19.sql', 19], ['build-16-sch
     await migrateDatabase(database);
     await migrateDatabase(fresh);
 
-    assert.equal(latestDatabaseVersion, 29);
+    assert.equal(latestDatabaseVersion, 30);
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
       ...before,
       ...(version < 22 ? { easier_to_see: 0, walkthrough_version: 0 } : {}),
-      swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+      swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
     });
     assert.deepEqual(await dependents(), dependentsBefore.map((rows, index) => (index === 0
       ? rows.map((row) => ({ ...row, ...(version < 20 ? { color_option_id: null, color_custom_hex: null } : {}), pending_sync: 0 }))
@@ -2115,7 +2121,7 @@ test('a failed version 23 migration rolls back and leaves version 22 intact', as
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
-    ...before, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults,
+    ...before, swap_hint_shown: 0, pending_sync: 0, ...unitDefaults, ...reviewGateDefault,
   });
 });
 
@@ -2244,7 +2250,7 @@ test('build-17-schema-23.sql upgrades with every row intact and worn days uncolo
   await migrateDatabase(database);
   await migrateDatabase(fresh);
 
-  assert.equal(latestDatabaseVersion, 29);
+  assert.equal(latestDatabaseVersion, 30);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   const after = await tableRows(database);
   assert.deepEqual(Object.keys(after), [...Object.keys(before), 'device_account_link'].sort());
@@ -2256,7 +2262,7 @@ test('build-17-schema-23.sql upgrades with every row intact and worn days uncolo
       ...(table === 'outfit_history' ? { piece_colors_json: null } : {}),
       ...(['local_profiles', 'wardrobe_items', 'dressing_day_choices',
         'dressing_day_departures', 'outfit_history'].includes(table) ? { pending_sync: 0 } : {}),
-      ...(table === 'local_profiles' ? unitDefaults : {}),
+      ...(table === 'local_profiles' ? { ...unitDefaults, ...reviewGateDefault } : {}),
     })), table);
   }
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
@@ -2402,7 +2408,7 @@ test('version 26 keeps every version 25 row and value and lets a day hold severa
   await migrateDatabase(fresh);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
+  assert.deepEqual(await tableRows(database), withLatestColumns(withUnitDefaults(before)));
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   assert.deepEqual((await database.getAllAsync('PRAGMA foreign_key_check')).map((row) => ({ ...row })), orphansBefore);
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
@@ -2459,7 +2465,7 @@ test('a failed version 26 migration rolls back the rebuild and leaves version 25
   }
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
+  assert.deepEqual(await tableRows(database), withLatestColumns(withUnitDefaults(before)));
 });
 
 // Build 18 ships schema 25. A phone holding it, with rows in every table (history with photo
@@ -2553,7 +2559,7 @@ test('build-18-schema-25.sql upgrades with every row intact and matches a fresh 
   await migrateDatabase(fresh);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
+  assert.deepEqual(await tableRows(database), withLatestColumns(withUnitDefaults(before)));
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, 0);
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
@@ -2561,7 +2567,7 @@ test('build-18-schema-25.sql upgrades with every row intact and matches a fresh 
   // Re-entry through a second caller runs the chain again and changes nothing.
   const upgradedSchema = await sqliteSchema(database);
   await migrateDatabase(new NodeSqliteDatabase(database.database));
-  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
+  assert.deepEqual(await tableRows(database), withLatestColumns(withUnitDefaults(before)));
   assert.deepEqual(await sqliteSchema(database), upgradedSchema);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
 });
@@ -2589,14 +2595,14 @@ test('build-19-schema-27.sql upgrades with every row intact and matches a fresh 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   // Version 28 adds only the two NULL link columns: the units, the pending flags and every
   // other value stay exactly as the phone stored them.
-  assert.deepEqual(await tableRows(database), withRecordsUserId(before));
+  assert.deepEqual(await tableRows(database), withLatestColumns(before));
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, 0);
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
 
   const upgradedSchema = await sqliteSchema(database);
   await migrateDatabase(new NodeSqliteDatabase(database.database));
-  assert.deepEqual(await tableRows(database), withRecordsUserId(before));
+  assert.deepEqual(await tableRows(database), withLatestColumns(before));
   assert.deepEqual(await sqliteSchema(database), upgradedSchema);
 });
 
@@ -2631,7 +2637,7 @@ test('version 27 keeps every version 26 row and value and starts both units at S
   await migrateDatabase(fresh);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
+  assert.deepEqual(await tableRows(database), withLatestColumns(withUnitDefaults(before)));
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, orphansBefore);
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
@@ -2682,7 +2688,7 @@ test('a failed version 27 migration rolls back and leaves version 26 with its ro
   }
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.deepEqual(await tableRows(database), withRecordsUserId(withUnitDefaults(before)));
+  assert.deepEqual(await tableRows(database), withLatestColumns(withUnitDefaults(before)));
 });
 
 // Released migrations are never edited. Each hash is a sha256 prefix of the version's source with
@@ -2718,9 +2724,10 @@ const releasedMigrationHashes = {
   27: '516b4d6f4eddaeb4',
   28: '9c0af0743970463f',
   29: '48511f831aebe085',
+  30: 'd93d30a0ba648afb',
 };
 
-test('the hash lock freezes every migration through 29, and later versions may be appended', async () => {
+test('the hash lock freezes every migration through 30, and later versions may be appended', async () => {
   const source = await readFile(new URL('./migrations.ts', import.meta.url), 'utf8');
   const blocks = Array.from(source.matchAll(/^const migrationV(\d+): Migration = \{\n[\s\S]*?^\};$/gm));
   const hashes = Object.fromEntries(blocks.map(([block, version]) => [version, createHash('sha256')
@@ -2733,10 +2740,16 @@ test('the hash lock freezes every migration through 29, and later versions may b
 });
 
 /** Version 28 adds the link's records account and its consent record arrival, NULL on every existing link. */
-function withRecordsUserId(rows) {
-  return { ...rows, device_account_link: rows.device_account_link.map((row) => ({
-    ...row, records_user_id: null, records_consent_recorded_at: null,
-  })) };
+// What a fully migrated database adds to rows stored before version 28: the two NULL link
+// columns of version 28 and version 30's rating request gate at 0.
+function withLatestColumns(rows) {
+  return {
+    ...rows,
+    device_account_link: rows.device_account_link.map((row) => ({
+      ...row, records_user_id: null, records_consent_recorded_at: null,
+    })),
+    local_profiles: withReviewGate(rows).local_profiles,
+  };
 }
 
 test('version 28 keeps a used device account link and adds the records account and its consent arrival as NULL', async (t) => {
@@ -2765,7 +2778,7 @@ test('version 28 keeps a used device account link and adds the records account a
   await migrateDatabase(database);
   await migrateDatabase(fresh);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.deepEqual(await tableRows(database), withRecordsUserId(before));
+  assert.deepEqual(await tableRows(database), withLatestColumns(before));
   assert.deepEqual(before.device_account_link.map(({ linked_user_id: linked }) => linked), ['user-a']);
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   for (const name of ['records_user_id', 'records_consent_recorded_at']) {
@@ -2879,7 +2892,7 @@ test('version 29 shortens live Closet names over 200 units from the frozen build
   const after = await tableRows(database);
   // Every row survives; the long names are shortened, and every other column of every row,
   // the pending flags and the deleted row included, is exactly what the phone stored.
-  assert.deepEqual(after, withShortenedClosetNames(withRecordsUserId(before)));
+  assert.deepEqual(after, withShortenedClosetNames(withLatestColumns(before)));
   assertShortenedClosetNames(after);
   assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
   assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, orphansBefore);
@@ -2902,9 +2915,9 @@ test('version 29 upgrades a version 28 database the same way', async (t) => {
 
   await migrateDatabase(database);
 
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 29);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   const after = await tableRows(database);
-  assert.deepEqual(after, withShortenedClosetNames(before));
+  assert.deepEqual(after, withShortenedClosetNames(withReviewGate(before)));
   assertShortenedClosetNames(after);
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
 });
@@ -2928,6 +2941,52 @@ test('a failed version 29 migration rolls back and leaves version 28 with every 
     assert.deepEqual(await tableRows(database), before);
   }
   await migrateDatabase(database);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.deepEqual(await tableRows(database), withShortenedClosetNames(withReviewGate(before)));
+});
+
+// Build 20 ships schema 29. A phone holding it, with rows in every table, its unit choices and a
+// linked account, upgrades to version 30 with every row and value intact; only the profile gains
+// the rating request gate at 0, and the result matches a fresh install.
+test('build-20-schema-29.sql upgrades with every row intact and the rating request gate at 0', async (t) => {
+  const database = new NodeSqliteDatabase();
+  const fresh = new NodeSqliteDatabase();
+  t.after(() => { database.close(); fresh.close(); });
+  await fillBuildEighteen(database, 'build-20-schema-29.sql',
+    ", easier_to_see = 1, temperature_unit = 'fahrenheit', wind_speed_unit = 'mph'");
+  await database.runAsync(`UPDATE device_account_link SET records_user_id = 'records-user',
+    records_consent_recorded_at = '2026-10-01T08:00:00.000Z'`);
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 29);
-  assert.deepEqual(await tableRows(database), withShortenedClosetNames(before));
+  const before = await tableRows(database);
+  assert.ok(Object.values(before).every((rows) => rows.length > 0), 'every build 20 table holds a row');
+  assert.equal('review_request_version' in before.local_profiles[0], false);
+
+  await migrateDatabase(database);
+  await migrateDatabase(fresh);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 30);
+  assert.deepEqual(await tableRows(database), withReviewGate(before));
+  assert.deepEqual(await sqliteSchema(database), await sqliteSchema(fresh));
+  assert.equal((await database.getAllAsync('PRAGMA foreign_key_check')).length, 0);
+  assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
+
+  await migrateDatabase(new NodeSqliteDatabase(database.database));
+  assert.deepEqual(await tableRows(database), withReviewGate(before));
+});
+
+test('a failed version 30 migration rolls back and leaves version 29 with every row intact', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await fillBuildEighteen(database, 'build-20-schema-29.sql');
+  const before = await tableRows(database);
+  const schemaBefore = await sqliteSchema(database);
+
+  await assert.rejects(() => migrateDatabase(failingOn(database, 'review_request_version', 'v30 failed')),
+    /Migration to version 30 failed: v30 failed/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 29);
+  assert.deepEqual(await sqliteSchema(database), schemaBefore);
+  assert.deepEqual(await tableRows(database), before);
+
+  await migrateDatabase(database);
+  assert.deepEqual(await tableRows(database), withReviewGate(before));
 });

@@ -30,6 +30,8 @@ export type Profile = Readonly<{
   walkthroughVersion?: number;
   /** The outfit detail's swipe hint has played; it plays once, on the first enlargement. */
   swapHintShown?: boolean;
+  /** The App Store rating request's stored gate; below `reviewRequestVersion` it may be requested. */
+  reviewRequestVersion?: number;
   languagePreference: LanguagePreference;
   themePreference: ThemePreference;
   /** Device-only unit choices, read as System when absent; System follows the device's own settings. */
@@ -130,6 +132,10 @@ export const namePromptVersion = 1;
 // Phase 8, ADR 0036: the coach-mark tour's code version. A stored value below it offers the
 // tour once; Skip, Done or any other close of that tour stores it.
 export const walkthroughVersion = 1;
+
+// ADR 0036: the App Store rating request's code version. A stored value below it lets the
+// system rating prompt be requested once; the request stores it, shown or not.
+export const reviewRequestVersion = 1;
 
 // ADR 0033 section 3: consent precedes collection, so the stored default is the unanswered
 // state rather than a boolean. `withdrawn` covers both declining the first-launch sheet and

@@ -10,7 +10,7 @@ import {
   LocalProfileRepository,
   ProfileRepositoryError,
 } from './data/profile-repository.ts';
-import { walkthroughVersion } from './domain/profile.ts';
+import { reviewRequestVersion, walkthroughVersion } from './domain/profile.ts';
 import { SqliteProfileLocalDataSource } from './data/sqlite-profile-local-data-source.ts';
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { todayWeatherSnapshot } from '../today/__tests__/fixtures.ts';
@@ -39,6 +39,7 @@ const createRecord = (overrides = {}) => ({
   easierToSee: 0,
   walkthroughVersion: 0,
   swapHintShown: 0,
+  reviewRequestVersion: 0,
   styleAesthetics: '[]',
   analyticsConsent: 'undecided',
   createdAt,
@@ -1057,3 +1058,30 @@ test('a reload after a direct database write shows the stored profile, not the o
 
   assert.equal(controller.getSnapshot().profile.displayName, 'From the account');
 });
+
+// The rating request gate starts at 0 on a new profile, the request stores the code version
+// through the SQLite data source and the repository mapper, and it survives a reopen.
+test('the rating request gate starts at 0, stores the code version, and survives a reopen', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  assert.equal((await repository.getOrCreateProfile()).reviewRequestVersion, 0);
+  assert.equal((await repository.markReviewRequested()).reviewRequestVersion, reviewRequestVersion);
+  assert.equal((await database.getFirstAsync('SELECT review_request_version FROM local_profiles'))
+    .review_request_version, reviewRequestVersion);
+  const reopened = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused', now: () => updatedAt,
+  }));
+  assert.equal((await reopened.getOrCreateProfile()).reviewRequestVersion, reviewRequestVersion);
+});
+
+for (const reviewRequestVersionValue of [-1, 1.5, Number.NaN]) {
+  test(`a record with the rating request gate ${JSON.stringify(reviewRequestVersionValue)} is rejected as invalid data`, async () => {
+    const repository = new LocalProfileRepository({
+      getOrCreateProfile: async () => createRecord({ reviewRequestVersion: reviewRequestVersionValue }),
+    });
+    await assert.rejects(
+      () => repository.getOrCreateProfile(),
+      (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data',
+    );
+  });
+}

@@ -92,6 +92,7 @@ test('profile marks only synced field writes, including onboarding', async (t) =
     () => profile.markWeatherAlertOfferShown(),
     () => profile.markWalkthroughSeen(),
     () => profile.markSwapHintShown(),
+    () => profile.markReviewRequested(),
     () => profile.updateAnalyticsConsent('granted'),
   ];
   for (const write of deviceWrites) {
