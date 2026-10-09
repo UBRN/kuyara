@@ -35,4 +35,5 @@ play_line: "Google Play: yakında"
 rate_lead: kuyara'yı kullanıyor musun?
 rate_link: App Store'da birkaç kelime bırakırsan çok seviniriz.
 inapp_line: "Açılmazsa sağ üstteki ••• menüsünden Tarayıcıda aç'a dokun."
+frost_hint: Cam buz tuttu. Sil bakalım, kombinin altında.
 ---

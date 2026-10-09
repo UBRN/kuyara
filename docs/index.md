@@ -35,4 +35,5 @@ play_line: "Google Play: coming soon"
 rate_lead: Enjoying kuyara?
 rate_link: A few words on the App Store would make our day.
 inapp_line: "If it doesn’t open, tap ••• at the top right and choose Open in browser."
+frost_hint: "The glass froze over. Give it a wipe: your outfit is underneath."
 ---

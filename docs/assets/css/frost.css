@@ -1,0 +1,37 @@
+/*
+ * Frost on the glass (frost.js). The frost canvas lies over the snowy board, above its
+ * pieces; it takes the pointer only while frosted, and leaves vertical panning to the
+ * page so a rub across the plate wipes and a swipe up or down still scrolls. Its hint
+ * stands where the stage's own hint stands and takes its place while it shows.
+ */
+.ku-frost {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ku-frost.is-on { pointer-events: auto; }
+
+.ku-frost-host { position: relative; }
+
+.ku-frost__hint {
+  position: absolute;
+  margin: 0;
+  text-align: center;
+  color: var(--ku-text-secondary);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity var(--ku-motion-deliberate) linear, transform var(--ku-motion-deliberate) ease-out;
+}
+
+.ku-frost-host .ku-dress__hint { transition: opacity var(--ku-motion-normal) linear; }
+.ku-frost-hinting .ku-dress__hint { opacity: 0; }
+.ku-frost-hinting .ku-frost__hint { opacity: 1; transform: none; transition-delay: var(--ku-motion-normal); }
