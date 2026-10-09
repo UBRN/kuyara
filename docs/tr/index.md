@@ -1,15 +1,15 @@
 ---
-title: "kuyara: Ne Giysem? Hava Durumuna Göre Kombin"
+title: "Bugün Ne Giysem? Hava Durumuna Göre Kombin | kuyara"
 lang: tr
 ref: home
 layout: landing
-description: Bugün ne giysem? kuyara her sabah hava durumuna göre sana özel bir kombin hazırlar. iPhone için, tamamen senin.
+description: Bugün ne giysem? kuyara her sabah hava durumuna göre kombin hazırlar, güneşte de karda da sana özel. iPhone için, tamamen senin.
 
 hero_title: Bugün ne giyeceğin hazır.
-hero_line: Her sabah, sana ve günün havasına göre bir kombin seni bekliyor.
+hero_line: Ne giysem diye düşünme. Her sabah, hava durumuna göre sana özel bir kombin seni bekliyor.
 yours_line: Tamamen senin, her sabah.
 
-scenes_title: Gün ne getirirse
+scenes_title: Her havaya göre bir kombin
 looks:
   womens: Kadın
   mens: Erkek

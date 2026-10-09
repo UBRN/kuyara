@@ -5,11 +5,11 @@ en:
   skip: Skip to content
   footer_nav_label: More
   privacy: Privacy policy
-  privacy_url: /privacy-policy
+  privacy_url: /privacy-policy.html
   support: Support
-  support_url: /support
+  support_url: /support.html
   account_terms: Account terms
-  account_terms_url: /account-terms
+  account_terms_url: /account-terms.html
   language_label: Language
   apple: >-
     Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and
@@ -20,11 +20,11 @@ tr:
   skip: İçeriğe geç
   footer_nav_label: Diğer
   privacy: Gizlilik politikası
-  privacy_url: /tr/privacy-policy
+  privacy_url: /tr/privacy-policy.html
   support: Destek
-  support_url: /tr/support
+  support_url: /tr/support.html
   account_terms: Hesap koşulları
-  account_terms_url: /tr/account-terms
+  account_terms_url: /tr/account-terms.html
   language_label: Dil
   apple: >-
     Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and

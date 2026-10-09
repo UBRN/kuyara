@@ -1,15 +1,15 @@
 ---
-title: "kuyara: What to Wear Today, Dressed for the Weather"
+title: "What to Wear Today: An Outfit for the Weather | kuyara"
 lang: en
 ref: home
 layout: landing
-description: What to wear today? Each morning, kuyara turns your weather into an outfit made for you. For iPhone, and all yours.
+description: What to wear today? Every morning, kuyara has an outfit for the weather ready for you, from sunshine to snow. For iPhone, and all yours.
 
 hero_title: Dressed for your day.
-hero_line: Every morning, an outfit made for you and the weather ahead.
+hero_line: What to wear today? Every morning, an outfit for the weather ahead, made just for you.
 yours_line: All yours, every morning.
 
-scenes_title: Whatever the day brings
+scenes_title: An outfit for every kind of weather
 looks:
   womens: Women
   mens: Men

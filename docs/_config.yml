@@ -1,5 +1,5 @@
 theme: jekyll-theme-primer
-description: What to wear today? Each morning, kuyara turns your weather into an outfit made for you. For iPhone, and all yours.
+description: What to wear today? Every morning, kuyara has an outfit for the weather ready for you, from sunshine to snow. For iPhone, and all yours.
 lang: en-US
 plugins:
   - jekyll-sitemap
@@ -33,7 +33,15 @@ defaults:
   - scope:
       path: ""
     values:
+      locale: en_US
       image:
         path: /assets/img/og-image.png
         width: 1200
         height: 630
+        alt: kuyara, an outfit for today's weather
+  - scope:
+      path: "tr"
+    values:
+      locale: tr_TR
+      image:
+        alt: kuyara, bugünün havasına göre kombin
