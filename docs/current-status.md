@@ -330,8 +330,14 @@ The approved phase order, active work and remaining open items are in [the roadm
   catalogue's cut, and each picks its colours through the app's palette with its own seed,
   or a Closet-style recorded colour on the one piece the palette would otherwise colour
   alike, so neighbouring boards differ. The rebuilt landing was checked in
-  headless Chrome at 1280 and 375 px in both appearances; Firefox, Safari and keyboard
-  operation in them are unverified. The `2xl` band padding is a web-only choice recorded
+  headless Chrome at 1280 and 375 px in both appearances. Keyboard operation was verified
+  in headless Chromium on 9 October 2026 against a local Jekyll build, at 1280 and 375 px
+  in English and Turkish: the skip link is the first Tab stop, shows with its focus ring
+  and lands on `#ku-main`; the appearance selector takes one Tab stop and its arrow keys
+  move the choice and settle the ground on Soft Mist within the 400 ms cross-fade; the
+  language menu opens on Enter and its links take focus and navigate; both App Store
+  badges and the footer links are reachable, each with a visible focus ring. Firefox and
+  Safari remain unverified. The `2xl` band padding is a web-only choice recorded
   under "Web presence" in `docs/design/visual-identity.md`, together with the favicon and
   Open Graph compositions. The favicon, apple-touch-icon and Open Graph image are served
   from `docs/` and wired through `<link>` tags and a `defaults` image key; a client that
