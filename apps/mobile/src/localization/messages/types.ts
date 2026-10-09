@@ -709,6 +709,7 @@ export type AppMessages = Readonly<{
     approximateLocation: string;
     fullLocation: string;
     locationAccessOff: string;
+    lastKnownPlace: string;
     useCurrentLocation: string;
     locatingDevice: string;
     locationFound: string;

@@ -294,6 +294,7 @@ export const tr = {
     approximateLocation: 'Yaklaşık konum',
     fullLocation: 'Kesin konum',
     locationAccessOff: 'Konum erişimi kapalı. Son bilinen yer gösteriliyor.',
+    lastKnownPlace: 'Son bilinen yer gösteriliyor. Güncellemek için mevcut konumunu kullan.',
     useCurrentLocation: 'Mevcut konumumu kullan',
     locatingDevice: 'Konumun bulunuyor…',
     locationFound: 'Konum bulundu',

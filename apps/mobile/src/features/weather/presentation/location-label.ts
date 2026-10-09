@@ -1,3 +1,4 @@
+import type { LocationPermissionState } from '@/features/weather/domain/device-location-gateway';
 import { locationCaptionKey } from '@/features/weather/domain/location-caption';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 import type { AppMessages } from '@/localization/messages/types';
@@ -16,9 +17,9 @@ export function locationName(location: ActiveLocation, copy: WeatherCopy): strin
 
 export function locationCaption(
   location: ActiveLocation | null,
-  isPermissionGranted: boolean,
+  permission: LocationPermissionState['kind'],
   copy: WeatherCopy,
 ): string | null {
-  const key = locationCaptionKey(location, isPermissionGranted);
+  const key = locationCaptionKey(location, permission);
   return key ? copy[key] : null;
 }

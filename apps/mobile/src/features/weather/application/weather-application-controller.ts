@@ -31,6 +31,7 @@ import {
   normalizeCoordinates,
   weatherFreshness,
   type ActiveLocation,
+  type DeviceActiveLocation,
   type ManualLocationId,
   type WeatherFreshness,
   type WeatherSnapshot,
@@ -321,7 +322,7 @@ export class WeatherApplicationController {
   // "Current location" survives the flight. One bounded re-acquisition per foreground event
   // corrects it, and the selection refreshes the new place itself; a failed lookup is silent,
   // since the user asked for nothing here.
-  private async reacquireDeviceLocation(previous: ActiveLocation): Promise<void> {
+  private async reacquireDeviceLocation(previous: DeviceActiveLocation): Promise<void> {
     const result = await this.dependencies.deviceLocation.getCurrentLocation();
     const latest = this.requireReady();
     const active = latest.activeLocation;
@@ -333,11 +334,18 @@ export class WeatherApplicationController {
     const renamed = result.kind === 'success'
       && result.location.displayName != null
       && (result.location.displayName ?? null) !== (previous.displayName ?? null);
+    // Precise Location switched in Settings changes only the accuracy the caption reports.
+    const reaccurate = result.kind === 'success' && result.location.accuracy !== previous.accuracy;
     // A selection made while the lookup ran wins over the lookup it raced, including one
     // still being saved when the lookup answers.
     const unchanged = active?.locationKey === previous.locationKey
       && active.timeZone === previous.timeZone && !latest.isSelectingLocation;
-    if (result.kind === 'success' && (moved || renamed) && unchanged) await this.selectLocation(result.location);
+    if (result.kind !== 'success' || !(moved || renamed || reaccurate) || !unchanged) return;
+    // A place that has not moved keeps its name when this geocode came back empty.
+    await this.selectLocation(moved ? result.location : {
+      ...result.location,
+      displayName: result.location.displayName ?? previous.displayName,
+    });
   }
 
   private async initializeOnce(): Promise<void> {

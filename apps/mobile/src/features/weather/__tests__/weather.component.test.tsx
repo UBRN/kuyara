@@ -1402,6 +1402,35 @@ test.each(['en', 'tr'] as const)(
   },
 );
 
+test.each(['en', 'tr'] as const)(
+  '%s device location says it is the last known place while access is undetermined',
+  async (language) => {
+    const location = getManualLocation('sample.istanbul')!;
+    const value = createValue({
+      ...baseState,
+      permission: { kind: 'undetermined' },
+      activeLocation: {
+        source: 'device',
+        accuracy: 'full',
+        coordinates: location.coordinates,
+        locationKey: 'device:4101:2898',
+        timeZone: location.timeZone,
+      },
+    });
+    const result = await render(
+      <Providers language={language} value={value}><WeatherScreen /></Providers>,
+    );
+
+    const copy = messages[language].weather;
+    expect(result.getByText(copy.lastKnownPlace)).toBeOnTheScreen();
+    expect(result.queryByText(copy.locationAccessOff)).toBeNull();
+    expect(result.queryByText(copy.fullLocation)).toBeNull();
+    expect(result.getByRole('button', {
+      name: `${copy.currentLocation}. ${copy.lastKnownPlace.replace(/[.!?…]+$/u, '')}. ${copy.changeLocationAction}`,
+    })).toBeOnTheScreen();
+  },
+);
+
 test('rounded weather measurements never render negative zero', async () => {
   const snapshot = sampleSnapshot();
   snapshot.current.temperatureCelsius = -0.4;
