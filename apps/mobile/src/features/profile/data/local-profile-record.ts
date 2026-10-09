@@ -10,6 +10,7 @@ export type LocalProfileRecord = Readonly<{
   namePromptVersion: number;
   walkthroughVersion?: number;
   swapHintShown?: number;
+  reviewRequestVersion?: number;
   languagePreference: string;
   themePreference: string;
   temperatureUnitPreference?: string;

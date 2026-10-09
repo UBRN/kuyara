@@ -51,6 +51,7 @@ export interface ProfileRepository {
   markWeatherAlertOfferShown(): Promise<Profile>;
   markWalkthroughSeen(): Promise<Profile>;
   markSwapHintShown(): Promise<Profile>;
+  markReviewRequested(): Promise<Profile>;
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile>;
 }
 
@@ -132,6 +133,8 @@ function mapRecord(record: LocalProfileRecord): Profile {
     record.namePromptVersion < 0 ||
     (record.walkthroughVersion !== undefined &&
       (!Number.isInteger(record.walkthroughVersion) || record.walkthroughVersion < 0)) ||
+    (record.reviewRequestVersion !== undefined &&
+      (!Number.isInteger(record.reviewRequestVersion) || record.reviewRequestVersion < 0)) ||
     completedWithoutPreference ||
     !isUtcIsoTimestamp(record.createdAt) ||
     !isUtcIsoTimestamp(record.updatedAt) ||
@@ -152,6 +155,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     namePromptVersion: record.namePromptVersion,
     walkthroughVersion: record.walkthroughVersion ?? 0,
     swapHintShown: record.swapHintShown === 1,
+    reviewRequestVersion: record.reviewRequestVersion ?? 0,
     languagePreference: record.languagePreference,
     themePreference: record.themePreference,
     temperatureUnitPreference,
@@ -276,6 +280,10 @@ export class LocalProfileRepository implements ProfileRepository {
 
   markSwapHintShown(): Promise<Profile> {
     return this.execute(() => this.dataSource.markSwapHintShown());
+  }
+
+  markReviewRequested(): Promise<Profile> {
+    return this.execute(() => this.dataSource.markReviewRequested());
   }
 
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile> {

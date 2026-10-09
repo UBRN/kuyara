@@ -15,6 +15,7 @@ import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-
 import { AccountSheet } from '@/features/account/presentation/account-sheet';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import { noteOutfitDetailVisit } from '@/features/feedback/application/use-review-request';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { composeCatalog } from '@/features/today/application/compose-selection';
@@ -122,6 +123,7 @@ export default function OutfitDetailRoute() {
   useFocusEffect(useCallback(() => {
     reevaluateLocalDay();
     void revalidateWeatherFreshness();
+    noteOutfitDetailVisit();
   }, [reevaluateLocalDay, revalidateWeatherFreshness]));
 
   useOutfitDetailOpenedReport({ focused: isFocused, tomorrow, suggestionId, position, outfit, recommendation });
