@@ -50,7 +50,7 @@
  * first scene's board. With it (.ku-dress-live) the section grows one step of scroll per
  * scene and the stage stays pinned while the boards change under it.
  */
-.ku-dress { --ku-dress-step: 62svh; }
+.ku-dress { --ku-dress-step: 42svh; }
 .ku-dress__stage { padding-block: var(--ku-space-lg) var(--ku-space-xl); }
 
 .ku-hero__inner { display: grid; gap: var(--ku-space-xl); }
@@ -177,7 +177,7 @@
 
 /* From 960 pixels the words stand beside the plate. */
 @media (min-width: 960px) {
-  .ku-dress { --ku-dress-step: 70svh; }
+  .ku-dress { --ku-dress-step: 48svh; }
   .ku-dress__stage { padding-block: calc(2 * var(--ku-space-2xl)) 0; }
   .ku-hero__inner {
     grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
@@ -191,54 +191,6 @@
   .ku-dress-live .ku-hero__inner { grid-template-rows: minmax(0, 1fr); }
   .ku-dress-live .ku-dress__art { height: 100%; grid-template-rows: auto minmax(0, 620px) auto auto; align-content: center; }
 }
-
-/* ------------------------------------------------------------------- scenes */
-
-/* Each scene is one self-contained block, stacked, never pinned: its name, then the two
-   boards. From 960 pixels the words stand beside the boards. */
-.ku-scene {
-  display: grid;
-  gap: var(--ku-space-md);
-  padding-block: var(--ku-space-xl);
-}
-
-.ku-scene__head { display: grid; gap: var(--ku-space-xs); align-content: start; max-width: 28em; }
-.ku-scene__head p,
-.ku-scene__head h3 { margin: 0; }
-.ku-scene__meta { font-variant-numeric: tabular-nums; }
-
-@media (min-width: 960px) {
-  .ku-scene {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-    gap: calc(2 * var(--ku-space-2xl));
-    align-items: center;
-    padding-block: var(--ku-space-2xl);
-  }
-  /* Two tiles of about a phone's width each, so a scene fits one laptop screen. */
-  .ku-looks { width: 100%; max-width: 680px; justify-self: end; }
-}
-
-/* A women's and a men's board side by side, the way a shop shows both. */
-.ku-looks {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ku-space-md);
-}
-
-.ku-look { display: grid; gap: var(--ku-space-sm); align-content: start; margin: 0; min-width: 0; }
-
-.ku-look__caption { display: grid; gap: var(--ku-space-xs); }
-
-.ku-pieces {
-  display: flex;
-  flex-wrap: wrap;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  color: var(--ku-text-secondary);
-}
-
-.ku-pieces li:not(:last-child)::after { content: "\00a0·\00a0"; }
 
 /* ------------------------------------------------------------------- plates */
 
@@ -293,22 +245,6 @@
 
 :root[data-theme="dark"] .ku-art-light { display: none; }
 :root[data-theme="dark"] .ku-art-dark { display: inline; }
-
-/*
- * The pieces land when their scene arrives, in the order they are put on, one stagger step
- * apart, on the app's arrival spring (550 ms, damping ratio 0.65, theme.ts) sampled into
- * linear(). Without linear() or without the script the boards simply stand.
- */
-@supports (animation-timing-function: linear(0, 1)) {
-  .ku-scenes-live .ku-scene .ku-piece { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; }
-  .ku-scenes-live .ku-scene.is-in .ku-piece {
-    opacity: 1;
-    animation:
-      ku-land 550ms linear(0, 0.047, 0.163, 0.312, 0.469, 0.619, 0.75, 0.857, 0.939, 0.998, 1.037, 1.058, 1.067, 1.067, 1.061, 1.052, 1.041, 1.031, 1.021, 1.013, 1.007, 1.002, 0.999, 0.997, 0.996, 0.995, 0.996, 0.996, 0.997, 0.998, 0.998, 0.999, 1) backwards,
-      ku-fade 200ms linear backwards;
-    animation-delay: calc(120ms + var(--i, 0) * 45ms);
-  }
-}
 
 @keyframes ku-land {
   from { transform: translateY(-6%) scale(0.9); }

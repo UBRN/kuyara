@@ -26,7 +26,6 @@
 
   var scenes = [].slice.call(document.querySelectorAll('[data-particles]'));
   if (!scenes.length || !('IntersectionObserver' in window)) return;
-  root.classList.add('ku-scenes-live');
 
   /* ------------------------------------------------------------- particles */
   var COUNT = { motes: 8, clouds: 4, rain: 22, wind: 9, snow: 18 };
