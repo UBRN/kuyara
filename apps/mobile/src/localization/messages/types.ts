@@ -710,6 +710,9 @@ export type AppMessages = Readonly<{
     fullLocation: string;
     locationAccessOff: string;
     useCurrentLocation: string;
+    locatingDevice: string;
+    locationFound: string;
+    locationFoundNamed: (name: string) => string;
     changeLocationAction: string;
     locationRationaleTitle: string;
     locationRationaleBody: string;

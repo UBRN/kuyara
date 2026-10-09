@@ -32,15 +32,15 @@ import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import { useWeatherInteractionEvents } from '@/features/analytics/application/use-interaction-events';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
-import { locationCaptionKey } from '@/features/weather/domain/location-caption';
 import { manualRefreshOutcome } from '@/features/weather/domain/manual-refresh-outcome';
-import { showsSnapshotForLocation, type ActiveLocation, type WeatherSnapshot } from '@/features/weather/domain/weather';
+import { showsSnapshotForLocation, type WeatherSnapshot } from '@/features/weather/domain/weather';
 import { findWeatherOutlook, type WeatherOutlook } from '@/features/weather/domain/weather-outlook';
 import {
   DailyOutlook,
   type DailyOutlookRow,
 } from '@/features/weather/presentation/daily-outlook';
 import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
+import { locationCaption, locationName } from '@/features/weather/presentation/location-label';
 import { hourlyRailColumns } from '@/features/weather/presentation/hourly-rail-columns';
 import { uvLevelOf } from '@/features/weather/presentation/uv-level';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
@@ -116,15 +116,6 @@ function outlookSentence(
 // Five of the seven the contract allows, so a seventh day would be a mobile change and
 // not another route (packages/contracts/src/weather-v2.ts).
 const dailyOutlookDayCount = 5;
-
-function locationName(
-  location: ActiveLocation,
-  copy: ReturnType<typeof useLocalization>['messages']['weather'],
-): string {
-  // Both members of the union carry `displayName`; a device fix has one only when the
-  // reverse geocode resolved a locality, and without one the generic copy still answers.
-  return location.displayName ?? copy.currentLocation;
-}
 
 type WeatherScreenProps = Readonly<{
   /** False until the tab is first shown: the forecast cards arrive then, not while it is hidden. */
@@ -241,11 +232,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   };
 
   const activeName = state.activeLocation ? locationName(state.activeLocation, copy) : copy.noLocation;
-  const captionKey = locationCaptionKey(
-    state.activeLocation,
-    state.permission.kind === 'granted',
-  );
-  const locationCaption = captionKey ? copy[captionKey] : null;
+  const activeCaption = locationCaption(state.activeLocation, state.permission.kind === 'granted', copy);
   // After a location switch the controller keeps the previous place's snapshot as the last
   // valid result until the new place loads. It carries no name of its own, so its conditions
   // are held back rather than shown under the new place's label, unless both ends are the
@@ -361,7 +348,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   );
   const locationAccessibilityLabel = accessibilitySentence(
     activeName,
-    locationCaption,
+    activeCaption,
     copy.changeLocationAction,
   );
   // The location control sits below the current conditions once a snapshot exists
@@ -375,7 +362,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
           label={activeName}
           labelWeight="bodyStrong"
           onPress={() => push('/weather/location')}
-          supportingText={locationCaption ?? undefined}
+          supportingText={activeCaption ?? undefined}
           testID="weather-change-location-button"
         />
       </ListRowGroup>

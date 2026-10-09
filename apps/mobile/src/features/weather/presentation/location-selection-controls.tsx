@@ -9,6 +9,8 @@ import {
   Crossfade,
   fadeTo,
   Icon,
+  ListRow,
+  ListRowGroup,
   NativeList,
   NativeListRow,
   NativeListSection,
@@ -27,6 +29,7 @@ import {
   usePlaceSearchApplication,
   useWeatherApplication,
 } from '@/features/weather/application/weather-application-context';
+import { locationCaption, locationName } from '@/features/weather/presentation/location-label';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -53,7 +56,6 @@ export function LocationSelectionControls({
   testID,
   testIDPrefix,
 }: LocationSelectionControlsProps) {
-  const { controlScale } = useTextScaling();
   const application = useWeatherApplication();
   const { state } = application;
   const { searchPlaces, selectPlaceSearchResult } = usePlaceSearchApplication();
@@ -68,20 +70,39 @@ export function LocationSelectionControls({
   };
   // A pick is done only when it is the active location and nothing is left to answer: a
   // permission rationale, a denial or a failed lookup keeps the picker open with its card.
+  // Returns the chosen location once it is done.
   const finishSelection = (
     before: typeof application.state,
     isChosen: (location: ActiveLocation) => boolean,
-  ) => {
+  ): ActiveLocation | null => {
     reportLocationSelection(before);
     const after = application.getSnapshot?.() ?? application.state;
     if (after.status === 'ready' && after.locationFlow === 'idle' && !after.isSelectingLocation
       && after.activeLocation && isChosen(after.activeLocation)) {
       onLocationSelected?.();
+      return after.activeLocation;
     }
+    return null;
   };
-  const isDevice = (location: ActiveLocation) => location.source === 'device';
   const { language, messages } = useLocalization();
   const copy = messages.weather;
+  // A device lookup asked for on this screen: its status line shows while the fix is taken,
+  // and the place it found is spoken once, so the person hears that it worked.
+  const [locatingHere, setLocatingHere] = useState(false);
+  const selectDeviceLocation = (select: () => Promise<void>) => {
+    const before = application.state;
+    setLocatingHere(true);
+    void select().then(() => {
+      setLocatingHere(false);
+      const found = finishSelection(before, (location) => location.source === 'device');
+      // VoiceOver ignores live regions; Android hears the row as it opens.
+      if (found && Platform.OS === 'ios') {
+        AccessibilityInfo.announceForAccessibility(
+          found.displayName ? copy.locationFoundNamed(found.displayName) : copy.locationFound,
+        );
+      }
+    });
+  };
   const theme = useKuyaraTheme();
   const [query, setQuery] = useState('');
   // With the keyboard up the results are the point of the screen: the onboarding heading, its
@@ -145,6 +166,16 @@ export function LocationSelectionControls({
   );
   // The load error line has a live region for Android only; iOS speaks it here.
   useErrorAnnouncement(state.status === 'error' ? copy.loadErrorBody : null);
+  // Only once permission is granted: under the system prompt nothing is being found yet.
+  const locatingStatus = locatingHere && state.status === 'ready' && state.permission.kind === 'granted'
+    && state.isSelectingLocation ? copy.locatingDevice : null;
+  useErrorAnnouncement(locatingStatus);
+  // The device location in use, named under the button with how it was resolved. The last one
+  // shown stays drawn while its row closes, so the row never empties as it leaves.
+  const currentDevice = state.status === 'ready' && state.locationFlow === 'idle'
+    && state.activeLocation?.source === 'device' ? state.activeLocation : null;
+  const [shownDevice, setShownDevice] = useState(currentDevice);
+  if (currentDevice && currentDevice !== shownDevice) setShownDevice(currentDevice);
 
   if (state.status !== 'ready') {
     return (
@@ -162,6 +193,11 @@ export function LocationSelectionControls({
     );
   }
 
+  const shownName = shownDevice ? locationName(shownDevice, copy) : '';
+  const shownCaption = locationCaption(shownDevice, state.permission.kind === 'granted', copy);
+  const isChosenPlace = (id: string) =>
+    state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === id;
+
   return (
     <View style={styles.root} testID={testID}>
       <View style={styles.controls}>
@@ -169,13 +205,33 @@ export function LocationSelectionControls({
         <Button
           label={copy.useCurrentLocation}
           loading={state.isSelectingLocation}
-          onPress={() => {
-            const before = application.state;
-            void application.beginDeviceLocationSelection().then(() => finishSelection(before, isDevice));
-          }}
+          onPress={() => selectDeviceLocation(application.beginDeviceLocationSelection)}
           testID={`${testIDPrefix}-location-device`}
-          variant={state.locationFlow === 'rationale' ? 'tonal' : 'prominent'}
+          // Once a location is in use the button steps down to locate again, so onboarding's
+          // Continue stays the one prominent action (Law 1).
+          variant={state.locationFlow === 'rationale' || hasActiveLocation ? 'tonal' : 'prominent'}
         />
+        {locatingStatus ? <StatusLine text={locatingStatus} /> : null}
+        {/* The current place opens in place under the button (Law 7), like the rationale. */}
+        <View style={styles.presenceSlot}>
+          <Presence visible={currentDevice !== null && !keyboardVisible}>
+            <View style={styles.presenceContent}>
+              {shownDevice ? (
+                <ListRowGroup>
+                  <ListRow
+                    accessibilityLabel={shownCaption ? `${shownName}, ${shownCaption}` : shownName}
+                    glyph={({ color, size }) => <Icon color={color} name="location" size={size} />}
+                    label={shownName}
+                    labelWeight="bodyStrong"
+                    selected
+                    supportingText={shownCaption ?? undefined}
+                    testID={`${testIDPrefix}-location-device-current`}
+                  />
+                </ListRowGroup>
+              ) : null}
+            </View>
+          </Presence>
+        </View>
         {/* The rationale opens and closes in place under its button (Law 7). Its slot takes
             back the column's gap and the card carries it inside, so no space stays behind. */}
         <View style={styles.presenceSlot}>
@@ -189,10 +245,7 @@ export function LocationSelectionControls({
                 <View style={styles.actions}>
                   <Button
                     label={copy.continuePermission}
-                    onPress={() => {
-                      const before = application.state;
-                      void application.confirmDeviceLocationRequest().then(() => finishSelection(before, isDevice));
-                    }}
+                    onPress={() => selectDeviceLocation(application.confirmDeviceLocationRequest)}
                   />
                   <Button
                     label={copy.cancel}
@@ -228,26 +281,7 @@ export function LocationSelectionControls({
           placeholder={copy.placeSearchPlaceholder}
           testID={`${testIDPrefix}-place-search`}
         />
-        {/* A new status crossfades in over the old rather than snapping (Law 7). */}
-        {statusCopy ? (
-          <Crossfade contentKey={statusCopy}>
-            <View
-              accessible
-              accessibilityLabel={statusCopy}
-              accessibilityLiveRegion="polite"
-              style={styles.status}>
-              {search.status === 'error' ? (
-                <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} />
-              ) : null}
-              <AppText
-                colorRole={search.status === 'error' ? 'warningInk' : 'textSecondary'}
-                style={styles.statusText}
-                variant="caption">
-                {statusCopy}
-              </AppText>
-            </View>
-          </Crossfade>
-        ) : null}
+        {statusCopy ? <StatusLine text={statusCopy} warning={search.status === 'error'} /> : null}
       </View>
       <Animated.View style={[styles.root, resultsFade]}>
       <NativeList testID={`${testIDPrefix}-place-results`}>
@@ -274,11 +308,9 @@ export function LocationSelectionControls({
                         if (reportsSelection) weatherEvents.manualLocationSelected();
                       }
                 }
-                selected={
-                  state.activeLocation?.source === 'manual' &&
-                  state.activeLocation.catalogId === place.id
-                }
+                selected={isChosenPlace(place.id)}
                 testID={`${testIDPrefix}-place-${place.id}`}
+                trailingSymbol={isChosenPlace(place.id) ? { name: 'check', color: theme.colors.brandAccent } : undefined}
               />
             ))}
           </NativeListSection>
@@ -286,6 +318,22 @@ export function LocationSelectionControls({
       </NativeList>
       </Animated.View>
     </View>
+  );
+}
+
+/** A status under a control; a new status crossfades in over the old rather than snapping (Law 7). */
+function StatusLine({ text, warning = false }: Readonly<{ text: string; warning?: boolean }>) {
+  const theme = useKuyaraTheme();
+  const { controlScale } = useTextScaling();
+  return (
+    <Crossfade contentKey={text}>
+      <View accessible accessibilityLabel={text} accessibilityLiveRegion="polite" style={styles.status}>
+        {warning ? <Icon color={theme.colors.warningInk} name="warning" size={16 * controlScale} /> : null}
+        <AppText colorRole={warning ? 'warningInk' : 'textSecondary'} style={styles.statusText} variant="caption">
+          {text}
+        </AppText>
+      </View>
+    </Crossfade>
   );
 }
 
