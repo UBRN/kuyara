@@ -100,8 +100,9 @@ export default function TodayRoute() {
     overlayOpen: dayQuestion.visible || askAgain.openedAt !== null || namePrompt.due,
     dayQuestionOpen: dayQuestion.visible,
   });
-  useReviewRequestOnReturn(focused,
-    dayQuestion.visible || askAgain.openedAt !== null || namePrompt.due || alertOffer !== null);
+  // The notification offer is a card in Today's page, not something over it, so it does not hold
+  // the rating request back.
+  useReviewRequestOnReturn(focused, dayQuestion.visible || askAgain.openedAt !== null || namePrompt.due);
 
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const currentDressingDayKey = dressingDayKey ?? null;

@@ -79,7 +79,7 @@ test('focusing Today without an outfit detail visit requests nothing', async () 
   expect(mockRequest).not.toHaveBeenCalled();
 });
 
-test('a launch that showed a sheet, prompt or offer over Today requests nothing', async () => {
+test('a launch that showed a sheet or prompt over Today requests nothing', async () => {
   await returnToToday(freshLaunch(), true);
   expect(mockMarkReviewRequested).not.toHaveBeenCalled();
   expect(mockRequest).not.toHaveBeenCalled();

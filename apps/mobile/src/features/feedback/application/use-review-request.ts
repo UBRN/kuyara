@@ -32,8 +32,8 @@ export function resetReviewRequestLaunch(): void {
 /**
  * Requests the system rating prompt about a second after the reader comes back to Today from an
  * outfit detail, at most once per launch and once per prompt version, and never in a launch in
- * which another sheet, prompt, offer or the tour was shown. `focused` is Today's focus;
- * `overlayOpen` says a sheet, prompt or offer of Today's is open now.
+ * which the consent sheet, another sheet or prompt, or the tour was shown. `focused` is Today's focus;
+ * `overlayOpen` says a sheet or prompt is open over Today now.
  */
 export function useReviewRequestOnReturn(focused: boolean, overlayOpen: boolean): void {
   const { state, markReviewRequested } = useProfileApplication();
