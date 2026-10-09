@@ -239,8 +239,16 @@ export function RecommendationApplicationProvider({
     if (profileState.status !== 'ready') return;
     const next = profileState.profile.dressStyle ?? defaultDressStyle;
     const previous = lastProfileStyle.current;
+    if (!previous) {
+      lastProfileStyle.current = next;
+      return;
+    }
+    if (previous === next) return;
+    // A change made before the day choice settled (still loading, or the read failed) stays
+    // pending: the old style is kept until the read lands, then the row is moved once.
+    if (!choiceReady && !dayChoice) return;
     lastProfileStyle.current = next;
-    if (!previous || previous === next || !dayChoice || !repeatsProfileStyle(dayChoice, previous)) return;
+    if (!dayChoice || !repeatsProfileStyle(dayChoice, previous)) return;
     const key = localDay.key;
     void loadChoiceRepository()
       .then((repository) => repository.upsert(localProfileId, key, next, dayChoice.source, dayChoice.styleAesthetics))
@@ -248,7 +256,7 @@ export function RecommendationApplicationProvider({
       .catch(() => {
         // The day keeps the style it was answered with, as it did before the profile changed.
       });
-  }, [dayChoice, localDay.key, localProfileId, profileState]);
+  }, [choiceReady, dayChoice, localDay.key, localProfileId, profileState]);
   const settingsStyles = profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? null : null;
   const resolvedStyles = resolvedStyleAesthetics(dayChoice, settingsStyles ?? []);
   // The day setup finished on is answered by setup (a choice row written as it completes, or

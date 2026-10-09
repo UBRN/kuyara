@@ -967,6 +967,33 @@ describe('a changed profile dress style', () => {
     }
   });
 
+  test('moves the day answer when the style changed while the day choice was still loading', async () => {
+    let resolveRead: ((stored: ReturnType<typeof row>) => void) | undefined;
+    mockChoiceGet.mockImplementation(() => new Promise((resolve) => { resolveRead = resolve; }));
+    mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
+      source: string) => ({ ...row(formality, source), dayKey: key }));
+    const props = {
+      productAnalytics: createProductAnalytics(), recommendation: recommendationReady(),
+      liveRecommendationProvider: true, wardrobe: wardrobeValue(), weather: weatherValue(),
+    };
+    const view = await render(
+      <Providers {...props} profile={profileValue({ dressStyle: 'smart' })}><DressStyles /></Providers>,
+    );
+    await waitFor(() => expect(resolveRead).toBeDefined());
+    await act(async () => {
+      view.rerender(<Providers {...props} profile={profileValue({ dressStyle: 'formal' })}>
+        <DressStyles />
+      </Providers>);
+    });
+    expect(mockChoiceUpsert).not.toHaveBeenCalled();
+
+    await act(async () => { resolveRead?.(row('smart', 'morning')); });
+
+    await waitFor(() => expect(view.getByTestId('dress-styles')).toHaveTextContent('formal/formal'));
+    expect(mockChoiceUpsert).toHaveBeenCalledTimes(1);
+    expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', '2026-09-24', 'formal', 'morning', null);
+  });
+
   test('leaves a day answer that picked another style or came from a re-ask', async () => {
     const other = await changeProfileStyle(row('casual', 'morning'));
     await waitFor(() => expect(other.getByTestId('dress-styles')).toHaveTextContent('casual/formal'));
