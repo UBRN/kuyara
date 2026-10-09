@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
+import { AppState } from 'react-native';
 
 import {
   noteOutfitDetailVisit,
@@ -9,6 +10,7 @@ import {
 const mockRequest = jest.fn(async () => undefined);
 const mockMarkReviewRequested = jest.fn(async () => undefined);
 let mockTourActive = false;
+let mockConsent = 'granted';
 
 jest.mock('@/features/feedback/data/store-review', () => ({ requestStoreReview: () => mockRequest() }));
 jest.mock('@/features/profile/application/profile-context', () => ({
@@ -17,7 +19,7 @@ jest.mock('@/features/profile/application/profile-context', () => ({
     state: {
       status: 'ready',
       profile: {
-        onboardingCompleted: true, analyticsConsent: 'granted',
+        onboardingCompleted: true, analyticsConsent: mockConsent,
         createdAt: '2026-01-01T09:00:00.000Z', reviewRequestVersion: 0,
       },
     },
@@ -49,6 +51,8 @@ beforeEach(() => {
   mockRequest.mockClear();
   mockMarkReviewRequested.mockClear();
   mockTourActive = false;
+  mockConsent = 'granted';
+  AppState.currentState = 'active';
 });
 
 afterEach(() => { jest.useRealTimers(); });
@@ -102,5 +106,25 @@ test('leaving Today within the second cancels the request', async () => {
 test('a gate that fails to store never reaches the system prompt', async () => {
   mockMarkReviewRequested.mockRejectedValueOnce(new Error('disk'));
   await returnToToday(freshLaunch());
+  expect(mockRequest).not.toHaveBeenCalled();
+});
+
+test('a launch in which the consent sheet was still unanswered requests nothing', async () => {
+  const hook = freshLaunch();
+  mockConsent = 'undecided';
+  const today = await renderHook(({ focused }: { focused: boolean }) => hook.useReviewRequestOnReturn(focused, false),
+    { initialProps: { focused: true } });
+  mockConsent = 'granted';
+  await act(async () => { today.rerender({ focused: false }); });
+  hook.noteOutfitDetailVisit();
+  await act(async () => { today.rerender({ focused: true }); });
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(mockRequest).not.toHaveBeenCalled();
+});
+
+test('an app leaving the foreground keeps its one request for later', async () => {
+  AppState.currentState = 'background';
+  await returnToToday(freshLaunch());
+  expect(mockMarkReviewRequested).not.toHaveBeenCalled();
   expect(mockRequest).not.toHaveBeenCalled();
 });

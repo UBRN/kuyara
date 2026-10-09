@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 
 import { loadStoreReviewRequest } from '@/features/feedback/application/store-review-loader';
 import { reviewRequestDue } from '@/features/feedback/domain/review-request';
@@ -38,13 +39,16 @@ export function useReviewRequestOnReturn(focused: boolean, overlayOpen: boolean)
   const { state, markReviewRequested } = useProfileApplication();
   const tourActive = useWalkthrough()?.active ?? false;
   const profile = state.status === 'ready' ? state.profile : null;
+  // The analytics consent sheet is shown while consent is undecided; answering it in this launch
+  // still counts as something else shown.
+  const consentPending = profile?.analyticsConsent === 'undecided';
   useEffect(() => {
-    if (overlayOpen || tourActive) interrupted = true;
-  }, [overlayOpen, tourActive]);
+    if (overlayOpen || tourActive || consentPending) interrupted = true;
+  }, [overlayOpen, tourActive, consentPending]);
 
-  const latest = useRef({ focused, profile, markReviewRequested });
+  const latest = useRef({ profile, markReviewRequested });
   useEffect(() => {
-    latest.current = { focused, profile, markReviewRequested };
+    latest.current = { profile, markReviewRequested };
   });
 
   useEffect(() => {
@@ -52,7 +56,10 @@ export function useReviewRequestOnReturn(focused: boolean, overlayOpen: boolean)
     detailVisited = false;
     const timer = setTimeout(() => {
       const current = latest.current;
-      if (requested || interrupted || !current.focused || !current.profile || !current.markReviewRequested) return;
+      // A request made while the app is leaving the foreground has no window to show in and
+      // would spend the one request.
+      if (requested || interrupted || AppState.currentState !== 'active') return;
+      if (!current.profile || !current.markReviewRequested) return;
       if (!reviewRequestDue(current.profile, systemDate().getTime())) return;
       requested = true;
       // The gate is stored first, so a request that fails or crashes is never repeated.
