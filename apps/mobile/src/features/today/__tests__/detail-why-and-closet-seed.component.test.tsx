@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
-import { Dimensions } from 'react-native';
+import { AccessibilityInfo, Dimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { recommendOutfits } from '@/features/recommendation/application/recommend-outfits';
@@ -198,9 +198,14 @@ describe.each(['en', 'tr'] as const)('%s outfit detail', (language) => {
 
   test('a failed seed keeps the offer and says so; a Closet with pieces gets no offer', async () => {
     const onSeed = jest.fn();
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+    announce.mockClear();
     const result = await renderDetail(language, todayScreenState, { status: 'failed', addedCount: 0, onSeed });
     expect(result.getByTestId('outfit-detail-closet-seed-button')).toBeOnTheScreen();
     expect(result.getByText(copy.closetSeed.failed)).toBeOnTheScreen();
+    // VoiceOver ignores the alert role, so iOS speaks the failure itself.
+    expect(announce).toHaveBeenCalledWith(copy.closetSeed.failed);
+    announce.mockRestore();
 
     await result.rerender(tree(language, todayScreenState, null));
     expect(result.queryByTestId('outfit-detail-closet-seed-button')).toBeNull();

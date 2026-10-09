@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Icon, Surface } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { PlateView } from '@/theme/plate-theme';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -36,6 +37,8 @@ export function WeatherErrorState({
   title,
 }: Readonly<{ body: string; onRetry: () => void; retryLabel: string; title: string }>) {
   const theme = useKuyaraTheme();
+  // VoiceOver ignores the live region on the line, so iOS also speaks the failure.
+  useErrorAnnouncement(`${title}. ${body}`);
   return (
     <View style={styles.error} testID="weather-load-error">
       <Icon color={theme.colors.dangerInk} name="error" size={20} />

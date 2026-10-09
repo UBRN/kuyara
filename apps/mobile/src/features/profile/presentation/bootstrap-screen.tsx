@@ -1,6 +1,7 @@
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { AppText, Button, Screen, Surface } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { ProfileBootstrapFailureReason } from '@/features/profile/application/profile-application-controller';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
@@ -19,6 +20,8 @@ export function BootstrapScreen(props: BootstrapScreenProps) {
   const messages = useMessages();
   const theme = useKuyaraTheme();
   const isLoading = props.status === 'loading';
+  // VoiceOver ignores the alert role, so iOS speaks the failure itself.
+  useErrorAnnouncement(isLoading ? null : `${messages.bootstrap.errorTitle}. ${messages.bootstrap.errorBody}`);
 
   return (
     <Screen

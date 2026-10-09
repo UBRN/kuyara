@@ -1910,6 +1910,21 @@ test('a failed load reads glyph, title, line and a retry that retries', async ()
   expect(value.retry).toHaveBeenCalledTimes(1);
 });
 
+// VoiceOver ignores the error line's live region, so iOS speaks the title and the line.
+test('a failed load is spoken on iOS, title and line together', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const copy = messages.en.weather;
+  await render(
+    <Providers language="en" value={createValue({ status: 'error' } as WeatherApplicationValue['state'])}>
+      <WeatherScreen />
+    </Providers>,
+  );
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenCalledWith(`${copy.loadErrorTitle}. ${copy.loadErrorBody}`);
+  announce.mockRestore();
+});
+
 test('a cacheless refresh failure offers its own retry in the same anatomy', async () => {
   const value = createValue({
     ...baseState,

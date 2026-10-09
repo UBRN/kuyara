@@ -113,6 +113,13 @@ test.each(['tr', 'en'] as const)('%s picker searches, attributes results and sel
   expect(weather.beginDeviceLocationSelection).toHaveBeenCalledTimes(1);
 });
 
+test('a failed load of the location state is spoken on iOS', async () => {
+  const { weather, Providers } = harness('en');
+  weather.state = { status: 'error' } as WeatherApplicationValue['state'];
+  await render(<Providers><WeatherLocationScreen /></Providers>);
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(messages.en.weather.loadErrorBody);
+});
+
 test('the selected place is marked and duplicate presses are disabled during persistence', async () => {
   const { weather, search, Providers } = harness();
   weather.state = { ...weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>, isSelectingLocation: true,

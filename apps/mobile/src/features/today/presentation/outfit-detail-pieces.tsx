@@ -2,6 +2,7 @@ import { Fragment, useState, type Dispatch, type ReactNode, type RefObject, type
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Icon, Presence, PressScale, useTextScaling } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import {
   ClosetColorDisc,
   colorFamilyFills,
@@ -65,6 +66,8 @@ export function OutfitDetailClosetSeed({
 }>) {
   const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
+  // VoiceOver ignores the alert role on the failure line, so iOS speaks it.
+  useErrorAnnouncement(closetSeed.status === 'failed' ? copy.closetSeed.failed : null);
   return (
     <>
       <Presence testID="outfit-detail-closet-seed" visible={closetSeed.status !== 'added'}>

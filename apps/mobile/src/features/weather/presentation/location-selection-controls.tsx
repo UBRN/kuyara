@@ -143,6 +143,8 @@ export function LocationSelectionControls({
       ? `${copy.locationRationaleTitle} ${copy.locationRationaleBody}`
       : flowMessage ?? null,
   );
+  // The load error line has a live region for Android only; iOS speaks it here.
+  useErrorAnnouncement(state.status === 'error' ? copy.loadErrorBody : null);
 
   if (state.status !== 'ready') {
     return (
