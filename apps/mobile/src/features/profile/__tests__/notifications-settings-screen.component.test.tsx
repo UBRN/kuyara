@@ -2,7 +2,10 @@ import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { NotificationsSettingsScreen } from '@/features/profile/presentation/notifications-settings-screen';
+import {
+  NotificationsSettingsScreen,
+  type NotificationsSettingsScreenProps,
+} from '@/features/profile/presentation/notifications-settings-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -13,15 +16,12 @@ const initialMetrics = {
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
 
-function renderScreen(
-  handlers: Readonly<{
-    onToggle: (optIn: boolean) => Promise<void>;
-    onToggleMorningBriefing: (optIn: boolean) => Promise<void>;
-  }>,
+function screen(
+  props: Partial<NotificationsSettingsScreenProps>,
   language: SupportedLanguage = 'en',
   hour12 = false,
 ) {
-  return render(
+  return (
     <LocalizationContext value={{ language, messages: messages[language], hour12 }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
@@ -30,14 +30,27 @@ function renderScreen(
             isBusy={false}
             morningBriefingOptedIn={false}
             onOpenSystemSettings={() => undefined}
+            onToggle={async () => undefined}
+            onToggleMorningBriefing={async () => undefined}
             optedIn={false}
             permission={{ kind: 'granted' }}
-            {...handlers}
+            {...props}
           />
         </SafeAreaProvider>
       </KuyaraThemeContext.Provider>
-    </LocalizationContext>,
+    </LocalizationContext>
   );
+}
+
+function renderScreen(
+  handlers: Readonly<{
+    onToggle: (optIn: boolean) => Promise<void>;
+    onToggleMorningBriefing: (optIn: boolean) => Promise<void>;
+  }>,
+  language: SupportedLanguage = 'en',
+  hour12 = false,
+) {
+  return render(screen(handlers, language, hour12));
 }
 
 // A failed write must not escape as an unhandled promise rejection with a silently
@@ -115,3 +128,27 @@ test.each([
     expect(within(result.getByTestId('settings-morning-briefing-group'))
       .getByText(copy.morningBriefing.hint(end), { exact: false })).toBeOnTheScreen();
   });
+
+// The switch snaps back on its own when the OS refuses, and VoiceOver reads no footer change,
+// so the denied hint is spoken when it appears. A screen that opens on a refusal stays quiet:
+// the hint was spoken, or the permission changed, before the screen was up.
+test('the denied hint is spoken when a refusal brings it up, not when the screen opens on it', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  try {
+    const hint = messages.en.notifications.permissionDeniedHint;
+    const result = await render(screen({ permission: { kind: 'undetermined' } }));
+    await result.rerender(screen({ blocked: true, permission: { kind: 'undetermined' } }));
+
+    expect(result.getByText(hint)).toBeOnTheScreen();
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(announce).toHaveBeenLastCalledWith(hint);
+
+    announce.mockClear();
+    const opened = await render(screen({ permission: { kind: 'denied', canRequestAgain: false } }));
+    expect(opened.getAllByText(hint).length).toBeGreaterThan(0);
+    expect(announce).not.toHaveBeenCalled();
+  } finally {
+    announce.mockRestore();
+  }
+});

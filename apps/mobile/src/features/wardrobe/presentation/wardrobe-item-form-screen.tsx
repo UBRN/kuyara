@@ -142,9 +142,11 @@ function ErrorLine({ message, testID }: Readonly<{ message: string; testID: stri
 }
 
 // The camera could not open. That is not a failure of the form, so the line is secondary
-// ink with an info glyph and words (Law 4), never the danger treatment.
+// ink with an info glyph and words (Law 4), never the danger treatment. VoiceOver ignores the
+// live region, so the notice is spoken as well, the way an error line is.
 function CameraNotice({ message, testID }: Readonly<{ message: string; testID: string }>) {
   const theme = useKuyaraTheme();
+  useErrorAnnouncement(message);
   return (
     <View style={styles.statusRow}>
       <Icon color={theme.colors.iconSecondary} name="infoOutline" size={20} />

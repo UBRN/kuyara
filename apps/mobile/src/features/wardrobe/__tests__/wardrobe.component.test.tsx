@@ -1145,6 +1145,24 @@ test('a device without a camera says so calmly, with no Settings link and no err
   expect(result.getByTestId('wardrobe-photo-camera-button')).toBeEnabled();
 });
 
+test.each([
+  ['denied', 'wardrobe-camera-denied', messages.en.wardrobe.cameraDeniedMessage],
+  ['unavailable', 'wardrobe-camera-unavailable', messages.en.wardrobe.cameraUnavailableMessage],
+] as const)('the %s camera notice is spoken to VoiceOver, where live regions are ignored', async (reason, testID, message) => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const onSelectPhoto = jest.fn(async (_source: WardrobePhotoSource) => {
+    throw new WardrobeCameraAccessError(reason);
+  });
+  const result = await render(<PhotoForm onSelectPhoto={onSelectPhoto} />);
+
+  await fireEvent.press(result.getByTestId('wardrobe-photo-camera-button'));
+  await waitFor(() => expect(result.getByTestId(testID)).toBeOnTheScreen());
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(message);
+  announce.mockRestore();
+});
+
 test('cancelling the camera leaves the form unchanged', async () => {
   const onDirtyChange = jest.fn();
   const onSelectPhoto = jest.fn(async (_source: WardrobePhotoSource) => null);
