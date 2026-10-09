@@ -995,6 +995,8 @@ export const tr = {
     chooseLocationAction: 'Konum seç',
     noOutfitTitle: 'Kombin bulunamadı',
     noOutfitBody: 'Bu koşullar için eksiksiz bir kombin önerilemiyor.',
+    replacedOutfitTitle: 'Bu kombin yenilendi',
+    replacedOutfitBody: 'Bugün senin için yeni bir kombin var. Görmek için geri dön.',
     weatherAccessibilityLabel: ({
       condition,
       current,

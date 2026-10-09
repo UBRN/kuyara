@@ -369,6 +369,8 @@ export type TodayMessages = Readonly<{
   chooseLocationAction: string;
   noOutfitTitle: string;
   noOutfitBody: string;
+  replacedOutfitTitle: string;
+  replacedOutfitBody: string;
   weatherAccessibilityLabel: (values: {
     condition: string;
     // The three temperatures arrive already formatted, so the spoken number is the one

@@ -46,10 +46,10 @@ function renderDetail(language: SupportedLanguage, state: TodayScreenState, sugg
 describe.each(['en', 'tr'] as const)('%s outfit detail without an outfit', (language) => {
   const copy = messages[language].today;
 
-  test('an outfit the snapshot no longer offers says so in its title and body', async () => {
+  test('an outfit the snapshot no longer offers says it was replaced', async () => {
     const result = await renderDetail(language, todayScreenState as TodayScreenState, 'gone');
-    expect(result.getByRole('header', { name: copy.noOutfitTitle })).toBeOnTheScreen();
-    expect(result.getByText(copy.noOutfitBody)).toBeOnTheScreen();
+    expect(result.getByRole('header', { name: copy.replacedOutfitTitle })).toBeOnTheScreen();
+    expect(result.getByText(copy.replacedOutfitBody)).toBeOnTheScreen();
   });
 
   test('a failed outfit reads its title and body', async () => {

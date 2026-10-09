@@ -392,7 +392,7 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     await activate(result, 'outer_layer');
     expect(onBoardFocusChange).toHaveBeenLastCalledWith(true);
     await result.rerender(tree(language, todayScreenState, { onBoardFocusChange, suggestionId: 'no-longer-offered' }));
-    expect(result.getByText(copy.noOutfitTitle)).toBeOnTheScreen();
+    expect(result.getByText(copy.replacedOutfitTitle)).toBeOnTheScreen();
     expect(onBoardFocusChange).toHaveBeenLastCalledWith(false);
   });
 });

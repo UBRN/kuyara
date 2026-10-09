@@ -425,10 +425,10 @@ export function OutfitDetailScreen({
       // The same scroll view stays mounted when the outfit arrives; it keeps the tour's ref.
       <Screen ref={scrollRef} scrollToOverflowEnabled testID="outfit-detail-screen">
         <AppText accessibilityRole="header" variant="titleLarge">
-          {missingSuggestion ? copy.noOutfitTitle : presentation.title}
+          {missingSuggestion ? copy.replacedOutfitTitle : presentation.title}
         </AppText>
         <AppText colorRole="textSecondary" style={styles.missingSuggestionBody} variant="body">
-          {missingSuggestion ? copy.noOutfitBody : presentation.body}
+          {missingSuggestion ? copy.replacedOutfitBody : presentation.body}
         </AppText>
         {/* O14: the way back stays the system's back capsule in the bar, so no button here. */}
       </Screen>

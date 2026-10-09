@@ -1002,6 +1002,8 @@ export const en = {
     chooseLocationAction: 'Choose a location',
     noOutfitTitle: 'Outfit unavailable',
     noOutfitBody: 'No complete outfit can be recommended for these conditions.',
+    replacedOutfitTitle: 'This outfit was replaced',
+    replacedOutfitBody: 'Today has a new outfit for you. Go back to see it.',
     weatherAccessibilityLabel: ({
       condition,
       current,
