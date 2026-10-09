@@ -171,7 +171,6 @@ function TestProviders({
             revalidateFreshness: async () => undefined,
             dismissLocationFlow: () => undefined,
             beginDeviceLocationSelection: async () => undefined,
-            confirmDeviceLocationRequest: async () => undefined,
             openApplicationSettings: async () => undefined,
             selectManualLocation: async () => undefined,
             refresh: async () => undefined,

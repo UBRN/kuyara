@@ -312,14 +312,14 @@ test('weather bootstrap degrades missing production configuration to retryable u
   }
 });
 
-test('device selection shows rationale before requesting and accepts approximate success', async () => {
+test('device selection requests permission directly and accepts approximate success', async () => {
   const { controller, calls } = createHarness();
   await controller.initialize();
+  const flows = [];
+  controller.subscribe(() => flows.push(controller.getSnapshot().locationFlow));
   await controller.beginDeviceLocationSelection();
-  assert.equal(controller.getSnapshot().locationFlow, 'rationale');
-  assert.equal(calls.permissionRequests, 0);
-  await controller.confirmDeviceLocationRequest();
   await settle();
+  assert.deepEqual([...new Set(flows)], ['idle']);
   assert.equal(calls.permissionRequests, 1);
   assert.equal(calls.lookups, 1);
   assert.equal(controller.getSnapshot().activeLocation.source, 'device');
@@ -537,7 +537,6 @@ test('only a return from the background is a foreground event, so a permission a
     await harness.controller.initialize();
     const stop = subscribeToForeground(() => void harness.controller.onForeground());
     await harness.controller.beginDeviceLocationSelection();
-    await harness.controller.confirmDeviceLocationRequest();
     await settle();
     stop();
     assert.equal(harness.calls.lookups, 1);
@@ -756,7 +755,7 @@ test('a permission answer given while a revalidation reads the store survives it
 
   now = '2026-07-30T10:16:00.000Z';
   const revalidation = harness.controller.revalidateFreshness();
-  await harness.controller.confirmDeviceLocationRequest();
+  await harness.controller.beginDeviceLocationSelection();
   assert.equal(harness.controller.getSnapshot().permission.kind, 'denied');
   await releaseRead();
   await revalidation;
@@ -973,16 +972,32 @@ test('requestable and permanent denial, services failure, and Settings remain ex
   const requestable = createHarness({ requestedPermission: { kind: 'denied', canRequestAgain: true } });
   await requestable.controller.initialize();
   await requestable.controller.beginDeviceLocationSelection();
-  await requestable.controller.confirmDeviceLocationRequest();
+  assert.equal(requestable.calls.permissionRequests, 1);
   assert.equal(requestable.controller.getSnapshot().locationFlow, 'denied-requestable');
+
+  // Where the platform still lets the app ask after a denial, the tap asks again.
+  const askAgain = createHarness({
+    permissionState: { kind: 'denied', canRequestAgain: true },
+    requestedPermission: { kind: 'granted', accuracy: 'full' },
+  });
+  await askAgain.controller.initialize();
+  await askAgain.controller.beginDeviceLocationSelection();
+  assert.equal(askAgain.calls.permissionRequests, 1);
+  assert.equal(askAgain.controller.getSnapshot().activeLocation.source, 'device');
 
   const permanent = createHarness({ permissionState: { kind: 'denied', canRequestAgain: false } });
   await permanent.controller.initialize();
   await permanent.controller.beginDeviceLocationSelection();
   assert.equal(permanent.controller.getSnapshot().locationFlow, 'denied-permanent');
   assert.equal(permanent.calls.permissionRequests, 0);
-  await permanent.controller.openApplicationSettings();
+  const trip = permanent.controller.openApplicationSettings();
+  await settle();
   assert.equal(permanent.calls.settings, 1);
+  // Back without granting anything: the trip ends and nothing is looked up.
+  await permanent.controller.onForeground();
+  await trip;
+  assert.equal(permanent.calls.lookups, 0);
+  assert.equal(permanent.controller.getSnapshot().locationFlow, 'denied-permanent');
 
   const services = createHarness({
     permissionState: { kind: 'granted', accuracy: 'approximate' },
@@ -991,6 +1006,90 @@ test('requestable and permanent denial, services failure, and Settings remain ex
   await services.controller.initialize();
   await services.controller.beginDeviceLocationSelection();
   assert.equal(services.controller.getSnapshot().locationFlow, 'services-unavailable');
+});
+
+function permanentlyDenied() {
+  const harness = createHarness({ permissionState: { kind: 'denied', canRequestAgain: false } });
+  let permission = { kind: 'denied', canRequestAgain: false };
+  harness.deviceLocation.getPermissionState = async () => permission;
+  return { ...harness, grant: () => { permission = { kind: 'granted', accuracy: 'full' }; } };
+}
+
+test('access granted in Settings from the denial card finds the device location on return, once', async () => {
+  const harness = permanentlyDenied();
+  await harness.controller.initialize();
+  await harness.controller.beginDeviceLocationSelection();
+  let tripEnded = false;
+  const trip = harness.controller.openApplicationSettings().then(() => { tripEnded = true; });
+  await settle();
+  assert.equal(tripEnded, false);
+  harness.grant();
+  await harness.controller.onForeground();
+  await trip;
+  assert.equal(harness.calls.lookups, 1);
+  assert.equal(harness.calls.permissionRequests, 0);
+  assert.equal(harness.controller.getSnapshot().activeLocation.source, 'device');
+  assert.equal(harness.controller.getSnapshot().locationFlow, 'idle');
+});
+
+test('a plain foreground with access granted looks nothing up for a person who never went to Settings', async () => {
+  const harness = permanentlyDenied();
+  await harness.controller.initialize();
+  await harness.controller.beginDeviceLocationSelection();
+  harness.grant();
+  await harness.controller.onForeground();
+  assert.equal(harness.calls.lookups, 0);
+  assert.equal(harness.controller.getSnapshot().activeLocation, null);
+});
+
+test('a Settings trip ended by a manual pick, a dismissal or a return without access finds nothing later', async () => {
+  const picked = permanentlyDenied();
+  await picked.controller.initialize();
+  await picked.controller.beginDeviceLocationSelection();
+  const pickedTrip = picked.controller.openApplicationSettings();
+  await settle();
+  await picked.controller.selectPlaceSearchResult(searchedPlace);
+  await pickedTrip;
+  picked.grant();
+  await picked.controller.onForeground();
+  assert.equal(picked.calls.lookups, 0);
+  assert.equal(picked.controller.getSnapshot().activeLocation.source, 'manual');
+
+  const dismissed = permanentlyDenied();
+  await dismissed.controller.initialize();
+  await dismissed.controller.beginDeviceLocationSelection();
+  const dismissedTrip = dismissed.controller.openApplicationSettings();
+  await settle();
+  dismissed.controller.dismissLocationFlow();
+  await dismissedTrip;
+  dismissed.grant();
+  await dismissed.controller.onForeground();
+  assert.equal(dismissed.calls.lookups, 0);
+
+  const returned = permanentlyDenied();
+  await returned.controller.initialize();
+  await returned.controller.beginDeviceLocationSelection();
+  const returnedTrip = returned.controller.openApplicationSettings();
+  await settle();
+  await returned.controller.onForeground();
+  await returnedTrip;
+  returned.grant();
+  await returned.controller.onForeground();
+  assert.equal(returned.calls.lookups, 0);
+});
+
+test('a manual pick made while the return reads the permission wins over the Settings trip', async () => {
+  const harness = permanentlyDenied();
+  await harness.controller.initialize();
+  await harness.controller.beginDeviceLocationSelection();
+  const trip = harness.controller.openApplicationSettings();
+  await settle();
+  harness.grant();
+  const foreground = harness.controller.onForeground();
+  await harness.controller.selectPlaceSearchResult(searchedPlace);
+  await Promise.all([foreground, trip]);
+  assert.equal(harness.calls.lookups, 0);
+  assert.equal(harness.controller.getSnapshot().activeLocation.source, 'manual');
 });
 
 test('a reasonably future provider timestamp is treated as fresh clock skew and persisted as received', async () => {

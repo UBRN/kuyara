@@ -4,6 +4,7 @@ import { AccessibilityInfo, Keyboard, StyleSheet, Text } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { placeSearchQueryMaxLength, type PlaceSearchV1Data } from '@kuyara/contracts';
 
+import { haptics } from '@/components/ui/haptics';
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
 import { RetryCounter } from '@/features/analytics/application/retry-counter';
@@ -51,7 +52,6 @@ function harness(language: SupportedLanguage = 'en') {
     state: { status: 'ready', activeLocation: null, snapshot: null, freshness: null, permission: { kind: 'undetermined' }, locationFlow: 'idle', isSelectingLocation: false, isRefreshing: false, refreshFailure: null } as WeatherApplicationValue['state'],
     retry: jest.fn(async () => undefined), dismissLocationFlow: jest.fn(),
     beginDeviceLocationSelection: jest.fn(async () => undefined),
-    confirmDeviceLocationRequest: jest.fn(async () => undefined),
     openApplicationSettings: jest.fn(async () => undefined),
     selectManualLocation: jest.fn(async () => undefined), refresh: jest.fn(async () => undefined),
     revalidateFreshness: jest.fn(async () => undefined),
@@ -245,13 +245,8 @@ test('selecting the same place again does not report a location change', async (
   expect(analytics.captures.filter((capture) => capture.name === 'feature_used_first_time')).toHaveLength(1);
 });
 
-test('permission rationale and permanent denial retain their existing actions on the new screen', async () => {
+test('permanent denial keeps its Settings action on the new screen', async () => {
   const { weather, Providers } = harness();
-  weather.state = { ...weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>, locationFlow: 'rationale' };
-  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
-  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.continuePermission }));
-  expect(weather.confirmDeviceLocationRequest).toHaveBeenCalledTimes(1);
-  await result.unmount();
   weather.state = { ...weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>, locationFlow: 'denied-permanent', permission: { kind: 'denied', canRequestAgain: false } };
   const denied = await render(<Providers><WeatherLocationScreen /></Providers>);
   expect(denied.getByText(messages.en.weather.placePermanentDeniedBody)).toBeOnTheScreen();
@@ -266,7 +261,6 @@ test.each([
   ['services-unavailable', (copy: typeof messages.en.weather) => copy.placeServicesUnavailableBody],
   ['lookup-failed', (copy: typeof messages.en.weather) => copy.lookupFailedNoLocationBody],
   ['selection-failed', (copy: typeof messages.en.weather) => copy.selectionFailedNoLocationBody],
-  ['rationale', (copy: typeof messages.en.weather) => `${copy.locationRationaleTitle} ${copy.locationRationaleBody}`],
 ] as const)('the %s location message is announced on iOS', async (locationFlow, expected) => {
   const { weather, Providers } = harness();
   jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
@@ -302,16 +296,6 @@ test.each([
     expect(shown.getByText(copy[withLocation])).toBeOnTheScreen();
     await shown.unmount();
   }
-});
-
-// Law 7: the rationale opens and closes in place under its button rather than snapping.
-test('the location rationale opens in place under its button', async () => {
-  const { weather, Providers } = harness();
-  const copy = messages.en.weather;
-  weather.state = { ...weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>, locationFlow: 'rationale' };
-  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
-  expect(within(result.getByTestId('weather-location-rationale'))
-    .getByRole('header', { name: copy.locationRationaleTitle })).toBeOnTheScreen();
 });
 
 test('an idle location flow announces nothing', async () => {
@@ -392,10 +376,10 @@ test('a failed place save keeps the picker open with its message', async () => {
   expect(mockRouter.back).not.toHaveBeenCalled();
 });
 
-test('the device location closes the picker once found, and stays for a rationale or a failed lookup', async () => {
+test('the device location closes the picker once found, and stays for a denial or a failed lookup', async () => {
   const { weather, Providers } = harness();
   weather.beginDeviceLocationSelection.mockImplementationOnce(async () => {
-    weather.state = { ...readyState(weather.state), locationFlow: 'rationale' };
+    weather.state = { ...readyState(weather.state), locationFlow: 'denied-requestable' };
   });
   const result = await render(<Providers><WeatherLocationScreen /></Providers>);
   await fireEvent.press(result.getByRole('button', { name: messages.en.weather.useCurrentLocation }));
@@ -411,12 +395,12 @@ test('the device location closes the picker once found, and stays for a rational
   expect(mockRouter.back).not.toHaveBeenCalled();
   await failed.unmount();
 
-  weather.state = { ...readyState(weather.state), locationFlow: 'rationale' };
-  weather.confirmDeviceLocationRequest.mockImplementationOnce(async () => {
+  weather.state = { ...readyState(weather.state), locationFlow: 'idle' };
+  weather.beginDeviceLocationSelection.mockImplementationOnce(async () => {
     weather.state = { ...readyState(weather.state), locationFlow: 'idle', activeLocation: deviceLocation };
   });
   const granted = await render(<Providers><WeatherLocationScreen /></Providers>);
-  await fireEvent.press(granted.getByRole('button', { name: messages.en.weather.continuePermission }));
+  await fireEvent.press(granted.getByRole('button', { name: messages.en.weather.useCurrentLocation }));
   expect(mockRouter.back).toHaveBeenCalledTimes(1);
 });
 
@@ -508,14 +492,15 @@ test('no current-location row stands for a manual place or a pending answer', as
   expect(failed.queryByTestId('weather-location-device-current')).toBeNull();
 });
 
-// The status line says the fix is being taken only once permission is granted: under the
-// system prompt nothing is being found yet. Success is spoken once, with the place's name.
-test('the lookup status shows after permission is granted, never under the prompt, and success is spoken once', async () => {
+// The tap asks the system directly: no card of kuyara's own comes first. The status line says
+// the fix is being taken only once permission is granted: under the system prompt nothing is
+// being found yet. Success is spoken once, with the place's name, and felt once.
+test('the lookup status shows after permission is granted, never under the prompt, and success is spoken and felt once', async () => {
   const { weather, Providers } = harness();
   const copy = messages.en.weather;
-  weather.state = { ...readyState(weather.state), locationFlow: 'rationale' };
+  const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
   let finish: () => void = () => undefined;
-  weather.confirmDeviceLocationRequest.mockImplementation(() => new Promise<undefined>((resolve) => {
+  weather.beginDeviceLocationSelection.mockImplementation(() => new Promise<undefined>((resolve) => {
     weather.state = { ...readyState(weather.state), locationFlow: 'idle', isSelectingLocation: true };
     finish = () => {
       weather.state = { ...readyState(weather.state), isSelectingLocation: false, permission: granted,
@@ -525,9 +510,10 @@ test('the lookup status shows after permission is granted, never under the promp
   }));
   const controls = () => <Providers><LocationSelectionControls testID="controls" testIDPrefix="onboarding" /></Providers>;
   const result = await render(controls());
-  await fireEvent.press(result.getByRole('button', { name: copy.continuePermission }));
+  await fireEvent.press(result.getByRole('button', { name: copy.useCurrentLocation }));
   await result.rerender(controls());
   expect(result.queryByLabelText(copy.locatingDevice)).toBeNull();
+  expect(result.queryByText(copy.placeDeniedBody)).toBeNull();
 
   jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
   weather.state = { ...readyState(weather.state), permission: granted };
@@ -542,6 +528,97 @@ test('the lookup status shows after permission is granted, never under the promp
   expect(result.getByTestId('onboarding-location-device-current')).toBeOnTheScreen();
   expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
   expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(copy.locationFoundNamed('Kadıköy'));
+  expect(success).toHaveBeenCalledTimes(1);
+});
+
+test('a failed lookup or a denial is not felt as success, nor is a device location the app moved by itself', async () => {
+  const { weather, Providers } = harness();
+  const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+  const controls = () => <Providers><LocationSelectionControls testID="controls" testIDPrefix="onboarding" /></Providers>;
+  for (const locationFlow of ['lookup-failed', 'services-unavailable', 'denied-requestable', 'denied-permanent'] as const) {
+    weather.beginDeviceLocationSelection.mockImplementationOnce(async () => {
+      weather.state = { ...readyState(weather.state), locationFlow };
+    });
+    const result = await render(controls());
+    await fireEvent.press(result.getByRole('button', { name: messages.en.weather.useCurrentLocation }));
+    await result.unmount();
+  }
+  expect(success).not.toHaveBeenCalled();
+
+  // The foreground re-acquisition replaces the device location without anyone asking.
+  weather.state = { ...readyState(weather.state), locationFlow: 'idle', permission: granted, activeLocation: deviceLocation };
+  const result = await render(controls());
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  weather.state = { ...readyState(weather.state), activeLocation: { ...deviceLocation, locationKey: 'device:4099:2903', displayName: 'Kadıköy' } };
+  await result.rerender(controls());
+  expect(result.getByTestId('onboarding-location-device-current')).toBeOnTheScreen();
+  expect(success).not.toHaveBeenCalled();
+  expect(AccessibilityInfo.announceForAccessibility).not.toHaveBeenCalled();
+});
+
+// Back from the Settings trip with access granted, the lookup that return starts confirms
+// itself as a tap's would: the status line, the named row, one announcement and one haptic,
+// and the picker closes. A return without access confirms nothing.
+test('a return from Settings with access granted finds the location as a tap would', async () => {
+  const { weather, analytics, Providers } = harness();
+  const copy = messages.en.weather;
+  const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+  const denied = { ...readyState(weather.state), locationFlow: 'denied-permanent', permission: { kind: 'denied', canRequestAgain: false } } as const;
+  weather.state = denied;
+  let finish: (found: boolean) => void = () => undefined;
+  weather.openApplicationSettings.mockImplementation(() => new Promise<undefined>((resolve) => {
+    finish = (found) => {
+      weather.state = found
+        ? { ...readyState(weather.state), locationFlow: 'idle', isSelectingLocation: false, permission: granted, activeLocation: { ...deviceLocation, displayName: 'Kadıköy' } }
+        : denied;
+      resolve(undefined);
+    };
+  }));
+  const screen = () => <Providers><WeatherLocationScreen /></Providers>;
+
+  const unchanged = await render(screen());
+  await fireEvent.press(unchanged.getByRole('button', { name: copy.openSettings }));
+  await act(async () => { finish(false); });
+  expect(success).not.toHaveBeenCalled();
+  expect(mockRouter.back).not.toHaveBeenCalled();
+  await unchanged.unmount();
+
+  const result = await render(screen());
+  await fireEvent.press(result.getByRole('button', { name: copy.openSettings }));
+  weather.state = { ...readyState(weather.state), locationFlow: 'idle', permission: granted, isSelectingLocation: true };
+  await result.rerender(screen());
+  expect(result.getByLabelText(copy.locatingDevice)).toBeOnTheScreen();
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  await act(async () => { finish(true); });
+  expect(success).toHaveBeenCalledTimes(1);
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(copy.locationFoundNamed('Kadıköy'));
+  expect(mockRouter.back).toHaveBeenCalledTimes(1);
+  expect(analytics.captures.filter((c) => c.name === 'location_changed')).toHaveLength(1);
+});
+
+// A Settings trip that ends without a lookup, by "Not now" before the return was read, leaves
+// the device location already in use where it was: nothing was found, so nothing confirms.
+test('a Settings trip that ends without a lookup confirms nothing', async () => {
+  const { weather, Providers } = harness();
+  const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+  weather.state = {
+    ...readyState(weather.state), locationFlow: 'denied-permanent', activeLocation: deviceLocation,
+    permission: { kind: 'denied', canRequestAgain: false },
+  };
+  let end: () => void = () => undefined;
+  weather.openApplicationSettings.mockImplementation(() => new Promise<undefined>((resolve) => {
+    end = () => {
+      weather.state = { ...readyState(weather.state), locationFlow: 'idle' };
+      resolve(undefined);
+    };
+  }));
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.openSettings }));
+  await act(async () => { end(); });
+  expect(success).not.toHaveBeenCalled();
+  expect(AccessibilityInfo.announceForAccessibility).not.toHaveBeenCalled();
+  expect(mockRouter.back).not.toHaveBeenCalled();
 });
 
 test('an unnamed fix is spoken as found without a name, and a manual pick shows no lookup status', async () => {

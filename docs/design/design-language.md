@@ -575,6 +575,7 @@ Everywhere else, silence.
 | Primary action pressed, the `Button` prominent role | impact light | The screen's main action confirms the press itself |
 | Outfit ownership completed on the detail board, the last piece marked owned | notification success | Confirming a state the user set, a real threshold |
 | "Wore this today" recorded on outfit detail | notification success | Confirming a state the user set; the press fires no impact of its own |
+| Device location found after the person asked for it, by "Use my current location" or by the return from Settings with access granted | notification success, once | The fix takes seconds and the user may not be looking at the screen; a failure and the silent foreground re-acquisition fire nothing |
 | A swipe on an enlarged outfit detail piece crosses half a step toward a candidate | selection, once per crossing | A physical threshold under the finger: the piece a release lands on changes |
 | Destructive confirmation | notification warning | Not reversible |
 | Navigation, including tapping an outfit card to open detail | **none** | Ordinary navigation |
@@ -587,13 +588,15 @@ buttons, list rows, chips, the tab bar and pickers fire nothing on press; where 
 bar and the pickers do fire, it is the selection change above, which is a state changing
 under the finger rather than a press being acknowledged. The press that completes an
 outfit's ownership fires the success notification, not the selection feedback as well:
-one press, one haptic. Gordon and Zhai (CHI 2019,
+one press, one haptic. "Use my current location" keeps its press impact while it is the
+prominent action, because its success arrives seconds later, after the fix, as a separate
+answer. Gordon and Zhai (CHI 2019,
 <https://doi.org/10.1145/3290605.3300603>) measured no speed or accuracy gain from
 haptic confirmation on a tap and a clear gain from haptics at a drag boundary crossing,
 so the threshold sites rest on a measured result and the primary press on subjective
 preference alone; a second press-confirmation site is not argued in on performance.
 
-Eight sites, not a hundred. A repeated action must not punish the hand with
+Nine sites, not a hundred. A repeated action must not punish the hand with
 constant vibration, which matches Apple's own guidance and this identity's existing
 avoidance of anything attention-demanding.
 

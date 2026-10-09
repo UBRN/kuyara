@@ -714,9 +714,7 @@ export type AppMessages = Readonly<{
     locationFound: string;
     locationFoundNamed: (name: string) => string;
     changeLocationAction: string;
-    locationRationaleTitle: string;
     locationRationaleBody: string;
-    continuePermission: string;
     cancel: string;
     lookupFailedBody: string;
     selectionFailedBody: string;

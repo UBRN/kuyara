@@ -10,7 +10,7 @@ export type WeatherApplicationValue = Readonly<{
   retry: () => Promise<void>;
   dismissLocationFlow: () => void;
   beginDeviceLocationSelection: () => Promise<void>;
-  confirmDeviceLocationRequest: () => Promise<void>;
+  /** Resolves once the person is back from Settings and any lookup that return started is done. */
   openApplicationSettings: () => Promise<void>;
   selectManualLocation: (id: ManualLocationId) => Promise<void>;
   refresh: () => Promise<void>;
