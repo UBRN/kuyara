@@ -27,4 +27,5 @@ badge_file: /assets/img/badges/app-store-badge-tr.svg
 badge_alt: App Store'dan İndirin
 badge_width: 189
 play_line: "Google Play: yakında"
+frost_hint: Cam buz tuttu. Sil bakalım, kombinin altında.
 ---

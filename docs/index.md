@@ -27,4 +27,5 @@ badge_file: /assets/img/badges/app-store-badge-en.svg
 badge_alt: Download on the App Store
 badge_width: 150
 play_line: "Google Play: coming soon"
+frost_hint: "The glass froze over. Give it a wipe: your outfit is underneath."
 ---

@@ -29,7 +29,9 @@
     <link rel="stylesheet" href="{{ "/assets/css/plates.css?v=" | append: site.github.build_revision | relative_url }}">
     <link rel="stylesheet" href="{{ "/assets/css/site.css?v=" | append: site.github.build_revision | relative_url }}">
     <link rel="stylesheet" href="{{ "/assets/css/landing.css?v=" | append: site.github.build_revision | relative_url }}">
+    <link rel="stylesheet" href="{{ "/assets/css/frost.css?v=" | append: site.github.build_revision | relative_url }}">
     <script defer src="{{ "/assets/js/landing.js?v=" | append: site.github.build_revision | relative_url }}"></script>
+    <script defer src="{{ "/assets/js/frost.js?v=" | append: site.github.build_revision | relative_url }}"></script>
   </head>
   {%- assign lang = page.lang | default: "en" -%}
   <body class="ku-landing">
@@ -70,7 +72,7 @@
                 </p>
                 {%- endfor %}
               </div>
-              <div class="ku-plate ku-dress__plate" data-atmosphere="{{ first.atmosphere }}">
+              <div class="ku-plate ku-dress__plate" data-atmosphere="{{ first.atmosphere }}" data-frost-hint="{{ page.frost_hint | escape }}">
                 <canvas class="ku-particles" aria-hidden="true"></canvas>
                 {%- for scene in site.data.site_boards.scenes %}
                 {%- assign look = scene.looks | where: "preference", "womens" | first %}
