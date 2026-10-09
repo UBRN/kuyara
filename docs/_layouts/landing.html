@@ -14,7 +14,7 @@
         "name": "kuyara",
         "url": {{ page.url | absolute_url | jsonify }},
         "description": {{ page.description | jsonify }},
-        "image": {{ "/assets/img/og-image.png" | absolute_url | jsonify }},
+        "image": {{ page.image.path | default: "/assets/img/og-image.png" | absolute_url | jsonify }},
         "operatingSystem": "iOS 26.0 or later",
         "applicationCategory": "LifestyleApplication",
         "inLanguage": ["en", "tr"],
@@ -53,10 +53,10 @@
               <p class="ku-hero__name">kuyara</p>
               <h1 class="ku-display" id="ku-hero-title">{{ page.hero_title }}</h1>
               <p class="ku-body ku-hero__line">{{ page.hero_line }}</p>
-              <div class="ku-hero__cta">
+              <div class="ku-hero__cta" data-inapp="{{ page.inapp_line | escape }}">
                 {%- comment -%} Apple's badge artwork, unmodified, under Apple's App Store Marketing
                 Artwork License Agreement: 50px tall, with a quarter of its height kept clear. {%- endcomment %}
-                <a class="ku-badge" href="https://apps.apple.com/app/id6806664440" data-ku-badge="hero">
+                <a class="ku-badge" href="https://apps.apple.com/app/id6806664440">
                   <img src="{{ page.badge_file | relative_url }}" alt="{{ page.badge_alt }}" width="{{ page.badge_width }}" height="50">
                 </a>
                 <p class="ku-caption">{{ page.yours_line }}</p>
@@ -100,7 +100,7 @@
         <div class="ku-shell ku-rise ku-cta">
           <h2 class="ku-title-large" id="ku-cta-title">{{ page.close_title }}</h2>
           <p class="ku-body ku-secondary">{{ page.yours_line }}</p>
-          <a class="ku-badge" href="https://apps.apple.com/app/id6806664440" data-ku-badge="end">
+          <a class="ku-badge" href="https://apps.apple.com/app/id6806664440">
             <img src="{{ page.badge_file | relative_url }}" alt="{{ page.badge_alt }}" width="{{ page.badge_width }}" height="50">
           </a>
           <p class="ku-body ku-cta__soon">{{ page.play_line }}</p>
@@ -108,19 +108,6 @@
         </div>
       </section>
 
-      {%- comment -%}
-        Once the hero badge has scrolled away, the badge waits at the bottom of the screen,
-        and steps aside while another badge is in view. Hidden and inert until cta.js shows it.
-        The in-app browser line rides here as data; cta.js sets it under the first badge.
-      {%- endcomment %}
-      <div class="ku-pill" data-inapp="{{ page.inapp_line | escape }}" aria-hidden="true" inert>
-        <div class="ku-pill__body">
-          <p class="ku-pill__name">kuyara</p>
-          <a class="ku-badge" href="https://apps.apple.com/app/id6806664440" data-ku-badge="pill">
-            <img src="{{ page.badge_file | relative_url }}" alt="{{ page.badge_alt }}" width="{{ page.badge_width }}" height="50">
-          </a>
-        </div>
-      </div>
     </main>
 
     {% include site-footer.html %}

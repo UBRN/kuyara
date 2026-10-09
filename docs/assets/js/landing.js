@@ -174,6 +174,7 @@
       var m = ease(this.snow), wind = this.weight.wind;
       var slant = 0.24 + 0.22 * wind;
       ctx.strokeStyle = blend(inks.rain, inks.snow, m);
+      ctx.shadowColor = 'rgba(20, 47, 59, ' + (0.35 * m).toFixed(3) + ')'; ctx.shadowBlur = 3 * m; ctx.shadowOffsetY = 0.5 * m;
       for (var i = 0; i < STREAKS; i++) {
         var q = this.drops[i];
         /* Speed, in plate heights a second: the rain's quick fall, the snow's slow drift. */
@@ -192,6 +193,7 @@
         ctx.globalAlpha = mix(0.8, 0.85, m) * alpha;
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - slant * length * (1 - m), y + 0.97 * length); ctx.stroke();
       }
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
     }
     ctx.globalAlpha = 1;
   };
@@ -266,7 +268,8 @@
     for (var n = 0; n < looks.length; n++) if (kindOf(looks[n]) === kind) return inkOf(looks[n].getAttribute('data-ink'));
     return dressItem.ink;
   };
-  var skyInks = { motes: inkFor('motes'), clouds: inkFor('clouds'), wind: inkFor('wind'), rain: inkFor('rain'), snow: inkFor('snow') };
+  /* The stage's snow is white, as snow is, with a faint shade so it reads on the pale plate. */
+  var skyInks = { motes: inkFor('motes'), clouds: inkFor('clouds'), wind: inkFor('wind'), rain: inkFor('rain'), snow: '#FFFFFF' };
   if (/^#[0-9a-f]{6}$/i.test(skyInks.rain) && /^#[0-9a-f]{6}$/i.test(skyInks.snow)) sky = new Sky(dressItem.plates[0]);
 
   /* The temperature at stage position x: the scenes' own temperatures at the moments they
