@@ -4,6 +4,11 @@ lang: tr
 ref: home
 layout: landing
 description: Bugün ne giysem? kuyara her sabah hava durumuna göre kombin hazırlar, güneşte de karda da sana özel. iPhone için, tamamen senin.
+image:
+  path: /assets/img/og-tr.png
+  alt: "31 derecede bir yaz kombini ve eksi 3 derecede bir kar kombini yan yana, üstünde: Yarın sabah ne giyeceksin?"
+  width: 1200
+  height: 630
 
 hero_title: Bugün ne giyeceğin hazır.
 hero_line: Ne giysem diye düşünme. Her sabah, hava durumuna göre sana özel bir kombin seni bekliyor.

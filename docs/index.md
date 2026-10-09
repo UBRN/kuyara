@@ -4,6 +4,11 @@ lang: en
 ref: home
 layout: landing
 description: What to wear today? Every morning, kuyara has an outfit for the weather ready for you, from sunshine to snow. For iPhone, and all yours.
+image:
+  path: /assets/img/og-en.png
+  alt: "A summer outfit at 31 degrees beside a snow outfit at minus 3 degrees, with the line: What will you wear tomorrow?"
+  width: 1200
+  height: 630
 
 hero_title: Dressed for your day.
 hero_line: What to wear today? Every morning, an outfit for the weather ahead, made just for you.
