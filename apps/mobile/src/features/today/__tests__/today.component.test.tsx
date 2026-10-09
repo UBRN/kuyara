@@ -2616,6 +2616,7 @@ describe('the contextual weather-alert offer', () => {
       ruleId: 'precipitation_onset',
       onAccept: jest.fn(async () => ({ outcome: 'enabled' } as const)),
       onDismiss: jest.fn(async () => undefined),
+      onDismissBlocked: jest.fn(),
       onOpenSystemSettings: jest.fn(),
       ...overrides,
     };
@@ -2850,6 +2851,8 @@ describe('the contextual weather-alert offer', () => {
     expect(offer.onOpenSystemSettings).toHaveBeenCalledTimes(1);
     await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
     expect(result.queryByTestId('today-alert-offer')).toBeNull();
+    // Dismissing the refusal ends the wait for a later grant.
+    expect(offer.onDismissBlocked).toHaveBeenCalledTimes(1);
   });
 
   test('a refused offer disappears once the accept is finished from system Settings', async () => {
@@ -2895,6 +2898,7 @@ describe.each(['en', 'tr'] as const)('%s ask-again control', (language) => {
       ruleId: 'precipitation_onset',
       onAccept: jest.fn(async () => ({ outcome: 'enabled' as const })),
       onDismiss: jest.fn(async () => undefined),
+      onDismissBlocked: jest.fn(),
       onOpenSystemSettings: jest.fn(),
     };
     const result = await render(providers(
@@ -3324,6 +3328,7 @@ describe('Today with Easier to see', () => {
     ruleId: 'precipitation_onset',
     onAccept: jest.fn(async () => ({ outcome: 'enabled' } as const)),
     onDismiss: jest.fn(async () => undefined),
+    onDismissBlocked: jest.fn(),
     onOpenSystemSettings: jest.fn(),
   };
   const edge = { borderColor: lightTheme.colors.borderStrong, borderWidth: 2 };

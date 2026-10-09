@@ -388,3 +388,64 @@ test('a permission granted in Settings after a refused accept finishes the accep
   addEventListener.mockRestore();
   await hook.unmount();
 });
+
+// Dismissing the refused offer ends the wait: a grant made much later (for example from
+// kuyara's own row in iOS Settings) must not turn both opt-ins on behind the person's back.
+test('a permission granted in Settings after the refused offer was dismissed opts in nothing', async () => {
+  const appStateListeners: ((state: string) => void)[] = [];
+  const addEventListener = jest.spyOn(AppState, 'addEventListener').mockImplementation(
+    ((_type: string, listener: (state: string) => void) => {
+      appStateListeners.push(listener);
+      return { remove: () => undefined };
+    }) as unknown as typeof AppState.addEventListener,
+  );
+  let permission: NotificationPermissionState = { kind: 'undetermined' };
+  const gateway: NotificationGateway = {
+    getPermissionState: async () => permission,
+    requestPermission: async () => (permission = { kind: 'denied', canRequestAgain: false }),
+    openApplicationSettings: jest.fn(async () => undefined),
+    cancelScheduledWeatherAlerts: async () => true,
+    scheduleWeatherAlert: async () => true,
+    subscribeToResponses: () => () => undefined,
+  };
+  const persistOptIn = jest.fn(async () => undefined);
+  const updateMorningBriefingOptIn = jest.fn(async () => undefined);
+  const profile = profileApplication(
+    false, jest.fn(async () => undefined), updateMorningBriefingOptIn,
+  );
+  const weather = weatherApplication();
+  function Providers({ children }: PropsWithChildren) {
+    return (
+      <ProfileApplicationContext value={profile}>
+        <ProductAnalyticsProvider analytics={new RecordingProductAnalytics()} firstUseStore={new InMemoryFirstUseStore()}>
+          <NotificationApplicationProvider gateway={gateway} notificationsOptIn={false} persistOptIn={persistOptIn}>
+            <WeatherApplicationContext value={weather}>{children}</WeatherApplicationContext>
+          </NotificationApplicationProvider>
+        </ProductAnalyticsProvider>
+      </ProfileApplicationContext>
+    );
+  }
+  const hook = await renderHook(() => useWeatherAlertOffer(), { wrapper: Providers });
+
+  await act(async () => {
+    await hook.result.current.acceptOffer();
+  });
+  expect(hook.result.current.finishedInSettings).toBe(false);
+
+  act(() => hook.result.current.cancelSettingsWait());
+
+  permission = { kind: 'granted' };
+  await act(async () => {
+    appStateListeners.forEach((listener) => listener('active'));
+  });
+
+  // Let the provider re-read the grant and any finishing write run before asserting silence.
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(50);
+  });
+  expect(hook.result.current.finishedInSettings).toBe(false);
+  expect(persistOptIn).not.toHaveBeenCalled();
+  expect(updateMorningBriefingOptIn).not.toHaveBeenCalled();
+  addEventListener.mockRestore();
+  await hook.unmount();
+});

@@ -28,6 +28,8 @@ export type WeatherAlertOfferApplication = Readonly<{
    * system Settings: both kinds are on, so the refusal's explanation no longer applies.
    */
   finishedInSettings: boolean;
+  /** Ends the wait for a later grant: the refusal's card was dismissed, so nothing finishes. */
+  cancelSettingsWait: () => void;
 }>;
 
 /**
@@ -98,11 +100,14 @@ export function useWeatherAlertOffer(): WeatherAlertOfferApplication {
       // The opt-in stays one tap away in Settings, so a failed write is not retried here.
     }
   });
+  const cancelSettingsWait = useCallback(() => {
+    awaitingSettings.current = false;
+  }, []);
   useEffect(() => {
     if (!awaitingSettings.current || !granted) return;
     awaitingSettings.current = false;
     void finishAccept();
   }, [granted]);
 
-  return { offer, acceptOffer, dismissOffer, finishedInSettings };
+  return { offer, acceptOffer, dismissOffer, finishedInSettings, cancelSettingsWait };
 }

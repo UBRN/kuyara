@@ -94,6 +94,8 @@ export type TodayAlertOffer = Readonly<{
   /** The Settings opt-in flow, OS permission prompt included. */
   onAccept: () => Promise<NotificationOptInOutcome>;
   onDismiss: () => Promise<void>;
+  /** The refused offer's card was dismissed: a permission granted later opts in nothing. */
+  onDismissBlocked: () => void;
   onOpenSystemSettings: () => void;
 }>;
 
@@ -308,6 +310,7 @@ function TodayScreenContent({
   };
   const dismissOffer = async () => {
     if (blockedOffer) {
+      blockedOffer.onDismissBlocked();
       setOfferAnswered(true);
       setRefusedOffer(null);
       return;

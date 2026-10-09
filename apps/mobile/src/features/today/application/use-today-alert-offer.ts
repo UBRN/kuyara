@@ -13,7 +13,7 @@ import { useProfileApplication } from '@/features/profile/application/profile-co
  * how the offer itself was answered.
  */
 export function useTodayAlertOffer(openNotificationSettings: () => void) {
-  const { acceptOffer, dismissOffer, finishedInSettings, offer } = useWeatherAlertOffer();
+  const { acceptOffer, cancelSettingsWait, dismissOffer, finishedInSettings, offer } = useWeatherAlertOffer();
   const { openApplicationSettings } = useNotificationApplication();
   const { state: profileState } = useProfileApplication();
   const { analytics, firstUses } = useProductAnalytics();
@@ -83,6 +83,7 @@ export function useTodayAlertOffer(openNotificationSettings: () => void) {
       ruleId: offer.ruleId,
       onAccept: accept,
       onDismiss: dismiss,
+      onDismissBlocked: cancelSettingsWait,
       onOpenSystemSettings: () => void openApplicationSettings(),
     },
     alertOfferFinished: finishedInSettings,
