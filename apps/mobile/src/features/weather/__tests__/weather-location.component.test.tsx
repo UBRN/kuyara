@@ -30,8 +30,11 @@ jest.mock('@/components/ui/native-list', () => {
   return {
     NativeList: View,
     NativeListSection: ({ children, footer }: { children: React.ReactNode; footer?: string }) => <View>{children}<Text>{footer}</Text></View>,
-    NativeListRow: ({ label, selected, onPress, testID }: { label: string; selected?: boolean; onPress?: () => void; testID?: string }) => (
-      <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} testID={testID}><Text>{label}</Text></Pressable>
+    NativeListRow: ({ label, selected, onPress, testID, trailingSymbol }: { label: string; selected?: boolean; onPress?: () => void; testID?: string; trailingSymbol?: { name: string } }) => (
+      <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} testID={testID}>
+        <Text>{label}</Text>
+        {trailingSymbol ? <Text testID={`${testID}-status-symbol`}>{trailingSymbol.name}</Text> : null}
+      </Pressable>
     ),
   };
 });
@@ -127,8 +130,18 @@ test('the selected place is marked and duplicate presses are disabled during per
   const result = await render(<Providers><WeatherLocationScreen /></Providers>);
   await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Ista'); await debounce();
   expect(result.getByTestId('weather-place-place.745044').props.accessibilityState.selected).toBe(true);
+  // The chosen place carries a visible check, not only the selected trait.
+  expect(result.getByTestId('weather-place-place.745044-status-symbol')).toHaveTextContent('check');
   await fireEvent.press(result.getByTestId('weather-place-place.745044'));
   expect(search.selectPlaceSearchResult).not.toHaveBeenCalled();
+});
+
+test('a place that is not the chosen one carries no check', async () => {
+  const { Providers } = harness();
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Ista'); await debounce();
+  expect(result.getByTestId('weather-place-place.745044').props.accessibilityState.selected).toBe(false);
+  expect(result.queryByTestId('weather-place-place.745044-status-symbol')).toBeNull();
 });
 
 test.each(['tr', 'en'] as const)('%s picker announces empty and error states without raw messages', async (language) => {
@@ -453,4 +466,105 @@ test('the search status crossfades and the results fade in when they appear', as
   await debounce();
   expect(result.getByText(copy.placeSearchAttribution)).toBeOnTheScreen();
   expect(withTiming).toHaveBeenCalledWith(1, { duration: lightTheme.motion.fast, easing: expect.anything() });
+});
+
+const granted = { kind: 'granted', accuracy: 'full' } as const;
+
+// A found device location is named under the button with how it was resolved and a check, so
+// the person can see the lookup worked; the button steps down to locate again.
+test.each(['tr', 'en'] as const)('%s the device location in use is named under the button with its caption and a check', async (language) => {
+  const { weather, Providers } = harness(language);
+  const copy = messages[language].weather;
+  weather.state = { ...readyState(weather.state), permission: granted, activeLocation: { ...deviceLocation, accuracy: 'full', displayName: 'Kadıköy' } };
+  const result = await render(<Providers><LocationSelectionControls testID="controls" testIDPrefix="onboarding" /></Providers>);
+  const row = result.getByTestId('onboarding-location-device-current');
+  expect(within(row).getByText('Kadıköy')).toBeOnTheScreen();
+  expect(within(row).getByText(copy.fullLocation)).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-location-device-current-check')).toBeOnTheScreen();
+  expect(row.props.accessibilityState).toEqual({ selected: true });
+  expect(row.props.accessibilityLabel).toBe(`Kadıköy, ${copy.fullLocation}`);
+  expect(StyleSheet.flatten(result.getByTestId('onboarding-location-device').props.style).backgroundColor)
+    .toBe(lightTheme.colors.surfaceInteractive);
+});
+
+test('an unnamed approximate device fix falls back to the generic name and says it is approximate', async () => {
+  const { weather, Providers } = harness();
+  const copy = messages.en.weather;
+  weather.state = { ...readyState(weather.state), permission: { kind: 'granted', accuracy: 'approximate' }, activeLocation: deviceLocation };
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  const row = result.getByTestId('weather-location-device-current');
+  expect(within(row).getByText(copy.currentLocation)).toBeOnTheScreen();
+  expect(within(row).getByText(copy.approximateLocation)).toBeOnTheScreen();
+});
+
+test('no current-location row stands for a manual place or a pending answer', async () => {
+  const { weather, Providers } = harness();
+  weather.state = { ...readyState(weather.state), activeLocation: istanbul };
+  const manual = await render(<Providers><WeatherLocationScreen /></Providers>);
+  expect(manual.queryByTestId('weather-location-device-current')).toBeNull();
+  await manual.unmount();
+  weather.state = { ...readyState(weather.state), permission: granted, activeLocation: deviceLocation, locationFlow: 'lookup-failed' };
+  const failed = await render(<Providers><WeatherLocationScreen /></Providers>);
+  expect(failed.queryByTestId('weather-location-device-current')).toBeNull();
+});
+
+// The status line says the fix is being taken only once permission is granted: under the
+// system prompt nothing is being found yet. Success is spoken once, with the place's name.
+test('the lookup status shows after permission is granted, never under the prompt, and success is spoken once', async () => {
+  const { weather, Providers } = harness();
+  const copy = messages.en.weather;
+  weather.state = { ...readyState(weather.state), locationFlow: 'rationale' };
+  let finish: () => void = () => undefined;
+  weather.confirmDeviceLocationRequest.mockImplementation(() => new Promise<undefined>((resolve) => {
+    weather.state = { ...readyState(weather.state), locationFlow: 'idle', isSelectingLocation: true };
+    finish = () => {
+      weather.state = { ...readyState(weather.state), isSelectingLocation: false, permission: granted,
+        activeLocation: { ...deviceLocation, displayName: 'Kadıköy' } };
+      resolve(undefined);
+    };
+  }));
+  const controls = () => <Providers><LocationSelectionControls testID="controls" testIDPrefix="onboarding" /></Providers>;
+  const result = await render(controls());
+  await fireEvent.press(result.getByRole('button', { name: copy.continuePermission }));
+  await result.rerender(controls());
+  expect(result.queryByLabelText(copy.locatingDevice)).toBeNull();
+
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  weather.state = { ...readyState(weather.state), permission: granted };
+  await result.rerender(controls());
+  expect(result.getByLabelText(copy.locatingDevice).props.accessibilityLiveRegion).toBe('polite');
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(copy.locatingDevice);
+
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  await act(async () => { finish(); });
+  await result.rerender(controls());
+  expect(result.queryByLabelText(copy.locatingDevice)).toBeNull();
+  expect(result.getByTestId('onboarding-location-device-current')).toBeOnTheScreen();
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(copy.locationFoundNamed('Kadıköy'));
+});
+
+test('an unnamed fix is spoken as found without a name, and a manual pick shows no lookup status', async () => {
+  const { weather, search, Providers } = harness();
+  const copy = messages.en.weather;
+  weather.state = { ...readyState(weather.state), permission: granted };
+  weather.beginDeviceLocationSelection.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), activeLocation: deviceLocation };
+  });
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  await fireEvent.press(result.getByRole('button', { name: copy.useCurrentLocation }));
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(copy.locationFound);
+  await result.unmount();
+
+  weather.state = { ...readyState(weather.state), activeLocation: null };
+  search.selectPlaceSearchResult.mockImplementation(() => new Promise<undefined>(() => {
+    weather.state = { ...readyState(weather.state), isSelectingLocation: true };
+  }));
+  const manual = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.changeText(manual.getByTestId('weather-place-search'), 'Ista'); await debounce();
+  await fireEvent.press(manual.getByTestId('weather-place-place.745044'));
+  await manual.rerender(<Providers><WeatherLocationScreen /></Providers>);
+  expect(manual.queryByLabelText(copy.locatingDevice)).toBeNull();
 });

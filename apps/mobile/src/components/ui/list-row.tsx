@@ -42,6 +42,8 @@ export type ListRowProps = Readonly<{
   gated?: boolean;
   /** A short tag after the label, such as "Members"; spoken after the label. */
   chip?: string;
+  /** The current choice: a trailing check in `brandAccent` and the selected trait. */
+  selected?: boolean;
   testID?: string;
 }>;
 
@@ -54,6 +56,7 @@ export function ListRow({
   label,
   labelWeight = 'body',
   onPress,
+  selected = false,
   supportingText,
   testID,
   value,
@@ -83,6 +86,11 @@ export function ListRow({
               {value}
             </AppText>
           ) : null}
+          {selected ? (
+            <View testID={testID ? `${testID}-check` : undefined}>
+              <Icon color={theme.colors.brandAccent} name="check" size={CHEVRON_BASE_SIZE * controlScale} />
+            </View>
+          ) : null}
           {onPress ? (
             <Icon
               color={gated ? theme.colors.textGated : theme.colors.textSecondary}
@@ -109,9 +117,18 @@ export function ListRow({
     </>
   );
 
+  const spokenLabel = accessibilityLabel ?? [label, chip, value].filter(Boolean).join(', ');
+  const selectedState = selected ? { selected } : undefined;
+
   if (!onPress) {
+    // A plain row is read part by part; a selected one is one element, so its state is heard.
     return (
-      <View style={[styles.row, rowHeight]} testID={testID}>
+      <View
+        accessibilityLabel={selected ? spokenLabel : undefined}
+        accessibilityState={selectedState}
+        accessible={selected || undefined}
+        style={[styles.row, rowHeight]}
+        testID={testID}>
         {content}
       </View>
     );
@@ -120,8 +137,9 @@ export function ListRow({
   return (
     <Pressable
       accessibilityHint={accessibilityHint}
-      accessibilityLabel={accessibilityLabel ?? [label, chip, value].filter(Boolean).join(', ')}
+      accessibilityLabel={spokenLabel}
       accessibilityRole="button"
+      accessibilityState={selectedState}
       onPress={pressHandler}
       style={({ pressed }) => [styles.row, rowHeight, pressed && styles.pressed]}
       testID={testID}>

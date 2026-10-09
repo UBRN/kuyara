@@ -636,12 +636,15 @@ export function OnboardingScreen({
         <ButtonPair
           primary={step === 'location' ? (
             <View style={styles.primaryAction} testID="onboarding-location-skip">
+              {/* Quiet while the step can be skipped; once a place is chosen it is the step's
+                  main action, drawn like every other step's Continue. */}
               <Button
                 label={hasActiveLocation ? messages.common.continue : copy.locationSkipAction}
                 onPress={goForward}
+                size={hasActiveLocation ? 'large' : undefined}
                 style={styles.skipAction}
                 testID="onboarding-continue"
-                variant="tonal"
+                variant={hasActiveLocation ? 'prominent' : 'tonal'}
               />
             </View>
           ) : step === 'styles' ? (

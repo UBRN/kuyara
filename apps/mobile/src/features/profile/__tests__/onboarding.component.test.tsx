@@ -447,6 +447,46 @@ test('a chosen location turns the quiet location action into Continue and is rep
   expect(analytics.captures).toEqual([]);
 });
 
+// The step can be skipped, so its action starts quiet; once the device has found a place it is
+// named on the step and Continue becomes the step's main action, drawn like every other step's.
+// Nothing moves on by itself.
+test('a found device location is named on the step and turns Continue into the main action', async () => {
+  const skippable = await renderOnboarding('woman', null, 'smart');
+  const continueStyle = (result: typeof skippable.result) =>
+    StyleSheet.flatten(result.getByTestId('onboarding-continue').props.style);
+  const welcomeContinue = continueStyle(skippable.result);
+  await pressUntilStep(skippable.result, 2);
+  expect(continueStyle(skippable.result).backgroundColor).toBe(lightTheme.colors.surfaceInteractive);
+  expect(skippable.result.queryByTestId('onboarding-location-device-current')).toBeNull();
+  await skippable.result.unmount();
+
+  const weather = createWeatherApplication({
+    status: 'ready',
+    activeLocation: {
+      source: 'device', accuracy: 'full', displayName: 'Kadıköy', locationKey: 'device:4099:2903',
+      coordinates: { latitudeE2: 4099, longitudeE2: 2903 }, timeZone: 'Europe/Istanbul',
+    },
+    snapshot: null,
+    freshness: null,
+    permission: { kind: 'granted', accuracy: 'full' },
+    locationFlow: 'idle',
+    isSelectingLocation: false,
+    isRefreshing: false,
+    refreshFailure: null,
+  });
+  const { result } = await renderOnboarding('woman', null, 'smart', undefined, weather);
+  await pressUntilStep(result, 2);
+  const row = result.getByTestId('onboarding-location-device-current');
+  expect(within(row).getByText('Kadıköy')).toBeOnTheScreen();
+  expect(within(row).getByText(messages.en.weather.fullLocation)).toBeOnTheScreen();
+  const located = continueStyle(result);
+  expect(located.backgroundColor).toBe(lightTheme.colors.primaryFill);
+  expect(located.height ?? located.minHeight).toBe(welcomeContinue.height ?? welcomeContinue.minHeight);
+  expect(StyleSheet.flatten(result.getByTestId('onboarding-location-device').props.style).backgroundColor)
+    .toBe(lightTheme.colors.surfaceInteractive);
+  expect(result.getByTestId('onboarding-step-2')).toBeOnTheScreen();
+});
+
 test('once the place is known, the choice previews draw its weather instead of the sample', async () => {
   mockFontScale(1);
   const weather = createWeatherApplication({
