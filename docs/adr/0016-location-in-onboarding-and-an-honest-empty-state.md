@@ -36,17 +36,20 @@ user goes looking".
 
 Location selection is the second onboarding step, right after welcome, so the
 previews on the later steps draw the place's real weather; the six steps are recorded in
-[ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5. The step
-explains what location is used for before any system permission sheet appears,
-which is what the existing rule protects. The rationale is not removed; it is
-moved to where the user first needs it.
+[ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5. The welcome
+step says what location is used for and the location step says it again before
+any system permission sheet appears, which is what the existing rule protects.
 
 The recorded rule holds, narrowed to what it actually defends:
 
 - No permission request occurs during application bootstrap.
 - No permission request occurs merely by opening the Weather tab.
-- A permission request occurs only after kuyara has explained, in the user's
-  language, what it is for. Onboarding's location step is such an explanation.
+- A permission request occurs only when the user taps "Use my current
+  location", and that tap requests it directly. On iOS the system alert carries
+  kuyara's purpose string in the user's language, so no in-app card of its own
+  stands between the tap and the alert. Android's dialog carries no purpose
+  string; the iOS-first release accepts that, and the onboarding location step
+  states the purpose on both platforms.
 
 ### 2. Declining is a supported path, not a dead end
 
@@ -117,7 +120,11 @@ else before the application does anything. Rejected as treating the symptom.
 
 **Request permission silently at the end of onboarding, with no explanation
 step.** Fewer screens. Rejected: it is exactly what the existing rule forbids,
-and an unexplained sheet is the reason permission gets denied.
+and a sheet the user did not ask for is the reason permission gets denied.
+
+**Show an in-app card before the system alert.** Rejected: it adds a second
+confirmation that says what the iOS alert's purpose string already says, between a
+tap that already expressed the intent and the only answer that matters.
 
 **Require permission to complete onboarding.** Simplest code path, and rejected
 outright. iOS does not re-ask after a denial, so this permanently locks out any

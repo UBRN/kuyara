@@ -46,7 +46,6 @@ export type WeatherRefreshTrigger =
 
 export type LocationFlowState =
   | 'idle'
-  | 'rationale'
   | 'denied-requestable'
   | 'denied-permanent'
   | 'services-unavailable'
@@ -108,6 +107,10 @@ export class WeatherApplicationController {
   private readonly dependencies: Dependencies;
   private readonly captureAnalyticsEvent: CaptureAnalyticsEvent;
   private readonly telemetry: PerformanceTelemetry | null;
+  // Set while the person is in system Settings from the permanent-denial card: the next
+  // return from the background ends it, and finds the device location when access was
+  // granted there. Held in memory only, so a cold launch never resumes it.
+  private endSettingsTrip: (() => void) | null = null;
 
   constructor(
     localProfileId: string,
@@ -142,65 +145,66 @@ export class WeatherApplicationController {
   }
 
   dismissLocationFlow(): void {
+    this.cancelSettingsTrip();
     if (this.state.status === 'ready') this.setReady({ ...this.state, locationFlow: 'idle' });
   }
 
+  // The tap asks the system directly, whose alert carries the purpose string, whenever the
+  // platform still lets the app ask; a permanent denial can only be lifted in Settings.
   async beginDeviceLocationSelection(): Promise<void> {
+    this.cancelSettingsTrip();
     const current = this.requireReady();
     this.setReady({ ...current, isSelectingLocation: true, locationFlow: 'idle' });
-    const permission = await this.dependencies.deviceLocation.getPermissionState();
-    const ready = this.requireReady();
+    let permission = await this.dependencies.deviceLocation.getPermissionState();
+    if (permission.kind === 'undetermined' || (permission.kind === 'denied' && permission.canRequestAgain)) {
+      permission = await this.dependencies.deviceLocation.requestForegroundPermission();
+    }
+    this.setReady({ ...this.requireReady(), permission, isSelectingLocation: false });
     if (permission.kind === 'granted') {
-      this.setReady({ ...ready, permission, isSelectingLocation: false });
       await this.acquireDeviceLocation();
       return;
     }
-    const locationFlow = permission.kind === 'denied' && !permission.canRequestAgain
-      ? 'denied-permanent'
-      : 'rationale';
-    this.setReady({ ...ready, permission, locationFlow, isSelectingLocation: false });
+    this.setReady({
+      ...this.requireReady(),
+      locationFlow: permission.kind === 'denied' && permission.canRequestAgain
+        ? 'denied-requestable'
+        : 'denied-permanent',
+    });
   }
 
-  async confirmDeviceLocationRequest(): Promise<void> {
-    const current = this.requireReady();
-    if (current.permission.kind === 'denied' && !current.permission.canRequestAgain) {
-      this.setReady({ ...current, locationFlow: 'denied-permanent' });
-      return;
-    }
-    this.setReady({ ...current, isSelectingLocation: true, locationFlow: 'idle' });
-    const permission = await this.dependencies.deviceLocation.requestForegroundPermission();
-    const ready = this.requireReady();
-    this.setReady({ ...ready, permission, isSelectingLocation: false });
-    if (permission.kind === 'granted') {
-      await this.acquireDeviceLocation();
-    } else {
-      this.setReady({
-        ...this.requireReady(),
-        locationFlow: permission.kind === 'denied' && permission.canRequestAgain
-          ? 'denied-requestable'
-          : 'denied-permanent',
-      });
-    }
-  }
-
+  // Resolves once the Settings trip is over: after the return from the background, and after
+  // the device lookup that return starts when access was granted there.
   async openApplicationSettings(): Promise<void> {
+    this.cancelSettingsTrip();
+    const tripEnded = new Promise<void>((resolve) => { this.endSettingsTrip = resolve; });
     try {
       await this.dependencies.deviceLocation.openApplicationSettings();
     } catch {
+      this.cancelSettingsTrip();
       const current = this.requireReady();
       this.setReady({ ...current, locationFlow: 'selection-failed' });
+      return;
     }
+    await tripEnded;
+  }
+
+  private cancelSettingsTrip(): void {
+    const end = this.endSettingsTrip;
+    this.endSettingsTrip = null;
+    end?.();
   }
 
   async selectManualLocation(id: ManualLocationId): Promise<void> {
     const location = getManualLocation(id);
     if (!location) return;
+    this.cancelSettingsTrip();
     await this.selectLocation(location);
   }
 
   async selectPlaceSearchResult(place: PlaceSearchResult): Promise<void> {
     if (place.timeZone === null || !isManualLocationId(place.id)) return;
     if (this.requireReady().isSelectingLocation) return;
+    this.cancelSettingsTrip();
     await this.selectLocation({
       source: 'manual',
       catalogId: place.id,
@@ -286,6 +290,9 @@ export class WeatherApplicationController {
   async onForeground(): Promise<void> {
     if (this.state.status !== 'ready') return;
     const permission = await this.dependencies.deviceLocation.getPermissionState();
+    // Read after the permission: a pick made meanwhile has already ended the trip and wins.
+    const endSettingsTrip = this.endSettingsTrip;
+    this.endSettingsTrip = null;
     const current = this.requireReady();
     this.setReady({
       ...current,
@@ -297,6 +304,12 @@ export class WeatherApplicationController {
     // take its whole fix and geocode wait, and the place it finds usually has not changed.
     const previous = this.requireReady().activeLocation;
     const revalidation = this.revalidateFreshness();
+    if (endSettingsTrip && permission.kind === 'granted') {
+      // Access granted in Settings finishes the tap that sent the person there.
+      await Promise.all([revalidation, this.acquireDeviceLocation().finally(endSettingsTrip)]);
+      return;
+    }
+    endSettingsTrip?.();
     if (previous?.source === 'device' && permission.kind === 'granted') {
       await Promise.all([revalidation, this.reacquireDeviceLocation(previous)]);
       return;

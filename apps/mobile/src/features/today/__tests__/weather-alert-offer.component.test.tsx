@@ -137,7 +137,6 @@ function weatherApplication(
     retry: jest.fn(async () => undefined),
     dismissLocationFlow: jest.fn(),
     beginDeviceLocationSelection: jest.fn(async () => undefined),
-    confirmDeviceLocationRequest: jest.fn(async () => undefined),
     openApplicationSettings: jest.fn(async () => undefined),
     selectManualLocation: jest.fn(async () => undefined),
     refresh: jest.fn(async () => undefined),

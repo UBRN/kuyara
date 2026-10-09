@@ -86,7 +86,6 @@ export function WeatherApplicationProvider({
     retry: () => controller.retry(),
     dismissLocationFlow: () => controller.dismissLocationFlow(),
     beginDeviceLocationSelection: () => controller.beginDeviceLocationSelection(),
-    confirmDeviceLocationRequest: () => controller.confirmDeviceLocationRequest(),
     openApplicationSettings: () => controller.openApplicationSettings(),
     selectManualLocation: (id) => controller.selectManualLocation(id),
     refresh: () => controller.refresh(),

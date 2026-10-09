@@ -1,5 +1,5 @@
 import { placeSearchQueryMaxLength } from '@kuyara/contracts';
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
@@ -8,6 +8,7 @@ import {
   Button,
   Crossfade,
   fadeTo,
+  haptics,
   Icon,
   ListRow,
   ListRowGroup,
@@ -69,7 +70,7 @@ export function LocationSelectionControls({
     weatherEvents.locationSelectionFinished(before, application.getSnapshot?.() ?? application.state);
   };
   // A pick is done only when it is the active location and nothing is left to answer: a
-  // permission rationale, a denial or a failed lookup keeps the picker open with its card.
+  // denial or a failed lookup keeps the picker open with its card.
   // Returns the chosen location once it is done.
   const finishSelection = (
     before: typeof application.state,
@@ -86,17 +87,29 @@ export function LocationSelectionControls({
   };
   const { language, messages } = useLocalization();
   const copy = messages.weather;
-  // A device lookup asked for on this screen: its status line shows while the fix is taken,
-  // and the place it found is spoken once, so the person hears that it worked.
+  // A device lookup asked for on this screen, by the button or by the return from Settings:
+  // its status line shows while the fix is taken, and the place it found is confirmed once,
+  // spoken and felt, so the person knows it worked. Only the newest lookup reports.
   const [locatingHere, setLocatingHere] = useState(false);
+  const lastLookup = useRef(0);
   const selectDeviceLocation = (select: () => Promise<void>) => {
     const before = application.state;
+    const previous = before.status === 'ready' ? before.activeLocation : null;
+    const lookup = ++lastLookup.current;
     setLocatingHere(true);
     void select().then(() => {
+      if (lookup !== lastLookup.current) return;
       setLocatingHere(false);
-      const found = finishSelection(before, (location) => location.source === 'device');
+      // Every selection stores a new location, so one still the same object was not looked up:
+      // a Settings trip that ended without a lookup leaves the place in use as it was.
+      const found = finishSelection(
+        before,
+        (location) => location.source === 'device' && location !== previous,
+      );
+      if (!found) return;
+      haptics.success();
       // VoiceOver ignores live regions; Android hears the row as it opens.
-      if (found && Platform.OS === 'ios') {
+      if (Platform.OS === 'ios') {
         AccessibilityInfo.announceForAccessibility(
           found.displayName ? copy.locationFoundNamed(found.displayName) : copy.locationFound,
         );
@@ -159,11 +172,7 @@ export function LocationSelectionControls({
   };
   const locationFlow = state.status === 'ready' ? state.locationFlow : 'idle';
   const flowMessage = flowMessages[locationFlow];
-  useErrorAnnouncement(
-    locationFlow === 'rationale'
-      ? `${copy.locationRationaleTitle} ${copy.locationRationaleBody}`
-      : flowMessage ?? null,
-  );
+  useErrorAnnouncement(flowMessage ?? null);
   // The load error line has a live region for Android only; iOS speaks it here.
   useErrorAnnouncement(state.status === 'error' ? copy.loadErrorBody : null);
   // Only once permission is granted: under the system prompt nothing is being found yet.
@@ -209,10 +218,11 @@ export function LocationSelectionControls({
           testID={`${testIDPrefix}-location-device`}
           // Once a location is in use the button steps down to locate again, so onboarding's
           // Continue stays the one prominent action (Law 1).
-          variant={state.locationFlow === 'rationale' || hasActiveLocation ? 'tonal' : 'prominent'}
+          variant={hasActiveLocation ? 'tonal' : 'prominent'}
         />
         {locatingStatus ? <StatusLine text={locatingStatus} /> : null}
-        {/* The current place opens in place under the button (Law 7), like the rationale. */}
+        {/* The current place opens and closes in place under the button (Law 7). Its slot
+            takes back the column's gap and the row carries it inside, so no space stays behind. */}
         <View style={styles.presenceSlot}>
           <Presence visible={currentDevice !== null && !keyboardVisible}>
             <View style={styles.presenceContent}>
@@ -232,38 +242,13 @@ export function LocationSelectionControls({
             </View>
           </Presence>
         </View>
-        {/* The rationale opens and closes in place under its button (Law 7). Its slot takes
-            back the column's gap and the card carries it inside, so no space stays behind. */}
-        <View style={styles.presenceSlot}>
-          <Presence testID={`${testIDPrefix}-location-rationale`} visible={state.locationFlow === 'rationale'}>
-            <View style={styles.presenceContent}>
-              <Surface accessibilityLiveRegion="polite" style={styles.card} variant="interactive">
-                <AppText accessibilityRole="header" variant="title">
-                  {copy.locationRationaleTitle}
-                </AppText>
-                <AppText>{copy.locationRationaleBody}</AppText>
-                <View style={styles.actions}>
-                  <Button
-                    label={copy.continuePermission}
-                    onPress={() => selectDeviceLocation(application.confirmDeviceLocationRequest)}
-                  />
-                  <Button
-                    label={copy.cancel}
-                    onPress={application.dismissLocationFlow}
-                    variant="plain"
-                  />
-                </View>
-              </Surface>
-            </View>
-          </Presence>
-        </View>
         {flowMessage && !keyboardVisible ? (
           <Surface accessibilityLiveRegion="polite" style={styles.card} variant="muted">
             <AppText>{flowMessage}</AppText>
             {state.locationFlow === 'denied-permanent' ? (
               <Button
                 label={copy.openSettings}
-                onPress={() => void application.openApplicationSettings()}
+                onPress={() => selectDeviceLocation(application.openApplicationSettings)}
                 variant="tonal"
               />
             ) : null}
@@ -343,7 +328,6 @@ const styles = StyleSheet.create({
   card: { gap: spacing.md, padding: spacing.lg },
   presenceSlot: { marginTop: -spacing.md },
   presenceContent: { paddingTop: spacing.md },
-  actions: { gap: spacing.sm },
   status: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   statusText: { flex: 1 },
 });

@@ -4,6 +4,7 @@ import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { styleAestheticsLimit, type PlaceSearchV1Data } from '@kuyara/contracts';
 
+import { haptics } from '@/components/ui/haptics';
 import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
@@ -110,7 +111,6 @@ function createWeatherApplication(
     retry: jest.fn(async () => undefined),
     dismissLocationFlow: jest.fn(),
     beginDeviceLocationSelection: jest.fn(async () => undefined),
-    confirmDeviceLocationRequest: jest.fn(async () => undefined),
     openApplicationSettings: jest.fn(async () => undefined),
     selectManualLocation: jest.fn(async () => undefined),
     refresh: jest.fn(async () => undefined),
@@ -375,6 +375,52 @@ test('device selection starts the shared flow and permanent denial keeps Setting
   expect(denied.result.getByTestId('onboarding-location-skip')).toBeOnTheScreen();
 });
 
+// Back from the Settings trip the denial card opened, with access granted there, the step names
+// the place the app found and confirms it once, as a tap on the device button would.
+test('access granted in Settings names the found place on the step and confirms it once', async () => {
+  const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+  const weather: { -readonly [Key in keyof WeatherApplicationValue]: WeatherApplicationValue[Key] } = createWeatherApplication({
+    status: 'ready',
+    activeLocation: null,
+    snapshot: null,
+    freshness: null,
+    permission: { kind: 'denied', canRequestAgain: false },
+    locationFlow: 'denied-permanent',
+    isSelectingLocation: false,
+    isRefreshing: false,
+    refreshFailure: null,
+  });
+  let finish: () => void = () => undefined;
+  jest.mocked(weather.openApplicationSettings).mockImplementation(() => new Promise<void>((resolve) => {
+    finish = () => {
+      weather.state = {
+        status: 'ready',
+        activeLocation: {
+          source: 'device', accuracy: 'full', displayName: 'Kadıköy', locationKey: 'device:4099:2903',
+          coordinates: { latitudeE2: 4099, longitudeE2: 2903 }, timeZone: 'Europe/Istanbul',
+        },
+        snapshot: null,
+        freshness: null,
+        permission: { kind: 'granted', accuracy: 'full' },
+        locationFlow: 'idle',
+        isSelectingLocation: false,
+        isRefreshing: false,
+        refreshFailure: null,
+      };
+      resolve();
+    };
+  }));
+  const { result } = await renderOnboarding('woman', null, 'smart', undefined, weather);
+  await pressUntilStep(result, 2);
+  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.openSettings }));
+  expect(success).not.toHaveBeenCalled();
+  await act(async () => { finish(); });
+  expect(within(result.getByTestId('onboarding-location-device-current')).getByText('Kadıköy')).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.weather.placePermanentDeniedBody)).toBeNull();
+  expect(success).toHaveBeenCalledTimes(1);
+  success.mockRestore();
+});
+
 // While a city is typed the results need the room above the keyboard: the denial card and the
 // footer step aside, so the list lands below the field instead of on it, and both return with
 // the keyboard's dismissal.
@@ -565,8 +611,8 @@ test.each(['tr', 'en'] as const)(
   },
 );
 
-// O5: the button pair stacks, stronger action first, above text factor 1.2. O14: the
-// location rationale is always part of the welcome step, never the pinned bar.
+// O5: the button pair stacks, stronger action first, above text factor 1.2. O14: what location
+// is used for is always part of the welcome step, never the pinned bar.
 test.each([
   [1, 'row'],
   [1.3, 'column'],
