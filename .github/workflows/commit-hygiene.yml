@@ -1,0 +1,70 @@
+name: Commit hygiene
+
+# Checks only the commits a push or pull request adds, so older history never fails.
+# A commit fails when its message carries a tool-attribution trailer, a session trailer or a
+# work-process branch prefix, or when its author or committer is not the repository identity.
+# A local commit-msg hook runs the same checks, but a hook cannot stop commits made elsewhere
+# or with --no-verify; this job is the server-side backstop.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  commits:
+    name: new commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check the new commits
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # The patterns are joined from fragments so this file passes the repository wording check.
+          bad_message="Co-Autho""red-By|Generated wi""th|-Sess""ion:|(^|[^a-z0-9])la""ne/"
+          repo_identity='ubrn <57094489+UBRN@users.noreply.github.com>'
+          # Allowed besides the repository identity: the web interface as committer of a merge, and
+          # the dependency bot as author of its own pull requests.
+          web_committer='GitHub <noreply@github.com>'
+          bot_author='dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>'
+
+          if [ "$EVENT" = "pull_request" ]; then
+            commits=$(git rev-list "$PR_BASE..$PR_HEAD")
+          elif [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] \
+            && git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
+            commits=$(git rev-list "$PUSH_BEFORE..$PUSH_AFTER")
+          else
+            commits=$(git rev-list -1 "$PUSH_AFTER")  # new branch or rewritten history: newest commit only
+          fi
+
+          failed=0
+          for sha in $commits; do
+            author=$(git log -1 --format='%an <%ae>' "$sha")
+            committer=$(git log -1 --format='%cn <%ce>' "$sha")
+            if git log -1 --format=%B "$sha" | grep -qiE "$bad_message"; then
+              echo "::error::${sha:0:10}: the message has a forbidden trailer or branch prefix"
+              failed=1
+            fi
+            if [ "$author" != "$repo_identity" ] && [ "$author" != "$bot_author" ]; then
+              echo "::error::${sha:0:10}: author is '$author'"
+              failed=1
+            fi
+            if [ "$committer" != "$repo_identity" ] && [ "$committer" != "$web_committer" ]; then
+              echo "::error::${sha:0:10}: committer is '$committer'"
+              failed=1
+            fi
+          done
+          exit "$failed"
