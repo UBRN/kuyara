@@ -85,6 +85,7 @@
 
 /* The weather above the plate: the temperature, then the scene and its sky. */
 .ku-dress__weathers { display: grid; width: 100%; max-width: 360px; }
+.ku-dress__labels { display: grid; }
 
 .ku-dress__weather {
   grid-area: 1 / 1;
@@ -106,24 +107,102 @@
 
 .ku-dress__hint { margin: 0; max-width: 360px; text-align: center; color: var(--ku-text-secondary); }
 
-/* How far the stage has dressed, as a thin rule under the plate. */
+/*
+ * The descent. With the script the five printed temperatures give way to one number that
+ * counts down a degree at a time as the page scrolls. Each digit is its own slot, so only
+ * the digit that changes rolls: down a line as it gets colder, up as it warms. The slots
+ * hold their width (tabular figures), so the degree sign never moves.
+ */
+.ku-dress__degrees { display: none; }
+
+/* The number stands right of the centre line and the scene left of it, so neither moves
+   when the other changes width. */
+.ku-dress-live .ku-dress__weathers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--ku-space-md);
+}
+
+.ku-dress-live .ku-dress__degrees { justify-self: end; }
+
+.ku-dress-live .ku-dress__degrees {
+  display: flex;
+  margin: 0;
+  font-size: 56px;
+  line-height: 56px;
+  font-weight: 700;
+  letter-spacing: -1.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ku-roll {
+  position: relative;
+  display: block;
+  width: 1ch;
+  height: 1lh;
+  /* Clip the roll above and below the line, never the glyph's own sides. */
+  clip-path: inset(0 -0.4em);
+}
+
+.ku-roll > span { position: absolute; inset: 0; text-align: center; }
+.ku-roll[data-slot="0"] > span { text-align: right; }
+.ku-dress__unit { margin-left: -0.02em; font-weight: 600; }
+
+.ku-dress-live .ku-dress__labels { min-width: 0; }
+.ku-dress-live .ku-dress__weather { display: grid; justify-content: start; justify-items: start; gap: 0; transform: translateY(4px); }
+.ku-dress-live .ku-dress__weather.is-current { transform: none; }
+.ku-dress-live .ku-dress__temp,
+.ku-dress-live .ku-dress__dot { display: none; }
+.ku-dress-live .ku-dress__sky { display: grid; }
+.ku-dress-live .ku-dress__scene { color: var(--ku-text-primary); font-weight: 700; }
+
+/*
+ * A thermometer under the plate: the mercury stands at the temperature and drains toward
+ * its bulb as the page scrolls, warm (the clear sky's ink) at the top of the scale and
+ * cold (the accent) at the bottom. A tick marks zero, where the rain turns to snow.
+ */
 .ku-dress__progress {
+  --ku-warm: var(--ku-particle-clear-day);
+  --ku-cold: var(--ku-brand-accent);
+  position: relative;
   display: none;
-  width: 100%;
-  max-width: 120px;
+  width: calc(100% - 12px);
+  max-width: 168px;
   height: 3px;
-  overflow: hidden;
+  margin-inline-start: 12px;
   background-color: var(--ku-border-subtle);
   border-radius: var(--ku-radius-pill);
 }
 
-.ku-dress__progress span {
-  display: block;
-  height: 100%;
-  background-color: var(--ku-brand-accent);
+.ku-dress__progress::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background-color: color-mix(in oklab, var(--ku-warm) calc(var(--ku-dress-warmth, 1) * 100%), var(--ku-cold));
+}
+
+.ku-dress__mercury {
+  position: absolute;
+  inset: 0 0 0 -2px;
   border-radius: inherit;
-  transform: scaleX(var(--ku-dress-progress, 0));
-  transform-origin: left center;
+  background-image: linear-gradient(to right, var(--ku-cold), var(--ku-warm));
+  clip-path: inset(0 calc((1 - var(--ku-dress-warmth, 1)) * 100%) 0 0 round 999px);
+}
+
+.ku-dress__freeze {
+  position: absolute;
+  top: -3px;
+  left: calc(var(--ku-dress-zero, 0.09) * 100%);
+  width: 1px;
+  height: 9px;
+  background-color: var(--ku-border-defined);
 }
 
 .ku-dress-live .ku-dress { height: calc(100svh - 60px + 4.4 * var(--ku-dress-step)); }
@@ -187,6 +266,8 @@
   .ku-dress__plate,
   .ku-dress__weathers,
   .ku-dress__hint { max-width: 440px; }
+  .ku-dress-live .ku-dress__degrees { font-size: 72px; line-height: 72px; letter-spacing: -2px; }
+  .ku-dress__progress { max-width: 220px; }
   .ku-dress-live .ku-dress__stage { padding-block: var(--ku-space-2xl); }
   .ku-dress-live .ku-hero__inner { grid-template-rows: minmax(0, 1fr); }
   .ku-dress-live .ku-dress__art { height: 100%; grid-template-rows: auto minmax(0, 620px) auto auto; align-content: center; }

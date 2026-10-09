@@ -63,12 +63,16 @@
             {%- assign first = site.data.site_boards.scenes | first %}
             <div class="ku-dress__art" data-particles="{{ first.particles }}" data-ink="{{ first.ink }}">
               <div class="ku-dress__weathers" aria-hidden="true">
+                {%- comment -%} With the script one number counts the degrees down as the page scrolls. {%- endcomment %}
+                <p class="ku-dress__degrees"><span class="ku-roll" data-slot="0"></span><span class="ku-roll" data-slot="1"></span><span class="ku-dress__unit">°</span></p>
+                <div class="ku-dress__labels">
                 {%- for scene in site.data.site_boards.scenes %}
                 <p class="ku-dress__weather{% if forloop.first %} is-current{% endif %}">
                   <span class="ku-dress__temp">{{ scene.temperature }}</span>
-                  <span class="ku-dress__sky">{{ page.scenes[scene.id].name }} · {{ scene.condition[lang] }}</span>
+                  <span class="ku-dress__sky"><span class="ku-dress__scene">{{ page.scenes[scene.id].name }}</span><span class="ku-dress__dot"> · </span><span class="ku-dress__condition">{{ scene.condition[lang] }}</span></span>
                 </p>
                 {%- endfor %}
+                </div>
               </div>
               <div class="ku-plate ku-dress__plate" data-atmosphere="{{ first.atmosphere }}">
                 <canvas class="ku-particles" aria-hidden="true"></canvas>
@@ -83,7 +87,7 @@
                 </div>
                 {%- endfor %}
               </div>
-              <span class="ku-dress__progress" aria-hidden="true"><span></span></span>
+              <span class="ku-dress__progress" aria-hidden="true"><span class="ku-dress__mercury"></span><span class="ku-dress__freeze"></span></span>
               <p class="ku-caption ku-dress__hint">{{ page.dress_hint }}</p>
             </div>
           </div>
