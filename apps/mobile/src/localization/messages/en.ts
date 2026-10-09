@@ -303,6 +303,7 @@ export const en = {
     approximateLocation: 'Approximate location',
     fullLocation: 'Precise location',
     locationAccessOff: 'Location access is off. Showing the last known place.',
+    lastKnownPlace: 'Showing the last known place. Use your current location to update it.',
     useCurrentLocation: 'Use my current location',
     locatingDevice: 'Finding your location…',
     locationFound: 'Location found',

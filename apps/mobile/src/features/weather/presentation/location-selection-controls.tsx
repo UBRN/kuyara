@@ -203,7 +203,7 @@ export function LocationSelectionControls({
   }
 
   const shownName = shownDevice ? locationName(shownDevice, copy) : '';
-  const shownCaption = locationCaption(shownDevice, state.permission.kind === 'granted', copy);
+  const shownCaption = locationCaption(shownDevice, state.permission.kind, copy);
   const isChosenPlace = (id: string) =>
     state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === id;
 

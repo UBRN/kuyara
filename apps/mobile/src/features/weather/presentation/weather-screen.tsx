@@ -232,7 +232,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   };
 
   const activeName = state.activeLocation ? locationName(state.activeLocation, copy) : copy.noLocation;
-  const activeCaption = locationCaption(state.activeLocation, state.permission.kind === 'granted', copy);
+  const activeCaption = locationCaption(state.activeLocation, state.permission.kind, copy);
   // After a location switch the controller keeps the previous place's snapshot as the last
   // valid result until the new place loads. It carries no name of its own, so its conditions
   // are held back rather than shown under the new place's label, unless both ends are the

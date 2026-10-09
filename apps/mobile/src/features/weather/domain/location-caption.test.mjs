@@ -17,21 +17,33 @@ const manualLocation = {
 };
 
 test('a manual place is neither precise nor approximate, whatever the permission says', () => {
-  assert.equal(locationCaptionKey(manualLocation, true), null);
-  assert.equal(locationCaptionKey(manualLocation, false), null);
-  assert.equal(locationCaptionKey(null, true), null);
-  assert.equal(locationCaptionKey(undefined, false), null);
+  for (const permission of ['granted', 'denied', 'undetermined']) {
+    assert.equal(locationCaptionKey(manualLocation, permission), null);
+    assert.equal(locationCaptionKey(null, permission), null);
+    assert.equal(locationCaptionKey(undefined, permission), null);
+  }
 });
 
-test('a device location reports its accuracy, and revoked access outranks it', () => {
-  assert.equal(locationCaptionKey(deviceLocation('full'), true), 'fullLocation');
+test('a device location reports its accuracy while access is granted', () => {
+  assert.equal(locationCaptionKey(deviceLocation('full'), 'granted'), 'fullLocation');
   assert.equal(
-    locationCaptionKey(deviceLocation('approximate'), true),
+    locationCaptionKey(deviceLocation('approximate'), 'granted'),
     'approximateLocation',
   );
-  assert.equal(locationCaptionKey(deviceLocation('full'), false), 'locationAccessOff');
+});
+
+test('denied access outranks the accuracy and says access is off', () => {
+  assert.equal(locationCaptionKey(deviceLocation('full'), 'denied'), 'locationAccessOff');
   assert.equal(
-    locationCaptionKey(deviceLocation('approximate'), false),
+    locationCaptionKey(deviceLocation('approximate'), 'denied'),
     'locationAccessOff',
+  );
+});
+
+test('undetermined access shows the last known place without claiming access is off', () => {
+  assert.equal(locationCaptionKey(deviceLocation('full'), 'undetermined'), 'lastKnownPlace');
+  assert.equal(
+    locationCaptionKey(deviceLocation('approximate'), 'undetermined'),
+    'lastKnownPlace',
   );
 });

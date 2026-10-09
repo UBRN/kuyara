@@ -463,6 +463,35 @@ test('foreground re-persists a different resolved locality name without invalida
   assert.equal(harness.calls.provider, 0);
 });
 
+test('foreground stores a changed accuracy in place, keeping the locality name and the cached snapshot', async () => {
+  const stayed = {
+    source: 'device', accuracy: 'full', locationKey: 'device:4101:2898',
+    displayName: 'Kadikoy', coordinates: { latitudeE2: 4101, longitudeE2: 2898 },
+    timeZone: 'Europe/Istanbul',
+  };
+  const cached = snapshotFor(stayed, '2026-07-30T09:55:00.000Z');
+  const harness = createHarness({
+    active: stayed,
+    snapshots: [cached],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+    locationResult: {
+      kind: 'success',
+      location: { ...stayed, accuracy: 'approximate', displayName: null },
+    },
+  });
+  await harness.controller.initialize();
+
+  await harness.controller.onForeground();
+
+  const stored = await harness.repository.getActiveLocation();
+  assert.equal(stored.accuracy, 'approximate');
+  assert.equal(stored.displayName, 'Kadikoy');
+  assert.equal(harness.controller.getSnapshot().activeLocation.accuracy, 'approximate');
+  assert.equal(harness.controller.getSnapshot().activeLocation.displayName, 'Kadikoy');
+  assert.equal(harness.controller.getSnapshot().snapshot, cached);
+  assert.equal(harness.calls.provider, 0);
+});
+
 test('a manual pick still saving when the foreground lookup lands wins over the moved device', async () => {
   const harness = createHarness({
     active: travelledFrom,

@@ -1071,7 +1071,7 @@ test('the dressing-day key suffix is spelled only in weather/domain/wardrobe-day
 // with an exact count so a new unread key cannot hide behind them.
 const computedlyReadMessageKeys = {
   'TodayMessages.dailyStyle': 3, 'TodayMessages.drift': 3,
-  'PreferenceMessages': 5, 'AppMessages.weather': 3, 'WalkthroughMessages.steps': 6,
+  'PreferenceMessages': 5, 'AppMessages.weather': 4, 'WalkthroughMessages.steps': 6,
 };
 
 test('every message key has a production reader or a counted computed read', () => {
