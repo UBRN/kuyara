@@ -72,8 +72,9 @@ function dependencies(overrides: Overrides = {}) {
   return {
     counterState,
     deps: {
-      // The stubs without an `id` or `model` are cast to the provider type on purpose.
-      providers: (overrides.providers ?? []) as AiProvider[],
+      // The stubs without a `model` are cast to the provider type on purpose; one without an
+      // `id` stands for a Workers AI provider, an id the v1 probe may name.
+      providers: (overrides.providers ?? []).map((provider) => ({ id: 'workers-ai', ...provider })) as AiProvider[],
       rateLimiter: overrides.rateLimiter ?? { limit: async () => ({ success: true }) },
       dailyCounter: counterState.counter,
       now: overrides.now ?? (() => new Date(fixedNow)),
@@ -556,6 +557,15 @@ test('the v2 probe has its own route label, shares the daily cap and burst limit
   const limited = createProbeV2Handler({ ...deps, rateLimiter: { limit: async () => ({ success: false }) } });
   assert.equal((await limited(v2Request())).status, 429);
   assert.deepEqual(warnings, [{ event: 'rate_limited', route: '/v2/ai/probe', limiter: 'ai_probe_burst' }]);
+});
+
+test('the v1 probe skips any provider id outside the contract list', async () => {
+  const called: string[] = [];
+  const future = answeringProvider('future-provider' as AiProvider['id'], 'future/model', called);
+  const { deps } = dependencies({ providers: [future, answeringProvider('openrouter', 'x/y:free', called)] });
+  const body = aiProbeV1SuccessSchema.parse(await (await createProbeHandler(deps)(request())).json());
+  assert.deepEqual(called, ['x/y:free']);
+  assert.deepEqual(body.data.assistant, { providerId: 'openrouter', model: 'x/y:free' });
 });
 
 test('the v1 probe keeps its exact shape and never names Haiku', async () => {

@@ -3,6 +3,7 @@ import {
   aiProbeV1SuccessSchema,
   aiProbeV2Path,
   aiProbeV2SuccessSchema,
+  aiProviderIds,
   aiRecommendV1SuccessSchema,
   aiV1ErrorSchema,
   type AiProbeV2Success,
@@ -149,7 +150,9 @@ type Variant = Readonly<{
 const v1Variant: Variant = {
   path: aiProbeV1Path,
   schema: aiProbeV1SuccessSchema,
-  answering: (providers) => providers.find(({ id }) => id !== 'haiku'),
+  answering: (providers) => providers.find(
+    ({ id }) => (aiProviderIds as readonly string[]).includes(id),
+  ),
 };
 
 const v2Variant: Variant = {

@@ -59,7 +59,7 @@ type Dependencies = Readonly<{
  * - Rates: `@cf/meta/llama-3.3-70b-instruct-fp8-fast` 26,668 Neurons per 1M input tokens
  *   and 204,805 per 1M output tokens; `@cf/mistralai/mistral-small-3.1-24b-instruct`
  *   31,876 in and 50,488 out.
- * - Probe reserve: the probe always calls the first Workers AI provider (llama) with a
+ * - Probe reserve: the v1 probe always calls the first Workers AI provider (llama; the v2 probe calls Haiku while it is composed, so this reserve stays an upper bound) with a
  *   2,144-character prompt, about 536 tokens at four characters per token, and `PROBE_MAX_TOKENS` (256)
  *   of output: 14.3 + 52.4 = 66.7, rounded up to 67 Neurons; `PROBE_DAILY_LIMIT` (30)
  *   calls reserve 2,010.
