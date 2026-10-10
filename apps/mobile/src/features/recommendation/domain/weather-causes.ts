@@ -43,9 +43,10 @@ export type WeatherCauseLink = Readonly<{
  * requirement evaluations that composed it, never from AI output. Only a met requirement
  * links weather to a piece: a trade-off is a shortfall, not a cause. Weather that no piece
  * answers, and a requirement without a weather reason, link nothing, so mild weather
- * returns an empty list. Cold whose insulation requirement is light is cool. `outermostFirst` orders the outfit's candidate keys from its outer
- * layer inwards; a requirement such as warmth is answered by every warm layer, and the
- * link keeps the outermost two, the pieces the weather put on top.
+ * returns an empty list. Cold whose insulation requirement is light is cool. `outermostFirst`
+ * orders the outfit's candidate keys from its outer layer inwards; a requirement such as
+ * warmth is answered by every warm layer, and the link keeps the outermost two, the pieces
+ * the weather put on top.
  */
 export function weatherCauseLinks(
   evaluations: readonly OutfitRequirementEvaluation[],
