@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-10-11)
 
-Implementation: the phrase matcher, `apps/mobile/src/features/wardrobe/domain/closet-phrase.ts`, exists and is tested; no surface calls it yet. The App Intents, the App Group, the summary writer and the in-app phrase field are not built; the native half needs a new binary.
+Implementation: the phrase matcher, `apps/mobile/src/features/wardrobe/domain/closet-phrase.ts`, and the Closet add form's phrase field (`fillWardrobeFormFromPhrase` in `features/wardrobe/application/wardrobe-form.ts`) are built and tested. The App Intents, the App Group and the summary writer are not built; the native half needs a new binary.
 
 ## Context
 

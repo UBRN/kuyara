@@ -494,6 +494,18 @@ export const tr = {
     typeChangeAction: 'Değiştir',
     typeChangeHint: 'Giyim türlerini yeniden gösterir.',
     typeRequiredError: 'Kaydetmeden önce bunun ne tür bir parça olduğunu seç.',
+    phraseLabel: 'Parçayı tarif et',
+    phrasePlaceholder: 'Örneğin lacivert keten gömlek',
+    phraseHint: 'Aşağıdaki türü ve rengi doldurur. Sonra yine değiştirebilirsin.',
+    phraseFilled: ({ type, color }: { type: string; color: string | null }) =>
+      color === null ? `Tür ${type} olarak seçildi.` : `Tür ${type}, renk ${color} olarak seçildi.`,
+    phraseNotUnderstood: {
+      unknown: 'kuyara bu parçayı tanımadı. Gömlek ya da kot gibi bir kelime dene ya da aşağıdan seç.',
+      unsupported: 'Gardıropta bu parça için henüz bir tür yok. Aşağıdan en yakın olanı seç.',
+      ambiguous: 'Bu birden çok tür olabilir. Kot ceket gibi bir kelime ekle ya da aşağıdan seç.',
+      'several-pieces': 'Bu birden çok parçayı anlatıyor. Parçaları tek tek tarif et.',
+      'not-offered': 'Bu parça profilin için sunulan türler arasında yok. Aşağıdan birini seç.',
+    },
     colorTitle: 'Renk',
     solidColorsLabel: 'Düz renkler',
     patternColorsLabel: 'İki renk ve desenler',

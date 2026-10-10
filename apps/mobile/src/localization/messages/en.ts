@@ -501,6 +501,18 @@ export const en = {
     typeChangeAction: 'Change',
     typeChangeHint: 'Shows the clothing types again.',
     typeRequiredError: 'Choose what kind of piece this is before saving.',
+    phraseLabel: 'Describe the piece',
+    phrasePlaceholder: 'For example, navy linen shirt',
+    phraseHint: 'Fills in the type and color below. You can still change them.',
+    phraseFilled: ({ type, color }: { type: string; color: string | null }) =>
+      color === null ? `The type is set to ${type}.` : `The type is set to ${type} and the color to ${color}.`,
+    phraseNotUnderstood: {
+      unknown: 'kuyara does not know this piece. Try a word like shirt or jeans, or choose below.',
+      unsupported: 'The Closet has no type for this piece yet. Choose the closest one below.',
+      ambiguous: 'This could be more than one type. Add a word, like denim jacket, or choose below.',
+      'several-pieces': 'This names more than one piece. Describe one piece at a time.',
+      'not-offered': 'This piece is not among the types for your profile. Choose one below.',
+    },
     colorTitle: 'Color',
     solidColorsLabel: 'Solid colors',
     patternColorsLabel: 'Two colors and patterns',
