@@ -278,14 +278,15 @@ const TOMORROW_BOARD_WIDTH = 88;
 const ALTERNATE_ROW_BOARD_WIDTH = 128;
 
 const styles = StyleSheet.create({
-  outfitName: { flex: 1, flexShrink: 1 },
+  // A tile's chevron follows its name; a row's sits at the row's trailing edge.
+  outfitName: { flexShrink: 1 },
   alternates: { marginTop: spacing.md },
   alternatesHeading: { paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   outfitList: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   // O13's alternate row: 60-point target and card radius; its edge is `strongEdge`.
   alternateRow: { alignItems: 'center', borderRadius: radii.card, flexDirection: 'row', gap: spacing.md,
     minHeight: easierToSeeValues.rowHeight, padding: spacing.md },
-  alternateRowTitle: { flex: 1, marginTop: 0 },
+  alternateRowTitle: { flex: 1, justifyContent: 'space-between', marginTop: 0 },
   stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
   alternateStage: { borderRadius: radii.imageTile, justifyContent: 'center', overflow: 'hidden' },
   tomorrowTarget: { marginTop: spacing.md },

@@ -109,6 +109,10 @@ test.each([
     expect(tile).toHaveProp('role', 'button');
     expect(tile.props.accessibilityLabel).toBe(idea.boardAccessibilityLabel);
     expect(within(tile).getByText(idea.title)).toHaveProp('numberOfLines', 2);
+    // The chevron follows the name rather than the tile's far edge, so it reads as the
+    // tile's own disclosure and not a breadcrumb.
+    const name = StyleSheet.flatten(within(tile).getByText(idea.title).props.style);
+    expect(name.flex ?? name.flexGrow ?? 0).toBe(0);
     // A tile is the mockup's 132 points wide, well over the 44-point target.
     expect(StyleSheet.flatten(tile.props.style).width).toBe(132);
     expect(132).toBeGreaterThanOrEqual(layout.minimumTouchTarget);
