@@ -108,6 +108,12 @@ An owned item's effective value is its stored override over the current catalog 
 
 ADR 0005 governs recommendation assembly: neither resolved owned items nor wanted items become candidates.
 
+`matchClosetPhrase` (`features/wardrobe/domain/closet-phrase.ts`) reads a typed or dictated phrase into a catalog garment type id and a palette option id, or a closed not-understood reason ([ADR 0042](adr/0042-siri-outfit-card-and-closet-add-by-phrase.md)). It is a pure domain function over its own Turkish and English vocabulary, with no SQLite, React, network, clock or AI; its labelled phrase suite and a check that every catalog name matches its own type lock it. Nothing calls it yet; its caller is the add form's application layer, which also applies `listSelectableGarmentTypes`. The phrase is never persisted, logged or sent.
+
+### Siri and the outfit summary
+
+This is the approved target of ADR 0042; none of it is built yet. Siri reaches kuyara through App Intents in the main iOS app target, added with the App Group entitlement `group.com.ubrn.kuyara` by one config plugin; there is no extension target. JavaScript does not run during a Siri call, so the recommendation layer writes `outfit-summary.json` into the App Group container after each snapshot save and after a language change, through expo-file-system's shared-container path, and the intents only read it. The summary is a versioned, already-localized derived feed (field list in ADR 0042 section 3) whose `validFrom` and `validUntil` come from the dressing-day owners, so Swift holds no dressing-day rule; nothing reads it back into the app, and it carries no location, identity, Closet or provider data. The pure projection from snapshot to summary is tested in Node; the file adapter is the only iOS-specific part and does nothing on other platforms. The Closet add intent opens the add route with the phrase as a route parameter, which the route drops after reading and `domain/telemetry-route-params.ts` filters.
+
 ### Foreground location and local weather boundary
 
 The Weather tab follows a feature-local dependency flow:

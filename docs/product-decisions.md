@@ -349,6 +349,16 @@ Approved 2026-09-07. Canonical in [ADR 0028](adr/0028-the-profile-tab-and-the-li
 - The Turkish wanted label is "İstekler", shared by Profile and the Closet.
 - Every new localized message is a whole sentence per locale. Copy does not rely on locale-specific grammar assembled in code; named Turkish Closet copy avoids a possessive suffix.
 
+## Approved Siri outfit card and Closet add by phrase
+
+Canonical in [ADR 0042](adr/0042-siri-outfit-card-and-closet-add-by-phrase.md).
+
+- On iOS, "kuyara'da bugün ne giysem?" / "What should I wear today in kuyara?" asks Siri for today's outfit on every supported iPhone, with or without Apple Intelligence. Siri speaks one localized sentence and shows a card with the outfit name, its drawing or pieces, the temperature and condition, and "Başka seçenek" / "Another option", which steps through the snapshot's three outfits. Tapping the card opens that outfit's detail.
+- The card shows only the current dressing day's snapshot. Before kuyara has prepared today's outfit it says so and offers "Open kuyara"; it never shows yesterday's outfit as today's. The card generates nothing, calls no Worker or AI, spends no ask-again allowance and reads no Closet data.
+- The Closet's add form takes a typed or dictated phrase ("lacivert keten gömlek") and fills the garment type and colour from kuyara's own deterministic matcher; the person saves with the form's button. A phrase that names a piece the catalog lacks, several pieces, a word for several types or no piece is not understood, and the visual pickers stay as they are. A type the profile's clothing preference does not offer is not filled.
+- "kuyara'da gardıroba ekle" / "Add to my Closet in kuyara" asks Siri for the piece and opens that same form with the phrase; Siri never saves a record.
+- The phrase never leaves the device and reaches no AI, analytics, telemetry or log. Fabric words help read the phrase and are not stored. No AI model matches phrases or writes the card's sentence, and neither surface shows Apple Intelligence wording or a Siri-style glow.
+
 ## Approved visual identity
 
 Approved 2026-07-29.
@@ -443,3 +453,4 @@ Approved 2026-09-04. Canonical in [ADR 0024](adr/0024-relicensing-to-polyform-no
 - Photo backup for accounts, email sign-in and a member AI allowance above 10 a day each need their own decision; see [Approved optional accounts](#approved-optional-accounts).
 - Owned garments may later softly influence recommendations only as a tie-breaker between equally suitable catalog candidates, never as a filter.
 - Server-sent push notifications (N3) are deferred and would need their own ADR.
+- Adding to the Closet from Visual Intelligence and an outfit note written by a Private Cloud Compute model are measured before any build decision.

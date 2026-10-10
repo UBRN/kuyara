@@ -226,13 +226,14 @@ The App Privacy questionnaire answers and the privacy manifest recorded in
 
 ## Siri is a separate decision
 
-Reaching kuyara from Siri is a second, independent piece of work with its own ADR. Its shape
-is two App Intents (one that returns the current recommendation's three outfits, one that
-opens Today), one outfit entity, bilingual App Shortcut phrases, and a small localized
-projection written to an App Group container after each snapshot save, because JavaScript
-does not run during a Siri call. That projection is a derived feed, not a second source of
-truth. Stated plainly: no Apple schema covers outfits, so Siri reaches kuyara by phrase and by
-shortcut, not through Siri's cross-app personal index, and no copy may suggest otherwise.
+Reaching kuyara from Siri is decided in
+[ADR 0042](0042-siri-outfit-card-and-closet-add-by-phrase.md): App Shortcut phrases, an
+outfit card read from a small localized summary written to an App Group container after each
+snapshot save, because JavaScript does not run during a Siri call, and a Closet add that opens
+the app. That summary is a derived feed, not a second source of truth. Stated plainly: no Apple
+schema covers outfits, so Siri reaches kuyara by phrase and by shortcut, not through Siri's
+cross-app personal index, and no copy may suggest otherwise. No Siri surface uses the
+Foundation Models module.
 
 ## Alternatives considered
 
@@ -254,7 +255,7 @@ not rejected. Adopting them would raise the deployment target.
 
 ## Out of scope
 
-- Siri, App Intents and App Shortcuts, which have their own ADR.
+- Siri, App Intents and App Shortcuts, which [ADR 0042](0042-siri-outfit-card-and-closet-add-by-phrase.md) decides.
 - Any other use of the Foundation Models module, which is its own decision.
 - Any change to what the AI step decides, which stays governed by
   [ADR 0007](0007-ai-selects-precomposed-outfits.md).
