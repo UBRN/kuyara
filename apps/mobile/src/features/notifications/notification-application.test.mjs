@@ -567,7 +567,7 @@ test('weather alert copy follows the active Turkish language', async () => {
       body: 'Saat 21:00 civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.',
     },
     {
-      title: 'Hava daha soğuk hissedilecek',
+      title: 'Hava daha serin hissettirecek',
       body: 'Saat 21:00 civarında hissedilen sıcaklık 6°C olacak. Yanına daha sıcak tutan bir kat al.',
     },
   ]);

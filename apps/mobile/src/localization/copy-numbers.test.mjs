@@ -56,7 +56,7 @@ test('the sign-in pages read as they did with the owners\' limits', () => {
   assert.equal(en.askAgain.body, 'With an account, you can ask the stylist again up to 10 times a day instead of 5.');
   assert.equal(en.compose.body, 'Signed in, you choose up to three pieces and kuyara builds the outfit around them.');
   assert.equal(tr.askAgain.body, 'Hesabınla stiliste günde 5 yerine 10 kez tekrar sorabilirsin.');
-  assert.equal(tr.compose.body, 'Giriş yaptığında en çok üç parça seçersin, kuyara kombini onların çevresinde kurar.');
+  assert.equal(tr.compose.body, 'Giriş yaptığında en çok üç parça seçersin, kuyara kombini onlara göre kurar.');
 });
 
 test('the sign-in pages follow changed limits', () => {

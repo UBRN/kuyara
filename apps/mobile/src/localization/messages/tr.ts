@@ -114,7 +114,7 @@ export const tr = {
       previewLabelOn: 'Görme kolaylığı açıkken Bugün ekranının önizlemesi.',
       previewOutfitName: 'Katmanlı Sıcaklık',
       systemHeading: 'kuyara’nın izlediği iPhone ayarları',
-      systemFooter: 'Bunları iPhone’daki Ayarlar uygulamasında, Erişilebilirlik, Ekran ve Metin Boyutu bölümünde değiştirebilirsin. Kalın Metin ya da Kontrastı Artır açıksa, Görme kolaylığı kapalıyken de kuyara bu ayara uyar.',
+      systemFooter: 'Bunları iPhone’da Ayarlar > Erişilebilirlik > Ekran ve Metin Boyutu bölümünden değiştirebilirsin. Kalın Metin ya da Kontrastı Artır açıksa, Görme kolaylığı kapalıyken de kuyara bu ayarlara uyar.',
       largerText: 'Daha Büyük Metin',
       boldText: 'Kalın Metin',
       increaseContrast: 'Kontrastı Artır',
@@ -173,7 +173,7 @@ export const tr = {
     aiStatusResultError: 'Deneme yapılamadı. Daha sonra yeniden dene.',
     aiStatusUnsupported: 'Bu sürüm denemeyi yapamıyor.',
     saving: 'Değişiklikler kaydediliyor…',
-    saveError: 'Bu değişiklik kaydedilemedi. Önceki ayarın kullanılmaya devam ediyor.',
+    saveError: 'Bu değişiklik kaydedilemedi. Önceki ayarın geçerli.',
   },
   analytics: {
     consentTitle: "kuyara'yı geliştirmeye yardım et",
@@ -201,7 +201,7 @@ export const tr = {
     nameLabel: 'Ad',
     nameDone: 'Bitti',
     nameClear: 'Adı temizle',
-    nameSaveError: 'Bu değişiklik kaydedilemedi. Önceki adın kullanılmaya devam ediyor.',
+    nameSaveError: 'Bu değişiklik kaydedilemedi. Önceki adın geçerli.',
     nameCancel: 'Vazgeç',
     nameRemove: 'Adı kaldır',
     settingsAction: 'Ayarlar',
@@ -274,10 +274,10 @@ export const tr = {
       rainBody: (time) => `Saat ${time} civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.`,
       snowTitle: 'Kar geliyor',
       snowBody: (time) => `Saat ${time} civarında kar bekleniyor. Yanına sıcak tutan, su geçirmez bir kat al.`,
-      dropTitle: 'Hava daha soğuk hissedilecek',
+      dropTitle: 'Hava daha serin hissettirecek',
       dropBody: ({ time, temperature }) =>
         `Saat ${time} civarında hissedilen sıcaklık ${temperature} olacak. Yanına daha sıcak tutan bir kat al.`,
-      riseTitle: 'Hava daha sıcak hissedilecek',
+      riseTitle: 'Hava daha sıcak hissettirecek',
       riseBody: ({ time, temperature }) =>
         `Saat ${time} civarında hissedilen sıcaklık ${temperature} olacak. Daha hafif bir kat seç.`,
     },
@@ -296,7 +296,7 @@ export const tr = {
     locationFound: 'Konum bulundu',
     locationFoundNamed: (name) => `Konum bulundu: ${name}`,
     changeLocationAction: 'Değiştir',
-    locationRationaleBody: 'kuyara, kombin önerileri için hava durumunu bulmak üzere uygulamayı kullanırken yaklaşık konumunu kullanır.',
+    locationRationaleBody: 'Uygulamayı kullanırken kuyara, kombin önerilerin için bulunduğun yerin hava durumunu yaklaşık konumundan bulur.',
     cancel: 'Şimdi değil',
     lookupFailedBody: 'Konumun bulunamadı. Önceki konumun değiştirilmedi.',
     selectionFailedBody: 'Bu konum kaydedilemedi. Önceki konumun etkin kalıyor.',
@@ -320,9 +320,9 @@ export const tr = {
     unavailableTitle: 'Hava durumuna şu an ulaşılamıyor',
     unavailableBody: 'Bu genelde kısa sürer. Biraz sonra yeniden dene.',
     unavailableNotice: 'Hava durumuna şu an ulaşılamıyor. Son güncellemedeki hava durumu gösteriliyor.',
-    rateLimitedTitle: 'Hava durumu kısa süre yenilenemiyor',
+    rateLimitedTitle: 'Hava durumu kısa süreliğine güncellenmiyor',
     rateLimitedBody: 'Bir dakika sonra yeniden dene.',
-    rateLimitedNotice: 'Hava durumu kısa süre yenilenemiyor. Son güncellemedeki hava durumu gösteriliyor.',
+    rateLimitedNotice: 'Hava durumu kısa süreliğine güncellenmiyor. Son güncellemedeki hava durumu gösteriliyor.',
     attributionOpenMeteo: 'Hava durumu verisi: Open-Meteo.com (CC BY 4.0)',
     attributionOpenWeather: 'Hava durumu verisi: OpenWeather (ODbL)',
     attributionAppleWeather: 'Hava durumu verisi: Apple Weather',
@@ -487,7 +487,7 @@ export const tr = {
     cameraUnavailableMessage:
       'Bu cihazda kamera kullanılamıyor. Bunun yerine bir fotoğraf seçebilirsin.',
     openSettingsAction: 'Ayarları aç',
-    photoAccessibilityLabel: (type: string) => `${type} Gardırop parçası fotoğrafı.`,
+    photoAccessibilityLabel: (type: string) => `Gardırop parçası fotoğrafı: ${type}.`,
     untypedPhotoAccessibilityLabel: 'Gardırop parçası fotoğrafı, türü henüz seçilmedi.',
     entryStateTitle: 'Bu parça sende var mı?',
     typeTitle: 'Bu ne?',
@@ -498,7 +498,7 @@ export const tr = {
     phrasePlaceholder: 'Örneğin lacivert keten gömlek',
     phraseHint: 'Aşağıdaki türü ve rengi doldurur. Sonra yine değiştirebilirsin.',
     phraseFilled: ({ type, color }: { type: string; color: string | null }) =>
-      color === null ? `Tür ${type} olarak seçildi.` : `Tür ${type}, renk ${color} olarak seçildi.`,
+      color === null ? `Tür dolduruldu: ${type}.` : `Tür ve renk dolduruldu: ${type}, ${color}.`,
     phraseNotUnderstood: {
       unknown: 'kuyara bu parçayı tanımadı. Gömlek ya da kot gibi bir kelime dene ya da aşağıdan seç.',
       unsupported: 'Gardıropta bu parça için henüz bir tür yok. Aşağıdan en yakın olanı seç.',
@@ -536,7 +536,7 @@ export const tr = {
       forest_green: 'Orman yeşili',
       mustard: 'Hardal',
       rain_yellow: 'Yağmurluk sarısı',
-      terracotta: 'Terrakota',
+      terracotta: 'Terakota',
       rust: 'Kiremit',
       tomato_red: 'Domates kırmızısı',
       burgundy: 'Bordo',
@@ -574,7 +574,7 @@ export const tr = {
     pieceSheetDone: 'Bitti',
     typeChangeTitle: 'Giyim türü değiştirilsin mi?',
     typeChangeBody:
-      'Türü değiştirmek, parça özellikleri seçimlerini kaldırır ve yeni türün katalog varsayılanlarını kullanır.',
+      'Türü değiştirirsen bu parçada seçtiğin özellikler silinir, yeni türün standart özellikleri kullanılır.',
     keepTypeAction: 'Mevcut türü koru',
     changeTypeAction: 'Türü değiştir ve özellikleri sıfırla',
     discardTitle: 'Kaydedilmemiş değişiklikler silinsin mi?',
@@ -729,7 +729,7 @@ export const tr = {
       similar: 'Benzeri Gardırobunda',
       wanted: 'İsteklerinde',
     },
-    boardHint: 'Bir ada ya da parçaya dokun, sonra kaydırarak değiştir.',
+    boardHint: 'Bir parçaya ya da adına dokun, sonra kaydırarak değiştir.',
     editPieceAccessibilityHint: 'Bu parçayı Gardırobunda açar',
     manualMix: {
       change: 'Değiştir',
@@ -752,9 +752,9 @@ export const tr = {
       pickerOtherHint: 'Bunlar kombini bu hava için alışılmadık yapabilir.',
       pickerCurrent: 'Şu anki',
       counter: (position, total) => `${position} / ${total}`,
-      pieceValue: ({ piece, position, total }) => `${piece}, ${total} parçadan ${position}`,
+      pieceValue: ({ piece, position, total }) => `${piece}, ${total} parçadan ${position}. parça`,
       stepUnusual: ({ piece, position, total }) =>
-        `${piece}, ${total} parçadan ${position}. Bu hava için alışılmadık. Bu kombini yine de giyip kaydedebilirsin.`,
+        `${piece}, ${total} parçadan ${position}. parça. Bu hava için alışılmadık. Bu kombini yine de giyip kaydedebilirsin.`,
       done: 'Bitti',
       otherPieceHint: 'Bu parça kombini bu hava için alışılmadık yapabilir.',
       stripShown: 'Seçebileceğin parçalar aşağıda.',
@@ -799,7 +799,7 @@ export const tr = {
       addLayer: 'Katman ekle',
       addLayerHint: 'Orta ya da dış katman',
       addAccessory: 'Aksesuar ekle',
-      addAccessoryHint: 'Baş, boyun, eller ya da yanına al',
+      addAccessoryHint: 'Baş, boyun, eller ya da yanında',
       accessoryAdded: (slot) => `${slot} · Eklendi`,
       accessoryTakeOffAccessibilityLabel: {
         head: (piece) => `Baştaki aksesuarı çıkar, şu an ${piece}`,
@@ -825,8 +825,8 @@ export const tr = {
       limitHint: (limit) =>
         `${capitalizedNumberWord(limit, 'tr')} parça seçili. Bunu seçmek için birini bırak.`,
       colorLabel: {
-        primary_top: 'Üstün rengi',
-        bottom: 'Altın rengi',
+        primary_top: 'Üst parçanın rengi',
+        bottom: 'Alt parçanın rengi',
         one_piece: 'Tek parçanın rengi',
         mid_layer: 'Orta katmanın rengi',
         outer_layer: 'Dış katmanın rengi',
@@ -838,7 +838,7 @@ export const tr = {
       source: 'Parçaları sen seçtin. Kalanını kuyara cihazında hazırladı.',
       position: (position, total) => `${position} / ${total}`,
       positionAccessibilityLabel: (position, total) => `Kombin ${position} / ${total}`,
-      showAnother: 'Başka göster',
+      showAnother: 'Başkasını göster',
     },
     share: {
       action: 'Kombini paylaş',
@@ -871,15 +871,15 @@ export const tr = {
       head: 'Baş',
       neck: 'Boyun',
       hands: 'Eller',
-      handheld: 'Yanına al',
+      handheld: 'Yanında',
     },
     requirementNames: {
-      thermal: 'Sıcaklık koruması',
+      thermal: 'Sıcak tutma',
       breathability: 'Nefes alabilirlik',
       arm_coverage: 'Kol koruması',
       leg_coverage: 'Bacak koruması',
-      body_water_protection: 'Gövde su koruması',
-      footwear_water_protection: 'Ayakkabı su koruması',
+      body_water_protection: 'Gövdeyi sudan koruma',
+      footwear_water_protection: 'Su geçirmez ayakkabı',
       wind_protection: 'Rüzgâr koruması',
       traction: 'Kaymaz taban',
     },
@@ -889,9 +889,9 @@ export const tr = {
       `Denge (${requirement}): ${garments.join(', ')}.`,
     requirementReasons: {
       temperature_low: 'Hava soğuk, daha sıcak giyinmek gerekiyor.',
-      apparent_temperature_low: 'Hissedilen sıcaklık o kadar düşük ki yalıtım gerekiyor.',
+      apparent_temperature_low: 'Hissedilen sıcaklık düşük, sıcak tutan katmanlar gerekiyor.',
       temperature_high: 'Yüksek sıcaklıkta nefes alan giysiler gerekiyor.',
-      apparent_temperature_high: 'Hissedilen sıcaklık o kadar yüksek ki nefes alan giysiler gerekiyor.',
+      apparent_temperature_high: 'Hissedilen sıcaklık yüksek, nefes alan giysiler gerekiyor.',
       daily_range_wide: 'Gün içinde sıcaklık çok değişiyor, bu yüzden ayarlanabilir katmanlar gerekiyor.',
       daily_extrema_fallback: 'Günün sıcaklık aralığı şu anki hava koşullarına göre alındı.',
       wind_elevated: 'Rüzgâr belirgin, rüzgâr koruması gerekiyor.',
@@ -901,8 +901,8 @@ export const tr = {
       condition_drizzle: 'Çiselemede hafif bir su koruması gerekiyor.',
       condition_rain: 'Yağmurda su koruması gerekiyor.',
       condition_heavy_rain: 'Kuvvetli yağmurda su geçirmez koruma gerekiyor.',
-      condition_sleet: 'Karla karışık yağmurda sıcaklık, su koruması ve kaymaz taban gerekiyor.',
-      condition_snow: 'Karda sıcaklık, su koruması ve kaymaz taban gerekiyor.',
+      condition_sleet: 'Karla karışık yağmurda sıcak tutan, su geçirmez giysiler ve kaymaz taban gerekiyor.',
+      condition_snow: 'Karda sıcak tutan, su geçirmez giysiler ve kaymaz taban gerekiyor.',
       condition_thunderstorm: 'Gök gürültülü fırtınada su koruması ve kaymaz taban gerekiyor.',
     },
     compositionReasons: {
@@ -971,7 +971,7 @@ export const tr = {
     apparentTemperature: (temperature: string) => `Hissedilen ${temperature}`,
     temperatureRange: (minimum: string, maximum: string) => `En düşük ${minimum} · En yüksek ${maximum}`,
     rainProbability: (probability: string) => `Yağmur olasılığı ${probability}`,
-    optionPosition: (position: number, total: number) => `${total} seçenekten ${position}.`,
+    optionPosition: (position: number, total: number) => `${total} seçenekten ${position}. seçenek`,
     loadingTitle: 'Bugünün önerileri hazırlanıyor',
     loadingBody: 'Hava özeti ve kombin seçenekleri burada görünecek.',
     loadingAccessibilityLabel: 'Bugünün önerileri hazırlanıyor. İçerik yükleniyor.',
@@ -1098,7 +1098,7 @@ export const tr = {
       pages: ({ askAgainRegular, askAgainMember, composePieces }) => ({
         closet: {
           title: 'Gardırobun geri gelir',
-          body: 'Yeni telefonda ya da yeniden yükledikten sonra giriş yap, eklediğin her parça yerinde.',
+          body: 'Yeni telefonda ya da uygulamayı yeniden kurduktan sonra giriş yaparsan eklediğin her parça yerinde olur.',
         },
         history: {
           title: 'Geçmişin seninle',
@@ -1118,7 +1118,7 @@ export const tr = {
         },
         compose: {
           title: 'Seçtiğin parçalarla kombin',
-          body: `Giriş yaptığında en çok ${numberWord(composePieces, 'tr')} parça seçersin, kuyara kombini onların çevresinde kurar.`,
+          body: `Giriş yaptığında en çok ${numberWord(composePieces, 'tr')} parça seçersin, kuyara kombini onlara göre kurar.`,
         },
       }),
       pagePosition: (page: number, total: number) => `Sayfa ${page} / ${total}`,
@@ -1132,8 +1132,8 @@ export const tr = {
       cancelled: 'Giriş iptal edildi. Hazır olduğunda bir giriş yolu seç.',
       offline: 'İnternet bağlantın yok. Bağlandıktan sonra giriş yapabilirsin.',
       failed: {
-        apple: 'Apple girişi tamamlayamadı. Biraz sonra yeniden dene ya da Google ile devam et.',
-        google: 'Google girişi tamamlayamadı. Biraz sonra yeniden dene ya da Apple ile devam et.',
+        apple: 'Apple ile giriş tamamlanamadı. Biraz sonra yeniden dene ya da Google ile devam et.',
+        google: 'Google ile giriş tamamlanamadı. Biraz sonra yeniden dene ya da Apple ile devam et.',
       },
     },
     welcome: {
@@ -1212,8 +1212,8 @@ export const tr = {
       stayHeading: 'Neler kalır',
       stay: 'kuyara’da şu an gördüklerin kalır ve kuyara hesapsız çalışmaya devam eder.',
       footer: {
-        apple: 'Silme bir dakikayı bulabilir. Bitince kuyara haber verir. Bir şey silinmeden önce Apple ile onay verirsin.',
-        google: 'Silme bir dakikayı bulabilir. Bitince kuyara haber verir. Bir şey silinmeden önce Google ile onay verirsin.',
+        apple: 'Silme işlemi bir dakikayı bulabilir. Bitince kuyara haber verir. Bir şey silinmeden önce Apple ile onay verirsin.',
+        google: 'Silme işlemi bir dakikayı bulabilir. Bitince kuyara haber verir. Bir şey silinmeden önce Google ile onay verirsin.',
       },
       action: 'Hesabı sil',
       deleting: 'Hesabın siliniyor. Bu bir dakikayı bulabilir.',
@@ -1247,9 +1247,9 @@ export const tr = {
     merge: {
       title: 'Gardırobun ve Geçmişin birleşti',
       closet: (added: number, received: number) =>
-        `Bu telefondan hesabına ${added} parça katıldı, hesabından Gardırobuna ${received} parça geldi.`,
+        `Bu telefondan hesabına ${added} parça eklendi, hesabından Gardırobuna ${received} parça geldi.`,
       history: (added: number, received: number) =>
-        `Bu telefondan hesabına ${added} gün katıldı, hesabından Geçmişine ${received} gün geldi.`,
+        `Bu telefondan hesabına ${added} gün eklendi, hesabından Geçmişine ${received} gün geldi.`,
       rule: 'Aynı parça ya da aynı gün iki tarafta da varsa hesabındaki korundu.',
       duplicates: 'İki telefonda ayrı ayrı eklenen bir parça iki kez görünebilir. Birini Gardırobundan silebilirsin.',
       openCloset: 'Gardırobu aç',
