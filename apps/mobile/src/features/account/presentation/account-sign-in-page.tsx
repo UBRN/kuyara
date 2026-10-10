@@ -1,6 +1,6 @@
-import { Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, GlassButton, ProviderSignInButton, TextButton } from '@/components/ui';
+import { AppText, Button, GlassButton, openWebPage, ProviderSignInButton, TextButton } from '@/components/ui';
 import type { AccountIntroPageId } from '@/features/account/application/account-intro-pages';
 import { accountProviders } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
@@ -10,12 +10,6 @@ import { StatusLine, type StatusLineTone } from '@/features/account/presentation
 import { PRIVACY_POLICY_URL } from '@/features/analytics/domain/privacy-policy';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
-
-function open(url: string) {
-  void Linking.openURL(url).catch(() => {
-    // A link the system cannot open leaves the screen as it was; nothing is lost.
-  });
-}
 
 /**
  * Frames 02, 17, 18, 19 and 33: the sign-in page. The benefit pages first, swiped sideways,
@@ -71,8 +65,8 @@ export function AccountSignInPage({ initialPage }: Readonly<{ initialPage?: Acco
         <View>
           <AppText colorRole="textSecondary" variant="caption">{copy.footer}</AppText>
           <View style={styles.links}>
-            <TextButton link label={copy.terms} onPress={() => open(ACCOUNT_TERMS_URL[language])} testID="account-sign-in-terms" />
-            <TextButton link label={copy.privacy} onPress={() => open(PRIVACY_POLICY_URL[language])} testID="account-sign-in-privacy" />
+            <TextButton link label={copy.terms} onPress={() => openWebPage(ACCOUNT_TERMS_URL[language])} testID="account-sign-in-terms" />
+            <TextButton link label={copy.privacy} onPress={() => openWebPage(PRIVACY_POLICY_URL[language])} testID="account-sign-in-privacy" />
           </View>
         </View>
       </View>

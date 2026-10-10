@@ -1,5 +1,5 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import PrivacySettingsRoute from '@/app/(tabs)/(profile)/settings/privacy';
@@ -56,7 +56,7 @@ test.each([
   ['en', 'https://ubrn.github.io/kuyara/privacy-policy?lang=en'],
   ['tr', 'https://ubrn.github.io/kuyara/tr/privacy-policy?lang=tr'],
 ] as const)('the Privacy route opens the %s privacy policy', async (language, url) => {
-  const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  const openURL = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.OPENED });
   const result = await render(
     <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>

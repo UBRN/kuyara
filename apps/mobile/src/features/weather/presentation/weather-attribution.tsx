@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Image, Linking, PixelRatio, StyleSheet, View } from 'react-native';
+import { Image, PixelRatio, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay } from 'react-native-reanimated';
 
-import { AppText, fadeTo } from '@/components/ui';
+import { AppText, fadeTo, openWebPage } from '@/components/ui';
 import { appleWeatherMarkUrl } from '@/features/weather/data/apple-weather-mark';
 import type { AppMessages } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
@@ -60,11 +60,7 @@ export function weatherAttributionLink(
   const url = attributionUrls[sourceId];
   const host = attributionHosts[sourceId];
   if (!label || !url || !host) return null;
-  return { label, hint: copy.attributionHint(host), open: () => {
-    void Linking.openURL(url).catch(() => {
-      // A link the system cannot open leaves the screen as it was; nothing is lost.
-    });
-  } };
+  return { label, hint: copy.attributionHint(host), open: () => openWebPage(url) };
 }
 
 type WeatherAttributionProps = Readonly<{

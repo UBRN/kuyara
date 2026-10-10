@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { Linking } from 'react-native';
 
+import { openWebPage } from '@/components/ui/web-page';
 import { useAnalyticsConsent } from '@/features/analytics/application/use-analytics-consent';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { PRIVACY_POLICY_URL } from '@/features/analytics/domain/privacy-policy';
@@ -52,9 +52,7 @@ function ReadyPrivacySettingsRoute() {
           refreshIdentifier((revision) => revision + 1);
         }}
         onOpenPrivacyPolicy={() => {
-          if (privacyPolicyUrl) void Linking.openURL(privacyPolicyUrl).catch(() => {
-            // A link the system cannot open leaves the screen as it was; nothing is lost.
-          });
+          if (privacyPolicyUrl) openWebPage(privacyPolicyUrl);
         }}
         onWithdraw={consent.withdraw}
         privacyPolicyUrl={privacyPolicyUrl}

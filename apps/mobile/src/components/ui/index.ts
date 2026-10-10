@@ -72,3 +72,4 @@ export { useTransitionLanded } from './use-transition-landed';
 export { RollingText, type RollingTextProps } from './rolling-text';
 export { ScrollDepth, type ScrollDepthProps } from './scroll-depth';
 export { ProviderSignInButton, type ProviderSignInButtonProps } from './provider-sign-in-button';
+export { openWebPage } from './web-page';

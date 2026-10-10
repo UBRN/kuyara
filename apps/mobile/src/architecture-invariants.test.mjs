@@ -160,16 +160,25 @@ const rules = [
   {
     name: 'the account SDK packages are imported only under features/account/data/',
     matches: (specifier) => [
-      '@supabase/supabase-js', 'expo-apple-authentication',
-      'expo-web-browser', 'expo-secure-store',
+      '@supabase/supabase-js', 'expo-apple-authentication', 'expo-secure-store',
     ].some((packageName) => packageMatcher(packageName)(specifier)),
     forbiddenDirectories: null,
     allowedDirectories: ['features/account/data/'],
     ruleText:
-      'The Supabase client library, Apple sign-in, the browser session of Google sign-in and the secure key store '
+      'The Supabase client library, Apple sign-in and the secure key store '
       + 'are imported only from the account feature\'s data layer; UI and domain code never '
       + 'import them (ADR 0041 sections 9 and 12). Reach them through the account feature\'s '
       + 'application layer.',
+  },
+  {
+    name: 'the in-app browser package is imported by Google sign-in and the web page wrapper only',
+    matches: packageMatcher('expo-web-browser'),
+    forbiddenDirectories: null,
+    allowedDirectories: ['features/account/data/', 'components/ui/web-page.ts'],
+    ruleText:
+      'The browser session of Google sign-in lives in the account feature\'s data layer (ADR 0041 '
+      + 'section 9); every other web page opens through `openWebPage` in `components/ui/web-page.ts`, '
+      + 'wrapped once like haptics. Feature code and routes call that wrapper.',
   },
   {
     name: 'the garment fill tables and the accent resolver stay behind the board renderer',

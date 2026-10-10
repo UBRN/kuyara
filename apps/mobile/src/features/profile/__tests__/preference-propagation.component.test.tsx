@@ -1,5 +1,6 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Linking, Share, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -216,6 +217,8 @@ test('live preferences and support propagate localized behavior without remounti
   const onMount = jest.fn();
   const analytics = new RecordingProductAnalytics('granted');
   const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  // Kuyara's own pages and the licence open over the app; the store review page leaves it.
+  const openPage = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.OPENED });
   const result = await render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
       <ProfileApplicationProvider>
@@ -246,7 +249,7 @@ test('live preferences and support propagate localized behavior without remounti
   expect(within(result.getByTestId('settings-about-group')).getByTestId('settings-service-providers-row')).toBeOnTheScreen();
   expect(result.getByText(messages.en.settings.supportRow)).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('settings-support-row'));
-  expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/support?lang=en');
+  expect(openPage).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/support?lang=en');
   const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
   await fireEvent.press(result.getByTestId('settings-share-row'));
   expect(share).toHaveBeenLastCalledWith({
@@ -276,7 +279,7 @@ test('live preferences and support propagate localized behavior without remounti
     && node.props.modifiers.some((modifier: { $type: string }) => modifier.$type === 'onAppear'));
   expect(appearing.length).toBeGreaterThan(0);
   await fireEvent.press(result.getByTestId('settings-licence-row'));
-  expect(openURL).toHaveBeenLastCalledWith('https://polyformproject.org/licenses/noncommercial/1.0.0');
+  expect(openPage).toHaveBeenLastCalledWith('https://polyformproject.org/licenses/noncommercial/1.0.0');
   expect(within(result.getByTestId('settings-profile-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-profile-group')).getByTestId('settings-dress-style-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-profile-group')).getByTestId('settings-birth-date-row')).toBeOnTheScreen();
@@ -331,7 +334,7 @@ test('live preferences and support propagate localized behavior without remounti
   expect(await result.findByText(messages.tr.preferences.languageTurkish)).toBeOnTheScreen();
   expect(result.getByText(messages.tr.settings.supportRow)).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('settings-support-row'));
-  expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/tr/support?lang=tr');
+  expect(openPage).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/tr/support?lang=tr');
   expect(result.getByText('Sürüm 1.0.0 (5)')).toBeOnTheScreen();
 
   expect(result.getByText(messages.tr.preferences.themeLight)).toBeOnTheScreen();
@@ -362,6 +365,7 @@ test('live preferences and support propagate localized behavior without remounti
     { schema_version: 4, feature_name: 'appearance_override' },
   ]);
   openURL.mockRestore();
+  openPage.mockRestore();
 });
 
 // The unit choices sit in Appearance after Theme, start at System, store each choice on the

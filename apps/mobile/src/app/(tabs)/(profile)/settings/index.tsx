@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { Linking, Platform, Share } from 'react-native';
 
 import { useSinglePush } from '@/components/ui/use-single-push';
+import { openWebPage } from '@/components/ui/web-page';
 import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
 import { AccountSettingsSection } from '@/features/account/presentation/account-settings-section';
 import { AccountSheet } from '@/features/account/presentation/account-sheet';
@@ -165,15 +166,11 @@ export default function SettingsRoute() {
         onOpenEasierToSee={() => push('/settings/easier-to-see')}
         onOpenPrivacy={() => push('/settings/privacy')}
         onOpenSupport={() => {
-          void Linking.openURL(SUPPORT_URL[language]).catch(() => {
-            // A link the system cannot open leaves the screen as it was; nothing is lost.
-          });
+          openWebPage(SUPPORT_URL[language]);
         }}
         onOpenFeedback={() => push('/settings/feedback')}
         onOpenLicence={() => {
-          void Linking.openURL(LICENCE_URL).catch(() => {
-            // A link the system cannot open leaves the screen as it was; nothing is lost.
-          });
+          openWebPage(LICENCE_URL);
         }}
         // Phase 8: the tour starts over Today, from Profile's root so its step 7 lands there.
         onRestartTour={walkthrough ? () => {

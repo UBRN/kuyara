@@ -1,6 +1,7 @@
 import { act, fireEvent } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { AccessibilityInfo, Alert, Linking, StyleSheet } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { AccessibilityInfo, Alert, StyleSheet } from 'react-native';
 
 import {
   accountScenarios,
@@ -72,7 +73,7 @@ describe('the Profile card (frame 01)', () => {
 
 describe('the sign-in page (frames 02, 17, 18, 19, 33)', () => {
   test('it lists the benefits, both providers, Not now and the privacy policy', async () => {
-    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const openURL = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.OPENED });
     const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
     const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />);
     expect(announce).not.toHaveBeenCalled();
@@ -89,7 +90,7 @@ describe('the sign-in page (frames 02, 17, 18, 19, 33)', () => {
   });
 
   test('the privacy link follows the app language', async () => {
-    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const openURL = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.OPENED });
     const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />, 'tr');
     await fireEvent.press(screen.getByTestId('account-sign-in-privacy'));
     expect(openURL).toHaveBeenCalledWith(PRIVACY_POLICY_URL.tr);
@@ -165,7 +166,7 @@ describe('the sign-in page (frames 02, 17, 18, 19, 33)', () => {
   test('the footnote is the approved one and links the Account terms and the privacy policy', async () => {
     expect(en.signIn.footer).toBe('Weather and outfit suggestions work without an account. By continuing you accept the Account terms.');
     expect(tr.signIn.footer).toBe('Hava ve kombin önerileri hesap olmadan da çalışır. Devam ederek Hesap koşullarını kabul edersin.');
-    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const openURL = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.OPENED });
     const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />);
     expect(screen.getByTestId('account-sign-in-terms')).toHaveTextContent(en.signIn.terms);
     await fireEvent.press(screen.getByTestId('account-sign-in-terms'));
@@ -176,7 +177,7 @@ describe('the sign-in page (frames 02, 17, 18, 19, 33)', () => {
   });
 
   test('the Account terms link follows the app language', async () => {
-    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const openURL = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.OPENED });
     const screen = await renderWith(portFor('signIn'), <AccountSheet host="profile" />, 'tr');
     await fireEvent.press(screen.getByTestId('account-sign-in-terms'));
     expect(openURL).toHaveBeenCalledWith(ACCOUNT_TERMS_URL.tr);

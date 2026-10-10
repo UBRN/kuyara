@@ -1,6 +1,7 @@
 import { fireEvent, isHiddenFromAccessibility, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Linking, StyleSheet } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
 import { WeatherAttribution, weatherAttributionLink } from '@/features/weather/presentation/weather-attribution';
@@ -45,7 +46,7 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
     url,
     host,
   ) => {
-    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const openUrl = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.OPENED });
     const link = weatherAttributionLink(sourceId, copy);
     expect(link).toEqual({ hint: copy.attributionHint(host), label, open: expect.any(Function) });
     link?.open();
