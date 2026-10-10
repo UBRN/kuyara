@@ -94,6 +94,18 @@ afterEach(() => {
 });
 const debounce = () => act(async () => { jest.advanceTimersByTime(300); });
 
+// The field's label already asks for a city, so its placeholder names what to type; and the
+// place caption states the fact only, because "Use my current location" sits right above it.
+test.each([
+  ['en', 'City name', 'Showing the last known place.'],
+  ['tr', 'Şehir adı', 'Son bilinen yer gösteriliyor.'],
+] as const)('%s picker copy says each thing once', (language, placeholder, lastKnownPlace) => {
+  const copy = messages[language].weather;
+  expect(copy.placeSearchPlaceholder).toBe(placeholder);
+  expect(copy.placeSearchPlaceholder).not.toBe(copy.placeSearchLabel);
+  expect(copy.lastKnownPlace).toBe(lastKnownPlace);
+});
+
 test.each(['tr', 'en'] as const)('%s picker searches, attributes results and selects a place', async (language) => {
   const { weather, search, Providers } = harness(language);
   const copy = messages[language].weather;
