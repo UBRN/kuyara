@@ -9,11 +9,9 @@ tags:
 # spends its real, shared, quota-limited free-tier AI budget. Excluded from the default
 # `pnpm e2e:ios` critical set via .maestro/config.yaml's excludeTags: run it explicitly with
 #   maestro test .maestro/flows/today-ai-recommendation.yaml
-# Metro must be started with EXPO_PUBLIC_KUYARA_ON_DEVICE_AI unset (on-device tier enabled,
-# the default): do not set it to "off" for this flow.
 #
-# routed-ai-client.ts sizes the whole chain's own budget at 46 s (8 s on-device +
-# 38 s Worker); the wait below allows that plus margin. A Worker quota exhaustion answers
+# routed-ai-client.ts sizes the whole chain's own budget at 38 s (the Worker's wait); the
+# wait below allows that plus margin. A Worker quota exhaustion answers
 # 503 before that timeout and this flow will correctly fail (never reaching an AI badge).
 # That is the expected, documented behaviour when the shared free AI quota is spent, not a
 # defect in this flow. Confirm the reason before treating a failure as anything else:
@@ -75,7 +73,7 @@ tags:
 # decline control therefore also waits for the recommendation to resolve (the sheet is gated
 # on a recommendation already being shown, whichever badge it turns out to carry), and
 # declining it is the only way to make Today's own elements assertable again. The timeout
-# here carries the documented 46 s worst-case chain wait plus margin; do not reorder this
+# here carries the documented 38 s worst-case chain wait plus margin; do not reorder this
 # before the recommendation settles.
 - extendedWaitUntil:
     visible:

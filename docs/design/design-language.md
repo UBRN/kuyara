@@ -192,8 +192,9 @@ plane. That is the rule that keeps a calm interface from becoming a traffic ligh
 checkable with a number. Three of the four pairs are status verdicts; the fourth,
 `provenance`, records where a recommendation came from. The Worker AI badge directly
 below Today's title uses that pair with the SF Symbol `sparkles` as an animated vivid
-multicolour layer in violet, fuchsia and gold. The on-device badge uses the muted neutral
-surface, primary ink and the system's rendering of the `apple.intelligence` symbol.
+multicolour layer in violet, fuchsia and gold. The on-device badge, shown only for a stored
+`on-device-ai` snapshot, uses the muted neutral surface, primary ink and the system's
+rendering of the `apple.intelligence` symbol.
 Deterministic fallback has no badge ([ADR 0034](../adr/0034-on-device-ai-selection-through-apple-foundation-models.md)
 section 4). The provenance pair is never a control fill, a border or chrome, and it never stands on
 the tinted stage, where `provenanceInk` falls to 2.622:1 on `fallingNight`.

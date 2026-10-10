@@ -1,11 +1,10 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 
-import { AppText, Icon, NativeList, NativeListSection, NativeListRow, NativeListContentRow, type IconName } from '@/components/ui';
+import { AppText, NativeList, NativeListSection, NativeListRow, NativeListContentRow, type IconName } from '@/components/ui';
 import { ProbeLoadingOverlay } from '@/features/profile/presentation/probe-loading-overlay';
 import type { AiProbeUiState } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
-import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { useLocalization } from '@/localization/use-messages';
 import { formatClockTime } from '@/presentation/format-clock-time';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -16,7 +15,6 @@ export type ServiceProvidersScreenProps = Readonly<{
   aiStatus: AiProbeUiState;
   isProbeSupported: boolean;
   lastGenerationMode: RecommendationGenerationMode | null;
-  onDeviceAvailability: OnDeviceAiAvailability | null;
   onCheckAiStatus: () => void;
   weatherAttribution: ReactNode;
   /** The attribution page the whole weather source row opens, when a provider is named. */
@@ -27,7 +25,6 @@ export function ServiceProvidersScreen({
   aiStatus,
   isProbeSupported,
   lastGenerationMode,
-  onDeviceAvailability,
   onCheckAiStatus,
   weatherAttribution,
   weatherSourceLink,
@@ -36,24 +33,6 @@ export function ServiceProvidersScreen({
   const theme = useKuyaraTheme();
   const copy = messages.settings;
 
-  // Reading availability calls nothing, so this row is never a probe. Until the answer
-  // arrives, and for every reason other than the switch being off or the model still
-  // downloading, the device reads as one that is not compatible.
-  const onDeviceCopy = (
-    onDeviceAvailability?.status === 'available'
-      ? copy.aiStatusOnDeviceRunning
-      : onDeviceAvailability?.reason === 'apple_intelligence_not_enabled'
-        ? copy.aiStatusOnDeviceOff
-        : onDeviceAvailability?.reason === 'model_not_ready'
-          ? copy.aiStatusOnDeviceGettingReady
-          : copy.aiStatusOnDeviceIncompatible
-  ).replace('Apple Intelligence', 'Apple\u00A0Intelligence');
-  const statusSymbol: StatusSymbol = onDeviceAvailability?.status === 'available' ||
-    onDeviceAvailability?.reason === 'model_not_ready'
-    ? 'statusRunning'
-    : onDeviceAvailability?.reason === 'apple_intelligence_not_enabled'
-      ? 'statusOff'
-      : 'statusUnavailable';
   // One status symbol keeps one ink wherever it appears on this screen (Law 4).
   const statusInk = (symbol: StatusSymbol) => symbol === 'statusRunning'
     ? theme.colors.successInk
@@ -86,7 +65,7 @@ export function ServiceProvidersScreen({
               ? copy.aiStatusResultRateLimited
               : copy.aiStatusResultError;
 
-  // A verdict carries the device row's outline status symbol; a pending check (the overlay
+  // A verdict carries an outline status symbol; a pending check (the overlay
   // shows its progress) and the unsupported note stay secondary text with none.
   const resultSymbol: StatusSymbol | null = !isProbeSupported
     ? null
@@ -118,14 +97,6 @@ export function ServiceProvidersScreen({
           footer={copy.aiStatusProvenanceFooter}
           heading={copy.artificialIntelligenceHeading}
           testID="settings-service-providers-ai-group">
-          <NativeListRow
-            glyph={({ color, size }) => (
-              <Icon color={color} name="appleIntelligence" rendering="multicolor" size={size} />
-            )}
-            label={onDeviceCopy}
-            testID="settings-service-providers-on-device"
-            trailingSymbol={{ name: statusSymbol, color: statusInk(statusSymbol) }}
-          />
           <NativeListRow label={lastGenerationModeCopy} testID="settings-service-providers-last-mode" />
           {assistant ? (
             <NativeListRow

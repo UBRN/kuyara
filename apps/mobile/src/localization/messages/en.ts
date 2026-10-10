@@ -166,11 +166,7 @@ export const en = {
     weatherNoSnapshot: 'Sources appear here after the first weather update.',
     weatherFooter: 'Where your latest weather came from.',
     aiStatusIntro: 'Sends one short request. Your outfit does not change.',
-    aiStatusProvenanceFooter: 'kuyara asks Apple Intelligence first. If it cannot answer in time, kuyara asks online AI, and then uses its standard suggestions. Apple Intelligence is a trademark of Apple Inc.',
-    aiStatusOnDeviceRunning: 'Apple Intelligence is on and ready.',
-    aiStatusOnDeviceOff: 'Apple Intelligence is turned off.',
-    aiStatusOnDeviceIncompatible: 'This device does not support Apple Intelligence.',
-    aiStatusOnDeviceGettingReady: 'Apple Intelligence is getting ready.',
+    aiStatusProvenanceFooter: 'kuyara asks online AI. If it cannot answer in time, kuyara uses its standard suggestions.',
     aiStatusAssistant: (provider: string, model: string) =>
       `Answered by ${provider} (${model})`,
     aiStatusLastOnDeviceAi: 'kuyara chose your last outfit with Apple Intelligence.',
@@ -991,7 +987,6 @@ export const en = {
       allSet: 'All set',
     },
     phase: {
-      'checking-on-device': 'Checking the on-device AI.',
       'asking-stylist': 'Asking the AI stylist.',
       'answer-received': 'AI answered. Checking the picks.',
       'preparing-outfits': 'Preparing your outfits.',

@@ -2,7 +2,6 @@ import { createContext, use } from 'react';
 
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
-import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 import type { DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
@@ -15,9 +14,6 @@ import type {
 export type RecommendationApplicationValue = Readonly<{
   state: RecommendationApplicationState;
   getSnapshot: () => RecommendationApplicationState;
-  // ADR 0034 section 5: what the device reports about on-device selection, read once and
-  // null until that answer arrives. No inference, no quota, no provider or model identity.
-  onDeviceAvailability: OnDeviceAiAvailability | null;
   refresh: () => Promise<RecommendationSnapshot | null>;
   evaluateApprovedTriggers: (foreground?: boolean) => Promise<void>;
   /**

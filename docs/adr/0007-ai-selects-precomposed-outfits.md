@@ -33,8 +33,7 @@ every tier behind Haiku is small and free-tier, with a Workers AI free quota of 
 neurons per day, and each must work alone when the tiers ahead of it are spent.
 The raw-garment request under consideration carried up to 125 candidates at a
 measured worst case of 65,498 bytes and asked the model to compose, which is the
-part a small model fails at. The on-device model ahead of that chain is small
-too, so the constraint holds wherever the selection runs.
+part a small model fails at.
 
 ## Decision
 
@@ -60,10 +59,10 @@ from the distinctness rule of section 6's table, because they follow from the ou
 than distinguish it.
 
 Where that selection runs is decided in
-[ADR 0034](0034-on-device-ai-selection-through-apple-foundation-models.md): on-device
-through the approved native module when Apple Intelligence is available, otherwise
-through the Worker AI chain, otherwise the deterministic device-local fallback of
-section 7. The job below is identical on every tier, and so is the validation behind it.
+[ADR 0034](0034-on-device-ai-selection-through-apple-foundation-models.md): the Worker
+AI chain, otherwise the deterministic device-local fallback of section 7. The model
+chooses both the three options and their archetypes, and the validation below judges
+the answer.
 
 Request and response shape:
 
@@ -137,8 +136,7 @@ is a single constant.
 
 The cache is the Cloudflare Cache API (`caches.default`). No new binding is
 added. If the measured hit rate is insufficient, KV is the next step, not the
-first one. The shared cache is a Worker concern: an on-device selection is
-computed locally and neither consults nor populates it.
+first one. The shared cache is a Worker concern.
 
 ### 5. Closed archetype list
 
@@ -192,9 +190,8 @@ read on, so a weekend result read on the Monday after says Casual.
 | Archetype precondition holds for its outfit | Selection boundary |
 | Optional `insightSentence` is one sentence, at most 90 characters, in the reader's language, with no decimal digit or banned content | Device validation, with deterministic line-1 fallback |
 
-The selection boundary is the on-device client when the selection runs on the
-device and the Worker when it runs on the Worker; the mobile mapper enforces the
-same invariants either way.
+The selection boundary is the Worker; the mobile mapper enforces the same
+invariants again before anything is displayed or persisted.
 
 A failed outfit check rejects the whole response and advances to the next tier.
 Partial repair remains forbidden.
@@ -225,7 +222,7 @@ recommendation is never withheld.
   entry.
 - A closed suggested colorway can preselect quick-add colour without widening AI input.
 - Results of a Worker selection are shared across all users by construction,
-  which ADR 0005 already accepted. An on-device selection is computed per device.
+  which ADR 0005 already accepted.
 - Outfits recur on a seven-day cycle for an unchanged weather bucket. Ordinary
   generation excludes every option wearing the body garments of the persisted
   snapshot's three, whatever accessories it carries, when at least three valid

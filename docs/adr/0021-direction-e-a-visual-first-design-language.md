@@ -163,8 +163,8 @@ engine's rules would reject the look.
 
 Provenance belongs next to the thing it describes, not in a page footer. When AI materially
 contributed, the interface shows a prominent filled badge in the controlled `provenance` role
-directly under Today's title. The on-device badge pairs its Apple Intelligence words with
-the system's rendering of the `apple.intelligence` SF Symbol in a non-purple badge. The Worker badge pairs "Chosen with AI" with the SF Symbol `sparkles` as an animated violet, fuchsia and gold layer. The badge
+directly under Today's title. The on-device badge, shown only for a stored `on-device-ai`
+snapshot, pairs its Apple Intelligence words with the system's rendering of the `apple.intelligence` SF Symbol in a non-purple badge. The Worker badge pairs "Chosen with AI" with the SF Symbol `sparkles` as an animated violet, fuchsia and gold layer. The badge
 is a record, not a control: it is not touchable, it never stands on the tinted stage, and what it means is
 explained on Settings > Service providers. Freshness keeps its own quiet metadata line.
 The reader first sees that AI chose the look, then reads the insight.

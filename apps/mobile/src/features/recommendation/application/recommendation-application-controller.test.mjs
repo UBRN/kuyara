@@ -991,9 +991,9 @@ function narratingClient(reported, outcome) {
   };
 }
 
-test('an on-device answer narrates its own tier and settles back to no phase', async () => {
+test('an AI answer narrates the stylist and settles back to no phase', async () => {
   const { controller } = createHarness({
-    client: narratingClient(['checking-on-device', 'answer-received'], 'on-device-ai'),
+    client: narratingClient(['asking-stylist', 'answer-received'], 'ai-assisted'),
   });
   await controller.initialize();
   const phases = recordPhases(controller);
@@ -1001,32 +1001,15 @@ test('an on-device answer narrates its own tier and settles back to no phase', a
   await controller.refresh('first-recommendation', input(16));
 
   assert.deepEqual(phases, [
-    null, 'checking-on-device', 'answer-received', 'preparing-outfits', null,
-  ]);
-});
-
-test('a failed on-device tier narrates the stylist before the outfits are prepared', async () => {
-  const { controller } = createHarness({
-    client: narratingClient(
-      ['checking-on-device', 'asking-stylist', 'answer-received'],
-      'ai-assisted',
-    ),
-  });
-  await controller.initialize();
-  const phases = recordPhases(controller);
-
-  await controller.refresh('first-recommendation', input(16));
-
-  assert.deepEqual(phases, [
-    null, 'checking-on-device', 'asking-stylist', 'answer-received', 'preparing-outfits', null,
+    null, 'asking-stylist', 'answer-received', 'preparing-outfits', null,
   ]);
 });
 
 // AI failure never prevents a recommendation, and the phase says so in the same words the
 // deterministic composition is described with everywhere else.
-test('every AI tier failing narrates the standard suggestions and still delivers three', async () => {
+test('a failed Worker AI chain narrates the standard suggestions and still delivers three', async () => {
   const { controller } = createHarness({
-    client: narratingClient(['checking-on-device', 'asking-stylist'], 'fail'),
+    client: narratingClient(['asking-stylist'], 'fail'),
   });
   await controller.initialize();
   const phases = recordPhases(controller);
@@ -1036,7 +1019,7 @@ test('every AI tier failing narrates the standard suggestions and still delivers
   assert.equal(snapshot.generationMode, 'deterministic-fallback');
   assert.equal(snapshot.recommendation.outfits.length, 3);
   assert.deepEqual(phases, [
-    null, 'checking-on-device', 'asking-stylist', 'using-standard', 'preparing-outfits', null,
+    null, 'asking-stylist', 'using-standard', 'preparing-outfits', null,
   ]);
 });
 
@@ -1047,7 +1030,7 @@ test('the standard suggestions phase is held on screen before the deterministic 
   const phasesAtHold = [];
   let controller;
   ({ controller } = createHarness({
-    client: narratingClient(['checking-on-device', 'asking-stylist'], 'fail'),
+    client: narratingClient(['asking-stylist'], 'fail'),
     holdPhase: async (milliseconds) => {
       holds.push(milliseconds);
       phasesAtHold.push(controller.getSnapshot().phase);

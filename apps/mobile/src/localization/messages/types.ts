@@ -565,10 +565,6 @@ export type AppMessages = Readonly<{
     weatherFooter: string;
     aiStatusIntro: string;
     aiStatusProvenanceFooter: string;
-    aiStatusOnDeviceRunning: string;
-    aiStatusOnDeviceOff: string;
-    aiStatusOnDeviceIncompatible: string;
-    aiStatusOnDeviceGettingReady: string;
     aiStatusAssistant: (provider: string, model: string) => string;
     aiStatusLastOnDeviceAi: string;
     aiStatusLastAiAssisted: string;

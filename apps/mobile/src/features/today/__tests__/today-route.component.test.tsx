@@ -540,7 +540,6 @@ function Providers({
     <RecommendationApplicationContext value={{
       state: recommendation,
       getSnapshot: recommendationGetSnapshot ?? (() => recommendation),
-      onDeviceAvailability: null,
       refresh: recommendationRefresh,
       evaluateApprovedTriggers: recommendationEvaluateApprovedTriggers,
       refreshAfterPull: () => refreshAfterPull({

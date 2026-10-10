@@ -590,6 +590,20 @@ test('mobile production code never calls identify()', () => {
   assert.deepEqual(found, [], 'analytics stays on its install identifier (ADR 0041 section 12)');
 });
 
+// ADR 0034 section 1: recommendations run through the Worker AI chain and the deterministic
+// fallback only. The Foundation Models module stays in the binary, and no production code asks
+// it to select outfits.
+test('mobile production code never asks the on-device model to select outfits', () => {
+  const found = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\.selectOutfits\(/.test(line)) found.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(found, [], 'no recommendation path calls the on-device model (ADR 0034 section 1)');
+});
+
 // Mobile production code never calls the global `fetch` by its bare name: a client takes its
 // `fetch` as a dependency, so a unit test hands it a fake instead of patching the global.
 test('mobile production code has no bare global fetch call', () => {
@@ -1008,8 +1022,7 @@ test('an error swallowed as `undefined` appears only where the allowlist names i
 
 // Untrusted values are parsed before they are typed: the Closet category reaches the domain
 // type through `isWardrobeItemCategory`, never a cast, and a stored weather condition through
-// `isWeatherConditionCode`. The on-device AI casts of the same kind stay outside this check
-// until their own goals land.
+// `isWeatherConditionCode`.
 test('the wardrobe category and the weather condition are narrowed by their guards, never cast', () => {
   const casts = [];
   for (const relativePath of sourceFiles()) {
@@ -1502,7 +1515,6 @@ test('a Worker client does not trim the base URL it is given', () => {
 // to a typed helper instead; the list is frozen and only shrinks, and a stale count fails.
 const untypedJsonParseAllowlist = {
   'features/profile/data/profile-repository.ts': 1,
-  'features/recommendation/data/on-device-ai-client.ts': 1,
   'features/recommendation/data/recommendation-repository.ts': 2,
   'features/recommendation/data/sqlite-dressing-day-choice-repository.ts': 1,
   'features/recommendation/data/sqlite-outfit-history-repository.ts': 1,

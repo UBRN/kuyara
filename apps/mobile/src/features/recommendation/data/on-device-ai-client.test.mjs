@@ -1,117 +1,50 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  OnDeviceAiClient,
-  OnDeviceAiError,
-  onDeviceAiSwitchedOff,
-} from './on-device-ai-client.ts';
+import { readOnDeviceAiAvailability } from './on-device-ai-client.ts';
 
-// The projection copies fields and reads the day out of the requirements, so an empty
-// option list and an empty requirement list are a whole request here.
-const request = { clothingPreference: 'womens', options: [], requirements: [] };
-
-async function developmentWarningsFor(nativeMessage) {
-  const previousDevelopment = globalThis.__DEV__;
-  const previousWarn = console.warn;
-  const lines = [];
-  globalThis.__DEV__ = true;
-  console.warn = (line) => lines.push(line);
-  try {
-    const client = new OnDeviceAiClient({
-      module: {
-        getAvailability: async () => ({ status: 'available' }),
-        selectOutfits: async () => {
-          throw new Error(nativeMessage);
-        },
-      },
-      timeoutMilliseconds: 50,
-    });
-    await assert.rejects(
-      client.recommend(request),
-      (error) => error instanceof OnDeviceAiError,
-    );
-  } finally {
-    console.warn = previousWarn;
-    if (previousDevelopment === undefined) delete globalThis.__DEV__;
-    else globalThis.__DEV__ = previousDevelopment;
-  }
-  return lines;
+function fakeModule(getAvailability) {
+  return {
+    getAvailability,
+    selectOutfits: async () => {
+      throw new Error('reading availability never asks the model to select');
+    },
+  };
 }
 
-test('the development line names a failure code the native module wrote', async () => {
-  for (const [message, expected] of [
-    [
-      'On-device selection could not be completed. (exceeded_context_window)',
-      'exceeded_context_window',
-    ],
-    ['On-device selection could not be completed. (refusal)', 'refusal'],
-    // The one pair whose codes overlap as substrings: the longer must not be read as the
-    // shorter, whichever order the list happens to be in.
-    [
-      'On-device selection could not be completed. (assets_unavailable)',
-      'assets_unavailable',
-    ],
-    ['On-device selection could not be completed. (unavailable)', 'unavailable'],
-    // Anything outside the closed list is reported as unknown, so neither framework text
-    // nor model output can leave the module by riding on the message.
-    ['The model objected at length to the request it was given.', 'unknown'],
+test('the availability read passes the module answer through', async () => {
+  assert.deepEqual(
+    await readOnDeviceAiAvailability(fakeModule(async () => ({ status: 'available' }))),
+    { status: 'available' },
+  );
+  assert.deepEqual(
+    await readOnDeviceAiAvailability(fakeModule(async () => ({
+      status: 'unavailable',
+      reason: 'model_not_ready',
+    }))),
+    { status: 'unavailable', reason: 'model_not_ready' },
+  );
+});
+
+test('no module at all reads as an ineligible device', async () => {
+  assert.deepEqual(await readOnDeviceAiAvailability(null), {
+    status: 'unavailable',
+    reason: 'device_not_eligible',
+  });
+});
+
+// A telemetry attribute waits on this read, so a read that throws or never settles answers
+// unknown instead of holding it.
+test('a read that throws or never settles answers unknown inside its bound', async () => {
+  for (const getAvailability of [
+    async () => {
+      throw new Error('the native call failed');
+    },
+    () => new Promise(() => undefined),
   ]) {
-    assert.deepEqual(await developmentWarningsFor(message), [
-      `On-device AI selection failed: ${expected}.`,
-    ]);
-  }
-});
-
-test('the development line names the availability reason when the tier is skipped', async () => {
-  const previousDevelopment = globalThis.__DEV__;
-  const previousWarn = console.warn;
-  const lines = [];
-  globalThis.__DEV__ = true;
-  console.warn = (line) => lines.push(line);
-  try {
-    const client = new OnDeviceAiClient({
-      module: {
-        getAvailability: async () => ({ status: 'unavailable', reason: 'model_not_ready' }),
-        selectOutfits: async () => {
-          throw new Error('selectOutfits must not run when the model is unavailable');
-        },
-      },
-      timeoutMilliseconds: 50,
+    assert.deepEqual(await readOnDeviceAiAvailability(fakeModule(getAvailability), 10), {
+      status: 'unavailable',
+      reason: 'unknown',
     });
-    await assert.rejects(client.recommend(request), (error) => error instanceof OnDeviceAiError);
-  } finally {
-    console.warn = previousWarn;
-    if (previousDevelopment === undefined) delete globalThis.__DEV__;
-    else globalThis.__DEV__ = previousDevelopment;
-  }
-  assert.deepEqual(lines, ['On-device AI skipped: model_not_ready.']);
-});
-
-// The development switch docs/testing.md documents. `__DEV__` is the gate, so a release
-// build ignores the variable whatever it holds and the tier can never be switched off in
-// front of a user.
-test('the on-device tier is switched off only by a development build reading off', async () => {
-  const previousDevelopment = globalThis.__DEV__;
-  const previousValue = process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI;
-  try {
-    for (const [development, value, expected] of [
-      [true, 'off', true],
-      [true, 'on', false],
-      [true, undefined, false],
-      [false, 'off', false],
-      [undefined, 'off', false],
-    ]) {
-      if (development === undefined) delete globalThis.__DEV__;
-      else globalThis.__DEV__ = development;
-      if (value === undefined) delete process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI;
-      else process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI = value;
-      assert.equal(onDeviceAiSwitchedOff(), expected);
-    }
-  } finally {
-    if (previousDevelopment === undefined) delete globalThis.__DEV__;
-    else globalThis.__DEV__ = previousDevelopment;
-    if (previousValue === undefined) delete process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI;
-    else process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI = previousValue;
   }
 });

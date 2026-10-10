@@ -8,18 +8,16 @@ tags:
 # Requires the standing setup documented in docs/testing.md "AI tiers in E2E" to already be
 # running before this flow starts:
 #   pnpm --filter @kuyara/worker exec wrangler dev --env e2e --port 8788
-# and Metro started with both:
+# and Metro started with:
 #   EXPO_PUBLIC_KUYARA_WORKER_BASE_URL=  (empty; falls through to the http://127.0.0.1:8788
 #     development default instead of whatever apps/mobile/.env points the deployed build at)
-#   EXPO_PUBLIC_KUYARA_ON_DEVICE_AI=off
-# so the on-device tier is skipped and the only AI attempt is a Worker with empty provider
-# model lists, which answers 503 ai_unavailable at once and lets the deterministic composer
-# run. Included in the default `pnpm e2e:ios` critical set (see .maestro/config.yaml); that
+# so the only AI attempt is a Worker with empty provider model lists, which answers 503
+# ai_unavailable at once and lets the deterministic composer run. Included in the default `pnpm e2e:ios` critical set (see .maestro/config.yaml); that
 # standing setup is a precondition for the aggregate run, not something this flow starts.
 #
 # The Worker call plus the deterministic composition are fast against the no-AI `e2e`
 # environment, but the wait is still sized to the documented worst case (routed-ai-client.ts:
-# the whole chain's own budget is 46 s: 8 s on-device + 38 s Worker) plus margin, so a slower
+# the whole chain's own budget is the Worker's 38 s) plus margin, so a slower
 # CI host does not turn into a flaky timeout.
 - launchApp:
     clearState: true

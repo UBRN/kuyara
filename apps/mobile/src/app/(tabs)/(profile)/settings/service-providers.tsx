@@ -29,9 +29,6 @@ export default function ServiceProvidersRoute() {
     recommendation?.state.status === 'ready'
       ? recommendation.state.snapshot?.recommendation.generationMode ?? null
       : null;
-  // ADR 0034 section 5: the availability the composition boundary already read once. No
-  // call is made from this screen.
-  const onDeviceAvailability = recommendation?.onDeviceAvailability ?? null;
   // Only the active place's forecast is credited: during a place switch the previous place's
   // snapshot is still held, and its provider may not be the one the new place comes from.
   const sourceId = weather?.state.status === 'ready'
@@ -69,7 +66,6 @@ export default function ServiceProvidersRoute() {
         aiStatus={aiStatus}
         isProbeSupported={isSupported}
         lastGenerationMode={lastGenerationMode}
-        onDeviceAvailability={onDeviceAvailability}
         onCheckAiStatus={() => void checkAiStatus()}
         weatherAttribution={weatherAttribution}
         weatherSourceLink={weatherSourceLink}

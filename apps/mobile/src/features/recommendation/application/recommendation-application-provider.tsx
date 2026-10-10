@@ -78,7 +78,7 @@ import { isDayQuestionOpen } from '@/features/recommendation/domain/local-day';
 import { repeatsProfileStyle, resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceRepository, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
-import { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
+import { readOnDeviceAiAvailability } from '@/features/recommendation/data/on-device-ai-client';
 import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
 import { WorkerAiClient } from '@/features/recommendation/data/worker-ai-client';
 import { WorkerAiClientError } from '@/features/recommendation/domain/worker-ai-client-error';
@@ -118,16 +118,10 @@ function createWorkerClient(memberAccessToken: () => Promise<string | null>): Pi
   }
 }
 
-// ADR 0034 section 1: the composition boundary that builds the AI chain, on-device ahead of
-// the Worker. The native module arrives through the data layer, which is its only importer;
-// it is null on Android and on any build without the native surface, and the routed client
-// then reads the on-device tier as unavailable and goes straight to the Worker with the
-// whole budget.
+// ADR 0034 section 1: the composition boundary that builds the AI chain, the Worker AI chain
+// with the deterministic fallback behind it in the controller.
 function createRecommendationClient(memberAccessToken: () => Promise<string | null>): RoutedAiClient {
-  return new RoutedAiClient({
-    onDevice: new OnDeviceAiClient({ module: onDeviceAiModule }),
-    worker: createWorkerClient(memberAccessToken),
-  });
+  return new RoutedAiClient({ worker: createWorkerClient(memberAccessToken) });
 }
 
 async function loadRepository() {
@@ -280,13 +274,11 @@ export function RecommendationApplicationProvider({
     release: (dateKey) => budget.release(dateKey),
   }), [budget]);
   const client = useMemo(() => createRecommendationClient(memberReask.token), [memberReask]);
-  const [onDeviceAvailability, setOnDeviceAvailability] =
-    useState<OnDeviceAiAvailability | null>(null);
   // A stable box rather than a `useRef`, because `react-hooks/refs` rejects reading
   // `ref.current` from anything the `useMemo` factory closes over, however the read is
   // wrapped. It does the same job: a resolved availability does not rebuild the controller
-  // and restart the recommendation state it owns. Written where the state is written, and
-  // read only when an event is about to be recorded.
+  // and restart the recommendation state it owns. Read only when an event is about to be
+  // recorded.
   const [latestOnDeviceAvailability] = useState<{ value: OnDeviceAiAvailability | null }>(
     () => ({ value: null }),
   );
@@ -335,19 +327,18 @@ export function RecommendationApplicationProvider({
     void controller.initialize(localDay.key);
   }, [controller, localDay.key]);
 
-  // ADR 0034 section 5: reading availability runs no inference and consumes no quota, so it
-  // happens once on mount and never on a user action. It feeds the AI status row only.
+  // ADR 0033 section 7: reading availability runs no inference and consumes no quota, so it
+  // happens once on mount and never on a user action. It feeds the performance telemetry
+  // attribute only.
   useEffect(() => {
     let active = true;
-    void client.getAvailability().then((availability) => {
-      if (!active) return;
-      latestOnDeviceAvailability.value = availability;
-      setOnDeviceAvailability(availability);
+    void readOnDeviceAiAvailability(onDeviceAiModule).then((availability) => {
+      if (active) latestOnDeviceAvailability.value = availability;
     });
     return () => {
       active = false;
     };
-  }, [client, latestOnDeviceAvailability]);
+  }, [latestOnDeviceAvailability]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', dayRollover.appStateChanged);
@@ -519,7 +510,6 @@ export function RecommendationApplicationProvider({
       },
       evaluateApprovedTriggers: () => evaluateApprovedTriggers(),
     }),
-    onDeviceAvailability,
     skipWait: () => controller.skipWait(),
     dressingDayKey: localDay.key,
     tomorrowPreview,
@@ -612,7 +602,6 @@ export function RecommendationApplicationProvider({
     morningChoicePending,
     eveningChoicePending,
     activeDeparture,
-    onDeviceAvailability,
     reevaluateLocalDay,
     profileDefault,
     resolvedDressStyle,

@@ -49,7 +49,6 @@ const MIN_AREA = 120;
 // the wait it reports; the answer's arrival is the one jump, and completion fills it.
 const PHASE_PROGRESS: Readonly<Record<RecommendationPhase | 'starting', number>> = {
   starting: 0.04,
-  'checking-on-device': 0.2,
   'asking-stylist': 0.42,
   'using-standard': 0.78,
   'answer-received': 0.78,

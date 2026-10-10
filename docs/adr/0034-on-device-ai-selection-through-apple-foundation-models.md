@@ -1,117 +1,95 @@
-# ADR 0034: On-device AI selection through Apple Foundation Models
+# ADR 0034: Where AI selection runs, and the Foundation Models module
 
 Status: Accepted (2026-09-13)
 
 This ADR defines where the selection of [ADR 0007](0007-ai-selects-precomposed-outfits.md)
-runs, what the user is told about it, and what data may cross its boundaries.
+runs, what the user is told about it, what data may cross its boundaries, and what the app
+does with the Apple Foundation Models module it carries.
 
 ## Context
 
 ADR 0007 settled what the AI step does. The deterministic layer composes at most 24
 complete, valid, requirement-satisfying, formality-consistent outfits, the model returns
 exactly three of them with one archetype identifier each, and it never composes. What
-ADR 0007 did not settle is where that selection runs. Until now the only executor has been
-the Worker AI chain, with the deterministic device-local fallback behind it.
+ADR 0007 did not settle is where that selection runs.
 
-The task shape fits an on-device model unusually well. The request is a closed set of
-identifiers with a fixed answer schema, it carries no free text, and it is small: the
-option list is bounded at 24 and the model input serializes to at most 11,560 bytes
-against the 4096-token session window Apple documents for a Foundation Models session;
-the token cost of that input has not yet been measured on device. Guided
-generation constrains `optionId` to the identifiers supplied in the request and
-`archetypeId` to the twelve archetypes, which is the same structural guarantee the Worker
-response schema already provides.
+Two executors exist. The Worker AI chain (Haiku first, then Workers AI, then OpenRouter)
+answers through the versioned mobile API. The app also carries a local Expo module that runs
+Apple Foundation Models on Apple Intelligence eligible iPhones, with guided generation that
+constrains `optionId` to the supplied identifiers and `archetypeId` to the twelve archetypes.
 
-kuyara's minimum is iOS 26 ([ADR 0011](0011-minimum-ios-26.md)), which is the release that
-ships the Foundation Models framework, so no deployment target moves and no second minimum
-appears. Turkish is a supported device language from iOS 26.1.
+Measured with the module's own instructions, schema and greedy decoding on a host Foundation
+Models runtime (4096-token session window, 203 instruction tokens), over the 42-cell
+recommendation grid of `apps/mobile/test/recommendation-grid.mjs`:
 
-Three facts bound the decision.
+- A 24-option input on a cold, freezing or windy day serializes to 3,950 to 4,409 prompt
+  tokens, about 2.98 characters of JSON per token, so the session exceeds its window before
+  the model answers.
+- Where the input fits, the model labels two or three picks with the same archetype. The
+  shared gate requires three distinct archetypes, each satisfying its precondition, so it
+  rejects the whole answer.
+- No grid cell produced an answer the gate accepts.
 
-**Eligibility is narrow.** The on-device model requires Apple Intelligence eligible
-hardware, Apple Intelligence switched on, and a supported device language. Android has no
-equivalent with structured output today. Most installs will therefore keep using the
-Worker, so the Worker tier is not a legacy path to be retired.
-
-**Every Worker AI call costs network time, quota and budget.** kuyara is free and ad-free
-and runs on a small maintainer-funded budget with hard limits. Calls that never leave the
-device consume none of it, and they cannot be rate limited or fail on a flaky connection.
-
-**No first-party module exists.** Expo ships no Foundation Models module, and the
-community packages are beta. The repository's dependency policy prefers a platform API
-reached through a small local module over a beta dependency that duplicates it.
+The module's guided-generation schema is native code shipped in the binary, so neither
+failure can be corrected by a JavaScript update.
 
 ## Decision
 
-### 1. Three tiers, first eligible tier wins
+### 1. Two tiers: the Worker AI chain, then the deterministic fallback
 
 The AI selection step runs through an ordered chain:
 
 ```text
-1. On-device Foundation Models, when availability is "available"
-2. Worker AI chain (unchanged)
-3. Deterministic device-local fallback (unchanged)
+1. Worker AI chain
+2. Deterministic device-local fallback
 ```
 
-Each tier falls to the next on failure. An on-device availability answer of "unavailable"
-costs no time and no attempt: the request goes straight to the Worker. Ineligible devices,
-Android, a model that is not ready, and every on-device error therefore behave exactly as
-they do today.
+The Foundation Models module is not a tier. No recommendation path, Tomorrow's preview
+included, asks it to select outfits, on any device.
 
 The plug-in point is the composition boundary that builds the recommendation client. It
-returns a routed client satisfying the existing `AiClient` interface, so the controller,
-the mapper, persistence and the trigger rules keep their shape. The controller's existing
-catch still lands on the deterministic fallback, which means tier 3 is reached by the same
-code path as before.
+returns a routed client satisfying the `AiClient` interface, so the controller, the mapper,
+persistence and the trigger rules keep their shape. Every Worker failure, an answer the
+validation gate rejects included, rejects the routed call, and the controller's catch
+composes the deterministic fallback.
 
-### 2. The on-device tier has its own bounded budget
+### 2. The Worker wait bounds the refresh
 
-On-device gets 8 s. There is one on-device attempt and no retry; a timed-out attempt is
-abandoned and the Worker tier then runs with its own 38 s wait (the Worker's 36 s walk,
-five attempts of 7 s plus one second, and 2 s of transport), so the whole refresh is
-bounded at 46 s and the deterministic fallback is reached only after the last provider
-fails. The mobile client sends that wait minus a 1 s transport margin in a private
-validated request header; the Worker clamps it from 5 to 36 s and starts no attempt with
-less than the 5 s window needed for a measured healthy response. The on-device tier never
-eats into the Worker's wait, and the Worker's wait is never shortened because the on-device
-tier was tried.
+The Worker request gets 38 s: the Worker's 36 s walk (five attempts of 7 s plus one second)
+and 2 s of transport. The deterministic fallback is reached only after the last provider
+fails, so the refresh takes as long as a stylist answer needs rather than a clock deciding the
+answer is standard. The mobile client sends that wait minus a 1 s transport margin in a
+private validated request header; the Worker clamps it from 5 to 36 s and starts no attempt
+with less than the 5 s window needed for a measured healthy response.
 
-The 8 s figure is a ceiling on the cost of trying, not an estimate of the cost of
-succeeding. It is set from the only measurement that exists: complete 24-option round
-trips in the iOS 26 Simulator on the maintainer's M3 Pro host, where a request of about
-2,800 prompt tokens took 5.1 to 5.4 s warm and 6.7 s on a cold first run, which a 6 s
-ceiling cancels more often than not. That is host inference, not an iPhone's neural
-engine; on-device latency on eligible hardware is still unmeasured (see [Verification
-boundary](#verification-boundary)), and 8 s leaves the cold run inside the budget
-without letting a stalled session hold the refresh.
+While the chain runs, Today's phase line narrates it: asking the AI stylist, the answer
+being checked, the standard suggestions when the chain fails, then the outfits being
+prepared.
 
-### 3. Generation mode gains a third coarse value
+### 3. Generation mode keeps its three coarse values
 
-`generationMode` becomes `on-device-ai | ai-assisted | deterministic-fallback`. The new
-value names the locus, never a model, a version or a provider. It exists for two reasons:
-it is the only signal the user can see that the answer was computed on their device, and
-it is the only way to measure how much Worker spend the on-device tier displaces.
+`generationMode` is `on-device-ai | ai-assisted | deterministic-fallback`. The values name a
+locus, never a model, a version or a provider. New recommendations carry `ai-assisted` or
+`deterministic-fallback`; `on-device-ai` stays a valid stored value, so a snapshot that holds
+it still parses, persists and renders.
 
-The durable cost is explicit:
-
-- SQLite migration v13 widens the `generation_mode` CHECK constraint by rebuilding the
-  table and copying every existing row. No released migration is edited, no version is
-  skipped, and there is no destructive fallback.
-- The generation-mode union, its type guard and its total analytics property map gain the
-  third member, so a missing branch is a type error rather than a silent default.
-- The analytics taxonomy carries the property value `on_device_ai`, and the analytics schema
-  version is bumped whenever the taxonomy changes.
+- SQLite migration v13 widened the `generation_mode` CHECK constraint to the three values by
+  rebuilding the table and copying every row. No released migration is edited.
+- The generation-mode union, its type guard, the analytics property map (`on_device_ai`) and
+  the performance telemetry map stay total over the three values, so a missing branch is a
+  type error rather than a silent default.
 
 Provider and model identity stay out of the durable model, the analytics payload, Today and
-the recommendation detail. The Settings Service providers screen is the one interface that may name
-the provider and model behind the last check (section 5); that identifier crosses the mobile
-API as a controlled non-secret value, like a weather attribution identifier, and is never
-persisted with a recommendation or sent to analytics.
+the recommendation detail. The Settings Service providers screen is the one interface that
+may name the provider and model behind the last check (section 5); that identifier crosses
+the mobile API as a controlled non-secret value, like a weather attribution identifier, and is
+never persisted with a recommendation or sent to analytics.
 
-### 4. Two badges, one source sentence, and no provider name
+### 4. Badges, one source sentence, and no provider name
 
-Today gives the two AI modes a prominent filled badge directly below the title and leaves the third unmarked. The strings are final and reach
-the interface through localization keys like every other string:
+Today gives the AI modes a prominent filled badge directly below the title and leaves the
+deterministic mode unmarked. The strings are final and reach the interface through
+localization keys like every other string:
 
 | Generation mode | English | Turkish |
 | --- | --- | --- |
@@ -126,7 +104,8 @@ The badge is a fragment, so the spoken label carries the subject the badge canno
 | `ai-assisted` | Recommendation source: kuyara chose this outfit with AI | Öneri kaynağı: kuyara bu kombini yapay zeka ile seçti |
 
 The recommendation detail has room for a whole sentence, so it says the source in all three
-modes, in plain words after the pieces and before the weather recap. The deterministic sentence names kuyara as the subject and no AI:
+modes, in plain words after the pieces and before the weather recap. The deterministic
+sentence names kuyara as the subject and no AI:
 
 | Generation mode | English | Turkish |
 | --- | --- | --- |
@@ -140,17 +119,18 @@ identity and belong on the Settings Service providers screen (section 5).
 
 The rules around them:
 
-- The on-device badge appears only when the stored generation mode is `on-device-ai`. A
-  badge shown for any other mode would advertise a capability that did not produce the
-  result, which App Store Review Guideline 2.3.1(a) treats as misleading marketing.
+- The on-device badge, its spoken label and its source sentence appear only for a stored
+  snapshot whose generation mode is `on-device-ai`. A badge shown for any other mode would
+  advertise a capability that did not produce the result, which App Store Review Guideline
+  2.3.1(a) treats as misleading marketing.
 - A settled `deterministic-fallback` result carries no badge at all. The absence of the
   mark is the signal, and a redundant "Standard" badge is not introduced to fill the
   space ([ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 8). The
   detail's source sentence is where that mode is said in words instead. The phase line
   shown while a recommendation is being produced is a different surface and still narrates
   the deterministic fallback as it runs.
-- The on-device badge pairs its words with the system's rendering of the `apple.intelligence` SF Symbol and uses a non-purple badge colour. The Worker badge pairs "Chosen with AI" with the SF Symbol `sparkles` drawn as a vivid multicolour layer in violet, fuchsia and gold. It twinkles once on appearance and every six seconds; its Settings row plays only on first appearance. The symbols supplement the words rather than carrying provenance alone.
-- The Apple Intelligence word mark appears only in the on-device badge and its spoken label, the detail source sentence, and the Settings Service providers status and footer. It stays referential, untranslated and unabbreviated, with no trademark sign under [Apple's third-party trademark guidance](https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html). Settings Service providers shows the system's rendering of the same `apple.intelligence` SF Symbol beside the device status line, with explicit words and a status colour plus shape. **Risk accepted:** Apple has not publicly answered whether third parties may draw that SF Symbol; these uses trade against the uncertainty while never making the symbol the only status carrier. Apple trademark guidance remains a submission check.
+- The on-device badge pairs its words with the system's rendering of the `apple.intelligence` SF Symbol and uses a non-purple badge colour. The Worker badge pairs "Chosen with AI" with the SF Symbol `sparkles` drawn as a vivid multicolour layer in violet, fuchsia and gold. It twinkles once on appearance and every six seconds. The symbols supplement the words rather than carrying provenance alone.
+- The Apple Intelligence word mark appears only in the on-device badge and its spoken label, the detail source sentence, and the Settings Service providers line naming the last outfit's source, each only for a stored `on-device-ai` snapshot. It stays referential, untranslated and unabbreviated, with no trademark sign under [Apple's third-party trademark guidance](https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html). **Risk accepted:** Apple has not publicly answered whether third parties may draw the `apple.intelligence` SF Symbol; the badge never makes the symbol the only provenance carrier. Apple trademark guidance remains a submission check.
 - The copy never claims personalisation. AI picks three meaningfully different outfits
   from already valid options; it does not learn the user
   ([ADR 0031](0031-dress-style-is-the-formality-signal.md)).
@@ -158,140 +138,68 @@ The rules around them:
 
 ### 5. Service providers reports AI and weather status
 
-Settings > Service providers has two grouped sections. Artificial intelligence first reads the module's `getAvailability()` without inference or quota use. It pairs the `apple.intelligence` SF Symbol with words, status colour and shape: green `checkmark.circle` for "on and ready", yellow `pause.circle` for "turned off", and grey `xmark.circle` for "this device does not support it"; downloading remains a getting-ready state. The second row names who chose the last outfit, with kuyara as subject: with Apple Intelligence, with online AI, or from its standard suggestions. The footer states the order (Apple Intelligence first, then online AI, then standard suggestions), and the bounded active Worker probe, "Test online AI", follows. The controlled last-check provider and model ID may appear here alone, never in Today, detail, analytics or persistence.
+Settings > Service providers has two grouped sections. Artificial intelligence first names who chose the last outfit, with kuyara as subject: with online AI, from its standard suggestions, or, for a stored `on-device-ai` snapshot, with Apple Intelligence. The footer states the order: online AI, then the standard suggestions. The bounded active Worker probe, "Test online AI", follows. The controlled last-check provider and model ID may appear here alone, never in Today, detail, analytics or persistence. The screen reports no on-device availability.
 
 Weather data names the provider behind the last valid snapshot and shows its full attribution, including marks, text, links and the OpenWeather logo as applicable. This is the only weather-attribution surface. The active AI probe retains its quota, cache and rate-limit bounds from ADR 0001.
 
-### 6. The native surface is a local Expo module, and only the data layer touches it
+### 6. The native module stays in the binary, read for availability only
 
-The Foundation Models call lives in a local Expo module in Swift under
-`apps/mobile/modules/kuyara-on-device-ai`. The module is declared for Apple platforms only
-and its JavaScript entry guards on `Platform.OS`, so Android and web never load a native
-module and read as unavailable. There is no Kotlin stub: shared code still sees one branch,
-because the entry exports the module or null and the routed client treats null as an
-unavailable tier.
+The Foundation Models module lives in Swift under `apps/mobile/modules/kuyara-on-device-ai`.
+It is declared for Apple platforms only and its JavaScript entry guards on `Platform.OS`, so
+Android and web never load a native module and the entry exports null there. There is no
+Kotlin stub.
 
-- The Swift source is guarded by `#if canImport(FoundationModels)` and
-  `#available(iOS 26, *)`, so it compiles on any Xcode 26 toolchain and reports an
-  unsupported OS otherwise.
-- Guided generation constrains `optionId` to the identifiers supplied in the request and
-  `archetypeId` to the twelve archetypes of ADR 0007, both as closed enums built as a
-  dynamic schema per call. The archetype list cannot be imported into Swift, so it is
-  mirrored there and the two copies change together; a drift fails closed onto the Worker,
-  because the shared gate rejects an archetype the request did not allow.
-- Structured JSON goes in and structured JSON comes out. Prose never crosses the boundary
-  in either direction, and the module logs neither the input nor the output.
-- One session per call, non-streaming `respond(to:schema:)`, cancelled at the timeout in
-  section 2, which the module enforces itself as well as being told it.
-  `includeSchemaInPrompt` is off: `schema:` constrains the answer either way, so echoing the
-  24-value `anyOf` into the prompt would only spend the 4096-token session window twice on
-  the same identifiers.
-- Every on-device failure crosses the boundary as one coded error, because the caller's next
-  step is the Worker either way. Its message names the failure as one code from a closed list
-  the module itself writes, never framework or model text, and a development build logs that
-  code and nothing above reads it.
-- iOS 26.0 stays the minimum deployment target. Building with Xcode 27 and the iOS 27 SDK is
-  allowed and is the current local release path. The app uses no iOS 27-only API.
+- The app reads only the module's `getAvailability()`: once per mount of the recommendation
+  provider, bounded at 8 s, with no inference and no quota. The answer feeds the
+  `on_device_availability` attribute of the `recommendation.generated` Observe event
+  ([ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md) section 7) and
+  nothing user-visible. A read that throws or never settles reports `unknown`; a missing
+  module reports `device_not_eligible`.
+- The module's `selectOutfits` stays compiled and is called by no production code; an
+  invariant test fails on any call.
 - Only the recommendation feature's data layer imports the module, through a single file
   that re-exports it. Application, feature and domain code never import it, mirroring the
   rule that `components/ui` is the only importer of the native control layer
   ([ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md)), and enforced the same
   greppable way.
+- The Swift source is guarded by `#if canImport(FoundationModels)` and
+  `#available(iOS 26, *)`, so it compiles on any Xcode 26 toolchain and reports an
+  unsupported OS otherwise. iOS 26.0 stays the minimum deployment target. Building with
+  Xcode 27 and the iOS 27 SDK is allowed and is the current local release path. The app uses
+  no iOS 27-only API.
 
 ### 7. One privacy projection and one distinctness rule
 
-The model-input projection and the pick-distinctness rule move into `packages/contracts` as
-shared pure functions used by both the Worker and the on-device client. Two executors must
-not carry two copies of the field list that defines what a model may see, nor two
-definitions of "meaningfully different". The wire contract does not change.
+The model-input projection, the pick-distinctness rule and the archetype preconditions live
+in `packages/contracts` as shared pure functions. The Worker builds its prompt from the
+projection, and the mobile validation gate judges every answer by the same rules, so the
+field list defining what a model may see and the rules its reply is judged by exist once.
+The wire contract does not change.
 
-The mobile mapper keeps enforcing the closed candidate set and the archetype
-preconditions, so both tiers pass through the same validation gate before anything is
-displayed or persisted.
+The mobile mapper enforces the closed candidate set, the archetype preconditions and the
+distinctness rule before anything is displayed or persisted.
 
-### 8. Privacy: nothing new leaves the device
+### 8. Privacy
 
-The on-device client is fed from the same request projection as the Worker client, so the
-[approved AI input privacy boundary](../product-decisions.md#approved-ai-input-privacy-boundary)
-is inherited structurally rather than reimplemented. The inference itself is local, so the
-on-device tier sends strictly less off the device than the tier it replaces.
+The Worker tier follows the [approved AI input privacy
+boundary](../product-decisions.md#approved-ai-input-privacy-boundary). The availability read
+sends nothing anywhere; its answer leaves the device only as the closed telemetry attribute
+above, behind the same consent as every Observe event.
 
-No new data type is collected. The App Privacy questionnaire answers and the privacy
-manifest recorded in
+The App Privacy questionnaire answers and the privacy manifest recorded in
 [ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md) do not change.
-Analytics gains the coarse mode value from section 3 and nothing else.
 
 ## Consequences
 
-- Eligible devices get a recommendation with no network call, no Worker quota use and no
-  spend for the AI step. Worker spend falls by whatever share the released app reports
-  through the generation mode.
-- The recommendation pipeline gains one decision point and one native surface. The
-  controller, mapper, persistence and trigger rules keep their shape, and the deterministic
-  fallback keeps its position behind everything.
-- The schema, the analytics taxonomy and the analytics schema version move together in one
-  step, with migration v13 preserving every existing snapshot row.
-- Selection quality now varies by tier, because the on-device model and the Worker models
-  choose independently from the same option set. The validation gate bounds the damage to
-  an invalid pick, not to a worse-looking pick, so quality is judged by inspection during
-  implementation.
-- The app carries Swift source and a platform capability check that a sandboxed build
-  environment and the Node suites cannot exercise. The routed client is tested against a
-  fake native module; the real module is verified on a host that can run the model.
-- Android behaviour is unchanged in every respect.
-- A user on an ineligible device sees the "Chosen with AI" badge exactly as before and loses
-  nothing.
-
-## Verification boundary
-
-Quality is measured in the iOS 26 Simulator on the maintainer's M3 Pro host, after
-confirming that the host runs macOS 26 with Apple Intelligence switched on and that the
-Simulator can reach Foundation Models at all. That check comes first, because it decides
-whether measurement is possible without borrowed hardware.
-
-The available iPhone 14 Pro is not Apple Intelligence eligible. It exercises the Worker
-tier and the deterministic fallback and can prove that an ineligible device costs no extra
-time, but it cannot measure the on-device tier.
-
-On-device latency on eligible hardware is therefore unmeasured. Two things follow: the
-8 s timeout is set from Simulator latency rather than tuned on eligible hardware, and the
-real share of recommendations produced on-device is read from the generation mode in
-production rather than predicted.
-
-The latency record below is filled in from five runs over a 24-option request when the
-measurement is made. It is left empty rather than estimated.
-
-| Measurement | Value |
-| --- | --- |
-| On-device latency p50, 24 options, five runs | not yet measured |
-| On-device latency maximum, 24 options, five runs | not yet measured |
-
-The iPhone 17 Pro Simulator on the maintainer's macOS 26.6 host does reach Foundation
-Models: `SystemLanguageModel.default.availability` answers `available` and the system loads
-the 3B instruct assets and runs the inference on the host. That is not a device measurement.
-Simulator inference runs on the Mac, not on an iPhone's neural engine, so the numbers it
-produces describe neither eligible hardware nor a released build. Complete 24-option
-round trips there, about 2,800 prompt tokens each, took 5.1 to 5.4 s warm and 6.7 s on a cold first run while the 3B assets loaded. At a 6 s ceiling one of
-four attempts stayed on device and the rest were cancelled a few hundred milliseconds
-short of an answer, one of them with a response that began arriving 6 ms after the
-cancel. That is the evidence the 8 s budget is set from. It says nothing about eligible
-hardware: on a device the tier may be faster or slower, and the budget is revisited from
-a device measurement, not from another host run.
-
-The Simulator's availability answer is not proof that inference can run. With Apple
-Intelligence switched off on the Mac, the Simulator still answers `available`, and every
-attempt then fails inside a tenth of a second in the input safety model, before the 3B
-model runs, with `com.apple.UnifiedAssetFramework` code 5000 (no assets for
-`com.apple.modelcatalog`) wrapped in a `LanguageModelSession.GenerationError`. The request
-shape and the schema are not involved. Before measuring anything in the Simulator, confirm
-on the host that `SystemLanguageModel.default.availability` answers `available` from a
-macOS process, and read the Simulator log for `Code=5000` when an attempt fails fast.
-
-Automated verification covers the routed client against a fake native module (available,
-unavailable, timeout, invalid JSON, invented identifier, duplicate archetype), the shared
-projection and distinctness rule against the Worker's existing expectations, migration v13
-row preservation and its rejection of an unknown mode, analytics property totality, and
-the two AI badges, the badgeless deterministic state and the availability row in the component suite.
+- Every device takes the same path: the Worker AI chain, then the deterministic fallback.
+  Selection quality no longer varies by device, and Android, ineligible iPhones and eligible
+  iPhones behave alike.
+- A refresh waits at most 38 s for an AI answer before the standard suggestions.
+- The binary still carries the Swift module and its availability check, which the Node
+  suites cannot exercise. Removing the module is a native change for a later binary.
+- Stored `on-device-ai` snapshots keep their badge, source sentence and Settings line, and the
+  analytics and telemetry vocabularies keep the value, so no stored row and no taxonomy entry
+  moves.
 
 ## Red lines
 
@@ -302,8 +210,11 @@ the two AI badges, the badgeless deterministic state and the availability row in
   different outfit.
 - AI output is structured data. The one user-visible prose field is a device-validated insight sentence with a deterministic localized fallback; other visible copy comes from localization keys.
 - [ADR 0039](0039-ai-v2-route-and-the-validated-insight-sentence.md) owns the versioned Worker response carrying that optional sentence.
-- The Worker AI chain and the deterministic device-local fallback are never removed,
-  weakened or made conditional on the on-device tier.
+- No recommendation path calls the on-device model. Putting it back in the chain needs a new
+  decision that fits the input in the session window and gets three distinct, eligible
+  archetypes from the model itself.
+- The Worker AI chain and the deterministic device-local fallback are never removed or
+  weakened.
 - No third-party Apple Intelligence package: not `@react-native-ai/apple`, not
   `react-native-apple-llm`, not `expo-apple-intelligence`, not `expo-ai-kit`. All are beta
   and all duplicate a small local module.
@@ -315,47 +226,38 @@ the two AI badges, the badgeless deterministic state and the availability row in
 
 ## Siri is a separate decision
 
-Reaching kuyara from Siri is a second, independent piece of work with its own ADR, taken
-up only after this one is accepted. Its shape is two App Intents (one that returns the
-current recommendation's three outfits, one that opens Today), one outfit entity, bilingual
-App Shortcut phrases, and a small localized projection written to an App Group container
-after each snapshot save, because JavaScript does not run during a Siri call. That
-projection is a derived feed, not a second source of truth. Stated plainly: no Apple schema
-covers outfits, so Siri reaches kuyara by phrase and by shortcut, not through Siri's
-cross-app personal index, and no copy may suggest otherwise.
+Reaching kuyara from Siri is a second, independent piece of work with its own ADR. Its shape
+is two App Intents (one that returns the current recommendation's three outfits, one that
+opens Today), one outfit entity, bilingual App Shortcut phrases, and a small localized
+projection written to an App Group container after each snapshot save, because JavaScript
+does not run during a Siri call. That projection is a derived feed, not a second source of
+truth. Stated plainly: no Apple schema covers outfits, so Siri reaches kuyara by phrase and by
+shortcut, not through Siri's cross-app personal index, and no copy may suggest otherwise.
 
 ## Alternatives considered
 
-**Keep the Worker as the only AI executor.** Rejected. It spends budget and quota on every
-request, it needs a working network connection for a decision that is a pure function of
-data already on the device, and it pays network latency on hardware that could answer
-locally.
+**On-device Foundation Models as the first tier.** Rejected. The measurement in the context
+produced no answer the gate accepts: large inputs overflow the session window and the rest
+repeat an archetype.
 
-**Fold the on-device tier into `ai-assisted`.** Rejected. It costs nothing to implement and
-loses both things the third value exists for: the only user-visible signal that the answer
-was computed on the device, and the only measurement of Worker spend displacement. The
-argument that a third value is provider identity does not hold, because the value names a
-locus and no model.
+**On-device Foundation Models as a fallback behind the Worker, with code assigning distinct
+archetypes and a capped input.** Not adopted. The archetype would be chosen by code on that
+tier and by the model on the Worker, so ADR 0007's contract would differ by tier, and the
+tier's quality and latency on eligible hardware remain unmeasured.
 
 **Adopt a community Apple Intelligence package.** Rejected under the dependency policy. All
 candidates are beta, all wrap the same platform API, and a local module keeps the surface
 under the repository's own review.
 
 **Wait for the iOS 27 model APIs, including Private Cloud Compute execution.** Deferred,
-not rejected. They add an executor abstraction that this decision does not need, and
-adopting them would raise the deployment target for a capability the on-device model
-already provides.
-
-**Send the on-device tier straight to the deterministic fallback after a timeout.**
-Rejected. It shortens the worst case but denies a user with a slow on-device attempt the
-better answer the Worker can still produce inside the remaining budget.
+not rejected. Adopting them would raise the deployment target.
 
 ## Out of scope
 
 - Siri, App Intents and App Shortcuts, which have their own ADR.
+- Any other use of the Foundation Models module, which is its own decision.
 - Any change to what the AI step decides, which stays governed by
   [ADR 0007](0007-ai-selects-precomposed-outfits.md).
 - Colorways, catalog content and the candidate set.
-- Android on-device inference, which has no framework with structured output today.
-- Any new analytics event. Only the generation-mode value changes.
+- Android on-device inference.
 - Changes to the weather provider chain, which stays a Worker composition concern.

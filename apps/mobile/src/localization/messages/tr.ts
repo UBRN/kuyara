@@ -158,11 +158,7 @@ export const tr = {
     weatherNoSnapshot: 'Kaynaklar ilk hava güncellemesinden sonra burada görünür.',
     weatherFooter: 'Son hava durumunun kaynağı.',
     aiStatusIntro: 'Kısa bir istek gönderir. Kombinin değişmez.',
-    aiStatusProvenanceFooter: 'kuyara önce Apple Intelligence’a sorar. Zamanında yanıt alamazsa çevrimiçi yapay zekaya sorar, o da olmazsa standart önerilerini kullanır. Apple Intelligence, Apple Inc.’in ticari markasıdır.',
-    aiStatusOnDeviceRunning: 'Apple Intelligence açık ve hazır.',
-    aiStatusOnDeviceOff: 'Apple Intelligence kapalı.',
-    aiStatusOnDeviceIncompatible: 'Bu cihaz Apple Intelligence’ı desteklemiyor.',
-    aiStatusOnDeviceGettingReady: 'Apple Intelligence hazırlanıyor.',
+    aiStatusProvenanceFooter: 'kuyara çevrimiçi yapay zekaya sorar. Zamanında yanıt alamazsa standart önerilerini kullanır.',
     aiStatusAssistant: (provider: string, model: string) =>
       `Yanıtlayan: ${provider} (${model})`,
     aiStatusLastOnDeviceAi: 'kuyara son kombinini Apple Intelligence ile seçti.',
@@ -984,7 +980,6 @@ export const tr = {
       allSet: 'Hazır',
     },
     phase: {
-      'checking-on-device': 'Cihazdaki yapay zeka kontrol ediliyor.',
       'asking-stylist': 'Yapay zeka stilistine soruluyor.',
       'answer-received': 'Yapay zeka yanıt verdi. Seçimler kontrol ediliyor.',
       'preparing-outfits': 'Kombinlerin hazırlanıyor.',

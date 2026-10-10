@@ -1,6 +1,7 @@
 // ADR 0034 section 3: the coarse locus of the AI selection step, never a provider, a model
-// or a version. `on-device-ai` is Apple Foundation Models on the user's phone, `ai-assisted`
-// is the Worker AI chain, `deterministic-fallback` is the device-local composition.
+// or a version. `ai-assisted` is the Worker AI chain, `deterministic-fallback` is the
+// device-local composition. `on-device-ai` (Apple Foundation Models on the user's phone) stays
+// readable in stored snapshots; nothing new produces it.
 export const recommendationGenerationModes = [
   'on-device-ai',
   'ai-assisted',

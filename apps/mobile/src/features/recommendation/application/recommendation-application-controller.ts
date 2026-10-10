@@ -111,7 +111,6 @@ export function expiredCoverageNeedsSelection(
 // for a wait that can run to the AI chain's whole length. Coarse by construction: no provider,
 // no model, no tier that is not already a user-visible generation mode.
 export type RecommendationPhase =
-  | 'checking-on-device'
   | 'asking-stylist'
   | 'answer-received'
   | 'preparing-outfits'
@@ -171,7 +170,7 @@ type Dependencies = Readonly<{
   // taken; a no-op default keeps existing composition and tests unchanged.
   captureAnalyticsEvent?: CaptureAnalyticsEvent;
   // Observability, not product analytics: how long the chain took, which tier delivered and
-  // what the device reports about on-device selection. Optional, so existing composition and
+  // what the device reports about Foundation Models. Optional, so existing composition and
   // tests are unchanged.
   telemetry?: PerformanceTelemetry;
   // The availability the provider already read once on mount. `null` until it resolves,

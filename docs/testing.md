@@ -2,8 +2,7 @@
 
 The iOS Simulator is the default for mobile verification. Run the relevant screens and
 capture screenshots and debug logs in it. Use a physical iPhone only for a specific
-question the Simulator cannot answer, such as actual `BGTaskScheduler` execution or
-on-device Apple Intelligence performance. State the unverified behavior when the device is
+question the Simulator cannot answer, such as actual `BGTaskScheduler` execution. State the unverified behavior when the device is
 unavailable; it does not block routine Simulator checks. Simulator AI latency is not a
 measurement of physical-iPhone latency.
 
@@ -118,25 +117,18 @@ Native system logs are separate from JavaScript logs:
 `xcrun simctl spawn <UDID> log show --last 5m --style compact --predicate 'process == "kuyara"'`.
 Use `log stream` for a live capture. Native logs may redact private fields.
 
-For local debugging with Apple Intelligence enabled and no cloud AI inference, use the
-existing `e2e` Worker from [AI tiers in E2E](#ai-tiers-in-e2e) on port 8788 and start Metro:
+For local debugging with no cloud AI inference, use the existing `e2e` Worker from
+[AI tiers in E2E](#ai-tiers-in-e2e) on port 8788 and start Metro:
 
 ```bash
-env -u EXPO_PUBLIC_KUYARA_ON_DEVICE_AI \
-  EXPO_PUBLIC_KUYARA_WORKER_BASE_URL=http://127.0.0.1:8788 \
+EXPO_PUBLIC_KUYARA_WORKER_BASE_URL=http://127.0.0.1:8788 \
   pnpm --filter @kuyara/mobile exec expo start --port 8081 --localhost
 ```
 
 Weather and place search still use real providers. A debug build without `expo-dev-client`
 uses `RCTBundleURLProvider`; an `expo-development-client` URL does not switch its Metro
 port. After replacing a mismatched Metro session, wait until its port is free, start the
-correct server and relaunch the app. Do not carry the fallback test's `ON_DEVICE_AI=off`
-into a Foundation Models test.
-
-An Apple Silicon Mac with Apple Intelligence ready can execute Foundation Models for the
-Simulator. Verify an actual synthetic `selectOutfits` response through the existing native
-module, not just `getAvailability`. This establishes functional inference, not iPhone
-latency or battery behavior; see [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md).
+correct server and relaunch the app.
 
 ## Shared contract and Worker tests
 
@@ -246,19 +238,17 @@ From the repository root:
 pnpm e2e:ios
 ```
 
-Maestro reads `.maestro/config.yaml` and executes the local flows tagged for the default set (onboarding, settings, and the deterministic-fallback flow). The fallback flow needs the standing setup from [AI tiers in E2E](#ai-tiers-in-e2e) to be running first: the `e2e` Worker on port 8788 and Metro with `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` empty and `EXPO_PUBLIC_KUYARA_ON_DEVICE_AI=off`. Each run removes Kuyara's Simulator data because the flows launch with `clearState: true`; do not use a Simulator whose local app data must be preserved.
+Maestro reads `.maestro/config.yaml` and executes the local flows tagged for the default set (onboarding, settings, and the deterministic-fallback flow). The fallback flow needs the standing setup from [AI tiers in E2E](#ai-tiers-in-e2e) to be running first: the `e2e` Worker on port 8788 and Metro with `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` empty. Each run removes Kuyara's Simulator data because the flows launch with `clearState: true`; do not use a Simulator whose local app data must be preserved.
 
 ## AI tiers in E2E
 
-The AI chain is three tiers (on-device, Worker, deterministic fallback), and an automated run has to be able to pick one deliberately. Two switches do that; neither adds a branch to production code.
+The recommendation chain is two tiers (the Worker AI chain, then the deterministic fallback), and an automated run has to be able to reach the fallback deliberately. The no-AI Worker does that without a branch in production code.
 
 The **no-AI Worker** is the named `e2e` environment in `apps/worker/wrangler.jsonc`. It serves real weather and real place search with all three provider model lists empty, so `/v1/ai/recommend` answers `503 ai_unavailable` at once and the app falls to the deterministic three. Wrangler does not inherit bindings into a named environment, so that environment repeats the AI, Durable Object and rate-limit bindings; the empty model lists are the only difference from the deployed configuration. Run it on the port the mobile default expects:
 
 ```bash
 pnpm --filter @kuyara/worker exec wrangler dev --env e2e --port 8788
 ```
-
-The **on-device switch** is `EXPO_PUBLIC_KUYARA_ON_DEVICE_AI=off` (documented in `apps/mobile/.env.example`). A development build then drops the on-device tier, exactly as an ineligible device does. `__DEV__` gates it, so a release build ignores the variable.
 
 The **chain measurement** script sends the same grid the AI-selection suite uses (`apps/mobile/test/recommendation-grid.mjs`: clothing preference x dress style x weather profile, built by the functions the application itself calls), so a catalog or threshold change moves what is measured too. It sends at most `--max-calls` of them (default 10, hard cap 30) and prints status, latency, whether the shared response schema and the mobile validation gate accept each reply, and a summary. `--base-url` is required so nothing reaches the deployed Worker by accident, and `--max-calls 0` builds the grid without sending anything. `--route v2` sends the app's own v2 route with an English locale and counts a reply only when the v2 response schema accepts it too; the default is v1. With `OPENROUTER_API_KEY` in the environment it ends with the remaining free-model quota, never printing the key. The recommend contract carries no provider identifier; which model answered is readable only from `wrangler tail`, in the `ai_provider_attempt_succeeded` line. The probe route checks the first Workers AI model, so it never names Haiku, which answers most requests.
 
@@ -272,10 +262,10 @@ The **free-model ranking** script lists the OpenRouter candidates for that measu
 pnpm --filter @kuyara/mobile rank:free-ai-models
 ```
 
-Two Maestro flows use these switches:
+Two Maestro flows choose the tier by the Worker they reach:
 
-- `.maestro/flows/today-standard-suggestions.yaml`: against the `e2e` Worker with the on-device switch off, Today settles on an outfit and shows no generation-mode badge, which is what the deterministic fallback looks like at rest. It is part of the default `pnpm e2e:ios` set and passes in about 45 seconds.
-- `.maestro/flows/today-ai-recommendation.yaml`: against the real Worker with the on-device tier enabled, Today reaches an AI badge within 46 seconds. It is tagged `ai-network`, excluded from the default set because each run spends the shared free AI quota, and run explicitly with `maestro test .maestro/flows/today-ai-recommendation.yaml`. While that quota is spent (it resets at 00:00 UTC) the flow fails at the badge, and the measurement script shows 503 `ai_unavailable` on every call.
+- `.maestro/flows/today-standard-suggestions.yaml`: against the `e2e` Worker, Today settles on an outfit and shows no generation-mode badge, which is what the deterministic fallback looks like at rest. It is part of the default `pnpm e2e:ios` set and passes in about 45 seconds.
+- `.maestro/flows/today-ai-recommendation.yaml`: against the real Worker, Today reaches an AI badge within 38 seconds. It is tagged `ai-network`, excluded from the default set because each run spends the shared free AI quota, and run explicitly with `maestro test .maestro/flows/today-ai-recommendation.yaml`. While that quota is spent (it resets at 00:00 UTC) the flow fails at the badge, and the measurement script shows 503 `ai_unavailable` on every call.
 
 ## Release path
 

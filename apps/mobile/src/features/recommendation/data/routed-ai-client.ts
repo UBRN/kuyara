@@ -1,32 +1,14 @@
-import type {
-  AiRecommendV1Request,
-  AiRecommendV1Success,
-  AiRecommendV2Success,
-} from '@kuyara/contracts';
+import type { AiRecommendV1Request, AiRecommendV2Success } from '@kuyara/contracts';
 import type { SupportedLanguage } from '@/domain/preferences';
 
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { OutfitRecommendationSuccess } from '@/features/recommendation/application/recommend-outfits';
-import type { AiGenerationMode } from '@/features/recommendation/domain/generation-mode';
-import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
-import type { OnDeviceAiClient } from '@/features/recommendation/data/on-device-ai-client';
 import { mapWorkerAiRecommendation } from '@/features/recommendation/application/ai-recommendation-mapping';
 
-// The Worker tier always gets its whole wait, whatever the on-device tier spent first: the
-// Worker's own deadline is 36 s (5 attempts of 7 s plus 1 s) and 2 s covers HTTP transport.
-// With the on-device tier's 8 s (`onDeviceAiBudgetMilliseconds`, ADR 0034) ahead of it the
-// whole chain waits at most 46 s, which is the refresh taking as long as a stylist answer
-// needs rather than a clock deciding the answer is standard.
+// The Worker's own deadline is 36 s (5 attempts of 7 s plus 1 s) and 2 s covers HTTP
+// transport, so the whole AI wait is at most 38 s: the refresh takes as long as a stylist
+// answer needs rather than a clock deciding the answer is standard.
 const workerWaitMilliseconds = 38_000;
-
-// ADR 0034 section 7: one validation gate for both tiers. It runs inside the chain, so an
-// answer it rejects is that tier's failure and the next tier gets its turn.
-export type AiRecommendationValidator = (
-  request: AiRecommendV1Request,
-  data: AiRecommendV1Success['data'],
-  generationMode: AiGenerationMode,
-  insight?: Readonly<{ locale: SupportedLanguage }>,
-) => OutfitRecommendationSuccess;
 
 type WorkerClient = Readonly<{
   recommend(
@@ -35,36 +17,22 @@ type WorkerClient = Readonly<{
   ): Promise<AiRecommendV2Success['data']>;
 }>;
 
-type Dependencies = Readonly<{
-  onDevice: Pick<OnDeviceAiClient, 'getAvailability' | 'recommend'>;
-  worker: WorkerClient;
-  validate?: AiRecommendationValidator;
-}>;
+type Dependencies = Readonly<{ worker: WorkerClient }>;
 
 /**
- * The ordered AI chain of ADR 0034 section 1. The on-device tier is tried only when the
- * device reports it as available, so an ineligible device, Android and a model that is not
- * ready cost no time at all. Every on-device failure, including a timed-out attempt and a
- * reply the shared validation gate rejects, falls to the Worker, which always gets its own
- * whole wait. The deterministic device-local fallback keeps its place behind both, reached
- * by the controller's existing catch.
+ * The AI chain of ADR 0034 section 1: the Worker AI chain, whose answer passes the
+ * validation gate of section 7 here, inside the chain. Every Worker failure, a rejected
+ * answer included, rejects with that failure, and the controller's catch composes the
+ * deterministic device-local fallback.
  *
- * `onPhase` reports which tier the wait is in so Today can say so. It is the chain's own
+ * `onPhase` reports what the wait is doing so Today can say so. It is the chain's own
  * narration, not a state machine: the caller owns what it does with each phase.
  */
 export class RoutedAiClient {
-  private readonly onDevice: Dependencies['onDevice'];
   private readonly worker: WorkerClient;
-  private readonly validate: AiRecommendationValidator;
 
   constructor(dependencies: Dependencies) {
-    this.onDevice = dependencies.onDevice;
     this.worker = dependencies.worker;
-    this.validate = dependencies.validate ?? mapWorkerAiRecommendation;
-  }
-
-  getAvailability(): Promise<OnDeviceAiAvailability> {
-    return this.onDevice.getAvailability();
   }
 
   async recommendRouted(
@@ -76,19 +44,6 @@ export class RoutedAiClient {
     }>,
   ): Promise<OutfitRecommendationSuccess> {
     const onPhase = options?.onPhase;
-    try {
-      // Reported even where the module is null: that rejection is immediate, so the next
-      // phase follows in the same tick and nothing lingers on a tier that was never tried.
-      onPhase?.('checking-on-device');
-      const data = await this.onDevice.recommend(request);
-      onPhase?.('answer-received');
-      // The gate runs here rather than after the chain: an archetype precondition the
-      // on-device reply misses is an on-device failure, not a chain failure.
-      return this.validate(request, data, 'on-device-ai');
-    } catch {
-      // Every on-device outcome except a validated result is the Worker's turn. The error
-      // is not classified further here: the user-visible failure category is the Worker's.
-    }
     onPhase?.('asking-stylist');
     const data = await this.worker.recommend(request, {
       timeoutMilliseconds: workerWaitMilliseconds,
@@ -96,6 +51,6 @@ export class RoutedAiClient {
       ...(options?.reask ? { reask: true as const } : {}),
     });
     onPhase?.('answer-received');
-    return this.validate(request, data, 'ai-assisted', { locale: options?.locale ?? 'en' });
+    return mapWorkerAiRecommendation(request, data, 'ai-assisted', { locale: options?.locale ?? 'en' });
   }
 }

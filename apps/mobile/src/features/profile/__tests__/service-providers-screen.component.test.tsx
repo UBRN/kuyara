@@ -1,6 +1,6 @@
-import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AccessibilityInfo, Dimensions, View } from 'react-native';
+import { AccessibilityInfo, View } from 'react-native';
 
 import { ServiceProvidersScreen } from '@/features/profile/presentation/service-providers-screen';
 import { LocalizationContext } from '@/localization/localization-context';
@@ -10,7 +10,6 @@ import {
   type KuyaraTheme,
 } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
-import { mockFontScale } from '../../../../test/font-scale';
 
 jest.mock('expo-symbols', () => ({
   SymbolView: (props: Record<string, unknown>) => {
@@ -29,11 +28,6 @@ const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
-const originalWindowDimensions = Dimensions.get('window');
-
-afterEach(() => {
-  Dimensions.set({ window: originalWindowDimensions });
-});
 
 function providers(
   children: React.ReactNode,
@@ -62,7 +56,6 @@ function screen(
     aiStatus: { kind: 'idle' } as const,
     isProbeSupported: true,
     lastGenerationMode: null,
-    onDeviceAvailability: null,
     onCheckAiStatus: jest.fn(),
     weatherAttribution: null,
     weatherSourceLink: null,
@@ -88,7 +81,7 @@ describe.each(['en', 'tr'] as const)('%s Service providers screen', (language) =
     expect(onCheckAiStatus).toHaveBeenCalledTimes(1);
   });
 
-  test('shows the AI explanation and trademark in one native footer', async () => {
+  test('shows the AI explanation in one native footer', async () => {
     const { rendered } = screen(language);
     const result = await rendered;
 
@@ -264,61 +257,20 @@ test('the no-snapshot sentence is a plain row that opens nothing', async () => {
   expect(within(row).queryByLabelText('chevron.right')).toBeNull();
 });
 
-// ADR 0034 section 5: the Apple Intelligence situation in plain words, read with no call
-// and no quota. Every reason other than the switch being off or the model still downloading
-// reads as a device that is not compatible.
-describe.each(['en', 'tr'] as const)('%s on-device availability row', (language) => {
-  test('keeps the Apple Intelligence mark together at fontScale 3.1', async () => {
-    mockFontScale(3.1);
-    const { rendered } = screen(language, { onDeviceAvailability: { status: 'available' } });
-    const result = await rendered;
-    const expectedCopy = messages[language].settings.aiStatusOnDeviceRunning.replace(
-      'Apple Intelligence',
-      'Apple\u00A0Intelligence',
-    );
-    const renderedCopy = result.getByText(expectedCopy);
-
-    expect(Dimensions.get('window').fontScale).toBe(3.1);
-    expect(renderedCopy.props.children).toBe(expectedCopy);
-  });
-
-  test.each([
-    [{ status: 'available' } as const, 'aiStatusOnDeviceRunning', 'statusRunning'],
-    [
-      { status: 'unavailable', reason: 'apple_intelligence_not_enabled' } as const,
-      'aiStatusOnDeviceOff', 'statusOff',
-    ],
-    [
-      { status: 'unavailable', reason: 'model_not_ready' } as const,
-      'aiStatusOnDeviceGettingReady', 'statusRunning',
-    ],
-    [
-      { status: 'unavailable', reason: 'device_not_eligible' } as const,
-      'aiStatusOnDeviceIncompatible', 'statusUnavailable',
-    ],
-    [{ status: 'unavailable', reason: 'unsupported_os' } as const, 'aiStatusOnDeviceIncompatible', 'statusUnavailable'],
-    [null, 'aiStatusOnDeviceIncompatible', 'statusUnavailable'],
-  ] as const)('reports the device state with a decorative status symbol', async (onDeviceAvailability, key, symbol) => {
-    const { rendered } = screen(language, { onDeviceAvailability });
+// ADR 0034 section 5: no recommendation path runs on the device, so the screen reports no
+// on-device availability. A snapshot stored with the on-device mode still names its source.
+describe.each(['en', 'tr'] as const)('%s on-device recommendation source', (language) => {
+  test('shows no on-device availability row and no Apple Intelligence symbol', async () => {
+    const { rendered } = screen(language);
     const result = await rendered;
 
-    expect(result.getByTestId('settings-service-providers-on-device')).toBeOnTheScreen();
-    expect(result.getByText(messages[language].settings[key])).toBeOnTheScreen();
-    const status = result.getByTestId('settings-service-providers-on-device-status-symbol', { includeHiddenElements: true });
-    expect(isHiddenFromAccessibility(status)).toBe(true);
-    expect(status.props.children.props.name).toBe(symbol);
+    expect(result.queryByTestId('settings-service-providers-on-device', { includeHiddenElements: true }))
+      .toBeNull();
+    expect(JSON.stringify(result.toJSON())).not.toContain('apple.intelligence');
+    expect(messages[language].settings.aiStatusProvenanceFooter).not.toContain('Apple Intelligence');
   });
 
-  // M1: the device status row draws the same multicolor symbol as the Today badge.
-  test('draws the Apple Intelligence symbol in multicolor', async () => {
-    const { rendered } = screen(language, { onDeviceAvailability: { status: 'available' } });
-    const result = await rendered;
-    const tile = result.getByTestId('settings-service-providers-on-device', { includeHiddenElements: true });
-
-    expect(tile.props.children.props).toMatchObject({ name: 'appleIntelligence', rendering: 'multicolor' });
-  });
-
-  test('names the on-device tier as the last recommendation source', async () => {
+  test('names the on-device tier as the source of a stored recommendation', async () => {
     const { rendered } = screen(language, { lastGenerationMode: 'on-device-ai' });
     const result = await rendered;
 
@@ -366,7 +318,7 @@ describe('VoiceOver announcements of the AI status check', () => {
   const rerenderWith = (result: Awaited<ReturnType<typeof render>>, aiStatus: React.ComponentProps<typeof ServiceProvidersScreen>['aiStatus']) =>
     result.rerender(providers(
       <ServiceProvidersScreen aiStatus={aiStatus} isProbeSupported lastGenerationMode={null}
-        onCheckAiStatus={jest.fn()} onDeviceAvailability={null} weatherAttribution={null} weatherSourceLink={null} />,
+        onCheckAiStatus={jest.fn()} weatherAttribution={null} weatherSourceLink={null} />,
       'en',
     ));
 

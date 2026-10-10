@@ -869,21 +869,18 @@ test('the freshness line carries the short date once the snapshot is not from th
 test('a narrated refresh replaces the generic freshness line with the phase, in both languages', () => {
   const base = { ...todayScreenState, isRefreshing: true, refreshFailed: false };
   const phases = [
-    'checking-on-device',
     'asking-stylist',
     'answer-received',
     'preparing-outfits',
     'using-standard',
   ];
   const english = {
-    'checking-on-device': 'Checking the on-device AI.',
     'asking-stylist': 'Asking the AI stylist.',
     'answer-received': 'AI answered. Checking the picks.',
     'preparing-outfits': 'Preparing your outfits.',
     'using-standard': 'AI did not answer. Using standard suggestions.',
   };
   const turkish = {
-    'checking-on-device': 'Cihazdaki yapay zeka kontrol ediliyor.',
     'asking-stylist': 'Yapay zeka stilistine soruluyor.',
     'answer-received': 'Yapay zeka yanıt verdi. Seçimler kontrol ediliyor.',
     'preparing-outfits': 'Kombinlerin hazırlanıyor.',

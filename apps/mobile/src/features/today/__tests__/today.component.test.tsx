@@ -2416,7 +2416,7 @@ test('the phase mark breathes during generation', async () => {
         language="en"
         onOpenOutfitDetail={() => undefined}
         onRefresh={() => undefined} onAskAgain={jest.fn()}
-        state={{ kind: 'loading', phase: 'checking-on-device' }}
+        state={{ kind: 'loading', phase: 'asking-stylist' }}
       />,
       theme,
     ));
