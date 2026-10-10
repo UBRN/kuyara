@@ -55,9 +55,8 @@ export class WorkerAiClient {
     return token ? { authorization: `Bearer ${token}` } : {};
   }
 
-  // `options.timeoutMilliseconds` is the wait the routed client grants the Worker tier.
-  // Omitted, the instance default applies and the Worker path behaves exactly as it did
-  // before the on-device tier existed. `options.reask` marks an approved re-ask, which the
+  // `options.timeoutMilliseconds` is the wait the routed client grants the Worker.
+  // Omitted, the instance default applies. `options.reask` marks an approved re-ask, which the
   // Worker answers without its shared cache; every other request leaves the field out.
   async recommend(
     input: AiRecommendV1Request,
