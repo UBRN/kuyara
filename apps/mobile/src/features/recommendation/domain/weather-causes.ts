@@ -3,12 +3,13 @@ import type { ClothingRequirementReasonCode } from '@/features/recommendation/do
 
 /**
  * The weather a requirement answers, in the order outfit detail's "Why this outfit" reads
- * them: what falls from the sky first, then temperature, then wind.
+ * them: what falls from the sky first, then temperature, then wind. Cool is the cold that
+ * asks for only a light layer.
  */
-export const weatherCauses = Object.freeze(['rain', 'snow', 'cold', 'heat', 'wind', 'swing'] as const);
+export const weatherCauses = Object.freeze(['rain', 'snow', 'cold', 'cool', 'heat', 'wind', 'swing'] as const);
 export type WeatherCause = (typeof weatherCauses)[number];
 
-const causeByReason: Readonly<Record<ClothingRequirementReasonCode, WeatherCause | null>> = Object.freeze({
+const causeByReason: Readonly<Record<ClothingRequirementReasonCode, Exclude<WeatherCause, 'cool'> | null>> = Object.freeze({
   temperature_low: 'cold',
   apparent_temperature_low: 'cold',
   temperature_high: 'heat',
@@ -42,7 +43,7 @@ export type WeatherCauseLink = Readonly<{
  * requirement evaluations that composed it, never from AI output. Only a met requirement
  * links weather to a piece: a trade-off is a shortfall, not a cause. Weather that no piece
  * answers, and a requirement without a weather reason, link nothing, so mild weather
- * returns an empty list. `outermostFirst` orders the outfit's candidate keys from its outer
+ * returns an empty list. Cold whose insulation requirement is light is cool. `outermostFirst` orders the outfit's candidate keys from its outer
  * layer inwards; a requirement such as warmth is answered by every warm layer, and the
  * link keeps the outermost two, the pieces the weather put on top.
  */
@@ -51,9 +52,15 @@ export function weatherCauseLinks(
   outermostFirst: readonly string[],
 ): readonly WeatherCauseLink[] {
   const keysByCause = new Map<WeatherCause, string[]>();
+  const cool = evaluations.some(({ requirement, reasonCodes }) => requirement.kind === 'thermal'
+    && requirement.minimum === 'light' && reasonCodes.some((code) => causeByReason[code] === 'cold'));
+  const causeOf = (code: ClothingRequirementReasonCode): WeatherCause | null => {
+    const cause = causeByReason[code];
+    return cause === 'cold' && cool ? 'cool' : cause;
+  };
   for (const evaluation of evaluations) {
     if (evaluation.status !== 'met' || evaluation.suppliedByCandidateKeys.length === 0) continue;
-    const causes = new Set(evaluation.reasonCodes.flatMap((code) => causeByReason[code] ?? []));
+    const causes = new Set(evaluation.reasonCodes.flatMap((code) => causeOf(code) ?? []));
     for (const cause of causes) {
       const keys = keysByCause.get(cause) ?? [];
       for (const key of evaluation.suppliedByCandidateKeys) if (!keys.includes(key)) keys.push(key);

@@ -33,6 +33,20 @@ test('each weather links the outermost pieces its met requirements name, in the 
   assert.ok(Object.isFrozen(links) && Object.isFrozen(links[0]) && Object.isFrozen(links[0].candidateKeys));
 });
 
+test('a light layer\'s worth of cold is cool weather, and every piece it adds links to cool', () => {
+  assert.deepEqual(weatherCauseLinks([
+    evaluation('thermal', 'met', ['sweater', 'coat'], ['temperature_low'], { minimum: 'light' }),
+    evaluation('leg_coverage', 'met', ['trousers'], ['apparent_temperature_low'], { minimum: 'full', priority: 'optional' }),
+  ], outermostFirst), [
+    { cause: 'cool', candidateKeys: ['coat', 'sweater'] },
+  ]);
+  assert.deepEqual(weatherCauseLinks([
+    evaluation('thermal', 'met', ['coat'], ['temperature_low'], { minimum: 'high' }),
+  ], outermostFirst), [
+    { cause: 'cold', candidateKeys: ['coat'] },
+  ]);
+});
+
 test('sleet and snow are snow, heat and a wide day range have their own links', () => {
   assert.deepEqual(weatherCauseLinks([
     evaluation('traction', 'met', ['boots'], ['condition_sleet']),

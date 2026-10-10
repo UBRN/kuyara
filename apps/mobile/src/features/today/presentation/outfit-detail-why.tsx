@@ -25,6 +25,7 @@ const causeIcons: Readonly<Record<WeatherCause, IconName>> = {
   rain: 'conditionRain',
   snow: 'conditionSnow',
   cold: 'thermometerCold',
+  cool: 'thermometerCool',
   heat: 'conditionClear',
   wind: 'wind',
   swing: 'thermometerSwing',
