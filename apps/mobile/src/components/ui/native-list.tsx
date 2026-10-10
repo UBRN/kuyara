@@ -177,6 +177,16 @@ function RowChevron() {
   );
 }
 
+// The system row lays hosted content in a row with two 12-point gaps and the spacer's 8-point
+// minimum after it; content wider than the inset row less these is pushed past the card's
+// leading edge.
+const CONTENT_ROW_CHROME = 12 + 12 + 8;
+
+/** The widest a content row's hosted content may be, for a window `windowWidth` wide. */
+export function nativeListContentWidth(windowWidth: number): number {
+  return Math.max(0, windowWidth - spacing.lg * 4 - CONTENT_ROW_CHROME);
+}
+
 type NativeListContentRowLink = Readonly<{
   /** What the row opens, spoken as the row's name. */
   label: string;
@@ -198,7 +208,7 @@ export function NativeListContentRow({
   return (
     <ListItem
       leading={
-        <RNHostView matchContents><View style={{ maxWidth: Math.max(0, width - spacing.lg * 4) }}>{children}</View></RNHostView>
+        <RNHostView matchContents><View style={{ maxWidth: nativeListContentWidth(width) }}>{children}</View></RNHostView>
       }
       modifiers={Platform.OS === 'ios' && link ? [
         accessibilityLabel(link.label),

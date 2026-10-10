@@ -105,6 +105,15 @@ test('the preview card draws the board beside an outfit name and an insight line
     .toHaveStyle({ fontWeight: '700' });
 });
 
+// The system row lays its hosted content beside two 12-point gaps and an 8-point spacer; a card
+// as wide as the whole inset row overflowed by those 32 points and sat flush on the card's edge.
+test('the preview card fits inside the row, inset on both sides', async () => {
+  Dimensions.set({ window: { ...originalWindowDimensions, fontScale: 1, width: 402 } });
+  const result = await renderScreen('en', { boldText: false, increaseContrast: false });
+  expect(StyleSheet.flatten(result.getByTestId('settings-easier-to-see-preview').props.style).width)
+    .toBe(402 - 16 * 4 - 32);
+});
+
 // VoiceOver reads no footer change, so a failed save is spoken as well as shown.
 test('a rejected save shows the save error in the footer and speaks it once', async () => {
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);

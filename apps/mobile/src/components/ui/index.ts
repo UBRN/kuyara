@@ -23,6 +23,7 @@ export {
   NativeListSection,
   NativeListRow,
   NativeListContentRow,
+  nativeListContentWidth,
   type NativeListProps,
   type NativeListSectionProps,
   type NativeListRowProps,

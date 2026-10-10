@@ -6,6 +6,7 @@ import {
   Icon,
   NativeList,
   NativeListContentRow,
+  nativeListContentWidth,
   NativeListRow,
   NativeListSection,
   useTextScaling,
@@ -59,7 +60,7 @@ export function EasierToSeeScreen({ enabled, isSaving, onChange }: EasierToSeeSc
   const [onHeight, setOnHeight] = useState(0);
   // VoiceOver reads no footer change, so a failed save is spoken as well as shown.
   useErrorAnnouncement(hasSaveError ? messages.settings.saveError : null);
-  const cardWidth = Math.max(0, width - spacing.lg * 4);
+  const cardWidth = nativeListContentWidth(width);
   const stageWidth = usesStackedLayout ? cardWidth : Math.round(cardWidth * PREVIEW_STAGE_SHARE);
   const onOff = (value: boolean) => (value ? copy.on : copy.off);
   const textSize = Math.abs(fontScale - 1) < 0.01
