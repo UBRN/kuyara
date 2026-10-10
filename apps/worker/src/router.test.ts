@@ -3,13 +3,14 @@ import test from 'node:test';
 
 import {
   aiProbeV1SuccessSchema,
+  aiProbeV2SuccessSchema,
   weatherV1SuccessSchema,
   weatherV2SuccessSchema,
 } from '@kuyara/contracts';
 
 import { createAiHandler } from './ai/ai-handler.ts';
 import type { AiProvider } from './ai/ai-provider.ts';
-import { createProbeHandler } from './ai/probe-handler.ts';
+import { createProbeHandler, createProbeV2Handler } from './ai/probe-handler.ts';
 import { createRouter, type ExecutionContext } from './router.ts';
 import { createWeatherHandler } from './weather-handler.ts';
 import { DeterministicMockWeatherProvider } from './weather/__tests__/mock-weather-provider.ts';
@@ -28,6 +29,12 @@ function fakeContext() {
 }
 
 function router({ aiReady = true, providers = [] }: { aiReady?: boolean; providers?: AiProvider[] } = {}) {
+  const probeDependencies = {
+    providers,
+    rateLimiter: { limit: async () => ({ success: true }) },
+    dailyCounter: { increment: async () => 1 },
+    now: () => new Date(fixedNow),
+  };
   const route = createRouter({
     placeSearchHandler: async () => Response.json({ data: { places: [], attribution: ['open-meteo', 'geonames'] } }),
     accountDeleteHandler: async () => Response.json({ data: { status: 'deleted' } }),
@@ -37,12 +44,8 @@ function router({ aiReady = true, providers = [] }: { aiReady?: boolean; provide
       rateLimiter: { limit: async () => ({ success: true }) },
     }),
     aiHandler: createAiHandler({ providers }),
-    probeHandler: createProbeHandler({
-      providers,
-      rateLimiter: { limit: async () => ({ success: true }) },
-      dailyCounter: { increment: async () => 1 },
-      now: () => new Date(fixedNow),
-    }),
+    probeHandler: createProbeHandler(probeDependencies),
+    probeV2Handler: createProbeV2Handler(probeDependencies),
     aiReady,
   });
   return (request: Request, ctx: ExecutionContext = fakeContext()) => route(request, ctx);
@@ -123,6 +126,19 @@ test('POST AI probe routes to the probe handler', async () => {
   assert.equal(body.data.status, 'ok');
 });
 
+test('POST v2 AI probe routes to the v2 probe handler and names Haiku', async () => {
+  const response = await router({ providers: [{
+    id: 'haiku',
+    model: 'claude-haiku-5-5',
+    generateOutfits: async () => validAiOutput(),
+  }] })(new Request('http://localhost/v2/ai/probe', { method: 'POST' }));
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(aiProbeV2SuccessSchema.safeParse(body).success, true);
+  assert.deepEqual(body.data.assistant, { providerId: 'haiku', model: 'claude-haiku-5-5' });
+});
+
 test('GET AI probe returns method_not_allowed with Allow POST', async () => {
   const response = await router()(new Request('http://localhost/v1/ai/probe'));
   assert.equal(response.headers.get('allow'), 'POST');
@@ -188,15 +204,16 @@ test('the router forwards the execution context to every route handler', async (
     weatherHandler: handler('weather'),
     aiHandler: handler('ai'),
     probeHandler: handler('probe'),
+    probeV2Handler: handler('probe-v2'),
     aiReady: true,
   });
   const ctx = fakeContext();
   const paths = ['/v1/places/search', '/v1/account/delete', '/v1/feedback', '/v1/weather', '/v2/weather', '/v1/ai/recommend',
-    '/v2/ai/recommend', '/v1/ai/probe'];
+    '/v2/ai/recommend', '/v1/ai/probe', '/v2/ai/probe'];
   for (const path of paths) {
     await route(new Request(`http://localhost${path}`, { method: 'POST' }), ctx);
   }
   assert.deepEqual(seen, [
-    ['places', ctx], ['account', ctx], ['feedback', ctx], ['weather', ctx], ['weather', ctx], ['ai', ctx], ['ai', ctx], ['probe', ctx],
+    ['places', ctx], ['account', ctx], ['feedback', ctx], ['weather', ctx], ['weather', ctx], ['ai', ctx], ['ai', ctx], ['probe', ctx], ['probe-v2', ctx],
   ]);
 });

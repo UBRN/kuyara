@@ -1,4 +1,4 @@
-import type { AiProviderId, AiRecommendV1Request, AiRecommendV2Request } from '@kuyara/contracts';
+import type { AiProbeV2ProviderId, AiRecommendV1Request, AiRecommendV2Request } from '@kuyara/contracts';
 
 import { AttemptTimeoutError } from '../attempt-timeout.ts';
 
@@ -67,14 +67,14 @@ export type AiGenerateOptions = Readonly<{
 }>;
 
 /**
- * Every provider the recommend walk can hold. `haiku` is Worker-internal: the probe
- * reports only an `AiProviderId`, because a new member of that response enum breaks every
- * installed binary, so it never answers the probe.
+ * Every provider the recommend walk can hold. The v2 probe reports any of them; the v1
+ * probe omits `haiku`, because that member of its response enum would break every
+ * installed binary that parses the enum strictly.
  */
-export type AiChainProviderId = AiProviderId | 'haiku';
+export type AiChainProviderId = AiProbeV2ProviderId;
 
 export interface AiProvider {
-  /** Controlled, non-secret identifier; the probe reports it when it is an `AiProviderId`. */
+  /** Controlled, non-secret identifier; the probe reports it. */
   readonly id: AiChainProviderId;
   readonly model: string;
   generateOutfits(

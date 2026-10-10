@@ -20,10 +20,23 @@ test('posts the probe request and returns validated data', async () => {
   });
 
   assert.deepEqual(await client.probe(), successData);
-  assert.equal(received.input, 'https://worker.example/v1/ai/probe');
+  assert.equal(received.input, 'https://worker.example/v2/ai/probe');
   assert.equal(received.init.method, 'POST');
   assert.equal(received.init.headers['content-type'], 'application/json');
   assert.equal(received.init.body, '{}');
+});
+
+test('maps a Haiku answer, which only the v2 schema names', async () => {
+  const data = {
+    ...successData,
+    assistant: { providerId: 'haiku', model: 'claude-haiku-5-5' },
+  };
+  const client = new WorkerAiProbeClient({
+    baseUrl: 'https://worker.example',
+    fetch: async () => new Response(JSON.stringify({ data }), { status: 200 }),
+  });
+
+  assert.deepEqual(await client.probe(), data);
 });
 
 test('maps rate-limited and other service responses without leaking details', async () => {

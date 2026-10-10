@@ -1,11 +1,14 @@
 import { z } from 'zod';
 
 import {
+  aiProbeV1SuccessSchema,
+  aiProviderIds,
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
 } from './ai-v1.ts';
 
 export const aiRecommendV2Path = '/v2/ai/recommend' as const;
+export const aiProbeV2Path = '/v2/ai/probe' as const;
 export const styleAesthetics = ['minimal', 'classic', 'sporty', 'streetwear', 'relaxed'] as const;
 export const styleAestheticSchema = z.enum(styleAesthetics);
 
@@ -44,6 +47,23 @@ export const aiRecommendV2SuccessSchema = aiRecommendV1SuccessSchema.safeExtend(
   }),
 });
 
+// The v1 probe answers only the ids installed binaries parse; v2 also names the paid
+// provider that leads the chain.
+export const aiProbeV2ProviderIds = [...aiProviderIds, 'haiku'] as const;
+
+const aiProbeV1Data = aiProbeV1SuccessSchema.shape.data;
+
+// `extend`, not `safeExtend`: the id enum is widened, which `safeExtend` refuses.
+export const aiProbeV2SuccessSchema = aiProbeV1SuccessSchema.extend({
+  data: aiProbeV1Data.extend({
+    assistant: aiProbeV1Data.shape.assistant.unwrap().extend({
+      providerId: z.enum(aiProbeV2ProviderIds),
+    }).optional(),
+  }),
+});
+
 export type StyleAesthetic = z.infer<typeof styleAestheticSchema>;
 export type AiRecommendV2Request = z.infer<typeof aiRecommendV2RequestSchema>;
 export type AiRecommendV2Success = z.infer<typeof aiRecommendV2SuccessSchema>;
+export type AiProbeV2Success = z.infer<typeof aiProbeV2SuccessSchema>;
+export type AiProbeV2ProviderId = (typeof aiProbeV2ProviderIds)[number];

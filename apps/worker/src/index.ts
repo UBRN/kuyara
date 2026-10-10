@@ -4,6 +4,7 @@ import {
   feedbackV1ErrorSchema,
   feedbackV1Path,
   aiProbeV1Path,
+  aiProbeV2Path,
   aiRecommendV1Path,
   aiV1ErrorSchema,
   placeSearchV1ErrorSchema,
@@ -34,7 +35,7 @@ import {
 import { createDailyCappedAiProvider } from './ai/daily-capped-ai-provider.ts';
 import { OpenRouterAiProvider } from './ai/openrouter-ai-provider.ts';
 import { createMemberAllowance } from './ai/member-allowance.ts';
-import { createProbeHandler } from './ai/probe-handler.ts';
+import { createProbeHandler, createProbeV2Handler } from './ai/probe-handler.ts';
 import {
   WorkersAiProvider,
   type WorkersAiBinding,
@@ -295,15 +296,20 @@ export function buildRouter(env: Env): Handler {
           ? createMemberAllowance({ verifier, namespace: env.DAILY_COUNTERS })
           : undefined,
       });
-  const probeHandler = !env.AI_PROBE_RATE_LIMIT
-    ? offlineRoute(aiProbeV1Path, 'AI_PROBE_RATE_LIMIT', aiUnavailable)
-    : !env.DAILY_COUNTERS
-      ? offlineRoute(aiProbeV1Path, 'DAILY_COUNTERS', aiUnavailable)
-      : createProbeHandler({
-        providers,
-        rateLimiter: env.AI_PROBE_RATE_LIMIT,
-        dailyCounter: createDurableDailyCounter(env.DAILY_COUNTERS, 'probe'),
-      });
+  // One handler per version: each keeps its own result cache, and both count against the
+  // one `probe` daily counter and the one burst limiter.
+  const probeRoute = (path: string, create: typeof createProbeHandler): Handler =>
+    !env.AI_PROBE_RATE_LIMIT
+      ? offlineRoute(path, 'AI_PROBE_RATE_LIMIT', aiUnavailable)
+      : !env.DAILY_COUNTERS
+        ? offlineRoute(path, 'DAILY_COUNTERS', aiUnavailable)
+        : create({
+          providers,
+          rateLimiter: env.AI_PROBE_RATE_LIMIT,
+          dailyCounter: createDurableDailyCounter(env.DAILY_COUNTERS, 'probe'),
+        });
+  const probeHandler = probeRoute(aiProbeV1Path, createProbeHandler);
+  const probeV2Handler = probeRoute(aiProbeV2Path, createProbeV2Handler);
   return createRouter({
     weatherHandler,
     placeSearchHandler,
@@ -314,6 +320,7 @@ export function buildRouter(env: Env): Handler {
         !env.FEEDBACK_DB ? 'FEEDBACK_DB' : 'FEEDBACK_RATE_LIMIT', feedbackUnavailable),
     aiHandler,
     probeHandler,
+    probeV2Handler,
     aiReady: providers.length > 0,
   });
 }

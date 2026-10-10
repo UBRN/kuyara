@@ -1,6 +1,7 @@
 import {
   accountDeleteV1Path,
   aiProbeV1Path,
+  aiProbeV2Path,
   aiReadyV1Path,
   aiReadyV1SuccessSchema,
   aiRecommendV1Path,
@@ -33,6 +34,7 @@ type Dependencies = Readonly<{
   feedbackHandler: Handler;
   aiHandler: Handler;
   probeHandler: Handler;
+  probeV2Handler: Handler;
   aiReady: boolean;
 }>;
 
@@ -45,6 +47,7 @@ export function createRouter({
   feedbackHandler,
   aiHandler,
   probeHandler,
+  probeV2Handler,
   aiReady,
 }: Dependencies): Handler {
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
@@ -59,6 +62,7 @@ export function createRouter({
       return aiHandler(request, ctx);
     }
     if (pathname === aiProbeV1Path) return probeHandler(request, ctx);
+    if (pathname === aiProbeV2Path) return probeV2Handler(request, ctx);
 
     if (pathname === healthV1Path) {
       if (request.method !== 'GET') {

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   aiProbeV1SuccessSchema,
+  aiProbeV2SuccessSchema,
   aiRecommendV1RequestSchema,
   type AiRecommendV1Request,
   type AiRecommendV2Request,
@@ -10,8 +11,11 @@ import {
 
 import type { RateLimiter } from '../json-request.ts';
 import { AiProviderError, type AiProvider } from './ai-provider.ts';
+import { createDailyCappedAiProvider } from './daily-capped-ai-provider.ts';
+import { HAIKU_DAILY_ATTEMPT_LIMIT } from './haiku-ai-provider.ts';
 import {
   createProbeHandler,
+  createProbeV2Handler,
   PROBE_DAILY_LIMIT,
   PROBE_MAX_TOKENS,
 } from './probe-handler.ts';
@@ -444,4 +448,128 @@ test('the probe skips the Worker-internal provider and reports the first one the
   const body = aiProbeV1SuccessSchema.parse(await (await createProbeHandler(deps)(request())).json());
   assert.deepEqual(called, ['@cf/first']);
   assert.deepEqual(body.data.assistant, { providerId: 'workers-ai', model: '@cf/first' });
+});
+
+function answeringProvider(id: AiProvider['id'], model: string, called: string[] = []): AiProvider {
+  return {
+    id,
+    model,
+    async generateOutfits() {
+      called.push(model);
+      return validOutput();
+    },
+  };
+}
+
+function v2Request() {
+  return new Request('http://localhost/v2/ai/probe', {
+    method: 'POST',
+    headers: { 'cf-connecting-ip': '203.0.113.10' },
+  });
+}
+
+// The composed Haiku provider: the same cap wrapper `createAiProviders` builds, counting
+// under `ai:haiku` in the shared fake counter.
+function cappedHaiku(counterState: CounterState, called: string[]): AiProvider {
+  return createDailyCappedAiProvider({
+    provider: answeringProvider('haiku', 'claude-haiku-5-5', called),
+    counter: counterState.counter,
+    counterName: 'ai:haiku',
+    dailyLimit: HAIKU_DAILY_ATTEMPT_LIMIT,
+    admits: () => true,
+    now: () => new Date(fixedNow),
+  });
+}
+
+test('the v2 probe tests the first provider, Haiku, and counts the probe and Haiku budgets once each', async () => {
+  const called: string[] = [];
+  const counterState = createCounter();
+  const { deps } = dependencies({
+    counterState,
+    providers: [cappedHaiku(counterState, called), answeringProvider('workers-ai', '@cf/first', called)],
+  });
+  const response = await createProbeV2Handler(deps)(v2Request());
+  const body = aiProbeV2SuccessSchema.parse(await response.json());
+  assert.deepEqual(called, ['claude-haiku-5-5']);
+  assert.deepEqual(body.data, {
+    status: 'ok',
+    checkedAt: fixedNow,
+    assistant: { providerId: 'haiku', model: 'claude-haiku-5-5' },
+  });
+  assert.deepEqual(counterState.incrementKeys, ['probe:2026-08-29', 'ai:haiku:2026-08-29']);
+});
+
+test('the v2 probe falls to the chain\'s first remaining provider when Haiku is not composed', async () => {
+  const called: string[] = [];
+  const { deps } = dependencies({
+    providers: [answeringProvider('workers-ai', '@cf/first', called), answeringProvider('openrouter', 'x/y:free', called)],
+  });
+  const body = aiProbeV2SuccessSchema.parse(await (await createProbeV2Handler(deps)(v2Request())).json());
+  assert.deepEqual(called, ['@cf/first']);
+  assert.deepEqual(body.data.assistant, { providerId: 'workers-ai', model: '@cf/first' });
+});
+
+test('a spent Haiku budget makes the v2 probe unavailable instead of walking on to the next provider', async (t) => {
+  const warnings: unknown[] = [];
+  t.mock.method(console, 'warn', (entry: unknown) => warnings.push(entry));
+  const called: string[] = [];
+  const counterState = createCounter([['ai:haiku:2026-08-29', HAIKU_DAILY_ATTEMPT_LIMIT]]);
+  const { deps } = dependencies({
+    counterState,
+    providers: [cappedHaiku(counterState, called), answeringProvider('workers-ai', '@cf/first', called)],
+  });
+  await assertJson(
+    await createProbeV2Handler(deps)(v2Request()),
+    200,
+    { data: { status: 'unavailable', checkedAt: fixedNow } },
+  );
+  assert.deepEqual(called, []);
+  assert.equal(counterState.values.get('ai:haiku:2026-08-29'), HAIKU_DAILY_ATTEMPT_LIMIT + 1);
+  assert.deepEqual(warnings, [
+    { event: 'ai_probe_attempt_failed', model: 'claude-haiku-5-5', reason: 'quota_exceeded' },
+  ]);
+});
+
+test('the v2 probe has its own route label, shares the daily cap and burst limit, and never feeds the v1 cache', async (t) => {
+  const warnings: unknown[] = [];
+  t.mock.method(console, 'warn', (entry: unknown) => warnings.push(entry));
+  const called: string[] = [];
+  const counterState = createCounter();
+  const { deps } = dependencies({
+    counterState,
+    providers: [answeringProvider('haiku', 'claude-haiku-5-5', called), answeringProvider('workers-ai', '@cf/first', called)],
+  });
+  const v1 = createProbeHandler(deps);
+  const v2 = createProbeV2Handler(deps);
+  const v2Body = await (await v2(v2Request())).json();
+  const v1Body = await (await v1(request())).json();
+  assert.equal(v2Body.data.assistant.providerId, 'haiku');
+  assert.deepEqual(v1Body.data.assistant, { providerId: 'workers-ai', model: '@cf/first' });
+  assert.deepEqual(called, ['claude-haiku-5-5', '@cf/first']);
+  // Both versions count against the one `probe` cap.
+  assert.equal(counterState.values.get('probe:2026-08-29'), 2);
+  // Each keeps its own 60 s cache.
+  assert.deepEqual(await (await v2(v2Request())).json(), v2Body);
+  assert.deepEqual(await (await v1(request())).json(), v1Body);
+  assert.equal(called.length, 2);
+
+  const limited = createProbeV2Handler({ ...deps, rateLimiter: { limit: async () => ({ success: false }) } });
+  assert.equal((await limited(v2Request())).status, 429);
+  assert.deepEqual(warnings, [{ event: 'rate_limited', route: '/v2/ai/probe', limiter: 'ai_probe_burst' }]);
+});
+
+test('the v1 probe keeps its exact shape and never names Haiku', async () => {
+  const { deps } = dependencies({
+    providers: [answeringProvider('haiku', 'claude-haiku-5-5'), answeringProvider('workers-ai', '@cf/first')],
+  });
+  assert.equal(
+    await (await createProbeHandler(deps)(request())).text(),
+    JSON.stringify({
+      data: {
+        status: 'ok',
+        checkedAt: fixedNow,
+        assistant: { providerId: 'workers-ai', model: '@cf/first' },
+      },
+    }),
+  );
 });

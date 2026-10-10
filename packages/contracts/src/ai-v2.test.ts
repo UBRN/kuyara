@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  aiProbeV2Path,
+  aiProbeV2SuccessSchema,
   aiRecommendV2Path,
   aiRecommendV2RequestSchema,
   aiRecommendV2SuccessSchema,
   insightSentenceSchema,
   styleAesthetics,
 } from './ai-v2.ts';
-import { aiRecommendV1RequestSchema } from './ai-v1.ts';
+import { aiProbeV1SuccessSchema, aiRecommendV1RequestSchema } from './ai-v1.ts';
 
 const option = (optionId: string) => ({
   optionId,
@@ -97,4 +99,25 @@ test('v2 request accepts an optional re-ask flag that is only ever true and v1 s
   const { locale: _locale, ...v1Request } = request;
   assert.equal(aiRecommendV1RequestSchema.safeParse(v1Request).success, true);
   assert.equal(aiRecommendV1RequestSchema.safeParse({ ...v1Request, reask: true }).success, false);
+});
+
+test('v2 probe accepts haiku as the answering provider and v1 still rejects it', () => {
+  assert.equal(aiProbeV2Path, '/v2/ai/probe');
+  const checkedAt = '2026-08-29T12:34:56.000Z';
+  const haiku = {
+    data: { status: 'ok', checkedAt, assistant: { providerId: 'haiku', model: 'claude-haiku-5-5' } },
+  };
+  assert.deepEqual(aiProbeV2SuccessSchema.parse(haiku), haiku);
+  assert.equal(aiProbeV1SuccessSchema.safeParse(haiku).success, false);
+  for (const providerId of ['workers-ai', 'openrouter', 'deterministic-stub']) {
+    const body = { data: { status: 'ok', checkedAt, assistant: { providerId, model: 'm' } } };
+    assert.equal(aiProbeV2SuccessSchema.safeParse(body).success, true, providerId);
+    assert.equal(aiProbeV1SuccessSchema.safeParse(body).success, true, providerId);
+  }
+  assert.equal(aiProbeV2SuccessSchema.safeParse({ data: { status: 'unavailable', checkedAt } }).success, true);
+  for (const body of [
+    { data: { status: 'ok', checkedAt, assistant: { providerId: 'other', model: 'm' } } },
+    { data: { status: 'ok', checkedAt, assistant: { providerId: 'haiku', model: '' } } },
+    { data: { status: 'ok' } },
+  ]) assert.equal(aiProbeV2SuccessSchema.safeParse(body).success, false);
 });
