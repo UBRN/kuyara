@@ -45,8 +45,7 @@ export type DailyOutlookRow = Readonly<{
   weekday: string;
   condition: WeatherConditionCode;
   /** The already-formatted chance, with its amount when the provider measured one, on one
-   *  line and stacked on two; null when the day carries neither: the cell is then empty and
-   *  the row loses a line. */
+   *  line and stacked on two; null when the day carries neither: the cell is then empty. */
   precipitation: Readonly<{ line: string; lines: string }> | null;
   minimum: string;
   maximum: string;
@@ -85,13 +84,19 @@ export function DailyOutlook({ rows, drawIn = false, waiting = false }: DailyOut
 
   const glyphSize = GLYPH_SIZE * controlScale;
 
+  // The week's rhythm: every day's label column takes the tallest one's height, so a dry day,
+  // a one-line caption and a stacked one fall at one pitch. Each label is measured at its own
+  // height inside the column, so a label that shrinks gives its height back.
+  const [labelHeights, setLabelHeights] = useState<Readonly<Record<string, number>>>({});
+  const labelHeight = Math.max(0, ...rows.map((row) => labelHeights[row.key] ?? 0));
+
   return (
     <View testID="weather-daily-outlook">
       {rows.map((row, index) => {
         const conditionStyle = resolveConditionStyle(row.condition, 'day');
         const start = position(row.minimumCelsius);
         // A week with no spread at all gives every day the whole rail rather than nothing.
-        const width = weekSpan <= 0 ? 1 : position(row.maximumCelsius) - start;
+        const span = weekSpan <= 0 ? 1 : position(row.maximumCelsius) - start;
         // Stacked, the two numbers take the whole width on their own line and the track
         // drops below them: left between them it collapses to a few points and stops being
         // a comparison at exactly the size that needs one most.
@@ -114,7 +119,7 @@ export function DailyOutlook({ rows, drawIn = false, waiting = false }: DailyOut
                 start={start}
                 stops={temperatureStops(ramp, row.minimumCelsius, row.maximumCelsius)}
                 waiting={waiting}
-                width={width}
+                width={span}
               />
             </View>
             {row.currentCelsius === null ? null : (
@@ -156,15 +161,25 @@ export function DailyOutlook({ rows, drawIn = false, waiting = false }: DailyOut
                   name={conditionStyle.shape}
                   size={glyphSize}
                 />
-                <View style={styles.labelColumn}>
-                  <AppText variant="body">{row.weekday}</AppText>
-                  {/* An empty cell rather than a dash or a zero: a day with no measured
-                      rain and no chance has nothing to report, so the row simply loses its
-                      second line. The row's own accessibility label still states the
-                      chance, so the blank costs a reader nothing. */}
-                  {row.precipitation === null ? null : (
-                    <PrecipitationCell {...row.precipitation} />
-                  )}
+                <View style={[styles.labelColumn, { minHeight: labelHeight }]}>
+                  <View
+                    onLayout={({ nativeEvent }) => {
+                      const { height } = nativeEvent.layout;
+                      setLabelHeights((current) => (current[row.key] === height
+                        ? current
+                        : { ...current, [row.key]: height }));
+                    }}
+                    style={styles.label}
+                    testID="weather-daily-label">
+                    <AppText variant="body">{row.weekday}</AppText>
+                    {/* An empty cell rather than a dash or a zero: a day with no measured
+                        rain and no chance has nothing to report, so the cell stays blank and
+                        the row keeps the week's height. The row's own accessibility label
+                        still states the chance, so the blank costs a reader nothing. */}
+                    {row.precipitation === null ? null : (
+                      <PrecipitationCell {...row.precipitation} />
+                    )}
+                  </View>
                 </View>
               </View>
               <View
@@ -311,7 +326,8 @@ const styles = StyleSheet.create({
   stackedRangeGroup: { justifyContent: 'space-between' },
   stackedRail: { alignSelf: 'stretch', flexGrow: 0 },
   dayGroup: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: spacing.md, minWidth: 0 },
-  labelColumn: { flex: 1, gap: spacing.xs, minWidth: 0 },
+  labelColumn: { flex: 1, justifyContent: 'center', minWidth: 0 },
+  label: { gap: spacing.xs },
   precipitation: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, minWidth: 0 },
   // Shrinkable so a wet day's caption wraps beside its icon at the largest standard text
   // size instead of measuring one line wide and running into the low temperature.

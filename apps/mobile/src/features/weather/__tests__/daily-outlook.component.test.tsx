@@ -164,3 +164,20 @@ test('a capsule is uncovered from its low end rather than stretched, so its colo
   }
   withSpring.mockRestore();
 });
+
+// A dry day, a one-line caption and a stacked one would give the week three row heights; every
+// day's label column takes the tallest label's height, so the rows fall at an even pitch. Each
+// label is measured at its own height, so one that shrinks gives its height back.
+test('every day\'s label column takes the tallest label\'s height, and gives it back when that label shrinks', async () => {
+  const dryWeek = [{ ...week[0], precipitation: null }, week[1], week[2]];
+  const result = await render(<Providers><DailyOutlook rows={dryWeek} /></Providers>);
+  const labels = () => result.getAllByTestId('weather-daily-label');
+  const minHeights = () => labels().map((node) => StyleSheet.flatten(node.parent!.props.style).minHeight);
+  for (const [index, height] of [24, 44, 62].entries()) {
+    await act(() => fireEvent(labels()[index], 'layout', layout(105, height)));
+  }
+  expect(minHeights()).toEqual([62, 62, 62]);
+
+  await act(() => fireEvent(labels()[2], 'layout', layout(105, 44)));
+  expect(minHeights()).toEqual([44, 44, 44]);
+});
