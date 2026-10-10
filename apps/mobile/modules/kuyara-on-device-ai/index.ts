@@ -38,7 +38,7 @@ const native =
 
 /**
  * ADR 0034 section 6. `null` on every platform and every build where the native module is not
- * present, which the routed client already reads as an unavailable on-device tier.
+ * present, which the availability read reports as unavailable.
  */
 export const onDeviceAiModule: OnDeviceAiModule | null = native
   ? {

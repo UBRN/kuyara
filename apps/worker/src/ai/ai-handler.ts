@@ -157,8 +157,7 @@ export function createAiHandler({
   // 36 s = 5 × 7 s plus one second for the rate limiter, the body parse and the cache
   // lookup, so the refresh takes as long as it needs and the deterministic fallback only
   // follows the last provider's failure. The mobile client waits 38 s (this deadline plus
-  // transport) and sends 37 s in the header; with up to 8 s of on-device selection ahead of
-  // it, the whole user-visible wait is at most 46 s.
+  // transport) and sends 37 s in the header, so the whole user-visible wait is at most 38 s.
   totalDeadlineMs = 36_000,
   // Five attempts bound the walk: the Haiku model, the two Workers AI models and room
   // for up to two measured OpenRouter models from `OPENROUTER_MODELS`.
