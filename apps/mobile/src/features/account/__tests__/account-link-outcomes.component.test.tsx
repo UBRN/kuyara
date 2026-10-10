@@ -67,7 +67,7 @@ describe('the merge result', () => {
     const screen = await renderIn(<AccountMergeResultContent counts={counts} profileFrom="account" onDone={jest.fn()} onOpenCloset={jest.fn()} />, 'tr');
     expect(screen.getByText(tr.merge.title)).toBeTruthy();
     expect(screen.getByTestId('account-merge-closet')).toHaveTextContent(
-      'Bu telefondan hesabına 4 parça katıldı, hesabından Gardırobuna 1 parça geldi.',
+      'Bu telefondan hesabına 4 parça eklendi, hesabından Gardırobuna 1 parça geldi.',
     );
     expect(screen.getByLabelText(tr.merge.openCloset)).toBeTruthy();
   });

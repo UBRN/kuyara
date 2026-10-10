@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, StyleSheet, TextInput, View, type LayoutChangeEvent } from 'react-native';
+import { AccessibilityInfo, Linking, StyleSheet, TextInput, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 import { AppText, Button, haptics, Icon, Presence, Screen, Surface, useTextScaling } from '@/components/ui';
@@ -13,6 +13,7 @@ import type {
 } from '@/features/catalog/domain/garment-taxonomy';
 import {
   createWardrobeFormValues,
+  fillWardrobeFormFromPhrase,
   hasWardrobeOverrides,
   mapWardrobeCreateValues,
   mapWardrobeUpdateValues,
@@ -21,6 +22,7 @@ import {
   validateWardrobeForm,
   wardrobeFormValuesEqual,
   type WardrobeFormValues,
+  type WardrobePhraseProblem,
 } from '@/features/wardrobe/application/wardrobe-form';
 import {
   unchangedWardrobePhoto,
@@ -141,10 +143,10 @@ function ErrorLine({ message, testID }: Readonly<{ message: string; testID: stri
   );
 }
 
-// The camera could not open. That is not a failure of the form, so the line is secondary
-// ink with an info glyph and words (Law 4), never the danger treatment. VoiceOver ignores the
-// live region, so the notice is spoken as well, the way an error line is.
-function CameraNotice({ message, testID }: Readonly<{ message: string; testID: string }>) {
+// The camera could not open, or a phrase filled nothing. Neither is a failure of the form, so
+// the line is secondary ink with an info glyph and words (Law 4), never the danger treatment.
+// VoiceOver ignores the live region, so the notice is spoken as well, the way an error line is.
+function Notice({ message, testID }: Readonly<{ message: string; testID: string }>) {
   const theme = useKuyaraTheme();
   useErrorAnnouncement(message);
   return (
@@ -214,6 +216,13 @@ export function WardrobeItemFormScreen({
   const { photoChange, previewUri: resolvedPreviewUri, changePhoto: stagePhotoChange, commitPhoto } =
     useStagedWardrobePhoto(onDiscardStagedPhoto, photoPreviewUri);
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
+  // ADR 0042: the phrase lives only in this state; it is never sent, logged or stored.
+  const [phrase, setPhrase] = useState('');
+  const [phraseProblem, setPhraseProblem] = useState<WardrobePhraseProblem | null>(null);
+  // The name a phrase filled, so a later phrase may replace it until the person edits it.
+  const phraseNameRef = useRef<string | null>(null);
+  // A filled phrase remounts the type picker, so it shows the chosen row like a tile pick.
+  const [typePickerKey, setTypePickerKey] = useState(0);
   // O10: a new piece starts on its type's most natural colour until the user picks one.
   const colorChosenRef = useRef(mode === 'edit');
   const operationRef = useRef<Promise<void> | null>(null);
@@ -351,6 +360,38 @@ export function WardrobeItemFormScreen({
 
     applySelection();
   };
+
+  const submitPhrase = () => {
+    if (busy) return;
+    const fill = fillWardrobeFormFromPhrase(values, phrase, clothingPreference, phraseNameRef.current);
+    setPhraseProblem(fill?.kind === 'not-understood' ? fill.reason : null);
+    if (fill?.kind !== 'filled') return;
+    // A phrase's colour is the person's choice; without one the piece keeps a picked colour
+    // or starts on its type's natural one, as a tile pick does (O10).
+    if (fill.colorFilled) colorChosenRef.current = true;
+    const next = colorChosenRef.current
+      ? fill.values
+      : { ...fill.values, colorFamily: startingColorFamily(garmentUsualColorFamilies(fill.garmentType.typeId)) };
+    if (next.name !== values.name) phraseNameRef.current = next.name;
+    updateValues(() => next);
+    setValidationError(false);
+    setBrowsingTypes(false);
+    setTypePickerKey((key) => key + 1);
+    // The pickers change out of VoiceOver's focus, so the result is said in words. No haptic.
+    AccessibilityInfo.announceForAccessibility(copy.phraseFilled({
+      type: messages.catalog[fill.garmentType.nameKey],
+      color: fill.colorFilled ? closetColorName(messages, next.colorChoice, next.colorFamily) : null,
+    }));
+  };
+
+  const textInputStyle = [
+    styles.textInput,
+    {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.borderDefined,
+      color: theme.colors.textPrimary,
+    },
+  ];
 
   const save = () => {
     if (operationRef.current || busy) {
@@ -513,14 +554,14 @@ export function WardrobeItemFormScreen({
             <ErrorLine message={copy.photoError} testID="wardrobe-photo-error" />
           ) : null}
           {photoProblem === 'unavailable' ? (
-            <CameraNotice
+            <Notice
               message={copy.cameraUnavailableMessage}
               testID="wardrobe-camera-unavailable"
             />
           ) : null}
           {photoProblem === 'denied' ? (
             <>
-              <CameraNotice message={copy.cameraDeniedMessage} testID="wardrobe-camera-denied" />
+              <Notice message={copy.cameraDeniedMessage} testID="wardrobe-camera-denied" />
               {/* The platform's own link to kuyara's page in the system settings. */}
               <Button
                 label={copy.openSettingsAction}
@@ -556,7 +597,33 @@ export function WardrobeItemFormScreen({
           {validationError ? (
             <ErrorLine message={copy.typeRequiredError} testID="wardrobe-type-error" />
           ) : null}
+          {mode === 'create' ? (
+            <>
+              {/* The keyboard's own dictation is the voice input; kuyara records no audio. */}
+              <TextInput
+                accessibilityHint={copy.phraseHint}
+                accessibilityLabel={copy.phraseLabel}
+                editable={!busy}
+                maxLength={WARDROBE_NAME_MAX_LENGTH}
+                onChangeText={(text) => {
+                  setPhrase(text);
+                  setPhraseProblem(null);
+                }}
+                onSubmitEditing={submitPhrase}
+                placeholder={copy.phrasePlaceholder}
+                placeholderTextColor={theme.colors.textSecondary}
+                returnKeyType="done"
+                style={textInputStyle}
+                testID="wardrobe-phrase-input"
+                value={phrase}
+              />
+              {phraseProblem ? (
+                <Notice message={copy.phraseNotUnderstood[phraseProblem]} testID="wardrobe-phrase-notice" />
+              ) : null}
+            </>
+          ) : null}
           <GarmentTypePicker
+            key={typePickerKey}
             clothingPreference={clothingPreference}
             colorFamily={values.colorFamily}
             disabled={busy}
@@ -584,14 +651,7 @@ export function WardrobeItemFormScreen({
             onChangeText={(name) => updateValues((current) => ({ ...current, name }))}
             placeholder={copy.namePlaceholder}
             placeholderTextColor={theme.colors.textSecondary}
-            style={[
-              styles.textInput,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.borderDefined,
-                color: theme.colors.textPrimary,
-              },
-            ]}
+            style={textInputStyle}
             testID="wardrobe-name-input"
             value={values.name}
           />

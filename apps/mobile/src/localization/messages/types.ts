@@ -19,6 +19,7 @@ import type {
 } from '@/features/account/application/account-intro-pages';
 import type { WindSpeedUnit } from '@/domain/wind-speed';
 import type { ClosetColorOptionId } from '@/features/wardrobe/domain/closet-color-options';
+import type { WardrobePhraseProblem } from '@/features/wardrobe/application/wardrobe-form';
 import type { CatalogMessages } from '@/features/catalog/localization/catalog-messages';
 import type { RecommendationMessages } from '@/features/recommendation/localization/recommendation-messages';
 
@@ -884,6 +885,13 @@ export type AppMessages = Readonly<{
     typeChangeAction: string;
     typeChangeHint: string;
     typeRequiredError: string;
+    // ADR 0042: the add form's phrase field fills the type and colour pickers. The filled
+    // sentence is spoken only; a phrase that fills nothing shows one line for its reason.
+    phraseLabel: string;
+    phrasePlaceholder: string;
+    phraseHint: string;
+    phraseFilled: (values: { type: string; color: string | null }) => string;
+    phraseNotUnderstood: Readonly<Record<WardrobePhraseProblem, string>>;
     colorTitle: string;
     // O8: the Closet palette's two groups and the system colour well.
     solidColorsLabel: string;

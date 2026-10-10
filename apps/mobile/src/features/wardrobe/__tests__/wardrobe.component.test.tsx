@@ -2035,3 +2035,82 @@ test('a womens Closet keeps all six tabs and opens an empty One-piece page', asy
   expect(tabIds(result)).toHaveLength(6);
   expect(result.getByText(messages.en.wardrobe.categoryEmpty.one_piece)).toBeOnTheScreen();
 });
+
+// ADR 0042 section 2: the add form reads a phrase into its own pickers; Save stays the commit.
+const PHRASE = 'wardrobe-phrase-input';
+const PHRASE_NOTICE = 'wardrobe-phrase-notice';
+
+test('a phrase fills the type, colour and empty name, says so to VoiceOver and saves nothing', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const onCreate = jest.fn(async () => undefined);
+  const onDirtyChange = jest.fn();
+  const result = await render(<CreateForm clothingPreference="mens" onCreate={onCreate} onDirtyChange={onDirtyChange} />);
+  const copy = messages.en.wardrobe;
+  const field = result.getByTestId(PHRASE);
+  expect(field).toHaveProp('placeholder', copy.phrasePlaceholder);
+  expect(field).toHaveProp('accessibilityLabel', copy.phraseLabel);
+
+  await fireEvent.changeText(field, 'lacivert keten gömlek');
+  await fireEvent(field, 'submitEditing');
+
+  const shirt = messages.en.catalog['catalog.garment_type.shirt.name'];
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent(shirt);
+  expect(result.getByTestId('wardrobe-color-selected', { includeHiddenElements: true }))
+    .toHaveTextContent(copy.colorOptionNames.navy);
+  expect(result.getByTestId('wardrobe-color-navy').props.accessibilityState.selected).toBe(true);
+  expect(result.getByTestId('wardrobe-name-input')).toHaveProp('value', 'lacivert keten gömlek');
+  expect(result.queryByTestId(PHRASE_NOTICE)).not.toBeOnTheScreen();
+  expect(announce).toHaveBeenLastCalledWith(copy.phraseFilled({ type: shirt, color: copy.colorOptionNames.navy }));
+  expect(onCreate).not.toHaveBeenCalled();
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+
+  await fireEvent.press(result.getByTestId(SAVE));
+  expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
+    garmentTypeId: 'shirt', colorChoice: { kind: 'option', id: 'navy' }, name: 'lacivert keten gömlek',
+  }));
+});
+
+test.each([
+  ['unknown', 'zzqx'],
+  ['unsupported', 'çanta'],
+  ['ambiguous', 'ceket'],
+  ['several-pieces', 'kot pantolon ve beyaz gömlek'],
+  ['not-offered', 'çiçekli elbise'],
+] as const)('a %s phrase leaves the pickers as they are and says why in one announced line', async (reason, phrase) => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const result = await render(<CreateForm clothingPreference="mens" />);
+  const field = result.getByTestId(PHRASE);
+
+  await fireEvent.changeText(field, phrase);
+  await fireEvent(field, 'submitEditing');
+
+  const notice = result.getByTestId(PHRASE_NOTICE);
+  expect(notice).toHaveTextContent(messages.en.wardrobe.phraseNotUnderstood[reason]);
+  expect(notice).toHaveProp('accessibilityLiveRegion', 'polite');
+  expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.phraseNotUnderstood[reason]);
+  expect(result.getByTestId('wardrobe-type-categories')).toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-type-row')).not.toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-name-input')).toHaveProp('value', '');
+
+  // Editing the phrase takes back the line about the old one.
+  await fireEvent.changeText(field, `${phrase} `);
+  expect(result.queryByTestId(PHRASE_NOTICE)).not.toBeOnTheScreen();
+});
+
+test('the edit form has no phrase field', async () => {
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        isBusy={false}
+        item={item}
+        mode="edit"
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+        onUpdate={async () => undefined}
+      />
+    </TestProviders>,
+  );
+  expect(result.queryByTestId(PHRASE)).not.toBeOnTheScreen();
+});

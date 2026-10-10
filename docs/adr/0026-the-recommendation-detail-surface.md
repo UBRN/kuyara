@@ -203,7 +203,7 @@ the Closet's 33 solid colours, which only paints the drawing through the recorde
 never enters selection. The domain adds the pins as a predicate on the full valid outfit set
 before ordering, diversity and accessories, deterministically, with no AI request, no allowance
 and no Worker call; Closet records are never pins. A result is up to three outfits stepped
-through by "1 / 3" and "Show another" / "Başka göster" in the hint slot below the name
+through by "1 / 3" and "Show another" / "Başkasını göster" in the hint slot below the name
 buttons, wrapping from the last to the first, fewer when the pins leave fewer, read honestly
 as "1 / 2" or "1 / 1" (no button at one); the title reads "Your outfit" with the subtitle
 "Built from the pieces you chose" / "Seçtiğin parçalarla kuruldu". Pins that fit no valid outfit for the weather are

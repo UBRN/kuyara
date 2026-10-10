@@ -1,5 +1,6 @@
+import type { ClothingPreference } from '@/domain/preferences';
 import { isUuidV4 } from '@/domain/record-identity';
-import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import { getGarmentType, listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import {
   breathabilityLevels,
   colorFamilies,
@@ -20,7 +21,11 @@ import {
   type WaterProtection,
   type WindProtection,
 } from '@/features/catalog/domain/garment-taxonomy';
-import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
+import {
+  colorChoiceFamily,
+  type ClosetColorChoice,
+} from '@/features/wardrobe/domain/closet-color-options';
+import { matchClosetPhrase, type ClosetPhraseMatch } from '@/features/wardrobe/domain/closet-phrase';
 import {
   wardrobeEntryStateSchema,
   type CreateWardrobeItemInput,
@@ -194,6 +199,46 @@ export function selectWardrobeGarmentType(
     legCoverageOverride: null,
     tractionSuitabilityOverride: null,
   };
+}
+
+/** Why a phrase filled nothing: the matcher's reasons, or a type the preference does not offer. */
+export type WardrobePhraseProblem =
+  | Extract<ClosetPhraseMatch, { kind: 'not-understood' }>['reason']
+  | 'not-offered';
+
+export type WardrobePhraseFill =
+  | Readonly<{ kind: 'filled'; garmentType: GarmentType; values: WardrobeFormValues; colorFilled: boolean }>
+  | Readonly<{ kind: 'not-understood'; reason: WardrobePhraseProblem }>;
+
+/**
+ * The add form read from a phrase (ADR 0042 section 2): the matched type, when the clothing
+ * preference offers it, and the palette colour when the phrase names one. The name takes the
+ * phrase only while the person has not written one: it is empty, or still the name an earlier
+ * phrase filled (`phraseName`). A blank phrase asks nothing and gives `null`. Nothing is saved.
+ */
+export function fillWardrobeFormFromPhrase(
+  values: WardrobeFormValues,
+  phrase: string,
+  clothingPreference: ClothingPreference | null,
+  phraseName: string | null,
+): WardrobePhraseFill | null {
+  const typed = phrase.trim();
+  if (typed === '') return null;
+  const match = matchClosetPhrase(typed);
+  if (match.kind === 'not-understood') return match;
+  const garmentType = listSelectableGarmentTypes(clothingPreference)
+    .find(({ typeId }) => typeId === match.garmentTypeId);
+  if (!garmentType) return { kind: 'not-understood', reason: 'not-offered' };
+  const named = values.name.trim() === '' || values.name === phraseName ? { ...values, name: typed } : values;
+  const filled = selectWardrobeGarmentType(named, garmentType.typeId);
+  return match.colorChoice
+    ? {
+        kind: 'filled',
+        garmentType,
+        values: { ...filled, colorChoice: match.colorChoice, colorFamily: colorChoiceFamily(match.colorChoice) },
+        colorFilled: true,
+      }
+    : { kind: 'filled', garmentType, values: filled, colorFilled: false };
 }
 
 /**
