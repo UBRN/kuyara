@@ -299,6 +299,8 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     const touches = within(result.getByTestId('outfit-detail-finishing-touches'));
     expect(touches.getByRole('header', { name: copy.finishingTouchesHeading })).toBeOnTheScreen();
     const add = touches.getByTestId('outfit-detail-add-accessory');
+    // No empty list between the heading and Add an accessory, so one gap separates them.
+    expect(result.getByTestId('outfit-detail-finishing-touches').children).toHaveLength(2);
     expect(within(add).getByText(mix.addAccessory, hidden)).toBeOnTheScreen();
     expect(within(add).getByText(mix.addAccessoryHint, hidden)).toBeOnTheScreen();
     await fireEvent.press(within(add).getByRole('button'));

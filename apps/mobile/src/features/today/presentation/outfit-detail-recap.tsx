@@ -70,7 +70,8 @@ export function OutfitDetailRecap({
           <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
             {presentation.copy.finishingTouchesHeading}
           </AppText>
-          <View style={styles.accessoryList}>
+          {/* An empty list would add a second gap between the heading and Add an accessory. */}
+          {accessories.length > 0 || removedCount > 0 ? <View style={styles.accessoryList}>
             {accessories.map((accessory) => {
               const added = addedAccessorySlots.includes(accessory.accessorySlot);
               const subtitle = added ? mix.accessoryAdded(accessory.slot) : accessory.slot;
@@ -144,7 +145,7 @@ export function OutfitDetailRecap({
                 ) : null}
               </View>
             ) : null}
-          </View>
+          </View> : null}
           {onAddAccessory ? (
             <DetailAddRow
               hint={mix.addAccessoryHint}
