@@ -1,4 +1,4 @@
-import type { AiProbeV1Success } from '@kuyara/contracts';
+import type { AiProbeV2Success } from '@kuyara/contracts';
 
 import { WorkerAiProbeClientError } from '@/features/recommendation/domain/worker-ai-probe-client-error';
 
@@ -7,14 +7,14 @@ export type AiProbeUiState =
   | { kind: 'checking' }
   // ADR 0034 section 5: `assistant` names the provider and model that answered this check.
   // It is read by the Settings AI status screen only, never persisted and never captured.
-  | { kind: 'ok'; checkedAt: string; assistant?: AiProbeV1Success['data']['assistant'] }
+  | { kind: 'ok'; checkedAt: string; assistant?: AiProbeV2Success['data']['assistant'] }
   | { kind: 'unavailable' }
   | { kind: 'rate-limited' }
   | { kind: 'error' };
 
 /** What the hook needs from a status check: `WorkerAiProbeClient` is the production one. */
 export interface AiProbeClient {
-  probe(): Promise<AiProbeV1Success['data']>;
+  probe(): Promise<AiProbeV2Success['data']>;
 }
 
 export function startAiProbe(
@@ -25,7 +25,7 @@ export function startAiProbe(
 }
 
 export function mapProbeResult(
-  result: AiProbeV1Success['data'],
+  result: AiProbeV2Success['data'],
 ): AiProbeUiState {
   return result.status === 'ok'
     ? { kind: 'ok', checkedAt: result.checkedAt, assistant: result.assistant }

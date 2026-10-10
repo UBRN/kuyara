@@ -1,9 +1,12 @@
 import {
   aiProbeV1Path,
   aiProbeV1SuccessSchema,
+  aiProbeV2Path,
+  aiProbeV2SuccessSchema,
+  aiProviderIds,
   aiRecommendV1SuccessSchema,
   aiV1ErrorSchema,
-  type AiProbeV1Success,
+  type AiProbeV2Success,
   type AiRecommendV1Request,
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
@@ -16,7 +19,6 @@ import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import {
   attemptFailureReason,
   type AiAttemptFailureReason,
-  type AiChainProviderId,
   type AiProvider,
 } from './ai-provider.ts';
 
@@ -132,14 +134,49 @@ function logProbeFailure(provider: AiProvider, reason: ProbeFailureReason): void
 
 const errorResponse = createErrorResponse<AiV1ErrorCode>(aiV1ErrorSchema);
 
-export function createProbeHandler({
+/**
+ * What differs between the two probe routes. v1 answers only the provider ids installed
+ * binaries parse against a closed enum, so a Worker-internal provider never answers there
+ * and the chain's first remaining provider does. v2 names the chain's first provider.
+ * Each route builds its own handler, so each keeps its own 60 s result cache, while both
+ * count against the one `probe` daily cap.
+ */
+type Variant = Readonly<{
+  path: string;
+  schema: { parse(value: unknown): unknown };
+  answering(providers: readonly AiProvider[]): AiProvider | undefined;
+}>;
+
+const v1Variant: Variant = {
+  path: aiProbeV1Path,
+  schema: aiProbeV1SuccessSchema,
+  answering: (providers) => providers.find(
+    ({ id }) => (aiProviderIds as readonly string[]).includes(id),
+  ),
+};
+
+const v2Variant: Variant = {
+  path: aiProbeV2Path,
+  schema: aiProbeV2SuccessSchema,
+  answering: (providers) => providers[0],
+};
+
+export const createProbeHandler = (dependencies: Dependencies): ProbeHandler =>
+  createHandler(dependencies, v1Variant);
+
+export const createProbeV2Handler = (dependencies: Dependencies): ProbeHandler =>
+  createHandler(dependencies, v2Variant);
+
+type ProbeHandler = (request: Request) => Promise<Response>;
+
+function createHandler({
   providers,
   rateLimiter,
   dailyCounter,
   now = () => new Date(),
   attemptTimeoutMs = PROBE_ATTEMPT_TIMEOUT_MS,
-}: Dependencies): (request: Request) => Promise<Response> {
-  let cached: AiProbeV1Success['data'] | null = null;
+}: Dependencies, { path, schema, answering: selectAnswering }: Variant): ProbeHandler {
+  let cached: AiProbeV2Success['data'] | null = null;
   let cachedExpiresAt = 0;
 
   return async (request: Request): Promise<Response> => {
@@ -149,44 +186,40 @@ export function createProbeHandler({
 
     const limit = await checkRateLimit(rateLimiter, request, {
       keyPrefix: 'probe',
-      route: aiProbeV1Path,
+      route: path,
       limiter: 'ai_probe_burst',
     });
     // A failing binding answers in the route's own closed code.
     if (limit === 'unavailable') return errorResponse(503, 'ai_unavailable');
     if (limit === 'limited') {
-      console.warn({ event: 'rate_limited', route: aiProbeV1Path, limiter: 'ai_probe_burst' });
+      console.warn({ event: 'rate_limited', route: path, limiter: 'ai_probe_burst' });
       return errorResponse(429, 'rate_limited', rateLimitedHeaders);
     }
 
     if (cached && now().getTime() < cachedExpiresAt) {
-      return Response.json(aiProbeV1SuccessSchema.parse({ data: cached }), { status: 200, headers: jsonHeaders });
+      return Response.json(schema.parse({ data: cached }), { status: 200, headers: jsonHeaders });
     }
 
     let status: 'ok' | 'unavailable' = 'unavailable';
-    // The first provider the response can name: installed binaries parse `providerId` against
-    // a closed enum, so a Worker-internal provider never answers. The chain puts Workers AI
-    // first among those, which is what the probe's reserve in the Neuron budget assumes.
-    const answering = providers.find(
-      (provider): provider is AiProvider & { id: Exclude<AiChainProviderId, 'haiku'> } =>
-        provider.id !== 'haiku',
-    );
+    const answering = selectAnswering(providers);
     if (answering) {
       // The increment is the gate, and it happens before the attempt: the count it returns
       // decides whether the provider is called at all, so concurrent probes cannot slip
       // past the cap between a read and a write. A failed or timed-out attempt has still
-      // spent one counted attempt. Without a provider there is nothing to count.
+      // spent one counted attempt. Without a provider there is nothing to count. A capped
+      // provider counts its own budget too, because the cap wrapper increments before the
+      // call (a Haiku probe is one `ai:haiku` attempt as well).
       const dateKey = dailyCounterKey('probe', now());
       let count: number;
       try {
         count = await dailyCounter.increment(dateKey);
       } catch {
         // No counted attempt, no call, and no cached result: nothing was checked.
-        console.warn({ event: 'ai_daily_counter_unavailable', route: aiProbeV1Path });
+        console.warn({ event: 'ai_daily_counter_unavailable', route: path });
         return errorResponse(503, 'ai_unavailable');
       }
       if (count > PROBE_DAILY_LIMIT) {
-        console.warn({ event: 'rate_limited', route: aiProbeV1Path, limiter: 'ai_probe_daily' });
+        console.warn({ event: 'rate_limited', route: path, limiter: 'ai_probe_daily' });
         return errorResponse(429, 'rate_limited', rateLimitedHeaders);
       }
 
@@ -226,6 +259,6 @@ export function createProbeHandler({
       : { status, checkedAt };
     cachedExpiresAt = now().getTime() + PROBE_CACHE_TTL_MS;
 
-    return Response.json(aiProbeV1SuccessSchema.parse({ data: cached }), { status: 200, headers: jsonHeaders });
+    return Response.json(schema.parse({ data: cached }), { status: 200, headers: jsonHeaders });
   };
 }

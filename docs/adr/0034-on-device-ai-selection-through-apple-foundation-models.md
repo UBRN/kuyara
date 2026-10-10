@@ -138,7 +138,7 @@ The rules around them:
 
 ### 5. Service providers reports AI and weather status
 
-Settings > Service providers has two grouped sections. Artificial intelligence first names who chose the last outfit, with kuyara as subject: with online AI, from its standard suggestions, or, for a stored `on-device-ai` snapshot, with Apple Intelligence. The footer states the order: online AI, then the standard suggestions. The bounded active Worker probe, "Test online AI", follows. The controlled last-check provider and model ID may appear here alone, never in Today, detail, analytics or persistence. The screen reports no on-device availability.
+Settings > Service providers has two grouped sections. Artificial intelligence first names who chose the last outfit, with kuyara as subject: with online AI, from its standard suggestions, or, for a stored `on-device-ai` snapshot, with Apple Intelligence. The footer states the order: online AI, then the standard suggestions. The bounded active Worker probe, "Test online AI", follows. The controlled last-check provider and model ID may appear here alone, never in Today, detail, analytics or persistence. The check calls `POST /v2/ai/probe`, which tests the first provider of the online chain (Haiku when composed) and names it; `POST /v1/ai/probe` serves installed binaries whose closed provider list has no Haiku. The screen reports no on-device availability.
 
 Weather data names the provider behind the last valid snapshot and shows its full attribution, including marks, text, links and the OpenWeather logo as applicable. This is the only weather-attribution surface. The active AI probe retains its quota, cache and rate-limit bounds from ADR 0001.
 

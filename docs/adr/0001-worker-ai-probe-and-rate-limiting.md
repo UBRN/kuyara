@@ -74,7 +74,7 @@ deterministic fallback), so the probe also needs a small daily counter.
 
 ## Decision
 
-### 1. Endpoint: `POST /v1/ai/probe`
+### 1. Endpoints: `POST /v2/ai/probe` and `POST /v1/ai/probe`
 
 A new method-gated branch in `apps/worker/src/router.ts`. `POST` because it is
 an explicit, quota-spending action, unlike the idempotent `GET` liveness and
@@ -83,7 +83,13 @@ readiness checks. The handler is assembled by injection, matching
 
 ```
 createProbeHandler({ providers, rateLimiter, dailyCounter, now, attemptTimeoutMs })
+createProbeV2Handler({ providers, rateLimiter, dailyCounter, now, attemptTimeoutMs })
 ```
+
+The two routes share one core and differ only in which provider answers and which
+response schema they parse. Settings calls v2. v1 stays for installed binaries, which
+parse `providerId` against a closed enum without `haiku`. Each route keeps its own
+60-second cache; both count against the one `probe` daily counter and burst limiter.
 
 All collaborators are injectable so tests pass fakes and assert zero provider
 calls on the rejection paths.
@@ -106,9 +112,11 @@ Handler order:
    the day still runs. A counter that cannot be reached -> `503 ai_unavailable`,
    logged as `ai_daily_counter_unavailable`, no provider call and no cached
    result.
-6. Otherwise call **only the first provider the response can name** (Workers AI when
-   configured; the Haiku provider is never reported, because `providerId` is a closed
-   enum installed binaries read), a single attempt, `attemptTimeoutMs` default **20,000 ms** (the
+6. Otherwise call **only one provider**, a single attempt: on v2 the chain's first
+   provider (Haiku when composed, otherwise the first remaining one); on v1 the first
+   provider whose id is in `aiProviderIds` (Workers AI when configured), because the
+   closed enum installed binaries read has no `haiku`. A capped provider counts its own
+   daily budget as well (a Haiku probe is also one `ai:haiku` attempt). The attempt runs under `attemptTimeoutMs`, default **20,000 ms** (the
    probe's own budget; the recommend handler runs each attempt under 7,000 ms
    inside its 36-second deadline), with an `AbortController` + timeout. The request body is a
    fixed minimal valid `AiRecommendV1Request` (1 requirement, 3 options)

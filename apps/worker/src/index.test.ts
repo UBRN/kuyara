@@ -120,6 +120,13 @@ function probeRequest() {
   });
 }
 
+function probeV2Request() {
+  return new Request('https://worker.test/v2/ai/probe', {
+    method: 'POST',
+    headers: { 'cf-connecting-ip': '203.0.113.10' },
+  });
+}
+
 function weatherRequest(path = '/v1/weather') {
   return new Request(`https://worker.test${path}`, {
     method: 'POST',
@@ -266,6 +273,10 @@ test('a missing AI rate limiter takes its AI route offline', async () => {
     await buildRouter(withoutProbe)(probeRequest(), fakeContext()),
     'ai_unavailable',
   );
+  await assertOffline(
+    await buildRouter(withoutProbe)(probeV2Request(), fakeContext()),
+    'ai_unavailable',
+  );
 });
 
 test('a missing DAILY_COUNTERS takes both AI routes offline and drops the capped weather providers', async (t) => {
@@ -275,6 +286,7 @@ test('a missing DAILY_COUNTERS takes both AI routes offline and drops the capped
   const route = buildRouter(withoutCounters);
   await assertOffline(await route(recommendRequest(), fakeContext()), 'ai_unavailable');
   await assertOffline(await route(probeRequest(), fakeContext()), 'ai_unavailable');
+  await assertOffline(await route(probeV2Request(), fakeContext()), 'ai_unavailable');
 
   // Weather still serves through the uncapped Open-Meteo alone: WeatherKit is configured
   // but never composed, so no upstream call reaches it and no key is ever imported.
@@ -294,6 +306,7 @@ test('a missing DAILY_COUNTERS takes both AI routes offline and drops the capped
     { event: 'route_binding_missing', route: '/v1/weather', binding: 'DAILY_COUNTERS' },
     { event: 'route_binding_missing', route: '/v1/ai/recommend', binding: 'DAILY_COUNTERS' },
     { event: 'route_binding_missing', route: '/v1/ai/probe', binding: 'DAILY_COUNTERS' },
+    { event: 'route_binding_missing', route: '/v2/ai/probe', binding: 'DAILY_COUNTERS' },
   ]);
 });
 
@@ -305,6 +318,7 @@ test('a fully bound environment reaches every handler', async (t) => {
   // and the probe reaches the stubbed Workers AI binding.
   assert.equal((await route(recommendRequest(), fakeContext())).status, 400);
   assert.equal((await route(probeRequest(), fakeContext())).status, 200);
+  assert.equal((await route(probeV2Request(), fakeContext())).status, 200);
   assert.equal((await route(new Request('https://worker.test/v1/ai/ready'), fakeContext())).status, 200);
   assert.deepEqual(warnings.filter(({ event }) => event === 'route_binding_missing'), []);
 });
@@ -670,6 +684,42 @@ test('adding a missing account secret recomposes the memoised worker', async (t)
   assert.equal((await worker.fetch(noAuthorization(), without, fakeContext())).status, 503);
   // The same isolate serves the route once the secret exists, without waiting to recycle.
   assert.equal((await worker.fetch(noAuthorization(), boundEnv, fakeContext())).status, 401);
+});
+
+test('the composed v2 probe tests Haiku and counts both ai:haiku and probe, while v1 skips it', async (t) => {
+  t.mock.method(console, 'info', () => {});
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse(`${recommendDate}T10:00:00.000Z`) });
+  const counters = fakeDailyCounters();
+  const realFetch = globalThis.fetch;
+  const hosts: string[] = [];
+  globalThis.fetch = async (input: UpstreamInput) => {
+    hosts.push(new URL(input instanceof Request ? input.url : input).host);
+    return Response.json({
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: JSON.stringify(probeAnswer) }],
+    });
+  };
+  const count = async (name: string, key: string) => (await (await counters
+    .get(counters.idFromName(name))
+    .fetch(`https://daily-counter/increment?key=${encodeURIComponent(key)}`, { method: 'POST' })).json()).count;
+  try {
+    const route = buildRouter({
+      ...env,
+      DAILY_COUNTERS: counters,
+      HAIKU_API_KEY: 'key',
+      HAIKU_MODELS: ['claude-haiku-5-5'],
+    });
+    const v2 = await (await route(probeV2Request(), fakeContext())).json();
+    assert.deepEqual(v2.data.assistant, { providerId: 'haiku', model: 'claude-haiku-5-5' });
+    assert.deepEqual(hosts, ['api.anthropic.com']);
+    // One attempt each: this read is the second increment of each key.
+    assert.equal(await count('ai:haiku', `ai:haiku:${recommendDate}`), 2);
+    assert.equal(await count('probe', `probe:${recommendDate}`), 2);
+    const v1 = await (await route(probeRequest(), fakeContext())).json();
+    assert.equal(v1.data.assistant.providerId, 'workers-ai');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 test('removing the Haiku key or emptying its model list recomposes the memoised worker', async (t) => {

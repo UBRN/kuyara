@@ -1,8 +1,8 @@
 import {
-  aiProbeV1Path,
-  aiProbeV1SuccessSchema,
+  aiProbeV2Path,
+  aiProbeV2SuccessSchema,
   aiV1ErrorSchema,
-  type AiProbeV1Success,
+  type AiProbeV2Success,
 } from '@kuyara/contracts';
 
 import { fetchJsonWithTimeout, type Fetch } from '@/infrastructure/network/fetch-json-with-timeout';
@@ -25,10 +25,10 @@ export class WorkerAiProbeClient {
     this.requestTimeoutMilliseconds = dependencies.requestTimeoutMilliseconds ?? 25000;
   }
 
-  async probe(): Promise<AiProbeV1Success['data']> {
+  async probe(): Promise<AiProbeV2Success['data']> {
     const { response, body } = await fetchJsonWithTimeout(
       this.fetch,
-      `${this.baseUrl}${aiProbeV1Path}`,
+      `${this.baseUrl}${aiProbeV2Path}`,
       { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       this.requestTimeoutMilliseconds,
       {
@@ -44,7 +44,7 @@ export class WorkerAiProbeClient {
       );
     }
 
-    const success = aiProbeV1SuccessSchema.safeParse(body);
+    const success = aiProbeV2SuccessSchema.safeParse(body);
     if (!success.success) throw new WorkerAiProbeClientError('invalid-response');
     return success.data.data;
   }
