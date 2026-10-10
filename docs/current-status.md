@@ -32,14 +32,13 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   cannot exhaust each other. The deterministic sample provider is test-only.
 - **Recommendations:** The deterministic layer composes at most 24 valid outfits from the
   bundled catalog (version 6); the AI tier selects three and labels each with an
-  archetype, on-device Apple Foundation Models where the device reports them available and
-  otherwise the Worker's chain (the Workers AI models, then the free OpenRouter models that
-  passed the live measurement); mobile validates, persists and
-  falls back to a device-local deterministic generator. The refresh waits for a stylist answer: the
-  on-device tier gets 8 seconds, the Worker request then gets 38 seconds, and the Worker
-  bounds its whole AI walk at 36 seconds (five attempts of 7 seconds plus one second),
-  so every provider gets its turn and the deterministic fallback is reached only after
-  the last one fails; the whole wait is bounded at 46 seconds. Generation triggers compare
+  archetype through the Worker's chain on every device (Haiku, then the Workers AI models,
+  then the free OpenRouter models that passed the live measurement); mobile validates,
+  persists and falls back to a device-local deterministic generator. No recommendation path
+  calls the on-device Foundation Models module. The refresh waits for a stylist answer: the
+  Worker request gets 38 seconds, and the Worker bounds its whole AI walk at 36 seconds
+  (five attempts of 7 seconds plus one second), so every provider gets its turn and the
+  deterministic fallback is reached only after the last one fails. Generation triggers compare
   current signals with the persisted snapshot. Today's "Ask the stylist again" action
   opens a sheet for day type and Now or Later, then regenerates the recommendation alone;
   weather refresh remains on the pull gesture. Five confirmed re-asks per local day can
@@ -47,7 +46,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   device-local deterministic generator supplies the answer. A small app-private JSON
   counter holds the allowance. The action is hidden when the composed pool has no other
   valid option; no provider, quota or remaining count is shown. Today draws a breathing
-  skeleton garment board under a phase line (checking the on-device AI, asking the AI stylist, answer
+  skeleton garment board under a phase line (asking the AI stylist, answer
   received, preparing outfits, using standard suggestions) while a recommendation is
   generated, the same phase line replaces the freshness caption during a refresh of a
   shown recommendation, its pull cycle keeps spinning until both the weather and the
@@ -84,19 +83,15 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   detail, whose weather recap carries the coverage sentence. The hours
   from 18:00 are called the evening rather than the night, and every
   temperature it prints carries one decimal in the reader's own separator. Only the coarse generation mode is exposed,
-  and Settings carries the bounded active AI probe beside an on-device availability row
-  that calls no provider. Where the selection runs is decided in
-  [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md): the
-  shared model-input projection and pick distinctness rule in `packages/contracts`, the
-  routed client, the third generation mode with SQLite migration 13, the two AI badges and
-  the local Swift Foundation Models module are implemented and bound, so every Apple
-  Intelligence eligible iPhone takes the on-device tier first with an 8-second budget, then
-  the Worker, then the deterministic fallback. The on-device badge names Apple Intelligence
-  as a referential word mark, the other says only AI, and the recommendation detail carries
-  one plain generation source sentence in all three modes. On-device latency is not measured
-  on eligible physical hardware; the one observation is a Simulator run on an M3 Pro host
-  (5.1 to 5.4 s warm, 6.7 s cold), recorded in ADR 0034, and a Simulator number does not
-  stand in for a device measurement. Builds 6 and 7 carry the module.
+  and Settings carries the bounded active AI probe, which tests Haiku through
+  `POST /v2/ai/probe`. Where the selection runs is decided in
+  [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md): the Worker
+  chain, then the deterministic fallback, on every device. The local Swift Foundation Models
+  module stays in the binary, but measured on the same model on a Mac host it never produced
+  an accepted selection (repeated archetypes, and cold or wet days overflowing its context
+  window), so no recommendation path calls it. The third generation mode and its badge stay
+  readable for snapshots stored before this, and the recommendation detail carries one plain
+  generation source sentence in every mode.
 - **Notifications:** on-device local notifications only, in two kinds behind one OS
   permission ([ADR 0004](adr/0004-notifications-in-the-mvp.md),
   [ADR 0032](adr/0032-local-weather-alert-rules.md)): the deterministic
@@ -244,9 +239,6 @@ The approved phase order, active work and remaining open items are in [the roadm
   Choose photo remains available. The denied note can be rendered, but the Settings
   link cannot be proven there. A real capture, Retake, the Settings link and the captured
   photo's orientation after processing need a physical iPhone.
-- **Apple Intelligence device verification is deferred.** No eligible physical device is
-  available. The iPhone 14 Pro exercises the Worker and deterministic fallback tiers only;
-  no on-device AI latency or success is claimed from its runs.
 - **N2's background execution and notification delivery remain unverified on a device.**
   The focused notification checks pass: 72 Node tests and 41 component tests. On the
   iPhone 14 Pro running iOS 27, both notification opt-ins and Background App Refresh are

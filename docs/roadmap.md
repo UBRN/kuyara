@@ -47,7 +47,6 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 Release evidence:
 
 - Android verification, once Android work starts.
-- Apple Intelligence measurement on eligible hardware.
 - N2 background execution and delivery verification on a compatible device.
 
 See [release state and known gaps](current-status.md#release-state).
