@@ -88,9 +88,9 @@ interactions; outfit selection; refresh and retry behaviour; Closet adoption and
 create/update/delete actions; Settings usage; failure and recovery behaviour; feature
 adoption; and account conversion once accounts exist.
 
-Onboarding runs before the consent question, so PostHog carries no onboarding events:
-downloads, first sessions and retention before consent are read from App Store Connect App
-Analytics.
+The consent question is onboarding's last step, so the steps before it run unmeasured and
+PostHog carries no onboarding events: downloads, onboarding and retention before consent are
+read from App Store Connect App Analytics.
 
 Properties are structured, language-independent, and low-cardinality wherever possible.
 
@@ -245,7 +245,7 @@ and the concrete product question before implementation is authorized.
 
 | Surface | Required exclusion or masking before any future capture |
 |---|---|
-| Onboarding and consent | Exclude the entire flow, including gender, dress style, birth date, location and the consent sheet. |
+| Onboarding and consent | Exclude the entire flow, including gender, dress style, birth date, location, the consent step and the consent sheet. |
 | Profile, Closet list/create/edit/detail | Exclude the entire screen, including Profile's Closet preview rail, owned/wanted state and counts, photos, garment names/colours, file paths and place labels. |
 | Settings and child screens | Exclude the entire screen, especially birth date, preferences, Privacy's analytics identifier and AI-status provider/model details. |
 | Location search and native overlays | Exclude typed query, search results, selected place, permission dialogs, keyboard, photo picker, share sheet and in-app browser. Stop before presentation; navigation callbacks after a frame is drawn are insufficient. |

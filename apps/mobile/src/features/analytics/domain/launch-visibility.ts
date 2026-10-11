@@ -19,6 +19,11 @@ export type LaunchVisibility = Readonly<{
    * stays untimed, because every later mark would still count from that unseen start.
    */
   isTimed: () => boolean;
+  /**
+   * Makes every later launch metric of this process untimed. A session that opens on
+   * onboarding would time the setup rather than the launch, so it measures nothing either.
+   */
+  markUntimed: () => void;
 }>;
 
 export function createLaunchVisibility(appState: LaunchAppState): LaunchVisibility {
@@ -43,6 +48,9 @@ export function createLaunchVisibility(appState: LaunchAppState): LaunchVisibili
     isTimed() {
       timed ??= seen;
       return timed;
+    },
+    markUntimed() {
+      timed = false;
     },
   };
 }

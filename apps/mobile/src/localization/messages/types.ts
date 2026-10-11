@@ -505,7 +505,6 @@ export type AppMessages = Readonly<{
     birthDateAddLabel: string;
     locationTitle: string;
     locationBody: string;
-    completeAction: string;
     locationSkipAction: string;
     genderRequiredError: string;
     saveError: string;

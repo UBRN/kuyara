@@ -1,7 +1,7 @@
 // A session is one app process the person has seen (`launch-visibility.ts`). The count advances
-// once per such launch and is durable, so the consent question can be asked from the second
-// session onwards: the first session belongs to the first recommendation and is never
-// interrupted by the sheet. See ADR 0033 section 6.
+// once per such launch and is durable. Onboarding's last step asks the consent question; the
+// Today sheet asks only a profile that finished onboarding with it unanswered, from the second
+// session onwards, so a first session is never interrupted by the sheet. See ADR 0033 section 6.
 const firstAskingSession = 2;
 
 /**

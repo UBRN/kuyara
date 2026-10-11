@@ -99,7 +99,7 @@ test('undecided and withdrawn profiles create no client until opt-in', async () 
       return client;
     });
 
-    analytics.capture('notification_opened', { schema_version: 4 });
+    analytics.capture('notification_opened', { schema_version: 5 });
     await analytics.flush();
 
     assert.deepEqual(clients, []);
@@ -147,7 +147,7 @@ test('a granted profile builds no client until the launch is seen', async () => 
   });
   await new Promise((resolve) => setImmediate(resolve));
 
-  analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
+  analytics.capture('notification_opened', { schema_version: 5, kind: 'weather_alert' });
   await analytics.flush();
   assert.equal(createCount, 0);
   assert.equal(analytics.isApplied(), false);
@@ -182,7 +182,7 @@ test('opt-in precedes the consent event and forwards an optional timestamp as a 
   await analytics.optIn('today_sheet');
   analytics.capture(
     'notification_opened',
-    { schema_version: 4 },
+    { schema_version: 5 },
     { timestamp: '2026-09-09T12:00:00.000Z' },
   );
 
@@ -193,7 +193,7 @@ test('opt-in precedes the consent event and forwards an optional timestamp as a 
   ]);
   assert.deepEqual(client.captures[0], {
     name: 'analytics_consent_granted',
-    properties: { schema_version: 4, surface: 'today_sheet' },
+    properties: { schema_version: 5, surface: 'today_sheet' },
     options: undefined,
   });
   assert.equal(client.captures[1].options.timestamp.toISOString(), '2026-09-09T12:00:00.000Z');
@@ -210,16 +210,16 @@ test('final withdrawal event keeps concurrent and later feature and SDK captures
   });
   await analytics.whenReady();
 
-  analytics.capture('analytics_consent_withdrawn', { schema_version: 4 });
+  analytics.capture('analytics_consent_withdrawn', { schema_version: 5 });
   const flushing = analytics.flush();
-  analytics.capture('notification_opened', { schema_version: 4 });
-  analytics.capture('analytics_consent_withdrawn', { schema_version: 4 });
+  analytics.capture('notification_opened', { schema_version: 5 });
+  analytics.capture('analytics_consent_withdrawn', { schema_version: 5 });
   assert.equal(beforeSend({ event: 'Application Opened', properties: {} }), null);
   assert.deepEqual(client.captures.map(({ name }) => name), ['analytics_consent_withdrawn']);
 
   releaseFlush();
   await flushing;
-  analytics.capture('notification_opened', { schema_version: 4 });
+  analytics.capture('notification_opened', { schema_version: 5 });
   assert.equal(analytics.isWithdrawalInProgress(), true);
   assert.equal(beforeSend({ event: 'Application Opened', properties: {} }), null);
   assert.deepEqual(client.captures.map(({ name }) => name), ['analytics_consent_withdrawn']);
@@ -235,10 +235,10 @@ test('a throwing provider capture never reaches the caller, and the final withdr
   await analytics.whenReady();
   client.fail('capture');
 
-  assert.doesNotThrow(() => analytics.capture('notification_opened', { schema_version: 4 }));
+  assert.doesNotThrow(() => analytics.capture('notification_opened', { schema_version: 5 }));
   assert.equal(analytics.isWithdrawalInProgress(), false);
 
-  assert.doesNotThrow(() => analytics.capture('analytics_consent_withdrawn', { schema_version: 4 }));
+  assert.doesNotThrow(() => analytics.capture('analytics_consent_withdrawn', { schema_version: 5 }));
   assert.equal(analytics.isWithdrawalInProgress(), true);
   assert.equal(beforeSend({ event: 'Application Opened', properties: {} }), null);
 });
@@ -283,7 +283,7 @@ test('stored withdrawal sends no further event, clears the device id, and re-con
   assert.notEqual(analytics.getIdentifier(), firstIdentifier);
   assert.deepEqual(clients[1].captures.at(-1), {
     name: 'analytics_consent_granted',
-    properties: { schema_version: 4, surface: 'settings_privacy' },
+    properties: { schema_version: 5, surface: 'settings_privacy' },
     options: undefined,
   });
 });
@@ -372,7 +372,7 @@ test('the before-send filter removes lifecycle URLs, timezone and non-allowliste
       displayName: 'Deniz',
       profileNote: 'private profile note',
       previous_version: '1.0.0',
-      schema_version: 4,
+      schema_version: 5,
       dress_style: 'formal',
       '$is_emulator': true,
       '$lib': 'posthog-react-native',
@@ -447,7 +447,7 @@ test('the before-send filter drops every event name outside the catalog, the lif
 
 test('a catalog event keeps only its own reviewed keys and the lifecycle events keep none', () => {
   const properties = {
-    schema_version: 4,
+    schema_version: 5,
     screen_name: 'today',
     dress_style: 'formal',
     age_bucket: '25_34',
@@ -456,12 +456,12 @@ test('a catalog event keeps only its own reviewed keys and the lifecycle events 
   };
   assert.deepEqual(sanitizePostHogEvent({ event: 'screen_viewed', properties }), {
     event: 'screen_viewed',
-    properties: { schema_version: 4, screen_name: 'today', '$device_id': 'random-install' },
+    properties: { schema_version: 5, screen_name: 'today', '$device_id': 'random-install' },
   });
   assert.deepEqual(sanitizePostHogEvent({ event: 'recommendation_viewed', properties }), {
     event: 'recommendation_viewed',
     properties: {
-      schema_version: 4, dress_style: 'formal', age_bucket: '25_34', '$device_id': 'random-install',
+      schema_version: 5, dress_style: 'formal', age_bucket: '25_34', '$device_id': 'random-install',
     },
   });
   assert.deepEqual(sanitizePostHogEvent({ event: 'Application Became Active', properties }), {
@@ -474,5 +474,5 @@ test('the before-send controller drops an unknown event name and an SDK event ou
   const { beforeSend } = createPostHogBeforeSend();
   assert.equal(beforeSend({ event: '$autocapture', properties: {} }), null);
   assert.equal(beforeSend({ event: '$feature_flag_called', properties: {} }), null);
-  assert.notEqual(beforeSend({ event: 'screen_viewed', properties: { schema_version: 4 } }), null);
+  assert.notEqual(beforeSend({ event: 'screen_viewed', properties: { schema_version: 5 } }), null);
 });

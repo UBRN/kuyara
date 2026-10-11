@@ -92,7 +92,7 @@ consent is granted; the SDK client does not exist before then. While the answer 
 acceptance. Every gate (capture, before-send, transport, flush, identifier reads and the
 Observe emit check) reads one in-memory consent value, read from the stored answer once at
 launch and updated the moment the profile write that changes it has committed, so withdrawal
-closes them all at once and a failed write leaves the previous value. Onboarding runs before the consent question, so it is not measured here (section
+closes them all at once and a failed write leaves the previous value. Onboarding's steps run before its last step, the consent question, so they are not measured here (section
 5.2). A decline sends
 nothing at all, not even a "declined" event (see section 5.14). Nothing in this taxonomy
 overrides that gate.
@@ -170,7 +170,7 @@ surface became part of milestone 10 under ADR 0033.
 
 Every custom event sent through the `ProductAnalytics` boundary carries `schema_version`
 (integer). It is incremented when an existing event's properties change meaning or an
-allowed value set changes. The current version is 4. The SDK-supplied app
+allowed value set changes. The current version is 5. The SDK-supplied app
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
@@ -241,16 +241,17 @@ app used?"
 
 ### 5.2 Onboarding
 
-Onboarding runs before the consent question: the consent surface is shown on Today from the
-second session, after the first recommendation (ADR 0033 sections 3 and 6). PostHog therefore
-carries no onboarding events, and none is defined here. Downloads, first sessions and
-retention before consent are read from App Store Connect App Analytics; PostHog measures from
-consent onward.
+The consent question is onboarding's last step, so every step before it runs before consent
+(ADR 0033 sections 3 and 6). PostHog therefore carries no onboarding events, and none is
+defined here. Downloads, onboarding and retention before consent are read from App Store
+Connect App Analytics; PostHog measures from consent onward, starting with the
+`analytics_consent_granted` of surface `onboarding` (section 5.14).
 
 Nothing emitted by an onboarding screen is sent, and the code emits nothing from it: the
-onboarding screen records no `screen_viewed`, and a place chosen during onboarding records
-neither `location_changed` nor the first use of `location_override`. The day type answered
-at the end of setup is written like any other, without a `day_style_changed` (section 5.5).
+onboarding screen records no `screen_viewed`, its consent step included, and a place chosen
+during onboarding records neither `location_changed` nor the first use of `location_override`.
+The day type answered at the end of setup is written like any other, without a
+`day_style_changed` (section 5.5).
 
 ### 5.3 Screen and navigation usage
 
@@ -268,9 +269,9 @@ Closet detail screen: the grid's tile opens the edit form directly, so
 new and edit routes. Adding a route means adding a value here, not inventing an ad hoc name
 at the call site.
 
-The consent surface is shown on Today after the first recommendation has rendered, so
-`screen_name` carries `analytics_consent_sheet`; its route is `analytics-consent`. Onboarding
-has no value (section 5.2).
+The consent sheet on Today, which asks a profile that finished onboarding with the question
+unanswered, is its own route, `analytics-consent`, so `screen_name` carries
+`analytics_consent_sheet`. Onboarding, its consent step included, has no value (section 5.2).
 
 **Product questions answered.**
 
@@ -381,8 +382,8 @@ and `random` are declared values no screen writes yet. A confirmed re-ask writes
 reports, when its formality differs from the one in force, when the day has no written
 choice yet, or when its departure falls on another dressing day; a re-ask that only
 confirms an already written choice for the current day writes nothing and reports nothing.
-The styles chosen beside the day type are never reported. The answer onboarding writes at the end of setup is not reported, because it
-runs before the consent question (section 5.2).
+The styles chosen beside the day type are never reported. The answer onboarding writes at the end of setup is not reported, because
+setup writes it without an event (section 5.2).
 
 Manual edits on outfit detail are not generation triggers and produce no `trigger_reason`
 value; the members-only compose row and its sign-in sheet add neither an event nor a
@@ -718,11 +719,12 @@ captures nothing at all.**
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `analytics_consent_granted` | Immediately after `optIn()` succeeds. It is the first event sent on the identity, and recording starts from it. | `surface` (`today_sheet`\|`settings_privacy`) |
+| `analytics_consent_granted` | Immediately after `optIn()` succeeds. It is the first event sent on the identity, and recording starts from it. | `surface` (`onboarding`\|`today_sheet`\|`settings_privacy`) |
 | `analytics_consent_withdrawn` | Immediately before `optOut()`, `reset()`, and the `$device_id` clear. It is the last event on the identity. | none |
 
-`surface` has two values: `today_sheet` covers the consent sheet shown after the first
-recommendation has rendered and `settings_privacy` covers a re-consent after a withdrawal.
+`surface` has three values: `onboarding` covers the consent question on onboarding's last
+step, `today_sheet` covers the sheet on Today that asks a profile that finished onboarding
+with the question unanswered, and `settings_privacy` covers a re-consent after a withdrawal.
 
 Declining, or never answering, is not an event and cannot be one: nothing leaves the
 device before `optIn()`, an unanswered sheet records nothing, and guideline 5.1.1 (ii)
@@ -812,9 +814,11 @@ Decisions in force:
   `age_bucket` stay on the three events section 3 names, and the install identifier is
   declared "linked to the user" in the App Privacy questionnaire; ADR 0033 section 5
   carries the same linkage rule.
-- **Consent surface: the Today sheet after value is visible.** The sheet is shown once on
-  Today, from the second app session onwards, after the first recommendation of that session
-  has rendered; the first session is never interrupted by it. Accept is the primary action;
+- **Consent surface: onboarding's last step.** Everyone who finishes onboarding answers the
+  question once, during setup, and either answer finishes onboarding. A profile that
+  finished onboarding with the question unanswered is asked once on Today instead, from the
+  second app session onwards, after the first recommendation of that session has rendered;
+  a first session is never interrupted by that sheet. On both, accept is the primary action;
   decline is a same-size secondary action directly beneath it. Decline stays one tap and is never
   hidden, reduced, faded, coloured as a warning or delayed; accept is never pre-selected
   and what is collected is never obscured. Declining changes nothing else

@@ -80,7 +80,8 @@ configureObserveTelemetry({
 // A session is one app process the person has seen. A foreground launch is counted here, once,
 // before the first render; one iOS started in the background for the weather-alert task is
 // counted when it is first opened, and never if nobody opens it.
-// ADR 0033 section 6: the consent sheet is asked for from the second session onwards.
+// ADR 0033 section 6: the Today consent sheet, for a profile that finished onboarding with the
+// question unanswered, is asked for from the second session onwards.
 const launchSession = createLaunchSession(launchVisibility, countLaunchedSession);
 // The analytics client is built only then too: the SDK captures an app open as it is built.
 const launchSeen = new Promise<void>((resolve) => launchVisibility.onSeen(resolve));
@@ -295,6 +296,12 @@ function RootLayout() {
   useEffect(() => {
     launchPlayed = true;
   }, []);
+  // A process iOS starts in the background, for the weather-alert task, plays its launch the
+  // first time the person opens it rather than unseen.
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    launchVisibility.onSeen(() => setSeen(true));
+  }, []);
   // A full launch on Today waits for Today to draw its content, so the dive never plays over
   // that render; any other first screen is ready with the shell. A shell may still learn it
   // was opened by a notification. The curtain takes the answer it holds on the frame it
@@ -314,7 +321,7 @@ function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <LaunchCurtain cold={cold} onFirstFrame={SplashScreen.hide} readiness={launch}>
+      <LaunchCurtain cold={cold} onFirstFrame={SplashScreen.hide} readiness={launch} seen={seen}>
         <LaunchScreenReadyContext value={reportTodayDrawn}>
           <PerformanceTelemetryContext value={observePerformanceTelemetry}>
             <ProcessClockContext value={processClock}>

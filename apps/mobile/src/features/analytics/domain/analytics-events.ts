@@ -16,7 +16,7 @@ import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-ite
 
 // Taxonomy 5.0: incremented only when an existing event's properties change meaning or an
 // allowed value set changes, never when a new event is added.
-export const ANALYTICS_SCHEMA_VERSION = 4;
+export const ANALYTICS_SCHEMA_VERSION = 5;
 
 type AnalyticsEventBase = Readonly<{
   schema_version: typeof ANALYTICS_SCHEMA_VERSION;
@@ -349,7 +349,7 @@ export type AnalyticsEventCatalog = {
   weather_alert_offer_resolved: AnalyticsEventBase &
     Readonly<{ outcome: 'accepted' | 'dismissed'; kind: WeatherAlertOfferKindProperty }>;
   analytics_consent_granted: AnalyticsEventBase &
-    Readonly<{ surface: 'today_sheet' | 'settings_privacy' }>;
+    Readonly<{ surface: 'onboarding' | 'today_sheet' | 'settings_privacy' }>;
   analytics_consent_withdrawn: AnalyticsEventBase;
   // Taxonomy 5.12: a sign-in settled. A cancel by the person is a result, not a failure, and
   // `failure_category` exists only on `failed`.

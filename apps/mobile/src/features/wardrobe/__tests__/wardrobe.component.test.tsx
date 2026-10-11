@@ -1665,7 +1665,7 @@ test('a successful create captures closet_item_created with profile segmentation
       {
         name: 'closet_item_created',
         properties: {
-          schema_version: 4,
+          schema_version: 5,
           state: 'owned',
           garment_type_id: 'rain_jacket',
           has_photo: false,
@@ -1677,7 +1677,7 @@ test('a successful create captures closet_item_created with profile segmentation
       },
       {
         name: 'feature_used_first_time',
-        properties: { schema_version: 4, feature_name: 'closet' },
+        properties: { schema_version: 5, feature_name: 'closet' },
         options: undefined,
       },
     ]),
@@ -1734,7 +1734,7 @@ test('a successful update captures closet_item_updated with only the fields that
       {
         name: 'closet_item_updated',
         properties: {
-          schema_version: 4,
+          schema_version: 5,
           fields_changed: ['state'],
           garment_type_id: plainItem.garmentTypeId,
           entry_point: 'closet_list',
@@ -1816,7 +1816,7 @@ test('a successful delete captures closet_item_deleted with the pre-delete state
     expect.arrayContaining([
       {
         name: 'closet_item_deleted',
-        properties: { schema_version: 4, state: 'owned', had_photo: true },
+        properties: { schema_version: 5, state: 'owned', had_photo: true },
         options: undefined,
       },
     ]),
@@ -1843,7 +1843,7 @@ test('one screen_viewed for closet_item_form fires on focus for the edit route',
   expect(analytics.captures).toEqual([
     {
       name: 'screen_viewed',
-      properties: { schema_version: 4, screen_name: 'closet_item_form' },
+      properties: { schema_version: 5, screen_name: 'closet_item_form' },
       options: undefined,
     },
   ]);

@@ -8,10 +8,11 @@ import type {
 /**
  * The steps in the order they are shown. The location comes right after the welcome, so the
  * steps after it can draw the place's real weather; the optional name and birth date share
- * one step.
+ * one step. The last step is the analytics consent question, whose answer finishes setup
+ * (ADR 0033 section 6).
  */
-export const onboardingSteps = ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles'] as const;
-export type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5;
+export const onboardingSteps = ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles', 'consent'] as const;
+export type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const lastStep = (onboardingSteps.length - 1) as OnboardingStep;
 
 export type OnboardingDraft = Readonly<{

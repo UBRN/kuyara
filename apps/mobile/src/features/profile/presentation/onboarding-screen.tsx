@@ -47,6 +47,7 @@ import {
   type OnboardingPreviewOutfits,
 } from '@/features/profile/application/onboarding-preview';
 import type {
+  AnalyticsConsent,
   DressStyle,
   Gender,
   StyleAesthetic,
@@ -182,7 +183,11 @@ type OnboardingScreenProps = Readonly<{
   initialStyleAesthetics?: readonly StyleAesthetic[];
   initialBirthDate: string | null;
   initialDisplayName?: string | null;
-  onComplete: (preferences: OnboardingPreferences) => Promise<void>;
+  /** Called with the consent question's answer, which the last step requires. */
+  onComplete: (
+    preferences: OnboardingPreferences,
+    analyticsConsent: Exclude<AnalyticsConsent, 'undecided'>,
+  ) => Promise<void>;
   /**
    * The location step's picker, which the composition route supplies from the weather
    * feature. It is given the step's heading and the test ID the step carries.
@@ -213,7 +218,8 @@ export function OnboardingScreen({
   );
   const [saveError, setSaveError] = useState(false);
   const [addingBirthDate, setAddingBirthDate] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  // The answer being saved, so only its button shows progress.
+  const [savingAnswer, setSavingAnswer] = useState<Exclude<AnalyticsConsent, 'undecided'> | null>(null);
   const savingRef = useRef(false);
   const [previewWidth, setPreviewWidth] = useState(0);
   const announcedStep = useRef(false);
@@ -287,6 +293,7 @@ export function OnboardingScreen({
     gender: copy.genderTitle,
     dress_style: copy.dressStyleTitle,
     styles: copy.stylePreferencesTitle,
+    consent: messages.analytics.consentTitle,
   }[step];
   const stepBody = {
     welcome: copy.welcomeBody,
@@ -295,6 +302,7 @@ export function OnboardingScreen({
     gender: copy.genderBody,
     dress_style: copy.dressStyleBody,
     styles: copy.stylePreferencesBody(styleAestheticsLimit),
+    consent: messages.analytics.consentBody,
   }[step];
 
   useEffect(() => {
@@ -328,9 +336,10 @@ export function OnboardingScreen({
     dispatch({ type: 'continue', from: draft.step });
   };
 
-  const complete = async () => {
-    // A press while saving is not a missing answer; it is ignored. The ref also holds a second
-    // press in the same frame, before the spinner it starts is drawn.
+  const complete = async (analyticsConsent: Exclude<AnalyticsConsent, 'undecided'>) => {
+    // A press while saving, of either answer, is ignored rather than read as a missing answer.
+    // The ref also holds a second press in the same frame, before the pressed answer's spinner
+    // is drawn.
     if (savingRef.current) return;
     const preferences = onboardingPreferencesFromDraft(draft);
     if (!preferences) {
@@ -341,18 +350,18 @@ export function OnboardingScreen({
     }
 
     savingRef.current = true;
-    setIsSaving(true);
+    setSavingAnswer(analyticsConsent);
     setSaveError(false);
     // A promise chain, not try/finally: React Compiler does not compile a component holding a
     // `finally` clause, and the whole onboarding tree then re-rendered on every step.
-    await onComplete(preferences)
+    await onComplete(preferences, analyticsConsent)
       .catch(() => {
         setSaveError(true);
         AccessibilityInfo.announceForAccessibility(copy.saveError);
       })
       .finally(() => {
         savingRef.current = false;
-        setIsSaving(false);
+        setSavingAnswer(null);
       });
   };
 
@@ -435,7 +444,15 @@ export function OnboardingScreen({
       {/* The title and progress stay still while each step's own content arrives
           (Law 7): keyed on the step, the body and then the panel enter in reading order. */}
       <Entrance index={0} key={`body-${draft.step}`}>
-      <AppText colorRole="textSecondary">{stepBody}</AppText>
+      {step === 'consent' ? (
+        // The settings sentence belongs to the body's group, as on the Today sheet.
+        <View style={styles.paragraphs}>
+          <AppText colorRole="textSecondary">{stepBody}</AppText>
+          <AppText colorRole="textSecondary">{messages.analytics.consentSettingsBody}</AppText>
+        </View>
+      ) : (
+        <AppText colorRole="textSecondary">{stepBody}</AppText>
+      )}
       </Entrance>
     </View>
   );
@@ -652,6 +669,35 @@ export function OnboardingScreen({
             borderColor: theme.colors.borderSubtle,
           },
         ]}>
+        {/* ADR 0033 section 6: accept and the same-size decline directly beneath it are the
+            step's only exits; either answer finishes setup. The stacked pair stretches both to
+            the full width, and only the pressed answer shows progress. */}
+        {step === 'consent' ? (
+          <ButtonPair
+            primary={(
+              <Button
+                label={messages.analytics.acceptAction}
+                loading={savingAnswer === 'granted'}
+                onPress={() => void complete('granted')}
+                size="large"
+                testID="onboarding-consent-accept"
+                variant="prominent"
+              />
+            )}
+            secondary={(
+              <Button
+                label={messages.analytics.declineAction}
+                loading={savingAnswer === 'withdrawn'}
+                onPress={() => void complete('withdrawn')}
+                size="large"
+                testID="onboarding-consent-decline"
+                variant="tonal"
+              />
+            )}
+            stacked
+            testID="onboarding-actions-row"
+          />
+        ) : (
         <ButtonPair
           primary={step === 'location' ? (
             <View style={styles.primaryAction} testID="onboarding-location-skip">
@@ -666,15 +712,6 @@ export function OnboardingScreen({
                 variant={hasActiveLocation ? 'prominent' : 'tonal'}
               />
             </View>
-          ) : step === 'styles' ? (
-            <Button
-              label={copy.completeAction}
-              loading={isSaving}
-              onPress={complete}
-              size="large"
-              style={styles.primaryAction}
-              testID="onboarding-complete"
-            />
           ) : step === 'about' ? (
             <View style={styles.nameActions}>
               <Button
@@ -697,7 +734,6 @@ export function OnboardingScreen({
           ) : (
             <Button
               label={messages.common.continue}
-              loading={isSaving}
               onPress={goForward}
               size="large"
               style={styles.primaryAction}
@@ -706,7 +742,6 @@ export function OnboardingScreen({
           )}
           secondary={draft.step > 0 ? (
             <Button
-              disabled={isSaving}
               label={messages.common.back}
               onPress={() => {
                 setSaveError(false);
@@ -719,6 +754,7 @@ export function OnboardingScreen({
           ) : null}
           testID="onboarding-actions-row"
         />
+        )}
       </SafeAreaView>
       )}
     </KeyboardAvoidingView>
@@ -772,6 +808,9 @@ const styles = StyleSheet.create({
   nameActions: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: spacing.sm, justifyContent: 'flex-end' },
   skipAction: {
     width: '100%',
+  },
+  paragraphs: {
+    gap: spacing.sm,
   },
   progress: {
     flexDirection: 'row',
