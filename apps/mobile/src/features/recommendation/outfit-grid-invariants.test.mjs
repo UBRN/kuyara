@@ -14,7 +14,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formalityLevels, formalityOrderByDressStyle } from '@kuyara/contracts';
+import { formalityLevels } from '@kuyara/contracts';
 
 import { listGarmentTypesForPreference, getGarmentType } from '@/features/catalog/domain/garment-catalog';
 
