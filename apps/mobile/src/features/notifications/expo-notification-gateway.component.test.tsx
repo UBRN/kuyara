@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import { ExpoNotificationGateway } from '@/features/notifications/data/expo-notification-gateway';
+import { morningBriefingId } from '@/features/notifications/domain/morning-briefing';
 
 const notifications = jest.requireMock('expo-notifications') as {
   getPermissionsAsync: jest.Mock;
@@ -115,6 +116,57 @@ test('Android scheduling creates one silent default channel and uses prefixed id
       channelId: 'weather-alerts',
     },
   });
+});
+
+// The briefing and the alerts both arrive visible with the default sound,
+// stated on the content instead of left to the OS default.
+test.each([
+  ['the morning briefing', morningBriefingId('2026-10-12')],
+  ['a weather alert', 'precipitation_onset:location:2026-10-12'],
+])('iOS content for %s is active with the default sound', async (_name, identifier) => {
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
+  notifications.scheduleNotificationAsync.mockResolvedValue('scheduled');
+
+  await new ExpoNotificationGateway().scheduleWeatherAlert({
+    identifier,
+    fireAt: '2026-10-12T05:00:00.000Z',
+    title: 'Title',
+    body: 'Body',
+  });
+
+  expect(notifications.scheduleNotificationAsync.mock.calls[0][0].content).toEqual({
+    title: 'Title',
+    body: 'Body',
+    interruptionLevel: 'active',
+    sound: 'default',
+  });
+});
+
+// The scheduler hands the gateway the unprefixed plan id; the kind is read back only from
+// the prefixed identifier the OS stores, so a real briefing id must survive that round trip.
+test('a scheduled briefing and alert are told apart by the identifiers the OS stores', async () => {
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
+  notifications.scheduleNotificationAsync.mockResolvedValue('scheduled');
+  const gateway = new ExpoNotificationGateway();
+  const base = { fireAt: '2026-10-12T05:00:00.000Z', title: 'Title', body: 'Body' };
+  await gateway.scheduleWeatherAlert({ ...base, identifier: morningBriefingId('2026-10-12') });
+  await gateway.scheduleWeatherAlert({ ...base, identifier: 'precipitation_onset:location:2026-10-12' });
+  const stored = notifications.scheduleNotificationAsync.mock.calls
+    .map(([request]) => ({ identifier: request.identifier as string }));
+  notifications.getAllScheduledNotificationsAsync.mockResolvedValue(stored);
+  notifications.cancelScheduledNotificationAsync.mockResolvedValue(undefined);
+
+  await gateway.cancelScheduledWeatherAlerts('morning_briefing');
+  expect(notifications.cancelScheduledNotificationAsync.mock.calls)
+    .toEqual([[stored[0].identifier]]);
+
+  notifications.addNotificationResponseReceivedListener.mockReturnValue({ remove: () => {} });
+  notifications.getLastNotificationResponse.mockReturnValue(null);
+  const listener = jest.fn();
+  gateway.subscribeToResponses(listener);
+  const [delivered] = notifications.addNotificationResponseReceivedListener.mock.calls[0];
+  for (const request of stored) delivered({ notification: { request } });
+  expect(listener.mock.calls).toEqual([['morning_briefing'], ['weather_alert']]);
 });
 
 test('native scheduling failures stay inside the adapter and are reported', async () => {
