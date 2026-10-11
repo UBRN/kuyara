@@ -29,8 +29,10 @@ değişir, kombin değişmez.
 **kuyara neden konumumu istiyor?**
 Yalnızca "Mevcut konumumu kullan" seçeneğini seçersen. Konum sadece bulunduğun yerin hava
 durumunu almak için kullanılır; bunun yerine şehir yazabilir ve izni hiç vermeyebilirsin.
-Konumun telefonundan çıkmadan önce yuvarlanır, kesin koordinatlar asla saklanmaz ve konum
-analitiğe hiç girmez. Yaklaşık konum yeterlidir.
+kuyara'nın sunucusu konumunu yaklaşık bir kilometreye yuvarlanmış olarak alır, kuyara kesin
+koordinatları asla saklamaz ve konum analitiğe hiç girmez. kuyara, bulunduğun yerin adını
+göstermek için telefonunun kendi harita hizmetine (iPhone'da Apple'ınkine) sorar. Yaklaşık konum
+yeterlidir.
 
 **Verilerimi nasıl silerim?**
 Uygulamayı silmek o cihazdaki verilerini kaldırır; yedekleme ayarlarına göre cihaz yedeğinde

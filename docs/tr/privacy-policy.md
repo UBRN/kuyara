@@ -7,7 +7,7 @@ ref: privacy-policy
 
 # kuyara gizlilik politikası
 
-Yürürlük tarihi: 8 Ekim 2026.
+Yürürlük tarihi: 11 Ekim 2026.
 
 kuyara, iOS ve Android için bir hava durumu ve kıyafet önerisi uygulamasıdır. Bu metin
 uygulamanın cihazından hangi verileri gönderdiğini, neden gönderdiğini ve bu konuda ne
@@ -202,9 +202,14 @@ istektir, senin hakkında tutulan bir kayıt değildir:
 - **Hava durumu.** Sunucu, seçtiğin konumu derecenin yüzde birine yuvarlanmış olarak
   (yaklaşık bir kilometre) ve saat dilimiyle birlikte alır, bununla tahmini bir hava
   durumu sağlayıcısından (Apple WeatherKit, Open-Meteo veya OpenWeather) çeker ve geri
-  döndürür. Kesin koordinatlar hiçbir zaman gönderilmez, saklanmaz veya loglanmaz.
+  döndürür. Sunucu kesin koordinatlarını hiçbir zaman almaz, saklamaz veya loglamaz.
   Şehir adı yazarak seçtiğin bir konum aynı sunucu üzerinden Open-Meteo'nun coğrafi
   kodlama hizmetiyle aranır.
+- **Yer adı.** Mevcut konumunu kullandığında uygulama, bulunduğun yerin adını telefonunun
+  kendi harita hizmetine (iPhone'da Apple'ınkine) sorar. Bu hizmet telefonunun bulduğu
+  konumu alır; Kesin Konum'u açmadıysan bu konum yaklaşıktır. Hizmet konumu kendi
+  gizlilik politikasına göre işler. Uygulama cihazında yuvarlanmış konumu ve yer adını
+  saklar, kesin konumu saklamaz.
 - **Öneriler.** Sunucu giyim tercihini, giyim stilini, seçtiysen stil özelliklerini,
   uygulama dilini, katalog sürümünü, gün varyantını, gün türünü, hava durumundan türetilen
   deterministik giyim gereksinimlerini ve kimlikleri, resmiyet düzeyleri, giysi türleri ve

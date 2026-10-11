@@ -7,7 +7,7 @@ ref: privacy-policy
 
 # kuyara privacy policy
 
-Effective date: 8 October 2026.
+Effective date: 11 October 2026.
 
 kuyara is a weather and outfit recommendation app for iOS and Android. This policy
 describes what data the app sends off your device, why, and what you can do about it.
@@ -198,9 +198,14 @@ calls weather and AI providers. This is a live request, not a record of you:
 
 - **Weather.** The server receives your chosen location rounded to a hundredth of a degree
   (roughly one kilometre) and its time zone, uses them to fetch the forecast from a
-  weather provider (Apple WeatherKit, Open-Meteo or OpenWeather), and returns it. Exact
-  coordinates are never sent, stored, or logged. A location you choose by typing a city
-  name is looked up through the same server with Open-Meteo's geocoding service.
+  weather provider (Apple WeatherKit, Open-Meteo or OpenWeather), and returns it. The
+  server never receives, stores, or logs your exact coordinates. A location you choose by
+  typing a city name is looked up through the same server with Open-Meteo's geocoding service.
+- **Place name.** When you use your current location, the app asks your phone's own map
+  service (Apple's, on iPhone) for the name of the place you are in. That service receives
+  the position your phone found, which is approximate unless you turned on Precise Location,
+  and handles it under its own privacy policy. The app stores the rounded location and the
+  place name on your device, never the exact position.
 - **Recommendations.** The server receives your clothing preference, dress style, optional
   style aesthetics, the app language, the catalog version, a day variant, the day type,
   deterministic clothing requirements derived from the weather, and catalog outfit options
