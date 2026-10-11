@@ -49,7 +49,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    '9870916c1e1153a70b3881e9d7b6cc00d712a90315b3c603a5e8f728bdbb5a05',
+    '11eacf9fc886bd9f6df66c3ead7776d63b9d816e1887b4791076bd0dc66f5009',
   );
 });
 
@@ -1288,4 +1288,70 @@ test('a one-piece excludes a top and a bottom and nothing else', () => {
 
 test('Today offers at most as many outfits as one AI request carries', () => {
   assert.equal(offeredOutfitLimit, aiV1OptionLimit);
+});
+
+// A stylist never sends some garments together: a summer piece with a winter one, track pants
+// with tailoring, a fleece with a skirt or a dress, shorts with boots, and a hoodie pulled over
+// a knit or a fleece. These are the pairs the weather grid kept showing; the list names them
+// here so that the composer's own table cannot quietly lose one.
+const incompatiblePairs = [
+  ['shorts', 'rain_boots'], ['shorts', 'weather_boots'], ['shorts', 'ankle_boots'],
+  ['sandals', 'parka'], ['sleeveless_top', 'coat'], ['shorts', 'fleece'],
+  ['fleece', 'long_skirt'], ['fleece', 'skirt'], ['fleece', 'dress'],
+  ['track_pants', 'shirt'], ['track_pants', 'blazer'], ['track_pants', 'loafers'],
+];
+const hoodieNeverOver = ['fleece', 'sweatshirt', 'sweater', 'cardigan'];
+
+function clashesOf(outfit) {
+  const ids = assignedOutfitGarments(outfit).map(({ garment }) => garment.garmentTypeId);
+  const clashes = incompatiblePairs
+    .filter(([left, right]) => ids.includes(left) && ids.includes(right))
+    .map((pair) => pair.join('+'));
+  const primary = outfit.body.kind === 'separates' ? outfit.body.primaryTop.garment.garmentTypeId : null;
+  if (outfit.midLayer?.garment.garmentTypeId === 'hoodie' && hoodieNeverOver.includes(primary)) {
+    clashes.push(`hoodie over ${primary}`);
+  }
+  return clashes;
+}
+
+const clashDays = {
+  freezing: { temperatureCelsius: -10, apparentTemperatureCelsius: -10, condition: 'clear',
+    precipitationProbability: 0, windSpeedMetersPerSecond: 2 },
+  warm_rain: { temperatureCelsius: 24, apparentTemperatureCelsius: 24, condition: 'rain',
+    precipitationProbability: 0.8, windSpeedMetersPerSecond: 2 },
+  hot_rain: { temperatureCelsius: 26, apparentTemperatureCelsius: 26, condition: 'rain',
+    precipitationProbability: 0.8, windSpeedMetersPerSecond: 2 },
+  cold_rain: { temperatureCelsius: 2, apparentTemperatureCelsius: 0, condition: 'rain',
+    precipitationProbability: 0.8, windSpeedMetersPerSecond: 6 },
+};
+
+test('no composed outfit wears an incompatible pair while three clean ones remain', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const [name, weather] of Object.entries(clashDays)) {
+      const { requirements, candidates } = composableForWeather(weather, {}, preference);
+      const valid = collectValidOutfits(requirements, candidates);
+      assert.equal(valid.status, 'composed', `${preference} ${name}`);
+      assert.ok(valid.outfits.length >= 3, `${preference} ${name}`);
+      assert.deepEqual([...new Set(valid.outfits.flatMap(clashesOf))], [], `${preference} ${name}`);
+    }
+  }
+});
+
+test('a day that dresses only in incompatible pairs keeps them rather than failing', () => {
+  // At 30 C in a thunderstorm the feet must stay dry and the legs must breathe, and the only
+  // men's bottom that breathes is shorts, so every men's outfit wears shorts with rain boots.
+  const weather = { temperatureCelsius: 30, apparentTemperatureCelsius: 30, condition: 'thunderstorm',
+    precipitationProbability: 0.9, windSpeedMetersPerSecond: 2 };
+  const { requirements, candidates } = composableForWeather(weather, {}, 'mens');
+  const offered = composeOutfitOptions(requirements, candidates, 0);
+  assert.equal(offered.status, 'composed');
+  assert.ok(offered.outfits.length >= 3);
+  assert.ok(offered.outfits.every((outfit) => clashesOf(outfit).length > 0));
+});
+
+test('a saved outfit wearing a pair the composer now keeps out still reads back', () => {
+  const { requirements, candidates } = composableForWeather(clashDays.freezing, {}, 'womens');
+  const saved = collectValidOutfits(requirements, candidates, { composesNew: false });
+  assert.equal(saved.status, 'composed');
+  assert.ok(saved.outfits.some((outfit) => clashesOf(outfit).includes('fleece+long_skirt')));
 });
