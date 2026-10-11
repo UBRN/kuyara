@@ -561,8 +561,11 @@ function thermalOverProtectionPenalty(
   );
   const bodyStrength = side.bodyStrength;
 
+  // With no rung every warmth is unasked for, and the charge keeps growing past a light
+  // jacket's, five points a rung to the cap: stopping at 20 tied a coat over a shirt with the
+  // light jacket, so a mild windy day offered the coat.
   if (!requirement) {
-    return bodyStrength <= 1 ? 0 : bodyStrength === 2 ? 10 : 20;
+    return bodyStrength <= 1 ? 0 : bodyStrength === 2 ? 10 : Math.min(20 + (bodyStrength - 3) * 5, 30);
   }
 
   // Warmth the day did not ask for, counted in the two places it can sit. The stack over the

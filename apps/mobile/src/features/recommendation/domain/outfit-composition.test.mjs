@@ -570,17 +570,23 @@ test('outfit over-insulation penalty is bounded and does not count footwear warm
     outfitCompositionFailureCodes.length);
 });
 
+// With no thermal requirement every rung of warmth is unasked for, and the charge keeps
+// growing past a light jacket's: a coat over a shirt and trousers costs more than the light
+// jacket, so a mild windy day is not offered a coat for a tie.
 test('outfit over-insulation starts above body strength one', () => {
   const requirements = clothingRequirements();
   const cases = [
-    ['long_sleeve_t_shirt', 1, 0, 50],
-    ['sweater', 2, 10, 40],
+    ['long_sleeve_t_shirt', 'shorts', 1, 0, 50],
+    ['sweater', 'shorts', 2, 10, 40],
+    ['sweater', 'jeans', 3, 20, 30],
+    ['sweater', 'leggings', 4, 25, 25],
+    ['fleece', 'leggings', 5, 30, 20],
   ];
 
-  for (const [top, bodyStrength, penaltyPoints, score] of cases) {
+  for (const [top, bottom, bodyStrength, penaltyPoints, score] of cases) {
     const result = composeOutfit(requirements, [
       catalogCandidate(requirements, top),
-      catalogCandidate(requirements, 'shorts'),
+      catalogCandidate(requirements, bottom),
       catalogCandidate(requirements, 'sandals'),
     ]);
 
@@ -1070,6 +1076,32 @@ test('strong wind and a thunderstorm carry no umbrella, and a calm snow day stil
     ]) {
       assert.deepEqual([...handhelds(weather, preference)], expected,
         `${preference} ${weather.condition} ${weather.temperatureCelsius} C ${weather.windSpeedMetersPerSecond} m/s`);
+    }
+  }
+});
+
+// Strong wind on a hot day is no reason for a wind jacket, and on a mild one no reason for a
+// coat. The light, unsealed layers a calm hot day may offer (a blazer, an overshirt) stay.
+test('strong wind puts no wind jacket on a hot day and no coat on a mild one', () => {
+  const windy = (temperatureCelsius) => ({
+    temperatureCelsius,
+    apparentTemperatureCelsius: temperatureCelsius,
+    condition: 'clear',
+    precipitationProbability: 0,
+    windSpeedMetersPerSecond: 10,
+  });
+  for (const preference of ['womens', 'mens']) {
+    for (const temperatureCelsius of [28, 32, 38]) {
+      const sealed = offeredForWeather(windy(temperatureCelsius), {}, preference)
+        .flatMap(({ outerLayer }) => outerLayer?.garment.properties.windProtection === 'wind_resistant'
+          ? [outerLayer.garment.garmentTypeId] : []);
+      assert.deepEqual(sealed, [], `${preference} ${temperatureCelsius} C`);
+    }
+    for (const temperatureCelsius of [18, 20, 22]) {
+      const heavy = offeredForWeather(windy(temperatureCelsius), {}, preference)
+        .flatMap(({ outerLayer }) => outerLayer?.garment.properties.thermalLevel === 'high'
+          ? [outerLayer.garment.garmentTypeId] : []);
+      assert.deepEqual(heavy, [], `${preference} ${temperatureCelsius} C`);
     }
   }
 });

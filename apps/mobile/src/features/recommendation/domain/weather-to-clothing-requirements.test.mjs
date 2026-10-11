@@ -575,7 +575,11 @@ test('wind boundaries do not double-promote thermal protection', () => {
 
   for (const [wind, minimum, priority] of cases) {
     const result = deriveClothingRequirements(snapshot({
-      current: { windSpeedMetersPerSecond: wind },
+      current: {
+        temperatureCelsius: 14,
+        apparentTemperatureCelsius: 14,
+        windSpeedMetersPerSecond: wind,
+      },
     }), observedAt);
     const requirement = findRequirement(result, 'wind_protection');
     assert.equal(requirement?.minimum ?? null, minimum);
@@ -593,6 +597,33 @@ test('wind boundaries do not double-promote thermal protection', () => {
   }), observedAt);
   assert.equal(findRequirement(coldAndWindy, 'thermal').minimum, 'moderate');
   assert.equal(findRequirement(coldAndWindy, 'wind_protection').priority, 'mandatory');
+});
+
+// Strong wind makes a wind-resistant outer layer mandatory only on a day that also asks for
+// warmth. From 18 C up it stays an optional, scored wish, and from 28 C mandatory
+// breathability keeps a sealed jacket off the body.
+test('strong wind is mandatory only while the day asks for warmth', () => {
+  const cases = [
+    [4, 'mandatory'],
+    [17.999, 'mandatory'],
+    [18, 'optional'],
+    [21, 'optional'],
+    [30, 'optional'],
+    [38, 'optional'],
+  ];
+
+  for (const [temperature, priority] of cases) {
+    const result = deriveClothingRequirements(snapshot({
+      current: {
+        temperatureCelsius: temperature,
+        apparentTemperatureCelsius: temperature,
+        windSpeedMetersPerSecond: 10,
+      },
+    }), observedAt);
+    const wind = findRequirement(result, 'wind_protection');
+    assert.equal(wind.priority, priority, `${temperature} C`);
+    assert.deepEqual(wind.reasonCodes, ['wind_strong'], `${temperature} C`);
+  }
 });
 
 test('precipitation probability boundaries map to optional and mandatory body protection', () => {

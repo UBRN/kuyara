@@ -493,12 +493,16 @@ export function deriveClothingRequirements(
       windSpeedMetersPerSecond,
     ),
   );
+  // Strong wind makes a wind-resistant outer layer mandatory only on a day whose cold side
+  // is mandatory too. From 18 up nothing asks for warmth, and a mandatory shell put a jacket
+  // on a 38 C day and a coat on a 20 C one; there it stays an optional, scored wish.
   if (maximumWind >= windyMetersPerSecond) {
     const strongWind = maximumWind >= veryWindyMetersPerSecond;
+    const coldSideMandatory = coldExposure < chillyCelsius && !coldDemoted;
     candidates.push({
       kind: 'wind_protection',
       minimum: 'wind_resistant',
-      priority: strongWind ? 'mandatory' : 'optional',
+      priority: strongWind && coldSideMandatory ? 'mandatory' : 'optional',
       reasonCodes: [strongWind ? 'wind_strong' : 'wind_elevated'],
     });
   }
