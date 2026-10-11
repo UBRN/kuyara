@@ -49,6 +49,31 @@ export function dotlessSpellings(query: string): string[] {
   return spellings.slice(0, maxSpellingRetries);
 }
 
+// A query typed with dotless ı finds nothing upstream ("ıstanbul"), while the same word with a
+// plain i resolves; the one retry swaps every ı back.
+const dotfulSpelling = (query: string) => (query.includes('ı') ? [query.replaceAll('ı', 'i')] : []);
+const turkishLetters = /[çğıöşüÇĞİÖŞÜ]/;
+const plainAscii = /^[\x00-\x7f]*$/;
+
+/**
+ * The spellings worth one more upstream call, in order. A typed query that already carries
+ * Turkish letters and returned two places is understood and spends nothing. A full first page
+ * normally spends nothing either, except a Turkish request whose page holds no place in Türkiye
+ * for a plain ASCII query: "agri" fills the page with Agri in Italy and hides Ağrı, so one call
+ * with the all-ı spelling follows. `preferTurkey` marks that case (Türkiye hits go first).
+ */
+function spellingRetries(request: PlaceSearchV1Request, firstPage: RawPlace[]) {
+  const { query, limit, language } = request;
+  const candidates = [...dotfulSpelling(query), ...dotlessSpellings(query)];
+  const preferTurkey = language === 'tr' && plainAscii.test(query) && !firstPage.some((place) => place.country_code === 'TR');
+  if (firstPage.length >= limit) return { spellings: preferTurkey ? candidates.slice(-1) : [], preferTurkey };
+  const understood = turkishLetters.test(query) && firstPage.length >= 2;
+  return { spellings: understood ? [] : candidates, preferTurkey };
+}
+
+// Province names repeat the place ("İstanbul, İstanbul"); compare without case or the dotted/dotless I.
+const foldName = (name: string) => name.toLocaleLowerCase('tr').replaceAll('ı', 'i');
+
 /**
  * A search answer. `degraded` marks one whose spelling top-up failed: it is a valid answer for
  * this request but not worth keeping, so the handler reads it before the contract strips it.
@@ -80,27 +105,31 @@ export class OpenMeteoPlaceProvider {
   }
 
   private async searchWithin(request: PlaceSearchV1Request, signal: AbortSignal): Promise<PlaceSearchAnswer> {
-    const valid = await this.fetchPlaces(request, request.query, signal);
+    let valid = await this.fetchPlaces(request, request.query, signal);
     // The typed answer stays first and in upstream order; a spelling retry only appends ids it
     // did not contain, under the same deadline. A retry that fails (timeout, upstream error,
     // unreadable body) is a lost top-up, not a lost answer: what the typed query returned stands.
     let degraded = false;
-    if (valid.length < request.limit) {
-      for (const spelling of dotlessSpellings(request.query)) {
-        let extra: RawPlace[];
-        try {
-          extra = await this.fetchPlaces(request, spelling, signal);
-        } catch {
-          degraded = true;
-          break;
-        }
-        const seen = new Set(valid.map((place) => place.id));
-        for (const place of extra) {
-          if (valid.length >= request.limit) break;
-          if (!seen.has(place.id)) valid.push(place);
-        }
-        if (valid.length >= request.limit) break;
+    const { spellings, preferTurkey } = spellingRetries(request, valid);
+    const extras: RawPlace[] = [];
+    const isTurkey = (place: RawPlace) => place.country_code === 'TR';
+    for (const spelling of spellings) {
+      try {
+        extras.push(...await this.fetchPlaces(request, spelling, signal));
+      } catch {
+        degraded = true;
+        break;
       }
+      const seen = new Set(valid.map((place) => place.id));
+      const unseen = extras.filter((place) => !seen.has(place.id));
+      if (preferTurkey ? unseen.some(isTurkey) : valid.length + new Set(unseen.map((place) => place.id)).size >= request.limit) break;
+    }
+    if (extras.length > 0) {
+      const ordered = preferTurkey
+        ? [...extras.filter(isTurkey), ...valid, ...extras.filter((place) => !isTurkey(place))]
+        : [...valid, ...extras];
+      const seen = new Set<number>();
+      valid = ordered.filter((place) => !seen.has(place.id) && seen.add(place.id)).slice(0, request.limit);
     }
     // Rows the user could not tell apart (same name, same province and country) carry the
     // district too; every other row keeps the short region it always had.
@@ -111,11 +140,12 @@ export class OpenMeteoPlaceProvider {
       const parts = (...candidates: (string | undefined)[]) =>
         [...new Set(candidates.filter(Boolean))].join(', ');
       const country = place.country ?? place.country_code;
+      const admin1 = country && place.admin1 && foldName(place.admin1) === foldName(place.name) ? undefined : place.admin1;
       const district = withDistrict && place.admin2 !== place.name ? place.admin2 : undefined;
       return [
-        parts(district, place.admin1, country),
-        parts(place.admin1, country),
-        parts(place.admin1),
+        parts(district, admin1, country),
+        parts(admin1, country),
+        parts(admin1),
         parts(country),
       ].find((region) => region.length > 0 && region.length <= placeSearchRegionMaxLength) ?? '';
     };
@@ -137,7 +167,8 @@ export class OpenMeteoPlaceProvider {
 
   private async fetchPlaces(request: PlaceSearchV1Request, name: string, signal: AbortSignal): Promise<RawPlace[]> {
     const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
-    url.searchParams.set('name', name);
+    // A hyphen is a space upstream ("Saint-Petersburg" finds nothing, "Saint Petersburg" does).
+    url.searchParams.set('name', name.replaceAll('-', ' ').trim() || name);
     url.searchParams.set('count', String(request.limit));
     url.searchParams.set('language', request.language);
     url.searchParams.set('format', 'json');

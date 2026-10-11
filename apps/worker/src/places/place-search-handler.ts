@@ -31,11 +31,11 @@ export const placeSearchRequestMaxBytes = 1024;
 // Open-Meteo allowance the weather chain also spends.
 const placeSearchCacheMaxAgeSeconds = 86_400;
 // Bump when the mapping from a provider answer to the response changes, so older entries miss.
-const placeSearchCacheVersion = 1;
+const placeSearchCacheVersion = 2;
 
 /**
  * The shared-cache key: every request input that reaches the provider (the query as the
- * provider sends it, the limit and the language), hashed under a synthetic host. The request
+ * user typed it, which the provider may fold or respell, the limit and the language), hashed under a synthetic host. The request
  * carries no coordinates, and nothing about the caller enters the key.
  */
 async function buildCacheRequest({ query, limit, language }: PlaceSearchV1Request): Promise<Request> {

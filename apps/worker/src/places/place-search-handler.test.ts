@@ -39,7 +39,7 @@ test('search maps upstream fields, coarse coordinates and attribution with one b
   assert.equal(result.status, 200);
   assert.equal(result.headers.get('cache-control'), 'no-store');
   assert.equal(result.headers.get('content-type'), 'application/json; charset=utf-8');
-  assert.deepEqual(await result.json(), { data: { places: [{ id: 'place.311046', displayName: 'İzmir', region: 'İzmir, Türkiye', latitudeE2: 3841, longitudeE2: 2714, timeZone: 'Europe/Istanbul' }], attribution: ['open-meteo', 'geonames'] } });
+  assert.deepEqual(await result.json(), { data: { places: [{ id: 'place.311046', displayName: 'İzmir', region: 'Türkiye', latitudeE2: 3841, longitudeE2: 2714, timeZone: 'Europe/Istanbul' }], attribution: ['open-meteo', 'geonames'] } });
   assert.equal(calls, 1);
 });
 test('search accepts empty results and maps a missing time zone without inventing one', async () => {
