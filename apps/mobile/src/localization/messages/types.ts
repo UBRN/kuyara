@@ -662,7 +662,7 @@ export type AppMessages = Readonly<{
      */
     offer: Readonly<{
       sentences: Readonly<Record<Exclude<WeatherAlertOfferReason, 'morning_briefing'>, string>>;
-      /** `time` arrives formatted for the device's 12 or 24-hour clock. */
+      /** `time` arrives as the spoken clock time, which in Turkish already says "saat". */
       morningBriefingSentence: (time: string) => string;
       acceptAction: string;
       dismissAction: string;
@@ -672,7 +672,7 @@ export type AppMessages = Readonly<{
      */
     morningBriefing: Readonly<{
       toggleLabel: string;
-      /** `time` arrives formatted for the device's 12 or 24-hour clock. */
+      /** `time` arrives as the spoken clock time, which in Turkish already says "saat". */
       hint: (time: string) => string;
       title: string;
       /** `range` arrives formatted ("14–22°C"); the whole day is covered. */

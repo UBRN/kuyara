@@ -6,7 +6,7 @@ import { ProbeLoadingOverlay } from '@/features/profile/presentation/probe-loadi
 import type { AiProbeUiState } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import { useLocalization } from '@/localization/use-messages';
-import { formatClockTime } from '@/presentation/format-clock-time';
+import { formatNaturalClockTime } from '@/presentation/format-clock-time';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type StatusSymbol = Extract<IconName, 'statusRunning' | 'statusOff' | 'statusUnavailable'>;
@@ -57,7 +57,7 @@ export function ServiceProvidersScreen({
         ? copy.aiStatusChecking
         : aiStatus.kind === 'ok'
           ? copy.aiStatusResultOk(
-              formatClockTime(aiStatus.checkedAt, language, hour12),
+              formatNaturalClockTime(aiStatus.checkedAt, language, hour12),
             )
           : aiStatus.kind === 'unavailable'
             ? copy.aiStatusResultUnavailable

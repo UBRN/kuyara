@@ -72,7 +72,12 @@ import {
   wardrobeDayWindow,
 } from '@/features/weather/domain/wardrobe-day';
 import type { TemperatureUnit } from '@/localization/device-locale';
-import { formatClockTime, formatLastUpdated } from '@/presentation/format-clock-time';
+import {
+  formatClockTime,
+  formatLastUpdated,
+  formatNaturalClockTime,
+  formatSpokenClockTime,
+} from '@/presentation/format-clock-time';
 import {
   formatTemperature,
   formatTemperatureValue,
@@ -254,8 +259,8 @@ export function coverageWindowParts(
   return {
     day: zonedDateKey(start, timeZone) === zonedDateKey(now, timeZone)
       ? null : formatWindowDay(start, language, timeZone),
-    start: formatClockTime(start, language, hour12, timeZone),
-    end: formatClockTime(window.end, language, hour12, timeZone),
+    start: formatNaturalClockTime(start, language, hour12, timeZone),
+    end: formatNaturalClockTime(window.end, language, hour12, timeZone),
   };
 }
 
@@ -304,8 +309,8 @@ export function eveningLaterReadyLine(
   if (!readyKey || !isEveningDressingDayKey(readyKey) ||
       readyKey !== wardrobeDayWindow(new Date(now).toISOString(), departure.timeZone)?.key) return null;
   return getMessages(language).today.laterReady({
-    departure: formatDepartureTime(departure.departureAt, language, hour12, departure.timeZone),
-    ready: formatDepartureTime(departure.updatedAt, language, hour12, departure.timeZone),
+    departure: formatNaturalClockTime(departure.departureAt, language, hour12, departure.timeZone),
+    ready: formatSpokenClockTime(departure.updatedAt, language, hour12, departure.timeZone),
   });
 }
 
@@ -325,7 +330,8 @@ const dayInsightSkyKeys = {
 /**
  * The one whole sentence for an insight. A modifier and a period each select a different key
  * rather than adding a clause, so no sentence is ever assembled from translated fragments,
- * and every hour arrives as one token the screen's own time helper has already formatted.
+ * and every hour arrives as one token the screen's own time helper has already formatted:
+ * `at` for a precipitation window, `spokenAt` for a sentence that opens with the time (Turkish "saat").
  * The period names itself: the dressing day's second half is the evening, which begins at
  * 18:00 whatever the sun is doing, so the sentence never says night over a lit sky.
  */
@@ -333,6 +339,7 @@ function dayInsightSentence(
   insight: DayInsight,
   copy: TodayMessages['dayInsight'],
   at: (value: string) => string,
+  spokenAt: (value: string) => string,
 ): string | null {
   switch (insight.kind) {
     case 'wet_all_day':
@@ -350,11 +357,11 @@ function dayInsightSentence(
       return null;
     }
     case 'heat':
-      return insight.level === 'very_hot' ? copy.veryHot(at(insight.atHour)) : copy.hot(at(insight.atHour));
+      return insight.level === 'very_hot' ? copy.veryHot(spokenAt(insight.atHour)) : copy.hot(spokenAt(insight.atHour));
     case 'cold':
       return insight.level === 'freezing'
-        ? copy.freezing(at(insight.atHour))
-        : copy.chilly(at(insight.atHour));
+        ? copy.freezing(spokenAt(insight.atHour))
+        : copy.chilly(spokenAt(insight.atHour));
     case 'windy':
       return copy.sentences[insight.level === 'very_windy' ? 'veryWindy' : 'windy'];
     default: {
@@ -386,7 +393,8 @@ export function runwayWeather(
     insight: insight === null ? null : dayInsightSentence(
       insight,
       getMessages(language).today.dayInsight,
-      (value) => formatClockTime(value, language, hour12, weather.timeZone),
+      (value) => formatNaturalClockTime(value, language, hour12, weather.timeZone),
+      (value) => formatSpokenClockTime(value, language, hour12, weather.timeZone),
     ),
   };
 }
@@ -749,7 +757,8 @@ function createLoadedPresentation(
   const deterministicDayInsight = insight === null ? null : dayInsightSentence(
     insight,
     copy.dayInsight,
-    (value) => formatClockTime(value, language, hour12, weather.timeZone),
+    (value) => formatNaturalClockTime(value, language, hour12, weather.timeZone),
+    (value) => formatSpokenClockTime(value, language, hour12, weather.timeZone),
   );
   const acceptedInsight = snapshot.recommendation.status === 'recommended'
     && snapshot.recommendation.insightLocale === language
@@ -774,7 +783,7 @@ function createLoadedPresentation(
       new Date(now).toISOString(), snapshot.coverageEnd)
     : null;
   const driftCaption = drift
-    ? copy.drift[drift.kind](formatClockTime(drift.at, language, hour12, weather.timeZone))
+    ? copy.drift[drift.kind](formatSpokenClockTime(drift.at, language, hour12, weather.timeZone))
     : null;
   // Cold drift already says the rest of the window needs more than a layer.
   const coolSpell = !day && shown && snapshot.recommendation.status === 'recommended' && !choosing &&
@@ -783,7 +792,7 @@ function createLoadedPresentation(
       new Date(now).toISOString(), shown)
     : null;
   const coolSpellCaption = coolSpell
-    ? copy.coolSpell(formatClockTime(coolSpell.at, language, hour12, weather.timeZone))
+    ? copy.coolSpell(formatSpokenClockTime(coolSpell.at, language, hour12, weather.timeZone))
     : null;
   const isStale = snapshot.freshness === 'stale';
   const conditionCode = day?.condition ?? current.condition;

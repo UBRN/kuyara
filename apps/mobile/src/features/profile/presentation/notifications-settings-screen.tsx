@@ -6,7 +6,7 @@ import type { NotificationPermissionState } from '@/features/notifications/data/
 import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
 import { defaultQuietHours } from '@/features/notifications/domain/weather-alerts';
 import { useLocalization } from '@/localization/use-messages';
-import { formatWallClockTime } from '@/presentation/format-clock-time';
+import { formatNaturalClockTime, formatSpokenClockTime, formatWallClockTime } from '@/presentation/format-clock-time';
 
 // ADR 0030 section 5 and ADR 0032 section 4: the first group is the "Allow notifications"
 // toggle tinted `brandPrimary`, plus a footer whose text changes and gains an "Open
@@ -79,8 +79,8 @@ export function NotificationsSettingsScreen({
             messages.notifications.introduction,
             messages.notifications.leadTimeHint,
             messages.notifications.quietHoursHint({
-              start: formatWallClockTime(defaultQuietHours.start, language, hour12),
-              end: formatWallClockTime(defaultQuietHours.end, language, hour12),
+              start: formatWallClockTime(defaultQuietHours.start, language, hour12, formatNaturalClockTime),
+              end: formatWallClockTime(defaultQuietHours.end, language, hour12, formatNaturalClockTime),
             }),
           ].join(' ')}
         testID="settings-notifications-toggle-group">
@@ -106,7 +106,7 @@ export function NotificationsSettingsScreen({
         footer={failedToggle === 'morningBriefing'
           ? messages.settings.saveError
           : messages.notifications.morningBriefing.hint(
-            formatWallClockTime({ hour: morningBriefingLocalHour, minute: 0 }, language, hour12),
+            formatWallClockTime({ hour: morningBriefingLocalHour, minute: 0 }, language, hour12, formatSpokenClockTime),
           )}
         testID="settings-morning-briefing-group">
         <NativeListRow

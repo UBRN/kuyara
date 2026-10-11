@@ -71,19 +71,22 @@ export function formatSpokenClockTime(
  * A fixed wall-clock time (quiet hours, the morning briefing's hour) written the way the
  * device's clock is set, as every alert body writes its crossing time. It names no instant,
  * so it is formatted in UTC from the hour and minute themselves and no zone can move it.
+ * A sentence passes the natural or spoken formatter in place of the clock's own form.
  */
 export function formatWallClockTime(
   { hour, minute }: Readonly<{ hour: number; minute: number }>,
   language: SupportedLanguage,
   hour12: boolean,
+  format: typeof formatClockTime = formatClockTime,
 ): string {
-  return formatClockTime(Date.UTC(2000, 0, 1, hour, minute), language, hour12, 'UTC');
+  return format(Date.UTC(2000, 0, 1, hour, minute), language, hour12, 'UTC');
 }
 
 /**
  * When something was last updated, read against the viewer's own clock and calendar: the
  * device time zone, the time alone on the viewer's current local day, and the locale's short
- * date and time otherwise, so "06:05" never reads as minutes old.
+ * date and time otherwise, so "06:05" never reads as minutes old. The line is a sentence, so
+ * Turkish on a 12-hour clock names the part of the day ("akşam 7:05").
  */
 export function formatLastUpdated(
   instant: string,
@@ -93,7 +96,11 @@ export function formatLastUpdated(
 ): string {
   const updated = new Date(instant);
   if (updated.toDateString() === new Date(now).toDateString()) {
-    return formatClockTime(instant, language, hour12);
+    return formatNaturalClockTime(instant, language, hour12);
+  }
+  if (language === 'tr' && hour12) {
+    const date = dateTimeFormat(localeTag(language), { dateStyle: 'short' }).format(updated);
+    return `${date} ${formatNaturalClockTime(instant, language, hour12)}`;
   }
   return dateTimeFormat(localeTag(language), { dateStyle: 'short', timeStyle: 'short', hour12 }).format(updated);
 }
