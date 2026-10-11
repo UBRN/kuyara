@@ -27,10 +27,12 @@ place or your clothing preferences change, and when you ask the stylist again. W
 weather updates, the day's note changes, not the outfit.
 
 **Why does kuyara ask for my location?**
-Only if you choose "Use my current location". It is used solely to fetch the weather where
-you are, and you can type a city instead and never grant the permission. Your location is
-rounded before it leaves your phone, exact coordinates are never stored, and location never
-goes into analytics. Approximate location is enough.
+Only if you choose "Use my current location". It is used only to fetch the weather where
+you are and to show the name of that place, and you can type a city instead and never grant
+the permission. kuyara's server gets your location rounded to about a kilometre, kuyara never
+stores exact coordinates, and location never goes into analytics. To show the name of the
+place you are in, kuyara asks your phone's own map service (Apple's, on iPhone), which
+receives the position your phone found. Approximate location is enough.
 
 **How do I delete my data?**
 Deleting the app removes its data from that device; a copy may remain in your device backup,
