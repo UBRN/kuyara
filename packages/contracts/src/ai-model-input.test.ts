@@ -298,15 +298,13 @@ test('on_the_move admits casual separates only for callers that send a day kind'
   );
 });
 
-test('on_the_move beyond sneakers needs active separates', () => {
+test('on_the_move beyond sneakers needs separates without flats or dress shoes', () => {
   const casual = (garments: OptionGarment[]) => option('opt-move', garments);
   const top = garment('primary_top', 't_shirt', 'base');
   const active = casual([top, garment('bottom', 'jeans'), garment('footwear', 'sandals', null)]);
   assert.equal(meetsArchetypePrecondition('on_the_move', active, 'weekday'), true);
-  for (const bottom of ['skirt', 'long_skirt'] as const) {
-    assert.equal(meetsArchetypePrecondition('on_the_move',
-      casual([top, garment('bottom', bottom), garment('footwear', 'sandals', null)]), 'weekday'), false);
-  }
+  assert.equal(meetsArchetypePrecondition('on_the_move',
+    casual([top, garment('bottom', 'skirt'), garment('footwear', 'sandals', null)]), 'weekday'), true);
   for (const shoe of ['ballet_flats', 'closed_shoes'] as const) {
     assert.equal(meetsArchetypePrecondition('on_the_move',
       casual([top, garment('bottom', 'jeans'), garment('footwear', shoe, null)]), 'weekday'), false);

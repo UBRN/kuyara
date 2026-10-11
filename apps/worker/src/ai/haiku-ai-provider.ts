@@ -25,7 +25,7 @@ const recommendationMaxTokens = 256;
 
 /**
  * The longest prompt the daily limit is priced for, in characters: the largest v2 prompt
- * measured from the app's own composition is 18,259, a weekend whose warm morning turns to
+ * measured from the app's own composition is 18,249, a weekend whose warm morning turns to
  * wind and drizzle by the afternoon (a weekend is the longest, because `weekend_relaxed` stays
  * in the eligible lists, and both ends of the wardrobe stay eligible), rounded up to 18,300.
  * The daily cap refuses a longer prompt before counting or sending it, so a rarer day that

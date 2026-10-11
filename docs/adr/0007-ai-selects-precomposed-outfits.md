@@ -158,7 +158,7 @@ insight sentence is the one visible prose exception.
 | `snow_day` | Karlı Gün | Snow Day | footwear traction `enhanced`, on a snow or sleet day |
 | `wind_guard` | Rüzgara Karşı | Wind Guard | a wind-resistant garment, on a day with a wind-protection requirement |
 | `light_and_airy` | Hafif ve Ferah | Light and Airy | no outer layer, breathability `high`, on a day with no mandatory insulation band at `moderate` or above |
-| `on_the_move` | Hareketli Gün | On the Move | footwear `sneakers`, or, when the request carries a day kind, formality `casual` separates with no skirt, long skirt, ballet flats or dress shoes |
+| `on_the_move` | Hareketli Gün | On the Move | footwear `sneakers`, or, when the request carries a day kind, formality `casual` separates with no ballet flats or dress shoes |
 | `in_between` | Değişken Hava | In-Between | mid layer present, no outer layer |
 
 Twelve is deliberate. A longer list lowers selection quality in a small model

@@ -120,7 +120,6 @@ export function aiModelInputFromRequest(request: AiRecommendV1Request): AiModelI
   };
 }
 
-const onTheMoveExcludedBottoms = new Set<string>(['skirt', 'long_skirt']);
 const onTheMoveExcludedFootwear = new Set<string>(['ballet_flats', 'closed_shoes']);
 
 function garmentType(option: AiOption, slot: AiOptionGarment['slot']) {
@@ -178,13 +177,12 @@ export function meetsArchetypePrecondition(
       // Builds 8 and 9 accept this label only for sneakers and send no dayKind. Its
       // presence identifies a newer caller whose matching gate also accepts casual
       // separates that can move, which a hot dry day needs: its pool is casual in sandals
-      // throughout. A skirt, a dress, a flat or a dress shoe is not on the move. Loafers
-      // and ankle boots keep it for now: on mild weekdays they carry most casual outfits,
-      // and withholding it there leaves too many trios without three distinct labels.
+      // throughout. A dress, a flat or a dress shoe is not on the move. Skirts, loafers and
+      // ankle boots keep it for now: they carry most casual outfits on some days, and
+      // withholding it there leaves too many trios without three distinct labels.
       return garmentType(option, 'footwear') === 'sneakers'
         || (option.formality === 'casual' && dayKind !== undefined
           && garmentType(option, 'one_piece') === undefined
-          && !onTheMoveExcludedBottoms.has(garmentType(option, 'bottom') ?? '')
           && !onTheMoveExcludedFootwear.has(garmentType(option, 'footwear') ?? ''));
     case 'in_between':
       return option.traits.hasMidLayer && !option.traits.hasOuterLayer;

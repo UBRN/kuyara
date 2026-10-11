@@ -1899,7 +1899,7 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
 
   // The grid sends the day's requirements, so the three weather archetypes leave the lists
   // of the days that contradict them.
-  assert.equal(promptCharacters, 17_942);
+  assert.equal(promptCharacters, 17_902);
   const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
   assert.equal(inputTokens, 4_500);
   const attemptNeurons = Math.ceil(

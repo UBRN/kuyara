@@ -21,7 +21,7 @@ import { completeInsightSentenceSchema } from './insight-sentence.ts';
  * regenerated instead of being handed to a client whose own gate would reject it. The
  * thirty day TTL makes this the only way those entries retire. Version 4 withholds
  * `office_ready` on a weekend, `layered_warmth` on a day that is not cold, and `on_the_move`
- * from a casual skirt, dress, flat or dress shoe.
+ * from a casual dress, flat or dress shoe.
  */
 const AI_GATE_VERSION = 4;
 // One prompt version per route, because only v2 carries the sentence instruction. Bump a
