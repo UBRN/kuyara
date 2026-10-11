@@ -251,7 +251,8 @@ candidates are beta, all wrap the same platform API, and a local module keeps th
 under the repository's own review.
 
 **Wait for the iOS 27 model APIs, including Private Cloud Compute execution.** Deferred,
-not rejected. Adopting them would raise the deployment target.
+not rejected. They could run behind an iOS 27 availability check with iOS 26.0 kept as the
+minimum; adopting them needs a new decision that replaces the red line on iOS 27-only APIs.
 
 ## Out of scope
 
