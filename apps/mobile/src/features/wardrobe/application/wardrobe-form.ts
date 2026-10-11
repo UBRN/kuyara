@@ -208,27 +208,39 @@ export type WardrobePhraseProblem =
 
 export type WardrobePhraseFill =
   | Readonly<{ kind: 'filled'; garmentType: GarmentType; values: WardrobeFormValues; colorFilled: boolean }>
-  | Readonly<{ kind: 'not-understood'; reason: WardrobePhraseProblem }>;
+  | Readonly<{ kind: 'not-understood'; reason: WardrobePhraseProblem; choices: readonly GarmentType[] }>;
 
 /**
  * The add form read from a phrase (ADR 0042 section 2): the matched type, when the clothing
- * preference offers it, and the palette colour when the phrase names one. The name takes the
- * phrase only while the person has not written one: it is empty, or still the name an earlier
- * phrase filled (`phraseName`). A blank phrase asks nothing and gives `null`. Nothing is saved.
+ * preference offers it, and the palette colour when the phrase names one. A word for several
+ * types offers, as `choices`, those the preference offers, in catalog order; `chosenTypeId` is
+ * the one the person chose, and fills the form as a match would. The name takes the phrase only
+ * while the person has not written one: it is empty, or still the name an earlier phrase filled
+ * (`phraseName`). A blank phrase asks nothing and gives `null`. Nothing is saved.
  */
 export function fillWardrobeFormFromPhrase(
   values: WardrobeFormValues,
   phrase: string,
   clothingPreference: ClothingPreference | null,
   phraseName: string | null,
+  chosenTypeId: GarmentTypeId | null = null,
 ): WardrobePhraseFill | null {
   const typed = phrase.trim();
   if (typed === '') return null;
-  const match = matchClosetPhrase(typed);
-  if (match.kind === 'not-understood') return match;
-  const garmentType = listSelectableGarmentTypes(clothingPreference)
-    .find(({ typeId }) => typeId === match.garmentTypeId);
-  if (!garmentType) return { kind: 'not-understood', reason: 'not-offered' };
+  const read = matchClosetPhrase(typed);
+  const offered = listSelectableGarmentTypes(clothingPreference);
+  const match: ClosetPhraseMatch = read.kind === 'not-understood' && read.reason === 'ambiguous' &&
+    chosenTypeId !== null && read.candidates.includes(chosenTypeId)
+    ? { kind: 'matched', garmentTypeId: chosenTypeId, colorChoice: read.colorChoice }
+    : read;
+  if (match.kind === 'not-understood') {
+    const choices = match.reason === 'ambiguous'
+      ? offered.filter(({ typeId }) => match.candidates.includes(typeId))
+      : [];
+    return { kind: 'not-understood', reason: match.reason, choices };
+  }
+  const garmentType = offered.find(({ typeId }) => typeId === match.garmentTypeId);
+  if (!garmentType) return { kind: 'not-understood', reason: 'not-offered', choices: [] };
   const named = values.name.trim() === '' || values.name === phraseName ? { ...values, name: typed } : values;
   const filled = selectWardrobeGarmentType(named, garmentType.typeId);
   return match.colorChoice

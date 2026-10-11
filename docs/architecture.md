@@ -108,7 +108,7 @@ An owned item's effective value is its stored override over the current catalog 
 
 ADR 0005 governs recommendation assembly: neither resolved owned items nor wanted items become candidates.
 
-`matchClosetPhrase` (`features/wardrobe/domain/closet-phrase.ts`) reads a typed or dictated phrase into a catalog garment type id and a palette option id, or a closed not-understood reason ([ADR 0042](adr/0042-siri-outfit-card-and-closet-add-by-phrase.md)). It is a pure domain function over its own Turkish and English vocabulary, with no SQLite, React, network, clock or AI; its labelled phrase suite and a check that every catalog name matches its own type lock it. Its one caller is the add form's application layer (`fillWardrobeFormFromPhrase`), which also applies `listSelectableGarmentTypes`. The phrase is never persisted, logged or sent.
+`matchClosetPhrase` (`features/wardrobe/domain/closet-phrase.ts`) reads a typed or dictated phrase into a catalog garment type id and a palette option id, or a closed not-understood reason; the `ambiguous` reason carries the candidate type ids and the phrase's colour ([ADR 0042](adr/0042-siri-outfit-card-and-closet-add-by-phrase.md)). It is a pure domain function over its own Turkish and English vocabulary, with no SQLite, React, network, clock or AI; its labelled phrase suite and a check that every catalog name matches its own type lock it. Its one caller is the add form's application layer (`fillWardrobeFormFromPhrase`), which also applies `listSelectableGarmentTypes` to the match and to the candidates it offers as choices. The phrase is never persisted, logged or sent.
 
 ### Siri and the outfit summary
 

@@ -135,6 +135,52 @@ const labelled = [
   ['siyah ceketim', ['unsupported'], ['black'], 'trap'],
   ['polo ralph lauren', ['polo_shirt', 'unsupported'], null, 'trap'],
   ['gray hoodie and black jeans', ['unsupported'], null, 'trap'],
+  // Turkish possessive, accusative and plural endings on a name, with the softened k, p and t.
+  ['gömleğim', ['shirt'], null, 'inflected'],
+  ['kazağı', ['sweater'], null, 'inflected'],
+  ['montumu', ['insulated_jacket'], null, 'inflected'],
+  ['eteğimi', ['skirt'], null, 'inflected'],
+  ['kotumu', ['jeans'], null, 'inflected'],
+  ['tişörtüm', ['t_shirt'], null, 'inflected'],
+  ['lacivert gömleğim', ['shirt'], ['blue'], 'inflected'],
+  ['siyah kotum', ['jeans'], ['black'], 'inflected'],
+  ['gri kazağım', ['sweater'], ['gray'], 'inflected'],
+  ['beyaz tişörtlerim', ['t_shirt'], ['white'], 'inflected'],
+  ['kırmızı elbisem', ['dress'], ['red'], 'inflected'],
+  ['bej trençkotum', ['trench_coat'], ['beige'], 'inflected'],
+  ['deri ceketim', ['leather_jacket'], null, 'inflected'],
+  ['kot ceketimi', ['light_jacket'], ['blue'], 'inflected'],
+  ['siyah eldivenlerim', ['gloves'], ['black'], 'inflected'],
+  ['gomlegim', ['shirt'], null, 'inflected'],
+  ['KAZAĞIMI', ['sweater'], null, 'inflected'],
+  ['hırkam', ['cardigan'], null, 'inflected'],
+  ['parkamı', ['parka'], null, 'inflected'],
+  ['şortlarım', ['shorts'], null, 'inflected'],
+  ['spor ayakkabım', ['sneakers'], null, 'inflected'],
+  ['yağmurluğum', ['rain_jacket'], null, 'inflected'],
+  ['atkımı', ['scarf'], null, 'inflected'],
+  ['bluzlarımı', ['blouse'], null, 'inflected'],
+  ['poloyu', ['polo_shirt'], null, 'inflected'],
+  ['siyah taytım', ['leggings'], ['black'], 'inflected'],
+  ['kar botum', ['weather_boots'], null, 'inflected'],
+  ['botlarım', ['ankle_boots', 'weather_boots', 'rain_boots'], null, 'ambiguous'],
+  ['çizmelerim', ['rain_boots'], null, 'ambiguous'],
+  ['ceketim', ['light_jacket', 'blazer', 'bomber_jacket', 'leather_jacket'], null, 'ambiguous'],
+  // Words that end like a suffix on a name but are other words, or a name with a wrong mark.
+  ['kotlet', ['unsupported'], null, 'trap'],
+  ['bota', ['unsupported'], null, 'trap'],
+  ['ceketçi', ['unsupported'], null, 'trap'],
+  ['kötü', ['unsupported'], null, 'trap'],
+  ['kötü gömlek', ['shirt'], null, 'trap'],
+  ['teen', ['unsupported'], null, 'trap'],
+  ['etekli elbise', ['dress'], null, 'trap'],
+  ['sandalyem', ['unsupported'], null, 'trap'],
+  ['parkın önü', ['unsupported'], null, 'trap'],
+  ['bereket', ['unsupported'], null, 'trap'],
+  ['gömleksiz', ['unsupported'], null, 'trap'],
+  ['montaj', ['unsupported'], null, 'trap'],
+  ['atletizm', ['unsupported'], null, 'trap'],
+  ['kotm', ['unsupported'], null, 'trap'],
 ];
 
 // Not understood is right for a piece the catalog lacks, several pieces or several possible types.
@@ -163,9 +209,47 @@ test('a phrase naming one catalog piece is understood; a phrase naming several i
   }
 });
 
+// Every word the matcher reads as more than one type.
+const ambiguousWords = ['ceket', 'jacket', 'yelek', 'vest', 'şapka', 'hat', 'bot', 'boot', 'boots', 'çizme', 'ayakkabı',
+  'shoes', 'shoe', 'eşofman', 'üst', 'top'];
+
 test('a phrase that could mean several catalog types is not understood rather than guessed', () => {
-  for (const phrase of ['ceket', 'jacket', 'şapka', 'hat', 'bot', 'boots', 'ayakkabı', 'yelek', 'eşofman']) {
-    assert.deepEqual(matchClosetPhrase(phrase), { kind: 'not-understood', reason: 'ambiguous' }, phrase);
+  for (const phrase of ambiguousWords) {
+    const match = matchClosetPhrase(phrase);
+    assert.equal(match.kind, 'not-understood', phrase);
+    assert.equal(match.reason, 'ambiguous', phrase);
+  }
+});
+
+test('an ambiguous word offers the types its longer names stand for, at most four, with the phrase colour', () => {
+  assert.deepEqual(matchClosetPhrase('siyah ceket'), {
+    kind: 'not-understood', reason: 'ambiguous',
+    candidates: ['light_jacket', 'blazer', 'bomber_jacket', 'leather_jacket'],
+    colorChoice: { kind: 'option', id: 'black' },
+  });
+  assert.deepEqual(matchClosetPhrase('jacket'), matchClosetPhrase('ceket'));
+  assert.deepEqual(matchClosetPhrase('şapka').candidates, ['brimmed_hat', 'cap']);
+  // An unknown word after a name may be the real piece, which offers nothing to choose.
+  assert.deepEqual(matchClosetPhrase('puffer gilet'),
+    { kind: 'not-understood', reason: 'ambiguous', candidates: [], colorChoice: null });
+  // Each candidate is the type a longer name holding the word matches.
+  for (const [word, longer] of [
+    ['ceket', ['kot ceket', 'blazer ceket', 'bomber ceket', 'deri ceket']],
+    ['yelek', ['şişme yelek']],
+    ['şapka', ['hasır şapka', 'beyzbol şapkası']],
+    ['bot', ['chelsea bot', 'kar botu', 'yağmur botu']],
+    ['çizme', ['lastik çizme']],
+    ['ayakkabı', ['spor ayakkabı', 'klasik ayakkabı']],
+    ['eşofman', ['eşofman altı']],
+    ['üst', ['kolsuz üst']],
+  ]) {
+    assert.deepEqual(matchClosetPhrase(word).candidates, longer.map((name) => matchClosetPhrase(name).garmentTypeId), word);
+  }
+  const selectable = listSelectableGarmentTypes(null).map(({ typeId }) => typeId);
+  for (const word of ambiguousWords) {
+    const { candidates } = matchClosetPhrase(word);
+    assert.ok(candidates.length >= 1 && candidates.length <= 4, word);
+    assert.deepEqual(candidates, selectable.filter((typeId) => candidates.includes(typeId)), `${word} in catalog order`);
   }
 });
 

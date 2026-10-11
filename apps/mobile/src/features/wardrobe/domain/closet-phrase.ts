@@ -9,24 +9,37 @@ import type {
  * catalog garment type and, when the palette can say it exactly, one palette colour. The answer
  * holds ids only, never words, so it reads the same in Turkish and English. A phrase that could
  * mean more than one type, names several pieces, names a piece the catalog lacks or names no
- * piece is not understood: a wrong guess costs more than no guess (ADR 0042).
+ * piece is not understood: a wrong guess costs more than no guess (ADR 0042). A word for several
+ * types names them as `candidates`, in catalog order, for the person to choose from, with the
+ * phrase's colour.
  */
 export type ClosetPhraseMatch =
   | Readonly<{ kind: 'matched'; garmentTypeId: GarmentTypeId; colorChoice: ClosetColorChoice | null }>
-  | Readonly<{ kind: 'not-understood'; reason: 'unknown' | 'unsupported' | 'ambiguous' | 'several-pieces' }>;
+  | Readonly<{
+      kind: 'not-understood';
+      reason: 'ambiguous';
+      candidates: readonly GarmentTypeId[];
+      colorChoice: ClosetColorChoice | null;
+    }>
+  | Readonly<{ kind: 'not-understood'; reason: 'unknown' | 'unsupported' | 'several-pieces' }>;
 
 type GarmentMeaning = GarmentTypeId | 'unsupported' | 'ambiguous' | 'several-pieces';
 type Pattern = 'stripes' | 'breton' | 'plaid' | 'gingham' | 'floral' | 'polka_dots' | 'leopard' | 'houndstooth';
-type GarmentTerm = Readonly<{ garment: GarmentMeaning; denim: boolean; brand: boolean }>;
+type GarmentTerm = Readonly<{
+  garment: GarmentMeaning;
+  denim: boolean;
+  brand: boolean;
+  candidates?: readonly GarmentTypeId[];
+}>;
 type Term =
   | GarmentTerm
   | Readonly<{ color: ClosetColorOptionId }>
   | Readonly<{ pattern: Pattern }>
   | Readonly<{ known: true }>;
 
-// Names are written as people write them; `fold` reads Turkish letters, capitals and the dotted
+// Names are written as people write them; `wordsOf` reads Turkish letters, capitals and the dotted
 // and dotless i alike. A word may also stand inside a longer name, and the longest name wins.
-const garmentNames: Readonly<Record<GarmentMeaning, string>> = {
+const garmentNames: Readonly<Record<Exclude<GarmentMeaning, 'ambiguous'>, string>> = {
   sleeveless_top: 'kolsuz üst|kolsuz|atlet|askılı|sleeveless top|tank top|vest top',
   t_shirt: 'tişört|t shirt|tshirt|tee|tees',
   long_sleeve_t_shirt: 'uzun kollu tişört|long sleeve t shirt|long sleeve tee|long sleeved t shirt',
@@ -83,9 +96,21 @@ const garmentNames: Readonly<Record<GarmentMeaning, string>> = {
     'sunglasses|saat|kol saati|watch|bikini|mayo|swimsuit|pijama|pyjamas|pajamas|kravat|papyon|tie|bow tie|' +
     'terlik|slippers|flip flops|çorap|sock|socks|iç çamaşırı|underwear|sütyen|bra|kolye|necklace|küpe|' +
     'earrings|bileklik|bracelet|cüzdan|wallet|eşofman üstü|track jacket',
-  ambiguous: 'ceket|jacket|yelek|vest|şapka|hat|bot|boot|boots|çizme|ayakkabı|shoes|shoe|eşofman|üst|top',
   'several-pieces': 'takım elbise|takım|suit|eşofman takımı|tracksuit',
 };
+
+// Words for several types, each with the types a longer name holding it stands for ("deri ceket"),
+// at most four, in catalog order: the choices the add form offers.
+const ambiguousNames: readonly (readonly [string, readonly GarmentTypeId[]])[] = [
+  ['ceket|jacket', ['light_jacket', 'blazer', 'bomber_jacket', 'leather_jacket']],
+  ['yelek|vest', ['puffer_vest']],
+  ['şapka|hat', ['brimmed_hat', 'cap']],
+  ['bot|boot|boots', ['ankle_boots', 'weather_boots', 'rain_boots']],
+  ['çizme', ['rain_boots']],
+  ['ayakkabı|shoes|shoe', ['sneakers', 'closed_shoes']],
+  ['eşofman', ['track_pants']],
+  ['üst|top', ['sleeveless_top']],
+];
 
 // Names that put the piece in denim, so a blue or black names a denim swatch.
 const denimNames = new Set([
@@ -146,17 +171,29 @@ const knownNames = 'keten|linen|deri|leather|süet|suede|yün|yünlü|wool|kaşm
 
 const plainLetters: Readonly<Record<string, string>> = { ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u', â: 'a', î: 'i', û: 'u' };
 
-/** Lower case with Turkish letters as their plain forms, and each run of other characters as one space. */
-function fold(text: string): string {
-  return text.replace(/[İI]/g, 'i').toLowerCase()
-    .replace(/[çğıöşüâîû]/g, (letter) => plainLetters[letter])
-    .replace(/\p{M}/gu, '').replace(/[^a-z0-9]+/g, ' ').trim();
+/** Lower case with Turkish letters kept, and each run of other characters as one space. */
+function lowerMarked(text: string): string {
+  return text.replace(/[İI]/g, 'i').toLowerCase().replace(/\p{M}/gu, '')
+    .replace(/[^a-z0-9çğıöşüâîû]+/g, ' ').trim();
 }
 
-type Entry = Readonly<{ words: readonly string[]; term: Term }>;
+/** `lowerMarked` with Turkish letters as their plain forms, letter for letter. */
+function plain(marked: string): string {
+  return marked.replace(/[çğıöşüâîû]/g, (letter) => plainLetters[letter]);
+}
+
+/** Words as `lowerMarked` writes them, so each lines up with its plain form letter for letter. */
+type Word = Readonly<{ plain: string; marked: string }>;
+
+function wordsOf(text: string): Word[] {
+  return lowerMarked(text).split(' ').filter((word) => word.length > 0)
+    .map((marked) => ({ plain: plain(marked), marked }));
+}
+
+type Entry = Readonly<{ words: readonly Word[]; term: Term }>;
 
 function entries(names: string, term: (name: string) => Term): Entry[] {
-  return names.split('|').map((name) => ({ words: fold(name).split(' '), term: term(name) }));
+  return names.split('|').map((name) => ({ words: wordsOf(name), term: term(name) }));
 }
 
 const vocabulary: readonly Entry[] = [
@@ -164,6 +201,8 @@ const vocabulary: readonly Entry[] = [
     entries(names, (name) => ({
       garment: garment as GarmentMeaning, denim: denimNames.has(name), brand: brandNames.has(name),
     }))),
+  ...ambiguousNames.flatMap(([names, candidates]) =>
+    entries(names, () => ({ garment: 'ambiguous', denim: false, brand: false, candidates }))),
   ...Object.entries(colorNames).flatMap(([color, names]) =>
     entries(names, () => ({ color: color as ClosetColorOptionId }))),
   ...Object.entries(patternNames).flatMap(([pattern, names]) =>
@@ -188,28 +227,63 @@ function oneEditApart(typed: string, known: string): boolean {
   return longer.slice(start + 1) === shorter.slice(start);
 }
 
+// Turkish endings on a name, with ı and ü written plain: possessive (-ım, -m, -ın), accusative
+// (-ı, -yı), plural (-lar) and their stacks (-larım, -imi). One starting with a vowel follows a
+// consonant, one starting with m or y follows a vowel, and the plural follows either.
+const endingsAfterConsonant = new Set(['i', 'u', 'im', 'um', 'in', 'un', 'imi', 'umu', 'ini', 'unu']);
+const endingsAfterVowel = new Set(['m', 'yi', 'yu', 'mi']);
+const pluralEndings = new Set(['lar', 'ler', 'lari', 'leri', 'larim', 'lerim', 'larimi', 'lerimi', 'larin', 'lerin']);
+// A final k, p or t softens before a vowel ending ("gömleğim", "dolabı", "kitadı").
+const softened: Readonly<Record<string, string>> = { k: 'ğg', p: 'b', t: 'd' };
+
+/**
+ * The typed word is the name word of three letters or more with one Turkish ending. A letter
+ * typed without its mark reads as the marked one, but a mark the name lacks does not ("kötü" is
+ * not "kot"), since the ending would otherwise turn a plain word into a name.
+ */
+function inflectedFrom(typed: Word, name: Word): boolean {
+  const length = name.marked.length;
+  if (length < 3 || typed.marked.length <= length) return false;
+  const ending = typed.plain.slice(length);
+  const vowelFinal = /[aeiou]$/.test(name.plain);
+  const endingFits = pluralEndings.has(ending) ||
+    (vowelFinal ? endingsAfterVowel : endingsAfterConsonant).has(ending);
+  if (!endingFits) return false;
+  return [...name.marked].every((letter, index) => {
+    const typedLetter = typed.marked[index];
+    if (typedLetter === letter || typedLetter === plain(letter)) return true;
+    return index === length - 1 && !vowelFinal && /^[iu]/.test(ending) && (softened[letter] ?? '').includes(typedLetter);
+  });
+}
+
 type Found = Readonly<{ start: number; end: number; term: Term }>;
 
 /**
- * The longest vocabulary name at each place, an exact spelling before a one-edit one. A place
- * where different meanings tie, and a word no name covers, yield nothing.
+ * The longest vocabulary name at each place, an exact spelling before a one-edit one and a
+ * one-edit one before an inflected last word ("deri ceketim"). A place where different meanings
+ * tie, and a word no name covers, yield nothing.
  */
-function findTerms(words: readonly string[]): readonly Found[] {
+function findTerms(words: readonly Word[]): readonly Found[] {
   const found: Found[] = [];
   let at = 0;
   while (at < words.length) {
-    let best: { length: number; edits: number; terms: Term[] } = { length: 0, edits: 0, terms: [] };
+    let best: { length: number; cost: number; terms: Term[] } = { length: 0, cost: 0, terms: [] };
     for (const entry of vocabulary) {
       if (at + entry.words.length > words.length) continue;
-      let edits = 0;
+      let cost = 0;
       const fits = entry.words.every((word, index) => {
-        if (word === words[at + index]) return true;
-        edits += 1;
-        return oneEditApart(words[at + index], word);
+        const typed = words[at + index];
+        if (word.plain === typed.plain) return true;
+        if (oneEditApart(typed.plain, word.plain)) {
+          cost += 1;
+          return true;
+        }
+        cost += 2;
+        return index === entry.words.length - 1 && inflectedFrom(typed, word);
       });
       if (!fits || entry.words.length < best.length) continue;
-      if (entry.words.length === best.length && edits > best.edits) continue;
-      if (entry.words.length > best.length || edits < best.edits) best = { length: entry.words.length, edits, terms: [] };
+      if (entry.words.length === best.length && cost > best.cost) continue;
+      if (entry.words.length > best.length || cost < best.cost) best = { length: entry.words.length, cost, terms: [] };
       best.terms.push(entry.term);
     }
     if (new Set(best.terms.map((term) => JSON.stringify(term))).size === 1) {
@@ -261,7 +335,7 @@ function isGarment(found: Found): found is Found & Readonly<{ term: GarmentTerm 
 }
 
 export function matchClosetPhrase(phrase: string): ClosetPhraseMatch {
-  const words = fold(phrase).split(' ').filter((word) => word.length > 0);
+  const words = wordsOf(phrase);
   const terms = findTerms(words);
   const garments = terms.filter(isGarment);
   if (garments.length === 0) return { kind: 'not-understood', reason: 'unknown' };
@@ -272,15 +346,7 @@ export function matchClosetPhrase(phrase: string): ClosetPhraseMatch {
   }
   const last = garments[garments.length - 1];
   const head = last.term.garment;
-  if (head === 'unsupported' || head === 'ambiguous' || head === 'several-pieces') {
-    return { kind: 'not-understood', reason: head };
-  }
-  // An unknown word right after the name may be the real head ("puffer gilet", "kot salopet"),
-  // unless the name is a brand or the word is a number.
-  const after = words[last.end];
-  if (!last.term.brand && after !== undefined && /^[a-z]+$/.test(after) && !terms.some(({ start }) => start === last.end)) {
-    return { kind: 'not-understood', reason: 'ambiguous' };
-  }
+  if (head === 'unsupported' || head === 'several-pieces') return { kind: 'not-understood', reason: head };
   const inDenim = garments.some(({ term }) => term.denim);
   const colors = new Set(terms.flatMap(({ term }) => ('color' in term ? [term.color] : [])));
   const patterns = new Set(terms.flatMap(({ term }) => ('pattern' in term ? [term.pattern] : [])));
@@ -288,5 +354,15 @@ export function matchClosetPhrase(phrase: string): ClosetPhraseMatch {
   const option = inDenim && head !== 'jeans' && colors.size === 0 && patterns.size === 0
     ? 'indigo_denim'
     : paletteOption(colors, patterns, inDenim || head === 'jeans');
-  return { kind: 'matched', garmentTypeId: head, colorChoice: option === null ? null : { kind: 'option', id: option } };
+  const colorChoice = option === null ? null : { kind: 'option', id: option } as const;
+  if (head === 'ambiguous') {
+    return { kind: 'not-understood', reason: 'ambiguous', candidates: last.term.candidates ?? [], colorChoice };
+  }
+  // An unknown word right after the name may be the real head ("puffer gilet", "kot salopet"),
+  // unless the name is a brand or the word is a number. Nothing is offered then.
+  const after = words[last.end]?.plain;
+  if (!last.term.brand && after !== undefined && /^[a-z]+$/.test(after) && !terms.some(({ start }) => start === last.end)) {
+    return { kind: 'not-understood', reason: 'ambiguous', candidates: [], colorChoice };
+  }
+  return { kind: 'matched', garmentTypeId: head, colorChoice };
 }

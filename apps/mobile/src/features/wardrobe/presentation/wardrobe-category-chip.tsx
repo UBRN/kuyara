@@ -12,7 +12,8 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // state, or `borderDefined` boundary; giving it all of that would be a larger change
 // than this small, dedicated primitive. The type sheet uses it as a radio; the Closet's
 // category strip (O9) uses it as a tab carrying the category glyph and its count, where
-// the selected tab is the viewport's one accent fill. No haptic here.
+// the selected tab is the viewport's one accent fill; the add form's phrase choices
+// (ADR 0042) use it as an unselected button. No haptic here.
 const CHIP_MINIMUM_HEIGHT = 40;
 const CHIP_HIT_SLOP = 2;
 // Law 6: the glyph tracks the adjacent `label` 15, between the caption and body sizes.
@@ -35,8 +36,8 @@ export type WardrobeCategoryChipProps = Readonly<{
   category?: StructuralCategory;
   /** A category tab's piece count, in tabular figures after the label (O9). */
   count?: number;
-  /** `tab` inside a `categoryTabListRole()` container, `radio` inside a radio group. */
-  role?: 'radio' | 'tab';
+  /** `tab` inside a `categoryTabListRole()` container, `radio` inside a radio group, `button` for an action. */
+  role?: 'radio' | 'tab' | 'button';
   accessibilityLabel?: string;
   onLayout?: (event: LayoutChangeEvent) => void;
   testID?: string;

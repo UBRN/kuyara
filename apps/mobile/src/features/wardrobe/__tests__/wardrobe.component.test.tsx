@@ -2099,6 +2099,35 @@ test.each([
   expect(result.queryByTestId(PHRASE_NOTICE)).not.toBeOnTheScreen();
 });
 
+test('an ambiguous phrase offers its types as buttons, and a chosen one fills like a match', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const result = await render(<CreateForm clothingPreference="mens" />);
+  const copy = messages.en.wardrobe;
+  const catalog = messages.en.catalog;
+  const field = result.getByTestId(PHRASE);
+
+  await fireEvent.changeText(field, 'siyah ceket');
+  await fireEvent(field, 'submitEditing');
+
+  expect(result.getByTestId(PHRASE_NOTICE)).toHaveTextContent(copy.phraseNotUnderstood.ambiguous);
+  const choices = within(result.getByTestId('wardrobe-phrase-choices')).getAllByRole('button');
+  expect(choices.map((choice) => choice.props.accessibilityLabel)).toEqual(
+    ['light_jacket', 'blazer', 'bomber_jacket', 'leather_jacket']
+      .map((typeId) => catalog[`catalog.garment_type.${typeId}.name` as keyof typeof catalog]),
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-phrase-choice-blazer'));
+
+  const blazer = catalog['catalog.garment_type.blazer.name'];
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent(blazer);
+  expect(result.getByTestId('wardrobe-color-black').props.accessibilityState.selected).toBe(true);
+  expect(result.getByTestId('wardrobe-name-input')).toHaveProp('value', 'siyah ceket');
+  expect(result.queryByTestId(PHRASE_NOTICE)).not.toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-phrase-choices')).not.toBeOnTheScreen();
+  expect(announce).toHaveBeenLastCalledWith(copy.phraseFilled({ type: blazer, color: copy.colorOptionNames.black }));
+});
+
 test('the edit form has no phrase field', async () => {
   const result = await render(
     <TestProviders>

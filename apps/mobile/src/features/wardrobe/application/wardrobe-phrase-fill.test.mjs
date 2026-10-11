@@ -41,7 +41,7 @@ test('the name the person wrote is kept; only an empty or phrase-filled name tak
 test('a type the clothing preference does not offer is not understood, and nothing changes', () => {
   assert.deepEqual(
     fillWardrobeFormFromPhrase(empty, 'çiçekli elbise', 'mens', null),
-    { kind: 'not-understood', reason: 'not-offered' },
+    { kind: 'not-understood', reason: 'not-offered', choices: [] },
   );
   assert.equal(fillWardrobeFormFromPhrase(empty, 'çiçekli elbise', 'womens', null).kind, 'filled');
   // With no preference resolved yet the picker lists the whole catalogue, and so does the phrase.
@@ -52,11 +52,34 @@ test('each reason the matcher gives is passed through unchanged', () => {
   for (const [phrase, reason] of [
     ['zzqx', 'unknown'],
     ['çanta', 'unsupported'],
-    ['ceket', 'ambiguous'],
+    ['puffer gilet', 'ambiguous'],
     ['kot pantolon ve beyaz gömlek', 'several-pieces'],
   ]) {
-    assert.deepEqual(fillWardrobeFormFromPhrase(empty, phrase, null, null), { kind: 'not-understood', reason }, phrase);
+    assert.deepEqual(
+      fillWardrobeFormFromPhrase(empty, phrase, null, null), { kind: 'not-understood', reason, choices: [] }, phrase,
+    );
   }
+});
+
+test('an ambiguous phrase offers the types the preference offers, in catalog order', () => {
+  const choices = (phrase, preference) =>
+    fillWardrobeFormFromPhrase(empty, phrase, preference, null).choices.map(({ typeId }) => typeId);
+  assert.deepEqual(choices('siyah ceket', 'mens'), ['light_jacket', 'blazer', 'bomber_jacket', 'leather_jacket']);
+  assert.deepEqual(choices('şapka', null), ['brimmed_hat', 'cap']);
+  assert.equal(fillWardrobeFormFromPhrase(empty, 'ceket', null, null).reason, 'ambiguous');
+});
+
+test('a chosen type fills the form with the phrase colour exactly as a match would', () => {
+  const chosen = fillWardrobeFormFromPhrase(empty, 'siyah ceket', 'mens', null, 'blazer');
+  assert.equal(chosen.kind, 'filled');
+  assert.equal(chosen.values.garmentTypeId, 'blazer');
+  assert.deepEqual(chosen.values.colorChoice, { kind: 'option', id: 'black' });
+  assert.equal(chosen.values.colorFamily, 'black');
+  assert.equal(chosen.values.name, 'siyah ceket');
+  assert.equal(chosen.colorFilled, true);
+  // A type the phrase did not offer fills nothing.
+  assert.equal(fillWardrobeFormFromPhrase(empty, 'siyah ceket', 'mens', null, 'parka').kind, 'not-understood');
+  assert.equal(fillWardrobeFormFromPhrase(empty, 'siyah ceket', 'mens', null, 'parka').reason, 'ambiguous');
 });
 
 test('a blank phrase asks nothing', () => {

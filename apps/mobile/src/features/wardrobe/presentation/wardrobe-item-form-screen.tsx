@@ -22,7 +22,7 @@ import {
   validateWardrobeForm,
   wardrobeFormValuesEqual,
   type WardrobeFormValues,
-  type WardrobePhraseProblem,
+  type WardrobePhraseFill,
 } from '@/features/wardrobe/application/wardrobe-form';
 import {
   unchangedWardrobePhoto,
@@ -51,6 +51,7 @@ import { FormToolbar } from '@/features/wardrobe/presentation/form-toolbar';
 import { GarmentTypePicker } from '@/features/wardrobe/presentation/garment-type-picker';
 import { OwnershipChoice } from '@/features/wardrobe/presentation/ownership-choice';
 import { PiecePreviewStage } from '@/features/wardrobe/presentation/piece-preview-stage';
+import { WardrobeCategoryChip } from '@/features/wardrobe/presentation/wardrobe-category-chip';
 import { useStagedWardrobePhoto } from '@/features/wardrobe/presentation/use-staged-wardrobe-photo';
 import {
   showWardrobeConfirmation,
@@ -218,7 +219,9 @@ export function WardrobeItemFormScreen({
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
   // ADR 0042: the phrase lives only in this state; it is never sent, logged or stored.
   const [phrase, setPhrase] = useState('');
-  const [phraseProblem, setPhraseProblem] = useState<WardrobePhraseProblem | null>(null);
+  // Why the phrase filled nothing, with the types to choose from when it named several.
+  const [phraseProblem, setPhraseProblem] =
+    useState<Extract<WardrobePhraseFill, { kind: 'not-understood' }> | null>(null);
   // The name a phrase filled, so a later phrase may replace it until the person edits it.
   const phraseNameRef = useRef<string | null>(null);
   // A filled phrase remounts the type picker, so it shows the chosen row like a tile pick.
@@ -361,10 +364,11 @@ export function WardrobeItemFormScreen({
     applySelection();
   };
 
-  const submitPhrase = () => {
+  // `chosenTypeId` is a type the phrase offered and the person chose; it fills like a match.
+  const applyPhrase = (chosenTypeId: GarmentTypeId | null) => {
     if (busy) return;
-    const fill = fillWardrobeFormFromPhrase(values, phrase, clothingPreference, phraseNameRef.current);
-    setPhraseProblem(fill?.kind === 'not-understood' ? fill.reason : null);
+    const fill = fillWardrobeFormFromPhrase(values, phrase, clothingPreference, phraseNameRef.current, chosenTypeId);
+    setPhraseProblem(fill?.kind === 'not-understood' ? fill : null);
     if (fill?.kind !== 'filled') return;
     // A phrase's colour is the person's choice; without one the piece keeps a picked colour
     // or starts on its type's natural one, as a tile pick does (O10).
@@ -609,7 +613,7 @@ export function WardrobeItemFormScreen({
                   setPhrase(text);
                   setPhraseProblem(null);
                 }}
-                onSubmitEditing={submitPhrase}
+                onSubmitEditing={() => applyPhrase(null)}
                 placeholder={copy.phrasePlaceholder}
                 placeholderTextColor={theme.colors.textSecondary}
                 returnKeyType="done"
@@ -618,7 +622,21 @@ export function WardrobeItemFormScreen({
                 value={phrase}
               />
               {phraseProblem ? (
-                <Notice message={copy.phraseNotUnderstood[phraseProblem]} testID="wardrobe-phrase-notice" />
+                <Notice message={copy.phraseNotUnderstood[phraseProblem.reason]} testID="wardrobe-phrase-notice" />
+              ) : null}
+              {phraseProblem && phraseProblem.choices.length > 0 ? (
+                <View style={styles.phraseChoices} testID="wardrobe-phrase-choices">
+                  {phraseProblem.choices.map((garmentType) => (
+                    <WardrobeCategoryChip
+                      key={garmentType.typeId}
+                      label={messages.catalog[garmentType.nameKey]}
+                      onPress={() => applyPhrase(garmentType.typeId)}
+                      role="button"
+                      selected={false}
+                      testID={`wardrobe-phrase-choice-${garmentType.typeId}`}
+                    />
+                  ))}
+                </View>
               ) : null}
             </>
           ) : null}
@@ -721,6 +739,11 @@ const styles = StyleSheet.create({
   },
   statusCopy: {
     flex: 1,
+  },
+  phraseChoices: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   settingsLink: {
     alignSelf: 'flex-start',
