@@ -15,14 +15,23 @@ export const archetypeAesthetics: Readonly<Record<OutfitArchetypeId, readonly St
   everyday_easy: ['minimal', 'relaxed'],
 };
 
+/** How many of the chosen styles the option's best-matching archetype carries; 0 is none. */
+export function aestheticAffinity<T>(
+  option: T,
+  aesthetics: readonly StyleAesthetic[],
+  matches: (option: T, archetype: OutfitArchetypeId) => boolean,
+): number {
+  return Math.max(0, ...outfitArchetypeIds
+    .filter((id) => matches(option, id))
+    .map((id) => archetypeAesthetics[id].filter((value) => aesthetics.includes(value)).length));
+}
+
 export function sortByAestheticAffinity<T>(
   options: readonly T[],
   aesthetics: readonly StyleAesthetic[],
   matches: (option: T, archetype: OutfitArchetypeId) => boolean,
 ): readonly T[] {
   if (aesthetics.length === 0) return options;
-  const score = (option: T) => Math.max(0, ...outfitArchetypeIds
-    .filter((id) => matches(option, id))
-    .map((id) => archetypeAesthetics[id].filter((value) => aesthetics.includes(value)).length));
+  const score = (option: T) => aestheticAffinity(option, aesthetics, matches);
   return [...options].sort((left, right) => score(right) - score(left));
 }
