@@ -11,6 +11,8 @@ import {
   type RecommendationApplicationValue,
 } from '@/features/recommendation/application/recommendation-application-context';
 import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
+import { archetypeLabel } from '@/features/recommendation/application/recommendation-application-controller';
+import { dateKeyDayKind } from '@/features/recommendation/domain/local-day';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -165,6 +167,26 @@ test('one worn day stands alone as the large latest day', async () => {
   const entry = await result.findByTestId('history-entry-2026-09-23');
   expect(within(entry).getByText('Wednesday 23 September')).toBeOnTheScreen();
   expect(result.queryAllByTestId(/^history-entry-\d/)).toHaveLength(1);
+});
+
+// A look the reader changed is theirs: History names it "Your outfit", as Today does, and says so.
+test.each(['en', 'tr'] as const)('%s: a changed look is named as the reader\'s outfit, on screen and spoken', async (language) => {
+  const changed = record('2026-09-23', 'layered_warmth', 'casual');
+  const manual = { ...changed, outfit: { ...changed.outfit, source: 'manual' as const } };
+  const earlier = { ...record('2026-09-20', 'layered_warmth', 'casual'), id: 'id-earlier' };
+  const tile = { ...earlier, id: 'id-tile', dayKey: '2026-09-19', outfit: { ...earlier.outfit, source: 'manual' as const } };
+  const result = await render(
+    <Providers language={language} list={async () => [manual, earlier, tile]}><HistoryRoute /></Providers>,
+  );
+  const title = messages[language].today.manualMix.title;
+  const archetype = archetypeLabel(messages[language].recommendation, 'layered_warmth', dateKeyDayKind('2026-09-20'));
+  const latest = await result.findByTestId('history-entry-2026-09-23');
+  expect(within(latest).getByText(title)).toBeOnTheScreen();
+  expect(latest.props.accessibilityLabel).toContain(`. ${title}. `);
+  expect(within(result.getByTestId('history-entry-2026-09-19')).getByText(title)).toBeOnTheScreen();
+  expect(result.getByTestId('history-entry-2026-09-19').props.accessibilityLabel).toContain(`. ${title}. `);
+  expect(within(result.getByTestId('history-entry-2026-09-20')).queryByText(title)).toBeNull();
+  expect(within(result.getByTestId('history-entry-2026-09-20')).getByText(archetype)).toBeOnTheScreen();
 });
 
 // O13: the stage is measured the way the board draws, so the enlarged board is not clipped.

@@ -4200,6 +4200,14 @@ test('a recorded look celebrates once over the board and says it stays on Today'
 
   await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
   const burst = await result.findByTestId('outfit-detail-celebration', hidden);
+  // Drawn over the board's drawing only: the stitch never runs through the name buttons below it.
+  const area = StyleSheet.flatten(result.getByTestId('outfit-detail-celebration-area', hidden).props.style);
+  const names = StyleSheet.flatten(result.getByTestId('outfit-detail-names', hidden).props.style);
+  expect(area).toMatchObject({ position: 'absolute', top: 0, left: 0, right: 0 });
+  expect(area.height).toBeGreaterThan(0);
+  expect(area.height).toBeLessThan(names.top);
+  expect(within(result.getByTestId('outfit-detail-celebration-area', hidden))
+    .getByTestId('outfit-detail-celebration', hidden)).toBeTruthy();
   expect(burst).toHaveProp('pointerEvents', 'none');
   expect(burst).toHaveProp('accessibilityElementsHidden', true);
   await fireEvent(burst, 'layout', { nativeEvent: { layout: { width: 358, height: 420, x: 0, y: 0 } } });
