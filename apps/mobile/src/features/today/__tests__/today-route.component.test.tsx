@@ -4886,7 +4886,8 @@ describe('compose around chosen pieces on detail', () => {
   });
   afterEach(() => appState.mockRestore());
   const expected = () => composeModule.composeAroundPieces({
-    requirements: todayRecommendation.requirements, clothingPreference: 'womens', dayVariant: 0, dressStyle: 'smart',
+    requirements: todayRecommendation.requirements, clothingPreference: 'womens', dayVariant: 0,
+    localDayKey: '2026-08-13', dressStyle: 'smart',
   }, pins);
 
   function renderDetail(scenario: 'upToDate' | 'signedOut', outfitHistory?: RecommendationApplicationValue['outfitHistory']) {
