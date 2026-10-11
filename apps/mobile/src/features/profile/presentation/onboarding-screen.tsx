@@ -485,6 +485,7 @@ export function OnboardingScreen({
           <View ref={nameFieldRef}>
             <NameInput
               onChangeText={(value) => dispatch({ type: 'set-display-name', value })}
+              skippable
               testID="onboarding-name"
               value={draft.displayName ?? ''}
             />

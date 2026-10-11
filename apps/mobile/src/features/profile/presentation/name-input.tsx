@@ -13,15 +13,18 @@ type NameInputProps = Readonly<{
   testID: string;
   onClear?: () => void;
   autoFocus?: boolean;
+  /** Onboarding offers "Not now" beside the field, so its short-name error points to it. */
+  skippable?: boolean;
 }>;
 
-export function NameInput({ autoFocus = false, value, onChangeText, testID, onClear }: NameInputProps) {
+export function NameInput({ autoFocus = false, value, onChangeText, testID, onClear, skippable = false }: NameInputProps) {
   const messages = useMessages();
   const copy = messages.onboarding;
   const profileCopy = messages.profile;
   const theme = useKuyaraTheme();
   const issue = displayNameIssue(value);
-  const error = issue === 'short' ? copy.nameShortError(displayNameMinLength)
+  const shortError = skippable ? copy.nameShortError : profileCopy.nameShortError;
+  const error = issue === 'short' ? shortError(displayNameMinLength)
     : issue === 'long' ? copy.nameLongError(displayNameMaxLength) : null;
   // VoiceOver ignores the line's live region, so iOS speaks it; the field carries it as its
   // hint while it shows.

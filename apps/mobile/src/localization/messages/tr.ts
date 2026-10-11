@@ -204,6 +204,7 @@ export const tr = {
     nameLabel: 'Ad',
     nameDone: 'Bitti',
     nameClear: 'Adı temizle',
+    nameShortError: (minimum) => `En az ${minimum} karakter yaz.`,
     nameSaveError: 'Bu değişiklik kaydedilemedi. Önceki adın geçerli.',
     nameCancel: 'Vazgeç',
     nameRemove: 'Adı kaldır',

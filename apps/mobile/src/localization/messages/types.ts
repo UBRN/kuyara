@@ -612,6 +612,7 @@ export type AppMessages = Readonly<{
     nameLabel: string;
     nameDone: string;
     nameClear: string;
+    nameShortError: (minimum: number) => string;
     nameSaveError: string;
     nameCancel: string;
     nameRemove: string;

@@ -209,6 +209,7 @@ export const en = {
     nameLabel: 'Name',
     nameDone: 'Done',
     nameClear: 'Clear name',
+    nameShortError: (minimum) => `Enter at least ${minimum} characters.`,
     nameSaveError: 'That change could not be saved. Your previous name is still active.',
     nameCancel: 'Cancel',
     nameRemove: 'Remove name',

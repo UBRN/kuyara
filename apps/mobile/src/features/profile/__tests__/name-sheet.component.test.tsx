@@ -74,7 +74,9 @@ test('Settings Done still clears an emptied name, while invalid values disable D
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(null));
   await fireEvent.changeText(screen.getByTestId('name-edit-input'), 'A');
   expect(screen.getByTestId('name-sheet-done')).toBeDisabled();
-  expect(screen.getByTestId('name-edit-input-error')).toHaveTextContent(messages.en.onboarding.nameShortError(displayNameMinLength));
+  // The sheet has no "Not now", so the error does not send the person looking for one.
+  expect(screen.getByTestId('name-edit-input-error')).toHaveTextContent(messages.en.profile.nameShortError(displayNameMinLength));
+  expect(screen.getByTestId('name-edit-input-error')).not.toHaveTextContent(/Not now/);
 });
 
 // VoiceOver ignores the error line's live region, so iOS speaks it, and the field carries it as
@@ -87,7 +89,7 @@ test('a length error is spoken on iOS and is the field\'s hint while it shows', 
   expect(field().props.accessibilityHint).toBeUndefined();
 
   await fireEvent.changeText(field(), 'A');
-  const short = messages.en.onboarding.nameShortError(displayNameMinLength);
+  const short = messages.en.profile.nameShortError(displayNameMinLength);
   expect(announce).toHaveBeenLastCalledWith(short);
   expect(field().props.accessibilityHint).toBe(short);
 
