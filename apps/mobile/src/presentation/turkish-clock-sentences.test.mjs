@@ -107,10 +107,13 @@ test('the Turkish hourly forecast label says the part of the day on a 12-hour cl
     { copy: messages[language].weather, hour12, language, temperatureUnit: 'celsius', unitName: 'santigrat derece' },
   );
 
-  assert.match(columnsFor('tr', true)[0].accessibilityLabel, /^Öğleden sonra saat 3:00\. Sıcaklık /u);
+  // The first column is the one the rail marks Now, and it is spoken that way.
+  assert.match(columnsFor('tr', true)[0].accessibilityLabel, /^Şimdi, öğleden sonra saat 3:00\. Sıcaklık /u);
   assert.match(columnsFor('tr', true)[1].accessibilityLabel, /^Öğleden sonra saat 4:00\. /u);
-  assert.match(columnsFor('tr', false)[0].accessibilityLabel, /^Saat 15:00\. Sıcaklık /u);
-  assert.match(columnsFor('en', true)[0].accessibilityLabel, /^3:00 pm\. /u);
+  assert.match(columnsFor('tr', false)[0].accessibilityLabel, /^Şimdi, saat 15:00\. Sıcaklık /u);
+  assert.match(columnsFor('tr', false)[1].accessibilityLabel, /^Saat 16:00\. Sıcaklık /u);
+  assert.match(columnsFor('en', true)[0].accessibilityLabel, /^Now, 3:00 pm\. /u);
+  assert.match(columnsFor('en', true)[1].accessibilityLabel, /^4:00 pm\. /u);
   // The rail column itself is a standalone label and keeps the clock's own form.
   assert.match(columnsFor('tr', true)[1].time, /^ÖS 4:00$/u);
 });
