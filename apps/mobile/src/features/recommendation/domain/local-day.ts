@@ -69,6 +69,18 @@ export function localDayKey(date: Date): string {
 }
 
 /**
+ * How long from `date` until the device clock turns the dressing day, at the next 04:00 or
+ * 18:00: the first whole local hour whose key differs from the one `date` is in.
+ */
+export function untilDressingDayTurns(date: Date): number {
+  const key = localDayKey(date);
+  const next = new Date(date);
+  next.setMinutes(0, 0, 0);
+  do next.setHours(next.getHours() + 1); while (localDayKey(next) === key);
+  return next.getTime() - date.getTime();
+}
+
+/**
  * Whether a dressing day is the one the profile was set up on. Setup has just asked how the
  * user dresses, so that day counts as answered even when no choice row was written for it
  * (a profile set up by an earlier build writes none).

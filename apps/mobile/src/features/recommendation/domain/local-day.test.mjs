@@ -9,6 +9,7 @@ import {
   localDayVariant,
   nextMorningAfterEvening,
   previewDepartureAt,
+  untilDressingDayTurns,
 } from './local-day.ts';
 import { outfitCoverage } from './outfit-coverage.ts';
 import { zonedClock } from '../../../domain/intl-format.ts';
@@ -22,6 +23,15 @@ test('the dressing day key at the 03:59, 04:00, 17:59 and 18:00 boundaries', () 
   assert.equal(localDayKey(new Date(2026, 8, 16, 4, 0)), '2026-09-16');
   assert.equal(localDayKey(new Date(2026, 8, 16, 17, 59)), '2026-09-16');
   assert.equal(localDayKey(new Date(2026, 8, 16, 18, 0)), '2026-09-16:evening');
+});
+
+test('the wait to the next turn of the dressing day runs to the next 04:00 or 18:00', () => {
+  const minutes = (date) => untilDressingDayTurns(date) / 60_000;
+  assert.equal(minutes(new Date(2026, 9, 10, 4, 0)), 14 * 60);
+  assert.equal(minutes(new Date(2026, 9, 10, 17, 59, 30)), 0.5);
+  assert.equal(minutes(new Date(2026, 9, 10, 18, 0)), 10 * 60);
+  assert.equal(minutes(new Date(2026, 9, 10, 23, 30)), 4 * 60 + 30);
+  assert.equal(minutes(new Date(2026, 9, 11, 3, 59, 30)), 0.5);
 });
 
 test('midnight does not turn the dressing day, including across a year', () => {
