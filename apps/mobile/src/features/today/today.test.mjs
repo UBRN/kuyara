@@ -1006,7 +1006,7 @@ test('the freshness time follows the device clock setting, not the language', ()
 
   assert.match(twentyFour, /\d{2}:\d{2}$/);
   assert.match(twelve, /\d{1,2}:\d{2}\s?(am|pm)$/iu);
-  assert.match(loadedPresentation(settled, 'tr', true).header.freshness, /(ÖÖ|ÖS) \d/u);
+  assert.match(loadedPresentation(settled, 'tr', true).header.freshness, /^Son güncelleme (sabah|öğle|öğleden sonra|akşam|gece) \d/u);
 });
 
 test('the stage label reads temperature, condition, pieces and archetype in both languages', () => {

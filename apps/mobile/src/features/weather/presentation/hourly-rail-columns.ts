@@ -4,7 +4,7 @@ import { resolveDaypart } from '@/features/weather/domain/atmosphere-state';
 import type { HourlyWeather, NormalizedCoordinates, WeatherSnapshot } from '@/features/weather/domain/weather';
 import type { TemperatureUnit } from '@/localization/device-locale';
 import type { AppMessages, SupportedLanguage } from '@/localization/messages';
-import { formatClockTime } from '@/presentation/format-clock-time';
+import { formatClockTime, formatSpokenClockTime } from '@/presentation/format-clock-time';
 import { formatTemperature, formatTemperatureValue } from '@/presentation/format-temperature';
 
 import type { HourlyRailColumn, HourlyTimeEmphasis } from './hourly-rail';
@@ -63,10 +63,10 @@ export function hourlyRailColumns(
     const clockTime = formatClockTime(hour.forecastAt, language, hour12, timeZone);
     return {
       key: hour.forecastAt,
-      // The spoken label keeps the clock time even where the column shows "Now" or a day.
+      // The spoken label keeps the clock time, said as a sentence says it, even where the column shows "Now" or a day.
       accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
         day: newLocalDay ? weekday(hour.forecastAt, timeZone, language, 'long') : undefined,
-        time: clockTime,
+        time: formatSpokenClockTime(hour.forecastAt, language, hour12, timeZone),
         unitName,
         temperature: formatTemperatureValue(hour.temperatureCelsius, language, temperatureUnit),
         condition: copy.conditions[hour.condition],

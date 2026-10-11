@@ -9,7 +9,7 @@ import { showIdentityTakenAlert } from '@/features/account/presentation/account-
 import { SyncToneGlyph } from '@/features/account/presentation/account-status';
 import { describeSync } from '@/features/account/presentation/account-sync-view';
 import { useLocalization } from '@/localization/use-messages';
-import { formatClockTime } from '@/presentation/format-clock-time';
+import { formatNaturalClockTime } from '@/presentation/format-clock-time';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -34,7 +34,7 @@ export function AccountScreen({ onOpenDelete }: Readonly<{ onOpenDelete: () => v
   if (session.kind !== 'signedIn') return null;
   const recordsOn = session.syncConsent === 'given';
 
-  const sync = describeSync(session, snapshot.online, copy, session.lastSyncedAt && formatClockTime(session.lastSyncedAt, language, hour12));
+  const sync = describeSync(session, snapshot.online, copy, session.lastSyncedAt && formatNaturalClockTime(session.lastSyncedAt, language, hour12));
   const signOutBody = recordsOn ? copy.signOutAlert.body : copy.signOutAlert.bodyWithoutRecords;
   const confirmSignOut = () => Alert.alert(copy.signOutAlert.title, signOutBody, [
     { style: 'cancel', text: copy.signOutAlert.cancel },

@@ -15,6 +15,7 @@ import { departureOptions } from '@/features/recommendation/domain/dressing-day-
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import { DayTypeTiles } from '@/features/today/presentation/daily-formality-sheet';
 import { askAgainWarning, formatDepartureTime } from '@/features/today/presentation/today-presentation';
+import { formatNaturalClockTime } from '@/presentation/format-clock-time';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { spacing } from '@/theme/theme';
 
@@ -132,7 +133,7 @@ export function AskAgainSheet({
           </AppText>
         ) : null}
         <Button
-          label={draft.mode === 'now' ? copy.chooseNow : copy.chooseAt(time(draft.departureAt))}
+          label={draft.mode === 'now' ? copy.chooseNow : copy.chooseAt(formatNaturalClockTime(draft.departureAt, language, hour12, timeZone))}
           loading={busy}
           onPress={() => onConfirm({
             formality: draft.formality,

@@ -2966,6 +2966,9 @@ describe.each(['en', 'tr'] as const)('%s ask-again control', (language) => {
 
 // N18 and N15: the outfit's window and any protection the rest of it now needs sit directly
 // under the board, each one whole sentence per language.
+// A sentence that opens with the time gets it spoken: Turkish on a 24-hour clock says "saat 17:00".
+const spokenTime = (language: SupportedLanguage, time: string) => (language === 'tr' ? `saat ${time}` : time);
+
 describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
   function coveredState(overrides: Readonly<Record<number, Partial<HourlyWeather>>> = {}): TodayScreenState {
     const base = insightState(overrides);
@@ -3019,9 +3022,9 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
       lightTheme, language,
     ));
     const caption = result.getByTestId('today-drift-caption');
-    expect(caption).toHaveTextContent(messages[language].today.drift.cold('17:00'));
+    expect(caption).toHaveTextContent(messages[language].today.drift.cold(spokenTime(language, '17:00')));
     expect(rowAlignment(caption)).toBe('flex-start');
-    const text = within(caption).getByText(messages[language].today.drift.cold('17:00'));
+    const text = within(caption).getByText(messages[language].today.drift.cold(spokenTime(language, '17:00')));
     expect(StyleSheet.flatten(text.props.style)).toMatchObject({ color: lightTheme.colors.warningInk });
     expect(jest.mocked(SymbolView).mock.calls.some(([props]) =>
       typeof props.name === 'object' && props.name !== null && 'ios' in props.name
@@ -3037,8 +3040,8 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
       lightTheme, language,
     ));
     const line = result.getByTestId('today-cool-spell');
-    expect(line).toHaveTextContent(messages[language].today.coolSpell('15:00'));
-    expect(line.props.accessibilityLabel).toBe(messages[language].today.coolSpell('15:00'));
+    expect(line).toHaveTextContent(messages[language].today.coolSpell(spokenTime(language, '15:00')));
+    expect(line.props.accessibilityLabel).toBe(messages[language].today.coolSpell(spokenTime(language, '15:00')));
     // Law 6: the existing cardigan silhouette at the caption's 16 points.
     expect(within(line).getByTestId('today-cool-spell-cardigan', { includeHiddenElements: true })
       .props.height).toBe(16);
@@ -3048,7 +3051,7 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
     expect(ids.indexOf('today-cool-spell')).toBeLessThan(ids.indexOf('today-freshness'));
     // Turkish never attaches a case suffix to a clock time, and the rule stays mandatory cold
     // when it lasts: two hours under 12 is the drift caption, not a layer.
-    expect(messages.tr.today.coolSpell('21:00')).toBe('Yanına ince bir kat al, saat 21:00 gibi hava serinliyor.');
+    expect(messages.tr.today.coolSpell('saat 21:00')).toBe('Yanına ince bir kat al, saat 21:00 gibi hava serinliyor.');
     expect(messages.en.today.coolSpell('21:00')).toBe('Take a light layer for the cool spell around 21:00.');
     const cold = { apparentTemperatureCelsius: 10 };
     const coldResult = await render(providers(

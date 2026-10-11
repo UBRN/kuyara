@@ -52,7 +52,7 @@ import { wholeWindSpeed } from '@/domain/wind-speed';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { localeTag } from '@/localization/locale-tag';
-import { formatClockTime, formatLastUpdated } from '@/presentation/format-clock-time';
+import { formatLastUpdated, formatNaturalClockTime, formatSpokenClockTime } from '@/presentation/format-clock-time';
 import { formatTemperature, formatTemperatureDifference, formatTemperatureValue } from '@/presentation/format-temperature';
 import type { TemperatureUnit } from '@/localization/device-locale';
 import type { SupportedLanguage } from '@/localization/messages';
@@ -93,10 +93,9 @@ function outlookSentence(
   if (outlook.kind === 'steady') {
     return outlook.period === 'evening' ? copy.outlook.steadyEvening : copy.outlook.steady;
   }
-  const at = formatClockTime(outlook.atHour, language, hour12, timeZone);
   if (outlook.kind === 'temperature_change') {
     const values = {
-      time: at,
+      time: formatSpokenClockTime(outlook.atHour, language, hour12, timeZone),
       degrees: formatTemperatureDifference(
         Math.abs(outlook.toApparentCelsius - outlook.fromApparentCelsius),
         language, temperatureUnit
@@ -106,6 +105,7 @@ function outlookSentence(
       ? copy.outlook.temperatureDrop(values)
       : copy.outlook.temperatureRise(values);
   }
+  const at = formatNaturalClockTime(outlook.atHour, language, hour12, timeZone);
   const starting = outlook.kind === 'precipitation_onset';
   if (outlook.form === 'snow') {
     return starting ? copy.outlook.snowStarting(at) : copy.outlook.snowEasing(at);

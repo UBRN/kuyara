@@ -68,7 +68,7 @@ import {
   runwayWeather,
 } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
-import { formatWallClockTime } from '@/presentation/format-clock-time';
+import { formatSpokenClockTime, formatWallClockTime } from '@/presentation/format-clock-time';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { activeLocationSnapshot } from '@/features/weather/domain/weather';
@@ -669,7 +669,7 @@ function WeatherAlertOfferRow({
     copy,
     blocked,
     ruleId,
-    (time) => formatWallClockTime(time, language, hour12),
+    (time) => formatWallClockTime(time, language, hour12, formatSpokenClockTime),
   );
   const acceptLabel = blocked ? copy.openSettingsAction : copy.offer.acceptAction;
   // The live region below covers Android; VoiceOver keeps focus on the button and hears nothing.

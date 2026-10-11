@@ -55,7 +55,7 @@ test('last updated is the time on the current local day and the short date and t
 
   assert.equal(formatLastUpdated(today, 'en', false, now), formatClockTime(today, 'en', false, deviceZone));
   assert.equal(formatLastUpdated(today, 'en', true, now), formatClockTime(today, 'en', true, deviceZone));
-  assert.equal(formatLastUpdated(today, 'tr', true, now), formatClockTime(today, 'tr', true, deviceZone));
+  assert.equal(formatLastUpdated(today, 'tr', true, now), formatNaturalClockTime(today, 'tr', true, deviceZone));
   for (const [language, hour12] of [['en', false], ['en', true], ['tr', false]]) {
     const dated = formatLastUpdated(earlier, language, hour12, now);
     assert.notEqual(dated, formatClockTime(earlier, language, hour12, deviceZone));
@@ -65,7 +65,7 @@ test('last updated is the time on the current local day and the short date and t
   if (deviceZone === 'UTC') {
     assert.equal(formatLastUpdated(today, 'en', false, now), '13:05');
     assert.equal(formatLastUpdated(today, 'en', true, now), '1:05 pm');
-    assert.equal(formatLastUpdated(today, 'tr', true, now), 'ÖS 1:05');
+    assert.equal(formatLastUpdated(today, 'tr', true, now), 'öğleden sonra 1:05');
     assert.equal(formatLastUpdated(earlier, 'en', false, now), '02/10/2026, 13:05');
     assert.equal(formatLastUpdated(earlier, 'en', true, now), '02/10/2026, 01:05 pm');
     assert.equal(formatLastUpdated(earlier, 'tr', false, now), '2.10.2026 13:05');
