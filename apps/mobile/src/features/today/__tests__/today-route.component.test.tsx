@@ -821,8 +821,8 @@ test('Today marks itself interactive once, with the coarse presentation kind', a
   expect(mockMarkInteractive).toHaveBeenCalledTimes(1);
 });
 
-test('Today marks itself interactive on its first presentation even when that is the loading one', async () => {
-  await render(
+test('Today marks itself interactive only once it has drawn what it has to show', async () => {
+  const view = await render(
     <Providers
       productAnalytics={createProductAnalytics()}
       profile={profileValue()}
@@ -833,8 +833,23 @@ test('Today marks itself interactive on its first presentation even when that is
     </Providers>,
   );
 
+  expect(mockMarkInteractive).not.toHaveBeenCalled();
+
+  await act(async () => {
+    view.rerender(
+      <Providers
+        productAnalytics={createProductAnalytics()}
+        profile={profileValue()}
+        recommendation={recommendationReady()}
+        wardrobe={wardrobeValue()}
+        weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+  });
+
   expect(mockMarkInteractive).toHaveBeenCalledTimes(1);
-  expect(mockMarkInteractive).toHaveBeenCalledWith({ state: 'loading' });
+  expect(mockMarkInteractive).toHaveBeenCalledWith({ state: 'loaded' });
 });
 
 test('Today reports screen_viewed and recommendation_viewed once while a recommendation is loaded', async () => {
