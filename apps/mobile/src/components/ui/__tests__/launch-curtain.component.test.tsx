@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { useState } from 'react';
-import { Appearance, Dimensions, processColor, Text } from 'react-native';
+import { Appearance, AppState, type AppStateStatus, Dimensions, processColor, Text } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
 import {
@@ -9,6 +9,7 @@ import {
   LaunchCurtain,
   type LaunchReadiness,
   LaunchScreenReadyContext,
+  RETURN_AWAY_MS,
   useLaunchReveal,
   useLaunchScreenReady,
 } from '@/components/ui/launch-curtain';
@@ -75,6 +76,12 @@ async function end(duration: number) {
   await advance(0);
 }
 
+// The app's state as React Native reports it, moved by the test.
+let appStateListeners: ((state: AppStateStatus) => void)[] = [];
+async function moveApp(state: AppStateStatus) {
+  await act(() => appStateListeners.forEach((listener) => listener(state)));
+}
+
 // A shared value keeps its identity across renders, as on a device; the library's mock
 // makes a new one each render, which would start the motion again on every render.
 const librarySharedValue = Reanimated.useSharedValue;
@@ -90,6 +97,14 @@ beforeAll(() => {
 beforeEach(() => {
   busy = false;
   running = [];
+  appStateListeners = [];
+  jest.spyOn(AppState, 'addEventListener').mockImplementation(((
+    _type: string,
+    listener: (state: AppStateStatus) => void,
+  ) => {
+    appStateListeners.push(listener);
+    return { remove: () => { appStateListeners = appStateListeners.filter((item) => item !== listener); } };
+  }) as unknown as typeof AppState.addEventListener);
   jest.useFakeTimers();
   jest.spyOn(Reanimated, 'withTiming').mockImplementation(((
     toValue: number,
@@ -263,7 +278,7 @@ test('a failed launch fades the layer away at once and the app is never left beh
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });
 
-test('a mount that is not the cold launch, a return from the background included, plays nothing and hands over once', async () => {
+test('a mount that is not the cold launch, a scene reconnecting included, plays nothing and hands over once', async () => {
   const onFirstFrame = jest.fn();
   await render(curtain('pending', onFirstFrame, false));
 
@@ -302,4 +317,48 @@ test('the first screen reports its content drawn once, when it has it, and only 
 
   // Outside a launch nothing listens.
   await result.rerender(<Screen ready />);
+});
+
+test('a return after at least a minute away fades the symbol in over the screen, then dives', async () => {
+  await render(curtain('ready', jest.fn(), false));
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  await moveApp('active');
+  expect(screen.getByTestId('launch-curtain', hidden)).toBeTruthy();
+  // What waits for the cold launch is not held again.
+  expect(probe()).toBe('revealing done');
+  expect(durations()).toEqual([launch, normal]);
+  await end(launch);
+  await end(normal);
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
+test('a return inside a minute, or from a passing system overlay, plays nothing', async () => {
+  await render(curtain('ready', jest.fn(), false));
+
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS - 1);
+  await moveApp('active');
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+
+  await moveApp('inactive');
+  await advance(RETURN_AWAY_MS * 5);
+  await moveApp('active');
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
+test('a return while the cold launch still plays adds no second launch', async () => {
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  await moveApp('active');
+  await result.rerender(curtain('ready'));
+  await nextFrame();
+  expect(durations()).toEqual([launch, normal]);
+  await end(launch);
+  await end(normal);
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });

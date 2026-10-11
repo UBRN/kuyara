@@ -440,13 +440,15 @@ Durations are already tokenized (`immediate` 0, `fast` 120, `normal` 200, `delib
 - `fast` 120, content entering, press feedback.
 - `normal` 200, a state change on something already on screen.
 - `deliberate` 320, reserved for a full-screen or sheet transition.
-- `launch` 400, the cold launch's dive into the symbol and nothing else.
+- `launch` 400, the launch's dive into the symbol and nothing else.
 
 **The cold launch** is the one motion that holds the first look at the app. Its first
 frame is the native splash's last; the symbol breathes in on `fast`, the view dives into
 its upper piece on `launch` while the pieces turn Calm Current, and the one-colour screen
 fades on `normal` over the first screen, where Today's outfit rises as the curtain
-starts to fade. A notification or a link plays only the colour arriving and fading.
+starts to fade. A notification or a link plays only the colour arriving and fading. A
+return after at least a minute in the background fades the symbol in over the screen it
+left, then plays the same dive.
 Sheets, prompts and the coach-mark tour wait until the layer has gone. The full timing is
 in [ADR 0020](../adr/0020-rewriting-the-motion-law.md#the-cold-launch).
 
