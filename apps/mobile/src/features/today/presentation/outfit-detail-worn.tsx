@@ -14,7 +14,7 @@ export type WornSwap = Readonly<{
   current: WornControl | null; previous: WornControl | null; previousBusy: boolean; changes: number;
 }>;
 
-/** ADR 0038: one worn record per dressing day, written only by this action. */
+/** ADR 0038: "Wore this today" records the look beside the day's earlier ones; only this action writes it. */
 export function OutfitDetailWorn({
   copy, onPreviousDone, onWoreThis, palette, saved, scrollBy, wornBusy, wornShown, wornSwap,
 }: Readonly<{

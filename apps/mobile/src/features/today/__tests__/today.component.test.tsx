@@ -1323,7 +1323,7 @@ describe('the look worn today', () => {
 
   test('a look worn as offered leads, opens its detail from the band, and gives way to kuyara\'s pick', async () => {
     if (todayScreenState.snapshot.recommendation.status !== 'recommended') throw new Error('fixture');
-    const [first, second] = loadedPresentation().suggestions;
+    const [first, second, third] = loadedPresentation().suggestions;
     const onOpenOutfitDetail = jest.fn();
     const result = await renderWorn(wornOutfitFrom(todayScreenState.snapshot.recommendation.outfits[1]),
       onOpenOutfitDetail);
@@ -1332,8 +1332,9 @@ describe('the look worn today', () => {
     expect(result.getByTestId('today-wearing')).toHaveTextContent(copy.wearing);
     expect(result.getByTestId('today-worn-stays')).toHaveTextContent(copy.staysUntilTomorrow);
     expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(second.title);
-    // The alternates keep the snapshot's other outfits.
-    expect(result.getByTestId(`today-alternate-${second.id}`)).toBeOnTheScreen();
+    // The alternates are the snapshot's other outfits: kuyara's pick and the third, nothing twice.
+    const alternateIds = () => result.getAllByTestId(/^today-alternate-outfit:[^-]+$/).map(({ props }) => props.testID);
+    expect(alternateIds()).toEqual([`today-alternate-${first.id}`, `today-alternate-${third.id}`]);
     await fireEvent.press(result.getByTestId('today-archetype', hidden));
     expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(second.id, true);
 
@@ -1341,6 +1342,7 @@ describe('the look worn today', () => {
     expect(await result.findByTestId(`today-primary-board-${first.id}`, hidden)).toBeOnTheScreen();
     expect(result.queryByTestId('today-wearing')).toBeNull();
     expect(result.queryByTestId('today-worn-stays')).toBeNull();
+    expect(alternateIds()).toEqual([`today-alternate-${second.id}`, `today-alternate-${third.id}`]);
     await fireEvent.press(result.getByRole('button', { name: copy.showWornAccessibilityLabel }));
     expect(await result.findByTestId(`today-primary-board-${second.id}`, hidden)).toBeOnTheScreen();
     expect(result.getByTestId('today-wearing')).toBeOnTheScreen();

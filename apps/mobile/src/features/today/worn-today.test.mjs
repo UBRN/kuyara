@@ -81,6 +81,7 @@ test('the worn look leads Today in its recorded colours, kuyara\'s three unchang
     presentation.suggestions[1].accessories.map(({ garmentTypeId }) => garmentTypeId));
   assert.match(hero.stageAccessibilityLabel, new RegExp(presentation.suggestions[1].title));
   assert.deepEqual(presentation.suggestions.map(({ id }) => id), recommendation.outfits.map(({ optionId }) => optionId));
+  assert.deepEqual(hero.alternates.map(({ id }) => id), [first.optionId, third.optionId]);
   assert.equal(createTodayPresentation(todayScreenState, 'en', false, 'celsius', now).wornHero, null);
 });
 
@@ -94,4 +95,5 @@ test('a look the reader changed leads as their outfit and opens no detail', () =
   assert.equal(english.wornHero?.title, 'Your outfit');
   assert.equal(turkish.wornHero?.title, 'Senin kombinin');
   assert.equal(english.wornHero?.id, `worn-${worn.id}`);
+  assert.deepEqual(english.wornHero?.alternates.map(({ id }) => id), [second.optionId, third.optionId]);
 });
