@@ -15,11 +15,15 @@ export type WornSwap = Readonly<{
 }>;
 
 /** ADR 0038: one worn record per dressing day, written only by this action. */
-export function OutfitDetailWorn({ copy, onPreviousDone, onWoreThis, palette, wornBusy, wornShown, wornSwap }: Readonly<{
+export function OutfitDetailWorn({
+  copy, onPreviousDone, onWoreThis, palette, scrollBy, wornBusy, wornShown, wornSwap,
+}: Readonly<{
   copy: TodayCopy;
   onPreviousDone: () => void;
   onWoreThis: ((pieceColors: WornPieceColors) => void) | undefined;
   palette: GarmentOutfitPalette;
+  /** The tour scrolls the screen by this many points to bring the action back into view. */
+  scrollBy: (dy: number) => void;
   wornBusy: boolean;
   wornShown: WornControl | null;
   wornSwap: WornSwap;
@@ -35,7 +39,7 @@ export function OutfitDetailWorn({ copy, onPreviousDone, onWoreThis, palette, wo
     </>
   );
   return (
-    <TourTarget id="worn" style={styles.wornAction}>
+    <TourTarget id="worn" scrollBy={scrollBy} style={styles.wornAction}>
       {wornShown !== null ? (
         <FadeOnChange animate={wornSwap.changes > 0} key={`worn-in-${wornSwap.changes}`}>
           {wornShown === 'action' && onWoreThis ? (

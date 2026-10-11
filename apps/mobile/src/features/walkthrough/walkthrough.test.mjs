@@ -327,6 +327,14 @@ test('the bubble sits below the lit area when it fits, else above, else tightens
   assert.deepEqual(placeBubble(null, heights, bounds), { top: (111 + 814 - 180) / 2, side: 'below', tight: false });
 });
 
+test('a lit area above the bounds never puts the bubble under Skip or off the window', () => {
+  const heights = { normal: 160, tight: 140 };
+  for (const y of [-120, -40]) {
+    const placed = placeBubble(holeFor({ x: 16, y, width: 361, height: 56 }, 'pill'), heights, bounds);
+    assert.deepEqual(placed, { top: bounds.top, side: 'below', tight: false });
+  }
+});
+
 test('the spotlight pads the lit area by 10 and follows the controls\' corners', () => {
   const lit = { x: 16, y: 200, width: 361, height: 44 };
   assert.deepEqual(holeFor(lit, 'pill'), { x: 6, y: 190, width: 381, height: 64, radius: 32 });

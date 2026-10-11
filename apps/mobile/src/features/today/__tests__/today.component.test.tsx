@@ -50,7 +50,7 @@ import {
 import { EasierToSeeContext, SystemVisibilityContext } from '@/theme/easier-to-see';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
-import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
+import { TourTargetsContext, WalkthroughContext } from '@/features/walkthrough/application/walkthrough-context';
 import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/garment-art';
 import { garmentShadowRule } from '@/garment-art/compose-garment-board';
 import { shiftOklchLightness } from '@/theme/color-oklch';
@@ -3555,6 +3555,8 @@ test('outfit detail registers its first piece row by name and Wore this today fo
   expect(name).toEqual(expect.any(String));
   expect(registry.get('piece')?.label()?.startsWith(`${name}, `)).toBe(true);
   expect(registry.has('worn')).toBe(true);
+  // Detail left scrolled hides Wore this today above the window; the tour scrolls it back.
+  expect(registry.get('worn')?.scrollBy).toEqual(expect.any(Function));
   // The piece row is the last control that speaks this label.
   await fireEvent.press(result.getAllByRole('button', { name: registry.get('piece')?.label() }).at(-1)!);
   expect(onEditPiece).toHaveBeenCalledWith(expect.objectContaining({ name }));
@@ -3563,4 +3565,36 @@ test('outfit detail registers its first piece row by name and Wore this today fo
   expect(onEditPiece.mock.calls[1][0]).toEqual(onEditPiece.mock.calls[0][0]);
   await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
   expect(onWoreThis).toHaveBeenCalledTimes(1);
+});
+
+// The tour's live gap passes a finger to the control beneath, and a drag there would scroll the
+// screen under a spotlight that stays put. While the tour runs, Today and outfit detail scroll
+// only when the tour asks.
+test('Today and outfit detail cannot be scrolled by hand while the tour runs', async () => {
+  const tour = (active: boolean) => ({
+    active, restart: () => undefined, reportToday: () => undefined,
+    reportReturningToday: () => undefined, reportPopCancelled: () => undefined,
+  });
+  const today = (active: boolean) => providers(
+    <WalkthroughContext value={tour(active)}>
+      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={aiAssistedTodayScreenState} />
+    </WalkthroughContext>,
+  );
+  const todayView = await render(today(true));
+  expect(todayView.getByTestId('today-screen').props.scrollEnabled).toBe(false);
+  await todayView.rerender(today(false));
+  expect(todayView.getByTestId('today-screen').props.scrollEnabled).toBe(true);
+  await todayView.unmount();
+
+  const detail = (active: boolean) => providers(
+    <WalkthroughContext value={tour(active)}>
+      <OutfitDetailScreen language="en" onEditPiece={jest.fn()} onWoreThis={jest.fn()}
+        state={todayScreenState} suggestionId={todayOutfitId(1)} wardrobeItems={[]} worn="none" />
+    </WalkthroughContext>,
+  );
+  const detailView = await render(detail(true));
+  expect(detailView.getByTestId('outfit-detail-screen').props.scrollEnabled).toBe(false);
+  await detailView.rerender(detail(false));
+  expect(detailView.getByTestId('outfit-detail-screen').props.scrollEnabled).toBe(true);
 });

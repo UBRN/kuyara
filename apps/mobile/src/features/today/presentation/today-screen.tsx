@@ -73,6 +73,7 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
+import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
@@ -248,6 +249,9 @@ function TodayScreenContent({
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
   const scrollBy = (dy: number) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy });
+  // While the tour runs, only the tour scrolls Today: its live outfit passes a finger through,
+  // and a drag there would move the outfit out from under the spotlight.
+  const tourActive = useWalkthrough()?.active === true;
   const recommendationApplication = use(RecommendationApplicationContext);
   const weatherApplication = useWeatherApplication();
   const { hour12, temperatureUnit } = useLocalization();
@@ -489,6 +493,7 @@ function TodayScreenContent({
       }}
       ref={scrollRef}
       refreshControl={refreshControl}
+      scrollEnabled={!tourActive}
       scrollToOverflowEnabled
       testID="today-screen">
       <View onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)} testID="today-content">

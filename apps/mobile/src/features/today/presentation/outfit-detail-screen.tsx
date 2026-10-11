@@ -84,6 +84,7 @@ import { useStableValue } from '@/hooks/use-stable-value';
 import type { TodayScreenState } from '@/features/today/model';
 import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
+import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { layout, plateTheme, radii, spacing } from '@/theme/theme';
@@ -225,6 +226,9 @@ export function OutfitDetailScreen({
   // Phase 8: the tour brings the first piece row about a third of the way down the screen.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
+  // While the tour runs, only the tour scrolls detail: its live piece row passes a finger
+  // through, and a drag there would move the row out from under the spotlight.
+  const tourActive = useWalkthrough()?.active === true;
   const piecesTop = useRef(0);
   const { height: windowHeight } = useWindowDimensions();
   // "Why this outfit" draws its lines once the whole section stands clear of the floating tab
@@ -571,7 +575,7 @@ export function OutfitDetailScreen({
   const scrollBy = (dy: number) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy });
 
   return (
-    <Screen ref={scrollRef} scrollToOverflowEnabled testID="outfit-detail-screen">
+    <Screen ref={scrollRef} scrollEnabled={!tourActive} scrollToOverflowEnabled testID="outfit-detail-screen">
       <View
         onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
         onTouchEnd={({ nativeEvent }) => {
@@ -669,6 +673,7 @@ export function OutfitDetailScreen({
           onPreviousDone={clearWornPrevious}
           onWoreThis={onWoreThis}
           palette={palette}
+          scrollBy={scrollBy}
           wornBusy={wornBusy}
           wornShown={wornShown}
           wornSwap={wornSwap}

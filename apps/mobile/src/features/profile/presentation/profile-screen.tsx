@@ -246,10 +246,12 @@ export function ProfileScreen({
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
   const { refresh, state } = useWardrobeApplication();
-  // Phase 8: the tour scrolls Profile to its end to light the History row, and further when
-  // that end leaves the row under the tab bar.
+  // Phase 8: the tour scrolls Profile to its end to light the History row, further when that
+  // end leaves the row under the tab bar, and back when a Profile left scrolled hides the
+  // Closet heading under Skip.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
+  const scrollBy = (dy: number) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy });
 
   // A failure already showing when Profile opens is not spoken; one that appears while it is
   // up is, because VoiceOver ignores the body's live region.
@@ -294,7 +296,7 @@ export function ProfileScreen({
       {/* The tour measures the still wrapper outside each arrival, so its ring marks where
           the heading and the rack come to rest even while they are still arriving. */}
       {accountCard}
-      <TourTarget id="closet-head">
+      <TourTarget id="closet-head" scrollBy={scrollBy}>
       <Entrance index={0} waiting={!shown}>
       <Pressable
         accessibilityHint={copy.closetHeadingHint}
@@ -433,7 +435,7 @@ export function ProfileScreen({
             id="history"
             key="history"
             reveal={() => scrollRef.current?.scrollToEnd({ animated: true })}
-            scrollBy={(dy) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy })}>
+            scrollBy={scrollBy}>
             <ListRow
               glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
               label={copy.historyLabel}

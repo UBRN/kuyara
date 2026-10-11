@@ -569,6 +569,8 @@ test('Profile registers the Closet heading, the rack and the History row for the
   );
   expect(['closet-head', 'rack', 'history'].map((id) => registry.has(id as 'rack'))).toEqual([true, true, true]);
   expect(registry.get('history')?.reveal).toEqual(expect.any(Function));
+  // A Profile left scrolled hides the Closet heading under Skip; the tour scrolls it back.
+  expect(registry.get('closet-head')?.scrollBy).toEqual(expect.any(Function));
   await fireEvent.press(result.getByTestId('profile-history-row'));
   expect(onOpenHistory).toHaveBeenCalledTimes(1);
 });

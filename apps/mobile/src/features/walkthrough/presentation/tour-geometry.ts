@@ -78,7 +78,9 @@ export function placeBubble(
     };
   }
   const attempt = (height: number, gap: number, tight: boolean): BubblePlacement | null => {
-    const below = hole.y + hole.height + gap;
+    // A lit area above the bounds keeps the bubble at the top bound, never under Skip or off
+    // the window.
+    const below = Math.max(bounds.top, hole.y + hole.height + gap);
     if (below + height <= bounds.bottom) return { top: below, side: 'below', tight };
     const above = hole.y - gap - height;
     if (above >= bounds.top) return { top: above, side: 'above', tight };
