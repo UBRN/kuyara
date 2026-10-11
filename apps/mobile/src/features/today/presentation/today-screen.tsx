@@ -462,12 +462,14 @@ function TodayScreenContent({
   const ambientIntensity = state.kind === 'loaded'
     ? ambientIntensityOf(state.snapshot.weather.current.condition)
     : 'calm';
-  const [primary, ...alternates] = presentation.suggestions;
   // ADR 0038: the look worn today leads until the dressing day turns, unless the reader asked
   // for kuyara's pick over it. The tour opens kuyara's pick, so it always shows that.
   const wornHero = walkthrough?.active === true ? null : presentation.wornHero;
   const showsWorn = wornHero !== null && pickOver !== wornHero.id;
+  const [primary, ...pickAlternates] = presentation.suggestions;
   const hero = showsWorn ? wornHero : primary;
+  const { alternates, moreIdeas, moreIdeasCaption } = showsWorn ? wornHero
+    : { alternates: pickAlternates, moreIdeas: presentation.moreIdeas, moreIdeasCaption: presentation.moreIdeasCaption };
   if (hero && hero.id !== stageOutfit?.id) {
     // An outfit still waiting for the one before it to leave was never drawn, so it has nothing
     // to drop: the board already leaving keeps leaving, and the newest outfit rises after it.
@@ -611,12 +613,12 @@ function TodayScreenContent({
 
         {/* The composed pool past the outfits on screen, one sideways row
             under the alternatives. It asks for nothing; each tile opens the ordinary detail. */}
-        {presentation.moreIdeasCaption ? (
+        {moreIdeasCaption ? (
           <ArrivesAfterHandoff index={7}>
             <MoreIdeas
-              caption={presentation.moreIdeasCaption}
+              caption={moreIdeasCaption}
               heading={presentation.copy.moreIdeasHeading}
-              ideas={presentation.moreIdeas}
+              ideas={moreIdeas}
               onOpenOutfitDetail={onOpenOutfitDetail}
               outfitDetailLink={outfitDetailLink}
             />

@@ -9,6 +9,11 @@ import {
 } from '@/features/recommendation/application/recommend-outfits';
 import { aiAssistedTodayScreenState, todayScreenState } from '@/features/today/__tests__/fixtures';
 import type { TodayScreenState } from '@/features/today/model';
+import {
+  RecommendationApplicationContext,
+  type RecommendationApplicationValue,
+} from '@/features/recommendation/application/recommendation-application-context';
+import { wornOutfitFrom } from '@/features/recommendation/domain/outfit-history';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import { measureGarmentBoardHeight } from '@/garment-art';
@@ -144,6 +149,32 @@ test.each([
 ] as const)('%s: one idea is named in the singular', async (language, caption) => {
   const result = await render(screen(language, withIdeas(1)));
   expect(result.getByText(caption)).toBeOnTheScreen();
+});
+
+// ADR 0038: an idea worn today leads Today, so it leaves the strip and the count says so; the
+// three's alternates stay as they are.
+test('an idea worn today leads Today and leaves the strip', async () => {
+  const [worn, next] = ideas;
+  const application = {
+    state: { status: 'ready', snapshot: null, isRefreshing: false, lastFailure: null, phase: null,
+      exhausted: false, showFirstGenerationOverlay: false },
+    dressingDayKey: '2026-08-13',
+    outfitHistory: { list: jest.fn(), log: jest.fn(), day: jest.fn(async () => [{
+      id: 'look-1', localProfileId: 'profile-1', dayKey: '2026-08-13', outfit: wornOutfitFrom(worn),
+      pieceColors: null, photoPath: null, wornAt: '2026-08-13T07:00:00.000Z', createdAt: '2026-08-13T07:00:00.000Z',
+      updatedAt: '2026-08-13T07:00:00.000Z', deletedAt: null,
+    }]) },
+  } as unknown as RecommendationApplicationValue;
+  const result = await render(
+    <RecommendationApplicationContext value={application}>{screen('en', withIdeas(ideas.length))}</RecommendationApplicationContext>,
+  );
+  expect(await result.findByTestId(`today-primary-board-${outfitOptionId(worn)}`, hidden)).toBeOnTheScreen();
+  expect(result.queryByTestId(`today-more-idea-${outfitOptionId(worn)}`)).toBeNull();
+  expect(result.getByTestId(`today-more-idea-${outfitOptionId(next)}`)).toBeOnTheScreen();
+  expect(result.getByText(`${ideas.length - 1} more outfits the stylist looked at. All suit today’s weather.`))
+    .toBeOnTheScreen();
+  expect(result.getAllByTestId(/^today-alternate-outfit:[^-]+$/).map(({ props }) => props.testID))
+    .toEqual(recommendation.outfits.slice(1).map(({ optionId }) => `today-alternate-${optionId}`));
 });
 
 test('no ideas leave the section out, with nothing in its place', async () => {

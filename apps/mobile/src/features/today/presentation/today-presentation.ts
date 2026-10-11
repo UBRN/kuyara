@@ -152,12 +152,19 @@ export type LoadedOutfitPresentation = Readonly<{
 export type TodayHero = Pick<LoadedOutfitPresentation,
   'id' | 'title' | 'boardPieces' | 'palette' | 'accessories' | 'accessoriesAccessibilityLabel'>;
 
+type WornLook = TodayHero & Readonly<{ detailId: string | null; stageAccessibilityLabel: string }>;
+
 /**
  * The look worn today, as the hero draws it in the colours detail recorded (ADR 0038).
  * `detailId` is the outfit it dresses piece for piece, whose detail it opens; null for a look
- * the reader changed, which has no detail.
+ * the reader changed, which has no detail. While it leads, the rows below leave that outfit
+ * out, so nothing is drawn twice.
  */
-export type WornHeroPresentation = TodayHero & Readonly<{ detailId: string | null; stageAccessibilityLabel: string }>;
+export type WornHeroPresentation = WornLook & Readonly<{
+  alternates: readonly LoadedOutfitPresentation[];
+  moreIdeas: readonly LoadedOutfitPresentation[];
+  moreIdeasCaption: string | null;
+}>;
 
 export type LoadedTodayPresentation = Readonly<{
   kind: 'loaded';
@@ -641,7 +648,7 @@ function wornHeroOf(
   dayKind: DayKind,
   paletteDay: GarmentPaletteDay,
   stageLabel: (pieces: readonly string[], archetype: string) => string,
-): WornHeroPresentation {
+): WornLook {
   const messages = getMessages(language);
   const copy = messages.today;
   const { garments, archetypeId, formality, source } = worn.outfit;
@@ -983,6 +990,11 @@ function createLoadedPresentation(
     pieces,
     archetype,
   });
+  const ideasCaption = (count: number) => count === 0 ? null
+    : (settledMode === 'deterministic-fallback' ? copy.moreIdeas.captionDeterministic : copy.moreIdeas.caption)(count);
+  const wornLook = worn && primary
+    ? wornHeroOf(worn, [...outfits, ...ideas], language, dayKind, paletteDay, stageLabel) : null;
+  const wornIdeas = moreIdeas.filter(({ id }) => id !== wornLook?.detailId);
 
   return {
     kind: 'loaded',
@@ -1075,12 +1087,15 @@ function createLoadedPresentation(
     stageAccessibilityLabel: primary ? stageLabel(primary.pieces.map(({ item }) => item), primary.title) : '',
     suggestions,
     // Only a day with kuyara's outfits on screen draws the worn look in their place.
-    wornHero: worn && primary
-      ? wornHeroOf(worn, [...outfits, ...ideas], language, dayKind, paletteDay, stageLabel) : null,
+    wornHero: wornLook && {
+      ...wornLook,
+      alternates: suggestions.some(({ id }) => id === wornLook.detailId)
+        ? suggestions.filter(({ id }) => id !== wornLook.detailId) : suggestions.slice(1),
+      moreIdeas: wornIdeas,
+      moreIdeasCaption: ideasCaption(wornIdeas.length),
+    },
     moreIdeas,
-    moreIdeasCaption: ideas.length === 0 ? null
-      : (settledMode === 'deterministic-fallback' ? copy.moreIdeas.captionDeterministic
-        : copy.moreIdeas.caption)(ideas.length),
+    moreIdeasCaption: ideasCaption(ideas.length),
     noOutfit:
       snapshot.recommendation.status === 'unavailable'
         ? { title: copy.noOutfitTitle, body: copy.noOutfitBody }
