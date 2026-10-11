@@ -1874,34 +1874,47 @@ function openRouter(
 // a variable specifier and given the one shape this test reads.
 type GridModule = {
   gridRequestCells(): { request: AiRecommendV1Request | null }[];
+  gridRecommendationInput(weatherKey: string, clothingPreference: string, dressStyle: string): object;
+};
+type ContextModule = {
+  createRecommendationContext(input: unknown, localDayKey: string): unknown;
+  aiRequestFromContext(context: unknown): AiRecommendV1Request | null;
 };
 const gridResolverSpecifier = '../../../mobile/test/node-typescript-resolver.mjs';
 const gridSpecifier = '../../../mobile/test/recommendation-grid.mjs';
+const contextSpecifier = '../../../mobile/src/features/recommendation/application/recommendation-context.ts';
 
 test('the daily attempt budget covers the largest prompt in the shared grid', async () => {
   await import(gridResolverSpecifier);
-  const { gridRequestCells } = (await import(gridSpecifier)) as GridModule;
+  const { gridRequestCells, gridRecommendationInput } = (await import(gridSpecifier)) as GridModule;
+  const { createRecommendationContext, aiRequestFromContext } = (await import(contextSpecifier)) as ContextModule;
   const days: Pick<AiRecommendV1Request, 'dayKind'>[] = [
     { dayKind: 'weekday' }, { dayKind: 'weekend' }, {},
   ];
   // The grid models a weekday caller, but the app also sends weekends and the request admits
   // no day kind at all, and the sentence instruction names the locale: every combination is
-  // measured. A weekend is the largest, because `weekend_relaxed` stays in the eligible lists.
-  const promptCharacters = Math.max(...gridRequestCells()
+  // measured. The offer also rotates with the dressing day's own count: a sweep over every day of
+  // 2026 found the grid's largest prompt on 2026-03-11, which is measured beside the grid's day.
+  const largestOf = ({ dayKind: _dayKind, ...body }: AiRecommendV1Request) => Math.max(...days.flatMap((day) =>
+    (['en', 'tr'] as const).map((locale) => {
+      const v2Body = { ...body, ...day, locale };
+      return JSON.stringify(buildMessages(v2Body)).length
+        + JSON.stringify(buildPickJsonSchema(v2Body.options, true)).length;
+    })));
+  const gridPrompt = Math.max(...gridRequestCells()
     .filter((cell): cell is { request: AiRecommendV1Request } => cell.request !== null)
-    .flatMap(({ request: { dayKind: _gridDayKind, ...body } }) =>
-      days.flatMap((day) =>
-        (['en', 'tr'] as const).map((locale) => {
-          const v2Body = { ...body, ...day, locale };
-          return JSON.stringify(buildMessages(v2Body)).length
-            + JSON.stringify(buildPickJsonSchema(v2Body.options, true)).length;
-        }))));
+    .map(({ request }) => largestOf(request)));
+  const datedRequest = aiRequestFromContext(createRecommendationContext(
+    { ...gridRecommendationInput('cold_rain', 'womens', 'casual'), localDayKey: '2026-03-11' }, '2026-03-11'));
+  assert.ok(datedRequest);
 
   // The grid sends the day's requirements, so the three weather archetypes leave the lists
   // of the days that contradict them.
-  assert.equal(promptCharacters, 17_902);
+  assert.equal(gridPrompt, 18_925);
+  const promptCharacters = Math.max(gridPrompt, largestOf(datedRequest));
+  assert.equal(promptCharacters, 19_054);
   const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
-  assert.equal(inputTokens, 4_500);
+  assert.equal(inputTokens, 4_800);
   const attemptNeurons = Math.ceil(
     (inputTokens * 26_668 + 192 * 204_805) / 1_000_000,
   );
@@ -1909,7 +1922,7 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
     (10_000 - PROBE_DAILY_LIMIT * 67) / attemptNeurons,
   );
   // The constant is derived from this same prompt, so the two must agree exactly: the
-  // comment above `WORKERS_AI_DAILY_ATTEMPT_LIMIT` carries the 4,500-token, 160-Neuron
+  // comment above `WORKERS_AI_DAILY_ATTEMPT_LIMIT` carries the 4,800-token, 168-Neuron
   // worst case this test measures. A prompt that grows past the token step raises the
   // Neuron cost and lowers the limit; raising the limit is a spend decision with
   // its own review.

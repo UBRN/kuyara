@@ -65,27 +65,26 @@ type Dependencies = Readonly<{
  *   calls reserve 2,010.
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
  *   produce over the v2 recommendation grid, on a weekday, a weekend or no day kind and in
- *   either locale, is 17,902 characters (messages plus response schema, 24 options, on a
- *   weekend), rounded to 4,500 tokens at four characters per token. A weekend cold front
- *   builds the longest real prompt, 18,485 characters from installed build 20
- *   (haiku-ai-provider.test.ts): about 4,622 tokens and 163 Neurons, and
- *   49 x 163 + 2,010 = 9,997 still fits the pool. The budget test
+ *   either locale, on the grid's day or the largest day of a sweep over every day of 2026,
+ *   is 19,054 characters (messages plus response schema, 24 options), rounded to 4,800
+ *   tokens at four characters per token. The longest real prompt, 19,066 characters on a
+ *   cold front (haiku-ai-provider.test.ts), rounds to the same 4,800 tokens. The budget test
  *   in ai-handler.test.ts measures the grid prompt and derives the limit below from it, so the
  *   constant and the prompt stay in step.
  * - Output per attempt: `recommendationMaxTokens` in workers-ai-provider.ts caps the reply
  *   at 192 tokens, so a runaway or prose reply cannot cost more than a valid one's ceiling.
- * - Worst attempt: llama at 4,500 in and 192 out is 120.0 + 39.3 = 159.3, rounded up to 160
- *   Neurons; mistral at the same sizes is 143.4 + 9.7 = 153.1, so llama is the worst case
+ * - Worst attempt: llama at 4,800 in and 192 out is 128.0 + 39.3 = 167.3, rounded up to 168
+ *   Neurons; mistral at the same sizes is 153.0 + 9.7 = 162.7, so llama is the worst case
  *   and the limit holds for either model.
- * - Limit: floor((10,000 - 2,010) / 160) = floor(49.9) = 49 attempts.
+ * - Limit: floor((10,000 - 2,010) / 168) = floor(47.6) = 47 attempts.
  *
- * 49 x 160 + 2,010 = 9,850 < 10,000. The token figures are characters over four; the
+ * 47 x 168 + 2,010 = 9,906 < 10,000. The token figures are characters over four; the
  * provider's `ai_provider_usage` log carries the binding's own `prompt_tokens` and
  * `completion_tokens` per successful call and is the measured check on that assumption.
  * OpenRouter attempts spend no Neurons and are not counted.
  */
 export const WORKERS_AI_DAILY_ATTEMPT_LIMIT = Math.floor(
-  (10_000 - PROBE_DAILY_LIMIT * 67) / 160,
+  (10_000 - PROBE_DAILY_LIMIT * 67) / 168,
 );
 
 // Thirty days: the answers are a pure function of the request, retired by the gate version.
