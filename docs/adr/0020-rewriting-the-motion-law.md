@@ -178,7 +178,7 @@ step apart, and Today's words arrive in reading order once the field has become 
 The outfit the runway carried does not rise again. A skipped wait, a failure, or a stage not
 yet drawn fades the runway out over Today on `theme.motion.deliberate` instead. After ten seconds the user can open a
 system alert to skip the wait; the red skip action is secondary to the blue
-keep-waiting default text, and the AI walk continues to its 46-second bound. Background
+keep-waiting default text, and the AI walk continues to its 38-second bound. Background
 refreshes retain the current outfit and inline phase. No mannequin, avatar or mascot
 enters the runway.
 
