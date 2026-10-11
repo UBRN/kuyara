@@ -67,8 +67,8 @@ type Dependencies = Readonly<{
  *   produce over the v2 recommendation grid, on a weekday, a weekend or no day kind and in
  *   either locale, is 18,014 characters (messages plus response schema, 24 options, on a
  *   weekend), rounded to 4,600 tokens at four characters per token. A weekend cold front
- *   builds the longest real prompt, 18,259 characters (haiku-ai-provider.test.ts): about 4,565
- *   tokens and 162 Neurons, and 49 x 162 + 2,010 = 9,948 still fits the pool. The budget test
+ *   builds the longest real prompt, 18,249 characters (haiku-ai-provider.test.ts): about 4,562
+ *   tokens and 161 Neurons, and 49 x 161 + 2,010 = 9,899 still fits the pool. The budget test
  *   in ai-handler.test.ts measures the grid prompt and derives the limit below from it, so the
  *   constant and the prompt stay in step.
  * - Output per attempt: `recommendationMaxTokens` in workers-ai-provider.ts caps the reply

@@ -125,7 +125,6 @@ function fallbackArchetypeOrderFor(
     : fallbackArchetypeOrder;
 }
 
-const onTheMoveExcludedBottoms = new Set<string>(['skirt', 'long_skirt']);
 const onTheMoveExcludedFootwear = new Set<string>(['ballet_flats', 'closed_shoes']);
 
 export function outfitMatchesArchetype(
@@ -182,7 +181,6 @@ export function outfitMatchesArchetype(
       return outfit.footwear.garment.garmentTypeId === 'sneakers'
         || (outfit.formality === 'casual' && dayKind !== undefined
           && outfit.body.kind === 'separates'
-          && !onTheMoveExcludedBottoms.has(outfit.body.bottom.garment.garmentTypeId)
           && !onTheMoveExcludedFootwear.has(outfit.footwear.garment.garmentTypeId));
     case 'weekend_relaxed':
       // Mirrors `meetsArchetypePrecondition` in packages/contracts: on a weekday a casual

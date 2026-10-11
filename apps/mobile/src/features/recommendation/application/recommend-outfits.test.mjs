@@ -557,7 +557,7 @@ test('a snow or sleet day leads with snow_day and never labels rain_ready', () =
 
 // The bug: nothing in the pipeline knew the weekday, so a Tuesday could be labelled
 // Weekend Relaxed. A weekday now drops that rung and the casual outfit takes the next rung
-// its garments allow (`on_the_move` stays off ballet flats, so here it is Easy Everyday).
+// its garments allow (`on_the_move` stays off ballet flats and dress shoes).
 test('a weekday drops weekend_relaxed from the fallback order', () => {
   const input = {
     now: observedAt,
