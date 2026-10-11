@@ -3289,6 +3289,59 @@ test('returning to a focused Today re-evaluates the day, triggers and weather fr
   }
 });
 
+// iOS starts the app in the background for the weather-alert task and renders Today off screen;
+// the foreground evaluation (evening preview, expired coverage) waits for the first activation.
+test('a Today rendered while the app is in the background evaluates as foreground once, at activation', async () => {
+  const recommendationEvaluateApprovedTriggers = jest.fn(async (_foreground?: boolean) => undefined);
+  const onChange: ((state: string) => void)[] = [];
+  const subscription = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const previousState = AppState.currentState;
+  AppState.currentState = 'background';
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={recommendationReady()}
+        recommendationEvaluateApprovedTriggers={recommendationEvaluateApprovedTriggers}
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    expect(recommendationEvaluateApprovedTriggers).not.toHaveBeenCalledWith(true);
+
+    await act(async () => { onChange.forEach((listener) => listener('inactive')); });
+    expect(recommendationEvaluateApprovedTriggers).not.toHaveBeenCalledWith(true);
+    await act(async () => { onChange.forEach((listener) => listener('active')); });
+    expect(recommendationEvaluateApprovedTriggers.mock.calls.filter(([foreground]) => foreground === true)).toHaveLength(1);
+    view.unmount();
+  } finally {
+    AppState.currentState = previousState;
+    subscription.mockRestore();
+  }
+});
+
+test('a Today mounted with the app active evaluates as foreground once at focus', async () => {
+  const recommendationEvaluateApprovedTriggers = jest.fn(async (_foreground?: boolean) => undefined);
+  const previousState = AppState.currentState;
+  AppState.currentState = 'active';
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={recommendationReady()}
+        recommendationEvaluateApprovedTriggers={recommendationEvaluateApprovedTriggers}
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    expect(recommendationEvaluateApprovedTriggers.mock.calls.filter(([foreground]) => foreground === true)).toHaveLength(1);
+    view.unmount();
+  } finally {
+    AppState.currentState = previousState;
+  }
+});
+
 test('an evening Later choice explains its departure and ready times on Today', async () => {
   const ready = recommendationReady();
   if (ready.status !== 'ready' || !ready.snapshot) throw new Error('fixture');
