@@ -525,3 +525,36 @@ test('a day with no clothing requirement still builds an AI request', () => {
   assert.deepEqual(request.requirements, []);
   assert.equal(request.options.length >= 3, true);
 });
+
+// The AI picks from the head of its options, so leaving yesterday's three out by body garments
+// alone kept yesterday's shoes, bottom and jacket on most of its picks. The options also leave
+// out every outfit that repeats two of those three pieces from one of yesterday's three, while
+// at least twelve options remain; a narrower day keeps them.
+const repeatedPieces = (option, outfit) => {
+  const of = (slots) => (garments) => garments.find(({ slot }) => slots.includes(slot))?.garmentTypeId;
+  const yesterday = toAiOptionGarments(outfit);
+  return [['footwear'], ['bottom', 'one_piece'], ['outer_layer']]
+    .filter((slots) => of(slots)(option.garments) !== undefined && of(slots)(option.garments) === of(slots)(yesterday))
+    .length;
+};
+const toAiOptionGarments = (outfit) => [
+  ['footwear', outfit.footwear], ['outer_layer', outfit.outerLayer],
+  outfit.body.kind === 'separates' ? ['bottom', outfit.body.bottom] : ['one_piece', outfit.body.onePiece],
+].flatMap(([slot, assigned]) => (assigned ? [{ slot, garmentTypeId: assigned.garment.garmentTypeId }] : []));
+
+test('the AI options leave out what repeats two of yesterday\'s shoes, bottom and outer layer', () => {
+  const today = (temperatureCelsius) => {
+    const yesterday = recommendOutfits(input({ temperatureCelsius })).outfits;
+    const { options } = aiRequestFor({ ...input({ temperatureCelsius, dayVariant: 1 }), localDayKey: '2026-08-02',
+      excludedOutfits: yesterday });
+    return { options, repeats: options.filter((option) => yesterday.some((outfit) => repeatedPieces(option, outfit) >= 2)) };
+  };
+  const mild = today(16);
+  assert.ok(mild.options.length >= 12);
+  assert.deepEqual(mild.repeats, []);
+  // At 4 C every coat outfit wears yesterday's ankle boots and coat, and fewer than twelve
+  // others remain, so the day keeps them.
+  const cold = today(4);
+  assert.ok(cold.options.length >= 12);
+  assert.ok(cold.repeats.length > 0);
+});

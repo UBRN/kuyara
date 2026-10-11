@@ -326,3 +326,30 @@ export function orderForShownThree<Outfit extends OutfitCandidate>(
   }
   return Object.freeze([...taken, ...ordered.filter((outfit) => !taken.includes(outfit))]);
 }
+
+/** How many options the AI keeps at least when yesterday's pieces are left out. */
+const freshOptionFloor = 12;
+
+/** The shoes, the bottom (a one-piece standing in) and the outer layer an outfit wears. */
+function keyPieces(outfit: OutfitCandidate): readonly (string | undefined)[] {
+  const bottom = outfit.body.kind === 'separates' ? outfit.body.bottom : outfit.body.onePiece;
+  return [outfit.footwear, bottom, outfit.outerLayer].map((piece) => piece?.garment.garmentTypeId);
+}
+
+/**
+ * The AI's options without those that repeat two of the shoes, bottom and outer layer of one of
+ * the three shown before, while at least twelve remain; a narrower day keeps them all. The model
+ * picks mostly from the head of its options, so only the option set reaches what it shows.
+ */
+export function withoutRepeatedPieces<Outfit extends OutfitCandidate>(
+  outfits: readonly Outfit[],
+  previous: readonly OutfitCandidate[] = [],
+): readonly Outfit[] {
+  const shown = previous.map(keyPieces);
+  const fresh = outfits.filter((outfit) => {
+    const pieces = keyPieces(outfit);
+    return shown.every((before) =>
+      pieces.filter((piece, index) => piece !== undefined && piece === before[index]).length < 2);
+  });
+  return fresh.length >= freshOptionFloor ? Object.freeze(fresh) : outfits;
+}
