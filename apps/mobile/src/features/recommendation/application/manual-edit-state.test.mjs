@@ -27,7 +27,7 @@ function day(temperatureCelsius, condition, precipitationProbability) {
 function pick(snapshot, preference) {
   return recommendOutfits({ snapshot, now: snapshot.current.observedAt, clothingPreference: preference, dayVariant: 0 }).outfits[0];
 }
-// 8 degrees, mens: trench coat over a shirt with a beanie, scarf, gloves and an umbrella.
+// 8 degrees, mens: a leather jacket over a cardigan with a beanie, scarf, gloves and an umbrella.
 const cold = pick(day(8, 'cloudy', 0.35), 'mens');
 // 30 degrees, womens: no layer and no finishing touch.
 const hot = pick(day(30, 'clear', 0), 'womens');
@@ -35,7 +35,7 @@ const hot = pick(day(30, 'clear', 0), 'womens');
 test('a layer taken off, and a piece put back, leave only what differs from kuyara\'s pick', () => {
   const off = withLayerOff(cold, NO_MANUAL_EDITS, 'outer_layer');
   assert.deepEqual(off.swaps, { outer_layer: null });
-  assert.deepEqual(withPiece(cold, off, 'outer_layer', 'trench_coat').swaps, {}, 'kuyara\'s own piece again');
+  assert.deepEqual(withPiece(cold, off, 'outer_layer', 'leather_jacket').swaps, {}, 'kuyara\'s own piece again');
   assert.deepEqual(withPiece(cold, off, 'outer_layer', 'coat').swaps, { outer_layer: 'coat' });
   assert.deepEqual(withLayerOff(cold, NO_MANUAL_EDITS, 'mid_layer').swaps, {}, 'a layer kuyara did not wear');
   assert.deepEqual(withPiece(hot, NO_MANUAL_EDITS, 'mid_layer', 'sweater').swaps, { mid_layer: 'sweater' });

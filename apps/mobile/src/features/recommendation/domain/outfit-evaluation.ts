@@ -312,11 +312,12 @@ function percentage(actual: number, required: number): number {
 }
 
 /**
- * The top rung of the ladder names a garment, not an amount. "High" is what the outside
+ * The two upper rungs of the ladder name a garment, not an amount. "High" is what the outside
  * guidance calls a winter coat (A3 section 3: raksul writes a coat from 0 C down, Fit The
  * Forecast three mandatory layers from -6 C down), and a stack of knitwear under nothing is
- * not that coat, however much warmth it adds up to. The two lower rungs are answered by any
- * arrangement, so this reads 100 for them.
+ * not that coat, however much warmth it adds up to. "Moderate", the band from the coat rung
+ * to 12 C, names a jacket of any kind over the knit: a knit alone answered a 6 C day with a
+ * turtleneck and boots while 4 C wore a coat. The light rung is answered by any arrangement.
  */
 function shellPercentage(
   minimum: ThermalRequirement['minimum'],
@@ -324,7 +325,9 @@ function shellPercentage(
 ): number {
   return minimum === 'high'
     ? percentage(thermalStrengthOf(outerLayer), thermalStrength.high)
-    : 100;
+    : minimum === 'moderate'
+      ? outerLayer === null ? 0 : 100
+      : 100;
 }
 
 /**
@@ -575,10 +578,13 @@ function thermalOverProtectionPenalty(
   // finished behind the same outfit without one (A2/K2). The bottom is named by no rung, so
   // it keeps the one layer legs are dressed in whatever the day, and thermal legwear on top
   // of that is charged at every rung.
+  // The jacket the moderate rung names is not overshoot either, so that rung is charged only
+  // past the knit and one rung of jacket over it.
   const ladder = side.ladderStrength;
   const stack = requirement.minimum === 'high'
     ? 0
-    : Math.max(ladder - thermalStrength[requirement.minimum], 0);
+    : Math.max(ladder - thermalStrength[requirement.minimum] -
+      (requirement.minimum === 'moderate' ? 1 : 0), 0);
   const bottom = Math.max(bodyStrength - ladder - thermalStrength.light, 0);
   return (stack + bottom) * 5;
 }

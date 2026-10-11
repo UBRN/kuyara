@@ -133,7 +133,7 @@ test('the offered outfits are unchanged across day variants and recent wear', ()
       : [];
     return canonical([first, composeOutfitOptions(cell.requirements, cell.candidates, 7, worn)]);
   });
-  assert.equal(digest, '867cde6996fec784c52a704f1d110abe65c0c618d22369722c127aa2919d44cf');
+  assert.equal(digest, 'fc1c02afd4ced8b43b738b6a2f261457e9915ce463c0cae717baf81d32024736');
 });
 
 test('every valid outfit keeps its place, score and evaluations', () => {
@@ -148,7 +148,7 @@ test('every valid outfit keeps its place, score and evaluations', () => {
       result.outfits.filter((_outfit, index) => index % 61 === 0),
     ]);
   });
-  assert.equal(digest, 'c14e9d7e65947848b19f9f9cbed6f259e5d481fd1f91cd3070451e23a005b46d');
+  assert.equal(digest, 'f690d706511d4601dc741c4997fdacb52f0108d68f10741069b43d19fb9da157');
 });
 
 const pinSets = [
@@ -169,7 +169,7 @@ test('the picks around pinned pieces are unchanged, kept and dropped pins includ
     const set = (2 * index + step) % pinSets.length;
     return composeOutfitsAroundPins(requirements, candidates, set, pinSets[set]);
   })));
-  assert.equal(digest, '4899786753e9e3d3eb86f3d12ea7b5d3e1ea8eb0740f168f157381f28f9fc7bb');
+  assert.equal(digest, 'fa616733344cac141089c96c9d237f2ef99af5c02a79d05a838b2bd70104969a');
 });
 
 /** An arrangement from a composed outfit, with pieces looked up in the day's candidates. */
@@ -203,7 +203,7 @@ test('an arrangement a person put together is judged as before, unsuitable piece
     ];
     return canonical(arrangements.map((arrangement) => evaluateArrangement(requirements, arrangement)));
   });
-  assert.equal(digest, '53c7814c03b352e105bab013a3c1747a6346d158e5063e3ab3aa4c54e22f3e0b');
+  assert.equal(digest, '1f8738c98f2eeef1c8d1872bace8cce1b136389505bea3bf1ffd3b9da7729a0e');
 });
 
 test('the failures stay the same: a conflicting key, no footwear, no body, no outer layer', () => {
@@ -221,5 +221,5 @@ test('the failures stay the same: a conflicting key, no footwear, no body, no ou
       composeOutfitsAroundPins(requirements, noOuterLayer, 1, pinSets[1]),
     ]);
   });
-  assert.equal(digest, '6cbb561b657c46753c8c199a4e103ff2e8bb38b2b27cfa7f9ba131824943aa07');
+  assert.equal(digest, '1695b1d5cde3200e7855a8b058a54cc98ff3da804fad5451441e8cb340d5b3ef');
 });

@@ -365,11 +365,12 @@ test('the rationale grid keeps band-neutral reasons across boundary temperatures
     )?.minimum,
     'moderate',
   );
-  assert.ok(
-    moderateDay.outfits.some(({ reasonCodes }) =>
-      reasonCodes.includes('thermal_over_protection'),
-    ),
-  );
+  // The moderate rung names a jacket over the knit, so the picks wear one and that jacket is
+  // not counted as warmth the day did not ask for.
+  for (const outfit of moderateDay.outfits) {
+    assert.notEqual(outfit.outerLayer, null, outfit.compositionKey);
+    assert.equal(outfit.reasonCodes.includes('thermal_over_protection'), false, outfit.compositionKey);
+  }
   assert.equal(
     messages.en.today.compositionReasons.thermal_over_protection,
     'This outfit carries more warmth than the day calls for.',

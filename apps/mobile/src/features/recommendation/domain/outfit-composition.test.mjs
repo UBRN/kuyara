@@ -115,6 +115,41 @@ test('a dry 30 C Smart or Formal day still offers smart outfits for both clothin
   }
 });
 
+// Between the coat rung and 12 C a knit alone is not enough: the day is met with a jacket over
+// it, so a dry 6 C day is not dressed in a turtleneck and boots while 4 C wears a coat.
+test('a dry day from 5 to 12 C shows every pick with an outer layer', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const dressStyle of ['casual', 'smart', 'formal']) {
+      for (const temperatureCelsius of [5, 6, 8, 10, 11.5]) {
+        const input = gridRecommendationInput('hot', preference, dressStyle);
+        const measurements = {
+          temperatureCelsius,
+          apparentTemperatureCelsius: temperatureCelsius,
+          uvIndex: 2,
+        };
+        const snapshot = {
+          ...input.snapshot,
+          current: { ...input.snapshot.current, ...measurements },
+          hourly: input.snapshot.hourly.map((hour) => ({ ...hour, ...measurements })),
+          minimumTemperatureCelsius: temperatureCelsius,
+          maximumTemperatureCelsius: temperatureCelsius,
+        };
+        const result = recommendOutfits({ ...input, snapshot });
+        const cell = `${preference}/${dressStyle}/${temperatureCelsius} C`;
+
+        assert.equal(result.status, 'recommended', cell);
+        assert.equal(result.outfits.length, 3, cell);
+        assert.deepEqual(
+          result.outfits.filter(({ outerLayer }) => outerLayer === null)
+            .map(({ compositionKey }) => compositionKey),
+          [],
+          cell,
+        );
+      }
+    }
+  }
+});
+
 test('recent worn sets exclude by catalog garment IDs and relax oldest first to keep three', () => {
   const make = (id) => ({
     body: { kind: 'separates', primaryTop: { garment: { garmentTypeId: id } },
@@ -573,6 +608,37 @@ test('outfit over-insulation penalty is bounded and does not count footwear warm
 // With no thermal requirement every rung of warmth is unasked for, and the charge keeps
 // growing past a light jacket's: a coat over a shirt and trousers costs more than the light
 // jacket, so a mild windy day is not offered a coat for a tie.
+// The band below 12 names a jacket the way the coldest band names a coat: a knit with
+// nothing over it falls short, and the jacket's own rung is not charged as overshoot.
+test('the moderate rung is met only with an outer layer, whose rung costs nothing', () => {
+  const requirements = clothingRequirements(requirement('thermal', 'moderate'));
+  const bare = composeOutfit(requirements, [
+    catalogCandidate(requirements, 'sweater'),
+    catalogCandidate(requirements, 'jeans'),
+    catalogCandidate(requirements, 'sneakers'),
+  ]);
+  assert.equal(bare.status, 'failure');
+
+  const jacketed = composeOutfit(requirements, [
+    catalogCandidate(requirements, 'sweater'),
+    catalogCandidate(requirements, 'jeans'),
+    catalogCandidate(requirements, 'light_jacket'),
+    catalogCandidate(requirements, 'sneakers'),
+  ]);
+  assert.equal(jacketed.status, 'composed');
+  assert.equal(jacketed.outfit.outerLayer.garment.garmentTypeId, 'light_jacket');
+  assert.equal(evaluation(jacketed, 'thermal').status, 'met');
+  assert.equal(jacketed.outfit.penaltyBreakdown.thermalOverProtection, 0);
+
+  const coated = composeOutfit(requirements, [
+    catalogCandidate(requirements, 'sweater'),
+    catalogCandidate(requirements, 'jeans'),
+    catalogCandidate(requirements, 'parka'),
+    catalogCandidate(requirements, 'sneakers'),
+  ]);
+  assert.equal(coated.outfit.penaltyBreakdown.thermalOverProtection, 10);
+});
+
 test('outfit over-insulation starts above body strength one', () => {
   const requirements = clothingRequirements();
   const cases = [
