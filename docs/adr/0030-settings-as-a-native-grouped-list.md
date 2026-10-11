@@ -43,7 +43,7 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 
 Native inset groups and ADR 0028's row anatomy stay. Inside native cells the system owns typography and colour, apart from the Easier to see text changes (section 5); the app-owned `kuyara` footer uses the display role and Deep Atmosphere in light or Quiet Sky in dark. It fits on one line at the largest accessibility text size. The name is not a custom wordmark.
 
-Share kuyara opens the platform share sheet with the App Store link on iOS or Play link on Android and short localized text in the sharer's voice. Rate kuyara opens the store review page directly (`?action=write-review` on iOS, `market://details?id=` on Android), and its row shows five filled system-grey stars at 13 points. No in-app review request is used. **Risk accepted:** the star treatment trades against Apple 5.6.1 and Google in-app review guidance on steering.
+Share kuyara opens the platform share sheet with the App Store link on iOS or Play link on Android and short localized text in the sharer's voice. Rate kuyara opens the store review page directly (`?action=write-review` on iOS, `market://details?id=` on Android), and its row shows five filled system-grey stars at 13 points. The row itself makes no in-app review request; the system rating prompt is requested elsewhere, as product decisions describe. **Risk accepted:** the star treatment trades against Apple 5.6.1 and Google in-app review guidance on steering.
 
 ### 3. The rows take ADR 0028's anatomy
 
