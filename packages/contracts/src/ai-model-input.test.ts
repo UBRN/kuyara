@@ -258,15 +258,17 @@ function parsedFixtureOption() {
   return aiRecommendV1RequestSchema.parse(fixtureRequest).options[0];
 }
 
-test('office_ready admits smart only for callers that send a day kind', () => {
+test('office_ready admits smart only for callers that send a day kind, and never on a weekend', () => {
   const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
   const smart = parsed.options[0];
   const formal: AiOption = { ...smart, formality: 'formal' };
 
   assert.equal(meetsArchetypePrecondition('office_ready', smart), false);
   assert.equal(meetsArchetypePrecondition('office_ready', smart, 'weekday'), true);
-  assert.equal(meetsArchetypePrecondition('office_ready', smart, 'weekend'), true);
+  assert.equal(meetsArchetypePrecondition('office_ready', smart, 'weekend'), false);
   assert.equal(meetsArchetypePrecondition('office_ready', formal), true);
+  assert.equal(meetsArchetypePrecondition('office_ready', formal, 'weekday'), true);
+  assert.equal(meetsArchetypePrecondition('office_ready', formal, 'weekend'), false);
   assert.equal(
     aiModelInputFromRequest({ ...parsed, dayKind: 'weekday' })
       .options[0].eligibleArchetypeIds.includes('office_ready'),
@@ -274,22 +276,62 @@ test('office_ready admits smart only for callers that send a day kind', () => {
   );
 });
 
-test('on_the_move admits any casual outfit only for callers that send a day kind', () => {
+test('on_the_move admits casual separates only for callers that send a day kind', () => {
   const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
   const smart = parsed.options[0];
-  const casual = parsed.options[1];
+  const casual = option('opt-2', [
+    garment('primary_top', 't_shirt', 'base'),
+    garment('bottom', 'jeans'),
+    garment('footwear', 'sandals', null),
+  ]);
 
   // Without a day kind the two widened archetypes stay where builds 8 and 9 left them:
-  // office_ready formal only, on_the_move sneakers only, and this option wears boots.
+  // office_ready formal only, on_the_move sneakers only, and this option wears sandals.
   assert.equal(meetsArchetypePrecondition('office_ready', smart), false);
   assert.equal(meetsArchetypePrecondition('on_the_move', casual), false);
   assert.equal(meetsArchetypePrecondition('office_ready', smart, 'weekday'), true);
   assert.equal(meetsArchetypePrecondition('on_the_move', casual, 'weekday'), true);
   assert.equal(
-    aiModelInputFromRequest({ ...parsed, dayKind: 'weekday' })
+    aiModelInputFromRequest({ ...parsed, options: [smart, casual], dayKind: 'weekday' })
       .options[1].eligibleArchetypeIds.includes('on_the_move'),
     true,
   );
+});
+
+test('on_the_move beyond sneakers needs active separates', () => {
+  const casual = (garments: OptionGarment[]) => option('opt-move', garments);
+  const top = garment('primary_top', 't_shirt', 'base');
+  const active = casual([top, garment('bottom', 'jeans'), garment('footwear', 'sandals', null)]);
+  assert.equal(meetsArchetypePrecondition('on_the_move', active, 'weekday'), true);
+  for (const bottom of ['skirt', 'long_skirt'] as const) {
+    assert.equal(meetsArchetypePrecondition('on_the_move',
+      casual([top, garment('bottom', bottom), garment('footwear', 'sandals', null)]), 'weekday'), false);
+  }
+  for (const shoe of ['ballet_flats', 'closed_shoes'] as const) {
+    assert.equal(meetsArchetypePrecondition('on_the_move',
+      casual([top, garment('bottom', 'jeans'), garment('footwear', shoe, null)]), 'weekday'), false);
+  }
+  assert.equal(meetsArchetypePrecondition('on_the_move',
+    casual([garment('one_piece', 'dress'), garment('footwear', 'sandals', null)]), 'weekday'), false);
+  // Sneakers keep the label whatever they are worn with, which is all builds 8 and 9 accept.
+  assert.equal(meetsArchetypePrecondition('on_the_move',
+    casual([garment('one_piece', 'dress'), garment('footwear', 'sneakers', null)])), true);
+});
+
+test('layered_warmth needs a cold day', () => {
+  const layered = {
+    ...parsedFixtureOption(),
+    traits: { ...traits, hasMidLayer: true, hasOuterLayer: true },
+  };
+  const mild = archetypeDayFromRequirements([]);
+  const cold = archetypeDayFromRequirements([
+    { kind: 'thermal', minimum: 'moderate', priority: 'mandatory', reasonCodes: ['temperature_low'] },
+  ]);
+  assert.equal(meetsArchetypePrecondition('layered_warmth', layered, undefined, mild), false);
+  assert.equal(meetsArchetypePrecondition('layered_warmth', layered, undefined, cold), true);
+  assert.equal(meetsArchetypePrecondition('layered_warmth', parsedFixtureOption(), undefined, cold), false);
+  // A caller that passes no day keeps the day-blind answer.
+  assert.equal(meetsArchetypePrecondition('layered_warmth', layered), true);
 });
 
 test('an absent day kind is left out of the projection', () => {
