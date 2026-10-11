@@ -126,16 +126,15 @@ cacheKey = hash( sorted requirement vector without reasonCodes,
 without changing the answer. They are excluded from the prompt for the same
 reason.
 
-`dayVariant` is the local date's day count from 31 December 2025 modulo 7; the
-count runs on across years, so the year boundary never repeats. Composition is
-seeded by the unbounded count itself: each formality's drafts within five points
-of its best are rotated by it, so the same weather a week later is offered other
-outfits and a draft worse than that band never leads. The Worker cache key also
-carries the sorted offered option ids, so a day whose rotation offers a new set
-misses the shared cache and asks the model again. Variety over weekly recurrence
-is the accepted tradeoff: generations per bucket are no longer bounded by seven,
-and the Haiku daily attempt limit, with the deterministic fallback behind it,
-bounds the spend instead.
+`dayVariant` is the local date's day count from 31 December 2025 modulo 7, not
+a raw day seed; the count runs on across years, so the year boundary never repeats. A raw seed
+regenerates every bucket every day and ties quota consumption to daily bucket
+count. A seven-slot ring bounds each bucket to at most seven generations, after
+which it is a permanent cache hit. The variant rotates only each formality's drafts
+within five points of its best, so it varies the offer without leading with a
+worse draft. Consecutive days do not repeat, which is what
+ADR 0005 requires. Weekly recurrence is the accepted tradeoff, and the modulus
+is a single constant.
 
 The cache is the Cloudflare Cache API (`caches.default`). No new binding is
 added. If the measured hit rate is insufficient, KV is the next step, not the
@@ -172,8 +171,8 @@ both executors derive the day from the requirements the request already carries
 the day it is shown on and no request field exists for it; a caller that passes no
 day keeps the property-only reading. The
 request carries an optional `dayKind` of `weekday` or `weekend`, derived on the
-device from its own local date; the seven-day `dayVariant` follows the
-composition seed and says nothing about the weekday. A request without `dayKind`
+device from its own local date; the seven-day `dayVariant` is a composition
+rotation seed and says nothing about the weekday. A request without `dayKind`
 leaves the archetype eligible, so a client that predates the field keeps its
 behaviour. On a weekday the archetype is offered to neither executor and accepted
 from neither, and a casual outfit takes `everyday_easy` instead. The identifier is

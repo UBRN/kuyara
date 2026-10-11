@@ -49,7 +49,6 @@ import {
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
-import { compositionSeed } from '@/features/recommendation/domain/local-day';
 import { dressingDayKeySchema } from '@/features/weather/domain/wardrobe-day';
 
 export const recommendationContextSchema = z.strictObject({
@@ -177,8 +176,8 @@ export function createRecommendationContextWithPool(
   const requirements = deriveClothingRequirements(input.snapshot, input.now, departureAt);
   const day = archetypeDayFromRequirements(requirements.requirements);
   const coverage = outfitCoverage(departureAt, input.snapshot.timeZone);
-  const composition = composeOutfitPool(requirements, input.clothingPreference,
-    compositionSeed(input.dayVariant, localDayKey), input.recentWorn);
+  const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
+    input.recentWorn);
   const availableOutfits = composition.status === 'composed'
     ? excludeOutfitOptions(composition.outfits, input.excludedOutfits)
     : [];

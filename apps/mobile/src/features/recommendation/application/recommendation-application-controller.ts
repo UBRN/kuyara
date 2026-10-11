@@ -33,7 +33,6 @@ import {
   type RecommendationRepository,
   type RecommendationSnapshot,
 } from '@/features/recommendation/application/recommendation-repository';
-import { compositionSeed } from '@/features/recommendation/domain/local-day';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
@@ -265,7 +264,7 @@ function storedPool(
     const composition = composeOutfitPool(
       snapshot.recommendation.requirements,
       snapshot.clothingPreference,
-      compositionSeed(snapshot.dayVariant, snapshot.localDayKey),
+      snapshot.dayVariant,
       recentWorn,
     );
     return composition.status === 'composed' ? composition.outfits : null;
@@ -278,7 +277,7 @@ function storedPool(
 function poolCompositionKeyForInput(input: RecommendationApplicationInput): string {
   return poolCompositionKey(
     deriveClothingRequirements(input.snapshot, input.now, input.departureAt ?? input.now),
-    input.clothingPreference, compositionSeed(input.dayVariant, input.localDayKey), input.recentWorn,
+    input.clothingPreference, input.dayVariant, input.recentWorn,
   );
 }
 
@@ -536,8 +535,8 @@ export class RecommendationApplicationController {
       this.pool = lastFailure === null ? storedPool(snapshot, recentWorn) : null;
       this.poolOptionIds = this.pool?.map(outfitOptionId) ?? null;
       this.poolKey = this.poolOptionIds && snapshot && snapshot.dayVariant !== null
-        ? poolCompositionKey(snapshot.recommendation.requirements, snapshot.clothingPreference,
-          compositionSeed(snapshot.dayVariant, snapshot.localDayKey), recentWorn)
+        ? poolCompositionKey(snapshot.recommendation.requirements,
+          snapshot.clothingPreference, snapshot.dayVariant, recentWorn)
         : null;
       this.setReady({
         status: 'ready',

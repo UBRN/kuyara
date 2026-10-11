@@ -34,7 +34,7 @@ import type { WornOutfit } from '@/features/recommendation/domain/outfit-history
  * Null when the snapshot cannot say, and then nothing is composed.
  */
 export function composeInputFor(
-  snapshot: Pick<RecommendationSnapshot, 'clothingPreference' | 'dressStyle' | 'styleAesthetics' | 'dayVariant' | 'localDayKey'> | null,
+  snapshot: Pick<RecommendationSnapshot, 'clothingPreference' | 'dressStyle' | 'styleAesthetics' | 'dayVariant'> | null,
   requirements: ClothingRequirements | null,
   resolvedDressStyle: DressStyle | null,
   now: number,
@@ -44,7 +44,6 @@ export function composeInputFor(
     requirements,
     clothingPreference: snapshot.clothingPreference,
     dayVariant: snapshot.dayVariant,
-    localDayKey: snapshot.localDayKey,
     dressStyle: resolvedDressStyle ?? snapshot.dressStyle,
     styleAesthetics: snapshot.styleAesthetics,
     dayKind: localDayKind(new Date(now)),

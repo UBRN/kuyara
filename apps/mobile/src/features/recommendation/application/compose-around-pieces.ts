@@ -2,7 +2,6 @@ import type { DayKind, DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import type { ClothingPreference } from '@/domain/preferences';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
-import { compositionSeed } from '@/features/recommendation/domain/local-day';
 import { pinPieces } from '@/features/recommendation/domain/manual-mix';
 import { composeOutfitsAroundPins, type OutfitPin } from '@/features/recommendation/domain/outfit-composition';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
@@ -23,9 +22,8 @@ export type ComposePin = OutfitPin & Readonly<{ swatchId?: GarmentSwatchId }>;
 export type ComposeAroundInput = Readonly<{
   requirements: ClothingRequirements;
   clothingPreference: ClothingPreference;
-  /** With the dressing-day key, seeds the choice the way Today's does, so a day composes the same way each time. */
+  /** Seeds the choice the way Today's does, so a day composes the same way each time. */
   dayVariant: number;
-  localDayKey?: string | null;
   dressStyle?: DressStyle;
   styleAesthetics?: readonly StyleAesthetic[];
   dayKind?: DayKind;
@@ -69,7 +67,7 @@ export function composeAroundPieces(
   const around = composeOutfitsAroundPins(
     requirements,
     eligibilityCandidates(requirements, clothingPreference),
-    compositionSeed(input.dayVariant, input.localDayKey),
+    input.dayVariant,
     pins,
   );
   if (around.status === 'failure') return Object.freeze({ status: 'unavailable' });
