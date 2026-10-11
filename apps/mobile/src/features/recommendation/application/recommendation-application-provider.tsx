@@ -74,7 +74,7 @@ import {
   createRecommendationContextWithPool,
 } from '@/features/recommendation/application/recommendation-context';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
-import { isDayQuestionOpen } from '@/features/recommendation/domain/local-day';
+import { isDayQuestionOpen, untilDressingDayTurns } from '@/features/recommendation/domain/local-day';
 import { repeatsProfileStyle, resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceRepository, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
@@ -180,6 +180,11 @@ export function RecommendationApplicationProvider({
   const { analytics } = useProductAnalytics();
   const telemetry = usePerformanceTelemetry();
   const [localDay, setLocalDay] = useState(deviceLocalDay);
+  // The dressing day the timer turned to while the app stayed in front. Until the next return
+  // to the foreground, Today keeps the outfit it shows, and the day's question and first
+  // generation wait for that open.
+  const [turnedInFrontKey, setTurnedInFrontKey] = useState<string | null>(null);
+  const dayTurnedInFront = turnedInFrontKey === localDay.key;
   const [dayChoiceState, setDayChoiceState] = useState<DayChoiceRead | null>(null);
   const [choiceReadAttempt, setChoiceReadAttempt] = useState(0);
   const [departureState, setDepartureState] = useState<{
@@ -190,6 +195,8 @@ export function RecommendationApplicationProvider({
     readDay: deviceLocalDay,
     adoptDay: (day) => setLocalDay((current) => dayInForce(current, day)),
     retryChoiceRead: () => setChoiceReadAttempt((attempt) => attempt + 1),
+    untilNextDay: () => untilDressingDayTurns(new Date()),
+    turnedInFront: setTurnedInFrontKey,
   }), []);
   useEffect(() => {
     let live = true;
@@ -256,7 +263,8 @@ export function RecommendationApplicationProvider({
   // The day setup finished on is answered by setup (a choice row written as it completes, or
   // the day itself for a profile an earlier build set up), so neither question is asked then. The one Settings switch turns off both questions; an
   // unasked day resolves to the profile dress style, as a dismissed question does.
-  const dayQuestionOpen = currentDayChoice?.status === 'none' && profileState.status === 'ready' &&
+  const dayQuestionOpen = !dayTurnedInFront && currentDayChoice?.status === 'none' &&
+    profileState.status === 'ready' &&
     isDayQuestionOpen({
       morningSheetEnabled: isMorningSheetEnabled(profileState.profile),
       profileCreatedAt: profileState.profile.createdAt,
@@ -307,9 +315,9 @@ export function RecommendationApplicationProvider({
     controller.getSnapshot,
   );
   const state = useMemo(() => controllerState.status === 'ready' && controllerState.snapshot &&
-    controllerState.snapshot.localDayKey !== localDay.key
+    controllerState.snapshot.localDayKey !== localDay.key && !dayTurnedInFront
     ? { ...controllerState, snapshot: null } as const
-    : controllerState, [controllerState, localDay.key]);
+    : controllerState, [controllerState, dayTurnedInFront, localDay.key]);
   // The clock is re-read whenever the day, the profile or the weather changes, which is every
   // moment a recommendation is generated.
   const input = useMemo(() => choiceReady && departureReady ? generationInput({
@@ -342,7 +350,11 @@ export function RecommendationApplicationProvider({
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', dayRollover.appStateChanged);
-    return () => subscription?.remove();
+    const stopWatching = dayRollover.watch();
+    return () => {
+      subscription?.remove();
+      stopWatching();
+    };
   }, [dayRollover]);
 
   const approvedTriggers = useMemo(() => createApprovedTriggerEvaluation(), []);
@@ -356,9 +368,9 @@ export function RecommendationApplicationProvider({
   ), [controller, weatherApplication, weatherState]);
   const approvedTriggerReading = useMemo(() => ({
     recommendation: controller,
-    dayQuestionPending: morningChoicePending || eveningChoicePending,
+    dayQuestionPending: morningChoicePending || eveningChoicePending || dayTurnedInFront,
     awaitsWeatherRefresh: triggerAwaitsWeatherRefresh,
-  }), [controller, eveningChoicePending, morningChoicePending, triggerAwaitsWeatherRefresh]);
+  }), [controller, dayTurnedInFront, eveningChoicePending, morningChoicePending, triggerAwaitsWeatherRefresh]);
 
   useEffect(() => {
     if (state.status !== 'ready' || !input) return;
@@ -459,6 +471,7 @@ export function RecommendationApplicationProvider({
     if (tomorrowKey) void previewController.load(tomorrowKey);
   }, [previewController, tomorrowKey]);
   const settledRecommendation = state.status === 'ready' && !state.isRefreshing &&
+    state.snapshot?.localDayKey === localDay.key &&
     state.snapshot?.recommendation.status === 'recommended' ? state.snapshot.recommendation : null;
   const tomorrowQuestion = useMemo(() => ({
     dressStyle: profileDefault,

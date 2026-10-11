@@ -15,41 +15,83 @@ export type DressingDayRollover = Readonly<{
    * that failed is tried again, even within the same dressing day.
    */
   reevaluate: () => void;
-  /** The app state changed; a return to the foreground reevaluates the day. */
+  /**
+   * The app state changed: a return to the foreground clears the turned-in-front mark and
+   * reevaluates the day, and only the foreground keeps the timer for the next turn.
+   */
   appStateChanged: (next: string) => void;
   /** Whether the latest day-choice read failed, so the next reevaluation reads it again. */
   choiceReadFailed: (failed: boolean) => void;
+  /**
+   * Keeps one timer for the next 04:00 or 18:00 while the app is in the foreground, so a day
+   * left open across it turns at that moment; the returned function clears it.
+   */
+  watch: () => () => void;
 }>;
 
 /**
  * Moves the provider to the dressing day in force (the 04:00 and 18:00 flips) when a screen
- * asks or the app returns to the foreground. The clock is read by `readDay`, at the edge.
+ * asks, the app returns to the foreground, or the foreground app reaches the flip. The clock
+ * is read by `readDay` and `untilNextDay`, at the edge.
+ *
+ * A flip the timer reaches is marked with `turnedInFront(key)` until the next return to the
+ * foreground clears it with `turnedInFront(null)`: the day's question waits for that open.
  */
 export function createDressingDayRollover<T extends Day>({
-  initialAppState, readDay, adoptDay, retryChoiceRead,
+  initialAppState, readDay, adoptDay, retryChoiceRead, untilNextDay, turnedInFront,
 }: Readonly<{
   initialAppState: string;
   readDay: () => T;
   adoptDay: (day: T) => void;
   retryChoiceRead: () => void;
+  untilNextDay: () => number;
+  turnedInFront: (dayKey: string | null) => void;
 }>): DressingDayRollover {
   let appState = initialAppState;
   let lastChoiceReadFailed = false;
+  let lastKey = readDay().key;
+  let watching = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
 
-  const reevaluate = () => {
-    adoptDay(readDay());
+  const read = () => {
+    const day = readDay();
+    const turned = day.key !== lastKey;
+    lastKey = day.key;
+    adoptDay(day);
     if (lastChoiceReadFailed) retryChoiceRead();
+    return turned ? day.key : null;
   };
+  const schedule = () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = watching && appState === 'active' ? setTimeout(reachTurn, untilNextDay()) : null;
+  };
+  function reachTurn() {
+    const turnedKey = read();
+    if (turnedKey) turnedInFront(turnedKey);
+    schedule();
+  }
 
   return {
-    reevaluate,
+    reevaluate: () => { read(); },
     appStateChanged(next) {
       const wasInactive = appState !== 'active';
       appState = next;
-      if (wasInactive && next === 'active') reevaluate();
+      if (wasInactive && next === 'active') {
+        turnedInFront(null);
+        read();
+      }
+      schedule();
     },
     choiceReadFailed(failed) {
       lastChoiceReadFailed = failed;
+    },
+    watch() {
+      watching = true;
+      schedule();
+      return () => {
+        watching = false;
+        schedule();
+      };
     },
   };
 }
