@@ -377,7 +377,9 @@ stands on the neutral plate inside its dark field. Inside a plate everything tak
 appearance's roles (`plateTheme`, `OnPlate`, `PlateView`): the pieces keep their light
 colours legalised against the plate, their Deep Atmosphere ink outline (9.8:1 on the
 neutral plate) and their cast shadow; captions, badges and the hint on the
-detail plate take the light text roles at AA. The light appearance is unchanged.
+detail plate take the light text roles at AA, and the names, the hint and the enlarged piece's
+strip keep `spacing.md` off the detail plate's sides and bottom while the drawing keeps the
+board's full width. The light appearance is unchanged.
 
 **Captions.** A caption is centred on its piece's own axis and sits 7 points below the
 piece's drawn box. Its width is capped per column, **0.42** of the plate width for the

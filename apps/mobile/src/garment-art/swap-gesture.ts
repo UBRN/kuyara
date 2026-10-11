@@ -359,11 +359,11 @@ export function swapPanelHeight(header: number, sections: SwapPanelSections, col
 }
 
 /**
- * Where the two chevrons stand while a piece is enlarged: each against the piece's side from
- * outside, vertically centred on it, kept on the stage. Where that spot would cover a piece, the
- * enlarged one or a stepped-back one, the chevron moves up or down by the least that clears every
- * piece, and failing that to the stage's edge on its side, so it never covers a piece where the
- * stage leaves room.
+ * Where the two chevrons stand while a piece is enlarged: each `spacing.xs` off the piece's side,
+ * vertically centred on it, kept on the stage. Where that spot would come within `spacing.xs` of a
+ * piece, the enlarged one or a stepped-back one, the chevron moves up or down by the least that
+ * clears every piece by that much, and failing that to the stage's edge on its side, so it never
+ * touches a piece where the stage leaves room.
  */
 export function swapChevrons(
   grown: SwapBox,
@@ -378,7 +378,7 @@ export function swapChevrons(
     for (let offset = 0; offset <= heldStage; offset += 1) {
       for (const y of [centre - offset, centre + offset]) {
         const box = { x, y, w: size, h: size };
-        if (y >= 0 && y <= heldStage - size && pieces.every((piece) => apart(box, piece, 0))) return { x, y };
+        if (y >= 0 && y <= heldStage - size && pieces.every((piece) => apart(box, piece, spacing.xs))) return { x, y };
       }
     }
     return null;
@@ -388,8 +388,8 @@ export function swapChevrons(
     return clearAt(x) ?? clearAt(edge) ?? { x, y: centre };
   };
   return {
-    previous: spot(grown.x - size, 0),
-    next: spot(grown.x + grown.w, stageWidth - size),
+    previous: spot(grown.x - size - spacing.xs, 0),
+    next: spot(grown.x + grown.w + spacing.xs, stageWidth - size),
   };
 }
 

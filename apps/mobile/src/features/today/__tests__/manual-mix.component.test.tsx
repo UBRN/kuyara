@@ -28,7 +28,7 @@ import {
   SystemVisibilityContext,
   type SystemVisibility,
 } from '@/theme/easier-to-see';
-import { lightTheme, spacing } from '@/theme/theme';
+import { darkTheme, lightTheme, spacing, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 // The platform sheet reports its dismissal after a programmatic close, as NativeSheet documents.
@@ -122,10 +122,11 @@ function detailTree(
   metrics: Readonly<{ width: number; height: number; top: number; bottom: number; header?: number }> = {
     width: 390, height: 844, top: 59, bottom: 34,
   },
+  theme: KuyaraTheme = lightTheme,
 ) {
   return (
     <LocalizationContext value={{ language, messages: messages[language], hour12: false, temperatureUnit: 'celsius' }}>
-      <KuyaraThemeContext.Provider value={lightTheme}>
+      <KuyaraThemeContext.Provider value={theme}>
         <SystemVisibilityContext value={system}>
         <EasierToSeeContext value={easierToSee}>
         <SafeAreaProvider initialMetrics={{
@@ -799,6 +800,23 @@ const drawnOpacity = (node: ReturnType<ReturnType<typeof within>['getByText']>) 
   }
   return 1;
 };
+
+// In the dark appearance the board stands on a light plate, so what it holds under the drawing
+// keeps off the plate's sides and bottom: the names, and while a piece is enlarged its strip. In
+// the light appearance the plate is the page itself and every row runs to the column's edge.
+test.each([[lightTheme, 0], [darkTheme, spacing.md]] as const)('the plate keeps its rows off its edges (%#)',
+  async (theme, inset) => {
+    const result = await render(detailTree('en', {}, null, false, undefined, 0, undefined, theme));
+    await layOut(result);
+    const padding = (testID: string) => StyleSheet.flatten(result.getByTestId(testID, hidden).props.style);
+    expect(padding('outfit-detail-plate').paddingBottom ?? 0).toBe(inset);
+    expect(padding('outfit-detail-names').paddingHorizontal ?? 0).toBe(inset);
+    await activate(result, 'primary_top');
+    const strip = result.getByTestId('outfit-detail-board-strip');
+    expect(StyleSheet.flatten(strip.parent!.props.style).left).toBe(inset);
+    expect(StyleSheet.flatten(strip.props.style).width).toBeLessThanOrEqual(358 - 2 * inset);
+  });
+
 
 test('closing the strip from the board hands VoiceOver\'s focus back to the piece that opened it', async () => {
   const focus = jest.spyOn(AccessibilityInfo, 'setAccessibilityFocus').mockImplementation(() => undefined);
