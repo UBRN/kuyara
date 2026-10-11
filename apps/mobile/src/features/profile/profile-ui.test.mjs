@@ -114,7 +114,7 @@ test('site honors an explicit app language for this visit without changing websi
   const enUrl = 'https://ubrn.github.io/kuyara/support';
   const trUrl = 'https://ubrn.github.io/kuyara/tr/support';
 
-  function visit(current, url, saved, device) {
+  function visit(current, url, saved, device, session = { value: null }) {
     let redirect = null;
     let remembered = saved;
     let onClick;
@@ -134,6 +134,10 @@ test('site honors an explicit app language for this visit without changing websi
           getItem: () => remembered,
           setItem: (_, value) => { remembered = value; },
         },
+        sessionStorage: {
+          getItem: () => session.value,
+          setItem: (_, value) => { session.value = value; },
+        },
       },
     });
     return { redirect, get remembered() { return remembered; }, onClick };
@@ -150,10 +154,27 @@ test('site honors an explicit app language for this visit without changing websi
   assert.equal(visit('en', enUrl, null, 'tr-TR').redirect, trUrl);
   assert.equal(visit('en', enUrl, 'en', 'tr-TR').redirect, null);
 
+  // The explicit choice holds for the rest of the tab session; nothing reaches localStorage.
+  const tab = { value: null };
+  const supportFromApp = visit('en', `${enUrl}?lang=en`, null, 'tr-TR', tab);
+  assert.equal(supportFromApp.redirect, null);
+  assert.equal(supportFromApp.remembered, null);
+  const privacyFromLink = visit('en', 'https://ubrn.github.io/kuyara/privacy-policy', null, 'tr-TR', tab);
+  assert.equal(privacyFromLink.redirect, null);
+  assert.equal(privacyFromLink.remembered, null);
+  assert.equal(visit('en', enUrl, null, 'tr-TR').redirect, trUrl);
+  assert.equal(visit('en', enUrl, 'tr', 'en-US', { value: 'en' }).redirect, null);
+
   const website = visit('en', `${enUrl}?lang=en`, 'en', 'en-US');
   website.onClick({ target: { closest: () => ({ getAttribute: () => 'tr' }) } });
   assert.equal(website.remembered, 'tr');
   assert.equal(visit('tr', trUrl, website.remembered, 'en-US').redirect, null);
+
+  // Switching language on the site overrides an earlier explicit choice in the same tab.
+  const switched = visit('en', `${enUrl}?lang=en`, null, 'en-US', tab);
+  switched.onClick({ target: { closest: () => ({ getAttribute: () => 'tr' }) } });
+  assert.equal(tab.value, 'tr');
+  assert.equal(visit('tr', trUrl, switched.remembered, 'en-US', tab).redirect, null);
 });
 
 test('incomplete and completed profiles resolve to the correct local route gate', () => {

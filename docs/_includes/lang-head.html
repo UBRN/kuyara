@@ -75,10 +75,14 @@ correctly in both appearances and on a layout that does not load the theme CSS.
     var remember = function (action) {
       try { return action(window.localStorage); } catch (error) { return null; }
     };
+    var session = function (action) {
+      try { return action(window.sessionStorage); } catch (error) { return null; }
+    };
     document.addEventListener("click", function (event) {
       var link = event.target.closest && event.target.closest(".lang-switcher a");
       if (link) {
         remember(function (storage) { storage.setItem("kuyara-lang", link.getAttribute("hreflang")); });
+        session(function (storage) { storage.setItem("kuyara-lang-visit", link.getAttribute("hreflang")); });
       }
     });
     var alternate = function (lang) {
@@ -88,7 +92,8 @@ correctly in both appearances and on a layout that does not load the theme CSS.
     var current = {{ page.lang | jsonify }};
     var requested = new URLSearchParams(window.location.search).get("lang");
     var explicit = requested === "en" || requested === "tr" ? requested : null;
-    var chosen = explicit || remember(function (storage) { return storage.getItem("kuyara-lang"); });
+    if (explicit) { session(function (storage) { storage.setItem("kuyara-lang-visit", explicit); }); }
+    var chosen = explicit || session(function (storage) { return storage.getItem("kuyara-lang-visit"); }) || remember(function (storage) { return storage.getItem("kuyara-lang"); });
     var target = null;
     if (chosen) {
       if (chosen !== current) { target = alternate(chosen); }
