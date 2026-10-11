@@ -1,8 +1,4 @@
-import {
-  isIncompatibleGarmentPair,
-  isIncompatibleMidLayer,
-  isSummerPiece,
-} from '@/features/catalog/domain/garment-pairs';
+import { isIncompatibleGarmentPair, isSummerPiece } from '@/features/catalog/domain/garment-pairs';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
   compareGarmentEligibilityResults,
@@ -404,14 +400,6 @@ function wearsIncompatiblePair(ids: readonly GarmentTypeId[]): boolean {
     ids.slice(index + 1).some((right) => isIncompatibleGarmentPair(left, right)));
 }
 
-/** Whether a triple wears an incompatible pair above the shoes, a hoodie pulled over a knit included. */
-function sideClashes(pieces: BodyPieces): boolean {
-  const { body, midLayer } = pieces;
-  return (midLayer !== null && body.kind === 'separates' &&
-      isIncompatibleMidLayer(midLayer.garment.garmentTypeId, body.primaryTop.garment.garmentTypeId)) ||
-    wearsIncompatiblePair(pieces.results.map(({ garment }) => garment.garmentTypeId));
-}
-
 /**
  * Every valid draft of the day, best first. A draft is valid when it wears no candidate twice,
  * keeps its formalities within one step and meets every mandatory requirement, so a triple
@@ -443,7 +431,8 @@ export function validDrafts(day: ComposerDay): readonly JudgedDraft[] {
     if (!side.evaluations.every((evaluation) => evaluation === null || meetsRequirement(evaluation))) {
       continue;
     }
-    const sideClash = day.composesNew && sideClashes(pieces);
+    const sideClash = day.composesNew &&
+      wearsIncompatiblePair(pieces.results.map(({ garment }) => garment.garmentTypeId));
     for (const { candidate, rank } of footwear) {
       if (
         side.candidateKeys.has(candidate.candidateKey) ||
