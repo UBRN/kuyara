@@ -1,7 +1,9 @@
 import type { Href } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  AccessibilityInfo,
   FlatList,
+  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -38,6 +40,7 @@ import {
   WardrobeGridTile,
   type WardrobeGridTileGeometry,
 } from '@/features/wardrobe/presentation/wardrobe-grid-tile';
+import type { AppMessages } from '@/localization/messages/types';
 import { useMessages } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { radii, spacing } from '@/theme/theme';
@@ -192,6 +195,18 @@ function TileSlot({ children, entranceIndex, waiting }: Readonly<{
     : <Entrance index={mountedIndex} waiting={waiting}>{children}</Entrance>;
 }
 
+/** The sentence that names a piece the add flow just saved, owned or wanted. */
+function savedConfirmation(item: WardrobeItem, messages: AppMessages): string {
+  const type = item.garmentTypeId ? getGarmentType(item.garmentTypeId) : null;
+  const name = item.name
+    ?? (type
+      ? messages.catalog[type.nameKey]
+      : messages.catalog[`catalog.attribute.structural_category.${item.category}`]);
+  return item.entryState === 'wanted'
+    ? messages.wardrobe.savedWantedConfirmation(name)
+    : messages.wardrobe.savedOwnedConfirmation(name);
+}
+
 // Shared rather than a fresh `[]` per render: React Compiler treats a fresh array as mutable,
 // and everything derived from it would be recomputed on every render.
 const NO_ITEMS: readonly WardrobeItem[] = [];
@@ -335,6 +350,17 @@ export function WardrobeListScreen({
   // The first load's failure replaces the screen, so it is spoken whenever it shows, as
   // Weather's is.
   useErrorAnnouncement(state.status === 'error' ? `${copy.loadErrorTitle}. ${copy.loadErrorBody}` : null);
+  // VoiceOver ignores the confirmation's live region, so iOS speaks it, once per saved piece:
+  // a rerender or a return to its category does not repeat it.
+  const announcedSavedId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!showsSavedItem || savedItemId === announcedSavedId.current) return;
+    announcedSavedId.current = savedItemId;
+    const saved = items.find((item) => item.id === savedItemId);
+    if (saved && Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility(savedConfirmation(saved, messages));
+    }
+  }, [items, messages, savedItemId, showsSavedItem]);
 
   // Derived after the last hook, so React Compiler can memoize them: a value built before a
   // hook and used after it is recomputed on every render.
@@ -401,13 +427,6 @@ export function WardrobeListScreen({
     );
   }
 
-  const savedItemType = savedItem?.garmentTypeId ? getGarmentType(savedItem.garmentTypeId) : null;
-  const savedPieceName = savedItem
-    ? savedItem.name
-      ?? (savedItemType
-        ? messages.catalog[savedItemType.nameKey]
-        : messages.catalog[`catalog.attribute.structural_category.${savedItem.category}`])
-    : '';
   const undoSaved = (id: string) => {
     setUndoStatus('pending');
     onUndoSaved(id).then(
@@ -537,9 +556,7 @@ export function WardrobeListScreen({
                 />
               </PlateView>
               <AppText accessibilityLiveRegion="polite" style={styles.savedCopy}>
-                {savedItem.entryState === 'wanted'
-                  ? copy.savedWantedConfirmation(savedPieceName)
-                  : copy.savedOwnedConfirmation(savedPieceName)}
+                {savedConfirmation(savedItem, messages)}
               </AppText>
               <Button
                 disabled={undoStatus === 'pending'}

@@ -734,8 +734,9 @@ test('the saved piece is named with Undo and ringed, and Undo removes it or repo
   await act(async () => rejectUndo?.(new Error('write failed')));
   await waitFor(() => expect(result.getByTestId('wardrobe-undo-error')).toBeOnTheScreen());
   expect(StyleSheet.flatten(result.getByTestId('wardrobe-undo-error').props.style).alignItems).toBe('flex-start');
-  // VoiceOver ignores the alert role, so the failed Undo is also spoken, once.
-  expect(announce).toHaveBeenCalledTimes(1);
+  // VoiceOver ignores the alert role, so the failed Undo is also spoken, once, after the
+  // confirmation itself.
+  expect(announce).toHaveBeenCalledTimes(2);
   expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.deleteError);
   announce.mockRestore();
   expect(result.getByTestId('wardrobe-saved-confirmation')).toBeOnTheScreen();
@@ -781,6 +782,42 @@ test('the saved confirmation ends when the route stops naming the add, without a
   expect(result.queryByTestId('wardrobe-saved-confirmation')).not.toBeOnTheScreen();
   const frame = StyleSheet.flatten(result.getByTestId(`wardrobe-item-${ownedItem.id}-frame`).props.style);
   expect(frame.borderColor).not.toBe(lightTheme.colors.brandAccent);
+});
+
+// VoiceOver ignores the live region on the confirmation, so iOS speaks it, once per saved
+// piece: not again on a rerender or when its category is shown again.
+test('the saved confirmation is spoken once on iOS, with the owned or wanted sentence', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const screen_ = (savedItemId: string) => (
+    <TestProviders>
+      <WardrobeListScreen
+        initialCategory={savedItemId === wantedItem.id ? 'footwear' : 'outerwear'}
+        onAdd={() => undefined}
+        itemHref={() => '/'}
+        onRetry={() => undefined}
+        savedItemId={savedItemId}
+        state={readyState([ownedItem, wantedItem])}
+      />
+    </TestProviders>
+  );
+  const result = await render(screen_(ownedItem.id));
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.savedOwnedConfirmation('City shell'));
+
+  await result.rerender(screen_(ownedItem.id));
+  await fireEvent.press(result.getByTestId('wardrobe-category-tab-footwear'));
+  await fireEvent.press(result.getByTestId('wardrobe-category-tab-outerwear'));
+  expect(result.getByTestId('wardrobe-saved-confirmation')).toBeOnTheScreen();
+  expect(announce).toHaveBeenCalledTimes(1);
+
+  const wanted = await render(screen_(wantedItem.id));
+  expect(wanted.getByTestId('wardrobe-saved-confirmation')).toBeOnTheScreen();
+  expect(announce).toHaveBeenCalledTimes(2);
+  expect(announce).toHaveBeenLastCalledWith(
+    messages.en.wardrobe.savedWantedConfirmation(messages.en.catalog['catalog.garment_type.weather_boots.name']),
+  );
+  announce.mockRestore();
 });
 
 test('a wanted piece is confirmed as added to the wanted pieces, in Turkish too', async () => {
