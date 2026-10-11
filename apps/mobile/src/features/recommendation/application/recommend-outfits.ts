@@ -12,7 +12,7 @@ import {
 } from '@kuyara/contracts';
 
 import type { ClothingPreference, SupportedLanguage } from '@/domain/preferences';
-import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
+import { aestheticAffinity, sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
 import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import { poolCompositionKey } from '@/features/recommendation/application/pool-composition-key';
 import {
@@ -324,6 +324,22 @@ export function orderByDressStyle(
     (outfit, id) => outfitMatchesArchetype(outfit, id, dayKind, day))].sort(
     (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
   );
+}
+
+/**
+ * The outfits in at least one of the chosen styles (an archetype they match carries it), in
+ * the order those styles and the dress style give all outfits. Onboarding's styles step draws
+ * from it, so a style tap shows an outfit in that style even where the formality order keeps
+ * Today's first outfit as it was.
+ */
+export function outfitsInStyles(
+  outfits: readonly OutfitCandidate[],
+  { dressStyle, styleAesthetics }: Readonly<{ dressStyle: DressStyle; styleAesthetics: readonly StyleAesthetic[] }>,
+  requirements: ClothingRequirements,
+): readonly OutfitCandidate[] {
+  const day = archetypeDayFromRequirements(requirements.requirements);
+  return orderByDressStyle(outfits, { dressStyle, styleAesthetics }, requirements).filter((outfit) =>
+    aestheticAffinity(outfit, styleAesthetics, (option, id) => outfitMatchesArchetype(option, id, undefined, day)) > 0);
 }
 
 export function recommendOutfits(

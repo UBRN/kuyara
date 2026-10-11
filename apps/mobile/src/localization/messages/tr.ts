@@ -55,7 +55,7 @@ export const tr = {
     dressTitle: 'Nasıl giyinirsin?',
     dressBody: 'Her seçim kombini değiştirir.',
     dressStyleGroup: 'Çoğu gün',
-    dressRequiredError: 'Devam etmek için cinsiyetini ve giyim tarzını seç.',
+    dressRequiredError: 'Devam etmek için ikisini de seç.',
     stylePreferencesTitle: 'Hangi stiller sana yakın?',
     stylePreferencesBody: (limit) =>
       `İsteğe bağlı. En fazla ${numberWord(limit, 'tr')} tane seç; bu stillerdeki kombinler öne çıkar.`,
@@ -307,6 +307,7 @@ export const tr = {
     placeSelectedNamed: (name) => `${name} seçildi`,
     placeSelectedFetching: (name) => `${name} seçildi. Hava durumuna bakılıyor.`,
     placeWeatherLoading: 'Hava durumuna bakılıyor…',
+    placeWeatherNow: (temperature, condition) => `${temperature} · ${condition}`,
     changeLocationAction: 'Değiştir',
     locationRationaleBody: 'Uygulamayı kullanırken kuyara, kombin önerilerin için bulunduğun yerin hava durumunu yaklaşık konumundan bulur.',
     cancel: 'Şimdi değil',

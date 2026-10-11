@@ -3,13 +3,17 @@ import { dressStyles } from '@kuyara/contracts';
 import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import type { StructuralCategory, GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
+  composeOutfitPool,
+  outfitsInStyles,
   recommendOutfits,
   type RecommendedOutfit,
 } from '@/features/recommendation/application/recommend-outfits';
 import {
   assignedOutfitGarments,
+  type OutfitCandidate,
   type OutfitSlot,
 } from '@/features/recommendation/domain/outfit-composition';
+import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
 import {
   catalogPreferenceByGender,
@@ -66,7 +70,7 @@ export function onboardingPreviewOutfits(snapshot: WeatherSnapshot): OnboardingP
   return { woman: byStyle(chosen.woman), man: byStyle(chosen.man) };
 }
 
-const previewPieces = (outfit: RecommendedOutfit): readonly OnboardingPreviewPiece[] =>
+const previewPieces = (outfit: OutfitCandidate): readonly OnboardingPreviewPiece[] =>
   assignedOutfitGarments(outfit).map(({ slot, garment }) => ({
     slot,
     garmentTypeId: garment.garmentTypeId,
@@ -96,24 +100,28 @@ export function onboardingUnisexOutfit(snapshot: WeatherSnapshot): readonly Onbo
 }
 
 /**
- * The outfit the rules rank first on the place's weather for a gender and dress style once the
- * chosen styles reorder them, as Today's suggestions are ordered: the styles step shows what a
- * style tap does. Null when the rules compose nothing.
+ * What a style tap on onboarding's styles step draws: an outfit in the chosen styles for the
+ * gender and dress style on the place's weather, the first in the order the styles give, that
+ * is not the outfit already on the plate. Styles reorder outfits within the dress style's
+ * formality and remove none, so the rules' first outfit often stays where it is; the plate shows
+ * one the styles favour instead of standing still. Null when no style is chosen or no other
+ * outfit of the day is in those styles: the plate keeps what it shows.
  */
 export function onboardingStyledOutfit(
   snapshot: WeatherSnapshot,
   gender: Gender,
   dressStyle: DressStyle,
   styleAesthetics: readonly StyleAesthetic[],
+  shown: readonly OnboardingPreviewPiece[],
 ): readonly OnboardingPreviewPiece[] | null {
-  const result = recommendOutfits({
-    snapshot,
-    now: snapshot.current.observedAt,
-    clothingPreference: catalogPreferenceByGender[gender],
-    dressStyle,
-    styleAesthetics,
-    dayVariant: 0,
-  });
-  const first = result.status === 'recommended' ? result.outfits[0] : undefined;
-  return first ? previewPieces(first) : null;
+  if (styleAesthetics.length === 0) return null;
+  const at = snapshot.current.observedAt;
+  const requirements = deriveClothingRequirements(snapshot, at, at);
+  const pool = composeOutfitPool(requirements, catalogPreferenceByGender[gender], 0);
+  if (pool.status !== 'composed') return null;
+  const shownKey = shown.map(({ garmentTypeId }) => garmentTypeId).join(',');
+  const next = outfitsInStyles(pool.outfits, { dressStyle, styleAesthetics }, requirements)
+    .map(previewPieces)
+    .find((pieces) => pieces.map(({ garmentTypeId }) => garmentTypeId).join(',') !== shownKey);
+  return next ?? null;
 }

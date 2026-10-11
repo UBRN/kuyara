@@ -743,6 +743,8 @@ export type AppMessages = Readonly<{
     placeSelectedFetching: (name: string) => string;
     /** The chosen place row's caption while its first weather is fetched. */
     placeWeatherLoading: string;
+    /** The chosen place row's caption once its weather is known: temperature and condition. */
+    placeWeatherNow: (temperature: string, condition: string) => string;
     changeLocationAction: string;
     locationRationaleBody: string;
     cancel: string;

@@ -102,7 +102,8 @@ export function ChoiceTileGrid({
     <View accessibilityRole={accessibilityRole} style={styles.grid} testID={testID}>
       {rows.map((row, rowIndex) => (
         <View key={rowIndex} style={styles.row}>
-          {row}
+          {/* Each tile stands in an equal cell, so a short last row keeps the tiles' width. */}
+          {row.map((tile, index) => <View key={index} style={styles.cell}>{tile}</View>)}
           {Array.from({ length: columns - row.length }, (_, index) => (
             <View key={`spacer-${index}`} style={styles.spacer} />
           ))}
@@ -115,6 +116,7 @@ export function ChoiceTileGrid({
 const styles = StyleSheet.create({
   grid: { gap: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },
+  cell: { flex: 1 },
   spacer: { flex: 1 },
   tile: { alignItems: 'center', borderRadius: radii.control, flex: 1, gap: spacing.sm,
     justifyContent: 'center', minHeight: TILE_MIN_HEIGHT, paddingHorizontal: spacing.sm, paddingVertical: spacing.md },

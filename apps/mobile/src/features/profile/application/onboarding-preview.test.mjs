@@ -112,24 +112,35 @@ test('before a gender is chosen the place draws a rule outfit both catalogs carr
   assert.ok(!garments(onboardingUnisexOutfit(hot)).some((id) => warmLayers.includes(id)));
 });
 
-// The styles step shows what a style choice does: the outfit the rules put first for the chosen
-// gender and dress style once the chosen styles reorder them. Styles reorder and never remove,
-// so with no style chosen it is the rules' own first outfit, and some style moves another first.
-test('chosen styles put the outfit the rules rank first in those styles on the board', () => {
+// Styles reorder outfits within the dress style's formality and never remove one, so the rules'
+// first outfit rarely moves when a style is tapped. The styles step shows what a tap does
+// instead: an outfit in the chosen styles, the first in the order they give, that is not the one
+// already on the plate. With no style chosen, or none of the day's outfits in those styles,
+// nothing replaces the plate's outfit.
+test('a style tap shows an outfit in the chosen styles that is not the one on the plate', () => {
   const styles = ['minimal', 'classic', 'sporty', 'streetwear', 'relaxed'];
-  let reordered = 0;
-  for (const day of [hot, mild, cold, rain]) {
+  const partlyCloudy = weather(22, 'partly_cloudy', 0.1);
+  let answered = 0;
+  let taps = 0;
+  for (const day of [hot, mild, cold, rain, partlyCloudy]) {
     for (const gender of genders) {
       for (const dressStyle of dressStyles) {
-        const plain = garments(onboardingStyledOutfit(day, gender, dressStyle, [])).join(',');
+        const shown = outfit(day, gender, dressStyle);
+        assert.equal(onboardingStyledOutfit(day, gender, dressStyle, [], shown), null);
         for (const style of styles) {
-          const styled = onboardingStyledOutfit(day, gender, dressStyle, [style]);
-          assert.ok(styled, `${day.id} ${gender} ${dressStyle} ${style}`);
-          if (garments(styled).join(',') !== plain) reordered += 1;
+          taps += 1;
+          const next = onboardingStyledOutfit(day, gender, dressStyle, [style], shown);
+          if (!next) continue;
+          answered += 1;
+          assert.notDeepEqual(garments(next), garments(shown), `${day.id} ${gender} ${dressStyle} ${style}`);
+          assert.deepEqual(next, onboardingStyledOutfit(day, gender, dressStyle, [style], shown));
         }
       }
     }
   }
-  assert.ok(reordered > 0);
-  assert.deepEqual(onboardingStyledOutfit(mild, 'man', 'smart', ['sporty']), onboardingStyledOutfit(mild, 'man', 'smart', ['sporty']));
+  // The tour's day: a smart man on a 22 degree partly cloudy day sees Minimal and Sporty answer.
+  for (const style of ['minimal', 'sporty']) {
+    assert.ok(onboardingStyledOutfit(partlyCloudy, 'man', 'smart', [style], outfit(partlyCloudy, 'man', 'smart')), style);
+  }
+  assert.ok(answered > taps * 0.8, `${answered} of ${taps}`);
 });

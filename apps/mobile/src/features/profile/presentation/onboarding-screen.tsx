@@ -25,6 +25,8 @@ import {
   ProgressFill,
   Screen,
   TintingPlate,
+  useButtonBox,
+  useTextScaling,
 } from '@/components/ui';
 import { useKeyboardVisible } from '@/components/ui/use-keyboard-visible';
 import {
@@ -171,15 +173,35 @@ const fittedWidth = (
 // The board takes this share of the plate's width, so the plate leaves the answer tiles room
 // on the step that asks them while the board stays the step's picture.
 const PREVIEW_BOARD_SHARE = 0.66;
-// The Closet line's rack: a few sample pieces in fixed colour families, one of them wanted
-// (drawn dashed), as the account introduction's rack; a picture of the promise, not a record.
+// The Closet line's rack, full as a lived-in Closet: every hook carries an accessory, the upper
+// rail its coats and tops (some side-on), the lower rail a bottom on each hanger, and shoes on
+// the shelf, in fixed colour families and types both cuts carry; two pieces are wanted (drawn
+// dashed). A picture of the promise, not a record.
 const closetSample: readonly RackPiece[] = ([
+  ['beanie', 'accessory', 'gray', false],
+  ['brimmed_hat', 'accessory', 'beige', false],
+  ['cap', 'accessory', 'blue', false],
+  ['scarf', 'accessory', 'red', false],
+  ['neck_gaiter', 'accessory', 'black', false],
+  ['gloves', 'accessory', 'brown', false],
+  ['umbrella', 'accessory', 'black', false],
+  ['balaclava', 'accessory', 'gray', false],
+  ['coat', 'outerwear', 'brown', false],
   ['light_jacket', 'outerwear', 'blue', false],
   ['sweater', 'top', 'green', false],
+  ['shirt', 'top', 'white', false],
   ['t_shirt', 'top', 'white', false],
-  ['jeans', 'bottom', 'blue', false],
-  ['sneakers', 'footwear', 'white', false],
   ['trench_coat', 'outerwear', 'beige', true],
+  ['jeans', 'bottom', 'blue', false],
+  ['jeans', 'bottom', 'black', false],
+  ['trousers', 'bottom', 'beige', false],
+  ['trousers', 'bottom', 'gray', false],
+  ['shorts', 'bottom', 'green', false],
+  ['track_pants', 'bottom', 'black', false],
+  ['sneakers', 'footwear', 'white', false],
+  ['loafers', 'footwear', 'brown', false],
+  ['ankle_boots', 'footwear', 'black', false],
+  ['sandals', 'footwear', 'beige', true],
 ] as const).map(([garmentTypeId, category, colorFamily, wanted], index) => ({
   id: `onboarding-closet-${index}`,
   garmentTypeId,
@@ -188,7 +210,7 @@ const closetSample: readonly RackPiece[] = ([
   wanted,
   addedAt: index,
 }));
-const CLOSET_RACK_WIDTH = 160;
+const CLOSET_RACK_WIDTH = 180;
 // What the first step's stage holds: an outfit with the palette it is drawn in, keyed by what
 // it shows, so a new outfit takes the stage once and the same one never re-dresses it.
 type StageOutfit = Readonly<{ key: string; pieces: readonly GarmentBoardPiece[]; palette: GarmentOutfitPalette }>;
@@ -273,6 +295,9 @@ export function OnboardingScreen({
   const preferenceCopy = messages.preferences;
   const theme = useKuyaraTheme();
   const insets = useSafeAreaInsets();
+  const { fontScale } = useTextScaling();
+  // The birth date row is one button tall whether it holds Add, Remove or nothing.
+  const buttonBox = useButtonBox();
   const largeBoard = useEasierToSee();
   const weatherState = useWeatherApplication().state;
   const activeLocation = weatherState.status === 'ready' ? weatherState.activeLocation : null;
@@ -312,6 +337,8 @@ export function OnboardingScreen({
   // A chosen place's weather is on its way: the first step titles the plate with the place and
   // leaves its stage empty until the weather and the outfit chosen for it arrive.
   const waitingForPlaceWeather = step === 'location' && awaitsPlaceWeather(weatherState);
+  // A pick being saved: the outfit on the stage leaves at once instead of after the save.
+  const picking = step === 'location' && weatherState.status === 'ready' && weatherState.isSelectingLocation;
   const keyboardVisible = useKeyboardVisible();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
@@ -426,7 +453,7 @@ export function OnboardingScreen({
   // The first step's stage: the example outfit until a place is chosen; nothing while the
   // place's weather and the outfit the rules choose for it are on their way; then that outfit.
   // A change of outfit lets the old board leave before the new one rises, as on Today.
-  const stageOutfit: StageOutfit | null = placeWeather
+  const stageOutfit: StageOutfit | null = picking ? null : placeWeather
     ? (ruled ? (ruled.unisex
       ? { key: ruled.unisex.map(({ garmentTypeId }) => garmentTypeId).join(','), pieces: ruled.unisex, palette: palette(ruled.unisex, false) }
       : { key: 'sample', pieces: unisexPreviewPieces, palette: palette(unisexPreviewPieces, true) }) : null)
@@ -446,12 +473,24 @@ export function OnboardingScreen({
   // On the steps that ask, the board answers each choice: the gender being chosen draws its
   // outfit, and on the styles step the outfit the chosen styles put first on the place's weather.
   const previewGender = step === 'location' ? null : draft.gender;
-  const styledPieces = step === 'styles' && placeWeather && draft.gender && draft.dressStyle
-    && draft.styleAesthetics.length > 0
-    ? onboardingStyledOutfit(placeWeather, draft.gender, draft.dressStyle, draft.styleAesthetics) : null;
+  // A style tap puts an outfit in the chosen styles on the plate (see `onboardingStyledOutfit`).
+  // It is chosen at the tap, against the outfit the plate shows then, and kept for that gender
+  // and dress style, so no re-render picks again.
+  const [styled, setStyled] = useState<Readonly<{ answers: string; pieces: readonly GarmentBoardPiece[] }> | null>(null);
+  const answers = `${draft.gender}:${draft.dressStyle}`;
+  const styledPieces = step === 'styles' && styled?.answers === answers ? styled.pieces : null;
   const answerPieces = previewGender
     ? styledPieces ?? choicePieces[previewGender][draft.dressStyle ?? 'casual']
     : ruled?.unisex ?? unisexPreviewPieces;
+  const selectStyles = (value: readonly StyleAesthetic[]) => {
+    dispatch({ type: 'select-style-aesthetics', value });
+    if (value.length === 0 || !placeWeather || !draft.gender || !draft.dressStyle) {
+      setStyled(null);
+      return;
+    }
+    const next = onboardingStyledOutfit(placeWeather, draft.gender, draft.dressStyle, value, answerPieces);
+    if (next) setStyled({ answers, pieces: next });
+  };
   // The preview is drawn in the cut of the gender being chosen; until one is, the unisex cut.
   const previewCut = previewGender ? catalogPreferenceByGender[previewGender] : unisexPreviewCut;
   // The later steps' tiles are drawn in the chosen gender's cut too.
@@ -663,7 +702,8 @@ export function OnboardingScreen({
 
       {step === 'styles' ? (
         <View style={styles.panel}>
-          <ChoiceTileGrid columns={3} testID="onboarding-style-option">
+          {/* Three across, or two once the text is larger, so no style name breaks inside a word. */}
+          <ChoiceTileGrid columns={fontScale > 1 ? 2 : 3} testID="onboarding-style-option">
             {styleAesthetics.map((style) => {
               const checked = draft.styleAesthetics.includes(style);
               return (
@@ -672,12 +712,9 @@ export function OnboardingScreen({
                   drawings={[styleDrawings[style]]}
                   key={style}
                   label={aestheticLabel(preferenceCopy, style)}
-                  onPress={() => dispatch({
-                    type: 'select-style-aesthetics',
-                    value: checked
-                      ? draft.styleAesthetics.filter((value) => value !== style)
-                      : orderStyleAesthetics([...draft.styleAesthetics, style]),
-                  })}
+                  onPress={() => selectStyles(checked
+                    ? draft.styleAesthetics.filter((value) => value !== style)
+                    : orderStyleAesthetics([...draft.styleAesthetics, style]))}
                   role="checkbox"
                   selected={checked}
                   testID={`onboarding-style-option-${style}`}
@@ -717,7 +754,7 @@ export function OnboardingScreen({
               />
             </View>
             <View style={styles.label}>
-              <View style={styles.birthDateRow}>
+              <View style={[styles.birthDateRow, { minHeight: buttonBox.minHeight }]} testID="onboarding-birth-date-row">
                 <AppText style={styles.birthDateTitle} variant="bodyStrong">{preferenceCopy.birthDateTitle}</AppText>
                 {/* A picker always draws a date, so an unset birth date shows only Add; the wheel
                     it opens stores nothing until it is turned. Remove takes its place once a

@@ -60,7 +60,7 @@ export const en = {
     dressTitle: 'How do you dress?',
     dressBody: 'Each answer changes the outfit.',
     dressStyleGroup: 'Most days',
-    dressRequiredError: 'Choose a gender and how you dress to continue.',
+    dressRequiredError: 'Choose both to continue.',
     stylePreferencesTitle: 'Which styles feel like you?',
     stylePreferencesBody: (limit) =>
       `Optional. Pick up to ${numberWord(limit, 'en')}, and outfits in these styles come first.`,
@@ -313,6 +313,7 @@ export const en = {
     placeSelectedNamed: (name) => `${name} selected`,
     placeSelectedFetching: (name) => `${name} selected. Getting the weather.`,
     placeWeatherLoading: 'Getting the weather…',
+    placeWeatherNow: (temperature, condition) => `${temperature} · ${condition}`,
     changeLocationAction: 'Change',
     locationRationaleBody: 'kuyara uses your approximate location to find the weather for your outfit suggestions while you use the app.',
     cancel: 'Not now',

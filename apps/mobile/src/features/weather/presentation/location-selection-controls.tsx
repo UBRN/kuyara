@@ -29,12 +29,13 @@ import {
   awaitsPlaceWeather,
   type WeatherApplicationState,
 } from '@/features/weather/application/weather-application-controller';
-import type { ActiveLocation } from '@/features/weather/domain/weather';
 import {
   usePlaceSearchApplication,
   useWeatherApplication,
 } from '@/features/weather/application/weather-application-context';
+import { activeLocationSnapshot, type ActiveLocation } from '@/features/weather/domain/weather';
 import { locationCaption, locationName } from '@/features/weather/presentation/location-label';
+import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -89,7 +90,7 @@ export function LocationSelectionControls({
     }
     return null;
   };
-  const { language, messages } = useLocalization();
+  const { language, messages, temperatureUnit } = useLocalization();
   const copy = messages.weather;
   // A device lookup asked for on this screen, by the button or by the return from Settings:
   // its status line shows while the fix is taken, and the place it found is confirmed once,
@@ -219,8 +220,15 @@ export function LocationSelectionControls({
   }
 
   const shownName = shownPlace ? locationName(shownPlace, copy) : '';
+  // A place picked by name has no precise or approximate caption, so its row carries its
+  // weather once known: the caption line it opened with stays, and nothing under it moves.
+  const shownWeather = shownPlace?.source === 'manual' ? activeLocationSnapshot(state.snapshot, shownPlace) : null;
   const shownCaption = awaitingWeather ? copy.placeWeatherLoading
-    : locationCaption(shownPlace, state.permission.kind, copy);
+    : shownWeather ? copy.placeWeatherNow(
+      `${formatWholeTemperatureValue(shownWeather.current.temperatureCelsius, language, temperatureUnit)}°`,
+      copy.conditions[shownWeather.current.condition],
+    )
+      : locationCaption(shownPlace, state.permission.kind, copy);
   const isChosenPlace = (id: string) =>
     state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === id;
 

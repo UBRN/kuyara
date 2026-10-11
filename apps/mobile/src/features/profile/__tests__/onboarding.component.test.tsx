@@ -13,7 +13,11 @@ import { silhouettes, type SilhouetteId } from '@/garment-art/silhouettes';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
-import { onboardingStyledOutfit, onboardingUnisexOutfit } from '@/features/profile/application/onboarding-preview';
+import {
+  onboardingPreviewOutfits,
+  onboardingStyledOutfit,
+  onboardingUnisexOutfit,
+} from '@/features/profile/application/onboarding-preview';
 import { OnboardingScreen } from '@/features/profile/presentation/onboarding-screen';
 import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import {
@@ -441,7 +445,10 @@ test('an invalid typed name keeps Continue enabled, stops the press and says why
 test('Add opens the birth date wheel 25 years back and nothing is saved until it is turned', async () => {
   const { onComplete, result } = await renderOnboarding('woman', null, 'smart');
   await pressUntilStep(result, 4);
+  const addHeight = StyleSheet.flatten(result.getByTestId('onboarding-birth-date-add').props.style).minHeight;
   await fireEvent.press(result.getByTestId('onboarding-birth-date-add'));
+  // Between Add and Remove the row keeps a button's height, so the wheel under it never moves.
+  expect(StyleSheet.flatten(result.getByTestId('onboarding-birth-date-row').props.style).minHeight).toBe(addHeight);
   const picker = result.getByTestId('onboarding-birth-date');
   expect(picker.props.accessibilityValue.text).toContain(`${new Date().getFullYear() - 25}-01-01`);
   expect(picker.props.range.start.getFullYear()).toBe(1900);
@@ -495,9 +502,10 @@ test('a new step\'s body and panel arrive while the title and progress stay stil
   withSpring.mockRestore();
 });
 
-// Styles reorder outfits and never remove one, so the styles step shows it: the plate stays and
-// puts first the outfit the rules rank first in the chosen styles for the place's weather.
-test('on the styles step the plate shows the outfit the chosen styles put first', async () => {
+// Styles reorder outfits within the dress style's formality, so the rules' first outfit rarely
+// moves; each tap still answers: the plate shows an outfit in the chosen styles that is not the
+// one it showed, and with no style left it returns to the dress style's outfit.
+test('on the styles step each tap puts an outfit in the chosen styles on the plate', async () => {
   jest.useFakeTimers();
   mockFontScale(1);
   const weather = createWeatherApplication({ activeLocation: istanbul, snapshot: rainyIstanbul, freshness: 'fresh' });
@@ -506,12 +514,40 @@ test('on the styles step the plate shows the outfit the chosen styles put first'
   await pressUntilStep(result, 3);
   await layOutPreview(result);
   expect(result.getByText(istanbulTitle, hidden)).toBeOnTheScreen();
+  const dressed = onboardingPreviewOutfits(rainyIstanbul)!.man.smart;
+  const drawn = (pieces: readonly { garmentTypeId: GarmentTypeId }[]) =>
+    new Set(pieces.map(({ garmentTypeId }) => silhouetteOf(garmentTypeId, 'mens')));
+  expect(drawnIds(result, 'onboarding-welcome-board')).toEqual(drawn(dressed));
+
   await fireEvent.press(result.getByTestId('onboarding-style-option-sporty'));
-  // The pieces the new first outfit replaces slide away.
+  // The pieces the new outfit replaces slide away.
   await act(async () => { jest.advanceTimersByTime(1000); });
-  const styled = onboardingStyledOutfit(rainyIstanbul, 'man', 'smart', ['sporty'])!;
-  expect(drawnIds(result, 'onboarding-welcome-board'))
-    .toEqual(new Set(styled.map(({ garmentTypeId }) => silhouetteOf(garmentTypeId, 'mens'))));
+  const styled = onboardingStyledOutfit(rainyIstanbul, 'man', 'smart', ['sporty'], dressed)!;
+  expect(styled).not.toEqual(dressed);
+  expect(drawnIds(result, 'onboarding-welcome-board')).toEqual(drawn(styled));
+
+  await fireEvent.press(result.getByTestId('onboarding-style-option-sporty'));
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(drawnIds(result, 'onboarding-welcome-board')).toEqual(drawn(dressed));
+});
+
+// Every style tile is one width, the short last row's included, and a larger text size takes
+// two columns so no style name breaks inside a word.
+test.each([
+  [1, [3, 2]],
+  [1.35, [2, 2, 1]],
+] as const)('at fontScale %s the style tiles stand in equal columns of %j', async (fontScale, rows) => {
+  mockFontScale(fontScale);
+  const { result } = await renderOnboarding('man', null, 'smart');
+  await pressUntilStep(result, 3);
+  const grid = result.getByTestId('onboarding-style-option');
+  const rowViews = grid.children as unknown as { props: { children: unknown } }[];
+  expect(rowViews.map((row) => within(row as never).getAllByRole('checkbox').length)).toEqual(rows);
+  // Each tile stands in a cell that takes an equal share of its row, as the spacers do.
+  for (const style of ['minimal', 'relaxed'] as const) {
+    expect(StyleSheet.flatten(result.getByTestId(`onboarding-style-option-${style}`).parent!.props.style))
+      .toMatchObject({ flex: 1 });
+  }
 });
 
 test('existing profile values prefill the reopened onboarding steps', async () => {
@@ -589,6 +625,9 @@ test('a picked city brings its own sky and outfit to the plate that stays', asyn
   weather.state = { ...weather.state as ReadyState, snapshot: rainyIstanbul, freshness: 'fresh', isRefreshing: false };
   await rerender();
   expect(result.queryByText(messages.en.weather.placeWeatherLoading)).toBeNull();
+  // The row keeps its caption line, so nothing under it moves: the wait becomes the weather.
+  expect(within(result.getByTestId('onboarding-location-manual-current'))
+    .getByText(messages.en.weather.placeWeatherNow('23°', messages.en.weather.conditions.rain))).toBeOnTheScreen();
   expect(result.getByText(istanbulTitle, hidden)).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-welcome-preview', hidden)).toHaveStyle({
     backgroundColor: lightTheme.atmosphere.fallingDay,
@@ -599,6 +638,22 @@ test('a picked city brings its own sky and outfit to the plate that stays', asyn
   const ruled = onboardingUnisexOutfit(rainyIstanbul)!;
   expect(drawnIds(result, 'onboarding-welcome-board'))
     .toEqual(new Set(ruled.map(({ garmentTypeId }) => silhouetteOf(garmentTypeId, 'mens'))));
+});
+
+// A second pick: the outfit of the place in use leaves at the pick, while the new place is being
+// saved, rather than lingering until its row opens.
+test('a new pick lets the outfit on the plate leave at once', async () => {
+  jest.useFakeTimers();
+  mockFontScale(1);
+  const weather = createWeatherApplication({ activeLocation: istanbul, snapshot: rainyIstanbul, freshness: 'fresh' });
+  const { result, rerender } = await renderOnboarding(null, null, null, undefined, weather);
+  await layOutPreview(result);
+  await act(async () => { jest.advanceTimersByTime(1); });
+  expect(result.getByTestId('onboarding-welcome-board', hidden)).toBeTruthy();
+  weather.state = { ...weather.state as ReadyState, isSelectingLocation: true };
+  await rerender();
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(result.queryByTestId('onboarding-welcome-board', hidden)).toBeNull();
 });
 
 // A weather fetch that fails, a lookup that fails or a refusal never leaves a status waiting on
