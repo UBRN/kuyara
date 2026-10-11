@@ -1146,6 +1146,13 @@ export const en = {
       },
     },
   },
+  siri: {
+    spokenDay: ({ outfit, pieces }) => `Today’s outfit is ${outfit}: ${pieces.join(', ')}.`,
+    spokenEvening: ({ outfit, pieces }) => `This evening’s outfit is ${outfit}: ${pieces.join(', ')}.`,
+    noOutfit: 'There is no outfit to show right now.',
+    chosenFor: ({ temperature, condition }) => `Chosen for: ${temperature}, ${condition}`,
+    anotherOption: 'Another option',
+  },
   account: {
     card: {
       title: 'Complete your profile',

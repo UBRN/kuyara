@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Linking, StyleSheet, TextInput, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
@@ -73,6 +73,8 @@ type WardrobeItemFormScreenProps = Readonly<{
   defaultEntryState?: WardrobeEntryState;
   /** The Closet category a new item was added from; the type picker opens on it (O9). */
   defaultCategory?: StructuralCategory;
+  /** A phrase the add arrived with (Siri, ADR 0042); applied once as if submitted. */
+  initialPhrase?: string;
   isBusy: boolean;
   confirmation?: WardrobeConfirmation;
   photoPreviewUri?: string | null;
@@ -177,6 +179,7 @@ export function WardrobeItemFormScreen({
   confirmation = showWardrobeConfirmation,
   defaultCategory,
   defaultEntryState = 'owned',
+  initialPhrase,
   isBusy,
   item,
   mode,
@@ -218,7 +221,7 @@ export function WardrobeItemFormScreen({
     useStagedWardrobePhoto(onDiscardStagedPhoto, photoPreviewUri);
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
   // ADR 0042: the phrase lives only in this state; it is never sent, logged or stored.
-  const [phrase, setPhrase] = useState('');
+  const [phrase, setPhrase] = useState(initialPhrase ?? '');
   // Why the phrase filled nothing, with the types to choose from when it named several.
   const [phraseProblem, setPhraseProblem] =
     useState<Extract<WardrobePhraseFill, { kind: 'not-understood' }> | null>(null);
@@ -391,6 +394,12 @@ export function WardrobeItemFormScreen({
       color: fill.colorFilled ? closetColorName(messages, next.colorChoice, next.colorFamily) : null,
     }));
   };
+
+  // The phrase the add arrived with fills the form once on arrival, as a submitted field does.
+  const applyInitialPhrase = useEffectEvent(() => applyPhrase(null));
+  useEffect(() => {
+    if (initialPhrase) applyInitialPhrase();
+  }, [initialPhrase]);
 
   const textInputStyle = [
     styles.textInput,

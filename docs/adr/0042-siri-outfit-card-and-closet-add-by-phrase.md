@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-10-11)
 
-Implementation: the phrase matcher, `apps/mobile/src/features/wardrobe/domain/closet-phrase.ts`, and the Closet add form's phrase field (`fillWardrobeFormFromPhrase` in `features/wardrobe/application/wardrobe-form.ts`) are built and tested. The App Intents, the App Group and the summary writer are not built; the native half needs a new binary.
+Implementation: the phrase matcher, `apps/mobile/src/features/wardrobe/domain/closet-phrase.ts`, and the Closet add form's phrase field (`fillWardrobeFormFromPhrase` in `features/wardrobe/application/wardrobe-form.ts`) are built and tested. The summary is built: the projection `outfitSummary` (`features/recommendation/application/outfit-summary.ts`), its bounds `dressingDayBounds` (`features/weather/domain/wardrobe-day.ts`) and the App Group writer (`features/recommendation/data/app-group-outfit-summary.ts`), called by the recommendation application provider. The App Intents are Swift sources in `apps/mobile/native/siri-intents/`, added with the App Group entitlement by `apps/mobile/plugins/with-siri-intents.js`; they reach people only in a new binary.
 
 ## Context
 
@@ -19,10 +19,10 @@ Adding a piece to the Closet today means choosing a category, a garment type til
 ### 1. The Siri outfit card
 
 - One App Shortcut opens it: "kuyara'da bugün ne giysem?" in Turkish and "What should I wear today in kuyara?" in English, with a few fixed variants per language that keep the app name. The phrases ship in the binary's App Shortcuts string catalog.
-- The intent reads the outfit summary (section 3) and shows a snippet card: the outfit name, a drawing of the outfit (the summary's board image, or the pieces as text when there is none), the temperature and condition, and one button, "Başka seçenek" / "Another option", that shows the next of the snapshot's three outfits and comes back to the first after the third. Tapping the card opens that outfit's detail in the app.
+- The intent reads the outfit summary (section 3) and shows a snippet card: the outfit name, a drawing of the outfit (the summary's board image, or the pieces as text when there is none), the temperature and condition the outfit was chosen for (the reading at generation, labelled as such, never live weather), and one button, "Başka seçenek" / "Another option", that shows the next of the snapshot's three outfits and comes back to the first after the third. Tapping the card opens that outfit's detail in the app. The card follows the snapshot's own order, kuyara's first pick first; a mix the person made by hand or a recorded worn look stays in the app.
 - Siri speaks one line. The line is a whole localized sentence written by the app from localization keys, never AI prose and never assembled from translated fragments.
 - The card generates nothing. It makes no Worker or AI request, spends no ask-again allowance, reads no Closet data, shows no ownership and no provenance badge, and writes nothing back.
-- On a stale day the card is honest: when the summary is missing, unreadable, of an unknown version or past its `validUntil`, it shows no outfit and says that today's outfit is ready when kuyara is opened, with an "Open kuyara" button. Yesterday's outfit is never shown as today's.
+- On a stale day the card is honest: when the summary is missing, unreadable, of an unknown version, written in another time zone or outside its `validFrom` to `validUntil` window, it shows no outfit and says that today's outfit is ready when kuyara is opened, with an "Open kuyara" button. Yesterday's outfit is never shown as today's. A dressing day whose snapshot holds no outfit writes a summary with no outfits and a line saying so, so an earlier outfit of the same day is not left on the card.
 - The card has no glow, rainbow edge or other imitation of Siri's own animation, no Apple Intelligence wording or glyph, and no haptic: Law 8's sites in [`design-language.md`](../design/design-language.md#law-8-non-visual-feedback) are unchanged.
 
 ### 2. Adding to the Closet by phrase
@@ -33,9 +33,9 @@ Adding a piece to the Closet today means choosing a category, a garment type til
 
 ### 3. The outfit summary in the App Group
 
-- The app writes one JSON file, `outfit-summary.json`, into the App Group container `group.com.ubrn.kuyara` through expo-file-system's shared-container path, after every recommendation snapshot save and after a language change. Removing the local profile removes the file.
+- The app writes one JSON file, `outfit-summary.json`, into the App Group container `group.com.ubrn.kuyara` through expo-file-system's shared-container path, after every recommendation snapshot save and after a change of language, temperature unit or time zone. It writes a temporary file and moves it over the summary, so Swift never reads a half-written file. A day turn writes nothing: the file's own bounds retire it. Removing the local profile removes the file.
 - The file is a derived feed, never a second source of truth: nothing reads it back into the app.
-- Version 1 holds: `version`; `language` (`tr | en`, the app's language at writing); `validFrom` and `validUntil`, the instants that bound the snapshot's dressing day, computed by the dressing-day owners (`localDayKey` and `wardrobeDayWindow`) so Swift never repeats the 04:00 and 18:00 rule; the spoken line; the card's localized labels; and up to three outfits, each with its option id, localized outfit name, localized piece names and an optional relative path to a board image in the same container.
+- Version 1 holds: `version`; `language` (`tr | en`, the app's language at writing); `timeZone`, the device's zone at writing (the clock setting the bounds are read in, not a place); `validFrom` and `validUntil`, the instants that bound the snapshot's dressing day (`localDayKey`, which follows the device clock) in that zone, computed by the dressing-day owner `dressingDayBounds` in `wardrobe-day.ts` so Swift never repeats the 04:00 and 18:00 rule; the spoken line; the card's localized labels; and up to three outfits, each with its option id, localized outfit name, localized piece names and an optional relative path to a board image in the same container.
 - Every string in the file is already localized in the app's language, so a template or wording change ships as a JavaScript update. The binary carries only the App Shortcut phrases and the few lines it needs when no readable summary exists, in Turkish and English.
 - A field is only ever added. A change that removes or retypes a field takes a new version, and the app writes a new version only from a binary that reads it. Swift treats an unknown version as no summary.
 - The file holds no coordinates, place name, display name, profile or device identifier, Closet data, provider or model name. It uses the file protection class that allows reading after the first unlock, so the card works with a locked phone.
@@ -43,6 +43,7 @@ Adding a piece to the Closet today means choosing a category, a garment type til
 ### 4. The native surface
 
 - The App Intents are Swift sources tracked in the repository and added to the main app target by one config plugin registered in `app.json`, the way [ADR 0040](0040-ios-scene-based-life-cycle.md)'s plugin works. The same plugin adds the App Group entitlement. There is no App Intents extension, widget, Control or Live Activity.
+- An intent that opens the app (the card tap, "Open kuyara", the Closet add) runs in the foreground and hands a `kuyara://` link to the app, which routes it like any other link; the system refuses `OpenURLIntent` for a custom scheme.
 - The intents never import the Foundation Models module, which keeps its single importer in the recommendation data layer (ADR 0034 section 6), and they do not need JavaScript to run.
 - Android has no counterpart. Shared JavaScript (the matcher, the summary projection) stays platform-neutral; only the summary's file adapter is iOS-only and is a no-op elsewhere.
 
@@ -72,6 +73,7 @@ Adding a piece to the Closet today means choosing a category, a garment type til
 
 - The matcher ships as a JavaScript update; the card and the Siri half of the Closet add need a new binary with an App Group capability on the App ID, and the plugin carries the independent review for native configuration.
 - Turkish App Shortcut phrases with the app name and a suffix ("kuyara'da") must be checked on a device with Turkish Siri before release; the Simulator cannot show the spoken match.
+- The intents run in the main app process, so a Siri call starts kuyara in the background when it is not running, and that start runs the app's JavaScript and its native launch code as any background start does.
 - Before the app has saved a snapshot on a given dressing day the card shows the stale state, so the morning before kuyara is opened is the common stale case.
 - Turkish endings other than the possessive, accusative and plural (the dative "bota", the "-si" of "elbisesi") are not read; the vocabulary grows by adding labelled phrases.
 

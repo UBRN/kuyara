@@ -1004,6 +1004,19 @@ export type AppMessages = Readonly<{
   walkthrough: WalkthroughMessages;
   /** Phase 9's account screens (ADR 0041 section 5), built behind the account screens switch. */
   account: AccountMessages;
+  /**
+   * ADR 0042: the words of the Siri outfit card, written into the App Group summary. Each line
+   * is whole: the outfit name and the catalog piece names are inserted, never translated parts.
+   */
+  siri: Readonly<{
+    spokenDay: (values: { outfit: string; pieces: readonly string[] }) => string;
+    spokenEvening: (values: { outfit: string; pieces: readonly string[] }) => string;
+    /** Spoken when the dressing day has no outfit to show. */
+    noOutfit: string;
+    /** The weather the outfit was chosen for when it was generated, never the live weather. */
+    chosenFor: (values: { temperature: string; condition: string }) => string;
+    anotherOption: string;
+  }>;
 }>;
 
 type ByProvider = Readonly<Record<'apple' | 'google', string>>;

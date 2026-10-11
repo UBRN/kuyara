@@ -8,14 +8,16 @@ const fakeKey = '__kuyaraFakeExpoFileSystem';
  * test can seed files and script failures. Call it before the module under test is imported.
  *
  * `files` maps a file uri to its text (a file made without text holds ''). Set a failure field
- * to make that operation throw: `readFailure` and `writeFailure` are booleans, `copyFailure`
+ * to make that operation throw: `readFailure`, `writeFailure` and `moveFailure` are booleans, `copyFailure`
  * is an error thrown after the copy lands, and `deleteFailure` is an error that fails every
  * delete or a function from a uri to the error (or nothing) for that file. `createdDirectories`
- * records each `[uri, options]` a directory was created with.
+ * records each `[uri, options]` a directory was created with. `appleSharedContainers` maps an
+ * App Group id to its container uri, as the iOS entitlement exposes it; none by default.
  */
 export function installFakeExpoFileSystem({
   documentUri = 'file:///documents',
   cacheUri = 'file:///cache',
+  appleSharedContainers = {},
 } = {}) {
   const fake = {
     files: new Map(),
@@ -24,6 +26,7 @@ export function installFakeExpoFileSystem({
     createdDirectories: [],
     readFailure: false,
     writeFailure: false,
+    moveFailure: false,
     copyFailure: null,
     deleteFailure: null,
   };
@@ -90,6 +93,15 @@ export function installFakeExpoFileSystem({
       fake.files.set(this.uri, value);
     }
 
+    moveSync(destination, options) {
+      if (fake.moveFailure) throw new Error('move failed');
+      if (!fake.files.has(this.uri)) throw new Error('move failed: no source');
+      if (fake.files.has(destination.uri) && !options?.overwrite) throw new Error('move failed: destination exists');
+      fake.files.set(destination.uri, fake.files.get(this.uri));
+      fake.files.delete(this.uri);
+      this.uri = destination.uri;
+    }
+
     async copy(destination) {
       fake.files.set(destination.uri, fake.files.get(this.uri) ?? '');
       if (fake.copyFailure) throw fake.copyFailure;
@@ -107,7 +119,12 @@ export function installFakeExpoFileSystem({
   globalThis[fakeKey] = {
     Directory,
     File,
-    Paths: { document: { uri: documentUri }, cache: { uri: cacheUri } },
+    Paths: {
+      document: { uri: documentUri },
+      cache: { uri: cacheUri },
+      appleSharedContainers: Object.fromEntries(Object.entries(appleSharedContainers)
+        .map(([group, uri]) => [group, new Directory(uri)])),
+    },
   };
   mockNativeModules({
     'expo-file-system': `export const { Directory, File, Paths } = globalThis.${fakeKey};`,

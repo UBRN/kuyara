@@ -74,6 +74,8 @@ import {
   createRecommendationContextWithPool,
 } from '@/features/recommendation/application/recommendation-context';
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
+import { useOutfitSummaryFeed } from '@/features/recommendation/application/use-outfit-summary-feed';
+import { writeOutfitSummary } from '@/features/recommendation/data/app-group-outfit-summary';
 import { isDayQuestionOpen, untilDressingDayTurns } from '@/features/recommendation/domain/local-day';
 import { repeatsProfileStyle, resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceRepository, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
@@ -88,6 +90,7 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
+import { getDeviceTimeZone } from '@/domain/intl-format';
 import { openMigratedDatabase } from '@/infrastructure/sqlite/open-migrated-database';
 import { newUuid } from '@/infrastructure/new-uuid';
 import { systemNow as now } from '@/infrastructure/system-clock';
@@ -174,7 +177,7 @@ export function RecommendationApplicationProvider({
   // reading it from a clock state instead is a timing change, so the provider opts out.
   'use no memo';
   const { state: profileState } = useProfileApplication();
-  const { language } = useLocalization();
+  const { language, temperatureUnit } = useLocalization();
   const weatherApplication = useWeatherApplication();
   const weatherState = weatherApplication.state;
   const { analytics } = useProductAnalytics();
@@ -318,6 +321,10 @@ export function RecommendationApplicationProvider({
     controllerState.snapshot.localDayKey !== localDay.key && !dayTurnedInFront
     ? { ...controllerState, snapshot: null } as const
     : controllerState, [controllerState, dayTurnedInFront, localDay.key]);
+  // The zone is read on each render, so a phone that changed zone rewrites the summary's bounds.
+  useOutfitSummaryFeed({
+    state, language, temperatureUnit, timeZone: getDeviceTimeZone(), write: writeOutfitSummary,
+  });
   // The clock is re-read whenever the day, the profile or the weather changes, which is every
   // moment a recommendation is generated.
   const input = useMemo(() => choiceReady && departureReady ? generationInput({

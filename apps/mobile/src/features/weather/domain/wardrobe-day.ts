@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  calendarDateParts,
   formatCalendarDateParts,
   shiftCalendarDateParts,
   type CalendarDateParts,
@@ -139,6 +140,31 @@ export function wardrobeDayWindow(
       period: isEvening ? 'evening' : 'day',
       key: wardrobeDayKey(local),
     };
+  } catch {
+    // An unknown zone is what lands here: `Intl` rejects one rather than guessing.
+    return null;
+  }
+}
+
+/**
+ * The instants a dressing-day key covers on a zone's clock: a day key from 04:00 to 18:00 of
+ * its date, an evening key from 18:00 of its date to 04:00 of the next. Read from the key alone,
+ * never from a clock, so a summary written for a key states exactly the day it belongs to.
+ * Null for a key of another shape or an unknown zone.
+ */
+export function dressingDayBounds(
+  key: string,
+  timeZone: string,
+): Readonly<{ start: string; end: string }> | null {
+  if (!dressingDayKeySchema.safeParse(key).success) return null;
+  const date = calendarDateParts(dressingDayDateKey(key));
+  const evening = isEveningDressingDayKey(key);
+  try {
+    const start = instantOfLocalHour(date, evening ? eveningStartHour : dayStartHour, timeZone);
+    const end = evening
+      ? instantOfLocalHour(shiftCalendarDateParts(date, 1), dayStartHour, timeZone)
+      : instantOfLocalHour(date, eveningStartHour, timeZone);
+    return { start: new Date(start).toISOString(), end: new Date(end).toISOString() };
   } catch {
     // An unknown zone is what lands here: `Intl` rejects one rather than guessing.
     return null;

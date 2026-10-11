@@ -1143,6 +1143,13 @@ export const tr = {
       },
     },
   },
+  siri: {
+    spokenDay: ({ outfit, pieces }) => `Bugünün kombini ${outfit}: ${pieces.join(', ')}.`,
+    spokenEvening: ({ outfit, pieces }) => `Bu akşamın kombini ${outfit}: ${pieces.join(', ')}.`,
+    noOutfit: 'Şu an gösterilecek kombin yok.',
+    chosenFor: ({ temperature, condition }) => `Seçildiği hava: ${temperature}, ${condition}`,
+    anotherOption: 'Başka seçenek',
+  },
   account: {
     card: {
       title: 'Profilini tamamla',
