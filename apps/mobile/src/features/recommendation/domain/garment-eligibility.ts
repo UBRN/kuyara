@@ -19,6 +19,8 @@ import type {
   ClothingRequirement,
   ClothingRequirementReasonCode,
   ClothingRequirements,
+  ExtremityCoverRequirement,
+  ThermalRequirement,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import { uniqueInRankOrder } from '@/features/recommendation/domain/rank-order';
 
@@ -398,12 +400,12 @@ function thermalPenalty(
   // An accessory's warmth answers the cover its own region was asked for, so a coat day
   // that asks a moderate head cover still charges the balaclava for the rung it overshoots.
   const requirement = requirements.requirements.find(
-    (candidate) =>
+    (candidate): candidate is ExtremityCoverRequirement =>
       candidate.kind === 'extremity_cover' &&
       properties.category === 'accessory' &&
       candidate.target === properties.bodyRegion,
   ) ?? requirements.requirements.find(
-    (candidate) => candidate.kind === 'thermal',
+    (candidate): candidate is ThermalRequirement => candidate.kind === 'thermal',
   );
   if (!requirement) {
     return actual === 'high' ? 20 : actual === 'moderate' ? 10 : 0;
