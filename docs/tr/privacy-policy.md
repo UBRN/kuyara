@@ -207,7 +207,7 @@ istektir, senin hakkında tutulan bir kayıt değildir:
   kodlama hizmetiyle aranır.
 - **Yer adı.** Mevcut konumunu kullandığında uygulama, bulunduğun yerin adını telefonunun
   kendi harita hizmetine (iPhone'da Apple'ınkine) sorar. Bu hizmet telefonunun bulduğu
-  konumu alır; Kesin Konum'u açmadıysan bu konum yaklaşıktır. Hizmet konumu kendi
+  konumu alır; Tam Konum'u açmadıysan bu konum yaklaşıktır. Hizmet konumu kendi
   gizlilik politikasına göre işler. Uygulama cihazında yuvarlanmış konumu ve yer adını
   saklar, kesin konumu saklamaz.
 - **Öneriler.** Sunucu giyim tercihini, giyim stilini, seçtiysen stil özelliklerini,
