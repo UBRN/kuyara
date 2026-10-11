@@ -362,3 +362,26 @@ test('a return while the cold launch still plays adds no second launch', async (
   await end(normal);
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });
+
+// The layer sits in the iOS full-window overlay, which draws above presented sheets.
+function inWindowOverlay() {
+  type Node = { type: unknown; parent: Node | null };
+  let node = (screen.getByTestId('launch-curtain', hidden) as unknown as Node).parent;
+  for (; node; node = node.parent) if (node.type === 'RNSFullWindowOverlay') return true;
+  return false;
+}
+
+test('a return draws above presented sheets, and the cold launch stays in the app\'s own window', async () => {
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  expect(inWindowOverlay()).toBe(false);
+  await result.rerender(curtain('ready'));
+  await nextFrame();
+  await end(launch);
+  await end(normal);
+
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  await moveApp('active');
+  expect(inWindowOverlay()).toBe(true);
+});

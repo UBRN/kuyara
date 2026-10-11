@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { FullWindowOverlay } from 'react-native-screens';
 
 import { AMBIENT_PULSE_FLOOR, useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import { fadeTo } from '@/components/ui/fade';
+import { WindowOverlay } from '@/components/ui/window-overlay';
 import { borderWidths } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -41,22 +41,6 @@ function scrimInk(scrim: string): Readonly<{ color: string; alpha: number }> {
   return match
     ? { color: `rgb(${match[1]}, ${match[2]}, ${match[3]})`, alpha: Number(match[4]) }
     : { color: scrim, alpha: 1 };
-}
-
-/**
- * A layer above everything the app draws, native tabs and presented sheets included: on iOS a
- * full-window overlay (a pass-through container on the key window, modal to VoiceOver), on
- * Android a view above the navigator. Touches that land on no view of the layer pass to the
- * app underneath. A container is stacked above what is presented when it mounts, so a caller
- * that needs it above a sheet presented later remounts it by changing `layer`.
- */
-function WindowOverlay({ children }: Readonly<{ children: ReactNode }>) {
-  if (Platform.OS === 'ios') return <FullWindowOverlay>{children}</FullWindowOverlay>;
-  return (
-    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-      {children}
-    </View>
-  );
 }
 
 export type CoachMarkLayerProps = Readonly<{
