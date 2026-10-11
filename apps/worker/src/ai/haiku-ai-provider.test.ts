@@ -177,6 +177,7 @@ test('a plain 429 is a rate limit and other failures stay unclassified', async (
 // a variable specifier and given the one shape this test reads.
 type GridModule = {
   gridRequestCells(): { request: AiRecommendV1Request | null }[];
+  gridRecommendationInput(weatherKey: string, clothingPreference: string, dressStyle: string): object;
 };
 const gridResolverSpecifier = '../../../mobile/test/node-typescript-resolver.mjs';
 const gridSpecifier = '../../../mobile/test/recommendation-grid.mjs';
@@ -188,22 +189,36 @@ const contextSpecifier = '../../../mobile/src/features/recommendation/applicatio
 
 test('the priced prompt size covers the largest prompt the app and installed builds send, and the limit derives from it', async () => {
   await import(gridResolverSpecifier);
-  const { gridRequestCells } = (await import(gridSpecifier)) as GridModule;
+  const { gridRequestCells, gridRecommendationInput } = (await import(gridSpecifier)) as GridModule;
+  const { createRecommendationContext, aiRequestFromContext } = (await import(contextSpecifier)) as ContextModule;
   // The grid models a weekday caller, but the app also sends weekends and no day kind at all,
   // and the sentence instruction names the locale: every combination is measured.
+  const largestOf = (request: AiRecommendV1Request) => {
+    const { dayKind: _dayKind, ...body } = request;
+    return Math.max(...[{ dayKind: 'weekday' as const }, { dayKind: 'weekend' as const }, {}].flatMap((day) =>
+      (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...body, ...day, locale }))));
+  };
   const promptCharacters = Math.max(...gridRequestCells()
     .filter((cell): cell is { request: AiRecommendV1Request } => cell.request !== null)
-    .flatMap(({ request: { dayKind: _gridDayKind, ...body } }) =>
-      [{ dayKind: 'weekday' as const }, { dayKind: 'weekend' as const }, {}].flatMap((day) =>
-        (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...body, ...day, locale })))));
-  assert.equal(promptCharacters, 17_902);
+    .map(({ request }) => largestOf(request)));
+  assert.equal(promptCharacters, 18_925);
+
+  // The offer rotates with the dressing day's own count, so the prompt changes from day to day.
+  // A sweep over every day of 2026, the grid and the cold front below, three day kinds and both
+  // locales, found its largest prompts on these two days; each is measured here.
+  const dated = (input: object, localDayKey: string) => {
+    const request = aiRequestFromContext(createRecommendationContext({ ...input, localDayKey }, localDayKey));
+    assert.ok(request);
+    return largestOf(request);
+  };
+  const largestDatedGrid = dated(gridRecommendationInput('cold_rain', 'womens', 'casual'), '2026-03-11');
+  assert.equal(largestDatedGrid, 19_054);
 
   // The grid has no cold front, and the longest prompts the app builds come from one: a weekend
   // (day variants 3 and 4, which the app always pairs with a weekend day kind) that is warm
   // enough for light clothing in the morning and turns to wind and drizzle near freezing
   // feel by the afternoon, so both ends of the wardrobe stay eligible. The wind stays below the
   // 8 m/s that leaves the umbrella at home, so the outfits still carry it.
-  const { createRecommendationContext, aiRequestFromContext } = (await import(contextSpecifier)) as ContextModule;
   const now = '2026-09-19T09:00:00.000Z';
   const weather = (temperatureCelsius: number, apparentTemperatureCelsius: number, condition: string,
     precipitationProbability: number, windSpeedMetersPerSecond: number) => ({
@@ -228,7 +243,11 @@ test('the priced prompt size covers the largest prompt the app and installed bui
     assert.ok(request);
     return (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...request, locale }));
   })));
-  assert.equal(largestBuilt, 18_249);
+  assert.equal(largestBuilt, 18_541);
+  const largestDatedColdFront = dated({
+    snapshot: coldFront, now, clothingPreference: 'womens', dressStyle: 'casual', dayVariant: 3, dayKind: 'weekday',
+  }, '2026-02-17');
+  assert.equal(largestDatedColdFront, 19_066);
 
   // Installed binaries build their requests with the composition they shipped, so a smaller
   // prompt from today's tree must not price them out of Haiku. The fixture is the largest
@@ -240,7 +259,7 @@ test('the priced prompt size covers the largest prompt the app and installed bui
   assert.equal(largestInstalled, 18_485);
 
   // Rounded up from the largest of them, never so far that the price stops describing it.
-  const largestPrompt = Math.max(largestBuilt, largestInstalled);
+  const largestPrompt = Math.max(promptCharacters, largestDatedGrid, largestBuilt, largestDatedColdFront, largestInstalled);
   assert.ok(largestPrompt <= haikuPromptCharacterLimit && haikuPromptCharacterLimit - largestPrompt < 200);
 
   // One token per character is the ceiling because the prompt is ASCII, even for the largest
@@ -250,9 +269,9 @@ test('the priced prompt size covers the largest prompt the app and installed bui
   // Micro-USD at 0.10 per 1M input tokens and 0.50 per 1M output tokens, 256 output tokens,
   // in tenths so the arithmetic stays in integers.
   const attemptMicroUsd = Math.ceil((haikuPromptCharacterLimit * 1 + 256 * 5) / 10);
-  assert.equal(attemptMicroUsd, 1_978);
+  assert.equal(attemptMicroUsd, 2_038);
   assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, Math.floor(200_000_000 / 31 / attemptMicroUsd));
-  assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, 3_261);
+  assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, 3_165);
   assert.ok(HAIKU_DAILY_ATTEMPT_LIMIT * attemptMicroUsd * 31 <= 200_000_000);
 });
 
