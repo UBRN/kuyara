@@ -31,7 +31,7 @@ export const placeSearchRequestMaxBytes = 1024;
 // Open-Meteo allowance the weather chain also spends.
 const placeSearchCacheMaxAgeSeconds = 86_400;
 // Bump when the mapping from a provider answer to the response changes, so older entries miss.
-const placeSearchCacheVersion = 2;
+const placeSearchCacheVersion = 3;
 
 /**
  * The shared-cache key: every request input that reaches the provider (the query as the
