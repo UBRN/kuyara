@@ -20,11 +20,13 @@ import { composeGarmentBoard } from '../../garment-art/compose-garment-board.ts'
 import { getDeviceTimeZone } from '../../domain/intl-format.ts';
 import { formatClockTime, formatLastUpdated } from '../../presentation/format-clock-time.ts';
 
+// The fixture's 20 C rain asks for no warmth, so its strong wind is an optional wish and its
+// reason follows the mandatory water ones.
 const weatherReasons = [
-  'Strong wind requires wind protection.',
   'Likely precipitation requires water protection.',
   'Drizzle calls for light water protection.',
   'Rain requires water protection.',
+  'Strong wind requires wind protection.',
 ];
 // `pnpm --filter @kuyara/mobile test` pins the device zone to UTC unless TZ names another;
 // the fixture location is Europe/Istanbul. A freshness label is expected in the device zone,
@@ -338,24 +340,24 @@ test('shared weather reasons lead every outfit and per-outfit composition reason
   assert.deepEqual(english.suggestions[1].reasons, weatherReasons);
   assert.equal(
     english.suggestions[0].accessibilityLabel,
-    'Option 1 of 3. Rain Ready. Top: T-shirt. Bottom: Skirt. Outer layer: Rain jacket. Footwear: Rain boots. Why this outfit: Strong wind requires wind protection. Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection.',
+    'Option 1 of 3. Rain Ready. Top: T-shirt. Bottom: Skirt. Outer layer: Rain jacket. Footwear: Rain boots. Why this outfit: Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection. Strong wind requires wind protection.',
   );
   assert.equal(
     turkish.suggestions[0].accessibilityLabel,
-    '3 seçenekten birincisi. Yağmura Hazır. Üst: Tişört. Alt: Etek. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Neden bu kombin: Rüzgâr kuvvetli, rüzgâr koruması gerekiyor. Yağış bekleniyor, su koruması gerekiyor. Çiselemede hafif bir su koruması gerekiyor. Yağmurda su koruması gerekiyor.',
+    '3 seçenekten birincisi. Yağmura Hazır. Üst: Tişört. Alt: Etek. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Neden bu kombin: Yağış bekleniyor, su koruması gerekiyor. Çiselemede hafif bir su koruması gerekiyor. Yağmurda su koruması gerekiyor. Rüzgâr kuvvetli, rüzgâr koruması gerekiyor.',
   );
 });
 
 test('a mandatory requirement explains the outfit before an optional one', () => {
-  // Warm enough to prefer breathability (optional below 28) and windy enough to require
-  // wind protection (mandatory at 8 m/s). The derivation lists temperature first, which
-  // would explain a wind-led outfit by the heat.
+  // Warm enough to prefer breathability (optional below 28) and wet enough to require water
+  // protection. The derivation lists temperature first, which would explain a rain-led
+  // outfit by the heat.
   const measurements = {
     temperatureCelsius: 25,
     apparentTemperatureCelsius: 26,
-    condition: 'clear',
-    precipitationProbability: 0,
-    windSpeedMetersPerSecond: 9,
+    condition: 'rain',
+    precipitationProbability: 0.8,
+    windSpeedMetersPerSecond: 3,
   };
   const weather = {
     ...todayWeatherSnapshot,
@@ -378,7 +380,8 @@ test('a mandatory requirement explains the outfit before an optional one', () =>
   assert.deepEqual(recommendation.requirements.reasonCodes, [
     'temperature_high',
     'apparent_temperature_high',
-    'wind_strong',
+    'precipitation_likely',
+    'condition_rain',
   ]);
 
   const presentation = loadedPresentation({
@@ -386,9 +389,10 @@ test('a mandatory requirement explains the outfit before an optional one', () =>
     snapshot: { ...todayScreenState.snapshot, weather, recommendation },
   });
 
-  // The mandatory reason leads; the two optional ones keep the derivation's order behind it.
-  assert.deepEqual(presentation.suggestions[0].reasons.slice(0, 3), [
-    'Strong wind requires wind protection.',
+  // The mandatory reasons lead; the two optional ones keep the derivation's order behind them.
+  assert.deepEqual(presentation.suggestions[0].reasons.slice(0, 4), [
+    'Likely precipitation requires water protection.',
+    'Rain requires water protection.',
     'High temperatures require breathable clothing.',
     'It feels hot enough to require breathable clothing.',
   ]);

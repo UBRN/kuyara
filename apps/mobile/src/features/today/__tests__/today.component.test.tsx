@@ -2950,9 +2950,10 @@ describe.each(['en', 'tr'] as const)('%s ask-again control', (language) => {
   });
 
   test('"Last updated" sits under the finishing touches, before the ask-again button', async () => {
+    // A cold rainy day finishes its outfits; the shared fixture's strong wind carries no umbrella.
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={todayScreenState} />,
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={coldTodayScreenState} />,
       lightTheme, language,
     ));
     const ids = hostTestIds(result.toJSON());
