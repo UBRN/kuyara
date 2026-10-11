@@ -43,7 +43,14 @@ export type GlassButtonProps = Readonly<{
   | Readonly<{ kind: 'close'; disabled?: boolean }>
   // A sheet's prominent glass checkmark (O14 name editor A): the tint fills it.
   | Readonly<{ kind: 'confirm'; disabled?: boolean }>
+  // A round glass chevron that pages an enlarged piece on the detail board.
+  | Readonly<{ kind: 'chevron'; direction: 'previous' | 'next' }>
 );
+
+/** The round glass buttons' side, which grows with the text size like the glyph inside. */
+export function glassButtonSize(fontScale: number): number {
+  return layout.minimumTouchTarget * Math.max(1, fontScale);
+}
 
 export function GlassButton(props: GlassButtonProps) {
   const theme = useKuyaraTheme();
@@ -68,7 +75,7 @@ export function GlassButton(props: GlassButtonProps) {
 
   if (swiftUI && props.kind === 'confirm') {
     const { Button: SwiftUIButton, Host, Image } = swiftUI;
-    const height = layout.minimumTouchTarget * Math.max(1, fontScale);
+    const height = glassButtonSize(fontScale);
     return (
       <Host
         colorScheme={theme.isDark ? 'dark' : 'light'}
@@ -101,7 +108,17 @@ export function GlassButton(props: GlassButtonProps) {
       ...(accessibilityHint ? [nativeAccessibilityHint(accessibilityHint)] : []),
       ...(props.kind === 'close' && props.disabled ? [nativeDisabled(true)] : []),
     ];
-    const height = layout.minimumTouchTarget * Math.max(1, fontScale);
+    const height = glassButtonSize(fontScale);
+
+    if (props.kind === 'chevron') {
+      return (
+        <Host colorScheme={theme.isDark ? 'dark' : 'light'} style={{ height, width: height }}>
+          <SwiftUIButton modifiers={[...modifiers, buttonBorderShape('circle')]} onPress={onPress} testID={testID}>
+            <Image systemName={props.direction === 'previous' ? 'chevron.left' : 'chevron.right'} />
+          </SwiftUIButton>
+        </Host>
+      );
+    }
 
     // A Host needs an explicit height inside a scroll view; `close` is a fixed circle, and
     // `back` takes its width from the label it draws.
@@ -138,13 +155,13 @@ export function GlassButton(props: GlassButtonProps) {
   // Material: the close icon button on the sheet's tonal fill, confirm as the filled icon
   // button, and back as a plain text button with its chevron; the system back gesture stays
   // the platform's.
-  if (props.kind === 'confirm') {
+  if (props.kind === 'confirm' || props.kind === 'chevron') {
     return (
       <IconButton
         accessibilityHint={accessibilityHint}
         accessibilityLabel={label}
-        disabled={props.disabled}
-        icon="check"
+        disabled={props.kind === 'confirm' ? props.disabled : false}
+        icon={props.kind === 'confirm' ? 'check' : props.direction === 'previous' ? 'chevronLeft' : 'chevronRight'}
         onPress={onPress}
         raised
         testID={testID}

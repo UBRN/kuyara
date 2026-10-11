@@ -283,6 +283,50 @@ export function swapStripLayout(count: number, suitableCount: number, columnWidt
 }
 
 /**
+ * What the strip under the enlarged piece holds below its header: the piece's colours (none
+ * where the owner offers no colour), the reader's own pieces of the slot with their measured
+ * label, and the catalog's candidates, the weather-suitable ones counted.
+ */
+export type SwapPanelSections = Readonly<{
+  colors: number;
+  own: number;
+  ownLabel: number;
+  candidates: number;
+  suitable: number;
+}>;
+
+/**
+ * The strip's height: the header, `spacing.sm`, the colours in the tiles' grid, then
+ * `spacing.md` before the reader's own pieces (their label, `spacing.xs`, their tiles and a
+ * hairline `spacing.sm` either side) or straight before the catalog's tiles.
+ */
+export function swapPanelHeight(header: number, sections: SwapPanelSections, columnWidth: number): number {
+  const grid = (count: number) => swapStripLayout(count, count, columnWidth).height;
+  const colors = sections.colors > 0 ? grid(sections.colors) + spacing.md : 0;
+  const own = sections.own > 0
+    ? sections.ownLabel + spacing.xs + grid(sections.own) + 2 * spacing.sm + borderWidths.subtle : 0;
+  return header + spacing.sm + colors + own + swapStripLayout(sections.candidates, sections.suitable, columnWidth).height;
+}
+
+/**
+ * Where the two chevrons stand while a piece is enlarged: each against the piece's side from
+ * outside, in the window's pad, vertically centred on the piece and kept on the stage, so a
+ * chevron is never drawn on the piece where the stage leaves it room.
+ */
+export function swapChevrons(
+  grown: SwapBox,
+  stageWidth: number,
+  heldStage: number,
+  size: number,
+): Readonly<Record<'previous' | 'next', Readonly<{ x: number; y: number }>>> {
+  const y = clamp(grown.y + grown.h / 2 - size / 2, 0, heldStage - size);
+  return {
+    previous: { x: Math.max(0, grown.x - size), y },
+    next: { x: Math.min(stageWidth - size, grown.x + grown.w), y },
+  };
+}
+
+/**
  * Where the strip's marker stands while a drag moves between two tiles: it travels with the
  * finger within a row and waits on its tile when the step crosses a row, so it never slides
  * diagonally under the finger.

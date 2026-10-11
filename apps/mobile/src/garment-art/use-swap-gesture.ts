@@ -130,12 +130,13 @@ export function useSwapGesture({
   // later tile or adjustable step to the same garment is never taken for the swipe.
   const forgetGestureCommit = () => setModel((current) => (current.gestureCommit
     ? { ...current, gestureCommit: null } : current));
-  const stepSlot = (slot: OutfitSlot, direction: 1 | -1) => {
+  // An adjustable step speaks its own value; a chevron's step is announced by the owner.
+  const stepSlot = (slot: OutfitSlot, direction: 1 | -1, spoken = false) => {
     const garmentTypeId = model.garments[slot];
     const neighbour = garmentTypeId ? neighbourIn(candidates, slot, garmentTypeId, direction) : null;
     if (!neighbour) return;
     forgetGestureCommit();
-    onStep(slot, neighbour.garmentTypeId, false);
+    onStep(slot, neighbour.garmentTypeId, spoken);
   };
   const chooseTile = (garmentTypeId: GarmentTypeId) => {
     if (!focusedSlot || model.garments[focusedSlot] === garmentTypeId) return;

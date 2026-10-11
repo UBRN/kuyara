@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { useEffect, type PropsWithChildren } from 'react';
 import { AccessibilityInfo, StyleSheet, Text } from 'react-native';
 import { State } from 'react-native-gesture-handler';
@@ -20,6 +20,7 @@ import {
   type GarmentSwapBoardProps,
   type GarmentSwapCandidate,
 } from '@/garment-art/garment-swap-board';
+import { swapPanelHeight } from '@/garment-art/swap-gesture';
 import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -58,6 +59,13 @@ function boardProps(overrides: Partial<GarmentSwapBoardProps> = {}): GarmentSwap
       otherHint: 'May not suit the weather',
       slotName: (slot) => slot,
       stripShown: 'Choices below',
+      colorName: (swatchId) => `colour ${swatchId}`,
+      colorGroup: (slot) => `${slot} colour`,
+      moreColors: 'More colours',
+      own: 'Yours',
+      ownPiece: (piece, color) => `your ${piece}, ${color}`,
+      previousPiece: (piece) => `Previous: ${piece}`,
+      nextPiece: (piece) => `Next: ${piece}`,
     },
     entrance: { fromStageColor: lightTheme.colors.background, fromWidth: 358 },
     ...overrides,
@@ -725,6 +733,108 @@ test('a strip tile asks for its candidate spoken, its own tile asks nothing, and
   expect(onStep).toHaveBeenLastCalledWith('footwear', 'sneakers', true);
   await fireEvent.press(result.getByTestId('garment-swap-board-strip-done'));
   expect(onFocusChange).toHaveBeenLastCalledWith(null);
+});
+
+// The chevrons beside the enlarged piece page it as a swipe does, each naming the piece it
+// steps to, and only toward a piece there is: at an end of the order its chevron is gone.
+test('a chevron steps the enlarged piece, spoken, and is gone at its end of the order', async () => {
+  const onStep = jest.fn();
+  const result = await render(<GarmentSwapBoard {...boardProps({ onStep })} />, { wrapper: LightTheme });
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onStep, focusedSlot: 'footwear' })} />);
+  const previous = result.getByTestId('garment-swap-board-chevron-previous');
+  const next = result.getByTestId('garment-swap-board-chevron-next');
+  expect(previous).toHaveProp('accessibilityLabel', 'Previous: sneakers');
+  expect(next).toHaveProp('accessibilityLabel', 'Next: closed_shoes');
+  expect(next).toHaveProp('accessibilityRole', 'button');
+  await fireEvent.press(next);
+  expect(onStep).toHaveBeenLastCalledWith('footwear', 'closed_shoes', true);
+
+  const atEnd = withShoes('closed_shoes');
+  await result.rerender(<GarmentSwapBoard {...boardProps({
+    onStep, focusedSlot: 'footwear', pieces: atEnd,
+    palette: { ...palette, pieces: atEnd.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })) },
+  })} />);
+  expect(result.queryByTestId('garment-swap-board-chevron-next')).toBeNull();
+  expect(result.getByTestId('garment-swap-board-chevron-previous')).toHaveProp('accessibilityLabel', 'Previous: sandals');
+
+  await result.rerender(<GarmentSwapBoard {...boardProps({ onStep, focusedSlot: null, pieces: atEnd })} />);
+  expect(result.queryByTestId('garment-swap-board-chevron-previous')).toBeNull();
+});
+
+// The colour row under the strip's header: the drawing's own colours, the drawn one chosen,
+// then "More colours", which opens the Closet's 33 in place until the enlargement settles.
+// A swatch paints the enlarged piece through its owner.
+test('the colour row paints the enlarged piece and opens every colour in place', async () => {
+  const onPaint = jest.fn();
+  const props = (focusedSlot: 'footwear' | null) => boardProps({ onPaint, focusedSlot });
+  const result = await render(<GarmentSwapBoard {...props(null)} />, { wrapper: LightTheme });
+  await result.rerender(<GarmentSwapBoard {...props('footwear')} />);
+  const row = result.getByTestId('garment-swap-board-strip-colors');
+  expect(row).toHaveProp('accessibilityRole', 'radiogroup');
+  expect(row).toHaveProp('accessibilityLabel', 'footwear colour');
+  const swatches = () => within(row).queryAllByRole('radio');
+  expect(swatches().map(({ props: { accessibilityLabel } }) => accessibilityLabel))
+    .toEqual(['colour tan', 'colour black', 'colour chocolate']);
+  expect(swatches().filter(({ props: { accessibilityState } }) => accessibilityState.selected)).toHaveLength(1);
+  await fireEvent.press(result.getByTestId('garment-swap-board-strip-color-black'));
+  expect(onPaint).toHaveBeenLastCalledWith('footwear', 'sandals', 'black');
+
+  await fireEvent.press(result.getByTestId('garment-swap-board-strip-more-colors'));
+  expect(within(result.getByTestId('garment-swap-board-strip-colors')).queryAllByRole('radio')).toHaveLength(33);
+  expect(result.queryByTestId('garment-swap-board-strip-more-colors')).toBeNull();
+  await result.rerender(<GarmentSwapBoard {...props(null)} />);
+  await result.rerender(<GarmentSwapBoard {...props('footwear')} />);
+  expect(within(result.getByTestId('garment-swap-board-strip-colors')).queryAllByRole('radio')).toHaveLength(3);
+
+  await result.rerender(<GarmentSwapBoard {...boardProps({ focusedSlot: 'footwear' })} />);
+  expect(result.queryByTestId('garment-swap-board-strip-colors')).toBeNull();
+});
+
+// "Yours": the reader's own pieces of the slot, each a button naming the piece and its colour,
+// drawn with the Closet marker. A tap wears that type in that colour: a tile's spoken step
+// when the type differs, and the paint.
+test('an own piece wears its type in its colour', async () => {
+  const onStep = jest.fn();
+  const onPaint = jest.fn();
+  const ownPieces = { footwear: [
+    { id: 'mine', garmentTypeId: 'sneakers', category: 'footwear', swatchId: 'navy' },
+    { id: 'same', garmentTypeId: 'sandals', category: 'footwear', swatchId: 'black' },
+  ] } as const;
+  const props = (focusedSlot: 'footwear' | null) => boardProps({
+    onStep, onPaint, ownPieces, ownBadge: <Text testID="own-badge">owned</Text>, focusedSlot,
+  });
+  const result = await render(<GarmentSwapBoard {...props(null)} />, { wrapper: LightTheme });
+  await result.rerender(<GarmentSwapBoard {...props('footwear')} />);
+  const own = result.getByTestId('garment-swap-board-strip-own');
+  expect(within(own).getByText('Yours')).toBeOnTheScreen();
+  expect(within(own).getAllByTestId('own-badge')).toHaveLength(2);
+  const mine = result.getByTestId('garment-swap-board-strip-own-mine');
+  expect(mine).toHaveProp('accessibilityLabel', 'your sneakers, colour navy');
+  await fireEvent.press(mine);
+  expect(onStep).toHaveBeenLastCalledWith('footwear', 'sneakers', true);
+  expect(onPaint).toHaveBeenLastCalledWith('footwear', 'sneakers', 'navy');
+  onStep.mockClear();
+  await fireEvent.press(result.getByTestId('garment-swap-board-strip-own-same'));
+  expect(onStep).not.toHaveBeenCalled();
+  expect(onPaint).toHaveBeenLastCalledWith('footwear', 'sandals', 'black');
+});
+
+// The strip's measured parts and the colour and own rows add up to the height the enlargement
+// is fitted to between the bars (`swapPanelHeight`).
+test('the strip lays out the height the enlargement is fitted to', async () => {
+  const ownPieces = { footwear: [{ id: 'mine', garmentTypeId: 'sneakers', category: 'footwear', swatchId: 'navy' }] } as const;
+  const props = (focusedSlot: 'footwear' | null) => boardProps({ onPaint: jest.fn(), ownPieces, focusedSlot });
+  const result = await render(<GarmentSwapBoard {...props(null)} />, { wrapper: LightTheme });
+  await result.rerender(<GarmentSwapBoard {...props('footwear')} />);
+  const style = (id: string) => StyleSheet.flatten(result.getByTestId(`garment-swap-board-strip-${id}`).props.style);
+  // The "Yours" label has not measured itself here, so it stands no taller than nothing.
+  const laidOut = style('header').minHeight + style('colors').marginTop + style('colors').height
+    + style('own').marginTop + style('own-grid').marginTop + style('own-grid').height
+    + style('own-hairline').marginTop + style('own-hairline').height
+    + style('grid').marginTop + style('grid').height;
+  // The sneakers' four colours are the slot's most, and "More colours" follows them.
+  expect(laidOut).toBe(swapPanelHeight(style('header').minHeight,
+    { colors: 5, own: 1, ownLabel: 0, candidates: 3, suitable: 3 }, 358));
 });
 
 test('a piece\'s adjustable actions step it unspoken, and activate enlarges it with one announcement', async () => {

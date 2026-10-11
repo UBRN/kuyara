@@ -101,14 +101,15 @@ export default function OutfitDetailRoute() {
   // Compose around chosen pieces (members only, today only): its result is shown, edited and
   // recorded through the same manual mix, as the reader's outfit from the start.
   const editReports = useOutfitEditReports({ tomorrow, position });
-  const { composed, manualMix } = useDetailMix(outfit, requirements, preference,
+  const { composed, manualMix, pieceColors } = useDetailMix(outfit, requirements, preference,
     tomorrow || recommendationState.status !== 'ready' ? null : recommendationState.snapshot,
     resolvedDressStyle, clock, editReports);
   const option = composed.current;
-  // Any edit makes the outfit the reader's, a finishing touch alone included, and so does a
-  // composed result; each records as `manual` (ADR 0038).
+  const painted = pieceColors.colors;
+  // Any edit makes the outfit the reader's, a finishing touch or a painted colour alone
+  // included, and so does a composed result; each records as `manual` (ADR 0038).
   const { composed: composedView, worn: thisWorn } = useMemo(
-    () => detailShowing(outfit, option, manualMix), [manualMix, option, outfit]);
+    () => detailShowing(outfit, option, manualMix, painted), [manualMix, option, outfit, painted]);
 
   // A regeneration that lands while the reader is on another tab and no longer offers this
   // outfit leaves nothing to come back to, so the Today stack returns to its root rather
@@ -132,9 +133,10 @@ export default function OutfitDetailRoute() {
   useTomorrowPreviewOpenedReport({ focused: isFocused, tomorrow, outfit, recommendation });
   const reportWornLogged = useOutfitWornLoggedReport({ composed: composedView !== null, position, recommendation });
   const rating = useOutfitRating({
-    tomorrow, position, outfit, recommendation, changed: composedView !== null || (manualMix?.edited ?? false),
+    tomorrow, position, outfit, recommendation,
+    changed: composedView !== null || (manualMix?.edited ?? false) || Object.keys(painted).length > 0,
   });
-  const dayWorn = useDayWornLooks(thisWorn, tomorrow, reportWornLogged);
+  const dayWorn = useDayWornLooks(thisWorn, tomorrow, reportWornLogged, painted);
   const closetSeed = useClosetSeed((count) => {
     if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(messages.today.closetSeed.added(count));
   });
@@ -211,6 +213,7 @@ export default function OutfitDetailRoute() {
           detail: composedView,
         } : null}
         manualMix={shownMix}
+        pieceColors={pieceColors}
         pinnedSlots={composedView?.pinnedSlots}
         rating={rating}
         onBoardFocusChange={setBoardFocused}

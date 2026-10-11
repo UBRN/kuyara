@@ -100,6 +100,14 @@ export function nearestFamilyForHex(
   value: string,
   swatches: readonly ClosetSolidSwatch[] = closetSolidSwatches,
 ): ColorFamily {
+  return nearestClosetSolid(value, swatches).family;
+}
+
+/** The Closet solid nearest a colour, in OKLab. */
+export function nearestClosetSolid(
+  value: string,
+  swatches: readonly ClosetSolidSwatch[] = closetSolidSwatches,
+): ClosetSolidSwatch {
   const target = toOklab(normalizeCustomColorHex(value));
   let nearest: ClosetSolidSwatch | undefined;
   let shortest = Number.POSITIVE_INFINITY;
@@ -113,7 +121,7 @@ export function nearestFamilyForHex(
     }
   }
   if (!nearest) throw new Error('The Closet swatch palette is empty.');
-  return nearest.family;
+  return nearest;
 }
 
 export function normalizeClosetColorChoice(value: unknown): ClosetColorChoice {

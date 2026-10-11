@@ -455,7 +455,10 @@ export function keepGarmentColors(
   };
 }
 
-/** The palette an outfit would have with one slot's piece replaced: that piece is coloured afresh. */
+/**
+ * The palette an outfit would have with one slot's piece replaced: a changed piece is coloured
+ * afresh, and the slot's own piece keeps the colour it is drawn in.
+ */
 export function paletteWithGarment(
   palette: GarmentOutfitPalette,
   slot: OutfitSlot,
@@ -463,6 +466,12 @@ export function paletteWithGarment(
 ): GarmentOutfitPalette {
   return {
     ...palette,
-    pieces: palette.pieces.map((piece) => (piece.slot === slot ? { slot, garmentTypeId } : piece)),
+    pieces: palette.pieces.map((piece) => (piece.slot === slot && piece.garmentTypeId !== garmentTypeId
+      ? { slot, garmentTypeId } : piece)),
   };
+}
+
+/** A type's own colours, the drawing's colourway, most natural first: detail's colour row. */
+export function garmentNaturalSwatches(garmentTypeId: GarmentTypeId): readonly GarmentSwatchId[] {
+  return COLORWAY[garmentColorwayIds[garmentTypeId]].list;
 }

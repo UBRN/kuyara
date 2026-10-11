@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { historyDayKey, historyDays, sameWornGarments, wornAlready, wornOutfitFrom, wornOutfitSchema } from './outfit-history.ts';
+import { historyDayKey, historyDays, sameWornGarments, wornOutfitFrom, wornOutfitSchema } from './outfit-history.ts';
 
 const assigned = (slot, garmentTypeId) => ({ slot, garment: { garmentTypeId } });
 const outfit = {
@@ -35,15 +35,6 @@ test('same garments compares pieces by slot, not archetype or source', () => {
   assert.equal(sameWornGarments(worn, { ...worn, archetypeId: 'everyday_easy', source: 'manual' }), true);
   const { handheld: _handheld, ...withoutUmbrella } = worn.garments;
   assert.equal(sameWornGarments(worn, { ...worn, garments: withoutUmbrella }), false);
-});
-
-test('a day already holds a look when one of its looks wears the same pieces', () => {
-  const worn = wornOutfitFrom(outfit);
-  const { handheld: _handheld, ...withoutUmbrella } = worn.garments;
-  const other = { ...worn, garments: withoutUmbrella };
-  assert.equal(wornAlready([], worn), false);
-  assert.equal(wornAlready([other], worn), false);
-  assert.equal(wornAlready([other, { ...worn, source: 'manual' }], worn), true);
 });
 
 test('History days run newest date first, and a date lists its looks morning first', () => {

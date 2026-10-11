@@ -80,6 +80,25 @@ test('a new compose and a step each start from the composed option as built', as
   }
 });
 
+// A painted colour belongs to its showing, as an edit does: a composed result never inherits the
+// pick's, the pick never gets a composed result's back, and a clear forgets them.
+test('a painted colour stays with the showing it was painted on', async () => {
+  const hook = await renderMix();
+  const [slot, garmentTypeId] = Object.entries(outfitGarments(mix(hook).outfit))[0];
+  const paint = async () => act(async () => hook.result.current.pieceColors.paint(slot as SwappableSlot, garmentTypeId, 'plum'));
+  await paint();
+  expect(hook.result.current.pieceColors.colors).toEqual({ [slot]: 'plum' });
+  await composeThePick(hook);
+  expect(hook.result.current.pieceColors.colors).toEqual({});
+  await paint();
+  expect(hook.result.current.pieceColors.colors).toEqual({ [slot]: 'plum' });
+  await act(async () => hook.result.current.composed.clear());
+  expect(hook.result.current.pieceColors.colors).toEqual({});
+  await paint();
+  await act(async () => hook.result.current.pieceColors.clear());
+  expect(hook.result.current.pieceColors.colors).toEqual({});
+});
+
 test('the result stays while the day is the same in value, and goes when the day changes', async () => {
   const hook = await renderMix();
   await act(async () => hook.result.current.composed.compose(pins));
