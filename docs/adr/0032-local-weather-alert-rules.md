@@ -61,11 +61,25 @@ identity, so the replan after 18:00 finds it announced.
   later hour of the window is wet (probability at or above 0.6, or a wet condition). The
   crossing is the first wet hour. The alert carries `form: 'rain' | 'snow'`; sleet and
   snow are snow, everything else is rain.
-- **Temperature swing.** Fires when a later hour's apparent temperature differs from the
-  current apparent temperature by at least 8 °C. The crossing is the first such hour and
-  the alert carries the direction, `drop` or `rise`, and both apparent temperatures. One
-  swing alert per window; if the window has both a drop and a rise, the earlier crossing
-  wins.
+- **Temperature swing.** Fires when a later hour's apparent temperature differs by at least
+  8 °C from the apparent temperature at the moment the alert arrives. That baseline is a
+  forecast reading, not the moving current one: the current reading until the first later
+  hour, then each hour's own reading for the sixty minutes it covers. It is fixed by the
+  forecast, so every open before a change plans the same alert, and a replan during the
+  change finds it delivered instead of cancelling it. The alert keeps the lead of section 3
+  (moved past quiet hours as section 4 says) when that moment still feels 8 °C away from
+  the crossing hour. Otherwise it moves to the last minute of the latest earlier hour that
+  does and lies outside quiet hours, and it is not planned when no such minute is left: an
+  alert never arrives once the person already feels most of the change. The crossing is the
+  first hour that can be announced this way, and the alert carries the direction, `drop` or
+  `rise`, the apparent temperature at its arrival and the crossing hour's. A gradual change
+  is therefore announced before it gets under way. A daily warm-up alerts only when the
+  afternoon stands 8 °C above an hour an alert may arrive in, normally the first hour after
+  quiet hours; the night low falls inside quiet hours and never counts. The baseline is not a
+  stored reading because a reading kept from the first open of the window would still let an
+  alert arrive after the change had happened. One swing alert per window; once it is
+  delivered, no later hour of that window is measured against the readings before it. If the
+  window has both a drop and a rise, the earlier crossing wins.
 
 Wind is deliberately not a rule: wind changes what outerwear is, which the outfit already
 covers, and it does not announce itself at an hour the way rain does. UV, humidity and
@@ -89,7 +103,8 @@ space, so a user who switches cities can be alerted for the new one.
 
 ### 3. Lead time
 
-On the foreground path, an alert fires 60 minutes before its crossing. A crossing less
+On the foreground path, an alert fires 60 minutes before its crossing; a swing alert fires
+earlier when that moment would already feel within 8 °C of the crossing hour (section 1). A crossing less
 than 60 minutes ahead of `now` produces no foreground alert because the app is open and the
 Weather tab already shows the hour. On the background-task path, where the app is not open,
 a crossing closer than 60 minutes is scheduled with a shortened 15-minute lead. Quiet
