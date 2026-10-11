@@ -67,6 +67,8 @@ export type GarmentBoardPiece = Readonly<{
 }>;
 
 type Preset = 'today' | 'detail';
+// The worn board, or Today's flat lay fitted to its band (`true`) or to a tile.
+type BoardFit = boolean | 'tile';
 
 // Law 7's moment: the settle is one arrival, not a pulse, so the pieces travel the
 // smallest rhythm step and spring back with the overshoot the arrival role carries.
@@ -206,10 +208,11 @@ type GarmentBoardProps = Readonly<{
   /** The plane the board stands on. Left out, it stands on the page ground. */
   stageColor?: string;
   /**
-   * Today's primary stage only (P2): the composition is fitted to the stage the way the
-   * runway fits it, and the stage is as tall as the fitted pieces. Ignored with `entrance`.
+   * Today's flat lay (P2), fitted to its stage the way the runway fits it, the stage as tall
+   * as the fitted pieces: `true` on the primary stage's band, `'tile'` on a tile under it.
+   * Ignored with `entrance`.
    */
-  fit?: boolean;
+  fit?: BoardFit;
   testID?: string;
 }>;
 
@@ -230,14 +233,14 @@ export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Pres
 /**
  * Every piece's drawn box in points, the stage height and the board's unit (the points one
  * composition unit is drawn at): the worn board, or with `fit` Today's flat lay fitted to its
- * band.
+ * band or tile.
  */
 function placePieces(
   pieces: readonly GarmentBoardPiece[],
   width: number,
   preset: Preset,
   cut: ClothingPreference,
-  fit: boolean,
+  fit: BoardFit,
   large = false,
 ) {
   if (!fit) {
@@ -252,7 +255,8 @@ function placePieces(
   const extent = drawnExtent(result.boxes.values());
   const coreWidth = Math.max(...result.core.map((piece) => result.boxes.get(piece)!.w));
   const coreCap = flatLayPreset.coreWidth * (large ? easierToSeeValues.boardScale : 1);
-  const { scale, height } = fitTodayStage(extent, width, coreWidth, coreCap);
+  const { scale, height } = fitTodayStage(extent, width, coreWidth, coreCap,
+    fit === 'tile' ? flatLayPreset.tile : flatLayPreset.band);
   const placed = new Map(result.order.map((piece) => [
     piece, placeOnRunway(result.boxes.get(piece)!, extent, scale, width, height),
   ]));
@@ -604,7 +608,7 @@ export function measureGarmentBoardHeight(
   preset: Preset,
   /** The profile's cut; pass `useGarmentCut()`. */
   cut: ClothingPreference,
-  fit = false,
+  fit: BoardFit = false,
   /** O13: the "Easier to see" board; pass `useEasierToSee()`. */
   large = false,
 ) {
