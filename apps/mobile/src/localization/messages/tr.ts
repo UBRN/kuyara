@@ -106,6 +106,7 @@ export const tr = {
     aboutHeading: 'Hakkında',
     accessibilityHeading: 'Erişilebilirlik',
     unitsHeading: 'Birimler',
+    morningQuestionFooter: 'Bu sorular bildirim olarak gelmez, kuyara’yı açınca Bugün’de çıkar. Kapalıyken her gün giyim stilin kullanılır.',
     easierToSee: {
       title: 'Görme kolaylığı',
       on: 'Açık',
@@ -133,6 +134,8 @@ export const tr = {
       fahrenheit: '°F',
       kmh: 'km/sa',
       mph: 'mil/sa',
+      summary: ({ temperature, windSpeed }) => `${temperature}, ${windSpeed}`,
+      footer: 'Sistem, telefonunun bölge ayarlarını izler.',
     },
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     developmentBuild: 'Geliştirme derlemesi',
