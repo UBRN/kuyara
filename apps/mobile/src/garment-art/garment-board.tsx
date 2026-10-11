@@ -37,7 +37,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { PRESENCE_TEXT_AFTER } from '@/components/ui/presence';
 import { fadeTo } from '@/components/ui/fade';
-import { composeFlatLay, fitTodayStage, flatLayPreset } from './compose-flat-lay';
+import { composeFlatLay, fitDetailStage, fitTodayStage, flatLayPreset } from './compose-flat-lay';
 import {
   composeGarmentBoard,
   detailPreset,
@@ -68,8 +68,8 @@ export type GarmentBoardPiece = Readonly<{
 }>;
 
 type Preset = 'today' | 'detail';
-// The worn board, or Today's flat lay fitted to its band (`true`) or to a tile.
-type BoardFit = boolean | 'tile';
+// The worn board, or the flat lay fitted to Today's band (`true`), to a tile or to the detail column.
+type BoardFit = boolean | 'tile' | 'detail';
 
 // Law 7's moment: the settle is one arrival, not a pulse, so the pieces travel the
 // smallest rhythm step and spring back with the overshoot the arrival role carries.
@@ -209,9 +209,9 @@ type GarmentBoardProps = Readonly<{
   /** The plane the board stands on. Left out, it stands on the page ground. */
   stageColor?: string;
   /**
-   * Today's flat lay (P2), fitted to its stage the way the runway fits it, the stage as tall
-   * as the fitted pieces: `true` on the primary stage's band, `'tile'` on a tile under it.
-   * Ignored with `entrance`.
+   * The flat lay (P2), fitted to its stage the way the runway fits it, the stage as tall
+   * as the fitted pieces: `true` on Today's primary band, `'tile'` on a tile under it,
+   * `'detail'` on the detail column. Ignored with `entrance`.
    */
   fit?: BoardFit;
   testID?: string;
@@ -233,8 +233,8 @@ export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Pres
 
 /**
  * Every piece's drawn box in points, the stage height and the board's unit (the points one
- * composition unit is drawn at): the worn board, or with `fit` Today's flat lay fitted to its
- * band or tile.
+ * composition unit is drawn at): the worn board, or with `fit` the flat lay fitted to Today's
+ * band, a tile or the detail column.
  */
 function placePieces(
   pieces: readonly GarmentBoardPiece[],
@@ -256,8 +256,8 @@ function placePieces(
   const extent = drawnExtent(result.boxes.values());
   const coreWidth = Math.max(...result.core.map((piece) => result.boxes.get(piece)!.w));
   const coreCap = flatLayPreset.coreWidth * (large ? easierToSeeValues.boardScale : 1);
-  const { scale, height } = fitTodayStage(extent, width, coreWidth, coreCap,
-    fit === 'tile' ? flatLayPreset.tile : flatLayPreset.band);
+  const { scale, height } = fit === 'detail' ? fitDetailStage(extent, width, coreWidth)
+    : fitTodayStage(extent, width, coreWidth, coreCap, fit === 'tile' ? flatLayPreset.tile : flatLayPreset.band);
   const placed = new Map(result.order.map((piece) => [
     piece, placeOnRunway(result.boxes.get(piece)!, extent, scale, width, height),
   ]));
@@ -272,8 +272,9 @@ export function layoutGarmentBoard(
   cut: ClothingPreference,
   /** O13: the "Easier to see" board; pass `useEasierToSee()`. */
   large = false,
+  fit: BoardFit = false,
 ): GarmentBoardLayout {
-  const { result, placed, height } = placePieces(pieces, width, preset, cut, false, large);
+  const { result, placed, height } = placePieces(pieces, width, preset, cut, fit, large);
 
   return {
     height,
@@ -617,6 +618,19 @@ export function entranceStartBoxes(
     const box = placed.get(piece)!;
     return [piece.slot, { x: box.x / unit, y: box.y / unit, w: box.w / unit, h: box.h / unit }];
   }));
+}
+
+/**
+ * The detail board's composition in stage widths (ADR 0026 section 1): the flat lay fitted to
+ * the detail column, which the swap board places, narrows and enlarges.
+ */
+export function composeDetailBoard(pieces: readonly GarmentBoardPiece[], width: number, cut: ClothingPreference, large = false) {
+  const { result, placed, height } = placePieces(pieces, width, 'detail', cut, 'detail', large);
+  const boxes = new Map(result.order.map((piece) => {
+    const box = placed.get(piece)!;
+    return [piece, { x: box.x / width, y: box.y / width, w: box.w / width, h: box.h / width }];
+  }));
+  return { order: result.order, stack: result.stack, boxes, stageHeight: height / width };
 }
 
 export function measureGarmentBoardHeight(

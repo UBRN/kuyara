@@ -28,7 +28,7 @@ import {
   garmentNaturalSwatches,
   GarmentSwapBoard,
   keepGarmentColors,
-  layoutGarmentBoard,
+  measureGarmentBoardHeight,
   swapRevealScroll,
   useGarmentCut,
   useGarmentRoles,
@@ -281,12 +281,12 @@ export function OutfitDetailScreen({
   // The finishing touches and the piece rows keep the colours the outfit's palette gave
   // them on Today (O15).
   const pieceRoles = useGarmentRoles(palette, theme.colors.garmentGround);
-  const boardLayout = useMemo(() => suggestion
-    ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail', cut, easierToSeeOn)
-    : { height: 0, boxes: [] }, [contentWidth, cut, easierToSeeOn, suggestion]);
+  const boardHeight = useMemo(() => suggestion
+    ? measureGarmentBoardHeight(suggestion.boardPieces, contentWidth, 'detail', cut, 'detail', easierToSeeOn)
+    : 0, [contentWidth, cut, easierToSeeOn, suggestion]);
   // The plate is the board and, under it, its row of name buttons (ADR 0026 section 3): no name is
-  // drawn over a garment, so the worn board's pieces may overlap.
-  const nameRowTop = boardLayout.height + spacing.sm;
+  // drawn over a garment, so the flat lay's pieces may cross.
+  const nameRowTop = boardHeight + spacing.sm;
   const plateHeight = nameRowTop + (nameRowHeight ?? layout.minimumTouchTarget);
 
   const entries = useMemo(() => suggestion && palette ? pieceEntries(suggestion, palette, wardrobeItems, copy) : [],

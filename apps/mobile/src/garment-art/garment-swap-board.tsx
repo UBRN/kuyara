@@ -23,7 +23,6 @@ import {
   type GarmentBoardPiece,
 } from './garment-board';
 import { useGarmentCut } from './garment-cut';
-import { flatLayStack } from './compose-flat-lay';
 import {
   garmentNaturalSwatches,
   garmentSwatchesBySlot,
@@ -38,7 +37,7 @@ import {
   type GarmentSwapStripLabels,
   type GarmentSwapStripOwn,
 } from './garment-swap-strip';
-import { swapChevrons } from './swap-gesture';
+import { SWAP_STEP_BACK, swapChevrons, swapScaledBox } from './swap-gesture';
 import { SwapPieceTarget } from './swap-piece-target';
 import { SwapPieceView } from './swap-piece-view';
 import { SwapStageTint } from './swap-stage-tint';
@@ -139,7 +138,7 @@ export type GarmentSwapBoardProps = Readonly<{
 
 /**
  * Phase 7b's directly editable detail board: tap a piece and it
- * grows in place while the others step back; swipe it, press a chevron beside it, or tap a tile
+ * grows in place while the others step back beside it; swipe it, press a chevron beside it, or tap a tile
  * in the strip under the stage, to change it while it is large, and paint it or wear one of the
  * reader's own pieces from the same strip. Every committed set is laid out again by ADR 0025's
  * `compose()`; the enlarged slot pages opaque inside its window, other pieces glide to their
@@ -194,8 +193,8 @@ export function GarmentSwapBoard({
   const [moreFor, setMoreFor] = useState<OutfitSlot | null>(null);
   if (focusedSlot === null && moreFor !== null) setMoreFor(null);
   // The colour row holds room for the slot's longest colourway, so a step never moves a tile.
-  const sectionsOf = (slot: OutfitSlot) => ({
-    colors: !onPaint ? 0 : moreFor === slot ? boardSwatchesInClosetOrder.length
+  const sectionsOf = (slot: OutfitSlot, opened?: boolean) => ({
+    colors: !onPaint ? 0 : (opened ?? moreFor === slot) ? boardSwatchesInClosetOrder.length
       : Math.max(0, ...(candidates[slot] ?? []).map(({ garmentTypeId }) => garmentNaturalSwatches(garmentTypeId).length)) + 1,
     own: ownPieces?.[slot]?.length ?? 0,
   });
@@ -270,14 +269,13 @@ export function GarmentSwapBoard({
     opacity: overlayShown ? withTiming(1, { duration: normal, easing: fadeEase }) : 0,
   }), [fadeEase, normal, overlayShown]);
 
-  // The pieces lie in the dressing order, so where two overlap the later lies over the earlier;
-  // the enlarged slot is drawn over them all, so an overlapped piece comes fully into view.
-  // Leaving the band they lie as Today's flat lay stacks them until they rest.
+  // The pieces lie as the flat lay stacks them, so where two cross the later lies over the
+  // earlier; the enlarged slot is drawn over them all, so an overlapped piece comes fully into view.
   const drawOrder: Role[] = ['current', 'leaving', 'previous', 'next'];
-  const dressing = arrived || entrance.fromWidth === null ? composed?.stack ?? [] : flatLayStack;
+  const stack = composed?.stack ?? [];
   const sortedInstances = [...instances].sort((a, b) =>
     Number(a.slot === focusedSlot) - Number(b.slot === focusedSlot)
-    || dressing.indexOf(a.slot) - dressing.indexOf(b.slot)
+    || stack.indexOf(a.slot) - stack.indexOf(b.slot)
     || drawOrder.indexOf(a.role) - drawOrder.indexOf(b.role));
   const stageHeight = focusedSlot && activeGrow ? activeGrow.held : restHeight;
   const stripLabels: GarmentSwapStripLabels = {
@@ -428,9 +426,9 @@ export function GarmentSwapBoard({
           />
         </Animated.View>
       ) : null}
-      {/* The chevrons page the enlarged piece as a swipe does, beside it and never on it, and
-          only toward a piece there is: the order never wraps. They come and go with the strip. */}
-      {focusedSlot && pager && activeGrow && stripLive ? (
+      {/* The chevrons page the enlarged piece as a swipe does, beside it and never on any piece,
+          and only toward a piece there is: the order never wraps. They come and go with the strip. */}
+      {focusedSlot && pager && activeGrow && composed && stripLive ? (
         <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, panelStyle]}>
           {([-1, 1] as const).map((direction) => {
             const garmentTypeId = model.garments[focusedSlot];
@@ -443,6 +441,8 @@ export function GarmentSwapBoard({
                 grown={pager.grown}
                 held={activeGrow.held}
                 key={side}
+                steppedBack={composed.order.filter((slot) => slot !== focusedSlot)
+                  .map((slot) => swapScaledBox(composed.bySlot.get(slot)!.box, SWAP_STEP_BACK))}
                 label={direction === 1 ? labels.nextPiece(name) : labels.previousPiece(name)}
                 onPress={() => stepSlot(focusedSlot, direction, true)}
                 side={side}
@@ -458,9 +458,10 @@ export function GarmentSwapBoard({
 }
 
 /** One glass chevron beside the enlarged piece, as large as the text size makes the glass buttons. */
-function SwapChevron({ grown, held, label, onPress, side, stageWidth, testID }: Readonly<{
+function SwapChevron({ grown, held, label, onPress, side, stageWidth, steppedBack, testID }: Readonly<{
   grown: Box;
   held: number;
+  steppedBack: readonly Box[];
   label: string;
   onPress: () => void;
   side: 'previous' | 'next';
@@ -468,7 +469,7 @@ function SwapChevron({ grown, held, label, onPress, side, stageWidth, testID }: 
   testID: string;
 }>) {
   const { fontScale } = useTextScaling();
-  const spot = swapChevrons(grown, stageWidth, held, glassButtonSize(fontScale))[side];
+  const spot = swapChevrons(grown, steppedBack, stageWidth, held, glassButtonSize(fontScale))[side];
   return (
     <View style={[styles.chevron, { left: spot.x, top: spot.y }]}>
       <GlassButton direction={side} kind="chevron" label={label} onPress={onPress} testID={testID} />

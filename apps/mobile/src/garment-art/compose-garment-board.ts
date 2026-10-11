@@ -10,8 +10,8 @@ export const garmentBoardDressingOrder: readonly OutfitSlot[] = [
   'primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear',
 ];
 
-// ADR 0025's one board rule. Every composed board draws the outfit as it is worn: Today's
-// stage, the detail, the alternates, History and the share card.
+// ADR 0025's one board rule. Every composed board starts from the outfit as it is worn: History
+// and the share card draw it so, and Today's stage, its tiles and the detail lay it flat.
 export const todayPreset = {
   weight: { anchor: 1, outer_layer: 0.95, mid_layer: 0.90 },
   // A shoe drawing is authored at 44/13 of its length on the garment grid, so the painting's
@@ -201,7 +201,8 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
 // and do not move; only the one scale does.
 export const runwayPreset = { side: 28, vertical: 24, maxScale: 1.25 } as const;
 
-// The detail draws the same worn board at the runway preset's largest scale.
+// The detail's pieces, at the runway preset's largest scale: the detail lays them flat and the
+// share card draws them as worn.
 export const detailPreset = easierToSeeRule(todayPreset, runwayPreset.maxScale, todayPreset.sideMin);
 
 export type DrawnExtent = Readonly<{ x: number; y: number; w: number; h: number }>;
