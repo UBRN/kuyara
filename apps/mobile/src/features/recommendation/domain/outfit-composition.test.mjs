@@ -1044,6 +1044,36 @@ test('a cold rainy day carries an umbrella and a mild rainy day carries one with
   }
 });
 
+// An umbrella keeps no rain off in strong wind and is not carried into a thunderstorm; the
+// waterproof outer layer answers those days alone. Snow keeps it: the carried slot answers
+// the body's water requirement, which a snow day derives like a rainy one.
+test('strong wind and a thunderstorm carry no umbrella, and a calm snow day still does', () => {
+  const day = (temperatureCelsius, condition, windSpeedMetersPerSecond) => ({
+    temperatureCelsius,
+    apparentTemperatureCelsius: temperatureCelsius,
+    condition,
+    precipitationProbability: 0.8,
+    windSpeedMetersPerSecond,
+  });
+  const handhelds = (weather, preference) => new Set(offeredForWeather(weather, {}, preference)
+    .map((outfit) => outfit.accessories.handheld?.garment.garmentTypeId ?? null));
+
+  for (const preference of ['womens', 'mens']) {
+    for (const [weather, expected] of [
+      [day(12, 'rain', 10), [null]],
+      [day(12, 'rain', 8), [null]],
+      [day(-2, 'snow', 9), [null]],
+      [day(22, 'thunderstorm', 3), [null]],
+      [day(12, 'rain', 7.9), ['umbrella']],
+      [day(-2, 'snow', 3), ['umbrella']],
+      [day(2, 'sleet', 3), ['umbrella']],
+    ]) {
+      assert.deepEqual([...handhelds(weather, preference)], expected,
+        `${preference} ${weather.condition} ${weather.temperatureCelsius} C ${weather.windSpeedMetersPerSecond} m/s`);
+    }
+  }
+});
+
 test('accessories reach the composition key and never the body slots or the distinctness rule', () => {
   const cold = offeredForWeather(clearDay(2));
   const [first] = cold;

@@ -328,11 +328,26 @@ function hardFailureReason(
   }
 }
 
+/**
+ * A carried accessory answers the body's water requirement except on a day it cannot: an
+ * umbrella keeps no rain off in strong wind and is not carried into a thunderstorm, so on
+ * those days it answers nothing and the waterproof outer layer stands alone.
+ */
+function carriedAccessoryAnswersNothing(
+  requirements: ClothingRequirements,
+  properties: EffectiveGarmentProperties,
+): boolean {
+  return properties.category === 'accessory' && properties.bodyRegion === null &&
+    requirements.requirements.some(({ reasonCodes }) =>
+      reasonCodes.includes('wind_strong') || reasonCodes.includes('condition_thunderstorm'));
+}
+
 function evaluateRequirement(
   requirement: ClothingRequirement,
   properties: EffectiveGarmentProperties,
+  answersNothing: boolean,
 ): GarmentRequirementEvaluation {
-  if (!isRequirementApplicable(requirement, properties)) {
+  if (answersNothing || !isRequirementApplicable(requirement, properties)) {
     return Object.freeze({
       requirement,
       status: 'not_applicable',
@@ -458,9 +473,10 @@ export function evaluateGarmentEligibility(
   // slots, which filter by structural category; composition attaches them afterwards, and
   // only where a requirement asks for the region they cover.
   const { garment } = projection;
+  const answersNothing = carriedAccessoryAnswersNothing(requirements, garment.properties);
   const evaluations = Object.freeze(
     requirements.requirements.map((requirement) =>
-      evaluateRequirement(requirement, garment.properties),
+      evaluateRequirement(requirement, garment.properties, answersNothing),
     ),
   );
   const hardFailures = evaluations.filter(({ hardFailure }) => hardFailure);
