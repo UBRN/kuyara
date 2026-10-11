@@ -52,7 +52,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    'effefd62a0d13fd8f72ff6220104dbd61308535c489c6b10eb17e7be679fd1d5',
+    'eed7ce22fbb25c7e6fba6ea5697984c35cdec8c03225bb196e6c6319a0d87dab',
   );
 });
 
@@ -469,12 +469,14 @@ test('without mandatory water or wind, normal bottleneck breathability is restor
       reasonCodes: Object.freeze(['temperature_high']),
     }),
   );
-  const result = composeOutfit(requirements, [
+  // Derivation never makes both sides mandatory, and the season rules keep shorts off a day
+  // whose warmth is, so this conflict is read without them.
+  const result = collectValidOutfits(requirements, [
     catalogCandidate(requirements, 't_shirt'),
     catalogCandidate(requirements, 'shorts'),
     catalogCandidate(requirements, 'light_jacket'),
     catalogCandidate(requirements, 'sandals'),
-  ]);
+  ], { composesNew: false });
 
   assert.equal(result.status, 'failure');
   assert.deepEqual(result.reasonCodes, [
@@ -499,7 +501,7 @@ test('authoritative slots reject a top outer for body water but accept footwear 
     catalogCandidate(bodyRequirements, 't_shirt'),
     catalogCandidate(bodyRequirements, 'shorts'),
     catalogCandidate(bodyRequirements, 'hoodie'),
-    catalogCandidate(bodyRequirements, 'sandals'),
+    catalogCandidate(bodyRequirements, 'sneakers'),
   ]);
   assert.equal(bodyResult.status, 'failure');
   assert.equal(bodyResult.reasonCodes.includes('mandatory_body_water_unmet'), true);
@@ -578,7 +580,7 @@ test('fails structurally for missing slots and duplicate input keys', () => {
 });
 
 test('candidates are ordered deterministically whatever order they arrive in', () => {
-  const requirements = clothingRequirements(requirement('thermal', 'light'));
+  const requirements = clothingRequirements(requirement('thermal', 'light', { priority: 'optional' }));
   const catalogWarm = catalogCandidate(requirements, 'long_sleeve_t_shirt');
   const catalogCool = catalogCandidate(requirements, 't_shirt');
   const shorts = catalogCandidate(requirements, 'shorts');
@@ -1453,5 +1455,36 @@ test('the offer order leads each formality with a draft within five points of it
         }
       }
     }
+  }
+});
+
+// The rotation and the trio choice reach past the day's single best answer, and the band they
+// reach into holds summer pieces on days that are not summer: sandals with a sweater under a
+// rain jacket, a sleeveless top under a cardigan at 16 C. A day whose insulation is mandatory
+// wears no sleeveless top, shorts or sandals, and a day whose body must stay dry wears no
+// sandals unless its heat is mandatory, where hot plain rain keeps them.
+const summerPieces = ['sleeveless_top', 'shorts', 'sandals'];
+
+test('a day whose warmth is mandatory wears no sleeveless top, shorts or sandals', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const weather of [clearDay(15), clearDay(17), heatDay(16, 'drizzle', 0.6), heatDay(10, 'rain', 0.8)]) {
+      const { requirements, candidates } = composableForWeather(weather, {}, preference);
+      const valid = collectValidOutfits(requirements, candidates);
+      const cell = `${preference} ${weather.temperatureCelsius} C ${weather.condition}`;
+      assert.equal(valid.status, 'composed', cell);
+      assert.deepEqual(typesOf(valid.outfits).filter((id) => summerPieces.includes(id)), [], cell);
+    }
+  }
+});
+
+test('a wet day wears no sandals unless its heat is mandatory, and a mild dry day still may', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const temperature of [20, 24, 27]) {
+      const { requirements, candidates } = composableForWeather(heatDay(temperature, 'rain', 0.8), {}, preference);
+      const valid = collectValidOutfits(requirements, candidates);
+      assert.equal(typesOf(valid.outfits).includes('sandals'), false, `${preference} ${temperature} C rain`);
+    }
+    const dry = composableForWeather(clearDay(22), {}, preference);
+    assert.ok(typesOf(collectValidOutfits(dry.requirements, dry.candidates).outfits).includes('sandals'), preference);
   }
 });

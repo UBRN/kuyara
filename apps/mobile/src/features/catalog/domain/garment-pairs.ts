@@ -35,6 +35,11 @@ export function isIncompatibleGarmentPair(left: GarmentTypeId, right: GarmentTyp
   return incompatiblePairs.has(pairKey(left, right));
 }
 
+/** Whether a garment type is a summer piece, worn only on a day that is not cool or, for sandals, wet. */
+export function isSummerPiece(garmentTypeId: GarmentTypeId): boolean {
+  return (summerPieces as readonly GarmentTypeId[]).includes(garmentTypeId);
+}
+
 /** Whether a mid layer is never pulled over this primary top. */
 export function isIncompatibleMidLayer(midLayer: GarmentTypeId, primaryTop: GarmentTypeId): boolean {
   return midLayer === 'hoodie' && hoodieNeverOver.has(primaryTop);
