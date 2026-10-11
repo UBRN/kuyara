@@ -1,6 +1,7 @@
 import {
   isIncompatibleGarmentPair,
   isIncompatibleMidLayer,
+  isSummerPiece,
 } from '@/features/catalog/domain/garment-pairs';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
@@ -218,28 +219,37 @@ function failureResult(
 }
 
 /**
- * The heat rules of a new composition. On a day whose heat is mandatory nothing high-thermal is
- * worn, no mid layer is added and no shoe warmer than light is worn unless the feet must stay
+ * The season rules of a new composition. On a day whose heat is mandatory nothing high-thermal
+ * is worn, no mid layer is added and no shoe warmer than light is worn unless the feet must stay
  * dry, so a hot thunderstorm keeps its rain boots and hot plain rain wears sandals or sneakers;
- * on a day that asks for no warmth at all nothing high-thermal is worn either. Accessories are
- * attached after composition and never read these rules.
+ * on a day that asks for no warmth at all nothing high-thermal is worn either. On a day whose
+ * insulation is mandatory no summer piece (sleeveless top, shorts, sandals) is worn, and on a day
+ * whose body must stay dry no sandals are worn unless the heat is mandatory: the day's rotation
+ * and the trio choice reach past its single best answer, and that band held sandals with a
+ * sweater under a rain jacket. Accessories are attached after composition and never read these
+ * rules.
  */
-function heatRulesOf(requirements: BodyClothingRequirements): Readonly<{
-  mandatory: boolean;
+function seasonRulesOf(requirements: BodyClothingRequirements): Readonly<{
+  heatMandatory: boolean;
   wears: (candidate: EligibleGarmentResult) => boolean;
 }> {
-  const mandatory = requirements.requirements.some(({ kind, priority }) =>
-    kind === 'breathability' && priority === 'mandatory');
+  const mandatory = (kind: BodyClothingRequirement['kind'], target?: 'body' | 'feet') =>
+    requirements.requirements.some((requirement) => requirement.kind === kind &&
+      requirement.priority === 'mandatory' &&
+      (target === undefined || (requirement.kind === 'water_protection' && requirement.target === target)));
+  const heatMandatory = mandatory('breathability');
+  const warmthMandatory = mandatory('thermal');
   const asksWarmth = requirements.requirements.some(({ kind }) => kind === 'thermal');
-  const feetMustStayDry = requirements.requirements.some((requirement) =>
-    requirement.kind === 'water_protection' && requirement.target === 'feet' &&
-    requirement.priority === 'mandatory');
+  const feetMustStayDry = mandatory('water_protection', 'feet');
+  const bodyMustStayDry = mandatory('water_protection', 'body');
   return {
-    mandatory,
-    wears: ({ garment: { properties: { category, thermalLevel } } }) =>
+    heatMandatory,
+    wears: ({ garment: { garmentTypeId, properties: { category, thermalLevel } } }) =>
       category === 'accessory' ||
-      !((thermalLevel === 'high' && (mandatory || !asksWarmth)) ||
-        (mandatory && !feetMustStayDry && category === 'footwear' && thermalLevel === 'moderate')),
+      !((thermalLevel === 'high' && (heatMandatory || !asksWarmth)) ||
+        (heatMandatory && !feetMustStayDry && category === 'footwear' && thermalLevel === 'moderate') ||
+        (isSummerPiece(garmentTypeId) && warmthMandatory) ||
+        (garmentTypeId === 'sandals' && bodyMustStayDry && !heatMandatory)),
   };
 }
 
@@ -257,7 +267,7 @@ export type ComposerDay = Readonly<{
   /**
    * Whether the day composes new outfits under every composition rule: false only to rebuild a
    * saved outfit, which is read as it was composed, so the layer order, the incompatible pairs
-   * and the heat rules govern new compositions only.
+   * and the season rules govern new compositions only.
    */
   composesNew: boolean;
 }>;
@@ -294,14 +304,14 @@ export function readComposerDay(
     .filter((candidate): candidate is EligibleGarmentResult =>
       candidate.status === 'eligible')
     .sort(compareGarmentEligibilityResults);
-  const heat = heatRulesOf(requirements);
-  const wearable = composesNew ? eligible.filter((candidate) => heat.wears(candidate)) : eligible;
+  const season = seasonRulesOf(requirements);
+  const wearable = composesNew ? eligible.filter((candidate) => season.wears(candidate)) : eligible;
   const inSlot = (slot: OutfitSlot) =>
     wearable.filter(({ garment }) => slotAccepts(slot, garment.properties));
   const primaryTops = inSlot('primary_top');
   const bottoms = inSlot('bottom');
   const onePieces = inSlot('one_piece');
-  const midLayers = composesNew && heat.mandatory ? [] : inSlot('mid_layer');
+  const midLayers = composesNew && season.heatMandatory ? [] : inSlot('mid_layer');
   const outerLayers = inSlot('outer_layer');
   const footwear = inSlot('footwear');
 

@@ -1054,6 +1054,6 @@ test('the next day leads with pieces yesterday\'s three did not wear, where the 
     }
   }
   assert.ok(counts.shoe <= 92, `${counts.shoe} first outfits in yesterday's shoes`);
-  assert.ok(counts.bottom <= 80, `${counts.bottom} first outfits in yesterday's bottom`);
+  assert.ok(counts.bottom <= 90, `${counts.bottom} first outfits in yesterday's bottom`);
   assert.ok(counts.outer <= 128, `${counts.outer} first outfits in yesterday's outer layer`);
 });
