@@ -58,21 +58,32 @@ tags:
 # beside it read "Bildirimler, Kapalı", so that one string both opens the row and asserts its
 # saved value, and the tap lands on the row's own centre.
 #
+# Language and Theme sit in the Appearance group, below Profile and Notifications, so each needs
+# a scroll before its menu can open.
+#
 # "Türkçe" is spelled identically in both message tables, so this first selection lands whatever
 # language the device starts the app in; every step after it reads the Turkish copy it produces.
+- scrollUntilVisible:
+    element:
+      text: "(Dil|Language), (Sistem|System)"
+    direction: DOWN
 - tapOn: "(Dil|Language), (Sistem|System)"
 - tapOn: "Türkçe"
 - assertVisible: "Dil, Türkçe"
 
+- scrollUntilVisible:
+    element:
+      text: "Tema, Sistem"
+    direction: DOWN
 - tapOn: "Tema, Sistem"
 - tapOn: "Koyu"
 - assertVisible: "Tema, Koyu"
 
-# Gender sits in the final About you group, so it needs a scroll before its menu can open.
+# Gender sits in the Profile group at the top of Settings, so it scrolls back up into view.
 - scrollUntilVisible:
     element:
       text: "Cinsiyet, .*"
-    direction: DOWN
+    direction: UP
 - tapOn: "Cinsiyet, Kadın"
 - tapOn: "Erkek"
 - assertVisible: "Cinsiyet, Erkek"
@@ -86,13 +97,21 @@ tags:
 - assertVisible:
     id: settings-screen
 
-# The two general rows sit at the top of Settings, so they are checked before the scroll that
-# brings gender into view and pushes them off screen. Each row renders its own saved value, so
-# the value text is the assertion; no picker has to be opened to read it back.
-- assertVisible: "Dil, Türkçe"
-- assertVisible: "Tema, Koyu"
+# Gender sits in the Profile group at the top of Settings, so it is checked before the scroll
+# that brings Language and Theme into view. Each row renders its own saved value, so the value
+# text is the assertion; no picker has to be opened to read it back.
 - scrollUntilVisible:
     element:
       text: "Cinsiyet, .*"
     direction: DOWN
 - assertVisible: "Cinsiyet, Erkek"
+- scrollUntilVisible:
+    element:
+      text: "Dil, Türkçe"
+    direction: DOWN
+- assertVisible: "Dil, Türkçe"
+- scrollUntilVisible:
+    element:
+      text: "Tema, Koyu"
+    direction: DOWN
+- assertVisible: "Tema, Koyu"

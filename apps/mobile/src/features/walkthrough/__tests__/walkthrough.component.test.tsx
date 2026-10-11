@@ -873,12 +873,11 @@ test.each(['en', 'tr'] as const)('Settings, Help carries the tour row in %s and 
       onDressStyleChange={noop}
       onGenderChange={noop}
       onLanguageChange={noop}
-      onTemperatureUnitChange={noop}
-      onWindSpeedUnitChange={noop}
       onMorningSheetEnabledChange={noop}
       onNameChange={noop}
       onOpenBirthDate={jest.fn()}
       onOpenEasierToSee={jest.fn()}
+      onOpenUnits={jest.fn()}
       onOpenLicence={jest.fn()}
       onOpenNotifications={jest.fn()}
       onOpenPrivacy={jest.fn()}

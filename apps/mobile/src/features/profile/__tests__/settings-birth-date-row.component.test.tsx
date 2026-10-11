@@ -60,6 +60,7 @@ async function renderSettings(language: SupportedLanguage) {
             onNameChange={noop}
             onOpenBirthDate={jest.fn()}
             onOpenEasierToSee={jest.fn()}
+            onOpenUnits={jest.fn()}
             onOpenLicence={jest.fn()}
             onOpenNotifications={jest.fn()}
             onOpenPrivacy={jest.fn()}
@@ -68,8 +69,6 @@ async function renderSettings(language: SupportedLanguage) {
             onRate={jest.fn()}
             onShare={jest.fn()}
             onStyleAestheticsChange={noop}
-            onTemperatureUnitChange={noop}
-            onWindSpeedUnitChange={noop}
             profile={{ ...profile, languagePreference: language }}
             showRate={false}
           />

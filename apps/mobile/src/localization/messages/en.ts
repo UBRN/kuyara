@@ -111,6 +111,7 @@ export const en = {
     aboutHeading: 'About',
     accessibilityHeading: 'Accessibility',
     unitsHeading: 'Units',
+    morningQuestionFooter: 'These questions appear on Today when you open kuyara, not as notifications. When they are off, kuyara uses your dress style every day.',
     easierToSee: {
       title: 'Easier to see',
       on: 'On',
@@ -138,6 +139,8 @@ export const en = {
       fahrenheit: '°F',
       kmh: 'km/h',
       mph: 'mph',
+      summary: ({ temperature, windSpeed }) => `${temperature}, ${windSpeed}`,
+      footer: 'System follows your phone’s region settings.',
     },
     versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
     developmentBuild: 'Development build',
