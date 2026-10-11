@@ -135,7 +135,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   hintOnPlate: {
-    paddingBottom: spacing.md,
     paddingHorizontal: spacing.md,
   },
   // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.

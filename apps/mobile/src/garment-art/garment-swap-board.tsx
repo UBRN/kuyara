@@ -92,6 +92,11 @@ export type GarmentSwapBoardProps = Readonly<{
   /** The screen's name buttons; they step back while a piece is enlarged or moving. */
   overlay: ReactNode;
   overlayTestID?: string;
+  /**
+   * Where the board stands on a visible plate: the strip keeps this far off the plate's sides.
+   * The drawing keeps its own margins and the board's full width.
+   */
+  inset?: number;
   /** The line under the board at rest; the strip takes its place while a piece is enlarged. It may hold a control. */
   hint?: ReactNode;
   hintVisible?: boolean;
@@ -160,6 +165,7 @@ export function GarmentSwapBoard({
   overlayTestID,
   hint = null,
   hintVisible = false,
+  inset = 0,
   labels,
   entrance,
   settle,
@@ -189,6 +195,7 @@ export function GarmentSwapBoard({
   const candidates = useStableValue(candidatesProp);
   const captionRects = useStableValue(captionRectsProp);
 
+  const columnWidth = width - 2 * inset;
   // "More colours" stays open for the enlargement that opened it.
   const [moreFor, setMoreFor] = useState<OutfitSlot | null>(null);
   if (focusedSlot === null && moreFor !== null) setMoreFor(null);
@@ -203,7 +210,7 @@ export function GarmentSwapBoard({
     compose, composed, fit, activeGrow, pager,
     panels, setPanels, previewId, setPreviewId,
     stripCandidates, stripOf, panelHeightOf, measureHeader, measureOwnLabel,
-  } = useSwapPager({ pieces, candidates, width, large, focusedSlot, visibleHeight, outline: drawnOutline, sectionsOf });
+  } = useSwapPager({ pieces, candidates, width, columnWidth, large, focusedSlot, visibleHeight, outline: drawnOutline, sectionsOf });
   const { model, setModel, settled, arrived, tint, settleTravel, stageLimit, removeLeaving, dropBig } = useSwapMotion({
     pieces, palette, width, large, focusedSlot, candidates, entrance, settle,
     compose, composed, fit, activeGrow, pager,
@@ -383,10 +390,10 @@ export function GarmentSwapBoard({
       {panels.leaving ? (
         <Animated.View
           pointerEvents="none"
-          style={[styles.panel, { top: panels.leaving.held + spacing.md }, leavingPanelStyle]}>
+          style={[styles.panel, { left: inset, top: panels.leaving.held + spacing.md }, leavingPanelStyle]}>
           <GarmentSwapStrip
             candidates={stripCandidates(panels.leaving.slot)}
-            columnWidth={width}
+            columnWidth={columnWidth}
             current={model.garments[panels.leaving.slot] ?? stripCandidates(panels.leaving.slot)[0]?.garmentTypeId}
             interactive={false}
             labels={stripLabels}
@@ -405,10 +412,10 @@ export function GarmentSwapBoard({
       {panels.current && model.garments[panels.current.slot] ? (
         <Animated.View
           pointerEvents={stripLive ? 'box-none' : 'none'}
-          style={[styles.panel, { top: heldStage + spacing.md }, panelStyle]}>
+          style={[styles.panel, { left: inset, top: heldStage + spacing.md }, panelStyle]}>
           <GarmentSwapStrip
             candidates={stripCandidates(panels.current.slot)}
-            columnWidth={width}
+            columnWidth={columnWidth}
             current={model.garments[panels.current.slot]!}
             interactive={stripLive}
             labels={stripLabels}
@@ -492,7 +499,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   panel: {
-    left: 0,
     position: 'absolute',
   },
   stage: {

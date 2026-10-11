@@ -126,10 +126,10 @@ nearest one, and a pattern, a two-colour option or a family alone in the first s
 family, the drawing's own colours first.
 
 The piece changes while it stays large: a horizontal swipe on it, a chevron beside it, or a
-tile. Two 44-point glass chevrons stand against the enlarged piece's sides, vertically centred
-on it where the plate is clear, otherwise moved up or down by the least that clears every
-piece, or to the stage's edge on their side, and kept on the stage, so neither covers a piece
-where the stage leaves room; each is a button named "Previous: <piece>" / "Önceki: <parça>" or
+tile. Two 44-point glass chevrons stand 4 points (`spacing.xs`) off the enlarged piece's sides,
+vertically centred on it where the plate is clear, otherwise moved up or down by the least that
+keeps 4 points from every piece, or to the stage's edge on their side, and kept on the stage, so
+neither touches a piece where the stage leaves room; each is a button named "Previous: <piece>" / "Önceki: <parça>" or
 "Next: <piece>" / "Sonraki: <parça>", steps as a tile does, and is gone, not disabled, at its
 end of the order. They come and go with the strip. A swipe pages the
 enlarged piece inside its own window, clipped so it never covers a stepped-back piece,

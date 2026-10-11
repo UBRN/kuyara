@@ -29,6 +29,7 @@ import {
   swapChevrons,
   swapPanelHeight,
 } from './swap-gesture.ts';
+import { spacing } from '../theme/theme.ts';
 import {
   composeGarmentBoard,
   detailPreset,
@@ -451,20 +452,30 @@ test('Today and the detail stack their pieces in the same dressing order', () =>
 });
 
 // The chevrons stand beside the enlarged piece, vertically centred on it where the plate is
-// clear, and otherwise at the nearest clear plate on their side, so neither covers a piece.
+// clear, and otherwise at the nearest clear plate on their side, so neither covers a piece. Each
+// keeps at least `spacing.xs` of plate between its glass and every piece.
 test('the chevrons stand beside the enlarged piece on clear plate and stay on the stage', () => {
+  const clear = (spots, pieces) => {
+    for (const spot of Object.values(spots)) {
+      for (const piece of pieces) assert.ok(apart({ ...spot, w: 44, h: 44 }, piece, spacing.xs), JSON.stringify({ spot, piece }));
+    }
+  };
   const grown = { x: 84, y: 0, w: 168, h: 160 };
-  assert.deepEqual(swapChevrons(grown, [], 358, 289, 44), { previous: { x: 40, y: 58 }, next: { x: 252, y: 58 } });
+  const free = swapChevrons(grown, [], 358, 289, 44);
+  assert.deepEqual(free, { previous: { x: 36, y: 58 }, next: { x: 256, y: 58 } });
+  clear(free, [grown]);
   // A larger chevron at a larger text size is placed by its own size.
-  assert.deepEqual(swapChevrons(grown, [], 358, 289, 60).previous, { x: 24, y: 50 });
+  assert.deepEqual(swapChevrons(grown, [], 358, 289, 60).previous, { x: 20, y: 50 });
   // A stepped-back piece beside the enlarged one: the chevron moves to clear plate under it.
   const beside = { x: 260, y: 20, w: 80, h: 100 };
-  const { next } = swapChevrons(grown, [beside], 358, 289, 44);
-  assert.deepEqual(next, { x: 252, y: 120 });
+  const stepped = swapChevrons(grown, [beside], 358, 289, 44);
+  assert.deepEqual(stepped.next, { x: 256, y: 124 });
+  clear(stepped, [grown, beside]);
   // An enlarged piece at the stage's edge leaves no pad: the chevron stands above or below it.
   const atEdge = { x: 0, y: 60, w: 300, h: 100 };
-  const { previous } = swapChevrons(atEdge, [], 320, 280, 44);
-  assert.deepEqual(previous, { x: 0, y: 16 });
+  const edge = swapChevrons(atEdge, [], 320, 280, 44);
+  assert.deepEqual(edge.previous, { x: 0, y: 12 });
+  clear(edge, [atEdge]);
 });
 
 // The strip under the enlarged piece: the header, its colours, the reader's own pieces when the

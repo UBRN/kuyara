@@ -558,9 +558,10 @@ export function OutfitDetailScreen({
   // nothing covers the top but the status bar.
   const visibleTop = headerHeight ?? insets.top;
   const visibleBottom = windowHeight - insets.bottom;
-  const revealStrip = (area: Readonly<{ pieceTop: number; panelBottom: number }>) => {
+  const revealStrip = ({ pieceTop, panelBottom }: Readonly<{ pieceTop: number; panelBottom: number }>) => {
     boardRef.current?.measureInWindow((_x, boardTop) => {
-      const delta = swapRevealScroll(area, boardTop, { top: visibleTop, bottom: visibleBottom });
+      const delta = swapRevealScroll({ pieceTop, panelBottom: panelBottom + plateInset }, boardTop,
+        { top: visibleTop, bottom: visibleBottom });
       if (delta > 0) scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + delta });
     });
   };
@@ -571,8 +572,10 @@ export function OutfitDetailScreen({
   }]));
   // The names, the hint and their marks stand on the board's plate.
   const onBoard = plateTheme(theme, theme.colors.garmentGround).colors;
-  // Where the board's plate shows (the dark appearance), the hint and the names keep off its edge.
+  // Where the board's plate shows (the dark appearance), the hint, the names and the strip keep
+  // off its sides and bottom; the drawing keeps its own margins.
   const plateShown = theme.colors.garmentGround !== theme.colors.background;
+  const plateInset = plateShown ? spacing.md : 0;
   const boardHint = (
     <OutfitDetailBoardHint everChanged={everChanged} onBoard={onBoard} plateShown={plateShown} text={copy.boardHint} />
   );
@@ -635,7 +638,7 @@ export function OutfitDetailScreen({
         </View>
 
         <PlateView color={theme.colors.garmentGround} onTouchStart={() => { boardTouched.current = true; }} ref={boardRef}
-          style={styles.boardPlate}>
+          style={[styles.boardPlate, { paddingBottom: plateInset }]} testID="outfit-detail-plate">
           <GarmentSwapBoard
             candidates={candidates}
             captionRects={captionRects}
@@ -648,6 +651,7 @@ export function OutfitDetailScreen({
             focusedSlot={focusedSlot}
             hint={composeResult ? composeResult.line : boardHint}
             hintVisible={composeResult !== null || !changed}
+            inset={plateInset}
             labels={{
               pieceName,
               slotName: (slot) => copy.slots[slot],

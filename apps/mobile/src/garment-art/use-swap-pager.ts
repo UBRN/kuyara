@@ -30,11 +30,13 @@ export type SwapPanels = Readonly<{ focus: OutfitSlot | null; current: SwapPanel
  * pager, and the strips under the stage with the candidate a drag previews.
  */
 export function useSwapPager({
-  pieces, candidates, width, large, focusedSlot, visibleHeight, outline, sectionsOf,
+  pieces, candidates, width, columnWidth, large, focusedSlot, visibleHeight, outline, sectionsOf,
 }: Readonly<{
   pieces: readonly GarmentBoardPiece[];
   candidates: Candidates;
   width: number;
+  /** The strip's width: the board's, less the plate's inset on each side. */
+  columnWidth: number;
   large: boolean;
   focusedSlot: OutfitSlot | null;
   visibleHeight: number;
@@ -60,7 +62,7 @@ export function useSwapPager({
   const stripCandidates = (slot: OutfitSlot) => candidates[slot] ?? [];
   const stripOf = (slot: OutfitSlot) => {
     const order = stripCandidates(slot);
-    return swapStripLayout(order.length, order.filter(({ suitable }) => suitable).length, width);
+    return swapStripLayout(order.length, order.filter(({ suitable }) => suitable).length, columnWidth);
   };
   const panelHeightOf = (slot: OutfitSlot, opened?: boolean) => {
     const order = stripCandidates(slot);
@@ -69,7 +71,7 @@ export function useSwapPager({
       ownLabel: ownLabelHeight,
       candidates: order.length,
       suitable: order.filter(({ suitable }) => suitable).length,
-    }, width);
+    }, columnWidth);
   };
   const measureHeader = (height: number) => {
     if (Math.abs(height - headerHeight) >= 0.5) setHeaderHeight(Math.max(headerMinimum, height));
