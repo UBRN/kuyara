@@ -332,6 +332,9 @@ export function WardrobeListScreen({
       : state.status === 'ready' && state.refreshFailure !== null ? copy.loadErrorBody : null,
     { skipInitial: true },
   );
+  // The first load's failure replaces the screen, so it is spoken whenever it shows, as
+  // Weather's is.
+  useErrorAnnouncement(state.status === 'error' ? `${copy.loadErrorTitle}. ${copy.loadErrorBody}` : null);
 
   // Derived after the last hook, so React Compiler can memoize them: a value built before a
   // hook and used after it is recomputed on every render.

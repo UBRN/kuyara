@@ -1,5 +1,13 @@
-import { useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  findNodeHandle,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type Text,
+} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,7 +29,7 @@ import {
 } from '@/features/catalog/domain/garment-taxonomy';
 import { startingColorFamily } from '@/features/wardrobe/application/wardrobe-form';
 import { GarmentTypeTile } from '@/features/wardrobe/presentation/garment-type-tile';
-import { WardrobeCategoryChip } from '@/features/wardrobe/presentation/wardrobe-category-chip';
+import { categoryTabListRole, WardrobeCategoryChip } from '@/features/wardrobe/presentation/wardrobe-category-chip';
 import { CATEGORY_REPRESENTATIVE_TYPE } from '@/features/wardrobe/presentation/category-representative-type';
 import { useMessages } from '@/localization/use-messages';
 import { layout, radii, spacing } from '@/theme/theme';
@@ -61,12 +69,15 @@ export type GarmentTypePickerProps = Readonly<{
   onSelect: (typeId: GarmentTypeId) => void;
   /** The grid opens ("Change") or closes on a pick, so the form can hold what follows it. */
   onExpandedChange?: (expanded: boolean) => void;
+  /** VoiceOver's focus starts on the collapsed row, for a picker that replaces the control just used. */
+  focusesRowOnMount?: boolean;
 }>;
 
 export function GarmentTypePicker({
   clothingPreference,
   colorFamily,
   disabled,
+  focusesRowOnMount = false,
   initialCategory,
   onExpandedChange,
   onSelect,
@@ -87,6 +98,22 @@ export function GarmentTypePicker({
   const gridFadePending = useRef(false);
   const rowOpacity = useSharedValue<number>(1);
   const rowStyle = useAnimatedStyle(() => ({ opacity: rowOpacity.get() }));
+
+  // A control that vanishes under VoiceOver hands its focus to what takes its place: a pick
+  // folds the grid into the row, whose name takes it; a category tile and "Change" give way to
+  // the strip, whose selected chip takes it. The target is waited for, so "Change" moves the
+  // focus only once its fade has let the grid in.
+  const pendingFocus = useRef<'row' | 'chip' | null>(focusesRowOnMount ? 'row' : null);
+  const rowNameRef = useRef<Text>(null);
+  const selectedChipRef = useRef<View>(null);
+  useEffect(() => {
+    const target = pendingFocus.current === 'row' ? rowNameRef.current
+      : pendingFocus.current === 'chip' ? selectedChipRef.current : null;
+    if (!target) return;
+    pendingFocus.current = null;
+    const node = findNodeHandle(target);
+    if (node) AccessibilityInfo.setAccessibilityFocus(node);
+  });
 
   // The type the form opened with. A stored piece keeps its type choosable even when the
   // preference does not offer it (a dress on a mens profile); a new piece holds nothing, so
@@ -131,6 +158,7 @@ export function GarmentTypePicker({
   };
   const changeCategory = (next: StructuralCategory) => {
     if (next === activeCategory) return;
+    if (activeCategory === null) pendingFocus.current = 'chip';
     setCategory(next);
     fadeGridIn();
   };
@@ -159,7 +187,7 @@ export function GarmentTypePicker({
           />
         </PlateView>
         <View style={styles.rowCopy}>
-          <AppText testID="wardrobe-type-row-name" variant="bodyStrong">
+          <AppText ref={rowNameRef} testID="wardrobe-type-row-name" variant="bodyStrong">
             {messages.catalog[selectedType.nameKey]}
           </AppText>
           <AppText colorRole="textSecondary" variant="caption">
@@ -175,6 +203,7 @@ export function GarmentTypePicker({
             // the taller grid takes the row's place, so neither is cut or pushed away
             // while still drawn.
             onExpandedChange?.(true);
+            pendingFocus.current = 'chip';
             rowOpacity.set(fadeTo(0, theme.motion.fast, theme.motion, (finished) => {
               'worklet';
               if (finished) scheduleOnRN(openGrid);
@@ -191,6 +220,7 @@ export function GarmentTypePicker({
   const select = (typeId: GarmentTypeId) => {
     if (disabled) return;
     rowOpacity.set(1);
+    pendingFocus.current = 'row';
     setExpanded(false);
     onExpandedChange?.(false);
     onSelect(typeId);
@@ -238,18 +268,22 @@ export function GarmentTypePicker({
   return (
     <View style={styles.browse}>
       {/* The rail is scope, not the value being chosen: the radio group is the type grid
-          below it (ADR 0029 section 2). The chips keep their own radio semantics. */}
+          below it (ADR 0029 section 2). The rail is the Closet's category tab strip. */}
       <ScrollView
+        accessibilityRole={categoryTabListRole()}
         contentContainerStyle={styles.rail}
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.railBleed}>
+        style={styles.railBleed}
+        testID="wardrobe-type-category-tabs">
         {categories.map((structuralCategory) => (
           <WardrobeCategoryChip
             category={structuralCategory}
             key={structuralCategory}
             label={copy.categoryFilterLabels[structuralCategory]}
             onPress={() => changeCategory(structuralCategory)}
+            ref={structuralCategory === activeCategory ? selectedChipRef : undefined}
+            role="tab"
             selected={structuralCategory === activeCategory}
             testID={`wardrobe-type-category-${structuralCategory}`}
           />

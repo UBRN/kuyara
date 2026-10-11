@@ -1,6 +1,6 @@
 import { act, fireEvent, isHiddenFromAccessibility, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { AccessibilityInfo, Dimensions, Linking, StyleSheet } from 'react-native';
+import ReactNative, { AccessibilityInfo, Dimensions, Linking, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -453,6 +453,42 @@ test('a new piece opens on the preview, the two ownership cards and six category
   expect(result.getByTestId('wardrobe-type-jeans').props.accessibilityState).toEqual(
     expect.objectContaining({ selected: true }),
   );
+});
+
+// A control that vanishes under VoiceOver hands its focus to what took its place. The test
+// renderer has no native tags, so a view stands for its test ID.
+function recordFocus() {
+  const focus = jest.spyOn(AccessibilityInfo, 'setAccessibilityFocus').mockImplementation(() => undefined);
+  focus.mockClear();
+  jest.spyOn(ReactNative as unknown as { findNodeHandle: object }, 'findNodeHandle', 'get').mockReturnValue(
+    ((instance: { props?: { testID?: string } } | null) => instance?.props?.testID ?? null) as never);
+  return focus;
+}
+
+test('VoiceOver focus follows the type picker, and its category strip is a tab bar', async () => {
+  const focus = recordFocus();
+  const result = await render(<CreateForm clothingPreference="womens" />);
+
+  // A category tile gives way to the strip: its selected chip takes the focus.
+  await fireEvent.press(result.getByTestId('wardrobe-type-category-tile-bottom'));
+  expect(focus).toHaveBeenLastCalledWith('wardrobe-type-category-bottom');
+  // The strip is the Closet's tab pattern: on iOS a tab bar of selected-trait buttons.
+  expect(result.getByTestId('wardrobe-type-category-tabs').props.accessibilityRole).toBe('tabbar');
+  expect(result.getByTestId('wardrobe-type-category-bottom').props.accessibilityRole).toBe('button');
+
+  // A type folds the grid: the collapsed row's name takes the focus.
+  await fireEvent.press(result.getByTestId('wardrobe-type-jeans'));
+  expect(focus).toHaveBeenLastCalledWith('wardrobe-type-row-name');
+
+  // Change folds the row away: the selected chip takes the focus again.
+  focus.mockClear();
+  await fireEvent.press(result.getByTestId('wardrobe-type-change-button'));
+  expect(focus).toHaveBeenLastCalledWith('wardrobe-type-category-bottom');
+  // A chip within the strip keeps the focus where the person put it.
+  focus.mockClear();
+  await fireEvent.press(result.getByTestId('wardrobe-type-category-top'));
+  expect(focus).not.toHaveBeenCalled();
+  jest.restoreAllMocks();
 });
 
 // Law 7: picking a type draws the chosen row at once in the grid's place, with no blank
@@ -2130,6 +2166,24 @@ test('an ambiguous phrase offers its types as buttons, and a chosen one fills li
   expect(result.queryByTestId(PHRASE_NOTICE)).not.toBeOnTheScreen();
   expect(result.queryByTestId('wardrobe-phrase-choices')).not.toBeOnTheScreen();
   expect(announce).toHaveBeenLastCalledWith(copy.phraseFilled({ type: blazer, color: copy.colorOptionNames.black }));
+});
+
+test('a chosen phrase type hands VoiceOver\'s focus to the collapsed type row; a typed phrase leaves it in the field', async () => {
+  jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const focus = recordFocus();
+  const result = await render(<CreateForm clothingPreference="mens" />);
+  const field = result.getByTestId(PHRASE);
+
+  await fireEvent.changeText(field, 'lacivert keten gömlek');
+  await fireEvent(field, 'submitEditing');
+  expect(result.getByTestId('wardrobe-type-row-name')).toBeOnTheScreen();
+  expect(focus).not.toHaveBeenCalled();
+
+  await fireEvent.changeText(field, 'siyah ceket');
+  await fireEvent(field, 'submitEditing');
+  await fireEvent.press(result.getByTestId('wardrobe-phrase-choice-blazer'));
+  expect(focus).toHaveBeenLastCalledWith('wardrobe-type-row-name');
+  jest.restoreAllMocks();
 });
 
 test('the edit form has no phrase field', async () => {

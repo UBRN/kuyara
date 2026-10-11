@@ -2,7 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { displayNameMinLength } from '@/features/profile/domain/profile';
+import { displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
@@ -75,6 +75,31 @@ test('Settings Done still clears an emptied name, while invalid values disable D
   await fireEvent.changeText(screen.getByTestId('name-edit-input'), 'A');
   expect(screen.getByTestId('name-sheet-done')).toBeDisabled();
   expect(screen.getByTestId('name-edit-input-error')).toHaveTextContent(messages.en.onboarding.nameShortError(displayNameMinLength));
+});
+
+// VoiceOver ignores the error line's live region, so iOS speaks it, and the field carries it as
+// its hint while it shows.
+test('a length error is spoken on iOS and is the field\'s hint while it shows', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const screen = await renderSheet('edit', 'Deniz');
+  const field = () => screen.getByTestId('name-edit-input');
+  expect(field().props.accessibilityHint).toBeUndefined();
+
+  await fireEvent.changeText(field(), 'A');
+  const short = messages.en.onboarding.nameShortError(displayNameMinLength);
+  expect(announce).toHaveBeenLastCalledWith(short);
+  expect(field().props.accessibilityHint).toBe(short);
+
+  await fireEvent.changeText(field(), 'A'.repeat(displayNameMaxLength + 1));
+  const long = messages.en.onboarding.nameLongError(displayNameMaxLength);
+  expect(announce).toHaveBeenLastCalledWith(long);
+  expect(field().props.accessibilityHint).toBe(long);
+
+  await fireEvent.changeText(field(), 'Deniz');
+  expect(field().props.accessibilityHint).toBeUndefined();
+  expect(announce).toHaveBeenCalledTimes(2);
+  announce.mockRestore();
 });
 
 test('a failed edit leaves the saved name active and shows localized feedback', async () => {

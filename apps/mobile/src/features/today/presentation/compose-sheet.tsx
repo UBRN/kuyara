@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText, Button, CheckRow, GlassButton, Icon, ListRow, NativeSheet } from '@/components/ui';
 import {
@@ -45,6 +45,18 @@ type ComposeSheetProps = Readonly<{
  */
 export function ComposeSheet(props: ComposeSheetProps) {
   const [page, setPage] = useState<'pieces' | 'catalog'>('pieces');
+  // VoiceOver ignores the count line's live region, so iOS speaks each change of it. Held
+  // here, above both pages, so a pick from the catalog page is spoken too.
+  const copy = useMessages().today.compose;
+  const count = props.selection.length;
+  const spokenCount = useRef(count);
+  useEffect(() => {
+    if (spokenCount.current === count) return;
+    spokenCount.current = count;
+    if (props.visible && Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility(copy.chosenCount(count, composePieceLimit));
+    }
+  }, [copy, count, props.visible]);
   const dismiss = () => {
     setPage('pieces');
     props.onDismiss();

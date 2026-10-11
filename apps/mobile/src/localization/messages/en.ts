@@ -506,7 +506,7 @@ export const en = {
     typeRequiredError: 'Choose what kind of piece this is before saving.',
     phraseLabel: 'Describe the piece',
     phrasePlaceholder: 'For example, navy linen shirt',
-    phraseHint: 'Fills in the type and color below. You can still change them.',
+    phraseHint: 'Press the keyboard’s return key to fill in the type and color below. You can still change them.',
     phraseFilled: ({ type, color }: { type: string; color: string | null }) =>
       color === null ? `The type is set to ${type}.` : `The type is set to ${type} and the color to ${color}.`,
     phraseNotUnderstood: {

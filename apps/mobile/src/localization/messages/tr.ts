@@ -502,7 +502,7 @@ export const tr = {
     typeRequiredError: 'Kaydetmeden önce bunun ne tür bir parça olduğunu seç.',
     phraseLabel: 'Parçayı tarif et',
     phrasePlaceholder: 'Örneğin lacivert keten gömlek',
-    phraseHint: 'Aşağıdaki türü ve rengi doldurur. Sonra yine değiştirebilirsin.',
+    phraseHint: 'Klavyenin onay tuşuna bastığında aşağıdaki tür ve renk dolar. Sonra yine değiştirebilirsin.',
     phraseFilled: ({ type, color }: { type: string; color: string | null }) =>
       color === null ? `Tür dolduruldu: ${type}.` : `Tür ve renk dolduruldu: ${type}, ${color}.`,
     phraseNotUnderstood: {

@@ -243,6 +243,22 @@ describe('"What do you want to wear today?"', () => {
     expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(2, composePieceLimit));
   });
 
+  // VoiceOver ignores the count's live region, so iOS speaks each change; opening speaks nothing.
+  test('the chosen count is spoken on iOS when it changes', async () => {
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+    announce.mockClear();
+    const { screen } = await renderEntry();
+    await openSheet(screen);
+    expect(announce).not.toHaveBeenCalled();
+    await tick(screen, 'primary_top', 'shirt');
+    expect(announce).toHaveBeenLastCalledWith(en.chosenCount(1, composePieceLimit));
+    await tick(screen, 'bottom', 'trousers');
+    expect(announce).toHaveBeenLastCalledWith(en.chosenCount(2, composePieceLimit));
+    await tick(screen, 'bottom', 'trousers');
+    expect(announce).toHaveBeenLastCalledWith(en.chosenCount(1, composePieceLimit));
+    expect(announce).toHaveBeenCalledTimes(3);
+  });
+
   test('speaks Turkish', async () => {
     const { screen } = await renderEntry({ language: 'tr' });
     expect(screen.getByText(tr.entry)).toBeTruthy();

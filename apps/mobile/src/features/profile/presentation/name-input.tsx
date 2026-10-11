@@ -1,6 +1,7 @@
 import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText, Icon } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { displayNameIssue, displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
 import { useMessages } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing, typography } from '@/theme/theme';
@@ -20,6 +21,11 @@ export function NameInput({ autoFocus = false, value, onChangeText, testID, onCl
   const profileCopy = messages.profile;
   const theme = useKuyaraTheme();
   const issue = displayNameIssue(value);
+  const error = issue === 'short' ? copy.nameShortError(displayNameMinLength)
+    : issue === 'long' ? copy.nameLongError(displayNameMaxLength) : null;
+  // VoiceOver ignores the line's live region, so iOS speaks it; the field carries it as its
+  // hint while it shows.
+  useErrorAnnouncement(error);
 
   return (
     <View style={styles.group}>
@@ -28,6 +34,7 @@ export function NameInput({ autoFocus = false, value, onChangeText, testID, onCl
         borderColor: theme.colors.borderDefined,
       }]}>
         <TextInput
+          accessibilityHint={error ?? undefined}
           accessibilityLabel={copy.namePlaceholder}
           autoCapitalize="words"
           autoFocus={autoFocus}
@@ -53,14 +60,12 @@ export function NameInput({ autoFocus = false, value, onChangeText, testID, onCl
           </Pressable>
         ) : null}
       </View>
-      {issue ? (
+      {error ? (
         <AppText
           accessibilityLiveRegion="polite"
           colorRole="textSecondary"
           testID={`${testID}-error`}>
-          {issue === 'short'
-            ? copy.nameShortError(displayNameMinLength)
-            : copy.nameLongError(displayNameMaxLength)}
+          {error}
         </AppText>
       ) : null}
     </View>

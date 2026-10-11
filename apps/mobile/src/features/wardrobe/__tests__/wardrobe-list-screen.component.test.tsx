@@ -121,6 +121,25 @@ test('loading state exposes an accessible progressbar and no artwork', async () 
   expect(result.getByLabelText(messages.en.wardrobe.loadingLabel)).toBeOnTheScreen();
 });
 
+// VoiceOver ignores the live region, so iOS speaks the first-load failure, as Weather does.
+test('a first-load failure is spoken on iOS', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const screen = (state: WardrobeApplicationState) => (
+    <TestProviders>
+      <WardrobeListScreen itemHref={() => '/'} onAdd={() => undefined} onRetry={() => undefined} state={state} />
+    </TestProviders>
+  );
+  const result = await render(screen({ status: 'loading' }));
+  expect(announce).not.toHaveBeenCalled();
+  await result.rerender(screen({ status: 'error' }));
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(
+    `${messages.en.wardrobe.loadErrorTitle}. ${messages.en.wardrobe.loadErrorBody}`,
+  );
+  announce.mockRestore();
+});
+
 test('error state retries and shows no category tabs', async () => {
   const onRetry = jest.fn();
   const result = await render(

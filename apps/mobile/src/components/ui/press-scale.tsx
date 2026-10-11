@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import {
   Pressable,
   type GestureResponderEvent,
   type PressableProps,
   type PressableStateCallbackType,
   type StyleProp,
+  type View,
   type ViewStyle,
 } from 'react-native';
 import Animated, {
@@ -28,6 +29,8 @@ type PressScaleProps = PressableProps & Readonly<{
    * so a pressable inside one names its pressed look here instead of in a style function.
    */
   pressedStyle?: StyleProp<ViewStyle>;
+  /** Reaches the pressable, for moving VoiceOver's focus to it. */
+  ref?: Ref<View>;
 }>;
 
 /**

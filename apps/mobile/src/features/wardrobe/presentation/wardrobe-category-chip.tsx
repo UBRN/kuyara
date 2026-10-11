@@ -1,4 +1,5 @@
-import { Platform, StyleSheet, type AccessibilityRole, type LayoutChangeEvent } from 'react-native';
+import type { Ref } from 'react';
+import { Platform, StyleSheet, type AccessibilityRole, type LayoutChangeEvent, type View } from 'react-native';
 
 import { AppText, PressScale } from '@/components/ui';
 import { GarmentSlotGlyph } from '@/garment-art';
@@ -40,6 +41,8 @@ export type WardrobeCategoryChipProps = Readonly<{
   role?: 'radio' | 'tab' | 'button';
   accessibilityLabel?: string;
   onLayout?: (event: LayoutChangeEvent) => void;
+  /** For moving VoiceOver's focus to the chip. */
+  ref?: Ref<View>;
   testID?: string;
 }>;
 
@@ -50,6 +53,7 @@ export function WardrobeCategoryChip({
   label,
   onLayout,
   onPress,
+  ref,
   role = 'radio',
   selected,
   testID,
@@ -70,6 +74,7 @@ export function WardrobeCategoryChip({
       hitSlop={{ bottom: CHIP_HIT_SLOP, top: CHIP_HIT_SLOP }}
       onLayout={onLayout}
       onPress={onPress}
+      ref={ref}
       style={({ pressed }) => [
         styles.chip,
         category ? styles.withGlyph : null,

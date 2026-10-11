@@ -226,6 +226,9 @@ export function WardrobeItemFormScreen({
   const phraseNameRef = useRef<string | null>(null);
   // A filled phrase remounts the type picker, so it shows the chosen row like a tile pick.
   const [typePickerKey, setTypePickerKey] = useState(0);
+  // A phrase choice chip vanishes once pressed, so the collapsed type row takes VoiceOver's
+  // focus; a typed phrase leaves it in the field.
+  const [typeRowFocus, setTypeRowFocus] = useState(false);
   // O10: a new piece starts on its type's most natural colour until the user picks one.
   const colorChosenRef = useRef(mode === 'edit');
   const operationRef = useRef<Promise<void> | null>(null);
@@ -380,6 +383,7 @@ export function WardrobeItemFormScreen({
     updateValues(() => next);
     setValidationError(false);
     setBrowsingTypes(false);
+    setTypeRowFocus(chosenTypeId !== null);
     setTypePickerKey((key) => key + 1);
     // The pickers change out of VoiceOver's focus, so the result is said in words. No haptic.
     AccessibilityInfo.announceForAccessibility(copy.phraseFilled({
@@ -645,6 +649,7 @@ export function WardrobeItemFormScreen({
             clothingPreference={clothingPreference}
             colorFamily={values.colorFamily}
             disabled={busy}
+            focusesRowOnMount={typeRowFocus}
             initialCategory={item?.category ?? defaultCategory}
             onExpandedChange={setBrowsingTypes}
             onSelect={selectType}
