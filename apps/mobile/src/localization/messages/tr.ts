@@ -355,7 +355,8 @@ export const tr = {
     stale: 'Biraz eskimiş olabilir',
     updatedAt: (time) => `Son güncelleme ${time}`,
     feelsLike: (temperature) => `Hissedilen\u00a0${temperature}`,
-    range: (minimum, maximum) => `En\u00a0düşük\u00a0${minimum} ·\u00a0En\u00a0yüksek\u00a0${maximum}`,
+    low: (temperature) => `En\u00a0düşük\u00a0${temperature}`,
+    high: (temperature) => `En\u00a0yüksek\u00a0${temperature}`,
     currentConditionsAccessibilityLabel: ({
       condition,
       unitName,

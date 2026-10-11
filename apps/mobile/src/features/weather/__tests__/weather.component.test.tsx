@@ -352,11 +352,6 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(within(currentCard).getByText(language === 'en'
       ? 'Feels like 15.0° · Low 12.0° · High 19.0°'
       : 'Hissedilen 15,0° · En düşük 12,0° · En yüksek 19,0°')).toBeOnTheScreen();
-    // Every separator is tied to the part after it, so a wrapped line never ends on a "·":
-    // a line can break before a separator but never after it.
-    const feelsLikeText = within(currentCard).getByText(/^(Feels like|Hissedilen)/).props.children as string;
-    expect(feelsLikeText).not.toMatch(/· /);
-    expect(feelsLikeText.match(/ ·\u00a0/g)).toHaveLength(2);
     // The current conditions stand on Today's weather-coloured stage, not on a raised card.
     const stageStyle = StyleSheet.flatten(currentCard.props.style);
     expect(stageStyle.borderRadius).toBe(radii.stage);
@@ -1718,6 +1713,40 @@ test.each([
   expect(result.queryByText(line, exact)).toBeNull();
   const stacked = result.getByText(lines, exact);
   expect(StyleSheet.flatten(stacked.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
+});
+
+// The current temperatures share one line, a dot between each two, when that line fits.
+// When it does not, each value takes its own line and no dot is shown at all, so a dot
+// never sits at a line start or end. The exact-text match keeps the default normalizer
+// from hiding the no-break spaces and the line breaks.
+test.each([
+  ['en', 'Feels like\u00a015.0° · Low\u00a012.0° · High\u00a019.0°', 'Feels like\u00a015.0°\nLow\u00a012.0°\nHigh\u00a019.0°'],
+  ['tr', 'Hissedilen\u00a015,0° · En\u00a0düşük\u00a012,0° · En\u00a0yüksek\u00a019,0°', 'Hissedilen\u00a015,0°\nEn\u00a0düşük\u00a012,0°\nEn\u00a0yüksek\u00a019,0°'],
+] as const)('%s current temperatures share one line or stack without a dot', async (language, line, lines) => {
+  mockFontScale(1.353);
+  const result = await render(
+    <Providers language={language} value={createValue({
+      ...baseState,
+      activeLocation: getManualLocation('sample.istanbul')!,
+      snapshot: sampleSnapshot(),
+      freshness: 'fresh',
+    })}><WeatherScreen /></Providers>,
+  );
+  const exact = { normalizer: (value: string) => value };
+  const currentCard = result.getByTestId('weather-current-card');
+  const caption = within(currentCard).getByText(line, exact);
+
+  // One line: the values stay side by side with a dot between each two.
+  await fireEvent(caption, 'textLayout', { nativeEvent: { lines: [{ text: line }] } });
+  expect(within(currentCard).getByText(line, exact)).toBeOnTheScreen();
+
+  // More than one line: one value per line and no dot anywhere on the stage.
+  await fireEvent(caption, 'textLayout', { nativeEvent: { lines: [{ text: 'a' }, { text: 'b' }] } });
+  expect(within(currentCard).queryByText(line, exact)).toBeNull();
+  expect(within(currentCard).getByText(lines, exact)).toBeOnTheScreen();
+  expect(within(currentCard).queryByText(/·/)).toBeNull();
+  // The spoken label reads the same in either layout and never carries the dot.
+  expect(result.getByLabelText(language === 'en' ? /^Rain\. 16\.0 degrees Celsius\. Feels like 15\.0/ : /^Yağmurlu\. Sıcaklık 16,0/)).toBeOnTheScreen();
 });
 
 // Law 7, content arrives in reading order: the coming hours and the coming days enter one
