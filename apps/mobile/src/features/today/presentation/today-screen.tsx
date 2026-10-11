@@ -36,6 +36,7 @@ import {
 } from '@/features/today/application/today-surface';
 import { paletteBasisOf } from '@/features/today/application/today-state';
 import type { TodayScreenState } from '@/features/today/model';
+import { useWornToday } from '@/features/today/application/use-worn-today';
 import {
   FirstGenerationRunway,
   type RunwayHandoffTarget,
@@ -108,7 +109,8 @@ type TodayScreenProps = Readonly<{
   alertOffer?: TodayAlertOffer | null;
   /** The refused offer's permission was granted in system Settings and the accept finished. */
   alertOfferFinished?: boolean;
-  onOpenOutfitDetail: (id: string) => void;
+  /** `fromBand` opens the outfit Today's band draws, so its detail starts from the band. */
+  onOpenOutfitDetail: (id: string, fromBand?: boolean) => void;
   /**
    * The route's link to an outfit's detail. With it each alternative opens as a link, and on
    * iOS the detail zooms out of the alternative's drawing and shrinks back into it; elsewhere
@@ -255,17 +257,20 @@ function TodayScreenContent({
   const recommendationApplication = use(RecommendationApplicationContext);
   const weatherApplication = useWeatherApplication();
   const { hour12, temperatureUnit } = useLocalization();
+  const worn = useWornToday();
   // Memoized as one value, so React Compiler keeps everything derived from it across the
   // hooks below rather than rebuilding it on every render.
   const presentation = useMemo(
     () => createTodayPresentation(
-      todayPresentationState(state, weatherApplication.state), language, hour12, temperatureUnit, now),
-    [hour12, language, now, state, temperatureUnit, weatherApplication.state],
+      todayPresentationState(state, weatherApplication.state), language, hour12, temperatureUnit, now, null, worn),
+    [hour12, language, now, state, temperatureUnit, weatherApplication.state, worn],
   );
+  // The worn look the reader set aside for kuyara's pick on this visit; nothing stores it.
+  const [pickOver, setPickOver] = useState<string | null>(null);
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
-  const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
+  const { controlScale, usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // Measure the content after Screen applies its safe-area insets and width cap.
   const [contentWidth, setContentWidth] = useState(0);
   // Waiting for the day question is not a slow generation, so its clock starts at the answer.
@@ -454,12 +459,17 @@ function TodayScreenContent({
     ? ambientIntensityOf(state.snapshot.weather.current.condition)
     : 'calm';
   const [primary, ...alternates] = presentation.suggestions;
-  if (primary && primary.id !== stageOutfit?.id) {
+  // ADR 0038: the look worn today leads until the dressing day turns, unless the reader asked
+  // for kuyara's pick over it. The tour opens kuyara's pick, so it always shows that.
+  const wornHero = walkthrough?.active === true ? null : presentation.wornHero;
+  const showsWorn = wornHero !== null && pickOver !== wornHero.id;
+  const hero = showsWorn ? wornHero : primary;
+  if (hero && hero.id !== stageOutfit?.id) {
     // An outfit still waiting for the one before it to leave was never drawn, so it has nothing
     // to drop: the board already leaving keeps leaving, and the newest outfit rises after it.
     setLeavingOutfit(leavingOutfit ?? stageOutfit);
     setStageOutfit({
-      id: primary.id, boardPieces: primary.boardPieces, palette: primary.palette, replaced: stageOutfit !== null,
+      id: hero.id, boardPieces: hero.boardPieces, palette: hero.palette, replaced: stageOutfit !== null,
     });
   }
   const updating = isUpdatingOutfit(updatingDayType, choosing);
@@ -509,7 +519,7 @@ function TodayScreenContent({
             re-ask runs: it fades out and keeps its place, so the outfit under it never moves,
             and the new source fades in. A new outfit with no source closes the row in place,
             so the outfit glides up instead of jumping. */}
-        <Presence visible={generationMode !== null}>
+        <Presence visible={generationMode !== null && !showsWorn}>
           {shownGenerationMode ? (
             <TourTarget id="badge" style={styles.provenanceBadge}>
               <ProvenanceBadge
@@ -520,30 +530,56 @@ function TodayScreenContent({
             </TourTarget>
           ) : null}
         </Presence>
+        {/* The worn look's line stands where kuyara's provenance badge stands: the look is the reader's. */}
+        {showsWorn ? (
+          <View accessible style={styles.wearing} testID="today-wearing">
+            <Icon color={theme.colors.successInk} name="checkCircle" size={16 * controlScale} />
+            <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
+              {copy.wornLook.wearing}
+            </AppText>
+          </View>
+        ) : null}
 
-        {primary ? (
+        {primary && hero ? (
           <>
             <TodayOutfit
               carriedOutfitId={carriedOutfitId}
               contentWidth={contentWidth}
+              detailId={showsWorn ? wornHero.detailId : primary.id}
               holdRise={holdRise || !stageLaidOut}
               leavingOutfit={leavingOutfit}
               onLeavingLeft={clearLeavingOutfit}
               onOpenOutfitDetail={onOpenOutfitDetail}
               onStageLayout={stageLaidOut ? undefined : () => setStageLaidOut(true)}
               outfitDetailLink={outfitDetailLink}
-              primary={primary}
+              primary={hero}
               replaces={stageOutfit?.replaced === true}
               scrollBy={scrollBy}
-              stageAccessibilityLabel={presentation.stageAccessibilityLabel}
+              stageAccessibilityLabel={showsWorn ? wornHero.stageAccessibilityLabel : presentation.stageAccessibilityLabel}
               stageColor={stageColor}
               stageRef={stageView}
               updating={updating}
             />
+            {wornHero ? (
+              <View style={styles.wornSwitch}>
+                {showsWorn ? (
+                  <AppText colorRole="textSecondary" testID="today-worn-stays" variant="caption">
+                    {copy.wornLook.staysUntilTomorrow}
+                  </AppText>
+                ) : null}
+                <TextButton
+                  accessibilityLabel={showsWorn
+                    ? copy.wornLook.showPickAccessibilityLabel : copy.wornLook.showWornAccessibilityLabel}
+                  label={showsWorn ? copy.wornLook.showPick : copy.wornLook.showWorn}
+                  onPress={() => setPickOver(showsWorn ? wornHero.id : null)}
+                  testID="today-worn-switch"
+                />
+              </View>
+            ) : null}
             <TodayOutfitNotes
               copy={copy}
               presentation={presentation}
-              primary={primary}
+              primary={hero}
               stageColor={stageColor}
               updating={updating}
               updatingDayType={updatingDayType}
@@ -733,6 +769,9 @@ function WeatherAlertOfferRow({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   provenanceBadge: { marginTop: spacing.sm },
+  wearing: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm },
+  flexText: { flexShrink: 1 },
+  wornSwitch: { alignItems: 'flex-start', gap: spacing.xs, marginTop: spacing.sm },
   askAgain: { marginTop: spacing.md },
   laterReady: { marginTop: spacing.xs },
   // S15: a quiet line on the ground plane, never a card, after the last button.

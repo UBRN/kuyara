@@ -138,10 +138,23 @@ minute away, and plays nowhere else.
 ### A moment
 
 A moment is a single settle plus its haptic, fired once per user action that completes
-something. There are no particles, characters, mascots or sounds. Two sites carry a
-moment, both on the outfit detail board, where the pieces settle once with the arrival
-spring and the success notification of Law 8 fires: marking the last piece of an outfit as
-owned, and recording "Wore this today", whose press then fires no impact of its own.
+something. Two sites carry a moment, both on the outfit detail board, where the pieces
+settle once with the arrival spring and the success notification of Law 8 fires: marking
+the last piece of an outfit as owned, and recording "Wore this today", whose press then
+fires no impact of its own.
+
+Recording "Wore this today" is also the one celebration, because it is the moment the
+reader's own choice takes Today's hero. With its settle and its haptic, a dashed stitch in
+the plate's ink is drawn once around the inner edge of the board plate in the first half of
+`motion.celebration` (1400 ms), and one burst of 18 to 24 small garment shapes (sewing
+buttons, small tees, hangers and thread spools), filled with the outfit's own colours inside
+the ink edge, is thrown up from the plate's foot and falls and fades within the same run.
+The day's key seeds the scatter, so each day throws differently and one day always the same
+way. The burst stays over the board, lets every touch through and is hidden from assistive
+technology; the line under the worn state and VoiceOver's announcement say the look is
+saved and stays on Today. It plays once per recorded save and never in the tour, whose
+"Wore this today" step only lights the action. No other moment adds particles, and there are
+no characters, mascots or sounds.
 
 ### Law 8 gains a press and a site
 
@@ -232,10 +245,11 @@ measured value lives.
 content arrival, and the transition stays the platform's, where it is familiar, free, and
 already correct under the system's accessibility settings.
 
-**A mascot, particles, or sound.** Rejected: a character system and confetti are a
+**A mascot, sound, or particles on every moment.** Rejected: a character system is a
 [`visual-identity.md`](../design/visual-identity.md) red line, and sound is not part of
 this product's vocabulary. Haptics carry the non-visual role, which is why a moment is one
-settle plus one haptic.
+settle plus one haptic; only recording "Wore this today" adds the stitch and the one burst
+of garment shapes, in the outfit's own colours, never generic multicolour confetti.
 
 ## Out of scope
 

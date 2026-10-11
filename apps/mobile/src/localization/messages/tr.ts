@@ -868,6 +868,15 @@ export const tr = {
     wornAction: 'Bugün bunu giydim',
     wornToday: 'Bugün giyildi',
     wornSaveError: 'Bugünkü kombin kaydedilemedi. Yeniden dene.',
+    wornLook: {
+      wearing: 'Bunu giyiyorsun',
+      staysUntilTomorrow: 'Yarına kadar Bugün’de kalacak.',
+      showPick: 'kuyara’nın seçimi',
+      showPickAccessibilityLabel: 'kuyara’nın bugünkü seçimini göster',
+      showWorn: 'Giydiğin kombin',
+      showWornAccessibilityLabel: 'Bugün giydiğin kombini göster',
+      savedAnnouncement: 'Bugün giyildi. Yarına kadar Bugün’de kalacak.',
+    },
     rating: {
       question: 'Bu kombini beğendin mi?',
       thanks: 'Teşekkürler, not ettik.',

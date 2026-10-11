@@ -433,6 +433,10 @@ export const standardMotion = Object.freeze({
   // screen. With the breath on `fast` and the curtain's fade on `normal`, the whole launch
   // takes 720 ms; only the launch curtain consumes it.
   launch: 400,
+  // The worn moment's celebration (ADR 0020, "A moment"): the stitch draws around the plate in
+  // its first half and the burst of garment shapes falls and fades within it; only the
+  // celebration consumes it.
+  celebration: 1400,
   ambient: Object.freeze({
     calm: 1500,
     moderate: 1000,

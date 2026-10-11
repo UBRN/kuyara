@@ -874,6 +874,15 @@ export const en = {
     wornAction: 'Wore this today',
     wornToday: 'Worn today',
     wornSaveError: 'Today’s outfit could not be saved. Try again.',
+    wornLook: {
+      wearing: 'You’re wearing this',
+      staysUntilTomorrow: 'It stays on Today until tomorrow.',
+      showPick: 'kuyara’s pick',
+      showPickAccessibilityLabel: 'Show kuyara’s pick for today',
+      showWorn: 'What you’re wearing',
+      showWornAccessibilityLabel: 'Show what you’re wearing today',
+      savedAnnouncement: 'Worn today. It stays on Today until tomorrow.',
+    },
     rating: {
       question: 'Do you like this outfit?',
       thanks: 'Thanks, noted.',

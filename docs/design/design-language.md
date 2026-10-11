@@ -403,8 +403,10 @@ copy will be written for the first time:
 | warning | what happened + what is happening about it | "Veri 42 dakika önce alındı. Yenileniyor." | alarm words, "Dikkat" |
 | error | what happened + what to do | "Giysi türü seçilmedi. Listeden bir tür seç." | apologies, "Oops", blame |
 
-No exclamation marks anywhere in status copy. The interface does not celebrate and does
-not panic; both are forms of demanding attention, which the identity forbids. Freshness
+No exclamation marks anywhere in status copy. Status copy does not celebrate and does not
+panic; both are forms of demanding attention, which the identity forbids. The one
+celebration is motion, not words: recording "Wore this today" (Law 7), whose line only states
+the fact. Freshness
 copy has one structure on every surface, English "Last updated at {time}" and Turkish
 "Son güncelleme {time}", and a screen never rewords it.
 
@@ -552,10 +554,14 @@ and lands on the arrival spring, its shadow drawn with it. A piece a swipe has a
 carried into place catches its weight with a moment's settle instead.
 
 **A moment is a single settle plus its haptic**, fired once per user action that completes
-something. A moment adds no particles, characters, mascots or sounds. Two sites carry a
-moment today, both on the outfit detail board, where the pieces settle once with the arrival
-spring and Law 8's success notification fires: marking the last piece of an outfit as owned,
-and recording "Wore this today".
+something. Two sites carry a moment today, both on the outfit detail board, where the pieces
+settle once with the arrival spring and Law 8's success notification fires: marking the last
+piece of an outfit as owned, and recording "Wore this today". Recording "Wore this today" is
+also the one celebration ([ADR 0020](../adr/0020-rewriting-the-motion-law.md#a-moment)): a
+dashed stitch drawn once around the board plate and one burst of 18 to 24 small garment
+shapes in the outfit's own colours, over the board only, within `motion.celebration`,
+touch-through and hidden from assistive technology. No other moment adds particles, and no
+moment adds characters, mascots or sounds.
 
 **Press feedback.** A pressed surface scales to 0.97 and back with `theme.motion.fast`.
 A full-width list row is the exception: it dims and keeps its size, as iOS rows do. The
