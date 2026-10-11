@@ -1315,7 +1315,7 @@ test('weather_refreshed reports each trigger and condition on success', async ()
   assert.deepEqual(captured, [{
     name: 'weather_refreshed',
     properties: {
-      schema_version: 4,
+      schema_version: 5,
       trigger_method: 'automatic_no_cache',
       result: 'success',
       condition_category: 'clear',
@@ -1327,7 +1327,7 @@ test('weather_refreshed reports each trigger and condition on success', async ()
   assert.deepEqual(captured, [{
     name: 'weather_refreshed',
     properties: {
-      schema_version: 4,
+      schema_version: 5,
       trigger_method: 'manual',
       result: 'success',
       condition_category: 'clear',
@@ -1416,7 +1416,7 @@ test('weather_refreshed reports failure_no_snapshot and failure_kept_last_known'
   await settle();
   assert.deepEqual(captured, [{
     name: 'weather_refreshed',
-    properties: { schema_version: 4, trigger_method: 'automatic_no_cache', result: 'failure_no_snapshot' },
+    properties: { schema_version: 5, trigger_method: 'automatic_no_cache', result: 'failure_no_snapshot' },
   }]);
 
   const cached = snapshotFor(istanbul, '2026-07-30T09:00:00.000Z');
@@ -1431,7 +1431,7 @@ test('weather_refreshed reports failure_no_snapshot and failure_kept_last_known'
   await settle();
   assert.deepEqual(captured, [{
     name: 'weather_refreshed',
-    properties: { schema_version: 4, trigger_method: 'automatic_stale', result: 'failure_kept_last_known' },
+    properties: { schema_version: 5, trigger_method: 'automatic_stale', result: 'failure_kept_last_known' },
   }]);
 });
 

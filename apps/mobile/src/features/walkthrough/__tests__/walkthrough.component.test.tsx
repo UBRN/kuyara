@@ -701,8 +701,8 @@ test('a deep-link launch never gets the tour, even back on Today', async () => {
   await expectOnlyHelpOpens(deepLink.result);
 });
 
-test('the consent sheet claims only a launch it will ask in', async () => {
-  // Consent is asked from the second session on, so an undecided first session stays quiet.
+test('the Today consent sheet claims only a launch it will ask in', async () => {
+  // The Today sheet asks from the second session on, so an undecided first session stays quiet.
   const { result } = await renderProvider({ value: profile({ analyticsConsent: 'undecided' }), sessionIndex: 1 });
   await waitOpen(result);
   expect(bubble(result).counter).toBe('Step 1 of 9');

@@ -24,14 +24,14 @@ const profile = (onboardingCompleted) => ({
   updatedAt: '2026-07-30T10:00:00.000Z',
 });
 
-test('onboarding asks the location after welcome, then the optional name and age, then required gender and dress style', () => {
+test('onboarding asks the location after welcome, then the optional name and age, then required gender and dress style, and ends on the consent question', () => {
   let draft = createOnboardingDraft({
     gender: null,
     dressStyle: null,
     birthDate: null,
   });
 
-  assert.deepEqual(onboardingSteps, ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles']);
+  assert.deepEqual(onboardingSteps, ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles', 'consent']);
   draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 1);
   draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
@@ -54,9 +54,11 @@ test('onboarding asks the location after welcome, then the optional name and age
   draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 5);
   draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
-  assert.equal(draft.step, 5);
+  assert.equal(draft.step, 6);
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
+  assert.equal(draft.step, 6);
   draft = reduceOnboardingDraft(draft, { type: 'back', from: draft.step });
-  assert.equal(draft.step, 4);
+  assert.equal(draft.step, 5);
 });
 
 test('onboarding ignores a continue or back that was pressed on a step it has already left', () => {

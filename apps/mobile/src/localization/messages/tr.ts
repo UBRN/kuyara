@@ -65,7 +65,6 @@ export const tr = {
     birthDateClearAction: 'Doğum tarihini kaldır',
     locationTitle: 'Konumunu ayarla',
     locationBody: 'kuyara’nın hava durumunu bulup kombin önerebilmesi için cihaz konumunu kullan ya da bir şehir ara. Bunu daha sonra da yapabilirsin.',
-    completeAction: 'kuyara’yı kullanmaya başla',
     locationSkipAction: 'Konum olmadan devam et',
     genderRequiredError: 'Devam etmek için cinsiyetini seç.',
     saveError: 'Seçimlerin kaydedilemedi. Lütfen yeniden dene.',

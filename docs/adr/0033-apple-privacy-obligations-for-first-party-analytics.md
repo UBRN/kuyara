@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-09)
 
-Implementation: the milestone 10 consent sheet, Settings Privacy surface, fail-closed
+Implementation: the milestone 10 consent question, Settings Privacy surface, fail-closed
 adapter, and PostHog project configuration are complete. Milestone 11 items 1 and 2 are
 complete, consent is the recorded lawful basis, and PostHog's DPA was signed on
 2026-09-11. No PostHog analytics is recorded or queued before consent. EAS Observe
@@ -363,15 +363,20 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
    opted in (`defaultOptIn: true`), because the SDK records its one-time
    application-installed event during initialisation. While the answer is `undecided`,
    captures are dropped rather than recorded or queued, and acceptance starts recording
-   from that moment. The onboarding funnel before the consent surface is therefore not
-   measured in PostHog, which is accepted: downloads, first sessions and retention before
+   from that moment. The onboarding steps before the consent question are therefore not
+   measured in PostHog, which is accepted: downloads, onboarding and retention before
    consent come from App Store Connect App Analytics.
    The stored answer values are `undecided`, `granted` and `withdrawn`, the last covering
    both a declined sheet and a later withdrawal.
 2. A consent surface exists, with one question and Turkish and English copy from
-   localization keys. It is shown once on Today, from the second app session onwards,
-   after the first recommendation of that session has rendered. The first session is never
-   interrupted by it. A session is one app process the person has seen, counted on the
+   localization keys. It is the last step of onboarding, so everyone who finishes
+   onboarding answers it once, during setup. Either answer finishes onboarding, and
+   no path through onboarding finishes it with the question unanswered: the answer is stored
+   before the profile reads as finished, so an app closed on that step reopens onboarding.
+   A profile that finished onboarding before onboarding asked the question, and is still
+   `undecided`, is asked once on Today instead, from the second app session onwards, after
+   the first recommendation of that session has rendered, so a first session is never
+   interrupted by the sheet. A session is one app process the person has seen, counted on the
    device outside the analytics identity, so nothing about the launch is sent, and the only
    device-side record is a launch count that never leaves the device while the answer is
    `undecided`. iOS also starts the app in the background for the weather-alert task and,
@@ -380,7 +385,8 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
    builds no PostHog client, so it sends no app open or other event. A process whose first
    launch metric is taken before anyone opens it marks no screen interactive and sends no
    `recommendation.first_shown` for the rest of its life, because both would time a launch
-   nobody saw. Accept is the primary action; decline is a same-size secondary action
+   nobody saw; a process that shows onboarding does the same, because both would time the
+   setup. Accept is the primary action; decline is a same-size secondary action
    directly beneath it. Decline stays one tap and is never hidden, reduced, faded, coloured as a
    warning or delayed. Declining changes nothing else in the product.
 3. A Settings row reads the current consent state, withdraws it, and on withdrawal calls
@@ -434,7 +440,7 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 - **Linkage.** The install identifier is declared linked to the user because
   profile-derived properties ride on it. The GDPR and KVKK reading is accepted
   without counsel review.
-- **Lawful basis and DPA.** Consent is the recorded lawful basis. The Today consent sheet
+- **Lawful basis and DPA.** Consent is the recorded lawful basis. The consent question
   and Settings withdrawal control stay in place. PostHog's self-serve DPA was generated
   and signed through PandaDoc on 2026-09-11; the countersigned copy is kept
   outside the repository.
@@ -455,8 +461,8 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 - **Profile-derived properties.** `dress_style` and coarse `age_bucket` are the only
   profile-derived analytics properties. Gender is not an analytics property. Their use is
   the reason the install identifier is declared linked.
-- **Consent placement.** The consent surface is shown once on Today after the first
-  recommendation has rendered; onboarding stays five steps. See section 6.
+- **Consent placement.** The consent question is onboarding's last step; a profile that
+  finished onboarding unanswered is asked once on Today. See section 6.
 - **Location stays "not collected".** The questionnaire answer for Precise Location and
   Coarse Location is "not collected" for the whole app, not only for the analytics path.
   Apple's App Privacy Details page states that "if data is sent to your servers then

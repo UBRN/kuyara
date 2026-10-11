@@ -35,7 +35,11 @@ tags:
 - assertVisible:
     id: onboarding-step-6
 - tapOn:
-    id: onboarding-complete
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-7
+- tapOn:
+    id: onboarding-consent-decline
 - runFlow: ../subflows/close-day-type-sheet.yaml
 - assertVisible:
     id: today-screen

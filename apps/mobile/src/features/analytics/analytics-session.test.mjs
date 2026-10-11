@@ -23,8 +23,9 @@ test('an unreadable record is read as no earlier session', () => {
   assert.equal(nextSessionIndex('1.5'), 2);
 });
 
-// ADR 0033 section 6: the first session belongs to the first recommendation.
-test('consent is asked for from the second session onwards, never on the first', () => {
+// ADR 0033 section 6: the Today sheet, for a profile that finished onboarding unanswered,
+// leaves the first session to the first recommendation.
+test('the Today sheet may ask from the second session onwards, never on the first', () => {
   assert.equal(sessionMayAskForConsent(1), false);
   assert.equal(sessionMayAskForConsent(2), true);
   assert.equal(sessionMayAskForConsent(9), true);

@@ -665,11 +665,11 @@ test('Today offers the alert opt-in once, and each action answers the offer', as
   expect(acceptAnalytics.analytics.captures
     .filter(({ name }) => name !== 'screen_viewed' && name !== 'recommendation_viewed')
     .map(({ properties }) => properties)).toEqual([
-    { schema_version: 4, outcome: 'accepted', kind: 'precipitation_onset' },
-    { schema_version: 4, outcome: 'enabled' },
-    { schema_version: 4, setting_name: 'notifications_enabled', new_value: true },
-    { schema_version: 4, setting_name: 'morning_briefing_enabled', new_value: true },
-    { schema_version: 4, feature_name: 'notifications' },
+    { schema_version: 5, outcome: 'accepted', kind: 'precipitation_onset' },
+    { schema_version: 5, outcome: 'enabled' },
+    { schema_version: 5, setting_name: 'notifications_enabled', new_value: true },
+    { schema_version: 5, setting_name: 'morning_briefing_enabled', new_value: true },
+    { schema_version: 5, feature_name: 'notifications' },
   ]);
   // ADR 0004: an accepted offer ends on the Notifications surface, where both kinds are on.
   expect(mockPush).toHaveBeenCalledWith('/settings/notifications');
@@ -693,7 +693,7 @@ test('Today offers the alert opt-in once, and each action answers the offer', as
   expect(dismissAnalytics.analytics.captures
     .filter(({ name }) => name === 'weather_alert_offer_resolved')
     .map(({ properties }) => properties)).toEqual([
-    { schema_version: 4, outcome: 'dismissed', kind: 'morning_briefing' },
+    { schema_version: 5, outcome: 'dismissed', kind: 'morning_briefing' },
   ]);
 });
 
@@ -871,7 +871,7 @@ test('Today reports screen_viewed and recommendation_viewed once while a recomme
   expect(names.filter((name) => name === 'recommendation_viewed')).toHaveLength(1);
   const viewed = productAnalytics.analytics.captures.find((c) => c.name === 'recommendation_viewed');
   expect(viewed?.properties).toEqual({
-    schema_version: 4,
+    schema_version: 5,
     generation_mode: todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback',
     cache_state: 'fresh',
     outfit_count: 3,
@@ -1741,8 +1741,8 @@ test('a pending morning answer with a recommendation failure stays unavailable a
     ({ name }) => name === 'error_shown' || name === 'error_recovered',
   );
   expect(errors.map(({ properties }) => properties)).toEqual([
-    { schema_version: 4, surface: 'recommendation', failure_category: 'unavailable', occurrence_count: 1 },
-    { schema_version: 4, surface: 'recommendation', failure_category: 'unavailable' },
+    { schema_version: 5, surface: 'recommendation', failure_category: 'unavailable', occurrence_count: 1 },
+    { schema_version: 5, surface: 'recommendation', failure_category: 'unavailable' },
   ]);
 });
 
@@ -2017,7 +2017,7 @@ test.each(['smart', 'formal'] as const)(
       'profile-one', '2026-09-24', dayType, 'morning', ['minimal']);
     // Taxonomy 5.5: one written choice, one event, the styles never reported.
     expect(capturesOf(productAnalytics, 'day_style_changed'))
-      .toEqual([{ schema_version: 4, dress_style: dayType, choice_source: 'morning' }]);
+      .toEqual([{ schema_version: 5, dress_style: dayType, choice_source: 'morning' }]);
     await act(async () => { await Promise.resolve(); });
     // Every generation after the answer asks for both answers; none for the old day.
     for (const [, input] of refresh.mock.calls) {
@@ -2524,7 +2524,7 @@ test.each([
     expect(mockChoiceUpsert).toHaveBeenCalledTimes(1);
     expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', nextKey, 'smart', 'chip');
     expect(capturesOf(productAnalytics, 'day_style_changed'))
-      .toEqual([{ schema_version: 4, dress_style: 'smart', choice_source: 'chip' }]);
+      .toEqual([{ schema_version: 5, dress_style: 'smart', choice_source: 'chip' }]);
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(refresh.mock.calls[0][0]).toBe('regenerate');
     expect(refresh.mock.calls[0][1]).toMatchObject({ localDayKey: nextKey, dressStyle: 'smart' });
@@ -3129,7 +3129,7 @@ test('pull-to-refresh retries an unavailable recommendation after weather settle
   ).toBe(false));
   expect(productAnalytics.analytics.captures.find(({ name }) =>
     name === 'retry_after_failure_triggered')?.properties).toEqual({
-    schema_version: 4, surface: 'today', attempt_number: 1, result: 'failure',
+    schema_version: 5, surface: 'today', attempt_number: 1, result: 'failure',
   });
 });
 
@@ -3163,7 +3163,7 @@ test('pull-to-refresh skips retry when an outfit arrives during weather refresh'
   expect(recommendationRefresh).not.toHaveBeenCalled();
   expect(productAnalytics.analytics.captures.find(({ name }) =>
     name === 'retry_after_failure_triggered')?.properties).toEqual({
-    schema_version: 4, surface: 'today', attempt_number: 1, result: 'success',
+    schema_version: 5, surface: 'today', attempt_number: 1, result: 'success',
   });
 });
 
@@ -3203,7 +3203,7 @@ test('pull-to-refresh clears a saved outfit failure when its approved inputs are
   expect(result.getByTestId('today-freshness')).not.toHaveTextContent(/Couldn’t refresh/);
   expect(productAnalytics.analytics.captures.find(({ name }) =>
     name === 'retry_after_failure_triggered')?.properties).toEqual({
-    schema_version: 4, surface: 'today', attempt_number: 1, result: 'success',
+    schema_version: 5, surface: 'today', attempt_number: 1, result: 'success',
   });
 });
 
@@ -3245,7 +3245,7 @@ test('a failed weather refresh with the same snapshot skips recommendation regen
   expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn’t refresh/);
   expect(productAnalytics.analytics.captures.find(({ name }) =>
     name === 'retry_after_failure_triggered')?.properties).toEqual({
-    schema_version: 4, surface: 'today', attempt_number: 1, result: 'failure',
+    schema_version: 5, surface: 'today', attempt_number: 1, result: 'failure',
   });
 });
 
@@ -3478,7 +3478,7 @@ test('refreshing while Today shows stale weather and a failed attempt reports re
   ).toBe(true));
   const retry = productAnalytics.analytics.captures.find((c) => c.name === 'retry_after_failure_triggered');
   expect(retry?.properties).toEqual({
-    schema_version: 4, surface: 'today', attempt_number: 1, result: 'failure',
+    schema_version: 5, surface: 'today', attempt_number: 1, result: 'failure',
   });
   expect(productAnalytics.analytics.captures.some((c) => c.name === 'manual_refresh_triggered')).toBe(false);
 });
@@ -3533,11 +3533,11 @@ test('a fully unavailable Today buffers error_shown until recovery, which emits 
 
   const shown = productAnalytics.analytics.captures.find((c) => c.name === 'error_shown');
   expect(shown?.properties).toEqual({
-    schema_version: 4, surface: 'today', failure_category: 'offline', occurrence_count: 1,
+    schema_version: 5, surface: 'today', failure_category: 'offline', occurrence_count: 1,
   });
   expect(productAnalytics.analytics.captures).toContainEqual({
     name: 'error_recovered',
-    properties: { schema_version: 4, surface: 'today', failure_category: 'offline' },
+    properties: { schema_version: 5, surface: 'today', failure_category: 'offline' },
     options: undefined,
   });
   // `error_shown` is emitted before `error_recovered` for the same pair (taxonomy 5.10).
@@ -3573,8 +3573,8 @@ test('a visible recommendation failure uses only the recommendation error surfac
     ({ name }) => name === 'error_shown' || name === 'error_recovered',
   );
   expect(errors.map(({ properties }) => properties)).toEqual([
-    { schema_version: 4, surface: 'recommendation', failure_category: 'unavailable', occurrence_count: 1 },
-    { schema_version: 4, surface: 'recommendation', failure_category: 'unavailable' },
+    { schema_version: 5, surface: 'recommendation', failure_category: 'unavailable', occurrence_count: 1 },
+    { schema_version: 5, surface: 'recommendation', failure_category: 'unavailable' },
   ]);
 });
 
@@ -3596,7 +3596,7 @@ test('opening an outfit reports screen_viewed and outfit_detail_opened with its 
   expect(names.filter((name) => name === 'screen_viewed')).toHaveLength(1);
   const opened = productAnalytics.analytics.captures.find((c) => c.name === 'outfit_detail_opened');
   expect(opened?.properties).toEqual({
-    schema_version: 4,
+    schema_version: 5,
     outfit_position: 2,
     archetype: todayRecommendation.outfits[1].archetypeId,
     generation_mode: todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback',
@@ -3840,7 +3840,7 @@ test('the piece sheet adds an untracked piece to the Closet with entry_point out
   await waitFor(() => expect(result.queryByTestId('piece-edit-sheet')).toBeNull());
   const createdCapture = productAnalytics.analytics.captures.find((c) => c.name === 'closet_item_created');
   expect(createdCapture?.properties).toEqual({
-    schema_version: 4,
+    schema_version: 5,
     state: 'owned',
     garment_type_id: firstDetailGarmentTypeId,
     has_photo: false,
@@ -3893,7 +3893,7 @@ test('the piece sheet edits the matching record, with a photo from the library',
   await waitFor(() => expect(productAnalytics.analytics.captures).toContainEqual({
     name: 'closet_item_updated',
     properties: {
-      schema_version: 4,
+      schema_version: 5,
       fields_changed: ['color_family', 'state', 'photo'],
       garment_type_id: firstDetailGarmentTypeId,
       entry_point: 'outfit_detail',
@@ -3982,7 +3982,7 @@ test('tomorrow\'s preview opens in detail read-only, with its own forecast', asy
   // Its screen view is not recorded either; only its opening is, once.
   expect(productAnalytics.analytics.names()).not.toContain('screen_viewed');
   expect(capturesOf(productAnalytics, 'tomorrow_preview_opened')).toEqual([{
-    schema_version: 4,
+    schema_version: 5,
     generation_mode: todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback',
   }]);
 
@@ -4081,7 +4081,7 @@ test('wore this today records each look of the day beside the earlier ones', asy
   expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
   // Taxonomy 5.6: the write succeeded, so the look is reported with closed values only.
   expect(capturesOf(props.productAnalytics, 'outfit_worn_logged')).toEqual([{
-    schema_version: 4,
+    schema_version: 5,
     worn_source: 'recommended',
     archetype: todayRecommendation.outfits[0].archetypeId,
     dress_style: todayRecommendation.outfits[0].formality,
@@ -4197,7 +4197,7 @@ test('a changed outfit records as manual, turns the full-screen back swipe off w
   // Taxonomy 5.6: the one swap is reported with its slot and the outfit's place, and the
   // look worn afterwards as edited.
   expect(capturesOf(props.productAnalytics, 'outfit_piece_changed'))
-    .toEqual([{ schema_version: 4, slot: 'footwear', outfit_position: 1 }]);
+    .toEqual([{ schema_version: 5, slot: 'footwear', outfit_position: 1 }]);
   expect(capturesOf(props.productAnalytics, 'outfit_worn_logged')).toEqual([
     expect.objectContaining({ worn_source: 'edited', archetype: pick.archetypeId }),
   ]);
@@ -4276,7 +4276,7 @@ test('accepting the offer with the briefing already on records only the alert pr
   await waitFor(() => expect(productAnalytics.analytics.captures
     .filter(({ name }) => name === 'setting_changed')
     .map(({ properties }) => properties)).toEqual([
-    { schema_version: 4, setting_name: 'notifications_enabled', new_value: true },
+    { schema_version: 5, setting_name: 'notifications_enabled', new_value: true },
   ]));
   expect(mockPush).toHaveBeenCalledWith('/settings/notifications');
 });
@@ -4813,7 +4813,7 @@ describe('compose around chosen pieces on detail', () => {
     const screen = await result;
     await composeSkirt(screen);
     expect(capturesOf(productAnalytics, 'outfit_composed'))
-      .toEqual([{ schema_version: 4, piece_count: 1, result: 'composed' }]);
+      .toEqual([{ schema_version: 5, piece_count: 1, result: 'composed' }]);
     const total = want.options.length;
     const position = await screen.findByTestId('compose-result-position');
     expect(position).toHaveTextContent(`1 / ${total}`);
@@ -4866,7 +4866,7 @@ describe('compose around chosen pieces on detail', () => {
     await composeSkirt(screen);
     await waitFor(() => expect(spy).toHaveBeenCalled());
     expect(capturesOf(productAnalytics, 'outfit_composed'))
-      .toEqual([{ schema_version: 4, piece_count: 1, result: 'no_match' }]);
+      .toEqual([{ schema_version: 5, piece_count: 1, result: 'no_match' }]);
     expect(screen.queryByTestId('compose-result-position')).toBeNull();
     expect(screen.getByTestId('outfit-detail-screen')).toBeOnTheScreen();
     expect(within(screen.getByTestId('outfit-detail-heading-group')).queryByText(copy.manualMix.title)).toBeNull();
@@ -4912,7 +4912,7 @@ describe('like and dislike on detail', () => {
   const copy = messages.en.today.rating;
   const generationMode = todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback';
   const rated = (position: 1 | 2 | 3) => ({
-    schema_version: 4,
+    schema_version: 5,
     outfit_position: position,
     archetype: todayRecommendation.outfits[position - 1].archetypeId,
     generation_mode: generationMode,

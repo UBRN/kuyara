@@ -27,7 +27,7 @@ test('no event or property exists only before consent', () => {
 });
 
 test('every event carries schema_version', () => {
-  assert.equal(ANALYTICS_SCHEMA_VERSION, 4);
+  assert.equal(ANALYTICS_SCHEMA_VERSION, 5);
   for (const name of analyticsEventNames) {
     assert.ok(
       analyticsEventPropertyKeys[name].includes('schema_version'),

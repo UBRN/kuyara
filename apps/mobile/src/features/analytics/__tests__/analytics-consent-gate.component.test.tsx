@@ -60,10 +60,12 @@ test('eligibility requires an undecided completed profile, a shown recommendatio
   expect(isAnalyticsConsentGateEligible({ ...eligible, recommendationShown: false })).toBe(false);
   expect(isAnalyticsConsentGateEligible({ ...eligible, onboardingCompleted: false })).toBe(false);
   expect(isAnalyticsConsentGateEligible({ ...eligible, analyticsConsent: 'granted' })).toBe(false);
+  // Onboarding's last step stores either answer, so a profile set up there is never asked here.
+  expect(isAnalyticsConsentGateEligible({ ...eligible, analyticsConsent: 'withdrawn' })).toBe(false);
 });
 
-// ADR 0033 section 6: the first session belongs to the first recommendation.
-test('the question is never asked in the first session and is asked from the second', () => {
+// ADR 0033 section 6: the Today sheet leaves the first session to the first recommendation.
+test('the Today sheet never asks in the first session and asks from the second', () => {
   const eligible = {
     analyticsConsent: 'undecided' as const,
     onboardingCompleted: true,

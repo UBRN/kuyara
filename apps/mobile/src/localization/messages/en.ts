@@ -70,7 +70,6 @@ export const en = {
     birthDateClearAction: 'Remove birth date',
     locationTitle: 'Set your location',
     locationBody: 'Use your device location or search for a city so kuyara can find the weather for your outfit suggestions. You can do this later.',
-    completeAction: 'Start using kuyara',
     locationSkipAction: 'Continue without a location',
     genderRequiredError: 'Choose your gender to continue.',
     saveError: 'Your choices could not be saved. Try again.',

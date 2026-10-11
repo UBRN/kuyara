@@ -32,8 +32,9 @@ metnidir.
 
 ## Kullanım analitiği
 
-kuyara, tanışma adımlarından sonra bir kez kullanım, performans ve tanılama verisi
-paylaşmak isteyip istemediğini sorar. Reddedersen aşağıda anlatılan nadir teknik durumlar
+kuyara, tanışma adımlarının sonunda bir kez kullanım, performans ve tanılama verisi
+paylaşmak isteyip istemediğini sorar (kuyara'yı bu soru orada sorulmadan önce kurduysan
+daha sonra uygulamada bir kez sorar). Reddedersen aşağıda anlatılan nadir teknik durumlar
 dışında bu veriler gönderilmez ve uygulama aynı şekilde çalışır. Ayrı Expo açılış istekleri devam eder.
 Kabul edersen kuyara şunları toplar:
 
@@ -70,7 +71,7 @@ olsa bir konum türetilmez.
 
 ## Performans ve tanılama
 
-Performans ve tanılama verisi, kuyara'nın tanışma adımlarından sonra kullanım analitiği için
+Performans ve tanılama verisi, kuyara'nın tanışma adımlarının sonunda kullanım analitiği için
 sorduğu aynı onay sorusuna bağlıdır. Normalde yalnızca kabul edersen gönderilir. Reddedersen
 yanıtından sonra, aşağıda anlatılan nadir teknik durumlar dışında yeni veri gönderilmez.
 Kabul edersen kuyara şunları gönderir:

@@ -367,12 +367,12 @@ test('live preferences and support propagate localized behavior without remounti
     'feature_used_first_time',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 4, setting_name: 'style_aesthetics' },
-    { schema_version: 4, setting_name: 'morning_sheet_enabled', new_value: false },
-    { schema_version: 4, setting_name: 'language', new_value: 'tr' },
-    { schema_version: 4, feature_name: 'language_override' },
-    { schema_version: 4, setting_name: 'appearance_theme', new_value: 'dark' },
-    { schema_version: 4, feature_name: 'appearance_override' },
+    { schema_version: 5, setting_name: 'style_aesthetics' },
+    { schema_version: 5, setting_name: 'morning_sheet_enabled', new_value: false },
+    { schema_version: 5, setting_name: 'language', new_value: 'tr' },
+    { schema_version: 5, feature_name: 'language_override' },
+    { schema_version: 5, setting_name: 'appearance_theme', new_value: 'dark' },
+    { schema_version: 5, feature_name: 'appearance_override' },
   ]);
   openURL.mockRestore();
   openPage.mockRestore();
@@ -438,10 +438,10 @@ test('temperature and wind unit choices store and reach the units every screen r
   await fireEvent(picker('temperature-unit'), 'selectionChange', 'system');
   await waitFor(() => expect(result.getByTestId('unit-probe')).toHaveTextContent('celsius milesPerHour'));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 4, setting_name: 'temperature_unit', new_value: 'fahrenheit' },
-    { schema_version: 4, setting_name: 'wind_speed_unit', new_value: 'mph' },
-    { schema_version: 4, setting_name: 'language', new_value: 'tr' },
-    { schema_version: 4, setting_name: 'temperature_unit', new_value: 'system' },
+    { schema_version: 5, setting_name: 'temperature_unit', new_value: 'fahrenheit' },
+    { schema_version: 5, setting_name: 'wind_speed_unit', new_value: 'mph' },
+    { schema_version: 5, setting_name: 'language', new_value: 'tr' },
+    { schema_version: 5, setting_name: 'temperature_unit', new_value: 'system' },
   ]);
 });
 
@@ -473,9 +473,9 @@ test('morning sheet, style and name changes report setting_changed and never the
 
   await waitFor(() => expect(analytics.captures).toHaveLength(3));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 4, setting_name: 'morning_sheet_enabled', new_value: false },
-    { schema_version: 4, setting_name: 'style_aesthetics' },
-    { schema_version: 4, setting_name: 'display_name' },
+    { schema_version: 5, setting_name: 'morning_sheet_enabled', new_value: false },
+    { schema_version: 5, setting_name: 'style_aesthetics' },
+    { schema_version: 5, setting_name: 'display_name' },
   ]);
   expect(JSON.stringify(analytics.captures)).not.toMatch(/classic|Deniz/);
 });
@@ -511,7 +511,7 @@ test('saving the same styles or the same name again reports nothing', async () =
   await fireEvent.press(result.getByTestId('settings-style-option-sporty'));
   await fireEvent.press(result.getByTestId('settings-style-done'));
   await waitFor(() => expect(analytics.captures).toHaveLength(1));
-  expect(analytics.captures[0].properties).toEqual({ schema_version: 4, setting_name: 'style_aesthetics' });
+  expect(analytics.captures[0].properties).toEqual({ schema_version: 5, setting_name: 'style_aesthetics' });
 });
 
 // A start that failed while iOS had the app in the background retries once when it returns.
@@ -633,9 +633,9 @@ test('personal preferences keep their order and birth date can be cleared to nul
     'setting_changed',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 4, setting_name: 'gender' },
-    { schema_version: 4, setting_name: 'dress_style', new_value: 'formal' },
-    { schema_version: 4, setting_name: 'birth_date' },
+    { schema_version: 5, setting_name: 'gender' },
+    { schema_version: 5, setting_name: 'dress_style', new_value: 'formal' },
+    { schema_version: 5, setting_name: 'birth_date' },
   ]);
 });
 

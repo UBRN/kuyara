@@ -71,30 +71,13 @@ tags:
 - assertVisible:
     id: onboarding-step-6
 - tapOn:
-    id: onboarding-complete
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-7
+- tapOn:
+    id: onboarding-consent-decline
 
 # The setup day counts as answered by onboarding, so no day-type sheet opens.
-
-# The first-recommendation analytics consent sheet (ADR 0033) is a genuine Stack.Screen push
-# (formSheet presentation), not an overlay drawn over Today: iOS excludes the presenting
-# screen's whole accessibility subtree (including `today-screen` and `today-generation-mode`)
-# from the tree Maestro reads for as long as any screen sits on top of it, however small or
-# partial it looks on screen. It cannot be asserted through. Waiting for the sheet's own
-# decline control therefore also waits for the recommendation to resolve (the sheet is gated
-# on a recommendation already being shown), and declining it is the only way to make Today's
-# own elements assertable again. Do not reorder this before the recommendation settles.
-- extendedWaitUntil:
-    visible:
-      id: "analytics-consent-decline"
-    timeout: 75000
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: "analytics-consent-screen"
-    commands:
-      - tapOn:
-          id: "analytics-consent-decline"
 
 # A fresh install meets the one-time walkthrough over Today (migration 22's gate); its overlay
 # hides Today's elements from the tree Maestro reads, so the flow skips it when it shows.
@@ -129,13 +112,13 @@ tags:
 # The deterministic fallback carries no badge at rest (ADR 0034 section 4), so the settled
 # observable is an outfit whose provenance line holds nothing but the freshness stamp: the
 # outfit is on screen and `today-generation-mode` does not exist. Either AI tier would
-# have put a badge there. The recommendation already resolved (see above), so this should
-# settle almost immediately.
+# have put a badge there. The timeout carries the documented 38 s worst-case chain wait plus
+# margin.
 # The archetype title sits inside the stage's single accessible button, so the tree exposes the
 # primary board rather than the title's own identifier.
 - extendedWaitUntil:
     visible:
       id: "today-primary-board-outfit:.*"
-    timeout: 10000
+    timeout: 75000
 - assertNotVisible:
     id: "today-generation-mode"

@@ -11,7 +11,7 @@ function exceptionEvent(line = 12) {
   return {
     event: '$exception',
     properties: {
-      schema_version: 4,
+      schema_version: 5,
       unapproved_custom: 'drop me',
       '$lib': 'posthog-react-native',
       '$lib_version': '4.68.4',

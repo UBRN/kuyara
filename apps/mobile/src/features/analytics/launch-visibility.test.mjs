@@ -116,3 +116,10 @@ test('a background launch counts no session until it is opened, then exactly one
 test('an uncounted launch never asks for consent', () => {
   assert.equal(sessionMayAskForConsent(null), false);
 });
+
+test('a launch whose session opens on onboarding is untimed, even after a metric was timed', () => {
+  const visibility = createLaunchVisibility(appStateStartingIn('active'));
+  assert.equal(visibility.isTimed(), true);
+  visibility.markUntimed();
+  assert.equal(visibility.isTimed(), false);
+});

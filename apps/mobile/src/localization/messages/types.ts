@@ -499,7 +499,6 @@ export type AppMessages = Readonly<{
     birthDateClearAction: string;
     locationTitle: string;
     locationBody: string;
-    completeAction: string;
     locationSkipAction: string;
     genderRequiredError: string;
     saveError: string;

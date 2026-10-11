@@ -31,8 +31,9 @@ This policy is the notice required by KVKK Article 10 and GDPR Article 13.
 
 ## Usage analytics
 
-kuyara asks once, after onboarding, whether you want to share usage, performance and
-diagnostic data. If you decline, none of this data is sent, apart from the rare technical
+kuyara asks once, as the last step of onboarding, whether you want to share usage,
+performance and diagnostic data (if you set kuyara up before onboarding asked it, kuyara asks
+once later in the app). If you decline, none of this data is sent, apart from the rare technical
 cases below, and the app works exactly the same. The separate Expo launch requests still
 run. If you accept, kuyara collects:
 
@@ -68,7 +69,7 @@ location, not even a city, is derived from it.
 
 ## Performance and diagnostics
 
-Performance and diagnostic data follows the same consent question kuyara asks after
+Performance and diagnostic data follows the same consent question kuyara asks at the end of
 onboarding for usage analytics. It is normally sent only if you accept. If you decline,
 none is sent after your answer, apart from the rare technical cases below. If you accept,
 kuyara sends:

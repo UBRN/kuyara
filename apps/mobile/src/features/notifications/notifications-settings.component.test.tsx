@@ -190,9 +190,9 @@ test('granting permission from the switch persists the opt-in flag and reports t
     'feature_used_first_time',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 4, setting_name: 'notifications_enabled', new_value: true },
-    { schema_version: 4, outcome: 'enabled' },
-    { schema_version: 4, feature_name: 'notifications' },
+    { schema_version: 5, setting_name: 'notifications_enabled', new_value: true },
+    { schema_version: 5, outcome: 'enabled' },
+    { schema_version: 5, feature_name: 'notifications' },
   ]);
 });
 
@@ -218,7 +218,7 @@ test('denied permission shows the hint, opens application settings, and reports 
   // permission outcome is reported, not `setting_changed`.
   await waitFor(() => expect(analytics.names()).toEqual(['notification_permission_resolved']));
   expect(analytics.captures[0].properties).toEqual({
-    schema_version: 4,
+    schema_version: 5,
     outcome: 'blocked',
     can_request_again: false,
   });
@@ -245,7 +245,7 @@ test('a tapped notification response is reported as notification_opened and open
 
   // Taxonomy 5.13: the tap is named by kind and by nothing else.
   const opened = analytics.captures.find((capture) => capture.name === 'notification_opened');
-  expect(opened?.properties).toEqual({ schema_version: 4, kind: 'morning_briefing' });
+  expect(opened?.properties).toEqual({ schema_version: 5, kind: 'morning_briefing' });
   expect(mockOpenTabRoot).toHaveBeenCalledWith('/');
 });
 
@@ -278,7 +278,7 @@ test('a tap that opens the app reports notification_opened once analytics is rea
     ready();
   });
   const opened = analytics.captures.filter((capture) => capture.name === 'notification_opened');
-  expect(opened.map((capture) => capture.properties)).toEqual([{ schema_version: 4, kind: 'weather_alert' }]);
+  expect(opened.map((capture) => capture.properties)).toEqual([{ schema_version: 5, kind: 'weather_alert' }]);
 });
 
 test('the morning briefing is its own row and reports the same events the alert row does', async () => {
@@ -305,9 +305,9 @@ test('the morning briefing is its own row and reports the same events the alert 
     'feature_used_first_time',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 4, setting_name: 'morning_briefing_enabled', new_value: true },
-    { schema_version: 4, outcome: 'enabled' },
-    { schema_version: 4, feature_name: 'notifications' },
+    { schema_version: 5, setting_name: 'morning_briefing_enabled', new_value: true },
+    { schema_version: 5, outcome: 'enabled' },
+    { schema_version: 5, feature_name: 'notifications' },
   ]);
 
   await act(async () => {
@@ -320,7 +320,7 @@ test('the morning briefing is its own row and reports the same events the alert 
 
   await waitFor(() => expect(analytics.captures).toHaveLength(4));
   expect(analytics.captures[3].properties).toEqual({
-    schema_version: 4,
+    schema_version: 5,
     setting_name: 'morning_briefing_enabled',
     new_value: false,
   });

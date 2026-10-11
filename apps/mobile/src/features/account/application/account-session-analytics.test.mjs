@@ -7,7 +7,7 @@ import { analyticsEventPropertyKeys } from '../../analytics/domain/analytics-eve
 
 const identity = { userId: 'user-a', provider: 'apple', email: 'ada@example.com', providers: ['apple'] };
 const given = { answer: 'given', textVersion: '2026-10-04', answeredAt: '2026-10-03T00:00:00.000Z' };
-const schema_version = 4;
+const schema_version = 5;
 
 function setup(over = {}) {
   const events = [];

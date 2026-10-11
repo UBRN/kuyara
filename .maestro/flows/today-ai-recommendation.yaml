@@ -61,43 +61,24 @@ tags:
 - assertVisible:
     id: onboarding-step-6
 - tapOn:
-    id: onboarding-complete
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-7
+- tapOn:
+    id: onboarding-consent-decline
 
 # The setup day counts as answered by onboarding, so no day-type sheet opens.
-
-# The first-recommendation analytics consent sheet (ADR 0033) is a genuine Stack.Screen push
-# (formSheet presentation), not an overlay drawn over Today: iOS excludes the presenting
-# screen's whole accessibility subtree (including `today-screen` and `today-generation-mode`)
-# from the tree Maestro reads for as long as any screen sits on top of it, however small or
-# partial it looks on screen. It cannot be asserted through. Waiting for the sheet's own
-# decline control therefore also waits for the recommendation to resolve (the sheet is gated
-# on a recommendation already being shown, whichever badge it turns out to carry), and
-# declining it is the only way to make Today's own elements assertable again. The timeout
-# here carries the documented 38 s worst-case chain wait plus margin; do not reorder this
-# before the recommendation settles.
-- extendedWaitUntil:
-    visible:
-      id: "analytics-consent-decline"
-    timeout: 75000
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: "analytics-consent-screen"
-    commands:
-      - tapOn:
-          id: "analytics-consent-decline"
 
 - assertVisible:
     id: today-screen
 
 # One of the two AI badges, on-device (named as Apple Intelligence, ADR 0034) or
-# AI-assisted (the Worker tier), and never the deterministic fallback. The recommendation
-# already resolved (see above), so this should settle almost immediately; if the run fell
-# all the way through to the deterministic fallback (an exhausted Worker quota) there is no
-# badge at all, so this assertion correctly fails rather than passing on the wrong tier.
+# AI-assisted (the Worker tier), and never the deterministic fallback. The timeout carries the
+# documented 38 s worst-case chain wait plus margin. If the run fell all the way through to the
+# deterministic fallback (an exhausted Worker quota) there is no badge at all, so this
+# assertion correctly fails rather than passing on the wrong tier.
 - extendedWaitUntil:
     visible:
       id: "today-provenance-badge"
       text: "(Recommendation source: kuyara chose this outfit with (Apple Intelligence|AI)|Öneri kaynağı: kuyara bu kombini (Apple Intelligence|AI) ile seçti)"
-    timeout: 10000
+    timeout: 75000

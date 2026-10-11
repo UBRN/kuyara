@@ -166,7 +166,7 @@ async function renderOnboarding(
 }
 
 // Welcome, then location, then the optional name and age on one step, then gender, dress
-// style and styles, which completes.
+// style, styles and the analytics consent question, whose answer completes.
 async function pressUntilStep(result: Awaited<ReturnType<typeof renderOnboarding>>['result'], step: number) {
   for (let current = 1; current < step; current += 1) {
     await fireEvent.press(result.getByTestId(current === 3 ? 'onboarding-name-skip' : 'onboarding-continue'));
@@ -210,16 +210,79 @@ test('gender and dress style are required and a null birth date completes honest
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-6')).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-style-option')).toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('onboarding-complete'));
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  expect(onComplete).not.toHaveBeenCalled();
+  await fireEvent.press(result.getByTestId('onboarding-consent-decline'));
   await waitFor(() => expect(onComplete).toHaveBeenCalledWith({
     displayName: null,
     gender: 'woman',
     dressStyle: 'formal',
     styleAesthetics: [],
     birthDate: null,
-  }));
+  }, 'withdrawn'));
 
   expect(analytics.captures).toEqual([]);
+});
+
+// ADR 0033 section 6: the last step is the one consent question. Accept is the primary action;
+// decline is the same-size action directly beneath it, one tap, never faded. Both answers
+// finish setup, and there is no way past the question that leaves it unanswered.
+test.each([
+  ['onboarding-consent-accept', 'granted'],
+  ['onboarding-consent-decline', 'withdrawn'],
+] as const)('the last step asks the consent question and %s finishes with %s', async (testID, answer) => {
+  const { analytics, onComplete, result } = await renderOnboarding('woman', null, 'smart');
+  await pressUntilStep(result, 7);
+  const copy = messages.en.analytics;
+
+  expect(result.getByRole('header', { name: copy.consentTitle })).toBeOnTheScreen();
+  expect(result.getByText(copy.consentBody)).toBeOnTheScreen();
+  expect(result.getByText(copy.consentSettingsBody)).toBeOnTheScreen();
+  expect(result.getByRole('progressbar').props.accessibilityValue).toMatchObject({ max: 7, now: 7 });
+  const actions = within(result.getByTestId('onboarding-actions'));
+  expect(actions.getAllByRole('button').map((button) => button.props.accessibilityLabel))
+    .toEqual([copy.acceptAction, copy.declineAction]);
+  expect(result.queryByTestId('onboarding-back')).toBeNull();
+  // The stacked pair stretches both to the full width.
+  expect(StyleSheet.flatten(result.getByTestId('onboarding-actions-row').props.style))
+    .toMatchObject({ alignItems: 'stretch', flexDirection: 'column' });
+  const accept = StyleSheet.flatten(result.getByTestId('onboarding-consent-accept').props.style);
+  const decline = StyleSheet.flatten(result.getByTestId('onboarding-consent-decline').props.style);
+  expect(accept).toMatchObject({ backgroundColor: lightTheme.colors.primaryFill });
+  expect(decline).toMatchObject({ backgroundColor: lightTheme.colors.surfaceInteractive });
+  expect(accept.width).toBeUndefined();
+  expect(decline.width).toBeUndefined();
+  expect(decline.minHeight).toBe(accept.minHeight);
+  expect(decline.opacity).toBe(accept.opacity);
+  // The settings sentence belongs to the body's group, `sm` from it, as on the Today sheet.
+  let group = result.getByText(copy.consentSettingsBody).parent;
+  while (group && within(group).queryByText(copy.consentBody) === null) group = group.parent;
+  expect(StyleSheet.flatten(group?.props.style)).toMatchObject({ gap: spacing.sm });
+
+  await fireEvent.press(result.getByTestId(testID));
+  await waitFor(() => expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
+    gender: 'woman',
+    dressStyle: 'smart',
+  }), answer));
+  // The screen only passes the answer on; nothing is captured here.
+  expect(analytics.captures).toEqual([]);
+});
+
+test.each([
+  ['onboarding-consent-accept', 'onboarding-consent-decline'],
+  ['onboarding-consent-decline', 'onboarding-consent-accept'],
+] as const)('while %s saves, it alone shows progress and the other keeps its look', async (pressed, other) => {
+  const onComplete = jest.fn(() => new Promise<undefined>(() => undefined));
+  const { result } = await renderOnboarding('woman', null, 'smart', onComplete);
+  await pressUntilStep(result, 7);
+  const otherStyle = StyleSheet.flatten(result.getByTestId(other).props.style);
+
+  await fireEvent.press(result.getByTestId(pressed));
+  expect(result.getByTestId(pressed).props.accessibilityState).toMatchObject({ busy: true });
+  expect(result.getByTestId(other).props.accessibilityState).toMatchObject({ busy: false, disabled: false });
+  expect(StyleSheet.flatten(result.getByTestId(other).props.style)).toEqual(otherStyle);
+  await fireEvent.press(result.getByTestId(other));
+  expect(onComplete).toHaveBeenCalledTimes(1);
 });
 
 test('a double tap on Continue, Not now or Back moves one step, so the location offer is never skipped', async () => {
@@ -274,11 +337,12 @@ test('Not now skips only the name and keeps the birth date chosen on the same st
   await fireEvent.press(result.getByTestId('onboarding-name-skip'));
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   await fireEvent.press(result.getByTestId('onboarding-continue'));
-  await fireEvent.press(result.getByTestId('onboarding-complete'));
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  await fireEvent.press(result.getByTestId('onboarding-consent-accept'));
   await waitFor(() => expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
     displayName: null,
     birthDate: '1994-03-14',
-  })));
+  }), 'granted'));
 });
 
 test('a new step\'s body and panel arrive while the title and progress stay still', async () => {
@@ -484,9 +548,9 @@ test('a chosen location turns the quiet location action into Continue and is rep
   await pressUntilStep(result, 2);
   expect(result.queryByText(messages.en.onboarding.locationSkipAction)).not.toBeOnTheScreen();
   expect(result.getByTestId('onboarding-location-skip')).toHaveTextContent(messages.en.common.continue);
-  await pressUntilStep(result, 6);
+  await pressUntilStep(result, 7);
   await fireEvent.press(result.getByRole('button', {
-    name: messages.en.onboarding.completeAction,
+    name: messages.en.analytics.acceptAction,
   }));
   await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
   // The place chosen in onboarding is not reported either: `location_changed` starts at Weather.
@@ -667,19 +731,22 @@ function pressHandlerOf(element: { unstable_fiber?: unknown }) {
   return fiber!.memoizedProps!.onPress as () => void;
 }
 
-test('Finish pressed twice in one frame saves once and announces no missing answer', async () => {
+test('an answer pressed twice in one frame, or both answers, saves once and announces no missing answer', async () => {
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
   const onComplete = jest.fn(() => new Promise<undefined>(() => undefined));
   const { result } = await renderOnboarding('woman', null, 'casual', onComplete);
-  await pressUntilStep(result, 6);
+  await pressUntilStep(result, 7);
   announce.mockClear();
 
-  const press = pressHandlerOf(result.getByTestId('onboarding-complete'));
+  const decline = pressHandlerOf(result.getByTestId('onboarding-consent-decline'));
+  const accept = pressHandlerOf(result.getByTestId('onboarding-consent-accept'));
   await act(async () => {
-    press();
-    press();
+    decline();
+    decline();
+    accept();
   });
   expect(onComplete).toHaveBeenCalledTimes(1);
+  expect(onComplete).toHaveBeenCalledWith(expect.anything(), 'withdrawn');
   expect(announce).not.toHaveBeenCalledWith(messages.en.onboarding.dressStyleRequiredError);
   expect(announce).not.toHaveBeenCalledWith(messages.en.onboarding.genderRequiredError);
   announce.mockRestore();

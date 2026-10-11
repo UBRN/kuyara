@@ -7,8 +7,9 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 ## Current State
 
 - **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 30)
-  provide a six-step onboarding flow (welcome, optional location, optional name and birth
-  date on one step, gender, dress style, style preferences); three primary tabs, Today, Weather and Profile, drawn by Expo
+  provide a seven-step onboarding flow (welcome, optional location, optional name and birth
+  date on one step, gender, dress style, style preferences, then the analytics consent
+  question); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
   Closet photos; Turkish and English; System/Light/Dark appearance; and semantic haptics
   at the nine sites the design language names. The minimum supported iOS is 26.0.
@@ -108,11 +109,12 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   Notifications surface. Pending notifications survive a cold launch and the tap that
   launched the app is delivered. No server, no push.
 - **Analytics:** the `ProductAnalytics` boundary, typed thirty-two-event catalog,
-  error-episode and retry trackers, consent-gated PostHog adapter, Today consent
-  sheet and Settings Privacy surface are implemented. Consent is profile-owned in schema
-  version 12; absent configuration uses the no-op adapter (a logging adapter in
-  development). The sheet cannot be swiped away, so accepting and declining are its only
-  exits, and withdrawal clears the SDK's persisted queue and holds the opt-out through the
+  error-episode and retry trackers, consent-gated PostHog adapter, the consent question as
+  onboarding's last step, the Today consent sheet for a profile that finished onboarding
+  unanswered, and the Settings Privacy surface are implemented. Consent is profile-owned in
+  schema version 12; absent configuration uses the no-op adapter (a logging adapter in
+  development). Accepting and declining are the only exits from the question, in onboarding
+  and on the sheet, which cannot be swiped away, and withdrawal clears the SDK's persisted queue and holds the opt-out through the
   reset. The taxonomy's feature call sites are in place, so every
   approved event is emittable except `error_shown` on the `settings` surface, which has
   no failure classification to observe yet. The account events (`account_sign_in_finished`,
@@ -121,8 +123,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   asks "Do you like this outfit?" under "Wore this today" while sharing is on, for the three
   recommended outfits as kuyara picked them: two thumbs, and four optional reasons after a
   dislike, reported as `outfit_rated` and `outfit_rating_reason_given` and kept only while the
-  app runs. Onboarding runs before the consent question
-  and reports nothing; downloads, first sessions and retention before consent come from App
+  app runs. Onboarding's steps run before its last step, the consent question,
+  and report nothing; downloads, onboarding and retention before consent come from App
   Store Connect App Analytics. EAS Observe runs
   alongside it as separate observability instrumentation: its own
   `PerformanceTelemetry` port and single `expo-observe` adapter, launch-time configuration

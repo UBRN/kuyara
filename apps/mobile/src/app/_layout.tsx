@@ -80,7 +80,8 @@ configureObserveTelemetry({
 // A session is one app process the person has seen. A foreground launch is counted here, once,
 // before the first render; one iOS started in the background for the weather-alert task is
 // counted when it is first opened, and never if nobody opens it.
-// ADR 0033 section 6: the consent sheet is asked for from the second session onwards.
+// ADR 0033 section 6: the Today consent sheet, for a profile that finished onboarding with the
+// question unanswered, is asked for from the second session onwards.
 const launchSession = createLaunchSession(launchVisibility, countLaunchedSession);
 // The analytics client is built only then too: the SDK captures an app open as it is built.
 const launchSeen = new Promise<void>((resolve) => launchVisibility.onSeen(resolve));

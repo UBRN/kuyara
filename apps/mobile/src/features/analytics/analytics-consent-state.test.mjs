@@ -110,7 +110,7 @@ function adapterOn(consent) {
     analytics,
     client,
     sent,
-    send: () => beforeSend({ event: 'screen_viewed', properties: { schema_version: 4 } }),
+    send: () => beforeSend({ event: 'screen_viewed', properties: { schema_version: 5 } }),
   };
 }
 
@@ -119,7 +119,7 @@ test('nothing is captured or sent while consent is undecided or declined', async
     analyticsConsentState.set(consent);
     const { analytics, client } = adapterOn(consent);
     await analytics.whenReady();
-    analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
+    analytics.capture('notification_opened', { schema_version: 5, kind: 'weather_alert' });
     await analytics.flush();
     assert.deepEqual(client.captures, []);
     assert.equal(analytics.getIdentifier(), null);
@@ -131,13 +131,13 @@ test('the shared value closes capture, before-send, flush and identifier in the 
   const { analytics, client, send } = adapterOn('granted');
   await analytics.whenReady();
 
-  analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
+  analytics.capture('notification_opened', { schema_version: 5, kind: 'weather_alert' });
   assert.deepEqual(client.captures, ['notification_opened']);
   assert.notEqual(send(), null);
   assert.equal(analytics.getIdentifier(), 'identifier');
 
   analyticsConsentState.set('withdrawn');
-  analytics.capture('notification_opened', { schema_version: 4, kind: 'weather_alert' });
+  analytics.capture('notification_opened', { schema_version: 5, kind: 'weather_alert' });
   await analytics.flush();
   assert.deepEqual(client.captures, ['notification_opened']);
   assert.equal(send(), null);
