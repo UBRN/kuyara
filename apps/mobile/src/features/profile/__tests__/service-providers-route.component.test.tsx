@@ -44,10 +44,11 @@ const ankara = { locationKey: 'ankara', timeZone: 'Europe/Istanbul' };
 async function renderRoute(
   analytics: RecordingProductAnalytics,
   sourceId?: string,
-  activeLocation: typeof istanbul = istanbul,
+  activeLocation: Readonly<{ locationKey: string; timeZone: string; source?: string }> = istanbul,
+  snapshotLocation: Readonly<{ locationKey: string; timeZone: string }> = istanbul,
 ) {
   const weather = sourceId ? {
-    state: { status: 'ready', activeLocation, snapshot: { ...istanbul, origin: { sourceId } } },
+    state: { status: 'ready', activeLocation, snapshot: { ...snapshotLocation, origin: { sourceId } } },
   } as unknown as WeatherApplicationValue : null;
   return render(
     <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
@@ -96,6 +97,20 @@ test('credits no provider while the snapshot shown belongs to the previous place
   const result = await renderRoute(new RecordingProductAnalytics(), 'open-meteo', ankara);
   expect(result.getByText(messages.en.settings.weatherNoSnapshot)).toBeOnTheScreen();
   expect(result.queryByRole('link')).toBeNull();
+});
+
+// The device moved into a neighbouring cell whose weather has not landed: the Weather screen
+// keeps drawing the last cell's reading, so its provider is credited here too.
+test('credits the provider of the neighbouring device cell the Weather screen shows', async () => {
+  mockCheck = jest.fn(async () => null);
+  const result = await renderRoute(
+    new RecordingProductAnalytics(),
+    'open-meteo',
+    { source: 'device', locationKey: 'device:4101:2899', timeZone: 'Europe/Istanbul' },
+    { locationKey: 'device:4101:2898', timeZone: 'Europe/Istanbul' },
+  );
+  expect(result.getByRole('link', { name: messages.en.weather.attributionOpenMeteo })).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.settings.weatherNoSnapshot)).toBeNull();
 });
 
 test('a completed probe reports the result and the first use', async () => {

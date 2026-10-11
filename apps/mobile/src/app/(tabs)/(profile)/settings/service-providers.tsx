@@ -11,7 +11,7 @@ import { RecommendationApplicationContext } from '@/features/recommendation/appl
 import { useAiProbe } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import { WeatherApplicationContext } from '@/features/weather/application/weather-application-context';
-import { activeLocationSnapshot } from '@/features/weather/domain/weather';
+import { showsSnapshotForLocation } from '@/features/weather/domain/weather';
 import { WeatherAttribution, weatherAttributionLink } from '@/features/weather/presentation/weather-attribution';
 import { useMessages } from '@/localization/use-messages';
 
@@ -29,10 +29,12 @@ export default function ServiceProvidersRoute() {
     recommendation?.state.status === 'ready'
       ? recommendation.state.snapshot?.recommendation.generationMode ?? null
       : null;
-  // Only the active place's forecast is credited: during a place switch the previous place's
-  // snapshot is still held, and its provider may not be the one the new place comes from.
-  const sourceId = weather?.state.status === 'ready'
-    ? activeLocationSnapshot(weather.state.snapshot, weather.state.activeLocation)?.origin.sourceId
+  // The forecast the Weather screen shows is the one credited, through the same rule: during a
+  // place switch the previous place's snapshot is held back, and a neighbouring device cell's
+  // last reading is shown and so credited.
+  const weatherState = weather?.state.status === 'ready' ? weather.state : null;
+  const sourceId = weatherState?.snapshot && showsSnapshotForLocation(weatherState.snapshot, weatherState.activeLocation)
+    ? weatherState.snapshot.origin.sourceId
     : null;
   const weatherSourceLink = sourceId ? weatherAttributionLink(sourceId, messages.weather) : null;
   const weatherAttribution = sourceId && weatherSourceLink ? <WeatherAttribution landed={landed} sourceId={sourceId} /> : null;
