@@ -65,10 +65,11 @@ test('a cold day puts a warm outer layer and closed footwear on every preview', 
   });
 });
 
-test('a rainy day draws a rain shell and rain boots', () => {
+test('a rainy day draws a rain shell and waterproof boots', () => {
   each((gender, style) => {
     const ids = garments(outfit(rain, gender, style));
-    assert.ok(ids.includes('rain_jacket') && ids.includes('rain_boots'), `${gender} ${style}`);
+    assert.ok(['rain_jacket', 'parka'].some((shell) => ids.includes(shell)) &&
+      ['rain_boots', 'weather_boots'].some((boots) => ids.includes(boots)), `${gender} ${style}`);
   });
 });
 

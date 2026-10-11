@@ -6,13 +6,14 @@ import {
 } from '@/features/recommendation/domain/outfit-evaluation';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import {
+  assignedOutfitGarments,
   formalityOrder,
   garmentIdSet,
   garmentIdSetOf,
   type OutfitCandidate,
   type OutfitPin,
 } from '@/features/recommendation/domain/outfit-model';
-import { bodyOutfitSlots } from '@/features/recommendation/domain/outfit-slots';
+import { bodyOutfitSlots, type BodyOutfitSlot } from '@/features/recommendation/domain/outfit-slots';
 
 // What is offered from the sorted valid drafts: the order that spreads formalities, body
 // cores and layers, the diversity rule, the pins and the recent-wear exclusion.
@@ -249,4 +250,76 @@ export function excludeRecentlyWornOutfits(
     if (remaining.length >= 3 || active === 0) return Object.freeze(remaining);
   }
   return outfits;
+}
+
+/** How far below the first shown outfit the other two may score. */
+const shownBandPoints = 5;
+
+/** How much sharing one slot's garment costs: a shared coat shows more than a shared mid layer. */
+const slotWeights: Readonly<Record<BodyOutfitSlot, number>> = Object.freeze({
+  primary_top: 2,
+  bottom: 2,
+  one_piece: 3,
+  mid_layer: 1,
+  outer_layer: 3,
+  footwear: 2,
+});
+
+/**
+ * What an outfit wears slot by slot. An empty layer is a choice too, so two outfits that both
+ * go without a jacket share that slot; otherwise the bare arrangement, which has nothing to
+ * share, would always be the one taken.
+ */
+function slotTypes(outfit: OutfitCandidate): ReadonlyMap<BodyOutfitSlot, string> {
+  return new Map<BodyOutfitSlot, string>([
+    ['mid_layer', 'none'],
+    ['outer_layer', 'none'],
+    ...assignedOutfitGarments(outfit).map(({ slot, garment }) =>
+      [slot as BodyOutfitSlot, garment.garmentTypeId] as const),
+  ]);
+}
+
+/** The weight of the slots two outfits fill with the same garment type. */
+function sharedWeight(left: ReadonlyMap<BodyOutfitSlot, string>, right: ReadonlyMap<BodyOutfitSlot, string>): number {
+  let weight = 0;
+  for (const [slot, type] of left) if (right.get(slot) === type) weight += slotWeights[slot];
+  return weight;
+}
+
+/**
+ * Today's three, read from the dress style's order. The first stays its first outfit; the
+ * other two come from its own group, each the one sharing the fewest garments slot by slot with
+ * those already taken, so three loafers outfits under one rain jacket give way to three that
+ * differ in shoes, outer layer and bottom. A candidate scores within five points of the first
+ * or is one of the two the order itself would show next, so the pick is never worse than the
+ * order's and a mild day keeps the layered outfit the offer alternates in. The rest keep their
+ * order behind them, for the labels to fall back on.
+ */
+export function orderForShownThree<Outfit extends OutfitCandidate>(
+  ordered: readonly Outfit[],
+  groupOf: (outfit: Outfit) => string,
+): readonly Outfit[] {
+  const [first] = ordered;
+  if (first === undefined) return ordered;
+  const group = groupOf(first);
+  const slots = new Map(ordered.map((outfit) => [outfit, slotTypes(outfit)]));
+  const taken = [first];
+  while (taken.length < 3) {
+    let next: Outfit | undefined;
+    let fewest = Number.POSITIVE_INFINITY;
+    for (const outfit of ordered) {
+      if (
+        taken.includes(outfit) || groupOf(outfit) !== group ||
+        (outfit.score < first.score - shownBandPoints && ordered.indexOf(outfit) > 2)
+      ) continue;
+      const shared = taken.reduce((sum, pick) => sum + sharedWeight(slots.get(outfit)!, slots.get(pick)!), 0);
+      if (shared < fewest) {
+        next = outfit;
+        fewest = shared;
+      }
+    }
+    if (next === undefined) break;
+    taken.push(next);
+  }
+  return Object.freeze([...taken, ...ordered.filter((outfit) => !taken.includes(outfit))]);
 }

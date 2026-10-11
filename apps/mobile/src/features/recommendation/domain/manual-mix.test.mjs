@@ -50,7 +50,13 @@ function nth(snapshot, preference, index) {
 const layered = nth(day(3, 'rain', 0.9), 'womens', 1);
 // A one-piece pick (a dress under a light jacket) and a warm day whose blazer nothing needs.
 const dressed = nth(day(20, 'clear', 0), 'womens', 1);
-const warmBlazer = nth(day(26, 'clear', 0), 'womens', 1);
+const warmBlazer = (() => {
+  const snapshot = day(26, 'clear', 0);
+  const result = recommendOutfits({ snapshot, now: snapshot.current.observedAt, clothingPreference: 'womens', dayVariant: 0 });
+  const outfit = result.outfits.find(({ outerLayer }) => outerLayer?.garment.garmentTypeId === 'blazer');
+  assert.ok(outfit, 'a warm day shows no blazer');
+  return { outfit, requirements: result.requirements };
+})();
 
 test('every slot lists the catalog pieces that fit it, weather-suitable first, the current piece included', () => {
   for (const { outfit, requirements, preference } of [
@@ -303,5 +309,5 @@ test('the drawn pieces of every recommended outfit stay byte-identical across we
     }
   }
   assert.ok(onePieces > 0, 'the sample covers a one-piece outfit');
-  assert.equal(hash.digest('hex'), '22ffdc0ba3224905519e14aa7d0974a400f33415dece183604e2a2c598b30d0e');
+  assert.equal(hash.digest('hex'), 'b140119553d69dfdb41e5ca1a16cddea1371ab5333d6c07225cab8b4149f92f0');
 });

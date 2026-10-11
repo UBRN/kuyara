@@ -989,3 +989,36 @@ test('the same weather a week later offers other outfits under the same day vari
   assert.equal(new Set(weeks.map((ids) => ids.join())).size, 4);
   assert.deepEqual(offered('2026-03-05'), weeks[0]);
 });
+
+// The three shown outfits used to be the first three that took distinct labels, so they
+// often wore one pair of shoes, one bottom or one outer layer between them. The two after the
+// first now come from the first's own band and formality, each sharing as few garments with
+// those already taken as it can. Over 216 trios (both cuts, three styles, dry and rainy, -4 to
+// 26 C, three days) the trios in one shoe were 109, in one bottom 94 and in one outer layer
+// 139; these are ceilings a later change has to walk past on purpose.
+test('the three shown outfits spread their shoes, bottoms and outer layers across the day\'s best', () => {
+  const counts = { shoe: 0, bottom: 0, outer: 0 };
+  const type = (assigned) => assigned?.garment.garmentTypeId ?? null;
+  for (const clothingPreference of ['womens', 'mens']) {
+    for (const dressStyle of ['casual', 'smart', 'formal']) {
+      for (const [condition, precipitationProbability] of [['clear', 0], ['rain', 0.8]]) {
+        for (const temperatureCelsius of [-4, 2, 8, 14, 20, 26]) {
+          for (const localDayKey of ['2026-08-01', '2026-08-02', '2026-08-03']) {
+            const { outfits } = recommendOutfits({
+              snapshot: snapshot({ current: { temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius,
+                condition, precipitationProbability } }),
+              now: observedAt, clothingPreference, dressStyle, dayVariant: 0, localDayKey,
+            });
+            const one = (slot) => new Set(outfits.map(slot)).size === 1;
+            if (one(({ footwear }) => type(footwear))) counts.shoe += 1;
+            if (one(({ body }) => type(body.kind === 'separates' ? body.bottom : body.onePiece))) counts.bottom += 1;
+            if (outfits.every(({ outerLayer }) => outerLayer) && one(({ outerLayer }) => type(outerLayer))) counts.outer += 1;
+          }
+        }
+      }
+    }
+  }
+  assert.ok(counts.shoe <= 80, `${counts.shoe} trios in one shoe`);
+  assert.ok(counts.bottom <= 66, `${counts.bottom} trios in one bottom`);
+  assert.ok(counts.outer <= 116, `${counts.outer} trios in one outer layer`);
+});

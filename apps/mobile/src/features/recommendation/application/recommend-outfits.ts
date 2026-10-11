@@ -28,6 +28,7 @@ import {
   type OutfitCompositionFailure,
   type OutfitCompositionsResult,
 } from '@/features/recommendation/domain/outfit-composition';
+import { orderForShownThree } from '@/features/recommendation/domain/outfit-offer';
 import {
   deriveClothingRequirements,
   type ClothingRequirements,
@@ -331,6 +332,27 @@ export function orderByDressStyle(
 }
 
 /**
+ * The order Today's three are labelled from: the dress style's order, with the two after its
+ * first taken from the first's own formality and style affinity to share as few garments with
+ * it as the day's best allows.
+ */
+export function orderForShown(
+  outfits: readonly OutfitCandidate[],
+  input: Readonly<{
+    dressStyle?: DressStyle;
+    styleAesthetics?: readonly StyleAesthetic[];
+    dayKind?: DayKind;
+  }>,
+  requirements: ClothingRequirements,
+): readonly OutfitCandidate[] {
+  const day = archetypeDayFromRequirements(requirements.requirements);
+  const affinity = (outfit: OutfitCandidate) => aestheticAffinity(outfit, input.styleAesthetics ?? [],
+    (option, id) => outfitMatchesArchetype(option, id, input.dayKind, day));
+  return orderForShownThree(orderByDressStyle(outfits, input, requirements),
+    (outfit) => `${outfit.formality}|${affinity(outfit)}`);
+}
+
+/**
  * The outfits in at least one of the chosen styles (an archetype they match carries it), in
  * the order those styles and the dress style give all outfits. Onboarding's styles step draws
  * from it, so a style tap shows an outfit in that style even where the formality order keeps
@@ -369,7 +391,7 @@ export function recommendOutfits(
         generationMode: 'deterministic-fallback',
         requirements,
         outfits: assignFallbackArchetypes(
-          orderByDressStyle(availableOutfits, input, requirements),
+          orderForShown(availableOutfits, input, requirements),
           requirements,
           Math.min(3, availableOutfits.length),
           input.dayKind,
