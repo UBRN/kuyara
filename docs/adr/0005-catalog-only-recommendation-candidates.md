@@ -8,7 +8,7 @@ schema version 7 shipped; the local day variant is `localDayVariant()` in
 trigger and carried into the Worker cache key.
 
 The current AI job is selection and labeling of precomposed outfits, with a
-seven-slot day variant, as decided in
+seven-slot day variant and an unbounded composition seed, as decided in
 [ADR 0007](0007-ai-selects-precomposed-outfits.md). The current catalog has 49
 types at version 6, as decided in
 [ADR 0013](0013-catalog-content-corrections-and-version-3.md).
@@ -56,9 +56,11 @@ records; no row is discarded.
 ### 3. Daily variation and cache identity
 
 Recommendation input includes a `dayVariant`, defined as the local date's day
-count from 31 December 2025 modulo 7. Within one local day, the result is stable and cacheable. Consecutive
-local days produce different outfits from the same weather; unchanged buckets
-may recur weekly.
+count from 31 December 2025 modulo 7, and the dressing-day key whose unbounded
+day count seeds composition. Within one local day, the result is stable and
+cacheable. Consecutive local days, and the same weekday a week later, produce
+different outfits from the same weather wherever the day's best band holds more
+than one.
 
 Recommendation cache identity is weather snapshot identity, clothing
 preference, dress style, catalog version, and day variant.
@@ -93,7 +95,7 @@ existing row and defaults existing entries to `owned`.
 - A user can receive the product's main recommendation without first building a
   Wardrobe.
 - Every user with the same clothing preference, dress style, weather, catalog
-  version, and day variant is offered the same options. The deterministic three
+  version, and dressing day is offered the same options. The deterministic three
   also lean away from the pieces that user was shown the day before, and History
   excludes recently worn outfits ([ADR 0038](0038-outfit-history.md)); nothing
   else about the user reorders them, so the product is not personalized.
