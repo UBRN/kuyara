@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
@@ -85,14 +85,20 @@ type PieceEditSheetProps = Readonly<{
  * new record. Closet data never reaches a recommendation.
  */
 export function PieceEditSheet({ target, onDismiss, ...rest }: PieceEditSheetProps) {
+  // A save in flight holds the sheet open: neither Close nor the swipe drops its error line or
+  // a photo it is still committing.
+  const [saving, setSaving] = useState(false);
   return (
-    <NativeSheet onDismiss={onDismiss} testID="piece-edit-sheet" visible={target !== null}>
+    <NativeSheet dismissible={!saving} onDismiss={onDismiss} testID="piece-edit-sheet"
+      visible={target !== null}>
       {target ? (
         // Phase 8: the tour lights this sheet and rings its Close.
         <TourSheetScope>
           <PieceEditForm
             key={`${target.garmentTypeId}:${target.match.kind === 'none' ? '' : target.match.item.id}`}
             onDismiss={onDismiss}
+            saving={saving}
+            setSaving={setSaving}
             target={target}
             {...rest}
           />
@@ -109,7 +115,13 @@ function PieceEditForm({
   onSelectPhoto,
   onDiscardStagedPhoto,
   resolvePhotoUri,
-}: Omit<PieceEditSheetProps, 'target'> & Readonly<{ target: PieceSheetTarget }>) {
+  saving,
+  setSaving,
+}: Omit<PieceEditSheetProps, 'target'> & Readonly<{
+  target: PieceSheetTarget;
+  saving: boolean;
+  setSaving: Dispatch<SetStateAction<boolean>>;
+}>) {
   const messages = useMessages();
   const copy = messages.wardrobe;
   const theme = useKuyaraTheme();
@@ -122,7 +134,6 @@ function PieceEditForm({
   );
   const [colorChoice, setColorChoice] = useState<ClosetColorChoice | null>(record?.colorChoice ?? null);
   // Saving spins Done; choosing a photo only holds the controls, as nothing is being saved.
-  const [saving, setSaving] = useState(false);
   const [picking, setPicking] = useState(false);
   const busy = saving || picking;
   const [saveError, setSaveError] = useState(false);
@@ -165,7 +176,8 @@ function PieceEditForm({
       : { entryState, colorFamily, photoChange })
       // The record now owns a committed photo, so the unmount must not discard it.
       .then(commitPhoto)
-      .catch(() => { setSaveError(true); setSaving(false); });
+      .catch(() => setSaveError(true))
+      .finally(() => setSaving(false));
   };
   const removePhoto = () => {
     setPhotoError(false);
@@ -180,8 +192,8 @@ function PieceEditForm({
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.head}>
         <TourTarget activate={onDismiss} id="sheet-close" label={messages.today.dailyStyle.close}>
-          <GlassButton kind="close" label={messages.today.dailyStyle.close} onPress={onDismiss}
-            testID="piece-edit-close" />
+          <GlassButton disabled={saving} kind="close" label={messages.today.dailyStyle.close}
+            onPress={onDismiss} testID="piece-edit-close" />
         </TourTarget>
         <AppText accessibilityRole="header" style={styles.title} variant="bodyStrong">
           {record ? copy.pieceSheetEditTitle : copy.pieceSheetAddTitle}

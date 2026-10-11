@@ -38,7 +38,9 @@ export type GlassButtonProps = Readonly<{
   testID?: string;
 }> & (
   | Readonly<{ kind: 'bar'; icon: IconName }>
-  | Readonly<{ kind: 'back' | 'close' }>
+  | Readonly<{ kind: 'back' }>
+  // A sheet's close holds while the sheet's save is in flight.
+  | Readonly<{ kind: 'close'; disabled?: boolean }>
   // A sheet's prominent glass checkmark (O14 name editor A): the tint fills it.
   | Readonly<{ kind: 'confirm'; disabled?: boolean }>
 );
@@ -97,6 +99,7 @@ export function GlassButton(props: GlassButtonProps) {
       tint(theme.colors.brandPrimary),
       nativeAccessibilityLabel(label),
       ...(accessibilityHint ? [nativeAccessibilityHint(accessibilityHint)] : []),
+      ...(props.kind === 'close' && props.disabled ? [nativeDisabled(true)] : []),
     ];
     const height = layout.minimumTouchTarget * Math.max(1, fontScale);
 
@@ -153,6 +156,7 @@ export function GlassButton(props: GlassButtonProps) {
     <IconButton
       accessibilityHint={accessibilityHint}
       accessibilityLabel={label}
+      disabled={props.disabled}
       icon="close"
       onPress={onPress}
       raised

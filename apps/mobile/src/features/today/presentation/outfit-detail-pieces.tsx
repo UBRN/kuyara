@@ -45,8 +45,9 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 const SWATCH_DOT_SIZE = 16;
 
 /**
- * The empty Closet's one tap: the pieces go in as owned, in the colours drawn here, through
- * the Closet's own create path. Gone once the Closet holds anything.
+ * The empty Closet's one tap: the pieces go in as owned or wanted, as the person answers, in
+ * the colours drawn here, through the Closet's own create path. Gone once the Closet holds
+ * anything.
  */
 export function OutfitDetailClosetSeed({
   closetSeed,

@@ -33,8 +33,11 @@ jest.mock('expo-symbols', () => {
 jest.mock('@expo/ui/community/bottom-sheet', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const { View } = jest.requireActual('react-native') as typeof import('react-native');
-  return { BottomSheet: ({ children, index }: { children: React.ReactNode; index: number }) =>
-    index >= 0 ? React.createElement(View, null, children) : null };
+  return { BottomSheet: ({ children, enablePanDownToClose, index }: {
+    children: React.ReactNode; enablePanDownToClose?: boolean; index: number;
+  }) => index >= 0
+    ? React.createElement(View, { testID: 'native-bottom-sheet', ...{ enablePanDownToClose } }, children)
+    : null };
 });
 
 // The system colour well is the `components/ui` wrapper's business (its own suite drives the
@@ -504,4 +507,35 @@ test('Remove photo clears an earlier photo error', async () => {
   expect(await result.findByText(messages.en.wardrobe.photoError)).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('piece-edit-photo-remove'));
   expect(result.queryByText(messages.en.wardrobe.photoError)).toBeNull();
+});
+
+// A save in flight holds the sheet open, as the Closet's form holds its Cancel: Close and the
+// swipe wait for it, so a failure is shown and a new photo is never dropped mid-save.
+test('neither Close nor the swipe dismisses the sheet while a save is in flight', async () => {
+  let fail: (error: Error) => void = () => undefined;
+  const onSave = jest.fn(() => new Promise<void>((_resolve, reject) => { fail = reject; }));
+  const onDismiss = jest.fn();
+  const result = await render(
+    <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext value={lightTheme}>
+        <PieceEditSheet onDiscardStagedPhoto={jest.fn(async () => undefined)} onDismiss={onDismiss}
+          onSave={onSave} onSelectPhoto={jest.fn(async () => null)} resolvePhotoUri={() => null}
+          target={ownedTarget} />
+      </KuyaraThemeContext>
+    </LocalizationContext>,
+  );
+  expect(result.getByTestId('native-bottom-sheet')).toHaveProp('enablePanDownToClose', true);
+
+  await fireEvent.press(result.getByTestId('piece-edit-done'));
+  expect(onSave).toHaveBeenCalledTimes(1);
+  expect(result.getByTestId('native-bottom-sheet')).toHaveProp('enablePanDownToClose', false);
+  expect(result.getByTestId('piece-edit-close')).toBeDisabled();
+  await fireEvent.press(result.getByTestId('piece-edit-close'));
+  expect(onDismiss).not.toHaveBeenCalled();
+
+  await act(async () => { fail(new Error('database failed')); });
+  expect(result.getByTestId('piece-edit-error')).toHaveTextContent(messages.en.wardrobe.updateError);
+  expect(result.getByTestId('native-bottom-sheet')).toHaveProp('enablePanDownToClose', true);
+  await fireEvent.press(result.getByTestId('piece-edit-close'));
+  expect(onDismiss).toHaveBeenCalledTimes(1);
 });
