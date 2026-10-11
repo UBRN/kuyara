@@ -98,6 +98,22 @@
         </div>
       </section>
 
+      {%- comment -%}
+        The Closet as the app's Profile draws it: the open rack, hung with a sample of pieces
+        owned and wanted, generated with the boards.
+      {%- endcomment %}
+      <section class="ku-band" aria-labelledby="ku-closet-title">
+        <div class="ku-shell ku-rise ku-closet">
+          <div class="ku-closet__words">
+            <h2 class="ku-title-large" id="ku-closet-title">{{ page.closet_title }}</h2>
+            <p class="ku-body ku-secondary">{{ page.closet_line }}</p>
+          </div>
+          <div class="ku-closet__art">
+            {% include generated/closet.html label=page.closet_art %}
+          </div>
+        </div>
+      </section>
+
       <section class="ku-band" aria-labelledby="ku-cta-title">
         <div class="ku-shell ku-rise ku-cta">
           <h2 class="ku-title-large" id="ku-cta-title">{{ page.close_title }}</h2>

@@ -151,11 +151,123 @@ test('lead time rejects 59 minutes and accepts exactly 60 and 61 minutes for bot
   }
 });
 
-test('a first crossing with insufficient lead never falls through to a later crossing', () => {
+test('a first crossing with insufficient lead falls through only to a swing still 8 degrees from its delivery reading', () => {
+  // The rain at 08:59 is too close to announce, and precipitation never moves on to a later
+  // hour. The 10:00 swing is measured from what 09:00, its delivery moment, will feel like.
   assert.deepEqual(plan(snapshot({ hourly: [
     hour('2026-09-09T08:59:00.000Z', { condition: 'rain', apparentTemperatureCelsius: 12 }),
     hour(crossingAt, { condition: 'snow', apparentTemperatureCelsius: 28 }),
+  ] })).map(({ ruleId, fireAt, detail }) => ({ ruleId, fireAt, detail })), [{
+    ruleId: 'temperature_swing',
+    fireAt: '2026-09-09T09:00:00.000Z',
+    detail: { kind: 'temperature', direction: 'rise', fromApparentCelsius: 12, toApparentCelsius: 28 },
+  }]);
+  assert.deepEqual(plan(snapshot({ hourly: [
+    hour('2026-09-09T08:59:00.000Z', { condition: 'rain', apparentTemperatureCelsius: 12 }),
+    hour(crossingAt, { condition: 'snow', apparentTemperatureCelsius: 19 }),
   ] })), []);
+});
+
+/** One hourly reading per hour from `start`. */
+function hourlySeries(start, apparentTemperatures) {
+  return apparentTemperatures.map((apparentTemperatureCelsius, index) => hour(
+    new Date(Date.parse(start) + index * 60 * 60_000).toISOString(),
+    { apparentTemperatureCelsius },
+  ));
+}
+
+function openedAt(clock, current, hourly) {
+  return plan(snapshot({
+    fetchedAt: clock,
+    current: { observedAt: clock, ...measurements({ apparentTemperatureCelsius: current }) },
+    hourly,
+  }), { now: clock });
+}
+
+test('a gradual drop is planned the same from every open before it begins and fires before it starts', () => {
+  // 20 until 11:00, then 2.5 degrees an hour down to 10 at 15:00. The first hour 8 degrees
+  // below 20 is 15:00; at 14:00, its usual fire time, it already feels 12.5, so the alert
+  // moves to the last minute that still feels 20. Every open up to then plans the same alert,
+  // so an open during the drop finds it delivered instead of cancelling it.
+  const hourly = hourlySeries('2026-09-09T09:00:00.000Z', [20, 20, 20, 17.5, 15, 12.5, 10, 10]);
+  const expected = [{
+    id: `temperature_swing:${locationKey}:2026-09-09`,
+    ruleId: 'temperature_swing',
+    locationKey,
+    crossingAt: '2026-09-09T15:00:00.000Z',
+    fireAt: '2026-09-09T11:59:00.000Z',
+    detail: { kind: 'temperature', direction: 'drop', fromApparentCelsius: 20, toApparentCelsius: 10 },
+  }];
+  for (const clock of [
+    '2026-09-09T08:00:00.000Z',
+    '2026-09-09T09:30:00.000Z',
+    '2026-09-09T10:10:00.000Z',
+    '2026-09-09T11:00:00.000Z',
+    '2026-09-09T11:40:00.000Z',
+  ]) {
+    assert.deepEqual(openedAt(clock, 20, hourly), expected, clock);
+  }
+  // Once the drop is under way, no hour is 8 degrees from the felt temperature any more.
+  assert.deepEqual(openedAt('2026-09-09T12:10:00.000Z', 17.5, hourly), []);
+});
+
+test('a swing is never planned for a moment that already feels within 8 degrees of the crossing hour', () => {
+  // A slow warm-up from 10 at 07:15: 13:00 is the first hour 8 degrees warmer, but at 12:00,
+  // its usual fire time, it already feels 17.5. The alert moves to the last minute that still
+  // feels 10, and an open after that hour plans nothing.
+  const hourly = hourlySeries('2026-09-09T08:00:00.000Z', [11.5, 13, 14.5, 16, 17.5, 18.5, 19]);
+  assert.deepEqual(openedAt('2026-09-09T07:15:00.000Z', 10, hourly)
+    .map(({ crossingAt: at, fireAt, detail }) => ({ at, fireAt, detail })), [{
+    at: '2026-09-09T13:00:00.000Z',
+    fireAt: '2026-09-09T07:59:00.000Z',
+    detail: { kind: 'temperature', direction: 'rise', fromApparentCelsius: 10, toApparentCelsius: 18.5 },
+  }]);
+  assert.deepEqual(openedAt('2026-09-09T08:15:00.000Z', 11.5, hourly), []);
+});
+
+test('a swing moved earlier than 18:00 keeps the evening identity of its crossing', () => {
+  // The drop to 13 at 22:00 is 8 degrees only from the afternoon's 22, so it is announced in
+  // the last minute of 17:00, under the evening id the replan after 18:00 finds delivered.
+  const hourly = hourlySeries('2026-09-09T13:00:00.000Z', [22, 22, 22, 22, 22, 19, 17, 16, 15, 13]);
+  assert.deepEqual(openedAt('2026-09-09T12:00:00.000Z', 22, hourly)
+    .map(({ id, crossingAt: at, fireAt }) => ({ id, at, fireAt })), [{
+    id: `temperature_swing:${locationKey}:2026-09-09:evening`,
+    at: '2026-09-09T22:00:00.000Z',
+    fireAt: '2026-09-09T17:59:00.000Z',
+  }]);
+});
+
+test('a delivered swing is not announced again from the readings before it under the evening id', () => {
+  // The 12:00 drop was announced at 11:00. At 11:10 the evening hours still stand 8 degrees
+  // below 11:00's reading, but that is the same drop, so nothing more is planned.
+  const hourly = hourlySeries('2026-09-09T12:00:00.000Z', [12, 12, 12, 12, 12, 12, 12, 12]);
+  assert.deepEqual(plan(snapshot({
+    fetchedAt: '2026-09-09T11:10:00.000Z',
+    current: { observedAt: '2026-09-09T11:10:00.000Z', ...measurements() },
+    hourly,
+  }), {
+    now: '2026-09-09T11:10:00.000Z',
+    deliveredAlertIds: new Set([`temperature_swing:${locationKey}:2026-09-09`]),
+  }), []);
+});
+
+test('a warm-up is planned the same whether the day was first opened before dawn or after waking', () => {
+  // The night low falls in quiet hours, when no alert arrives, so it is never a delivery
+  // reading: both opens measure the afternoon from 07:00, the first hour an alert may arrive in.
+  const hourly = hourlySeries('2026-09-09T04:00:00.000Z',
+    [9, 9.5, 10.5, 12, 13.5, 15, 16.5, 18, 19.2, 20.2, 20.8, 21, 20.8]);
+  const afterWaking = openedAt('2026-09-09T07:15:00.000Z', 12, hourly);
+  assert.deepEqual(afterWaking.map(({ crossingAt: at, fireAt }) => ({ at, fireAt })), [{
+    at: '2026-09-09T13:00:00.000Z',
+    fireAt: '2026-09-09T07:59:00.000Z',
+  }]);
+  assert.deepEqual(openedAt('2026-09-09T04:10:00.000Z', 9, hourly), afterWaking);
+  // A warm-up never 8 degrees above any hour an alert may arrive in plans nothing for either.
+  const milder = hourlySeries('2026-09-09T04:00:00.000Z',
+    [9, 9.5, 10.5, 12.5, 13.5, 15, 16.5, 18, 19, 20, 20.4, 20.4, 20.3]);
+  for (const [clock, current] of [['2026-09-09T04:10:00.000Z', 9], ['2026-09-09T07:15:00.000Z', 12.5]]) {
+    assert.deepEqual(openedAt(clock, current, milder), [], clock);
+  }
 });
 
 test('past and exactly-now hours are excluded, and an empty remainder has no daily-extrema fallback', () => {

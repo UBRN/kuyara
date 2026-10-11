@@ -337,6 +337,22 @@
   to { opacity: 1; }
 }
 
+/* --------------------------------------------------------------- the closet */
+
+/* The Closet's words beside its rack from 720 CSS pixels up, stacked on a phone. The rack
+   stands on the page, as it does on Profile, so it needs no plate. */
+.ku-closet { display: grid; gap: var(--ku-space-lg); align-items: center; }
+.ku-closet__words { display: grid; gap: var(--ku-space-sm); max-width: 30em; }
+.ku-closet__words h2,
+.ku-closet__words p { margin: 0; }
+.ku-closet__art { width: 100%; max-width: 520px; }
+.ku-rack { display: block; width: 100%; height: auto; }
+
+@media (min-width: 720px) {
+  .ku-closet { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+  .ku-closet__art { justify-self: end; }
+}
+
 /* ------------------------------------------------------------- the closing band */
 
 .ku-cta { display: grid; gap: var(--ku-space-md); justify-items: start; }

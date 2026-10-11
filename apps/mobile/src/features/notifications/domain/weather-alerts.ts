@@ -99,11 +99,7 @@ export function planWeatherAlerts(input: Readonly<{
   const remainingHours = forecastHoursAhead(snapshot.hourly, now, dayWindow);
   const plans: WeatherAlertPlan[] = [];
 
-  function addPlan(
-    ruleId: WeatherAlertRuleId,
-    crossing: HourlyWeather,
-    detail: WeatherAlertPlan['detail'],
-  ): void {
+  function identity(ruleId: WeatherAlertRuleId, crossing: HourlyWeather): string {
     // One alert per rule per location per dressing-day window. A day-period key is the bare
     // local date, byte-identical to every id already in the delivery ledger, so nothing that
     // has fired re-fires after the update; the evening keeps a namespace of its own.
@@ -111,15 +107,17 @@ export function planWeatherAlerts(input: Readonly<{
     // midnight, so a 19:00 crossing planned at 10:00 already wears the evening namespace and
     // the replan after 18:00 finds it in the ledger instead of announcing it a second time.
     const crossingKey = wardrobeDayWindow(crossing.forecastAt, snapshot.timeZone)?.key ?? windowKey;
-    const id = `${ruleId}:${snapshot.locationKey}:${crossingKey}`;
-    const crossingAt = Date.parse(crossing.forecastAt);
+    return `${ruleId}:${snapshot.locationKey}:${crossingKey}`;
+  }
+
+  /** The lead's fire time for a crossing past quiet hours, or null when it has none. */
+  function leadFireAt(crossingAt: number): number | null {
     const leadTimeMinutes = crossingAt - now < weatherAlertLeadTimeMinutes * minuteMilliseconds
       ? shortenedLeadTimeMinutes
       : weatherAlertLeadTimeMinutes;
     const originalFireAt = crossingAt - leadTimeMinutes * minuteMilliseconds;
-    if (deliveredAlertIds.has(id) || originalFireAt < now) return;
-
-    const fireAt = adjustForQuietHours(
+    if (originalFireAt < now) return null;
+    return adjustForQuietHours(
       originalFireAt,
       // A lead shorter than the 30-minute budget leaves no room to move, so the budget
       // never pushes an alert later than the lead already puts it.
@@ -129,38 +127,85 @@ export function planWeatherAlerts(input: Readonly<{
       ),
       quietHours,
     );
-    if (fireAt === null) return;
+  }
 
+  function addPlan(
+    ruleId: WeatherAlertRuleId,
+    crossing: HourlyWeather,
+    fireAt: number,
+    detail: WeatherAlertPlan['detail'],
+  ): void {
     plans.push(Object.freeze({
-      id,
+      id: identity(ruleId, crossing),
       ruleId,
       locationKey: snapshot.locationKey,
-      crossingAt: new Date(crossingAt).toISOString(),
+      crossingAt: new Date(Date.parse(crossing.forecastAt)).toISOString(),
       fireAt: new Date(fireAt).toISOString(),
       detail: Object.freeze(detail),
     }));
   }
 
   const precipitationCrossing = remainingHours.find(isWetMeasurement);
-  if (!isWetMeasurement(snapshot.current) && precipitationCrossing) {
-    addPlan('precipitation_onset', precipitationCrossing, {
-      kind: 'precipitation',
-      form: ['sleet', 'snow'].includes(precipitationCrossing.condition) ? 'snow' : 'rain',
-    });
+  if (!isWetMeasurement(snapshot.current) && precipitationCrossing
+    && !deliveredAlertIds.has(identity('precipitation_onset', precipitationCrossing))) {
+    const fireAt = leadFireAt(Date.parse(precipitationCrossing.forecastAt));
+    if (fireAt !== null) {
+      addPlan('precipitation_onset', precipitationCrossing, fireAt, {
+        kind: 'precipitation',
+        form: ['sleet', 'snow'].includes(precipitationCrossing.condition) ? 'snow' : 'rain',
+      });
+    }
   }
 
-  const fromApparentCelsius = snapshot.current.apparentTemperatureCelsius;
-  const temperatureCrossing = remainingHours.find(({ apparentTemperatureCelsius }) =>
-    Math.abs(apparentTemperatureCelsius - fromApparentCelsius) >= temperatureSwingCelsius,
-  );
-  if (temperatureCrossing) {
-    const toApparentCelsius = temperatureCrossing.apparentTemperatureCelsius;
-    addPlan('temperature_swing', temperatureCrossing, {
+  // The felt temperature through the window: the current reading until the first remaining
+  // hour, then each hour's own reading for the sixty minutes it covers.
+  const feltFrom = [
+    { start: now, apparentCelsius: snapshot.current.apparentTemperatureCelsius },
+    ...remainingHours.map(({ forecastAt, apparentTemperatureCelsius }) => ({
+      start: Date.parse(forecastAt),
+      apparentCelsius: apparentTemperatureCelsius,
+    })),
+  ];
+
+  /**
+   * ADR 0032 section 1: a swing is measured from the felt temperature at the moment its alert
+   * arrives, a fixed forecast reading that does not move with the time the app is opened. The
+   * lead's fire time is kept while that moment still feels 8 °C away from the crossing hour;
+   * otherwise the alert moves to the last minute of the latest earlier hour outside quiet hours
+   * that does, and is not planned when no such minute is left.
+   */
+  function swingDelivery(crossing: HourlyWeather): Readonly<{ fireAt: number; apparentCelsius: number }> | null {
+    const latest = leadFireAt(Date.parse(crossing.forecastAt));
+    if (latest === null) return null;
+    for (let index = feltFrom.length - 1; index >= 0; index -= 1) {
+      const { start, apparentCelsius } = feltFrom[index];
+      if (start > latest) continue;
+      const next = feltFrom[index + 1]?.start;
+      const fireAt = next === undefined || next > latest
+        ? latest
+        : Math.floor((next - 1) / minuteMilliseconds) * minuteMilliseconds;
+      if (fireAt < start
+        || Math.abs(crossing.apparentTemperatureCelsius - apparentCelsius) < temperatureSwingCelsius
+        || adjustForQuietHours(fireAt, fireAt, quietHours) !== fireAt) continue;
+      return { fireAt, apparentCelsius };
+    }
+    return null;
+  }
+
+  for (const crossing of remainingHours) {
+    // Once a window's swing is announced, a later hour measured from the readings before it
+    // would announce the same change again, so the search stops at the first such hour.
+    if (deliveredAlertIds.has(identity('temperature_swing', crossing))) break;
+    const delivery = swingDelivery(crossing);
+    if (delivery === null) continue;
+    const toApparentCelsius = crossing.apparentTemperatureCelsius;
+    addPlan('temperature_swing', crossing, delivery.fireAt, {
       kind: 'temperature',
-      direction: toApparentCelsius < fromApparentCelsius ? 'drop' : 'rise',
-      fromApparentCelsius,
+      direction: toApparentCelsius < delivery.apparentCelsius ? 'drop' : 'rise',
+      fromApparentCelsius: delivery.apparentCelsius,
       toApparentCelsius,
     });
+    break;
   }
 
   return Object.freeze(plans.sort((left, right) => Date.parse(left.fireAt) - Date.parse(right.fireAt)));

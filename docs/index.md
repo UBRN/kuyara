@@ -27,6 +27,10 @@ scenes:
   snow:
     name: First snow
 
+closet_title: Your Closet, all in one place.
+closet_line: "Add the pieces you own and the ones you’ve got your eye on, with a photo if you like. Open any outfit and you’ll see which of its pieces you already have."
+closet_art: A full clothes rack with hats and scarves on its hooks, coats, tops and a dress on the upper rail, jeans, trousers and skirts below, and shoes along its shelf.
+
 close_title: Tomorrow morning, it’s ready for you.
 badge_file: /assets/img/badges/app-store-badge-en.svg
 badge_alt: Download on the App Store
