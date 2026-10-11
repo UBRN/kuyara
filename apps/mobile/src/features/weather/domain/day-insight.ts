@@ -1,7 +1,8 @@
-import type {
-  HourlyWeather,
-  WeatherConditionCode,
-  WeatherSnapshot,
+import {
+  readingForNow,
+  type HourlyWeather,
+  type WeatherConditionCode,
+  type WeatherSnapshot,
 } from '@/features/weather/domain/weather';
 import {
   forecastHoursAhead,
@@ -182,7 +183,7 @@ export function findDayInsight(input: Readonly<{
     const form = precipitationForm(hours[firstWet].condition);
     // The forecast series starts at the next full hour, so a wet first hour only means "already
     // falling" when the current condition is wet too; a dry now makes it the hour rain begins.
-    const fallingNow = firstWet === 0 && isWetMeasurement(snapshot.current);
+    const fallingNow = firstWet === 0 && isWetMeasurement(readingForNow(snapshot, input.now));
     if (fallingNow && firstDryAfter === -1) return { kind: 'wet_all_day', form, period };
     return {
       kind: 'wet_window',

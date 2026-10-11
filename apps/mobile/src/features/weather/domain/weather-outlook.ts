@@ -1,4 +1,4 @@
-import type { WeatherSnapshot } from '@/features/weather/domain/weather';
+import { readingForNow, type WeatherSnapshot } from '@/features/weather/domain/weather';
 import {
   forecastHoursAhead,
   wardrobeDayWindow,
@@ -56,16 +56,19 @@ export function findWeatherOutlook(input: Readonly<{
   // decision they are making now.
   const remainingHours = forecastHoursAhead(snapshot.hourly, now, dayWindow);
 
-  const isWetNow = isWetMeasurement(snapshot.current);
+  // A stale snapshot's observation is hours old, so the hour now falls in speaks for the
+  // present; the transitions below are measured against what is true now, not at fetch time.
+  const reading = readingForNow(snapshot, input.now);
+  const isWetNow = isWetMeasurement(reading);
   // Easing claims precipitation is falling right now and will stop, and only the condition
   // code can establish the present tense. A likely-enough probability over a dry condition is
   // a forecast, which is the onset sentence's job; a day that is merely likely to be wet has
   // no precipitation transition to name, so the temperature or steady line takes the slot.
-  const precipitationCrossing = isWetNow && !isWetCondition(snapshot.current.condition)
+  const precipitationCrossing = isWetNow && !isWetCondition(reading.condition)
     ? undefined
     : remainingHours.find((hour) => isWetMeasurement(hour) !== isWetNow);
 
-  const fromApparentCelsius = snapshot.current.apparentTemperatureCelsius;
+  const fromApparentCelsius = reading.apparentTemperatureCelsius;
   const temperatureCrossing = remainingHours.find(({ apparentTemperatureCelsius }) =>
     Math.abs(apparentTemperatureCelsius - fromApparentCelsius) >= temperatureSwingCelsius,
   );
@@ -80,7 +83,7 @@ export function findWeatherOutlook(input: Readonly<{
       kind: isWetNow ? 'precipitation_easing' : 'precipitation_onset',
       // Onset names the weather arriving, easing the weather leaving.
       form: ['sleet', 'snow'].includes(
-        isWetNow ? snapshot.current.condition : precipitationCrossing.condition,
+        isWetNow ? reading.condition : precipitationCrossing.condition,
       ) ? 'snow' : 'rain',
       atHour: precipitationCrossing.forecastAt,
     };

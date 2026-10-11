@@ -1,6 +1,7 @@
 import { locationDisplayNameSchema, manualLocationIdSchema } from '@kuyara/contracts';
 
 import { isValidTimeZone } from '@/domain/intl-format';
+import { forecastHourHasNotEnded } from '@/features/weather/domain/wardrobe-day';
 
 export const weatherConditionCodes = [
   'clear',
@@ -206,6 +207,22 @@ export function weatherFreshness(
   }
 
   return current - fetched <= weatherFreshnessWindowMilliseconds ? 'fresh' : 'stale';
+}
+
+/**
+ * The reading that stands for "now" when a rule looks ahead from it. While the snapshot is
+ * fresh that is the observed `current`. Once it is stale the observation describes an earlier
+ * moment, so the forecast hour that contains `now` (it starts at or before `now` and ends after
+ * it) speaks for the present instead; without such an hour the observation is all there is.
+ * Display surfaces that show the observation with its stale label do not use this.
+ */
+export function readingForNow(snapshot: WeatherSnapshot, now: string): WeatherMeasurements {
+  if (weatherFreshness(snapshot.fetchedAt, now) !== 'stale') return snapshot.current;
+  const instant = Date.parse(now);
+  return snapshot.hourly.find(({ forecastAt }) => {
+    const start = Date.parse(forecastAt);
+    return start <= instant && forecastHourHasNotEnded(start, instant);
+  }) ?? snapshot.current;
 }
 
 /**

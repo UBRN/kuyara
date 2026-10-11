@@ -302,3 +302,15 @@ test('the projection is pure and leaves its input alone', () => {
 test('an hour starting exactly at now is behind the day, as it is for the alert planner', () => {
   assert.deepEqual(find(dayHours({ 8: wet })), { kind: 'clear_all_day', modifier: null, period: 'day' });
 });
+
+test('a stale snapshot judges whether it is falling now from the hour now falls in', () => {
+  // Rain was falling at the 08:00 fetch; at 13:00 local the current hour is dry and rain
+  // begins at 14:00, so the run has a beginning to name.
+  const at = utcHour(13);
+  assert.deepEqual(find(dayHours({ 14: wet, 15: wet }), at, wetNow), {
+    kind: 'wet_window',
+    form: 'rain',
+    fromHour: utcHour(14),
+    untilHour: utcHour(16),
+  });
+});
