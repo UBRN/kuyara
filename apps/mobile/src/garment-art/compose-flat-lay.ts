@@ -8,9 +8,9 @@ import {
   type DrawnExtent,
 } from './compose-garment-board';
 
-// Today's primary stage and its tiles lay the outfit out as a flat lay (garment-board.md
-// section 10): the worn board's pieces, at the worn board's sizes, side by side and crossing as
-// they would on a table. Every other board keeps the worn board.
+// Today's primary stage, its tiles and the detail board lay the outfit out as a flat lay
+// (garment-board.md section 10): the worn board's pieces, at the worn board's sizes, side by side
+// and crossing as they would on a table. Every other board keeps the worn board.
 export const flatLayPreset = {
   // The most of a piece's drawn box the pieces in front of it may cover.
   cover: 0.30,
@@ -27,7 +27,8 @@ export const flatLayPreset = {
   // Each crossing is tried at whole steps of 1/`steps`, from full to none.
   steps: 20,
   // The stage's margins in points: off each side, and the vertical margin in all. The band
-  // reaches both screen edges; a tile keeps the spacing ladder's, which hold the piece shadow.
+  // reaches both screen edges; a tile and the detail board keep the spacing ladder's, which hold
+  // the piece shadow.
   band: { side: 24, vertical: 52 },
   tile: { side: spacing.md, vertical: 2 * spacing.lg },
   // The core's widest piece at most, in points.
@@ -266,4 +267,14 @@ export function fitTodayStage(
   const scale = Math.max(0, Math.min((width - 2 * side) / extent.w, (max - vertical) / extent.h, coreCap / coreWidth));
   const height = Math.min(max, Math.max(todayPreset.stageMin * width, extent.h * scale + vertical));
   return { scale, height };
+}
+
+/**
+ * The detail board (ADR 0026 section 1): the flat lay fitted to the detail column as a tile is,
+ * and never drawn larger than its own composition draws it, one stage width per unit, so every
+ * piece keeps the detail preset's size where the column has room and an enlarged piece has room
+ * to grow beside the others.
+ */
+export function fitDetailStage(extent: DrawnExtent, width: number, coreWidth: number) {
+  return fitTodayStage(extent, width, coreWidth, coreWidth * width, flatLayPreset.tile);
 }

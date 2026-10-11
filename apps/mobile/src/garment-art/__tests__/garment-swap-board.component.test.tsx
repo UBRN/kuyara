@@ -7,7 +7,7 @@ import * as Reanimated from 'react-native-reanimated';
 
 import { flatLayStack } from '@/garment-art/compose-flat-lay';
 import {
-  composePieces,
+  composeDetailBoard,
   entranceStartBoxes,
   measureGarmentBoardHeight,
   type GarmentBoardPiece,
@@ -603,9 +603,9 @@ const tintOf = (result: Awaited<ReturnType<typeof render>>) => {
   return StyleSheet.flatten(tint.props.style) as Record<string, unknown>;
 };
 
-// ADR 0026 section 7: the pieces keep the band's stacking until they are at rest, so a piece
-// still overlapping its neighbour near the end of the travel never pops in front of it.
-test.each([320, 393, 440])('a %i-point entrance keeps the band\'s stacking until the pieces rest', async (screen) => {
+// ADR 0026 section 7: the band and the detail are both flat lays, so the pieces keep the band's
+// stacking through the travel and at rest, and a crossing piece never pops in front of another.
+test.each([320, 393, 440])('a %i-point entrance keeps the band\'s stacking through the travel and at rest', async (screen) => {
   const landings: ((finished: boolean) => void)[] = [];
   const springs = jest.spyOn(Reanimated, 'withSpring').mockImplementation(((to: number, _config: unknown,
     landed?: (finished: boolean) => void) => {
@@ -619,12 +619,11 @@ test.each([320, 393, 440])('a %i-point entrance keeps the band\'s stacking until
   try {
     const result = await render(<GarmentSwapBoard {...bandEntrance(screen)} />, { wrapper: LightTheme });
     const flat = flatLayStack.filter((slot) => topBottomShoes.some((piece) => piece.slot === slot));
-    const dressing = composePieces(topBottomShoes, 'detail', 'womens').stack.map(({ slot }) => slot);
-    expect(dressing).not.toEqual(flat);
+    expect(composeDetailBoard(topBottomShoes, screen - 2 * spacing.lg, 'womens').stack.map(({ slot }) => slot)).toEqual(flat);
     // Past nine tenths of the travel the captions may follow, but the stacking holds.
     expect(drawnSlots(result)).toEqual(flat);
     await act(async () => { for (const landed of landings) landed(true); });
-    expect(drawnSlots(result)).toEqual(dressing);
+    expect(drawnSlots(result)).toEqual(flat);
   } finally {
     reactions.mockRestore();
     springs.mockRestore();
@@ -634,7 +633,7 @@ test.each([320, 393, 440])('a %i-point entrance keeps the band\'s stacking until
 // The first frame is the band: its tint stands the band's height, then settles to the board's.
 test.each([320, 393])('a %i-point entrance\'s first tint stands the band\'s height', async (screen) => {
   const band = measureGarmentBoardHeight(topBottomShoes, screen, 'today', 'womens', true);
-  const detail = composePieces(topBottomShoes, 'detail', 'womens').stageHeight * (screen - 2 * spacing.lg);
+  const detail = composeDetailBoard(topBottomShoes, screen - 2 * spacing.lg, 'womens').stageHeight * (screen - 2 * spacing.lg);
   const landings: ((finished: boolean) => void)[] = [];
   const springs = jest.spyOn(Reanimated, 'withSpring').mockImplementation(((to: number, _config: unknown,
     landed?: (finished: boolean) => void) => {
@@ -655,17 +654,18 @@ test.each([320, 393])('a %i-point entrance\'s first tint stands the band\'s heig
 
 // An opening the band never drew keeps Today's fitted stage: the pieces leave from the fitted
 // composition at the board's own width, the tint has the stage's corners and the board's height,
-// and the pieces lie in the dressing order from the first frame.
+// and the pieces lie in the flat lay's stacking from the first frame.
 test('an entrance without a band leaves from the fitted stage', async () => {
   const width = 358;
   const held = jest.spyOn(Reanimated, 'withSpring').mockImplementation(((_to: number) => 0) as never);
   try {
     const result = await render(<GarmentSwapBoard {...bandEntrance(width + 2 * spacing.lg)}
       entrance={{ fromStageColor: lightTheme.atmosphere.fallingDay, fromWidth: null }} />, { wrapper: LightTheme });
-    expect(drawnSlots(result)).toEqual(composePieces(topBottomShoes, 'detail', 'womens').stack.map(({ slot }) => slot));
+    const detail = composeDetailBoard(topBottomShoes, width, 'womens');
+    expect(drawnSlots(result)).toEqual(detail.stack.map(({ slot }) => slot));
     expect(tintOf(result)).toMatchObject({
       borderRadius: lightTheme.radii.stage,
-      height: expect.closeTo(composePieces(topBottomShoes, 'detail', 'womens').stageHeight * width, 3),
+      height: expect.closeTo(detail.stageHeight * width, 3),
     });
     const fitted = entranceStartBoxes(topBottomShoes, width, 'today', 'womens', true);
     const drawing = result.getByTestId('garment-swap-board-drawing-footwear-closed_shoes');
@@ -682,7 +682,7 @@ test('an entrance without a band leaves from the fitted stage', async () => {
 
 // The board's contract with its owner: what each touch and each screen-reader action asks for.
 const restBoxOf = (slot: 'one_piece' | 'footwear') => {
-  const composed = composePieces(pieces, 'detail', 'womens');
+  const composed = composeDetailBoard(pieces, 358, 'womens');
   const piece = composed.order.find((candidate) => candidate.slot === slot)!;
   const box = composed.boxes.get(piece)!;
   return { x: (box.x + box.w / 2) * 358, y: (box.y + box.h / 2) * 358 };
@@ -706,6 +706,27 @@ test('a tap on a piece enlarges it, a tap on the enlarged piece settles it, and 
   await act(async () => tap(left + width / 2, top + height / 2));
   expect(onFocusChange).toHaveBeenLastCalledWith(null);
   expect(onFocusChange).toHaveBeenCalledTimes(3);
+});
+
+// ADR 0026 section 6: the detail lies flat, the bottom beside the top crossing under its hem. An
+// enlarged piece grows in place and the others step back beside it, clear of it, never under it.
+test('an enlarged piece grows in place and the others step back beside it', async () => {
+  const props = bandEntrance(393);
+  const frame = (result: Awaited<ReturnType<typeof render>>, slot: string) =>
+    StyleSheet.flatten(result.getByTestId(`garment-swap-board-piece-${slot}`).props.style);
+  const result = await render(<GarmentSwapBoard {...props} />, { wrapper: LightTheme });
+  const restTop = frame(result, 'primary_top');
+  const restBottom = frame(result, 'bottom');
+  // At rest the bottom lies beside the top, its waist under the top's hem.
+  expect(restBottom.left).toBeLessThan(restTop.left + restTop.width);
+  expect(restBottom.top).toBeLessThan(restTop.top + restTop.height);
+  for (const [slot, other] of [['primary_top', 'bottom'], ['bottom', 'primary_top']] as const) {
+    await result.rerender(<GarmentSwapBoard {...props} candidates={{ [slot]: [] }} focusedSlot={slot} />);
+    const grown = frame(result, slot);
+    const back = frame(result, other);
+    if (slot === 'primary_top') expect(back.left).toBeGreaterThanOrEqual(grown.left + grown.width + spacing.sm - 1e-6);
+    else expect(back.left + back.width).toBeLessThanOrEqual(grown.left - spacing.sm + 1e-6);
+  }
 });
 
 test('enlarging a piece asks its owner once to bring the strip into view, under the grown piece', async () => {
@@ -788,6 +809,22 @@ test('the colour row paints the enlarged piece and opens every colour in place',
 
   await result.rerender(<GarmentSwapBoard {...boardProps({ focusedSlot: 'footwear' })} />);
   expect(result.queryByTestId('garment-swap-board-strip-colors')).toBeNull();
+});
+
+// "More colours" opens below the strip and the page scrolls for it: the enlarged board never
+// composes narrower or moves for the taller panel, even where the open panel would not fit.
+test('opening every colour leaves the enlarged board where it was', async () => {
+  const props = boardProps({ onPaint: jest.fn(), focusedSlot: 'footwear', visibleHeight: 520 });
+  const result = await render(<GarmentSwapBoard {...props} />, { wrapper: LightTheme });
+  const frames = () => (['one_piece', 'footwear'] as const).map((slot) =>
+    StyleSheet.flatten(result.getByTestId(`garment-swap-board-piece-${slot}`).props.style));
+  const plate = () => StyleSheet.flatten(result.getByTestId('garment-swap-board-plate').props.style).height;
+  const before = frames();
+  const stage = plate();
+  await fireEvent.press(result.getByTestId('garment-swap-board-strip-more-colors'));
+  expect(within(result.getByTestId('garment-swap-board-strip-colors')).queryAllByRole('radio')).toHaveLength(33);
+  expect(frames()).toEqual(before);
+  expect(plate()).toBe(stage);
 });
 
 // "Yours": the reader's own pieces of the slot, each a button naming the piece and its colour,

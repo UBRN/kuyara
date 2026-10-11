@@ -43,7 +43,7 @@ export function swapTouchBox(box: SwapBox, minimum: number): SwapBox {
 }
 
 /**
- * The piece a tap names on the worn board, whose pieces overlap (ADR 0026 section 3). The pieces come
+ * The piece a tap names on the detail board, whose pieces overlap (ADR 0026 section 3). The pieces come
  * in the order the board draws them, back to front. A name button under the board names its
  * piece; on the board the tap goes to the piece drawn on top where it lands, as the eye sees
  * it, and only a tap on no drawn box goes to the nearest piece whose touch box holds it.
@@ -103,23 +103,73 @@ export type SwapCandidateLayout = Readonly<{
 }>;
 
 /**
+ * Where the stepped-back pieces stand while `grown` is enlarged on a board whose pieces cross:
+ * the pieces on each side of its centre move out together, keeping their places among
+ * themselves, just far enough that every piece it would reach clears it by `spacing.sm`; then
+ * the whole board, the grown piece with it, shifts only as far as keeps it `side` off the stage's
+ * edges, and the grown piece a touch target off them, room for its chevron. It `fits` where it
+ * is no wider than the stage less those margins.
+ */
+export function swapAside(grown: SwapBox, steppedBack: readonly SwapBox[], stageWidth: number, side: number) {
+  const centre = grown.x + grown.w / 2;
+  const onRight = (box: SwapBox) => box.x + box.w / 2 >= centre;
+  let right = 0;
+  let left = 0;
+  for (const box of steppedBack) {
+    if (apart(grown, box, spacing.sm)) continue;
+    if (onRight(box)) right = Math.max(right, grown.x + grown.w + spacing.sm - box.x);
+    else left = Math.max(left, box.x + box.w + spacing.sm - grown.x);
+  }
+  const moved = steppedBack.map((box) => ({ ...box, x: box.x + (onRight(box) ? right : -left) }));
+  const pad = layout.minimumTouchTarget - side;
+  const low = Math.min(grown.x - pad, ...moved.map((box) => box.x));
+  const high = Math.max(grown.x + grown.w + pad, ...moved.map((box) => box.x + box.w));
+  const shift = low < side ? side - low : high > stageWidth - side ? stageWidth - side - high : 0;
+  return {
+    grown: { ...grown, x: grown.x + shift },
+    others: moved.map((box) => ({ ...box, x: box.x + shift })),
+    fits: high - low <= stageWidth - 2 * side + 1e-9,
+  };
+}
+
+const growFits = ({ box, others, stageWidth, stageHeight }: SwapCandidateLayout, scale: number, side: number) =>
+  swapAside(swapGrownBox(box, scale, stageWidth, stageHeight),
+    others.map((other) => swapScaledBox(other, SWAP_STEP_BACK)), stageWidth, side).fits;
+
+/**
  * The slot's grow scale for one enlargement: the largest scale in 0.01 steps up to
  * `SWAP_GROW_MAX` at which every candidate, composed with the rest of the outfit and grown on
- * its stage, clears every stepped-back piece by `spacing.sm`; never under `SWAP_GROW_MIN`.
+ * its stage, has its stepped-back pieces fit beside it (`swapAside`); never under `SWAP_GROW_MIN`.
  */
-export function swapGrowScale(layouts: readonly SwapCandidateLayout[]): number {
+export function swapGrowScale(layouts: readonly SwapCandidateLayout[], side: number): number {
   let fit = SWAP_GROW_MAX;
-  for (const { box, others, stageWidth, stageHeight } of layouts) {
-    const back = others.map((other) => swapScaledBox(other, SWAP_STEP_BACK));
+  for (const layout of layouts) {
     let best = 1;
     for (let step = 101; step <= SWAP_GROW_MAX * 100; step += 1) {
-      const grown = swapGrownBox(box, step / 100, stageWidth, stageHeight);
-      if (!back.every((other) => apart(grown, other, spacing.sm))) break;
+      if (!growFits(layout, step / 100, side)) break;
       best = step / 100;
     }
     fit = Math.min(fit, best);
   }
   return Math.max(SWAP_GROW_MIN, fit);
+}
+
+/**
+ * How narrow the board composes, as a share of its width, so the stepped-back pieces of every
+ * candidate fit beside the piece grown `SWAP_GROW_MIN` times: the widest, in 0.01 steps, that
+ * does, the board narrowed about its centre line as `placeComposition` narrows it. Never under
+ * 1 / `SWAP_GROW_MIN`, where the enlarged piece is still drawn at least at its resting size.
+ */
+export function swapWidthFit(layouts: readonly SwapCandidateLayout[], side: number): number {
+  const narrowed = (layout: SwapCandidateLayout, fit: number): SwapCandidateLayout => {
+    const centre = layout.stageWidth / 2;
+    const at = (box: SwapBox) => ({ x: centre + (box.x - centre) * fit, y: box.y * fit, w: box.w * fit, h: box.h * fit });
+    return { ...layout, box: at(layout.box), others: layout.others.map(at), stageHeight: layout.stageHeight * fit };
+  };
+  for (let step = 100; step / 100 > 1 / SWAP_GROW_MIN; step -= 1) {
+    if (layouts.every((layout) => growFits(narrowed(layout, step / 100), SWAP_GROW_MIN, side))) return step / 100;
+  }
+  return 1 / SWAP_GROW_MIN;
 }
 
 /**
@@ -310,19 +360,36 @@ export function swapPanelHeight(header: number, sections: SwapPanelSections, col
 
 /**
  * Where the two chevrons stand while a piece is enlarged: each against the piece's side from
- * outside, in the window's pad, vertically centred on the piece and kept on the stage, so a
- * chevron is never drawn on the piece where the stage leaves it room.
+ * outside, vertically centred on it, kept on the stage. Where that spot would cover a piece, the
+ * enlarged one or a stepped-back one, the chevron moves up or down by the least that clears every
+ * piece, and failing that to the stage's edge on its side, so it never covers a piece where the
+ * stage leaves room.
  */
 export function swapChevrons(
   grown: SwapBox,
+  steppedBack: readonly SwapBox[],
   stageWidth: number,
   heldStage: number,
   size: number,
 ): Readonly<Record<'previous' | 'next', Readonly<{ x: number; y: number }>>> {
-  const y = clamp(grown.y + grown.h / 2 - size / 2, 0, heldStage - size);
+  const pieces = [grown, ...steppedBack];
+  const centre = clamp(grown.y + grown.h / 2 - size / 2, 0, heldStage - size);
+  const clearAt = (x: number) => {
+    for (let offset = 0; offset <= heldStage; offset += 1) {
+      for (const y of [centre - offset, centre + offset]) {
+        const box = { x, y, w: size, h: size };
+        if (y >= 0 && y <= heldStage - size && pieces.every((piece) => apart(box, piece, 0))) return { x, y };
+      }
+    }
+    return null;
+  };
+  const spot = (beside: number, edge: number) => {
+    const x = clamp(beside, 0, stageWidth - size);
+    return clearAt(x) ?? clearAt(edge) ?? { x, y: centre };
+  };
   return {
-    previous: { x: Math.max(0, grown.x - size), y },
-    next: { x: Math.min(stageWidth - size, grown.x + grown.w), y },
+    previous: spot(grown.x - size, 0),
+    next: spot(grown.x + grown.w, stageWidth - size),
   };
 }
 

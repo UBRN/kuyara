@@ -925,7 +925,7 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, trade
   const plate = result.getByTestId('outfit-detail-board-plate');
   expect(StyleSheet.flatten(plate.props.style)).toMatchObject({ width: 358 });
   // The plate is the board and the measured row of names under it.
-  const boardHeight = layoutGarmentBoard(suggestion.boardPieces, 358, 'detail', 'womens').height;
+  const boardHeight = layoutGarmentBoard(suggestion.boardPieces, 358, 'detail', 'womens', false, 'detail').height;
   await fireEvent(result.getByTestId('outfit-detail-names', hidden), 'layout',
     { nativeEvent: { layout: { width: 358, height: 96, x: 0, y: boardHeight + 8 } } });
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
@@ -2390,7 +2390,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail names at any text size', 
     const nameId = /^outfit-detail-name-[a-z_]+$/;
     const { pieces, boardPieces } = loadedPresentation(language).suggestions[0];
     const hidden = { includeHiddenElements: true };
-    const board = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens');
+    const board = layoutGarmentBoard(boardPieces, 358, 'detail', 'womens', false, 'detail');
     for (const scale of [1, 3]) {
       const result = await detail(scale);
       expect(result.getAllByTestId(nameId, hidden)).toHaveLength(pieces.length);

@@ -23,12 +23,13 @@ dressing day turns ([ADR 0038](0038-outfit-history.md)).
 ### 1. Detail is a second parameter set, not a second layout
 
 The board is [ADR 0025](0025-the-garment-board-composition-rule.md)'s `compose()`,
-unchanged, run with a detail preset. Same algorithm, same worn layout, same dressing order,
-the core on the left and the layers on the right, the footwear a pair at the core's foot.
-The detail preset only draws it larger, at the runway preset's 1.25. Pieces stand apart,
-none touching another; they travel in from exactly what Today's band drew, its flat lay at
-the band's size, square and in the flat lay's stacking, the same pieces at the same sizes laid
-side by side. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
+unchanged, run with a detail preset and laid out as Today's flat lay: the same algorithm, the
+same crossings and the same stacking, the top upper left, the bottom beside it, the layers
+fanned out to the top's left and the footwear a pair at the foot. The detail preset only draws
+the pieces larger, at the runway preset's 1.25, fitted to the detail column and never larger
+than that, which leaves an enlarged piece room beside the others; they travel in from exactly
+what Today's band drew, its flat lay at the band's size, square, the same pieces laid out the
+same way. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
 
 This is what makes the two screens share a composition rather than merely resemble each
 other, and it is what the entry transition animates. It also leaves room for garment rows below the board.
@@ -92,9 +93,12 @@ weather requirement of the set, the same test a composed outfit passes; formalit
 consistency is not part of it.
 
 On the board a tap enlarges a piece in place. Where pieces overlap, a tap goes to the piece drawn on top there, as the eye sees it, and an enlarged piece is drawn over every other, so an overlapped piece comes fully into view. It grows about its centre to twice its
-composed size, less where the board holds less but never under 1.6 times, shifted only as
-far as the stage needs; the other pieces step back to 0.9 in full colour, and the name buttons
-leave until the pieces rest again. Under the stage a strip names the
+composed size, less where the board holds less but never under 1.6 times. The other pieces
+step back to 0.9 in full colour and step aside beside it, never under it: the pieces on each
+side of its centre move out together, keeping their places among themselves, until they clear
+it by 8 points, and the whole board shifts only as far as keeps it 12 points off the stage's
+edges and the enlarged piece a 44-point chevron's room off them. The name buttons leave until
+the pieces rest again. Under the stage a strip names the
 piece and its place ("Coat 3 / 12") beside "Done"; under that header stand the piece's
 colours, then the reader's own pieces when the Closet has any for the slot, then the slot's
 candidates in the picker's order as 44-point tiles 8 points apart, as many a row as the column holds and at
@@ -122,9 +126,10 @@ nearest one, and a pattern, a two-colour option or a family alone in the first s
 family, the drawing's own colours first.
 
 The piece changes while it stays large: a horizontal swipe on it, a chevron beside it, or a
-tile. Two 44-point glass chevrons stand against the enlarged piece's sides, in its window's
-pad, vertically centred on it and kept on the stage, so neither is drawn on the piece where
-the stage leaves room; each is a button named "Previous: <piece>" / "Önceki: <parça>" or
+tile. Two 44-point glass chevrons stand against the enlarged piece's sides, vertically centred
+on it where the plate is clear, otherwise moved up or down by the least that clears every
+piece, or to the stage's edge on their side, and kept on the stage, so neither covers a piece
+where the stage leaves room; each is a button named "Previous: <piece>" / "Önceki: <parça>" or
 "Next: <piece>" / "Sonraki: <parça>", steps as a tile does, and is gone, not disabled, at its
 end of the order. They come and go with the strip. A swipe pages the
 enlarged piece inside its own window, clipped so it never covers a stepped-back piece,
@@ -146,11 +151,13 @@ The enlarged piece is drawn once more at its grow size and handed over to its re
 drawing on `motion.fast`, fading in from the tap and back once a quarter of the settle is
 travelled, so its outline is 1.9 points (2.8 with Easier to see) at both ends and never an
 upscaled raster. The stage keeps the height of the slot's tallest candidate for the whole
-enlargement, so a change never moves a tile under a finger. The held stage and the strip fit between the
-navigation bar and the tab bar with `spacing.md` above, between and under them: where they
-would not, the whole board composes narrower for the enlargement, centred, just enough to fit,
-and the piece grows in that board; it never narrows so far that the enlarged piece draws under
-its resting size, and past that the page scrolls. An enlargement scrolls the page by the least
+enlargement, so a change never moves a tile under a finger. The held stage and the strip as it
+opens fit between the navigation bar and the tab bar with `spacing.md` above, between and under
+them: where they would not, or where the stepped-back pieces would not fit beside the piece
+grown 1.6 times, the whole board composes narrower for the enlargement, centred, just enough to
+fit, and the piece grows in that board; it never narrows so far that the enlarged piece draws
+under its resting size, and past that the page scrolls. "More colours" never narrows or moves
+the board; the page scrolls for it. An enlargement scrolls the page by the least
 that shows the strip, never so far that the enlarged piece comes within `spacing.md` of the
 navigation bar. Each neighbour waits wholly
 behind its side of the window, a step being its own grown width from there, so a wider
@@ -265,12 +272,13 @@ rather than a cross-fade between two pictures.
    The tint difference remains, because it carries meaning rather than motion.
 
 The push remains the platform's. Only an outfit opened from Today's primary board starts from
-the band: its garment travel is an in-screen re-layout from the boxes Today's band draws (its
-flat lay at the band's width, centred on the detail board, stacked as the band stacks it until
-the pieces rest, on a cornerless tint that first stands the band's height and settles to the
-board's with the pieces) to the detail preset. An outfit the band never drew, opened from the
-Tomorrow strip or a tile under the band, starts from Today's fitted stage at the board's own
-width, with the stage's corners and the board's height, stacked in the dressing order. Neither
+the band: its garment travel is an in-screen re-layout between two flat lays, from the boxes
+Today's band draws (its flat lay at the band's width, centred on the detail board, on a
+cornerless tint that first stands the band's height and settles to the board's with the
+pieces) to the detail's, stacked as the flat lay stacks them throughout. An outfit the band
+never drew, opened from the Tomorrow strip or a tile under the band, starts from Today's fitted
+stage at the board's own width, with the stage's corners and the board's height, in the same
+stacking. Neither
 is a shared-element transition; both travel on the arrival role `theme.springs.arrival`, the
 spring for garment pieces landing on a board. Each piece travels as a plain view with a native transform,
 because Reanimated cannot drive react-native-svg's `transform` or `fill` on the new
@@ -305,7 +313,7 @@ glyph disc at a piece's corner would cover a neighbour once the pieces overlap.
 **A mark on each piece, or an edit mode with minus and plus badges.** Rejected on section 3's
 no-glyph-on-a-piece rule and on the board drawing five pieces and nothing else (ADR 0025): the
 control lives in the enlarged piece's strip header and in the rows, and the chevrons stand
-beside the enlarged piece, in its window's pad, never on it.
+beside the enlarged piece on clear plate, never on a piece.
 
 **Swiping to an empty candidate.** Rejected: the board's lookups assume a piece for every
 focused slot, and taking a layer off is a decision, not a step in an order.

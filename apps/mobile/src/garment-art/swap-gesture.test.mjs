@@ -7,6 +7,7 @@ import {
   SWAP_GROW_MIN,
   SWAP_STEP_BACK,
   SWAP_STRIP_COLUMNS,
+  swapAside,
   swapCommitDirection,
   swapDragOffset,
   swapDragZone,
@@ -24,10 +25,19 @@ import {
   swapStageFit,
   swapStripLayout,
   swapWindow,
+  swapWidthFit,
   swapChevrons,
   swapPanelHeight,
 } from './swap-gesture.ts';
-import { easierToSeeRule, composeGarmentBoard, detailPreset, todayPreset } from './compose-garment-board.ts';
+import {
+  composeGarmentBoard,
+  detailPreset,
+  drawnExtent,
+  easierToSeeRule,
+  placeOnRunway,
+  todayPreset,
+} from './compose-garment-board.ts';
+import { composeFlatLay, fitDetailStage } from './compose-flat-lay.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
 import { recommendOutfits } from '../features/recommendation/application/recommend-outfits.ts';
 import { getGarmentType } from '../features/catalog/domain/garment-catalog.ts';
@@ -42,6 +52,17 @@ import {
 
 const apart = (a, b, gap) =>
   a.x >= b.x + b.w + gap || b.x >= a.x + a.w + gap || a.y >= b.y + b.h + gap || b.y >= a.y + a.h + gap;
+
+/** The detail board in points on a `column`-point column: the flat lay fitted to it, by slot. */
+function detailBoard(pieces, column, rule = detailPreset) {
+  const result = composeFlatLay(pieces.map((piece) => ({
+    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
+  })), rule);
+  const extent = drawnExtent(result.boxes.values());
+  const { scale, height } = fitDetailStage(extent, column, Math.max(...result.core.map((piece) => result.boxes.get(piece).w)));
+  const boxes = new Map(result.order.map((piece) => [piece.slot, placeOnRunway(result.boxes.get(piece), extent, scale, column, height)]));
+  return { boxes, order: result.order.map(({ slot }) => slot), height };
+}
 
 test('the grid holds at most seven tiles a row, in ceil(n / 7) rows, and never wider than the column', () => {
   for (let n = 1; n <= 21; n += 1) {
@@ -107,16 +128,7 @@ function day(temperatureCelsius, condition, precipitationProbability) {
 /** Every three-row enlargement: its held stage and its strip's height (header, gap and grid). */
 function threeRowEnlargements(column, large) {
   const rule = large ? easierToSeeRule(detailPreset, 1.3, 0.05) : detailPreset;
-  const compose = (pieces) => {
-    const result = composeGarmentBoard(pieces.map((piece) => ({
-      ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
-    })), rule);
-    const boxes = new Map(result.order.map((piece) => {
-      const box = result.boxes.get(piece);
-      return [piece.slot, { x: box.x * column, y: box.y * column, w: box.w * column, h: box.h * column }];
-    }));
-    return { boxes, order: result.order.map(({ slot }) => slot), height: result.stageHeight * column };
-  };
+  const compose = (pieces) => detailBoard(pieces, column, rule);
   const header = large ? 56 : 44;
   const found = [];
   for (const temperature of [-15, -8, 4, 12]) {
@@ -143,7 +155,7 @@ function threeRowEnlargements(column, large) {
               stageHeight: composed.height,
             }));
           found.push({
-            held: Math.max(swapHeldStage(layouts, swapGrowScale(layouts)), current.height),
+            held: Math.max(swapHeldStage(layouts, swapGrowScale(layouts, SIDE)), current.height),
             panel: header + 8 + strip.height,
           });
         }
@@ -159,8 +171,9 @@ test('on a 375-point phone the enlarged board fits three rows above the tab bar,
   for (const [large, visible] of [[false, 554], [false, 635], [true, 554], [true, 635]]) {
     const found = threeRowEnlargements(343, large);
     assert.ok(found.length > 0, 'a cold women\'s day offers the 13-candidate top');
-    // Full width, the tallest does not fit the SE: the board has to compose narrower.
-    if (visible === 554) assert.ok(found.some(({ held, panel }) => 12 + held + 12 + panel + 12 > visible));
+    // The flat lay is short enough that the plain board fits the SE at full width; with Easier to
+    // see the tallest may not, and composes narrower.
+    if (!large) assert.ok(found.every(({ held, panel }) => 12 + held + 12 + panel + 12 <= visible));
     for (const { held, panel } of found) {
       const fit = swapStageFit(held, panel, visible);
       assert.ok(fit > 1 / SWAP_GROW_MIN, `the floor binds: ${held.toFixed(1)} + ${panel}`);
@@ -180,20 +193,70 @@ test('the hairline stands before the first unsuitable tile, after the row above 
   assert.equal(swapStripLayout(12, 12, 361).hairline, null);
 });
 
-test('the grow scale clears every stepped-back piece by spacing.sm, or is the floor', () => {
+// The board's side margin the stepped-back pieces keep, a tile's (compose-flat-lay.ts).
+const SIDE = 12;
+
+// The detail board is a flat lay whose pieces cross: an enlarged piece would grow over its
+// neighbours, so they step aside instead, each side's pieces together, keeping their places among
+// themselves, and the whole board shifts only as far as keeps it on the stage.
+test('the stepped-back pieces step aside, each side together, until they clear the grown piece by spacing.sm', () => {
+  const grown = { x: 100, y: 40, w: 120, h: 140 };
+  const right = { x: 200, y: 80, w: 60, h: 100 };
+  const below = { x: 190, y: 200, w: 40, h: 20 };
+  const left = { x: 60, y: 60, w: 50, h: 60 };
+  const aside = swapAside(grown, [right, below, left], 358, SIDE);
+  assert.ok(aside.fits);
+  assert.deepEqual(aside.grown, grown);
+  // The right side moves 28 together, the piece below it with it; the left side moves 18.
+  assert.deepEqual(aside.others, [{ ...right, x: 228 }, { ...below, x: 218 }, { ...left, x: 42 }]);
+  for (const other of aside.others) assert.ok(apart(aside.grown, other, 8));
+  // Pieces already clear stay where they stand.
+  const clear = { x: 260, y: 40, w: 50, h: 50 };
+  assert.deepEqual(swapAside(grown, [clear], 358, SIDE).others, [clear]);
+  // Past the stage's margin, everything shifts back as one, the grown piece with it.
+  const edge = swapAside({ x: 200, y: 40, w: 120, h: 140 }, [{ x: 300, y: 80, w: 40, h: 100 }], 358, SIDE);
+  assert.ok(edge.fits);
+  assert.deepEqual(edge.grown, { x: 178, y: 40, w: 120, h: 140 });
+  assert.deepEqual(edge.others, [{ x: 306, y: 80, w: 40, h: 100 }]);
+  // Wider than the stage less its margins, it does not fit.
+  assert.equal(swapAside(grown, [right, left], 220, SIDE).fits, false);
+});
+
+test('the grow scale is the largest up to 2x at which the stepped-back pieces fit beside it, or the floor', () => {
   const stage = { stageWidth: 358, stageHeight: 400 };
   // A lone piece with room grows the full 2x.
-  assert.equal(swapGrowScale([{ box: { x: 150, y: 150, w: 50, h: 50 }, others: [], ...stage }]), SWAP_GROW_MAX);
-  // A close neighbour limits it; the result still clears it by 8.
-  const box = { x: 100, y: 100, w: 60, h: 60 };
-  const other = { x: 189, y: 100, w: 60, h: 60 };
-  const scale = swapGrowScale([{ box, others: [other], ...stage }]);
-  assert.ok(scale > SWAP_GROW_MIN && scale < SWAP_GROW_MAX);
-  assert.ok(apart(swapGrownBox(box, scale, 358, 400), swapScaledBox(other, SWAP_STEP_BACK), 8));
-  assert.ok(!apart(swapGrownBox(box, scale + 0.01, 358, 400), swapScaledBox(other, SWAP_STEP_BACK), 8));
-  // The tightest candidate decides for the whole slot, and a crowded one takes the floor.
-  const crowded = { box, others: [{ x: 165, y: 100, w: 60, h: 60 }], ...stage };
-  assert.equal(swapGrowScale([{ box, others: [], ...stage }, crowded]), SWAP_GROW_MIN);
+  assert.equal(swapGrowScale([{ box: { x: 150, y: 150, w: 50, h: 50 }, others: [], ...stage }], SIDE), SWAP_GROW_MAX);
+  // A neighbour steps aside, so it no longer limits the grow: the stage's width does.
+  const box = { x: 100, y: 100, w: 100, h: 80 };
+  const other = { x: 160, y: 100, w: 120, h: 60 };
+  const scale = swapGrowScale([{ box, others: [other], ...stage }], SIDE);
+  assert.ok(scale > SWAP_GROW_MIN && scale < SWAP_GROW_MAX, String(scale));
+  const fitsAt = (grow) => swapAside(swapGrownBox(box, grow, 358, 400), [swapScaledBox(other, SWAP_STEP_BACK)], 358, SIDE).fits;
+  assert.ok(fitsAt(scale));
+  assert.ok(!fitsAt(scale + 0.01));
+  // The tightest candidate decides for the whole slot, and one with no room takes the floor.
+  const crowded = { box: { x: 100, y: 100, w: 160, h: 80 }, others: [other], ...stage };
+  assert.equal(swapGrowScale([{ box, others: [], ...stage }, crowded], SIDE), SWAP_GROW_MIN);
+});
+
+// Where the stepped-back pieces would not fit beside the piece grown 1.6 times, the board composes
+// narrower, about its centre line, just enough that they do: never under 1 / 1.6.
+test('the board composes just narrow enough for the stepped-back pieces to fit beside the piece grown 1.6 times', () => {
+  const narrow = ({ box, others, stageWidth, stageHeight }, fit) => {
+    const at = (b) => ({ x: stageWidth / 2 + (b.x - stageWidth / 2) * fit, y: b.y * fit, w: b.w * fit, h: b.h * fit });
+    return { box: at(box), others: others.map(at), stageWidth, stageHeight: stageHeight * fit };
+  };
+  const roomy = { box: { x: 100, y: 100, w: 60, h: 60 }, others: [{ x: 150, y: 100, w: 60, h: 60 }], stageWidth: 358, stageHeight: 300 };
+  assert.equal(swapWidthFit([roomy], SIDE), 1);
+  const wide = { box: { x: 20, y: 40, w: 150, h: 160 }, others: [{ x: 140, y: 80, w: 110, h: 200 }, { x: 240, y: 60, w: 100, h: 120 }],
+    stageWidth: 358, stageHeight: 320 };
+  const fit = swapWidthFit([roomy, wide], SIDE);
+  assert.ok(fit < 1 && fit > 1 / SWAP_GROW_MIN, String(fit));
+  assert.ok(swapGrowScale([roomy, wide].map((layout) => narrow(layout, fit)), SIDE) >= SWAP_GROW_MIN);
+  assert.ok(swapGrowScale([narrow(wide, fit + 0.01)], SIDE) <= SWAP_GROW_MIN);
+  // Never so narrow that the enlarged piece draws under its resting size.
+  const impossible = { ...wide, stageWidth: 200 };
+  assert.equal(swapWidthFit([impossible], SIDE), 1 / SWAP_GROW_MIN);
 });
 
 test('the grown box stays on the stage', () => {
@@ -210,16 +273,7 @@ test('the held stage is the tallest candidate stage, or the tallest candidate gr
 
 test('every candidate of a real outfit, grown, fits the held stage', () => {
   const column = 349;
-  const compose = (pieces) => {
-    const result = composeGarmentBoard(pieces.map((piece) => ({
-      ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
-    })), detailPreset);
-    const boxes = new Map(result.order.map((piece) => {
-      const box = result.boxes.get(piece);
-      return [piece.slot, { x: box.x * column, y: box.y * column, w: box.w * column, h: box.h * column }];
-    }));
-    return { boxes, order: result.order.map(({ slot }) => slot), height: result.stageHeight * column };
-  };
+  const compose = (pieces) => detailBoard(pieces, column);
   const outfits = [
     [['one_piece', 'knit_dress', 'one_piece'], ['outer_layer', 'rain_jacket', 'outerwear'], ['footwear', 'loafers', 'footwear']],
     [['one_piece', 'dress', 'one_piece'], ['outer_layer', 'trench_coat', 'outerwear'], ['footwear', 'ankle_boots', 'footwear']],
@@ -235,7 +289,7 @@ test('every candidate of a real outfit, grown, fits the held stage', () => {
         stageWidth: column,
         stageHeight: composed.height,
       }];
-      const scale = swapGrowScale(layouts);
+      const scale = swapGrowScale(layouts, SIDE);
       const held = swapHeldStage(layouts, scale);
       const grown = swapGrownBox(layouts[0].box, scale, column, held);
       assert.ok(grown.y >= 0 && grown.y + grown.h <= held + 1e-9, `${slot} of ${outfit[0][1]}`);
@@ -396,15 +450,21 @@ test('Today and the detail stack their pieces in the same dressing order', () =>
     composeGarmentBoard(pieces, todayPreset).stack.map(({ slot }) => slot));
 });
 
-// The chevrons stand against the enlarged piece's sides, vertically centred on it, never past
-// the stage: a 44 pt pad holds each wholly, and at a stage edge the chevron stops at the edge.
-test('the chevrons hug the enlarged piece from outside and stay on the stage', () => {
+// The chevrons stand beside the enlarged piece, vertically centred on it where the plate is
+// clear, and otherwise at the nearest clear plate on their side, so neither covers a piece.
+test('the chevrons stand beside the enlarged piece on clear plate and stay on the stage', () => {
   const grown = { x: 84, y: 0, w: 168, h: 160 };
-  assert.deepEqual(swapChevrons(grown, 358, 289, 44), { previous: { x: 40, y: 58 }, next: { x: 252, y: 58 } });
-  const atEdge = { x: 0, y: 200, w: 300, h: 100 };
-  assert.deepEqual(swapChevrons(atEdge, 320, 280, 44), { previous: { x: 0, y: 228 }, next: { x: 276, y: 228 } });
+  assert.deepEqual(swapChevrons(grown, [], 358, 289, 44), { previous: { x: 40, y: 58 }, next: { x: 252, y: 58 } });
   // A larger chevron at a larger text size is placed by its own size.
-  assert.deepEqual(swapChevrons(grown, 358, 289, 60).previous, { x: 24, y: 50 });
+  assert.deepEqual(swapChevrons(grown, [], 358, 289, 60).previous, { x: 24, y: 50 });
+  // A stepped-back piece beside the enlarged one: the chevron moves to clear plate under it.
+  const beside = { x: 260, y: 20, w: 80, h: 100 };
+  const { next } = swapChevrons(grown, [beside], 358, 289, 44);
+  assert.deepEqual(next, { x: 252, y: 120 });
+  // An enlarged piece at the stage's edge leaves no pad: the chevron stands above or below it.
+  const atEdge = { x: 0, y: 60, w: 300, h: 100 };
+  const { previous } = swapChevrons(atEdge, [], 320, 280, 44);
+  assert.deepEqual(previous, { x: 0, y: 16 });
 });
 
 // The strip under the enlarged piece: the header, its colours, the reader's own pieces when the

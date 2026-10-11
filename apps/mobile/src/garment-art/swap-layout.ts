@@ -1,9 +1,11 @@
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 
+import { flatLayPreset } from './compose-flat-lay';
 import type { ComposedPiece, DrawnBox, GarmentBoardPiece } from './garment-board';
 import {
   SWAP_STEP_BACK,
+  swapAside,
   swapDragZone,
   swapEntryBox,
   swapGrownBox,
@@ -12,7 +14,9 @@ import {
   swapScaledBox,
   swapStageFit,
   swapStride,
+  swapWidthFit,
   swapWindow,
+  type SwapCandidateLayout,
 } from './swap-gesture';
 import {
   neighbourIn,
@@ -38,6 +42,9 @@ export type Composer = (pieces: readonly GarmentBoardPiece[], fit: number) => Co
 
 /** A grow with the strip height and the visible height it was fitted to. */
 export type Enlargement = Grow & Readonly<{ panel: number; visible: number }>;
+
+// The detail board's side margin, which the stepped-back pieces keep: it is fitted as a tile is.
+const SIDE = flatLayPreset.tile.side;
 
 export const lerp = (a: number, b: number, t: number) => {
   'worklet';
@@ -81,48 +88,42 @@ export function bandBoxesOnBoard(bandBoxes: ReadonlyMap<OutfitSlot, DrawnBox>, b
   }]));
 }
 
+type Enlarged = Readonly<{
+  pieces: readonly GarmentBoardPiece[];
+  slot: OutfitSlot;
+  order: readonly GarmentSwapCandidate[];
+  current: Composed;
+  width: number;
+}>;
+
+/** The slot's own piece and every candidate, each composed with the rest of the outfit. */
+function candidateLayouts(enlarged: Enlarged, compose: Composer, fit: number): SwapCandidateLayout[] {
+  const { pieces, slot, order, current, width } = enlarged;
+  return [current, ...order.map((candidate) => compose(withGarment(pieces, slot, candidate), fit))].map((composed) => ({
+    box: composed.bySlot.get(slot)!.box,
+    others: composed.order.filter((other) => other !== slot).map((other) => composed.bySlot.get(other)!.box),
+    stageWidth: width,
+    stageHeight: composed.height,
+  }));
+}
+
 /**
  * One enlargement's grow scale and held stage: every candidate of the slot composed with the
  * rest of the outfit.
  */
-export function growFor(
-  enlarged: Readonly<{
-    pieces: readonly GarmentBoardPiece[];
-    slot: OutfitSlot;
-    order: readonly GarmentSwapCandidate[];
-    current: Composed;
-    width: number;
-    large: boolean;
-    fit: number;
-  }>,
-  compose: Composer,
-): Grow {
-  const { pieces, slot, order, current, width, large, fit } = enlarged;
-  const layouts = order.map((candidate) => {
-    const composed = compose(withGarment(pieces, slot, candidate), fit);
-    return {
-      box: composed.bySlot.get(slot)!.box,
-      others: composed.order.filter((other) => other !== slot).map((other) => composed.bySlot.get(other)!.box),
-      stageWidth: width,
-      stageHeight: composed.height,
-    };
-  });
-  const own = {
-    box: current.bySlot.get(slot)!.box,
-    others: current.order.filter((other) => other !== slot).map((other) => current.bySlot.get(other)!.box),
-    stageWidth: width,
-    stageHeight: current.height,
-  };
-  const all = [own, ...layouts];
-  const scale = swapGrowScale(all);
+export function growFor(enlarged: Enlarged & Readonly<{ large: boolean; fit: number }>, compose: Composer): Grow {
+  const { slot, width, large, fit } = enlarged;
+  const all = candidateLayouts(enlarged, compose, fit);
+  const scale = swapGrowScale(all, SIDE);
   return { slot, width, large, fit, scale, held: swapHeldStage(all, scale) };
 }
 
 /**
  * The enlargement of `slot` at the board's rest composition. The stage never shrinks while
  * the enlargement moves between slots (`keptHeld`, the moving enlargement's held stage before
- * its fit). Where the stage and the strip would not fit the visible height, the whole board
- * composes just narrow enough while the piece is enlarged.
+ * its fit). Where the stage and the strip would not fit the visible height, or the stepped-back
+ * pieces would not fit beside the piece grown 1.6 times, the whole board composes just narrow
+ * enough while the piece is enlarged.
  */
 export function enlargementFor(
   enlarged: Readonly<{
@@ -139,12 +140,37 @@ export function enlargementFor(
   compose: Composer,
 ): Enlargement {
   const { pieces, slot, order, rest, width, large, panel, visible, keptHeld } = enlarged;
-  const full = growFor({ pieces, slot, order, current: rest, width, large, fit: 1 }, compose);
+  const layouts = candidateLayouts({ pieces, slot, order, current: rest, width }, compose, 1);
+  const scale = swapGrowScale(layouts, SIDE);
+  const full: Grow = { slot, width, large, fit: 1, scale, held: swapHeldStage(layouts, scale) };
   const fullHeld = Math.max(full.held, rest.height, keptHeld);
-  const fit = swapStageFit(fullHeld, panel, visible);
+  const fit = Math.min(swapStageFit(fullHeld, panel, visible), swapWidthFit(layouts, SIDE));
   const fitted = fit < 1
     ? growFor({ pieces, slot, order, current: compose(pieces, fit), width, large, fit }, compose) : full;
-  return { ...fitted, held: fullHeld * fit, panel, visible };
+  return { ...fitted, held: Math.max(fullHeld * fit, fitted.held), panel, visible };
+}
+
+/**
+ * The composition while `slot` is enlarged: its piece where it grows, about its centre, and the
+ * others stepped aside beside it (`swapAside`), so the board's pieces glide there and back.
+ */
+export function enlargedComposition(composed: Composed, slot: OutfitSlot, grow: Grow, width: number): Composed {
+  const own = composed.bySlot.get(slot);
+  if (!own) return composed;
+  const others = composed.order.filter((other) => other !== slot);
+  const back = others.map((other) => swapScaledBox(composed.bySlot.get(other)!.box, SWAP_STEP_BACK));
+  const aside = swapAside(swapGrownBox(own.box, grow.scale, width, grow.held), back, width, SIDE);
+  const bySlot = new Map(composed.bySlot);
+  const { grown } = aside;
+  bySlot.set(slot, {
+    ...own,
+    box: { ...own.box, x: grown.x + (grown.w - own.box.w) / 2, y: grown.y + (grown.h - own.box.h) / 2 },
+  });
+  others.forEach((other, index) => {
+    const entry = composed.bySlot.get(other)!;
+    bySlot.set(other, { ...entry, box: { ...entry.box, x: entry.box.x + aside.others[index].x - back[index].x } });
+  });
+  return { ...composed, bySlot };
 }
 
 /** Whether `grow` was made for this slot, board and strip, so it still holds. */
