@@ -273,6 +273,7 @@ function createScenarioAccountScreens(
     sync: {
       // A scenario frame stands for a phone already linked to its account.
       hasLinked: async () => true,
+      pendingChanges: async () => 0,
       run: async () => {
         const syncConsent = answer();
         const records = syncConsent === 'given';

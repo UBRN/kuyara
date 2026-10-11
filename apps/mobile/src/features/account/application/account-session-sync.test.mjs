@@ -139,3 +139,10 @@ test('the phone has linked to an account once a first link with it finished, and
   const signedOut = setup({ link: { ...unlinked, lastUserId: 'user-a', cursor: 'c1' } });
   assert.equal(await signedOut.sync.hasLinked('user-a'), true);
 });
+
+test('the waiting count is what the next pass would upload: the profile alone without the consent', async () => {
+  const { sync } = setup();
+  assert.equal(await sync.pendingChanges(false), 1);
+  assert.equal(await sync.pendingChanges(true), 2);
+  assert.equal(await setup({ pending: false }).sync.pendingChanges(true), 0);
+});

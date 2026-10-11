@@ -130,6 +130,11 @@ export type AccountSessionSyncPort = Readonly<{
   /** Whether a first link of this phone with the account has finished (`hasLinkedTo`). */
   hasLinked: (userId: string) => Promise<boolean>;
   run: (userId: string) => Promise<AccountSyncSummary>;
+  /**
+   * How many rows wait to upload now: what the next pass would send under the consent, the count
+   * a pass reports. Read when no pass runs or one failed, so the screen never shows a stale count.
+   */
+  pendingChanges: (syncConsent: boolean) => Promise<number>;
 }>;
 
 /**
@@ -271,14 +276,29 @@ export function createAccountSessionManager({
     sync: { kind: 'syncing' }, pendingChanges: 0, closetPieces: 0, historyDays: 0, lastSyncedAt: null,
     syncConsent: null,
   });
+  /**
+   * The Account screen shows how many rows wait (ADR 0041 section 5) even when no pass reported:
+   * the phone is offline or the pass failed. A count that cannot be read stays as it was.
+   */
+  const refreshPending = async (session: AuthSession) => {
+    try {
+      const pendingChanges = await sync.pendingChanges(signedIn()?.syncConsent === 'given');
+      if (isCurrent(session)) updateSession({ pendingChanges });
+    } catch {
+      // The screen keeps the last count; the next pass or write reads it again.
+    }
+  };
   /** The Account screen shows the failed pass; it reports once, under its trigger. */
-  const showFailed = (trigger: AccountSyncTrigger, failure: AccountSyncFailureCode) => {
+  const showFailed = async (session: AuthSession, trigger: AccountSyncTrigger, failure: AccountSyncFailureCode) => {
     updateSession({ sync: { kind: 'failed' } });
     analytics.syncFinished(trigger, { result: 'failed', failure });
+    await refreshPending(session);
   };
   /** One pass; answers its summary, or null when it did not run or failed. */
   const pass = async (trigger: AccountSyncTrigger): Promise<AccountSyncSummary | null> => {
     const session = identity;
+    // Offline nothing runs, but local writes still wait: the screen counts them.
+    if (session && !snapshot.online && signedIn()) await refreshPending(session);
     // Nothing uploads before the consent question after sign-in is settled.
     // Nor while the account is deleted: a late pass would rewrite the link the deletion resets.
     if (!session || !snapshot.online || awaitingConsent !== null || consentChecks > 0 || !signedIn() || deleting !== null) {
@@ -299,7 +319,7 @@ export function createAccountSessionManager({
     // instead (ADR 0041 section 4). Only "Sync now" says it failed, so the tap is never silent.
     if (!hasToken) {
       waitingForToken = trigger;
-      if (trigger === 'manual') showFailed(trigger, 'request');
+      if (trigger === 'manual') await showFailed(session, trigger, 'request');
       return null;
     }
     updateSession({ sync: { kind: 'syncing' } });
@@ -311,7 +331,7 @@ export function createAccountSessionManager({
       analytics.syncFinished(trigger, { result: 'success' });
       return summary;
     } catch (error) {
-      if (isCurrent(session)) showFailed(trigger, accountSyncFailureCode(error));
+      if (isCurrent(session)) await showFailed(session, trigger, accountSyncFailureCode(error));
       return null;
     }
   };

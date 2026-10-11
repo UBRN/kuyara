@@ -21,11 +21,14 @@ import {
   type SyncConsentState,
 } from '@/features/account/domain/sync-consent';
 
+/** How many rows wait to upload under `records`: the one count the screen and a pass share. */
+const waitingRows = (local: LocalAccountRows, records: boolean) => rowCount(pendingUpload(local, records));
+
 /** What the Account screen counts: what the account receives from this phone under `state`. */
 function summaryOf(local: LocalAccountRows, state: SyncConsentState, firstLink: FirstLinkOutcome | null): AccountSyncSummary {
   const records = state === 'given';
   return {
-    pendingChanges: rowCount(pendingUpload(local, records)),
+    pendingChanges: waitingRows(local, records),
     closetPieces: records ? local.wardrobeItems.filter(({ row }) => isLiveRow(row)).length : 0,
     historyDays: records ? liveHistoryDays(local.outfitHistory.map(({ row }) => row)).size : 0,
     syncConsent: state,
@@ -49,6 +52,7 @@ export function createAccountSessionSync({ consent, now, remote, source }: Reado
   const flow = createAccountSyncFlow(source, remote, now);
   return {
     hasLinked: async (userId) => hasLinkedTo(await source.link(), userId),
+    pendingChanges: async (syncConsent) => waitingRows(await source.read(), syncConsent),
     async run(userId) {
       const records = await consent.records(userId);
       const state = syncConsentState(records);

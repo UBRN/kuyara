@@ -25,6 +25,7 @@ function setup(over = {}) {
   };
   const sync = {
     hasLinked: async () => true,
+    pendingChanges: async () => 0,
     run: async () => ({ pendingChanges: 0, closetPieces: 2, historyDays: 3, syncConsent: 'given', firstLink: null }),
     ...over.sync,
   };

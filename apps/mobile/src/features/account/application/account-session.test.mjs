@@ -14,6 +14,8 @@ function setup(over = {}) {
   const calls = [];
   let current = over.current ?? null;
   let records = over.records ?? [given];
+  // The rows waiting on the phone; the fake counts them the way a pass would.
+  const phone = { waiting: 0 };
   const auth = {
     currentSession: async () => current,
     signIn: async (provider) => { calls.push(['signIn', provider]); current = { ...identity, provider }; return current; },
@@ -30,6 +32,7 @@ function setup(over = {}) {
   const sync = {
     // A phone that has run a pass with the account before; a launch test of a phone new to it says so.
     hasLinked: async () => true,
+    pendingChanges: async () => phone.waiting,
     run: async (userId) => {
       calls.push(['sync', userId]);
       const records = consentState() === 'given';
@@ -51,7 +54,7 @@ function setup(over = {}) {
   const apple = { userId: over.appleUser ?? null };
   const appleMark = { userId: async () => apple.userId, set: async (userId) => { apple.userId = userId; } };
   const manager = createAccountSessionManager({ auth, sync, deletion, consent, consentQuestion, appleMark, now: () => new Date('2026-10-03T01:00:00Z') });
-  return { manager, calls, question, apple };
+  return { manager, calls, question, apple, phone };
 }
 
 /** A promise the test settles by hand, to hold a port call open. */
@@ -1394,4 +1397,38 @@ test('until a pass completes on this phone the session names no last sync, and a
   fail = false;
   await manager.foreground();
   assert.equal(manager.getSnapshot().session.lastSyncedAt, '2026-10-03T01:00:00.000Z');
+});
+
+test('a failed pass shows how many rows wait, not the count of the last good pass', async () => {
+  const { manager, phone } = setup({ current: identity, sync: { run: async () => { throw new Error('offline'); } } });
+  phone.waiting = 3;
+  await manager.start();
+  const { session } = manager.getSnapshot();
+  assert.equal(session.sync.kind, 'failed');
+  assert.equal(session.pendingChanges, 3);
+});
+
+test('"Sync now" with no access token shows the failure with the rows that wait', async () => {
+  const { manager, phone } = setup({ current: identity, auth: { hasAccessToken: async () => false } });
+  phone.waiting = 2;
+  await manager.start();
+  manager.syncNow();
+  await settle();
+  const { session } = manager.getSnapshot();
+  assert.equal(session.sync.kind, 'failed');
+  assert.equal(session.pendingChanges, 2);
+});
+
+test('a local write while offline updates the count of rows that wait', async () => {
+  const { manager, calls, phone } = setup({ current: identity });
+  await manager.start();
+  assert.equal(manager.getSnapshot().session.pendingChanges, 0);
+  manager.setOnline(false);
+  phone.waiting = 2;
+  await manager.localWrite();
+  assert.equal(manager.getSnapshot().session.pendingChanges, 2);
+  phone.waiting = 5;
+  await manager.localWrite();
+  assert.equal(manager.getSnapshot().session.pendingChanges, 5);
+  assert.deepEqual(calls.filter(([name]) => name === 'sync'), [['sync', 'user-a']]);
 });
