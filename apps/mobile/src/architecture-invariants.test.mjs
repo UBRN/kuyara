@@ -1183,6 +1183,8 @@ const privateIdentityAllowlist = new Set(['LICENSE', 'docs/privacy-policy.md', '
 const processTraceAllowlist = new Set([
   'apps/mobile/src/features/recommendation/domain/insight-sentence.ts',
   'apps/mobile/src/features/recommendation/domain/insight-sentence.test.mjs',
+  // A recorded geocoding response: its real place names are provider data, never our wording.
+  'apps/worker/src/places/open-meteo-count100.fixture.json',
 ]);
 
 test('tracked text files name no coding tool, no work-process term, no decision narrative and no private identity', () => {
