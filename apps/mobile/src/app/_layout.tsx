@@ -295,6 +295,12 @@ function RootLayout() {
   useEffect(() => {
     launchPlayed = true;
   }, []);
+  // A process iOS starts in the background, for the weather-alert task, plays its launch the
+  // first time the person opens it rather than unseen.
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    launchVisibility.onSeen(() => setSeen(true));
+  }, []);
   // A full launch on Today waits for Today to draw its content, so the dive never plays over
   // that render; any other first screen is ready with the shell. A shell may still learn it
   // was opened by a notification. The curtain takes the answer it holds on the frame it
@@ -314,7 +320,7 @@ function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <LaunchCurtain cold={cold} onFirstFrame={SplashScreen.hide} readiness={launch}>
+      <LaunchCurtain cold={cold} onFirstFrame={SplashScreen.hide} readiness={launch} seen={seen}>
         <LaunchScreenReadyContext value={reportTodayDrawn}>
           <PerformanceTelemetryContext value={observePerformanceTelemetry}>
             <ProcessClockContext value={processClock}>

@@ -72,11 +72,12 @@ export default function TodayRoute() {
     choosingWindow: askAgain.choosingWindow,
   });
 
-  // Today is the first screen the shell mounts after bootstrap, so its first presentation
-  // is the moment the app is usable. The kind is coarse: loading, loaded or unavailable.
-  useScreenInteractive({ state: state.kind });
-  // A cold launch dives only once Today has drawn what it has to show.
-  useLaunchScreenReady(state.kind !== 'loading');
+  // Today is the first screen the shell mounts after bootstrap, and the app is usable once it
+  // has drawn what it has to show; the same moment lets a cold launch dive. The kind is
+  // coarse: loaded or unavailable.
+  const drawn = state.kind !== 'loading';
+  useScreenInteractive(drawn ? { state: state.kind } : null);
+  useLaunchScreenReady(drawn);
 
   // Only the focused Today route can show these failures. A weather failure belongs to
   // the composite Today surface; a recommendation failure belongs to its distinct surface.
