@@ -32,8 +32,20 @@ test('the rail starts at the current hour of the place, read in its own time zon
   assert.equal(columns[0].key, '2026-10-03T10:00:00.000Z');
   assert.equal(columns[0].time, 'Now');
   assert.equal(columns[0].timeEmphasis, 'now');
-  assert.match(columns[0].accessibilityLabel, /^13:00\./u);
   assert.deepEqual(columns.slice(1, 6).map(({ time }) => time), ['14:00', '15:00', '16:00', '17:00', '18:00']);
+});
+
+// VoiceOver hears what the column shows: the first one is "Now", with its clock time after it.
+test('the current hour is spoken as now, every other hour by its clock time', () => {
+  const english = columnsAt('2026-10-03T10:54:00.000Z');
+  assert.match(english[0].accessibilityLabel, /^Now, 13:00\. /u);
+  assert.match(english[1].accessibilityLabel, /^14:00\. /u);
+
+  const turkish = hourlyRailColumns(snapshot, Date.parse('2026-10-03T10:54:00.000Z'), undefined, {
+    ...wording, copy: messages.tr.weather, language: 'tr', unitName: 'santigrat derece',
+  });
+  assert.match(turkish[0].accessibilityLabel, /^Şimdi, saat 13:00\. /u);
+  assert.match(turkish[1].accessibilityLabel, /^Saat 14:00\. /u);
 });
 
 test('the first hour of the next local day names the day instead of the clock', () => {

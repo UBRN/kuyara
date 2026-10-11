@@ -343,8 +343,8 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       ? 'UV index 2: Low'
       : 'UV endeksi 2: Düşük')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
-      ? '12:00. 16.0 degrees Celsius. Rain. 50% chance of precipitation.'
-      : 'Saat 12:00. Sıcaklık 16,0 santigrat derece. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
+      ? 'Now, 12:00. 16.0 degrees Celsius. Rain. 50% chance of precipitation.'
+      : 'Şimdi, saat 12:00. Sıcaklık 16,0 santigrat derece. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '14\u00a0km/h' : '14\u00a0km/sa')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? 'Low' : 'Düşük')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '70%' : '%70')).toBeOnTheScreen();
@@ -980,6 +980,16 @@ test('Weather offers a pull-to-refresh gesture alongside the visible refresh but
   expect(value.refresh).toHaveBeenCalledTimes(2);
 });
 
+// With no place there is nothing to refresh: the Refresh button is hidden, and a pull must
+// not spin, play a haptic or report a manual refresh that did nothing.
+test('offers no pull to refresh while no place is chosen', async () => {
+  const result = await render(
+    <Providers language="en" value={createValue()}><WeatherScreen /></Providers>,
+  );
+  expect(result.queryByTestId('weather-refresh-button')).toBeNull();
+  expect(result.getByTestId('weather-screen').props.refreshControl).toBeUndefined();
+});
+
 test('the pull control spins only for a pulled refresh, not for one already in flight at mount', async () => {
   let finishRefresh!: (value: undefined) => void;
   const value = createValue({
@@ -1130,8 +1140,8 @@ test('the hourly rail drops the hours that have ended', async () => {
   const result = await render(<Providers language="en" value={value}><WeatherScreen /></Providers>);
   const bands = result.getAllByTestId('weather-hourly-band', hidden);
   expect(bands).toHaveLength(1);
-  expect(result.getByLabelText('13:00. 17.0 degrees Celsius. Cloudy. 20% chance of precipitation.')).toBeOnTheScreen();
-  expect(result.queryByLabelText('12:00. 16.0 degrees Celsius. Rain. 50% chance of precipitation.')).toBeNull();
+  expect(result.getByLabelText('Now, 13:00. 17.0 degrees Celsius. Cloudy. 20% chance of precipitation.')).toBeOnTheScreen();
+  expect(result.queryByLabelText(/12:00\. 16\.0 degrees Celsius\. Rain\./u)).toBeNull();
 
 });
 

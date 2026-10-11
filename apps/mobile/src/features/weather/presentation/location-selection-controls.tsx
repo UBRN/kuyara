@@ -267,6 +267,16 @@ export function LocationSelectionControls({
           testID={`${testIDPrefix}-place-search`}
         />
         {statusCopy ? <StatusLine text={statusCopy} warning={search.status === 'error'} /> : null}
+        {/* The search runs again only when the text changes, so a failed one offers its own
+            retry of the same query; a name that is too long cannot succeed by retrying. */}
+        {search.status === 'error' && search.code !== 'invalid-input' ? (
+          <Button
+            label={copy.retry}
+            onPress={() => controller.search(query, language)}
+            testID={`${testIDPrefix}-place-search-retry`}
+            variant="tonal"
+          />
+        ) : null}
       </View>
       <Animated.View style={[styles.root, resultsFade]}>
       <NativeList testID={`${testIDPrefix}-place-results`}>

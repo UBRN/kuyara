@@ -343,6 +343,7 @@ export const tr = {
     placeSearchErrors: {
       'invalid-input': 'Bu ad çok uzun. Daha kısa bir şehir adı dene.',
       'invalid-response': 'Arama sonuçları yüklenemedi. Yeniden dene.',
+      offline: 'Çevrimdışısın. İnternete bağlanıp yeniden dene.',
       unavailable: 'Yer araması şu anda kullanılamıyor. Daha sonra yeniden dene.',
       'rate-limited': 'Çok fazla arama yapıldı. Biraz bekleyip yeniden dene.',
     },
@@ -374,6 +375,7 @@ export const tr = {
     uvIndex: (index, level) => `UV endeksi ${index}: ${level}`,
     uvLevels: { low: 'Düşük', moderate: 'Orta', high: 'Yüksek', veryHigh: 'Çok yüksek', extreme: 'Aşırı' },
     hourlyForecastAccessibilityLabel: ({
+      now,
       day,
       time,
       unitName,
@@ -381,7 +383,7 @@ export const tr = {
       condition,
       precipitationProbability,
     }) =>
-      `${day ? `${day}, ${time}` : sentenceInitial(time)}. Sıcaklık ${temperature} ${unitName}. ${condition}. ` +
+      `${now ? `Şimdi, ${time}` : day ? `${day}, ${time}` : sentenceInitial(time)}. Sıcaklık ${temperature} ${unitName}. ${condition}. ` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     dailyHeading: 'Önümüzdeki günler',
     // One line when it fits. When it does not, the row shows the stacked form instead, so a

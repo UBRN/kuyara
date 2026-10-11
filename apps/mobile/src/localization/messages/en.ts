@@ -349,6 +349,7 @@ export const en = {
     placeSearchErrors: {
       'invalid-input': 'That name is too long. Try a shorter city name.',
       'invalid-response': 'Search results could not be loaded. Try again.',
+      offline: 'You’re offline. Connect to the internet and try again.',
       unavailable: 'Place search is temporarily unavailable. Try again later.',
       'rate-limited': 'Too many searches. Wait a moment and try again.',
     },
@@ -380,6 +381,7 @@ export const en = {
     uvIndex: (index, level) => `UV index ${index}: ${level}`,
     uvLevels: { low: 'Low', moderate: 'Moderate', high: 'High', veryHigh: 'Very high', extreme: 'Extreme' },
     hourlyForecastAccessibilityLabel: ({
+      now,
       day,
       time,
       unitName,
@@ -387,7 +389,7 @@ export const en = {
       condition,
       precipitationProbability,
     }) =>
-      `${day ? `${day}, ` : ''}${time}. ${temperature} ${unitName}. ${condition}. ` +
+      `${now ? 'Now, ' : day ? `${day}, ` : ''}${time}. ${temperature} ${unitName}. ${condition}. ` +
       `${Math.round(precipitationProbability * 100)}% chance of precipitation.`,
     dailyHeading: 'Coming days',
     // One line when it fits. When it does not, the row shows the stacked form instead, so a

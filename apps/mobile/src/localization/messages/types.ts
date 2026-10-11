@@ -759,7 +759,7 @@ export type AppMessages = Readonly<{
     placeSearchEmpty: string;
     placeSearchAttribution: string;
     placeSearchResultLabel: (name: string, region: string) => string;
-    placeSearchErrors: Readonly<Record<'invalid-input' | 'invalid-response' | 'unavailable' | 'rate-limited', string>>;
+    placeSearchErrors: Readonly<Record<'invalid-input' | 'invalid-response' | 'offline' | 'unavailable' | 'rate-limited', string>>;
     placeDeniedBody: string;
     placePermanentDeniedBody: string;
     placeServicesUnavailableBody: string;
@@ -785,6 +785,8 @@ export type AppMessages = Readonly<{
     /** The WHO UV index bands, as a reader says them. */
     uvLevels: Readonly<Record<'low' | 'moderate' | 'high' | 'veryHigh' | 'extreme', string>>;
     hourlyForecastAccessibilityLabel: (values: {
+      /** The current hour, which the rail shows as "Now". */
+      now?: boolean;
       day?: string;
       time: string;
       unitName: string;

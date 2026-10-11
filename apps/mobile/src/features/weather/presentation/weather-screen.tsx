@@ -372,7 +372,9 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   return (
     <Screen
       contentContainerStyle={styles.content}
-      refreshControl={
+      // With no place there is nothing to refresh, so there is no pull either, as there is no
+      // Refresh button.
+      refreshControl={state.activeLocation ? (
         <RefreshControl
           colors={[theme.colors.iconSecondary]}
           onRefresh={() => {
@@ -383,7 +385,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
           refreshing={pullInFlight}
           tintColor={theme.colors.iconSecondary}
         />
-      }
+      ) : undefined}
       ref={scrollRef}
       testID="weather-screen">
       <ScrollDepth scrollOffset={scrollOffset}>

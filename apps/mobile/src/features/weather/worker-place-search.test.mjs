@@ -29,8 +29,11 @@ test('search validates input before transport and accepts empty results', async 
 });
 test('search sanitizes transport, timeout, rate limit and malformed response failures', async () => {
   for (const [fetch, code] of [
-    [async () => { throw new Error('private query'); }, 'unavailable'],
-    [async (_url, { signal }) => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('private timeout')))), 'unavailable'],
+    // fetch rejects with a TypeError when the device has no connection; like the weather
+    // request, every failure to get a response, a timeout included, is presented as offline.
+    [async () => { throw new TypeError('Network request failed: private query'); }, 'offline'],
+    [async () => { throw new Error('private query'); }, 'offline'],
+    [async (_url, { signal }) => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('private timeout')))), 'offline'],
     [async () => Response.json({ error: { code: 'rate_limited' } }, { status: 429 }), 'rate-limited'],
     [async () => Response.json({ error: { code: 'places_unavailable' } }, { status: 503 }), 'unavailable'],
     [async () => Response.json({ error: { code: 'upstream_degraded' } }, { status: 503 }), 'unavailable'],

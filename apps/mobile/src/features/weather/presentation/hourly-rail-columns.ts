@@ -63,8 +63,10 @@ export function hourlyRailColumns(
     const clockTime = formatClockTime(hour.forecastAt, language, hour12, timeZone);
     return {
       key: hour.forecastAt,
-      // The spoken label keeps the clock time, said as a sentence says it, even where the column shows "Now" or a day.
+      // The spoken label says what the column shows, "Now" or a day, and keeps the clock time
+      // after it, said as a sentence says it.
       accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
+        now: timeEmphasis === 'now',
         day: newLocalDay ? weekday(hour.forecastAt, timeZone, language, 'long') : undefined,
         time: formatSpokenClockTime(hour.forecastAt, language, hour12, timeZone),
         unitName,

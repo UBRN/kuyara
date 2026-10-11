@@ -34,7 +34,7 @@ export class WorkerPlaceSearchDataSource {
       },
       this.timeoutMs,
       {
-        network: () => new PlaceSearchError('unavailable'),
+        network: () => new PlaceSearchError('offline'),
         invalidJson: () => new PlaceSearchError('invalid-response'),
       },
     );

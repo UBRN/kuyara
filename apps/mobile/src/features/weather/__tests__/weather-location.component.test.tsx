@@ -166,7 +166,7 @@ test.each(['tr', 'en'] as const)('%s picker announces empty and error states wit
   expect(result.getByLabelText(copy.placeSearchEmpty).props.accessibilityLiveRegion).toBe('polite');
   expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(copy.placeSearchEmpty);
   expect(result.queryByText(copy.placeSearchAttribution)).toBeNull();
-  for (const code of ['unavailable', 'rate-limited', 'invalid-input', 'invalid-response'] as const) {
+  for (const code of ['offline', 'unavailable', 'rate-limited', 'invalid-input', 'invalid-response'] as const) {
     const error = new PlaceSearchError(code); error.message = 'secret provider URL';
     search.searchPlaces.mockRejectedValueOnce(error);
     await fireEvent.changeText(field, code); await debounce();
@@ -176,7 +176,27 @@ test.each(['tr', 'en'] as const)('%s picker announces empty and error states wit
       .toBe('flex-start');
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(copy.placeSearchErrors[code]);
     expect(result.queryByText(error.message)).toBeNull();
+    // Only a name that is too long cannot succeed by searching again.
+    expect(result.queryByRole('button', { name: copy.retry }) !== null).toBe(code !== 'invalid-input');
   }
+});
+
+// Search runs again only when the text changes, so a failed search offers its own retry of
+// the same query: once back online the person need not retype the city.
+test.each(['tr', 'en'] as const)('%s picker says offline and finds the place on Try again', async (language) => {
+  const { search, Providers } = harness(language);
+  search.searchPlaces.mockRejectedValueOnce(new PlaceSearchError('offline'));
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  const copy = messages[language].weather;
+  await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Ista'); await debounce();
+  expect(result.getByLabelText(copy.placeSearchErrors.offline)).toBeOnTheScreen();
+
+  await fireEvent.press(result.getByRole('button', { name: copy.retry })); await debounce();
+  expect(search.searchPlaces).toHaveBeenNthCalledWith(2, { query: 'Ista', language, limit: 5 });
+  expect(result.getByRole('button', { name: copy.placeSearchResultLabel(place.displayName, place.region) }))
+    .toBeOnTheScreen();
+  expect(result.queryByLabelText(copy.placeSearchErrors.offline)).toBeNull();
+  expect(result.queryByRole('button', { name: copy.retry })).toBeNull();
 });
 
 test('selecting a searched place that changes the location captures location_changed and feature_used_first_time once', async () => {
