@@ -97,11 +97,14 @@ tags:
           id: "analytics-consent-decline"
 
 # A fresh install meets the one-time walkthrough over Today (migration 22's gate); its overlay
-# hides Today's elements from the tree Maestro reads, so the flow skips it when it shows.
+# hides Today's elements from the tree Maestro reads, so the flow skips it when it shows. It
+# opens only once the first outfit has arrived, so the wait spans the outfit's own wait (the
+# 38 s worst-case chain plus margin); a shorter one passes the tour still to come and then
+# finds Today hidden under it.
 - extendedWaitUntil:
     visible:
       id: "walkthrough-skip"
-    timeout: 5000
+    timeout: 75000
     optional: true
 - runFlow:
     when:
