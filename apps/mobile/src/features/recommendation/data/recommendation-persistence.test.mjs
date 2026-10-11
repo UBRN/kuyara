@@ -351,8 +351,11 @@ test('cold new-day generation excludes yesterday, while regenerate offers the fu
   await controller.initialize(nextInput.localDayKey);
   assert.equal(controller.getSnapshot().snapshot, null);
   await controller.refresh('local-day-changed', nextInput);
-  assert.deepEqual(fullPool.filter((id) =>
-    !requests[0].options.some((option) => option.optionId === id)).sort(), previousIds.sort());
+  // Yesterday's outfits leave the options, and so do those repeating two of their shoes,
+  // bottom and outer layer, while twelve remain.
+  const offered = requests[0].options.map(({ optionId }) => optionId);
+  assert.deepEqual(previousIds.filter((id) => offered.includes(id)), []);
+  assert.ok(offered.every((id) => fullPool.includes(id)) && offered.length >= 12);
 
   await controller.refresh('regenerate', nextInput);
   assert.deepEqual(requests[1].options.map(({ optionId }) => optionId), fullPool);

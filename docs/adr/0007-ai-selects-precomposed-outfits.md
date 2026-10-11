@@ -46,7 +46,12 @@ exactly three of them, each with one archetype identifier.
 Which 24 are offered is decided by order rather than by score alone: the
 score-sorted arrangements are taken one per formality and one per body core in
 turn, and every second body core is offered with its best layered arrangement in
-front, so a day that requires no layer still offers layered options.
+front, so a day that requires no layer still offers layered options. The options
+then leave out every outfit wearing the body garments of one of the three shown
+before, and every outfit repeating two of the shoes, bottom (or one-piece) and outer
+layer of one of them while at least twelve options remain, so the model, which
+picks mostly from the head of its list, is not handed yesterday's pieces again.
+Only the persisted three are read, never History.
 
 An option is six body slots and four optional accessory slots. The body is a core
 that is either `primary_top` plus `bottom` or a lone `one_piece`, an optional

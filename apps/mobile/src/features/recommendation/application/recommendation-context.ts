@@ -50,6 +50,7 @@ import {
 import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import { compositionSeed } from '@/features/recommendation/domain/local-day';
+import { withoutRepeatedPieces } from '@/features/recommendation/domain/outfit-offer';
 import { dressingDayKeySchema } from '@/features/weather/domain/wardrobe-day';
 
 export const recommendationContextSchema = z.strictObject({
@@ -181,7 +182,8 @@ export function createRecommendationContextWithPool(
   const composition = composeOutfitPool(requirements, input.clothingPreference,
     compositionSeed(input.dayVariant, localDayKey), input.recentWorn);
   const availableOutfits = composition.status === 'composed'
-    ? excludeOutfitOptions(composition.outfits, input.excludedOutfits)
+    ? withoutRepeatedPieces(excludeOutfitOptions(composition.outfits, input.excludedOutfits),
+      input.excludedOutfits)
     : [];
   const parsed = recommendationContextSchema.safeParse({
     clothingPreference: input.clothingPreference,
