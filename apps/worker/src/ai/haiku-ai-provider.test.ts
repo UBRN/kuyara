@@ -199,7 +199,8 @@ test('the priced prompt size covers the largest prompt the app builds and the li
   // The grid has no cold front, and the longest prompts the app builds come from one: a weekend
   // (day variants 3 and 4, which the app always pairs with a weekend day kind) that is warm
   // enough for light clothing in the morning and turns to wind and drizzle near freezing
-  // feel by the afternoon, so both ends of the wardrobe stay eligible.
+  // feel by the afternoon, so both ends of the wardrobe stay eligible. The wind stays below the
+  // 8 m/s that leaves the umbrella at home, so the outfits still carry it.
   const { createRecommendationContext, aiRequestFromContext } = (await import(contextSpecifier)) as ContextModule;
   const now = '2026-09-19T09:00:00.000Z';
   const weather = (temperatureCelsius: number, apparentTemperatureCelsius: number, condition: string,
@@ -214,7 +215,7 @@ test('the priced prompt size covers the largest prompt the app builds and the li
     minimumTemperatureCelsius: 7, maximumTemperatureCelsius: 21,
     hourly: [
       hour('10', 21, 23, 'cloudy', 0.2, 3), hour('11', 21, 23, 'cloudy', 0.3, 4), hour('12', 17, 16, 'cloudy', 0.4, 6),
-      hour('13', 12, 9, 'drizzle', 0.5, 8), hour('14', 9, 4, 'drizzle', 0.5, 8), hour('15', 8, 3, 'drizzle', 0.5, 7),
+      hour('13', 12, 9, 'drizzle', 0.5, 7), hour('14', 9, 4, 'drizzle', 0.5, 7), hour('15', 8, 3, 'drizzle', 0.5, 7),
       hour('16', 8, 4, 'drizzle', 0.4, 6),
     ],
   };
@@ -225,7 +226,7 @@ test('the priced prompt size covers the largest prompt the app builds and the li
     assert.ok(request);
     return (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...request, locale }));
   })));
-  assert.equal(largestBuilt, 18_485);
+  assert.equal(largestBuilt, 18_413);
   // Rounded up, never so far that the price stops describing the prompt.
   assert.ok(largestBuilt <= haikuPromptCharacterLimit && haikuPromptCharacterLimit - largestBuilt < 200);
 
