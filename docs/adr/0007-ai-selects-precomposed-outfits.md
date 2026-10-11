@@ -130,7 +130,9 @@ reason.
 a raw day seed; the count runs on across years, so the year boundary never repeats. A raw seed
 regenerates every bucket every day and ties quota consumption to daily bucket
 count. A seven-slot ring bounds each bucket to at most seven generations, after
-which it is a permanent cache hit. Consecutive days do not repeat, which is what
+which it is a permanent cache hit. The variant rotates only each formality's drafts
+within five points of its best, so it varies the offer without leading with a
+worse draft. Consecutive days do not repeat, which is what
 ADR 0005 requires. Weekly recurrence is the accepted tradeoff, and the modulus
 is a single constant.
 

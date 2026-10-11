@@ -14,12 +14,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formalityLevels, formalityOrderByDressStyle } from '@kuyara/contracts';
+import { formalityLevels } from '@kuyara/contracts';
 
 import { listGarmentTypesForPreference, getGarmentType } from '@/features/catalog/domain/garment-catalog';
 
 import {
   assignFallbackArchetypes,
+  orderForShown,
   recommendOutfits,
 } from './application/recommend-outfits.ts';
 import {
@@ -101,12 +102,9 @@ function composeCell(temperature, precipitation, windSpeed, clothingPreference, 
  * answers, so the grid cannot quietly drift away from the application's path.
  */
 function shownTrio(cell, dressStyle, dayKind) {
-  const order = formalityOrderByDressStyle[dressStyle];
   const outfits = cell.composition.outfits;
   return assignFallbackArchetypes(
-    [...outfits].sort(
-      (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
-    ),
+    orderForShown(outfits, { dressStyle, dayKind }, cell.requirements),
     cell.requirements,
     Math.min(3, outfits.length),
     dayKind,
@@ -262,9 +260,11 @@ test('T2 the shown outfits are built from everyday garments often enough', () =>
   // Layer order now keeps a sweatshirt off a fleece and a fleece off a cardigan, and snow's
   // share had counted those stacks: dry 57.3, rain 27.8, snow 35.8 and total 41.6.
   // An 18 or 22 C rain day wishes the legs covered and wears jeans for shorts: rain 27.6 to
-  // 28.5, total 40.8 to 41.2.
-  assert.ok(shareOf(shown) >= 0.40, `total share fell to ${(100 * shareOf(shown)).toFixed(1)}%`);
-  for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.27], ['snow', 0.35]]) {
+  // 28.5, total 40.8 to 41.2. The two shown after the first now share as few garments with it as
+  // the day's best allows, which trades the most common pieces for variety: dry 55.9 to 54.1,
+  // rain 28.4 to 25.6, snow 35.0 to 31.9, total 41.1 to 38.7.
+  assert.ok(shareOf(shown) >= 0.38, `total share fell to ${(100 * shareOf(shown)).toFixed(1)}%`);
+  for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.25], ['snow', 0.31]]) {
     const share = shareOf(inClass(precipitationName));
     assert.ok(
       share >= floor,
@@ -378,11 +378,16 @@ test('T5 no archetype label contradicts the day it labels', () => {
 test('T9 a cool wet day shows no shorts, a warm wet day still may', () => {
   // At 18 C a rain day asked nothing of the legs and showed shorts under a rain jacket and
   // rain boots. Below the shorts rung a wet day wishes the legs covered; at 27 C the shorts
-  // stay as free on a wet day as on a dry one.
+  // stay as free on a wet day as on a dry one. They are offered, not shown: the day's three
+  // keep the rain boots it wishes for, and shorts never go with boots.
   const shownShorts = (temperature) => shownOutfits().filter(({ cell, outfit }) =>
     cell.precipitationName === 'rain' && cell.temperature === temperature &&
     garmentTypeIds(outfit).includes('shorts')).length;
+  const offeredShorts = (temperature) => grid().filter((cell) =>
+    cell.precipitationName === 'rain' && cell.temperature === temperature)
+    .flatMap((cell) => cell.composition.outfits)
+    .filter((outfit) => garmentTypeIds(outfit).includes('shorts')).length;
   assert.equal(shownShorts(18), 0, '18 C rain');
   assert.equal(shownShorts(22), 0, '22 C rain');
-  assert.ok(shownShorts(27) > 0, '27 C rain showed no shorts');
+  assert.ok(offeredShorts(27) > 0, '27 C rain offered no shorts');
 });

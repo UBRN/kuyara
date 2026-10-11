@@ -13,6 +13,7 @@ import {
   assignedOutfitGarments,
   collectValidOutfits,
   composeOutfitOptions,
+  evaluateArrangement,
   excludeRecentlyWornOutfits,
   offeredOutfitLimit,
   onePieceExcludes,
@@ -20,6 +21,8 @@ import {
   outfitCompositionReasonCodes,
   outfitSlots,
 } from './outfit-composition.ts';
+import { readComposerDay, validDrafts } from './outfit-enumeration.ts';
+import { orderForOffer } from './outfit-offer.ts';
 import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
 import { gridRecommendationInput } from '../../../../test/recommendation-grid.mjs';
 import { recommendOutfits } from '../application/recommend-outfits.ts';
@@ -49,7 +52,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    '9870916c1e1153a70b3881e9d7b6cc00d712a90315b3c603a5e8f728bdbb5a05',
+    'eed7ce22fbb25c7e6fba6ea5697984c35cdec8c03225bb196e6c6319a0d87dab',
   );
 });
 
@@ -205,6 +208,20 @@ function composeLayeredOutfit(requirements, candidates) {
     (candidate) => candidate.midLayer !== null && candidate.outerLayer !== null,
   );
   assert.ok(outfit, 'no arrangement carried both a mid and an outer layer');
+  return Object.freeze({ status: 'composed', outfit });
+}
+
+// Some cases below read what the composer's scoring charges for a piece its heat rules keep off
+// the day, a high-thermal one on a day that asks for no warmth: they score the arrangement
+// itself, which no composition rule touches.
+function arrangedOutfit(requirements, { primaryTop, bottom, outerLayer = null, footwear }) {
+  const piece = (typeId) => typeId === null ? null : catalogCandidate(requirements, typeId);
+  const { outfit } = evaluateArrangement(requirements, {
+    body: { kind: 'separates', primaryTop: piece(primaryTop), bottom: piece(bottom) },
+    midLayer: null,
+    outerLayer: piece(outerLayer),
+    footwear: piece(footwear),
+  });
   return Object.freeze({ status: 'composed', outfit });
 }
 
@@ -452,12 +469,14 @@ test('without mandatory water or wind, normal bottleneck breathability is restor
       reasonCodes: Object.freeze(['temperature_high']),
     }),
   );
-  const result = composeOutfit(requirements, [
+  // Derivation never makes both sides mandatory, and the season rules keep shorts off a day
+  // whose warmth is, so this conflict is read without them.
+  const result = collectValidOutfits(requirements, [
     catalogCandidate(requirements, 't_shirt'),
     catalogCandidate(requirements, 'shorts'),
     catalogCandidate(requirements, 'light_jacket'),
     catalogCandidate(requirements, 'sandals'),
-  ]);
+  ], { composesNew: false });
 
   assert.equal(result.status, 'failure');
   assert.deepEqual(result.reasonCodes, [
@@ -482,7 +501,7 @@ test('authoritative slots reject a top outer for body water but accept footwear 
     catalogCandidate(bodyRequirements, 't_shirt'),
     catalogCandidate(bodyRequirements, 'shorts'),
     catalogCandidate(bodyRequirements, 'hoodie'),
-    catalogCandidate(bodyRequirements, 'sandals'),
+    catalogCandidate(bodyRequirements, 'sneakers'),
   ]);
   assert.equal(bodyResult.status, 'failure');
   assert.equal(bodyResult.reasonCodes.includes('mandatory_body_water_unmet'), true);
@@ -496,6 +515,8 @@ test('authoritative slots reject a top outer for body water but accept footwear 
     requirement('traction', 'enhanced', {
       reasonCodes: Object.freeze(['condition_snow']),
     }),
+    // A snow day asks for warmth, which a high-thermal boot needs before it is worn.
+    requirement('thermal', 'light', { priority: 'optional' }),
   );
   const feetResult = composeOutfit(feetRequirements, [
     catalogCandidate(feetRequirements, 't_shirt'),
@@ -559,7 +580,7 @@ test('fails structurally for missing slots and duplicate input keys', () => {
 });
 
 test('candidates are ordered deterministically whatever order they arrive in', () => {
-  const requirements = clothingRequirements(requirement('thermal', 'light'));
+  const requirements = clothingRequirements(requirement('thermal', 'light', { priority: 'optional' }));
   const catalogWarm = catalogCandidate(requirements, 'long_sleeve_t_shirt');
   const catalogCool = catalogCandidate(requirements, 't_shirt');
   const shorts = catalogCandidate(requirements, 'shorts');
@@ -580,11 +601,8 @@ test('candidates are ordered deterministically whatever order they arrive in', (
 
 test('outfit over-insulation penalty is bounded and does not count footwear warmth', () => {
   const requirements = clothingRequirements();
-  const result = composeOutfit(requirements, [
-    catalogCandidate(requirements, 'sweater'),
-    catalogCandidate(requirements, 'jeans'),
-    catalogCandidate(requirements, 'weather_boots'),
-  ]);
+  const result = arrangedOutfit(requirements,
+    { primaryTop: 'sweater', bottom: 'jeans', footwear: 'weather_boots' });
 
   assert.equal(result.status, 'composed');
   assert.equal(result.outfit.aggregates.thermal.bodyStrength, 3);
@@ -650,11 +668,7 @@ test('outfit over-insulation starts above body strength one', () => {
   ];
 
   for (const [top, bottom, bodyStrength, penaltyPoints, score] of cases) {
-    const result = composeOutfit(requirements, [
-      catalogCandidate(requirements, top),
-      catalogCandidate(requirements, bottom),
-      catalogCandidate(requirements, 'sandals'),
-    ]);
+    const result = arrangedOutfit(requirements, { primaryTop: top, bottom, footwear: 'sandals' });
 
     assert.equal(result.status, 'composed');
     assert.equal(result.outfit.aggregates.thermal.bodyStrength, bodyStrength);
@@ -675,12 +689,9 @@ test('aggregate outfit penalties are capped at thirty points', () => {
       reasonCodes: Object.freeze(['wind_strong']),
     }),
   );
-  const result = composeOutfit(requirements, [
-    catalogCandidate(requirements, 'sweatshirt'),
-    catalogCandidate(requirements, 'jeans'),
-    catalogCandidate(requirements, 'rain_jacket'),
-    catalogCandidate(requirements, 'weather_boots'),
-  ]);
+  const result = arrangedOutfit(requirements, {
+    primaryTop: 'sweatshirt', bottom: 'jeans', outerLayer: 'rain_jacket', footwear: 'weather_boots',
+  });
 
   assert.equal(result.status, 'composed');
   assert.equal(result.outfit.aggregates.thermal.bodyStrength, 3);
@@ -799,8 +810,8 @@ test('returns two high-heat outfits instead of footwear-only near-duplicates', (
   const bottom = catalogCandidate(requirements, 'shorts');
   const footwear = [
     catalogCandidate(requirements, 'sneakers'),
-    catalogCandidate(requirements, 'ankle_boots'),
-    catalogCandidate(requirements, 'weather_boots'),
+    catalogCandidate(requirements, 'loafers'),
+    catalogCandidate(requirements, 'ballet_flats'),
     catalogCandidate(requirements, 'sandals'),
   ];
   const validCompositions = tops.flatMap((top) =>
@@ -1288,4 +1299,192 @@ test('a one-piece excludes a top and a bottom and nothing else', () => {
 
 test('Today offers at most as many outfits as one AI request carries', () => {
   assert.equal(offeredOutfitLimit, aiV1OptionLimit);
+});
+
+// A stylist never sends some garments together: a summer piece with a winter one, track pants
+// with tailoring, a fleece with a skirt or a dress, shorts with boots, and a hoodie pulled over
+// a knit or a fleece. These are the pairs the weather grid kept showing; the list names them
+// here so that the composer's own table cannot quietly lose one.
+const incompatiblePairs = [
+  ['shorts', 'rain_boots'], ['shorts', 'weather_boots'], ['shorts', 'ankle_boots'],
+  ['sandals', 'parka'], ['sleeveless_top', 'coat'], ['shorts', 'fleece'],
+  ['fleece', 'long_skirt'], ['fleece', 'skirt'], ['fleece', 'dress'],
+  ['track_pants', 'shirt'], ['track_pants', 'blazer'], ['track_pants', 'loafers'],
+];
+const hoodieNeverOver = ['fleece', 'sweatshirt', 'sweater', 'cardigan'];
+
+function clashesOf(outfit) {
+  const ids = assignedOutfitGarments(outfit).map(({ garment }) => garment.garmentTypeId);
+  const clashes = incompatiblePairs
+    .filter(([left, right]) => ids.includes(left) && ids.includes(right))
+    .map((pair) => pair.join('+'));
+  const primary = outfit.body.kind === 'separates' ? outfit.body.primaryTop.garment.garmentTypeId : null;
+  if (outfit.midLayer?.garment.garmentTypeId === 'hoodie' && hoodieNeverOver.includes(primary)) {
+    clashes.push(`hoodie over ${primary}`);
+  }
+  return clashes;
+}
+
+const clashDays = {
+  freezing: { temperatureCelsius: -10, apparentTemperatureCelsius: -10, condition: 'clear',
+    precipitationProbability: 0, windSpeedMetersPerSecond: 2 },
+  warm_rain: { temperatureCelsius: 24, apparentTemperatureCelsius: 24, condition: 'rain',
+    precipitationProbability: 0.8, windSpeedMetersPerSecond: 2 },
+  hot_rain: { temperatureCelsius: 26, apparentTemperatureCelsius: 26, condition: 'rain',
+    precipitationProbability: 0.8, windSpeedMetersPerSecond: 2 },
+  cold_rain: { temperatureCelsius: 2, apparentTemperatureCelsius: 0, condition: 'rain',
+    precipitationProbability: 0.8, windSpeedMetersPerSecond: 6 },
+};
+
+test('no composed outfit wears an incompatible pair while three clean ones remain', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const [name, weather] of Object.entries(clashDays)) {
+      const { requirements, candidates } = composableForWeather(weather, {}, preference);
+      const valid = collectValidOutfits(requirements, candidates);
+      assert.equal(valid.status, 'composed', `${preference} ${name}`);
+      assert.ok(valid.outfits.length >= 3, `${preference} ${name}`);
+      assert.deepEqual([...new Set(valid.outfits.flatMap(clashesOf))], [], `${preference} ${name}`);
+    }
+  }
+});
+
+test('a day that dresses only in incompatible pairs keeps them rather than failing', () => {
+  // At 30 C in a thunderstorm the feet must stay dry and the legs must breathe, and the only
+  // men's bottom that breathes is shorts, so every men's outfit wears shorts with rain boots.
+  const weather = { temperatureCelsius: 30, apparentTemperatureCelsius: 30, condition: 'thunderstorm',
+    precipitationProbability: 0.9, windSpeedMetersPerSecond: 2 };
+  const { requirements, candidates } = composableForWeather(weather, {}, 'mens');
+  const offered = composeOutfitOptions(requirements, candidates, 0);
+  assert.equal(offered.status, 'composed');
+  assert.ok(offered.outfits.length >= 3);
+  assert.ok(offered.outfits.every((outfit) => clashesOf(outfit).length > 0));
+});
+
+test('a saved outfit wearing a pair the composer now keeps out still reads back', () => {
+  const { requirements, candidates } = composableForWeather(clashDays.freezing, {}, 'womens');
+  const saved = collectValidOutfits(requirements, candidates, { composesNew: false });
+  assert.equal(saved.status, 'composed');
+  assert.ok(saved.outfits.some((outfit) => clashesOf(outfit).includes('fleece+long_skirt')));
+});
+
+// Heat rules. A 30 C day makes breathability mandatory, and on it nothing high-thermal is worn,
+// no mid layer is added, and no shoe warmer than light is worn while the feet only wish to stay
+// dry; a thunderstorm, which makes dry feet mandatory, keeps its rain boots. A day that asks for
+// no warmth at all, from 18 C up, wears nothing high-thermal either.
+const heatDay = (temperatureCelsius, condition, precipitationProbability) => ({
+  temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius, condition,
+  precipitationProbability, windSpeedMetersPerSecond: 2,
+});
+const highThermal = ['parka', 'insulated_jacket', 'coat', 'fleece', 'weather_boots'];
+const typesOf = (outfits) => [...new Set(outfits.flatMap((outfit) =>
+  assignedOutfitGarments(outfit).map(({ garment }) => garment.garmentTypeId)))].sort();
+
+test('a day whose heat is mandatory wears nothing high-thermal and no mid layer', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const [condition, probability] of [['clear', 0], ['rain', 0.8], ['thunderstorm', 0.9]]) {
+      const { requirements, candidates } = composableForWeather(heatDay(30, condition, probability), {}, preference);
+      const valid = collectValidOutfits(requirements, candidates);
+      const cell = `${preference} 30 C ${condition}`;
+      assert.equal(valid.status, 'composed', cell);
+      assert.deepEqual(typesOf(valid.outfits).filter((id) => highThermal.includes(id)), [], cell);
+      assert.equal(valid.outfits.some((outfit) => outfit.midLayer !== null), false, cell);
+    }
+  }
+});
+
+test('hot plain rain wears no warm shoe, and its casual shoes are sandals and sneakers', () => {
+  for (const preference of ['womens', 'mens']) {
+    const { requirements, candidates } = composableForWeather(heatDay(30, 'rain', 0.8), {}, preference);
+    const valid = collectValidOutfits(requirements, candidates);
+    const shoes = [...new Set(valid.outfits.map(({ footwear }) => footwear.garment.garmentTypeId))];
+    assert.deepEqual(shoes.filter((id) => ['rain_boots', 'ankle_boots', 'weather_boots'].includes(id)), [], preference);
+    assert.ok(shoes.includes('sandals') && shoes.includes('sneakers'), preference);
+  }
+});
+
+test('a hot thunderstorm keeps the rain boots its mandatory dry feet ask for', () => {
+  for (const preference of ['womens', 'mens']) {
+    const { requirements, candidates } = composableForWeather(heatDay(30, 'thunderstorm', 0.9), {}, preference);
+    const offered = composeOutfitOptions(requirements, candidates, 0);
+    assert.equal(offered.status, 'composed', preference);
+    assert.ok(offered.outfits.length >= 3, preference);
+    assert.ok(offered.outfits.every(({ footwear }) => footwear.garment.garmentTypeId === 'rain_boots'), preference);
+  }
+});
+
+test('a day that asks for no warmth wears nothing high-thermal, and a cool one still may', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const condition of ['clear', 'rain']) {
+      const mild = composableForWeather(heatDay(20, condition, condition === 'rain' ? 0.8 : 0), {}, preference);
+      const valid = collectValidOutfits(mild.requirements, mild.candidates);
+      assert.equal(valid.status, 'composed', `${preference} 20 C ${condition}`);
+      assert.deepEqual(typesOf(valid.outfits).filter((id) => highThermal.includes(id)), [],
+        `${preference} 20 C ${condition}`);
+    }
+    const cool = composableForWeather(heatDay(4, 'rain', 0.8), {}, preference);
+    assert.ok(typesOf(collectValidOutfits(cool.requirements, cool.candidates).outfits).includes('parka'), preference);
+  }
+});
+
+test('a saved hot-day outfit in a parka over a fleece still reads back', () => {
+  const { requirements, candidates } = composableForWeather(heatDay(30, 'rain', 0.8), {}, 'mens');
+  const saved = collectValidOutfits(requirements, candidates, { composesNew: false });
+  assert.equal(saved.status, 'composed');
+  assert.ok(typesOf(saved.outfits).includes('parka'));
+  assert.ok(saved.outfits.some((outfit) => outfit.midLayer !== null));
+});
+
+// The day's rotation runs only through each formality's best: whatever the seed, the offer order
+// leads each formality with a draft within five points of its best. A seven-slot rotation of the
+// whole list once put rain boots at the head of a dry 18 C smart offer.
+test('the offer order leads each formality with a draft within five points of its best, whatever the seed', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const weather of [clearDay(18), clearDay(12), heatDay(4, 'rain', 0.8), heatDay(24, 'drizzle', 0.6)]) {
+      const { requirements, candidates } = composableForWeather(weather, {}, preference);
+      const drafts = validDrafts(readComposerDay(requirements, candidates, true));
+      const best = new Map();
+      for (const { formality, score } of drafts) {
+        best.set(formality, Math.max(best.get(formality) ?? 0, score.score));
+      }
+      for (let seed = 0; seed < 40; seed += 1) {
+        const order = orderForOffer(drafts, seed);
+        for (const [formality, score] of best) {
+          const lead = order.find((draft) => draft.formality === formality);
+          assert.ok(lead.score.score >= score - 5,
+            `${preference} ${weather.temperatureCelsius} C seed ${seed}: ${formality} led at ${lead.score.score}, best ${score}`);
+        }
+      }
+    }
+  }
+});
+
+// The rotation and the trio choice reach past the day's single best answer, and the band they
+// reach into holds summer pieces on days that are not summer: sandals with a sweater under a
+// rain jacket, a sleeveless top under a cardigan at 16 C. A day whose insulation is mandatory
+// wears no sleeveless top, shorts or sandals, and a day whose body must stay dry wears no
+// sandals unless its heat is mandatory, where hot plain rain keeps them.
+const summerPieces = ['sleeveless_top', 'shorts', 'sandals'];
+
+test('a day whose warmth is mandatory wears no sleeveless top, shorts or sandals', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const weather of [clearDay(15), clearDay(17), heatDay(16, 'drizzle', 0.6), heatDay(10, 'rain', 0.8)]) {
+      const { requirements, candidates } = composableForWeather(weather, {}, preference);
+      const valid = collectValidOutfits(requirements, candidates);
+      const cell = `${preference} ${weather.temperatureCelsius} C ${weather.condition}`;
+      assert.equal(valid.status, 'composed', cell);
+      assert.deepEqual(typesOf(valid.outfits).filter((id) => summerPieces.includes(id)), [], cell);
+    }
+  }
+});
+
+test('a wet day wears no sandals unless its heat is mandatory, and a mild dry day still may', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const temperature of [20, 24, 27]) {
+      const { requirements, candidates } = composableForWeather(heatDay(temperature, 'rain', 0.8), {}, preference);
+      const valid = collectValidOutfits(requirements, candidates);
+      assert.equal(typesOf(valid.outfits).includes('sandals'), false, `${preference} ${temperature} C rain`);
+    }
+    const dry = composableForWeather(clearDay(22), {}, preference);
+    assert.ok(typesOf(collectValidOutfits(dry.requirements, dry.candidates).outfits).includes('sandals'), preference);
+  }
 });

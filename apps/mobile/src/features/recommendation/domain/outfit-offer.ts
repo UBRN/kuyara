@@ -6,13 +6,14 @@ import {
 } from '@/features/recommendation/domain/outfit-evaluation';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import {
+  assignedOutfitGarments,
   formalityOrder,
   garmentIdSet,
   garmentIdSetOf,
   type OutfitCandidate,
   type OutfitPin,
 } from '@/features/recommendation/domain/outfit-model';
-import { bodyOutfitSlots } from '@/features/recommendation/domain/outfit-slots';
+import { bodyOutfitSlots, type BodyOutfitSlot } from '@/features/recommendation/domain/outfit-slots';
 
 // What is offered from the sorted valid drafts: the order that spreads formalities, body
 // cores and layers, the diversity rule, the pins and the recent-wear exclusion.
@@ -49,18 +50,24 @@ function meaningfullyDifferent(
     hasTwoCandidateKeysAbsentFrom(right, left);
 }
 
-function rotated<Value>(
-  values: readonly Value[],
-  startOffset: number,
-): readonly Value[] {
-  if (values.length === 0) {
-    return values;
-  }
+/** How far below the best the day's rotation and Today's other two picks reach. */
+const bandPoints = 5;
 
-  const offset = ((startOffset % values.length) + values.length) % values.length;
+/**
+ * A formality's score-sorted drafts with its best band, those within five points of its best,
+ * rotated by the seed and the rest kept behind it in order. Rotating the whole list put a draft
+ * ten points worse, rain boots on a dry day, at the head of the offer; the band holds hundreds of
+ * near-equal drafts on a mild day, so an unbounded seed still leads with a new one day after day.
+ */
+function rotatedBestBand(drafts: readonly JudgedDraft[], seed: number): readonly JudgedDraft[] {
+  if (drafts.length === 0) return drafts;
+  const floor = drafts[0]!.score.score - bandPoints;
+  const bandSize = drafts.findIndex(({ score }) => score.score < floor);
+  const band = bandSize < 0 ? drafts.length : bandSize;
+  const offset = ((seed % band) + band) % band;
   return offset === 0
-    ? values
-    : [...values.slice(offset), ...values.slice(0, offset)];
+    ? drafts
+    : [...drafts.slice(offset, band), ...drafts.slice(0, offset), ...drafts.slice(band)];
 }
 
 /** One entry from each group in turn, groups keeping their own order. */
@@ -147,8 +154,8 @@ function layeredHeadOnAlternateGroups(
  * rather than the request's own preference, because dress style reorders what is offered
  * and excludes nothing (ADR 0031): the offered set stays the same for all three styles, and
  * the preference is applied afterwards, when the three shown outfits are chosen.
- * `startOffset` still seeds the choice, rotating each formality's own list rather than the
- * flat one, so a day variant cannot spend a whole formality's share.
+ * The seed still decides the choice, rotating each formality's best band rather than the flat
+ * list, so a day cannot spend a whole formality's share or lead with a worse draft.
  *
  * Inside the inner round-robin every second body core is offered with its best layered
  * arrangement in front. A day that requires no layer scores every arrangement alike and the
@@ -160,16 +167,16 @@ function layeredHeadOnAlternateGroups(
  */
 export function orderForOffer(
   outfits: readonly JudgedDraft[],
-  startOffset: number,
+  seed: number,
 ): readonly JudgedDraft[] {
   return interleaved(
     formalityOrder.map((formality) =>
       interleaved(
         layeredHeadOnAlternateGroups(
           groupedInOrder(
-            rotated(
+            rotatedBestBand(
               outfits.filter((outfit) => outfit.formality === formality),
-              startOffset,
+              seed,
             ),
             ({ side }) => side.bodyCoreKey,
           ),
@@ -243,4 +250,78 @@ export function excludeRecentlyWornOutfits(
     if (remaining.length >= 3 || active === 0) return Object.freeze(remaining);
   }
   return outfits;
+}
+
+/** How much sharing one slot's garment costs: a shared coat shows more than a shared mid layer. */
+const slotWeights: Readonly<Record<BodyOutfitSlot, number>> = Object.freeze({
+  primary_top: 2,
+  bottom: 2,
+  one_piece: 3,
+  mid_layer: 1,
+  outer_layer: 3,
+  footwear: 2,
+});
+
+/**
+ * What an outfit wears slot by slot. An empty layer is a choice too, so two outfits that both
+ * go without a jacket share that slot; otherwise the bare arrangement, which has nothing to
+ * share, would always be the one taken.
+ */
+function slotTypes(outfit: OutfitCandidate): ReadonlyMap<BodyOutfitSlot, string> {
+  return new Map<BodyOutfitSlot, string>([
+    ['mid_layer', 'none'],
+    ['outer_layer', 'none'],
+    ...assignedOutfitGarments(outfit).map(({ slot, garment }) =>
+      [slot as BodyOutfitSlot, garment.garmentTypeId] as const),
+  ]);
+}
+
+/** The weight of the slots two outfits fill with the same garment type. */
+function sharedWeight(left: ReadonlyMap<BodyOutfitSlot, string>, right: ReadonlyMap<BodyOutfitSlot, string>): number {
+  let weight = 0;
+  for (const [slot, type] of left) if (right.get(slot) === type) weight += slotWeights[slot];
+  return weight;
+}
+
+/**
+ * Today's three, read from the dress style's order. The first is the outfit within five points
+ * of the order's first, in its group, that shares the fewest garments with the three shown
+ * before (yesterday's first counting fully, the other two by half), so the same shoes, jacket
+ * and bottom do not lead day after day. The other two come from the same group, each the one
+ * sharing the fewest garments slot by slot with those already taken and with the three shown
+ * before, so three loafers outfits under one rain jacket give way to three that differ. They
+ * score within five points of the first or are among the two the order itself would show next,
+ * so the pick is never worse than the order's and a mild day keeps the layered outfit the offer
+ * alternates in. With no three shown before, the first is the order's own. The rest keep their
+ * order behind them, for the labels to fall back on.
+ */
+export function orderForShownThree<Outfit extends OutfitCandidate>(
+  ordered: readonly Outfit[],
+  groupOf: (outfit: Outfit) => string,
+  previous: readonly OutfitCandidate[] = [],
+): readonly Outfit[] {
+  const [lead] = ordered;
+  if (lead === undefined) return ordered;
+  const group = groupOf(lead);
+  const slots = new Map(ordered.map((outfit) => [outfit, slotTypes(outfit)]));
+  const previousSlots = previous.map(slotTypes);
+  const sharedBefore = (outfit: Outfit) => previousSlots.reduce((sum, shown, index) =>
+    sum + (index === 0 ? 1 : 0.5) * sharedWeight(slots.get(outfit)!, shown), 0);
+  const fewest = (candidates: readonly Outfit[], cost: (outfit: Outfit) => number) =>
+    candidates.reduce<Outfit | undefined>((best, outfit) =>
+      best === undefined || cost(outfit) < cost(best) ? outfit : best, undefined);
+
+  const first = fewest(ordered.filter((outfit) =>
+    groupOf(outfit) === group && outfit.score >= lead.score - bandPoints), sharedBefore)!;
+  const taken = [first];
+  while (taken.length < 3) {
+    const next = fewest(ordered.filter((outfit) =>
+      !taken.includes(outfit) && groupOf(outfit) === group &&
+      (outfit.score >= first.score - bandPoints || ordered.indexOf(outfit) <= 2)),
+    (outfit) => sharedBefore(outfit) +
+      taken.reduce((sum, pick) => sum + sharedWeight(slots.get(outfit)!, slots.get(pick)!), 0));
+    if (next === undefined) break;
+    taken.push(next);
+  }
+  return Object.freeze([...taken, ...ordered.filter((outfit) => !taken.includes(outfit))]);
 }

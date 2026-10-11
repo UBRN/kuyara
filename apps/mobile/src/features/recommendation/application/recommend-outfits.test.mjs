@@ -976,3 +976,70 @@ test('dry mild aesthetic ordering agrees with the day-aware label gate', () => {
     }
   }
 });
+
+// The three shown outfits used to be the first three that took distinct labels, so they
+// often wore one pair of shoes, one bottom or one outer layer between them. The two after the
+// first now come from the first's own band and formality, each sharing as few garments with
+// those already taken as it can. Over 216 trios (both cuts, three styles, dry and rainy, -4 to
+// 26 C, three day variants) the trios in one shoe were 143, in one bottom 111 and in one outer
+// layer 145; these are ceilings a later change has to walk past on purpose.
+test('the three shown outfits spread their shoes, bottoms and outer layers across the day\'s best', () => {
+  const counts = { shoe: 0, bottom: 0, outer: 0 };
+  const type = (assigned) => assigned?.garment.garmentTypeId ?? null;
+  for (const clothingPreference of ['womens', 'mens']) {
+    for (const dressStyle of ['casual', 'smart', 'formal']) {
+      for (const [condition, precipitationProbability] of [['clear', 0], ['rain', 0.8]]) {
+        for (const temperatureCelsius of [-4, 2, 8, 14, 20, 26]) {
+          for (const dayVariant of [0, 1, 2]) {
+            const { outfits } = recommendOutfits({
+              snapshot: snapshot({ current: { temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius,
+                condition, precipitationProbability } }),
+              now: observedAt, clothingPreference, dressStyle, dayVariant,
+            });
+            const one = (slot) => new Set(outfits.map(slot)).size === 1;
+            if (one(({ footwear }) => type(footwear))) counts.shoe += 1;
+            if (one(({ body }) => type(body.kind === 'separates' ? body.bottom : body.onePiece))) counts.bottom += 1;
+            if (outfits.every(({ outerLayer }) => outerLayer) && one(({ outerLayer }) => type(outerLayer))) counts.outer += 1;
+          }
+        }
+      }
+    }
+  }
+  assert.ok(counts.shoe <= 104, `${counts.shoe} trios in one shoe`);
+  assert.ok(counts.bottom <= 67, `${counts.bottom} trios in one bottom`);
+  assert.ok(counts.outer <= 129, `${counts.outer} trios in one outer layer`);
+});
+
+// The next day's first outfit used to wear yesterday's shoes, bottom and jacket whenever the
+// weather held, because nothing compared it with the three shown before. Over 216 day pairs of
+// unchanged weather (both cuts, three styles, dry and rainy, -4 to 26 C) the second day's first
+// outfit wore the first day's first shoes 137 times, its bottom 149 times and its outer layer
+// 156 times; these are ceilings a later change has to walk past on purpose.
+test('the next day leads with pieces yesterday\'s three did not wear, where the day\'s best allows', () => {
+  const counts = { shoe: 0, bottom: 0, outer: 0 };
+  const type = (assigned) => assigned?.garment.garmentTypeId ?? null;
+  const bottomOf = ({ body }) => type(body.kind === 'separates' ? body.bottom : body.onePiece);
+  for (const clothingPreference of ['womens', 'mens']) {
+    for (const dressStyle of ['casual', 'smart', 'formal']) {
+      for (const [condition, precipitationProbability] of [['clear', 0], ['rain', 0.8]]) {
+        for (const temperatureCelsius of [-4, 2, 8, 14, 20, 26]) {
+          const weather = snapshot({ current: { temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius,
+            condition, precipitationProbability } });
+          const shown = (dayVariant, excludedOutfits) => recommendOutfits({
+            snapshot: weather, now: observedAt, clothingPreference, dressStyle, dayVariant, excludedOutfits,
+          }).outfits;
+          for (const [yesterday, today] of [[0, 1], [1, 2], [2, 3]]) {
+            const before = shown(yesterday);
+            const [first] = shown(today, before);
+            if (type(first.footwear) === type(before[0].footwear)) counts.shoe += 1;
+            if (bottomOf(first) === bottomOf(before[0])) counts.bottom += 1;
+            if (first.outerLayer && type(first.outerLayer) === type(before[0].outerLayer)) counts.outer += 1;
+          }
+        }
+      }
+    }
+  }
+  assert.ok(counts.shoe <= 121, `${counts.shoe} first outfits in yesterday's shoes`);
+  assert.ok(counts.bottom <= 94, `${counts.bottom} first outfits in yesterday's bottom`);
+  assert.ok(counts.outer <= 136, `${counts.outer} first outfits in yesterday's outer layer`);
+});

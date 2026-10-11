@@ -93,8 +93,10 @@ existing row and defaults existing entries to `owned`.
 - A user can receive the product's main recommendation without first building a
   Wardrobe.
 - Every user with the same clothing preference, dress style, weather, catalog
-  version, and day variant sees the same three outfits. The product is not
-  personalized.
+  version, and day variant is offered the same options. The deterministic three
+  also lean away from the pieces that user was shown the day before, and History
+  excludes recently worn outfits ([ADR 0038](0038-outfit-history.md)); nothing
+  else about the user reorders them, so the product is not personalized.
 - Marking a garment gives the user no visible return beyond the personal record,
   which may reduce marking over time.
 - Recommendation quality is only as good as the bundled catalog's coverage and
