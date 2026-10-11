@@ -47,7 +47,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   counter holds the allowance. The action is hidden when the composed pool has no other
   valid option; no provider, quota or remaining count is shown. Today draws a breathing
   skeleton garment board under a phase line (asking the AI stylist, answer
-  received, preparing outfits, using standard suggestions) while a recommendation is
+  received, preparing outfits, using standard suggestions; the last only when the AI was
+  asked and did not answer) while a recommendation is
   generated, the same phase line replaces the freshness caption during a refresh of a
   shown recommendation, its pull cycle keeps spinning until both the weather and the
   recommendation refresh settle, and its clock re-reads on focus and on foreground. Under the

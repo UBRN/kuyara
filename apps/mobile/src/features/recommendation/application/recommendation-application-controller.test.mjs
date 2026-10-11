@@ -1045,6 +1045,50 @@ test('the standard suggestions phase is held on screen before the deterministic 
   assert.deepEqual(phasesAtHold, ['using-standard']);
 });
 
+// An AI that was never asked did not fail to answer: a spent re-ask allowance or a failed
+// reservation goes straight to composing the standard suggestions.
+for (const [label, reserveAiReask] of [
+  ['is spent', async () => false],
+  ['cannot be reserved', async () => { throw new Error('storage'); }],
+]) {
+  test(`a re-ask whose allowance ${label} never narrates an AI that did not answer`, async () => {
+    const holds = [];
+    const { controller, calls } = createHarness({
+      reserveAiReask,
+      holdPhase: async (ms) => { holds.push(ms); },
+    });
+    await controller.initialize();
+    await controller.refresh('first-recommendation', input(16));
+    const clientCalls = calls.client;
+    const phases = recordPhases(controller);
+
+    const again = await controller.refresh('regenerate', input(16));
+
+    assert.equal(again.generationMode, 'deterministic-fallback');
+    assert.equal(calls.client, clientCalls);
+    assert.equal(phases.includes('using-standard'), false);
+    assert.deepEqual(holds, []);
+    assert.deepEqual(phases, [null, 'preparing-outfits', null]);
+  });
+}
+
+test('a re-ask the AI was asked and failed still narrates the standard suggestions and holds', async () => {
+  const holds = [];
+  const { controller } = createHarness({
+    client: narratingClient(['asking-stylist'], 'fail'),
+    holdPhase: async (ms) => { holds.push(ms); },
+  });
+  await controller.initialize();
+  await controller.refresh('first-recommendation', input(16));
+  holds.length = 0;
+  const phases = recordPhases(controller);
+
+  await controller.refresh('regenerate', input(16));
+
+  assert.deepEqual(phases, [null, 'asking-stylist', 'using-standard', 'preparing-outfits', null]);
+  assert.deepEqual(holds, [usingStandardPhaseMilliseconds]);
+});
+
 test('an AI answer never waits on the standard suggestions hold', async () => {
   const holds = [];
   const { controller } = createHarness({ holdPhase: async (ms) => { holds.push(ms); } });

@@ -574,6 +574,7 @@ export class RecommendationApplicationController {
     let aiFailure: FailureCategory | null = null;
     const startedAt = Date.now();
     let reserved = false;
+    let aiAsked = false;
     if (request && trigger === 'regenerate') {
       try {
         reserved = (await this.dependencies.reserveAiReask?.(input.localDayKey)) === true;
@@ -593,6 +594,7 @@ export class RecommendationApplicationController {
       }
     }
     if (request) {
+      aiAsked = true;
       try {
         // The routed client runs the shared validation gate inside its own chain, so what
         // comes back here is already a validated recommendation from whichever tier won.
@@ -629,9 +631,11 @@ export class RecommendationApplicationController {
       return this.currentSnapshot();
     }
     if (!recommendation) {
-      this.setPhase(key, 'using-standard');
+      // Only an AI that was asked and did not answer is narrated; a spent re-ask
+      // allowance or a missing request composes the standard suggestions silently.
+      if (aiAsked) this.setPhase(key, 'using-standard');
       try {
-        await this.holdPhase(usingStandardPhaseMilliseconds);
+        if (aiAsked) await this.holdPhase(usingStandardPhaseMilliseconds);
         const fallback = this.composeFallback(this.fallbackInput(input, trigger));
         if (fallback.status !== 'recommended') {
           this.setLastFailure(aiFailure ?? 'unknown');
