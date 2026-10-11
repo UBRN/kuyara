@@ -916,6 +916,7 @@ export const en = {
       condition_snow: 'Snow requires warmth, water protection, and traction.',
       condition_thunderstorm: 'Thunderstorms require water protection and traction.',
     },
+    optionalStrongWindReason: 'Strong wind makes a wind-resistant layer worth wearing.',
     compositionReasons: {
       breathability_protection_tradeoff: 'Protection is prioritized over breathability.',
       thermal_over_protection: 'This outfit carries more warmth than the day calls for.',

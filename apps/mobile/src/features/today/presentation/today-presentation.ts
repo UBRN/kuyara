@@ -786,7 +786,10 @@ function createLoadedPresentation(
   const conditionCode = day?.condition ?? current.condition;
   const condition = weatherCopy.conditions[conditionCode];
   // A stored or AI-chosen result rebuilds its reason codes from the requirements alone, so
-  // the day's own spread supplies the wide-range one that no requirement carries.
+  // the day's own spread supplies the wide-range one that no requirement carries. Strong wind
+  // on a day that asks for no warmth is only a wish, and its reason says so.
+  const windRequired = snapshot.recommendation.requirements.requirements.some(
+    ({ kind, priority }) => kind === 'wind_protection' && priority === 'mandatory');
   const weatherReasons = reasonCodesByPriority({
     ...snapshot.recommendation.requirements,
     reasonCodes: withDailyRangeReason(
@@ -794,7 +797,9 @@ function createLoadedPresentation(
       day?.minimumTemperatureCelsius ?? weather.minimumTemperatureCelsius,
       day?.maximumTemperatureCelsius ?? weather.maximumTemperatureCelsius,
     ),
-  }).map((reason) => copy.requirementReasons[reason]);
+  }).map((reason) => reason === 'wind_strong' && !windRequired
+    ? copy.optionalStrongWindReason
+    : copy.requirementReasons[reason]);
   const outfits =
     snapshot.recommendation.status === 'recommended'
       ? snapshot.recommendation.outfits

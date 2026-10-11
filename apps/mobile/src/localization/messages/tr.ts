@@ -907,6 +907,7 @@ export const tr = {
       condition_snow: 'Karda sıcak tutan, su geçirmez giysiler ve kaymaz taban gerekiyor.',
       condition_thunderstorm: 'Gök gürültülü fırtınada su koruması ve kaymaz taban gerekiyor.',
     },
+    optionalStrongWindReason: 'Rüzgâr kuvvetli, rüzgâr geçirmeyen bir katman iyi olur.',
     compositionReasons: {
       breathability_protection_tradeoff: 'Koruma, nefes alabilirlikten daha önemli görüldü.',
       thermal_over_protection: 'Bu kombin günün gerektirdiğinden daha sıcak tutuyor.',

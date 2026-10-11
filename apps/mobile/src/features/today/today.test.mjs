@@ -20,13 +20,13 @@ import { composeGarmentBoard } from '../../garment-art/compose-garment-board.ts'
 import { getDeviceTimeZone } from '../../domain/intl-format.ts';
 import { formatClockTime, formatLastUpdated } from '../../presentation/format-clock-time.ts';
 
-// The fixture's 20 C rain asks for no warmth, so its strong wind is an optional wish and its
-// reason follows the mandatory water ones.
+// The fixture's 20 C rain asks for no warmth, so its strong wind is an optional wish: its
+// reason follows the mandatory water ones and claims no requirement.
 const weatherReasons = [
   'Likely precipitation requires water protection.',
   'Drizzle calls for light water protection.',
   'Rain requires water protection.',
-  'Strong wind requires wind protection.',
+  'Strong wind makes a wind-resistant layer worth wearing.',
 ];
 // `pnpm --filter @kuyara/mobile test` pins the device zone to UTC unless TZ names another;
 // the fixture location is Europe/Istanbul. A freshness label is expected in the device zone,
@@ -340,11 +340,11 @@ test('shared weather reasons lead every outfit and per-outfit composition reason
   assert.deepEqual(english.suggestions[1].reasons, weatherReasons);
   assert.equal(
     english.suggestions[0].accessibilityLabel,
-    'Option 1 of 3. Rain Ready. Top: T-shirt. Bottom: Skirt. Outer layer: Rain jacket. Footwear: Rain boots. Why this outfit: Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection. Strong wind requires wind protection.',
+    'Option 1 of 3. Rain Ready. Top: T-shirt. Bottom: Skirt. Outer layer: Rain jacket. Footwear: Rain boots. Why this outfit: Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection. Strong wind makes a wind-resistant layer worth wearing.',
   );
   assert.equal(
     turkish.suggestions[0].accessibilityLabel,
-    '3 seçenekten birincisi. Yağmura Hazır. Üst: Tişört. Alt: Etek. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Neden bu kombin: Yağış bekleniyor, su koruması gerekiyor. Çiselemede hafif bir su koruması gerekiyor. Yağmurda su koruması gerekiyor. Rüzgâr kuvvetli, rüzgâr koruması gerekiyor.',
+    '3 seçenekten birincisi. Yağmura Hazır. Üst: Tişört. Alt: Etek. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Neden bu kombin: Yağış bekleniyor, su koruması gerekiyor. Çiselemede hafif bir su koruması gerekiyor. Yağmurda su koruması gerekiyor. Rüzgâr kuvvetli, rüzgâr geçirmeyen bir katman iyi olur.',
   );
 });
 
@@ -396,6 +396,43 @@ test('a mandatory requirement explains the outfit before an optional one', () =>
     'High temperatures require breathable clothing.',
     'It feels hot enough to require breathable clothing.',
   ]);
+});
+
+test('strong wind says it requires wind protection only on a day that makes it mandatory', () => {
+  const windyAt = (temperatureCelsius) => {
+    const measurements = {
+      temperatureCelsius,
+      apparentTemperatureCelsius: temperatureCelsius,
+      condition: 'clear',
+      precipitationProbability: 0,
+      windSpeedMetersPerSecond: 10,
+    };
+    const weather = {
+      ...todayWeatherSnapshot,
+      current: { ...todayWeatherSnapshot.current, ...measurements },
+      minimumTemperatureCelsius: temperatureCelsius - 1,
+      maximumTemperatureCelsius: temperatureCelsius + 1,
+      hourly: [{ ...todayWeatherSnapshot.hourly[0], ...measurements, forecastAt: '2026-08-13T07:00:00.000Z' }],
+    };
+    const recommendation = recommendOutfits({
+      snapshot: weather,
+      now: todayWeatherSnapshot.current.observedAt,
+      clothingPreference: 'womens',
+      dayVariant: 0,
+    });
+    const state = { ...todayScreenState, snapshot: { ...todayScreenState.snapshot, weather, recommendation } };
+    return [loadedPresentation(state), loadedPresentation(state, 'tr')]
+      .map(({ suggestions }) => suggestions[0].reasons);
+  };
+
+  const [coldEn, coldTr] = windyAt(10);
+  assert.ok(coldEn.includes('Strong wind requires wind protection.'), coldEn.join(' | '));
+  assert.ok(coldTr.includes('Rüzgâr kuvvetli, rüzgâr koruması gerekiyor.'), coldTr.join(' | '));
+  const [warmEn, warmTr] = windyAt(22);
+  assert.equal(warmEn[0], 'Strong wind makes a wind-resistant layer worth wearing.');
+  assert.equal(warmTr[0], 'Rüzgâr kuvvetli, rüzgâr geçirmeyen bir katman iyi olur.');
+  assert.equal(warmEn.includes('Strong wind requires wind protection.'), false);
+  assert.equal(warmTr.includes('Rüzgâr kuvvetli, rüzgâr koruması gerekiyor.'), false);
 });
 
 test('the unavailable branch offers a retry and says when the cause is being offline', () => {
