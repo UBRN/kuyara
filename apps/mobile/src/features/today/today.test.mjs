@@ -900,7 +900,8 @@ test('the freshness line reports refreshing, failure, staleness, and last update
   const base = todayScreenState;
 
   const refreshing = loadedPresentation({ ...base, isRefreshing: true, refreshFailed: true });
-  assert.equal(refreshing.header.freshness, 'Refreshing today’s outfit…');
+  // A plain weather refresh does not change the outfit, so the line does not claim it does.
+  assert.equal(refreshing.header.freshness, 'Refreshing…');
   assert.equal(refreshing.header.isRefreshing, true);
   assert.equal(refreshing.header.announceFreshness, true);
 
@@ -914,8 +915,60 @@ test('the freshness line reports refreshing, failure, staleness, and last update
   assert.equal(settled.header.announceFreshness, settled.header.isStale);
 
   const turkish = loadedPresentation({ ...base, isRefreshing: true, refreshFailed: false }, 'tr');
-  assert.equal(turkish.header.freshness, 'Bugünün önerileri yenileniyor…');
+  assert.equal(turkish.header.freshness, 'Yenileniyor…');
   assert.equal(turkish.header.phase, null);
+});
+
+// N15: a change that began in the current hour is happening now, so the caption speaks of
+// the present instead of naming a clock time that has already passed.
+test('the drift caption says "now" when the weather change began in the current hour', () => {
+  const H = 3_600_000;
+  const now = '2026-08-13T06:40:00.000Z'; // 09:40 in the fixture's zone
+  const weatherWith = (change) => {
+    const base = Date.parse(now) - (Date.parse(now) % H);
+    const hourly = Array.from({ length: 30 }, (_, index) => {
+      const at = base + (index - 1) * H;
+      return {
+        forecastAt: new Date(at).toISOString(), temperatureCelsius: 20, apparentTemperatureCelsius: 20,
+        condition: 'clear', precipitationProbability: 0, windSpeedMetersPerSecond: 2, humidity: 0.5,
+        uvIndex: 3, ...change(at - base),
+      };
+    });
+    return { ...todayWeatherSnapshot, fetchedAt: now, current: { ...hourly[1], observedAt: now }, hourly,
+      daily: [] };
+  };
+  const stateFor = (change) => {
+    const recommendation = recommendOutfits({ snapshot: weatherWith(() => ({})), now,
+      clothingPreference: 'womens', dayVariant: 0 });
+    return { ...todayScreenState, isRefreshing: false, refreshFailed: false, snapshot: {
+      ...todayScreenState.snapshot, weather: weatherWith(change), recommendation,
+      coverageStart: now, coverageEnd: '2026-08-13T16:00:00.000Z' } };
+  };
+  const caption = (change, language = 'en', hour12 = false) =>
+    loadedPresentation(stateFor(change), language, hour12, Date.parse(now)).driftCaption;
+  // Hour offsets from the current hour: 0 began 09:00 local, 3 begins 12:00 local.
+  const wetFrom = (condition, from) => (offset) => offset >= from * H && offset < (from + 3) * H
+    ? { condition, precipitationProbability: 0.9 } : {};
+  const coldFrom = (from) => (offset) => offset >= from * H && offset < (from + 3) * H
+    ? { temperatureCelsius: 3, apparentTemperatureCelsius: 1 } : {};
+
+  assert.equal(caption(wetFrom('rain', 0)), 'This outfit doesn’t allow for the rain now.');
+  assert.equal(caption(wetFrom('snow', 0)), 'This outfit doesn’t allow for the snow now.');
+  assert.equal(caption(coldFrom(0)), 'This outfit doesn’t allow for the cold now.');
+  assert.equal(caption(wetFrom('rain', 0), 'tr'), 'Bu kombin şu anki yağmura göre seçilmedi.');
+  assert.equal(caption(wetFrom('snow', 0), 'tr'), 'Bu kombin şu anki kar yağışına göre seçilmedi.');
+  assert.equal(caption(coldFrom(0), 'tr'), 'Bu kombin şu anki soğuğa göre seçilmedi.');
+  for (const language of ['en', 'tr']) {
+    for (const hour12 of [false, true]) {
+      assert.doesNotMatch(caption(wetFrom('rain', 0), language, hour12), /\d:\d\d/);
+    }
+  }
+
+  // A later hour still names its time.
+  assert.equal(caption(wetFrom('rain', 3)), 'This outfit doesn’t allow for rain after 12:00.');
+  assert.equal(caption(wetFrom('snow', 3), 'tr'),
+    'Bu kombin, saat 12:00 civarındaki kar yağışına göre seçilmedi.');
+  assert.equal(caption(coldFrom(3)), 'This outfit doesn’t allow for cold after 12:00.');
 });
 
 test('the freshness line carries the short date once the snapshot is not from the current local day', () => {

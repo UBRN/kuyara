@@ -782,8 +782,11 @@ function createLoadedPresentation(
     ? coverageDrift(snapshot.recommendation.requirements, weather.hourly,
       new Date(now).toISOString(), snapshot.coverageEnd)
     : null;
+  // A change whose hour began at or before now is happening now: no clock time that has passed.
   const driftCaption = drift
-    ? copy.drift[drift.kind](formatSpokenClockTime(drift.at, language, hour12, weather.timeZone))
+    ? Date.parse(drift.at) <= now
+      ? copy.driftNow[drift.kind]
+      : copy.drift[drift.kind](formatSpokenClockTime(drift.at, language, hour12, weather.timeZone))
     : null;
   // Cold drift already says the rest of the window needs more than a layer.
   const coolSpell = !day && shown && snapshot.recommendation.status === 'recommended' && !choosing &&

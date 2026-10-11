@@ -668,6 +668,12 @@ export const tr = {
       snow: (time) => `Bu kombin, ${time} civarındaki kar yağışına göre seçilmedi.`,
       cold: (time) => `Bu kombin, ${time} civarındaki soğuğa göre seçilmedi.`,
     },
+    // The same notes when the change began in the current hour: no clock time that has passed.
+    driftNow: {
+      rain: 'Bu kombin şu anki yağmura göre seçilmedi.',
+      snow: 'Bu kombin şu anki kar yağışına göre seçilmedi.',
+      cold: 'Bu kombin şu anki soğuğa göre seçilmedi.',
+    },
     coolSpell: (time) => `Yanına ince bir kat al, ${time} gibi hava serinliyor.`,
     laterReady: ({ departure, ready }) => `${sentenceInitial(departure)} için kombinin ${ready} itibarıyla hazır`,
     otherOptionsHeading: 'Alternatif kombinler',
@@ -994,7 +1000,7 @@ export const tr = {
     },
     updatedAt: (time: string) => `Son güncelleme ${time}`,
     staleAt: (time: string) => `Son güncelleme ${time} · Biraz eskimiş olabilir`,
-    refreshingStatus: 'Bugünün önerileri yenileniyor…',
+    refreshingStatus: 'Yenileniyor…',
     refreshFailedAt: (time: string) => `Yenilenemedi · ${time} güncellemesi gösteriliyor`,
     refreshAction: 'Yenile',
     apparentTemperature: (temperature: string) => `Hissedilen ${temperature}`,

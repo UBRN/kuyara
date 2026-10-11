@@ -126,6 +126,7 @@ export type TodayMessages = Readonly<{
     snow: (time: string) => string;
     cold: (time: string) => string;
   }>;
+  driftNow: Readonly<{ rain: string; snow: string; cold: string }>;
   // N19: a later short cool spell is a finishing touch, one line beside the cardigan.
   coolSpell: (time: string) => string;
   laterReady: (values: { departure: string; ready: string }) => string;

@@ -672,6 +672,12 @@ export const en = {
       snow: (time) => `This outfit doesn’t allow for snow after ${time}.`,
       cold: (time) => `This outfit doesn’t allow for cold after ${time}.`,
     },
+    // The same notes when the change began in the current hour: no clock time that has passed.
+    driftNow: {
+      rain: 'This outfit doesn’t allow for the rain now.',
+      snow: 'This outfit doesn’t allow for the snow now.',
+      cold: 'This outfit doesn’t allow for the cold now.',
+    },
     coolSpell: (time) => `Take a light layer for the cool spell around ${time}.`,
     laterReady: ({ departure, ready }) => `Your outfit for ${departure} will be ready at ${ready}`,
     otherOptionsHeading: 'Alternative outfits',
@@ -998,7 +1004,7 @@ export const en = {
     },
     updatedAt: (time: string) => `Last updated at ${time}`,
     staleAt: (time: string) => `Last updated at ${time} · May be out of date`,
-    refreshingStatus: 'Refreshing today’s outfit…',
+    refreshingStatus: 'Refreshing…',
     refreshFailedAt: (time: string) => `Couldn’t refresh · Showing last update from ${time}`,
     refreshAction: 'Refresh',
     apparentTemperature: (temperature: string) => `Feels like ${temperature}`,
