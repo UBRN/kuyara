@@ -2,6 +2,7 @@ import { Fragment, useState, type Dispatch, type ReactNode, type RefObject, type
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Icon, Presence, PressScale, useTextScaling } from '@/components/ui';
+import { buttonGeometry } from '@/components/ui/primitive-contracts';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import {
   ClosetColorDisc,
@@ -586,9 +587,11 @@ const styles = StyleSheet.create({
   rowPressed: {
     opacity: interaction.pressedOpacity,
   },
+  // Under the words, Change's own word starts at the title's edge: the capsule's padding
+  // stands out to the left of it.
   changeStacked: {
     alignSelf: 'flex-start',
-    marginLeft: ROW_TILE_SIZE + spacing.md,
+    marginLeft: ROW_TILE_SIZE + spacing.md - buttonGeometry.medium.paddingHorizontal,
   },
   rowTile: {
     alignItems: 'center',

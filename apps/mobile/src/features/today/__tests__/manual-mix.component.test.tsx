@@ -12,6 +12,7 @@ import { useManualMix } from '@/features/recommendation/application/use-manual-m
 import { slotCandidates, swappableSlots } from '@/features/recommendation/domain/manual-mix';
 import { todayScreenState } from '@/features/today/__tests__/fixtures';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
+import { ROW_TILE_SIZE } from '@/features/today/presentation/outfit-detail-entries';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
 import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
@@ -23,7 +24,7 @@ import {
   SystemVisibilityContext,
   type SystemVisibility,
 } from '@/theme/easier-to-see';
-import { lightTheme } from '@/theme/theme';
+import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 // The platform sheet reports its dismissal after a programmatic close, as NativeSheet documents.
@@ -673,6 +674,23 @@ test.each(['en', 'tr'] as const)('%s strip header reads the whole name at the la
       expect(StyleSheet.flatten(tile.props.style).position).toBe('absolute');
     }
     await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+  }
+});
+
+// ADR 0026 section 3: at the largest standard text size Change moves under the row's text,
+// and its word starts at the title's leading edge, not a capsule's padding further in.
+test.each(['en', 'tr'] as const)('%s stacked Change reads from the title edge at the largest standard text size', async (language) => {
+  Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale: 1.353 } });
+  const result = await renderDetail(language);
+  const titleEdge = ROW_TILE_SIZE + spacing.md;
+  const changes = result.getAllByTestId(/^outfit-detail-change-/);
+  expect(changes.length).toBe(archetype(language).pieces.length);
+  for (const change of changes) {
+    let wrapper = change.parent;
+    while (wrapper && StyleSheet.flatten(wrapper.props.style)?.marginLeft === undefined) wrapper = wrapper.parent;
+    const inset = StyleSheet.flatten(wrapper!.props.style).marginLeft
+      + StyleSheet.flatten(change.props.style).paddingHorizontal;
+    expect(inset).toBe(titleEdge);
   }
 });
 

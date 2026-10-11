@@ -2089,6 +2089,10 @@ test.each([
   const notice = result.getByTestId(PHRASE_NOTICE);
   expect(notice).toHaveTextContent(messages.en.wardrobe.phraseNotUnderstood[reason]);
   expect(notice).toHaveProp('accessibilityLiveRegion', 'polite');
+  // Its info glyph sits with the first line of a wrapped notice, not the middle of the block.
+  let row = notice.parent;
+  while (row && StyleSheet.flatten(row.props.style)?.flexDirection !== 'row') row = row.parent;
+  expect(StyleSheet.flatten(row!.props.style).alignItems).toBe('flex-start');
   expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.phraseNotUnderstood[reason]);
   expect(result.getByTestId('wardrobe-type-categories')).toBeOnTheScreen();
   expect(result.queryByTestId('wardrobe-type-row')).not.toBeOnTheScreen();

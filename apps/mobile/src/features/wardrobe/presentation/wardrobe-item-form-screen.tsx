@@ -732,8 +732,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.xs,
   },
+  // The glyph sits with the first line of a wrapped notice or error, as every glyph-and-words
+  // row does.
   statusRow: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.sm,
   },
