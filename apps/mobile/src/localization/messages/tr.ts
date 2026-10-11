@@ -670,9 +670,9 @@ export const tr = {
     },
     // The same notes when the change began in the current hour: no clock time that has passed.
     driftNow: {
-      rain: 'Bu kombin şu anki yağmura göre seçilmedi.',
-      snow: 'Bu kombin şu anki kar yağışına göre seçilmedi.',
-      cold: 'Bu kombin şu anki soğuğa göre seçilmedi.',
+      rain: 'Bu kombin, şu anki yağmura göre seçilmedi.',
+      snow: 'Bu kombin, şu anki kar yağışına göre seçilmedi.',
+      cold: 'Bu kombin, şu anki soğuğa göre seçilmedi.',
     },
     coolSpell: (time) => `Yanına ince bir kat al, ${time} gibi hava serinliyor.`,
     laterReady: ({ departure, ready }) => `${sentenceInitial(departure)} için kombinin ${ready} itibarıyla hazır`,
@@ -903,7 +903,7 @@ export const tr = {
     requirementRow: ({ requirement, garments }) =>
       `${requirement}: ${garments.join(', ')}.`,
     requirementTradeoffRow: ({ garments }) =>
-      `Bu katman sıcakta biraz terletebilir ama seni hava şartlarından korur: ${garments.join(', ')}.`,
+      `Bu katman sıcakta biraz terletebilir ama seni hava koşullarından korur: ${garments.join(', ')}.`,
     requirementReasons: {
       temperature_low: 'Hava soğuk, daha sıcak giyinmek gerekiyor.',
       apparent_temperature_low: 'Hissedilen sıcaklık düşük, sıcak tutan katmanlar gerekiyor.',

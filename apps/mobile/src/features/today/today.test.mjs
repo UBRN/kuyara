@@ -701,7 +701,7 @@ test('detail reasoning groups garments by requirement and localizes trade-offs a
   }]);
   assert.equal(
     loadedPresentation(tradeoffState, 'tr').suggestions[0].requirementRows[0].text,
-    'Bu katman sıcakta biraz terletebilir ama seni hava şartlarından korur: Yağmurluk.',
+    'Bu katman sıcakta biraz terletebilir ama seni hava koşullarından korur: Yağmurluk.',
   );
 });
 
@@ -955,9 +955,9 @@ test('the drift caption says "now" when the weather change began in the current 
   assert.equal(caption(wetFrom('rain', 0)), 'This outfit doesn’t allow for the rain now.');
   assert.equal(caption(wetFrom('snow', 0)), 'This outfit doesn’t allow for the snow now.');
   assert.equal(caption(coldFrom(0)), 'This outfit doesn’t allow for the cold now.');
-  assert.equal(caption(wetFrom('rain', 0), 'tr'), 'Bu kombin şu anki yağmura göre seçilmedi.');
-  assert.equal(caption(wetFrom('snow', 0), 'tr'), 'Bu kombin şu anki kar yağışına göre seçilmedi.');
-  assert.equal(caption(coldFrom(0), 'tr'), 'Bu kombin şu anki soğuğa göre seçilmedi.');
+  assert.equal(caption(wetFrom('rain', 0), 'tr'), 'Bu kombin, şu anki yağmura göre seçilmedi.');
+  assert.equal(caption(wetFrom('snow', 0), 'tr'), 'Bu kombin, şu anki kar yağışına göre seçilmedi.');
+  assert.equal(caption(coldFrom(0), 'tr'), 'Bu kombin, şu anki soğuğa göre seçilmedi.');
   for (const language of ['en', 'tr']) {
     for (const hour12 of [false, true]) {
       assert.doesNotMatch(caption(wetFrom('rain', 0), language, hour12), /\d:\d\d/);
