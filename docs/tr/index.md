@@ -27,6 +27,10 @@ scenes:
   snow:
     name: İlk kar
 
+closet_title: Gardırobun artık cebinde.
+closet_line: "Sahip olduğun parçaları ve gözüne kestirdiklerini ekle, istersen fotoğrafıyla. Bir kombini açtığında hangi parçaların zaten sende olduğunu hemen görürsün."
+closet_art: Palto, ceket, elbise, kazak, kot ve eteklerin asılı olduğu, rafında ayakkabılar duran bir askılık.
+
 close_title: Yarın sabah, kombinin seni bekliyor.
 badge_file: /assets/img/badges/app-store-badge-tr.svg
 badge_alt: App Store'dan İndirin
