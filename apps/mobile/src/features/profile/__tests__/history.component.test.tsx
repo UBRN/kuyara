@@ -116,9 +116,9 @@ test.each([
 // A day can hold several looks. Its date shows once, the looks
 // under it morning first, each spoken with the full date, its name and day type.
 test.each([
-  ['en', 'Wednesday 23 September', 'Mon 21'],
-  ['tr', '23 Eylül Çarşamba', '21 Pzt'],
-] as const)('%s History lists the looks of one date under it, morning first', async (language, latest, earlier) => {
+  ['en', 'Wednesday 23 September', 'Mon 21', 'Monday 21 September'],
+  ['tr', '23 Eylül Çarşamba', '21 Pzt', '21 Eylül Pazartesi'],
+] as const)('%s History lists the looks of one date under it, morning first', async (language, latest, earlier, earlierSpoken) => {
   const look = (dayKey: string, hour: string, archetypeId: OutfitHistoryRecord['outfit']['archetypeId'],
     formality: OutfitHistoryRecord['outfit']['formality'], top = 't_shirt' as const) => {
     const base = record(dayKey, archetypeId, formality);
@@ -148,8 +148,8 @@ test.each([
   expect(morning.queryByText(latest)).toBeNull();
   expect(result.getByTestId('history-entry-2026-09-23-2').props.accessibilityLabel).toBe(
     `${latest}. ${copy.recommendation.archetypes.rain_ready}. ${copy.today.dailyStyle.smart}`);
-  // An earlier day worn twice names its date once, as a heading above its looks.
-  expect(result.getByRole('header', { name: earlier })).toBeOnTheScreen();
+  // An earlier day worn twice names its date once, as a heading above its looks, spoken in full.
+  expect(result.getByRole('header', { name: earlierSpoken })).toBeOnTheScreen();
   expect(result.getAllByText(earlier)).toHaveLength(1);
   expect(within(result.getByTestId('history-entry-2026-09-21')).queryByText(earlier)).toBeNull();
   expect(within(result.getByTestId('history-entry-2026-09-22')).getByText(/22/)).toBeOnTheScreen();

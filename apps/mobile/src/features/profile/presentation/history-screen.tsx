@@ -382,7 +382,9 @@ export function HistoryScreen({
         return (
           <View style={styles.text}>
             <Arrival index={arrivalIndex(null, rowIndex, 0)} waiting={!transitionLanded}>
-              <AppText accessibilityRole="header" tabularNumbers testID={`history-day-${row.dayKey}`}
+              <AppText
+                accessibilityLabel={formats.full.format(calendarDateUtcMidnight(row.dayKey))}
+                accessibilityRole="header" tabularNumbers testID={`history-day-${row.dayKey}`}
                 variant="label">
                 {formats.short.format(calendarDateUtcMidnight(row.dayKey))}
               </AppText>
