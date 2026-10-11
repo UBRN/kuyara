@@ -540,8 +540,8 @@ export function createAccountSessionManager({
     async signIn(provider) {
       // A second tap while one runs would start a second provider flow and drop the first.
       if (snapshot.signIn.kind === 'pending') return;
+      // Offline the page already shows its offline line; the tap leaves the state as it is.
       if (!snapshot.online) {
-        update({ signIn: { kind: 'failed', provider } });
         analytics.signInFinished(provider, { result: 'failed', failure: 'offline' });
         return;
       }

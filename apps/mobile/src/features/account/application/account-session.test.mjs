@@ -160,6 +160,17 @@ test('offline deletion never asks for reauthorization or calls the deletion clie
   assert.equal(manager.getSnapshot().deletion, 'idle');
 });
 
+test('a sign-in tapped offline contacts no provider and leaves the sign-in state idle', async () => {
+  const { manager, calls } = setup();
+  manager.setOnline(false);
+  manager.openSignIn('profile');
+  await manager.signIn('apple');
+  assert.deepEqual(manager.getSnapshot().signIn, { kind: 'idle' });
+  assert.deepEqual(calls.filter(([name]) => name === 'signIn'), []);
+  manager.setOnline(true);
+  assert.deepEqual(manager.getSnapshot().signIn, { kind: 'idle' });
+});
+
 test('closing the sign-in sheet cancels its pending result', async () => {
   let finish;
   const { manager, calls } = setup({ auth: { signIn: async () => new Promise((resolve) => { finish = resolve; }) } });

@@ -114,6 +114,16 @@ describe('the sign-in page (frames 02, 17, 18, 19, 33)', () => {
     expect(screen.getByLabelText(en.signIn.continueWith.apple)).not.toBeDisabled();
   });
 
+  test.each(['apple', 'google'] as const)('tapping %s offline keeps the offline line and the buttons enabled', async (provider) => {
+    const port = portFor('signInOffline');
+    const screen = await renderWith(port, <AccountSheet host="profile" />);
+    await fireEvent.press(screen.getByLabelText(en.signIn.continueWith[provider]));
+    expect(port.getSnapshot().signIn).toEqual({ kind: 'idle' });
+    expect(screen.getByTestId('account-sign-in-status')).toHaveTextContent(en.signIn.offline);
+    expect(screen.getByLabelText(en.signIn.continueWith.apple)).not.toBeDisabled();
+    expect(screen.getByLabelText(en.signIn.continueWith.google)).not.toBeDisabled();
+  });
+
   test('while Apple signs in, its button keeps its title and the rest wait', async () => {
     const screen = await renderWith(portFor('signInPending'), <AccountSheet host="profile" />);
     expect(screen.getByTestId('account-sign-in-apple-loading')).toBeTruthy();
