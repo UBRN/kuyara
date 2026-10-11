@@ -110,6 +110,11 @@ export type LaunchCurtainProps = PropsWithChildren<{
   /** This mount is the process's cold launch; any other mount reveals at once. Never changes. */
   cold: boolean;
   readiness: LaunchReadiness;
+  /**
+   * The launch is on screen. iOS can start the process in the background, where the whole UI
+   * renders unseen; the ceiling and the motion wait for the first time someone sees it.
+   */
+  seen: boolean;
   /** The layer's first frame is on screen, so the native splash may go. */
   onFirstFrame: () => void;
 }>;
@@ -124,7 +129,7 @@ export type LaunchCurtainProps = PropsWithChildren<{
  * layer is never read by assistive technology. It takes the touches meant for the first screen
  * while it is opaque, so nothing under it can be pressed unseen, and none once it starts to lift.
  */
-export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: LaunchCurtainProps) {
+export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }: LaunchCurtainProps) {
   const [reveal, setReveal] = useState<LaunchReveal>(cold ? { revealing: false, done: false } : revealed);
   const [drawn, setDrawn] = useState(false);
   const [late, setLate] = useState(false);
@@ -136,13 +141,13 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
   const answer = cold ? motionFor(readiness, late) : null;
 
   useEffect(() => {
-    if (!cold) return undefined;
+    if (!cold || !seen) return undefined;
     const ceiling = setTimeout(() => setLate(true), LAUNCH_READY_CEILING_MS);
     return () => clearTimeout(ceiling);
-  }, [cold]);
+  }, [cold, seen]);
 
   useEffect(() => {
-    if (!drawn || motion !== null || answer === null) return undefined;
+    if (!drawn || !seen || motion !== null || answer === null) return undefined;
     let frame: number | null = null;
     const idle = requestIdleCallback(() => {
       frame = requestAnimationFrame(() => setMotion(answer));
@@ -151,7 +156,7 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness }: Launc
       cancelIdleCallback(idle);
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [answer, drawn, motion]);
+  }, [answer, drawn, motion, seen]);
 
   // The motion itself says when the curtain lifts and when the layer has gone. The UI thread
   // can still be mounting the first screen when the motion is asked for and start it hundreds

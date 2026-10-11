@@ -30,8 +30,18 @@ import {
   todayPreset,
 } from '@/garment-art/compose-garment-board';
 import { composeFlatLay } from '@/garment-art/compose-flat-lay';
-import { garmentLevelOfDetail, paintGarment } from '@/garment-art/garment-paint';
-import { resolveGarmentPalette } from '@/garment-art/garment-palette';
+import { garmentLevelOfDetail, paintGarment, WANTED_OUTLINE_DASH } from '@/garment-art/garment-paint';
+import { garmentFillRoles, resolveGarmentPalette, toGarmentOklch } from '@/garment-art/garment-palette';
+import { resolveGarmentTileFill } from '@/garment-art/garment-render-fills';
+import {
+  layoutClosetRack,
+  RACK_HEIGHT,
+  RACK_HOOKS,
+  RACK_LOWER_RAIL_Y,
+  RACK_UPPER_RAIL_Y,
+  RACK_WIDTH,
+  rackSilhouette,
+} from '@/garment-art/closet-rack-layout';
 import { darkTheme, lightTheme, plateTheme } from '@/theme/theme';
 import { shiftOklchLightness } from '@/theme/color-oklch';
 
@@ -236,6 +246,121 @@ function boardOf(scene, preference, idPrefix = scene.id) {
   return { atmosphere, pieces: drawn };
 }
 
+// ------------------------------------------------------------------------------- closet
+
+/**
+ * The Closet the page shows: a sample of pieces owned and wanted, in the women's cut, hung by
+ * the app's own rack (closet-rack-layout.ts, ADR 0028 section 1). Every peg and hanger carries a
+ * piece and the shelf is full; a wanted piece keeps its dashed edge.
+ */
+export const CLOSET = Object.freeze({
+  preference: 'womens',
+  // Per zone, the last owned pieces listed face out on a full rail; the rest hang side-on.
+  pieces: [
+    { garmentTypeId: 'scarf', category: 'accessory', colorFamily: 'red' },
+    { garmentTypeId: 'beanie', category: 'accessory', colorFamily: 'gray' },
+    { garmentTypeId: 'cap', category: 'accessory', colorFamily: 'blue' },
+    { garmentTypeId: 'brimmed_hat', category: 'accessory', colorFamily: 'beige' },
+    { garmentTypeId: 'gloves', category: 'accessory', colorFamily: 'brown' },
+    { garmentTypeId: 'neck_gaiter', category: 'accessory', colorFamily: 'green' },
+    { garmentTypeId: 'umbrella', category: 'accessory', colorFamily: 'black' },
+    { garmentTypeId: 'scarf', category: 'accessory', colorFamily: 'yellow' },
+    { garmentTypeId: 'trench_coat', category: 'outerwear', colorFamily: 'beige' },
+    { garmentTypeId: 'blazer', category: 'outerwear', colorFamily: 'black' },
+    { garmentTypeId: 'puffer_vest', category: 'outerwear', colorFamily: 'orange' },
+    { garmentTypeId: 'knit_dress', category: 'one_piece', colorFamily: 'gray' },
+    { garmentTypeId: 'hoodie', category: 'top', colorFamily: 'green' },
+    { garmentTypeId: 'cardigan', category: 'top', colorFamily: 'beige' },
+    { garmentTypeId: 'turtleneck', category: 'top', colorFamily: 'black' },
+    { garmentTypeId: 't_shirt', category: 'top', colorFamily: 'white' },
+    { garmentTypeId: 'polo_shirt', category: 'top', colorFamily: 'red' },
+    { garmentTypeId: 'dress', category: 'one_piece', colorFamily: 'pink', wanted: true },
+    { garmentTypeId: 'shirt', category: 'top', colorFamily: 'white' },
+    { garmentTypeId: 'blouse', category: 'top', colorFamily: 'purple' },
+    { garmentTypeId: 'coat', category: 'outerwear', colorFamily: 'brown' },
+    { garmentTypeId: 'light_jacket', category: 'outerwear', colorFamily: 'green' },
+    { garmentTypeId: 'sweater', category: 'top', colorFamily: 'blue' },
+    { garmentTypeId: 'jeans', category: 'bottom', colorFamily: 'blue' },
+    { garmentTypeId: 'skirt', category: 'bottom', colorFamily: 'black' },
+    { garmentTypeId: 'trousers', category: 'bottom', colorFamily: 'brown' },
+    { garmentTypeId: 'shorts', category: 'bottom', colorFamily: 'beige' },
+    { garmentTypeId: 'long_skirt', category: 'bottom', colorFamily: 'green' },
+    { garmentTypeId: 'track_pants', category: 'bottom', colorFamily: 'gray' },
+    { garmentTypeId: 'sneakers', category: 'footwear', colorFamily: 'white' },
+    { garmentTypeId: 'ankle_boots', category: 'footwear', colorFamily: 'brown' },
+    { garmentTypeId: 'loafers', category: 'footwear', colorFamily: 'black', wanted: true },
+    { garmentTypeId: 'sandals', category: 'footwear', colorFamily: 'beige' },
+    { garmentTypeId: 'ballet_flats', category: 'footwear', colorFamily: 'red' },
+    { garmentTypeId: 'rain_boots', category: 'footwear', colorFamily: 'yellow' },
+    { garmentTypeId: 'weather_boots', category: 'footwear', colorFamily: 'gray' },
+    { garmentTypeId: 'closed_shoes', category: 'footwear', colorFamily: 'blue' },
+  ],
+});
+
+/**
+ * The rack in one appearance, as ClosetRack draws it on the page background: the frame in
+ * the ink with surface fills, every piece in its colour family's flat fill.
+ */
+function paintRack(appearance) {
+  const { colors } = THEMES[appearance];
+  const ink = colors.textPrimary;
+  const structure = colors.surface;
+  const roles = new Map();
+  const pieces = CLOSET.pieces.map((piece, index) => {
+    const id = `c${index}`;
+    const fill = resolveGarmentTileFill({ colorFamily: piece.colorFamily, plane: colors.background, colors, colorScheme: appearance });
+    if (typeof fill !== 'string') throw new Error(`${piece.garmentTypeId}: a two-colour family needs the rack's gradient.`);
+    const silhouette = rackSilhouette(piece, CLOSET.preference);
+    roles.set(id, garmentFillRoles(silhouette.id, fill, appearance));
+    return { ...piece, id, wanted: Boolean(piece.wanted), addedAt: index, lightness: toGarmentOklch(fill).L, silhouette };
+  });
+  const layout = layoutClosetRack(pieces);
+  if (layout.tags.length > 0) throw new Error('The sample Closet overflows the rack.');
+  const marks = layout.marks.map((mark) => {
+    if (mark.kind === 'hanger') {
+      if (mark.empty) throw new Error('The sample Closet leaves an empty hanger.');
+      const stroke = mark.empty ? colors.textSecondary : ink;
+      const jaws = mark.jaws.map((jaw) => `<rect x="${jaw.x}" y="${jaw.y}" width="3" height="5" rx="0.8" fill="${stroke}"/>`).join('');
+      return `<path d="${mark.d}" fill="none" stroke="${stroke}" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.1"/>${jaws}`;
+    }
+    if (mark.kind === 'slice') {
+      const { main, shade } = roles.get(mark.piece.id);
+      const dash = mark.piece.wanted ? ' stroke-dasharray="2.6 2"' : '';
+      return `<path d="${mark.hook}" fill="none" stroke="${ink}" stroke-linecap="round" stroke-width="1"/>`
+        + `<path d="${mark.body}" fill="${main}"/><path d="${mark.shade}" fill="${shade}"/>`
+        + `<path d="${mark.body}" fill="none" stroke="${ink}"${dash} stroke-linejoin="round" stroke-width="1.1"/>`;
+    }
+    const { bounds } = mark.silhouette;
+    const painted = serialize(paintGarment({
+      silhouette: mark.silhouette,
+      roles: roles.get(mark.piece.id),
+      ink,
+      scale: mark.scale,
+      lod: garmentLevelOfDetail(Math.max(bounds.width, bounds.height) * mark.scale),
+      outline: mark.outline,
+      outlineDash: mark.piece.wanted ? WANTED_OUTLINE_DASH : undefined,
+      uid: `${mark.piece.id}${appearance[0]}`,
+    }));
+    return `<g transform="translate(${mark.x} ${mark.y}) scale(${num(mark.scale)})">${painted}</g>`;
+  }).join('');
+  const hooks = RACK_HOOKS.map((hook) => `<circle cx="${num(hook.x)}" cy="${hook.y}" r="1.9" fill="${ink}"/>`).join('');
+  return `<path d="M14 8 L14 222 M347 8 L347 222" fill="none" stroke="${ink}" stroke-linecap="round" stroke-width="1.9"/>`
+    + `<rect x="8" y="3" width="345" height="7" rx="2" fill="${structure}" stroke="${ink}" stroke-width="1.9"/>`
+    + `<path d="M10 ${RACK_UPPER_RAIL_Y} L351 ${RACK_UPPER_RAIL_Y}" stroke="${ink}" stroke-linecap="round" stroke-width="2.4"/>`
+    + `<path d="M14 ${RACK_LOWER_RAIL_Y} L347 ${RACK_LOWER_RAIL_Y}" stroke="${ink}" stroke-linecap="round" stroke-width="2.2"/>`
+    + `<rect x="8" y="220" width="345" height="8" rx="2.5" fill="${structure}" stroke="${ink}" stroke-width="1.9"/>`
+    + `<circle cx="24" cy="233" r="4.5" fill="${structure}" stroke="${ink}" stroke-width="1.6"/>`
+    + `<circle cx="337" cy="233" r="4.5" fill="${structure}" stroke="${ink}" stroke-width="1.6"/>`
+    + hooks + marks;
+}
+
+/** The rack as static SVG for a Jekyll include; the page passes its accessible name. */
+function staticRack() {
+  const [light, dark] = APPEARANCES.map(paintRack);
+  return `<svg class="ku-rack" viewBox="0 0 ${RACK_WIDTH} ${RACK_HEIGHT}" role="img" aria-label="{{ include.label | escape }}">`
+    + `<g class="ku-art-light">${light}</g><g class="ku-art-dark">${dark}</g></svg>\n`;
+}
+
 // -------------------------------------------------------------------------- the output
 
 /** The plate, shadow and particle colours, both appearances, as CSS custom properties. */
@@ -367,6 +492,8 @@ export function generateSiteBoards() {
   const files = {
     'docs/_data/site_boards.json': `${JSON.stringify(pageData, null, 2)}\n`,
     'docs/assets/css/plates.css': plateCss(),
+    'docs/_includes/generated/closet.html':
+      `{% comment %}Generated by apps/mobile/scripts/site-boards.mjs. Do not edit.{% endcomment %}\n${staticRack()}`,
     'docs/_includes/generated/hero.html':
       `{% comment %}Generated by apps/mobile/scripts/site-boards.mjs. Do not edit.{% endcomment %}\n${staticBoard(hero, sceneFrame([hero])[0])}`,
   };
