@@ -108,7 +108,15 @@ export class ExpoNotificationGateway implements NotificationGateway {
 
       await Notifications.scheduleNotificationAsync({
         identifier: `${weatherAlertIdentifierPrefix}${request.identifier}`,
-        content: { title: request.title, body: request.body },
+        content: {
+          title: request.title,
+          body: request.body,
+          // Both kinds arrive visible with the default sound (ADR 0004); stated here rather
+          // than left to the OS default. Android sound belongs to the channel.
+          ...(Platform.OS === 'ios'
+            ? { interruptionLevel: 'active' as const, sound: 'default' as const }
+            : {}),
+        },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: new Date(request.fireAt),

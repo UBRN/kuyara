@@ -81,7 +81,9 @@ has not fired; at or after 07:00, or if that morning's briefing has fired, it pl
 following morning. When the hourly window does not reach the selected morning, no briefing
 is planned and nothing is shown: the content is never invented. Its identity is
 `morning_briefing:<localDate>` in the existing `weather_alert_deliveries` ledger, which
-bounds it to one a day.
+bounds it to one a day. Both kinds arrive on iOS at the `active` interruption level with the
+default sound, set explicitly on the notification: visible and audible, never passive,
+`timeSensitive` or `critical`. Android sound stays with the notification channel.
 
 The opt-in is offered in two places and nowhere else. The Settings Notifications
 surface holds it permanently, and Today makes one contextual offer at a moment a
