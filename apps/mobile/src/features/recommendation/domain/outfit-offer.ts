@@ -57,7 +57,8 @@ const bandPoints = 5;
  * A formality's score-sorted drafts with its best band, those within five points of its best,
  * rotated by the seed and the rest kept behind it in order. Rotating the whole list put a draft
  * ten points worse, rain boots on a dry day, at the head of the offer; the band holds hundreds of
- * near-equal drafts on a mild day, so an unbounded seed still leads with a new one day after day.
+ * near-equal drafts on a mild day, so the seed, the dressing day's unbounded count, still leads
+ * with a new one day after day.
  */
 function rotatedBestBand(drafts: readonly JudgedDraft[], seed: number): readonly JudgedDraft[] {
   if (drafts.length === 0) return drafts;
