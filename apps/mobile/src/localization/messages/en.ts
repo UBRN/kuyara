@@ -495,7 +495,7 @@ export const en = {
       'The camera is not available on this device. You can choose a photo instead.',
     openSettingsAction: 'Open Settings',
     photoAccessibilityLabel: (type: string) => `Photo of your ${type}.`,
-    untypedPhotoAccessibilityLabel: 'Closet item photo, type not chosen yet.',
+    untypedPhotoAccessibilityLabel: 'Photo of a Closet piece. The type is not chosen yet.',
     entryStateTitle: 'Do you own this piece?',
     typeTitle: 'What is it?',
     typeChangeAction: 'Change',
