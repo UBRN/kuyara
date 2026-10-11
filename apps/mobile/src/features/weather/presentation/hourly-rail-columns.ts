@@ -75,7 +75,9 @@ export function hourlyRailColumns(
         precipitationProbability: hour.precipitationProbability,
       }),
       condition: hour.condition,
-      daypart: resolveDaypart(hour.forecastAt, timeZone, coordinates),
+      // "Now" is this moment, so it wears the moment's daypart, as the hero glyph does; within
+      // an hour of sunrise or sunset the hour's start would show the other one.
+      daypart: resolveDaypart(index === 0 ? new Date(now).toISOString() : hour.forecastAt, timeZone, coordinates),
       precipitationProbability: hour.precipitationProbability,
       precipitation: percentage(hour.precipitationProbability, language),
       temperature: formatTemperature(hour.temperatureCelsius, language, temperatureUnit),

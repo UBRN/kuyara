@@ -293,8 +293,10 @@ Day and night come from the place's own sunrise and sunset, computed on the devi
 its coordinates and the instant in question, never from a fixed pair of clock hours. One
 reading of that daypart feeds the atmosphere stage and the condition glyph together, which
 is what lets `theme.test.mjs` measure each ink only against the planes its own condition
-and daypart can put behind it. A polar day, a polar night or a snapshot with no
-coordinates falls back to the old 06:00 to 20:00 window rather than to no answer at all.
+and daypart can put behind it. A polar day is day and a polar night is night; only a
+snapshot with no coordinates falls back to the old 06:00 to 20:00 window rather than to no
+answer at all. The hourly rail's "Now" column reads the present moment, as the hero does,
+and every later column reads the start of its hour.
 
 A new condition code must join the pure resolver and its exhaustive test, and bring its own
 ink and its own shape with an iOS and an Android name, before it can render.

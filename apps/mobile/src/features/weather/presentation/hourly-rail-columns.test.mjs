@@ -71,3 +71,15 @@ test('the first column is the current hour even when it opens a new day', () => 
   assert.equal(hourlyTimeEmphasis(3, true), 'newDay');
   assert.equal(hourlyTimeEmphasis(3, false), undefined);
 });
+
+test('the Now column wears the daypart of the moment, as the hero above it does', async () => {
+  const { resolveDaypart } = await import('../domain/atmosphere-state.ts');
+  const kadikoy = { latitudeE2: 4099, longitudeE2: 2903 };
+  // Every five minutes across the evening: in the hour after sunset the hour's start is still
+  // day, but the moment is night.
+  for (let minute = 0; minute <= 180; minute += 5) {
+    const now = new Date(Date.parse('2026-10-03T13:00:00.000Z') + minute * 60_000).toISOString();
+    const [first] = hourlyRailColumns(snapshot, Date.parse(now), kadikoy, wording);
+    assert.equal(first.daypart, resolveDaypart(now, 'Europe/Istanbul', kadikoy), now);
+  }
+});
