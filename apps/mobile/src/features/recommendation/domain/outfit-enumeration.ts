@@ -227,8 +227,7 @@ function failureResult(
  * insulation is mandatory no summer piece (sleeveless top, shorts, sandals) is worn, and on a day
  * whose body must stay dry no sandals are worn below the 23 C rung that asks for breathability,
  * so warm light rain keeps them: the day's rotation and the trio choice reach past its single
- * best answer, and that band held sandals with a sweater under a rain jacket. Accessories are attached after composition and never read these
- * rules.
+ * best answer, and that band held sandals with a sweater under a rain jacket.
  */
 function seasonRulesOf(requirements: BodyClothingRequirements): Readonly<{
   heatMandatory: boolean;
@@ -247,7 +246,6 @@ function seasonRulesOf(requirements: BodyClothingRequirements): Readonly<{
   return {
     heatMandatory,
     wears: ({ garment: { garmentTypeId, properties: { category, thermalLevel } } }) =>
-      category === 'accessory' ||
       !((thermalLevel === 'high' && (heatMandatory || !asksWarmth)) ||
         (heatMandatory && !feetMustStayDry && category === 'footwear' && thermalLevel === 'moderate') ||
         (isSummerPiece(garmentTypeId) && warmthMandatory) ||
