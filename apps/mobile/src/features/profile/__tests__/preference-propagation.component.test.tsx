@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
 import BirthDateSettingsRoute from '@/app/(tabs)/(profile)/settings/birth-date';
 import EasierToSeeSettingsRoute from '@/app/(tabs)/(profile)/settings/easier-to-see';
+import UnitsSettingsRoute from '@/app/(tabs)/(profile)/settings/units';
 import type {
   LanguagePreference,
   TemperatureUnitPreference,
@@ -180,8 +181,11 @@ function createProfile(): LocalProfileRecord {
   };
 }
 
-function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
-  const [route, setRoute] = useState<'birth-date' | 'easier-to-see' | 'settings'>('settings');
+function MountedSettingsRoutes({
+  onMount,
+  permission = 'granted',
+}: Readonly<{ onMount: () => void; permission?: 'granted' | 'denied' }>) {
+  const [route, setRoute] = useState<'birth-date' | 'easier-to-see' | 'units' | 'settings'>('settings');
 
   useEffect(onMount, [onMount]);
   useEffect(() => {
@@ -193,6 +197,9 @@ function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
       if (path === '/settings/easier-to-see') {
         setRoute('easier-to-see');
       }
+      if (path === '/settings/units') {
+        setRoute('units');
+      }
     });
   }, []);
 
@@ -200,13 +207,14 @@ function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
   // say Off while the stored opt-in is on, which is what this provider supplies here.
   return (
     <NotificationApplicationProvider
-      gateway={notificationGateway}
+      gateway={permission === 'granted' ? notificationGateway : deniedNotificationGateway}
       notificationsOptIn
       persistOptIn={async () => undefined}
       weatherAlertScheduler={{ reschedule: async () => undefined }}>
       {route === 'birth-date'
         ? <BirthDateSettingsRoute />
-        : route === 'easier-to-see' ? <EasierToSeeSettingsRoute /> : <SettingsRoute />}
+        : route === 'easier-to-see' ? <EasierToSeeSettingsRoute />
+          : route === 'units' ? <UnitsSettingsRoute /> : <SettingsRoute />}
     </NotificationApplicationProvider>
   );
 }
@@ -218,6 +226,11 @@ const notificationGateway = {
   cancelScheduledWeatherAlerts: async () => true,
   scheduleWeatherAlert: async () => true,
   subscribeToResponses: () => () => undefined,
+};
+
+const deniedNotificationGateway = {
+  ...notificationGateway,
+  getPermissionState: async () => ({ kind: 'denied', canRequestAgain: false }) as const,
 };
 
 // ADR 0030: the root list and the four preference pickers are native. These tests assert
@@ -247,11 +260,12 @@ test('live preferences and support propagate localized behavior without remounti
       .backgroundColor,
   ).toBe(lightSemanticColors.background);
 
-  const sections = result.getAllByTestId(/^(settings-(appearance|accessibility|units|notifications|profile|help|about)-group|expo-ui-section)$/);
+  // Personal settings come first: Account (switched off in this suite) then Profile, then
+  // Notifications, Appearance and Accessibility; Units is a row, no longer a group.
+  const sections = result.getAllByTestId(/^(settings-(account|profile|notifications|appearance|units|accessibility|help|about)-group|expo-ui-section)$/);
   expect(sections.map((section) => section.props.testID)).toEqual([
-    'settings-appearance-group', 'settings-accessibility-group', 'settings-units-group', 'settings-notifications-group',
-    'settings-profile-group',
-    'settings-help-group', 'settings-about-group', 'expo-ui-section',
+    'settings-profile-group', 'settings-notifications-group', 'settings-appearance-group',
+    'settings-accessibility-group', 'settings-help-group', 'settings-about-group', 'expo-ui-section',
   ]);
   expect(result.getAllByTestId('expo-ui-host')).toHaveLength(1);
   expect(result.getAllByTestId('expo-ui-list')).toHaveLength(1);
@@ -378,10 +392,11 @@ test('live preferences and support propagate localized behavior without remounti
   openPage.mockRestore();
 });
 
-// The unit choices sit in Appearance after Theme, start at System, store each choice on the
-// device profile, and reach every surface through the localization provider. Each choice
-// reports `setting_changed` with its closed value.
-test('temperature and wind unit choices store and reach the units every screen reads', async () => {
+// The Units row sits in Appearance between Language and Theme and reads the units in force,
+// what System resolves to on this device. Its own screen holds the two choices, which start
+// at System, store each choice on the device profile, and reach every surface through the
+// localization provider. Each choice reports `setting_changed` once with its closed value.
+test('the Units row opens the unit choices, which store and reach the units every screen reads', async () => {
   mockProfile = createProfile();
   const analytics = new RecordingProductAnalytics('granted');
   function UnitProbe() {
@@ -399,15 +414,20 @@ test('temperature and wind unit choices store and reach the units every screen r
     </SafeAreaProvider>,
   );
 
-  // The two unit choices stand in their own Units group; Appearance keeps language and theme.
   const appearance = await result.findByTestId('settings-appearance-group');
   const rowsOf = (group: ReturnType<typeof result.getByTestId>) =>
     within(group).getAllByTestId(/^settings-[a-z-]+-row$/).map((row) => row.props.testID);
-  expect(rowsOf(appearance)).toEqual(['settings-language-row', 'settings-theme-row']);
-  expect(rowsOf(result.getByTestId('settings-units-group')))
-    .toEqual(['settings-temperature-unit-row', 'settings-wind-speed-unit-row']);
-  expect(result.getByTestId('settings-units-group-heading')).toHaveTextContent('Units');
-  expect(messages.tr.settings.unitsHeading).toBe('Birimler');
+  expect(rowsOf(appearance)).toEqual(['settings-language-row', 'settings-units-row', 'settings-theme-row']);
+  expect(within(appearance).getByText('Units')).toBeOnTheScreen();
+  expect(within(appearance).getByText('°C, km/h')).toBeOnTheScreen();
+  expect(result.queryByTestId('settings-temperature-unit-row')).toBeNull();
+  expect(result.getByTestId('unit-probe')).toHaveTextContent('celsius kilometresPerHour');
+
+  mockRouter.push.mockClear();
+  await fireEvent.press(result.getByTestId('settings-units-row'));
+  expect(mockRouter.push).toHaveBeenCalledWith('/settings/units');
+  expect(await result.findByTestId('settings-units')).toBeOnTheScreen();
+  expect(result.getByText(messages.en.settings.units.footer)).toBeOnTheScreen();
   for (const row of ['temperature-unit', 'wind-speed-unit']) {
     expect(result.getByTestId(`settings-${row}-row-tile`).props.modifiers).toContainEqual(
       expect.objectContaining({ $type: 'background' }),
@@ -421,7 +441,6 @@ test('temperature and wind unit choices store and reach the units every screen r
   expect(picker('wind-speed-unit').props.selection).toBe('system');
   expect(optionLabels('temperature-unit')).toEqual(['Temperature, System', 'System', '°C', '°F']);
   expect(optionLabels('wind-speed-unit')).toEqual(['Wind speed, System', 'System', 'km/h', 'mph']);
-  expect(result.getByTestId('unit-probe')).toHaveTextContent('celsius kilometresPerHour');
 
   await fireEvent(picker('temperature-unit'), 'selectionChange', 'fahrenheit');
   await waitFor(() => expect(result.getByTestId('unit-probe')).toHaveTextContent('fahrenheit kilometresPerHour'));
@@ -432,8 +451,15 @@ test('temperature and wind unit choices store and reach the units every screen r
   expect(picker('temperature-unit').props.selection).toBe('fahrenheit');
   expect(picker('wind-speed-unit').props.selection).toBe('mph');
 
+  await act(async () => { mockRouter.back(); });
+  expect(within(await result.findByTestId('settings-appearance-group')).getByText('°F, mph')).toBeOnTheScreen();
   await fireEvent(picker('language'), 'selectionChange', 'tr');
-  await waitFor(() => expect(optionLabels('wind-speed-unit')).toEqual(['Rüzgâr hızı, mil/sa', 'Sistem', 'km/sa', 'mil/sa']));
+  await waitFor(() => expect(within(result.getByTestId('settings-appearance-group')).getByText('°F, mil/sa'))
+    .toBeOnTheScreen());
+
+  await fireEvent.press(result.getByTestId('settings-units-row'));
+  expect(await result.findByText(messages.tr.settings.units.footer)).toBeOnTheScreen();
+  expect(optionLabels('wind-speed-unit')).toEqual(['Rüzgâr hızı, mil/sa', 'Sistem', 'km/sa', 'mil/sa']);
   expect(optionLabels('temperature-unit')).toEqual(['Sıcaklık, °F', 'Sistem', '°C', '°F']);
   await fireEvent(picker('temperature-unit'), 'selectionChange', 'system');
   await waitFor(() => expect(result.getByTestId('unit-probe')).toHaveTextContent('celsius milesPerHour'));
@@ -442,6 +468,36 @@ test('temperature and wind unit choices store and reach the units every screen r
     { schema_version: 5, setting_name: 'wind_speed_unit', new_value: 'mph' },
     { schema_version: 5, setting_name: 'language', new_value: 'tr' },
     { schema_version: 5, setting_name: 'temperature_unit', new_value: 'system' },
+  ]);
+});
+
+// The day questions are a Today sheet, not a notification, so their switch sits under the
+// Notifications row with a footer saying so, and it works whatever the OS permission is.
+test('the morning question switch sits under Notifications and never waits on the permission', async () => {
+  mockProfile = createProfile();
+  const analytics = new RecordingProductAnalytics('granted');
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider analytics={analytics} firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} permission="denied" />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  const notifications = await result.findByTestId('settings-notifications-group');
+  const toggle = within(notifications).getByTestId('settings-morning-question-row-toggle');
+  expect(toggle.props.value).toBe(true);
+  expect(toggle.props.disabled).toBe(false);
+  expect(within(notifications).getByText(messages.en.settings.morningQuestionFooter)).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-profile-group')).queryByTestId('settings-morning-question-row-toggle'))
+    .toBeNull();
+
+  await fireEvent(toggle, 'valueChange', false);
+  await waitFor(() => expect(mockProfile.morningSheetEnabled).toBe(0));
+  expect(analytics.captures.map((capture) => capture.properties)).toEqual([
+    { schema_version: 5, setting_name: 'morning_sheet_enabled', new_value: false },
   ]);
 });
 

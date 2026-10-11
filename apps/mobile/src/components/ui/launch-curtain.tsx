@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Appearance, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Appearance, AppState, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   type SharedValue,
@@ -70,7 +70,10 @@ export type LaunchReadiness = 'pending' | 'ready' | 'shortened' | 'failed';
 /** How long the symbol waits, still, for the first screen before the layer withdraws. */
 export const LAUNCH_READY_CEILING_MS = 1_500;
 
-type LaunchMotion = 'dive' | 'short' | 'late' | 'failed';
+/** How long the app must have been in the background for its return to play the launch. */
+export const RETURN_AWAY_MS = 60_000;
+
+type LaunchMotion = 'dive' | 'short' | 'late' | 'failed' | 'return';
 
 // The native splash draws the symbol 160 pt wide at the window's centre (app.json
 // `imageWidth`), so the layer's first frame does too.
@@ -124,7 +127,9 @@ export type LaunchCurtainProps = PropsWithChildren<{
  * appearance's ground with the master symbol at its centre. It stays still until the first
  * screen is drawn, then the symbol breathes in, the camera dives into its upper piece while
  * the pieces turn Calm Current, and that colour, now the whole screen, fades on `normal`.
- * A notification or a link skips the dive: the colour fades in and out. A
+ * A notification or a link skips the dive: the colour fades in and out. A return after at
+ * least `RETURN_AWAY_MS` in the background fades the resting symbol in over the screen it
+ * left and plays the same dive, holding back nothing that waits for the cold launch. A
  * first screen later than the ceiling, or a failed one, only fades the layer away. The
  * layer is never read by assistive technology. It takes the touches meant for the first screen
  * while it is opaque, so nothing under it can be pressed unseen, and none once it starts to lift.
@@ -166,6 +171,30 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
   }, []);
   const gone = useCallback(() => setReveal(revealed), []);
 
+  // A return after a long enough time away plays the launch over the screen it left, once
+  // the cold launch has gone. Each return is its own layer; it holds back nothing that waits
+  // for the cold launch, and it takes touches only until its curtain lifts.
+  const [returning, setReturning] = useState<number | null>(null);
+  const [returnLifted, setReturnLifted] = useState(false);
+  const idle = reveal.done && returning === null;
+  useEffect(() => {
+    if (!idle) return undefined;
+    let backgroundedAt: number | null = null;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'background') backgroundedAt = Date.now();
+      if (state !== 'active' || backgroundedAt === null) return;
+      const away = Date.now() - backgroundedAt;
+      backgroundedAt = null;
+      if (away < RETURN_AWAY_MS) return;
+      setReturnLifted(false);
+      setReturning((count) => (count ?? 0) + 1);
+    });
+    return () => subscription.remove();
+  }, [idle]);
+  const returnLifting = useCallback(() => setReturnLifted(true), []);
+  const returnGone = useCallback(() => setReturning(null), []);
+  const ignoreLayout = useCallback(() => undefined, []);
+
   // A mount that is not the cold launch draws no layer, but a scene reconnecting in the same
   // process shows the native splash again, so its first frame hands over all the same.
   useEffect(() => {
@@ -196,6 +225,16 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
           onLifting={lifting}
         />
       )}
+      {returning === null ? null : (
+        <CurtainLayer
+          blocking={!returnLifted}
+          key={returning}
+          motion="return"
+          onGone={returnGone}
+          onLayout={ignoreLayout}
+          onLifting={returnLifting}
+        />
+      )}
     </>
   );
 }
@@ -220,6 +259,8 @@ function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: Curtain
   const camera = useSharedValue(0);
   const fill = useSharedValue(0);
   const veil = useSharedValue(0);
+  // A return fades the resting symbol in over the screen before it dives.
+  const appear = useSharedValue(motion === 'return' ? 0 : 1);
   const lift = useSharedValue(1);
   const withdraw = useSharedValue(1);
 
@@ -235,15 +276,17 @@ function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: Curtain
       'worklet';
       scheduleOnRN(onGone);
     };
-    if (motion === 'dive') {
-      breath.set(withTiming(1, { duration: fast, easing: EASE_OUT }));
-      dive.set(withDelay(fast, withTiming(1, { duration: launch, easing: DIVE_EASING }, lifted)));
-      camera.set(withDelay(fast, withTiming(1, { duration: launch * CAMERA_SHARE, easing: GLIDE_EASING })));
+    if (motion === 'dive' || motion === 'return') {
+      const lead = motion === 'return' ? fast : 0;
+      if (motion === 'return') appear.set(fadeTo(1, fast, standardMotion));
+      breath.set(withDelay(lead, withTiming(1, { duration: fast, easing: EASE_OUT })));
+      dive.set(withDelay(lead + fast, withTiming(1, { duration: launch, easing: DIVE_EASING }, lifted)));
+      camera.set(withDelay(lead + fast, withTiming(1, { duration: launch * CAMERA_SHARE, easing: GLIDE_EASING })));
       fill.set(withDelay(
-        fast + launch * FILL_FROM,
+        lead + fast + launch * FILL_FROM,
         fadeTo(1, launch * (FILL_TO - FILL_FROM), standardMotion),
       ));
-      lift.set(withDelay(fast + launch, fadeTo(0, normal, standardMotion, faded)));
+      lift.set(withDelay(lead + fast + launch, fadeTo(0, normal, standardMotion, faded)));
     } else if (motion === 'short') {
       veil.set(fadeTo(1, fast, standardMotion, lifted));
       lift.set(withDelay(fast, fadeTo(0, normal, standardMotion, faded)));
@@ -251,7 +294,7 @@ function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: Curtain
       onLifting();
       withdraw.set(fadeTo(0, motion === 'late' ? normal : fast, standardMotion, faded));
     }
-  }, [breath, camera, dive, fill, lift, motion, onGone, onLifting, veil, withdraw]);
+  }, [appear, breath, camera, dive, fill, lift, motion, onGone, onLifting, veil, withdraw]);
 
   const short = motion === 'short';
   // The curtain is the one colour the dive or the veil arrives at. Until it has arrived, the
@@ -286,6 +329,7 @@ function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: Curtain
     return { matrix: [a, 0, 0, a, focusX - FOCUS.x * a, focusY - FOCUS.y * a] };
   });
   const fillProps = useAnimatedProps(() => ({ opacity: fill.get() }));
+  const appearProps = useAnimatedProps(() => ({ opacity: appear.get() }));
   // The first frame is also drawn by React, so it holds before any animated value arrives:
   // the symbol 160 pt wide at the centre, in the splash ink.
   const restMatrix: ColumnMajorTransformMatrix = [unit, 0, 0, unit, centreX - SYMBOL_SIDE / 2, centreY - SYMBOL_SIDE / 2];
@@ -301,19 +345,21 @@ function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: Curtain
       {/* One drawing, every layer of it redrawn by the same animated SVG props: the ground
           and the symbol, then the curtain over them. */}
       <Svg height={height} width={width}>
-        <AnimatedG animatedProps={groundProps} opacity={1} testID="launch-curtain-ground">
-          <Rect fill={ground[scheme]} height={height} width={width} />
-          <AnimatedG animatedProps={symbolProps} transform={restMatrix} testID="launch-curtain-symbol">
-            <G fill={ink[scheme]}>
-              {brandSymbolPaths.map((d) => <Path d={d} key={d} />)}
-            </G>
-            <AnimatedG animatedProps={fillProps} fill={brandColors.calmCurrent} opacity={0}>
-              {brandSymbolPaths.map((d) => <Path d={d} key={d} />)}
+        <AnimatedG animatedProps={appearProps} opacity={motion === 'return' ? 0 : 1}>
+          <AnimatedG animatedProps={groundProps} opacity={1} testID="launch-curtain-ground">
+            <Rect fill={ground[scheme]} height={height} width={width} />
+            <AnimatedG animatedProps={symbolProps} transform={restMatrix} testID="launch-curtain-symbol">
+              <G fill={ink[scheme]}>
+                {brandSymbolPaths.map((d) => <Path d={d} key={d} />)}
+              </G>
+              <AnimatedG animatedProps={fillProps} fill={brandColors.calmCurrent} opacity={0}>
+                {brandSymbolPaths.map((d) => <Path d={d} key={d} />)}
+              </AnimatedG>
             </AnimatedG>
           </AnimatedG>
-        </AnimatedG>
-        <AnimatedG animatedProps={curtainProps} opacity={0} testID="launch-curtain-colour">
-          <Rect fill={brandColors.calmCurrent} height={height} width={width} />
+          <AnimatedG animatedProps={curtainProps} opacity={0} testID="launch-curtain-colour">
+            <Rect fill={brandColors.calmCurrent} height={height} width={width} />
+          </AnimatedG>
         </AnimatedG>
       </Svg>
       <CurtainStatusBar covered={curtainOpacity} />

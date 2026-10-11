@@ -1,7 +1,6 @@
 import {
   ianaTimeZoneSchema,
   locationDisplayNameSchema,
-  placeSearchMaxResults,
   placeSearchRegionMaxLength,
   type PlaceSearchV1Data,
   type PlaceSearchV1Request,
@@ -10,6 +9,10 @@ import { z } from 'zod';
 
 import { withDeadline } from '../attempt-timeout.ts';
 import { defaultFetch, type FetchLike } from '../default-fetch.ts';
+
+// The most entries Open-Meteo returns for one call. One call always asks for all of them, so
+// `rankPlaces` can reach neighbourhoods that sit far down a long list.
+const upstreamCandidateCount = 100;
 
 const rawPlaceSchema = z.object({
   id: z.number().int().positive().safe(),
@@ -22,14 +25,17 @@ const rawPlaceSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   timezone: ianaTimeZoneSchema.optional(),
+  // Ranking hints only: a missing or unreadable one never drops the place.
+  feature_code: z.string().optional().catch(undefined),
+  population: z.number().optional().catch(undefined),
 }).refine((place) => Boolean(place.admin1 || place.country || place.country_code));
 type RawPlace = z.infer<typeof rawPlaceSchema>;
 // The envelope is deliberately loose about entry shape: each entry is validated on its own below,
 // so one malformed result no longer drops the whole answer. The bounds that are a contract concern
-// (at most `placeSearchMaxResults` entries, and a body that is neither results nor a timing field
+// (at most `upstreamCandidateCount` entries, and a body that is neither results nor a timing field
 // is not an answer at all) stay here.
 const rawResponseSchema = z.object({
-  results: z.array(z.unknown()).max(placeSearchMaxResults).optional(),
+  results: z.array(z.unknown()).max(upstreamCandidateCount).optional(),
   generationtime_ms: z.number().nonnegative().optional(),
 }).refine((body) => body.results !== undefined || body.generationtime_ms !== undefined);
 
@@ -74,6 +80,26 @@ function spellingRetries(request: PlaceSearchV1Request, firstPage: RawPlace[]) {
 // Province names repeat the place ("İstanbul, İstanbul"); compare without case or the dotted/dotless I.
 const foldName = (name: string) => name.toLocaleLowerCase('tr').replaceAll('ı', 'i');
 
+// Name comparison for ranking: case, the dotted/dotless I and diacritics ("Goztepe" is "Göztepe") are ignored.
+const matchKey = (name: string) => foldName(name.normalize('NFD').replace(/\p{M}/gu, ''));
+
+/**
+ * Open-Meteo lists the names that match, populated places first. GeoNames leaves the city
+ * neighbourhoods (feature code PPLX: Bostancı, Moda, Göztepe) without a population, so they sit
+ * behind hundreds of villages of the same name and never reach a short answer. The leading run of
+ * populated entries (the cities a plain query is after) keeps its places; from the first entry
+ * without a population on, neighbourhoods named exactly like the query come first. Everything else
+ * keeps upstream order.
+ */
+function rankPlaces(places: RawPlace[], query: string): RawPlace[] {
+  const populated = places.findIndex((place) => place.population === undefined);
+  const head = populated === -1 ? places.length : populated;
+  const wanted = matchKey(query);
+  const isNeighbourhood = (place: RawPlace) => place.feature_code === 'PPLX' && matchKey(place.name) === wanted;
+  const tail = places.slice(head);
+  return [...places.slice(0, head), ...tail.filter(isNeighbourhood), ...tail.filter((place) => !isNeighbourhood(place))];
+}
+
 /**
  * A search answer. `degraded` marks one whose spelling top-up failed: it is a valid answer for
  * this request but not worth keeping, so the handler reads it before the contract strips it.
@@ -110,7 +136,8 @@ export class OpenMeteoPlaceProvider {
     // did not contain, under the same deadline. A retry that fails (timeout, upstream error,
     // unreadable body) is a lost top-up, not a lost answer: what the typed query returned stands.
     let degraded = false;
-    const { spellings, preferTurkey } = spellingRetries(request, valid);
+    // The retry rules were written for an upstream page of `limit` entries, so they read the same view.
+    const { spellings, preferTurkey } = spellingRetries(request, valid.slice(0, request.limit));
     const extras: RawPlace[] = [];
     const isTurkey = (place: RawPlace) => place.country_code === 'TR';
     for (const spelling of spellings) {
@@ -124,13 +151,11 @@ export class OpenMeteoPlaceProvider {
       const unseen = extras.filter((place) => !seen.has(place.id));
       if (preferTurkey ? unseen.some(isTurkey) : valid.length + new Set(unseen.map((place) => place.id)).size >= request.limit) break;
     }
-    if (extras.length > 0) {
-      const ordered = preferTurkey
-        ? [...extras.filter(isTurkey), ...valid, ...extras.filter((place) => !isTurkey(place))]
-        : [...valid, ...extras];
-      const seen = new Set<number>();
-      valid = ordered.filter((place) => !seen.has(place.id) && seen.add(place.id)).slice(0, request.limit);
-    }
+    const ordered = preferTurkey
+      ? [...extras.filter(isTurkey), ...valid, ...extras.filter((place) => !isTurkey(place))]
+      : [...valid, ...extras];
+    const seen = new Set<number>();
+    valid = rankPlaces(ordered.filter((place) => !seen.has(place.id) && seen.add(place.id)), request.query).slice(0, request.limit);
     // Rows the user could not tell apart (same name, same province and country) carry the
     // district too; every other row keeps the short region it always had.
     // The contract bounds `region`; when the full label would exceed it, the district and then
@@ -169,7 +194,7 @@ export class OpenMeteoPlaceProvider {
     const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
     // A hyphen is a space upstream ("Saint-Petersburg" finds nothing, "Saint Petersburg" does).
     url.searchParams.set('name', name.replaceAll('-', ' ').trim() || name);
-    url.searchParams.set('count', String(request.limit));
+    url.searchParams.set('count', String(upstreamCandidateCount));
     url.searchParams.set('language', request.language);
     url.searchParams.set('format', 'json');
     // Workers' fetch accepts only 'follow' and 'manual'; 'manual' surfaces a redirect as a

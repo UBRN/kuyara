@@ -529,6 +529,8 @@ export type AppMessages = Readonly<{
     aboutHeading: string;
     accessibilityHeading: string;
     unitsHeading: string;
+    /** Under the morning question switch: the questions are a Today sheet, not a notification. */
+    morningQuestionFooter: string;
     easierToSee: Readonly<{
       title: string;
       on: string;
@@ -550,7 +552,7 @@ export type AppMessages = Readonly<{
       textSizeSmaller: string;
     }>;
     themeRow: string;
-    /** Unit choices in Appearance; the values are unit symbols, never assembled sentences. */
+    /** Unit choices on the Units screen; the values are unit symbols, never assembled sentences. */
     units: Readonly<{
       temperatureRow: string;
       windSpeedRow: string;
@@ -559,6 +561,9 @@ export type AppMessages = Readonly<{
       fahrenheit: string;
       kmh: string;
       mph: string;
+      /** The Units row's value: the unit symbols in force, in this order and with this separator. */
+      summary: (units: Readonly<{ temperature: string; windSpeed: string }>) => string;
+      footer: string;
     }>;
     versionLine: (version: string, build?: string | null) => string;
     developmentBuild: string;
@@ -792,7 +797,8 @@ export type AppMessages = Readonly<{
     stale: string;
     updatedAt: (time: string) => string;
     feelsLike: (temperature: string) => string;
-    range: (minimum: string, maximum: string) => string;
+    low: (temperature: string) => string;
+    high: (temperature: string) => string;
     currentConditionsAccessibilityLabel: (values: {
       condition: string;
       unitName: string;

@@ -31,15 +31,14 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 
 ### 2. Root groups, in order
 
-1. **Appearance:** Language and theme, each a value row opening the native picker.
-2. **Accessibility:** one "Easier to see" / "Görme kolaylığı" value row (On or Off) opening its pushed surface (section 5).
-3. **Units** / **Birimler:** Temperature (System, °C, °F) and Wind speed (System, km/h, mph), each a value row opening the native picker.
-4. **Notifications:** the notification preference and its pushed surface.
-5. **Account:** the optional account row and its pushed Account screen ([ADR 0041](0041-optional-accounts.md) section 5), always present, directly above Profile.
-6. **Profile:** display name, gender, dress style, style aesthetics, the Morning and evening questions switch and birth date. Birth date carries no helper footer.
-7. **Help:** Support, Share kuyara, Rate kuyara and, when the tour is available, "Get to know kuyara step by step" / "kuyara’yı adım adım tanı".
-8. **About:** Service providers, Privacy and License.
-9. The centred version and build footer.
+1. **Account:** the optional account row and its pushed Account screen ([ADR 0041](0041-optional-accounts.md) section 5), always present, directly above Profile.
+2. **Profile:** display name, gender, dress style, style aesthetics and birth date. Birth date carries no helper footer.
+3. **Notifications:** the notification preference and its pushed surface, then the Morning and evening questions switch. Its footer says the questions appear on Today when the app opens and are not notifications, and that with the switch off the dress style is used every day. The switch never depends on notification permission.
+4. **Appearance:** Language, Units and theme. Language and theme are value rows opening the native picker. The Units row shows the resolved units from one localized template (for example "°C, km/h") and pushes the Units surface (section 5).
+5. **Accessibility:** one "Easier to see" / "Görme kolaylığı" value row (On or Off) opening its pushed surface (section 5).
+6. **Help:** Support, Share kuyara, Rate kuyara and, when the tour is available, "Get to know kuyara step by step" / "kuyara’yı adım adım tanı".
+7. **About:** Service providers, Privacy and License.
+8. The centred version and build footer.
 
 Native inset groups and ADR 0028's row anatomy stay. Inside native cells the system owns typography and colour, apart from the Easier to see text changes (section 5); the app-owned `kuyara` footer uses the display role and Deep Atmosphere in light or Quiet Sky in dark. It fits on one line at the largest accessibility text size. The name is not a custom wordmark.
 
@@ -49,7 +48,7 @@ Share kuyara opens the platform share sheet with the App Store link on iOS or Pl
 
 Every root row carries the shared leading tile:
 28 × 28, radius 7, a monochrome glyph at 20 in the system label ink, fill from that ink
-at 8% in light and 12% in dark. Language, Appearance, Temperature, Wind speed, Gender and Dress style draw the same tile in SwiftUI inside their Menu labels, because a Menu label cannot host the React Native one, and their labels read in the system label ink, never the tint. Every row glyph is the outline weight. Every tile follows the same anatomy. The separator starts 56 from the group
+at 8% in light and 12% in dark. Language, Theme, Gender and Dress style draw the same tile in SwiftUI inside their Menu labels, because a Menu label cannot host the React Native one, and their labels read in the system label ink, never the tint. Every row glyph is the outline weight. Every tile follows the same anatomy. The separator starts 56 from the group
 edge. The trailing value is the system's secondary before the chevron, and above
 `fontScale` 1.5 it stacks under the label. The leading tile is kuyara's own React Native
 view hosted inside the native row, so it keeps ADR 0028 section 3's capped control scale
@@ -59,7 +58,7 @@ rows.
 
 Section headings are kuyara's: sentence case, `bodyStrong` 17, `textSecondary`, drawn
 outside the native group with 12 below before the group and 24 between groups. SwiftUI's
-uppercase header never appears. Each of the eight root groups carries its sentence-case heading.
+uppercase header never appears. Each of the seven root groups carries its sentence-case heading.
 
 ### 4. The version line
 
@@ -73,9 +72,10 @@ build number from `expo-constants` and omits unavailable build data cleanly.
 
 ### 5. Remaining pushed surfaces
 
-Notifications, Service providers, Privacy, Easier to see and Birth date use native inline titles, back buttons and grouped content. The preference Pickers remain on the root list.
+Notifications, Units, Service providers, Privacy, Easier to see and Birth date use native inline titles, back buttons and grouped content. The Language, Theme, Gender and Dress style Pickers remain on the root list.
 
 - **Notifications:** preferences use system controls, with denied-permission explanation and a way into system Settings.
+- **Units:** the inline title "Units" / "Birimler" and one group with the Temperature (System, °C, °F) and Wind speed (System, km/h, mph) pickers. A footer says System follows the phone's region settings. The surface has no screen-viewed event; unit changes keep their `setting_changed` events.
 - **Service providers:** the Artificial intelligence section first names who chose the last outfit, with kuyara as subject: with online AI, from its standard suggestions, or, for a stored `on-device-ai` snapshot, with Apple Intelligence. The footer states the order (online AI, then the standard suggestions). The section shows no on-device availability. The bounded active-probe row, "Test online AI", and its one-line footer follow. The Weather data section names the provider behind the last valid snapshot and carries its full mark, text, link and OpenWeather logo as applicable. Only this surface may show the controlled, non-secret last-check provider and model ID.
 - **Privacy:** analytics consent and withdrawal use the native grouped surface decided in ADR 0033.
 - **Easier to see:** three groups. A preview card draws a fixed layered outfit on a stage beside an outfit name and one insight line in Today's type roles, as one image for assistive tech and with no day-type pill, because Today has none. One switch follows, with a footer naming its five changes. On iPhone a read-only group, "iPhone settings kuyara follows", then names Larger Text, Bold Text and Increase Contrast with their state and a footer saying where to change them; kuyara never changes them or opens system Settings, and Android, which reports neither Bold Text nor Increase Contrast, has no such group. The switch is device-local, off by default, and stored on the profile. On, it makes kuyara-owned text one weight step heavier with nothing under the 15-point label size, reads secondary text in the primary ink, and gives kuyara-drawn controls a 2-point `borderStrong` edge: every button but the prominent fill, which is its own boundary, the Closet chips and tiles, and Today's alternatives (each row, or each tile's drawing plate while the switch is off). It draws every garment board but the first-generation runway, which fits its drafts to its own area, with its size caps × 1.3, a side minimum of 0.05 and a 2.8-point outline (a composition that would then stand taller than its stage's ceiling is scaled down once, by one ratio for every size and gap, until it fits, so no piece is clipped), every tile drawing (the Closet, the add and edit forms, the detail's piece rows and History) 1.3 times larger in the same tile, and Today's finishing touches at 24 points; it shows Today's alternatives as full-width rows, stacks the alert offer's two actions, and makes kuyara-drawn buttons 56 points, rows 60 and Closet chips 48 tall. With the switch off, iOS Bold Text alone applies the heavier text, and iOS Increase Contrast alone the primary-ink secondary text and the strong edges. Garment fills keep their palette colours: a piece's fill is a legalized Phase 6 palette colour rather than a tint step, so the mode has no deeper fill. Inside native cells the switch changes text only: labels one weight heavier, and values, subtitles, footers and chevrons in the system label ink. Row height, separators and the group edge stay the system's, and glass controls keep their native look.

@@ -104,7 +104,7 @@ value.
 
 ### The cold launch
 
-Every cold launch, never a return from the background, plays one animation in a layer drawn
+Every cold launch plays one animation in a layer drawn
 above the whole app; `visual-identity.md` describes what it shows. The layer's first frame
 is the native splash's last and holds still until the first screen has drawn its content, for at most
 1.5 seconds. A process iOS starts in the background, for the weather-alert task, renders
@@ -124,11 +124,16 @@ shortened launch: the curtain arrives over the splash on `fast` and fades on `no
 layer is hidden from assistive technology. While it is opaque it takes the touches meant
 for the screen beneath, so nothing unseen can be pressed, and it lets every touch through
 once the curtain starts to lift. The status bar turns light while the curtain is at least
-half opaque. Only `components/ui` consumes the
+half opaque. A return from the background after at least a minute away plays the launch
+over the screen it left: the resting symbol and its ground fade in on `fast`, then the same
+breath, dive and curtain fade follow, about 840 ms in all. It holds back none of what waits
+for the cold launch. A shorter absence, or a passing system overlay that never sends the
+app to the background, plays nothing. Only `components/ui` consumes the
 `launch` role.
 
 This is the one motion that holds the user's first look at the app, accepted as the
-launch's character: it adds 720 ms to a cold launch and plays nowhere else.
+launch's character: it adds 720 ms to a cold launch, about 840 ms to a return after a
+minute away, and plays nowhere else.
 
 ### A moment
 
@@ -158,7 +163,7 @@ selection feedback once per crossing, a threshold under the finger.
   ambient motion measurably costs readability. The value itself changing in place is not
   motion under it: Law 7 lets Weather's temperature roll its changed digits once.
 - Motion as the sole carrier of a state change.
-- Motion that delays the user's decision, other than the cold launch above.
+- Motion that delays the user's decision, other than the launch above.
 - An in-app motion toggle.
 - A content-detached grey-block wait surface. The runway keeps ADR 0025's boxes
   and the garment silhouettes because the wait already knows where the pieces will sit;

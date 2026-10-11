@@ -205,6 +205,9 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
     assert.ok(copy.preferences.themeDark);
     assert.ok(copy.settings.title);
     assert.ok(copy.settings.saveError);
+    assert.ok(copy.settings.morningQuestionFooter);
+    assert.ok(copy.settings.units.footer);
+    assert.equal(copy.settings.units.summary({ temperature: '°F', windSpeed: 'mph' }), '°F, mph');
     assert.ok(copy.navigation.today);
     assert.ok(copy.navigation.weather);
     assert.ok(copy.weather.introduction);

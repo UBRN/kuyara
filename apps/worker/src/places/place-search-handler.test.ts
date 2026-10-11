@@ -30,7 +30,7 @@ test('search maps upstream fields, coarse coordinates and attribution with one b
     calls++;
     const url = new URL(String(input));
     assert.equal(url.origin, 'https://geocoding-api.open-meteo.com');
-    assert.deepEqual(Object.fromEntries(url.searchParams), { name: 'Ankara', count: '5', language: 'tr', format: 'json' });
+    assert.deepEqual(Object.fromEntries(url.searchParams), { name: 'Ankara', count: '100', language: 'tr', format: 'json' });
     // 'manual', not 'error': workerd rejects 'error' before any network call (found live, 2026-09-08).
     assert.equal(init?.redirect, 'manual');
     return Response.json(raw);
@@ -62,7 +62,7 @@ test('timeout aborts the upstream and returns only a sanitized error', async () 
   assert.equal(calls, 1);
 });
 test('invalid upstream payloads and upstream HTTP errors are sanitized', async () => {
-  for (const body of [{ error: true, reason: 'private' }, { results: [{ ...raw.results[0], latitude: 91 }] }, { results: [{ ...raw.results[0], timezone: 'invalid' }] }, { results: Array(6).fill(raw.results[0]) }]) {
+  for (const body of [{ error: true, reason: 'private' }, { results: [{ ...raw.results[0], latitude: 91 }] }, { results: [{ ...raw.results[0], timezone: 'invalid' }] }, { results: Array(101).fill(raw.results[0]) }]) {
     const response = await setup(async () => Response.json(body))(request());
     assert.equal(response.status, 503);
     assert.deepEqual(await response.json(), { error: { code: 'places_unavailable' } });

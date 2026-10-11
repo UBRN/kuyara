@@ -328,8 +328,9 @@ test('the morning briefing is its own row and reports the same events the alert 
 
 test('an opt-in the OS revoked reads Off on the Settings root row', async () => {
   // Within its group the alert row is the only row valued from these keys, so the single
-  // Off is unambiguously its own and no On is left there (O13's Easier to see row, in its
-  // own group, also reads Off by default).
+  // Off is unambiguously its own and no On is left there: the morning question switch beside
+  // it carries no value text (O13's Easier to see row, in its own group, also reads Off by
+  // default).
   mockProfile = { ...createProfile(), notificationsOptIn: 1, analyticsConsent: 'granted' };
   const { gateway } = createGateway('denied');
   const result = await renderSettings(gateway, new RecordingProductAnalytics());
@@ -338,6 +339,7 @@ test('an opt-in the OS revoked reads Off on the Settings root row', async () => 
   await waitFor(() => expect(within(group).getAllByText(messages.en.notifications.statusOff))
     .toHaveLength(1));
   expect(within(group).queryByText(messages.en.notifications.statusOn)).not.toBeOnTheScreen();
+  expect(within(group).getByTestId('settings-morning-question-row-toggle')).toBeOnTheScreen();
 });
 
 // ADR 0004: the root row stands for the whole Notifications surface, so the briefing alone

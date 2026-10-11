@@ -18,12 +18,7 @@ import {
 } from '@/components/ui';
 import { calendarDateUtcMidnight } from '@/domain/calendar-date';
 import { dateTimeFormat } from '@/domain/intl-format';
-import type {
-  LanguagePreference,
-  TemperatureUnitPreference,
-  ThemePreference,
-  WindSpeedUnitPreference,
-} from '@/domain/preferences';
+import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
 import {
   defaultDressStyle,
   genderSchema,
@@ -45,9 +40,8 @@ export type SettingsScreenProps = Readonly<{
   isSaving: boolean;
   onLanguageChange: (value: LanguagePreference) => Promise<void>;
   onAppearanceChange: (value: ThemePreference) => Promise<void>;
-  onTemperatureUnitChange: (value: TemperatureUnitPreference) => Promise<void>;
-  onWindSpeedUnitChange: (value: WindSpeedUnitPreference) => Promise<void>;
   onOpenNotifications: () => void;
+  onOpenUnits: () => void;
   onOpenEasierToSee: () => void;
   onOpenServiceProviders: () => void;
   onGenderChange: (value: Gender) => Promise<void>;
@@ -74,8 +68,6 @@ export function SettingsScreen({
   isSaving,
   notificationsOn,
   onAppearanceChange,
-  onTemperatureUnitChange,
-  onWindSpeedUnitChange,
   onDressStyleChange,
   onStyleAestheticsChange,
   onMorningSheetEnabledChange,
@@ -85,6 +77,7 @@ export function SettingsScreen({
   onOpenBirthDate,
   onNameChange,
   onOpenNotifications,
+  onOpenUnits,
   onOpenEasierToSee,
   onOpenPrivacy,
   onOpenSupport,
@@ -96,11 +89,11 @@ export function SettingsScreen({
   showRate,
   profile,
 }: SettingsScreenProps) {
-  const { language, messages } = useLocalization();
+  const { language, messages, temperatureUnit, windSpeedUnit } = useLocalization();
   const { width } = useWindowDimensions();
   const copy = messages.preferences;
   const units = messages.settings.units;
-  const [saveErrorGroup, setSaveErrorGroup] = useState<'appearance' | 'units' | 'profile' | null>(null);
+  const [saveErrorGroup, setSaveErrorGroup] = useState<'profile' | 'notifications' | 'appearance' | null>(null);
   const [nameEditorOpen, setNameEditorOpen] = useState(false);
   const [aestheticsOpen, setAestheticsOpen] = useState(false);
   const [aestheticDraft, setAestheticDraft] = useState<readonly StyleAesthetic[]>(profile.styleAesthetics ?? []);
@@ -137,7 +130,7 @@ export function SettingsScreen({
   };
 
   const savePreference = async (
-    group: 'appearance' | 'units' | 'profile',
+    group: 'profile' | 'notifications' | 'appearance',
     save: () => Promise<void>,
   ) => {
     setSaveErrorGroup(null);
@@ -152,6 +145,11 @@ export function SettingsScreen({
     ? messages.onboarding.birthDateNotSet
     : dateTimeFormat(localeTag(language), { dateStyle: 'long', timeZone: 'UTC' })
       .format(calendarDateUtcMidnight(profile.birthDate));
+  // The units in force, so System reads as what it resolves to on this phone.
+  const unitsValue = units.summary({
+    temperature: { celsius: units.celsius, fahrenheit: units.fahrenheit }[temperatureUnit],
+    windSpeed: { kilometresPerHour: units.kmh, milesPerHour: units.mph }[windSpeedUnit],
+  });
   const notificationValue = notificationsOn
     ? messages.notifications.statusOn
     : messages.notifications.statusOff;
@@ -162,109 +160,6 @@ export function SettingsScreen({
   return (
     <>
     <NativeList testID="settings-screen">
-      <NativeListSection
-        footer={saveErrorGroup === 'appearance' ? messages.settings.saveError : undefined}
-        heading={messages.settings.appearanceHeading}
-        testID="settings-appearance-group">
-        <NativePickerRow
-          disabled={isSaving}
-          label={copy.languageTitle}
-          onSelectionChange={(value) => savePreference(
-            'appearance',
-            () => onLanguageChange(value),
-          )}
-          options={[
-            { label: copy.languageSystem, value: 'system' },
-            { label: copy.languageTurkish, value: 'tr' },
-            { label: copy.languageEnglish, value: 'en' },
-          ]}
-          selection={profile.languagePreference}
-          icon="language"
-          testID="settings-language-row"
-        />
-        <NativePickerRow
-          disabled={isSaving}
-          label={messages.settings.themeRow}
-          onSelectionChange={(value) => savePreference(
-            'appearance',
-            () => onAppearanceChange(value),
-          )}
-          options={[
-            { label: copy.themeSystem, value: 'system' },
-            { label: copy.themeLight, value: 'light' },
-            { label: copy.themeDark, value: 'dark' },
-          ]}
-          selection={profile.themePreference}
-          icon="theme"
-          testID="settings-theme-row"
-        />
-      </NativeListSection>
-
-      {/* O13: Accessibility sits directly under Appearance. */}
-      <NativeListSection
-        heading={messages.settings.accessibilityHeading}
-        testID="settings-accessibility-group">
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="accessibility" size={size} />}
-          label={messages.settings.easierToSee.title}
-          onPress={onOpenEasierToSee}
-          testID="settings-easier-to-see-row"
-          value={profile.easierToSee === true
-            ? messages.settings.easierToSee.on
-            : messages.settings.easierToSee.off}
-        />
-      </NativeListSection>
-
-      <NativeListSection
-        footer={saveErrorGroup === 'units' ? messages.settings.saveError : undefined}
-        heading={messages.settings.unitsHeading}
-        testID="settings-units-group">
-        <NativePickerRow
-          disabled={isSaving}
-          label={units.temperatureRow}
-          onSelectionChange={(value) => savePreference(
-            'units',
-            () => onTemperatureUnitChange(value),
-          )}
-          options={[
-            { label: units.system, value: 'system' },
-            { label: units.celsius, value: 'celsius' },
-            { label: units.fahrenheit, value: 'fahrenheit' },
-          ]}
-          selection={profile.temperatureUnitPreference ?? 'system'}
-          icon="thermometerSwing"
-          testID="settings-temperature-unit-row"
-        />
-        <NativePickerRow
-          disabled={isSaving}
-          label={units.windSpeedRow}
-          onSelectionChange={(value) => savePreference(
-            'units',
-            () => onWindSpeedUnitChange(value),
-          )}
-          options={[
-            { label: units.system, value: 'system' },
-            { label: units.kmh, value: 'kmh' },
-            { label: units.mph, value: 'mph' },
-          ]}
-          selection={profile.windSpeedUnitPreference ?? 'system'}
-          icon="wind"
-          testID="settings-wind-speed-unit-row"
-        />
-      </NativeListSection>
-
-      <NativeListSection
-        heading={messages.settings.notificationsHeading}
-        testID="settings-notifications-group">
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="bellOutline" size={size} />}
-          label={messages.notifications.title}
-          onPress={onOpenNotifications}
-          testID="settings-notifications-row"
-          value={notificationValue}
-        />
-      </NativeListSection>
-
       {accountSection}
       <NativeListSection
         heading={messages.settings.profileHeading}
@@ -323,18 +218,92 @@ export function SettingsScreen({
           value={aestheticLabels(copy, profile.styleAesthetics ?? [])}
         />
         <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="sunrise" size={size} />}
-          label={copy.dayQuestionsTitle}
-          testID="settings-morning-question-row"
-          toggle={{ value: isMorningSheetEnabled(profile), disabled: isSaving,
-            onValueChange: (enabled) => { void savePreference('profile', () => onMorningSheetEnabledChange(enabled)); } }}
-        />
-        <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
           label={copy.birthDateTitle}
           onPress={onOpenBirthDate}
           testID="settings-birth-date-row"
           value={birthDateValue}
+        />
+      </NativeListSection>
+
+      <NativeListSection
+        footer={saveErrorGroup === 'notifications' ? messages.settings.saveError : messages.settings.morningQuestionFooter}
+        heading={messages.settings.notificationsHeading}
+        testID="settings-notifications-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="bellOutline" size={size} />}
+          label={messages.notifications.title}
+          onPress={onOpenNotifications}
+          testID="settings-notifications-row"
+          value={notificationValue}
+        />
+        {/* A Today sheet, not a notification, so it never waits on the notification permission. */}
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="sunrise" size={size} />}
+          label={copy.dayQuestionsTitle}
+          testID="settings-morning-question-row"
+          toggle={{ value: isMorningSheetEnabled(profile), disabled: isSaving,
+            onValueChange: (enabled) => { void savePreference('notifications', () => onMorningSheetEnabledChange(enabled)); } }}
+        />
+      </NativeListSection>
+
+      <NativeListSection
+        footer={saveErrorGroup === 'appearance' ? messages.settings.saveError : undefined}
+        heading={messages.settings.appearanceHeading}
+        testID="settings-appearance-group">
+        <NativePickerRow
+          disabled={isSaving}
+          label={copy.languageTitle}
+          onSelectionChange={(value) => savePreference(
+            'appearance',
+            () => onLanguageChange(value),
+          )}
+          options={[
+            { label: copy.languageSystem, value: 'system' },
+            { label: copy.languageTurkish, value: 'tr' },
+            { label: copy.languageEnglish, value: 'en' },
+          ]}
+          selection={profile.languagePreference}
+          icon="language"
+          testID="settings-language-row"
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="thermometerSwing" size={size} />}
+          label={messages.settings.unitsHeading}
+          onPress={onOpenUnits}
+          testID="settings-units-row"
+          value={unitsValue}
+        />
+        <NativePickerRow
+          disabled={isSaving}
+          label={messages.settings.themeRow}
+          onSelectionChange={(value) => savePreference(
+            'appearance',
+            () => onAppearanceChange(value),
+          )}
+          options={[
+            { label: copy.themeSystem, value: 'system' },
+            { label: copy.themeLight, value: 'light' },
+            { label: copy.themeDark, value: 'dark' },
+          ]}
+          selection={profile.themePreference}
+          icon="theme"
+          testID="settings-theme-row"
+        />
+      </NativeListSection>
+
+      {/* O13: Accessibility sits directly under Appearance. */}
+      <NativeListSection
+        heading={messages.settings.accessibilityHeading}
+        testID="settings-accessibility-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="accessibility" size={size} />}
+          label={messages.settings.easierToSee.title}
+          onPress={onOpenEasierToSee}
+          testID="settings-easier-to-see-row"
+          value={profile.easierToSee === true
+            ? messages.settings.easierToSee.on
+            : messages.settings.easierToSee.off}
         />
       </NativeListSection>
       <NativeListSection heading={messages.settings.helpHeading} testID="settings-help-group">

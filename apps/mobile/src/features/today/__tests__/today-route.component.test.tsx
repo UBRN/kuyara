@@ -2316,6 +2316,73 @@ test('a warm process crossing 18:00 opens the evening question over a wait', asy
   }
 });
 
+// Today left in front across 18:00 turns to the evening at 18:00 and keeps the outfit on screen;
+// the evening question waits for the next return to the foreground, and nothing is chosen before.
+test('Today left in front across 18:00 keeps its outfit and asks the evening question at the next open', async () => {
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date('2026-09-24T17:59:30.000Z') });
+  // The preset's AppState has no state; the app is in front here.
+  const previousAppState = AppState.currentState;
+  Object.assign(AppState, { currentState: 'active' });
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-24' };
+  mockChoiceGet.mockImplementation(async (_profile: string, key: string) =>
+    key === '2026-09-24' ? {
+      id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+      dayKey: key, formality: 'smart', source: 'morning', styleAesthetics: null,
+      createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z',
+      deletedAt: null,
+    } : null);
+  function DayProbe() {
+    const { dressingDayKey } = useRecommendationApplication();
+    return <Text testID="probe-day">{dressingDayKey}</Text>;
+  }
+  const onChange: ((state: string) => void)[] = [];
+  const appState = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue({ morningSheetEnabled: true })}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <DayProbe />
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen());
+    expect(view.getByTestId('probe-day')).toHaveTextContent('2026-09-24');
+
+    await act(async () => { jest.advanceTimersByTime(30_000); });
+    await waitFor(() => expect(view.getByTestId('probe-day')).toHaveTextContent('2026-09-24:evening'));
+    await act(async () => { jest.advanceTimersByTime(1_000); });
+    expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen();
+    expect(view.queryByTestId('today-loading-screen')).toBeNull();
+    expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+    expect(refresh).not.toHaveBeenCalled();
+
+    await act(async () => {
+      onChange.forEach((listener) => listener('background'));
+      onChange.forEach((listener) => listener('active'));
+    });
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    expect(refresh).not.toHaveBeenCalled();
+  } finally {
+    Object.assign(AppState, { currentState: previousAppState });
+    appState.mockRestore();
+    history.mockRestore();
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
 // A return from the background across a key flip asks the new key's question before anything
 // is chosen, and its answer starts the one generation, with the new key's own Later departure
 // rather than the previous key's answer.

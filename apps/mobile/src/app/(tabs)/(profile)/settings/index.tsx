@@ -32,8 +32,6 @@ export default function SettingsRoute() {
     updateLanguagePreference,
     updateDisplayName,
     updateThemePreference,
-    updateTemperatureUnitPreference,
-    updateWindSpeedUnitPreference,
   } = useProfileApplication();
   const { state: notificationState } = useNotificationApplication();
   const { analytics, firstUses } = useProductAnalytics();
@@ -86,22 +84,6 @@ export default function SettingsRoute() {
               schema_version: ANALYTICS_SCHEMA_VERSION,
               feature_name: 'appearance_override',
             });
-          });
-        }}
-        onTemperatureUnitChange={async (value) => {
-          await updateTemperatureUnitPreference?.(value);
-          analytics.capture('setting_changed', {
-            schema_version: ANALYTICS_SCHEMA_VERSION,
-            setting_name: 'temperature_unit',
-            new_value: value,
-          });
-        }}
-        onWindSpeedUnitChange={async (value) => {
-          await updateWindSpeedUnitPreference?.(value);
-          analytics.capture('setting_changed', {
-            schema_version: ANALYTICS_SCHEMA_VERSION,
-            setting_name: 'wind_speed_unit',
-            new_value: value,
           });
         }}
         onDressStyleChange={async (value) => {
@@ -165,6 +147,7 @@ export default function SettingsRoute() {
           });
         }}
         onOpenNotifications={() => push('/settings/notifications')}
+        onOpenUnits={() => push('/settings/units')}
         onOpenEasierToSee={() => push('/settings/easier-to-see')}
         onOpenPrivacy={() => push('/settings/privacy')}
         onOpenSupport={() => {
