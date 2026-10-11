@@ -444,13 +444,14 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     await fireEvent.press(result.getByTestId('today-stage', hidden));
     await fireEvent.press(result.getByTestId('today-archetype', hidden));
     expect(onOpenOutfitDetail.mock.calls).toEqual([[todayOutfitId(1), true], [todayOutfitId(1), true]]);
-    // Both alternates share the taller of their two derived stage heights, so their
-    // captions sit on one baseline; the shorter board is centred in its stage.
+    // Both alternates lie as the hero does, a flat lay fitted to its tile, and share the taller
+    // of their two derived stage heights, so their captions sit on one baseline; the shorter
+    // board is centred in its stage.
     const alternateWidth = (358 - spacing.md) / 2;
     const tallestStage = Math.max(
       ...presentation.suggestions
         .slice(1)
-        .map((suggestion) => measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', 'womens')),
+        .map((suggestion) => measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', 'womens', 'tile')),
     );
     expect(tallestStage).toBeGreaterThan(0);
     for (const suggestion of presentation.suggestions.slice(1)) {

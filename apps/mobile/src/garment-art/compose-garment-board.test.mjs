@@ -351,10 +351,10 @@ test('the boards without Easier to see keep their exact layouts', () => {
   assert.equal(digest, '571f6174ff423f59fb9a481d982b4b197b1562dda4dfb13c436676eb377287bb');
 });
 
-// Only Today's primary stage takes the flat lay. Every other board, the plain and Easier to see
-// presets of Today's alternates, History and the detail, and the runway's fitted board, keeps
-// its exact layout.
-test('every board but Today\'s primary stage keeps its exact layout', () => {
+// Only Today's primary stage and its tiles take the flat lay. Every worn board, the plain and
+// Easier to see presets of History and the detail, and the runway's fitted board, keeps its
+// exact layout.
+test('every worn board keeps its exact layout', () => {
   const presets = [
     ['today', todayPreset], ['detail', detailPreset],
     ['today large', easierToSeeRule(todayPreset, 1.3, 0.05)], ['detail large', easierToSeeRule(detailPreset, 1.3, 0.05)],

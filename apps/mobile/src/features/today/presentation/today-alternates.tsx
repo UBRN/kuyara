@@ -46,7 +46,7 @@ export function TodayAlternates({
   const alternateStageHeight = Math.max(
     0,
     ...alternates.map((suggestion) =>
-      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', cut, false, easierToSee),
+      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', cut, 'tile', easierToSee),
     ),
   );
 
@@ -117,11 +117,12 @@ function OutfitTile({
         row ? null : strongEdge,
       ])}
       testID={`${testID}-stage-${suggestion.id}`}>
-      {/* O15: each outfit stands on the page ground in its own palette, so it looks the
-          same here as on Today's stage once chosen. */}
+      {/* O15: each outfit stands on the page ground in its own palette, laid out as the
+          hero lays it, so it looks the same here as on Today's stage once chosen. */}
       <OnPlate color={theme.colors.garmentGround}>
         <GarmentBoard
           accessibilityLabel={suggestion.boardAccessibilityLabel}
+          fit="tile"
           palette={suggestion.palette}
           pieces={suggestion.boardPieces}
           preset="today"
@@ -180,7 +181,7 @@ export function MoreIdeas({
   const cut = useGarmentCut();
   // The tiles share the tallest stage, so every name sits on one baseline.
   const stageHeight = Math.max(0, ...ideas.map((idea) =>
-    measureGarmentBoardHeight(idea.boardPieces, IDEA_WIDTH, 'today', cut, false, easierToSee)));
+    measureGarmentBoardHeight(idea.boardPieces, IDEA_WIDTH, 'today', cut, 'tile', easierToSee)));
   return (
     <View style={styles.alternates}>
       <View
@@ -240,7 +241,7 @@ export function TomorrowStrip({ onPress, tomorrow }: Readonly<{ onPress: () => v
           importantForAccessibility="no-hide-descendants"
           style={[styles.alternateStage, {
             backgroundColor: theme.colors.garmentGround,
-            height: measureGarmentBoardHeight(tomorrow.boardPieces, TOMORROW_BOARD_WIDTH, 'today', cut, false, easierToSee),
+            height: measureGarmentBoardHeight(tomorrow.boardPieces, TOMORROW_BOARD_WIDTH, 'today', cut, 'tile', easierToSee),
             width: TOMORROW_BOARD_WIDTH,
           }]}>
           {/* The same garment plate the alternates stand on, so dark mode draws it alike. */}
@@ -248,6 +249,7 @@ export function TomorrowStrip({ onPress, tomorrow }: Readonly<{ onPress: () => v
             <GarmentBoard
               accessibilityLabel=""
               decorative
+              fit="tile"
               palette={tomorrow.palette}
               pieces={tomorrow.boardPieces}
               preset="today"

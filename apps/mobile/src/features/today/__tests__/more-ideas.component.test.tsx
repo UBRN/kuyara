@@ -11,6 +11,7 @@ import { aiAssistedTodayScreenState, todayScreenState } from '@/features/today/_
 import type { TodayScreenState } from '@/features/today/model';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
+import { measureGarmentBoardHeight } from '@/garment-art';
 import {
   WeatherApplicationContext,
   type WeatherApplicationValue,
@@ -114,7 +115,12 @@ test.each([
   const presentation = createTodayPresentation(state, language, false, 'celsius', Date.now());
   if (presentation.kind !== 'loaded') throw new Error('Expected a loaded presentation.');
   expect(presentation.moreIdeas.map(({ id }) => id)).toEqual(ideas.map(({ optionId }) => optionId));
+  // Every idea lies as the hero does, a flat lay fitted to its tile, on the tallest idea's stage.
+  const ideaStage = Math.max(...presentation.moreIdeas.map((idea) =>
+    measureGarmentBoardHeight(idea.boardPieces, 132, 'today', 'womens', 'tile')));
   for (const idea of presentation.moreIdeas.slice(0, 3)) {
+    expect(StyleSheet.flatten(result.getByTestId(`today-more-idea-stage-${idea.id}`, hidden).props.style).height)
+      .toBe(ideaStage);
     const tile = result.getByTestId(`today-more-idea-${idea.id}`);
     expect(tile).toHaveProp('role', 'button');
     expect(tile.props.accessibilityLabel).toBe(idea.boardAccessibilityLabel);
