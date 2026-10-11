@@ -233,6 +233,8 @@ test('selecting a searched place that changes the location captures location_cha
       activeLocation: { ...selected, catalogId: 'place.999' as ManualLocationId, locationKey: 'manual:place.999' },
     };
   });
+  // A pick puts its results away; the next search brings them back.
+  await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Istan'); await debounce();
   await fireEvent.press(result.getByRole('button', { name: messages.en.weather.placeSearchResultLabel(place.displayName, place.region) }));
   expect(analytics.captures.some((c) => c.name === 'location_changed')).toBe(true);
   expect(analytics.captures.some((c) => c.name === 'feature_used_first_time')).toBe(false);
@@ -468,7 +470,7 @@ test('the search status crossfades and the results fade in when they appear', as
   search.searchPlaces.mockResolvedValueOnce({ ...data, places: [] });
   const result = await render(<Providers><WeatherLocationScreen /></Providers>);
   const resultsOpacity = () =>
-    StyleSheet.flatten(result.getByTestId('weather-place-results').parent!.props.style).opacity;
+    StyleSheet.flatten(result.getByTestId('weather-place-results', { includeHiddenElements: true }).parent!.props.style).opacity;
   expect(resultsOpacity()).toBe(0);
   const field = result.getByTestId('weather-place-search');
   await fireEvent.changeText(field, 'Zzz'); await debounce();

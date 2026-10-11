@@ -299,7 +299,9 @@ drawing solid.
 drawing per type for `womens` and one for `mens` (`garment-silhouette-map.ts`), and the board,
 every tile and the Closet rack read the profile's cut from one context mounted at the app's
 root. Onboarding draws each gender answer, and its preview and later tiles once a gender is
-chosen, in that answer's cut. Before one is chosen the preview is one unisex outfit, a light
+chosen, in that answer's cut. Before one is chosen the preview is one unisex outfit: on the
+place's weather the first casual outfit the rules offer the men's catalogue that the women's
+catalogue carries piece for piece, otherwise a light
 jacket, a tee, jeans and sneakers (types both catalogues carry) in fixed neutrals (navy,
 white, mid-wash, white), drawn in the men's straight cut, the block unisex clothing is cut on;
 the women's cut draws a fitted waist and a curved hip. Outside onboarding a profile without a

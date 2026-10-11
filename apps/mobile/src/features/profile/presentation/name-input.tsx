@@ -3,6 +3,7 @@ import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { AppText, Icon } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { displayNameInputIssue, displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
+import type { AppMessages } from '@/localization/messages/types';
 import { useMessages } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -13,20 +14,35 @@ type NameInputProps = Readonly<{
   testID: string;
   onClear?: () => void;
   autoFocus?: boolean;
-  /** Onboarding offers "Not now" beside the field, so its short-name error points to it. */
+  /** The field's spoken name when the caller draws a visible label of its own. */
+  accessibilityLabel?: string;
+  /** Onboarding's name may be left empty, so its short-name error says so. */
   skippable?: boolean;
 }>;
 
-export function NameInput({ autoFocus = false, value, onChangeText, testID, onClear, skippable = false }: NameInputProps) {
+/** What is wrong with a typed name, in words, or null; one wording for the field and its caller. */
+export function nameInputError(value: string, messages: AppMessages, skippable = false): string | null {
+  const issue = displayNameInputIssue(value);
+  const shortError = skippable ? messages.onboarding.nameShortError : messages.profile.nameShortError;
+  return issue === 'short' ? shortError(displayNameMinLength)
+    : issue === 'long' ? messages.onboarding.nameLongError(displayNameMaxLength)
+      : issue === 'letter' ? messages.onboarding.nameLetterError : null;
+}
+
+export function NameInput({
+  accessibilityLabel,
+  autoFocus = false,
+  value,
+  onChangeText,
+  testID,
+  onClear,
+  skippable = false,
+}: NameInputProps) {
   const messages = useMessages();
   const copy = messages.onboarding;
   const profileCopy = messages.profile;
   const theme = useKuyaraTheme();
-  const issue = displayNameInputIssue(value);
-  const shortError = skippable ? copy.nameShortError : profileCopy.nameShortError;
-  const error = issue === 'short' ? shortError(displayNameMinLength)
-    : issue === 'long' ? copy.nameLongError(displayNameMaxLength)
-      : issue === 'letter' ? copy.nameLetterError : null;
+  const error = nameInputError(value, messages, skippable);
   // VoiceOver ignores the line's live region, so iOS speaks it; the field carries it as its
   // hint while it shows.
   useErrorAnnouncement(error);
@@ -39,7 +55,7 @@ export function NameInput({ autoFocus = false, value, onChangeText, testID, onCl
       }]}>
         <TextInput
           accessibilityHint={error ?? undefined}
-          accessibilityLabel={copy.namePlaceholder}
+          accessibilityLabel={accessibilityLabel ?? copy.namePlaceholder}
           autoCapitalize="words"
           autoFocus={autoFocus}
           autoCorrect={false}

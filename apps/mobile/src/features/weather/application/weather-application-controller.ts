@@ -70,6 +70,12 @@ export type WeatherApplicationState =
   | Readonly<{ status: 'error' }>
   | WeatherReadyState;
 
+/** The location in use has no weather yet and its fetch is running; a failed fetch ends it. */
+export function awaitsPlaceWeather(state: WeatherApplicationState): boolean {
+  return state.status === 'ready' && state.activeLocation !== null && state.isRefreshing
+    && !activeLocationSnapshot(state.snapshot, state.activeLocation);
+}
+
 type Dependencies = Readonly<{
   loadRepository: () => Promise<WeatherRepository>;
   provider: WeatherProvider;

@@ -57,6 +57,7 @@ export { ProgressFill, type ProgressFillProps } from './progress-fill';
 export { Screen, useBandWidth, useScreenGutters, type ScreenProps } from './screen';
 export { SectionHeader, type SectionHeaderProps } from './section-header';
 export { ShrinkingPlate, type PlateRect, type ShrinkingPlateProps } from './shrinking-plate';
+export { TintingPlate, type TintingPlateProps } from './tinting-plate';
 export {
   SegmentedControl,
   type SegmentedControlOption,

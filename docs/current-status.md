@@ -7,8 +7,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 ## Current State
 
 - **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 30)
-  provide a seven-step onboarding flow (welcome, optional location, optional name and birth
-  date on one step, gender, dress style, style preferences, then the analytics consent
+  provide a five-step onboarding flow (welcome with optional location, gender with dress
+  style, style preferences, optional name and birth date, then the analytics consent
   question); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
   Closet photos; Turkish and English; System/Light/Dark appearance; and semantic haptics

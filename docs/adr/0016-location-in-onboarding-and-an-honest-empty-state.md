@@ -34,10 +34,10 @@ user goes looking".
 
 ### 1. Onboarding asks for location, as its own explained step
 
-Location selection is the second onboarding step, right after welcome, so the
-previews on the later steps draw the place's real weather; the six steps are recorded in
-[ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5. The welcome
-step says what location is used for and the location step says it again before
+Location selection shares the first onboarding step with the welcome, so the
+previews on the later steps draw the place's real weather; the five steps are recorded in
+[ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5. Under the welcome
+the step asks where to check the weather and says what location is used for before
 any system permission sheet appears, which is what the existing rule protects.
 
 The recorded rule holds, narrowed to what it actually defends:
@@ -98,8 +98,8 @@ requested. It does not decide the step's layout or its copy; the step count is
 
 ## Consequences
 
-- Location selection is the second onboarding step, before the profile steps
-  [ADR 0015](0015-gender-and-age-band-in-the-profile.md) defines; the full
+- Location selection is on the first onboarding step, with the welcome, before the
+  profile steps [ADR 0015](0015-gender-and-age-band-in-the-profile.md) defines; the full
   sequence is [ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5.
 - Every new user is asked for location permission during their first run. The
   grant rate is higher than it would be with the request effectively hidden on

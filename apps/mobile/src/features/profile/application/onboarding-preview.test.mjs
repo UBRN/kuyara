@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { onboardingPreviewOutfits } from './onboarding-preview.ts';
+import { listGarmentTypesForPreference } from '../../catalog/domain/garment-catalog.ts';
+import { onboardingPreviewOutfits, onboardingUnisexOutfit } from './onboarding-preview.ts';
 
 const observedAt = '2026-07-15T10:00:00.000Z';
 
@@ -94,4 +95,19 @@ test('the same weather always draws the same outfits, as board-ready pieces', ()
   for (const piece of outfit(mild, 'woman', 'formal')) {
     assert.deepEqual(Object.keys(piece).sort(), ['category', 'garmentTypeId', 'slot']);
   }
+});
+
+// Before a gender is chosen the board draws one outfit for anyone: on the place's weather it is
+// a casual outfit the rules offer whose every type both catalogs carry, drawn in the men's
+// straight cut, so a hot day draws no coat even before the gender question.
+test('before a gender is chosen the place draws a rule outfit both catalogs carry', () => {
+  const mens = new Set(listGarmentTypesForPreference('mens').map(({ typeId }) => typeId));
+  const both = new Set(listGarmentTypesForPreference('womens').map(({ typeId }) => typeId).filter((id) => mens.has(id)));
+  for (const day of [hot, mild, cold, rain]) {
+    const pieces = onboardingUnisexOutfit(day);
+    assert.ok(pieces, day.id);
+    assert.ok(pieces.every(({ garmentTypeId }) => both.has(garmentTypeId)), `${day.id} ${garments(pieces)}`);
+    assert.deepEqual(pieces, onboardingUnisexOutfit(day));
+  }
+  assert.ok(!garments(onboardingUnisexOutfit(hot)).some((id) => warmLayers.includes(id)));
 });

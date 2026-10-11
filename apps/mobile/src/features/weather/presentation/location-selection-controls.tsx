@@ -1,6 +1,6 @@
 import { placeSearchQueryMaxLength } from '@kuyara/contracts';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { AccessibilityInfo, Keyboard, Platform, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Keyboard, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -24,7 +24,10 @@ import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useKeyboardVisible } from '@/components/ui/use-keyboard-visible';
 import { useWeatherInteractionEvents } from '@/features/analytics/application/use-interaction-events';
 import { PlaceSearchController } from '@/features/weather/application/place-search-controller';
-import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
+import {
+  awaitsPlaceWeather,
+  type WeatherApplicationState,
+} from '@/features/weather/application/weather-application-controller';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 import {
   usePlaceSearchApplication,
@@ -144,12 +147,16 @@ export function LocationSelectionControls({
         : null;
 
   // The results arrive with a fade on `motion.fast` rather than popping in (Law 7). With
-  // nothing to show the list is empty, so it waits unseen for the next results.
-  const hasResults = search.status === 'ready' && search.places.length > 0;
+  // nothing to show the list is empty, so it waits unseen for the next results. A pick
+  // answers them: they fade away until the text changes again.
+  const [pickedQuery, setPickedQuery] = useState<string | null>(null);
+  const listed = search.status === 'ready' && search.places.length > 0;
+  const hasResults = listed && pickedQuery !== query;
   const resultsOpacity = useSharedValue(hasResults ? 1 : 0);
   useEffect(() => {
-    resultsOpacity.set(hasResults ? fadeTo(1, theme.motion.fast, theme.motion) : 0);
-  }, [hasResults, resultsOpacity, theme.motion]);
+    resultsOpacity.set(hasResults ? fadeTo(1, theme.motion.fast, theme.motion)
+      : listed ? fadeTo(0, theme.motion.fast, theme.motion) : 0);
+  }, [hasResults, listed, resultsOpacity, theme.motion]);
   const resultsFade = useAnimatedStyle(() => ({ opacity: resultsOpacity.get() }));
 
   useEffect(() => {
@@ -186,6 +193,11 @@ export function LocationSelectionControls({
     ? state.activeLocation : null;
   const [shownPlace, setShownPlace] = useState(currentPlace);
   if (currentPlace && currentPlace !== shownPlace) setShownPlace(currentPlace);
+  // The place in use has no weather yet and it is being fetched: said under its row until it
+  // lands. A failed fetch ends the refresh, so the line never stays.
+  const placeWeatherStatus = currentPlace && awaitsPlaceWeather(state)
+    ? copy.placeWeatherLoading(locationName(currentPlace, copy)) : null;
+  useErrorAnnouncement(placeWeatherStatus);
 
   if (state.status !== 'ready') {
     return (
@@ -208,9 +220,11 @@ export function LocationSelectionControls({
   const isChosenPlace = (id: string) =>
     state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === id;
 
+  // The column scrolls when a tall header (onboarding's welcome and plate, or large text) leaves
+  // it no room, and the results take what is left under it.
   return (
     <View style={styles.root} testID={testID}>
-      <View style={styles.controls}>
+      <ScrollView contentContainerStyle={styles.controls} keyboardShouldPersistTaps="handled" style={styles.column}>
         {shownHeader}
         <Button
           label={copy.useCurrentLocation}
@@ -243,6 +257,7 @@ export function LocationSelectionControls({
             </View>
           </Presence>
         </View>
+        {placeWeatherStatus && !keyboardVisible ? <StatusLine text={placeWeatherStatus} /> : null}
         {flowMessage && !keyboardVisible ? (
           <Surface accessibilityLiveRegion="polite" style={styles.card} variant="muted">
             <AppText>{flowMessage}</AppText>
@@ -278,10 +293,14 @@ export function LocationSelectionControls({
             variant="tonal"
           />
         ) : null}
-      </View>
-      <Animated.View style={[styles.root, resultsFade]}>
+      </ScrollView>
+      <Animated.View
+        accessibilityElementsHidden={!hasResults}
+        importantForAccessibility={hasResults ? 'auto' : 'no-hide-descendants'}
+        pointerEvents={hasResults ? 'auto' : 'none'}
+        style={[styles.root, resultsFade]}>
       <NativeList testID={`${testIDPrefix}-place-results`}>
-        {hasResults ? (
+        {listed ? (
           <NativeListSection footer={copy.placeSearchAttribution}>
             {search.places.map((place) => (
               <NativeListRow
@@ -293,9 +312,10 @@ export function LocationSelectionControls({
                     ? undefined
                     : () => {
                         const before = application.state;
-                        // The pick is the answer: the keyboard goes, so the place it names
-                        // under the button and the footer under the step can be seen.
+                        // The pick is the answer: the keyboard goes and the results step aside,
+                        // so the place it names under the button and the footer can be seen.
                         Keyboard.dismiss();
+                        setPickedQuery(query);
                         void selectPlaceSearchResult(place).then(() => {
                           const chosen = finishSelection(
                             before,
@@ -345,6 +365,7 @@ function StatusLine({ text, warning = false }: Readonly<{ text: string; warning?
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  column: { flexGrow: 0, flexShrink: 1 },
   controls: { padding: spacing.lg, gap: spacing.md },
   card: { gap: spacing.md, padding: spacing.lg },
   presenceSlot: { marginTop: -spacing.md },

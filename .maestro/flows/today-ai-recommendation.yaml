@@ -21,10 +21,6 @@ tags:
     clearState: true
 - assertVisible:
     id: onboarding-step-1
-- tapOn:
-    id: onboarding-continue
-- assertVisible:
-    id: onboarding-step-2
 
 # Manual (searched) location, not the device location, by design. See
 # today-standard-suggestions.yaml for the reasoning behind "Reykjavik" and the Enter-before-
@@ -43,27 +39,23 @@ tags:
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-3
-- tapOn:
-    id: onboarding-name-skip
-- assertVisible:
-    id: onboarding-step-4
+    id: onboarding-step-2
 - tapOn:
     id: onboarding-gender-woman
-- tapOn:
-    id: onboarding-continue
-- assertVisible:
-    id: onboarding-step-5
 - tapOn:
     id: onboarding-dress-style-smart
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-6
+    id: onboarding-step-3
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-7
+    id: onboarding-step-4
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-5
 - tapOn:
     id: onboarding-consent-decline
 

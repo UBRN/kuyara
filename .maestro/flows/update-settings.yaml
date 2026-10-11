@@ -13,29 +13,21 @@ tags:
 - assertVisible:
     id: onboarding-step-2
 - tapOn:
-    id: onboarding-continue
-- assertVisible:
-    id: onboarding-step-3
-- tapOn:
-    id: onboarding-name-skip
-- assertVisible:
-    id: onboarding-step-4
-- tapOn:
     id: onboarding-gender-woman
-- tapOn:
-    id: onboarding-continue
-- assertVisible:
-    id: onboarding-step-5
 - tapOn:
     id: onboarding-dress-style-smart
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-6
+    id: onboarding-step-3
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-7
+    id: onboarding-step-4
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-5
 - tapOn:
     id: onboarding-consent-decline
 - runFlow: ../subflows/close-day-type-sheet.yaml

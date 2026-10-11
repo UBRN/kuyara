@@ -1,5 +1,6 @@
 import { dressStyles } from '@kuyara/contracts';
 
+import { listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import type { StructuralCategory, GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
   recommendOutfits,
@@ -58,13 +59,37 @@ export function onboardingPreviewOutfits(snapshot: WeatherSnapshot): OnboardingP
         ?? result.outfits[0];
     }
   }
-  const pieces = (outfit: RecommendedOutfit | undefined): readonly OnboardingPreviewPiece[] =>
-    assignedOutfitGarments(outfit!).map(({ slot, garment }) => ({
-      slot,
-      garmentTypeId: garment.garmentTypeId,
-      category: garment.properties.category,
-    }));
+  const pieces = (outfit: RecommendedOutfit | undefined) => previewPieces(outfit!);
   const byStyle = ({ casual, smart, formal }: Partial<Record<DressStyle, RecommendedOutfit>>) => (
     { casual: pieces(casual), smart: pieces(smart), formal: pieces(formal) });
   return { woman: byStyle(chosen.woman), man: byStyle(chosen.man) };
+}
+
+const previewPieces = (outfit: RecommendedOutfit): readonly OnboardingPreviewPiece[] =>
+  assignedOutfitGarments(outfit).map(({ slot, garment }) => ({
+    slot,
+    garmentTypeId: garment.garmentTypeId,
+    category: garment.properties.category,
+  }));
+
+const womensTypes = new Set(listSelectableGarmentTypes('womens').map(({ typeId }) => typeId));
+
+/**
+ * The outfit the preview draws on the place's weather before a gender is chosen: the first of
+ * the casual outfits the rules offer the men's catalog, whose straight cut unisex clothing is
+ * drawn in, that the women's catalog carries piece for piece. Null when none does; the
+ * preview then keeps its unisex sample.
+ */
+export function onboardingUnisexOutfit(snapshot: WeatherSnapshot): readonly OnboardingPreviewPiece[] | null {
+  const result = recommendOutfits({
+    snapshot,
+    now: snapshot.current.observedAt,
+    clothingPreference: catalogPreferenceByGender.man,
+    dressStyle: 'casual',
+    dayVariant: 0,
+  });
+  if (result.status !== 'recommended') return null;
+  const outfit = result.outfits.find((candidate) =>
+    assignedOutfitGarments(candidate).every(({ garment }) => womensTypes.has(garment.garmentTypeId)));
+  return outfit ? previewPieces(outfit) : null;
 }
