@@ -40,6 +40,7 @@ const savedId = '5f0c6a4e-2b1d-4c3e-9f8a-7b6c5d4e3f2a';
 // leave behind. A finished add, edit or delete returns to the Closet the form was pushed
 // from, never a second one on top of it, so back from there is Profile.
 let dirty = false;
+let saving = false;
 let confirmation: jest.MockedFunction<WardrobeConfirmation>;
 
 function Closet() {
@@ -48,7 +49,7 @@ function Closet() {
 }
 
 function FormExits() {
-  const guard = useWardrobeExitGuard(dirty, confirmation);
+  const guard = useWardrobeExitGuard(dirty, confirmation, saving);
   return (
     <>
       <Text>Form</Text>
@@ -118,6 +119,7 @@ async function renderApp(initialUrl: string) {
 beforeEach(() => {
   mockListMounts = 0;
   dirty = false;
+  saving = false;
   confirmation = jest.fn();
 });
 
@@ -162,6 +164,23 @@ it('a dirty form confirms Cancel, and a finished save leaves without asking', as
   expect(screen.getByText('Closet shoes wanted saved-id')).toBeOnTheScreen();
   await act(() => router.back());
   expect(screen.getByText('Profile root')).toBeOnTheScreen();
+});
+
+// The save keeps running, so a back gesture or the header's back must not leave the form
+// or offer to discard what is being written; Cancel is disabled for the same reason.
+it('a form that is saving stays put on back, without offering to discard', async () => {
+  dirty = true;
+  saving = true;
+  await renderApp('/wardrobe');
+  await act(() => router.push('/wardrobe/new'));
+
+  await act(() => router.back());
+  expect(screen.getByText('Form')).toBeOnTheScreen();
+  expect(confirmation).not.toHaveBeenCalled();
+
+  // The save that finishes still returns to the Closet.
+  await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+  expect(screen.getByText('Closet shoes wanted saved-id')).toBeOnTheScreen();
 });
 
 it('an edit after an add returns to the same Closet list, and the add is no longer news', async () => {

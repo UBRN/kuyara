@@ -578,8 +578,9 @@ export class WardrobeApplicationController {
         if (this.sweepPromise) await this.sweepPromise;
         item = await operation(repository);
       } catch (error) {
-        if (readyState) {
-          this.setState({ ...readyState, isMutating: false });
+        // Only this mutation's flag is cleared: a refresh may have changed the rest meanwhile.
+        if (this.state.status === 'ready') {
+          this.setState({ ...this.state, isMutating: false });
         }
         throw error;
       }

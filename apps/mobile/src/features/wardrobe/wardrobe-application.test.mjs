@@ -188,8 +188,8 @@ test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access
     compilerOptions: { jsx: ts.JsxEmit.Preserve, removeComments: true, target: ts.ScriptTarget.ESNext },
   }).outputText;
   assert.match(executableRoute, /navigation\.addListener\('beforeRemove', \(event\) => \{/);
-  assert.match(executableRoute, /if \(!isDirty \|\| allowExitRef\.current\) \{\s*return;/);
-  assert.match(executableRoute, /event\.preventDefault\(\);\s*confirmDiscard\(\(\) => \{\s*allowExitRef\.current = true;\s*navigation\.dispatch\(event\.data\.action\);/);
+  assert.match(executableRoute, /if \(allowExitRef\.current \|\| \(!isDirty && !isSaving\)\) \{\s*return;/);
+  assert.match(executableRoute, /event\.preventDefault\(\);\s*if \(isSaving\)\s*return;\s*confirmDiscard\(\(\) => \{\s*allowExitRef\.current = true;\s*navigation\.dispatch\(event\.data\.action\);/);
   assert.match(executableRoute, /title: copy\.discardTitle/);
   // The type picker sits inside the form rather than on a route of its own, so it is the
   // one that reads the catalogue and filters it by clothing preference; the route
@@ -384,6 +384,49 @@ test('a refresh that overlaps a mutation neither strands isMutating nor restores
   assert.equal(snapshot.isMutating, false);
   assert.equal(snapshot.isRefreshing, false);
   assert.deepEqual(snapshot.items, []);
+});
+
+test('a failed mutation clears only its own flag, so a refresh that landed meanwhile stays landed', async () => {
+  let holdRefreshRead = false;
+  let resolveRefreshRead;
+  let failDelete;
+  const { repository } = createRepository({
+    async listActiveItems() {
+      if (holdRefreshRead) {
+        holdRefreshRead = false;
+        return new Promise((resolve) => {
+          resolveRefreshRead = () => resolve([item]);
+        });
+      }
+      return [item];
+    },
+    softDeleteItem() {
+      return new Promise((_resolve, reject) => {
+        failDelete = () => reject(new Error('disk full'));
+      });
+    },
+  });
+  const controller = new WardrobeApplicationController(profileId, async () => repository);
+  await controller.initialize();
+
+  holdRefreshRead = true;
+  const refresh = controller.refresh();
+  const mutation = controller.softDeleteItem(itemId);
+  assert.equal(controller.getSnapshot().isRefreshing, true);
+  assert.equal(controller.getSnapshot().isMutating, true);
+  resolveRefreshRead();
+  await refresh;
+  assert.equal(controller.getSnapshot().isRefreshing, false);
+
+  failDelete();
+  await assert.rejects(mutation, /disk full/);
+  assert.deepEqual(controller.getSnapshot(), {
+    status: 'ready',
+    items: [item],
+    isRefreshing: false,
+    isMutating: false,
+    refreshFailure: null,
+  });
 });
 
 test('a confirmed write remains successful when its follow-up list read fails', async () => {

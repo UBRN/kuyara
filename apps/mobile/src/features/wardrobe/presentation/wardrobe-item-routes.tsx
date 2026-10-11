@@ -44,6 +44,8 @@ function clothingPreferenceOf(
 export function useWardrobeExitGuard(
   isDirty: boolean,
   confirmation: WardrobeConfirmation,
+  /** A save or delete is being written: the form stays until it settles, as Cancel does. */
+  isSaving = false,
 ) {
   const navigation = useNavigation();
   const router = useRouter();
@@ -71,18 +73,23 @@ export function useWardrobeExitGuard(
   useEffect(
     () =>
       navigation.addListener('beforeRemove', (event) => {
-        if (!isDirty || allowExitRef.current) {
+        if (allowExitRef.current || (!isDirty && !isSaving)) {
           return;
         }
 
         event.preventDefault();
+        if (isSaving) return;
         confirmDiscard(() => {
           allowExitRef.current = true;
           navigation.dispatch(event.data.action);
         });
       }),
-    [confirmDiscard, isDirty, navigation],
+    [confirmDiscard, isDirty, isSaving, navigation],
   );
+  // The back swipe is native and would leave before `beforeRemove` could hold it.
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !isSaving });
+  }, [isSaving, navigation]);
 
   return {
     // The toolbar's Cancel pops the form; `beforeRemove` above confirms a dirty one.
@@ -164,7 +171,7 @@ export function WardrobeNewItemRoute({
   const profileApplication = useProfileApplication();
   const recommendationApplication = use(RecommendationApplicationContext);
   const [isDirty, setIsDirty] = useState(false);
-  const guard = useWardrobeExitGuard(isDirty, showWardrobeConfirmation);
+  const guard = useWardrobeExitGuard(isDirty, showWardrobeConfirmation, state.status === 'ready' && state.isMutating);
   useScreenViewed('closet_item_form');
 
   if (state.status === 'loading') {
@@ -257,7 +264,11 @@ export function WardrobeEditItemRoute({
     listedItem ? 'ready' : 'loading',
   );
   const [isDirty, setIsDirty] = useState(false);
-  const guard = useWardrobeExitGuard(isDirty, confirmation);
+  const guard = useWardrobeExitGuard(
+    isDirty,
+    confirmation,
+    application.state.status === 'ready' && application.state.isMutating,
+  );
   const normalizedId = typeof itemId === 'string' ? itemId : '';
   const getItem = application.getItem;
   useScreenViewed('closet_item_form');
