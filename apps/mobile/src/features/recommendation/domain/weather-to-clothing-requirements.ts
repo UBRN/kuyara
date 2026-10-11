@@ -609,6 +609,21 @@ export function deriveClothingRequirements(
     }
   }
 
+  // Wet legs are cold legs below the shorts rung: from 18, where the cold side stops asking
+  // for coverage, up to 23, a day that makes body water protection mandatory wishes the legs
+  // covered for the wet weather's reasons, so 18 C rain wears no shorts under its rain jacket.
+  const wetReasons = candidates.flatMap((candidate) =>
+    candidate.kind === 'water_protection' && candidate.target === 'body' &&
+      candidate.priority === 'mandatory' ? candidate.reasonCodes : []);
+  if (wetReasons.length > 0 && coldExposure >= chillyCelsius && heatExposure < hotCelsius) {
+    candidates.push({
+      kind: 'leg_coverage',
+      minimum: 'full',
+      priority: 'optional',
+      reasonCodes: uniqueInRankOrder(wetReasons, reasonOrder),
+    });
+  }
+
   const requirements = mergeRequirements(candidates);
   const globalReasonCodes: ClothingRequirementReasonCode[] = requirements.flatMap(
     ({ reasonCodes }) => reasonCodes,

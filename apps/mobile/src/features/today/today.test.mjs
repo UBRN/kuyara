@@ -187,28 +187,28 @@ test('loaded mapping uses localized catalog names, slot order, positions, and no
         id: todayScreenState.snapshot.recommendation.outfits[0].optionId,
         positionLabel: 'Option 1 of 3',
         title: 'Rain Ready',
-        summary: 'T-shirt + Skirt + Rain jacket + Rain boots',
+        summary: 'Blouse + Jeans + Rain jacket + Rain boots',
         hasEmphasis: false,
       },
       {
         id: todayScreenState.snapshot.recommendation.outfits[1].optionId,
         positionLabel: 'Option 2 of 3',
         title: 'Wind Guard',
-        summary: 'Blouse + Jeans + Rain jacket + Rain boots',
+        summary: 'Blouse + Long skirt + Rain jacket + Rain boots',
         hasEmphasis: false,
       },
       {
         id: todayScreenState.snapshot.recommendation.outfits[2].optionId,
         positionLabel: 'Option 3 of 3',
         title: 'Easygoing',
-        summary: 'Blouse + Skirt + Rain jacket + Rain boots',
+        summary: 'Jumpsuit + Rain jacket + Rain boots',
         hasEmphasis: false,
       },
     ],
   );
   assert.deepEqual(english.suggestions[0].pieces, [
-    { slot: 'Top', item: 'T-shirt', category: 'top', garmentTypeId: 't_shirt', changed: false },
-    { slot: 'Bottom', item: 'Skirt', category: 'bottom', garmentTypeId: 'skirt', changed: false },
+    { slot: 'Top', item: 'Blouse', category: 'top', garmentTypeId: 'blouse', changed: false },
+    { slot: 'Bottom', item: 'Jeans', category: 'bottom', garmentTypeId: 'jeans', changed: false },
     { slot: 'Outer layer', item: 'Rain jacket', category: 'outerwear', garmentTypeId: 'rain_jacket', changed: false },
     { slot: 'Footwear', item: 'Rain boots', category: 'footwear', garmentTypeId: 'rain_boots', changed: false },
   ]);
@@ -342,11 +342,11 @@ test('shared weather reasons lead every outfit and per-outfit composition reason
   assert.deepEqual(english.suggestions[1].reasons, weatherReasons);
   assert.equal(
     english.suggestions[0].accessibilityLabel,
-    'Option 1 of 3. Rain Ready. Top: T-shirt. Bottom: Skirt. Outer layer: Rain jacket. Footwear: Rain boots. Why this outfit: Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection. Strong wind makes a wind-resistant layer worth wearing.',
+    'Option 1 of 3. Rain Ready. Top: Blouse. Bottom: Jeans. Outer layer: Rain jacket. Footwear: Rain boots. Why this outfit: Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection. Strong wind makes a wind-resistant layer worth wearing.',
   );
   assert.equal(
     turkish.suggestions[0].accessibilityLabel,
-    '3 seçenekten birincisi. Yağmura Hazır. Üst: Tişört. Alt: Etek. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Neden bu kombin: Yağış bekleniyor, su koruması gerekiyor. Çiselemede hafif bir su koruması gerekiyor. Yağmurda su koruması gerekiyor. Rüzgâr kuvvetli, rüzgâr geçirmeyen bir katman iyi olur.',
+    '3 seçenekten birincisi. Yağmura Hazır. Üst: Bluz. Alt: Kot pantolon. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Neden bu kombin: Yağış bekleniyor, su koruması gerekiyor. Çiselemede hafif bir su koruması gerekiyor. Yağmurda su koruması gerekiyor. Rüzgâr kuvvetli, rüzgâr geçirmeyen bir katman iyi olur.',
   );
 });
 
@@ -647,6 +647,11 @@ test('detail reasoning groups garments by requirement and localizes trade-offs a
   const english = loadedPresentation();
   assert.deepEqual(english.suggestions[0].requirementRows, [
     {
+      id: 'leg_coverage',
+      kind: 'reason',
+      text: 'Leg coverage: Jeans.',
+    },
+    {
       id: 'wind_protection',
       kind: 'reason',
       text: 'Wind protection: Rain jacket.',
@@ -739,9 +744,9 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.deepEqual(
     turkish.suggestions.map(({ summary }) => summary),
     [
-      'Tişört + Etek + Yağmurluk + Yağmur botu',
       'Bluz + Kot pantolon + Yağmurluk + Yağmur botu',
-      'Bluz + Etek + Yağmurluk + Yağmur botu',
+      'Bluz + Uzun etek + Yağmurluk + Yağmur botu',
+      'Tulum + Yağmurluk + Yağmur botu',
     ],
   );
   assert.equal(english.header.location, 'Istanbul');

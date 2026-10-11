@@ -263,8 +263,10 @@ test('T2 the shown outfits are built from everyday garments often enough', () =>
   // share had counted those stacks: dry 57.3, rain 27.8, snow 35.8 and total 41.6.
   // A 32 C rain day no longer wears the weather boot, the one waterproof shoe in the set, for
   // plain rain's optional wish to keep the feet dry: rain 27.6 to 26.9, total 40.8 to 40.5.
+  // An 18 or 22 C rain day wishes the legs covered and wears jeans for shorts: rain 27.8,
+  // total 40.9.
   assert.ok(shareOf(shown) >= 0.40, `total share fell to ${(100 * shareOf(shown)).toFixed(1)}%`);
-  for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.26], ['snow', 0.35]]) {
+  for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.27], ['snow', 0.35]]) {
     const share = shareOf(inClass(precipitationName));
     assert.ok(
       share >= floor,
@@ -397,4 +399,16 @@ test('T8 a hot day in plain rain wears no waterproof boot, a hot thunderstorm st
       );
     }
   }
+});
+
+test('T9 a cool wet day shows no shorts, a warm wet day still may', () => {
+  // At 18 C a rain day asked nothing of the legs and showed shorts under a rain jacket and
+  // rain boots. Below the shorts rung a wet day wishes the legs covered; at 27 C the shorts
+  // stay as free on a wet day as on a dry one.
+  const shownShorts = (temperature) => shownOutfits().filter(({ cell, outfit }) =>
+    cell.precipitationName === 'rain' && cell.temperature === temperature &&
+    garmentTypeIds(outfit).includes('shorts')).length;
+  assert.equal(shownShorts(18), 0, '18 C rain');
+  assert.equal(shownShorts(22), 0, '22 C rain');
+  assert.ok(shownShorts(27) > 0, '27 C rain showed no shorts');
 });

@@ -719,6 +719,39 @@ test('plain rain wishes the feet dry only while the heat is not mandatory', () =
   assert.deepEqual(feet(coolNowHotLater), ['water_resistant', 'optional']);
 });
 
+// A wet day from 18 C up to the shorts rung asked nothing of the legs, so 18 C rain wore
+// shorts under a rain jacket. Below 23 a day that makes body water protection mandatory
+// wishes the legs covered, for the same reasons; a colder day already asks for it, and from
+// 23 shorts stay free on a wet day as on a dry one.
+test('a wet day below the shorts rung wishes the legs covered', () => {
+  const legs = (temperature, condition, precipitationProbability = 0) => {
+    const requirement = findRequirement(deriveClothingRequirements(snapshot({
+      current: {
+        temperatureCelsius: temperature,
+        apparentTemperatureCelsius: temperature,
+        condition,
+        precipitationProbability,
+      },
+    }), observedAt), 'leg_coverage');
+    return requirement
+      ? [requirement.minimum, requirement.priority, requirement.reasonCodes]
+      : null;
+  };
+
+  assert.deepEqual(legs(18, 'rain'), ['full', 'optional', ['condition_rain']]);
+  assert.deepEqual(legs(20, 'thunderstorm'), ['full', 'optional', ['condition_thunderstorm']]);
+  assert.deepEqual(legs(22.999, 'drizzle'), ['full', 'optional', ['condition_drizzle']]);
+  assert.deepEqual(legs(20, 'cloudy', 0.6), ['full', 'optional', ['precipitation_likely']]);
+  assert.equal(legs(23, 'rain'), null);
+  assert.equal(legs(30, 'rain'), null);
+  assert.equal(legs(20, 'clear'), null);
+  assert.equal(legs(20, 'cloudy', 0.5), null);
+  assert.deepEqual(
+    legs(15, 'rain'),
+    ['full', 'optional', ['temperature_low', 'apparent_temperature_low']],
+  );
+});
+
 test('condition signals override probability without cancelling independent needs', () => {
   const rain = deriveClothingRequirements(snapshot({
     current: {

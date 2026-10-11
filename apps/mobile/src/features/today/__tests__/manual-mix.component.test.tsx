@@ -68,7 +68,7 @@ const hidden = { includeHiddenElements: true };
 const { recommendation } = todayScreenState.snapshot;
 if (recommendation.status !== 'recommended') throw new Error('Expected the Today fixture to recommend.');
 const pick = recommendation.outfits[0];
-// 20 degrees and rain, a women's profile: T-shirt, skirt, rain jacket, rain boots.
+// 20 degrees and rain, a women's profile: blouse, jeans, rain jacket, rain boots.
 const catalogName = (language: SupportedLanguage, id: string) =>
   messages[language].catalog[`catalog.garment_type.${id}.name` as keyof (typeof messages)['en']['catalog']];
 
@@ -345,7 +345,7 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
     expect(within(result.getByTestId('outfit-detail-heading-group'))
       .getByRole('header', { name: archetype(language).title })).toBeOnTheScreen();
     expect(result.queryByRole('button', { name: copy.manualMix.reset })).toBeNull();
-    expect(result.getByTestId('outfit-detail-piece-skirt')).toBeOnTheScreen();
+    expect(result.getByTestId('outfit-detail-piece-jeans')).toBeOnTheScreen();
     expect(result.getByTestId('outfit-detail-generation-source'))
       .toHaveTextContent(copy.generationSourceDeterministic);
     expect(result.getByTestId('outfit-detail-edit-hint')).toHaveTextContent(copy.boardHint);
@@ -357,8 +357,8 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
     await fireEvent(result.getByTestId('outfit-detail-board-piece-primary_top'), 'accessibilityAction',
       { nativeEvent: { actionName: 'activate' } });
     expect(onEditPiece).not.toHaveBeenCalled();
-    await fireEvent.press(result.getByTestId('outfit-detail-piece-t_shirt'));
-    expect(onEditPiece).toHaveBeenCalledWith(expect.objectContaining({ garmentTypeId: 't_shirt' }));
+    await fireEvent.press(result.getByTestId('outfit-detail-piece-blouse'));
+    expect(onEditPiece).toHaveBeenCalledWith(expect.objectContaining({ garmentTypeId: 'blouse' }));
   });
 
   // Phase 8's step 2 lights and makes live the first piece row's own press, and VoiceOver's

@@ -133,7 +133,7 @@ test('the offered outfits are unchanged across day variants and recent wear', ()
       : [];
     return canonical([first, composeOutfitOptions(cell.requirements, cell.candidates, 7, worn)]);
   });
-  assert.equal(digest, '238fa5bda2c276aa08ca6e98c2a3de2509591848028ffd108812d164c2f4df7b');
+  assert.equal(digest, '6b4b1f917a23a5202de0b846f320469fa4ec6eb8ea89f8cd4cbdc5550aab5077');
 });
 
 test('every valid outfit keeps its place, score and evaluations', () => {
@@ -148,7 +148,7 @@ test('every valid outfit keeps its place, score and evaluations', () => {
       result.outfits.filter((_outfit, index) => index % 61 === 0),
     ]);
   });
-  assert.equal(digest, '513ccfbb76dae37cb1817f281a9b283822947f9b670ec6255c2e60fd6dc7b282');
+  assert.equal(digest, '04e0882df3d2df0438c3dfad0e50e9458c89e92e9cc3591a5cd6c416e58f733d');
 });
 
 const pinSets = [
@@ -169,7 +169,7 @@ test('the picks around pinned pieces are unchanged, kept and dropped pins includ
     const set = (2 * index + step) % pinSets.length;
     return composeOutfitsAroundPins(requirements, candidates, set, pinSets[set]);
   })));
-  assert.equal(digest, '4d33daa860d0fbf6c8133875eec85c502b54d4a2c30242ec87ad797a7dd5cbe5');
+  assert.equal(digest, '7f9b2e97e3826267ed4c3f7dab3c3a091b06bdcb93473be0348e5bb0f2c4309c');
 });
 
 /** An arrangement from a composed outfit, with pieces looked up in the day's candidates. */
@@ -203,7 +203,7 @@ test('an arrangement a person put together is judged as before, unsuitable piece
     ];
     return canonical(arrangements.map((arrangement) => evaluateArrangement(requirements, arrangement)));
   });
-  assert.equal(digest, 'ee5c53e6a20b02c719823048df7c3808a4884b4174ff12d9e8f62cab4a55d0b3');
+  assert.equal(digest, 'd5e7b90d39501e13fe6b06905788dad51692f96983a52c1332486e5144253625');
 });
 
 test('the failures stay the same: a conflicting key, no footwear, no body, no outer layer', () => {
