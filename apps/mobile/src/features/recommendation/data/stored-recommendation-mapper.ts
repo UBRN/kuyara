@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { defaultDressStyle } from '@/features/profile/domain/profile';
 import {
+  assignComposedArchetypes,
   assignFallbackArchetypes,
   outfitMatchesArchetype,
   recommendedOutfit,
@@ -137,13 +138,14 @@ export function mapStoredRecommendation(
   const day = archetypeDayFromRequirements(requirements.requirements);
   const current = storedOutfitsSchema.safeParse(value);
   if (current.success) {
-    const outfits = current.data.map(({ archetypeId, garments }) => {
-      const outfit = storedOutfit(context, requirements, garments);
-      if (!outfitMatchesArchetype(outfit, archetypeId, dayKind, day)) {
-        throw new WorkerAiRecommendationMappingError();
-      }
-      return recommendedOutfit(outfit, archetypeId);
-    });
+    const composed = current.data.map(({ garments }) => storedOutfit(context, requirements, garments));
+    // A label is a name for an outfit, not part of it: a trio an earlier build labelled under
+    // wider label rules keeps its outfits and is relabelled by today's order and predicates.
+    const labelsHold = current.data.every(({ archetypeId }, index) =>
+      outfitMatchesArchetype(composed[index], archetypeId, dayKind, day));
+    const outfits = labelsHold
+      ? composed.map((outfit, index) => recommendedOutfit(outfit, current.data[index].archetypeId))
+      : assignComposedArchetypes(composed, requirements, dayKind);
     return Object.freeze({
       status: 'recommended',
       generationMode,
