@@ -17,9 +17,11 @@ export type ComposeChoice = ComposePiece & Readonly<{ colorId: ClosetColorOption
 
 export type ComposeSelection = readonly ComposeChoice[];
 
-// One piece to a slot, and a one-piece never stands with a top or a bottom.
-function conflicts(left: ComposeSlot, right: ComposeSlot): boolean {
-  return left === right || onePieceExcludes(left, right);
+// One piece to a slot, a one-piece never stands with a top or a bottom, and a garment is
+// never worn twice (a sweater is a top or a mid layer, not both).
+function conflicts(choice: ComposePiece, piece: ComposePiece): boolean {
+  return choice.slot === piece.slot || onePieceExcludes(choice.slot, piece.slot)
+    || choice.garmentTypeId === piece.garmentTypeId;
 }
 
 const samePiece = (choice: ComposePiece, piece: ComposePiece) =>
@@ -35,7 +37,7 @@ export function isComposePieceChosen(selection: ComposeSelection, piece: Compose
  */
 export function canChooseComposePiece(selection: ComposeSelection, piece: ComposePiece): boolean {
   if (isComposePieceChosen(selection, piece)) return true;
-  return selection.filter((choice) => !conflicts(choice.slot, piece.slot)).length < composePieceLimit;
+  return selection.filter((choice) => !conflicts(choice, piece)).length < composePieceLimit;
 }
 
 /**
@@ -46,7 +48,7 @@ export function toggleComposeChoice(selection: ComposeSelection, piece: ComposeP
   if (isComposePieceChosen(selection, piece)) return selection.filter((choice) => !samePiece(choice, piece));
   if (!canChooseComposePiece(selection, piece)) return selection;
   return [
-    ...selection.filter((choice) => !conflicts(choice.slot, piece.slot)),
+    ...selection.filter((choice) => !conflicts(choice, piece)),
     { slot: piece.slot, garmentTypeId: piece.garmentTypeId, colorId: null },
   ];
 }

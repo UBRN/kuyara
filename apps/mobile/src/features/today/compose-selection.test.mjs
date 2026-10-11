@@ -30,6 +30,16 @@ test('one piece to a slot: another piece for a chosen slot takes its place', () 
   assert.deepEqual(chosen.map(({ garmentTypeId }) => garmentTypeId), ['shirt']);
 });
 
+test('one garment is worn once: ticking it in a second slot takes it out of the first', () => {
+  const sweaterMid = { slot: 'mid_layer', garmentTypeId: 'sweater' };
+  assert.deepEqual(choose(sweater, sweaterMid).map(({ slot }) => slot), ['mid_layer']);
+  assert.deepEqual(choose(sweaterMid, sweater).map(({ slot }) => slot), ['primary_top']);
+  // The other pieces stay, and the replaced garment frees its place under the three-piece limit.
+  const three = choose(sweater, skirt, boots);
+  assert.equal(canChooseComposePiece(three, sweaterMid), true);
+  assert.deepEqual(toggleComposeChoice(three, sweaterMid).map(({ slot }) => slot), ['bottom', 'footwear', 'mid_layer']);
+});
+
 test('a one-piece and a top or a bottom never stand together: the later tick wins', () => {
   assert.deepEqual(choose(sweater, skirt, dress).map(({ slot }) => slot), ['one_piece']);
   assert.deepEqual(choose(dress, skirt).map(({ slot }) => slot), ['bottom']);
