@@ -50,8 +50,8 @@ function meaningfullyDifferent(
     hasTwoCandidateKeysAbsentFrom(right, left);
 }
 
-/** How far below a formality's best score the day's rotation reaches. */
-const rotationBandPoints = 5;
+/** How far below the best the day's rotation and Today's other two picks reach. */
+const bandPoints = 5;
 
 /**
  * A formality's score-sorted drafts with its best band, those within five points of its best,
@@ -61,7 +61,7 @@ const rotationBandPoints = 5;
  */
 function rotatedBestBand(drafts: readonly JudgedDraft[], seed: number): readonly JudgedDraft[] {
   if (drafts.length === 0) return drafts;
-  const floor = drafts[0]!.score.score - rotationBandPoints;
+  const floor = drafts[0]!.score.score - bandPoints;
   const bandSize = drafts.findIndex(({ score }) => score.score < floor);
   const band = bandSize < 0 ? drafts.length : bandSize;
   const offset = ((seed % band) + band) % band;
@@ -252,9 +252,6 @@ export function excludeRecentlyWornOutfits(
   return outfits;
 }
 
-/** How far below the first shown outfit the other two may score. */
-const shownBandPoints = 5;
-
 /** How much sharing one slot's garment costs: a shared coat shows more than a shared mid layer. */
 const slotWeights: Readonly<Record<BodyOutfitSlot, number>> = Object.freeze({
   primary_top: 2,
@@ -315,12 +312,12 @@ export function orderForShownThree<Outfit extends OutfitCandidate>(
       best === undefined || cost(outfit) < cost(best) ? outfit : best, undefined);
 
   const first = fewest(ordered.filter((outfit) =>
-    groupOf(outfit) === group && outfit.score >= lead.score - shownBandPoints), sharedBefore)!;
+    groupOf(outfit) === group && outfit.score >= lead.score - bandPoints), sharedBefore)!;
   const taken = [first];
   while (taken.length < 3) {
     const next = fewest(ordered.filter((outfit) =>
       !taken.includes(outfit) && groupOf(outfit) === group &&
-      (outfit.score >= first.score - shownBandPoints || ordered.indexOf(outfit) <= 2)),
+      (outfit.score >= first.score - bandPoints || ordered.indexOf(outfit) <= 2)),
     (outfit) => sharedBefore(outfit) +
       taken.reduce((sum, pick) => sum + sharedWeight(slots.get(outfit)!, slots.get(pick)!), 0));
     if (next === undefined) break;
