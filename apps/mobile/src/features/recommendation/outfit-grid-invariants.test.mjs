@@ -261,10 +261,8 @@ test('T2 the shown outfits are built from everyday garments often enough', () =>
   // snow 40.3% of 216, total 40.3% of 1512. After G1 they were 54.8, 30.6, 51.4 and 43.9.
   // Layer order now keeps a sweatshirt off a fleece and a fleece off a cardigan, and snow's
   // share had counted those stacks: dry 57.3, rain 27.8, snow 35.8 and total 41.6.
-  // A 32 C rain day no longer wears the weather boot, the one waterproof shoe in the set, for
-  // plain rain's optional wish to keep the feet dry: rain 27.6 to 26.9, total 40.8 to 40.5.
-  // An 18 or 22 C rain day wishes the legs covered and wears jeans for shorts: rain 27.8,
-  // total 40.9.
+  // An 18 or 22 C rain day wishes the legs covered and wears jeans for shorts: rain 27.6 to
+  // 28.5, total 40.8 to 41.2.
   assert.ok(shareOf(shown) >= 0.40, `total share fell to ${(100 * shareOf(shown)).toFixed(1)}%`);
   for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.27], ['snow', 0.35]]) {
     const share = shareOf(inClass(precipitationName));
@@ -375,30 +373,6 @@ test('T5 no archetype label contradicts the day it labels', () => {
     0,
     `${contradictions.length} shown outfits carry a label the day contradicts`,
   );
-});
-
-test('T8 a hot day in plain rain wears no waterproof boot, a hot thunderstorm still does', () => {
-  // Plain rain only wishes the feet dry, and at 30 C and above every offered outfit wore a
-  // rain or weather boot for that wish. Heat that is mandatory outranks it; feet protection
-  // that is mandatory, as in a thunderstorm, still keeps the boot. The whole offered pool is
-  // read, at both clothing preferences.
-  const waterproofShoes = (composition) => composition.outfits.filter((outfit) =>
-    outfit.footwear.garment.properties.waterProtection === 'waterproof').length;
-  const thunderstorm = { condition: 'thunderstorm', precipitationProbability: 0.7 };
-  for (const clothingPreference of clothingPreferences) {
-    for (const windSpeed of windSpeeds) {
-      const rain = composeCell(32, precipitations.rain, windSpeed, clothingPreference).composition;
-      const storm = composeCell(32, thunderstorm, windSpeed, clothingPreference).composition;
-      assert.equal(rain.status, 'composed');
-      assert.equal(storm.status, 'composed');
-      assert.equal(waterproofShoes(rain), 0, `32 C rain ${clothingPreference}/${windSpeed}`);
-      assert.equal(
-        waterproofShoes(storm),
-        storm.outfits.length,
-        `32 C thunderstorm ${clothingPreference}/${windSpeed}`,
-      );
-    }
-  }
 });
 
 test('T9 a cool wet day shows no shorts, a warm wet day still may', () => {

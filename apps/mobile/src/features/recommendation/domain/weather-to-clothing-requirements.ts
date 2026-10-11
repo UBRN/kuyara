@@ -406,7 +406,6 @@ export function deriveClothingRequirements(
     && currentHeat >= veryHotCelsius
     && currentCold >= chillyCelsius;
   const heatDemoted = conflicting && !coldDemoted;
-  const heatMandatory = heatExposure >= veryHotCelsius && !heatDemoted;
   const candidates: ClothingRequirement[] = [];
 
   const coldReasons = temperatureReasons(
@@ -474,10 +473,11 @@ export function deriveClothingRequirements(
   // lower rungs only reorder the offer, because a day the body can dress for is never a day
   // the wardrobe fails to dress for.
   if (heatExposure >= hotCelsius) {
+    const highHeat = heatExposure >= veryHotCelsius;
     candidates.push({
       kind: 'breathability',
       minimum: heatExposure >= 25 ? 'high' : 'moderate',
-      priority: heatMandatory ? 'mandatory' : 'optional',
+      priority: highHeat && !heatDemoted ? 'mandatory' : 'optional',
       reasonCodes: temperatureReasons(
         airTemperatures,
         apparentTemperatures,
@@ -551,18 +551,13 @@ export function deriveClothingRequirements(
           'mandatory',
           reasonCode,
         );
-        // Plain rain only wishes the feet dry, and on a day whose heat is mandatory that
-        // wish put a rain boot on every outfit at 30 C. Heavier wet weather below keeps its
-        // mandatory feet protection whatever the heat.
-        if (!heatMandatory) {
-          addWaterProtection(
-            candidates,
-            'feet',
-            'water_resistant',
-            'optional',
-            reasonCode,
-          );
-        }
+        addWaterProtection(
+          candidates,
+          'feet',
+          'water_resistant',
+          'optional',
+          reasonCode,
+        );
         break;
       case 'heavy_rain':
       case 'thunderstorm':

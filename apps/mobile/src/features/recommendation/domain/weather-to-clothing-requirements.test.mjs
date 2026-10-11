@@ -692,33 +692,6 @@ test('every condition code has an explicit weather-protection outcome', () => {
   }
 });
 
-// Plain rain only wishes the feet dry, and on a day whose heat is mandatory that wish put a
-// rain boot on every 30 C outfit. The wish yields to mandatory heat; a day whose heat is
-// demoted keeps it, and heavier wet weather keeps its mandatory feet protection.
-test('plain rain wishes the feet dry only while the heat is not mandatory', () => {
-  const at = (temperature, condition, hourly) => deriveClothingRequirements(snapshot({
-    current: { temperatureCelsius: temperature, apparentTemperatureCelsius: temperature, condition },
-    ...(hourly ? { hourly } : {}),
-  }), observedAt);
-  const feet = (result) => {
-    const requirement = findRequirement(result, 'water_protection', 'feet');
-    return requirement ? [requirement.minimum, requirement.priority] : null;
-  };
-
-  assert.deepEqual(feet(at(27.999, 'rain')), ['water_resistant', 'optional']);
-  assert.equal(feet(at(28, 'rain')), null);
-  assert.equal(feet(at(36, 'rain')), null);
-  assert.deepEqual(feet(at(30, 'heavy_rain')), ['water_resistant', 'mandatory']);
-  assert.deepEqual(feet(at(30, 'thunderstorm')), ['water_resistant', 'mandatory']);
-
-  const coolNowHotLater = at(10, 'rain', [{
-    forecastAt: futureAt,
-    ...measurements({ temperatureCelsius: 30, apparentTemperatureCelsius: 30, condition: 'rain' }),
-  }]);
-  assert.equal(findRequirement(coolNowHotLater, 'breathability').priority, 'optional');
-  assert.deepEqual(feet(coolNowHotLater), ['water_resistant', 'optional']);
-});
-
 // A wet day from 18 C up to the shorts rung asked nothing of the legs, so 18 C rain wore
 // shorts under a rain jacket. Below 23 a day that makes body water protection mandatory
 // wishes the legs covered, for the same reasons; a colder day already asks for it, and from
