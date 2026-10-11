@@ -899,8 +899,8 @@ export const en = {
     },
     requirementRow: ({ requirement, garments }) =>
       `${requirement}: ${garments.join(', ')}.`,
-    requirementTradeoffRow: ({ requirement, garments }) =>
-      `Trade-off (${requirement}): ${garments.join(', ')}.`,
+    requirementTradeoffRow: ({ garments }) =>
+      `This layer may feel warm in the heat, but it keeps the weather off you: ${garments.join(', ')}.`,
     requirementReasons: {
       temperature_low: 'The temperature calls for warmth.',
       apparent_temperature_low: 'It feels cold enough to require insulation.',

@@ -697,11 +697,11 @@ test('detail reasoning groups garments by requirement and localizes trade-offs a
   assert.deepEqual(loadedPresentation(tradeoffState).suggestions[0].requirementRows, [{
     id: 'breathability',
     kind: 'tradeoff',
-    text: 'Trade-off (Breathability): Rain jacket.',
+    text: 'This layer may feel warm in the heat, but it keeps the weather off you: Rain jacket.',
   }]);
   assert.equal(
     loadedPresentation(tradeoffState, 'tr').suggestions[0].requirementRows[0].text,
-    'Denge (Nefes alabilirlik): Yağmurluk.',
+    'Bu katman sıcakta biraz terletebilir ama seni hava şartlarından korur: Yağmurluk.',
   );
 });
 

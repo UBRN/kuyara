@@ -893,8 +893,8 @@ export const tr = {
     },
     requirementRow: ({ requirement, garments }) =>
       `${requirement}: ${garments.join(', ')}.`,
-    requirementTradeoffRow: ({ requirement, garments }) =>
-      `Denge (${requirement}): ${garments.join(', ')}.`,
+    requirementTradeoffRow: ({ garments }) =>
+      `Bu katman sıcakta biraz terletebilir ama seni hava şartlarından korur: ${garments.join(', ')}.`,
     requirementReasons: {
       temperature_low: 'Hava soğuk, daha sıcak giyinmek gerekiyor.',
       apparent_temperature_low: 'Hissedilen sıcaklık düşük, sıcak tutan katmanlar gerekiyor.',

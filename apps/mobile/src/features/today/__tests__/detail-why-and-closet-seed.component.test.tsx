@@ -137,8 +137,10 @@ describe.each(['en', 'tr'] as const)('%s outfit detail', (language) => {
     const tradeoffs = result.queryAllByTestId(/^outfit-detail-tradeoff-/);
     expect(tradeoffs.length).toBeGreaterThan(0);
     for (const row of tradeoffs) expect(why).toContainElement(row);
-    expect(tradeoffs[0]).toHaveTextContent(copy.requirementTradeoffRow({ requirement: '', garments: [] }).split('(')[0],
+    // The trade-off is the outfit's honest "but", said as one sentence, not a bracketed label.
+    expect(tradeoffs[0]).toHaveTextContent(copy.requirementTradeoffRow({ requirement: '', garments: [] }).split(':')[0],
       { exact: false });
+    expect(tradeoffs[0]).not.toHaveTextContent(/[()]/);
     expect(result.queryByTestId('outfit-detail-reasons')).toBeNull();
   });
 
