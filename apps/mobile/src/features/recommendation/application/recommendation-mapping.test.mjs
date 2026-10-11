@@ -558,3 +558,39 @@ test('the AI options leave out what repeats two of yesterday\'s shoes, bottom an
   assert.ok(cold.options.length >= 12);
   assert.ok(cold.repeats.length > 0);
 });
+
+// An earlier build's fallback named a sweater-and-jacket outfit Layered Warmth on a mild day
+// and offered Office Ready on a weekend; today's rules give neither label there.
+test('a stored trio whose labels today\'s rules refuse keeps its outfits under today\'s labels', () => {
+  const mild = { ...input({ temperatureCelsius: 15 }), dayKind: 'weekend' };
+  const context = createRecommendationContext(mild, '2026-08-01');
+  const recommendation = recommendOutfits(mild);
+  const [smart, easy, between] = toStoredRecommendationOutfits(recommendation);
+  assert.deepEqual([smart, easy, between].map(({ archetypeId }) => archetypeId),
+    ['smart_casual', 'everyday_easy', 'in_between']);
+  const midIndex = between.garments.findIndex(({ slot }) => slot === 'mid_layer');
+  const layered = [
+    ...between.garments.slice(0, midIndex + 1),
+    easy.garments.find(({ slot }) => slot === 'outer_layer'),
+    ...between.garments.slice(midIndex + 1),
+  ];
+  const stored = [
+    { ...smart, archetypeId: 'office_ready' },
+    { ...easy, archetypeId: 'smart_casual' },
+    { archetypeId: 'layered_warmth', garments: layered },
+  ];
+
+  const restored = mapStoredRecommendation(context, stored, 'deterministic-fallback');
+
+  assert.equal(restored.generationMode, 'deterministic-fallback');
+  assert.equal(restored.outfits[2].midLayer !== null && restored.outfits[2].outerLayer !== null, true);
+  assert.deepEqual(restored.outfits.map(({ archetypeId }) => archetypeId),
+    ['smart_casual', 'everyday_easy', 'everyday_easy']);
+  // A row whose outfits cannot be rebuilt still rejects, relabelled or not.
+  const unknown = { ...stored[2], garments: [{ ...layered[0], candidateKey: 'catalog:not_a_garment' },
+    ...layered.slice(1)] };
+  assert.throws(
+    () => mapStoredRecommendation(context, [stored[0], stored[1], unknown], 'deterministic-fallback'),
+    WorkerAiRecommendationMappingError,
+  );
+});

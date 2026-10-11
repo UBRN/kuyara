@@ -205,6 +205,64 @@ test('older structured outfits without archetypes derive distinct fallback label
     ({ archetypeId }) => archetypeId)).size, 3);
 });
 
+// A mild weekend trio as an earlier build's fallback labelled it: that build still offered
+// Office Ready on a weekend, so the first smart outfit carries it.
+async function saveMildWeekendTrio(repository, database, labels) {
+  const input = recommendationInput();
+  for (const weather of [input.snapshot.current, ...input.snapshot.hourly]) {
+    weather.temperatureCelsius = 15;
+    weather.apparentTemperatureCelsius = 15;
+  }
+  input.snapshot.minimumTemperatureCelsius = 15;
+  input.snapshot.maximumTemperatureCelsius = 16;
+  input.dayKind = 'weekend';
+  const recommendation = recommendOutfits(input);
+  if (recommendation.status !== 'recommended') throw new Error('fixture unavailable');
+  const saved = await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: input.snapshot.id,
+    locationKey: input.snapshot.locationKey,
+    context: createRecommendationContext(input, input.localDayKey),
+    recommendation,
+  });
+  const row = await database.getFirstAsync('SELECT outfits_json FROM recommendation_snapshots');
+  const outfits = JSON.parse(row.outfits_json);
+  assert.deepEqual(outfits.map(({ archetypeId }) => archetypeId),
+    ['smart_casual', 'everyday_easy', 'in_between']);
+  return { saved, outfits: outfits.map((outfit, index) => ({ ...outfit, archetypeId: labels[index] })) };
+}
+
+test("a saved trio labelled under an earlier build's wider rules is read back relabelled, not dropped", async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const { saved, outfits } = await saveMildWeekendTrio(
+    repository, database, ['office_ready', 'smart_casual', 'in_between']);
+  await database.runAsync('UPDATE recommendation_snapshots SET outfits_json = ?',
+    [JSON.stringify(outfits)]);
+
+  const restored = await repository.getSnapshot(profileId, '2026-08-01');
+
+  assert.deepEqual(restored.recommendation.outfits.map(({ optionId }) => optionId),
+    saved.recommendation.outfits.map(({ optionId }) => optionId));
+  assert.deepEqual(restored.recommendation.outfits.map(({ archetypeId }) => archetypeId),
+    ['smart_casual', 'everyday_easy', 'in_between']);
+  assert.equal(restored.generationMode, 'deterministic-fallback');
+});
+
+test('a relabelled trio still rejects a garment the catalog cannot rebuild', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const { outfits } = await saveMildWeekendTrio(
+    repository, database, ['office_ready', 'smart_casual', 'in_between']);
+  outfits[1].garments[0] = { ...outfits[1].garments[0], candidateKey: 'catalog:not_a_garment' };
+  await database.runAsync('UPDATE recommendation_snapshots SET outfits_json = ?',
+    [JSON.stringify(outfits)]);
+
+  await assert.rejects(
+    repository.getSnapshot(profileId, '2026-08-01'),
+    (error) => error instanceof RecommendationRepositoryError && error.code === 'invalid-data',
+  );
+});
+
 test('failed replacement leaves the last valid snapshot intact', async (t) => {
   const { database, dataSource, repository } = await setup();
   t.after(() => database.close());
