@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import type { PlaceSearchV1Request } from '@kuyara/contracts';
 import type { FetchLike } from '../default-fetch.ts';
@@ -62,7 +63,9 @@ test('a fully valid response is mapped unchanged and an over-long one is still r
     latitudeE2: 3841, longitudeE2: 2714, timeZone: 'Europe/Istanbul',
   }]);
   assert.deepEqual(warnings, []);
-  await assert.rejects(() => provider({ results: Array(6).fill(place(1, 'İzmir', 38.41)) }).search(query), PlaceSearchProviderError);
+  const crowd = (size: number) => Array.from({ length: size }, (_, index) => place(index + 1, 'İzmir', 38.41));
+  assert.equal((await provider({ results: crowd(100) }).search(query)).places.length, 5);
+  await assert.rejects(() => provider({ results: crowd(101) }).search(query), PlaceSearchProviderError);
 });
 
 test('dotless spellings substitute only lowercase i, one position at a time, then all, capped at three', () => {
@@ -280,4 +283,63 @@ test('a province named like the place is not repeated in the region', async () =
   const lone = await provider({ results: [row(2, 'Ankara', 'Ankara', '', '', '', 39.9, 32.8, 'Europe/Istanbul')] })
     .search({ query: 'ankara', limit: 5, language: 'tr' });
   assert.deepEqual(lone.places.map((entry) => entry.region), ['Ankara']);
+});
+
+// Recorded count=100 answers (tr, 11 Oct 2026), trimmed to the fields the provider reads. Upstream lists
+// names that match, populated places first; GeoNames leaves most city neighbourhoods (PPLX) without
+// a population, so they sit far down the list.
+type Recorded = Record<string, { id: number; name: string; feature_code?: string; population?: number }[]>;
+const recorded = JSON.parse(readFileSync(new URL('./open-meteo-count100.fixture.json', import.meta.url), 'utf8')) as Recorded;
+function recordedProvider() {
+  const requests: URL[] = [];
+  const fetch: FetchLike = async (url) => {
+    const asked = new URL(String(url));
+    requests.push(asked);
+    return Response.json({ results: recorded[asked.searchParams.get('name') as string] ?? [] });
+  };
+  return { requests, provider: new OpenMeteoPlaceProvider({ fetch, timeoutMs: 50 }) };
+}
+const search = async (name: string, queryText = name) => {
+  const { requests, provider } = recordedProvider();
+  const { places } = await provider.search({ query: queryText, limit: 5, language: 'tr' });
+  return { requests, ids: places.map((entry) => entry.id) };
+};
+const firstFive = (name: string) => recorded[name].slice(0, 5).map((entry) => `place.${entry.id}`);
+
+test('a city neighbourhood named exactly like the query is reachable in the answer', async () => {
+  const bostanci = await search('Bostancı');
+  // The populated Bostancı villages keep their places; the Istanbul and Gaziantep neighbourhoods follow.
+  assert.deepEqual(bostanci.ids.slice(3, 5), ['place.750483', 'place.' + recorded['Bostancı'][14].id]);
+  assert.ok(!bostanci.ids.some((id) => id === `place.${recorded['Bostancı'][29].id}`), 'Bostancık (Ankara) is not a Bostancı');
+  assert.equal((await search('Moda')).ids[0], 'place.741510');
+  assert.equal((await search('Göztepe')).ids[1], 'place.746514');
+  assert.deepEqual((await search('Caferağa')).ids, ['place.6698150']);
+});
+
+test('a neighbourhood typed without Turkish letters is found by its folded name', async () => {
+  const fetch: FetchLike = async (url) => {
+    const name = new URL(String(url)).searchParams.get('name');
+    return Response.json({ results: name === 'bostancı' ? recorded['Bostancı'] : [] });
+  };
+  const result = await new OpenMeteoPlaceProvider({ fetch, timeoutMs: 50 }).search({ query: 'bostanci', limit: 5, language: 'tr' });
+  assert.ok(result.places.some((entry) => entry.id === 'place.750483'));
+});
+
+test('a plain city query keeps upstream order: the city stays first', async () => {
+  for (const name of ['Ankara', 'London', 'Paris', 'Springfield', 'Brooklyn']) {
+    assert.deepEqual((await search(name)).ids, firstFive(name), name);
+  }
+});
+
+test('an unpopulated neighbourhood never outranks the populated city that shares its name', async () => {
+  // Çankaya (Ankara, 792189 people) is first upstream; the Antalya, Izmir and Mersin neighbourhoods follow it.
+  const { ids } = await search('Çankaya');
+  assert.equal(ids[0], `place.${recorded['Çankaya'][0].id}`);
+  assert.deepEqual(ids.slice(1, 4), recorded['Çankaya'].filter((entry) => entry.feature_code === 'PPLX').map((entry) => `place.${entry.id}`));
+});
+
+test('the search stays one upstream request that asks for the wider candidate list', async () => {
+  const { requests } = await search('Moda');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].searchParams.get('count'), '100');
 });
