@@ -65,3 +65,15 @@ test('a year of worn days is counted in one pass', () => {
   assert.equal(counts.get('item-0'), 365);
   assert.equal(counts.get('item-1'), 7);
 });
+
+test('a record in the piece colour family wins over one that only fits on type', () => {
+  const wantedNavy = item({ id: 'wanted-navy', entryState: 'wanted', garmentTypeId: 'coat', colorFamily: 'blue' });
+  const wantedBlack = item({ id: 'wanted-black', entryState: 'wanted', garmentTypeId: 'coat', colorFamily: 'black' });
+  assert.deepEqual(matchPieceOwnership('coat', 'black', [wantedNavy, wantedBlack]), { kind: 'wanted', item: wantedBlack });
+  const ownedPlain = item({ id: 'owned-plain', garmentTypeId: 'coat' });
+  const ownedBlack = item({ id: 'owned-black', garmentTypeId: 'coat', colorFamily: 'black' });
+  assert.deepEqual(matchPieceOwnership('coat', 'black', [ownedPlain, ownedBlack]), { kind: 'owned', item: ownedBlack });
+  // Without a record in the colour family, the type-only fit still answers.
+  assert.deepEqual(matchPieceOwnership('coat', 'black', [wantedNavy]), { kind: 'wanted', item: wantedNavy });
+  assert.deepEqual(matchPieceOwnership('coat', 'black', [ownedPlain]), { kind: 'owned', item: ownedPlain });
+});

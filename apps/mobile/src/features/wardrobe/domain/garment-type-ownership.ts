@@ -20,13 +20,16 @@ export function matchPieceOwnership(
 ): PieceOwnershipMatch {
   // The caller supplies active items, so soft-deleted rows are not filtered here.
   const sameType = items.filter((item) => item.garmentTypeId === garmentTypeId);
+  // Among several fitting records, one in the piece's own colour family is the one meant.
+  const sameColour = (item: WardrobeItem) => pieceColorFamily !== null && item.colorFamily === pieceColorFamily;
   const owned = sameType.filter((item) => item.entryState === 'owned');
-  const exact = owned.find((item) => pieceColorFamily === null || item.colorFamily === null ||
-    item.colorFamily === pieceColorFamily);
+  const exact = owned.find(sameColour) ?? owned.find((item) => pieceColorFamily === null ||
+    item.colorFamily === null || item.colorFamily === pieceColorFamily);
   if (exact) return { kind: 'owned', item: exact };
   if (owned[0]) return { kind: 'similar', item: owned[0] };
-  const wanted = sameType.find((item) => item.entryState === 'wanted');
-  return wanted ? { kind: 'wanted', item: wanted } : { kind: 'none' };
+  const wanted = sameType.filter((item) => item.entryState === 'wanted');
+  const wantedMatch = wanted.find(sameColour) ?? wanted[0];
+  return wantedMatch ? { kind: 'wanted', item: wantedMatch } : { kind: 'none' };
 }
 
 /**
