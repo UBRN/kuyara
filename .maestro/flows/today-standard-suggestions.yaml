@@ -131,11 +131,11 @@ tags:
 # outfit is on screen and `today-generation-mode` does not exist. Either AI tier would
 # have put a badge there. The recommendation already resolved (see above), so this should
 # settle almost immediately.
-# The archetype title sits inside the stage's single accessible button, so the tree exposes the
-# primary board rather than the title's own identifier.
+# The archetype title and the board sit inside the stage's single accessible button, so the
+# tree exposes that button's identifier rather than either of theirs.
 - extendedWaitUntil:
     visible:
-      id: "today-primary-board-outfit:.*"
+      id: "today-primary-outfit:.*"
     timeout: 10000
 - assertNotVisible:
     id: "today-generation-mode"
