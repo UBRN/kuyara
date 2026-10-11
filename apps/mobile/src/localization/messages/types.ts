@@ -313,8 +313,11 @@ export type TodayMessages = Readonly<{
   requirementRow: (values: { requirement: string; garments: readonly string[] }) => string;
   requirementTradeoffRow: (values: { requirement: string; garments: readonly string[] }) => string;
   requirementReasons: Readonly<Record<ClothingRequirementReasonCode, string>>;
-  /** `wind_strong` on a day warm enough that wind protection is only worth having. */
-  optionalStrongWindReason: string;
+  /**
+   * The same reasons when only optional requirements carry them: advice, never a claim that
+   * the outfit requires or needs anything.
+   */
+  optionalRequirementReasons: Readonly<Record<ClothingRequirementReasonCode, string>>;
   compositionReasons: Readonly<Record<OutfitCompositionReasonCode, string>>;
   mildWeatherRationale: string;
   /**

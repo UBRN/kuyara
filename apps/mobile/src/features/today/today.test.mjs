@@ -15,6 +15,8 @@ import {
 } from './presentation/today-presentation.ts';
 import { previewIsThisMorning, tomorrowForecastDay } from './application/outfit-detail-state.ts';
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
+import { clothingRequirementReasonCodes } from '../recommendation/domain/weather-to-clothing-requirements.ts';
+import { messages } from '../../localization/messages.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
 import { composeGarmentBoard } from '../../garment-art/compose-garment-board.ts';
 import { getDeviceTimeZone } from '../../domain/intl-format.ts';
@@ -389,12 +391,13 @@ test('a mandatory requirement explains the outfit before an optional one', () =>
     snapshot: { ...todayScreenState.snapshot, weather, recommendation },
   });
 
-  // The mandatory reasons lead; the two optional ones keep the derivation's order behind them.
+  // The mandatory reasons lead; the two optional ones keep the derivation's order behind them
+  // and read as advice.
   assert.deepEqual(presentation.suggestions[0].reasons.slice(0, 4), [
     'Likely precipitation requires water protection.',
     'Rain requires water protection.',
-    'High temperatures require breathable clothing.',
-    'It feels hot enough to require breathable clothing.',
+    'Warmer hours make breathable clothing a good choice.',
+    'It may feel warm enough that breathable clothing is a good choice.',
   ]);
 });
 
@@ -433,6 +436,36 @@ test('strong wind says it requires wind protection only on a day that makes it m
   assert.equal(warmTr[0], 'Rüzgâr kuvvetli, rüzgâr geçirmeyen bir katman iyi olur.');
   assert.equal(warmEn.includes('Strong wind requires wind protection.'), false);
   assert.equal(warmTr.includes('Rüzgâr kuvvetli, rüzgâr koruması gerekiyor.'), false);
+});
+
+// A reason carried only by optional requirements is advice: whatever the code, its sentence
+// comes from the optional set and never says the outfit requires or needs anything.
+test('every reason claims a requirement only when a mandatory requirement carries it', () => {
+  const requirementWords = { en: /\brequire|\bcalls? for\b|\bneed/i, tr: /gerek/i };
+  const { recommendation, weather } = todayScreenState.snapshot;
+  for (const code of clothingRequirementReasonCodes) {
+    for (const priority of ['mandatory', 'optional']) {
+      const requirements = {
+        requirements: [{ kind: 'thermal', minimum: 'light', priority, reasonCodes: [code] }],
+        reasonCodes: [code],
+      };
+      const state = { ...todayScreenState, snapshot: { ...todayScreenState.snapshot,
+        recommendation: { ...recommendation, requirements } } };
+      for (const language of ['en', 'tr']) {
+        const copy = messages[language].today;
+        const [sentence] = loadedPresentation(state, language).suggestions[0].reasons;
+        const expected = priority === 'mandatory'
+          ? copy.requirementReasons[code]
+          : copy.optionalRequirementReasons?.[code];
+        assert.equal(sentence, expected, `${code} ${priority} ${language}`);
+        if (priority === 'optional') {
+          assert.doesNotMatch(sentence, requirementWords[language], `${code} ${language}`);
+        }
+      }
+    }
+  }
+  assert.ok(weather.maximumTemperatureCelsius - weather.minimumTemperatureCelsius < 8,
+    'the fixture day adds no wide-range reason of its own');
 });
 
 test('the unavailable branch offers a retry and says when the cause is being offline', () => {
@@ -550,7 +583,8 @@ test('a wide day spread shows its reason for a stored or AI-chosen result as it 
   const now = todayWeatherSnapshot.current.observedAt;
   const { recommendation, presentation: fresh } = mildPresentation(wide, now);
   assert.deepEqual(recommendation.requirements.reasonCodes, ['daily_range_wide']);
-  const sentence = 'A wide temperature range calls for adjustable layers.';
+  // No requirement carries it, so it is advice.
+  const sentence = 'A wide temperature range makes layers you can adjust worth wearing.';
   assert.deepEqual(fresh.suggestions[0].reasons, [sentence]);
 
   const restored = loadedPresentation({

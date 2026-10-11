@@ -30,7 +30,6 @@ import {
 import { weatherCauseLinks, type WeatherCause } from '@/features/recommendation/domain/weather-causes';
 import {
   withDailyRangeReason,
-  type ClothingRequirementReasonCode,
   type ClothingRequirements,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type {
@@ -621,10 +620,12 @@ function requirementNameKey(
     : 'footwear_water_protection';
 }
 
-// Detail leads with mandatory requirements, then keeps the derivation's own order.
-function reasonCodesByPriority(
+// Detail leads with mandatory requirements, then keeps the derivation's own order. A reason
+// no mandatory requirement carries is advice, and its sentence says so.
+function reasonSentencesByPriority(
   requirements: ClothingRequirements,
-): readonly ClothingRequirementReasonCode[] {
+  copy: TodayMessages,
+): readonly string[] {
   const mandatory = new Set(
     requirements.requirements
       .filter(({ priority }) => priority === 'mandatory')
@@ -632,8 +633,10 @@ function reasonCodesByPriority(
   );
 
   return [
-    ...requirements.reasonCodes.filter((code) => mandatory.has(code)),
-    ...requirements.reasonCodes.filter((code) => !mandatory.has(code)),
+    ...requirements.reasonCodes.filter((code) => mandatory.has(code))
+      .map((code) => copy.requirementReasons[code]),
+    ...requirements.reasonCodes.filter((code) => !mandatory.has(code))
+      .map((code) => copy.optionalRequirementReasons[code]),
   ];
 }
 
@@ -786,20 +789,15 @@ function createLoadedPresentation(
   const conditionCode = day?.condition ?? current.condition;
   const condition = weatherCopy.conditions[conditionCode];
   // A stored or AI-chosen result rebuilds its reason codes from the requirements alone, so
-  // the day's own spread supplies the wide-range one that no requirement carries. Strong wind
-  // on a day that asks for no warmth is only a wish, and its reason says so.
-  const windRequired = snapshot.recommendation.requirements.requirements.some(
-    ({ kind, priority }) => kind === 'wind_protection' && priority === 'mandatory');
-  const weatherReasons = reasonCodesByPriority({
+  // the day's own spread supplies the wide-range one that no requirement carries.
+  const weatherReasons = reasonSentencesByPriority({
     ...snapshot.recommendation.requirements,
     reasonCodes: withDailyRangeReason(
       snapshot.recommendation.requirements.reasonCodes,
       day?.minimumTemperatureCelsius ?? weather.minimumTemperatureCelsius,
       day?.maximumTemperatureCelsius ?? weather.maximumTemperatureCelsius,
     ),
-  }).map((reason) => reason === 'wind_strong' && !windRequired
-    ? copy.optionalStrongWindReason
-    : copy.requirementReasons[reason]);
+  }, copy);
   const outfits =
     snapshot.recommendation.status === 'recommended'
       ? snapshot.recommendation.outfits
