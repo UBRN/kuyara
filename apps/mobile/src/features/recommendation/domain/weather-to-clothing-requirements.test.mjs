@@ -152,6 +152,35 @@ test('thermal and coverage thresholds use exact lower-bound semantics', () => {
   }
 });
 
+// Head, neck and hands are covered below 12; the warmest cover, the face-covering one, only
+// below freezing, a lower boundary than the coat rung's.
+test('extremity cover asks for the warmest cover only below freezing', () => {
+  const cases = [
+    [12, null],
+    [11.999, 'moderate'],
+    [4.999, 'moderate'],
+    [0, 'moderate'],
+    [-0.001, 'high'],
+    [-10, 'high'],
+  ];
+
+  for (const [temperature, minimum] of cases) {
+    const result = deriveClothingRequirements(snapshot({
+      current: {
+        temperatureCelsius: temperature,
+        apparentTemperatureCelsius: temperature,
+      },
+      minimumTemperatureCelsius: temperature,
+      maximumTemperatureCelsius: temperature + 1,
+    }), observedAt);
+    for (const target of ['head', 'neck', 'hands']) {
+      const cover = findRequirement(result, 'extremity_cover', target);
+      assert.equal(cover?.minimum ?? null, minimum, `${temperature} ${target}`);
+      assert.equal(cover?.priority ?? null, minimum ? 'optional' : null);
+    }
+  }
+});
+
 // Three rungs, from A3 section 3 of 2026-09-17: Fit The Forecast puts shorts at 23 and
 // raksul a single short sleeve at 25, and 28 is where kuyara already made breathability
 // mandatory. The two lower rungs reorder the offer and compose nothing away.

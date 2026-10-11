@@ -85,6 +85,9 @@ export type TractionRequirement = RequirementBase<
   Exclude<TractionSuitability, 'everyday'>
 > & Readonly<{ kind: 'traction' }>;
 
+/** Below this the extremities ask for the warmest cover, the face-covering one. */
+const faceCoverCelsius = 0;
+
 const extremityCoverTargets = Object.freeze([
   'head',
   'neck',
@@ -449,13 +452,15 @@ export function deriveClothingRequirements(
   // Below 12 the head, the neck and the hands are worth covering, which is the boundary
   // that already makes full arm and leg coverage mandatory. These three stay optional
   // whatever the temperature: no accessory is ever the reason an outfit does not compose,
-  // and a day whose cold side is demoted by current heat asks for none of them.
+  // and a day whose cold side is demoted by current heat asks for none of them. The warmest
+  // cover, the one over the face, waits for a day below freezing: the coat rung's boundary
+  // is 5, and a balaclava on a 4 C day dressed it like a -10 C one.
   if (coldExposure < 12 && !coldDemoted) {
     for (const target of extremityCoverTargets) {
       candidates.push({
         kind: 'extremity_cover',
         target,
-        minimum: coldExposure < freezingCelsius ? 'high' : 'moderate',
+        minimum: coldExposure < faceCoverCelsius ? 'high' : 'moderate',
         priority: 'optional',
         reasonCodes: coldReasons,
       });

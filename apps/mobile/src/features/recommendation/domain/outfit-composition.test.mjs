@@ -49,7 +49,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    '09cc27ce2e310d3ed456bac0d61365970fcc91139072bf0a195df25ee422882f',
+    '9870916c1e1153a70b3881e9d7b6cc00d712a90315b3c603a5e8f728bdbb5a05',
   );
 });
 
@@ -992,7 +992,7 @@ test('a cold day covers head, neck and hands, and each slot holds exactly one ga
   }
 
   assert.deepEqual(byFormality.get('casual'), {
-    head: 'balaclava',
+    head: 'beanie',
     neck: 'neck_gaiter',
     hands: 'gloves',
   });
@@ -1003,6 +1003,23 @@ test('a cold day covers head, neck and hands, and each slot holds exactly one ga
     assert.notEqual(chosen.head, 'brimmed_hat');
     assert.equal(chosen.neck, 'scarf');
     assert.equal(chosen.hands, 'gloves');
+  }
+});
+
+// A balaclava covers the face, which only a day below freezing asks for. A cold day above it
+// is a beanie day, so 4 C and -10 C no longer finish alike.
+test('a balaclava finishes only a day below freezing', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const temperatureCelsius of [4, 2, 0]) {
+      const heads = new Set(offeredForWeather(clearDay(temperatureCelsius), {}, preference)
+        .map((outfit) => outfit.accessories.head?.garment.garmentTypeId));
+      assert.deepEqual([...heads], ['beanie'], `${preference} ${temperatureCelsius} C`);
+    }
+    for (const temperatureCelsius of [-2, -10]) {
+      const heads = new Set(offeredForWeather(clearDay(temperatureCelsius), {}, preference)
+        .map((outfit) => outfit.accessories.head?.garment.garmentTypeId));
+      assert.deepEqual([...heads], ['balaclava'], `${preference} ${temperatureCelsius} C`);
+    }
   }
 });
 
@@ -1031,7 +1048,7 @@ test('accessories reach the composition key and never the body slots or the dist
   const cold = offeredForWeather(clearDay(2));
   const [first] = cold;
   assert.equal(
-    first.compositionKey.endsWith('|catalog:balaclava|catalog:neck_gaiter|catalog:gloves|-'),
+    first.compositionKey.endsWith('|catalog:beanie|catalog:neck_gaiter|catalog:gloves|-'),
     true,
     first.compositionKey,
   );

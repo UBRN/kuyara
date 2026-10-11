@@ -378,6 +378,38 @@ test('stronger values are capped and over-protection penalties are exact and bou
   ]);
 });
 
+// An accessory's warmth is read against the cover its own region was asked for, not the
+// body's rung: a coat day that asks only a moderate head cover charges the balaclava for
+// the rung it overshoots, so the beanie leads the head slot.
+test('accessory over-protection is read against its own region', () => {
+  const coatDay = clothingRequirements(
+    requirement('thermal', 'high'),
+    requirement('extremity_cover', 'moderate', { target: 'head', priority: 'optional' }),
+  );
+  const balaclava = evaluateGarmentEligibility(
+    coatDay,
+    projectCatalogEffectiveGarment('balaclava', 'womens'),
+  );
+  const beanie = evaluateGarmentEligibility(
+    coatDay,
+    projectCatalogEffectiveGarment('beanie', 'womens'),
+  );
+  assert.equal(balaclava.penaltyPoints, 5);
+  assert.equal(balaclava.score, 95);
+  assert.equal(beanie.penaltyPoints, 0);
+  assert.equal(beanie.score, 100);
+
+  const freezing = evaluateGarmentEligibility(
+    clothingRequirements(
+      requirement('thermal', 'high'),
+      requirement('extremity_cover', 'high', { target: 'head', priority: 'optional' }),
+    ),
+    projectCatalogEffectiveGarment('balaclava', 'womens'),
+  );
+  assert.equal(freezing.penaltyPoints, 0);
+  assert.equal(freezing.score, 100);
+});
+
 test('repeated evaluation and equal-score ordering are stable', () => {
   const needs = clothingRequirements(requirement('thermal', 'moderate'));
   const first = evaluateGarmentEligibility(

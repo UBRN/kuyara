@@ -380,7 +380,14 @@ function thermalPenalty(
     return 0;
   }
 
+  // An accessory's warmth answers the cover its own region was asked for, so a coat day
+  // that asks a moderate head cover still charges the balaclava for the rung it overshoots.
   const requirement = requirements.requirements.find(
+    (candidate) =>
+      candidate.kind === 'extremity_cover' &&
+      properties.category === 'accessory' &&
+      candidate.target === properties.bodyRegion,
+  ) ?? requirements.requirements.find(
     (candidate) => candidate.kind === 'thermal',
   );
   if (!requirement) {
