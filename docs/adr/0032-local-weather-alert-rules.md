@@ -154,9 +154,9 @@ age.
 ## Consequences
 
 - Alerts cover the dressing day only. The contract carries further hours still, and the
-  morning briefing reads tomorrow's 07:00 to 11:00; widening the alert rules themselves
-  beyond the window would be a separate decision about what is worth interrupting someone
-  for. An open between midnight and 04:00 sees only the hours left in that night, and the
+  morning briefing reads the next 07:00 to the end of that local day; widening the alert
+  rules themselves beyond the window would be a separate decision about what is worth
+  interrupting someone for. An open between midnight and 04:00 sees only the hours left in that night, and the
   next window is planned on the first pass after 04:00.
 - A rule can fire twice in one calendar date, for a crossing of the day and a later crossing
   of the evening. That is the price of giving the evening its own namespace, and it matches

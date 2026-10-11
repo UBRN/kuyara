@@ -6,6 +6,9 @@ import type { AppMessages } from '@/localization/messages/types';
 /** The closing sentence naming the last sync, none before a sync has completed on this phone. */
 const trLastSynced = (time: string | null) => (time === null ? '' : ` Son eşitleme ${time}.`);
 
+/** A time that opens a sentence ("saat 17:00", "akşam saat 5:00", "akşam 5:00") takes a capital letter. */
+const sentenceInitial = (time: string) => `${time.charAt(0).toUpperCase()}${time.slice(1)}`;
+
 export const tr = {
   temperatureUnitNames: { celsius: 'santigrat derece', fahrenheit: 'fahrenhayt derece' },
   catalog: catalogMessages.tr,
@@ -258,28 +261,31 @@ export const tr = {
       hint: (time) => `Günün sıcaklık aralığını ve en önemli hava değişimini anlatan tek bir bildirim (saat ${time}). Yarın sabahın tahmini hazır olduğunda gelir.`,
       title: 'Sabah özeti',
       fullRange: (range) => `Bugün ${range}.`,
-      partialRange: ({ range, through }) => `${through} saatine kadar: ${range}.`,
+      partialRange: ({ range, through }) => `${sentenceInitial(through)} saatine kadar: ${range}.`,
       clearMorning: 'Sabah hava açık.',
+      partlyCloudyMorning: 'Sabah hava parçalı bulutlu.',
       cloudyMorning: 'Sabah hava bulutlu.',
+      foggyMorning: 'Sabah hava sisli.',
       wetMorning: 'Sabah yağış bekleniyor.',
-      rainStarting: (time) => `Yağmur saat ${time} civarında başlıyor.`,
-      snowStarting: (time) => `Kar saat ${time} civarında başlıyor.`,
-      rainEasing: (time) => `Yağmur saat ${time} civarında hafifliyor.`,
-      snowEasing: (time) => `Kar saat ${time} civarında hafifliyor.`,
-      temperatureDrop: ({ time, temperature }) => `Saat ${time} civarında hava soğuyor, hissedilen ${temperature}.`,
-      temperatureRise: ({ time, temperature }) => `Saat ${time} civarında hava ısınıyor, hissedilen ${temperature}.`,
+      thunderstormMorning: 'Sabah gök gürültülü fırtına bekleniyor.',
+      rainStarting: (time) => `Yağmur ${time} civarında başlıyor.`,
+      snowStarting: (time) => `Kar ${time} civarında başlıyor.`,
+      rainEasing: (time) => `Yağmur ${time} civarında hafifliyor.`,
+      snowEasing: (time) => `Kar ${time} civarında hafifliyor.`,
+      temperatureDrop: ({ time, temperature }) => `${sentenceInitial(time)} civarında hava soğuyor, hissedilen ${temperature}.`,
+      temperatureRise: ({ time, temperature }) => `${sentenceInitial(time)} civarında hava ısınıyor, hissedilen ${temperature}.`,
     },
     alerts: {
       rainTitle: 'Yağmur geliyor',
-      rainBody: (time) => `Saat ${time} civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.`,
+      rainBody: (time) => `${sentenceInitial(time)} civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.`,
       snowTitle: 'Kar geliyor',
-      snowBody: (time) => `Saat ${time} civarında kar bekleniyor. Yanına sıcak tutan, su geçirmez bir kat al.`,
+      snowBody: (time) => `${sentenceInitial(time)} civarında kar bekleniyor. Yanına sıcak tutan, su geçirmez bir kat al.`,
       dropTitle: 'Hava daha serin hissettirecek',
       dropBody: ({ time, temperature }) =>
-        `Saat ${time} civarında hissedilen sıcaklık ${temperature} olacak. Yanına daha sıcak tutan bir kat al.`,
+        `${sentenceInitial(time)} civarında hissedilen sıcaklık ${temperature} olacak. Yanına daha sıcak tutan bir kat al.`,
       riseTitle: 'Hava daha sıcak hissettirecek',
       riseBody: ({ time, temperature }) =>
-        `Saat ${time} civarında hissedilen sıcaklık ${temperature} olacak. Daha hafif bir kat seç.`,
+        `${sentenceInitial(time)} civarında hissedilen sıcaklık ${temperature} olacak. Daha hafif bir kat seç.`,
     },
   },
   weather: {

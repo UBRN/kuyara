@@ -13,10 +13,10 @@ import {
   planWeatherAlerts,
   type WeatherAlertPlan,
 } from '@/features/notifications/domain/weather-alerts';
-import { weatherFreshness, type WeatherSnapshot } from '@/features/weather/domain/weather';
+import { weatherFreshness, type WeatherConditionCode, type WeatherSnapshot } from '@/features/weather/domain/weather';
 import type { TemperatureUnit } from '@/localization/device-locale';
-import { messages, type SupportedLanguage } from '@/localization/messages';
-import { formatClockTime } from '@/presentation/format-clock-time';
+import { messages, type AppMessages, type SupportedLanguage } from '@/localization/messages';
+import { formatNaturalClockTime, formatSpokenClockTime } from '@/presentation/format-clock-time';
 import { formatWholeTemperature, formatWholeTemperatureRange } from '@/presentation/format-temperature';
 
 type RescheduleInput = Readonly<{
@@ -50,6 +50,30 @@ function textKey(input: RescheduleInput): string {
 
 const deliveryRetentionMilliseconds = 3 * 24 * 60 * 60 * 1000;
 
+/**
+ * The sentence for the sky the briefing hour opens with. A thunderstorm is its own sentence;
+ * any other likely precipitation, a chance over a dry sky included, reads as the wet one.
+ */
+function skySentence(
+  copy: AppMessages['notifications']['morningBriefing'],
+  condition: WeatherConditionCode,
+  precipitationLikely: boolean,
+): string {
+  if (condition === 'thunderstorm') return copy.thunderstormMorning;
+  if (precipitationLikely) return copy.wetMorning;
+  switch (condition) {
+    case 'clear':
+    case 'mostly_clear':
+      return copy.clearMorning;
+    case 'partly_cloudy':
+      return copy.partlyCloudyMorning;
+    case 'fog':
+      return copy.foggyMorning;
+    default:
+      return copy.cloudyMorning;
+  }
+}
+
 function briefingCopy(
   plan: MorningBriefingPlan,
   timeZone: string,
@@ -69,27 +93,25 @@ function briefingCopy(
     ? copy.fullRange(range)
     : copy.partialRange({
       range,
-      through: formatClockTime(coveredThrough, language, hour12, timeZone),
+      through: formatNaturalClockTime(coveredThrough, language, hour12, timeZone),
     });
   // The day's one event, when it has one, closes the sentence; a day without one falls back
   // to the sky the briefing hour opens with and claims nothing beyond it.
   let detail: string;
   if (event?.kind === 'precipitation_onset' || event?.kind === 'precipitation_easing') {
-    const time = formatClockTime(event.atHour, language, hour12, timeZone);
+    const time = formatSpokenClockTime(event.atHour, language, hour12, timeZone);
     const snow = event.form === 'snow';
     detail = event.kind === 'precipitation_onset'
       ? (snow ? copy.snowStarting(time) : copy.rainStarting(time))
       : (snow ? copy.snowEasing(time) : copy.rainEasing(time));
   } else if (event?.kind === 'temperature_change') {
     const values = {
-      time: formatClockTime(event.atHour, language, hour12, timeZone),
+      time: formatSpokenClockTime(event.atHour, language, hour12, timeZone),
       temperature: formatWholeTemperature(event.toApparentCelsius, language, temperatureUnit),
     };
     detail = event.direction === 'drop' ? copy.temperatureDrop(values) : copy.temperatureRise(values);
-  } else if (precipitationLikely) {
-    detail = copy.wetMorning;
   } else {
-    detail = ['clear', 'mostly_clear'].includes(condition) ? copy.clearMorning : copy.cloudyMorning;
+    detail = skySentence(copy, condition, precipitationLikely);
   }
   return { title: copy.title, body: `${lead} ${detail}` };
 }
@@ -102,7 +124,7 @@ function alertCopy(
   temperatureUnit: TemperatureUnit,
 ): Readonly<{ title: string; body: string }> {
   const copy = messages[language].notifications.alerts;
-  const time = formatClockTime(plan.crossingAt, language, hour12, timeZone);
+  const time = formatSpokenClockTime(plan.crossingAt, language, hour12, timeZone);
   if (plan.detail.kind === 'precipitation') {
     return plan.detail.form === 'snow'
       ? { title: copy.snowTitle, body: copy.snowBody(time) }

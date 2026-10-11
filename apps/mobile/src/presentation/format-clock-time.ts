@@ -1,4 +1,4 @@
-import { dateTimeFormat } from '@/domain/intl-format';
+import { dateTimeFormat, getDeviceTimeZone, zonedClock } from '@/domain/intl-format';
 import type { SupportedLanguage } from '@/localization/messages';
 import { localeTag } from '@/localization/locale-tag';
 
@@ -19,6 +19,52 @@ export function formatClockTime(
     hour12,
     timeZone,
   }).format(new Date(instant));
+}
+
+/** Turkish names the part of the day before a 12-hour time; the clock's own "ÖÖ" and "ÖS" read as an abbreviation in a sentence. */
+function turkishDayPart(hour: number): string {
+  if (hour >= 22 || hour < 6) return 'gece';
+  if (hour < 12) return 'sabah';
+  if (hour === 12) return 'öğle';
+  return hour < 18 ? 'öğleden sonra' : 'akşam';
+}
+
+/** The part of the day and the 12-hour digits Turkish says for an instant. */
+function turkishTwelveHour(instant: string | number, timeZone?: string): Readonly<{ dayPart: string; digits: string }> {
+  const { hour, minute } = zonedClock(new Date(instant).getTime(), timeZone || getDeviceTimeZone() || 'UTC');
+  return { dayPart: turkishDayPart(hour), digits: `${hour % 12 || 12}:${String(minute).padStart(2, '0')}` };
+}
+
+/**
+ * A clock time as a sentence says it. English keeps the clock's own form. Turkish keeps the
+ * 24-hour form and, on a 12-hour clock, puts the part of the day in front of the digits
+ * ("akşam 5:00") where the clock itself prints "ÖS 5:00".
+ */
+export function formatNaturalClockTime(
+  instant: string | number,
+  language: SupportedLanguage,
+  hour12: boolean,
+  timeZone?: string,
+): string {
+  if (language !== 'tr' || !hour12) return formatClockTime(instant, language, hour12, timeZone);
+  const { dayPart, digits } = turkishTwelveHour(instant, timeZone);
+  return `${dayPart} ${digits}`;
+}
+
+/**
+ * The natural time with Turkish "saat" in front of the digits ("saat 17:00", "akşam saat
+ * 5:00"), for a sentence that says "around" a time.
+ */
+export function formatSpokenClockTime(
+  instant: string | number,
+  language: SupportedLanguage,
+  hour12: boolean,
+  timeZone?: string,
+): string {
+  if (language !== 'tr') return formatClockTime(instant, language, hour12, timeZone);
+  if (!hour12) return `saat ${formatClockTime(instant, language, hour12, timeZone)}`;
+  const { dayPart, digits } = turkishTwelveHour(instant, timeZone);
+  return `${dayPart} saat ${digits}`;
 }
 
 /**

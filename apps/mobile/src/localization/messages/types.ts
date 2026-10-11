@@ -681,9 +681,12 @@ export type AppMessages = Readonly<{
       partialRange: (values: { range: string; through: string }) => string;
       /** The sky the briefing hour opens with, said only when the day has no event. */
       clearMorning: string;
+      partlyCloudyMorning: string;
       cloudyMorning: string;
+      foggyMorning: string;
       wetMorning: string;
-      /** Event sentences: `time` arrives formatted for the device's 12 or 24-hour clock. */
+      thunderstormMorning: string;
+      /** Event sentences: `time` arrives formatted for the device's 12 or 24-hour clock, and in Turkish already says "saat". */
       rainStarting: (time: string) => string;
       snowStarting: (time: string) => string;
       rainEasing: (time: string) => string;
@@ -692,6 +695,7 @@ export type AppMessages = Readonly<{
       temperatureDrop: (values: { time: string; temperature: string }) => string;
       temperatureRise: (values: { time: string; temperature: string }) => string;
     }>;
+    /** Every alert `time` arrives as the spoken clock time, which in Turkish already says "saat". */
     alerts: Readonly<{
       rainTitle: string;
       rainBody: (time: string) => string;

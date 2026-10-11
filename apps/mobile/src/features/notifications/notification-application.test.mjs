@@ -428,6 +428,108 @@ for (const [name, { hourly, en, tr }] of Object.entries(briefingDays)) {
   }
 }
 
+// The briefing's sky sentence is a whole true sentence for every condition code the snapshot
+// can carry: fog and thunderstorm have their own, and a forecast chance of rain over a dry
+// sky still reads as the wet sentence.
+const wetConditionCodes = ['drizzle', 'rain', 'heavy_rain', 'sleet', 'snow', 'thunderstorm'];
+const briefingSkies = {
+  clear: ['A clear morning.', 'Sabah hava açık.'],
+  mostly_clear: ['A clear morning.', 'Sabah hava açık.'],
+  partly_cloudy: ['A partly cloudy morning.', 'Sabah hava parçalı bulutlu.'],
+  cloudy: ['A cloudy morning.', 'Sabah hava bulutlu.'],
+  fog: ['A foggy morning.', 'Sabah hava sisli.'],
+  drizzle: ['Rain or snow is likely this morning.', 'Sabah yağış bekleniyor.'],
+  rain: ['Rain or snow is likely this morning.', 'Sabah yağış bekleniyor.'],
+  heavy_rain: ['Rain or snow is likely this morning.', 'Sabah yağış bekleniyor.'],
+  sleet: ['Rain or snow is likely this morning.', 'Sabah yağış bekleniyor.'],
+  snow: ['Rain or snow is likely this morning.', 'Sabah yağış bekleniyor.'],
+  thunderstorm: ['Thunderstorms are likely this morning.', 'Sabah gök gürültülü fırtına bekleniyor.'],
+};
+
+for (const [condition, [en, tr]] of Object.entries(briefingSkies)) {
+  for (const [language, sentence] of [['en', en], ['tr', tr]]) {
+    test(`the ${language} briefing sky sentence for ${condition} is a true whole sentence`, async () => {
+      const harness = createSchedulerHarness();
+      await harness.scheduler.reschedule({
+        ...enabledInput,
+        snapshot: {
+          ...weatherSnapshot(),
+          hourly: [dayHour('2026-09-10T07:00:00.000Z', {
+            condition,
+            precipitationProbability: wetConditionCodes.includes(condition) ? 0.9 : 0,
+          })],
+        },
+        weatherAlertsEnabled: false,
+        morningBriefingEnabled: true,
+        language,
+      });
+      assert.ok(harness.scheduled[0].body.endsWith(` ${sentence}`), harness.scheduled[0].body);
+    });
+  }
+}
+
+test('a foggy sky with a likely forecast chance of rain reads as the wet sentence', async () => {
+  const harness = createSchedulerHarness();
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: {
+      ...weatherSnapshot(),
+      hourly: [dayHour('2026-09-10T07:00:00.000Z', { condition: 'fog', precipitationProbability: 0.9 })],
+    },
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: true,
+  });
+  assert.ok(harness.scheduled[0].body.endsWith(' Rain or snow is likely this morning.'));
+});
+
+// Turkish names a 12-hour time with a day-period word in front ("akşam saat 7:00"), never
+// the abbreviation the clock itself prints, so the sentence reads the way it is spoken.
+test('Turkish briefing times follow the 12-hour clock in spoken form', async () => {
+  const harness = createSchedulerHarness();
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: { ...weatherSnapshot(), hourly: briefingDays['rain at 19:00'].hourly },
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: true,
+    language: 'tr',
+    hour12: true,
+  });
+  assert.equal(
+    harness.scheduled[0].body,
+    'Bugün 14\u201322\u00b0C. Yağmur akşam saat 7:00 civarında başlıyor.',
+  );
+
+  const partial = createSchedulerHarness();
+  await partial.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: { ...weatherSnapshot(), hourly: briefingDays['a forecast that ends at 15:00'].hourly },
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: true,
+    language: 'tr',
+    hour12: true,
+  });
+  assert.equal(
+    partial.scheduled[0].body,
+    'Öğleden sonra 3:00 saatine kadar: 14\u201320\u00b0C. Sabah hava bulutlu.',
+  );
+});
+
+test('a Turkish temperature swing in the briefing starts its sentence with a capital on a 12-hour clock', async () => {
+  const harness = createSchedulerHarness();
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: { ...weatherSnapshot(), hourly: briefingDays['a temperature swing'].hourly },
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: true,
+    language: 'tr',
+    hour12: true,
+  });
+  assert.equal(
+    harness.scheduled[0].body,
+    'Bugün 12\u201322\u00b0C. Öğleden sonra saat 1:00 civarında hava ısınıyor, hissedilen 21\u00b0C.',
+  );
+});
+
 test('a briefing range rounded to zero reads as one temperature', async () => {
   const morning = {
     ...weatherSnapshot(),
@@ -604,8 +706,8 @@ test('Turkish weather alert copy follows the device 12-hour clock setting', asyn
   });
 
   assert.deepEqual(harness.scheduled.map(({ body }) => body), [
-    'Saat ÖS 9:00 civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.',
-    'Saat ÖS 9:00 civarında hissedilen sıcaklık 6°C olacak. Yanına daha sıcak tutan bir kat al.',
+    'Akşam saat 9:00 civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.',
+    'Akşam saat 9:00 civarında hissedilen sıcaklık 6°C olacak. Yanına daha sıcak tutan bir kat al.',
   ]);
 });
 

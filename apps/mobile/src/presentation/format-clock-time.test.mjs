@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { getDeviceTimeZone } from '../domain/intl-format.ts';
-import { formatClockTime, formatLastUpdated, formatWallClockTime } from './format-clock-time.ts';
+import { formatClockTime, formatLastUpdated, formatNaturalClockTime, formatSpokenClockTime, formatWallClockTime } from './format-clock-time.ts';
 
 // The test loader pins the device zone to UTC unless TZ names another; the assertions below
 // hold in any zone, and the ones that spell a time out are kept to the pinned zone.
@@ -69,5 +69,36 @@ test('last updated is the time on the current local day and the short date and t
     assert.equal(formatLastUpdated(earlier, 'en', false, now), '02/10/2026, 13:05');
     assert.equal(formatLastUpdated(earlier, 'en', true, now), '02/10/2026, 01:05 pm');
     assert.equal(formatLastUpdated(earlier, 'tr', false, now), '2.10.2026 13:05');
+  }
+});
+
+// A notification sentence says its time the way it is spoken. English keeps the clock's own
+// form. Turkish keeps the 24-hour form and, on a 12-hour clock, names the part of the day
+// ("akşam saat 7:05") instead of printing the abbreviation ("ÖS 7:05").
+test('a spoken clock time names the Turkish part of the day on a 12-hour clock', () => {
+  const at = (hour, minute = 0) => new Date(Date.UTC(2026, 9, 4, hour, minute)).toISOString();
+  const spoken = (hour, minute, hour12 = true) => formatSpokenClockTime(at(hour, minute), 'tr', hour12, 'UTC');
+
+  assert.equal(spoken(0, 5), 'gece saat 12:05');
+  assert.equal(spoken(5, 0), 'gece saat 5:00');
+  assert.equal(spoken(6, 0), 'sabah saat 6:00');
+  assert.equal(spoken(11, 30), 'sabah saat 11:30');
+  assert.equal(spoken(12, 0), 'öğle saat 12:00');
+  assert.equal(spoken(13, 15), 'öğleden sonra saat 1:15');
+  assert.equal(spoken(17, 0), 'öğleden sonra saat 5:00');
+  assert.equal(spoken(18, 0), 'akşam saat 6:00');
+  assert.equal(spoken(21, 45), 'akşam saat 9:45');
+  assert.equal(spoken(22, 0), 'gece saat 10:00');
+  assert.equal(spoken(17, 0, false), 'saat 17:00');
+  assert.equal(formatNaturalClockTime(at(17, 5), 'tr', true, 'UTC'), 'öğleden sonra 5:05');
+  assert.equal(formatNaturalClockTime(at(17, 5), 'tr', false, 'UTC'), '17:05');
+});
+
+test('English spoken and natural clock times are the clock time itself', () => {
+  const instant = '2026-10-04T16:05:00.000Z';
+
+  for (const hour12 of [false, true]) {
+    assert.equal(formatSpokenClockTime(instant, 'en', hour12, 'UTC'), formatClockTime(instant, 'en', hour12, 'UTC'));
+    assert.equal(formatNaturalClockTime(instant, 'en', hour12, 'UTC'), formatClockTime(instant, 'en', hour12, 'UTC'));
   }
 });
