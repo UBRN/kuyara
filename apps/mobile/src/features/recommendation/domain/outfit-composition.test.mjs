@@ -21,6 +21,8 @@ import {
   outfitCompositionReasonCodes,
   outfitSlots,
 } from './outfit-composition.ts';
+import { readComposerDay, validDrafts } from './outfit-enumeration.ts';
+import { orderForOffer } from './outfit-offer.ts';
 import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
 import { gridRecommendationInput } from '../../../../test/recommendation-grid.mjs';
 import { recommendOutfits } from '../application/recommend-outfits.ts';
@@ -1428,4 +1430,28 @@ test('a saved hot-day outfit in a parka over a fleece still reads back', () => {
   assert.equal(saved.status, 'composed');
   assert.ok(typesOf(saved.outfits).includes('parka'));
   assert.ok(saved.outfits.some((outfit) => outfit.midLayer !== null));
+});
+
+// The day's rotation runs only through each formality's best: whatever the seed, the offer order
+// leads each formality with a draft within five points of its best. A seven-slot rotation of the
+// whole list once put rain boots at the head of a dry 18 C smart offer.
+test('the offer order leads each formality with a draft within five points of its best, whatever the seed', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const weather of [clearDay(18), clearDay(12), heatDay(4, 'rain', 0.8), heatDay(24, 'drizzle', 0.6)]) {
+      const { requirements, candidates } = composableForWeather(weather, {}, preference);
+      const drafts = validDrafts(readComposerDay(requirements, candidates, true));
+      const best = new Map();
+      for (const { formality, score } of drafts) {
+        best.set(formality, Math.max(best.get(formality) ?? 0, score.score));
+      }
+      for (let seed = 0; seed < 40; seed += 1) {
+        const order = orderForOffer(drafts, seed);
+        for (const [formality, score] of best) {
+          const lead = order.find((draft) => draft.formality === formality);
+          assert.ok(lead.score.score >= score - 5,
+            `${preference} ${weather.temperatureCelsius} C seed ${seed}: ${formality} led at ${lead.score.score}, best ${score}`);
+        }
+      }
+    }
+  }
 });

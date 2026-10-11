@@ -14,7 +14,7 @@ if (todayScreenState.kind !== 'loaded' || todayScreenState.snapshot.recommendati
 }
 const { outfits, requirements } = todayScreenState.snapshot.recommendation;
 const pick = outfits[0];
-const snapshot = { clothingPreference: 'womens', dressStyle: 'smart', dayVariant: 0 } as const;
+const snapshot = { clothingPreference: 'womens', dressStyle: 'smart', dayVariant: 0, localDayKey: null } as const;
 const now = Date.parse('2026-08-13T09:00:00.000Z');
 // The pick's own pieces, so one composed option is the pick itself, with its id.
 const pins = composePiecesOf(pick).slice(0, 3);

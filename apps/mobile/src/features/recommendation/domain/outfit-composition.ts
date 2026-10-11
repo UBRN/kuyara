@@ -105,7 +105,7 @@ export function collectValidOutfits(
 export function composeOutfitOptions(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
-  startOffset: number,
+  seed: number,
   recentWorn: readonly WornOutfit[] = [],
 ): OutfitCompositionsResult {
   const composed = composeDay(requirements, candidates);
@@ -117,7 +117,7 @@ export function composeOutfitOptions(
   return Object.freeze({
     status: 'composed',
     outfits: excludeRecentlyWornOutfits(withAccessories(
-      selectOfferedOutfits(orderForOffer(composed.valid, startOffset), offeredOutfitLimit).map(outfitOf),
+      selectOfferedOutfits(orderForOffer(composed.valid, seed), offeredOutfitLimit).map(outfitOf),
       accessorySetsByFormality(composed.day.eligible),
     ), recentWorn),
   });
@@ -145,7 +145,7 @@ export type OutfitsAroundPins = Readonly<{
 export function composeOutfitsAroundPins(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
-  startOffset: number,
+  seed: number,
   pins: readonly OutfitPin[],
 ): OutfitCompositionFailure | OutfitsAroundPins {
   const composed = composeDay(requirements, candidates);
@@ -157,7 +157,7 @@ export function composeOutfitsAroundPins(
     return Object.freeze({
       status: 'composed',
       outfits: Object.freeze(withAccessories(
-        selectDiverseOutfits(orderForOffer(pinned, startOffset), composedOutfitLimit).map(outfitOf),
+        selectDiverseOutfits(orderForOffer(pinned, seed), composedOutfitLimit).map(outfitOf),
         accessorySetsByFormality(composed.day.eligible),
       )),
       satisfiedPins: Object.freeze(subset),
