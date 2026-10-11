@@ -251,8 +251,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     justifyContent: 'space-between',
   },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
   weatherRecapCoverage: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.sm,
   },

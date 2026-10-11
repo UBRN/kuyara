@@ -89,7 +89,8 @@ export function TodayHeader({
 
 const styles = StyleSheet.create({
   topRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
-  placeRow: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: spacing.xs },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
+  placeRow: { alignItems: 'flex-start', flex: 1, flexDirection: 'row', gap: spacing.xs },
   location: { flex: 1, flexShrink: 1 },
   greeting: { marginBottom: spacing.xs },
   titleRow: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.sm },

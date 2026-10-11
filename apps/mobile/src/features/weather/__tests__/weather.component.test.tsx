@@ -314,6 +314,10 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     // The notice wraps beside its glyph inside the card instead of running past it.
     const noticeText = within(result.getByTestId('weather-stale-notice')).getByText(copy[noticeKey]);
     expect(StyleSheet.flatten(noticeText.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
+    // Its warning glyph sits with the first line of the wrapped notice.
+    let noticeRow = noticeText.parent;
+    while (noticeRow && StyleSheet.flatten(noticeRow.props.style)?.flexDirection !== 'row') noticeRow = noticeRow.parent;
+    expect(StyleSheet.flatten(noticeRow!.props.style).alignItems).toBe('flex-start');
   });
 
   test('groups localized current metrics and hides the decorative glyph', async () => {

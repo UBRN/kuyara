@@ -2949,6 +2949,10 @@ test('a day-type change dims the outfit and says it is updating until the new on
   expect(view.queryByTestId('today-day-type-pill')).toBeNull();
   expect(view.getByTestId('today-updating-status'))
     .toHaveTextContent(messages.en.today.dailyStyle.updating.formal);
+  // The waiting mark sits with the first line of a wrapped status.
+  let updatingRow = view.getByTestId('today-updating-status').parent;
+  while (updatingRow && StyleSheet.flatten(updatingRow.props.style)?.flexDirection !== 'row') updatingRow = updatingRow.parent;
+  expect(StyleSheet.flatten(updatingRow!.props.style).alignItems).toBe('flex-start');
   expect(view.queryByTestId('today-provenance-badge')).toBeNull();
 
   await view.rerender(

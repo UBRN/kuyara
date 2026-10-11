@@ -571,6 +571,10 @@ test('once the place is known, the choice previews draw its weather instead of t
   const hidden = { includeHiddenElements: true };
   expect(result.getByText(messages.en.onboarding.welcomePreviewTitle('23°', messages.en.weather.conditions.rain), hidden))
     .toBeOnTheScreen();
+  // The sky glyph sits with the first line of a wrapped preview title.
+  let previewRow = result.getByText(messages.en.onboarding.welcomePreviewTitle('23°', messages.en.weather.conditions.rain), hidden).parent;
+  while (previewRow && StyleSheet.flatten(previewRow.props.style)?.flexDirection !== 'row') previewRow = previewRow.parent;
+  expect(StyleSheet.flatten(previewRow!.props.style).alignItems).toBe('flex-start');
   expect(result.getByTestId('onboarding-welcome-preview', hidden)).toHaveStyle({
     backgroundColor: lightTheme.atmosphere.fallingDay,
   });

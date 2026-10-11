@@ -545,6 +545,8 @@ test('a background refresh failure shows a retryable banner without discarding t
   await result.rerender(screenWith('unavailable'));
   await result.rerender(screenWith('unavailable'));
   expect(result.getByTestId('wardrobe-refresh-error')).toBeOnTheScreen();
+  // Its glyph sits with the first line of the wrapped error.
+  expect(StyleSheet.flatten(result.getByTestId('wardrobe-refresh-error').props.style).alignItems).toBe('flex-start');
   expect(announce).toHaveBeenCalledTimes(1);
   expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.loadErrorBody);
   announce.mockRestore();
@@ -712,6 +714,7 @@ test('the saved piece is named with Undo and ringed, and Undo removes it or repo
   expect(onUndoSaved).toHaveBeenCalledWith(plainPiece.id);
   await act(async () => rejectUndo?.(new Error('write failed')));
   await waitFor(() => expect(result.getByTestId('wardrobe-undo-error')).toBeOnTheScreen());
+  expect(StyleSheet.flatten(result.getByTestId('wardrobe-undo-error').props.style).alignItems).toBe('flex-start');
   // VoiceOver ignores the alert role, so the failed Undo is also spoken, once.
   expect(announce).toHaveBeenCalledTimes(1);
   expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.deleteError);

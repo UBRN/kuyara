@@ -193,6 +193,10 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
       .toHaveTextContent(copy.manualMix.sourceOne.deterministic);
     // The note stands in the hint's place, in its own glyph and ink; the two never show together.
     expect(result.getByText(copy.manualMix.unusual)).toBeOnTheScreen();
+    // Its glyph sits with the first line of the wrapped note.
+    let unusualRow = result.getByText(copy.manualMix.unusual).parent;
+    while (unusualRow && StyleSheet.flatten(unusualRow.props.style)?.flexDirection !== 'row') unusualRow = unusualRow.parent;
+    expect(StyleSheet.flatten(unusualRow!.props.style).alignItems).toBe('flex-start');
     expect(result.queryByText(copy.boardHint)).toBeNull();
     expect(announce).toHaveBeenCalledWith(copy.manualMix.unusualAccessibilityLabel);
     // "Why this outfit" is the changed outfit's own: no weather draws a line to the rain jacket now.

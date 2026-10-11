@@ -680,8 +680,9 @@ const styles = StyleSheet.create({
   headingRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: spacing.md },
   presenceSlot: { marginTop: -spacing.md },
   presenceContent: { paddingTop: spacing.md },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
   staleNotice: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderRadius: radii.control,
     flexDirection: 'row',
     gap: spacing.sm,

@@ -790,8 +790,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.stage,
     marginTop: spacing.xl,
   },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
   boardLine: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.sm,
     paddingTop: spacing.md,

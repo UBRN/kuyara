@@ -177,6 +177,13 @@ jest.mock('expo-router', () => {
 });
 
 const originalDimensions = Dimensions.get('window');
+// A glyph-and-words row holds its glyph with the first line of wrapped words, never the
+// middle of the block; walk from a node to the nearest row and read its alignment.
+const rowAlignment = (node: ReturnType<ReturnType<typeof within>['getByTestId']>) => {
+  let row: typeof node | null = node;
+  while (row && StyleSheet.flatten(row.props.style)?.flexDirection !== 'row') row = row.parent;
+  return StyleSheet.flatten(row!.props.style).alignItems;
+};
 const fixtureNow = Date.parse('2026-08-13T06:30:00.000Z');
 let dateNowSpy: jest.SpiedFunction<typeof Date.now>;
 beforeEach(() => {
@@ -400,6 +407,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(result.getByTestId('today-date'))
       .toHaveTextContent(language === 'en' ? 'Thu 13 Aug' : '13 Ağu Per');
     expect(within(result.getByTestId('today-top-row')).getByText('Istanbul')).toBeOnTheScreen();
+    expect(rowAlignment(within(result.getByTestId('today-top-row')).getByText('Istanbul'))).toBe('flex-start');
     expect(result.queryByTestId('today-rationale')).not.toBeOnTheScreen();
     for (const reason of primary.reasons) {
       expect(result.queryByText(reason)).not.toBeOnTheScreen();
@@ -987,6 +995,7 @@ test('outfit detail renders the board, its name buttons, piece rows by O7, trade
     copy.ownershipYours(messages.en.catalog[`catalog.color_family.${similarRecord.colorFamily!}`]),
   );
   expect(result.getByTestId('outfit-detail-edit-hint')).toHaveTextContent(copy.boardHint);
+  expect(rowAlignment(within(result.getByTestId('outfit-detail-edit-hint')).getByText(copy.boardHint))).toBe('flex-start');
 
   // The board changes pieces now, so only the row opens the piece sheet.
   await fireEvent.press(result.getByTestId(`outfit-detail-piece-${similarPiece.garmentTypeId}`));
@@ -1215,6 +1224,7 @@ test('outfit detail carries the coverage line inside the weather recap', async (
   // The fixture's forecast stops at 11:00 local, so the promise ends there too.
   const line = messages.en.today.coverage.chosen('09:30', '11:00');
   expect(within(recap).getByTestId('outfit-detail-coverage')).toHaveTextContent(line);
+  expect(rowAlignment(within(recap).getByTestId('outfit-detail-coverage'))).toBe('flex-start');
   expect(recap.props.accessibilityLabel).toContain(line);
 });
 
@@ -2638,6 +2648,7 @@ describe('the contextual weather-alert offer', () => {
 
     expect(result.getByTestId('today-alert-offer-message'))
       .toHaveTextContent(messages.en.notifications.offer.morningBriefingSentence(time));
+    expect(rowAlignment(result.getByTestId('today-alert-offer-message'))).toBe('flex-start');
   });
 
   test.each(['en', 'tr'] as const)('%s names the rule that would have fired and offers both actions', async (language) => {
@@ -2971,6 +2982,7 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
     ));
     expect(result.getByTestId('today-coverage-caption'))
       .toHaveTextContent(messages[language].today.coverage.chosen('09:30', '19:00'));
+    expect(rowAlignment(result.getByTestId('today-coverage-caption'))).toBe('flex-start');
     expect(result.queryByTestId('today-drift-caption')).toBeNull();
     // Turkish never attaches a case suffix to a clock time.
     expect(messages.tr.today.coverage.chosen('13:00', '20:00'))
@@ -3007,6 +3019,7 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
     ));
     const caption = result.getByTestId('today-drift-caption');
     expect(caption).toHaveTextContent(messages[language].today.drift.cold('17:00'));
+    expect(rowAlignment(caption)).toBe('flex-start');
     const text = within(caption).getByText(messages[language].today.drift.cold('17:00'));
     expect(StyleSheet.flatten(text.props.style)).toMatchObject({ color: lightTheme.colors.warningInk });
     expect(jest.mocked(SymbolView).mock.calls.some(([props]) =>
@@ -3058,6 +3071,7 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
     ));
     expect(result.getByTestId('today-choosing-caption'))
       .toHaveTextContent(messages[language].today.coverage.choosing('15:00', '20:00'));
+    expect(rowAlignment(result.getByTestId('today-choosing-caption'))).toBe('flex-start');
     expect(result.queryByTestId('today-coverage-caption')).toBeNull();
   });
 

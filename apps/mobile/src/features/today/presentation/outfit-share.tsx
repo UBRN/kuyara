@@ -115,7 +115,7 @@ export function OutfitShareCard({
             width={BOARD_WIDTH}
           />
         </PlateView>
-        <View style={styles.row}>
+        <View style={styles.placeRow}>
           <Icon color={theme.colors.iconSecondary} name="location" size={PLACE_SYMBOL_SIZE} />
           <AppText numberOfLines={2} style={styles.shrink} variant="bodyStrong">
             {presentation.header.location}
@@ -148,5 +148,7 @@ const styles = StyleSheet.create({
   // Today's stage corner, so the shared board stands where the user first saw it.
   stage: { borderRadius: radii.stage, overflow: 'hidden', width: BOARD_WIDTH },
   row: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
+  placeRow: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
   shrink: { flexShrink: 1 },
 });

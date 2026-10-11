@@ -732,7 +732,8 @@ const styles = StyleSheet.create({
   laterReady: { marginTop: spacing.xs },
   // S15: a quiet line on the ground plane, never a card, after the last button.
   alertOffer: { gap: spacing.sm, marginTop: spacing.lg },
-  alertOfferMessage: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
+  alertOfferMessage: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
   alertOfferText: { flex: 1, flexShrink: 1 },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
 });

@@ -489,6 +489,8 @@ test('each error line carries the error glyph and the danger ink, as the Closet\
   await fireEvent.press(result.getByTestId('piece-edit-done'));
   for (const testID of ['piece-edit-error-line', 'piece-edit-photo-error-line']) {
     const line = await result.findByTestId(testID);
+    // The glyph sits with the first line of a wrapped error.
+    expect(StyleSheet.flatten(line.props.style).alignItems).toBe('flex-start');
     expect(within(line).getByTestId('symbol-exclamationmark.circle.fill', hidden))
       .toHaveProp('tintColor', lightTheme.colors.dangerInk);
     expect(StyleSheet.flatten(result.getByTestId(testID.replace(/-line$/, '')).props.style).color)

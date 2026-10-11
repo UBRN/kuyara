@@ -328,6 +328,7 @@ const styles = StyleSheet.create({
   card: { gap: spacing.md, padding: spacing.lg },
   presenceSlot: { marginTop: -spacing.md },
   presenceContent: { paddingTop: spacing.md },
-  status: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
+  status: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
   statusText: { flex: 1 },
 });

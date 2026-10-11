@@ -45,7 +45,8 @@ function MostWornLine({ mostWorn }: Readonly<{ mostWorn: NonNullable<WeekSummary
     piece: messages.catalog[type.nameKey], count: mostWorn.days,
   });
   return (
-    <View accessibilityLabel={line} accessible style={styles.line} testID="history-week-most-worn">
+    <View accessibilityLabel={line} accessible style={[styles.line, styles.plateLine]}
+      testID="history-week-most-worn">
       <PlateView color={theme.colors.garmentTile} style={styles.plate}>
         <GarmentDrawing
           category={type.structuralCategory}
@@ -90,7 +91,10 @@ export function HistoryWeekSummary({ summary }: Readonly<{ summary: WeekSummary 
 
 const styles = StyleSheet.create({
   week: { gap: spacing.sm, paddingTop: spacing.md },
-  line: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
+  line: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
+  // The most-worn piece stands on a plate taller than its words, so the words centre on it.
+  plateLine: { alignItems: 'center' },
   lineText: { flexShrink: 1 },
   plate: {
     alignItems: 'center',

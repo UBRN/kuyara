@@ -171,6 +171,9 @@ test.each(['tr', 'en'] as const)('%s picker announces empty and error states wit
     search.searchPlaces.mockRejectedValueOnce(error);
     await fireEvent.changeText(field, code); await debounce();
     expect(result.getByLabelText(copy.placeSearchErrors[code]).props.accessibilityLiveRegion).toBe('polite');
+    // The warning glyph sits with the first line of a wrapped error.
+    expect(StyleSheet.flatten(result.getByLabelText(copy.placeSearchErrors[code]).props.style).alignItems)
+      .toBe('flex-start');
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(copy.placeSearchErrors[code]);
     expect(result.queryByText(error.message)).toBeNull();
   }

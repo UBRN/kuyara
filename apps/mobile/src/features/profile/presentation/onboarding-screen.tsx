@@ -725,8 +725,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     overflow: 'hidden',
   },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
   previewTitle: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,

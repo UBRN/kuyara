@@ -397,6 +397,9 @@ test.each([
   expect(week.getByTestId('history-week-light').props.accessibilityLabel).toBe(light);
   expect(week.queryByTestId('history-week-cold')).toBeNull();
   expect(week.getByTestId('history-week-most-worn').props.accessibilityLabel).toBe(piece);
+  // A glyph sits with the first line of its wrapped words; the taller piece plate centres them.
+  expect(StyleSheet.flatten(week.getByTestId('history-week-rain').props.style).alignItems).toBe('flex-start');
+  expect(StyleSheet.flatten(week.getByTestId('history-week-most-worn').props.style).alignItems).toBe('center');
   expect(week.getByTestId('history-week-most-worn-t_shirt', { includeHiddenElements: true })).toBeOnTheScreen();
   // The days still follow, the week's own and the one before it.
   expect(result.getByTestId('history-entry-2026-10-03')).toBeOnTheScreen();

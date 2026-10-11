@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
-import { AccessibilityInfo, Dimensions } from 'react-native';
+import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { recommendOutfits } from '@/features/recommendation/application/recommend-outfits';
@@ -194,6 +194,10 @@ describe.each(['en', 'tr'] as const)('%s outfit detail', (language) => {
     expect(result.queryByTestId('outfit-detail-closet-seed-button')).toBeNull();
     expect(result.queryByTestId('outfit-detail-closet-seed-choice')).toBeNull();
     expect(result.getByText(copy.closetSeed.added(4))).toBeOnTheScreen();
+    // Its glyph sits with the first line of the wrapped confirmation.
+    let addedRow = result.getByText(copy.closetSeed.added(4)).parent;
+    while (addedRow && StyleSheet.flatten(addedRow.props.style)?.flexDirection !== 'row') addedRow = addedRow.parent;
+    expect(StyleSheet.flatten(addedRow!.props.style).alignItems).toBe('flex-start');
   });
 
   test('a failed seed keeps the offer and says so; a Closet with pieces gets no offer', async () => {

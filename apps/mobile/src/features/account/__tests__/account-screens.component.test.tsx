@@ -282,6 +282,8 @@ describe('the Settings Account group (frames 05, 06, 13, 23, 36)', () => {
     const port = portFor(scenario);
     const screen = await renderWith(port, <AccountSettingsSection onOpenAccount={jest.fn()} />);
     expect(screen.getByTestId('settings-account-notice')).toHaveTextContent(text);
+    // Its glyph sits with the first line of the wrapped notice.
+    expect(StyleSheet.flatten(screen.getByTestId('settings-account-notice').props.style).alignItems).toBe('flex-start');
     expect(screen.queryByText(en.settings.signedOutFooter)).toBeNull();
     await screen.unmount();
     expect(port.getSnapshot().session).toEqual({ kind: 'signedOut', notice: null });

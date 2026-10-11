@@ -215,9 +215,10 @@ export function TodayFreshness({
 }
 
 const styles = StyleSheet.create({
-  captionRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
+  captionRow: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   captionText: { flexShrink: 1 },
-  updatingRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  updatingRow: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   updatingText: { flexShrink: 1 },
   insight: { marginTop: spacing.xl },
   finishingTouches: { gap: spacing.sm, marginTop: spacing.md },

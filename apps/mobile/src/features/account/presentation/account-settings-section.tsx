@@ -72,6 +72,7 @@ export function AccountSettingsSection({ onOpenAccount }: Readonly<{ onOpenAccou
 }
 
 const styles = StyleSheet.create({
-  notice: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
+  notice: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
   noticeText: { flex: 1 },
 });

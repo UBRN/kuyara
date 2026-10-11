@@ -1,5 +1,5 @@
 import { fireEvent, isHiddenFromAccessibility, render, screen, waitFor } from '@testing-library/react-native';
-import { Share } from 'react-native';
+import { Share, StyleSheet } from 'react-native';
 
 import { todayScreenState } from '@/features/today/__tests__/fixtures';
 import { OutfitShareAction } from '@/features/today/presentation/outfit-share';
@@ -85,6 +85,10 @@ describe.each(['en', 'tr'] as const)('%s outfit share', (language) => {
     expect(isHiddenFromAccessibility(card)).toBe(true);
     // The card is the outfit drawn large, the place it was dressed for, and the kuyara name.
     expect(card).toHaveTextContent(presentation.header.location, { exact: false });
+    // The place's glyph sits with the first line of a long, wrapped place name.
+    let placeRow = screen.getByText(presentation.header.location, hidden).parent;
+    while (placeRow && StyleSheet.flatten(placeRow.props.style)?.flexDirection !== 'row') placeRow = placeRow.parent;
+    expect(StyleSheet.flatten(placeRow!.props.style).alignItems).toBe('flex-start');
     expect(card).toHaveTextContent('kuyara', { exact: false });
     expect(card).not.toHaveTextContent(suggestion.title, { exact: false });
     expect(card).not.toHaveTextContent(presentation.date, { exact: false });

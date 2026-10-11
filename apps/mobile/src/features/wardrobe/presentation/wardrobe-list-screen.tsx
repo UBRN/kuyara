@@ -686,8 +686,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: GRID_GAP,
   },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
   inlineError: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.sm,
   },

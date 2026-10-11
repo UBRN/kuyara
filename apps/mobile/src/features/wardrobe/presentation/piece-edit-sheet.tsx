@@ -317,7 +317,8 @@ const styles = StyleSheet.create({
   cardTile: { alignItems: 'center', borderRadius: radii.control, height: CARD_TILE_SIZE,
     justifyContent: 'center', overflow: 'hidden', width: CARD_TILE_SIZE },
   section: { gap: spacing.sm },
-  errorLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
+  errorLine: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
   errorCopy: { flex: 1 },
   photo: { borderRadius: radii.card, height: 180, width: '100%' },
 });

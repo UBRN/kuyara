@@ -644,8 +644,9 @@ const styles = StyleSheet.create({
   seedFailed: {
     marginTop: spacing.sm,
   },
+  // The glyph sits with the first line of wrapped words, as every glyph-and-words row does.
   seedDone: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.sm,
   },
