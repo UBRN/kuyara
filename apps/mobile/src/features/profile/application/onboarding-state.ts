@@ -6,14 +6,15 @@ import type {
 } from '@/features/profile/domain/profile';
 
 /**
- * The steps in the order they are shown. The location comes right after the welcome, so the
- * steps after it can draw the place's real weather; the optional name and birth date share
- * one step. The last step is the analytics consent question, whose answer finishes setup
- * (ADR 0033 section 6).
+ * The steps in the order they are shown. The welcome asks where first, so every step after it
+ * draws the place's real weather; gender and dress style share one step over one board; the
+ * optional styles and the optional name and birth date follow. The last step is the analytics
+ * consent question, whose answer finishes setup (ADR 0033 section 6).
  */
-export const onboardingSteps = ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles', 'consent'] as const;
-export type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-const lastStep = (onboardingSteps.length - 1) as OnboardingStep;
+export const onboardingSteps = ['location', 'dress', 'styles', 'about', 'consent'] as const;
+/** A position in `onboardingSteps`. */
+export type OnboardingStep = number;
+const lastStep = onboardingSteps.length - 1;
 
 export type OnboardingDraft = Readonly<{
   step: OnboardingStep;
@@ -64,35 +65,25 @@ export function reduceOnboardingDraft(
 
   switch (action.type) {
     case 'continue':
-      if (onboardingSteps[state.step] === 'gender' && !state.gender) {
-        return { ...state, hasValidationError: true };
-      }
-      if (onboardingSteps[state.step] === 'dress_style' && !state.dressStyle) {
+      if (onboardingSteps[state.step] === 'dress' && (!state.gender || !state.dressStyle)) {
         return { ...state, hasValidationError: true };
       }
       return {
         ...state,
-        step: Math.min(state.step + 1, lastStep) as OnboardingStep,
+        step: Math.min(state.step + 1, lastStep),
         hasValidationError: false,
       };
     case 'back':
       return {
         ...state,
-        step: Math.max(state.step - 1, 0) as OnboardingStep,
+        step: Math.max(state.step - 1, 0),
         hasValidationError: false,
       };
+    // An answer keeps the step's error: the screen shows it only beside a question still open.
     case 'select-gender':
-      return {
-        ...state,
-        gender: action.value,
-        hasValidationError: false,
-      };
+      return { ...state, gender: action.value };
     case 'select-dress-style':
-      return {
-        ...state,
-        dressStyle: action.value,
-        hasValidationError: false,
-      };
+      return { ...state, dressStyle: action.value };
     case 'select-style-aesthetics':
       return { ...state, styleAesthetics: action.value };
     case 'select-birth-date':
@@ -110,7 +101,8 @@ export function onboardingPreferencesFromDraft(
   }
 
   return {
-    displayName: state.displayName,
+    // A name left empty, or as spaces only, is no name.
+    displayName: state.displayName?.trim() || null,
     gender: state.gender,
     dressStyle: state.dressStyle,
     styleAesthetics: state.styleAesthetics,

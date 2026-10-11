@@ -24,6 +24,26 @@ test('optional names trim whitespace and accept only 2 to 30 characters', () => 
   assert.throws(() => profile.normalizeDisplayName('a'.repeat(31)));
 });
 
+// The letter rule is for typed input only: a stored name such as "27" still loads, so the read
+// path and the remote mapper keep the length rule alone.
+test('a typed name needs a letter, while a stored name keeps the length rule alone', () => {
+  for (const typed of ['27', ' 1 2 ', '--', '42.']) {
+    assert.equal(profile.displayNameInputIssue(typed), 'letter', typed);
+  }
+  for (const typed of ['', '  ', 'Deniz', 'Ömer 2', 'İz', 'Ли']) {
+    assert.equal(profile.displayNameInputIssue(typed), null, typed);
+  }
+  assert.equal(profile.displayNameInputIssue('A'), 'short');
+  assert.equal(profile.displayNameInputIssue('7'.repeat(31)), 'long');
+  assert.equal(profile.displayNameIssue('27'), null);
+  assert.equal(profile.normalizeDisplayName('27'), '27');
+});
+
+test('an unset birth date picker opens on 1 January, 25 years before the clock year', () => {
+  assert.equal(profile.birthDatePickerStart(new Date(2026, 9, 11, 9)), '2001-01-01');
+  assert.equal(profile.birthDatePickerStart(new Date(2027, 0, 1, 0, 5)), '2002-01-01');
+});
+
 test('the default dress style is smart, one of the three styles', () => {
   assert.equal(profile.defaultDressStyle, 'smart');
 });

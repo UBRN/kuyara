@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { onboardingPreviewOutfits } from './onboarding-preview.ts';
+import { listGarmentTypesForPreference } from '../../catalog/domain/garment-catalog.ts';
+import { onboardingPreviewOutfits, onboardingStyledOutfit, onboardingUnisexOutfit } from './onboarding-preview.ts';
 
 const observedAt = '2026-07-15T10:00:00.000Z';
 
@@ -94,4 +95,52 @@ test('the same weather always draws the same outfits, as board-ready pieces', ()
   for (const piece of outfit(mild, 'woman', 'formal')) {
     assert.deepEqual(Object.keys(piece).sort(), ['category', 'garmentTypeId', 'slot']);
   }
+});
+
+// Before a gender is chosen the board draws one outfit for anyone: on the place's weather it is
+// a casual outfit the rules offer whose every type both catalogs carry, drawn in the men's
+// straight cut, so a hot day draws no coat even before the gender question.
+test('before a gender is chosen the place draws a rule outfit both catalogs carry', () => {
+  const mens = new Set(listGarmentTypesForPreference('mens').map(({ typeId }) => typeId));
+  const both = new Set(listGarmentTypesForPreference('womens').map(({ typeId }) => typeId).filter((id) => mens.has(id)));
+  for (const day of [hot, mild, cold, rain]) {
+    const pieces = onboardingUnisexOutfit(day);
+    assert.ok(pieces, day.id);
+    assert.ok(pieces.every(({ garmentTypeId }) => both.has(garmentTypeId)), `${day.id} ${garments(pieces)}`);
+    assert.deepEqual(pieces, onboardingUnisexOutfit(day));
+  }
+  assert.ok(!garments(onboardingUnisexOutfit(hot)).some((id) => warmLayers.includes(id)));
+});
+
+// Styles reorder outfits within the dress style's formality and never remove one, so the rules'
+// first outfit rarely moves when a style is tapped. The styles step shows what a tap does
+// instead: an outfit in the chosen styles, the first in the order they give, that is not the one
+// already on the plate. With no style chosen, or none of the day's outfits in those styles,
+// nothing replaces the plate's outfit.
+test('a style tap shows an outfit in the chosen styles that is not the one on the plate', () => {
+  const styles = ['minimal', 'classic', 'sporty', 'streetwear', 'relaxed'];
+  const partlyCloudy = weather(22, 'partly_cloudy', 0.1);
+  let answered = 0;
+  let taps = 0;
+  for (const day of [hot, mild, cold, rain, partlyCloudy]) {
+    for (const gender of genders) {
+      for (const dressStyle of dressStyles) {
+        const shown = outfit(day, gender, dressStyle);
+        assert.equal(onboardingStyledOutfit(day, gender, dressStyle, [], shown), null);
+        for (const style of styles) {
+          taps += 1;
+          const next = onboardingStyledOutfit(day, gender, dressStyle, [style], shown);
+          if (!next) continue;
+          answered += 1;
+          assert.notDeepEqual(garments(next), garments(shown), `${day.id} ${gender} ${dressStyle} ${style}`);
+          assert.deepEqual(next, onboardingStyledOutfit(day, gender, dressStyle, [style], shown));
+        }
+      }
+    }
+  }
+  // The tour's day: a smart man on a 22 degree partly cloudy day sees Minimal and Sporty answer.
+  for (const style of ['minimal', 'sporty']) {
+    assert.ok(onboardingStyledOutfit(partlyCloudy, 'man', 'smart', [style], outfit(partlyCloudy, 'man', 'smart')), style);
+  }
+  assert.ok(answered > taps * 0.8, `${answered} of ${taps}`);
 });

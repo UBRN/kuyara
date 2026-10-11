@@ -24,41 +24,41 @@ const profile = (onboardingCompleted) => ({
   updatedAt: '2026-07-30T10:00:00.000Z',
 });
 
-test('onboarding asks the location after welcome, then the optional name and age, then required gender and dress style, and ends on the consent question', () => {
+// Where (welcome and location on one screen), how to dress (gender and dress style on one
+// screen, both required), the optional styles, the optional name and birth date, then the
+// consent question.
+test('onboarding asks where, then how to dress, the optional styles, the optional name and birth date, and ends on the consent question', () => {
   let draft = createOnboardingDraft({
     gender: null,
     dressStyle: null,
     birthDate: null,
   });
 
-  assert.deepEqual(onboardingSteps, ['welcome', 'location', 'about', 'gender', 'dress_style', 'styles', 'consent']);
+  assert.deepEqual(onboardingSteps, ['location', 'dress', 'styles', 'about', 'consent']);
   draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
   assert.equal(draft.step, 1);
   draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
-  assert.equal(draft.step, 2);
-  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
-  assert.equal(draft.step, 3);
-  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
-  assert.equal(draft.step, 3);
+  assert.equal(draft.step, 1);
   assert.equal(draft.hasValidationError, true);
   assert.equal(onboardingPreferencesFromDraft(draft), null);
 
+  // One answer leaves the other's error standing until it is given too.
   draft = reduceOnboardingDraft(draft, { type: 'select-gender', value: 'woman' });
-  assert.equal(draft.hasValidationError, false);
-  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
-  assert.equal(draft.step, 4);
-  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
-  assert.equal(draft.step, 4);
   assert.equal(draft.hasValidationError, true);
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
+  assert.equal(draft.step, 1);
   draft = reduceOnboardingDraft(draft, { type: 'select-dress-style', value: 'smart' });
   draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
-  assert.equal(draft.step, 5);
+  assert.equal(draft.step, 2);
+  assert.equal(draft.hasValidationError, false);
   draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
-  assert.equal(draft.step, 6);
+  assert.equal(draft.step, 3);
   draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
-  assert.equal(draft.step, 6);
+  assert.equal(draft.step, 4);
+  draft = reduceOnboardingDraft(draft, { type: 'continue', from: draft.step });
+  assert.equal(draft.step, 4);
   draft = reduceOnboardingDraft(draft, { type: 'back', from: draft.step });
-  assert.equal(draft.step, 5);
+  assert.equal(draft.step, 3);
 });
 
 test('onboarding ignores a continue or back that was pressed on a step it has already left', () => {
@@ -89,9 +89,12 @@ test('onboarding keeps personal choices independent and reviewable', () => {
     styleAesthetics: [],
     birthDate: '1994-03-14',
   });
-  draft = reduceOnboardingDraft({ ...draft, step: 5 }, { type: 'back', from: 5 });
-  assert.equal(draft.step, 4);
+  draft = reduceOnboardingDraft({ ...draft, step: 3 }, { type: 'back', from: 3 });
+  assert.equal(draft.step, 2);
   assert.equal(draft.gender, 'man');
+  draft = reduceOnboardingDraft(draft, { type: 'set-display-name', value: '  Deniz  ' });
+  assert.equal(onboardingPreferencesFromDraft(draft).displayName, 'Deniz');
+  draft = reduceOnboardingDraft(draft, { type: 'set-display-name', value: '   ' });
   draft = reduceOnboardingDraft(draft, { type: 'select-birth-date', value: null });
   assert.deepEqual(onboardingPreferencesFromDraft(draft), {
     displayName: null,
@@ -188,11 +191,10 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
   for (const language of ['en', 'tr']) {
     const copy = messages[language];
     assert.ok(copy.onboarding.welcomeTitle);
-    assert.ok(copy.onboarding.genderRequiredError);
-    assert.ok(copy.onboarding.dressStyleRequiredError);
+    assert.ok(copy.onboarding.dressRequiredError);
     assert.ok(copy.onboarding.birthDateNotSet);
-    assert.ok(copy.onboarding.locationTitle);
-    assert.ok(copy.onboarding.locationBody);
+    assert.ok(copy.onboarding.locationQuestion);
+    assert.ok(copy.onboarding.closetPromise);
     assert.ok(copy.onboarding.saveError);
     assert.ok(copy.preferences.genderWoman);
     assert.ok(copy.preferences.genderMan);

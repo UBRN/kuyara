@@ -233,6 +233,8 @@ test('selecting a searched place that changes the location captures location_cha
       activeLocation: { ...selected, catalogId: 'place.999' as ManualLocationId, locationKey: 'manual:place.999' },
     };
   });
+  // A pick puts its results away; the next search brings them back.
+  await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Istan'); await debounce();
   await fireEvent.press(result.getByRole('button', { name: messages.en.weather.placeSearchResultLabel(place.displayName, place.region) }));
   expect(analytics.captures.some((c) => c.name === 'location_changed')).toBe(true);
   expect(analytics.captures.some((c) => c.name === 'feature_used_first_time')).toBe(false);
@@ -468,7 +470,7 @@ test('the search status crossfades and the results fade in when they appear', as
   search.searchPlaces.mockResolvedValueOnce({ ...data, places: [] });
   const result = await render(<Providers><WeatherLocationScreen /></Providers>);
   const resultsOpacity = () =>
-    StyleSheet.flatten(result.getByTestId('weather-place-results').parent!.props.style).opacity;
+    StyleSheet.flatten(result.getByTestId('weather-place-results', { includeHiddenElements: true }).parent!.props.style).opacity;
   expect(resultsOpacity()).toBe(0);
   const field = result.getByTestId('weather-place-search');
   await fireEvent.changeText(field, 'Zzz'); await debounce();
@@ -516,15 +518,89 @@ test('an unnamed approximate device fix falls back to the generic name and says 
   expect(within(row).getByText(copy.approximateLocation)).toBeOnTheScreen();
 });
 
-test('no current-location row stands for a manual place or a pending answer', async () => {
+// A place picked by name is named under the button as the device's place is, without a
+// precise or approximate caption: it was chosen, not located.
+test('a manual place has its own current row, and no row stands for a pending answer', async () => {
   const { weather, Providers } = harness();
   weather.state = { ...readyState(weather.state), activeLocation: istanbul };
   const manual = await render(<Providers><WeatherLocationScreen /></Providers>);
   expect(manual.queryByTestId('weather-location-device-current')).toBeNull();
+  const row = manual.getByTestId('weather-location-manual-current');
+  expect(within(row).getByText(place.displayName)).toBeOnTheScreen();
+  expect(row.props.accessibilityLabel).toBe(place.displayName);
   await manual.unmount();
   weather.state = { ...readyState(weather.state), permission: granted, activeLocation: deviceLocation, locationFlow: 'lookup-failed' };
   const failed = await render(<Providers><WeatherLocationScreen /></Providers>);
   expect(failed.queryByTestId('weather-location-device-current')).toBeNull();
+});
+
+// A picked city used to leave the keyboard up and change only a small check, so the step looked
+// frozen. The keyboard goes, the place is named under the button as the device's place is, and
+// VoiceOver hears it once. Nothing is felt: Law 8 names only the device fix.
+test('a picked search result dismisses the keyboard, is named under the button and spoken once, unfelt', async () => {
+  const { weather, search, Providers } = harness();
+  const dismiss = jest.spyOn(Keyboard, 'dismiss');
+  const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), activeLocation: istanbul };
+  });
+  const controls = () => (
+    <Providers><LocationSelectionControls reportsSelection={false} testID="controls" testIDPrefix="onboarding" /></Providers>
+  );
+  const result = await render(controls());
+  await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista'); await debounce();
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
+  expect(dismiss).toHaveBeenCalledTimes(1);
+  await result.rerender(controls());
+  const row = result.getByTestId('onboarding-location-manual-current');
+  expect(within(row).getByText(place.displayName)).toBeOnTheScreen();
+  expect(row.props.accessibilityState).toEqual({ selected: true });
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+  expect(AccessibilityInfo.announceForAccessibility)
+    .toHaveBeenCalledWith(messages.en.weather.placeSelectedNamed(place.displayName));
+  expect(success).not.toHaveBeenCalled();
+  // The search is answered: its text is cleared, so its results are gone too.
+  expect(result.queryByTestId('onboarding-place-place.745044', { includeHiddenElements: true })).toBeNull();
+});
+
+// While the picked place's first weather is on its way the row says so, without repeating the
+// name it already shows, and VoiceOver hears the pick and the wait as one line.
+test('a pick whose weather is on its way says so in its row and in one spoken line', async () => {
+  const { weather, search, Providers } = harness();
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), activeLocation: istanbul, isRefreshing: true };
+  });
+  const controls = () => (
+    <Providers><LocationSelectionControls reportsSelection={false} testID="controls" testIDPrefix="onboarding" /></Providers>
+  );
+  const result = await render(controls());
+  await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista'); await debounce();
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
+  await result.rerender(controls());
+  const row = result.getByTestId('onboarding-location-manual-current');
+  expect(within(row).getByText(messages.en.weather.placeWeatherLoading)).toBeOnTheScreen();
+  expect(row.props.accessibilityLabel).toBe(`${place.displayName}, ${messages.en.weather.placeWeatherLoading}`);
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+  expect(AccessibilityInfo.announceForAccessibility)
+    .toHaveBeenCalledWith(messages.en.weather.placeSelectedFetching(place.displayName));
+});
+
+// A pick that cannot be saved leaves the search as it was, so another result is one tap away.
+test('a failed pick brings its results back', async () => {
+  const { weather, search, Providers } = harness();
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), locationFlow: 'selection-failed' };
+  });
+  const controls = () => (
+    <Providers><LocationSelectionControls reportsSelection={false} testID="controls" testIDPrefix="onboarding" /></Providers>
+  );
+  const result = await render(controls());
+  await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista'); await debounce();
+  await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
+  await result.rerender(controls());
+  expect(result.getByTestId('onboarding-place-place.745044')).toBeOnTheScreen();
 });
 
 // The tap asks the system directly: no card of kuyara's own comes first. The status line says

@@ -1,11 +1,11 @@
 import { render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { NativeDatePicker } from '@/components/ui/native-date-picker';
 import type { SupportedLanguage } from '@/localization/messages';
-import { lightTheme, spacing } from '@/theme/theme';
+import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { mockFontScale } from '../../../../test/font-scale';
 
@@ -39,6 +39,7 @@ async function renderPicker(
     <TestProviders>
       <NativeDatePicker
         accessibilityLabel="Doğum tarihi"
+        initialSelection="2001-01-01"
         language={language}
         maximumDate={new Date(2026, 8, 9, 12)}
         minimumDate={new Date(1900, 0, 1, 12)}
@@ -51,81 +52,42 @@ async function renderPicker(
   );
 }
 
-test.each(['tr', 'en'] as const)(
-  'the picker follows the app language %s rather than the device locale',
-  async (language) => {
-    mockFontScale(1);
-    const standalone = await renderPicker(language);
-
-    expect(standalone.getByTestId('birth-date').props.modifiers).toEqual([
-      { $type: 'environment', key: 'locale', value: nativeLocale[language] },
-      { $type: 'tint', color: lightTheme.colors.brandPrimary },
-    ]);
-    await standalone.unmount();
-
-    // Inside a native list the system draws the row, so only the locale is pushed.
-    const listed = await renderPicker(language, { standalone: false });
-    expect(listed.getByTestId('birth-date').props.modifiers).toEqual([
-      { $type: 'environment', key: 'locale', value: nativeLocale[language] },
-    ]);
-    expect(listed.queryByTestId('expo-ui-host')).toBeNull();
-  },
-);
-
+// The wheel shows the whole date at once, so a far year is a flick away; its label is the
+// caller's own visible text, so the native one is hidden at every text size, and the picker
+// follows the app language rather than the device locale.
 test.each([
-  [1, 48],
-  [1.5, 72],
-])('at fontScale %s the standalone picker keeps its native label in one %s-point row', async (
-  fontScale,
-  height,
-) => {
+  ['tr', 1],
+  ['en', 3],
+] as const)('the %s wheel at fontScale %s hides its native label in a wheel-tall host', async (language, fontScale) => {
   mockFontScale(fontScale);
-  const result = await renderPicker('tr');
-
-  expect(StyleSheet.flatten(result.getByTestId('expo-ui-host').props.style))
-    .toMatchObject({ height });
-  expect(result.getByTestId('birth-date').props.modifiers).toEqual([
-    { $type: 'environment', key: 'locale', value: nativeLocale.tr },
-    { $type: 'tint', color: lightTheme.colors.brandPrimary },
-  ]);
-  expect(result.queryByText('Doğum tarihi', { includeHiddenElements: true })).toBeNull();
-  expect(result.getByTestId('birth-date').props.accessibilityLabel).toBe('Doğum tarihi');
-});
-
-test('above fontScale 1.5 the standalone title stacks above a single-row picker', async () => {
-  mockFontScale(3);
-  const result = await renderPicker('tr');
-
-  expect(StyleSheet.flatten(result.getByTestId('expo-ui-host').props.style))
-    .toMatchObject({ height: 96 });
-  expect(result.getByTestId('birth-date').props.modifiers).toEqual([
-    { $type: 'environment', key: 'locale', value: nativeLocale.tr },
+  const standalone = await renderPicker(language);
+  expect(standalone.getByTestId('birth-date').props.modifiers).toEqual([
+    { $type: 'environment', key: 'locale', value: nativeLocale[language] },
+    { $type: 'datePickerStyle', style: 'wheel' },
     { $type: 'labelsHidden' },
     { $type: 'tint', color: lightTheme.colors.brandPrimary },
   ]);
-  expect(result.getByTestId('birth-date').props.accessibilityLabel).toBe('Doğum tarihi');
-  const visualTitle = result.getByText('Doğum tarihi', { includeHiddenElements: true });
-  expect(visualTitle).toHaveProp('accessibilityElementsHidden', true);
-  expect(visualTitle).toHaveProp('importantForAccessibility', 'no-hide-descendants');
-  expect(StyleSheet.flatten(visualTitle.props.style)).toMatchObject({ marginBottom: spacing.sm });
-});
+  expect(StyleSheet.flatten(standalone.getByTestId('expo-ui-host').props.style)).toMatchObject({ height: 216 });
+  expect(standalone.queryByText('Doğum tarihi', { includeHiddenElements: true })).toBeNull();
+  expect(standalone.getByTestId('birth-date').props.accessibilityLabel).toBe('Doğum tarihi');
+  await standalone.unmount();
 
-test('the list-mounted picker keeps the native row at accessibility sizes', async () => {
-  mockFontScale(3);
-  const result = await renderPicker('tr', { standalone: false });
-
-  expect(result.getByTestId('birth-date').props.modifiers).toEqual([
-    { $type: 'environment', key: 'locale', value: nativeLocale.tr },
+  // Inside a native list the list's host holds it, and the system tints it.
+  const listed = await renderPicker(language, { standalone: false });
+  expect(listed.getByTestId('birth-date').props.modifiers).toEqual([
+    { $type: 'environment', key: 'locale', value: nativeLocale[language] },
+    { $type: 'datePickerStyle', style: 'wheel' },
+    { $type: 'labelsHidden' },
   ]);
-  expect(result.queryByText('Doğum tarihi', { includeHiddenElements: true })).toBeNull();
-  expect(result.queryByTestId('expo-ui-host')).toBeNull();
+  expect(listed.queryByTestId('expo-ui-host')).toBeNull();
 });
 
-test('an unset value starts the picker at the maximum date and keeps the ISO contract', async () => {
+// An unset value is not today: the caller names where the picker opens, and nothing is stored
+// until the person turns it (the iOS view reports only a changed date).
+test('an unset value opens at the caller\'s initial selection, and a set value wins over it', async () => {
   mockFontScale(1);
   const unset = await renderPicker('tr');
-  expect(unset.getByTestId('birth-date').props.accessibilityValue.text)
-    .toContain('2026-09-09');
+  expect(unset.getByTestId('birth-date').props.accessibilityValue.text).toContain('2001-01-01');
   await unset.unmount();
 
   const set = await renderPicker('en', { value: '1994-03-14' });
@@ -139,4 +101,51 @@ test('the picker offers only dates between the minimum and the maximum', async (
 
   expect(start.getFullYear()).toBe(1900);
   expect(end.getFullYear()).toBe(2026);
+});
+
+// Compose's picker reports the date it opens on as soon as it is drawn, and its dates are UTC
+// midnights. The date it already shows is not a choice, so Add stores nothing unturned; a turned
+// date is read on the UTC calendar, so it never lands a day early west of UTC.
+test('on Android the date the picker opens on is not stored, and a turned date keeps its calendar day', async () => {
+  const props: { current: { initialDate?: string; onDateSelected?: (date: Date) => void } } = { current: {} };
+  const onChange = jest.fn();
+  // The wrapper picks its platform's picker when it loads, so it loads afresh as Android, with
+  // its theme context from the same fresh registry and the one React the renderer runs.
+  let renderAndroid: () => Promise<unknown> = async () => undefined;
+  const react = jest.requireActual<typeof import('react')>('react');
+  jest.isolateModules(() => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    // One React for the hooks the fresh modules call and the renderer that runs them.
+    jest.doMock('react', () => react);
+    jest.doMock('@expo/ui/jetpack-compose', () => ({
+      DateTimePicker: (received: typeof props.current) => {
+        props.current = received;
+        return null;
+      },
+    }));
+    const { NativeDatePicker: AndroidPicker } = jest.requireActual<typeof import('@/components/ui/native-date-picker')>(
+      '@/components/ui/native-date-picker');
+    const { KuyaraThemeContext: Theme } = jest.requireActual<typeof import('@/theme/theme-context')>('@/theme/theme-context');
+    renderAndroid = () => render(
+      <Theme.Provider value={lightTheme}>
+        <AndroidPicker
+          accessibilityLabel="Doğum tarihi"
+          initialSelection="2001-01-01"
+          language="tr"
+          maximumDate={new Date(2026, 8, 9, 12)}
+          minimumDate={new Date(1900, 0, 1, 12)}
+          onChange={onChange}
+          testID="birth-date"
+          value={null}
+        />
+      </Theme.Provider>,
+    );
+  });
+  await renderAndroid();
+  jest.restoreAllMocks();
+  expect(props.current.initialDate).toBe('2001-01-01T00:00:00.000Z');
+  props.current.onDateSelected?.(new Date(Date.UTC(2001, 0, 1)));
+  expect(onChange).not.toHaveBeenCalled();
+  props.current.onDateSelected?.(new Date(Date.UTC(1994, 2, 14)));
+  expect(onChange).toHaveBeenCalledWith('1994-03-14');
 });

@@ -6,7 +6,7 @@ import {
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
-import { calendarDateKeySchema, formatCalendarDate } from '@/domain/calendar-date';
+import { calendarDateKeySchema, formatCalendarDate, formatCalendarDateParts } from '@/domain/calendar-date';
 import type {
   ClothingPreference,
   LanguagePreference,
@@ -127,6 +127,17 @@ export function displayNameIssue(value: string): 'short' | 'long' | null {
   return null;
 }
 
+/**
+ * The rule for a name being typed: the stored-name rule plus at least one letter, so digits alone
+ * ("27", an age) are never greeted as a name. Typed input only: the read path and the remote
+ * mapper keep `displayNameIssue`, so a name stored before this rule still loads.
+ */
+export function displayNameInputIssue(value: string): 'short' | 'long' | 'letter' | null {
+  const issue = displayNameIssue(value);
+  if (issue || value.trim() === '') return issue;
+  return /\p{L}/u.test(value) ? null : 'letter';
+}
+
 export const namePromptVersion = 1;
 
 // Phase 8, ADR 0036: the coach-mark tour's code version. A stored value below it offers the
@@ -155,6 +166,15 @@ const birthDateSchema = calendarDateKeySchema.refine((value) => {
   const year = Number(value.slice(0, 4));
   return year >= MINIMUM_BIRTH_YEAR && year <= MAXIMUM_BIRTH_YEAR;
 }).nullable();
+
+/**
+ * Where a birth date picker opens while no date is set: 1 January, 25 years before the clock's
+ * year, a neutral start a short turn from most birth years. It is only where the wheel stands;
+ * nothing is stored until the person turns it.
+ */
+export function birthDatePickerStart(today: Date): string {
+  return formatCalendarDateParts({ year: today.getFullYear() - 25, month: 1, day: 1 });
+}
 
 // The static shape and year bounds, the same rule the SQLite CHECK enforces. Used on the read
 // path: a stored date must never be rejected against the device clock, which can be wrong.

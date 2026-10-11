@@ -1,6 +1,6 @@
 import { placeSearchQueryMaxLength } from '@kuyara/contracts';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Keyboard, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -16,6 +16,7 @@ import {
   NativeListRow,
   NativeListSection,
   NativeTextField,
+  type NativeTextFieldHandle,
   Presence,
   Surface,
   useTextScaling,
@@ -24,13 +25,17 @@ import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useKeyboardVisible } from '@/components/ui/use-keyboard-visible';
 import { useWeatherInteractionEvents } from '@/features/analytics/application/use-interaction-events';
 import { PlaceSearchController } from '@/features/weather/application/place-search-controller';
-import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
-import type { ActiveLocation } from '@/features/weather/domain/weather';
+import {
+  awaitsPlaceWeather,
+  type WeatherApplicationState,
+} from '@/features/weather/application/weather-application-controller';
 import {
   usePlaceSearchApplication,
   useWeatherApplication,
 } from '@/features/weather/application/weather-application-context';
+import { activeLocationSnapshot, type ActiveLocation } from '@/features/weather/domain/weather';
 import { locationCaption, locationName } from '@/features/weather/presentation/location-label';
+import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -85,7 +90,7 @@ export function LocationSelectionControls({
     }
     return null;
   };
-  const { language, messages } = useLocalization();
+  const { language, messages, temperatureUnit } = useLocalization();
   const copy = messages.weather;
   // A device lookup asked for on this screen, by the button or by the return from Settings:
   // its status line shows while the fix is taken, and the place it found is confirmed once,
@@ -119,10 +124,13 @@ export function LocationSelectionControls({
   const theme = useKuyaraTheme();
   const [query, setQuery] = useState('');
   // With the keyboard up the results are the point of the screen: the onboarding heading, its
-  // progress bar and its long body step aside, and so does a permission or failure card, so
-  // the field and the list keep room above the keyboard instead of the list landing on them.
+  // plate and its body step aside, and so does a permission or failure card, so the field and
+  // the list keep room above the keyboard instead of the list landing on them. The heading is
+  // only hidden, never unmounted, so it does not arrive again each time the keyboard goes and
+  // what it is doing (a plate taking a new sky) carries on.
   const keyboardVisible = useKeyboardVisible();
-  const shownHeader = keyboardVisible ? null : header;
+  const shownHeader = header ? <View style={keyboardVisible && styles.hidden}>{header}</View> : null;
+  const fieldRef = useRef<NativeTextFieldHandle>(null);
   const controller = useMemo(() => new PlaceSearchController(searchPlaces), [searchPlaces]);
   const search = useSyncExternalStore(
     controller.subscribe,
@@ -144,12 +152,17 @@ export function LocationSelectionControls({
         : null;
 
   // The results arrive with a fade on `motion.fast` rather than popping in (Law 7). With
-  // nothing to show the list is empty, so it waits unseen for the next results.
-  const hasResults = search.status === 'ready' && search.places.length > 0;
+  // nothing to show the list is empty, so it waits unseen for the next results. A pick
+  // answers them: they fade away, and the text is cleared once the pick is the place in use;
+  // a pick that fails brings them back.
+  const [pickedQuery, setPickedQuery] = useState<string | null>(null);
+  const listed = search.status === 'ready' && search.places.length > 0;
+  const hasResults = listed && pickedQuery !== query;
   const resultsOpacity = useSharedValue(hasResults ? 1 : 0);
   useEffect(() => {
-    resultsOpacity.set(hasResults ? fadeTo(1, theme.motion.fast, theme.motion) : 0);
-  }, [hasResults, resultsOpacity, theme.motion]);
+    resultsOpacity.set(hasResults ? fadeTo(1, theme.motion.fast, theme.motion)
+      : listed ? fadeTo(0, theme.motion.fast, theme.motion) : 0);
+  }, [hasResults, listed, resultsOpacity, theme.motion]);
   const resultsFade = useAnimatedStyle(() => ({ opacity: resultsOpacity.get() }));
 
   useEffect(() => {
@@ -179,12 +192,16 @@ export function LocationSelectionControls({
   const locatingStatus = locatingHere && state.status === 'ready' && state.permission.kind === 'granted'
     && state.isSelectingLocation ? copy.locatingDevice : null;
   useErrorAnnouncement(locatingStatus);
-  // The device location in use, named under the button with how it was resolved. The last one
-  // shown stays drawn while its row closes, so the row never empties as it leaves.
-  const currentDevice = state.status === 'ready' && state.locationFlow === 'idle'
-    && state.activeLocation?.source === 'device' ? state.activeLocation : null;
-  const [shownDevice, setShownDevice] = useState(currentDevice);
-  if (currentDevice && currentDevice !== shownDevice) setShownDevice(currentDevice);
+  // The location in use, named under the button: a device fix with how it was resolved, a place
+  // picked by name with its name alone. The last one shown stays drawn while its row closes, so
+  // the row never empties as it leaves.
+  const currentPlace = state.status === 'ready' && state.locationFlow === 'idle'
+    ? state.activeLocation : null;
+  const [shownPlace, setShownPlace] = useState(currentPlace);
+  if (currentPlace && currentPlace !== shownPlace) setShownPlace(currentPlace);
+  // The place in use has no weather yet and it is being fetched: its row says so until it
+  // lands. A failed fetch ends the refresh, so the caption never stays.
+  const awaitingWeather = awaitsPlaceWeather(state);
 
   if (state.status !== 'ready') {
     return (
@@ -202,14 +219,24 @@ export function LocationSelectionControls({
     );
   }
 
-  const shownName = shownDevice ? locationName(shownDevice, copy) : '';
-  const shownCaption = locationCaption(shownDevice, state.permission.kind, copy);
+  const shownName = shownPlace ? locationName(shownPlace, copy) : '';
+  // A place picked by name has no precise or approximate caption, so its row carries its
+  // weather once known: the caption line it opened with stays, and nothing under it moves.
+  const shownWeather = shownPlace?.source === 'manual' ? activeLocationSnapshot(state.snapshot, shownPlace) : null;
+  const shownCaption = awaitingWeather ? copy.placeWeatherLoading
+    : shownWeather ? copy.placeWeatherNow(
+      `${formatWholeTemperatureValue(shownWeather.current.temperatureCelsius, language, temperatureUnit)}°`,
+      copy.conditions[shownWeather.current.condition],
+    )
+      : locationCaption(shownPlace, state.permission.kind, copy);
   const isChosenPlace = (id: string) =>
     state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === id;
 
+  // The column scrolls when a tall header (onboarding's welcome and plate, or large text) leaves
+  // it no room, and the results take what is left under it.
   return (
     <View style={styles.root} testID={testID}>
-      <View style={styles.controls}>
+      <ScrollView contentContainerStyle={styles.controls} keyboardShouldPersistTaps="handled" style={styles.column}>
         {shownHeader}
         <Button
           label={copy.useCurrentLocation}
@@ -224,9 +251,9 @@ export function LocationSelectionControls({
         {/* The current place opens and closes in place under the button (Law 7). Its slot
             takes back the column's gap and the row carries it inside, so no space stays behind. */}
         <View style={styles.presenceSlot}>
-          <Presence visible={currentDevice !== null && !keyboardVisible}>
+          <Presence visible={currentPlace !== null && !keyboardVisible}>
             <View style={styles.presenceContent}>
-              {shownDevice ? (
+              {shownPlace ? (
                 <ListRowGroup>
                   <ListRow
                     accessibilityLabel={shownCaption ? `${shownName}, ${shownCaption}` : shownName}
@@ -235,7 +262,7 @@ export function LocationSelectionControls({
                     labelWeight="bodyStrong"
                     selected
                     supportingText={shownCaption ?? undefined}
-                    testID={`${testIDPrefix}-location-device-current`}
+                    testID={`${testIDPrefix}-location-${shownPlace.source}-current`}
                   />
                 </ListRowGroup>
               ) : null}
@@ -264,6 +291,7 @@ export function LocationSelectionControls({
           maxLength={placeSearchQueryMaxLength}
           onChangeText={setQuery}
           placeholder={copy.placeSearchPlaceholder}
+          ref={fieldRef}
           testID={`${testIDPrefix}-place-search`}
         />
         {statusCopy ? <StatusLine text={statusCopy} warning={search.status === 'error'} /> : null}
@@ -277,10 +305,14 @@ export function LocationSelectionControls({
             variant="tonal"
           />
         ) : null}
-      </View>
-      <Animated.View style={[styles.root, resultsFade]}>
+      </ScrollView>
+      <Animated.View
+        accessibilityElementsHidden={!hasResults}
+        importantForAccessibility={hasResults ? 'auto' : 'no-hide-descendants'}
+        pointerEvents={hasResults ? 'auto' : 'none'}
+        style={[styles.root, resultsFade]}>
       <NativeList testID={`${testIDPrefix}-place-results`}>
-        {hasResults ? (
+        {listed ? (
           <NativeListSection footer={copy.placeSearchAttribution}>
             {search.places.map((place) => (
               <NativeListRow
@@ -292,10 +324,31 @@ export function LocationSelectionControls({
                     ? undefined
                     : () => {
                         const before = application.state;
-                        void selectPlaceSearchResult(place).then(() => finishSelection(
-                          before,
-                          (location) => location.source === 'manual' && location.catalogId === place.id,
-                        ));
+                        // The pick is the answer: the keyboard goes and the results step aside,
+                        // so the place it names under the button and the footer can be seen.
+                        Keyboard.dismiss();
+                        setPickedQuery(query);
+                        void selectPlaceSearchResult(place).then(() => {
+                          const chosen = finishSelection(
+                            before,
+                            (location) => location.source === 'manual' && location.catalogId === place.id,
+                          );
+                          if (!chosen) {
+                            setPickedQuery(null);
+                            return;
+                          }
+                          fieldRef.current?.clear();
+                          setQuery('');
+                          // VoiceOver ignores live regions; Android hears the row as it opens. One
+                          // line names the pick and, while its weather is on its way, the wait.
+                          // Nothing is felt: the success haptic answers only the device fix.
+                          if (Platform.OS === 'ios') {
+                            const name = locationName(chosen, copy);
+                            const after = application.getSnapshot?.() ?? application.state;
+                            AccessibilityInfo.announceForAccessibility(awaitsPlaceWeather(after)
+                              ? copy.placeSelectedFetching(name) : copy.placeSelectedNamed(name));
+                          }
+                        });
                         // A manual pick overrides the device location regardless of
                         // whether it ends up the same place, so first use gates on the
                         // action, not on `location_changed` firing. Onboarding runs before
@@ -334,6 +387,8 @@ function StatusLine({ text, warning = false }: Readonly<{ text: string; warning?
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  hidden: { display: 'none' },
+  column: { flexGrow: 0, flexShrink: 1 },
   controls: { padding: spacing.lg, gap: spacing.md },
   card: { gap: spacing.md, padding: spacing.lg },
   presenceSlot: { marginTop: -spacing.md },

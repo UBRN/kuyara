@@ -48,7 +48,7 @@ export {
 export { NativeToggle, type NativeToggleProps } from './native-toggle';
 export { NativeDatePicker, type NativeDatePickerProps } from './native-date-picker';
 export { NativeColorWell, type NativeColorWellProps } from './native-color-well';
-export { NativeTextField, type NativeTextFieldProps } from './native-text-field';
+export { NativeTextField, type NativeTextFieldHandle, type NativeTextFieldProps } from './native-text-field';
 export { PhotoPlaceholder, type PhotoPlaceholderProps } from './photo-placeholder';
 export { Pill, type PillProps } from './pill';
 export { Presence, type PresenceProps } from './presence';
@@ -57,6 +57,7 @@ export { ProgressFill, type ProgressFillProps } from './progress-fill';
 export { Screen, useBandWidth, useScreenGutters, type ScreenProps } from './screen';
 export { SectionHeader, type SectionHeaderProps } from './section-header';
 export { ShrinkingPlate, type PlateRect, type ShrinkingPlateProps } from './shrinking-plate';
+export { TintingPlate, type TintingPlateProps } from './tinting-plate';
 export {
   SegmentedControl,
   type SegmentedControlOption,

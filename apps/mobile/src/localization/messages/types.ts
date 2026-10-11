@@ -498,30 +498,46 @@ export type AppMessages = Readonly<{
     /** Take the display name's shortest and longest length from `profile.ts`. */
     nameShortError: (minimum: number) => string;
     nameLongError: (maximum: number) => string;
+    /** A typed name with no letter, such as digits alone. */
+    nameLetterError: string;
     nameNotNow: string;
     welcomeTitle: string;
     welcomeBody: string;
-    welcomePreviewTitle: (temperature: string, condition: string) => string;
-    welcomePreviewCaption: string;
+    /** The preview plate's title on the neutral stage, before a place's weather is known. */
+    previewSampleTitle: string;
+    /** The preview plate's title once the chosen place's weather is known. */
+    previewPlaceTitle: (place: string, temperature: string, condition: string) => string;
+    /** The first step's question above the location controls. */
+    locationQuestion: string;
     nameGreetingEmpty: string;
     nameGreetingCaption: string;
-    genderTitle: string;
-    genderBody: string;
-    dressStyleTitle: string;
-    dressStyleBody: string;
-    dressStyleRequiredError: string;
+    /** The step that asks gender and dress style together. */
+    dressTitle: string;
+    dressBody: string;
+    /** The dress style group's label on that step. */
+    dressStyleGroup: string;
+    /** The one error line of the step that asks gender and dress style together. */
+    dressRequiredError: string;
     stylePreferencesTitle: string;
     /** Takes the style limit, `styleAestheticsLimit`. */
     stylePreferencesBody: (limit: number) => string;
-    ageTitle: string;
-    birthDateTitle: string;
+    /** The step that asks the optional name and birth date; its title is `nameTitle`. */
+    aboutBody: string;
+    /** The name field's visible label on that step. */
+    nameLabel: string;
     birthDateBody: string;
     birthDateNotSet: string;
     birthDateClearAction: string;
-    locationTitle: string;
-    locationBody: string;
+    /** The visible words on the control that opens the birth date picker. */
+    birthDateAdd: string;
+    /** The same control's spoken name, and the Settings row's words. */
+    birthDateAddLabel: string;
+    /** The visible words on the control that removes a set birth date; it speaks `birthDateClearAction`. */
+    birthDateRemove: string;
+    closetTitle: string;
+    /** One line that says what the Closet is for. */
+    closetPromise: string;
     locationSkipAction: string;
-    genderRequiredError: string;
     saveError: string;
   }>;
   preferences: PreferenceMessages;
@@ -747,6 +763,14 @@ export type AppMessages = Readonly<{
     locatingDevice: string;
     locationFound: string;
     locationFoundNamed: (name: string) => string;
+    /** Spoken once a place picked by name is the active location. */
+    placeSelectedNamed: (name: string) => string;
+    /** The same, spoken when the place's weather is still on its way. */
+    placeSelectedFetching: (name: string) => string;
+    /** The chosen place row's caption while its first weather is fetched. */
+    placeWeatherLoading: string;
+    /** The chosen place row's caption once its weather is known: temperature and condition. */
+    placeWeatherNow: (temperature: string, condition: string) => string;
     changeLocationAction: string;
     locationRationaleBody: string;
     cancel: string;

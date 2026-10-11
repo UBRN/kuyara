@@ -9,30 +9,38 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
-import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AppText,
   Button,
   ButtonPair,
+  Crossfade,
   Entrance,
+  FadeIn,
   Icon,
   NativeDatePicker,
   ProgressFill,
   Screen,
+  TintingPlate,
+  useButtonBox,
+  useTextScaling,
 } from '@/components/ui';
 import { useKeyboardVisible } from '@/components/ui/use-keyboard-visible';
 import {
   ChoiceTile,
   type ChoiceTileDrawing,
   ChoiceTileGrid,
+  ClosetRack,
+  GarmentBoard,
   type GarmentBoardPiece,
   GarmentCutProvider,
   GarmentPreviewBoard,
   type GarmentOutfitPalette,
   measureGarmentBoardHeight,
+  type RackPiece,
 } from '@/garment-art';
 import type { ClothingPreference } from '@/domain/preferences';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
@@ -44,6 +52,8 @@ import {
 } from '@/features/profile/application/onboarding-state';
 import {
   onboardingPreviewOutfits,
+  onboardingStyledOutfit,
+  onboardingUnisexOutfit,
   type OnboardingPreviewOutfits,
 } from '@/features/profile/application/onboarding-preview';
 import type {
@@ -55,16 +65,17 @@ import type {
 } from '@/features/profile/domain/profile';
 import {
   catalogPreferenceByGender,
-  displayNameIssue,
+  birthDatePickerStart,
   genderSchema,
   minimumBirthDate,
   orderStyleAesthetics,
 } from '@/features/profile/domain/profile';
-import { NameInput } from '@/features/profile/presentation/name-input';
+import { NameInput, nameInputError } from '@/features/profile/presentation/name-input';
 import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics-options';
 import { resolveAtmosphereState, resolveDaypart } from '@/features/weather/domain/atmosphere-state';
 import { resolveConditionStyle } from '@/features/weather/domain/condition-style';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { awaitsPlaceWeather } from '@/features/weather/application/weather-application-controller';
 import {
   activeLocationSnapshot,
   type WeatherConditionCode,
@@ -74,13 +85,14 @@ import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
-import { PlateView } from '@/theme/plate-theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 import { borderWidths, plateTheme, radii, spacing } from '@/theme/theme';
 
 // O14 onboarding visuals: each step shows what it changes, drawn only from shipped
 // silhouettes on the approved stages; no mascot, avatar or body, no new colour.
-// The preview draws a fixed sample sky until the location step has found the place's weather.
+// Until the first step has found a place's weather the preview is an example outfit on the
+// neutral stage, with no sky of its own (ADR 0018's "no weather yet"); then it takes that
+// place's sky, name, temperature and condition.
 // Until a gender is chosen the preview is one unisex outfit: types both catalogs carry, in
 // fixed neutral colours, drawn in the men's straight cut, the block unisex clothing is cut on
 // (the women's cut draws a fitted waist and a curved hip).
@@ -94,7 +106,7 @@ const unisexPreviewSwatches: Readonly<Partial<Record<GarmentBoardPiece['slot'], 
   outer_layer: 'navy', primary_top: 'white', bottom: 'midwash', footwear: 'white',
 };
 const unisexPreviewCut: ClothingPreference = 'mens';
-// From the gender step on, the same board answers each choice: a gender and a dress style
+// On the step that asks them, the same board answers each choice: a gender and a dress style
 // swap the pieces they change (Law 7), so the first minute already shows what a choice does.
 // Once the place's weather is known, the outfits are the ones the device's rules choose for it;
 // until then these sample outfits, which fill the same four slots, dress the sample sky.
@@ -140,15 +152,68 @@ const previewPalette = (
   isNight: sky.daypart === 'night',
   formality,
 });
-// Each outfit with the cut it is drawn in: a gender's outfits in that gender's catalog cut.
-type CutOutfit = readonly [readonly GarmentBoardPiece[], ClothingPreference];
-const stagePieces = (choices: typeof choicePreviewPieces): readonly CutOutfit[] => [
+// One board metric for every outfit the plate shows: the sample outfits, each in its cut, fill
+// it, and a taller outfit (a long coat, a jumpsuit) is drawn smaller to fit it, so nothing under
+// the plate moves when an answer or the weather changes the outfit.
+const sampleOutfits: readonly (readonly [readonly GarmentBoardPiece[], ClothingPreference])[] = [
   [unisexPreviewPieces, unisexPreviewCut],
-  ...genderSchema.options.flatMap((gender) => Object.values(choices[gender])
-    .map((pieces): CutOutfit => [pieces, catalogPreferenceByGender[gender]])),
+  ...genderSchema.options.flatMap((gender) => Object.values(choicePreviewPieces[gender])
+    .map((pieces) => [pieces, catalogPreferenceByGender[gender]] as const)),
 ];
-const stageHeight = (outfits: readonly CutOutfit[], width: number, large: boolean) => (
-  Math.max(...outfits.map(([pieces, cut]) => measureGarmentBoardHeight(pieces, width, 'today', cut, false, large))));
+const boardHeightAt = (width: number, large: boolean) => Math.max(...sampleOutfits.map(([pieces, cut]) =>
+  measureGarmentBoardHeight(pieces, width, 'today', cut, false, large)));
+/** The width an outfit is drawn at so it fits the board's height: its full width, or less. */
+const fittedWidth = (
+  pieces: readonly GarmentBoardPiece[],
+  cut: ClothingPreference,
+  width: number,
+  height: number,
+  large: boolean,
+) => Math.min(width, width * height / measureGarmentBoardHeight(pieces, width, 'today', cut, false, large));
+// The board takes this share of the plate's width, so the plate leaves the answer tiles room
+// on the step that asks them while the board stays the step's picture.
+const PREVIEW_BOARD_SHARE = 0.66;
+// The Closet line's rack, full as a lived-in Closet: every hook carries an accessory, the upper
+// rail its coats and tops (some side-on), the lower rail a bottom on each hanger, and shoes on
+// the shelf, in fixed colour families and types both cuts carry; two pieces are wanted (drawn
+// dashed). A picture of the promise, not a record.
+const closetSample: readonly RackPiece[] = ([
+  ['beanie', 'accessory', 'gray', false],
+  ['brimmed_hat', 'accessory', 'beige', false],
+  ['cap', 'accessory', 'blue', false],
+  ['scarf', 'accessory', 'red', false],
+  ['neck_gaiter', 'accessory', 'black', false],
+  ['gloves', 'accessory', 'brown', false],
+  ['umbrella', 'accessory', 'black', false],
+  ['balaclava', 'accessory', 'gray', false],
+  ['coat', 'outerwear', 'brown', false],
+  ['light_jacket', 'outerwear', 'blue', false],
+  ['sweater', 'top', 'green', false],
+  ['shirt', 'top', 'white', false],
+  ['t_shirt', 'top', 'white', false],
+  ['trench_coat', 'outerwear', 'beige', true],
+  ['jeans', 'bottom', 'blue', false],
+  ['jeans', 'bottom', 'black', false],
+  ['trousers', 'bottom', 'beige', false],
+  ['trousers', 'bottom', 'gray', false],
+  ['shorts', 'bottom', 'green', false],
+  ['track_pants', 'bottom', 'black', false],
+  ['sneakers', 'footwear', 'white', false],
+  ['loafers', 'footwear', 'brown', false],
+  ['ankle_boots', 'footwear', 'black', false],
+  ['sandals', 'footwear', 'beige', true],
+] as const).map(([garmentTypeId, category, colorFamily, wanted], index) => ({
+  id: `onboarding-closet-${index}`,
+  garmentTypeId,
+  category,
+  colorFamily,
+  wanted,
+  addedAt: index,
+}));
+const CLOSET_RACK_WIDTH = 180;
+// What the first step's stage holds: an outfit with the palette it is drawn in, keyed by what
+// it shows, so a new outfit takes the stage once and the same one never re-dresses it.
+type StageOutfit = Readonly<{ key: string; pieces: readonly GarmentBoardPiece[]; palette: GarmentOutfitPalette }>;
 // Each answer hints at the catalog it chooses, three pieces from it.
 const genderHints: Readonly<Record<Gender, readonly ChoiceTileDrawing[]>> = {
   woman: [
@@ -188,8 +253,8 @@ type OnboardingScreenProps = Readonly<{
     analyticsConsent: Exclude<AnalyticsConsent, 'undecided'>,
   ) => Promise<void>;
   /**
-   * The location step's picker, which the composition route supplies from the weather
-   * feature. It is given the step's heading and the test ID the step carries.
+   * The first step's picker, which the composition route supplies from the weather feature.
+   * It is given the step's heading, plate and question, and the test ID the step carries.
    */
   locationStep: (step: Readonly<{ header: ReactNode; testID: string }>) => ReactNode;
 }>;
@@ -216,6 +281,7 @@ export function OnboardingScreen({
     }),
   );
   const [saveError, setSaveError] = useState(false);
+  const [addingBirthDate, setAddingBirthDate] = useState(false);
   // The answer being saved, so only its button shows progress.
   const [savingAnswer, setSavingAnswer] = useState<Exclude<AnalyticsConsent, 'undecided'> | null>(null);
   const savingRef = useRef(false);
@@ -228,12 +294,15 @@ export function OnboardingScreen({
   const copy = messages.onboarding;
   const preferenceCopy = messages.preferences;
   const theme = useKuyaraTheme();
+  const insets = useSafeAreaInsets();
+  const { fontScale } = useTextScaling();
+  // The birth date row is one button tall whether it holds Add, Remove or nothing.
+  const buttonBox = useButtonBox();
   const largeBoard = useEasierToSee();
   const weatherState = useWeatherApplication().state;
   const activeLocation = weatherState.status === 'ready' ? weatherState.activeLocation : null;
-  const activeLocationSource = activeLocation?.source ?? null;
-  const hasActiveLocation = activeLocationSource !== null;
-  // Once the location step has found the place's weather, every preview draws its sky.
+  const hasActiveLocation = activeLocation !== null;
+  // Once the first step has found the place's weather, every preview draws its sky.
   const placeWeather = weatherState.status === 'ready'
     ? activeLocationSnapshot(weatherState.snapshot, activeLocation) : null;
   const sky: PreviewSky = placeWeather ? {
@@ -242,64 +311,78 @@ export function OnboardingScreen({
     daypart: resolveDaypart(placeWeather.current.observedAt, placeWeather.timeZone, activeLocation?.coordinates),
   } : sampleSky;
   // The rules take a moment, so they run off the render once the place's weather has
-  // settled, steps before the board shows them; until then the sample outfits stand.
+  // settled; until then the sample outfits stand.
   const [weatherOutfits, setWeatherOutfits] = useState<Readonly<{
     snapshot: WeatherSnapshot;
     outfits: OnboardingPreviewOutfits | null;
+    unisex: readonly GarmentBoardPiece[] | null;
   }> | null>(null);
   useEffect(() => {
     if (!placeWeather) return undefined;
     const idle = requestIdleCallback(() => setWeatherOutfits({
       snapshot: placeWeather,
       outfits: onboardingPreviewOutfits(placeWeather),
+      unisex: onboardingUnisexOutfit(placeWeather),
     }));
     return () => cancelIdleCallback(idle);
   }, [placeWeather]);
-  const ruledOutfits = weatherOutfits !== null && weatherOutfits.snapshot === placeWeather
-    ? weatherOutfits.outfits : null;
-  const choicePieces = ruledOutfits ?? choicePreviewPieces;
-  const skyStage = theme.atmosphere[resolveAtmosphereState(sky.condition, sky.daypart)];
-  const skyCondition = resolveConditionStyle(sky.condition, sky.daypart);
+  // New weather for the same place keeps the outfits already chosen for it until the rules have
+  // run on the new weather, so the plate never takes its outfit off only to put it back.
+  const ruled = weatherOutfits !== null && placeWeather !== null
+    && weatherOutfits.snapshot.locationKey === placeWeather.locationKey ? weatherOutfits : null;
+  const choicePieces = ruled?.outfits ?? choicePreviewPieces;
+  // Without a place's weather the plate is the neutral stage: no sky is claimed for the example.
+  const skyCondition = placeWeather ? resolveConditionStyle(sky.condition, sky.daypart) : null;
+  const plateColor = placeWeather
+    ? theme.atmosphere[resolveAtmosphereState(sky.condition, sky.daypart)]
+    : theme.atmosphere.neutral;
   const step = onboardingSteps[draft.step];
+  // A chosen place's weather is on its way: the first step titles the plate with the place and
+  // leaves its stage empty until the weather and the outfit chosen for it arrive.
+  const waitingForPlaceWeather = step === 'location' && awaitsPlaceWeather(weatherState);
+  // A pick being saved: the outfit on the stage leaves at once instead of after the save.
+  const picking = step === 'location' && weatherState.status === 'ready' && weatherState.isSelectingLocation;
   const keyboardVisible = useKeyboardVisible();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
-  const scrollOffset = useScrollOffset(scrollRef);
-  const nameFieldRef = useRef<View>(null);
+  // Read from the page's own scroll events: the first step has no page scroll view, so a
+  // scroll-offset hook would watch a ref nothing is attached to.
+  const scrollOffset = useRef(0);
+  // The first step has no page scroll view; the next page one starts at the top.
+  useEffect(() => {
+    if (step === 'location') scrollOffset.current = 0;
+  }, [step]);
+  const aboutFieldsRef = useRef<View>(null);
   const footerRef = useRef<View>(null);
-  // The keyboard shortens the page from below, and at large text sizes that leaves the name
-  // field under the pinned footer. Once the keyboard is up the page scrolls by the least that
-  // shows the whole field above the footer.
+  // The keyboard shortens the page from below and the pinned footer rises with it, over the
+  // name field and the birth date row under it. Once the keyboard is up the page scrolls by the
+  // least that shows both above the footer, never so far that the field leaves the top.
   useEffect(() => {
     if (step !== 'about') return undefined;
     const shown = Keyboard.addListener('keyboardDidShow', () => {
-      nameFieldRef.current?.measureInWindow((_x, fieldTop, _width, fieldHeight) => {
+      aboutFieldsRef.current?.measureInWindow((_x, fieldsTop, _width, fieldsHeight) => {
         footerRef.current?.measureInWindow((_footerX, footerTop) => {
-          const hidden = fieldTop + fieldHeight + spacing.md - footerTop;
-          if (hidden > 0) scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + hidden });
+          const hidden = Math.min(fieldsTop + fieldsHeight + spacing.md - footerTop, fieldsTop - insets.top - spacing.md);
+          if (hidden > 0) scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.current + hidden });
         });
       });
     });
     return () => shown.remove();
-  }, [scrollOffset, scrollRef, step]);
-  const hasValidName = Boolean(draft.displayName?.trim())
-    && !displayNameIssue(draft.displayName ?? '');
+  }, [insets.top, scrollRef, step]);
+  const typedName = draft.displayName ?? '';
+  const nameError = nameInputError(typedName, messages, true);
 
   const stepTitle = {
-    welcome: copy.welcomeTitle,
-    location: copy.locationTitle,
-    about: copy.nameTitle,
-    gender: copy.genderTitle,
-    dress_style: copy.dressStyleTitle,
+    location: copy.welcomeTitle,
+    dress: copy.dressTitle,
     styles: copy.stylePreferencesTitle,
+    about: copy.nameTitle,
     consent: messages.analytics.consentTitle,
   }[step];
   const stepBody = {
-    welcome: copy.welcomeBody,
-    location: copy.locationBody,
-    about: copy.nameBody,
-    gender: copy.genderBody,
-    dress_style: copy.dressStyleBody,
+    location: copy.welcomeBody,
+    dress: copy.dressBody,
     styles: copy.stylePreferencesBody(styleAestheticsLimit),
+    about: copy.aboutBody,
     consent: messages.analytics.consentBody,
   }[step];
 
@@ -320,16 +403,14 @@ export function OnboardingScreen({
 
   const goForward = () => {
     setSaveError(false);
-
-    const nameInvalid = step === 'about' && !hasValidName;
-    if (nameInvalid) return;
-    const genderMissing = step === 'gender' && !draft.gender;
-    const dressStyleMissing = step === 'dress_style' && !draft.dressStyle;
-    if (genderMissing) {
-      AccessibilityInfo.announceForAccessibility(copy.genderRequiredError);
+    // The name is optional, but a typed one that cannot be saved stops here and says why
+    // rather than being dropped.
+    if (step === 'about' && nameError) {
+      AccessibilityInfo.announceForAccessibility(nameError);
+      return;
     }
-    if (dressStyleMissing) {
-      AccessibilityInfo.announceForAccessibility(copy.dressStyleRequiredError);
+    if (step === 'dress' && (!draft.gender || !draft.dressStyle)) {
+      AccessibilityInfo.announceForAccessibility(copy.dressRequiredError);
     }
     dispatch({ type: 'continue', from: draft.step });
   };
@@ -341,9 +422,7 @@ export function OnboardingScreen({
     if (savingRef.current) return;
     const preferences = onboardingPreferencesFromDraft(draft);
     if (!preferences) {
-      AccessibilityInfo.announceForAccessibility(
-        draft.gender ? copy.dressStyleRequiredError : copy.genderRequiredError,
-      );
+      AccessibilityInfo.announceForAccessibility(copy.dressRequiredError);
       return;
     }
 
@@ -363,61 +442,147 @@ export function OnboardingScreen({
       });
   };
 
-  // The rationale is part of the welcome step's content, not the pinned bar (O14), so the
-  // bar holds only its buttons and the step can still be read to its end.
+  // What location is used for is part of the first step's content, not the pinned bar (O14),
+  // so the bar holds only its buttons and the step can still be read to its end.
   const locationRationale = (
     <AppText colorRole="textSecondary" variant="caption">
       {messages.weather.locationRationaleBody}
     </AppText>
   );
-  const typedName = draft.displayName?.trim() ?? '';
 
-  // One stage from the welcome to the dress style step, as tall as its tallest outfit, so a
-  // swap never moves what is under it.
-  const previewHeight = stageHeight(
-    step === 'welcome' ? [[unisexPreviewPieces, unisexPreviewCut]] : stagePieces(choicePieces), previewWidth, largeBoard);
-  const previewGender = step !== 'welcome' ? draft.gender : null;
-  const previewPieces = previewGender
-    ? choicePieces[previewGender][draft.dressStyle ?? 'casual']
-    : unisexPreviewPieces;
+  // One board metric on every step: the board area is as tall as the sample outfits drawn at
+  // the board's width, and every outfit is drawn to fit it.
+  const boardWidth = previewWidth * PREVIEW_BOARD_SHARE;
+  const boardHeight = boardHeightAt(boardWidth, largeBoard);
+  const fitted = (pieces: readonly GarmentBoardPiece[], cut: ClothingPreference) =>
+    fittedWidth(pieces, cut, boardWidth, boardHeight, largeBoard);
+  const palette = (pieces: readonly GarmentBoardPiece[], sample: boolean) =>
+    previewPalette(pieces, draft.dressStyle ?? 'casual', sky, sample ? unisexPreviewSwatches : undefined);
+
+  // The first step's stage: the example outfit until a place is chosen; nothing while the
+  // place's weather and the outfit the rules choose for it are on their way; then that outfit.
+  // A change of outfit lets the old board leave before the new one rises, as on Today.
+  const stageOutfit: StageOutfit | null = picking ? null : placeWeather
+    ? (ruled ? (ruled.unisex
+      ? { key: ruled.unisex.map(({ garmentTypeId }) => garmentTypeId).join(','), pieces: ruled.unisex, palette: palette(ruled.unisex, false) }
+      : { key: 'sample', pieces: unisexPreviewPieces, palette: palette(unisexPreviewPieces, true) }) : null)
+    : waitingForPlaceWeather ? null
+      : { key: 'sample', pieces: unisexPreviewPieces, palette: palette(unisexPreviewPieces, true) };
+  const [leavingOutfit, setLeavingOutfit] = useState<StageOutfit | null>(null);
+  const [shownOutfit, setShownOutfit] = useState(stageOutfit);
+  if (step === 'location' && (stageOutfit?.key ?? null) !== (shownOutfit?.key ?? null)) {
+    // A board already leaving keeps leaving; the newest outfit rises after it.
+    if (shownOutfit && !leavingOutfit) setLeavingOutfit(shownOutfit);
+    setShownOutfit(stageOutfit);
+  }
+  const clearLeavingOutfit = useCallback(() => setLeavingOutfit(null), []);
+
+  // On the steps that ask, the board answers each choice: the gender being chosen draws its
+  // outfit, and on the styles step the outfit the chosen styles put first on the place's weather.
+  const previewGender = step === 'location' ? null : draft.gender;
+  // A style tap puts an outfit in the chosen styles on the plate (see `onboardingStyledOutfit`).
+  // It is chosen at the tap, against the outfit the plate shows then, and kept for that place,
+  // gender and dress style, so no re-render picks again and another place never shows it.
+  const [styled, setStyled] = useState<Readonly<{ answers: string; pieces: readonly GarmentBoardPiece[] }> | null>(null);
+  const answers = `${placeWeather?.locationKey}:${draft.gender}:${draft.dressStyle}`;
+  const styledPieces = step === 'styles' && styled?.answers === answers ? styled.pieces : null;
+  const answerPieces = previewGender
+    ? styledPieces ?? choicePieces[previewGender][draft.dressStyle ?? 'casual']
+    : ruled?.unisex ?? unisexPreviewPieces;
+  const selectStyles = (value: readonly StyleAesthetic[]) => {
+    dispatch({ type: 'select-style-aesthetics', value });
+    if (value.length === 0 || !placeWeather || !draft.gender || !draft.dressStyle) {
+      setStyled(null);
+      return;
+    }
+    const next = onboardingStyledOutfit(placeWeather, draft.gender, draft.dressStyle, value, answerPieces);
+    if (next) setStyled({ answers, pieces: next });
+  };
   // The preview is drawn in the cut of the gender being chosen; until one is, the unisex cut.
   const previewCut = previewGender ? catalogPreferenceByGender[previewGender] : unisexPreviewCut;
   // The later steps' tiles are drawn in the chosen gender's cut too.
   const answerCut = draft.gender ? catalogPreferenceByGender[draft.gender] : unisexPreviewCut;
-  const choiceStep = step === 'gender' || step === 'dress_style';
+  const temperature = `${formatWholeTemperatureValue(sky.temperatureC, language, temperatureUnit)}°`;
+  const placeName = activeLocation?.displayName ?? messages.weather.currentLocation;
+  const previewTitle = placeWeather
+    ? copy.previewPlaceTitle(placeName, temperature, messages.weather.conditions[sky.condition])
+    : waitingForPlaceWeather ? placeName : copy.previewSampleTitle;
+
+  const board = previewWidth <= 0 ? null : step === 'location' ? (
+    <>
+      {leavingOutfit ? (
+        <View style={[styles.boardLayer, { height: boardHeight }]}>
+          <GarmentBoard
+            accessibilityLabel=""
+            decorative
+            key={`leaving-${leavingOutfit.key}`}
+            onLeft={clearLeavingOutfit}
+            palette={leavingOutfit.palette}
+            pieces={leavingOutfit.pieces}
+            preset="today"
+            stageColor={plateColor}
+            testID="onboarding-leaving-board"
+            width={fitted(leavingOutfit.pieces, unisexPreviewCut)}
+          />
+        </View>
+      ) : null}
+      {stageOutfit ? (
+        <View style={[styles.boardLayer, { height: boardHeight }]}>
+          <GarmentBoard
+            accessibilityLabel=""
+            decorative
+            key={stageOutfit.key}
+            palette={stageOutfit.palette}
+            pieces={stageOutfit.pieces}
+            preset="today"
+            replaces={leavingOutfit !== null}
+            rise
+            stageColor={plateColor}
+            testID="onboarding-welcome-board"
+            width={fitted(stageOutfit.pieces, unisexPreviewCut)}
+          />
+        </View>
+      ) : null}
+    </>
+  ) : (
+    <View style={[styles.boardLayer, { height: boardHeight }]}>
+      <GarmentPreviewBoard
+        height={boardHeight}
+        palette={palette(answerPieces, answerPieces === unisexPreviewPieces)}
+        pieces={answerPieces}
+        stageColor={plateColor}
+        testID="onboarding-welcome-board"
+        width={fitted(answerPieces, previewCut)}
+      />
+    </View>
+  );
   const previewStage = (
-    <PlateView
+    <TintingPlate
       accessibilityElementsHidden
-      color={skyStage}
+      color={plateColor}
       importantForAccessibility="no-hide-descendants"
       onLayout={({ nativeEvent }) => setPreviewWidth(nativeEvent.layout.width)}
       style={styles.stage}
       testID="onboarding-welcome-preview">
       <View style={styles.previewTitle}>
-        <Icon
-          color={plateTheme(theme, skyStage).condition[skyCondition.ink]}
-          name={skyCondition.shape}
-          size={20}
-        />
-        <AppText style={styles.previewTitleText} tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle(
-          `${formatWholeTemperatureValue(sky.temperatureC, language, temperatureUnit)}°`,
-          messages.weather.conditions[sky.condition],
-        )}</AppText>
+        {/* The glyph and the numbers belong to a real sky, so they arrive with it. */}
+        {skyCondition ? (
+          <FadeIn duration={theme.motion.normal}>
+            <Icon
+              color={plateTheme(theme, plateColor).condition[skyCondition.ink]}
+              name={skyCondition.shape}
+              size={20}
+            />
+          </FadeIn>
+        ) : null}
+        <Crossfade contentKey={previewTitle} style={styles.previewTitleText}>
+          <AppText style={styles.previewTitleText} tabularNumbers variant="bodyStrong">{previewTitle}</AppText>
+        </Crossfade>
       </View>
-      {previewWidth > 0 ? (
-        <GarmentCutProvider cut={previewCut}>
-          <GarmentPreviewBoard
-            height={previewHeight}
-            palette={previewPalette(previewPieces, draft.dressStyle ?? 'casual', sky,
-              previewGender ? undefined : unisexPreviewSwatches)}
-            pieces={previewPieces}
-            stageColor={skyStage}
-            testID="onboarding-welcome-board"
-            width={previewWidth}
-          />
-        </GarmentCutProvider>
-      ) : null}
-    </PlateView>
+      <GarmentCutProvider cut={previewCut}>
+        <View style={[styles.board, { height: boardHeight }]}>{board}</View>
+      </GarmentCutProvider>
+    </TintingPlate>
   );
 
   const heading = (
@@ -455,6 +620,19 @@ export function OnboardingScreen({
     </View>
   );
 
+  // The first step: the welcome, the plate, then the question the controls under it answer.
+  const locationHeader = (
+    <View style={styles.panel}>
+      {heading}
+      {previewStage}
+      <View style={styles.label}>
+        <AppText accessibilityRole="header" variant="bodyStrong">{copy.locationQuestion}</AppText>
+        {locationRationale}
+      </View>
+    </View>
+  );
+  const choiceStage = step === 'dress' || step === 'styles';
+
   return (
     <GarmentCutProvider cut={answerCut}>
     <KeyboardAvoidingView
@@ -462,139 +640,79 @@ export function OnboardingScreen({
       style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       {step === 'location' ? (
         <SafeAreaView edges={['top']} style={styles.screen}>
-          {locationStep({ header: heading, testID: `onboarding-step-${draft.step + 1}` })}
+          {locationStep({ header: locationHeader, testID: `onboarding-step-${draft.step + 1}` })}
         </SafeAreaView>
       ) : (
         <Screen
           contentContainerStyle={styles.content}
+          onScroll={({ nativeEvent }) => { scrollOffset.current = nativeEvent.contentOffset.y; }}
           ref={scrollRef}
+          scrollEventThrottle={16}
           testID={`onboarding-step-${draft.step + 1}`}>
           {heading}
 
-      {/* The gender and dress style steps share one stage: it arrives once and stays, and
-          only the pieces a choice changes move. */}
-      {choiceStep ? (
+      {/* The steps that ask how to dress share one plate: it arrives once and stays, and only
+          the pieces an answer changes move. */}
+      {choiceStage ? (
         <Entrance index={1} key="choice-stage">{previewStage}</Entrance>
       ) : null}
 
-      <Entrance index={choiceStep ? 2 : 1} key={`panel-${draft.step}`}>
-      {step === 'welcome' ? (
+      <Entrance index={choiceStage ? 2 : 1} key={`panel-${draft.step}`}>
+      {step === 'dress' ? (
         <View style={styles.panel}>
-          {previewStage}
-          <AppText>{copy.welcomePreviewCaption}</AppText>
-          {locationRationale}
-        </View>
-      ) : null}
-
-      {step === 'about' ? (
-        <View style={styles.panel}>
-          <PlateView
-            color={theme.atmosphere.veiledDay}
-            style={[styles.stage, styles.greeting]}
-            testID="onboarding-name-preview">
-            <AppText variant="title">
-              {typedName && !displayNameIssue(typedName)
-                ? messages.today.greetingFirstNamed(typedName)
-                : copy.nameGreetingEmpty}
-            </AppText>
-            <AppText colorRole="textSecondary" variant="caption">{copy.nameGreetingCaption}</AppText>
-          </PlateView>
-          <View ref={nameFieldRef}>
-            <NameInput
-              onChangeText={(value) => dispatch({ type: 'set-display-name', value })}
-              skippable
-              testID="onboarding-name"
-              value={draft.displayName ?? ''}
-            />
+          <View accessibilityLabel={preferenceCopy.genderTitle} style={styles.group}>
+            <AppText accessibilityRole="header" variant="bodyStrong">{preferenceCopy.genderTitle}</AppText>
+            <ChoiceTileGrid accessibilityRole="radiogroup" columns={2}>
+              {genderSchema.options.map((gender) => (
+                // Each answer draws its hints in the cut it chooses.
+                <GarmentCutProvider cut={catalogPreferenceByGender[gender]} key={gender}>
+                  <ChoiceTile
+                    drawings={genderHints[gender]}
+                    label={gender === 'woman' ? preferenceCopy.genderWoman : preferenceCopy.genderMan}
+                    onPress={() => dispatch({ type: 'select-gender', value: gender })}
+                    role="radio"
+                    selected={draft.gender === gender}
+                    testID={`onboarding-gender-${gender}`}
+                  />
+                </GarmentCutProvider>
+              ))}
+            </ChoiceTileGrid>
           </View>
-          <View style={styles.age}>
-            <AppText accessibilityRole="header" variant="bodyStrong">{copy.ageTitle}</AppText>
-            <AppText colorRole="textSecondary" variant="caption">{copy.birthDateBody}</AppText>
-            {draft.birthDate === null ? (
-              <AppText colorRole="textSecondary">{copy.birthDateNotSet}</AppText>
-            ) : null}
-            <NativeDatePicker
-              accessibilityLabel={copy.birthDateTitle}
-              language={language}
-              maximumDate={maximumBirthDate}
-              minimumDate={minimumBirthDate}
-              onChange={(value) => dispatch({ type: 'select-birth-date', value })}
-              standalone
-              testID="onboarding-birth-date"
-              value={draft.birthDate}
-            />
-            {draft.birthDate !== null ? (
-              <Button
-                label={copy.birthDateClearAction}
-                onPress={() => dispatch({ type: 'select-birth-date', value: null })}
-                variant="plain"
-              />
-            ) : null}
-          </View>
-        </View>
-      ) : null}
-
-      {step === 'gender' ? (
-        <View style={styles.section} accessibilityLabel={preferenceCopy.genderTitle}>
-          <ChoiceTileGrid accessibilityRole="radiogroup" columns={2}>
-            {genderSchema.options.map((gender) => (
-              // Each answer draws its hints in the cut it chooses.
-              <GarmentCutProvider cut={catalogPreferenceByGender[gender]} key={gender}>
+          <View accessibilityLabel={preferenceCopy.dressStyleTitle} style={styles.group}>
+            <AppText accessibilityRole="header" variant="bodyStrong">{copy.dressStyleGroup}</AppText>
+            <ChoiceTileGrid accessibilityRole="radiogroup" columns={3}>
+              {dressStyles.map((style) => (
                 <ChoiceTile
-                  drawings={genderHints[gender]}
-                  label={gender === 'woman' ? preferenceCopy.genderWoman : preferenceCopy.genderMan}
-                  onPress={() => dispatch({ type: 'select-gender', value: gender })}
+                  drawings={[dressStyleDrawings[style]]}
+                  key={style}
+                  label={style === 'casual'
+                    ? preferenceCopy.dressStyleCasual
+                    : style === 'smart' ? preferenceCopy.dressStyleSmart : preferenceCopy.dressStyleFormal}
+                  onPress={() => dispatch({ type: 'select-dress-style', value: style })}
                   role="radio"
-                  selected={draft.gender === gender}
-                  testID={`onboarding-gender-${gender}`}
+                  selected={draft.dressStyle === style}
+                  testID={`onboarding-dress-style-${style}`}
                 />
-              </GarmentCutProvider>
-            ))}
-          </ChoiceTileGrid>
-          {draft.hasValidationError ? (
-            <AppText
-              accessibilityLiveRegion="assertive"
-              accessibilityRole="alert"
-              colorRole="textSecondary"
-              testID="onboarding-gender-error">
-              {copy.genderRequiredError}
-            </AppText>
-          ) : null}
-        </View>
-      ) : null}
-
-      {step === 'dress_style' ? (
-        <View style={styles.section} accessibilityLabel={preferenceCopy.dressStyleTitle}>
-          <ChoiceTileGrid accessibilityRole="radiogroup" columns={3}>
-            {dressStyles.map((style) => (
-              <ChoiceTile
-                drawings={[dressStyleDrawings[style]]}
-                key={style}
-                label={style === 'casual'
-                  ? preferenceCopy.dressStyleCasual
-                  : style === 'smart' ? preferenceCopy.dressStyleSmart : preferenceCopy.dressStyleFormal}
-                onPress={() => dispatch({ type: 'select-dress-style', value: style })}
-                role="radio"
-                selected={draft.dressStyle === style}
-                testID={`onboarding-dress-style-${style}`}
-              />
-            ))}
-          </ChoiceTileGrid>
-          {draft.hasValidationError ? (
-            <AppText
-              accessibilityLiveRegion="assertive"
-              accessibilityRole="alert"
-              colorRole="textSecondary"
-              testID="onboarding-dress-style-error">
-              {copy.dressStyleRequiredError}
-            </AppText>
-          ) : null}
+              ))}
+            </ChoiceTileGrid>
+            {/* One line for both questions, so it stays above the footer. */}
+            {draft.hasValidationError && (!draft.gender || !draft.dressStyle) ? (
+              <AppText
+                accessibilityLiveRegion="assertive"
+                accessibilityRole="alert"
+                colorRole="textSecondary"
+                testID="onboarding-dress-style-error">
+                {copy.dressRequiredError}
+              </AppText>
+            ) : null}
+          </View>
         </View>
       ) : null}
 
       {step === 'styles' ? (
-        <View style={styles.section}>
-          <ChoiceTileGrid columns={2} testID="onboarding-style-option">
+        <View style={styles.panel}>
+          {/* Three across, or two once the text is larger, so no style name breaks inside a word. */}
+          <ChoiceTileGrid columns={fontScale > 1 ? 2 : 3} testID="onboarding-style-option">
             {styleAesthetics.map((style) => {
               const checked = draft.styleAesthetics.includes(style);
               return (
@@ -603,12 +721,9 @@ export function OnboardingScreen({
                   drawings={[styleDrawings[style]]}
                   key={style}
                   label={aestheticLabel(preferenceCopy, style)}
-                  onPress={() => dispatch({
-                    type: 'select-style-aesthetics',
-                    value: checked
-                      ? draft.styleAesthetics.filter((value) => value !== style)
-                      : orderStyleAesthetics([...draft.styleAesthetics, style]),
-                  })}
+                  onPress={() => selectStyles(checked
+                    ? draft.styleAesthetics.filter((value) => value !== style)
+                    : orderStyleAesthetics([...draft.styleAesthetics, style]))}
                   role="checkbox"
                   selected={checked}
                   testID={`onboarding-style-option-${style}`}
@@ -619,6 +734,92 @@ export function OnboardingScreen({
           {draft.styleAesthetics.length >= styleAestheticsLimit ? (
             <AppText variant="caption">{preferenceCopy.stylePreferencesLimit(styleAestheticsLimit)}</AppText>
           ) : null}
+        </View>
+      ) : null}
+
+      {step === 'about' ? (
+        <View style={styles.panel}>
+          {/* The greeting Today will show, in its words on the ground. */}
+          <View style={styles.label} testID="onboarding-name-preview">
+            <AppText variant="title">
+              {typedName.trim() && !nameError
+                ? messages.today.greetingFirstNamed(typedName.trim())
+                : copy.nameGreetingEmpty}
+            </AppText>
+            <AppText colorRole="textSecondary" variant="caption">{copy.nameGreetingCaption}</AppText>
+          </View>
+          <View ref={aboutFieldsRef} style={styles.panel}>
+            <View style={styles.label}>
+              {/* The field speaks this label itself, so the drawn one is not read twice. */}
+              <AppText accessibilityElementsHidden importantForAccessibility="no-hide-descendants" variant="bodyStrong">
+                {copy.nameLabel}
+              </AppText>
+              <NameInput
+                accessibilityLabel={copy.nameLabel}
+                onChangeText={(value) => dispatch({ type: 'set-display-name', value })}
+                skippable
+                testID="onboarding-name"
+                value={typedName}
+              />
+            </View>
+            <View style={styles.label}>
+              <View style={[styles.birthDateRow, { minHeight: buttonBox.minHeight }]} testID="onboarding-birth-date-row">
+                <AppText style={styles.birthDateTitle} variant="bodyStrong">{preferenceCopy.birthDateTitle}</AppText>
+                {/* A picker always draws a date, so an unset birth date shows only Add; the wheel
+                    it opens stores nothing until it is turned. Remove takes its place once a
+                    date is set. */}
+                {draft.birthDate !== null ? (
+                  <Button
+                    accessibilityLabel={copy.birthDateClearAction}
+                    label={copy.birthDateRemove}
+                    onPress={() => {
+                      setAddingBirthDate(false);
+                      dispatch({ type: 'select-birth-date', value: null });
+                    }}
+                    testID="onboarding-birth-date-remove"
+                    variant="plain"
+                  />
+                ) : !addingBirthDate ? (
+                  <Button
+                    accessibilityLabel={copy.birthDateAddLabel}
+                    label={copy.birthDateAdd}
+                    onPress={() => setAddingBirthDate(true)}
+                    testID="onboarding-birth-date-add"
+                    variant="tonal"
+                  />
+                ) : null}
+              </View>
+              <AppText colorRole="textSecondary" variant="caption">{copy.birthDateBody}</AppText>
+            </View>
+          </View>
+          {draft.birthDate !== null || addingBirthDate ? (
+            <NativeDatePicker
+              accessibilityLabel={preferenceCopy.birthDateTitle}
+              initialSelection={birthDatePickerStart(maximumBirthDate)}
+              language={language}
+              maximumDate={maximumBirthDate}
+              minimumDate={minimumBirthDate}
+              onChange={(value) => dispatch({ type: 'select-birth-date', value })}
+              standalone
+              testID="onboarding-birth-date"
+              value={draft.birthDate}
+            />
+          ) : null}
+          {/* The Closet, promised in words beside a small rack of sample pieces in the chosen
+              cut; the drawing is decoration, the words carry the meaning. */}
+          <View style={styles.closetRow}>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={styles.closetRack}
+              testID="onboarding-closet-rack">
+              <ClosetRack pieces={closetSample} />
+            </View>
+            <View style={[styles.label, styles.closetText]}>
+              <AppText variant="bodyStrong">{copy.closetTitle}</AppText>
+              <AppText colorRole="textSecondary">{copy.closetPromise}</AppText>
+            </View>
+          </View>
         </View>
       ) : null}
 
@@ -694,25 +895,6 @@ export function OnboardingScreen({
                 variant={hasActiveLocation ? 'prominent' : 'tonal'}
               />
             </View>
-          ) : step === 'about' ? (
-            <View style={styles.nameActions}>
-              <Button
-                label={copy.nameNotNow}
-                onPress={() => {
-                  dispatch({ type: 'set-display-name', value: null });
-                  dispatch({ type: 'continue', from: draft.step });
-                }}
-                testID="onboarding-name-skip"
-                variant="plain"
-              />
-              <Button
-                disabled={!hasValidName}
-                label={messages.common.continue}
-                onPress={goForward}
-                size="large"
-                testID="onboarding-continue"
-              />
-            </View>
           ) : (
             <Button
               label={messages.common.continue}
@@ -758,6 +940,14 @@ const styles = StyleSheet.create({
   panel: {
     gap: spacing.md,
   },
+  // A group label and what it names.
+  group: {
+    gap: spacing.sm,
+  },
+  // A label bound to its control or its caption.
+  label: {
+    gap: spacing.xs,
+  },
   stage: {
     borderRadius: radii.card,
     overflow: 'hidden',
@@ -772,21 +962,34 @@ const styles = StyleSheet.create({
   },
   // Beside the glyph a long condition wraps inside the plate, whose edge clips.
   previewTitleText: { flexShrink: 1, minWidth: 0 },
-  greeting: {
-    gap: spacing.xs,
-    padding: spacing.lg,
+  board: { width: '100%' },
+  // Each board centred in the board area, a leaving one under the one rising after it.
+  boardLayer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
-  section: {
+  birthDateRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
+  },
+  birthDateTitle: { flexShrink: 1 },
+  closetRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
     gap: spacing.md,
   },
-  age: {
-    gap: spacing.sm,
-  },
+  closetRack: { width: CLOSET_RACK_WIDTH },
+  closetText: { flex: 1 },
   primaryAction: {
     flexGrow: 1,
   },
-  // O14: one footer row on every step; on the name step Not now and Continue share it.
-  nameActions: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: spacing.sm, justifyContent: 'flex-end' },
   skipAction: {
     width: '100%',
   },
