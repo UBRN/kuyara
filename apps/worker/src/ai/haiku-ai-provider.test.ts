@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import test, { mock } from 'node:test';
 
-import type { AiRecommendV1Request, AiRecommendV2Request } from '@kuyara/contracts';
+import { aiRecommendV2RequestSchema, type AiRecommendV1Request, type AiRecommendV2Request } from '@kuyara/contracts';
 
 import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 import { AiProviderError } from './ai-provider.ts';
@@ -184,7 +186,7 @@ type ContextModule = {
 };
 const contextSpecifier = '../../../mobile/src/features/recommendation/application/recommendation-context.ts';
 
-test('the priced prompt size covers the largest prompt the app builds and the limit derives from it', async () => {
+test('the priced prompt size covers the largest prompt the app and installed builds send, and the limit derives from it', async () => {
   await import(gridResolverSpecifier);
   const { gridRequestCells } = (await import(gridSpecifier)) as GridModule;
   // The grid models a weekday caller, but the app also sends weekends and no day kind at all,
@@ -227,8 +229,19 @@ test('the priced prompt size covers the largest prompt the app builds and the li
     return (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...request, locale }));
   })));
   assert.equal(largestBuilt, 18_249);
-  // Rounded up, never so far that the price stops describing the prompt.
-  assert.ok(largestBuilt <= haikuPromptCharacterLimit && haikuPromptCharacterLimit - largestBuilt < 200);
+
+  // Installed binaries build their requests with the composition they shipped, so a smaller
+  // prompt from today's tree must not price them out of Haiku. The fixture is the largest
+  // request the build 20 composition sends on the same cold front (a womens casual weekend,
+  // day variant 3); build 24's is 18,413.
+  const installed = aiRecommendV2RequestSchema.parse(JSON.parse(readFileSync(
+    path.join(import.meta.dirname, '__tests__', 'installed-build-largest-request.json'), 'utf8')));
+  const largestInstalled = haikuPromptCharacters(installed);
+  assert.equal(largestInstalled, 18_485);
+
+  // Rounded up from the largest of them, never so far that the price stops describing it.
+  const largestPrompt = Math.max(largestBuilt, largestInstalled);
+  assert.ok(largestPrompt <= haikuPromptCharacterLimit && haikuPromptCharacterLimit - largestPrompt < 200);
 
   // One token per character is the ceiling because the prompt is ASCII, even for the largest
   // request the contract admits.
@@ -237,9 +250,9 @@ test('the priced prompt size covers the largest prompt the app builds and the li
   // Micro-USD at 0.10 per 1M input tokens and 0.50 per 1M output tokens, 256 output tokens,
   // in tenths so the arithmetic stays in integers.
   const attemptMicroUsd = Math.ceil((haikuPromptCharacterLimit * 1 + 256 * 5) / 10);
-  assert.equal(attemptMicroUsd, 1_958);
+  assert.equal(attemptMicroUsd, 1_978);
   assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, Math.floor(200_000_000 / 31 / attemptMicroUsd));
-  assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, 3_295);
+  assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, 3_261);
   assert.ok(HAIKU_DAILY_ATTEMPT_LIMIT * attemptMicroUsd * 31 <= 200_000_000);
 });
 
