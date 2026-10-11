@@ -250,24 +250,50 @@ function boardOf(scene, preference, idPrefix = scene.id) {
 
 /**
  * The Closet the page shows: a sample of pieces owned and wanted, in the women's cut, hung by
- * the app's own rack (closet-rack-layout.ts, ADR 0028 section 1). Few enough that every piece
- * faces out; a wanted piece keeps its dashed edge.
+ * the app's own rack (closet-rack-layout.ts, ADR 0028 section 1). Every peg and hanger carries a
+ * piece and the shelf is full; a wanted piece keeps its dashed edge.
  */
 export const CLOSET = Object.freeze({
   preference: 'womens',
+  // Per zone, the last owned pieces listed face out on a full rail; the rest hang side-on.
   pieces: [
     { garmentTypeId: 'scarf', category: 'accessory', colorFamily: 'red' },
     { garmentTypeId: 'beanie', category: 'accessory', colorFamily: 'gray' },
-    { garmentTypeId: 'coat', category: 'outerwear', colorFamily: 'beige' },
-    { garmentTypeId: 'light_jacket', category: 'outerwear', colorFamily: 'green' },
+    { garmentTypeId: 'cap', category: 'accessory', colorFamily: 'blue' },
+    { garmentTypeId: 'brimmed_hat', category: 'accessory', colorFamily: 'beige' },
+    { garmentTypeId: 'gloves', category: 'accessory', colorFamily: 'brown' },
+    { garmentTypeId: 'neck_gaiter', category: 'accessory', colorFamily: 'green' },
+    { garmentTypeId: 'umbrella', category: 'accessory', colorFamily: 'black' },
+    { garmentTypeId: 'scarf', category: 'accessory', colorFamily: 'yellow' },
+    { garmentTypeId: 'trench_coat', category: 'outerwear', colorFamily: 'beige' },
+    { garmentTypeId: 'blazer', category: 'outerwear', colorFamily: 'black' },
+    { garmentTypeId: 'puffer_vest', category: 'outerwear', colorFamily: 'orange' },
+    { garmentTypeId: 'knit_dress', category: 'one_piece', colorFamily: 'gray' },
+    { garmentTypeId: 'hoodie', category: 'top', colorFamily: 'green' },
+    { garmentTypeId: 'cardigan', category: 'top', colorFamily: 'beige' },
+    { garmentTypeId: 'turtleneck', category: 'top', colorFamily: 'black' },
+    { garmentTypeId: 't_shirt', category: 'top', colorFamily: 'white' },
+    { garmentTypeId: 'polo_shirt', category: 'top', colorFamily: 'red' },
     { garmentTypeId: 'dress', category: 'one_piece', colorFamily: 'pink', wanted: true },
+    { garmentTypeId: 'shirt', category: 'top', colorFamily: 'white' },
+    { garmentTypeId: 'blouse', category: 'top', colorFamily: 'purple' },
+    { garmentTypeId: 'coat', category: 'outerwear', colorFamily: 'brown' },
+    { garmentTypeId: 'light_jacket', category: 'outerwear', colorFamily: 'green' },
     { garmentTypeId: 'sweater', category: 'top', colorFamily: 'blue' },
     { garmentTypeId: 'jeans', category: 'bottom', colorFamily: 'blue' },
     { garmentTypeId: 'skirt', category: 'bottom', colorFamily: 'black' },
     { garmentTypeId: 'trousers', category: 'bottom', colorFamily: 'brown' },
+    { garmentTypeId: 'shorts', category: 'bottom', colorFamily: 'beige' },
+    { garmentTypeId: 'long_skirt', category: 'bottom', colorFamily: 'green' },
+    { garmentTypeId: 'track_pants', category: 'bottom', colorFamily: 'gray' },
     { garmentTypeId: 'sneakers', category: 'footwear', colorFamily: 'white' },
     { garmentTypeId: 'ankle_boots', category: 'footwear', colorFamily: 'brown' },
     { garmentTypeId: 'loafers', category: 'footwear', colorFamily: 'black', wanted: true },
+    { garmentTypeId: 'sandals', category: 'footwear', colorFamily: 'beige' },
+    { garmentTypeId: 'ballet_flats', category: 'footwear', colorFamily: 'red' },
+    { garmentTypeId: 'rain_boots', category: 'footwear', colorFamily: 'yellow' },
+    { garmentTypeId: 'weather_boots', category: 'footwear', colorFamily: 'gray' },
+    { garmentTypeId: 'closed_shoes', category: 'footwear', colorFamily: 'blue' },
   ],
 });
 
@@ -292,11 +318,18 @@ function paintRack(appearance) {
   if (layout.tags.length > 0) throw new Error('The sample Closet overflows the rack.');
   const marks = layout.marks.map((mark) => {
     if (mark.kind === 'hanger') {
+      if (mark.empty) throw new Error('The sample Closet leaves an empty hanger.');
       const stroke = mark.empty ? colors.textSecondary : ink;
       const jaws = mark.jaws.map((jaw) => `<rect x="${jaw.x}" y="${jaw.y}" width="3" height="5" rx="0.8" fill="${stroke}"/>`).join('');
       return `<path d="${mark.d}" fill="none" stroke="${stroke}" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.1"/>${jaws}`;
     }
-    if (mark.kind === 'slice') throw new Error('The sample Closet hangs a piece side-on.');
+    if (mark.kind === 'slice') {
+      const { main, shade } = roles.get(mark.piece.id);
+      const dash = mark.piece.wanted ? ' stroke-dasharray="2.6 2"' : '';
+      return `<path d="${mark.hook}" fill="none" stroke="${ink}" stroke-linecap="round" stroke-width="1"/>`
+        + `<path d="${mark.body}" fill="${main}"/><path d="${mark.shade}" fill="${shade}"/>`
+        + `<path d="${mark.body}" fill="none" stroke="${ink}"${dash} stroke-linejoin="round" stroke-width="1.1"/>`;
+    }
     const { bounds } = mark.silhouette;
     const painted = serialize(paintGarment({
       silhouette: mark.silhouette,
