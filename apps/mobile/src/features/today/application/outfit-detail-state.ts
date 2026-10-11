@@ -6,9 +6,10 @@ import type {
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 import {
-  wornAlready,
+  sameWornGarments,
   wornOutfitFrom,
   type WornOutfit,
+  type WornPieceColors,
 } from '@/features/recommendation/domain/outfit-history';
 import { moreIdeas } from '@/features/today/application/today-state';
 import { activeLocationRecommendation, todayFreshness, type TodayScreenState } from '@/features/today/model';
@@ -156,13 +157,16 @@ export function wornOutfitOrNull(...args: Parameters<typeof wornOutfitFrom>): Wo
  */
 export function outfitWornState(
   tomorrow: boolean,
-  dayWorn: Readonly<{ looks: readonly WornOutfit[] }> | null,
+  dayWorn: Readonly<{ looks: readonly Readonly<{ outfit: WornOutfit; pieceColors: WornPieceColors | null }>[] }> | null,
   thisWorn: WornOutfit | null,
+  painted: WornPieceColors = {},
 ): OutfitWornState {
-  return tomorrow || !dayWorn || !thisWorn
-    ? 'unknown'
-    : dayWorn.looks.length === 0 ? 'none'
-      : wornAlready(dayWorn.looks, thisWorn) ? 'this' : 'other';
+  if (tomorrow || !dayWorn || !thisWorn) return 'unknown';
+  if (dayWorn.looks.length === 0) return 'none';
+  // A painted colour must be the one recorded for its slot; colours left as drawn never count.
+  const paintedSlots = Object.keys(painted) as (keyof WornPieceColors)[];
+  return dayWorn.looks.some(({ outfit, pieceColors }) => sameWornGarments(outfit, thisWorn)
+    && paintedSlots.every((slot) => pieceColors?.[slot] === painted[slot])) ? 'this' : 'other';
 }
 
 /**

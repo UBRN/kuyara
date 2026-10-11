@@ -24,6 +24,8 @@ import {
   swapStageFit,
   swapStripLayout,
   swapWindow,
+  swapChevrons,
+  swapPanelHeight,
 } from './swap-gesture.ts';
 import { easierToSeeRule, composeGarmentBoard, detailPreset, todayPreset } from './compose-garment-board.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
@@ -392,4 +394,30 @@ test('Today and the detail stack their pieces in the same dressing order', () =>
     .map(([slot, type, category]) => ({ slot, ...resolveGarmentSilhouette(type, category, 'womens') }));
   assert.deepEqual(composeGarmentBoard(pieces, detailPreset).stack.map(({ slot }) => slot),
     composeGarmentBoard(pieces, todayPreset).stack.map(({ slot }) => slot));
+});
+
+// The chevrons stand against the enlarged piece's sides, vertically centred on it, never past
+// the stage: a 44 pt pad holds each wholly, and at a stage edge the chevron stops at the edge.
+test('the chevrons hug the enlarged piece from outside and stay on the stage', () => {
+  const grown = { x: 84, y: 0, w: 168, h: 160 };
+  assert.deepEqual(swapChevrons(grown, 358, 289, 44), { previous: { x: 40, y: 58 }, next: { x: 252, y: 58 } });
+  const atEdge = { x: 0, y: 200, w: 300, h: 100 };
+  assert.deepEqual(swapChevrons(atEdge, 320, 280, 44), { previous: { x: 0, y: 228 }, next: { x: 276, y: 228 } });
+  // A larger chevron at a larger text size is placed by its own size.
+  assert.deepEqual(swapChevrons(grown, 358, 289, 60).previous, { x: 24, y: 50 });
+});
+
+// The strip under the enlarged piece: the header, its colours, the reader's own pieces when the
+// Closet has any for the slot (their label, tiles and a hairline) and the catalog's tiles. The
+// enlargement fits this height between the bars, so it must match what the strip lays out.
+test('the strip is as tall as its header, colours, own pieces and catalog tiles', () => {
+  const sections = { colors: 7, own: 0, ownLabel: 18, candidates: 12, suitable: 8 };
+  assert.equal(swapPanelHeight(44, sections, 358), 44 + 8 + 44 + 12 + 96);
+  assert.equal(swapPanelHeight(44, { ...sections, own: 2 }, 358), 44 + 8 + 44 + 12 + 18 + 4 + 44 + 8 + 1 + 8 + 96);
+  // "More colours" opens the 33 in rows of seven: five rows.
+  assert.equal(swapPanelHeight(44, { ...sections, colors: 33 }, 358), 44 + 8 + 252 + 12 + 96);
+  // A 375 pt phone's column holds six a row.
+  assert.equal(swapPanelHeight(44, { ...sections, colors: 33 }, 343), 44 + 8 + (6 * 44 + 5 * 8) + 12 + 96);
+  // A board with no colour row (a piece the reader cannot change) keeps the header and its tiles.
+  assert.equal(swapPanelHeight(44, { ...sections, colors: 0 }, 358), 44 + 8 + 96);
 });

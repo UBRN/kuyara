@@ -154,20 +154,31 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
     };
     try {
       await this.db.withExclusiveTransactionAsync(async (transaction) => {
-        // The same look twice in one day is one record: it stays as it is, and only a photo
-        // change reaches it. Any other look is a new record beside the day's earlier ones.
+        // The same pieces twice in one day are one record. Worn again as they were, it stays as
+        // it is; in other colours (painted on detail), it takes the latest wearing's colours and
+        // source and keeps its worn time. A photo change reaches it either way. Any other look is
+        // a new record beside the day's earlier ones.
         const same = (await readDay(transaction, profileId, dayKey))
           .find((look) => sameWornGarments(look.outfit, validated));
-        if (same && photo.kind === 'keep') {
+        const repainted = same !== undefined
+          && JSON.stringify([same.outfit, same.pieceColors]) !== JSON.stringify([validated, colors]);
+        if (same && photo.kind === 'keep' && !repainted) {
           outcome.result = same;
           return;
         }
         let id: string;
         if (same) {
           id = same.id;
-          outcome.oldPhotoPath = same.photoPath;
-          await transaction.runAsync(`UPDATE outfit_history SET photo_path = ?, updated_at = ?,
-            pending_sync = 1 WHERE id = ?`, [copied, timestamp, id]);
+          if (repainted) {
+            await transaction.runAsync(`UPDATE outfit_history SET outfit_json = ?, piece_colors_json = ?,
+              updated_at = ?, pending_sync = 1 WHERE id = ?`,
+            [JSON.stringify(validated), colors === null ? null : JSON.stringify(colors), timestamp, id]);
+          }
+          if (photo.kind !== 'keep') {
+            outcome.oldPhotoPath = same.photoPath;
+            await transaction.runAsync(`UPDATE outfit_history SET photo_path = ?, updated_at = ?,
+              pending_sync = 1 WHERE id = ?`, [copied, timestamp, id]);
+          }
         } else {
           id = uuidV4Schema.parse(this.createId());
           await transaction.runAsync(`INSERT INTO outfit_history

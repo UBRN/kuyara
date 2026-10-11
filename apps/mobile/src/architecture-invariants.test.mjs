@@ -402,6 +402,21 @@ test('garment-art reaches a feature only through its domain layer', () => {
   );
 });
 
+// ADR 0007: the Closet is never a recommendation input. Detail offers the reader's own pieces as
+// a manual shortcut, so the recommendation feature never reads the Closet, not even a type.
+test('the recommendation feature never imports the Closet', () => {
+  const violations = [];
+  for (const relativePath of sourceFiles()) {
+    if (!relativePath.startsWith('features/recommendation/')) continue;
+    for (const { specifier, line } of specifiersIn(relativePath)) {
+      if (resolvedSourcePath(relativePath, specifier)?.startsWith('features/wardrobe/')) {
+        violations.push(`${repoRelativeRoot}/${relativePath}:${line} imports '${specifier}'`);
+      }
+    }
+  }
+  assert.deepEqual(violations, [], 'Closet records never reach selection, AI input, analytics or telemetry.');
+});
+
 test('the walker actually reads the tree it is asked to guard', () => {
   // A silent empty walk would make every rule above pass vacuously.
   const files = sourceFiles();

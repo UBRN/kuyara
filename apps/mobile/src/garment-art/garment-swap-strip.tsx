@@ -6,14 +6,17 @@ import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { PressScale } from '@/components/ui/press-scale';
 import { fadeTo } from '@/components/ui/fade';
+import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
+import { closetSolidForBoardSwatch } from '@/features/wardrobe/domain/closet-board-swatch';
 import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
 import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
+import { ColorSwatch, ColorWellFace } from './color-swatch';
 import type { GarmentRoles } from './garment-palette';
 import { GarmentCandidateTile } from './garment-tile-artwork';
-import { SWAP_HAIRLINE_LENGTH, swapStripLayout } from './swap-gesture';
+import { SWAP_HAIRLINE_LENGTH, swapStripLayout, type SwapStripLayout } from './swap-gesture';
 
 export type GarmentSwapStripCandidate = Readonly<{
   garmentTypeId: GarmentTypeId;
@@ -28,6 +31,42 @@ export type GarmentSwapStripLabels = Readonly<{
   done: string;
   /** Spoken on each tile after the hairline: that piece can make the outfit unusual. */
   otherHint: string;
+  /** Each board swatch's colour name, the Closet palette's. */
+  colorName: (swatchId: GarmentSwatchId) => string;
+  moreColors: string;
+  /** The reader's own pieces' heading, and each one's whole spoken name. */
+  own: string;
+  ownPiece: (piece: string, color: string) => string;
+}>;
+
+/**
+ * The enlarged piece's colours: its drawing's own, most natural first, with "More colours"
+ * (`onMore`) offering the Closet's 33, or those 33 once opened. `held` is how many swatches the
+ * grid keeps room for through the whole enlargement, so a step never moves a tile under a finger.
+ */
+export type GarmentSwapStripColors = Readonly<{
+  swatches: readonly GarmentSwatchId[];
+  held: number;
+  current: GarmentSwatchId | null;
+  label: string;
+  onMore: (() => void) | null;
+  onPaint: (swatchId: GarmentSwatchId) => void;
+}>;
+
+/** One of the reader's own Closet pieces that fits the slot, drawn in the swatch it paints the board in. */
+export type GarmentSwapOwnPiece = Readonly<{
+  id: string;
+  garmentTypeId: GarmentTypeId;
+  category: StructuralCategory;
+  swatchId: GarmentSwatchId;
+}>;
+
+export type GarmentSwapStripOwn = Readonly<{
+  pieces: readonly GarmentSwapOwnPiece[];
+  roles: ReadonlyMap<string, GarmentRoles>;
+  /** The Closet marker each own piece carries. */
+  badge: ReactNode;
+  onChoose: (piece: GarmentSwapOwnPiece) => void;
 }>;
 
 type GarmentSwapStripProps = Readonly<{
@@ -46,9 +85,15 @@ type GarmentSwapStripProps = Readonly<{
   onDone: () => void;
   /** A layer the reader can take off: a plain text action before Done, with a whole spoken sentence. */
   takeOff?: Readonly<{ label: string; accessibilityLabel: string; onPress: () => void }> | null;
+  paint?: GarmentSwapStripColors | null;
+  own?: GarmentSwapStripOwn | null;
   onHeaderLayout?: (height: number) => void;
+  onOwnLabelLayout?: (height: number) => void;
   testID: string;
 }>;
+
+const gridStyle = (grid: SwapStripLayout) => ({ height: grid.height, width: grid.width });
+const tileAt = (grid: SwapStripLayout, index: number) => ({ left: grid.tiles[index].x, top: grid.tiles[index].y });
 
 /** The header's words: drawn from their first frame at `from` and eased in on `motion.fast`. */
 function HeaderWords({ from, children }: Readonly<{ from: number; children: ReactNode }>) {
@@ -63,8 +108,10 @@ function HeaderWords({ from, children }: Readonly<{ from: number; children: Reac
 
 /**
  * Phase 7b's candidate strip under the enlarged piece: a header
- * naming the piece and its place with Done (and Take off for a layer), then the slot's catalog pieces in the picker's
- * order as a grid of 44-point tiles, the current one marked. It lives outside the board's
+ * naming the piece and its place with Done (and Take off for a layer), the piece's colours,
+ * the reader's own Closet pieces of the slot under "Yours" and a hairline, then the slot's
+ * catalog pieces in the picker's order as a grid of 44-point tiles, the current one marked.
+ * Every section wraps in rows, never a sideways scroller. It lives outside the board's
  * gesture: a tile, Done or a gap between tiles never reaches the board. A pressed tile names
  * itself in the header before release, because two pieces can share a drawing.
  */
@@ -80,7 +127,10 @@ export function GarmentSwapStrip({
   onChoose,
   onDone,
   takeOff = null,
+  paint = null,
+  own = null,
   onHeaderLayout,
+  onOwnLabelLayout,
   testID,
 }: GarmentSwapStripProps) {
   const theme = useKuyaraTheme();
@@ -106,6 +156,9 @@ export function GarmentSwapStrip({
     setLastShown(shownId);
     if (pressedId === null && previewId === null) setFades((count) => count + 1);
   }
+
+  const colorGrid = paint ? swapStripLayout(paint.held, paint.held, columnWidth) : null;
+  const ownGrid = own ? swapStripLayout(own.pieces.length, own.pieces.length, columnWidth) : null;
 
   const currentTile = strip.tiles[Math.max(0, indexOf(current))] ?? { x: 0, y: 0 };
   const markerStyle = useAnimatedStyle(() => ({
@@ -139,7 +192,77 @@ export function GarmentSwapStrip({
           </View>
         </HeaderWords>
       </View>
-      <View style={[styles.grid, { height: strip.height, width: strip.width }]} testID={`${testID}-grid`}>
+      {/* Under the header, `sm` then each section, `md` after the colours, the reader's own
+          pieces closing on a hairline `sm` either side: `swapPanelHeight` adds the same. */}
+      {paint && colorGrid ? (
+        // A radio group: the screen reader names the piece's colour once and each swatch by its name.
+        <View
+          accessibilityLabel={paint.label}
+          accessibilityRole="radiogroup"
+          style={[styles.section, gridStyle(colorGrid)]}
+          testID={`${testID}-colors`}>
+          {paint.swatches.map((swatchId, index) => (
+            <View key={swatchId} style={[styles.tile, tileAt(colorGrid, index)]}>
+              <ColorSwatch
+                choice={{ kind: 'option', id: closetSolidForBoardSwatch(swatchId) }}
+                disabled={false}
+                label={labels.colorName(swatchId)}
+                onPress={() => paint.onPaint(swatchId)}
+                selected={swatchId === paint.current}
+                testID={`${testID}-color-${swatchId}`}
+              />
+            </View>
+          ))}
+          {paint.onMore ? (
+            <PressScale
+              accessibilityLabel={labels.moreColors}
+              accessibilityRole="button"
+              onPress={paint.onMore}
+              style={({ pressed }) => [styles.tile, styles.more, tileAt(colorGrid, paint.swatches.length),
+                pressed && styles.pressed]}
+              testID={`${testID}-more-colors`}>
+              <ColorWellFace hex={null} testID={`${testID}-more-colors-face`} />
+            </PressScale>
+          ) : null}
+        </View>
+      ) : null}
+      {own && ownGrid ? (
+        <View style={paint ? styles.group : styles.section} testID={`${testID}-own`}>
+          <AppText
+            colorRole="textSecondary"
+            onLayout={({ nativeEvent }) => onOwnLabelLayout?.(nativeEvent.layout.height)}
+            variant="caption">
+            {labels.own}
+          </AppText>
+          <View style={[styles.ownGrid, gridStyle(ownGrid)]} testID={`${testID}-own-grid`}>
+            {own.pieces.map((piece, index) => (
+              <PressScale
+                accessibilityLabel={labels.ownPiece(labels.pieceName(piece.garmentTypeId), labels.colorName(piece.swatchId))}
+                accessibilityRole="button"
+                key={piece.id}
+                onPress={() => own.onChoose(piece)}
+                style={({ pressed }) => [styles.tile, tileAt(ownGrid, index), pressed && styles.pressed]}
+                testID={`${testID}-own-${piece.id}`}>
+                <GarmentCandidateTile
+                  category={piece.category}
+                  control
+                  garmentTypeId={piece.garmentTypeId}
+                  roles={own.roles.get(piece.id)}
+                  testIDPrefix={`${testID}-own-art`}
+                />
+                <View style={styles.badge}>{own.badge}</View>
+              </PressScale>
+            ))}
+          </View>
+          <View
+            style={[styles.hairlineAcross, { backgroundColor: colors.borderSubtle, width: strip.width }]}
+            testID={`${testID}-own-hairline`}
+          />
+        </View>
+      ) : null}
+      <View
+        style={[paint && !own ? styles.group : styles.section, { height: strip.height, width: strip.width }]}
+        testID={`${testID}-grid`}>
         {candidates.map((candidate, index) => {
           const tile = strip.tiles[index];
           const selected = candidate.garmentTypeId === current;
@@ -236,7 +359,33 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
   },
-  grid: {
+  // The Closet marker in the own piece's corner, inside its 44-point target.
+  badge: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  group: {
+    marginTop: spacing.md,
+  },
+  hairlineAcross: {
+    height: borderWidths.subtle,
+    marginTop: spacing.sm,
+  },
+  more: {
+    alignItems: 'center',
+    borderRadius: layout.minimumTouchTarget / 2,
+    height: layout.minimumTouchTarget,
+    justifyContent: 'center',
+    width: layout.minimumTouchTarget,
+  },
+  ownGrid: {
+    marginTop: spacing.xs,
+  },
+  pressed: {
+    opacity: interaction.pressedOpacity,
+  },
+  section: {
     marginTop: spacing.sm,
   },
   hairline: {

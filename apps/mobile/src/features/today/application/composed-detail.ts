@@ -1,5 +1,5 @@
 import type { DressStyle } from '@kuyara/contracts';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type { ClothingPreference } from '@/domain/preferences';
 import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
@@ -24,6 +24,7 @@ import type {
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import { wornOutfitOrNull } from '@/features/today/application/outfit-detail-state';
 import type { ComposePiece } from '@/features/today/application/compose-selection';
+import { usePieceColors, type PaintedColors, type PieceColors } from '@/features/today/application/piece-colors';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 
 /**
@@ -53,9 +54,10 @@ export function composeInputFor(
  * The outfit detail shows and edits: kuyara's pick, or a result composed around chosen pieces
  * once there is one, on the day `composeInputFor` reads from `snapshot` (null composes
  * nothing). Each showing keeps its own edits, so an edit never crosses between the pick and a
- * composed option, even one built from the same pieces with the same id. `onPieceChanged`
- * hears each change to one piece, told whether a composed result is showing; `onComposed`
- * hears each settled compose attempt with the pieces chosen and the outfits built.
+ * composed option, even one built from the same pieces with the same id, and so does each
+ * showing's painted colours. `onPieceChanged` hears each change to one piece, told whether a
+ * composed result is showing; `onComposed` hears each settled compose attempt with the pieces
+ * chosen and the outfits built.
  */
 export function useDetailMix(
   pick: RecommendedOutfit | null,
@@ -68,7 +70,11 @@ export function useDetailMix(
     onPieceChanged?: (slot: OutfitSlot, composed: boolean) => void;
     onComposed?: (pieceCount: number, optionCount: number) => void;
   }> = {},
-): Readonly<{ composed: ComposeAroundPieces; manualMix: ManualMix<RecommendedOutfit> | null }> {
+): Readonly<{
+  composed: ComposeAroundPieces;
+  manualMix: ManualMix<RecommendedOutfit> | null;
+  pieceColors: PieceColors;
+}> {
   const composed = useComposeAroundPieces(
     composeInputFor(snapshot, requirements, resolvedDressStyle, now), reports.onComposed);
   const option = composed.current;
@@ -78,7 +84,10 @@ export function useDetailMix(
     [composedShowing, onPieceChanged]);
   const manualMix = useManualMix(option?.outfit ?? pick, requirements, preference, option?.unusual ?? false,
     option ? composed.key : undefined, pieceChanged);
-  return { composed, manualMix };
+  const shown = manualMix?.outfit ?? null;
+  const garments = useMemo(() => (shown ? outfitGarments(shown) : {}), [shown]);
+  const pieceColors = usePieceColors(option ? composed.key : pick?.optionId ?? null, garments);
+  return { composed, manualMix, pieceColors };
 }
 
 /** The pick's drawn pieces in slot order: what the compose sheet offers first. */
@@ -140,7 +149,7 @@ export type ManualDetail = Readonly<{
    */
   original?: RecommendedOutfit;
   changedSlots: readonly OutfitSlot[];
-  /** Colours the reader chose for pieces composed around (compose only): each piece's recorded swatch. */
+  /** Colours the reader chose, for pieces composed around or painted on detail: each piece's recorded swatch. */
   pieceColors?: Readonly<Partial<Record<OutfitSlot, GarmentSwatchId>>>;
 }>;
 
@@ -155,36 +164,42 @@ type DetailMix = Pick<ManualMix<RecommendedOutfit>, 'outfit' | 'edited' | 'chang
 
 /**
  * What the presentation draws in the opened option's place: the reader's outfit once it is a
- * composed result or carries an edit, or null while kuyara's pick shows as recommended.
+ * composed result or carries an edit, a painted colour included, or null while kuyara's pick
+ * shows as recommended. A painted slot counts once among the changes, and its colour is drawn
+ * over a composed pin's.
  */
 export function manualDetailOf(
   mix: DetailMix | null,
   composed: ComposedDetail | null,
   suggestionId: string | undefined,
+  painted: PaintedColors = {},
 ): ManualDetail | null {
-  return mix && suggestionId && (composed || mix.edited)
-    ? {
-        optionId: suggestionId,
-        outfit: mix.outfit,
-        original: composed?.outfit,
-        changedSlots: composed ? composed.changedSlots : [...mix.changedSlots, ...mix.changedAccessorySlots],
-        pieceColors: composed?.pieceColors,
-      }
-    : null;
+  const paintedSlots = Object.keys(painted) as OutfitSlot[];
+  if (!mix || !suggestionId || !(composed || mix.edited || paintedSlots.length > 0)) return null;
+  const changedSlots = composed ? composed.changedSlots : [...mix.changedSlots, ...mix.changedAccessorySlots];
+  return {
+    optionId: suggestionId,
+    outfit: mix.outfit,
+    original: composed?.outfit,
+    changedSlots: [...new Set([...changedSlots, ...paintedSlots])],
+    pieceColors: composed || paintedSlots.length > 0 ? { ...composed?.pieceColors, ...painted } : undefined,
+  };
 }
 
 /**
  * Whether the outfit on detail is the reader's own, and everything that follows from it. A
  * composed result is the reader's from the start and any edit makes it so, a finishing touch
- * alone included; a reset leaves neither, and kuyara's pick shows again as recommended.
+ * or a painted colour alone included; a reset leaves neither, and kuyara's pick shows again as
+ * recommended.
  */
 export function detailShowing(
   pick: RecommendedOutfit | null,
   option: ComposedOption | null,
   mix: DetailMix | null,
+  painted: PaintedColors = {},
 ): DetailShowing {
   const composed = option && mix ? composedDetail(option, mix.changedSlots, mix.changedAccessorySlots) : null;
-  const changedOutfit = mix && (option || mix.edited) ? mix.outfit : null;
+  const changedOutfit = mix && (option || mix.edited || Object.keys(painted).length > 0) ? mix.outfit : null;
   const worn = changedOutfit
     ? wornOutfitOrNull(changedOutfit, 'manual')
     : pick ? wornOutfitOrNull(pick) : null;

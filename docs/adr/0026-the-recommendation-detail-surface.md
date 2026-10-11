@@ -13,9 +13,10 @@ Direction E makes Today visual-first and keeps garment names, layer structure, p
 reasoning and weather reasoning on a recommendation detail surface reached from Today.
 
 The recommendation engine has no per-slot substitution input. Manual editing (swapping,
-taking a layer off, adding a layer or an accessory) and composing around chosen pieces are
-separate interactions over catalog pieces and never change Today's outfit, the engine's
-candidates or the AI request.
+painting a piece, taking a layer off, adding a layer or an accessory) and composing around
+chosen pieces are separate interactions over catalog pieces and never change kuyara's pick,
+the engine's candidates or the AI request; a look the reader records leads Today until the
+dressing day turns ([ADR 0038](0038-outfit-history.md)).
 
 ## Decision
 
@@ -43,7 +44,7 @@ the visible statement that the weather was the input and the outfit is now the s
 
 ### 3. Garment rows sit below the board
 
-No text overlaps the drawings. Directly under the board a row of small buttons names the pieces in the order they are put on, wrapping at any text size; each label is centred in its button, the buttons of one line share one height, and each button carries one Closet marker after its label and no other decoration: a filled circled tick in the accent for a piece owned in its colour, a hanger for one owned only in another colour, a filled heart for a wanted one and an empty circle for one not in the Closet, the last three in the board's secondary icon ink. A tap on a name enlarges its piece exactly as a tap on the piece does. One line under them says a name or a piece is tapped and then swiped to change it, until the first change; while a piece is enlarged the candidate strip of decision 6 stands in the place of the names and the line. "Wore this today" sits directly under them. Below it, garment rows name each piece, its slot and its Closet state in board order; each row opens the piece's edit sheet for ownership, colour and optional photo, and carries the plain "Change" control of decision 6. Rows retain readable labels and 44-point targets at the largest standard text size, where Change moves under the row's text.
+No text overlaps the drawings. Directly under the board a row of small buttons names the pieces in the order they are put on, wrapping at any text size; each label is centred in its button, the buttons of one line share one height, and each button carries one Closet marker after its label and no other decoration: a filled circled tick in the accent for a piece owned in its colour, a hanger for one owned only in another colour, a filled heart for a wanted one and an empty circle for one not in the Closet, the last three in the board's secondary icon ink. A tap on a name enlarges its piece exactly as a tap on the piece does. One line under them says a name or a piece is tapped and then swiped to change it, until the first change; while a piece is enlarged the candidate strip of decision 6 stands in the place of the names and the line. "Wore this today" sits directly under them. Below it, garment rows name each piece, its slot and its Closet state in board order; each row opens the piece's edit sheet for ownership, its Closet colour and optional photo, and carries the plain "Change" control of decision 6. Rows retain readable labels and 44-point targets at the largest standard text size, where Change moves under the row's text.
 
 The rows follow the outfit's edits (decision 6). A layer the reader took off leaves its row in place as "No outer layer" / "Dış katman yok" ("No mid layer" / "Orta katman yok") on the empty-place tile, a `surfaceMuted` tile with the category's glyph faded, subtitle "You took it off" / "Sen çıkardın", with Change and nothing to open. When a layer slot is free an "Add a layer" / "Katman ekle" row follows the piece rows in the same anatomy, a plus tile and the subtitle "Mid or outer layer" / "Orta ya da dış katman". Under the piece rows, "Finishing touches" / "Son dokunuşlar" lists the accessories one row each with a trailing "Take off" / "Çıkar" and ends with an "Add an accessory" / "Aksesuar ekle" row; the heading shows even when kuyara chose none. Under "Wore this today", a result built around chosen pieces marks those rows "Your choice" / "Senin seçimin" with Change. Every added control is a text control or a row of the existing anatomy, drawn once, and a row that gains or loses its control keeps one accessible element for its text and one for its button, each speaking a whole sentence.
 
@@ -82,7 +83,10 @@ Detail permits a reader to swap any drawn piece for another catalog piece of the
 slot, in two equivalent ways. Each garment row's "Change" opens the slot's picker: every
 catalog piece of the slot with the profile's gender applicability kept, the pieces that
 keep kuyara's pick weather-suitable first and the rest under a short explanation, a piece
-worn by another slot left out. Closet items never become candidates. Suitability is
+worn by another slot left out. The candidates and their order are the catalog's alone: the
+enlarged piece's strip offers the reader's own Closet pieces as a manual shortcut to a
+candidate type in the piece's own colour, and a Closet record never enters selection, a pin,
+an ordering or the AI request ([ADR 0007](0007-ai-selects-precomposed-outfits.md)). Suitability is
 the domain validator's verdict: the pieces' own hard requirements and every mandatory
 weather requirement of the set, the same test a composed outfit passes; formality
 consistency is not part of it.
@@ -91,14 +95,38 @@ On the board a tap enlarges a piece in place. Where pieces overlap, a tap goes t
 composed size, less where the board holds less but never under 1.6 times, shifted only as
 far as the stage needs; the other pieces step back to 0.9 in full colour, and the name buttons
 leave until the pieces rest again. Under the stage a strip names the
-piece and its place ("Coat 3 / 12") beside "Done", over the slot's candidates in the
-picker's order as 44-point tiles 8 points apart, as many a row as the column holds and at
+piece and its place ("Coat 3 / 12") beside "Done"; under that header stand the piece's
+colours, then the reader's own pieces when the Closet has any for the slot, then the slot's
+candidates in the picker's order as 44-point tiles 8 points apart, as many a row as the column holds and at
 most seven (seven in a 390-point phone's 358-point column, six in a 375-point phone's 343),
 in as many rows as the slot needs, never a sideways scroller. No slot offers more than 14
 candidates today, two rows of seven; the 13-candidate top takes three rows of six on a
-375-point phone, and a test fails before a catalog change needs more. A 1-point hairline in `borderSubtle` stands before the first piece
-that makes the outfit unusual, and a `focusRing` marker rings the current tile. The piece
-changes while it stays large: a horizontal swipe on it, or a tile. A swipe pages the
+375-point phone, and a test fails before a catalog change needs more; the own pieces are
+counted apart. A 1-point hairline in `borderSubtle` stands before the first piece
+that makes the outfit unusual, and a `focusRing` marker rings the current tile.
+
+The colour row holds the drawing's own colourway, most natural first, as 44-point swatches on
+the same grid, the colour the piece is drawn in ringed and checked as the Closet palette
+rings its choice, then "More colours" / "Diğer renkler", which opens the Closet's 33 solid
+colours in place, in rows, until the enlargement settles. It keeps room for the slot's longest
+colourway, so a step never moves a tile under a finger. The swatches are a radio group named
+for the slot's colour, each named by its Closet colour name. A swatch paints the enlarged
+piece as its recorded swatch, so the board, the rows, the ownership markers, the share card
+and "Wore this today" all follow it; the colour only paints the drawing and never enters
+selection. "Yours" / "Seninkiler" shows only when the Closet holds owned pieces whose type is
+among the slot's candidates, so the slot and the profile's gender already fit: one tile per
+owned piece, drawn in the swatch it paints the board in, with the owned marker in its corner,
+each a button named as the piece from the Closet and its colour, and a hairline under them. A
+tile wears that type in that colour: a Closet solid in its own swatch, a custom colour in the
+nearest one, and a pattern, a two-colour option or a family alone in the first swatch of that
+family, the drawing's own colours first.
+
+The piece changes while it stays large: a horizontal swipe on it, a chevron beside it, or a
+tile. Two 44-point glass chevrons stand against the enlarged piece's sides, in its window's
+pad, vertically centred on it and kept on the stage, so neither is drawn on the piece where
+the stage leaves room; each is a button named "Previous: <piece>" / "Önceki: <parça>" or
+"Next: <piece>" / "Sonraki: <parça>", steps as a tile does, and is gone, not disabled, at its
+end of the order. They come and go with the strip. A swipe pages the
 enlarged piece inside its own window, clipped so it never covers a stepped-back piece,
 the leaving piece fading on `motion.fast` as it goes; a release past half a step or a 500 pt/s flick commits, both ends resist like a
 rubber band, the order never wraps, and 8 points of vertical travel first hand the press
@@ -148,17 +176,21 @@ side its order gives and the outgoing one leaves the other way, paged inside the
 while the slot is enlarged and crossfading otherwise. The change is a dressing: the outgoing
 piece lifts `spacing.lg` as it fades on `motion.fast`, and the incoming one is hung on from
 `spacing.lg` above and lands on the arrival spring, its shadow with it; a piece a swipe has
-already carried into place catches its weight with the moment's settle instead. A changed piece is
-coloured afresh, and every piece that is still kuyara's pick keeps the colour the
-original outfit gave it, passed to the palette resolver as a recorded swatch; nothing is
-stored. The manual combination is not blocked when weather or composition rules would
+already carried into place catches its weight with the moment's settle instead. A piece changed
+to another type is coloured afresh, and every other piece keeps the colour it is drawn in,
+passed to the palette resolver as a recorded swatch: the colour the original outfit gave it,
+or the one the reader painted. A painted colour belongs to its piece, so changing the piece's
+type drops it, and to its showing, so a composed result never inherits it; nothing is
+stored. A painted colour is a change like a swap. The manual combination is not blocked when weather or composition rules would
 reject it; "Unusual for this weather" under the board, in the warning glyph and ink,
 explains the departure. The title becomes "Your outfit" in place at the change, and
 "Changed from" the archetype opens under it once no piece is enlarged, moving with the strip
 as it closes, the reasons are recomputed for the pieces worn, the source sentence names the
-change, and "Back to kuyara's pick" returns the recommendation. The change lives only as
+change, and "Back to kuyara's pick" returns the recommendation in its own colours. The change lives only as
 long as detail is open: nothing is saved until the reader chooses "Wore this today",
-which records a `manual` outfit (ADR 0038); recording it settles the board once with the
+which records a `manual` outfit in the colours drawn (ADR 0038). The same pieces already
+recorded that day in other colours offer "Wore this today" again, and marking them updates
+that look's colours and source in place; recording it settles the board once with the
 success notification, the design language's moment. A swipe that crosses half a step toward a
 candidate fires the selection feedback once per crossing, a threshold under the finger; a
 tile, the picker and an adjustable step fire none. **Risk accepted:** manual mode can present an
@@ -200,7 +232,8 @@ layer). The reader ticks at most three, one for each slot; a later tick replaces
 conflicts with, so a one-piece tick clears the top and bottom ticks and the reverse. Each
 ticked piece may be coloured from
 the Closet's 33 solid colours, which only paints the drawing through the recorded swatch and
-never enters selection. The domain adds the pins as a predicate on the full valid outfit set
+never enters selection, as a colour painted on the board does; a colour painted on the result
+afterwards is drawn over it. The domain adds the pins as a predicate on the full valid outfit set
 before ordering, diversity and accessories, deterministically, with no AI request, no allowance
 and no Worker call; Closet records are never pins. A result is up to three outfits stepped
 through by "1 / 3" and "Show another" / "Başkasını göster" in the hint slot below the name
@@ -208,8 +241,9 @@ buttons, wrapping from the last to the first, fewer when the pins leave fewer, r
 as "1 / 2" or "1 / 1" (no button at one); the title reads "Your outfit" with the subtitle
 "Built from the pieces you chose" / "Seçtiğin parçalarla kuruldu". Pins that fit no valid outfit for the weather are
 composed with the largest satisfiable subset and the rest are swapped into the best pick,
-under the same unusual note. The result lives like a manual change: it is never a snapshot,
-never replaces Today and records as `manual` through "Wore this today". **Risk accepted:**
+under the same unusual note. The result lives like a manual change: it is never a snapshot
+and records as `manual` through "Wore this today"; once recorded, the look leads Today until
+the dressing day turns ([ADR 0038](0038-outfit-history.md)). **Risk accepted:**
 making the row members only, for a feature that needs no identity, may draw App Review
 guideline 5.1.1(v).
 
@@ -248,8 +282,8 @@ one. Simulator verification covers the animated sequence.
 - **The detail surface places every supported item.** Garment names, layer structure,
   weather reasoning, composition trade-offs, ownership state,
   formality, the weather recap and AI provenance are all placed. Manual swaps are
-  explicitly outside engine selection by decision 6, as are taking pieces off and adding them
-  and composing around chosen pieces.
+  explicitly outside engine selection by decision 6, as are painting a piece, wearing one of
+  the reader's own pieces, taking pieces off and adding them and composing around chosen pieces.
 - **The screen uses two existing pieces of data**: `suppliedByCandidateKeys` and
   `OutfitCandidate.formality`.
 - **One edit sheet owns the Closet actions.** The garment rows open it; the board and the rows' Change control change pieces, so no control is duplicated.
@@ -270,7 +304,8 @@ glyph disc at a piece's corner would cover a neighbour once the pieces overlap.
 
 **A mark on each piece, or an edit mode with minus and plus badges.** Rejected on section 3's
 no-glyph-on-a-piece rule and on the board drawing five pieces and nothing else (ADR 0025): the
-control lives in the enlarged piece's strip header and in the rows.
+control lives in the enlarged piece's strip header and in the rows, and the chevrons stand
+beside the enlarged piece, in its window's pad, never on it.
 
 **Swiping to an empty candidate.** Rejected: the board's lookups assume a piece for every
 focused slot, and taking a layer off is a decision, not a step in an order.

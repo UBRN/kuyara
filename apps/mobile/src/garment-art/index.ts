@@ -21,6 +21,7 @@ export {
   type GarmentSwapBoardLabels,
   type GarmentSwapBoardProps,
   type GarmentSwapCandidate,
+  type GarmentSwapOwnPiece,
 } from './garment-swap-board';
 export { swapRevealScroll } from './swap-gesture';
 
@@ -35,6 +36,7 @@ export {
 export { GarmentPreviewBoard, type GarmentPreviewBoardProps } from './garment-preview-board';
 export {
   garmentColorFamiliesBySlot,
+  garmentNaturalSwatches,
   garmentSwatchesBySlot,
   garmentUsualColorFamilies,
   keepGarmentColors,

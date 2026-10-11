@@ -3,11 +3,11 @@ import { useMemo, useState } from 'react';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import { easierToSee as easierToSeeValues } from '@/theme/easier-to-see';
-import { layout, spacing } from '@/theme/theme';
+import { layout } from '@/theme/theme';
 
 import { composePieces, type GarmentBoardPiece } from './garment-board';
 import { useGarmentCut } from './garment-cut';
-import { swapStripLayout } from './swap-gesture';
+import { swapPanelHeight, swapStripLayout, type SwapPanelSections } from './swap-gesture';
 import {
   enlargementFor,
   enlargementHolds,
@@ -29,7 +29,7 @@ export type SwapPanels = Readonly<{ focus: OutfitSlot | null; current: SwapPanel
  * pager, and the strips under the stage with the candidate a drag previews.
  */
 export function useSwapPager({
-  pieces, candidates, width, large, focusedSlot, visibleHeight, outline,
+  pieces, candidates, width, large, focusedSlot, visibleHeight, outline, sectionsOf,
 }: Readonly<{
   pieces: readonly GarmentBoardPiece[];
   candidates: Candidates;
@@ -39,6 +39,8 @@ export function useSwapPager({
   visibleHeight: number;
   /** The outline drawn round each piece, which the paging window keeps inside it. */
   outline: number;
+  /** How many colour swatches and own pieces a slot's strip holds room for. */
+  sectionsOf: (slot: OutfitSlot) => Pick<SwapPanelSections, 'colors' | 'own'>;
 }>) {
   const cut = useGarmentCut();
   const compose: Composer = (next, nextFit) => placeComposition(composePieces(next, 'detail', cut, large), width, nextFit);
@@ -48,15 +50,28 @@ export function useSwapPager({
   // The strip's header before it has measured itself: Done's height.
   const headerMinimum = large ? easierToSeeValues.primaryActionHeight : layout.minimumTouchTarget;
   const [headerHeight, setHeaderHeight] = useState<number>(headerMinimum);
+  // The "Yours" label over the reader's own pieces, once measured.
+  const [ownLabelHeight, setOwnLabelHeight] = useState(0);
   // The strip: its candidates, tiles and the marker's tile.
   const stripCandidates = (slot: OutfitSlot) => candidates[slot] ?? [];
   const stripOf = (slot: OutfitSlot) => {
     const order = stripCandidates(slot);
     return swapStripLayout(order.length, order.filter(({ suitable }) => suitable).length, width);
   };
-  const panelHeightOf = (slot: OutfitSlot) => headerHeight + spacing.sm + stripOf(slot).height;
+  const panelHeightOf = (slot: OutfitSlot) => {
+    const order = stripCandidates(slot);
+    return swapPanelHeight(headerHeight, {
+      ...sectionsOf(slot),
+      ownLabel: ownLabelHeight,
+      candidates: order.length,
+      suitable: order.filter(({ suitable }) => suitable).length,
+    }, width);
+  };
   const measureHeader = (height: number) => {
     if (Math.abs(height - headerHeight) >= 0.5) setHeaderHeight(Math.max(headerMinimum, height));
+  };
+  const measureOwnLabel = (height: number) => {
+    if (Math.abs(height - ownLabelHeight) >= 0.5) setOwnLabelHeight(height);
   };
 
   // One enlargement's grow scale and held stage; the stage never shrinks while the
@@ -105,6 +120,6 @@ export function useSwapPager({
   return {
     compose, composed, fit, activeGrow, pager,
     panels, setPanels, previewId, setPreviewId,
-    stripCandidates, stripOf, panelHeightOf, measureHeader,
+    stripCandidates, stripOf, panelHeightOf, measureHeader, measureOwnLabel,
   };
 }

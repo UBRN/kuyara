@@ -782,6 +782,10 @@ export const en = {
       done: 'Done',
       otherPieceHint: 'This piece can make the outfit unusual for this weather.',
       stripShown: 'The pieces you can choose are below.',
+      previousPiece: (piece) => `Previous: ${piece}`,
+      nextPiece: (piece) => `Next: ${piece}`,
+      yours: 'Yours',
+      yoursPiece: (piece, color) => `${piece} from your Closet, ${color}`,
       sourceOne: {
         onDeviceAi: 'You changed a piece. kuyara chose the rest on your device with Apple Intelligence.',
         aiAssisted: 'You changed a piece. kuyara chose the rest with online AI.',

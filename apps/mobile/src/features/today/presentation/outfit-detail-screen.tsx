@@ -24,6 +24,7 @@ import {
 } from '@/components/ui';
 import {
   type GarmentOutfitPalette,
+  garmentNaturalSwatches,
   GarmentSwapBoard,
   keepGarmentColors,
   layoutGarmentBoard,
@@ -38,6 +39,7 @@ import type { RecommendedOutfit } from '@/features/recommendation/application/re
 import type { ManualMix } from '@/features/recommendation/application/use-manual-mix';
 import {
   removableSlots,
+  swappableSlots,
   type RemovableSlot,
   type SwappableSlot,
 } from '@/features/recommendation/domain/manual-mix';
@@ -76,12 +78,15 @@ import {
   type PiecePickerTarget,
 } from '@/features/today/presentation/piece-picker-sheet';
 import { manualDetailOf, type ComposedDetail } from '@/features/today/application/composed-detail';
+import { ownPiecesFor } from '@/features/today/application/own-pieces';
+import type { PaintedColors, PieceColors } from '@/features/today/application/piece-colors';
 import type { OutfitRatingControl } from '@/features/today/application/use-outfit-rating';
 import { OutfitDetailRating } from '@/features/today/presentation/outfit-detail-rating';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
 import type { TodayScreenState } from '@/features/today/model';
+import { closetSolidForBoardSwatch } from '@/features/wardrobe/domain/closet-board-swatch';
 import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
@@ -94,6 +99,8 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 // A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
 const OUTSIDE_TAP_SLOP = 10;
+// The Closet marker in an own piece's tile corner, the name buttons' marker size.
+const OWN_MARK_SIZE = 16;
 
 /** The open picker: a slot's Change, "Add a layer" on one free layer slot, or "Add an accessory". */
 type Picker =
@@ -103,6 +110,8 @@ type Picker =
 
 const isRemovable = (slot: OutfitSlot): slot is RemovableSlot =>
   (removableSlots as readonly OutfitSlot[]).includes(slot);
+const isSwappable = (slot: OutfitSlot): slot is SwappableSlot =>
+  (swappableSlots as readonly OutfitSlot[]).includes(slot);
 
 type OutfitDetailScreenProps = Readonly<{
   state: TodayScreenState;
@@ -150,7 +159,11 @@ type OutfitDetailScreenProps = Readonly<{
   fromBand?: boolean;
   /** Like and dislike under "Wore this today"; null while the outfit has none. */
   rating?: OutfitRatingControl | null;
+  /** The colours the reader paints on this showing's pieces; absent, the strip offers no colour. */
+  pieceColors?: PieceColors | null;
 }>;
+
+const NO_COLORS: PaintedColors = Object.freeze({});
 
 export function OutfitDetailScreen({
   state,
@@ -172,6 +185,7 @@ export function OutfitDetailScreen({
   composeResult = null,
   fromBand = false,
   rating = null,
+  pieceColors = null,
 }: OutfitDetailScreenProps) {
   const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
@@ -241,13 +255,14 @@ export function OutfitDetailScreen({
   // (a focused piece) instead of redrawing the board and the rows each time.
   const messages = useMemo(() => getMessages(language), [language]);
   const copy = messages.today;
-  // Any edit counts, a drawn piece or a finishing touch: an accessory-only edit is still the reader's.
+  // Any edit counts, a drawn piece, a finishing touch or a painted colour: each alone makes it the reader's.
   const composed = composeResult?.detail ?? null;
-  const changed = composed !== null || (manualMix?.edited ?? false);
+  const painted = pieceColors?.colors ?? NO_COLORS;
+  const changed = composed !== null || (manualMix?.edited ?? false) || Object.keys(painted).length > 0;
   if (changed && !everChanged) setEverChanged(true);
   const presentation = useMemo(() => createTodayPresentation(state, language, hour12, temperatureUnit, now,
-    manualDetailOf(manualMix, composed, suggestionId)),
-  [composed, hour12, language, manualMix, now, state, suggestionId, temperatureUnit]);
+    manualDetailOf(manualMix, composed, suggestionId, painted)),
+  [composed, hour12, language, manualMix, now, painted, state, suggestionId, temperatureUnit]);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
@@ -527,6 +542,7 @@ export function OutfitDetailScreen({
   } : undefined;
   const reset = () => {
     setFocusedSlot(null);
+    pieceColors?.clear();
     manualMix?.reset();
   };
   // An enlargement brings the strip into view by the least scroll that shows it, never so far
@@ -555,6 +571,12 @@ export function OutfitDetailScreen({
   const boardHint = (
     <OutfitDetailBoardHint everChanged={everChanged} onBoard={onBoard} plateShown={plateShown} text={copy.boardHint} />
   );
+  // "Yours": each slot's owned Closet pieces of its catalog types, a shortcut that never becomes a
+  // candidate. Each carries the marker of a piece owned in its colour, which it is once worn.
+  const ownPieces = manualMix && pieceColors ? Object.fromEntries(Object.entries(manualMix.candidates)
+    .map(([slot, order]) => [slot, ownPiecesFor(wardrobeItems, order ?? [], garmentNaturalSwatches)])) : undefined;
+  const ownedMarker = pieceOwnershipMarkers.owned;
+  const ownBadge = <Icon color={onBoard[ownedMarker.ink]} name={ownedMarker.icon} size={OWN_MARK_SIZE} />;
   const boardOverlay = (
     <OutfitDetailNameRow
       boardPieces={suggestion.boardPieces}
@@ -635,8 +657,18 @@ export function OutfitDetailScreen({
               },
               takeOff: copy.manualMix.takeOff,
               takeOffAccessibilityLabel: (slot) => (isRemovable(slot) ? copy.manualMix.takeOffAccessibilityLabel[slot] : ''),
+              colorName: (swatchId) => messages.wardrobe.colorOptionNames[closetSolidForBoardSwatch(swatchId)],
+              colorGroup: (slot) => (isSwappable(slot) ? messages.today.compose.colorLabel[slot] : ''),
+              moreColors: messages.wardrobe.moreColorsLabel,
+              own: copy.manualMix.yours,
+              ownPiece: copy.manualMix.yoursPiece,
+              previousPiece: copy.manualMix.previousPiece,
+              nextPiece: copy.manualMix.nextPiece,
             }}
             onFocusChange={setFocusedSlot}
+            onPaint={manualMix && pieceColors ? pieceColors.paint : undefined}
+            ownBadge={ownBadge}
+            ownPieces={ownPieces}
             onReveal={revealStrip}
             onStep={onBoardStep}
             onSwipeHintShown={onSwipeHintShown}

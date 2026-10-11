@@ -236,6 +236,18 @@ test('a changed piece leaves the untouched pieces in their colours', async () =>
   assert.ok(recolouredWithoutKeeping > 0, 'the whole-set resolution recolours untouched pieces');
 });
 
+// Detail's colour row: a drawing's own colours, most natural first, and a colour the reader
+// painted stays on the piece until its type changes, so the strip's current tile shows it too.
+test('a type offers its drawing\'s own colours, and only a changed type drops a painted colour', async () => {
+  const { garmentNaturalSwatches, paletteWithGarment } = await import('./garment-palette.ts');
+  assert.deepEqual(garmentNaturalSwatches('polo_shirt'), ['navy', 'white', 'forest', 'ecru', 'skyblue', 'terracotta']);
+  assert.deepEqual(garmentNaturalSwatches('jeans'), ['indigo', 'midwash', 'lightwash', 'blackdenim']);
+  const painted = { optionId: 'opt-paint', temperatureC: 20, condition: 'clear', isNight: false, formality: 'casual',
+    pieces: [piece('primary_top', 'polo_shirt', 'plum'), piece('bottom', 'jeans')] };
+  assert.equal(paletteWithGarment(painted, 'primary_top', 'polo_shirt').pieces[0].recordedSwatchId, 'plum');
+  assert.equal(paletteWithGarment(painted, 'primary_top', 't_shirt').pieces[0].recordedSwatchId, undefined);
+});
+
 // Migration 24: "Wore this today" stores the swatch each piece was drawn in, and History draws
 // the day from them on a different day mood. Every piece comes back in the swatch it was seen
 // in, whatever the original day's weather, and the stored ids are exactly the swatch library.

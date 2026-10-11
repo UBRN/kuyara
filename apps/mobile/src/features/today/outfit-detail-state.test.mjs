@@ -76,13 +76,28 @@ test('the worn state compares the open outfit with every look of the day', () =>
   const thisWorn = wornOutfitOrNull(outfits[0]);
   const otherWorn = wornOutfitOrNull(outfits[1]);
   assert.ok(thisWorn && otherWorn);
-  assert.equal(outfitWornState(false, { looks: [thisWorn] }, thisWorn), 'this');
-  assert.equal(outfitWornState(false, { looks: [otherWorn, thisWorn] }, thisWorn), 'this');
-  assert.equal(outfitWornState(false, { looks: [otherWorn] }, thisWorn), 'other');
+  const look = (outfit, pieceColors = null) => ({ outfit, pieceColors });
+  assert.equal(outfitWornState(false, { looks: [look(thisWorn)] }, thisWorn), 'this');
+  assert.equal(outfitWornState(false, { looks: [look(otherWorn), look(thisWorn)] }, thisWorn), 'this');
+  assert.equal(outfitWornState(false, { looks: [look(otherWorn)] }, thisWorn), 'other');
   assert.equal(outfitWornState(false, { looks: [] }, thisWorn), 'none');
   assert.equal(outfitWornState(false, null, thisWorn), 'unknown');
-  assert.equal(outfitWornState(false, { looks: [thisWorn] }, null), 'unknown');
-  assert.equal(outfitWornState(true, { looks: [thisWorn] }, thisWorn), 'unknown');
+  assert.equal(outfitWornState(false, { looks: [look(thisWorn)] }, null), 'unknown');
+  assert.equal(outfitWornState(true, { looks: [look(thisWorn)] }, thisWorn), 'unknown');
+});
+
+// A colour painted after the look was recorded is a look not yet worn in that colour, so
+// "Wore this today" offers itself again and records the new colour; colours left as drawn
+// never matter, so a redrawn day's mood does not undo the worn state.
+test('the worn state counts a painted colour only against the colour recorded for its slot', () => {
+  const thisWorn = wornOutfitOrNull(outfits[0]);
+  const [slot] = Object.keys(thisWorn.garments);
+  const recorded = { outfit: thisWorn, pieceColors: { [slot]: 'navy' } };
+  assert.equal(outfitWornState(false, { looks: [recorded] }, thisWorn, {}), 'this');
+  assert.equal(outfitWornState(false, { looks: [recorded] }, thisWorn, { [slot]: 'navy' }), 'this');
+  assert.equal(outfitWornState(false, { looks: [recorded] }, thisWorn, { [slot]: 'plum' }), 'other');
+  assert.equal(outfitWornState(false, { looks: [{ outfit: thisWorn, pieceColors: null }] }, thisWorn, { [slot]: 'plum' }),
+    'other');
 });
 
 test('a worn record that does not parse is none', () => {
