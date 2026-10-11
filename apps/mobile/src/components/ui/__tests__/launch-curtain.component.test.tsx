@@ -21,8 +21,8 @@ function Probe() {
   return <Text testID="probe">{`${revealing ? 'revealing' : 'covered'} ${done ? 'done' : 'playing'}`}</Text>;
 }
 
-const curtain = (readiness: LaunchReadiness, onFirstFrame = jest.fn(), cold = true) => (
-  <LaunchCurtain cold={cold} onFirstFrame={onFirstFrame} readiness={readiness}>
+const curtain = (readiness: LaunchReadiness, onFirstFrame = jest.fn(), cold = true, seen = true) => (
+  <LaunchCurtain cold={cold} onFirstFrame={onFirstFrame} readiness={readiness} seen={seen}>
     <Probe />
   </LaunchCurtain>
 );
@@ -230,6 +230,23 @@ test('the symbol waits for a slow first screen, and withdraws at the ceiling wit
   await end(normal);
   expect(probe()).toBe('revealing done');
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
+test('a launch iOS starts in the background holds off screen and dives once it is first seen', async () => {
+  const onFirstFrame = jest.fn();
+  const result = await render(curtain('pending', onFirstFrame, true, false));
+  await drawFirstFrame();
+  // The splash still goes with the first frame, but nobody is watching: no ceiling, no motion.
+  expect(onFirstFrame).toHaveBeenCalledTimes(1);
+  await result.rerender(curtain('ready', onFirstFrame, true, false));
+  await advance(LAUNCH_READY_CEILING_MS * 4);
+  await nextFrame();
+  expect(probe()).toBe('covered playing');
+  expect(durations()).toEqual([]);
+
+  await result.rerender(curtain('ready', onFirstFrame, true, true));
+  await nextFrame();
+  expect(durations()).toEqual([launch, normal]);
 });
 
 test('a failed launch fades the layer away at once and the app is never left behind it', async () => {
