@@ -378,8 +378,8 @@ test('T5 no archetype label contradicts the day it labels', () => {
 test('T9 a cool wet day shows no shorts, a warm wet day still may', () => {
   // At 18 C a rain day asked nothing of the legs and showed shorts under a rain jacket and
   // rain boots. Below the shorts rung a wet day wishes the legs covered; at 27 C the shorts
-  // stay as free on a wet day as on a dry one. They are offered, not shown: the day's three
-  // keep the rain boots it wishes for, and shorts never go with boots.
+  // stay as free on a wet day as on a dry one. At 27 C they are offered, not shown: the day's
+  // three keep the rain boots it wishes for, and shorts never go with boots.
   const shownShorts = (temperature) => shownOutfits().filter(({ cell, outfit }) =>
     cell.precipitationName === 'rain' && cell.temperature === temperature &&
     garmentTypeIds(outfit).includes('shorts')).length;
@@ -390,4 +390,6 @@ test('T9 a cool wet day shows no shorts, a warm wet day still may', () => {
   assert.equal(shownShorts(18), 0, '18 C rain');
   assert.equal(shownShorts(22), 0, '22 C rain');
   assert.ok(offeredShorts(27) > 0, '27 C rain offered no shorts');
+  // From 28 C the heat takes the boots off plain rain, and the three may show shorts again.
+  assert.ok(shownShorts(32) > 0, '32 C rain showed no shorts');
 });
