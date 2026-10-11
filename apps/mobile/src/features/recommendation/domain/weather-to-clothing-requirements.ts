@@ -1,3 +1,4 @@
+import { weatherLocalDateKey } from '@kuyara/contracts';
 import type {
   Breathability,
   Coverage,
@@ -385,12 +386,19 @@ export function deriveClothingRequirements(
 
   const coldExposure = Math.min(...airTemperatures, ...apparentTemperatures);
   const heatExposure = Math.max(...airTemperatures, ...apparentTemperatures);
-  // Deliberately the provider's calendar day and not the window: `daily_range_wide` is a
-  // statement about how far the date's own spread reaches, and rebasing it on the window
-  // would silently change the meaning of a reason code that is already shipped.
+  // Deliberately the departure date's own spread and not the window: `daily_range_wide` is a
+  // statement about how far that date reaches, and rebasing it on the window would silently
+  // change the meaning of a reason code that is already shipped. The snapshot's own minimum
+  // and maximum describe the observation's calendar day; a departure on a later date (the
+  // evening's preview) reads that date's daily row, or the current read when it has none.
+  const observationDate = weatherLocalDateKey(snapshot.current.observedAt, snapshot.timeZone);
+  const departureDate = weatherLocalDateKey(departureAt, snapshot.timeZone);
+  const dailyRow = departureDate && observationDate && departureDate > observationDate
+    ? snapshot.daily?.find(({ dateKey }) => dateKey === departureDate)
+    : undefined;
   const wideDailyRange = isWideDailyRange(
-    snapshot.minimumTemperatureCelsius,
-    snapshot.maximumTemperatureCelsius,
+    dailyRow?.minimumTemperatureCelsius ?? snapshot.minimumTemperatureCelsius,
+    dailyRow?.maximumTemperatureCelsius ?? snapshot.maximumTemperatureCelsius,
   );
   // Cold below 18 makes insulation mandatory (below 12 also full coverage); heat at or
   // above 28 makes high breathability mandatory. One day can demand both (4 °C at 07:00,

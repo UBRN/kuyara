@@ -257,6 +257,33 @@ test('the morning reuses the preview only while every input and requirement is u
     morningContext(morningInput({ localDayKey: '2026-10-03' })), location), null);
 });
 
+// The evening's own calendar day spans 2 to 14, tomorrow's row spans the given range.
+function eveningWithTomorrowRow([minimum, maximum]) {
+  return {
+    ...weather({ temperature: 10 }),
+    minimumTemperatureCelsius: 2,
+    maximumTemperatureCelsius: 14,
+    daily: [{
+      dateKey: tomorrowKey, condition: 'clear', minimumTemperatureCelsius: minimum,
+      maximumTemperatureCelsius: maximum, precipitationProbability: 0, precipitationMillimetres: null,
+    }],
+  };
+}
+
+test('tomorrow\'s wide-range reason reads tomorrow\'s own row, so the morning reuses the preview', async () => {
+  const preview = await choosePreview(previewInput({ snapshot: eveningWithTomorrowRow([9, 11]) }));
+  assert.ok(!preview.recommendation.requirements.reasonCodes.includes('daily_range_wide'));
+  const morning10 = morningInput({ snapshot: weather({ id: 'weather-morning',
+    observedAt: morning.toISOString(), temperature: 10 }) });
+  assert.equal(reusablePreviewRecommendation(preview, morningContext(morning10), 'manual:sample.istanbul'),
+    preview.recommendation);
+});
+
+test('a wide tomorrow row still yields daily_range_wide in the preview', async () => {
+  const preview = await choosePreview(previewInput({ snapshot: eveningWithTomorrowRow([2, 14]) }));
+  assert.ok(preview.recommendation.requirements.reasonCodes.includes('daily_range_wide'));
+});
+
 test('one predicate decides whether a preview still answers the question, for Today and the morning', async () => {
   const preview = await choosePreview();
   const question = {
