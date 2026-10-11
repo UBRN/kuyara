@@ -1,5 +1,5 @@
 import { Host as UniversalHost } from '@expo/ui';
-import { environment, labelsHidden, tint } from '@expo/ui/swift-ui/modifiers';
+import { datePickerStyle, environment, labelsHidden, tint } from '@expo/ui/swift-ui/modifiers';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
@@ -24,6 +24,12 @@ const NativeAndroidDatePicker: typeof import('@expo/ui/jetpack-compose')['DateTi
 export type NativeDatePickerProps = Readonly<{
   accessibilityLabel: string;
   /**
+   * The calendar date the picker stands on while `value` is null. Without it an unset picker
+   * shows the maximum date, which reads as a chosen value. The native view reports only a
+   * date the person changed, so standing here stores nothing.
+   */
+  initialSelection?: string;
+  /**
    * The app's resolved language. SwiftUI reads the device locale by default, which
    * printed a device-formatted date inside a Turkish app; the picker follows the app
    * instead. Callers pass what they already resolved, so this adds no second source of
@@ -44,12 +50,20 @@ export type NativeDatePickerProps = Readonly<{
   standalone?: boolean;
   testID: string;
   value: string | null;
+  /**
+   * The iOS wheel: the whole date turns in place, so a birth year decades back is a flick away
+   * rather than a page of calendar months. The caller draws the visible label.
+   */
+  wheel?: boolean;
 }>;
 
 const STANDALONE_ROW_HEIGHT = 48;
+// The system wheel's own height; it does not grow with the text size.
+const WHEEL_HEIGHT = 216;
 
 export function NativeDatePicker({
   accessibilityLabel,
+  initialSelection,
   language,
   maximumDate,
   minimumDate,
@@ -57,10 +71,12 @@ export function NativeDatePicker({
   standalone = false,
   testID,
   value,
+  wheel = false,
 }: NativeDatePickerProps) {
   const theme = useKuyaraTheme();
   const { fontScale, usesStackedLayout } = useTextScaling();
-  const selection = value ? parseCalendarDate(value) : maximumDate;
+  const shown = value ?? initialSelection;
+  const selection = shown ? parseCalendarDate(shown) : maximumDate;
   const colorScheme = theme.isDark ? 'dark' : 'light';
   const standaloneRowHeight = STANDALONE_ROW_HEIGHT * Math.min(fontScale, 2);
 
@@ -70,13 +86,13 @@ export function NativeDatePicker({
     // holds it, which lists `en_GB` and `tr_TR` but neither the hyphenated tags nor a bare `en`
     // that would draw the US convention. An unknown value is ignored by the native modifier.
     const locale = localeTag(language).replace('-', '_');
-    const modifiers = standalone
-      ? [
-          environment('locale', locale),
-          ...(usesStackedLayout ? [labelsHidden()] : []),
-          tint(theme.colors.brandPrimary),
-        ]
-      : [environment('locale', locale)];
+    const stacksTitle = standalone && usesStackedLayout && !wheel;
+    const modifiers = [
+      environment('locale', locale),
+      ...(wheel ? [datePickerStyle('wheel')] : []),
+      ...(wheel || stacksTitle ? [labelsHidden()] : []),
+      ...(standalone ? [tint(theme.colors.brandPrimary)] : []),
+    ];
     const picker = (
       <NativeSwiftDatePicker
         displayedComponents={['date']}
@@ -91,11 +107,11 @@ export function NativeDatePicker({
     if (!standalone) return picker;
 
     const host = (
-      <swiftUI.Host colorScheme={colorScheme} style={{ height: standaloneRowHeight }}>
+      <swiftUI.Host colorScheme={colorScheme} style={{ height: wheel ? WHEEL_HEIGHT : standaloneRowHeight }}>
         {picker}
       </swiftUI.Host>
     );
-    return usesStackedLayout ? (
+    return stacksTitle ? (
       <View>
         <AppText
           accessibilityElementsHidden

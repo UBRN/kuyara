@@ -477,6 +477,8 @@ export type AppMessages = Readonly<{
     /** Take the display name's shortest and longest length from `profile.ts`. */
     nameShortError: (minimum: number) => string;
     nameLongError: (maximum: number) => string;
+    /** A typed name with no letter, such as digits alone. */
+    nameLetterError: string;
     nameNotNow: string;
     welcomeTitle: string;
     welcomeBody: string;
@@ -497,6 +499,10 @@ export type AppMessages = Readonly<{
     birthDateBody: string;
     birthDateNotSet: string;
     birthDateClearAction: string;
+    /** The visible words on the control that opens the birth date picker. */
+    birthDateAdd: string;
+    /** The same control's spoken name, and the Settings row's words. */
+    birthDateAddLabel: string;
     locationTitle: string;
     locationBody: string;
     completeAction: string;
@@ -722,6 +728,8 @@ export type AppMessages = Readonly<{
     locatingDevice: string;
     locationFound: string;
     locationFoundNamed: (name: string) => string;
+    /** Spoken once a place picked by name is the active location. */
+    placeSelectedNamed: (name: string) => string;
     changeLocationAction: string;
     locationRationaleBody: string;
     cancel: string;

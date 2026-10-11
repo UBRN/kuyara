@@ -33,12 +33,18 @@ afterEach(() => {
 
 async function renderPicker(
   language: SupportedLanguage,
-  options: Readonly<{ standalone?: boolean; value?: string | null }> = {},
+  options: Readonly<{
+    initialSelection?: string;
+    standalone?: boolean;
+    value?: string | null;
+    wheel?: boolean;
+  }> = {},
 ) {
   return render(
     <TestProviders>
       <NativeDatePicker
         accessibilityLabel="Doğum tarihi"
+        initialSelection={options.initialSelection}
         language={language}
         maximumDate={new Date(2026, 8, 9, 12)}
         minimumDate={new Date(1900, 0, 1, 12)}
@@ -46,6 +52,7 @@ async function renderPicker(
         standalone={options.standalone ?? true}
         testID="birth-date"
         value={options.value ?? null}
+        wheel={options.wheel}
       />
     </TestProviders>,
   );
@@ -139,4 +146,40 @@ test('the picker offers only dates between the minimum and the maximum', async (
 
   expect(start.getFullYear()).toBe(1900);
   expect(end.getFullYear()).toBe(2026);
+});
+
+// An unset value is not today: the caller names where the picker opens, and nothing is stored
+// until the person turns it (the native view reports only a changed date).
+test('an unset value opens at the caller\'s initial selection, and a set value wins over it', async () => {
+  mockFontScale(1);
+  const unset = await renderPicker('en', { initialSelection: '2001-01-01' });
+  expect(unset.getByTestId('birth-date').props.accessibilityValue.text).toContain('2001-01-01');
+  await unset.unmount();
+
+  const set = await renderPicker('en', { initialSelection: '2001-01-01', value: '1994-03-14' });
+  expect(set.getByTestId('birth-date').props.accessibilityValue.text).toContain('1994-03-14');
+});
+
+// The wheel shows the whole date at once, so a far year is a flick away; its label is the
+// caller's own visible text, so the native one is hidden at every text size.
+test.each([1, 3])('at fontScale %s the wheel style hides its native label in a wheel-tall host', async (fontScale) => {
+  mockFontScale(fontScale);
+  const standalone = await renderPicker('tr', { wheel: true });
+  expect(standalone.getByTestId('birth-date').props.modifiers).toEqual([
+    { $type: 'environment', key: 'locale', value: nativeLocale.tr },
+    { $type: 'datePickerStyle', style: 'wheel' },
+    { $type: 'labelsHidden' },
+    { $type: 'tint', color: lightTheme.colors.brandPrimary },
+  ]);
+  expect(StyleSheet.flatten(standalone.getByTestId('expo-ui-host').props.style)).toMatchObject({ height: 216 });
+  expect(standalone.queryByText('Doğum tarihi', { includeHiddenElements: true })).toBeNull();
+  expect(standalone.getByTestId('birth-date').props.accessibilityLabel).toBe('Doğum tarihi');
+  await standalone.unmount();
+
+  const listed = await renderPicker('tr', { standalone: false, wheel: true });
+  expect(listed.getByTestId('birth-date').props.modifiers).toEqual([
+    { $type: 'environment', key: 'locale', value: nativeLocale.tr },
+    { $type: 'datePickerStyle', style: 'wheel' },
+    { $type: 'labelsHidden' },
+  ]);
 });

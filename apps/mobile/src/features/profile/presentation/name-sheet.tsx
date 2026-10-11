@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, GlassButton, NativeSheet } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
-import { displayNameIssue } from '@/features/profile/domain/profile';
+import { displayNameInputIssue } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
@@ -85,7 +85,7 @@ function NameSheetContent({
     ? (mode === 'prompt' ? messages.onboarding.saveError : messages.profile.nameSaveError)
     : null;
   useErrorAnnouncement(saveErrorCopy);
-  const doneDisabled = isSaving || Boolean(displayNameIssue(value)) || (mode === 'prompt' && !value.trim());
+  const doneDisabled = isSaving || Boolean(displayNameInputIssue(value)) || (mode === 'prompt' && !value.trim());
   const save = () => {
     if (doneDisabled) return;
     void commit(value.trim() || null);

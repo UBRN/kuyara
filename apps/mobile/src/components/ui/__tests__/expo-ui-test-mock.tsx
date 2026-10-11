@@ -18,6 +18,7 @@ export const frame = (params: Record<string, unknown>) => ({ $type: 'frame', ...
 export const environment = (key: string, value: string) => ({ $type: 'environment', key, value });
 export const lineLimit = () => ({ $type: 'lineLimit', limit: undefined });
 export const labelsHidden = () => ({ $type: 'labelsHidden' });
+export const datePickerStyle = (style: string) => ({ $type: 'datePickerStyle', style });
 export const disabled = (value = true) => ({ $type: 'disabled', disabled: value });
 export const menuIndicator = (visibility: string) => ({ $type: 'menuIndicator', visibility });
 export const pickerStyle = (style: string) => ({ $type: 'pickerStyle', style });

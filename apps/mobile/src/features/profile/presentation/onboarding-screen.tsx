@@ -54,7 +54,8 @@ import type {
 } from '@/features/profile/domain/profile';
 import {
   catalogPreferenceByGender,
-  displayNameIssue,
+  birthDatePickerStart,
+  displayNameInputIssue,
   genderSchema,
   minimumBirthDate,
   orderStyleAesthetics,
@@ -211,6 +212,7 @@ export function OnboardingScreen({
     }),
   );
   const [saveError, setSaveError] = useState(false);
+  const [addingBirthDate, setAddingBirthDate] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const savingRef = useRef(false);
   const [previewWidth, setPreviewWidth] = useState(0);
@@ -276,7 +278,7 @@ export function OnboardingScreen({
     return () => shown.remove();
   }, [scrollOffset, scrollRef, step]);
   const hasValidName = Boolean(draft.displayName?.trim())
-    && !displayNameIssue(draft.displayName ?? '');
+    && !displayNameInputIssue(draft.displayName ?? '');
 
   const stepTitle = {
     welcome: copy.welcomeTitle,
@@ -476,7 +478,7 @@ export function OnboardingScreen({
             style={[styles.stage, styles.greeting]}
             testID="onboarding-name-preview">
             <AppText variant="title">
-              {typedName && !displayNameIssue(typedName)
+              {typedName && !displayNameInputIssue(typedName)
                 ? messages.today.greetingFirstNamed(typedName)
                 : copy.nameGreetingEmpty}
             </AppText>
@@ -493,23 +495,39 @@ export function OnboardingScreen({
           <View style={styles.age}>
             <AppText accessibilityRole="header" variant="bodyStrong">{copy.ageTitle}</AppText>
             <AppText colorRole="textSecondary" variant="caption">{copy.birthDateBody}</AppText>
-            {draft.birthDate === null ? (
-              <AppText colorRole="textSecondary">{copy.birthDateNotSet}</AppText>
-            ) : null}
-            <NativeDatePicker
-              accessibilityLabel={copy.birthDateTitle}
-              language={language}
-              maximumDate={maximumBirthDate}
-              minimumDate={minimumBirthDate}
-              onChange={(value) => dispatch({ type: 'select-birth-date', value })}
-              standalone
-              testID="onboarding-birth-date"
-              value={draft.birthDate}
-            />
+            {/* A picker always draws a date, so an unset birth date shows only Add; the wheel it
+                opens stores nothing until it is turned. */}
+            {draft.birthDate !== null || addingBirthDate ? (
+              <NativeDatePicker
+                accessibilityLabel={copy.birthDateTitle}
+                initialSelection={birthDatePickerStart(maximumBirthDate)}
+                language={language}
+                maximumDate={maximumBirthDate}
+                minimumDate={minimumBirthDate}
+                onChange={(value) => dispatch({ type: 'select-birth-date', value })}
+                standalone
+                testID="onboarding-birth-date"
+                value={draft.birthDate}
+                wheel
+              />
+            ) : (
+              <Button
+                accessibilityLabel={copy.birthDateAddLabel}
+                label={copy.birthDateAdd}
+                onPress={() => setAddingBirthDate(true)}
+                style={styles.addBirthDate}
+                testID="onboarding-birth-date-add"
+                variant="tonal"
+              />
+            )}
             {draft.birthDate !== null ? (
               <Button
                 label={copy.birthDateClearAction}
-                onPress={() => dispatch({ type: 'select-birth-date', value: null })}
+                onPress={() => {
+                  setAddingBirthDate(false);
+                  dispatch({ type: 'select-birth-date', value: null });
+                }}
+                testID="onboarding-birth-date-remove"
                 variant="plain"
               />
             ) : null}
@@ -746,6 +764,7 @@ const styles = StyleSheet.create({
   age: {
     gap: spacing.sm,
   },
+  addBirthDate: { alignSelf: 'flex-start' },
   primaryAction: {
     flexGrow: 1,
   },

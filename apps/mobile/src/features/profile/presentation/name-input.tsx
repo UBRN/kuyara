@@ -2,7 +2,7 @@ import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText, Icon } from '@/components/ui';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
-import { displayNameIssue, displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
+import { displayNameInputIssue, displayNameMaxLength, displayNameMinLength } from '@/features/profile/domain/profile';
 import { useMessages } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -22,10 +22,11 @@ export function NameInput({ autoFocus = false, value, onChangeText, testID, onCl
   const copy = messages.onboarding;
   const profileCopy = messages.profile;
   const theme = useKuyaraTheme();
-  const issue = displayNameIssue(value);
+  const issue = displayNameInputIssue(value);
   const shortError = skippable ? copy.nameShortError : profileCopy.nameShortError;
   const error = issue === 'short' ? shortError(displayNameMinLength)
-    : issue === 'long' ? copy.nameLongError(displayNameMaxLength) : null;
+    : issue === 'long' ? copy.nameLongError(displayNameMaxLength)
+      : issue === 'letter' ? copy.nameLetterError : null;
   // VoiceOver ignores the line's live region, so iOS speaks it; the field carries it as its
   // hint while it shows.
   useErrorAnnouncement(error);

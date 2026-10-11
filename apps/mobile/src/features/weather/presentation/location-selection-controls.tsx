@@ -1,6 +1,6 @@
 import { placeSearchQueryMaxLength } from '@kuyara/contracts';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Keyboard, Platform, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -179,12 +179,13 @@ export function LocationSelectionControls({
   const locatingStatus = locatingHere && state.status === 'ready' && state.permission.kind === 'granted'
     && state.isSelectingLocation ? copy.locatingDevice : null;
   useErrorAnnouncement(locatingStatus);
-  // The device location in use, named under the button with how it was resolved. The last one
-  // shown stays drawn while its row closes, so the row never empties as it leaves.
-  const currentDevice = state.status === 'ready' && state.locationFlow === 'idle'
-    && state.activeLocation?.source === 'device' ? state.activeLocation : null;
-  const [shownDevice, setShownDevice] = useState(currentDevice);
-  if (currentDevice && currentDevice !== shownDevice) setShownDevice(currentDevice);
+  // The location in use, named under the button: a device fix with how it was resolved, a place
+  // picked by name with its name alone. The last one shown stays drawn while its row closes, so
+  // the row never empties as it leaves.
+  const currentPlace = state.status === 'ready' && state.locationFlow === 'idle'
+    ? state.activeLocation : null;
+  const [shownPlace, setShownPlace] = useState(currentPlace);
+  if (currentPlace && currentPlace !== shownPlace) setShownPlace(currentPlace);
 
   if (state.status !== 'ready') {
     return (
@@ -202,8 +203,8 @@ export function LocationSelectionControls({
     );
   }
 
-  const shownName = shownDevice ? locationName(shownDevice, copy) : '';
-  const shownCaption = locationCaption(shownDevice, state.permission.kind, copy);
+  const shownName = shownPlace ? locationName(shownPlace, copy) : '';
+  const shownCaption = locationCaption(shownPlace, state.permission.kind, copy);
   const isChosenPlace = (id: string) =>
     state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === id;
 
@@ -224,9 +225,9 @@ export function LocationSelectionControls({
         {/* The current place opens and closes in place under the button (Law 7). Its slot
             takes back the column's gap and the row carries it inside, so no space stays behind. */}
         <View style={styles.presenceSlot}>
-          <Presence visible={currentDevice !== null && !keyboardVisible}>
+          <Presence visible={currentPlace !== null && !keyboardVisible}>
             <View style={styles.presenceContent}>
-              {shownDevice ? (
+              {shownPlace ? (
                 <ListRowGroup>
                   <ListRow
                     accessibilityLabel={shownCaption ? `${shownName}, ${shownCaption}` : shownName}
@@ -235,7 +236,7 @@ export function LocationSelectionControls({
                     labelWeight="bodyStrong"
                     selected
                     supportingText={shownCaption ?? undefined}
-                    testID={`${testIDPrefix}-location-device-current`}
+                    testID={`${testIDPrefix}-location-${shownPlace.source}-current`}
                   />
                 </ListRowGroup>
               ) : null}
@@ -292,10 +293,20 @@ export function LocationSelectionControls({
                     ? undefined
                     : () => {
                         const before = application.state;
-                        void selectPlaceSearchResult(place).then(() => finishSelection(
-                          before,
-                          (location) => location.source === 'manual' && location.catalogId === place.id,
-                        ));
+                        // The pick is the answer: the keyboard goes, so the place it names
+                        // under the button and the footer under the step can be seen.
+                        Keyboard.dismiss();
+                        void selectPlaceSearchResult(place).then(() => {
+                          const chosen = finishSelection(
+                            before,
+                            (location) => location.source === 'manual' && location.catalogId === place.id,
+                          );
+                          // VoiceOver ignores live regions; Android hears the row as it opens.
+                          // Nothing is felt: the success haptic answers only the device fix.
+                          if (chosen && Platform.OS === 'ios') {
+                            AccessibilityInfo.announceForAccessibility(copy.placeSelectedNamed(locationName(chosen, copy)));
+                          }
+                        });
                         // A manual pick overrides the device location regardless of
                         // whether it ends up the same place, so first use gates on the
                         // action, not on `location_changed` firing. Onboarding runs before

@@ -516,15 +516,48 @@ test('an unnamed approximate device fix falls back to the generic name and says 
   expect(within(row).getByText(copy.approximateLocation)).toBeOnTheScreen();
 });
 
-test('no current-location row stands for a manual place or a pending answer', async () => {
+// A place picked by name is named under the button as the device's place is, without a
+// precise or approximate caption: it was chosen, not located.
+test('a manual place has its own current row, and no row stands for a pending answer', async () => {
   const { weather, Providers } = harness();
   weather.state = { ...readyState(weather.state), activeLocation: istanbul };
   const manual = await render(<Providers><WeatherLocationScreen /></Providers>);
   expect(manual.queryByTestId('weather-location-device-current')).toBeNull();
+  const row = manual.getByTestId('weather-location-manual-current');
+  expect(within(row).getByText(place.displayName)).toBeOnTheScreen();
+  expect(row.props.accessibilityLabel).toBe(place.displayName);
   await manual.unmount();
   weather.state = { ...readyState(weather.state), permission: granted, activeLocation: deviceLocation, locationFlow: 'lookup-failed' };
   const failed = await render(<Providers><WeatherLocationScreen /></Providers>);
   expect(failed.queryByTestId('weather-location-device-current')).toBeNull();
+});
+
+// A picked city used to leave the keyboard up and change only a small check, so the step looked
+// frozen. The keyboard goes, the place is named under the button as the device's place is, and
+// VoiceOver hears it once. Nothing is felt: Law 8 names only the device fix.
+test('a picked search result dismisses the keyboard, is named under the button and spoken once, unfelt', async () => {
+  const { weather, search, Providers } = harness();
+  const dismiss = jest.spyOn(Keyboard, 'dismiss');
+  const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), activeLocation: istanbul };
+  });
+  const controls = () => (
+    <Providers><LocationSelectionControls reportsSelection={false} testID="controls" testIDPrefix="onboarding" /></Providers>
+  );
+  const result = await render(controls());
+  await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista'); await debounce();
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
+  expect(dismiss).toHaveBeenCalledTimes(1);
+  await result.rerender(controls());
+  const row = result.getByTestId('onboarding-location-manual-current');
+  expect(within(row).getByText(place.displayName)).toBeOnTheScreen();
+  expect(row.props.accessibilityState).toEqual({ selected: true });
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+  expect(AccessibilityInfo.announceForAccessibility)
+    .toHaveBeenCalledWith(messages.en.weather.placeSelectedNamed(place.displayName));
+  expect(success).not.toHaveBeenCalled();
 });
 
 // The tap asks the system directly: no card of kuyara's own comes first. The status line says

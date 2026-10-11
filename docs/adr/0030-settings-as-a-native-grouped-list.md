@@ -84,8 +84,10 @@ Notifications, Service providers, Privacy, Easier to see and Birth date use nati
 
 The Profile group's birth-date row shows the birth date itself, locale-formatted
 ("14 March 1994" / "14 Mart 1994"), "Not set" / "Ayarlanmadı" when null, and opens the
-system date picker. No age category is shown anywhere, and changing the date triggers no
-recommendation behavior.
+birth date screen. A set date shows the system wheel and "Remove birth date". An unset date
+shows no date at all, only "Add birth date", which opens the wheel on 1 January, 25 years
+before the current year; nothing is stored until the wheel is turned. No age category is
+shown anywhere, and changing the date triggers no recommendation behavior.
 
 ### 7. Tint, haptics, motion, theme
 

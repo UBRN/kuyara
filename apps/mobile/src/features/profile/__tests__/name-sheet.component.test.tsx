@@ -79,6 +79,15 @@ test('Settings Done still clears an emptied name, while invalid values disable D
   expect(screen.getByTestId('name-edit-input-error')).not.toHaveTextContent(/Not now/);
 });
 
+// A typed name needs a letter: digits alone read as an age, not a name ("Welcome, 27").
+test.each(['prompt', 'edit'] as const)('the %s sheet refuses a digits-only name with the letter error', async (mode) => {
+  const screen = await renderSheet(mode, null);
+  const field = mode === 'prompt' ? 'name-prompt-input' : 'name-edit-input';
+  await fireEvent.changeText(screen.getByTestId(field), '27');
+  expect(screen.getByTestId('name-sheet-done')).toBeDisabled();
+  expect(screen.getByTestId(`${field}-error`)).toHaveTextContent(messages.en.onboarding.nameLetterError);
+});
+
 // VoiceOver ignores the error line's live region, so iOS speaks it, and the field carries it as
 // its hint while it shows.
 test('a length error is spoken on iOS and is the field\'s hint while it shows', async () => {

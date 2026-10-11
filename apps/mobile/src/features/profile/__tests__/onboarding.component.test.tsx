@@ -189,10 +189,11 @@ test('gender and dress style are required and a null birth date completes honest
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-3')).toBeOnTheScreen();
   expect(result.getByText(messages.en.onboarding.ageTitle)).toBeOnTheScreen();
-  expect(result.getByText(messages.en.onboarding.birthDateNotSet)).toBeOnTheScreen();
-  expect(result.getByTestId('onboarding-birth-date').props.accessibilityLabel).toBe(
-    messages.en.onboarding.birthDateTitle,
-  );
+  // An unset birth date draws no date: only Add, which names what it adds.
+  expect(result.queryByTestId('onboarding-birth-date')).toBeNull();
+  expect(result.queryByText(messages.en.onboarding.birthDateNotSet)).toBeNull();
+  expect(result.getByTestId('onboarding-birth-date-add'))
+    .toHaveAccessibleName(messages.en.onboarding.birthDateAddLabel);
   await fireEvent.press(result.getByTestId('onboarding-name-skip'));
   expect(result.getByTestId('onboarding-step-4')).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('onboarding-continue'));
@@ -269,6 +270,7 @@ test('optional name step validates 2 to 30 characters and offers Not now', async
 test('Not now skips only the name and keeps the birth date chosen on the same step', async () => {
   const { onComplete, result } = await renderOnboarding('woman', null, 'smart');
   await pressUntilStep(result, 3);
+  await fireEvent.press(result.getByTestId('onboarding-birth-date-add'));
   await fireEvent(result.getByTestId('onboarding-birth-date'), 'dateChange', new Date(1994, 2, 14, 12));
   await fireEvent.changeText(result.getByTestId('onboarding-name'), 'A');
   await fireEvent.press(result.getByTestId('onboarding-name-skip'));
@@ -319,7 +321,43 @@ test('the onboarding birth date picker cannot select a date the birth date rule 
   const { result } = await renderOnboarding('man', null, 'smart');
 
   await pressUntilStep(result, 3);
+  await fireEvent.press(result.getByTestId('onboarding-birth-date-add'));
   expect(result.getByTestId('onboarding-birth-date').props.range.start.getFullYear()).toBe(1900);
+});
+
+// The picker used to draw today beside "Not set", and a stray tap stored a real date. Add opens
+// the wheel at 1 January, 25 years back; nothing is kept until the wheel is turned, and Remove
+// appears only once a date exists.
+test('Add opens the birth date wheel 25 years back and nothing is saved until it is turned', async () => {
+  const { onComplete, result } = await renderOnboarding('woman', null, 'smart');
+  await pressUntilStep(result, 3);
+  await fireEvent.press(result.getByTestId('onboarding-birth-date-add'));
+  const picker = result.getByTestId('onboarding-birth-date');
+  expect(picker.props.accessibilityValue.text).toContain(`${new Date().getFullYear() - 25}-01-01`);
+  expect(picker.props.modifiers).toContainEqual({ $type: 'datePickerStyle', style: 'wheel' });
+  expect(result.queryByTestId('onboarding-birth-date-add')).toBeNull();
+  expect(result.queryByTestId('onboarding-birth-date-remove')).toBeNull();
+
+  await fireEvent(picker, 'dateChange', new Date(1990, 5, 2, 12));
+  await fireEvent.press(result.getByTestId('onboarding-birth-date-remove'));
+  expect(result.queryByTestId('onboarding-birth-date')).toBeNull();
+  expect(result.getByTestId('onboarding-birth-date-add')).toBeOnTheScreen();
+
+  await fireEvent.press(result.getByTestId('onboarding-birth-date-add'));
+  await pressUntilStep(result, 6);
+  await fireEvent.press(result.getByTestId('onboarding-complete'));
+  await waitFor(() => expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ birthDate: null })));
+});
+
+// Digits alone read as an age, not a name: the tester's "27" became "Welcome, 27".
+test('a digits-only name shows the letter error and is never greeted', async () => {
+  const { result } = await renderOnboarding(null, null);
+  await pressUntilStep(result, 3);
+  await fireEvent.changeText(result.getByTestId('onboarding-name'), '27');
+  expect(result.getByTestId('onboarding-name-error')).toHaveTextContent(messages.en.onboarding.nameLetterError);
+  expect(result.getByTestId('onboarding-continue').props.accessibilityState.disabled).toBe(true);
+  expect(within(result.getByTestId('onboarding-name-preview')).getByText(messages.en.onboarding.nameGreetingEmpty))
+    .toBeOnTheScreen();
 });
 
 test('selecting a searched place uses the weather application without completing onboarding', async () => {
@@ -581,7 +619,7 @@ test('once the place is known, the choice previews draw its weather instead of t
 });
 
 test.each(['tr', 'en'] as const)(
-  'the name and age step\'s picker takes the app language %s and stacks its title above the control at accessibility sizes',
+  'the name and age step\'s wheel takes the app language %s and keeps its label hidden at accessibility sizes',
   async (language) => {
     mockFontScale(3);
     const { result } = await renderOnboarding(
@@ -595,23 +633,18 @@ test.each(['tr', 'en'] as const)(
     );
 
     await pressUntilStep(result, 3);
+    await fireEvent.press(result.getByTestId('onboarding-birth-date-add'));
 
     const picker = result.getByTestId('onboarding-birth-date');
     expect(picker.props.modifiers).toEqual([
       { $type: 'environment', key: 'locale', value: nativeLocale[language] },
+      { $type: 'datePickerStyle', style: 'wheel' },
       { $type: 'labelsHidden' },
       { $type: 'tint', color: lightTheme.colors.brandPrimary },
     ]);
     expect(picker.props.accessibilityLabel).toBe(messages[language].onboarding.birthDateTitle);
-    // The title is kuyara's own text above a one-row host, hidden from assistive tech so
-    // the picker's name is spoken once.
     expect(StyleSheet.flatten(result.getByTestId('expo-ui-host').props.style))
-      .toMatchObject({ height: 96 });
-    // The step heading carries the same words, so look for the copy the picker draws.
-    const visualTitles = result.getAllByText(messages[language].onboarding.birthDateTitle, {
-      includeHiddenElements: true,
-    });
-    expect(visualTitles.some((title) => title.props.accessibilityElementsHidden === true)).toBe(true);
+      .toMatchObject({ height: 216 });
   },
 );
 
