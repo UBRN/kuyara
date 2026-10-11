@@ -251,7 +251,7 @@ function TodayScreenContent({
   const scrollBy = (dy: number) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy });
   // While the tour runs, only the tour scrolls Today: its live outfit passes a finger through,
   // and a drag there would move the outfit out from under the spotlight.
-  const tourActive = useWalkthrough()?.active === true;
+  const walkthrough = useWalkthrough();
   const recommendationApplication = use(RecommendationApplicationContext);
   const weatherApplication = useWeatherApplication();
   const { hour12, temperatureUnit } = useLocalization();
@@ -493,7 +493,7 @@ function TodayScreenContent({
       }}
       ref={scrollRef}
       refreshControl={refreshControl}
-      scrollEnabled={!tourActive}
+      scrollEnabled={walkthrough?.active !== true}
       scrollToOverflowEnabled
       testID="today-screen">
       <View onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)} testID="today-content">

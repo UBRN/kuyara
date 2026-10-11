@@ -228,7 +228,7 @@ export function OutfitDetailScreen({
   const scrollOffset = useScrollOffset(scrollRef);
   // While the tour runs, only the tour scrolls detail: its live piece row passes a finger
   // through, and a drag there would move the row out from under the spotlight.
-  const tourActive = useWalkthrough()?.active === true;
+  const walkthrough = useWalkthrough();
   const piecesTop = useRef(0);
   const { height: windowHeight } = useWindowDimensions();
   // "Why this outfit" draws its lines once the whole section stands clear of the floating tab
@@ -575,7 +575,7 @@ export function OutfitDetailScreen({
   const scrollBy = (dy: number) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy });
 
   return (
-    <Screen ref={scrollRef} scrollEnabled={!tourActive} scrollToOverflowEnabled testID="outfit-detail-screen">
+    <Screen ref={scrollRef} scrollEnabled={walkthrough?.active !== true} scrollToOverflowEnabled testID="outfit-detail-screen">
       <View
         onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
         onTouchEnd={({ nativeEvent }) => {
