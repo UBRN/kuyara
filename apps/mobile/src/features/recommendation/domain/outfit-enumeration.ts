@@ -1,4 +1,9 @@
 import {
+  isIncompatibleGarmentPair,
+  isIncompatibleMidLayer,
+} from '@/features/catalog/domain/garment-pairs';
+import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
+import {
   compareGarmentEligibilityResults,
   type EligibleGarmentResult,
   type GarmentEligibilityResult,
@@ -223,8 +228,12 @@ export type ComposerDay = Readonly<{
   midLayers: readonly EligibleGarmentResult[];
   outerLayers: readonly EligibleGarmentResult[];
   footwear: readonly EligibleGarmentResult[];
-  /** Whether a mid layer must go over the primary top in order: false only to rebuild a saved outfit. */
-  ordersLayers: boolean;
+  /**
+   * Whether the day composes new outfits under every composition rule: false only to rebuild a
+   * saved outfit, which is read as it was composed, so the layer order and the incompatible
+   * pairs govern new compositions only.
+   */
+  composesNew: boolean;
 }>;
 
 /**
@@ -236,7 +245,7 @@ export type ComposerDay = Readonly<{
 export function readComposerDay(
   allRequirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
-  ordersLayers: boolean,
+  composesNew: boolean,
 ): ComposerDay | OutfitCompositionFailure {
   // The extremity requirements are left out here on purpose: no top, bottom, layer or shoe
   // covers a head, so counting them would lower every outfit's score by the same amount and
@@ -324,7 +333,7 @@ export function readComposerDay(
     midLayers,
     outerLayers,
     footwear,
-    ordersLayers,
+    composesNew,
   });
 }
 
@@ -339,7 +348,7 @@ function* bodyTriples(day: ComposerDay): Generator<BodyPieces> {
   for (const body of day.bodyCores) {
     for (const midLayer of midOptions) {
       if (
-        day.ordersLayers && midLayer !== null && body.kind === 'separates' &&
+        day.composesNew && midLayer !== null && body.kind === 'separates' &&
         !layeringOrderFits(body.primaryTop, midLayer)
       ) {
         continue;
@@ -351,12 +360,31 @@ function* bodyTriples(day: ComposerDay): Generator<BodyPieces> {
   }
 }
 
+/** Whether any two of these garment types are never worn together. */
+function wearsIncompatiblePair(ids: readonly GarmentTypeId[]): boolean {
+  return ids.some((left, index) =>
+    ids.slice(index + 1).some((right) => isIncompatibleGarmentPair(left, right)));
+}
+
+/** Whether a triple wears an incompatible pair above the shoes, a hoodie pulled over a knit included. */
+function sideClashes(pieces: BodyPieces): boolean {
+  const { body, midLayer } = pieces;
+  return (midLayer !== null && body.kind === 'separates' &&
+      isIncompatibleMidLayer(midLayer.garment.garmentTypeId, body.primaryTop.garment.garmentTypeId)) ||
+    wearsIncompatiblePair(pieces.results.map(({ garment }) => garment.garmentTypeId));
+}
+
 /**
  * Every valid draft of the day, best first. A draft is valid when it wears no candidate twice,
  * keeps its formalities within one step and meets every mandatory requirement, so a triple
  * whose body side already repeats a candidate, mixes formalities or misses a mandatory
  * requirement is dropped before any shoe is tried. Only the valid drafts are scored, and none
  * becomes an outfit here.
+ *
+ * A new composition also leaves out every draft wearing an incompatible pair, unless fewer than
+ * three drafts are left without one: a hot thunderstorm asks dry feet and breathing legs of
+ * men, and only shorts with rain boots answer both, so such a day keeps its pairs rather than
+ * dressing nobody.
  *
  * The drafts are judged in enumeration order and that order is kept into the sort: the
  * comparator settles ties between a separates and a one-piece draft by digest while it settles
@@ -366,6 +394,7 @@ function* bodyTriples(day: ComposerDay): Generator<BodyPieces> {
 export function validDrafts(day: ComposerDay): readonly JudgedDraft[] {
   const footwear = day.footwear.map((candidate) => ({ candidate, rank: formalityRankOf(candidate) }));
   const valid: JudgedDraft[] = [];
+  const clashing: JudgedDraft[] = [];
   for (const pieces of bodyTriples(day)) {
     const { lowest, highest } = pieces.formalityRange;
     if (pieces.repeatsCandidate || !formalitySpreadFits(lowest, highest)) {
@@ -375,6 +404,7 @@ export function validDrafts(day: ComposerDay): readonly JudgedDraft[] {
     if (!side.evaluations.every((evaluation) => evaluation === null || meetsRequirement(evaluation))) {
       continue;
     }
+    const sideClash = day.composesNew && sideClashes(pieces);
     for (const { candidate, rank } of footwear) {
       if (
         side.candidateKeys.has(candidate.candidateKey) ||
@@ -384,11 +414,13 @@ export function validDrafts(day: ComposerDay): readonly JudgedDraft[] {
       }
       const evaluations = draftEvaluations(side, candidate, day.requirements);
       if (evaluations.every(meetsRequirement)) {
-        valid.push(judgeDraft(side, candidate, day.requirements, evaluations));
+        const clashes = sideClash || (day.composesNew && pieces.results.some(({ garment }) =>
+          isIncompatibleGarmentPair(garment.garmentTypeId, candidate.garment.garmentTypeId)));
+        (clashes ? clashing : valid).push(judgeDraft(side, candidate, day.requirements, evaluations));
       }
     }
   }
-  return sortedDrafts(valid);
+  return sortedDrafts(valid.length >= 3 ? valid : [...valid, ...clashing]);
 }
 
 /**

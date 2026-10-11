@@ -303,5 +303,5 @@ test('the drawn pieces of every recommended outfit stay byte-identical across we
     }
   }
   assert.ok(onePieces > 0, 'the sample covers a one-piece outfit');
-  assert.equal(hash.digest('hex'), 'fefa6a34dacdefe7c4a886cbfe0b873407ec6a9669dd97a726ac0c052e9f6a01');
+  assert.equal(hash.digest('hex'), 'f627e6877cdda6b5367841c2cb3585f17d07be756631703ce7571aea769d03aa');
 });

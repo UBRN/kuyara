@@ -71,9 +71,9 @@ export {
 function composeDay(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
-  ordersLayers = true,
+  composesNew = true,
 ): Readonly<{ status: 'composed'; day: ComposerDay; valid: readonly JudgedDraft[] }> | OutfitCompositionFailure {
-  const day = readComposerDay(requirements, candidates, ordersLayers);
+  const day = readComposerDay(requirements, candidates, composesNew);
   if (day.status === 'failure') return day;
   const valid = validDrafts(day);
   return valid.length === 0
@@ -85,14 +85,14 @@ function composeDay(
  * Every valid composition, sorted best first, each finished with the day's accessories.
  * The mapper rebuilds one stored or AI-chosen option through here, so what it hands back
  * has to carry the accessories that option was written with. A saved outfit is rebuilt with
- * `ordersLayers: false`: one composed before the layer order rule stays readable.
+ * `composesNew: false`: one composed before a composition rule stays readable.
  */
 export function collectValidOutfits(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
-  { ordersLayers = true }: Readonly<{ ordersLayers?: boolean }> = {},
+  { composesNew = true }: Readonly<{ composesNew?: boolean }> = {},
 ): OutfitCompositionsResult {
-  const composed = composeDay(requirements, candidates, ordersLayers);
+  const composed = composeDay(requirements, candidates, composesNew);
   if (composed.status === 'failure') return composed;
   return Object.freeze({
     status: 'composed',
