@@ -69,7 +69,14 @@ jest.mock('@/infrastructure/sqlite/migrations', () => ({
 
 let mockProfile = createProfile();
 let mockUpdateFailure:
-  'appearance' | 'dress-style' | 'gender' | 'language' | 'style-aesthetics' | null = null;
+  | 'appearance'
+  | 'dress-style'
+  | 'gender'
+  | 'language'
+  | 'morning-sheet'
+  | 'style-aesthetics'
+  | 'temperature-unit'
+  | null = null;
 let mockStyleSaveCalls = 0;
 let mockProfileLoadFailures = 0;
 let mockStyleSaveBarrier: Promise<void> | null = null;
@@ -97,6 +104,7 @@ jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
     };
 
     updateTemperatureUnitPreference = async (temperatureUnitPreference: TemperatureUnitPreference) => {
+      if (mockUpdateFailure === 'temperature-unit') throw new Error('save failed');
       mockProfile = { ...mockProfile, temperatureUnitPreference };
       return mockProfile;
     };
@@ -137,6 +145,7 @@ jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
     };
 
     updateMorningSheetEnabled = async (enabled: boolean) => {
+      if (mockUpdateFailure === 'morning-sheet') throw new Error('save failed');
       mockProfile = { ...mockProfile, morningSheetEnabled: enabled ? 1 : 0 };
       return mockProfile;
     };
@@ -737,6 +746,80 @@ test('preference save errors replace the footer for the affected Settings group'
     .queryByText(messages.en.settings.saveError)).toBeNull();
   expect(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker').props.selection).toBe('woman');
   expect(announce).toHaveBeenCalledTimes(2);
+  announce.mockRestore();
+});
+
+test('a failed unit save replaces the Units footer and is spoken', async () => {
+  mockProfile = createProfile();
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider
+          analytics={new RecordingProductAnalytics()}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  await fireEvent.press(await result.findByTestId('settings-units-row'));
+  const units = await result.findByTestId('settings-units-group');
+  expect(within(units).getByText(messages.en.settings.units.footer)).toBeOnTheScreen();
+  mockUpdateFailure = 'temperature-unit';
+  await fireEvent(
+    within(result.getByTestId('settings-temperature-unit-row')).getByTestId('expo-ui-picker'),
+    'selectionChange',
+    'fahrenheit',
+  );
+
+  await waitFor(() => {
+    expect(within(result.getByTestId('settings-units-group'))
+      .getByText(messages.en.settings.saveError)).toBeOnTheScreen();
+  });
+  expect(within(result.getByTestId('settings-units-group'))
+    .queryByText(messages.en.settings.units.footer)).toBeNull();
+  expect(within(result.getByTestId('settings-temperature-unit-row')).getByTestId('expo-ui-picker').props.selection)
+    .toBe('system');
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(messages.en.settings.saveError);
+  announce.mockRestore();
+});
+
+test('a failed morning question save replaces the Notifications footer and is spoken', async () => {
+  mockProfile = createProfile();
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider
+          analytics={new RecordingProductAnalytics()}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  const notifications = await result.findByTestId('settings-notifications-group');
+  expect(within(notifications).getByText(messages.en.settings.morningQuestionFooter)).toBeOnTheScreen();
+  mockUpdateFailure = 'morning-sheet';
+  await fireEvent(within(notifications).getByTestId('settings-morning-question-row-toggle'), 'valueChange', false);
+
+  await waitFor(() => {
+    expect(within(result.getByTestId('settings-notifications-group'))
+      .getByText(messages.en.settings.saveError)).toBeOnTheScreen();
+  });
+  expect(within(result.getByTestId('settings-notifications-group'))
+    .queryByText(messages.en.settings.morningQuestionFooter)).toBeNull();
+  expect(within(result.getByTestId('settings-profile-group'))
+    .queryByText(messages.en.settings.saveError)).toBeNull();
+  expect(mockProfile.morningSheetEnabled).toBe(1);
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(messages.en.settings.saveError);
   announce.mockRestore();
 });
 

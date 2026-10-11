@@ -46,12 +46,12 @@ tags:
 #
 # The row itself exposes no test id either. The SwiftUI section's identifier is what reaches the
 # accessibility tree, so `settings-language-row` and its siblings never appear there. Each row is
-# a single button whose accessibility text is "<label>, <current value>", the way the plain rows
-# beside it read "Bildirimler, Kapalı", so that one string both opens the row and asserts its
+# a single button whose accessibility text is "<label>, <current value>", the way the plain
+# Notifications row in its own group reads "Bildirimler, Kapalı", so that one string both opens the row and asserts its
 # saved value, and the tap lands on the row's own centre.
 #
-# Language and Theme sit in the Appearance group, below Profile and Notifications, so each needs
-# a scroll before its menu can open.
+# Language and Theme sit in the Appearance group, below the Account, Profile and Notifications
+# groups, so each needs a scroll before its menu can open.
 #
 # "Türkçe" is spelled identically in both message tables, so this first selection lands whatever
 # language the device starts the app in; every step after it reads the Turkish copy it produces.
