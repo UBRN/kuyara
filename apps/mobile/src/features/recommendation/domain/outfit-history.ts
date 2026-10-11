@@ -81,11 +81,6 @@ export function sameWornGarments(a: WornOutfit, b: WornOutfit): boolean {
   return [...keys].every((slot) => a.garments[slot] === b.garments[slot]);
 }
 
-/** Whether a day's looks already hold this outfit: "Wore this today" never records one twice. */
-export function wornAlready(looks: readonly WornOutfit[], outfit: WornOutfit): boolean {
-  return looks.some((look) => sameWornGarments(look, outfit));
-}
-
 export type HistoryDay<Look> = Readonly<{ dayKey: string; looks: readonly Look[] }>;
 
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -130,8 +125,9 @@ export interface OutfitHistoryRepository {
   lastSeven(localProfileId: string): Promise<readonly OutfitHistoryRecord[]>;
   /**
    * Records a look worn on the day: a new row, unless the day already holds a look with the same
-   * pieces, which is kept as it is (a photo change still applies to it). `pieceColors` are the
-   * swatches the look was drawn in; null records it without them. Every write states them.
+   * pieces, which stays one record: worn again in other colours it takes the new colours and
+   * source and keeps its worn time, and a photo change still applies to it. `pieceColors` are
+   * the swatches the look was drawn in; null records it without them. Every write states them.
    */
   log(localProfileId: string, dayKey: string, outfit: WornOutfit,
     photo: HistoryPhotoChange, pieceColors: WornPieceColors | null): Promise<OutfitHistoryRecord>;

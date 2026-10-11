@@ -27,6 +27,7 @@ import Svg, {
 
 import type { ClothingPreference } from '@/domain/preferences';
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
+import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import { useStableEntries } from '@/hooks/use-stable-value';
 import { shiftOklchLightness } from '@/theme/color-oklch';
@@ -318,19 +319,35 @@ export function useGarmentCandidateRoles(
   slot: OutfitSlot | null,
   garmentTypeIds: readonly GarmentTypeId[],
 ): ReadonlyMap<GarmentTypeId, GarmentRoles> {
+  return useSwatchedCandidateRoles(palette, slot,
+    garmentTypeIds.map((garmentTypeId) => ({ key: garmentTypeId, garmentTypeId })));
+}
+
+/**
+ * The same, for candidates that may come in a colour of their own (the reader's Closet pieces
+ * on the detail strip), each by its key: a tile shows the piece as the board would draw it.
+ */
+export function useSwatchedCandidateRoles<Key extends string>(
+  palette: GarmentOutfitPalette | null,
+  slot: OutfitSlot | null,
+  candidates: readonly Readonly<{ key: Key; garmentTypeId: GarmentTypeId; swatchId?: GarmentSwatchId }>[],
+): ReadonlyMap<Key, GarmentRoles> {
   const theme = useKuyaraTheme();
   // The picker's tiles are garment plates.
   const { colors, colorScheme } = plateTheme(theme, theme.colors.garmentTile);
   // A step leaves the other candidates' colours as they were: their tiles keep their roles.
-  return useStableEntries(palette === null || slot === null ? [] : garmentTypeIds.flatMap((garmentTypeId) => {
+  return useStableEntries(palette === null || slot === null ? [] : candidates.flatMap(({ key, garmentTypeId, swatchId }) => {
+    const changed = paletteWithGarment(palette, slot, garmentTypeId);
     const roles = garmentRolesBySlot({
-      ...paletteWithGarment(palette, slot, garmentTypeId),
+      ...changed,
+      pieces: swatchId === undefined ? changed.pieces
+        : changed.pieces.map((piece) => (piece.slot === slot ? { ...piece, recordedSwatchId: swatchId } : piece)),
       appearance: colorScheme,
       stageColor: colors.background,
       accessoryStageColor: colors.background,
       inkColor: colors.textPrimary,
     }).get(slot);
-    return roles ? [[garmentTypeId, roles] as const] : [];
+    return roles ? [[key, roles] as const] : [];
   }));
 }
 

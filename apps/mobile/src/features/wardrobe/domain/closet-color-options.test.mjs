@@ -118,11 +118,13 @@ test('Closet palette fields do not cross into recommendation, AI, analytics or W
   // The approved readers outside the Closet. The outfit detail draws the user's own
   // similar piece ("Yours") in its saved colour (O8), and the compose sheet paints a ticked
   // catalog piece in the solid the reader picks; the pick reaches composing only as a board
-  // swatch id. Both render only; the rest of Today, recommendation, analytics and the Worker
-  // stay free of the fields.
+  // swatch id. The detail strip's "Yours" turns an owned piece's colour into the board swatch it
+  // paints the piece in. All render only; the rest of Today, recommendation, analytics and the
+  // Worker stay free of the fields.
   const displayOnly = new Set([
     join(mobileSrc, 'features', 'today', 'presentation', 'outfit-detail-pieces.tsx'),
     join(mobileSrc, 'features', 'today', 'presentation', 'compose-sheet.tsx'),
+    join(mobileSrc, 'features', 'today', 'application', 'own-pieces.ts'),
   ]);
   async function scan(directory) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {

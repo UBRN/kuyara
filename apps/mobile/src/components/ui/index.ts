@@ -13,7 +13,7 @@ export { Crossfade, type CrossfadeProps } from './crossfade';
 export { DrawGrow, DrawReveal, type DrawGrowProps, type DrawRevealProps } from './draw-in';
 export { Entrance, type EntranceProps } from './entrance';
 export { FadeIn, fadeEasing, fadeTo } from './fade';
-export { GlassButton, type GlassButtonProps } from './glass-button';
+export { GlassButton, glassButtonSize, type GlassButtonProps } from './glass-button';
 export { Icon, iconNames, type IconName } from './icon';
 export { IconButton, type IconButtonProps } from './icon-button';
 export { ListRow, ListRowGroup, type ListRowGroupProps, type ListRowProps } from './list-row';

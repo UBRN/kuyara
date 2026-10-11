@@ -4145,10 +4145,10 @@ test('wore this today records each look of the day beside the earlier ones', asy
   const stored: WornOutfit[] = [];
   const outfitHistory = {
     list: jest.fn(async () => []),
-    day: jest.fn(async () => stored.map((outfit) => ({ outfit })) as never),
+    day: jest.fn(async () => stored.map((outfit, index) => ({ id: `look-${index}`, outfit })) as never),
     log: jest.fn(async (_day: string, outfit: WornOutfit, _pieceColors: unknown) => {
       stored.push(outfit);
-      return { outfit } as never;
+      return { id: `look-${stored.length - 1}`, outfit } as never;
     }),
   };
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);

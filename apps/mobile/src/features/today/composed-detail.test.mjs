@@ -6,6 +6,7 @@ import { composeAroundPieces } from '../recommendation/application/compose-aroun
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { deriveClothingRequirements } from '../recommendation/domain/weather-to-clothing-requirements.ts';
 import { composedDetail, composeInputFor, composePiecesOf, detailShowing, manualDetailOf } from './application/composed-detail.ts';
+import { paintedColors } from './application/piece-colors.ts';
 
 const grid = gridRecommendationInput('mild', 'womens', 'smart');
 const requirements = deriveClothingRequirements(grid.snapshot, grid.now);
@@ -93,6 +94,33 @@ test('a finishing touch alone makes the outfit the reader\'s, counted against ku
   assert.deepEqual(manual.changedSlots, ['neck']);
   assert.equal(manual.original, undefined);
   assert.equal(showing.composed, null);
+});
+
+// A colour the reader paints on detail is a change like any other: the outfit becomes the
+// reader's, the painted slot counts once among the changes, and the colour is drawn as that
+// piece's recorded swatch, over a composed pin's colour.
+test('a painted colour makes the outfit the reader\'s and is drawn as the piece\'s swatch', () => {
+  const mix = mixOf(pick);
+  const showing = detailShowing(pick, null, mix, { bottom: 'plum' });
+  assert.equal(showing.worn.source, 'manual');
+  assert.deepEqual(manualDetailOf(mix, null, pick.optionId, { bottom: 'plum' }), {
+    optionId: pick.optionId, outfit: pick, original: undefined, changedSlots: ['bottom'], pieceColors: { bottom: 'plum' },
+  });
+  const swapped = mixOf(pick, { edited: true, changedSlots: ['bottom'] });
+  assert.deepEqual(manualDetailOf(swapped, null, pick.optionId, { bottom: 'plum' }).changedSlots, ['bottom']);
+  const composed = detailShowing(pick, composedOption, mixOf(composedOption.outfit)).composed;
+  assert.deepEqual(manualDetailOf(mixOf(composedOption.outfit), composed, pick.optionId, { bottom: 'navy' }).pieceColors,
+    { bottom: 'navy' });
+  assert.equal(detailShowing(pick, null, mix, {}).worn.source, 'recommended');
+});
+
+// A painted colour belongs to the piece it was painted on: a slot whose piece changed since is
+// coloured afresh, and a painted slot the outfit no longer wears is gone.
+test('a painted colour holds only while its piece is worn', () => {
+  const paints = { bottom: { garmentTypeId: 'jeans', swatchId: 'plum' }, outer_layer: { garmentTypeId: 'coat', swatchId: 'navy' } };
+  assert.deepEqual(paintedColors(paints, { bottom: 'jeans', outer_layer: 'coat' }), { bottom: 'plum', outer_layer: 'navy' });
+  assert.deepEqual(paintedColors(paints, { bottom: 'skirt', outer_layer: 'coat' }), { outer_layer: 'navy' });
+  assert.deepEqual(paintedColors(paints, { bottom: 'jeans' }), { bottom: 'plum' });
 });
 
 test('a reset keeps the pick as the worn source and draws nothing changed', () => {

@@ -39,9 +39,8 @@ test('history appends each look of a day morning first, records the same look on
   const ids = async (day) => (await repo.day(profileId, day)).map((look) => look.id);
   const morning = await repo.log(profileId, '2026-09-01', first, keep, null);
   clock = '2026-09-24T11:00:00.000Z';
-  // The same look again the same day is the record already there, untouched.
-  assert.deepEqual(await repo.log(profileId, '2026-09-01', first, keep,
-    { primary_top: 'navy', bottom: 'indigo', footwear: 'white' }), morning);
+  // The same look again the same day, as it was, is the record already there, untouched.
+  assert.deepEqual(await repo.log(profileId, '2026-09-01', first, keep, null), morning);
   clock = '2026-09-24T18:00:00.000Z';
   const evening = await repo.log(profileId, '2026-09-01', second, keep, null);
   assert.notEqual(evening.id, morning.id);
@@ -429,6 +428,23 @@ test('history stores the colours of each look and drops colours that do not fit'
   assert.deepEqual((await repo.day(profileId, '2026-09-24')).map(({ pieceColors }) => pieceColors),
     [colors, recoloured]);
 
+  // The same pieces worn again in other colours, painted on detail, re-mark the day's record:
+  // one record, its colours and source now the latest wearing's, its worn time and photo kept.
+  clock = '2026-09-24T19:00:00.000Z';
+  const repainted = { primary_top: 'plum', bottom: 'indigo', footwear: 'white' };
+  const remarked = await repo.log(profileId, '2026-09-24', { ...first, source: 'manual' }, { kind: 'keep' }, repainted);
+  assert.equal(remarked.id, written.id);
+  assert.deepEqual(remarked.pieceColors, repainted);
+  assert.equal(remarked.outfit.source, 'manual');
+  assert.equal(remarked.wornAt, written.wornAt);
+  assert.equal(remarked.updatedAt, clock);
+  assert.equal((await repo.day(profileId, '2026-09-24')).length, 2);
+  assert.deepEqual(JSON.parse(await stored(written.id)), repainted);
+  // The same again, in the same colours, touches nothing.
+  clock = '2026-09-24T20:00:00.000Z';
+  assert.deepEqual(await repo.log(profileId, '2026-09-24', { ...first, source: 'manual' }, { kind: 'keep' }, repainted),
+    remarked);
+
   // A write that does not state its colours is refused and stores nothing.
   await assert.rejects(() => repo.log(profileId, '2026-09-25', second, { kind: 'keep' }), /piece colours/);
   assert.deepEqual(await repo.day(profileId, '2026-09-25'), []);
@@ -445,7 +461,7 @@ test('history stores the colours of each look and drops colours that do not fit'
   for (const raw of ['not json', '"navy"', '{"primary_top":"neon"}', '{"head":"navy"}', '[]']) {
     await db.runAsync('UPDATE outfit_history SET piece_colors_json = ? WHERE id = ?', [raw, written.id]);
     const [read] = await repo.day(profileId, '2026-09-24');
-    assert.deepEqual(read.outfit, first);
+    assert.deepEqual(read.outfit, { ...first, source: 'manual' });
     assert.equal(read.pieceColors, null);
     assert.equal((await repo.day(profileId, '2026-09-24')).length, 2);
   }

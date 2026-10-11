@@ -1,5 +1,6 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
+import { useMemo } from 'react';
 import ReactNative, { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
@@ -9,8 +10,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { layoutGarmentBoard } from '@/garment-art';
 import { GARMENT_OUTLINE } from '@/garment-art/garment-painting';
 import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
-import { slotCandidates, swappableSlots } from '@/features/recommendation/domain/manual-mix';
+import { outfitGarments, slotCandidates, swappableSlots } from '@/features/recommendation/domain/manual-mix';
+import type { WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import { todayScreenState } from '@/features/today/__tests__/fixtures';
+import { usePieceColors } from '@/features/today/application/piece-colors';
+import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { ROW_TILE_SIZE } from '@/features/today/presentation/outfit-detail-entries';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
@@ -76,19 +80,33 @@ function Detail({
   language,
   onBoardFocusChange,
   onEditPiece,
-}: Readonly<{ language: SupportedLanguage; onBoardFocusChange?: (focused: boolean) => void; onEditPiece?: () => void }>) {
+  paint = false,
+  wardrobeItems = [],
+  onWoreThis,
+}: Readonly<{
+  language: SupportedLanguage;
+  onBoardFocusChange?: (focused: boolean) => void;
+  onEditPiece?: () => void;
+  /** The route's painted colours, as `useDetailMix` keeps them. */
+  paint?: boolean;
+  wardrobeItems?: readonly WardrobeItem[];
+  onWoreThis?: (pieceColors: WornPieceColors) => void;
+}>) {
   const manualMix = useManualMix(pick, recommendation.status === 'recommended' ? recommendation.requirements : null,
     'womens');
+  const garments = useMemo(() => (manualMix ? outfitGarments(manualMix.outfit) : {}), [manualMix]);
+  const pieceColors = usePieceColors(pick.optionId, garments);
   return (
     <OutfitDetailScreen
       language={language}
       manualMix={manualMix}
       onBoardFocusChange={onBoardFocusChange}
       onEditPiece={onEditPiece ?? jest.fn()}
-      onWoreThis={jest.fn()}
+      onWoreThis={onWoreThis ?? jest.fn()}
+      pieceColors={paint ? pieceColors : null}
       state={todayScreenState}
       suggestionId={pick.optionId}
-      wardrobeItems={[]}
+      wardrobeItems={wardrobeItems}
       worn="none"
     />
   );
@@ -149,6 +167,72 @@ function archetype(language: SupportedLanguage) {
   if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
   return presentation.suggestions[0];
 }
+
+// An owned pair of plum trousers: a bottom kuyara's catalog offers the slot.
+const ownedTrousers: WardrobeItem = {
+  id: 'own-trousers', localProfileId: 'profile-one', name: null, category: 'bottom', entryState: 'owned',
+  color: null, photoRelativePath: null, createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-01T00:00:00.000Z',
+  deletedAt: null, garmentTypeId: 'trousers', colorFamily: 'purple', colorChoice: { kind: 'option', id: 'plum' },
+  thermalLevelOverride: null, waterProtectionOverride: null, windProtectionOverride: null, breathabilityOverride: null,
+  armCoverageOverride: null, legCoverageOverride: null, tractionSuitabilityOverride: null,
+};
+
+// The enlarged piece's panel (ADR 0026 section 6): its colours paint it, and the reader's own
+// pieces put a Closet piece in, each in two taps. Either is a change: the title is the reader's,
+// "Back to kuyara's pick" forgets it, and "Wore this today" records the colours drawn.
+describe.each(['en', 'tr'] as const)('%s detail panel', (language) => {
+  const copy = messages[language].today;
+  const heading = (result: Awaited<ReturnType<typeof renderDetail>>, name: string) =>
+    within(result.getByTestId('outfit-detail-heading-group')).getByRole('header', { name });
+
+  test('a colour paints the enlarged piece, makes the outfit the reader\'s, and is recorded as drawn', async () => {
+    const onWoreThis = jest.fn();
+    const result = await renderDetail(language, { paint: true, onWoreThis });
+    await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+    const drawn = onWoreThis.mock.calls[0][0] as WornPieceColors;
+    await activate(result, 'primary_top');
+    const row = result.getByTestId('outfit-detail-board-strip-colors');
+    expect(row).toHaveProp('accessibilityLabel', messages[language].today.compose.colorLabel.primary_top);
+    const other = within(row).getAllByRole('radio').find(({ props }) => !props.accessibilityState.selected)!;
+    expect(other.props.accessibilityLabel).toEqual(expect.any(String));
+    await fireEvent.press(other);
+    expect(heading(result, copy.manualMix.title)).toBeOnTheScreen();
+    const painted = String(other.props.testID).replace('outfit-detail-board-strip-color-', '');
+    expect(painted).not.toBe(drawn.primary_top);
+    expect(within(row).getByTestId(`outfit-detail-board-strip-color-${painted}`).props.accessibilityState.selected)
+      .toBe(true);
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+    expect(onWoreThis).toHaveBeenLastCalledWith({ ...drawn, primary_top: painted });
+
+    await fireEvent.press(result.getByRole('button', { name: copy.manualMix.reset }));
+    expect(heading(result, archetype(language).title)).toBeOnTheScreen();
+    await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+    expect(onWoreThis).toHaveBeenLastCalledWith(drawn);
+  });
+
+  test('an own piece puts the Closet piece in, in its colour, and its name reads as owned', async () => {
+    const onWoreThis = jest.fn();
+    const result = await renderDetail(language, { paint: true, onWoreThis, wardrobeItems: [ownedTrousers] });
+    await activate(result, 'primary_top');
+    expect(result.queryByTestId('outfit-detail-board-strip-own')).toBeNull();
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    await activate(result, 'bottom');
+    expect(within(result.getByTestId('outfit-detail-board-strip-own')).getByText(copy.manualMix.yours)).toBeOnTheScreen();
+    const tile = result.getByTestId('outfit-detail-board-strip-own-own-trousers');
+    expect(tile).toHaveProp('accessibilityLabel', copy.manualMix.yoursPiece(catalogName(language, 'trousers'),
+      messages[language].wardrobe.colorOptionNames.plum));
+    // The catalog's tiles are the slot's candidates as they were: the Closet adds none.
+    const before = stripOrder(result);
+    await fireEvent.press(tile);
+    expect(stripOrder(result)).toEqual(before);
+    expect(heading(result, copy.manualMix.title)).toBeOnTheScreen();
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    expect(result.getByTestId('outfit-detail-name-marker-trousers-owned', hidden)).toBeOnTheScreen();
+    await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+    expect(onWoreThis.mock.calls.at(-1)?.[0]).toMatchObject({ bottom: 'plum' });
+  });
+});
 
 describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
   const copy = messages[language].today;
@@ -1031,7 +1115,7 @@ test('a binding fit fills the measured band between the bars exactly', async () 
 // (the iOS 26 bar is 54 points under the status bar, measured on the Simulator), and a tab's
 // bottom inset holds the 49-point tab bar above the home indicator. The 375-point phones are
 // the tightest: 667 points tall, and 812 points tall with Easier to see.
-describe.each([
+const phones = [
   { name: '375 x 667', metrics: { width: 375, height: 667, top: 20, bottom: 49, header: 74 }, large: false },
   { name: '375 x 667 with Easier to see', metrics: { width: 375, height: 667, top: 20, bottom: 49, header: 74 },
     large: true },
@@ -1040,7 +1124,37 @@ describe.each([
   { name: '402 x 874', metrics: { width: 402, height: 874, top: 62, bottom: 83, header: 116 }, large: false },
   { name: '402 x 874 with Easier to see', metrics: { width: 402, height: 874, top: 62, bottom: 83, header: 116 },
     large: true },
-])('$name', ({ metrics, large }) => {
+];
+// The panel adds the colour row and the reader's own pieces under the header. From an 812-point
+// phone up the board still composes narrow enough for all of it; on a 667-point phone the board
+// reaches its narrowest for a top's many rows and the page scrolls past it, as section 6 allows.
+describe.each(phones.filter(({ metrics }) => metrics.height >= 812))('$name panel', ({ metrics, large }) => {
+  test.each([
+    ['its colours', []],
+    ['its colours and the reader\'s own pieces', [ownedTrousers]],
+  ] as const)('the enlarged board and its strip with %s fit above the tab bar', async (_name, wardrobeItems) => {
+    Dimensions.set({ window: { ...originalDimensions, width: metrics.width, height: metrics.height, fontScale: 1 } });
+    const column = metrics.width - 32;
+    const visible = metrics.height - metrics.header - metrics.bottom;
+    const result = await render(detailTree('en', { paint: true, wardrobeItems }, null, large,
+      undefined, 0, metrics));
+    await fireEvent(result.getByTestId('outfit-detail-content'),
+      'layout', { nativeEvent: { layout: { width: column, height: 1000, x: 0, y: 0 } } });
+    for (const { slot } of archetype('en').boardPieces) {
+      await activate(result, slot);
+      const part = (id: string) => StyleSheet.flatten(result.queryByTestId(`outfit-detail-board-strip-${id}`)?.props.style);
+      const panel = StyleSheet.flatten(result.getByTestId('outfit-detail-board-strip').parent!.props.style);
+      const own = ['own', 'own-grid', 'own-hairline'].reduce((sum, id) => sum + (part(id) ? part(id).marginTop + (part(id).height ?? 0) : 0), 0);
+      expect(part('colors').width).toBeLessThanOrEqual(column);
+      const bottom = 12 + panel.top + part('header').minHeight + part('colors').marginTop + part('colors').height + own
+        + part('grid').marginTop + part('grid').height + 12;
+      expect({ slot, over: Math.max(0, bottom - visible) }).toEqual({ slot, over: 0 });
+      await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    }
+  });
+});
+
+describe.each(phones)('$name', ({ metrics, large }) => {
   test('the enlarged board and its whole strip fit above the tab bar', async () => {
     Dimensions.set({ window: { ...originalDimensions, width: metrics.width, height: metrics.height, fontScale: 1 } });
     const column = metrics.width - 32;

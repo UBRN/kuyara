@@ -1,4 +1,11 @@
 import { garmentSwatchIdSchema, type GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
+import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
+import {
+  closetSolidSwatches,
+  findClosetColorOption,
+  nearestClosetSolid,
+  type ClosetColorChoice,
+} from '@/features/wardrobe/domain/closet-color-options';
 
 /**
  * The Closet solids whose board swatch carries another id. Every other solid keeps its id on
@@ -34,4 +41,34 @@ export function boardSwatchForClosetSolid(closetColorId: string): GarmentSwatchI
     : closetColorId;
   const parsed = garmentSwatchIdSchema.safeParse(id);
   return parsed.success ? parsed.data : null;
+}
+
+const solids = closetSolidSwatches.map((solid) => ({ ...solid, swatchId: boardSwatchForClosetSolid(solid.id)! }));
+
+/** The 33 board swatches in the Closet palette's order: detail's "More colours". */
+export const boardSwatchesInClosetOrder: readonly GarmentSwatchId[] = solids.map(({ swatchId }) => swatchId);
+
+/** The Closet solid a board swatch is painted from, so a swatch is named by the Closet's colour name. */
+export function closetSolidForBoardSwatch(swatchId: GarmentSwatchId): (typeof closetSolidSwatches)[number]['id'] {
+  return solids.find((solid) => solid.swatchId === swatchId)!.id;
+}
+
+/**
+ * The board swatch a Closet piece is worn in on detail, for a drawing whose own colours are
+ * `natural`, most natural first: a solid in its own swatch, a custom colour in the nearest
+ * one, and a pattern, a two-colour option or a record with only a family in the first swatch
+ * of that family, the drawing's own colours first. Nothing else falls back to the drawing's
+ * first colour.
+ */
+export function boardSwatchForClosetItem(
+  item: Readonly<{ colorChoice?: ClosetColorChoice | null; colorFamily: ColorFamily | null }>,
+  natural: readonly GarmentSwatchId[],
+): GarmentSwatchId {
+  const choice = item.colorChoice;
+  if (choice?.kind === 'custom') return boardSwatchForClosetSolid(nearestClosetSolid(choice.hex).id)!;
+  const solid = choice ? boardSwatchForClosetSolid(choice.id) : null;
+  if (solid) return solid;
+  const family = (choice ? findClosetColorOption(choice.id)?.family : null) ?? item.colorFamily;
+  const familyOf = (swatchId: GarmentSwatchId) => solids.find((one) => one.swatchId === swatchId)!.family;
+  return [...natural, ...boardSwatchesInClosetOrder].find((swatchId) => familyOf(swatchId) === family) ?? natural[0];
 }

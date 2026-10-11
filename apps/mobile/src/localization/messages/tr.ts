@@ -776,6 +776,10 @@ export const tr = {
       done: 'Bitti',
       otherPieceHint: 'Bu parça kombini bu hava için alışılmadık yapabilir.',
       stripShown: 'Seçebileceğin parçalar aşağıda.',
+      previousPiece: (piece) => `Önceki: ${piece}`,
+      nextPiece: (piece) => `Sonraki: ${piece}`,
+      yours: 'Seninkiler',
+      yoursPiece: (piece, color) => `Gardırobundaki ${piece}, ${color}`,
       sourceOne: {
         onDeviceAi: 'Bir parçayı sen değiştirdin. Kalanını kuyara, cihazında Apple Intelligence ile seçti.',
         aiAssisted: 'Bir parçayı sen değiştirdin. Kalanını kuyara çevrimiçi yapay zeka ile seçti.',

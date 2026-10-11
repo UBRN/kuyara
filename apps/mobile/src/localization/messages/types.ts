@@ -223,6 +223,12 @@ export type TodayMessages = Readonly<{
     otherPieceHint: string;
     /** Phase 7b: spoken when VoiceOver's activate enlarges a piece and the strip opens below it. */
     stripShown: string;
+    /** The chevrons beside the enlarged piece, each naming the piece it steps to. */
+    previousPiece: (piece: string) => string;
+    nextPiece: (piece: string) => string;
+    /** The strip's group of the reader's own Closet pieces, and each one's spoken name. */
+    yours: string;
+    yoursPiece: (piece: string, color: string) => string;
     /** The source sentence after one changed piece, per generation mode; no AI words in deterministic. */
     sourceOne: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
     /** The same after two or more changed pieces. */

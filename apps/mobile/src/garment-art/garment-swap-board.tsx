@@ -1,31 +1,48 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
+import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import { boardSwatchesInClosetOrder } from '@/features/wardrobe/domain/closet-board-swatch';
 import { useStableValue } from '@/hooks/use-stable-value';
 import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { fadeEasing } from '@/components/ui/fade';
+import { GlassButton, glassButtonSize } from '@/components/ui/glass-button';
+import { useTextScaling } from '@/components/ui/use-text-scaling';
 import {
   measureGarmentBoardHeight,
   pieceShadowOf,
   useGarmentCandidateRoles,
+  useSwatchedCandidateRoles,
   type GarmentBoardPiece,
 } from './garment-board';
 import { useGarmentCut } from './garment-cut';
 import { flatLayStack } from './compose-flat-lay';
-import type { GarmentOutfitPalette } from './garment-palette';
+import {
+  garmentNaturalSwatches,
+  garmentSwatchesBySlot,
+  type GarmentOutfitPalette,
+  type GarmentRoles,
+} from './garment-palette';
 import { GARMENT_OUTLINE } from './garment-painting';
-import { GarmentSwapStrip, type GarmentSwapStripLabels } from './garment-swap-strip';
+import {
+  GarmentSwapStrip,
+  type GarmentSwapOwnPiece,
+  type GarmentSwapStripColors,
+  type GarmentSwapStripLabels,
+  type GarmentSwapStripOwn,
+} from './garment-swap-strip';
+import { swapChevrons } from './swap-gesture';
 import { SwapPieceTarget } from './swap-piece-target';
 import { SwapPieceView } from './swap-piece-view';
 import { SwapStageTint } from './swap-stage-tint';
-import { drawingKey, type Box, type GarmentSwapCandidate, type Role } from './swap-reconcile';
+import { drawingKey, neighbourIn, type Box, type GarmentSwapCandidate, type Role } from './swap-reconcile';
 import { useSwapBlock } from './use-swap-block';
 import { pagedInstances, useSwapGesture } from './use-swap-gesture';
 import { useSwipeHint } from './use-swap-hint';
@@ -33,9 +50,15 @@ import { useSwapMotion } from './use-swap-motion';
 import { useSwapPager } from './use-swap-pager';
 
 export type { GarmentSwapCandidate } from './swap-reconcile';
+export type { GarmentSwapOwnPiece } from './garment-swap-strip';
 
 export type GarmentSwapBoardLabels = GarmentSwapStripLabels & Readonly<{
   slotName: (slot: OutfitSlot) => string;
+  /** The colour row's group name, one whole phrase per slot. */
+  colorGroup: (slot: OutfitSlot) => string;
+  /** The chevrons' names, each naming the piece it steps to. */
+  previousPiece: (piece: string) => string;
+  nextPiece: (piece: string) => string;
   /** Spoken when VoiceOver's activate enlarges a piece: the strip has opened below it. */
   stripShown: string;
   /** Spoken after a board piece's value: where the reader's Closet already has it, if anywhere. */
@@ -102,13 +125,23 @@ export type GarmentSwapBoardProps = Readonly<{
    */
   takeOffSlots?: readonly OutfitSlot[];
   onTakeOff?: (slot: OutfitSlot) => void;
+  /**
+   * Paints the enlarged piece in a swatch: the strip offers its drawing's own colours and, behind
+   * "More colours", the Closet's 33. The owner applies it to the palette. Absent, no colour shows.
+   */
+  onPaint?: (slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId) => void;
+  /** The reader's own Closet pieces by slot: a tap wears that type in that colour. */
+  ownPieces?: Readonly<Partial<Record<OutfitSlot, readonly GarmentSwapOwnPiece[]>>>;
+  /** The Closet marker an own piece carries. */
+  ownBadge?: ReactNode;
   testID?: string;
 }>;
 
 /**
  * Phase 7b's directly editable detail board: tap a piece and it
- * grows in place while the others step back; swipe it, or tap a tile in the strip under the
- * stage, to change it while it is large. Every committed set is laid out again by ADR 0025's
+ * grows in place while the others step back; swipe it, press a chevron beside it, or tap a tile
+ * in the strip under the stage, to change it while it is large, and paint it or wear one of the
+ * reader's own pieces from the same strip. Every committed set is laid out again by ADR 0025's
  * `compose()`; the enlarged slot pages opaque inside its window, other pieces glide to their
  * new boxes on `springs.spatial`. One block height carries the stage and the hint or the
  * strip, so everything under the board moves once. Feature code hands it pieces, candidates,
@@ -137,6 +170,9 @@ export function GarmentSwapBoard({
   onSwipeHintShown,
   takeOffSlots,
   onTakeOff,
+  onPaint,
+  ownPieces,
+  ownBadge = null,
   testID,
 }: GarmentSwapBoardProps) {
   const theme = useKuyaraTheme();
@@ -154,11 +190,21 @@ export function GarmentSwapBoard({
   const candidates = useStableValue(candidatesProp);
   const captionRects = useStableValue(captionRectsProp);
 
+  // "More colours" stays open for the enlargement that opened it.
+  const [moreFor, setMoreFor] = useState<OutfitSlot | null>(null);
+  if (focusedSlot === null && moreFor !== null) setMoreFor(null);
+  // The colour row holds room for the slot's longest colourway, so a step never moves a tile.
+  const sectionsOf = (slot: OutfitSlot) => ({
+    colors: !onPaint ? 0 : moreFor === slot ? boardSwatchesInClosetOrder.length
+      : Math.max(0, ...(candidates[slot] ?? []).map(({ garmentTypeId }) => garmentNaturalSwatches(garmentTypeId).length)) + 1,
+    own: ownPieces?.[slot]?.length ?? 0,
+  });
+
   const {
     compose, composed, fit, activeGrow, pager,
     panels, setPanels, previewId, setPreviewId,
-    stripCandidates, stripOf, panelHeightOf, measureHeader,
-  } = useSwapPager({ pieces, candidates, width, large, focusedSlot, visibleHeight, outline: drawnOutline });
+    stripCandidates, stripOf, panelHeightOf, measureHeader, measureOwnLabel,
+  } = useSwapPager({ pieces, candidates, width, large, focusedSlot, visibleHeight, outline: drawnOutline, sectionsOf });
   const { model, setModel, settled, arrived, tint, settleTravel, stageLimit, removeLeaving, dropBig } = useSwapMotion({
     pieces, palette, width, large, focusedSlot, candidates, entrance, settle,
     compose, composed, fit, activeGrow, pager,
@@ -182,6 +228,38 @@ export function GarmentSwapBoard({
   const leavingSlot = panels.leaving?.slot ?? null;
   const leavingRoles = useGarmentCandidateRoles(palette, leavingSlot,
     (leavingSlot ? stripCandidates(leavingSlot) : []).map(({ garmentTypeId }) => garmentTypeId));
+  const ownOf = (slot: OutfitSlot | null) => (slot ? ownPieces?.[slot] ?? [] : [])
+    .map(({ id, garmentTypeId, swatchId }) => ({ key: id, garmentTypeId, swatchId }));
+  const panelOwnRoles = useSwatchedCandidateRoles(palette, panelSlot, ownOf(panelSlot));
+  const leavingOwnRoles = useSwatchedCandidateRoles(palette, leavingSlot, ownOf(leavingSlot));
+  // The swatch each piece is drawn in: the colour row rings the enlarged piece's.
+  const drawnSwatches = useMemo(() => garmentSwatchesBySlot(palette), [palette]);
+  const paintFor = (slot: OutfitSlot): GarmentSwapStripColors | null => {
+    const garmentTypeId = model.garments[slot];
+    if (!onPaint || !garmentTypeId) return null;
+    const opened = moreFor === slot;
+    return {
+      swatches: opened ? boardSwatchesInClosetOrder : garmentNaturalSwatches(garmentTypeId),
+      held: sectionsOf(slot).colors,
+      current: drawnSwatches[slot] ?? null,
+      label: labels.colorGroup(slot),
+      onMore: opened ? null : () => setMoreFor(slot),
+      onPaint: (swatchId) => onPaint(slot, garmentTypeId, swatchId),
+    };
+  };
+  // An own piece is its type in its colour: a tile's step, then the paint.
+  const ownFor = (slot: OutfitSlot, roles: ReadonlyMap<string, GarmentRoles>): GarmentSwapStripOwn | null => {
+    const own = ownPieces?.[slot] ?? [];
+    return own.length === 0 ? null : {
+      pieces: own,
+      roles,
+      badge: ownBadge,
+      onChoose: (piece) => {
+        if (model.garments[slot] !== piece.garmentTypeId) chooseTile(piece.garmentTypeId);
+        onPaint?.(slot, piece.garmentTypeId, piece.swatchId);
+      },
+    };
+  };
 
   // Captions and badges leave at once when a piece starts to move: the commit that hands the
   // board new pieces or a focus hides them, so none is drawn over a moving piece and none is
@@ -208,6 +286,10 @@ export function GarmentSwapBoard({
     pieceValue: labels.pieceValue,
     done: labels.done,
     otherHint: labels.otherHint,
+    colorName: labels.colorName,
+    moreColors: labels.moreColors,
+    own: labels.own,
+    ownPiece: labels.ownPiece,
   };
   const takeOffLabel = (slot: OutfitSlot) => (onTakeOff && labels.takeOff && labels.takeOffAccessibilityLabel
     && takeOffSlots?.includes(slot) ? labels.takeOffAccessibilityLabel(slot) : null);
@@ -313,6 +395,8 @@ export function GarmentSwapBoard({
             marker={null}
             onChoose={chooseTile}
             onDone={settleToPiece}
+            own={ownFor(panels.leaving.slot, leavingOwnRoles)}
+            paint={paintFor(panels.leaving.slot)}
             previewId={null}
             roles={leavingRoles}
             takeOff={takeOffFor(panels.leaving.slot)}
@@ -334,6 +418,9 @@ export function GarmentSwapBoard({
             onChoose={chooseTile}
             onDone={settleToPiece}
             onHeaderLayout={measureHeader}
+            onOwnLabelLayout={measureOwnLabel}
+            own={ownFor(panels.current.slot, panelOwnRoles)}
+            paint={paintFor(panels.current.slot)}
             previewId={focusedSlot === panels.current.slot ? previewId : null}
             roles={panelRoles}
             takeOff={takeOffFor(panels.current.slot)}
@@ -341,7 +428,51 @@ export function GarmentSwapBoard({
           />
         </Animated.View>
       ) : null}
+      {/* The chevrons page the enlarged piece as a swipe does, beside it and never on it, and
+          only toward a piece there is: the order never wraps. They come and go with the strip. */}
+      {focusedSlot && pager && activeGrow && stripLive ? (
+        <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, panelStyle]}>
+          {([-1, 1] as const).map((direction) => {
+            const garmentTypeId = model.garments[focusedSlot];
+            const neighbour = garmentTypeId ? neighbourIn(candidates, focusedSlot, garmentTypeId, direction) : null;
+            if (!neighbour) return null;
+            const side = direction === 1 ? 'next' : 'previous';
+            const name = labels.pieceName(neighbour.garmentTypeId);
+            return (
+              <SwapChevron
+                grown={pager.grown}
+                held={activeGrow.held}
+                key={side}
+                label={direction === 1 ? labels.nextPiece(name) : labels.previousPiece(name)}
+                onPress={() => stepSlot(focusedSlot, direction, true)}
+                side={side}
+                stageWidth={width}
+                testID={`${boardTestID}-chevron-${side}`}
+              />
+            );
+          })}
+        </Animated.View>
+      ) : null}
     </Animated.View>
+  );
+}
+
+/** One glass chevron beside the enlarged piece, as large as the text size makes the glass buttons. */
+function SwapChevron({ grown, held, label, onPress, side, stageWidth, testID }: Readonly<{
+  grown: Box;
+  held: number;
+  label: string;
+  onPress: () => void;
+  side: 'previous' | 'next';
+  stageWidth: number;
+  testID: string;
+}>) {
+  const { fontScale } = useTextScaling();
+  const spot = swapChevrons(grown, stageWidth, held, glassButtonSize(fontScale))[side];
+  return (
+    <View style={[styles.chevron, { left: spot.x, top: spot.y }]}>
+      <GlassButton direction={side} kind="chevron" label={label} onPress={onPress} testID={testID} />
+    </View>
   );
 }
 
@@ -351,6 +482,9 @@ const styles = StyleSheet.create({
   },
   block: {
     position: 'relative',
+  },
+  chevron: {
+    position: 'absolute',
   },
   hint: {
     left: 0,
