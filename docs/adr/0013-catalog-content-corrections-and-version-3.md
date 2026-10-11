@@ -140,8 +140,11 @@ per bump. It is the reason all content changes share one version.
 ### Other consequences
 
 - `garmentTypeIds` is duplicated in `packages/contracts/src/ai-v1.ts` and
-  `garment-taxonomy.ts`. Adding a type is a shared-contract change, so mobile,
-  the Worker, and the contracts package move together.
+  `garment-taxonomy.ts`. Adding a type is a shared-contract change. The request
+  enum is strict, so the contract and the Worker take the new id first and deploy
+  before any app sends it; until the catalog defines the id, it stays at the end
+  of the contract list as the only member the catalog lacks (the taxonomy
+  agreement test pins both).
 - The catalog manifest check requires the definition list to be exactly
   `garmentTypeIds`, so the counts move from 30 to 32 in lockstep.
 - The probe request in `apps/worker/src/ai/probe-handler.ts` hardcodes

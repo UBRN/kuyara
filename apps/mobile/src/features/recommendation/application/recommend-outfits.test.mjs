@@ -556,8 +556,8 @@ test('a snow or sleet day leads with snow_day and never labels rain_ready', () =
 });
 
 // The bug: nothing in the pipeline knew the weekday, so a Tuesday could be labelled
-// Weekend Relaxed. A weekday now drops that rung and the casual outfit takes `on_the_move`,
-// the rung below it.
+// Weekend Relaxed. A weekday now drops that rung and the casual outfit takes the next rung
+// its garments allow (`on_the_move` stays off ballet flats, so here it is Easy Everyday).
 test('a weekday drops weekend_relaxed from the fallback order', () => {
   const input = {
     now: observedAt,
@@ -580,7 +580,7 @@ test('a weekday drops weekend_relaxed from the fallback order', () => {
 
   const weekday = recommendOutfits({ ...input, dayKind: 'weekday' });
   assert.equal(weekday.outfits.length, 3);
-  assert.equal(carries(weekday, 'on_the_move'), true);
+  assert.equal(new Set(weekday.outfits.map(({ archetypeId }) => archetypeId)).size, 3);
   assert.equal(carries(weekday, 'weekend_relaxed'), false);
 });
 

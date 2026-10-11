@@ -56,6 +56,12 @@ export const garmentTypeIds = [
   'neck_gaiter',
   'gloves',
   'umbrella',
+  // Catalog version 7. New members go last: the app orders a week's history by its copy of
+  // this list, and the Worker accepts them before any app sends them.
+  'rain_trench',
+  'storm_coat',
+  'rain_dress_shoes',
+  'chinos',
 ] as const;
 
 export const structuralCategories = [

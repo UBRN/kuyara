@@ -226,7 +226,7 @@ test('the priced prompt size covers the largest prompt the app builds and the li
     assert.ok(request);
     return (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...request, locale }));
   })));
-  assert.equal(largestBuilt, 18_413);
+  assert.equal(largestBuilt, 18_259);
   // Rounded up, never so far that the price stops describing the prompt.
   assert.ok(largestBuilt <= haikuPromptCharacterLimit && haikuPromptCharacterLimit - largestBuilt < 200);
 
@@ -237,8 +237,9 @@ test('the priced prompt size covers the largest prompt the app builds and the li
   // Micro-USD at 0.10 per 1M input tokens and 0.50 per 1M output tokens, 256 output tokens,
   // in tenths so the arithmetic stays in integers.
   const attemptMicroUsd = Math.ceil((haikuPromptCharacterLimit * 1 + 256 * 5) / 10);
-  assert.equal(attemptMicroUsd, 1_988);
+  assert.equal(attemptMicroUsd, 1_958);
   assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, Math.floor(200_000_000 / 31 / attemptMicroUsd));
+  assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, 3_295);
   assert.ok(HAIKU_DAILY_ATTEMPT_LIMIT * attemptMicroUsd * 31 <= 200_000_000);
 });
 

@@ -100,7 +100,7 @@ function archetypeCandidates(option, day) {
     day.frozen && option.traits.tractionEnhanced && 'snow_day',
     day.cold && option.traits.outerThermalHigh && 'cold_shield',
     day.windy && option.traits.windResistant && 'wind_guard',
-    option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
+    day.cold && option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
     option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
     !day.cold && !option.traits.hasOuterLayer && option.traits.breathabilityHigh
       && 'light_and_airy',

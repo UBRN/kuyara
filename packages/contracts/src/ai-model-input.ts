@@ -120,6 +120,9 @@ export function aiModelInputFromRequest(request: AiRecommendV1Request): AiModelI
   };
 }
 
+const onTheMoveExcludedBottoms = new Set<string>(['skirt', 'long_skirt']);
+const onTheMoveExcludedFootwear = new Set<string>(['ballet_flats', 'closed_shoes']);
+
 function garmentType(option: AiOption, slot: AiOptionGarment['slot']) {
   return option.garments.find((garment) => garment.slot === slot)?.garmentTypeId;
 }
@@ -143,14 +146,17 @@ export function meetsArchetypePrecondition(
     case 'office_ready':
       // Builds 8 and 9 accept this label only for formal outfits and send no dayKind.
       // Its presence identifies a newer caller whose matching gate also accepts smart.
-      return option.formality === 'formal'
-        || (option.formality === 'smart' && dayKind !== undefined);
+      // A weekend is never an office day.
+      return dayKind !== 'weekend' && (option.formality === 'formal'
+        || (option.formality === 'smart' && dayKind !== undefined));
     case 'weekend_relaxed':
       // A weekday is never relaxed in the weekend sense. An absent dayKind leaves the
       // archetype eligible, so a caller that sends none keeps the day-blind behaviour.
       return option.formality === 'casual' && dayKind !== 'weekday';
     case 'layered_warmth':
-      return option.traits.hasMidLayer && option.traits.hasOuterLayer;
+      // Warmth is a cold day's answer; with no day, older clients still read the layers alone.
+      return (day === dayBlindArchetypeDay || day.cold)
+        && option.traits.hasMidLayer && option.traits.hasOuterLayer;
     case 'cold_shield':
       // With no day, older clients still read the outer layer alone.
       return (day === dayBlindArchetypeDay || day.cold) && option.traits.outerThermalHigh;
@@ -170,10 +176,16 @@ export function meetsArchetypePrecondition(
       return !option.traits.hasOuterLayer && option.traits.breathabilityHigh && !day.cold;
     case 'on_the_move':
       // Builds 8 and 9 accept this label only for sneakers and send no dayKind. Its
-      // presence identifies a newer caller whose matching gate also accepts any casual
-      // outfit, which a hot dry day needs: its pool is casual in sandals throughout.
+      // presence identifies a newer caller whose matching gate also accepts casual
+      // separates that can move, which a hot dry day needs: its pool is casual in sandals
+      // throughout. A skirt, a dress, a flat or a dress shoe is not on the move. Loafers
+      // and ankle boots keep it for now: on mild weekdays they carry most casual outfits,
+      // and withholding it there leaves too many trios without three distinct labels.
       return garmentType(option, 'footwear') === 'sneakers'
-        || (option.formality === 'casual' && dayKind !== undefined);
+        || (option.formality === 'casual' && dayKind !== undefined
+          && garmentType(option, 'one_piece') === undefined
+          && !onTheMoveExcludedBottoms.has(garmentType(option, 'bottom') ?? '')
+          && !onTheMoveExcludedFootwear.has(garmentType(option, 'footwear') ?? ''));
     case 'in_between':
       return option.traits.hasMidLayer && !option.traits.hasOuterLayer;
   }

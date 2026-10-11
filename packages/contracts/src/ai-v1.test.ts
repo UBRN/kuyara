@@ -20,6 +20,7 @@ import {
   clothingRequirementSchema,
   formalityLevels,
   healthV1Path,
+  garmentTypeIds,
   healthV1SuccessSchema,
   outfitArchetypeIds,
 } from './ai-v1.ts';
@@ -154,6 +155,28 @@ test('error, health, and readiness schemas keep their existing contracts', () =>
 test('accepts a valid option request and exactly three distinct picks', () => {
   assert.equal(aiRecommendV1RequestSchema.safeParse(validRequest()).success, true);
   assert.equal(aiRecommendV1SuccessSchema.safeParse(validSuccess()).success, true);
+});
+
+// The Worker must accept catalog version 7's garment types before any app sends them: the
+// request enum is strict, so an older Worker answers 400 and the app falls back silently.
+// They come last, because the app orders a week's history by its own copy of this list.
+test('the request accepts the catalog 7 garment types, appended after the version 6 list', () => {
+  const catalog7 = ['rain_trench', 'storm_coat', 'rain_dress_shoes', 'chinos'];
+  assert.deepEqual(garmentTypeIds.slice(-catalog7.length), catalog7);
+  assert.equal(garmentTypeIds.length, 53);
+  const wearing = option('option-1', { garments: [
+    garment('primary_top', 'shirt', 'base'),
+    garment('bottom', 'chinos'),
+    garment('outer_layer', 'rain_trench', 'outer'),
+    garment('footwear', 'rain_dress_shoes', null),
+  ] });
+  const coated = option('option-2', { garments: [
+    garment('primary_top', 'shirt', 'base'),
+    garment('bottom', 'trousers'),
+    garment('outer_layer', 'storm_coat', 'outer'),
+    garment('footwear', 'rain_dress_shoes', null),
+  ] });
+  assert.equal(aiRecommendV1RequestSchema.safeParse({ ...validRequest(), options: [wearing, coated] }).success, true);
 });
 
 test('strict request, option, garment and traits objects reject extra keys', () => {

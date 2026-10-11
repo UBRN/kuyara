@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { archetypeDayFromRequirements } from '@kuyara/contracts';
+import { archetypeDayFromRequirements, meetsArchetypePrecondition } from '@kuyara/contracts';
 
 import {
   TomorrowPreviewController,
@@ -96,14 +96,11 @@ function picks(request) {
   return {
     picks: request.options.slice(0, 3).map((option) => {
       const archetypeId = [
-        option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
-        option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
-        !day.cold && !option.traits.hasOuterLayer && option.traits.breathabilityHigh && 'light_and_airy',
-        option.formality !== 'casual' && 'smart_casual',
-        option.formality === 'casual' && request.dayKind !== 'weekday' && 'weekend_relaxed',
-        option.formality === 'casual' && 'on_the_move',
+        'rain_ready', 'snow_day', 'cold_shield', 'wind_guard', 'layered_warmth', 'in_between',
+        'light_and_airy', 'office_ready', 'smart_casual', 'weekend_relaxed', 'on_the_move',
         'everyday_easy',
-      ].filter(Boolean).find((candidate) => !used.has(candidate));
+      ].find((candidate) => !used.has(candidate)
+        && meetsArchetypePrecondition(candidate, option, request.dayKind, day));
       used.add(archetypeId);
       return { optionId: option.optionId, archetypeId };
     }),

@@ -14,7 +14,6 @@ import {
   dressStyleSchema,
   styleAestheticSchema,
   styleAestheticsLimit,
-  garmentTypeIds,
   layerRoles,
   structuralCategories,
   thermalLevels,
@@ -29,6 +28,7 @@ import { z } from 'zod';
 
 import { defaultDressStyle, orderStyleAesthetics } from '@/features/profile/domain/profile';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
+import { garmentTypeIdSchema } from '@/features/catalog/domain/garment-taxonomy';
 import {
   composeOutfitPool,
   excludeOutfitOptions,
@@ -96,7 +96,8 @@ export const recommendationContextSchema = z.strictObject({
 export const legacyCandidateSchema = z.strictObject({
   candidateKey: z.string().regex(/^[A-Za-z0-9:_-]{1,64}$/),
   source: z.enum(['catalog', 'wardrobe']),
-  garmentTypeId: z.enum(garmentTypeIds),
+  // A stored candidate names a type the catalog defines, never one only the contract accepts.
+  garmentTypeId: garmentTypeIdSchema,
   colorFamily: z.enum(colorFamilies).nullable(),
   properties: z.strictObject({
     category: z.enum(structuralCategories),

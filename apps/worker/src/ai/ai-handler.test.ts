@@ -206,6 +206,14 @@ function validOutput(): FixtureOutput {
   };
 }
 
+// A weekend is never an office day, so the weekend answer gives the formal option the
+// unconditional label instead.
+function weekendOutput(): FixtureOutput {
+  const output = validOutput();
+  output.data.picks[2].archetypeId = 'everyday_easy';
+  return output;
+}
+
 type RequestOptions = {
   method?: string;
   headers?: Record<string, string>;
@@ -675,18 +683,22 @@ test('a weekday rejects a weekend_relaxed pick that any other day accepts', asyn
     200,
   );
 
+  assert.equal(
+    (await createAiHandler({
+      providers: [{ generateOutfits: async () => validOutput() }],
+    })(request())).status,
+    200,
+  );
   const weekend = JSON.stringify({ ...validRequestBody(), dayKind: 'weekend' });
-  for (const options of [{}, { body: weekend }]) {
-    assert.equal(
-      (await createAiHandler({
-        providers: [{ generateOutfits: async () => validOutput() }],
-      })(request(options))).status,
-      200,
-    );
-  }
+  assert.equal(
+    (await createAiHandler({
+      providers: [{ generateOutfits: async () => weekendOutput() }],
+    })(request({ body: weekend }))).status,
+    200,
+  );
 });
 
-test('a legacy request rejects office_ready on smart while a day-aware request accepts it', async () => {
+test('a legacy request rejects office_ready on smart, a weekday accepts it and a weekend rejects it', async () => {
   const output = validOutput();
   output.data.picks = [
     { optionId: 'option-casual', archetypeId: 'on_the_move' },
@@ -700,13 +712,17 @@ test('a legacy request rejects office_ready on smart while a day-aware request a
     503,
     'ai_unavailable',
   );
-  for (const dayKind of ['weekday', 'weekend']) {
-    const body = JSON.stringify({ ...validRequestBody(), dayKind });
-    assert.equal(
-      (await createAiHandler({ providers: [provider] })(request({ body }))).status,
-      200,
-    );
-  }
+  const weekday = JSON.stringify({ ...validRequestBody(), dayKind: 'weekday' });
+  assert.equal(
+    (await createAiHandler({ providers: [provider] })(request({ body: weekday }))).status,
+    200,
+  );
+  const weekend = JSON.stringify({ ...validRequestBody(), dayKind: 'weekend' });
+  await assertError(
+    await createAiHandler({ providers: [provider] })(request({ body: weekend })),
+    503,
+    'ai_unavailable',
+  );
 });
 
 test('accepts every archetype when its option satisfies the precondition', async () => {
@@ -727,7 +743,8 @@ test('accepts every archetype when its option satisfies the precondition', async
     ['layered_warmth', separatesOption(
       'layered', 'casual', 't_shirt', 'trousers', 'closed_shoes',
       { hasMidLayer: true, hasOuterLayer: true },
-    )],
+    ), [{ kind: 'thermal', minimum: 'moderate', priority: 'mandatory',
+      reasonCodes: ['temperature_low'] }]],
     ['cold_shield', separatesOption(
       'cold', 'casual', 't_shirt', 'trousers', 'closed_shoes',
       { outerThermalHigh: true },
@@ -965,7 +982,7 @@ test('a request differing only in dayKind is a shared-cache miss', async () => {
     const handle = createAiHandler({ providers: [{
       async generateOutfits() {
         providerCalls += 1;
-        return validOutput();
+        return weekendOutput();
       },
     }] });
     const weekend = JSON.stringify({ ...validRequestBody(), dayKind: 'weekend' });
@@ -1147,8 +1164,8 @@ test('the shared-cache key for a known request is pinned byte for byte', async (
       ...validRequestBody(), locale: 'tr', styleAesthetics: ['classic', 'minimal'],
     }) }));
     assert.deepEqual(urls, [
-      'https://kuyara.internal/v1/ai/recommend/5469f10e88e5c93202b8220bfd62b7927cdc098608f3a1e5f8519c9449bb3d65',
-      'https://kuyara.internal/v2/ai/recommend/458bf234105cd71f710e860c6a9c7ea43f25765a9b32dac89d5787fdbfd1c5b0',
+      'https://kuyara.internal/v1/ai/recommend/edc692d4b613ea075c20b9fb4844077effaad2d52bd2054b6b2b0396668da293',
+      'https://kuyara.internal/v2/ai/recommend/b65ee0f50ff1f464beba2254ff3c079fafdc1a7846fdd4e8c5d725a4287b5c62',
     ]);
   } finally {
     if (previous === undefined) delete cacheGlobal.caches;

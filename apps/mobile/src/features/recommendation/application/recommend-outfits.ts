@@ -124,6 +124,9 @@ function fallbackArchetypeOrderFor(
     : fallbackArchetypeOrder;
 }
 
+const onTheMoveExcludedBottoms = new Set<string>(['skirt', 'long_skirt']);
+const onTheMoveExcludedFootwear = new Set<string>(['ballet_flats', 'closed_shoes']);
+
 export function outfitMatchesArchetype(
   outfit: OutfitCandidate,
   archetypeId: OutfitArchetypeId,
@@ -154,7 +157,8 @@ export function outfitMatchesArchetype(
         ({ garment }) => garment.properties.windProtection === 'wind_resistant',
       );
     case 'layered_warmth':
-      return outfit.midLayer !== null && outfit.outerLayer !== null;
+      return (day === dayBlindArchetypeDay || day.cold) &&
+        outfit.midLayer !== null && outfit.outerLayer !== null;
     case 'in_between':
       return outfit.midLayer !== null && outfit.outerLayer === null;
     case 'light_and_airy':
@@ -164,19 +168,24 @@ export function outfitMatchesArchetype(
     case 'office_ready':
       // Builds 8 and 9 accept this label only for formal outfits and send no dayKind.
       // Its presence identifies a newer caller whose matching gate also accepts smart.
-      return outfit.formality === 'formal'
-        || (outfit.formality === 'smart' && dayKind !== undefined);
+      // A weekend is never an office day.
+      return dayKind !== 'weekend' && (outfit.formality === 'formal'
+        || (outfit.formality === 'smart' && dayKind !== undefined));
     case 'smart_casual':
       return outfit.formality === 'smart' || outfit.formality === 'formal';
     case 'on_the_move':
       // Builds 8 and 9 accept this label only for sneakers and send no dayKind. Its
-      // presence identifies a newer caller whose matching gate also accepts any casual
-      // outfit, which a hot dry day needs: its pool is casual in sandals throughout.
+      // presence identifies a newer caller whose matching gate also accepts casual
+      // separates that can move, which a hot dry day needs: its pool is casual in sandals
+      // throughout. Mirrors the exclusions of `meetsArchetypePrecondition`.
       return outfit.footwear.garment.garmentTypeId === 'sneakers'
-        || (outfit.formality === 'casual' && dayKind !== undefined);
+        || (outfit.formality === 'casual' && dayKind !== undefined
+          && outfit.body.kind === 'separates'
+          && !onTheMoveExcludedBottoms.has(outfit.body.bottom.garment.garmentTypeId)
+          && !onTheMoveExcludedFootwear.has(outfit.footwear.garment.garmentTypeId));
     case 'weekend_relaxed':
       // Mirrors `meetsArchetypePrecondition` in packages/contracts: on a weekday a casual
-      // outfit falls through the order to `on_the_move`, the rung below it, instead.
+      // outfit falls through the order to the next rung it qualifies for instead.
       return outfit.formality === 'casual' && dayKind !== 'weekday';
     case 'everyday_easy':
       return true;

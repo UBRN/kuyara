@@ -3,9 +3,9 @@
 // separate, so nothing here merges or dedupes them. What was missing is
 // the assertion that the two copies still agree.
 //
-// The cost of silent drift is concrete. `application/recommendation-context.ts` (around
-// line 40) builds `z.enum(garmentTypeIds)` from the *contract* tuple and validates candidates
-// produced by the mobile catalog with it. A garment type added to the mobile taxonomy but not
+// The cost of silent drift is concrete. `application/recommendation-context.ts` validates the
+// AI request it builds from the mobile catalog with the *contract* request schema, whose
+// `z.enum(garmentTypeIds)` holds the contract tuple. A garment type added to the mobile taxonomy but not
 // to the contract type-checks and lints clean, passes CI, and then fails runtime validation on
 // a real device: the user sees "Standard suggestions" instead of an AI-selected outfit.
 //
@@ -91,8 +91,22 @@ function assertSameVocabulary(name, mobileSource, mobileTuple, contractSource, c
   );
 }
 
+// The contract takes catalog version 7's garment types first, because the Worker must accept
+// them before any app sends one. Until the mobile catalog defines them they are the contract's
+// last members and the only ones it may hold alone; remove an id here when the catalog adds it.
+const contractOnlyGarmentTypeIds = ['rain_trench', 'storm_coat', 'rain_dress_shoes', 'chinos'];
+
+test('the only contract garment types the catalog lacks are the catalog 7 ones, at the end', () => {
+  assert.deepEqual(contractGarmentTypeIds.slice(-contractOnlyGarmentTypeIds.length), contractOnlyGarmentTypeIds);
+  assert.equal(contractOnlyGarmentTypeIds.some((id) => garmentTypeIds.includes(id)), false);
+});
+
 const catalogTaxonomyPairs = [
-  ['garmentTypeIds', garmentTypeIds, contractGarmentTypeIds],
+  [
+    'garmentTypeIds',
+    garmentTypeIds,
+    contractGarmentTypeIds.filter((id) => !contractOnlyGarmentTypeIds.includes(id)),
+  ],
   ['structuralCategories', structuralCategories, contractStructuralCategories],
   ['layerRoles', layerRoles, contractLayerRoles],
   ['formalityLevels', formalityLevels, contractFormalityLevels],
