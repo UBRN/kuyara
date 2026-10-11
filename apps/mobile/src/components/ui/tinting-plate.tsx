@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ViewProps } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
@@ -15,19 +15,25 @@ export type TintingPlateProps = ViewProps & Readonly<{ color: string }>;
  */
 export function TintingPlate({ color, style, ...props }: TintingPlateProps) {
   const theme = useKuyaraTheme();
-  // The colour it moves from and to; a change mid-move starts from the colour it was going to.
-  const [tints, setTints] = useState({ from: color, to: color });
-  if (tints.to !== color) setTints({ from: tints.to, to: color });
+  // The drawn colour lives on the UI thread only: a new colour changes nothing until the effect
+  // sets where it moves from and to together with the start, so no frame shows the new colour
+  // before the move begins.
+  const from = useSharedValue(color);
+  const to = useSharedValue(color);
   const progress = useSharedValue(1);
+  const previous = useRef(color);
 
   useEffect(() => {
-    if (tints.from === tints.to) return;
+    if (previous.current === color) return;
+    from.set(previous.current);
+    to.set(color);
+    previous.current = color;
     progress.set(0);
     progress.set(fadeTo(1, theme.motion.normal, theme.motion));
-  }, [progress, theme.motion, tints]);
+  }, [color, from, progress, theme.motion, to]);
 
   const tint = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(progress.get(), [0, 1], [tints.from, tints.to]),
+    backgroundColor: interpolateColor(progress.get(), [0, 1], [from.get(), to.get()]),
   }));
 
   return (

@@ -16,6 +16,7 @@ import {
   genderSchema,
   type DressStyle,
   type Gender,
+  type StyleAesthetic,
 } from '@/features/profile/domain/profile';
 
 export type OnboardingPreviewPiece = Readonly<{
@@ -92,4 +93,27 @@ export function onboardingUnisexOutfit(snapshot: WeatherSnapshot): readonly Onbo
   const outfit = result.outfits.find((candidate) =>
     assignedOutfitGarments(candidate).every(({ garment }) => womensTypes.has(garment.garmentTypeId)));
   return outfit ? previewPieces(outfit) : null;
+}
+
+/**
+ * The outfit the rules rank first on the place's weather for a gender and dress style once the
+ * chosen styles reorder them, as Today's suggestions are ordered: the styles step shows what a
+ * style tap does. Null when the rules compose nothing.
+ */
+export function onboardingStyledOutfit(
+  snapshot: WeatherSnapshot,
+  gender: Gender,
+  dressStyle: DressStyle,
+  styleAesthetics: readonly StyleAesthetic[],
+): readonly OnboardingPreviewPiece[] | null {
+  const result = recommendOutfits({
+    snapshot,
+    now: snapshot.current.observedAt,
+    clothingPreference: catalogPreferenceByGender[gender],
+    dressStyle,
+    styleAesthetics,
+    dayVariant: 0,
+  });
+  const first = result.status === 'recommended' ? result.outfits[0] : undefined;
+  return first ? previewPieces(first) : null;
 }

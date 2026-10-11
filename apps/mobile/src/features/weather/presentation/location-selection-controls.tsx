@@ -16,6 +16,7 @@ import {
   NativeListRow,
   NativeListSection,
   NativeTextField,
+  type NativeTextFieldHandle,
   Presence,
   Surface,
   useTextScaling,
@@ -122,10 +123,13 @@ export function LocationSelectionControls({
   const theme = useKuyaraTheme();
   const [query, setQuery] = useState('');
   // With the keyboard up the results are the point of the screen: the onboarding heading, its
-  // progress bar and its long body step aside, and so does a permission or failure card, so
-  // the field and the list keep room above the keyboard instead of the list landing on them.
+  // plate and its body step aside, and so does a permission or failure card, so the field and
+  // the list keep room above the keyboard instead of the list landing on them. The heading is
+  // only hidden, never unmounted, so it does not arrive again each time the keyboard goes and
+  // what it is doing (a plate taking a new sky) carries on.
   const keyboardVisible = useKeyboardVisible();
-  const shownHeader = keyboardVisible ? null : header;
+  const shownHeader = header ? <View style={keyboardVisible && styles.hidden}>{header}</View> : null;
+  const fieldRef = useRef<NativeTextFieldHandle>(null);
   const controller = useMemo(() => new PlaceSearchController(searchPlaces), [searchPlaces]);
   const search = useSyncExternalStore(
     controller.subscribe,
@@ -148,7 +152,8 @@ export function LocationSelectionControls({
 
   // The results arrive with a fade on `motion.fast` rather than popping in (Law 7). With
   // nothing to show the list is empty, so it waits unseen for the next results. A pick
-  // answers them: they fade away until the text changes again.
+  // answers them: they fade away, and the text is cleared once the pick is the place in use;
+  // a pick that fails brings them back.
   const [pickedQuery, setPickedQuery] = useState<string | null>(null);
   const listed = search.status === 'ready' && search.places.length > 0;
   const hasResults = listed && pickedQuery !== query;
@@ -193,11 +198,9 @@ export function LocationSelectionControls({
     ? state.activeLocation : null;
   const [shownPlace, setShownPlace] = useState(currentPlace);
   if (currentPlace && currentPlace !== shownPlace) setShownPlace(currentPlace);
-  // The place in use has no weather yet and it is being fetched: said under its row until it
-  // lands. A failed fetch ends the refresh, so the line never stays.
-  const placeWeatherStatus = currentPlace && awaitsPlaceWeather(state)
-    ? copy.placeWeatherLoading(locationName(currentPlace, copy)) : null;
-  useErrorAnnouncement(placeWeatherStatus);
+  // The place in use has no weather yet and it is being fetched: its row says so until it
+  // lands. A failed fetch ends the refresh, so the caption never stays.
+  const awaitingWeather = awaitsPlaceWeather(state);
 
   if (state.status !== 'ready') {
     return (
@@ -216,7 +219,8 @@ export function LocationSelectionControls({
   }
 
   const shownName = shownPlace ? locationName(shownPlace, copy) : '';
-  const shownCaption = locationCaption(shownPlace, state.permission.kind, copy);
+  const shownCaption = awaitingWeather ? copy.placeWeatherLoading
+    : locationCaption(shownPlace, state.permission.kind, copy);
   const isChosenPlace = (id: string) =>
     state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === id;
 
@@ -257,7 +261,6 @@ export function LocationSelectionControls({
             </View>
           </Presence>
         </View>
-        {placeWeatherStatus && !keyboardVisible ? <StatusLine text={placeWeatherStatus} /> : null}
         {flowMessage && !keyboardVisible ? (
           <Surface accessibilityLiveRegion="polite" style={styles.card} variant="muted">
             <AppText>{flowMessage}</AppText>
@@ -280,6 +283,7 @@ export function LocationSelectionControls({
           maxLength={placeSearchQueryMaxLength}
           onChangeText={setQuery}
           placeholder={copy.placeSearchPlaceholder}
+          ref={fieldRef}
           testID={`${testIDPrefix}-place-search`}
         />
         {statusCopy ? <StatusLine text={statusCopy} warning={search.status === 'error'} /> : null}
@@ -321,10 +325,20 @@ export function LocationSelectionControls({
                             before,
                             (location) => location.source === 'manual' && location.catalogId === place.id,
                           );
-                          // VoiceOver ignores live regions; Android hears the row as it opens.
+                          if (!chosen) {
+                            setPickedQuery(null);
+                            return;
+                          }
+                          fieldRef.current?.clear();
+                          setQuery('');
+                          // VoiceOver ignores live regions; Android hears the row as it opens. One
+                          // line names the pick and, while its weather is on its way, the wait.
                           // Nothing is felt: the success haptic answers only the device fix.
-                          if (chosen && Platform.OS === 'ios') {
-                            AccessibilityInfo.announceForAccessibility(copy.placeSelectedNamed(locationName(chosen, copy)));
+                          if (Platform.OS === 'ios') {
+                            const name = locationName(chosen, copy);
+                            const after = application.getSnapshot?.() ?? application.state;
+                            AccessibilityInfo.announceForAccessibility(awaitsPlaceWeather(after)
+                              ? copy.placeSelectedFetching(name) : copy.placeSelectedNamed(name));
                           }
                         });
                         // A manual pick overrides the device location regardless of
@@ -365,6 +379,7 @@ function StatusLine({ text, warning = false }: Readonly<{ text: string; warning?
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  hidden: { display: 'none' },
   column: { flexGrow: 0, flexShrink: 1 },
   controls: { padding: spacing.lg, gap: spacing.md },
   card: { gap: spacing.md, padding: spacing.lg },

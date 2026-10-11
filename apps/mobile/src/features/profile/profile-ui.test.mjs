@@ -191,8 +191,7 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
   for (const language of ['en', 'tr']) {
     const copy = messages[language];
     assert.ok(copy.onboarding.welcomeTitle);
-    assert.ok(copy.onboarding.genderRequiredError);
-    assert.ok(copy.onboarding.dressStyleRequiredError);
+    assert.ok(copy.onboarding.dressRequiredError);
     assert.ok(copy.onboarding.birthDateNotSet);
     assert.ok(copy.onboarding.locationQuestion);
     assert.ok(copy.onboarding.closetPromise);

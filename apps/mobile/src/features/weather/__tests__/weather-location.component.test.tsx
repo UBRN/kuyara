@@ -560,6 +560,47 @@ test('a picked search result dismisses the keyboard, is named under the button a
   expect(AccessibilityInfo.announceForAccessibility)
     .toHaveBeenCalledWith(messages.en.weather.placeSelectedNamed(place.displayName));
   expect(success).not.toHaveBeenCalled();
+  // The search is answered: its text is cleared, so its results are gone too.
+  expect(result.queryByTestId('onboarding-place-place.745044', { includeHiddenElements: true })).toBeNull();
+});
+
+// While the picked place's first weather is on its way the row says so, without repeating the
+// name it already shows, and VoiceOver hears the pick and the wait as one line.
+test('a pick whose weather is on its way says so in its row and in one spoken line', async () => {
+  const { weather, search, Providers } = harness();
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), activeLocation: istanbul, isRefreshing: true };
+  });
+  const controls = () => (
+    <Providers><LocationSelectionControls reportsSelection={false} testID="controls" testIDPrefix="onboarding" /></Providers>
+  );
+  const result = await render(controls());
+  await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista'); await debounce();
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
+  await result.rerender(controls());
+  const row = result.getByTestId('onboarding-location-manual-current');
+  expect(within(row).getByText(messages.en.weather.placeWeatherLoading)).toBeOnTheScreen();
+  expect(row.props.accessibilityLabel).toBe(`${place.displayName}, ${messages.en.weather.placeWeatherLoading}`);
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+  expect(AccessibilityInfo.announceForAccessibility)
+    .toHaveBeenCalledWith(messages.en.weather.placeSelectedFetching(place.displayName));
+});
+
+// A pick that cannot be saved leaves the search as it was, so another result is one tap away.
+test('a failed pick brings its results back', async () => {
+  const { weather, search, Providers } = harness();
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...readyState(weather.state), locationFlow: 'selection-failed' };
+  });
+  const controls = () => (
+    <Providers><LocationSelectionControls reportsSelection={false} testID="controls" testIDPrefix="onboarding" /></Providers>
+  );
+  const result = await render(controls());
+  await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista'); await debounce();
+  await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
+  await result.rerender(controls());
+  expect(result.getByTestId('onboarding-place-place.745044')).toBeOnTheScreen();
 });
 
 // The tap asks the system directly: no card of kuyara's own comes first. The status line says

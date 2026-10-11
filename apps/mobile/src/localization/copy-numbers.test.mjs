@@ -90,12 +90,12 @@ test('the name errors follow a changed length rule', () => {
 test('the style preference copy reads as it did with the contract\'s style limit', () => {
   assert.equal(styleAestheticsLimit, 3);
   assert.equal(messages.en.onboarding.stylePreferencesBody(styleAestheticsLimit),
-    'Optional. Pick up to three. They change the order of outfits and never remove one.');
+    'Optional. Pick up to three, and outfits in these styles come first.');
   assert.equal(messages.en.preferences.stylePreferencesBody(styleAestheticsLimit), 'Choose up to three styles.');
   assert.equal(messages.en.preferences.stylePreferencesLimit(styleAestheticsLimit),
     'You can choose up to three styles.');
   assert.equal(messages.tr.onboarding.stylePreferencesBody(styleAestheticsLimit),
-    'İsteğe bağlı. En fazla üç tane seç. Kombinlerin sırasını değiştirir, hiçbirini çıkarmaz.');
+    'İsteğe bağlı. En fazla üç tane seç; bu stillerdeki kombinler öne çıkar.');
   assert.equal(messages.tr.preferences.stylePreferencesBody(styleAestheticsLimit), 'En fazla üç stil seç.');
   assert.equal(messages.tr.preferences.stylePreferencesLimit(styleAestheticsLimit),
     'En fazla üç stil seçebilirsin.');
@@ -103,5 +103,5 @@ test('the style preference copy reads as it did with the contract\'s style limit
 
 test('the style preference copy follows a changed style limit', () => {
   assert.match(messages.en.preferences.stylePreferencesLimit(2), /up to two styles/);
-  assert.match(messages.tr.onboarding.stylePreferencesBody(4), /En fazla dört tane seç\./);
+  assert.match(messages.tr.onboarding.stylePreferencesBody(4), /En fazla dört tane seç;/);
 });

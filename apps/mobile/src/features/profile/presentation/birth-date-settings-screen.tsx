@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { NativeDatePicker, NativeList, NativeListRow, NativeListSection } from '@/components/ui';
 import { birthDatePickerStart, minimumBirthDate } from '@/features/profile/domain/profile';
@@ -29,14 +29,26 @@ export function BirthDateSettingsScreen({
       ? messages.settings.saving
       : undefined;
 
-  const save = async (value: string | null) => {
-    if (isSaving) return;
+  // One save at a time; a turn made while one runs is kept, and the latest is saved after it,
+  // so the wheel never snaps back to a date the person already turned away from.
+  const saving = useRef(false);
+  const queued = useRef<string | null | undefined>(undefined);
+  const save = async (value: string | null): Promise<void> => {
+    if (saving.current) {
+      queued.current = value;
+      return;
+    }
+    saving.current = true;
     setHasSaveError(false);
     try {
       await onChange(value);
     } catch {
       setHasSaveError(true);
     }
+    saving.current = false;
+    const next = queued.current;
+    queued.current = undefined;
+    if (next !== undefined && next !== value) await save(next);
   };
 
   return (
@@ -52,7 +64,6 @@ export function BirthDateSettingsScreen({
             onChange={(value) => void save(value)}
             testID="settings-birth-date-picker"
             value={birthDate}
-            wheel
           />
         ) : (
           <NativeListRow

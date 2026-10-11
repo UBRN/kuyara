@@ -1,4 +1,5 @@
-import { Host, TextInput } from '@expo/ui';
+import { Host, TextInput, type TextInputRef } from '@expo/ui';
+import type { Ref } from 'react';
 import { accessibilityLabel as nativeAccessibilityLabel } from '@expo/ui/swift-ui/modifiers';
 import { Platform, StyleSheet, View } from 'react-native';
 
@@ -7,15 +8,20 @@ import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
+/** What a caller may do to the field from outside, such as clear it. */
+export type NativeTextFieldHandle = TextInputRef;
+
 export type NativeTextFieldProps = Readonly<{
   label: string;
   placeholder: string;
   maxLength: number;
   onChangeText: (text: string) => void;
+  /** Clears the field once its text has been answered (a picked search result). */
+  ref?: Ref<NativeTextFieldHandle>;
   testID: string;
 }>;
 
-export function NativeTextField({ label, placeholder, maxLength, onChangeText, testID }: NativeTextFieldProps) {
+export function NativeTextField({ label, placeholder, maxLength, onChangeText, ref, testID }: NativeTextFieldProps) {
   const theme = useKuyaraTheme();
   const { fontScale } = useTextScaling();
   // An explicit height keeps the native Host measurable; allow the line to grow with Dynamic Type.
@@ -38,6 +44,7 @@ export function NativeTextField({ label, placeholder, maxLength, onChangeText, t
             modifiers={Platform.OS === 'ios' ? [nativeAccessibilityLabel(label)] : undefined}
             onChangeText={onChangeText}
             placeholder={placeholder}
+            ref={ref}
             returnKeyType="search"
             style={{ height, paddingHorizontal: spacing.md }}
             testID={testID}

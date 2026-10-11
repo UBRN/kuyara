@@ -13,6 +13,7 @@ import { silhouettes, type SilhouetteId } from '@/garment-art/silhouettes';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { onboardingStyledOutfit, onboardingUnisexOutfit } from '@/features/profile/application/onboarding-preview';
 import { OnboardingScreen } from '@/features/profile/presentation/onboarding-screen';
 import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import {
@@ -201,9 +202,13 @@ async function pressUntilStep(result: Rendered, step: number) {
 const layOutPreview = (result: Rendered) => fireEvent(result.getByTestId('onboarding-welcome-preview', hidden), 'layout',
   { nativeEvent: { layout: { x: 0, y: 0, width: 361, height: 300 } } });
 
-// The plate on the first step steps aside while a chosen place's weather is fetched.
-const plateShown = (result: Rendered) =>
-  result.getByTestId('onboarding-preview-presence', hidden).props.accessibilityElementsHidden !== true;
+// The garment drawings a board draws, by silhouette.
+const outlineIds = new Map<string, SilhouetteId>(Object.entries(silhouettes)
+  .map(([id, drawing]) => [drawing.groups[0].outline, id as SilhouetteId]));
+const drawnIds = (result: Rendered, testID: string) => new Set(result.getByTestId(testID, hidden)
+  .queryAll((node) => outlineIds.has(node.props.d))
+  .map((node) => outlineIds.get(node.props.d)!));
+const silhouetteOf = (garmentTypeId: GarmentTypeId, cut: 'mens' | 'womens') => garmentSilhouetteIds[cut][garmentTypeId];
 
 const istanbul = {
   source: 'manual',
@@ -241,7 +246,7 @@ const rainyIstanbul: WeatherSnapshot = {
   maximumTemperatureCelsius: 25,
   hourly: [],
 };
-const sampleTitle = copy.previewSampleTitle('14°', messages.en.weather.conditions.cloudy);
+const sampleTitle = copy.previewSampleTitle;
 const istanbulTitle = copy.previewPlaceTitle('İstanbul', '23°', messages.en.weather.conditions.rain);
 
 test('five steps: where, how to dress, styles, the last optional step and consent, with nothing optional given', async () => {
@@ -267,14 +272,14 @@ test('five steps: where, how to dress, styles, the last optional step and consen
   expect(result.getByText(copy.dressTitle)).toBeOnTheScreen();
   expect(result.getByText(messages.en.preferences.genderTitle)).toBeOnTheScreen();
   expect(result.getByText(copy.dressStyleGroup)).toBeOnTheScreen();
+  // One error line under both groups names what is still missing, so it fits above the footer.
   await fireEvent.press(result.getByTestId('onboarding-continue'));
-  expect(result.getByTestId('onboarding-gender-error')).toHaveTextContent(copy.genderRequiredError);
-  expect(result.getByTestId('onboarding-dress-style-error')).toHaveTextContent(copy.dressStyleRequiredError);
-  await fireEvent.press(result.getByTestId('onboarding-gender-woman'));
+  expect(result.getByTestId('onboarding-dress-style-error')).toHaveTextContent(copy.dressRequiredError);
   expect(result.queryByTestId('onboarding-gender-error')).toBeNull();
+  await fireEvent.press(result.getByTestId('onboarding-gender-woman'));
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-2')).toBeOnTheScreen();
-  expect(result.getByTestId('onboarding-dress-style-error')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-dress-style-error')).toHaveTextContent(copy.dressRequiredError);
   await fireEvent.press(result.getByTestId('onboarding-dress-style-formal'));
   expect(result.queryByTestId('onboarding-dress-style-error')).toBeNull();
   await fireEvent.press(result.getByTestId('onboarding-continue'));
@@ -288,8 +293,11 @@ test('five steps: where, how to dress, styles, the last optional step and consen
   // The last optional step: a labelled name, an unset birth date that draws no date, one Closet
   // line, and a Continue that no optional field can disable.
   expect(result.getByTestId('onboarding-step-4')).toBeOnTheScreen();
-  expect(result.getByText(copy.aboutTitle)).toBeOnTheScreen();
+  expect(result.getByText(copy.nameTitle)).toBeOnTheScreen();
   expect(result.getByText(copy.aboutBody)).toBeOnTheScreen();
+  // The greeting is the name's own preview, in words on the ground, not a second plate.
+  expect(within(result.getByTestId('onboarding-name-preview')).getByText(copy.nameGreetingCaption)).toBeOnTheScreen();
+  expect(StyleSheet.flatten(result.getByTestId('onboarding-name-preview').props.style)?.backgroundColor).toBeUndefined();
   expect(result.getByText(copy.nameLabel, hidden)).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-name')).toHaveAccessibleName(copy.nameLabel);
   expect(result.getByText(messages.en.preferences.birthDateTitle)).toBeOnTheScreen();
@@ -297,7 +305,10 @@ test('five steps: where, how to dress, styles, the last optional step and consen
   expect(result.queryByTestId('onboarding-birth-date')).toBeNull();
   expect(result.queryByText(copy.birthDateNotSet)).toBeNull();
   expect(result.getByTestId('onboarding-birth-date-add')).toHaveAccessibleName(copy.birthDateAddLabel);
+  // The Closet is named with a small rack drawn beside it; the words carry the meaning.
+  expect(result.getByText(copy.closetTitle)).toBeOnTheScreen();
   expect(result.getByText(copy.closetPromise)).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-closet-rack', hidden)).toHaveProp('accessibilityElementsHidden', true);
   expect(result.queryByTestId('onboarding-name-skip')).toBeNull();
   expect(result.getByTestId('onboarding-continue')).toBeEnabled();
   await fireEvent.press(result.getByTestId('onboarding-continue'));
@@ -438,6 +449,9 @@ test('Add opens the birth date wheel 25 years back and nothing is saved until it
   expect(result.queryByTestId('onboarding-birth-date-remove')).toBeNull();
 
   await fireEvent(picker, 'dateChange', new Date(1990, 5, 2, 12));
+  // Remove takes Add's place in the row, and says what it removes.
+  expect(result.getByTestId('onboarding-birth-date-remove')).toHaveAccessibleName(copy.birthDateClearAction);
+  expect(within(result.getByTestId('onboarding-birth-date-remove')).getByText(copy.birthDateRemove, hidden)).toBeTruthy();
   await fireEvent.press(result.getByTestId('onboarding-birth-date-remove'));
   expect(result.queryByTestId('onboarding-birth-date')).toBeNull();
   expect(result.getByTestId('onboarding-birth-date-add')).toBeOnTheScreen();
@@ -475,10 +489,29 @@ test('a new step\'s body and panel arrive while the title and progress stay stil
     .toMatchObject(entering);
   expect(StyleSheet.flatten(result.getByTestId('onboarding-name-preview').parent!.parent!.props.style))
     .toMatchObject(entering);
-  const heading = StyleSheet.flatten(result.getByText(copy.aboutTitle).parent!.props.style);
+  const heading = StyleSheet.flatten(result.getByText(copy.nameTitle).parent!.props.style);
   expect(heading.opacity).toBeUndefined();
   expect(heading.transform).toBeUndefined();
   withSpring.mockRestore();
+});
+
+// Styles reorder outfits and never remove one, so the styles step shows it: the plate stays and
+// puts first the outfit the rules rank first in the chosen styles for the place's weather.
+test('on the styles step the plate shows the outfit the chosen styles put first', async () => {
+  jest.useFakeTimers();
+  mockFontScale(1);
+  const weather = createWeatherApplication({ activeLocation: istanbul, snapshot: rainyIstanbul, freshness: 'fresh' });
+  const { result } = await renderOnboarding('man', null, 'smart', undefined, weather);
+  await act(async () => { jest.advanceTimersByTime(1); });
+  await pressUntilStep(result, 3);
+  await layOutPreview(result);
+  expect(result.getByText(istanbulTitle, hidden)).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('onboarding-style-option-sporty'));
+  // The pieces the new first outfit replaces slide away.
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  const styled = onboardingStyledOutfit(rainyIstanbul, 'man', 'smart', ['sporty'])!;
+  expect(drawnIds(result, 'onboarding-welcome-board'))
+    .toEqual(new Set(styled.map(({ garmentTypeId }) => silhouetteOf(garmentTypeId, 'mens'))));
 });
 
 test('existing profile values prefill the reopened onboarding steps', async () => {
@@ -509,10 +542,11 @@ test('selecting a searched place uses the weather application without completing
   expect(result.getByTestId('onboarding-step-1')).toBeOnTheScreen();
 });
 
-// The signature moment: after a pick the keyboard goes, the results fade, the place row opens
-// with the weather being fetched, and then the plate returns retitled with the place's sky,
-// while Continue becomes the step's one prominent action.
-test('a picked city brings its own sky to the plate once its weather arrives', async () => {
+// The signature moment, on one plate that stays: after a pick the keyboard and the results go,
+// the title becomes the place, the sample outfit leaves and the stage waits empty while the row
+// says the weather is on its way; then the sky, the glyph and the numbers arrive and the outfit
+// the rules choose rises, once, with no other outfit drawn in between.
+test('a picked city brings its own sky and outfit to the plate that stays', async () => {
   jest.useFakeTimers();
   mockFontScale(1);
   jest.spyOn(Reanimated, 'interpolateColor').mockImplementation(
@@ -526,8 +560,11 @@ test('a picked city brings its own sky to the plate once its weather arrives', a
     weather.state = { ...readyState, activeLocation: istanbul, isRefreshing: true };
   });
   await layOutPreview(result);
+  const plate = result.getByTestId('onboarding-welcome-preview', hidden);
+  // The example stands on the neutral stage, with no glyph and no numbers.
+  expect(plate).toHaveStyle({ backgroundColor: lightTheme.atmosphere.neutral });
   expect(result.getByText(sampleTitle, hidden)).toBeOnTheScreen();
-  expect(plateShown(result)).toBe(true);
+  expect(result.getByTestId('onboarding-welcome-board', hidden)).toBeTruthy();
 
   await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista');
   await act(async () => {
@@ -537,37 +574,48 @@ test('a picked city brings its own sky to the plate once its weather arrives', a
   await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
   expect(dismiss).toHaveBeenCalledTimes(1);
   await rerender();
-  expect(within(result.getByTestId('onboarding-location-manual-current')).getByText('İstanbul')).toBeOnTheScreen();
-  expect(result.getByText(messages.en.weather.placeWeatherLoading('İstanbul'))).toBeOnTheScreen();
-  expect(plateShown(result)).toBe(false);
+  // The example title and outfit leave on `fast`.
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  const row = result.getByTestId('onboarding-location-manual-current');
+  expect(within(row).getByText('İstanbul')).toBeOnTheScreen();
+  expect(within(row).getByText(messages.en.weather.placeWeatherLoading)).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-location-skip')).toHaveTextContent(messages.en.common.continue);
-  // The results step aside once a place is picked from them.
-  expect(result.getByTestId('onboarding-place-results', hidden).parent).toHaveProp('accessibilityElementsHidden', true);
+  // The plate stays, titled with the place; its stage waits empty.
+  expect(result.getByTestId('onboarding-welcome-preview', hidden)).toBe(plate);
+  expect(within(plate).getByText('İstanbul', hidden)).toBeTruthy();
+  expect(result.queryByText(sampleTitle, hidden)).toBeNull();
+  expect(result.queryByTestId('onboarding-welcome-board', hidden)).toBeNull();
 
   weather.state = { ...weather.state as ReadyState, snapshot: rainyIstanbul, freshness: 'fresh', isRefreshing: false };
   await rerender();
-  expect(result.queryByText(messages.en.weather.placeWeatherLoading('İstanbul'))).toBeNull();
-  expect(plateShown(result)).toBe(true);
+  expect(result.queryByText(messages.en.weather.placeWeatherLoading)).toBeNull();
   expect(result.getByText(istanbulTitle, hidden)).toBeOnTheScreen();
-  expect(result.queryByText(sampleTitle, hidden)).toBeNull();
   expect(result.getByTestId('onboarding-welcome-preview', hidden)).toHaveStyle({
     backgroundColor: lightTheme.atmosphere.fallingDay,
   });
+  // Until the rules have chosen, no outfit stands in for theirs.
+  expect(result.queryByTestId('onboarding-welcome-board', hidden)).toBeNull();
+  await act(async () => { jest.advanceTimersByTime(1); });
+  const ruled = onboardingUnisexOutfit(rainyIstanbul)!;
+  expect(drawnIds(result, 'onboarding-welcome-board'))
+    .toEqual(new Set(ruled.map(({ garmentTypeId }) => silhouetteOf(garmentTypeId, 'mens'))));
 });
 
 // A weather fetch that fails, a lookup that fails or a refusal never leaves a status waiting on
-// screen: the sample plate stays, with the flow's own card where it has one.
+// screen: the example outfit stands, under the example title, with the flow's own card where it
+// has one.
 test.each([
   ['an offline weather fetch', { activeLocation: istanbul, refreshFailure: 'offline' as const }, null],
   ['a failed device lookup', { locationFlow: 'lookup-failed' as const, permission: { kind: 'granted', accuracy: 'full' } as const },
     messages.en.weather.lookupFailedNoLocationBody],
   ['a refused permission', { locationFlow: 'denied-requestable' as const, permission: { kind: 'denied', canRequestAgain: true } as const },
     messages.en.weather.placeDeniedBody],
-])('%s keeps the sample plate and no weather status', async (_name, state, card) => {
+])('%s keeps the example outfit and no weather status', async (_name, state, card) => {
   const { result } = await renderOnboarding(null, null, null, undefined, createWeatherApplication(state));
+  await layOutPreview(result);
   expect(result.queryByText(/Getting the weather/)).toBeNull();
-  expect(plateShown(result)).toBe(true);
   expect(result.getByText(sampleTitle, hidden)).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-welcome-board', hidden)).toBeTruthy();
   if (card) expect(result.getByText(card)).toBeOnTheScreen();
 });
 
@@ -607,10 +655,9 @@ test('a second pick racing the first names, speaks and awaits only the place in 
   await act(async () => { finishFirst(); });
   await rerender();
 
-  expect(announce).toHaveBeenCalledWith(messages.en.weather.placeSelectedNamed('Ankara'));
-  expect(announce).not.toHaveBeenCalledWith(messages.en.weather.placeSelectedNamed('İstanbul'));
-  expect(result.getByText(messages.en.weather.placeWeatherLoading('Ankara'))).toBeOnTheScreen();
-  expect(result.queryByText(messages.en.weather.placeWeatherLoading('İstanbul'))).toBeNull();
+  expect(announce).toHaveBeenCalledWith(messages.en.weather.placeSelectedFetching('Ankara'));
+  expect(announce.mock.calls.flat().filter((line) => String(line).includes('İstanbul'))).toEqual([]);
+  expect(within(result.getByTestId('onboarding-location-manual-current')).getByText('Ankara')).toBeOnTheScreen();
 });
 
 test('device selection starts the shared flow and permanent denial keeps Settings available', async () => {
@@ -679,10 +726,12 @@ test('the heading, plate, denial card and footer step aside while a city is type
   const deniedBody = messages.en.weather.placePermanentDeniedBody;
   expect(result.getByText(deniedBody)).toBeOnTheScreen();
 
+  const plate = result.getByTestId('onboarding-welcome-preview', hidden);
   await emit('keyboardWillShow');
   expect(result.queryByText(deniedBody)).toBeNull();
   expect(result.queryByText(copy.welcomeTitle)).toBeNull();
-  expect(result.queryByTestId('onboarding-welcome-preview', hidden)).toBeNull();
+  // Hidden, not unmounted: it does not arrive again when the keyboard goes.
+  expect(plate).not.toBeVisible();
   expect(result.queryByTestId('onboarding-actions')).toBeNull();
   expect(result.getByTestId('onboarding-place-search')).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-place-results', hidden)).toBeOnTheScreen();
@@ -690,6 +739,7 @@ test('the heading, plate, denial card and footer step aside while a city is type
   await emit('keyboardWillHide');
   expect(result.getByText(deniedBody)).toBeOnTheScreen();
   expect(result.getByText(copy.welcomeTitle)).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-welcome-preview', hidden)).toBe(plate);
   expect(result.getByTestId('onboarding-actions')).toBeOnTheScreen();
 });
 
@@ -802,11 +852,12 @@ test.each([
   },
 );
 
-test('the onboarding weather sample follows Fahrenheit', async () => {
+test('the place\'s plate title follows Fahrenheit', async () => {
+  const weather = createWeatherApplication({ activeLocation: istanbul, snapshot: rainyIstanbul, freshness: 'fresh' });
   const { result } = await renderOnboarding(
-    null, null, undefined, undefined, undefined, undefined, undefined, undefined, 'fahrenheit',
+    null, null, undefined, undefined, weather, undefined, undefined, undefined, 'fahrenheit',
   );
-  expect(result.getByText(copy.previewSampleTitle('57°', messages.en.weather.conditions.cloudy), hidden))
+  expect(result.getByText(copy.previewPlaceTitle('İstanbul', '73°', messages.en.weather.conditions.rain), hidden))
     .toBeOnTheScreen();
 });
 
@@ -843,8 +894,7 @@ test('an answer pressed twice in one frame, or both answers, saves once and anno
   });
   expect(onComplete).toHaveBeenCalledTimes(1);
   expect(onComplete).toHaveBeenCalledWith(expect.anything(), 'withdrawn');
-  expect(announce).not.toHaveBeenCalledWith(copy.dressStyleRequiredError);
-  expect(announce).not.toHaveBeenCalledWith(copy.genderRequiredError);
+  expect(announce).not.toHaveBeenCalledWith(copy.dressRequiredError);
 });
 
 // O14: every step shows what it changes, from shipped drawings only.

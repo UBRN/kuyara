@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { listGarmentTypesForPreference } from '../../catalog/domain/garment-catalog.ts';
-import { onboardingPreviewOutfits, onboardingUnisexOutfit } from './onboarding-preview.ts';
+import { onboardingPreviewOutfits, onboardingStyledOutfit, onboardingUnisexOutfit } from './onboarding-preview.ts';
 
 const observedAt = '2026-07-15T10:00:00.000Z';
 
@@ -110,4 +110,26 @@ test('before a gender is chosen the place draws a rule outfit both catalogs carr
     assert.deepEqual(pieces, onboardingUnisexOutfit(day));
   }
   assert.ok(!garments(onboardingUnisexOutfit(hot)).some((id) => warmLayers.includes(id)));
+});
+
+// The styles step shows what a style choice does: the outfit the rules put first for the chosen
+// gender and dress style once the chosen styles reorder them. Styles reorder and never remove,
+// so with no style chosen it is the rules' own first outfit, and some style moves another first.
+test('chosen styles put the outfit the rules rank first in those styles on the board', () => {
+  const styles = ['minimal', 'classic', 'sporty', 'streetwear', 'relaxed'];
+  let reordered = 0;
+  for (const day of [hot, mild, cold, rain]) {
+    for (const gender of genders) {
+      for (const dressStyle of dressStyles) {
+        const plain = garments(onboardingStyledOutfit(day, gender, dressStyle, [])).join(',');
+        for (const style of styles) {
+          const styled = onboardingStyledOutfit(day, gender, dressStyle, [style]);
+          assert.ok(styled, `${day.id} ${gender} ${dressStyle} ${style}`);
+          if (garments(styled).join(',') !== plain) reordered += 1;
+        }
+      }
+    }
+  }
+  assert.ok(reordered > 0);
+  assert.deepEqual(onboardingStyledOutfit(mild, 'man', 'smart', ['sporty']), onboardingStyledOutfit(mild, 'man', 'smart', ['sporty']));
 });

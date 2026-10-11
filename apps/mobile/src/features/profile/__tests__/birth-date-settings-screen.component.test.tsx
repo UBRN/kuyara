@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { BirthDateSettingsScreen } from '@/features/profile/presentation/birth-date-settings-screen';
@@ -100,4 +100,19 @@ test('Remove saves no birth date and leaves only Add', async () => {
   );
   expect(result.queryByTestId('settings-birth-date-picker')).toBeNull();
   expect(result.getByTestId('settings-birth-date-add')).toBeOnTheScreen();
+});
+
+// A turn while the last one is still saving is kept and saved once that save ends, so the wheel
+// never snaps back to a date the person already turned away from.
+test('a second wheel turn during a save is saved after it, not lost', async () => {
+  let finish: () => void = () => undefined;
+  const onChange = jest.fn(() => new Promise<undefined>((resolve) => { finish = () => resolve(undefined); }));
+  const result = await renderScreen('en', '1994-03-14', onChange);
+  const picker = result.getByTestId('settings-birth-date-picker');
+  await fireEvent(picker, 'dateChange', new Date(1990, 0, 1, 12));
+  await fireEvent(picker, 'dateChange', new Date(1991, 0, 1, 12));
+  expect(onChange).toHaveBeenCalledTimes(1);
+  await act(async () => { finish(); });
+  expect(onChange).toHaveBeenCalledTimes(2);
+  expect(onChange).toHaveBeenLastCalledWith('1991-01-01');
 });

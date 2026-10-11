@@ -31,7 +31,7 @@ most a bounded demographic bucket.
 
 ### 1. Persistent formality, aesthetics and optional name
 
-`dressStyle` remains required as one of `casual`, `smart` or `formal`, the profile's persistent default formality. Onboarding asks it with gender, and Settings > Profile can change it. A null stored value reads as `smart` for migration compatibility. Copy asks how the user usually dresses and explains that suggestions lean that way first and exclude nothing.
+`dressStyle` remains required as one of `casual`, `smart` or `formal`, the profile's persistent default formality. Onboarding asks it with gender, and Settings > Profile can change it. A null stored value reads as `smart` for migration compatibility. Onboarding asks how the user dresses on the step that shows each answer changing the outfit; the order rule below is stated in the product decisions, not on that step.
 
 The profile also stores up to three `styleAesthetics` chosen from `minimal`, `classic`, `sporty`, `streetwear`, `relaxed`. They reorder already-valid options as a soft tie-break and never exclude. The optional `displayName` is 2 to 30 characters, asked on onboarding's step with the birth date and editable in Settings; a typed name also needs at least one letter, a rule for input only, so a stored name never fails to load. It stays outside AI, analytics, telemetry and weather providers, and reaches the network only as a synced profile field of a signed-in account ([ADR 0041](0041-optional-accounts.md) section 3); [ADR 0036](0036-display-name-and-one-time-prompt-gate.md) owns its one-time prompt.
 

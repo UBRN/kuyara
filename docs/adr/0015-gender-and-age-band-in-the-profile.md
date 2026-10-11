@@ -91,8 +91,8 @@ deployment order are decided in [ADR 0031](0031-dress-style-is-the-formality-sig
 
 ### 7. Onboarding and Settings
 
-Onboarding has seven steps: welcome, optional display name, gender, dress style,
-optional style aesthetics, birth date, and optional location selection. Gender
+Onboarding's steps and their order are recorded in
+[ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5. Gender
 and dress style are required; display name, style aesthetics, birth date and
 location are skippable.
 Language and appearance follow the device by default and remain changeable in Settings,

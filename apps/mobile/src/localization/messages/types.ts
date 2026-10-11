@@ -482,8 +482,8 @@ export type AppMessages = Readonly<{
     nameNotNow: string;
     welcomeTitle: string;
     welcomeBody: string;
-    /** The preview plate's title over the sample sky, before a place's weather is known. */
-    previewSampleTitle: (temperature: string, condition: string) => string;
+    /** The preview plate's title on the neutral stage, before a place's weather is known. */
+    previewSampleTitle: string;
     /** The preview plate's title once the chosen place's weather is known. */
     previewPlaceTitle: (place: string, temperature: string, condition: string) => string;
     /** The first step's question above the location controls. */
@@ -495,12 +495,12 @@ export type AppMessages = Readonly<{
     dressBody: string;
     /** The dress style group's label on that step. */
     dressStyleGroup: string;
-    dressStyleRequiredError: string;
+    /** The one error line of the step that asks gender and dress style together. */
+    dressRequiredError: string;
     stylePreferencesTitle: string;
     /** Takes the style limit, `styleAestheticsLimit`. */
     stylePreferencesBody: (limit: number) => string;
-    /** The last step, which asks the optional name and birth date. */
-    aboutTitle: string;
+    /** The step that asks the optional name and birth date; its title is `nameTitle`. */
     aboutBody: string;
     /** The name field's visible label on that step. */
     nameLabel: string;
@@ -511,10 +511,12 @@ export type AppMessages = Readonly<{
     birthDateAdd: string;
     /** The same control's spoken name, and the Settings row's words. */
     birthDateAddLabel: string;
+    /** The visible words on the control that removes a set birth date; it speaks `birthDateClearAction`. */
+    birthDateRemove: string;
+    closetTitle: string;
     /** One line that says what the Closet is for. */
     closetPromise: string;
     locationSkipAction: string;
-    genderRequiredError: string;
     saveError: string;
   }>;
   preferences: PreferenceMessages;
@@ -737,8 +739,10 @@ export type AppMessages = Readonly<{
     locationFoundNamed: (name: string) => string;
     /** Spoken once a place picked by name is the active location. */
     placeSelectedNamed: (name: string) => string;
-    /** The status under the chosen place while its first weather is fetched. */
-    placeWeatherLoading: (name: string) => string;
+    /** The same, spoken when the place's weather is still on its way. */
+    placeSelectedFetching: (name: string) => string;
+    /** The chosen place row's caption while its first weather is fetched. */
+    placeWeatherLoading: string;
     changeLocationAction: string;
     locationRationaleBody: string;
     cancel: string;
