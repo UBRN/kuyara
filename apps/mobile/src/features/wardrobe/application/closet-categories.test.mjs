@@ -64,3 +64,15 @@ test('the default category is the first holding a wanted piece when revealed, el
   assert.equal(resolveDefaultClosetCategory([], true), structuralCategories[0]);
   assert.equal(resolveDefaultClosetCategory([items[3]], false, [first]), first);
 });
+
+test('pieces added in the same moment keep one order whichever was edited last', () => {
+  const at = '2026-04-01T00:00:00.000Z';
+  const tee = { ...item('tee', first, 'owned', at), updatedAt: '2026-04-02T00:00:00.000Z' };
+  const sweater = { ...item('sweater', first, 'owned', at), updatedAt: '2026-04-03T00:00:00.000Z' };
+  const ids = (list) => splitClosetByEntryState(list).owned.map((entry) => entry.id);
+  assert.deepEqual(ids([tee, sweater]), ids([sweater, tee]));
+  assert.equal(
+    summarizeClosetCategories([tee, sweater])[first].newest.id,
+    summarizeClosetCategories([sweater, tee])[first].newest.id,
+  );
+});

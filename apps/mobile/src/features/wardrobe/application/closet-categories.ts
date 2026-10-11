@@ -35,9 +35,14 @@ export type ClosetCategorySummary = Readonly<{
   newest: WardrobeItem | null;
 }>;
 
+/** Newest first; pieces added in the same moment fall back to their id, never to edit order. */
+function newerFirst(a: WardrobeItem, b: WardrobeItem): number {
+  return b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id);
+}
+
 function newestOf(items: readonly WardrobeItem[]): WardrobeItem | null {
   return items.reduce<WardrobeItem | null>(
-    (newest, item) => (newest === null || item.createdAt > newest.createdAt ? item : newest),
+    (newest, item) => (newest === null || newerFirst(item, newest) < 0 ? item : newest),
     null,
   );
 }
@@ -73,7 +78,7 @@ export function splitClosetByEntryState(
   const newestFirst = (entryState: WardrobeItem['entryState']) =>
     items
       .filter((item) => item.entryState === entryState)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      .sort(newerFirst);
   return { owned: newestFirst('owned'), wanted: newestFirst('wanted') };
 }
 

@@ -123,7 +123,7 @@ function tidy(pieces: readonly RackLayoutPiece[]): RackLayoutPiece[] {
 }
 
 function newestFirst(pieces: readonly RackLayoutPiece[]): RackLayoutPiece[] {
-  return [...pieces].sort((a, b) => b.addedAt - a.addedAt);
+  return [...pieces].sort((a, b) => b.addedAt - a.addedAt || a.id.localeCompare(b.id));
 }
 
 /** One drawing in a box of `box` frame units, centred on `cx`, its drawn top (or bottom) at `y`. */

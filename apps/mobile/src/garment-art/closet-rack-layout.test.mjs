@@ -136,3 +136,9 @@ test('a legacy piece with no type draws as its category glyph', () => {
   const layout = layoutClosetRack([piece('top', { garmentTypeId: null })]);
   assert.equal(garments(layout)[0].silhouette.id, 'g-cat-top');
 });
+
+test('pieces added in the same moment face out the same way whichever comes first', () => {
+  const twins = many('top', 30, { addedAt: 7 });
+  const faceIds = (list) => garments(layoutClosetRack(list)).map((mark) => mark.piece.id).sort();
+  assert.deepEqual(faceIds(twins), faceIds([...twins].reverse()));
+});
