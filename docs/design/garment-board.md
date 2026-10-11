@@ -112,8 +112,8 @@ draws the pair.
 The **clearance** is the clear space the rule keeps between neighbouring pieces, so that no
 piece covers any part of another.
 
-**Every board is the worn board** (the detail, Today's alternates, History and the share
-card), except Today's primary stage, which lays the same board out as a flat lay (section 10).
+**Every board is the worn board** (the detail, History and the share card), except Today's
+primary stage and the tiles under it, which lay the same board out as a flat lay (section 10).
 The outfit is laid out flat in the order it is worn, so it reads as one combination, with
 every piece drawn whole:
 
@@ -166,8 +166,8 @@ fixed stage produces either a squashed dress or an empty band.
 The stage height is therefore derived, insets plus the envelope, and clamped to
 **0.66 to 1.14** times the stage width. Across the ten evidence boards it takes values
 from 0.660 to 0.821 on Today's worn board and 0.660 to 1.002 on the detail. Today's primary
-stage replaces the insets with a fit to its band and is the fitted flat lay plus its vertical
-margin, within the same clamp (section 10).
+stage and its tiles replace the insets with a fit to the band or the tile and are the fitted
+flat lay plus its vertical margin, within the same clamp (section 10).
 An envelope taller than the clamp's ceiling allows, or wider than the side minimum allows, is
 scaled down once, uniformly, until it fits, so no piece leaves the stage. Easier to see's larger
 caps reach it, and so do the detail's tallest layered looks without it. Across every combination of a core, no or any outer layer, no or a knit mid
@@ -204,7 +204,7 @@ Every value, in stage-width units unless marked otherwise.
 | footwear pair | 0.86 / 0.30 / 0.04 | each shoe × the single shoe / the far shoe toward the toe / the near heel back, × a shoe's length (section 2) |
 | clearance | 0.05 / 0.10 / 0.06 | the waist × the top's height / the rail × the narrowest core width / the footwear × its own height (section 3) |
 | rail gap | 0.10 | × core metric |
-| top / bottom inset | 0.045 / 0.055 | the tint's own edge; the stage holds nothing else (Today's primary stage fits instead, section 9) |
+| top / bottom inset | 0.045 / 0.055 | the tint's own edge; the stage holds nothing else (Today's primary stage and its tiles fit instead, section 9) |
 | stage height | 0.66 to 1.14 | derived, then clamped |
 | ink centroid | 0.47 | where the composition lands |
 | side minimum | 0.09 | no drawn edge closer to a stage edge |
@@ -315,11 +315,13 @@ instead of a path. The board degrades; it does not break.
 
 ## 9. Presets: Today and detail
 
-The parameters above are Today's worn board (its alternates). A second surface expresses a different density by
-changing parameters, never by changing the algorithm, so both surfaces draw the same pieces
-in the same reading order, the core on the left and the layers on the right, for a given
-slot list. That is what lets a transition between them move the pieces rather than
-cross-fade two pictures.
+The parameters above are Today's worn board, the one Today's flat lay starts from. A second
+surface expresses a different density by changing parameters, never by changing the
+algorithm, so both presets draw the same pieces in the same reading order, the core on the
+left and the layers on the right, for a given slot list. Today's flat lay (section 10) lays
+the same pieces side by side with the layers on the top's left, and opening the detail from it
+moves each piece to its place on the worn board. That is what lets a transition between them
+move the pieces rather than cross-fade two pictures.
 
 The detail preset, approved by
 [ADR 0026](../adr/0026-the-recommendation-detail-surface.md), is the same worn board with
@@ -328,18 +330,18 @@ as buttons, never on it, and its pieces stand apart exactly as the worn board's 
 
 | parameter | Today | detail |
 | --- | --- | --- |
-| board | worn, no piece touching; primary stage: the flat lay (section 10) | worn, no piece touching |
+| board | primary stage and its tiles: the flat lay (section 10); History and onboarding: worn, no piece touching | worn, no piece touching |
 | core / solo / rail width cap | 0.235 / 0.300 / 0.260 | × 1.25: 0.294 / 0.375 / 0.325 |
-| top / bottom inset | 0.045 / 0.055, alternates | 0.045 / 0.055 |
-| fit to the stage | primary stage: the band, side 24 pt, vertical 52 pt, core at most 168 pt (section 10) | none |
-| stage height | primary stage: fitted flat lay + 52 pt; alternates: insets + envelope; both 0.66 to 1.14 | insets + envelope, 0.66 to 1.14 |
+| top / bottom inset | 0.045 / 0.055, worn boards | 0.045 / 0.055 |
+| fit to the stage | the band: side 24 pt, vertical 52 pt; a tile: side 12 pt, vertical 32 pt; core at most 168 pt on both (section 10) | none |
+| stage height | band: fitted flat lay + 52 pt; tile: fitted flat lay + 32 pt; worn boards: insets + envelope; all 0.66 to 1.14 | insets + envelope, 0.66 to 1.14 |
 | piece shadow | every board | every board |
 
-The insets are the same on both surfaces: neither the tinted stage nor the detail plate
+The insets are the same on both surfaces: neither a worn board's plate nor the detail plate
 holds anything besides the board.
 
-**Today's primary stage** takes neither preset's placement: it is the flat lay on its band,
-section 10. The alternate tiles keep the plain preset with the insets above.
+**Today's primary stage and its tiles** take neither preset's placement: they are the flat
+lay of section 10, fitted to the band and to each tile.
 
 **Piece shadow.** Every piece on every board casts one soft shadow on the plane it lies
 on: its own drawn shape, read from the painting's alpha, blurred and dropped down and
@@ -383,37 +385,45 @@ edge, not the lowest piece edge.
 Any change to the ladder or the caps in the table above has to be checked against both
 presets.
 
-## 10. Today's primary stage: the flat lay
+## 10. Today's flat lay: the primary stage and its tiles
 
 Today's primary stage is a cornerless band of the condition's tint that reaches both screen
 edges; in the dark appearance it is the condition's light grey plate, edge to edge. The board
-on it is a **flat lay**: the worn board of section 3, every piece at the worn board's size,
-with the gaps closed and the pieces crossing as they would on a table. Only this stage takes
-it. The detail, the alternates, History, the share card, onboarding and every other board
-keep the worn board, piece for piece. Opening the detail from the band, the pieces leave from
-exactly what the band drew, at the band's size, square and in the flat lay's stacking until they
-rest, and travel to the worn board, apart.
+on it is a **flat lay**: the pieces of section 3's worn board, every piece at the worn board's
+size, side by side and crossing as they would on a table. The tiles under it, the alternates,
+More ideas and tomorrow's strip, lay out the same flat lay on their garment plate. The detail,
+History, the share card, onboarding and every other board keep the worn board, piece for
+piece. Opening the detail from the band, the pieces leave from exactly what the band drew, at
+the band's size, square and in the flat lay's stacking until they rest, and travel to the worn
+board, apart.
+
+**One shape for two to five pieces.** The top stands upper left and the bottom beside it,
+lower and to its right, with or without layers; a one-piece takes the top's place. The layers
+fan out to the top's left and read outside in, left to right: the outer layer furthest left,
+the mid layer over its right edge and the top over the mid layer's right edge; a lone layer
+lies under the top's left edge. The footwear lies at the foot.
 
 **Stacking**, back to front: `outer_layer`, `mid_layer`, `bottom`, `primary_top` or
 `one_piece`, `footwear`. The layers lie under the outfit, the top over the bottom's waist and
 the footwear over every hem. The board reads in the slot order of section 3.
 
-**The crossings.** Each starts from the worn board's place, where it touches nothing, and moves
-in a straight line toward where it ends:
+**The crossings.** Each starts from where its piece stands apart, touching nothing: the bottom
+and the footwear at the worn board's place, the layers in a row to the top's left on the line
+their crossing ends on, the worn board's side clearance (0.10 of the narrowest core piece's
+width) before each. Each moves in a straight line toward where it ends:
 
 | crossing | where it ends |
 | --- | --- |
-| bottom, with a layer | its waist closed up under the top's hem |
-| bottom, with no layer | beside the top: its left edge 0.26 of its width under the top's right edge, its waist 0.52 of the top's height down |
-| layers | the outer layer (or a lone mid layer) 0.30 of its width under the top's right edge, its top 0.08 × core metric under the top's; the mid layer moves with it |
-| mid layer under outer | centred under the outer layer, its top 0.30 of its own height over that hem |
-| footwear | 0.30 of its width over the lowest hem's edge, standing 0.90 of its height above it: on the right, or on the bottom's left when the bottom lies beside the top |
+| bottom | beside the top: its left edge 0.26 of its width under the top's right edge, its waist 0.52 of the top's height down |
+| mid layer, or a lone layer | 0.30 of its width under the top's left edge, its top 0.08 × core metric under the top's |
+| outer layer beside a mid layer | 0.30 of its width under the mid layer's left edge, on the same line |
+| footwear | 0.30 of its width over the lowest hem's edge, standing 0.90 of its height above it: on the bottom's left, or on a one-piece's right |
 
 The crossings run in that order. Each is tried at whole twentieths from full to none and stops
 at the first that keeps both limits over every piece placed so far. A crossing that stops at
-none leaves its pieces at the worn board's place, which a piece crossed before may cover; when
-the finished flat lay breaks a limit, the outfit is laid again with every crossing also keeping
-the limits over the pieces still at their worn place, so stopping at none touches nothing:
+none leaves its piece where it stood apart, which a piece crossed before may cover; when the
+finished flat lay breaks a limit, the outfit is laid again with every crossing also keeping
+the limits over the pieces still standing apart, so stopping at none touches nothing:
 
 - **Cover.** The pieces in front of a piece cover at most **0.30** of its drawn box.
 - **Structure points.** No piece in front covers a collar, a waist or a sleeve end, so a collar,
@@ -428,7 +438,7 @@ the limits over the pieces still at their worn place, so stopping at none touche
 Drawn boxes stand in for the ink in both limits. For the structure points that is exact: a
 point no box in front covers, no ink in front covers. The cover limit is measured on boxes
 only: at most 0.30 of a piece's drawn box lies under the boxes in front of it, and the share
-of its ink that ink in front actually hides may be more or less than that. With no crossing a piece stands where the worn board puts it, so every outfit has a flat
+of its ink that ink in front actually hides may be more or less than that. With no crossing a piece stands apart, so every outfit has a flat
 lay.
 
 **The band.** The flat lay is trimmed to its drawn extent and scaled once, uniformly: 24 points
@@ -436,19 +446,31 @@ off each screen edge, 26 above and below, and the core's widest piece never wide
 **168 points**, × 1.3 with Easier to see, whose caps grow the composition by the same ratio.
 The band is the fitted flat lay plus 52 points, clamped to 0.66 to 1.14 of its width, so a
 board too tall for the ceiling is drawn smaller and still fits. On a 393-point screen the
-README boards measure 448 points (warm casual, rainy smart, cold formal and snow casual, at the
-ceiling), 289 (hot casual) and 433 (night out); the 168-point core binds on hot casual and night
-out, and the ceiling draws the others' core at 140 to 167 points. The piece shadow's reach stays
-inside the 26-point margin.
+README boards measure 259 points (rainy smart and cold formal) to 416 (night out); the
+168-point core binds on hot casual, and the band's width draws the others' core at 98 points
+(cold formal, five pieces side by side) to 161 (night out). The piece shadow's reach stays inside the 26-point margin.
+
+**A tile.** Each tile fits the same flat lay with the same core cap, 12 points off each side and
+16 above and below (the spacing ladder's `md` and `lg`), which hold the piece shadow's reach
+below and to the right at the largest scale, so the tile's clipped edge never cuts a shadow. A
+tile is the fitted flat lay plus 32 points, within the same clamp, and the tiles of one row share
+the tallest, so their names sit on one baseline. On a 164-point alternate the recommender sweep
+draws the top 42 to 102 points wide (median 62) and the tile 108 to 187 points tall (median
+132).
 
 **What was checked.** The six README boards, the ten evidence slot lists and a summer tee,
 shorts and sneakers, and every outfit the recommender composes across a sweep of temperatures,
-conditions, both catalogues each in its own cut and every day variant (145 outfits), with Easier
-to see off and on, on bands 375 to 440 points wide: the most covered piece at the 30% limit (the
-composer holds it on drawn boxes; a sampled audit reads 30.5%), no structure point covered,
-nothing clipped, and every core within its cap. Every board's footwear lies over a hem and its
-layers reach under the core, except night out's blazer, which stays beside the jumpsuit: its left
-cuff is the drawing's left edge, which any tuck under the jumpsuit would cover.
+conditions, both catalogues each in its own cut and every day variant (156 outfits), with Easier
+to see off and on, on bands 375 to 440 points wide and tiles 88 to 358 points wide: the most
+covered piece within the 30% limit (the composer holds it on drawn boxes; a sampled audit reads
+26.6%), no structure point covered, nothing clipped, and every core within its cap. Every
+board's bottom lies beside its top and its footwear over a hem. The layer next to the core
+reaches under it and the outer layer under the mid layer, except a blazer next to the core,
+which stays beside it: night out's right cuff is the drawing's right edge, and cold formal's
+ends level with the shirt's hem, which any tuck under the core would cover. Across the sweep the
+layer next to the core stays beside it in 16 of 129 layered outfits (blazers, and parkas beside
+a hoodie or a one-piece), and the outer layer stays beside the mid layer in 6 of 26 (a parka
+beside a hoodie).
 
 ## What was checked
 
@@ -457,7 +479,7 @@ appearances and audited geometrically.
 
 | check | result |
 | --- | --- |
-| overlap | 0 for every board except Today's primary, which has its own family and limits (section 10) |
+| overlap | 0 for every worn board; Today's flat lay has its own family and limits (section 10) |
 | clipping | 0 on all ten |
 | core scale | both anchors at one scale per drawing unit on all ten |
 | fallback exercised | one board drawn entirely from the shipped category glyphs, one mixed |

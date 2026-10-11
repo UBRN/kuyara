@@ -26,8 +26,8 @@ unchanged, run with a detail preset. Same algorithm, same worn layout, same dres
 the core on the left and the layers on the right, the footwear a pair at the core's foot.
 The detail preset only draws it larger, at the runway preset's 1.25. Pieces stand apart,
 none touching another; they travel in from exactly what Today's band drew, its flat lay at
-the band's size, square and in the flat lay's stacking, the same composition with its gaps
-closed. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
+the band's size, square and in the flat lay's stacking, the same pieces at the same sizes laid
+side by side. The preset is specified in [`design/garment-board.md`](../design/garment-board.md).
 
 This is what makes the two screens share a composition rather than merely resemble each
 other, and it is what the entry transition animates. It also leaves room for garment rows below the board.

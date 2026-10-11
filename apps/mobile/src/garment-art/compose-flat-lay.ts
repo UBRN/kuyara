@@ -1,4 +1,5 @@
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import { spacing } from '@/theme/theme';
 
 import {
   composeGarmentBoard,
@@ -7,28 +8,29 @@ import {
   type DrawnExtent,
 } from './compose-garment-board';
 
-// Today's primary stage lays the outfit out as a flat lay (garment-board.md section 10): the
-// worn board's pieces, at the worn board's sizes, with the gaps closed and the pieces crossing
-// as they would on a table. Every other board keeps the worn board.
+// Today's primary stage and its tiles lay the outfit out as a flat lay (garment-board.md
+// section 10): the worn board's pieces, at the worn board's sizes, side by side and crossing as
+// they would on a table. Every other board keeps the worn board.
 export const flatLayPreset = {
   // The most of a piece's drawn box the pieces in front of it may cover.
   cover: 0.30,
-  // Where each crossing ends. The bottom beside the top when there is no layer: its left edge
-  // `overlap` of its width under the top's right edge, its waist `drop` of the top's height down.
+  // Where each crossing ends. The bottom beside the top: its left edge `overlap` of its width
+  // under the top's right edge, its waist `drop` of the top's height down.
   bottom: { overlap: 0.26, drop: 0.52 },
-  // The layers under the top's shoulder: `tuck` of the outer layer's width under the top's right
-  // edge, its collar `drop` × the core metric under the top's.
-  rail: { tuck: 0.30, drop: 0.08 },
-  // The mid layer centred under the outer layer, its top `tuck` of its own height over that hem.
-  mid: { tuck: 0.30 },
+  // The layers fanned out to the top's left: each `tuck` of its width under the left edge of
+  // the piece to its right (the top, or the mid layer for the outer layer), its collar `drop` ×
+  // the core metric under the top's.
+  layers: { tuck: 0.30, drop: 0.08 },
   // The pair beside the lowest hem: `tuck` of its width over the hem's edge, standing `rise` of
   // its height above the hem.
   foot: { tuck: 0.30, rise: 0.90 },
   // Each crossing is tried at whole steps of 1/`steps`, from full to none.
   steps: 20,
-  // The band: points off each screen edge, the vertical margin in all, the core's widest piece.
-  side: 24,
-  vertical: 52,
+  // The stage's margins in points: off each side, and the vertical margin in all. The band
+  // reaches both screen edges; a tile keeps the spacing ladder's, which hold the piece shadow.
+  band: { side: 24, vertical: 52 },
+  tile: { side: spacing.md, vertical: 2 * spacing.lg },
+  // The core's widest piece at most, in points.
   coreWidth: 168,
 } as const;
 
@@ -172,61 +174,64 @@ function withinLimits(entries: readonly (readonly [FlatPiece & { single?: unknow
 }
 
 /**
- * Today's primary stage: the worn board with its gaps closed. Each crossing (the bottom under
- * the top, the layers under the top's shoulder, the mid layer under the outer layer's hem, the
- * pair over the lowest hem) moves its pieces from the worn board's place toward where the
- * crossing ends, as far as the cover limit and the structure points allow. With no crossing a
- * piece stands where the worn board puts it, touching nothing, so a crossing always exists.
+ * Today's flat lay: the worn board's pieces side by side. Each crossing (the bottom beside the
+ * top, each layer under the left edge of the piece to its right, the pair over the lowest hem)
+ * moves its piece from where it stands apart toward where the crossing ends, as far as the
+ * cover limit and the structure points allow. The layers stand apart in a row to the top's
+ * left, the worn board's clearance between them, every other piece where the worn board puts
+ * it, touching nothing, so a crossing always exists.
  */
 export function composeFlatLay<Piece extends FlatPiece>(pieces: readonly Piece[], rule = todayPreset) {
   const worn = composeGarmentBoard(pieces, rule);
   const top = worn.boxes.get(worn.core[0])!;
+  const { bottom, layers, foot } = flatLayPreset;
+  // The layers from the top outward, each to the left of the piece before it, so the board reads
+  // outside in from left to right: the outer layer, the mid layer, the top.
+  const fan = ['mid_layer', 'outer_layer'] as const;
+  const gap = rule.clearance.side * Math.min(...worn.core.map((piece) => worn.boxes.get(piece)!.w));
 
   // Each crossing holds the limits against the pieces already crossed. A crossing that stops at
-  // none leaves its pieces where the worn board put them, which a piece crossed before may now
-  // cover; then the outfit is laid again with every crossing also holding the limits against the
-  // pieces still at their worn place, so stopping at none touches nothing it covers.
+  // none leaves its piece where it stood apart, which a piece crossed before may now cover; then
+  // the outfit is laid again with every crossing also holding the limits against the pieces
+  // still standing apart, so stopping at none touches nothing it covers.
   const layOut = (strict: boolean) => {
     const entries = [...worn.boxes].map(([piece, box]) => [piece, { ...box }] as [BoardPiece<Piece>, Box]);
     const find = (slot: OutfitSlot) => entries.find(([piece]) => piece.slot === slot);
     const placed = [find(worn.core[0].slot)!];
+    let left = top.x;
+    for (const slot of fan) {
+      const box = find(slot)?.[1];
+      if (!box) continue;
+      [box.x, box.y] = [left - gap - box.w, top.y + layers.drop * worn.metric];
+      left = box.x;
+    }
 
-    const cross = (slots: readonly OutfitSlot[], to: (box: Box) => readonly [number, number]) => {
-      const moving = entries.filter(([piece]) => slots.includes(piece.slot));
-      if (!moving.length) return;
-      const [dx, dy] = to(moving[0][1]);
-      const from = moving.map(([, box]) => ({ x: box.x, y: box.y }));
-      const others = (strict ? entries : placed).filter((entry) => !moving.includes(entry));
+    const cross = (slot: OutfitSlot, to: (box: Box) => readonly [number, number]) => {
+      const moving = find(slot);
+      if (!moving) return;
+      const [, box] = moving;
+      const [dx, dy] = to(box);
+      const from = { x: box.x, y: box.y };
+      const others = (strict ? entries : placed).filter((entry) => entry !== moving);
       for (let step: number = flatLayPreset.steps; step >= 0; step--) {
         const t = step / flatLayPreset.steps;
-        moving.forEach(([, box], index) => {
-          box.x = from[index].x + t * dx;
-          box.y = from[index].y + t * dy;
-        });
-        if (step === 0 || withinLimits([...others, ...moving])) break;
+        box.x = from.x + t * dx;
+        box.y = from.y + t * dy;
+        if (step === 0 || withinLimits([...others, moving])) break;
       }
-      placed.push(...moving.filter((entry) => !placed.includes(entry)));
+      placed.push(moving);
     };
 
-    const { bottom, rail, mid, foot } = flatLayPreset;
-    const outer = find('outer_layer')?.[1];
-    const layered = Boolean(outer ?? find('mid_layer'));
-    // The bottom closes up under the top; with no layer beside it, it lies beside the top, its
-    // waist clear of the top's hem.
-    cross(['bottom'], (box) => layered
-      ? [0, top.y + top.h - box.y]
-      : [top.x + top.w - bottom.overlap * box.w - box.x, top.y + bottom.drop * top.h - box.y]);
-    cross(['outer_layer', 'mid_layer'], (box) =>
-      [top.x + top.w - rail.tuck * box.w - box.x, top.y + rail.drop * worn.metric - box.y]);
-    if (outer) {
-      cross(['mid_layer'], (box) =>
-        [outer.x + (outer.w - box.w) / 2 - box.x, outer.y + outer.h - mid.tuck * box.h - box.y]);
+    cross('bottom', (box) => [top.x + top.w - bottom.overlap * box.w - box.x, top.y + bottom.drop * top.h - box.y]);
+    let right = top;
+    for (const slot of fan) {
+      cross(slot, (box) => [right.x - (1 - layers.tuck) * box.w - box.x, 0]);
+      right = find(slot)?.[1] ?? right;
     }
-    // The pair stands over the lowest hem: on its right, or on the bottom's left when the bottom
-    // lies beside the top.
+    // The pair stands over the lowest hem: on the bottom's left, or on a one-piece's right.
     const low = find('bottom')?.[1] ?? top;
-    cross(['footwear'], (box) => [
-      (layered || low === top ? low.x + low.w - foot.tuck * box.w : low.x - (1 - foot.tuck) * box.w) - box.x,
+    cross('footwear', (box) => [
+      (low === top ? low.x + low.w - foot.tuck * box.w : low.x - (1 - foot.tuck) * box.w) - box.x,
       low.y + low.h - foot.rise * box.h - box.y,
     ]);
     return entries;
@@ -243,16 +248,21 @@ export function composeFlatLay<Piece extends FlatPiece>(pieces: readonly Piece[]
 }
 
 /**
- * Today's band: the flat lay trimmed to its drawn extent and
- * scaled once, uniformly, so it keeps `side` points off each screen edge and half of
+ * Today's band, or one of its tiles: the flat lay trimmed to its drawn extent and
+ * scaled once, uniformly, so it keeps `side` points off each edge and half of
  * `vertical` above and below, and its core's widest piece is never wider than `coreCap`
- * points. The band is the fitted composition plus `vertical`, within ADR 0025's clamp, so an
+ * points. The stage is the fitted composition plus `vertical`, within ADR 0025's clamp, so an
  * Easier to see composition still fits. `coreWidth` is the core's widest piece in composition
  * units.
  */
-export function fitTodayStage(extent: DrawnExtent, width: number, coreWidth: number, coreCap: number) {
+export function fitTodayStage(
+  extent: DrawnExtent,
+  width: number,
+  coreWidth: number,
+  coreCap: number,
+  { side, vertical }: Readonly<{ side: number; vertical: number }> = flatLayPreset.band,
+) {
   const max = todayPreset.stageMax * width;
-  const { side, vertical } = flatLayPreset;
   const scale = Math.max(0, Math.min((width - 2 * side) / extent.w, (max - vertical) / extent.h, coreCap / coreWidth));
   const height = Math.min(max, Math.max(todayPreset.stageMin * width, extent.h * scale + vertical));
   return { scale, height };

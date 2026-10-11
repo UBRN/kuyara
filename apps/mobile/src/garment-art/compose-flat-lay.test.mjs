@@ -13,6 +13,7 @@ import {
   todayPreset,
 } from './compose-garment-board.ts';
 import { composeFlatLay, fitTodayStage, flatLayPreset, flatLayStack, structurePoints } from './compose-flat-lay.ts';
+import { spacing } from '../theme/theme.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
 
 const categories = {
@@ -111,22 +112,26 @@ function audit(result) {
 const overlaps = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
 
 /** The fitted stage in points and how far any piece leaves it or its margins. */
-function fitted(result, width, large) {
+function fitted(result, width, large, stage = flatLayPreset.band) {
   const core = Math.max(...result.core.map((piece) => result.boxes.get(piece).w));
   const coreCap = flatLayPreset.coreWidth * (large ? 1.3 : 1);
   const extent = drawnExtent(result.boxes.values());
-  const { scale, height } = fitTodayStage(extent, width, core, coreCap);
+  const { scale, height } = fitTodayStage(extent, width, core, coreCap, stage);
   const placed = [...result.boxes.values()].map((box) => placeOnRunway(box, extent, scale, width, height));
   const clip = Math.max(0,
-    flatLayPreset.side - Math.min(...placed.map((box) => box.x)),
-    Math.max(...placed.map((box) => box.x + box.w)) - (width - flatLayPreset.side),
-    flatLayPreset.vertical / 2 - Math.min(...placed.map((box) => box.y)),
-    Math.max(...placed.map((box) => box.y + box.h)) - (height - flatLayPreset.vertical / 2));
+    stage.side - Math.min(...placed.map((box) => box.x)),
+    Math.max(...placed.map((box) => box.x + box.w)) - (width - stage.side),
+    stage.vertical / 2 - Math.min(...placed.map((box) => box.y)),
+    Math.max(...placed.map((box) => box.y + box.h)) - (height - stage.vertical / 2));
   return { scale, height, clip, coreWidth: core * scale, coreCap };
 }
 
 const presets = [['plain', todayPreset, false], ['Easier to see', easierToSeeRule(todayPreset, 1.3, 0.05), true]];
 const widths = [375, 393, 402, 440];
+// Today's tiles: tomorrow's board, an Easier to see row, an idea, the alternates, and an
+// alternate at full width with large text.
+const tileWidths = [88, 128, 132, 164, 170, 358];
+const stages = [...widths.map((width) => [width, flatLayPreset.band]), ...tileWidths.map((width) => [width, flatLayPreset.tile])];
 
 for (const [presetName, preset, large] of presets) {
   for (const [name, slots] of boards) {
@@ -136,8 +141,8 @@ for (const [presetName, preset, large] of presets) {
       const measured = audit(result);
       assert.ok(measured.worst <= flatLayPreset.cover + 0.01, `${name}: ${measured.worst}`);
       assert.deepEqual(measured.hidden, [], name);
-      for (const width of widths) {
-        const stage = fitted(result, width, large);
+      for (const [width, margins] of stages) {
+        const stage = fitted(result, width, large, margins);
         assert.ok(stage.clip <= 1e-9, `${name} at ${width}: ${stage.clip}`);
         assert.ok(stage.coreWidth <= stage.coreCap + 1e-9, `${name} at ${width}`);
         assert.ok(stage.height >= todayPreset.stageMin * width - 1e-9 && stage.height <= todayPreset.stageMax * width + 1e-9);
@@ -147,9 +152,10 @@ for (const [presetName, preset, large] of presets) {
 }
 
 // The family lays the pieces over each other: on every board the footwear stands over a hem,
-// and the layers reach under the core. Night out's blazer stays beside the jumpsuit: its left
-// cuff is the drawing's left edge, which any tuck under the jumpsuit would cover.
-const layersApart = ['night out'];
+// and the layers reach under the core, the outer layer under the mid layer. A blazer next to
+// the core stays beside it: in night out its right cuff is the drawing's right edge, and in
+// cold formal it ends level with the shirt's hem, so any tuck under the core would cover it.
+const layersApart = ['night out', 'cold formal'];
 for (const [name, slots] of boards) {
   test(`flat lay: ${name} crosses its pieces where the worn board keeps them apart`, () => {
     const result = composeFlatLay(piecesOf(slots));
@@ -157,8 +163,26 @@ for (const [name, slots] of boards) {
     const core = result.core.map((piece) => result.boxes.get(piece));
     const lowest = box('bottom') ?? core[0];
     assert.ok(overlaps(box('footwear'), lowest), `${name}: footwear`);
-    const layer = box('outer_layer') ?? box('mid_layer');
-    if (layer) assert.equal(overlaps(layer, core[0]), !layersApart.includes(name), `${name}: layers`);
+    const inner = box('mid_layer') ?? box('outer_layer');
+    if (inner) assert.equal(overlaps(inner, core[0]), !layersApart.includes(name), `${name}: layers`);
+    if (box('mid_layer') && box('outer_layer')) assert.ok(overlaps(box('outer_layer'), box('mid_layer')), `${name}: outer`);
+  });
+}
+
+// One shape from two to five pieces: the bottom always beside the top, its waist above the
+// top's hem, and the layers fanned out to the top's left, read outside in from left to right:
+// outer layer, mid layer, top, bottom.
+for (const [name, slots] of boards) {
+  test(`flat lay: ${name} lays the bottom beside the top and the layers to its left`, () => {
+    const result = composeFlatLay(piecesOf(slots));
+    const box = (slot) => [...result.boxes].find(([piece]) => piece.slot === slot)?.[1];
+    const top = result.boxes.get(result.core[0]);
+    const row = [box('outer_layer'), box('mid_layer'), top, box('bottom')].filter(Boolean);
+    for (let index = 1; index < row.length; index++) {
+      const [left, right] = [row[index - 1], row[index]];
+      assert.ok(left.x < right.x && left.x + left.w < right.x + right.w, `${name}: ${index}`);
+    }
+    if (box('bottom')) assert.ok(box('bottom').y < top.y + top.h, `${name}: bottom beside`);
   });
 }
 
@@ -199,7 +223,7 @@ test('flat lay: the recommender sweep stays within the cover limit, keeps every 
       const measured = audit(result);
       worst = Math.max(worst, measured.worst);
       assert.deepEqual(measured.hidden, [], `${presetName}: ${key}`);
-      for (const width of widths) if (fitted(result, width, large).clip > 1e-9) clipped++;
+      for (const [width, margins] of stages) if (fitted(result, width, large, margins).clip > 1e-9) clipped++;
     }
   }
   assert.ok(worst <= flatLayPreset.cover + 0.01, String(worst));
@@ -244,5 +268,21 @@ test('Today\'s stage fits the flat lay with the core capped at 168 points', () =
   assert.ok(large.coreWidth > 168 && large.coreWidth <= 168 * 1.3 + 1e-9, String(large.coreWidth));
   // The piece shadow's reach stays inside the band's lower margin at the largest scale.
   const unit = (168 * 1.3) / (todayPreset.coreCap * 1.3);
-  assert.ok((garmentShadowRule.dy + 2 * garmentShadowRule.blur) * unit < flatLayPreset.vertical / 2);
+  assert.ok((garmentShadowRule.dy + 2 * garmentShadowRule.blur) * unit < flatLayPreset.band.vertical / 2);
+});
+
+// A tile fits the same flat lay with the same core cap inside margins on the spacing ladder.
+// They hold the piece shadow's reach below and to the right at the largest scale, so a tile's
+// clipped edge never cuts a shadow. The tile is as tall as its fitted flat lay, within the clamp.
+test('Today\'s tiles fit the flat lay inside margins on the spacing ladder', () => {
+  assert.deepEqual(flatLayPreset.tile, { side: spacing.md, vertical: 2 * spacing.lg });
+  const unit = (168 * 1.3) / (todayPreset.coreCap * 1.3);
+  assert.ok((garmentShadowRule.dy + 2 * garmentShadowRule.blur) * unit < flatLayPreset.tile.vertical / 2);
+  assert.ok((garmentShadowRule.dx + 2 * garmentShadowRule.blur) * unit < flatLayPreset.tile.side);
+  // The full stack, wider than tall, fills the tile's width.
+  const result = composeFlatLay(piecesOf(boards[12][1]));
+  const extent = drawnExtent(result.boxes.values());
+  const tile = fitted(result, 164, false, flatLayPreset.tile);
+  assert.ok(Math.abs(tile.height - Math.max(todayPreset.stageMin * 164, extent.h * tile.scale + flatLayPreset.tile.vertical)) < 1e-9);
+  assert.ok(Math.abs(extent.w * tile.scale - (164 - 2 * flatLayPreset.tile.side)) < 1e-9, String(tile.scale));
 });
