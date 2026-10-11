@@ -1909,7 +1909,7 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
     (10_000 - PROBE_DAILY_LIMIT * 67) / attemptNeurons,
   );
   // The constant is derived from this same prompt, so the two must agree exactly: the
-  // comment above `WORKERS_AI_DAILY_ATTEMPT_LIMIT` carries the 4,600-token, 162-Neuron
+  // comment above `WORKERS_AI_DAILY_ATTEMPT_LIMIT` carries the 4,500-token, 160-Neuron
   // worst case this test measures. A prompt that grows past the token step raises the
   // Neuron cost and lowers the limit; raising the limit is a spend decision with
   // its own review.
