@@ -287,37 +287,42 @@ function sharedWeight(left: ReadonlyMap<BodyOutfitSlot, string>, right: Readonly
 }
 
 /**
- * Today's three, read from the dress style's order. The first stays its first outfit; the
- * other two come from its own group, each the one sharing the fewest garments slot by slot with
- * those already taken, so three loafers outfits under one rain jacket give way to three that
- * differ in shoes, outer layer and bottom. A candidate scores within five points of the first
- * or is one of the two the order itself would show next, so the pick is never worse than the
- * order's and a mild day keeps the layered outfit the offer alternates in. The rest keep their
+ * Today's three, read from the dress style's order. The first is the outfit within five points
+ * of the order's first, in its group, that shares the fewest garments with the three shown
+ * before (yesterday's first counting fully, the other two by half), so the same shoes, jacket
+ * and bottom do not lead day after day. The other two come from the same group, each the one
+ * sharing the fewest garments slot by slot with those already taken and with the three shown
+ * before, so three loafers outfits under one rain jacket give way to three that differ. They
+ * score within five points of the first or are among the two the order itself would show next,
+ * so the pick is never worse than the order's and a mild day keeps the layered outfit the offer
+ * alternates in. With no three shown before, the first is the order's own. The rest keep their
  * order behind them, for the labels to fall back on.
  */
 export function orderForShownThree<Outfit extends OutfitCandidate>(
   ordered: readonly Outfit[],
   groupOf: (outfit: Outfit) => string,
+  previous: readonly OutfitCandidate[] = [],
 ): readonly Outfit[] {
-  const [first] = ordered;
-  if (first === undefined) return ordered;
-  const group = groupOf(first);
+  const [lead] = ordered;
+  if (lead === undefined) return ordered;
+  const group = groupOf(lead);
   const slots = new Map(ordered.map((outfit) => [outfit, slotTypes(outfit)]));
+  const previousSlots = previous.map(slotTypes);
+  const sharedBefore = (outfit: Outfit) => previousSlots.reduce((sum, shown, index) =>
+    sum + (index === 0 ? 1 : 0.5) * sharedWeight(slots.get(outfit)!, shown), 0);
+  const fewest = (candidates: readonly Outfit[], cost: (outfit: Outfit) => number) =>
+    candidates.reduce<Outfit | undefined>((best, outfit) =>
+      best === undefined || cost(outfit) < cost(best) ? outfit : best, undefined);
+
+  const first = fewest(ordered.filter((outfit) =>
+    groupOf(outfit) === group && outfit.score >= lead.score - shownBandPoints), sharedBefore)!;
   const taken = [first];
   while (taken.length < 3) {
-    let next: Outfit | undefined;
-    let fewest = Number.POSITIVE_INFINITY;
-    for (const outfit of ordered) {
-      if (
-        taken.includes(outfit) || groupOf(outfit) !== group ||
-        (outfit.score < first.score - shownBandPoints && ordered.indexOf(outfit) > 2)
-      ) continue;
-      const shared = taken.reduce((sum, pick) => sum + sharedWeight(slots.get(outfit)!, slots.get(pick)!), 0);
-      if (shared < fewest) {
-        next = outfit;
-        fewest = shared;
-      }
-    }
+    const next = fewest(ordered.filter((outfit) =>
+      !taken.includes(outfit) && groupOf(outfit) === group &&
+      (outfit.score >= first.score - shownBandPoints || ordered.indexOf(outfit) <= 2)),
+    (outfit) => sharedBefore(outfit) +
+      taken.reduce((sum, pick) => sum + sharedWeight(slots.get(outfit)!, slots.get(pick)!), 0));
     if (next === undefined) break;
     taken.push(next);
   }

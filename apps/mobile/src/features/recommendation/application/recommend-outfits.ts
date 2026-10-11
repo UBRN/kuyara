@@ -332,9 +332,9 @@ export function orderByDressStyle(
 }
 
 /**
- * The order Today's three are labelled from: the dress style's order, with the two after its
- * first taken from the first's own formality and style affinity to share as few garments with
- * it as the day's best allows.
+ * The order Today's three are labelled from: the dress style's order, with the three taken from
+ * the first's own formality and style affinity to share as few garments with each other and with
+ * the three shown before as the day's best allows.
  */
 export function orderForShown(
   outfits: readonly OutfitCandidate[],
@@ -342,6 +342,7 @@ export function orderForShown(
     dressStyle?: DressStyle;
     styleAesthetics?: readonly StyleAesthetic[];
     dayKind?: DayKind;
+    excludedOutfits?: readonly OutfitCandidate[];
   }>,
   requirements: ClothingRequirements,
 ): readonly OutfitCandidate[] {
@@ -349,7 +350,7 @@ export function orderForShown(
   const affinity = (outfit: OutfitCandidate) => aestheticAffinity(outfit, input.styleAesthetics ?? [],
     (option, id) => outfitMatchesArchetype(option, id, input.dayKind, day));
   return orderForShownThree(orderByDressStyle(outfits, input, requirements),
-    (outfit) => `${outfit.formality}|${affinity(outfit)}`);
+    (outfit) => `${outfit.formality}|${affinity(outfit)}`, input.excludedOutfits);
 }
 
 /**
