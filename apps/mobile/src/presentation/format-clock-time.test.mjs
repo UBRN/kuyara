@@ -60,14 +60,16 @@ test('last updated is the time on the current local day and the short date and t
     const dated = formatLastUpdated(earlier, language, hour12, now);
     assert.notEqual(dated, formatClockTime(earlier, language, hour12, deviceZone));
     assert.ok(dated.includes('2026'), dated);
-    assert.ok(dated.endsWith(formatClockTime(earlier, language, hour12, deviceZone)), dated);
+    // The comma and the clock's own form, so a padded hour cannot hide behind endsWith.
+    const clock = formatClockTime(earlier, language, hour12, deviceZone);
+    assert.ok(language === 'en' ? dated.endsWith(`, ${clock}`) : dated.endsWith(clock), dated);
   }
   if (deviceZone === 'UTC') {
     assert.equal(formatLastUpdated(today, 'en', false, now), '13:05');
     assert.equal(formatLastUpdated(today, 'en', true, now), '1:05 pm');
     assert.equal(formatLastUpdated(today, 'tr', true, now), 'öğleden sonra 1:05');
     assert.equal(formatLastUpdated(earlier, 'en', false, now), '02/10/2026, 13:05');
-    assert.equal(formatLastUpdated(earlier, 'en', true, now), '02/10/2026, 01:05 pm');
+    assert.equal(formatLastUpdated(earlier, 'en', true, now), '02/10/2026, 1:05 pm');
     assert.equal(formatLastUpdated(earlier, 'tr', false, now), '2.10.2026 13:05');
   }
 });

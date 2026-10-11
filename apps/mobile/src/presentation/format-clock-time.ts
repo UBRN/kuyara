@@ -98,9 +98,11 @@ export function formatLastUpdated(
   if (updated.toDateString() === new Date(now).toDateString()) {
     return formatNaturalClockTime(instant, language, hour12);
   }
-  if (language === 'tr' && hour12) {
+  if (hour12) {
     const date = dateTimeFormat(localeTag(language), { dateStyle: 'short' }).format(updated);
-    return `${date} ${formatNaturalClockTime(instant, language, hour12)}`;
+    return language === 'tr'
+      ? `${date} ${formatNaturalClockTime(instant, language, hour12)}`
+      : `${date}, ${formatClockTime(instant, language, hour12)}`;
   }
   return dateTimeFormat(localeTag(language), { dateStyle: 'short', timeStyle: 'short', hour12 }).format(updated);
 }
