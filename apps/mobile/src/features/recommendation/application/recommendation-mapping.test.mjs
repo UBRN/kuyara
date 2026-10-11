@@ -137,10 +137,10 @@ function picks(request) {
   return selected;
 }
 
-test('the next dressing day rotates a distinct deterministic option set for identical weather', () => {
+test('different day variants rotate distinct deterministic option sets for identical weather', () => {
   const first = aiRequestFor(input());
   const repeated = aiRequestFor(input());
-  const next = aiRequestFor({ ...input(), dayVariant: 1, localDayKey: '2026-08-02' });
+  const next = aiRequestFor({ ...input(), dayVariant: 1 });
 
   assert.deepEqual(first, repeated);
   assert.equal(first.catalogVersion, 6);
@@ -410,10 +410,10 @@ test('rebuilds an offered option with its mid layer instead of the simpler arran
   // keep is the shape: a mid layer whose bare arrangement is valid too, so rebuilding from
   // the garment list alone could drop it or promote it to the primary top.
   const signatures = [
-    'primary_top:polo_shirt:base bottom:trousers:standalone mid_layer:sweater:mid' +
+    'primary_top:turtleneck:base bottom:long_skirt:standalone mid_layer:cardigan:mid' +
       ' outer_layer:coat:outer footwear:ankle_boots:null',
-    'primary_top:shirt:base bottom:long_skirt:standalone mid_layer:hoodie:mid' +
-      ' outer_layer:parka:outer footwear:ankle_boots:null',
+    'primary_top:overshirt:standalone bottom:jeans:standalone mid_layer:hoodie:mid' +
+      ' outer_layer:insulated_jacket:outer footwear:ankle_boots:null',
   ];
 
   for (const signature of signatures) {

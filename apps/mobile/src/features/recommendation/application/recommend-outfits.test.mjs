@@ -977,25 +977,12 @@ test('dry mild aesthetic ordering agrees with the day-aware label gate', () => {
   }
 });
 
-// The rotation through the day's best runs on past a week: the same weather a week later, on a
-// day with the same seven-day variant, is offered other outfits, while the day variant the AI
-// request carries stays the same.
-test('the same weather a week later offers other outfits under the same day variant', () => {
-  const weather = snapshot({ current: { temperatureCelsius: 14, apparentTemperatureCelsius: 14 } });
-  const offered = (localDayKey) => recommendOutfits({
-    snapshot: weather, now: observedAt, clothingPreference: 'womens', dayVariant: 3, localDayKey,
-  }).outfits.map(outfitOptionId);
-  const weeks = ['2026-03-05', '2026-03-12', '2026-03-19', '2026-03-26'].map(offered);
-  assert.equal(new Set(weeks.map((ids) => ids.join())).size, 4);
-  assert.deepEqual(offered('2026-03-05'), weeks[0]);
-});
-
 // The three shown outfits used to be the first three that took distinct labels, so they
 // often wore one pair of shoes, one bottom or one outer layer between them. The two after the
 // first now come from the first's own band and formality, each sharing as few garments with
 // those already taken as it can. Over 216 trios (both cuts, three styles, dry and rainy, -4 to
-// 26 C, three days) the trios in one shoe were 109, in one bottom 94 and in one outer layer
-// 139; these are ceilings a later change has to walk past on purpose.
+// 26 C, three day variants) the trios in one shoe were 143, in one bottom 111 and in one outer
+// layer 145; these are ceilings a later change has to walk past on purpose.
 test('the three shown outfits spread their shoes, bottoms and outer layers across the day\'s best', () => {
   const counts = { shoe: 0, bottom: 0, outer: 0 };
   const type = (assigned) => assigned?.garment.garmentTypeId ?? null;
@@ -1003,11 +990,11 @@ test('the three shown outfits spread their shoes, bottoms and outer layers acros
     for (const dressStyle of ['casual', 'smart', 'formal']) {
       for (const [condition, precipitationProbability] of [['clear', 0], ['rain', 0.8]]) {
         for (const temperatureCelsius of [-4, 2, 8, 14, 20, 26]) {
-          for (const localDayKey of ['2026-08-01', '2026-08-02', '2026-08-03']) {
+          for (const dayVariant of [0, 1, 2]) {
             const { outfits } = recommendOutfits({
               snapshot: snapshot({ current: { temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius,
                 condition, precipitationProbability } }),
-              now: observedAt, clothingPreference, dressStyle, dayVariant: 0, localDayKey,
+              now: observedAt, clothingPreference, dressStyle, dayVariant,
             });
             const one = (slot) => new Set(outfits.map(slot)).size === 1;
             if (one(({ footwear }) => type(footwear))) counts.shoe += 1;
@@ -1018,16 +1005,16 @@ test('the three shown outfits spread their shoes, bottoms and outer layers acros
       }
     }
   }
-  assert.ok(counts.shoe <= 80, `${counts.shoe} trios in one shoe`);
-  assert.ok(counts.bottom <= 66, `${counts.bottom} trios in one bottom`);
-  assert.ok(counts.outer <= 116, `${counts.outer} trios in one outer layer`);
+  assert.ok(counts.shoe <= 104, `${counts.shoe} trios in one shoe`);
+  assert.ok(counts.bottom <= 67, `${counts.bottom} trios in one bottom`);
+  assert.ok(counts.outer <= 129, `${counts.outer} trios in one outer layer`);
 });
 
 // The next day's first outfit used to wear yesterday's shoes, bottom and jacket whenever the
 // weather held, because nothing compared it with the three shown before. Over 216 day pairs of
 // unchanged weather (both cuts, three styles, dry and rainy, -4 to 26 C) the second day's first
-// outfit wore the first day's first shoes 153 times, its bottom 150 times and its outer layer
-// 147 times; these are ceilings a later change has to walk past on purpose.
+// outfit wore the first day's first shoes 137 times, its bottom 149 times and its outer layer
+// 156 times; these are ceilings a later change has to walk past on purpose.
 test('the next day leads with pieces yesterday\'s three did not wear, where the day\'s best allows', () => {
   const counts = { shoe: 0, bottom: 0, outer: 0 };
   const type = (assigned) => assigned?.garment.garmentTypeId ?? null;
@@ -1038,11 +1025,10 @@ test('the next day leads with pieces yesterday\'s three did not wear, where the 
         for (const temperatureCelsius of [-4, 2, 8, 14, 20, 26]) {
           const weather = snapshot({ current: { temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius,
             condition, precipitationProbability } });
-          const shown = (localDayKey, excludedOutfits) => recommendOutfits({
-            snapshot: weather, now: observedAt, clothingPreference, dressStyle, dayVariant: 0, localDayKey, excludedOutfits,
+          const shown = (dayVariant, excludedOutfits) => recommendOutfits({
+            snapshot: weather, now: observedAt, clothingPreference, dressStyle, dayVariant, excludedOutfits,
           }).outfits;
-          for (const [yesterday, today] of [['2026-08-01', '2026-08-02'], ['2026-08-02', '2026-08-03'],
-            ['2026-08-03', '2026-08-04']]) {
+          for (const [yesterday, today] of [[0, 1], [1, 2], [2, 3]]) {
             const before = shown(yesterday);
             const [first] = shown(today, before);
             if (type(first.footwear) === type(before[0].footwear)) counts.shoe += 1;
@@ -1053,7 +1039,7 @@ test('the next day leads with pieces yesterday\'s three did not wear, where the 
       }
     }
   }
-  assert.ok(counts.shoe <= 92, `${counts.shoe} first outfits in yesterday's shoes`);
-  assert.ok(counts.bottom <= 90, `${counts.bottom} first outfits in yesterday's bottom`);
-  assert.ok(counts.outer <= 128, `${counts.outer} first outfits in yesterday's outer layer`);
+  assert.ok(counts.shoe <= 121, `${counts.shoe} first outfits in yesterday's shoes`);
+  assert.ok(counts.bottom <= 94, `${counts.bottom} first outfits in yesterday's bottom`);
+  assert.ok(counts.outer <= 136, `${counts.outer} first outfits in yesterday's outer layer`);
 });

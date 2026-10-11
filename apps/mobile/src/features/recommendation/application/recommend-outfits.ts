@@ -37,7 +37,6 @@ import type { RecommendationGenerationMode } from '@/features/recommendation/dom
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
 import { defaultDressStyle } from '@/features/profile/domain/profile';
-import { compositionSeed } from '@/features/recommendation/domain/local-day';
 
 export type OutfitRecommendationInput = Readonly<{
   snapshot: WeatherSnapshot;
@@ -49,8 +48,6 @@ export type OutfitRecommendationInput = Readonly<{
   dressStyle?: DressStyle;
   styleAesthetics?: readonly StyleAesthetic[];
   dayVariant: number;
-  /** The dressing day the recommendation is for; it seeds the composition with its own number. */
-  localDayKey?: string;
   /** Absent keeps the day-blind behaviour, where `weekend_relaxed` fits any casual outfit. */
   dayKind?: DayKind;
   /** Outfits already shown; any outfit wearing the same body garments is left out. */
@@ -232,19 +229,18 @@ export function eligibilityCandidates(
 
 let lastComposedPool: Readonly<{ key: string; result: OutfitCompositionsResult }> | null = null;
 
-/** The day's offered pool, `seed` from `compositionSeed`. */
 export function composeOutfitPool(
   requirements: ClothingRequirements,
   clothingPreference: ClothingPreference,
-  seed: number,
+  dayVariant: number,
   recentWorn: readonly WornOutfit[] = [],
 ): OutfitCompositionsResult {
-  const key = poolCompositionKey(requirements, clothingPreference, seed, recentWorn);
+  const key = poolCompositionKey(requirements, clothingPreference, dayVariant, recentWorn);
   if (lastComposedPool?.key === key) return lastComposedPool.result;
   const result = composeOutfitOptions(
     requirements,
     eligibilityCandidates(requirements, clothingPreference),
-    seed,
+    dayVariant,
     recentWorn,
   );
   lastComposedPool = { key, result };
@@ -358,8 +354,8 @@ export function recommendOutfits(
 ): OutfitRecommendationResult {
   const requirements = deriveClothingRequirements(input.snapshot, input.now,
     input.departureAt ?? input.now);
-  const composition = composeOutfitPool(requirements, input.clothingPreference,
-    compositionSeed(input.dayVariant, input.localDayKey), input.recentWorn);
+  const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
+    input.recentWorn);
 
   const availableOutfits = composition.status === 'composed'
     ? excludeOutfitOptions(composition.outfits, input.excludedOutfits)

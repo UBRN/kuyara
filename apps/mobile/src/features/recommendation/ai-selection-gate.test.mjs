@@ -146,7 +146,7 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
       // eligible lists, so it steers away from such triples; one it still picks is refused
       // and the day falls back. Such triples must stay rare in the offered pools. A day whose
       // heat is mandatory wears no mid layer, so its pool has no in-between label to give and
-      // the hot cells hold most of them: 78 of 5,904 sampled triples where it was 15.
+      // the hot cells hold most of them: 93 of 5,904 sampled triples where it was 15.
       if (!picks) {
         unlabelable += 1;
         continue;

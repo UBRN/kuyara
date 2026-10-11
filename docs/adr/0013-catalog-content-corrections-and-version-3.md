@@ -131,10 +131,11 @@ an already displayed valid result, while a rejected old-version snapshot cannot
 be shown. Offline is safe, because the device-local deterministic fallback
 composes from the current catalog.
 
-**On the Worker, the bump is one miss per cache key.** Every key carries the
-offered option set, which the new catalog changes, so each key the day reaches
-misses once and the Haiku daily attempt limit bounds what that costs. It is the
-reason all content changes share one version.
+**On the Worker, the bump is a single bounded cache miss.** Every
+`(requirement vector, clothing preference, day variant)` key misses once, so a
+bucket costs at most seven regenerations before it is a permanent hit again.
+That is the ceiling ADR 0007's seven-slot ring was designed to impose, paid once
+per bump. It is the reason all content changes share one version.
 
 ### Other consequences
 

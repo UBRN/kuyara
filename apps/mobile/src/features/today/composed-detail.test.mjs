@@ -13,9 +13,7 @@ const requirements = deriveClothingRequirements(grid.snapshot, grid.now);
 const input = { requirements, clothingPreference: 'womens', dayVariant: 0, dressStyle: 'smart' };
 const recommendation = recommendOutfits(grid);
 const pick = recommendation.outfits[0];
-const snapshot = {
-  clothingPreference: 'womens', dressStyle: 'smart', styleAesthetics: ['minimal'], dayVariant: 0, localDayKey: '2026-08-13',
-};
+const snapshot = { clothingPreference: 'womens', dressStyle: 'smart', styleAesthetics: ['minimal'], dayVariant: 0 };
 
 // A Thursday and a Saturday in UTC, the zone these tests run in.
 const thursday = Date.parse('2026-08-13T09:00:00.000Z');
@@ -23,8 +21,8 @@ const saturday = Date.parse('2026-08-15T09:00:00.000Z');
 
 test('compose reads the day Today was built for, or nothing when that day is unknown', () => {
   assert.deepEqual(composeInputFor(snapshot, requirements, 'formal', thursday), {
-    requirements, clothingPreference: 'womens', dayVariant: 0, localDayKey: '2026-08-13', dressStyle: 'formal',
-    styleAesthetics: ['minimal'], dayKind: 'weekday',
+    requirements, clothingPreference: 'womens', dayVariant: 0, dressStyle: 'formal', styleAesthetics: ['minimal'],
+    dayKind: 'weekday',
   });
   assert.equal(composeInputFor(snapshot, requirements, null, thursday).dressStyle, 'smart');
   assert.equal(composeInputFor(null, requirements, null, thursday), null);

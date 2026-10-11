@@ -25,24 +25,11 @@ const variantEpoch = Date.UTC(2025, 11, 31);
  * variant its calendar date gave it.
  */
 export function localDayVariant(date: Date): number {
-  const days = dressingDayNumber(localDayKey(date));
+  const { year, month, day } = calendarDateParts(dressingDayDateKey(localDayKey(date)));
+  const days = Math.round(
+    (Date.UTC(year, month - 1, day) - variantEpoch) / (24 * 60 * 60 * 1000),
+  );
   return ((days % 7) + 7) % 7;
-}
-
-/** The days from the fixed date to a dressing day's own date; an evening key counts as its date. */
-function dressingDayNumber(dressingDayKey: string): number {
-  const { year, month, day } = calendarDateParts(dressingDayDateKey(dressingDayKey));
-  return Math.round((Date.UTC(year, month - 1, day) - variantEpoch) / (24 * 60 * 60 * 1000));
-}
-
-/**
- * What seeds the composition: the dressing day's own number, unbounded, so the rotation through
- * the day's best outfits runs on past a week and the same weather a week later is offered other
- * outfits. The day variant stays the seven-day ring the AI request and its cache carry. A caller
- * with no key, the onboarding preview or a row written before the key, seeds with its variant.
- */
-export function compositionSeed(dayVariant: number, dressingDayKey?: string | null): number {
-  return dressingDayKey ? dressingDayNumber(dressingDayKey) : dayVariant;
 }
 
 // Saturday and Sunday are the weekend; everything else is a weekday. Read from the dressing day
