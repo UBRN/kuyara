@@ -94,8 +94,8 @@ share one shadow. A Closet tile, the type grid and a category glyph draw one sho
 One parameter, the **clearance**, decides how close the pieces lie: the clear space kept
 between neighbouring pieces, so that no piece covers any part of another.
 
-**Every board but Today's primary stage and its tiles is the worn board, with no piece
-touching another**, so an outfit reads as one
+**Every board but Today's primary stage, its tiles and the detail is the worn board, with no
+piece touching another**, so an outfit reads as one
 combination laid out flat, with every piece drawn whole. The body core is one column, the
 bottom's waist just under the top's hem; the footwear stands just under the core's lowest
 hem; the layers stack on a right rail, outer above mid, just clear of the core's side. The
@@ -103,29 +103,28 @@ pieces are drawn in the order the outfit is put on: top, bottom, one-piece, mid 
 layer, footwear. Because no piece overlaps another, a collar, a waist, a sleeve and a sole
 are always in view.
 
-**Today's primary stage and its tiles are a flat lay**, the second layout family: the stage on
-a cornerless band that reaches both screen edges, and the alternates, More ideas and tomorrow's
-strip on their garment plate. Every piece keeps its ladder size and the pieces lie side by side
+**Today's primary stage, its tiles and the detail are a flat lay**, the second layout family:
+the stage on a cornerless band that reaches both screen edges, and the alternates, More ideas,
+tomorrow's strip and the detail board on their garment plate. Every piece keeps its ladder size and the pieces lie side by side
 in one shape for two to five pieces: the top upper left, the bottom beside it to the right and
 lower, the footwear at the foot, and the layers fanned out to the top's left, outer layer
 furthest left, so the board reads outside in from left to right. They cross as on a table,
 stacked outer layer, mid layer, bottom, top, footwear. Each crossing closes only as far as two
 limits allow: the pieces in front of a piece cover at most 30% of its drawn box, and none covers
 a collar, a waist or a sleeve end, so a collar, a waist, a sleeve and a sole stay whole in this
-family too. One scale fits the flat lay to the band or the tile, the core's widest piece at most
-168 points. The geometry is [`garment-board.md`](../design/garment-board.md) section 10.
+family too. One scale fits the flat lay to the band, the tile or the detail column, the core's widest piece
+at most 168 points, and on the detail never larger than the detail preset draws it. The geometry is [`garment-board.md`](../design/garment-board.md) section 10.
 
-The detail draws the worn board at the runway preset's 1.25; a piece leaving Today's band for
-the detail starts where the band drew it, at the band's size and in the flat lay's stacking
-until it rests,
-and travels to its place apart. No name
+The detail draws its flat lay at most at the runway preset's 1.25; a piece leaving Today's band
+for the detail starts where the band drew it, at the band's size, and travels to its place on
+the detail's flat lay in the same stacking. No name
 is drawn on a board: the detail names its pieces in a row of buttons under the board
 ([ADR 0026](0026-the-recommendation-detail-surface.md) section 2).
 
 Every piece on every board casts a soft shadow on its plane: its own drawn shape, blurred
 and dropped down, in the plane's colour moved down in OKLCH lightness. It reads only the
 painting's alpha, so it follows any drawing that declares its drawn bounds. On a worn board it
-falls on the plane, never on another piece; on Today's flat lay it also falls on the piece
+falls on the plane, never on another piece; on the flat lay it also falls on the piece
 under it. The parameters are in
 [`garment-board.md`](../design/garment-board.md) section 9.
 
@@ -195,7 +194,7 @@ The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather j
 
 - **A slot list is now sufficient to draw a board.** Ten slot lists covering every shape
   the composer can emit were generated and audited. Clipping 0 and overlap 0 on all ten
-  worn boards (Today's flat lay, on its band and its tiles, keeps its own limits,
+  worn boards (the flat lay, on Today's band, its tiles and the detail, keeps its own limits,
   garment-board.md section 10), and both anchors drawn at one scale on all ten.
 - **The anchors keep their real proportion, not equal weight.** On the cut drawings trousers
   and jeans stand 1.30 to 1.59 of the top's height, a knee skirt 0.76, shorts 0.47 (women's)

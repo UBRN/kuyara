@@ -112,8 +112,8 @@ draws the pair.
 The **clearance** is the clear space the rule keeps between neighbouring pieces, so that no
 piece covers any part of another.
 
-**Every board is the worn board** (the detail, History and the share card), except Today's
-primary stage and the tiles under it, which lay the same board out as a flat lay (section 10).
+**Every board is the worn board** (History and the share card), except Today's primary stage,
+the tiles under it and the detail, which lay the same board out as a flat lay (section 10).
 The outfit is laid out flat in the order it is worn, so it reads as one combination, with
 every piece drawn whole:
 
@@ -165,12 +165,13 @@ fixed stage produces either a squashed dress or an empty band.
 
 The stage height is therefore derived, insets plus the envelope, and clamped to
 **0.66 to 1.14** times the stage width. Across the ten evidence boards it takes values
-from 0.660 to 0.821 on Today's worn board and 0.660 to 1.002 on the detail. Today's primary
-stage and its tiles replace the insets with a fit to the band or the tile and are the fitted
-flat lay plus its vertical margin, within the same clamp (section 10).
+from 0.660 to 0.821 on Today's worn board and 0.660 to 1.002 on the detail preset's. Today's
+primary stage, its tiles and the detail replace the insets with a fit to the band, the tile or
+the detail column and are the fitted flat lay plus its vertical margin, within the same clamp
+(section 10).
 An envelope taller than the clamp's ceiling allows, or wider than the side minimum allows, is
 scaled down once, uniformly, until it fits, so no piece leaves the stage. Easier to see's larger
-caps reach it, and so do the detail's tallest layered looks without it. Across every combination of a core, no or any outer layer, no or a knit mid
+caps reach it, and so do the detail preset's tallest layered looks without it. Across every combination of a core, no or any outer layer, no or a knit mid
 layer and three shoes in both cuts (14,058 boards on each of Today's and the detail's presets,
 with Easier to see off and on), no board clips and no two pieces touch.
 Today's copy below the stage moves with it.
@@ -317,33 +318,34 @@ instead of a path. The board degrades; it does not break.
 
 ## 9. Presets: Today and detail
 
-The parameters above are Today's worn board, the one Today's flat lay starts from. A second
+The parameters above are Today's worn board, the one the flat lay starts from. A second
 surface expresses a different density by changing parameters, never by changing the
-algorithm, so both presets draw the same pieces in the same reading order, the core on the
-left and the layers on the right, for a given slot list. Today's flat lay (section 10) lays
-the same pieces side by side with the layers on the top's left, and opening the detail from it
-moves each piece to its place on the worn board. That is what lets a transition between them
-move the pieces rather than cross-fade two pictures.
+algorithm, so both presets draw the same pieces in the same reading order for a given slot
+list. Today's band and the detail both lay them out as the flat lay of section 10, side by side
+with the layers on the top's left, so opening the detail from the band moves each piece to its
+place on the detail's flat lay. That is what lets a transition between them move the pieces
+rather than cross-fade two pictures.
 
 The detail preset, approved by
 [ADR 0026](../adr/0026-the-recommendation-detail-surface.md), is the same worn board with
-every width cap × 1.25, the runway preset's largest scale. Its names stand under the board
-as buttons, never on it, and its pieces stand apart exactly as the worn board's do:
+every width cap × 1.25, the runway preset's largest scale. The detail lays it out as the flat
+lay, fitted to its column; the share card draws it worn. Its names stand under the board as
+buttons, never on it:
 
 | parameter | Today | detail |
 | --- | --- | --- |
-| board | primary stage and its tiles: the flat lay (section 10); History and onboarding: worn, no piece touching | worn, no piece touching |
+| board | primary stage and its tiles: the flat lay (section 10); History and onboarding: worn, no piece touching | the detail: the flat lay (section 10); the share card: worn, no piece touching |
 | core / solo / rail width cap | 0.235 / 0.300 / 0.260 | × 1.25: 0.294 / 0.375 / 0.325 |
 | top / bottom inset | 0.045 / 0.055, worn boards | 0.045 / 0.055 |
-| fit to the stage | the band: side 24 pt, vertical 52 pt; a tile: side 12 pt, vertical 32 pt; core at most 168 pt on both (section 10) | none |
-| stage height | band: fitted flat lay + 52 pt; tile: fitted flat lay + 32 pt; worn boards: insets + envelope; all 0.66 to 1.14 | insets + envelope, 0.66 to 1.14 |
+| fit to the stage | the band: side 24 pt, vertical 52 pt; a tile: side 12 pt, vertical 32 pt; core at most 168 pt on both (section 10) | the detail: side 12 pt, vertical 32 pt, never larger than the preset draws it (section 10); the share card: none |
+| stage height | band: fitted flat lay + 52 pt; tile: fitted flat lay + 32 pt; worn boards: insets + envelope; all 0.66 to 1.14 | the detail: fitted flat lay + 32 pt; the share card: insets + envelope; both 0.66 to 1.14 |
 | piece shadow | every board | every board |
 
 The insets are the same on both surfaces: neither a worn board's plate nor the detail plate
 holds anything besides the board.
 
-**Today's primary stage and its tiles** take neither preset's placement: they are the flat
-lay of section 10, fitted to the band and to each tile.
+**Today's primary stage, its tiles and the detail** take neither preset's placement: they are
+the flat lay of section 10, fitted to the band, to each tile and to the detail column.
 
 **Piece shadow.** Every piece on every board casts one soft shadow on the plane it lies
 on: its own drawn shape, read from the painting's alpha, blurred and dropped down and
@@ -358,7 +360,7 @@ takes the same light step; the -0.10 dark step remains only for the first-genera
 runway's dark fields. Ink against the shadow at full strength clears 3:1 on every
 atmosphere stage and garment plane in both appearances (lowest 3.13, light
 `fallingNight`). On every worn board each shadow falls on the plate, never on another piece,
-so the pieces read as lying on one surface; on Today's flat lay a piece's shadow also falls on
+so the pieces read as lying on one surface; on the flat lay a piece's shadow also falls on
 the piece it lies over, as on a table. Each shadow is drawn inside its piece's own
 layer, so it rises, travels, grows and pages with its piece in every motion. The ink
 outline, not the shadow, carries each piece's edge, and the shadow reads on every plate in
@@ -387,17 +389,16 @@ edge, not the lowest piece edge.
 Any change to the ladder or the caps in the table above has to be checked against both
 presets.
 
-## 10. Today's flat lay: the primary stage and its tiles
+## 10. The flat lay: Today's primary stage, its tiles and the detail
 
 Today's primary stage is a cornerless band of the condition's tint that reaches both screen
 edges; in the dark appearance it is the condition's light grey plate, edge to edge. The board
 on it is a **flat lay**: the pieces of section 3's worn board, every piece at the worn board's
 size, side by side and crossing as they would on a table. The tiles under it, the alternates,
-More ideas and tomorrow's strip, lay out the same flat lay on their garment plate. The detail,
-History, the share card, onboarding and every other board keep the worn board, piece for
+More ideas and tomorrow's strip, and the detail lay out the same flat lay on their garment
+plate. History, the share card, onboarding and every other board keep the worn board, piece for
 piece. Opening the detail from the band, the pieces leave from exactly what the band drew, at
-the band's size, square and in the flat lay's stacking until they rest, and travel to the worn
-board, apart.
+the band's size, square, and travel to the detail's flat lay in the same stacking.
 
 **One shape for two to five pieces.** The top stands upper left and the bottom beside it,
 lower and to its right, with or without layers; a one-piece takes the top's place. The layers
@@ -459,6 +460,15 @@ tile is the fitted flat lay plus 32 points, within the same clamp, and the tiles
 the tallest, so their names sit on one baseline. On a 164-point alternate the recommender sweep
 draws the top 42 to 102 points wide (median 62) and the tile 108 to 187 points tall (median
 132).
+
+**The detail.** The detail fits the same flat lay to its column as a tile is fitted, 12 points
+off each side and 16 above and below, and never draws it larger than the detail preset draws
+its pieces, so the core is at most 0.294 of the column: 101 points on a 375-point phone's
+343-point column and 109 on a 402-point phone's 370, a wide five-piece look fitted smaller. The
+stage is the fitted flat lay plus 32 points within the same clamp; across the recommender sweep
+it stands 226 to 309 points tall on the 343-point column, most at the clamp's floor. The room
+this leaves beside the pieces is the room an enlarged piece grows into
+([ADR 0026](../adr/0026-the-recommendation-detail-surface.md) section 6).
 
 **What was checked.** The six README boards, the ten evidence slot lists and a summer tee,
 shorts and sneakers, and every outfit the recommender composes across a sweep of temperatures,

@@ -1,11 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { composeGarmentBoard, detailPreset } from './compose-garment-board.ts';
+import { composeFlatLay, fitDetailStage, flatLayPreset } from './compose-flat-lay.ts';
+import { detailPreset, drawnExtent, placeOnRunway } from './compose-garment-board.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
-import { SWAP_GROW_MAX, SWAP_GROW_MIN, SWAP_STEP_BACK, swapScaledBox, swapStripLayout } from './swap-gesture.ts';
+import {
+  SWAP_GROW_MAX,
+  SWAP_GROW_MIN,
+  SWAP_STEP_BACK,
+  swapChevrons,
+  swapScaledBox,
+  swapStripLayout,
+} from './swap-gesture.ts';
 import {
   bandBoxesOnBoard,
+  enlargedComposition,
   enlargementFor,
   enlargementHolds,
   growFor,
@@ -19,9 +28,20 @@ import {
 const WIDTH = 358;
 const OUTLINE = 1.5;
 
-const composition = (pieces) => composeGarmentBoard(pieces.map((piece) => ({
-  ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
-})), detailPreset);
+// The detail board, as `composeDetailBoard` lays it: the flat lay fitted to the column, in
+// stage widths.
+const composition = (pieces, width = WIDTH) => {
+  const result = composeFlatLay(pieces.map((piece) => ({
+    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category, 'womens'),
+  })), detailPreset);
+  const extent = drawnExtent(result.boxes.values());
+  const { scale, height } = fitDetailStage(extent, width, Math.max(...result.core.map((piece) => result.boxes.get(piece).w)));
+  const boxes = new Map(result.order.map((piece) => {
+    const box = placeOnRunway(result.boxes.get(piece), extent, scale, width, height);
+    return [piece, { x: box.x / width, y: box.y / width, w: box.w / width, h: box.h / width }];
+  }));
+  return { order: result.order, stack: result.stack, boxes, stageHeight: height / width };
+};
 const compose = (pieces, fit) => placeComposition(composition(pieces), WIDTH, fit);
 
 const look = [
@@ -116,12 +136,13 @@ test('the pager pages the grown piece in a window its stepped-back neighbours st
   const neighbours = neighbourBoxes({ pieces: look, composed, slot: 'footwear', garmentTypeId: 'sandals', candidates,
     fit: 1 }, compose);
   assert.ok(neighbours[1] && neighbours[-1]);
-  const pager = pagerFor(composed, 'footwear', grow, WIDTH, neighbours, OUTLINE);
+  const enlarged = enlargedComposition(composed, 'footwear', grow, WIDTH);
+  const pager = pagerFor(enlarged, 'footwear', grow, WIDTH, neighbours, OUTLINE);
   assert.ok(pager.strideNext > 0 && pager.stridePrevious > 0);
   assert.ok(pager.window.x >= 0 && pager.window.x + pager.window.w <= WIDTH + 1e-9);
   assert.ok(insideBox(pager.window, pager.grown.x + pager.grown.w / 2, pager.grown.y + pager.grown.h / 2));
   for (const slot of ['primary_top', 'bottom']) {
-    const back = swapScaledBox(composed.bySlot.get(slot).box, SWAP_STEP_BACK);
+    const back = swapScaledBox(enlarged.bySlot.get(slot).box, SWAP_STEP_BACK);
     assert.equal(insideBox(pager.zone, back.x + back.w / 2, back.y + back.h / 2), false);
   }
   assert.equal(pagerFor(composed, 'outer_layer', grow, WIDTH, neighbours, OUTLINE), null);
@@ -141,3 +162,67 @@ test('the first and last candidates have no neighbour beyond them', () => {
     fit: 1 }, compose);
   assert.deepEqual(unknown, { 1: null, [-1]: null });
 });
+
+// The detail board lies flat (ADR 0026 section 6): an enlarged piece grows about its centre and
+// the others step back to 0.9 beside it, never under it. Each case enlarges one slot of a real
+// outfit, with a few of the slot's candidates, on the columns of 375- and 402-point phones.
+const apart = (a, b, gap) => a.x >= b.x + b.w + gap || b.x >= a.x + a.w + gap || a.y >= b.y + b.h + gap || b.y >= a.y + a.h + gap;
+const of = (slot, garmentTypeId, category) => ({ slot, garmentTypeId, category });
+const shirtLook = [of('primary_top', 'shirt', 'top'), of('bottom', 'trousers', 'bottom'), of('footwear', 'loafers', 'footwear')];
+const layered = [of('primary_top', 'long_sleeve_t_shirt', 'top'), of('bottom', 'jeans', 'bottom'),
+  of('mid_layer', 'sweater', 'top'), of('outer_layer', 'trench_coat', 'outerwear'), of('footwear', 'ankle_boots', 'footwear')];
+const dressed = [of('one_piece', 'dress', 'one_piece'), of('outer_layer', 'rain_jacket', 'outerwear'), of('footwear', 'sandals', 'footwear')];
+const cases = [
+  ['an enlarged top', shirtLook, 'primary_top', [['t_shirt', 'top'], ['shirt', 'top'], ['sweater', 'top'], ['polo_shirt', 'top']], ['bottom']],
+  ['an enlarged top between its layers and bottom', layered, 'primary_top', [['long_sleeve_t_shirt', 'top'], ['shirt', 'top'], ['t_shirt', 'top']], ['bottom']],
+  ['an enlarged bottom', shirtLook, 'bottom', [['jeans', 'bottom'], ['trousers', 'bottom'], ['skirt', 'bottom'], ['shorts', 'bottom']], []],
+  ['an enlarged outer layer', layered, 'outer_layer', [['coat', 'outerwear'], ['trench_coat', 'outerwear'], ['rain_jacket', 'outerwear']], ['primary_top', 'bottom']],
+  ['an enlarged one-piece', dressed, 'one_piece', [['dress', 'one_piece'], ['jumpsuit', 'one_piece'], ['knit_dress', 'one_piece']], []],
+];
+for (const width of [343, 370]) {
+  const composeAt = (pieces, fit) => placeComposition(composition(pieces, width), width, fit);
+  for (const [name, look, slot, types, toRight] of cases) {
+    test(`on a ${width}-point column, ${name} grows in place and the others step back beside it`, () => {
+      const order = types.map(([garmentTypeId, category]) => ({ garmentTypeId, category, suitable: true }));
+      const rest = composeAt(look, 1);
+      const enlargement = enlargementFor({ pieces: look, slot, order, rest, width, large: false, panel: 200, visible: 0,
+        keptHeld: 0 }, composeAt);
+      assert.ok(enlargement.scale >= SWAP_GROW_MIN && enlargement.scale <= SWAP_GROW_MAX);
+      assert.ok(enlargement.fit >= 1 / SWAP_GROW_MIN && enlargement.fit <= 1);
+      const composed = enlargement.fit < 1 ? composeAt(look, enlargement.fit) : rest;
+      const grow = { ...enlargement, held: Math.max(enlargement.held, composed.height) };
+      const shown = enlargedComposition(composed, slot, grow, width);
+      const garmentTypeId = look.find((piece) => piece.slot === slot).garmentTypeId;
+      const candidates = { [slot]: order };
+      const pager = pagerFor(shown, slot, grow, width, neighbourBoxes({ pieces: look, composed: shown, slot, garmentTypeId,
+        candidates, fit: enlargement.fit }, composeAt), OUTLINE);
+      const { grown, window } = pager;
+      // Never drawn under its resting size, and wholly on the held stage.
+      assert.ok(grown.w >= rest.bySlot.get(slot).box.w - 1e-9, `${grown.w}`);
+      assert.ok(grown.x >= 0 && grown.x + grown.w <= width + 1e-9 && grown.y >= 0 && grown.y + grown.h <= grow.held + 1e-9);
+      const side = flatLayPreset.tile.side;
+      for (const other of shown.order.filter((entry) => entry !== slot)) {
+        const back = swapScaledBox(shown.bySlot.get(other).box, SWAP_STEP_BACK);
+        // Clear of the enlarged piece, never under it, and inside the board's margins.
+        assert.ok(apart(grown, back, 8 - 1e-9), `${other} under ${slot}`);
+        assert.ok(back.x >= side - 1e-9 && back.x + back.w <= width - side + 1e-9, `${other} off the stage`);
+        // The paging window never reaches a piece standing wholly to one side.
+        if (back.x + back.w <= grown.x || back.x >= grown.x + grown.w) assert.ok(apart(window, back, 0), `${other} in the window`);
+        if (toRight.includes(other)) assert.ok(back.x >= grown.x + grown.w, `${other} beside ${slot}`);
+      }
+      // The 44-point chevrons stand on the stage, each on its side of the enlarged piece, and cover no piece.
+      const backs = shown.order.filter((entry) => entry !== slot)
+        .map((other) => swapScaledBox(shown.bySlot.get(other).box, SWAP_STEP_BACK));
+      {
+        const size = 44;
+        const chevrons = swapChevrons(grown, backs, width, grow.held, size);
+        for (const [side, spot] of Object.entries(chevrons)) {
+          const box = { ...spot, w: size, h: size };
+          assert.ok(box.x >= 0 && box.x + size <= width + 1e-9 && box.y >= 0 && box.y + size <= grow.held + 1e-9, side);
+          for (const piece of [grown, ...backs]) assert.ok(apart(box, piece, 0), `${side} chevron covers a piece`);
+        }
+        assert.ok(chevrons.previous.x + size / 2 < grown.x + grown.w / 2 && chevrons.next.x + size / 2 > grown.x + grown.w / 2);
+      }
+    });
+  }
+}

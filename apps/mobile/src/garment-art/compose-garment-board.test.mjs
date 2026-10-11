@@ -168,7 +168,7 @@ test('layout does not mutate artwork or depend on the input ordering', () => {
   assert.deepEqual(first, reversed);
 });
 
-// ADR 0026 section 3: the detail draws the worn board at the runway preset's largest scale, so
+// ADR 0026 section 1: the detail preset is the worn board at the runway preset's largest scale, so
 // every piece keeps its place relative to the others and only grows.
 for (const [name, slots] of evidence) {
   test(`detail: ${name} is the worn board at the runway's largest scale`, () => {
@@ -351,9 +351,9 @@ test('the boards without Easier to see keep their exact layouts', () => {
   assert.equal(digest, '571f6174ff423f59fb9a481d982b4b197b1562dda4dfb13c436676eb377287bb');
 });
 
-// Only Today's primary stage and its tiles take the flat lay. Every worn board, the plain and
-// Easier to see presets of History and the detail, and the runway's fitted board, keeps its
-// exact layout.
+// Today's primary stage, its tiles and the detail take the flat lay. Every worn board, the plain
+// and Easier to see presets of History and the share card, and the runway's fitted board, keeps
+// its exact layout.
 test('every worn board keeps its exact layout', () => {
   const presets = [
     ['today', todayPreset], ['detail', detailPreset],

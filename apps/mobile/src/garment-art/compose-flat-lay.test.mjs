@@ -6,13 +6,21 @@ import { outfitGarments } from '../features/recommendation/domain/manual-mix.ts'
 import { getGarmentType } from '../features/catalog/domain/garment-catalog.ts';
 import {
   composeGarmentBoard,
+  detailPreset,
   drawnExtent,
   easierToSeeRule,
   garmentShadowRule,
   placeOnRunway,
   todayPreset,
 } from './compose-garment-board.ts';
-import { composeFlatLay, fitTodayStage, flatLayPreset, flatLayStack, structurePoints } from './compose-flat-lay.ts';
+import {
+  composeFlatLay,
+  fitDetailStage,
+  fitTodayStage,
+  flatLayPreset,
+  flatLayStack,
+  structurePoints,
+} from './compose-flat-lay.ts';
 import { spacing } from '../theme/theme.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
 
@@ -285,4 +293,45 @@ test('Today\'s tiles fit the flat lay inside margins on the spacing ladder', () 
   const tile = fitted(result, 164, false, flatLayPreset.tile);
   assert.ok(Math.abs(tile.height - Math.max(todayPreset.stageMin * 164, extent.h * tile.scale + flatLayPreset.tile.vertical)) < 1e-9);
   assert.ok(Math.abs(extent.w * tile.scale - (164 - 2 * flatLayPreset.tile.side)) < 1e-9, String(tile.scale));
+});
+
+// The detail board (ADR 0026 section 1) is the same flat lay on the detail column: a tile's
+// margins, and no piece drawn larger than the detail preset draws it, so an enlarged piece has
+// room to grow beside the others. 343 and 370 are the columns of 375- and 402-point phones.
+test('the detail lays Today\'s flat lay on its column, no piece larger than the detail preset draws it', () => {
+  const normalised = (result) => {
+    const extent = drawnExtent(result.boxes.values());
+    return result.order.map((piece) => {
+      const box = result.boxes.get(piece);
+      return [piece.slot, (box.x - extent.x) / extent.w, (box.y - extent.y) / extent.w, box.w / extent.w, box.h / extent.w];
+    });
+  };
+  const rules = [['plain', detailPreset, todayPreset], ['Easier to see', easierToSeeRule(detailPreset, 1.3, 0.05), null]];
+  for (const [ruleName, rule, today] of rules) {
+    for (const [name, slots] of boards) {
+      const pieces = piecesOf(slots);
+      const result = composeFlatLay(pieces, rule);
+      // Today's shape: the same crossings, only drawn at another scale. Easier to see's larger caps
+      // bind the worn board's rail cap differently on the two presets, so only its plain board is compared.
+      const shape = normalised(result);
+      if (today) normalised(composeFlatLay(pieces, today)).forEach((entry, index) => entry.forEach((value, at) => {
+        if (at === 0) assert.equal(value, shape[index][0]);
+        else assert.ok(Math.abs(value - shape[index][at]) < 1e-9, `${ruleName} ${name}: ${entry[0]}`);
+      }));
+      const extent = drawnExtent(result.boxes.values());
+      const core = Math.max(...result.core.map((piece) => result.boxes.get(piece).w));
+      for (const column of [343, 370]) {
+        const { scale, height } = fitDetailStage(extent, column, core);
+        assert.ok(scale <= column + 1e-9, `${ruleName} ${name} at ${column}: ${scale}`);
+        const { side, vertical } = flatLayPreset.tile;
+        assert.ok(extent.w * scale <= column - 2 * side + 1e-9 && extent.h * scale <= height - vertical + 1e-9, `${name}`);
+        assert.ok(height >= todayPreset.stageMin * column - 1e-9 && height <= todayPreset.stageMax * column + 1e-9);
+      }
+    }
+  }
+  // Where the column has room, the core stands at the detail preset's cap.
+  const pair = composeFlatLay(piecesOf(boards[7][1]), detailPreset);
+  const core = Math.max(...pair.core.map((piece) => pair.boxes.get(piece).w));
+  const { scale } = fitDetailStage(drawnExtent(pair.boxes.values()), 343, core);
+  assert.ok(Math.abs(core * scale - detailPreset.coreCap * 343) < 1e-9, String(core * scale));
 });

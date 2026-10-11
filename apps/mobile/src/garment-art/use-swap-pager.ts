@@ -5,10 +5,11 @@ import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composi
 import { easierToSee as easierToSeeValues } from '@/theme/easier-to-see';
 import { layout } from '@/theme/theme';
 
-import { composePieces, type GarmentBoardPiece } from './garment-board';
+import { composeDetailBoard, type GarmentBoardPiece } from './garment-board';
 import { useGarmentCut } from './garment-cut';
 import { swapPanelHeight, swapStripLayout, type SwapPanelSections } from './swap-gesture';
 import {
+  enlargedComposition,
   enlargementFor,
   enlargementHolds,
   neighbourBoxes,
@@ -39,12 +40,15 @@ export function useSwapPager({
   visibleHeight: number;
   /** The outline drawn round each piece, which the paging window keeps inside it. */
   outline: number;
-  /** How many colour swatches and own pieces a slot's strip holds room for. */
-  sectionsOf: (slot: OutfitSlot) => Pick<SwapPanelSections, 'colors' | 'own'>;
+  /**
+   * How many colour swatches and own pieces a slot's strip holds room for: as it is, or with
+   * `opened` false as it opens, before "More colours".
+   */
+  sectionsOf: (slot: OutfitSlot, opened?: boolean) => Pick<SwapPanelSections, 'colors' | 'own'>;
 }>) {
   const cut = useGarmentCut();
-  const compose: Composer = (next, nextFit) => placeComposition(composePieces(next, 'detail', cut, large), width, nextFit);
-  const rest = useMemo(() => (width > 0 ? placeComposition(composePieces(pieces, 'detail', cut, large), width) : null),
+  const compose: Composer = (next, nextFit) => placeComposition(composeDetailBoard(next, width, cut, large), width, nextFit);
+  const rest = useMemo(() => (width > 0 ? placeComposition(composeDetailBoard(pieces, width, cut, large), width) : null),
     [cut, large, pieces, width]);
 
   // The strip's header before it has measured itself: Done's height.
@@ -58,10 +62,10 @@ export function useSwapPager({
     const order = stripCandidates(slot);
     return swapStripLayout(order.length, order.filter(({ suitable }) => suitable).length, width);
   };
-  const panelHeightOf = (slot: OutfitSlot) => {
+  const panelHeightOf = (slot: OutfitSlot, opened?: boolean) => {
     const order = stripCandidates(slot);
     return swapPanelHeight(headerHeight, {
-      ...sectionsOf(slot),
+      ...sectionsOf(slot, opened),
       ownLabel: ownLabelHeight,
       candidates: order.length,
       suitable: order.filter(({ suitable }) => suitable).length,
@@ -76,12 +80,15 @@ export function useSwapPager({
 
   // One enlargement's grow scale and held stage; the stage never shrinks while the
   // enlargement moves between slots. Where the stage and the strip would not fit the visible
-  // height, the whole board composes just narrow enough while the piece is enlarged.
+  // height, or the stepped-back pieces beside the grown one the board's width, the whole board
+  // composes just narrow enough while the piece is enlarged.
   const [panels, setPanels] = useState<SwapPanels>({ focus: null, current: null, leaving: null });
   const [grow, setGrow] = useState<Enlargement | null>(null);
   let enlargement: Enlargement | null = null;
   if (focusedSlot && rest && rest.bySlot.has(focusedSlot)) {
-    const panel = panelHeightOf(focusedSlot);
+    // The board fits the strip as it opens: "More colours" lets the page scroll instead of
+    // narrowing or moving the board under the finger.
+    const panel = panelHeightOf(focusedSlot, false);
     if (grow && enlargementHolds(grow, { slot: focusedSlot, width, large, panel, visible: visibleHeight })) {
       enlargement = grow;
     } else {
@@ -93,11 +100,14 @@ export function useSwapPager({
     }
   }
   const fit = enlargement?.fit ?? 1;
-  const composed = useMemo(() => (width > 0 && fit < 1
-    ? placeComposition(composePieces(pieces, 'detail', cut, large), width, fit) : rest),
+  const narrowed = useMemo(() => (width > 0 && fit < 1
+    ? placeComposition(composeDetailBoard(pieces, width, cut, large), width, fit) : rest),
     [cut, fit, large, pieces, rest, width]);
-  const activeGrow = enlargement && composed
-    ? { ...enlargement, held: Math.max(enlargement.held, composed.height) } : null;
+  const activeGrow = enlargement && narrowed
+    ? { ...enlargement, held: Math.max(enlargement.held, narrowed.height) } : null;
+  // While a piece is enlarged the others stand stepped aside beside it.
+  const composed = focusedSlot && narrowed && activeGrow
+    ? enlargedComposition(narrowed, focusedSlot, activeGrow, width) : narrowed;
   const pager = focusedSlot && composed && activeGrow
     ? pagerFor(composed, focusedSlot, activeGrow, width, neighbourBoxes({
       pieces, composed, slot: focusedSlot, garmentTypeId: composed.bySlot.get(focusedSlot)?.piece.garmentTypeId,
