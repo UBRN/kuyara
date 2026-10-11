@@ -695,7 +695,7 @@ export function OutfitDetailScreen({
           />
           {/* The worn moment's stitch and burst, once per recorded save, over the board's drawing
               only: the name buttons under it stay clear. */}
-          <View pointerEvents="none" style={[styles.celebration, { height: boardLayout.height }]}
+          <View pointerEvents="none" style={[styles.celebration, { height: boardHeight }]}
             testID="outfit-detail-celebration-area">
             <Celebration
               colors={[...pieceRoles.values()].map(({ main }) => main)}
