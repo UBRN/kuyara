@@ -169,7 +169,7 @@ never by text, a filled control, a border or chrome, and never through alpha.
 
 Garment colour is a content encoding and does not spend the accent budget. Every garment is
 drawn in the colours it really comes in: each drawing has a closed colourway from the Phase 6
-library of 31 colours and a few fixed materials (soles, bands, handles, hardware). The day
+library of 33 colours and a few fixed materials (soles, bands, handles, hardware). The day
 picks a mood from its weather and dressing-day half (light, mild, wet, cold or evening), and
 an outfit takes at most one accent piece, placed by the mood and the day type; every other
 piece is a neutral from its own colourway, with enough lightness between neighbouring pieces

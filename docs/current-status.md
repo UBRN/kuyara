@@ -78,8 +78,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   forecast line and a small board; the next morning's approved generation saves that selection instead of asking the
   AI again when its question is unchanged. A morning or evening answer dims the
   outfit under an "Updating for a … day" line until the new one lands. The AI badge sits
-  below with its own symbol (multicolor Apple Intelligence on a neutral, `sparkles` in the
-  purple family for the Worker), the archetype is a small label, the finishing touches are a
+  below with its own symbol (multicolor Apple Intelligence on a neutral, `sparkles` in
+  violet, fuchsia and gold for the Worker), the archetype is a small label, the finishing touches are a
   caption with 16-point drawings whose stroke scales with them, and outfit reasons appear only on
   detail, whose weather recap carries the coverage sentence. The hours
   from 18:00 are called the evening rather than the night, and every
@@ -98,8 +98,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   [ADR 0032](adr/0032-local-weather-alert-rules.md)): the deterministic
   precipitation-onset and temperature-swing weather alerts, and a morning briefing at
   07:00 local telling tomorrow's whole day (its range and its one decision-changing event, by the Weather outlook's rule). Each has its own opt-in, its
-  own row on the Settings Notifications surface, and its own schema-version-15 profile
-  flag; they share the delivery ledger, the rescheduling on every persisted snapshot and
+  own row on the Settings Notifications surface, and its own profile
+  flag (schema versions 6 and 15); they share the delivery ledger, the rescheduling on every persisted snapshot and
   on opt-in, permission and language changes, and the best-effort `expo-background-task`
   refresh. The briefing is planned only from a fresh snapshot whose hourly window reaches
   tomorrow's 07:00 hour and is silently skipped otherwise; it composes no recommendation.
@@ -117,7 +117,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   approved event is emittable except `error_shown` on the `settings` surface, which has
   no failure classification to observe yet. The account events (`account_sign_in_finished`,
   `account_sync_finished`, `account_deleted`, `account_signed_out`) report outcomes with closed
-  values and never link PostHog to an account. On main for the build after 20, outfit detail
+  values and never link PostHog to an account. Since build 24, outfit detail
   asks "Do you like this outfit?" under "Wore this today" while sharing is on, for the three
   recommended outfits as kuyara picked them: two thumbs, and four optional reasons after a
   dislike, reported as `outfit_rated` and `outfit_rating_reason_given` and kept only while the
@@ -151,8 +151,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   spring where garment pieces land on a board, and an ambient tempo taken from the
   condition's intensity.
 - **Builds:** iOS is the first release target. EAS production credentials and an App Store
-  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 19 (`0.1.20261005`)
-  is on the App Store, and builds 15 and 19 each have a production EAS Update (see Release State below);
+  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 24 (`0.1.20261009`)
+  is on the App Store, and builds 15, 19, 20 and 24 each have a production EAS Update (see Release State below);
   the `production` profile points at the deployed Worker, and the development client
   builds locally ([Development build on the physical
   iPhone](testing.md#development-build-on-the-physical-iphone)). The version scheme and
@@ -241,7 +241,7 @@ The approved phase order, active work and remaining open items are in [the roadm
   link cannot be proven there. A real capture, Retake, the Settings link and the captured
   photo's orientation after processing need a physical iPhone.
 - **N2's background execution and notification delivery remain unverified on a device.**
-  The focused notification checks pass: 72 Node tests and 41 component tests. On the
+  The focused notification checks pass. On the
   iPhone 14 Pro running iOS 27, both notification opt-ins and Background App Refresh are
   enabled. Build 13 records the morning briefing for 07:00 Türkiye time in SQLite, and
   the database passes `quick_check`. This proves the app's accepted scheduling record,
