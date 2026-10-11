@@ -269,6 +269,16 @@ test('an explicit refresh re-initializes a controller whose bootstrap failed', a
   assert.equal(harness.calls.provider, 1);
 });
 
+test('a foreground retries a failed bootstrap once', async () => {
+  const harness = createHarness({ active: getManualLocation('sample.istanbul'), repositoryLoadFailures: 1 });
+  await harness.controller.initialize();
+  assert.equal(harness.controller.getSnapshot().status, 'error');
+  await harness.controller.onForeground();
+  await settle();
+  assert.equal(harness.controller.getSnapshot().status, 'ready');
+  assert.equal(harness.calls.provider, 1);
+});
+
 test('weather bootstrap degrades missing production configuration to retryable unavailable state', async () => {
   const configuredUrl = process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL;
   const isDevelopment = globalThis.__DEV__;

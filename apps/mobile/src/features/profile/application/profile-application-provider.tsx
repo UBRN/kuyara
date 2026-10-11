@@ -5,6 +5,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from 'react';
+import { AppState } from 'react-native';
 
 import { followWritesWhileAccountsOpen } from '@/features/account/application/account-pulled-writes';
 import { ProfileApplicationController } from '@/features/profile/application/profile-application-controller';
@@ -37,6 +38,15 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     void controller.initialize();
+  }, [controller]);
+  // A bootstrap failure from a background launch retries once per return to the foreground.
+  useEffect(() => {
+    let previous = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active' && previous !== 'active') void controller.onForeground();
+      previous = next;
+    });
+    return () => subscription.remove();
   }, [controller]);
   // The account's name, gender, dress style and styles a sync pull lands show without a restart.
   useEffect(() => followWritesWhileAccountsOpen(() => void controller.reload()), [controller]);

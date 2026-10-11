@@ -113,6 +113,11 @@ export class ProfileApplicationController {
     return this.initialize();
   }
 
+  /** A start that failed while the app was in the background is tried again on the next foreground. */
+  onForeground(): Promise<void> {
+    return this.state.status === 'error' ? this.retry() : Promise.resolve();
+  }
+
   /**
    * Reads the profile again after a write this controller did not make, such as a sync pull
    * landing the account's display name, gender, dress style or style aesthetics (ADR 0041

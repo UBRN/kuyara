@@ -769,6 +769,36 @@ test('application controller retry reaches ready and coalesces a concurrent retr
   assert.equal(controller.getSnapshot().status, 'ready');
 });
 
+test('a foreground retries a failed start once and leaves a loaded profile alone', async (t) => {
+  const originalConsoleError = console.error;
+  console.error = () => undefined;
+  t.after(() => { console.error = originalConsoleError; });
+
+  let attempt = 0;
+  const profile = {
+    id: 'profile-id', gender: 'woman', dressStyle: 'smart', birthDate: null,
+    languagePreference: 'system', themePreference: 'system', onboardingCompleted: true,
+    notificationsOptIn: false, analyticsConsent: 'undecided', createdAt, updatedAt: createdAt,
+  };
+  const controller = new ProfileApplicationController(async () => ({
+    getOrCreateProfile: async () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error('profile unavailable');
+      return profile;
+    },
+  }));
+
+  await controller.onForeground();
+  assert.equal(controller.getSnapshot().status, 'loading');
+  await controller.initialize();
+  assert.equal(controller.getSnapshot().status, 'error');
+  await controller.onForeground();
+  assert.equal(controller.getSnapshot().status, 'ready');
+  assert.equal(attempt, 2);
+  await controller.onForeground();
+  assert.equal(attempt, 2);
+});
+
 test('application controller serializes distinct concurrent updates without dropping successors', async () => {
   let profile = {
     id: 'profile-id',

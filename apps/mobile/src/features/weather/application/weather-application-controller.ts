@@ -289,6 +289,8 @@ export class WeatherApplicationController {
   }
 
   async onForeground(): Promise<void> {
+    // A start that failed while the app was in the background is tried again here.
+    if (this.state.status === 'error') return this.retry();
     if (this.state.status !== 'ready') return;
     const permission = await this.dependencies.deviceLocation.getPermissionState();
     // Read after the permission: a pick made meanwhile has already ended the trip and wins.

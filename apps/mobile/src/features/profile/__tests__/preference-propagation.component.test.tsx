@@ -2,7 +2,7 @@ import { act, fireEvent, render, waitFor, within } from '@testing-library/react-
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Linking, Share, StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, AppState, Linking, Share, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
@@ -18,6 +18,7 @@ import { ProductAnalyticsProvider } from '@/features/analytics/application/produ
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { useProfileApplication } from '@/features/profile/application/profile-context';
 import type { DressStyle, Gender, StyleAesthetic } from '@/features/profile/domain/profile';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
@@ -69,11 +70,18 @@ let mockProfile = createProfile();
 let mockUpdateFailure:
   'appearance' | 'dress-style' | 'gender' | 'language' | 'style-aesthetics' | null = null;
 let mockStyleSaveCalls = 0;
+let mockProfileLoadFailures = 0;
 let mockStyleSaveBarrier: Promise<void> | null = null;
 
 jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
   SqliteProfileLocalDataSource: class {
-    getOrCreateProfile = async () => mockProfile;
+    getOrCreateProfile = async () => {
+      if (mockProfileLoadFailures > 0) {
+        mockProfileLoadFailures -= 1;
+        throw new Error('profile unavailable');
+      }
+      return mockProfile;
+    };
 
     updateLanguagePreference = async (languagePreference: LanguagePreference) => {
       if (mockUpdateFailure === 'language') throw new Error('save failed');
@@ -504,6 +512,38 @@ test('saving the same styles or the same name again reports nothing', async () =
   await fireEvent.press(result.getByTestId('settings-style-done'));
   await waitFor(() => expect(analytics.captures).toHaveLength(1));
   expect(analytics.captures[0].properties).toEqual({ schema_version: 4, setting_name: 'style_aesthetics' });
+});
+
+// A start that failed while iOS had the app in the background retries once when it returns.
+test('a bootstrap failure retries once when the app returns to the foreground', async () => {
+  mockProfile = createProfile();
+  mockProfileLoadFailures = 1;
+  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  const onChange: ((state: string) => void)[] = [];
+  const subscription = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const previousState = AppState.currentState;
+  AppState.currentState = 'background';
+  function Status() {
+    return <Text testID="profile-status">{useProfileApplication().state.status}</Text>;
+  }
+  try {
+    const view = await render(<ProfileApplicationProvider><Status /></ProfileApplicationProvider>);
+    await waitFor(() => expect(view.getByTestId('profile-status')).toHaveTextContent('error'));
+    await act(async () => { onChange.forEach((listener) => listener('inactive')); });
+    expect(view.getByTestId('profile-status')).toHaveTextContent('error');
+    await act(async () => { onChange.forEach((listener) => listener('active')); });
+    await waitFor(() => expect(view.getByTestId('profile-status')).toHaveTextContent('ready'));
+    view.unmount();
+  } finally {
+    AppState.currentState = previousState;
+    // The preset's mock has no implementation once restored, and later providers subscribe.
+    subscription.mockImplementation(() => ({ remove: jest.fn() }) as never);
+    consoleError.mockRestore();
+    mockProfileLoadFailures = 0;
+  }
 });
 
 test('a quick double tap on a Settings row opens its screen once', async () => {
