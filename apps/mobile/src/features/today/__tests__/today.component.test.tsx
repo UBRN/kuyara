@@ -2136,7 +2136,7 @@ test('refreshing, failure and staleness announce freshness while retaining the l
         snapshot: { ...todayScreenState.snapshot, freshness: stale ? 'stale' : 'fresh' } }} />,
   );
   const result = await render(screen(true, false));
-  expect(result.getByTestId('today-freshness')).toHaveTextContent('Refreshing today’s guidance…');
+  expect(result.getByTestId('today-freshness')).toHaveTextContent('Refreshing today’s outfit…');
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   // A refresh nobody pulled is told by the line alone; the control spins only for a pull.
   expect(result.getByTestId('today-screen').props.refreshControl.props.refreshing).toBe(false);

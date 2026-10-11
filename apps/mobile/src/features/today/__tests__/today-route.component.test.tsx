@@ -3308,7 +3308,7 @@ test('an evening Later choice explains its departure and ready times on Today', 
       </Providers>,
     );
     expect(view.getByTestId('today-later-ready')).toHaveTextContent(
-      'Your 22:00 outfit is ready at 21:00');
+      'Your outfit for 22:00 will be ready at 21:00');
   } finally {
     jest.useRealTimers();
   }

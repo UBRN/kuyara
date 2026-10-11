@@ -173,7 +173,7 @@ const EVERYONE_ASKS = 5;
 const MEMBER_ASKS = 10;
 
 /**
- * "More stylist asks": Today's board answers again and again, and with each answer one more
+ * "Ask the stylist more often": Today's board answers again and again, and with each answer one more
  * of the member's ten marks fills and the count rolls past the five everyone has.
  */
 function StylistScene({ active, width, height }: IntroSceneProps) {
