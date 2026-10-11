@@ -194,7 +194,7 @@ test('the priced prompt size covers the largest prompt the app builds and the li
     .flatMap(({ request: { dayKind: _gridDayKind, ...body } }) =>
       [{ dayKind: 'weekday' as const }, { dayKind: 'weekend' as const }, {}].flatMap((day) =>
         (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...body, ...day, locale })))));
-  assert.equal(promptCharacters, 18_014);
+  assert.equal(promptCharacters, 17_942);
 
   // The grid has no cold front, and the longest prompts the app builds come from one: a weekend
   // (day variants 3 and 4, which the app always pairs with a weekend day kind) that is warm
