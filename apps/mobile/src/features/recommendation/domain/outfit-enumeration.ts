@@ -224,9 +224,9 @@ function failureResult(
  * dry, so a hot thunderstorm keeps its rain boots and hot plain rain wears sandals or sneakers;
  * on a day that asks for no warmth at all nothing high-thermal is worn either. On a day whose
  * insulation is mandatory no summer piece (sleeveless top, shorts, sandals) is worn, and on a day
- * whose body must stay dry no sandals are worn unless the heat is mandatory: the day's rotation
- * and the trio choice reach past its single best answer, and that band held sandals with a
- * sweater under a rain jacket. Accessories are attached after composition and never read these
+ * whose body must stay dry no sandals are worn below the 23 C rung that asks for breathability,
+ * so warm light rain keeps them: the day's rotation and the trio choice reach past its single
+ * best answer, and that band held sandals with a sweater under a rain jacket. Accessories are attached after composition and never read these
  * rules.
  */
 function seasonRulesOf(requirements: BodyClothingRequirements): Readonly<{
@@ -240,6 +240,7 @@ function seasonRulesOf(requirements: BodyClothingRequirements): Readonly<{
   const heatMandatory = mandatory('breathability');
   const warmthMandatory = mandatory('thermal');
   const asksWarmth = requirements.requirements.some(({ kind }) => kind === 'thermal');
+  const asksBreathing = requirements.requirements.some(({ kind }) => kind === 'breathability');
   const feetMustStayDry = mandatory('water_protection', 'feet');
   const bodyMustStayDry = mandatory('water_protection', 'body');
   return {
@@ -249,7 +250,7 @@ function seasonRulesOf(requirements: BodyClothingRequirements): Readonly<{
       !((thermalLevel === 'high' && (heatMandatory || !asksWarmth)) ||
         (heatMandatory && !feetMustStayDry && category === 'footwear' && thermalLevel === 'moderate') ||
         (isSummerPiece(garmentTypeId) && warmthMandatory) ||
-        (garmentTypeId === 'sandals' && bodyMustStayDry && !heatMandatory)),
+        (garmentTypeId === 'sandals' && bodyMustStayDry && !asksBreathing)),
   };
 }
 

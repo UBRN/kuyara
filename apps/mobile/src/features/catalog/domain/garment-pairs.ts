@@ -35,7 +35,7 @@ export function isIncompatibleGarmentPair(left: GarmentTypeId, right: GarmentTyp
   return incompatiblePairs.has(pairKey(left, right));
 }
 
-/** Whether a garment type is a summer piece, worn only on a day that is not cool or, for sandals, wet. */
+/** Whether a garment type is a summer piece, worn only on a day whose insulation is not mandatory. */
 export function isSummerPiece(garmentTypeId: GarmentTypeId): boolean {
   return (summerPieces as readonly GarmentTypeId[]).includes(garmentTypeId);
 }
