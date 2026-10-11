@@ -136,7 +136,7 @@ jest.mock('@/components/ui/native-menu', () => {
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
-let mockParams: { id?: string; day?: string } = {};
+let mockParams: { id?: string; day?: string; from?: string } = {};
 
 const mockStackScreen = jest.fn();
 const mockDispatch = jest.fn();
@@ -4202,6 +4202,46 @@ test('wore this today records each look of the day beside the earlier ones', asy
   alert.mockRestore();
 });
 
+// ADR 0020's moment: a recorded "Wore this today" draws the stitch once around the plate and
+// throws one burst of small garment shapes in the outfit's own colours over the board. It is
+// decorative and lets every touch through; the words say the look is saved and stays on Today.
+test('a recorded look celebrates once over the board and says it stays on Today', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    day: jest.fn(async () => []),
+    log: jest.fn(async (_day: string, outfit: WornOutfit) => ({ outfit }) as never),
+  };
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const result = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendationReady()} wardrobe={wardrobeValue()} weather={weatherValue()}
+      dressingDayKey="2026-08-13" outfitHistory={outfitHistory}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  const hidden = { includeHiddenElements: true };
+  const copy = messages.en.today.wornLook;
+  await waitFor(() => expect(outfitHistory.day).toHaveBeenCalled());
+  expect(result.queryByTestId('outfit-detail-celebration', hidden)).toBeNull();
+  expect(result.queryByTestId('outfit-detail-worn-stays')).toBeNull();
+
+  await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
+  const burst = await result.findByTestId('outfit-detail-celebration', hidden);
+  expect(burst).toHaveProp('pointerEvents', 'none');
+  expect(burst).toHaveProp('accessibilityElementsHidden', true);
+  await fireEvent(burst, 'layout', { nativeEvent: { layout: { width: 358, height: 420, x: 0, y: 0 } } });
+  const pieces = within(burst).getAllByTestId(/^celebration-piece-/, hidden);
+  expect(pieces.length).toBeGreaterThanOrEqual(18);
+  expect(pieces.length).toBeLessThanOrEqual(24);
+  expect(within(burst).getByTestId('celebration-stitch', hidden)).toBeOnTheScreen();
+  expect(result.getByTestId('outfit-detail-worn-stays')).toHaveTextContent(copy.staysUntilTomorrow);
+  expect(announce).toHaveBeenCalledWith(copy.savedAnnouncement);
+  // One burst per save: it leaves once it has played.
+  await waitFor(() => expect(result.queryByTestId('outfit-detail-celebration', hidden)).toBeNull(), { timeout: 3000 });
+  announce.mockRestore();
+});
+
 // An outfit from Today's "More ideas" opens on the ordinary detail as kuyara's on-device outfit:
 // the pool the controller composed, never composed again, recorded as recommended, and with no
 // detail-opened event, which names a place among the three.
@@ -4969,8 +5009,8 @@ describe('compose around chosen pieces on detail', () => {
   });
 });
 
-// ADR 0026 section 7: only an outfit opened from Today's primary board leaves from the band
-// the band drew; the Tomorrow strip and the other tiles open from Today's fitted stage, with
+// ADR 0026 section 7: only an outfit opened from Today's band (kuyara's pick, or the look worn
+// today) leaves from the band the band drew; the Tomorrow strip and the other tiles open from Today's fitted stage, with
 // its corners, because the band never drew their outfit.
 test.each(['primary', 'tomorrow', 'idea'] as const)('the %s opening starts its entrance where Today drew it', async (opening) => {
   if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
@@ -4979,7 +5019,7 @@ test.each(['primary', 'tomorrow', 'idea'] as const)('the %s opening starts its e
   const saved = recommendationReady({ pool: pool.outfits });
   if (saved.status !== 'ready' || !saved.snapshot) throw new Error('fixture');
   const shown = new Set(todayRecommendation.outfits.map(({ optionId }) => optionId));
-  mockParams = opening === 'primary' ? { id: todayOutfitId(1) }
+  mockParams = opening === 'primary' ? { id: todayOutfitId(1), from: 'band' }
     : opening === 'tomorrow' ? { id: todayOutfitId(1), day: 'tomorrow' }
       : { id: outfitOptionId(pool.outfits.find((outfit) => !shown.has(outfitOptionId(outfit)))!) };
   const preview = { ...saved.snapshot, id: 'preview-one', localDayKey: '2026-08-14' };

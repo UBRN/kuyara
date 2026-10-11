@@ -34,6 +34,10 @@ import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { getMessages } from '@/localization/messages';
 
+// Opened from Today's band, the detail's pieces start from where the band drew them.
+const outfitDetailHref = (id: string, fromBand?: boolean) =>
+  ({ pathname: '/[id]', params: fromBand ? { id, from: 'band' } : { id } }) as const;
+
 export default function TodayRoute() {
   const { language, hour12 } = useLocalization();
   const clock = useForegroundClock();
@@ -117,8 +121,8 @@ export default function TodayRoute() {
       language={language}
       displayName={profile?.displayName ?? null}
       isRefreshing={pullRefresh.refreshing}
-      onOpenOutfitDetail={(id) => push({ pathname: '/[id]', params: { id } })}
-      outfitDetailLink={{ href: (id) => ({ pathname: '/[id]', params: { id } }), onPress: tap.linkPress }}
+      onOpenOutfitDetail={(id, fromBand) => push(outfitDetailHref(id, fromBand))}
+      outfitDetailLink={{ href: outfitDetailHref, onPress: tap.linkPress }}
       onOpenTomorrowDetail={(id) => push({ pathname: '/[id]', params: { id, day: 'tomorrow' } })}
       onRefresh={() => pullRefresh.refresh(state)}
       onRunwayVisibleChange={setRunwayVisible}

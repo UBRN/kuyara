@@ -16,12 +16,14 @@ export type WornSwap = Readonly<{
 
 /** ADR 0038: one worn record per dressing day, written only by this action. */
 export function OutfitDetailWorn({
-  copy, onPreviousDone, onWoreThis, palette, scrollBy, wornBusy, wornShown, wornSwap,
+  copy, onPreviousDone, onWoreThis, palette, saved, scrollBy, wornBusy, wornShown, wornSwap,
 }: Readonly<{
   copy: TodayCopy;
   onPreviousDone: () => void;
   onWoreThis: ((pieceColors: WornPieceColors) => void) | undefined;
   palette: GarmentOutfitPalette;
+  /** A save landed on this visit: the worn state says how long the look leads Today. */
+  saved: boolean;
   /** The tour scrolls the screen by this many points to bring the action back into view. */
   scrollBy: (dy: number) => void;
   wornBusy: boolean;
@@ -80,6 +82,12 @@ export function OutfitDetailWorn({
           )}
         </FadeOut>
       ) : null}
+      {saved && wornShown === 'state' ? (
+        <AppText accessibilityLiveRegion="polite" colorRole="textSecondary" style={styles.stays}
+          testID="outfit-detail-worn-stays" variant="caption">
+          {copy.wornLook.staysUntilTomorrow}
+        </AppText>
+      ) : null}
     </TourTarget>
   );
 }
@@ -87,6 +95,9 @@ export function OutfitDetailWorn({
 const styles = StyleSheet.create({
   wornAction: {
     marginTop: spacing.md,
+  },
+  stays: {
+    marginTop: spacing.sm,
   },
   wornState: {
     alignItems: 'center',

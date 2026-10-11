@@ -19,6 +19,8 @@ import { dateKeyDayKind } from '@/features/recommendation/domain/local-day';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
 import type { ManualDetail } from '@/features/today/application/composed-detail';
+import { wornLookOutfitId, type WornTodayLook } from '@/features/today/application/worn-today';
+import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { previewIsThisMorning, tomorrowForecastDay } from '@/features/today/application/outfit-detail-state';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import {
@@ -36,9 +38,11 @@ import type {
   GarmentTypeId,
   StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
+import { bodyOutfitSlots } from '@/features/recommendation/domain/outfit-slots';
 import {
   accessoryOutfitSlots,
   assignedOutfitGarments,
+  outfitSlots,
   type AccessoryOutfitSlot,
   type OutfitRequirementEvaluation,
   type OutfitSlot,
@@ -144,6 +148,17 @@ export type LoadedOutfitPresentation = Readonly<{
   accessibilityLabel: string;
 }>;
 
+/** What Today's hero draws and reads: kuyara's pick, or the look the reader wore today. */
+export type TodayHero = Pick<LoadedOutfitPresentation,
+  'id' | 'title' | 'boardPieces' | 'palette' | 'accessories' | 'accessoriesAccessibilityLabel'>;
+
+/**
+ * The look worn today, as the hero draws it in the colours detail recorded (ADR 0038).
+ * `detailId` is the outfit it dresses piece for piece, whose detail it opens; null for a look
+ * the reader changed, which has no detail.
+ */
+export type WornHeroPresentation = TodayHero & Readonly<{ detailId: string | null; stageAccessibilityLabel: string }>;
+
 export type LoadedTodayPresentation = Readonly<{
   kind: 'loaded';
   /** The visible title, whose temperature remains grouped with its condition. */
@@ -211,6 +226,8 @@ export type LoadedTodayPresentation = Readonly<{
   dayInsight: string | null;
   stageAccessibilityLabel: string;
   suggestions: readonly LoadedOutfitPresentation[];
+  /** The dressing day's latest worn look, which leads Today until the day turns; null without one. */
+  wornHero: WornHeroPresentation | null;
   /** "More ideas": the composed pool past the outfits on screen, empty when there is none. */
   moreIdeas: readonly LoadedOutfitPresentation[];
   /** How many ideas the strip holds, one whole sentence; null without ideas. */
@@ -613,6 +630,66 @@ function localizeOutfit(
   };
 }
 
+/**
+ * The look worn today as the hero draws it: its pieces in the colours detail drew them in, named
+ * as kuyara's pick when it was worn as offered and as the reader's outfit once changed.
+ */
+function wornHeroOf(
+  worn: WornTodayLook,
+  outfits: readonly RecommendedOutfit[],
+  language: SupportedLanguage,
+  dayKind: DayKind,
+  paletteDay: GarmentPaletteDay,
+  stageLabel: (pieces: readonly string[], archetype: string) => string,
+): WornHeroPresentation {
+  const messages = getMessages(language);
+  const copy = messages.today;
+  const { garments, archetypeId, formality, source } = worn.outfit;
+  const detailId = wornLookOutfitId(worn.outfit, outfits);
+  const id = detailId ?? `worn-${worn.id}`;
+  const typeIn = (slot: OutfitSlot) => {
+    const id = garments[slot];
+    return id ? getGarmentType(id) : null;
+  };
+  const boardPieces = bodyOutfitSlots.flatMap((slot) => {
+    const type = typeIn(slot);
+    return type ? [{ slot, garmentTypeId: type.typeId, category: type.structuralCategory }] : [];
+  });
+  const accessories = accessoryOutfitSlots.flatMap((accessorySlot) => {
+    const type = typeIn(accessorySlot);
+    return type ? [{
+      accessorySlot,
+      slot: copy.slots[accessorySlot],
+      item: messages.catalog[`catalog.garment_type.${type.typeId}.name`],
+      category: type.structuralCategory,
+      garmentTypeId: type.typeId,
+    } satisfies LocalizedOutfitAccessory] : [];
+  });
+  const title = source === 'manual' ? copy.manualMix.title
+    : archetypeLabel(messages.recommendation, archetypeId, dayKind);
+  return {
+    id,
+    detailId,
+    title,
+    boardPieces,
+    palette: {
+      ...paletteDay,
+      optionId: id,
+      formality,
+      pieces: outfitSlots.flatMap((slot) => {
+        const garmentTypeId = garments[slot];
+        return garmentTypeId ? [{ slot, garmentTypeId, recordedSwatchId: worn.pieceColors?.[slot] }] : [];
+      }),
+    },
+    accessories,
+    accessoriesAccessibilityLabel: accessories.length > 0
+      ? copy.finishingTouchesAccessibilityLabel(accessories.map(({ item }) => item))
+      : '',
+    stageAccessibilityLabel: stageLabel(
+      boardPieces.map(({ garmentTypeId }) => messages.catalog[`catalog.garment_type.${garmentTypeId}.name`]), title),
+  };
+}
+
 // From the outer layer inwards: the layers weather adds come before the base it covers.
 const outermostSlotOrder: readonly OutfitSlot[] = [
   'outer_layer', 'mid_layer', 'footwear', 'one_piece', 'primary_top', 'bottom',
@@ -743,6 +820,7 @@ function createLoadedPresentation(
   choosingWindow: OutfitCoverage | null,
   manual: ManualDetail | null,
   day: DailyWeather | null,
+  worn: WornTodayLook | null,
 ): LoadedTodayPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
@@ -898,6 +976,13 @@ function createLoadedPresentation(
   const [beforeSymbol, afterSymbol] = titleLine.split(' {symbol} ');
   const leadEnd = copy.titleTemplate.indexOf('{temperature}');
   const dressingDayKey = day?.dateKey ?? localDayKey(new Date(now));
+  const stageLabel = (pieces: readonly string[], archetype: string) => copy.stageAccessibilityLabel({
+    unitName: messages.temperatureUnitNames[temperatureUnit],
+    temperature: formatTemperatureValue(current.temperatureCelsius, language, temperatureUnit),
+    condition,
+    pieces,
+    archetype,
+  });
 
   return {
     kind: 'loaded',
@@ -987,14 +1072,11 @@ function createLoadedPresentation(
     driftCaption,
     coolSpellCaption,
     dayInsight,
-    stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({
-      unitName: messages.temperatureUnitNames[temperatureUnit],
-      temperature: formatTemperatureValue(current.temperatureCelsius, language, temperatureUnit),
-      condition,
-      pieces: primary.pieces.map(({ item }) => item),
-      archetype: primary.title,
-    }) : '',
+    stageAccessibilityLabel: primary ? stageLabel(primary.pieces.map(({ item }) => item), primary.title) : '',
     suggestions,
+    // Only a day with kuyara's outfits on screen draws the worn look in their place.
+    wornHero: worn && primary
+      ? wornHeroOf(worn, [...outfits, ...ideas], language, dayKind, paletteDay, stageLabel) : null,
     moreIdeas,
     moreIdeasCaption: ideas.length === 0 ? null
       : (settledMode === 'deterministic-fallback' ? copy.moreIdeas.captionDeterministic
@@ -1014,6 +1096,8 @@ export function createTodayPresentation(
   now: number,
   /** Detail only: the open option as the person changed it (Phase 7). */
   manual: ManualDetail | null = null,
+  /** Today only: the dressing day's latest worn look. */
+  worn: WornTodayLook | null = null,
 ): TodayPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
@@ -1068,5 +1152,6 @@ export function createTodayPresentation(
     state.choosingWindow ?? null,
     manual,
     state.forecastDay ?? null,
+    worn,
   );
 }

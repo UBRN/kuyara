@@ -298,6 +298,21 @@ export type TodayMessages = Readonly<{
   wornToday: string;
   wornSaveError: string;
   /**
+   * ADR 0038: the look worn today leads Today until the dressing day turns. Its line above the
+   * look's name, the caption that says how long it stays (also under "Worn today" after a save),
+   * the pair of text buttons that switch the hero between it and kuyara's pick, and the words
+   * VoiceOver hears when the save lands.
+   */
+  wornLook: Readonly<{
+    wearing: string;
+    staysUntilTomorrow: string;
+    showPick: string;
+    showPickAccessibilityLabel: string;
+    showWorn: string;
+    showWornAccessibilityLabel: string;
+    savedAnnouncement: string;
+  }>;
+  /**
    * The like and dislike under it, shown only while sharing is on. The question is the row's
    * name and gives way to the thanks once a verdict is chosen; a dislike offers the reasons.
    */

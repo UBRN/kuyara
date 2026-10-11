@@ -181,6 +181,17 @@ const rules = [
       + 'wrapped once like haptics. Feature code and routes call that wrapper.',
   },
   {
+    name: 'the recommendation feature never imports the Closet',
+    matches: modulePathMatcher('features/wardrobe'),
+    forbiddenDirectories: ['features/recommendation/'],
+    allowedDirectories: null,
+    ruleText:
+      'Closet records are personal records, never recommendation inputs (ADR 0007, ADR 0038): '
+      + '`rg "features/wardrobe" apps/mobile/src/features/recommendation` must return nothing. '
+      + 'Selection, the AI request, History and repeat avoidance stay catalog-only; a screen that '
+      + 'shows Closet state beside an outfit reads it from the Closet itself.',
+  },
+  {
     name: 'the garment fill tables and the accent resolver stay behind the board renderer',
     matches: (specifier) =>
       modulePathMatcher('garment-art/garment-render-fills')(specifier)
