@@ -91,6 +91,17 @@ test('the result stays while the day is the same in value, and goes when the day
   expect(hook.result.current.composed.current).toBeNull();
 });
 
+test('a change of clothing preference drops the result built for the other cut', async () => {
+  const hook = await renderHook(({ preference }: Readonly<{ preference: 'womens' | 'mens' }>) =>
+    useDetailMix(pick, requirements, preference, { ...snapshot, clothingPreference: preference }, null, now),
+  { initialProps: { preference: 'womens' } });
+  await act(async () => hook.result.current.composed.compose(pins));
+  expect(hook.result.current.composed.current).not.toBeNull();
+  await hook.rerender({ preference: 'mens' });
+  expect(hook.result.current.composed.current).toBeNull();
+  expect(hook.result.current.composed.key).toBeNull();
+});
+
 // The reports (taxonomy 5.6): one hearing per change to one slot, told whether a composed
 // result is showing; a reset, a choice that changes nothing and a compose with no context say
 // nothing, and every settled compose attempt is heard with its pieces and outfits built.

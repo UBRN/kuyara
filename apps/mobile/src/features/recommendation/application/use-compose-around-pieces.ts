@@ -58,8 +58,9 @@ export function useComposeAroundPieces(
   const styleAesthetics = context?.styleAesthetics;
   const dayKind = context?.dayKind;
   // A snapshot read again carries equal requirements in a new object: only a change in value
-  // makes it another day.
-  const day = useMemo(() => JSON.stringify(requirements), [requirements]);
+  // makes it another day. A changed clothing preference is another day too: the pieces built
+  // for the other cut are not in the new catalog.
+  const day = useMemo(() => JSON.stringify([requirements, clothingPreference]), [requirements, clothingPreference]);
   const current = state.composed !== null && state.composed.day === day ? state.composed : null;
 
   const compose = useCallback((pins: readonly ComposePin[]) => {
