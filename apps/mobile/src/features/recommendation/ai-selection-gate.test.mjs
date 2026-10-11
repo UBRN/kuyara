@@ -144,7 +144,9 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
       // outfit without sneakers or layers holds only two labels, so a triple of those has no
       // three-label answer. The prompt directs the model to three different labels from the
       // eligible lists, so it steers away from such triples; one it still picks is refused
-      // and the day falls back. Such triples must stay rare in the offered pools.
+      // and the day falls back. Such triples must stay rare in the offered pools. A day whose
+      // heat is mandatory wears no mid layer, so its pool has no in-between label to give and
+      // the hot cells hold most of them: 99 of 5,904 sampled triples where it was 15.
       if (!picks) {
         unlabelable += 1;
         continue;
@@ -186,7 +188,7 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
   }
   assert.ok(accepted > 1000, `only ${accepted} answers were checked`);
   assert.ok(
-    unlabelable <= (accepted + unlabelable) * 0.01,
+    unlabelable <= (accepted + unlabelable) * 0.02,
     `${unlabelable} of ${accepted + unlabelable} sampled triples have no three distinct labels`,
   );
 });
