@@ -87,6 +87,7 @@
     "testMatch": [
       "<rootDir>/src/**/*.component.test.tsx"
     ],
+    "globalSetup": "<rootDir>/test/jest-global-setup.js",
     "setupFilesAfterEnv": [
       "<rootDir>/test/jest-setup.ts"
     ],
