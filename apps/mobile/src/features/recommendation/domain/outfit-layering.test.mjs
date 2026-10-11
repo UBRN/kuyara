@@ -4,11 +4,12 @@ import test from 'node:test';
 import { getGarmentType, listGarmentTypesForPreference } from '../../catalog/domain/garment-catalog.ts';
 import { evaluateGarmentEligibility, projectCatalogEffectiveGarment } from './garment-eligibility.ts';
 import { collectValidOutfits, composeOutfitOptions } from './outfit-composition.ts';
+import { layeringOrderFits } from './outfit-evaluation.ts';
 import { offeredOutfitLimit } from './outfit-offer.ts';
 import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
 
 // Layers go on in order: a mid layer is worn over a top that can be worn underneath, unless the
-// mid layer is itself jacket-like (an overshirt, hoodie or puffer vest over a sweater). A
+// mid layer is itself jacket-like (an overshirt or puffer vest over a sweater). A
 // turtleneck is never pulled over another top.
 
 const now = '2026-10-07T12:00:00.000Z';
@@ -94,3 +95,15 @@ for (const { name, requirements, candidates } of grid) {
     assert.deepEqual(faultsOf(offer.outfits), []);
   });
 }
+
+// A hoodie is jacket-like, but it is never pulled over a knit or a fleece: bulk on bulk. The
+// layer order owns that rule, so the pair fallback can never let one back in.
+test('a hoodie never goes over a fleece, sweatshirt, sweater or cardigan, and still goes over a tee', () => {
+  const requirements = deriveClothingRequirements(snapshot(days.cold), now);
+  const piece = (typeId) => evaluateGarmentEligibility(requirements, projectCatalogEffectiveGarment(typeId, 'womens'));
+  for (const knit of ['fleece', 'sweatshirt', 'sweater', 'cardigan']) {
+    assert.equal(layeringOrderFits(piece(knit), piece('hoodie')), false, knit);
+  }
+  assert.equal(layeringOrderFits(piece('t_shirt'), piece('hoodie')), true);
+  assert.equal(layeringOrderFits(piece('sweater'), piece('overshirt')), true);
+});

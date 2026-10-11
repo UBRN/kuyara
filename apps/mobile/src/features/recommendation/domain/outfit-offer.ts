@@ -57,7 +57,8 @@ const bandPoints = 5;
  * A formality's score-sorted drafts with its best band, those within five points of its best,
  * rotated by the seed and the rest kept behind it in order. Rotating the whole list put a draft
  * ten points worse, rain boots on a dry day, at the head of the offer; the band holds hundreds of
- * near-equal drafts on a mild day, so an unbounded seed still leads with a new one day after day.
+ * near-equal drafts on a mild day, so the seed, the dressing day's unbounded count, still leads
+ * with a new one day after day.
  */
 function rotatedBestBand(drafts: readonly JudgedDraft[], seed: number): readonly JudgedDraft[] {
   if (drafts.length === 0) return drafts;
@@ -324,4 +325,31 @@ export function orderForShownThree<Outfit extends OutfitCandidate>(
     taken.push(next);
   }
   return Object.freeze([...taken, ...ordered.filter((outfit) => !taken.includes(outfit))]);
+}
+
+/** How many options the AI keeps at least when yesterday's pieces are left out. */
+const freshOptionFloor = 12;
+
+/** The shoes, the bottom (a one-piece standing in) and the outer layer an outfit wears. */
+function keyPieces(outfit: OutfitCandidate): readonly (string | undefined)[] {
+  const bottom = outfit.body.kind === 'separates' ? outfit.body.bottom : outfit.body.onePiece;
+  return [outfit.footwear, bottom, outfit.outerLayer].map((piece) => piece?.garment.garmentTypeId);
+}
+
+/**
+ * The AI's options without those that repeat two of the shoes, bottom and outer layer of one of
+ * the three shown before, while at least twelve remain; a narrower day keeps them all. The model
+ * picks mostly from the head of its options, so only the option set reaches what it shows.
+ */
+export function withoutRepeatedPieces<Outfit extends OutfitCandidate>(
+  outfits: readonly Outfit[],
+  previous: readonly OutfitCandidate[] = [],
+): readonly Outfit[] {
+  const shown = previous.map(keyPieces);
+  const fresh = outfits.filter((outfit) => {
+    const pieces = keyPieces(outfit);
+    return shown.every((before) =>
+      pieces.filter((piece, index) => piece !== undefined && piece === before[index]).length < 2);
+  });
+  return fresh.length >= freshOptionFloor ? Object.freeze(fresh) : outfits;
 }

@@ -1462,7 +1462,7 @@ test('the offer order leads each formality with a draft within five points of it
 // reach into holds summer pieces on days that are not summer: sandals with a sweater under a
 // rain jacket, a sleeveless top under a cardigan at 16 C. A day whose insulation is mandatory
 // wears no sleeveless top, shorts or sandals, and a day whose body must stay dry wears no
-// sandals unless its heat is mandatory, where hot plain rain keeps them.
+// sandals below the 23 C rung, where warm light rain keeps them.
 const summerPieces = ['sleeveless_top', 'shorts', 'sandals'];
 
 test('a day whose warmth is mandatory wears no sleeveless top, shorts or sandals', () => {
@@ -1477,14 +1477,40 @@ test('a day whose warmth is mandatory wears no sleeveless top, shorts or sandals
   }
 });
 
-test('a wet day wears no sandals unless its heat is mandatory, and a mild dry day still may', () => {
+test('a cool wet day wears no sandals, and a warm wet or mild dry day still may', () => {
   for (const preference of ['womens', 'mens']) {
-    for (const temperature of [20, 24, 27]) {
+    for (const temperature of [19, 22]) {
       const { requirements, candidates } = composableForWeather(heatDay(temperature, 'rain', 0.8), {}, preference);
       const valid = collectValidOutfits(requirements, candidates);
       assert.equal(typesOf(valid.outfits).includes('sandals'), false, `${preference} ${temperature} C rain`);
     }
-    const dry = composableForWeather(clearDay(22), {}, preference);
-    assert.ok(typesOf(collectValidOutfits(dry.requirements, dry.candidates).outfits).includes('sandals'), preference);
+    for (const weather of [heatDay(24, 'rain', 0.8), heatDay(26, 'drizzle', 0.6), clearDay(22)]) {
+      const { requirements, candidates } = composableForWeather(weather, {}, preference);
+      assert.ok(typesOf(collectValidOutfits(requirements, candidates).outfits).includes('sandals'),
+        `${preference} ${weather.temperatureCelsius} C ${weather.condition}`);
+    }
   }
+});
+
+// The pair fallback lets the least bad in, so the clean drafts stay ahead of the clashing ones
+// whatever they score, and it counts outfits that differ rather than drafts: three clean drafts
+// that only swap a shoe would otherwise keep the clashing ones out and leave one outfit.
+test('a day with too few clean drafts keeps them ahead of the clashing ones', () => {
+  const requirements = clothingRequirements(
+    requirement('water_protection', 'water_resistant', {
+      target: 'feet', priority: 'optional', reasonCodes: Object.freeze(['condition_rain']),
+    }),
+  );
+  const result = collectValidOutfits(requirements, ['t_shirt', 'shorts', 'rain_boots', 'sneakers']
+    .map((typeId) => catalogCandidate(requirements, typeId)));
+  assert.equal(result.status, 'composed');
+  assert.deepEqual(result.outfits.map(({ footwear }) => footwear.garment.garmentTypeId), ['sneakers', 'rain_boots']);
+});
+
+test('clean drafts that only swap a shoe do not keep the clashing ones out of the offer', () => {
+  const requirements = clothingRequirements(requirement('thermal', 'light', { priority: 'optional' }));
+  const offered = composeOutfitOptions(requirements, ['t_shirt', 'fleece', 'shorts', 'sneakers', 'sandals', 'loafers']
+    .map((typeId) => catalogCandidate(requirements, typeId)), 0);
+  assert.equal(offered.status, 'composed');
+  assert.equal(offered.outfits.length, 3);
 });

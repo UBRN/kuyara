@@ -16,7 +16,7 @@ function canonicalize(value: unknown): unknown {
 }
 
 /**
- * What identifies one composed pool: the day's requirements, the preference, the day variant,
+ * What identifies one composed pool: the day's requirements, the preference, the composition seed,
  * the catalog and the garments of the seven newest worn outfits, which the composition reads.
  * Property order does not matter, so requirements derived from the weather and the same
  * requirements read back from storage name the same pool.
@@ -24,11 +24,11 @@ function canonicalize(value: unknown): unknown {
 export function poolCompositionKey(
   requirements: ClothingRequirements,
   clothingPreference: ClothingPreference,
-  dayVariant: number,
+  seed: number,
   recentWorn: readonly WornOutfit[] = [],
 ): string {
   return JSON.stringify(canonicalize([
-    garmentCatalogVersion, requirements, clothingPreference, dayVariant,
+    garmentCatalogVersion, requirements, clothingPreference, seed,
     recentWorn.slice(0, 7).map(({ garments }) =>
       Object.values(garments).filter((id) => id !== undefined).sort()),
   ]));

@@ -1,8 +1,4 @@
-import {
-  isIncompatibleGarmentPair,
-  isIncompatibleMidLayer,
-  isSummerPiece,
-} from '@/features/catalog/domain/garment-pairs';
+import { isIncompatibleGarmentPair, isSummerPiece } from '@/features/catalog/domain/garment-pairs';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
   compareGarmentEligibilityResults,
@@ -46,6 +42,7 @@ import {
   type BodyClothingRequirements,
   type ClothingRequirements,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { selectDiverseOutfits } from '@/features/recommendation/domain/outfit-offer';
 import { uniqueInRankOrder } from '@/features/recommendation/domain/rank-order';
 
 // The day's drafts: the eligible candidates by slot, every body, layer and shoe paired in
@@ -224,10 +221,9 @@ function failureResult(
  * dry, so a hot thunderstorm keeps its rain boots and hot plain rain wears sandals or sneakers;
  * on a day that asks for no warmth at all nothing high-thermal is worn either. On a day whose
  * insulation is mandatory no summer piece (sleeveless top, shorts, sandals) is worn, and on a day
- * whose body must stay dry no sandals are worn unless the heat is mandatory: the day's rotation
- * and the trio choice reach past its single best answer, and that band held sandals with a
- * sweater under a rain jacket. Accessories are attached after composition and never read these
- * rules.
+ * whose body must stay dry no sandals are worn below the 23 C rung that asks for breathability,
+ * so warm light rain keeps them: the day's rotation and the trio choice reach past its single
+ * best answer, and that band held sandals with a sweater under a rain jacket.
  */
 function seasonRulesOf(requirements: BodyClothingRequirements): Readonly<{
   heatMandatory: boolean;
@@ -240,16 +236,16 @@ function seasonRulesOf(requirements: BodyClothingRequirements): Readonly<{
   const heatMandatory = mandatory('breathability');
   const warmthMandatory = mandatory('thermal');
   const asksWarmth = requirements.requirements.some(({ kind }) => kind === 'thermal');
+  const asksBreathing = requirements.requirements.some(({ kind }) => kind === 'breathability');
   const feetMustStayDry = mandatory('water_protection', 'feet');
   const bodyMustStayDry = mandatory('water_protection', 'body');
   return {
     heatMandatory,
     wears: ({ garment: { garmentTypeId, properties: { category, thermalLevel } } }) =>
-      category === 'accessory' ||
       !((thermalLevel === 'high' && (heatMandatory || !asksWarmth)) ||
         (heatMandatory && !feetMustStayDry && category === 'footwear' && thermalLevel === 'moderate') ||
         (isSummerPiece(garmentTypeId) && warmthMandatory) ||
-        (garmentTypeId === 'sandals' && bodyMustStayDry && !heatMandatory)),
+        (garmentTypeId === 'sandals' && bodyMustStayDry && !asksBreathing)),
   };
 }
 
@@ -404,14 +400,6 @@ function wearsIncompatiblePair(ids: readonly GarmentTypeId[]): boolean {
     ids.slice(index + 1).some((right) => isIncompatibleGarmentPair(left, right)));
 }
 
-/** Whether a triple wears an incompatible pair above the shoes, a hoodie pulled over a knit included. */
-function sideClashes(pieces: BodyPieces): boolean {
-  const { body, midLayer } = pieces;
-  return (midLayer !== null && body.kind === 'separates' &&
-      isIncompatibleMidLayer(midLayer.garment.garmentTypeId, body.primaryTop.garment.garmentTypeId)) ||
-    wearsIncompatiblePair(pieces.results.map(({ garment }) => garment.garmentTypeId));
-}
-
 /**
  * Every valid draft of the day, best first. A draft is valid when it wears no candidate twice,
  * keeps its formalities within one step and meets every mandatory requirement, so a triple
@@ -419,10 +407,11 @@ function sideClashes(pieces: BodyPieces): boolean {
  * requirement is dropped before any shoe is tried. Only the valid drafts are scored, and none
  * becomes an outfit here.
  *
- * A new composition also leaves out every draft wearing an incompatible pair, unless fewer than
- * three drafts are left without one: a hot thunderstorm asks dry feet and breathing legs of
- * men, and only shorts with rain boots answer both, so such a day keeps its pairs rather than
- * dressing nobody.
+ * A new composition also leaves out every draft wearing an incompatible pair, unless the drafts
+ * left without one hold fewer than three meaningfully different outfits: a hot thunderstorm
+ * asks dry feet and breathing legs of men, and only shorts with rain boots answer both, so such
+ * a day keeps its pairs rather than dressing nobody. The clean drafts then stay ahead of the
+ * clashing ones, which only follow them.
  *
  * The drafts are judged in enumeration order and that order is kept into the sort: the
  * comparator settles ties between a separates and a one-piece draft by digest while it settles
@@ -442,7 +431,8 @@ export function validDrafts(day: ComposerDay): readonly JudgedDraft[] {
     if (!side.evaluations.every((evaluation) => evaluation === null || meetsRequirement(evaluation))) {
       continue;
     }
-    const sideClash = day.composesNew && sideClashes(pieces);
+    const sideClash = day.composesNew &&
+      wearsIncompatiblePair(pieces.results.map(({ garment }) => garment.garmentTypeId));
     for (const { candidate, rank } of footwear) {
       if (
         side.candidateKeys.has(candidate.candidateKey) ||
@@ -458,7 +448,8 @@ export function validDrafts(day: ComposerDay): readonly JudgedDraft[] {
       }
     }
   }
-  return sortedDrafts(valid.length >= 3 ? valid : [...valid, ...clashing]);
+  const clean = sortedDrafts(valid);
+  return selectDiverseOutfits(clean, 3).length >= 3 ? clean : [...clean, ...sortedDrafts(clashing)];
 }
 
 /**

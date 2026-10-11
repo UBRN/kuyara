@@ -330,10 +330,13 @@ test('cold new-day generation excludes yesterday, while regenerate offers the fu
     context: generated.request,
     recommendation: generated.recommendation,
   });
-  const previousIds = previous.recommendation.outfits.map(({ optionId }) => optionId);
-  // Keep the composition seed fixed so the test observes exclusion, not rotation.
   const nextInput = { ...generated.input, localDayKey: '2026-08-02' };
   const fullPool = aiRequestFor(nextInput).options.map(({ optionId }) => optionId);
+  // The new day's seed rotates the pool, so the exclusion is read against the outfits of
+  // yesterday's three that today's pool still offers.
+  const previousIds = previous.recommendation.outfits.map(({ optionId }) => optionId)
+    .filter((id) => fullPool.includes(id));
+  assert.ok(previousIds.length > 0);
   const requests = [];
   const controller = new RecommendationApplicationController(profileId, {
     loadRepository: async () => repository,
@@ -348,8 +351,11 @@ test('cold new-day generation excludes yesterday, while regenerate offers the fu
   await controller.initialize(nextInput.localDayKey);
   assert.equal(controller.getSnapshot().snapshot, null);
   await controller.refresh('local-day-changed', nextInput);
-  assert.deepEqual(fullPool.filter((id) =>
-    !requests[0].options.some((option) => option.optionId === id)).sort(), previousIds.sort());
+  // Yesterday's outfits leave the options, and so do those repeating two of their shoes,
+  // bottom and outer layer, while twelve remain.
+  const offered = requests[0].options.map(({ optionId }) => optionId);
+  assert.deepEqual(previousIds.filter((id) => offered.includes(id)), []);
+  assert.ok(offered.every((id) => fullPool.includes(id)) && offered.length >= 12);
 
   await controller.refresh('regenerate', nextInput);
   assert.deepEqual(requests[1].options.map(({ optionId }) => optionId), fullPool);

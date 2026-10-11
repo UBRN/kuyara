@@ -774,10 +774,14 @@ export function formalitySpreadFits(lowest: number, highest: number): boolean {
   return lowest >= 0 && highest - lowest <= 1;
 }
 
+/** The primary tops a hoodie is never pulled over: bulk on bulk. */
+const hoodieNeverOver: ReadonlySet<string> = new Set(['fleece', 'sweatshirt', 'sweater', 'cardigan']);
+
 /**
  * Whether a mid layer goes over the primary top in the right order. It is worn over a top that
- * can be worn underneath, unless it is jacket-like itself (an overshirt or a hoodie over a
- * sweater), and a top that can be worn underneath is never pulled over another top.
+ * can be worn underneath, unless it is jacket-like itself (an overshirt over a sweater), a top
+ * that can be worn underneath is never pulled over another top, and a hoodie never goes over a
+ * knit or a fleece.
  */
 export function layeringOrderFits(
   primaryTop: EligibleGarmentResult,
@@ -785,7 +789,8 @@ export function layeringOrderFits(
 ): boolean {
   const topRoles = primaryTop.garment.properties.supportedLayerRoles;
   const midRoles = midLayer.garment.properties.supportedLayerRoles;
-  return !midRoles.includes('base') && (topRoles.includes('base') || midRoles.includes('outer'));
+  return !midRoles.includes('base') && (topRoles.includes('base') || midRoles.includes('outer')) &&
+    !(midLayer.garment.garmentTypeId === 'hoodie' && hoodieNeverOver.has(primaryTop.garment.garmentTypeId));
 }
 
 export function meetsRequirement({ requirement, status }: OutfitRequirementEvaluation): boolean {

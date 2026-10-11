@@ -54,6 +54,7 @@ export function useComposeAroundPieces(
   const requirements = context?.requirements ?? null;
   const clothingPreference = context?.clothingPreference;
   const dayVariant = context?.dayVariant;
+  const localDayKey = context?.localDayKey;
   const dressStyle = context?.dressStyle;
   const styleAesthetics = context?.styleAesthetics;
   const dayKind = context?.dayKind;
@@ -66,14 +67,14 @@ export function useComposeAroundPieces(
   const compose = useCallback((pins: readonly ComposePin[]) => {
     if (requirements === null || clothingPreference === undefined || dayVariant === undefined) return;
     const result = composeAroundPieces(
-      { requirements, clothingPreference, dayVariant, dressStyle, styleAesthetics, dayKind }, pins);
+      { requirements, clothingPreference, dayVariant, localDayKey, dressStyle, styleAesthetics, dayKind }, pins);
     const options = result.status === 'composed' ? result.options : [];
     setState(({ showing }) => ({
       composed: options.length > 0 ? { day, options, index: 0 } : null,
       showing: showing + 1,
     }));
     onSettled?.(pins.length, options.length);
-  }, [clothingPreference, day, dayKind, dayVariant, dressStyle, onSettled, requirements, styleAesthetics]);
+  }, [clothingPreference, day, dayKind, dayVariant, dressStyle, localDayKey, onSettled, requirements, styleAesthetics]);
   const showAnother = useCallback(() => setState((previous) => (previous.composed === null ? previous : {
     composed: { ...previous.composed, index: (previous.composed.index + 1) % previous.composed.options.length },
     showing: previous.showing + 1,
