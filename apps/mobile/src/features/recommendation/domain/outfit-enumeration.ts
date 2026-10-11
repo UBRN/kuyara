@@ -46,6 +46,7 @@ import {
   type BodyClothingRequirements,
   type ClothingRequirements,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { selectDiverseOutfits } from '@/features/recommendation/domain/outfit-offer';
 import { uniqueInRankOrder } from '@/features/recommendation/domain/rank-order';
 
 // The day's drafts: the eligible candidates by slot, every body, layer and shoe paired in
@@ -420,10 +421,11 @@ function sideClashes(pieces: BodyPieces): boolean {
  * requirement is dropped before any shoe is tried. Only the valid drafts are scored, and none
  * becomes an outfit here.
  *
- * A new composition also leaves out every draft wearing an incompatible pair, unless fewer than
- * three drafts are left without one: a hot thunderstorm asks dry feet and breathing legs of
- * men, and only shorts with rain boots answer both, so such a day keeps its pairs rather than
- * dressing nobody.
+ * A new composition also leaves out every draft wearing an incompatible pair, unless the drafts
+ * left without one hold fewer than three meaningfully different outfits: a hot thunderstorm
+ * asks dry feet and breathing legs of men, and only shorts with rain boots answer both, so such
+ * a day keeps its pairs rather than dressing nobody. The clean drafts then stay ahead of the
+ * clashing ones, which only follow them.
  *
  * The drafts are judged in enumeration order and that order is kept into the sort: the
  * comparator settles ties between a separates and a one-piece draft by digest while it settles
@@ -459,7 +461,8 @@ export function validDrafts(day: ComposerDay): readonly JudgedDraft[] {
       }
     }
   }
-  return sortedDrafts(valid.length >= 3 ? valid : [...valid, ...clashing]);
+  const clean = sortedDrafts(valid);
+  return selectDiverseOutfits(clean, 3).length >= 3 ? clean : [...clean, ...sortedDrafts(clashing)];
 }
 
 /**

@@ -1491,3 +1491,26 @@ test('a cool wet day wears no sandals, and a warm wet or mild dry day still may'
     }
   }
 });
+
+// The pair fallback lets the least bad in, so the clean drafts stay ahead of the clashing ones
+// whatever they score, and it counts outfits that differ rather than drafts: three clean drafts
+// that only swap a shoe would otherwise keep the clashing ones out and leave one outfit.
+test('a day with too few clean drafts keeps them ahead of the clashing ones', () => {
+  const requirements = clothingRequirements(
+    requirement('water_protection', 'water_resistant', {
+      target: 'feet', priority: 'optional', reasonCodes: Object.freeze(['condition_rain']),
+    }),
+  );
+  const result = collectValidOutfits(requirements, ['t_shirt', 'shorts', 'rain_boots', 'sneakers']
+    .map((typeId) => catalogCandidate(requirements, typeId)));
+  assert.equal(result.status, 'composed');
+  assert.deepEqual(result.outfits.map(({ footwear }) => footwear.garment.garmentTypeId), ['sneakers', 'rain_boots']);
+});
+
+test('clean drafts that only swap a shoe do not keep the clashing ones out of the offer', () => {
+  const requirements = clothingRequirements(requirement('thermal', 'light', { priority: 'optional' }));
+  const offered = composeOutfitOptions(requirements, ['t_shirt', 'fleece', 'shorts', 'sneakers', 'sandals', 'loafers']
+    .map((typeId) => catalogCandidate(requirements, typeId)), 0);
+  assert.equal(offered.status, 'composed');
+  assert.equal(offered.outfits.length, 3);
+});
