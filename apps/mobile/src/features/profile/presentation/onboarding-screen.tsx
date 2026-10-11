@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
-import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -341,7 +341,9 @@ export function OnboardingScreen({
   const picking = step === 'location' && weatherState.status === 'ready' && weatherState.isSelectingLocation;
   const keyboardVisible = useKeyboardVisible();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
-  const scrollOffset = useScrollOffset(scrollRef);
+  // Read from the page's own scroll events: the first step has no page scroll view, so a
+  // scroll-offset hook would watch a ref nothing is attached to.
+  const scrollOffset = useRef(0);
   const aboutFieldsRef = useRef<View>(null);
   const footerRef = useRef<View>(null);
   // The keyboard shortens the page from below and the pinned footer rises with it, over the
@@ -353,12 +355,12 @@ export function OnboardingScreen({
       aboutFieldsRef.current?.measureInWindow((_x, fieldsTop, _width, fieldsHeight) => {
         footerRef.current?.measureInWindow((_footerX, footerTop) => {
           const hidden = Math.min(fieldsTop + fieldsHeight + spacing.md - footerTop, fieldsTop - insets.top - spacing.md);
-          if (hidden > 0) scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + hidden });
+          if (hidden > 0) scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.current + hidden });
         });
       });
     });
     return () => shown.remove();
-  }, [insets.top, scrollOffset, scrollRef, step]);
+  }, [insets.top, scrollRef, step]);
   const typedName = draft.displayName ?? '';
   const nameError = nameInputError(typedName, messages, true);
 
@@ -638,7 +640,9 @@ export function OnboardingScreen({
       ) : (
         <Screen
           contentContainerStyle={styles.content}
+          onScroll={({ nativeEvent }) => { scrollOffset.current = nativeEvent.contentOffset.y; }}
           ref={scrollRef}
+          scrollEventThrottle={16}
           testID={`onboarding-step-${draft.step + 1}`}>
           {heading}
 
