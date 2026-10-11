@@ -976,3 +976,16 @@ test('dry mild aesthetic ordering agrees with the day-aware label gate', () => {
     }
   }
 });
+
+// The rotation through the day's best runs on past a week: the same weather a week later, on a
+// day with the same seven-day variant, is offered other outfits, while the day variant the AI
+// request carries stays the same.
+test('the same weather a week later offers other outfits under the same day variant', () => {
+  const weather = snapshot({ current: { temperatureCelsius: 14, apparentTemperatureCelsius: 14 } });
+  const offered = (localDayKey) => recommendOutfits({
+    snapshot: weather, now: observedAt, clothingPreference: 'womens', dayVariant: 3, localDayKey,
+  }).outfits.map(outfitOptionId);
+  const weeks = ['2026-03-05', '2026-03-12', '2026-03-19', '2026-03-26'].map(offered);
+  assert.equal(new Set(weeks.map((ids) => ids.join())).size, 4);
+  assert.deepEqual(offered('2026-03-05'), weeks[0]);
+});

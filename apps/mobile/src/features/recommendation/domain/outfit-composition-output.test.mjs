@@ -133,7 +133,7 @@ test('the offered outfits are unchanged across day variants and recent wear', ()
       : [];
     return canonical([first, composeOutfitOptions(cell.requirements, cell.candidates, 7, worn)]);
   });
-  assert.equal(digest, '1be5a6853459baa938979f1a97b66b9f68f1af55be2ee93446f48e59450aff46');
+  assert.equal(digest, 'd084f5b846ce2c4705e07b45232fde4dfcba8564cff11571e480d6ec17f676c8');
 });
 
 test('every valid outfit keeps its place, score and evaluations', () => {
@@ -169,7 +169,7 @@ test('the picks around pinned pieces are unchanged, kept and dropped pins includ
     const set = (2 * index + step) % pinSets.length;
     return composeOutfitsAroundPins(requirements, candidates, set, pinSets[set]);
   })));
-  assert.equal(digest, 'e9dd4ae024fabc5f7588bdd39392228a9e841a14c83f9ba2f961d021a734d935');
+  assert.equal(digest, 'bbba60c5ef9446ddda8fff27c6254eb791ccf9d96a2a2a10f8b341d2f39b73de');
 });
 
 /** An arrangement from a composed outfit, with pieces looked up in the day's candidates. */

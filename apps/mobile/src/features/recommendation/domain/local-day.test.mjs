@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  compositionSeed,
   dateKeyDayKind,
   isDayQuestionOpen,
   localDayKey,
@@ -175,4 +176,16 @@ test('a day with no choice row stays unasked on the day the profile was set up, 
   assert.equal(open('2026-10-04:evening', { profileCreatedAt: setUpInTheEvening }), false);
   assert.equal(open('2026-10-05', { profileCreatedAt: setUpInTheEvening }), true);
   assert.equal(open('2026-10-05', { morningSheetEnabled: false }), false);
+});
+
+// The composition seed runs on past a week, so the same weather a week later is offered other
+// outfits from the day's best; the day variant stays the seven-day ring the AI request carries.
+test('the composition seed is the dressing day number, the evening counting as its date', () => {
+  assert.equal(compositionSeed(1, '2026-01-01'), 1);
+  assert.equal(compositionSeed(1, '2026-01-08'), 8);
+  assert.equal(compositionSeed(1, '2026-01-08:evening'), 8);
+  assert.equal(compositionSeed(3, '2025-12-31'), 0);
+  // A caller with no key seeds with the variant it has.
+  assert.equal(compositionSeed(5, undefined), 5);
+  assert.equal(compositionSeed(5, null), 5);
 });

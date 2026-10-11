@@ -330,10 +330,13 @@ test('cold new-day generation excludes yesterday, while regenerate offers the fu
     context: generated.request,
     recommendation: generated.recommendation,
   });
-  const previousIds = previous.recommendation.outfits.map(({ optionId }) => optionId);
-  // Keep the composition seed fixed so the test observes exclusion, not rotation.
   const nextInput = { ...generated.input, localDayKey: '2026-08-02' };
   const fullPool = aiRequestFor(nextInput).options.map(({ optionId }) => optionId);
+  // The new day's seed rotates the pool, so the exclusion is read against the outfits of
+  // yesterday's three that today's pool still offers.
+  const previousIds = previous.recommendation.outfits.map(({ optionId }) => optionId)
+    .filter((id) => fullPool.includes(id));
+  assert.ok(previousIds.length > 0);
   const requests = [];
   const controller = new RecommendationApplicationController(profileId, {
     loadRepository: async () => repository,

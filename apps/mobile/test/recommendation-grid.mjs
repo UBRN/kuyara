@@ -9,6 +9,7 @@ import {
   evaluateGarmentEligibility,
   projectCatalogEffectiveGarment,
 } from '@/features/recommendation/domain/garment-eligibility';
+import { compositionSeed } from '@/features/recommendation/domain/local-day';
 import { composeOutfitOptions } from '@/features/recommendation/domain/outfit-composition';
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import {
@@ -175,7 +176,7 @@ export function gridOutfitCells() {
             requirements,
             projectCatalogEffectiveGarment(type.typeId, clothingPreference),
           )),
-        gridDayVariant,
+        compositionSeed(gridDayVariant, gridLocalDayKey),
       );
       const cell = gridRequestCells().find((candidate) =>
         candidate.clothingPreference === clothingPreference &&
@@ -209,7 +210,7 @@ export function sampleIndexTriples(size, sampleSize) {
 }
 
 /** The request the application sends for an input: the context it builds, then the request from that context. */
-export function aiRequestFor(input, localDayKey) {
+export function aiRequestFor(input, localDayKey = input.localDayKey) {
   const request = aiRequestFromContext(createRecommendationContextWithPool(input, localDayKey).context);
   if (!request) throw new Error('The input offers no AI request.');
   return request;
