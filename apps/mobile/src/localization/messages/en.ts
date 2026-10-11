@@ -63,7 +63,7 @@ export const en = {
     dressRequiredError: 'Choose both to continue.',
     stylePreferencesTitle: 'Which styles feel like you?',
     stylePreferencesBody: (limit) =>
-      `Optional. Pick up to ${numberWord(limit, 'en')}, and outfits in these styles come first.`,
+      `Optional. Pick up to ${numberWord(limit, 'en')}, and outfits in these styles move up.`,
     aboutBody: 'Both are optional.',
     nameLabel: 'Name',
     birthDateBody: 'Helps us understand who uses kuyara.',

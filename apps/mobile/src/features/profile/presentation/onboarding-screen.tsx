@@ -326,7 +326,10 @@ export function OnboardingScreen({
     }));
     return () => cancelIdleCallback(idle);
   }, [placeWeather]);
-  const ruled = weatherOutfits !== null && weatherOutfits.snapshot === placeWeather ? weatherOutfits : null;
+  // New weather for the same place keeps the outfits already chosen for it until the rules have
+  // run on the new weather, so the plate never takes its outfit off only to put it back.
+  const ruled = weatherOutfits !== null && placeWeather !== null
+    && weatherOutfits.snapshot.locationKey === placeWeather.locationKey ? weatherOutfits : null;
   const choicePieces = ruled?.outfits ?? choicePreviewPieces;
   // Without a place's weather the plate is the neutral stage: no sky is claimed for the example.
   const skyCondition = placeWeather ? resolveConditionStyle(sky.condition, sky.daypart) : null;
@@ -344,6 +347,10 @@ export function OnboardingScreen({
   // Read from the page's own scroll events: the first step has no page scroll view, so a
   // scroll-offset hook would watch a ref nothing is attached to.
   const scrollOffset = useRef(0);
+  // The first step has no page scroll view; the next page one starts at the top.
+  useEffect(() => {
+    if (step === 'location') scrollOffset.current = 0;
+  }, [step]);
   const aboutFieldsRef = useRef<View>(null);
   const footerRef = useRef<View>(null);
   // The keyboard shortens the page from below and the pinned footer rises with it, over the
@@ -461,13 +468,11 @@ export function OnboardingScreen({
       : { key: 'sample', pieces: unisexPreviewPieces, palette: palette(unisexPreviewPieces, true) }) : null)
     : waitingForPlaceWeather ? null
       : { key: 'sample', pieces: unisexPreviewPieces, palette: palette(unisexPreviewPieces, true) };
-  const [stageKey, setStageKey] = useState(stageOutfit?.key ?? null);
   const [leavingOutfit, setLeavingOutfit] = useState<StageOutfit | null>(null);
   const [shownOutfit, setShownOutfit] = useState(stageOutfit);
-  if (step === 'location' && (stageOutfit?.key ?? null) !== stageKey) {
+  if (step === 'location' && (stageOutfit?.key ?? null) !== (shownOutfit?.key ?? null)) {
     // A board already leaving keeps leaving; the newest outfit rises after it.
     if (shownOutfit && !leavingOutfit) setLeavingOutfit(shownOutfit);
-    setStageKey(stageOutfit?.key ?? null);
     setShownOutfit(stageOutfit);
   }
   const clearLeavingOutfit = useCallback(() => setLeavingOutfit(null), []);
@@ -476,10 +481,10 @@ export function OnboardingScreen({
   // outfit, and on the styles step the outfit the chosen styles put first on the place's weather.
   const previewGender = step === 'location' ? null : draft.gender;
   // A style tap puts an outfit in the chosen styles on the plate (see `onboardingStyledOutfit`).
-  // It is chosen at the tap, against the outfit the plate shows then, and kept for that gender
-  // and dress style, so no re-render picks again.
+  // It is chosen at the tap, against the outfit the plate shows then, and kept for that place,
+  // gender and dress style, so no re-render picks again and another place never shows it.
   const [styled, setStyled] = useState<Readonly<{ answers: string; pieces: readonly GarmentBoardPiece[] }> | null>(null);
-  const answers = `${draft.gender}:${draft.dressStyle}`;
+  const answers = `${placeWeather?.locationKey}:${draft.gender}:${draft.dressStyle}`;
   const styledPieces = step === 'styles' && styled?.answers === answers ? styled.pieces : null;
   const answerPieces = previewGender
     ? styledPieces ?? choicePieces[previewGender][draft.dressStyle ?? 'casual']

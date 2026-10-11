@@ -58,7 +58,7 @@ export const tr = {
     dressRequiredError: 'Devam etmek için ikisini de seç.',
     stylePreferencesTitle: 'Hangi stiller sana yakın?',
     stylePreferencesBody: (limit) =>
-      `İsteğe bağlı. En fazla ${numberWord(limit, 'tr')} tane seç; bu stillerdeki kombinler öne çıkar.`,
+      `İsteğe bağlı. En fazla ${numberWord(limit, 'tr')} tane seç; bu stillerdeki kombinler öne gelir.`,
     aboutBody: 'İkisi de isteğe bağlı.',
     nameLabel: 'Ad',
     birthDateBody: 'kuyara’yı kimlerin kullandığını anlamamıza yardımcı olur.',

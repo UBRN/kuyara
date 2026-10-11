@@ -550,6 +550,50 @@ test.each([
   }
 });
 
+// An outfit a style tap chose belongs to its place: after Back and another place, the styles
+// step draws the new place's outfit, never the old one under the new sky.
+test('a style tap\'s outfit does not follow the person to another place', async () => {
+  jest.useFakeTimers();
+  mockFontScale(1);
+  const weather = createWeatherApplication({ activeLocation: istanbul, snapshot: rainyIstanbul, freshness: 'fresh' });
+  const { result, rerender } = await renderOnboarding('man', null, 'smart', undefined, weather);
+  await act(async () => { jest.advanceTimersByTime(1); });
+  await pressUntilStep(result, 3);
+  await layOutPreview(result);
+  await fireEvent.press(result.getByTestId('onboarding-style-option-sporty'));
+  for (let step = 3; step > 1; step -= 1) await fireEvent.press(result.getByTestId('onboarding-back'));
+  const sunnyAnkara: WeatherSnapshot = {
+    ...rainyIstanbul,
+    id: 'weather-two',
+    locationKey: ankara.locationKey,
+    current: { ...rainyIstanbul.current, temperatureCelsius: 31, condition: 'clear', precipitationProbability: 0 },
+  };
+  weather.state = { ...weather.state as ReadyState, activeLocation: ankara, snapshot: sunnyAnkara };
+  await rerender();
+  await act(async () => { jest.advanceTimersByTime(1); });
+  await pressUntilStep(result, 3);
+  await layOutPreview(result);
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(drawnIds(result, 'onboarding-welcome-board')).toEqual(new Set(onboardingPreviewOutfits(sunnyAnkara)!.man.smart
+    .map(({ garmentTypeId }) => silhouetteOf(garmentTypeId, 'mens'))));
+});
+
+// New weather for the same place (a stale cache refreshed, a relaunch) keeps the outfit on the
+// plate until the rules have run on it, instead of taking it off and putting it back.
+test('fresh weather for the same place keeps the outfit on the plate', async () => {
+  jest.useFakeTimers();
+  mockFontScale(1);
+  const weather = createWeatherApplication({ activeLocation: istanbul, snapshot: rainyIstanbul, freshness: 'stale' });
+  const { result, rerender } = await renderOnboarding(null, null, null, undefined, weather);
+  await layOutPreview(result);
+  await act(async () => { jest.advanceTimersByTime(1); });
+  const board = result.getByTestId('onboarding-welcome-board', hidden);
+  weather.state = { ...weather.state as ReadyState, snapshot: { ...rainyIstanbul, id: 'weather-refreshed' }, freshness: 'fresh' };
+  await rerender();
+  expect(result.queryByTestId('onboarding-leaving-board', hidden)).toBeNull();
+  expect(result.getByTestId('onboarding-welcome-board', hidden)).toBe(board);
+});
+
 test('existing profile values prefill the reopened onboarding steps', async () => {
   const { result } = await renderOnboarding('man', '1994-03-14', 'smart');
 
