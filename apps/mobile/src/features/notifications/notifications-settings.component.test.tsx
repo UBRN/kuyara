@@ -17,6 +17,8 @@ import { messages } from '@/localization/messages';
 
 // These tests cover screens other than the account screens, so they stay independent of the account switch.
 jest.mock('@/features/account/application/account-screens-flag', () => ({ ACCOUNT_SCREENS_ENABLED: false }));
+const mockOpenTabRoot = jest.fn();
+jest.mock('@/navigation/open-tab-root', () => ({ useOpenTabRoot: () => mockOpenTabRoot }));
 jest.mock('expo-router', () => {
   const router = { back: jest.fn(), navigate: jest.fn(), push: jest.fn() };
   return {
@@ -244,7 +246,7 @@ test('a tapped notification response is reported as notification_opened and open
   // Taxonomy 5.13: the tap is named by kind and by nothing else.
   const opened = analytics.captures.find((capture) => capture.name === 'notification_opened');
   expect(opened?.properties).toEqual({ schema_version: 4, kind: 'morning_briefing' });
-  expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+  expect(mockOpenTabRoot).toHaveBeenCalledWith('/');
 });
 
 // A tap can bring a process iOS started in the background to the foreground; its analytics
@@ -270,7 +272,7 @@ test('a tap that opens the app reports notification_opened once analytics is rea
     respond?.('weather_alert');
   });
   expect(analytics.captures.some((capture) => capture.name === 'notification_opened')).toBe(false);
-  expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+  expect(mockOpenTabRoot).toHaveBeenCalledWith('/');
 
   await act(async () => {
     ready();

@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { AppState } from 'react-native';
 import {
   type PropsWithChildren,
@@ -22,6 +21,7 @@ import type { NotificationGateway } from '@/features/notifications/data/notifica
 import { WeatherAlertScheduler, type WeatherAlertScheduling } from '@/features/notifications/application/weather-alert-scheduler';
 import { loadWeatherAlertDeliveryRepository } from '@/features/notifications/application/weather-alert-delivery-repository-loader';
 import { loadWeatherRepository } from '@/features/weather/application/weather-repository-loader';
+import { useOpenTabRoot } from '@/navigation/open-tab-root';
 
 type NotificationApplicationProviderProps = PropsWithChildren<{
   notificationsOptIn: boolean;
@@ -67,6 +67,7 @@ export function NotificationApplicationProvider(
 
   const { analytics } = useProductAnalytics();
   const [openedNotifications, setOpenedNotifications] = useState(0);
+  const openTabRoot = useOpenTabRoot();
   useEffect(
     () => gateway.subscribeToResponses((kind) => {
       // Taxonomy 5.13: a tapped local notification, named by kind only, with no rule,
@@ -77,9 +78,9 @@ export function NotificationApplicationProvider(
         kind,
       }));
       setOpenedNotifications((count) => count + 1);
-      router.navigate('/');
+      openTabRoot('/');
     }),
-    [analytics, gateway],
+    [analytics, gateway, openTabRoot],
   );
 
   const value = useMemo<NotificationApplicationValue>(() => ({

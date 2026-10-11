@@ -39,6 +39,8 @@ jest.mock('expo-constants', () => ({
 
 // These tests cover screens other than the account screens, so they stay independent of the account switch.
 jest.mock('@/features/account/application/account-screens-flag', () => ({ ACCOUNT_SCREENS_ENABLED: false }));
+const mockOpenTabRoot = jest.fn();
+jest.mock('@/navigation/open-tab-root', () => ({ useOpenTabRoot: () => mockOpenTabRoot }));
 jest.mock('expo-router', () => {
   const router = { back: jest.fn(), push: jest.fn() };
   return {

@@ -31,6 +31,8 @@ jest.mock('@/features/notifications/data/expo-notification-gateway', () => ({
   ExpoNotificationGateway: class {},
 }));
 
+const mockOpenTabRoot = jest.fn();
+jest.mock('@/navigation/open-tab-root', () => ({ useOpenTabRoot: () => mockOpenTabRoot }));
 jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {

@@ -1,4 +1,4 @@
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useTransitionLanded } from '@/components/ui';
@@ -6,6 +6,7 @@ import { useRecommendationApplication } from '@/features/recommendation/applicat
 import { weekSummary } from '@/features/recommendation/domain/outfit-history-week';
 import { HistoryScreen, type HistoryEntry } from '@/features/profile/presentation/history-screen';
 import { useMessages } from '@/localization/use-messages';
+import { useOpenTabRoot } from '@/navigation/open-tab-root';
 
 export default function HistoryRoute() {
   const messages = useMessages();
@@ -13,7 +14,7 @@ export default function HistoryRoute() {
   const [entries, setEntries] = useState<readonly HistoryEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const transitionLanded = useTransitionLanded();
-  const router = useRouter();
+  const openTabRoot = useOpenTabRoot();
   // The dressing day the application already read from the device clock: on Sunday evening
   // History opens with the week's look back, derived from the looks on screen.
   const summary = useMemo(
@@ -47,7 +48,7 @@ export default function HistoryRoute() {
       <Stack.Screen
         options={{ headerLargeTitle: true, headerShown: true, headerTitle: messages.profile.historyLabel }}
       />
-      <HistoryScreen entries={entries} loadFailed={loadFailed} onOpenToday={() => router.navigate('/')}
+      <HistoryScreen entries={entries} loadFailed={loadFailed} onOpenToday={() => openTabRoot('/')}
         onRetry={() => read(() => true)}
         transitionLanded={transitionLanded} weekSummary={summary} />
     </>

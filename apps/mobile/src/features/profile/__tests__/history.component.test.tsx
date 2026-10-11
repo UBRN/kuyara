@@ -18,13 +18,13 @@ import { EasierToSeeContext } from '@/theme/easier-to-see';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 const mockHistoryFocus = { refocus: undefined as (() => void) | undefined };
-const mockNavigate = jest.fn();
+const mockOpenTabRoot = jest.fn();
+jest.mock('@/navigation/open-tab-root', () => ({ useOpenTabRoot: () => mockOpenTabRoot }));
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react') as typeof import('react');
   return {
     Stack: { Screen: () => null },
     useNavigation: () => ({ addListener: () => () => undefined, getState: () => ({ index: 0 }) }),
-    useRouter: () => ({ navigate: mockNavigate }),
     useFocusEffect: (callback: () => void | (() => void)) =>
       actualReact.useEffect(() => {
         let cleanup = callback();
@@ -211,7 +211,7 @@ test('an empty History shows a faded look, one sentence and a way to Today', asy
   expect(within(empty).getByTestId('history-empty-today-button'))
     .toHaveStyle({ backgroundColor: lightTheme.colors.surfaceInteractive });
   await fireEvent.press(within(empty).getByTestId('history-empty-today-button'));
-  expect(mockNavigate).toHaveBeenCalledWith('/');
+  expect(mockOpenTabRoot).toHaveBeenCalledWith('/');
 });
 
 test('a failed History read says so instead of showing an empty list', async () => {

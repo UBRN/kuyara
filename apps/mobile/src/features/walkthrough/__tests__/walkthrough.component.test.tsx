@@ -43,6 +43,8 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { version: '1.0.0' }, platform: { ios: { buildNumber: '16' } } },
 }));
 let mockPathname = '/';
+const mockOpenTabRoot = jest.fn();
+jest.mock('@/navigation/open-tab-root', () => ({ useOpenTabRoot: () => mockOpenTabRoot }));
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), dismissAll: jest.fn(), navigate: jest.fn() },
   usePathname: () => mockPathname,

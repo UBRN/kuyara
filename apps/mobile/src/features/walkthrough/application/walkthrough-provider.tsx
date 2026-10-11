@@ -33,6 +33,7 @@ import {
 } from '@/features/walkthrough/domain/walkthrough-rules';
 import { planTour, tourSteps, type TourTargetId } from '@/features/walkthrough/domain/walkthrough-steps';
 import { WalkthroughOverlay } from '@/features/walkthrough/presentation/walkthrough-overlay';
+import { useOpenTabRoot } from '@/navigation/open-tab-root';
 
 // "Only on Today over a settled outfit": the conditions must hold this long before the tour
 // opens, the settle the analytics consent sheet also waits for.
@@ -41,7 +42,8 @@ export const WALKTHROUGH_OPEN_DELAY_MS = 1_500;
 /**
  * VoiceOver's activation of the tour's stand-in: the live control's own action. A screen's
  * control runs its registered action; native chrome maps to the system back and the Profile
- * tab. The tour then advances only when that navigation lands, as for a finger.
+ * tab, opened at its root. The tour then advances only when that navigation lands, as for a
+ * finger.
  */
 export function activateTourControl(
   id: TourTargetId,
@@ -75,9 +77,10 @@ export function WalkthroughProvider({
     controller.setGateWriter(markWalkthroughSeen ?? null);
   }, [controller, markWalkthroughSeen]);
   const [registry] = useState(() => new TourTargetRegistry());
+  const openTabRoot = useOpenTabRoot();
   useEffect(() => {
-    controller.setActivator((id) => activateTourControl(id, registry, router));
-  }, [controller, registry]);
+    controller.setActivator((id) => activateTourControl(id, registry, { back: () => router.back(), navigate: openTabRoot }));
+  }, [controller, openTabRoot, registry]);
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const running = state.status === 'running';
   const pathname = usePathname();

@@ -19,6 +19,7 @@ import { SettingsScreen } from '@/features/profile/presentation/settings-screen'
 import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
 import { IOS_REVIEW_URL, IOS_STORE_URL, LICENCE_URL, androidStoreLinks } from '@/config/store-links';
 import { useLocalization } from '@/localization/use-messages';
+import { useOpenTabRoot } from '@/navigation/open-tab-root';
 
 export default function SettingsRoute() {
   const { language, messages } = useLocalization();
@@ -39,6 +40,7 @@ export default function SettingsRoute() {
   const androidPackage = Constants.expoConfig?.android?.package;
   const walkthrough = useWalkthrough();
   const push = useSinglePush();
+  const openTabRoot = useOpenTabRoot();
   useScreenViewed('settings');
 
   if (state.status !== 'ready') {
@@ -176,7 +178,7 @@ export default function SettingsRoute() {
         onRestartTour={walkthrough ? () => {
           walkthrough.restart();
           router.dismissAll();
-          router.navigate('/');
+          openTabRoot('/');
         } : undefined}
         onRate={() => {
           const url = Platform.OS === 'ios'
