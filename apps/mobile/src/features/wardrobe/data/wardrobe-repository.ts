@@ -27,6 +27,7 @@ import {
 import type { WardrobeItemRecord } from '@/features/wardrobe/data/wardrobe-item-record';
 import type {
   CreateWardrobeItemRecord,
+  UpdateWardrobeItemRecord,
   WardrobeLocalDataSource,
 } from '@/features/wardrobe/data/wardrobe-local-data-source';
 import {
@@ -276,6 +277,15 @@ function mutableFieldsFromCreate(input: CreateWardrobeItemInput): MutableWardrob
   });
 }
 
+function isUnchangedByUpdate(
+  stored: WardrobeItemRecord,
+  changes: Omit<UpdateWardrobeItemRecord, 'updatedAt'>,
+): boolean {
+  return (Object.keys(changes) as (keyof typeof changes)[]).every(
+    (key) => stored[key] === changes[key],
+  );
+}
+
 function hasMutableUpdate(input: UpdateWardrobeItemInput): boolean {
   return [
     'name',
@@ -510,7 +520,7 @@ export class LocalWardrobeRepository implements WardrobeRepository {
         !Object.prototype.hasOwnProperty.call(input, 'colorChoice') &&
         fields.colorChoice === current.colorChoice &&
         fields.colorFamily === currentRecord.colorFamily;
-      const updatedRecord = await this.dataSource.updateActiveItem({
+      const changes = {
         id: current.id,
         localProfileId: current.localProfileId,
         name: fields.name,
@@ -533,6 +543,16 @@ export class LocalWardrobeRepository implements WardrobeRepository {
         legCoverageOverride: fields.legCoverageOverride,
         tractionSuitabilityOverride: fields.tractionSuitabilityOverride,
         photoRelativePath: fields.photoRelativePath,
+      };
+
+      // An edit that leaves every stored field as it is writes nothing: a write would move the
+      // piece's last-edit time and queue it, and could overwrite a newer edit made on another phone.
+      if (isUnchangedByUpdate(currentRecord, changes)) {
+        return current;
+      }
+
+      const updatedRecord = await this.dataSource.updateActiveItem({
+        ...changes,
         updatedAt: requireTimestamp(this.dependencies.now()),
       });
 

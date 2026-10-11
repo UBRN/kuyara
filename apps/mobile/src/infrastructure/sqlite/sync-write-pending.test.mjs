@@ -122,6 +122,34 @@ test('Closet create, edit and delete mark their row; photo cleanup does not', as
   assert.equal(await pending(database, 'wardrobe_items'), 0);
 });
 
+test('a Closet edit that changes nothing writes nothing', async (t) => {
+  const database = await setup(t);
+  await insertProfile(database);
+  let clock = now;
+  const repository = new LocalWardrobeRepository(new SqliteWardrobeLocalDataSource(database), {
+    createId: () => itemId, now: () => clock,
+  });
+  const item = await repository.createItem({ localProfileId: profileId,
+    garmentTypeId: 'weather_boots', name: 'Boots', photoRelativePath: photoPath });
+  await database.runAsync('UPDATE wardrobe_items SET pending_sync = 0');
+  const stored = async () => ({ ...(await database.getFirstAsync(
+    'SELECT updated_at, pending_sync FROM wardrobe_items WHERE id = ?', [item.id])) });
+
+  clock = '2026-10-03T10:00:00.000Z';
+  // The edit form sends every visible field from the values it loaded.
+  const same = await repository.updateItem({ id: item.id, localProfileId: profileId,
+    name: item.name, garmentTypeId: item.garmentTypeId, category: item.category,
+    entryState: item.entryState, color: item.color, colorFamily: item.colorFamily,
+    colorChoice: item.colorChoice, photoRelativePath: item.photoRelativePath });
+  assert.deepEqual(await stored(), { updated_at: now, pending_sync: 0 });
+  assert.deepEqual(same, item);
+
+  const changed = await repository.updateItem({ id: item.id, localProfileId: profileId,
+    name: 'Rain boots' });
+  assert.deepEqual(await stored(), { updated_at: clock, pending_sync: 1 });
+  assert.equal(changed.updatedAt, clock);
+});
+
 test('daily choice insert and update mark the day row', async (t) => {
   const database = await setup(t);
   await insertProfile(database);
