@@ -5,7 +5,7 @@ import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { AppText, Crossfade, PressScale, useBandWidth, useScreenGutters } from '@/components/ui';
 import { GarmentBoard, measureGarmentBoardHeight, useGarmentCut } from '@/garment-art';
 import { ArrivesAfterHandoff, Dimmed } from '@/features/today/presentation/today-motion';
-import type { LoadedOutfitPresentation } from '@/features/today/presentation/today-presentation';
+import type { LoadedOutfitPresentation, TodayHero } from '@/features/today/presentation/today-presentation';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import { spacing } from '@/theme/theme';
 import { useEasierToSee } from '@/theme/easier-to-see';
@@ -15,18 +15,21 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 export type StageOutfit = Pick<LoadedOutfitPresentation, 'id' | 'boardPieces' | 'palette'> & Readonly<{ replaced: boolean }>;
 
 export type OutfitDetailLink = Readonly<{
-  href: (id: string) => Href;
+  /** `fromBand` opens the outfit Today's band draws, so its detail starts from the band. */
+  href: (id: string, fromBand?: boolean) => Href;
   onPress: (event: Readonly<{ preventDefault: () => void }>) => void;
 }>;
 
 /**
  * Today's hero: the outfit's name over its stage, one target that opens its detail. The stage
  * is a cornerless band reaching both screen edges, past the page's gutters, and the board on
- * it is the flat lay (garment-board.md section 10).
+ * it is the flat lay (garment-board.md section 10). A worn look with no detail (`detailId`
+ * null) is drawn the same way and opens nothing.
  */
 export function TodayOutfit({
   carriedOutfitId,
   contentWidth,
+  detailId,
   holdRise,
   leavingOutfit,
   onLeavingLeft,
@@ -43,13 +46,14 @@ export function TodayOutfit({
 }: Readonly<{
   carriedOutfitId: string | null;
   contentWidth: number;
+  detailId: string | null;
   holdRise: boolean;
   leavingOutfit: StageOutfit | null;
   onLeavingLeft: () => void;
-  onOpenOutfitDetail: (id: string) => void;
+  onOpenOutfitDetail: (id: string, fromBand?: boolean) => void;
   onStageLayout: (() => void) | undefined;
   outfitDetailLink: OutfitDetailLink | undefined;
-  primary: LoadedOutfitPresentation;
+  primary: TodayHero;
   replaces: boolean;
   scrollBy: (dy: number) => void;
   stageAccessibilityLabel: string;
@@ -124,25 +128,33 @@ export function TodayOutfit({
       </OnPlate>
     </View>
   );
-  const primaryCard = (
+  const archetype = (
+    // A re-ask replaces the title with a crossfade rather than a snap.
+    <ArrivesAfterHandoff index={3}>
+      <Crossfade contentKey={primary.title}>
+        <AppText
+          style={[styles.archetypeName, { marginLeft: gutters.left, marginRight: gutters.right }]}
+          testID="today-archetype"
+          variant="label">
+          {primary.title}
+        </AppText>
+      </Crossfade>
+    </ArrivesAfterHandoff>
+  );
+  const primaryCard = detailId === null ? (
+    <View accessible accessibilityLabel={stageAccessibilityLabel}>
+      {archetype}
+      {primaryStage}
+    </View>
+  ) : (
     <PressScale
       accessible
       accessibilityLabel={stageAccessibilityLabel}
-      onPress={outfitDetailLink ? undefined : () => onOpenOutfitDetail(primary.id)}
+      onPress={outfitDetailLink ? undefined : () => onOpenOutfitDetail(detailId, true)}
       pressedStyle={{ opacity: theme.interaction.pressedOpacity }}
       // `role` outranks the link's own, so the outfit still reads as a button.
       role="button">
-      {/* A re-ask replaces the title with a crossfade rather than a snap. */}
-      <ArrivesAfterHandoff index={3}>
-        <Crossfade contentKey={primary.title}>
-          <AppText
-            style={[styles.archetypeName, { marginLeft: gutters.left, marginRight: gutters.right }]}
-            testID="today-archetype"
-            variant="label">
-            {primary.title}
-          </AppText>
-        </Crossfade>
-      </ArrivesAfterHandoff>
+      {archetype}
       {outfitDetailLink ? <Link.AppleZoom>{primaryStage}</Link.AppleZoom> : primaryStage}
     </PressScale>
   );
@@ -150,14 +162,14 @@ export function TodayOutfit({
   return (
     <Dimmed dimmed={updating} revealKey={primary.id}>
       <TourTarget
-        activate={() => onOpenOutfitDetail(primary.id)}
+        activate={detailId === null ? undefined : () => onOpenOutfitDetail(detailId, true)}
         id="outfit"
         label={stageAccessibilityLabel}
         scrollBy={scrollBy}
         style={[styles.outfitTarget, { marginLeft: -gutters.left, marginRight: -gutters.right }]}>
-        {outfitDetailLink ? (
+        {outfitDetailLink && detailId !== null ? (
           // S21: on iOS the outfit's detail zooms out of the stage, as an alternative's does.
-          <Link asChild href={outfitDetailLink.href(primary.id)} onPress={outfitDetailLink.onPress} push>
+          <Link asChild href={outfitDetailLink.href(detailId, true)} onPress={outfitDetailLink.onPress} push>
             {primaryCard}
           </Link>
         ) : primaryCard}

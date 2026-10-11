@@ -54,7 +54,9 @@ import { useLocalization } from '@/localization/use-messages';
 export default function OutfitDetailRoute() {
   // `day=tomorrow` opens the evening preview of the next dressing day, read-only for the
   // day's worn record.
-  const { day, id } = useLocalSearchParams<{ day?: string | string[]; id?: string | string[] }>();
+  const { day, from, id } = useLocalSearchParams<{
+    day?: string | string[]; from?: string | string[]; id?: string | string[];
+  }>();
   const tomorrow = (Array.isArray(day) ? day[0] : day) === 'tomorrow';
   const { language, messages } = useLocalization();
   const { dressingDayChoiceFailed, reevaluateLocalDay, resolvedDressStyle, state: recommendationState,
@@ -185,8 +187,9 @@ export default function OutfitDetailRoute() {
       />
       <OutfitDetailScreen
         closetSeed={closetSeed}
-        // Today's primary board draws the first of the three; tomorrow's strip and the tiles never draw it.
-        fromBand={!tomorrow && position === 1}
+        // Opened from Today's band, which draws kuyara's pick or the look worn today; tomorrow's
+        // strip and the tiles never open from it.
+        fromBand={!tomorrow && (Array.isArray(from) ? from[0] : from) === 'band'}
         language={language}
         composeEntry={!tomorrow && outfit && preference ? (palette) => (ACCOUNT_SCREENS_ENABLED ? (
           <ComposeEntry

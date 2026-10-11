@@ -31,6 +31,7 @@ import {
   useGarmentCut,
   useGarmentRoles,
 } from '@/garment-art';
+import { Celebration } from '@/components/ui/celebration';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
@@ -311,6 +312,11 @@ export function OutfitDetailScreen({
   useEffect(() => {
     if (wornMoments > 0) haptics.success();
   }, [wornMoments]);
+  // The celebration is decorative: VoiceOver hears the saved state in words.
+  const savedAnnouncement = copy.wornLook.savedAnnouncement;
+  useEffect(() => {
+    if (wornMoments > 0 && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(savedAnnouncement);
+  }, [savedAnnouncement, wornMoments]);
 
   // The route turns the iOS 26 full-screen back swipe off while a piece is focused.
   const boardFocused = focusedSlot !== null;
@@ -655,6 +661,14 @@ export function OutfitDetailScreen({
             visibleHeight={visibleBottom - visibleTop}
             width={contentWidth}
           />
+          {/* The worn moment's stitch and burst, over the board only, once per recorded save. */}
+          <Celebration
+            colors={[...pieceRoles.values()].map(({ main }) => main)}
+            play={wornMoments}
+            radius={radii.stage}
+            seed={presentation.kind === 'loaded' ? presentation.dateKey : ''}
+            testID="outfit-detail-celebration"
+          />
         </PlateView>
 
         {/* The unusual note is a status in its own glyph and ink; it stands only after a
@@ -673,6 +687,7 @@ export function OutfitDetailScreen({
           onPreviousDone={clearWornPrevious}
           onWoreThis={onWoreThis}
           palette={palette}
+          saved={wornMoments > 0}
           scrollBy={scrollBy}
           wornBusy={wornBusy}
           wornShown={wornShown}

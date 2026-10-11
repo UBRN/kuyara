@@ -5,10 +5,7 @@ import { AppText, Crossfade, Icon, useTextScaling } from '@/components/ui';
 import { GarmentDrawing, useGarmentRoles } from '@/garment-art';
 import type { TodayCopy } from '@/features/today/presentation/outfit-detail-entries';
 import { ArrivesAfterHandoff, Dimmed, PhaseMark } from '@/features/today/presentation/today-motion';
-import type {
-  LoadedOutfitPresentation,
-  LoadedTodayPresentation,
-} from '@/features/today/presentation/today-presentation';
+import type { LoadedTodayPresentation, TodayHero } from '@/features/today/presentation/today-presentation';
 import { radii, spacing } from '@/theme/theme';
 import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier-to-see';
 import { DarkPlate } from '@/theme/plate-theme';
@@ -34,7 +31,7 @@ export function TodayOutfitNotes({
 }: Readonly<{
   copy: TodayCopy;
   presentation: LoadedTodayPresentation;
-  primary: LoadedOutfitPresentation;
+  primary: TodayHero;
   stageColor: string;
   updating: boolean;
   updatingDayType: DressStyle | null;
@@ -128,7 +125,7 @@ function AccessoryCaption({
   caption,
   stageColor,
   suggestion,
-}: Readonly<{ caption: string; stageColor: string; suggestion: LoadedOutfitPresentation }>) {
+}: Readonly<{ caption: string; stageColor: string; suggestion: TodayHero }>) {
   const drawingSize = useAccessoryDrawingSize();
   // The board's own resolution, read back from the palette memo: accessories stand on the
   // page ground, which the palette already measures them against.

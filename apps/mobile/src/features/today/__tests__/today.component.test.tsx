@@ -18,6 +18,7 @@ import {
   todayWardrobeItems,
 } from '@/features/today/__tests__/fixtures';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
+import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
@@ -441,7 +442,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(button).toBeOnTheScreen();
     await fireEvent.press(result.getByTestId('today-stage', hidden));
     await fireEvent.press(result.getByTestId('today-archetype', hidden));
-    expect(onOpenOutfitDetail.mock.calls).toEqual([[todayOutfitId(1)], [todayOutfitId(1)]]);
+    expect(onOpenOutfitDetail.mock.calls).toEqual([[todayOutfitId(1), true], [todayOutfitId(1), true]]);
     // Both alternates share the taller of their two derived stage heights, so their
     // captions sit on one baseline; the shorter board is centred in its stage.
     const alternateWidth = (358 - spacing.md) / 2;
@@ -1288,6 +1289,78 @@ test('the hero board holds its rise while the first-run runway covers it, then r
   await result.rerender(screen(false));
   await waitFor(() => expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull());
   await waitFor(() => expect(heroRiseLayers(result).every((layer) => (layer.opacity ?? 1) === 1)).toBe(true));
+});
+
+// ADR 0038: the look worn today leads Today until the dressing day turns at 04:00, drawn in the
+// colours it was recorded in, with one text button back to kuyara's pick and one to return.
+describe('the look worn today', () => {
+  const hidden = { includeHiddenElements: true };
+  const lookOf = (outfit: WornOutfit) => ({
+    id: 'look-1', localProfileId: 'profile-1', dayKey: '2026-08-13', outfit, pieceColors: null,
+    photoPath: null, wornAt: '2026-08-13T07:00:00.000Z', createdAt: '2026-08-13T07:00:00.000Z',
+    updatedAt: '2026-08-13T07:00:00.000Z', deletedAt: null,
+  });
+  const withWorn = (outfit: WornOutfit) => ({
+    state: { status: 'ready', snapshot: null, isRefreshing: false, lastFailure: null, phase: null,
+      exhausted: false, showFirstGenerationOverlay: false },
+    skipWait: jest.fn(async () => null),
+    dressingDayKey: '2026-08-13',
+    outfitHistory: { list: jest.fn(async () => []), day: jest.fn(async () => [lookOf(outfit)]), log: jest.fn() },
+  }) as unknown as RecommendationApplicationValue;
+  async function renderWorn(outfit: WornOutfit, onOpenOutfitDetail = jest.fn()) {
+    const result = await render(providers(
+      <RecommendationApplicationContext value={withWorn(outfit)}>
+        <TodayScreen language="en" onOpenOutfitDetail={onOpenOutfitDetail} onRefresh={jest.fn()}
+          onAskAgain={jest.fn()} state={todayScreenState} />
+      </RecommendationApplicationContext>,
+    ));
+    await fireEvent(result.getByTestId('today-content'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+    return result;
+  }
+  const copy = messages.en.today.wornLook;
+
+  test('a look worn as offered leads, opens its detail from the band, and gives way to kuyara\'s pick', async () => {
+    if (todayScreenState.snapshot.recommendation.status !== 'recommended') throw new Error('fixture');
+    const [first, second, third] = loadedPresentation().suggestions;
+    const onOpenOutfitDetail = jest.fn();
+    const result = await renderWorn(wornOutfitFrom(todayScreenState.snapshot.recommendation.outfits[1]),
+      onOpenOutfitDetail);
+
+    expect(await result.findByTestId(`today-primary-board-${second.id}`, hidden)).toBeOnTheScreen();
+    expect(result.getByTestId('today-wearing')).toHaveTextContent(copy.wearing);
+    expect(result.getByTestId('today-worn-stays')).toHaveTextContent(copy.staysUntilTomorrow);
+    expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(second.title);
+    // The alternates are the snapshot's other outfits: kuyara's pick and the third, nothing twice.
+    const alternateIds = () => result.getAllByTestId(/^today-alternate-outfit:[^-]+$/).map(({ props }) => props.testID);
+    expect(alternateIds()).toEqual([`today-alternate-${first.id}`, `today-alternate-${third.id}`]);
+    await fireEvent.press(result.getByTestId('today-archetype', hidden));
+    expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(second.id, true);
+
+    await fireEvent.press(result.getByRole('button', { name: copy.showPickAccessibilityLabel }));
+    expect(await result.findByTestId(`today-primary-board-${first.id}`, hidden)).toBeOnTheScreen();
+    expect(result.queryByTestId('today-wearing')).toBeNull();
+    expect(result.queryByTestId('today-worn-stays')).toBeNull();
+    expect(alternateIds()).toEqual([`today-alternate-${second.id}`, `today-alternate-${third.id}`]);
+    await fireEvent.press(result.getByRole('button', { name: copy.showWornAccessibilityLabel }));
+    expect(await result.findByTestId(`today-primary-board-${second.id}`, hidden)).toBeOnTheScreen();
+    expect(result.getByTestId('today-wearing')).toBeOnTheScreen();
+  });
+
+  test('a look the reader changed leads as their outfit and is not a control', async () => {
+    if (coldTodayScreenState.kind !== 'loaded'
+      || coldTodayScreenState.snapshot.recommendation.status !== 'recommended') throw new Error('fixture');
+    const onOpenOutfitDetail = jest.fn();
+    const result = await renderWorn(wornOutfitFrom(coldTodayScreenState.snapshot.recommendation.outfits[0], 'manual'),
+      onOpenOutfitDetail);
+
+    expect(await result.findByTestId('today-primary-board-worn-look-1', hidden)).toBeOnTheScreen();
+    expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(messages.en.today.manualMix.title);
+    await fireEvent.press(result.getByTestId('today-archetype', hidden));
+    expect(onOpenOutfitDetail).not.toHaveBeenCalled();
+    expect(result.queryByRole('button', { name: new RegExp(messages.en.today.manualMix.title) })).toBeNull();
+  });
 });
 
 // A cold launch swaps the placeholder for the loaded screen while that screen is still being
@@ -2155,7 +2228,7 @@ test('refreshing, failure and staleness announce freshness while retaining the l
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   expect(result.getByTestId('today-archetype')).toHaveTextContent('Rain Ready');
   await fireEvent.press(result.getByTestId('today-archetype'));
-  expect(onOpenOutfitDetail).toHaveBeenCalledWith(todayOutfitId(1));
+  expect(onOpenOutfitDetail).toHaveBeenCalledWith(todayOutfitId(1), true);
   await result.rerender(screen(false, false, true));
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   await result.rerender(screen(false, false));
@@ -3511,7 +3584,7 @@ test('Today registers the badge, the outfit and Ask the stylist again for the to
   expect(onOpenOutfitDetail).toHaveBeenCalledTimes(1);
   // VoiceOver's activation of the tour's stand-in performs the same action.
   registry.get('outfit')?.activate?.();
-  expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(onOpenOutfitDetail.mock.calls[0][0]);
+  expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(...onOpenOutfitDetail.mock.calls[0]);
   expect(onOpenOutfitDetail).toHaveBeenCalledTimes(2);
 });
 
