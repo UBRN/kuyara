@@ -142,7 +142,7 @@ export function TodayOutfit({
     </ArrivesAfterHandoff>
   );
   const primaryCard = detailId === null ? (
-    <View accessible accessibilityLabel={stageAccessibilityLabel}>
+    <View accessible accessibilityLabel={stageAccessibilityLabel} testID={`today-primary-${primary.id}`}>
       {archetype}
       {primaryStage}
     </View>
@@ -153,7 +153,9 @@ export function TodayOutfit({
       onPress={outfitDetailLink ? undefined : () => onOpenOutfitDetail(detailId, true)}
       pressedStyle={{ opacity: theme.interaction.pressedOpacity }}
       // `role` outranks the link's own, so the outfit still reads as a button.
-      role="button">
+      role="button"
+      // The stage's one accessible element, so automation finds the settled outfit here.
+      testID={`today-primary-${primary.id}`}>
       {archetype}
       {outfitDetailLink ? <Link.AppleZoom>{primaryStage}</Link.AppleZoom> : primaryStage}
     </PressScale>
