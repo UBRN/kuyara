@@ -10,6 +10,7 @@ import { useEasierToSee, useVisibility } from '@/theme/easier-to-see';
 import { layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
+import { OneLineOrStacked } from './one-line-or-stacked';
 import { temperatureStops, type TemperatureGradientStop } from './temperature-gradient';
 
 // The rail is a graphic, not type: it stays 6 points tall at every text size (8 with Easier
@@ -278,36 +279,18 @@ function PrecipitationCell({ line, lines }: Readonly<{ line: string; lines: stri
       style={styles.precipitation}
       testID="weather-daily-precipitation-cell">
       <Icon color={theme.colors.iconSecondary} name="precipitationChance" size={16 * controlScale} />
-      <PrecipitationCaption
+      <OneLineOrStacked
+        colorRole="textSecondary"
         // A new value, text size or column width starts again from the one-line form.
         key={`${line}@${fontScale}@${width}`}
         line={line}
         lines={lines}
+        style={styles.precipitationText}
+        tabularNumbers
+        testID="weather-daily-precipitation"
+        variant="caption"
       />
     </View>
-  );
-}
-
-/**
- * The day's amount and chance on one line when it fits the day column. When it wraps, it is
- * shown stacked instead, one value per line, so a line never begins with the separator:
- * measured on the Simulator, iOS breaks even a run held by no-break spaces once that run is
- * wider than the column.
- */
-function PrecipitationCaption({ line, lines }: Readonly<{ line: string; lines: string }>) {
-  const [stacked, setStacked] = useState(false);
-  return (
-    <AppText
-      colorRole="textSecondary"
-      onTextLayout={stacked ? undefined : ({ nativeEvent }) => {
-        if (nativeEvent.lines.length > 1) setStacked(true);
-      }}
-      style={styles.precipitationText}
-      tabularNumbers
-      testID="weather-daily-precipitation"
-      variant="caption">
-      {stacked ? lines : line}
-    </AppText>
   );
 }
 

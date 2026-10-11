@@ -768,7 +768,8 @@ export type AppMessages = Readonly<{
     stale: string;
     updatedAt: (time: string) => string;
     feelsLike: (temperature: string) => string;
-    range: (minimum: string, maximum: string) => string;
+    low: (temperature: string) => string;
+    high: (temperature: string) => string;
     currentConditionsAccessibilityLabel: (values: {
       condition: string;
       unitName: string;

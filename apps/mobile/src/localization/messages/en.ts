@@ -360,7 +360,8 @@ export const en = {
     stale: 'May be out of date',
     updatedAt: (time) => `Last updated at ${time}`,
     feelsLike: (temperature) => `Feels like\u00a0${temperature}`,
-    range: (minimum, maximum) => `Low\u00a0${minimum} ·\u00a0High\u00a0${maximum}`,
+    low: (temperature) => `Low\u00a0${temperature}`,
+    high: (temperature) => `High\u00a0${temperature}`,
     currentConditionsAccessibilityLabel: ({
       condition,
       unitName,

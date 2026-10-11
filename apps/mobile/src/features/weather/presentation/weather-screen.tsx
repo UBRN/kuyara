@@ -41,6 +41,7 @@ import {
 } from '@/features/weather/presentation/daily-outlook';
 import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { locationCaption, locationName } from '@/features/weather/presentation/location-label';
+import { OneLineOrStacked } from '@/features/weather/presentation/one-line-or-stacked';
 import { hourlyRailColumns } from '@/features/weather/presentation/hourly-rail-columns';
 import { uvLevelOf } from '@/features/weather/presentation/uv-level';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
@@ -125,7 +126,7 @@ type WeatherScreenProps = Readonly<{
 export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const { hour12, language, messages, temperatureUnit, windSpeedUnit } = useLocalization();
   const theme = useKuyaraTheme();
-  const { controlScale, usesStackedLayout } = useTextScaling();
+  const { controlScale, fontScale, usesStackedLayout } = useTextScaling();
   const copy = messages.weather;
   const application = useWeatherApplication();
   const { revalidateFreshness, state } = application;
@@ -139,6 +140,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   // starts while the screen is behind the location picker or freshly mounted keeps its
   // inset until the next pull (seen 2026-09-10 after a location change).
   const [pullInFlight, setPullInFlight] = useState(false);
+  const [conditionGroupWidth, setConditionGroupWidth] = useState<number | null>(null);
   // The forecast's marks draw in only when its data reaches a screen that was showing none
   // (a first fetch, or a new place loading): a cached open and a refresh leave them still.
   // The cold `loading` status is the cache being read, so it does not count as empty.
@@ -274,15 +276,15 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
   const outlookLine = snapshot && outlook
     ? outlookSentence(outlook, copy, snapshot.timeZone, language, hour12, temperatureUnit)
     : null;
-  // Each separator is tied to the part after it, so a wrapped line never ends on a "·".
-  const feelsLikeLine = snapshot
-    ? `${copy.feelsLike(
-      formatTemperature(snapshot.current.apparentTemperatureCelsius, language, temperatureUnit),
-    )} ·\u00a0${copy.range(
-      formatTemperature(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
-      formatTemperature(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
-    )}`
-    : '';
+  // One line with a dot between each two values when it fits, else one value per line.
+  const temperatureValues = snapshot
+    ? [
+      copy.feelsLike(formatTemperature(snapshot.current.apparentTemperatureCelsius, language, temperatureUnit)),
+      copy.low(formatTemperature(snapshot.minimumTemperatureCelsius, language, temperatureUnit)),
+      copy.high(formatTemperature(snapshot.maximumTemperatureCelsius, language, temperatureUnit)),
+    ]
+    : [];
+  const feelsLikeLine = temperatureValues.join(' · ');
   // The viewer's own local day, read once: it both drops the days that have already
   // ended and marks the row the current temperature belongs to.
   const localDayKey = snapshot
@@ -451,7 +453,9 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                   styles.currentHero,
                   usesStackedLayout && styles.stackedCurrentHero,
                 ]}>
-                <View style={styles.currentConditionGroup}>
+                <View
+                  onLayout={({ nativeEvent }) => setConditionGroupWidth(nativeEvent.layout.width)}
+                  style={styles.currentConditionGroup}>
                   <View style={styles.currentConditionRow}>
                     <RollingText
                       adjustsFontSizeToFit
@@ -466,7 +470,13 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
                     </AppText>
                   </View>
                   <Crossfade contentKey={feelsLikeLine}>
-                    <AppText variant="caption">{feelsLikeLine}</AppText>
+                    <OneLineOrStacked
+                      // A new value, text size or width starts again from the one-line form.
+                      key={`${feelsLikeLine}@${fontScale}@${conditionGroupWidth}`}
+                      line={feelsLikeLine}
+                      lines={temperatureValues.join('\n')}
+                      variant="caption"
+                    />
                   </Crossfade>
                 </View>
                 <View

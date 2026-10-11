@@ -11,18 +11,16 @@ test('weather lines keep every temperature on the line of its label', () => {
     const copy = messages[language];
     const lines = [
       copy.weather.feelsLike('6,8°'),
-      copy.weather.range('9,2°', '10,8°'),
+      copy.weather.low('9,2°'),
+      copy.weather.high('10,8°'),
     ];
     for (const line of lines) {
-      // A separator is tied to the part after it, so a wrapped line never ends on a "·".
-      assert.ok(!line.includes('· '), `${language}: "${line}" can leave a separator at a line end`);
-      for (const segment of line.split(' ·\u00a0')) {
-        const number = segment.search(/\d/);
-        if (number < 0) continue;
-        const before = segment.slice(0, number).replace(/[-\u2212]$/, '');
-        assert.ok(before === '' || before.endsWith('\u00a0'), `${language}: "${segment}" can break before its number`);
-        assert.ok(!segment.slice(number).includes(' '), `${language}: "${segment}" can break inside its number`);
-      }
+      // Each value stands alone: the screen joins them with a dot only when they share one line.
+      assert.ok(!line.includes('·'), `${language}: "${line}" carries its own separator`);
+      const number = line.search(/\d/);
+      const before = line.slice(0, number).replace(/[-\u2212]$/, '');
+      assert.ok(before.endsWith('\u00a0'), `${language}: "${line}" can break before its number`);
+      assert.ok(!line.slice(number).includes(' '), `${language}: "${line}" can break inside its number`);
     }
   }
 });
