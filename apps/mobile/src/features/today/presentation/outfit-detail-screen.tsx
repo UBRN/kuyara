@@ -692,14 +692,18 @@ export function OutfitDetailScreen({
             visibleHeight={visibleBottom - visibleTop}
             width={contentWidth}
           />
-          {/* The worn moment's stitch and burst, over the board only, once per recorded save. */}
-          <Celebration
-            colors={[...pieceRoles.values()].map(({ main }) => main)}
-            play={wornMoments}
-            radius={radii.stage}
-            seed={presentation.kind === 'loaded' ? presentation.dateKey : ''}
-            testID="outfit-detail-celebration"
-          />
+          {/* The worn moment's stitch and burst, once per recorded save, over the board's drawing
+              only: the name buttons under it stay clear. */}
+          <View pointerEvents="none" style={[styles.celebration, { height: boardLayout.height }]}
+            testID="outfit-detail-celebration-area">
+            <Celebration
+              colors={[...pieceRoles.values()].map(({ main }) => main)}
+              play={wornMoments}
+              radius={radii.stage}
+              seed={presentation.kind === 'loaded' ? presentation.dateKey : ''}
+              testID="outfit-detail-celebration"
+            />
+          </View>
         </PlateView>
 
         {/* The unusual note is a status in its own glyph and ink; it stands only after a
@@ -837,6 +841,7 @@ const styles = StyleSheet.create({
   changedFrom: {
     paddingTop: spacing.xs,
   },
+  celebration: { left: 0, position: 'absolute', right: 0, top: 0 },
   boardPlate: {
     borderRadius: radii.stage,
     marginTop: spacing.xl,

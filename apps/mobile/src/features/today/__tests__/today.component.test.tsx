@@ -60,6 +60,7 @@ import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
 import { RING_OUTSET } from '@/components/ui/coach-mark-layer';
 import { LaunchRevealContext } from '@/components/ui/launch-curtain';
+import { buttonGeometry } from '@/components/ui/primitive-contracts';
 
 // GlassButton draws the sheet close and the detail back as SwiftUI glass buttons.
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
@@ -1355,6 +1356,12 @@ describe('the look worn today', () => {
     await fireEvent.press(result.getByTestId('today-archetype', hidden));
     expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(second.id, true);
 
+    // The switch is a plain button in the accent ink, a full 44-point target, its words on the content edge.
+    const toggle = result.getByTestId('today-worn-switch');
+    expect(StyleSheet.flatten(toggle.props.style)).toMatchObject({
+      minHeight: layout.minimumTouchTarget, marginLeft: -buttonGeometry.medium.paddingHorizontal,
+    });
+    expect(within(toggle).getByText(copy.showPick, hidden)).toHaveStyle({ color: lightTheme.colors.brandAccent });
     await fireEvent.press(result.getByRole('button', { name: copy.showPickAccessibilityLabel }));
     expect(await result.findByTestId(`today-primary-board-${first.id}`, hidden)).toBeOnTheScreen();
     expect(result.queryByTestId('today-wearing')).toBeNull();

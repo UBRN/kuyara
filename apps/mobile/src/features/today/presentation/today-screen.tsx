@@ -18,6 +18,7 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import { useLaunchReveal } from '@/components/ui/launch-curtain';
+import { buttonGeometry } from '@/components/ui/primitive-contracts';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useSinglePush } from '@/components/ui/use-single-push';
 import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
@@ -573,12 +574,15 @@ function TodayScreenContent({
                     {copy.wornLook.staysUntilTomorrow}
                   </AppText>
                 ) : null}
-                <TextButton
+                {/* A plain button in the accent ink, its words on the content edge. */}
+                <Button
                   accessibilityLabel={showsWorn
                     ? copy.wornLook.showPickAccessibilityLabel : copy.wornLook.showWornAccessibilityLabel}
                   label={showsWorn ? copy.wornLook.showPick : copy.wornLook.showWorn}
                   onPress={() => setPickOver(showsWorn ? wornHero.id : null)}
+                  style={styles.wornSwitchButton}
                   testID="today-worn-switch"
+                  variant="plain"
                 />
               </View>
             ) : null}
@@ -778,6 +782,7 @@ const styles = StyleSheet.create({
   wearing: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm },
   flexText: { flexShrink: 1 },
   wornSwitch: { alignItems: 'flex-start', gap: spacing.xs, marginTop: spacing.sm },
+  wornSwitchButton: { marginLeft: -buttonGeometry.medium.paddingHorizontal },
   askAgain: { marginTop: spacing.md },
   laterReady: { marginTop: spacing.xs },
   // S15: a quiet line on the ground plane, never a card, after the last button.

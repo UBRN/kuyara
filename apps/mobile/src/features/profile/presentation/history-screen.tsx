@@ -153,7 +153,9 @@ function historyRows(
 
 function dayCopy(entry: BoardEntry, messages: AppMessages) {
   return {
-    title: archetypeLabel(messages.recommendation, entry.outfit.archetypeId, dateKeyDayKind(entry.dayKey)),
+    // A look the reader changed is theirs, named as Today names it.
+    title: entry.outfit.source === 'manual' ? messages.today.manualMix.title
+      : archetypeLabel(messages.recommendation, entry.outfit.archetypeId, dateKeyDayKind(entry.dayKey)),
     style: messages.today.dailyStyle[entry.outfit.formality],
   };
 }
