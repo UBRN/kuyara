@@ -36,7 +36,7 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 3. **Units** / **Birimler:** Temperature (System, °C, °F) and Wind speed (System, km/h, mph), each a value row opening the native picker.
 4. **Notifications:** the notification preference and its pushed surface.
 5. **Account:** the optional account row and its pushed Account screen ([ADR 0041](0041-optional-accounts.md) section 5), always present, directly above Profile.
-6. **Profile:** display name, gender, dress style, style aesthetics, the Morning and evening question switch and birth date. Birth date carries no helper footer.
+6. **Profile:** display name, gender, dress style, style aesthetics, the Morning and evening questions switch and birth date. Birth date carries no helper footer.
 7. **Help:** Support, Share kuyara, Rate kuyara and, when the tour is available, "Get to know kuyara step by step" / "kuyara’yı adım adım tanı".
 8. **About:** Service providers, Privacy and License.
 9. The centred version and build footer.

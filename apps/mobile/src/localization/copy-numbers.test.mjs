@@ -37,7 +37,7 @@ test('the compose sheet reads as it did with the owner\'s piece limit', () => {
   const tr = messages.tr.today.compose;
   assert.equal(en.subtitle(composePieceLimit),
     'Choose up to three pieces. kuyara completes the rest for today’s weather.');
-  assert.equal(en.limitHint(composePieceLimit), 'Three pieces are chosen. Let one go to choose this one.');
+  assert.equal(en.limitHint(composePieceLimit), 'You’ve chosen three pieces. Remove one to add this one.');
   assert.equal(en.chosenCount(2, composePieceLimit), '2 / 3 pieces chosen');
   assert.equal(tr.subtitle(composePieceLimit), 'En çok üç parça seç. Kalanını kuyara bugünkü havaya göre tamamlar.');
   assert.equal(tr.limitHint(composePieceLimit), 'Üç parça seçili. Bunu seçmek için birini bırak.');
@@ -54,7 +54,7 @@ test('the sign-in pages read as they did with the owners\' limits', () => {
   const en = messages.en.account.signIn.pages(accountIntroLimits);
   const tr = messages.tr.account.signIn.pages(accountIntroLimits);
   assert.equal(en.askAgain.body, 'With an account, you can ask the stylist again up to 10 times a day instead of 5.');
-  assert.equal(en.compose.body, 'Signed in, you choose up to three pieces and kuyara builds the outfit around them.');
+  assert.equal(en.compose.body, 'Once signed in, you can choose up to three pieces and kuyara builds the outfit around them.');
   assert.equal(tr.askAgain.body, 'Hesabınla stiliste günde 5 yerine 10 kez tekrar sorabilirsin.');
   assert.equal(tr.compose.body, 'Giriş yaptığında en çok üç parça seçersin, kuyara kombini onlara göre kurar.');
 });

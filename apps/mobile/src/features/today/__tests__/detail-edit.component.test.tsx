@@ -338,7 +338,7 @@ describe.each(['en', 'tr'] as const)('%s detail edit', (language) => {
     expect(button.props.accessibilityLabel).not.toBe(mix.takeOff);
     // What is carried is left behind, not taken off.
     expect(button.props.accessibilityLabel).toBe({
-      en: `Leave behind what you carry, now ${catalogName(language, 'umbrella')}`,
+      en: `Leave the ${catalogName(language, 'umbrella')} behind`,
       tr: `Yanına aldığını bırak, şu an ${catalogName(language, 'umbrella')}`,
     }[language]);
   });

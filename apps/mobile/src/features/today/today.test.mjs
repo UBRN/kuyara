@@ -82,7 +82,7 @@ test('the evening Later note uses the saved choice times in both languages', () 
   };
   const now = Date.parse('2026-08-13T15:30:00.000Z');
   assert.equal(eveningLaterReadyLine(departure, now, 'en', false),
-    'Your 19:00 outfit is ready at 18:00');
+    'Your outfit for 19:00 will be ready at 18:00');
   assert.equal(eveningLaterReadyLine(departure, now, 'tr', false),
     '19:00 için kombinin saat 18:00 itibarıyla hazır');
   assert.equal(eveningLaterReadyLine({ ...departure,
@@ -97,12 +97,12 @@ test('the evening Later note stays until a departure past midnight, and a small-
     updatedAt: '2026-08-13T19:30:00.000Z',
   };
   assert.equal(eveningLaterReadyLine(departure, Date.parse('2026-08-13T21:10:00.000Z'), 'en', false),
-    'Your 00:30 outfit is ready at 22:30');
+    'Your outfit for 00:30 will be ready at 22:30');
   assert.equal(eveningLaterReadyLine(departure, Date.parse('2026-08-13T21:30:00.000Z'), 'en', false), null);
   const smallHours = { ...departure, departureAt: '2026-08-13T22:00:00.000Z',
     createdAt: '2026-08-13T21:10:00.000Z', updatedAt: '2026-08-13T21:10:00.000Z' };
   assert.equal(eveningLaterReadyLine(smallHours, Date.parse('2026-08-13T21:20:00.000Z'), 'en', false),
-    'Your 01:00 outfit is ready at 00:10');
+    'Your outfit for 01:00 will be ready at 00:10');
 });
 
 function loadedPresentation(
@@ -422,8 +422,8 @@ test('the unavailable branch offers a retry and says when the cause is being off
   );
 
   assert.equal(generic.actionLabel, 'Refresh');
-  assert.equal(generic.title, 'Today’s guidance is unavailable');
-  assert.equal(rateLimited.title, 'Today’s guidance is unavailable');
+  assert.equal(generic.title, 'Today’s outfit is unavailable');
+  assert.equal(rateLimited.title, 'Today’s outfit is unavailable');
   assert.equal(rateLimited.actionLabel, 'Refresh');
   assert.equal(offline.title, 'You’re offline');
   assert.equal(offline.body, 'Connect to the internet and try again.');
@@ -820,7 +820,7 @@ test('the freshness line reports refreshing, failure, staleness, and last update
   const base = todayScreenState;
 
   const refreshing = loadedPresentation({ ...base, isRefreshing: true, refreshFailed: true });
-  assert.equal(refreshing.header.freshness, 'Refreshing today’s guidance…');
+  assert.equal(refreshing.header.freshness, 'Refreshing today’s outfit…');
   assert.equal(refreshing.header.isRefreshing, true);
   assert.equal(refreshing.header.announceFreshness, true);
 
@@ -876,9 +876,9 @@ test('a narrated refresh replaces the generic freshness line with the phase, in 
   ];
   const english = {
     'asking-stylist': 'Asking the AI stylist.',
-    'answer-received': 'AI answered. Checking the picks.',
+    'answer-received': 'The AI answered. Checking its picks.',
     'preparing-outfits': 'Preparing your outfits.',
-    'using-standard': 'AI did not answer. Using standard suggestions.',
+    'using-standard': 'The AI didn’t answer. Using standard suggestions.',
   };
   const turkish = {
     'asking-stylist': 'Yapay zeka stilistine soruluyor.',

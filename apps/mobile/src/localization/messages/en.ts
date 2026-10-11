@@ -1,6 +1,6 @@
 import { catalogMessages } from '@/features/catalog/localization/catalog-messages';
 import { recommendationMessages } from '@/features/recommendation/localization/recommendation-messages';
-import { capitalizedNumberWord, numberWord } from '@/localization/number-words';
+import { numberWord } from '@/localization/number-words';
 import type { AppMessages } from '@/localization/messages/types';
 
 const englishOwnershipStateLabels = Object.freeze({
@@ -73,7 +73,7 @@ export const en = {
     completeAction: 'Start using kuyara',
     locationSkipAction: 'Continue without a location',
     genderRequiredError: 'Choose your gender to continue.',
-    saveError: 'Your choices could not be saved. Please try again.',
+    saveError: 'Your choices could not be saved. Try again.',
   },
   preferences: {
     stylePreferencesTitle: 'Style preferences',
@@ -86,7 +86,7 @@ export const en = {
     styleAestheticSporty: 'Sporty',
     styleAestheticStreetwear: 'Streetwear',
     styleAestheticRelaxed: 'Laid-back',
-    dayQuestionsTitle: 'Morning and evening question',
+    dayQuestionsTitle: 'Morning and evening questions',
     genderTitle: 'Gender',
     genderWoman: 'Woman',
     genderMan: 'Man',
@@ -151,7 +151,7 @@ export const en = {
       characterCount: (current, maximum) => `${current} of ${maximum} characters`,
       send: 'Send',
       cancel: 'Cancel',
-      failed: 'Your feedback could not be sent. Please try again.',
+      failed: 'Your feedback could not be sent. Try again.',
       sentTitle: 'Thank you',
       sentBody: 'Your feedback was sent.',
       done: 'Done',
@@ -166,7 +166,7 @@ export const en = {
     weatherNoSnapshot: 'Sources appear here after the first weather update.',
     weatherFooter: 'Where your latest weather came from.',
     aiStatusIntro: 'Sends one short request. Your outfit does not change.',
-    aiStatusProvenanceFooter: 'kuyara asks online AI. If it cannot answer in time, kuyara uses its standard suggestions.',
+    aiStatusProvenanceFooter: 'kuyara asks an online AI. If it cannot answer in time, kuyara uses its standard suggestions.',
     aiStatusAssistant: (provider: string, model: string) =>
       `Answered by ${provider} (${model})`,
     aiStatusLastOnDeviceAi: 'kuyara chose your last outfit with Apple Intelligence.',
@@ -222,7 +222,7 @@ export const en = {
     closetHeadingHint: 'Opens your Closet.',
     wantedLabel: 'Wanted',
     historyLabel: 'History',
-    historyIntro: 'Looks you chose to wear.',
+    historyIntro: 'Outfits you wore.',
     historyEmptyBody: 'The outfits you mark “Wore this today” on Today gather here, day by day.',
     historyEmptyAction: 'Go to Today',
     historyLoadError: 'History could not be loaded. Nothing you saved is lost.',
@@ -264,7 +264,7 @@ export const en = {
     },
     morningBriefing: {
       toggleLabel: 'Morning summary',
-      hint: (time) => `A single notification at ${time} with the day\u2019s temperature range and its one big weather change, when tomorrow morning is already in the forecast.`,
+      hint: (time) => `One notification at ${time} with the day\u2019s temperature range and its biggest weather change. It comes only when the forecast covers that morning.`,
       title: 'Morning summary',
       fullRange: (range) => `Today ${range}.`,
       partialRange: ({ range, through }) => `Until ${through}: ${range}.`,
@@ -437,7 +437,7 @@ export const en = {
     addHint: 'Opens the new Closet item form.',
     loadingLabel: 'Loading your Closet.',
     loadErrorTitle: 'Your Closet could not be loaded',
-    loadErrorBody: 'Your saved items are still safe. Please try again.',
+    loadErrorBody: 'Your saved items are still safe. Try again.',
     retryAction: 'Try again',
     unclassifiedType: 'Type not selected',
     wornCount: (count: number) => (count === 1 ? 'Worn once' : `Worn ${count} times`),
@@ -488,14 +488,14 @@ export const en = {
     photoRemoveLabel: 'Remove',
     photoProcessingLabel: 'Preparing photo…',
     photoError:
-      'The photo could not be prepared. Your other changes are still here; please try again.',
+      'The photo could not be prepared. Your other changes are still here. Try again.',
     cameraDeniedMessage:
       'Camera access for kuyara is turned off in system settings. You can turn it on there or choose a photo instead.',
     cameraUnavailableMessage:
       'The camera is not available on this device. You can choose a photo instead.',
     openSettingsAction: 'Open Settings',
-    photoAccessibilityLabel: (type: string) => `${type} Closet item photo.`,
-    untypedPhotoAccessibilityLabel: 'Closet item photo, type not chosen yet.',
+    photoAccessibilityLabel: (type: string) => `Photo of your ${type}.`,
+    untypedPhotoAccessibilityLabel: 'Photo of a Closet piece. The type is not chosen yet.',
     entryStateTitle: 'Do you own this piece?',
     typeTitle: 'What is it?',
     typeChangeAction: 'Change',
@@ -571,8 +571,8 @@ export const en = {
     savedOwnedConfirmation: (piece: string) => `${piece} added to your Closet.`,
     savedWantedConfirmation: (piece: string) => `${piece} added to your wanted pieces.`,
     undoAction: 'Undo',
-    createError: 'This item could not be added. Your entries are still here; please try again.',
-    updateError: 'This item could not be saved. Your changes are still here; please try again.',
+    createError: 'This item could not be added. Your entries are still here. Try again.',
+    updateError: 'This item could not be saved. Your changes are still here. Try again.',
     pieceSheetAddTitle: 'Add to Closet',
     pieceSheetEditTitle: 'Edit piece',
     pieceSheetOwnershipTitle: 'Is it yours?',
@@ -581,22 +581,22 @@ export const en = {
     pieceSheetDone: 'Done',
     typeChangeTitle: 'Change clothing type?',
     typeChangeBody:
-      'Changing the type will remove your item property choices and use the new type’s catalog defaults.',
+      'Changing the type resets this piece’s details to the new type’s defaults.',
     keepTypeAction: 'Keep current type',
-    changeTypeAction: 'Change type and reset properties',
+    changeTypeAction: 'Change type and reset details',
     discardTitle: 'Discard unsaved changes?',
     discardBody: 'Your changes to this Closet item will be lost.',
     keepEditingAction: 'Keep editing',
     discardAction: 'Discard changes',
-    deleteSectionTitle: 'Remove from Closet',
+    deleteSectionTitle: 'Delete piece',
     deleteSectionBody: 'This item will no longer appear in your Closet list.',
-    deleteAction: 'Delete item',
+    deleteAction: 'Delete piece',
     deletingLabel: 'Deleting item…',
     deleteConfirmTitle: 'Delete this item?',
     deleteConfirmBody: 'The item will be removed from your Closet list.',
     cancelDeleteAction: 'Keep item',
-    confirmDeleteAction: 'Delete from Closet',
-    deleteError: 'This item could not be deleted. Please try again.',
+    confirmDeleteAction: 'Delete',
+    deleteError: 'This item could not be deleted. Try again.',
     notFoundTitle: 'Closet item not found',
     notFoundBody: 'It may have been deleted or is no longer available.',
     returnToWardrobeAction: 'Return to Closet',
@@ -629,7 +629,7 @@ export const en = {
       close: 'Close',
       saveError: 'Your choice could not be saved. Try again.',
       stylesQuestion: 'Any styles for today?',
-      stylesNote: 'Only for today. Your Settings stay as they are.',
+      stylesNote: 'Only for today. Your settings stay as they are.',
     },
     greetingNamed: (name) => `Welcome back, ${name}`,
     greetingFirstNamed: (name) => `Welcome, ${name}`,
@@ -662,12 +662,12 @@ export const en = {
       choosingOnDay: (day, start, end) => `Choosing for the weather on ${day}, between ${start} and ${end}…`,
     },
     drift: {
-      rain: (time) => `This outfit wasn’t chosen for the rain after ${time}.`,
-      snow: (time) => `This outfit wasn’t chosen for the snow after ${time}.`,
-      cold: (time) => `This outfit wasn’t chosen for the cold after ${time}.`,
+      rain: (time) => `This outfit doesn’t allow for rain after ${time}.`,
+      snow: (time) => `This outfit doesn’t allow for snow after ${time}.`,
+      cold: (time) => `This outfit doesn’t allow for cold after ${time}.`,
     },
     coolSpell: (time) => `Take a light layer for the cool spell around ${time}.`,
-    laterReady: ({ departure, ready }) => `Your ${departure} outfit is ready at ${ready}`,
+    laterReady: ({ departure, ready }) => `Your outfit for ${departure} will be ready at ${ready}`,
     otherOptionsHeading: 'Alternative outfits',
     moreIdeas: {
       heading: 'More ideas',
@@ -723,7 +723,7 @@ export const en = {
     closetSeed: {
       action: 'Add this to my Closet',
       body: 'Adds every piece of this outfit, in the color shown here. Tap a piece later to change it.',
-      question: 'How should the pieces go in?',
+      question: 'How should we add them?',
       choice: { owned: 'I own them all', wanted: 'I want them all' },
       cancel: 'Cancel',
       added: (count) => (count === 1 ? '1 piece added to your Closet.' : `${count} pieces added to your Closet.`),
@@ -735,7 +735,7 @@ export const en = {
     ownershipYours: (color) => `Yours: ${color}`,
     ownershipOnBoard: {
       owned: 'In your\u00a0Closet',
-      similar: 'Similar one in your\u00a0Closet',
+      similar: 'A similar one is in your\u00a0Closet',
       wanted: 'In your wanted\u00a0pieces',
     },
     boardHint: 'Tap a name or a piece, then swipe to change it.',
@@ -743,12 +743,12 @@ export const en = {
     manualMix: {
       change: 'Change',
       changeAccessibilityLabel: {
-        primary_top: (piece) => `Change the top, now ${piece}`,
-        bottom: (piece) => `Change the bottom, now ${piece}`,
-        one_piece: (piece) => `Change the one-piece, now ${piece}`,
-        mid_layer: (piece) => `Change the mid layer, now ${piece}`,
-        outer_layer: (piece) => `Change the outer layer, now ${piece}`,
-        footwear: (piece) => `Change the footwear, now ${piece}`,
+        primary_top: (piece) => `Change the top, currently ${piece}`,
+        bottom: (piece) => `Change the bottom, currently ${piece}`,
+        one_piece: (piece) => `Change the one-piece, currently ${piece}`,
+        mid_layer: (piece) => `Change the mid layer, currently ${piece}`,
+        outer_layer: (piece) => `Change the outer layer, currently ${piece}`,
+        footwear: (piece) => `Change the footwear, currently ${piece}`,
       },
       changed: 'Changed',
       title: 'Your outfit',
@@ -796,8 +796,8 @@ export const en = {
       },
       tookOff: 'You took it off',
       changeEmptyAccessibilityLabel: {
-        mid_layer: 'Change the mid layer, now none',
-        outer_layer: 'Change the outer layer, now none',
+        mid_layer: 'Change the mid layer, currently none',
+        outer_layer: 'Change the outer layer, currently none',
       },
       wearWithout: {
         mid_layer: 'Wear without a mid layer',
@@ -811,10 +811,10 @@ export const en = {
       addAccessoryHint: 'Head, neck, hands or carry',
       accessoryAdded: (slot) => `${slot} · Added`,
       accessoryTakeOffAccessibilityLabel: {
-        head: (piece) => `Take off the head accessory, now ${piece}`,
-        neck: (piece) => `Take off the neck accessory, now ${piece}`,
-        hands: (piece) => `Take off the hand accessory, now ${piece}`,
-        handheld: (piece) => `Leave behind what you carry, now ${piece}`,
+        head: (piece) => `Take off the head accessory, currently ${piece}`,
+        neck: (piece) => `Take off the neck accessory, currently ${piece}`,
+        hands: (piece) => `Take off the hand accessory, currently ${piece}`,
+        handheld: (piece) => `Leave the ${piece} behind`,
       },
       accessoriesTookOff: (count) => (count === 1
         ? 'You took off 1 finishing touch' : `You took off ${count} finishing touches`),
@@ -834,7 +834,7 @@ export const en = {
       chooseAnother: 'Choose another piece',
       back: 'Back',
       limitHint: (limit) =>
-        `${capitalizedNumberWord(limit, 'en')} pieces are chosen. Let one go to choose this one.`,
+        `You’ve chosen ${numberWord(limit, 'en')} pieces. Remove one to add this one.`,
       colorLabel: {
         primary_top: 'Color of the top',
         bottom: 'Color of the bottom',
@@ -858,7 +858,7 @@ export const en = {
     },
     wornAction: 'Wore this today',
     wornToday: 'Worn today',
-    wornSaveError: 'Today’s look could not be saved. Try again.',
+    wornSaveError: 'Today’s outfit could not be saved. Try again.',
     rating: {
       question: 'Do you like this outfit?',
       thanks: 'Thanks, noted.',
@@ -974,16 +974,16 @@ export const en = {
     },
     updatedAt: (time: string) => `Last updated at ${time}`,
     staleAt: (time: string) => `Last updated at ${time} · May be out of date`,
-    refreshingStatus: 'Refreshing today’s guidance…',
+    refreshingStatus: 'Refreshing today’s outfit…',
     refreshFailedAt: (time: string) => `Couldn’t refresh · Showing last update from ${time}`,
     refreshAction: 'Refresh',
     apparentTemperature: (temperature: string) => `Feels like ${temperature}`,
     temperatureRange: (minimum: string, maximum: string) => `Low ${minimum} · High ${maximum}`,
     rainProbability: (probability: string) => `${probability} chance of rain`,
     optionPosition: (position: number, total: number) => `Option ${position} of ${total}`,
-    loadingTitle: 'Preparing today’s guidance',
+    loadingTitle: 'Preparing today’s outfit',
     loadingBody: 'Your weather summary and outfit options will appear here.',
-    loadingAccessibilityLabel: 'Preparing today’s guidance. Content is loading.',
+    loadingAccessibilityLabel: 'Preparing today’s outfit. Content is loading.',
     generatingStatus: 'Choosing today’s outfits.',
     generatingLongWaitStatus: 'Choosing today’s outfits. This can take a little longer.',
     loading: {
@@ -1002,12 +1002,12 @@ export const en = {
     },
     phase: {
       'asking-stylist': 'Asking the AI stylist.',
-      'answer-received': 'AI answered. Checking the picks.',
+      'answer-received': 'The AI answered. Checking its picks.',
       'preparing-outfits': 'Preparing your outfits.',
-      'using-standard': 'AI did not answer. Using standard suggestions.',
+      'using-standard': 'The AI didn’t answer. Using standard suggestions.',
     },
-    unavailableTitle: 'Today’s guidance is unavailable',
-    unavailableBody: 'There is no saved guidance to show right now.',
+    unavailableTitle: 'Today’s outfit is unavailable',
+    unavailableBody: 'There is no saved outfit to show right now.',
     noLocationTitle: 'kuyara doesn’t know where you are yet',
     noLocationBody: 'Choose your device location or search for a city to see today’s weather and outfit suggestions.',
     chooseLocationAction: 'Choose a location',
@@ -1110,10 +1110,10 @@ export const en = {
         },
         history: {
           title: 'Your History stays with you',
-          body: 'The days you wore stay with your account, each outfit as you recorded it.',
+          body: 'Every day you recorded stays with your account, with the outfit you logged.',
         },
         askAgain: {
-          title: 'More stylist asks',
+          title: 'Ask the stylist more often',
           body: `With an account, you can ask the stylist again up to ${askAgainMember} times a day instead of ${askAgainRegular}.`,
         },
         devices: {
@@ -1126,12 +1126,12 @@ export const en = {
         },
         compose: {
           title: 'Build from the pieces you choose',
-          body: `Signed in, you choose up to ${numberWord(composePieces, 'en')} pieces and kuyara builds the outfit around them.`,
+          body: `Once signed in, you can choose up to ${numberWord(composePieces, 'en')} pieces and kuyara builds the outfit around them.`,
         },
       }),
       pagePosition: (page: number, total: number) => `Page ${page} of ${total}`,
-      pausePages: 'Pause pages',
-      playPages: 'Play pages',
+      pausePages: 'Pause slideshow',
+      playPages: 'Play slideshow',
       continueWith: { apple: 'Continue with Apple', google: 'Continue with Google' },
       notNow: 'Not now',
       footer: 'Weather and outfit suggestions work without an account. By continuing you accept the Account terms.',
@@ -1158,7 +1158,7 @@ export const en = {
       signIn: 'Sign in',
       signedOutFooter: 'Take your Closet and History to a new phone.',
       signedIn: { apple: 'Signed in with Apple', google: 'Signed in with Google' },
-      deleted: 'Your account is deleted. What you see in kuyara stays.',
+      deleted: 'Your account has been deleted. What you see in kuyara stays.',
       signedOut: 'You are signed out. Your Closet and History stay in kuyara.',
     },
     sync: {
@@ -1242,7 +1242,7 @@ export const en = {
       done: 'Done',
     },
     deleted: {
-      title: 'Your account is deleted',
+      title: 'Your account has been deleted',
       gone: {
         apple: 'Everything saved to your account is deleted, and your sign-in with Apple is disconnected.',
         google: 'Everything saved to your account is deleted, and your sign-in with Google is disconnected.',
@@ -1253,7 +1253,7 @@ export const en = {
       done: 'Done',
     },
     merge: {
-      title: 'Your Closet and History are together',
+      title: 'Your Closet and History are merged',
       closet: (added: number, received: number) =>
         `${enPieces(added)} from this phone joined your account, and ${enPieces(received)} from your account joined your Closet.`,
       history: (added: number, received: number) =>

@@ -161,7 +161,7 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
     const change = result.getByTestId('outfit-detail-change-outer_layer');
     // One whole sentence per slot, never a translated slot name inflected in place.
     expect(change).toHaveProp('accessibilityLabel', {
-      en: `Change the outer layer, now ${catalogName('en', 'rain_jacket')}`,
+      en: `Change the outer layer, currently ${catalogName('en', 'rain_jacket')}`,
       tr: `Dış katmanı değiştir, şu an ${catalogName('tr', 'rain_jacket')}`,
     }[language]);
     await fireEvent.press(change);
@@ -590,9 +590,9 @@ test.each([['leftward', -1], ['rightward', 1]] as const)(
 test('each changeable slot has its own whole change sentence in English and Turkish', () => {
   const sentences = {
     en: {
-      primary_top: 'Change the top, now X', bottom: 'Change the bottom, now X',
-      one_piece: 'Change the one-piece, now X', mid_layer: 'Change the mid layer, now X',
-      outer_layer: 'Change the outer layer, now X', footwear: 'Change the footwear, now X',
+      primary_top: 'Change the top, currently X', bottom: 'Change the bottom, currently X',
+      one_piece: 'Change the one-piece, currently X', mid_layer: 'Change the mid layer, currently X',
+      outer_layer: 'Change the outer layer, currently X', footwear: 'Change the footwear, currently X',
     },
     // Never "<slot name> parçasını değiştir": "Tek parça parçasını değiştir" was the defect.
     tr: {

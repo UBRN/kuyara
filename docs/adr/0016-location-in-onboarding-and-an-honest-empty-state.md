@@ -11,8 +11,8 @@ Without this decision a newly onboarded user lands on Today with no location
 selected, which means no weather, which means no recommendation. What they see
 is an empty card:
 
-> Today's guidance is unavailable
-> There is no saved guidance to show right now.
+> Today's outfit is unavailable
+> There is no saved outfit to show right now.
 
 That copy is true and useless. It does not say why there is nothing, and it
 offers nothing to do about it. Repairing the end-to-end suite made it visible:
