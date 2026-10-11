@@ -27,6 +27,7 @@ import { brandColors, standardMotion } from '@/theme/theme';
 
 import { brandSymbolPaths, brandSymbolViewBox } from './brand-symbol';
 import { fadeTo } from './fade';
+import { WindowOverlay } from './window-overlay';
 
 // The group's native transform is its `matrix`, which the typed props leave out.
 const AnimatedG = Animated.createAnimatedComponent(
@@ -225,15 +226,18 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
           onLifting={lifting}
         />
       )}
+      {/* A return can find a sheet presented over the app, so its layer is drawn above the
+          whole window; the cold launch has nothing presented over it. */}
       {returning === null ? null : (
-        <CurtainLayer
-          blocking={!returnLifted}
-          key={returning}
-          motion="return"
-          onGone={returnGone}
-          onLayout={ignoreLayout}
-          onLifting={returnLifting}
-        />
+        <WindowOverlay key={returning}>
+          <CurtainLayer
+            blocking={!returnLifted}
+            motion="return"
+            onGone={returnGone}
+            onLayout={ignoreLayout}
+            onLifting={returnLifting}
+          />
+        </WindowOverlay>
       )}
     </>
   );
