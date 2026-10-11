@@ -217,6 +217,32 @@ function failureResult(
   });
 }
 
+/**
+ * The heat rules of a new composition. On a day whose heat is mandatory nothing high-thermal is
+ * worn, no mid layer is added and no shoe warmer than light is worn unless the feet must stay
+ * dry, so a hot thunderstorm keeps its rain boots and hot plain rain wears sandals or sneakers;
+ * on a day that asks for no warmth at all nothing high-thermal is worn either. Accessories are
+ * attached after composition and never read these rules.
+ */
+function heatRulesOf(requirements: BodyClothingRequirements): Readonly<{
+  mandatory: boolean;
+  wears: (candidate: EligibleGarmentResult) => boolean;
+}> {
+  const mandatory = requirements.requirements.some(({ kind, priority }) =>
+    kind === 'breathability' && priority === 'mandatory');
+  const asksWarmth = requirements.requirements.some(({ kind }) => kind === 'thermal');
+  const feetMustStayDry = requirements.requirements.some((requirement) =>
+    requirement.kind === 'water_protection' && requirement.target === 'feet' &&
+    requirement.priority === 'mandatory');
+  return {
+    mandatory,
+    wears: ({ garment: { properties: { category, thermalLevel } } }) =>
+      category === 'accessory' ||
+      !((thermalLevel === 'high' && (mandatory || !asksWarmth)) ||
+        (mandatory && !feetMustStayDry && category === 'footwear' && thermalLevel === 'moderate')),
+  };
+}
+
 /** The day's eligible candidates by the slots they can fill, best first, once the day can dress a body and feet at all. */
 export type ComposerDay = Readonly<{
   status: 'ready';
@@ -230,8 +256,8 @@ export type ComposerDay = Readonly<{
   footwear: readonly EligibleGarmentResult[];
   /**
    * Whether the day composes new outfits under every composition rule: false only to rebuild a
-   * saved outfit, which is read as it was composed, so the layer order and the incompatible
-   * pairs govern new compositions only.
+   * saved outfit, which is read as it was composed, so the layer order, the incompatible pairs
+   * and the heat rules govern new compositions only.
    */
   composesNew: boolean;
 }>;
@@ -268,12 +294,14 @@ export function readComposerDay(
     .filter((candidate): candidate is EligibleGarmentResult =>
       candidate.status === 'eligible')
     .sort(compareGarmentEligibilityResults);
+  const heat = heatRulesOf(requirements);
+  const wearable = composesNew ? eligible.filter((candidate) => heat.wears(candidate)) : eligible;
   const inSlot = (slot: OutfitSlot) =>
-    eligible.filter(({ garment }) => slotAccepts(slot, garment.properties));
+    wearable.filter(({ garment }) => slotAccepts(slot, garment.properties));
   const primaryTops = inSlot('primary_top');
   const bottoms = inSlot('bottom');
   const onePieces = inSlot('one_piece');
-  const midLayers = inSlot('mid_layer');
+  const midLayers = composesNew && heat.mandatory ? [] : inSlot('mid_layer');
   const outerLayers = inSlot('outer_layer');
   const footwear = inSlot('footwear');
 
