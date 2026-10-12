@@ -161,9 +161,9 @@ test('accepts a valid option request and exactly three distinct picks', () => {
 // request enum is strict, so an older Worker answers 400 and the app falls back silently.
 // They come last, because the app orders a week's history by its own copy of this list.
 test('the request accepts the catalog 7 garment types, appended after the version 6 list', () => {
-  const catalog7 = ['rain_trench', 'storm_coat', 'rain_dress_shoes', 'chinos'];
+  const catalog7 = ['rain_trench', 'storm_coat', 'rain_dress_shoes', 'chinos', 'knee_boots'];
   assert.deepEqual(garmentTypeIds.slice(-catalog7.length), catalog7);
-  assert.equal(garmentTypeIds.length, 53);
+  assert.equal(garmentTypeIds.length, 54);
   const wearing = option('option-1', { garments: [
     garment('primary_top', 'shirt', 'base'),
     garment('bottom', 'chinos'),
@@ -176,7 +176,12 @@ test('the request accepts the catalog 7 garment types, appended after the versio
     garment('outer_layer', 'storm_coat', 'outer'),
     garment('footwear', 'rain_dress_shoes', null),
   ] });
-  assert.equal(aiRecommendV1RequestSchema.safeParse({ ...validRequest(), options: [wearing, coated] }).success, true);
+  const booted = option('option-3', { garments: [
+    garment('primary_top', 'blouse', 'base'),
+    garment('bottom', 'skirt'),
+    garment('footwear', 'knee_boots', null),
+  ] });
+  assert.equal(aiRecommendV1RequestSchema.safeParse({ ...validRequest(), options: [wearing, coated, booted] }).success, true);
 });
 
 test('strict request, option, garment and traits objects reject extra keys', () => {
