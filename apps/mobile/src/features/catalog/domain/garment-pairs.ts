@@ -25,6 +25,8 @@ const incompatiblePairs: ReadonlySet<string> = new Set([
   ...tailoring.map((piece) => pairKey('track_pants', piece)),
   ...skirtsAndDresses.map((piece) => pairKey('fleece', piece)),
   ...boots.map((boot) => pairKey('shorts', boot)),
+  // Chinos are a smart trouser; over a sleeveless top they read as neither summer nor smart.
+  pairKey('sleeveless_top', 'chinos'),
 ]);
 
 /** Whether two garment types are never worn in one outfit, whichever slots they fill. */

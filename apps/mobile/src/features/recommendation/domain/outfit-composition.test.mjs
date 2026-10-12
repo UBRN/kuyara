@@ -54,7 +54,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    'dc3301bb6c37a5ba60337ae2b74b19bfcca10656d94a0e11a27163e2143df5c7',
+    '5507f65ee9b21cdcd5b3d7331413b4031052077d57c549f60af9374f257e4dd7',
   );
 });
 
@@ -1322,7 +1322,7 @@ const incompatiblePairs = [
   ['shorts', 'rain_boots'], ['shorts', 'weather_boots'], ['shorts', 'ankle_boots'],
   ['sandals', 'parka'], ['sleeveless_top', 'coat'], ['shorts', 'fleece'],
   ['fleece', 'long_skirt'], ['fleece', 'skirt'], ['fleece', 'dress'],
-  ['track_pants', 'shirt'], ['track_pants', 'blazer'], ['track_pants', 'loafers'],
+  ['track_pants', 'shirt'], ['track_pants', 'blazer'], ['track_pants', 'loafers'], ['sleeveless_top', 'chinos'],
 ];
 const hoodieNeverOver = ['fleece', 'sweatshirt', 'sweater', 'cardigan'];
 
@@ -1418,14 +1418,15 @@ test('hot plain rain wears no warm shoe, and its casual shoes are sandals and sn
   }
 });
 
-test('a hot thunderstorm keeps the rain boots its mandatory dry feet ask for, or formal rain-ready shoes', () => {
+test('a hot thunderstorm keeps the rain boots its mandatory dry feet ask for, or the rain-ready dress shoes', () => {
   for (const preference of ['womens', 'mens']) {
     const { requirements, candidates } = composableForWeather(heatDay(30, 'thunderstorm', 0.9), {}, preference);
     const offered = composeOutfitOptions(requirements, candidates, 0);
     assert.equal(offered.status, 'composed', preference);
     assert.ok(offered.outfits.length >= 3, preference);
+    // The dress shoes, being formal, only go with a smart or formal outfit.
     assert.ok(offered.outfits.every(({ footwear, formality }) => footwear.garment.garmentTypeId === 'rain_boots'
-      || (footwear.garment.garmentTypeId === 'rain_dress_shoes' && formality === 'formal')), preference);
+      || (footwear.garment.garmentTypeId === 'rain_dress_shoes' && formality !== 'casual')), preference);
   }
 });
 

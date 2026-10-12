@@ -997,7 +997,7 @@ test('the same weather a week later offers other outfits under the same day vari
 // those already taken as it can. Over 216 trios (both cuts, three styles, dry and rainy, -4 to
 // 26 C, three days) the trios in one shoe were 109, in one bottom 94 and in one outer layer
 // 139; these are ceilings a later change has to walk past on purpose. Catalog version 7 leaves
-// them standing (shoe 78 to 76, bottom 64 to 22, outer 115 to 115).
+// them standing (shoe 78 to 78, bottom 64 to 20, outer 115 to 115).
 test('the three shown outfits spread their shoes, bottoms and outer layers across the day\'s best', () => {
   const counts = { shoe: 0, bottom: 0, outer: 0 };
   const type = (assigned) => assigned?.garment.garmentTypeId ?? null;
@@ -1032,7 +1032,7 @@ test('the three shown outfits spread their shoes, bottoms and outer layers acros
 // 147 times; these are ceilings a later change has to walk past on purpose. Catalog version 7
 // walks past the shoe one: a formal dry day leads with the ordinary dress shoes on both days,
 // a smart or formal rain day with its only dress shoe for the rain, and a cool dry day with a
-// skirt in the knee boots that suit it (shoe 86 to 118, bottom 87 to 52, outer 116 to 128).
+// skirt in the knee boots that suit it (shoe 86 to 115, bottom 87 to 50, outer 116 to 128).
 test('the next day leads with pieces yesterday\'s three did not wear, where the day\'s best allows', () => {
   const counts = { shoe: 0, bottom: 0, outer: 0 };
   const type = (assigned) => assigned?.garment.garmentTypeId ?? null;
@@ -1058,7 +1058,7 @@ test('the next day leads with pieces yesterday\'s three did not wear, where the 
       }
     }
   }
-  assert.ok(counts.shoe <= 118, `${counts.shoe} first outfits in yesterday's shoes`);
+  assert.ok(counts.shoe <= 115, `${counts.shoe} first outfits in yesterday's shoes`);
   assert.ok(counts.bottom <= 90, `${counts.bottom} first outfits in yesterday's bottom`);
   assert.ok(counts.outer <= 128, `${counts.outer} first outfits in yesterday's outer layer`);
 });
