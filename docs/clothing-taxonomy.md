@@ -269,7 +269,7 @@ The English and Turkish labels below are localization copy, not identity. They m
 Normalization decisions:
 
 - `shirt` means a general woven/button-front shirt; cut, material, and formality are not type identity. `blouse` remains separate because it is a recognizable catalog choice, but its weather properties may be similar.
-- `trousers` means tailored trousers. `chinos` is the smart everyday trouser with the same weather defaults, separate because formality is a type property and the engine needs a smart long bottom besides `jeans`. `jeans` stays separate because its typical construction and breathability differ enough to justify a default.
+- `trousers` means tailored trousers. `chinos` is the smart everyday trouser with the same weather defaults, separate because formality is a type property and the engine needs a smart long bottom between the casual `jeans` and the formal `trousers`. `jeans` stays separate because its typical construction and breathability differ enough to justify a default.
 - `sweatshirt`, `hoodie`, `sweater`, and `cardigan` remain separate recognizable constructions. Their exact warmth is still an overrideable property.
 - `light_jacket`, `insulated_jacket`, `rain_jacket`, and `coat` distinguish the weather function that the engine needs. Turkish “ceket”, “mont”, “yağmurluk”, and “kaban” are localized labels or search synonyms, not IDs.
 - `trench_coat` is retained because it is a stable, recognizable outerwear construction and appears in current Today copy; “light” is an attribute/default, not part of its ID.

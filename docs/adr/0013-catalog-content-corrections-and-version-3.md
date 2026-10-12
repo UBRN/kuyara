@@ -114,13 +114,15 @@ dressers their own formality on days that ask for a waterproof outer layer:
 | `chinos` | `bottom` | `standalone` | `light` | n/a | n/a | `moderate` | n/a | `smart` | both |
 | `knee_boots` | `footwear` | n/a | `moderate` | `none` | n/a | `low` | `everyday` | `smart` | `womens` |
 
-`chinos` carries the `trousers` defaults with `smart` formality, a second smart long bottom
-beside `jeans`; `knee_boots` carries the `ankle_boots` defaults. The rain trench is a
+`chinos` carries the `trousers` defaults with `smart` formality, the smart long bottom
+between the casual `jeans` and the formal `trousers`, and never goes with a sleeveless top;
+`knee_boots` carries the `ankle_boots` defaults. The rain trench is a
 seam-sealed mac, not a water-resistant trench coat, and the storm coat a lined, seam-sealed
 waterproof coat, not a wool coat; the dress shoe stays `light`, so the heat rules keep it as
 the only smart or formal answer to hot plain rain. `leather_jacket` water protection is
-`none`. Knee boots go with any smart outfit, and among outfits the day scores alike, knee
-boots over a skirt or a dress rank ahead of knee boots over trousers, jeans or chinos.
+`none`. Knee boots go with casual and smart outfits; without a skirt or a dress they score
+three points less than the same outfit in ankle boots, so trousers, jeans and chinos stay
+possible with them.
 
 The suit rule is part of the version. `blazer` takes the roles `mid` and `outer`. As a mid
 layer it is read as worn under an outer layer, so the body's water and wind requirements ask
