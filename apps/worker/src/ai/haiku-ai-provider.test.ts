@@ -201,7 +201,7 @@ test('the priced prompt size covers the largest prompt the app and installed bui
   const promptCharacters = Math.max(...gridRequestCells()
     .filter((cell): cell is { request: AiRecommendV1Request } => cell.request !== null)
     .map(({ request }) => largestOf(request)));
-  assert.equal(promptCharacters, 18_925);
+  assert.equal(promptCharacters, 18_308);
 
   // The offer rotates with the dressing day's own count, so the prompt changes from day to day.
   // A sweep over every day of 2026, the grid and the cold front below, three day kinds and both
@@ -211,8 +211,8 @@ test('the priced prompt size covers the largest prompt the app and installed bui
     assert.ok(request);
     return largestOf(request);
   };
-  const largestDatedGrid = dated(gridRecommendationInput('cold_rain', 'womens', 'casual'), '2026-03-11');
-  assert.equal(largestDatedGrid, 19_054);
+  const largestDatedGrid = dated(gridRecommendationInput('cold_rain', 'womens', 'casual'), '2026-03-28');
+  assert.equal(largestDatedGrid, 18_770);
 
   // The grid has no cold front, and the longest prompts the app builds come from one: a weekend
   // (day variants 3 and 4, which the app always pairs with a weekend day kind) that is warm
@@ -243,11 +243,11 @@ test('the priced prompt size covers the largest prompt the app and installed bui
     assert.ok(request);
     return (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...request, locale }));
   })));
-  assert.equal(largestBuilt, 18_541);
+  assert.equal(largestBuilt, 18_666);
   const largestDatedColdFront = dated({
     snapshot: coldFront, now, clothingPreference: 'womens', dressStyle: 'casual', dayVariant: 3, dayKind: 'weekday',
-  }, '2026-02-17');
-  assert.equal(largestDatedColdFront, 19_066);
+  }, '2026-11-25');
+  assert.equal(largestDatedColdFront, 18_748);
 
   // Installed binaries build their requests with the composition they shipped, so a smaller
   // prompt from today's tree must not price them out of Haiku. The fixture is the largest
@@ -269,9 +269,9 @@ test('the priced prompt size covers the largest prompt the app and installed bui
   // Micro-USD at 0.10 per 1M input tokens and 0.50 per 1M output tokens, 256 output tokens,
   // in tenths so the arithmetic stays in integers.
   const attemptMicroUsd = Math.ceil((haikuPromptCharacterLimit * 1 + 256 * 5) / 10);
-  assert.equal(attemptMicroUsd, 2_038);
+  assert.equal(attemptMicroUsd, 2_008);
   assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, Math.floor(200_000_000 / 31 / attemptMicroUsd));
-  assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, 3_165);
+  assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, 3_212);
   assert.ok(HAIKU_DAILY_ATTEMPT_LIMIT * attemptMicroUsd * 31 <= 200_000_000);
 });
 

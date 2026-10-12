@@ -1894,7 +1894,7 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
   // The grid models a weekday caller, but the app also sends weekends and the request admits
   // no day kind at all, and the sentence instruction names the locale: every combination is
   // measured. The offer also rotates with the dressing day's own count: a sweep over every day of
-  // 2026 found the grid's largest prompt on 2026-03-11, which is measured beside the grid's day.
+  // 2026 found the grid's largest prompt on 2026-03-28, which is measured beside the grid's day.
   const largestOf = ({ dayKind: _dayKind, ...body }: AiRecommendV1Request) => Math.max(...days.flatMap((day) =>
     (['en', 'tr'] as const).map((locale) => {
       const v2Body = { ...body, ...day, locale };
@@ -1905,16 +1905,16 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
     .filter((cell): cell is { request: AiRecommendV1Request } => cell.request !== null)
     .map(({ request }) => largestOf(request)));
   const datedRequest = aiRequestFromContext(createRecommendationContext(
-    { ...gridRecommendationInput('cold_rain', 'womens', 'casual'), localDayKey: '2026-03-11' }, '2026-03-11'));
+    { ...gridRecommendationInput('cold_rain', 'womens', 'casual'), localDayKey: '2026-03-28' }, '2026-03-28'));
   assert.ok(datedRequest);
 
   // The grid sends the day's requirements, so the three weather archetypes leave the lists
   // of the days that contradict them.
-  assert.equal(gridPrompt, 18_925);
+  assert.equal(gridPrompt, 18_308);
   const promptCharacters = Math.max(gridPrompt, largestOf(datedRequest));
-  assert.equal(promptCharacters, 19_054);
+  assert.equal(promptCharacters, 18_770);
   const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
-  assert.equal(inputTokens, 4_800);
+  assert.equal(inputTokens, 4_700);
   const attemptNeurons = Math.ceil(
     (inputTokens * 26_668 + 192 * 204_805) / 1_000_000,
   );
@@ -1922,7 +1922,7 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
     (10_000 - PROBE_DAILY_LIMIT * 67) / attemptNeurons,
   );
   // The constant is derived from this same prompt, so the two must agree exactly: the
-  // comment above `WORKERS_AI_DAILY_ATTEMPT_LIMIT` carries the 4,800-token, 168-Neuron
+  // comment above `WORKERS_AI_DAILY_ATTEMPT_LIMIT` carries the 4,700-token, 165-Neuron
   // worst case this test measures. A prompt that grows past the token step raises the
   // Neuron cost and lowers the limit; raising the limit is a spend decision with
   // its own review.
