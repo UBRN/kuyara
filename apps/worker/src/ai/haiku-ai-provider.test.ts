@@ -174,9 +174,9 @@ test('a plain 429 is a rate limit and other failures stay unclassified', async (
 test('the priced prompt size covers the largest prompt the app and installed builds send, and the limit derives from it', async () => {
   const prompts = await pricedPrompts();
   assert.equal(prompts.grid, 18_308);
-  assert.equal(prompts.datedGrid, 18_770);
+  assert.equal(prompts.datedGrid, 18_802);
   assert.equal(prompts.coldFrontWeekend, 18_666);
-  assert.equal(prompts.datedColdFront, 18_748);
+  assert.equal(prompts.datedColdFront, 18_797);
   // Installed binaries build their requests with the composition they shipped, so a smaller
   // prompt from today's tree must not price them out of Haiku. Build 20's largest is a womens
   // casual weekend on the cold front (build 24's, 18,413, is smaller); builds 25 and 26 ship the

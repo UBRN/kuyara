@@ -28,8 +28,8 @@ const recommendationMaxTokens = 256;
  * `__tests__/priced-prompts.ts` measures. Each installed store build pins its largest request
  * there: builds 25 and 26 send up to 19,066 (a cold front whose warm morning turns to wind and
  * drizzle, on 2027-01-19), build 20 18,485 (build 24 18,413). The tree's composition peaks
- * at 18,770 on the days a sweep of 2026 found; the offer rotates with the dressing day's own
- * count, so that peak moves from year to year. The largest, rounded up, is 19,100.
+ * at 18,802 on the days a sweep of 2026 to 2028 found; the offer rotates with the dressing day's
+ * own count, so that peak moves from year to year. The largest, rounded up, is 19,100.
  * The daily cap refuses a longer prompt before counting or sending it, so a rarer day that
  * builds one goes on to Workers AI.
  */

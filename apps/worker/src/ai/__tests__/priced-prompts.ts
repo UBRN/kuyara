@@ -56,8 +56,9 @@ const coldFront = {
 /**
  * Each priced prompt, and the largest of them. The offer rotates with the dressing day's own
  * count, so the tree's prompt changes from day to day and its yearly maximum moves from year to
- * year: the two dated days are the largest a sweep of 2026 found for the grid and the cold
- * front, three day kinds and both locales, and they pin the tree's composition, not every year.
+ * year: the two dated days are the largest a sweep of 2026 to 2028 found for the grid and the
+ * cold front, three day kinds and both locales, and they pin the tree's composition, not every
+ * later year.
  * The installed builds bound what a shipped binary sends.
  */
 export async function pricedPrompts() {
@@ -73,7 +74,7 @@ export async function pricedPrompts() {
   const grid = Math.max(...gridRequestCells()
     .filter((cell): cell is { request: AiRecommendV1Request } => cell.request !== null)
     .map(({ request }) => largestOf(request)));
-  const datedGrid = largestOf(built(gridRecommendationInput('cold_rain', 'womens', 'casual'), '2026-03-28'));
+  const datedGrid = largestOf(built(gridRecommendationInput('cold_rain', 'womens', 'casual'), '2028-05-03'));
   // A weekend, day variants 3 and 4, which the app always pairs with a weekend day kind.
   const coldFrontWeekend = Math.max(...(['womens', 'mens'] as const).flatMap((clothingPreference) =>
     [3, 4].flatMap((dayVariant) => {
@@ -82,7 +83,7 @@ export async function pricedPrompts() {
       return (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...request, locale }));
     })));
   const datedColdFront = largestOf(built({ snapshot: coldFront, now, clothingPreference: 'womens',
-    dressStyle: 'casual', dayVariant: 3, dayKind: 'weekday' }, '2026-11-25'));
+    dressStyle: 'casual', dayVariant: 3, dayKind: 'weekday' }, '2026-06-12'));
   const installed = Object.fromEntries(readdirSync(import.meta.dirname)
     .filter((name) => /^installed-build-\d+-largest-request\.json$/.test(name))
     .map((name) => {
