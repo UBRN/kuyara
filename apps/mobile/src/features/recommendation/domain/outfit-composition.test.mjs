@@ -54,7 +54,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    '3acafd902bed7fe5f7d3ba4595020b6f4e133f3142b43a7a05218dce2afb5f8a',
+    'f7b2530e796546a48d7fdd87a0bfb9ff32e35fdcc52df14595968fdb33b68657',
   );
 });
 
@@ -1668,4 +1668,26 @@ test('a dry day prefers the ordinary dress shoes to the rain-ready ones beyond t
   const score = (footwear) => arrangedOutfit(requirements,
     { primaryTop: 'shirt', bottom: 'trousers', outerLayer: 'rain_trench', footwear }).outfit.score;
   assert.ok(score('rain_dress_shoes') > score('closed_shoes'));
+});
+
+// The outer layer the day's rain requires is the weather's own answer, so on a mild wet day
+// that asks no warmth a light rain trench over chinos is not warmth the day did not ask for:
+// every smart outfit of a 20 C rainy day carried "more warmth than the day calls for". The same
+// layers on a dry day still are.
+test('a mild or cool rainy day charges no over-warmth for the light outer layer its rain requires', () => {
+  const layers = { primaryTop: 'blouse', bottom: 'chinos', footwear: 'loafers' };
+  const wet = composableForWeather(heatDay(20, 'rain', 0.8));
+  assert.equal(arrangedOutfit(wet.requirements, { ...layers, outerLayer: 'rain_trench' })
+    .outfit.penaltyBreakdown.thermalOverProtection, 0);
+  const dry = composableForWeather(clearDay(20));
+  assert.ok(arrangedOutfit(dry.requirements, { ...layers, outerLayer: 'light_jacket' })
+    .outfit.penaltyBreakdown.thermalOverProtection > 0);  // The light rung counts it the same way: a 14 C rainy day asks a little warmth, and the shirt
+  // gives it.
+  const shirt = { primaryTop: 'shirt', bottom: 'chinos', footwear: 'loafers' };
+  const cool = composableForWeather(heatDay(14, 'rain', 0.8));
+  assert.equal(arrangedOutfit(cool.requirements, { ...shirt, outerLayer: 'rain_trench' })
+    .outfit.penaltyBreakdown.thermalOverProtection, 0);
+  const coolDry = composableForWeather(clearDay(14));
+  assert.ok(arrangedOutfit(coolDry.requirements, { ...shirt, outerLayer: 'light_jacket' })
+    .outfit.penaltyBreakdown.thermalOverProtection > 0);
 });
