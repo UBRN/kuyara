@@ -62,6 +62,7 @@ export const garmentTypeIds = [
   'storm_coat',
   'rain_dress_shoes',
   'chinos',
+  'knee_boots',
 ] as const;
 
 export const structuralCategories = [
