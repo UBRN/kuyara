@@ -510,6 +510,19 @@ test('the v2 probe falls to the chain\'s first remaining provider when Haiku is 
   assert.deepEqual(body.data.assistant, { providerId: 'workers-ai', model: '@cf/first' });
 });
 
+test('the v2 probe skips a chain provider its contract cannot name and reports the first one it can', async () => {
+  const called: string[] = [];
+  const outsideContract = { ...answeringProvider('workers-ai', 'future/model', called), id: 'future-provider' };
+  const { deps } = dependencies({
+    providers: [outsideContract as AiProvider, answeringProvider('openrouter', 'x/y:free', called)],
+  });
+  const response = await createProbeV2Handler(deps)(v2Request());
+  assert.equal(response.status, 200);
+  const body = aiProbeV2SuccessSchema.parse(await response.json());
+  assert.deepEqual(called, ['x/y:free']);
+  assert.deepEqual(body.data.assistant, { providerId: 'openrouter', model: 'x/y:free' });
+});
+
 test('a spent Haiku budget makes the v2 probe unavailable instead of walking on to the next provider', async (t) => {
   const warnings: unknown[] = [];
   t.mock.method(console, 'warn', (entry: unknown) => warnings.push(entry));

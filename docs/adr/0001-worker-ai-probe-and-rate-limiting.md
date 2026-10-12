@@ -87,9 +87,11 @@ createProbeV2Handler({ providers, rateLimiter, dailyCounter, now, attemptTimeout
 ```
 
 The two routes share one core and differ only in which provider answers and which
-response schema they parse. Settings calls v2. v1 stays for installed binaries, which
-parse `providerId` against a closed enum without `haiku`. Each route keeps its own
-60-second cache; both count against the one `probe` daily counter and burst limiter.
+response schema they parse. Each route answers with the chain's first provider whose id
+its closed `providerId` enum holds, because installed binaries parse both enums strictly;
+the Worker's chain may hold providers neither enum names. Settings calls v2. v1 stays for
+installed binaries, whose enum has no `haiku`. Each route keeps its own 60-second cache;
+both count against the one `probe` daily counter and burst limiter.
 
 All collaborators are injectable so tests pass fakes and assert zero provider
 calls on the rejection paths.

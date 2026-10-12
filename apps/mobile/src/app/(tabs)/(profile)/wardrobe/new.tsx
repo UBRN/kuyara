@@ -21,7 +21,7 @@ export default function WardrobeNewRoute() {
     <>
       {/* The form's title and its Cancel/Save pair are the platform's header: the screen
           carries no hand-drawn header and `Screen`'s automatic content inset clears it.
-          The exit guard runs off `beforeRemove`, so Cancel and the back swipe are
+          The exit guard runs off `beforeRemove`, so Cancel and Android's back are
           confirmed the same way. */}
       <Stack.Screen
         options={{

@@ -1,6 +1,6 @@
-import { aiProviderIds, weatherSourceIds, type WeatherSourceId } from '@kuyara/contracts';
+import { weatherSourceIds, type WeatherSourceId } from '@kuyara/contracts';
 
-import type { AiAttemptFailureReason, AiChainProviderId } from './ai/ai-provider.ts';
+import { aiChainProviderIds, type AiAttemptFailureReason, type AiChainProviderId } from './ai/ai-provider.ts';
 import type { WeatherProviderErrorKind } from './weather/weather-provider-error.ts';
 
 /**
@@ -71,7 +71,7 @@ export function weatherAttemptOutcome(kind: WeatherProviderErrorKind): UsageOutc
   return weatherOutcomeByKind[kind];
 }
 
-const aiChainProviderIds: readonly string[] = [...aiProviderIds, 'haiku'];
+const chainProviderIds: readonly string[] = aiChainProviderIds;
 const weatherProviderIds: readonly string[] = weatherSourceIds;
 const outcomes: readonly string[] = usageOutcomes;
 
@@ -90,7 +90,7 @@ function dataPoint(event: UsageEvent): Readonly<{ indexes: string[]; blobs: stri
       break;
     case 'ai_attempt':
       subject = event.provider;
-      if (!aiChainProviderIds.includes(subject) || !outcomes.includes(event.outcome)) return undefined;
+      if (!chainProviderIds.includes(subject) || !outcomes.includes(event.outcome)) return undefined;
       break;
     case 'weather_attempt':
       subject = event.provider;
