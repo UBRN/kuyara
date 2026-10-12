@@ -54,7 +54,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    'f7b2530e796546a48d7fdd87a0bfb9ff32e35fdcc52df14595968fdb33b68657',
+    'dc3301bb6c37a5ba60337ae2b74b19bfcca10656d94a0e11a27163e2143df5c7',
   );
 });
 
@@ -1630,28 +1630,22 @@ test('the blazer is a mid layer only under a formal outer layer', () => {
   }
 });
 
-// Knee boots go with any smart outfit, a skirt or a dress first: among drafts the day scores
-// alike, knee boots over a skirt or a dress rank ahead of knee boots over trousers or jeans.
-test('knee boots rank over a skirt or a dress ahead of over trousers, jeans or leggings at the same score', () => {
-  const skirtsAndDresses = new Set(['skirt', 'long_skirt', 'dress', 'knit_dress']);
-  for (const weather of [clearDay(15), clearDay(13), heatDay(16, 'cloudy', 0.2)]) {
-    const { requirements, candidates } = composableForWeather(weather, {}, 'womens');
-    const drafts = validDrafts(readComposerDay(requirements, candidates, true))
-      .filter(({ footwear }) => footwear.garment.garmentTypeId === 'knee_boots');
-    const legs = (draft) => draft.side.body.kind === 'one_piece'
-      ? draft.side.body.onePiece.garment.garmentTypeId : draft.side.body.bottom.garment.garmentTypeId;
-    const tie = (draft) => `${draft.score.score}|${draft.score.penaltyPoints}|${Number(draft.side.midLayer !== null) + Number(draft.side.outerLayer !== null)}`;
-    const cell = `${weather.temperatureCelsius} C ${weather.condition}`;
-    assert.ok(drafts.some((draft) => skirtsAndDresses.has(legs(draft))), cell);
-    assert.ok(drafts.some((draft) => ['trousers', 'jeans', 'chinos'].includes(legs(draft))), cell);
-    const lastSkirt = new Map();
-    drafts.forEach((draft, index) => { if (skirtsAndDresses.has(legs(draft))) lastSkirt.set(tie(draft), index); });
-    drafts.forEach((draft, index) => {
-      if (!skirtsAndDresses.has(legs(draft)) && draft.side.body.kind === 'separates') {
-        assert.ok(!(lastSkirt.get(tie(draft)) > index), `${cell}: ${draft.compositionKey} ahead of a skirt at ${tie(draft)}`);
-      }
-    });
+// Knee boots go best with a skirt or a dress: over trousers, jeans or chinos they score three
+// points less than the same outfit in ankle boots, a small preference that still leaves them
+// possible there.
+test('knee boots score a little less without a skirt or a dress, and stay possible with trousers', () => {
+  const { requirements, candidates } = composableForWeather(clearDay(15), {}, 'womens');
+  const score = (bottom, footwear) => arrangedOutfit(requirements, { primaryTop: 'blouse', bottom, footwear }).outfit.score;
+  for (const bottom of ['jeans', 'trousers', 'chinos']) {
+    assert.equal(score(bottom, 'ankle_boots') - score(bottom, 'knee_boots'), 3, bottom);
   }
+  for (const bottom of ['skirt', 'long_skirt']) {
+    assert.equal(score(bottom, 'ankle_boots'), score(bottom, 'knee_boots'), bottom);
+  }
+  const legs = (outfit) => outfit.body.kind === 'separates' ? outfit.body.bottom.garment.garmentTypeId : null;
+  const booted = collectValidOutfits(requirements, candidates).outfits
+    .filter(({ footwear }) => footwear.garment.garmentTypeId === 'knee_boots');
+  assert.ok(booted.some((outfit) => ['jeans', 'trousers', 'chinos'].includes(legs(outfit))));
 });
 
 // The rain-ready dress shoes are a rainy day's dress shoes: on a day that asks no water
