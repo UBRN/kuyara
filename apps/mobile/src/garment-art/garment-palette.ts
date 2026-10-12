@@ -116,6 +116,12 @@ const COLORWAY = {
   'g-knitdress': CW(['camel', 'charcoal', 'black', 'ecru', 'burgundy', 'forest', 'heather']),
   'g-weatherboot': CW(['tan', 'chocolate', 'olive', 'black'], MATERIAL.soleBlack, MATERIAL.silver),
   'g-neckgaiter': CW(['charcoal', 'black', 'navy', 'heather', 'olive', 'forest', 'burgundy', 'ecru'], null, MATERIAL.silver),
+  // Catalog version 7.
+  'x-raintrench': CW(['stone', 'navy', 'black', 'olive']),
+  'x-stormcoat': CW(['navy', 'charcoal', 'black', 'camel'], null, MATERIAL.silver),
+  'x-raindressshoe': CW(['black', 'chocolate'], MATERIAL.soleBlack, MATERIAL.silver),
+  'x-chino': CW(['stone', 'navy', 'olive', 'sand', 'ecru', 'tan']),
+  'x-kneeboots': CW(['black', 'chocolate', 'tan', 'burgundy'], MATERIAL.soleBlack, MATERIAL.silver),
 };
 
 const MOOD = {
@@ -219,7 +225,8 @@ const garmentColorwayIds = {
   ballet_flats: 'g-flat', rain_boots: 'x-rainboot', beanie: 'g-beanie',
   brimmed_hat: 'g-hat', cap: 'g-cap', balaclava: 'g-balaclava',
   scarf: 'g-scarf', neck_gaiter: 'g-neckgaiter', gloves: 'g-gloves',
-  umbrella: 'g-umbrella',
+  umbrella: 'g-umbrella', rain_trench: 'x-raintrench', storm_coat: 'x-stormcoat',
+  rain_dress_shoes: 'x-raindressshoe', chinos: 'x-chino', knee_boots: 'x-kneeboots',
 } as const satisfies Record<GarmentTypeId, keyof typeof COLORWAY>;
 
 export type GarmentPalettePiece = Readonly<{

@@ -143,7 +143,7 @@ test('the next dressing day rotates a distinct deterministic option set for iden
   const next = aiRequestFor({ ...input(), dayVariant: 1, localDayKey: '2026-08-02' });
 
   assert.deepEqual(first, repeated);
-  assert.equal(first.catalogVersion, 6);
+  assert.equal(first.catalogVersion, 7);
   assert.equal(first.dayVariant, 0);
   assert.equal(first.options.length > 3 && first.options.length <= 24, true);
   assert.notDeepEqual(
@@ -409,11 +409,14 @@ test('rebuilds an offered option with its mid layer instead of the simpler arran
   // now carry the coat the thermal ladder's top rung asks 4 degrees for. What they have to
   // keep is the shape: a mid layer whose bare arrangement is valid too, so rebuilding from
   // the garment list alone could drop it or promote it to the primary top.
+  // The third wears the blazer under the coat, which is read as a mid layer only beneath it.
   const signatures = [
-    'primary_top:polo_shirt:base bottom:trousers:standalone mid_layer:sweater:mid' +
+    'primary_top:turtleneck:base bottom:trousers:standalone mid_layer:sweater:mid' +
+      ' outer_layer:coat:outer footwear:knee_boots:null',
+    'primary_top:blouse:base bottom:long_skirt:standalone mid_layer:sweater:mid' +
+      ' outer_layer:insulated_jacket:outer footwear:ankle_boots:null',
+    'primary_top:blouse:base bottom:trousers:standalone mid_layer:blazer:mid' +
       ' outer_layer:coat:outer footwear:ankle_boots:null',
-    'primary_top:shirt:base bottom:long_skirt:standalone mid_layer:hoodie:mid' +
-      ' outer_layer:parka:outer footwear:ankle_boots:null',
   ];
 
   for (const signature of signatures) {
@@ -565,9 +568,11 @@ test('a stored trio whose labels today\'s rules refuse keeps its outfits under t
   const mild = { ...input({ temperatureCelsius: 15 }), dayKind: 'weekend' };
   const context = createRecommendationContext(mild, '2026-08-01');
   const recommendation = recommendOutfits(mild);
-  const [smart, easy, between] = toStoredRecommendationOutfits(recommendation);
-  assert.deepEqual([smart, easy, between].map(({ archetypeId }) => archetypeId),
-    ['smart_casual', 'everyday_easy', 'in_between']);
+  const shown = toStoredRecommendationOutfits(recommendation);
+  assert.deepEqual(shown.map(({ archetypeId }) => archetypeId).sort(),
+    ['everyday_easy', 'in_between', 'smart_casual']);
+  const [smart, easy, between] = ['smart_casual', 'everyday_easy', 'in_between']
+    .map((label) => shown.find(({ archetypeId }) => archetypeId === label));
   const midIndex = between.garments.findIndex(({ slot }) => slot === 'mid_layer');
   const layered = [
     ...between.garments.slice(0, midIndex + 1),

@@ -14,6 +14,15 @@ const labelled = [
   ['lacivert keten gömlek', ['shirt'], ['blue'], 'plain'],
   ['navy linen shirt', ['shirt'], ['blue'], 'plain'],
   ['siyah deri ceket', ['leather_jacket'], ['black'], 'plain'],
+  ['lacivert yağmur trençkotu', ['rain_trench'], ['blue'], 'plain'],
+  ['black rain mac', ['rain_trench'], ['black'], 'plain'],
+  ['astarlı yağmur kabanı', ['storm_coat'], null, 'plain'],
+  ['navy storm coat', ['storm_coat'], ['blue'], 'plain'],
+  ['su itici klasik ayakkabı', ['rain_dress_shoes'], null, 'plain'],
+  ['waterproof dress shoes', ['rain_dress_shoes'], null, 'plain'],
+  ['bej chino pantolon', ['chinos'], ['beige'], 'plain'],
+  ['siyah diz boyu çizme', ['knee_boots'], ['black'], 'plain'],
+  ['brown knee boots', ['knee_boots'], ['brown'], 'plain'],
   ['black leather jacket', ['leather_jacket'], ['black'], 'plain'],
   ['beyaz spor ayakkabı', ['sneakers'], ['white'], 'plain'],
   ['white trainers', ['sneakers'], ['white'], 'slang'],
@@ -99,7 +108,7 @@ const labelled = [
   ['white sneakres', ['sneakers'], ['white'], 'typo'],
   ['haki parkaa', ['parka'], ['green'], 'typo'],
   // More everyday names.
-  ['lacivert chino', ['trousers'], ['blue'], 'plain'],
+  ['lacivert chino', ['chinos'], ['blue'], 'plain'],
   ['siyah kot', ['jeans'], ['black'], 'plain'],
   ['beyaz siyah tişört', ['t_shirt'], ['white'], 'plain'],
   ['lacivert çizgili gömlek', ['shirt'], ['white'], 'plain'],
@@ -163,8 +172,8 @@ const labelled = [
   ['poloyu', ['polo_shirt'], null, 'inflected'],
   ['siyah taytım', ['leggings'], ['black'], 'inflected'],
   ['kar botum', ['weather_boots'], null, 'inflected'],
-  ['botlarım', ['ankle_boots', 'weather_boots', 'rain_boots'], null, 'ambiguous'],
-  ['çizmelerim', ['rain_boots'], null, 'ambiguous'],
+  ['botlarım', ['ankle_boots', 'weather_boots', 'rain_boots', 'knee_boots'], null, 'ambiguous'],
+  ['çizmelerim', ['rain_boots', 'knee_boots'], null, 'ambiguous'],
   ['ceketim', ['light_jacket', 'blazer', 'bomber_jacket', 'leather_jacket'], null, 'ambiguous'],
   // Words that end like a suffix on a name but are other words, or a name with a wrong mark.
   ['kotlet', ['unsupported'], null, 'trap'],
@@ -237,9 +246,9 @@ test('an ambiguous word offers the types its longer names stand for, at most fou
     ['ceket', ['kot ceket', 'blazer ceket', 'bomber ceket', 'deri ceket']],
     ['yelek', ['şişme yelek']],
     ['şapka', ['hasır şapka', 'beyzbol şapkası']],
-    ['bot', ['chelsea bot', 'kar botu', 'yağmur botu']],
-    ['çizme', ['lastik çizme']],
-    ['ayakkabı', ['spor ayakkabı', 'klasik ayakkabı']],
+    ['bot', ['chelsea bot', 'kar botu', 'yağmur botu', 'uzun bot']],
+    ['çizme', ['lastik çizme', 'uzun çizme']],
+    ['ayakkabı', ['spor ayakkabı', 'klasik ayakkabı', 'su itici klasik ayakkabı']],
     ['eşofman', ['eşofman altı']],
     ['üst', ['kolsuz üst']],
   ]) {
@@ -267,7 +276,7 @@ test('the reason tells several pieces, pieces the catalog lacks and phrases with
 
 test('a colour the palette cannot say exactly is left empty, and the piece is still understood', () => {
   for (const [phrase, garmentTypeId] of [
-    ['mavi ekose gömlek', 'shirt'], ['yeşil mor gömlek', 'shirt'], ['khaki chinos', 'trousers'],
+    ['mavi ekose gömlek', 'shirt'], ['yeşil mor gömlek', 'shirt'], ['khaki chinos', 'chinos'],
     ['çizgili tişört', 't_shirt'],
   ]) {
     assert.deepEqual(matchClosetPhrase(phrase), { kind: 'matched', garmentTypeId, colorChoice: null }, phrase);

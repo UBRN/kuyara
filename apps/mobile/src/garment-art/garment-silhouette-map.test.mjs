@@ -18,7 +18,7 @@ const bodyTypes = garmentTypeIds.filter((id) => getGarmentType(id).structuralCat
 const inBothCatalogs = (id) => getGarmentType(id).apparelPreferenceApplicability.length === clothingPreferences.length;
 
 test('every catalog type resolves to an existing silhouette in both cuts', () => {
-  assert.equal(bodyTypes.length, 41);
+  assert.equal(bodyTypes.length, 46);
   for (const cut of clothingPreferences) {
     for (const id of garmentTypeIds) {
       assert.ok(silhouettes[garmentSilhouetteIdFor(id, cut)], `${cut} ${id}`);

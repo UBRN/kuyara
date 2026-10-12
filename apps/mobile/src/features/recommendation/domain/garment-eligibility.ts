@@ -565,6 +565,23 @@ export function evaluateGarmentEligibility(
   });
 }
 
+/**
+ * A garment as it is worn under an outer layer: the outer layer keeps the rain and the wind off,
+ * so the body's water and wind requirements ask nothing of it. A blazer worn under a coat is
+ * read this way, with the same candidate key, so it never fills both layers of one outfit.
+ */
+export function evaluateWornUnderOuterLayer(
+  requirements: ClothingRequirements,
+  garment: EffectiveGarmentCandidate,
+): GarmentEligibilityResult {
+  return evaluateGarmentEligibility(requirements, readyProjection(
+    garment.candidateKey,
+    garment.source,
+    garment.garmentTypeId,
+    Object.freeze({ ...garment.properties, supportedLayerRoles: Object.freeze(['mid'] as const) }),
+  ));
+}
+
 function compareCandidateKeys(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }

@@ -165,10 +165,10 @@ test('"Wore this today" records a changed outfit as manual under the existing sc
 
 // Phase 7b: the board's candidate strip draws as many 44-point tiles a row as the column holds,
 // at most seven: two rows of seven on a 390-point phone, three rows of six on a 375-point one
-// (ADR 0026). Today the most any slot shows is 13 (the
-// women's top), which already takes three rows on the narrower phone; a 15th candidate would
-// need a third row on the wider ones too, which must be a decision, not an accident of a
-// catalog addition.
+// (ADR 0026). Today the most any slot shows is 14 (the outer layer, with catalog version 7's
+// rain trench and storm coat), which already takes three rows on the narrower phone; a 15th
+// candidate would need a third row on the wider ones too, which must be a decision, not an
+// accident of a catalog addition.
 const STRIP_TILES = 2 * 7;
 
 test('no slot ever offers more candidates than the strip\'s two rows hold', () => {
@@ -181,7 +181,7 @@ test('no slot ever offers more candidates than the strip\'s two rows hold', () =
       most = Math.max(most, ceiling);
     }
   }
-  assert.equal(most, 13);
+  assert.equal(most, 14);
   // A small grid of days, both applicabilities: what the picker and the board receive.
   for (const preference of ['womens', 'mens']) {
     for (const temperature of [-10, 4, 10, 20, 32]) {
@@ -295,7 +295,7 @@ test('the drawn pieces of every recommended outfit stay byte-identical across we
   const hash = createHash('sha256');
   let onePieces = 0;
   for (const preference of ['womens', 'mens']) {
-    for (const [temperature, condition, rain] of [[30, 'clear', 0], [16, 'cloudy', 0], [8, 'rain', 0.8], [-4, 'snow', 0.6]]) {
+    for (const [temperature, condition, rain] of [[30, 'clear', 0], [22, 'clear', 0], [16, 'cloudy', 0], [8, 'rain', 0.8], [-4, 'snow', 0.6]]) {
       for (const dayVariant of [0, 1, 2, 3]) {
         const snapshot = day(temperature, condition, rain);
         const result = recommendOutfits({ snapshot, now: snapshot.current.observedAt, clothingPreference: preference, dayVariant });
@@ -309,5 +309,5 @@ test('the drawn pieces of every recommended outfit stay byte-identical across we
     }
   }
   assert.ok(onePieces > 0, 'the sample covers a one-piece outfit');
-  assert.equal(hash.digest('hex'), '4cd326acf6d32199a6ff45602882512553c0d3cfc394e569e0414806305578c6');
+  assert.equal(hash.digest('hex'), '5728606c59d84489f60b949230cc3575811057712ea5ed0d5e5998b7dd30a638');
 });

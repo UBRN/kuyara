@@ -9,13 +9,13 @@ const winterPieces = [
   'parka', 'insulated_jacket', 'coat', 'fleece', 'knit_dress', 'weather_boots',
 ] as const satisfies readonly GarmentTypeId[];
 const tailoring = [
-  'shirt', 'blouse', 'turtleneck', 'loafers', 'ballet_flats', 'ankle_boots', 'rain_boots',
+  'shirt', 'blouse', 'turtleneck', 'loafers', 'ballet_flats', 'ankle_boots', 'knee_boots', 'rain_boots',
   'leather_jacket', 'trench_coat', 'coat', 'blazer',
 ] as const satisfies readonly GarmentTypeId[];
 const skirtsAndDresses = [
   'skirt', 'long_skirt', 'dress', 'knit_dress', 'jumpsuit',
 ] as const satisfies readonly GarmentTypeId[];
-const boots = ['ankle_boots', 'weather_boots', 'rain_boots'] as const satisfies readonly GarmentTypeId[];
+const boots = ['ankle_boots', 'knee_boots', 'weather_boots', 'rain_boots'] as const satisfies readonly GarmentTypeId[];
 
 const pairKey = (left: GarmentTypeId, right: GarmentTypeId) =>
   left < right ? `${left}|${right}` : `${right}|${left}`;
@@ -35,4 +35,15 @@ export function isIncompatibleGarmentPair(left: GarmentTypeId, right: GarmentTyp
 /** Whether a garment type is a summer piece, worn only on a day whose insulation is not mandatory. */
 export function isSummerPiece(garmentTypeId: GarmentTypeId): boolean {
   return (summerPieces as readonly GarmentTypeId[]).includes(garmentTypeId);
+}
+
+const skirtsAndDressesForKneeBoots: readonly GarmentTypeId[] = ['skirt', 'long_skirt', 'dress', 'knit_dress'];
+
+/**
+ * Whether knee boots are worn without the skirt or dress they go best with. Such an outfit is
+ * still composed; it only ranks behind the same day's skirt or dress at an equal score.
+ */
+export function wearsKneeBootsWithoutSkirt(garmentTypeIds: readonly GarmentTypeId[]): boolean {
+  return garmentTypeIds.includes('knee_boots') &&
+    !garmentTypeIds.some((id) => skirtsAndDressesForKneeBoots.includes(id));
 }

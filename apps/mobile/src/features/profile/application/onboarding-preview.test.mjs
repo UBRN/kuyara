@@ -65,11 +65,15 @@ test('a cold day puts a warm outer layer and closed footwear on every preview', 
   });
 });
 
-test('a rainy day draws a rain shell and waterproof boots', () => {
+// Plain rain only wishes the feet dry, so a smart or formal preview may keep dress shoes under
+// its rain trench or storm coat; a casual one draws waterproof boots.
+test('a rainy day draws a rain shell, and waterproof boots on a casual day', () => {
   each((gender, style) => {
     const ids = garments(outfit(rain, gender, style));
-    assert.ok(['rain_jacket', 'parka'].some((shell) => ids.includes(shell)) &&
-      ['rain_boots', 'weather_boots'].some((boots) => ids.includes(boots)), `${gender} ${style}`);
+    assert.ok(['rain_jacket', 'parka', 'rain_trench', 'storm_coat'].some((shell) => ids.includes(shell)), `${gender} ${style}`);
+    if (style === 'casual') {
+      assert.ok(['rain_boots', 'weather_boots'].some((boots) => ids.includes(boots)), `${gender} ${style}`);
+    }
   });
 });
 

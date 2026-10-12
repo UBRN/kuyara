@@ -54,7 +54,8 @@ const garmentNames: Readonly<Record<Exclude<GarmentMeaning, 'ambiguous'>, string
   turtleneck: 'balıkçı|balıkçı yaka|balıkçı yaka kazak|balıkçı kazak|boğazlı kazak|turtleneck|' +
     'turtleneck sweater|roll neck|roll neck sweater',
   polo_shirt: 'polo|polo tişört|polo yaka|polo yaka tişört|polo shirt|polo t shirt',
-  trousers: 'pantolon|kumaş pantolon|chino|chinos|trousers|pants|slacks',
+  trousers: 'pantolon|kumaş pantolon|trousers|pants|slacks',
+  chinos: 'chino|chinos|chino pantolon',
   jeans: 'kot|kot pantolon|jean|jean pantolon|denim|jeans|levis|levi s',
   leggings: 'tayt|leggings',
   shorts: 'şort|bermuda|shorts',
@@ -67,10 +68,12 @@ const garmentNames: Readonly<Record<Exclude<GarmentMeaning, 'ambiguous'>, string
   light_jacket: 'hafif ceket|ince mont|kot ceket|jean ceket|denim ceket|light jacket|denim jacket|jean jacket|' +
     'trucker jacket|waxed jacket',
   trench_coat: 'trençkot|trenç|trench|trench coat|trenchcoat',
+  rain_trench: 'yağmur trençkotu|yağmur trençkot|su geçirmez trençkot|rain trench|rain mac|mackintosh',
   rain_jacket: 'yağmurluk|yağmur ceketi|rain jacket|raincoat|rain coat',
   insulated_jacket: 'mont|şişme mont|yalıtımlı mont|kışlık mont|insulated jacket|puffer|puffer jacket|' +
     'down jacket|ultra light down',
   coat: 'kaban|palto|coat|overcoat',
+  storm_coat: 'astarlı yağmur kabanı|yağmur kabanı|su geçirmez kaban|storm coat',
   parka: 'parka',
   blazer: 'blazer|blazer ceket|takım ceketi|suit jacket|sport coat',
   puffer_vest: 'şişme yelek|puffer vest|down vest',
@@ -78,7 +81,10 @@ const garmentNames: Readonly<Record<Exclude<GarmentMeaning, 'ambiguous'>, string
   leather_jacket: 'deri ceket|deri mont|biker ceket|leather jacket|biker jacket',
   sneakers: 'spor ayakkabı|koşu ayakkabısı|sneaker|sneakers|trainers|running shoes|converse',
   closed_shoes: 'klasik ayakkabı|dress shoes|oxford ayakkabı|oxford shoes',
+  rain_dress_shoes: 'su itici klasik ayakkabı|su geçirmez klasik ayakkabı|rain ready dress shoes|rain dress shoes|' +
+    'waterproof dress shoes',
   ankle_boots: 'bilek botu|chelsea bot|chelsea botu|ankle boots|chelsea boots|dr martens|doc martens',
+  knee_boots: 'diz boyu çizme|diz çizme|uzun çizme|uzun bot|diz boyu bot|knee boots|knee high boots|tall boots|riding boots',
   weather_boots: 'kışlık bot|kar botu|winter boots|snow boots',
   sandals: 'sandalet|sandal|sandals',
   loafers: 'loafer|loafers|mokasen|makosen|moccasins',
@@ -105,9 +111,9 @@ const ambiguousNames: readonly (readonly [string, readonly GarmentTypeId[]])[] =
   ['ceket|jacket', ['light_jacket', 'blazer', 'bomber_jacket', 'leather_jacket']],
   ['yelek|vest', ['puffer_vest']],
   ['şapka|hat', ['brimmed_hat', 'cap']],
-  ['bot|boot|boots', ['ankle_boots', 'weather_boots', 'rain_boots']],
-  ['çizme', ['rain_boots']],
-  ['ayakkabı|shoes|shoe', ['sneakers', 'closed_shoes']],
+  ['bot|boot|boots', ['ankle_boots', 'weather_boots', 'rain_boots', 'knee_boots']],
+  ['çizme', ['rain_boots', 'knee_boots']],
+  ['ayakkabı|shoes|shoe', ['sneakers', 'closed_shoes', 'rain_dress_shoes']],
   ['eşofman', ['track_pants']],
   ['üst|top', ['sleeveless_top']],
 ];

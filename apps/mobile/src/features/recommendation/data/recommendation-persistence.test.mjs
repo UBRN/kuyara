@@ -124,7 +124,7 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   assert.equal(replaced.createdAt, firstTime);
   assert.equal(replaced.updatedAt, secondTime);
   assert.equal(replaced.generationMode, 'deterministic-fallback');
-  assert.equal(replaced.catalogVersion, 6);
+  assert.equal(replaced.catalogVersion, 7);
   assert.equal(replaced.localDayKey, '2026-08-01');
   assert.deepEqual(replaced.paletteWeather, { temperatureC: 16, condition: 'clear' });
   assert.equal(replaced.recommendation.outfits.length, 3);
@@ -227,7 +227,7 @@ async function saveMildWeekendTrio(repository, database, labels) {
   const row = await database.getFirstAsync('SELECT outfits_json FROM recommendation_snapshots');
   const outfits = JSON.parse(row.outfits_json);
   assert.deepEqual(outfits.map(({ archetypeId }) => archetypeId),
-    ['smart_casual', 'everyday_easy', 'in_between']);
+    ['in_between', 'smart_casual', 'everyday_easy']);
   return { saved, outfits: outfits.map((outfit, index) => ({ ...outfit, archetypeId: labels[index] })) };
 }
 
@@ -235,7 +235,7 @@ test("a saved trio labelled under an earlier build's wider rules is read back re
   const { database, repository } = await setup();
   t.after(() => database.close());
   const { saved, outfits } = await saveMildWeekendTrio(
-    repository, database, ['office_ready', 'smart_casual', 'in_between']);
+    repository, database, ['in_between', 'office_ready', 'smart_casual']);
   await database.runAsync('UPDATE recommendation_snapshots SET outfits_json = ?',
     [JSON.stringify(outfits)]);
 
@@ -244,7 +244,7 @@ test("a saved trio labelled under an earlier build's wider rules is read back re
   assert.deepEqual(restored.recommendation.outfits.map(({ optionId }) => optionId),
     saved.recommendation.outfits.map(({ optionId }) => optionId));
   assert.deepEqual(restored.recommendation.outfits.map(({ archetypeId }) => archetypeId),
-    ['smart_casual', 'everyday_easy', 'in_between']);
+    ['in_between', 'smart_casual', 'everyday_easy']);
   assert.equal(restored.generationMode, 'deterministic-fallback');
 });
 
@@ -252,8 +252,8 @@ test('a relabelled trio still rejects a garment the catalog cannot rebuild', asy
   const { database, repository } = await setup();
   t.after(() => database.close());
   const { outfits } = await saveMildWeekendTrio(
-    repository, database, ['office_ready', 'smart_casual', 'in_between']);
-  outfits[1].garments[0] = { ...outfits[1].garments[0], candidateKey: 'catalog:not_a_garment' };
+    repository, database, ['in_between', 'office_ready', 'smart_casual']);
+  outfits[2].garments[0] = { ...outfits[2].garments[0], candidateKey: 'catalog:not_a_garment' };
   await database.runAsync('UPDATE recommendation_snapshots SET outfits_json = ?',
     [JSON.stringify(outfits)]);
 

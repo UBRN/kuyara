@@ -91,22 +91,8 @@ function assertSameVocabulary(name, mobileSource, mobileTuple, contractSource, c
   );
 }
 
-// The contract takes catalog version 7's garment types first, because the Worker must accept
-// them before any app sends one. Until the mobile catalog defines them they are the contract's
-// last members and the only ones it may hold alone; remove an id here when the catalog adds it.
-const contractOnlyGarmentTypeIds = ['rain_trench', 'storm_coat', 'rain_dress_shoes', 'chinos', 'knee_boots'];
-
-test('the only contract garment types the catalog lacks are the catalog 7 ones, at the end', () => {
-  assert.deepEqual(contractGarmentTypeIds.slice(-contractOnlyGarmentTypeIds.length), contractOnlyGarmentTypeIds);
-  assert.equal(contractOnlyGarmentTypeIds.some((id) => garmentTypeIds.includes(id)), false);
-});
-
 const catalogTaxonomyPairs = [
-  [
-    'garmentTypeIds',
-    garmentTypeIds,
-    contractGarmentTypeIds.filter((id) => !contractOnlyGarmentTypeIds.includes(id)),
-  ],
+  ['garmentTypeIds', garmentTypeIds, contractGarmentTypeIds],
   ['structuralCategories', structuralCategories, contractStructuralCategories],
   ['layerRoles', layerRoles, contractLayerRoles],
   ['formalityLevels', formalityLevels, contractFormalityLevels],

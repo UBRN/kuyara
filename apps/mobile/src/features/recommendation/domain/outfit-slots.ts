@@ -67,7 +67,7 @@ export function slotAccepts(slot: OutfitSlot, traits: SlotTraits): boolean {
       && roles.includes('standalone');
     case 'one_piece': return traits.category === 'one_piece'
       && roles.includes('standalone');
-    case 'mid_layer': return traits.category === 'top'
+    case 'mid_layer': return (traits.category === 'top' || traits.category === 'outerwear')
       && roles.includes('mid');
     case 'outer_layer': return (traits.category === 'top' || traits.category === 'outerwear')
       && roles.includes('outer');

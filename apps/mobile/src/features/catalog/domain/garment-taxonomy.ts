@@ -52,6 +52,13 @@ export const garmentTypeIds = Object.freeze([
   'neck_gaiter',
   'gloves',
   'umbrella',
+  // Catalog version 7. New members go last, as in the contract: a week's history is ordered by
+  // this list.
+  'rain_trench',
+  'storm_coat',
+  'rain_dress_shoes',
+  'chinos',
+  'knee_boots',
 ] as const);
 
 export const structuralCategories = Object.freeze([
