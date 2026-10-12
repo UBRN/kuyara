@@ -103,9 +103,8 @@ question answered yes first.
 ### 4. Catalog version 7
 
 `garmentCatalogVersion` is 7 for the catalog and its suit formality rule. All related changes
-share one version; the version is not incremented per edit. Version 7 closes the rain gap of
-smart and formal dressers, who were offered only casual outfits on every day that asks for a
-waterproof outer layer:
+share one version; the version is not incremented per edit. Version 7 gives smart and formal
+dressers their own formality on days that ask for a waterproof outer layer:
 
 | `typeId` | Category | Roles | Thermal | Water | Wind | Breathability | Traction | Formality | Applicability |
 |---|---|---|---|---|---|---|---|---|---|
@@ -176,10 +175,11 @@ reason all content changes share one version.
 - The catalog manifest check requires the definition list to be exactly
   `garmentTypeIds`, in the same order, so the two move in lockstep.
 - An older binary refuses a synced Closet row whose `garment_type_id` it does not know, and
-  likely a synced worn day with a version 7 piece or a blazer as its mid layer, so a member
-  whose two devices run different versions sees those only on the updated device until the
-  other updates. The sync cursor still advances, so nothing loops, and the
-  remote column is a length-bounded string, so no remote migration is needed.
+  likely a synced worn day with a version 7 piece or a blazer as its mid layer. The sync
+  cursor still advances past the refused row, so nothing loops, and updating that device later
+  does not bring the row back: it stays missing there until the row is written again or the
+  device links afresh. The remote column is a length-bounded string, so no remote migration is
+  needed.
 - The probe request in `apps/worker/src/ai/probe-handler.ts` hardcodes
   `catalogVersion`, and moves with the bump.
 - Inserting ids changes deterministic tie-break ordering for outfits that scored
