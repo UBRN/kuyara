@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import test, { mock } from 'node:test';
 
-import { aiRecommendV2RequestSchema, type AiRecommendV1Request, type AiRecommendV2Request } from '@kuyara/contracts';
+import type { AiRecommendV2Request } from '@kuyara/contracts';
 
 import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 import { AiProviderError } from './ai-provider.ts';
@@ -11,9 +9,9 @@ import {
   HAIKU_DAILY_ATTEMPT_LIMIT,
   HaikuAiProvider,
   haikuPromptCharacterLimit,
-  haikuPromptCharacters,
 } from './haiku-ai-provider.ts';
 import { largestAiRecommendV2Request } from '../__tests__/largest-valid-requests.ts';
+import { pricedPrompts } from './__tests__/priced-prompts.ts';
 import { createDailyCappedAiProvider } from './daily-capped-ai-provider.ts';
 
 mock.method(console, 'info', () => {});
@@ -173,93 +171,20 @@ test('a plain 429 is a rate limit and other failures stay unclassified', async (
   }
 });
 
-// The shared grid is a plain `.mjs` module without declarations, so it is imported through
-// a variable specifier and given the one shape this test reads.
-type GridModule = {
-  gridRequestCells(): { request: AiRecommendV1Request | null }[];
-  gridRecommendationInput(weatherKey: string, clothingPreference: string, dressStyle: string): object;
-};
-const gridResolverSpecifier = '../../../mobile/test/node-typescript-resolver.mjs';
-const gridSpecifier = '../../../mobile/test/recommendation-grid.mjs';
-type ContextModule = {
-  createRecommendationContext(input: unknown, localDayKey: string): unknown;
-  aiRequestFromContext(context: unknown): AiRecommendV1Request | null;
-};
-const contextSpecifier = '../../../mobile/src/features/recommendation/application/recommendation-context.ts';
-
 test('the priced prompt size covers the largest prompt the app and installed builds send, and the limit derives from it', async () => {
-  await import(gridResolverSpecifier);
-  const { gridRequestCells, gridRecommendationInput } = (await import(gridSpecifier)) as GridModule;
-  const { createRecommendationContext, aiRequestFromContext } = (await import(contextSpecifier)) as ContextModule;
-  // The grid models a weekday caller, but the app also sends weekends and no day kind at all,
-  // and the sentence instruction names the locale: every combination is measured.
-  const largestOf = (request: AiRecommendV1Request) => {
-    const { dayKind: _dayKind, ...body } = request;
-    return Math.max(...[{ dayKind: 'weekday' as const }, { dayKind: 'weekend' as const }, {}].flatMap((day) =>
-      (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...body, ...day, locale }))));
-  };
-  const promptCharacters = Math.max(...gridRequestCells()
-    .filter((cell): cell is { request: AiRecommendV1Request } => cell.request !== null)
-    .map(({ request }) => largestOf(request)));
-  assert.equal(promptCharacters, 18_308);
-
-  // The offer rotates with the dressing day's own count, so the prompt changes from day to day.
-  // A sweep over every day of 2026, the grid and the cold front below, three day kinds and both
-  // locales, found its largest prompts on these two days; each is measured here.
-  const dated = (input: object, localDayKey: string) => {
-    const request = aiRequestFromContext(createRecommendationContext({ ...input, localDayKey }, localDayKey));
-    assert.ok(request);
-    return largestOf(request);
-  };
-  const largestDatedGrid = dated(gridRecommendationInput('cold_rain', 'womens', 'casual'), '2026-03-28');
-  assert.equal(largestDatedGrid, 18_770);
-
-  // The grid has no cold front, and the longest prompts the app builds come from one: a weekend
-  // (day variants 3 and 4, which the app always pairs with a weekend day kind) that is warm
-  // enough for light clothing in the morning and turns to wind and drizzle near freezing
-  // feel by the afternoon, so both ends of the wardrobe stay eligible. The wind stays below the
-  // 8 m/s that leaves the umbrella at home, so the outfits still carry it.
-  const now = '2026-09-19T09:00:00.000Z';
-  const weather = (temperatureCelsius: number, apparentTemperatureCelsius: number, condition: string,
-    precipitationProbability: number, windSpeedMetersPerSecond: number) => ({
-    temperatureCelsius, apparentTemperatureCelsius, condition, precipitationProbability, windSpeedMetersPerSecond,
-    humidity: 0.8, uvIndex: 0,
-  });
-  const hour = (at: string, ...values: Parameters<typeof weather>) => ({ forecastAt: `2026-09-19T${at}:00:00.000Z`, ...weather(...values) });
-  const coldFront = {
-    id: 'weather-cold-front', localProfileId: 'profile', locationKey: 'manual:sample', timeZone: 'UTC', fetchedAt: now,
-    origin: { kind: 'sample', sourceId: 'haiku-size' }, current: { observedAt: now, ...weather(20, 22, 'cloudy', 0.2, 3) },
-    minimumTemperatureCelsius: 7, maximumTemperatureCelsius: 21,
-    hourly: [
-      hour('10', 21, 23, 'cloudy', 0.2, 3), hour('11', 21, 23, 'cloudy', 0.3, 4), hour('12', 17, 16, 'cloudy', 0.4, 6),
-      hour('13', 12, 9, 'drizzle', 0.5, 7), hour('14', 9, 4, 'drizzle', 0.5, 7), hour('15', 8, 3, 'drizzle', 0.5, 7),
-      hour('16', 8, 4, 'drizzle', 0.4, 6),
-    ],
-  };
-  const largestBuilt = Math.max(...(['womens', 'mens'] as const).flatMap((clothingPreference) => [3, 4].flatMap((dayVariant) => {
-    const request = aiRequestFromContext(createRecommendationContext({
-      snapshot: coldFront, now, clothingPreference, dressStyle: 'casual', dayVariant, dayKind: 'weekend', localDayKey: '2026-09-19',
-    }, '2026-09-19'));
-    assert.ok(request);
-    return (['en', 'tr'] as const).map((locale) => haikuPromptCharacters({ ...request, locale }));
-  })));
-  assert.equal(largestBuilt, 18_666);
-  const largestDatedColdFront = dated({
-    snapshot: coldFront, now, clothingPreference: 'womens', dressStyle: 'casual', dayVariant: 3, dayKind: 'weekday',
-  }, '2026-11-25');
-  assert.equal(largestDatedColdFront, 18_748);
-
+  const prompts = await pricedPrompts();
+  assert.equal(prompts.grid, 18_308);
+  assert.equal(prompts.datedGrid, 18_770);
+  assert.equal(prompts.coldFrontWeekend, 18_666);
+  assert.equal(prompts.datedColdFront, 18_748);
   // Installed binaries build their requests with the composition they shipped, so a smaller
-  // prompt from today's tree must not price them out of Haiku. The fixture is the largest
-  // request the build 20 composition sends on the same cold front (a womens casual weekend,
-  // day variant 3); build 24's is 18,413.
-  const installed = aiRecommendV2RequestSchema.parse(JSON.parse(readFileSync(
-    path.join(import.meta.dirname, '__tests__', 'installed-build-largest-request.json'), 'utf8')));
-  const largestInstalled = haikuPromptCharacters(installed);
-  assert.equal(largestInstalled, 18_485);
+  // prompt from today's tree must not price them out of Haiku. Build 20's largest is a womens
+  // casual weekend on the cold front (build 24's, 18,413, is smaller); builds 25 and 26 ship the
+  // same composition, whose largest is the cold front on 2027-01-19.
+  assert.deepEqual(prompts.installed, { 20: 18_485, 25: 19_066 });
 
   // Rounded up from the largest of them, never so far that the price stops describing it.
-  const largestPrompt = Math.max(promptCharacters, largestDatedGrid, largestBuilt, largestDatedColdFront, largestInstalled);
+  const largestPrompt = prompts.largest;
   assert.ok(largestPrompt <= haikuPromptCharacterLimit && haikuPromptCharacterLimit - largestPrompt < 200);
 
   // One token per character is the ceiling because the prompt is ASCII, even for the largest
@@ -269,9 +194,9 @@ test('the priced prompt size covers the largest prompt the app and installed bui
   // Micro-USD at 0.10 per 1M input tokens and 0.50 per 1M output tokens, 256 output tokens,
   // in tenths so the arithmetic stays in integers.
   const attemptMicroUsd = Math.ceil((haikuPromptCharacterLimit * 1 + 256 * 5) / 10);
-  assert.equal(attemptMicroUsd, 2_008);
+  assert.equal(attemptMicroUsd, 2_038);
   assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, Math.floor(200_000_000 / 31 / attemptMicroUsd));
-  assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, 3_212);
+  assert.equal(HAIKU_DAILY_ATTEMPT_LIMIT, 3_165);
   assert.ok(HAIKU_DAILY_ATTEMPT_LIMIT * attemptMicroUsd * 31 <= 200_000_000);
 });
 
