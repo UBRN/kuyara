@@ -736,15 +736,25 @@ export function compositionKeyOf(side: BodySideReadings, footwear: EligibleGarme
   return `${side.compositionKeyPrefix}|${footwear.candidateKey}`;
 }
 
+const suitShoes: ReadonlySet<string> = new Set(['closed_shoes', 'rain_dress_shoes']);
+
+/**
+ * A shirt, trousers and a blazer in formal shoes, the blazer as the outer layer or under a
+ * formal one: a suit, which reads formal although its shirt and trousers alone read smart.
+ */
 export function isFormalSuit(
   outfit: BodyArrangement<WornPiece>,
 ): boolean {
+  const outer = outfit.outerLayer?.garment.garmentTypeId;
+  const suitJacket = outfit.midLayer === null
+    ? outer === 'blazer'
+    : outfit.midLayer.garment.garmentTypeId === 'blazer' && outer !== undefined &&
+      getGarmentType(outer)?.formality === 'formal';
   return outfit.body.kind === 'separates' &&
     outfit.body.primaryTop.garment.garmentTypeId === 'shirt' &&
     outfit.body.bottom.garment.garmentTypeId === 'trousers' &&
-    outfit.midLayer === null &&
-    outfit.outerLayer?.garment.garmentTypeId === 'blazer' &&
-    outfit.footwear.garment.garmentTypeId === 'closed_shoes';
+    suitJacket &&
+    suitShoes.has(outfit.footwear.garment.garmentTypeId);
 }
 
 export function formalityRankOf(result: EligibleGarmentResult): number {

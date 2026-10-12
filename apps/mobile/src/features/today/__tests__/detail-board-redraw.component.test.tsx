@@ -115,8 +115,8 @@ test('enlarging a piece and stepping it repaint only the drawings the step adds'
   // and its big one paint, each a pair of shoes. The piece that slid in and the one that slid
   // out keep theirs.
   expect(board()).toEqual(['board:footwear', 'board:footwear', 'board:footwear', 'board:footwear']);
-  // Of the tiles, only the changed piece's row paints, and the jeans the rain row now names
-  // in place of the rain boots (the cool wet day wishes the legs covered): the strip's
-  // candidates keep their colours.
-  expect(tiles()).toEqual(['tile:g-jeans-f', 'tile:g-sneaker-f']);
+  // Of the tiles, only the changed piece's row paints, and the rain row, which names the
+  // rain-ready dress shoes in place of the rain boots: the strip's candidates keep their
+  // colours.
+  expect(tiles()).toEqual(['tile:x-raindressshoe-f', 'tile:x-raindressshoe-f']);
 });

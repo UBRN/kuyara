@@ -49,7 +49,7 @@ const dayKinds = ['weekday', 'weekend'];
  */
 const basicWardrobe = new Set([
   't_shirt', 'long_sleeve_t_shirt', 'shirt', 'sweater', 'sweatshirt', 'hoodie',
-  'jeans', 'trousers',
+  'jeans', 'trousers', 'chinos',
   'sneakers', 'closed_shoes', 'ankle_boots', 'weather_boots',
   'coat', 'light_jacket',
 ]);
@@ -263,6 +263,9 @@ test('T2 the shown outfits are built from everyday garments often enough', () =>
   // 28.5, total 40.8 to 41.2. The two shown after the first now share as few garments with it as
   // the day's best allows, which trades the most common pieces for variety: dry 55.9 to 54.1,
   // rain 28.4 to 25.6, snow 35.0 to 31.9, total 41.1 to 38.7.
+  // Catalog version 7 dresses rain in the rain trench and the storm coat, outside the set, and
+  // its chinos, the everyday trouser, count with jeans and trousers: dry 54.2 to 50.7, rain
+  // 25.4 to 29.7, snow 32.8 to 34.9, total 38.8 to 39.4.
   assert.ok(shareOf(shown) >= 0.38, `total share fell to ${(100 * shareOf(shown)).toFixed(1)}%`);
   for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.25], ['snow', 0.31]]) {
     const share = shareOf(inClass(precipitationName));

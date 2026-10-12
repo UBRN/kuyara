@@ -131,10 +131,13 @@ export const todayScreenState = Object.freeze({
     weather: todayWeatherSnapshot,
     activeLocation: todayActiveLocation,
     freshness: 'fresh',
+    // A casual dresser: the detail and manual-mix suites read this rainy day's rain jacket and
+    // rain boots, which a smart dresser's trio leaves for the rain trench.
     recommendation: recommendOutfits({
       snapshot: todayWeatherSnapshot,
       now: todayWeatherSnapshot.current.observedAt,
       clothingPreference: 'womens',
+      dressStyle: 'casual',
       dayVariant: 0,
     }),
   }),

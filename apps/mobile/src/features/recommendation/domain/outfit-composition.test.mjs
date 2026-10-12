@@ -15,6 +15,8 @@ import {
   composeOutfitOptions,
   evaluateArrangement,
   excludeRecentlyWornOutfits,
+  garmentFitsSlot,
+  isFormalSuit,
   offeredOutfitLimit,
   onePieceExcludes,
   outfitCompositionFailureCodes,
@@ -52,7 +54,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    'eed7ce22fbb25c7e6fba6ea5697984c35cdec8c03225bb196e6c6319a0d87dab',
+    '3acafd902bed7fe5f7d3ba4595020b6f4e133f3142b43a7a05218dce2afb5f8a',
   );
 });
 
@@ -97,7 +99,7 @@ test('a mild dry Formal day offers a formal outfit for both clothing preferences
   }
 });
 
-test('a dry 30 C Smart or Formal day still offers smart outfits for both clothing preferences', () => {
+test('a dry 30 C Smart or Formal day still shows smart or formal outfits for both clothing preferences', () => {
   for (const preference of ['womens', 'mens']) {
     for (const dressStyle of ['smart', 'formal']) {
       const input = gridRecommendationInput('hot', preference, dressStyle);
@@ -112,8 +114,10 @@ test('a dry 30 C Smart or Formal day still offers smart outfits for both clothin
       const result = recommendOutfits({ ...input, snapshot });
 
       assert.equal(result.status, 'recommended', `${preference}/${dressStyle}`);
-      assert.ok(result.outfits.some(({ formality }) => formality === 'smart'),
-        `${preference}/${dressStyle} showed no smart outfit at 30 C`);
+      assert.ok(result.outfits.every(({ formality }) => formality !== 'casual'),
+        `${preference}/${dressStyle} showed a casual outfit at 30 C`);
+      assert.ok(result.outfits.some(({ formality }) => formality === dressStyle),
+        `${preference}/${dressStyle} showed no ${dressStyle} outfit at 30 C`);
     }
   }
 });
@@ -1240,12 +1244,21 @@ test('a day that asks for no layer still offers layered options, each from its o
       // One body core per formality, not one per offer: the layer decides an outfit's
       // formality, so the same core reaches the offer twice when two layers put it in two
       // formalities, which is how 26 C offers a long skirt under a blazer and under a
-      // bomber jacket. Inside one formality's share a core still leads once.
-      assert.equal(
-        new Set(layered.map((outfit) => `${outfit.formality}|${bodyCoreOf(outfit)}`)).size,
-        layered.length,
-        `${where} repeated a body core among its layered options`,
-      );
+      // bomber jacket. Inside one formality's share a core still leads once, unless the
+      // formality composes fewer cores than its layered options: a dry 20 C day dresses
+      // formal only in a shirt and trousers or a dress, so the suit comes under a blazer and
+      // under a rain trench.
+      const { requirements, candidates } = composableForWeather(clearDay(temperatureCelsius), {}, preference);
+      const valid = collectValidOutfits(requirements, candidates).outfits;
+      for (const formality of new Set(layered.map((outfit) => outfit.formality))) {
+        const share = layered.filter((outfit) => outfit.formality === formality);
+        const composedCores = new Set(valid.filter((outfit) => outfit.formality === formality).map(bodyCoreOf));
+        assert.equal(
+          new Set(share.map(bodyCoreOf)).size,
+          Math.min(share.length, composedCores.size),
+          `${where} repeated a ${formality} body core among its layered options`,
+        );
+      }
     }
   }
 });
@@ -1349,11 +1362,14 @@ test('no composed outfit wears an incompatible pair while three clean ones remai
 });
 
 test('a day that dresses only in incompatible pairs keeps them rather than failing', () => {
-  // At 30 C in a thunderstorm the feet must stay dry and the legs must breathe, and the only
-  // men's bottom that breathes is shorts, so every men's outfit wears shorts with rain boots.
+  // At 30 C in a thunderstorm the feet must stay dry and the legs must breathe. Without chinos
+  // and the rain trench the only men's bottom that goes with the one waterproof outer, a casual
+  // rain jacket, and breathes is shorts, so every men's outfit wears shorts with rain boots.
   const weather = { temperatureCelsius: 30, apparentTemperatureCelsius: 30, condition: 'thunderstorm',
     precipitationProbability: 0.9, windSpeedMetersPerSecond: 2 };
-  const { requirements, candidates } = composableForWeather(weather, {}, 'mens');
+  const { requirements, candidates: all } = composableForWeather(weather, {}, 'mens');
+  const candidates = all.filter(({ candidateKey }) =>
+    candidateKey !== 'catalog:chinos' && candidateKey !== 'catalog:rain_trench');
   const offered = composeOutfitOptions(requirements, candidates, 0);
   assert.equal(offered.status, 'composed');
   assert.ok(offered.outfits.length >= 3);
@@ -1402,13 +1418,14 @@ test('hot plain rain wears no warm shoe, and its casual shoes are sandals and sn
   }
 });
 
-test('a hot thunderstorm keeps the rain boots its mandatory dry feet ask for', () => {
+test('a hot thunderstorm keeps the rain boots its mandatory dry feet ask for, or formal rain-ready shoes', () => {
   for (const preference of ['womens', 'mens']) {
     const { requirements, candidates } = composableForWeather(heatDay(30, 'thunderstorm', 0.9), {}, preference);
     const offered = composeOutfitOptions(requirements, candidates, 0);
     assert.equal(offered.status, 'composed', preference);
     assert.ok(offered.outfits.length >= 3, preference);
-    assert.ok(offered.outfits.every(({ footwear }) => footwear.garment.garmentTypeId === 'rain_boots'), preference);
+    assert.ok(offered.outfits.every(({ footwear, formality }) => footwear.garment.garmentTypeId === 'rain_boots'
+      || (footwear.garment.garmentTypeId === 'rain_dress_shoes' && formality === 'formal')), preference);
   }
 });
 
@@ -1513,4 +1530,126 @@ test('clean drafts that only swap a shoe do not keep the clashing ones out of th
     .map((typeId) => catalogCandidate(requirements, typeId)), 0);
   assert.equal(offered.status, 'composed');
   assert.equal(offered.outfits.length, 3);
+});
+
+// Catalog version 7 closes the rain gap of smart and formal dressers: a waterproof formal rain
+// trench, a lined waterproof storm coat for cold rain and a water-resistant dress shoe, all in
+// both cuts, plus chinos as a smart bottom in both cuts and knee boots for women. A wet day used
+// to offer a smart or formal dresser nothing but casual outfits.
+const rainDay = (temperatureCelsius, condition = 'rain', windSpeedMetersPerSecond = 3) => ({
+  temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius, condition,
+  precipitationProbability: 0.8, windSpeedMetersPerSecond,
+});
+
+test('a rainy day offers smart and formal outfits in the rain trench and the rain-ready dress shoes', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const temperature of [8, 15]) {
+      const cell = `${preference} ${temperature} C rain`;
+      const offered = offeredForWeather(rainDay(temperature), {}, preference);
+      const formalities = new Set(offered.map(({ formality }) => formality));
+      assert.ok(formalities.has('smart') && formalities.has('formal'), cell);
+      const { requirements, candidates } = composableForWeather(rainDay(temperature), {}, preference);
+      const worn = typesOf(collectValidOutfits(requirements, candidates).outfits);
+      assert.ok(worn.includes('rain_trench') && worn.includes('rain_dress_shoes'), cell);
+    }
+  }
+});
+
+test('cold rain wears the storm coat, and a mild day that asks no warmth never does', () => {
+  for (const preference of ['womens', 'mens']) {
+    const cold = composableForWeather(rainDay(4, 'rain', 9), {}, preference);
+    assert.ok(typesOf(collectValidOutfits(cold.requirements, cold.candidates).outfits).includes('storm_coat'), preference);
+    const mild = composableForWeather(heatDay(20, 'rain', 0.8), {}, preference);
+    assert.equal(typesOf(collectValidOutfits(mild.requirements, mild.candidates).outfits).includes('storm_coat'), false, preference);
+  }
+});
+
+test('chinos dress both cuts as a smart bottom, and knee boots only the women\'s', () => {
+  for (const preference of ['womens', 'mens']) {
+    const { requirements, candidates } = composableForWeather(clearDay(15), {}, preference);
+    const outfits = collectValidOutfits(requirements, candidates).outfits;
+    const chinos = outfits.filter((outfit) => typesOf([outfit]).includes('chinos'));
+    assert.ok(chinos.length > 0, preference);
+    assert.ok(chinos.every(({ formality }) => formality !== 'formal'), preference);
+    assert.equal(typesOf(outfits).includes('knee_boots'), preference === 'womens', preference);
+  }
+});
+
+test('a leather jacket keeps no rain off', () => {
+  for (const preference of ['womens', 'mens']) {
+    const { requirements, candidates } = composableForWeather(heatDay(12, 'drizzle', 0.5), {}, preference);
+    assert.equal(typesOf(collectValidOutfits(requirements, candidates).outfits).includes('leather_jacket'), false, preference);
+  }
+});
+
+// A suit is worn under a formal coat in the rain: the blazer is also a mid layer, but only under
+// a formal outer layer, which keeps the rain off for it. Shirt, trousers, the blazer and formal
+// shoes read formal as a suit, with the blazer as the outer layer or under a formal one.
+const worn = (garmentTypeId) => garmentTypeId === null ? null : { garment: { garmentTypeId } };
+const suit = ({ midLayer = null, outerLayer, footwear = 'closed_shoes', bottom = 'trousers' }) => ({
+  body: { kind: 'separates', primaryTop: worn('shirt'), bottom: worn(bottom) },
+  midLayer: worn(midLayer), outerLayer: worn(outerLayer), footwear: worn(footwear),
+});
+
+test('a suit reads formal with the blazer as the outer layer or under a formal one, in formal shoes', () => {
+  for (const footwear of ['closed_shoes', 'rain_dress_shoes']) {
+    assert.ok(isFormalSuit(suit({ outerLayer: 'blazer', footwear })), footwear);
+    for (const outerLayer of ['coat', 'trench_coat', 'rain_trench', 'storm_coat']) {
+      assert.ok(isFormalSuit(suit({ midLayer: 'blazer', outerLayer, footwear })), `${outerLayer} ${footwear}`);
+    }
+  }
+  assert.equal(isFormalSuit(suit({ midLayer: 'blazer', outerLayer: 'rain_jacket' })), false);
+  assert.equal(isFormalSuit(suit({ midLayer: 'blazer', outerLayer: null })), false);
+  assert.equal(isFormalSuit(suit({ midLayer: 'blazer', outerLayer: 'coat', footwear: 'loafers' })), false);
+  assert.equal(isFormalSuit(suit({ midLayer: 'blazer', outerLayer: 'coat', bottom: 'chinos' })), false);
+  assert.ok(garmentFitsSlot('mid_layer', 'blazer'));
+});
+
+test('a rainy day dresses a suit under the rain trench', () => {
+  for (const preference of ['womens', 'mens']) {
+    const { requirements, candidates } = composableForWeather(rainDay(15), {}, preference);
+    const outfits = collectValidOutfits(requirements, candidates).outfits;
+    assert.ok(outfits.some((outfit) => outfit.formality === 'formal'
+      && outfit.midLayer?.garment.garmentTypeId === 'blazer'
+      && outfit.outerLayer?.garment.garmentTypeId === 'rain_trench'), preference);
+  }
+});
+
+test('the blazer is a mid layer only under a formal outer layer', () => {
+  const formalOuter = new Set(['coat', 'trench_coat', 'rain_trench', 'storm_coat']);
+  for (const preference of ['womens', 'mens']) {
+    for (const weather of [clearDay(10), clearDay(18), rainDay(8), rainDay(15), rainDay(4, 'rain', 9), heatDay(24, 'drizzle', 0.6)]) {
+      const { requirements, candidates } = composableForWeather(weather, {}, preference);
+      const cell = `${preference} ${weather.temperatureCelsius} C ${weather.condition}`;
+      for (const outfit of collectValidOutfits(requirements, candidates).outfits) {
+        if (outfit.midLayer?.garment.garmentTypeId === 'blazer') {
+          assert.ok(formalOuter.has(outfit.outerLayer?.garment.garmentTypeId), `${cell} ${outfit.compositionKey}`);
+        }
+      }
+    }
+  }
+});
+
+// Knee boots go with any smart outfit, a skirt or a dress first: among drafts the day scores
+// alike, knee boots over a skirt or a dress rank ahead of knee boots over trousers or jeans.
+test('knee boots rank over a skirt or a dress ahead of over trousers, jeans or leggings at the same score', () => {
+  const skirtsAndDresses = new Set(['skirt', 'long_skirt', 'dress', 'knit_dress']);
+  for (const weather of [clearDay(15), clearDay(13), heatDay(16, 'cloudy', 0.2)]) {
+    const { requirements, candidates } = composableForWeather(weather, {}, 'womens');
+    const drafts = validDrafts(readComposerDay(requirements, candidates, true))
+      .filter(({ footwear }) => footwear.garment.garmentTypeId === 'knee_boots');
+    const legs = (draft) => draft.side.body.kind === 'one_piece'
+      ? draft.side.body.onePiece.garment.garmentTypeId : draft.side.body.bottom.garment.garmentTypeId;
+    const tie = (draft) => `${draft.score.score}|${draft.score.penaltyPoints}|${Number(draft.side.midLayer !== null) + Number(draft.side.outerLayer !== null)}`;
+    const cell = `${weather.temperatureCelsius} C ${weather.condition}`;
+    assert.ok(drafts.some((draft) => skirtsAndDresses.has(legs(draft))), cell);
+    assert.ok(drafts.some((draft) => ['trousers', 'jeans', 'chinos'].includes(legs(draft))), cell);
+    const lastSkirt = new Map();
+    drafts.forEach((draft, index) => { if (skirtsAndDresses.has(legs(draft))) lastSkirt.set(tie(draft), index); });
+    drafts.forEach((draft, index) => {
+      if (!skirtsAndDresses.has(legs(draft)) && draft.side.body.kind === 'separates') {
+        assert.ok(!(lastSkirt.get(tie(draft)) > index), `${cell}: ${draft.compositionKey} ahead of a skirt at ${tie(draft)}`);
+      }
+    });
+  }
 });

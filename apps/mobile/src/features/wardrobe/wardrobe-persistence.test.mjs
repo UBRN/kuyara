@@ -171,7 +171,7 @@ test('canonical catalog is complete, immutable, versioned, and uses approved app
 
   const womensOnly = new Set([
     'blouse', 'skirt', 'long_skirt', 'dress', 'jumpsuit', 'knit_dress', 'leggings',
-    'ballet_flats',
+    'ballet_flats', 'knee_boots',
   ]);
   for (const type of garmentCatalog.garmentTypes) {
     assert.deepEqual(

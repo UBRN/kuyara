@@ -19,6 +19,8 @@ import { mapWorkerAiRecommendation } from './ai-recommendation-mapping.ts';
 import { createRecommendationContextWithPool } from './recommendation-context.ts';
 import { aiRequestFor } from '../../../../test/recommendation-grid.mjs';
 import { accessoryOutfitSlots, garmentIdSet } from '../domain/outfit-composition.ts';
+import { wornOutfitFrom } from '../domain/outfit-history.ts';
+import { deriveClothingRequirements } from '../domain/weather-to-clothing-requirements.ts';
 
 const profileId = 'profile-one';
 const now = '2026-08-01T20:00:00.000Z';
@@ -222,29 +224,25 @@ test('restart reconstructs exhausted state from the current history-filtered poo
   await first.controller.initialize();
   const generationInput = { ...input(30), clothingPreference: 'mens' };
   const snapshot = await first.controller.refresh('first-recommendation', generationInput);
-  const requirements = {
-    ...snapshot.recommendation.requirements,
-    requirements: [...snapshot.recommendation.requirements.requirements,
-      { kind: 'leg_coverage', minimum: 'full', priority: 'mandatory',
-        reasonCodes: ['temperature_low'] }],
-  };
+  // A 28 C thunderstorm composes the narrowest men's pool, eight options: three shown and five
+  // worn since leave nothing new.
+  const storm = { temperatureCelsius: 28, apparentTemperatureCelsius: 28, condition: 'thunderstorm',
+    precipitationProbability: 0.9 };
+  const stormSnapshot = { ...generationInput.snapshot,
+    current: { ...generationInput.snapshot.current, ...storm },
+    hourly: generationInput.snapshot.hourly.map((hour) => ({ ...hour, ...storm })) };
+  const requirements = deriveClothingRequirements(stormSnapshot, stormSnapshot.current.observedAt);
   const composition = composeOutfitPool(requirements, 'mens', generationInput.dayVariant);
   assert.equal(composition.status, 'composed');
-  assert.equal(composition.outfits.length, 4);
+  assert.equal(composition.outfits.length, 8);
+  const shown = assignFallbackArchetypes(composition.outfits, requirements, 3);
   const narrow = {
     ...snapshot,
-    recommendation: {
-      ...snapshot.recommendation,
-      requirements,
-      outfits: assignFallbackArchetypes(composition.outfits, requirements, 3),
-    },
+    recommendation: { ...snapshot.recommendation, requirements, outfits: shown },
   };
-  const fourth = composition.outfits[3];
-  const fourthOption = first.requests[0].options.find(
-    (option) => option.optionId === outfitOptionId(fourth));
-  assert.ok(fourthOption);
-  const restored = createHarness({ cached: narrow,
-    loadRecentWorn: async () => [wornFromAiOption(fourthOption)] });
+  const worn = composition.outfits.slice(3)
+    .map((outfit) => wornOutfitFrom({ ...outfit, archetypeId: 'everyday_easy' }));
+  const restored = createHarness({ cached: narrow, loadRecentWorn: async () => worn });
   await restored.controller.initialize();
   assert.equal(restored.controller.getSnapshot().exhausted, true);
 });

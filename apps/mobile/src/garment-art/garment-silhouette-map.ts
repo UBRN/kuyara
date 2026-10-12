@@ -16,7 +16,8 @@ const womensDrawings = {
   weather_boots: 'g-weatherboot-f', sandals: 'g-sandal-f', loafers: 'x-loafer-f', rain_boots: 'x-rainboot-f',
   ballet_flats: 'g-flat-f', beanie: 'g-beanie-f', brimmed_hat: 'g-hat-f', cap: 'g-cap-f',
   balaclava: 'g-balaclava-f', scarf: 'g-scarf-f', neck_gaiter: 'g-neckgaiter-f', gloves: 'g-gloves-f',
-  umbrella: 'g-umbrella-f',
+  umbrella: 'g-umbrella-f', rain_trench: 'x-raintrench-f', storm_coat: 'x-stormcoat-f',
+  rain_dress_shoes: 'x-raindressshoe-f', chinos: 'x-chino-f', knee_boots: 'x-kneeboots-f',
 } as const satisfies Partial<Record<GarmentTypeId, SilhouetteId>>;
 
 const mensDrawings = {
@@ -30,6 +31,8 @@ const mensDrawings = {
   weather_boots: 'g-weatherboot-m', sandals: 'g-sandal-m', loafers: 'x-loafer-m', rain_boots: 'x-rainboot-m',
   beanie: 'g-beanie-m', brimmed_hat: 'g-hat-m', cap: 'g-cap-m', balaclava: 'g-balaclava-m',
   scarf: 'g-scarf-m', neck_gaiter: 'g-neckgaiter-m', gloves: 'g-gloves-m', umbrella: 'g-umbrella-m',
+  rain_trench: 'x-raintrench-m', storm_coat: 'x-stormcoat-m', rain_dress_shoes: 'x-raindressshoe-m',
+  chinos: 'x-chino-m',
 } as const satisfies Partial<Record<GarmentTypeId, SilhouetteId>>;
 
 /**

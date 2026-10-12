@@ -1,7 +1,12 @@
-import { isIncompatibleGarmentPair, isSummerPiece } from '@/features/catalog/domain/garment-pairs';
+import {
+  isIncompatibleGarmentPair,
+  isSummerPiece,
+  wearsKneeBootsWithoutSkirt,
+} from '@/features/catalog/domain/garment-pairs';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
   compareGarmentEligibilityResults,
+  evaluateWornUnderOuterLayer,
   type EligibleGarmentResult,
   type GarmentEligibilityResult,
 } from '@/features/recommendation/domain/garment-eligibility';
@@ -24,6 +29,7 @@ import {
 import {
   cloneRequirement,
   compareStrings,
+  formalityOrder,
   outfitCompositionFailureCodes,
   type OutfitCandidate,
   type OutfitCompositionFailure,
@@ -63,6 +69,8 @@ const slotOrder = new Map(outfitSlots.map((slot, index) => [slot, index]));
 type DraftSortKey = {
   readonly draft: JudgedDraft;
   readonly layers: number;
+  /** 1 for knee boots worn without a skirt or a dress, which rank behind the ones worn with one. */
+  readonly kneeBoots: number;
   digest?: number;
 };
 
@@ -102,6 +110,10 @@ function compareDraftSortKeys(left: DraftSortKey, right: DraftSortKey): number {
   if (layerOrder !== 0) {
     return layerOrder;
   }
+  const kneeBootsOrder = left.kneeBoots - right.kneeBoots;
+  if (kneeBootsOrder !== 0) {
+    return kneeBootsOrder;
+  }
 
   if (left.draft.side.body.kind === right.draft.side.body.kind) {
     const slotOrder = compareSlotScores(left.draft, right.draft);
@@ -125,7 +137,14 @@ function compareDraftSortKeys(left: DraftSortKey, right: DraftSortKey): number {
 
 function sortedDrafts(drafts: readonly JudgedDraft[]): readonly JudgedDraft[] {
   return drafts
-    .map((draft) => ({ draft, layers: optionalLayerCount(draft) }))
+    .map((draft) => ({
+      draft,
+      layers: optionalLayerCount(draft),
+      kneeBoots: Number(wearsKneeBootsWithoutSkirt([
+        ...draft.side.results.map(({ garment }) => garment.garmentTypeId),
+        draft.footwear.garment.garmentTypeId,
+      ])),
+    }))
     .sort(compareDraftSortKeys)
     .map(({ draft }) => draft);
 }
@@ -307,7 +326,19 @@ export function readComposerDay(
   const primaryTops = inSlot('primary_top');
   const bottoms = inSlot('bottom');
   const onePieces = inSlot('one_piece');
-  const midLayers = composesNew && season.heatMandatory ? [] : inSlot('mid_layer');
+  // A piece of outerwear worn as a mid layer (the blazer under a coat) is read as it is worn
+  // there, under an outer layer that keeps the rain and the wind off it.
+  const wornUnderOuter = candidates
+    .flatMap(({ garment }) => garment !== null && garment.properties.category === 'outerwear' &&
+      slotAccepts('mid_layer', garment.properties)
+      ? [evaluateWornUnderOuterLayer(allRequirements, garment)]
+      : [])
+    .filter((candidate): candidate is EligibleGarmentResult => candidate.status === 'eligible' &&
+      (!composesNew || season.wears(candidate)));
+  const midLayers = composesNew && season.heatMandatory ? [] : [
+    ...inSlot('mid_layer').filter(({ garment }) => garment.properties.category !== 'outerwear'),
+    ...wornUnderOuter,
+  ].sort(compareGarmentEligibilityResults);
   const outerLayers = inSlot('outer_layer');
   const footwear = inSlot('footwear');
 
@@ -371,10 +402,17 @@ export function readComposerDay(
   });
 }
 
+/** A piece of outerwear is a mid layer only under a formal outer layer: the blazer under a coat. */
+function midLayerFitsUnder(midLayer: EligibleGarmentResult, outerLayer: EligibleGarmentResult | null): boolean {
+  return midLayer.garment.properties.category !== 'outerwear' ||
+    (outerLayer !== null && formalityRankOf(outerLayer) === formalityOrder.indexOf('formal'));
+}
+
 /**
  * Every body-and-layers triple the enumeration pairs with the shoes, in enumeration order. A
- * mid layer that does not go over the primary top in order is never paired, so the drafts and
- * the failure evidence read the same triples.
+ * mid layer that does not go over the primary top in order, or a piece of outerwear worn as a
+ * mid layer with no formal outer layer above it, is never paired, so the drafts and the failure
+ * evidence read the same triples.
  */
 function* bodyTriples(day: ComposerDay): Generator<BodyPieces> {
   const midOptions = [null, ...day.midLayers];
@@ -388,6 +426,9 @@ function* bodyTriples(day: ComposerDay): Generator<BodyPieces> {
         continue;
       }
       for (const outerLayer of outerOptions) {
+        if (day.composesNew && midLayer !== null && !midLayerFitsUnder(midLayer, outerLayer)) {
+          continue;
+        }
         yield bodyPiecesOf(body, midLayer, outerLayer);
       }
     }

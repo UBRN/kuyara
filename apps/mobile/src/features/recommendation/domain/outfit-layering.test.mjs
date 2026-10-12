@@ -75,7 +75,6 @@ function layeringFault(outfit) {
 
 // A full offer is 24 outfits. A hot men's day wears no layers and its few pieces leave the
 // diversity rule 15 meaningfully different outfits, layer order or not.
-const offerSize = (name) => name === 'hot mens' ? 15 : offeredOutfitLimit;
 
 function faultsOf(outfits) {
   return [...new Set(outfits.map(layeringFault).filter((fault) => fault !== null))];
@@ -91,7 +90,7 @@ for (const { name, requirements, candidates } of grid) {
   test(`${name}: the offer layers in order and stays full`, () => {
     const offer = composeOutfitOptions(requirements, candidates, 0);
     assert.equal(offer.status, 'composed');
-    assert.equal(offer.outfits.length, offerSize(name));
+    assert.equal(offer.outfits.length, offeredOutfitLimit);
     assert.deepEqual(faultsOf(offer.outfits), []);
   });
 }

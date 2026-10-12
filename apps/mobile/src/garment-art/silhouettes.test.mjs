@@ -51,14 +51,14 @@ function drawnBounds(paths) {
   };
 }
 
-// ADR 0025's vocabulary: every catalogue type in each cut, accessories included (49 women's,
-// 41 men's), the six category glyphs, and fifteen base drawings that nothing draws any more.
+// ADR 0025's vocabulary: every catalogue type in each cut, accessories included (54 women's,
+// 45 men's), the six category glyphs, and fifteen base drawings that nothing draws any more.
 // No drawing is shared by both cuts.
-test('the vocabulary holds 90 cut drawings, six glyphs and fifteen unused base drawings', () => {
+test('the vocabulary holds 99 cut drawings, six glyphs and fifteen unused base drawings', () => {
   const ids = Object.keys(silhouettes);
   assert.equal(ids.filter((id) => id.startsWith('g-cat-')).length, 6);
-  assert.equal(ids.filter((id) => id.endsWith('-f')).length, 49);
-  assert.equal(ids.filter((id) => id.endsWith('-m')).length, 41);
+  assert.equal(ids.filter((id) => id.endsWith('-f')).length, 54);
+  assert.equal(ids.filter((id) => id.endsWith('-m')).length, 45);
   assert.equal(ids.filter((id) => !id.startsWith('g-cat-') && !/-[fm]$/.test(id)).length, 15);
 });
 
