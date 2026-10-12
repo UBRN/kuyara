@@ -1,4 +1,4 @@
-import type { AiProbeV2ProviderId, AiRecommendV1Request, AiRecommendV2Request } from '@kuyara/contracts';
+import { aiProviderIds, type AiRecommendV1Request, type AiRecommendV2Request } from '@kuyara/contracts';
 
 import { AttemptTimeoutError } from '../attempt-timeout.ts';
 
@@ -67,11 +67,12 @@ export type AiGenerateOptions = Readonly<{
 }>;
 
 /**
- * Every provider the recommend walk can hold. The v2 probe reports any of them; the v1
- * probe omits `haiku`, because that member of its response enum would break every
- * installed binary that parses the enum strictly.
+ * Every provider the recommend walk can hold. The list is Worker-owned and may grow; each
+ * probe route reports only the ids its response enum names, because installed binaries
+ * parse those enums strictly.
  */
-export type AiChainProviderId = AiProbeV2ProviderId;
+export const aiChainProviderIds = [...aiProviderIds, 'haiku'] as const;
+export type AiChainProviderId = (typeof aiChainProviderIds)[number];
 
 export interface AiProvider {
   /** Controlled, non-secret identifier; the probe reports it. */

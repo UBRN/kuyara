@@ -2,11 +2,11 @@ import {
   aiProbeV1Path,
   aiProbeV1SuccessSchema,
   aiProbeV2Path,
+  aiProbeV2ProviderIds,
   aiProbeV2SuccessSchema,
   aiProviderIds,
   aiRecommendV1SuccessSchema,
   aiV1ErrorSchema,
-  type AiProbeV2Success,
   type AiRecommendV1Request,
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
@@ -19,6 +19,7 @@ import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import {
   attemptFailureReason,
   type AiAttemptFailureReason,
+  type AiChainProviderId,
   type AiProvider,
 } from './ai-provider.ts';
 
@@ -135,11 +136,11 @@ function logProbeFailure(provider: AiProvider, reason: ProbeFailureReason): void
 const errorResponse = createErrorResponse<AiV1ErrorCode>(aiV1ErrorSchema);
 
 /**
- * What differs between the two probe routes. v1 answers only the provider ids installed
- * binaries parse against a closed enum, so a Worker-internal provider never answers there
- * and the chain's first remaining provider does. v2 names the chain's first provider.
- * Each route builds its own handler, so each keeps its own 60 s result cache, while both
- * count against the one `probe` daily cap.
+ * What differs between the two probe routes. Each answers only the provider ids installed
+ * binaries parse against its closed enum, so a chain provider its enum cannot name never
+ * answers there and the chain's first provider it can name does. v1 thereby skips `haiku`;
+ * v2 names it. Each route builds its own handler, so each keeps its own 60 s result cache,
+ * while both count against the one `probe` daily cap.
  */
 type Variant = Readonly<{
   path: string;
@@ -147,18 +148,19 @@ type Variant = Readonly<{
   answering(providers: readonly AiProvider[]): AiProvider | undefined;
 }>;
 
+const firstNamedIn = (ids: readonly string[]) => (providers: readonly AiProvider[]) =>
+  providers.find(({ id }) => ids.includes(id));
+
 const v1Variant: Variant = {
   path: aiProbeV1Path,
   schema: aiProbeV1SuccessSchema,
-  answering: (providers) => providers.find(
-    ({ id }) => (aiProviderIds as readonly string[]).includes(id),
-  ),
+  answering: firstNamedIn(aiProviderIds),
 };
 
 const v2Variant: Variant = {
   path: aiProbeV2Path,
   schema: aiProbeV2SuccessSchema,
-  answering: (providers) => providers[0],
+  answering: firstNamedIn(aiProbeV2ProviderIds),
 };
 
 export const createProbeHandler = (dependencies: Dependencies): ProbeHandler =>
@@ -176,7 +178,12 @@ function createHandler({
   now = () => new Date(),
   attemptTimeoutMs = PROBE_ATTEMPT_TIMEOUT_MS,
 }: Dependencies, { path, schema, answering: selectAnswering }: Variant): ProbeHandler {
-  let cached: AiProbeV2Success['data'] | null = null;
+  // Typed by the chain, not by either route's enum: the route's schema parses every answer.
+  let cached: Readonly<{
+    status: 'ok' | 'unavailable';
+    checkedAt: string;
+    assistant?: Readonly<{ providerId: AiChainProviderId; model: string }>;
+  }> | null = null;
   let cachedExpiresAt = 0;
 
   return async (request: Request): Promise<Response> => {
