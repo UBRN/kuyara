@@ -86,10 +86,6 @@ export function useWardrobeExitGuard(
       }),
     [confirmDiscard, isDirty, isSaving, navigation],
   );
-  // The back swipe is native and would leave before `beforeRemove` could hold it.
-  useEffect(() => {
-    navigation.setOptions({ gestureEnabled: !isSaving });
-  }, [isSaving, navigation]);
 
   return {
     // The toolbar's Cancel pops the form; `beforeRemove` above confirms a dirty one.
