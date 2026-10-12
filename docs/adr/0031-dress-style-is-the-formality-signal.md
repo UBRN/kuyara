@@ -49,9 +49,11 @@ no per-style re-measurement. The table lives in `packages/contracts` as
 `formalityOrderByDressStyle`, because the Worker prompt and device-local fallback must
 apply the same rule. Do not introduce age-band schemas or age-band formality tables.
 
-The composer derives each outfit's formality before applying this order. The exact
-`shirt` + `trousers` + `blazer` + `closed_shoes` combination, with no mid layer,
-counts as formal for either clothing preference. Other outfits use their least
+The composer derives each outfit's formality before applying this order. A suit,
+`shirt` + `trousers` + `blazer` in `closed_shoes` or `rain_dress_shoes` with the blazer as
+the outer layer or under a formal outer layer
+([ADR 0013](0013-catalog-content-corrections-and-version-3.md) section 4), counts as formal
+for either clothing preference. Other outfits use their least
 formal composed garment; the formality-consistency gate still applies.
 
 ### 3. The day's resolved formality and sorted aesthetics cross the AI boundary

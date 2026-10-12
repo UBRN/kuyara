@@ -225,6 +225,7 @@ The English and Turkish labels below are localization copy, not identity. They m
 | `top` | `turtleneck` | Turtleneck | Balıkçı yaka |
 | `top` | `polo_shirt` | Polo shirt | Polo tişört |
 | `bottom` | `trousers` | Trousers | Pantolon |
+| `bottom` | `chinos` | Chinos | Chino |
 | `bottom` | `jeans` | Jeans | Jean |
 | `bottom` | `leggings` | Leggings | Tayt |
 | `bottom` | `shorts` | Shorts | Şort |
@@ -236,9 +237,11 @@ The English and Turkish labels below are localization copy, not identity. They m
 | `one_piece` | `knit_dress` | Knit dress | Triko elbise |
 | `outerwear` | `light_jacket` | Light jacket | Hafif ceket |
 | `outerwear` | `trench_coat` | Trench coat | Trençkot |
+| `outerwear` | `rain_trench` | Rain trench | Yağmur trençkotu |
 | `outerwear` | `rain_jacket` | Rain jacket | Yağmurluk |
 | `outerwear` | `insulated_jacket` | Insulated jacket | Yalıtımlı mont |
 | `outerwear` | `coat` | Coat | Kaban |
+| `outerwear` | `storm_coat` | Storm coat | Astarlı yağmur kabanı |
 | `outerwear` | `parka` | Parka | Parka |
 | `outerwear` | `blazer` | Blazer | Blazer |
 | `outerwear` | `puffer_vest` | Puffer vest | Şişme yelek |
@@ -246,7 +249,9 @@ The English and Turkish labels below are localization copy, not identity. They m
 | `outerwear` | `leather_jacket` | Leather jacket | Deri ceket |
 | `footwear` | `sneakers` | Sneakers | Spor ayakkabı |
 | `footwear` | `closed_shoes` | Closed shoes | Kapalı ayakkabı |
+| `footwear` | `rain_dress_shoes` | Rain-ready dress shoes | Su itici klasik ayakkabı |
 | `footwear` | `ankle_boots` | Ankle boots | Bilek botu |
+| `footwear` | `knee_boots` | Knee boots | Diz boyu çizme |
 | `footwear` | `weather_boots` | Weather boots | Hava koşullarına uygun bot |
 | `footwear` | `sandals` | Sandals | Sandalet |
 | `footwear` | `loafers` | Loafers | Loafer |
@@ -264,12 +269,12 @@ The English and Turkish labels below are localization copy, not identity. They m
 Normalization decisions:
 
 - `shirt` means a general woven/button-front shirt; cut, material, and formality are not type identity. `blouse` remains separate because it is a recognizable catalog choice, but its weather properties may be similar.
-- `trousers` includes casual and tailored trousers. `jeans` stays separate because its typical construction and breathability differ enough to justify a default.
+- `trousers` means tailored trousers. `chinos` is the smart everyday trouser with the same weather defaults, separate because formality is a type property and the engine needs a smart long bottom besides `jeans`. `jeans` stays separate because its typical construction and breathability differ enough to justify a default.
 - `sweatshirt`, `hoodie`, `sweater`, and `cardigan` remain separate recognizable constructions. Their exact warmth is still an overrideable property.
 - `light_jacket`, `insulated_jacket`, `rain_jacket`, and `coat` distinguish the weather function that the engine needs. Turkish “ceket”, “mont”, “yağmurluk”, and “kaban” are localized labels or search synonyms, not IDs.
 - `trench_coat` is retained because it is a stable, recognizable outerwear construction and appears in current Today copy; “light” is an attribute/default, not part of its ID.
 - Generic “casual shoe” is normalized to `closed_shoes`; loafer, derby, and similar style names do not need separate MVP weather behavior.
-- Generic boots are split into `ankle_boots` and `weather_boots` because wet/cold protection and traction are decision-relevant. Marketing text such as “waterproof ankle boot” is represented by type plus properties, never as a type ID.
+- Generic boots are split into `ankle_boots` and `weather_boots` because wet/cold protection and traction are decision-relevant. The same reasoning makes a protection class a type of its own when it changes what the engine can offer: the recommendation reads catalog defaults only, so `rain_trench` (a waterproof, seam-sealed mac, unlike the water-resistant `trench_coat`), `storm_coat` (a lined waterproof coat, unlike the wool `coat`) and `rain_dress_shoes` (a water-resistant dress shoe with a rubber sole) are types, because without them a smart or formal outfit cannot meet a rainy day. Marketing text that names no such decision-relevant class, such as “waterproof ankle boot”, is represented by type plus properties, never as a type ID. `knee_boots` is a women's style type with the `ankle_boots` defaults.
 - `umbrella` is a carried `accessory`, not a garment, but keeping it in the same catalog allows complete rain-ready recommendations without changing the six established categories.
 - `cap` is a Closet type that no recommendation offers. The only requirement that reaches a head accessory is `extremity_cover:head`, derived below 12 °C, where `cap`'s `none` thermal default loses the head slot to `beanie`, `brimmed_hat`, and `balaclava`, and no sun or UV requirement exists to ask for it in warm weather.
 
@@ -421,7 +426,7 @@ These defaults intentionally remain coarse. A mesh sneaker, heavy sweater, short
 
 The seven override columns remain stored fields, and a stored override still applies over the current default, but the item form does not expose them: a Wardrobe entry records a type, an optional name, an optional colour family (with an optional palette option or custom colour from build 16) and an optional photo. Existing stored overrides stay readable and survive an edit and save; nothing in the product writes a new one.
 
-That argument no longer covers recommendations. [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removed the Wardrobe from the candidate set, so an override widens nothing a recommendation can see; it still applies to the Wardrobe as a personal record. [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md) accordingly corrected four property values and added `sleeveless_top` and `leggings`; the catalog is at version 6.
+That argument no longer covers recommendations. [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removed the Wardrobe from the candidate set, so an override widens nothing a recommendation can see; it still applies to the Wardrobe as a personal record. [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md) accordingly corrected four property values and added `sleeveless_top` and `leggings`; the catalog is at version 7.
 
 ## Scenario sufficiency checks
 
