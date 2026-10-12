@@ -1689,5 +1689,11 @@ test('a mild or cool rainy day charges no over-warmth for the light outer layer 
     .outfit.penaltyBreakdown.thermalOverProtection, 0);
   const coolDry = composableForWeather(clearDay(14));
   assert.ok(arrangedOutfit(coolDry.requirements, { ...shirt, outerLayer: 'light_jacket' })
-    .outfit.penaltyBreakdown.thermalOverProtection > 0);
+    .outfit.penaltyBreakdown.thermalOverProtection > 0);  // Only a light layer's worth is forgiven: a parka or a storm coat is still warmth a 16 C
+  // rainy day did not ask for, which kept them off it.
+  const mildRain = composableForWeather(heatDay(16, 'rain', 0.8));
+  for (const outerLayer of ['parka', 'storm_coat']) {
+    assert.ok(arrangedOutfit(mildRain.requirements, { ...shirt, outerLayer })
+      .outfit.penaltyBreakdown.thermalOverProtection > 0, outerLayer);
+  }
 });
