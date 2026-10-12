@@ -26,13 +26,13 @@ const recommendationMaxTokens = 256;
 /**
  * The longest prompt the daily limit is priced for, in characters. The offer rotates with the
  * dressing day's own count, so the largest v2 prompt today's composition builds was found by a
- * sweep over every day of 2026: 19,066, on a day whose warm morning turns to wind and drizzle
- * by the afternoon (both ends of the wardrobe stay eligible). Installed builds send at most
- * 18,485 (build 20; build 24 18,413). The largest, rounded up, is 19,100.
+ * sweep over every day of 2026: 18,770, on the grid's cold rain on 2026-03-28 (the cold front,
+ * whose warm morning turns to wind and drizzle, peaks at 18,748 on 2026-11-25). Installed
+ * builds send at most 18,485 (build 20; build 24 18,413). The largest, rounded up, is 18,800.
  * The daily cap refuses a longer prompt before counting or sending it, so a rarer day that
  * builds one goes on to Workers AI.
  */
-export const haikuPromptCharacterLimit = 19_100;
+export const haikuPromptCharacterLimit = 18_800;
 
 /** The size the limit is priced on: the messages and the response schema as built. */
 export function haikuPromptCharacters(request: AiRecommendV1Request | AiRecommendV2Request): number {
@@ -43,28 +43,28 @@ export function haikuPromptCharacters(request: AiRecommendV1Request | AiRecommen
 /**
  * The number of Haiku attempts per UTC day, sized so that a 31-day month stays inside the
  * monthly API credit that pays for them. Figures from https://platform.claude.com/docs/en/about-claude/pricing
- * as read on 11 October 2026 (recalculate there when the prompt, the model or the pricing changes):
+ * as read on 12 October 2026 (recalculate there when the prompt, the model or the pricing changes):
  *
  * - Credit: 200 USD per month; no payment card is on the account, so a spent credit refuses
  *   every call and the walk goes on with Workers AI.
  * - Rates: `claude-haiku-5-5` 0.10 USD per 1M input tokens and 0.50 per 1M output tokens
  *   (prompts up to 100,000 tokens).
- * - Input per attempt: at most `haikuPromptCharacterLimit`, 19,100 characters. The prompt is
+ * - Input per attempt: at most `haikuPromptCharacterLimit`, 18,800 characters. The prompt is
  *   ASCII only (enum values, identifiers matching `[A-Za-z0-9:_-]` and fixed English text) and
- *   a token is at least one byte, so it is at most 19,100 tokens whatever a caller sends. The
+ *   a token is at least one byte, so it is at most 18,800 tokens whatever a caller sends. The
  *   API counted the largest grid prompt at about 2.1 characters per token, so real attempts
  *   cost about half of this bound.
  * - Output per attempt: `recommendationMaxTokens`, 256 tokens.
- * - Worst attempt: 19,100 x 0.10 + 256 x 0.50 = 1,910 + 128 = 2,038 micro-USD.
- * - Limit: floor(200,000,000 / 31 / 2,038) = floor(3,165.7) = 3,165 attempts.
+ * - Worst attempt: 18,800 x 0.10 + 256 x 0.50 = 1,880 + 128 = 2,008 micro-USD.
+ * - Limit: floor(200,000,000 / 31 / 2,008) = floor(3,212.96) = 3,212 attempts.
  *
- * 3,165 x 2,038 x 31 = 199,958,370 micro-USD < 200 USD, and that holds only while the deployed
+ * 3,212 x 2,008 x 31 = 199,940,576 micro-USD < 200 USD, and that holds only while the deployed
  * Worker is the credit's one user: a local `wrangler dev` with the key spends the same credit.
  * The test in haiku-ai-provider.test.ts measures the grid, the cold front, the two largest days
  * the sweep found and the largest request an installed build sends (a pinned request) against
  * the character limit and derives this limit, and the `ai_provider_usage` log carries the API's own token counts.
  */
-export const HAIKU_DAILY_ATTEMPT_LIMIT = Math.floor(200_000_000 / 31 / 2_038);
+export const HAIKU_DAILY_ATTEMPT_LIMIT = Math.floor(200_000_000 / 31 / 2_008);
 
 /**
  * Structured outputs reject numeric, string-length and array-size constraints
