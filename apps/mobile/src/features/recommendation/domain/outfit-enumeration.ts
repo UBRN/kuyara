@@ -1,8 +1,4 @@
-import {
-  isIncompatibleGarmentPair,
-  isSummerPiece,
-  wearsKneeBootsWithoutSkirt,
-} from '@/features/catalog/domain/garment-pairs';
+import { isIncompatibleGarmentPair, isSummerPiece } from '@/features/catalog/domain/garment-pairs';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import {
   compareGarmentEligibilityResults,
@@ -69,8 +65,6 @@ const slotOrder = new Map(outfitSlots.map((slot, index) => [slot, index]));
 type DraftSortKey = {
   readonly draft: JudgedDraft;
   readonly layers: number;
-  /** 1 for knee boots worn without a skirt or a dress, which rank behind the ones worn with one. */
-  readonly kneeBoots: number;
   digest?: number;
 };
 
@@ -110,10 +104,6 @@ function compareDraftSortKeys(left: DraftSortKey, right: DraftSortKey): number {
   if (layerOrder !== 0) {
     return layerOrder;
   }
-  const kneeBootsOrder = left.kneeBoots - right.kneeBoots;
-  if (kneeBootsOrder !== 0) {
-    return kneeBootsOrder;
-  }
 
   if (left.draft.side.body.kind === right.draft.side.body.kind) {
     const slotOrder = compareSlotScores(left.draft, right.draft);
@@ -137,14 +127,7 @@ function compareDraftSortKeys(left: DraftSortKey, right: DraftSortKey): number {
 
 function sortedDrafts(drafts: readonly JudgedDraft[]): readonly JudgedDraft[] {
   return drafts
-    .map((draft) => ({
-      draft,
-      layers: optionalLayerCount(draft),
-      kneeBoots: Number(wearsKneeBootsWithoutSkirt([
-        ...draft.side.results.map(({ garment }) => garment.garmentTypeId),
-        draft.footwear.garment.garmentTypeId,
-      ])),
-    }))
+    .map((draft) => ({ draft, layers: optionalLayerCount(draft) }))
     .sort(compareDraftSortKeys)
     .map(({ draft }) => draft);
 }

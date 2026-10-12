@@ -6,6 +6,7 @@ import type {
   ThermalLevel,
 } from '@/features/catalog/domain/garment-taxonomy';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import { wearsKneeBootsWithoutSkirt } from '@/features/catalog/domain/garment-pairs';
 import type {
   EligibleGarmentResult,
   GarmentEligibilityResult,
@@ -673,6 +674,9 @@ type DraftScore = Readonly<{
   penaltyBreakdown: OutfitPenaltyBreakdown;
 }>;
 
+/** What knee boots worn without a skirt or a dress cost: a preference, not a weather judgement. */
+const kneeBootsWithoutSkirtPoints = 3;
+
 /** Mandatory requirements weigh twice; the penalties come off the weighted mean, at most 30. */
 function scoreDraft(
   side: BodySide,
@@ -702,8 +706,14 @@ function scoreDraft(
       penaltyBreakdown.breathabilityProtectionTradeoff,
     30,
   );
+  // Knee boots go best with a skirt or a dress: elsewhere they cost a little, never a weather
+  // reason, so trousers and jeans stay possible.
+  const pairing = wearsKneeBootsWithoutSkirt([
+    ...side.results.map(({ garment }) => garment.garmentTypeId),
+    footwear.garment.garmentTypeId,
+  ]) ? kneeBootsWithoutSkirtPoints : 0;
   return Object.freeze({
-    score: Math.max(scoreBeforePenalties - penaltyPoints, 0),
+    score: Math.max(scoreBeforePenalties - penaltyPoints - pairing, 0),
     scoreBeforePenalties,
     penaltyPoints,
     penaltyBreakdown,

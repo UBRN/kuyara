@@ -41,7 +41,7 @@ const skirtsAndDressesForKneeBoots: readonly GarmentTypeId[] = ['skirt', 'long_s
 
 /**
  * Whether knee boots are worn without the skirt or dress they go best with. Such an outfit is
- * still composed; it only ranks behind the same day's skirt or dress at an equal score.
+ * still composed; it scores a little less than the same outfit in ankle boots.
  */
 export function wearsKneeBootsWithoutSkirt(garmentTypeIds: readonly GarmentTypeId[]): boolean {
   return garmentTypeIds.includes('knee_boots') &&

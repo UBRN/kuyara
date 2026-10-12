@@ -411,11 +411,11 @@ test('rebuilds an offered option with its mid layer instead of the simpler arran
   // the garment list alone could drop it or promote it to the primary top.
   // The third wears the blazer under the coat, which is read as a mid layer only beneath it.
   const signatures = [
-    'primary_top:turtleneck:base bottom:trousers:standalone mid_layer:sweater:mid' +
+    'primary_top:polo_shirt:base bottom:trousers:standalone mid_layer:cardigan:mid' +
       ' outer_layer:coat:outer footwear:knee_boots:null',
     'primary_top:blouse:base bottom:long_skirt:standalone mid_layer:sweater:mid' +
       ' outer_layer:insulated_jacket:outer footwear:ankle_boots:null',
-    'primary_top:blouse:base bottom:trousers:standalone mid_layer:blazer:mid' +
+    'primary_top:polo_shirt:base bottom:chinos:standalone mid_layer:blazer:mid' +
       ' outer_layer:coat:outer footwear:ankle_boots:null',
   ];
 
