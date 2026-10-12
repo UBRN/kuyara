@@ -147,8 +147,8 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
       // and the day falls back. Such triples must stay rare in the offered pools. A day whose
       // heat is mandatory wears no mid layer, so its pool has no in-between label to give and
       // the hot cells hold most of them: 78 of 5,904 sampled triples where it was 15. Chinos
-      // add plain casual separates to the hot and mild pools (153 of 6,090), and the dry day's
-      // preference for the ordinary dress shoes turns more of the hot men's pool casual: 195.
+      // never go with a sleeveless top, which keeps the hot pools from filling with plain casual
+      // separates in chinos: 78 of 6,090.
       if (!picks) {
         unlabelable += 1;
         continue;
@@ -190,7 +190,7 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
   }
   assert.ok(accepted > 1000, `only ${accepted} answers were checked`);
   assert.ok(
-    unlabelable <= (accepted + unlabelable) * 0.035,
+    unlabelable <= (accepted + unlabelable) * 0.02,
     `${unlabelable} of ${accepted + unlabelable} sampled triples have no three distinct labels`,
   );
 });
