@@ -988,8 +988,9 @@ test('every waiting neighbour stands wholly behind its window edge, its outline 
     await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
   }
   expect(checked).toBeGreaterThan(20);
-  // Every candidate of every slot is opened afresh: about six seconds on one core.
-}, 20_000);
+  // Every candidate of every slot is opened afresh: about nine seconds on a laptop and over
+  // twenty on a hosted CI runner.
+}, 60_000);
 
 test('while the strip\'s space opens its tiles take no touch and no VoiceOver focus', async () => {
   const result = await renderDetail('en');
