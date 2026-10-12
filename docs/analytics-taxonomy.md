@@ -414,10 +414,13 @@ section 5.6.
 Opening detail is an impression of interest.
 
 `worn_source` is mapped once from the worn record and the showing: a composed result is
-`composed`, an outfit the reader changed from kuyara's pick is `edited` (the stored source
-`manual`), and kuyara's pick as recommended is `recommended`. The event is emitted after the
-write succeeds, once per confirmation; a look the day already holds offers no confirmation,
-and no screen undoes a worn look, so nothing else is reported. `dress_style` is the worn
+`composed`, an outfit the reader changed from kuyara's pick, by a swapped piece or only a
+painted colour, is `edited` (the stored source `manual`), and kuyara's pick as recommended is
+`recommended`. The event is emitted after the write succeeds, once per confirmation. Pieces
+the day already holds offer no confirmation unless the reader painted one in a colour other
+than the recorded one; then "Wore this today" is offered again, and confirming re-marks that
+same record with the new colours and source and emits the event again. No screen undoes a worn
+look, so nothing else is reported. `dress_style` is the worn
 outfit's formality. `archetype` is kuyara's pick's for an edited outfit and the compose's
 own for a composed one.
 
