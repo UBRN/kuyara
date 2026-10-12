@@ -336,14 +336,9 @@ function keyPieces(outfit: OutfitCandidate): readonly (string | undefined)[] {
   return [outfit.footwear, bottom, outfit.outerLayer].map((piece) => piece?.garment.garmentTypeId);
 }
 
-/** How many of its best outfits each formality keeps when yesterday's pieces are left out. */
-const formalityFloor = 3;
-
 /**
- * The day's options without those that repeat two of the shoes, bottom and outer layer of one of
- * the three shown before, while at least twelve remain; a narrower day keeps them all. A
- * formality left with fewer than three takes back its best, so a dress style never loses its
- * own outfits to the rule. The AI and the deterministic three read the same options. The model
+ * The AI's options without those that repeat two of the shoes, bottom and outer layer of one of
+ * the three shown before, while at least twelve remain; a narrower day keeps them all. The model
  * picks mostly from the head of its options, so only the option set reaches what it shows.
  */
 export function withoutRepeatedPieces<Outfit extends OutfitCandidate>(
@@ -351,17 +346,10 @@ export function withoutRepeatedPieces<Outfit extends OutfitCandidate>(
   previous: readonly OutfitCandidate[] = [],
 ): readonly Outfit[] {
   const shown = previous.map(keyPieces);
-  const kept = new Set(outfits.filter((outfit) => {
+  const fresh = outfits.filter((outfit) => {
     const pieces = keyPieces(outfit);
     return shown.every((before) =>
       pieces.filter((piece, index) => piece !== undefined && piece === before[index]).length < 2);
-  }));
-  if (kept.size < freshOptionFloor) return outfits;
-  for (const formality of formalityOrder) {
-    const ofFormality = outfits.filter((outfit) => outfit.formality === formality);
-    const dropped = ofFormality.filter((outfit) => !kept.has(outfit));
-    const short = Math.min(formalityFloor, ofFormality.length) - (ofFormality.length - dropped.length);
-    dropped.slice(0, Math.max(short, 0)).forEach((outfit) => kept.add(outfit));
-  }
-  return Object.freeze(outfits.filter((outfit) => kept.has(outfit)));
+  });
+  return fresh.length >= freshOptionFloor ? Object.freeze(fresh) : outfits;
 }

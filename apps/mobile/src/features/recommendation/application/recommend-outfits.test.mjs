@@ -1087,32 +1087,3 @@ test('the deterministic three are always among the options the same day offers t
     }
   }
 });
-
-// Leaving out yesterday's repeated pieces never leaves a dress style without its own outfits:
-// each formality keeps its best three, so the day still leads with the dress style's own
-// formality wherever the pool holds it.
-test('the repeat filter keeps every formality, so the three lead with the dress style wherever the pool holds it', () => {
-  const missed = [];
-  for (const clothingPreference of ['womens', 'mens']) {
-    for (const dressStyle of ['casual', 'smart', 'formal']) {
-      for (const [condition, precipitationProbability] of [['clear', 0], ['rain', 0.8]]) {
-        for (const temperatureCelsius of [-2, 6, 10, 14, 18, 22, 30]) {
-          const weather = snapshot({ current: { temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius,
-            condition, precipitationProbability } });
-          const base = { snapshot: weather, now: observedAt, clothingPreference, dressStyle, dayVariant: 0 };
-          for (const [yesterday, today] of [['2026-08-01', '2026-08-02'], ['2026-08-02', '2026-08-03']]) {
-            const before = recommendOutfits({ ...base, localDayKey: yesterday }).outfits;
-            const input = { ...base, localDayKey: today, excludedOutfits: before };
-            const { pool } = createRecommendationContextWithPool(input, today);
-            const held = excludeOutfitOptions(pool, before).some(({ formality }) => formality === dressStyle);
-            const [first] = recommendOutfits(input).outfits;
-            if (held && first.formality !== dressStyle) {
-              missed.push(`${clothingPreference}/${dressStyle}/${condition}/${temperatureCelsius} C/${today}`);
-            }
-          }
-        }
-      }
-    }
-  }
-  assert.deepEqual(missed, []);
-});
