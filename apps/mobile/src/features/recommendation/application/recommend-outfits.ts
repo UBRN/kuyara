@@ -28,7 +28,7 @@ import {
   type OutfitCompositionFailure,
   type OutfitCompositionsResult,
 } from '@/features/recommendation/domain/outfit-composition';
-import { orderForShownThree, withoutRepeatedPieces } from '@/features/recommendation/domain/outfit-offer';
+import { orderForShownThree } from '@/features/recommendation/domain/outfit-offer';
 import {
   deriveClothingRequirements,
   type ClothingRequirements,
@@ -384,10 +384,8 @@ export function recommendOutfits(
   const composition = composeOutfitPool(requirements, input.clothingPreference,
     compositionSeed(input.dayVariant, input.localDayKey), input.recentWorn);
 
-  // The same outfits the day's context offers the AI, so the three are always among its options.
   const availableOutfits = composition.status === 'composed'
-    ? withoutRepeatedPieces(excludeOutfitOptions(composition.outfits, input.excludedOutfits),
-      input.excludedOutfits)
+    ? excludeOutfitOptions(composition.outfits, input.excludedOutfits)
     : [];
 
   return composition.status === 'failure'
