@@ -593,7 +593,9 @@ function thermalOverProtectionPenalty(
  * Water protection the day never asked for costs a little, on every day, for the body's outer
  * layer and for the shoe alike. The penalty used to apply only once the day was warm enough
  * to ask for breathability, so a 12 °C dry day, which asks for neither, offered three outfits
- * in rain jackets.
+ * in rain jackets. A water-resistant shoe costs as much as a waterproof one: at five points the
+ * rain-ready dress shoes sat inside the band Today's picks reach into, and a dry formal day
+ * wore them in a fifth of its outfits.
  */
 function unnecessaryWaterProtectionPenalty(
   requirements: BodyClothingRequirements,
@@ -605,7 +607,7 @@ function unnecessaryWaterProtectionPenalty(
       requirement.kind === 'water_protection' && requirement.target === target,
   );
   const value = supplier?.garment.properties.waterProtection ?? null;
-  return asked ? 0 : value === 'waterproof' ? 10 : value === 'water_resistant' ? 5 : 0;
+  return asked ? 0 : value === 'waterproof' ? 10 : value === 'water_resistant' ? (target === 'feet' ? 10 : 5) : 0;
 }
 
 function breathabilityTradeoffPenalty(
