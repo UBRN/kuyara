@@ -554,7 +554,12 @@ test('the AI options leave out what repeats two of yesterday\'s shoes, bottom an
   };
   const mild = today(16);
   assert.ok(mild.options.length >= 12);
-  assert.deepEqual(mild.repeats, []);
+  // A formality left with fewer than three takes back its best, so a repeat stays only in a
+  // formality that holds three options or fewer.
+  for (const repeat of mild.repeats) {
+    assert.ok(mild.options.filter(({ formality }) => formality === repeat.formality).length <= 3, repeat.optionId);
+  }
+  assert.ok(mild.repeats.length < mild.options.length / 4);
   // At 4 C every coat outfit wears yesterday's ankle boots and coat, and fewer than twelve
   // others remain, so the day keeps them.
   const cold = today(4);

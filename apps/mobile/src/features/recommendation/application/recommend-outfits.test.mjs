@@ -996,9 +996,8 @@ test('the same weather a week later offers other outfits under the same day vari
 // first now come from the first's own band and formality, each sharing as few garments with
 // those already taken as it can. Over 216 trios (both cuts, three styles, dry and rainy, -4 to
 // 26 C, three days) the trios in one shoe were 109, in one bottom 94 and in one outer layer
-// 139; these are ceilings a later change has to walk past on purpose. Catalog version 7 walks
-// past the outer one: chinos lift a cold dry casual day's best to the insulated jacket, which
-// then dresses all three (shoe 78 to 65, bottom 64 to 18, outer 115 to 121).
+// 139; these are ceilings a later change has to walk past on purpose. Catalog version 7 leaves
+// them standing (shoe 78 to 75, bottom 64 to 20, outer 115 to 109).
 test('the three shown outfits spread their shoes, bottoms and outer layers across the day\'s best', () => {
   const counts = { shoe: 0, bottom: 0, outer: 0 };
   const type = (assigned) => assigned?.garment.garmentTypeId ?? null;
@@ -1023,7 +1022,7 @@ test('the three shown outfits spread their shoes, bottoms and outer layers acros
   }
   assert.ok(counts.shoe <= 80, `${counts.shoe} trios in one shoe`);
   assert.ok(counts.bottom <= 66, `${counts.bottom} trios in one bottom`);
-  assert.ok(counts.outer <= 122, `${counts.outer} trios in one outer layer`);
+  assert.ok(counts.outer <= 116, `${counts.outer} trios in one outer layer`);
 });
 
 // The next day's first outfit used to wear yesterday's shoes, bottom and jacket whenever the
@@ -1031,9 +1030,9 @@ test('the three shown outfits spread their shoes, bottoms and outer layers acros
 // unchanged weather (both cuts, three styles, dry and rainy, -4 to 26 C) the second day's first
 // outfit wore the first day's first shoes 153 times, its bottom 150 times and its outer layer
 // 147 times; these are ceilings a later change has to walk past on purpose. Catalog version 7
-// walks past two of them: a smart or formal rain day leads with the rain-ready dress shoes on
-// both days, a cold dry casual day with the insulated jacket and a mild dry formal one with the
-// blazer (shoe 86 to 96, bottom 87 to 63, outer 116 to 137).
+// walks past the shoe one: a formal dry day leads with the ordinary dress shoes on both days,
+// and a smart or formal rain day with its only dress shoe for the rain (shoe 86 to 107, bottom
+// 87 to 56, outer 116 to 124).
 test('the next day leads with pieces yesterday\'s three did not wear, where the day\'s best allows', () => {
   const counts = { shoe: 0, bottom: 0, outer: 0 };
   const type = (assigned) => assigned?.garment.garmentTypeId ?? null;
@@ -1059,9 +1058,9 @@ test('the next day leads with pieces yesterday\'s three did not wear, where the 
       }
     }
   }
-  assert.ok(counts.shoe <= 97, `${counts.shoe} first outfits in yesterday's shoes`);
+  assert.ok(counts.shoe <= 108, `${counts.shoe} first outfits in yesterday's shoes`);
   assert.ok(counts.bottom <= 90, `${counts.bottom} first outfits in yesterday's bottom`);
-  assert.ok(counts.outer <= 138, `${counts.outer} first outfits in yesterday's outer layer`);
+  assert.ok(counts.outer <= 128, `${counts.outer} first outfits in yesterday's outer layer`);
 });
 
 // The deterministic three are saved only when each is one of the options the day's context

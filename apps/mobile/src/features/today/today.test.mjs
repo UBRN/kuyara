@@ -194,14 +194,14 @@ test('loaded mapping uses localized catalog names, slot order, positions, and no
         id: todayScreenState.snapshot.recommendation.outfits[1].optionId,
         positionLabel: 'Option 2 of 3',
         title: 'Wind Guard',
-        summary: 'Jumpsuit + Rain jacket + Rain boots',
+        summary: 'T-shirt + Long skirt + Rain jacket + Rain boots',
         hasEmphasis: false,
       },
       {
         id: todayScreenState.snapshot.recommendation.outfits[2].optionId,
         positionLabel: 'Option 3 of 3',
         title: 'Easygoing',
-        summary: 'T-shirt + Long skirt + Rain jacket + Rain boots',
+        summary: 'Jumpsuit + Rain jacket + Rain boots',
         hasEmphasis: false,
       },
     ],
@@ -745,8 +745,8 @@ test('stale freshness and outfit copy localize in both languages', () => {
     turkish.suggestions.map(({ summary }) => summary),
     [
       'Bluz + Kot pantolon + Yağmurluk + Yağmur botu',
-      'Tulum + Yağmurluk + Yağmur botu',
       'Tişört + Uzun etek + Yağmurluk + Yağmur botu',
+      'Tulum + Yağmurluk + Yağmur botu',
     ],
   );
   assert.equal(english.header.location, 'Istanbul');

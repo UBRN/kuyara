@@ -563,12 +563,18 @@ function thermalOverProtectionPenalty(
     (candidate) => candidate.kind === 'thermal',
   );
   const bodyStrength = side.bodyStrength;
+  // The outer layer the day's rain or wind requires is the weather's own answer, so its warmth
+  // is not counted below the moderate rung: a light rain trench over chinos on a mild or cool
+  // wet day is not overshoot.
+  const protective = side.outerLayer && mandatoryProtectiveOuter(side.outerLayer, requirements)
+    ? thermalStrengthOf(side.outerLayer) : 0;
 
   // With no rung every warmth is unasked for, and the charge keeps growing past a light
   // jacket's, five points a rung to the cap: stopping at 20 tied a coat over a shirt with the
   // light jacket, so a mild windy day offered the coat.
   if (!requirement) {
-    return bodyStrength <= 1 ? 0 : bodyStrength === 2 ? 10 : Math.min(20 + (bodyStrength - 3) * 5, 30);
+    const strength = bodyStrength - protective;
+    return strength <= 1 ? 0 : strength === 2 ? 10 : Math.min(20 + (strength - 3) * 5, 30);
   }
 
   // Warmth the day did not ask for, counted in the two places it can sit. The stack over the
@@ -584,7 +590,7 @@ function thermalOverProtectionPenalty(
   const stack = requirement.minimum === 'high'
     ? 0
     : Math.max(ladder - thermalStrength[requirement.minimum] -
-      (requirement.minimum === 'moderate' ? 1 : 0), 0);
+      (requirement.minimum === 'moderate' ? 1 : protective), 0);
   const bottom = Math.max(bodyStrength - ladder - thermalStrength.light, 0);
   return (stack + bottom) * 5;
 }
