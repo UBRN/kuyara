@@ -1653,3 +1653,19 @@ test('knee boots rank over a skirt or a dress ahead of over trousers, jeans or l
     });
   }
 });
+
+// The rain-ready dress shoes are a rainy day's dress shoes: on a day that asks no water
+// protection of the feet, the ordinary dress shoes lead by more than the five-point band the
+// day's rotation and Today's other two picks reach into, so a dry formal day wears them.
+test('a dry day prefers the ordinary dress shoes to the rain-ready ones beyond the five-point band', () => {
+  for (const weather of [clearDay(8), clearDay(14), clearDay(24)]) {
+    const { requirements } = composableForWeather(weather, {}, 'mens');
+    const score = (footwear) => arrangedOutfit(requirements,
+      { primaryTop: 'shirt', bottom: 'trousers', outerLayer: 'blazer', footwear }).outfit.score;
+    assert.ok(score('closed_shoes') - score('rain_dress_shoes') > 5, `${weather.temperatureCelsius} C`);
+  }
+  const { requirements } = composableForWeather(rainDay(14), {}, 'mens');
+  const score = (footwear) => arrangedOutfit(requirements,
+    { primaryTop: 'shirt', bottom: 'trousers', outerLayer: 'rain_trench', footwear }).outfit.score;
+  assert.ok(score('rain_dress_shoes') > score('closed_shoes'));
+});
