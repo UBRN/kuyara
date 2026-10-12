@@ -31,7 +31,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   route, which carries its own per-IP rate limit so typed searches and weather refreshes
   cannot exhaust each other. The deterministic sample provider is test-only.
 - **Recommendations:** The deterministic layer composes at most 24 valid outfits from the
-  bundled catalog (version 6); the AI tier selects three and labels each with an
+  bundled catalog (version 7); the AI tier selects three and labels each with an
   archetype through the Worker's chain on every device (Haiku, then the Workers AI models,
   then the free OpenRouter models that passed the live measurement); mobile validates,
   persists and falls back to a device-local deterministic generator. No recommendation path

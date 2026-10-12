@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-13)
 
-Implementation: complete; `garmentCatalogVersion` is 6.
+Implementation: complete; `garmentCatalogVersion` is 7.
 
 This ADR owns the current catalog content and version used by the catalog-only
 recommendation source in [ADR 0005](0005-catalog-only-recommendation-candidates.md)
@@ -100,10 +100,39 @@ Red line: do not widen a type to `mens` on a diversity, coverage, or
 "preference is not sex" argument alone. A widening needs the everyday-outfit
 question answered yes first.
 
-### 4. Catalog version 6
+### 4. Catalog version 7
 
-`garmentCatalogVersion` is 6 for the catalog and its suit formality rule. All related changes
-share one version; the version is not incremented per edit.
+`garmentCatalogVersion` is 7 for the catalog and its suit formality rule. All related changes
+share one version; the version is not incremented per edit. Version 7 closes the rain gap of
+smart and formal dressers, who were offered only casual outfits on every day that asks for a
+waterproof outer layer:
+
+| `typeId` | Category | Roles | Thermal | Water | Wind | Breathability | Traction | Formality | Applicability |
+|---|---|---|---|---|---|---|---|---|---|
+| `rain_trench` | `outerwear` | `outer` | `light` | `waterproof` | `wind_resistant` | `moderate` | n/a | `formal` | both |
+| `storm_coat` | `outerwear` | `outer` | `high` | `waterproof` | `wind_resistant` | `low` | n/a | `formal` | both |
+| `rain_dress_shoes` | `footwear` | n/a | `light` | `water_resistant` | n/a | `moderate` | `everyday` | `formal` | both |
+| `chinos` | `bottom` | `standalone` | `light` | n/a | n/a | `moderate` | n/a | `smart` | both |
+| `knee_boots` | `footwear` | n/a | `moderate` | `none` | n/a | `low` | `everyday` | `smart` | `womens` |
+
+`chinos` carries the `trousers` defaults with `smart` formality, a second smart long bottom
+beside `jeans`; `knee_boots` carries the `ankle_boots` defaults. The rain trench is a
+seam-sealed mac, not a water-resistant trench coat, and the storm coat a lined, seam-sealed
+waterproof coat, not a wool coat; the dress shoe stays `light`, so the heat rules keep it as
+the only smart or formal answer to hot plain rain. `leather_jacket` water protection is
+`none`. Knee boots go with any smart outfit, and among outfits the day scores alike, knee
+boots over a skirt or a dress rank ahead of knee boots over trousers, jeans or chinos.
+
+The suit rule is part of the version. `blazer` takes the roles `mid` and `outer`. As a mid
+layer it is read as worn under an outer layer, so the body's water and wind requirements ask
+nothing of it, and it is worn only under a formal outer layer (`coat`, `trench_coat`,
+`rain_trench` or `storm_coat`), never alone or under another blazer. A suit reads formal:
+`shirt` + `trousers` + `blazer` in `closed_shoes` or `rain_dress_shoes`, the blazer as the
+outer layer or as the mid layer under a formal outer layer; any other outfit reads as its
+least formal piece. The mid-layer slot takes a piece of outerwear with a mid role, which also
+admits `puffer_vest` there; the formality spread keeps a casual piece from going under a
+formal outer layer, so the composer never offers it, while the manual mix and the worn record
+accept it.
 
 Bumping is not optional when content changes. `catalogVersion` is a segment of
 the Worker's shared AI cache key, and the mobile client validates an AI pick by
@@ -145,7 +174,12 @@ reason all content changes share one version.
   of the contract list as the only member the catalog lacks (the taxonomy
   agreement test pins both).
 - The catalog manifest check requires the definition list to be exactly
-  `garmentTypeIds`, so the counts move from 30 to 32 in lockstep.
+  `garmentTypeIds`, in the same order, so the two move in lockstep.
+- An older binary refuses a synced Closet row whose `garment_type_id` it does not know, and
+  likely a synced worn day with a version 7 piece or a blazer as its mid layer, so a member
+  whose two devices run different versions sees those only on the updated device until the
+  other updates. The sync cursor still advances, so nothing loops, and the
+  remote column is a length-bounded string, so no remote migration is needed.
 - The probe request in `apps/worker/src/ai/probe-handler.ts` hardcodes
   `catalogVersion`, and moves with the bump.
 - Inserting ids changes deterministic tie-break ordering for outfits that scored

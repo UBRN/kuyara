@@ -100,11 +100,12 @@ second composition implementation.
 ### 2. Formality is a catalog property enforced before the model
 
 Each garment type has `formality: 'casual' | 'smart' | 'formal'`. The current
-catalog content is version 6 under
+catalog content is version 7 under
 [ADR 0013](0013-catalog-content-corrections-and-version-3.md). An outfit's formality spread may be
 at most one step, enforced while options are built, so the model never sees an
-inconsistent outfit. Its formality is the least formal composed garment, except that
-`shirt` + `trousers` + `blazer` + `closed_shoes` with no mid layer is formal.
+inconsistent outfit. Its formality is the least formal composed garment, except that a
+suit is formal: `shirt` + `trousers` + `blazer` in `closed_shoes` or `rain_dress_shoes`,
+the blazer worn as the outer layer, or as the mid layer under a formal outer layer.
 Formality is not an AI responsibility. Dress style
 reorders formality preference and excludes nothing, as decided in
 [ADR 0031](0031-dress-style-is-the-formality-signal.md).

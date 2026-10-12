@@ -9,8 +9,8 @@ trigger and carried into the Worker cache key.
 
 The current AI job is selection and labeling of precomposed outfits, with a
 seven-slot day variant and an unbounded composition seed, as decided in
-[ADR 0007](0007-ai-selects-precomposed-outfits.md). The current catalog has 49
-types at version 6, as decided in
+[ADR 0007](0007-ai-selects-precomposed-outfits.md). The current catalog has 54
+types at version 7, as decided in
 [ADR 0013](0013-catalog-content-corrections-and-version-3.md).
 
 ## Context

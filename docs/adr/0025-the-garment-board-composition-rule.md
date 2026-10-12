@@ -158,8 +158,8 @@ half, against 23.3% under centroid placement.
 
 ### 6. The silhouette vocabulary covers the catalogue, in each cut
 
-Every outfit-eligible catalogue type is drawn once for each cut it is worn in: 41 women's
-drawings and 33 men's, all 41 types for women and the 33 both catalogues carry for men, on one
+Every outfit-eligible catalogue type is drawn once for each cut it is worn in: 46 women's
+drawings and 37 men's, all 46 types for women and the 37 both catalogues carry for men, on one
 proportion grid. A piece is drawn in the cut of the profile's catalogue, never one drawing for
 both, and no drawing serves two types: the overshirt, sweatshirt, fleece, track pants, long
 skirt, knit dress and weather boot each have their own. A women's-only type keeps its women's
@@ -168,7 +168,7 @@ and `jumpsuit` are required because a one-piece look cannot otherwise be drawn.
 
 The eight catalogue accessories, `beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`,
 `neck_gaiter`, `gloves` and `umbrella`, are drawn the same way: a women's and a men's drawing
-each, and no drawing serves two of them, so 90 drawings cover all 49 catalogue types. They are
+each, and no drawing serves two of them, so 99 drawings cover all 54 catalogue types. They are
 drawn on the Closet and Profile surfaces, the recommendation detail (its finishing-touch rows
 and the "Add an accessory" picker, [ADR 0026](0026-the-recommendation-detail-surface.md)
 section 6) and Today badges. The garment board itself does not draw them, so taking an
