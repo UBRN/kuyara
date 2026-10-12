@@ -17,6 +17,7 @@ import {
   outfitOptionId,
   recommendOutfits,
 } from './recommend-outfits.ts';
+import { createRecommendationContextWithPool } from './recommendation-context.ts';
 
 test('the same derived pool is reused when fallback follows context creation', () => {
   const weather = snapshot();
@@ -1061,4 +1062,57 @@ test('the next day leads with pieces yesterday\'s three did not wear, where the 
   assert.ok(counts.shoe <= 97, `${counts.shoe} first outfits in yesterday's shoes`);
   assert.ok(counts.bottom <= 90, `${counts.bottom} first outfits in yesterday's bottom`);
   assert.ok(counts.outer <= 138, `${counts.outer} first outfits in yesterday's outer layer`);
+});
+
+// The deterministic three are saved only when each is one of the options the day's context
+// offers, so they are drawn from the same outfits: yesterday's three left out, and so are the
+// options repeating two of their shoes, bottom and outer layer while twelve others remain. The
+// three used to come from the pool without that second step and missed the context's options
+// on 227 of 594 next-day cells, so an AI failure left the day without a recommendation.
+test('the deterministic three are always among the options the same day offers the AI', () => {
+  for (const clothingPreference of ['womens', 'mens']) {
+    for (const dressStyle of ['casual', 'smart', 'formal']) {
+      for (const temperatureCelsius of [-2, 6, 14, 22, 30]) {
+        const weather = snapshot({ current: { temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius } });
+        const base = { snapshot: weather, now: observedAt, clothingPreference, dressStyle, dayVariant: 0 };
+        const yesterday = recommendOutfits({ ...base, localDayKey: '2026-08-01' }).outfits;
+        const input = { ...base, localDayKey: '2026-08-02', excludedOutfits: yesterday };
+        const offered = new Set(createRecommendationContextWithPool(input, '2026-08-02')
+          .context.options.map(({ optionId }) => optionId));
+        const cell = `${clothingPreference}/${dressStyle}/${temperatureCelsius} C`;
+        for (const outfit of recommendOutfits(input).outfits) {
+          assert.ok(offered.has(outfitOptionId(outfit)), `${cell} showed ${outfit.compositionKey}, which the context leaves out`);
+        }
+      }
+    }
+  }
+});
+
+// Leaving out yesterday's repeated pieces never leaves a dress style without its own outfits:
+// each formality keeps its best three, so the day still leads with the dress style's own
+// formality wherever the pool holds it.
+test('the repeat filter keeps every formality, so the three lead with the dress style wherever the pool holds it', () => {
+  const missed = [];
+  for (const clothingPreference of ['womens', 'mens']) {
+    for (const dressStyle of ['casual', 'smart', 'formal']) {
+      for (const [condition, precipitationProbability] of [['clear', 0], ['rain', 0.8]]) {
+        for (const temperatureCelsius of [-2, 6, 10, 14, 18, 22, 30]) {
+          const weather = snapshot({ current: { temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius,
+            condition, precipitationProbability } });
+          const base = { snapshot: weather, now: observedAt, clothingPreference, dressStyle, dayVariant: 0 };
+          for (const [yesterday, today] of [['2026-08-01', '2026-08-02'], ['2026-08-02', '2026-08-03']]) {
+            const before = recommendOutfits({ ...base, localDayKey: yesterday }).outfits;
+            const input = { ...base, localDayKey: today, excludedOutfits: before };
+            const { pool } = createRecommendationContextWithPool(input, today);
+            const held = excludeOutfitOptions(pool, before).some(({ formality }) => formality === dressStyle);
+            const [first] = recommendOutfits(input).outfits;
+            if (held && first.formality !== dressStyle) {
+              missed.push(`${clothingPreference}/${dressStyle}/${condition}/${temperatureCelsius} C/${today}`);
+            }
+          }
+        }
+      }
+    }
+  }
+  assert.deepEqual(missed, []);
 });
