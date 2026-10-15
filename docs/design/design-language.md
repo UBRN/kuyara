@@ -478,7 +478,7 @@ Two requirements are hard, not judgment calls:
   gains or loses a digit rolls whole, and what sits beside it moves with its width), and a
   value drawn from the cache or for a new place never rolls.
 
-App motion does not read the OS motion preference or claim adaptation to it.
+App motion plays in full whatever the OS motion preference and claims no adaptation to it.
 
 **Ambient motion has its own duration role**, `theme.motion.ambient`. `fast`, `normal`
 and `deliberate` all describe transitions, and a 1500 ms cloud bob is not a transition.

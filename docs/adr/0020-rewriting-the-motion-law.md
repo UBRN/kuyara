@@ -43,8 +43,9 @@ Two requirements are binding.
    `deliberate` 320 for a full-screen or sheet transition, and `launch` 400 for the cold
    launch's dive alone.
 
-The OS Reduce Motion setting is never read. kuyara makes no related accessibility
-support claim. **Risk accepted:** indefinite ambient animation and the loading
+Every animation plays in full whatever the operating system's motion setting. The root
+layout turns off Reanimated's default of jumping each animation to its end under that
+setting, and no file opts back in. kuyara makes no related accessibility support claim. **Risk accepted:** indefinite ambient animation and the loading
 runway keep playing under that setting, trading against Apple's guidance and the
 pause mechanism described in WCAG 2.2.2. Motion remains paired with words for state.
 

@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Share, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ReducedMotionConfig, ReduceMotion } from 'react-native-reanimated';
 import { use, useCallback, useEffect, useState } from 'react';
 
 import {
@@ -291,6 +292,9 @@ function ThemedApplicationShell({ onLaunchFailed, onLaunchReady }: ThemedApplica
 // Phase 7: the outfit detail board's tap and swipe are gesture-handler gestures, which do
 // nothing, and report nothing, without this root. The package has been a native dependency
 // of every build, so this is JavaScript only.
+// ADR 0020: every animation plays in full whatever the system motion setting. Reanimated jumps
+// to the end state under that setting by default; the override is the root's first child so
+// its effect runs before any animated subtree's.
 function RootLayout() {
   const [cold] = useState(() => !launchPlayed);
   useEffect(() => {
@@ -321,6 +325,7 @@ function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
+      <ReducedMotionConfig mode={ReduceMotion.Never} />
       <LaunchCurtain cold={cold} onFirstFrame={SplashScreen.hide} readiness={launch} seen={seen}>
         <LaunchScreenReadyContext value={reportTodayDrawn}>
           <PerformanceTelemetryContext value={observePerformanceTelemetry}>
