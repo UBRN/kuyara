@@ -4,11 +4,9 @@ version: 2
 
 updates:
   - package-ecosystem: "npm"
-    directories:
-      - "/"
-      - "/apps/mobile"
-      - "/apps/worker"
-      - "/packages/contracts"
+    # pnpm updates the whole workspace from its root; a subdirectory entry fails with
+    # "Updating workspaces from inside a workspace subdirectory is not supported".
+    directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3

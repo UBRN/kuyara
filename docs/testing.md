@@ -46,7 +46,7 @@ pnpm dlx expo-doctor@latest
 CI runs the same command on every push to `main` and every pull request.
 
 CI also guards the dependency and secret surface. `.github/dependabot.yml` proposes weekly
-npm updates for the four workspace directories, grouped into one development and one
+npm updates for the whole pnpm workspace (configured at the root only), grouped into one development and one
 patch-and-minor pull request after a seven-day cooldown (fourteen for majors), and monthly
 GitHub Actions updates; the Expo SDK packages (`expo`, `expo-*`, `@expo/*`, `react-native`,
 `react-native-*`, `@react-native/*`, `jest-expo`, `eslint-config-expo`, `babel-preset-expo`)
