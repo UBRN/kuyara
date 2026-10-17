@@ -865,7 +865,7 @@ function createLoadedPresentation(
     : null;
   const drift = !day && snapshot.coverageEnd && snapshot.recommendation.status === 'recommended' && !choosing
     ? coverageDrift(snapshot.recommendation.requirements, weather.hourly,
-      new Date(now).toISOString(), snapshot.coverageEnd)
+      new Date(now).toISOString(), snapshot.coverageEnd, current)
     : null;
   // A change whose hour began at or before now is happening now: no clock time that has passed.
   const driftCaption = drift

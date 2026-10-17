@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { archetypeDayFromRequirements } from '@kuyara/contracts';
+
 import { coverageDrift, forecastBoundedCoverage, laterCoolSpell, outfitCoverage } from './outfit-coverage.ts';
+import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
 import { wardrobeDayWindow } from '../../weather/domain/wardrobe-day.ts';
 
 test('coverage end follows departure hour across the full dressing day', () => {
@@ -48,6 +51,8 @@ const hour = (clock, values = {}) => ({
   uvIndex: 1, ...values,
 });
 const noRequirements = { requirements: [], reasonCodes: [] };
+// A reading that asks for nothing, for drift cases whose question lies in the hours ahead.
+const calm = hour('00:00');
 
 test('a short forecast ends the promised window at its last hour, never past it', () => {
   const coverage = { start: '2026-09-25T13:00:00.000Z', end: '2026-09-25T20:00:00.000Z' };
@@ -77,30 +82,66 @@ test('the forecast hour that contains the start still counts, so the caption sur
 
 test('drift names rain the outfit was not chosen for, and stays quiet when it was', () => {
   const hours = [hour('13:00'), hour('17:00', { condition: 'rain' }), hour('18:00', { condition: 'rain' })];
-  assert.deepEqual(coverageDrift(noRequirements, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z'),
+  assert.deepEqual(coverageDrift(noRequirements, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z', calm),
     { kind: 'rain', at: '2026-09-25T17:00:00.000Z' });
   const rainReady = { reasonCodes: [], requirements: [{ kind: 'water_protection', target: 'body',
     minimum: 'waterproof', priority: 'mandatory', reasonCodes: ['condition_rain'] }] };
-  assert.equal(coverageDrift(rainReady, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z'), null);
+  assert.equal(coverageDrift(rainReady, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z', calm), null);
   // Rain after the window ends is not this outfit's business.
-  assert.equal(coverageDrift(noRequirements, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T17:00:00.000Z'), null);
+  assert.equal(coverageDrift(noRequirements, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T17:00:00.000Z', calm), null);
   assert.equal(coverageDrift(noRequirements, [hour('15:00', { condition: 'snow' })],
-    '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z')?.kind, 'snow');
+    '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z', calm)?.kind, 'snow');
+});
+
+test('a fresh choice never drifts against the weather it was chosen from', () => {
+  // Ankara, 17 Oct 23:31: the reading says partly cloudy at 33 %, while the forecast entry for
+  // the hour in progress says rain. The choice reads the reading for that hour, so the day is
+  // only possibly wet: a storm coat earns Rain Ready, yet nothing waterproof is mandatory.
+  const measured = (forecastAt, temperatureCelsius, apparentTemperatureCelsius, condition,
+    precipitationProbability, windSpeedMetersPerSecond, humidity) => ({ forecastAt,
+    temperatureCelsius, apparentTemperatureCelsius, condition, precipitationProbability,
+    windSpeedMetersPerSecond, humidity, uvIndex: 0 });
+  const snapshot = {
+    id: '00664f02-c938-48dd-9115-83901f8c3669', localProfileId: 'profile-one',
+    locationKey: 'manual:ankara', timeZone: 'Europe/Istanbul', fetchedAt: '2026-10-17T20:28:10.647Z',
+    origin: { kind: 'live', sourceId: 'open-meteo' },
+    current: { observedAt: '2026-10-17T20:15:00.000Z', temperatureCelsius: 9.9,
+      apparentTemperatureCelsius: 6.3, condition: 'partly_cloudy', precipitationProbability: 0.33,
+      windSpeedMetersPerSecond: 4.55, humidity: 0.73, uvIndex: 0 },
+    minimumTemperatureCelsius: 7.9, maximumTemperatureCelsius: 13.5,
+    hourly: [
+      measured('2026-10-17T20:00:00.000Z', 10.2, 6.7, 'rain', 0.33, 4.61, 0.73),
+      measured('2026-10-17T21:00:00.000Z', 8.5, 4.8, 'partly_cloudy', 0.05, 4.63, 0.76),
+      measured('2026-10-17T22:00:00.000Z', 7.2, 3.2, 'partly_cloudy', 0.03, 4.62, 0.75),
+    ],
+  };
+  const chosenAt = '2026-10-17T20:31:00.000Z';
+  const chosen = deriveClothingRequirements(snapshot, chosenAt);
+  assert.equal(archetypeDayFromRequirements(chosen.requirements).wet, true);
+  assert.equal(chosen.requirements.some((requirement) => requirement.kind === 'water_protection'
+    && requirement.priority === 'mandatory'), false);
+  const coverageEnd = outfitCoverage(chosenAt, snapshot.timeZone).end;
+  assert.equal(coverageDrift(chosen, snapshot.hourly, '2026-10-17T20:34:00.000Z', coverageEnd,
+    snapshot.current), null);
+  // A reading that turns wet after the choice is drift, and it is happening now.
+  assert.deepEqual(coverageDrift(chosen, snapshot.hourly, '2026-10-17T20:50:00.000Z', coverageEnd,
+    { ...snapshot.current, condition: 'rain', precipitationProbability: 0.8 }),
+  { kind: 'rain', at: '2026-10-17T20:00:00.000Z' });
 });
 
 test('drift follows the mandatory cold rule: two hours under 12 or one under 5', () => {
   const end = '2026-09-25T22:00:00.000Z';
   const single = [hour('18:00', { temperatureCelsius: 11, apparentTemperatureCelsius: 11 }), hour('19:00')];
-  assert.equal(coverageDrift(noRequirements, single, '2026-09-25T16:00:00.000Z', end), null);
+  assert.equal(coverageDrift(noRequirements, single, '2026-09-25T16:00:00.000Z', end, calm), null);
   const twoHours = [hour('18:00', { apparentTemperatureCelsius: 11 }), hour('19:00', { apparentTemperatureCelsius: 10 })];
-  assert.deepEqual(coverageDrift(noRequirements, twoHours, '2026-09-25T16:00:00.000Z', end),
+  assert.deepEqual(coverageDrift(noRequirements, twoHours, '2026-09-25T16:00:00.000Z', end, calm),
     { kind: 'cold', at: '2026-09-25T18:00:00.000Z' });
   const freezing = [hour('20:00', { apparentTemperatureCelsius: 4 })];
-  assert.equal(coverageDrift(noRequirements, freezing, '2026-09-25T16:00:00.000Z', end)?.at,
+  assert.equal(coverageDrift(noRequirements, freezing, '2026-09-25T16:00:00.000Z', end, calm)?.at,
     '2026-09-25T20:00:00.000Z');
   const insulated = { reasonCodes: [], requirements: [{ kind: 'thermal', minimum: 'moderate',
     priority: 'mandatory', reasonCodes: ['temperature_low'] }] };
-  assert.equal(coverageDrift(insulated, twoHours, '2026-09-25T16:00:00.000Z', end), null);
+  assert.equal(coverageDrift(insulated, twoHours, '2026-09-25T16:00:00.000Z', end, calm), null);
 });
 
 test('a later short cool spell is a finishing touch, never mandatory cold', () => {
