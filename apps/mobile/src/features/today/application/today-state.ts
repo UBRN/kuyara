@@ -79,10 +79,17 @@ export function moreIdeas(
   return ideas;
 }
 
+/**
+ * `launchReady` is whether the surface the device's own data gives has been drawn, which is
+ * what the cold launch waits for: true once both stores have loaded and the active place has
+ * weather, even while Today waits for the day's new outfit (a day question unanswered, a
+ * generation in flight), which can take seconds or wait on the person.
+ */
 export function classifyTodayState(input: TodayStateInput): Readonly<{
   state: TodayScreenState;
   todayFailure: FailureCategory | null | undefined;
   recommendationFailure: FailureCategory | null | undefined;
+  launchReady: boolean;
 }> {
   const { weather, recommendation, profile } = input;
   const activeLocation = weather.status === 'ready' ? weather.activeLocation : null;
@@ -104,7 +111,7 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
       (weather.status === 'ready' && activeLocation !== null &&
         placeSnapshot === null && weather.refreshFailure === null &&
         (weather.snapshot !== null || weather.isRefreshing || weather.isSelectingLocation))) {
-    return { state: { kind: 'loading' }, todayFailure: undefined, recommendationFailure: undefined };
+    return { state: { kind: 'loading' }, todayFailure: undefined, recommendationFailure: undefined, launchReady: false };
   }
   if (weather.status !== 'ready' || placeSnapshot === null || activeLocation === null ||
       (input.surface === 'today' && weather.freshness === null)) {
@@ -112,16 +119,18 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
       state: unavailableTodayState(weather.status === 'ready' ? weather.refreshFailure : null),
       todayFailure: weather.status === 'ready' ? weather.refreshFailure ?? 'unknown' : 'unknown',
       recommendationFailure: null,
+      launchReady: true,
     };
   }
   if (recommendation.status !== 'ready') {
-    return { state: { kind: 'loading' }, todayFailure: undefined, recommendationFailure: undefined };
+    return { state: { kind: 'loading' }, todayFailure: undefined, recommendationFailure: undefined, launchReady: false };
   }
   if (waitingForOutfit) {
     return {
       state: { kind: 'loading', phase: recommendation.phase },
       todayFailure: undefined,
       recommendationFailure: undefined,
+      launchReady: true,
     };
   }
   if (outfit === null) {
@@ -129,6 +138,7 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
       state: unavailableTodayState(recommendation.lastFailure),
       todayFailure: null,
       recommendationFailure: recommendation.lastFailure ?? 'unknown',
+      launchReady: true,
     };
   }
   return {
@@ -154,6 +164,7 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
     },
     todayFailure: weather.refreshFailure,
     recommendationFailure: recommendation.lastFailure,
+    launchReady: true,
   };
 }
 
