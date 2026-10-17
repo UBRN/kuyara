@@ -89,22 +89,33 @@ const coldOf = (hour: WeatherMeasurements) =>
  * chosen requirements carry no mandatory body water protection; cold uses N19's mandatory
  * rule (below 12 °C for two consecutive hours, or below 5 °C once) and counts when the outfit
  * carries no mandatory insulation above light. Rain is reported ahead of cold.
+ *
+ * The rest of the window is read the way the requirements read it: the current reading stands
+ * for the hour in progress, then the hours that start after now. That hour's own forecast
+ * entry is not read, so an outfit is never warned against the weather it was chosen from.
  */
 export function coverageDrift(
   chosen: ClothingRequirements,
   hourly: readonly DriftHour[],
   nowIso: string,
   coverageEnd: string,
+  current: WeatherMeasurements,
 ): CoverageDrift | null {
   const now = Date.parse(nowIso);
   const end = Date.parse(coverageEnd);
   if (!Number.isFinite(now) || !Number.isFinite(end) || now >= end) return null;
-  const remaining = [...hourly]
-    .filter(({ forecastAt }) => {
-      const at = Date.parse(forecastAt);
-      return forecastHourHasNotEnded(at, now) && at < end;
-    })
-    .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt));
+  const inProgress = hourly.find(({ forecastAt }) => {
+    const at = Date.parse(forecastAt);
+    return at <= now && forecastHourHasNotEnded(at, now);
+  });
+  // Stamped with that hour's start, so the cold rule still pairs it with the next hour.
+  const remaining = [{ ...current, forecastAt: inProgress?.forecastAt ?? new Date(now).toISOString() },
+    ...hourly
+      .filter(({ forecastAt }) => {
+        const at = Date.parse(forecastAt);
+        return at > now && at < end;
+      })
+      .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt))];
   const rainProtected = chosen.requirements.some((requirement) =>
     requirement.kind === 'water_protection' && requirement.target === 'body' &&
     requirement.priority === 'mandatory');
