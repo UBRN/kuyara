@@ -1,7 +1,7 @@
 import { shiftCalendarDateParts } from '@/domain/calendar-date';
 import { zonedClock } from '@/domain/intl-format';
 import { forecastHourHasNotEnded } from '@/features/weather/domain/wardrobe-day';
-import type { WeatherMeasurements } from '@/features/weather/domain/weather';
+import { readingForNow, type WeatherMeasurements, type WeatherSnapshot } from '@/features/weather/domain/weather';
 import { chillyCelsius, isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
@@ -90,32 +90,38 @@ const coldOf = (hour: WeatherMeasurements) =>
  * rule (below 12 °C for two consecutive hours, or below 5 °C once) and counts when the outfit
  * carries no mandatory insulation above light. Rain is reported ahead of cold.
  *
- * The rest of the window is read the way the requirements read it: the current reading stands
- * for the hour in progress, then the hours that start after now. That hour's own forecast
- * entry is not read, so an outfit is never warned against the weather it was chosen from.
+ * The rest of the window is read the way the requirements read it, so an outfit is never
+ * warned against the weather it was chosen from. The window starts at the departure. Once
+ * now has reached it, the reading for now stands for the hour in progress, stamped with that
+ * hour's start so the cold rule pairs it with the next one, followed by the hours from now on.
+ * Before the departure only the hours from the departure on count.
  */
 export function coverageDrift(
   chosen: ClothingRequirements,
-  hourly: readonly DriftHour[],
+  weather: WeatherSnapshot,
   nowIso: string,
-  coverageEnd: string,
-  current: WeatherMeasurements,
+  coverage: OutfitCoverage,
 ): CoverageDrift | null {
   const now = Date.parse(nowIso);
-  const end = Date.parse(coverageEnd);
-  if (!Number.isFinite(now) || !Number.isFinite(end) || now >= end) return null;
-  const inProgress = hourly.find(({ forecastAt }) => {
-    const at = Date.parse(forecastAt);
-    return at <= now && forecastHourHasNotEnded(at, now);
-  });
-  // Stamped with that hour's start, so the cold rule still pairs it with the next hour.
-  const remaining = [{ ...current, forecastAt: inProgress?.forecastAt ?? new Date(now).toISOString() },
-    ...hourly
-      .filter(({ forecastAt }) => {
-        const at = Date.parse(forecastAt);
-        return at > now && at < end;
-      })
-      .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt))];
+  const start = Date.parse(coverage.start);
+  const end = Date.parse(coverage.end);
+  if (!Number.isFinite(now) || !Number.isFinite(start) || !Number.isFinite(end) || now >= end) {
+    return null;
+  }
+  const departed = now >= start;
+  const from = departed ? now : start;
+  const hours = weather.hourly
+    .filter(({ forecastAt }) => {
+      const at = Date.parse(forecastAt);
+      return at >= from && at < end;
+    })
+    .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt));
+  // The forecast grid's hour that contains now, read off any forecast hour.
+  const gridAt = weather.hourly.length ? Date.parse(weather.hourly[0].forecastAt) : now;
+  const hourStart = now - (((now - gridAt) % hourMs) + hourMs) % hourMs;
+  const remaining: readonly DriftHour[] = departed
+    ? [{ ...readingForNow(weather, nowIso), forecastAt: new Date(hourStart).toISOString() }, ...hours]
+    : hours;
   const rainProtected = chosen.requirements.some((requirement) =>
     requirement.kind === 'water_protection' && requirement.target === 'body' &&
     requirement.priority === 'mandatory');
