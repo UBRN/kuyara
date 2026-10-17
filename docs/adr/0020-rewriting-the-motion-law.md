@@ -130,8 +130,9 @@ layer is hidden from assistive technology. While it is opaque it takes the touch
 for the screen beneath, so nothing unseen can be pressed, and it lets every touch through
 once the curtain starts to lift. The status bar turns light while the curtain is at least
 half opaque. A return from the background after at least a minute away plays the launch
-over the screen it left: the resting symbol and its ground fade in on `fast`, then the same
-breath, dive and curtain fade follow, about 840 ms in all. It holds back none of what waits
+over the screen it left: the resting symbol and its ground fade in on `fast`, from the first
+frame the app draws once it is active again, then the same breath, dive and curtain fade
+follow, about 840 ms in all. It holds back none of what waits
 for the cold launch. The time away runs from the moment the app stops being active,
 because iOS can suspend the app before it hears that it went to the background. A shorter
 absence, or a passing system overlay that never sends the app to the background, plays

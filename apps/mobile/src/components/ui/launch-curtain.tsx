@@ -3,9 +3,11 @@ import {
   type ComponentType,
   createContext,
   type PropsWithChildren,
+  type Ref,
   use,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
 } from 'react';
@@ -26,7 +28,7 @@ import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 import { brandColors, standardMotion } from '@/theme/theme';
 
 import { brandSymbolPaths, brandSymbolViewBox } from './brand-symbol';
-import { fadeTo } from './fade';
+import { fadeEasing, fadeTo } from './fade';
 import { WindowOverlay } from './window-overlay';
 
 // The group's native transform is its `matrix`, which the typed props leave out.
@@ -111,6 +113,10 @@ export const LAUNCH_STEADY_WAIT_MS = 400;
 
 type Scheme = 'light' | 'dark';
 
+// The native splash follows the system appearance, not the app's theme setting, which is
+// applied only once the profile has loaded.
+const systemScheme = (): Scheme => (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
+
 const ink = Object.freeze({ light: brandColors.deepAtmosphere, dark: brandColors.quietSky });
 const ground = Object.freeze({ light: brandColors.softMist, dark: brandColors.nightLayer });
 
@@ -166,6 +172,7 @@ export type LaunchCurtainProps = PropsWithChildren<{
  * while it is opaque, so nothing under it can be pressed unseen, and none once it starts to lift.
  */
 export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }: LaunchCurtainProps) {
+  const [scheme] = useState(systemScheme);
   const [reveal, setReveal] = useState<LaunchReveal>(cold ? { revealing: false, done: false } : revealed);
   const [drawn, setDrawn] = useState(false);
   const [late, setLate] = useState(false);
@@ -208,12 +215,21 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
   // A return after a long enough time in the background plays the launch over the screen it
   // left, when no curtain is on screen at that moment; a curtain still there finishes as it
   // is. Each return is its own layer; it holds back nothing that waits for the cold launch,
-  // and it takes touches only until its curtain lifts.
-  const [returning, setReturning] = useState<number | null>(null);
+  // and it takes touches only until its curtain lifts. The layer is drawn, unseen and taking
+  // no touches, when the app leaves, so coming back only starts its motion, without waiting
+  // for a render; one that does not play is taken away. The listener reads the layer as it
+  // stands, not as the last render saw it.
+  const [returning, setReturning] = useState<ReturnLayer | null>(null);
   const [returnLifted, setReturnLifted] = useState(false);
+  const layer = useRef<ReturnLayer | null>(null);
+  const returnStart = useRef<CurtainStart | null>(null);
+  const showReturn = useCallback((next: ReturnLayer | null) => {
+    layer.current = next;
+    setReturning(next);
+  }, []);
   const idle = useRef(false);
   useEffect(() => {
-    idle.current = reveal.done && returning === null;
+    idle.current = reveal.done && !returning?.playing;
   }, [reveal.done, returning]);
   // Every time away is timed, whatever is on screen when it starts, from the moment the app
   // stops being active: iOS can suspend the process before this thread hears `background`,
@@ -225,19 +241,29 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
       if (state === 'inactive' || state === 'background') {
         const left = away.current ?? { since: Date.now(), background: false };
         away.current = state === 'background' ? { ...left, background: true } : left;
+        if (layer.current === null) showReturn({ key: Date.now(), playing: false, scheme: systemScheme() });
         return;
       }
       if (state !== 'active') return;
       const left = away.current;
       away.current = null;
-      if (!left?.background || Date.now() - left.since < RETURN_AWAY_MS || !idle.current) return;
+      const prepared = layer.current?.playing ? null : layer.current;
+      if (!left?.background || Date.now() - left.since < RETURN_AWAY_MS || !idle.current) {
+        if (prepared) showReturn(null);
+        return;
+      }
+      // The ground follows the system appearance the app returns to: if it changed while the
+      // app was away, a layer is drawn afresh in it and starts once mounted.
+      const scheme = systemScheme();
+      const ready = prepared?.scheme === scheme;
+      if (ready) returnStart.current?.play();
       setReturnLifted(false);
-      setReturning((count) => (count ?? 0) + 1);
+      showReturn(ready ? { ...prepared, playing: true } : { key: Date.now(), playing: true, scheme });
     });
     return () => subscription.remove();
-  }, []);
+  }, [showReturn]);
   const returnLifting = useCallback(() => setReturnLifted(true), []);
-  const returnGone = useCallback(() => setReturning(null), []);
+  const returnGone = useCallback(() => showReturn(null), [showReturn]);
   const ignoreLayout = useCallback(() => undefined, []);
 
   // A mount that is not the cold launch draws no layer, but a scene reconnecting in the same
@@ -268,18 +294,22 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
           onGone={gone}
           onLayout={reportDrawn}
           onLifting={lifting}
+          scheme={scheme}
         />
       )}
       {/* A return can find a sheet presented over the app, so its layer is drawn above the
           whole window; the cold launch has nothing presented over it. */}
       {returning === null ? null : (
-        <WindowOverlay key={returning}>
+        <WindowOverlay key={returning.key}>
           <CurtainLayer
-            blocking={!returnLifted}
-            motion="return"
+            appears
+            blocking={returning.playing && !returnLifted}
+            motion={returning.playing ? 'return' : null}
             onGone={returnGone}
             onLayout={ignoreLayout}
             onLifting={returnLifting}
+            ref={returnStart}
+            scheme={returning.scheme}
           />
         </WindowOverlay>
       )}
@@ -287,7 +317,15 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
   );
 }
 
+/** A return's layer: unseen until it plays, in the system appearance it plays in. */
+type ReturnLayer = Readonly<{ key: number; playing: boolean; scheme: Scheme }>;
+
+/** Starts a return's motion without a render. */
+type CurtainStart = Readonly<{ play: () => void }>;
+
 type CurtainLayerProps = Readonly<{
+  /** The layer is a return's: unseen until its motion fades it in. */
+  appears?: boolean;
   blocking: boolean;
   motion: LaunchMotion | null;
   onLayout: () => void;
@@ -295,12 +333,11 @@ type CurtainLayerProps = Readonly<{
   onLifting: () => void;
   /** The layer has faded away. */
   onGone: () => void;
+  ref?: Ref<CurtainStart>;
+  scheme: Scheme;
 }>;
 
-function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: CurtainLayerProps) {
-  // The native splash follows the system appearance, not the app's theme setting, which is
-  // applied only once the profile has loaded; the layer reads it once, on mount.
-  const [scheme] = useState<Scheme>(() => (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'));
+function CurtainLayer({ appears = false, blocking, motion, onGone, onLayout, onLifting, ref, scheme }: CurtainLayerProps) {
   const { height, width } = useWindowDimensions();
   const breath = useSharedValue(0);
   const dive = useSharedValue(0);
@@ -308,12 +345,17 @@ function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: Curtain
   const fill = useSharedValue(0);
   const veil = useSharedValue(0);
   // A return fades the resting symbol in over the screen before it dives.
-  const appear = useSharedValue(motion === 'return' ? 0 : 1);
+  const appear = useSharedValue(appears ? 0 : 1);
   const lift = useSharedValue(1);
   const withdraw = useSharedValue(1);
 
-  useEffect(() => {
-    if (motion === null) return;
+  // A layer moves once. Coming back, the UI thread can still be drawing the screen again when
+  // the return is asked for, and a fade-in started then would play unseen: a return starts on
+  // the next frame the UI thread draws.
+  const started = useRef(false);
+  const play = useCallback((now: LaunchMotion) => {
+    if (started.current) return;
+    started.current = true;
     const { fast, launch, normal } = standardMotion;
     // Each ends on the UI thread, where the motion runs, however late it started.
     const lifted = () => {
@@ -324,25 +366,42 @@ function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: Curtain
       'worklet';
       scheduleOnRN(onGone);
     };
-    if (motion === 'dive' || motion === 'return') {
-      const lead = motion === 'return' ? fast : 0;
-      if (motion === 'return') appear.set(fadeTo(1, fast, standardMotion));
+    // A return builds these on the UI thread, where `fadeTo` cannot run, so their clock starts
+    // there; they keep the curve `fadeTo` draws.
+    const fade = fadeEasing(standardMotion);
+    const diveAfter = (lead: number) => {
+      'worklet';
       breath.set(withDelay(lead, withTiming(1, { duration: fast, easing: EASE_OUT })));
       dive.set(withDelay(lead + fast, withTiming(1, { duration: launch, easing: DIVE_EASING }, lifted)));
       camera.set(withDelay(lead + fast, withTiming(1, { duration: launch * CAMERA_SHARE, easing: GLIDE_EASING })));
       fill.set(withDelay(
         lead + fast + launch * FILL_FROM,
-        fadeTo(1, launch * (FILL_TO - FILL_FROM), standardMotion),
+        withTiming(1, { duration: launch * (FILL_TO - FILL_FROM), easing: fade }),
       ));
-      lift.set(withDelay(lead + fast + launch, fadeTo(0, normal, standardMotion, faded)));
-    } else if (motion === 'short') {
+      lift.set(withDelay(lead + fast + launch, withTiming(0, { duration: normal, easing: fade }, faded)));
+    };
+    if (now === 'return') {
+      scheduleOnUI(() => {
+        'worklet';
+        requestAnimationFrame(() => {
+          appear.set(withTiming(1, { duration: fast, easing: fade }));
+          diveAfter(fast);
+        });
+      });
+    } else if (now === 'dive') {
+      diveAfter(0);
+    } else if (now === 'short') {
       veil.set(fadeTo(1, fast, standardMotion, lifted));
       lift.set(withDelay(fast, fadeTo(0, normal, standardMotion, faded)));
     } else {
       onLifting();
-      withdraw.set(fadeTo(0, motion === 'late' ? normal : fast, standardMotion, faded));
+      withdraw.set(fadeTo(0, now === 'late' ? normal : fast, standardMotion, faded));
     }
-  }, [appear, breath, camera, dive, fill, lift, motion, onGone, onLifting, veil, withdraw]);
+  }, [appear, breath, camera, dive, fill, lift, onGone, onLifting, veil, withdraw]);
+  useImperativeHandle(ref, () => ({ play: () => play('return') }), [play]);
+  useEffect(() => {
+    if (motion !== null) play(motion);
+  }, [motion, play]);
 
   const short = motion === 'short';
   // The curtain is the one colour the dive or the veil arrives at. Until it has arrived, the
@@ -393,7 +452,7 @@ function CurtainLayer({ blocking, motion, onGone, onLayout, onLifting }: Curtain
       {/* One drawing, every layer of it redrawn by the same animated SVG props: the ground
           and the symbol, then the curtain over them. */}
       <Svg height={height} width={width}>
-        <AnimatedG animatedProps={appearProps} opacity={motion === 'return' ? 0 : 1}>
+        <AnimatedG animatedProps={appearProps} opacity={appears ? 0 : 1} testID="launch-curtain-appear">
           <AnimatedG animatedProps={groundProps} opacity={1} testID="launch-curtain-ground">
             <Rect fill={ground[scheme]} height={height} width={width} />
             <AnimatedG animatedProps={symbolProps} transform={restMatrix} testID="launch-curtain-symbol">

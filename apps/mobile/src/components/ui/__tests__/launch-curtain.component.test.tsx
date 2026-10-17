@@ -416,10 +416,61 @@ test('a return after at least a minute away fades the symbol in over the screen,
   expect(screen.getByTestId('launch-curtain', hidden)).toBeTruthy();
   // What waits for the cold launch is not held again.
   expect(probe()).toBe('revealing done');
+  await nextFrame();
   expect(durations()).toEqual([launch, normal]);
   await end(launch);
   await end(normal);
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
+// A return's layer is drawn when the app leaves, so coming back has only to start its motion.
+test('leaving prepares an unseen return layer that takes no touches, and a return after a minute plays it', async () => {
+  await render(curtain('ready', jest.fn(), false));
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+
+  await moveApp('inactive');
+  const layer = screen.getByTestId('launch-curtain', hidden);
+  expect(layer.props.pointerEvents).toBe('none');
+  expect(layer.props.accessibilityElementsHidden).toBe(true);
+  expect(layer.props.importantForAccessibility).toBe('no-hide-descendants');
+  expect(screen.getByTestId('launch-curtain-appear', hidden).props.opacity).toBe(0);
+  expect(durations()).toEqual([]);
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  expect(durations()).toEqual([]);
+
+  await moveApp('active');
+  expect(screen.getByTestId('launch-curtain', hidden).props.pointerEvents).toBe('auto');
+  await nextFrame();
+  expect(durations()).toEqual([launch, normal]);
+  await end(launch);
+  expect(screen.getByTestId('launch-curtain', hidden).props.pointerEvents).toBe('none');
+  await end(normal);
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
+// Coming back, the UI thread can be busy drawing the screen again: a motion started meanwhile
+// would play its fade-in unseen.
+test('a return starts its motion on the first frame the UI thread draws after the app is back', async () => {
+  await render(curtain('ready', jest.fn(), false));
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  frameDelays = [300];
+  await moveApp('active');
+  await advance(299);
+  expect(durations()).toEqual([]);
+  await advance(1);
+  expect(durations()).toEqual([launch, normal]);
+});
+
+test('a prepared return layer draws the ground of the system appearance the app returns to', async () => {
+  const scheme = jest.spyOn(Appearance, 'getColorScheme').mockReturnValue('light');
+  await render(curtain('ready', jest.fn(), false));
+  await moveApp('background');
+  scheme.mockReturnValue('dark');
+  await advance(RETURN_AWAY_MS);
+  await moveApp('active');
+  expect(groundFill()).toEqual(brush(brandColors.nightLayer));
 });
 
 test('a return inside a minute, or from a passing system overlay, plays nothing', async () => {
@@ -460,7 +511,10 @@ async function leaveDuringColdLaunch() {
   await moveApp('background');
   await end(launch);
   await end(normal);
-  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+  expect(probe()).toBe('revealing done');
+  // Only the return layer prepared on leaving is left, unseen.
+  expect(screen.getByTestId('launch-curtain', hidden).props.pointerEvents).toBe('none');
+  expect(durations()).toEqual([]);
 }
 
 test('a time away that starts while the cold launch plays is timed, and a long one plays the return', async () => {
@@ -468,6 +522,7 @@ test('a time away that starts while the cold launch plays is timed, and a long o
   await advance(RETURN_AWAY_MS + 1_000);
   await moveApp('active');
   expect(screen.getByTestId('launch-curtain', hidden)).toBeTruthy();
+  await nextFrame();
   expect(durations()).toEqual([launch, normal]);
 });
 
@@ -488,6 +543,7 @@ test('a background heard only on resume still counts the time since the app went
   await moveApp('background');
   await moveApp('active');
   expect(screen.getByTestId('launch-curtain', hidden)).toBeTruthy();
+  await nextFrame();
   await end(launch);
   await end(normal);
 
