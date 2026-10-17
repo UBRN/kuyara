@@ -1,12 +1,13 @@
 import { render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { processColor, StyleSheet } from 'react-native';
+import { Platform, processColor, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
 import { composeFlatLay, fitTodayStage, flatLayPreset } from '@/garment-art/compose-flat-lay';
 import {
   composeGarmentBoard,
   drawnExtent,
+  garmentShadowOf,
   garmentShadowRule,
   placeOnRunway,
   todayPreset,
@@ -68,18 +69,19 @@ function dressFills(result: Awaited<ReturnType<typeof render>>) {
   return fillsOf(result, 'g-dress-f');
 }
 
-test('the board is one accessible image and its measured height matches its SVG', async () => {
+test('the board is one accessible image as tall as its measured height', async () => {
   const result = await render(<GarmentBoard palette={palette} pieces={pieces} width={349} preset="today" accessibilityLabel="Dress, sandals" testID="board" />, { wrapper: LightTheme });
   const board = result.getByRole('image', { name: 'Dress, sandals' });
   expect(result.getAllByRole('image')).toHaveLength(1);
   expect(board).toHaveProp('testID', 'board');
-  expect(board).toHaveProp('width', 349);
-  expect(board).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'today', 'womens'));
+  expect(StyleSheet.flatten(board.props.style))
+    .toMatchObject({ height: measureGarmentBoardHeight(pieces, 349, 'today', 'womens'), width: 349 });
 });
 
 test('detail uses the same pieces with its own measured height', async () => {
   const result = await render(<GarmentBoard palette={palette} pieces={pieces} width={349} preset="detail" accessibilityLabel="Dress, sandals" />, { wrapper: LightTheme });
-  expect(result.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'detail', 'womens'));
+  expect(StyleSheet.flatten(result.getByRole('image').props.style))
+    .toMatchObject({ height: measureGarmentBoardHeight(pieces, 349, 'detail', 'womens') });
   // A short look stands on both stages' floor; a layered one is taller on the detail's larger caps.
   const layered: readonly GarmentBoardPiece[] = [
     { slot: 'primary_top', garmentTypeId: 'sweater', category: 'top' },
@@ -199,7 +201,7 @@ test('a rising board staggers its pieces in reading order and stacks them in the
     const [group] = silhouettes[ids[index]].groups;
     expect(layer.queryAll((node) => node.props.d === group.outline).length).toBeGreaterThan(0);
     // Each piece casts its own shadow, inside its own layer, so it rises with the piece.
-    expect(layer.queryAll((node) => String(node.type).includes('FeGaussianBlur')).length).toBe(1);
+    expect(pieceShadows(layer)).toHaveLength(1);
   });
   withDelay.mockRestore();
 });
@@ -304,8 +306,7 @@ test('a settle change moves the pieces without replaying the entrance or the acc
   expect(onSettled).toHaveBeenCalledTimes(1);
 });
 
-// P2: Today's primary stage fits the board, as tall as its fitted pieces. Every board draws
-// each piece with its soft shadow, in the plane's own colour moved down in lightness.
+// P2: Today's primary stage fits the board, as tall as its fitted pieces.
 test('a fitted board is as tall as its fitted pieces and every piece casts a shadow', async () => {
   const fitted = await render(
     <GarmentBoard accessibilityLabel="Dress, sandals" fit palette={palette}
@@ -313,12 +314,62 @@ test('a fitted board is as tall as its fitted pieces and every piece casts a sha
     { wrapper: LightTheme },
   );
   const image = fitted.getByRole('image');
-  expect(image).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'today', 'womens', true));
-  const floods = fitted.container.queryAll((node) => String(node.type).includes('FeFlood'));
-  expect(floods).toHaveLength(pieces.length);
+  expect(StyleSheet.flatten(image.props.style))
+    .toMatchObject({ height: measureGarmentBoardHeight(pieces, 349, 'today', 'womens', true), width: 349 });
   const shadow = shiftOklchLightness(lightTheme.atmosphere.clearDay, garmentShadowRule.step.light);
-  expect(floods.every((node) => processColor(shadow) === (node.props.floodColor?.payload ?? node.props.floodColor)))
-    .toBe(true);
+  expect(pieceShadows(fitted.container).map(({ shadowColor }) => shadowColor)).toEqual(pieces.map(() => shadow));
+});
+
+// ADR 0025 section 9: every piece on every board casts its soft shadow in the plane's colour
+// moved down in lightness. On iOS the piece's own view casts it from the drawing's alpha, so
+// no draw runs a Core Image filter: with one filter per piece, Today's boards spent about 1 s
+// of the main thread drawing on every cold launch and every return from the background.
+const pieceShadows = (root: Awaited<ReturnType<typeof render>>['container']) => root
+  .queryAll((node) => node.type === 'View' && StyleSheet.flatten(node.props.style)?.shadowColor != null)
+  .map((node) => StyleSheet.flatten(node.props.style));
+const filtersIn = (result: Awaited<ReturnType<typeof render>>) => result.container
+  .queryAll((node) => /Filter|FeGaussianBlur|FeFlood/u.test(String(node.type))).length;
+
+test('on iOS every board casts each piece\'s shadow from its view, with no SVG filter', async () => {
+  const stageColor = lightTheme.atmosphere.clearDay;
+  const color = shiftOklchLightness(stageColor, garmentShadowRule.step.light);
+  const board = (width: number, motion: 'still' | 'rise' | 'entrance') => (
+    <GarmentBoard accessibilityLabel="Dress, sandals" palette={palette} pieces={pieces} preset="today"
+      entrance={motion === 'entrance'
+        ? { fromPreset: 'today', fromStageColor: lightTheme.atmosphere.fallingDay, fromStageRadius: 26 }
+        : undefined}
+      rise={motion === 'rise'} stageColor={stageColor} width={width} />
+  );
+  for (const [width, motion] of [[349, 'still'], [200, 'still'], [349, 'rise'], [349, 'entrance']] as const) {
+    const result = await render(board(width, motion), { wrapper: LightTheme });
+    expect(filtersIn(result)).toBe(0);
+    const drawn = garmentShadowOf(width);
+    const shadows = pieceShadows(result.container);
+    expect(shadows).toHaveLength(pieces.length);
+    for (const shadow of shadows) {
+      expect(shadow).toMatchObject({ shadowColor: color, shadowOpacity: 1 });
+      expect(shadow.shadowOffset!.width).toBeCloseTo(drawn.dx, 9);
+      expect(shadow.shadowOffset!.height).toBeCloseTo(drawn.dy, 9);
+      // The layer's radius is the filter's standard deviation: it grows with the board.
+      expect(shadow.shadowRadius).toBeCloseTo(drawn.blur, 9);
+    }
+  }
+});
+
+test('on Android every piece keeps the SVG drop-shadow filter', async () => {
+  const os = jest.replaceProperty(Platform, 'OS', 'android');
+  const stageColor = lightTheme.atmosphere.clearDay;
+  const result = await render(
+    <GarmentBoard accessibilityLabel="Dress, sandals" fit palette={palette} pieces={pieces} preset="today"
+      stageColor={stageColor} width={349} />,
+    { wrapper: LightTheme },
+  );
+  const floods = result.container.queryAll((node) => String(node.type).includes('FeFlood'));
+  expect(floods).toHaveLength(pieces.length);
+  const shadow = processColor(shiftOklchLightness(stageColor, garmentShadowRule.step.light));
+  expect(floods.every((node) => shadow === (node.props.floodColor?.payload ?? node.props.floodColor))).toBe(true);
+  expect(pieceShadows(result.container)).toHaveLength(0);
+  os.restore();
 });
 
 // Opening the detail, the pieces leave from where Today's band drew them, crossed in the flat
