@@ -1,11 +1,17 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { AccessibilityInfo, Alert, Dimensions, StyleSheet, View } from 'react-native';
+import type { ReactElement } from 'react';
+import { AccessibilityInfo, Alert, AppState, Dimensions, StyleSheet, View } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { runwayDressingDuration } from '@/garment-art';
 import { flatLayStack } from '@/garment-art/compose-flat-lay';
 import { garmentPaletteContrast as contrastRatio } from '@/garment-art/garment-palette';
+import {
+  resetReviewRequestProcess,
+  REVIEW_REQUEST_SETTLE_MS,
+  ReviewRequestObserver,
+} from '@/features/feedback/application/review-request-observer';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import { FirstGenerationRunway, type RunwayOutfit } from '@/features/today/presentation/first-generation-runway';
 import { runwayField } from '@/features/today/presentation/runway-palette';
@@ -17,6 +23,12 @@ jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return { useFocusEffect: (effect: () => void | (() => void)) => React.useEffect(effect, [effect]) };
 });
+
+const mockRequestReview = jest.fn(async () => undefined);
+jest.mock('@/features/feedback/data/store-review', () => ({ requestStoreReview: () => mockRequestReview() }));
+jest.mock('@/features/profile/application/profile-context', () => ({
+  useProfileApplication: () => ({ state: { status: 'ready', profile: { onboardingCompleted: true } } }),
+}));
 
 const onSkip = jest.fn();
 const chosen: RunwayOutfit = {
@@ -61,6 +73,14 @@ function runway(overrides: Partial<typeof props> = {}, theme: KuyaraTheme = ligh
       </SafeAreaProvider>
     </KuyaraThemeContext.Provider>
   );
+}
+
+// The rating request beside the runway: it waits until nothing is presented over the screen.
+const withReviewRequest = (element: ReactElement) => <><ReviewRequestObserver />{element}</>;
+function reviewRequestPrepared() {
+  resetReviewRequestProcess();
+  mockRequestReview.mockClear();
+  AppState.currentState = 'active';
 }
 
 type Result = Awaited<ReturnType<typeof render>>;
@@ -225,6 +245,42 @@ test('the runway fades out on the deliberate role, then leaves and reports hidde
   expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull();
   expect(onVisibleChange).toHaveBeenLastCalledWith(false);
   withTiming.mockRestore();
+});
+
+test('the rating request waits while the runway generates, holds All set and fades out, then asks once', async () => {
+  reviewRequestPrepared();
+  const result = await render(withReviewRequest(runway()));
+  await laidOut(result);
+  await act(() => jest.advanceTimersByTime(REVIEW_REQUEST_SETTLE_MS * 3));
+  expect(mockRequestReview).not.toHaveBeenCalled();
+
+  let land: ((finished: boolean) => void) | undefined;
+  jest.spyOn(Reanimated, 'withTiming').mockImplementation(((
+    toValue: number, config: { duration?: number }, callback?: (finished: boolean) => void,
+  ) => {
+    if (toValue === 0 && config?.duration === lightTheme.motion.deliberate) land = callback;
+    return toValue;
+  }) as typeof Reanimated.withTiming);
+  await result.rerender(withReviewRequest(runway({ active: false, completed: true, phase: null, outfit: chosen })));
+  await act(() => jest.advanceTimersByTime(dressing));
+  expect(result.getByTestId('first-generation-success')).toHaveTextContent(copy.allSet);
+  await act(() => jest.advanceTimersByTime(799));
+  expect(mockRequestReview).not.toHaveBeenCalled();
+
+  // The runway leaves on its fade; the screen stays held until the fade has landed.
+  await act(() => jest.advanceTimersByTime(1));
+  expect(land).toBeDefined();
+  await act(() => jest.advanceTimersByTime(REVIEW_REQUEST_SETTLE_MS * 3));
+  expect(mockRequestReview).not.toHaveBeenCalled();
+
+  await act(() => { land?.(true); jest.advanceTimersByTime(0); });
+  expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull();
+  await act(() => jest.advanceTimersByTime(REVIEW_REQUEST_SETTLE_MS - 1));
+  expect(mockRequestReview).not.toHaveBeenCalled();
+  await act(() => jest.advanceTimersByTime(1));
+  expect(mockRequestReview).toHaveBeenCalledTimes(1);
+  await act(() => jest.advanceTimersByTime(REVIEW_REQUEST_SETTLE_MS * 3));
+  expect(mockRequestReview).toHaveBeenCalledTimes(1);
 });
 
 test('a runway that starts after mount fades in rather than appearing in one frame', async () => {
@@ -471,6 +527,28 @@ describe('the hand-off to Today', () => {
     await act(() => { springs.forEach((land) => land(true)); jest.advanceTimersByTime(0); });
     expect(onHandedOff).toHaveBeenCalledTimes(1);
     expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull();
+  });
+
+  test('the rating request waits through the hand-off and asks once every piece has reached Today', async () => {
+    reviewRequestPrepared();
+    const springs: ((finished?: boolean) => void)[] = [];
+    jest.spyOn(Reanimated, 'withSpring').mockImplementation(((toValue: number, _config: unknown,
+      callback?: (finished?: boolean) => void) => {
+      if (callback) springs.push(callback);
+      return toValue;
+    }) as typeof Reanimated.withSpring);
+    const result = await render(withReviewRequest(runway({ handoffTarget: target() } as never)));
+    await laidOut(result);
+    await result.rerender(withReviewRequest(runway({ handoffTarget: target(), active: false, completed: true,
+      phase: null, outfit: chosen } as never)));
+    await act(() => jest.advanceTimersByTime(dressing + 800 + REVIEW_REQUEST_SETTLE_MS * 3));
+    expect(springs.length).toBeGreaterThan(0);
+    expect(mockRequestReview).not.toHaveBeenCalled();
+
+    await act(() => { springs.forEach((land) => land(true)); jest.advanceTimersByTime(0); });
+    expect(result.queryByTestId('first-generation-runway', hidden)).toBeNull();
+    await act(() => jest.advanceTimersByTime(REVIEW_REQUEST_SETTLE_MS));
+    expect(mockRequestReview).toHaveBeenCalledTimes(1);
   });
 
   // In the dark appearance the board stands on the garment plate inside the dark field, and

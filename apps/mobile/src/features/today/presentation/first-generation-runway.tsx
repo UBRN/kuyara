@@ -18,6 +18,7 @@ import {
   type ShrinkingPlateProps,
   useTextScaling,
 } from '@/components/ui';
+import { usePresentationHold } from '@/components/ui/presentation-hold';
 import { showAlert } from '@/components/ui/system-presentation';
 import { GarmentRunwayBoard, runwayDressingDuration, type RunwayBoardOutfit } from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
@@ -234,6 +235,9 @@ export function FirstGenerationRunway({
   useEffect(() => {
     onVisibleChange?.(mounted);
   }, [mounted, onVisibleChange]);
+  // The runway holds the screen from its start through All set and its exit, until it has
+  // left the tree and Today shows the outfit.
+  usePresentationHold(active || mounted);
 
   // A full-screen transition (Law 7): the whole layer fades on `deliberate`. A runway there
   // on mount arrives with the screen and is drawn at rest.
