@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { usePresentationHold } from '@/components/ui/presentation-hold';
 import { sessionMayAskForConsent } from '@/features/analytics/domain/analytics-session';
 import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
@@ -25,6 +26,11 @@ export function analyticsConsentWillAsk({
   return onboardingCompleted
     && analyticsConsent === 'undecided'
     && sessionMayAskForConsent(sessionIndex);
+}
+
+/** The consent sheet still to be asked for is presented over the app until it is answered. */
+export function useAnalyticsConsentHold(session: AnalyticsConsentSession): void {
+  usePresentationHold(analyticsConsentWillAsk(session));
 }
 
 export function isAnalyticsConsentGateEligible(eligibility: AnalyticsConsentGateEligibility): boolean {

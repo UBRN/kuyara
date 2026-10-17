@@ -489,6 +489,33 @@ test('feature presentation code draws buttons only through the button primitives
   );
 });
 
+// The App Store rating request waits until nothing is presented over the screen, so every system
+// presentation holds the screen while it is up. Alerts and share sheets are presented only through
+// `components/ui/system-presentation.ts`, which holds for them; a picker or browser the app waits
+// for is presented inside `whilePresented` in the file that calls it.
+const directPresentationPattern = /\b(?:Alert\.(?:alert|prompt)|Share\.share|ActionSheetIOS\.\w+)\s*\(/;
+const awaitedPresentationPattern = /\b(?:launchImageLibraryAsync|launchCameraAsync|openBrowserAsync|openAuthSessionAsync)\s*\(/;
+
+test('every system presentation holds the screen', () => {
+  const direct = [];
+  const unheld = [];
+  for (const relativePath of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    if (relativePath !== 'components/ui/system-presentation.ts' && directPresentationPattern.test(text)) {
+      direct.push(relativePath);
+    }
+    if (awaitedPresentationPattern.test(text) && !text.includes('whilePresented(')) unheld.push(relativePath);
+  }
+
+  assert.deepEqual(
+    { direct, unheld },
+    { direct: [], unheld: [] },
+    'present an alert with `showAlert` and a share sheet with `shareContent` from '
+      + '`components/ui/system-presentation.ts`, and wrap a picker or browser in `whilePresented`, '
+      + 'so the rating request never comes over it',
+  );
+});
+
 // Every exported symbol is used beyond its own definition, in production code, in a test or in
 // a script. An export nothing reads is dead weight that still looks like API. The allowlist only
 // shrinks: a stale entry fails. `app/` is out of the export scan (expo-router reads its route

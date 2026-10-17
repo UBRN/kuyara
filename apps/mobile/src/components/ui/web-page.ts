@@ -1,5 +1,7 @@
 import { openBrowserAsync } from 'expo-web-browser';
 
+import { whilePresented } from '@/components/ui/presentation-hold';
+
 /**
  * Opens a web page over the app in the system's in-app browser (Safari View Controller on
  * iOS, a Custom Tab on Android), so closing it returns to the screen that opened it. The only
@@ -7,7 +9,7 @@ import { openBrowserAsync } from 'expo-web-browser';
  * pages: they open in their own app through `Linking`.
  */
 export function openWebPage(url: string): void {
-  void openBrowserAsync(url).catch(() => {
+  void whilePresented(() => openBrowserAsync(url)).catch(() => {
     // A page the system cannot show leaves the screen as it was; nothing is lost.
   });
 }

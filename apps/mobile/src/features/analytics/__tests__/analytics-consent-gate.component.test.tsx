@@ -1,9 +1,13 @@
 import { act, render } from '@testing-library/react-native';
+import { Text } from 'react-native';
 
+import { usePresentationHeld } from '@/components/ui/presentation-hold';
 import {
   AnalyticsConsentGate,
   isAnalyticsConsentGateEligible,
+  useAnalyticsConsentHold,
 } from '@/features/analytics/application/analytics-consent-gate';
+import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
@@ -83,4 +87,19 @@ test('the Today sheet never asks in the first session and asks from the second',
     recommendationShown: false,
     sessionIndex: 2,
   })).toBe(false);
+});
+
+// What must never appear over the consent sheet waits from the moment the session will ask for
+// it, before it is presented, until it is answered.
+test('a consent sheet still to be asked for in this session holds the screen until it is answered', async () => {
+  function Shell({ analyticsConsent, sessionIndex }: Readonly<{ analyticsConsent: AnalyticsConsent; sessionIndex: number }>) {
+    useAnalyticsConsentHold({ analyticsConsent, onboardingCompleted: true, sessionIndex });
+    return <Text testID="held">{usePresentationHeld() ? 'held' : 'clear'}</Text>;
+  }
+  const result = await render(<Shell analyticsConsent="undecided" sessionIndex={1} />);
+  expect(result.getByTestId('held')).toHaveTextContent('clear');
+  await result.rerender(<Shell analyticsConsent="undecided" sessionIndex={2} />);
+  expect(result.getByTestId('held')).toHaveTextContent('held');
+  await result.rerender(<Shell analyticsConsent="granted" sessionIndex={2} />);
+  expect(result.getByTestId('held')).toHaveTextContent('clear');
 });

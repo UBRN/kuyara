@@ -1,6 +1,8 @@
 import type { RefObject } from 'react';
-import { Share, type View } from 'react-native';
+import type { View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
+
+import { shareContent } from '@/components/ui/system-presentation';
 
 /**
  * Draws a mounted view into a PNG in the app's temporary directory, offers it through the
@@ -26,7 +28,7 @@ export async function shareSnapshot(
     if (named.exists) named.delete();
     // iOS returns a bare path; the file system and the share sheet take a file URL.
     await new File(`file://${path}`).copy(named);
-    await Share.share({ message, url: named.uri });
+    await shareContent({ message, url: named.uri });
   } catch {
     // A failed capture or share leaves the screen as it was; the person can try again.
   }

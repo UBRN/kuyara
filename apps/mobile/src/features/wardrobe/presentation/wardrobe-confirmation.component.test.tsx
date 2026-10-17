@@ -26,7 +26,7 @@ test('passes the resolved scheme as the alert userInterfaceStyle so the native a
     'Discard changes?',
     'Your edits will be lost.',
     expect.any(Array),
-    { userInterfaceStyle: 'dark' },
+    expect.objectContaining({ userInterfaceStyle: 'dark' }),
   );
 
   alertSpy.mockRestore();

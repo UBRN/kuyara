@@ -1,7 +1,8 @@
 import { Stack, router } from 'expo-router';
 import Constants from 'expo-constants';
-import { Linking, Platform, Share } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
+import { shareContent } from '@/components/ui/system-presentation';
 import { useSinglePush } from '@/components/ui/use-single-push';
 import { openWebPage } from '@/components/ui/web-page';
 import { ACCOUNT_SCREENS_ENABLED } from '@/features/account/application/account-screens-flag';
@@ -173,7 +174,7 @@ export default function SettingsRoute() {
         }}
         onShare={() => {
           const sentence = messages.settings.shareText;
-          void Share.share(Platform.OS === 'ios'
+          void shareContent(Platform.OS === 'ios'
             ? { message: sentence, url: IOS_STORE_URL }
             : { message: androidPackage
               ? `${sentence} ${androidStoreLinks(androidPackage).share}`

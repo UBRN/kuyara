@@ -1,6 +1,7 @@
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText, Icon, ListRowTile, NativeList, NativeListContentRow, NativeListRow, NativeListSection } from '@/components/ui';
+import { showAlert } from '@/components/ui/system-presentation';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { accountProviders } from '@/features/account/application/account-screens';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
@@ -36,11 +37,11 @@ export function AccountScreen({ onOpenDelete }: Readonly<{ onOpenDelete: () => v
 
   const sync = describeSync(session, snapshot.online, copy, session.lastSyncedAt && formatNaturalClockTime(session.lastSyncedAt, language, hour12));
   const signOutBody = recordsOn ? copy.signOutAlert.body : copy.signOutAlert.bodyWithoutRecords;
-  const confirmSignOut = () => Alert.alert(copy.signOutAlert.title, signOutBody, [
+  const confirmSignOut = () => showAlert(copy.signOutAlert.title, signOutBody, [
     { style: 'cancel', text: copy.signOutAlert.cancel },
     { onPress: port.signOut, text: copy.signOutAlert.confirm },
   ]);
-  const confirmWithdraw = () => Alert.alert(copy.withdrawAlert.title, copy.withdrawAlert.body, [
+  const confirmWithdraw = () => showAlert(copy.withdrawAlert.title, copy.withdrawAlert.body, [
     { style: 'cancel', text: copy.withdrawAlert.cancel },
     { onPress: port.withdrawConsent, style: 'destructive', text: copy.withdrawAlert.confirm },
   ]);
