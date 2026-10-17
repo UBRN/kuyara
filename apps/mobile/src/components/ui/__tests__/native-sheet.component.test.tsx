@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 import { Dimensions, Text } from 'react-native';
 
 import { NativeSheet } from '@/components/ui/native-sheet';
+import { usePresentationHeld } from '@/components/ui/presentation-hold';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -44,6 +45,26 @@ function renderSheet(visible: boolean) {
     </KuyaraThemeContext.Provider>,
   );
 }
+
+test('a presented sheet holds the screen until it closes', async () => {
+  function HeldProbe() {
+    return <Text testID="held">{usePresentationHeld() ? 'held' : 'clear'}</Text>;
+  }
+  const tree = (visible: boolean) => (
+    <KuyaraThemeContext.Provider value={lightTheme}>
+      <HeldProbe />
+      <NativeSheet onDismiss={() => undefined} visible={visible}>
+        <Text>Sheet body</Text>
+      </NativeSheet>
+    </KuyaraThemeContext.Provider>
+  );
+  const view = await render(tree(false));
+  expect(view.getByTestId('held')).toHaveTextContent('clear');
+  await view.rerender(tree(true));
+  expect(view.getByTestId('held')).toHaveTextContent('held');
+  await view.rerender(tree(false));
+  expect(view.getByTestId('held')).toHaveTextContent('clear');
+});
 
 test('the sheet mounts its content only while presented and is dismissable by gesture', async () => {
   Dimensions.set({ window: { ...originalWindow, fontScale: 1 } });

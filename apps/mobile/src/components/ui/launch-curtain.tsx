@@ -28,6 +28,7 @@ import { brandColors, standardMotion } from '@/theme/theme';
 
 import { brandSymbolPaths, brandSymbolViewBox } from './brand-symbol';
 import { fadeEasing, fadeTo } from './fade';
+import { usePresentationHold } from './presentation-hold';
 import { WindowOverlay } from './window-overlay';
 
 // The group's native transform is its `matrix`, which the typed props leave out.
@@ -48,6 +49,17 @@ export const LaunchRevealContext = createContext<LaunchReveal>(revealed);
 
 export function useLaunchReveal(): LaunchReveal {
   return use(LaunchRevealContext);
+}
+
+/**
+ * Which open of the process the person is in, for what is asked once per open: the cold
+ * launch is 0, and each return that plays the launch is the next. A return too short to play
+ * it stays in the open it left. Outside a launch it is 0.
+ */
+export const LaunchOpenContext = createContext(0);
+
+export function useLaunchOpen(): number {
+  return use(LaunchOpenContext);
 }
 
 /**
@@ -230,6 +242,10 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
   useEffect(() => {
     idle.current = reveal.done && !returning?.playing;
   }, [reveal.done, returning]);
+  // Each return that plays is the next open. A curtain on screen holds the screen until it has
+  // gone; a prepared return layer, unseen until it plays, does not.
+  const [returns, setReturns] = useState(0);
+  usePresentationHold(!reveal.done || returning?.playing === true);
   // Every time away is timed, whatever is on screen when it starts, from the moment the app
   // stops being active: iOS can suspend the process before this thread hears `background`,
   // and then delivers it on resume, just before `active`. Only a time that reached the
@@ -260,6 +276,7 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
       showReturn(prepared?.scheme === scheme
         ? { ...prepared, playing: true }
         : { key: Date.now(), playing: true, scheme });
+      setReturns((count) => count + 1);
     });
     return () => subscription.remove();
   }, [showReturn]);
@@ -287,7 +304,9 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
 
   return (
     <>
-      <LaunchRevealContext value={reveal}>{children}</LaunchRevealContext>
+      <LaunchRevealContext value={reveal}>
+        <LaunchOpenContext value={returns}>{children}</LaunchOpenContext>
+      </LaunchRevealContext>
       {reveal.done ? null : (
         <CurtainLayer
           blocking={!reveal.revealing}

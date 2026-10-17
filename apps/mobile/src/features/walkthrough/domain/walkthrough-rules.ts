@@ -77,6 +77,16 @@ export type WalkthroughOpeningInput = Readonly<{
  */
 export function walkthroughOpening(input: WalkthroughOpeningInput): 'auto' | 'manual' | null {
   if (input.running || !input.onToday || !input.todaySettled || input.overlayOpen) return null;
+  return pendingWalkthrough(input);
+}
+
+/**
+ * The tour still to open in this launch, and as which kind, wherever the person is now: it
+ * opens once Today allows it ({@link walkthroughOpening}).
+ */
+export function pendingWalkthrough(
+  input: Pick<WalkthroughOpeningInput, 'due' | 'autoOpenedThisLaunch' | 'newUserSession' | 'claims' | 'manualPending'>,
+): 'auto' | 'manual' | null {
   if (input.manualPending) return 'manual';
   if (!input.due || input.autoOpenedThisLaunch) return null;
   const blocking = [...input.claims].filter(
