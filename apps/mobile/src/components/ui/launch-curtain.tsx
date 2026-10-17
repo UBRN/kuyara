@@ -71,7 +71,7 @@ export type LaunchReadiness = 'pending' | 'ready' | 'shortened' | 'failed';
 /** How long the symbol waits, still, for the first screen before the layer withdraws. */
 export const LAUNCH_READY_CEILING_MS = 1_500;
 
-/** How long the app must have been in the background for its return to play the launch. */
+/** How long the app must have been away, reaching the background, for its return to play the launch. */
 export const RETURN_AWAY_MS = 60_000;
 
 type LaunchMotion = 'dive' | 'short' | 'late' | 'failed' | 'return';
@@ -172,26 +172,37 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
   }, []);
   const gone = useCallback(() => setReveal(revealed), []);
 
-  // A return after a long enough time away plays the launch over the screen it left, once
-  // the cold launch has gone. Each return is its own layer; it holds back nothing that waits
-  // for the cold launch, and it takes touches only until its curtain lifts.
+  // A return after a long enough time in the background plays the launch over the screen it
+  // left, when no curtain is on screen at that moment; a curtain still there finishes as it
+  // is. Each return is its own layer; it holds back nothing that waits for the cold launch,
+  // and it takes touches only until its curtain lifts.
   const [returning, setReturning] = useState<number | null>(null);
   const [returnLifted, setReturnLifted] = useState(false);
-  const idle = reveal.done && returning === null;
+  const idle = useRef(false);
   useEffect(() => {
-    if (!idle) return undefined;
-    let backgroundedAt: number | null = null;
+    idle.current = reveal.done && returning === null;
+  }, [reveal.done, returning]);
+  // Every time away is timed, whatever is on screen when it starts, from the moment the app
+  // stops being active: iOS can suspend the process before this thread hears `background`,
+  // and then delivers it on resume, just before `active`. Only a time that reached the
+  // background counts, so Control Center or the app switcher plays nothing.
+  const away = useRef<{ since: number; background: boolean } | null>(null);
+  useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'background') backgroundedAt = Date.now();
-      if (state !== 'active' || backgroundedAt === null) return;
-      const away = Date.now() - backgroundedAt;
-      backgroundedAt = null;
-      if (away < RETURN_AWAY_MS) return;
+      if (state === 'inactive' || state === 'background') {
+        const left = away.current ?? { since: Date.now(), background: false };
+        away.current = state === 'background' ? { ...left, background: true } : left;
+        return;
+      }
+      if (state !== 'active') return;
+      const left = away.current;
+      away.current = null;
+      if (!left?.background || Date.now() - left.since < RETURN_AWAY_MS || !idle.current) return;
       setReturnLifted(false);
       setReturning((count) => (count ?? 0) + 1);
     });
     return () => subscription.remove();
-  }, [idle]);
+  }, []);
   const returnLifting = useCallback(() => setReturnLifted(true), []);
   const returnGone = useCallback(() => setReturning(null), []);
   const ignoreLayout = useCallback(() => undefined, []);

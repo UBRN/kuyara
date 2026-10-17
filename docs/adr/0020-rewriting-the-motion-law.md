@@ -107,8 +107,10 @@ value.
 
 Every cold launch plays one animation in a layer drawn
 above the whole app; `visual-identity.md` describes what it shows. The layer's first frame
-is the native splash's last and holds still until the first screen has drawn its content, for at most
-1.5 seconds. A process iOS starts in the background, for the weather-alert task, renders
+is the native splash's last and holds still until the first screen has drawn what the device holds, for at most
+1.5 seconds. Today has drawn it once its weather and recommendation have loaded from the device and
+its place has weather, even while the day's new outfit is still on its way, so neither an
+unanswered day question nor a generation holds the launch to its ceiling. A process iOS starts in the background, for the weather-alert task, renders
 unseen: its layer holds that first frame, and the wait and its ceiling begin the first time
 the app is opened, so that opening plays the launch. Then the symbol breathes in on `fast` (scale 1 to 0.94), and the view dives
 into its upper piece over `launch` 400: the scale grows to about 26 times on a logarithmic
@@ -128,9 +130,11 @@ once the curtain starts to lift. The status bar turns light while the curtain is
 half opaque. A return from the background after at least a minute away plays the launch
 over the screen it left: the resting symbol and its ground fade in on `fast`, then the same
 breath, dive and curtain fade follow, about 840 ms in all. It holds back none of what waits
-for the cold launch. A shorter absence, or a passing system overlay that never sends the
-app to the background, plays nothing. Only `components/ui` consumes the
-`launch` role.
+for the cold launch. The time away runs from the moment the app stops being active,
+because iOS can suspend the app before it hears that it went to the background. A shorter
+absence, or a passing system overlay that never sends the app to the background, plays
+nothing, and so does a return while a curtain is still on screen: that curtain finishes as
+it is. Only `components/ui` consumes the `launch` role.
 
 This is the one motion that holds the user's first look at the app, accepted as the
 launch's character: it adds 720 ms to a cold launch, about 840 ms to a return after a
