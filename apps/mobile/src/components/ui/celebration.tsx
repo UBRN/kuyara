@@ -17,6 +17,7 @@ import {
   type CelebrationPiece,
   type CelebrationShape,
 } from '@/components/ui/celebration-scatter';
+import { usePresentationHold } from '@/components/ui/presentation-hold';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -169,6 +170,8 @@ export function Celebration({ colors, play, radius, seed, testID }: Readonly<{
     setSeen(play);
     if (play > seen) setPlaying(play);
   }
+  // The moment holds the screen while it plays, so nothing presented lands on it.
+  usePresentationHold(playing !== null);
   useEffect(() => {
     if (playing === null) return undefined;
     const timer = setTimeout(() => setPlaying(null), theme.motion.celebration);

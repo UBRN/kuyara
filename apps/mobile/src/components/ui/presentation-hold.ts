@@ -1,11 +1,11 @@
 import { useEffect, useSyncExternalStore } from 'react';
 
 // Everything presented over the current screen, or about to be (a sheet, an alert, a share
-// sheet, the keyboard, a prompt, the tour, a launch curtain, a modal form), holds it while it is
-// there; what must never appear over one waits until nothing holds the screen. Each hold is its
-// own token, so a release that comes twice lets go once. The set lives as long as the module:
-// a development Fast Refresh of this file starts it empty while older holds are still on
-// screen, which only a full reload puts right.
+// sheet, the keyboard, a prompt, the tour, a launch curtain, a modal form, the generation
+// runway, the worn moment), holds it while it is there; what must never appear over one waits
+// until nothing holds the screen. Each hold is its own token, so a release that comes twice
+// lets go once. The set lives as long as the module: a development Fast Refresh of this file
+// starts it empty while older holds are still on screen, which only a full reload puts right.
 const holds = new Set<symbol>();
 const listeners = new Set<() => void>();
 
