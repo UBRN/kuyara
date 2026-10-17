@@ -332,6 +332,8 @@ test('The condition symbol motion vocabulary has one owner that Today and Weathe
   ]) {
     const text = await source(glyph);
     assert.match(text, /useConditionSymbolMotion\(/, glyph);
+    // The hook's style drives React Native's native-driver Animated.View, not Reanimated's.
+    assert.match(text, /import \{[^}]*\bAnimated\b[^}]*\} from 'react-native';/, glyph);
     assert.doesNotMatch(text, /withRepeat|translateY|rotate/, glyph);
   }
 });

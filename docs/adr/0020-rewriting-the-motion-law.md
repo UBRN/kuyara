@@ -9,8 +9,8 @@ primary-action clause and the ownership site in Law 8.
 
 A blanket prohibition on repetition conflicts with two accepted components:
 
-- The condition symbol on Today and Weather loops its turn, drift or fall with `withRepeat`
-  in one shared hook, `components/ui/use-condition-symbol-motion.ts`.
+- The condition symbol on Today and Weather loops its turn, drift or fall on React Native's
+  native animation driver in one shared hook, `components/ui/use-condition-symbol-motion.ts`.
 - `features/profile/presentation/probe-loading-overlay.tsx` pulses its dots on the shared
   ambient hook, `components/ui/use-ambient-pulse.ts`, which owns the `withRepeat` loop.
 

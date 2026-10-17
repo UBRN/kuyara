@@ -1,5 +1,4 @@
-import { StyleSheet, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import { Animated, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/ui';
 import { useConditionSymbolMotion } from '@/components/ui/use-condition-symbol-motion';
