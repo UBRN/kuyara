@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 
+import { usePresentationHold } from '@/components/ui/presentation-hold';
 import { resolveVisibleCategory } from '@/features/wardrobe/application/closet-categories';
 import { useVisibleClosetCategories } from '@/features/wardrobe/application/use-visible-closet-categories';
 import {
@@ -16,6 +17,8 @@ export default function WardrobeNewRoute() {
   const { category, filter } = useLocalSearchParams<{ category?: string; filter?: string }>();
   const messages = useMessages();
   const categories = useVisibleClosetCategories();
+  // The form is presented over the tab as a full-screen modal (the Profile stack's layout).
+  usePresentationHold(true);
 
   return (
     <>

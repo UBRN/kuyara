@@ -1,130 +1,156 @@
-import { act, renderHook } from '@testing-library/react-native';
-import { AppState } from 'react-native';
+import { act, render } from '@testing-library/react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 
+import { LaunchOpenContext } from '@/components/ui/launch-curtain';
+import { usePresentationHold } from '@/components/ui/presentation-hold';
 import {
-  noteOutfitDetailVisit,
-  resetReviewRequestLaunch,
-  useReviewRequestOnReturn,
-} from '@/features/feedback/application/use-review-request';
+  resetReviewRequestProcess,
+  REVIEW_REQUEST_SETTLE_MS,
+  ReviewRequestObserver,
+} from '@/features/feedback/application/review-request-observer';
 
 const mockRequest = jest.fn(async () => undefined);
-const mockMarkReviewRequested = jest.fn(async () => undefined);
-let mockTourActive = false;
-let mockConsent = 'granted';
+let mockOnboardingCompleted = true;
 
 jest.mock('@/features/feedback/data/store-review', () => ({ requestStoreReview: () => mockRequest() }));
 jest.mock('@/features/profile/application/profile-context', () => ({
   useProfileApplication: () => ({
-    markReviewRequested: mockMarkReviewRequested,
-    state: {
-      status: 'ready',
-      profile: {
-        onboardingCompleted: true, analyticsConsent: mockConsent,
-        createdAt: '2026-01-01T09:00:00.000Z', reviewRequestVersion: 0,
-      },
-    },
+    state: { status: 'ready', profile: { onboardingCompleted: mockOnboardingCompleted } },
   }),
 }));
-jest.mock('@/features/walkthrough/application/walkthrough-context', () => ({
-  useWalkthrough: () => ({ active: mockTourActive }),
-}));
 
-// Each test is a fresh launch: the hook keeps its launch facts at module scope.
-function freshLaunch() {
-  resetReviewRequestLaunch();
-  return { noteOutfitDetailVisit, useReviewRequestOnReturn };
+// Anything presented over the screen holds it, as a sheet, a prompt, the tour or a curtain does.
+function Presented({ held }: Readonly<{ held: boolean }>) {
+  usePresentationHold(held);
+  return null;
 }
-type Hook = ReturnType<typeof freshLaunch>;
 
-async function returnToToday(hook: Hook, overlayOpen = false) {
-  const today = await renderHook(({ focused }: { focused: boolean }) => hook.useReviewRequestOnReturn(focused, overlayOpen),
-    { initialProps: { focused: true } });
-  await act(async () => { today.rerender({ focused: false }); });
-  hook.noteOutfitDetailVisit();
-  await act(async () => { today.rerender({ focused: true }); });
-  await act(async () => { jest.advanceTimersByTime(1000); });
-  return today;
+// `open` is the launch's count of opens: the cold launch is 0, each return that plays the
+// launch adds one.
+const app = (open = 0, held = false) => (
+  <LaunchOpenContext value={open}>
+    <Presented held={held} />
+    <ReviewRequestObserver />
+  </LaunchOpenContext>
+);
+
+let appStateListeners: ((state: AppStateStatus) => void)[] = [];
+async function moveApp(state: AppStateStatus) {
+  AppState.currentState = state;
+  await act(() => appStateListeners.forEach((listener) => listener(state)));
+}
+
+async function settle() {
+  await act(() => jest.advanceTimersByTime(REVIEW_REQUEST_SETTLE_MS));
 }
 
 beforeEach(() => {
   jest.useFakeTimers();
+  resetReviewRequestProcess();
   mockRequest.mockClear();
-  mockMarkReviewRequested.mockClear();
-  mockTourActive = false;
-  mockConsent = 'granted';
+  mockOnboardingCompleted = true;
   AppState.currentState = 'active';
+  appStateListeners = [];
+  jest.spyOn(AppState, 'addEventListener').mockImplementation(((
+    _type: string,
+    listener: (state: AppStateStatus) => void,
+  ) => {
+    appStateListeners.push(listener);
+    return { remove: () => { appStateListeners = appStateListeners.filter((item) => item !== listener); } };
+  }) as unknown as typeof AppState.addEventListener);
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => {
+  jest.useRealTimers();
+  jest.restoreAllMocks();
+});
 
-test('a return from outfit detail stores the gate, then requests the system prompt once', async () => {
-  const hook = freshLaunch();
-  const today = await returnToToday(hook);
-  expect(mockMarkReviewRequested).toHaveBeenCalledTimes(1);
+test('finishing onboarding asks on the first Today once nothing is presented over it', async () => {
+  mockOnboardingCompleted = false;
+  const view = await render(app());
+  await settle();
+  expect(mockRequest).not.toHaveBeenCalled();
+
+  mockOnboardingCompleted = true;
+  await view.rerender(app());
+  await act(() => jest.advanceTimersByTime(REVIEW_REQUEST_SETTLE_MS - 1));
+  expect(mockRequest).not.toHaveBeenCalled();
+  await act(() => jest.advanceTimersByTime(1));
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+});
+
+test('a later cold launch asks again', async () => {
+  const first = await render(app());
+  await settle();
+  await first.unmount();
+
+  // A new process: nothing asked in it yet.
+  resetReviewRequestProcess();
+  await render(app());
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(2);
+});
+
+test('a return that plays the return launch asks again; a shorter one, the same open, does not', async () => {
+  const view = await render(app(0));
+  await settle();
   expect(mockRequest).toHaveBeenCalledTimes(1);
 
-  await act(async () => { today.rerender({ focused: false }); });
-  hook.noteOutfitDetailVisit();
-  await act(async () => { today.rerender({ focused: true }); });
-  await act(async () => { jest.advanceTimersByTime(1000); });
+  // A 20 s return plays no launch, so it is still the cold launch's open.
+  await moveApp('background');
+  await act(() => jest.advanceTimersByTime(20_000));
+  await moveApp('active');
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+
+  await view.rerender(app(1));
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(2);
+});
+
+test('a sheet holds the request; once it closes the open asks once, and no more', async () => {
+  const view = await render(app(0, true));
+  await act(() => jest.advanceTimersByTime(60_000));
+  expect(mockRequest).not.toHaveBeenCalled();
+
+  await view.rerender(app(0, false));
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+
+  await view.rerender(app(0, true));
+  await view.rerender(app(0, false));
+  await settle();
   expect(mockRequest).toHaveBeenCalledTimes(1);
 });
 
-test('focusing Today without an outfit detail visit requests nothing', async () => {
-  const hook = freshLaunch();
-  const today = await renderHook(({ focused }: { focused: boolean }) => hook.useReviewRequestOnReturn(focused, false),
-    { initialProps: { focused: false } });
-  await act(async () => { today.rerender({ focused: true }); });
-  await act(async () => { jest.advanceTimersByTime(5000); });
+test('something presented within the settling time holds the request back until it closes', async () => {
+  const view = await render(app());
+  await act(() => jest.advanceTimersByTime(REVIEW_REQUEST_SETTLE_MS - 1));
+  await view.rerender(app(0, true));
+  await settle();
   expect(mockRequest).not.toHaveBeenCalled();
+
+  await view.rerender(app(0, false));
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(1);
 });
 
-test('a launch that showed a sheet or prompt over Today requests nothing', async () => {
-  await returnToToday(freshLaunch(), true);
-  expect(mockMarkReviewRequested).not.toHaveBeenCalled();
+test('an app that is not active asks nothing, and asks once it is active again', async () => {
+  await render(app());
+  await moveApp('inactive');
+  await settle();
   expect(mockRequest).not.toHaveBeenCalled();
+
+  await moveApp('active');
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(1);
 });
 
-test('a launch that showed the tour requests nothing', async () => {
-  mockTourActive = true;
-  await returnToToday(freshLaunch());
-  expect(mockRequest).not.toHaveBeenCalled();
-});
-
-test('leaving Today within the second cancels the request', async () => {
-  const hook = freshLaunch();
-  const today = await renderHook(({ focused }: { focused: boolean }) => hook.useReviewRequestOnReturn(focused, false),
-    { initialProps: { focused: false } });
-  hook.noteOutfitDetailVisit();
-  await act(async () => { today.rerender({ focused: true }); });
-  await act(async () => { jest.advanceTimersByTime(500); });
-  await act(async () => { today.rerender({ focused: false }); });
-  await act(async () => { jest.advanceTimersByTime(1000); });
-  expect(mockRequest).not.toHaveBeenCalled();
-});
-
-test('a gate that fails to store never reaches the system prompt', async () => {
-  mockMarkReviewRequested.mockRejectedValueOnce(new Error('disk'));
-  await returnToToday(freshLaunch());
-  expect(mockRequest).not.toHaveBeenCalled();
-});
-
-test('a launch in which the consent sheet was still unanswered requests nothing', async () => {
-  const hook = freshLaunch();
-  mockConsent = 'undecided';
-  const today = await renderHook(({ focused }: { focused: boolean }) => hook.useReviewRequestOnReturn(focused, false),
-    { initialProps: { focused: true } });
-  mockConsent = 'granted';
-  await act(async () => { today.rerender({ focused: false }); });
-  hook.noteOutfitDetailVisit();
-  await act(async () => { today.rerender({ focused: true }); });
-  await act(async () => { jest.advanceTimersByTime(1000); });
-  expect(mockRequest).not.toHaveBeenCalled();
-});
-
-test('an app leaving the foreground keeps its one request for later', async () => {
-  AppState.currentState = 'background';
-  await returnToToday(freshLaunch());
-  expect(mockMarkReviewRequested).not.toHaveBeenCalled();
+test('Android asks nothing', async () => {
+  jest.replaceProperty(Platform, 'OS', 'android');
+  const view = await render(app(0));
+  await settle();
+  await view.rerender(app(1));
+  await settle();
   expect(mockRequest).not.toHaveBeenCalled();
 });

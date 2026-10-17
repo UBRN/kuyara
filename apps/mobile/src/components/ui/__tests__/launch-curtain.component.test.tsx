@@ -14,9 +14,11 @@ import {
   type LaunchReadiness,
   LaunchScreenReadyContext,
   RETURN_AWAY_MS,
+  useLaunchOpen,
   useLaunchReveal,
   useLaunchScreenReady,
 } from '@/components/ui/launch-curtain';
+import { usePresentationHeld } from '@/components/ui/presentation-hold';
 import { brandColors, standardMotion } from '@/theme/theme';
 
 const { fast, launch, normal } = standardMotion;
@@ -25,6 +27,17 @@ function Probe() {
   const { done, revealing } = useLaunchReveal();
   return <Text testID="probe">{`${revealing ? 'revealing' : 'covered'} ${done ? 'done' : 'playing'}`}</Text>;
 }
+
+// Which open the app is in, and whether anything holds the screen, the curtain included.
+function OpenProbe() {
+  return <Text testID="open">{`open ${useLaunchOpen()} ${usePresentationHeld() ? 'held' : 'clear'}`}</Text>;
+}
+const opened = () => screen.getByTestId('open').props.children as string;
+const openCurtain = (readiness: LaunchReadiness, cold = true) => (
+  <LaunchCurtain cold={cold} onFirstFrame={jest.fn()} readiness={readiness} seen>
+    <OpenProbe />
+  </LaunchCurtain>
+);
 
 const curtain = (readiness: LaunchReadiness, onFirstFrame = jest.fn(), cold = true, seen = true) => (
   <LaunchCurtain cold={cold} onFirstFrame={onFirstFrame} readiness={readiness} seen={seen}>
@@ -550,6 +563,48 @@ test('a return while the cold launch still plays adds no second launch', async (
   await end(launch);
   await end(normal);
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
+test('the cold launch is the first open, and its curtain holds the screen until it has gone', async () => {
+  const result = await render(openCurtain('pending'));
+  await drawFirstFrame();
+  expect(opened()).toBe('open 0 held');
+  await result.rerender(openCurtain('ready'));
+  await nextFrame();
+  await end(launch);
+  expect(opened()).toBe('open 0 held');
+  await end(normal);
+  expect(opened()).toBe('open 0 clear');
+});
+
+test('each return that plays the launch is the next open, held until its curtain has gone', async () => {
+  await render(openCurtain('ready', false));
+  expect(opened()).toBe('open 0 clear');
+
+  // The return layer prepared as the app leaves is unseen and holds nothing; a 20 s return
+  // plays nothing and stays in the same open.
+  await moveApp('background');
+  expect(opened()).toBe('open 0 clear');
+  await advance(20_000);
+  await moveApp('active');
+  expect(opened()).toBe('open 0 clear');
+
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  await moveApp('active');
+  expect(opened()).toBe('open 1 held');
+  await nextFrame();
+  await end(launch);
+  await end(normal);
+  expect(opened()).toBe('open 1 clear');
+
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  await moveApp('active');
+  await nextFrame();
+  await end(launch);
+  await end(normal);
+  expect(opened()).toBe('open 2 clear');
 });
 
 // The person leaves while the cold launch dives; the motion ends while the app is away.

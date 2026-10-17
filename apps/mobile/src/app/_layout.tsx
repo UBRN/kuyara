@@ -15,10 +15,12 @@ import {
   LaunchScreenReadyContext,
   useLaunchReveal,
 } from '@/components/ui/launch-curtain';
+import { usePresentationHold } from '@/components/ui/presentation-hold';
 
 import { AccountApplicationProvider } from '@/features/account/application/account-application-provider';
 import {
   AnalyticsConsentGate,
+  analyticsConsentWillAsk,
   isAnalyticsConsentGateEligible,
 } from '@/features/analytics/application/analytics-consent-gate';
 import {
@@ -41,6 +43,7 @@ import {
 } from '@/features/analytics/data/observe-performance-telemetry';
 import { processClock } from '@/features/analytics/data/process-clock';
 import { telemetryDispatchingEnabled } from '@/features/analytics/domain/performance-telemetry';
+import { ReviewRequestObserver } from '@/features/feedback/application/review-request-observer';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { NotificationApplicationContext } from '@/features/notifications/application/notification-context';
 import { WeatherAlertObserver } from '@/features/notifications/application/weather-alert-observer';
@@ -164,6 +167,8 @@ function ReadyApplicationShell({
   });
   const pathname = usePathname();
   const sessionIndex = useLaunchSessionIndex(launchSession);
+  // The consent sheet still to be asked for is presented over the app until it is answered.
+  usePresentationHold(analyticsConsentWillAsk({ ...profile, sessionIndex }));
   const { recommendationShown, beginConsentPresentation } = useAnalyticsConsentTrigger();
   const presentAnalyticsConsent = useCallback(() => {
     const presentation = beginConsentPresentation();
@@ -194,6 +199,7 @@ function ReadyApplicationShell({
         persistOptIn={updateNotificationsOptIn}>
         <WeatherApplicationProvider localProfileId={profile.id}>
           <WeatherAlertObserver />
+          <ReviewRequestObserver />
           <LaunchReadyReport onReady={onLaunchReady} />
           <WardrobeApplicationProvider localProfileId={profile.id}>
             <RecommendationApplicationProvider localProfileId={profile.id}>

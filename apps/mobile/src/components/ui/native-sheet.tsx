@@ -2,6 +2,7 @@ import { BottomSheet } from '@expo/ui/community/bottom-sheet';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { usePresentationHold } from '@/components/ui/presentation-hold';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -49,6 +50,7 @@ export type NativeSheetProps = Readonly<{
 export function NativeSheet({ children, dismissible = true, onDismiss, size = 'default', testID, visible }: NativeSheetProps) {
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
+  usePresentationHold(visible);
 
   return (
     <BottomSheet

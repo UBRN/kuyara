@@ -7,6 +7,7 @@ import {
   isDeepLinkLaunch,
   isProfileHostedPath,
   isWalkthroughDue,
+  pendingWalkthrough,
   routeOutcome,
   sheetOutcome,
   walkthroughOpening,
@@ -114,6 +115,16 @@ test('the offered tour opens once per launch and not at all once the gate is sto
   // An interrupted tour stored nothing, so it is still due, and waits for the next launch.
   assert.equal(walkthroughOpening({ ...quiet, autoOpenedThisLaunch: true }), null);
   assert.equal(walkthroughOpening({ ...quiet, due: false }), null);
+});
+
+test('the tour still to open in this launch is pending wherever the person is, until it opens', () => {
+  const away = { ...quiet, onToday: false, todaySettled: false, overlayOpen: true };
+  assert.equal(pendingWalkthrough(away), 'auto');
+  assert.equal(pendingWalkthrough({ ...away, newUserSession: true, claims: new Set(['day-question']) }), 'auto');
+  assert.equal(pendingWalkthrough({ ...away, manualPending: true, due: false }), 'manual');
+  assert.equal(pendingWalkthrough({ ...away, autoOpenedThisLaunch: true }), null);
+  assert.equal(pendingWalkthrough({ ...away, due: false }), null);
+  assert.equal(pendingWalkthrough({ ...away, claims: new Set(['analytics-consent']) }), null);
 });
 
 test('the Help row tour ignores the gate and the launch claims, but still waits for Today', () => {

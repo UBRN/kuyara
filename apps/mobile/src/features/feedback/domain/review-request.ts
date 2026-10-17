@@ -1,25 +1,26 @@
-import { reviewRequestVersion, type Profile } from '@/features/profile/domain/profile';
-
-const dayMs = 24 * 60 * 60 * 1000;
-
-/** The App Store rating is requested no sooner than this after the profile was created. */
-export const reviewRequestMinimumDays = 3;
-
-type ReviewRequestProfile = Pick<
-  Profile,
-  'onboardingCompleted' | 'analyticsConsent' | 'createdAt' | 'reviewRequestVersion'
->;
+export type ReviewRequestMoment = Readonly<{
+  /** The system rating prompt is asked for on iOS only. */
+  ios: boolean;
+  onboardingCompleted: boolean;
+  /** Which open of the process this is: the cold launch, then each return that plays the launch. */
+  open: number;
+  /** The open the rating was last asked for in, in this process. */
+  requestedOpen: number | null;
+  /** Something is presented over the screen, or is about to be: a curtain, sheet, prompt, tour or modal. */
+  presentationHeld: boolean;
+  active: boolean;
+}>;
 
 /**
- * Whether the system rating prompt may be requested now: onboarding is done, the analytics
- * consent sheet is answered, the profile is at least three days old, and this prompt version
- * was never requested on this install. The system still decides whether it shows anything.
+ * Whether the system rating prompt is asked for now: once in every open after onboarding,
+ * as soon as nothing is presented over the screen and the app is active. iOS decides whether
+ * it shows anything; no question of the app's own comes before it (App Store Review
+ * Guideline 5.6.1).
  */
-export function reviewRequestDue(profile: ReviewRequestProfile, nowMs: number): boolean {
-  const createdMs = Date.parse(profile.createdAt);
-  return profile.onboardingCompleted
-    && profile.analyticsConsent !== 'undecided'
-    && (profile.reviewRequestVersion ?? 0) < reviewRequestVersion
-    && Number.isFinite(createdMs)
-    && nowMs - createdMs >= reviewRequestMinimumDays * dayMs;
+export function reviewRequestDue(moment: ReviewRequestMoment): boolean {
+  return moment.ios
+    && moment.onboardingCompleted
+    && moment.open !== moment.requestedOpen
+    && !moment.presentationHeld
+    && moment.active;
 }

@@ -4,6 +4,7 @@ import { AccessibilityInfo, Alert, AppState, Pressable, StyleSheet, Text } from 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LaunchRevealContext, LaunchScreenReadyContext } from '@/components/ui/launch-curtain';
+import { usePresentationHeld } from '@/components/ui/presentation-hold';
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
 import { RetryCounter } from '@/features/analytics/application/retry-counter';
@@ -744,6 +745,36 @@ test('the morning question waits for the launch curtain to go', async () => {
 
   await view.rerender(route(true));
   expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+});
+
+// The rating request waits for what is presented over the screen: a pending question holds it
+// from before it opens, as it waits for the curtain, until it is answered.
+test('a pending morning question holds the screen until it is answered', async () => {
+  function HeldProbe() {
+    return <Text testID="held">{usePresentationHeld() ? 'held' : 'clear'}</Text>;
+  }
+  const props = morningPendingProps();
+  const route = (done: boolean, morningChoicePending = true) => (
+    <Providers {...props} morningChoicePending={morningChoicePending} recommendation={recommendationReady()}
+      weather={weatherValue()}>
+      <LaunchRevealContext value={{ revealing: true, done }}>
+        <HeldProbe />
+        <TodayRoute />
+      </LaunchRevealContext>
+    </Providers>
+  );
+  const view = await render(route(false));
+  expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+  expect(view.getByTestId('held')).toHaveTextContent('held');
+
+  await view.rerender(route(true));
+  expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+  expect(view.getByTestId('held')).toHaveTextContent('held');
+
+  await fireEvent.press(view.getByTestId('daily-formality-usual'));
+  await view.rerender(route(true, false));
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+  expect(view.getByTestId('held')).toHaveTextContent('clear');
 });
 
 // The launch waits for Today's report and the question waits for the launch, so a first open

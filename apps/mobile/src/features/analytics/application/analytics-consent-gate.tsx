@@ -5,26 +5,32 @@ import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
 const PRESENT_DELAY_MS = 1_500;
 
-export type AnalyticsConsentGateEligibility = Readonly<{
+type AnalyticsConsentSession = Readonly<{
   analyticsConsent: AnalyticsConsent;
   onboardingCompleted: boolean;
-  pathname: string;
-  recommendationShown: boolean;
   sessionIndex: number | null;
 }>;
 
-export function isAnalyticsConsentGateEligible({
+export type AnalyticsConsentGateEligibility = AnalyticsConsentSession & Readonly<{
+  pathname: string;
+  recommendationShown: boolean;
+}>;
+
+/** The consent sheet is still to be asked for in this session, once Today allows it. */
+export function analyticsConsentWillAsk({
   analyticsConsent,
   onboardingCompleted,
-  pathname,
-  recommendationShown,
   sessionIndex,
-}: AnalyticsConsentGateEligibility): boolean {
+}: AnalyticsConsentSession): boolean {
   return onboardingCompleted
     && analyticsConsent === 'undecided'
-    && sessionMayAskForConsent(sessionIndex)
-    && recommendationShown
-    && pathname === '/';
+    && sessionMayAskForConsent(sessionIndex);
+}
+
+export function isAnalyticsConsentGateEligible(eligibility: AnalyticsConsentGateEligibility): boolean {
+  return analyticsConsentWillAsk(eligibility)
+    && eligibility.recommendationShown
+    && eligibility.pathname === '/';
 }
 
 export type AnalyticsConsentGateProps = Readonly<{

@@ -12,7 +12,8 @@ import {
 import { BackHandler } from 'react-native';
 
 import { useLaunchReveal } from '@/components/ui/launch-curtain';
-import { sessionMayAskForConsent } from '@/features/analytics/domain/analytics-session';
+import { usePresentationHold } from '@/components/ui/presentation-hold';
+import { analyticsConsentWillAsk } from '@/features/analytics/application/analytics-consent-gate';
 import { NotificationApplicationContext } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
@@ -28,6 +29,7 @@ import {
   isDeepLinkLaunch,
   isProfileHostedPath,
   isWalkthroughDue,
+  pendingWalkthrough,
   walkthroughOpening,
   type LaunchClaim,
 } from '@/features/walkthrough/domain/walkthrough-rules';
@@ -108,8 +110,7 @@ export function WalkthroughProvider({
   const [openedThisLaunch, setOpenedThisLaunch] = useState(false);
 
   // Claims latch for the launch: a sheet that has been answered still claimed it.
-  const consentWillAsk = profile !== null && profile.onboardingCompleted
-    && profile.analyticsConsent === 'undecided' && sessionMayAskForConsent(sessionIndex);
+  const consentWillAsk = profile !== null && analyticsConsentWillAsk({ ...profile, sessionIndex });
   const raised: readonly (LaunchClaim | false)[] = [
     consentWillAsk && 'analytics-consent',
     openedNotifications > 0 && 'notification',
@@ -150,13 +151,18 @@ export function WalkthroughProvider({
   // The tour never opens over the launch curtain, nor in a launch nobody has seen yet (no
   // session index), where the consent sheet could not claim the launch before it.
   const launch = useLaunchReveal();
-  const opening = profile && launch.done && sessionIndex !== null ? walkthroughOpening({
-    running,
+  const gate = profile ? {
     due: isWalkthroughDue(profile.walkthroughVersion),
     autoOpenedThisLaunch: openedThisLaunch,
     newUserSession,
     claims,
     manualPending,
+  } : null;
+  // The tour on screen, or still to open in this launch, is presented over the app.
+  usePresentationHold(running || (gate !== null && pendingWalkthrough(gate) !== null));
+  const opening = gate && launch.done && sessionIndex !== null ? walkthroughOpening({
+    ...gate,
+    running,
     onToday: pathname === '/',
     todaySettled: today?.settled === true,
     overlayOpen: today?.overlayOpen === true,
