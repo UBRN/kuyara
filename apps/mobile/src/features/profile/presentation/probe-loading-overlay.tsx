@@ -11,7 +11,7 @@ type ProbeLoadingOverlayProps = Readonly<{ label: string }>;
 function PulseDot({ index }: Readonly<{ index: number }>) {
   const theme = useKuyaraTheme();
   // An unresolved wait is ambient motion, not a transition: the dots breathe on the
-  // ambient role's calm step. Each dot starts a leg later than the one before it, so the
+  // ambient pulse's step. Each dot starts a leg later than the one before it, so the
   // three read as one breath travelling.
   const progress = useAmbientPulse(index);
 

@@ -31,6 +31,10 @@ function ConditionSample({ motion = 'fall' }: Readonly<{ motion?: SymbolMotion }
   return <View />;
 }
 
+function SymbolSample({ motion }: Readonly<{ motion: SymbolMotion }>) {
+  return <Animated.View style={useConditionSymbolMotion(motion, lightTheme.motion.ambient.intense)} testID="symbol" />;
+}
+
 function PulseSample({ index = 0 }: Readonly<{ index?: number }>) {
   return <Animated.View style={{ opacity: useAmbientPulse(index) }} testID="pulse" />;
 }
@@ -81,6 +85,19 @@ test.each([
   cancel.mockClear();
   await act(() => { appStateSubscribers.forEach((subscriber) => subscriber('background')); });
   expect(cancel).toHaveBeenCalled();
+  await result.unmount();
+});
+
+// A stopped native loop reports its last value back after the stop, so a symbol that holds
+// still must carry no transform at all, not one that reads the loop's progress.
+test('a symbol that holds still carries no transform, also after a fall or a drift', async () => {
+  const symbol = (motion: SymbolMotion) => (
+    <KuyaraThemeContext.Provider value={lightTheme}><SymbolSample motion={motion} /></KuyaraThemeContext.Provider>
+  );
+  const result = await render(symbol('fall'));
+  expect(StyleSheet.flatten(result.getByTestId('symbol').props.style).transform).toBeDefined();
+  await result.rerender(symbol('still'));
+  expect(StyleSheet.flatten(result.getByTestId('symbol').props.style).transform).toBeUndefined();
   await result.unmount();
 });
 
