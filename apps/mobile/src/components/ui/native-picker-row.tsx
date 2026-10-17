@@ -176,15 +176,12 @@ export function NativePickerRow<T extends string>({
       glyph={icon ? ({ color, size }) => <Icon color={color} name={icon} size={size} /> : undefined}
       label={label}
       onPress={disabled ? undefined : () => {
-        showAlert(
-          label,
-          undefined,
-          options.map((option) => ({
-            onPress: () => select(option.value),
-            text: option.label,
-          })),
-          { cancelable: true },
-        );
+        const [first, ...rest] = options.map((option) => ({
+          onPress: () => select(option.value),
+          text: option.label,
+        }));
+        // A picker with no options has nothing to offer.
+        if (first) showAlert(label, undefined, [first, ...rest], { cancelable: true });
       }}
       testID={testID}
       value={selectedLabel}

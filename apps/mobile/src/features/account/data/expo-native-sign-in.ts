@@ -1,5 +1,6 @@
 import type * as AppleAuthentication from 'expo-apple-authentication';
 
+import { whilePresented } from '@/components/ui/presentation-hold';
 import type { AppleCredentialState } from '@/features/account/application/account-session';
 import type { AppleSignIn, NonceSource } from '@/features/account/data/supabase-account-auth';
 
@@ -19,11 +20,11 @@ export function createExpoAppleSignIn(apple: typeof AppleAuthentication): AppleS
   return {
     async signIn(hashedNonce) {
       try {
-        const credential = await apple.signInAsync({
+        const credential = await whilePresented(() => apple.signInAsync({
           // The email only: the name belongs to the local profile (ADR 0041 section 1).
           requestedScopes: [apple.AppleAuthenticationScope.EMAIL],
           nonce: hashedNonce,
-        });
+        }));
         return { identityToken: credential.identityToken };
       } catch (error) {
         if (cancelled(error)) return null;
@@ -32,7 +33,7 @@ export function createExpoAppleSignIn(apple: typeof AppleAuthentication): AppleS
     },
     async reauthorize() {
       try {
-        const credential = await apple.signInAsync({ requestedScopes: [] });
+        const credential = await whilePresented(() => apple.signInAsync({ requestedScopes: [] }));
         return { authorizationCode: credential.authorizationCode };
       } catch (error) {
         if (cancelled(error)) return null;
