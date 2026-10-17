@@ -66,7 +66,7 @@ export default function TodayRoute() {
     ? activeLocationSnapshot(weatherState.snapshot, weatherState.activeLocation) : null;
   const placeTimeZone = placeSnapshot?.timeZone ?? null;
   const askAgain = useAskAgainSheet(placeTimeZone);
-  const { state, todayFailure, recommendationFailure } = classifyTodayState({
+  const { state, todayFailure, recommendationFailure, launchReady } = classifyTodayState({
     weather: weatherState,
     recommendation: recommendationState,
     profile: profileState,
@@ -77,11 +77,11 @@ export default function TodayRoute() {
   });
 
   // Today is the first screen the shell mounts after bootstrap, and the app is usable once it
-  // has drawn what it has to show; the same moment lets a cold launch dive. The kind is
-  // coarse: loaded or unavailable.
-  const drawn = state.kind !== 'loading';
-  useScreenInteractive(drawn ? { state: state.kind } : null);
-  useLaunchScreenReady(drawn);
+  // has drawn what it has to show. The kind is coarse: loaded or unavailable. A cold launch
+  // waits only until Today has drawn what the device holds, so neither a day question nor a
+  // generation keeps it waiting.
+  useScreenInteractive(state.kind !== 'loading' ? { state: state.kind } : null);
+  useLaunchScreenReady(launchReady);
 
   // Only the focused Today route can show these failures. A weather failure belongs to
   // the composite Today surface; a recommendation failure belongs to its distinct surface.

@@ -1,9 +1,9 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
-import { useEffect, useState, useSyncExternalStore, type PropsWithChildren } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore, type PropsWithChildren } from 'react';
 import { AccessibilityInfo, Alert, AppState, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { LaunchRevealContext } from '@/components/ui/launch-curtain';
+import { LaunchRevealContext, LaunchScreenReadyContext } from '@/components/ui/launch-curtain';
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
 import { RetryCounter } from '@/features/analytics/application/retry-counter';
@@ -744,6 +744,34 @@ test('the morning question waits for the launch curtain to go', async () => {
 
   await view.rerender(route(true));
   expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+});
+
+// The launch waits for Today's report and the question waits for the launch, so a first open
+// of the dressing day, whose outfit is asked for only once the question is answered, must
+// report without the outfit.
+test('a pending morning question with no outfit yet lets the launch finish, then opens', async () => {
+  function Launch({ children }: PropsWithChildren) {
+    const [done, setDone] = useState(false);
+    const report = useCallback(() => setDone(true), []);
+    return (
+      <LaunchScreenReadyContext value={report}>
+        <LaunchRevealContext value={{ revealing: done, done }}>{children}</LaunchRevealContext>
+      </LaunchScreenReadyContext>
+    );
+  }
+  const view = await render(
+    <Providers {...morningPendingProps()} recommendation={recommendationReady({ snapshot: null })}
+      weather={weatherValue()}>
+      <Launch>
+        <TodayRoute />
+      </Launch>
+    </Providers>,
+  );
+
+  expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+  expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+  // Observe's interactive mark still waits for the content itself.
+  expect(mockMarkInteractive).not.toHaveBeenCalled();
 });
 
 test('Today releases its name prompt when saving the dismissal gate fails', async () => {

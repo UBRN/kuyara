@@ -160,3 +160,40 @@ test('Today and detail both read the ideas from the state, and only for the acti
     assert.equal(classifyWith(null, surface).state.snapshot.moreIdeas, undefined);
   }
 });
+
+// The cold launch waits only for what the device holds: once both stores have loaded, Today
+// has drawn its surface, even while it waits for the day's new outfit.
+test('Today is launch-ready once its stores have loaded, even while it waits for an outfit', () => {
+  const placeWeather = weather({
+    snapshot: todayWeatherSnapshot,
+    activeLocation: { ...todayActiveLocation, locationKey: todayWeatherSnapshot.locationKey },
+    freshness: 'fresh',
+  });
+  const readyProfile = { status: 'ready', profile: { clothingPreference: 'womens' } };
+  const awaiting = (recommendation) => classifyTodayState({
+    weather: placeWeather,
+    recommendation: {
+      status: 'ready', snapshot: null, isRefreshing: false, lastFailure: null,
+      phase: null, exhausted: false, showFirstGenerationOverlay: false, ...recommendation,
+    },
+    profile: readyProfile,
+    surface: 'today',
+  });
+
+  // A new dressing day with its question unanswered: no outfit is asked for yet.
+  const questionPending = awaiting({});
+  assert.equal(questionPending.state.kind, 'loading');
+  assert.equal(questionPending.launchReady, true);
+  // The day's outfit is being generated.
+  const generating = awaiting({ isRefreshing: true, phase: 'preparing-outfits' });
+  assert.equal(generating.state.kind, 'loading');
+  assert.equal(generating.launchReady, true);
+
+  // The very first weather fetch, with no snapshot for the place yet, still holds the launch.
+  assert.equal(classify(weather({ isRefreshing: true })).launchReady, false);
+  // So do stores still loading from the device.
+  assert.equal(classify({ status: 'loading' }).launchReady, false);
+  assert.equal(classifyTodayState({
+    weather: placeWeather, recommendation: { status: 'loading' }, profile: readyProfile, surface: 'today',
+  }).launchReady, false);
+});
