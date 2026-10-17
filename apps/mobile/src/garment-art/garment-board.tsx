@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation,
   interpolateColor,
@@ -400,9 +400,21 @@ export function pieceShadowOf(unit: number, stageColor: string, colorScheme: 'li
 }
 
 /**
- * One piece painted at its drawn box, in points, casting its shadow. The filter reads only
- * the painting's alpha, so it follows whatever the drawing paints; `only` draws the shadow
- * alone. Its units are points: the scale lives on the inner group.
+ * On iOS a piece's view casts its shadow as a layer shadow: Core Animation reads the drawing's
+ * alpha off the main thread, so the shadow follows whatever the drawing paints. An SVG filter
+ * runs Core Image on every draw, and UIKit draws every SVG view again on each return from the
+ * background. Android keeps the filter. The layer's radius is the filter's standard deviation:
+ * of 0.8, 1, 1.2 and 2 times it, 1 drew the closest match on the Simulator.
+ */
+function layerShadowOf({ color, dx, dy, blur }: PieceShadow): ViewStyle {
+  return { shadowColor: color, shadowOffset: { width: dx, height: dy }, shadowOpacity: 1, shadowRadius: blur };
+}
+
+/**
+ * One piece painted at its drawn box, in points, with the shadow filter or, with `shadow`
+ * null, alone. The filter reads only the painting's alpha, so it follows whatever the drawing
+ * paints; `only` draws the shadow alone. Its units are points: the scale lives on the inner
+ * group.
  */
 function ShadowedPainting({
   id,
@@ -422,7 +434,7 @@ function ShadowedPainting({
   ink: string;
   outline?: number;
   layer?: 'all' | 'fill' | 'outline';
-  shadow: PieceShadow;
+  shadow: PieceShadow | null;
   only?: boolean;
 }>) {
   // The composition keeps each drawing's aspect ratio, so one scale serves both axes.
@@ -440,6 +452,7 @@ function ShadowedPainting({
       />
     </G>
   );
+  if (!shadow) return painting;
   const { margin } = shadow;
   return (
     <G>
@@ -470,7 +483,8 @@ function ShadowedPainting({
 
 /**
  * One composed piece in its own box, the viewBox fitted to its drawn bounds. With a shadow
- * the drawing spreads past the box by the shadow's margin, so nothing clips it.
+ * the drawing spreads past the box by the shadow's margin, so nothing clips it; on iOS the
+ * view casts it, except a shadow drawn alone, which only the filter can draw.
  */
 export function PieceArtwork({
   piece,
@@ -499,8 +513,9 @@ export function PieceArtwork({
 
   if (shadow) {
     const { margin } = shadow;
+    const cast = Platform.OS === 'ios' && !shadowOnly;
     return (
-      <View pointerEvents="none" style={{ height, width }}>
+      <View pointerEvents="none" style={[{ height, width }, cast && layerShadowOf(shadow)]}>
         <Svg
           height={height + 2 * margin}
           style={[styles.piece, { left: -margin, top: -margin }]}
@@ -514,7 +529,7 @@ export function PieceArtwork({
             outline={outline}
             piece={piece}
             roles={roles}
-            shadow={shadow}
+            shadow={cast ? null : shadow}
           />
         </Svg>
       </View>
@@ -762,47 +777,33 @@ export function GarmentBoard({
   // shadow on it.
   const reading = new Map(result.order.map((piece, index) => [piece, index]));
 
-  if (!entrance && rise) {
-    // The stage the screen draws stays where it is; the layers carry no accessibility
-    // props, so the rise adds no node a screen reader stops on.
-    return (
+  if (!entrance) {
+    // Each piece, with its shadow, on its own view in the stacking order. A rising board's
+    // layers carry no accessibility props, so the rise adds no node a screen reader stops on,
+    // and the stage the screen draws stays where it is.
+    const board = (
       <View {...accessibilityProps} style={{ height, width }}>
         {result.stack.map((piece) => {
           const box = placed.get(piece)!;
-          return (
+          const style = [styles.piece, { height: box.h, left: box.x, top: box.y, width: box.w }];
+          const artwork = (
+            <PieceArtwork height={box.h} ink={colors.textPrimary} outline={outline} piece={piece}
+              roles={roles.get(piece.slot)!} shadow={shadow} width={box.w} />
+          );
+          return rise ? (
             <RisingLayer
               after={replaces ? theme.motion.fast : 0}
               held={holdRise}
               index={reading.get(piece)!}
               key={piece.slot}
-              style={[styles.piece, { height: box.h, left: box.x, top: box.y, width: box.w }]}>
-              <PieceArtwork height={box.h} ink={colors.textPrimary} outline={outline} piece={piece}
-                roles={roles.get(piece.slot)!} shadow={shadow} width={box.w} />
+              style={style}>
+              {artwork}
             </RisingLayer>
-          );
+          ) : <View key={piece.slot} style={style}>{artwork}</View>;
         })}
       </View>
     );
-  }
-
-  if (!entrance) {
-    const board = (
-      <Svg {...accessibilityProps} height={height} width={width}>
-        {result.stack.map((piece) => (
-          <ShadowedPainting
-            box={placed.get(piece)!}
-            id={`shadow-${piece.slot}`}
-            ink={colors.textPrimary}
-            key={piece.slot}
-            outline={outline}
-            piece={piece}
-            roles={roles.get(piece.slot)!}
-            shadow={shadow}
-          />
-        ))}
-      </Svg>
-    );
-    return onLeft ? <LeavingLayer onLeft={onLeft}>{board}</LeavingLayer> : board;
+    return onLeft && !rise ? <LeavingLayer onLeft={onLeft}>{board}</LeavingLayer> : board;
   }
 
   const fromBoxes = entranceStartBoxes(pieces, width, entrance.fromPreset, cut, entrance.fromFit === true, large);

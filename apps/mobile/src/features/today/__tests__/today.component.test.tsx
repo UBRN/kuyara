@@ -395,11 +395,11 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .toMatchObject({ marginLeft: spacing.lg, marginRight: spacing.lg });
     expect(result.getByTestId(`today-primary-board-${primary.id}`, hidden)).toBeOnTheScreen();
     const shadows = result.getByTestId('today-stage', hidden)
-      .queryAll((node) => String(node.type).includes('FeFlood'));
+      .queryAll((node) => node.type === 'View' && StyleSheet.flatten(node.props.style)?.shadowColor != null);
     expect(shadows).toHaveLength(primary.boardPieces.length);
     // A dark-appearance stage is a light plate: its pieces take the light shadow step.
     const shadow = shiftOklchLightness(stageColor, garmentShadowRule.step[plateTheme(theme, stageColor).colorScheme]);
-    expect(shadows.every((node) => node.props.floodColor?.payload === processColor(shadow))).toBe(true);
+    expect(shadows.every((node) => StyleSheet.flatten(node.props.style).shadowColor === shadow)).toBe(true);
     expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(primary.title);
     expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
       .toMatchObject(typography.label);
