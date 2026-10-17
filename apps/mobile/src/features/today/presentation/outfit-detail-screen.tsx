@@ -20,6 +20,7 @@ import {
   Screen,
   haptics,
   useBandWidth,
+  useScreenContentWidth,
   useTextScaling,
 } from '@/components/ui';
 import {
@@ -181,10 +182,8 @@ export function OutfitDetailScreen({
   // The column's width is seeded from the window, as `Screen` lays it out, so the board is
   // drawn on the first frame: a zoom from a Today alternative grows the finished screen
   // instead of one whose board appears after its own layout. The layout event then confirms it.
-  const { width: windowWidth } = useWindowDimensions();
-  const [contentWidth, setContentWidth] = useState(
-    () => Math.max(0, Math.min(windowWidth, layout.maxContentWidth) - 2 * spacing.lg),
-  );
+  const initialContentWidth = useScreenContentWidth();
+  const [contentWidth, setContentWidth] = useState(() => Math.max(0, initialContentWidth));
   const bandWidth = useBandWidth(contentWidth);
   // ADR 0026 section 3: the name buttons under the board, measured in the row, and the row's height.
   const [nameRects, setNameRects] = useState<Readonly<Partial<Record<OutfitSlot, NameRect>>>>({});
