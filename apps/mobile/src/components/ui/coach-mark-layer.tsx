@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Animated as NativeAnimated, Easing, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -233,19 +233,28 @@ export function CoachMarkLayer({
  */
 export function CoachMarkRing({ rect }: Readonly<{ rect: CoachMarkRect }>) {
   const theme = useKuyaraTheme();
-  const opacity = useSharedValue(0);
+  const [fade] = useState(() => new NativeAnimated.Value(0));
   const pulse = useAmbientPulse();
   useEffect(() => {
-    opacity.set(fadeTo(1, theme.motion.normal, theme.motion));
-  }, [opacity, theme.motion]);
-  const style = useAnimatedStyle(() => {
-    const breath = (pulse.get() - AMBIENT_PULSE_FLOOR) / (1 - AMBIENT_PULSE_FLOOR);
-    return { opacity: opacity.get() * (RING_FLOOR + (1 - RING_FLOOR) * breath) };
-  });
+    NativeAnimated.timing(fade, {
+      duration: theme.motion.normal,
+      easing: Easing.bezier(...theme.motion.fadeCurve),
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [fade, theme.motion]);
+  // The fade and the breath both run on the native driver, so the ring never commits the
+  // shadow tree while the tour waits on it.
+  const style = useMemo(() => ({
+    opacity: NativeAnimated.multiply(fade, pulse.interpolate({
+      inputRange: [AMBIENT_PULSE_FLOOR, 1],
+      outputRange: [RING_FLOOR, 1],
+    })),
+  }), [fade, pulse]);
   const inset = RING_OUTSET;
 
   return (
-    <Animated.View
+    <NativeAnimated.View
       pointerEvents="none"
       style={[styles.ring, {
         borderColor: theme.colors.brandAccent,

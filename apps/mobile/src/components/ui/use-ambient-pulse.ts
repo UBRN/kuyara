@@ -1,19 +1,14 @@
-import { useCallback } from 'react';
-import {
-  cancelAnimation,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
+import { useCallback, useMemo, useState } from 'react';
+import { Animated, Easing } from 'react-native';
 
+import { thereAndBack } from '@/components/ui/there-and-back';
 import { useKuyaraTheme } from '@/theme/theme-context';
 import { useWhileVisible } from '@/components/ui/use-screen-visible';
 
 /** The trough of one breath. The crest is 1, so a consumer scales the whole range. */
 export const AMBIENT_PULSE_FLOOR = 0.45;
+
+const breath = thereAndBack(Easing.inOut(Easing.quad));
 
 /**
  * Law 7's ambient role. An unresolved wait is not a transition, so it breathes on the
@@ -22,29 +17,31 @@ export const AMBIENT_PULSE_FLOOR = 0.45;
  * where the calm step's 3000 ms breath reads slower than it is. It resolves to a still
  * value. `index` starts a consumer one leg after the one before it,
  * so several of them read as one breath travelling. A consumer that wants a quieter
- * breath scales the returned value rather than changing the range.
+ * breath scales the returned value rather than changing the range. The value drives React
+ * Native's `Animated.View` on the native driver, so a breath never commits the shadow tree.
  */
-export function useAmbientPulse(index = 0): SharedValue<number> {
+export function useAmbientPulse(index = 0): Animated.AnimatedInterpolation<number> {
   const theme = useKuyaraTheme();
-  const progress = useSharedValue(AMBIENT_PULSE_FLOOR);
+  const [progress] = useState(() => new Animated.Value(0));
   const leg = theme.motion.ambient.moderate;
 
   useWhileVisible(useCallback(() => {
-    progress.set(withDelay(
-      index * leg,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: leg }),
-          withTiming(AMBIENT_PULSE_FLOOR, { duration: leg }),
-        ),
-        -1,
-      ),
-    ));
+    const loop = Animated.loop(Animated.timing(progress, {
+      delay: index * leg,
+      duration: 2 * leg,
+      easing: breath,
+      toValue: 1,
+      useNativeDriver: true,
+    }));
+    loop.start();
     return () => {
-      cancelAnimation(progress);
-      progress.set(AMBIENT_PULSE_FLOOR);
+      loop.stop();
+      progress.setValue(0);
     };
   }, [index, leg, progress]));
 
-  return progress;
+  return useMemo(
+    () => progress.interpolate({ inputRange: [0, 1], outputRange: [AMBIENT_PULSE_FLOOR, 1] }),
+    [progress],
+  );
 }

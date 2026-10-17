@@ -12,7 +12,7 @@ A blanket prohibition on repetition conflicts with two accepted components:
 - The condition symbol on Today and Weather loops its turn, drift or fall on React Native's
   native animation driver in one shared hook, `components/ui/use-condition-symbol-motion.ts`.
 - `features/profile/presentation/probe-loading-overlay.tsx` pulses its dots on the shared
-  ambient hook, `components/ui/use-ambient-pulse.ts`, which owns the `withRepeat` loop.
+  ambient hook, `components/ui/use-ambient-pulse.ts`, which owns the native-driver loop.
 
 The design language permits their useful ambient character while retaining
 enforceable readability and performance boundaries.

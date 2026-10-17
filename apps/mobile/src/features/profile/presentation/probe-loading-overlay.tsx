@@ -1,5 +1,5 @@
-import { StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useMemo } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 
 import { AppText, Surface } from '@/components/ui';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
@@ -15,10 +15,10 @@ function PulseDot({ index }: Readonly<{ index: number }>) {
   // three read as one breath travelling.
   const progress = useAmbientPulse(index);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: progress.get(),
-    transform: [{ scale: 0.8 + progress.get() * 0.2 }],
-  }));
+  const animatedStyle = useMemo(() => ({
+    opacity: progress,
+    transform: [{ scale: Animated.add(0.8, Animated.multiply(progress, 0.2)) }],
+  }), [progress]);
 
   return (
     <Animated.View

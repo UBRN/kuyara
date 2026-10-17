@@ -1,15 +1,8 @@
-import { useEffect } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import { useEffect, useMemo, useState } from 'react';
+import { Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { RunwayParticleKind } from '@/features/today/presentation/runway-palette';
+import { thereAndBack } from '@/components/ui/there-and-back';
 import { useScreenVisible } from '@/components/ui/use-screen-visible';
 import type { MotionTokens } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -26,6 +19,7 @@ const SNOW_SWAY = 30;
 // Motes breathe on a short diagonal and back; wisps cross the band and start again.
 const MOTE_PATH = { x: [-8, 10], y: [10, -14] } as const;
 const WISP_OVERRUN = 80;
+const moteBreath = thereAndBack(Easing.inOut(Easing.ease));
 
 // A fixed seed: the same kind always scatters the same way, so the band never reshuffles
 // on a re-render and tests see a stable layout.
@@ -85,46 +79,38 @@ function RunwayParticle({
   visible,
 }: Readonly<{ kind: RunwayParticleKind; particle: Particle; color: string; width: number; height: number; visible: boolean }>) {
   const theme = useKuyaraTheme();
-  const progress = useSharedValue(0);
+  const [progress] = useState(() => new Animated.Value(0));
   const duration = loopDuration(kind, particle.size, theme.motion.ambient);
 
+  // The loop runs on the native driver, so dozens of particles never commit the shadow tree.
   useEffect(() => {
-    cancelAnimation(progress);
-    progress.set(0);
     if (!visible) return undefined;
     // Motes breathe there and back on an eased leg; everything else travels one way, linear.
-    const mote = kind === 'mote';
-    progress.set(withRepeat(
-      withTiming(1, { duration, easing: mote ? Easing.inOut(Easing.ease) : Easing.linear }),
-      -1,
-      mote,
-    ));
-    return () => cancelAnimation(progress);
+    const loop = Animated.loop(Animated.timing(progress, kind === 'mote'
+      ? { duration: 2 * duration, easing: moteBreath, toValue: 1, useNativeDriver: true }
+      : { duration, easing: Easing.linear, toValue: 1, useNativeDriver: true }));
+    loop.start();
+    return () => {
+      loop.stop();
+      progress.setValue(0);
+    };
   }, [duration, kind, progress, visible]);
 
   const { phase, sway } = particle;
-  const animatedStyle = useAnimatedStyle(() => {
-    const value = kind === 'mote' ? progress.get() : (progress.get() + phase) % 1;
+  const animatedStyle = useMemo(() => {
+    const value = kind === 'mote' ? progress : Animated.modulo(Animated.add(progress, phase), 1);
+    const travel = (from: number, to: number) => value.interpolate({ inputRange: [0, 1], outputRange: [from, to] });
     switch (kind) {
       case 'rain':
-        return { transform: [
-          { translateX: -RAIN_DRIFT * height * value },
-          { translateY: value * (height + 2 * EDGE) - EDGE },
-        ] };
+        return { transform: [{ translateX: travel(0, -RAIN_DRIFT * height) }, { translateY: travel(-EDGE, height + EDGE) }] };
       case 'snow':
-        return { transform: [
-          { translateX: 2 * sway * SNOW_SWAY * value },
-          { translateY: value * (height + 2 * EDGE) - EDGE },
-        ] };
+        return { transform: [{ translateX: travel(0, 2 * sway * SNOW_SWAY) }, { translateY: travel(-EDGE, height + EDGE) }] };
       case 'mote':
-        return { transform: [
-          { translateX: MOTE_PATH.x[0] + (MOTE_PATH.x[1] - MOTE_PATH.x[0]) * value },
-          { translateY: MOTE_PATH.y[0] + (MOTE_PATH.y[1] - MOTE_PATH.y[0]) * value },
-        ] };
+        return { transform: [{ translateX: travel(...MOTE_PATH.x) }, { translateY: travel(...MOTE_PATH.y) }] };
       case 'wisp':
-        return { transform: [{ translateX: value * (width + 2 * WISP_OVERRUN) - WISP_OVERRUN }] };
+        return { transform: [{ translateX: travel(-WISP_OVERRUN, width + WISP_OVERRUN) }] };
     }
-  });
+  }, [height, kind, phase, progress, sway, width]);
   const position: StyleProp<ViewStyle> = kind === 'rain' || kind === 'snow'
     ? { left: particle.x * width, top: 0 }
     : kind === 'wisp'
