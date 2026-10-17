@@ -88,6 +88,16 @@ function screen(language: SupportedLanguage, state: TodayScreenState, open: (id:
 
 const hidden = { includeHiddenElements: true };
 
+// The cold launch dives once Today's first render is drawn: a tile the row mounted only later
+// would be mounted and drawn under the dive.
+test('every idea is drawn in the first render, none in a later batch', async () => {
+  expect(ideas.length).toBeGreaterThan(10);
+  const result = await render(screen('en', withIdeas(ideas.length)));
+  for (const { optionId } of ideas) {
+    expect(result.getByTestId(`today-more-idea-board-${optionId}`, hidden)).toBeTruthy();
+  }
+});
+
 test.each([
   ['en', 'More ideas', `${ideas.length} more outfits the stylist looked at. All suit today’s weather.`],
   ['tr', 'Daha fazla fikir', `Stilistin baktığı ${ideas.length} kombin daha. Hepsi bugünkü havaya uygun.`],

@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, { type AnimatedScrollViewProps } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,6 +36,17 @@ export function useScreenGutters() {
 export function useBandWidth(contentWidth: number) {
   const { left, right } = useScreenGutters();
   return contentWidth + left + right;
+}
+
+/**
+ * The width a full-window `Screen` gives its content before the content is laid out: the
+ * window, capped at the content's maximum width, less the gutters. A screen that draws from
+ * its measured content width starts from this, so its first render is already its last.
+ */
+export function useScreenContentWidth() {
+  const { width } = useWindowDimensions();
+  const { left, right } = useScreenGutters();
+  return Math.min(width, layout.maxContentWidth) - left - right;
 }
 
 export function Screen({

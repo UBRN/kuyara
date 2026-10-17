@@ -14,6 +14,7 @@ import {
   Screen,
   TextButton,
   useRefreshOutcomeHaptics,
+  useScreenContentWidth,
   useTextScaling,
 } from '@/components/ui';
 import { useLaunchReveal } from '@/components/ui/launch-curtain';
@@ -272,8 +273,11 @@ function TodayScreenContent({
   const theme = useKuyaraTheme();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
   const { controlScale, usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
-  // Measure the content after Screen applies its safe-area insets and width cap.
-  const [contentWidth, setContentWidth] = useState(0);
+  // Measure the content after Screen applies its safe-area insets and width cap, starting from
+  // the width Screen gives it: a first render at no width would lay out and draw every board
+  // again once measured, while the cold launch dives.
+  const screenContentWidth = useScreenContentWidth();
+  const [contentWidth, setContentWidth] = useState(screenContentWidth);
   // Waiting for the day question is not a slow generation, so its clock starts at the answer.
   const isGenerating = isGenerationRunning(presentation.kind, awaitingDayQuestion);
   // Law 5's warning structure: the same fact, plus what is still happening, once the
