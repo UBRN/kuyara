@@ -44,6 +44,9 @@ export function useConditionSymbolMotion(motion: SymbolMotion, legMs: number) {
       return { transform: [{ rotate: progress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${TURN_DEGREES}deg`] }) }] };
     }
     if (motion === 'drift') return { transform: [{ translateX: Animated.multiply(progress, DRIFT_TRAVEL) }] };
+    // A stopped native loop reports its last value back after the stop, so a symbol that holds
+    // still reads no progress at all rather than resting where a turn or drift left off.
+    if (motion === 'still') return {};
     return { transform: [{ translateY: Animated.multiply(progress, FALL_TRAVEL) }] };
   }, [motion, progress]);
 }
