@@ -121,10 +121,12 @@ function RisingLayer({
   const offset = useSharedValue<number>(RISE_TRAVEL);
   const opacity = useSharedValue(0);
   const didStart = useRef(false);
-  // Once landed, React holds the resting style itself: Reanimated drops a settled view's
-  // props natively 2 s after its last frame and only syncs them to React if a JS tick
-  // lands 1 to 2 s after it, so a stall across that window left the zero-opacity start
-  // for the next re-render to commit, and the pieces vanished from a still stage.
+  // Once landed, the piece stands on a fresh plain view whose style React alone holds.
+  // Reanimated drops a settled view's props natively 2 s after its last frame and syncs them
+  // back only if a JS tick lands 1 to 2 s after it; the animated view then lays the values it
+  // synced last over every style it is given. Held under the launch curtain, a piece syncs its
+  // start; a JS stall or a leave from the app just as it lands skips the sync of its resting
+  // values, and the next commit drew the start again: the pieces vanished from a still stage.
   const [risen, setRisen] = useState(false);
 
   useEffect(() => {
@@ -147,7 +149,8 @@ function RisingLayer({
     transform: [{ translateY: offset.get() }],
   }));
 
-  return <Animated.View pointerEvents="none" style={[style, risen ? undefined : riseStyle]}>{children}</Animated.View>;
+  return risen ? <View pointerEvents="none" style={style}>{children}</View>
+    : <Animated.View pointerEvents="none" style={[style, riseStyle]}>{children}</Animated.View>;
 }
 
 type GarmentBoardEntrance = Readonly<{

@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Platform, processColor, StyleSheet } from 'react-native';
+import { Platform, processColor, StyleSheet, View, type ViewProps } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
 import { composeFlatLay, fitTodayStage, flatLayPreset } from '@/garment-art/compose-flat-lay';
@@ -250,6 +250,27 @@ test('a landed rise leaves no zero-opacity start in the props React commits', as
     expect(layer.transform ?? []).toEqual([]);
   }
   expect(result.getByRole('image', { name: 'Dress, sandals' })).toHaveProp('testID', 'board');
+});
+
+// Reanimated's animated view lays the last values it synced back from the UI thread over every
+// style it is given, and syncs only a second after a view's last frame. Held under the launch
+// curtain, each piece synced its start; leaving the app just as the pieces landed skipped the
+// sync of their resting values, and the next commit drew the start again: the stage stayed,
+// the pieces vanished until restart.
+function SyncedStartView({ style, ...props }: ViewProps) {
+  return <View {...props} style={[style, { opacity: 0, transform: [{ translateY: spacing.xl }] }]} />;
+}
+
+test('a landed rise keeps no start its animated view synced back', async () => {
+  const animatedView = jest.spyOn(Reanimated.default, 'View')
+    .mockImplementation(SyncedStartView as unknown as typeof Reanimated.default.View);
+  const result = await render(risingBoard, { wrapper: LightTheme });
+  animatedView.mockRestore();
+
+  for (const layer of riseLayers(result)) {
+    expect(layer.opacity ?? 1).toBe(1);
+    expect(layer.transform ?? []).toEqual([]);
+  }
 });
 
 test('entrance keeps one accessible detail-height image and reports settle once', async () => {
