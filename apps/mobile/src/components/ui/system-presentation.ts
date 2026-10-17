@@ -26,28 +26,34 @@ type SystemAlertButton = Readonly<Pick<AlertButton, 'isPreferred' | 'style' | 't
 export function showAlert(
   title: string,
   message: string | undefined,
-  buttons: readonly SystemAlertButton[],
+  buttons: readonly [SystemAlertButton, ...SystemAlertButton[]],
   options?: AlertOptions,
 ): void {
   const release = holdPresentation();
-  Alert.alert(
-    title,
-    message,
-    buttons.map((button) => ({
-      ...button,
-      onPress: () => {
-        release();
-        button.onPress?.();
+  try {
+    Alert.alert(
+      title,
+      message,
+      buttons.map((button) => ({
+        ...button,
+        onPress: () => {
+          release();
+          button.onPress?.();
+        },
+      })),
+      {
+        ...options,
+        onDismiss: () => {
+          release();
+          options?.onDismiss?.();
+        },
       },
-    })),
-    {
-      ...options,
-      onDismiss: () => {
-        release();
-        options?.onDismiss?.();
-      },
-    },
-  );
+    );
+  } catch (error) {
+    // An alert that never appeared holds nothing.
+    release();
+    throw error;
+  }
 }
 
 /** The system share sheet, holding the screen until it closes, shared or not. */

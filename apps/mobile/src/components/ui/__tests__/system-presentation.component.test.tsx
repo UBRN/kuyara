@@ -36,6 +36,19 @@ test('an alert holds the screen until one of its buttons closes it, and its acti
   expect(held(view)).toBe('clear');
 });
 
+test('an alert that fails to present releases its hold, and an alert needs a button', async () => {
+  jest.spyOn(Alert, 'alert').mockImplementation(() => { throw new Error('no window'); });
+  const view = await render(<HeldProbe />);
+  await act(() => {
+    expect(() => showAlert('Title', undefined, [{ text: 'OK' }])).toThrow('no window');
+  });
+  expect(held(view)).toBe('clear');
+  // iOS closes an alert only through a button, so one with none would hold the screen for good.
+  // @ts-expect-error an alert needs at least one button
+  const noButton = () => showAlert('Title', undefined, []);
+  expect(noButton).toBeInstanceOf(Function);
+});
+
 test('a share sheet, or any system sheet the app waits for, holds the screen until it settles', async () => {
   let close: () => void = () => undefined;
   jest.spyOn(Share, 'share').mockImplementation(() => new Promise((resolve) => {

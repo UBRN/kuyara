@@ -491,28 +491,85 @@ test('feature presentation code draws buttons only through the button primitives
 
 // The App Store rating request waits until nothing is presented over the screen, so every system
 // presentation holds the screen while it is up. Alerts and share sheets are presented only through
-// `components/ui/system-presentation.ts`, which holds for them; a picker or browser the app waits
-// for is presented inside `whilePresented` in the file that calls it.
-const directPresentationPattern = /\b(?:Alert\.(?:alert|prompt)|Share\.share|ActionSheetIOS\.\w+)\s*\(/;
-const awaitedPresentationPattern = /\b(?:launchImageLibraryAsync|launchCameraAsync|openBrowserAsync|openAuthSessionAsync)\s*\(/;
+// `components/ui/system-presentation.ts`, which holds for them; a picker, browser, sign-in sheet or
+// document or file sheet the app waits for is presented inside a `whilePresented(...)` call. The
+// check reads each call, so an aliased import or a call broken across lines counts too.
+const presentationOwner = 'components/ui/system-presentation.ts';
+const directPresenters = new Set(['Alert', 'Share', 'ActionSheetIOS']);
+const awaitedPresenters = new Set([
+  'launchImageLibraryAsync', 'launchCameraAsync', 'openBrowserAsync', 'openAuthSessionAsync',
+  'signInAsync', 'shareAsync', 'getDocumentAsync',
+]);
+
+/** Each system presentation call in `text` that does not hold the screen, as `file:line`. */
+function unheldPresentations(relativePath, text) {
+  const source = ts.createSourceFile(relativePath, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  // Local names bound to React Native's presenters (`import { Alert as A }`) and namespaces of it.
+  const directNames = new Set();
+  const namespaces = new Set();
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || statement.moduleSpecifier.text !== 'react-native') continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings && ts.isNamespaceImport(bindings)) namespaces.add(bindings.name.text);
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) {
+        if (directPresenters.has((element.propertyName ?? element.name).text)) directNames.add(element.name.text);
+      }
+    }
+  }
+  const isDirect = (receiver) => (ts.isIdentifier(receiver) && directNames.has(receiver.text))
+    || (ts.isPropertyAccessExpression(receiver) && ts.isIdentifier(receiver.expression)
+      && namespaces.has(receiver.expression.text) && directPresenters.has(receiver.name.text));
+  const calleeName = (callee) => (ts.isIdentifier(callee) ? callee.text
+    : ts.isPropertyAccessExpression(callee) ? callee.name.text : null);
+  const insideWhilePresented = (node) => {
+    for (let parent = node.parent; parent; parent = parent.parent) {
+      if (ts.isCallExpression(parent) && calleeName(parent.expression) === 'whilePresented') return true;
+    }
+    return false;
+  };
+  const found = [];
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression;
+      const direct = ts.isPropertyAccessExpression(callee) && isDirect(callee.expression);
+      const awaited = awaitedPresenters.has(calleeName(callee));
+      if ((direct && relativePath !== presentationOwner) || (awaited && !insideWhilePresented(node))) {
+        found.push(`${relativePath}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+test('the presentation check reads each call, aliased or broken across lines', () => {
+  const unheld = (text) => unheldPresentations('features/example/presentation/example.tsx', text);
+  assert.deepEqual(unheld("import { Alert as Notice } from 'react-native';\nNotice\n  .alert('t', undefined, []);"),
+    ['features/example/presentation/example.tsx:2']);
+  assert.deepEqual(unheld("import * as RN from 'react-native';\nRN.Share.share({ message: 'm' });"),
+    ['features/example/presentation/example.tsx:2']);
+  // One wrapped call does not vouch for another in the same file.
+  assert.deepEqual(unheld([
+    "whilePresented(() => picker.launchCameraAsync({}));",
+    'picker',
+    '  .launchImageLibraryAsync({});',
+  ].join('\n')), ['features/example/presentation/example.tsx:2']);
+  assert.deepEqual(unheld("const answer = await whilePresented(() =>\n  apple.signInAsync({ nonce }));"), []);
+  assert.deepEqual(unheld("import { Alert } from 'react-native';\nconst type: typeof Alert = Alert;"), []);
+});
 
 test('every system presentation holds the screen', () => {
-  const direct = [];
-  const unheld = [];
-  for (const relativePath of sourceFiles()) {
-    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
-    if (relativePath !== 'components/ui/system-presentation.ts' && directPresentationPattern.test(text)) {
-      direct.push(relativePath);
-    }
-    if (awaitedPresentationPattern.test(text) && !text.includes('whilePresented(')) unheld.push(relativePath);
-  }
+  const unheld = sourceFiles().flatMap((relativePath) =>
+    unheldPresentations(relativePath, readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
 
   assert.deepEqual(
-    { direct, unheld },
-    { direct: [], unheld: [] },
+    unheld,
+    [],
     'present an alert with `showAlert` and a share sheet with `shareContent` from '
-      + '`components/ui/system-presentation.ts`, and wrap a picker or browser in `whilePresented`, '
-      + 'so the rating request never comes over it',
+      + '`components/ui/system-presentation.ts`, and run a picker, browser, sign-in sheet or '
+      + 'document sheet inside `whilePresented(...)`, so the rating request never comes over it',
   );
 });
 
