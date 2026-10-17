@@ -4,13 +4,15 @@ import { FullWindowOverlay } from 'react-native-screens';
 
 /**
  * A layer above everything the app draws, native tabs and presented sheets included: on iOS a
- * full-window overlay (a pass-through container on the key window, modal to VoiceOver), on
- * Android a view above the navigator. Touches that land on no view of the layer pass to the
- * app underneath. A container is stacked above what is presented when it mounts, so a caller
- * that needs it above a sheet presented later remounts it.
+ * full-window overlay (a pass-through container on the key window, modal to VoiceOver unless
+ * `modal` is false), on Android a view above the navigator. Touches that land on no view of the
+ * layer pass to the app underneath. A container is stacked above what is presented when it
+ * mounts, so a caller that needs it above a sheet presented later remounts it.
  */
-export function WindowOverlay({ children }: Readonly<{ children: ReactNode }>) {
-  if (Platform.OS === 'ios') return <FullWindowOverlay>{children}</FullWindowOverlay>;
+export function WindowOverlay({ children, modal = true }: Readonly<{ children: ReactNode; modal?: boolean }>) {
+  if (Platform.OS === 'ios') {
+    return <FullWindowOverlay unstable_accessibilityContainerViewIsModal={modal}>{children}</FullWindowOverlay>;
+  }
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       {children}

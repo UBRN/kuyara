@@ -3,11 +3,10 @@ import {
   type ComponentType,
   createContext,
   type PropsWithChildren,
-  type Ref,
   use,
   useCallback,
   useEffect,
-  useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -215,14 +214,14 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
   // A return after a long enough time in the background plays the launch over the screen it
   // left, when no curtain is on screen at that moment; a curtain still there finishes as it
   // is. Each return is its own layer; it holds back nothing that waits for the cold launch,
-  // and it takes touches only until its curtain lifts. The layer is drawn, unseen and taking
-  // no touches, when the app leaves, so coming back only starts its motion, without waiting
-  // for a render; one that does not play is taken away. The listener reads the layer as it
-  // stands, not as the last render saw it.
+  // and it takes touches only until its curtain lifts. The layer is drawn when the app reaches
+  // the background, unseen, taking no touches and hidden from assistive technology, so coming
+  // back mounts nothing and only starts its motion; one that does not play is taken away. Only
+  // a playing layer is modal to VoiceOver. The listener reads the layer as it stands, not as
+  // the last render saw it.
   const [returning, setReturning] = useState<ReturnLayer | null>(null);
   const [returnLifted, setReturnLifted] = useState(false);
   const layer = useRef<ReturnLayer | null>(null);
-  const returnStart = useRef<CurtainStart | null>(null);
   const showReturn = useCallback((next: ReturnLayer | null) => {
     layer.current = next;
     setReturning(next);
@@ -241,7 +240,9 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
       if (state === 'inactive' || state === 'background') {
         const left = away.current ?? { since: Date.now(), background: false };
         away.current = state === 'background' ? { ...left, background: true } : left;
-        if (layer.current === null) showReturn({ key: Date.now(), playing: false, scheme: systemScheme() });
+        if (state === 'background' && layer.current === null) {
+          showReturn({ key: Date.now(), playing: false, scheme: systemScheme() });
+        }
         return;
       }
       if (state !== 'active') return;
@@ -253,12 +254,12 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
         return;
       }
       // The ground follows the system appearance the app returns to: if it changed while the
-      // app was away, a layer is drawn afresh in it and starts once mounted.
+      // app was away, or the background was heard only now, a layer is drawn afresh in it.
       const scheme = systemScheme();
-      const ready = prepared?.scheme === scheme;
-      if (ready) returnStart.current?.play();
       setReturnLifted(false);
-      showReturn(ready ? { ...prepared, playing: true } : { key: Date.now(), playing: true, scheme });
+      showReturn(prepared?.scheme === scheme
+        ? { ...prepared, playing: true }
+        : { key: Date.now(), playing: true, scheme });
     });
     return () => subscription.remove();
   }, [showReturn]);
@@ -300,7 +301,7 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
       {/* A return can find a sheet presented over the app, so its layer is drawn above the
           whole window; the cold launch has nothing presented over it. */}
       {returning === null ? null : (
-        <WindowOverlay key={returning.key}>
+        <WindowOverlay key={returning.key} modal={returning.playing}>
           <CurtainLayer
             appears
             blocking={returning.playing && !returnLifted}
@@ -308,7 +309,6 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
             onGone={returnGone}
             onLayout={ignoreLayout}
             onLifting={returnLifting}
-            ref={returnStart}
             scheme={returning.scheme}
           />
         </WindowOverlay>
@@ -320,9 +320,6 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
 /** A return's layer: unseen until it plays, in the system appearance it plays in. */
 type ReturnLayer = Readonly<{ key: number; playing: boolean; scheme: Scheme }>;
 
-/** Starts a return's motion without a render. */
-type CurtainStart = Readonly<{ play: () => void }>;
-
 type CurtainLayerProps = Readonly<{
   /** The layer is a return's: unseen until its motion fades it in. */
   appears?: boolean;
@@ -333,11 +330,10 @@ type CurtainLayerProps = Readonly<{
   onLifting: () => void;
   /** The layer has faded away. */
   onGone: () => void;
-  ref?: Ref<CurtainStart>;
   scheme: Scheme;
 }>;
 
-function CurtainLayer({ appears = false, blocking, motion, onGone, onLayout, onLifting, ref, scheme }: CurtainLayerProps) {
+function CurtainLayer({ appears = false, blocking, motion, onGone, onLayout, onLifting, scheme }: CurtainLayerProps) {
   const { height, width } = useWindowDimensions();
   const breath = useSharedValue(0);
   const dive = useSharedValue(0);
@@ -349,22 +345,24 @@ function CurtainLayer({ appears = false, blocking, motion, onGone, onLayout, onL
   const lift = useSharedValue(1);
   const withdraw = useSharedValue(1);
 
-  // A layer moves once. Coming back, the UI thread can still be drawing the screen again when
-  // the return is asked for, and a fade-in started then would play unseen: a return starts on
-  // the next frame the UI thread draws.
+  // A layer moves once, from the commit that gives it its motion, so a return already blocks
+  // touches when its motion is asked for. Coming back, the UI thread can still be drawing the
+  // screen again, and a fade-in started then would play unseen: a return starts on the next
+  // frame the UI thread draws.
   const started = useRef(false);
   const play = useCallback((now: LaunchMotion) => {
     if (started.current) return;
     started.current = true;
     const { fast, launch, normal } = standardMotion;
-    // Each ends on the UI thread, where the motion runs, however late it started.
-    const lifted = () => {
+    // Each ends on the UI thread, where the motion runs, however late it started. A timing cut
+    // short, as when its layer is taken away, reports nothing.
+    const lifted = (finished?: boolean) => {
       'worklet';
-      scheduleOnRN(onLifting);
+      if (finished) scheduleOnRN(onLifting);
     };
-    const faded = () => {
+    const faded = (finished?: boolean) => {
       'worklet';
-      scheduleOnRN(onGone);
+      if (finished) scheduleOnRN(onGone);
     };
     // A return builds these on the UI thread, where `fadeTo` cannot run, so their clock starts
     // there; they keep the curve `fadeTo` draws.
@@ -398,8 +396,7 @@ function CurtainLayer({ appears = false, blocking, motion, onGone, onLayout, onL
       withdraw.set(fadeTo(0, now === 'late' ? normal : fast, standardMotion, faded));
     }
   }, [appear, breath, camera, dive, fill, lift, onGone, onLifting, veil, withdraw]);
-  useImperativeHandle(ref, () => ({ play: () => play('return') }), [play]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (motion !== null) play(motion);
   }, [motion, play]);
 
