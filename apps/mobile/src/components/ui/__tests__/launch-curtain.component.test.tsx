@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { useState } from 'react';
 import { Appearance, AppState, type AppStateStatus, Dimensions, processColor, Text } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
+import * as Worklets from 'react-native-worklets';
 
 import {
   LAUNCH_IDLE_TIMEOUT_MS,
@@ -72,14 +73,15 @@ let busy = false;
 
 // The motion runs on the UI thread, which can start it late. Every timing that reports its
 // end is held here, by duration, until the test ends it, as the UI thread would.
-let running: { duration: number; end: () => void }[] = [];
+let running: { duration: number; end: (finished: boolean) => void }[] = [];
 const durations = () => running.map(({ duration }) => duration);
 
-async function end(duration: number) {
+// A timing cancelled before its end, as when its layer is taken away, reports it unfinished.
+async function end(duration: number, finished = true) {
   const index = running.findIndex((timing) => timing.duration === duration);
   expect(index).toBeGreaterThanOrEqual(0);
   const [timing] = running.splice(index, 1);
-  await act(() => timing!.end());
+  await act(() => timing!.end(finished));
   // The end reaches this thread as a microtask.
   await advance(0);
 }
@@ -127,7 +129,7 @@ beforeEach(() => {
     config?: { duration?: number },
     callback?: (finished?: boolean) => void,
   ) => {
-    if (callback) running.push({ duration: config?.duration ?? 0, end: () => callback(true) });
+    if (callback) running.push({ duration: config?.duration ?? 0, end: (finished) => callback(finished) });
     return toValue;
   }) as unknown as typeof Reanimated.withTiming);
   jest.spyOn(Reanimated, 'useSharedValue').mockImplementation(((initial: number) => {
@@ -428,14 +430,13 @@ test('leaving prepares an unseen return layer that takes no touches, and a retur
   await render(curtain('ready', jest.fn(), false));
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 
-  await moveApp('inactive');
+  await moveApp('background');
   const layer = screen.getByTestId('launch-curtain', hidden);
   expect(layer.props.pointerEvents).toBe('none');
   expect(layer.props.accessibilityElementsHidden).toBe(true);
   expect(layer.props.importantForAccessibility).toBe('no-hide-descendants');
   expect(screen.getByTestId('launch-curtain-appear', hidden).props.opacity).toBe(0);
   expect(durations()).toEqual([]);
-  await moveApp('background');
   await advance(RETURN_AWAY_MS);
   expect(durations()).toEqual([]);
 
@@ -463,14 +464,64 @@ test('a return starts its motion on the first frame the UI thread draws after th
   expect(durations()).toEqual([launch, normal]);
 });
 
-test('a prepared return layer draws the ground of the system appearance the app returns to', async () => {
+test('a return whose system appearance changed while away plays a layer drawn in the new one', async () => {
   const scheme = jest.spyOn(Appearance, 'getColorScheme').mockReturnValue('light');
   await render(curtain('ready', jest.fn(), false));
   await moveApp('background');
+  expect(groundFill()).toEqual(brush(brandColors.softMist));
   scheme.mockReturnValue('dark');
   await advance(RETURN_AWAY_MS);
   await moveApp('active');
+  await nextFrame();
   expect(groundFill()).toEqual(brush(brandColors.nightLayer));
+  expect(durations()).toEqual([launch, normal]);
+  await end(launch);
+  await end(normal);
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
+// While it is opaque, nothing under the layer can be pressed unseen: it blocks touches before
+// the UI thread is asked to start its motion.
+test('a return blocks touches before its motion is asked of the UI thread', async () => {
+  await render(curtain('ready', jest.fn(), false));
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  const blocking: unknown[] = [];
+  const schedule = Worklets.scheduleOnUI;
+  jest.spyOn(Worklets, 'scheduleOnUI').mockImplementation(((...args: Parameters<typeof schedule>) => {
+    blocking.push(screen.getByTestId('launch-curtain', hidden).props.pointerEvents);
+    return schedule(...args);
+  }) as typeof schedule);
+  await moveApp('active');
+  await nextFrame();
+  expect(durations()).toEqual([launch, normal]);
+  expect(blocking).toEqual(['auto']);
+});
+
+// Taken away mid-motion, a layer's timings end unfinished; they must not act on the next layer.
+test('a return motion cut short neither lets touches through nor takes a layer away', async () => {
+  await render(curtain('ready', jest.fn(), false));
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  await moveApp('active');
+  await nextFrame();
+  await end(launch, false);
+  expect(screen.getByTestId('launch-curtain', hidden).props.pointerEvents).toBe('auto');
+  await end(normal, false);
+  expect(screen.getByTestId('launch-curtain', hidden)).toBeTruthy();
+});
+
+// Control Center, Siri, Face ID and permission alerts make the app inactive without sending
+// it to the background; a layer then would hide the app from VoiceOver.
+test('a passing system overlay prepares no layer, and a prepared one is modal to VoiceOver only while it plays', async () => {
+  await render(curtain('ready', jest.fn(), false));
+  await moveApp('inactive');
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+  await moveApp('background');
+  expect(windowOverlay()!.props.accessibilityContainerViewIsModal).toBe(false);
+  await advance(RETURN_AWAY_MS);
+  await moveApp('active');
+  expect(windowOverlay()!.props.accessibilityContainerViewIsModal).toBe(true);
 });
 
 test('a return inside a minute, or from a passing system overlay, plays nothing', async () => {
@@ -555,12 +606,13 @@ test('a background heard only on resume still counts the time since the app went
 });
 
 // The layer sits in the iOS full-window overlay, which draws above presented sheets.
-function inWindowOverlay() {
-  type Node = { type: unknown; parent: Node | null };
+function windowOverlay() {
+  type Node = { type: unknown; parent: Node | null; props: Record<string, unknown> };
   let node = (screen.getByTestId('launch-curtain', hidden) as unknown as Node).parent;
-  for (; node; node = node.parent) if (node.type === 'RNSFullWindowOverlay') return true;
-  return false;
+  for (; node; node = node.parent) if (node.type === 'RNSFullWindowOverlay') return node;
+  return null;
 }
+const inWindowOverlay = () => windowOverlay() !== null;
 
 test('a return draws above presented sheets, and the cold launch stays in the app\'s own window', async () => {
   const result = await render(curtain('pending'));
