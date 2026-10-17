@@ -124,7 +124,7 @@ launch takes 720 ms from the first screen being drawn. Today's outfit rises on i
 arrival spring as the curtain starts to fade, and every sheet, prompt and the coach-mark
 tour waits until the layer has gone. A launch from a notification or a link plays the
 shortened launch: the curtain arrives over the splash on `fast` and fades on `normal`,
-320 ms in all. A first screen later than the ceiling fades the still symbol away on
+320 ms in all. A first screen still not drawn when the layer starts to move, after the ceiling, fades the still symbol away on
 `normal`, and a failed one on `fast`, so the app is never left behind the layer. The
 layer is hidden from assistive technology. While it is opaque it takes the touches meant
 for the screen beneath, so nothing unseen can be pressed, and it lets every touch through

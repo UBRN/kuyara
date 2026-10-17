@@ -100,28 +100,34 @@ const GLIDE_EASING = Easing.bezier(0.77, 0, 0.175, 1);
 export const LAUNCH_IDLE_TIMEOUT_MS = 300;
 // Mounting and drawing the first screen holds the UI thread, and a motion that starts meanwhile
 // is spent unseen: the clock runs on while no frame is drawn. The motion starts once the UI
-// thread draws this many frames in a row, each within the interval of two 60 Hz frames.
+// thread draws this many frames in a row, each within 50 ms of the one before: iOS can run a
+// still screen at 24 frames a second, about 42 ms apart, while a stall lasts hundreds.
 export const LAUNCH_STEADY_FRAMES = 3;
-const STEADY_FRAME_MS = 34;
-// Under sustained load the frames never come steadily, and the opaque layer must not outlast it.
+const STEADY_FRAME_MS = 50;
+// Under sustained load the frames never come steadily, and the opaque layer must not outlast it:
+// the wait ends after this many frames or this long since its first frame, whichever comes first.
 export const LAUNCH_STEADY_FRAME_LIMIT = 20;
+export const LAUNCH_STEADY_WAIT_MS = 400;
 
 type Scheme = 'light' | 'dark';
 
 const ink = Object.freeze({ light: brandColors.deepAtmosphere, dark: brandColors.quietSky });
 const ground = Object.freeze({ light: brandColors.softMist, dark: brandColors.nightLayer });
 
-/** Calls `then` once the UI thread draws steady frames, or has drawn the most it waits for. */
+/** Calls `then` once the UI thread draws steady frames, or has waited as long as it may. */
 function afterSteadyFrames(then: () => void) {
   'worklet';
   let frames = 0;
   let steady = 0;
+  let first = -1;
   let last = -1;
   const frame = (now: number) => {
     frames += 1;
+    if (first < 0) first = now;
     steady = last >= 0 && now - last <= STEADY_FRAME_MS ? steady + 1 : 0;
     last = now;
-    if (steady >= LAUNCH_STEADY_FRAMES || frames >= LAUNCH_STEADY_FRAME_LIMIT) scheduleOnRN(then);
+    const waited = frames >= LAUNCH_STEADY_FRAME_LIMIT || now - first >= LAUNCH_STEADY_WAIT_MS;
+    if (steady >= LAUNCH_STEADY_FRAMES || waited) scheduleOnRN(then);
     else requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
