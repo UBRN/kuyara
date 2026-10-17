@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, Share, StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ReducedMotionConfig, ReduceMotion } from 'react-native-reanimated';
 import { use, useCallback, useEffect, useState } from 'react';
@@ -15,13 +15,13 @@ import {
   LaunchScreenReadyContext,
   useLaunchReveal,
 } from '@/components/ui/launch-curtain';
-import { usePresentationHold } from '@/components/ui/presentation-hold';
+import { shareContent, useKeyboardPresentationHold } from '@/components/ui/system-presentation';
 
 import { AccountApplicationProvider } from '@/features/account/application/account-application-provider';
 import {
   AnalyticsConsentGate,
-  analyticsConsentWillAsk,
   isAnalyticsConsentGateEligible,
+  useAnalyticsConsentHold,
 } from '@/features/analytics/application/analytics-consent-gate';
 import {
   AnalyticsConsentTriggerProvider,
@@ -104,7 +104,7 @@ SplashScreen.setOptions(Platform.OS === 'android' ? { duration: 0 } : { fade: fa
 // composed on the device and shown in the sheet before anything is sent; a dismissed or
 // unavailable sheet rejects and is ignored.
 function shareBootstrapReport(report: BootstrapReport): void {
-  void Share.share({
+  void shareContent({
     message: composeBootstrapReportText(report, {
       appVersion: Constants.expoConfig?.version,
       buildNumber: Constants.platform?.ios?.buildNumber
@@ -167,8 +167,8 @@ function ReadyApplicationShell({
   });
   const pathname = usePathname();
   const sessionIndex = useLaunchSessionIndex(launchSession);
-  // The consent sheet still to be asked for is presented over the app until it is answered.
-  usePresentationHold(analyticsConsentWillAsk({ ...profile, sessionIndex }));
+  useAnalyticsConsentHold({ ...profile, sessionIndex });
+  useKeyboardPresentationHold();
   const { recommendationShown, beginConsentPresentation } = useAnalyticsConsentTrigger();
   const presentAnalyticsConsent = useCallback(() => {
     const presentation = beginConsentPresentation();

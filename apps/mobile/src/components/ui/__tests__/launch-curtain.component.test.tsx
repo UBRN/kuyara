@@ -565,38 +565,44 @@ test('a return while the cold launch still plays adds no second launch', async (
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });
 
-test('the cold launch is the first open, and its curtain holds the screen until it has gone', async () => {
+// The open count lives as long as the process, so each test reads it relative to where it starts.
+const openNow = () => Number(opened().split(' ')[1]);
+const holding = () => opened().split(' ')[2];
+
+test('the cold launch is an open, and its curtain holds the screen until it has gone', async () => {
   const result = await render(openCurtain('pending'));
   await drawFirstFrame();
-  expect(opened()).toBe('open 0 held');
+  const open = openNow();
+  expect(holding()).toBe('held');
   await result.rerender(openCurtain('ready'));
   await nextFrame();
   await end(launch);
-  expect(opened()).toBe('open 0 held');
+  expect(holding()).toBe('held');
   await end(normal);
-  expect(opened()).toBe('open 0 clear');
+  expect(opened()).toBe(`open ${open} clear`);
 });
 
 test('each return that plays the launch is the next open, held until its curtain has gone', async () => {
   await render(openCurtain('ready', false));
-  expect(opened()).toBe('open 0 clear');
+  const open = openNow();
+  expect(holding()).toBe('clear');
 
   // The return layer prepared as the app leaves is unseen and holds nothing; a 20 s return
   // plays nothing and stays in the same open.
   await moveApp('background');
-  expect(opened()).toBe('open 0 clear');
+  expect(opened()).toBe(`open ${open} clear`);
   await advance(20_000);
   await moveApp('active');
-  expect(opened()).toBe('open 0 clear');
+  expect(opened()).toBe(`open ${open} clear`);
 
   await moveApp('background');
   await advance(RETURN_AWAY_MS);
   await moveApp('active');
-  expect(opened()).toBe('open 1 held');
+  expect(opened()).toBe(`open ${open + 1} held`);
   await nextFrame();
   await end(launch);
   await end(normal);
-  expect(opened()).toBe('open 1 clear');
+  expect(opened()).toBe(`open ${open + 1} clear`);
 
   await moveApp('background');
   await advance(RETURN_AWAY_MS);
@@ -604,7 +610,24 @@ test('each return that plays the launch is the next open, held until its curtain
   await nextFrame();
   await end(launch);
   await end(normal);
-  expect(opened()).toBe('open 2 clear');
+  expect(opened()).toBe(`open ${open + 2} clear`);
+});
+
+// A remounted root mounts a new curtain in the same process and the same open, so what is asked
+// once per open is not asked again.
+test('a curtain mounted again in the same process stays in the open the person is in', async () => {
+  const first = await render(openCurtain('ready', false));
+  await moveApp('background');
+  await advance(RETURN_AWAY_MS);
+  await moveApp('active');
+  await nextFrame();
+  await end(launch);
+  await end(normal);
+  const open = openNow();
+  await first.unmount();
+
+  await render(openCurtain('ready', false));
+  expect(opened()).toBe(`open ${open} clear`);
 });
 
 // The person leaves while the cold launch dives; the motion ends while the app is away.

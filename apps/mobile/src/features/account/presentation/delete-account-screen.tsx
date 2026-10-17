@@ -1,6 +1,7 @@
-import { Alert, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppText, Button, Icon, NativeList, NativeListRow, NativeListSection } from '@/components/ui';
+import { showAlert } from '@/components/ui/system-presentation';
 import { useAccountScreens } from '@/features/account/application/account-screens-context';
 import { StatusLine } from '@/features/account/presentation/account-status';
 import { useMessages } from '@/localization/use-messages';
@@ -20,7 +21,7 @@ export function DeleteAccountScreen() {
   if (session.kind !== 'signedIn') return null;
 
   const deleting = snapshot.deletion === 'deleting';
-  const confirm = () => Alert.alert(copy.deleteAlert.title, copy.deleteAlert.body, [
+  const confirm = () => showAlert(copy.deleteAlert.title, copy.deleteAlert.body, [
     { style: 'cancel', text: copy.deleteAlert.cancel },
     { onPress: port.deleteAccount, style: 'destructive', text: copy.deleteAlert.confirm },
   ]);

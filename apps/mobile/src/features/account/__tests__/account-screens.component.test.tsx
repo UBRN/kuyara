@@ -232,7 +232,7 @@ describe('the result sheets (frames 04, 14, 15, 26)', () => {
       await act(async () => fireEvent.press(screen.getByTestId('account-add-google-row')));
       expect(port.addProvider).toHaveBeenCalledWith('google');
       if (outcome === 'identityTaken') {
-        expect(alert).toHaveBeenCalledWith(en.identityTaken.title.google, en.identityTaken.body.google, [{ text: en.identityTaken.ok }]);
+        expect(alert).toHaveBeenCalledWith(en.identityTaken.title.google, en.identityTaken.body.google, [expect.objectContaining({ text: en.identityTaken.ok })], expect.anything());
       } else {
         expect(alert).not.toHaveBeenCalled();
       }
@@ -366,7 +366,7 @@ describe('the Account screen (frames 07-10, 21, 22, 34, 35)', () => {
     const port = portFor('upToDate');
     const screen = await renderWith(port, <AccountScreen onOpenDelete={jest.fn()} />);
     await fireEvent.press(screen.getByText(en.account.signOut));
-    expect(alert).toHaveBeenCalledWith(en.signOutAlert.title, en.signOutAlert.body, expect.any(Array));
+    expect(alert).toHaveBeenCalledWith(en.signOutAlert.title, en.signOutAlert.body, expect.any(Array), expect.anything());
     const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => void }[];
     await act(async () => buttons.find((button) => button.text === en.signOutAlert.confirm)?.onPress?.());
     expect(port.getSnapshot().session).toEqual({ kind: 'signedOut', notice: 'signedOut' });
@@ -396,7 +396,7 @@ describe('the deletion page (frames 11, 12, 25, 37, 38)', () => {
     expect(screen.getByText(en.deletion.stay)).toBeTruthy();
     expect(screen.getByText(en.deletion.footer.apple)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('delete-account-button'));
-    expect(alert).toHaveBeenCalledWith(en.deleteAlert.title, en.deleteAlert.body, expect.any(Array));
+    expect(alert).toHaveBeenCalledWith(en.deleteAlert.title, en.deleteAlert.body, expect.any(Array), expect.anything());
     expect(port.getSnapshot().session.kind).toBe('signedIn');
     const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => void }[];
     await act(async () => buttons.find((button) => button.text === en.deleteAlert.confirm)?.onPress?.());

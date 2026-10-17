@@ -54,9 +54,12 @@ export function useLaunchReveal(): LaunchReveal {
 /**
  * Which open of the process the person is in, for what is asked once per open: the cold
  * launch is 0, and each return that plays the launch is the next. A return too short to play
- * it stays in the open it left. Outside a launch it is 0.
+ * it stays in the open it left. The count lives as long as the process, as what is asked once
+ * per open remembers it, so a curtain mounted again keeps the open. Outside a launch it is 0.
  */
 export const LaunchOpenContext = createContext(0);
+
+let playedReturns = 0;
 
 export function useLaunchOpen(): number {
   return use(LaunchOpenContext);
@@ -244,7 +247,7 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
   }, [reveal.done, returning]);
   // Each return that plays is the next open. A curtain on screen holds the screen until it has
   // gone; a prepared return layer, unseen until it plays, does not.
-  const [returns, setReturns] = useState(0);
+  const [returns, setReturns] = useState(playedReturns);
   usePresentationHold(!reveal.done || returning?.playing === true);
   // Every time away is timed, whatever is on screen when it starts, from the moment the app
   // stops being active: iOS can suspend the process before this thread hears `background`,
@@ -276,7 +279,8 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
       showReturn(prepared?.scheme === scheme
         ? { ...prepared, playing: true }
         : { key: Date.now(), playing: true, scheme });
-      setReturns((count) => count + 1);
+      playedReturns += 1;
+      setReturns(playedReturns);
     });
     return () => subscription.remove();
   }, [showReturn]);

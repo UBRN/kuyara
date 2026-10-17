@@ -1,6 +1,5 @@
-import { Alert } from 'react-native';
-
 import { haptics } from '@/components/ui';
+import { showAlert } from '@/components/ui/system-presentation';
 import type { ThemeColorScheme } from '@/theme/theme';
 
 export type WardrobeConfirmationRequest = Readonly<{
@@ -24,7 +23,7 @@ export const showWardrobeConfirmation: WardrobeConfirmation = (
   onConfirm,
 ) => {
   if (request.destructive) haptics.warning();
-  Alert.alert(
+  showAlert(
     request.title,
     request.message,
     [

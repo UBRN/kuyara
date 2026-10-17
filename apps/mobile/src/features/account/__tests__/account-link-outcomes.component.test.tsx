@@ -77,13 +77,13 @@ describe('the identity that belongs to another account', () => {
   test.each(['apple', 'google'] as const)('%s: a system alert with one OK names the way out', (provider) => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     showIdentityTakenAlert(en, provider);
-    expect(alert).toHaveBeenCalledWith(en.identityTaken.title[provider], en.identityTaken.body[provider], [{ text: 'OK' }]);
+    expect(alert).toHaveBeenCalledWith(en.identityTaken.title[provider], en.identityTaken.body[provider], [expect.objectContaining({ text: 'OK' })], expect.anything());
   });
 
   test('Turkish', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     showIdentityTakenAlert(tr, 'google');
-    expect(alert).toHaveBeenCalledWith('Bu Google hesabı zaten kullanılıyor', tr.identityTaken.body.google, [{ text: 'Tamam' }]);
+    expect(alert).toHaveBeenCalledWith('Bu Google hesabı zaten kullanılıyor', tr.identityTaken.body.google, [expect.objectContaining({ text: 'Tamam' })], expect.anything());
   });
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from 'react';
-import { Alert, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -18,6 +18,7 @@ import {
   type ShrinkingPlateProps,
   useTextScaling,
 } from '@/components/ui';
+import { showAlert } from '@/components/ui/system-presentation';
 import { GarmentRunwayBoard, runwayDressingDuration, type RunwayBoardOutfit } from '@/garment-art';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
@@ -492,7 +493,7 @@ export function FirstGenerationRunway({
                       <Button
                         icon="skipForward"
                         label={copy.loading.skipWait}
-                        onPress={() => Alert.alert(copy.loading.heading, undefined, [
+                        onPress={() => showAlert(copy.loading.heading, undefined, [
                           { text: copy.loading.keepWaiting, isPreferred: true, style: 'cancel' },
                           {
                             text: copy.loading.skipWait,

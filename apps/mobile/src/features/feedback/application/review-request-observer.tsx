@@ -13,7 +13,8 @@ import { useProfileApplication } from '@/features/profile/application/profile-co
  */
 export const REVIEW_REQUEST_SETTLE_MS = 1000;
 
-// The open the rating was asked for in, kept outside React so it is one fact for the process.
+// The open the rating was asked for in. Like the launch's open count it lives as long as the
+// process, so a remounted shell neither asks again in the same open nor misses the next one.
 let requestedOpen: number | null = null;
 
 const requestStoreReview = loadStoreReviewRequest();
@@ -47,6 +48,11 @@ export function ReviewRequestObserver() {
   useEffect(() => {
     if (!due) return undefined;
     const timer = setTimeout(() => {
+      // iOS can suspend the process before this thread hears it leave: the state is read now.
+      if (AppState.currentState !== 'active') {
+        setActive(false);
+        return;
+      }
       requestedOpen = open;
       void requestStoreReview();
     }, REVIEW_REQUEST_SETTLE_MS);

@@ -208,7 +208,7 @@ describe('the Account screen records group (ADR 0041 section 10)', () => {
     expect(screen.getByText(en.records.on)).toBeTruthy();
     expect(screen.getByText(en.records.onFooter)).toBeTruthy();
     await fireEvent.press(screen.getByText(en.records.withdraw));
-    expect(alert).toHaveBeenCalledWith(en.withdrawAlert.title, en.withdrawAlert.body, expect.any(Array));
+    expect(alert).toHaveBeenCalledWith(en.withdrawAlert.title, en.withdrawAlert.body, expect.any(Array), expect.anything());
     const buttons = alert.mock.calls[0][2] as { text: string; style?: string; onPress?: () => void }[];
     const confirm = buttons.find((button) => button.text === en.withdrawAlert.confirm);
     expect(confirm?.style).toBe('destructive');
@@ -279,7 +279,7 @@ describe('the Account screen records group (ADR 0041 section 10)', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const screen = await renderWith(portFor('recordsNotSynced'), <AccountScreen onOpenDelete={jest.fn()} />);
     await fireEvent.press(screen.getByText(en.account.signOut));
-    expect(alert).toHaveBeenCalledWith(en.signOutAlert.title, en.signOutAlert.bodyWithoutRecords, expect.any(Array));
+    expect(alert).toHaveBeenCalledWith(en.signOutAlert.title, en.signOutAlert.bodyWithoutRecords, expect.any(Array), expect.anything());
   });
 
   test('while an answer or a withdrawal is saved the records row does nothing', async () => {

@@ -146,6 +146,19 @@ test('an app that is not active asks nothing, and asks once it is active again',
   expect(mockRequest).toHaveBeenCalledTimes(1);
 });
 
+// iOS can suspend the process before this thread hears the change, so the request reads the
+// app's state when it fires.
+test('an app found not active when the request fires asks nothing then, and asks once it is active', async () => {
+  await render(app());
+  AppState.currentState = 'background';
+  await settle();
+  expect(mockRequest).not.toHaveBeenCalled();
+
+  await moveApp('active');
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+});
+
 test('Android asks nothing', async () => {
   jest.replaceProperty(Platform, 'OS', 'android');
   const view = await render(app(0));

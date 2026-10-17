@@ -1,5 +1,4 @@
-import { Alert } from 'react-native';
-
+import { showAlert } from '@/components/ui/system-presentation';
 import type { AccountProvider } from '@/features/account/application/account-screens';
 import type { AccountMessages } from '@/localization/messages';
 
@@ -10,5 +9,5 @@ import type { AccountMessages } from '@/localization/messages';
  */
 export function showIdentityTakenAlert(copy: AccountMessages, provider: AccountProvider): void {
   const { body, ok, title } = copy.identityTaken;
-  Alert.alert(title[provider], body[provider], [{ text: ok }]);
+  showAlert(title[provider], body[provider], [{ text: ok }]);
 }

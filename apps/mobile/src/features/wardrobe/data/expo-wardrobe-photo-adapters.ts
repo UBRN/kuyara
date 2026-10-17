@@ -4,6 +4,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
+import { whilePresented } from '@/components/ui/presentation-hold';
 import type {
   PickedWardrobePhoto,
   ProcessedWardrobePhoto,
@@ -37,7 +38,7 @@ const stagingDirectorySegments = ['kuyara', 'wardrobe', 'staging'] as const;
 
 export class ExpoSystemWardrobePhotoPicker implements WardrobePhotoPicker {
   async pickPhoto(): Promise<PickedWardrobePhoto | null> {
-    const result = await ImagePicker.launchImageLibraryAsync({
+    const result = await whilePresented(() => ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
       allowsMultipleSelection: false,
@@ -45,7 +46,7 @@ export class ExpoSystemWardrobePhotoPicker implements WardrobePhotoPicker {
       base64: false,
       exif: false,
       quality: 1,
-    });
+    }));
 
     return pickedPhotoFrom(result);
   }
@@ -65,13 +66,13 @@ export class ExpoSystemWardrobePhotoPicker implements WardrobePhotoPicker {
     }
 
     try {
-      const result = await ImagePicker.launchCameraAsync({
+      const result = await whilePresented(() => ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
         base64: false,
         exif: false,
         quality: 1,
-      });
+      }));
       return pickedPhotoFrom(result);
     } catch (error) {
       // expo-image-picker's Android `MissingActivityToHandleIntent`: no camera app to open.

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { whilePresented } from '@/components/ui/presentation-hold';
 import type { GoogleSignIn } from '@/features/account/data/supabase-account-auth';
 import { fetchJsonWithTimeout, type Fetch } from '@/infrastructure/network/fetch-json-with-timeout';
 
@@ -79,7 +80,7 @@ export function createGoogleSignIn({ browser, crypto, send }: Readonly<{
         prompt: 'select_account',
       })}`;
 
-      const answer = await browser.openAuthSessionAsync(page, redirectUri);
+      const answer = await whilePresented(() => browser.openAuthSessionAsync(page, redirectUri));
       if (answer.type === 'cancel' || answer.type === 'dismiss') return null;
       if (answer.type !== 'success' || answer.url === undefined) throw failed();
       const returned = new URL(answer.url).searchParams;

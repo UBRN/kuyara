@@ -1,9 +1,10 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { use, useEffect, useSyncExternalStore, type ReactNode } from 'react';
-import { AccessibilityInfo, Dimensions, View } from 'react-native';
+import { AccessibilityInfo, Dimensions, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LaunchRevealContext } from '@/components/ui/launch-curtain';
+import { usePresentationHeld } from '@/components/ui/presentation-hold';
 import type { NotificationApplicationValue } from '@/features/notifications/application/notification-context';
 import { NotificationApplicationContext } from '@/features/notifications/application/notification-context';
 import {
@@ -582,6 +583,11 @@ function TodayProbe({ exhausted, facts }: Readonly<{ exhausted: boolean; facts: 
   return null;
 }
 
+// Whether anything holds the screen, for what must never appear over the tour.
+function HeldProbe() {
+  return <Text testID="held">{usePresentationHeld() ? 'held' : 'clear'}</Text>;
+}
+
 const settledToday: WalkthroughTodayFacts = { settled: true, overlayOpen: false, dayQuestion: false, namePrompt: false };
 
 async function renderProvider({
@@ -607,6 +613,7 @@ async function renderProvider({
         value={{ openedNotifications: opened } as unknown as NotificationApplicationValue}>
         <WalkthroughProvider sessionIndex={sessionIndex}>
           <TodayProbe exhausted={exhausted} facts={currentFacts} />
+          <HeldProbe />
         </WalkthroughProvider>
       </NotificationApplicationContext>
     </ProfileApplicationContext>
@@ -646,6 +653,27 @@ test.each([
   await rerender(profile(), settledToday);
   await waitOpen(result);
   expect(bubble(result).counter).toBe('Step 1 of 9');
+});
+
+const heldText = (result: Awaited<ReturnType<typeof render>>) =>
+  result.getByTestId('held', { includeHiddenElements: true }).props.children as string;
+
+test('the tour holds the screen while it is still to open and while it runs, and lets go once it closes', async () => {
+  const { rerender, result } = await renderProvider({ facts: { ...settledToday, settled: false } });
+  // Still to open: Today has not settled yet.
+  expect(heldText(result)).toBe('held');
+  await rerender(profile(), settledToday);
+  await waitOpen(result);
+  expect(bubble(result).counter).toBe('Step 1 of 9');
+  expect(heldText(result)).toBe('held');
+  await act(async () => { fireEvent.press(result.getByTestId('walkthrough-skip')); });
+  await act(async () => { await jest.advanceTimersByTimeAsync(400); });
+  expect(heldText(result)).toBe('clear');
+});
+
+test('a tour that will not open in this launch holds nothing', async () => {
+  const { result } = await renderProvider({ value: profile({ walkthroughVersion: 1 }) });
+  expect(heldText(result)).toBe('clear');
 });
 
 test('the tour never opens over the launch curtain, and opens once it has gone', async () => {

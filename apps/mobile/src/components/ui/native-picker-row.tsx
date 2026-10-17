@@ -12,13 +12,14 @@ import {
   shapes,
   tag,
 } from '@expo/ui/swift-ui/modifiers';
-import { Alert, Platform, PlatformColor } from 'react-native';
+import { Platform, PlatformColor } from 'react-native';
 
 import { haptics } from '@/components/ui/haptics';
 import { Icon, iconNames, type IconName } from '@/components/ui/icon';
 import { listRowTileColors } from '@/components/ui/list-row-tile';
 import { NativeListRow } from '@/components/ui/native-list';
 import { resolveListRowTileGeometry } from '@/components/ui/primitive-contracts';
+import { showAlert } from '@/components/ui/system-presentation';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { useEasierToSee } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -175,7 +176,7 @@ export function NativePickerRow<T extends string>({
       glyph={icon ? ({ color, size }) => <Icon color={color} name={icon} size={size} /> : undefined}
       label={label}
       onPress={disabled ? undefined : () => {
-        Alert.alert(
+        showAlert(
           label,
           undefined,
           options.map((option) => ({
