@@ -306,8 +306,8 @@ function RootLayout() {
   useEffect(() => {
     launchVisibility.onSeen(() => setSeen(true));
   }, []);
-  // A full launch on Today waits for Today to draw its content, so the dive never plays over
-  // that render; any other first screen is ready with the shell. A shell may still learn it
+  // A full launch on Today waits for Today to draw what the device holds, so the dive never
+  // plays over that render; any other first screen is ready with the shell. A shell may still learn it
   // was opened by a notification. The curtain takes the answer it holds on the frame it
   // starts and ignores any later one.
   const [shell, setShell] = useState<ShellReport | null>(null);
