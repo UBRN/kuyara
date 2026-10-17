@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Animated, Easing } from 'react-native';
 
+import { thereAndBack } from '@/components/ui/there-and-back';
 import { useWhileVisible } from '@/components/ui/use-screen-visible';
 
 // ADR 0020's closed vocabulary for the condition symbol: the sun turns, clouds drift, what
@@ -14,10 +15,8 @@ const TURN_DEGREES = 45;
 const DRIFT_TRAVEL = 1.3;
 const FALL_TRAVEL = 1.5;
 
-// A drift or a fall eases out and back in one native timing: there on the first half and
-// back on the second, each half the quadratic ease in and out of one leg.
-const easeLeg = Easing.inOut(Easing.quad);
-const thereAndBack = (t: number) => easeLeg(1 - Math.abs(2 * t - 1));
+// A drift or a fall comes back on the quadratic ease in and out of each leg.
+const driftOrFall = thereAndBack(Easing.inOut(Easing.quad));
 
 /**
  * The animated style of a condition symbol, for React Native's `Animated.View`. Each leg of
@@ -32,7 +31,7 @@ export function useConditionSymbolMotion(motion: SymbolMotion, legMs: number) {
     if (motion === 'still') return undefined;
     const loop = Animated.loop(Animated.timing(progress, motion === 'turn'
       ? { duration: legMs, easing: Easing.linear, toValue: 1, useNativeDriver: true }
-      : { duration: 2 * legMs, easing: thereAndBack, toValue: 1, useNativeDriver: true }));
+      : { duration: 2 * legMs, easing: driftOrFall, toValue: 1, useNativeDriver: true }));
     loop.start();
     return () => {
       loop.stop();

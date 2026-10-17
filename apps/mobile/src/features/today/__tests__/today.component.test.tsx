@@ -1,6 +1,6 @@
 import { act, fireEvent, isHiddenFromAccessibility, render, waitFor, within } from '@testing-library/react-native';
 import { SymbolView } from 'expo-symbols';
-import { AccessibilityInfo, AppState, Dimensions, Platform, processColor, ScrollView, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Animated, AppState, Dimensions, Platform, processColor, ScrollView, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -1934,7 +1934,7 @@ test('the hero board answers a press with the press scale on the fast role', asy
 
 test('the skeleton placeholders breathe on the ambient moderate step', async () => {
   const hidden = { includeHiddenElements: true };
-  const withTiming = jest.spyOn(jest.requireMock('react-native-reanimated'), 'withTiming');
+  const timing = jest.spyOn(Animated, 'timing');
   const skeletonOpacity = async (theme: KuyaraTheme) => {
     const result = await render(providers(
       <TodayScreen
@@ -1952,11 +1952,12 @@ test('the skeleton placeholders breathe on the ambient moderate step', async () 
 
   expect(lightTheme.motion.ambient.moderate).toBeGreaterThan(0);
   // Each leg of the wait breath is the moderate step, a 2000 ms breath, the cycle band
-  // Ding and Kyung (JCR 2026) measured as the shortest perceived wait.
-  const legs = withTiming.mock.calls.map(([, config]) => (config as { duration?: number }).duration);
-  expect(legs.length).toBeGreaterThan(0);
-  expect(new Set(legs)).toEqual(new Set([lightTheme.motion.ambient.moderate]));
-  withTiming.mockRestore();
+  // Ding and Kyung (JCR 2026) measured as the shortest perceived wait. One native timing
+  // plays both legs.
+  const breaths = timing.mock.calls.map(([, config]) => config.duration);
+  expect(breaths.length).toBeGreaterThan(0);
+  expect(new Set(breaths)).toEqual(new Set([2 * lightTheme.motion.ambient.moderate]));
+  timing.mockRestore();
   expect(breathing).toBeCloseTo(AMBIENT_PULSE_FLOOR * PLACEHOLDER_REST);
 });
 

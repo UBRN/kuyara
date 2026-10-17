@@ -1,5 +1,5 @@
 import { createContext, use, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated as NativeAnimated, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Entrance, fadeEasing, fadeTo, Icon, Pill } from '@/components/ui';
@@ -106,15 +106,14 @@ export function Dimmed({
 export function PhaseMark({ size, testID }: Readonly<{ size: number; testID: string }>) {
   const theme = useKuyaraTheme();
   const pulse = useAmbientPulse();
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: pulse.get() }));
 
   return (
-    <Animated.View
+    <NativeAnimated.View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={animatedStyle}
+      style={{ opacity: pulse }}
       testID={testID}>
       <Icon color={theme.colors.iconSecondary} name="clock" size={size} />
-    </Animated.View>
+    </NativeAnimated.View>
   );
 }
