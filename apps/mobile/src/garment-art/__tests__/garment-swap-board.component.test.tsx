@@ -10,6 +10,7 @@ import {
   composeDetailBoard,
   entranceStartBoxes,
   measureGarmentBoardHeight,
+  pieceShadowOf,
   type GarmentBoardPiece,
 } from '@/garment-art/garment-board';
 import { haptics } from '@/components/ui/haptics';
@@ -83,6 +84,24 @@ const withShoes = (garmentTypeId: 'sandals' | 'closed_shoes'): readonly GarmentB
 
 // A second flick that lands before the owner hands back the stepped pieces must not drive the
 // piece that is already leaving, nor ask for the same step twice.
+// ADR 0025 section 9 on the detail: on iOS each piece's view casts its shadow, so no draw of
+// the swap board runs a Core Image filter.
+test('on iOS every detail piece casts its shadow from its view, with no SVG filter', async () => {
+  const result = await render(<GarmentSwapBoard {...boardProps()} />, { wrapper: LightTheme });
+  const { color, dx, dy, blur } = pieceShadowOf(358, lightTheme.colors.background, 'light');
+  expect(result.container.queryAll((node) => /Filter|FeGaussianBlur|FeFlood/u.test(String(node.type))))
+    .toHaveLength(0);
+  for (const { slot, garmentTypeId } of pieces) {
+    const shadows = result.getByTestId(`garment-swap-board-drawing-${slot}-${garmentTypeId}`)
+      .queryAll((node) => node.type === 'View' && StyleSheet.flatten(node.props.style)?.shadowColor != null)
+      .map((node) => StyleSheet.flatten(node.props.style));
+    expect(shadows).toEqual([{
+      height: expect.any(Number), width: expect.any(Number),
+      shadowColor: color, shadowOffset: { width: dx, height: dy }, shadowOpacity: 1, shadowRadius: blur,
+    }]);
+  }
+});
+
 test('a second flick before the step has rendered is not a second step', async () => {
   const onStep = jest.fn();
   const result = await render(<GarmentSwapBoard {...boardProps({ onStep })} />, { wrapper: LightTheme });

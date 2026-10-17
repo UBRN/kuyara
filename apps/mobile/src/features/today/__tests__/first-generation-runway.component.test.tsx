@@ -176,6 +176,23 @@ test('the dressed pieces lie in the flat lay\'s stacking, as Today\'s band draws
   expect(drawn).toEqual(['outer_layer', 'mid_layer', 'bottom', 'primary_top', 'footwear']);
 });
 
+// The runway draws a dressed piece's shadow alone, under a fill that pours over it: a view's
+// shadow needs its drawing, so on iOS too that shadow stays the SVG filter, one per piece.
+test('each dressed piece casts its shadow alone through the SVG filter, not a view shadow', async () => {
+  const result = await render(runway());
+  await laidOut(result);
+  await result.rerender(runway({ active: false, completed: true, phase: null, outfit: chosen }));
+  await act(() => jest.advanceTimersByTime(0));
+  for (const { slot } of chosen.pieces) {
+    const piece = result.getByTestId(`runway-dressed-${slot}`, hidden);
+    const count = (name: string) => piece.queryAll((node) => String(node.type).includes(name)).length;
+    expect(count('FeGaussianBlur')).toBe(1);
+    expect(count('FeMerge')).toBe(0);
+    expect(piece.queryAll((node) => node.type === 'View' && StyleSheet.flatten(node.props.style)?.shadowColor != null))
+      .toHaveLength(0);
+  }
+});
+
 // Law 7's full-screen transition: the layer fades on `deliberate` rather than cutting to
 // Today, stays in the tree while it fades, and reports hidden only once it has gone.
 test('the runway fades out on the deliberate role, then leaves and reports hidden', async () => {
