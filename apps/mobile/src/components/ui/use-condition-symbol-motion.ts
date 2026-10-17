@@ -1,12 +1,5 @@
-import { useCallback } from 'react';
-import {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import { useCallback, useMemo, useState } from 'react';
+import { Animated, Easing } from 'react-native';
 
 import { useWhileVisible } from '@/components/ui/use-screen-visible';
 
@@ -21,28 +14,37 @@ const TURN_DEGREES = 45;
 const DRIFT_TRAVEL = 1.3;
 const FALL_TRAVEL = 1.5;
 
+// A drift or a fall eases out and back in one native timing: there on the first half and
+// back on the second, each half the quadratic ease in and out of one leg.
+const easeLeg = Easing.inOut(Easing.quad);
+const thereAndBack = (t: number) => easeLeg(1 - Math.abs(2 * t - 1));
+
 /**
- * The animated style of a condition symbol. Each leg of its loop is `legMs`, the ambient
- * step the condition's intensity selects, so its tempo follows the weather.
+ * The animated style of a condition symbol, for React Native's `Animated.View`. Each leg of
+ * its loop is `legMs`, the ambient step the condition's intensity selects, so its tempo
+ * follows the weather. The loop runs on the native driver: a Reanimated loop commits the
+ * shadow tree on every frame, which relays and walks the whole window while the screen is idle.
  */
 export function useConditionSymbolMotion(motion: SymbolMotion, legMs: number) {
-  const progress = useSharedValue(0);
+  const [progress] = useState(() => new Animated.Value(0));
 
   useWhileVisible(useCallback(() => {
     if (motion === 'still') return undefined;
-    progress.set(motion === 'turn'
-      ? withRepeat(withTiming(1, { duration: legMs, easing: Easing.linear }), -1, false)
-      : withRepeat(withTiming(1, { duration: legMs }), -1, true));
+    const loop = Animated.loop(Animated.timing(progress, motion === 'turn'
+      ? { duration: legMs, easing: Easing.linear, toValue: 1, useNativeDriver: true }
+      : { duration: 2 * legMs, easing: thereAndBack, toValue: 1, useNativeDriver: true }));
+    loop.start();
     return () => {
-      cancelAnimation(progress);
-      progress.set(0);
+      loop.stop();
+      progress.setValue(0);
     };
   }, [legMs, motion, progress]));
 
-  return useAnimatedStyle(() => {
-    const value = progress.get();
-    if (motion === 'turn') return { transform: [{ rotate: `${value * TURN_DEGREES}deg` }] };
-    if (motion === 'drift') return { transform: [{ translateX: value * DRIFT_TRAVEL }] };
-    return { transform: [{ translateY: value * FALL_TRAVEL }] };
-  });
+  return useMemo(() => {
+    if (motion === 'turn') {
+      return { transform: [{ rotate: progress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${TURN_DEGREES}deg`] }) }] };
+    }
+    if (motion === 'drift') return { transform: [{ translateX: Animated.multiply(progress, DRIFT_TRAVEL) }] };
+    return { transform: [{ translateY: Animated.multiply(progress, FALL_TRAVEL) }] };
+  }, [motion, progress]);
 }
