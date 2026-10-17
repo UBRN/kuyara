@@ -863,9 +863,10 @@ function createLoadedPresentation(
     ? windowSentence(coverageWindowParts(choosing, now, weather.timeZone, language, hour12),
       copy.coverage.choosing, copy.coverage.choosingOnDay)
     : null;
-  const drift = !day && snapshot.coverageEnd && snapshot.recommendation.status === 'recommended' && !choosing
-    ? coverageDrift(snapshot.recommendation.requirements, weather.hourly,
-      new Date(now).toISOString(), snapshot.coverageEnd, current)
+  const drift = !day && snapshot.coverageStart && snapshot.coverageEnd
+    && snapshot.recommendation.status === 'recommended' && !choosing
+    ? coverageDrift(snapshot.recommendation.requirements, weather, new Date(now).toISOString(),
+      { start: snapshot.coverageStart, end: snapshot.coverageEnd })
     : null;
   // A change whose hour began at or before now is happening now: no clock time that has passed.
   const driftCaption = drift
