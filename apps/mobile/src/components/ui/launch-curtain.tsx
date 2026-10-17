@@ -50,8 +50,9 @@ export function useLaunchReveal(): LaunchReveal {
 }
 
 /**
- * How the first screen tells the launch that its content is drawn, so the dive never plays
- * over that screen's heaviest render. Only a screen the launch waits for provides a reader.
+ * How the first screen tells the launch that it has drawn what the device holds, so the dive
+ * never plays over the first render of local data. Only a screen the launch waits for
+ * provides a reader.
  */
 export const LaunchScreenReadyContext = createContext<(() => void) | null>(null);
 

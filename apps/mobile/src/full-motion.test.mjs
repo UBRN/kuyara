@@ -21,12 +21,12 @@ test('the root turns off the system motion default before any animated subtree m
 });
 
 // The modes are also plain strings: a `reduceMotion` key or prop, the first argument of
-// withSequence, the last of withRepeat.
+// withSequence, the last of withDelay and withRepeat.
 const followsSystemMotion = [
   /ReduceMotion\.(System|Always)|useReducedMotion|isReduceMotionEnabled|reduceMotionChanged|\.reduceMotion\(/,
   /reduceMotion\s*[:=]\s*\{?\s*['"](system|always)['"]/,
   /withSequence\(\s*['"](system|always)['"]/,
-  /withRepeat\([^;]*?,\s*['"](system|always)['"]\s*\)/,
+  /with(Delay|Repeat)\([^;]*?,\s*['"](system|always)['"]\s*\)/,
 ];
 
 test('no file follows the system motion setting', () => {

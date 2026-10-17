@@ -81,8 +81,8 @@ export function moreIdeas(
 
 /**
  * `launchReady` is whether the surface the device's own data gives has been drawn, which is
- * what the cold launch waits for: true once both stores have loaded and the active place has
- * weather, even while Today waits for the day's new outfit (a day question unanswered, a
+ * what the cold launch waits for: true once both stores have loaded and Today shows the active
+ * place's weather or an unavailable state, even while Today waits for the day's new outfit (a day question unanswered, a
  * generation in flight), which can take seconds or wait on the person.
  */
 export function classifyTodayState(input: TodayStateInput): Readonly<{
