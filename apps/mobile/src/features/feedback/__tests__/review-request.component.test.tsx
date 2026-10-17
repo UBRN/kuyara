@@ -1,13 +1,16 @@
 import { act, render } from '@testing-library/react-native';
+import { useState } from 'react';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 
-import { LaunchOpenContext } from '@/components/ui/launch-curtain';
+import { LaunchCurtain, LaunchOpenContext } from '@/components/ui/launch-curtain';
 import { usePresentationHold } from '@/components/ui/presentation-hold';
 import {
   resetReviewRequestProcess,
   REVIEW_REQUEST_SETTLE_MS,
   ReviewRequestObserver,
 } from '@/features/feedback/application/review-request-observer';
+import { standardMotion } from '@/theme/theme';
 
 const mockRequest = jest.fn(async () => undefined);
 let mockOnboardingCompleted = true;
@@ -166,4 +169,66 @@ test('Android asks nothing', async () => {
   await view.rerender(app(1));
   await settle();
   expect(mockRequest).not.toHaveBeenCalled();
+});
+
+// The launch's motion runs on the UI thread; every timing that reports its end is held here
+// until the test ends it, as the UI thread would.
+function holdLaunchMotion() {
+  const running: { duration: number; end: (finished: boolean) => void }[] = [];
+  const shared = Reanimated.useSharedValue;
+  jest.spyOn(Reanimated, 'withTiming').mockImplementation(((
+    toValue: number,
+    config?: { duration?: number },
+    callback?: (finished?: boolean) => void,
+  ) => {
+    if (callback) running.push({ duration: config?.duration ?? 0, end: (finished) => callback(finished) });
+    return toValue;
+  }) as unknown as typeof Reanimated.withTiming);
+  jest.spyOn(Reanimated, 'useSharedValue').mockImplementation(((initial: number) => {
+    const [value] = useState(() => shared(initial));
+    return value;
+  }) as unknown as typeof Reanimated.useSharedValue);
+  Object.assign(globalThis, {
+    requestAnimationFrame: (callback: (now: number) => void) => setTimeout(() => callback(performance.now()), 0),
+    cancelAnimationFrame: (handle: ReturnType<typeof setTimeout>) => clearTimeout(handle),
+  });
+  return async (duration: number) => {
+    const index = running.findIndex((timing) => timing.duration === duration);
+    expect(index).toBeGreaterThanOrEqual(0);
+    const [timing] = running.splice(index, 1);
+    await act(() => timing!.end(true));
+    await act(() => jest.advanceTimersByTime(0));
+  };
+}
+
+test('a return that plays the launch asks once its layer has gone, never while it plays', async () => {
+  const end = holdLaunchMotion();
+  const { launch, normal } = standardMotion;
+  await render(
+    <LaunchCurtain cold={false} onFirstFrame={jest.fn()} readiness="ready" seen>
+      <ReviewRequestObserver />
+    </LaunchCurtain>,
+  );
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+
+  // Leaving prepares the return layer, unseen; 65 s later the app is active and it plays.
+  await moveApp('inactive');
+  await moveApp('background');
+  await act(() => jest.advanceTimersByTime(65_000));
+  await moveApp('active');
+  await act(() => jest.advanceTimersByTime(32));
+  // The dive and the fade take as long as the UI thread takes; the request waits for them all.
+  await act(() => jest.advanceTimersByTime(10 * REVIEW_REQUEST_SETTLE_MS));
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+  await end(launch);
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+  await end(normal);
+  await act(() => jest.advanceTimersByTime(REVIEW_REQUEST_SETTLE_MS - 1));
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+  await act(() => jest.advanceTimersByTime(1));
+  expect(mockRequest).toHaveBeenCalledTimes(2);
+  await settle();
+  expect(mockRequest).toHaveBeenCalledTimes(2);
 });
