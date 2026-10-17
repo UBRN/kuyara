@@ -8,6 +8,7 @@ import {
   LAUNCH_READY_CEILING_MS,
   LAUNCH_STEADY_FRAME_LIMIT,
   LAUNCH_STEADY_FRAMES,
+  LAUNCH_STEADY_WAIT_MS,
   LaunchCurtain,
   type LaunchReadiness,
   LaunchScreenReadyContext,
@@ -220,25 +221,70 @@ test('the dive waits until the UI thread has drawn the first screen and draws st
   await drawFirstFrame();
   // Mounting and drawing the first screen holds the UI thread: one of its frames comes late.
   frameDelay = FRAME;
-  frameDelays = [FRAME, 900];
+  frameDelays = [FRAME, 300];
   await result.rerender(curtain('ready'));
   // Idle, then the frame before the stall, the stall, and all but the last steady frame.
-  await advance(1 + FRAME + 900 + (LAUNCH_STEADY_FRAMES - 1) * FRAME);
+  await advance(1 + FRAME + 300 + (LAUNCH_STEADY_FRAMES - 1) * FRAME);
   expect(durations()).toEqual([]);
   expect(probe()).toBe('covered playing');
   await nextFrame();
   expect(durations()).toEqual([launch, normal]);
 });
 
-test('a UI thread that never draws steadily still lets the launch move, within a bounded number of frames', async () => {
+test('frames at a low dynamic frame rate still count as steady', async () => {
   const result = await render(curtain('pending'));
   await drawFirstFrame();
-  frameDelay = 3 * FRAME;
+  // 24 frames a second, as iOS may run a still screen.
+  frameDelay = 42;
   await result.rerender(curtain('ready'));
-  await advance(LAUNCH_STEADY_FRAME_LIMIT * 3 * FRAME);
+  // Idle, the first frame, and the steady ones after it, but for the last moment.
+  await advance(1 + 42 + LAUNCH_STEADY_FRAMES * 42 - 1);
   expect(durations()).toEqual([]);
   await nextFrame();
   expect(durations()).toEqual([launch, normal]);
+});
+
+test('a UI thread that never draws steadily still lets the launch move, within a bounded time', async () => {
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  const slow = 100;
+  frameDelay = slow;
+  await result.rerender(curtain('ready'));
+  // Idle, the first frame, then frames until the wait has lasted its longest.
+  await advance(1 + slow + LAUNCH_STEADY_WAIT_MS - 1);
+  expect(durations()).toEqual([]);
+  await nextFrame();
+  expect(durations()).toEqual([launch, normal]);
+});
+
+test('frames that come unevenly but fast still let the launch move, within a bounded number of frames', async () => {
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  // Two quick frames and a slow one, over and over: never steady, never long.
+  frameDelays = Array.from({ length: 2 * LAUNCH_STEADY_FRAME_LIMIT }, (_, index) => (index % 3 === 2 ? 52 : 1));
+  const lastFrame = 1 + frameDelays.slice(0, LAUNCH_STEADY_FRAME_LIMIT).reduce((sum, delay) => sum + delay, 0);
+  await result.rerender(curtain('ready'));
+  await advance(lastFrame - 1);
+  expect(durations()).toEqual([]);
+  await nextFrame();
+  expect(durations()).toEqual([launch, normal]);
+});
+
+test('an answer refined while the UI thread is still drawing is the one played, never the one before it', async () => {
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  // The wait for the drawn first screen stalls on its second frame.
+  frameDelays = [0, 300];
+  await result.rerender(curtain('ready'));
+  await advance(100);
+  expect(durations()).toEqual([]);
+  // A notification's: the shortened launch starts its own wait, and the first one's end is ignored.
+  await result.rerender(curtain('shortened'));
+  await nextFrame();
+  expect(durations()).toEqual([fast, normal]);
+  await advance(300);
+  await nextFrame();
+  expect(durations()).toEqual([fast, normal]);
 });
 
 test('a launch from a notification or a link skips the dive: the colour fades in, then away', async () => {
