@@ -20,9 +20,23 @@ test('the root turns off the system motion default before any animated subtree m
   assert.ok(root !== -1 && override > root && override < curtain);
 });
 
+// The modes are also plain strings: a `reduceMotion` key or prop, the first argument of
+// withSequence, the last of withRepeat.
+const followsSystemMotion = [
+  /ReduceMotion\.(System|Always)|useReducedMotion|isReduceMotionEnabled|reduceMotionChanged|\.reduceMotion\(/,
+  /reduceMotion\s*[:=]\s*\{?\s*['"](system|always)['"]/,
+  /withSequence\(\s*['"](system|always)['"]/,
+  /withRepeat\([^;]*?,\s*['"](system|always)['"]\s*\)/,
+];
+
 test('no file follows the system motion setting', () => {
   const offenders = sourceFiles(sourceRoot)
-    .filter((file) => /ReduceMotion\.(System|Always)|useReducedMotion|isReduceMotionEnabled|reduceMotionChanged|\.reduceMotion\(/
-      .test(read(file)));
+    .filter((file) => followsSystemMotion.some((pattern) => pattern.test(read(file))));
   assert.deepEqual(offenders, []);
+});
+
+test('the root override is the only motion config in the app', () => {
+  const configs = sourceFiles(sourceRoot)
+    .flatMap((file) => read(file).match(/<ReducedMotionConfig\b/g) ?? []);
+  assert.equal(configs.length, 1);
 });

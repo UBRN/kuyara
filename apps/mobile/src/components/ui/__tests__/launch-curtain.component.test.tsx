@@ -363,6 +363,54 @@ test('a return while the cold launch still plays adds no second launch', async (
   expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
 });
 
+// The person leaves while the cold launch dives; the motion ends while the app is away.
+async function leaveDuringColdLaunch() {
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  await result.rerender(curtain('ready'));
+  await nextFrame();
+  await moveApp('inactive');
+  await moveApp('background');
+  await end(launch);
+  await end(normal);
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+}
+
+test('a time away that starts while the cold launch plays is timed, and a long one plays the return', async () => {
+  await leaveDuringColdLaunch();
+  await advance(RETURN_AWAY_MS + 1_000);
+  await moveApp('active');
+  expect(screen.getByTestId('launch-curtain', hidden)).toBeTruthy();
+  expect(durations()).toEqual([launch, normal]);
+});
+
+test('a short time away that starts while the cold launch plays returns to the screen as it is', async () => {
+  await leaveDuringColdLaunch();
+  await advance(20_000);
+  await moveApp('active');
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
+// iOS can suspend the process before this thread hears `background`; it then hears it on
+// resume, just before `active`. The time away runs from the moment the app stopped being active.
+test('a background heard only on resume still counts the time since the app went inactive', async () => {
+  await render(curtain('ready', jest.fn(), false));
+
+  await moveApp('inactive');
+  await advance(RETURN_AWAY_MS + 1_000);
+  await moveApp('background');
+  await moveApp('active');
+  expect(screen.getByTestId('launch-curtain', hidden)).toBeTruthy();
+  await end(launch);
+  await end(normal);
+
+  // Control Center or the app switcher: inactive and back, never in the background.
+  await moveApp('inactive');
+  await advance(RETURN_AWAY_MS + 1_000);
+  await moveApp('active');
+  expect(screen.queryByTestId('launch-curtain', hidden)).toBeNull();
+});
+
 // The layer sits in the iOS full-window overlay, which draws above presented sheets.
 function inWindowOverlay() {
   type Node = { type: unknown; parent: Node | null };
