@@ -80,7 +80,7 @@ describe.each(['today', 'detail'] as const)('the %s board', (preset) => {
     // A stroke is authored in points and divided by the drawing's own scale, so the ratio
     // of the drawn widths is the ratio of the outlines over the ratio of the scales.
     expect(shirtOutlineWidth(on) / offWidth).toBeCloseTo((2.8 / 1.9) / growth, 5);
-    expect(on.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, preset, 'womens', false, true));
+    expect(on.getByRole('image')).toHaveStyle({ height: measureGarmentBoardHeight(pieces, 349, preset, 'womens', false, true) });
   });
 });
 
