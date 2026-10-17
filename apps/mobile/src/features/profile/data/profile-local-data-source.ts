@@ -39,7 +39,6 @@ export interface ProfileLocalDataSource {
   markWeatherAlertOfferShown(): Promise<LocalProfileRecord>;
   markWalkthroughSeen(): Promise<LocalProfileRecord>;
   markSwapHintShown(): Promise<LocalProfileRecord>;
-  markReviewRequested(): Promise<LocalProfileRecord>;
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<LocalProfileRecord>;
 }
 

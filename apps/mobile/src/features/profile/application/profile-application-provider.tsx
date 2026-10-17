@@ -94,7 +94,6 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
       markWeatherAlertOfferShown,
       markWalkthroughSeen: () => controller.markWalkthroughSeen(),
       markSwapHintShown: () => controller.markSwapHintShown(),
-      markReviewRequested: () => controller.markReviewRequested(),
       updateAnalyticsConsent,
     }),
     [

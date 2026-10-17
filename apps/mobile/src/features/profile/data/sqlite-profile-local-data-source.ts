@@ -8,7 +8,6 @@ import type {
 import {
   namePromptVersion,
   orderStyleAesthetics,
-  reviewRequestVersion,
   walkthroughVersion,
 } from '@/features/profile/domain/profile';
 import type {
@@ -40,7 +39,6 @@ type LocalProfileRow = Readonly<{
   name_prompt_version: number;
   walkthrough_version: number;
   swap_hint_shown: number;
-  review_request_version: number;
   language_preference: string;
   theme_preference: string;
   temperature_unit: string;
@@ -73,7 +71,6 @@ const selectProfileSql = `
     name_prompt_version,
     walkthrough_version,
     swap_hint_shown,
-    review_request_version,
     language_preference,
     theme_preference,
     temperature_unit,
@@ -103,7 +100,6 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     namePromptVersion: row.name_prompt_version,
     walkthroughVersion: row.walkthrough_version,
     swapHintShown: row.swap_hint_shown,
-    reviewRequestVersion: row.review_request_version,
     languagePreference: row.language_preference,
     themePreference: row.theme_preference,
     temperatureUnitPreference: row.temperature_unit,
@@ -376,14 +372,6 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
       `UPDATE local_profiles SET swap_hint_shown = 1, updated_at = ?
        WHERE singleton_key = 1 AND deleted_at IS NULL`,
       [],
-    );
-  }
-
-  markReviewRequested(): Promise<LocalProfileRecord> {
-    return this.updateProfile(
-      `UPDATE local_profiles SET review_request_version = ?, updated_at = ?
-       WHERE singleton_key = 1 AND deleted_at IS NULL`,
-      [reviewRequestVersion],
     );
   }
 
