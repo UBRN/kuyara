@@ -6,6 +6,8 @@ import * as Reanimated from 'react-native-reanimated';
 import {
   LAUNCH_IDLE_TIMEOUT_MS,
   LAUNCH_READY_CEILING_MS,
+  LAUNCH_STEADY_FRAME_LIMIT,
+  LAUNCH_STEADY_FRAMES,
   LaunchCurtain,
   type LaunchReadiness,
   LaunchScreenReadyContext,
@@ -54,10 +56,15 @@ async function drawFirstFrame() {
   await advance(16);
 }
 
-// The launch moves once the JavaScript thread is idle, on the frame after; React Native
-// provides the idle callback, Jest's environment does not.
+// The launch moves once the JavaScript thread is idle and the UI thread then draws steady
+// frames; React Native provides the idle callback, Jest's environment does not.
 const FRAME = 16;
 const nextFrame = () => advance(2 * FRAME);
+
+// The UI thread's frames, each as late as the test says: by default at once, as on an idle
+// UI thread; a UI thread busy mounting and drawing a screen delivers its next frame late.
+let frameDelay = 0;
+let frameDelays: number[] = [];
 
 // Under sustained load the idle callback never comes by itself; only its timeout does.
 let busy = false;
@@ -96,6 +103,8 @@ beforeAll(() => {
 
 beforeEach(() => {
   busy = false;
+  frameDelay = 0;
+  frameDelays = [];
   running = [];
   appStateListeners = [];
   jest.spyOn(AppState, 'addEventListener').mockImplementation(((
@@ -106,6 +115,12 @@ beforeEach(() => {
     return { remove: () => { appStateListeners = appStateListeners.filter((item) => item !== listener); } };
   }) as unknown as typeof AppState.addEventListener);
   jest.useFakeTimers();
+  // Installed over the fake timers' own frames, which would come every 16 ms whatever the test says.
+  Object.assign(globalThis, {
+    requestAnimationFrame: (callback: (now: number) => void) =>
+      setTimeout(() => callback(performance.now()), frameDelays.shift() ?? frameDelay),
+    cancelAnimationFrame: (handle: ReturnType<typeof setTimeout>) => clearTimeout(handle),
+  });
   jest.spyOn(Reanimated, 'withTiming').mockImplementation(((
     toValue: number,
     config?: { duration?: number },
@@ -196,6 +211,32 @@ test('a JavaScript thread that is never idle still lets the launch move, within 
   await advance(LAUNCH_IDLE_TIMEOUT_MS - 1);
   expect(durations()).toEqual([]);
   await advance(1);
+  await nextFrame();
+  expect(durations()).toEqual([launch, normal]);
+});
+
+test('the dive waits until the UI thread has drawn the first screen and draws steady frames again', async () => {
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  // Mounting and drawing the first screen holds the UI thread: one of its frames comes late.
+  frameDelay = FRAME;
+  frameDelays = [FRAME, 900];
+  await result.rerender(curtain('ready'));
+  // Idle, then the frame before the stall, the stall, and all but the last steady frame.
+  await advance(1 + FRAME + 900 + (LAUNCH_STEADY_FRAMES - 1) * FRAME);
+  expect(durations()).toEqual([]);
+  expect(probe()).toBe('covered playing');
+  await nextFrame();
+  expect(durations()).toEqual([launch, normal]);
+});
+
+test('a UI thread that never draws steadily still lets the launch move, within a bounded number of frames', async () => {
+  const result = await render(curtain('pending'));
+  await drawFirstFrame();
+  frameDelay = 3 * FRAME;
+  await result.rerender(curtain('ready'));
+  await advance(LAUNCH_STEADY_FRAME_LIMIT * 3 * FRAME);
+  expect(durations()).toEqual([]);
   await nextFrame();
   expect(durations()).toEqual([launch, normal]);
 });

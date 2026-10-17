@@ -108,7 +108,9 @@ value.
 Every cold launch plays one animation in a layer drawn
 above the whole app; `visual-identity.md` describes what it shows. The layer's first frame
 is the native splash's last and holds still until the first screen has drawn what the device holds, for at most
-1.5 seconds. Today has drawn it once its weather and recommendation have loaded from the device and
+1.5 seconds, and then until that screen is on the glass: the symbol moves only once the UI
+thread draws steady frames again, so no part of the motion plays out unseen while the screen
+is still being mounted and drawn. Today has drawn it once its weather and recommendation have loaded from the device and
 its place has weather, even while the day's new outfit is still on its way, so neither an
 unanswered day question nor a generation holds the launch to its ceiling. A process iOS starts in the background, for the weather-alert task, renders
 unseen: its layer holds that first frame, and the wait and its ceiling begin the first time

@@ -21,7 +21,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { type ColumnMajorTransformMatrix, G, type GProps, Path, Rect } from 'react-native-svg';
-import { scheduleOnRN } from 'react-native-worklets';
+import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
 import { brandColors, standardMotion } from '@/theme/theme';
 
@@ -98,11 +98,34 @@ const GLIDE_EASING = Easing.bezier(0.77, 0, 0.175, 1);
 // The longest the launch waits for an idle JavaScript thread: under sustained load the idle
 // callback never comes, and the opaque layer must not outlast it.
 export const LAUNCH_IDLE_TIMEOUT_MS = 300;
+// Mounting and drawing the first screen holds the UI thread, and a motion that starts meanwhile
+// is spent unseen: the clock runs on while no frame is drawn. The motion starts once the UI
+// thread draws this many frames in a row, each within the interval of two 60 Hz frames.
+export const LAUNCH_STEADY_FRAMES = 3;
+const STEADY_FRAME_MS = 34;
+// Under sustained load the frames never come steadily, and the opaque layer must not outlast it.
+export const LAUNCH_STEADY_FRAME_LIMIT = 20;
 
 type Scheme = 'light' | 'dark';
 
 const ink = Object.freeze({ light: brandColors.deepAtmosphere, dark: brandColors.quietSky });
 const ground = Object.freeze({ light: brandColors.softMist, dark: brandColors.nightLayer });
+
+/** Calls `then` once the UI thread draws steady frames, or has drawn the most it waits for. */
+function afterSteadyFrames(then: () => void) {
+  'worklet';
+  let frames = 0;
+  let steady = 0;
+  let last = -1;
+  const frame = (now: number) => {
+    frames += 1;
+    steady = last >= 0 && now - last <= STEADY_FRAME_MS ? steady + 1 : 0;
+    last = now;
+    if (steady >= LAUNCH_STEADY_FRAMES || frames >= LAUNCH_STEADY_FRAME_LIMIT) scheduleOnRN(then);
+    else requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
 
 function motionFor(readiness: LaunchReadiness, late: boolean): LaunchMotion | null {
   if (readiness === 'ready') return 'dive';
@@ -140,10 +163,11 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
   const [reveal, setReveal] = useState<LaunchReveal>(cold ? { revealing: false, done: false } : revealed);
   const [drawn, setDrawn] = useState(false);
   const [late, setLate] = useState(false);
-  // The launch moves once the JavaScript thread is idle and on the frame after, so the first
-  // screen's render is behind it, and an answer refined meanwhile (a drawn first screen that
-  // turns out to be a notification's) is the one played. Once moving, a later answer (a retry,
-  // a ready after the ceiling) changes nothing.
+  // The launch moves once the JavaScript thread is idle and the UI thread then draws steady
+  // frames, so the first screen's render, its mounting and its drawing are behind it, and an
+  // answer refined meanwhile (a drawn first screen that turns out to be a notification's) is
+  // the one played. Once moving, a later answer (a retry, a ready after the ceiling) changes
+  // nothing.
   const [motion, setMotion] = useState<LaunchMotion | null>(null);
   const answer = cold ? motionFor(readiness, late) : null;
 
@@ -155,13 +179,15 @@ export function LaunchCurtain({ children, cold, onFirstFrame, readiness, seen }:
 
   useEffect(() => {
     if (!drawn || !seen || motion !== null || answer === null) return undefined;
-    let frame: number | null = null;
+    let live = true;
     const idle = requestIdleCallback(() => {
-      frame = requestAnimationFrame(() => setMotion(answer));
+      scheduleOnUI(afterSteadyFrames, () => {
+        if (live) setMotion(answer);
+      });
     }, { timeout: LAUNCH_IDLE_TIMEOUT_MS });
     return () => {
+      live = false;
       cancelIdleCallback(idle);
-      if (frame !== null) cancelAnimationFrame(frame);
     };
   }, [answer, drawn, motion, seen]);
 

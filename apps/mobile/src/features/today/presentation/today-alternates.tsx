@@ -189,10 +189,13 @@ export function MoreIdeas({
         <AppText accessibilityRole="header" variant="bodyStrong">{heading}</AppText>
       </View>
       <AppText colorRole="textSecondary" style={styles.ideasCaption} variant="caption">{caption}</AppText>
+      {/* The pool is small and bounded, so every tile draws in the first render: a
+          batch the list rendered later would mount and draw under the cold launch's dive. */}
       <FlatList
         contentContainerStyle={styles.ideasContent}
         data={ideas}
         horizontal
+        initialNumToRender={ideas.length}
         keyExtractor={(idea) => idea.id}
         renderItem={({ item }) => (
           <OutfitTile

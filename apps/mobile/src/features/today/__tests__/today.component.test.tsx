@@ -40,6 +40,7 @@ import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import {
   darkTheme,
+  layout,
   lightTheme,
   plateTheme,
   radii,
@@ -558,6 +559,21 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     }));
     expect(result.queryByTestId('ai-sparkle-mark', { includeHiddenElements: true })).toBeNull();
   });
+});
+
+// The cold launch waits for Today's first render of what the device holds and then dives;
+// a second render at another width would mount and draw every board again under the dive.
+test('Today draws its outfit at the screen content width from its first render, before any layout', async () => {
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={todayScreenState} />,
+  ));
+
+  const hidden = { includeHiddenElements: true };
+  // No safe-area side insets here: the band is the window, up to the content's maximum width.
+  const band = Math.min(Dimensions.get('window').width, layout.maxContentWidth);
+  expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
+    .toMatchObject({ width: band });
 });
 
 test.each([
