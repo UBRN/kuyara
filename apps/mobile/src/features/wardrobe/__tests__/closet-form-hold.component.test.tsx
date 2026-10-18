@@ -6,6 +6,7 @@ import { usePresentationHeld } from '@/components/ui/presentation-hold';
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   useLocalSearchParams: () => ({}),
+  useNavigation: () => ({ setParams: () => undefined }),
 }));
 jest.mock('@/features/wardrobe/presentation/wardrobe-item-routes', () => ({
   WardrobeEditItemRoute: () => null,

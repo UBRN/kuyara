@@ -20,11 +20,12 @@ export default function WardrobeNewRoute() {
   const { category, filter, phrase } = useLocalSearchParams<{
     category?: string;
     filter?: string;
-    phrase?: string;
+    phrase?: string | string[];
   }>();
   // ADR 0042: Siri's Closet add arrives with `phrase`. The route reads it once for the form
-  // and drops it from its params, so it stays in no URL, history entry or later render.
-  const [initialPhrase] = useState(phrase);
+  // and drops it from its params, so it stays in no URL, history entry or later render. A link
+  // that repeats the parameter arrives as a list and hands the form no phrase.
+  const [initialPhrase] = useState(typeof phrase === 'string' ? phrase : undefined);
   // The screen's own navigation, not the global router: a cold-start deep link mounts this
   // screen before the root navigator reports ready, and the router refuses until then.
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();

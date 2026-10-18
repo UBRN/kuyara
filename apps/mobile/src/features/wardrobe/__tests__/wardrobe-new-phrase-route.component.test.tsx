@@ -67,3 +67,9 @@ it('the add route without a phrase hands the form none', async () => {
 
   expect(screen.getByText('Form - route -')).toBeOnTheScreen();
 });
+
+it('the add route hands the form no phrase when the link repeats it', async () => {
+  await renderNew('/wardrobe/new?phrase=gomlek&phrase=kazak');
+
+  expect(await screen.findByText('Form - route -')).toBeOnTheScreen();
+});
