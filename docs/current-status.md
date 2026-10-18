@@ -162,6 +162,11 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   versioning and update path](product-decisions.md#approved-release-versioning-and-update-path),
   and the commands are in [Release path](testing.md#release-path). Shared code stays
   Android-compatible; Android validation is deferred.
+- **Siri:** `main` carries the Siri outfit card and the Closet add by phrase
+  ([ADR 0042](adr/0042-siri-outfit-card-and-closet-add-by-phrase.md)); they reach people in the
+  next store build, not through an update. The Simulator runs both App Shortcuts. Open before that
+  build: the App Group `group.com.ubrn.kuyara` on the App ID and the distribution profile, and a
+  Turkish Siri phrase test on a device.
 
 The shipped app has optional sign-in and, for a signed-in member who gives the sync consent, Closet and History sync; it has no server-sent push. Supabase is the backend of the accounts ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md))
 with its project in Frankfurt (`bkeojzuvuzilytfmpgdu`, Free plan). Phase 9, optional accounts
