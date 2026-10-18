@@ -345,11 +345,13 @@ test('create route shows initialization status instead of the form until wardrob
 function CreateForm({
   clothingPreference = null,
   confirmation,
+  initialPhrase,
   onCreate = async () => undefined,
   onDirtyChange = () => undefined,
 }: Readonly<{
   clothingPreference?: 'womens' | 'mens' | null;
   confirmation?: WardrobeConfirmation;
+  initialPhrase?: string;
   onCreate?: (input: Record<string, unknown>) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
 }>) {
@@ -358,6 +360,7 @@ function CreateForm({
       <WardrobeItemFormScreen
         clothingPreference={clothingPreference}
         confirmation={confirmation}
+        initialPhrase={initialPhrase}
         isBusy={false}
         mode="create"
         onCreate={onCreate}
@@ -2185,6 +2188,47 @@ test('a chosen phrase type hands VoiceOver\'s focus to the collapsed type row; a
   await fireEvent.press(result.getByTestId('wardrobe-phrase-choice-blazer'));
   expect(focus).toHaveBeenLastCalledWith('wardrobe-type-row-name');
   jest.restoreAllMocks();
+});
+
+// ADR 0042 section 6: Siri's Closet add opens the form with a phrase, applied once on arrival
+// exactly as a submitted field; Save is still the person's.
+test('an initial phrase shows in the field and fills the type and colour on arrival, once, saving nothing', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const onCreate = jest.fn(async () => undefined);
+  const result = await render(<CreateForm clothingPreference="mens" initialPhrase="lacivert keten gömlek" onCreate={onCreate} />);
+  const copy = messages.en.wardrobe;
+
+  const shirt = messages.en.catalog['catalog.garment_type.shirt.name'];
+  expect(result.getByTestId(PHRASE)).toHaveProp('value', 'lacivert keten gömlek');
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent(shirt);
+  expect(result.getByTestId('wardrobe-color-navy').props.accessibilityState.selected).toBe(true);
+  expect(result.queryByTestId(PHRASE_NOTICE)).not.toBeOnTheScreen();
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(copy.phraseFilled({ type: shirt, color: copy.colorOptionNames.navy }));
+
+  // A later render does not apply it again, so a type the person changed stays changed.
+  await result.rerender(<CreateForm clothingPreference="mens" initialPhrase="lacivert keten gömlek" onCreate={onCreate} />);
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(onCreate).not.toHaveBeenCalled();
+});
+
+test('an initial phrase it cannot read shows the not-understood line and leaves the pickers open', async () => {
+  jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const result = await render(<CreateForm clothingPreference="mens" initialPhrase="zzqx" />);
+
+  expect(result.getByTestId(PHRASE)).toHaveProp('value', 'zzqx');
+  expect(result.getByTestId(PHRASE_NOTICE)).toHaveTextContent(messages.en.wardrobe.phraseNotUnderstood.unknown);
+  expect(result.getByTestId('wardrobe-type-categories')).toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-type-row')).not.toBeOnTheScreen();
+});
+
+test('an ambiguous initial phrase offers its choice chips on arrival', async () => {
+  jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const result = await render(<CreateForm clothingPreference="mens" initialPhrase="siyah ceket" />);
+
+  expect(result.getByTestId(PHRASE_NOTICE)).toHaveTextContent(messages.en.wardrobe.phraseNotUnderstood.ambiguous);
+  expect(result.getByTestId('wardrobe-phrase-choice-blazer')).toBeOnTheScreen();
 });
 
 test('the edit form has no phrase field', async () => {

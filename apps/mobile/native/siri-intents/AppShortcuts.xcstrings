@@ -1,0 +1,72 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add a piece to my Closet in ${applicationName}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}'da gardıroba parça ekle"
+          }
+        }
+      }
+    },
+    "Add clothes to ${applicationName}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}'ya kıyafet ekle"
+          }
+        }
+      }
+    },
+    "Add to my Closet in ${applicationName}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}'da gardıroba ekle"
+          }
+        }
+      }
+    },
+    "Show today's outfit in ${applicationName}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}'da bugünün kombinini göster"
+          }
+        }
+      }
+    },
+    "What should I wear today in ${applicationName}?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}'da bugün ne giysem?"
+          }
+        }
+      }
+    },
+    "What's my outfit today in ${applicationName}?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}'da bugünün kombini ne?"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -1,0 +1,149 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add to Closet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gardıroba Ekle"
+          }
+        }
+      }
+    },
+    "Another Option" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Başka Seçenek"
+          }
+        }
+      }
+    },
+    "Open Outfit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kombini Aç"
+          }
+        }
+      }
+    },
+    "Open kuyara" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kuyara'yı aç"
+          }
+        }
+      }
+    },
+    "Opens the Closet's add form with the piece you name." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Söylediğin parçayla Gardırop'un ekleme formunu açar."
+          }
+        }
+      }
+    },
+    "Opens this outfit in kuyara." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bu kombini kuyara'da açar."
+          }
+        }
+      }
+    },
+    "Outfit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kombin"
+          }
+        }
+      }
+    },
+    "Outfit Card" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kombin Kartı"
+          }
+        }
+      }
+    },
+    "Piece" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parça"
+          }
+        }
+      }
+    },
+    "Shows today's outfit from kuyara." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kuyara'dan bugünün kombinini gösterir."
+          }
+        }
+      }
+    },
+    "Today's Outfit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bugünün Kombini"
+          }
+        }
+      }
+    },
+    "Today's outfit is ready when you open kuyara." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bugünün kombini kuyara'yı açınca hazır."
+          }
+        }
+      }
+    },
+    "Which piece would you like to add?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hangi parçayı eklemek istersin?"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  dressingDayBounds,
   dressingDayDateKey,
   dressingDayKeySchema,
   eveningHasStarted,
@@ -227,4 +228,40 @@ test('a forecast hour has not ended until sixty minutes after it starts', () => 
   assert.equal(forecastHourHasNotEnded(start, start + 59 * 60_000 + 59_999), true);
   assert.equal(forecastHourHasNotEnded(start, start + 60 * 60_000), false);
   assert.equal(forecastHourHasNotEnded(Number.NaN, start), false);
+});
+
+// The bounds of a dressing-day key on a given zone's clock: what the Siri outfit summary is
+// valid for. Read from the key alone, never from a clock.
+test('a day key runs from 04:00 to 18:00 and an evening key from 18:00 to 04:00 the next date', () => {
+  assert.deepEqual(dressingDayBounds('2026-10-11', istanbul), {
+    start: '2026-10-11T01:00:00.000Z',
+    end: '2026-10-11T15:00:00.000Z',
+  });
+  assert.deepEqual(dressingDayBounds('2026-10-11:evening', istanbul), {
+    start: '2026-10-11T15:00:00.000Z',
+    end: '2026-10-12T01:00:00.000Z',
+  });
+  assert.deepEqual(dressingDayBounds('2026-12-31:evening', istanbul), {
+    start: '2026-12-31T15:00:00.000Z',
+    end: '2027-01-01T01:00:00.000Z',
+  });
+});
+
+test('dressing-day bounds follow a daylight-saving night on the zone\'s clock', () => {
+  // London leaves summer time at 02:00 on 25 October 2026: the evening of the 24th ends at
+  // 04:00 GMT, one hour later in UTC terms than the evening before it.
+  assert.deepEqual(dressingDayBounds('2026-10-24:evening', 'Europe/London'), {
+    start: '2026-10-24T17:00:00.000Z',
+    end: '2026-10-25T04:00:00.000Z',
+  });
+  assert.deepEqual(dressingDayBounds('2026-10-25', 'Europe/London'), {
+    start: '2026-10-25T04:00:00.000Z',
+    end: '2026-10-25T18:00:00.000Z',
+  });
+});
+
+test('a malformed key or an unknown zone has no bounds', () => {
+  assert.equal(dressingDayBounds('2026-10-11:morning', istanbul), null);
+  assert.equal(dressingDayBounds('yesterday', istanbul), null);
+  assert.equal(dressingDayBounds('2026-10-11', 'Mars/Olympus'), null);
 });

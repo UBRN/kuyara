@@ -7,8 +7,10 @@
 // outfit option ids, the day an outfit detail belongs to and whether it opened from Today's
 // band, wardrobe item ids, catalog garment type ids, the Closet ownership
 // filter, the id of the item the Closet add flow has just saved, the consent presentation
-// nonce, the picker's return target and the account screens' development scenario. Place search never becomes a route parameter; the
-// Weather location screen holds its query in component state. A `telemetry-route-params`
+// nonce, the picker's return target, the account screens' development scenario and the
+// phrase Siri's Closet add opens the add form with (the add route also drops it at once).
+// Place search never becomes a route parameter; the Weather location screen holds its query
+// in component state. A `telemetry-route-params`
 // test scans `src/app` and the `useLocalSearchParams` call sites and fails when a new
 // parameter appears without being listed here.
 export const telemetryFilteredRouteParams = [
@@ -21,6 +23,7 @@ export const telemetryFilteredRouteParams = [
   'garmentTypeId',
   'id',
   'itemId',
+  'phrase',
   'presentation',
   'returnTo',
   'selectedTypeId',
