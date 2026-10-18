@@ -32,6 +32,9 @@
     "bindings": [{ "name": "DAILY_COUNTERS", "class_name": "DailyCounter" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DailyCounter"] }],
+  // Remote app switches behind GET /v1/app-config (ADR 0042 section 7), written only by
+  // `pnpm --filter @kuyara/worker app-config`. The id is the production namespace's.
+  "kv_namespaces": [{ "binding": "APP_CONFIG", "id": "81f57a634805453d8e2ac70554df8036" }],
   "ratelimits": [
     { "name": "AI_PROBE_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } },
     { "name": "AI_RECOMMEND_RATE_LIMIT", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
@@ -98,6 +101,9 @@
       // top-level environment declares no D1 binding until the production database exists;
       // add its binding there (with the real id) before opening the mobile feature flag.
       "d1_databases": [{ "binding": "FEEDBACK_DB", "database_name": "kuyara-feedback-e2e", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }],
+      // Local-only: `wrangler dev --env e2e` keeps KV in local storage, so this id never names a
+      // remote namespace and an e2e run never sees the production switch.
+      "kv_namespaces": [{ "binding": "APP_CONFIG", "id": "00000000000000000000000000000000" }],
       "vars": {
         "HAIKU_MODELS": [],
         "OPENROUTER_MODELS": [],

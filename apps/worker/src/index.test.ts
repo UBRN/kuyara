@@ -96,6 +96,7 @@ const boundEnv: Env = {
   APPLE_SIGN_IN_KEY_ID: 'KEY1234567',
   FEEDBACK_DB: { prepare: () => ({ bind: () => ({ run: async () => ({}) }) }) },
   FEEDBACK_RATE_LIMIT: openLimiter,
+  APP_CONFIG: { get: async () => 'on' },
 };
 
 const env: Env = {

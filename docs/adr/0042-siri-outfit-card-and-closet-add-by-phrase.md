@@ -61,6 +61,14 @@ Adding a piece to the Closet today means choosing a category, a garment type til
 - The [AI input privacy boundary](../product-decisions.md#approved-ai-input-privacy-boundary) is unchanged: a Closet record made from a phrase is Wardrobe data and never reaches AI.
 - Neither surface emits an analytics or telemetry event; any count of their use needs its own taxonomy review ([ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md)).
 
+### 7. The remote switch
+
+- The card can be turned off and on again without a binary or a JavaScript update. The Worker's `GET /v1/app-config` answers `{ data: { siriCard: 'on' | 'off' } }` from the `siri-card` key of the `APP_CONFIG` Workers KV namespace, which only `pnpm --filter @kuyara/worker app-config siri-card on|off` writes (`status` prints it). The route reads the key on every request, with no cache in front of it, so a change reaches the next request.
+- Off changes only what the app writes: a version 1 summary for the current dressing day with no outfits and one whole localized line saying the card is not available right now and today's outfit is in kuyara. The card then shows that line and "Open kuyara", as for a day with no outfit. The summary format, its bounds and the Swift reader are unchanged.
+- The device holds the last value it received, on when it never had one. An absent or malformed key, a Worker or network failure and an unparseable answer change nothing on the device; a value this binary does not know reads as on. The last value is kept in a small file in app-private storage, so an off switch holds through an offline launch.
+- The app asks at launch and when it returns to the foreground, at most once every four hours, on iOS only; a changed answer rewrites the summary from the snapshot Today shows. The request carries no body, identifier or analytics.
+- The switch reaches a phone only while kuyara runs there: a phone that never opens the app keeps the summary it last wrote, which its own `validUntil` retires at the end of that dressing day.
+
 ## Red lines
 
 - No AI model, on the device or anywhere else, matches a phrase or writes the card's line.
@@ -68,6 +76,7 @@ Adding a piece to the Closet today means choosing a category, a garment type til
 - The Siri intent never saves a Closet record without the person's press in the app.
 - No Apple Intelligence wording or glyph, no Siri glow imitation and no new haptic on these surfaces.
 - The summary never carries location, identity, Closet or provider data.
+- Before the switch route, its KV key or its namespace is retired, the switch is set on, and the route keeps answering until no installed binary depends on it; a device that keeps getting no answer holds an off it last received.
 
 ## Consequences
 

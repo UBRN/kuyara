@@ -1,5 +1,5 @@
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import {
   type PropsWithChildren,
   useCallback,
@@ -76,6 +76,9 @@ import {
 import { ExpoFileRecommendationPreviewDataSource } from '@/features/recommendation/data/expo-file-recommendation-preview-data-source';
 import { useOutfitSummaryFeed } from '@/features/recommendation/application/use-outfit-summary-feed';
 import { writeOutfitSummary } from '@/features/recommendation/data/app-group-outfit-summary';
+import { useSiriCardSwitch } from '@/features/recommendation/application/use-siri-card-switch';
+import { ExpoFileSiriCardSwitchStore } from '@/features/recommendation/data/expo-file-siri-card-switch-store';
+import { fetchSiriCardSwitch } from '@/features/recommendation/data/worker-app-config-client';
 import { isDayQuestionOpen, untilDressingDayTurns } from '@/features/recommendation/domain/local-day';
 import { repeatsProfileStyle, resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceRepository, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
@@ -119,6 +122,24 @@ function createWorkerClient(memberAccessToken: () => Promise<string | null>): Pi
       recommend: () => Promise.reject(new WorkerAiClientError('service')),
     };
   }
+}
+
+// ADR 0042 section 7: only iOS has the Siri card, so only iOS asks for its switch. Without a
+// Worker address the check gives no answer and the card stays on its last value.
+function createSiriCardSwitchDependencies() {
+  if (Platform.OS !== 'ios') return null;
+  let baseUrl: string | null;
+  try {
+    baseUrl = resolveAppWorkerBaseUrl();
+  } catch (error) {
+    if (!(error instanceof WorkerBaseUrlConfigurationError)) throw error;
+    baseUrl = null;
+  }
+  return {
+    store: new ExpoFileSiriCardSwitchStore(),
+    client: { siriCard: async () => (baseUrl === null ? null : fetchSiriCardSwitch(baseUrl)) },
+    now,
+  };
 }
 
 // ADR 0034 section 1: the composition boundary that builds the AI chain, the Worker AI chain
@@ -321,9 +342,11 @@ export function RecommendationApplicationProvider({
     controllerState.snapshot.localDayKey !== localDay.key && !dayTurnedInFront
     ? { ...controllerState, snapshot: null } as const
     : controllerState, [controllerState, dayTurnedInFront, localDay.key]);
+  const [siriCardDependencies] = useState(createSiriCardSwitchDependencies);
+  const siriCard = useSiriCardSwitch(siriCardDependencies);
   // The zone is read on each render, so a phone that changed zone rewrites the summary's bounds.
   useOutfitSummaryFeed({
-    state, language, temperatureUnit, timeZone: getDeviceTimeZone(), write: writeOutfitSummary,
+    state, language, temperatureUnit, timeZone: getDeviceTimeZone(), siriCard, write: writeOutfitSummary,
   });
   // The clock is re-read whenever the day, the profile or the weather changes, which is every
   // moment a recommendation is generated.

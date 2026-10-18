@@ -136,3 +136,15 @@ test('usage counters are bound at the top level only, so e2e writes no productio
   // would need its own dataset name.
   assert.equal(config.env.e2e.analytics_engine_datasets, undefined);
 });
+
+test('app configuration KV is bound in production and, with a local-only id, in e2e', () => {
+  const [production] = config.kv_namespaces;
+  const [e2e] = config.env.e2e.kv_namespaces;
+  assert.equal(config.kv_namespaces.length, 1);
+  assert.equal(production.binding, 'APP_CONFIG');
+  // A placeholder would point the deployed switch at no namespace or a local one.
+  assert.match(production.id, /^[0-9a-f]{32}$/u);
+  assert.notEqual(production.id, '0'.repeat(32));
+  assert.deepEqual(config.env.e2e.kv_namespaces, [{ binding: 'APP_CONFIG', id: '00000000000000000000000000000000' }]);
+  assert.notEqual(e2e.id, production.id, 'an e2e run must never read or write the production switch');
+});

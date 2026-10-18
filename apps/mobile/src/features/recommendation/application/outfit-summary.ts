@@ -1,4 +1,5 @@
 import type { RecommendationSnapshot } from '@/features/recommendation/application/recommendation-repository';
+import type { SiriCardSwitch } from '@/features/recommendation/application/siri-card-switch';
 import { dressingDayKind } from '@/features/recommendation/domain/local-day';
 import { assignedOutfitGarments } from '@/features/recommendation/domain/outfit-model';
 import { archetypeLabel } from '@/features/recommendation/localization/recommendation-messages';
@@ -32,19 +33,25 @@ const summaryOutfitLimit = 3;
 /**
  * The summary of a saved snapshot, bounded by the snapshot's own dressing day on the device's
  * zone, or null when the snapshot has no dressing day or the zone is unknown. It carries no
- * location, identity, Closet, provider or AI text.
+ * location, identity, Closet, provider or AI text. With the card switched off (ADR 0042
+ * section 7) it keeps the day's window and holds no outfit, only the unavailable line.
  */
 export function outfitSummary(input: Readonly<{
   snapshot: Pick<RecommendationSnapshot, 'localDayKey' | 'paletteWeather' | 'recommendation'>;
   language: SupportedLanguage;
   temperatureUnit: TemperatureUnit;
   timeZone: string;
+  siriCard: SiriCardSwitch;
 }>): OutfitSummary | null {
   const { snapshot, language } = input;
   const key = snapshot.localDayKey;
   const bounds = key === null ? null : dressingDayBounds(key, input.timeZone);
   if (key === null || bounds === null) return null;
   const copy = messages[language];
+  const day = { version: 1, language, timeZone: input.timeZone, validFrom: bounds.start, validUntil: bounds.end } as const;
+  if (input.siriCard === 'off') {
+    return { ...day, spokenLine: copy.siri.unavailable, labels: { anotherOption: copy.siri.anotherOption }, outfits: [] };
+  }
   const dayKind = dressingDayKind(key);
   const outfits = (snapshot.recommendation.status === 'recommended' ? snapshot.recommendation.outfits : [])
     .slice(0, summaryOutfitLimit)
@@ -59,11 +66,7 @@ export function outfitSummary(input: Readonly<{
   const weather = snapshot.paletteWeather;
 
   return {
-    version: 1,
-    language,
-    timeZone: input.timeZone,
-    validFrom: bounds.start,
-    validUntil: bounds.end,
+    ...day,
     spokenLine: first ? spoken({ outfit: first.name, pieces: first.pieces }) : copy.siri.noOutfit,
     labels: {
       ...(weather ? {

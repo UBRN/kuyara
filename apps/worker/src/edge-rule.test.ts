@@ -50,7 +50,7 @@ test('the zone WAF allowlist in docs/architecture.md equals the paths the router
   );
 });
 
-test('only the two probes the router answers for GET are allowed as GET', () => {
+test('only the two probes and the app configuration the router answers for GET are allowed as GET', () => {
   const getPaths = documentedRule().filter(({ method }) => method === 'GET').map(({ path: route }) => route);
-  assert.deepEqual(getPaths.sort(), [contracts.aiReadyV1Path, contracts.healthV1Path].sort());
+  assert.deepEqual(getPaths.sort(), [contracts.aiReadyV1Path, contracts.appConfigV1Path, contracts.healthV1Path].sort());
 });

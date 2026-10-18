@@ -1,5 +1,6 @@
 import {
   accountDeleteV1Path,
+  appConfigV1Path,
   aiProbeV1Path,
   aiProbeV2Path,
   aiReadyV1Path,
@@ -35,6 +36,7 @@ type Dependencies = Readonly<{
   aiHandler: Handler;
   probeHandler: Handler;
   probeV2Handler: Handler;
+  appConfigHandler: Handler;
   aiReady: boolean;
 }>;
 
@@ -48,6 +50,7 @@ export function createRouter({
   aiHandler,
   probeHandler,
   probeV2Handler,
+  appConfigHandler,
   aiReady,
 }: Dependencies): Handler {
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
@@ -63,6 +66,7 @@ export function createRouter({
     }
     if (pathname === aiProbeV1Path) return probeHandler(request, ctx);
     if (pathname === aiProbeV2Path) return probeV2Handler(request, ctx);
+    if (pathname === appConfigV1Path) return appConfigHandler(request, ctx);
 
     if (pathname === healthV1Path) {
       if (request.method !== 'GET') {

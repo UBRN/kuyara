@@ -1,6 +1,8 @@
 import {
   accountDeleteV1ErrorSchema,
   accountDeleteV1Path,
+  appConfigV1ErrorSchema,
+  appConfigV1Path,
   feedbackV1ErrorSchema,
   feedbackV1Path,
   aiProbeV1Path,
@@ -13,6 +15,7 @@ import {
   weatherV1Path,
 } from '@kuyara/contracts';
 
+import { createAppConfigHandler, type AppConfigStore } from './app-config-handler.ts';
 import { createAccountDeleteHandler } from './account/account-delete-handler.ts';
 import { createFeedbackHandler, type FeedbackDatabase } from './feedback-handler.ts';
 import { createAppleTokenRevoker } from './account/apple-token-revoker.ts';
@@ -95,6 +98,8 @@ export type Env = Readonly<{
   ACCOUNT_DELETE_RATE_LIMIT?: RateLimiter;
   FEEDBACK_DB?: FeedbackDatabase;
   FEEDBACK_RATE_LIMIT?: RateLimiter;
+  // Workers KV of remote app switches (ADR 0042 section 7), written only by scripts/app-config.mjs.
+  APP_CONFIG?: AppConfigStore;
   // Analytics Engine dataset of closed event counters (docs/architecture.md, "Usage counters").
   // Absent in tests, `wrangler dev` and the e2e environment, where counting is a no-op.
   USAGE_EVENTS?: AnalyticsEngineDataset;
@@ -115,6 +120,7 @@ const placesUnavailable = placeSearchV1ErrorSchema.parse({ error: { code: 'place
 const aiUnavailable = aiV1ErrorSchema.parse({ error: { code: 'ai_unavailable' } });
 const accountUnavailable = accountDeleteV1ErrorSchema.parse({ error: { code: 'unavailable' } });
 const feedbackUnavailable = feedbackV1ErrorSchema.parse({ error: { code: 'unavailable' } });
+const appConfigUnavailable = appConfigV1ErrorSchema.parse({ error: { code: 'unavailable' } });
 
 export function createAiProviders(env: Env): AiProvider[] {
   const providers: AiProvider[] = [];
@@ -321,6 +327,9 @@ export function buildRouter(env: Env): Handler {
     aiHandler,
     probeHandler,
     probeV2Handler,
+    appConfigHandler: env.APP_CONFIG
+      ? createAppConfigHandler({ store: env.APP_CONFIG })
+      : offlineRoute(appConfigV1Path, 'APP_CONFIG', appConfigUnavailable),
     aiReady: providers.length > 0,
   });
 }

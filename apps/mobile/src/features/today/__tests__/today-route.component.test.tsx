@@ -247,6 +247,11 @@ jest.mock('@/components/ui/native-wheel-picker', () => {
   return { NativeWheelPicker: ({ testID }: Readonly<{ testID?: string }>) => <MockView testID={testID} /> };
 });
 jest.mock('@/features/recommendation/data/on-device-ai-module', () => ({ onDeviceAiModule: null }));
+// The Siri card switch asks the Worker on iOS; here it answers on and remembers nothing.
+jest.mock('@/features/recommendation/data/worker-app-config-client', () => ({ fetchSiriCardSwitch: async () => 'on' }));
+jest.mock('@/features/recommendation/data/expo-file-siri-card-switch-store', () => ({
+  ExpoFileSiriCardSwitchStore: class { read = async () => null; write = async () => undefined; },
+}));
 // The real sheet, recorded: the test sheet unmounts its content once closed, so what a native
 // sheet draws while it animates out is read from the props it received.
 jest.mock('@/features/today/presentation/daily-formality-sheet', () => {
@@ -607,7 +612,15 @@ import OutfitDetailRoute from '@/app/(tabs)/(today)/[id]';
 // eslint-disable-next-line import/first
 import { forgetOutfitRatings } from '@/features/today/application/use-outfit-rating';
 
+// No test here reaches the network: a request nothing mocked fails the test that sent it.
+const realFetch = globalThis.fetch;
+const unmockedFetch = jest.fn(async () => { throw new Error('unmocked network request'); });
+beforeAll(() => { globalThis.fetch = unmockedFetch as unknown as typeof fetch; });
+afterAll(() => { globalThis.fetch = realFetch; });
+afterEach(() => expect(unmockedFetch).not.toHaveBeenCalled());
+
 beforeEach(() => {
+  unmockedFetch.mockClear();
   mockAccountsOpen = false;
   mockPush.mockClear();
   mockBack.mockClear();

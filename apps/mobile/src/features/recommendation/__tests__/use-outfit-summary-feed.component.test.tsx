@@ -11,12 +11,14 @@ const snapshot = {
 } as never;
 const ready = (value: unknown) => ({ status: 'ready', snapshot: value }) as never;
 
-type Props = Readonly<{ state: never; language: 'en' | 'tr'; temperatureUnit: 'celsius' | 'fahrenheit' }>;
+type Props = Readonly<{
+  state: never; language: 'en' | 'tr'; temperatureUnit: 'celsius' | 'fahrenheit'; siriCard?: 'on' | 'off' | null;
+}>;
 
 async function setup(initial: Props) {
   const write = jest.fn();
   const hook = await renderHook(
-    (props: Props) => useOutfitSummaryFeed({ ...props, timeZone: 'Europe/Istanbul', write }),
+    ({ siriCard = 'on', ...props }: Props) => useOutfitSummaryFeed({ ...props, siriCard, timeZone: 'Europe/Istanbul', write }),
     { initialProps: initial },
   );
   return { hook, write };
@@ -38,4 +40,16 @@ test('nothing is written without a ready snapshot, so a day turn leaves the file
   await hook.rerender({ state: ready(null), language: 'en', temperatureUnit: 'celsius' });
   await hook.rerender({ state: ready({ ...(snapshot as object), localDayKey: null }), language: 'en', temperatureUnit: 'celsius' });
   expect(write).not.toHaveBeenCalled();
+});
+
+test('the remote switch rewrites the summary, and nothing is written until it is known', async () => {
+  const props = { state: ready(snapshot), language: 'en', temperatureUnit: 'celsius' } as const;
+  const { hook, write } = await setup({ ...props, siriCard: null });
+  expect(write).not.toHaveBeenCalled();
+  await hook.rerender({ ...props, siriCard: 'off' });
+  await hook.rerender({ ...props, siriCard: 'on' });
+  expect(write.mock.calls.map(([summary]) => summary.spokenLine)).toEqual([
+    'This card is not available right now. Today’s outfit is in kuyara.',
+    'There is no outfit to show right now.',
+  ]);
 });

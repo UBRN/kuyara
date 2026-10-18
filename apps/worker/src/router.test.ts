@@ -46,6 +46,7 @@ function router({ aiReady = true, providers = [] }: { aiReady?: boolean; provide
     aiHandler: createAiHandler({ providers }),
     probeHandler: createProbeHandler(probeDependencies),
     probeV2Handler: createProbeV2Handler(probeDependencies),
+    appConfigHandler: async () => Response.json({ data: { siriCard: 'on' } }),
     aiReady,
   });
   return (request: Request, ctx: ExecutionContext = fakeContext()) => route(request, ctx);
@@ -205,15 +206,16 @@ test('the router forwards the execution context to every route handler', async (
     aiHandler: handler('ai'),
     probeHandler: handler('probe'),
     probeV2Handler: handler('probe-v2'),
+    appConfigHandler: handler('app-config'),
     aiReady: true,
   });
   const ctx = fakeContext();
   const paths = ['/v1/places/search', '/v1/account/delete', '/v1/feedback', '/v1/weather', '/v2/weather', '/v1/ai/recommend',
-    '/v2/ai/recommend', '/v1/ai/probe', '/v2/ai/probe'];
+    '/v2/ai/recommend', '/v1/ai/probe', '/v2/ai/probe', '/v1/app-config'];
   for (const path of paths) {
     await route(new Request(`http://localhost${path}`, { method: 'POST' }), ctx);
   }
   assert.deepEqual(seen, [
-    ['places', ctx], ['account', ctx], ['feedback', ctx], ['weather', ctx], ['weather', ctx], ['ai', ctx], ['ai', ctx], ['probe', ctx], ['probe-v2', ctx],
+    ['places', ctx], ['account', ctx], ['feedback', ctx], ['weather', ctx], ['weather', ctx], ['ai', ctx], ['ai', ctx], ['probe', ctx], ['probe-v2', ctx], ['app-config', ctx],
   ]);
 });

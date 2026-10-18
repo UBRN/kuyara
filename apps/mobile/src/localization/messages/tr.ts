@@ -1147,6 +1147,7 @@ export const tr = {
     spokenDay: ({ outfit, pieces }) => `Bugünün kombini ${outfit}: ${pieces.join(', ')}.`,
     spokenEvening: ({ outfit, pieces }) => `Bu akşamın kombini ${outfit}: ${pieces.join(', ')}.`,
     noOutfit: 'Şu an gösterilecek kombin yok.',
+    unavailable: 'Bu kart şu an kullanılamıyor. Bugünün kombini kuyara’da.',
     chosenFor: ({ temperature, condition }) => `Seçildiği hava: ${temperature}, ${condition}`,
     anotherOption: 'Başka seçenek',
   },

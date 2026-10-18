@@ -1013,6 +1013,8 @@ export type AppMessages = Readonly<{
     spokenEvening: (values: { outfit: string; pieces: readonly string[] }) => string;
     /** Spoken when the dressing day has no outfit to show. */
     noOutfit: string;
+    /** Spoken while the card is switched off remotely (ADR 0042 section 7). */
+    unavailable: string;
     /** The weather the outfit was chosen for when it was generated, never the live weather. */
     chosenFor: (values: { temperature: string; condition: string }) => string;
     anotherOption: string;

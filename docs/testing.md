@@ -84,6 +84,24 @@ Verify the Worker bundle without deployment:
 pnpm --filter @kuyara/worker bundle
 ```
 
+Turn the Siri outfit card off or on for every device, or print the stored value, from the
+repository root ([ADR 0042](adr/0042-siri-outfit-card-and-closet-add-by-phrase.md) section 7).
+It writes the production `APP_CONFIG` KV namespace and needs a logged-in Wrangler, no deploy.
+The Worker reads the key on every request, and a device applies the change at its next check,
+at most every four hours while the app is opened:
+
+```bash
+pnpm --filter @kuyara/worker app-config siri-card off
+pnpm --filter @kuyara/worker app-config siri-card on
+pnpm --filter @kuyara/worker app-config siri-card status
+```
+
+To try the switch against the local Worker instead, write the local key with
+`pnpm --filter @kuyara/worker exec wrangler kv key put --binding APP_CONFIG --local siri-card off`
+(the script above always writes production) and start Metro with
+`EXPO_PUBLIC_KUYARA_WORKER_BASE_URL=http://127.0.0.1:8788`, because `apps/mobile/.env` points the
+development build at the deployed Worker.
+
 Start the local Worker when runtime verification is needed, then stop it after the check:
 
 ```bash

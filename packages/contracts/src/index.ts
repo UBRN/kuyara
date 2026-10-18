@@ -6,3 +6,4 @@ export * from './ai-model-input.ts';
 export * from './place-search-v1.ts';
 export * from './account-delete-v1.ts';
 export * from './feedback-v1.ts';
+export * from './app-config-v1.ts';

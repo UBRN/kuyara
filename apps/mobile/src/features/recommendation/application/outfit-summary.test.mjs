@@ -61,6 +61,7 @@ function summary(overrides = {}, input = {}) {
     language: 'tr',
     temperatureUnit: 'celsius',
     timeZone: istanbul,
+    siriCard: 'on',
     ...input,
   });
 }
@@ -117,6 +118,25 @@ test('a day without an outfit says so instead of leaving an earlier outfit in pl
   assert.equal(unavailable.validUntil, '2026-10-11T15:00:00.000Z');
   assert.deepEqual(summary({ recommendation: { ...snapshot().recommendation, outfits: [] } }, { language: 'en' }).spokenLine,
     'There is no outfit to show right now.');
+});
+
+test('with the Siri card switched off, the day keeps its window and holds only the unavailable line', () => {
+  for (const [language, line] of [
+    ['tr', 'Bu kart şu an kullanılamıyor. Bugünün kombini kuyara’da.'],
+    ['en', 'This card is not available right now. Today’s outfit is in kuyara.'],
+  ]) {
+    const off = summary({}, { language, siriCard: 'off' });
+    assert.deepEqual(off, {
+      version: 1,
+      language,
+      timeZone: istanbul,
+      validFrom: '2026-10-11T01:00:00.000Z',
+      validUntil: '2026-10-11T15:00:00.000Z',
+      spokenLine: line,
+      labels: { anotherOption: messages[language].siri.anotherOption },
+      outfits: [],
+    });
+  }
 });
 
 test('nothing is projected without a dressing day or a known zone', () => {
