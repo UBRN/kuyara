@@ -1384,11 +1384,26 @@ describe('the look worn today', () => {
     const onOpenOutfitDetail = jest.fn();
     const worn = wornOutfitFrom(todayScreenState.snapshot.recommendation.outfits[1], 'manual');
     const [slot] = Object.keys(worn.garments);
-    const result = await renderWorn(worn, onOpenOutfitDetail,
-      { ...garmentSwatchesBySlot(second.palette), [slot]: 'plum' });
+    const recorded = { ...garmentSwatchesBySlot(second.palette), [slot]: 'plum' };
+    const result = await renderWorn(worn, onOpenOutfitDetail, recorded);
     expect(await result.findByTestId(`today-primary-board-${second.id}`, hidden)).toBeOnTheScreen();
     await fireEvent.press(result.getByTestId('today-archetype', hidden));
-    expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(second.id, true, { [slot]: 'plum' });
+    expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(second.id, true, recorded);
+  });
+
+  // The other pieces' colours resolve around the painted ones, so a look that differs anywhere
+  // travels whole: the jumpsuit's black would otherwise resolve to navy beside the forest jacket.
+  test('a look that differs in one colour opens its detail in every recorded colour', async () => {
+    if (todayScreenState.snapshot.recommendation.status !== 'recommended') throw new Error('fixture');
+    const third = loadedPresentation().suggestions[2];
+    const onOpenOutfitDetail = jest.fn();
+    const recorded = { ...garmentSwatchesBySlot(third.palette), one_piece: 'black', outer_layer: 'forest',
+      footwear: 'black' } as const;
+    const result = await renderWorn(wornOutfitFrom(todayScreenState.snapshot.recommendation.outfits[2], 'manual'),
+      onOpenOutfitDetail, recorded);
+    expect(await result.findByTestId(`today-primary-board-${third.id}`, hidden)).toBeOnTheScreen();
+    await fireEvent.press(result.getByTestId('today-archetype', hidden));
+    expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(third.id, true, recorded);
   });
 
   test('a look the reader changed leads as their outfit and is not a control', async () => {

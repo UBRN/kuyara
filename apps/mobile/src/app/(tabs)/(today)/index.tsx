@@ -125,7 +125,7 @@ export default function TodayRoute() {
       language={language}
       displayName={profile?.displayName ?? null}
       isRefreshing={pullRefresh.refreshing}
-      onOpenOutfitDetail={(id, fromBand) => push(outfitDetailHref(id, fromBand))}
+      onOpenOutfitDetail={(id, fromBand, colors) => push(outfitDetailHref(id, fromBand, colors))}
       outfitDetailLink={{ href: outfitDetailHref, onPress: tap.linkPress }}
       onOpenTomorrowDetail={(id) => push({ pathname: '/[id]', params: { id, day: 'tomorrow' } })}
       onRefresh={() => pullRefresh.refresh(state)}

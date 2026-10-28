@@ -572,7 +572,13 @@ export function OutfitDetailScreen({
         manualDetailOf(manualMix, composed, suggestionId));
       const shown = unpainted.kind === 'loaded'
         ? unpainted.suggestions.find(({ id }) => id === suggestionId) : undefined;
-      pieceColors.paint(slot, garmentTypeId, swatchId, shown ? garmentSwatchesBySlot(detailPalette(shown))[slot] : undefined);
+      // A tile may swap the piece in the same tap, so the colour is judged against a piece of the
+      // painted type: the one drawn now, or kuyara's own, which keeps its colour when worn again.
+      const drawnAs = (palette: GarmentOutfitPalette) => (palette.pieces
+        .some((piece) => piece.slot === slot && piece.garmentTypeId === garmentTypeId)
+        ? garmentSwatchesBySlot(palette)[slot] : undefined);
+      pieceColors.paint(slot, garmentTypeId, swatchId, shown
+        ? drawnAs(detailPalette(shown)) ?? drawnAs(shown.keptColors?.original ?? shown.palette) : undefined);
     }
     : undefined;
   // An enlargement brings the strip into view by the least scroll that shows it, never so far
