@@ -3476,6 +3476,51 @@ test('a Today rendered while the app is in the background evaluates as foregroun
   }
 });
 
+// No automatic generation runs in the background: a background launch at 05:00 with
+// yesterday's outfit stored chooses the new day's outfit only once the app comes to the front.
+test('a background launch with yesterday’s outfit generates nothing until the app is active', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion, localDayKey: '2026-09-23' };
+  // The generation stays in flight, as an AI request does, so whatever else asks joins it.
+  let finishRefresh!: (value: RecommendationSnapshot | null) => void;
+  const pendingRefresh = new Promise<RecommendationSnapshot | null>((resolve) => { finishRefresh = resolve; });
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => pendingRefresh);
+  const onChange: ((state: string) => void)[] = [];
+  const subscription = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const previousState = AppState.currentState;
+  AppState.currentState = 'background';
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(mockChoiceGet).toHaveBeenCalled());
+    await waitFor(() => expect(mockDepartureGet).toHaveBeenCalled());
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(refresh).not.toHaveBeenCalled();
+
+    await act(async () => { onChange.forEach((listener) => listener('active')); });
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(refresh.mock.calls[0][1].localDayKey).toBe('2026-09-24');
+    view.unmount();
+  } finally {
+    finishRefresh(null);
+    AppState.currentState = previousState;
+    subscription.mockRestore();
+    refresh.mockRestore();
+  }
+});
+
 test('a Today mounted with the app active evaluates as foreground once at focus', async () => {
   const recommendationEvaluateApprovedTriggers = jest.fn(async (_foreground?: boolean) => undefined);
   const previousState = AppState.currentState;

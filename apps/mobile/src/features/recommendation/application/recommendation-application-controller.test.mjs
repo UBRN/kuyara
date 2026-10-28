@@ -1233,6 +1233,24 @@ test('a re-ask that never got a response gives its reserved allowance back', asy
   assert.deepEqual(released, ['2026-08-01']);
 });
 
+test('a re-ask whose request never left the phone gives its reserved allowance back', async () => {
+  for (const unsent of [
+    new WorkerAiClientError('invalid-request'),
+    // No Worker address is configured, so nothing is sent.
+    new WorkerAiClientError('service', { sent: false }),
+  ]) {
+    const released = [];
+    const { controller } = createHarness({
+      client: { recommendRouted: async () => { throw unsent; } },
+      releaseAiReask: async (dayKey) => { released.push(dayKey); },
+    });
+    await controller.initialize();
+    await controller.refresh('first-recommendation', input(20));
+    await controller.refresh('regenerate', input(20));
+    assert.deepEqual(released, ['2026-08-01'], unsent.kind);
+  }
+});
+
 test('a re-ask whose request timed out keeps its allowance spent: the Worker may have answered and counted it', async () => {
   const released = [];
   const { controller } = createHarness({

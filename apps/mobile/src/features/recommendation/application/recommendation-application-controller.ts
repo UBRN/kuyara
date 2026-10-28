@@ -607,7 +607,7 @@ export class RecommendationApplicationController {
         this.setPhase(key, 'preparing-outfits');
       } catch (error) {
         aiFailure = recommendationFailureCategory(error);
-        if (reserved && error instanceof WorkerAiClientError && error.kind === 'network' && !error.timedOut) {
+        if (reserved && error instanceof WorkerAiClientError && !error.mayHaveReachedWorker) {
           try {
             await this.dependencies.releaseAiReask?.(input.localDayKey);
           } catch {

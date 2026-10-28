@@ -42,15 +42,17 @@ export function ComposeEntry({
   const [busy, setBusy] = useState(false);
   const [selection, setSelection] = useState<ComposeSelection>([]);
 
-  const build = () => {
-    setBusy(true);
-    // Composing takes a moment on the JS thread: the spinner is drawn first.
-    setTimeout(() => {
+  // Composing takes a moment on the JS thread: the spinner is drawn first, and leaving detail
+  // before it runs composes nothing.
+  useEffect(() => {
+    if (!busy) return undefined;
+    const timer = setTimeout(() => {
       onCompose(composePins(selection));
       setBusy(false);
       setOpen(false);
     }, 0);
-  };
+    return () => clearTimeout(timer);
+  }, [busy, onCompose, selection]);
 
   return (
     <View style={styles.entry}>
@@ -69,7 +71,7 @@ export function ComposeEntry({
         <ComposeSheet
           busy={busy}
           catalog={catalog}
-          onBuild={build}
+          onBuild={() => setBusy(true)}
           onColor={(slot, colorId) => setSelection((current) => colorComposeChoice(current, slot, colorId))}
           onDismiss={() => setOpen(false)}
           onToggle={(piece) => setSelection((current) => toggleComposeChoice(current, piece))}

@@ -90,6 +90,7 @@ import { WorkerAiClientError } from '@/features/recommendation/domain/worker-ai-
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { inForeground } from '@/components/ui/use-screen-visible';
 import { isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
@@ -119,7 +120,7 @@ function createWorkerClient(memberAccessToken: () => Promise<string | null>): Pi
   } catch (error) {
     if (!(error instanceof WorkerBaseUrlConfigurationError)) throw error;
     return {
-      recommend: () => Promise.reject(new WorkerAiClientError('service')),
+      recommend: () => Promise.reject(new WorkerAiClientError('service', { sent: false })),
     };
   }
 }
@@ -378,8 +379,14 @@ export function RecommendationApplicationProvider({
     };
   }, [latestOnDeviceAvailability]);
 
+  // Automatic generation runs only while the app is in front: iOS also launches it in the
+  // background for the weather-alert task, and no AI call is made for a day nobody has opened.
+  const [appInFront, setAppInFront] = useState(() => inForeground(AppState.currentState));
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', dayRollover.appStateChanged);
+    const subscription = AppState.addEventListener('change', (next) => {
+      dayRollover.appStateChanged(next);
+      setAppInFront(inForeground(next));
+    });
     const stopWatching = dayRollover.watch();
     return () => {
       subscription?.remove();
@@ -403,9 +410,9 @@ export function RecommendationApplicationProvider({
   }), [controller, dayTurnedInFront, eveningChoicePending, morningChoicePending, triggerAwaitsWeatherRefresh]);
 
   useEffect(() => {
-    if (state.status !== 'ready' || !input) return;
+    if (state.status !== 'ready' || !input || !appInFront) return;
     void approvedTriggers.followRender(input, approvedTriggerReading);
-  }, [approvedTriggerReading, approvedTriggers, input, state.status]);
+  }, [appInFront, approvedTriggerReading, approvedTriggers, input, state.status]);
 
   // The generation input as of this moment, re-read from the live weather and profile rather
   // than from the render that bound the handler. `null` when there is nothing to compose for,
