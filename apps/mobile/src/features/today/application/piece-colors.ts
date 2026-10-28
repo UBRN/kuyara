@@ -8,22 +8,22 @@ import { wornPieceColorsSchema } from '@/features/recommendation/domain/outfit-h
 /** The colours the reader painted on detail, by slot: each piece's recorded swatch. */
 export type PaintedColors = Readonly<Partial<Record<OutfitSlot, GarmentSwatchId>>>;
 
-type Paints = Readonly<Partial<Record<OutfitSlot, Readonly<{ garmentTypeId: GarmentTypeId; swatchId: GarmentSwatchId }>>>>;
+/** Painted colours with the piece each was painted on: a paint holds only while that piece is worn. */
+export type Paints = Readonly<Partial<Record<OutfitSlot, Readonly<{ garmentTypeId: GarmentTypeId; swatchId: GarmentSwatchId }>>>>;
 const NO_PAINTS: Paints = Object.freeze({});
+
+/** `colors` painted on the pieces `garments` wears. */
+export function paintsOn(colors: PaintedColors, garments: Readonly<Partial<Record<OutfitSlot, GarmentTypeId>>>): Paints {
+  return Object.fromEntries(Object.entries(colors).flatMap(([slot, swatchId]) => {
+    const garmentTypeId = garments[slot as OutfitSlot];
+    return garmentTypeId ? [[slot, { garmentTypeId, swatchId }]] : [];
+  }));
+}
 
 /** The painted colours that still hold: a slot whose piece changed since is coloured afresh. */
 export function paintedColors(paints: Paints, garments: Readonly<Partial<Record<OutfitSlot, GarmentTypeId>>>): PaintedColors {
   return Object.fromEntries(Object.entries(paints).flatMap(([slot, paint]) =>
     paint && garments[slot as OutfitSlot] === paint.garmentTypeId ? [[slot, paint.swatchId]] : []));
-}
-
-/**
- * The colours that paint over the ones pieces are `drawn` in, or undefined when none does: a
- * colour equal to the drawn one is no paint.
- */
-export function paintedOver(colors: PaintedColors, drawn: PaintedColors): PaintedColors | undefined {
-  const painted = Object.entries(colors).filter(([slot, swatchId]) => drawn[slot as OutfitSlot] !== swatchId);
-  return painted.length > 0 ? Object.fromEntries(painted) : undefined;
 }
 
 /** Painted colours as the detail route carries them: `slot.swatch` pairs joined by commas. */
@@ -42,8 +42,8 @@ export type PieceColors = Readonly<{
   colors: PaintedColors;
   /**
    * Paints the slot's piece; the colour only paints the drawing and never enters selection.
-   * `drawnSwatchId` is the swatch the piece is drawn in unpainted: that colour is no paint, so it
-   * changes nothing and clears an earlier paint of the same piece.
+   * `drawnSwatchId` is the swatch a piece of `garmentTypeId` is drawn in unpainted in the slot:
+   * that colour is no paint, so it changes nothing and clears the slot's earlier paint.
    */
   paint: (slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId,
     drawnSwatchId: GarmentSwatchId | undefined) => void;
@@ -55,30 +55,26 @@ export type PieceColors = Readonly<{
  * The colours the reader paints on detail, transient like the manual mix: they belong to one
  * showing (`key`), so a composed result never inherits the pick's, and leaving detail forgets
  * them. Nothing is stored until "Wore this today" records the colours drawn. `start` paints the
- * first showing as it opens: the worn hero's look in the colours it was recorded in.
+ * showing until the reader first paints or clears: the worn hero's look in the colours it was
+ * recorded in, on the pick's own pieces.
  */
 export function usePieceColors(
   key: string | null,
   garments: Readonly<Partial<Record<OutfitSlot, GarmentTypeId>>>,
-  start: PaintedColors = {},
+  start: Paints = NO_PAINTS,
 ): PieceColors {
-  const [state, setState] = useState<Readonly<{ key: string | null; paints: Paints }>>(() => ({
-    key,
-    paints: Object.fromEntries(Object.entries(start).flatMap(([slot, swatchId]) => {
-      const garmentTypeId = garments[slot as OutfitSlot];
-      return garmentTypeId ? [[slot, { garmentTypeId, swatchId }]] : [];
-    })),
-  }));
-  const paints = state.key === key ? state.paints : NO_PAINTS;
+  // Null until the reader first paints or clears.
+  const [state, setState] = useState<Readonly<{ key: string | null; paints: Paints }> | null>(null);
+  const paints = state === null ? start : state.key === key ? state.paints : NO_PAINTS;
   const colors = useMemo(() => paintedColors(paints, garments), [garments, paints]);
   const paint = useCallback((slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId,
     drawnSwatchId: GarmentSwatchId | undefined) =>
     setState((previous) => {
-      const paints = { ...(previous.key === key ? previous.paints : NO_PAINTS) };
-      if (garments[slot] === garmentTypeId && swatchId === drawnSwatchId) delete paints[slot];
+      const paints = { ...(previous === null ? start : previous.key === key ? previous.paints : NO_PAINTS) };
+      if (swatchId === drawnSwatchId) delete paints[slot];
       else paints[slot] = { garmentTypeId, swatchId };
       return { key, paints };
-    }), [garments, key]);
+    }), [key, start]);
   const clear = useCallback(() => setState({ key: null, paints: NO_PAINTS }), []);
   return useMemo(() => ({ colors, paint, clear }), [clear, colors, paint]);
 }

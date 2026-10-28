@@ -271,6 +271,23 @@ describe.each(['en', 'tr'] as const)('%s detail panel', (language) => {
     expect(heading(result, archetype(language).title)).toBeOnTheScreen();
     expect(result.queryByTestId('outfit-detail-reset-button')).toBeNull();
   });
+
+  // The tile's swap lands with its paint: the colour is judged against the piece it wears.
+  test('swapped away, kuyara\'s piece back from Yours in its drawn colour is no change', async () => {
+    const drawn = garmentSwatchesBySlot(archetype(language).palette);
+    const bottom = outfitGarments(pick).bottom!;
+    const sameBottom: WardrobeItem = { ...ownedTrousers, id: 'own-same', garmentTypeId: bottom,
+      colorChoice: { kind: 'option', id: closetSolidForBoardSwatch(drawn.bottom!) } };
+    const result = await renderDetail(language, { paint: true, wardrobeItems: [sameBottom] });
+    await activate(result, 'primary_top');
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    await activate(result, 'bottom');
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-tile-trousers'));
+    expect(heading(result, copy.manualMix.title)).toBeOnTheScreen();
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-own-own-same'));
+    expect(heading(result, archetype(language).title)).toBeOnTheScreen();
+    expect(result.queryByTestId('outfit-detail-reset-button')).toBeNull();
+  });
 });
 
 describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {

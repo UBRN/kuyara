@@ -194,3 +194,16 @@ describe('detail reports', () => {
     expect(onComposed).toHaveBeenCalledTimes(1);
   });
 });
+
+// A link can open detail before its outfit is read: the colours it names paint the pick's own
+// pieces once it arrives, until the reader clears them.
+test('the start colours wait for the pick to arrive', async () => {
+  const start = { primary_top: 'plum' } as const;
+  const hook = await renderHook(({ shown }: Readonly<{ shown: typeof pick | null }>) =>
+    useDetailMix(shown, requirements, 'womens', snapshot, null, now, {}, start), { initialProps: { shown: null } });
+  expect(hook.result.current.pieceColors.colors).toEqual({});
+  await hook.rerender({ shown: pick });
+  expect(hook.result.current.pieceColors.colors).toEqual(start);
+  await act(async () => hook.result.current.pieceColors.clear());
+  expect(hook.result.current.pieceColors.colors).toEqual({});
+});

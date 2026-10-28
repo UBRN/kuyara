@@ -37,7 +37,7 @@ import {
   todayPresentationState,
   tomorrowStrip,
 } from '@/features/today/application/today-surface';
-import { paintedOver, type PaintedColors } from '@/features/today/application/piece-colors';
+import type { PaintedColors } from '@/features/today/application/piece-colors';
 import { paletteBasisOf } from '@/features/today/application/today-state';
 import type { TodayScreenState } from '@/features/today/model';
 import { useWornToday } from '@/features/today/application/use-worn-today';
@@ -474,14 +474,16 @@ function TodayScreenContent({
   const showsWorn = wornHero !== null && pickOver !== wornHero.id;
   const [primary, ...pickAlternates] = presentation.suggestions;
   const hero = showsWorn ? wornHero : primary;
-  // The worn look opens its outfit's detail in the colours it was recorded in where they differ
-  // from the outfit's own, so a look worn as offered opens kuyara's pick as it is.
+  // The worn look opens its outfit's detail in every colour it was recorded in once one differs
+  // from the outfit's own, since the others resolve around it; a look worn as offered opens
+  // kuyara's pick as it is.
   const wornOutfit = showsWorn
     ? [...presentation.suggestions, ...presentation.moreIdeas].find(({ id }) => id === wornHero.detailId) : undefined;
-  const detailColors = showsWorn && wornOutfit ? paintedOver(
-    Object.fromEntries(wornHero.palette.pieces.flatMap(({ slot, recordedSwatchId }) =>
-      recordedSwatchId ? [[slot, recordedSwatchId]] : [])),
-    garmentSwatchesBySlot(wornOutfit.palette)) : undefined;
+  const recorded = wornOutfit && wornHero ? wornHero.palette.pieces.flatMap(({ slot, recordedSwatchId }) =>
+    recordedSwatchId ? [[slot, recordedSwatchId] as const] : []) : [];
+  const own = wornOutfit && garmentSwatchesBySlot(wornOutfit.palette);
+  const detailColors: PaintedColors | undefined = own && recorded.some(([slot, swatchId]) => own[slot] !== swatchId)
+    ? Object.fromEntries(recorded) : undefined;
   const { alternates, moreIdeas, moreIdeasCaption } = showsWorn ? wornHero
     : { alternates: pickAlternates, moreIdeas: presentation.moreIdeas, moreIdeasCaption: presentation.moreIdeasCaption };
   if (hero && hero.id !== stageOutfit?.id) {

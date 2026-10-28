@@ -24,7 +24,7 @@ import type {
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import { wornOutfitOrNull } from '@/features/today/application/outfit-detail-state';
 import type { ComposePiece } from '@/features/today/application/compose-selection';
-import { usePieceColors, type PaintedColors, type PieceColors } from '@/features/today/application/piece-colors';
+import { paintsOn, usePieceColors, type PaintedColors, type PieceColors } from '@/features/today/application/piece-colors';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 
 /**
@@ -56,9 +56,9 @@ export function composeInputFor(
  * once there is one, on the day `composeInputFor` reads from `snapshot` (null composes
  * nothing). Each showing keeps its own edits, so an edit never crosses between the pick and a
  * composed option, even one built from the same pieces with the same id, and so does each
- * showing's painted colours; `startColors` paints the pick as detail opens. `onPieceChanged`
- * hears each change to one piece, told whether a composed result is showing; `onComposed` hears
- * each settled compose attempt with the pieces chosen and the outfits built.
+ * showing's painted colours; `startColors` paint the pick's own pieces as detail opens.
+ * `onPieceChanged` hears each change to one piece, told whether a composed result is showing;
+ * `onComposed` hears each settled compose attempt with the pieces chosen and the outfits built.
  */
 export function useDetailMix(
   pick: RecommendedOutfit | null,
@@ -88,7 +88,10 @@ export function useDetailMix(
     option ? composed.key : undefined, pieceChanged);
   const shown = manualMix?.outfit ?? null;
   const garments = useMemo(() => (shown ? outfitGarments(shown) : {}), [shown]);
-  const pieceColors = usePieceColors(option ? composed.key : pick?.optionId ?? null, garments, startColors);
+  const start = useMemo(() => (pick && startColors ? paintsOn(startColors, outfitGarments(pick)) : undefined),
+    [pick, startColors]);
+  const pieceColors = usePieceColors(option ? composed.key : pick?.optionId ?? null, garments,
+    option ? undefined : start);
   return { composed, manualMix, pieceColors };
 }
 
