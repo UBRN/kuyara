@@ -30,17 +30,6 @@ export function namePromptDue(profile: ProfileApplicationState, dismissed: boole
 }
 
 /**
- * M16 and N20: the first foreground open of a bare-date day asks the morning question, and
- * the first one after 18:00 asks the evening question.
- */
-export function pendingDayQuestion(
-  morningChoicePending: boolean | undefined,
-  eveningChoicePending: boolean | undefined,
-): 'morning' | 'evening' | null {
-  return morningChoicePending ? 'morning' : eveningChoicePending ? 'evening' : null;
-}
-
-/**
  * Whether the pending day question opens now. Nothing opens over the launch curtain, the
  * name prompt or the Phase 8 tour (one overlay at a time), and a dressing day asks once.
  */
@@ -144,7 +133,7 @@ export function todayRetrySucceeded(
 /** Today reads an unavailable state without an active place as the "choose a place" state. */
 export function todayPresentationState(state: TodayScreenState, weather: WeatherApplicationState): TodayScreenState {
   return state.kind === 'unavailable' && weather.status === 'ready' && weather.activeLocation === null
-    ? { ...state, reason: 'no-active-location' }
+    ? { kind: 'unavailable', reason: 'no-active-location' }
     : state;
 }
 

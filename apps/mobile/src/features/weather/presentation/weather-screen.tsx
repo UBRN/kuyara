@@ -45,7 +45,7 @@ import { OneLineOrStacked } from '@/features/weather/presentation/one-line-or-st
 import { hourlyRailColumns } from '@/features/weather/presentation/hourly-rail-columns';
 import { uvLevelOf } from '@/features/weather/presentation/uv-level';
 import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
-import { dateKeyWeekday, percentage, showsChance } from '@/features/weather/presentation/weather-format';
+import { dateKeyWeekday, showsChance } from '@/features/weather/presentation/weather-format';
 import { WeatherErrorState, WeatherLoadingState } from '@/features/weather/presentation/weather-states';
 import { resolveAtmosphereState, resolveDaypart } from '@/features/weather/domain/atmosphere-state';
 import { numberFormat } from '@/domain/intl-format';
@@ -54,6 +54,7 @@ import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { localeTag } from '@/localization/locale-tag';
 import { formatLastUpdated, formatNaturalClockTime, formatSpokenClockTime } from '@/presentation/format-clock-time';
+import { formatPercentage } from '@/presentation/format-percentage';
 import { formatTemperature, formatTemperatureDifference, formatTemperatureValue } from '@/presentation/format-temperature';
 import type { TemperatureUnit } from '@/localization/device-locale';
 import type { SupportedLanguage } from '@/localization/messages';
@@ -301,7 +302,7 @@ export function WeatherScreen({ shown = true }: WeatherScreenProps = {}) {
     : snapshot.daily
       .filter((day) => localDayKey === null || day.dateKey >= localDayKey)
       .slice(0, dailyOutlookDayCount).map((day) => {
-      const chance = percentage(day.precipitationProbability, language);
+      const chance = formatPercentage(day.precipitationProbability, language);
       // Whole millimetres: a day's total is a coarse figure, and a decimal in a row this
       // narrow costs the rail more width than the tenth is worth. Anything under half a
       // millimetre shows its chance alone rather than rounding down to a "0 mm" that would

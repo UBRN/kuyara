@@ -2,7 +2,7 @@
 // reports which categories changed between the loaded item and the submitted form
 // payload, never a value. The category list mirrors `ClosetFieldChanged`
 // (`features/analytics/domain/analytics-events.ts`, the closed catalog this file does not
-// own) and the seven override fields of `wardrobeOverrideDefinitions` (`wardrobe-form.ts`).
+// own) and the seven override fields of `wardrobeOverrideDefinitions` (`wardrobe-override.ts`).
 import type { ClosetFieldChanged } from '@/features/analytics/domain/analytics-events';
 import type {
   Breathability,
@@ -16,7 +16,7 @@ import type {
 } from '@/features/catalog/domain/garment-taxonomy';
 import { normalizeOptionalWardrobeText } from '@/features/wardrobe/domain/wardrobe-item';
 import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
-import type { WardrobeOverrideField } from '@/features/wardrobe/application/wardrobe-form';
+import type { WardrobeOverrideField } from '@/features/wardrobe/domain/wardrobe-override';
 
 // The submitted payload always fills every field (`wardrobe-form.ts`'s `visibleFields`),
 // but the controller's own input type marks them optional, so this stays defensive: a

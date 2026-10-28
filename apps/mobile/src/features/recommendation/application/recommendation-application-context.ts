@@ -36,8 +36,11 @@ export type RecommendationApplicationValue = Readonly<{
   tomorrowPreview?: RecommendationSnapshot | null;
   dressingDayChoiceReady?: boolean;
   dressingDayChoiceFailed?: boolean;
-  morningChoicePending?: boolean;
-  eveningChoicePending?: boolean;
+  /**
+   * M16 and N20: the question the first foreground open of the active dressing day asks, the
+   * morning one on a bare-date day and the evening one after 18:00; null when none is due.
+   */
+  pendingDayQuestion?: 'morning' | 'evening' | null;
   activeDeparture?: DressingDayDeparture | null;
   readDeparture?: (dayKey: string) => Promise<DressingDayDeparture | null>;
   setDeparture?: (departureAt: string, timeZone: string) => Promise<DressingDayDeparture>;

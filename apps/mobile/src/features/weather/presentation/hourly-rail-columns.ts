@@ -5,11 +5,12 @@ import type { HourlyWeather, NormalizedCoordinates, WeatherSnapshot } from '@/fe
 import type { TemperatureUnit } from '@/localization/device-locale';
 import type { AppMessages, SupportedLanguage } from '@/localization/messages';
 import { formatClockTime, formatSpokenClockTime } from '@/presentation/format-clock-time';
+import { formatPercentage } from '@/presentation/format-percentage';
 import { formatTemperature, formatTemperatureValue } from '@/presentation/format-temperature';
 
 import type { HourlyRailColumn, HourlyTimeEmphasis } from './hourly-rail';
 import { remainingHourlyForecast } from './remaining-hours';
-import { percentage, weekday } from './weather-format';
+import { weekday } from './weather-format';
 
 export type HourlyColumnWording = Readonly<{
   language: SupportedLanguage;
@@ -79,7 +80,7 @@ export function hourlyRailColumns(
       // an hour of sunrise or sunset the hour's start would show the other one.
       daypart: resolveDaypart(index === 0 ? new Date(now).toISOString() : hour.forecastAt, timeZone, coordinates),
       precipitationProbability: hour.precipitationProbability,
-      precipitation: percentage(hour.precipitationProbability, language),
+      precipitation: formatPercentage(hour.precipitationProbability, language),
       temperature: formatTemperature(hour.temperatureCelsius, language, temperatureUnit),
       temperatureCelsius: hour.temperatureCelsius,
       time: timeEmphasis === 'now'

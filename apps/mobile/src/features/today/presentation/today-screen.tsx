@@ -109,7 +109,8 @@ type TodayScreenProps = Readonly<{
   state: TodayScreenState;
   language: SupportedLanguage;
   displayName?: string | null;
-  isRefreshing?: boolean;
+  /** The person's own pull-to-refresh is running; a recommendation refresh is the header's. */
+  pullRefreshing?: boolean;
   alertOffer?: TodayAlertOffer | null;
   /** The refused offer's permission was granted in system Settings and the accept finished. */
   alertOfferFinished?: boolean;
@@ -234,7 +235,7 @@ function TodayScreenContent({
   state,
   language,
   displayName = null,
-  isRefreshing = false,
+  pullRefreshing = false,
   alertOffer = null,
   alertOfferFinished = false,
   onOpenOutfitDetail,
@@ -367,7 +368,7 @@ function TodayScreenContent({
       }}
       // Only the person's own pull spins the control, as on Weather; a background refresh is
       // told by the freshness line alone.
-      refreshing={isRefreshing}
+      refreshing={pullRefreshing}
       tintColor={theme.colors.iconSecondary}
     />
   );
@@ -432,6 +433,7 @@ function TodayScreenContent({
   }
 
   if (presentation.kind !== 'loaded') {
+    const noActiveLocation = presentation.reason === 'no-active-location';
     return (
       <Screen
         accessibilityActions={[{ name: 'refresh', label: copy.refreshAction }]}
@@ -449,12 +451,8 @@ function TodayScreenContent({
           accessibilityLabel={presentation.accessibilityLabel}
           actionLabel={presentation.actionLabel}
           body={presentation.body}
-          noActiveLocation={presentation.reason === 'no-active-location'}
-          onAction={
-            presentation.reason === 'no-active-location'
-              ? () => push('/weather/location')
-              : onRefresh
-          }
+          noActiveLocation={noActiveLocation}
+          onAction={noActiveLocation ? () => push('/weather/location') : onRefresh}
           title={presentation.title}
         />
       </Screen>

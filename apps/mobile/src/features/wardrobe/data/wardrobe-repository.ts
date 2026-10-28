@@ -47,6 +47,10 @@ import {
   type WardrobeItemCategory,
   type WardrobeEntryState,
 } from '@/features/wardrobe/domain/wardrobe-item';
+import {
+  supportedWardrobeOverrides,
+  wardrobeOverrideDefinitions,
+} from '@/features/wardrobe/domain/wardrobe-override';
 import { WardrobeRepositoryError } from '@/features/wardrobe/domain/wardrobe-repository-error';
 import { isUtcIsoTimestamp, isUuidV4 } from '@/domain/record-identity';
 
@@ -190,30 +194,15 @@ function resolveColorFields(
 
 function taxonomyFieldsAreConsistent(fields: MutableWardrobeFields): boolean {
   if (fields.garmentTypeId === null) {
-    return (
-      fields.colorFamily === null &&
-      fields.thermalLevelOverride === null &&
-      fields.waterProtectionOverride === null &&
-      fields.windProtectionOverride === null &&
-      fields.breathabilityOverride === null &&
-      fields.armCoverageOverride === null &&
-      fields.legCoverageOverride === null &&
-      fields.tractionSuitabilityOverride === null
-    );
+    return fields.colorFamily === null &&
+      wardrobeOverrideDefinitions.every(({ field }) => fields[field] === null);
   }
 
   const type = getGarmentType(fields.garmentTypeId);
-  return Boolean(
-    type &&
-    type.structuralCategory === fields.category &&
-    (type.defaultThermalLevel !== null || fields.thermalLevelOverride === null) &&
-    (type.defaultWaterProtection !== null || fields.waterProtectionOverride === null) &&
-    (type.defaultWindProtection !== null || fields.windProtectionOverride === null) &&
-    (type.defaultBreathability !== null || fields.breathabilityOverride === null) &&
-    (type.defaultArmCoverage !== null || fields.armCoverageOverride === null) &&
-    (type.defaultLegCoverage !== null || fields.legCoverageOverride === null) &&
-    (type.defaultTractionSuitability !== null ||
-      fields.tractionSuitabilityOverride === null),
+  if (!type || type.structuralCategory !== fields.category) return false;
+  const supported = supportedWardrobeOverrides(type);
+  return wardrobeOverrideDefinitions.every(
+    (definition) => fields[definition.field] === null || supported.includes(definition),
   );
 }
 

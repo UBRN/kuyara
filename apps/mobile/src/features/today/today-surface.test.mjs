@@ -11,7 +11,6 @@ import {
   isUpdatingOutfit,
   mayOpenDayQuestion,
   namePromptDue,
-  pendingDayQuestion,
   recommendationCacheState,
   settledFirstOutfit,
   showsAskAgain,
@@ -69,12 +68,6 @@ test('the name prompt is due once per version, after onboarding, until dismissed
   assert.equal(namePromptDue(readyProfile({ onboardingCompleted: false }), false), false);
   assert.equal(namePromptDue(readyProfile({ namePromptVersion }), false), false);
   assert.equal(namePromptDue({ status: 'loading' }, false), false);
-});
-
-test('the morning question wins over the evening one', () => {
-  assert.equal(pendingDayQuestion(true, true), 'morning');
-  assert.equal(pendingDayQuestion(false, true), 'evening');
-  assert.equal(pendingDayQuestion(undefined, false), null);
 });
 
 test('the day question opens once per dressing day and never over another overlay', () => {

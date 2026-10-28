@@ -1625,7 +1625,7 @@ describe('the leaving board on a re-ask', () => {
   test.each(['loading', 'unavailable'] as const)(
     'a %s interlude forgets the outfit that was leaving',
     async (kind) => {
-      const interlude = { kind } as const;
+      const interlude: TodayScreenState = kind === 'loading' ? { kind } : unavailableTodayState(null);
       const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation((toValue) => toValue);
       try {
         const result = await render(screen(todayScreenState));
@@ -1649,12 +1649,13 @@ describe('the leaving board on a re-ask', () => {
   test.each(['loading', 'unavailable'] as const)(
     'a new outfit after a %s interlude drops nothing away',
     async (kind) => {
+      const interlude: TodayScreenState = kind === 'loading' ? { kind } : unavailableTodayState(null);
       const withTiming = jest.spyOn(Reanimated, 'withTiming').mockImplementation((toValue) => toValue);
       try {
         const result = await render(screen(todayScreenState));
         await result.rerender(providers(
           <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
-            onAskAgain={jest.fn()} state={{ kind }} />,
+            onAskAgain={jest.fn()} state={interlude} />,
         ));
         await result.rerender(screen(withPrimary('after-interlude')));
         expect(result.queryByTestId('today-leaving-board', hidden)).toBeNull();
@@ -2248,7 +2249,7 @@ test('unavailable Today supports pull retry and the refresh accessibility action
   const impact = jest.spyOn(haptics, 'impactLight').mockImplementation(() => undefined);
   const result = await render(providers(
     <TodayScreen
-      isRefreshing
+      pullRefreshing
       language="en"
       onOpenOutfitDetail={jest.fn()}
       onRefresh={onRefresh} onAskAgain={jest.fn()}

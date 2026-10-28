@@ -69,7 +69,7 @@ export function TodayFeedbackCard({
   title,
 }: Readonly<{
   accessibilityLabel: string;
-  actionLabel: string | undefined;
+  actionLabel: string;
   body: string;
   noActiveLocation: boolean;
   onAction: () => void;
@@ -101,12 +101,10 @@ export function TodayFeedbackCard({
           {body}
         </AppText>
       </View>
-      {actionLabel ? (
-        <Button
-          label={actionLabel}
-          onPress={onAction}
-        />
-      ) : null}
+      <Button
+        label={actionLabel}
+        onPress={onAction}
+      />
     </Surface>
     </Entrance>
   );

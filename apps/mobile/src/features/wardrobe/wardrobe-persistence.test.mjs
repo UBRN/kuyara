@@ -576,6 +576,32 @@ test('new items require a canonical type and reject type, category, or property 
   );
 });
 
+test('each override is rejected on a type with no catalog default for it and kept on one with', async (t) => {
+  const overrides = [
+    ['thermalLevelOverride', 'defaultThermalLevel', thermalLevels[0]],
+    ['waterProtectionOverride', 'defaultWaterProtection', waterProtections[0]],
+    ['windProtectionOverride', 'defaultWindProtection', windProtections[0]],
+    ['breathabilityOverride', 'defaultBreathability', breathabilityLevels[0]],
+    ['armCoverageOverride', 'defaultArmCoverage', coverageLevels[0]],
+    ['legCoverageOverride', 'defaultLegCoverage', coverageLevels[0]],
+    ['tractionSuitabilityOverride', 'defaultTractionSuitability', tractionSuitabilities[0]],
+  ];
+  for (const [field, defaultField, value] of overrides) {
+    const without = garmentCatalog.garmentTypes.find((type) => type[defaultField] === null);
+    const withDefault = garmentCatalog.garmentTypes.find((type) => type[defaultField] !== null);
+    assert.ok(without && withDefault, field);
+    const { repository } = await createRepository(t);
+    const input = (type) => ({
+      localProfileId: profileId,
+      category: type.structuralCategory,
+      garmentTypeId: type.typeId,
+      [field]: value,
+    });
+    await assert.rejects(() => repository.createItem(input(without)), assertRepositoryError('invalid-input'));
+    assert.equal((await repository.createItem(input(withDefault)))[field], value);
+  }
+});
+
 test('released version 2 rows remain readable as unclassified legacy items', async (t) => {
   const { database, repository, setTime } = await createRepository(t);
   await database.runAsync(
