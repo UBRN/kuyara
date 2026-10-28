@@ -1332,6 +1332,16 @@ async function renderQueuedBehindGeneration() {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
   };
+  // The app is in front again and the first generation finishes before the return's change
+  // event re-renders, so only what the background renders left queued can start then.
+  const returnAsFirstFinishes = async () => {
+    await act(async () => {
+      AppState.currentState = 'active';
+      finishRefresh(mockRecommendationSnapshot);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    await act(async () => { onChange.forEach((listener) => listener('active')); });
+  };
   const restore = () => {
     finishRefresh(mockRecommendationSnapshot);
     view.unmount();
@@ -1339,7 +1349,7 @@ async function renderQueuedBehindGeneration() {
     subscription.mockRestore();
     refresh.mockRestore();
   };
-  return { refresh, dressStyle, appState, settle, restore };
+  return { refresh, dressStyle, appState, settle, returnAsFirstFinishes, restore };
 }
 
 test('a generation queued behind one in flight does not start while the app is in the background', async () => {
@@ -1368,6 +1378,20 @@ test('a setting changed back while the app is in the background withdraws what i
     expect(refresh).toHaveBeenCalledTimes(1);
 
     await appState('active');
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(refresh.mock.calls.filter(([, input]) => input.dressStyle === 'formal')).toHaveLength(0);
+  } finally {
+    restore();
+  }
+});
+
+test('a setting changed back in the background withdraws its queued generation before the return', async () => {
+  const { refresh, dressStyle, appState, returnAsFirstFinishes, restore } = await renderQueuedBehindGeneration();
+  try {
+    await dressStyle('formal');
+    await appState('background');
+    await dressStyle('smart');
+    await returnAsFirstFinishes();
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
     expect(refresh.mock.calls.filter(([, input]) => input.dressStyle === 'formal')).toHaveLength(0);
   } finally {
