@@ -2,14 +2,8 @@ import type { ClothingPreference } from '@/domain/preferences';
 import { isUuidV4 } from '@/domain/record-identity';
 import { getGarmentType, listSelectableGarmentTypes } from '@/features/catalog/domain/garment-catalog';
 import {
-  breathabilityLevels,
   colorFamilies,
-  coverageLevels,
   structuralCategorySchema,
-  thermalLevels,
-  tractionSuitabilities,
-  waterProtections,
-  windProtections,
   type Breathability,
   type ColorFamily,
   type Coverage,
@@ -33,6 +27,11 @@ import {
   type WardrobeEntryState,
   type WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
+import {
+  supportedWardrobeOverrides,
+  wardrobeOverrideDefinitions,
+  type WardrobeOverrideDefinition,
+} from '@/features/wardrobe/domain/wardrobe-override';
 
 export type WardrobeFormValues = Readonly<{
   name: string;
@@ -48,78 +47,6 @@ export type WardrobeFormValues = Readonly<{
   legCoverageOverride: Coverage | null;
   tractionSuitabilityOverride: TractionSuitability | null;
 }>;
-
-export type WardrobeOverrideField = Exclude<
-  keyof WardrobeFormValues,
-  'name' | 'garmentTypeId' | 'colorFamily' | 'colorChoice'
->;
-
-export type WardrobeOverrideDefinition = Readonly<{
-  field: WardrobeOverrideField;
-  catalogAttribute:
-    | 'thermal_level'
-    | 'water_protection'
-    | 'wind_protection'
-    | 'breathability'
-    | 'coverage'
-    | 'traction_suitability';
-  defaultField: keyof Pick<
-    GarmentType,
-    | 'defaultThermalLevel'
-    | 'defaultWaterProtection'
-    | 'defaultWindProtection'
-    | 'defaultBreathability'
-    | 'defaultArmCoverage'
-    | 'defaultLegCoverage'
-    | 'defaultTractionSuitability'
-  >;
-  values: readonly string[];
-}>;
-
-export const wardrobeOverrideDefinitions = Object.freeze([
-  {
-    field: 'thermalLevelOverride',
-    catalogAttribute: 'thermal_level',
-    defaultField: 'defaultThermalLevel',
-    values: thermalLevels,
-  },
-  {
-    field: 'waterProtectionOverride',
-    catalogAttribute: 'water_protection',
-    defaultField: 'defaultWaterProtection',
-    values: waterProtections,
-  },
-  {
-    field: 'windProtectionOverride',
-    catalogAttribute: 'wind_protection',
-    defaultField: 'defaultWindProtection',
-    values: windProtections,
-  },
-  {
-    field: 'breathabilityOverride',
-    catalogAttribute: 'breathability',
-    defaultField: 'defaultBreathability',
-    values: breathabilityLevels,
-  },
-  {
-    field: 'armCoverageOverride',
-    catalogAttribute: 'coverage',
-    defaultField: 'defaultArmCoverage',
-    values: coverageLevels,
-  },
-  {
-    field: 'legCoverageOverride',
-    catalogAttribute: 'coverage',
-    defaultField: 'defaultLegCoverage',
-    values: coverageLevels,
-  },
-  {
-    field: 'tractionSuitabilityOverride',
-    catalogAttribute: 'traction_suitability',
-    defaultField: 'defaultTractionSuitability',
-    values: tractionSuitabilities,
-  },
-] as const satisfies readonly WardrobeOverrideDefinition[]);
 
 const emptyValues: WardrobeFormValues = Object.freeze({
   name: '',
@@ -266,13 +193,7 @@ export function listSupportedWardrobeOverrides(
   garmentTypeId: GarmentTypeId | null,
 ): readonly WardrobeOverrideDefinition[] {
   const garmentType = garmentTypeId ? getGarmentType(garmentTypeId) : null;
-  if (!garmentType) {
-    return [];
-  }
-
-  return wardrobeOverrideDefinitions.filter(
-    ({ defaultField }) => garmentType[defaultField] !== null,
-  );
+  return garmentType ? supportedWardrobeOverrides(garmentType) : [];
 }
 
 export function validateWardrobeForm(
