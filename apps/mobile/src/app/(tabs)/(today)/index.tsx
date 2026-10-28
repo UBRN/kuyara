@@ -14,7 +14,6 @@ import { pieceColorsParam, type PaintedColors } from '@/features/today/applicati
 import { classifyTodayState } from '@/features/today/application/today-state';
 import {
   isFirstDressingDay,
-  pendingDayQuestion,
   showsLaterReadyLine,
   updatingDayType as dayTypeUpdating,
 } from '@/features/today/application/today-surface';
@@ -51,8 +50,7 @@ export default function TodayRoute() {
     state: recommendationState,
     dressingDayKey,
     dressingDayChoiceFailed,
-    morningChoicePending,
-    eveningChoicePending,
+    pendingDayQuestion = null,
     resolvedDressStyle,
     activeDeparture,
   } = useRecommendationApplication();
@@ -111,7 +109,7 @@ export default function TodayRoute() {
   });
   // A pending day question is about to open over the focused Today, so it holds the screen
   // before its sheet does. The notification offer is a card in Today's page, not over it.
-  usePresentationHold(focused && pendingDayQuestion(morningChoicePending, eveningChoicePending) !== null);
+  usePresentationHold(focused && pendingDayQuestion !== null);
 
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const currentDressingDayKey = dressingDayKey ?? null;
@@ -135,7 +133,7 @@ export default function TodayRoute() {
         ? eveningLaterReadyLine(activeDeparture ?? null, clock, language, hour12) : null}
       updatingDayType={dayTypeUpdating(recommendationState, resolvedDressStyle)}
       firstDressingDay={isFirstDressingDay(profile, currentDressingDayKey)}
-      awaitingDayQuestion={morningChoicePending || eveningChoicePending}
+      awaitingDayQuestion={pendingDayQuestion !== null}
       state={state}
     />
     <DailyFormalitySheet visible={dayQuestion.visible} language={language}

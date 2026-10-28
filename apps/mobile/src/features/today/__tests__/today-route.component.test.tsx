@@ -493,8 +493,7 @@ function Providers({
   dressingDayChoiceReady,
   dressingDayChoiceFailed,
   dressingDayKey,
-  morningChoicePending,
-  eveningChoicePending,
+  pendingDayQuestion,
   chooseFormality,
   reask,
   activeDeparture = null,
@@ -518,8 +517,7 @@ function Providers({
   dressingDayChoiceReady?: boolean;
   dressingDayChoiceFailed?: boolean;
   dressingDayKey?: string;
-  morningChoicePending?: boolean;
-  eveningChoicePending?: boolean;
+  pendingDayQuestion?: RecommendationApplicationValue['pendingDayQuestion'];
   chooseFormality?: RecommendationApplicationValue['chooseFormality'];
   reask?: RecommendationApplicationValue['reask'];
   activeDeparture?: RecommendationApplicationValue['activeDeparture'];
@@ -562,8 +560,7 @@ function Providers({
       dressingDayChoiceReady,
       dressingDayChoiceFailed,
       dressingDayKey,
-      morningChoicePending,
-      eveningChoicePending,
+      pendingDayQuestion,
       chooseFormality,
       reask,
       activeDeparture,
@@ -767,8 +764,8 @@ test('a pending morning question holds the screen until it is answered', async (
     return <Text testID="held">{usePresentationHeld() ? 'held' : 'clear'}</Text>;
   }
   const props = morningPendingProps();
-  const route = (done: boolean, morningChoicePending = true) => (
-    <Providers {...props} morningChoicePending={morningChoicePending} recommendation={recommendationReady()}
+  const route = (done: boolean, pendingDayQuestion: 'morning' | null = 'morning') => (
+    <Providers {...props} pendingDayQuestion={pendingDayQuestion} recommendation={recommendationReady()}
       weather={weatherValue()}>
       <LaunchRevealContext value={{ revealing: true, done }}>
         <HeldProbe />
@@ -785,7 +782,7 @@ test('a pending morning question holds the screen until it is answered', async (
   expect(view.getByTestId('held')).toHaveTextContent('held');
 
   await fireEvent.press(view.getByTestId('daily-formality-usual'));
-  await view.rerender(route(true, false));
+  await view.rerender(route(true, null));
   await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
   expect(view.getByTestId('held')).toHaveTextContent('clear');
 });
@@ -1545,7 +1542,7 @@ test('the morning sheet answers the usual day type in one tap and closes', async
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1574,7 +1571,7 @@ test('a day-type tile answers the morning question in one tap and closes', async
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1595,7 +1592,7 @@ test('the morning sheet step 2 writes the usual day type and the changed styles 
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
       resolvedStyleAesthetics={['classic']}
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1622,7 +1619,7 @@ test('the morning sheet step 2 writes another day type and the changed styles on
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
       resolvedStyleAesthetics={['classic']}
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1647,7 +1644,7 @@ test('closing the sheet on step 2 answers the usual day type and leaves the styl
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1669,7 +1666,7 @@ test('the morning sheet step 2 with the styles untouched writes only the day typ
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
       resolvedStyleAesthetics={['classic']}
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1692,7 +1689,7 @@ test('a close reported after an answer, or while it saves, writes no second answ
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1719,7 +1716,7 @@ test('the first dressing day offers the setup answer as the usual one', async ()
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal', displayName: 'Deniz' })}
       recommendation={recommendationReady()} resolvedDressStyle="formal"
-      dressingDayKey="2026-09-24" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-09-24" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1741,7 +1738,7 @@ function morningPendingProps() {
     resolvedDressStyle: 'smart' as const,
     dressingDayKey: '2026-08-13',
     dressingDayChoiceReady: true,
-    morningChoicePending: true,
+    pendingDayQuestion: 'morning' as const,
     chooseFormality: jest.fn(async () => undefined),
     wardrobe: wardrobeValue(),
   };
@@ -1947,7 +1944,7 @@ test('dismissing the morning sheet answers with the profile dress style and asks
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'casual' })}
       recommendation={recommendationReady()} resolvedDressStyle="casual"
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1969,7 +1966,7 @@ test('a dismissal whose save fails reopens the question with the save error', as
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -1998,7 +1995,7 @@ test('a save error from a failed confirm does not follow a successful dismissal 
     weather: weatherValue(),
   };
   const view = await render(
-    <Providers {...props} dressingDayKey="2026-08-13" morningChoicePending>
+    <Providers {...props} dressingDayKey="2026-08-13" pendingDayQuestion="morning">
       <TodayRoute />
     </Providers>,
   );
@@ -2012,7 +2009,7 @@ test('a save error from a failed confirm does not follow a successful dismissal 
   announce.mockClear();
 
   await view.rerender(
-    <Providers {...props} dressingDayKey="2026-08-13:evening" eveningChoicePending>
+    <Providers {...props} dressingDayKey="2026-08-13:evening" pendingDayQuestion="evening">
       <TodayRoute />
     </Providers>,
   );
@@ -2990,7 +2987,7 @@ test('the evening sheet arrives empty and its dismissal uses the profile dress s
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal' })}
       recommendation={recommendationReady()} resolvedDressStyle="formal"
-      dressingDayKey="2026-08-13:evening" dressingDayChoiceReady eveningChoicePending
+      dressingDayKey="2026-08-13:evening" dressingDayChoiceReady pendingDayQuestion="evening"
       chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -3018,7 +3015,7 @@ test('a closing evening sheet keeps its question and its empty choice while it a
     <Providers productAnalytics={createProductAnalytics()}
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
-      dressingDayKey="2026-08-13:evening" dressingDayChoiceReady eveningChoicePending
+      dressingDayKey="2026-08-13:evening" dressingDayChoiceReady pendingDayQuestion="evening"
       chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -3041,7 +3038,7 @@ test('a sheet answered on step 2 keeps the styles step while it animates out', a
       profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
       resolvedStyleAesthetics={['classic']}
-      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
       chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
@@ -3070,7 +3067,7 @@ test('Today reports an open day question to the tour as an overlay until it is a
       <Providers productAnalytics={createProductAnalytics()}
         profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
         recommendation={recommendationReady()} resolvedDressStyle="smart"
-        dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+        dressingDayKey="2026-08-13" dressingDayChoiceReady pendingDayQuestion="morning"
         chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
         <TodayRoute />
       </Providers>

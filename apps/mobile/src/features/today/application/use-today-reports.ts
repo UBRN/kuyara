@@ -39,8 +39,7 @@ export function useTodayReports(state: TodayScreenState, input: Readonly<{
   const { focused, namePromptShown, overlayOpen, dayQuestionOpen } = input;
   const {
     state: recommendationState,
-    morningChoicePending,
-    eveningChoicePending,
+    pendingDayQuestion = null,
     dressingDayChoiceReady,
     resolvedDressStyle,
   } = useRecommendationApplication();
@@ -49,7 +48,7 @@ export function useTodayReports(state: TodayScreenState, input: Readonly<{
   const { markRecommendationShown } = useAnalyticsConsentTrigger();
   const reportFirstRecommendation = useFirstRecommendationReport();
   const walkthrough = useWalkthrough();
-  const dayQuestionPending = morningChoicePending || eveningChoicePending;
+  const dayQuestionPending = pendingDayQuestion !== null;
 
   // Once per focus appearance while a real three-outfit recommendation is visible (an
   // AI/fallback failure inside a `loaded` state does not count).
@@ -107,7 +106,7 @@ export function useTodayReports(state: TodayScreenState, input: Readonly<{
     choosingWindow: input.choosingWindow,
   });
   // The day question claims the screen while it is open and while it is still to be asked.
-  const dayQuestionClaim = dayQuestionOpen || dayQuestionPending === true;
+  const dayQuestionClaim = dayQuestionOpen || dayQuestionPending;
   const reportToday = walkthrough?.reportToday;
   useEffect(() => {
     reportToday?.({

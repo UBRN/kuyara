@@ -295,8 +295,8 @@ export function RecommendationApplicationProvider({
       profileCreatedAt: profileState.profile.createdAt,
       dressingDayKey: localDay.key,
     });
-  const morningChoicePending = dayQuestionOpen && !isEveningDressingDayKey(localDay.key);
-  const eveningChoicePending = dayQuestionOpen && isEveningDressingDayKey(localDay.key);
+  const pendingDayQuestion = !dayQuestionOpen ? null
+    : isEveningDressingDayKey(localDay.key) ? 'evening' : 'morning';
   const reevaluateLocalDay = dayRollover.reevaluate;
   // Re-asks reserve a daily slot before the controller enters the AI chain; a member's ten apply
   // only to a re-ask whose token was read, and its request carries that token.
@@ -406,10 +406,10 @@ export function RecommendationApplicationProvider({
   ), [controller, weatherApplication, weatherState]);
   const approvedTriggerReading = useMemo(() => ({
     recommendation: controller,
-    dayQuestionPending: morningChoicePending || eveningChoicePending || dayTurnedInFront,
+    dayQuestionPending: pendingDayQuestion !== null || dayTurnedInFront,
     appInFront: () => inForeground(AppState.currentState),
     awaitsWeatherRefresh: triggerAwaitsWeatherRefresh,
-  }), [controller, dayTurnedInFront, eveningChoicePending, morningChoicePending, triggerAwaitsWeatherRefresh]);
+  }), [controller, dayTurnedInFront, pendingDayQuestion, triggerAwaitsWeatherRefresh]);
 
   // Followed in the background too, so a setting changed back withdraws what it queued.
   useEffect(() => {
@@ -521,7 +521,7 @@ export function RecommendationApplicationProvider({
     const request = tomorrowPreviewRequest({
       dressingDayKey: localDay.key,
       wanted: previewWanted,
-      eveningChoicePending,
+      eveningChoicePending: pendingDayQuestion === 'evening',
       today: input,
       // What the morning will exclude too, unless today's outfit changes before then.
       settledOutfits: settledRecommendation?.outfits ?? null,
@@ -530,7 +530,7 @@ export function RecommendationApplicationProvider({
       now,
     });
     if (request) void previewController.ensure(request);
-  }, [eveningChoicePending, input, language, localDay.key, previewController, previewWanted,
+  }, [input, language, localDay.key, pendingDayQuestion, previewController, previewWanted,
     settledRecommendation, tomorrowQuestion]);
   const tomorrowPreview = shownTomorrowPreview(preview, localDay.key, input, tomorrowQuestion);
 
@@ -568,8 +568,7 @@ export function RecommendationApplicationProvider({
     tomorrowPreview,
     dressingDayChoiceReady: choiceReady,
     dressingDayChoiceFailed: choiceFailed,
-    morningChoicePending,
-    eveningChoicePending,
+    pendingDayQuestion,
     activeDeparture,
     readDeparture: async (dayKey) => (await loadDepartureRepository()).get(localProfileId, dayKey),
     setDeparture: async (departureAt, timeZone) => {
@@ -580,7 +579,7 @@ export function RecommendationApplicationProvider({
       if (key === localDay.key) {
         setDepartureState({ key, value });
         const generationInput = currentInput();
-        if (generationInput && !morningChoicePending && !eveningChoicePending) {
+        if (generationInput && pendingDayQuestion === null) {
           await controller.refresh('explicit', { ...generationInput, departureAt });
         }
       }
@@ -591,7 +590,7 @@ export function RecommendationApplicationProvider({
       if (dayKey === localDay.key) {
         setDepartureState({ key: dayKey, value: null });
         const generationInput = currentInput();
-        if (generationInput && !morningChoicePending && !eveningChoicePending) {
+        if (generationInput && pendingDayQuestion === null) {
           const { departureAt: _departureAt, ...nowInput } = generationInput;
           await controller.refresh('explicit', { ...nowInput, now: now() });
         }
@@ -652,8 +651,7 @@ export function RecommendationApplicationProvider({
     choiceFailed,
     currentDayChoice,
     localDay.key,
-    morningChoicePending,
-    eveningChoicePending,
+    pendingDayQuestion,
     activeDeparture,
     reevaluateLocalDay,
     profileDefault,

@@ -4,7 +4,6 @@ import { useEffect, useReducer, useRef } from 'react';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import {
   mayOpenDayQuestion,
-  pendingDayQuestion,
   styleAestheticsChanged,
 } from '@/features/today/application/today-surface';
 import {
@@ -27,8 +26,7 @@ export function useDayQuestionSheet(state: TodayScreenState, input: Readonly<{
 }>) {
   const {
     dressingDayKey,
-    morningChoicePending,
-    eveningChoicePending,
+    pendingDayQuestion: pending = null,
     profileDressStyle,
     resolvedStyleAesthetics,
     chooseFormality,
@@ -45,7 +43,6 @@ export function useDayQuestionSheet(state: TodayScreenState, input: Readonly<{
   const offeredDayKey = useRef<string | null>(null);
 
   // The day question starts empty; the Phase 8 tour holds it back until it ends.
-  const pending = pendingDayQuestion(morningChoicePending, eveningChoicePending);
   const { focused, launchDone, namePromptShown } = input;
   const tourActive = walkthrough?.active === true;
   useEffect(() => {
