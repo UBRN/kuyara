@@ -161,7 +161,7 @@ export type ManualDetail = Readonly<{
 export type DetailShowing = Readonly<{
   /** The composed option's view, or null while there is no composed result. */
   composed: ComposedDetail | null;
-  /** The painted colours that change the outfit: none while the board draws as it does unpainted. */
+  /** The paints given, while they change the outfit; none while the board draws as it does unpainted. */
   painted: PaintedColors;
   /** The look "Wore this today" records: `manual` once the outfit is the reader's, else the pick as recommended. */
   worn: WornOutfit | null;

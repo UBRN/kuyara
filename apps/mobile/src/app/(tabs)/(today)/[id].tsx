@@ -34,7 +34,7 @@ import { useClosetSeed } from '@/features/today/application/use-closet-seed';
 import { useDayWornLooks } from '@/features/today/application/use-day-worn-looks';
 import { useOutfitDetailOpenedReport } from '@/features/today/application/use-outfit-detail-opened-report';
 import { useOutfitRating } from '@/features/today/application/use-outfit-rating';
-import { pieceColorsFromParam } from '@/features/today/application/piece-colors';
+import { countedPieceColors, pieceColorsFromParam } from '@/features/today/application/piece-colors';
 import {
   useOutfitEditReports,
   useOutfitWornLoggedReport,
@@ -124,7 +124,7 @@ export default function OutfitDetailRoute() {
   const { composed: composedView, painted, worn: thisWorn } = useMemo(() => detailShowing(outfit, option, manualMix,
     pieceColors.colors, detailBoard(state, language, hour12, temperatureUnit, clock, suggestionId)),
   [clock, hour12, language, manualMix, option, outfit, pieceColors.colors, state, suggestionId, temperatureUnit]);
-  const shownColors = useMemo(() => ({ ...pieceColors, colors: painted }), [painted, pieceColors]);
+  const shownColors = useMemo(() => countedPieceColors(pieceColors, painted), [painted, pieceColors]);
 
   // A regeneration that lands while the reader is on another tab and no longer offers this
   // outfit leaves nothing to come back to, so the Today stack returns to its root rather

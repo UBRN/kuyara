@@ -4485,6 +4485,46 @@ test('a carried look painted back to the pick\'s colours reads and records as ku
   expect(outfitHistory.log).toHaveBeenCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[0]), own);
 });
 
+// Carried colours that count as no change are gone, so the next tap starts from kuyara's pick:
+// touching the skirt's own colour after the top was painted back changes nothing.
+test('after a carried look is painted back, the next colour starts from kuyara\'s pick', async () => {
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const opened = createTodayPresentation(todayScreenState, 'en', false, 'celsius', Date.parse('2026-08-13T06:30:00.000Z'));
+  if (opened.kind !== 'loaded') throw new Error('fixture');
+  const own = garmentSwatchesBySlot(opened.suggestions[1].palette);
+  mockParams = { id: todayOutfitId(2), from: 'band',
+    colors: Object.entries({ ...own, primary_top: 'plum' }).map(([slot, swatch]) => `${slot}.${swatch}`).join(',') };
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    day: jest.fn(async () => []),
+    log: jest.fn(async (_day: string, outfit: WornOutfit, pieceColors: unknown) => ({ id: 'look-0', outfit, pieceColors }) as never),
+  };
+  const result = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendationReady()} wardrobe={wardrobeValue()} weather={weatherValue()}
+      dressingDayKey="2026-08-13" outfitHistory={outfitHistory}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  const copy = messages.en.today;
+  const heading = () => within(result.getByTestId('outfit-detail-heading-group')).getByRole('header');
+  const paint = async (slot: string, swatch: string) => {
+    await fireEvent(result.getByTestId(`outfit-detail-board-piece-${slot}`), 'accessibilityAction',
+      { nativeEvent: { actionName: 'activate' } });
+    await fireEvent.press(result.getByTestId(`outfit-detail-board-strip-color-${swatch}`));
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+  };
+  await waitFor(() => expect(outfitHistory.day).toHaveBeenCalled());
+  await fireEvent(result.getByTestId('outfit-detail-content'), 'layout',
+    { nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } } });
+  await paint('primary_top', own.primary_top!);
+  expect(heading()).not.toHaveTextContent(copy.manualMix.title);
+  await paint('bottom', own.bottom!);
+  expect(heading()).not.toHaveTextContent(copy.manualMix.title);
+  await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+  expect(outfitHistory.log).toHaveBeenCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[1]), own);
+});
+
 // ADR 0020's moment: a recorded "Wore this today" draws the stitch once around the plate and
 // throws one burst of small garment shapes in the outfit's own colours over the board. It is
 // decorative and lets every touch through; the words say the look is saved and stays on Today.

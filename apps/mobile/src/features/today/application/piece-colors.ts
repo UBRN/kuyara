@@ -78,3 +78,19 @@ export function usePieceColors(
   const clear = useCallback(() => setState({ key: null, paints: NO_PAINTS }), []);
   return useMemo(() => ({ colors, paint, clear }), [clear, colors, paint]);
 }
+
+/**
+ * The piece colours as they count (`counted`, from `detailShowing`). Paints that count as no
+ * change are gone, so the next paint starts from none: the board as kuyara's pick.
+ */
+export function countedPieceColors(pieceColors: PieceColors, counted: PaintedColors): PieceColors {
+  if (counted === pieceColors.colors) return pieceColors;
+  return {
+    ...pieceColors,
+    colors: counted,
+    paint: (...args) => {
+      pieceColors.clear();
+      pieceColors.paint(...args);
+    },
+  };
+}
