@@ -9,7 +9,7 @@ import {
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import { calendarDateUtcMidnight } from '@/domain/calendar-date';
-import { dateTimeFormat, numberFormat, zonedDateKey } from '@/domain/intl-format';
+import { dateTimeFormat, zonedDateKey } from '@/domain/intl-format';
 import {
   departureIsAhead,
   quarterHourMs,
@@ -82,6 +82,7 @@ import {
   formatNaturalClockTime,
   formatSpokenClockTime,
 } from '@/presentation/format-clock-time';
+import { formatPercentage } from '@/presentation/format-percentage';
 import {
   formatTemperature,
   formatTemperatureValue,
@@ -259,13 +260,6 @@ export type TodayPresentation =
       reason: 'no-active-location' | 'failure';
       actionLabel: string;
     }>;
-
-function formatPercent(ratio: number, language: SupportedLanguage): string {
-  return numberFormat(localeTag(language), {
-    style: 'percent',
-    maximumFractionDigits: 0,
-  }).format(ratio);
-}
 
 /** The long day name a window sentence uses when it starts on another calendar date. */
 function formatWindowDay(instant: number, language: SupportedLanguage, timeZone: string): string {
@@ -1056,7 +1050,7 @@ function createLoadedPresentation(
         formatTemperature(weather.maximumTemperatureCelsius, language, temperatureUnit),
       ),
       rainProbability: copy.rainProbability(
-        formatPercent(rainProbability, language),
+        formatPercentage(rainProbability, language),
       ),
       accessibilityLabel: copy.weatherAccessibilityLabel({
         condition,

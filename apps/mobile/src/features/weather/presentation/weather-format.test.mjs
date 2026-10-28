@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { dateKeyWeekday, percentage, showsChance } from './weather-format.ts';
+import { formatPercentage } from '../../../presentation/format-percentage.ts';
+import { dateKeyWeekday, showsChance } from './weather-format.ts';
 
 test('a forecast day names the weekday of its own date, not of some zone\'s instant', () => {
   // 2026-10-01 is a Thursday everywhere, including west of Greenwich.
@@ -20,7 +21,7 @@ test('a chance shows only when it rounds to at least one percent', () => {
   for (let step = 0; step <= 200; step += 1) {
     const value = step / 10_000;
     for (const language of ['en', 'tr']) {
-      assert.equal(showsChance(value), !/^%?0%?$/.test(percentage(value, language)), `${value} ${language}`);
+      assert.equal(showsChance(value), !/^%?0%?$/.test(formatPercentage(value, language)), `${value} ${language}`);
     }
   }
 });
