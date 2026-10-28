@@ -28,7 +28,6 @@ import {
   garmentNaturalSwatches,
   garmentSwatchesBySlot,
   GarmentSwapBoard,
-  keepGarmentColors,
   measureGarmentBoardHeight,
   swapRevealScroll,
   useGarmentCut,
@@ -86,10 +85,8 @@ import { ownPiecesFor } from '@/features/today/application/own-pieces';
 import type { PaintedColors, PieceColors } from '@/features/today/application/piece-colors';
 import type { OutfitRatingControl } from '@/features/today/application/use-outfit-rating';
 import { OutfitDetailRating } from '@/features/today/presentation/outfit-detail-rating';
-import {
-  createTodayPresentation,
-  type LoadedOutfitPresentation,
-} from '@/features/today/presentation/today-presentation';
+import { detailPalette } from '@/features/today/presentation/detail-board';
+import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
 import type { TodayScreenState } from '@/features/today/model';
@@ -173,16 +170,6 @@ type OutfitDetailScreenProps = Readonly<{
 
 const NO_COLORS: PaintedColors = Object.freeze({});
 const NOT_READ = (): OutfitWornState => 'unknown';
-
-/**
- * O15 and Phase 7: the pieces kuyara still chose keep their colours after a change; only a
- * changed piece is coloured afresh.
- */
-function detailPalette(suggestion: LoadedOutfitPresentation): GarmentOutfitPalette {
-  return suggestion.keptColors
-    ? keepGarmentColors(suggestion.keptColors.original, suggestion.palette, suggestion.keptColors.slots)
-    : suggestion.palette;
-}
 
 export function OutfitDetailScreen({
   state,

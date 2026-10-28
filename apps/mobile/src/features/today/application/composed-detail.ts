@@ -161,8 +161,16 @@ export type ManualDetail = Readonly<{
 export type DetailShowing = Readonly<{
   /** The composed option's view, or null while there is no composed result. */
   composed: ComposedDetail | null;
+  /** The painted colours that change the outfit: none while the board draws as it does unpainted. */
+  painted: PaintedColors;
   /** The look "Wore this today" records: `manual` once the outfit is the reader's, else the pick as recommended. */
   worn: WornOutfit | null;
+}>;
+
+/** The colours the board draws each piece in for a showing; null draws kuyara's pick. */
+export type DetailBoard = Readonly<{
+  suggestionId: string | undefined;
+  colorsOf: (manual: ManualDetail | null) => PaintedColors;
 }>;
 
 type DetailMix = Pick<ManualMix<RecommendedOutfit>, 'outfit' | 'edited' | 'changedSlots' | 'changedAccessorySlots'>;
@@ -195,18 +203,29 @@ export function manualDetailOf(
  * Whether the outfit on detail is the reader's own, and everything that follows from it. A
  * composed result is the reader's from the start and any edit makes it so, a finishing touch
  * or a painted colour alone included; a reset leaves neither, and kuyara's pick shows again as
- * recommended.
+ * recommended. Paints change the outfit only while `board` draws it otherwise than unpainted:
+ * the other pieces' colours resolve around a painted one, so the drawn boards are compared,
+ * never the paints themselves.
  */
 export function detailShowing(
   pick: RecommendedOutfit | null,
   option: ComposedOption | null,
   mix: DetailMix | null,
-  painted: PaintedColors = {},
+  paints: PaintedColors = {},
+  board?: DetailBoard,
 ): DetailShowing {
   const composed = option && mix ? composedDetail(option, mix.changedSlots, mix.changedAccessorySlots) : null;
+  const painted = board && Object.keys(paints).length > 0
+    && sameColors(board.colorsOf(manualDetailOf(mix, composed, board.suggestionId, paints)),
+      board.colorsOf(manualDetailOf(mix, composed, board.suggestionId))) ? {} : paints;
   const changedOutfit = mix && (option || mix.edited || Object.keys(painted).length > 0) ? mix.outfit : null;
   const worn = changedOutfit
     ? wornOutfitOrNull(changedOutfit, 'manual')
     : pick ? wornOutfitOrNull(pick) : null;
-  return { composed, worn };
+  return { composed, painted, worn };
+}
+
+function sameColors(a: PaintedColors, b: PaintedColors): boolean {
+  const slots = Object.keys(a) as OutfitSlot[];
+  return slots.length === Object.keys(b).length && slots.every((slot) => a[slot] === b[slot]);
 }

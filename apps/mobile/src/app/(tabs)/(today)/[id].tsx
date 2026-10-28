@@ -43,6 +43,7 @@ import { useTomorrowPreviewOpenedReport } from '@/features/today/application/use
 import { usePieceSheet } from '@/features/wardrobe/application/use-piece-sheet';
 import { activeLocationRecommendation } from '@/features/today/model';
 import { ComposeEntry, ComposeResultLine } from '@/features/today/presentation/compose-entry';
+import { detailBoard } from '@/features/today/presentation/detail-board';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { PieceEditSheet } from '@/features/wardrobe/presentation/piece-edit-sheet';
@@ -59,7 +60,7 @@ export default function OutfitDetailRoute() {
     colors?: string | string[]; day?: string | string[]; from?: string | string[]; id?: string | string[];
   }>();
   const tomorrow = (Array.isArray(day) ? day[0] : day) === 'tomorrow';
-  const { language, messages } = useLocalization();
+  const { hour12, language, messages, temperatureUnit } = useLocalization();
   const { dressingDayChoiceFailed, reevaluateLocalDay, resolvedDressStyle, state: recommendationState,
     tomorrowPreview = null } = useRecommendationApplication();
   const wardrobe = useWardrobeApplication();
@@ -106,11 +107,24 @@ export default function OutfitDetailRoute() {
     tomorrow || recommendationState.status !== 'ready' ? null : recommendationState.snapshot,
     resolvedDressStyle, clock, editReports, pieceColorsFromParam(Array.isArray(colors) ? colors[0] : colors));
   const option = composed.current;
-  const painted = pieceColors.colors;
+  const { state: todayState } = classifyTodayState({
+    weather: weatherState,
+    recommendation: recommendationState,
+    profile: profileState,
+    dressingDayChoiceFailed,
+    surface: 'detail',
+    now: new Date(clock).toISOString(),
+  });
+  const state = tomorrow ? tomorrowDetailState(weatherState, tomorrowPreview, new Date(clock).toISOString())
+    : ideaDetail(todayState, suggestionId) ?? todayState;
+
   // Any edit makes the outfit the reader's, a finishing touch or a painted colour alone
-  // included, and so does a composed result; each records as `manual` (ADR 0038).
-  const { composed: composedView, worn: thisWorn } = useMemo(
-    () => detailShowing(outfit, option, manualMix, painted), [manualMix, option, outfit, painted]);
+  // included, and so does a composed result; each records as `manual` (ADR 0038). Paints count
+  // only while the board draws otherwise than unpainted.
+  const { composed: composedView, painted, worn: thisWorn } = useMemo(() => detailShowing(outfit, option, manualMix,
+    pieceColors.colors, detailBoard(state, language, hour12, temperatureUnit, clock, suggestionId)),
+  [clock, hour12, language, manualMix, option, outfit, pieceColors.colors, state, suggestionId, temperatureUnit]);
+  const shownColors = useMemo(() => ({ ...pieceColors, colors: painted }), [painted, pieceColors]);
 
   // A regeneration that lands while the reader is on another tab and no longer offers this
   // outfit leaves nothing to come back to, so the Today stack returns to its root rather
@@ -140,17 +154,6 @@ export default function OutfitDetailRoute() {
   const closetSeed = useClosetSeed((count) => {
     if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(messages.today.closetSeed.added(count));
   });
-
-  const { state: todayState } = classifyTodayState({
-    weather: weatherState,
-    recommendation: recommendationState,
-    profile: profileState,
-    dressingDayChoiceFailed,
-    surface: 'detail',
-    now: new Date(clock).toISOString(),
-  });
-  const state = tomorrow ? tomorrowDetailState(weatherState, tomorrowPreview, new Date(clock).toISOString())
-    : ideaDetail(todayState, suggestionId) ?? todayState;
 
   const previewTitle = tomorrowDetailIsThisMorning(state, clock)
     ? messages.today.tomorrow.morningHeading : messages.today.tomorrow.heading;
@@ -213,7 +216,7 @@ export default function OutfitDetailRoute() {
           detail: composedView,
         } : null}
         manualMix={shownMix}
-        pieceColors={pieceColors}
+        pieceColors={shownColors}
         pinnedSlots={composedView?.pinnedSlots}
         rating={rating}
         onBoardFocusChange={setBoardFocused}

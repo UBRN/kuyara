@@ -42,7 +42,7 @@ import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features
 import { WalkthroughContext } from '@/features/walkthrough/application/walkthrough-context';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
-import { garmentColorFamiliesBySlot } from '@/garment-art';
+import { garmentColorFamiliesBySlot, garmentSwatchesBySlot } from '@/garment-art';
 import { useClosetWearCounts } from '@/features/wardrobe/application/use-closet-wear-counts';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
 import { closetColorOptions, closetSolidSwatches } from '@/features/wardrobe/domain/closet-color-options';
@@ -4422,6 +4422,43 @@ test('detail opened in the recorded colours reads as the reader\'s worn look, an
   expect(heading()).not.toHaveTextContent(copy.manualMix.title);
   expect(await result.findByTestId('outfit-detail-wore-this')).toBeOnTheScreen();
   expect(result.queryByTestId('outfit-detail-worn')).toBeNull();
+});
+
+// The worn hero carries every recorded colour. Painting the one that differed back leaves the
+// board drawn as kuyara's pick, so it is kuyara's pick again, whatever colours were carried.
+test('a carried look painted back to the pick\'s colours reads and records as kuyara\'s pick', async () => {
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const opened = createTodayPresentation(todayScreenState, 'en', false, 'celsius', Date.parse('2026-08-13T06:30:00.000Z'));
+  if (opened.kind !== 'loaded') throw new Error('fixture');
+  const own = garmentSwatchesBySlot(opened.suggestions[0].palette);
+  mockParams = { id: todayOutfitId(1), from: 'band',
+    colors: Object.entries({ ...own, primary_top: 'plum' }).map(([slot, swatch]) => `${slot}.${swatch}`).join(',') };
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    day: jest.fn(async () => []),
+    log: jest.fn(async (_day: string, outfit: WornOutfit, pieceColors: unknown) => ({ id: 'look-0', outfit, pieceColors }) as never),
+  };
+  const result = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendationReady()} wardrobe={wardrobeValue()} weather={weatherValue()}
+      dressingDayKey="2026-08-13" outfitHistory={outfitHistory}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  const copy = messages.en.today;
+  const heading = () => within(result.getByTestId('outfit-detail-heading-group')).getByRole('header');
+  await waitFor(() => expect(outfitHistory.day).toHaveBeenCalled());
+  await fireEvent(result.getByTestId('outfit-detail-content'), 'layout',
+    { nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } } });
+  expect(heading()).toHaveTextContent(copy.manualMix.title);
+  await fireEvent(result.getByTestId('outfit-detail-board-piece-primary_top'), 'accessibilityAction',
+    { nativeEvent: { actionName: 'activate' } });
+  await fireEvent.press(result.getByTestId(`outfit-detail-board-strip-color-${own.primary_top}`));
+  expect(heading()).not.toHaveTextContent(copy.manualMix.title);
+  expect(result.queryByTestId('outfit-detail-reset-button')).toBeNull();
+  await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+  await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+  expect(outfitHistory.log).toHaveBeenCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[0]), own);
 });
 
 // ADR 0020's moment: a recorded "Wore this today" draws the stitch once around the plate and

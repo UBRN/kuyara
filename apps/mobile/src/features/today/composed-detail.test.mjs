@@ -116,6 +116,24 @@ test('a painted colour makes the outfit the reader\'s and is drawn as the piece\
   assert.equal(detailShowing(pick, null, mix, {}).worn.source, 'recommended');
 });
 
+// Paints change the outfit only while the board they draw differs from the unpainted one: the
+// boards are compared, so colours carried in that the board draws anyway are no change.
+test('paints that leave the board drawn as unpainted are no change', () => {
+  const mix = mixOf(pick);
+  const unpainted = { primary_top: 'white', bottom: 'indigo' };
+  const board = (drawn) => ({ suggestionId: pick.optionId,
+    colorsOf: (manual) => (manual ? drawn(manual.pieceColors) : unpainted) });
+  const carried = detailShowing(pick, null, mix, { bottom: 'indigo' }, board((colors) => ({ ...unpainted, ...colors })));
+  assert.deepEqual(carried.painted, {});
+  assert.equal(carried.worn.source, 'recommended');
+  const painted = detailShowing(pick, null, mix, { bottom: 'plum' }, board((colors) => ({ ...unpainted, ...colors })));
+  assert.deepEqual(painted.painted, { bottom: 'plum' });
+  assert.equal(painted.worn.source, 'manual');
+  // A painted piece that redraws another counts, even where the paint itself matches.
+  const redrawn = detailShowing(pick, null, mix, { bottom: 'indigo' }, board(() => ({ ...unpainted, primary_top: 'navy' })));
+  assert.deepEqual(redrawn.painted, { bottom: 'indigo' });
+});
+
 // A painted colour belongs to the piece it was painted on: a slot whose piece changed since is
 // coloured afresh, and a painted slot the outfit no longer wears is gone.
 test('a painted colour holds only while its piece is worn', () => {
