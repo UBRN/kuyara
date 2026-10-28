@@ -120,7 +120,7 @@ function createWorkerClient(memberAccessToken: () => Promise<string | null>): Pi
   } catch (error) {
     if (!(error instanceof WorkerBaseUrlConfigurationError)) throw error;
     return {
-      recommend: () => Promise.reject(new WorkerAiClientError('service')),
+      recommend: () => Promise.reject(new WorkerAiClientError('service', { sent: false })),
     };
   }
 }

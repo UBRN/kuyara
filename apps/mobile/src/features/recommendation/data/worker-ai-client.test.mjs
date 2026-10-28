@@ -227,7 +227,7 @@ test('a member\'s re-ask carries the access token as a bearer header, and nothin
 
 test('a request that never reached the Worker and one the timeout aborted are told apart', async (t) => {
   const offline = new WorkerAiClient({ baseUrl: 'https://worker.example', fetch: async () => { throw new TypeError('Network request failed'); } });
-  await assert.rejects(offline.recommend(request), (error) => error instanceof WorkerAiClientError && error.kind === 'network' && error.timedOut === false);
+  await assert.rejects(offline.recommend(request), (error) => error instanceof WorkerAiClientError && error.kind === 'network' && error.mayHaveReachedWorker === false);
 
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const hanging = new WorkerAiClient({
@@ -239,5 +239,5 @@ test('a request that never reached the Worker and one the timeout aborted are to
   });
   const pending = hanging.recommend(request);
   t.mock.timers.tick(5_000);
-  await assert.rejects(pending, (error) => error instanceof WorkerAiClientError && error.kind === 'network' && error.timedOut === true);
+  await assert.rejects(pending, (error) => error instanceof WorkerAiClientError && error.kind === 'network' && error.mayHaveReachedWorker === true);
 });

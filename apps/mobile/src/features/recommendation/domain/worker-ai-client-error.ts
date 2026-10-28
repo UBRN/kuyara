@@ -8,15 +8,20 @@ export type WorkerAiClientFailureKind =
 export class WorkerAiClientError extends Error {
   readonly kind: WorkerAiClientFailureKind;
   /**
-   * A `network` failure the phone's own timeout aborted: the Worker may still have answered and
-   * counted the request. False for one that never reached it (offline, refused).
+   * Whether the Worker may have received the request, and so counted it. False only for one
+   * that never reached it: refused before sending, with no Worker address to send it to, or
+   * a `network` failure the phone's own timeout did not abort (offline, refused). A timed-out
+   * one may still have been answered and counted.
    */
-  readonly timedOut: boolean;
+  readonly mayHaveReachedWorker: boolean;
 
-  constructor(kind: WorkerAiClientFailureKind, { timedOut = false }: Readonly<{ timedOut?: boolean }> = {}) {
+  constructor(
+    kind: WorkerAiClientFailureKind,
+    { timedOut = false, sent = true }: Readonly<{ timedOut?: boolean; sent?: boolean }> = {},
+  ) {
     super('The AI recommendation request could not be completed.');
     this.name = 'WorkerAiClientError';
     this.kind = kind;
-    this.timedOut = timedOut;
+    this.mayHaveReachedWorker = sent && kind !== 'invalid-request' && (kind !== 'network' || timedOut);
   }
 }
