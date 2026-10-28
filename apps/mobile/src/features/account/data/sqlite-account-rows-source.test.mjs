@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { z } from 'zod';
+
+import { remoteParserVersion } from './account-remote-mappers.ts';
 import { createSqliteAccountRowsSource } from './sqlite-account-rows-source.ts';
 import { connectAccountLifecycle } from '../application/account-lifecycle.ts';
 import { accountScenarios, createInMemoryAccountScreens } from '../application/account-screens.ts';
@@ -8,7 +11,7 @@ import { createAccountSyncFlow } from '../application/account-sync.ts';
 import { mergeAtFirstLink } from '../domain/account-merge.ts';
 import { unlinked } from '../domain/account-link.ts';
 import { pullCursorAt } from '../domain/sync-rules.ts';
-import { migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
+import { latestDatabaseVersion, migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
 import { dayChoice, departure, historyDay, noneRefused, stamp, syncedProfile, uuid, wardrobeItem } from '../__tests__/account-fixtures.mjs';
 
@@ -386,19 +389,111 @@ test('the link keeps all five values, and deletion clears it and every flag but 
   assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items')).n, 1);
 });
 
-test('each table keeps its own pull position, and a single position an older build stored reads as every table\'s', async (t) => {
+test('each table keeps its own pull position, and a cursor an older build saved reads as none', async (t) => {
   const { database, source } = await setup(t);
   const old = '2026-10-01T00:00:00.000001Z';
-  await database.runAsync('UPDATE device_account_link SET linked_user_id = ?, last_pull_cursor = ? WHERE singleton_key = 1', ['user-a', old]);
-  assert.deepEqual(await source.link(), { ...unlinked, userId: 'user-a', cursor: pullCursorAt(old) });
+  await database.runAsync('UPDATE device_account_link SET linked_user_id = ? WHERE singleton_key = 1', ['user-a']);
 
   const next = { ...pullCursorAt(old), outfitHistory: '2026-10-02T00:00:00.000002Z', profile: null };
   await source.writePulled(none, next);
-  assert.deepEqual((await source.link()).cursor, next);
+  assert.deepEqual(await source.link(), { ...unlinked, userId: 'user-a', cursor: next });
+  // An older build reads the five positions and ignores what else the object holds.
+  const olderBuildRead = z.object(Object.fromEntries(Object.keys(noCursor).map((table) => [table, z.string().nullable()])));
+  const { last_pull_cursor: saved } = await database.getFirstAsync('SELECT last_pull_cursor FROM device_account_link');
+  assert.deepEqual(olderBuildRead.parse(JSON.parse(saved)), next);
 
-  // A value this build cannot read is no position: the next pull reads every row again.
-  await database.runAsync(`UPDATE device_account_link SET last_pull_cursor = '{"wardrobeItems":1}' WHERE singleton_key = 1`);
-  assert.deepEqual((await source.link()).cursor, noCursor);
+  // Positions saved by a build whose parsers or schema refused rows this one keeps (a single
+  // position, an object without a reader, an earlier parser's or schema's), and values no build
+  // wrote, read as none: the next pull reads every row again.
+  const earlier = [`${remoteParserVersion - 1}.${latestDatabaseVersion}`, `${remoteParserVersion}.${latestDatabaseVersion - 1}`];
+  for (const value of [old, JSON.stringify(next), ...earlier.map((reader) => JSON.stringify({ ...next, reader })),
+    '{"wardrobeItems":1}', '{']) {
+    await database.runAsync('UPDATE device_account_link SET last_pull_cursor = ? WHERE singleton_key = 1', [value]);
+    assert.deepEqual((await source.link()).cursor, noCursor, value);
+  }
+});
+
+/**
+ * The link an older build saved: signed in and joined under the consent, its cursor saved as that
+ * build saved it, the five positions with nothing else.
+ */
+const olderBuildLink = (database, cursor) => database.runAsync(`UPDATE device_account_link SET linked_user_id = 'user-a',
+  last_linked_user_id = 'user-a', records_user_id = 'user-a', records_consent_recorded_at = ?, last_pull_cursor = ?
+  WHERE singleton_key = 1`, ['2026-09-30T00:00:00.000001Z', JSON.stringify(cursor)]);
+
+/** An account's Closet: a pull reads each row whose arrival is at or after the table's position, as the remote does. */
+function closetAccount(rows, duringPull = async () => {}) {
+  const pulls = [];
+  const uploads = [];
+  return {
+    pulls,
+    uploads,
+    pullSnapshot: async () => assert.fail('first link'),
+    upload: async (_user, sent, confirm) => { uploads.push(sent); await confirm(sent); },
+    async pull(_user, cursor) {
+      pulls.push(cursor);
+      await duringPull();
+      const read = rows.filter(({ serverUpdatedAt }) => cursor.wardrobeItems === null || serverUpdatedAt >= cursor.wardrobeItems);
+      return { ...none, wardrobeItems: read, arrivals: read.map(({ serverUpdatedAt }) => ({ table: 'wardrobeItems', serverUpdatedAt })) };
+    },
+  };
+}
+
+test('a Closet piece an older build refused lands at the next pass, though that build moved the cursor past it', async (t) => {
+  const { database, source } = await setup(t);
+  await olderBuildLink(database, pullCursorAt('2026-10-02T00:00:00.000001Z'));
+  // A catalog 7 piece another phone synced, which a catalog 6 build refused on arrival.
+  const knee = wardrobeItem(1, { category: 'footwear', garmentTypeId: 'knee_boots', name: 'Knee boots' });
+  const account = closetAccount([{ row: knee, serverUpdatedAt: '2026-10-01T00:00:00.000001Z' }]);
+
+  await createAccountSyncFlow(source, account, () => stamp(10)).sync('user-a', true);
+
+  const rows = await database.getAllAsync('SELECT id, garment_type_id, pending_sync FROM wardrobe_items');
+  assert.deepEqual(rows.map((row) => ({ ...row })), [{ id: uuid(1), garment_type_id: 'knee_boots', pending_sync: 0 }]);
+  assert.deepEqual(account.uploads, []);
+});
+
+test('the pull from the start runs once: its pass saves the cursor this build reads, and the next pass reads from there', async (t) => {
+  const { database, source } = await setup(t);
+  await olderBuildLink(database, pullCursorAt('2026-10-02T00:00:00.000001Z'));
+  const arrival = '2026-10-01T00:00:00.000001Z';
+  const account = closetAccount([{ row: wardrobeItem(1), serverUpdatedAt: arrival }]);
+  const flow = createAccountSyncFlow(source, account, () => stamp(10));
+
+  await flow.sync('user-a', true);
+  await flow.sync('user-a', true);
+
+  assert.deepEqual(account.pulls, [noCursor, { ...noCursor, wardrobeItems: arrival }]);
+  assert.equal((await database.getFirstAsync('SELECT count(*) AS n FROM wardrobe_items')).n, 1);
+});
+
+test('the pull from the start lands nothing over a deletion or a pending edit, adds no row and sends nothing back', async (t) => {
+  const { database, source } = await setup(t);
+  await source.writePulled({ ...none, wardrobeItems: [
+    mine(wardrobeItem(1, { deletedAt: stamp(5), updatedAt: stamp(5) })), mine(wardrobeItem(2, { name: 'Before' })),
+  ] }, noCursor);
+  await olderBuildLink(database, pullCursorAt('2026-10-02T00:00:00.000001Z'));
+  const early = '2026-10-01T00:00:00.000001Z';
+  const marker = (n, at) => ({ kind: 'deletionMarker', id: uuid(n), createdAt: stamp(0), updatedAt: at, deletedAt: at });
+  const account = closetAccount([
+    // Piece 1 was deleted here and the deletion synced; piece 3 was deleted on a phone this one never saw it on.
+    { row: marker(1, stamp(5)), serverUpdatedAt: early },
+    { row: marker(3, stamp(6)), serverUpdatedAt: early },
+    // The account's copy of piece 2 predates the edit the person makes while this pull runs.
+    { row: wardrobeItem(2, { name: 'Account copy' }), serverUpdatedAt: early },
+  ], async () => {
+    await database.runAsync('UPDATE wardrobe_items SET name = ?, updated_at = ?, pending_sync = 1 WHERE id = ?', ['Edited', stamp(9), uuid(2)]);
+  });
+
+  await createAccountSyncFlow(source, account, () => stamp(10)).sync('user-a', true);
+
+  assert.deepEqual(account.pulls, [noCursor]);
+  const rows = await database.getAllAsync('SELECT id, name, deleted_at, pending_sync FROM wardrobe_items ORDER BY id');
+  assert.deepEqual(rows.map((row) => ({ ...row })), [
+    { id: uuid(1), name: 'Linen shirt', deleted_at: stamp(5), pending_sync: 0 },
+    { id: uuid(2), name: 'Edited', deleted_at: null, pending_sync: 1 },
+  ]);
+  assert.deepEqual(account.uploads, []);
 });
 
 test('without the consent only the profile counts as waiting', async (t) => {

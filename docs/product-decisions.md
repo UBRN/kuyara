@@ -278,7 +278,7 @@ Approved 2026-08-30.
 The catalog content and version policy are in [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md).
 
 - `garmentCatalogVersion` bumps whenever catalog content changes, because a stale shared AI cache would serve picks the client then rejects and silently degrade every user to the deterministic fallback. The user-visible cost is at most one extra loading state on the first launch after the update; offline use is unaffected.
-- Version 7 adds the rain trench, the storm coat and the rain-ready dress shoes in both cuts, so a smart or formal dresser is offered their own formality on a rainy day, chinos as a smart bottom in both cuts, and knee boots for women; the leather jacket keeps no rain off. A version 7 piece synced from an updated device is refused by a device that has not updated, and stays missing there after that device updates, until the piece is saved again or the device links afresh.
+- Version 7 adds the rain trench, the storm coat and the rain-ready dress shoes in both cuts, so a smart or formal dresser is offered their own formality on a rainy day, chinos as a smart bottom in both cuts, and knee boots for women; the leather jacket keeps no rain off. A version 7 piece synced from an updated device is refused by a device that has not updated, and arrives there once that device updates.
 - `overshirt` stays a `top`. `jumpsuit` and `leggings` are `womens` only: applicability answers whether a person with that clothing preference would wear the piece in an everyday outfit, and coverage or diversity arguments do not widen it.
 - Wardrobe items never become recommendation candidates, and colour never enters AI without a separate privacy and contract decision.
 

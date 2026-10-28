@@ -8,6 +8,7 @@ import {
   type StoredRowVersion,
   type UnreadablePendingRows,
 } from '@/features/account/application/account-sync';
+import { remoteParserVersion } from '@/features/account/data/account-remote-mappers';
 import { unlinked, type AccountLink } from '@/features/account/domain/account-link';
 import type { MergeResult } from '@/features/account/domain/account-merge';
 import {
@@ -16,7 +17,6 @@ import {
   type AccountRows,
   type SyncedProfile,
 } from '@/features/account/domain/account-rows';
-import { canonicalServerInstant } from '@/features/account/domain/server-instant';
 import { pullCursorAt, type LocalSyncRow, type PullCursor } from '@/features/account/domain/sync-rules';
 import {
   breathabilitySchema,
@@ -53,6 +53,7 @@ import {
   type WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
 import { offsetIsoInstantSchema, utcIsoTimestampSchema, uuidV4Schema } from '@/domain/record-identity';
+import { latestDatabaseVersion } from '@/infrastructure/sqlite/migrations';
 import type {
   SqliteBindValue,
   SqliteDatabase,
@@ -222,6 +223,13 @@ function historyOf(row: HistoryRow): OutfitHistoryRecord {
   };
 }
 
+/**
+ * What decided which pulled rows this phone kept: the remote parsers, and this database's
+ * constraints, which skip a row in `land` and change only with a migration. A cursor saved under
+ * another reader may have moved past rows this build keeps.
+ */
+const pullReader = `${remoteParserVersion}.${latestDatabaseVersion}`;
+
 const storedPosition = z.string().nullable();
 const storedCursorSchema = z.object({
   profile: storedPosition,
@@ -230,24 +238,26 @@ const storedCursorSchema = z.object({
   dressingDayDepartures: storedPosition,
   outfitHistory: storedPosition,
 });
+const storedReaderSchema = z.object({ reader: z.literal(pullReader) });
 
 /**
- * `last_pull_cursor` holds each table's position as a JSON object. A value without the object
- * is the one position an older build stored for every table, and reads as that position for
- * each; an unreadable value reads as none, so the next pull reads every row again and lands it
- * idempotently.
+ * `last_pull_cursor` holds each table's position and the reader that saved them as one JSON
+ * object; an older build reads the positions and ignores the reader. Positions saved under
+ * another reader, or by a build that saved none, read as none, and so does an unreadable value:
+ * the next pull reads every row again and lands it idempotently, so a row an earlier build
+ * refused or could not store arrives once this build can keep it.
  */
 function cursorOf(stored: string | null): PullCursor {
-  if (stored === null) return pullCursorAt(null);
-  if (!stored.startsWith('{')) return pullCursorAt(canonicalServerInstant(stored));
   try {
-    return storedCursorSchema.parse(JSON.parse(stored));
+    const value: unknown = JSON.parse(stored ?? 'null');
+    storedReaderSchema.parse(value);
+    return storedCursorSchema.parse(value);
   } catch {
     return pullCursorAt(null);
   }
 }
 
-const storedCursor = (cursor: PullCursor): string => JSON.stringify(cursor);
+const storedCursor = (cursor: PullCursor): string => JSON.stringify({ ...cursor, reader: pullReader });
 
 const linkOf = (row: LinkRow | null): AccountLink => (row === null ? unlinked : {
   userId: row.linked_user_id,
@@ -335,9 +345,9 @@ async function land<Item extends Keyed>(
     [row.id, profileId, ...(write.byDay ? [row.dayKey ?? ''] : []), ...write.values(row),
       row.createdAt, row.updatedAt, row.deletedAt, 0]);
   } catch (error) {
-    // Only a constraint failure is skipped: the phone keeps what it had, and the next first link
-    // can bring the row again. Any other failure (a full disk, an I/O error) fails the whole pass,
-    // so its pull cursor stays where it was.
+    // Only a constraint failure is skipped: the phone keeps what it had, and a build whose schema
+    // stores the row reads the cursor as none (`pullReader`) and brings it. Any other failure (a
+    // full disk, an I/O error) fails the whole pass, so its pull cursor stays where it was.
     if (!(error instanceof Error && /constraint failed/i.test(error.message))) throw error;
   }
 }

@@ -1,14 +1,21 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
+
+import { z } from 'zod';
 
 import { migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
+import { garmentTypeIds } from '../../catalog/domain/garment-taxonomy.ts';
+import { closetColorOptions, closetSolidSwatches } from '../../wardrobe/domain/closet-color-options.ts';
+import * as remoteRecords from './account-remote-records.ts';
 import {
   fromRemoteDressingDayChoice,
   fromRemoteDressingDayDeparture,
   fromRemoteOutfitHistory,
   fromRemoteProfile,
   fromRemoteWardrobeItem,
+  remoteParserVersion,
   toRemoteDressingDayChoice,
   toRemoteDressingDayDeparture,
   toRemoteOutfitHistory,
@@ -215,4 +222,24 @@ test('a row this build cannot parse is refused, and still reports its arrival fo
   assert.deepEqual(fromRemoteWardrobeItem('nonsense', phoneProfileId), { kind: 'refused', serverUpdatedAt: null });
   assert.deepEqual(fromRemoteWardrobeItem({ ...good(1), server_updated_at: 'soon' }, phoneProfileId),
     { kind: 'refused', serverUpdatedAt: null });
+});
+
+// A refused row still moves the cursor, so a build whose parsers accept more must pull every row
+// once, and `remoteParserVersion` is how a phone tells. This test pins a hash of what the parsers
+// accept (the pulled-row schemas, the catalog's garment types, the Closet palette) to that
+// version. Anything else a parser comes to accept moves the version too.
+/** Every parser version that has shipped, with the hash of what it accepts. Append only. */
+const acceptedHashes = {
+  1: '8bd2c18442328b580de82b33b648d6df08c2ca6deb56a05af9f6988f4594f3c7',
+};
+
+test('what the pulled-row parsers accept matches the hash pinned to their version', () => {
+  const schemas = Object.entries(remoteRecords).filter(([name]) => /^remote\w+Schema$/u.test(name))
+    .map(([name, schema]) => [name, z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any' })]);
+  const accepted = JSON.stringify({ schemas, garmentTypeIds, closetSolidSwatches, closetColorOptions });
+  assert.equal(
+    createHash('sha256').update(accepted).digest('hex'),
+    acceptedHashes[remoteParserVersion],
+    'The pulled-row parsers changed: give them a new remoteParserVersion and add its hash here.',
+  );
 });

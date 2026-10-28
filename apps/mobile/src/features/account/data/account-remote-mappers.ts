@@ -33,6 +33,14 @@ import { closetColorChoiceFromColumns } from '@/features/wardrobe/domain/closet-
 import { garmentTypeIdFromColumn, type WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 
 /**
+ * The version of what the parsers below accept. It moves whenever they come to accept a row an
+ * earlier build refused (a new catalog garment type, Closet colour or enum member), so a phone
+ * that refused such a row pulls every row once after it updates and the row arrives. A test pins
+ * a hash of what they accept to it.
+ */
+export const remoteParserVersion = 1;
+
+/**
  * One pulled row: kept, or refused because this build cannot parse it (a newer app version
  * wrote it). A refused row never touches the phone, and its arrival still moves the cursor.
  */
