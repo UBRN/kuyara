@@ -793,6 +793,7 @@ export const en = {
       nextPiece: (piece) => `Next: ${piece}`,
       yours: 'Yours',
       yoursPiece: (piece, color) => `${piece} from your Closet, ${color}`,
+      yoursHint: 'From your Closet, in their own colors.',
       sourceOne: {
         onDeviceAi: 'You changed a piece. kuyara chose the rest on your device with Apple Intelligence.',
         aiAssisted: 'You changed a piece. kuyara chose the rest with online AI.',

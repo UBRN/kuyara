@@ -85,9 +85,16 @@ slot, in two equivalent ways. Each garment row's "Change" opens the slot's picke
 catalog piece of the slot with the profile's gender applicability kept, the pieces that
 keep kuyara's pick weather-suitable first and the rest under a short explanation, a piece
 worn by another slot left out. The candidates and their order are the catalog's alone: the
-enlarged piece's strip offers the reader's own Closet pieces as a manual shortcut to a
-candidate type in the piece's own colour, and a Closet record never enters selection, a pin,
-an ordering or the AI request ([ADR 0007](0007-ai-selects-precomposed-outfits.md)). Suitability is
+picker's "Yours" group and the enlarged piece's strip offer the reader's own Closet pieces as a
+manual shortcut to a candidate type in the piece's own colour, and a Closet record never enters
+selection, a pin, an ordering or the AI request ([ADR 0007](0007-ai-selects-precomposed-outfits.md)).
+In the Change picker and in "Add a layer", "Yours" / "Seninkiler" stands first, after only the
+fixed "wear without" row: one row per owned piece whose type the slot's catalog offers, in
+Closet order and never scored, its photo or else its type drawn in its colour, with the owned
+marker, named by the record and its colour. A row wears its type in its colour as the strip's
+tile does, takes "Current" from the catalog row when the slot wears that type in that colour,
+and the group is absent when nothing qualifies. Detail is the only surface that reads
+ownership this way; Today never does. Suitability is
 the domain validator's verdict: the pieces' own hard requirements and every mandatory
 weather requirement of the set, the same test a composed outfit passes; formality
 consistency is not part of it.

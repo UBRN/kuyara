@@ -261,6 +261,7 @@ export function GarmentCandidateTile({
   category,
   roles,
   colorChoice = null,
+  photoUri = null,
   control = false,
   testIDPrefix,
 }: Readonly<{
@@ -269,6 +270,8 @@ export function GarmentCandidateTile({
   roles?: GarmentRoles;
   /** A Closet solid the reader chose for the piece (the compose sheet); drawn when `roles` is absent. */
   colorChoice?: ClosetColorChoice | null;
+  /** A Closet piece's own photo (the pickers' "Yours"), cover-cropped in place of the drawing. */
+  photoUri?: string | null;
   /**
    * The tile is itself the control (the board strip), so it takes the strong edge while
    * higher contrast applies, as the Closet's tiles do. In the picker the row is the control
@@ -293,7 +296,7 @@ export function GarmentCandidateTile({
         glyphSize={size * 0.6}
         height={size}
         photoTestID={`${testIDPrefix}-photo-${garmentTypeId}`}
-        photoUri={null}
+        photoUri={photoUri}
         placeholderTestID={`${testIDPrefix}-glyph-${garmentTypeId}`}
         roles={roles}
         silhouetteTestID={`${testIDPrefix}-silhouette-${garmentTypeId}`}

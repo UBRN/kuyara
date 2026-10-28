@@ -166,10 +166,13 @@ type OutfitDetailScreenProps = Readonly<{
   rating?: OutfitRatingControl | null;
   /** The colours the reader paints on this showing's pieces; absent, the strip offers no colour. */
   pieceColors?: PieceColors | null;
+  /** A Closet photo's file, for the pickers' "Yours" tiles; absent, each is drawn. */
+  resolvePhotoUri?: (relativePath: string | null) => string | null;
 }>;
 
 const NO_COLORS: PaintedColors = Object.freeze({});
 const NOT_READ = (): OutfitWornState => 'unknown';
+const NO_PHOTO = () => null;
 
 export function OutfitDetailScreen({
   state,
@@ -192,6 +195,7 @@ export function OutfitDetailScreen({
   fromBand = false,
   rating = null,
   pieceColors = null,
+  resolvePhotoUri = NO_PHOTO,
 }: OutfitDetailScreenProps) {
   const { controlScale } = useTextScaling();
   const theme = useKuyaraTheme();
@@ -493,6 +497,28 @@ export function OutfitDetailScreen({
       ...free.map((slot) => ({ id: `group-${slot}`, title: copy.slots[slot], options: candidatesOf(slot, false) })),
     ].filter(({ options }) => options.length > 0);
   };
+  // "Yours": each slot's owned Closet pieces of its catalog types, a shortcut that never becomes a
+  // candidate. Each carries the marker of a piece owned in its colour, which it is once worn.
+  const ownPieces = manualMix && pieceColors ? Object.fromEntries(Object.entries(manualMix.candidates)
+    .map(([slot, order]) => [slot, ownPiecesFor(wardrobeItems, order ?? [], garmentNaturalSwatches)])) : undefined;
+  const colorName = (swatchId: GarmentSwatchId) =>
+    messages.wardrobe.colorOptionNames[closetSolidForBoardSwatch(swatchId)];
+  // The slot's picker lists them first; "Current" stands on the one the slot wears, its type in its colour.
+  const ownOptions = (slot: SwappableSlot): PiecePickerTarget['own'] => {
+    const options = (ownPieces?.[slot] ?? []).map((piece) => ({
+      ...optionFor(slot, piece.garmentTypeId),
+      id: piece.id,
+      ownName: piece.name,
+      swatchId: piece.swatchId,
+      colorName: colorName(piece.swatchId),
+      unusual: manualMix?.candidates[slot]
+        ?.find(({ garmentTypeId }) => garmentTypeId === piece.garmentTypeId)?.suitable === false,
+      photoUri: resolvePhotoUri(piece.photoRelativePath),
+    }));
+    const current = options.find(({ garmentTypeId, swatchId }) =>
+      garmentTypeId === garmentIn(slot) && swatchId === drawn[slot]);
+    return { options, current: current?.id ?? null };
+  };
   const freeLayers = manualMix?.freeLayerSlots ?? [];
   const pickerTarget: PiecePickerTarget | null = !picker || !manualMix ? null
     : picker.kind === 'piece' ? {
@@ -502,11 +528,13 @@ export function OutfitDetailScreen({
       without: garmentIn(picker.slot) === undefined && isRemovable(picker.slot)
         ? { label: copy.manualMix.wearWithout[picker.slot], category: layerCategory[picker.slot] } : null,
       groups: slotGroups(picker.slot),
+      own: ownOptions(picker.slot),
     }
     : picker.kind === 'layer' ? {
       title: copy.manualMix.addLayer,
       current: null,
       groups: slotGroups(picker.slot),
+      own: ownOptions(picker.slot),
       tabs: freeLayers.length > 1 ? {
         options: freeLayers.map((slot) => ({ value: slot, label: copy.slots[slot] })),
         value: picker.slot,
@@ -517,7 +545,7 @@ export function OutfitDetailScreen({
       } : null,
     }
     : { title: copy.manualMix.addAccessory, current: null, groups: accessoryGroups() };
-  const choosePiece = (option: PiecePickerOption | null) => {
+  const choosePiece = (option: PiecePickerOption | null, swatchId?: GarmentSwatchId) => {
     if (option && manualMix && picker) {
       const { slot, garmentTypeId } = option;
       const accessorySlot = accessoryOutfitSlots.find((one) => one === slot);
@@ -527,6 +555,14 @@ export function OutfitDetailScreen({
         pendingChoice.current = () => manualMix.addLayer(picker.slot, garmentTypeId);
       } else if (garmentTypeId !== garmentIn(picker.slot)) {
         pendingChoice.current = () => manualMix.choose(picker.slot, garmentTypeId);
+      }
+      // A Closet piece wears its type in its colour, as its strip tile does: the step, then the paint.
+      if (swatchId) {
+        const step = pendingChoice.current;
+        pendingChoice.current = () => {
+          step?.();
+          paintPiece?.(slot, garmentTypeId, swatchId);
+        };
       }
     }
     setPicker(null);
@@ -597,10 +633,6 @@ export function OutfitDetailScreen({
   const boardHint = (
     <OutfitDetailBoardHint everChanged={everChanged} onBoard={onBoard} plateShown={plateShown} text={copy.boardHint} />
   );
-  // "Yours": each slot's owned Closet pieces of its catalog types, a shortcut that never becomes a
-  // candidate. Each carries the marker of a piece owned in its colour, which it is once worn.
-  const ownPieces = manualMix && pieceColors ? Object.fromEntries(Object.entries(manualMix.candidates)
-    .map(([slot, order]) => [slot, ownPiecesFor(wardrobeItems, order ?? [], garmentNaturalSwatches)])) : undefined;
   const ownedMarker = pieceOwnershipMarkers.owned;
   const ownBadge = <Icon color={onBoard[ownedMarker.ink]} name={ownedMarker.icon} size={OWN_MARK_SIZE} />;
   const boardOverlay = (
@@ -684,7 +716,7 @@ export function OutfitDetailScreen({
               },
               takeOff: copy.manualMix.takeOff,
               takeOffAccessibilityLabel: (slot) => (isRemovable(slot) ? copy.manualMix.takeOffAccessibilityLabel[slot] : ''),
-              colorName: (swatchId) => messages.wardrobe.colorOptionNames[closetSolidForBoardSwatch(swatchId)],
+              colorName,
               colorGroup: (slot) => (isSwappable(slot) ? messages.today.compose.colorLabel[slot] : ''),
               moreColors: messages.wardrobe.moreColorsLabel,
               own: copy.manualMix.yours,
@@ -846,6 +878,7 @@ export function OutfitDetailScreen({
           setPicker(null);
           applyPendingChoice();
         }}
+        ownBadge={ownBadge}
         palette={palette}
         target={pickerTarget}
       />

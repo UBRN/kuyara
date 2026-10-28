@@ -226,9 +226,11 @@ export type TodayMessages = Readonly<{
     /** The chevrons beside the enlarged piece, each naming the piece it steps to. */
     previousPiece: (piece: string) => string;
     nextPiece: (piece: string) => string;
-    /** The strip's group of the reader's own Closet pieces, and each one's spoken name. */
+    /** The strip's and the pickers' group of the reader's own Closet pieces, and each one's spoken name. */
     yours: string;
     yoursPiece: (piece: string, color: string) => string;
+    /** The pickers' line under "Yours". */
+    yoursHint: string;
     /** The source sentence after one changed piece, per generation mode; no AI words in deterministic. */
     sourceOne: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
     /** The same after two or more changed pieces. */

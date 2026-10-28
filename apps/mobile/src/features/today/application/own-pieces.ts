@@ -9,6 +9,9 @@ export type OwnPiece = Readonly<{
   garmentTypeId: GarmentTypeId;
   category: StructuralCategory;
   swatchId: GarmentSwatchId;
+  /** The record's own name and photo, for the pickers' rows. */
+  name: string | null;
+  photoRelativePath: string | null;
 }>;
 
 /**
@@ -18,11 +21,12 @@ export type OwnPiece = Readonly<{
  * catalog's, and a Closet record never becomes a candidate or reaches a recommendation.
  */
 export function ownPiecesFor(
-  items: readonly Pick<WardrobeItem, 'id' | 'garmentTypeId' | 'entryState' | 'colorChoice' | 'colorFamily'>[],
+  items: readonly Pick<WardrobeItem,
+    'id' | 'garmentTypeId' | 'entryState' | 'colorChoice' | 'colorFamily' | 'name' | 'photoRelativePath'>[],
   candidates: readonly Readonly<{ garmentTypeId: GarmentTypeId }>[],
   natural: (garmentTypeId: GarmentTypeId) => readonly GarmentSwatchId[],
 ): readonly OwnPiece[] {
-  return items.flatMap(({ id, garmentTypeId, entryState, colorChoice, colorFamily }) => {
+  return items.flatMap(({ id, garmentTypeId, entryState, colorChoice, colorFamily, name, photoRelativePath }) => {
     const type = garmentTypeId ? getGarmentType(garmentTypeId) : undefined;
     if (!garmentTypeId || !type || entryState !== 'owned'
       || !candidates.some((candidate) => candidate.garmentTypeId === garmentTypeId)) return [];
@@ -31,6 +35,8 @@ export function ownPiecesFor(
       garmentTypeId,
       category: type.structuralCategory,
       swatchId: boardSwatchForClosetItem({ colorChoice, colorFamily }, natural(garmentTypeId)),
+      name,
+      photoRelativePath,
     }];
   });
 }

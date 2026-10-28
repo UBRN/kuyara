@@ -11,6 +11,7 @@ export {
   measureGarmentBoardHeight,
   useGarmentCandidateRoles,
   useGarmentRoles,
+  useSwatchedCandidateRoles,
   type GarmentBoardLayout,
   type GarmentBoardLayoutBox,
   type GarmentBoardPiece,

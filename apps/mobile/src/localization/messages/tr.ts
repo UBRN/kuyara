@@ -789,6 +789,7 @@ export const tr = {
       nextPiece: (piece) => `Sonraki: ${piece}`,
       yours: 'Seninkiler',
       yoursPiece: (piece, color) => `Gardırobundaki ${piece}, ${color}`,
+      yoursHint: 'Gardırobundan, kendi renkleriyle.',
       sourceOne: {
         onDeviceAi: 'Bir parçayı sen değiştirdin. Kalanını kuyara, cihazında Apple Intelligence ile seçti.',
         aiAssisted: 'Bir parçayı sen değiştirdin. Kalanını kuyara çevrimiçi yapay zeka ile seçti.',

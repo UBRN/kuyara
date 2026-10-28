@@ -219,6 +219,7 @@ export default function OutfitDetailRoute() {
         pieceColors={shownColors}
         pinnedSlots={composedView?.pinnedSlots}
         rating={rating}
+        resolvePhotoUri={wardrobe.resolvePhotoUri}
         onBoardFocusChange={setBoardFocused}
         onEditPiece={pieceSheet.open}
         onSwipeHintShown={() => {
