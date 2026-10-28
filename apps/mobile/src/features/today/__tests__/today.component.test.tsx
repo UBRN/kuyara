@@ -2249,7 +2249,7 @@ test('unavailable Today supports pull retry and the refresh accessibility action
   const impact = jest.spyOn(haptics, 'impactLight').mockImplementation(() => undefined);
   const result = await render(providers(
     <TodayScreen
-      isRefreshing
+      pullRefreshing
       language="en"
       onOpenOutfitDetail={jest.fn()}
       onRefresh={onRefresh} onAskAgain={jest.fn()}
