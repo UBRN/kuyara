@@ -34,6 +34,7 @@ import { useClosetSeed } from '@/features/today/application/use-closet-seed';
 import { useDayWornLooks } from '@/features/today/application/use-day-worn-looks';
 import { useOutfitDetailOpenedReport } from '@/features/today/application/use-outfit-detail-opened-report';
 import { useOutfitRating } from '@/features/today/application/use-outfit-rating';
+import { pieceColorsFromParam } from '@/features/today/application/piece-colors';
 import {
   useOutfitEditReports,
   useOutfitWornLoggedReport,
@@ -52,9 +53,10 @@ import { useLocalization } from '@/localization/use-messages';
 
 export default function OutfitDetailRoute() {
   // `day=tomorrow` opens the evening preview of the next dressing day, read-only for the
-  // day's worn record.
-  const { day, from, id } = useLocalSearchParams<{
-    day?: string | string[]; from?: string | string[]; id?: string | string[];
+  // day's worn record. `colors` paints the outfit as it opens: Today's worn look in the colours
+  // it was recorded in.
+  const { colors, day, from, id } = useLocalSearchParams<{
+    colors?: string | string[]; day?: string | string[]; from?: string | string[]; id?: string | string[];
   }>();
   const tomorrow = (Array.isArray(day) ? day[0] : day) === 'tomorrow';
   const { language, messages } = useLocalization();
@@ -102,7 +104,7 @@ export default function OutfitDetailRoute() {
   const editReports = useOutfitEditReports({ tomorrow, position });
   const { composed, manualMix, pieceColors } = useDetailMix(outfit, requirements, preference,
     tomorrow || recommendationState.status !== 'ready' ? null : recommendationState.snapshot,
-    resolvedDressStyle, clock, editReports);
+    resolvedDressStyle, clock, editReports, pieceColorsFromParam(Array.isArray(colors) ? colors[0] : colors));
   const option = composed.current;
   const painted = pieceColors.colors;
   // Any edit makes the outfit the reader's, a finishing touch or a painted colour alone
@@ -134,7 +136,7 @@ export default function OutfitDetailRoute() {
     tomorrow, position, outfit, recommendation,
     changed: composedView !== null || (manualMix?.edited ?? false) || Object.keys(painted).length > 0,
   });
-  const dayWorn = useDayWornLooks(thisWorn, tomorrow, reportWornLogged, painted);
+  const dayWorn = useDayWornLooks(thisWorn, tomorrow, reportWornLogged);
   const closetSeed = useClosetSeed((count) => {
     if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(messages.today.closetSeed.added(count));
   });

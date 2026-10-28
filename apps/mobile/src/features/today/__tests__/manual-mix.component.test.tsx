@@ -7,13 +7,14 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { layoutGarmentBoard } from '@/garment-art';
+import { garmentSwatchesBySlot, layoutGarmentBoard } from '@/garment-art';
 import { GARMENT_OUTLINE } from '@/garment-art/garment-painting';
 import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
 import { outfitGarments, slotCandidates, swappableSlots } from '@/features/recommendation/domain/manual-mix';
 import type { WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import { todayScreenState } from '@/features/today/__tests__/fixtures';
 import { usePieceColors } from '@/features/today/application/piece-colors';
+import { closetSolidForBoardSwatch } from '@/features/wardrobe/domain/closet-board-swatch';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { ROW_TILE_SIZE } from '@/features/today/presentation/outfit-detail-entries';
@@ -107,7 +108,7 @@ function Detail({
       state={todayScreenState}
       suggestionId={pick.optionId}
       wardrobeItems={wardrobeItems}
-      worn="none"
+      worn={() => 'none'}
     />
   );
 }
@@ -232,6 +233,43 @@ describe.each(['en', 'tr'] as const)('%s detail panel', (language) => {
     expect(result.getByTestId('outfit-detail-name-marker-trousers-owned', hidden)).toBeOnTheScreen();
     await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
     expect(onWoreThis.mock.calls.at(-1)?.[0]).toMatchObject({ bottom: 'plum' });
+  });
+
+  // Only a different colour is a change: the colour already drawn, or a painted piece painted
+  // back, leaves kuyara's pick as recommended.
+  test('the colour already drawn changes nothing, and painting a piece back undoes its paint', async () => {
+    const onWoreThis = jest.fn();
+    const result = await renderDetail(language, { paint: true, onWoreThis });
+    await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+    const drawn = onWoreThis.mock.calls[0][0] as WornPieceColors;
+    await activate(result, 'primary_top');
+    const row = result.getByTestId('outfit-detail-board-strip-colors');
+    await fireEvent.press(within(row).getByTestId(`outfit-detail-board-strip-color-${drawn.primary_top}`));
+    expect(heading(result, archetype(language).title)).toBeOnTheScreen();
+    expect(result.queryByTestId('outfit-detail-reset-button')).toBeNull();
+
+    await fireEvent.press(within(row).getAllByRole('radio').find(({ props }) => !props.accessibilityState.selected)!);
+    expect(heading(result, copy.manualMix.title)).toBeOnTheScreen();
+    await fireEvent.press(within(row).getByTestId(`outfit-detail-board-strip-color-${drawn.primary_top}`));
+    expect(heading(result, archetype(language).title)).toBeOnTheScreen();
+    expect(result.queryByTestId('outfit-detail-reset-button')).toBeNull();
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+    expect(onWoreThis).toHaveBeenLastCalledWith(drawn);
+  });
+
+  test('an own piece of the drawn type in the drawn colour changes nothing', async () => {
+    const drawn = garmentSwatchesBySlot(archetype(language).palette);
+    const bottom = outfitGarments(pick).bottom!;
+    const sameBottom: WardrobeItem = { ...ownedTrousers, id: 'own-same', garmentTypeId: bottom,
+      colorChoice: { kind: 'option', id: closetSolidForBoardSwatch(drawn.bottom!) } };
+    const result = await renderDetail(language, { paint: true, wardrobeItems: [sameBottom] });
+    await activate(result, 'primary_top');
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    await activate(result, 'bottom');
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-own-own-same'));
+    expect(heading(result, archetype(language).title)).toBeOnTheScreen();
+    expect(result.queryByTestId('outfit-detail-reset-button')).toBeNull();
   });
 });
 

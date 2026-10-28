@@ -10,6 +10,7 @@ import { useProfileApplication } from '@/features/profile/application/profile-co
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
+import { pieceColorsParam, type PaintedColors } from '@/features/today/application/piece-colors';
 import { classifyTodayState } from '@/features/today/application/today-state';
 import {
   isFirstDressingDay,
@@ -36,8 +37,10 @@ import { useLocalization } from '@/localization/use-messages';
 import { getMessages } from '@/localization/messages';
 
 // Opened from Today's band, the detail's pieces start from where the band drew them.
-const outfitDetailHref = (id: string, fromBand?: boolean) =>
-  ({ pathname: '/[id]', params: fromBand ? { id, from: 'band' } : { id } }) as const;
+const outfitDetailHref = (id: string, fromBand?: boolean, colors?: PaintedColors) => ({
+  pathname: '/[id]',
+  params: { id, ...(fromBand ? { from: 'band' } : {}), ...(colors ? { colors: pieceColorsParam(colors) } : {}) },
+}) as const;
 
 export default function TodayRoute() {
   const { language, hour12 } = useLocalization();

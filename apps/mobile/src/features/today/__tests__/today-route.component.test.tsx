@@ -137,7 +137,7 @@ jest.mock('@/components/ui/native-menu', () => {
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
-let mockParams: { id?: string; day?: string; from?: string } = {};
+let mockParams: { id?: string; day?: string; from?: string; colors?: string } = {};
 
 const mockStackScreen = jest.fn();
 const mockDispatch = jest.fn();
@@ -4289,6 +4289,40 @@ test('wore this today records each look of the day beside the earlier ones', asy
   expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
   expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
   alert.mockRestore();
+});
+
+// The worn hero opens its outfit's detail in the colours it was recorded in, so it reads as the
+// reader's outfit and as worn; kuyara's pick in its own colours is another look, offered again.
+test('detail opened in the recorded colours reads as the reader\'s worn look, and kuyara\'s pick is another', async () => {
+  mockParams = { id: todayOutfitId(1), from: 'band', colors: 'primary_top.plum' };
+  const stored: { id: string; outfit: WornOutfit; pieceColors: unknown }[] = [];
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    day: jest.fn(async () => stored as never),
+    log: jest.fn(async (_day: string, outfit: WornOutfit, pieceColors: unknown) => {
+      stored.splice(0, stored.length, { id: 'look-0', outfit, pieceColors });
+      return stored[0] as never;
+    }),
+  };
+  const result = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendationReady()} wardrobe={wardrobeValue()} weather={weatherValue()}
+      dressingDayKey="2026-08-13" outfitHistory={outfitHistory}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  const copy = messages.en.today;
+  const heading = () => within(result.getByTestId('outfit-detail-heading-group')).getByRole('header');
+  await waitFor(() => expect(outfitHistory.day).toHaveBeenCalled());
+  expect(heading()).toHaveTextContent(copy.manualMix.title);
+  await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
+  expect(outfitHistory.log.mock.calls[0][2]).toMatchObject({ primary_top: 'plum' });
+  expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
+
+  await fireEvent.press(result.getByTestId('outfit-detail-reset-button'));
+  expect(heading()).not.toHaveTextContent(copy.manualMix.title);
+  expect(await result.findByTestId('outfit-detail-wore-this')).toBeOnTheScreen();
+  expect(result.queryByTestId('outfit-detail-worn')).toBeNull();
 });
 
 // ADR 0020's moment: a recorded "Wore this today" draws the stitch once around the plate and

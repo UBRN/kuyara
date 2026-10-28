@@ -18,6 +18,7 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import { useLaunchReveal } from '@/components/ui/launch-curtain';
+import { garmentSwatchesBySlot } from '@/garment-art';
 import { buttonGeometry } from '@/components/ui/primitive-contracts';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useSinglePush } from '@/components/ui/use-single-push';
@@ -36,6 +37,7 @@ import {
   todayPresentationState,
   tomorrowStrip,
 } from '@/features/today/application/today-surface';
+import { paintedOver, type PaintedColors } from '@/features/today/application/piece-colors';
 import { paletteBasisOf } from '@/features/today/application/today-state';
 import type { TodayScreenState } from '@/features/today/model';
 import { useWornToday } from '@/features/today/application/use-worn-today';
@@ -111,8 +113,11 @@ type TodayScreenProps = Readonly<{
   alertOffer?: TodayAlertOffer | null;
   /** The refused offer's permission was granted in system Settings and the accept finished. */
   alertOfferFinished?: boolean;
-  /** `fromBand` opens the outfit Today's band draws, so its detail starts from the band. */
-  onOpenOutfitDetail: (id: string, fromBand?: boolean) => void;
+  /**
+   * `fromBand` opens the outfit Today's band draws, so its detail starts from the band; `colors`
+   * paints it as it opens, in the colours the worn look was recorded in.
+   */
+  onOpenOutfitDetail: (id: string, fromBand?: boolean, colors?: PaintedColors) => void;
   /**
    * The route's link to an outfit's detail. With it each alternative opens as a link, and on
    * iOS the detail zooms out of the alternative's drawing and shrinks back into it; elsewhere
@@ -469,6 +474,14 @@ function TodayScreenContent({
   const showsWorn = wornHero !== null && pickOver !== wornHero.id;
   const [primary, ...pickAlternates] = presentation.suggestions;
   const hero = showsWorn ? wornHero : primary;
+  // The worn look opens its outfit's detail in the colours it was recorded in where they differ
+  // from the outfit's own, so a look worn as offered opens kuyara's pick as it is.
+  const wornOutfit = showsWorn
+    ? [...presentation.suggestions, ...presentation.moreIdeas].find(({ id }) => id === wornHero.detailId) : undefined;
+  const detailColors = showsWorn && wornOutfit ? paintedOver(
+    Object.fromEntries(wornHero.palette.pieces.flatMap(({ slot, recordedSwatchId }) =>
+      recordedSwatchId ? [[slot, recordedSwatchId]] : [])),
+    garmentSwatchesBySlot(wornOutfit.palette)) : undefined;
   const { alternates, moreIdeas, moreIdeasCaption } = showsWorn ? wornHero
     : { alternates: pickAlternates, moreIdeas: presentation.moreIdeas, moreIdeasCaption: presentation.moreIdeasCaption };
   if (hero && hero.id !== stageOutfit?.id) {
@@ -552,6 +565,7 @@ function TodayScreenContent({
             <TodayOutfit
               carriedOutfitId={carriedOutfitId}
               contentWidth={contentWidth}
+              detailColors={detailColors}
               detailId={showsWorn ? wornHero.detailId : primary.id}
               holdRise={holdRise || !stageLaidOut}
               leavingOutfit={leavingOutfit}

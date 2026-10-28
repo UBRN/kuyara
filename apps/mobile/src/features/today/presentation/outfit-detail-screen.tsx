@@ -26,6 +26,7 @@ import {
 import {
   type GarmentOutfitPalette,
   garmentNaturalSwatches,
+  garmentSwatchesBySlot,
   GarmentSwapBoard,
   keepGarmentColors,
   measureGarmentBoardHeight,
@@ -36,6 +37,7 @@ import {
 import { Celebration } from '@/components/ui/celebration';
 import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import type { GarmentSwatchId } from '@/features/catalog/domain/garment-swatch';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { ManualMix } from '@/features/recommendation/application/use-manual-mix';
@@ -84,7 +86,10 @@ import { ownPiecesFor } from '@/features/today/application/own-pieces';
 import type { PaintedColors, PieceColors } from '@/features/today/application/piece-colors';
 import type { OutfitRatingControl } from '@/features/today/application/use-outfit-rating';
 import { OutfitDetailRating } from '@/features/today/presentation/outfit-detail-rating';
-import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
+import {
+  createTodayPresentation,
+  type LoadedOutfitPresentation,
+} from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useStableValue } from '@/hooks/use-stable-value';
 import type { TodayScreenState } from '@/features/today/model';
@@ -123,7 +128,8 @@ type OutfitDetailScreenProps = Readonly<{
   wardrobeItems: readonly WardrobeItem[];
   /** O6: a piece row opens the piece's Closet sheet. */
   onEditPiece: (target: PieceSheetTarget) => void;
-  worn?: OutfitWornState;
+  /** Whether the day's worn looks hold the outfit in the colours it is drawn in. */
+  worn?: (drawn: WornPieceColors) => OutfitWornState;
   wornBusy?: boolean;
   wornError?: string | null;
   /** Receives the swatch each piece is drawn in on this board, so History draws the day the same. */
@@ -166,6 +172,17 @@ type OutfitDetailScreenProps = Readonly<{
 }>;
 
 const NO_COLORS: PaintedColors = Object.freeze({});
+const NOT_READ = (): OutfitWornState => 'unknown';
+
+/**
+ * O15 and Phase 7: the pieces kuyara still chose keep their colours after a change; only a
+ * changed piece is coloured afresh.
+ */
+function detailPalette(suggestion: LoadedOutfitPresentation): GarmentOutfitPalette {
+  return suggestion.keptColors
+    ? keepGarmentColors(suggestion.keptColors.original, suggestion.palette, suggestion.keptColors.slots)
+    : suggestion.palette;
+}
 
 export function OutfitDetailScreen({
   state,
@@ -173,7 +190,7 @@ export function OutfitDetailScreen({
   suggestionId,
   wardrobeItems,
   onEditPiece,
-  worn = 'unknown',
+  worn = NOT_READ,
   wornBusy = false,
   wornError = null,
   onWoreThis,
@@ -270,14 +287,12 @@ export function OutfitDetailScreen({
   // An outfit that is no longer there ends any enlargement in the same render, so the route
   // turns the back swipe on again on the screen that says it is gone.
   if (!suggestion && focusedSlot !== null) setFocusedSlot(null);
-  // O15 and Phase 7: the pieces kuyara still chose keep their colours after a
-  // change; only a changed piece is coloured afresh. The suggestion is rebuilt on every
-  // render, so the palette keeps one instance per content.
-  const palette = useStableValue(suggestion
-    ? suggestion.keptColors
-      ? keepGarmentColors(suggestion.keptColors.original, suggestion.palette, suggestion.keptColors.slots)
-      : suggestion.palette
-    : null);
+  // The suggestion is rebuilt on every render, so the palette keeps one instance per content.
+  const palette = useStableValue(suggestion ? detailPalette(suggestion) : null);
+  // The swatch each piece is drawn in: what "Wore this today" records, and what the day's
+  // looks are told from.
+  const drawn = useMemo(() => (palette ? garmentSwatchesBySlot(palette) : NO_COLORS), [palette]);
+  const wornState = worn(drawn);
   // The finishing touches and the piece rows keep the colours the outfit's palette gave
   // them on Today (O15).
   const pieceRoles = useGarmentRoles(palette, theme.colors.garmentGround);
@@ -319,9 +334,9 @@ export function OutfitDetailScreen({
     setWasWornBusy(wornBusy);
     if (wornBusy) setWearAsked(true);
   }
-  if (wearAsked && (worn === 'this' || wornError || (wasWornBusy && !wornBusy))) {
+  if (wearAsked && (wornState === 'this' || wornError || (wasWornBusy && !wornBusy))) {
     setWearAsked(false);
-    if (worn === 'this') setWornMoments((count) => count + 1);
+    if (wornState === 'this') setWornMoments((count) => count + 1);
   }
   useEffect(() => {
     if (wornMoments > 0) haptics.success();
@@ -344,7 +359,7 @@ export function OutfitDetailScreen({
   if (wornError && wornError !== shownWornError) setShownWornError(wornError);
   // "Wore this" and the worn state replace each other in place: the leaving one fades out on
   // `fast` over the arriving one, which fades in on `normal`. Nothing fades on opening.
-  const wornShown: WornControl | null = worn === 'this' ? 'state' : onWoreThis ? 'action' : null;
+  const wornShown: WornControl | null = wornState === 'this' ? 'state' : onWoreThis ? 'action' : null;
   const [wornSwap, setWornSwap] = useState<WornSwap>({ current: wornShown, previous: null, previousBusy: false, changes: 0 });
   if (wornSwap.current !== wornShown) {
     setWornSwap({ current: wornShown, previous: wornSwap.current, previousBusy: wornBusy, changes: wornSwap.changes + 1 });
@@ -550,6 +565,16 @@ export function OutfitDetailScreen({
     pieceColors?.clear();
     manualMix?.reset();
   };
+  // A colour is a paint only where it differs from the one the piece is drawn in unpainted.
+  const paintPiece = manualMix && pieceColors
+    ? (slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId) => {
+      const unpainted = createTodayPresentation(state, language, hour12, temperatureUnit, now,
+        manualDetailOf(manualMix, composed, suggestionId));
+      const shown = unpainted.kind === 'loaded'
+        ? unpainted.suggestions.find(({ id }) => id === suggestionId) : undefined;
+      pieceColors.paint(slot, garmentTypeId, swatchId, shown ? garmentSwatchesBySlot(detailPalette(shown))[slot] : undefined);
+    }
+    : undefined;
   // An enlargement brings the strip into view by the least scroll that shows it, never so far
   // that the enlarged piece leaves the top. The board fits itself between the bars first.
   // The band the bars leave visible, both edges as the system lays them out: the header ends at
@@ -675,7 +700,7 @@ export function OutfitDetailScreen({
               nextPiece: copy.manualMix.nextPiece,
             }}
             onFocusChange={setFocusedSlot}
-            onPaint={manualMix && pieceColors ? pieceColors.paint : undefined}
+            onPaint={paintPiece}
             ownBadge={ownBadge}
             ownPieces={ownPieces}
             onReveal={revealStrip}
@@ -724,8 +749,8 @@ export function OutfitDetailScreen({
         <OutfitDetailWorn
           copy={copy}
           onPreviousDone={clearWornPrevious}
+          drawn={drawn}
           onWoreThis={onWoreThis}
-          palette={palette}
           saved={wornMoments > 0}
           scrollBy={scrollBy}
           wornBusy={wornBusy}

@@ -57,7 +57,8 @@ test('the evening look stays through the small hours and leaves when the dressin
   assert.equal(latestWornLook([evening], afterTurn), null);
 });
 
-test('a worn look opens the outfit of the day it dresses, and a changed look opens none', () => {
+// A look in other colours opens the same outfit: detail is opened in the recorded colours.
+test('a worn look opens the outfit of the day it dresses piece for piece, painted or not, and other pieces open none', () => {
   assert.equal(wornLookOutfitId(wornOutfitFrom(second), recommendation.outfits), second.optionId);
   assert.equal(wornLookOutfitId(wornOutfitFrom(second, 'manual'), recommendation.outfits), second.optionId);
   const coldRecommendation = coldTodayScreenState.snapshot.recommendation;

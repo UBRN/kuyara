@@ -1,7 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Icon, useButtonBox } from '@/components/ui';
-import { garmentSwatchesBySlot, type GarmentOutfitPalette } from '@/garment-art';
 import type { WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import type { TodayCopy } from '@/features/today/presentation/outfit-detail-entries';
 import { FadeOnChange, FadeOut } from '@/features/today/presentation/outfit-detail-fades';
@@ -16,12 +15,13 @@ export type WornSwap = Readonly<{
 
 /** ADR 0038: "Wore this today" records the look beside the day's earlier ones; only this action writes it. */
 export function OutfitDetailWorn({
-  copy, onPreviousDone, onWoreThis, palette, saved, scrollBy, wornBusy, wornShown, wornSwap,
+  copy, drawn, onPreviousDone, onWoreThis, saved, scrollBy, wornBusy, wornShown, wornSwap,
 }: Readonly<{
   copy: TodayCopy;
+  /** The swatch each piece is drawn in on the board, which the look is recorded in. */
+  drawn: WornPieceColors;
   onPreviousDone: () => void;
   onWoreThis: ((pieceColors: WornPieceColors) => void) | undefined;
-  palette: GarmentOutfitPalette;
   /** A save landed on this visit: the worn state says how long the look leads Today. */
   saved: boolean;
   /** The tour scrolls the screen by this many points to bring the action back into view. */
@@ -49,7 +49,7 @@ export function OutfitDetailWorn({
               icon="calendarCheck"
               label={copy.wornAction}
               loading={wornBusy}
-              onPress={() => onWoreThis(garmentSwatchesBySlot(palette))}
+              onPress={() => onWoreThis(drawn)}
               pressHaptic={false}
               size="large"
               testID="outfit-detail-wore-this"

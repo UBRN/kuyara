@@ -4,6 +4,7 @@ import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { AppText, Crossfade, PressScale, useBandWidth, useScreenGutters } from '@/components/ui';
 import { GarmentBoard, measureGarmentBoardHeight, useGarmentCut } from '@/garment-art';
+import type { PaintedColors } from '@/features/today/application/piece-colors';
 import { ArrivesAfterHandoff, Dimmed } from '@/features/today/presentation/today-motion';
 import type { LoadedOutfitPresentation, TodayHero } from '@/features/today/presentation/today-presentation';
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
@@ -15,8 +16,8 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 export type StageOutfit = Pick<LoadedOutfitPresentation, 'id' | 'boardPieces' | 'palette'> & Readonly<{ replaced: boolean }>;
 
 export type OutfitDetailLink = Readonly<{
-  /** `fromBand` opens the outfit Today's band draws, so its detail starts from the band. */
-  href: (id: string, fromBand?: boolean) => Href;
+  /** `fromBand` opens the outfit Today's band draws, so its detail starts from the band; `colors` paint it. */
+  href: (id: string, fromBand?: boolean, colors?: PaintedColors) => Href;
   onPress: (event: Readonly<{ preventDefault: () => void }>) => void;
 }>;
 
@@ -24,11 +25,13 @@ export type OutfitDetailLink = Readonly<{
  * Today's hero: the outfit's name over its stage, one target that opens its detail. The stage
  * is a cornerless band reaching both screen edges, past the page's gutters, and the board on
  * it is the flat lay (garment-board.md section 10). A worn look with no detail (`detailId`
- * null) is drawn the same way and opens nothing.
+ * null) is drawn the same way and opens nothing; one in other colours opens its outfit's detail
+ * in `detailColors`.
  */
 export function TodayOutfit({
   carriedOutfitId,
   contentWidth,
+  detailColors,
   detailId,
   holdRise,
   leavingOutfit,
@@ -46,11 +49,12 @@ export function TodayOutfit({
 }: Readonly<{
   carriedOutfitId: string | null;
   contentWidth: number;
+  detailColors: PaintedColors | undefined;
   detailId: string | null;
   holdRise: boolean;
   leavingOutfit: StageOutfit | null;
   onLeavingLeft: () => void;
-  onOpenOutfitDetail: (id: string, fromBand?: boolean) => void;
+  onOpenOutfitDetail: (id: string, fromBand?: boolean, colors?: PaintedColors) => void;
   onStageLayout: (() => void) | undefined;
   outfitDetailLink: OutfitDetailLink | undefined;
   primary: TodayHero;
@@ -150,7 +154,7 @@ export function TodayOutfit({
     <PressScale
       accessible
       accessibilityLabel={stageAccessibilityLabel}
-      onPress={outfitDetailLink ? undefined : () => onOpenOutfitDetail(detailId, true)}
+      onPress={outfitDetailLink ? undefined : () => onOpenOutfitDetail(detailId, true, detailColors)}
       pressedStyle={{ opacity: theme.interaction.pressedOpacity }}
       // `role` outranks the link's own, so the outfit still reads as a button.
       role="button"
@@ -164,14 +168,14 @@ export function TodayOutfit({
   return (
     <Dimmed dimmed={updating} revealKey={primary.id}>
       <TourTarget
-        activate={detailId === null ? undefined : () => onOpenOutfitDetail(detailId, true)}
+        activate={detailId === null ? undefined : () => onOpenOutfitDetail(detailId, true, detailColors)}
         id="outfit"
         label={stageAccessibilityLabel}
         scrollBy={scrollBy}
         style={[styles.outfitTarget, { marginLeft: -gutters.left, marginRight: -gutters.right }]}>
         {outfitDetailLink && detailId !== null ? (
           // S21: on iOS the outfit's detail zooms out of the stage, as an alternative's does.
-          <Link asChild href={outfitDetailLink.href(detailId, true)} onPress={outfitDetailLink.onPress} push>
+          <Link asChild href={outfitDetailLink.href(detailId, true, detailColors)} onPress={outfitDetailLink.onPress} push>
             {primaryCard}
           </Link>
         ) : primaryCard}
