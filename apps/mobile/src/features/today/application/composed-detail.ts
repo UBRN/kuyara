@@ -56,9 +56,9 @@ export function composeInputFor(
  * once there is one, on the day `composeInputFor` reads from `snapshot` (null composes
  * nothing). Each showing keeps its own edits, so an edit never crosses between the pick and a
  * composed option, even one built from the same pieces with the same id, and so does each
- * showing's painted colours. `onPieceChanged` hears each change to one piece, told whether a
- * composed result is showing; `onComposed` hears each settled compose attempt with the pieces
- * chosen and the outfits built.
+ * showing's painted colours; `startColors` paints the pick as detail opens. `onPieceChanged`
+ * hears each change to one piece, told whether a composed result is showing; `onComposed` hears
+ * each settled compose attempt with the pieces chosen and the outfits built.
  */
 export function useDetailMix(
   pick: RecommendedOutfit | null,
@@ -71,6 +71,7 @@ export function useDetailMix(
     onPieceChanged?: (slot: OutfitSlot, composed: boolean) => void;
     onComposed?: (pieceCount: number, optionCount: number) => void;
   }> = {},
+  startColors?: PaintedColors,
 ): Readonly<{
   composed: ComposeAroundPieces;
   manualMix: ManualMix<RecommendedOutfit> | null;
@@ -87,7 +88,7 @@ export function useDetailMix(
     option ? composed.key : undefined, pieceChanged);
   const shown = manualMix?.outfit ?? null;
   const garments = useMemo(() => (shown ? outfitGarments(shown) : {}), [shown]);
-  const pieceColors = usePieceColors(option ? composed.key : pick?.optionId ?? null, garments);
+  const pieceColors = usePieceColors(option ? composed.key : pick?.optionId ?? null, garments, startColors);
   return { composed, manualMix, pieceColors };
 }
 

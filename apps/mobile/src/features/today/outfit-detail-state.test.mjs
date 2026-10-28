@@ -77,27 +77,27 @@ test('the worn state compares the open outfit with every look of the day', () =>
   const otherWorn = wornOutfitOrNull(outfits[1]);
   assert.ok(thisWorn && otherWorn);
   const look = (outfit, pieceColors = null) => ({ outfit, pieceColors });
-  assert.equal(outfitWornState(false, { looks: [look(thisWorn)] }, thisWorn), 'this');
-  assert.equal(outfitWornState(false, { looks: [look(otherWorn), look(thisWorn)] }, thisWorn), 'this');
-  assert.equal(outfitWornState(false, { looks: [look(otherWorn)] }, thisWorn), 'other');
-  assert.equal(outfitWornState(false, { looks: [] }, thisWorn), 'none');
-  assert.equal(outfitWornState(false, null, thisWorn), 'unknown');
-  assert.equal(outfitWornState(false, { looks: [look(thisWorn)] }, null), 'unknown');
-  assert.equal(outfitWornState(true, { looks: [look(thisWorn)] }, thisWorn), 'unknown');
+  assert.equal(outfitWornState(false, { looks: [look(thisWorn)] }, thisWorn, {}), 'this');
+  assert.equal(outfitWornState(false, { looks: [look(otherWorn), look(thisWorn)] }, thisWorn, {}), 'this');
+  assert.equal(outfitWornState(false, { looks: [look(otherWorn)] }, thisWorn, {}), 'other');
+  assert.equal(outfitWornState(false, { looks: [] }, thisWorn, {}), 'none');
+  assert.equal(outfitWornState(false, null, thisWorn, {}), 'unknown');
+  assert.equal(outfitWornState(false, { looks: [look(thisWorn)] }, null, {}), 'unknown');
+  assert.equal(outfitWornState(true, { looks: [look(thisWorn)] }, thisWorn, {}), 'unknown');
 });
 
-// A colour painted after the look was recorded is a look not yet worn in that colour, so
-// "Wore this today" offers itself again and records the new colour; colours left as drawn
-// never matter, so a redrawn day's mood does not undo the worn state.
-test('the worn state counts a painted colour only against the colour recorded for its slot', () => {
+// The look recorded is its pieces and the colours they were drawn in: the same pieces in other
+// colours are another look, so "Wore this today" offers itself again. A look recorded without
+// colours can only be told by its pieces.
+test('the worn state counts a look as this one only in the colours drawn', () => {
   const thisWorn = wornOutfitOrNull(outfits[0]);
-  const [slot] = Object.keys(thisWorn.garments);
-  const recorded = { outfit: thisWorn, pieceColors: { [slot]: 'navy' } };
-  assert.equal(outfitWornState(false, { looks: [recorded] }, thisWorn, {}), 'this');
-  assert.equal(outfitWornState(false, { looks: [recorded] }, thisWorn, { [slot]: 'navy' }), 'this');
-  assert.equal(outfitWornState(false, { looks: [recorded] }, thisWorn, { [slot]: 'plum' }), 'other');
-  assert.equal(outfitWornState(false, { looks: [{ outfit: thisWorn, pieceColors: null }] }, thisWorn, { [slot]: 'plum' }),
-    'other');
+  const slots = Object.keys(thisWorn.garments);
+  const drawn = Object.fromEntries(slots.map((slot) => [slot, 'navy']));
+  const recorded = (colors) => ({ looks: [{ outfit: thisWorn, pieceColors: colors }] });
+  assert.equal(outfitWornState(false, recorded(drawn), thisWorn, drawn), 'this');
+  assert.equal(outfitWornState(false, recorded({ ...drawn, [slots[0]]: 'plum' }), thisWorn, drawn), 'other');
+  assert.equal(outfitWornState(false, recorded(drawn), thisWorn, { ...drawn, [slots[0]]: 'plum' }), 'other');
+  assert.equal(outfitWornState(false, recorded(null), thisWorn, drawn), 'this');
 });
 
 test('a worn record that does not parse is none', () => {

@@ -152,21 +152,22 @@ export function wornOutfitOrNull(...args: Parameters<typeof wornOutfitFrom>): Wo
 }
 
 /**
- * ADR 0038: the open outfit against the dressing day's worn looks. Tomorrow's preview and a
- * day not read yet say nothing.
+ * ADR 0038: the open outfit, in the colours `drawn`, against the dressing day's worn looks. A
+ * look is its pieces and the colours they were drawn in, so the same pieces in other colours are
+ * another look; one recorded without colours is told by its pieces. Tomorrow's preview and a day
+ * not read yet say nothing.
  */
 export function outfitWornState(
   tomorrow: boolean,
   dayWorn: Readonly<{ looks: readonly Readonly<{ outfit: WornOutfit; pieceColors: WornPieceColors | null }>[] }> | null,
   thisWorn: WornOutfit | null,
-  painted: WornPieceColors = {},
+  drawn: WornPieceColors,
 ): OutfitWornState {
   if (tomorrow || !dayWorn || !thisWorn) return 'unknown';
   if (dayWorn.looks.length === 0) return 'none';
-  // A painted colour must be the one recorded for its slot; colours left as drawn never count.
-  const paintedSlots = Object.keys(painted) as (keyof WornPieceColors)[];
   return dayWorn.looks.some(({ outfit, pieceColors }) => sameWornGarments(outfit, thisWorn)
-    && paintedSlots.every((slot) => pieceColors?.[slot] === painted[slot])) ? 'this' : 'other';
+    && (!pieceColors || Object.entries(pieceColors).every(([slot, swatchId]) =>
+      drawn[slot as keyof WornPieceColors] === swatchId))) ? 'this' : 'other';
 }
 
 /**

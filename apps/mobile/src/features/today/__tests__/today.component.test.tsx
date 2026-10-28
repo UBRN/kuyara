@@ -18,7 +18,8 @@ import {
   todayWardrobeItems,
 } from '@/features/today/__tests__/fixtures';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
-import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
+import { wornOutfitFrom, type WornOutfit, type WornPieceColors } from '@/features/recommendation/domain/outfit-history';
+import type { OutfitWornState } from '@/features/today/application/outfit-detail-state';
 import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
@@ -53,7 +54,7 @@ import { EasierToSeeContext, SystemVisibilityContext } from '@/theme/easier-to-s
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
 import { TourTargetsContext, WalkthroughContext } from '@/features/walkthrough/application/walkthrough-context';
-import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/garment-art';
+import { garmentColorFamiliesBySlot, garmentSwatchesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/garment-art';
 import { garmentShadowRule } from '@/garment-art/compose-garment-board';
 import { shiftOklchLightness } from '@/theme/color-oklch';
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
@@ -444,7 +445,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(button).toBeOnTheScreen();
     await fireEvent.press(result.getByTestId('today-stage', hidden));
     await fireEvent.press(result.getByTestId('today-archetype', hidden));
-    expect(onOpenOutfitDetail.mock.calls).toEqual([[todayOutfitId(1), true], [todayOutfitId(1), true]]);
+    expect(onOpenOutfitDetail.mock.calls).toEqual([[todayOutfitId(1), true, undefined], [todayOutfitId(1), true, undefined]]);
     // Both alternates lie as the hero does, a flat lay fitted to its tile, and share the taller
     // of their two derived stage heights, so their captions sit on one baseline; the shorter
     // board is centred in its stage.
@@ -1068,13 +1069,16 @@ test('the similar row draws and names the user\u2019s own palette pattern', asyn
 // ADR 0038: one worn record per dressing day. The action writes, the saved state says so in
 // ink, glyph and words, and a failed write says that too.
 describe.each(['en', 'tr'] as const)('%s wore this today', (language) => {
-  const detail = (props: Partial<React.ComponentProps<typeof OutfitDetailScreen>>) => providers(
+  // The day's worn looks answer the same whatever colours the outfit is drawn in.
+  const detail = ({ worn, ...props }: Partial<Omit<React.ComponentProps<typeof OutfitDetailScreen>, 'worn'>
+    & { worn: OutfitWornState }>) => providers(
     <OutfitDetailScreen
       language={language}
       onEditPiece={() => undefined}
       state={todayScreenState}
       suggestionId={todayOutfitId(1)}
       wardrobeItems={[]}
+      worn={worn && (() => worn)}
       {...props}
     />,
     lightTheme,
@@ -1313,21 +1317,23 @@ test('the hero board holds its rise while the first-run runway covers it, then r
 // colours it was recorded in, with one text button back to kuyara's pick and one to return.
 describe('the look worn today', () => {
   const hidden = { includeHiddenElements: true };
-  const lookOf = (outfit: WornOutfit) => ({
-    id: 'look-1', localProfileId: 'profile-1', dayKey: '2026-08-13', outfit, pieceColors: null,
+  const lookOf = (outfit: WornOutfit, pieceColors: WornPieceColors | null = null) => ({
+    id: 'look-1', localProfileId: 'profile-1', dayKey: '2026-08-13', outfit, pieceColors,
     photoPath: null, wornAt: '2026-08-13T07:00:00.000Z', createdAt: '2026-08-13T07:00:00.000Z',
     updatedAt: '2026-08-13T07:00:00.000Z', deletedAt: null,
   });
-  const withWorn = (outfit: WornOutfit) => ({
+  const withWorn = (outfit: WornOutfit, pieceColors: WornPieceColors | null = null) => ({
     state: { status: 'ready', snapshot: null, isRefreshing: false, lastFailure: null, phase: null,
       exhausted: false, showFirstGenerationOverlay: false },
     skipWait: jest.fn(async () => null),
     dressingDayKey: '2026-08-13',
-    outfitHistory: { list: jest.fn(async () => []), day: jest.fn(async () => [lookOf(outfit)]), log: jest.fn() },
+    outfitHistory: { list: jest.fn(async () => []), day: jest.fn(async () => [lookOf(outfit, pieceColors)]),
+      log: jest.fn() },
   }) as unknown as RecommendationApplicationValue;
-  async function renderWorn(outfit: WornOutfit, onOpenOutfitDetail = jest.fn()) {
+  async function renderWorn(outfit: WornOutfit, onOpenOutfitDetail = jest.fn(),
+    pieceColors: WornPieceColors | null = null) {
     const result = await render(providers(
-      <RecommendationApplicationContext value={withWorn(outfit)}>
+      <RecommendationApplicationContext value={withWorn(outfit, pieceColors)}>
         <TodayScreen language="en" onOpenOutfitDetail={onOpenOutfitDetail} onRefresh={jest.fn()}
           onAskAgain={jest.fn()} state={todayScreenState} />
       </RecommendationApplicationContext>,
@@ -1354,7 +1360,7 @@ describe('the look worn today', () => {
     const alternateIds = () => result.getAllByTestId(/^today-alternate-outfit:[^-]+$/).map(({ props }) => props.testID);
     expect(alternateIds()).toEqual([`today-alternate-${first.id}`, `today-alternate-${third.id}`]);
     await fireEvent.press(result.getByTestId('today-archetype', hidden));
-    expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(second.id, true);
+    expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(second.id, true, undefined);
 
     // The switch is a plain button in the accent ink, a full 44-point target, its words on the content edge.
     const toggle = result.getByTestId('today-worn-switch');
@@ -1370,6 +1376,19 @@ describe('the look worn today', () => {
     await fireEvent.press(result.getByRole('button', { name: copy.showWornAccessibilityLabel }));
     expect(await result.findByTestId(`today-primary-board-${second.id}`, hidden)).toBeOnTheScreen();
     expect(result.getByTestId('today-wearing')).toBeOnTheScreen();
+  });
+
+  test('a look worn in other colours opens its outfit\'s detail in those colours', async () => {
+    if (todayScreenState.snapshot.recommendation.status !== 'recommended') throw new Error('fixture');
+    const second = loadedPresentation().suggestions[1];
+    const onOpenOutfitDetail = jest.fn();
+    const worn = wornOutfitFrom(todayScreenState.snapshot.recommendation.outfits[1], 'manual');
+    const [slot] = Object.keys(worn.garments);
+    const result = await renderWorn(worn, onOpenOutfitDetail,
+      { ...garmentSwatchesBySlot(second.palette), [slot]: 'plum' });
+    expect(await result.findByTestId(`today-primary-board-${second.id}`, hidden)).toBeOnTheScreen();
+    await fireEvent.press(result.getByTestId('today-archetype', hidden));
+    expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(second.id, true, { [slot]: 'plum' });
   });
 
   test('a look the reader changed leads as their outfit and is not a control', async () => {
@@ -2253,7 +2272,7 @@ test('refreshing, failure and staleness announce freshness while retaining the l
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   expect(result.getByTestId('today-archetype')).toHaveTextContent('Rain Ready');
   await fireEvent.press(result.getByTestId('today-archetype'));
-  expect(onOpenOutfitDetail).toHaveBeenCalledWith(todayOutfitId(1), true);
+  expect(onOpenOutfitDetail).toHaveBeenCalledWith(todayOutfitId(1), true, undefined);
   await result.rerender(screen(false, false, true));
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   await result.rerender(screen(false, false));
@@ -3646,7 +3665,7 @@ test('outfit detail registers its first piece row by name and Wore this today fo
   const result = await render(providers(
     <TourTargetsContext value={registry}>
       <OutfitDetailScreen language="en" onEditPiece={onEditPiece} onWoreThis={onWoreThis}
-        state={todayScreenState} suggestionId={todayOutfitId(1)} wardrobeItems={[]} worn="none" />
+        state={todayScreenState} suggestionId={todayOutfitId(1)} wardrobeItems={[]} worn={() => 'none'} />
     </TourTargetsContext>,
   ));
   const name = registry.get('piece')?.name();
@@ -3688,7 +3707,7 @@ test('Today and outfit detail cannot be scrolled by hand while the tour runs', a
   const detail = (active: boolean) => providers(
     <WalkthroughContext value={tour(active)}>
       <OutfitDetailScreen language="en" onEditPiece={jest.fn()} onWoreThis={jest.fn()}
-        state={todayScreenState} suggestionId={todayOutfitId(1)} wardrobeItems={[]} worn="none" />
+        state={todayScreenState} suggestionId={todayOutfitId(1)} wardrobeItems={[]} worn={() => 'none'} />
     </WalkthroughContext>,
   );
   const detailView = await render(detail(true));

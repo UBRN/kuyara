@@ -96,7 +96,7 @@ function Detail({ state, language, ...rest }: Readonly<{ state: TodayScreenState
       state={state}
       suggestionId={outfit.optionId}
       wardrobeItems={[]}
-      worn="none"
+      worn={() => 'none'}
       {...rest}
     />
   );

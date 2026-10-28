@@ -188,7 +188,8 @@ to another type is coloured afresh, and every other piece keeps the colour it is
 passed to the palette resolver as a recorded swatch: the colour the original outfit gave it,
 or the one the reader painted. A painted colour belongs to its piece, so changing the piece's
 type drops it, and to its showing, so a composed result never inherits it; nothing is
-stored. A painted colour is a change like a swap. The manual combination is not blocked when weather or composition rules would
+stored. A painted colour is a change like a swap, and only a different colour is one: the
+colour a piece is drawn in unpainted is no paint. The manual combination is not blocked when weather or composition rules would
 reject it; "Unusual for this weather" under the board, in the warning glyph and ink,
 explains the departure. The title becomes "Your outfit" in place at the change, and
 "Changed from" the archetype opens under it once no piece is enlarged, moving with the strip
@@ -196,7 +197,7 @@ as it closes, the reasons are recomputed for the pieces worn, the source sentenc
 change, and "Back to kuyara's pick" returns the recommendation in its own colours. The change lives only as
 long as detail is open: nothing is saved until the reader chooses "Wore this today",
 which records a `manual` outfit in the colours drawn (ADR 0038). The same pieces already
-recorded that day in other colours offer "Wore this today" again, and marking them updates
+recorded that day in other colours, painted or kuyara's own, offer "Wore this today" again, and marking them updates
 that look's colours and source in place; recording it settles the board once with the
 success notification, the design language's moment. A swipe that crosses half a step toward a
 candidate fires the selection feedback once per crossing, a threshold under the finger; a

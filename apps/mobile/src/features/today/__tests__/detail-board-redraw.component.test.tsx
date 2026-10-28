@@ -67,7 +67,7 @@ function Detail() {
       state={todayScreenState}
       suggestionId={pick.optionId}
       wardrobeItems={[]}
-      worn="none"
+      worn={() => 'none'}
     />
   );
 }

@@ -13,14 +13,13 @@ import { outfitWornState } from '@/features/today/application/outfit-detail-stat
  * ADR 0038: the dressing day's worn looks, read once per day, so outfit detail knows whether
  * the look on screen is already among them, and "Wore this today" records it. Tomorrow's
  * preview is read-only for the day's worn record. `onLogged` hears the look once the write
- * has succeeded. `painted` are the colours the reader painted on the look: a recorded look
+ * has succeeded. `worn` answers for the look in the colours it is drawn in: a recorded look
  * counts as this one only in those colours.
  */
 export function useDayWornLooks(
   look: WornOutfit | null,
   tomorrow: boolean,
   onLogged?: (look: WornOutfit) => void,
-  painted: WornPieceColors = {},
 ) {
   const { dressingDayKey, outfitHistory } = useRecommendationApplication();
   const [dayLooks, setDayLooks] = useState<{ key: string; looks: readonly OutfitHistoryRecord[] } | null>(null);
@@ -64,7 +63,7 @@ export function useDayWornLooks(
 
   const today = dayLooks?.key === dayKey ? dayLooks : null;
   return {
-    worn: outfitWornState(tomorrow, today, look, painted),
+    worn: (drawn: WornPieceColors) => outfitWornState(tomorrow, today, look, drawn),
     busy,
     failed,
     /** Absent where nothing can be recorded: tomorrow's preview, or no day or history to record into. */
