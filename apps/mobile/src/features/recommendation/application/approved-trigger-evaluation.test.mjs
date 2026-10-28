@@ -50,7 +50,10 @@ function recordingRecommendation(snapshot) {
 }
 
 function readingFor(recommendation, overrides = {}) {
-  return { recommendation, dayQuestionPending: false, awaitsWeatherRefresh: () => false, ...overrides };
+  return {
+    recommendation, dayQuestionPending: false, appInFront: () => true, awaitsWeatherRefresh: () => false,
+    ...overrides,
+  };
 }
 
 test('a changed approved signal refreshes with its trigger', async () => {
@@ -70,6 +73,24 @@ test('an unanswered day question holds every trigger', async () => {
   await createApprovedTriggerEvaluation().evaluate(() => inputFor(),
     readingFor(recommendation, { dayQuestionPending: true }), false);
   assert.deepEqual(calls, [['clear']]);
+});
+
+test('an app out of front holds every trigger, also one queued while it was in front', async () => {
+  const { calls, recommendation } = recordingRecommendation(persistedFor({ dressStyle: 'casual' }));
+  let finish;
+  recommendation.refresh = (trigger) => {
+    calls.push(['refresh', trigger]);
+    return new Promise((resolve) => { finish = resolve; });
+  };
+  let inFront = true;
+  const reading = readingFor(recommendation, { appInFront: () => inFront });
+  const evaluation = createApprovedTriggerEvaluation();
+  const running = evaluation.followRender(inputFor(), reading);
+  const queued = evaluation.followRender(inputFor({ dressStyle: 'formal' }), reading);
+  inFront = false;
+  finish(null);
+  await Promise.all([running, queued]);
+  assert.deepEqual(calls, [['refresh', 'dress-style-changed']]);
 });
 
 test('a first outfit waiting for a weather refresh in flight starts nothing yet', async () => {

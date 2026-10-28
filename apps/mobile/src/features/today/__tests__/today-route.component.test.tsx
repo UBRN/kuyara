@@ -1279,6 +1279,102 @@ test('a changed preference during regeneration runs once more with the latest in
   }
 });
 
+// A generation in flight when the app leaves the front lets nothing queued behind it start
+// until the app is back, and a setting changed back while away withdraws what it had queued.
+async function renderQueuedBehindGeneration() {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = {
+    ...saved.snapshot,
+    catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-24',
+    locationKey: 'manual:other',
+  };
+  let finishRefresh!: (value: RecommendationSnapshot | null) => void;
+  const pendingRefresh = new Promise<RecommendationSnapshot | null>((resolve) => {
+    finishRefresh = resolve;
+  });
+  // A later generation stays in flight, so whatever else asks for the same input joins it.
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementationOnce(() => pendingRefresh)
+    .mockImplementation(() => new Promise(() => undefined));
+  const onChange: ((state: string) => void)[] = [];
+  const subscription = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+    if (event === 'change') onChange.push(listener as (state: string) => void);
+    return { remove: jest.fn() };
+  });
+  const previousState = AppState.currentState;
+  AppState.currentState = 'active';
+  const props = {
+    productAnalytics: createProductAnalytics(),
+    recommendation: saved,
+    liveRecommendationProvider: true,
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+  };
+  const view = await render(<Providers {...props} profile={profileValue()}><TodayRoute /></Providers>);
+  await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+  expect(refresh.mock.calls[0][1].dressStyle).toBe('smart');
+  const dressStyle = async (style: 'casual' | 'smart' | 'formal') => {
+    await act(async () => {
+      view.rerender(<Providers {...props} profile={profileValue({ dressStyle: style })}><TodayRoute /></Providers>);
+    });
+  };
+  const appState = async (state: 'active' | 'background') => {
+    await act(async () => {
+      AppState.currentState = state;
+      onChange.forEach((listener) => listener(state));
+    });
+  };
+  const settle = async () => {
+    await act(async () => {
+      finishRefresh(mockRecommendationSnapshot);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+  };
+  const restore = () => {
+    finishRefresh(mockRecommendationSnapshot);
+    view.unmount();
+    AppState.currentState = previousState;
+    subscription.mockRestore();
+    refresh.mockRestore();
+  };
+  return { refresh, dressStyle, appState, settle, restore };
+}
+
+test('a generation queued behind one in flight does not start while the app is in the background', async () => {
+  const { refresh, dressStyle, appState, settle, restore } = await renderQueuedBehindGeneration();
+  try {
+    await dressStyle('formal');
+    await appState('background');
+    await settle();
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    await appState('active');
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
+    expect(refresh.mock.calls[1][1].dressStyle).toBe('formal');
+  } finally {
+    restore();
+  }
+});
+
+test('a setting changed back while the app is in the background withdraws what it queued', async () => {
+  const { refresh, dressStyle, appState, settle, restore } = await renderQueuedBehindGeneration();
+  try {
+    await dressStyle('formal');
+    await appState('background');
+    await dressStyle('smart');
+    await settle();
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    await appState('active');
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(refresh.mock.calls.filter(([, input]) => input.dressStyle === 'formal')).toHaveLength(0);
+  } finally {
+    restore();
+  }
+});
+
 // Ended coverage reselects once at the next foreground open of Today, and not again for the
 // same coverage end; a coverage window still running reselects nothing.
 async function renderLiveTodayWithCoverage(coverageEnd: string) {
@@ -3507,7 +3603,10 @@ test('a background launch with yesterday’s outfit generates nothing until the 
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
     expect(refresh).not.toHaveBeenCalled();
 
-    await act(async () => { onChange.forEach((listener) => listener('active')); });
+    await act(async () => {
+      AppState.currentState = 'active';
+      onChange.forEach((listener) => listener('active'));
+    });
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
     expect(refresh).toHaveBeenCalledTimes(1);

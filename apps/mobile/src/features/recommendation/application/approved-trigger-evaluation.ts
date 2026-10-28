@@ -20,6 +20,11 @@ export type ApprovedTriggerReading = Readonly<{
   recommendation: Recommendation;
   /** An unanswered morning or evening question holds automatic selection. */
   dayQuestionPending: boolean;
+  /**
+   * Whether the app is in front, read when an evaluation runs, so one queued behind a
+   * generation started in front is held too once the app has left it.
+   */
+  appInFront: () => boolean;
   /** Whether the generation this trigger starts waits for a weather refresh in flight. */
   awaitsWeatherRefresh: (input: RecommendationApplicationInput, trigger: RecommendationRefreshTrigger) => boolean;
 }>;
@@ -93,7 +98,7 @@ export function createApprovedTriggerEvaluation(): ApprovedTriggerEvaluation {
 
   async function evaluateOnce(
     input: RecommendationApplicationInput,
-    { recommendation, dayQuestionPending, awaitsWeatherRefresh }: ApprovedTriggerReading,
+    { recommendation, dayQuestionPending, appInFront, awaitsWeatherRefresh }: ApprovedTriggerReading,
   ): Promise<boolean> {
     const pendingReask = reaskInFlight;
     if (pendingReask) await pendingReask;
@@ -105,7 +110,8 @@ export function createApprovedTriggerEvaluation(): ApprovedTriggerEvaluation {
 
     // An unanswered day question holds automatic selection; its answer starts the one
     // generation. The last look may carry another key's day-only styles, which are no change.
-    if (dayQuestionPending) return false;
+    // No automatic generation runs while the app is not in front.
+    if (dayQuestionPending || !appInFront()) return false;
 
     const trigger = recommendationRefreshTrigger(previous, current);
 

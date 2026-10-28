@@ -381,6 +381,7 @@ export function RecommendationApplicationProvider({
 
   // Automatic generation runs only while the app is in front: iOS also launches it in the
   // background for the weather-alert task, and no AI call is made for a day nobody has opened.
+  // The evaluation reads the app state itself; this state evaluates again on the return.
   const [appInFront, setAppInFront] = useState(() => inForeground(AppState.currentState));
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
@@ -406,11 +407,13 @@ export function RecommendationApplicationProvider({
   const approvedTriggerReading = useMemo(() => ({
     recommendation: controller,
     dayQuestionPending: morningChoicePending || eveningChoicePending || dayTurnedInFront,
+    appInFront: () => inForeground(AppState.currentState),
     awaitsWeatherRefresh: triggerAwaitsWeatherRefresh,
   }), [controller, dayTurnedInFront, eveningChoicePending, morningChoicePending, triggerAwaitsWeatherRefresh]);
 
+  // Followed in the background too, so a setting changed back withdraws what it queued.
   useEffect(() => {
-    if (state.status !== 'ready' || !input || !appInFront) return;
+    if (state.status !== 'ready' || !input) return;
     void approvedTriggers.followRender(input, approvedTriggerReading);
   }, [appInFront, approvedTriggerReading, approvedTriggers, input, state.status]);
 
