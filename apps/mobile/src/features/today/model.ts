@@ -36,11 +36,13 @@ export type TodayScreenState =
   | Readonly<{ kind: 'loading'; phase?: RecommendationPhase | null }>
   | Readonly<{
       kind: 'unavailable';
-      reason?: 'no-active-location';
+      reason?: never;
       // Carries the analytics classification, and the one cause the user can act on
       // differently: `offline` states that instead of the generic unavailable line.
       failure?: FailureCategory;
     }>
+  // Nothing failed: there is no active place to dress for, so Today asks for one.
+  | Readonly<{ kind: 'unavailable'; reason: 'no-active-location' }>
   | Readonly<{
       kind: 'loaded';
       snapshot: TodaySnapshot;

@@ -432,6 +432,7 @@ function TodayScreenContent({
   }
 
   if (presentation.kind !== 'loaded') {
+    const noActiveLocation = presentation.reason === 'no-active-location';
     return (
       <Screen
         accessibilityActions={[{ name: 'refresh', label: copy.refreshAction }]}
@@ -449,12 +450,8 @@ function TodayScreenContent({
           accessibilityLabel={presentation.accessibilityLabel}
           actionLabel={presentation.actionLabel}
           body={presentation.body}
-          noActiveLocation={presentation.reason === 'no-active-location'}
-          onAction={
-            presentation.reason === 'no-active-location'
-              ? () => push('/weather/location')
-              : onRefresh
-          }
+          noActiveLocation={noActiveLocation}
+          onAction={noActiveLocation ? () => push('/weather/location') : onRefresh}
           title={presentation.title}
         />
       </Screen>

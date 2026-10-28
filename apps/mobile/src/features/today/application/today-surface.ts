@@ -133,7 +133,7 @@ export function todayRetrySucceeded(
 /** Today reads an unavailable state without an active place as the "choose a place" state. */
 export function todayPresentationState(state: TodayScreenState, weather: WeatherApplicationState): TodayScreenState {
   return state.kind === 'unavailable' && weather.status === 'ready' && weather.activeLocation === null
-    ? { ...state, reason: 'no-active-location' }
+    ? { kind: 'unavailable', reason: 'no-active-location' }
     : state;
 }
 

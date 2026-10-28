@@ -245,13 +245,19 @@ export type LoadedTodayPresentation = Readonly<{
 export type TodayPresentation =
   | LoadedTodayPresentation
   | Readonly<{
-      kind: 'loading' | 'unavailable';
+      kind: 'loading';
       title: string;
       body: string;
       accessibilityLabel: string;
-      reason?: 'no-active-location' | 'failure';
-      actionLabel?: string;
-      phase?: RecommendationPhase | null;
+      phase: RecommendationPhase | null;
+    }>
+  | Readonly<{
+      kind: 'unavailable';
+      title: string;
+      body: string;
+      accessibilityLabel: string;
+      reason: 'no-active-location' | 'failure';
+      actionLabel: string;
     }>;
 
 function formatPercent(ratio: number, language: SupportedLanguage): string {
