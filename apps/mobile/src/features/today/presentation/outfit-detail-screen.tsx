@@ -588,11 +588,13 @@ export function OutfitDetailScreen({
     pieceColors?.clear();
     manualMix?.reset();
   };
-  // A colour is a paint only where it differs from the one the piece is drawn in unpainted.
+  // A colour is a paint only where it differs from the one the piece is drawn in without it.
   const paintPiece = manualMix && pieceColors
     ? (slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId) => {
+      // The board without this slot's paint: the other paints stay, since the rest resolves around them.
+      const others = Object.fromEntries(Object.entries(painted).filter(([other]) => other !== slot));
       const unpainted = createTodayPresentation(state, language, hour12, temperatureUnit, now,
-        manualDetailOf(manualMix, composed, suggestionId));
+        manualDetailOf(manualMix, composed, suggestionId, others));
       const shown = unpainted.kind === 'loaded'
         ? unpainted.suggestions.find(({ id }) => id === suggestionId) : undefined;
       // A tile may swap the piece in the same tap, so the colour is judged against a piece of the

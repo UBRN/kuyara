@@ -288,6 +288,24 @@ describe.each(['en', 'tr'] as const)('%s detail panel', (language) => {
     expect(heading(result, archetype(language).title)).toBeOnTheScreen();
     expect(result.queryByTestId('outfit-detail-reset-button')).toBeNull();
   });
+
+  // Another piece's paint redraws the rest around it, so a colour is judged against the board
+  // with the other paints kept: the rain jacket's own mustard is a paint once purple jeans redraw it.
+  test('a colour is judged against the board the other paints draw', async () => {
+    const purpleJeans: WardrobeItem = { ...ownedTrousers, id: 'own-jeans', garmentTypeId: outfitGarments(pick).bottom! };
+    const result = await renderDetail(language, { paint: true, wardrobeItems: [purpleJeans] });
+    await activate(result, 'primary_top');
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    await activate(result, 'bottom');
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-own-own-jeans'));
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    await activate(result, 'outer_layer');
+    const jacket = garmentSwatchesBySlot(archetype(language).palette).outer_layer!;
+    const color = () => result.getByTestId(`outfit-detail-board-strip-color-${jacket}`);
+    expect(color().props.accessibilityState.selected).toBe(false);
+    await fireEvent.press(color());
+    expect(color().props.accessibilityState.selected).toBe(true);
+  });
 });
 
 describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
