@@ -1,19 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import Animated, {
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
+import Reanimated, {
   cancelAnimation,
-  Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withSequence,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { Icon } from '@/components/ui/icon';
 import { fadeTo } from '@/components/ui/fade';
+import { thereAndBack } from '@/components/ui/there-and-back';
+import { useWhileVisible } from '@/components/ui/use-screen-visible';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // O11: the Worker's "Chosen with AI" mark, V1 "confetti twinkle". The SF Symbol `sparkles` has
@@ -42,7 +41,16 @@ export const sparkleTwinkleInterval = 6000;
 
 const twinkleScale = 1.28;
 const twinkleTurn = 12;
-const sine = Easing.bezier(0.37, 0, 0.63, 1);
+// One ambient `intense` leg, half up and half down on the sine ease, played as one native timing.
+const twinkleLeg = thereAndBack(Easing.bezier(0.37, 0, 0.63, 1));
+
+/** A star's twinkle inside one interval: still until `start`, one leg there and back, still. */
+function twinkleWithin(start: number, leg: number) {
+  return (t: number) => {
+    const progress = (t * sparkleTwinkleInterval - start) / leg;
+    return progress > 0 && progress < 1 ? twinkleLeg(progress) : 0;
+  };
+}
 
 type AiSparkleMarkProps = Readonly<{
   color: string;
@@ -56,30 +64,34 @@ type AiSparkleMarkProps = Readonly<{
 /**
  * The multicolour animated `sparkles` of the Worker badge (ADR 0034). On appear the
  * stars arrive largest first on the arrival spring, then a twinkle runs small, middle, large,
- * and again every six seconds. Only the views' transform and opacity move. Decorative: the
+ * and again every six seconds while its screen is in front; each return to it starts that
+ * cycle over. Only the views' transform and opacity move. Decorative: the
  * badge speaks for it. Android keeps the Material `auto_awesome` glyph in the badge ink.
  */
 export function AiSparkleMark({ color, play = true, repeats = true, size }: AiSparkleMarkProps) {
   const theme = useKuyaraTheme();
-  const [twinkle, setTwinkle] = useState(0);
+  const [twinkles] = useState(() => stars.map(() => new Animated.Value(0)));
   const appearEnd = theme.motion.stagger * (stars.length - 1) + theme.springs.arrival.duration;
+  const leg = theme.motion.ambient.intense;
 
-  useEffect(() => {
-    if (Platform.OS !== 'ios' || !play || !repeats) {
-      return undefined;
-    }
-    let interval: ReturnType<typeof setInterval> | undefined;
-    const next = () => setTwinkle((count) => count + 1);
-    const first = setTimeout(() => {
-      next();
-      interval = setInterval(next, sparkleTwinkleInterval);
-    }, appearEnd);
-
+  // The twinkle runs on the native driver, so no frame of it commits the shadow tree: one leg
+  // per star, each starting half a leg after the one before it, small, middle, large, the
+  // reverse of the appear.
+  useWhileVisible(useCallback(() => {
+    if (Platform.OS !== 'ios' || !play || !repeats) return undefined;
+    const loops = twinkles.map((progress, index) => Animated.loop(Animated.timing(progress, {
+      delay: appearEnd,
+      duration: sparkleTwinkleInterval,
+      easing: twinkleWithin((stars.length - 1 - index) * (leg / 2), leg),
+      toValue: 1,
+      useNativeDriver: true,
+    })));
+    loops.forEach((loop) => loop.start());
     return () => {
-      clearTimeout(first);
-      clearInterval(interval);
+      loops.forEach((loop) => loop.stop());
+      twinkles.forEach((progress) => progress.setValue(0));
     };
-  }, [appearEnd, play, repeats]);
+  }, [appearEnd, leg, play, repeats, twinkles]));
 
   if (Platform.OS !== 'ios') {
     return <Icon color={color} name="sparkle" size={size} />;
@@ -94,29 +106,19 @@ export function AiSparkleMark({ color, play = true, repeats = true, size }: AiSp
       style={{ height: size, width: size }}
       testID="ai-sparkle-mark">
       {stars.map((star, index) => (
-        <Star
-          // The cascade runs small, middle, large: the reverse of the appear.
-          cascadeIndex={stars.length - 1 - index}
-          color={inks[index]}
-          index={index}
-          key={index}
-          play={play}
-          size={size}
-          twinkle={twinkle}
-        />
+        <Star color={inks[index]} index={index} key={index} play={play} size={size} twinkle={twinkles[index]} />
       ))}
     </View>
   );
 }
 
 function Star({
-  cascadeIndex,
   color,
   index,
   play,
   size,
   twinkle,
-}: Readonly<{ cascadeIndex: number; color: string; index: number; play: boolean; size: number; twinkle: number }>) {
+}: Readonly<{ color: string; index: number; play: boolean; size: number; twinkle: Animated.Value }>) {
   const theme = useKuyaraTheme();
   const scale = useSharedValue(0.6);
   const turn = useSharedValue(-90);
@@ -140,18 +142,14 @@ function Star({
     };
   }, [index, opacity, play, scale, theme.motion, theme.springs.arrival, turn]);
 
-  useEffect(() => {
-    if (twinkle === 0) {
-      return;
-    }
-    // One ambient `intense` leg per star, half up and half down, each starting half a leg
-    // after the one before it.
-    const leg = theme.motion.ambient.intense;
-    const half = { duration: leg / 2, easing: sine };
-    const delay = cascadeIndex * (leg / 2);
-    scale.set(withDelay(delay, withSequence(withTiming(twinkleScale, half), withTiming(1, half))));
-    turn.set(withDelay(delay, withSequence(withTiming(twinkleTurn, half), withTiming(0, half))));
-  }, [cascadeIndex, scale, theme.motion.ambient.intense, turn, twinkle]);
+  // The twinkle turns and scales a wrapper about the same centre, so it composes with the
+  // appear exactly as one transform would: turns add and uniform scales multiply.
+  const twinkleStyle = useMemo(() => ({
+    transform: [
+      { rotate: twinkle.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${twinkleTurn}deg`] }) },
+      { scale: twinkle.interpolate({ inputRange: [0, 1], outputRange: [1, twinkleScale] }) },
+    ],
+  }), [twinkle]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.get(),
@@ -163,11 +161,13 @@ function Star({
       style={[
         styles.star,
         { height: side, left: star.cx * size - side / 2, top: star.cy * size - side / 2, width: side },
-        animatedStyle,
+        twinkleStyle,
       ]}>
-      <Svg height={side} viewBox="-1 -1 2 2" width={side}>
-        <Path d={starPath} fill={color} stroke={color} strokeLinejoin="round" strokeWidth={0.1} />
-      </Svg>
+      <Reanimated.View style={[{ height: side, width: side }, animatedStyle]}>
+        <Svg height={side} viewBox="-1 -1 2 2" width={side}>
+          <Path d={starPath} fill={color} stroke={color} strokeLinejoin="round" strokeWidth={0.1} />
+        </Svg>
+      </Reanimated.View>
     </Animated.View>
   );
 }
