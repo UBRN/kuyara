@@ -243,6 +243,16 @@ describe('"What do you want to wear today?"', () => {
     expect(screen.getByTestId('compose-count')).toHaveTextContent(en.chosenCount(2, composePieceLimit));
   });
 
+  test('leaving detail while the outfit is being built composes nothing', async () => {
+    const { screen, onCompose } = await renderEntry();
+    await openSheet(screen);
+    await tick(screen, 'footwear', 'loafers');
+    await fireEvent.press(screen.getByTestId('compose-build'));
+    await screen.unmount();
+    await act(async () => { jest.runOnlyPendingTimers(); });
+    expect(onCompose).not.toHaveBeenCalled();
+  });
+
   // VoiceOver ignores the count's live region, so iOS speaks each change; opening speaks nothing.
   test('the chosen count is spoken on iOS when it changes', async () => {
     const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
