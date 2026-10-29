@@ -390,13 +390,11 @@ renders the cached snapshot before any refresh, and the Settings AI status scree
 ### App Store Connect record
 
 Use the `asc` CLI with the `kuyara` profile on the maintainer's Mac. Create the version
-record, copying metadata from the previous version except its release notes, and enable
-phased release. Read the version id with `asc versions list --app 6806664440 --platform IOS` and the
+record, copying metadata from the previous version except its release notes. Read the version id with `asc versions list --app 6806664440 --platform IOS` and the
 uploaded build id with `asc builds list --app 6806664440 --limit 1`:
 
 ```bash
 asc versions create --app 6806664440 --version "VERSION" --platform IOS --copy-metadata-from "PREVIOUS_VERSION" --exclude-fields whatsNew --release-type AFTER_APPROVAL
-asc versions phased-release create --version-id "VERSION_ID"
 asc localizations update --version "VERSION_ID" --locale en-US --whats-new "..."
 asc localizations update --version "VERSION_ID" --locale tr --whats-new "..."
 asc validate --app 6806664440 --version-id "VERSION_ID"
@@ -404,8 +402,8 @@ asc review submit --app 6806664440 --version-id "VERSION_ID" --build-id "BUILD_I
 ```
 
 An update version needs release notes in both locales. `asc validate` must report no
-blocking check before submission. The version keeps automatic release after approval with
-phased release, and the store build replaces the TestFlight build in place.
+blocking check before submission. The version keeps automatic release after approval to every
+user at once, with no phased release, and the store build replaces the TestFlight build in place.
 
 ### JavaScript-only fix for the live version
 
