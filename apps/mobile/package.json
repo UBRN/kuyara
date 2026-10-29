@@ -1,7 +1,7 @@
 {
   "name": "@kuyara/mobile",
   "main": "./index.js",
-  "version": "0.1.20261012",
+  "version": "0.1.20261029",
   "dependencies": {
     "@expo/ui": "~57.0.26",
     "@kuyara/contracts": "workspace:*",
