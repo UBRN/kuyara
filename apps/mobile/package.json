@@ -35,7 +35,7 @@
     "expo-task-manager": "~57.0.21",
     "expo-updates": "~57.0.26",
     "expo-web-browser": "~57.0.3",
-    "posthog-react-native": "4.81.2",
+    "posthog-react-native": "4.81.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -50,7 +50,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@posthog/cli": "0.18.10",
+    "@posthog/cli": "0.18.12",
     "@react-native/jest-preset": "0.86.2",
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "29.5.14",
