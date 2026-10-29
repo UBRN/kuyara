@@ -138,7 +138,7 @@ const allowedSystemPropertyKeys = new Set([
   '$lib_version',
 ]);
 
-export function sanitizePostHogEvent(event: BeforeSendEvent): BeforeSendEvent {
+export function sanitizePostHogEvent(event: BeforeSendEvent): BeforeSendEvent | null {
   if (!event) return event;
 
   const customKeys = customPropertyKeysByEvent.get(event.event);
@@ -206,7 +206,7 @@ function sanitizeExceptionList(value: unknown): JsonRecord[] {
   });
 }
 
-function sanitizePostHogException(event: BeforeSendEvent): BeforeSendEvent {
+function sanitizePostHogException(event: BeforeSendEvent): BeforeSendEvent | null {
   const sanitized = sanitizePostHogEvent(event);
   if (!sanitized?.properties) return sanitized;
 
@@ -272,6 +272,7 @@ export function createPostHogBeforeSend(maySend: () => boolean = () => true): Po
     if (event?.event !== '$exception') return sanitizePostHogEvent(event);
 
     const sanitized = sanitizePostHogException(event);
+    if (!sanitized) return null;
     const fingerprint = exceptionFingerprint(sanitized);
     if (exceptionFingerprints.has(fingerprint)) return null;
     if (exceptionCount >= 5) return null;
