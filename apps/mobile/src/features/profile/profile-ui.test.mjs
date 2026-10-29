@@ -114,7 +114,7 @@ test('language preference follows the device only in system mode', () => {
 
 test('site honors an explicit app language for this visit without changing website preference', async () => {
   const head = await readFile(new URL('../../../../../docs/_includes/lang-head.html', import.meta.url), 'utf8');
-  const script = head.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  const script = head.match(/<script>([\s\S]*?)<\/script\s*>/iu)?.[1];
   assert.ok(script);
   const enUrl = 'https://ubrn.github.io/kuyara/support';
   const trUrl = 'https://ubrn.github.io/kuyara/tr/support';

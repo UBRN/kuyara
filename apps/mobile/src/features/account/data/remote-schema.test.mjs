@@ -111,7 +111,7 @@ function constraintsOf(table) {
 
 /** The byte bound a constraint of the table puts on an expression, as a number. */
 function boundOf(table, expression) {
-  const escaped = expression.replace(/[()[\].]/gu, '\\$&');
+  const escaped = expression.replace(/[\\^$.*+?()[\]{}|]/gu, '\\$&');
   const match = new RegExp(`octet_length\\(${escaped}\\) <= (\\d+)`, 'u').exec(constraintsOf(table));
   assert.ok(match, `${table}: octet_length(${expression})`);
   return Number(match[1]);
